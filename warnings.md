@@ -678,7 +678,7 @@ int main()
 {
     bool b = false;
     bool i = false;
-    if ([[cake::w58]] b == i) //warning C0059: warning 'C0058' was not recognized
+    if (b == i) //lint 58 warning C0059: warning 'C0058' was not recognized
     {
     }
 }

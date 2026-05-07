@@ -17,6 +17,7 @@ function setStatus(msg, ms)
     el.textContent = msg;
     el.className = "visible";
     el.style.cssText = "opacity:0.85; color:inherit; font-weight:normal; transition:opacity 1s;";
+    document.getElementById("status-bar")?.classList.remove("error");
     clearTimeout(_statusTimer);
     if (ms) _statusTimer = setTimeout(() =>
     {
@@ -29,7 +30,8 @@ function setError(msg)
     if (!el) { console.error(msg); return; }
     el.textContent = "\u2716 " + msg;
     el.className = "error";
-    el.style.cssText = "opacity:1 !important; color:#ff5f5f; font-weight:600; transition:none;";
+    el.style.cssText = "opacity:1 !important; color:#ffffff; font-weight:600; transition:none;";
+    document.getElementById("status-bar")?.classList.add("error");
     clearTimeout(_statusTimer);
 }
 
@@ -104,6 +106,7 @@ async function loadFiles()
 {
     try
     {
+        setStatus("Loading files...");
         const path = document.getElementById("pathInput").value;
         currentPath = path;
 
@@ -151,6 +154,7 @@ async function onFileSelect()
 
         if (!file) return;
 
+        setStatus("Opening " + file + "...");
         currentFile = file;
         document.getElementById("saveBtn").disabled = false;
         document.getElementById("reloadBtn").disabled = false;
@@ -174,6 +178,7 @@ async function reload()
 {
     try
     {
+        setStatus("Reloading...");
         const select = document.getElementById("fileList");
         const file = select.value;
         await readFileFromServer(file);
@@ -189,6 +194,7 @@ async function readFileFromServer(file)
     try
     {
         // 1. Read plain source
+        setStatus("Loading " + file + "...");
         const readRes = await fetch(
             `${API}/read?path=${encodeURIComponent(currentPath)}&file=${encodeURIComponent(file)}`
         );
@@ -201,6 +207,7 @@ async function readFileFromServer(file)
         updateGutter();
 
         // 2. Compile the file as-is on disk
+        setStatus("Compiling " + file + "...");
         const compRes = await fetch(`${API}/compile`, {
             method: "POST",
             headers: { "Content-Type": "text/plain" },
@@ -216,6 +223,8 @@ async function readFileFromServer(file)
         highlight.innerHTML = appendMessagesToLines(s, a);
 
         document.getElementById("output").innerHTML = renderOutput(output);
+        setStatus("\u2713 Ready", 3000);
+        if (typeof autoCollapsePanel === "function") autoCollapsePanel();
     }
     catch (err)
     {
@@ -246,6 +255,7 @@ async function saveFile()
     if (!currentFile) return;
     try
     {
+        setStatus("Saving...");
         const content = document.getElementById("c-editor").value;
 
         const res = await fetch(`${API}/save`, {
@@ -273,6 +283,7 @@ async function saveAndCompile()
     if (!currentFile) return;
     try
     {
+        setStatus("Saving & compiling...");
         const content = document.getElementById("c-editor").value;
 
         const res = await fetch(`${API}/savecompile`, {
@@ -293,6 +304,7 @@ async function saveAndCompile()
         updateGutter();
 
         document.getElementById("output").innerHTML = renderOutput(output);
+        if (typeof autoCollapsePanel === "function") autoCollapsePanel();
     }
     catch (err)
     {
@@ -306,6 +318,7 @@ async function compile()
     if (!currentFile) return;
     try
     {
+        setStatus("Compiling...");
         const res = await fetch(`${API}/compile`, {
             method: "POST",
             headers: { "Content-Type": "text/plain" },
@@ -324,6 +337,7 @@ async function compile()
         updateGutter();
 
         document.getElementById("output").innerHTML = renderOutput(output);
+        if (typeof autoCollapsePanel === "function") autoCollapsePanel();
     }
     catch (err)
     {
@@ -536,7 +550,8 @@ function parseCompilerLines(input)
 }
 
 const KW_SPECIAL = new Set([
-    "_Opt", "_Owner", "_View", "_Dtor", "_Ctor"
+    "_Opt", "_Owner", "_View", "_Dtor", "_Ctor",
+    "__builtin_c23_va_start", "__builtin_va_end", "__builtin_va_arg", "__builtin_va_list", "__attribute__", "__builtin_offsetof"
 ]);
 
 const KW = new Set([
@@ -571,17 +586,16 @@ const KW = new Set([
     "NULL", "true", "false",
 
     // cake
-    "throw", "try", "catch",
-    "_Count", "assert_state", "override_state",
+    "throw", "try", "catch", "assert",
+    "_Count", "assert_state", "override_state", "static_debug"
 ]);
 
-function highlightC(code)
+function highlightC(code, firstVis = 0, lastVis = Infinity)
 {
     const out = [];
     const n = code.length;
     let i = 0;
 
-    // emit plain text with HTML escaping
     function flush(start, end)
     {
         for (let j = start; j < end; j++)
@@ -601,16 +615,39 @@ function highlightC(code)
         out.push('</span>');
     }
 
-    while (i < n)
+    // ── Skip to firstVis by counting newlines ─────────────────
+    let line = 0;
+    while (i < n && line < firstVis)
+    {
+        const nl = code.indexOf('\n', i);
+        if (nl === -1) { flush(i, n); return out.join(''); }
+        flush(i, nl + 1);
+        i = nl + 1;
+        line++;
+    }
+
+    // ── Highlight the visible lines ───────────────────────────
+    while (i < n && line <= lastVis)
     {
         const c = code[i];
 
         // line comment  //
         if (c === '/' && code[i + 1] === '/')
         {
+            const lint = code[i + 2] == 'l' &&
+                code[i + 3] == 'i' &&
+                code[i + 4] == 'n' &&
+                code[i + 5] == 't' &&
+                code[i + 6] == ' ';
+
             const start = i;
             while (i < n && code[i] !== '\n') i++;
-            span('com', start, i);
+            if (lint)
+                span('lint', start, i);
+            else
+                span('com', start, i);
+
+            if (i < n && code[i] === '\n') { out.push('\n'); i++; line++; }
             continue;
         }
 
@@ -620,7 +657,7 @@ function highlightC(code)
             const start = i;
             i += 2;
             while (i < n && !(code[i - 1] === '*' && code[i] === '/')) i++;
-            if (i < n) i++; // consume closing /
+            if (i < n) i++;
             span('com', start, i);
             continue;
         }
@@ -629,12 +666,8 @@ function highlightC(code)
         if (c === '"')
         {
             const start = i++;
-            while (i < n && code[i] !== '"')
-            {
-                if (code[i] === '\\') i++; // skip escape
-                i++;
-            }
-            if (i < n) i++; // closing "
+            while (i < n && code[i] !== '"') { if (code[i] === '\\') i++; i++; }
+            if (i < n) i++;
             span('str', start, i);
             continue;
         }
@@ -643,17 +676,13 @@ function highlightC(code)
         if (c === '\'')
         {
             const start = i++;
-            while (i < n && code[i] !== '\'')
-            {
-                if (code[i] === '\\') i++;
-                i++;
-            }
+            while (i < n && code[i] !== '\'') { if (code[i] === '\\') i++; i++; }
             if (i < n) i++;
             span('str', start, i);
             continue;
         }
 
-        // preprocessor directive  #... whole line
+        // preprocessor directive  #...
         if (c === '#')
         {
             const start = i;
@@ -662,7 +691,7 @@ function highlightC(code)
             continue;
         }
 
-        // number  (starts with digit, or . followed by digit)
+        // number
         if (c >= '0' && c <= '9')
         {
             const start = i++;
@@ -684,20 +713,48 @@ function highlightC(code)
             const start = i++;
             while (i < n && (code[i] === '_' || (code[i] >= 'a' && code[i] <= 'z') || (code[i] >= 'A' && code[i] <= 'Z') || (code[i] >= '0' && code[i] <= '9'))) i++;
             const word = code.slice(start, i);
-            if (KW.has(word))
-                span('kw', start, i);
-            else if (KW_SPECIAL.has(word))
-                span('kwex', start, i);
-            else
-                flush(start, i);
+            if (KW.has(word)) span('kw', start, i);
+            else if (KW_SPECIAL.has(word)) span('kwex', start, i);
+            else flush(start, i);
             continue;
         }
 
-        // anything else — emit as-is
+        // newline — track line count
+        if (c === '\n') { out.push('\n'); i++; line++; continue; }
+
+        // anything else
         flush(i, i + 1);
         i++;
     }
 
+    // ── Bulk-copy everything after the last visible line ──────
+    if (i < n)
+    {
+        const s = code.slice(i);
+        const outArr = [];
+        let k = 0;
+
+        for (let j = 0; j < s.length; j++)
+        {
+            const ch = s[j];
+
+            if (ch === '&')
+            {
+                outArr[k++] = '&amp;';
+            } else if (ch === '<')
+            {
+                outArr[k++] = '&lt;';
+            } else if (ch === '>')
+            {
+                outArr[k++] = '&gt;';
+            } else
+            {
+                outArr[k++] = ch;
+            }
+        }
+
+        out.push(outArr.join(''));
+    }
     return out.join('');
 }
 
@@ -714,75 +771,53 @@ function updateGutter()
     gutterInner.textContent = nums.join("\n");
 }
 
+function getVisibleLineRange()
+{
+    const lineHeight = parseFloat(getComputedStyle(highlight).lineHeight) || 19.5;
+    const first = Math.max(0, Math.floor(highlight.scrollTop / lineHeight) - 5);
+    const last = Math.ceil((highlight.scrollTop + highlight.clientHeight) / lineHeight) + 5;
+    return [first, last];
+}
+
 function updateHighlight()
 {
-    var s = highlightC(editor.value) + "\n";
+    const [first, last] = getVisibleLineRange();
+    var s = highlightC(editor.value, first, last) + "\n";
     highlight.innerHTML = isDirty ? s : appendMessagesToLines(s, lastMessages);
     updateGutter();
 }
 
-// ── Debounced highlight ───────────────────────────────────────
-// Syntax highlighting is expensive — skip it while the user is actively
-// typing fast and only flush after 80 ms of silence.  The gutter only
-// needs rebuilding when the number of lines changes, so we track that
-// separately to avoid the heavy split("\n") on every keystroke.
-
-let _highlightTimer = null;
+// ── Highlight on input ────────────────────────────────────────
 let _highlightPending = false;
 let _lastLineCount = editor.value.split("\n").length;
 
-// Debounce delay scales with file size:
-//   < 5 KB  →  20 ms  (feels instant for small files)
-//   ~ 50 KB →  80 ms  (original value, comfortable for mid-size)
-//   ≥ 200 KB → 300 ms (avoids janking on very large files)
-function highlightDelay()
-{
-    const bytes = editor.value.length;
-    if (bytes < 5000) return 20;
-    if (bytes < 200000) return Math.round(20 + (bytes - 5000) / (200000 - 5000) * 280);
-    return 300;
-}
-
 function scheduleHighlight()
 {
-    if (_highlightPending) return;          // one rAF already queued
-    clearTimeout(_highlightTimer);
-    _highlightTimer = setTimeout(() =>
+    if (_highlightPending) return;
+    _highlightPending = true;
+    requestAnimationFrame(() =>
     {
-        _highlightPending = true;
-        requestAnimationFrame(() =>
-        {
-            _highlightPending = false;
-            var s = highlightC(editor.value) + "\n";
-            highlight.innerHTML = isDirty ? s : appendMessagesToLines(s, lastMessages);
+        _highlightPending = false;
+        const [first, last] = getVisibleLineRange();
+        var s = highlightC(editor.value, first, last) + "\n";
+        highlight.innerHTML = isDirty ? s : appendMessagesToLines(s, lastMessages);
 
-            // only rebuild gutter when line count actually changes
-            const newCount = editor.value.split("\n").length;
-            if (newCount !== _lastLineCount)
-            {
-                _lastLineCount = newCount;
-                updateGutter();
-            }
-        });
-    }, highlightDelay());
+        const newCount = editor.value.split("\n").length;
+        if (newCount !== _lastLineCount)
+        {
+            _lastLineCount = newCount;
+            updateGutter();
+        }
+    });
 }
 
 // update on typing
 editor.addEventListener("input", () => { isDirty = true; scheduleHighlight(); });
 
-// ── Tab key → insert spaces; Arrow keys → skip highlight ─────
-const ARROW_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
+// ── Tab key → insert spaces ───────────────────────────────────
 
 editor.addEventListener("keydown", (e) =>
 {
-    // Arrow keys never change content — cancel any queued highlight
-    // so navigation feels instant with no deferred DOM churn.
-    if (ARROW_KEYS.has(e.key))
-    {
-        clearTimeout(_highlightTimer);
-        return;
-    }
-
     if (e.key !== "Tab") return;
     e.preventDefault();
     const start = editor.selectionStart;
@@ -802,9 +837,10 @@ editor.addEventListener("scroll", () =>
     highlight.scrollLeft = editor.scrollLeft;
     highlight.scrollTop = editor.scrollTop;
     gutterInner.style.transform = `translateY(-${editor.scrollTop}px)`;
+    scheduleHighlight();
 });
 
-// wheel on editor forwards scroll to highlight (vertical and horizontal)
+// wheel on editor forwards scroll to highlight (both axes)
 editor.addEventListener("wheel", (e) =>
 {
     highlight.scrollTop += e.deltaY;
@@ -812,6 +848,7 @@ editor.addEventListener("wheel", (e) =>
     editor.scrollTop = highlight.scrollTop;
     editor.scrollLeft = highlight.scrollLeft;
     gutterInner.style.transform = `translateY(-${highlight.scrollTop}px)`;
+    scheduleHighlight();
 }, { passive: true });
 
 // measure actual scrollbar width and adjust textarea to expose it
@@ -824,8 +861,6 @@ editor.addEventListener("wheel", (e) =>
     const proxy = document.getElementById("scrollbar-proxy");
     proxy.style.width = w + "px";
 
-    // make proxy a real scrollable with same scroll height as highlight
-    // so its native scrollbar works, then sync both ways
     const inner = document.createElement("div");
     inner.style.height = highlight.scrollHeight + "px";
     inner.style.width = "1px";
@@ -843,6 +878,7 @@ editor.addEventListener("wheel", (e) =>
         highlight.scrollTop = proxy.scrollTop;
         editor.scrollTop = proxy.scrollTop;
         gutterInner.style.transform = `translateY(-${proxy.scrollTop}px)`;
+        scheduleHighlight();
         fromProxy = false;
     });
 
@@ -872,6 +908,7 @@ editor.addEventListener("wheel", (e) =>
         fromProxyX = true;
         highlight.scrollLeft = proxyX.scrollLeft;
         editor.scrollLeft = proxyX.scrollLeft;
+        scheduleHighlight();
         fromProxyX = false;
     });
 
@@ -939,6 +976,7 @@ function jumpToLine(lineNumber)
     // sync highlight and gutter
     highlight.scrollTop = editor.scrollTop;
     gutterInner.style.transform = `translateY(-${editor.scrollTop}px)`;
+    scheduleHighlight();
 }
 
 // Auto-load on page start
@@ -967,16 +1005,6 @@ document.addEventListener("keydown", (e) =>
     {
         e.preventDefault();
         diagPrev();
-    }
-    else if (e.ctrlKey && e.key === 'Home')
-    {
-        e.preventDefault();
-        diagFirst();
-    }
-    else if (e.ctrlKey && e.key === 'End')
-    {
-        e.preventDefault();
-        diagLast();
     }
 });
 const resizeHandle = document.getElementById("resize-handle");

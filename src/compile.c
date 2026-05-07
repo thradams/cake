@@ -29,7 +29,7 @@
 #include <debugapi.h>
 #endif
 
-#include "visit_il.h"
+#include "codegen.h"
 #include <time.h>
 
 
@@ -466,18 +466,18 @@ int compile_one_file(const char* file_name,
             if (berror || report->error_count > 0)
                 throw;
 
-            if (!options->no_output)
+            if (!options->no_output && !report->has_errors)
             {
 
                 struct osstream ss = { 0 };
 
 
-                struct d_visit_ctx ctx2 = { 0 };
-                ctx2.ast = ast;
+                struct codegen_ctx ctx2 = { 0 };
+                ctx2.p_ast = &ast;
                 ctx2.options = ctx.options;
-                d_visit(&ctx2, &ss);
+                codegen_visit(&ctx2, &ss);
                 p_output_string = ss.c_str; //MOVE
-                d_visit_ctx_destroy(&ctx2);
+                codegen_visit_ctx_destroy(&ctx2);
 
 
                 FILE* _Owner _Opt outfile = fopen(out_file_name, "w");
@@ -615,6 +615,7 @@ int compile_one_file(const char* file_name,
     // Compare snapshots
     if (_CrtMemDifference(&state_diff, &state1, &state2))
     {
+        report->test_failed++;
         printf("==================================================\n");
         printf("Memory leak\n");
         printf("==================================================\n");
@@ -1035,12 +1036,12 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
                 throw;
 
             struct osstream ss = { 0 };
-            struct d_visit_ctx ctx2 = { 0 };
-            ctx2.ast = ast;
+            struct codegen_ctx ctx2 = { 0 };
+            ctx2.p_ast = &ast;
             ctx2.options = options;
-            d_visit(&ctx2, &ss);
+            codegen_visit(&ctx2, &ss);
             s = ss.c_str; //MOVED
-            d_visit_ctx_destroy(&ctx2);
+            codegen_visit_ctx_destroy(&ctx2);
         }
     }
     catch

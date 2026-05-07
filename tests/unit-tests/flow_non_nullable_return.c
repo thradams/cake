@@ -6,9 +6,8 @@ int main()
 {
     int* _Opt p = f();
 
-    //pointer is always not-null
-    [[cake::w28]]
-    if (p)
+
+    if (p) //lint 28 pointer is always not-null
         return 0;
 
 }

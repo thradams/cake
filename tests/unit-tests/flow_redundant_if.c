@@ -14,9 +14,7 @@ void f(struct X* ctx)
     if (ctx->current == 0)
         return;
 
-    //warning: pointer is always non-null
-    [[cake::w28]]
-    if (ctx->current != 0)
+    if (ctx->current != 0) //lint 28 warning: pointer is always non-null
     {
 
     }

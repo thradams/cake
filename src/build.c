@@ -27,8 +27,8 @@
     " pre_expressions.c "     \
     " parser.c "              \
     " compile.c "             \
-    " visit_defer.c "         \
-    " visit_il.c "            \
+    " defer.c "         \
+    " codegen.c "             \
     " flow.c "                \
     " error.c "               \
     " target.c "              \

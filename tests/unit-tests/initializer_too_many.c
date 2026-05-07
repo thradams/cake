@@ -4,8 +4,8 @@ struct X {
 };
 
 //warning: warning: excess elements in initializer 
-[[cake::w62]]
-constexpr struct X x = {.c = 3, 4};
+
+constexpr struct X x = {.c = 3, 4};//lint 62
 
 static_assert(x.a == 0);
 static_assert(x.b == 0);

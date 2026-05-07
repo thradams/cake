@@ -14,8 +14,8 @@ void x_delete(struct X* _Owner _Opt p)
     {
 
         //object 'name' may not be empty
-        [[cake::w29]]
-        free(p);
+
+        free(p); //lint 29
     }
 }
 

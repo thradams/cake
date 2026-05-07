@@ -6,7 +6,7 @@ struct Point {
 
 int main() {
     struct Point *p = 0;
-    [[cake::w720]]
-    p->z = 30; // Error: z is not a member of struct Point
+    
+    p->z = 30; //lint 720 Error: z is not a member of struct Point
     return 0;
 }

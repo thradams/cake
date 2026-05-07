@@ -2,7 +2,7 @@ void f()
 {
     int i;
 
-    [[cake::e1020]] //redeclaration
-    char i;
+
+    char i; //lint 1020 redeclaration
 }
 

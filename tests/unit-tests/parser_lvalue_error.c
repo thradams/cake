@@ -1,11 +1,7 @@
 int main()
 {
-    //error: lvalue required as decrement operand 
-    [[cake::e1230]]
-    1--;
+    1--; //lint 1230 error: lvalue required as decrement operand 
 
-    //error: lvalue required as decrement operand 
-    [[cake::e1230]]
-    1++;
+    1++;  //lint 1230 error: lvalue required as decrement operand 
 }
 

@@ -38,7 +38,7 @@ static_assert(TYPE_IS(2147483648, long));
 
 // maximum i64 + 1, no choice but use unsigned and warning
 //warning: integer literal is too large to be represented in a signed integer type, interpreting as unsigned
-//[[cake::w50]]
+
 //static_assert(TYPE_IS(9223372036854775808, unsigned long ));
 
 #endif

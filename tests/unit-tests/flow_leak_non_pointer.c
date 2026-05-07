@@ -6,8 +6,8 @@ struct X {
 
 void f()
 {
-    const struct X x [[cake::leak]] = {0};
-}
+    const struct X x  = {0};
+} //lint 29 x.i
 
 
 

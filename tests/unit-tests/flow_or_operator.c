@@ -3,9 +3,8 @@
 void f(int i)
 {
     int j;
-    // warning: using a uninitialized object 'j'
-    [[cake::w30]]
-    if (i || j)
+
+    if (i || j) //lint 30 warning: using a uninitialized object 'j'
     {
     }
 }

@@ -11,8 +11,8 @@ int main()
     {
 
         //object 'p' may not be empty
-        [[cake::w29]]
-        p = malloc(1);
+        
+        p = malloc(1); //lint 29
 
     }
     free(p);

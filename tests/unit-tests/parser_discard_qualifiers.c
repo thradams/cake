@@ -6,6 +6,6 @@ int main()
     const struct X x = {0};
 
     //warning:  discarding const at argument
-    [[cake::w15]]
-    f(&x);
+
+    f(&x); //lint 15
 }

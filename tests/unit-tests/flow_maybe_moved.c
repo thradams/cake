@@ -11,11 +11,10 @@ struct X* _Owner make();
 
 void f(int condition)
 {
-    struct X* _Owner _Opt p1 [[cake::leak]] = make();
-
+    struct X* _Owner _Opt p1 = make();
 
     {
-        struct X* _Owner _Opt p2 [[cake::leak]] = make();
+        struct X* _Owner _Opt p2 = make();
 
         struct X* _Owner _Opt p = nullptr;
         if (condition)
@@ -32,6 +31,7 @@ void f(int condition)
 
         free(p->text);
         free(p);
-    }
-}
+    } //lint 29 leak
+} //lint 29 leak
+
 

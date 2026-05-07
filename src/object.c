@@ -1371,7 +1371,7 @@ int object_set(
                 {
                     struct token* _Opt tk = p_init_expression->first_token;
 
-                    compiler_diagnostic(C_ERROR_REQUIRES_COMPILE_TIME_VALUE,
+                    diagnostic(C_ERROR_REQUIRES_COMPILE_TIME_VALUE,
                         ctx,
                         tk,
                         NULL,

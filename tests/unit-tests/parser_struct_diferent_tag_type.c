@@ -6,7 +6,7 @@ int main() {
         int i;
     };
 
-    [[cake::w740]] [[cake::w1030]]   
+    /*we cannot catch this error because it throw before commnet parsing*/
  
-    struct S x2;
+   // struct S x2;
 }

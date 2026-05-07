@@ -23,8 +23,8 @@ int main()
         f(p1, &p2);
 
         //warning: pointer may be null (p2)
-        [[cake::w33]]
-        free(p2->text);
+
+        free(p2->text); //lint 33
 
         free(p2);
     }

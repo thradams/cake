@@ -20,10 +20,10 @@ int main()
         //p->name = malloc(1);        
     }
     //warning: pointer may be null
-    [[cake::w30]] [[cake::w33]]
-        free(p->name);
+
+    free(p->name); //lint 33 30
 
     // warning: object 'name' may not be empty
-    [[cake::w29]]
-    free(p);
+
+    free(p); //lint 29
 }

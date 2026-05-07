@@ -138,15 +138,15 @@ bool flow_object_can_be_uninitialized(const struct flow_object* p);
 
 bool flow_object_can_have_its_lifetime_ended(const struct flow_object* p);
 
-void flow_object_print_state(struct flow_object* p);
+void flow_object_print_state(struct flow_object* p, struct osstream* ss0);
 
 void object_set_pointer(struct flow_object* p_object, struct flow_object* p_object2);
 
 void flow_object_destroy(_Dtor struct flow_object* p);
 void flow_object_delete(struct flow_object* _Owner _Opt p);
 void flow_object_swap(struct flow_object* a, struct flow_object* b);
-void print_object_line(struct flow_object* p_object, int cols);
-void print_object_state_to_str(enum flow_state e, char str[], int sz);
+void print_object_line(struct flow_object* p_object, int cols, struct osstream* ss);
+void print_object_state_to_str(enum flow_state e, char str[], int sz, struct osstream* ss);
 
 struct declarator;
 struct flow_object* _Opt make_flow_object(struct flow_visit_ctx* ctx,
@@ -168,7 +168,7 @@ struct flow_visit_ctx;
 struct token;
 
 
-void print_flow_object(bool color_enabled, struct type* p_type, struct flow_object* p_object, bool short_version);
+void print_flow_object(bool color_enabled, struct type* p_type, struct flow_object* p_object, bool short_version, struct osstream* ss0);
 
 struct marker;
 

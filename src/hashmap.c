@@ -73,7 +73,7 @@ void map_entry_delete(struct map_entry* _Owner _Opt p)
         struct_entry_delete(p->data.p_struct_entry);
         break;
 
-    case TAG_TYPE_TEXT:
+    case TAG_TYPE_TEXT:        
         free(p->data.p_text);
         break;
     }
@@ -285,6 +285,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
                 throw;
             }
 
+            assert(p_new_entry->key == NULL);
             p_new_entry->key = temp_key;
             p_new_entry->next = map->table[index];
             map->table[index] = p_new_entry;

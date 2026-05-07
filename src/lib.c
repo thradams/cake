@@ -589,6 +589,8 @@ enum token_flags
     TK_FLAG_LINE_CONTINUATION = 1 << 10 ,            /*token has one or more line-slicing*/
 
     TK_C_BACKEND_FLAG_SHOW_AGAIN = 1 << 11,          /*was hidden but maybe reappears*/
+
+    TK_FLAG_ACTIVE = 1 << 12                         /* ACTIVE means it is inside a if group that is active (final is always active) */
 };
 
 struct token
@@ -937,7 +939,9 @@ enum diagnostic_id {
     W_OUT_OF_BOUNDS = 42,
     W_ASSIGNMENT_OF_ARRAY_PARAMETER = 43,
     W_CONDITIONAL_IS_CONSTANT = 44,
-    W_SWITCH = 45,
+    
+    W_SWITCH = 45, //
+
     W_UNSUAL_NULL_POINTER_CONSTANT = 46,
     W_SIZEOF_ARRAY_ARGUMENT = 47,
     W_CONST_NOT_INITIALIZED = 48,
@@ -949,7 +953,9 @@ enum diagnostic_id {
 
     W_SIZEOF_FUNCTION = 53,
     W_ERROR_INCOMPATIBLE_TYPES = 54,
-    W_UNUSED_LABEL = 55,
+    
+    W_UNUSED_LABEL = 55, //
+
     W_REDEFINING_BUITIN_MACRO = 56,
     W_UNUSED_FUNCTION = 57,
     W_BOOL_COMPARISON = 58,
@@ -963,7 +969,7 @@ enum diagnostic_id {
     
     W_WARNING_LIT_STRING = 64,
     W_SIGNED_TO_UNSIGNED = 65,
-    W_UNUSED_WARNING_66 = 66,
+    W_INFO = 66,
     W_UNUSED_WARNING_67 = 67,
     W_UNUSED_WARNING_68 = 68,
     W_UNUSED_WARNING_69 = 69,
@@ -1119,7 +1125,9 @@ enum diagnostic_id {
     C_ERROR_RETURN_CANNOT_BE_USED_INSIDE_DEFER = 1400,
     C_ERROR_FUNCTION_RETURNS_FUNCTION = 1410,
     C_ERROR_FUNCTION_RETURNS_ARRAY = 1420,
-    C_ERROR_LABEL_NOT_DEFINED = 1430,
+    
+    C_ERROR_LABEL_NOT_DEFINED = 1430, //
+
     C_ERROR_DUPLICATED_LABEL = 1440,
     C_ERROR_DUPLICATED_CASE = 1450,
     C_ERROR_SUBSCRIPT_IS_NOT_AN_INTEGER = 1560,
@@ -1209,15 +1217,6 @@ struct diagnostic_stack
 
 int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack);
 void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack);
-
-struct diagnostic_id_stack
-{
-    int size;
-    enum  diagnostic_id stack[10];
-};
-
-int diagnostic_id_stack_push(struct diagnostic_id_stack* diagnostic_stack, enum diagnostic_id id);
-void diagnostic_id_stack_pop(struct diagnostic_id_stack* diagnostic_stack);
 
 
 struct options
@@ -1331,11 +1330,6 @@ struct options
       -autoconfig
     */
     bool auto_config;
-
-    /*
-       -comment-to-attr
-    */
-    bool comment_to_attribute;
 
     bool do_static_debug;
     int static_debug_lines;
@@ -2209,6 +2203,10 @@ void print_token(bool color_enabled, const struct token* p_token)
     {
         strcat(buffer, "hide ");
     }
+    if (p_token->flags & TK_FLAG_ACTIVE)
+    {
+        strcat(buffer, "active ");
+    }
     if (p_token->flags & TK_FLAG_MACRO_EXPANDED)
     {
         strcat(buffer, "expanded ");
@@ -2280,6 +2278,10 @@ void print_token_html(struct token* p_token)
     {
         printf("newline ");
     }
+    if (p_token->flags & TK_FLAG_ACTIVE)
+    {
+        printf("active ");
+    }
 
     printf("\">");
 
@@ -2344,7 +2346,8 @@ void print_position(const char* _Opt path, int line, int col, bool msvc_format, 
                        line, col,
                        msvc_format,
                        color_enabled);
-    puts(ss.c_str);
+    if (ss.c_str) 
+       puts(ss.c_str);
     ss_close(&ss);
 }
 
@@ -2352,7 +2355,8 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
 {
     struct osstream ss = { 0 };
     ss_print_line_and_token(&ss, p_marker, color_enabled);
-    puts(ss.c_str);
+    if (ss.c_str) 
+      puts(ss.c_str);
     ss_close(&ss);
 }
 
@@ -3227,7 +3231,7 @@ void map_entry_delete(struct map_entry* _Owner _Opt p)
         struct_entry_delete(p->data.p_struct_entry);
         break;
 
-    case TAG_TYPE_TEXT:
+    case TAG_TYPE_TEXT:        
         free(p->data.p_text);
         break;
     }
@@ -3439,6 +3443,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
                 throw;
             }
 
+            assert(p_new_entry->key == NULL);
             p_new_entry->key = temp_key;
             p_new_entry->next = map->table[index];
             map->table[index] = p_new_entry;
@@ -5572,72 +5577,27 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                     }
                 }
 
-                if (ctx->options.comment_to_attribute && start[2] == '!' && start[3] == 'w')
-                {
-                    /*
-                        Conversion from !w4 to -> [[cake::w4]]
-                    */
-                    struct token_list list2 = tokenizer(ctx, "[[cake::wN]]", "", level, 0);
-                    struct token* _Owner _Opt p_new_token = token_list_pop_front_get(&list2);
-                    token_delete(p_new_token);
-                    p_new_token = token_list_pop_front_get(&list2);
-                    while (p_new_token)
-                    {
-                        if (strcmp(p_new_token->lexeme, "wN") == 0)
-                        {
-                            free(p_new_token->lexeme);
-                            char fmt[10] = { 0 };
-                            const char* p = start + 3;
-                            for (int i = 0; i < sizeof fmt; i++)
-                            {
-                                fmt[i] = *p;
-                                if (p == (stream.current - 3))
-                                    break;
-                                p++;
-                            }
 
-                            p_new_token->lexeme = strdup(fmt);
-                        }
-                        p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-                        p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
-                        p_new_token->flags |= addflags;
+                struct token* _Owner _Opt p_new_token = new_token(start, stream.current, TK_COMMENT);
+                if (p_new_token == NULL) throw;
 
-                        p_new_token->level = level;
-                        p_new_token->token_origin = p_first;
-                        p_new_token->line = line;
-                        p_new_token->col = col;
-                        token_list_add(&list, p_new_token);
+                p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= addflags;
 
-                        p_new_token = token_list_pop_front_get(&list2);
-                    }
-                    token_list_destroy(&list2);
-                    new_line = false;
-                    has_space = false;
-                }
-                else
-                {
-                    struct token* _Owner _Opt p_new_token = new_token(start, stream.current, TK_COMMENT);
-                    if (p_new_token == NULL) throw;
+                p_new_token->level = level;
+                p_new_token->token_origin = p_first;
+                p_new_token->line = line;
+                p_new_token->col = col;
+                token_list_add(&list, p_new_token);
+                new_line = false;
+                has_space = false;
 
-                    p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-                    p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
-                    p_new_token->flags |= addflags;
-
-                    p_new_token->level = level;
-                    p_new_token->token_origin = p_first;
-                    p_new_token->line = line;
-                    p_new_token->col = col;
-                    token_list_add(&list, p_new_token);
-                    new_line = false;
-                    has_space = false;
-
-                    /*
-                    * Ignore line splicing inside comments.
-                    * if you are curious to see when it happens just add
-                    * set_sliced_flag
-                    */
-
-                }
+                /*
+                * Ignore line splicing inside comments.
+                * if you are curious to see when it happens just add
+                * set_sliced_flag
+                */
 
                 continue;
             }
@@ -5889,7 +5849,7 @@ static bool preprocessor_token_ahead_skiping_blanks_and_new_line(struct token* p
 bool preprocessor_token_ahead_is_identifier(const struct token* _Opt p, const char* lexeme)
 {
     if (p == NULL)
-       return false;
+        return false;
 
     struct token* _Opt p_token = preprocessor_look_ahead_core(p);
     if (p_token != NULL && p_token->type == TK_IDENTIFIER)
@@ -5950,13 +5910,15 @@ static void skip_blanks_including_newline(struct preprocessor_ctx* ctx, struct t
     }
 }
 
-void prematch_level(struct token_list* dest, struct token_list* input_list, int level)
+void prematch_level(struct token_list* dest, struct token_list* input_list, int level, bool is_active)
 {
     if (CAKE_INCLUDE_EXTRA_TOKENS || level == 0)
     {
         struct token* _Owner _Opt p = token_list_pop_front_get(input_list);
         if (p)
         {
+            if (is_active)
+                p->flags |= TK_FLAG_ACTIVE;
             token_list_add(dest, p);
         }
     }
@@ -5964,16 +5926,18 @@ void prematch_level(struct token_list* dest, struct token_list* input_list, int 
         token_list_pop_front(input_list);
 }
 
-void prematch(struct token_list* dest, struct token_list* input_list)
+static void prematch(struct token_list* dest, struct token_list* input_list, bool is_active)
 {
     struct token* _Owner _Opt p = token_list_pop_front_get(input_list);
     if (p)
     {
+        if (is_active)
+            p->flags |= TK_FLAG_ACTIVE;
         token_list_add(dest, p);
     }
 }
 
-struct token_list pp_tokens_opt(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);
+struct token_list pp_tokens_opt(struct preprocessor_ctx* ctx, struct token_list* input_list, int level, bool is_active);
 
 struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_list* input_list)
 {
@@ -6313,7 +6277,7 @@ struct token_list process_identifiers(struct preprocessor_ctx* ctx, _Dtor struct
     {
         token_list_destroy(list);
     }
-    
+
     assert(list->head == NULL);
     assert(list->tail == NULL);
 
@@ -6978,7 +6942,7 @@ struct token_list replacement_group(struct preprocessor_ctx* ctx, struct token_l
             {
                 break;
             }
-            prematch_level(&r, input_list, level);
+            prematch_level(&r, input_list, level, is_active);
         }
     }
     catch
@@ -7260,12 +7224,12 @@ struct token_list replacement_list(struct preprocessor_ctx* ctx, struct macro* m
     return r;
 }
 
-struct token_list pp_tokens_opt(struct preprocessor_ctx* ctx, struct token_list* input_list, int level)
+struct token_list pp_tokens_opt(struct preprocessor_ctx* ctx, struct token_list* input_list, int level, bool is_active)
 {
     struct token_list r = { 0 };
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
-        prematch_level(&r, input_list, level);
+        prematch_level(&r, input_list, level, is_active);
     }
     return r;
 }
@@ -7361,7 +7325,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
         if (!is_active)
         {
             /* if not active, it is ignored */
-            struct token_list r7 = pp_tokens_opt(ctx, input_list, level);
+            struct token_list r7 = pp_tokens_opt(ctx, input_list, level, is_active);
             token_list_append_list(&r, &r7);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
             token_list_destroy(&r7);
@@ -7405,7 +7369,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             if (input_list->head->type == TK_STRING_LITERAL)
             {
                 strcat(path, input_list->head->lexeme);
-                prematch_level(&r, input_list, level);
+                prematch_level(&r, input_list, level, is_active);
             }
             else
             {
@@ -7413,7 +7377,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 while (input_list->head->type != '>')
                 {
                     strcat(path, input_list->head->lexeme);
-                    prematch_level(&r, input_list, level);
+                    prematch_level(&r, input_list, level, is_active);
 
                     if (input_list->head == NULL)
                     {
@@ -7422,13 +7386,13 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     }
                 }
                 strcat(path, input_list->head->lexeme);
-                prematch_level(&r, input_list, level);
+                prematch_level(&r, input_list, level, is_active);
             }
 
 
             while (input_list->head->type != TK_NEWLINE)
             {
-                prematch_level(&r, input_list, level);
+                prematch_level(&r, input_list, level, is_active);
                 if (input_list->head == NULL)
                 {
                     pre_unexpected_end_of_file(r.tail, ctx);
@@ -7524,14 +7488,14 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             if (input_list->head->type == TK_STRING_LITERAL)
             {
                 strcat(path, input_list->head->lexeme);
-                prematch_level(p_list, input_list, level);
+                prematch_level(p_list, input_list, level, is_active);
             }
             else
             {
                 while (input_list->head->type != '>')
                 {
                     strcat(path, input_list->head->lexeme);
-                    prematch_level(p_list, input_list, level);
+                    prematch_level(p_list, input_list, level, is_active);
 
                     if (input_list->head == NULL)
                     {
@@ -7539,14 +7503,14 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     }
                 }
                 strcat(path, input_list->head->lexeme);
-                prematch_level(p_list, input_list, level);
+                prematch_level(p_list, input_list, level, is_active);
             }
 
             if (input_list->head)
             {
                 while (input_list->head->type != TK_NEWLINE)
                 {
-                    prematch_level(p_list, input_list, level);
+                    prematch_level(p_list, input_list, level, is_active);
                     if (input_list->head == NULL)
                     {
                         pre_unexpected_end_of_file(p_list->tail, ctx);
@@ -7851,7 +7815,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                # line pp-tokens new-line
             */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//line
-            struct token_list r5 = pp_tokens_opt(ctx, input_list, level);
+            struct token_list r5 = pp_tokens_opt(ctx, input_list, level, is_active);
             token_list_append_list(&r, &r5);
             token_list_destroy(&r5);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
@@ -7862,7 +7826,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
               # error pp-tokensopt new-line
             */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//error
-            struct token_list r6 = pp_tokens_opt(ctx, input_list, level);
+            struct token_list r6 = pp_tokens_opt(ctx, input_list, level, is_active);
 
             token_list_append_list(&r, &r6);
             token_list_destroy(&r6);
@@ -7878,7 +7842,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             */
 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
-            struct token_list r6 = pp_tokens_opt(ctx, input_list, level);
+            struct token_list r6 = pp_tokens_opt(ctx, input_list, level, is_active);
             token_list_append_list(&r, &r6);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
             preprocessor_diagnostic(W_WARNING_DIRECTIVE, ctx, r.head, "#warning");
@@ -7952,7 +7916,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
 
 
-            struct token_list r7 = pp_tokens_opt(ctx, input_list, level);
+            struct token_list r7 = pp_tokens_opt(ctx, input_list, level, is_active);
             token_list_append_list(&r, &r7);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
             assert(r.tail != NULL);
@@ -7983,13 +7947,13 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 }
 
 
-static struct token_list non_directive(struct preprocessor_ctx* ctx, struct token_list* input_list, int level)
+static struct token_list non_directive(struct preprocessor_ctx* ctx, struct token_list* input_list, int level, bool is_active)
 {
     /*
       non-directive:
       pp-tokens new-line
      */
-    struct token_list r = pp_tokens_opt(ctx, input_list, level);
+    struct token_list r = pp_tokens_opt(ctx, input_list, level, is_active);
     skip_blanks_level(ctx, &r, input_list, level);
     match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
     return r;
@@ -8167,7 +8131,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
             else
             {
                 token_list_clone_and_add(&p_argument->tokens, input_list->head);
-                prematch_level(&macro_argument_list.tokens, input_list, level);
+                prematch_level(&macro_argument_list.tokens, input_list, level, 1);
                 //token_list_add(&list, token_list_pop_front(input_list));
             }
         }
@@ -8299,7 +8263,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
             }
             else
             {
-                prematch(&r, input_list);
+                prematch(&r, input_list, true);
             }
         }
     }
@@ -8482,7 +8446,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                     }
                     token_list_append_list(&r, &argumentlist);
                     // ja passa o ## tambem
-                    prematch(&r, input_list);
+                    prematch(&r, input_list, true);
                     token_list_destroy(&argumentlist);
                 }
                 else
@@ -8530,7 +8494,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
             }
             else
             {
-                prematch(&r, input_list);
+                prematch(&r, input_list, true);
             }
         }
     }
@@ -8637,7 +8601,7 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
             throw; //internal error
         }
 
-        prematch(&r, input_list);
+        prematch(&r, input_list, is_active);
         r.tail->type = TK_PRAGMA;
         r.tail->flags |= TK_FLAG_FINAL;
 
@@ -8690,7 +8654,7 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
             throw; //internal error
         }
 
-        prematch(&r, input_list); //)
+        prematch(&r, input_list, is_active); //)
         r.tail->type = TK_PRAGMA_END;
         r.tail->flags |= TK_FLAG_FINAL;
     }
@@ -8812,7 +8776,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
 
                 //OBS: #def macro have newlinew
                 //assert(!(new_list.head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
-                prematch(&r, &new_list); //it wasn't macro
+                prematch(&r, &new_list, true); //it wasn't macro
             }
         }
     }
@@ -9339,7 +9303,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 {
                     if (is_final)
                     {
-                        prematch(&r, input_list);
+                        prematch(&r, input_list, is_active);
                         assert(r.tail != NULL);
                         r.tail->flags |= TK_FLAG_FINAL;
                     }
@@ -9354,7 +9318,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     {
                         if (level == 0 || CAKE_INCLUDE_EXTRA_TOKENS)
                         {
-                            prematch(&r, input_list);
+                            prematch(&r, input_list, is_active);
                         }
                         else
                             token_list_pop_front(input_list);/* TODO: delete */
@@ -9363,7 +9327,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     {
                         if (level == 0 || CAKE_INCLUDE_EXTRA_TOKENS)
                         {
-                            prematch(&r, input_list);
+                            prematch(&r, input_list, is_active);
                             if (is_final)
                             {
                                 assert(r.tail != NULL);
@@ -9374,7 +9338,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                         {
                             if (is_final)
                             {
-                                prematch(&r, input_list);
+                                prematch(&r, input_list, is_active);
                                 assert(r.tail != NULL);
                                 r.tail->flags |= TK_FLAG_FINAL;
                             }
@@ -9450,7 +9414,7 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
                     "invalid preprocessor directive '#%s'\n", directive_name);
             }
             /* consume the # to keep it symmetrical */
-            return non_directive(ctx, input_list, level);
+            return non_directive(ctx, input_list, level, is_active);
         }
     }
     return text_line(ctx, input_list, is_active, level);
@@ -9467,7 +9431,7 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
 
     if (input_list->head->type == TK_BEGIN_OF_FILE)
     {
-        prematch_level(&r, input_list, 1); //sempre coloca
+        prematch_level(&r, input_list, 1, true); //sempre coloca
     }
 
     struct token_list g = group_opt(ctx, input_list, true /*active*/, level);
@@ -14649,28 +14613,6 @@ bool is_diagnostic_configurable(enum diagnostic_id id)
     return id >= 0 && id < BITSET_SIZE;
 }
 
-int diagnostic_id_stack_push(struct diagnostic_id_stack* diagnostic_stack, enum diagnostic_id id)
-{
-    if (diagnostic_stack->size < _Countof(diagnostic_stack->stack))
-    {
-        diagnostic_stack->stack[diagnostic_stack->size] = id;
-        diagnostic_stack->size++;
-    }
-    return 0;
-}
-
-void diagnostic_id_stack_pop(struct diagnostic_id_stack* diagnostic_stack)
-{
-    if (diagnostic_stack->size > 0)
-    {
-        diagnostic_stack->size--;
-    }
-    else
-    {
-        assert(false);
-    }
-}
-
 int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack)
 {
     if (diagnostic_stack->top_index >= _Countof(diagnostic_stack->stack))
@@ -14735,6 +14677,17 @@ int get_diagnostic_phase(enum diagnostic_id w)
 {
     switch (w)
     {
+
+    case C_ERROR_EXIT_DEFER:
+    case C_ERROR_JUMP_OVER_VLA:
+        return 1;
+
+    /*later after function is completed*/
+    case W_UNUSED_LABEL:
+    case W_SWITCH:
+    case C_ERROR_LABEL_NOT_DEFINED:
+        return 1;
+
     case W_FLOW_NULLABLE_TO_NON_NULLABLE:
     case W_FLOW_MISSING_DTOR:
     case W_FLOW_UNINITIALIZED:
@@ -14776,7 +14729,7 @@ int fill_options(struct options* options,
     options_set_warning(options, W_UNUSED_VARIABLE, false);
 
     options_set_warning(options, W_STYLE, false);
-
+    options_set_note(options, W_INFO, true);
 
     /*first loop used to collect options*/
     for (int i = 1; i < argc; i++)
@@ -14907,12 +14860,6 @@ int fill_options(struct options* options,
             printf("Invalid option. Options are: "
                    "enable, disable"
                    "\n");
-            continue;
-        }
-
-        if (strcmp(argv[i], "-comment-to-attr") == 0)
-        {
-            options->comment_to_attribute = true;
             continue;
         }
 
@@ -15167,8 +15114,7 @@ void print_help()
     print_option("-dump-pp-tokens", "Output tokens after preprocessor");
     print_option("-disable-assert", "disables built-in assert");
     print_option("-const-literal", "literal string becomes const");
-    print_option("-preprocess-def-macro", "preprocess def macros after expansion");
-    print_option("-comment-to-attr", "convert comments /*!w#*/ into attributes [[cake::w#]]");
+    print_option("-preprocess-def-macro", "preprocess def macros after expansion");    
     print_option("-style=name", "Set the style used in w011 style warnings. Options are `-style=cake`, `-style=gnu`, `-style=microsoft`");
     print_option("-selftest", "Runs Cake's internal tests. The code must be compiled with -DTEST.");
     print_option("-disable-assert", "Disable cake assert extension.");
@@ -16290,6 +16236,10 @@ struct report
 {
     int no_files;
     double cpu_time_used_sec;
+    
+    /*has_errors is not reseted when we remove diagnostics*/
+    bool has_errors;
+
     int error_count;
     int warnings_count;
     int info_count;
@@ -16320,6 +16270,7 @@ struct label_list
 struct label_list_item* _Opt label_list_find(struct label_list* list, const char* label_name);
 void label_list_push(struct label_list* list, struct label_list_item* _Owner pitem);
 void label_list_clear(struct label_list* list);
+void label_list_destroy(_Dtor struct label_list* list);
 
 
 struct diagnostic_item;
@@ -16360,8 +16311,6 @@ int parse_diagnostic_suppression(const char* comment_lexeme, int ids[LINT_IDS_MA
 struct parser_ctx
 {
     struct options options;
-
-    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack;
 
     /*
       file scope -> function params -> function -> inner scope
@@ -16405,6 +16354,7 @@ struct parser_ctx
     struct token* _Opt current;
     struct token* _Opt previous;
 
+
     bool inside_generic_association;
 
     int label_id; /*generates unique ids for labels*/
@@ -16441,6 +16391,7 @@ void unexpected_end_of_file(struct parser_ctx* ctx);
 void parser_match(struct parser_ctx* ctx);
 _Attr(nodiscard)
 int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
+int parser_match_tk_lint(struct parser_ctx* ctx, enum token_type type, struct token** pp_token_lint);
 
 struct token* _Opt previous_parser_token(const struct token* token);
 struct declarator* _Opt find_declarator(const struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
@@ -16456,7 +16407,7 @@ void print_scope(struct scope_list* e);
 */
 char* _Opt _Owner CompileText(const char* options, const char* content);
 
-_Bool compiler_diagnostic(enum diagnostic_id w,
+_Bool diagnostic(enum diagnostic_id w,
     const struct parser_ctx* ctx,
     const struct token* _Opt p_token,
     const struct marker* _Opt p_marker,
@@ -16551,6 +16502,7 @@ struct static_assert_declaration
 
     struct token* first_token;
     struct token* last_token;
+    struct token* _Opt p_lint_token;
     struct expression* _Owner constant_expression;
     struct token* _Opt string_literal_opt;
 };
@@ -16595,8 +16547,7 @@ struct attribute_specifier
     /*
      attribute-specifier:
         [ [ attribute-list ] ]
-    */
-    enum diagnostic_id ack;
+    */    
     struct token* first_token;
     struct token* last_token;
     struct attribute_list* _Owner attribute_list;
@@ -16775,7 +16726,8 @@ struct declaration
 
     struct token* first_token;
     struct token* last_token;
-
+    struct token* _Opt lint_token;
+    
     struct declaration* _Owner _Opt next;
 };
 
@@ -17467,6 +17419,7 @@ struct compound_statement
     */
     struct token* first_token; /*{*/
     struct token* last_token; /*}*/
+    struct token* lint_token; /* //lint */
 
     struct block_item_list block_item_list;
 
@@ -17600,6 +17553,7 @@ struct selection_statement
 
     struct token* first_token;
     struct token* last_token;
+    struct token* _Opt lint_token;
     struct token* _Opt else_token_opt;
     struct defer_list defer_list;
 
@@ -17621,7 +17575,7 @@ struct iteration_statement
 
     struct token* first_token;
     struct token* second_token; /*do {} while*/
-
+    struct token* _Opt p_lint_token; /*do {} while*/
     struct secondary_block* _Owner secondary_block;
 
     struct expression* _Owner _Opt expression1;
@@ -17647,6 +17601,8 @@ struct jump_statement
     struct token* _Opt label;
     struct token* first_token;
     struct token* last_token;
+    struct token* _Opt p_lint_token;
+
     struct expression* _Owner _Opt expression_opt;
 
     int label_id;
@@ -17666,6 +17622,7 @@ struct expression_statement
 
     struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
     struct expression* _Owner _Opt expression_opt;
+    struct token* _Opt p_lint_token;
 };
 
 struct expression_statement* _Owner _Opt expression_statement(struct parser_ctx* ctx, bool ignore_semicolon, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence);
@@ -18050,15 +18007,8 @@ int initializer_init_new(struct parser_ctx* ctx,
 
 struct object* _Opt find_object_declarator_by_index(struct object* p_object, struct member_declaration_list* list, int member_index);
 
-struct diagnostic_id_stack* _Opt  build_diagnostic_id_stack(struct parser_ctx* ctx,
-    struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence,
-                               struct diagnostic_id_stack* stack,
-                               int diagnostic_phase);
+void check_dianostic_suppression_core(struct parser_ctx* ctx, struct token* pToken, int phase);
 
-void warn_unrecognized_warnings(struct parser_ctx* ctx,
-    struct diagnostic_id_stack* stack,
-    struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence,
-    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack);
 
 
 #include <math.h>
@@ -19417,7 +19367,7 @@ int object_set(
                 {
                     struct token* _Opt tk = p_init_expression->first_token;
 
-                    compiler_diagnostic(C_ERROR_REQUIRES_COMPILE_TIME_VALUE,
+                    diagnostic(C_ERROR_REQUIRES_COMPILE_TIME_VALUE,
                         ctx,
                         tk,
                         NULL,
@@ -21651,7 +21601,7 @@ static int compare_function_arguments(struct parser_ctx* ctx,
 
         if (p_current_argument != NULL && !p_param_list->is_var_args)
         {
-            compiler_diagnostic(C_ERROR_TOO_MANY_ARGUMENTS, ctx,
+            diagnostic(C_ERROR_TOO_MANY_ARGUMENTS, ctx,
                                         p_current_argument->expression->first_token, NULL,
                                         "too many arguments");
             throw;
@@ -21661,14 +21611,14 @@ static int compare_function_arguments(struct parser_ctx* ctx,
         {
             if (p_argument_expression_list->tail)
             {
-                compiler_diagnostic(C_ERROR_TOO_FEW_ARGUMENTS, ctx,
+                diagnostic(C_ERROR_TOO_FEW_ARGUMENTS, ctx,
                                             p_argument_expression_list->tail->expression->first_token,
                     NULL,
                                             "too few arguments");
             }
             else
             {
-                compiler_diagnostic(C_ERROR_TOO_FEW_ARGUMENTS, ctx, ctx->current, NULL, "too few arguments");
+                diagnostic(C_ERROR_TOO_FEW_ARGUMENTS, ctx, ctx->current, NULL, "too few arguments");
             }
             throw;
         }
@@ -21840,7 +21790,7 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
         }
         else
         {
-            compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unexpected");
+            diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unexpected");
         }
         if (parser_match_tk(ctx, ':') != 0)
             throw;
@@ -21912,14 +21862,14 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, enum 
             {
                 if (p_default_generic_association != NULL)
                 {
-                    if (compiler_diagnostic(C_ERROR_DUPLICATE_DEFAULT_GENERIC_ASSOCIATION,
+                    if (diagnostic(C_ERROR_DUPLICATE_DEFAULT_GENERIC_ASSOCIATION,
                         ctx,
                         p_generic_association2->first_token,
                         NULL,
                         "duplicate default generic association."))
                     {
 
-                        compiler_diagnostic(W_LOCATION,
+                        diagnostic(W_LOCATION,
                             ctx,
                             p_default_generic_association->first_token,
                             NULL,
@@ -22171,12 +22121,12 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
             if (*p != '\'')
             {
-                compiler_diagnostic(C_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters.");
+                diagnostic(C_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters.");
             }
 
             if (c > 0x80)
             {
-                compiler_diagnostic(C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT, ctx, ctx->current, NULL, "character not encodable in a single code unit.");
+                diagnostic(C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT, ctx, ctx->current, NULL, "character not encodable in a single code unit.");
             }
 
             p_expression_node->object = object_make_unsigned_char(ctx->options.target, (unsigned char)c);//, ctx->evaluation_is_disabled);
@@ -22204,12 +22154,12 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
             if (*p != '\'')
             {
-                compiler_diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters.");
+                diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters.");
             }
 
             if (c > UINT16_MAX)
             {
-                compiler_diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
+                diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
             }
 
             p_expression_node->object = object_make_wchar_t(ctx->options.target, c);
@@ -22237,14 +22187,14 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
             if (*p != '\'')
             {
-                compiler_diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters.");
+                diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters.");
             }
 
             //Official definition (ISO/IEC 10646)
             //CS codespace — the finite set of code points from 0 to 0x10FFFF (inclusive).
             if (c > 0x10FFFF || c > UINT32_MAX)
             {
-                compiler_diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
+                diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
             }
 
             p_expression_node->object = object_make_wchar_t(ctx->options.target, c);
@@ -22296,7 +22246,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
                 if (value > (long long)wchar_max_value)
                 {
-                    compiler_diagnostic(W_OUT_OF_BOUNDS, ctx, ctx->current, NULL, "character constant too long for its type", ctx->current->lexeme);
+                    diagnostic(W_OUT_OF_BOUNDS, ctx, ctx->current, NULL, "character constant too long for its type", ctx->current->lexeme);
                     break;
                 }
             }
@@ -22348,7 +22298,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
                 if (value > (long long)int_max_value)
                 {
-                    compiler_diagnostic(W_OUT_OF_BOUNDS, ctx, ctx->current, NULL, "character constant too long for its type", ctx->current->lexeme);
+                    diagnostic(W_OUT_OF_BOUNDS, ctx, ctx->current, NULL, "character constant too long for its type", ctx->current->lexeme);
                     break;
                 }
                 multi_character_literal = true;
@@ -22425,7 +22375,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
     enum token_type r = parse_number(buffer, suffix, errormsg);
     if (r == TK_NONE)
     {
-        compiler_diagnostic(
+        diagnostic(
             C_INVALID_TOKEN,
             ctx,
             token,
@@ -22471,7 +22421,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
 
         if (value == unsigned_long_long_max_value && errno == ERANGE)
         {
-            compiler_diagnostic(
+            diagnostic(
             C_ERROR_LITERAL_OVERFLOW,
             ctx,
             token,
@@ -22535,7 +22485,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             }
             else
             {
-                compiler_diagnostic(W_IMPLICITLY_UNSIGNED_LITERAL,
+                diagnostic(W_IMPLICITLY_UNSIGNED_LITERAL,
                                     ctx,
                                     token,
                                     NULL,
@@ -22587,7 +22537,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             }
             else
             {
-                compiler_diagnostic(W_IMPLICITLY_UNSIGNED_LITERAL,
+                diagnostic(W_IMPLICITLY_UNSIGNED_LITERAL,
                                     ctx,
                                     token,
                                     NULL,
@@ -22624,7 +22574,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             }
             else
             {
-                compiler_diagnostic(W_IMPLICITLY_UNSIGNED_LITERAL,
+                diagnostic(W_IMPLICITLY_UNSIGNED_LITERAL,
                                     ctx,
                                     token,
                                     NULL,
@@ -22655,7 +22605,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             {
                 if (isinf(value))
                 {
-                    compiler_diagnostic(W_FLOAT_RANGE,
+                    diagnostic(W_FLOAT_RANGE,
                                         ctx,
                                         token,
                                         NULL,
@@ -22663,7 +22613,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 }
                 else
                 {
-                    compiler_diagnostic(W_FLOAT_RANGE,
+                    diagnostic(W_FLOAT_RANGE,
                                      ctx,
                                      token,
                                      NULL,
@@ -22673,7 +22623,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             else if ((value > 0 && value > (double)FLT_MAX) ||
                      (value < 0 && value < -(double)FLT_MAX))
             {
-                compiler_diagnostic(W_FLOAT_RANGE,
+                diagnostic(W_FLOAT_RANGE,
                                     ctx,
                                     token,
                                     NULL,
@@ -22682,7 +22632,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             else if (value > 0 && value < (double)FLT_MIN)
             {
                 /*Minimum positive*/
-                compiler_diagnostic(W_FLOAT_RANGE,
+                diagnostic(W_FLOAT_RANGE,
                                     ctx,
                                     token,
                                     NULL,
@@ -22700,7 +22650,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             {
                 if (isinf(value))
                 {
-                    compiler_diagnostic(W_FLOAT_RANGE,
+                    diagnostic(W_FLOAT_RANGE,
                                         ctx,
                                         token,
                                         NULL,
@@ -22708,7 +22658,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 }
                 else
                 {
-                    compiler_diagnostic(W_FLOAT_RANGE,
+                    diagnostic(W_FLOAT_RANGE,
                                      ctx,
                                      token,
                                      NULL,
@@ -22727,7 +22677,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             {
                 if (isinf(value))
                 {
-                    compiler_diagnostic(W_FLOAT_RANGE,
+                    diagnostic(W_FLOAT_RANGE,
                                         ctx,
                                         token,
                                         NULL,
@@ -22735,7 +22685,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 }
                 else
                 {
-                    compiler_diagnostic(W_FLOAT_RANGE,
+                    diagnostic(W_FLOAT_RANGE,
                                      ctx,
                                      token,
                                      NULL,
@@ -22829,13 +22779,13 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                 if (p_declarator->declaration_specifiers &&
                     p_declarator->declaration_specifiers->attributes_flags & STD_ATTRIBUTE_DEPRECATED)
                 {
-                    compiler_diagnostic(W_DEPRECATED, ctx, ctx->current, NULL, "'%s' is deprecated", ctx->current->lexeme);
+                    diagnostic(W_DEPRECATED, ctx, ctx->current, NULL, "'%s' is deprecated", ctx->current->lexeme);
                 }
 
 
                 if (type_is_deprecated(&p_declarator->type))
                 {
-                    compiler_diagnostic(W_DEPRECATED, ctx, ctx->current, NULL, "'%s' is deprecated", ctx->current->lexeme);
+                    diagnostic(W_DEPRECATED, ctx, ctx->current, NULL, "'%s' is deprecated", ctx->current->lexeme);
                 }
 
                 assert(p_scope != NULL);
@@ -22876,7 +22826,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                     {
                         if (type_is_vm(&p_declarator->type))
                         {
-                            compiler_diagnostic(C_ERROR_OUTER_SCOPE,
+                            diagnostic(C_ERROR_OUTER_SCOPE,
                                    ctx,
                                    p_expression_node->first_token,
                                    NULL,
@@ -22914,7 +22864,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                         }
                         else
                         {
-                            compiler_diagnostic(C_ERROR_OUTER_SCOPE,
+                            diagnostic(C_ERROR_OUTER_SCOPE,
                                ctx,
                                p_expression_node->first_token,
                                NULL,
@@ -22936,7 +22886,6 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             else if (ctx->p_current_function_opt &&
                      strcmp(ctx->current->lexeme, "__func__") == 0)
             {
-
                 const char* func_name = ctx->p_current_function_opt->name_opt ?
                     ctx->p_current_function_opt->name_opt->lexeme :
                     "unnamed";
@@ -22949,7 +22898,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             }
             else
             {
-                compiler_diagnostic(C_ERROR_NOT_FOUND, ctx, p_expression_node->first_token, NULL, "identifier '%s' not declared", ctx->current->lexeme);
+                diagnostic(C_ERROR_NOT_FOUND, ctx, p_expression_node->first_token, NULL, "identifier '%s' not declared", ctx->current->lexeme);
                 throw;
             }
             parser_match(ctx);
@@ -23025,7 +22974,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                     while (p2[len2] != '"') len2++;
                     if (len1 != len2 || strncmp(p1, p2, len1) != 0)
                     {
-                        compiler_diagnostic(W_WARNING_LIT_STRING, ctx, ctx->current, NULL,
+                        diagnostic(W_WARNING_LIT_STRING, ctx, ctx->current, NULL,
                             "concatenation of string literals with different encoding prefixes");
                     }
                 }
@@ -23233,7 +23182,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             }
             else
             {
-                compiler_diagnostic(C_ERROR_NO_MATCH_FOR_GENERIC, ctx, ctx->current, NULL, "no match for generic");
+                diagnostic(C_ERROR_NO_MATCH_FOR_GENERIC, ctx, ctx->current, NULL, "no match for generic");
             }
         }
         else if (ctx->current->type == '(')
@@ -23324,7 +23273,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
         }
         else
         {
-            compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unexpected");
+            diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unexpected");
             throw;
         }
     }
@@ -23522,7 +23471,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 if (!type_is_pointer_or_array(&p_expression_node->type))
                 {
-                    compiler_diagnostic(C_ERROR_SUBSCRIPTED_VALUE_IS_NEITHER_ARRAY_NOR_POINTER,
+                    diagnostic(C_ERROR_SUBSCRIPTED_VALUE_IS_NEITHER_ARRAY_NOR_POINTER,
                                                 ctx,
                                                 ctx->current, NULL,
                                                 "subscripted value is neither array nor pointer");
@@ -23557,7 +23506,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 if (!type_is_integer(&p_expression_node_new->right->type))
                 {
-                    compiler_diagnostic(C_ERROR_SUBSCRIPT_IS_NOT_AN_INTEGER,
+                    diagnostic(C_ERROR_SUBSCRIPT_IS_NOT_AN_INTEGER,
                                             ctx,
                                             p_expression_node_new->right->first_token,
                                             NULL,
@@ -23575,7 +23524,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                         {
                             if (index >= (unsigned long long)p_expression_node->type.array_num_elements)
                             {
-                                compiler_diagnostic(W_OUT_OF_BOUNDS,
+                                diagnostic(W_OUT_OF_BOUNDS,
                                                             ctx,
                                                             ctx->current, NULL,
                                                             "index %d is past the end of the array", index);
@@ -23609,7 +23558,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 if (!type_is_function_or_function_pointer(&p_expression_node->type))
                 {
-                    compiler_diagnostic(C_ERROR_CALLED_OBJECT_IS_NOT_FUNCTION_OR_FUNCTION_POINTER,
+                    diagnostic(C_ERROR_CALLED_OBJECT_IS_NOT_FUNCTION_OR_FUNCTION_POINTER,
                                                 ctx,
                                                 ctx->current,
                                                 NULL,
@@ -23744,7 +23693,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                         }
                         else
                         {
-                            compiler_diagnostic(C_ERROR_STRUCT_MEMBER_NOT_FOUND,
+                            diagnostic(C_ERROR_STRUCT_MEMBER_NOT_FOUND,
                                                     ctx,
                                                     ctx->current, NULL,
                                                     "member '%s' not found in 'struct %s'",
@@ -23754,7 +23703,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     }
                     else
                     {
-                        compiler_diagnostic(C_ERROR_STRUCT_MEMBER_NOT_FOUND,
+                        diagnostic(C_ERROR_STRUCT_MEMBER_NOT_FOUND,
                                                  ctx,
                                                  ctx->current, NULL,
                                                  "incomplete struct type '%s'",
@@ -23770,7 +23719,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 }
                 else
                 {
-                    compiler_diagnostic(C_ERROR_STRUCTURE_OR_UNION_REQUIRED,
+                    diagnostic(C_ERROR_STRUCTURE_OR_UNION_REQUIRED,
                                                 ctx,
                                                 ctx->current, NULL,
                                                 "structure or union required");
@@ -23810,7 +23759,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     struct type item_type = { 0 };
                     if (type_is_array(&p_expression_node->type))
                     {
-                        compiler_diagnostic(W_ARRAY_INDIRECTION, ctx, ctx->current, NULL, "using indirection '->' in array");
+                        diagnostic(W_ARRAY_INDIRECTION, ctx, ctx->current, NULL, "using indirection '->' in array");
                         item_type = get_array_item_type(&p_expression_node->type);
                     }
                     else
@@ -23857,7 +23806,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                             }
                             else
                             {
-                                compiler_diagnostic(C_ERROR_STRUCT_MEMBER_NOT_FOUND,
+                                diagnostic(C_ERROR_STRUCT_MEMBER_NOT_FOUND,
                                                             ctx,
                                                             ctx->current, NULL,
                                                             "member '%s' not found in struct '%s'",
@@ -23867,7 +23816,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                         }
                         else
                         {
-                            compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE,
+                            diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE,
                                                         ctx,
                                                         ctx->current, NULL,
                                                         "struct '%s' is incomplete.",
@@ -23883,7 +23832,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     }
                     else
                     {
-                        compiler_diagnostic(C_ERROR_STRUCTURE_OR_UNION_REQUIRED,
+                        diagnostic(C_ERROR_STRUCTURE_OR_UNION_REQUIRED,
                                                     ctx,
                                                     ctx->current, NULL,
                                                     "structure or union required");
@@ -23892,7 +23841,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 }
                 else
                 {
-                    compiler_diagnostic(C_ERROR_STRUCTURE_OR_UNION_REQUIRED,
+                    diagnostic(C_ERROR_STRUCTURE_OR_UNION_REQUIRED,
                                                 ctx,
                                                 ctx->current, NULL,
                                                 "structure or union required");
@@ -23908,7 +23857,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 if (type_is_owner(&p_expression_node->type))
                 {
-                    compiler_diagnostic(C_ERROR_OPERATOR_INCREMENT_CANNOT_BE_USED_IN_OWNER,
+                    diagnostic(C_ERROR_OPERATOR_INCREMENT_CANNOT_BE_USED_IN_OWNER,
                                                 ctx,
                                                 p_expression_node->first_token, NULL,
                                                 "operator ++ cannot be used in _Owner pointers");
@@ -23916,7 +23865,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 if (!expression_is_lvalue(p_expression_node))
                 {
-                    compiler_diagnostic(C_ERROR_OPERATOR_NEEDS_LVALUE,
+                    diagnostic(C_ERROR_OPERATOR_NEEDS_LVALUE,
                                                 ctx,
                                                 p_expression_node->first_token, NULL,
                                                 "lvalue required as increment operand");
@@ -23952,7 +23901,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 if (type_is_owner(&p_expression_node->type))
                 {
-                    compiler_diagnostic(C_ERROR_OPERATOR_DECREMENT_CANNOT_BE_USED_IN_OWNER,
+                    diagnostic(C_ERROR_OPERATOR_DECREMENT_CANNOT_BE_USED_IN_OWNER,
                                                 ctx,
                                                 p_expression_node->first_token, NULL,
                                                 "operator -- cannot be used in owner pointers");
@@ -23960,7 +23909,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 if (!expression_is_lvalue(p_expression_node))
                 {
-                    compiler_diagnostic(C_ERROR_OPERATOR_NEEDS_LVALUE,
+                    diagnostic(C_ERROR_OPERATOR_NEEDS_LVALUE,
                                                 ctx,
                                                 p_expression_node->first_token, NULL,
                                                 "lvalue required as decrement operand");
@@ -24046,7 +23995,7 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
             const struct declarator* _Opt inner = declarator_get_innert_function_declarator(p_expression_node->type_name->abstract_declarator);
             if (inner && inner->direct_declarator && inner->direct_declarator->function_declarator == NULL)
             {
-                compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->type_name->first_token, NULL, "missing function declarator");
+                diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->type_name->first_token, NULL, "missing function declarator");
                 throw;
             }
 
@@ -24054,12 +24003,12 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
             {
                 if (p_expression_node->p_storage_class_specifiers->storage_class_specifier_flags != STORAGE_SPECIFIER_STATIC)
                 {
-                    compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->type_name->first_token, NULL, "only static is allowed");
+                    diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->type_name->first_token, NULL, "only static is allowed");
                 }
             }
             else
             {
-                compiler_diagnostic(C_ERROR_UNEXPECTED,
+                diagnostic(C_ERROR_UNEXPECTED,
                     ctx,
                     p_expression_node->type_name->first_token,
                     NULL,
@@ -24099,13 +24048,13 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
             if (type_is_vla(&p_expression_node->type))
             {
                 /* void f(int n) { (int [n]){}; } */
-                compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "compound literal cannot be of variable-length array type");
+                diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "compound literal cannot be of variable-length array type");
             }
 
             int er = make_object(&p_expression_node->type, &p_expression_node->object, ctx->options.target);
             if (er != 0)
             {
-                compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "incomplete struct/union type");
+                diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "incomplete struct/union type");
             }
 
             const bool is_constant = type_is_const_or_constexpr(&p_expression_node->type);
@@ -24304,7 +24253,7 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
      */
     if (type_is_bitfield(p_type))
     {
-        compiler_diagnostic(C_ERROR_INVALID_TYPE,
+        diagnostic(C_ERROR_INVALID_TYPE,
                             ctx,
                             p_expression->first_token,
                             NULL,
@@ -24325,7 +24274,7 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
          * an expression that has an incomplete type.  void is incomplete
          * and can never be completed.
          */
-        compiler_diagnostic(C_ERROR_INVALID_TYPE,
+        diagnostic(C_ERROR_INVALID_TYPE,
                             ctx,
                             p_expression->first_token,
                             NULL,
@@ -24342,7 +24291,7 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
         if (p_complete == NULL)
         {
             /* The sizeof operator shall not be applied to an expression that has function type or an incomplete type */
-            compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE,
+            diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE,
                                        ctx,
                                        p_expression->first_token,
                                        NULL,
@@ -24354,7 +24303,7 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
     {
         if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
         {
-            compiler_diagnostic(W_SIZEOF_ARRAY_ARGUMENT,
+            diagnostic(W_SIZEOF_ARRAY_ARGUMENT,
                                         ctx,
                                         p_expression->first_token,
                                         NULL,
@@ -24507,7 +24456,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             /* Visual Studio formatter is adding spaces... */
             if (style_has_space(ctx->current))
             {
-                compiler_diagnostic(W_STYLE, ctx, ctx->current, "don't use spaces");
+                diagnostic(W_STYLE, ctx, ctx->current, "don't use spaces");
             }
 #endif
 
@@ -24534,7 +24483,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             {
                 if (!type_is_integer(&new_expression->right->type))
                 {
-                    compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER,
+                    diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER,
                                                ctx,
                                                op_position,
                                                NULL,
@@ -24596,7 +24545,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
 
                 if (!type_is_pointer_or_array(&new_expression->right->type))
                 {
-                    compiler_diagnostic(C_ERROR_INDIRECTION_REQUIRES_POINTER_OPERAND,
+                    diagnostic(C_ERROR_INDIRECTION_REQUIRES_POINTER_OPERAND,
                                                 ctx,
                                                 op_position,
                         NULL,
@@ -24608,7 +24557,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 }
                 else
                 {
-                    compiler_diagnostic(W_ARRAY_INDIRECTION,
+                    diagnostic(W_ARRAY_INDIRECTION,
                                                 ctx,
                                                 op_position, NULL,
                                                 "array indirection");
@@ -24633,7 +24582,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
 
                 if (new_expression->right->lvalue_disabled)
                 {
-                    compiler_diagnostic(C_ERROR_ADDRESS_OF_REGISTER,
+                    diagnostic(C_ERROR_ADDRESS_OF_REGISTER,
                         ctx,
                         new_expression->right->first_token,
                         NULL,
@@ -24647,7 +24596,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                  */
                 if (type_is_bitfield(&new_expression->right->type))
                 {
-                    compiler_diagnostic(C_ERROR_ADDRESS_OF_REGISTER,
+                    diagnostic(C_ERROR_ADDRESS_OF_REGISTER,
                                         ctx,
                                         new_expression->right->first_token,
                                         NULL,
@@ -24656,7 +24605,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
 
                 if (!expression_is_lvalue(new_expression->right))
                 {
-                    compiler_diagnostic(C_ERROR_ADDRESS_OF_REGISTER,
+                    diagnostic(C_ERROR_ADDRESS_OF_REGISTER,
                                                 ctx,
                                                 new_expression->right->first_token,
                                                 NULL,
@@ -24673,7 +24622,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                         variable_name = new_expression->right->declarator->name_opt->lexeme;
                     }
 
-                    compiler_diagnostic(C_ERROR_ADDRESS_OF_REGISTER,
+                    diagnostic(C_ERROR_ADDRESS_OF_REGISTER,
                                                 ctx,
                                                 new_expression->right->first_token,
                                                 NULL,
@@ -24688,7 +24637,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             else
             {
                 expression_delete(new_expression);
-                compiler_diagnostic(C_ERROR_INVALID_TOKEN,
+                diagnostic(C_ERROR_INVALID_TOKEN,
                                             ctx,
                                             ctx->current,
                     NULL,
@@ -24932,7 +24881,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 // GCC extension: __builtin_offsetof supports designators like
                 // s.field or arr[0].field, but only simple identifier is currently
                 // implemented. https://gcc.gnu.org/onlinedocs/gcc/Offsetof.html
-                compiler_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->current, NULL,
+                diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->current, NULL,
                     "__builtin_offsetof: only a simple member name is supported");
                 expression_delete(new_expression);
                 throw;
@@ -24962,14 +24911,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             case SIZEOF_RESULT_RUNTIME:
             case SIZEOF_RESULT_INCOMPLETE:
             case SIZEOF_RESULT_FUNCTION:
-                compiler_diagnostic(W_SIZEOF_FUNCTION,
+                diagnostic(W_SIZEOF_FUNCTION,
                ctx,
                new_expression->first_token,
                NULL,
                "size of function");
                 break;
             case SIZEOF_RESULT_BITFIELD:
-                compiler_diagnostic(C_ERROR_INVALID_TYPE,
+                diagnostic(C_ERROR_INVALID_TYPE,
                     ctx,
                     new_expression->first_token,
                     NULL,
@@ -25092,7 +25041,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                     break;
 
                 case SIZEOF_RESULT_FUNCTION:
-                    compiler_diagnostic(W_SIZEOF_FUNCTION,
+                    diagnostic(W_SIZEOF_FUNCTION,
                                         ctx,
                                         new_expression->first_token,
                                         NULL,
@@ -25190,7 +25139,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 }
                 else
                 {
-                    compiler_diagnostic(C_INVALID_ARGUMENT_NELEMENTSOF,
+                    diagnostic(C_INVALID_ARGUMENT_NELEMENTSOF,
                                         ctx,
                                         new_expression->type_name->first_token,
                                         NULL,
@@ -25265,7 +25214,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 }
                 else
                 {
-                    compiler_diagnostic(C_INVALID_ARGUMENT_NELEMENTSOF,
+                    diagnostic(C_INVALID_ARGUMENT_NELEMENTSOF,
                         ctx,
                         new_expression->right->first_token,
                         NULL,
@@ -25680,7 +25629,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
                     p_storage_class_specifiers /*MOVED*/,
                     open_parenthesis_token,
                     eval_mode);
-                
+
                 p_type_name = NULL;                /*MOVED*/
                 p_storage_class_specifiers = NULL; /*MOVED*/
 
@@ -25699,7 +25648,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
                 if (type_is_floating_point(&p_expression_node->type) &&
                     type_is_pointer(&p_expression_node->left->type))
                 {
-                    compiler_diagnostic(C_ERROR_POINTER_TO_FLOATING_TYPE,
+                    diagnostic(C_ERROR_POINTER_TO_FLOATING_TYPE,
                         ctx,
                         p_expression_node->first_token,
                         NULL,
@@ -25708,7 +25657,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
                 else if (type_is_pointer(&p_expression_node->type) &&
                          type_is_floating_point(&p_expression_node->left->type))
                 {
-                    compiler_diagnostic(C_ERROR_FLOATING_TYPE_TO_POINTER,
+                    diagnostic(C_ERROR_FLOATING_TYPE_TO_POINTER,
                      ctx,
                      p_expression_node->first_token,
                      NULL,
@@ -25727,7 +25676,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
                     }
                     else
                     {
-                        compiler_diagnostic(C_ERROR_NULLPTR_CAST_ERROR,
+                        diagnostic(C_ERROR_NULLPTR_CAST_ERROR,
                         ctx,
                         p_expression_node->first_token,
                         NULL,
@@ -25748,7 +25697,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
                     }
                     else
                     {
-                        compiler_diagnostic(C_ERROR_NULLPTR_CAST_ERROR,
+                        diagnostic(C_ERROR_NULLPTR_CAST_ERROR,
                         ctx,
                         p_expression_node->left->first_token,
                         NULL,
@@ -25764,11 +25713,11 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
                         if (type_is_pointer(&p_expression_node->left->type))
                         {
                             //(int*) malloc(1)
-                            compiler_diagnostic(W_OWNERSHIP_DISCARDING_OWNER, ctx, p_expression_node->first_token, NULL, "discarding _Owner pointer");
+                            diagnostic(W_OWNERSHIP_DISCARDING_OWNER, ctx, p_expression_node->first_token, NULL, "discarding _Owner pointer");
                         }
                         else
                         {
-                            compiler_diagnostic(W_OWNERSHIP_DISCARDING_OWNER, ctx, p_expression_node->first_token, NULL, "discarding _Owner");
+                            diagnostic(W_OWNERSHIP_DISCARDING_OWNER, ctx, p_expression_node->first_token, NULL, "discarding _Owner");
                         }
                     }
                 }
@@ -25797,7 +25746,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
                         }
                         else
                         {
-                            //compiler_diagnostic(W_CAST_TO_SAME_TYPE,
+                            //diagnostic(W_CAST_TO_SAME_TYPE,
                               //                  ctx,
                                 //                p_expression_node->first_token,
                                   //              NULL,
@@ -25818,7 +25767,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
             }
             else
             {
-                compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "expected expression");
+                diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "expected expression");
             }
         }
         else if (is_first_of_unary_expression(ctx))
@@ -25831,7 +25780,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
         }
         else
         {
-            compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "expected expression");
+            diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "expected expression");
             assert(p_expression_node == NULL);
             throw;
         }
@@ -25934,7 +25883,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
                 /* The operands of the % operator shall have integer type */
                 if (!type_is_integer(&new_expression->left->type))
                 {
-                    compiler_diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER,
+                    diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER,
                         ctx,
                         new_expression->left->first_token,
                         NULL,
@@ -25943,7 +25892,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
 
                 if (!type_is_integer(&new_expression->right->type))
                 {
-                    compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER,
+                    diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER,
                         ctx,
                         new_expression->right->first_token,
                         NULL,
@@ -25955,7 +25904,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
                 /* Each of the operands shall have arithmetic type */
                 if (!type_is_arithmetic(&new_expression->left->type))
                 {
-                    compiler_diagnostic(C_ERROR_LEFT_IS_NOT_ARITHMETIC,
+                    diagnostic(C_ERROR_LEFT_IS_NOT_ARITHMETIC,
                         ctx,
                         new_expression->left->first_token,
                         NULL,
@@ -25964,7 +25913,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
 
                 if (!type_is_arithmetic(&new_expression->right->type))
                 {
-                    compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_ARITHMETIC,
+                    diagnostic(C_ERROR_RIGHT_IS_NOT_ARITHMETIC,
                         ctx,
                         new_expression->right->first_token,
                         NULL,
@@ -25994,7 +25943,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
 
                         if (warning_message[0] != '\0')
                         {
-                            compiler_diagnostic(W_INTEGER_OVERFLOW,
+                            diagnostic(W_INTEGER_OVERFLOW,
                                 ctx,
                                 NULL,
                                 &m,
@@ -26011,7 +25960,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
 
                         if (warning_message[0] != '\0')
                         {
-                            compiler_diagnostic(W_DIVIZION_BY_ZERO,
+                            diagnostic(W_DIVIZION_BY_ZERO,
                                 ctx,
                                 NULL,
                                 &m,
@@ -26028,7 +25977,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
 
                         if (warning_message[0] != '\0')
                         {
-                            compiler_diagnostic(W_DIVIZION_BY_ZERO,
+                            diagnostic(W_DIVIZION_BY_ZERO,
                                 ctx,
                                 NULL,
                                 &m,
@@ -26079,7 +26028,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
             {
-                compiler_diagnostic(C_ERROR_OUT_OF_MEM, ctx, ctx->current, NULL, "out of mem");
+                diagnostic(C_ERROR_OUT_OF_MEM, ctx, ctx->current, NULL, "out of mem");
                 throw;
             }
 
@@ -26110,12 +26059,12 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
 
             if (!type_is_scalar_decay(&new_expression->left->type))
             {
-                compiler_diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, operator_position, NULL, "left operator is not scalar");
+                diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, operator_position, NULL, "left operator is not scalar");
             }
 
             if (!type_is_scalar_decay(&new_expression->right->type))
             {
-                compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, operator_position, NULL, "right operator is not scalar");
+                diagnostic(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, operator_position, NULL, "right operator is not scalar");
             }
 
             const bool b_left_is_arithmetic = type_is_arithmetic(&new_expression->left->type);
@@ -26157,7 +26106,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
 
                             if (warning_message[0] != '\0')
                             {
-                                compiler_diagnostic(W_INTEGER_OVERFLOW,
+                                diagnostic(W_INTEGER_OVERFLOW,
                                     ctx,
                                     NULL,
                                     &m,
@@ -26187,7 +26136,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
                         }
                         else
                         {
-                            compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "expected integer type on right");
+                            diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "expected integer type on right");
                         }
                     }
                     else if (right_category == TYPE_CATEGORY_POINTER || right_category == TYPE_CATEGORY_ARRAY /*|| right_category == TYPE_CATEGORY_FUNCTION*/)
@@ -26205,12 +26154,12 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
                         }
                         else
                         {
-                            compiler_diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "expected integer type on left");
+                            diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "expected integer type on left");
                         }
                     }
                     else
                     {
-                        compiler_diagnostic(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "invalid types additive expression");
+                        diagnostic(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "invalid types additive expression");
                     }
                 }
             }
@@ -26251,7 +26200,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
 
                             if (warning_message[0] != '\0')
                             {
-                                compiler_diagnostic(W_INTEGER_OVERFLOW,
+                                diagnostic(W_INTEGER_OVERFLOW,
                                     ctx,
                                     NULL,
                                     &m,
@@ -26274,7 +26223,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
 
                             if (!type_is_same(&t1, &t2, false))
                             {
-                                compiler_diagnostic(C_ERROR_INCOMPATIBLE_POINTER_TYPES, ctx, ctx->current, NULL, "incompatible pointer types");
+                                diagnostic(C_ERROR_INCOMPATIBLE_POINTER_TYPES, ctx, ctx->current, NULL, "incompatible pointer types");
                             }
 
                             new_expression->type = type_make_ptrdiff_t(ctx->options.target);
@@ -26290,13 +26239,13 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
                             }
                             else
                             {
-                                compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right must be integer type");
+                                diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right must be integer type");
                             }
                         }
                     }
                     else
                     {
-                        compiler_diagnostic(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "invalid types for operator -");
+                        diagnostic(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "invalid types for operator -");
                     }
                 }
             }
@@ -26375,14 +26324,14 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, enum exp
             if (!type_is_integer(&new_expression->left->type))
             {
                 expression_delete(new_expression);
-                compiler_diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
+                diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
                 throw;
             }
 
             if (!type_is_integer(&new_expression->right->type))
             {
                 expression_delete(new_expression);
-                compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
+                diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
                 throw;
             }
 
@@ -26427,14 +26376,14 @@ static void check_comparison(struct parser_ctx* ctx,
     {
         if (op_token->type == '<')
         {
-            compiler_diagnostic(W_CONDITIONAL_IS_CONSTANT,
+            diagnostic(W_CONDITIONAL_IS_CONSTANT,
                                 ctx,
                                 op_token, NULL,
                                 "comparison of unsigned expression < 0 is always false");
         }
         else if (op_token->type == '>=')
         {
-            compiler_diagnostic(W_CONDITIONAL_IS_CONSTANT,
+            diagnostic(W_CONDITIONAL_IS_CONSTANT,
                                 ctx,
                                 op_token, NULL,
                                 "comparison of unsigned expression >= 0 is always true");
@@ -26446,14 +26395,14 @@ static void check_comparison(struct parser_ctx* ctx,
     {
         if (op_token->type == '>')
         {
-            compiler_diagnostic(W_CONDITIONAL_IS_CONSTANT,
+            diagnostic(W_CONDITIONAL_IS_CONSTANT,
                                 ctx,
                                 op_token, NULL,
                                 "comparison 0 > unsigned expression is always false");
         }
         else if (op_token->type == '<=')
         {
-            compiler_diagnostic(W_CONDITIONAL_IS_CONSTANT,
+            diagnostic(W_CONDITIONAL_IS_CONSTANT,
                                 ctx,
                                 op_token, NULL,
                                 "comparison 0 <= unsigned expression is always true");
@@ -26477,7 +26426,7 @@ static void check_comparison(struct parser_ctx* ctx,
         else
         {
             /* array functions */
-            compiler_diagnostic(W_ENUN_CONVERSION,
+            diagnostic(W_ENUN_CONVERSION,
                                         ctx,
                                         op_token, NULL,
                                         "comparison between pointer and integer");
@@ -26494,7 +26443,7 @@ static void check_comparison(struct parser_ctx* ctx,
         }
         else
         {
-            compiler_diagnostic(W_BOOL_COMPARISON,
+            diagnostic(W_BOOL_COMPARISON,
                                  ctx,
                                  op_token, NULL,
                                  "comparison bool with non bool");
@@ -26513,7 +26462,7 @@ static void check_comparison(struct parser_ctx* ctx,
         }
         else
         {
-            compiler_diagnostic(W_BOOL_COMPARISON,
+            diagnostic(W_BOOL_COMPARISON,
                                  ctx,
                                  op_token, NULL,
                                  "comparison bool with non bool");
@@ -26639,7 +26588,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, enu
                             warning_id = W_INTEGER_OVERFLOW;
                             if (warning_message[0] != '\0')
                             {
-                                compiler_diagnostic(warning_id,
+                                diagnostic(warning_id,
                                     ctx,
                                     NULL,
                                     &m,
@@ -26657,7 +26606,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, enu
                             warning_id = W_INTEGER_OVERFLOW;
                             if (warning_message[0] != '\0')
                             {
-                                compiler_diagnostic(warning_id,
+                                diagnostic(warning_id,
                                     ctx,
                                     NULL,
                                     &m,
@@ -26675,7 +26624,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, enu
                             warning_id = W_INTEGER_OVERFLOW;
                             if (warning_message[0] != '\0')
                             {
-                                compiler_diagnostic(warning_id,
+                                diagnostic(warning_id,
                                     ctx,
                                     NULL,
                                     &m,
@@ -26693,7 +26642,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, enu
                             warning_id = W_INTEGER_OVERFLOW;
                             if (warning_message[0] != '\0')
                             {
-                                compiler_diagnostic(warning_id,
+                                diagnostic(warning_id,
                                     ctx,
                                     NULL,
                                     &m,
@@ -26758,7 +26707,7 @@ void check_diferent_enuns(struct parser_ctx* ctx,
                 lefttag,
                 righttag);
 
-            compiler_diagnostic(W_ENUN_CONVERSION,
+            diagnostic(W_ENUN_CONVERSION,
                                         ctx,
                                         operator_token, NULL,
                                         finalmessage,
@@ -26921,13 +26870,13 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, enum expre
             /* Each of the operands shall have integer type */
             if (!type_is_integer(&new_expression->left->type))
             {
-                compiler_diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
+                diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
                 throw;
             }
 
             if (!type_is_integer(&new_expression->right->type))
             {
-                compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
+                diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
                 throw;
             }
 
@@ -27000,13 +26949,13 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx, 
             /* Each of the operands shall have integer type */
             if (!type_is_integer(&new_expression->left->type))
             {
-                compiler_diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
+                diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
                 throw;
             }
 
             if (!type_is_integer(&new_expression->right->type))
             {
-                compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
+                diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
                 throw;
             }
 
@@ -27089,14 +27038,14 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx, e
             if (!type_is_integer(&new_expression->left->type))
             {
                 expression_delete(new_expression);
-                compiler_diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
+                diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
                 throw;
             }
 
             if (!type_is_integer(&new_expression->right->type))
             {
                 expression_delete(new_expression);
-                compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
+                diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
                 throw;
             }
 
@@ -27203,14 +27152,14 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx, en
             if (!type_is_scalar_decay(&new_expression->left->type))
             {
                 expression_delete(new_expression);
-                compiler_diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "left type is not scalar for or expression");
+                diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "left type is not scalar for or expression");
                 throw;
             }
 
             if (!type_is_scalar_decay(&new_expression->right->type))
             {
                 expression_delete(new_expression);
-                compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "right type is not scalar for or expression");
+                diagnostic(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "right type is not scalar for or expression");
                 throw;
             }
 
@@ -27328,14 +27277,14 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx, enu
             if (!type_is_scalar_decay(&new_expression->left->type))
             {
                 expression_delete(new_expression);
-                compiler_diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "left type is not scalar for or expression");
+                diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "left type is not scalar for or expression");
                 throw;
             }
 
             if (!type_is_scalar_decay(&new_expression->right->type))
             {
                 expression_delete(new_expression);
-                compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "right type is not scalar for or expression");
+                diagnostic(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "right type is not scalar for or expression");
                 throw;
             }
 
@@ -27456,7 +27405,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, enu
 
             if (type_is_function(&new_expression->left->type))
             {
-                compiler_diagnostic(C_ERROR_ASSIGNMENT_OF_FUNCTION,
+                diagnostic(C_ERROR_ASSIGNMENT_OF_FUNCTION,
                     ctx,
                     NULL,
                     &left_operand_marker,
@@ -27469,7 +27418,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, enu
                     /*
                       assignment of array parameter
                     */
-                    compiler_diagnostic(W_ASSIGNMENT_OF_ARRAY_PARAMETER,
+                    diagnostic(W_ASSIGNMENT_OF_ARRAY_PARAMETER,
                         ctx,
                         NULL,
                         &left_operand_marker,
@@ -27477,7 +27426,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, enu
                 }
                 else
                 {
-                    compiler_diagnostic(C_ERROR_ASSIGNMENT_TO_EXPRESSION_WITH_ARRAY_TYPE,
+                    diagnostic(C_ERROR_ASSIGNMENT_TO_EXPRESSION_WITH_ARRAY_TYPE,
                         ctx,
                         NULL,
                         &left_operand_marker,
@@ -27487,7 +27436,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, enu
 
             if (type_is_const(&new_expression->left->type))
             {
-                compiler_diagnostic(C_ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT,
+                diagnostic(C_ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT,
                     ctx,
                     NULL,
                     &left_operand_marker,
@@ -27497,7 +27446,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, enu
 
             if (!expression_is_lvalue(new_expression->left))
             {
-                compiler_diagnostic(C_ERROR_OPERATOR_NEEDS_LVALUE,
+                diagnostic(C_ERROR_OPERATOR_NEEDS_LVALUE,
                                             ctx,
                                             NULL,
                                             &left_operand_marker,
@@ -27578,12 +27527,12 @@ struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, enum e
         {
             if (ctx->p_current_try_statement_opt == NULL)
             {
-                compiler_diagnostic(C_ERROR_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK, ctx, ctx->current, NULL, "checked expression not within try-catch block");
+                diagnostic(C_ERROR_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK, ctx, ctx->current, NULL, "checked expression not within try-catch block");
             }
 
             if (!type_is_scalar(&p_expression_node->type))
             {
-                compiler_diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, p_expression_node->first_token, NULL, "left operator is not scalar");
+                diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, p_expression_node->first_token, NULL, "left operator is not scalar");
             }
 
             struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
@@ -27994,7 +27943,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
             /*The first operand shall have scalar type*/
             if (!type_is_scalar_decay(&p_conditional_expression->condition_expr->type))
             {
-                compiler_diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE, ctx, ctx->current, NULL, "condition must have scalar type");
+                diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE, ctx, ctx->current, NULL, "condition must have scalar type");
             }
             else if (type_is_arithmetic(&left_type) &&
                      type_is_arithmetic(&right_type))
@@ -28012,7 +27961,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
                  */
                 if (!type_is_same(&left_type, &right_type, true))
                 {
-                    compiler_diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL, "incompatible types");
+                    diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL, "incompatible types");
                 }
                 type_swap(&p_conditional_expression->type, &right_type);
             }
@@ -28051,7 +28000,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
                     {
                         // type_print(&left_type);
                         // type_print(&right_type);
-                        compiler_diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, ctx->current, NULL, "incompatible types");
+                        diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, ctx->current, NULL, "incompatible types");
                     }
                     else
                     {
@@ -28060,7 +28009,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
                 }
                 else
                 {
-                    compiler_diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL, "incompatible types");
+                    diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL, "incompatible types");
                 }
             }
             else if (type_is_pointer(&right_type))
@@ -28079,7 +28028,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
                     }
                     else if (!type_is_same(&left_type, &right_type, false))
                     {
-                        compiler_diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL, "incompatible types");
+                        diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL, "incompatible types");
                     }
                     else
                     {
@@ -28088,12 +28037,12 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
                 }
                 else
                 {
-                    compiler_diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL, "incompatible types");
+                    diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL, "incompatible types");
                 }
             }
             else
             {
-                compiler_diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL, "incompatible types");
+                diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL, "incompatible types");
             }
             p_expression_node = p_conditional_expression;
         }
@@ -28118,7 +28067,7 @@ struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool 
         p_expression &&
         !object_has_constant_value(&p_expression->object))
     {
-        compiler_diagnostic(C_ERROR_EXPECTED_CONSTANT_EXPRESSION, ctx, ctx->current, NULL, "expected constant expression");
+        diagnostic(C_ERROR_EXPECTED_CONSTANT_EXPRESSION, ctx, ctx->current, NULL, "expected constant expression");
     }
 
     return p_expression;
@@ -28237,7 +28186,7 @@ void check_assigment(struct parser_ctx* ctx,
      */
     if (type_is_void(p_b_type) && !type_is_void(p_a_type))
     {
-        compiler_diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
+        diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
                             ctx,
                             p_b_expression->first_token,
                             NULL,
@@ -28258,7 +28207,7 @@ void check_assigment(struct parser_ctx* ctx,
                     return c.a;
                   }
                 */
-                compiler_diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
+                diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
                            ctx,
                            p_b_expression->first_token,
                            NULL,
@@ -28276,7 +28225,7 @@ void check_assigment(struct parser_ctx* ctx,
                 {
                     // This is the only exception.
                     // p = 0;
-                    compiler_diagnostic(W_STYLE, ctx, p_b_expression->first_token, NULL, "use NULL instead of 0");
+                    diagnostic(W_STYLE, ctx, p_b_expression->first_token, NULL, "use NULL instead of 0");
                 }
                 else
                 {
@@ -28284,12 +28233,12 @@ void check_assigment(struct parser_ctx* ctx,
                     // p = false;
                     // p = 1-1;
                     // p = '\0';
-                    compiler_diagnostic(W_UNSUAL_NULL_POINTER_CONSTANT, ctx, p_b_expression->first_token, NULL, "unusual expression/type used as null pointer constant");
+                    diagnostic(W_UNSUAL_NULL_POINTER_CONSTANT, ctx, p_b_expression->first_token, NULL, "unusual expression/type used as null pointer constant");
                 }
             }
             else
             {
-                compiler_diagnostic(C_ERROR_INT_TO_POINTER, ctx, p_b_expression->first_token, NULL, "non-pointer to pointer");
+                diagnostic(C_ERROR_INT_TO_POINTER, ctx, p_b_expression->first_token, NULL, "non-pointer to pointer");
             }
         }
     }
@@ -28301,7 +28250,7 @@ void check_assigment(struct parser_ctx* ctx,
         .p_token_end = p_b_expression->first_token
         };
 
-        compiler_diagnostic(W_NULL_CONVERTION,
+        diagnostic(W_NULL_CONVERTION,
         ctx,
         NULL,
         &marker,
@@ -28324,7 +28273,7 @@ void check_assigment(struct parser_ctx* ctx,
     {
         if (!is_null_pointer_constant)
         {
-            compiler_diagnostic(W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, p_b_expression->first_token, NULL, "cannot assign a non-owner to owner");
+            diagnostic(W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, p_b_expression->first_token, NULL, "cannot assign a non-owner to owner");
             type_destroy(&b_type_lvalue);
             //type_destroy(&t2);
             return;
@@ -28335,7 +28284,7 @@ void check_assigment(struct parser_ctx* ctx,
     {
         if (p_b_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
         {
-            compiler_diagnostic(W_OWNERSHIP_USING_TEMPORARY_OWNER,
+            diagnostic(W_OWNERSHIP_USING_TEMPORARY_OWNER,
                 ctx,
                 p_b_expression->first_token, NULL,
                 "cannot assign a temporary owner to non-owner object.");
@@ -28351,7 +28300,7 @@ void check_assigment(struct parser_ctx* ctx,
         {
             if (is_automatic_variable(p_b_expression->type.storage_class_specifier_flags))
             {
-                compiler_diagnostic(C_ERROR_RETURN_LOCAL_OWNER_TO_NON_OWNER,
+                diagnostic(C_ERROR_RETURN_LOCAL_OWNER_TO_NON_OWNER,
                     ctx,
                     p_b_expression->first_token, NULL,
                     "cannot return a automatic storage duration _Owner to non-owner");
@@ -28386,7 +28335,7 @@ void check_assigment(struct parser_ctx* ctx,
         }
         else if (!p_b_type->address_of)
         {
-            compiler_diagnostic(W_MUST_USE_ADDRESSOF,
+            diagnostic(W_MUST_USE_ADDRESSOF,
                        ctx,
                        p_b_expression->first_token, NULL,
                        "source expression of _Dtor must be addressof");
@@ -28400,7 +28349,7 @@ void check_assigment(struct parser_ctx* ctx,
         is_null_pointer_constant)
     {
 
-        compiler_diagnostic(W_NULLABLE_TO_NON_NULLABLE,
+        diagnostic(W_NULLABLE_TO_NON_NULLABLE,
             ctx,
             p_b_expression->first_token, NULL,
             "cannot convert a null pointer constant to non-nullable pointer");
@@ -28421,7 +28370,7 @@ void check_assigment(struct parser_ctx* ctx,
             long long v = object_to_signed_long_long(&p_b_expression->object);
             if (v < 0)
             {
-                compiler_diagnostic(W_SIGNED_TO_UNSIGNED,
+                diagnostic(W_SIGNED_TO_UNSIGNED,
                                    ctx,
                                    p_b_expression->first_token,
                                    NULL,
@@ -28431,7 +28380,7 @@ void check_assigment(struct parser_ctx* ctx,
         }
         else
         {
-            compiler_diagnostic(W_SIGNED_TO_UNSIGNED,
+            diagnostic(W_SIGNED_TO_UNSIGNED,
                                ctx,
                                p_b_expression->first_token,
                                NULL,
@@ -28447,7 +28396,7 @@ void check_assigment(struct parser_ctx* ctx,
     {
         if (!type_is_same(p_b_type, p_a_type, false))
         {
-            compiler_diagnostic(W_INCOMPATIBLE_ENUN_TYPES, ctx,
+            diagnostic(W_INCOMPATIBLE_ENUN_TYPES, ctx,
                 p_b_expression->first_token, NULL,
                 " incompatible types ");
         }
@@ -28481,7 +28430,7 @@ void check_assigment(struct parser_ctx* ctx,
 
     if (is_null_pointer_constant && type_is_array(p_a_type))
     {
-        compiler_diagnostic(W_PASSING_NULL_AS_ARRAY,
+        diagnostic(W_PASSING_NULL_AS_ARRAY,
             ctx,
             p_b_expression->first_token, NULL,
             " passing null as array");
@@ -28520,7 +28469,7 @@ void check_assigment(struct parser_ctx* ctx,
             struct type a_pointed = type_remove_pointer(p_a_type);
             if (type_is_const(&b_pointed) && !type_is_const(&a_pointed))
             {
-                compiler_diagnostic(W_DISCARDED_QUALIFIERS, ctx,
+                diagnostic(W_DISCARDED_QUALIFIERS, ctx,
                     p_b_expression->first_token, NULL,
                     "discarding const qualifier via void pointer");
             }
@@ -28546,14 +28495,14 @@ void check_assigment(struct parser_ctx* ctx,
                     if (parameter_array_size != 0 &&
                         argument_array_size < parameter_array_size)
                     {
-                        compiler_diagnostic(C_ERROR_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE, ctx,
+                        diagnostic(C_ERROR_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE, ctx,
                             p_b_expression->first_token, NULL,
                             " argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
                     }
                 }
                 else if (is_null_pointer_constant || type_is_nullptr_t(p_b_type))
                 {
-                    compiler_diagnostic(W_PASSING_NULL_AS_ARRAY, ctx,
+                    diagnostic(W_PASSING_NULL_AS_ARRAY, ctx,
                         p_b_expression->first_token, NULL,
                         " passing null as array");
                 }
@@ -28572,7 +28521,7 @@ void check_assigment(struct parser_ctx* ctx,
             type_print(&b_type_lvalue, ctx->options.target);
             type_print(&a_type_lvalue, ctx->options.target);
 
-            compiler_diagnostic(W_ERROR_INCOMPATIBLE_TYPES, ctx,
+            diagnostic(W_ERROR_INCOMPATIBLE_TYPES, ctx,
                 p_b_expression->first_token, NULL,
                 " incompatible types");
         }
@@ -28600,7 +28549,7 @@ void check_assigment(struct parser_ctx* ctx,
 
                 if (type_is_const(&b_next) && !type_is_const(&a_next))
                 {
-                    compiler_diagnostic(W_DISCARDED_QUALIFIERS, ctx,
+                    diagnostic(W_DISCARDED_QUALIFIERS, ctx,
                         p_b_expression->first_token, NULL,
                         assignment_type == ASSIGMENT_TYPE_PARAMETER
                             ? "discarding const qualifier at argument"
@@ -28626,7 +28575,7 @@ void check_assigment(struct parser_ctx* ctx,
 
     if (!type_is_same(p_a_type, &b_type_lvalue, false))
     {
-        // compiler_diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
+        // diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
         //     ctx,
         //       p_b_expression->first_token, 
         //       NULL,
@@ -29814,15 +29763,15 @@ bool flow_object_can_be_uninitialized(const struct flow_object* p);
 
 bool flow_object_can_have_its_lifetime_ended(const struct flow_object* p);
 
-void flow_object_print_state(struct flow_object* p);
+void flow_object_print_state(struct flow_object* p, struct osstream* ss0);
 
 void object_set_pointer(struct flow_object* p_object, struct flow_object* p_object2);
 
 void flow_object_destroy(_Dtor struct flow_object* p);
 void flow_object_delete(struct flow_object* _Owner _Opt p);
 void flow_object_swap(struct flow_object* a, struct flow_object* b);
-void print_object_line(struct flow_object* p_object, int cols);
-void print_object_state_to_str(enum flow_state e, char str[], int sz);
+void print_object_line(struct flow_object* p_object, int cols, struct osstream* ss);
+void print_object_state_to_str(enum flow_state e, char str[], int sz, struct osstream* ss);
 
 struct declarator;
 struct flow_object* _Opt make_flow_object(struct flow_visit_ctx* ctx,
@@ -29844,7 +29793,7 @@ struct flow_visit_ctx;
 struct token;
 
 
-void print_flow_object(bool color_enabled, struct type* p_type, struct flow_object* p_object, bool short_version);
+void print_flow_object(bool color_enabled, struct type* p_type, struct flow_object* p_object, bool short_version, struct osstream* ss0);
 
 struct marker;
 
@@ -29951,10 +29900,12 @@ struct defer_visit_ctx
     struct defer_scope* _Owner _Opt tail_block;
     int parameter_list;
 
-    /*we have two modes of visit, one is to find the label*/
-    const char* label_name;
+        
+    /* special visit to find labels-- */
     bool searching_label_mode;    
-    struct label* p_label;
+    const char* _Opt label_name;
+    struct label* _Opt p_label;
+    /*-------------------------------*/
 
     struct declaration* p_declaration;
 };
@@ -29973,7 +29924,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.13.28"
+#define CAKE_VERSION "0.13.29"
 
 
 
@@ -29992,7 +29943,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
  
 //#pragma once
 
-struct d_visit_ctx
+struct codegen_ctx
 {
     struct options options;
     int indentation;
@@ -30055,11 +30006,11 @@ struct d_visit_ctx
     bool is__func__predefined_identifier_added;
     struct try_statement* _Opt p_current_try_statement;
 
-    _View struct ast ast;    
+    struct ast * p_ast;    
 };
 
-void d_visit(struct d_visit_ctx* ctx, struct osstream* oss);
-void d_visit_ctx_destroy( _Dtor struct d_visit_ctx* ctx);
+void codegen_visit(struct codegen_ctx* ctx, struct osstream* oss);
+void codegen_visit_ctx_destroy( _Dtor struct codegen_ctx* ctx);
 
 
 
@@ -30121,7 +30072,7 @@ static void check_open_brace_style(struct parser_ctx* ctx, struct token* token)
             }
             else
             {
-                compiler_diagnostic(W_STYLE, ctx, token, NULL, "not following correct brace style {");
+                diagnostic(W_STYLE, ctx, token, NULL, "not following correct brace style {");
             }
         }
     }
@@ -30146,7 +30097,7 @@ static void check_close_brace_style(struct parser_ctx* ctx, struct token* token)
             }
             else
             {
-                compiler_diagnostic(W_STYLE, ctx, token, NULL, "not following correct close brace style }");
+                diagnostic(W_STYLE, ctx, token, NULL, "not following correct close brace style }");
             }
         }
     }
@@ -30169,7 +30120,7 @@ static void check_func_open_brace_style(struct parser_ctx* ctx, struct token* to
             }
             else
             {
-                compiler_diagnostic(W_STYLE, ctx, token, NULL, "not following correct brace style {");
+                diagnostic(W_STYLE, ctx, token, NULL, "not following correct brace style {");
             }
         }
     }
@@ -30445,7 +30396,7 @@ static void stringfy(const char* input, char* json_str_message, int output_size)
         json_str_message[output_size - 1] = '\0';
 }
 
-_Bool compiler_diagnostic(enum diagnostic_id w,
+_Bool diagnostic(enum diagnostic_id w,
     const struct parser_ctx* ctx,
     const struct token* _Opt p_token_opt,
     const struct marker* _Opt p_marker_temp,
@@ -30453,23 +30404,6 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
 {
 
     const bool color_enabled = !ctx->options.color_disabled;
-
-    if (ctx->p_diagnostic_id_stack &&
-        ctx->p_diagnostic_id_stack->size > 0)
-    {
-        enum diagnostic_id d =
-            ctx->p_diagnostic_id_stack->stack[ctx->p_diagnostic_id_stack->size - 1];
-
-        if (d == w)
-        {
-            diagnostic_id_stack_pop(ctx->p_diagnostic_id_stack);
-            return  false;
-        }
-        else
-        {
-
-        }
-    }
 
     bool included_file_location = false;
     struct marker marker = { 0 };
@@ -30511,6 +30445,7 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
     if (is_error)
     {
         /* counted at print time */
+        ctx->p_report->has_errors = true;
     }
     else if (is_location)
     {
@@ -30845,7 +30780,6 @@ bool first_of_type_qualifier(const struct parser_ctx* ctx)
 
     if (ctx->current->type == TK_KEYWORD_CONST)
     {
-        //[[cake::W35]]
         struct token* _Opt ahead = parser_look_ahead(ctx);
         if (ahead && ahead->type == '(')
             return false; //expression const(expr)
@@ -31599,7 +31533,7 @@ static void token_promote(const struct parser_ctx* ctx, struct token* token)
         token->type = parse_number(token->lexeme, suffix, errormsg);
         if (token->type == TK_NONE)
         {
-            compiler_diagnostic(C_INVALID_TOKEN, ctx, token, NULL, errormsg);
+            diagnostic(C_INVALID_TOKEN, ctx, token, NULL, errormsg);
         }
     }
 }
@@ -31635,38 +31569,77 @@ static struct token* _Opt pragma_declaration_match(const struct token* p_current
 }
 
 
-static void parser_skip_blanks(struct parser_ctx* ctx)
+void check_dianostic_suppression_core(struct parser_ctx* ctx, struct token* pToken, int phase)
+{
+    if (pToken->type == TK_LINE_COMMENT || pToken->type == TK_COMMENT)
+    {
+        int ids[LINT_IDS_MAX] = { 0 };
+        int count = parse_diagnostic_suppression(pToken->lexeme, ids);
+
+        for (int i = 0; i < count; i++)
+        {
+            if (get_diagnostic_phase(ids[i]) == phase)
+            {
+                if (!diagnostic_queue_remove(&ctx->diagnostic_queue, pToken->line, (enum diagnostic_id)ids[i]))
+                {
+                    ids[i] = -ids[i];
+                }
+            }
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            if (ids[i] < 0)
+            {
+                diagnostic(W_WARNING_DID_NOT_HAPPEN,
+                                           ctx,
+                                           pToken,
+                                           NULL,
+                                           "diagnostic '%d' not recognized",
+                                           -ids[i]);
+            }
+        }
+    }
+}
+
+void check_compiler_dianostic_suppression(struct parser_ctx* ctx, struct token* pToken)
+{
+    check_dianostic_suppression_core(ctx, pToken, 0);
+}
+
+static void check_dianostic_suppression_after(struct parser_ctx* ctx, struct token* pToken)
+{
+    check_dianostic_suppression_core(ctx, pToken, 1);
+}
+
+static void parser_skip_blanks(struct parser_ctx* ctx, struct token** _Opt pp_token_lint)
 {
     while (ctx->current && !(ctx->current->flags & TK_FLAG_FINAL))
     {
-        if (ctx->current->type == TK_LINE_COMMENT ||
-            ctx->current->type == TK_COMMENT)
+        if ((ctx->current->flags & TK_FLAG_ACTIVE) &&
+            (ctx->current->type == TK_LINE_COMMENT))
         {
-            int ids[LINT_IDS_MAX] = { 0 };
-            int count = parse_diagnostic_suppression(ctx->current->lexeme, ids);
-            for (int i = 0; i < count; i++)
+            bool lint =
+                ctx->current->lexeme[2] == 'l' &&
+                ctx->current->lexeme[3] == 'i' &&
+                ctx->current->lexeme[4] == 'n' &&
+                ctx->current->lexeme[5] == 't' &&
+                ctx->current->lexeme[6] == ' ';
+            if (lint)
             {
-                if (get_diagnostic_phase(ids[i]) != 2)
+                if (pp_token_lint)
                 {
-                    if (!diagnostic_queue_remove(&ctx->diagnostic_queue,
-                        ctx->current->line,
-                        (enum diagnostic_id)ids[i]))
-                    {
-                        ids[i] = -ids[i];
-                    }
-                }
-            }
 
-            for (int i = 0; i < count; i++)
-            {
-                if (ids[i] < 0)
+                    /* it will not be executated right now, we will keep to execute later */
+                    *pp_token_lint = ctx->current;
+                    if (ctx->current)
+                        ctx->current = ctx->current->next;
+                    continue;
+                }
+                else
                 {
-                    compiler_diagnostic(W_WARNING_DID_NOT_HAPPEN,
-                                               ctx,
-                                               ctx->current,
-                                               NULL,
-                                               "diagnostic '%d' not recognized",
-                                               -ids[i]);
+                    /* execute now */
+                    check_dianostic_suppression_core(ctx, ctx->current, 0);
                 }
             }
         }
@@ -31688,23 +31661,23 @@ void parser_match(struct parser_ctx* ctx)
 
     ctx->previous = ctx->current;
     ctx->current = ctx->current->next;
-    parser_skip_blanks(ctx);
+    parser_skip_blanks(ctx, NULL);
 }
 
 void unexpected_end_of_file(struct parser_ctx* ctx)
 {
-    compiler_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, NULL, "unexpected end of file");
+    diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, NULL, "unexpected end of file");
 }
 
 _Attr(nodiscard)
-int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
+static int parser_match_tk_core(struct parser_ctx* ctx, enum token_type type, struct token** _Opt pp_token_lint)
 {
     int error = 0;
     if (ctx->current != NULL)
     {
         if (ctx->current->type != type)
         {
-            compiler_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
+            diagnostic(C_ERROR_UNEXPECTED_TOKEN,
                 ctx,
                 ctx->current,
                 NULL,
@@ -31718,16 +31691,29 @@ int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
 
         ctx->previous = ctx->current;
         ctx->current = ctx->current->next;
-        parser_skip_blanks(ctx);
+        parser_skip_blanks(ctx, pp_token_lint);
     }
     else
     {
-        compiler_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, NULL, "unexpected end of file after");
+        diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, NULL, "unexpected end of file after");
         error = 1;
     }
 
     return error;
 }
+
+_Attr(nodiscard)
+int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
+{
+    return parser_match_tk_core(ctx, type, NULL);
+}
+
+_Attr(nodiscard)
+int parser_match_tk_lint(struct parser_ctx* ctx, enum token_type type, struct token** pp_token_lint)
+{
+    return parser_match_tk_core(ctx, type, pp_token_lint);
+}
+
 
 void print_declaration_specifiers(struct osstream* ss, struct declaration_specifiers* p_declaration_specifiers)
 {
@@ -31775,7 +31761,7 @@ bool type_specifier_is_integer(enum type_specifier_flags flags)
     return false;
 }
 
-int final_specifier(struct parser_ctx* ctx, enum type_specifier_flags* flags)
+int final_specifier(const struct parser_ctx* ctx, enum type_specifier_flags* flags)
 {
     if (((*flags) & TYPE_SPECIFIER_UNSIGNED) ||
         ((*flags) & TYPE_SPECIFIER_SIGNED))
@@ -31804,7 +31790,7 @@ int add_specifier(struct parser_ctx* ctx,
     {
         if ((*flags) & TYPE_SPECIFIER_LONG_LONG) /* already had long long */
         {
-            compiler_diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG, ctx, ctx->current, NULL, "cannot combine with previous 'long long' declaration specifier");
+            diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG, ctx, ctx->current, NULL, "cannot combine with previous 'long long' declaration specifier");
             return 1;
         }
         else if ((*flags) & TYPE_SPECIFIER_LONG) /* already had one long */
@@ -31874,7 +31860,7 @@ int add_specifier(struct parser_ctx* ctx,
     case TYPE_SPECIFIER_TYPEDEF:
         break;
     default:
-        compiler_diagnostic(C_ERROR_TWO_OR_MORE_SPECIFIERS, ctx, ctx->current, NULL, "incompatible specifiers");
+        diagnostic(C_ERROR_TWO_OR_MORE_SPECIFIERS, ctx, ctx->current, NULL, "incompatible specifiers");
         return 1;
     }
 
@@ -32020,7 +32006,7 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
                     || (old_flags & STORAGE_SPECIFIER_STATIC && new_flags & STORAGE_SPECIFIER_TYPEDEF))
                 {
                     /*typedef + static*/
-                    compiler_diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG,
+                    diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG,
                         ctx,
                         p_declaration_specifier->storage_class_specifier->token,
                         NULL,
@@ -32204,7 +32190,7 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
 #endif
                 else
                 {
-                    if (!without_semicolon && parser_match_tk(ctx, ';') != 0)
+                    if (!without_semicolon && parser_match_tk_lint(ctx, ';', &p_declaration->lint_token) != 0)
                         throw;
                 }
             }
@@ -32212,11 +32198,11 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
             {
                 if (ctx->current->type == TK_IDENTIFIER)
                 {
-                    compiler_diagnostic(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "invalid type '%s'", ctx->current->lexeme);
+                    diagnostic(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "invalid type '%s'", ctx->current->lexeme);
                 }
                 else
                 {
-                    compiler_diagnostic(C_ERROR_EXPECTED_DECLARATION,
+                    diagnostic(C_ERROR_EXPECTED_DECLARATION,
                         ctx,
                         ctx->current,
                         NULL,
@@ -32233,6 +32219,10 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
     }
 
 
+    if (p_declaration && p_declaration->lint_token)
+    {
+        check_compiler_dianostic_suppression(ctx, p_declaration->lint_token);
+    }
 
     attribute_specifier_sequence_delete(p_attribute_specifier_sequence);
 
@@ -32347,7 +32337,7 @@ static void check_unused_parameters(struct parser_ctx* ctx, struct parameter_lis
                 parameter->declarator->name_opt->level == 0 /*direct source*/
                 )
             {
-                compiler_diagnostic(W_UNUSED_PARAMETER,
+                diagnostic(W_UNUSED_PARAMETER,
                     ctx,
                     parameter->declarator->name_opt, NULL,
                     "'%s': unreferenced formal parameter",
@@ -32377,13 +32367,6 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 
         bool is_function_definition = false;
 
-        struct diagnostic_id_stack stack = { 0 };
-        struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
-            build_diagnostic_id_stack(ctx,
-                p_attribute_specifier_sequence,
-                &stack,
-                0);
-
         p_declaration = declaration_core(ctx, p_attribute_specifier_sequence, true, &is_function_definition, storage_specifier_flags, false);
         p_attribute_specifier_sequence = NULL;  //MOVED
 
@@ -32399,15 +32382,16 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 p_declaration->init_declarator_list.head->p_declarator->direct_declarator == NULL ||
                 p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator == NULL)
             {
-                compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unexpected");
+                diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unexpected");
                 throw; //unexpected
             }
 
             if (storage_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE)
             {
+                assert(p_declaration->declaration_specifiers != NULL);
                 if (!(p_declaration->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC))
                 {
-                    compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_declaration->first_token,
+                    diagnostic(C_ERROR_UNEXPECTED, ctx, p_declaration->first_token,
                         NULL,
                         "function defined in block scope must have 'static' storage qualifier");
                 }
@@ -32453,9 +32437,9 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             if (p_declarator->name_opt == NULL)
             {
                 if (p_declarator->first_token_opt)
-                    compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_declarator->first_token_opt, NULL, "missing function declarator");
+                    diagnostic(C_ERROR_UNEXPECTED, ctx, p_declarator->first_token_opt, NULL, "missing function declarator");
                 else
-                    compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "missing function declarator");
+                    diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "missing function declarator");
 
                 throw;
             }
@@ -32482,7 +32466,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             p_declaration->function_body = p_function_body;
             p_declaration->init_declarator_list.head->p_declarator->function_body = p_declaration->function_body;
 
-            if (p_declaration->init_declarator_list.head && 
+            if (p_declaration->init_declarator_list.head &&
                 p_declaration->init_declarator_list.head->p_declarator->direct_declarator &&
                 p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator &&
                 p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt &&
@@ -32497,7 +32481,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                    Now we have the function body, let's see if we had a previous
                    function body.
                 */
-                const char* func_name = p_declaration->init_declarator_list.head->p_declarator->name_opt ? 
+                const char* func_name = p_declaration->init_declarator_list.head->p_declarator->name_opt ?
                     p_declaration->init_declarator_list.head->p_declarator->name_opt->lexeme : "";
 
                 struct scope* _Opt p_previous_scope = NULL;
@@ -32511,14 +32495,14 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                     {
                         if (p_previous_declarator->function_body)
                         {
-                            compiler_diagnostic(
+                            diagnostic(
                                  C_ERROR_REDECLARATION,
                                  ctx,
                                  p_declaration->init_declarator_list.head->p_declarator->name_opt,
                                  NULL,
                                  "function redefinition");
 
-                            compiler_diagnostic(W_LOCATION,
+                            diagnostic(W_LOCATION,
                                 ctx,
                                 p_previous_declarator->name_opt,
                                 NULL,
@@ -32535,7 +32519,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 
             if (extern_declaration && ctx->p_report->error_count == 0)
             {
-                struct defer_visit_ctx ctx2 = { .ctx = ctx };
+                struct defer_visit_ctx ctx2 = { .ctx = ctx , .p_declaration = p_declaration };
                 defer_start_visit_declaration(&ctx2, p_declaration);
                 defer_visit_ctx_destroy(&ctx2);
             }
@@ -32552,10 +32536,13 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             }
         }
 
-        warn_unrecognized_warnings(ctx,
-                &stack,
-                p_declaration->p_attribute_specifier_sequence,
-                p_diagnostic_id_stack);
+        
+
+        if (p_declaration->function_body && 
+            p_declaration->function_body->lint_token)
+        {
+            check_compiler_dianostic_suppression(ctx, p_declaration->function_body->lint_token);
+        }
     }
     catch
     {
@@ -32616,7 +32603,7 @@ struct declaration_specifier* _Owner _Opt declaration_specifier(struct parser_ct
         }
         else
         {
-            compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unexpected");
+            diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unexpected");
         }
     }
     catch
@@ -32743,7 +32730,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
         if (tkname == NULL)
         {
-            compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "init declarator must have a name");
+            diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "init declarator must have a name");
             throw;
         }
 
@@ -32781,7 +32768,8 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         }
 
         /////////////////////////////////////////////////////////////////////////////
-        const char* declarator_name = p_init_declarator->p_declarator->name_opt->lexeme;
+        const char* declarator_name = p_init_declarator->p_declarator->name_opt ? p_init_declarator->p_declarator->name_opt->lexeme : "";
+
         struct scope* _Opt out_scope = NULL;
         struct declarator* _Opt p_previous_declarator = find_declarator(ctx, declarator_name, &out_scope);
         if (p_previous_declarator)
@@ -32805,7 +32793,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                             struct osstream ss = { 0 };
                             print_type_no_names(&ss, &p_previous_declarator->type, ctx->options.target);
 
-                            compiler_diagnostic(
+                            diagnostic(
                                 C_ERROR_REDECLARATION,
                                 ctx,
                                 ctx->current,
@@ -32815,7 +32803,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                             ss_clear(&ss);
                             print_type_no_names(&ss, &p_init_declarator->p_declarator->type, ctx->options.target);
 
-                            compiler_diagnostic(W_LOCATION,
+                            diagnostic(W_LOCATION,
                                 ctx,
                                 p_previous_declarator->name_opt,
                                 NULL,
@@ -32832,9 +32820,9 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        if (compiler_diagnostic(C_ERROR_REDECLARATION, ctx, ctx->current, NULL, "redeclaration"))
+                        if (diagnostic(C_ERROR_REDECLARATION, ctx, ctx->current, NULL, "redeclaration"))
                         {
-                            compiler_diagnostic(W_LOCATION, ctx, p_previous_declarator->name_opt, NULL, "previous declaration");
+                            diagnostic(W_LOCATION, ctx, p_previous_declarator->name_opt, NULL, "previous declaration");
                         }
                     }
                 }
@@ -32843,6 +32831,8 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 {
                     if (type_is_function(&p_previous_declarator->type))
                     {
+                        assert(p_previous_declarator->declaration_specifiers != NULL);
+
                         if (!(p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
                              (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
                             )
@@ -32852,13 +32842,13 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                               static void f();
                             */
 
-                            compiler_diagnostic(C_ERROR_REDECLARATION,
+                            diagnostic(C_ERROR_REDECLARATION,
                                                 ctx,
                                                 ctx->current,
                                                 NULL,
                                                 "static declaration of 'f' follows non-static declaration", declarator_name);
 
-                            compiler_diagnostic(W_LOCATION,
+                            diagnostic(W_LOCATION,
                                 ctx,
                                 p_previous_declarator->name_opt,
                                 NULL,
@@ -32878,9 +32868,9 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 if (out_scope->scope_level != 0)
                 {
                     /* but show warning for redeclaration at function scope */
-                    if (compiler_diagnostic(W_DECLARATOR_HIDE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "declaration of '%s' hides previous declaration", declarator_name))
+                    if (diagnostic(W_DECLARATOR_HIDE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "declaration of '%s' hides previous declaration", declarator_name))
                     {
-                        compiler_diagnostic(W_LOCATION, ctx, p_previous_declarator->first_token_opt, NULL, "previous declaration is here");
+                        diagnostic(W_LOCATION, ctx, p_previous_declarator->first_token_opt, NULL, "previous declaration is here");
                     }
                 }
             }
@@ -32935,7 +32925,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        compiler_diagnostic(C_ERROR_INVALID_VLA_INITIALIZATION,
+                        diagnostic(C_ERROR_INVALID_VLA_INITIALIZATION,
                         ctx,
                         p_init_declarator->p_declarator->first_token_opt,
                         NULL,
@@ -32947,7 +32937,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 {
                     if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
                     {
-                        compiler_diagnostic(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "'auto' requires a plain identifier");
+                        diagnostic(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "'auto' requires a plain identifier");
                         throw;
                     }
 
@@ -32955,7 +32945,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     int er = make_object(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object, ctx->options.target);
                     if (er != 0)
                     {
-                        compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
+                        diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
                         throw;
                     }
 
@@ -32985,7 +32975,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             {
                 if (type_is_vla(&p_init_declarator->p_declarator->type))
                 {
-                    compiler_diagnostic(C_ERROR_INVALID_VLA_INITIALIZATION,
+                    diagnostic(C_ERROR_INVALID_VLA_INITIALIZATION,
                            ctx,
                            p_init_declarator->p_declarator->first_token_opt,
                            NULL,
@@ -33007,7 +32997,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         {
                             if (p_init_declarator->p_declarator->first_token_opt)
                             {
-                                compiler_diagnostic(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "initializer for array is too long");
+                                diagnostic(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "initializer for array is too long");
                             }
                         }
                     }
@@ -33025,13 +33015,13 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         (p_init_declarator->p_declarator->direct_declarator->array_declarator != NULL ||
                             p_init_declarator->p_declarator->direct_declarator->function_declarator != NULL))
                     {
-                        compiler_diagnostic(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "'auto' requires a plain identifier");
+                        diagnostic(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "'auto' requires a plain identifier");
                         throw;
                     }
 
                     if (p_init_declarator->p_declarator->pointer != NULL)
                     {
-                        compiler_diagnostic(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "'auto' requires a plain identifier");
+                        diagnostic(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "'auto' requires a plain identifier");
                     }
 
                     struct type t = { 0 };
@@ -33049,7 +33039,10 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
                     type_remove_names(&t);
                     assert(t.name_opt == NULL);
-                    t.name_opt = strdup(p_init_declarator->p_declarator->name_opt->lexeme);
+                    if (p_init_declarator->p_declarator->name_opt)
+                    {
+                        t.name_opt = strdup(p_init_declarator->p_declarator->name_opt->lexeme);
+                    }
 
                     /*
                       consider:
@@ -33119,7 +33112,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
+                        diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
                         throw;
                     }
                 }
@@ -33132,7 +33125,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        compiler_diagnostic(W_CONST_NOT_INITIALIZED,
+                        diagnostic(W_CONST_NOT_INITIALIZED,
                             ctx,
                             p_init_declarator->p_declarator->first_token_opt, NULL,
                             "const object should be initialized");
@@ -33152,14 +33145,14 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 {
                     if (p_init_declarator->p_declarator->first_token_opt)
                     {
-                        compiler_diagnostic(C_ERROR_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
+                        diagnostic(C_ERROR_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
                             ctx,
                             p_init_declarator->p_declarator->first_token_opt, NULL,
                             "static or type qualifiers are not allowed in non-parameter array declarator");
                     }
                     else if (p_init_declarator->initializer)
                     {
-                        compiler_diagnostic(C_ERROR_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
+                        diagnostic(C_ERROR_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
                         ctx,
                         p_init_declarator->initializer->first_token, NULL,
                         "static or type qualifiers are not allowed in non-parameter array declarator");
@@ -33171,14 +33164,14 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             {
                 if (p_init_declarator->p_declarator->first_token_opt)
                 {
-                    compiler_diagnostic(C_ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
+                    diagnostic(C_ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
                         ctx,
                         p_init_declarator->p_declarator->first_token_opt, NULL,
                         "_Dtor qualifier can only be used with pointers");
                 }
                 else if (p_init_declarator->initializer)
                 {
-                    compiler_diagnostic(C_ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
+                    diagnostic(C_ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
                     ctx,
                     p_init_declarator->initializer->first_token, NULL,
                     "_Dtor qualifier can only be used with pointers");
@@ -33197,7 +33190,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 2602 |C_ASSERT(TYPE_ALIGNMENT(LARGE_INTEGER) == 8)typedefchar__C_ASSERT__[(((LONG)(LONG_PTR)&(((struct{charx;LARGE_INTEGERtest;}*)0)->test))==8)?1:-1]
             */
             /*
-             compiler_diagnostic(C_ERROR_STORAGE_SIZE,
+             diagnostic(C_ERROR_STORAGE_SIZE,
                    ctx,
                    p_init_declarator->p_declarator->name_opt,
                    NULL,
@@ -33221,7 +33214,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 break;
 
             case SIZEOF_RESULT_OVERLOW:
-                compiler_diagnostic(C_ERROR_STORAGE_SIZE,
+                diagnostic(C_ERROR_STORAGE_SIZE,
                 ctx,
                 p_init_declarator->p_declarator->name_opt, NULL,
                 "sizeof '%s' is too large",
@@ -33231,7 +33224,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
             case SIZEOF_RESULT_RUNTIME:
 #if 0
-                compiler_diagnostic(C_ERROR_STORAGE_SIZE,
+                diagnostic(C_ERROR_STORAGE_SIZE,
                     ctx,
                     p_init_declarator->p_declarator->name_opt,
                     NULL,
@@ -33261,7 +33254,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
                 else
                 {
-                    compiler_diagnostic(C_ERROR_STORAGE_SIZE,
+                    diagnostic(C_ERROR_STORAGE_SIZE,
                        ctx,
                        p_init_declarator->p_declarator->name_opt, NULL,
                        "storage size of '%s' isn't known because the type is incomplete",
@@ -33292,7 +33285,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             }
         }
         */
-        compiler_diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
+        diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
             p_init_declarator->p_declarator->first_token_opt, NULL,
             "trying to use VM type from enclosing function");
     }
@@ -33302,7 +33295,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
     {
         if (ctx->scopes.tail->scope_level == 0)
         {
-            compiler_diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
+            diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
                 p_init_declarator->p_declarator->first_token_opt, NULL,
                 "variably modified type declaration not allowed at file scope");
         }
@@ -33316,7 +33309,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 /*
                   void f(int n) { static int a[n]; }
                 */
-                compiler_diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
+                diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
                  p_init_declarator->p_declarator->first_token_opt, NULL,
                  "storage size of '%s' isn't constant", p_init_declarator->p_declarator->name_opt->lexeme);
             }
@@ -33618,7 +33611,7 @@ struct typeof_specifier* _Owner _Opt  typeof_specifier(struct parser_ctx* ctx)
         {
             if (type_is_bitfield(&p_typeof_specifier->typeof_specifier_argument->expression->type))
             {
-                compiler_diagnostic(C_ERROR_TYPEOF_BITFIELD,
+                diagnostic(C_ERROR_TYPEOF_BITFIELD,
                     ctx,
                     p_typeof_specifier->typeof_specifier_argument->expression->first_token,
                     NULL,
@@ -33631,7 +33624,7 @@ struct typeof_specifier* _Owner _Opt  typeof_specifier(struct parser_ctx* ctx)
         {
             if (type_is_bitfield(&p_typeof_specifier->typeof_specifier_argument->type_name->abstract_declarator->type))
             {
-                compiler_diagnostic(C_ERROR_TYPEOF_BITFIELD,
+                diagnostic(C_ERROR_TYPEOF_BITFIELD,
                     ctx,
                     p_typeof_specifier->typeof_specifier_argument->type_name->first_token,
                     NULL,
@@ -33644,7 +33637,7 @@ struct typeof_specifier* _Owner _Opt  typeof_specifier(struct parser_ctx* ctx)
         if (type_is_array(&p_typeof_specifier->type) &&
             p_typeof_specifier->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
         {
-            compiler_diagnostic(W_TYPEOF_ARRAY_PARAMETER, ctx, ctx->current, NULL, "typeof used in array arguments");
+            diagnostic(W_TYPEOF_ARRAY_PARAMETER, ctx, ctx->current, NULL, "typeof used in array arguments");
 
             if (type_is_array(&p_typeof_specifier->type))
             {
@@ -33876,7 +33869,7 @@ struct attribute* _Owner _Opt extended_decl_modifier_seq(struct parser_ctx* ctx)
         }
         else
         {
-            compiler_diagnostic(W_ATTRIBUTES,
+            diagnostic(W_ATTRIBUTES,
                 ctx,
                 p_type_specifier->attribute_token,
                 NULL,
@@ -33989,7 +33982,7 @@ static void gcc_attribute(struct parser_ctx* ctx)
 
         if (!token_is_identifier_or_keyword(ctx->current->type))
         {
-            compiler_diagnostic(C_ERROR_UNEXPECTED,
+            diagnostic(C_ERROR_UNEXPECTED,
                               ctx,
                               ctx->current,
                               NULL,
@@ -34518,7 +34511,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                     }
                     else
                     {
-                        compiler_diagnostic(C_ERROR_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
+                        diagnostic(C_ERROR_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
                         ctx,
                         p_struct_or_union_specifier->tagtoken,
                         NULL,
@@ -34528,7 +34521,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                 }
                 else
                 {
-                    compiler_diagnostic(C_ERROR_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
+                    diagnostic(C_ERROR_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
                         ctx,
                         p_struct_or_union_specifier->tagtoken,
                         NULL,
@@ -34699,16 +34692,16 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                 if (p_struct_or_union_specifier->tagtoken)
                 {
                     if (deprecated_reason)
-                        compiler_diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "'%s' is deprecated: %s", p_struct_or_union_specifier->tagtoken->lexeme, deprecated_reason);
+                        diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "'%s' is deprecated: %s", p_struct_or_union_specifier->tagtoken->lexeme, deprecated_reason);
                     else
-                        compiler_diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "'%s' is deprecated", p_struct_or_union_specifier->tagtoken->lexeme);
+                        diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "'%s' is deprecated", p_struct_or_union_specifier->tagtoken->lexeme);
                 }
                 else
                 {
                     if (deprecated_reason)
-                        compiler_diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "deprecated: %s", deprecated_reason);
+                        diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "deprecated: %s", deprecated_reason);
                     else
-                        compiler_diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "deprecated");
+                        diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "deprecated");
                 }
             }
         }
@@ -34760,7 +34753,7 @@ struct member_declarator* _Owner _Opt member_declarator(
             if (p_token == NULL)
                 p_token = ctx->current;
 
-            compiler_diagnostic(C_ERROR_FUNCTION_CANNOT_BE_MEMBER,
+            diagnostic(C_ERROR_FUNCTION_CANNOT_BE_MEMBER,
                 ctx,
                 p_token,
                 NULL,
@@ -34781,7 +34774,7 @@ struct member_declarator* _Owner _Opt member_declarator(
             if (p_token == NULL)
                 p_token = ctx->current;
 
-            compiler_diagnostic(C_ERROR_VARIABLY_MODIFIED_MEMBER,
+            diagnostic(C_ERROR_VARIABLY_MODIFIED_MEMBER,
                 ctx,
                 p_token,
                 NULL,
@@ -34808,7 +34801,7 @@ struct member_declarator* _Owner _Opt member_declarator(
             if (p_token == NULL)
                 p_token = ctx->current;
 
-            compiler_diagnostic(C_ERROR_STORAGE_SIZE,
+            diagnostic(C_ERROR_STORAGE_SIZE,
                 ctx,
                 p_token,
                 NULL,
@@ -34837,7 +34830,7 @@ struct member_declarator* _Owner _Opt member_declarator(
         {
             if (!type_is_integer(&p_member_declarator->declarator->type))
             {
-                compiler_diagnostic(C_ERROR_STORAGE_SIZE,
+                diagnostic(C_ERROR_STORAGE_SIZE,
                 ctx,
                 p_member_declarator->declarator->first_token_opt,
                 NULL,
@@ -34858,7 +34851,7 @@ struct member_declarator* _Owner _Opt member_declarator(
 
             if (bit_field_width < 0)
             {
-                compiler_diagnostic(C_ERROR_STORAGE_SIZE,
+                diagnostic(C_ERROR_STORAGE_SIZE,
                 ctx,
                 p_member_declarator->constant_expression->first_token,
                 NULL,
@@ -34867,7 +34860,7 @@ struct member_declarator* _Owner _Opt member_declarator(
 
             if (bit_field_width > (long long)sz)
             {
-                compiler_diagnostic(C_ERROR_STORAGE_SIZE,
+                diagnostic(C_ERROR_STORAGE_SIZE,
                 ctx,
                 p_member_declarator->constant_expression->first_token,
                 NULL,
@@ -35358,7 +35351,7 @@ struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct par
     {
         if (!first_of_type_specifier_qualifier(ctx))
         {
-            compiler_diagnostic(C_ERROR_MISSING_ENUM_TAG_NAME, ctx, ctx->current, NULL, "type specifier or qualifier expected");
+            diagnostic(C_ERROR_MISSING_ENUM_TAG_NAME, ctx, ctx->current, NULL, "type specifier or qualifier expected");
             throw;
         }
 
@@ -35661,7 +35654,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 if (!type_is_integer(&enum_underline_type))
                 {
                     type_destroy(&enum_underline_type);
-                    compiler_diagnostic(C_ERROR_NON_INTEGRAL_ENUM_TYPE,
+                    diagnostic(C_ERROR_NON_INTEGRAL_ENUM_TYPE,
                         ctx,
                         p_enum_specifier->specifier_qualifier_list->first_token,
                         NULL,
@@ -36182,7 +36175,7 @@ struct function_specifier* _Owner _Opt function_specifier(struct parser_ctx* ctx
 
         if (ctx->current->type == TK_KEYWORD__NORETURN)
         {
-            compiler_diagnostic(W_STYLE, ctx, ctx->current, NULL, "_Noreturn is deprecated use attributes");
+            diagnostic(W_STYLE, ctx, ctx->current, NULL, "_Noreturn is deprecated use attributes");
         }
 
         if (ctx->current->type == TK_KEYWORD_INLINE)
@@ -36826,7 +36819,7 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
 
                 if (ctx->current->type == TK_KEYWORD_CAKE_VIEW)
                 {
-                    compiler_diagnostic(C_ERROR_INVALID_QUALIFIER_FOR_POINTER,
+                    diagnostic(C_ERROR_INVALID_QUALIFIER_FOR_POINTER,
                                 ctx,
                                 ctx->current,
                                 NULL,
@@ -37152,7 +37145,7 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
             int er = make_object(&p_parameter_declaration->declarator->type, &p_parameter_declaration->declarator->object, ctx->options.target);
             if (er != 0)
             {
-                //compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
+                //diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
                 throw;
             }
         }
@@ -38047,7 +38040,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
 
                 if (p_pragma_token->type != TK_STRING_LITERAL)
                 {
-                    compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "string expected");
+                    diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "string expected");
                     throw;
                 }
                 const unsigned long long w = atoi(p_pragma_token->lexeme + 2); /* sample "C0004"*/
@@ -38067,7 +38060,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
             }
             else
             {
-                compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "unknown diagnostic command");
+                diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "unknown diagnostic command");
                 throw;
             }
         }
@@ -38080,7 +38073,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
             if (strcmp(p_pragma_token->lexeme, "enable") != 0 &&
                 strcmp(p_pragma_token->lexeme, "disable") != 0)
             {
-                compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected enable/disable");
+                diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected enable/disable");
                 throw;
             }
 
@@ -38110,7 +38103,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
             if (strcmp(p_pragma_token->lexeme, "enable") != 0 &&
                 strcmp(p_pragma_token->lexeme, "disable") != 0)
             {
-                compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected enable/disable");
+                diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected enable/disable");
                 throw;
             }
 
@@ -38136,7 +38129,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
             if (strcmp(p_pragma_token->lexeme, "enable") != 0 &&
                 strcmp(p_pragma_token->lexeme, "disable") != 0)
             {
-                compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected enable/disable");
+                diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected enable/disable");
                 throw;
             }
 
@@ -38155,7 +38148,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
             if (strcmp(p_pragma_token->lexeme, "enable") != 0 &&
                 strcmp(p_pragma_token->lexeme, "disable") != 0)
             {
-                compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected enable/disable");
+                diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected enable/disable");
                 throw;
             }
 
@@ -38193,7 +38186,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 strcmp(p_pragma_token->lexeme, "OFF") != 0 &&
                 strcmp(p_pragma_token->lexeme, "DEFAULT") != 0)
             {
-                compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected ON OFF DEFAULT");
+                diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected ON OFF DEFAULT");
                 throw;
             }
         }
@@ -38210,7 +38203,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 strcmp(p_pragma_token->lexeme, "FE_DEC_UPWARD") != 0 &&
                 strcmp(p_pragma_token->lexeme, "FE_DEC_DYNAMIC") != 0)
             {
-                compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected FE_DEC_DOWNWARD FE_DEC_TONEAREST FE_DEC_TONEARESTFROMZERO FE_DEC_TOWARDZERO FE_DEC_UPWARD FE_DEC_DYNAMIC");
+                diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected FE_DEC_DOWNWARD FE_DEC_TONEAREST FE_DEC_TONEARESTFROMZERO FE_DEC_TOWARDZERO FE_DEC_UPWARD FE_DEC_DYNAMIC");
                 throw;
             }
         }
@@ -38227,7 +38220,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 strcmp(p_pragma_token->lexeme, "FE_UPWARD") != 0 &&
                 strcmp(p_pragma_token->lexeme, "FE_DYNAMIC") != 0)
             {
-                compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected enable/disable");
+                diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected enable/disable");
                 throw;
             }
         }
@@ -38246,7 +38239,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
              #pragma warning(push)
              #pragma warning(disable:4001)
             */
-            compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "unknown pragma");
+            diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "unknown pragma");
             throw;
         }
     }
@@ -38370,7 +38363,7 @@ struct static_assert_declaration* _Owner _Opt static_assert_declaration(struct p
         }
 
         p_static_assert_declaration->last_token = ctx->current;
-        if (parser_match_tk(ctx, ';') != 0)
+        if (parser_match_tk_lint(ctx, ';', &p_static_assert_declaration->p_lint_token) != 0)
             throw;
 
         if (position->type == TK_KEYWORD__STATIC_ASSERT)
@@ -38380,18 +38373,23 @@ struct static_assert_declaration* _Owner _Opt static_assert_declaration(struct p
             {
                 if (p_static_assert_declaration->string_literal_opt)
                 {
-                    compiler_diagnostic(C_ERROR_STATIC_ASSERT_FAILED, ctx, position, NULL, "static_assert failed %s\n",
+                    diagnostic(C_ERROR_STATIC_ASSERT_FAILED, ctx, position, NULL, "static_assert failed %s\n",
                         p_static_assert_declaration->string_literal_opt->lexeme);
                 }
                 else
                 {
-                    compiler_diagnostic(C_ERROR_STATIC_ASSERT_FAILED, ctx, position, NULL, "static_assert failed");
+                    diagnostic(C_ERROR_STATIC_ASSERT_FAILED, ctx, position, NULL, "static_assert failed");
                 }
             }
         }
     }
     catch
     {
+    }
+
+    if (p_static_assert_declaration && p_static_assert_declaration->p_lint_token)
+    {
+        check_compiler_dianostic_suppression(ctx, p_static_assert_declaration->p_lint_token);
     }
 
     return p_static_assert_declaration;
@@ -38757,7 +38755,7 @@ enum attribute_flags attribute_token(struct parser_ctx* ctx, struct attribute* p
         }
         else
         {
-            compiler_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, attr_token, NULL, "expected identifier");
+            diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, attr_token, NULL, "expected identifier");
         }
 
         if (ctx->current == NULL)
@@ -38773,20 +38771,13 @@ enum attribute_flags attribute_token(struct parser_ctx* ctx, struct attribute* p
             parser_match(ctx);
             if (is_cake_attr)
             {
-                if (ctx->current->lexeme[0] == 'E' ||
-                    ctx->current->lexeme[0] == 'e' ||
-                    ctx->current->lexeme[0] == 'W' ||
-                    ctx->current->lexeme[0] == 'w')
-                {
-                    p_attribute_specifier->ack = atoi(ctx->current->lexeme + 1);
-                }
-                else if (strcmp(ctx->current->lexeme, "leak") == 0)
+                if (strcmp(ctx->current->lexeme, "leak") == 0)
                 {
                     attribute_flags = CAKE_ATTRIBUTE_LEAK;
                 }
                 else
                 {
-                    compiler_diagnostic(W_ATTRIBUTES, ctx, attr_token, NULL, "warning '%s' is not an cake attribute", ctx->current->lexeme);
+                    diagnostic(W_ATTRIBUTES, ctx, attr_token, NULL, "warning '%s' is not an cake attribute", ctx->current->lexeme);
                 }
             }
 
@@ -38803,7 +38794,7 @@ enum attribute_flags attribute_token(struct parser_ctx* ctx, struct attribute* p
             }
             else
             {
-                compiler_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, attr_token, NULL, "expected identifier");
+                diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, attr_token, NULL, "expected identifier");
             }
         }
         else
@@ -38815,7 +38806,7 @@ enum attribute_flags attribute_token(struct parser_ctx* ctx, struct attribute* p
              */
             if (!is_standard_attribute)
             {
-                compiler_diagnostic(W_ATTRIBUTES, ctx, attr_token, NULL, "warning '%s' is not an standard attribute", attr_token->lexeme);
+                diagnostic(W_ATTRIBUTES, ctx, attr_token, NULL, "warning '%s' is not an standard attribute", attr_token->lexeme);
             }
         }
     }
@@ -38966,11 +38957,11 @@ struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct p
         }
         if (count2 != 0)
         {
-            compiler_diagnostic(C_ERROR_ATTR_UNBALANCED, ctx, ctx->current, NULL, "expected ']' before ')'");
+            diagnostic(C_ERROR_ATTR_UNBALANCED, ctx, ctx->current, NULL, "expected ']' before ')'");
         }
         if (count3 != 0)
         {
-            compiler_diagnostic(C_ERROR_ATTR_UNBALANCED, ctx, ctx->current, NULL, "expected '}' before ')'");
+            diagnostic(C_ERROR_ATTR_UNBALANCED, ctx, ctx->current, NULL, "expected '}' before ')'");
         }
     }
     catch
@@ -39065,7 +39056,7 @@ struct primary_block* _Owner _Opt primary_block(struct parser_ctx* ctx)
         }
         else
         {
-            compiler_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->current, NULL, "unexpected token");
+            diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->current, NULL, "unexpected token");
         }
     }
     catch
@@ -39230,55 +39221,7 @@ void unlabeled_statement_delete(struct unlabeled_statement* _Owner _Opt p)
     }
 }
 
-struct diagnostic_id_stack* _Opt  build_diagnostic_id_stack(struct parser_ctx* ctx,
-    struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence,
-                               struct diagnostic_id_stack* stack,
-                               int diagnostic_phase)
-{
-    struct diagnostic_id_stack* _Opt previous = ctx->p_diagnostic_id_stack;
-    ctx->p_diagnostic_id_stack = stack;
 
-    if (p_attribute_specifier_sequence == NULL)
-        return previous;
-
-    struct attribute_specifier* _Opt p_attribute_specifier = p_attribute_specifier_sequence->head;
-    while (p_attribute_specifier)
-    {
-        enum diagnostic_id d = p_attribute_specifier->ack;
-        if (d != 0)
-        {
-            if (get_diagnostic_phase(d) == diagnostic_phase)
-            {
-                diagnostic_id_stack_push(stack, p_attribute_specifier->ack);
-            }
-        }
-        p_attribute_specifier = p_attribute_specifier->next;
-    }
-    return previous;
-}
-
-void warn_unrecognized_warnings(struct parser_ctx* ctx,
-    struct diagnostic_id_stack* stack,
-    struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence,
-    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack)
-{
-    ctx->p_diagnostic_id_stack = p_diagnostic_id_stack; /* restore */
-
-    if (p_attribute_specifier_sequence == NULL)
-    {
-        return;
-    }
-    struct token* token = p_attribute_specifier_sequence->first_token;
-    for (int i = stack->size - 1; i >= 0; i--)
-    {
-        compiler_diagnostic(W_WARNING_DID_NOT_HAPPEN,
-            ctx,
-            token,
-            NULL,
-            "warning '%d' was not recognized",
-            stack->stack[i]);
-    }
-}
 
 struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence)
 {
@@ -39301,19 +39244,8 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
             p_unlabeled_statement->p_attribute_specifier_sequence = p_attribute_specifier_sequence;
             p_attribute_specifier_sequence = NULL;
 
-            struct diagnostic_id_stack stack = { 0 };
-            struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
-                build_diagnostic_id_stack(ctx,
-                    p_unlabeled_statement->p_attribute_specifier_sequence,
-                    &stack,
-                    0);
-
             p_unlabeled_statement->primary_block = primary_block(ctx);
 
-            warn_unrecognized_warnings(ctx,
-                &stack,
-                p_unlabeled_statement->p_attribute_specifier_sequence,
-                p_diagnostic_id_stack);
 
             if (p_unlabeled_statement->primary_block == NULL)
                 throw;
@@ -39324,17 +39256,7 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
             p_unlabeled_statement->p_attribute_specifier_sequence = p_attribute_specifier_sequence;
             p_attribute_specifier_sequence = NULL; /*MOVED*/
 
-            struct diagnostic_id_stack stack = { 0 };
-            struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
-                build_diagnostic_id_stack(ctx, p_unlabeled_statement->p_attribute_specifier_sequence, &stack, 0);
-
             p_unlabeled_statement->jump_statement = jump_statement(ctx);
-
-            warn_unrecognized_warnings(ctx,
-            &stack,
-            p_unlabeled_statement->p_attribute_specifier_sequence,
-            p_diagnostic_id_stack);
-
 
             if (p_unlabeled_statement->jump_statement == NULL)
                 throw;
@@ -39362,7 +39284,7 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
 
                     if (p_unlabeled_statement->expression_statement->expression_opt->first_token->level == 0)
                     {
-                        compiler_diagnostic(W_ATTRIBUTES, ctx,
+                        diagnostic(W_ATTRIBUTES, ctx,
                             p_unlabeled_statement->expression_statement->expression_opt->first_token, NULL,
                             "ignoring return value of function declared with 'nodiscard' attribute");
                     }
@@ -39373,7 +39295,7 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
 
                     if (p_unlabeled_statement->expression_statement->expression_opt->first_token->level == 0)
                     {
-                        compiler_diagnostic(W_ATTRIBUTES, ctx,
+                        diagnostic(W_ATTRIBUTES, ctx,
                             p_unlabeled_statement->expression_statement->expression_opt->first_token, NULL,
                             "ignoring the result of _Owner type ");
                     }
@@ -39402,7 +39324,7 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
                         {
                             //too many false..alerts.
                             //make list of for sure ...
-                            compiler_diagnostic(W_EXPRESSION_RESULT_NOT_USED,
+                            diagnostic(W_EXPRESSION_RESULT_NOT_USED,
                                 ctx,
                                 p_unlabeled_statement->expression_statement->expression_opt->first_token,
                                 NULL,
@@ -39447,13 +39369,6 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
         p_label->p_attribute_specifier_sequence = p_attribute_specifier_sequence; //MOVED
         p_attribute_specifier_sequence = NULL;
 
-        struct diagnostic_id_stack stack = { 0 };
-        struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
-            build_diagnostic_id_stack(ctx, p_label->p_attribute_specifier_sequence, &stack, 0);
-
-
-        //
-
         p_label->label_id = ctx->label_id++;
 
         p_label->p_first_token = ctx->current;
@@ -39477,8 +39392,8 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                 if (p_label_list_item->p_defined)
                 {
                     //already defined
-                    compiler_diagnostic(C_ERROR_DUPLICATED_LABEL, ctx, ctx->current, NULL, "duplicated label '%s'", ctx->current->lexeme);
-                    compiler_diagnostic(W_LOCATION, ctx, p_label_list_item->p_defined, NULL, "previous definition of '%s'", ctx->current->lexeme);
+                    diagnostic(C_ERROR_DUPLICATED_LABEL, ctx, ctx->current, NULL, "duplicated label '%s'", ctx->current->lexeme);
+                    diagnostic(W_LOCATION, ctx, p_label_list_item->p_defined, NULL, "previous definition of '%s'", ctx->current->lexeme);
                 }
                 else
                 {
@@ -39499,7 +39414,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                 ctx->p_current_switch_statement->condition == NULL)
             {
                 //unexpected because we are in case
-                compiler_diagnostic(C_ERROR_CASE_NOT_IN_SWITCH,
+                diagnostic(C_ERROR_CASE_NOT_IN_SWITCH,
                 ctx,
                 ctx->current,
                 NULL,
@@ -39551,13 +39466,13 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                     //current range x existing range
                     //current range x existing single value
 
-                    compiler_diagnostic(C_ERROR_DUPLICATED_CASE,
+                    diagnostic(C_ERROR_DUPLICATED_CASE,
                             ctx,
                             p_label->constant_expression->first_token, NULL,
                             "case '%s' ... '%s' is duplicating values", str1, str2);
 
                     assert(p_label->constant_expression != NULL); //because case have values
-                    compiler_diagnostic(W_LOCATION,
+                    diagnostic(W_LOCATION,
                         ctx,
                         p_existing_label->constant_expression->first_token, NULL, "previous case");
                 }
@@ -39576,13 +39491,13 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                     char str[50];
                     object_to_str(&p_label->constant_expression->object, 50, str);
 
-                    compiler_diagnostic(C_ERROR_DUPLICATED_CASE,
+                    diagnostic(C_ERROR_DUPLICATED_CASE,
                             ctx,
                             p_label->constant_expression->first_token, NULL,
                             "duplicate case '%s'", str);
 
                     assert(p_label->constant_expression != NULL); //because case have values
-                    compiler_diagnostic(W_LOCATION,
+                    diagnostic(W_LOCATION,
                         ctx,
                         p_existing_label->constant_expression->first_token, NULL, "previous declaration");
                 }
@@ -39636,7 +39551,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                         char str[50];
                         object_to_str(&p_label->constant_expression->object, 50, str);
 
-                        compiler_diagnostic(W_ENUN_CONVERSION,
+                        diagnostic(W_ENUN_CONVERSION,
                                         ctx,
                                         p_label->constant_expression->first_token, NULL,
                                         "case value '%s' not in enumerated type 'enum %s'",
@@ -39657,7 +39572,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                 ctx->p_current_switch_statement->condition == NULL)
             {
                 //unexpected because we are in case
-                compiler_diagnostic(C_ERROR_CASE_NOT_IN_SWITCH,
+                diagnostic(C_ERROR_CASE_NOT_IN_SWITCH,
                 ctx,
                 ctx->current,
                 NULL,
@@ -39668,14 +39583,14 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
 
             if (p_existing_default_label)
             {
-                if (compiler_diagnostic(C_ERROR_MULTIPLE_DEFAULT_LABELS_IN_ONE_SWITCH,
+                if (diagnostic(C_ERROR_MULTIPLE_DEFAULT_LABELS_IN_ONE_SWITCH,
                     ctx,
                     p_label->p_first_token,
                     NULL,
                     "multiple default labels in one switch"))
                 {
 
-                    compiler_diagnostic(W_LOCATION,
+                    diagnostic(W_LOCATION,
                         ctx,
                         p_existing_default_label->p_first_token,
                         NULL,
@@ -39693,11 +39608,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
         }
         // attribute_specifier_sequence_opt identifier ':'
         // attribute_specifier_sequence_opt 'case' constant_expression ':'
-        // attribute_specifier_sequence_opt 'default' ':'
-
-        warn_unrecognized_warnings(ctx,
-                &stack,
-                p_label->p_attribute_specifier_sequence, p_diagnostic_id_stack);
+        // attribute_specifier_sequence_opt 'default' ':'        
     }
     catch
     {
@@ -39877,7 +39788,7 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
 
         if (ctx->current == NULL)
         {
-            compiler_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, NULL, "unexpected end of file");
+            diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, NULL, "unexpected end of file");
             throw;
         }
 
@@ -39896,7 +39807,7 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
         }
 
         p_compound_statement->last_token = ctx->current;
-        if (parser_match_tk(ctx, '}') != 0)
+        if (parser_match_tk_lint(ctx, '}', &p_compound_statement->lint_token) != 0)
             throw;
 
         /* TODO: check who was not used */
@@ -39937,7 +39848,7 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
                     {
                         if (p_declarator->name_opt && p_declarator->name_opt->token_origin->level == 0)
                         {
-                            compiler_diagnostic(W_UNUSED_VARIABLE,
+                            diagnostic(W_UNUSED_VARIABLE,
                                 ctx,
                                 p_declarator->name_opt, NULL,
                                 "'%s': unreferenced declarator",
@@ -39960,6 +39871,10 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
 
     scope_destroy(&block_scope);
 
+    if (p_compound_statement && p_compound_statement->lint_token)
+    {
+        check_compiler_dianostic_suppression(ctx, p_compound_statement->lint_token);
+    }
     return p_compound_statement;
 }
 
@@ -40619,7 +40534,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
         if (!(ctx->current->flags & TK_FLAG_MACRO_EXPANDED) && !style_has_one_space(ctx->current))
         {
-            compiler_diagnostic(W_STYLE, ctx, ctx->current, NULL, "one space");
+            diagnostic(W_STYLE, ctx, ctx->current, NULL, "one space");
         }
 
         p_selection_statement->open_parentesis_token = ctx->current;
@@ -40703,7 +40618,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
                 p_selection_statement->condition->p_declaration_specifiers =
                     p_selection_statement->p_init_statement->p_simple_declaration->p_declaration_specifiers; /*MOVED*/
-                
+
                 p_selection_statement->p_init_statement->p_simple_declaration->p_declaration_specifiers = NULL; /*MOVED*/
             }
 
@@ -40719,12 +40634,18 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
         }
 
         p_selection_statement->close_parentesis_token = ctx->current;
-        if (parser_match_tk(ctx, ')') != 0)
+        if (parser_match_tk_lint(ctx, ')', &p_selection_statement->lint_token) != 0)
             throw;
+
+        if (p_selection_statement && 
+            p_selection_statement->lint_token)
+        {
+            check_compiler_dianostic_suppression(ctx, p_selection_statement->lint_token);
+        }
 
         //if (object_has_constant_value(&p_selection_statement->init_statement_expression->object))
         //{
-            //compiler_diagnostic(W_CONDITIONAL_IS_CONSTANT, ctx, p_selection_statement->init_statement_expression->first_token, "conditional expression is constant");
+            //diagnostic(W_CONDITIONAL_IS_CONSTANT, ctx, p_selection_statement->init_statement_expression->first_token, "conditional expression is constant");
         //}
 
         if (!is_if && p_selection_statement && p_selection_statement->condition)
@@ -40732,7 +40653,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
             if (type_is_bool(&p_selection_statement->condition->expression->type) ||
                 type_is_essential_bool(&p_selection_statement->condition->expression->type))
             {
-                compiler_diagnostic(W_SWITCH,
+                diagnostic(W_SWITCH,
                             ctx,
                             p_selection_statement->condition->first_token,
                             NULL,
@@ -40745,7 +40666,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
              */
             if (!type_is_integer(&p_selection_statement->condition->expression->type))
             {
-                compiler_diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
+                diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
                                     ctx,
                                     p_selection_statement->condition->first_token,
                                     NULL,
@@ -40771,7 +40692,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
             p_secondary_block->statement->unlabeled_statement->expression_statement &&
             p_secondary_block->statement->unlabeled_statement->expression_statement->expression_opt == NULL)
         {
-            compiler_diagnostic(W_SWITCH,
+            diagnostic(W_SWITCH,
                             ctx,
                             p_secondary_block->first_token,
                             NULL,
@@ -40837,7 +40758,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
                         if (p_used == NULL)
                         {
-                            compiler_diagnostic(W_SWITCH,
+                            diagnostic(W_SWITCH,
                                 ctx,
                                 p_selection_statement->last_token,
                                 NULL,
@@ -40846,6 +40767,18 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
                         p = p->next;
                     }
                 }
+            }
+            
+            if (p_selection_statement->secondary_block &&
+                p_selection_statement->secondary_block->statement &&
+                p_selection_statement->secondary_block->statement->unlabeled_statement &&
+                p_selection_statement->secondary_block->statement->unlabeled_statement->primary_block &&
+                p_selection_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement &&
+               p_selection_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement->lint_token)
+            {
+                //switch case non used...
+                check_dianostic_suppression_after(ctx,
+                    p_selection_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement->lint_token);
             }
         }
 
@@ -40974,7 +40907,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
             if (p_iteration_statement->expression1 != NULL &&
                 !type_is_scalar_decay(&p_iteration_statement->expression1->type))
             {
-                compiler_diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
+                diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
                                     ctx,
                                     p_iteration_statement->expression1->first_token,
                                     NULL,
@@ -40995,14 +40928,21 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
             if (p_iteration_statement->expression1 != NULL &&
                 !type_is_scalar_decay(&p_iteration_statement->expression1->type))
             {
-                compiler_diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
+                diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
                                     ctx,
                                     p_iteration_statement->expression1->first_token,
                                     NULL,
                                     "controlling expression must have scalar type");
             }
-            if (parser_match_tk(ctx, ')') != 0)
+            if (parser_match_tk_lint(ctx, ')', &p_iteration_statement->p_lint_token) != 0)
                 throw;
+            
+            if (p_iteration_statement &&
+                p_iteration_statement->p_lint_token)
+            {
+                check_compiler_dianostic_suppression(ctx, p_iteration_statement->p_lint_token);
+            }
+
             struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
             if (p_secondary_block == NULL) throw;
             p_iteration_statement->secondary_block = p_secondary_block;
@@ -41224,7 +41164,7 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
         {
             if (ctx->p_current_iteration_statement == NULL)
             {
-                compiler_diagnostic(C_ERROR_CONTINUE_NOT_WITHIN_ITERATION, ctx, ctx->current, NULL, "continue not within iteration");
+                diagnostic(C_ERROR_CONTINUE_NOT_WITHIN_ITERATION, ctx, ctx->current, NULL, "continue not within iteration");
                 throw;
             }
             parser_match(ctx);
@@ -41236,7 +41176,7 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
 
             if (ctx->p_current_iteration_statement == NULL && !in_switch)
             {
-                compiler_diagnostic(C_ERROR_BREAK_NOT_WITHIN_ITERATION,
+                diagnostic(C_ERROR_BREAK_NOT_WITHIN_ITERATION,
                     ctx,
                     ctx->current,
                     NULL,
@@ -41248,7 +41188,7 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
         {
             if (ctx->p_current_try_statement_opt == NULL)
             {
-                compiler_diagnostic(C_ERROR_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK, ctx, ctx->current, NULL, "throw statement not within try block");
+                diagnostic(C_ERROR_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK, ctx, ctx->current, NULL, "throw statement not within try block");
             }
             else
             {
@@ -41261,13 +41201,12 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
         {
             if (ctx->p_current_defer_statement_opt != NULL)
             {
-                compiler_diagnostic(C_ERROR_RETURN_CANNOT_BE_USED_INSIDE_DEFER,
+                diagnostic(C_ERROR_RETURN_CANNOT_BE_USED_INSIDE_DEFER,
                              ctx,
                              ctx->current,
                              NULL,
                              "%s",
-                             "return cannot be used inside defer statement");
-                throw;
+                             "return cannot be used inside defer statement");                
             }
 
             const struct token* const p_return_token = ctx->current;
@@ -41298,7 +41237,7 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
                             ctx->p_current_function_opt->name_opt->lexeme :
                             "unnamed";
 
-                        compiler_diagnostic(C_ERROR_VOID_FUNCTION_SHOULD_NOT_RETURN_VALUE,
+                        diagnostic(C_ERROR_VOID_FUNCTION_SHOULD_NOT_RETURN_VALUE,
                             ctx,
                             p_return_token, NULL,
                             "void function '%s' should not return a value",
@@ -41322,7 +41261,7 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
                         ctx->p_current_function_opt->name_opt->lexeme :
                         "unnamed";
 
-                    compiler_diagnostic(C_ERROR_NON_VOID_FUNCTION_SHOULD_RETURN_VALUE,
+                    diagnostic(C_ERROR_NON_VOID_FUNCTION_SHOULD_RETURN_VALUE,
                         ctx,
                         p_return_token, NULL,
                         "non void function '%s' should return a value",
@@ -41343,8 +41282,13 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
         }
 
         p_jump_statement->last_token = ctx->current;
-        if (parser_match_tk(ctx, ';') != 0)
+        if (parser_match_tk_lint(ctx, ';', &p_jump_statement->p_lint_token) != 0)
             throw;
+        if (p_jump_statement &&
+            p_jump_statement->p_lint_token)
+        {
+            check_compiler_dianostic_suppression(ctx, p_jump_statement->p_lint_token);
+        }
     }
     catch
     {
@@ -41377,15 +41321,8 @@ struct expression_statement* _Owner _Opt  expression_statement(struct parser_ctx
         if (p_expression_statement == NULL)
             throw;
 
-        p_expression_statement->p_attribute_specifier_sequence = p_attribute_specifier_sequence;
-        p_attribute_specifier_sequence = NULL;
-
-
-
-        struct diagnostic_id_stack stack = { 0 };
-        struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
-            build_diagnostic_id_stack(ctx, p_expression_statement->p_attribute_specifier_sequence, &stack, 0);
-
+        p_expression_statement->p_attribute_specifier_sequence = p_attribute_specifier_sequence; /*MOVED*/
+        p_attribute_specifier_sequence = NULL; /*MOVED*/
 
         if (ctx->current == NULL)
         {
@@ -41398,25 +41335,28 @@ struct expression_statement* _Owner _Opt  expression_statement(struct parser_ctx
             p_expression_statement->expression_opt = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
 
 
-            warn_unrecognized_warnings(ctx,
-                &stack,
-                p_expression_statement->p_attribute_specifier_sequence, p_diagnostic_id_stack);
-
 
             if (p_expression_statement->expression_opt == NULL)
                 throw;
         }
 
-        ctx->p_diagnostic_id_stack = p_diagnostic_id_stack;
 
-        if (!ignore_semicolon && parser_match_tk(ctx, ';') != 0)
+        if (!ignore_semicolon && parser_match_tk_lint(ctx, ';', &p_expression_statement->p_lint_token) != 0)
             throw;
+        if (p_expression_statement &&
+            p_expression_statement->p_lint_token)
+        {
+            check_compiler_dianostic_suppression(ctx, p_expression_statement->p_lint_token);
+        }
     }
     catch
     {
         expression_statement_delete(p_expression_statement);
         p_expression_statement = NULL;
     }
+
+    attribute_specifier_sequence_delete(p_attribute_specifier_sequence); /*normally null*/
+
     return p_expression_statement;
 }
 
@@ -41509,7 +41449,7 @@ struct condition* _Owner _Opt condition(struct parser_ctx* ctx)
              */
             if (!type_is_scalar_decay(&p_condition->expression->type))
             {
-                compiler_diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
+                diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
                                     ctx,
                                     p_condition->expression->first_token,
                                     NULL,
@@ -41656,7 +41596,7 @@ static void check_unused_static_declarators(struct parser_ctx* ctx, struct decla
                     {
                         if (type_is_function(&p->init_declarator_list.head->p_declarator->type))
                         {
-                            compiler_diagnostic(W_UNUSED_FUNCTION,
+                            diagnostic(W_UNUSED_FUNCTION,
                             ctx,
                             p->init_declarator_list.head->p_declarator->name_opt,
                             NULL,
@@ -41665,7 +41605,7 @@ static void check_unused_static_declarators(struct parser_ctx* ctx, struct decla
                         }
                         else
                         {
-                            compiler_diagnostic(W_UNUSED_VARIABLE,
+                            diagnostic(W_UNUSED_VARIABLE,
                             ctx,
                             p->init_declarator_list.head->p_declarator->name_opt,
                             NULL,
@@ -41717,9 +41657,13 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
             if (p == NULL)
                 throw;
             declaration_list_add(&declaration_list, p);
+
+
         }
 
         check_unused_static_declarators(ctx, &declaration_list);
+
+
     }
     catch
     {
@@ -41778,7 +41722,8 @@ void label_list_swap(struct label_list* a, struct label_list* b)
     *a = *b;
     *b = temp;
 }
-void label_list_clear(struct label_list* list)
+
+void label_list_destroy(struct label_list* list)
 {
     struct label_list_item* _Owner _Opt item = list->head;
     while (item)
@@ -41788,8 +41733,12 @@ void label_list_clear(struct label_list* list)
         free(item);
         item = next;
     }
-    list->head = NULL;
-    list->tail = NULL;
+}
+
+void label_list_clear(struct label_list* list)
+{
+    label_list_destroy(list);
+    memset(list, 0, sizeof(struct label_list));
 }
 
 void label_list_push(struct label_list* list, struct label_list_item* _Owner pitem)
@@ -41815,11 +41764,11 @@ void check_labels(struct parser_ctx* ctx)
     {
         if (item->p_defined == NULL && item->p_last_usage != NULL)
         {
-            compiler_diagnostic(C_ERROR_LABEL_NOT_DEFINED, ctx, item->p_last_usage, NULL, "label '%s' used but not defined", item->p_last_usage->lexeme);
+            diagnostic(C_ERROR_LABEL_NOT_DEFINED, ctx, item->p_last_usage, NULL, "label '%s' used but not defined", item->p_last_usage->lexeme);
         }
         else if (item->p_defined != NULL && item->p_last_usage == NULL)
         {
-            compiler_diagnostic(W_UNUSED_LABEL, ctx, item->p_defined, NULL, "label '%s' defined but not used", item->p_defined->lexeme);
+            diagnostic(W_UNUSED_LABEL, ctx, item->p_defined, NULL, "label '%s' defined but not used", item->p_defined->lexeme);
         }
         item = item->next;
     }
@@ -41852,6 +41801,11 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
     if (p_compound_statement)
     {
         check_labels(ctx);
+
+        if (p_compound_statement->lint_token)
+        {
+            check_dianostic_suppression_after(ctx, p_compound_statement->lint_token);
+        }
     }
 
     label_list_swap(&label_list, &ctx->label_list);
@@ -41861,8 +41815,7 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
     ctx->p_current_defer_statement_opt = p_current_defer_statement_opt;
     ctx->p_current_switch_statement = p_current_switch_statement;
 
-    label_list_clear(&label_list);
-
+    label_list_destroy(&label_list);
     return p_compound_statement;
 }
 
@@ -41880,7 +41833,7 @@ struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, s
         bool local_error = false;
         ctx->input_list = *list;
         ctx->current = ctx->input_list.head;
-        parser_skip_blanks(ctx);
+        parser_skip_blanks(ctx, NULL);
 
         l = translation_unit(ctx, &local_error);
         if (local_error)
@@ -42112,14 +42065,14 @@ void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
     {
         if (!is_snake_case(token->lexeme))
         {
-            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for struct/union tags");
+            diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for struct/union tags");
         }
     }
     else if (ctx->options.style == STYLE_MICROSOFT)
     {
         if (!is_pascal_case(token->lexeme))
         {
-            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use camelCase for struct/union tags");
+            diagnostic(W_STYLE, ctx, token, NULL, "use camelCase for struct/union tags");
         }
     }
 }
@@ -42135,14 +42088,14 @@ void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
     {
         if (!is_snake_case(token->lexeme))
         {
-            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for enum tags");
+            diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for enum tags");
         }
     }
     else if (ctx->options.style == STYLE_MICROSOFT)
     {
         if (!is_pascal_case(token->lexeme))
         {
-            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use PascalCase for enum tags");
+            diagnostic(W_STYLE, ctx, token, NULL, "use PascalCase for enum tags");
         }
     }
 }
@@ -42158,14 +42111,14 @@ void naming_convention_function(struct parser_ctx* ctx, struct token* token)
     {
         if (!is_snake_case(token->lexeme))
         {
-            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for functions");
+            diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for functions");
         }
     }
     else if (ctx->options.style == STYLE_MICROSOFT)
     {
         if (!is_pascal_case(token->lexeme))
         {
-            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use PascalCase for functions");
+            diagnostic(W_STYLE, ctx, token, NULL, "use PascalCase for functions");
         }
     }
 }
@@ -42189,13 +42142,13 @@ void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, s
             {
                 if (token->lexeme[0] != 's' || token->lexeme[1] != '_')
                 {
-                    compiler_diagnostic(W_STYLE, ctx, token, NULL, "use prefix s_ for static global variables");
+                    diagnostic(W_STYLE, ctx, token, NULL, "use prefix s_ for static global variables");
                 }
             }
         }
         if (!is_snake_case(token->lexeme))
         {
-            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case global variables");
+            diagnostic(W_STYLE, ctx, token, NULL, "use snake_case global variables");
         }
     }
 }
@@ -42211,14 +42164,14 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
     {
         if (!is_snake_case(token->lexeme))
         {
-            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for local variables");
+            diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for local variables");
         }
     }
     else if (ctx->options.style == STYLE_MICROSOFT)
     {
         if (!is_camel_case(token->lexeme))
         {
-            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use camelCase for local variables");
+            diagnostic(W_STYLE, ctx, token, NULL, "use camelCase for local variables");
         }
     }
 }
@@ -42232,7 +42185,7 @@ void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
 
     if (!is_all_upper(token->lexeme))
     {
-        compiler_diagnostic(W_STYLE, ctx, token, NULL, "use UPPERCASE for enumerators");
+        diagnostic(W_STYLE, ctx, token, NULL, "use UPPERCASE for enumerators");
     }
 }
 
@@ -42245,7 +42198,7 @@ void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token
 
     if (!is_snake_case(token->lexeme))
     {
-        compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for struct members");
+        diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for struct members");
     }
 }
 
@@ -42258,7 +42211,7 @@ void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, st
 
     if (!is_snake_case(token->lexeme))
     {
-        compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for arguments");
+        diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for arguments");
     }
 }
 
@@ -42499,7 +42452,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
 
             if (!not_error)
             {
-                compiler_diagnostic(
+                diagnostic(
                                               C_ERROR_STRUCT_MEMBER_NOT_FOUND,
                                               ctx,
                                               p_designator->token,
@@ -42535,7 +42488,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                 {
                     if (index < 0)
                     {
-                        compiler_diagnostic(
+                        diagnostic(
                                                   C_ERROR_STRUCT_MEMBER_NOT_FOUND,
                                                   ctx,
                                                   p_designator->constant_expression_opt->first_token,
@@ -42544,7 +42497,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                     }
                     else if (index > (int)p_current_object_type->array_num_elements)
                     {
-                        compiler_diagnostic(
+                        diagnostic(
                                                   C_ERROR_STRUCT_MEMBER_NOT_FOUND,
                                                   ctx,
                                                   p_designator->constant_expression_opt->first_token,
@@ -42667,7 +42620,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
             if (p_initializer_list_item != NULL)
             {
-                compiler_diagnostic(W_TO_MANY_INITIALIZERS,
+                diagnostic(W_TO_MANY_INITIALIZERS,
                                             ctx,
                                             p_initializer_list_item->initializer->first_token,
                                             NULL,
@@ -42729,7 +42682,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                         {
                             if (num_of_elements > p_current_object_type->array_num_elements)
                             {
-                                compiler_diagnostic(W_ARRAY_SIZE, ctx,
+                                diagnostic(W_ARRAY_SIZE, ctx,
                                     p_initializer_list_item2->initializer->assignment_expression->first_token,
                                     NULL,
                                     "initializer-string for char array is too long");
@@ -42926,7 +42879,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
         if (p_initializer_list_item != NULL)
         {
-            compiler_diagnostic(W_TO_MANY_INITIALIZERS,
+            diagnostic(W_TO_MANY_INITIALIZERS,
                                         ctx,
                                         p_initializer_list_item->initializer->first_token,
                                         NULL,
@@ -43466,18 +43419,18 @@ int compile_one_file(const char* file_name,
             if (berror || report->error_count > 0)
                 throw;
 
-            if (!options->no_output)
+            if (!options->no_output && !report->has_errors)
             {
 
                 struct osstream ss = { 0 };
 
 
-                struct d_visit_ctx ctx2 = { 0 };
-                ctx2.ast = ast;
+                struct codegen_ctx ctx2 = { 0 };
+                ctx2.p_ast = &ast;
                 ctx2.options = ctx.options;
-                d_visit(&ctx2, &ss);
+                codegen_visit(&ctx2, &ss);
                 p_output_string = ss.c_str; //MOVE
-                d_visit_ctx_destroy(&ctx2);
+                codegen_visit_ctx_destroy(&ctx2);
 
 
                 FILE* _Owner _Opt outfile = fopen(out_file_name, "w");
@@ -43615,6 +43568,7 @@ int compile_one_file(const char* file_name,
     // Compare snapshots
     if (_CrtMemDifference(&state_diff, &state1, &state2))
     {
+        report->test_failed++;
         printf("==================================================\n");
         printf("Memory leak\n");
         printf("==================================================\n");
@@ -44035,12 +43989,12 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
                 throw;
 
             struct osstream ss = { 0 };
-            struct d_visit_ctx ctx2 = { 0 };
-            ctx2.ast = ast;
+            struct codegen_ctx ctx2 = { 0 };
+            ctx2.p_ast = &ast;
             ctx2.options = options;
-            d_visit(&ctx2, &ss);
+            codegen_visit(&ctx2, &ss);
             s = ss.c_str; //MOVED
-            d_visit_ctx_destroy(&ctx2);
+            codegen_visit_ctx_destroy(&ctx2);
         }
     }
     catch
@@ -44181,14 +44135,14 @@ static void defer_visit_ctx_pop_until(struct defer_visit_ctx* ctx, struct defer_
                 {
                     if (p->p_defer_statement)
                     {
-                        struct defer_list_item* item = calloc(1, sizeof * item);
+                        struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                         if (item == NULL) throw;
                         item->defer_statement = p->p_defer_statement;
                         defer_list_add(p_defer_list, item); //items com inicialzaxao
                     }
                     else if (p->p_declarator)
                     {
-                        struct defer_list_item* item = calloc(1, sizeof * item);
+                        struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                         if (item == NULL) throw;
                         item->declarator = p->p_declarator;
                         defer_list_add(p_defer_list, item); //items com inicialzaxao
@@ -44209,7 +44163,7 @@ static void defer_visit_ctx_pop_until(struct defer_visit_ctx* ctx, struct defer_
     }
     catch
     {
-        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
+        diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -44290,7 +44244,7 @@ static void defer_visit_if_statement(struct defer_visit_ctx* ctx, struct selecti
     }
     catch
     {
-        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
+        diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -44318,7 +44272,7 @@ static void defer_visit_try_statement(struct defer_visit_ctx* ctx, struct try_st
     }
     catch
     {
-        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
+        diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -44335,7 +44289,7 @@ static void defer_visit_switch_statement(struct defer_visit_ctx* ctx, struct sel
     }
     catch
     {
-        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
+        diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -44385,7 +44339,7 @@ static void defer_visit_compound_statement(struct defer_visit_ctx* ctx, struct c
     }
     catch
     {
-        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
+        diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -44404,7 +44358,7 @@ static void defer_visit_do_while_statement(struct defer_visit_ctx* ctx, struct i
     }
     catch
     {
-        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
+        diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -44428,7 +44382,7 @@ static void defer_visit_while_statement(struct defer_visit_ctx* ctx, struct iter
     }
     catch
     {
-        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
+        diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -44452,7 +44406,7 @@ static void defer_visit_for_statement(struct defer_visit_ctx* ctx, struct iterat
     }
     catch
     {
-        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
+        diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -44475,7 +44429,7 @@ static void defer_visit_iteration_statement(struct defer_visit_ctx* ctx, struct 
     }
 }
 
-static struct defer_scope* find_common_defer_scope(struct defer_scope* p_label_list, struct defer_scope* p_goto_list)
+static struct defer_scope* _Opt find_common_defer_scope(struct defer_scope* p_label_list, struct defer_scope* p_goto_list)
 {
     //we have two scope lists, one at the goto point and another at the label point.
     // this list must have common prefix, in the  worst  case is the function scope.
@@ -44531,7 +44485,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
                 if (p->p_declarator)
                 {
-                    struct defer_list_item* item = calloc(1, sizeof * item);
+                    struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                     if (item == NULL) throw;
 
                     item->declarator = p->p_declarator;
@@ -44540,7 +44494,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                 }
                 else if (p->p_defer_statement)
                 {
-                    struct defer_list_item* item = calloc(1, sizeof * item);
+                    struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                     if (item == NULL) throw;
 
                     item->defer_statement = p->p_defer_statement;
@@ -44548,7 +44502,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                 }
                 if (p->p_defer_block)
                 {
-                    compiler_diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p->p_defer_block->first_token, NULL, "is jumping out of defer");
+                    diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p->p_defer_block->first_token, NULL, "is jumping out of defer");
                 }
                 p = p->previous;
             }
@@ -44561,7 +44515,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
             {
                 if (p->p_declarator)
                 {
-                    struct defer_list_item* item = calloc(1, sizeof * item);
+                    struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                     if (item == NULL) throw;
 
                     item->declarator = p->p_declarator;
@@ -44569,7 +44523,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                 }
                 else if (p->p_defer_statement)
                 {
-                    struct defer_list_item* item = calloc(1, sizeof * item);
+                    struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                     if (item == NULL) throw;
 
                     item->defer_statement = p->p_defer_statement;
@@ -44578,10 +44532,10 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
                 if (p->p_defer_block)
                 {
-                    compiler_diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p->p_defer_block->first_token, NULL, "is jumping out of defer");
+                    diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p->p_defer_block->first_token, NULL, "is jumping out of defer");
                 }
                 p = p->previous;
-            }
+            }                        
         }
         else if (p_jump_statement->first_token->type == TK_KEYWORD_CONTINUE ||
                  p_jump_statement->first_token->type == TK_KEYWORD_BREAK)
@@ -44605,7 +44559,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
                 if (p->p_declarator)
                 {
-                    struct defer_list_item* item = calloc(1, sizeof * item);
+                    struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                     if (item == NULL) throw;
 
                     item->declarator = p->p_declarator;
@@ -44613,7 +44567,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                 }
                 else if (p->p_defer_statement)
                 {
-                    struct defer_list_item* item = calloc(1, sizeof * item);
+                    struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                     if (item == NULL) throw;
 
                     item->defer_statement = p->p_defer_statement;
@@ -44623,9 +44577,9 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                 if (p->p_defer_block)
                 {
                     if (break_jump)
-                        compiler_diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "break cannot jump out of defer");
+                        diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "break cannot jump out of defer");
                     else
-                        compiler_diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "continue cannot jump out of defer");
+                        diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "continue cannot jump out of defer");
                 }
                 p = p->previous;
             }
@@ -44667,9 +44621,9 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
                     if (!found)
                     {
-                        compiler_diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "jumping over defer. from here");
-                        compiler_diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
-                        compiler_diagnostic(W_LOCATION, ctx->ctx, p1->p_defer_statement->first_token, NULL, "defer");
+                        diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "jumping over defer. from here");
+                        diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
+                        diagnostic(W_LOCATION, ctx->ctx, p1->p_defer_statement->first_token, NULL, "defer");
                     }
                 }
                 else if (p1->p_declarator && type_is_vm(&p1->p_declarator->type))
@@ -44688,9 +44642,9 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
                     if (!found)
                     {
-                        compiler_diagnostic(C_ERROR_JUMP_OVER_VLA, ctx->ctx, p_jump_statement->first_token, NULL, "jumping over vm. from here");
-                        compiler_diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
-                        compiler_diagnostic(W_LOCATION, ctx->ctx, p1->p_declarator->first_token_opt, NULL, "declarator");
+                        diagnostic(C_ERROR_JUMP_OVER_VLA, ctx->ctx, p_jump_statement->first_token, NULL, "jumping over vm. from here");
+                        diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
+                        diagnostic(W_LOCATION, ctx->ctx, p1->p_declarator->first_token_opt, NULL, "declarator");
                     }
                 }
                 else if (p1->p_defer_block)
@@ -44708,9 +44662,9 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                     }
                     if (!found)
                     {
-                        compiler_diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "jumping into defer. from here");
-                        compiler_diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
-                        //compiler_diagnostic(W_LOCATION, ctx->ctx, p1->p_defer_block->first_token, NULL, "defer");
+                        diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "jumping into defer. from here");
+                        diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
+                        //diagnostic(W_LOCATION, ctx->ctx, p1->p_defer_block->first_token, NULL, "defer");
                     }
                 }
                 p1 = p1->previous;
@@ -44738,7 +44692,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                     {
                         if (p2->p_declarator)
                         {
-                            struct defer_list_item* item = calloc(1, sizeof * item);
+                            struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                             if (item == NULL)
                             {
                                 throw;
@@ -44748,7 +44702,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                         }
                         else if (p2->p_defer_statement)
                         {
-                            struct defer_list_item* item = calloc(1, sizeof * item);
+                            struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                             if (item == NULL)
                             {
                                 throw;
@@ -44759,9 +44713,9 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
                         if (p->p_defer_block)
                         {
-                            compiler_diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "jumping out of defer.");
-                            compiler_diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
-                            // compiler_diagnostic(W_LOCATION, ctx->ctx, p1->p_defer_statement->first_token, NULL, "defer");                            
+                            diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "jumping out of defer.");
+                            diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
+                            // diagnostic(W_LOCATION, ctx->ctx, p1->p_defer_statement->first_token, NULL, "defer");                            
                         }
                         p2 = p2->previous;
                     }
@@ -44776,14 +44730,14 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                     {
                         if (p2->p_declarator)
                         {
-                            struct defer_list_item* item = calloc(1, sizeof * item);
+                            struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                             if (item == NULL) throw;
                             item->declarator = p2->p_declarator;
                             defer_list_add(&p_jump_statement->defer_list, item);
                         }
                         else if (p2->p_defer_statement)
                         {
-                            struct defer_list_item* item = calloc(1, sizeof * item);
+                            struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                             if (item == NULL) throw;
                             item->defer_statement = p2->p_defer_statement;
                             defer_list_add(&p_jump_statement->defer_list, item);
@@ -44795,8 +44749,8 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
                 if (p->p_defer_block)
                 {
-                    compiler_diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "goto is jumping out of defer.");
-                    compiler_diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
+                    diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "goto is jumping out of defer.");
+                    diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
                 }
 
                 p = p->previous;
@@ -44810,8 +44764,15 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
     }
     catch
     {
-        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
+        diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
+
+    if (p_jump_statement->p_lint_token)
+    {
+        //remove diagnostics related with defer.
+        check_dianostic_suppression_core(ctx->ctx, p_jump_statement->p_lint_token, 1);
+    }
+
     defer_visit_ctx_destroy(&label_ctx);
 }
 
@@ -44876,7 +44837,7 @@ static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expressio
 
                 if (p->p_declarator)
                 {
-                    struct defer_list_item* item = calloc(1, sizeof * item);
+                    struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                     if (item == NULL) throw;
 
                     item->declarator = p->p_declarator;
@@ -44885,7 +44846,7 @@ static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expressio
                 }
                 else if (p->p_defer_statement)
                 {
-                    struct defer_list_item* item = calloc(1, sizeof * item);
+                    struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                     if (item == NULL) throw;
 
                     item->defer_statement = p->p_defer_statement;
@@ -44893,7 +44854,7 @@ static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expressio
                 }
                 if (p->p_defer_block)
                 {
-                    compiler_diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p->p_defer_block->first_token, NULL, "is jumping out of defer");
+                    diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p->p_defer_block->first_token, NULL, "is jumping out of defer");
                 }
                 p = p->previous;
             }
@@ -45042,7 +45003,7 @@ static void defer_visit_block_item(struct defer_visit_ctx* ctx, struct block_ite
 
                     if (p->p_defer_statement)
                     {
-                        compiler_diagnostic(C_ERROR_JUMP_OVER_DEFER, ctx->ctx, p->p_defer_statement->first_token, NULL, "switch is jumping over or into defer");
+                        diagnostic(C_ERROR_JUMP_OVER_DEFER, ctx->ctx, p->p_defer_statement->first_token, NULL, "switch is jumping over or into defer");
                     }
                     p = p->previous;
                 }
@@ -45051,7 +45012,7 @@ static void defer_visit_block_item(struct defer_visit_ctx* ctx, struct block_ite
     }
     catch
     {
-        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
+        diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -45117,7 +45078,7 @@ static void defer_visit_declarator(struct defer_visit_ctx* ctx, struct declarato
     }
     catch
     {
-        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
+        diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -45183,7 +45144,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
     }
     catch
     {
-        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
+        diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -45223,7 +45184,7 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 
 
 
-static void emit_line_directive(struct d_visit_ctx* ctx,
+static void emit_line_directive(struct codegen_ctx* ctx,
                                 struct osstream* oss,
                                 const struct token* _Opt tk)
 {
@@ -45236,20 +45197,20 @@ static void emit_line_directive(struct d_visit_ctx* ctx,
     ss_fprintf(oss, "#line %d \"%s\"\n", tk->line, tk->token_origin->lexeme);
 }
 
-static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx,
+static void vm_emit_snapshot_decls(struct codegen_ctx* ctx,
                                     struct osstream* oss_body,
                                     const struct type* p_type);
 
-static void print_initializer(struct d_visit_ctx* ctx,
+static void print_initializer(struct codegen_ctx* ctx,
     struct osstream* oss,
     struct init_declarator* p_init_declarator,
     bool bstatic);
 
 static bool is_all_zero(const struct object* object);
-static void emmit_clear_declarator(struct d_visit_ctx* ctx, struct osstream* ss, const char* name, struct type* type);
+static void emmit_clear_declarator(struct codegen_ctx* ctx, struct osstream* ss, const char* name, struct type* type);
 
 
-void d_visit_ctx_destroy(_Dtor struct d_visit_ctx* ctx)
+void codegen_visit_ctx_destroy(_Dtor struct codegen_ctx* ctx)
 {
     hashmap_destroy(&ctx->tag_names);
     hashmap_destroy(&ctx->structs_map);
@@ -45281,10 +45242,10 @@ static void generate_name(int n, int sz, char* out)
     }
 }
 
-int generate_file_scope_new_name(struct d_visit_ctx* ctx, const char* current_name, int sz, char new_name[])
+int generate_file_scope_new_name(struct codegen_ctx* ctx, const char* current_name, int sz, char new_name[])
 {
     struct map_entry* _Opt it =
-        hashmap_find(&ctx->ast.file_scope.variables, current_name);
+        hashmap_find(&ctx->p_ast->file_scope.variables, current_name);
     while (it)
     {
         if (strcmp(current_name, it->key) == 0)
@@ -45292,11 +45253,11 @@ int generate_file_scope_new_name(struct d_visit_ctx* ctx, const char* current_na
             for (int i = 2; i < 1000000; )
             {
                 snprintf(new_name, sz, "%s%d", current_name, i);
-                struct map_entry* _Opt it2 = hashmap_find(&ctx->ast.file_scope.variables, new_name);
+                struct map_entry* _Opt it2 = hashmap_find(&ctx->p_ast->file_scope.variables, new_name);
                 if (it2 == NULL)
                 {
                     struct hash_item_set item = { 0 };
-                    hashmap_set(&ctx->ast.file_scope.variables, new_name, &item);
+                    hashmap_set(&ctx->p_ast->file_scope.variables, new_name, &item);
                     hash_item_set_destroy(&item);
                     return 1;
                 }
@@ -45316,7 +45277,7 @@ int generate_file_scope_new_name(struct d_visit_ctx* ctx, const char* current_na
     }
 
     struct hash_item_set item = { 0 };
-    hashmap_set(&ctx->ast.file_scope.variables, current_name, &item);
+    hashmap_set(&ctx->p_ast->file_scope.variables, current_name, &item);
     hash_item_set_destroy(&item);
 
     snprintf(new_name, sz, "%s", current_name);
@@ -45324,12 +45285,12 @@ int generate_file_scope_new_name(struct d_visit_ctx* ctx, const char* current_na
     return 1;
 }
 
-int rename_file_scope_declarator_if_necessary(struct d_visit_ctx* ctx, struct init_declarator* p_init_declarator)
+int rename_file_scope_declarator_if_necessary(struct codegen_ctx* ctx, struct init_declarator* p_init_declarator)
 {
     char new_name[200] = {0};
     const char* current_name = p_init_declarator->p_declarator->name_opt->lexeme;
     struct map_entry* _Opt it =
-        hashmap_find(&ctx->ast.file_scope.variables, current_name);
+        hashmap_find(&ctx->p_ast->file_scope.variables, current_name);
     while (it)
     {
         if (strcmp(current_name, it->key) == 0)
@@ -45337,12 +45298,12 @@ int rename_file_scope_declarator_if_necessary(struct d_visit_ctx* ctx, struct in
             for (int i = 2; i < 1000000; )
             {
                 snprintf(new_name, sizeof(new_name), "%s%d", current_name, i);
-                struct map_entry* _Opt it2 = hashmap_find(&ctx->ast.file_scope.variables, new_name);
+                struct map_entry* _Opt it2 = hashmap_find(&ctx->p_ast->file_scope.variables, new_name);
                 if (it2 == NULL)
                 {
                     struct hash_item_set item = { 0 };
                     item.p_init_declarator = init_declarator_add_ref(p_init_declarator);
-                    hashmap_set(&ctx->ast.file_scope.variables, new_name, &item);
+                    hashmap_set(&ctx->p_ast->file_scope.variables, new_name, &item);
                     hash_item_set_destroy(&item);
 
                     p_init_declarator->p_declarator->declarator_renamed = true;
@@ -45368,7 +45329,7 @@ int rename_file_scope_declarator_if_necessary(struct d_visit_ctx* ctx, struct in
 
     struct hash_item_set item = { 0 };
     item.p_init_declarator = init_declarator_add_ref(p_init_declarator);
-    hashmap_set(&ctx->ast.file_scope.variables, current_name, &item);
+    hashmap_set(&ctx->p_ast->file_scope.variables, current_name, &item);
     hash_item_set_destroy(&item);
 
     p_init_declarator->p_declarator->declarator_renamed = true;
@@ -45490,24 +45451,24 @@ int struct_entry_list_push_back(struct struct_entry_list* p, struct struct_entry
     return 0;
 }
 
-static void d_visit_function_body(struct d_visit_ctx* ctx,
+static void codegen_visit_function_body(struct codegen_ctx* ctx,
     struct osstream* oss,
     const struct declarator* function_definition);
 
-static void object_print_initialization_list(struct d_visit_ctx* ctx, struct osstream* ss, const struct object* object, bool* first);
-static void d_visit_secondary_block(struct d_visit_ctx* ctx, struct osstream* oss, struct secondary_block* p_secondary_block);
-static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* oss, struct init_declarator* p_init_declarator, enum function_specifier_flags function_specifier_flags, enum storage_class_specifier_flags storage_class_specifier_flags);
-static void d_visit_init_declarator_list(struct d_visit_ctx* ctx, struct osstream* oss, struct init_declarator_list* p_init_declarator_list, enum function_specifier_flags function_specifier_flags, enum storage_class_specifier_flags storage_class_specifier_flags);
-static void d_visit_compound_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement, struct osstream* _Opt parameters_vars, struct osstream* _Opt parameters_init);
-static void d_visit_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct statement* p_statement);
-static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct unlabeled_statement* p_unlabeled_statement);
-static void assign_each_member_from_initialization(struct d_visit_ctx* ctx, struct osstream* ss, const struct object* object,
+static void object_print_initialization_list(struct codegen_ctx* ctx, struct osstream* ss, const struct object* object, bool* first);
+static void codegen_visit_secondary_block(struct codegen_ctx* ctx, struct osstream* oss, struct secondary_block* p_secondary_block);
+static void codegen_visit_init_declarator(struct codegen_ctx* ctx, struct osstream* oss, struct init_declarator* p_init_declarator, enum function_specifier_flags function_specifier_flags, enum storage_class_specifier_flags storage_class_specifier_flags);
+static void codegen_visit_init_declarator_list(struct codegen_ctx* ctx, struct osstream* oss, struct init_declarator_list* p_init_declarator_list, enum function_specifier_flags function_specifier_flags, enum storage_class_specifier_flags storage_class_specifier_flags);
+static void codegen_visit_compound_statement(struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement, struct osstream* _Opt parameters_vars, struct osstream* _Opt parameters_init);
+static void codegen_visit_statement(struct codegen_ctx* ctx, struct osstream* oss, struct statement* p_statement);
+static void codegen_visit_unlabeled_statement(struct codegen_ctx* ctx, struct osstream* oss, struct unlabeled_statement* p_unlabeled_statement);
+static void assign_each_member_from_initialization(struct codegen_ctx* ctx, struct osstream* ss, const struct object* object,
     const char* declarator_name,
     bool all,
     bool initialize_objects_that_does_not_have_initializer);
 
-static void d_print_type_core(struct d_visit_ctx* ctx, struct osstream* ss, const struct type* p_type0, const char* _Opt name_opt);
-static void d_print_type(struct d_visit_ctx* ctx,
+static void d_print_type_core(struct codegen_ctx* ctx, struct osstream* ss, const struct type* p_type0, const char* _Opt name_opt);
+static void d_print_type(struct codegen_ctx* ctx,
     struct osstream* ss,
     const struct type* p_type,
     const char* _Opt name_opt,
@@ -45522,7 +45483,7 @@ static void print_identation_core(struct osstream* ss, int indentation)
     }
 }
 
-static void print_identation(const struct d_visit_ctx* ctx, struct osstream* oss)
+static void print_identation(const struct codegen_ctx* ctx, struct osstream* oss)
 {
     for (int i = 0; i < ctx->indentation; i++)
     {
@@ -45531,12 +45492,12 @@ static void print_identation(const struct d_visit_ctx* ctx, struct osstream* oss
 }
 
 
-static void il_print_defer_new(struct d_visit_ctx* ctx, struct osstream* oss, struct defer_list_item* p_item)
+static void il_print_defer_new(struct codegen_ctx* ctx, struct osstream* oss, struct defer_list_item* p_item)
 {
     if (p_item->defer_statement == NULL)
         return;
 
-    d_visit_unlabeled_statement(ctx, oss, p_item->defer_statement->unlabeled_statement);
+    codegen_visit_unlabeled_statement(ctx, oss, p_item->defer_statement->unlabeled_statement);
 }
 
 static int il_defer_count(struct defer_list* p_defer_list)
@@ -45551,7 +45512,7 @@ static int il_defer_count(struct defer_list* p_defer_list)
     return count;
 }
 
-static void il_print_defer_list(struct d_visit_ctx* ctx, struct osstream* oss, struct defer_list* p_defer_list, struct token* position)
+static void il_print_defer_list(struct codegen_ctx* ctx, struct osstream* oss, struct defer_list* p_defer_list, struct token* position)
 {
     struct defer_list_item* _Opt p_item = p_defer_list->head;
     while (p_item)
@@ -45564,9 +45525,9 @@ static void il_print_defer_list(struct d_visit_ctx* ctx, struct osstream* oss, s
 }
 
 
-static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, struct expression* p_expression);
+static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* oss, struct expression* p_expression);
 
-static void expression_to_bool_value(struct d_visit_ctx* ctx, struct osstream* oss, struct expression* p_expression)
+static void expression_to_bool_value(struct codegen_ctx* ctx, struct osstream* oss, struct expression* p_expression)
 {
     if (object_has_constant_value(&p_expression->object))
     {
@@ -45584,7 +45545,7 @@ static void expression_to_bool_value(struct d_visit_ctx* ctx, struct osstream* o
         if (type_is_bool(&p_expression->type) ||
             type_is_essential_bool(&p_expression->type))
         {
-            d_visit_expression(ctx, oss, p_expression);
+            codegen_visit_expression(ctx, oss, p_expression);
         }
         else
         {
@@ -45611,14 +45572,14 @@ static void expression_to_bool_value(struct d_visit_ctx* ctx, struct osstream* o
             case EXPRESSION_EXPRESSION:
             case CONDITIONAL_EXPRESSION:
                 ss_fprintf(oss, "((");
-                d_visit_expression(ctx, oss, p_expression);
+                codegen_visit_expression(ctx, oss, p_expression);
                 ss_fprintf(oss, ") != 0)");
                 break;
             default:
                 //we are taking some risks eliminating () to make it easier to read.
                 //external ()  are optional, but I think it makes it clear.
                 ss_fprintf(oss, "(");
-                d_visit_expression(ctx, oss, p_expression);
+                codegen_visit_expression(ctx, oss, p_expression);
                 ss_fprintf(oss, " != 0)");
                 break;
             }
@@ -45818,10 +45779,10 @@ static const char* get_op_by_expression_type(enum expression_type type)
     return "";
 }
 
-static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
+static void codegen_visit_compound_statement_2(const char* var_name, struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
 
 
-static enum sizeof_result vm_emit_sizeof_expr_core(struct d_visit_ctx* ctx,
+static enum sizeof_result vm_emit_sizeof_expr_core(struct codegen_ctx* ctx,
                                      struct osstream* oss,
                                      const struct type* p_type,
                                      size_t* size)
@@ -45889,7 +45850,7 @@ static enum sizeof_result vm_emit_sizeof_expr_core(struct d_visit_ctx* ctx,
     return r;
 }
 
-static void vm_emit_sizeof_expr(struct d_visit_ctx* ctx,
+static void vm_emit_sizeof_expr(struct codegen_ctx* ctx,
                                 struct osstream* oss,
                                 const struct type* p_type)
 {
@@ -45907,7 +45868,7 @@ static void vm_emit_sizeof_expr(struct d_visit_ctx* ctx,
     ss_close(&local);
 }
 
-static void vm_emit_countof_expr(struct d_visit_ctx* ctx,
+static void vm_emit_countof_expr(struct codegen_ctx* ctx,
                                  struct osstream* oss,
                                  const struct type* p_type)
 {
@@ -45924,7 +45885,7 @@ static void vm_emit_countof_expr(struct d_visit_ctx* ctx,
 
 
 
-static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, struct expression* p_expression)
+static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* oss, struct expression* p_expression)
 {
 
     if (p_expression->expression_type == CHECKED_EXPRESSION)
@@ -45948,7 +45909,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
         print_identation_core(&add_this_before, ctx->indentation);
         ss_fprintf(&add_this_before, "%s = ", name);
-        d_visit_expression(ctx, &add_this_before, p_expression->left);
+        codegen_visit_expression(ctx, &add_this_before, p_expression->left);
         ss_fprintf(&add_this_before, ";\n");
 
         //ctx->break_reference.p_iteration_statement->
@@ -46131,7 +46092,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                     emit_line_directive(ctx, &local3, p_function_defined->first_token_opt);
                     ss_fprintf(&local3, "static %s\n", local4.c_str);
 
-                    d_visit_function_body(ctx, &local3, p_function_defined);
+                    codegen_visit_function_body(ctx, &local3, p_function_defined);
 
                     assert(ss.c_str);
                     assert(oss->c_str);
@@ -46219,12 +46180,12 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         if (p_expression->right->expression_type == PRIMARY_EXPRESSION_PARENTHESIS)
         {
             /* remove extra (()) — could also be removed from other cases */
-            d_visit_expression(ctx, oss, p_expression->right);
+            codegen_visit_expression(ctx, oss, p_expression->right);
         }
         else
         {
             ss_fprintf(oss, "(");
-            d_visit_expression(ctx, oss, p_expression->right);
+            codegen_visit_expression(ctx, oss, p_expression->right);
             ss_fprintf(oss, ")");
         }
 
@@ -46246,7 +46207,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         ss_clear(&local);
 
         //we need to change the last statment
-        d_visit_compound_statement_2(name, ctx, &local, p_expression->compound_statement);
+        codegen_visit_compound_statement_2(name, ctx, &local, p_expression->compound_statement);
 
         ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
         ss_close(&local);
@@ -46259,7 +46220,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
         if (p_expression->generic_selection->p_view_selected_expression)
         {
-            d_visit_expression(ctx, oss, p_expression->generic_selection->p_view_selected_expression);
+            codegen_visit_expression(ctx, oss, p_expression->generic_selection->p_view_selected_expression);
         }
         break;
 
@@ -46281,16 +46242,16 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         if (p_expression->right != NULL)
         {
             ss_fprintf(oss, "__builtin_va_start(");
-            d_visit_expression(ctx, oss, p_expression->left);
+            codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, ", ");
-            d_visit_expression(ctx, oss, p_expression->right);
+            codegen_visit_expression(ctx, oss, p_expression->right);
             ss_fprintf(oss, ")");
         }
         else
         {
             //first argument is optional in C23
             ss_fprintf(oss, "__builtin_c23_va_start(");
-            d_visit_expression(ctx, oss, p_expression->left);
+            codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, ")");
             //TODO to convert to C89 we need to insert the first parameter
             //at the caller and at the implementation
@@ -46301,7 +46262,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     case UNARY_EXPRESSION_GCC__BUILTIN_VA_END:
         assert(p_expression->left != NULL);
         ss_fprintf(oss, "__builtin_va_end(");
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, ")");
         break;
 
@@ -46310,9 +46271,9 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->right != NULL);
 
         ss_fprintf(oss, "__builtin_va_copy(");
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, ", ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         ss_fprintf(oss, ")");
         break;
 
@@ -46320,7 +46281,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->left != NULL);
 
         ss_fprintf(oss, "__builtin_va_arg(");
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
 
         if (p_expression->type_name)
         {
@@ -46334,7 +46295,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     {
         assert(p_expression->left != NULL);
 
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
 
         char name[100] = { 0 };
         int r = find_member_name(&p_expression->left->type, p_expression->member_index, name);
@@ -46350,7 +46311,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->left != NULL);
 
 
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         {
             struct type t = type_remove_pointer(&p_expression->left->type);
 
@@ -46369,14 +46330,14 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     case POSTFIX_INCREMENT:
         assert(p_expression->left != NULL);
 
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, "++");
         break;
 
     case POSTFIX_DECREMENT:
         assert(p_expression->left != NULL);
 
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, "--");
         break;
 
@@ -46423,12 +46384,12 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
                 if (is_primary_expression(expr->right->expression_type))
                 {
-                    d_visit_expression(ctx, &offset_flat, expr->right);
+                    codegen_visit_expression(ctx, &offset_flat, expr->right);
                 }
                 else
                 {
                     ss_fprintf(&offset_flat, "(");
-                    d_visit_expression(ctx, &offset_flat, expr->right);
+                    codegen_visit_expression(ctx, &offset_flat, expr->right);
                     ss_fprintf(&offset_flat, ")");
                 }
 
@@ -46450,7 +46411,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 expr = expr->left;
             }
 
-            d_visit_expression(ctx, oss, expr);
+            codegen_visit_expression(ctx, oss, expr);
             ss_fprintf(oss, "[");
             ss_fprintf(oss, "%s", offset_flat.c_str);
             ss_fprintf(oss, "]");
@@ -46458,9 +46419,9 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         }
         else
         {
-            d_visit_expression(ctx, oss, p_expression->left);
+            codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, "[");
-            d_visit_expression(ctx, oss, p_expression->right);
+            codegen_visit_expression(ctx, oss, p_expression->right);
             ss_fprintf(oss, "]");
         }
 
@@ -46471,7 +46432,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->left != NULL);
 
 
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
 
         struct param* _Opt param = p_expression->left->type.params.head;
 
@@ -46491,7 +46452,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             }
             else
             {
-                d_visit_expression(ctx, oss, arg->expression);
+                codegen_visit_expression(ctx, oss, arg->expression);
             }
 
             if (param)
@@ -46511,7 +46472,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "&");
         ctx->address_of_argument = true;
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         ctx->address_of_argument = false;
     }
     break;
@@ -46535,7 +46496,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         const int current_indentation = ctx->indentation;
         ctx->indentation = 0;
         struct osstream function_literal_body = { 0 };
-        d_visit_compound_statement(ctx, &function_literal_body, p_expression->compound_statement, NULL, NULL);
+        codegen_visit_compound_statement(ctx, &function_literal_body, p_expression->compound_statement, NULL, NULL);
         ctx->p_current_function_opt = p_current_function_opt;
         ctx->indentation = current_indentation;
 
@@ -46679,50 +46640,50 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     case UNARY_EXPRESSION_CONSTEVAL:
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_INCREMENT:
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "++");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_DECREMENT:
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "--");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_NOT:
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "!");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_BITNOT:
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "~");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_NEG:
 
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "-");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
     case UNARY_EXPRESSION_PLUS:
 
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "+");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_CONTENT:
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "*");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_ASSERT:
@@ -46731,49 +46692,49 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     case ADDITIVE_EXPRESSION_MINUS:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " - ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case ADDITIVE_EXPRESSION_PLUS:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " + ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case MULTIPLICATIVE_EXPRESSION_MULT:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " * ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
     case MULTIPLICATIVE_EXPRESSION_DIV:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " / ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case MULTIPLICATIVE_EXPRESSION_MOD:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, "%s", " % ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
 
     case EXPRESSION_EXPRESSION:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, ", ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
 
@@ -46782,7 +46743,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
 
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " %s ", get_op_by_expression_type(p_expression->expression_type));
 
         if (type_is_bool(&p_expression->left->type))
@@ -46791,7 +46752,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         }
         else
         {
-            d_visit_expression(ctx, oss, p_expression->right);
+            codegen_visit_expression(ctx, oss, p_expression->right);
         }
 
         break;
@@ -46808,9 +46769,9 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " %s ", get_op_by_expression_type(p_expression->expression_type));
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case CAST_EXPRESSION:
@@ -46827,113 +46788,113 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         d_print_type(ctx, &local2, &p_expression->type, NULL, false);
         ss_fprintf(oss, "(%s)", local2.c_str);
         ss_close(&local2);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
     }
     break;
 
     case SHIFT_EXPRESSION_RIGHT:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " >> ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case SHIFT_EXPRESSION_LEFT:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " << ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case RELATIONAL_EXPRESSION_BIGGER_THAN:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " > ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case RELATIONAL_EXPRESSION_LESS_THAN:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
 
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " < ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
 
         break;
     case EQUALITY_EXPRESSION_EQUAL:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " == ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case EQUALITY_EXPRESSION_NOT_EQUAL:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " != ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case AND_EXPRESSION:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " & ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case EXCLUSIVE_OR_EXPRESSION:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " ^ ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case INCLUSIVE_OR_EXPRESSION:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " | ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " <= ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " >= ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case LOGICAL_AND_EXPRESSION:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " && ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case LOGICAL_OR_EXPRESSION:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " || ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_TRAITS:
@@ -46973,7 +46934,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 {
                     assert(p_expression->condition_expr->compound_statement != NULL);
                     struct osstream stmtexpr_body = { 0 };
-                    d_visit_compound_statement_2(name, ctx, &stmtexpr_body,
+                    codegen_visit_compound_statement_2(name, ctx, &stmtexpr_body,
                                                  p_expression->condition_expr->compound_statement);
                     ss_fprintf(&ctx->add_this_before, "%s", stmtexpr_body.c_str);
                     ss_close(&stmtexpr_body);
@@ -46982,7 +46943,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 {
                     print_identation_core(&add_this_before, ctx->indentation);
                     ss_fprintf(&add_this_before, "%s = ", name);
-                    d_visit_expression(ctx, &add_this_before, p_expression->condition_expr);
+                    codegen_visit_expression(ctx, &add_this_before, p_expression->condition_expr);
                     ss_fprintf(&add_this_before, ";\n");
                 }
 
@@ -46993,7 +46954,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
                     assert(p_expression->right->compound_statement != NULL);
                     struct osstream right_body = { 0 };
-                    d_visit_compound_statement_2(name, ctx, &right_body, p_expression->right->compound_statement);
+                    codegen_visit_compound_statement_2(name, ctx, &right_body, p_expression->right->compound_statement);
                     ss_fprintf(&add_this_before, "%s", right_body.c_str);
                     ss_close(&right_body);
                 }
@@ -47001,7 +46962,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 {
                     print_identation_core(&add_this_before, ctx->indentation);
                     ss_fprintf(&add_this_before, "if (!%s) %s = ", name, name);
-                    d_visit_expression(ctx, &add_this_before, p_expression->right);
+                    codegen_visit_expression(ctx, &add_this_before, p_expression->right);
                     ss_fprintf(&add_this_before, ";\n");
                 }
 
@@ -47024,30 +46985,30 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
                 print_identation_core(&ctx->add_this_before, ctx->indentation);
                 ss_fprintf(&ctx->add_this_before, "%s = ", name);
-                d_visit_expression(ctx, &ctx->add_this_before,
+                codegen_visit_expression(ctx, &ctx->add_this_before,
                                    p_expression->condition_expr);
                 ss_fprintf(&ctx->add_this_before, ";\n");
 
                 ss_fprintf(oss, "%s ? %s : ", name, name);
-                d_visit_expression(ctx, oss, p_expression->right);
+                codegen_visit_expression(ctx, oss, p_expression->right);
             }
             else
             {
                 /* No side effects — safe to repeat the condition */
-                d_visit_expression(ctx, oss, p_expression->condition_expr);
+                codegen_visit_expression(ctx, oss, p_expression->condition_expr);
                 ss_fprintf(oss, " ? ");
-                d_visit_expression(ctx, oss, p_expression->condition_expr);
+                codegen_visit_expression(ctx, oss, p_expression->condition_expr);
                 ss_fprintf(oss, " : ");
-                d_visit_expression(ctx, oss, p_expression->right);
+                codegen_visit_expression(ctx, oss, p_expression->right);
             }
         }
         else
         {
-            d_visit_expression(ctx, oss, p_expression->condition_expr);
+            codegen_visit_expression(ctx, oss, p_expression->condition_expr);
             ss_fprintf(oss, " ? ");
-            d_visit_expression(ctx, oss, p_expression->left);
+            codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " : ");
-            d_visit_expression(ctx, oss, p_expression->right);
+            codegen_visit_expression(ctx, oss, p_expression->right);
         }
 
         break;
@@ -47055,10 +47016,10 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 }
 
 
-static void d_visit_declaration(struct d_visit_ctx* ctx, struct osstream* oss, struct declaration* p_declaration);
+static void codegen_visit_declaration(struct codegen_ctx* ctx, struct osstream* oss, struct declaration* p_declaration);
 
 
-static void d_visit_expression_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct expression_statement* p_expression_statement)
+static void codegen_visit_expression_statement(struct codegen_ctx* ctx, struct osstream* oss, struct expression_statement* p_expression_statement)
 {
 
     ss_clear(&ctx->add_this_before);
@@ -47066,7 +47027,7 @@ static void d_visit_expression_statement(struct d_visit_ctx* ctx, struct osstrea
 
     print_identation(ctx, &local);
     if (p_expression_statement->expression_opt)
-        d_visit_expression(ctx, &local, p_expression_statement->expression_opt);
+        codegen_visit_expression(ctx, &local, p_expression_statement->expression_opt);
 
 
     if (ctx->add_this_before.size > 0)
@@ -47080,7 +47041,7 @@ static void d_visit_expression_statement(struct d_visit_ctx* ctx, struct osstrea
     ss_close(&local);
 }
 
-static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct jump_statement* p_jump_statement)
+static void codegen_visit_jump_statement(struct codegen_ctx* ctx, struct osstream* oss, struct jump_statement* p_jump_statement)
 {
     if (p_jump_statement->first_token->type == TK_KEYWORD_CAKE_THROW)
     {
@@ -47115,7 +47076,7 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
                 }
                 else
                 {
-                    d_visit_expression(ctx, oss, p_jump_statement->expression_opt);
+                    codegen_visit_expression(ctx, oss, p_jump_statement->expression_opt);
                 }
             }
             ss_fprintf(oss, ";\n");
@@ -47152,7 +47113,7 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
                 }
                 else
                 {
-                    d_visit_expression(ctx, oss, p_jump_statement->expression_opt);
+                    codegen_visit_expression(ctx, oss, p_jump_statement->expression_opt);
                 }
             }
             ss_fprintf(oss, ";\n");
@@ -47199,32 +47160,32 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
     }
 }
 
-static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct label* p_label);
+static void codegen_visit_label(struct codegen_ctx* ctx, struct osstream* oss, struct label* p_label);
 
-static void d_visit_labeled_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct labeled_statement* p_labeled_statement)
+static void codegen_visit_labeled_statement(struct codegen_ctx* ctx, struct osstream* oss, struct labeled_statement* p_labeled_statement)
 {
     assert(p_labeled_statement->label != NULL);
 
     emit_line_directive(ctx, oss, p_labeled_statement->label->p_first_token);
-    d_visit_label(ctx, oss, p_labeled_statement->label);
+    codegen_visit_label(ctx, oss, p_labeled_statement->label);
 
 
-    d_visit_statement(ctx, oss, p_labeled_statement->statement);
+    codegen_visit_statement(ctx, oss, p_labeled_statement->statement);
 }
 
-static void d_visit_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct statement* p_statement)
+static void codegen_visit_statement(struct codegen_ctx* ctx, struct osstream* oss, struct statement* p_statement)
 {
     if (p_statement->labeled_statement)
     {
-        d_visit_labeled_statement(ctx, oss, p_statement->labeled_statement);
+        codegen_visit_labeled_statement(ctx, oss, p_statement->labeled_statement);
     }
     else if (p_statement->unlabeled_statement)
     {
-        d_visit_unlabeled_statement(ctx, oss, p_statement->unlabeled_statement);
+        codegen_visit_unlabeled_statement(ctx, oss, p_statement->unlabeled_statement);
     }
 }
 
-static void d_visit_secondary_block(struct d_visit_ctx* ctx, struct osstream* oss, struct secondary_block* p_secondary_block)
+static void codegen_visit_secondary_block(struct codegen_ctx* ctx, struct osstream* oss, struct secondary_block* p_secondary_block)
 {
     if (p_secondary_block->statement &&
         p_secondary_block->statement->unlabeled_statement &&
@@ -47234,15 +47195,15 @@ static void d_visit_secondary_block(struct d_visit_ctx* ctx, struct osstream* os
            When defer is the only statement of the secondary block
            if (1) defer a = 1;
         */
-        d_visit_unlabeled_statement(ctx, oss, p_secondary_block->statement->unlabeled_statement->defer_statement->unlabeled_statement);
+        codegen_visit_unlabeled_statement(ctx, oss, p_secondary_block->statement->unlabeled_statement->defer_statement->unlabeled_statement);
     }
     else
     {
-        d_visit_statement(ctx, oss, p_secondary_block->statement);
+        codegen_visit_statement(ctx, oss, p_secondary_block->statement);
     }
 }
 
-static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct iteration_statement* p_iteration_statement)
+static void codegen_visit_iteration_statement(struct codegen_ctx* ctx, struct osstream* oss, struct iteration_statement* p_iteration_statement)
 {
     struct break_reference old = ctx->break_reference;
     ctx->break_reference.p_iteration_statement = p_iteration_statement;
@@ -47254,23 +47215,23 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
         ss_fprintf(oss, "while ("); //one statement per line
 
         if (p_iteration_statement->expression1)
-            d_visit_expression(ctx, oss, p_iteration_statement->expression1);
+            codegen_visit_expression(ctx, oss, p_iteration_statement->expression1);
 
         ss_fprintf(oss, ")\n");
-        d_visit_secondary_block(ctx, oss, p_iteration_statement->secondary_block);
+        codegen_visit_secondary_block(ctx, oss, p_iteration_statement->secondary_block);
     }
     else if (p_iteration_statement->first_token->type == TK_KEYWORD_DO)
     {
         ss_fprintf(oss, "do\n");
 
-        d_visit_secondary_block(ctx, oss, p_iteration_statement->secondary_block);
+        codegen_visit_secondary_block(ctx, oss, p_iteration_statement->secondary_block);
 
         emit_line_directive(ctx, oss, p_iteration_statement->expression1->first_token);
         print_identation(ctx, oss);
         ss_fprintf(oss, "while (");
 
         assert(p_iteration_statement->expression1 != NULL);
-        d_visit_expression(ctx, oss, p_iteration_statement->expression1);
+        codegen_visit_expression(ctx, oss, p_iteration_statement->expression1);
 
 
         ss_fprintf(oss, ");\n");
@@ -47287,7 +47248,7 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
 
             struct osstream local = { 0 };
             emit_line_directive(ctx, &local, p_iteration_statement->declaration->first_token);
-            d_visit_declaration(ctx, &local, p_iteration_statement->declaration);
+            codegen_visit_declaration(ctx, &local, p_iteration_statement->declaration);
 
             if (ctx->block_scope_declarators.c_str)
             {
@@ -47311,7 +47272,7 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
         {
             emit_line_directive(ctx, oss, p_iteration_statement->first_token);
             ss_fprintf(oss, "for (");
-            d_visit_expression(ctx, oss, p_iteration_statement->expression0);
+            codegen_visit_expression(ctx, oss, p_iteration_statement->expression0);
         }
         else
         {
@@ -47322,12 +47283,12 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
         ss_fprintf(oss, "; ");
 
         if (p_iteration_statement->expression1)
-            d_visit_expression(ctx, oss, p_iteration_statement->expression1);
+            codegen_visit_expression(ctx, oss, p_iteration_statement->expression1);
 
         ss_fprintf(oss, "; ");
 
         if (p_iteration_statement->expression2)
-            d_visit_expression(ctx, oss, p_iteration_statement->expression2);
+            codegen_visit_expression(ctx, oss, p_iteration_statement->expression2);
 
         ss_fprintf(oss, ")\n");
 
@@ -47349,7 +47310,7 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
         }
 
         emit_line_directive(ctx, oss, p_iteration_statement->secondary_block->first_token);
-        d_visit_secondary_block(ctx, oss, p_iteration_statement->secondary_block);
+        codegen_visit_secondary_block(ctx, oss, p_iteration_statement->secondary_block);
 
         if (!is_compound_statement)
         {
@@ -47370,34 +47331,34 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
     ctx->break_reference = old;
 }
 
-static void d_visit_simple_declaration(struct d_visit_ctx* ctx, struct osstream* oss, struct simple_declaration* p_simple_declaration)
+static void codegen_visit_simple_declaration(struct codegen_ctx* ctx, struct osstream* oss, struct simple_declaration* p_simple_declaration)
 {
     enum storage_class_specifier_flags storage_class_specifier_flags =
         p_simple_declaration->p_declaration_specifiers->storage_class_specifier_flags;
 
-    d_visit_init_declarator_list(ctx, oss, &p_simple_declaration->init_declarator_list, 0, storage_class_specifier_flags);
+    codegen_visit_init_declarator_list(ctx, oss, &p_simple_declaration->init_declarator_list, 0, storage_class_specifier_flags);
 }
 
-static void d_visit_init_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct init_statement* p_init_statement)
+static void codegen_visit_init_statement(struct codegen_ctx* ctx, struct osstream* oss, struct init_statement* p_init_statement)
 {
     if (p_init_statement->p_expression_statement)
-        d_visit_expression_statement(ctx, oss, p_init_statement->p_expression_statement);
+        codegen_visit_expression_statement(ctx, oss, p_init_statement->p_expression_statement);
     if (p_init_statement->p_simple_declaration)
-        d_visit_simple_declaration(ctx, oss, p_init_statement->p_simple_declaration);
+        codegen_visit_simple_declaration(ctx, oss, p_init_statement->p_simple_declaration);
 }
 
-static void d_visit_condition(struct d_visit_ctx* ctx, struct osstream* oss, struct condition* p_condition)
+static void codegen_visit_condition(struct codegen_ctx* ctx, struct osstream* oss, struct condition* p_condition)
 {
     if (p_condition->p_init_declarator)
     {
         enum storage_class_specifier_flags storage_class_specifier_flags =
             p_condition->p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags;
 
-        d_visit_init_declarator(ctx, oss, p_condition->p_init_declarator, 0, storage_class_specifier_flags);
+        codegen_visit_init_declarator(ctx, oss, p_condition->p_init_declarator, 0, storage_class_specifier_flags);
     }
 
     if (p_condition->expression)
-        d_visit_expression(ctx, oss, p_condition->expression);
+        codegen_visit_expression(ctx, oss, p_condition->expression);
 }
 
 static bool is_compound_statement(struct secondary_block* p_secondary_block)
@@ -47414,7 +47375,7 @@ static bool is_compound_statement(struct secondary_block* p_secondary_block)
     return false;
 }
 
-static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct selection_statement* p_selection_statement)
+static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct osstream* oss, struct selection_statement* p_selection_statement)
 {
     if (p_selection_statement->first_token->type == TK_KEYWORD_SWITCH)
     {
@@ -47442,7 +47403,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
         ss_fprintf(&ss, " = ");
 
         assert(p_selection_statement->condition != NULL);
-        d_visit_condition(ctx, &ss, p_selection_statement->condition);
+        codegen_visit_condition(ctx, &ss, p_selection_statement->condition);
         ss_fprintf(&ss, ";\n");
 
         struct label* _Opt p_label = p_selection_statement->label_list.head;
@@ -47490,7 +47451,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
         ss_fprintf(&ss, "\n");
 
-        d_visit_secondary_block(ctx, &ss, p_selection_statement->secondary_block);
+        codegen_visit_secondary_block(ctx, &ss, p_selection_statement->secondary_block);
 
         print_identation(ctx, &ss);
         ss_fprintf(&ss, CAKE_PREFIX_LABEL "%d:;\n", ctx->break_reference.p_selection_statement->label_id);
@@ -47519,7 +47480,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
             struct osstream local2 = { 0 };
 
-            d_visit_init_statement(ctx, &local2, p_selection_statement->p_init_statement);
+            codegen_visit_init_statement(ctx, &local2, p_selection_statement->p_init_statement);
 
             if (ctx->block_scope_declarators.c_str)
             {
@@ -47550,7 +47511,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
                 enum storage_class_specifier_flags storage_class_specifier_flags =
                     p_selection_statement->condition->p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags;
 
-                d_visit_init_declarator(ctx, &local2, p_selection_statement->condition->p_init_declarator, 0, storage_class_specifier_flags);
+                codegen_visit_init_declarator(ctx, &local2, p_selection_statement->condition->p_init_declarator, 0, storage_class_specifier_flags);
 
                 if (ctx->block_scope_declarators.c_str)
                 {
@@ -47575,7 +47536,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
                 emit_line_directive(ctx, oss, p_selection_statement->condition->expression->first_token);
                 print_identation(ctx, oss);
                 ss_fprintf(oss, "if (");
-                d_visit_expression(ctx, oss, p_selection_statement->condition->expression);
+                codegen_visit_expression(ctx, oss, p_selection_statement->condition->expression);
                 ss_fprintf(oss, ")\n");
             }
 
@@ -47585,14 +47546,14 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
         if (is_compound_statement(p_selection_statement->secondary_block))
         {
-            d_visit_secondary_block(ctx, oss, p_selection_statement->secondary_block);
+            codegen_visit_secondary_block(ctx, oss, p_selection_statement->secondary_block);
         }
         else
         {
             print_identation(ctx, oss);
             ss_fprintf(oss, "{\n");
             ctx->indentation++;
-            d_visit_secondary_block(ctx, oss, p_selection_statement->secondary_block);
+            codegen_visit_secondary_block(ctx, oss, p_selection_statement->secondary_block);
             ctx->indentation--;
             print_identation(ctx, oss);
             ss_fprintf(oss, "}\n");
@@ -47605,14 +47566,14 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
             if (is_compound_statement(p_selection_statement->else_secondary_block_opt))
             {
-                d_visit_secondary_block(ctx, oss, p_selection_statement->else_secondary_block_opt);
+                codegen_visit_secondary_block(ctx, oss, p_selection_statement->else_secondary_block_opt);
             }
             else
             {
                 print_identation(ctx, oss);
                 ss_fprintf(oss, "{\n");
                 ctx->indentation++;
-                d_visit_secondary_block(ctx, oss, p_selection_statement->else_secondary_block_opt);
+                codegen_visit_secondary_block(ctx, oss, p_selection_statement->else_secondary_block_opt);
                 ctx->indentation--;
                 print_identation(ctx, oss);
                 ss_fprintf(oss, "}\n");
@@ -47629,7 +47590,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
     }
 }
 
-static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct try_statement* p_try_statement)
+static void codegen_visit_try_statement(struct codegen_ctx* ctx, struct osstream* oss, struct try_statement* p_try_statement)
 {
     struct try_statement* _Opt p_old_try_statement = ctx->p_current_try_statement;
     ctx->p_current_try_statement = p_try_statement;
@@ -47640,7 +47601,7 @@ static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss,
     else if (p_try_statement->first_token->type == TK_KEYWORD_MSVC__TRY)
         ss_fprintf(oss, "__try\n");
 
-    d_visit_secondary_block(ctx, oss, p_try_statement->secondary_block);
+    codegen_visit_secondary_block(ctx, oss, p_try_statement->secondary_block);
 
     print_identation(ctx, oss);
 
@@ -47657,7 +47618,7 @@ static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss,
         else if (p_try_statement->catch_token_opt->type == TK_KEYWORD_MSVC__EXCEPT)
         {
             ss_fprintf(oss, "__except(");
-            d_visit_expression(ctx, oss, p_try_statement->msvc_except_expression);
+            codegen_visit_expression(ctx, oss, p_try_statement->msvc_except_expression);
             ss_fprintf(oss, ")\n");
         }
     }
@@ -47665,31 +47626,31 @@ static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss,
 
     if (p_try_statement->catch_secondary_block_opt)
     {
-        d_visit_secondary_block(ctx, oss, p_try_statement->catch_secondary_block_opt);
+        codegen_visit_secondary_block(ctx, oss, p_try_statement->catch_secondary_block_opt);
     }
 
     ctx->p_current_try_statement = p_old_try_statement;
 
 }
 
-static void d_visit_primary_block(struct d_visit_ctx* ctx, struct osstream* oss, struct primary_block* p_primary_block)
+static void codegen_visit_primary_block(struct codegen_ctx* ctx, struct osstream* oss, struct primary_block* p_primary_block)
 {
 
     if (p_primary_block->compound_statement)
     {
-        d_visit_compound_statement(ctx, oss, p_primary_block->compound_statement, NULL, NULL);
+        codegen_visit_compound_statement(ctx, oss, p_primary_block->compound_statement, NULL, NULL);
     }
     else if (p_primary_block->iteration_statement)
     {
-        d_visit_iteration_statement(ctx, oss, p_primary_block->iteration_statement);
+        codegen_visit_iteration_statement(ctx, oss, p_primary_block->iteration_statement);
     }
     else if (p_primary_block->selection_statement)
     {
-        d_visit_selection_statement(ctx, oss, p_primary_block->selection_statement);
+        codegen_visit_selection_statement(ctx, oss, p_primary_block->selection_statement);
     }
     else if (p_primary_block->try_statement)
     {
-        d_visit_try_statement(ctx, oss, p_primary_block->try_statement);
+        codegen_visit_try_statement(ctx, oss, p_primary_block->try_statement);
     }
     else if (p_primary_block->asm_statement)
     {
@@ -47706,7 +47667,7 @@ static void d_visit_primary_block(struct d_visit_ctx* ctx, struct osstream* oss,
     }
 }
 
-static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct unlabeled_statement* p_unlabeled_statement)
+static void codegen_visit_unlabeled_statement(struct codegen_ctx* ctx, struct osstream* oss, struct unlabeled_statement* p_unlabeled_statement)
 {
     if (p_unlabeled_statement->primary_block)
     {
@@ -47726,7 +47687,7 @@ static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream
                 emit_line_directive(ctx, oss, tk);
             }
 
-        d_visit_primary_block(ctx, oss, p_unlabeled_statement->primary_block);
+        codegen_visit_primary_block(ctx, oss, p_unlabeled_statement->primary_block);
     }
     else if (p_unlabeled_statement->expression_statement)
     {
@@ -47735,12 +47696,12 @@ static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream
         {
             emit_line_directive(ctx, oss, p_unlabeled_statement->expression_statement->expression_opt->first_token);
         }
-        d_visit_expression_statement(ctx, oss, p_unlabeled_statement->expression_statement);
+        codegen_visit_expression_statement(ctx, oss, p_unlabeled_statement->expression_statement);
     }
     else if (p_unlabeled_statement->jump_statement)
     {
         emit_line_directive(ctx, oss, p_unlabeled_statement->jump_statement->first_token);
-        d_visit_jump_statement(ctx, oss, p_unlabeled_statement->jump_statement);
+        codegen_visit_jump_statement(ctx, oss, p_unlabeled_statement->jump_statement);
     }
     else if (p_unlabeled_statement->defer_statement)
     {
@@ -47754,7 +47715,7 @@ static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream
     }
 }
 
-static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct label* p_label)
+static void codegen_visit_label(struct codegen_ctx* ctx, struct osstream* oss, struct label* p_label)
 {
     if (p_label->p_first_token->type == TK_KEYWORD_CASE)
     {
@@ -47789,7 +47750,7 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
 
 }
 
-static void d_visit_block_item(struct d_visit_ctx* ctx, struct osstream* oss, struct block_item* p_block_item)
+static void codegen_visit_block_item(struct codegen_ctx* ctx, struct osstream* oss, struct block_item* p_block_item)
 {
     struct osstream ss0 = { 0 };
     ss_swap(oss, &ss0);
@@ -47798,15 +47759,15 @@ static void d_visit_block_item(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     if (p_block_item->declaration)
     {
-        d_visit_declaration(ctx, oss, p_block_item->declaration);
+        codegen_visit_declaration(ctx, oss, p_block_item->declaration);
     }
     else if (p_block_item->unlabeled_statement)
     {
-        d_visit_unlabeled_statement(ctx, oss, p_block_item->unlabeled_statement);
+        codegen_visit_unlabeled_statement(ctx, oss, p_block_item->unlabeled_statement);
     }
     else if (p_block_item->label)
     {
-        d_visit_label(ctx, oss, p_block_item->label);
+        codegen_visit_label(ctx, oss, p_block_item->label);
     }
 
     if (ctx->add_this_before.size > 0)
@@ -47823,18 +47784,18 @@ static void d_visit_block_item(struct d_visit_ctx* ctx, struct osstream* oss, st
     ss_close(&ss0);
 }
 
-static void d_visit_block_item_list(struct d_visit_ctx* ctx, struct osstream* oss, struct block_item_list* p_block_item_list)
+static void codegen_visit_block_item_list(struct codegen_ctx* ctx, struct osstream* oss, struct block_item_list* p_block_item_list)
 {
     struct block_item* _Opt p_block_item = p_block_item_list->head;
     while (p_block_item)
     {
-        d_visit_block_item(ctx, oss, p_block_item);
+        codegen_visit_block_item(ctx, oss, p_block_item);
         p_block_item = p_block_item->next;
     }
 }
 
 
-static void d_visit_compound_statement(struct d_visit_ctx* ctx,
+static void codegen_visit_compound_statement(struct codegen_ctx* ctx,
     struct osstream* oss,
     struct compound_statement* p_compound_statement,
     struct osstream* _Opt parameters_vars,
@@ -47850,7 +47811,7 @@ static void d_visit_compound_statement(struct d_visit_ctx* ctx,
     struct osstream local = { 0 };
 
     ctx->indentation++;
-    d_visit_block_item_list(ctx, &local, &p_compound_statement->block_item_list);
+    codegen_visit_block_item_list(ctx, &local, &p_compound_statement->block_item_list);
 
 
     bool ends_with_jump = false;
@@ -47899,7 +47860,7 @@ static void d_visit_compound_statement(struct d_visit_ctx* ctx,
     ss_close(&local);
 }
 
-static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement)
+static void codegen_visit_compound_statement_2(const char* var_name, struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement)
 {
     bool is_local = ctx->is_local;
     ctx->is_local = true;
@@ -47924,13 +47885,13 @@ static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ct
             {
                 print_identation(ctx, &local);
                 ss_fprintf(&local, "%s = ", var_name);
-                d_visit_expression(ctx, &local, p_block_item->unlabeled_statement->expression_statement->expression_opt);
+                codegen_visit_expression(ctx, &local, p_block_item->unlabeled_statement->expression_statement->expression_opt);
                 ss_fprintf(&local, ";\n");
             }
         }
         else
         {
-            d_visit_block_item(ctx, &local, p_block_item);
+            codegen_visit_block_item(ctx, &local, p_block_item);
         }
         p_block_item = p_block_item->next;
     }
@@ -47969,7 +47930,7 @@ static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ct
     ss_close(&block_scope_declarators);
     ss_close(&local);
 }
-static void d_visit_function_body(struct d_visit_ctx* ctx,
+static void codegen_visit_function_body(struct codegen_ctx* ctx,
     struct osstream* oss,
     const struct declarator* function_definition)
 {
@@ -48014,14 +47975,14 @@ static void d_visit_function_body(struct d_visit_ctx* ctx,
     ss_swap(&bk, &ctx->block_scope_declarators);
 
 
-    d_visit_compound_statement(ctx, oss, function_definition->function_body, &bk, &snaps);
+    codegen_visit_compound_statement(ctx, oss, function_definition->function_body, &bk, &snaps);
     ss_close(&bk);
     ss_close(&snaps);
     ctx->p_current_function_opt = previous_func;//restore
     ctx->indentation = indentation; //restore
 }
 
-static void register_struct_types_and_functions(struct d_visit_ctx* ctx,
+static void register_struct_types_and_functions(struct codegen_ctx* ctx,
     const struct type* p_type0,
     struct struct_entry* _Opt p_struct_entry0)
 {
@@ -48287,7 +48248,7 @@ static void d_print_type_qualifier_flags(struct osstream* ss, bool* first, enum 
 }
 
 
-static void d_print_type_core(struct d_visit_ctx* ctx,
+static void d_print_type_core(struct codegen_ctx* ctx,
     struct osstream* ss,
     const struct type* p_type0,
     const char* _Opt name_opt)
@@ -48551,7 +48512,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
     }
 }
 
-static void d_print_type(struct d_visit_ctx* ctx,
+static void d_print_type(struct codegen_ctx* ctx,
     struct osstream* ss,
     const struct type* p_type,
     const char* _Opt name_opt,
@@ -48621,7 +48582,7 @@ static bool is_all_zero(const struct object* object)
 }
 
 static void object_print_source_object_non_constant_initialization(
-    struct d_visit_ctx* ctx,
+    struct codegen_ctx* ctx,
     struct osstream* ss,
     const struct object* object,
     const struct object* source,
@@ -48691,7 +48652,7 @@ static void object_print_source_object_non_constant_initialization(
  Initializes 'object' (destination) using the constant value from 'source'.
 */
 static void assign_each_member_from_constexpr(
-    struct d_visit_ctx* ctx,
+    struct codegen_ctx* ctx,
     struct osstream* ss,
     const struct object* object,   /* destination - drives structure traversal */
     const struct object* source,   /* source      - provides the values        */
@@ -48759,7 +48720,7 @@ static void assign_each_member_from_constexpr(
     }
 }
 
-static void emmit_clear_declarator(struct d_visit_ctx* ctx, struct osstream* ss, const char* name, struct type* type)
+static void emmit_clear_declarator(struct codegen_ctx* ctx, struct osstream* ss, const char* name, struct type* type)
 {
     try
     {
@@ -48780,7 +48741,7 @@ static void emmit_clear_declarator(struct d_visit_ctx* ctx, struct osstream* ss,
 }
 
 static void assign_each_member_to_zero(
-    struct d_visit_ctx* ctx,
+    struct codegen_ctx* ctx,
     struct osstream* ss,
     const struct object* object,
     const char* declarator_name,
@@ -48816,7 +48777,7 @@ static void assign_each_member_to_zero(
     }
 }
 
-static void object_print_initialization_list(struct d_visit_ctx* ctx, struct osstream* ss, const struct object* object, bool* first)
+static void object_print_initialization_list(struct codegen_ctx* ctx, struct osstream* ss, const struct object* object, bool* first)
 {
     if (object_is_reference(object))
     {
@@ -48879,7 +48840,7 @@ static void object_print_initialization_list(struct d_visit_ctx* ctx, struct oss
                 /*
                   pointer to function, or pointer to file scope objects can be used
                 */
-                d_visit_expression(ctx, ss, object->p_init_expression);
+                codegen_visit_expression(ctx, ss, object->p_init_expression);
             }
         }
         else
@@ -48889,7 +48850,7 @@ static void object_print_initialization_list(struct d_visit_ctx* ctx, struct oss
     }
 }
 
-static void assign_each_member_from_initialization(struct d_visit_ctx* ctx,
+static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
     struct osstream* ss,
     const struct object* object,
     const char* declarator_name,
@@ -48926,7 +48887,7 @@ static void assign_each_member_from_initialization(struct d_visit_ctx* ctx,
                         print_identation_core(ss, ctx->indentation);
                         ss_fprintf(ss, "%s%s = ", declarator_name, member->member_designator);
                         struct osstream local = { 0 };
-                        d_visit_expression(ctx, &local, member->p_init_expression);
+                        codegen_visit_expression(ctx, &local, member->p_init_expression);
                         ss_fprintf(ss, "%s", local.c_str);
                         ss_fprintf(ss, ";\n");
                         ss_close(&local);
@@ -48954,7 +48915,7 @@ static void assign_each_member_from_initialization(struct d_visit_ctx* ctx,
                 print_identation_core(ss, ctx->indentation);
                 ss_fprintf(ss, "%s(%s%s, ", ctx->memcpy_function_name, declarator_name, object->member_designator);
                 struct osstream local = { 0 };
-                d_visit_expression(ctx, &local, object->p_init_expression);
+                codegen_visit_expression(ctx, &local, object->p_init_expression);
                 size_t string_size = object->p_init_expression->type.array_num_elements;
                 ss_fprintf(ss, "%s, %zu", local.c_str, string_size);
 
@@ -49008,7 +48969,7 @@ static void assign_each_member_from_initialization(struct d_visit_ctx* ctx,
                     print_identation_core(ss, ctx->indentation);
                     ss_fprintf(ss, "%s(&%s%s, ", ctx->memcpy_function_name, declarator_name, object->member_designator);
                     struct osstream local = { 0 };
-                    d_visit_expression(ctx, &local, object->p_init_expression);
+                    codegen_visit_expression(ctx, &local, object->p_init_expression);
                     size_t sz = 0;
                     type_get_sizeof(&object->type, &sz, ctx->options.target);
                     ss_fprintf(ss, "&%s, %d", local.c_str, sz);
@@ -49051,7 +49012,7 @@ static void assign_each_member_from_initialization(struct d_visit_ctx* ctx,
                     print_identation_core(ss, ctx->indentation);
                     ss_fprintf(ss, "%s%s = ", declarator_name, object->member_designator);
                     struct osstream local = { 0 };
-                    d_visit_expression(ctx, &local, object->p_init_expression);
+                    codegen_visit_expression(ctx, &local, object->p_init_expression);
                     ss_fprintf(ss, "%s", local.c_str);
                     ss_fprintf(ss, ";\n");
                     ss_close(&local);
@@ -49063,7 +49024,7 @@ static void assign_each_member_from_initialization(struct d_visit_ctx* ctx,
                 print_identation_core(ss, ctx->indentation);
                 ss_fprintf(ss, "%s%s = ", declarator_name, object->member_designator);
                 struct osstream local = { 0 };
-                d_visit_expression(ctx, &local, object->p_init_expression);
+                codegen_visit_expression(ctx, &local, object->p_init_expression);
                 ss_fprintf(ss, "%s", local.c_str);
                 ss_fprintf(ss, ";\n");
                 ss_close(&local);
@@ -49082,7 +49043,7 @@ static void assign_each_member_from_initialization(struct d_visit_ctx* ctx,
 }
 
 
-static void print_initializer(struct d_visit_ctx* ctx,
+static void print_initializer(struct codegen_ctx* ctx,
     struct osstream* oss,
     struct init_declarator* p_init_declarator,
     bool bstatic)
@@ -49114,7 +49075,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                     print_identation_core(oss, ctx->indentation);
                     ss_fprintf(oss, "%s(%s, ", ctx->memcpy_function_name, p_init_declarator->p_declarator->name_opt->lexeme);
                     struct osstream local = { 0 };
-                    d_visit_expression(ctx, &local, p_init_declarator->initializer->assignment_expression);
+                    codegen_visit_expression(ctx, &local, p_init_declarator->initializer->assignment_expression);
                     ss_fprintf(oss, "%s, %d", local.c_str, p_init_declarator->p_declarator->type.array_num_elements);
 
                     ss_fprintf(oss, ");\n");
@@ -49231,7 +49192,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                         }
                         else
                         {
-                            d_visit_expression(ctx, oss, p_init_declarator->initializer->assignment_expression);
+                            codegen_visit_expression(ctx, oss, p_init_declarator->initializer->assignment_expression);
                         }
                         ss_fprintf(oss, ";\n");
                     }
@@ -49264,7 +49225,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                 else
                 {
                     ss_fprintf(oss, " = ");//, p_init_declarator->p_declarator->name_opt->lexeme, "");
-                    d_visit_expression(ctx, oss, p_init_declarator->initializer->assignment_expression);
+                    codegen_visit_expression(ctx, oss, p_init_declarator->initializer->assignment_expression);
                     ss_fprintf(oss, ";\n");
                 }
             }
@@ -49349,7 +49310,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
     catch    {    }
 }
 
-static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx,
+static void vm_emit_snapshot_decls(struct codegen_ctx* ctx,
                                     struct osstream* oss_body,
                                     const struct type* p_type)
 {
@@ -49383,7 +49344,7 @@ static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx,
                 /* assignment emitted as a statement in the body */
                 print_identation(ctx, oss_body);
                 ss_fprintf(oss_body, "%s = ", name);
-                d_visit_expression(ctx, oss_body, (struct expression*)it->p_array_num_elements_expression);
+                codegen_visit_expression(ctx, oss_body, (struct expression*)it->p_array_num_elements_expression);
                 ss_fprintf(oss_body, ";\n");
             }
             else
@@ -49405,7 +49366,7 @@ static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx,
 }
 
 
-static void d_visit_init_declarator(struct d_visit_ctx* ctx,
+static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
     struct osstream* oss0,
     struct init_declarator* p_init_declarator,
     enum function_specifier_flags function_specifier_flags,
@@ -49593,7 +49554,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
         hashmap_set(&ctx->file_scope_declarator_map, p_init_declarator->p_declarator->name_opt->lexeme, &i);
 
         ss_fprintf(&ss, "\n");
-        d_visit_function_body(ctx, &ss, p_init_declarator->p_declarator);
+        codegen_visit_function_body(ctx, &ss, p_init_declarator->p_declarator);
         //ss_fprintf(&ss, "\n");
 
         ss_fprintf(oss0, "%s", ss.c_str);
@@ -49634,7 +49595,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
     }
 }
 
-static void d_visit_init_declarator_list(struct d_visit_ctx* ctx,
+static void codegen_visit_init_declarator_list(struct codegen_ctx* ctx,
     struct osstream* oss,
     struct init_declarator_list* p_init_declarator_list,
     enum function_specifier_flags function_specifier_flags,
@@ -49644,13 +49605,13 @@ static void d_visit_init_declarator_list(struct d_visit_ctx* ctx,
 
     while (p_init_declarator)
     {
-        d_visit_init_declarator(ctx, oss, p_init_declarator, function_specifier_flags, storage_class_specifier_flags);
+        codegen_visit_init_declarator(ctx, oss, p_init_declarator, function_specifier_flags, storage_class_specifier_flags);
         p_init_declarator = p_init_declarator->next;
     }
 }
 
 
-static void d_visit_declaration(struct d_visit_ctx* ctx, struct osstream* oss, struct declaration* p_declaration)
+static void codegen_visit_declaration(struct codegen_ctx* ctx, struct osstream* oss, struct declaration* p_declaration)
 {
 
     if (p_declaration->pragma_declaration)
@@ -49668,11 +49629,11 @@ static void d_visit_declaration(struct d_visit_ctx* ctx, struct osstream* oss, s
         enum function_specifier_flags function_specifier_flags =
             p_declaration->declaration_specifiers->function_specifier_flags;
 
-        d_visit_init_declarator_list(ctx, oss, &p_declaration->init_declarator_list, function_specifier_flags, storage_class_specifier_flags);
+        codegen_visit_init_declarator_list(ctx, oss, &p_declaration->init_declarator_list, function_specifier_flags, storage_class_specifier_flags);
     }
 }
 
-static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct struct_or_union_specifier* p_struct_or_union_specifier)
+static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
 
     struct struct_or_union_specifier* _Opt p_complete =
@@ -49799,7 +49760,7 @@ static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
         ss_fprintf(ss, ";\n");
 }
 
-void d_print_structs(struct d_visit_ctx* ctx, struct osstream* ss, struct struct_entry* p_struct_entry)
+void d_print_structs(struct codegen_ctx* ctx, struct osstream* ss, struct struct_entry* p_struct_entry)
 {
     if (p_struct_entry->definition_was_printed)
         return;
@@ -49963,7 +49924,7 @@ size_t clean_line_directives(char* buf)
     return (size_t)(w - buf);
 }
 
-void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
+void codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 {
     struct osstream declarations = { 0 };
 
@@ -49987,7 +49948,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
         ss_close(&local);
     }
 
-    struct declaration* _Opt p_declaration = ctx->ast.declaration_list.head;
+    struct declaration* _Opt p_declaration = ctx->p_ast->declaration_list.head;
     while (p_declaration)
     {
         ss_clear(&ctx->add_this_after_external_decl);
@@ -49995,7 +49956,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 
 
         struct osstream declaration = { 0 };
-        d_visit_declaration(ctx, &declaration, p_declaration);
+        codegen_visit_declaration(ctx, &declaration, p_declaration);
 
         if (ctx->add_this_before.size > 0)
         {
@@ -50133,6 +50094,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 #pragma safety enable
 
 
+static void check_dianostic_suppression(struct flow_visit_ctx* ctx, struct token* pToken);
 static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement);
 
 struct object_visitor
@@ -50225,18 +50187,19 @@ bool flow_object_can_have_its_lifetime_ended(const struct flow_object* p)
 }
 
 
-static void object_state_to_string_core(enum flow_state e)
+static void object_state_to_string_core(enum flow_state e, struct osstream* ss0)
 {
     bool first = true;
+    const char* separator = " ";// " | ";
 
-    printf("\"");
+    ss_fprintf(ss0, "\"");
     if (e & FLOW_OBJECT_STATE_UNINITIALIZED)
     {
         if (first)
             first = false;
         else
-            printf(" | ");
-        printf("uninitialized");
+            ss_fprintf(ss0, separator);
+        ss_fprintf(ss0, "uninitialized");
     }
 
     if (e & FLOW_OBJECT_STATE_NOT_NULL)
@@ -50244,8 +50207,8 @@ static void object_state_to_string_core(enum flow_state e)
         if (first)
             first = false;
         else
-            printf(" | ");
-        printf("not-null");
+            ss_fprintf(ss0, separator);
+        ss_fprintf(ss0, "not-null");
     }
 
     if (e & FLOW_OBJECT_STATE_NULL)
@@ -50253,8 +50216,8 @@ static void object_state_to_string_core(enum flow_state e)
         if (first)
             first = false;
         else
-            printf(" | ");
-        printf("null");
+            ss_fprintf(ss0, separator);
+        ss_fprintf(ss0, "null");
     }
 
     if (e & FLOW_OBJECT_STATE_ZERO)
@@ -50262,8 +50225,8 @@ static void object_state_to_string_core(enum flow_state e)
         if (first)
             first = false;
         else
-            printf(" | ");
-        printf("zero");
+            ss_fprintf(ss0, separator);
+        ss_fprintf(ss0, "zero");
     }
 
     if (e & FLOW_OBJECT_STATE_NOT_ZERO)
@@ -50271,8 +50234,8 @@ static void object_state_to_string_core(enum flow_state e)
         if (first)
             first = false;
         else
-            printf(" | ");
-        printf("not-zero");
+            ss_fprintf(ss0, separator);
+        ss_fprintf(ss0, "not-zero");
     }
 
 
@@ -50281,8 +50244,8 @@ static void object_state_to_string_core(enum flow_state e)
         if (first)
             first = false;
         else
-            printf(" | ");
-        printf("lifetime-ended");
+            ss_fprintf(ss0, separator);
+        ss_fprintf(ss0, "lifetime-ended");
     }
 
     if (e & FLOW_OBJECT_STATE_MOVED)
@@ -50290,11 +50253,11 @@ static void object_state_to_string_core(enum flow_state e)
         if (first)
             first = false;
         else
-            printf(" | ");
-        printf("moved");
+            ss_fprintf(ss0, separator);
+        ss_fprintf(ss0, "moved");
     }
 
-    printf("\"");
+    ss_fprintf(ss0, "\"");
 
 }
 
@@ -50315,14 +50278,14 @@ void flow_object_state_copy(struct flow_object_state* to, const struct flow_obje
     objects_view_copy(&to->alternatives, &from->alternatives);
 }
 
-void flow_object_print_state(struct flow_object* p)
+void flow_object_print_state(struct flow_object* p, struct osstream* ss0)
 {
-    object_state_to_string_core(p->current.state);
+    object_state_to_string_core(p->current.state, ss0);
 }
 
-void object_state_set_item_print(struct flow_object_state* item)
+void object_state_set_item_print(struct flow_object_state* item, struct osstream* ss0)
 {
-    object_state_to_string_core(item->state);
+    object_state_to_string_core(item->state, ss0);
 }
 
 bool flow_object_is_expansible(const struct flow_object* _Opt p_object)
@@ -50870,7 +50833,7 @@ void print_object_core(bool color_enabled,
     const char* previous_names,
     bool is_pointer,
     bool short_version,
-    unsigned int visit_number)
+    unsigned int visit_number, struct osstream* ss0)
 {
     if (p_visitor->p_object->visit_number == visit_number) return;
     p_visitor->p_object->visit_number = visit_number;
@@ -50883,8 +50846,8 @@ void print_object_core(bool color_enabled,
 
         if (p_struct_or_union_specifier)
         {
-            printf("%*c", ident + 1, ' ');
-            printf("#%02d {\n", p_visitor->p_object->id);
+            ss_fprintf(ss0, "%*c", ident + 1, ' ');
+            ss_fprintf(ss0, "#%02d {", p_visitor->p_object->id);
 
             struct member_declaration* _Opt p_member_declaration =
                 p_struct_or_union_specifier->member_declaration_list.head;
@@ -50914,7 +50877,7 @@ void print_object_core(bool color_enabled,
 
                             print_object_core(color_enabled, ident + 2, &visitor, buffer,
                                 type_is_pointer(&p_member_declarator->declarator->type), short_version,
-                                visit_number);
+                                visit_number, ss0);
 
                             p_visitor->member_index++;
                         }
@@ -50940,7 +50903,7 @@ void print_object_core(bool color_enabled,
                         previous_names,
                         false,
                         short_version,
-                        visit_number);
+                        visit_number, ss0);
 
                     p_visitor->p_type = temp; //restore
                     p_visitor->p_object->visit_number = visit_number0;
@@ -50949,19 +50912,19 @@ void print_object_core(bool color_enabled,
                 p_member_declaration = p_member_declaration->next;
             }
 
-            printf("%*c", ident + 1, ' ');
-            printf("}\n");
+            ss_fprintf(ss0, "%*c", ident + 1, ' ');
+            ss_fprintf(ss0, "}");
         }
     }
     else if (type_is_pointer(p_visitor->p_type))
     {
         struct type t2 = type_remove_pointer(p_visitor->p_type);
-        printf("%*c", ident, ' ');
+        ss_fprintf(ss0, "%*c", ident, ' ');
 
         if (short_version)
         {
-            printf("#%02d %s == ", p_visitor->p_object->id, previous_names);
-            flow_object_print_state(p_visitor->p_object);
+            ss_fprintf(ss0, "#%02d %s : ", p_visitor->p_object->id, previous_names);
+            flow_object_print_state(p_visitor->p_object, ss0);
             if (flow_object_is_null(p_visitor->p_object))
             {
             }
@@ -50970,46 +50933,46 @@ void print_object_core(bool color_enabled,
             }
             else
             {
-                printf(" -> ");
+                ss_fprintf(ss0, " -> ");
 
                 if (p_visitor->p_object->current.pointed != NULL)
                 {
-                    printf(" #%02d", p_visitor->p_object->current.pointed->id);
+                    ss_fprintf(ss0, " #%02d", p_visitor->p_object->current.pointed->id);
                 }
                 else
                 {
-                    printf("{...}");
+                    ss_fprintf(ss0, "{...}");
                 }
             }
         }
         else
         {
-            printf("%p:%s == ", p_visitor->p_object, previous_names);
-            printf("{");
+            ss_fprintf(ss0, "%p:%s : ", p_visitor->p_object, previous_names);
+            ss_fprintf(ss0, "{");
 
             struct flow_object_state* _Opt it = p_visitor->p_object->current.next;
             while (it)
             {
                 if (color_enabled)
-                    printf(LIGHTCYAN);
+                    ss_fprintf(ss0, LIGHTCYAN);
 
-                printf("(#%02d %s)", it->state_number, it->dbg_name);
-                object_state_set_item_print(it);
+                ss_fprintf(ss0, "(#%02d %s)", it->state_number, it->dbg_name);
+                object_state_set_item_print(it, ss0);
                 if (color_enabled)
-                    printf(COLOR_RESET);
-                printf(",");
+                    ss_fprintf(ss0, COLOR_RESET);
+                ss_fprintf(ss0, ",");
                 it = it->next;
             }
-            //printf("*");
+            //ss_fprintf(ss0, "*");
             if (color_enabled)
-                printf(LIGHTMAGENTA);
-            printf("(current)");
-            flow_object_print_state(p_visitor->p_object);
+                ss_fprintf(ss0, LIGHTMAGENTA);
+            ss_fprintf(ss0, "(current)");
+            flow_object_print_state(p_visitor->p_object, ss0);
             if (color_enabled)
-                printf(COLOR_RESET);
-            printf("}");
+                ss_fprintf(ss0, COLOR_RESET);
+            ss_fprintf(ss0, "}");
         }
-        printf("\n");
+        
 
 #if 0
         if (p_visitor->p_object->current.ref.size > 0)
@@ -51037,33 +51000,31 @@ void print_object_core(bool color_enabled,
     }
     else
     {
-        printf("%*c", ident, ' ');
+        ss_fprintf(ss0, "%*c", ident, ' ');
 
         if (short_version)
         {
-            printf("#%02d %s == ", p_visitor->p_object->id, previous_names);
-            flow_object_print_state(p_visitor->p_object);
+            ss_fprintf(ss0, "#%02d %s : ", p_visitor->p_object->id, previous_names);
+            flow_object_print_state(p_visitor->p_object, ss0);
         }
         else
         {
-            printf("%p:%s == ", p_visitor->p_object, previous_names);
-            printf("{");
+            ss_fprintf(ss0, "%p:%s : ", p_visitor->p_object, previous_names);
+            ss_fprintf(ss0, "{");
 
             struct flow_object_state* _Opt it = p_visitor->p_object->current.next;
             while (it)
             {
-                printf("(#%02d %s)", it->state_number, it->dbg_name);
-                object_state_set_item_print(it);
-                printf(",");
+                ss_fprintf(ss0, "(#%02d %s)", it->state_number, it->dbg_name);
+                object_state_set_item_print(it, ss0);
+                ss_fprintf(ss0, ",");
                 it = it->next;
             }
 
 
-            flow_object_print_state(p_visitor->p_object);
-            printf("}");
-        }
-
-        printf("\n");
+            flow_object_print_state(p_visitor->p_object, ss0);
+            ss_fprintf(ss0, "}");
+        }        
     }
 
 
@@ -51153,7 +51114,7 @@ int flow_object_restore_current_state_from(struct flow_object* object, int state
     return object_restore_current_state_from_core(object, state_number, s_visit_number++);
 }
 
-int object_merge_current_state_with_state_number_core(struct flow_object* object, int state_number, unsigned int visit_number)
+int object_merge_current_state_with_state_number_core(struct flow_object* object, int state_number, unsigned int visit_number, struct osstream* ss0)
 {
     if (object->visit_number == visit_number)
     {
@@ -51177,7 +51138,7 @@ int object_merge_current_state_with_state_number_core(struct flow_object* object
 
     for (int i = 0; i < object->members.size; i++)
     {
-        object_merge_current_state_with_state_number_core(object->members.data[i], state_number, visit_number);
+        object_merge_current_state_with_state_number_core(object->members.data[i], state_number, visit_number, ss0);
     }
     if (object->current.state == FLOW_OBJECT_STATE_NULL ||
         object->current.state == FLOW_OBJECT_STATE_UNINITIALIZED) //moved
@@ -51224,7 +51185,7 @@ void object_get_name(const struct type* p_type,
     int out_size);
 
 
-void print_flow_object(bool color_enabled, struct type* p_type, struct flow_object* p_object, bool short_version)
+void print_flow_object(bool color_enabled, struct type* p_type, struct flow_object* p_object, bool short_version, struct osstream* ss0)
 {
     char name[100] = { 0 };
     object_get_name(p_type, p_object, name, sizeof name);
@@ -51232,7 +51193,7 @@ void print_flow_object(bool color_enabled, struct type* p_type, struct flow_obje
     _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
-    print_object_core(color_enabled, 0, &visitor, name, type_is_pointer(p_type), short_version, s_visit_number++);
+    print_object_core(color_enabled, 0, &visitor, name, type_is_pointer(p_type), short_version, s_visit_number++, ss0);
 }
 
 
@@ -51403,7 +51364,7 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
         else
         {
 
-            compiler_diagnostic(W_FLOW_MISSING_DTOR,
+            diagnostic(W_FLOW_MISSING_DTOR,
                 ctx->ctx,
                 NULL,
                 p_marker,
@@ -51984,8 +51945,7 @@ bool object_check(struct type* p_type, struct flow_object* p_object)
     return false;
 }
 
-void object_get_name_core(
-    const struct type* p_type,
+void object_get_name_core(const struct type* p_type,
     const struct flow_object* p_object,
     const struct flow_object* p_object_target,
     const char* previous_names,
@@ -52077,7 +52037,14 @@ void object_get_name(const struct type* p_type,
     {
         const char* root_name = p_object->p_declarator_origin->name_opt ? p_object->p_declarator_origin->name_opt->lexeme : "?";
         const struct flow_object* _Opt root = p_object->p_declarator_origin->p_flow_object;
-        object_get_name_core(&p_object->p_declarator_origin->type, root, p_object, root_name, outname, out_size, s_visit_number++);
+        if (root)
+        {
+            object_get_name_core(&p_object->p_declarator_origin->type, root, p_object, root_name, outname, out_size, s_visit_number++);
+        }
+        else
+        {
+            assert(false);
+        }
     }
     else if (p_object->p_expression_origin)
     {
@@ -52228,7 +52195,7 @@ static void checked_read_object_core(struct flow_visit_ctx* ctx,
             !type_is_opt(p_visitor->p_type, ctx->ctx->options.null_checks_enabled) &&
             flow_object_can_be_null(p_visitor->p_object))
         {
-            compiler_diagnostic(W_FLOW_NULL_DEREFERENCE,
+            diagnostic(W_FLOW_NULL_DEREFERENCE,
                 ctx->ctx,
                 NULL,
                 p_marker_opt,
@@ -52270,7 +52237,7 @@ static void checked_read_object_core(struct flow_visit_ctx* ctx,
             }
             else
             {
-                compiler_diagnostic(W_FLOW_UNINITIALIZED,
+                diagnostic(W_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     position_token_opt,
                     p_marker_opt,
@@ -52292,7 +52259,7 @@ static void checked_read_object_core(struct flow_visit_ctx* ctx,
                too many false positives
             */
 
-            //compiler_diagnostic(W_FLOW_LIFETIME_ENDED,
+            //diagnostic(W_FLOW_LIFETIME_ENDED,
             //    ctx->ctx,
             //     position_token_opt,
             //    p_marker_opt,
@@ -52367,7 +52334,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
             *  have been moved.
             */
             const struct token* _Opt name = flow_object_get_token(p_visitor->p_object);
-            if (compiler_diagnostic(W_FLOW_MISSING_DTOR,
+            if (diagnostic(W_FLOW_MISSING_DTOR,
                 ctx->ctx,
                 name, NULL,
                 "members of '%s' were not released.",
@@ -52375,7 +52342,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
             {
 
                 if (p_visitor->p_object->p_declarator_origin)
-                    compiler_diagnostic(W_LOCATION, ctx->ctx, position_token, NULL, "end of '%s' scope", previous_names);
+                    diagnostic(W_LOCATION, ctx->ctx, position_token, NULL, "end of '%s' scope", previous_names);
             }
         }
         else
@@ -52500,12 +52467,12 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
             }
 
             if (show_warning &&
-                compiler_diagnostic(W_FLOW_MISSING_DTOR,
+                diagnostic(W_FLOW_MISSING_DTOR,
                     ctx->ctx,
                     position, NULL,
                     "object referenced by owner '%s' was not released.", previous_names))
             {
-                compiler_diagnostic(W_LOCATION,
+                diagnostic(W_LOCATION,
                 ctx->ctx,
                 position_token, NULL,
                 "end of '%s' lifetime", previous_names);
@@ -52522,7 +52489,14 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
                 _Opt struct object_visitor visitor = { 0 };
                 visitor.p_type = &t2;
                 visitor.p_object = p_visitor->p_object->current.pointed;
-                flow_end_of_block_visit_core(ctx, &visitor, b_type_is_view, position, buffer, visit_number);
+                if (position)
+                {
+                    flow_end_of_block_visit_core(ctx, &visitor, b_type_is_view, position, buffer, visit_number);
+                }
+                else
+                {
+                    assert(false);
+                }
             }
 
 
@@ -52554,12 +52528,12 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
 
 
                 if (show_warning &&
-                    compiler_diagnostic(W_FLOW_MISSING_DTOR,
+                    diagnostic(W_FLOW_MISSING_DTOR,
                         ctx->ctx,
                         position, NULL,
                         "object referenced by owner '%s' was not released.", previous_names))
                 {
-                    compiler_diagnostic(W_LOCATION,
+                    diagnostic(W_LOCATION,
                     ctx->ctx,
                     position_token, NULL,
                     "end of '%s' lifetime", previous_names);
@@ -52635,8 +52609,7 @@ bool flow_object_is_zero_or_null(const struct flow_object* p_object)
    This function must check and do the flow assignment of
    a = b
 */
-static void flow_assignment_core(
-    struct flow_visit_ctx* ctx,
+static void flow_assignment_core(struct flow_visit_ctx* ctx,
     const struct token* error_position,
     const struct marker* p_a_marker,
     const struct marker* p_b_marker,
@@ -52656,11 +52629,11 @@ static void flow_assignment_core(
         break;
     }
 #endif
-    // printf("line  %d\n", error_position->line);
+    // ss_fprintf(ss0, "line  %d\n", error_position->line);
      //type_print(p_a_type);
-     //printf(" = ");
+     //ss_fprintf(ss0, " = ");
      //type_print(p_b_type);
-     //printf("\n");
+     //ss_fprintf(ss0, "\n");
 
      /*general check for copying uninitialized object*/
 
@@ -52689,7 +52662,7 @@ static void flow_assignment_core(
                 {
                     char b_object_name[100] = { 0 };
                     object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, b_object_name, sizeof b_object_name);
-                    compiler_diagnostic(W_FLOW_UNINITIALIZED,
+                    diagnostic(W_FLOW_UNINITIALIZED,
                                 ctx->ctx,
                                 NULL,
                                 p_b_marker,
@@ -52706,7 +52679,7 @@ static void flow_assignment_core(
 
             if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
             {
-                compiler_diagnostic(W_FLOW_UNINITIALIZED,
+                diagnostic(W_FLOW_UNINITIALIZED,
                             ctx->ctx,
                             NULL,
                             p_b_marker,
@@ -52714,7 +52687,7 @@ static void flow_assignment_core(
             }
             else if (assigment_type == ASSIGMENT_TYPE_RETURN)
             {
-                compiler_diagnostic(W_FLOW_UNINITIALIZED,
+                diagnostic(W_FLOW_UNINITIALIZED,
                             ctx->ctx,
                             NULL,
                             p_b_marker,
@@ -52722,7 +52695,7 @@ static void flow_assignment_core(
             }
             else
             {
-                compiler_diagnostic(W_FLOW_UNINITIALIZED,
+                diagnostic(W_FLOW_UNINITIALIZED,
                             ctx->ctx,
                             NULL,
                             p_b_marker,
@@ -52739,7 +52712,7 @@ static void flow_assignment_core(
         char buffer[100] = { 0 };
         object_get_name(p_visitor_a->p_type, p_visitor_a->p_object, buffer, sizeof buffer);
 
-        compiler_diagnostic(W_FLOW_LIFETIME_ENDED,
+        diagnostic(W_FLOW_LIFETIME_ENDED,
                     ctx->ctx,
                     NULL,
                     p_a_marker,
@@ -52761,7 +52734,7 @@ static void flow_assignment_core(
 
             if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
             {
-                compiler_diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+                diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
                        ctx->ctx,
                        NULL,
                        p_b_marker,
@@ -52769,7 +52742,7 @@ static void flow_assignment_core(
             }
             else if (assigment_type == ASSIGMENT_TYPE_RETURN)
             {
-                compiler_diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+                diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
                        ctx->ctx,
                        NULL,
                        p_b_marker,
@@ -52777,7 +52750,7 @@ static void flow_assignment_core(
             }
             else
             {
-                compiler_diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+                diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
                        ctx->ctx,
                        NULL,
                        p_b_marker,
@@ -52834,7 +52807,7 @@ static void flow_assignment_core(
             */
             if (flow_object_can_be_moved(p_visitor_b->p_object))
             {
-                compiler_diagnostic(W_FLOW_MOVED,
+                diagnostic(W_FLOW_MOVED,
                                             ctx->ctx,
                                             NULL,
                                             p_b_marker,
@@ -52854,7 +52827,7 @@ static void flow_assignment_core(
                     type_is_owner(&t))
                 {
                     //if the anwser is yes then we need a warning
-                    compiler_diagnostic(W_FLOW_MISSING_DTOR,
+                    diagnostic(W_FLOW_MISSING_DTOR,
                                                 ctx->ctx,
                                                 NULL,
                                                 p_a_marker,
@@ -52919,7 +52892,7 @@ static void flow_assignment_core(
             if (flow_object_can_be_moved(p_visitor_b->p_object))
             {
                 //TODO we need 2 positions, source, dest
-                compiler_diagnostic(W_FLOW_MOVED,
+                diagnostic(W_FLOW_MOVED,
                    ctx->ctx,
                    error_position, NULL,
                    "source object has already been moved");
@@ -53567,7 +53540,7 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
     {
 
     }
-    //printf("null object");
+    //ss_fprintf(ss0, "null object");
     //assert(false);
     return NULL;
 }
@@ -53617,7 +53590,7 @@ void flow_check_assignment(
 }
 
 
-void print_object_state_to_str(enum flow_state e, char str[], int sz)
+void print_object_state_to_str(enum flow_state e, char str[], int sz, struct osstream* ss0)
 {
     bool first = true;
     struct osstream ss = { 0 };
@@ -53692,12 +53665,12 @@ void print_object_state_to_str(enum flow_state e, char str[], int sz)
     ss_close(&ss);
 }
 
-void flow_object_state_print(struct flow_object_state* p_state)
+void flow_object_state_print(struct flow_object_state* p_state, struct osstream* ss0)
 {
     struct osstream ss = { 0 };
 
     char temp[200] = { 0 };
-    print_object_state_to_str(p_state->state, temp, sizeof temp);
+    print_object_state_to_str(p_state->state, temp, sizeof temp, ss0);
     ss_fprintf(&ss, "%d %s", p_state->state_number, temp);
 
 
@@ -53715,11 +53688,11 @@ void flow_object_state_print(struct flow_object_state* p_state)
 
         ss_fprintf(&ss, "%d", p_state->alternatives.data[i]->id);
     }
-    printf("%-25s│", ss.c_str);
+    ss_fprintf(ss0, "%-25s│", ss.c_str);
     ss_close(&ss);
 }
 
-void print_object_line(struct flow_object* p_object, int extra_cols)
+void print_object_line(struct flow_object* p_object, int extra_cols, struct osstream* ss0)
 {
     struct osstream ss = { 0 };
 
@@ -53728,10 +53701,10 @@ void print_object_line(struct flow_object* p_object, int extra_cols)
         ss_fprintf(&ss, "↑%d", p_object->parent->id);
 
         //if (p_object->current.alternatives.size > 0)
-         //ss_fprintf(&ss, " &");
+         //ss_fprintf( &ss, " &");
 
-        printf("│%-2d│", p_object->id);
-        printf("%-20s│", ss.c_str); //here we need compesate the unicode byte len of ↑
+        ss_fprintf(ss0, "│%-2d│", p_object->id);
+        ss_fprintf(ss0, "%-20s│", ss.c_str); //here we need compesate the unicode byte len of ↑
     }
     else
     {
@@ -53763,8 +53736,8 @@ void print_object_line(struct flow_object* p_object, int extra_cols)
         {
             ss_fprintf(&ss, "&");
         }
-        printf("│%-2d│", p_object->id);
-        printf("%-18s│", ss.c_str);
+        ss_fprintf(ss0, "│%-2d│", p_object->id);
+        ss_fprintf(ss0, "%-18s│", ss.c_str);
     }
 
     ss_close(&ss);
@@ -53775,15 +53748,15 @@ void print_object_line(struct flow_object* p_object, int extra_cols)
     while (p_state)
     {
         cols++;
-        flow_object_state_print(p_state);
+        flow_object_state_print(p_state, ss0);
         p_state = p_state->next;
     }
 
     for (int i = 0; i <= extra_cols - cols; i++)
     {
-        printf("%-25s│", " ");
+        ss_fprintf(ss0, "%-25s│", " ");
     }
-    printf("\n");
+    ss_fprintf(ss0, "\n");
 
 }
 
@@ -54070,7 +54043,7 @@ static void flow_exit_block_visit_defer_item(struct flow_visit_ctx* ctx,
             warnings_count != ctx->ctx->p_report->warnings_count ||
             info_count != ctx->ctx->p_report->info_count)
         {
-            compiler_diagnostic(W_LOCATION, ctx->ctx, position_token, NULL, "defer end of scope");
+            diagnostic(W_LOCATION, ctx->ctx, position_token, NULL, "defer end of scope");
         }
     }
     else if (p_item->declarator)
@@ -54603,7 +54576,7 @@ static void flow_visit_simple_declaration(struct flow_visit_ctx* ctx, struct sim
 
 static void flow_check_pointer_used_as_bool(struct flow_visit_ctx* ctx, struct expression* p_expression);
 
-void print_arena(struct flow_visit_ctx* ctx)
+void print_arena(struct flow_visit_ctx* ctx, struct osstream* ss0)
 {
     int extra_cols = 0;
     for (int i = 0; i < ctx->arena.size; i++)
@@ -54622,44 +54595,44 @@ void print_arena(struct flow_visit_ctx* ctx)
 
 
     //┐
-    printf("\n");
-    printf("┌──┬──────────────────┬─────────────────────────");
+    ss_fprintf(ss0, "\n");
+    ss_fprintf(ss0, "┌──┬──────────────────┬─────────────────────────");
     if (extra_cols > 0)
     {
         for (int i = 0; i < extra_cols; i++)
         {
             if (i < extra_cols - 1)
-                printf("┬─────────────────────────");
+                ss_fprintf(ss0, "┬─────────────────────────");
             else
-                printf("┬─────────────────────────");
+                ss_fprintf(ss0, "┬─────────────────────────");
         }
     }
 
-    printf("┐");
+    ss_fprintf(ss0, "┐");
 
-    printf("\n");
+    ss_fprintf(ss0, "\n");
 
     for (int i = 0; i < ctx->arena.size; i++)
     {
         struct flow_object* p = ctx->arena.data[i];
-        print_object_line(p, extra_cols);
+        print_object_line(p, extra_cols, ss0);
     }
-    printf("└──┴──────────────────┴─────────────────────────");
+    ss_fprintf(ss0, "└──┴──────────────────┴─────────────────────────");
     if (extra_cols > 0)
     {
         for (int i = 0; i < extra_cols; i++)
         {
             if (i < extra_cols - 1)
-                printf("┴─────────────────────────");
+                ss_fprintf(ss0, "┴─────────────────────────");
             else
-                printf("┴─────────────────────────");
+                ss_fprintf(ss0, "┴─────────────────────────");
         }
     }
 
-    printf("┘");
+    ss_fprintf(ss0, "┘");
 
-    printf("\n");
-    printf("\n");
+    ss_fprintf(ss0, "\n");
+    ss_fprintf(ss0, "\n");
 }
 
 static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection_statement* p_selection_statement)
@@ -54909,6 +54882,12 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
     }
     else
         assert(false);
+
+    if (p_selection_statement->lint_token)
+    {
+        check_dianostic_suppression(ctx, p_selection_statement->lint_token);
+    }
+
 }
 
 static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct compound_statement* p_compound_statement);
@@ -55177,13 +55156,13 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
                 p_expression->declarator &&
                 p_expression->declarator->name_opt)
             {
-                compiler_diagnostic(W_FLOW_UNINITIALIZED,
+                diagnostic(W_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->first_token, NULL, "using a uninitialized object '%s'", p_expression->declarator->name_opt->lexeme);
             }
             else
             {
-                compiler_diagnostic(W_FLOW_UNINITIALIZED,
+                diagnostic(W_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->first_token, NULL, "using a uninitialized object");
             }
@@ -55194,7 +55173,7 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
             {
                 if (p_expression->declarator && p_expression->declarator->name_opt)
                 {
-                    compiler_diagnostic(W_FLOW_UNINITIALIZED,
+                    diagnostic(W_FLOW_UNINITIALIZED,
                         ctx->ctx,
                         p_expression->first_token,
                         NULL,
@@ -55203,7 +55182,7 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
                 }
                 else
                 {
-                    compiler_diagnostic(W_FLOW_UNINITIALIZED,
+                    diagnostic(W_FLOW_UNINITIALIZED,
                         ctx->ctx,
                         p_expression->first_token, NULL, "maybe using a uninitialized object");
                 }
@@ -55256,7 +55235,7 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx* ctx, struct e
 
             if (!ctx->inside_loop && flow_object_is_null(p_object))
             {
-                compiler_diagnostic(W_FLOW_NON_NULL,
+                diagnostic(W_FLOW_NON_NULL,
                         ctx->ctx,
                         NULL,
                         &marker,
@@ -55265,7 +55244,7 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx* ctx, struct e
             }
             else if (!ctx->inside_loop && flow_object_is_not_null(p_object))
             {
-                compiler_diagnostic(W_FLOW_NON_NULL,
+                diagnostic(W_FLOW_NON_NULL,
                         ctx->ctx,
                         NULL,
                         &marker,
@@ -55377,59 +55356,17 @@ static void flow_expression_bind(struct flow_visit_ctx* ctx,
         flow_expression_bind(ctx, p_expression->right, p_param_list, p_argument_expression_list);
 }
 
-static void check_dianostic_suppression(struct flow_visit_ctx* ctx, struct token* pTokenStart)
+void check_dianostic_suppression_core(struct parser_ctx* ctx, struct token* pToken, int phase);
+
+static void check_dianostic_suppression(struct flow_visit_ctx* ctx, struct token* pToken)
 {
-    const int search_ahead_max = 3; /* we don't search forever */
-
-    int search_count = 0;
-    struct token* _Opt pToken = pTokenStart;
-
-    while (pToken)
-    {
-        if (pToken->type == TK_LINE_COMMENT || pToken->type == TK_COMMENT)
-        {
-            int ids[LINT_IDS_MAX] = { 0 };
-            int count = parse_diagnostic_suppression(pToken->lexeme, ids);
-
-            for (int i = 0; i < count; i++)
-            {
-                if (get_diagnostic_phase(ids[i]) == 2)
-                {
-                    if (!diagnostic_queue_remove(&ctx->ctx->diagnostic_queue, pToken->line, (enum diagnostic_id)ids[i]))
-                    {
-                        ids[i] = -ids[i];
-                    }
-                }
-            }
-
-            for (int i = 0; i < count; i++)
-            {
-                if (ids[i] < 0)
-                {
-                    compiler_diagnostic(W_WARNING_DID_NOT_HAPPEN,
-                                               ctx->ctx,
-                                               pToken,
-                                               NULL,
-                                               "diagnostic '%d' not recognized",
-                                               -ids[i]);
-                }
-            }
-        }
-        if (search_count > search_ahead_max)
-        {
-            break;
-        }
-        search_count++;
-        pToken = pToken->next;
-    }
+    check_dianostic_suppression_core(ctx->ctx, pToken, 2);
 }
-
 static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct true_false_set* expr_true_false_set);
 
 static void flow_visit_full_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct true_false_set* expr_true_false_set)
 {
     flow_visit_expression(ctx, p_expression, expr_true_false_set);
-    check_dianostic_suppression(ctx, p_expression->last_token);
 }
 
 static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct true_false_set* expr_true_false_set)
@@ -55542,7 +55479,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     struct marker marker = { 0 };
                     marker.p_token_begin = p_expression->left->first_token;
                     marker.p_token_end = p_expression->left->last_token;
-                    compiler_diagnostic(W_FLOW_NULL_DEREFERENCE,
+                    diagnostic(W_FLOW_NULL_DEREFERENCE,
                             ctx->ctx,
                             NULL,
                             &marker,
@@ -55556,7 +55493,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 }
                 else
                 {
-                    compiler_diagnostic(W_FLOW_NULL_DEREFERENCE,
+                    diagnostic(W_FLOW_NULL_DEREFERENCE,
                             ctx->ctx,
                             p_expression->left->first_token, NULL, "object is possibly uninitialized");
                 }
@@ -55568,7 +55505,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 }
                 else
                 {
-                    compiler_diagnostic(W_FLOW_LIFETIME_ENDED,
+                    diagnostic(W_FLOW_LIFETIME_ENDED,
                             ctx->ctx,
                             p_expression->left->first_token, NULL, "object lifetime ended");
                 }
@@ -55584,7 +55521,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     .p_token_begin = p_expression->first_token,
                     .p_token_end = p_expression->last_token
                 };
-                compiler_diagnostic(W_FLOW_LIFETIME_ENDED,
+                diagnostic(W_FLOW_LIFETIME_ENDED,
                         ctx->ctx,
                         NULL,
                         &marker,
@@ -55689,18 +55626,22 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             }
 
             if (p_expression->left->declarator->direct_declarator &&
-                p_expression->left->declarator->direct_declarator->function_declarator &&
-                p_expression->left->declarator->direct_declarator->function_declarator->p_out_block)
+                  p_expression->left->declarator->direct_declarator->function_declarator &&
+                  p_expression->left->declarator->direct_declarator->function_declarator->p_out_block)
             {
                 flow_visit_secondary_block(ctx, p_expression->left->declarator->direct_declarator->function_declarator->p_out_block);
             }
 
-            struct parameter_declaration* _Opt p_parameter = p_expression->left->declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
-            while (p_parameter)
+            if (p_expression->left->declarator->direct_declarator &&
+                p_expression->left->declarator->direct_declarator->function_declarator)
             {
-                if (p_parameter->declarator)
-                    p_parameter->declarator->p_alias_of_expression = NULL;
-                p_parameter = p_parameter->next;
+                struct parameter_declaration* _Opt p_parameter = p_expression->left->declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
+                while (p_parameter)
+                {
+                    if (p_parameter->declarator)
+                        p_parameter->declarator->p_alias_of_expression = NULL;
+                    p_parameter = p_parameter->next;
+                }
             }
         }
 #endif
@@ -55824,7 +55765,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 struct marker marker = { 0 };
                 marker.p_token_begin = p_expression->right->first_token;
                 marker.p_token_end = p_expression->right->last_token;
-                compiler_diagnostic(W_FLOW_UNINITIALIZED,
+                diagnostic(W_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     NULL, &marker, "using a uninitialized object");
             }
@@ -55836,7 +55777,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             */
             if (!ctx->expression_is_not_evaluated)
             {
-                compiler_diagnostic(W_FLOW_NULL_DEREFERENCE,
+                diagnostic(W_FLOW_NULL_DEREFERENCE,
                     ctx->ctx,
                     p_expression->right->first_token, NULL, "dereference a NULL object");
             }
@@ -55894,9 +55835,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             if (flow_object_can_be_uninitialized(p_dest_object))
             {
                 if (flow_object_is_uninitialized(p_dest_object))
-                    compiler_diagnostic(W_UNINITIALZED, ctx->ctx, p_expression->left->first_token, NULL, "left object is uninitialized");
+                    diagnostic(W_UNINITIALZED, ctx->ctx, p_expression->left->first_token, NULL, "left object is uninitialized");
                 else
-                    compiler_diagnostic(W_UNINITIALZED, ctx->ctx, p_expression->left->first_token, NULL, "left object can be uninitialized");
+                    diagnostic(W_UNINITIALZED, ctx->ctx, p_expression->left->first_token, NULL, "left object can be uninitialized");
             }
         }
 
@@ -55975,7 +55916,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         {
             if (flow_object_can_be_zero(p_object))
             {
-                compiler_diagnostic(W_FLOW_DIVIZION_BY_ZERO, ctx->ctx, p_expression->right->first_token, NULL, "possible division by zero");
+                diagnostic(W_FLOW_DIVIZION_BY_ZERO, ctx->ctx, p_expression->right->first_token, NULL, "possible division by zero");
             }
         }
 
@@ -56140,12 +56081,12 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                             if (type_is_pointer(&p_comp_expression->type))
                             {
                                 if (!ctx->inside_loop)
-                                    compiler_diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always null");
+                                    diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always null");
                             }
                             else
                             {
                                 if (!ctx->inside_loop)
-                                    compiler_diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "value is always zero");
+                                    diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "value is always zero");
                             }
                         }
                     }
@@ -56156,9 +56097,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                            assert(p != NULL);
                         */
                         if (type_is_pointer(&p_comp_expression->type))
-                            compiler_diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always null");
+                            diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always null");
                         else
-                            compiler_diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "value is always zero");
+                            diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "value is always zero");
                     }
                 }
                 else if ((flow_object_is_not_null(p_object) || flow_object_is_not_zero(p_object)) && value == 0)
@@ -56172,12 +56113,12 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                         if (type_is_pointer(&p_comp_expression->type))
                         {
                             if (!ctx->inside_loop)
-                                compiler_diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always non-null");
+                                diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always non-null");
                         }
                         else
                         {
                             if (!ctx->inside_loop)
-                                compiler_diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "value is always non-zero");
+                                diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "value is always non-zero");
                         }
                     }
                     else if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL)
@@ -56198,12 +56139,12 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                             if (type_is_pointer(&p_comp_expression->type))
                             {
                                 if (!ctx->inside_loop)
-                                    compiler_diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always non-null");
+                                    diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always non-null");
                             }
                             else
                             {
                                 if (!ctx->inside_loop)
-                                    compiler_diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "value is always non-zero");
+                                    diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "value is always non-zero");
                             }
                         }
                     }
@@ -56478,22 +56419,15 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
-    struct diagnostic_id_stack stack = { 0 };
-    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
-        build_diagnostic_id_stack(ctx->ctx,
-            p_expression_statement->p_attribute_specifier_sequence,
-            &stack,
-            2);
-
     struct true_false_set d = { 0 };
     if (p_expression_statement->expression_opt)
         flow_visit_full_expression(ctx, p_expression_statement->expression_opt, &d);
 
 
-    warn_unrecognized_warnings(ctx->ctx,
-                               &stack,
-                               p_expression_statement->p_attribute_specifier_sequence,
-                               p_diagnostic_id_stack);
+    if (p_expression_statement->p_lint_token)
+    {
+        check_dianostic_suppression(ctx, p_expression_statement->p_lint_token);
+    }
 
     true_false_set_destroy(&d);
 }
@@ -56506,7 +56440,10 @@ static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct com
     flow_exit_block_visit_defer_list(ctx, &p_compound_statement->defer_list, p_compound_statement->last_token);
     flow_defer_list_set_end_of_lifetime(ctx, &p_compound_statement->defer_list, p_compound_statement->last_token);
 
-    check_dianostic_suppression(ctx, p_compound_statement->last_token);
+    if (p_compound_statement->lint_token)
+    {
+        check_dianostic_suppression(ctx, p_compound_statement->lint_token);
+    }
 }
 
 static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
@@ -56636,73 +56573,89 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 }
 static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
-    /*
-      TODO
-       {
-        int i = 0;
-        if (condition)
-        {
-            //second-block
-            i++;
-            if (condition)
-            {
-                //second-block
-                i++;
-                //recursive
-            }
-        }
-    }
-    */
+    const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_FOR);
-
-    struct true_false_set d = { 0 };
-
 
     if (p_iteration_statement->declaration &&
         p_iteration_statement->declaration->init_declarator_list.head)
     {
+        /*
+            for (int i = 0;        i < 10;      i++)
+                 ^^^^^^
+                 init_declarator_list
+        */
         flow_visit_init_declarator_list(ctx, &p_iteration_statement->declaration->init_declarator_list);
     }
-
-    if (p_iteration_statement->expression0)
+    else  if (p_iteration_statement->expression0)
     {
-        flow_visit_full_expression(ctx, p_iteration_statement->expression0, &d);
+        /*
+            int i;
+            for (i = 0;        i < 10;      i++)
+                 ^^^^^^
+                 expression0
+        */
+        struct true_false_set true_false_set = { 0 };
+        flow_visit_full_expression(ctx, p_iteration_statement->expression0, &true_false_set);
+        true_false_set_destroy(&true_false_set);
     }
 
     if (p_iteration_statement->expression1)
     {
+        /*
+            int i;
+            for (i = 0;        i < 10;      i++)
+                               ^^^^^^
+                               expression1
+        */
         flow_check_pointer_used_as_bool(ctx, p_iteration_statement->expression1);
-        flow_visit_full_expression(ctx, p_iteration_statement->expression1, &d);
+        struct true_false_set true_false_set = { 0 };
+        flow_visit_full_expression(ctx, p_iteration_statement->expression1, &true_false_set);
+        true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
+        true_false_set_destroy(&true_false_set);
     }
 
-    //TODO we need to merge states inside loops
 
-    //Disable warning because the state is temporary..missing a visit
     diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
-
     flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-
     diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
 
+    //int after_first_iteration = arena_add_copy_of_current_state(ctx, "after first iteration");
 
     if (p_iteration_statement->expression2)
     {
-        flow_visit_full_expression(ctx, p_iteration_statement->expression2, &d);
+        /*
+          int i;
+          for (i = 0;        i < 10;      i++)
+                                       ^^^^^^
+                                   expression2
+        */
+        struct true_false_set s = { 0 };
+        flow_visit_full_expression(ctx, p_iteration_statement->expression2, &s);
+        true_false_set_destroy(&s);
     }
+
     const bool b_secondary_block_ends_with_jump =
         secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
 
     /*we visit again*/
     if (!b_secondary_block_ends_with_jump)
     {
+        if (p_iteration_statement->expression1)
+        {
+            struct true_false_set true_false_set = { 0 };
+            flow_visit_full_expression(ctx, p_iteration_statement->expression1, &true_false_set);
+            true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
+            true_false_set_destroy(&true_false_set);
+        }
         flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
+
         flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
         flow_defer_list_set_end_of_lifetime(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
     }
-
-
-    true_false_set_destroy(&d);
+    else
+    {
+    }
 }
 
 static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
@@ -56726,6 +56679,11 @@ static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct it
         break;
     }
     ctx->inside_loop = inside_loop; //restore
+
+    if (p_iteration_statement->p_lint_token)
+    {
+        check_dianostic_suppression(ctx, p_iteration_statement->p_lint_token);
+    }
 }
 
 static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_statement* p_jump_statement)
@@ -56739,6 +56697,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
 
             //check_all_defer_until_try(ctx, ctx->tail_block, p_jump_statement->first_token);
             flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
+
         }
         else if (p_jump_statement->first_token->type == TK_KEYWORD_RETURN)
         {
@@ -56835,6 +56794,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
             }
 
             flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
+
         }
         else if (p_jump_statement->first_token->type == TK_KEYWORD_CONTINUE)
         {
@@ -56877,6 +56837,10 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
     catch
     {
     }
+    if (p_jump_statement->p_lint_token)
+    {
+        check_dianostic_suppression(ctx, p_jump_statement->p_lint_token);
+    }
 }
 
 static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label);
@@ -56915,17 +56879,7 @@ static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct un
 
     if (p_unlabeled_statement->primary_block)
     {
-        struct diagnostic_id_stack stack = { 0 };
-        struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
-            build_diagnostic_id_stack(ctx->ctx,
-                p_unlabeled_statement->p_attribute_specifier_sequence,
-                &stack,
-                2);
         flow_visit_primary_block(ctx, p_unlabeled_statement->primary_block);
-        warn_unrecognized_warnings(ctx->ctx,
-                               &stack,
-                               p_unlabeled_statement->p_attribute_specifier_sequence,
-                               p_diagnostic_id_stack);
     }
     else if (p_unlabeled_statement->expression_statement)
     {
@@ -56937,23 +56891,12 @@ static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct un
     }
     else if (p_unlabeled_statement->jump_statement)
     {
-        struct diagnostic_id_stack stack = { 0 };
-        struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
-            build_diagnostic_id_stack(ctx->ctx,
-                p_unlabeled_statement->p_attribute_specifier_sequence,
-                &stack,
-                2);
         flow_visit_jump_statement(ctx, p_unlabeled_statement->jump_statement);
-        warn_unrecognized_warnings(ctx->ctx,
-                               &stack,
-                               p_unlabeled_statement->p_attribute_specifier_sequence,
-                               p_diagnostic_id_stack);
     }
     else
     {
         assert(false);
     }
-
 
 }
 
@@ -56971,13 +56914,6 @@ static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p
 
 static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label)
 {
-    struct diagnostic_id_stack stack = { 0 };
-    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
-        build_diagnostic_id_stack(ctx->ctx,
-            p_label->p_attribute_specifier_sequence,
-            &stack,
-            2);
-
     if (p_label->p_identifier_opt)
     {
         for (int i = 0; i < ctx->labels_size; i++)
@@ -56996,10 +56932,7 @@ static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label)
         //case, default
         arena_restore_current_state_from(ctx, ctx->initial_state);
     }
-    warn_unrecognized_warnings(ctx->ctx,
-                              &stack,
-                              p_label->p_attribute_specifier_sequence,
-                              p_diagnostic_id_stack);
+
 }
 
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item)
@@ -57102,24 +57035,50 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
     {
         bool ex = p_static_assert_declaration->first_token->type == TK_KEYWORD_CAKE_STATIC_DEBUG_EX;
 
-        compiler_diagnostic(W_LOCATION, ctx->ctx, p_static_assert_declaration->first_token, NULL, "static_debug");
 
         struct flow_object* _Opt p_obj =
             expression_get_flow_object(ctx, p_static_assert_declaration->constant_expression, nullable_enabled);
 
-        if (p_obj)
-        {
-            const bool color_enabled = !ctx->ctx->options.color_disabled;
-            print_flow_object(color_enabled, &p_static_assert_declaration->constant_expression->type, p_obj, !ex);
-            if (p_obj->is_temporary)
-            {
-                p_obj->current.state = FLOW_OBJECT_STATE_LIFE_TIME_ENDED;
-            }
-        }
 
         if (ex)
         {
-            print_arena(ctx);
+            diagnostic(W_INFO,
+                    ctx->ctx,
+                    p_static_assert_declaration->first_token,
+                    NULL,
+                    "debug");
+
+            struct osstream ss = { 0 };
+            print_arena(ctx, &ss);
+            printf("%s", ss.c_str);
+            
+            ss_close(&ss);
+        }
+        else
+        {
+            if (p_obj)
+            {
+                struct osstream ss = { 0 };
+                const bool color_enabled = !ctx->ctx->options.color_disabled;
+                print_flow_object(color_enabled, &p_static_assert_declaration->constant_expression->type, p_obj, !ex, &ss);
+                if (p_obj->is_temporary)
+                {
+                    p_obj->current.state = FLOW_OBJECT_STATE_LIFE_TIME_ENDED;
+                }
+
+                const struct marker m =
+                {
+                    .p_token_begin = p_static_assert_declaration->constant_expression->first_token,
+                    .p_token_end = p_static_assert_declaration->constant_expression->last_token
+                };
+
+                diagnostic(W_INFO,
+                    ctx->ctx,
+                    NULL,
+                    &m,
+                    "%s", ss.c_str);
+                ss_close(&ss);
+            }
         }
     }
     else if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_STATE)
@@ -57135,7 +57094,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
             e = parse_string_state(p_static_assert_declaration->string_literal_opt->lexeme, &is_invalid);
         if (is_invalid)
         {
-            compiler_diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+            diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
         }
         else
         {
@@ -57148,19 +57107,20 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
                 if (e != p_obj->current.state)
                 {
-                    compiler_diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "assert_state failed");
+                    struct osstream oss = { 0 };
+                    diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "assert_state failed");
                     if (p_static_assert_declaration->string_literal_opt)
-                        printf("expected :%s\n", p_static_assert_declaration->string_literal_opt->lexeme);
-                    printf("current  :");
-                    flow_object_print_state(p_obj);
-                    printf("\n");
+                        ss_fprintf(&oss, "expected :%s\n", p_static_assert_declaration->string_literal_opt->lexeme);
+                    ss_fprintf(&oss, "current  :");
+                    flow_object_print_state(p_obj, &oss);
+                    ss_fprintf(&oss, "\n");
                 }
             }
             else
             {
                 if (e != FLOW_OBJECT_STATE_NOT_APPLICABLE)
                 {
-                    compiler_diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "assert_state failed");
+                    diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "assert_state failed");
                 }
             }
 
@@ -57198,13 +57158,13 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                     {
                         if (p_obj->members.size > 0)
                         {
-                            compiler_diagnostic(C_ERROR_STATIC_SET, ctx->ctx, p_static_assert_declaration->first_token, NULL, "use only for non agregates");
+                            diagnostic(C_ERROR_STATIC_SET, ctx->ctx, p_static_assert_declaration->first_token, NULL, "use only for non agregates");
                         }
                         p_obj->current.state = e;
                     }
                     else
                     {
-                        compiler_diagnostic(C_ERROR_STATIC_SET, ctx->ctx, p_static_assert_declaration->first_token, NULL, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+                        diagnostic(C_ERROR_STATIC_SET, ctx->ctx, p_static_assert_declaration->first_token, NULL, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
                     }
                 }
             }
@@ -57521,12 +57481,12 @@ static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx,
 */
 static bool flow_is_last_item_return(struct compound_statement* p_compound_statement)
 {
-    if (/*!w28*/ p_compound_statement &&
+    if (p_compound_statement &&
         p_compound_statement->block_item_list.tail &&
         p_compound_statement->block_item_list.tail->unlabeled_statement &&
         p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement &&
         p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement->first_token &&
-        p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement->first_token->type == TK_KEYWORD_RETURN)
+        p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement->first_token->type == TK_KEYWORD_RETURN) //lint 28 28
     {
         return true;
     }
@@ -57535,13 +57495,6 @@ static bool flow_is_last_item_return(struct compound_statement* p_compound_state
 
 void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration)
 {
-    struct diagnostic_id_stack stack = { 0 };
-    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
-        build_diagnostic_id_stack(ctx->ctx,
-            p_declaration->p_attribute_specifier_sequence,
-            &stack,
-            2);
-
     if (p_declaration->static_assert_declaration)
     {
         flow_visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration);
@@ -57585,16 +57538,17 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
     }
 
 
-    if (p_declaration->function_body && !flow_is_last_item_return(p_declaration->function_body))
+    if (p_declaration->function_body)
     {
-        flow_exit_block_visit_defer_list(ctx, &p_declaration->defer_list, p_declaration->function_body->last_token);
+        if (!flow_is_last_item_return(p_declaration->function_body))
+            flow_exit_block_visit_defer_list(ctx, &p_declaration->defer_list, p_declaration->function_body->last_token);
     }
 
-    warn_unrecognized_warnings(ctx->ctx,
-                               &stack,
-                               p_declaration->p_attribute_specifier_sequence,
-                               p_diagnostic_id_stack);
 
+    if (p_declaration->lint_token)
+    {
+        check_dianostic_suppression(ctx, p_declaration->lint_token);
+    }
 }
 
 void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration)
@@ -57622,7 +57576,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 }
 
 
-_Opt struct flow_object* _Opt arena_new_object(struct flow_visit_ctx* ctx)
+struct flow_object* _Opt arena_new_object(struct flow_visit_ctx* ctx)
 {
     _Opt struct flow_object* _Owner _Opt p = calloc(1, sizeof * p);
     if (p != NULL)
@@ -57634,7 +57588,7 @@ _Opt struct flow_object* _Opt arena_new_object(struct flow_visit_ctx* ctx)
             p = NULL;
         }
     }
-    /*!w30*/ /*!w30*/  return (struct flow_object* _Opt) p;
+    return (struct flow_object* _Opt) p; //lint 30
 }
 
 
@@ -59962,7 +59916,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
         //ok
         if (current_argument->expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
         {
-            compiler_diagnostic(W_OWNERSHIP_USING_TEMPORARY_OWNER,
+            diagnostic(W_OWNERSHIP_USING_TEMPORARY_OWNER,
                 ctx,
                 current_argument->expression->first_token, NULL,
                 "passing a temporary owner to a view");
@@ -59971,7 +59925,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
     }////////////////////////////////////////////////////////////
     else if (argument_is_obj_owner && paramer_is_owner)
     {
-        compiler_diagnostic(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+        diagnostic(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
             ctx,
             current_argument->expression->first_token, NULL,
             "cannot move _Dtor to _Owner");
@@ -59986,7 +59940,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
         //ok
         if (current_argument->expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
         {
-            compiler_diagnostic(W_OWNERSHIP_USING_TEMPORARY_OWNER,
+            diagnostic(W_OWNERSHIP_USING_TEMPORARY_OWNER,
                 ctx,
                 current_argument->expression->first_token, NULL,
                 "passing a temporary owner to a view");
@@ -59998,7 +59952,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
     {
         if (!expression_is_null_pointer_constant(current_argument->expression))
         {
-            compiler_diagnostic(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+            diagnostic(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                 ctx,
                 current_argument->expression->first_token, NULL,
                 "passing a _View argument to a _Owner parameter");
@@ -60013,7 +59967,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
             if (!type_is_owner(&t2))
             {
 
-                compiler_diagnostic(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                diagnostic(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                     ctx,
                     current_argument->expression->first_token, NULL,
                     "pointed object is not _Owner");
@@ -60025,7 +59979,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
                 if (!argument_type->address_of)
                 {
                     //we need something created with address of.
-                    compiler_diagnostic(W_MUST_USE_ADDRESSOF,
+                    diagnostic(W_MUST_USE_ADDRESSOF,
                         ctx,
                         current_argument->expression->first_token, NULL,
                         "_Dtor pointer must be created using address of operator &");
@@ -60038,7 +59992,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
         {
             if (!expression_is_null_pointer_constant(current_argument->expression))
             {
-                compiler_diagnostic(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                diagnostic(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                     ctx,
                     current_argument->expression->first_token, NULL,
                     "passing a _View argument to a _Dtor parameter");
@@ -62683,7 +62637,7 @@ static bool is_valid_type(struct parser_ctx* ctx, struct token* _Opt p_token, co
         {
             if (p->next && p->next->category == TYPE_CATEGORY_FUNCTION)
             {
-                compiler_diagnostic(C_ERROR_FUNCTION_RETURNS_FUNCTION,
+                diagnostic(C_ERROR_FUNCTION_RETURNS_FUNCTION,
                                             ctx,
                                             p_token,
                                             NULL,
@@ -62692,7 +62646,7 @@ static bool is_valid_type(struct parser_ctx* ctx, struct token* _Opt p_token, co
             }
             else if (p->next && p->next->category == TYPE_CATEGORY_ARRAY)
             {
-                compiler_diagnostic(C_ERROR_FUNCTION_RETURNS_ARRAY,
+                diagnostic(C_ERROR_FUNCTION_RETURNS_ARRAY,
                                             ctx,
                                             p_token,
                                             NULL,
@@ -62713,7 +62667,7 @@ static bool is_valid_type(struct parser_ctx* ctx, struct token* _Opt p_token, co
                 {
                     if (p2->category == TYPE_CATEGORY_ARRAY && !p2->has_static_array_size)
                     {
-                        compiler_diagnostic(C_ERROR_FUNCTION_RETURNS_ARRAY,
+                        diagnostic(C_ERROR_FUNCTION_RETURNS_ARRAY,
                                             ctx,
                                             p_token,
                                             NULL,
@@ -62727,7 +62681,7 @@ static bool is_valid_type(struct parser_ctx* ctx, struct token* _Opt p_token, co
         else if (p->category == TYPE_CATEGORY_ITSELF &&
                  p->type_specifier_flags == TYPE_SPECIFIER_NONE)
         {
-            compiler_diagnostic(C_ERROR_INVALID_TYPE,
+            diagnostic(C_ERROR_INVALID_TYPE,
                                         ctx,
                                         p_token,
                                         NULL,

@@ -8,12 +8,8 @@ void f(struct X* _Opt p)
 {
     int i = p ? p->i : 0; //no warning
 
-    //warning: pointer may be null
-    [[cake::w33]]
-    int i3 = p->i;
+    int i3 = p->i;      //lint 33 warning: pointer may be null
 
-    //warning: pointer may be null
-    [[cake::w33]]
-    int i2 = p ? 0 : p->i; //warning
+    int i2 = p ? 0 : p->i; //lint 33 warning: pointer may be null
 }
 

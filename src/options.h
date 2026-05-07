@@ -68,7 +68,9 @@ enum diagnostic_id {
     W_OUT_OF_BOUNDS = 42,
     W_ASSIGNMENT_OF_ARRAY_PARAMETER = 43,
     W_CONDITIONAL_IS_CONSTANT = 44,
-    W_SWITCH = 45,
+    
+    W_SWITCH = 45, //
+
     W_UNSUAL_NULL_POINTER_CONSTANT = 46,
     W_SIZEOF_ARRAY_ARGUMENT = 47,
     W_CONST_NOT_INITIALIZED = 48,
@@ -80,7 +82,9 @@ enum diagnostic_id {
 
     W_SIZEOF_FUNCTION = 53,
     W_ERROR_INCOMPATIBLE_TYPES = 54,
-    W_UNUSED_LABEL = 55,
+    
+    W_UNUSED_LABEL = 55, //
+
     W_REDEFINING_BUITIN_MACRO = 56,
     W_UNUSED_FUNCTION = 57,
     W_BOOL_COMPARISON = 58,
@@ -94,7 +98,7 @@ enum diagnostic_id {
     
     W_WARNING_LIT_STRING = 64,
     W_SIGNED_TO_UNSIGNED = 65,
-    W_UNUSED_WARNING_66 = 66,
+    W_INFO = 66,
     W_UNUSED_WARNING_67 = 67,
     W_UNUSED_WARNING_68 = 68,
     W_UNUSED_WARNING_69 = 69,
@@ -250,7 +254,9 @@ enum diagnostic_id {
     C_ERROR_RETURN_CANNOT_BE_USED_INSIDE_DEFER = 1400,
     C_ERROR_FUNCTION_RETURNS_FUNCTION = 1410,
     C_ERROR_FUNCTION_RETURNS_ARRAY = 1420,
-    C_ERROR_LABEL_NOT_DEFINED = 1430,
+    
+    C_ERROR_LABEL_NOT_DEFINED = 1430, //
+
     C_ERROR_DUPLICATED_LABEL = 1440,
     C_ERROR_DUPLICATED_CASE = 1450,
     C_ERROR_SUBSCRIPT_IS_NOT_AN_INTEGER = 1560,
@@ -340,15 +346,6 @@ struct diagnostic_stack
 
 int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack);
 void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack);
-
-struct diagnostic_id_stack
-{
-    int size;
-    enum  diagnostic_id stack[10];
-};
-
-int diagnostic_id_stack_push(struct diagnostic_id_stack* diagnostic_stack, enum diagnostic_id id);
-void diagnostic_id_stack_pop(struct diagnostic_id_stack* diagnostic_stack);
 
 
 struct options
@@ -462,11 +459,6 @@ struct options
       -autoconfig
     */
     bool auto_config;
-
-    /*
-       -comment-to-attr
-    */
-    bool comment_to_attribute;
 
     bool do_static_debug;
     int static_debug_lines;

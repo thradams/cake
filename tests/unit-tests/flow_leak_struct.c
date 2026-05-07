@@ -12,7 +12,7 @@ struct X
 
 void f(int a)
 {
-    struct X x [[cake::leak]] = {0};
+    struct X x  = {0};
     x.text = strdup("a");
-}
+} //lint 29 leak
 

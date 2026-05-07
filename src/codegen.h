@@ -10,7 +10,7 @@
 #include "osstream.h"
 #include "hashmap.h"
 
-struct d_visit_ctx
+struct codegen_ctx
 {
     struct options options;
     int indentation;
@@ -73,8 +73,8 @@ struct d_visit_ctx
     bool is__func__predefined_identifier_added;
     struct try_statement* _Opt p_current_try_statement;
 
-    _View struct ast ast;    
+    struct ast * p_ast;    
 };
 
-void d_visit(struct d_visit_ctx* ctx, struct osstream* oss);
-void d_visit_ctx_destroy( _Dtor struct d_visit_ctx* ctx);
+void codegen_visit(struct codegen_ctx* ctx, struct osstream* oss);
+void codegen_visit_ctx_destroy( _Dtor struct codegen_ctx* ctx);

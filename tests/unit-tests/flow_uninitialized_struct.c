@@ -10,6 +10,5 @@ int main()
 {
     struct X x;
     // warning: uninitialized object '&x.text'
-    [[cake::w30]]
-    x_destroy(&x);
+    x_destroy(&x); //lint 30
 }

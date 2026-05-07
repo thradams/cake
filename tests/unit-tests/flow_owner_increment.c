@@ -12,12 +12,12 @@ int main()
     struct X* _Owner p = make();
 
     //error: operator ++ cannot be used in _Owner pointers
-    [[cake::e1310]]
-    p++;
+
+    p++; //lint 1310
 
     //error: operator -- cannot be used in _Owner pointers
-    [[cake::e1320]]
-    p--;
+
+    p--; //lint 1320
 
     del(p);
 }

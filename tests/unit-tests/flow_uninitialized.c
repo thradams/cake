@@ -9,11 +9,10 @@ int main(void)
     int a;
 
     //warning: passing an uninitialized argument 'a' object
-    [[cake::w30]] [[cake::w30]]
-        f_const(a);
 
-    //warning: passing an uninitialized argument 'a' object
-    [[cake::w30]] [[cake::w30]]
-        f(a);
+    f_const(a); //lint 30
+
+    //warning: passing an uninitialized argument 'a' objec
+    f(a); //lint 30 
 
 }

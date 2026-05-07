@@ -8,8 +8,7 @@ struct X f()
 int main()
 {
     //error: lvalue required as left operand of assignment
-    [[cake::e1230]]
-    f().i = 1;
+    f().i = 1; //lint 1230
 }
 
 

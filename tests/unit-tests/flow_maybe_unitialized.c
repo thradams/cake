@@ -13,7 +13,7 @@ int main()
 {
     struct X* _Owner _Opt p = malloc(sizeof(struct X));
     //warning: uninitialized object 'p.text'
-    [[cake::w30]]
-    x_delete(p);
+    
+    x_delete(p); //lint 30
 }
 

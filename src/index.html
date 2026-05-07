@@ -98,7 +98,24 @@
             white-space: nowrap;
             flex-shrink: 0;
             border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
+
+        #panel-pin-btn {
+            width: 20px; height: 20px;
+            display: flex; align-items: center; justify-content: center;
+            border: none; background: transparent;
+            color: var(--text-dim);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.12s, color 0.12s;
+            flex-shrink: 0;
+        }
+        #panel-pin-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-bright); }
+        #panel-pin-btn.pinned { color: var(--text-bright); }
 
         #file-tree {
             flex: 1;
@@ -390,6 +407,27 @@
         .panel-badge.warn { background: var(--warn); }
 
         #panel-actions { margin-left: auto; display: flex; align-items: center; padding-right: 6px; }
+        #panel.collapsed {
+            flex: none !important;
+            height: 28px !important;
+            min-height: 28px;
+            overflow: hidden;
+        }
+        #panel.collapsed #output { display: none; }
+        #panel.collapsed #resize-handle { display: none; }
+
+        #panel-toggle-btn {
+            width: 24px; height: 24px;
+            display: flex; align-items: center; justify-content: center;
+            border: none; background: transparent;
+            color: var(--text-dim);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: background 0.12s, color 0.12s;
+            margin-right: 2px;
+        }
+        #panel-toggle-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-bright); }
 
         #output {
             background: var(--bg-panel);
@@ -445,12 +483,91 @@
         #status-msg.fade { opacity: 0; }
         #status-msg.error { color: #ff5f5f; opacity: 1; font-weight: 600; }
 
+        #status-bar.error {
+            background: #c0392b !important;
+            transition: background 0.2s ease;
+        }
+        #status-bar {
+            transition: background 0.2s ease;
+        }
+
+        /* ── FIND BAR ── */
+        #find-bar {
+            position: absolute;
+            top: 6px; right: 16px;
+            display: none;
+            align-items: center;
+            gap: 6px;
+            background: var(--bg-toolbar);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 4px 8px;
+            z-index: 300;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+        }
+        #find-bar.visible { display: flex; }
+
+        #find-input {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            font-size: 12.5px;
+            padding: 3px 8px;
+            width: 200px;
+            outline: none;
+        }
+        #find-input:focus { border-color: var(--accent); }
+        #find-input.no-match { border-color: var(--err); color: var(--err); }
+
+        #find-count {
+            font-size: 11px;
+            color: var(--text-dim);
+            white-space: nowrap;
+            min-width: 54px;
+        }
+
+        .find-btn {
+            width: 22px; height: 22px;
+            display: flex; align-items: center; justify-content: center;
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.12s, color 0.12s;
+        }
+        .find-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-bright); }
+
+        /* ── FIND HIGHLIGHTS ── */
+        #find-highlight-layer {
+            position: absolute;
+            top: 0; left: 0;
+            pointer-events: none;
+            white-space: pre-wrap;
+            word-break: break-all;
+            font: inherit;
+            color: transparent;
+        }
+        mark.find-match {
+            background: rgba(255, 200, 0, 0.28);
+            border-radius: 2px;
+            color: transparent;
+        }
+        mark.find-match.current {
+            background: rgba(255, 140, 0, 0.55);
+            outline: 1px solid rgba(255,160,0,0.8);
+        }
+
         /* ── SYNTAX ── */
         .kw  { color: #569cd6; }
-        .kwex {color: purple; }
+        .kwex {color: #D8A0DF; }
         .str { color: #ce9178; }
         .com { color: #6a9955; }
         .num { color: #b5cea8; }
+
+        .lint { color: yellowgreen;   }
 
         .diag-error   { color: #ff5555; background: rgba(255,50,50,.15);   border-left: 3px solid #ff5555; padding: 0 6px; border-radius: 2px; font-style: italic; margin-left: 8px; }
         .diag-warning { color: #f1c40f; background: rgba(241,196,15,.12); border-left: 3px solid #f1c40f; padding: 0 6px; border-radius: 2px; font-style: italic; margin-left: 8px; }
@@ -473,12 +590,29 @@
 
 <!-- Activity Bar -->
 <div id="activity-bar">
-    <button class="activity-btn active" id="btn-explorer" onclick="toggleSidebar()" title="Explorer">&#128193;</button>
+    <button class="activity-btn active" id="btn-explorer" onclick="toggleSidebar()" title="Explorer">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="6"  x2="21" y2="6"/>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+    </button>
 </div>
 
 <!-- Sidebar -->
 <div id="sidebar">
-    <div class="sidebar-header">Explorer</div>
+    <div class="sidebar-header">Explorer<button id="panel-pin-btn" onclick="togglePanelPin()" title="Pin open (prevent auto-close)">
+        <svg id="pin-icon-auto" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Auto-close: sidebar closes on file select">
+            <!-- open lock -->
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+        </svg>
+        <svg id="pin-icon-pinned" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Pinned: sidebar stays open" style="display:none">
+            <!-- closed lock -->
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+    </button></div>
     <div id="file-tree"></div>
 </div>
 
@@ -498,6 +632,20 @@
             <span id="diagCounter"></span>
             <button class="icon-btn" onclick="diagNext()"  title="Next diagnostic (Ctrl+↓ or F8)" style="width:auto;padding:0 8px;">Next</button>
             <button class="icon-btn" onclick="diagLast()"  title="Last diagnostic (Ctrl+End)" style="width:auto;padding:0 8px;">Last</button>
+        </div>
+        <!-- Find Bar -->
+        <div id="find-bar">
+            <input id="find-input" type="text" placeholder="Find…" autocomplete="off" spellcheck="false"/>
+            <span id="find-count"></span>
+            <button class="find-btn" onclick="findPrev()" title="Previous (Shift+Enter)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <button class="find-btn" onclick="findNext()" title="Next (Enter)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <button class="find-btn" onclick="closeFind()" title="Close (Esc)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
         </div>
     </div>
 
@@ -523,6 +671,7 @@
                     <span id="warn-badge" class="panel-badge warn"  style="display:none"></span>
                 </div>
                 <div id="panel-actions">
+                    <button id="panel-toggle-btn" onclick="togglePanel()" title="Collapse / Expand panel">&#9660;</button>
                     <button class="icon-btn" onclick="document.getElementById('output').innerHTML=''" title="Clear">&#10005;</button>
                 </div>
             </div>
@@ -576,6 +725,58 @@ function _updateCursor() {
 _edEl.addEventListener('click',  _updateCursor);
 _edEl.addEventListener('keyup',  _updateCursor);
 
+// ── panel pin & collapse ──────────────────────────────────────
+let _panelPinned = false;
+let _panelCollapsed = false;
+let _panelPinnedHeight = null;
+
+function togglePanelPin() {
+    _panelPinned = !_panelPinned;
+    const btn = document.getElementById('panel-pin-btn');
+    btn.classList.toggle('pinned', _panelPinned);
+    btn.title = _panelPinned ? 'Pinned: sidebar stays open' : 'Auto-close: sidebar closes on file select';
+    document.getElementById('pin-icon-auto').style.display   = _panelPinned ? 'none' : '';
+    document.getElementById('pin-icon-pinned').style.display = _panelPinned ? '' : 'none';
+    // If pinned while collapsed, expand it
+    if (_panelPinned && _panelCollapsed) expandPanel();
+}
+
+function togglePanel() {
+    if (_panelCollapsed) expandPanel();
+    else collapsePanel();
+}
+
+function collapsePanel() {
+    const panel = document.getElementById('panel');
+    _panelPinnedHeight = panel.style.height || null;
+    panel.classList.add('collapsed');
+    _panelCollapsed = true;
+    const btn = document.getElementById('panel-toggle-btn');
+    btn.innerHTML = '&#9650;';
+    btn.title = 'Expand panel';
+}
+
+function expandPanel() {
+    const panel = document.getElementById('panel');
+    panel.classList.remove('collapsed');
+    if (_panelPinnedHeight) {
+        panel.style.flex = 'none';
+        panel.style.height = _panelPinnedHeight;
+    } else {
+        panel.style.flex = '';
+        panel.style.height = '';
+    }
+    _panelCollapsed = false;
+    const btn = document.getElementById('panel-toggle-btn');
+    btn.innerHTML = '&#9660;';
+    btn.title = 'Collapse panel';
+}
+
+// Auto-close the panel after compile unless pinned
+function autoCollapsePanel() {
+    if (!_panelPinned) collapsePanel();
+}
+
 // ── sidebar toggle ────────────────────────────────────────────
 let _sidebarOpen = true;
 function toggleSidebar() {
@@ -600,7 +801,7 @@ function buildFileTree(files) {
             const sel = document.getElementById('fileList');
             sel.value = f;
             onFileSelect();
-            toggleSidebar();
+            if (!_panelPinned) toggleSidebar();
         });
         tree.appendChild(item);
     });
@@ -639,7 +840,130 @@ _edEl.addEventListener('input', () => {
     if (window.currentFile) setTabDirty(window.currentFile, true);
 });
 
-// ── panel resize ──────────────────────────────────────────────
+// ── find in file ──────────────────────────────────────────────
+let _findMatches = [];
+let _findCurrent = -1;
+
+function openFind() {
+    const bar = document.getElementById('find-bar');
+    bar.classList.add('visible');
+    const inp = document.getElementById('find-input');
+    inp.focus();
+    inp.select();
+    runFind();
+}
+
+function closeFind() {
+    document.getElementById('find-bar').classList.remove('visible');
+    document.getElementById('find-input').value = '';
+    _findMatches = [];
+    _findCurrent = -1;
+    updateFindCount();
+}
+
+function runFind() {
+    const inp   = document.getElementById('find-input');
+    const query = inp.value;
+    const text  = document.getElementById('c-editor').value;
+
+    _findMatches = [];
+    _findCurrent = -1;
+
+    if (!query) {
+        inp.classList.remove('no-match');
+        updateFindCount();
+        return;
+    }
+
+    // collect all match indices (case-insensitive)
+    const lower = text.toLowerCase();
+    const q     = query.toLowerCase();
+    let idx = 0;
+    while ((idx = lower.indexOf(q, idx)) !== -1) {
+        _findMatches.push(idx);
+        idx += q.length;
+    }
+
+    inp.classList.toggle('no-match', _findMatches.length === 0);
+
+    if (_findMatches.length > 0) {
+        _findCurrent = 0;
+        scrollToMatch();
+    }
+    updateFindCount();
+}
+
+function findNext() {
+    if (!_findMatches.length) return;
+    _findCurrent = (_findCurrent + 1) % _findMatches.length;
+    scrollToMatch();
+    updateFindCount();
+}
+
+function findPrev() {
+    if (!_findMatches.length) return;
+    _findCurrent = (_findCurrent - 1 + _findMatches.length) % _findMatches.length;
+    scrollToMatch();
+    updateFindCount();
+}
+
+function scrollToMatch() {
+    if (_findCurrent < 0 || !_findMatches.length) return;
+    const ed  = document.getElementById('c-editor');
+    const pos = _findMatches[_findCurrent];
+    const len = document.getElementById('find-input').value.length;
+    ed.focus();
+    ed.setSelectionRange(pos, pos + len);
+
+    // Scroll the textarea so the match is visible
+    const linesBefore = ed.value.substring(0, pos).split('\n').length - 1;
+    const lineHeight  = parseInt(getComputedStyle(ed).lineHeight) || 19;
+    const scrollTo    = linesBefore * lineHeight - ed.clientHeight / 2;
+    ed.scrollTop = Math.max(0, scrollTo);
+}
+
+function updateFindCount() {
+    const el = document.getElementById('find-count');
+    if (!_findMatches.length) {
+        el.textContent = document.getElementById('find-input').value ? 'No results' : '';
+    } else {
+        el.textContent = `${_findCurrent + 1} / ${_findMatches.length}`;
+    }
+}
+
+// Keyboard shortcut: Ctrl+F to open, Esc to close, Enter/Shift+Enter to navigate
+document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        openFind();
+        return;
+    }
+    const bar = document.getElementById('find-bar');
+    if (!bar.classList.contains('visible')) return;
+    if (e.key === 'Escape') { closeFind(); return; }
+    if (e.key === 'Enter' && document.activeElement === document.getElementById('find-input')) {
+        e.preventDefault();
+        e.shiftKey ? findPrev() : findNext();
+    }
+});
+
+document.getElementById('find-input').addEventListener('input', () => {
+    const inp   = document.getElementById('find-input');
+    const query = inp.value;
+    const text  = document.getElementById('c-editor').value;
+    _findMatches = [];
+    _findCurrent = -1;
+    if (!query) { inp.classList.remove('no-match'); updateFindCount(); return; }
+    const lower = text.toLowerCase(), q = query.toLowerCase();
+    let idx = 0;
+    while ((idx = lower.indexOf(q, idx)) !== -1) { _findMatches.push(idx); idx += q.length; }
+    inp.classList.toggle('no-match', _findMatches.length === 0);
+    if (_findMatches.length) _findCurrent = 0;
+    updateFindCount();
+    // do NOT call scrollToMatch — wait for Enter
+});
+
+
 (function() {
     const handle = document.getElementById('resize-handle');
     const panel  = document.getElementById('panel');

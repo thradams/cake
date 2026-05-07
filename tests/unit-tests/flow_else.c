@@ -9,7 +9,7 @@ void f(int i)
     }
     else
     {
-        int* _Owner _Opt p3 [[cake::leak]] = malloc(1);
-    }
+        int* _Owner _Opt p3 = malloc(1);
+    } //lint 29 memory leak
 }
 

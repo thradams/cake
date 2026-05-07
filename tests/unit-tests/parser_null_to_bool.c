@@ -2,16 +2,13 @@ void f(bool b);
 
 int main(void)
 {
-    //warning: implicit conversion of nullptr constant to 'bool'
-    [[cake::w49]]
-    bool b = nullptr;
 
-    //warning: implicit conversion of nullptr constant to 'bool'
-    [[cake::w49]]
-    b = nullptr;
+    bool b = nullptr; //lint 49 warning: implicit conversion of nullptr constant to 'bool'
 
-    //warning: implicit conversion of nullptr constant to 'bool'
-    [[cake::w49]]
-    f(nullptr);
+
+    b = nullptr; //lint 49 warning: implicit conversion of nullptr constant to 'bool'
+
+
+    f(nullptr); //lint 49 warning: implicit conversion of nullptr constant to 'bool'
 
 }

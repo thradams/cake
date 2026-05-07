@@ -7,7 +7,7 @@ int rand();
 
 int main()
 {
-    char* _Owner _Opt s [[cake::leak]] = malloc(1);
+    char* _Owner _Opt s = malloc(1);
     try
     {
         if (rand())
@@ -23,4 +23,5 @@ int main()
     catch
     {
     }
-}
+} //lint 29 leak
+

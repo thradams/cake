@@ -98,28 +98,6 @@ bool is_diagnostic_configurable(enum diagnostic_id id)
     return id >= 0 && id < BITSET_SIZE;
 }
 
-int diagnostic_id_stack_push(struct diagnostic_id_stack* diagnostic_stack, enum diagnostic_id id)
-{
-    if (diagnostic_stack->size < _Countof(diagnostic_stack->stack))
-    {
-        diagnostic_stack->stack[diagnostic_stack->size] = id;
-        diagnostic_stack->size++;
-    }
-    return 0;
-}
-
-void diagnostic_id_stack_pop(struct diagnostic_id_stack* diagnostic_stack)
-{
-    if (diagnostic_stack->size > 0)
-    {
-        diagnostic_stack->size--;
-    }
-    else
-    {
-        assert(false);
-    }
-}
-
 int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack)
 {
     if (diagnostic_stack->top_index >= _Countof(diagnostic_stack->stack))
@@ -184,6 +162,17 @@ int get_diagnostic_phase(enum diagnostic_id w)
 {
     switch (w)
     {
+
+    case C_ERROR_EXIT_DEFER:
+    case C_ERROR_JUMP_OVER_VLA:
+        return 1;
+
+    /*later after function is completed*/
+    case W_UNUSED_LABEL:
+    case W_SWITCH:
+    case C_ERROR_LABEL_NOT_DEFINED:
+        return 1;
+
     case W_FLOW_NULLABLE_TO_NON_NULLABLE:
     case W_FLOW_MISSING_DTOR:
     case W_FLOW_UNINITIALIZED:
@@ -225,7 +214,7 @@ int fill_options(struct options* options,
     options_set_warning(options, W_UNUSED_VARIABLE, false);
 
     options_set_warning(options, W_STYLE, false);
-
+    options_set_note(options, W_INFO, true);
 
     /*first loop used to collect options*/
     for (int i = 1; i < argc; i++)
@@ -356,12 +345,6 @@ int fill_options(struct options* options,
             printf("Invalid option. Options are: "
                    "enable, disable"
                    "\n");
-            continue;
-        }
-
-        if (strcmp(argv[i], "-comment-to-attr") == 0)
-        {
-            options->comment_to_attribute = true;
             continue;
         }
 
@@ -616,8 +599,7 @@ void print_help()
     print_option("-dump-pp-tokens", "Output tokens after preprocessor");
     print_option("-disable-assert", "disables built-in assert");
     print_option("-const-literal", "literal string becomes const");
-    print_option("-preprocess-def-macro", "preprocess def macros after expansion");
-    print_option("-comment-to-attr", "convert comments /*!w#*/ into attributes [[cake::w#]]");
+    print_option("-preprocess-def-macro", "preprocess def macros after expansion");    
     print_option("-style=name", "Set the style used in w011 style warnings. Options are `-style=cake`, `-style=gnu`, `-style=microsoft`");
     print_option("-selftest", "Runs Cake's internal tests. The code must be compiled with -DTEST.");
     print_option("-disable-assert", "Disable cake assert extension.");

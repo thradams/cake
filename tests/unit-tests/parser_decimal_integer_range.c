@@ -9,12 +9,12 @@ static_assert(IS_TYPE(long long, /*U32MAX + 1*/ 4294967296));
 static_assert(IS_TYPE(long long, /*I64 MAX*/ 9223372036854775807));
 
 //warning: integer literal is too large to be represented in a signed integer type, interpreting as unsigned 
-[[cake::w50]]
-static_assert(IS_TYPE(unsigned long long, /*I64 MAX + 1*/ 9223372036854775808));
+
+static_assert(IS_TYPE(unsigned long long, /*I64 MAX + 1*/ 9223372036854775808)); //lint 50
 
 //warning: integer literal is too large to be represented in a signed integer type, interpreting as unsigned 
-[[cake::w50]]
-static_assert(IS_TYPE(unsigned long long, /*U64 MAX */ 18446744073709551615));
+
+static_assert(IS_TYPE(unsigned long long, /*U64 MAX */ 18446744073709551615)); //lint 50
 
 /* no suffix */
 static_assert(IS_TYPE(unsigned long long, 0x8000000000000000));//

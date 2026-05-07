@@ -9,9 +9,7 @@ void f(int i)
     }
     else
     {
-        //possible division by zero
-        [[cake::w36]]
-        int j = 1 / i;
+        int j = 1 / i; //lint 36 possible division by zero
     }
 
     if (0 > i)
@@ -20,9 +18,7 @@ void f(int i)
     }
     else
     {
-        //possible division by zero
-        [[cake::w36]]
-        int j = 1 / i;
+        int j = 1 / i; //lint 36 possible division by zero
     }
 
     if (0 < i)
@@ -31,9 +27,7 @@ void f(int i)
     }
     else
     {
-        //possible division by zero
-        [[cake::w36]]
-        int j = 1 / i;
+        int j = 1 / i; //lint 36 possible division by zero
     }
 
     if (i > 0)
@@ -42,9 +36,7 @@ void f(int i)
     }
     else
     {
-        //possible division by zero
-        [[cake::w36]]
-        int j = 1 / i;
+        int j = 1 / i; //lint 36 possible division by zero
     }
 }
 
@@ -53,9 +45,7 @@ void f2(int i)
 {
     if (i <= 0)
     {
-        //possible division by zero
-        [[cake::w36]]
-        int k = 1 / i;
+        int k = 1 / i; //lint 36 possible division by zero
     }
     else
     {
@@ -65,9 +55,7 @@ void f2(int i)
 
     if (0 >= i)
     {
-        //possible division by zero
-        [[cake::w36]]
-        int k = 1 / i;
+        int k = 1 / i; //lint 36 possible division by zero
     }
     else
     {
@@ -76,9 +64,7 @@ void f2(int i)
 
     if (0 <= i)
     {
-        //possible division by zero
-        [[cake::w36]]
-        int k = 1 / i;
+        int k = 1 / i; //lint 36 possible division by zero
     }
     else
     {
@@ -89,9 +75,7 @@ void f2(int i)
 
     if (i >= 0)
     {
-        //possible division by zero
-        [[cake::w36]]
-        int k = 1 / i;
+        int k = 1 / i; //lint 36 possible division by zero
     }
     else
     {

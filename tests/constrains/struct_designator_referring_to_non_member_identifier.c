@@ -5,8 +5,8 @@ struct Point {
     int y;
 };
 
-[[cake::w720]]
-struct Point p = {.z = 10}; // Error: Designator .z does not match any member of struct Point
+
+struct Point p = {.z = 10}; //lint 720 Error: Designator .z does not match any member of struct Point
 
 int main() {
     return 0;

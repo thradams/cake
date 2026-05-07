@@ -1,7 +1,7 @@
 int main()
 {
     defer {
-      [[cake::w1400]]
-      return 1;
+      
+      return 1; //lint 1400 1200
     }
 }

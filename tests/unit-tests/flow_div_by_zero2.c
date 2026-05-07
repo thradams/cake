@@ -10,9 +10,8 @@ void  f(int i)
     {
         *p = 0;
     }
-    //possible division by zero
-    [[cake::w36]]
-    int h = 212 / k;
+
+    int h = 212 / k; //lint 36 possible division by zero
 }
 
 int main() {}

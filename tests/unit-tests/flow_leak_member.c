@@ -15,8 +15,7 @@ void* _Owner _Opt f1()
         p->name = calloc(1, 2);
     }
 
-    //object 'name' may not be empty
-    [[cake::w29]]
-    return p;
+    //
+    return p; //lint 29  object 'name' may not be empty
 }
 

@@ -23,14 +23,13 @@ void x_print(struct X* p)
 int main()
 {
     //warning: object pointed by 'x.name' was not released.
-    struct X x [[cake::leak]] = {0};
+    struct X x = {0};
     x.name = strdup("a");
     x_destroy(&x);
 
     //warning: uninitialized object '&x.name'
-    [[cake::w30]]
-    x_print(&x);
+    x_print(&x); //lint 30
 
-}
+} //lint 29
 
 

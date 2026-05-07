@@ -9,12 +9,12 @@ int main(void)
     char buffer[20];
 
     //warning: uninitialized object 'buffer' passed to non-optional parameter
-    [[cake::w30]] [[cake::w30]]
-        f_const(buffer);
+
+    f_const(buffer); //lint 30 
 
     //static_debug_ex(buffer);
 
     //warning: uninitialized object 'buffer' passed to non-optional parameter
-    [[cake::w30]] [[cake::w30]]
-        f_non_const(buffer);
+
+    f_non_const(buffer); //lint 30
 }

@@ -38,8 +38,8 @@ int main(struct X* _Opt pX)
     }
 
     // warning: pointer is always non-null 
-    [[cake::w28]]
-    if (pX == 0 || (pX->pi = f()) == 0)
+
+    if (pX == 0 || (pX->pi = f()) == 0) //lint 28
     {
         assert_state(pX, "null not-null");
     }

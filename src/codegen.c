@@ -7,7 +7,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <stdint.h>
-#include "visit_il.h"
+#include "codegen.h"
 #include "expressions.h"
 #include <ctype.h>
 
@@ -27,7 +27,7 @@
 
 
 
-static void emit_line_directive(struct d_visit_ctx* ctx,
+static void emit_line_directive(struct codegen_ctx* ctx,
                                 struct osstream* oss,
                                 const struct token* _Opt tk)
 {
@@ -40,20 +40,20 @@ static void emit_line_directive(struct d_visit_ctx* ctx,
     ss_fprintf(oss, "#line %d \"%s\"\n", tk->line, tk->token_origin->lexeme);
 }
 
-static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx,
+static void vm_emit_snapshot_decls(struct codegen_ctx* ctx,
                                     struct osstream* oss_body,
                                     const struct type* p_type);
 
-static void print_initializer(struct d_visit_ctx* ctx,
+static void print_initializer(struct codegen_ctx* ctx,
     struct osstream* oss,
     struct init_declarator* p_init_declarator,
     bool bstatic);
 
 static bool is_all_zero(const struct object* object);
-static void emmit_clear_declarator(struct d_visit_ctx* ctx, struct osstream* ss, const char* name, struct type* type);
+static void emmit_clear_declarator(struct codegen_ctx* ctx, struct osstream* ss, const char* name, struct type* type);
 
 
-void d_visit_ctx_destroy(_Dtor struct d_visit_ctx* ctx)
+void codegen_visit_ctx_destroy(_Dtor struct codegen_ctx* ctx)
 {
     hashmap_destroy(&ctx->tag_names);
     hashmap_destroy(&ctx->structs_map);
@@ -85,10 +85,10 @@ static void generate_name(int n, int sz, char* out)
     }
 }
 
-int generate_file_scope_new_name(struct d_visit_ctx* ctx, const char* current_name, int sz, char new_name[])
+int generate_file_scope_new_name(struct codegen_ctx* ctx, const char* current_name, int sz, char new_name[])
 {
     struct map_entry* _Opt it =
-        hashmap_find(&ctx->ast.file_scope.variables, current_name);
+        hashmap_find(&ctx->p_ast->file_scope.variables, current_name);
     while (it)
     {
         if (strcmp(current_name, it->key) == 0)
@@ -96,11 +96,11 @@ int generate_file_scope_new_name(struct d_visit_ctx* ctx, const char* current_na
             for (int i = 2; i < 1000000; )
             {
                 snprintf(new_name, sz, "%s%d", current_name, i);
-                struct map_entry* _Opt it2 = hashmap_find(&ctx->ast.file_scope.variables, new_name);
+                struct map_entry* _Opt it2 = hashmap_find(&ctx->p_ast->file_scope.variables, new_name);
                 if (it2 == NULL)
                 {
                     struct hash_item_set item = { 0 };
-                    hashmap_set(&ctx->ast.file_scope.variables, new_name, &item);
+                    hashmap_set(&ctx->p_ast->file_scope.variables, new_name, &item);
                     hash_item_set_destroy(&item);
                     return 1;
                 }
@@ -120,7 +120,7 @@ int generate_file_scope_new_name(struct d_visit_ctx* ctx, const char* current_na
     }
 
     struct hash_item_set item = { 0 };
-    hashmap_set(&ctx->ast.file_scope.variables, current_name, &item);
+    hashmap_set(&ctx->p_ast->file_scope.variables, current_name, &item);
     hash_item_set_destroy(&item);
 
     snprintf(new_name, sz, "%s", current_name);
@@ -128,12 +128,12 @@ int generate_file_scope_new_name(struct d_visit_ctx* ctx, const char* current_na
     return 1;
 }
 
-int rename_file_scope_declarator_if_necessary(struct d_visit_ctx* ctx, struct init_declarator* p_init_declarator)
+int rename_file_scope_declarator_if_necessary(struct codegen_ctx* ctx, struct init_declarator* p_init_declarator)
 {
     char new_name[200] = {0};
     const char* current_name = p_init_declarator->p_declarator->name_opt->lexeme;
     struct map_entry* _Opt it =
-        hashmap_find(&ctx->ast.file_scope.variables, current_name);
+        hashmap_find(&ctx->p_ast->file_scope.variables, current_name);
     while (it)
     {
         if (strcmp(current_name, it->key) == 0)
@@ -141,12 +141,12 @@ int rename_file_scope_declarator_if_necessary(struct d_visit_ctx* ctx, struct in
             for (int i = 2; i < 1000000; )
             {
                 snprintf(new_name, sizeof(new_name), "%s%d", current_name, i);
-                struct map_entry* _Opt it2 = hashmap_find(&ctx->ast.file_scope.variables, new_name);
+                struct map_entry* _Opt it2 = hashmap_find(&ctx->p_ast->file_scope.variables, new_name);
                 if (it2 == NULL)
                 {
                     struct hash_item_set item = { 0 };
                     item.p_init_declarator = init_declarator_add_ref(p_init_declarator);
-                    hashmap_set(&ctx->ast.file_scope.variables, new_name, &item);
+                    hashmap_set(&ctx->p_ast->file_scope.variables, new_name, &item);
                     hash_item_set_destroy(&item);
 
                     p_init_declarator->p_declarator->declarator_renamed = true;
@@ -172,7 +172,7 @@ int rename_file_scope_declarator_if_necessary(struct d_visit_ctx* ctx, struct in
 
     struct hash_item_set item = { 0 };
     item.p_init_declarator = init_declarator_add_ref(p_init_declarator);
-    hashmap_set(&ctx->ast.file_scope.variables, current_name, &item);
+    hashmap_set(&ctx->p_ast->file_scope.variables, current_name, &item);
     hash_item_set_destroy(&item);
 
     p_init_declarator->p_declarator->declarator_renamed = true;
@@ -294,24 +294,24 @@ int struct_entry_list_push_back(struct struct_entry_list* p, struct struct_entry
     return 0;
 }
 
-static void d_visit_function_body(struct d_visit_ctx* ctx,
+static void codegen_visit_function_body(struct codegen_ctx* ctx,
     struct osstream* oss,
     const struct declarator* function_definition);
 
-static void object_print_initialization_list(struct d_visit_ctx* ctx, struct osstream* ss, const struct object* object, bool* first);
-static void d_visit_secondary_block(struct d_visit_ctx* ctx, struct osstream* oss, struct secondary_block* p_secondary_block);
-static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* oss, struct init_declarator* p_init_declarator, enum function_specifier_flags function_specifier_flags, enum storage_class_specifier_flags storage_class_specifier_flags);
-static void d_visit_init_declarator_list(struct d_visit_ctx* ctx, struct osstream* oss, struct init_declarator_list* p_init_declarator_list, enum function_specifier_flags function_specifier_flags, enum storage_class_specifier_flags storage_class_specifier_flags);
-static void d_visit_compound_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement, struct osstream* _Opt parameters_vars, struct osstream* _Opt parameters_init);
-static void d_visit_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct statement* p_statement);
-static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct unlabeled_statement* p_unlabeled_statement);
-static void assign_each_member_from_initialization(struct d_visit_ctx* ctx, struct osstream* ss, const struct object* object,
+static void object_print_initialization_list(struct codegen_ctx* ctx, struct osstream* ss, const struct object* object, bool* first);
+static void codegen_visit_secondary_block(struct codegen_ctx* ctx, struct osstream* oss, struct secondary_block* p_secondary_block);
+static void codegen_visit_init_declarator(struct codegen_ctx* ctx, struct osstream* oss, struct init_declarator* p_init_declarator, enum function_specifier_flags function_specifier_flags, enum storage_class_specifier_flags storage_class_specifier_flags);
+static void codegen_visit_init_declarator_list(struct codegen_ctx* ctx, struct osstream* oss, struct init_declarator_list* p_init_declarator_list, enum function_specifier_flags function_specifier_flags, enum storage_class_specifier_flags storage_class_specifier_flags);
+static void codegen_visit_compound_statement(struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement, struct osstream* _Opt parameters_vars, struct osstream* _Opt parameters_init);
+static void codegen_visit_statement(struct codegen_ctx* ctx, struct osstream* oss, struct statement* p_statement);
+static void codegen_visit_unlabeled_statement(struct codegen_ctx* ctx, struct osstream* oss, struct unlabeled_statement* p_unlabeled_statement);
+static void assign_each_member_from_initialization(struct codegen_ctx* ctx, struct osstream* ss, const struct object* object,
     const char* declarator_name,
     bool all,
     bool initialize_objects_that_does_not_have_initializer);
 
-static void d_print_type_core(struct d_visit_ctx* ctx, struct osstream* ss, const struct type* p_type0, const char* _Opt name_opt);
-static void d_print_type(struct d_visit_ctx* ctx,
+static void d_print_type_core(struct codegen_ctx* ctx, struct osstream* ss, const struct type* p_type0, const char* _Opt name_opt);
+static void d_print_type(struct codegen_ctx* ctx,
     struct osstream* ss,
     const struct type* p_type,
     const char* _Opt name_opt,
@@ -326,7 +326,7 @@ static void print_identation_core(struct osstream* ss, int indentation)
     }
 }
 
-static void print_identation(const struct d_visit_ctx* ctx, struct osstream* oss)
+static void print_identation(const struct codegen_ctx* ctx, struct osstream* oss)
 {
     for (int i = 0; i < ctx->indentation; i++)
     {
@@ -335,12 +335,12 @@ static void print_identation(const struct d_visit_ctx* ctx, struct osstream* oss
 }
 
 
-static void il_print_defer_new(struct d_visit_ctx* ctx, struct osstream* oss, struct defer_list_item* p_item)
+static void il_print_defer_new(struct codegen_ctx* ctx, struct osstream* oss, struct defer_list_item* p_item)
 {
     if (p_item->defer_statement == NULL)
         return;
 
-    d_visit_unlabeled_statement(ctx, oss, p_item->defer_statement->unlabeled_statement);
+    codegen_visit_unlabeled_statement(ctx, oss, p_item->defer_statement->unlabeled_statement);
 }
 
 static int il_defer_count(struct defer_list* p_defer_list)
@@ -355,7 +355,7 @@ static int il_defer_count(struct defer_list* p_defer_list)
     return count;
 }
 
-static void il_print_defer_list(struct d_visit_ctx* ctx, struct osstream* oss, struct defer_list* p_defer_list, struct token* position)
+static void il_print_defer_list(struct codegen_ctx* ctx, struct osstream* oss, struct defer_list* p_defer_list, struct token* position)
 {
     struct defer_list_item* _Opt p_item = p_defer_list->head;
     while (p_item)
@@ -368,9 +368,9 @@ static void il_print_defer_list(struct d_visit_ctx* ctx, struct osstream* oss, s
 }
 
 
-static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, struct expression* p_expression);
+static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* oss, struct expression* p_expression);
 
-static void expression_to_bool_value(struct d_visit_ctx* ctx, struct osstream* oss, struct expression* p_expression)
+static void expression_to_bool_value(struct codegen_ctx* ctx, struct osstream* oss, struct expression* p_expression)
 {
     if (object_has_constant_value(&p_expression->object))
     {
@@ -388,7 +388,7 @@ static void expression_to_bool_value(struct d_visit_ctx* ctx, struct osstream* o
         if (type_is_bool(&p_expression->type) ||
             type_is_essential_bool(&p_expression->type))
         {
-            d_visit_expression(ctx, oss, p_expression);
+            codegen_visit_expression(ctx, oss, p_expression);
         }
         else
         {
@@ -415,14 +415,14 @@ static void expression_to_bool_value(struct d_visit_ctx* ctx, struct osstream* o
             case EXPRESSION_EXPRESSION:
             case CONDITIONAL_EXPRESSION:
                 ss_fprintf(oss, "((");
-                d_visit_expression(ctx, oss, p_expression);
+                codegen_visit_expression(ctx, oss, p_expression);
                 ss_fprintf(oss, ") != 0)");
                 break;
             default:
                 //we are taking some risks eliminating () to make it easier to read.
                 //external ()  are optional, but I think it makes it clear.
                 ss_fprintf(oss, "(");
-                d_visit_expression(ctx, oss, p_expression);
+                codegen_visit_expression(ctx, oss, p_expression);
                 ss_fprintf(oss, " != 0)");
                 break;
             }
@@ -622,10 +622,10 @@ static const char* get_op_by_expression_type(enum expression_type type)
     return "";
 }
 
-static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
+static void codegen_visit_compound_statement_2(const char* var_name, struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
 
 
-static enum sizeof_result vm_emit_sizeof_expr_core(struct d_visit_ctx* ctx,
+static enum sizeof_result vm_emit_sizeof_expr_core(struct codegen_ctx* ctx,
                                      struct osstream* oss,
                                      const struct type* p_type,
                                      size_t* size)
@@ -693,7 +693,7 @@ static enum sizeof_result vm_emit_sizeof_expr_core(struct d_visit_ctx* ctx,
     return r;
 }
 
-static void vm_emit_sizeof_expr(struct d_visit_ctx* ctx,
+static void vm_emit_sizeof_expr(struct codegen_ctx* ctx,
                                 struct osstream* oss,
                                 const struct type* p_type)
 {
@@ -711,7 +711,7 @@ static void vm_emit_sizeof_expr(struct d_visit_ctx* ctx,
     ss_close(&local);
 }
 
-static void vm_emit_countof_expr(struct d_visit_ctx* ctx,
+static void vm_emit_countof_expr(struct codegen_ctx* ctx,
                                  struct osstream* oss,
                                  const struct type* p_type)
 {
@@ -728,7 +728,7 @@ static void vm_emit_countof_expr(struct d_visit_ctx* ctx,
 
 
 
-static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, struct expression* p_expression)
+static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* oss, struct expression* p_expression)
 {
 
     if (p_expression->expression_type == CHECKED_EXPRESSION)
@@ -752,7 +752,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
         print_identation_core(&add_this_before, ctx->indentation);
         ss_fprintf(&add_this_before, "%s = ", name);
-        d_visit_expression(ctx, &add_this_before, p_expression->left);
+        codegen_visit_expression(ctx, &add_this_before, p_expression->left);
         ss_fprintf(&add_this_before, ";\n");
 
         //ctx->break_reference.p_iteration_statement->
@@ -935,7 +935,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                     emit_line_directive(ctx, &local3, p_function_defined->first_token_opt);
                     ss_fprintf(&local3, "static %s\n", local4.c_str);
 
-                    d_visit_function_body(ctx, &local3, p_function_defined);
+                    codegen_visit_function_body(ctx, &local3, p_function_defined);
 
                     assert(ss.c_str);
                     assert(oss->c_str);
@@ -1023,12 +1023,12 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         if (p_expression->right->expression_type == PRIMARY_EXPRESSION_PARENTHESIS)
         {
             /* remove extra (()) — could also be removed from other cases */
-            d_visit_expression(ctx, oss, p_expression->right);
+            codegen_visit_expression(ctx, oss, p_expression->right);
         }
         else
         {
             ss_fprintf(oss, "(");
-            d_visit_expression(ctx, oss, p_expression->right);
+            codegen_visit_expression(ctx, oss, p_expression->right);
             ss_fprintf(oss, ")");
         }
 
@@ -1050,7 +1050,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         ss_clear(&local);
 
         //we need to change the last statment
-        d_visit_compound_statement_2(name, ctx, &local, p_expression->compound_statement);
+        codegen_visit_compound_statement_2(name, ctx, &local, p_expression->compound_statement);
 
         ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
         ss_close(&local);
@@ -1063,7 +1063,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
         if (p_expression->generic_selection->p_view_selected_expression)
         {
-            d_visit_expression(ctx, oss, p_expression->generic_selection->p_view_selected_expression);
+            codegen_visit_expression(ctx, oss, p_expression->generic_selection->p_view_selected_expression);
         }
         break;
 
@@ -1085,16 +1085,16 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         if (p_expression->right != NULL)
         {
             ss_fprintf(oss, "__builtin_va_start(");
-            d_visit_expression(ctx, oss, p_expression->left);
+            codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, ", ");
-            d_visit_expression(ctx, oss, p_expression->right);
+            codegen_visit_expression(ctx, oss, p_expression->right);
             ss_fprintf(oss, ")");
         }
         else
         {
             //first argument is optional in C23
             ss_fprintf(oss, "__builtin_c23_va_start(");
-            d_visit_expression(ctx, oss, p_expression->left);
+            codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, ")");
             //TODO to convert to C89 we need to insert the first parameter
             //at the caller and at the implementation
@@ -1105,7 +1105,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     case UNARY_EXPRESSION_GCC__BUILTIN_VA_END:
         assert(p_expression->left != NULL);
         ss_fprintf(oss, "__builtin_va_end(");
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, ")");
         break;
 
@@ -1114,9 +1114,9 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->right != NULL);
 
         ss_fprintf(oss, "__builtin_va_copy(");
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, ", ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         ss_fprintf(oss, ")");
         break;
 
@@ -1124,7 +1124,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->left != NULL);
 
         ss_fprintf(oss, "__builtin_va_arg(");
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
 
         if (p_expression->type_name)
         {
@@ -1138,7 +1138,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     {
         assert(p_expression->left != NULL);
 
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
 
         char name[100] = { 0 };
         int r = find_member_name(&p_expression->left->type, p_expression->member_index, name);
@@ -1154,7 +1154,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->left != NULL);
 
 
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         {
             struct type t = type_remove_pointer(&p_expression->left->type);
 
@@ -1173,14 +1173,14 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     case POSTFIX_INCREMENT:
         assert(p_expression->left != NULL);
 
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, "++");
         break;
 
     case POSTFIX_DECREMENT:
         assert(p_expression->left != NULL);
 
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, "--");
         break;
 
@@ -1227,12 +1227,12 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
                 if (is_primary_expression(expr->right->expression_type))
                 {
-                    d_visit_expression(ctx, &offset_flat, expr->right);
+                    codegen_visit_expression(ctx, &offset_flat, expr->right);
                 }
                 else
                 {
                     ss_fprintf(&offset_flat, "(");
-                    d_visit_expression(ctx, &offset_flat, expr->right);
+                    codegen_visit_expression(ctx, &offset_flat, expr->right);
                     ss_fprintf(&offset_flat, ")");
                 }
 
@@ -1254,7 +1254,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 expr = expr->left;
             }
 
-            d_visit_expression(ctx, oss, expr);
+            codegen_visit_expression(ctx, oss, expr);
             ss_fprintf(oss, "[");
             ss_fprintf(oss, "%s", offset_flat.c_str);
             ss_fprintf(oss, "]");
@@ -1262,9 +1262,9 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         }
         else
         {
-            d_visit_expression(ctx, oss, p_expression->left);
+            codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, "[");
-            d_visit_expression(ctx, oss, p_expression->right);
+            codegen_visit_expression(ctx, oss, p_expression->right);
             ss_fprintf(oss, "]");
         }
 
@@ -1275,7 +1275,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->left != NULL);
 
 
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
 
         struct param* _Opt param = p_expression->left->type.params.head;
 
@@ -1295,7 +1295,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             }
             else
             {
-                d_visit_expression(ctx, oss, arg->expression);
+                codegen_visit_expression(ctx, oss, arg->expression);
             }
 
             if (param)
@@ -1315,7 +1315,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "&");
         ctx->address_of_argument = true;
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         ctx->address_of_argument = false;
     }
     break;
@@ -1339,7 +1339,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         const int current_indentation = ctx->indentation;
         ctx->indentation = 0;
         struct osstream function_literal_body = { 0 };
-        d_visit_compound_statement(ctx, &function_literal_body, p_expression->compound_statement, NULL, NULL);
+        codegen_visit_compound_statement(ctx, &function_literal_body, p_expression->compound_statement, NULL, NULL);
         ctx->p_current_function_opt = p_current_function_opt;
         ctx->indentation = current_indentation;
 
@@ -1483,50 +1483,50 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     case UNARY_EXPRESSION_CONSTEVAL:
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_INCREMENT:
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "++");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_DECREMENT:
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "--");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_NOT:
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "!");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_BITNOT:
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "~");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_NEG:
 
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "-");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
     case UNARY_EXPRESSION_PLUS:
 
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "+");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_CONTENT:
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "*");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_ASSERT:
@@ -1535,49 +1535,49 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     case ADDITIVE_EXPRESSION_MINUS:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " - ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case ADDITIVE_EXPRESSION_PLUS:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " + ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case MULTIPLICATIVE_EXPRESSION_MULT:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " * ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
     case MULTIPLICATIVE_EXPRESSION_DIV:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " / ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case MULTIPLICATIVE_EXPRESSION_MOD:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, "%s", " % ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
 
     case EXPRESSION_EXPRESSION:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, ", ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
 
@@ -1586,7 +1586,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
 
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " %s ", get_op_by_expression_type(p_expression->expression_type));
 
         if (type_is_bool(&p_expression->left->type))
@@ -1595,7 +1595,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         }
         else
         {
-            d_visit_expression(ctx, oss, p_expression->right);
+            codegen_visit_expression(ctx, oss, p_expression->right);
         }
 
         break;
@@ -1612,9 +1612,9 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " %s ", get_op_by_expression_type(p_expression->expression_type));
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case CAST_EXPRESSION:
@@ -1631,113 +1631,113 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         d_print_type(ctx, &local2, &p_expression->type, NULL, false);
         ss_fprintf(oss, "(%s)", local2.c_str);
         ss_close(&local2);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
     }
     break;
 
     case SHIFT_EXPRESSION_RIGHT:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " >> ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case SHIFT_EXPRESSION_LEFT:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " << ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case RELATIONAL_EXPRESSION_BIGGER_THAN:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " > ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case RELATIONAL_EXPRESSION_LESS_THAN:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
 
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " < ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
 
         break;
     case EQUALITY_EXPRESSION_EQUAL:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " == ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case EQUALITY_EXPRESSION_NOT_EQUAL:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " != ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case AND_EXPRESSION:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " & ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case EXCLUSIVE_OR_EXPRESSION:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " ^ ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case INCLUSIVE_OR_EXPRESSION:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " | ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " <= ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " >= ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case LOGICAL_AND_EXPRESSION:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " && ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case LOGICAL_OR_EXPRESSION:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        d_visit_expression(ctx, oss, p_expression->left);
+        codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " || ");
-        d_visit_expression(ctx, oss, p_expression->right);
+        codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_TRAITS:
@@ -1777,7 +1777,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 {
                     assert(p_expression->condition_expr->compound_statement != NULL);
                     struct osstream stmtexpr_body = { 0 };
-                    d_visit_compound_statement_2(name, ctx, &stmtexpr_body,
+                    codegen_visit_compound_statement_2(name, ctx, &stmtexpr_body,
                                                  p_expression->condition_expr->compound_statement);
                     ss_fprintf(&ctx->add_this_before, "%s", stmtexpr_body.c_str);
                     ss_close(&stmtexpr_body);
@@ -1786,7 +1786,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 {
                     print_identation_core(&add_this_before, ctx->indentation);
                     ss_fprintf(&add_this_before, "%s = ", name);
-                    d_visit_expression(ctx, &add_this_before, p_expression->condition_expr);
+                    codegen_visit_expression(ctx, &add_this_before, p_expression->condition_expr);
                     ss_fprintf(&add_this_before, ";\n");
                 }
 
@@ -1797,7 +1797,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
                     assert(p_expression->right->compound_statement != NULL);
                     struct osstream right_body = { 0 };
-                    d_visit_compound_statement_2(name, ctx, &right_body, p_expression->right->compound_statement);
+                    codegen_visit_compound_statement_2(name, ctx, &right_body, p_expression->right->compound_statement);
                     ss_fprintf(&add_this_before, "%s", right_body.c_str);
                     ss_close(&right_body);
                 }
@@ -1805,7 +1805,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 {
                     print_identation_core(&add_this_before, ctx->indentation);
                     ss_fprintf(&add_this_before, "if (!%s) %s = ", name, name);
-                    d_visit_expression(ctx, &add_this_before, p_expression->right);
+                    codegen_visit_expression(ctx, &add_this_before, p_expression->right);
                     ss_fprintf(&add_this_before, ";\n");
                 }
 
@@ -1828,30 +1828,30 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
                 print_identation_core(&ctx->add_this_before, ctx->indentation);
                 ss_fprintf(&ctx->add_this_before, "%s = ", name);
-                d_visit_expression(ctx, &ctx->add_this_before,
+                codegen_visit_expression(ctx, &ctx->add_this_before,
                                    p_expression->condition_expr);
                 ss_fprintf(&ctx->add_this_before, ";\n");
 
                 ss_fprintf(oss, "%s ? %s : ", name, name);
-                d_visit_expression(ctx, oss, p_expression->right);
+                codegen_visit_expression(ctx, oss, p_expression->right);
             }
             else
             {
                 /* No side effects — safe to repeat the condition */
-                d_visit_expression(ctx, oss, p_expression->condition_expr);
+                codegen_visit_expression(ctx, oss, p_expression->condition_expr);
                 ss_fprintf(oss, " ? ");
-                d_visit_expression(ctx, oss, p_expression->condition_expr);
+                codegen_visit_expression(ctx, oss, p_expression->condition_expr);
                 ss_fprintf(oss, " : ");
-                d_visit_expression(ctx, oss, p_expression->right);
+                codegen_visit_expression(ctx, oss, p_expression->right);
             }
         }
         else
         {
-            d_visit_expression(ctx, oss, p_expression->condition_expr);
+            codegen_visit_expression(ctx, oss, p_expression->condition_expr);
             ss_fprintf(oss, " ? ");
-            d_visit_expression(ctx, oss, p_expression->left);
+            codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " : ");
-            d_visit_expression(ctx, oss, p_expression->right);
+            codegen_visit_expression(ctx, oss, p_expression->right);
         }
 
         break;
@@ -1859,10 +1859,10 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 }
 
 
-static void d_visit_declaration(struct d_visit_ctx* ctx, struct osstream* oss, struct declaration* p_declaration);
+static void codegen_visit_declaration(struct codegen_ctx* ctx, struct osstream* oss, struct declaration* p_declaration);
 
 
-static void d_visit_expression_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct expression_statement* p_expression_statement)
+static void codegen_visit_expression_statement(struct codegen_ctx* ctx, struct osstream* oss, struct expression_statement* p_expression_statement)
 {
 
     ss_clear(&ctx->add_this_before);
@@ -1870,7 +1870,7 @@ static void d_visit_expression_statement(struct d_visit_ctx* ctx, struct osstrea
 
     print_identation(ctx, &local);
     if (p_expression_statement->expression_opt)
-        d_visit_expression(ctx, &local, p_expression_statement->expression_opt);
+        codegen_visit_expression(ctx, &local, p_expression_statement->expression_opt);
 
 
     if (ctx->add_this_before.size > 0)
@@ -1884,7 +1884,7 @@ static void d_visit_expression_statement(struct d_visit_ctx* ctx, struct osstrea
     ss_close(&local);
 }
 
-static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct jump_statement* p_jump_statement)
+static void codegen_visit_jump_statement(struct codegen_ctx* ctx, struct osstream* oss, struct jump_statement* p_jump_statement)
 {
     if (p_jump_statement->first_token->type == TK_KEYWORD_CAKE_THROW)
     {
@@ -1919,7 +1919,7 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
                 }
                 else
                 {
-                    d_visit_expression(ctx, oss, p_jump_statement->expression_opt);
+                    codegen_visit_expression(ctx, oss, p_jump_statement->expression_opt);
                 }
             }
             ss_fprintf(oss, ";\n");
@@ -1956,7 +1956,7 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
                 }
                 else
                 {
-                    d_visit_expression(ctx, oss, p_jump_statement->expression_opt);
+                    codegen_visit_expression(ctx, oss, p_jump_statement->expression_opt);
                 }
             }
             ss_fprintf(oss, ";\n");
@@ -2003,32 +2003,32 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
     }
 }
 
-static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct label* p_label);
+static void codegen_visit_label(struct codegen_ctx* ctx, struct osstream* oss, struct label* p_label);
 
-static void d_visit_labeled_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct labeled_statement* p_labeled_statement)
+static void codegen_visit_labeled_statement(struct codegen_ctx* ctx, struct osstream* oss, struct labeled_statement* p_labeled_statement)
 {
     assert(p_labeled_statement->label != NULL);
 
     emit_line_directive(ctx, oss, p_labeled_statement->label->p_first_token);
-    d_visit_label(ctx, oss, p_labeled_statement->label);
+    codegen_visit_label(ctx, oss, p_labeled_statement->label);
 
 
-    d_visit_statement(ctx, oss, p_labeled_statement->statement);
+    codegen_visit_statement(ctx, oss, p_labeled_statement->statement);
 }
 
-static void d_visit_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct statement* p_statement)
+static void codegen_visit_statement(struct codegen_ctx* ctx, struct osstream* oss, struct statement* p_statement)
 {
     if (p_statement->labeled_statement)
     {
-        d_visit_labeled_statement(ctx, oss, p_statement->labeled_statement);
+        codegen_visit_labeled_statement(ctx, oss, p_statement->labeled_statement);
     }
     else if (p_statement->unlabeled_statement)
     {
-        d_visit_unlabeled_statement(ctx, oss, p_statement->unlabeled_statement);
+        codegen_visit_unlabeled_statement(ctx, oss, p_statement->unlabeled_statement);
     }
 }
 
-static void d_visit_secondary_block(struct d_visit_ctx* ctx, struct osstream* oss, struct secondary_block* p_secondary_block)
+static void codegen_visit_secondary_block(struct codegen_ctx* ctx, struct osstream* oss, struct secondary_block* p_secondary_block)
 {
     if (p_secondary_block->statement &&
         p_secondary_block->statement->unlabeled_statement &&
@@ -2038,15 +2038,15 @@ static void d_visit_secondary_block(struct d_visit_ctx* ctx, struct osstream* os
            When defer is the only statement of the secondary block
            if (1) defer a = 1;
         */
-        d_visit_unlabeled_statement(ctx, oss, p_secondary_block->statement->unlabeled_statement->defer_statement->unlabeled_statement);
+        codegen_visit_unlabeled_statement(ctx, oss, p_secondary_block->statement->unlabeled_statement->defer_statement->unlabeled_statement);
     }
     else
     {
-        d_visit_statement(ctx, oss, p_secondary_block->statement);
+        codegen_visit_statement(ctx, oss, p_secondary_block->statement);
     }
 }
 
-static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct iteration_statement* p_iteration_statement)
+static void codegen_visit_iteration_statement(struct codegen_ctx* ctx, struct osstream* oss, struct iteration_statement* p_iteration_statement)
 {
     struct break_reference old = ctx->break_reference;
     ctx->break_reference.p_iteration_statement = p_iteration_statement;
@@ -2058,23 +2058,23 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
         ss_fprintf(oss, "while ("); //one statement per line
 
         if (p_iteration_statement->expression1)
-            d_visit_expression(ctx, oss, p_iteration_statement->expression1);
+            codegen_visit_expression(ctx, oss, p_iteration_statement->expression1);
 
         ss_fprintf(oss, ")\n");
-        d_visit_secondary_block(ctx, oss, p_iteration_statement->secondary_block);
+        codegen_visit_secondary_block(ctx, oss, p_iteration_statement->secondary_block);
     }
     else if (p_iteration_statement->first_token->type == TK_KEYWORD_DO)
     {
         ss_fprintf(oss, "do\n");
 
-        d_visit_secondary_block(ctx, oss, p_iteration_statement->secondary_block);
+        codegen_visit_secondary_block(ctx, oss, p_iteration_statement->secondary_block);
 
         emit_line_directive(ctx, oss, p_iteration_statement->expression1->first_token);
         print_identation(ctx, oss);
         ss_fprintf(oss, "while (");
 
         assert(p_iteration_statement->expression1 != NULL);
-        d_visit_expression(ctx, oss, p_iteration_statement->expression1);
+        codegen_visit_expression(ctx, oss, p_iteration_statement->expression1);
 
 
         ss_fprintf(oss, ");\n");
@@ -2091,7 +2091,7 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
 
             struct osstream local = { 0 };
             emit_line_directive(ctx, &local, p_iteration_statement->declaration->first_token);
-            d_visit_declaration(ctx, &local, p_iteration_statement->declaration);
+            codegen_visit_declaration(ctx, &local, p_iteration_statement->declaration);
 
             if (ctx->block_scope_declarators.c_str)
             {
@@ -2115,7 +2115,7 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
         {
             emit_line_directive(ctx, oss, p_iteration_statement->first_token);
             ss_fprintf(oss, "for (");
-            d_visit_expression(ctx, oss, p_iteration_statement->expression0);
+            codegen_visit_expression(ctx, oss, p_iteration_statement->expression0);
         }
         else
         {
@@ -2126,12 +2126,12 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
         ss_fprintf(oss, "; ");
 
         if (p_iteration_statement->expression1)
-            d_visit_expression(ctx, oss, p_iteration_statement->expression1);
+            codegen_visit_expression(ctx, oss, p_iteration_statement->expression1);
 
         ss_fprintf(oss, "; ");
 
         if (p_iteration_statement->expression2)
-            d_visit_expression(ctx, oss, p_iteration_statement->expression2);
+            codegen_visit_expression(ctx, oss, p_iteration_statement->expression2);
 
         ss_fprintf(oss, ")\n");
 
@@ -2153,7 +2153,7 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
         }
 
         emit_line_directive(ctx, oss, p_iteration_statement->secondary_block->first_token);
-        d_visit_secondary_block(ctx, oss, p_iteration_statement->secondary_block);
+        codegen_visit_secondary_block(ctx, oss, p_iteration_statement->secondary_block);
 
         if (!is_compound_statement)
         {
@@ -2174,34 +2174,34 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
     ctx->break_reference = old;
 }
 
-static void d_visit_simple_declaration(struct d_visit_ctx* ctx, struct osstream* oss, struct simple_declaration* p_simple_declaration)
+static void codegen_visit_simple_declaration(struct codegen_ctx* ctx, struct osstream* oss, struct simple_declaration* p_simple_declaration)
 {
     enum storage_class_specifier_flags storage_class_specifier_flags =
         p_simple_declaration->p_declaration_specifiers->storage_class_specifier_flags;
 
-    d_visit_init_declarator_list(ctx, oss, &p_simple_declaration->init_declarator_list, 0, storage_class_specifier_flags);
+    codegen_visit_init_declarator_list(ctx, oss, &p_simple_declaration->init_declarator_list, 0, storage_class_specifier_flags);
 }
 
-static void d_visit_init_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct init_statement* p_init_statement)
+static void codegen_visit_init_statement(struct codegen_ctx* ctx, struct osstream* oss, struct init_statement* p_init_statement)
 {
     if (p_init_statement->p_expression_statement)
-        d_visit_expression_statement(ctx, oss, p_init_statement->p_expression_statement);
+        codegen_visit_expression_statement(ctx, oss, p_init_statement->p_expression_statement);
     if (p_init_statement->p_simple_declaration)
-        d_visit_simple_declaration(ctx, oss, p_init_statement->p_simple_declaration);
+        codegen_visit_simple_declaration(ctx, oss, p_init_statement->p_simple_declaration);
 }
 
-static void d_visit_condition(struct d_visit_ctx* ctx, struct osstream* oss, struct condition* p_condition)
+static void codegen_visit_condition(struct codegen_ctx* ctx, struct osstream* oss, struct condition* p_condition)
 {
     if (p_condition->p_init_declarator)
     {
         enum storage_class_specifier_flags storage_class_specifier_flags =
             p_condition->p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags;
 
-        d_visit_init_declarator(ctx, oss, p_condition->p_init_declarator, 0, storage_class_specifier_flags);
+        codegen_visit_init_declarator(ctx, oss, p_condition->p_init_declarator, 0, storage_class_specifier_flags);
     }
 
     if (p_condition->expression)
-        d_visit_expression(ctx, oss, p_condition->expression);
+        codegen_visit_expression(ctx, oss, p_condition->expression);
 }
 
 static bool is_compound_statement(struct secondary_block* p_secondary_block)
@@ -2218,7 +2218,7 @@ static bool is_compound_statement(struct secondary_block* p_secondary_block)
     return false;
 }
 
-static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct selection_statement* p_selection_statement)
+static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct osstream* oss, struct selection_statement* p_selection_statement)
 {
     if (p_selection_statement->first_token->type == TK_KEYWORD_SWITCH)
     {
@@ -2246,7 +2246,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
         ss_fprintf(&ss, " = ");
 
         assert(p_selection_statement->condition != NULL);
-        d_visit_condition(ctx, &ss, p_selection_statement->condition);
+        codegen_visit_condition(ctx, &ss, p_selection_statement->condition);
         ss_fprintf(&ss, ";\n");
 
         struct label* _Opt p_label = p_selection_statement->label_list.head;
@@ -2294,7 +2294,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
         ss_fprintf(&ss, "\n");
 
-        d_visit_secondary_block(ctx, &ss, p_selection_statement->secondary_block);
+        codegen_visit_secondary_block(ctx, &ss, p_selection_statement->secondary_block);
 
         print_identation(ctx, &ss);
         ss_fprintf(&ss, CAKE_PREFIX_LABEL "%d:;\n", ctx->break_reference.p_selection_statement->label_id);
@@ -2323,7 +2323,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
             struct osstream local2 = { 0 };
 
-            d_visit_init_statement(ctx, &local2, p_selection_statement->p_init_statement);
+            codegen_visit_init_statement(ctx, &local2, p_selection_statement->p_init_statement);
 
             if (ctx->block_scope_declarators.c_str)
             {
@@ -2354,7 +2354,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
                 enum storage_class_specifier_flags storage_class_specifier_flags =
                     p_selection_statement->condition->p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags;
 
-                d_visit_init_declarator(ctx, &local2, p_selection_statement->condition->p_init_declarator, 0, storage_class_specifier_flags);
+                codegen_visit_init_declarator(ctx, &local2, p_selection_statement->condition->p_init_declarator, 0, storage_class_specifier_flags);
 
                 if (ctx->block_scope_declarators.c_str)
                 {
@@ -2379,7 +2379,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
                 emit_line_directive(ctx, oss, p_selection_statement->condition->expression->first_token);
                 print_identation(ctx, oss);
                 ss_fprintf(oss, "if (");
-                d_visit_expression(ctx, oss, p_selection_statement->condition->expression);
+                codegen_visit_expression(ctx, oss, p_selection_statement->condition->expression);
                 ss_fprintf(oss, ")\n");
             }
 
@@ -2389,14 +2389,14 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
         if (is_compound_statement(p_selection_statement->secondary_block))
         {
-            d_visit_secondary_block(ctx, oss, p_selection_statement->secondary_block);
+            codegen_visit_secondary_block(ctx, oss, p_selection_statement->secondary_block);
         }
         else
         {
             print_identation(ctx, oss);
             ss_fprintf(oss, "{\n");
             ctx->indentation++;
-            d_visit_secondary_block(ctx, oss, p_selection_statement->secondary_block);
+            codegen_visit_secondary_block(ctx, oss, p_selection_statement->secondary_block);
             ctx->indentation--;
             print_identation(ctx, oss);
             ss_fprintf(oss, "}\n");
@@ -2409,14 +2409,14 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
             if (is_compound_statement(p_selection_statement->else_secondary_block_opt))
             {
-                d_visit_secondary_block(ctx, oss, p_selection_statement->else_secondary_block_opt);
+                codegen_visit_secondary_block(ctx, oss, p_selection_statement->else_secondary_block_opt);
             }
             else
             {
                 print_identation(ctx, oss);
                 ss_fprintf(oss, "{\n");
                 ctx->indentation++;
-                d_visit_secondary_block(ctx, oss, p_selection_statement->else_secondary_block_opt);
+                codegen_visit_secondary_block(ctx, oss, p_selection_statement->else_secondary_block_opt);
                 ctx->indentation--;
                 print_identation(ctx, oss);
                 ss_fprintf(oss, "}\n");
@@ -2433,7 +2433,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
     }
 }
 
-static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct try_statement* p_try_statement)
+static void codegen_visit_try_statement(struct codegen_ctx* ctx, struct osstream* oss, struct try_statement* p_try_statement)
 {
     struct try_statement* _Opt p_old_try_statement = ctx->p_current_try_statement;
     ctx->p_current_try_statement = p_try_statement;
@@ -2444,7 +2444,7 @@ static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss,
     else if (p_try_statement->first_token->type == TK_KEYWORD_MSVC__TRY)
         ss_fprintf(oss, "__try\n");
 
-    d_visit_secondary_block(ctx, oss, p_try_statement->secondary_block);
+    codegen_visit_secondary_block(ctx, oss, p_try_statement->secondary_block);
 
     print_identation(ctx, oss);
 
@@ -2461,7 +2461,7 @@ static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss,
         else if (p_try_statement->catch_token_opt->type == TK_KEYWORD_MSVC__EXCEPT)
         {
             ss_fprintf(oss, "__except(");
-            d_visit_expression(ctx, oss, p_try_statement->msvc_except_expression);
+            codegen_visit_expression(ctx, oss, p_try_statement->msvc_except_expression);
             ss_fprintf(oss, ")\n");
         }
     }
@@ -2469,31 +2469,31 @@ static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss,
 
     if (p_try_statement->catch_secondary_block_opt)
     {
-        d_visit_secondary_block(ctx, oss, p_try_statement->catch_secondary_block_opt);
+        codegen_visit_secondary_block(ctx, oss, p_try_statement->catch_secondary_block_opt);
     }
 
     ctx->p_current_try_statement = p_old_try_statement;
 
 }
 
-static void d_visit_primary_block(struct d_visit_ctx* ctx, struct osstream* oss, struct primary_block* p_primary_block)
+static void codegen_visit_primary_block(struct codegen_ctx* ctx, struct osstream* oss, struct primary_block* p_primary_block)
 {
 
     if (p_primary_block->compound_statement)
     {
-        d_visit_compound_statement(ctx, oss, p_primary_block->compound_statement, NULL, NULL);
+        codegen_visit_compound_statement(ctx, oss, p_primary_block->compound_statement, NULL, NULL);
     }
     else if (p_primary_block->iteration_statement)
     {
-        d_visit_iteration_statement(ctx, oss, p_primary_block->iteration_statement);
+        codegen_visit_iteration_statement(ctx, oss, p_primary_block->iteration_statement);
     }
     else if (p_primary_block->selection_statement)
     {
-        d_visit_selection_statement(ctx, oss, p_primary_block->selection_statement);
+        codegen_visit_selection_statement(ctx, oss, p_primary_block->selection_statement);
     }
     else if (p_primary_block->try_statement)
     {
-        d_visit_try_statement(ctx, oss, p_primary_block->try_statement);
+        codegen_visit_try_statement(ctx, oss, p_primary_block->try_statement);
     }
     else if (p_primary_block->asm_statement)
     {
@@ -2510,7 +2510,7 @@ static void d_visit_primary_block(struct d_visit_ctx* ctx, struct osstream* oss,
     }
 }
 
-static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct unlabeled_statement* p_unlabeled_statement)
+static void codegen_visit_unlabeled_statement(struct codegen_ctx* ctx, struct osstream* oss, struct unlabeled_statement* p_unlabeled_statement)
 {
     if (p_unlabeled_statement->primary_block)
     {
@@ -2530,7 +2530,7 @@ static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream
                 emit_line_directive(ctx, oss, tk);
             }
 
-        d_visit_primary_block(ctx, oss, p_unlabeled_statement->primary_block);
+        codegen_visit_primary_block(ctx, oss, p_unlabeled_statement->primary_block);
     }
     else if (p_unlabeled_statement->expression_statement)
     {
@@ -2539,12 +2539,12 @@ static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream
         {
             emit_line_directive(ctx, oss, p_unlabeled_statement->expression_statement->expression_opt->first_token);
         }
-        d_visit_expression_statement(ctx, oss, p_unlabeled_statement->expression_statement);
+        codegen_visit_expression_statement(ctx, oss, p_unlabeled_statement->expression_statement);
     }
     else if (p_unlabeled_statement->jump_statement)
     {
         emit_line_directive(ctx, oss, p_unlabeled_statement->jump_statement->first_token);
-        d_visit_jump_statement(ctx, oss, p_unlabeled_statement->jump_statement);
+        codegen_visit_jump_statement(ctx, oss, p_unlabeled_statement->jump_statement);
     }
     else if (p_unlabeled_statement->defer_statement)
     {
@@ -2558,7 +2558,7 @@ static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream
     }
 }
 
-static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct label* p_label)
+static void codegen_visit_label(struct codegen_ctx* ctx, struct osstream* oss, struct label* p_label)
 {
     if (p_label->p_first_token->type == TK_KEYWORD_CASE)
     {
@@ -2593,7 +2593,7 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
 
 }
 
-static void d_visit_block_item(struct d_visit_ctx* ctx, struct osstream* oss, struct block_item* p_block_item)
+static void codegen_visit_block_item(struct codegen_ctx* ctx, struct osstream* oss, struct block_item* p_block_item)
 {
     struct osstream ss0 = { 0 };
     ss_swap(oss, &ss0);
@@ -2602,15 +2602,15 @@ static void d_visit_block_item(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     if (p_block_item->declaration)
     {
-        d_visit_declaration(ctx, oss, p_block_item->declaration);
+        codegen_visit_declaration(ctx, oss, p_block_item->declaration);
     }
     else if (p_block_item->unlabeled_statement)
     {
-        d_visit_unlabeled_statement(ctx, oss, p_block_item->unlabeled_statement);
+        codegen_visit_unlabeled_statement(ctx, oss, p_block_item->unlabeled_statement);
     }
     else if (p_block_item->label)
     {
-        d_visit_label(ctx, oss, p_block_item->label);
+        codegen_visit_label(ctx, oss, p_block_item->label);
     }
 
     if (ctx->add_this_before.size > 0)
@@ -2627,18 +2627,18 @@ static void d_visit_block_item(struct d_visit_ctx* ctx, struct osstream* oss, st
     ss_close(&ss0);
 }
 
-static void d_visit_block_item_list(struct d_visit_ctx* ctx, struct osstream* oss, struct block_item_list* p_block_item_list)
+static void codegen_visit_block_item_list(struct codegen_ctx* ctx, struct osstream* oss, struct block_item_list* p_block_item_list)
 {
     struct block_item* _Opt p_block_item = p_block_item_list->head;
     while (p_block_item)
     {
-        d_visit_block_item(ctx, oss, p_block_item);
+        codegen_visit_block_item(ctx, oss, p_block_item);
         p_block_item = p_block_item->next;
     }
 }
 
 
-static void d_visit_compound_statement(struct d_visit_ctx* ctx,
+static void codegen_visit_compound_statement(struct codegen_ctx* ctx,
     struct osstream* oss,
     struct compound_statement* p_compound_statement,
     struct osstream* _Opt parameters_vars,
@@ -2654,7 +2654,7 @@ static void d_visit_compound_statement(struct d_visit_ctx* ctx,
     struct osstream local = { 0 };
 
     ctx->indentation++;
-    d_visit_block_item_list(ctx, &local, &p_compound_statement->block_item_list);
+    codegen_visit_block_item_list(ctx, &local, &p_compound_statement->block_item_list);
 
 
     bool ends_with_jump = false;
@@ -2703,7 +2703,7 @@ static void d_visit_compound_statement(struct d_visit_ctx* ctx,
     ss_close(&local);
 }
 
-static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement)
+static void codegen_visit_compound_statement_2(const char* var_name, struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement)
 {
     bool is_local = ctx->is_local;
     ctx->is_local = true;
@@ -2728,13 +2728,13 @@ static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ct
             {
                 print_identation(ctx, &local);
                 ss_fprintf(&local, "%s = ", var_name);
-                d_visit_expression(ctx, &local, p_block_item->unlabeled_statement->expression_statement->expression_opt);
+                codegen_visit_expression(ctx, &local, p_block_item->unlabeled_statement->expression_statement->expression_opt);
                 ss_fprintf(&local, ";\n");
             }
         }
         else
         {
-            d_visit_block_item(ctx, &local, p_block_item);
+            codegen_visit_block_item(ctx, &local, p_block_item);
         }
         p_block_item = p_block_item->next;
     }
@@ -2773,7 +2773,7 @@ static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ct
     ss_close(&block_scope_declarators);
     ss_close(&local);
 }
-static void d_visit_function_body(struct d_visit_ctx* ctx,
+static void codegen_visit_function_body(struct codegen_ctx* ctx,
     struct osstream* oss,
     const struct declarator* function_definition)
 {
@@ -2818,14 +2818,14 @@ static void d_visit_function_body(struct d_visit_ctx* ctx,
     ss_swap(&bk, &ctx->block_scope_declarators);
 
 
-    d_visit_compound_statement(ctx, oss, function_definition->function_body, &bk, &snaps);
+    codegen_visit_compound_statement(ctx, oss, function_definition->function_body, &bk, &snaps);
     ss_close(&bk);
     ss_close(&snaps);
     ctx->p_current_function_opt = previous_func;//restore
     ctx->indentation = indentation; //restore
 }
 
-static void register_struct_types_and_functions(struct d_visit_ctx* ctx,
+static void register_struct_types_and_functions(struct codegen_ctx* ctx,
     const struct type* p_type0,
     struct struct_entry* _Opt p_struct_entry0)
 {
@@ -3091,7 +3091,7 @@ static void d_print_type_qualifier_flags(struct osstream* ss, bool* first, enum 
 }
 
 
-static void d_print_type_core(struct d_visit_ctx* ctx,
+static void d_print_type_core(struct codegen_ctx* ctx,
     struct osstream* ss,
     const struct type* p_type0,
     const char* _Opt name_opt)
@@ -3355,7 +3355,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
     }
 }
 
-static void d_print_type(struct d_visit_ctx* ctx,
+static void d_print_type(struct codegen_ctx* ctx,
     struct osstream* ss,
     const struct type* p_type,
     const char* _Opt name_opt,
@@ -3425,7 +3425,7 @@ static bool is_all_zero(const struct object* object)
 }
 
 static void object_print_source_object_non_constant_initialization(
-    struct d_visit_ctx* ctx,
+    struct codegen_ctx* ctx,
     struct osstream* ss,
     const struct object* object,
     const struct object* source,
@@ -3495,7 +3495,7 @@ static void object_print_source_object_non_constant_initialization(
  Initializes 'object' (destination) using the constant value from 'source'.
 */
 static void assign_each_member_from_constexpr(
-    struct d_visit_ctx* ctx,
+    struct codegen_ctx* ctx,
     struct osstream* ss,
     const struct object* object,   /* destination - drives structure traversal */
     const struct object* source,   /* source      - provides the values        */
@@ -3563,7 +3563,7 @@ static void assign_each_member_from_constexpr(
     }
 }
 
-static void emmit_clear_declarator(struct d_visit_ctx* ctx, struct osstream* ss, const char* name, struct type* type)
+static void emmit_clear_declarator(struct codegen_ctx* ctx, struct osstream* ss, const char* name, struct type* type)
 {
     try
     {
@@ -3584,7 +3584,7 @@ static void emmit_clear_declarator(struct d_visit_ctx* ctx, struct osstream* ss,
 }
 
 static void assign_each_member_to_zero(
-    struct d_visit_ctx* ctx,
+    struct codegen_ctx* ctx,
     struct osstream* ss,
     const struct object* object,
     const char* declarator_name,
@@ -3620,7 +3620,7 @@ static void assign_each_member_to_zero(
     }
 }
 
-static void object_print_initialization_list(struct d_visit_ctx* ctx, struct osstream* ss, const struct object* object, bool* first)
+static void object_print_initialization_list(struct codegen_ctx* ctx, struct osstream* ss, const struct object* object, bool* first)
 {
     if (object_is_reference(object))
     {
@@ -3683,7 +3683,7 @@ static void object_print_initialization_list(struct d_visit_ctx* ctx, struct oss
                 /*
                   pointer to function, or pointer to file scope objects can be used
                 */
-                d_visit_expression(ctx, ss, object->p_init_expression);
+                codegen_visit_expression(ctx, ss, object->p_init_expression);
             }
         }
         else
@@ -3693,7 +3693,7 @@ static void object_print_initialization_list(struct d_visit_ctx* ctx, struct oss
     }
 }
 
-static void assign_each_member_from_initialization(struct d_visit_ctx* ctx,
+static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
     struct osstream* ss,
     const struct object* object,
     const char* declarator_name,
@@ -3730,7 +3730,7 @@ static void assign_each_member_from_initialization(struct d_visit_ctx* ctx,
                         print_identation_core(ss, ctx->indentation);
                         ss_fprintf(ss, "%s%s = ", declarator_name, member->member_designator);
                         struct osstream local = { 0 };
-                        d_visit_expression(ctx, &local, member->p_init_expression);
+                        codegen_visit_expression(ctx, &local, member->p_init_expression);
                         ss_fprintf(ss, "%s", local.c_str);
                         ss_fprintf(ss, ";\n");
                         ss_close(&local);
@@ -3758,7 +3758,7 @@ static void assign_each_member_from_initialization(struct d_visit_ctx* ctx,
                 print_identation_core(ss, ctx->indentation);
                 ss_fprintf(ss, "%s(%s%s, ", ctx->memcpy_function_name, declarator_name, object->member_designator);
                 struct osstream local = { 0 };
-                d_visit_expression(ctx, &local, object->p_init_expression);
+                codegen_visit_expression(ctx, &local, object->p_init_expression);
                 size_t string_size = object->p_init_expression->type.array_num_elements;
                 ss_fprintf(ss, "%s, %zu", local.c_str, string_size);
 
@@ -3812,7 +3812,7 @@ static void assign_each_member_from_initialization(struct d_visit_ctx* ctx,
                     print_identation_core(ss, ctx->indentation);
                     ss_fprintf(ss, "%s(&%s%s, ", ctx->memcpy_function_name, declarator_name, object->member_designator);
                     struct osstream local = { 0 };
-                    d_visit_expression(ctx, &local, object->p_init_expression);
+                    codegen_visit_expression(ctx, &local, object->p_init_expression);
                     size_t sz = 0;
                     type_get_sizeof(&object->type, &sz, ctx->options.target);
                     ss_fprintf(ss, "&%s, %d", local.c_str, sz);
@@ -3855,7 +3855,7 @@ static void assign_each_member_from_initialization(struct d_visit_ctx* ctx,
                     print_identation_core(ss, ctx->indentation);
                     ss_fprintf(ss, "%s%s = ", declarator_name, object->member_designator);
                     struct osstream local = { 0 };
-                    d_visit_expression(ctx, &local, object->p_init_expression);
+                    codegen_visit_expression(ctx, &local, object->p_init_expression);
                     ss_fprintf(ss, "%s", local.c_str);
                     ss_fprintf(ss, ";\n");
                     ss_close(&local);
@@ -3867,7 +3867,7 @@ static void assign_each_member_from_initialization(struct d_visit_ctx* ctx,
                 print_identation_core(ss, ctx->indentation);
                 ss_fprintf(ss, "%s%s = ", declarator_name, object->member_designator);
                 struct osstream local = { 0 };
-                d_visit_expression(ctx, &local, object->p_init_expression);
+                codegen_visit_expression(ctx, &local, object->p_init_expression);
                 ss_fprintf(ss, "%s", local.c_str);
                 ss_fprintf(ss, ";\n");
                 ss_close(&local);
@@ -3886,7 +3886,7 @@ static void assign_each_member_from_initialization(struct d_visit_ctx* ctx,
 }
 
 
-static void print_initializer(struct d_visit_ctx* ctx,
+static void print_initializer(struct codegen_ctx* ctx,
     struct osstream* oss,
     struct init_declarator* p_init_declarator,
     bool bstatic)
@@ -3918,7 +3918,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                     print_identation_core(oss, ctx->indentation);
                     ss_fprintf(oss, "%s(%s, ", ctx->memcpy_function_name, p_init_declarator->p_declarator->name_opt->lexeme);
                     struct osstream local = { 0 };
-                    d_visit_expression(ctx, &local, p_init_declarator->initializer->assignment_expression);
+                    codegen_visit_expression(ctx, &local, p_init_declarator->initializer->assignment_expression);
                     ss_fprintf(oss, "%s, %d", local.c_str, p_init_declarator->p_declarator->type.array_num_elements);
 
                     ss_fprintf(oss, ");\n");
@@ -4035,7 +4035,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                         }
                         else
                         {
-                            d_visit_expression(ctx, oss, p_init_declarator->initializer->assignment_expression);
+                            codegen_visit_expression(ctx, oss, p_init_declarator->initializer->assignment_expression);
                         }
                         ss_fprintf(oss, ";\n");
                     }
@@ -4068,7 +4068,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                 else
                 {
                     ss_fprintf(oss, " = ");//, p_init_declarator->p_declarator->name_opt->lexeme, "");
-                    d_visit_expression(ctx, oss, p_init_declarator->initializer->assignment_expression);
+                    codegen_visit_expression(ctx, oss, p_init_declarator->initializer->assignment_expression);
                     ss_fprintf(oss, ";\n");
                 }
             }
@@ -4153,7 +4153,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
     catch    {    }
 }
 
-static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx,
+static void vm_emit_snapshot_decls(struct codegen_ctx* ctx,
                                     struct osstream* oss_body,
                                     const struct type* p_type)
 {
@@ -4187,7 +4187,7 @@ static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx,
                 /* assignment emitted as a statement in the body */
                 print_identation(ctx, oss_body);
                 ss_fprintf(oss_body, "%s = ", name);
-                d_visit_expression(ctx, oss_body, (struct expression*)it->p_array_num_elements_expression);
+                codegen_visit_expression(ctx, oss_body, (struct expression*)it->p_array_num_elements_expression);
                 ss_fprintf(oss_body, ";\n");
             }
             else
@@ -4209,7 +4209,7 @@ static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx,
 }
 
 
-static void d_visit_init_declarator(struct d_visit_ctx* ctx,
+static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
     struct osstream* oss0,
     struct init_declarator* p_init_declarator,
     enum function_specifier_flags function_specifier_flags,
@@ -4397,7 +4397,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
         hashmap_set(&ctx->file_scope_declarator_map, p_init_declarator->p_declarator->name_opt->lexeme, &i);
 
         ss_fprintf(&ss, "\n");
-        d_visit_function_body(ctx, &ss, p_init_declarator->p_declarator);
+        codegen_visit_function_body(ctx, &ss, p_init_declarator->p_declarator);
         //ss_fprintf(&ss, "\n");
 
         ss_fprintf(oss0, "%s", ss.c_str);
@@ -4438,7 +4438,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
     }
 }
 
-static void d_visit_init_declarator_list(struct d_visit_ctx* ctx,
+static void codegen_visit_init_declarator_list(struct codegen_ctx* ctx,
     struct osstream* oss,
     struct init_declarator_list* p_init_declarator_list,
     enum function_specifier_flags function_specifier_flags,
@@ -4448,13 +4448,13 @@ static void d_visit_init_declarator_list(struct d_visit_ctx* ctx,
 
     while (p_init_declarator)
     {
-        d_visit_init_declarator(ctx, oss, p_init_declarator, function_specifier_flags, storage_class_specifier_flags);
+        codegen_visit_init_declarator(ctx, oss, p_init_declarator, function_specifier_flags, storage_class_specifier_flags);
         p_init_declarator = p_init_declarator->next;
     }
 }
 
 
-static void d_visit_declaration(struct d_visit_ctx* ctx, struct osstream* oss, struct declaration* p_declaration)
+static void codegen_visit_declaration(struct codegen_ctx* ctx, struct osstream* oss, struct declaration* p_declaration)
 {
 
     if (p_declaration->pragma_declaration)
@@ -4472,11 +4472,11 @@ static void d_visit_declaration(struct d_visit_ctx* ctx, struct osstream* oss, s
         enum function_specifier_flags function_specifier_flags =
             p_declaration->declaration_specifiers->function_specifier_flags;
 
-        d_visit_init_declarator_list(ctx, oss, &p_declaration->init_declarator_list, function_specifier_flags, storage_class_specifier_flags);
+        codegen_visit_init_declarator_list(ctx, oss, &p_declaration->init_declarator_list, function_specifier_flags, storage_class_specifier_flags);
     }
 }
 
-static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct struct_or_union_specifier* p_struct_or_union_specifier)
+static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
 
     struct struct_or_union_specifier* _Opt p_complete =
@@ -4603,7 +4603,7 @@ static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
         ss_fprintf(ss, ";\n");
 }
 
-void d_print_structs(struct d_visit_ctx* ctx, struct osstream* ss, struct struct_entry* p_struct_entry)
+void d_print_structs(struct codegen_ctx* ctx, struct osstream* ss, struct struct_entry* p_struct_entry)
 {
     if (p_struct_entry->definition_was_printed)
         return;
@@ -4767,7 +4767,7 @@ size_t clean_line_directives(char* buf)
     return (size_t)(w - buf);
 }
 
-void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
+void codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 {
     struct osstream declarations = { 0 };
 
@@ -4791,7 +4791,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
         ss_close(&local);
     }
 
-    struct declaration* _Opt p_declaration = ctx->ast.declaration_list.head;
+    struct declaration* _Opt p_declaration = ctx->p_ast->declaration_list.head;
     while (p_declaration)
     {
         ss_clear(&ctx->add_this_after_external_decl);
@@ -4799,7 +4799,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 
 
         struct osstream declaration = { 0 };
-        d_visit_declaration(ctx, &declaration, p_declaration);
+        codegen_visit_declaration(ctx, &declaration, p_declaration);
 
         if (ctx->add_this_before.size > 0)
         {

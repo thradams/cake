@@ -11,8 +11,8 @@ void x_destroy(_Dtor struct X* p);
 int main()
 {
     //object pointed by 'x.text' was not released
-    struct X x [[cake::leak]] = {};
+    struct X x = {};
     x_change(&x);
-}
+} //lint 29
 
 

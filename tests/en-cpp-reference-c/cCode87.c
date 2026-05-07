@@ -21,9 +21,9 @@ int calcSomething(int x)
 
 int main(void)
 {
-    [[cake::w3]]
-    TriassicPeriod();
+    
+    TriassicPeriod(); //lint 3
 
-    [[cake::w3]]
-    JurassicPeriod();
+    
+    JurassicPeriod(); //lint 3
 }

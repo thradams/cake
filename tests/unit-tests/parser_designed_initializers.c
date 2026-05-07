@@ -242,35 +242,35 @@ void test_error_unknown_member(void)
 {
     struct S { int x; };
     
-    [[cake::e720]]
-    constexpr struct S s = { .z = 1 };                 // C_ERROR_STRUCT_MEMBER_NOT_FOUND
+    
+    constexpr struct S s = { .z = 1 };  //lint 720               // C_ERROR_STRUCT_MEMBER_NOT_FOUND
 }
 
 /* E2. Array designator out of bounds (fixed-size) — C_ERROR_STRUCT_MEMBER_NOT_FOUND */
 void test_error_array_index_oob(void)
 {
-    [[cake::e720]]
-    constexpr int a[3] = { [5] = 1 };                  // C_ERROR_STRUCT_MEMBER_NOT_FOUND
+    
+    constexpr int a[3] = { [5] = 1 }; //lint 720                 // C_ERROR_STRUCT_MEMBER_NOT_FOUND
 }
 
 /* E3. Negative array designator — C_ERROR_STRUCT_MEMBER_NOT_FOUND */
 void test_error_negative_index(void)
 {
-    [[cake::e720]]
-    constexpr int a[3] = { [-1] = 0 };                 // C_ERROR_STRUCT_MEMBER_NOT_FOUND
+    
+    constexpr int a[3] = { [-1] = 0 }; //lint 720                 // C_ERROR_STRUCT_MEMBER_NOT_FOUND
 }
 
 /* E4. Excess elements spill past end after a designator — W_TO_MANY_INITIALIZERS */
 void test_warning_excess_after_designator(void)
 {
-    [[cake::w62]]
-    constexpr int a[2] = { [1] = 1, 2 };               // W_TO_MANY_INITIALIZERS
+    
+    constexpr int a[2] = { [1] = 1, 2 };  //lint 62             // W_TO_MANY_INITIALIZERS
 }
 
 /* E5. Designated char-array member: string too long — W_ARRAY_SIZE */
 void test_warning_string_too_long_designated(void)
 {
     struct Msg { int id; char text[4]; };
-    [[cake::w52]]
-    constexpr struct Msg m = { .id = 0, .text = {"toolong"} }; // W_ARRAY_SIZE
+    
+    constexpr struct Msg m = { .id = 0, .text = {"toolong"} }; //lint 52 // W_ARRAY_SIZE
 }

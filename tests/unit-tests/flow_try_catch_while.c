@@ -27,9 +27,9 @@ struct X* _Owner _Opt F(int i)
     catch
     {
     }
+
     //warning: uninitialized object 'p1.name'
-    [[cake::w30]] [[cake::w30]]
-    return p1;  //p1.name not initialized
+    return p1;  //lint 30 30 p1.name not initialized
 }
 
 

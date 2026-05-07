@@ -1,19 +1,17 @@
+
 #pragma safety enable
 
-struct X { struct X* next; };
-struct X* _Opt f();
+void* _Owner _Opt malloc(unsigned long size);
+void free(void* _Owner ptr);
 
 int main()
 {
-    struct X* _Opt p = f();
-    for (; p != 0; p = p->next)
+    void* _Owner  _Opt p = malloc(1);
+    if (p)
     {
-        *p = 1;
+       static_debug(p);
     }
 
-
-    for (struct X* _Opt p2 = f(); p2 != 0; p2 = p->next)
-    {
-        *p2 = 1;
-    }
+    static_debug(p);
 }
+

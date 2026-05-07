@@ -1,7 +1,5 @@
-//error: cannot combine with previous 'long long' declaration specifier 
-[[cake::e980]]
-long long long a;
+long long long a; //lint 980 error: cannot combine with previous 'long long' declaration specifier 
 
-//error: incompatible specifiers
-[[cake::e1300]]
-signed unsigned b;
+signed unsigned b; //lint 1300 error: incompatible specifiers
+
+

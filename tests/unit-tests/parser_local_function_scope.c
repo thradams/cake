@@ -12,8 +12,7 @@ int main()
         g++;//ok
         s++; //ok
         //error: 'i' cannot be evaluated in this scope
-        [[cake::e1870]]
-        i++; //error
+        i++; //lint 1870 error
     }
 
 
@@ -24,8 +23,8 @@ int main()
         s++; //ok
 
         //error: 'i' cannot be evaluated in this scope
-        [[cake::e1870]]
-        i++; //error
+
+        i++; //lint 1870 error
     };
 
 }

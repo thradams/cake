@@ -20,10 +20,12 @@ struct defer_visit_ctx
     struct defer_scope* _Owner _Opt tail_block;
     int parameter_list;
 
-    /*we have two modes of visit, one is to find the label*/
-    const char* label_name;
+        
+    /* special visit to find labels-- */
     bool searching_label_mode;    
-    struct label* p_label;
+    const char* _Opt label_name;
+    struct label* _Opt p_label;
+    /*-------------------------------*/
 
     struct declaration* p_declaration;
 };

@@ -2,19 +2,22 @@
 
 void f(int* p)
 {
-    //pointer is always non-null   
-    [[cake::w28]]
-    if (p != 0) {}
+
+    if (p != 0) //lint 28 pointer is always non-null   
+    {
+    } 
 
     //pointer is always non-null
-    [[cake::w28]]
-    if (0 != p) {}
+
+    if (0 != p)  //lint 28 pointer is always non-null   
+    {}
 
     //pointer is always non-null
-    [[cake::w28]]
-    if (p == 0) {}
 
-    //pointer is always non-null
-    [[cake::w28]]
-    if (0 == p) {}
+    if (p == 0)  //lint 28 pointer is always non-null   
+    {}
+
+
+    if (0 == p)  //lint 28 pointer is always non-null   
+    {}
 }

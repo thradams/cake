@@ -11,7 +11,8 @@ void f2()
         struct X x = {0};
         p = &x;
     }
-    //object lifetime ended 
-    [[cake::w31]]
-    if (p->i) {}
+
+    if (p->i)  //lint 31  object lifetime ended 
+    {
+    }
 }

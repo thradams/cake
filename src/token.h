@@ -247,6 +247,8 @@ enum token_flags
     TK_FLAG_LINE_CONTINUATION = 1 << 10 ,            /*token has one or more line-slicing*/
 
     TK_C_BACKEND_FLAG_SHOW_AGAIN = 1 << 11,          /*was hidden but maybe reappears*/
+
+    TK_FLAG_ACTIVE = 1 << 12                         /* ACTIVE means it is inside a if group that is active (final is always active) */
 };
 
 struct token

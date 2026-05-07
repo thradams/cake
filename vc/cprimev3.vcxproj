@@ -31,8 +31,8 @@
     <ClCompile Include="..\src\console.c" />
     <ClCompile Include="..\src\flow.c" />
     <ClCompile Include="..\src\target.c" />
-    <ClCompile Include="..\src\visit_defer.c" />
-    <ClCompile Include="..\src\visit_il.c" />
+    <ClCompile Include="..\src\defer.c" />
+    <ClCompile Include="..\src\codegen.c" />
     <ClCompile Include="..\src\object.c" />
     <ClCompile Include="..\src\error.c" />
     <ClCompile Include="..\src\expressions.c" />
@@ -52,8 +52,8 @@
     <ClInclude Include="..\src\console.h" />
     <ClInclude Include="..\src\flow.h" />
     <ClInclude Include="..\src\target.h" />
-    <ClInclude Include="..\src\visit_defer.h" />
-    <ClInclude Include="..\src\visit_il.h" />
+    <ClInclude Include="..\src\defer.h" />
+    <ClInclude Include="..\src\codegen.h" />
     <ClInclude Include="..\src\object.h" />
     <ClInclude Include="..\src\error.h" />
     <ClInclude Include="..\src\expressions.h" />

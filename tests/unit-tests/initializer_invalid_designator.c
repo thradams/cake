@@ -6,8 +6,8 @@ void T13()
     };
 
     //error: member 'd' not found in 'X' 
-    [[cake::e720]]
-    constexpr struct X x = {.d = 3};
+
+    constexpr struct X x = {.d = 3}; //lint 720
 
     static_assert(x.a == 0);
     static_assert(x.b == 0);

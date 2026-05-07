@@ -13,8 +13,7 @@ struct X make()
     struct X x = {0};
     x.name = strdup("text");
     free(x.name);
-    //warning: returning an uninitialized 'x.name' object 
-    [[cake::w30]]
-    return x;
+    
+    return x; //lint 30 warning: returning an uninitialized 'x.name' object 
 }
 

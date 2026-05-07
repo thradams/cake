@@ -6,7 +6,7 @@ struct Point {
 
 int main() {
     struct Point p = {10};
-    [[cake::w720]]
-    p.y = 20; // Error: y is not a member of struct Point
+    
+    p.y = 20; //lint 720 Error: y is not a member of struct Point
     return 0;
 }

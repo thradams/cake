@@ -4,8 +4,8 @@ int main()
     a:;
 
     //error: duplicated label 'a'
-    [[cake::e1440]]
-    a:;
-}
+
+    a:; //lint 1440
+} 
 
 

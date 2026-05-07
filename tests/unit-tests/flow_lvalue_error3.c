@@ -1,8 +1,6 @@
 int main()
 {
-    //error: lvalue required as unary '&' operand 
-    [[cake::e1220]]
-    int* p = &1;
+    int* p = &1; //lint 1220 error: lvalue required as unary '&' operand 
 }
 
 

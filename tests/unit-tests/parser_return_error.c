@@ -1,14 +1,10 @@
 
 void f()
 {
-    //error: void function 'f' should not return a value 
-    [[cake::e1120]]
-    return 1;
+    return 1; //lint 1120 error: void function 'f' should not return a value 
 }
 
 int f2()
 {
-    //error: non void function 'f2' should return a value
-    [[cake::e1121]]
-    return;
+    return; //lint 1121 error: non void function 'f2' should return a value
 }

@@ -11,7 +11,6 @@ int main()
     free(p2);
 
     //object may be already moved
-    [[cake::w32]]
-    free(p);
+    free(p); //lint 32
 
 }

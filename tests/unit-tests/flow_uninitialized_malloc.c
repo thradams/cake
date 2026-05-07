@@ -22,8 +22,8 @@ int main()
     struct X* _Owner _Opt p = malloc(sizeof * p);
 
     //warning: uninitialized object 'p.name'
-    [[cake::W30]]
-    x_delete(p);
+
+    x_delete(p); //lint 30
 }
 
 

@@ -7,7 +7,6 @@ struct X {
 void x_destroy(_Dtor struct X* p);
 void f(struct X* x)
 {
-    //source expression of _Dtor must be addressof
-    [[cake::w19]]
-    x_destroy(x);
+
+    x_destroy(x); //lint 19 source expression of _Dtor must be addressof
 }

@@ -5,26 +5,26 @@ enum E { Z = 0 };
 int main()
 {
     //warning: unusual expression/type used as null pointer constant
-    [[cake::w46]]
-    int* _Opt p = false;
+
+    int* _Opt p = false; //lint 46
 
     //warning: unusual expression/type used as null pointer constant
-    [[cake::w46]]
-    p = '\0';
+
+    p = '\0'; //lint 46
 
     //warning: unusual expression/type used as null pointer constant
-    [[cake::w46]]
-    p = Z;
+
+    p = Z; //lint 46
 
     p = 0;
 
     //error: non-pointer to pointer 
-    [[cake::e1340]]
-    p = 1;
+
+    p = 1; //lint 1340
 
     //error: non-pointer to pointer 
-    [[cake::e1340]]
-    p = true;
+
+    p = true; //lint 1340
 
 }
 

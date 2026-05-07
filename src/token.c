@@ -754,6 +754,10 @@ void print_token(bool color_enabled, const struct token* p_token)
     {
         strcat(buffer, "hide ");
     }
+    if (p_token->flags & TK_FLAG_ACTIVE)
+    {
+        strcat(buffer, "active ");
+    }
     if (p_token->flags & TK_FLAG_MACRO_EXPANDED)
     {
         strcat(buffer, "expanded ");
@@ -825,6 +829,10 @@ void print_token_html(struct token* p_token)
     {
         printf("newline ");
     }
+    if (p_token->flags & TK_FLAG_ACTIVE)
+    {
+        printf("active ");
+    }
 
     printf("\">");
 
@@ -889,7 +897,8 @@ void print_position(const char* _Opt path, int line, int col, bool msvc_format, 
                        line, col,
                        msvc_format,
                        color_enabled);
-    puts(ss.c_str);
+    if (ss.c_str) 
+       puts(ss.c_str);
     ss_close(&ss);
 }
 
@@ -897,7 +906,8 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
 {
     struct osstream ss = { 0 };
     ss_print_line_and_token(&ss, p_marker, color_enabled);
-    puts(ss.c_str);
+    if (ss.c_str) 
+      puts(ss.c_str);
     ss_close(&ss);
 }
 

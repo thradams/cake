@@ -9,9 +9,7 @@ int main()
 {
     int* p;
 
-    //pointer is always non-null
-    [[cake::w28]]
-    if ((p = f()) == 0)
+    if ((p = f()) == 0) //lint 28 pointer is always non-null
     {
         //if will not change the state
         assert_state(p, "not-null");

@@ -635,7 +635,7 @@ static int rebuild_path_without_app(const char* src,
                                     char* dst,
                                     size_t      dst_size,
                                     const char* target_dir,
-    int *bExist)
+    int* bExist)
 {
     *bExist = 0;
 
@@ -664,12 +664,12 @@ static int rebuild_path_without_app(const char* src,
             strncat(dst, token, dst_size - strlen(dst) - 1);
             *bExist = 1;
         }
-        else if (_strnicmp(token, "C:\\Program Files\\cake", sizeof("C:\\Program Files\\cake")-1) == 0)
+        else if (_strnicmp(token, "C:\\Program Files\\cake", sizeof("C:\\Program Files\\cake") - 1) == 0)
         {
             printf("  [REMOVED] %s\n", token);
             removed++;   /* only count genuinely stale entries */
         }
-        else if (_strnicmp(token, "C:\\Program Files (x86)\\cake", sizeof("C:\\Program Files (x86)\\cake")-1) == 0)
+        else if (_strnicmp(token, "C:\\Program Files (x86)\\cake", sizeof("C:\\Program Files (x86)\\cake") - 1) == 0)
         {
             printf("  [REMOVED] %s\n", token);
             removed++;   /* only count genuinely stale entries */

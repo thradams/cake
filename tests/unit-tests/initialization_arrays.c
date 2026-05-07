@@ -4,22 +4,22 @@
 void T00()
 {
     // warning: warning: excess elements in initializer
-    [[cake::w62]]
-    constexpr int i[2] = {1, 2, 3};
+
+    constexpr int i[2] = {1, 2, 3}; //lint 62
 
     // error: array index '3' in initializer exceeds array bounds
-    [[cake::e720]]
-    constexpr int i2[2] = {1,[3] = 2};
+
+    constexpr int i2[2] = {1,[3] = 2}; //lint 720
 
     //error: array designator value '-1' is negative
-    [[cake::e720]]
-    constexpr int i3[2] = {1,[2 - 3] = 2};
+
+    constexpr int i3[2] = {1,[2 - 3] = 2}; //lint 720
 
     constexpr int i5 = {{1}}; //ok
 
     //warning: warning: excess elements in initializer
-    [[cake::w62]]
-    constexpr int i4 = {1, 2};
+
+    constexpr int i4 = {1, 2}; //lint 62
 }
 
 void T0()
@@ -245,8 +245,8 @@ void T12()
         int a, b, c;
     };
     //warning: warning: excess elements in initializer
-    [[cake::w62]]
-    constexpr struct X x = {.c = 3, 4};
+
+    constexpr struct X x = {.c = 3, 4}; //lint 62
 
     static_assert(x.a == 0);
     static_assert(x.b == 0);
@@ -262,8 +262,8 @@ void T13()
     };
 
     //error: member 'd' not found in 'X'
-    [[cake::e720]]
-    constexpr struct X x = {.d = 3};
+
+    constexpr struct X x = {.d = 3}; //lint 720
 
     static_assert(x.a == 0);
     static_assert(x.b == 0);

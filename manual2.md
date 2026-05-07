@@ -137,8 +137,6 @@ Output the token stream before preprocessing.
 **`-preprocess-def-macro`**  
 Expand and preprocess `#define` macros after expansion.
 
-**`-comment-to-attr`**  
-During preprocessing, convert comments of the form `/*w12*/` into attributes `[[cake::w12]]`.
 
 ### 4.2 Output Options
 
