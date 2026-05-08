@@ -116,7 +116,7 @@ async function loadFiles()
 
         const select = document.getElementById("fileList");
         const saveBtn = document.getElementById("saveBtn");
-        const reloadBtn = document.getElementById("saveBtn");
+        const reloadBtn = document.getElementById("reloadBtn");
 
         select.innerHTML = '<option value="">-- files --</option>';
         saveBtn.disabled = true;
@@ -172,8 +172,6 @@ async function onFileSelect()
     }
 }
 
-const DELIM = "=====CAKE-OUTPUT=====";
-
 async function reload()
 {
     try
@@ -203,8 +201,6 @@ async function readFileFromServer(file)
 
         document.getElementById("c-editor").value = text;
         isDirty = false;
-        highlight.innerHTML = highlightC(editor.value) + "\n";
-        updateGutter();
 
         // 2. Compile the file as-is on disk
         setStatus("Compiling " + file + "...");
@@ -216,12 +212,7 @@ async function readFileFromServer(file)
         if (!compRes.ok) throw new Error(`Compile ${file}: server ${compRes.status}`);
         const output = await compRes.text();
 
-        var a = parseCompilerLines(output);
-        setDiagMessages(a);
-
-        var s = highlightC(editor.value) + "\n";
-        highlight.innerHTML = appendMessagesToLines(s, a);
-
+        setDiagMessages(parseCompilerLines(output));
         document.getElementById("output").innerHTML = renderOutput(output);
         setStatus("\u2713 Ready", 3000);
         if (typeof autoCollapsePanel === "function") autoCollapsePanel();
@@ -231,24 +222,6 @@ async function readFileFromServer(file)
         setError(err.message);
     }
 }
-
-async function loadFile(path, file)
-{
-    try
-    {
-        const res = await fetch(
-            `${API}/file?path=${encodeURIComponent(path)}&file=${encodeURIComponent(file)}`
-        );
-        if (!res.ok) throw new Error(`Server ${res.status}: ${res.statusText}`);
-        const text = await res.text();
-        document.getElementById("c-editor").value = text;
-    }
-    catch (err)
-    {
-        setError("Load file: " + err.message);
-    }
-}
-
 
 async function saveFile()
 {
@@ -266,7 +239,6 @@ async function saveFile()
         if (!res.ok) throw new Error(`Server ${res.status}: ${res.statusText}`);
 
         isDirty = false;
-        updateHighlight();
         if (typeof setTabDirty === "function") setTabDirty(currentFile, false);
         setStatus("\u2713 Saved", 3000);
     }
@@ -275,8 +247,6 @@ async function saveFile()
         setError("Save: " + err.message);
     }
 }
-
-
 
 async function saveAndCompile()
 {
@@ -294,15 +264,9 @@ async function saveAndCompile()
         if (!res.ok) throw new Error(`Server ${res.status}: ${res.statusText}`);
 
         const output = await res.text();
-
-        var a = parseCompilerLines(output);
-        setDiagMessages(a);
-
-        var s = highlightC(editor.value) + "\n";
         isDirty = false;
-        highlight.innerHTML = appendMessagesToLines(s, a);
-        updateGutter();
-
+        if (typeof setTabDirty === "function") setTabDirty(currentFile, false);
+        setDiagMessages(parseCompilerLines(output));
         document.getElementById("output").innerHTML = renderOutput(output);
         if (typeof autoCollapsePanel === "function") autoCollapsePanel();
     }
@@ -311,7 +275,6 @@ async function saveAndCompile()
         setError("Save & Compile: " + err.message);
     }
 }
-
 
 async function compile()
 {
@@ -327,15 +290,8 @@ async function compile()
         if (!res.ok) throw new Error(`Server ${res.status}: ${res.statusText}`);
 
         const output = await res.text();
-
-        var a = parseCompilerLines(output);
-        setDiagMessages(a);
-
-        var s = highlightC(editor.value) + "\n";
         isDirty = false;
-        highlight.innerHTML = appendMessagesToLines(s, a);
-        updateGutter();
-
+        setDiagMessages(parseCompilerLines(output));
         document.getElementById("output").innerHTML = renderOutput(output);
         if (typeof autoCollapsePanel === "function") autoCollapsePanel();
     }
@@ -352,6 +308,44 @@ const ANSI_FG_BRIGHT = ['#888888', '#ff5555', '#55ff55', '#ffff55', '#5555ff', '
 function escHtml(s)
 {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function stripAnsi(str)
+{
+    return str.replace(/\x1b\[[0-9;]*m/g, '');
+}
+
+function parseCompilerLines(input)
+{
+    const result = [];
+    const seen = new Set();
+    const lines = input.split('\n');
+
+    for (let i = 0; i < lines.length; i++)
+    {
+        const clean = stripAnsi(lines[i]);
+
+        // match: file.c:LINE:COL: (warning|error|note) [ID]: message
+        // ID can be a number ("warning 28:") or a bracketed gcc flag ("warning [-Wfoo]:")
+        const m = clean.match(/\w+\.c:(\d+):\d+:\s*(warning|error|note)\s*(\d+|\[-[^\]]+\])?[^:]*:\s*(.*)/);
+        if (!m) continue;
+
+        const lineNumber = parseInt(m[1], 10);
+        const severity = m[2].toLowerCase();
+        const warnId = m[3] ? m[3] : '';
+        const message = m[4].trim();
+
+        if (!lineNumber || !message) continue;
+
+        const key = `${lineNumber}|${severity}|${message}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        const displayText = warnId ? `${warnId}: ${message}` : message;
+        result.push({ line: lineNumber, severity, text: displayText });
+    }
+
+    return result;
 }
 
 function renderOutput(text)
@@ -434,505 +428,10 @@ function renderOutput(text)
 
     return html;
 }
-function appendToLine(text, targetLine, htmlToAppend)
-{
-    let line = 1;
-    let i = 0;
-    let start = 0;
-
-    // find start of target line
-    while (i < text.length)
-    {
-        if (line === targetLine)
-        {
-            start = i;
-            break;
-        }
-
-        if (text[i] === '\n')
-        {
-            line++;
-        }
-        i++;
-    }
-
-    // if line not found, return original
-    if (line !== targetLine) return text;
-
-    // find end of the line
-    let end = start;
-    while (end < text.length && text[end] !== '\n')
-    {
-        end++;
-    }
-
-    // split and insert
-    const before = text.slice(0, end);
-    const after = text.slice(end);
-
-    return before + htmlToAppend + after;
-}
-function appendMessagesToLines(input, messages)
-{
-    const sorted = [...messages].sort((a, b) => a.line - b.line);
-
-    const lines = input.split('\n');
-    const result = [];
-
-    let msgIndex = 0;
-
-    for (let i = 0; i < lines.length; i++)
-    {
-        let line = lines[i];
-        const currentLineNumber = i + 1;
-
-        while (msgIndex < sorted.length && sorted[msgIndex].line === currentLineNumber)
-        {
-            const msg = sorted[msgIndex];
-
-            let cls, icon;
-            if (msg.severity === 'error') { cls = 'diag-error'; icon = '\u2716 '; }
-            else if (msg.severity === 'warning') { cls = 'diag-warning'; icon = '\u26a0 '; }
-            else { cls = 'diag-note'; icon = '\u25cf '; }
-
-            line += `<span class="${cls}">${icon}${escHtml(msg.text)}</span>`;
-            msgIndex++;
-        }
-
-        result.push(line);
-    }
-
-    return result.join('\n');
-}
-function stripAnsi(str)
-{
-    return str.replace(/\x1b\[[0-9;]*m/g, '');
-}
-
-function parseCompilerLines(input)
-{
-    const result = [];
-    const seen = new Set();
-    const lines = input.split('\n');
-
-    for (let i = 0; i < lines.length; i++)
-    {
-        const clean = stripAnsi(lines[i]);
-
-        // match: file.c:LINE:COL: (warning|error|note) [ID]: message
-        // ID can be a number ("warning 28:") or a bracketed gcc flag ("warning [-Wfoo]:")
-        const m = clean.match(/\w+\.c:(\d+):\d+:\s*(warning|error|note)\s*(\d+|\[-[^\]]+\])?[^:]*:\s*(.*)/);
-        if (!m) continue;
-
-        const lineNumber = parseInt(m[1], 10);
-        const severity = m[2].toLowerCase();   // "warning" | "error" | "note"
-        const warnId = m[3] ? m[3] : '';      // e.g. "28" or "[-Wunused-variable]" or ""
-        const message = m[4].trim();
-
-        if (!lineNumber || !message) continue;
-
-        // deduplicate: same line + severity + message
-        const key = `${lineNumber}|${severity}|${message}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-
-        // Prepend the warning ID to the message when present: "28: value is always non-zero"
-        const displayText = warnId ? `${warnId}: ${message}` : message;
-
-        result.push({
-            line: lineNumber,
-            severity,              // used by appendMessagesToLines and navigation
-            text: displayText
-        });
-    }
-
-    return result;
-}
-
-const KW_SPECIAL = new Set([
-    "_Opt", "_Owner", "_View", "_Dtor", "_Ctor",
-    "__builtin_c23_va_start", "__builtin_va_end", "__builtin_va_arg", "__builtin_va_list", "__attribute__", "__builtin_offsetof"
-]);
-
-const KW = new Set([
-    // types
-    "void", "char", "short", "int", "long", "float", "double", "signed", "unsigned",
-    "bool", "_Bool", "_Complex", "_Imaginary", "_BitInt", "_Decimal32", "_Decimal64", "_Decimal128",
-    // type qualifiers
-    "const", "volatile", "restrict", "_Atomic",
-    // storage class
-    "auto", "extern", "register", "static", "typedef", "inline", "_Thread_local",
-    // control flow
-    "if", "else", "for", "while", "do", "switch", "case", "default", "break", "continue", "return", "goto",
-    // structure
-    "struct", "union", "enum",
-    // operators/expressions
-    "sizeof", "alignof", "_Alignof", "typeof", "typeof_unqual",
-    // alignment
-    "alignas", "_Alignas",
-    // static assert
-    "static_assert", "_Static_assert",
-    // noreturn
-    "noreturn", "_Noreturn",
-    // generic
-    "_Generic",
-    // thread
-    "_Thread_local",
-    // nullptr
-    "nullptr",
-    // constexpr (C23)
-    "constexpr",
-    // common constants
-    "NULL", "true", "false",
-
-    // cake
-    "throw", "try", "catch", "assert",
-    "_Count", "assert_state", "override_state", "static_debug"
-]);
-
-function highlightC(code, firstVis = 0, lastVis = Infinity)
-{
-    const out = [];
-    const n = code.length;
-    let i = 0;
-
-    function flush(start, end)
-    {
-        for (let j = start; j < end; j++)
-        {
-            const c = code[j];
-            if (c === '&') out.push('&amp;');
-            else if (c === '<') out.push('&lt;');
-            else if (c === '>') out.push('&gt;');
-            else out.push(c);
-        }
-    }
-
-    function span(cls, start, end)
-    {
-        out.push('<span class="', cls, '">');
-        flush(start, end);
-        out.push('</span>');
-    }
-
-    // ── Skip to firstVis by counting newlines ─────────────────
-    let line = 0;
-    while (i < n && line < firstVis)
-    {
-        const nl = code.indexOf('\n', i);
-        if (nl === -1) { flush(i, n); return out.join(''); }
-        flush(i, nl + 1);
-        i = nl + 1;
-        line++;
-    }
-
-    // ── Highlight the visible lines ───────────────────────────
-    while (i < n && line <= lastVis)
-    {
-        const c = code[i];
-
-        // line comment  //
-        if (c === '/' && code[i + 1] === '/')
-        {
-            const lint = code[i + 2] == 'l' &&
-                code[i + 3] == 'i' &&
-                code[i + 4] == 'n' &&
-                code[i + 5] == 't' &&
-                code[i + 6] == ' ';
-
-            const start = i;
-            while (i < n && code[i] !== '\n') i++;
-            if (lint)
-                span('lint', start, i);
-            else
-                span('com', start, i);
-
-            if (i < n && code[i] === '\n') { out.push('\n'); i++; line++; }
-            continue;
-        }
-
-        // block comment  /* */
-        if (c === '/' && code[i + 1] === '*')
-        {
-            const start = i;
-            i += 2;
-            while (i < n && !(code[i - 1] === '*' && code[i] === '/')) i++;
-            if (i < n) i++;
-            span('com', start, i);
-            continue;
-        }
-
-        // string literal  "..."
-        if (c === '"')
-        {
-            const start = i++;
-            while (i < n && code[i] !== '"') { if (code[i] === '\\') i++; i++; }
-            if (i < n) i++;
-            span('str', start, i);
-            continue;
-        }
-
-        // char literal  '.'
-        if (c === '\'')
-        {
-            const start = i++;
-            while (i < n && code[i] !== '\'') { if (code[i] === '\\') i++; i++; }
-            if (i < n) i++;
-            span('str', start, i);
-            continue;
-        }
-
-        // preprocessor directive  #...
-        if (c === '#')
-        {
-            const start = i;
-            while (i < n && code[i] !== '\n') i++;
-            span('kw', start, i);
-            continue;
-        }
-
-        // number
-        if (c >= '0' && c <= '9')
-        {
-            const start = i++;
-            while (i < n && (
-                (code[i] >= '0' && code[i] <= '9') ||
-                (code[i] >= 'a' && code[i] <= 'f') ||
-                (code[i] >= 'A' && code[i] <= 'F') ||
-                code[i] === 'x' || code[i] === 'X' ||
-                code[i] === '.' || code[i] === 'u' ||
-                code[i] === 'U' || code[i] === 'l' || code[i] === 'L'
-            )) i++;
-            span('num', start, i);
-            continue;
-        }
-
-        // identifier or keyword
-        if (c === '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))
-        {
-            const start = i++;
-            while (i < n && (code[i] === '_' || (code[i] >= 'a' && code[i] <= 'z') || (code[i] >= 'A' && code[i] <= 'Z') || (code[i] >= '0' && code[i] <= '9'))) i++;
-            const word = code.slice(start, i);
-            if (KW.has(word)) span('kw', start, i);
-            else if (KW_SPECIAL.has(word)) span('kwex', start, i);
-            else flush(start, i);
-            continue;
-        }
-
-        // newline — track line count
-        if (c === '\n') { out.push('\n'); i++; line++; continue; }
-
-        // anything else
-        flush(i, i + 1);
-        i++;
-    }
-
-    // ── Bulk-copy everything after the last visible line ──────
-    if (i < n)
-    {
-        const s = code.slice(i);
-        const outArr = [];
-        let k = 0;
-
-        for (let j = 0; j < s.length; j++)
-        {
-            const ch = s[j];
-
-            if (ch === '&')
-            {
-                outArr[k++] = '&amp;';
-            } else if (ch === '<')
-            {
-                outArr[k++] = '&lt;';
-            } else if (ch === '>')
-            {
-                outArr[k++] = '&gt;';
-            } else
-            {
-                outArr[k++] = ch;
-            }
-        }
-
-        out.push(outArr.join(''));
-    }
-    return out.join('');
-}
-
-const editor = document.getElementById("c-editor");
-const highlight = document.getElementById("highlight");
-const gutter = document.getElementById("gutter");
-const gutterInner = document.getElementById("gutter-inner");
-
-function updateGutter()
-{
-    const lines = editor.value.split("\n").length;
-    const nums = [];
-    for (let i = 1; i <= lines; i++) nums.push(i);
-    gutterInner.textContent = nums.join("\n");
-}
-
-function getVisibleLineRange()
-{
-    const lineHeight = parseFloat(getComputedStyle(highlight).lineHeight) || 19.5;
-    const first = Math.max(0, Math.floor(highlight.scrollTop / lineHeight) - 5);
-    const last = Math.ceil((highlight.scrollTop + highlight.clientHeight) / lineHeight) + 5;
-    return [first, last];
-}
-
-function updateHighlight()
-{
-    const [first, last] = getVisibleLineRange();
-    var s = highlightC(editor.value, first, last) + "\n";
-    highlight.innerHTML = isDirty ? s : appendMessagesToLines(s, lastMessages);
-    updateGutter();
-}
-
-// ── Highlight on input ────────────────────────────────────────
-let _highlightPending = false;
-let _lastLineCount = editor.value.split("\n").length;
-
-function scheduleHighlight()
-{
-    if (_highlightPending) return;
-    _highlightPending = true;
-    requestAnimationFrame(() =>
-    {
-        _highlightPending = false;
-        const [first, last] = getVisibleLineRange();
-        var s = highlightC(editor.value, first, last) + "\n";
-        highlight.innerHTML = isDirty ? s : appendMessagesToLines(s, lastMessages);
-
-        const newCount = editor.value.split("\n").length;
-        if (newCount !== _lastLineCount)
-        {
-            _lastLineCount = newCount;
-            updateGutter();
-        }
-    });
-}
-
-// update on typing
-editor.addEventListener("input", () => { isDirty = true; scheduleHighlight(); });
-
-// ── Tab key → insert spaces ───────────────────────────────────
-
-editor.addEventListener("keydown", (e) =>
-{
-    if (e.key !== "Tab") return;
-    e.preventDefault();
-    const start = editor.selectionStart;
-    const end = editor.selectionEnd;
-    editor.value = editor.value.slice(0, start) + "    " + editor.value.slice(end);
-    editor.selectionStart = editor.selectionEnd = start + 4;
-    isDirty = true;
-    scheduleHighlight();
-});
-
-// initialize on load
-updateHighlight();
-
-// textarea scroll drives highlight scroll (both axes) and gutter
-editor.addEventListener("scroll", () =>
-{
-    highlight.scrollLeft = editor.scrollLeft;
-    highlight.scrollTop = editor.scrollTop;
-    gutterInner.style.transform = `translateY(-${editor.scrollTop}px)`;
-    scheduleHighlight();
-});
-
-// wheel on editor forwards scroll to highlight (both axes)
-editor.addEventListener("wheel", (e) =>
-{
-    highlight.scrollTop += e.deltaY;
-    highlight.scrollLeft += e.deltaX;
-    editor.scrollTop = highlight.scrollTop;
-    editor.scrollLeft = highlight.scrollLeft;
-    gutterInner.style.transform = `translateY(-${highlight.scrollTop}px)`;
-    scheduleHighlight();
-}, { passive: true });
-
-// measure actual scrollbar width and adjust textarea to expose it
-(function adjustForScrollbar()
-{
-    const scrollbarWidth = highlight.offsetWidth - highlight.clientWidth;
-    const w = scrollbarWidth > 0 ? scrollbarWidth : 17;
-    editor.style.width = `calc(100% - ${w}px)`;
-
-    const proxy = document.getElementById("scrollbar-proxy");
-    proxy.style.width = w + "px";
-
-    const inner = document.createElement("div");
-    inner.style.height = highlight.scrollHeight + "px";
-    inner.style.width = "1px";
-    proxy.appendChild(inner);
-    proxy.style.overflowY = "scroll";
-    proxy.style.overflowX = "hidden";
-
-    let fromProxy = false;
-    let fromHighlight = false;
-
-    proxy.addEventListener("scroll", () =>
-    {
-        if (fromHighlight) return;
-        fromProxy = true;
-        highlight.scrollTop = proxy.scrollTop;
-        editor.scrollTop = proxy.scrollTop;
-        gutterInner.style.transform = `translateY(-${proxy.scrollTop}px)`;
-        scheduleHighlight();
-        fromProxy = false;
-    });
-
-    highlight.addEventListener("scroll", () =>
-    {
-        if (fromProxy) return;
-        fromHighlight = true;
-        proxy.scrollTop = highlight.scrollTop;
-        fromHighlight = false;
-    });
-
-    // horizontal scrollbar proxy
-    const proxyX = document.getElementById("scrollbar-proxy-x");
-    const innerX = document.createElement("div");
-    innerX.style.width = highlight.scrollWidth + "px";
-    innerX.style.height = "1px";
-    proxyX.appendChild(innerX);
-    proxyX.style.overflowX = "scroll";
-    proxyX.style.overflowY = "hidden";
-
-    let fromProxyX = false;
-    let fromHighlightX = false;
-
-    proxyX.addEventListener("scroll", () =>
-    {
-        if (fromHighlightX) return;
-        fromProxyX = true;
-        highlight.scrollLeft = proxyX.scrollLeft;
-        editor.scrollLeft = proxyX.scrollLeft;
-        scheduleHighlight();
-        fromProxyX = false;
-    });
-
-    highlight.addEventListener("scroll", () =>
-    {
-        if (fromProxyX) return;
-        fromHighlightX = true;
-        proxyX.scrollLeft = highlight.scrollLeft;
-        fromHighlightX = false;
-    });
-
-    // keep inner dimensions in sync when content changes
-    const mo = new MutationObserver(() =>
-    {
-        inner.style.height = highlight.scrollHeight + "px";
-        innerX.style.width = highlight.scrollWidth + "px";
-    });
-    mo.observe(highlight, { childList: true, subtree: true, characterData: true });
-})();
 
 // click a diagnostic line in the output panel
 function outputDiagClick(el)
 {
-    // clear previous selection
     const prev = document.querySelector(".output-diag.selected");
     if (prev) prev.classList.remove("selected");
     el.classList.add("selected");
@@ -940,7 +439,6 @@ function outputDiagClick(el)
     const targetLine = parseInt(el.dataset.line, 10);
     if (!targetLine || targetLine < 1) return;
 
-    // sync diagIndex to the matching entry in lastMessages
     const idx = lastMessages.findIndex(m => m.line === targetLine);
     if (idx !== -1)
     {
@@ -951,39 +449,10 @@ function outputDiagClick(el)
     jumpToLine(targetLine);
 }
 
-function jumpToLine(lineNumber)
-{
-    const lines = editor.value.split("\n");
-    if (lineNumber > lines.length) return;
-
-    // calculate char offset to start of that line
-    let offset = 0;
-    for (let i = 0; i < lineNumber - 1; i++)
-    {
-        offset += lines[i].length + 1; // +1 for \n
-    }
-
-    // set cursor at start of target line
-    editor.focus();
-    editor.setSelectionRange(offset, offset + lines[lineNumber - 1].length);
-
-    // scroll editor so the line is vertically centered
-    const lineHeight = parseFloat(getComputedStyle(editor).lineHeight);
-    const viewHeight = editor.clientHeight;
-    const targetScrollTop = (lineNumber - 1) * lineHeight - viewHeight / 2 + lineHeight / 2;
-    editor.scrollTop = Math.max(0, targetScrollTop);
-
-    // sync highlight and gutter
-    highlight.scrollTop = editor.scrollTop;
-    gutterInner.style.transform = `translateY(-${editor.scrollTop}px)`;
-    scheduleHighlight();
-}
-
 // Auto-load on page start
 window.addEventListener("load", loadFiles);
 
-// Ctrl+S to save; F8 / Shift+F8 for diag navigation
-// Ctrl+Down = next, Ctrl+Up = prev, Home = first, End = last
+// Ctrl+S → save & compile; F8 / Shift+F8 / Ctrl+↑↓ → diag navigation
 document.addEventListener("keydown", (e) =>
 {
     if (e.ctrlKey && e.key === 's')
@@ -1007,33 +476,3 @@ document.addEventListener("keydown", (e) =>
         diagPrev();
     }
 });
-const resizeHandle = document.getElementById("resize-handle");
-const outputEl = document.getElementById("output");
-
-const panelEl = document.getElementById("panel") || outputEl;
-if (resizeHandle)
-{
-    resizeHandle.addEventListener("mousedown", (e) =>
-    {
-        e.preventDefault();
-        const startY = e.clientY;
-        const startHeight = panelEl.offsetHeight;
-
-        function onMouseMove(e)
-        {
-            const delta = startY - e.clientY;  // drag up = bigger panel
-            const newHeight = Math.max(50, startHeight + delta);
-            panelEl.style.flex = "none";
-            panelEl.style.height = newHeight + "px";
-        }
-
-        function onMouseUp()
-        {
-            document.removeEventListener("mousemove", onMouseMove);
-            document.removeEventListener("mouseup", onMouseUp);
-        }
-
-        document.addEventListener("mousemove", onMouseMove);
-        document.addEventListener("mouseup", onMouseUp);
-    });
-}

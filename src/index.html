@@ -4,26 +4,30 @@
     <meta charset="UTF-8">
     <title>IDE</title>
     <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
         :root {
-            --bg:          #1e1e1e;
-            --bg-dark:     #141414;
-            --bg-sidebar:  #252526;
-            --bg-toolbar:  #333333;
-            --bg-tab:      #2d2d2d;
-            --bg-tab-act:  #1e1e1e;
-            --bg-panel:    #1e1e1e;
-            --bg-status:   #007acc;
-            --border:      #3c3c3c;
-            --text:        #d4d4d4;
-            --text-dim:    #858585;
+            --bg: #1e1e1e;
+            --bg-dark: #141414;
+            --bg-sidebar: #252526;
+            --bg-toolbar: #333333;
+            --bg-tab: #2d2d2d;
+            --bg-tab-act: #1e1e1e;
+            --bg-panel: #1e1e1e;
+            --bg-status: #007acc;
+            --border: #3c3c3c;
+            --text: #d4d4d4;
+            --text-dim: #858585;
             --text-bright: #ffffff;
-            --accent:      #007acc;
-            --err:         #f14c4c;
-            --warn:        #cca700;
-            --ok:          #89d185;
-            --sidebar-w:   220px;
+            --accent: #007acc;
+            --err: #f14c4c;
+            --warn: #cca700;
+            --ok: #89d185;
+            --sidebar-w: 220px;
         }
 
         html, body {
@@ -38,7 +42,9 @@
         /* ── ACTIVITY BAR ── */
         #activity-bar {
             position: fixed;
-            top: 0; left: 0; bottom: 22px;
+            top: 0;
+            left: 0;
+            bottom: 22px;
             width: 48px;
             background: #2c2c2c;
             border-right: 1px solid var(--border);
@@ -51,8 +57,11 @@
         }
 
         .activity-btn {
-            width: 36px; height: 36px;
-            display: flex; align-items: center; justify-content: center;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             border-radius: 6px;
             cursor: pointer;
             color: var(--text-dim);
@@ -62,21 +71,33 @@
             transition: color 0.15s, background 0.15s;
             position: relative;
         }
-        .activity-btn:hover { color: var(--text-bright); background: rgba(255,255,255,0.06); }
-        .activity-btn.active { color: var(--text-bright); }
-        .activity-btn.active::before {
-            content: '';
-            position: absolute;
-            left: -6px; top: 6px; bottom: 6px;
-            width: 3px;
-            background: var(--accent);
-            border-radius: 0 2px 2px 0;
-        }
+
+            .activity-btn:hover {
+                color: var(--text-bright);
+                background: rgba(255,255,255,0.06);
+            }
+
+            .activity-btn.active {
+                color: var(--text-bright);
+            }
+
+                .activity-btn.active::before {
+                    content: '';
+                    position: absolute;
+                    left: -6px;
+                    top: 6px;
+                    bottom: 6px;
+                    width: 3px;
+                    background: var(--accent);
+                    border-radius: 0 2px 2px 0;
+                }
 
         /* ── SIDEBAR ── */
         #sidebar {
             position: fixed;
-            top: 0; left: 48px; bottom: 22px;
+            top: 0;
+            left: 48px;
+            bottom: 22px;
             width: var(--sidebar-w);
             background: var(--bg-sidebar);
             border-right: 1px solid var(--border);
@@ -86,7 +107,11 @@
             transition: width 0.18s ease;
             overflow: hidden;
         }
-        #sidebar.collapsed { width: 0; border-right: none; }
+
+            #sidebar.collapsed {
+                width: 0;
+                border-right: none;
+            }
 
         .sidebar-header {
             padding: 10px 14px 8px;
@@ -104,9 +129,13 @@
         }
 
         #panel-pin-btn {
-            width: 20px; height: 20px;
-            display: flex; align-items: center; justify-content: center;
-            border: none; background: transparent;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            background: transparent;
             color: var(--text-dim);
             border-radius: 4px;
             cursor: pointer;
@@ -114,16 +143,30 @@
             transition: background 0.12s, color 0.12s;
             flex-shrink: 0;
         }
-        #panel-pin-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-bright); }
-        #panel-pin-btn.pinned { color: var(--text-bright); }
+
+            #panel-pin-btn:hover {
+                background: rgba(255,255,255,0.08);
+                color: var(--text-bright);
+            }
+
+            #panel-pin-btn.pinned {
+                color: var(--text-bright);
+            }
 
         #file-tree {
             flex: 1;
             overflow-y: auto;
             padding: 4px 0;
         }
-        #file-tree::-webkit-scrollbar { width: 6px; }
-        #file-tree::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+
+            #file-tree::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            #file-tree::-webkit-scrollbar-thumb {
+                background: #444;
+                border-radius: 3px;
+            }
 
         .tree-item {
             display: flex;
@@ -137,22 +180,41 @@
             border-left: 2px solid transparent;
             transition: background 0.1s;
         }
-        .tree-item:hover { background: rgba(255,255,255,0.05); }
-        .tree-item.active {
-            background: rgba(0,122,204,0.15);
-            border-left-color: var(--accent);
-            color: var(--text-bright);
-        }
-        .tree-item .file-icon { font-size: 13px; flex-shrink: 0; }
-        .tree-item .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; font-size: 12.5px; }
-        .tree-item .dirty-dot {
-            width: 7px; height: 7px;
-            background: var(--text-dim);
-            border-radius: 50%;
-            flex-shrink: 0;
-            display: none;
-        }
-        .tree-item.dirty .dirty-dot { display: block; }
+
+            .tree-item:hover {
+                background: rgba(255,255,255,0.05);
+            }
+
+            .tree-item.active {
+                background: rgba(0,122,204,0.15);
+                border-left-color: var(--accent);
+                color: var(--text-bright);
+            }
+
+            .tree-item .file-icon {
+                font-size: 13px;
+                flex-shrink: 0;
+            }
+
+            .tree-item .file-name {
+                flex: 1;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                font-size: 12.5px;
+            }
+
+            .tree-item .dirty-dot {
+                width: 7px;
+                height: 7px;
+                background: var(--text-dim);
+                border-radius: 50%;
+                flex-shrink: 0;
+                display: none;
+            }
+
+            .tree-item.dirty .dirty-dot {
+                display: block;
+            }
 
         /* ── MAIN AREA ── */
         #main-area {
@@ -165,7 +227,10 @@
             flex-direction: column;
             transition: left 0.18s ease;
         }
-        #main-area.sidebar-collapsed { left: 48px; }
+
+            #main-area.sidebar-collapsed {
+                left: 48px;
+            }
 
         /* ── TAB BAR ── */
         #tab-bar {
@@ -187,7 +252,10 @@
             overflow-y: hidden;
             scrollbar-width: none;
         }
-        #tabs-list::-webkit-scrollbar { display: none; }
+
+            #tabs-list::-webkit-scrollbar {
+                display: none;
+            }
 
         .tab {
             display: flex;
@@ -206,29 +274,48 @@
             user-select: none;
             flex-shrink: 0;
         }
-        .tab:hover { background: #323232; color: var(--text); }
-        .tab.active {
-            background: var(--bg-tab-act);
-            color: var(--text-bright);
-            border-top: 1.5px solid var(--accent);
-        }
-        .tab .tab-icon { font-size: 12px; }
-        .tab .tab-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-        .tab .tab-dirty {
-            width: 8px; height: 8px;
-            background: var(--text-dim);
-            border-radius: 50%;
-            flex-shrink: 0;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-        .tab.dirty .tab-dirty { opacity: 1; }
+
+            .tab:hover {
+                background: #323232;
+                color: var(--text);
+            }
+
+            .tab.active {
+                background: var(--bg-tab-act);
+                color: var(--text-bright);
+                border-top: 1.5px solid var(--accent);
+            }
+
+            .tab .tab-icon {
+                font-size: 12px;
+            }
+
+            .tab .tab-name {
+                flex: 1;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .tab .tab-dirty {
+                width: 8px;
+                height: 8px;
+                background: var(--text-dim);
+                border-radius: 50%;
+                flex-shrink: 0;
+                opacity: 0;
+                transition: opacity 0.2s;
+            }
+
+            .tab.dirty .tab-dirty {
+                opacity: 1;
+            }
 
         /* ── ACTION BAR ── */
         #action-bar {
             position: absolute;
             left: 50%;
-            top: 0; bottom: 0;
+            top: 0;
+            bottom: 0;
             transform: translateX(-50%);
             display: flex;
             align-items: center;
@@ -239,8 +326,11 @@
         }
 
         .icon-btn {
-            width: 28px; height: 28px;
-            display: flex; align-items: center; justify-content: center;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             border: none;
             background: transparent;
             color: var(--text-dim);
@@ -250,14 +340,23 @@
             transition: background 0.12s, color 0.12s;
             position: relative;
         }
-        .icon-btn:hover:not(:disabled) { background: rgba(255,255,255,0.08); color: var(--text-bright); }
-        .icon-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+            .icon-btn:hover:not(:disabled) {
+                background: rgba(255,255,255,0.08);
+                color: var(--text-bright);
+            }
+
+            .icon-btn:disabled {
+                opacity: 0.3;
+                cursor: not-allowed;
+            }
 
         /* tooltip */
 
 
         .v-sep {
-            width: 1px; height: 18px;
+            width: 1px;
+            height: 18px;
             background: var(--border);
             margin: 0 4px;
             flex-shrink: 0;
@@ -272,7 +371,7 @@
             font-family: 'Segoe UI', system-ui, sans-serif;
         }
 
-        /* ── EDITOR ── */
+        /* ── EDITOR (Monaco) ── */
         #editor-container {
             flex: 1;
             min-height: 0;
@@ -280,82 +379,10 @@
             flex-direction: column;
         }
 
-        .editor-wrap {
-            display: flex;
+        #monaco-editor {
             flex: 1;
             min-height: 0;
-        }
-
-        #gutter {
-            background: var(--bg);
-            border-right: 1px solid #2a2a2a;
-            flex-shrink: 0;
-            overflow: hidden;
-            position: relative;
-            width: 54px;
-        }
-
-        #gutter-inner {
-            position: absolute;
-            top: 0; right: 0;
-            padding: 10px 10px 10px 4px;
-            font-family: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
-            font-size: 13px;
-            line-height: 1.5;
-            color: #454545;
-            text-align: right;
-            white-space: pre;
-            user-select: none;
-        }
-
-        .editor-view {
-            position: relative;
-            flex: 1;
-            min-height: 0;
-        }
-
-        .highlight,
-        #c-editor {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            margin: 0;
-            padding: 10px 14px;
-            font-family: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
-            font-size: 13px;
-            line-height: 1.5;
-            white-space: pre;
-            overflow: auto;
-        }
-
-        .highlight {
-            background: var(--bg);
-            color: var(--text);
-            pointer-events: none;
-            z-index: 1;
-        }
-
-        #c-editor {
-            background: transparent;
-            color: transparent;
-            caret-color: #ffffffbb;
-            z-index: 2;
-            resize: none;
-            border: none;
-            outline: none;
-            overflow: hidden;
-            width: calc(100% - 17px);
-            scrollbar-width: none;
-        }
-        #c-editor::-webkit-scrollbar { display: none; }
-
-        #scrollbar-proxy {
-            position: absolute; top: 0; right: 0;
-            width: 17px; height: 100%; z-index: 3; cursor: default;
-        }
-        #scrollbar-proxy-x {
-            position: absolute; bottom: 0; left: 0;
-            height: 17px; width: calc(100% - 17px); z-index: 3; cursor: default;
+            width: 100%;
         }
 
         /* ── PANEL ── */
@@ -375,7 +402,10 @@
             order: -1;
             transition: background 0.15s;
         }
-        #resize-handle:hover { background: var(--accent); }
+
+            #resize-handle:hover {
+                background: var(--accent);
+            }
 
         #panel-header {
             display: flex;
@@ -397,29 +427,55 @@
             cursor: pointer;
             border-bottom: 2px solid transparent;
         }
-        .panel-tab.active { color: var(--text-bright); border-bottom-color: var(--accent); }
+
+            .panel-tab.active {
+                color: var(--text-bright);
+                border-bottom-color: var(--accent);
+            }
 
         .panel-badge {
-            font-size: 10px; padding: 1px 5px;
-            border-radius: 10px; font-weight: 700;
-            background: var(--err); color: #fff;
+            font-size: 10px;
+            padding: 1px 5px;
+            border-radius: 10px;
+            font-weight: 700;
+            background: var(--err);
+            color: #fff;
         }
-        .panel-badge.warn { background: var(--warn); }
 
-        #panel-actions { margin-left: auto; display: flex; align-items: center; padding-right: 6px; }
+            .panel-badge.warn {
+                background: var(--warn);
+            }
+
+        #panel-actions {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            padding-right: 6px;
+        }
+
         #panel.collapsed {
             flex: none !important;
             height: 28px !important;
             min-height: 28px;
             overflow: hidden;
         }
-        #panel.collapsed #output { display: none; }
-        #panel.collapsed #resize-handle { display: none; }
+
+            #panel.collapsed #output {
+                display: none;
+            }
+
+            #panel.collapsed #resize-handle {
+                display: none;
+            }
 
         #panel-toggle-btn {
-            width: 24px; height: 24px;
-            display: flex; align-items: center; justify-content: center;
-            border: none; background: transparent;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            background: transparent;
             color: var(--text-dim);
             border-radius: 4px;
             cursor: pointer;
@@ -427,7 +483,11 @@
             transition: background 0.12s, color 0.12s;
             margin-right: 2px;
         }
-        #panel-toggle-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-bright); }
+
+            #panel-toggle-btn:hover {
+                background: rgba(255,255,255,0.08);
+                color: var(--text-bright);
+            }
 
         #output {
             background: var(--bg-panel);
@@ -440,13 +500,23 @@
             flex: 1;
             line-height: 1.45;
         }
-        #output::-webkit-scrollbar { width: 8px; height: 8px; }
-        #output::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+
+            #output::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+            }
+
+            #output::-webkit-scrollbar-thumb {
+                background: #444;
+                border-radius: 4px;
+            }
 
         /* ── STATUS BAR ── */
         #status-bar {
             position: fixed;
-            bottom: 0; left: 0; right: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
             height: 22px;
             background: var(--bg-status);
             display: flex;
@@ -468,8 +538,14 @@
             white-space: nowrap;
             font-size: 11.5px;
         }
-        .status-item:hover { background: rgba(255,255,255,0.12); }
-        .status-item.right { margin-left: auto; }
+
+            .status-item:hover {
+                background: rgba(255,255,255,0.12);
+            }
+
+            .status-item.right {
+                margin-left: auto;
+            }
 
         #status-msg {
             flex: 1;
@@ -480,509 +556,587 @@
             transition: opacity 1s;
             pointer-events: none;
         }
-        #status-msg.fade { opacity: 0; }
-        #status-msg.error { color: #ff5f5f; opacity: 1; font-weight: 600; }
+
+            #status-msg.fade {
+                opacity: 0;
+            }
+
+            #status-msg.error {
+                color: #ff5f5f;
+                opacity: 1;
+                font-weight: 600;
+            }
 
         #status-bar.error {
             background: #c0392b !important;
-            transition: background 0.2s ease;
         }
+
         #status-bar {
             transition: background 0.2s ease;
         }
 
-        /* ── FIND BAR ── */
-        #find-bar {
-            position: absolute;
-            top: 6px; right: 16px;
-            display: none;
-            align-items: center;
-            gap: 6px;
-            background: var(--bg-toolbar);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 4px 8px;
-            z-index: 300;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-        }
-        #find-bar.visible { display: flex; }
-
-        #find-input {
-            background: var(--bg-dark);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            color: var(--text);
-            font-size: 12.5px;
-            padding: 3px 8px;
-            width: 200px;
-            outline: none;
-        }
-        #find-input:focus { border-color: var(--accent); }
-        #find-input.no-match { border-color: var(--err); color: var(--err); }
-
-        #find-count {
-            font-size: 11px;
-            color: var(--text-dim);
-            white-space: nowrap;
-            min-width: 54px;
-        }
-
-        .find-btn {
-            width: 22px; height: 22px;
-            display: flex; align-items: center; justify-content: center;
-            background: transparent;
-            border: none;
-            color: var(--text-dim);
-            border-radius: 4px;
+        /* ── OUTPUT PANEL DIAGNOSTICS ── */
+        .output-diag {
+            display: block;
             cursor: pointer;
-            font-size: 12px;
-            transition: background 0.12s, color 0.12s;
-        }
-        .find-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-bright); }
-
-        /* ── FIND HIGHLIGHTS ── */
-        #find-highlight-layer {
-            position: absolute;
-            top: 0; left: 0;
-            pointer-events: none;
-            white-space: pre-wrap;
-            word-break: break-all;
-            font: inherit;
-            color: transparent;
-        }
-        mark.find-match {
-            background: rgba(255, 200, 0, 0.28);
-            border-radius: 2px;
-            color: transparent;
-        }
-        mark.find-match.current {
-            background: rgba(255, 140, 0, 0.55);
-            outline: 1px solid rgba(255,160,0,0.8);
+            border-left: 3px solid transparent;
+            padding-left: 4px;
+            margin-left: -4px;
         }
 
-        /* ── SYNTAX ── */
-        .kw  { color: #569cd6; }
-        .kwex {color: #D8A0DF; }
-        .str { color: #ce9178; }
-        .com { color: #6a9955; }
-        .num { color: #b5cea8; }
+            .output-diag:hover {
+                background: rgba(255,255,255,.05);
+                border-left-color: #555;
+            }
 
-        .lint { color: yellowgreen;   }
+            .output-diag.selected {
+                background: rgba(86,156,214,.15);
+                border-left-color: #569cd6;
+            }
 
-        .diag-error   { color: #ff5555; background: rgba(255,50,50,.15);   border-left: 3px solid #ff5555; padding: 0 6px; border-radius: 2px; font-style: italic; margin-left: 8px; }
-        .diag-warning { color: #f1c40f; background: rgba(241,196,15,.12); border-left: 3px solid #f1c40f; padding: 0 6px; border-radius: 2px; font-style: italic; margin-left: 8px; }
-        .diag-note    { color: #9cdcfe; background: rgba(100,180,255,.10); border-left: 3px solid #9cdcfe; padding: 0 6px; border-radius: 2px; font-style: italic; margin-left: 8px; }
+        .output-line {
+            display: block;
+        }
 
-        .output-diag { display:block; cursor:pointer; border-left:3px solid transparent; padding-left:4px; margin-left:-4px; }
-        .output-diag:hover { background:rgba(255,255,255,.05); border-left-color:#555; }
-        .output-diag.selected { background:rgba(86,156,214,.15); border-left-color:#569cd6; }
-        .output-line { display:block; }
+        /* ── INLINE EDITOR DIAGNOSTICS (Monaco after-line decorations) ── */
+        .diag-inline-error {
+            color: #ff5555;
+            font-style: italic;
+            opacity: 0.85;
+        }
+
+        .diag-inline-warning {
+            color: #f1c40f;
+            font-style: italic;
+            opacity: 0.85;
+        }
+
+        .diag-inline-note {
+            color: #9cdcfe;
+            font-style: italic;
+            opacity: 0.85;
+        }
+
+        /* Syntax highlighting and find handled by Monaco */
     </style>
 </head>
 <body>
 
-<!-- Hidden compat input -->
-<input id="pathInput" type="hidden" value="" />
-<!-- Hidden select for compat with main.js -->
-<select id="fileList" style="display:none" onchange="onFileSelect()">
-    <option value="">-- files --</option>
-</select>
+    <!-- Hidden compat input -->
+    <input id="pathInput" type="hidden" value="" />
+    <!-- Hidden select for compat with main.js -->
+    <select id="fileList" style="display:none" onchange="onFileSelect()">
+        <option value="">-- files --</option>
+    </select>
 
-<!-- Activity Bar -->
-<div id="activity-bar">
-    <button class="activity-btn active" id="btn-explorer" onclick="toggleSidebar()" title="Explorer">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="3" y1="6"  x2="21" y2="6"/>
-            <line x1="3" y1="12" x2="21" y2="12"/>
-            <line x1="3" y1="18" x2="21" y2="18"/>
-        </svg>
-    </button>
-</div>
-
-<!-- Sidebar -->
-<div id="sidebar">
-    <div class="sidebar-header">Explorer<button id="panel-pin-btn" onclick="togglePanelPin()" title="Pin open (prevent auto-close)">
-        <svg id="pin-icon-auto" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Auto-close: sidebar closes on file select">
-            <!-- open lock -->
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-            <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
-        </svg>
-        <svg id="pin-icon-pinned" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Pinned: sidebar stays open" style="display:none">
-            <!-- closed lock -->
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        </svg>
-    </button></div>
-    <div id="file-tree"></div>
-</div>
-
-<!-- Main Area -->
-<div id="main-area">
-
-    <!-- Tab Bar -->
-    <div id="tab-bar">
-        <div id="tabs-list"></div>
-        <div id="action-bar">
-            <button class="icon-btn" id="reloadBtn" onclick="reload()" title="Reload" style="width:auto;padding:0 10px;" disabled>Reload</button>
-            <button class="icon-btn" id="saveBtn" onclick="saveFile()" title="Save (Ctrl+S)" style="width:auto;padding:0 10px;" disabled>Save</button>
-            <button class="icon-btn" id="saveCompileBtn" onclick="compile()" title="Save &amp; Compile (Ctrl+Enter)" style="width:auto;padding:0 10px;">Save &amp; Compile</button>
-            <div class="v-sep"></div>
-            <button class="icon-btn" onclick="diagFirst()" title="First diagnostic (Ctrl+Home)" style="width:auto;padding:0 8px;">First</button>
-            <button class="icon-btn" onclick="diagPrev()"  title="Previous diagnostic (Ctrl+↑ or Shift+F8)" style="width:auto;padding:0 8px;">Prev</button>
-            <span id="diagCounter"></span>
-            <button class="icon-btn" onclick="diagNext()"  title="Next diagnostic (Ctrl+↓ or F8)" style="width:auto;padding:0 8px;">Next</button>
-            <button class="icon-btn" onclick="diagLast()"  title="Last diagnostic (Ctrl+End)" style="width:auto;padding:0 8px;">Last</button>
-        </div>
-        <!-- Find Bar -->
-        <div id="find-bar">
-            <input id="find-input" type="text" placeholder="Find…" autocomplete="off" spellcheck="false"/>
-            <span id="find-count"></span>
-            <button class="find-btn" onclick="findPrev()" title="Previous (Shift+Enter)">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
-            </button>
-            <button class="find-btn" onclick="findNext()" title="Next (Enter)">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <button class="find-btn" onclick="closeFind()" title="Close (Esc)">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-        </div>
+    <!-- Activity Bar -->
+    <div id="activity-bar">
+        <button class="activity-btn active" id="btn-explorer" onclick="toggleSidebar()" title="Explorer">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+        </button>
     </div>
 
-    <!-- Editor + Panel -->
-    <div id="editor-container">
-        <div class="editor-wrap">
-            <div id="gutter"><div id="gutter-inner">1</div></div>
-            <div class="editor-view">
-                <pre id="highlight" class="highlight"></pre>
-                <textarea id="c-editor" spellcheck="false" autocorrect="off" autocomplete="off" autocapitalize="off"></textarea>
-                <div id="scrollbar-proxy"></div>
-                <div id="scrollbar-proxy-x"></div>
+    <!-- Sidebar -->
+    <div id="sidebar">
+        <div class="sidebar-header">
+            Explorer<button id="panel-pin-btn" onclick="togglePanelPin()" title="Pin open (prevent auto-close)">
+                <svg id="pin-icon-auto" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Auto-close: sidebar closes on file select">
+                    <!-- open lock -->
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+                </svg>
+                <svg id="pin-icon-pinned" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Pinned: sidebar stays open" style="display:none">
+                    <!-- closed lock -->
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+            </button>
+        </div>
+        <div id="file-tree"></div>
+    </div>
+
+    <!-- Main Area -->
+    <div id="main-area">
+
+        <!-- Tab Bar -->
+        <div id="tab-bar">
+            <div id="tabs-list"></div>
+            <div id="action-bar">
+                <button class="icon-btn" id="reloadBtn" onclick="reload()" title="Reload" style="width:auto;padding:0 10px;" disabled>Reload</button>
+                <button class="icon-btn" id="saveBtn" onclick="saveFile()" title="Save (Ctrl+S)" style="width:auto;padding:0 10px;" disabled>Save</button>
+                <button class="icon-btn" id="saveCompileBtn" onclick="compile()" title="Save &amp; Compile (Ctrl+Enter)" style="width:auto;padding:0 10px;">Save &amp; Compile</button>
+                <div class="v-sep"></div>
+                <button class="icon-btn" onclick="diagFirst()" title="First diagnostic (Ctrl+Home)" style="width:auto;padding:0 8px;">First</button>
+                <button class="icon-btn" onclick="diagPrev()" title="Previous diagnostic (Ctrl+↑ or Shift+F8)" style="width:auto;padding:0 8px;">Prev</button>
+                <span id="diagCounter"></span>
+                <button class="icon-btn" onclick="diagNext()" title="Next diagnostic (Ctrl+↓ or F8)" style="width:auto;padding:0 8px;">Next</button>
+                <button class="icon-btn" onclick="diagLast()" title="Last diagnostic (Ctrl+End)" style="width:auto;padding:0 8px;">Last</button>
             </div>
         </div>
 
-        <!-- Output Panel -->
-        <div id="panel">
-            <div id="resize-handle"></div>
-            <div id="panel-header">
-                <div class="panel-tab active">
-                    Output
-                    <span id="err-badge"  class="panel-badge"      style="display:none"></span>
-                    <span id="warn-badge" class="panel-badge warn"  style="display:none"></span>
+        <!-- Editor + Panel -->
+        <div id="editor-container">
+            <!-- Monaco Editor -->
+            <div id="monaco-editor"></div>
+
+            <!-- Output Panel -->
+            <div id="panel">
+                <div id="resize-handle"></div>
+                <div id="panel-header">
+                    <div class="panel-tab active">
+                        Output
+                        <span id="err-badge" class="panel-badge" style="display:none"></span>
+                        <span id="warn-badge" class="panel-badge warn" style="display:none"></span>
+                    </div>
+                    <div id="panel-actions">
+                        <button id="panel-toggle-btn" onclick="togglePanel()" title="Collapse / Expand panel">&#9660;</button>
+                        <button class="icon-btn" onclick="document.getElementById('output').innerHTML=''" title="Clear">&#10005;</button>
+                    </div>
                 </div>
-                <div id="panel-actions">
-                    <button id="panel-toggle-btn" onclick="togglePanel()" title="Collapse / Expand panel">&#9660;</button>
-                    <button class="icon-btn" onclick="document.getElementById('output').innerHTML=''" title="Clear">&#10005;</button>
-                </div>
+                <pre id="output"></pre>
             </div>
-            <pre id="output"></pre>
         </div>
     </div>
-</div>
 
-<!-- Status Bar -->
-<div id="status-bar">
-    <div class="status-item">&#9654; IDE</div>
-    <div class="status-item" id="status-file">No file open</div>
-    <span id="status-msg"></span>
-    <div class="status-item right" id="status-cursor">Ln 1, Col 1</div>
-    <div class="status-item">C</div>
-</div>
+    <!-- Status Bar -->
+    <div id="status-bar">
+        <div class="status-item">&#9654; IDE</div>
+        <div class="status-item" id="status-file">No file open</div>
+        <span id="status-msg"></span>
+        <div class="status-item right" id="status-cursor">Ln 1, Col 1</div>
+        <div class="status-item">C</div>
+    </div>
 
-<script src="server.js"></script>
-<script>
-// ── file icon helper ──────────────────────────────────────────
-function getFileIcon(name) {
-    if (name.endsWith('.c'))   return '&#x1F1E8;';
-    if (name.endsWith('.h'))   return '&#x1F4C4;';
-    if (name.endsWith('.cpp')) return '&#x2B21;';
-    if (name.endsWith('.js'))  return '&#x1F7E8;';
-    return '&#x1F4C4;';
-}
+    <script src="./vs/loader.js"></script>
+    <script src="server.js"></script>
+    <script>
+        // ── Monaco bootstrap ──────────────────────────────────────────
+        require.config({ paths: { vs: './vs' } });
+        let _monacoEditor = null;
+        let _monacoReady = false;
+        let _pendingValue = null;
 
+        require(['vs/editor/editor.main'], function ()
+        {
+            _monacoEditor = monaco.editor.create(document.getElementById('monaco-editor'), {
+                value: '',
+                language: 'c',
+                theme: 'vs-dark',
+                fontSize: 13,
+                fontFamily: "'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace",
+                lineHeight: 19.5,
+                minimap: { enabled: true },
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                renderWhitespace: 'none',
+                folding: true,
+                glyphMargin: true,
+                fixedOverflowWidgets: true,
+            });
 
-function updateStatusFile(f) {
-    document.getElementById('status-file').textContent = f || 'No file open';
-}
+            // Apply VS Code dark theme colours that match the existing palette
+            monaco.editor.defineTheme('ide-dark', {
+                base: 'vs-dark',
+                inherit: true,
+                rules: [
+                    { token: 'keyword', foreground: '569cd6' },
+                    { token: 'string', foreground: 'ce9178' },
+                    { token: 'comment', foreground: '6a9955' },
+                    { token: 'number', foreground: 'b5cea8' },
+                    { token: 'type', foreground: '4ec9b0' },
+                    { token: 'identifier', foreground: 'd4d4d4' },
+                ],
+                colors: {
+                    'editor.background': '#1e1e1e',
+                    'editor.foreground': '#d4d4d4',
+                    'editorLineNumber.foreground': '#454545',
+                    'editorLineNumber.activeForeground': '#c6c6c6',
+                    'editor.lineHighlightBackground': '#2a2a2a',
+                    'editorGutter.background': '#1e1e1e',
+                    'editor.selectionBackground': '#264f78',
+                    'editor.inactiveSelectionBackground': '#3a3d41',
+                    'editorCursor.foreground': '#ffffffbb',
+                }
+            });
+            monaco.editor.setTheme('ide-dark');
 
-function updateStatusDiags(msgs) {
-    const errors   = msgs.filter(m => m.level === 'error').length;
-    const warnings = msgs.filter(m => m.level === 'warning').length;
-    const errB  = document.getElementById('err-badge');
-    const warnB = document.getElementById('warn-badge');
-    errB.textContent  = errors;   errB.style.display  = errors   ? '' : 'none';
-    warnB.textContent = warnings; warnB.style.display = warnings ? '' : 'none';
-}
+            _monacoReady = true;
+            if (_pendingValue !== null)
+            {
+                _setEditorValue(_pendingValue);
+                _pendingValue = null;
+            }
+            // Apply any diagnostics that arrived before Monaco was ready
+            if (lastMessages && lastMessages.length) _applyDiagsToMonaco(lastMessages);
 
-// ── cursor position ───────────────────────────────────────────
-const _edEl = document.getElementById('c-editor');
-function _updateCursor() {
-    const pre = _edEl.value.substring(0, _edEl.selectionStart);
-    const lines = pre.split('\n');
-    document.getElementById('status-cursor').textContent =
-        `Ln ${lines.length}, Col ${lines[lines.length-1].length+1}`;
-}
-_edEl.addEventListener('click',  _updateCursor);
-_edEl.addEventListener('keyup',  _updateCursor);
+            // cursor position → status bar
+            _monacoEditor.onDidChangeCursorPosition(e =>
+            {
+                document.getElementById('status-cursor').textContent =
+                    `Ln ${e.position.lineNumber}, Col ${e.position.column}`;
+            });
 
-// ── panel pin & collapse ──────────────────────────────────────
-let _panelPinned = false;
-let _panelCollapsed = false;
-let _panelPinnedHeight = null;
-
-function togglePanelPin() {
-    _panelPinned = !_panelPinned;
-    const btn = document.getElementById('panel-pin-btn');
-    btn.classList.toggle('pinned', _panelPinned);
-    btn.title = _panelPinned ? 'Pinned: sidebar stays open' : 'Auto-close: sidebar closes on file select';
-    document.getElementById('pin-icon-auto').style.display   = _panelPinned ? 'none' : '';
-    document.getElementById('pin-icon-pinned').style.display = _panelPinned ? '' : 'none';
-    // If pinned while collapsed, expand it
-    if (_panelPinned && _panelCollapsed) expandPanel();
-}
-
-function togglePanel() {
-    if (_panelCollapsed) expandPanel();
-    else collapsePanel();
-}
-
-function collapsePanel() {
-    const panel = document.getElementById('panel');
-    _panelPinnedHeight = panel.style.height || null;
-    panel.classList.add('collapsed');
-    _panelCollapsed = true;
-    const btn = document.getElementById('panel-toggle-btn');
-    btn.innerHTML = '&#9650;';
-    btn.title = 'Expand panel';
-}
-
-function expandPanel() {
-    const panel = document.getElementById('panel');
-    panel.classList.remove('collapsed');
-    if (_panelPinnedHeight) {
-        panel.style.flex = 'none';
-        panel.style.height = _panelPinnedHeight;
-    } else {
-        panel.style.flex = '';
-        panel.style.height = '';
-    }
-    _panelCollapsed = false;
-    const btn = document.getElementById('panel-toggle-btn');
-    btn.innerHTML = '&#9660;';
-    btn.title = 'Collapse panel';
-}
-
-// Auto-close the panel after compile unless pinned
-function autoCollapsePanel() {
-    if (!_panelPinned) collapsePanel();
-}
-
-// ── sidebar toggle ────────────────────────────────────────────
-let _sidebarOpen = true;
-function toggleSidebar() {
-    _sidebarOpen = !_sidebarOpen;
-    document.getElementById('sidebar').classList.toggle('collapsed', !_sidebarOpen);
-    document.getElementById('main-area').classList.toggle('sidebar-collapsed', !_sidebarOpen);
-    document.getElementById('btn-explorer').classList.toggle('active', _sidebarOpen);
-}
-
-// ── file tree (called by patched loadFiles in main.js) ────────
-function buildFileTree(files) {
-    const tree = document.getElementById('file-tree');
-    tree.innerHTML = '';
-    files.forEach(f => {
-        const item = document.createElement('div');
-        item.className = 'tree-item';
-        item.dataset.file = f;
-        item.innerHTML = `<span class="file-icon">${getFileIcon(f)}</span>` +
-                         `<span class="file-name">${f}</span>` +
-                         `<span class="dirty-dot"></span>`;
-        item.addEventListener('click', () => {
-            const sel = document.getElementById('fileList');
-            sel.value = f;
-            onFileSelect();
-            if (!_panelPinned) toggleSidebar();
+            // dirty tracking + hide stale inline annotations on any edit
+            _monacoEditor.onDidChangeModelContent(() =>
+            {
+                if (window.currentFile) setTabDirty(window.currentFile, true);
+                if (_diagWidgets.length) _clearDiagWidgets();
+            });
         });
-        tree.appendChild(item);
-    });
-}
 
-// ── called by patched onFileSelect in main.js ─────────────────
-function setActiveTree(file) {
-    document.querySelectorAll('.tree-item').forEach(el =>
-        el.classList.toggle('active', el.dataset.file === file));
-}
+        // Compat shim: server.js reads/writes via document.getElementById('c-editor').value
+        // We intercept those calls by keeping a hidden textarea in sync via property override.
+        (function shimEditorElement()
+        {
+            const fake = document.createElement('textarea');
+            fake.id = 'c-editor';
+            fake.style.display = 'none';
+            document.body.appendChild(fake);
 
-// ── tabs (called by patched onFileSelect in main.js) ──────────
-function ensureTab(file) {
-    const list = document.getElementById('tabs-list');
-    // One file at a time — replace whatever tab is open
-    list.innerHTML = '';
-    const tab = document.createElement('div');
-    tab.className = 'tab active';
-    tab.dataset.tab = file;
-    tab.innerHTML = `<span class="tab-icon">${getFileIcon(file)}</span>` +
-                    `<span class="tab-name">${file}</span>` +
-                    `<span class="tab-dirty"></span>`;
-    list.appendChild(tab);
-}
+            // Override .value getter/setter so server.js reads/writes go through Monaco
+            Object.defineProperty(fake, 'value', {
+                get()
+                {
+                    return _monacoEditor ? _monacoEditor.getValue() : '';
+                },
+                set(v)
+                {
+                    _setEditorValue(v);
+                }
+            });
+        })();
 
-// ── dirty dot on tabs + tree ──────────────────────────────────
-function setTabDirty(file, dirty) {
-    const tab = document.querySelector(`.tab[data-tab="${CSS.escape(file)}"]`);
-    if (tab) tab.classList.toggle('dirty', dirty);
-    const ti = document.querySelector(`.tree-item[data-file="${CSS.escape(file)}"]`);
-    if (ti)  ti.classList.toggle('dirty', dirty);
-}
+        function _setEditorValue(v)
+        {
+            if (!_monacoReady) { _pendingValue = v; return; }
+            _monacoEditor.setValue(v);
+            _monacoEditor.setScrollPosition({ scrollTop: 0, scrollLeft: 0 });
+        }
 
-// mark dirty on every keystroke
-_edEl.addEventListener('input', () => {
-    if (window.currentFile) setTabDirty(window.currentFile, true);
-});
+        // ── Compat stubs server.js calls ─────────────────────────────
+        // updateGutter, scheduleHighlight, updateHighlight — Monaco handles these
+        function updateGutter() { }
+        function scheduleHighlight() { }
+        function updateHighlight() { }
 
-// ── find in file ──────────────────────────────────────────────
-let _findMatches = [];
-let _findCurrent = -1;
-
-function openFind() {
-    const bar = document.getElementById('find-bar');
-    bar.classList.add('visible');
-    const inp = document.getElementById('find-input');
-    inp.focus();
-    inp.select();
-    runFind();
-}
-
-function closeFind() {
-    document.getElementById('find-bar').classList.remove('visible');
-    document.getElementById('find-input').value = '';
-    _findMatches = [];
-    _findCurrent = -1;
-    updateFindCount();
-}
-
-function runFind() {
-    const inp   = document.getElementById('find-input');
-    const query = inp.value;
-    const text  = document.getElementById('c-editor').value;
-
-    _findMatches = [];
-    _findCurrent = -1;
-
-    if (!query) {
-        inp.classList.remove('no-match');
-        updateFindCount();
-        return;
-    }
-
-    // collect all match indices (case-insensitive)
-    const lower = text.toLowerCase();
-    const q     = query.toLowerCase();
-    let idx = 0;
-    while ((idx = lower.indexOf(q, idx)) !== -1) {
-        _findMatches.push(idx);
-        idx += q.length;
-    }
-
-    inp.classList.toggle('no-match', _findMatches.length === 0);
-
-    if (_findMatches.length > 0) {
-        _findCurrent = 0;
-        scrollToMatch();
-    }
-    updateFindCount();
-}
-
-function findNext() {
-    if (!_findMatches.length) return;
-    _findCurrent = (_findCurrent + 1) % _findMatches.length;
-    scrollToMatch();
-    updateFindCount();
-}
-
-function findPrev() {
-    if (!_findMatches.length) return;
-    _findCurrent = (_findCurrent - 1 + _findMatches.length) % _findMatches.length;
-    scrollToMatch();
-    updateFindCount();
-}
-
-function scrollToMatch() {
-    if (_findCurrent < 0 || !_findMatches.length) return;
-    const ed  = document.getElementById('c-editor');
-    const pos = _findMatches[_findCurrent];
-    const len = document.getElementById('find-input').value.length;
-    ed.focus();
-    ed.setSelectionRange(pos, pos + len);
-
-    // Scroll the textarea so the match is visible
-    const linesBefore = ed.value.substring(0, pos).split('\n').length - 1;
-    const lineHeight  = parseInt(getComputedStyle(ed).lineHeight) || 19;
-    const scrollTo    = linesBefore * lineHeight - ed.clientHeight / 2;
-    ed.scrollTop = Math.max(0, scrollTo);
-}
-
-function updateFindCount() {
-    const el = document.getElementById('find-count');
-    if (!_findMatches.length) {
-        el.textContent = document.getElementById('find-input').value ? 'No results' : '';
-    } else {
-        el.textContent = `${_findCurrent + 1} / ${_findMatches.length}`;
-    }
-}
-
-// Keyboard shortcut: Ctrl+F to open, Esc to close, Enter/Shift+Enter to navigate
-document.addEventListener('keydown', e => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-        e.preventDefault();
-        openFind();
-        return;
-    }
-    const bar = document.getElementById('find-bar');
-    if (!bar.classList.contains('visible')) return;
-    if (e.key === 'Escape') { closeFind(); return; }
-    if (e.key === 'Enter' && document.activeElement === document.getElementById('find-input')) {
-        e.preventDefault();
-        e.shiftKey ? findPrev() : findNext();
-    }
-});
-
-document.getElementById('find-input').addEventListener('input', () => {
-    const inp   = document.getElementById('find-input');
-    const query = inp.value;
-    const text  = document.getElementById('c-editor').value;
-    _findMatches = [];
-    _findCurrent = -1;
-    if (!query) { inp.classList.remove('no-match'); updateFindCount(); return; }
-    const lower = text.toLowerCase(), q = query.toLowerCase();
-    let idx = 0;
-    while ((idx = lower.indexOf(q, idx)) !== -1) { _findMatches.push(idx); idx += q.length; }
-    inp.classList.toggle('no-match', _findMatches.length === 0);
-    if (_findMatches.length) _findCurrent = 0;
-    updateFindCount();
-    // do NOT call scrollToMatch — wait for Enter
-});
-
-
-(function() {
-    const handle = document.getElementById('resize-handle');
-    const panel  = document.getElementById('panel');
-    if (!handle || !panel) return;
-    handle.addEventListener('mousedown', e => {
-        e.preventDefault();
-        const startY = e.clientY, startH = panel.offsetHeight;
-        const onMove = e => {
-            panel.style.flex = 'none';
-            panel.style.height = Math.max(50, startH + startY - e.clientY) + 'px';
+        // highlight.innerHTML used after compile to show diag annotations in the old code
+        // We replicate that via Monaco markers instead
+        const highlight = {
+            get innerHTML() { return ''; },
+            set innerHTML(v)
+            {
+                // parse diag spans from the HTML and push as Monaco markers
+                _applyDiagsToMonaco(lastMessages);
+            },
+            scrollTop: 0,
+            scrollLeft: 0,
+            scrollHeight: 0,
+            scrollWidth: 0,
+            offsetWidth: 0,
+            clientWidth: 0,
+            clientHeight: 0,
+            addEventListener() { }
         };
-        const onUp = () => {
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
-        };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-    });
-})();
 
-</script>
+        // gutterInner shim (server.js references it)
+        const gutterInner = { style: { transform: '' }, textContent: '' };
+
+        // editor shim (server.js uses `editor` as a direct reference)
+        const editor = document.getElementById('c-editor'); // the shim textarea
+
+        function _applyDiagsToMonaco(messages)
+        {
+            if (!_monacoReady) return;
+            const model = _monacoEditor.getModel();
+            if (!model) return;
+
+            // 1. Squiggles + gutter icons via markers
+            const markers = messages.map(m => ({
+                severity: m.severity === 'error' ? monaco.MarkerSeverity.Error
+                    : m.severity === 'warning' ? monaco.MarkerSeverity.Warning
+                        : monaco.MarkerSeverity.Info,
+                message: m.text,
+                startLineNumber: m.line,
+                startColumn: 1,
+                endLineNumber: m.line,
+                endColumn: model.getLineMaxColumn(m.line) || 1,
+            }));
+            monaco.editor.setModelMarkers(model, 'cake', markers);
+
+            // 2. Inline end-of-line text via content widgets (one per diagnostic)
+            _clearDiagWidgets();
+            messages.forEach((m, i) =>
+            {
+                const isError = m.severity === 'error';
+                const isWarning = m.severity === 'warning';
+                const color = isError ? '#ff5555' : isWarning ? '#f1c40f' : '#9cdcfe';
+                const icon = isError ? '✖' : isWarning ? '⚠' : '●';
+
+                const domNode = document.createElement('div');
+                domNode.style.cssText = `color:${color};font-style:italic;opacity:0.85;pointer-events:none;white-space:pre;font-size:13px;font-family:'Cascadia Code','JetBrains Mono','Fira Code',monospace;`;
+                domNode.textContent = `  ${icon} ${m.text}`;
+
+                const widget = {
+                    getId: () => `diag.${i}`,
+                    getDomNode: () => domNode,
+                    getPosition: () => ({
+                        position: { lineNumber: m.line, column: model.getLineMaxColumn(m.line) },
+                        preference: [monaco.editor.ContentWidgetPositionPreference.EXACT],
+                    })
+                };
+                _monacoEditor.addContentWidget(widget);
+                _diagWidgets.push(widget);
+            });
+        }
+
+        let _diagWidgets = [];
+        function _clearDiagWidgets()
+        {
+            _diagWidgets.forEach(w => _monacoEditor.removeContentWidget(w));
+            _diagWidgets = [];
+        }
+
+        // Hook setDiagMessages so markers update whenever diags arrive
+        const _origSetDiag = window.setDiagMessages || function () { };
+        window.setDiagMessages = function (messages)
+        {
+            _origSetDiag(messages);
+            _applyDiagsToMonaco(messages);
+        };
+
+        // isDirty — keep in sync; server.js writes to this global directly
+        let _isDirty = false;
+        Object.defineProperty(window, 'isDirty', {
+            get() { return _isDirty; },
+            set(v)
+            {
+                _isDirty = v;
+                if (v && _monacoReady)
+                {
+                    _clearDiagWidgets();
+                } else if (!v && _monacoReady)
+                {
+                    _applyDiagsToMonaco(lastMessages || []);
+                }
+            }
+        });
+
+        // ── file icon helper ──────────────────────────────────────────
+        function getFileIcon(name)
+        {
+            if (name.endsWith('.c')) return '&#x1F1E8;';
+            if (name.endsWith('.h')) return '&#x1F4C4;';
+            if (name.endsWith('.cpp')) return '&#x2B21;';
+            if (name.endsWith('.js')) return '&#x1F7E8;';
+            return '&#x1F4C4;';
+        }
+
+        function updateStatusFile(f)
+        {
+            document.getElementById('status-file').textContent = f || 'No file open';
+        }
+
+        function updateStatusDiags(msgs)
+        {
+            const errors = msgs.filter(m => m.severity === 'error').length;
+            const warnings = msgs.filter(m => m.severity === 'warning').length;
+            const errB = document.getElementById('err-badge');
+            const warnB = document.getElementById('warn-badge');
+            errB.textContent = errors; errB.style.display = errors ? '' : 'none';
+            warnB.textContent = warnings; warnB.style.display = warnings ? '' : 'none';
+        }
+
+        // ── panel pin & collapse ──────────────────────────────────────
+        let _panelPinned = false;
+        let _panelCollapsed = false;
+        let _panelPinnedHeight = null;
+
+        function togglePanelPin()
+        {
+            _panelPinned = !_panelPinned;
+            const btn = document.getElementById('panel-pin-btn');
+            btn.classList.toggle('pinned', _panelPinned);
+            btn.title = _panelPinned ? 'Pinned: sidebar stays open' : 'Auto-close: sidebar closes on file select';
+            document.getElementById('pin-icon-auto').style.display = _panelPinned ? 'none' : '';
+            document.getElementById('pin-icon-pinned').style.display = _panelPinned ? '' : 'none';
+            // If pinned while collapsed, expand it
+            if (_panelPinned && _panelCollapsed) expandPanel();
+        }
+
+        function togglePanel()
+        {
+            if (_panelCollapsed) expandPanel();
+            else collapsePanel();
+        }
+
+        function collapsePanel()
+        {
+            const panel = document.getElementById('panel');
+            _panelPinnedHeight = panel.style.height || null;
+            panel.classList.add('collapsed');
+            _panelCollapsed = true;
+            const btn = document.getElementById('panel-toggle-btn');
+            btn.innerHTML = '&#9650;';
+            btn.title = 'Expand panel';
+            if (_monacoEditor) _monacoEditor.layout();
+        }
+
+        function expandPanel()
+        {
+            const panel = document.getElementById('panel');
+            panel.classList.remove('collapsed');
+            if (_panelPinnedHeight)
+            {
+                panel.style.flex = 'none';
+                panel.style.height = _panelPinnedHeight;
+            } else
+            {
+                panel.style.flex = '';
+                panel.style.height = '';
+            }
+            _panelCollapsed = false;
+            const btn = document.getElementById('panel-toggle-btn');
+            btn.innerHTML = '&#9660;';
+            btn.title = 'Collapse panel';
+            if (_monacoEditor) _monacoEditor.layout();
+        }
+
+        // Auto-close the panel after compile unless pinned
+        function autoCollapsePanel()
+        {
+            if (!_panelPinned) collapsePanel();
+        }
+
+        // ── sidebar toggle ────────────────────────────────────────────
+        let _sidebarOpen = true;
+        function toggleSidebar()
+        {
+            _sidebarOpen = !_sidebarOpen;
+            document.getElementById('sidebar').classList.toggle('collapsed', !_sidebarOpen);
+            document.getElementById('main-area').classList.toggle('sidebar-collapsed', !_sidebarOpen);
+            document.getElementById('btn-explorer').classList.toggle('active', _sidebarOpen);
+        }
+
+        // ── file tree (called by patched loadFiles in main.js) ────────
+        function buildFileTree(files)
+        {
+            const tree = document.getElementById('file-tree');
+            tree.innerHTML = '';
+            files.forEach(f =>
+            {
+                const item = document.createElement('div');
+                item.className = 'tree-item';
+                item.dataset.file = f;
+                item.innerHTML = `<span class="file-icon">${getFileIcon(f)}</span>` +
+                    `<span class="file-name">${f}</span>` +
+                    `<span class="dirty-dot"></span>`;
+                item.addEventListener('click', () =>
+                {
+                    const sel = document.getElementById('fileList');
+                    sel.value = f;
+                    onFileSelect();
+                    if (!_panelPinned) toggleSidebar();
+                });
+                tree.appendChild(item);
+            });
+        }
+
+        // ── called by patched onFileSelect in main.js ─────────────────
+        function setActiveTree(file)
+        {
+            document.querySelectorAll('.tree-item').forEach(el =>
+                el.classList.toggle('active', el.dataset.file === file));
+        }
+
+        // ── tabs (called by patched onFileSelect in main.js) ──────────
+        function ensureTab(file)
+        {
+            const list = document.getElementById('tabs-list');
+            // One file at a time — replace whatever tab is open
+            list.innerHTML = '';
+            const tab = document.createElement('div');
+            tab.className = 'tab active';
+            tab.dataset.tab = file;
+            tab.innerHTML = `<span class="tab-icon">${getFileIcon(file)}</span>` +
+                `<span class="tab-name">${file}</span>` +
+                `<span class="tab-dirty"></span>`;
+            list.appendChild(tab);
+        }
+
+        // ── dirty dot on tabs + tree ──────────────────────────────────
+        function setTabDirty(file, dirty)
+        {
+            const tab = document.querySelector(`.tab[data-tab="${CSS.escape(file)}"]`);
+            if (tab) tab.classList.toggle('dirty', dirty);
+            const ti = document.querySelector(`.tree-item[data-file="${CSS.escape(file)}"]`);
+            if (ti) ti.classList.toggle('dirty', dirty);
+        }
+
+        // ── find — delegate fully to Monaco's built-in Ctrl+F widget ──
+        function openFind()
+        {
+            if (_monacoEditor) _monacoEditor.getAction('actions.find').run();
+        }
+        function closeFind()
+        {
+            if (_monacoEditor) _monacoEditor.focus();
+        }
+        function findNext()
+        {
+            if (_monacoEditor) _monacoEditor.getAction('editor.action.nextMatchFindAction')?.run();
+        }
+        function findPrev()
+        {
+            if (_monacoEditor) _monacoEditor.getAction('editor.action.previousMatchFindAction')?.run();
+        }
+
+        // Ctrl+F → Monaco find (Monaco intercepts it when focused; this catches edge cases)
+        document.addEventListener('keydown', e =>
+        {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f')
+            {
+                e.preventDefault();
+                openFind();
+            }
+        });
+
+        // ── jumpToLine — override server.js with Monaco ───────────────
+        function jumpToLine(lineNumber)
+        {
+            if (!_monacoEditor) return;
+            _monacoEditor.revealLineInCenter(lineNumber);
+            _monacoEditor.setPosition({ lineNumber, column: 1 });
+            _monacoEditor.focus();
+        }
+
+        (function ()
+        {
+            const handle = document.getElementById('resize-handle');
+            const panel = document.getElementById('panel');
+            if (!handle || !panel) return;
+            handle.addEventListener('mousedown', e =>
+            {
+                e.preventDefault();
+                const startY = e.clientY, startH = panel.offsetHeight;
+                const onMove = e =>
+                {
+                    panel.style.flex = 'none';
+                    panel.style.height = Math.max(50, startH + startY - e.clientY) + 'px';
+                    if (_monacoEditor) _monacoEditor.layout();
+                };
+                const onUp = () =>
+                {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+        })();
+
+    </script>
 </body>

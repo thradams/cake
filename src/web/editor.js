@@ -305,7 +305,8 @@ function OnLoad()
         base: "vs",  // or "vs" for light
         inherit: true,    // inherit existing rules
         rules: [
-            { token: "keyword.special", foreground: "008000" },   // your special keywords            
+            { token: "keyword.special", foreground: "008000" },   // your special keywords    
+            { token: "comment.lint", foreground: "FFAA00", fontStyle: "bold" }
         ],
         colors: {
         }
