@@ -867,37 +867,73 @@
             }));
             monaco.editor.setModelMarkers(model, 'cake', markers);
 
-            // 2. Inline end-of-line text via content widgets (one per diagnostic)
+            // 2. Inline end-of-line hints via afterContentClassName decorations +
+            //    a dynamic <style> tag that encodes the text into CSS ::after { content }.
+            //    This approach works on all Monaco versions and scrolls with the editor
+            //    because decorations are part of the line layout (unlike content widgets
+            //    which are hoisted to the body by fixedOverflowWidgets:true).
             _clearDiagWidgets();
-            messages.forEach((m, i) =>
+
+            // Group diagnostics by line number, preserving insertion order
+            const byLine = new Map();
+            messages.forEach(m =>
             {
-                const isError = m.severity === 'error';
-                const isWarning = m.severity === 'warning';
-                const color = isError ? '#ff5555' : isWarning ? '#f1c40f' : '#9cdcfe';
-                const icon = isError ? '✖' : isWarning ? '⚠' : '●';
-
-                const domNode = document.createElement('div');
-                domNode.style.cssText = `color:${color};font-style:italic;opacity:0.85;pointer-events:none;white-space:pre;font-size:13px;font-family:'Cascadia Code','JetBrains Mono','Fira Code',monospace;`;
-                domNode.textContent = `  ${icon} ${m.text}`;
-
-                const widget = {
-                    getId: () => `diag.${i}`,
-                    getDomNode: () => domNode,
-                    getPosition: () => ({
-                        position: { lineNumber: m.line, column: model.getLineMaxColumn(m.line) },
-                        preference: [monaco.editor.ContentWidgetPositionPreference.EXACT],
-                    })
-                };
-                _monacoEditor.addContentWidget(widget);
-                _diagWidgets.push(widget);
+                if (!byLine.has(m.line)) byLine.set(m.line, []);
+                byLine.get(m.line).push(m);
             });
+
+            const decorations = [];
+            const cssRules = [];
+
+            byLine.forEach((diags, lineNumber) =>
+            {
+                // Build one label per line: "  ⚠ msg1  ╎  ✖ msg2"
+                const label = diags.map((m, j) =>
+                {
+                    const icon = m.severity === 'error' ? '\u2716' : m.severity === 'warning' ? '\u26a0' : '\u25cf';
+                    return (j === 0 ? `  ${icon} ` : `  \u254e  ${icon} `) + m.text;
+                }).join('');
+
+                const hasError = diags.some(m => m.severity === 'error');
+                const hasWarn = diags.some(m => m.severity === 'warning');
+                const color = hasError ? '#ff5555' : hasWarn ? '#f1c40f' : '#9cdcfe';
+
+                // Unique class per line so each ::after carries its own text
+                const cls = `diag-hint-${lineNumber}`;
+
+                // Escape the label for CSS string: backslash and double-quote only
+                const cssText = label.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+                cssRules.push(`.${cls}::after { content: "${cssText}"; color: ${color}; font-style: italic; opacity: 0.85; white-space: pre; }`);
+
+                const col = model.getLineMaxColumn(lineNumber);
+                decorations.push({
+                    range: new monaco.Range(lineNumber, col, lineNumber, col),
+                    options: { afterContentClassName: cls }
+                });
+            });
+
+            // Inject CSS
+            _diagStyleEl.textContent = cssRules.join('\n');
+
+            // Apply decorations (deltaDecorations works on all Monaco versions)
+            _diagWidgets = _monacoEditor.deltaDecorations([], decorations);
         }
 
+        // _diagWidgets: array of decoration IDs from deltaDecorations
         let _diagWidgets = [];
+        // Persistent <style> element for ::after CSS rules
+        const _diagStyleEl = document.createElement('style');
+        _diagStyleEl.id = 'diag-hint-styles';
+        document.head.appendChild(_diagStyleEl);
+
         function _clearDiagWidgets()
         {
-            _diagWidgets.forEach(w => _monacoEditor.removeContentWidget(w));
-            _diagWidgets = [];
+            if (_diagWidgets.length)
+            {
+                _monacoEditor.deltaDecorations(_diagWidgets, []);
+                _diagWidgets = [];
+            }
+            _diagStyleEl.textContent = '';
         }
 
         // Hook setDiagMessages so markers update whenever diags arrive
