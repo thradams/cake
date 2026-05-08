@@ -548,11 +548,11 @@ or disabled with <code>-wd0123</code>.</p>
 We can make a warning to be a note or error using pragma.</p>
 
 <pre><code class="language-c">#pragma CAKE diagnostic push
-#pragma CAKE diagnostic error &quot;C0004&quot;
+#pragma CAKE diagnostic error 4
     
 
     /*
-      c04 is not reported as error
+      4 is not reported as error
       code..
     
     */

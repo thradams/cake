@@ -6,7 +6,7 @@
     <LocalDebuggerWorkingDirectory>$(ProjectDir)../src/</LocalDebuggerWorkingDirectory>
     <LocalDebuggerCommand>
     </LocalDebuggerCommand>
-    <LocalDebuggerCommandArgumentsHistory>compile.c|parser.c|token.c|C:\Users\thiago\source\repos\cake_private\tests\en-cpp-reference-c\cCode339.c|file.c|</LocalDebuggerCommandArgumentsHistory>
+    <LocalDebuggerCommandArgumentsHistory>compile.c|token.c|C:\Users\thiago\source\repos\cake_private\tests\en-cpp-reference-c\cCode339.c|parser.c|file.c|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugTest|Win32'">
     <LocalDebuggerCommandArguments>-selftest</LocalDebuggerCommandArguments>

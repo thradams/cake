@@ -8,11 +8,11 @@ We can make a warning to be a note or error using pragma.
 
 ```c
 #pragma CAKE diagnostic push
-#pragma CAKE diagnostic error "C0004"
+#pragma CAKE diagnostic error 4
     
 
     /*
-      c04 is not reported as error
+      4 is not reported as error
       code..
     
     */

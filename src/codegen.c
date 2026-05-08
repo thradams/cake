@@ -130,53 +130,66 @@ int generate_file_scope_new_name(struct codegen_ctx* ctx, const char* current_na
 
 int rename_file_scope_declarator_if_necessary(struct codegen_ctx* ctx, struct init_declarator* p_init_declarator)
 {
-    char new_name[200] = {0};
-    const char* current_name = p_init_declarator->p_declarator->name_opt->lexeme;
-    struct map_entry* _Opt it =
-        hashmap_find(&ctx->p_ast->file_scope.variables, current_name);
-    while (it)
+    try
     {
-        if (strcmp(current_name, it->key) == 0)
+        if (p_init_declarator->p_declarator->name_opt == NULL) throw;
+
+        char new_name[200] = { 0 };
+        const char* current_name = p_init_declarator->p_declarator->name_opt->lexeme;
+        struct map_entry* _Opt it =
+            hashmap_find(&ctx->p_ast->file_scope.variables, current_name);
+        while (it)
         {
-            for (int i = 2; i < 1000000; )
+            if (strcmp(current_name, it->key) == 0)
             {
-                snprintf(new_name, sizeof(new_name), "%s%d", current_name, i);
-                struct map_entry* _Opt it2 = hashmap_find(&ctx->p_ast->file_scope.variables, new_name);
-                if (it2 == NULL)
+                for (int i = 2; i < 1000000; )
                 {
-                    struct hash_item_set item = { 0 };
-                    item.p_init_declarator = init_declarator_add_ref(p_init_declarator);
-                    hashmap_set(&ctx->p_ast->file_scope.variables, new_name, &item);
-                    hash_item_set_destroy(&item);
+                    snprintf(new_name, sizeof(new_name), "%s%d", current_name, i);
+                    struct map_entry* _Opt it2 = hashmap_find(&ctx->p_ast->file_scope.variables, new_name);
+                    if (it2 == NULL)
+                    {
+                        struct hash_item_set item = { 0 };
+                        item.p_init_declarator = init_declarator_add_ref(p_init_declarator);
+                        hashmap_set(&ctx->p_ast->file_scope.variables, new_name, &item);
+                        hash_item_set_destroy(&item);
 
-                    p_init_declarator->p_declarator->declarator_renamed = true;
-                    free(p_init_declarator->p_declarator->name_opt->lexeme);
-                    p_init_declarator->p_declarator->name_opt->lexeme = strdup(new_name);
-                    return 1;
+                        p_init_declarator->p_declarator->declarator_renamed = true;
+                        if (p_init_declarator->p_declarator->name_opt)
+                        {
+                            free(p_init_declarator->p_declarator->name_opt->lexeme);
+                            char* _Opt _Owner temp = strdup(new_name);
+                            if (temp == NULL) throw;
+                            p_init_declarator->p_declarator->name_opt->lexeme = temp;
+                        }
+                        return 1;
+                    }
+
+                    if (i > 10000)
+                        i += 1000;
+                    else if (i > 1000)
+                        i += 100;
+                    else if (i > 100)
+                        i += 10;
+                    else
+                        i++;
                 }
-
-                if (i > 10000)
-                    i += 1000;
-                else if (i > 1000)
-                    i += 100;
-                else if (i > 100)
-                    i += 10;
-                else
-                    i++;
+                assert(false);
             }
-            assert(false);
+            it = it->next;
         }
-        it = it->next;
+
+
+        struct hash_item_set item = { 0 };
+        item.p_init_declarator = init_declarator_add_ref(p_init_declarator);
+        hashmap_set(&ctx->p_ast->file_scope.variables, current_name, &item);
+        hash_item_set_destroy(&item);
+
+        p_init_declarator->p_declarator->declarator_renamed = true;
     }
+    catch
+    {
 
-
-    struct hash_item_set item = { 0 };
-    item.p_init_declarator = init_declarator_add_ref(p_init_declarator);
-    hashmap_set(&ctx->p_ast->file_scope.variables, current_name, &item);
-    hash_item_set_destroy(&item);
-
-    p_init_declarator->p_declarator->declarator_renamed = true;
-
+    }
     return 1;
 }
 
@@ -734,6 +747,8 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
     if (p_expression->expression_type == CHECKED_EXPRESSION)
     {
 
+        assert(p_expression->left);
+
         struct osstream add_this_before = { 0 };
 
         char name[100] = { 0 };
@@ -1049,6 +1064,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         ss_clear(&local);
 
+        assert(p_expression->compound_statement);
         //we need to change the last statment
         codegen_visit_compound_statement_2(name, ctx, &local, p_expression->compound_statement);
 
@@ -1065,6 +1081,10 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         {
             codegen_visit_expression(ctx, oss, p_expression->generic_selection->p_view_selected_expression);
         }
+        break;
+
+    case UNARY_EXPRESSION_STATIC_ASSERTION:
+        ss_fprintf(oss, "(void)0");
         break;
 
     case UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF:
@@ -1236,7 +1256,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                     ss_fprintf(&offset_flat, ")");
                 }
 
-
+                assert(expr->left);
                 struct type* _Opt p_type = expr->left->type.next;
                 while (p_type && type_is_array(p_type))
                 {
@@ -1348,8 +1368,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         assert(function_literal_nameless.c_str);
         // if (function_literal.c_str == NULL) throw;
-
-        struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_function_literals, function_literal.c_str);
+        struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_function_literals, function_literal.c_str); //lint 35 TODO throw
         if (l != NULL)
         {
             snprintf(new_name, sizeof(new_name), "%s", l->data.p_text);
@@ -1359,7 +1378,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
             generate_file_scope_new_name(ctx, LITERAL_FUNCTION_BASE_NAME, _Countof(new_name), new_name);
             struct hash_item_set i = { 0 };
             i.text = strdup(new_name);
-            hashmap_set(&ctx->instantiated_function_literals, function_literal.c_str, &i);
+            hashmap_set(&ctx->instantiated_function_literals, function_literal.c_str, &i); //lint 35 TODO throw
             hash_item_set_destroy(&i);
             struct osstream lambda_sig = { 0 };
             d_print_type(ctx, &lambda_sig, &p_expression->type, new_name, false);
@@ -1449,11 +1468,11 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         {
             vm_emit_snapshot_decls(ctx, &ctx->add_this_before, &p_expression->type_name->type);
             ss_fprintf(oss, "(");
-                vm_emit_sizeof_expr(ctx, oss, &p_expression->type_name->type);
+            vm_emit_sizeof_expr(ctx, oss, &p_expression->type_name->type);
             ss_fprintf(oss, ")");
         }
         else
-        {   
+        {
             object_print_value(oss, &p_expression->object, ctx->options.target);
         }
         break;
@@ -1622,7 +1641,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         assert(p_expression->left != NULL);
 
         struct osstream local2 = { 0 };
-        
+
         if (type_is_vm(&p_expression->type))
         {
             vm_emit_snapshot_decls(ctx, &ctx->add_this_before, &p_expression->type);
@@ -2032,7 +2051,7 @@ static void codegen_visit_secondary_block(struct codegen_ctx* ctx, struct osstre
 {
     if (p_secondary_block->statement &&
         p_secondary_block->statement->unlabeled_statement &&
-        p_secondary_block->statement->unlabeled_statement->defer_statement)
+        p_secondary_block->statement->unlabeled_statement->defer_statement) //lint 28
     {
         /*
            When defer is the only statement of the secondary block
@@ -2065,6 +2084,8 @@ static void codegen_visit_iteration_statement(struct codegen_ctx* ctx, struct os
     }
     else if (p_iteration_statement->first_token->type == TK_KEYWORD_DO)
     {
+        assert(p_iteration_statement->expression1);
+
         ss_fprintf(oss, "do\n");
 
         codegen_visit_secondary_block(ctx, oss, p_iteration_statement->secondary_block);
@@ -2140,7 +2161,7 @@ static void codegen_visit_iteration_statement(struct codegen_ctx* ctx, struct os
             p_iteration_statement->secondary_block->statement &&
             p_iteration_statement->secondary_block->statement->unlabeled_statement &&
             p_iteration_statement->secondary_block->statement->unlabeled_statement->primary_block &&
-            p_iteration_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement)
+            p_iteration_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement) //lint 28 28
         {
             is_compound_statement = true;
         }
@@ -2194,6 +2215,7 @@ static void codegen_visit_condition(struct codegen_ctx* ctx, struct osstream* os
 {
     if (p_condition->p_init_declarator)
     {
+        assert(p_condition->p_init_declarator->p_declarator->declaration_specifiers);
         enum storage_class_specifier_flags storage_class_specifier_flags =
             p_condition->p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags;
 
@@ -2351,6 +2373,7 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
 
                 struct osstream local2 = { 0 };
 
+                assert(p_selection_statement->condition->p_init_declarator->p_declarator->declaration_specifiers);
                 enum storage_class_specifier_flags storage_class_specifier_flags =
                     p_selection_statement->condition->p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags;
 
@@ -2460,6 +2483,7 @@ static void codegen_visit_try_statement(struct codegen_ctx* ctx, struct osstream
         }
         else if (p_try_statement->catch_token_opt->type == TK_KEYWORD_MSVC__EXCEPT)
         {
+            assert(p_try_statement->msvc_except_expression);
             ss_fprintf(oss, "__except(");
             codegen_visit_expression(ctx, oss, p_try_statement->msvc_except_expression);
             ss_fprintf(oss, ")\n");
@@ -2515,27 +2539,27 @@ static void codegen_visit_unlabeled_statement(struct codegen_ctx* ctx, struct os
     if (p_unlabeled_statement->primary_block)
     {
 
-            struct token* _Opt tk = NULL;
-            if (p_unlabeled_statement->primary_block->compound_statement)
-                tk = p_unlabeled_statement->primary_block->compound_statement->first_token;
-            else if (p_unlabeled_statement->primary_block->iteration_statement)
-                tk = p_unlabeled_statement->primary_block->iteration_statement->first_token;
-            else if (p_unlabeled_statement->primary_block->selection_statement)
-                tk = p_unlabeled_statement->primary_block->selection_statement->first_token;
-            else if (p_unlabeled_statement->primary_block->try_statement)
-                tk = p_unlabeled_statement->primary_block->try_statement->first_token;
+        struct token* _Opt tk = NULL;
+        if (p_unlabeled_statement->primary_block->compound_statement)
+            tk = p_unlabeled_statement->primary_block->compound_statement->first_token;
+        else if (p_unlabeled_statement->primary_block->iteration_statement)
+            tk = p_unlabeled_statement->primary_block->iteration_statement->first_token;
+        else if (p_unlabeled_statement->primary_block->selection_statement)
+            tk = p_unlabeled_statement->primary_block->selection_statement->first_token;
+        else if (p_unlabeled_statement->primary_block->try_statement)
+            tk = p_unlabeled_statement->primary_block->try_statement->first_token;
 
-            if (tk)
-            {
-                emit_line_directive(ctx, oss, tk);
-            }
+        if (tk)
+        {
+            emit_line_directive(ctx, oss, tk);
+        }
 
         codegen_visit_primary_block(ctx, oss, p_unlabeled_statement->primary_block);
     }
     else if (p_unlabeled_statement->expression_statement)
     {
         if (p_unlabeled_statement->expression_statement->expression_opt &&
-            p_unlabeled_statement->expression_statement->expression_opt->first_token)
+            p_unlabeled_statement->expression_statement->expression_opt->first_token) //lint 28
         {
             emit_line_directive(ctx, oss, p_unlabeled_statement->expression_statement->expression_opt->first_token);
         }
@@ -2817,7 +2841,7 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
     }
     ss_swap(&bk, &ctx->block_scope_declarators);
 
-
+    assert(function_definition->function_body);
     codegen_visit_compound_statement(ctx, oss, function_definition->function_body, &bk, &snaps);
     ss_close(&bk);
     ss_close(&snaps);
@@ -3041,7 +3065,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                         }
                         else
                         {
-                            if (p_struct_entry0 && p_struct_entry0 != p->data.p_struct_entry)
+                            if (p_struct_entry0 && p->data.p_struct_entry && p_struct_entry0 != p->data.p_struct_entry)
                             {
                                 struct_entry_list_push_back(&p_struct_entry0->soft_dependencies, p->data.p_struct_entry);
                             }
@@ -3517,10 +3541,10 @@ static void assign_each_member_from_constexpr(
              * For unions, C89 only allows initializing the first member.
              * Use the first member of source as well.
              */
-            struct object* _Opt dest_member = object->members.head;
+            struct object* dest_member = object->members.head;
             struct object* _Opt source_member = source->members.head;
 
-            if (dest_member && source_member)
+            if (source_member)
             {
                 assign_each_member_from_constexpr(
                     ctx, ss, dest_member, source_member, first);
@@ -3782,12 +3806,16 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                 {
                     if (object->p_init_expression->lvalue_disabled)
                     {
+                        const char* name =
+                            object->p_init_expression->declarator->name_opt ?
+                            object->p_init_expression->declarator->name_opt->lexeme : "";
+
                         object_print_source_object_non_constant_initialization(ctx,
                             ss,
                             object,
                             &object->p_init_expression->declarator->object,
                             declarator_name,
-                            object->p_init_expression->declarator->name_opt->lexeme);
+                            name);
                     }
                     else
                     {
@@ -4084,9 +4112,12 @@ static void print_initializer(struct codegen_ctx* ctx,
                     {
                         if (is_local && !bstatic)
                         {
+                            const char* name = p_init_declarator->p_declarator->name_opt ?
+                                p_init_declarator->p_declarator->name_opt->lexeme : "";
+
                             emmit_clear_declarator(ctx,
                                 oss,
-                                p_init_declarator->p_declarator->name_opt->lexeme,
+                                name,
                                 &p_init_declarator->p_declarator->type
                             );
 
@@ -4119,7 +4150,11 @@ static void print_initializer(struct codegen_ctx* ctx,
                         }
                         else
                         {
-                            assign_each_member_from_initialization(ctx, oss, &p_init_declarator->p_declarator->object, p_init_declarator->p_declarator->name_opt->lexeme, true, true);
+                            const char* name =
+                                p_init_declarator->p_declarator->name_opt ?
+                                p_init_declarator->p_declarator->name_opt->lexeme : "";
+
+                            assign_each_member_from_initialization(ctx, oss, &p_init_declarator->p_declarator->object, name, true, true);
                         }
                     }
                 }
@@ -4128,10 +4163,13 @@ static void print_initializer(struct codegen_ctx* ctx,
                     if (is_local && !bstatic)
                     {
                         //memset()
+                        const char* name =
+                            p_init_declarator->p_declarator->name_opt ?
+                            p_init_declarator->p_declarator->name_opt->lexeme : "";
 
                         emmit_clear_declarator(ctx,
                                 oss,
-                                p_init_declarator->p_declarator->name_opt->lexeme,
+                                name,
                                 &p_init_declarator->p_declarator->type
                         );
                         //assign_each_member_to_zero(ctx,
@@ -4261,17 +4299,15 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
 
     if (!is_extern && !is_block_scope && !is_inline && !is_static && !is_function && !is_function_body)
     {
+        const char* name = p_init_declarator->p_declarator->name_opt ?
+            p_init_declarator->p_declarator->name_opt->lexeme : "";
 
         struct hash_item_set i = { 0 };
         i.number = 1;
-        hashmap_set(&ctx->file_scope_declarator_map, p_init_declarator->p_declarator->name_opt->lexeme, &i);
+        hashmap_set(&ctx->file_scope_declarator_map, name, &i);
 
         struct osstream ss = { 0 };
-        d_print_type(ctx, &ss,
-           &p_init_declarator->p_declarator->type,
-           p_init_declarator->p_declarator->name_opt->lexeme,
-           true
-        );
+        d_print_type(ctx, &ss, &p_init_declarator->p_declarator->type, name, true);
 
         ss_fprintf(oss0, "%s", ss.c_str);
 
@@ -4289,7 +4325,10 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
     }
     else if (!is_extern && is_block_scope && !is_inline && !is_static && !is_function && !is_function_body)
     {
-        const char* var_name = p_init_declarator->p_declarator->name_opt->lexeme;
+        const char* var_name =
+            p_init_declarator->p_declarator->name_opt ?
+            p_init_declarator->p_declarator->name_opt->lexeme : "";
+
         const struct type* decl_type = &p_init_declarator->p_declarator->type;
 
         if (type_is_vm(decl_type))
@@ -4387,18 +4426,18 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
         if (p_init_declarator->p_declarator->first_token_opt)
             emit_line_directive(ctx, &ss, p_init_declarator->p_declarator->first_token_opt);
 
-        d_print_type(ctx, &ss,
-           &p_init_declarator->p_declarator->type,
-           p_init_declarator->p_declarator->name_opt->lexeme,
-            true);
+        const char* var_name =
+            p_init_declarator->p_declarator->name_opt ?
+            p_init_declarator->p_declarator->name_opt->lexeme : "";
+
+        d_print_type(ctx, &ss, &p_init_declarator->p_declarator->type, var_name, true);
 
         struct hash_item_set i = { 0 };
         i.number = 1;
-        hashmap_set(&ctx->file_scope_declarator_map, p_init_declarator->p_declarator->name_opt->lexeme, &i);
+        hashmap_set(&ctx->file_scope_declarator_map, var_name, &i);
 
         ss_fprintf(&ss, "\n");
         codegen_visit_function_body(ctx, &ss, p_init_declarator->p_declarator);
-        //ss_fprintf(&ss, "\n");
 
         ss_fprintf(oss0, "%s", ss.c_str);
         ss_close(&ss);
@@ -4542,12 +4581,11 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
                         //sizeof is not used in generated code, so this will not cause 
                         //problems
                         member_declarator->declarator->type.array_num_elements = 1;
+                        const char* name =
+                            member_declarator->declarator->name_opt ?
+                            member_declarator->declarator->name_opt->lexeme : "";
 
-                        d_print_type(ctx,
-                         ss,
-                         &member_declarator->declarator->type,
-                         member_declarator->declarator->name_opt->lexeme,
-                            false);
+                        d_print_type(ctx, ss, &member_declarator->declarator->type, name, false);
 
                         member_declarator->declarator->type.array_num_elements = 0; //restore
                     }
@@ -4654,7 +4692,7 @@ void d_print_structs(struct codegen_ctx* ctx, struct osstream* ss, struct struct
 
 static int parse_line_directive(const char* src,
                                 int* line_num,
-                                const char* _Opt * filename,
+                                const char* _Opt* filename,
                                 size_t* fname_len)
 {
     const char* p = src;
@@ -4733,7 +4771,7 @@ size_t clean_line_directives(char* buf)
 
             if (line_needed || file_needed)
             {
-                char directive[600] = {0};
+                char directive[600] = { 0 };
                 size_t dlen;
                 if (file_needed)
                 {
@@ -4920,7 +4958,7 @@ void codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
          to remove unnecessary ones.
          */
         if (oss->c_str)
-           oss->size = (int)clean_line_directives(oss->c_str);
+            oss->size = (int)clean_line_directives(oss->c_str);
     }
 
     ss_close(&declarations);

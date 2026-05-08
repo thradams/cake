@@ -330,8 +330,10 @@ bool diagnostic_queue_remove(struct diagnostic_queue* q, int line, enum diagnost
     return false;
 }
 
-int parse_diagnostic_suppression(const char* p, int ids[LINT_IDS_MAX])
+static int parse_diagnostic_suppression(const char* p, int ids[], int ids_max)
 {
+    if (ids_max <= 0) return 0;
+
     /* skip comment delimiter */
     if (p[0] == '/' && p[1] == '/')      p += 2;
     else if (p[0] == '/' && p[1] == '*') p += 2;
@@ -340,14 +342,13 @@ int parse_diagnostic_suppression(const char* p, int ids[LINT_IDS_MAX])
     while (*p == ' ' || *p == '\t') p++;
 
     /* must start with "lint" followed by a space or tab */
-    if (!(p[0] == 'l' && p[1] == 'i' && p[2] == 'n' && p[3] == 't' &&
-        (p[4] == ' ' || p[4] == '\t')))
-        return 0;
+    if (strncmp(p, "lint", 4) != 0) return 0;
+    if (p[4] != ' ' && p[4] != '\t') return 0;
 
     p += 4;
 
     int count = 0;
-    while (*p && count < LINT_IDS_MAX)
+    while (*p && count < ids_max)
     {
         while (*p == ' ' || *p == '\t' || *p == ',') p++;
 
@@ -355,7 +356,15 @@ int parse_diagnostic_suppression(const char* p, int ids[LINT_IDS_MAX])
         {
             int id = 0;
             while (*p >= '0' && *p <= '9')
+            {
+                if (id > (INT_MAX - (*p - '0')) / 10)
+                    return -1;
                 id = id * 10 + (*p++ - '0');
+            }
+
+            if (id < 0 || id > INT_MAX)
+                return -1;
+
             ids[count++] = id;
         }
         else
@@ -1114,7 +1123,91 @@ bool first_of_pragma_declaration(const struct parser_ctx* ctx)
     return ctx->current->type == TK_PRAGMA;
 }
 
-bool first_of_static_assert_declaration(const struct parser_ctx* ctx)
+bool first_of_static_assertion_declaration(const struct parser_ctx* ctx)
+{
+    if (ctx->current == NULL)
+        return false;
+    /*
+      https://open-std.org/jtc1/sc22/wg14/www/docs/n3715.pdf
+      I am doing this to avoid complicate the parser.
+      It is hard to decide if it is a declaration or expression all static_assert is ambuigous
+    */
+
+    if (first_of_static_assertion(ctx))
+    {
+        struct token* _Opt p = ctx->current;
+        p = p->next; // skip 'static_assert'
+        while (p && !token_is_final(p)) p = p->next;
+
+        // skip '('
+        if (p)
+        {
+            if (p->type != '(') return false;
+            p = p->next;
+        }
+
+        while (p && !token_is_final(p)) p = p->next;
+
+        // scan expression using balanced parens to find end
+        int depth = 1; // we already consumed the opening '('
+
+        while (p && depth > 0)
+        {
+            while (p && !token_is_final(p)) p = p->next;
+
+            if (p == NULL)
+                break;
+
+            if (p->type == '(') depth++;
+            else if (p->type == ')')
+            {
+                depth--;
+                if (depth == 0) break; // this is the closing ')'
+            }
+            else if (p->type == ',' && depth == 1)
+            {
+                // found the comma separator — optional message follows
+                break;
+            }
+            p = p->next;
+        }
+
+        // p is now at ',' or ')' (depth==0)
+        if (p && p->type == ',')
+        {
+            // has optional message: static_assert(expr, "msg")
+            p = p->next; // skip ','
+            while (p && !token_is_final(p)) p = p->next;
+
+            // p should now point to the string literal
+            if (p && p->type == TK_STRING_LITERAL)
+            {
+            }
+            else
+            {
+            }
+            if (p) p = p->next; // skip "message"
+
+            // advance past the string, find closing ')'
+            while (p && p->type != ')') p = p->next;
+            // p is now at ')'
+        }
+        // else p->type == ')': no message, single-arg form
+
+        // skip closing ')'
+        if (p) p = p->next;
+        while (p && !token_is_final(p)) p = p->next;
+
+        if (p == NULL)
+            return false;
+
+        // p should now be at ';'
+        return p->type == ';';
+    }
+    return false;
+}
+
+bool first_of_static_assertion(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -1598,8 +1691,8 @@ void check_dianostic_suppression_core(struct parser_ctx* ctx, struct token* pTok
 {
     if (pToken->type == TK_LINE_COMMENT || pToken->type == TK_COMMENT)
     {
-        int ids[LINT_IDS_MAX] = { 0 };
-        int count = parse_diagnostic_suppression(pToken->lexeme, ids);
+        int ids[32] = { 0 };
+        int count = parse_diagnostic_suppression(pToken->lexeme, ids, sizeof ids);
 
         for (int i = 0; i < count; i++)
         {
@@ -2151,9 +2244,10 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
             return p_declaration;
         }
 
-        if (first_of_static_assert_declaration(ctx))
+        if (first_of_static_assertion_declaration(ctx))
         {
-            p_declaration->static_assert_declaration = static_assert_declaration(ctx);
+            p_declaration->static_assertion = static_assertion(ctx);
+            parser_match_tk(ctx, ';');
         }
         else if (first_of_pragma_declaration(ctx))
         {
@@ -2554,16 +2648,13 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
         {
             if (ctx->options.flow_analysis && extern_declaration)
             {
-                _Opt struct flow_visit_ctx ctx2 = { 0 };
-                ctx2.ctx = ctx;
+                struct flow_visit_ctx ctx2 = { .ctx = ctx };
                 flow_start_visit_declaration(&ctx2, p_declaration);
                 flow_visit_ctx_destroy(&ctx2);
             }
         }
 
-        
-
-        if (p_declaration->function_body && 
+        if (p_declaration->function_body &&
             p_declaration->function_body->lint_token)
         {
             check_compiler_dianostic_suppression(ctx, p_declaration->function_body->lint_token);
@@ -2960,7 +3051,8 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
                 else
                 {
-                    if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
+                    if (p_init_declarator->p_declarator->declaration_specifiers &&
+                        p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
                     {
                         diagnostic(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "'auto' requires a plain identifier");
                         throw;
@@ -3203,6 +3295,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
             }
         }
+
         if (ctx->scopes.tail->scope_level == 0 &&
             type_is_vm(&p_init_declarator->p_declarator->type))
         {
@@ -3488,10 +3581,14 @@ void storage_class_specifiers_push(struct storage_class_specifiers* p,
     try
     {
         struct storage_class_specifier_node* _Opt _Owner pnew = calloc(1, sizeof * pnew);
-        if (pnew == NULL) throw;
+        if (pnew == NULL)
+        {
+            storage_class_specifier_delete(p_storage_class_specifier);
+            throw;
+        }
 
         pnew->storage_class_specifier = *p_storage_class_specifier;
-        storage_class_specifier_delete(p_storage_class_specifier);
+        free(p_storage_class_specifier); /* release only the storage */
 
         if (p->head == NULL)
         {
@@ -3511,6 +3608,7 @@ void storage_class_specifiers_push(struct storage_class_specifiers* p,
     catch
     {
     }
+
 }
 void storage_class_specifier_node_delete(struct storage_class_specifier_node* _Owner _Opt p)
 {
@@ -3674,7 +3772,7 @@ struct typeof_specifier* _Owner _Opt  typeof_specifier(struct parser_ctx* ctx)
 
         if (is_typeof_unqual)
         {
-            type_remove_qualifiers(&p_typeof_specifier->type);
+            type_remove_all_qualifiers(&p_typeof_specifier->type);
         }
 
         type_visit_to_mark_anonymous(&p_typeof_specifier->type);
@@ -4017,9 +4115,21 @@ static void gcc_attribute(struct parser_ctx* ctx)
 
         parser_match(ctx); //identifier
 
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
+
         if (ctx->current->type == '(')
         {
             parser_match(ctx); //(
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
             int count = 1;
             for (;;)
             {
@@ -4039,6 +4149,12 @@ static void gcc_attribute(struct parser_ctx* ctx)
                 }
                 else
                     parser_match(ctx); //(
+
+                if (ctx->current == NULL)
+                {
+                    unexpected_end_of_file(ctx);
+                    throw;
+                }
             }
             if (parser_match_tk(ctx, ')') != 0) throw;
         }
@@ -5064,7 +5180,7 @@ void member_declaration_delete(struct member_declaration* _Owner _Opt p)
         specifier_qualifier_list_delete(p->specifier_qualifier_list);
         member_declarator_list_delete(p->member_declarator_list_opt);
         attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence);
-        static_assert_declaration_delete(p->static_assert_declaration);
+        static_assertion_delete(p->static_assertion);
         pragma_declaration_delete(p->pragma_declaration);
         free(p);
     }
@@ -5087,10 +5203,10 @@ struct member_declaration* _Owner _Opt member_declaration(struct parser_ctx* ctx
             throw;
 
         // attribute_specifier_sequence_opt specifier_qualifier_list member_declarator_list_opt ';'
-        // static_assert_declaration
+        // static_assertion
         if (ctx->current->type == TK_KEYWORD__STATIC_ASSERT)
         {
-            p_member_declaration->static_assert_declaration = static_assert_declaration(ctx);
+            p_member_declaration->static_assertion = static_assertion(ctx);
         }
         else if (ctx->current->type == TK_PRAGMA)
         {
@@ -7964,7 +8080,7 @@ struct designator* _Owner _Opt designator(struct parser_ctx* ctx)
     return p_designator;
 }
 
-void static_assert_declaration_delete(struct static_assert_declaration* _Owner _Opt p)
+void static_assertion_delete(struct static_assertion* _Owner _Opt p)
 {
     if (p)
     {
@@ -8063,24 +8179,29 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 if (p_pragma_token == NULL)
                     throw;
 
-                if (p_pragma_token->type != TK_STRING_LITERAL)
+                if (p_pragma_token->type != TK_PPNUMBER)
                 {
-                    diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "string expected");
+                    diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "number expected");
                     throw;
                 }
-                const unsigned long long w = atoi(p_pragma_token->lexeme + 2); /* sample "C0004"*/
 
-                if (is_error)
-                    options_set_error(&ctx->options, w, true);
-                else if (is_warning)
-                    options_set_warning(&ctx->options, w, true);
-                else if (is_note)
-                    options_set_note(&ctx->options, w, true);
-                else if (is_ignored)
+                while (p_pragma_token != NULL && p_pragma_token->type == TK_PPNUMBER)
                 {
-                    options_set_error(&ctx->options, w, false);
-                    options_set_warning(&ctx->options, w, false);
-                    options_set_note(&ctx->options, w, false);
+                    const unsigned long long w = (unsigned long long)atoi(p_pragma_token->lexeme);
+
+                    if (is_error)
+                        options_set_error(&ctx->options, w, true);
+                    else if (is_warning)
+                        options_set_warning(&ctx->options, w, true);
+                    else if (is_note)
+                        options_set_note(&ctx->options, w, true);
+                    else if (is_ignored)
+                    {
+                        options_set_error(&ctx->options, w, false);
+                        options_set_warning(&ctx->options, w, false);
+                        options_set_note(&ctx->options, w, false);
+                    }
+                    p_pragma_token = pragma_declaration_match(p_pragma_token);
                 }
             }
             else
@@ -8316,7 +8437,7 @@ struct pragma_declaration* _Owner _Opt pragma_declaration(struct parser_ctx* ctx
     return p_pragma_declaration;
 }
 
-struct static_assert_declaration* _Owner _Opt static_assert_declaration(struct parser_ctx* ctx)
+struct static_assertion* _Owner _Opt static_assertion(struct parser_ctx* ctx)
 {
 
     /*
@@ -8325,7 +8446,7 @@ struct static_assert_declaration* _Owner _Opt static_assert_declaration(struct p
       "static_assert" ( constant-expression ) ;
     */
 
-    struct static_assert_declaration* _Owner _Opt p_static_assert_declaration = NULL;
+    struct static_assertion* _Owner _Opt p_static_assertion = NULL;
     try
     {
         if (ctx->current == NULL)
@@ -8334,11 +8455,11 @@ struct static_assert_declaration* _Owner _Opt static_assert_declaration(struct p
             throw;
         }
 
-        p_static_assert_declaration = calloc(1, sizeof(struct static_assert_declaration));
-        if (p_static_assert_declaration == NULL)
+        p_static_assertion = calloc(1, sizeof(struct static_assertion));
+        if (p_static_assertion == NULL)
             throw;
 
-        p_static_assert_declaration->first_token = ctx->current;
+        p_static_assertion->first_token = ctx->current;
         struct token* position = ctx->current;
 
         parser_match(ctx);
@@ -8350,7 +8471,7 @@ struct static_assert_declaration* _Owner _Opt static_assert_declaration(struct p
          When flow analysis is enabled static assert is evaluated there
         */
         bool show_error_if_not_constant = false;
-        if (p_static_assert_declaration->first_token->type == TK_KEYWORD__STATIC_ASSERT)
+        if (p_static_assertion->first_token->type == TK_KEYWORD__STATIC_ASSERT)
         {
             show_error_if_not_constant = true;
         }
@@ -8362,7 +8483,7 @@ struct static_assert_declaration* _Owner _Opt static_assert_declaration(struct p
         if (p_constant_expression == NULL)
             throw;
 
-        p_static_assert_declaration->constant_expression = p_constant_expression;
+        p_static_assertion->constant_expression = p_constant_expression;
 
         if (ctx->current == NULL)
         {
@@ -8373,7 +8494,7 @@ struct static_assert_declaration* _Owner _Opt static_assert_declaration(struct p
         if (ctx->current->type == ',')
         {
             parser_match(ctx);
-            p_static_assert_declaration->string_literal_opt = ctx->current;
+            p_static_assertion->string_literal_opt = ctx->current;
             if (parser_match_tk(ctx, TK_STRING_LITERAL) != 0)
                 throw;
         }
@@ -8387,19 +8508,17 @@ struct static_assert_declaration* _Owner _Opt static_assert_declaration(struct p
             throw;
         }
 
-        p_static_assert_declaration->last_token = ctx->current;
-        if (parser_match_tk_lint(ctx, ';', &p_static_assert_declaration->p_lint_token) != 0)
-            throw;
+        p_static_assertion->last_token = ctx->current;
 
         if (position->type == TK_KEYWORD__STATIC_ASSERT)
         {
-            if (object_has_constant_value(&p_static_assert_declaration->constant_expression->object) &&
-                !object_is_true(&p_static_assert_declaration->constant_expression->object))
+            if (object_has_constant_value(&p_static_assertion->constant_expression->object) &&
+                !object_is_true(&p_static_assertion->constant_expression->object))
             {
-                if (p_static_assert_declaration->string_literal_opt)
+                if (p_static_assertion->string_literal_opt)
                 {
                     diagnostic(C_ERROR_STATIC_ASSERT_FAILED, ctx, position, NULL, "static_assert failed %s\n",
-                        p_static_assert_declaration->string_literal_opt->lexeme);
+                        p_static_assertion->string_literal_opt->lexeme);
                 }
                 else
                 {
@@ -8412,12 +8531,41 @@ struct static_assert_declaration* _Owner _Opt static_assert_declaration(struct p
     {
     }
 
-    if (p_static_assert_declaration && p_static_assert_declaration->p_lint_token)
+
+    return p_static_assertion;
+}
+
+struct static_assertion* _Owner _Opt static_assert_declaration(struct parser_ctx* ctx)
+{
+
+    /*C2Y
+       static_assert-declaration:
+          static-assertion ;
+    */
+
+    struct static_assertion* _Owner _Opt p_static_assertion = NULL;
+    try
     {
-        check_compiler_dianostic_suppression(ctx, p_static_assert_declaration->p_lint_token);
+        p_static_assertion = static_assertion(ctx);
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
+
+        if (parser_match_tk_lint(ctx, ';', &p_static_assertion->p_lint_token) != 0)
+            throw;
+    }
+    catch
+    {
     }
 
-    return p_static_assert_declaration;
+    if (p_static_assertion && p_static_assertion->p_lint_token)
+    {
+        check_compiler_dianostic_suppression(ctx, p_static_assertion->p_lint_token);
+    }
+
+    return p_static_assertion;
 }
 
 void attribute_specifier_sequence_add(struct attribute_specifier_sequence* list, struct attribute_specifier* _Owner p_item)
@@ -9263,6 +9411,12 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
         if (p_unlabeled_statement == NULL)
             throw;
 
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
+
         if (first_of_primary_block(ctx))
         {
             /* TODO: push onto a stack in ctx */
@@ -9383,7 +9537,10 @@ void label_delete(struct label* _Owner _Opt p)
 struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence)
 {
     if (ctx->current == NULL)
+    {
+        attribute_specifier_sequence_delete(p_attribute_specifier_sequence);
         return NULL;
+    }
 
     struct label* _Owner _Opt p_label = calloc(1, sizeof(struct label));
     try
@@ -9481,10 +9638,10 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
 
                 if (p_existing_label)
                 {  //we have a case with a single value that is inside this begin...end
-                    char str1[50];
+                    char str1[50] = { 0 };
                     object_to_str(&p_label->constant_expression->object, 50, str1);
 
-                    char str2[50];
+                    char str2[50] = { 0 };
                     object_to_str(&p_label->constant_expression_end->object, 50, str2);
 
 
@@ -9513,7 +9670,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
 
                     //current single value x existing single value
                     //current single value x existing range
-                    char str[50];
+                    char str[80] = { 0 };
                     object_to_str(&p_label->constant_expression->object, 50, str);
 
                     diagnostic(C_ERROR_DUPLICATED_CASE,
@@ -10019,7 +10176,6 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
         p_block_item->first_token = ctx->current;
 
         if (first_of_declaration_specifier(ctx) ||
-            first_of_static_assert_declaration(ctx) ||
             first_of_pragma_declaration(ctx))
         {
             p_block_item->declaration = declaration(ctx, p_attribute_specifier_sequence, STORAGE_SPECIFIER_BLOCK_SCOPE, false);
@@ -10319,6 +10475,13 @@ static struct asm_statement* _Owner _Opt gcc_asm(struct parser_ctx* ctx, bool st
             {
                 count--;
                 parser_match(ctx);
+
+                if (ctx->current == NULL)
+                {
+                    unexpected_end_of_file(ctx);
+                    throw;
+                }
+
                 if (count == 0)
                 {
                     p_asm_statement->p_last_token = ctx->current;
@@ -10391,7 +10554,6 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
 
         if (ctx->current->type != TK_KEYWORD_CAKE_TRY && ctx->current->type != TK_KEYWORD_MSVC__TRY)
         {
-
             throw;
         }
 
@@ -10662,7 +10824,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
         if (parser_match_tk_lint(ctx, ')', &p_selection_statement->lint_token) != 0)
             throw;
 
-        if (p_selection_statement && 
+        if (p_selection_statement &&
             p_selection_statement->lint_token)
         {
             check_compiler_dianostic_suppression(ctx, p_selection_statement->lint_token);
@@ -10726,7 +10888,8 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
         }
 
 
-        assert(p_selection_statement->secondary_block == NULL);
+        assert(p_selection_statement->secondary_block == NULL); //lint 28
+
         p_selection_statement->secondary_block = p_secondary_block;
 
 
@@ -10793,7 +10956,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
                     }
                 }
             }
-            
+
             if (p_selection_statement->secondary_block &&
                 p_selection_statement->secondary_block->statement &&
                 p_selection_statement->secondary_block->statement->unlabeled_statement &&
@@ -10888,7 +11051,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
       for ( expressionopt ; expressionopt ; expressionopt ) statement
       for ( declaration expressionopt ; expressionopt ) statement
     */
-    const struct iteration_statement* const p_current_iteration_statement = ctx->p_current_iteration_statement;
+    const struct iteration_statement* const _Opt p_current_iteration_statement = ctx->p_current_iteration_statement;
     struct iteration_statement* _Owner _Opt p_iteration_statement = NULL;
     try
     {
@@ -10961,7 +11124,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
             }
             if (parser_match_tk_lint(ctx, ')', &p_iteration_statement->p_lint_token) != 0)
                 throw;
-            
+
             if (p_iteration_statement &&
                 p_iteration_statement->p_lint_token)
             {
@@ -11231,7 +11394,7 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
                              ctx->current,
                              NULL,
                              "%s",
-                             "return cannot be used inside defer statement");                
+                             "return cannot be used inside defer statement");
             }
 
             const struct token* const p_return_token = ctx->current;
@@ -11557,7 +11720,7 @@ void declaration_delete(struct declaration* _Owner _Opt p)
     {
 
         attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence);
-        static_assert_declaration_delete(p->static_assert_declaration);
+        static_assertion_delete(p->static_assertion);
 
         declaration_specifiers_delete(p->declaration_specifiers);
 
@@ -11614,8 +11777,10 @@ static void check_unused_static_declarators(struct parser_ctx* ctx, struct decla
                     else
                     {
                         p_declarator_local = p_entry->data.p_declarator;
-
                     }
+
+                    assert(p_declarator_local);
+
                     int num_uses = p_declarator_local->num_uses;
                     if (num_uses == 0)
                     {
@@ -11704,8 +11869,7 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
         {
             struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
 
-            struct flow_visit_ctx ctx3 = { 0 };
-            ctx3.ctx = ctx;
+            struct flow_visit_ctx ctx3 = { .ctx = ctx };
             flow_start_visit_declaration(&ctx3, it);
             flow_visit_ctx_destroy(&ctx3);
 
@@ -11762,7 +11926,7 @@ void label_list_destroy(struct label_list* list)
 
 void label_list_clear(struct label_list* list)
 {
-    label_list_destroy(list);
+    label_list_destroy(list); //lint 19
     memset(list, 0, sizeof(struct label_list));
 }
 
@@ -11844,7 +12008,7 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
     return p_compound_statement;
 }
 
-struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, struct scope* p_file_scope_out, bool* berror)
+struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, struct scope* _Opt p_file_scope_out, bool* berror)
 {
     *berror = false;
 

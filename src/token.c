@@ -531,6 +531,15 @@ bool token_is_identifier_or_keyword(enum token_type t)
 }
 
 
+
+bool token_is_final(const struct token* p)
+{
+    if (p == NULL)
+        return false;
+
+    return p->flags & TK_FLAG_FINAL;
+}
+
 bool token_is_blank(const struct token* p)
 {
     return p->type == TK_BEGIN_OF_FILE ||

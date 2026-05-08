@@ -744,8 +744,10 @@
                 inherit: true,
                 rules: [
                     { token: 'keyword', foreground: '569cd6' },
+                    { token: 'keyword.annotation', foreground: 'c586c0' },
                     { token: 'string', foreground: 'ce9178' },
                     { token: 'comment', foreground: '6a9955' },
+                    { token: 'comment.lint', foreground: 'e8a838', fontStyle: 'italic' },
                     { token: 'number', foreground: 'b5cea8' },
                     { token: 'type', foreground: '4ec9b0' },
                     { token: 'identifier', foreground: 'd4d4d4' },
@@ -763,6 +765,87 @@
                 }
             });
             monaco.editor.setTheme('ide-dark');
+
+            // ── Custom tokenizer: //lint comments + extra keywords ────
+            monaco.languages.setMonarchTokensProvider('c', {
+                defaultToken: '',
+                tokenPostfix: '.c',
+                keywords: [
+                    'auto', 'break', 'case', 'char', 'const', 'continue', 'default', 'do',
+                    'double', 'else', 'enum', 'extern', 'float', 'for', 'goto', 'if', 'inline',
+                    'int', 'long', 'register', 'restrict', 'return', 'short', 'signed', 'sizeof',
+                    'static', 'struct', 'switch', 'typedef', 'union', 'unsigned', 'void',
+                    'volatile', 'while', '_Bool', '_Complex', '_Imaginary',
+                    // added keywords
+                    '_Countof', '_Static_assert', '_Alignof', '_Alignas', '_Noreturn',
+                ],
+                operators: [
+                    '=', '>', '<', '!', '~', '?', ':', '==', '<=', '>=', '!=',
+                    '&&', '||', '++', '--', '+', '-', '*', '/', '&', '|', '^', '%',
+                    '<<', '>>', '>>>', '+=', '-=', '*=', '/=', '&=', '|=', '^=',
+                    '%=', '<<=', '>>=', '>>>=',
+                ],
+                symbols: /[=><!~?:&|+\-*\/\^%]+/,
+                escapes: /\\(?:[abfnrtv\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})/,
+                tokenizer: {
+                    root: [
+                        // //lint … line comments — must come before generic //
+                        [/\/\/lint\b.*$/, 'comment.lint'],
+                        // generic // comment
+                        [/\/\/.*$/, 'comment'],
+                        // /* block comment */
+                        [/\/\*/, 'comment', '@comment'],
+                        // preprocessor
+                        [/^\s*#\w+/, 'keyword'],
+                        // identifiers / keywords
+                        [/_Countof|_Static_assert|_Alignof|_Alignas|_Noreturn/, 'keyword'],
+                        [/[a-zA-Z_]\w*/, {
+                            cases: {
+                                '@keywords': 'keyword',
+                                '@default': 'identifier',
+                            }
+                        }],
+                        // whitespace
+                        { include: '@whitespace' },
+                        // numbers
+                        [/\d*\.\d+([eE][\-+]?\d+)?[fFlL]?/, 'number.float'],
+                        [/0[xX][0-9a-fA-F]+[uUlL]*/, 'number.hex'],
+                        [/\d+[uUlL]*/, 'number'],
+                        // strings
+                        [/"([^"\\]|\\.)*$/, 'string.invalid'],
+                        [/"/, 'string', '@string'],
+                        // characters
+                        [/'[^\\']'/, 'string'],
+                        [/(')(@escapes)(')/, ['string', 'string.escape', 'string']],
+                        [/'/, 'string.invalid'],
+                        // delimiters
+                        [/[{}()\[\]]/, '@brackets'],
+                        [/[<>](?!@symbols)/, '@brackets'],
+                        [/@symbols/, {
+                            cases: {
+                                '@operators': 'operator',
+                                '@default': '',
+                            }
+                        }],
+                        [/[;,.]/, 'delimiter'],
+                    ],
+                    comment: [
+                        [/[^\/*]+/, 'comment'],
+                        [/\*\//, 'comment', '@pop'],
+                        [/[\/*]/, 'comment'],
+                    ],
+                    string: [
+                        [/[^\\"]+/, 'string'],
+                        [/@escapes/, 'string.escape'],
+                        [/\\./, 'string.escape.invalid'],
+                        [/"/, 'string', '@pop'],
+                    ],
+                    whitespace: [
+                        [/[ \t\r\n]+/, 'white'],
+                    ],
+                },
+            });
+            // ─────────────────────────────────────────────────────────
 
             _monacoReady = true;
             if (_pendingValue !== null)

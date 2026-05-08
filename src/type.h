@@ -103,7 +103,7 @@ enum type_qualifier_flags
 
 
 
-    /*ownership extensions*/
+    /* ownership extensions TODO separate this from qualifiers??*/
     TYPE_QUALIFIER_CAKE_OWNER = 1 << 4,
     TYPE_QUALIFIER_CAKE_VIEW = 1 << 5,
     TYPE_QUALIFIER_CAKE_OPT = 1 << 6,
@@ -375,7 +375,8 @@ struct argument_expression;
 
 struct type type_convert_to(const struct type* p_type, enum standard_version target);
 struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_enabled);
-void type_remove_qualifiers(struct type* p_type);
+void type_remove_all_qualifiers(struct type* p_type);
+void type_remove_non_cake_qualifiers(struct type* p_type);
 void type_add_const(struct type* p_type);
 void type_swap(struct type* a, struct type* b);
 void type_clear(struct type* a);

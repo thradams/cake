@@ -109,8 +109,8 @@ void diagnostic_queue_flush(struct diagnostic_queue* q, const struct parser_ctx*
 bool diagnostic_queue_remove(struct diagnostic_queue* q, int line, enum diagnostic_id id);
 void diagnostic_queue_destroy(_Dtor struct diagnostic_queue* q);
 
-#define LINT_IDS_MAX 32
-int parse_diagnostic_suppression(const char* comment_lexeme, int ids[LINT_IDS_MAX]);
+
+static int parse_diagnostic_suppression(const char* p, int ids[], int ids_max);
 
 
 struct parser_ctx
@@ -285,19 +285,19 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
 void declaration_specifiers_delete(struct declaration_specifiers* _Owner _Opt p);
 void declaration_specifiers_add(struct declaration_specifiers* p, struct declaration_specifier* _Owner item);
 
-struct static_assert_declaration
+struct static_assertion
 {
-    /*
-     static_assert-declaration:
-       "static_assert" ( constant-expression , string-literal ) ;
-       "static_assert" ( constant-expression ) ;
+    /* C2Y
+        static-assertion:
+        static_assert ( constant-expression , string-literal )
+        static_assert ( constant-expression )
     */
 
     /*
-      I am keeping the name static_assert_declaration but better is
+      I am keeping the name 'static_assertion' but better is
 
       static_declaration:
-       static_assert_declaration
+       static_assertion
        static_debug_declaration
 
       extension:
@@ -311,8 +311,11 @@ struct static_assert_declaration
     struct expression* _Owner constant_expression;
     struct token* _Opt string_literal_opt;
 };
-struct static_assert_declaration* _Owner static_assert_declaration(struct parser_ctx* ctx);
-void static_assert_declaration_delete(struct static_assert_declaration* _Owner _Opt p);
+struct static_assertion* _Owner _Opt static_assertion(struct parser_ctx* ctx);
+void static_assertion_delete(struct static_assertion* _Owner _Opt p);
+
+struct static_assertion* _Owner _Opt static_assert_declaration(struct parser_ctx* ctx);
+bool first_of_static_assertion(const struct parser_ctx* ctx);
 
 /*
   extension, pragma survives the preprocessor and become
@@ -517,7 +520,7 @@ struct declaration
     */
     struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
 
-    struct static_assert_declaration* _Owner _Opt static_assert_declaration;
+    struct static_assertion* _Owner _Opt static_assertion;
     struct pragma_declaration* _Owner _Opt pragma_declaration;
 
 
@@ -1153,7 +1156,7 @@ struct member_declaration
     struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list;
     struct member_declarator_list* _Owner _Opt member_declarator_list_opt;
 
-    struct static_assert_declaration* _Owner _Opt static_assert_declaration;
+    struct static_assertion* _Owner _Opt static_assertion;
     struct pragma_declaration* _Owner _Opt pragma_declaration;
 
     struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
@@ -1224,7 +1227,7 @@ struct compound_statement
     */
     struct token* first_token; /*{*/
     struct token* last_token; /*}*/
-    struct token* lint_token; /* //lint */
+    struct token* _Opt lint_token; /* //lint */
 
     struct block_item_list block_item_list;
 

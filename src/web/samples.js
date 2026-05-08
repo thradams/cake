@@ -2,7 +2,7 @@ var sample = {};
 sample["C89"] = [];
 
 sample["C89"]["bit-fields"] =
-`
+    `
 struct X {
     unsigned char a : 3;
     unsigned int b : 9;
@@ -21,7 +21,7 @@ int main() {}
 `;
 
 sample["C89"]["enuns"] =
-`
+    `
 enum escapes { BELL = '\\a', BACKSPACE = '\\b', TAB = '\\t',
                NEWLINE = '\\n', VTAB = '\\v', RETURN = '\\r' };
 
@@ -38,7 +38,7 @@ int main()
 sample["C99"] = [];
 
 sample["C99"]["Mixed declarations"] =
-`
+    `
 int main(){
   int x = 10;
   x++;
@@ -303,7 +303,7 @@ int main()
 `;
 
 sample["C99"]["VLA I"] =
-`
+    `
 #include <stdio.h>
 
 int main(void) {
@@ -327,7 +327,7 @@ int main(void) {
 `;
 
 sample["C99"]["VLA II"] =
-`
+    `
 /*
   VLA inside a block (lifetime demonstration)
 */
@@ -359,7 +359,7 @@ int main(void) {
 `;
 
 sample["C99"]["VLA III"] =
-`
+    `
 /*
 VLA with 2D function parameter
 */
@@ -389,7 +389,7 @@ int main(void) {
 `;
 
 sample["C99"]["VMT cast"] =
-`
+    `
 #include <stdio.h>
 void test()
 {
@@ -414,7 +414,7 @@ int main()
 `;
 
 sample["C99"]["sizeof(VMT)"] =
-`
+    `
 
 #include <stdio.h>
 
@@ -453,7 +453,7 @@ int main(){
 `;
 
 sample["C99"]["typeof(VMT)"] =
-`
+    `
 #include <stdio.h>
 int main()
 {
@@ -474,7 +474,7 @@ int main()
 `;
 
 sample["C99"]["VM Types"] =
-`
+    `
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -643,7 +643,7 @@ int main(void)
 `;
 
 sample["C99"]["VM Types II"] =
-`
+    `
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1297,7 +1297,7 @@ int main()
 
 `;
 sample["C23"]["static compound literal"] =
-`
+    `
 // https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm
 int main()
 {
@@ -1778,6 +1778,27 @@ sample["C2Y"]["case range ..."] =
   }
 `;
 
+
+sample["C2Y"]["static_assertions in expressions"] =
+    `
+//https://open-std.org/jtc1/sc22/wg14/www/docs/n3715.pdf
+
+#include <stdio.h>
+
+#define BIT(n) ( \\
+  static_assert(n >= 0), \\
+  static_assert(n < 32), \\
+  1U << (n) \\
+)
+
+int main()
+{
+    static_assert(1);
+    printf("%u", BIT(1));
+    return 0;
+}
+`;
+
 sample["C2Y"]["#def"] =
     `
 /*
@@ -2017,7 +2038,7 @@ int main()
 `;
 
 sample["C2Y"]["Local functions II"] =
-`
+    `
 #include <stdlib.h>
 
 void async(void callback(int result, void * data), void * data);
@@ -2059,7 +2080,7 @@ int main()
 
 
 sample["C2Y"]["Literal function async I"] =
-`
+    `
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -2086,7 +2107,7 @@ int main()
 
 
 sample["C2Y"]["Literal function async II"] =
-`
+    `
 /*
    Pattern:
    do this -> then that -> then that ....
@@ -2220,7 +2241,7 @@ int main()
 
 
 sample["C2Y"]["Statement expressions"] =
-`
+    `
 
 //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3643.htm
 
@@ -2294,7 +2315,7 @@ int main()
 `;
 
 sample["Extensions"]["checked expressions I"] =
- `
+    `
 #include <stdio.h>
 
 int main()
@@ -2311,7 +2332,7 @@ int main()
 `;
 
 sample["Extensions"]["checked expressions II"] =
-`
+    `
 #pragma safety enable
 
 void* _Owner _Opt malloc(unsigned long size);
@@ -2362,35 +2383,57 @@ int main()
 
 sample["Extensions"]["pragma diagnostic"] =
     `
+/*
+  Diagnostic levels can be configured per code region using:
+    #pragma CAKE diagnostic push   (save current settings)
+    #pragma CAKE diagnostic error   <id> [id2 ...]
+    #pragma CAKE diagnostic warning <id> [id2 ...]
+    #pragma CAKE diagnostic note    <id> [id2 ...]
+    #pragma CAKE diagnostic ignored <id> [id2 ...]
+    #pragma CAKE diagnostic pop    (restore previous settings)
 
-enum E1 { A };
-enum E2 { B };
+  Warning 4 = mixing enumerators from different enum types.
+*/
 
-int main() {
+enum Color { RED, GREEN, BLUE };
+enum Direction { NORTH, SOUTH, EAST, WEST };
 
+int main()
+{
+    enum Color c = RED;
+    enum Direction d = NORTH;
+
+    /* Promote warning 4 to a hard error — mixing enums breaks the build */
 #pragma CAKE diagnostic push
-#pragma CAKE diagnostic error "C0004"
-    if (A == B){}
+#pragma CAKE diagnostic error 4
+    if (c == SOUTH) {}   /* error: enumerators from different enums */
 #pragma CAKE diagnostic pop
 
+    /* Default level: warning */
 #pragma CAKE diagnostic push
-#pragma CAKE diagnostic warning "C0004"
-    if (A == B){}
+#pragma CAKE diagnostic warning 4
+    if (c == SOUTH) {}   /* warning: enumerators from different enums */
 #pragma CAKE diagnostic pop
 
+    /* Demote to a note — informational only */
 #pragma CAKE diagnostic push
-#pragma CAKE diagnostic note "C0004"
-    if (A == B){}
+#pragma CAKE diagnostic note 4
+    if (c == SOUTH) {}   /* note: enumerators from different enums */
 #pragma CAKE diagnostic pop
 
-
+    /* Silence completely — useful for third-party or generated code */
 #pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "C0004"
-    if (A == B){}
+#pragma CAKE diagnostic ignored 4
+    if (c == SOUTH) {}   /* no diagnostic */
 #pragma CAKE diagnostic pop
 
+    /* Multiple warnings can be configured in one pragma */
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignored 4 10
+    if (c == SOUTH) {}   /* 4: enum mix — suppressed  */
+    c;                   /* 10: result not used — suppressed */
+#pragma CAKE diagnostic pop
 }
-
 
 
 `;
@@ -3705,6 +3748,3 @@ auto i64_max1 = 9'223'372'036'854'775'808;
 auto u64_max = 18'446'744'073'709'551'615;
 
 `;
-
-
-

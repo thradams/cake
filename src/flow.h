@@ -226,7 +226,7 @@ struct flow_visit_ctx
 {
     struct secondary_block* _Opt catch_secondary_block_opt;
 
-    struct parser_ctx *ctx;
+    struct parser_ctx * const ctx;
     _View struct ast ast;    
  
     struct type* _Opt p_return_type;

@@ -142,6 +142,10 @@ static int has_c_extension(const char* name)
 {
     const char* dot = strrchr(name, '.');
     if (!dot) return 0;
+    
+    //if (strcasecmp(dot, ".h") == 0)
+      //  return 1;
+
     return strcasecmp(dot, ".c") == 0;
 }
 

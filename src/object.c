@@ -1345,7 +1345,8 @@ int object_set(
 
             while (it_from && it_to)
             {
-                object_set(ctx, it_to, NULL, it_from, is_constant, requires_constant_initialization);
+                if (object_set(ctx, it_to, NULL, it_from, is_constant, requires_constant_initialization) != 0)
+                   throw;
                 it_to = it_to->next;
                 it_from = it_from->next;
             }

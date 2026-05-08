@@ -305,42 +305,45 @@
 <li>
 <a href="#toc_86">10.12 Elvis Operator (<code>?:</code>)</a>
 </li>
+<li>
+<a href="#toc_87">10.13 <code>static_assert</code> as an Expression</a>
+</li>
 </ul>
 </li>
 <li>
-<a href="#toc_87">11. Cake Language Extensions</a>
+<a href="#toc_88">11. Cake Language Extensions</a>
 <ul>
 <li>
-<a href="#toc_88">11.1 Built-in <code>assert</code></a>
+<a href="#toc_89">11.1 Built-in <code>assert</code></a>
 </li>
 <li>
-<a href="#toc_89">11.2 <code>try</code> / <code>throw</code> / <code>catch</code></a>
+<a href="#toc_90">11.2 <code>try</code> / <code>throw</code> / <code>catch</code></a>
 </li>
 <li>
-<a href="#toc_90">11.3 Checked Expressions (<code>!</code> operator)</a>
+<a href="#toc_91">11.3 Checked Expressions (<code>!</code> operator)</a>
 </li>
 <li>
-<a href="#toc_91">11.4 <code>#pragma dir</code></a>
+<a href="#toc_92">11.4 <code>#pragma dir</code></a>
 </li>
 <li>
-<a href="#toc_92">11.5 <code>offsetof</code> Operator</a>
+<a href="#toc_93">11.5 <code>offsetof</code> Operator</a>
 </li>
 <li>
-<a href="#toc_93">11.6 Type Traits</a>
+<a href="#toc_94">11.6 Type Traits</a>
 </li>
 <li>
-<a href="#toc_94">11.7 Object Lifetime Checks (Ownership)</a>
+<a href="#toc_95">11.7 Object Lifetime Checks (Ownership)</a>
 </li>
 <li>
-<a href="#toc_95">11.8 Pre-defined Macros</a>
+<a href="#toc_96">11.8 Pre-defined Macros</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_96">12. GCC Compatibility</a>
+<a href="#toc_97">12. GCC Compatibility</a>
 </li>
 <li>
-<a href="#toc_97">13. MSVC Compatibility</a>
+<a href="#toc_98">13. MSVC Compatibility</a>
 </li>
 </ul>
 </li>
@@ -1643,11 +1646,89 @@ int r = a ?: b ?: c;   /* 7 */
 
 <p>Reference: <a href="https://www.open-std.org/JTC1/SC22/WG14/www/docs/n3804.txt">https://www.open-std.org/JTC1/SC22/WG14/www/docs/n3804.txt</a></p>
 
+<h3 id="toc_87">10.13 <code>static_assert</code> as an Expression</h3>
+
+<p>In C2Y, <code>static_assert</code> is extended to work not only as a declaration 
+but also as an <strong>expression operator</strong> with type <code>void</code>. 
+This makes it possible to embed compile-time assertions directly inside 
+expressions, which is especially useful when writing function-like macros.</p>
+
+<p>Previously, adding a static check inside a macro required awkward 
+workarounds such as negative-size arrays, struct-wrapped assertions, 
+or GNU compound statement expressions. 
+With this change, <code>static_assert</code> can be used naturally in combination with the comma operator.</p>
+
+<p><strong>Example — bounds-checked bit-shift macro:</strong></p>
+
+<pre><code class="language-c">#include &lt;limits.h&gt;
+
+#define BIT(n) ( \
+    static_assert(n &gt;= 0),      \
+    static_assert(n &lt; UINT_WIDTH), \
+    1U &lt;&lt; (n) \
+)
+
+int main() {
+    unsigned x = BIT(3);   /* ok */
+    unsigned y = BIT(99);  /* compile-time error: assertion failed */
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<p><strong>Disambiguation rule:</strong> A block item consisting solely of <code>static_assert(...)</code> followed
+by a semicolon is always treated as a <code>static_assert</code> <em>declaration</em>, preserving 
+backward compatibility. <code>static_assert</code> is only treated as an <em>expression</em> when it 
+appears in an expression context (e.g., as an operand of the comma operator, 
+or as the controlling expression of <code>_Generic</code>).</p>
+
+<pre><code class="language-c">void func() {
+    static_assert(1);       /* declaration - behaviour unchanged */
+    static_assert(1), 0;    /* expression - new in C2Y */
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<p><strong>Using <code>_Generic</code> to produce an integer constant expression:</strong></p>
+
+<p>Because the comma operator and <code>void</code> are not permitted in integer 
+constant expressions, the result of the comma-based form cannot be 
+used where an integer constant expression is required (e.g., as an array size). 
+A <code>_Generic</code> workaround can be used in those cases:</p>
+
+<pre><code class="language-c">
+#define CHAR_BIT 8
+
+#define BIT(type, n) \
+    _Generic(static_assert(n &gt;= 0 &amp;&amp; n &lt; sizeof(type) * CHAR_BIT), \
+             void: (type)1 &lt;&lt; (n))
+
+int arr[BIT(unsigned int, 2)];   /* ok - integer constant expression */
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<p>Reference: <a href="https://open-std.org/jtc1/sc22/wg14/www/docs/n3715.pdf">https://open-std.org/jtc1/sc22/wg14/www/docs/n3715.pdf</a></p>
+
+<p>Cake extensions <code>static_debug</code>, <code>assert_state</code>, <code>override_state</code> also works in the same way.</p>
+
+<pre><code class="language-c">#pragma safety enable
+int * _Opt f();
+void func() {
+    
+    int* _Opt p = f();
+    p = p ? (static_debug(p), p) : 0;
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
 <hr>
 
-<h2 id="toc_87">11. Cake Language Extensions</h2>
+<h2 id="toc_88">11. Cake Language Extensions</h2>
 
-<h3 id="toc_88">11.1 Built-in <code>assert</code></h3>
+<h3 id="toc_89">11.1 Built-in <code>assert</code></h3>
 
 <p>In Cake, <code>assert</code> is a built-in statement rather than a macro because flow analysis need it even in release builds.
 The effect of <code>assert(expression)</code> is equivalent of <code>if (!(expression)) exit(1);</code>.</p>
@@ -1669,7 +1750,7 @@ The effect of <code>assert(expression)</code> is equivalent of <code>if (!(expre
 
 <p>To disable this built-in behavior and use a standard macro instead, pass <code>-disable-assert</code>.</p>
 
-<h3 id="toc_89">11.2 <code>try</code> / <code>throw</code> / <code>catch</code></h3>
+<h3 id="toc_90">11.2 <code>try</code> / <code>throw</code> / <code>catch</code></h3>
 
 <p>Cake provides a structured local-jump mechanism for error handling. <code>try</code>/<code>catch</code> is explicitly a <strong>local</strong> 
 jump - it cannot propagate across function boundaries. This is by design.</p>
@@ -1705,7 +1786,7 @@ int main() {
 
 </code></pre>
 
-<h3 id="toc_90">11.3 Checked Expressions (<code>!</code> operator)</h3>
+<h3 id="toc_91">11.3 Checked Expressions (<code>!</code> operator)</h3>
 
 <pre><code>checked-expression:
     assignment-expression
@@ -1757,7 +1838,7 @@ int main() {
 <p><strong>Note</strong> this is a very experimental feature</p>
 </blockquote>
 
-<h3 id="toc_91">11.4 <code>#pragma dir</code></h3>
+<h3 id="toc_92">11.4 <code>#pragma dir</code></h3>
 
 <p>Adds a path to the list of directories searched for include files. 
 This is the pragma used in <code>cakeconf.h</code> to declare system and project include directories.</p>
@@ -1766,7 +1847,7 @@ This is the pragma used in <code>cakeconf.h</code> to declare system and project
 #pragma dir &quot;./openssl/include&quot;
 </code></pre>
 
-<h3 id="toc_92">11.5 <code>offsetof</code> Operator</h3>
+<h3 id="toc_93">11.5 <code>offsetof</code> Operator</h3>
 
 <p>In Cake, <code>offsetof</code> is a built-in operator rather than a macro.  Similar of GCC <code>__builtin_offsetof</code>.
 This allows its use in constant expressions and avoids the undefined 
@@ -1797,7 +1878,7 @@ expressions involving addresses.</p>
 <pre><code class="language-c">#define offsetof(type, member) ((size_t)&amp;(((type *)0)-&gt;member))
 </code></pre>
 
-<h3 id="toc_93">11.6 Type Traits</h3>
+<h3 id="toc_94">11.6 Type Traits</h3>
 
 <p>Cake provides compile-time type introspection functions that return boolean integer constant expressions:</p>
 
@@ -1819,7 +1900,7 @@ expressions involving addresses.</p>
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_94">11.7 Object Lifetime Checks (Ownership)</h3>
+<h3 id="toc_95">11.7 Object Lifetime Checks (Ownership)</h3>
 
 <p>Cake includes a static analysis system for tracking object ownership and lifetime, activated with <code>#pragma safety enable</code> or <code>-fanalyzer</code>.</p>
 
@@ -1831,7 +1912,7 @@ expressions involving addresses.</p>
 
 <p>Full documentation: <a href="ownership.html">ownership.html</a></p>
 
-<h3 id="toc_95">11.8 Pre-defined Macros</h3>
+<h3 id="toc_96">11.8 Pre-defined Macros</h3>
 
 <p>Cake defines the following macros:</p>
 
@@ -1841,7 +1922,7 @@ expressions involving addresses.</p>
 
 <hr>
 
-<h2 id="toc_96">12. GCC Compatibility</h2>
+<h2 id="toc_97">12. GCC Compatibility</h2>
 
 <p>Cake recognizes the following GCC built-ins and extensions:</p>
 
@@ -1863,7 +1944,7 @@ expressions involving addresses.</p>
 
 <hr>
 
-<h2 id="toc_97">13. MSVC Compatibility</h2>
+<h2 id="toc_98">13. MSVC Compatibility</h2>
 
 <p>Cake recognizes the following MSVC extensions:</p>
 

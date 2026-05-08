@@ -1314,6 +1314,88 @@ int r = a ?: b ?: c;   /* 7 */
 
 Reference: https://www.open-std.org/JTC1/SC22/WG14/www/docs/n3804.txt
 
+### 10.13 `static_assert` as an Expression
+
+In C2Y, `static_assert` is extended to work not only as a declaration 
+but also as an **expression operator** with type `void`. 
+This makes it possible to embed compile-time assertions directly inside 
+expressions, which is especially useful when writing function-like macros.
+
+Previously, adding a static check inside a macro required awkward 
+workarounds such as negative-size arrays, struct-wrapped assertions, 
+or GNU compound statement expressions. 
+With this change, `static_assert` can be used naturally in combination with the comma operator.
+
+**Example — bounds-checked bit-shift macro:**
+
+```c
+#include <limits.h>
+
+#define BIT(n) ( \
+    static_assert(n >= 0),      \
+    static_assert(n < UINT_WIDTH), \
+    1U << (n) \
+)
+
+int main() {
+    unsigned x = BIT(3);   /* ok */
+    unsigned y = BIT(99);  /* compile-time error: assertion failed */
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+**Disambiguation rule:** A block item consisting solely of `static_assert(...)` followed
+by a semicolon is always treated as a `static_assert` *declaration*, preserving 
+backward compatibility. `static_assert` is only treated as an *expression* when it 
+appears in an expression context (e.g., as an operand of the comma operator, 
+or as the controlling expression of `_Generic`).
+
+```c
+void func() {
+    static_assert(1);       /* declaration - behaviour unchanged */
+    static_assert(1), 0;    /* expression - new in C2Y */
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+**Using `_Generic` to produce an integer constant expression:**
+
+Because the comma operator and `void` are not permitted in integer 
+constant expressions, the result of the comma-based form cannot be 
+used where an integer constant expression is required (e.g., as an array size). 
+A `_Generic` workaround can be used in those cases:
+
+```c
+
+#define CHAR_BIT 8
+
+#define BIT(type, n) \
+    _Generic(static_assert(n >= 0 && n < sizeof(type) * CHAR_BIT), \
+             void: (type)1 << (n))
+
+int arr[BIT(unsigned int, 2)];   /* ok - integer constant expression */
+```
+
+<button onclick="Try(this)">try</button>
+
+Reference: https://open-std.org/jtc1/sc22/wg14/www/docs/n3715.pdf
+
+
+Cake extensions `static_debug`, `assert_state`, `override_state` also works in the same way.
+
+```c
+#pragma safety enable
+int * _Opt f();
+void func() {
+    
+    int* _Opt p = f();
+    p = p ? (static_debug(p), p) : 0;
+}
+```
+<button onclick="Try(this)">try</button>
+
 ---
 
 ## 11. Cake Language Extensions

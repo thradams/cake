@@ -56,6 +56,7 @@ enum expression_type
     UNARY_EXPRESSION_SIZEOF_EXPRESSION,
     UNARY_EXPRESSION_SIZEOF_TYPE,
     UNARY_EXPRESSION_COUNTOF,
+    UNARY_EXPRESSION_STATIC_ASSERTION,
     
     UNARY_EXPRESSION_GCC__BUILTIN_VA_START,
     UNARY_EXPRESSION_GCC__BUILTIN_VA_END,    
@@ -219,7 +220,7 @@ struct expression
     struct braced_initializer* _Owner _Opt braced_initializer;
     struct compound_statement* _Owner _Opt compound_statement; //function literal (lambda)
     struct generic_selection* _Owner _Opt generic_selection; //_Generic
-    
+    struct static_assertion * _Owner _Opt static_assertion; //_Generic
     struct token* first_token;
     struct token* last_token;
     

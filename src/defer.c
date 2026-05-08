@@ -83,17 +83,18 @@ static struct defer_scope* _Opt defer_visit_ctx_push_child(struct defer_visit_ct
 
 static struct defer_scope* _Opt _Owner defer_visit_ctx_pop_child(struct defer_visit_ctx* ctx)
 {
-    struct defer_scope* _Owner _Opt p = ctx->tail_block;
-    if (p)
+    struct defer_scope* _Owner _Opt p = NULL;
+    if (ctx->tail_block)
     {
+        p = ctx->tail_block;
         ctx->tail_block = ctx->tail_block->previous;
-        p->previous = NULL;
+        p->previous = NULL; //lint 29
     }
 
     return p;
 }
 
-static void defer_visit_ctx_pop_until(struct defer_visit_ctx* ctx, struct defer_scope* _Opt p_defer, struct defer_list* p_defer_list)
+static void defer_visit_ctx_pop_until(struct defer_visit_ctx* ctx, struct defer_scope* _Opt p_defer, struct defer_list* _Opt p_defer_list)
 {
     if (ctx->searching_label_mode && ctx->p_label)
     {
@@ -413,10 +414,10 @@ static struct defer_scope* _Opt find_common_defer_scope(struct defer_scope* p_la
 
     //A B C D E F G
     //A B 1 2 
-    struct defer_scope* p1 = p_label_list;
-    while (p_label_list)
+    struct defer_scope* _Opt p1 = p_label_list;
+    while (p1)
     {
-        struct defer_scope* p = p_goto_list;
+        struct defer_scope* _Opt p = p_goto_list;
         while (p)
         {
             if (p->p_declarator == p1->p_declarator &&
@@ -564,12 +565,13 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
         else if (p_jump_statement->first_token->type == TK_KEYWORD_GOTO)
         {
             //Visit to find the route until label
+            assert(p_jump_statement->label);
 
             label_ctx.searching_label_mode = true;
             label_ctx.label_name = p_jump_statement->label->lexeme;
             defer_start_visit_declaration(&label_ctx, ctx->p_declaration);
 
-            struct defer_scope* p_common =
+            struct defer_scope* _Opt p_common =
                 find_common_defer_scope(label_ctx.tail_block /*label*/, ctx->tail_block /*goto*/);
 
             if (p_common == NULL)
@@ -665,7 +667,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                 {
                     //start -> p
                     struct defer_scope* _Opt p2 = start;
-                    while (p2 != p)
+                    while (p2 && p2 != p)
                     {
                         if (p2->p_declarator)
                         {
@@ -703,7 +705,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                          strcmp(p->label->p_first_token->lexeme, label) == 0)
                 {
                     struct defer_scope* _Opt p2 = start;
-                    while (p2 != p)
+                    while (p2 && p2 != p)
                     {
                         if (p2->p_declarator)
                         {

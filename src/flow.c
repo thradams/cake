@@ -18,6 +18,7 @@
 
 static void check_dianostic_suppression(struct flow_visit_ctx* ctx, struct token* pToken);
 static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement);
+static void flow_visit_static_assertion(struct flow_visit_ctx* ctx, struct static_assertion* p_static_assertion);
 
 struct object_visitor
 {
@@ -424,7 +425,8 @@ void flow_objects_destroy(_Dtor struct flow_objects* p)
 {
     for (int i = 0; i < p->size; i++)
     {
-        flow_object_delete(p->data[i]);
+        flow_object_delete(p->data[i]); //lint 30 (bug #436)
+
     }
     free(p->data);
 }
@@ -433,9 +435,9 @@ void flow_objects_clear(struct flow_objects* p)
 {
     for (int i = 0; i < p->size; i++)
     {
-        flow_object_delete(p->data[i]);
+        flow_object_delete(p->data[i]); //lint 30 (bug #436)
     }
-    p->size = 0;
+    p->size = 0;    
 }
 
 int objects_reserve(struct flow_objects* p, int n)
@@ -668,6 +670,8 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
 
         else if (type_is_array(p_type))
         {
+            //flow: static arrays #435
+
             //p_object->state = flags;
             //if (p_object->members_size > 0)
             //{
@@ -894,7 +898,7 @@ void print_object_core(bool color_enabled,
                 ss_fprintf(ss0, COLOR_RESET);
             ss_fprintf(ss0, "}");
         }
-        
+
 
 #if 0
         if (p_visitor->p_object->current.ref.size > 0)
@@ -946,7 +950,7 @@ void print_object_core(bool color_enabled,
 
             flow_object_print_state(p_visitor->p_object, ss0);
             ss_fprintf(ss0, "}");
-        }        
+        }
     }
 
 
@@ -4448,8 +4452,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
                     p_init_declarator->p_declarator->p_flow_object->current.state = FLOW_OBJECT_STATE_NOT_NULL | FLOW_OBJECT_STATE_NULL;
                 }
             }
-            else  if (p_init_declarator->initializer &&
-                p_init_declarator->initializer->braced_initializer)
+            else if (p_init_declarator->initializer && p_init_declarator->initializer->braced_initializer)
             {
                 assert(p_init_declarator->p_declarator->p_flow_object != NULL);
                 braced_initializer_flow(ctx,
@@ -4485,9 +4488,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list);
 
-static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx,
-    struct declaration_specifiers* p_declaration_specifiers,
-    struct type* _Opt p_type);
+static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx, struct declaration_specifiers* p_declaration_specifiers, struct type* _Opt p_type);
 
 
 static void flow_visit_simple_declaration(struct flow_visit_ctx* ctx, struct simple_declaration* p_simple_declaration)
@@ -5602,6 +5603,14 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         break;
 
+    case UNARY_EXPRESSION_STATIC_ASSERTION:
+
+        if (p_expression->static_assertion)
+        {
+            flow_visit_static_assertion(ctx, p_expression->static_assertion);
+        }
+        break;
+
     case UNARY_EXPRESSION_ALIGNOF_EXPRESSION:
 
         if (p_expression->right)
@@ -6279,6 +6288,13 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
 
     case EXPRESSION_EXPRESSION:
+        assert(p_expression->left != NULL);
+        assert(p_expression->right != NULL);
+
+
+        flow_visit_expression(ctx, p_expression->left, expr_true_false_set);
+        flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
+
         break;
 
     case CONDITIONAL_EXPRESSION:
@@ -6940,40 +6956,42 @@ static void flow_visit_pragma_declaration(struct flow_visit_ctx* ctx, struct pra
     execute_pragma_declaration(ctx->ctx, p_pragma_declaration, true);
 }
 
-static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, struct static_assert_declaration* p_static_assert_declaration)
+
+
+static void flow_visit_static_assertion(struct flow_visit_ctx* ctx, struct static_assertion* p_static_assertion)
 {
     const bool t2 = ctx->expression_is_not_evaluated;
     ctx->expression_is_not_evaluated = true;
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
     struct true_false_set a = { 0 };
-    flow_visit_full_expression(ctx, p_static_assert_declaration->constant_expression, &a);
+    flow_visit_full_expression(ctx, p_static_assertion->constant_expression, &a);
 
     ctx->expression_is_not_evaluated = t2; //restore
 
 
-    if (p_static_assert_declaration->first_token->type == TK_KEYWORD_CAKE_STATIC_DEBUG ||
-        p_static_assert_declaration->first_token->type == TK_KEYWORD_CAKE_STATIC_DEBUG_EX)
+    if (p_static_assertion->first_token->type == TK_KEYWORD_CAKE_STATIC_DEBUG ||
+        p_static_assertion->first_token->type == TK_KEYWORD_CAKE_STATIC_DEBUG_EX)
     {
-        bool ex = p_static_assert_declaration->first_token->type == TK_KEYWORD_CAKE_STATIC_DEBUG_EX;
+        bool ex = p_static_assertion->first_token->type == TK_KEYWORD_CAKE_STATIC_DEBUG_EX;
 
 
         struct flow_object* _Opt p_obj =
-            expression_get_flow_object(ctx, p_static_assert_declaration->constant_expression, nullable_enabled);
+            expression_get_flow_object(ctx, p_static_assertion->constant_expression, nullable_enabled);
 
 
         if (ex)
         {
             diagnostic(W_INFO,
                     ctx->ctx,
-                    p_static_assert_declaration->first_token,
+                    p_static_assertion->first_token,
                     NULL,
                     "debug");
 
             struct osstream ss = { 0 };
             print_arena(ctx, &ss);
             printf("%s", ss.c_str);
-            
+
             ss_close(&ss);
         }
         else
@@ -6982,7 +7000,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
             {
                 struct osstream ss = { 0 };
                 const bool color_enabled = !ctx->ctx->options.color_disabled;
-                print_flow_object(color_enabled, &p_static_assert_declaration->constant_expression->type, p_obj, !ex, &ss);
+                print_flow_object(color_enabled, &p_static_assertion->constant_expression->type, p_obj, !ex, &ss);
                 if (p_obj->is_temporary)
                 {
                     p_obj->current.state = FLOW_OBJECT_STATE_LIFE_TIME_ENDED;
@@ -6990,8 +7008,8 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
                 const struct marker m =
                 {
-                    .p_token_begin = p_static_assert_declaration->constant_expression->first_token,
-                    .p_token_end = p_static_assert_declaration->constant_expression->last_token
+                    .p_token_begin = p_static_assertion->constant_expression->first_token,
+                    .p_token_end = p_static_assertion->constant_expression->last_token
                 };
 
                 diagnostic(W_INFO,
@@ -7003,7 +7021,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
             }
         }
     }
-    else if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_STATE)
+    else if (p_static_assertion->first_token->type == TK_KEYWORD_STATIC_STATE)
     {
         /*TODO
            check state
@@ -7012,17 +7030,17 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
         bool is_invalid = false;
         enum flow_state e = 0;
-        if (p_static_assert_declaration->string_literal_opt)
-            e = parse_string_state(p_static_assert_declaration->string_literal_opt->lexeme, &is_invalid);
+        if (p_static_assertion->string_literal_opt)
+            e = parse_string_state(p_static_assertion->string_literal_opt->lexeme, &is_invalid);
         if (is_invalid)
         {
-            diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+            diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assertion->first_token, NULL, "invalid parameter %s", p_static_assertion->string_literal_opt->lexeme);
         }
         else
         {
 
             struct flow_object* _Opt p_obj =
-                expression_get_flow_object(ctx, p_static_assert_declaration->constant_expression, nullable_enabled);
+                expression_get_flow_object(ctx, p_static_assertion->constant_expression, nullable_enabled);
             if (p_obj)
             {
 
@@ -7030,19 +7048,20 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                 if (e != p_obj->current.state)
                 {
                     struct osstream oss = { 0 };
-                    diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "assert_state failed");
-                    if (p_static_assert_declaration->string_literal_opt)
-                        ss_fprintf(&oss, "expected :%s\n", p_static_assert_declaration->string_literal_opt->lexeme);
+                    diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assertion->first_token, NULL, "assert_state failed");
+                    if (p_static_assertion->string_literal_opt)
+                        ss_fprintf(&oss, "expected :%s\n", p_static_assertion->string_literal_opt->lexeme);
                     ss_fprintf(&oss, "current  :");
                     flow_object_print_state(p_obj, &oss);
                     ss_fprintf(&oss, "\n");
+                    ss_close(&oss);
                 }
             }
             else
             {
                 if (e != FLOW_OBJECT_STATE_NOT_APPLICABLE)
                 {
-                    diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "assert_state failed");
+                    diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assertion->first_token, NULL, "assert_state failed");
                 }
             }
 
@@ -7053,40 +7072,40 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
         }
     }
-    else if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_SET)
+    else if (p_static_assertion->first_token->type == TK_KEYWORD_STATIC_SET)
     {
         struct flow_object* _Opt p_obj =
-            expression_get_flow_object(ctx, p_static_assert_declaration->constant_expression, nullable_enabled);
+            expression_get_flow_object(ctx, p_static_assertion->constant_expression, nullable_enabled);
 
         if (p_obj)
         {
-            if (p_static_assert_declaration->string_literal_opt)
+            if (p_static_assertion->string_literal_opt)
             {
                 const char* lexeme =
-                    p_static_assert_declaration->string_literal_opt->lexeme;
+                    p_static_assertion->string_literal_opt->lexeme;
 
                 if (strcmp(lexeme, "\"zero\"") == 0)
                 {
                     //gives the semantics of {0} or calloc
-                    flow_object_set_zero(&p_static_assert_declaration->constant_expression->type, p_obj);
+                    flow_object_set_zero(&p_static_assertion->constant_expression->type, p_obj);
                 }
                 else
                 {
                     bool is_invalid = false;
                     enum flow_state e =
-                        parse_string_state(p_static_assert_declaration->string_literal_opt->lexeme, &is_invalid);
+                        parse_string_state(p_static_assertion->string_literal_opt->lexeme, &is_invalid);
 
                     if (!is_invalid)
                     {
                         if (p_obj->members.size > 0)
                         {
-                            diagnostic(C_ERROR_STATIC_SET, ctx->ctx, p_static_assert_declaration->first_token, NULL, "use only for non agregates");
+                            diagnostic(C_ERROR_STATIC_SET, ctx->ctx, p_static_assertion->first_token, NULL, "use only for non agregates");
                         }
                         p_obj->current.state = e;
                     }
                     else
                     {
-                        diagnostic(C_ERROR_STATIC_SET, ctx->ctx, p_static_assert_declaration->first_token, NULL, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+                        diagnostic(C_ERROR_STATIC_SET, ctx->ctx, p_static_assertion->first_token, NULL, "invalid parameter %s", p_static_assertion->string_literal_opt->lexeme);
                     }
                 }
             }
@@ -7417,9 +7436,9 @@ static bool flow_is_last_item_return(struct compound_statement* p_compound_state
 
 void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration)
 {
-    if (p_declaration->static_assert_declaration)
+    if (p_declaration->static_assertion)
     {
-        flow_visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration);
+        flow_visit_static_assertion(ctx, p_declaration->static_assertion);
     }
 
     if (p_declaration->pragma_declaration)

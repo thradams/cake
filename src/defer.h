@@ -15,7 +15,7 @@
 struct defer_visit_ctx
 {
     struct secondary_block* _Opt catch_secondary_block_opt;
-    struct parser_ctx *ctx;
+    struct parser_ctx * const  ctx;
     _View struct ast ast;    
     struct defer_scope* _Owner _Opt tail_block;
     int parameter_list;
@@ -27,7 +27,7 @@ struct defer_visit_ctx
     struct label* _Opt p_label;
     /*-------------------------------*/
 
-    struct declaration* p_declaration;
+    struct declaration* _Opt p_declaration;
 };
 
 void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p);

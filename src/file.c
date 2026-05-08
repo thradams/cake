@@ -1,17 +1,12 @@
 
 #pragma safety enable
 
-void* _Owner _Opt malloc(unsigned long size);
-void free(void* _Owner ptr);
+char* _Owner _Opt strdup(const char*);
+void free(void* _Owner _Opt ptr);
 
-int main()
-{
-    void* _Owner  _Opt p = malloc(1);
-    if (p)
-    {
-       static_debug(p);
-    }
-
-    static_debug(p);
+void f(const char* _Opt s) {
+   const char* _Owner _Opt p;
+   p  = s ? strdup(s) : 0;
+   free((void* _Owner)p);
 }
 

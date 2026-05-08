@@ -17,6 +17,12 @@
 #include "parser.h"
 #include "type.h"
 
+#define TYPE_QUALIFIER_CAKE_MASK \
+    (TYPE_QUALIFIER_CAKE_OWNER | \
+     TYPE_QUALIFIER_CAKE_VIEW  | \
+     TYPE_QUALIFIER_CAKE_OPT   | \
+     TYPE_QUALIFIER_CAKE_DTOR  | \
+     TYPE_QUALIFIER_CAKE_CTOR)
 
 bool is_automatic_variable(enum storage_class_specifier_flags f)
 {
@@ -330,7 +336,12 @@ void type_add_const(struct type* p_type)
     p_type->type_qualifier_flags |= TYPE_QUALIFIER_CONST;
 }
 
-void type_remove_qualifiers(struct type* p_type)
+void type_remove_non_cake_qualifiers(struct type* p_type)
+{
+    p_type->type_qualifier_flags &= TYPE_QUALIFIER_CAKE_MASK;
+}
+
+void type_remove_all_qualifiers(struct type* p_type)
 {
     p_type->type_qualifier_flags = 0;
 }
@@ -366,7 +377,7 @@ struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_en
         struct type t2 = type_add_pointer(&t, nullchecks_enabled);
 
 
-        type_remove_qualifiers(&t2);
+        type_remove_non_cake_qualifiers(&t2);
         /*
         int g(const int a[const 20]) {
             // in this function, a has type const int* const (const pointer to const int)
@@ -385,7 +396,7 @@ struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_en
     }
 
     struct type t = type_dup(p_type);
-    type_remove_qualifiers(&t);
+    type_remove_non_cake_qualifiers(&t);
     t.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_PARAMETER;
 
     /*

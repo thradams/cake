@@ -168,7 +168,7 @@ static void tokenizer_diagnostic(enum diagnostic_id w, struct tokenizer_ctx* ctx
     va_list args = { 0 };
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args);
+    va_end(args); //lint 35 33
 
     print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format, color_enabled);
     if (ctx->options.visual_studio_ouput_format)
@@ -260,7 +260,7 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
 
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args);
+    va_end(args); //lint 33 35
 
     if (ctx->options.visual_studio_ouput_format)
     {
@@ -700,7 +700,7 @@ struct macro_argument* _Opt find_macro_argument_by_name(struct macro_argument_li
     struct macro_argument* _Opt p_macro_argument = parameters->head;
     while (p_macro_argument)
     {
-        if (strcmp(p_macro_argument->macro_parameter->name, name) == 0)
+        if (p_macro_argument->macro_parameter && strcmp(p_macro_argument->macro_parameter->name, name) == 0)
         {
             return p_macro_argument;
         }

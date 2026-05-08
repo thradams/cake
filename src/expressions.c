@@ -885,6 +885,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
     char errormsg[100] = { 0 };
     char suffix[4] = { 0 };
     enum token_type r = parse_number(buffer, suffix, errormsg);
+
     if (r == TK_NONE)
     {
         diagnostic(
@@ -948,17 +949,17 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
 
         const bool is_decimal_constant = (token->type == TK_COMPILER_DECIMAL_CONSTANT);
         const bool suffix_none = (suffix[0] == '\0');
-        const bool suffix_u = (suffix[0] == 'U' && suffix[1] == '\0');
+        const bool suffix_u = (suffix[0] == 'U' && suffix[1] == '\0'); //lint 28 (bug #435)
 
         const bool suffix_l = ((suffix[0] == 'L' && suffix[1] == '\0')) ||
-            ((suffix[0] == 'i' && suffix[1] == '3' && suffix[2] == '2' && suffix[3] == '\0'));
+            ((suffix[0] == 'i' && suffix[1] == '3' && suffix[2] == '2' && suffix[3] == '\0')); //lint 28 28 (bug #435)
 
-        const bool suffix_ul = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == '\0');
+        const bool suffix_ul = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == '\0'); //lint 28 (bug #435)
 
         const bool suffix_ll = (suffix[0] == 'L' && suffix[1] == 'L' && suffix[2] == '\0') ||
-            (suffix[0] == 'i' && suffix[1] == '6' && suffix[2] == '4' && suffix[3] == '\0');
+            (suffix[0] == 'i' && suffix[1] == '6' && suffix[2] == '4' && suffix[3] == '\0'); //lint 28 28 (bug #435)
 
-        const bool suffix_ull = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == 'L' && suffix[3] == '\0');
+        const bool suffix_ull = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == 'L' && suffix[3] == '\0'); //lint 28 (bug #435)
 
         object_destroy(&p_expression_node->object);
         p_expression_node->object = (struct object){ 0 };
@@ -2732,6 +2733,9 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
             return true; //const(expr)
     }
 
+    if (first_of_static_assertion(ctx))
+        return true; //C2Y
+
     return first_of_postfix_expression(ctx) ||
         ctx->current->type == '++' ||
         ctx->current->type == '--' ||
@@ -2898,6 +2902,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
         _Countof unary-expression   //C2Y
         _Countof ( type-name )      //C2Y
         alignof ( type-name )
+
+        static-assertion //C2Y
     */
 
     struct expression* _Owner _Opt p_expression_node = NULL;
@@ -3573,6 +3579,33 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             p_expression_node = new_expression;
             new_expression = NULL; //MOVED
         } //not leak
+        else if (first_of_static_assertion(ctx))
+        {
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+
+            new_expression->first_token = ctx->current;
+            new_expression->static_assertion = static_assertion(ctx);
+            if (new_expression->static_assertion == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                expression_delete(new_expression);
+                throw;
+            }
+
+            new_expression->expression_type = UNARY_EXPRESSION_STATIC_ASSERTION;
+            new_expression->type = make_void_type();
+            struct token* _Opt tk = previous_parser_token(ctx->current);
+            assert(tk);
+            new_expression->last_token = tk;
+            p_expression_node = new_expression;
+        }
         else if (ctx->current->type == TK_KEYWORD__COUNTOF)//C2Y
         {
             /* a defer statement would be useful here */
@@ -4131,6 +4164,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
 
             if (ctx->current->type == '{')
             {
+
                 /*
                     ( storage-class-specifier opt type-name ) { ... }
                 */
@@ -4149,6 +4183,8 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
             }
             else if (is_first_of_unary_expression(ctx))
             {
+                if (p_expression_node == NULL) throw;
+
                 p_expression_node->left = cast_expression(ctx, eval_mode);
                 if (p_expression_node->left == NULL)
                 {
@@ -6124,6 +6160,7 @@ void expression_delete(struct expression* _Owner _Opt p)
 {
     if (p)
     {
+        static_assertion_delete(p->static_assertion);
         storage_class_specifiers_delete(p->p_storage_class_specifiers);
         expression_delete(p->condition_expr);
         compound_statement_delete(p->compound_statement);
