@@ -16,7 +16,7 @@
 #include <limits.h>
 #include "console.h"
 
-static void check_dianostic_suppression(struct flow_visit_ctx* ctx, struct token* pToken);
+static void check_dianostic_suppression(struct flow_visit_ctx* ctx, struct token* p_token);
 static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement);
 static void flow_visit_static_assertion(struct flow_visit_ctx* ctx, struct static_assertion* p_static_assertion);
 
@@ -1993,7 +1993,7 @@ void object_get_name(const struct type* p_type,
                 break;
 
             p = p->next;
-            assert(p != NULL);
+            if (p == NULL)break;
         }
 
         if (bytes_written < (out_size - 1))
@@ -3349,7 +3349,7 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
                 expression_get_flow_object(ctx,
                     p_expression->left ? p_expression->left
                                        : p_expression->condition_expr,
-                    nullable_enabled);
+                    nullable_enabled); //lint 35 (bug #440)
 
             struct flow_object* _Opt p_obj2 = expression_get_flow_object(ctx, p_expression->right, nullable_enabled);
 
@@ -5279,11 +5279,11 @@ static void flow_expression_bind(struct flow_visit_ctx* ctx,
         flow_expression_bind(ctx, p_expression->right, p_param_list, p_argument_expression_list);
 }
 
-void check_dianostic_suppression_core(struct parser_ctx* ctx, struct token* pToken, int phase);
+void check_dianostic_suppression_core(struct parser_ctx* ctx, struct token* p_token, int phase);
 
-static void check_dianostic_suppression(struct flow_visit_ctx* ctx, struct token* pToken)
+static void check_dianostic_suppression(struct flow_visit_ctx* ctx, struct token* p_token)
 {
-    check_dianostic_suppression_core(ctx->ctx, pToken, 2);
+    check_dianostic_suppression_core(ctx->ctx, p_token, 2);
 }
 static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct true_false_set* expr_true_false_set);
 

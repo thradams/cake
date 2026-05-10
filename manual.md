@@ -207,14 +207,35 @@ Treat string literals as `const char[]` rather than `char[]`.
 ### 4.6 Style and Formatting Options
 
 **`-style=<name>`**  
-Set the naming-style convention used by style warnings (`-w011`). Available styles: `cake`, `gnu`, `microsoft`.
+Set the naming and formatting convention enforced by style warnings (`-Wstyle` / `-w011`).
+When enabled, Cake checks identifier casing, brace placement, and spacing against the chosen guide.
+
+Available styles:
+
+**`cake`** — The Cake default style. Snake_case identifiers. Allman brace placement: both function-body and control-flow `{` appear on their own line, indented. `}` always on its own line.
+
+**`gnu`** — GNU coding standards. Snake_case identifiers. Allman brace placement, same as `cake`.
+
+**`microsoft`** — Microsoft style guide. PascalCase for types and functions. Allman brace placement: `{` on its own line for both function bodies and control-flow blocks.
+
+**`llvm`** — LLVM coding standards. PascalCase for types and functions, camelCase for variables. K&R brace placement: `{` on the same line as the controlling statement or function signature, preceded by a space.
+
+**`google`** — Google C++ style guide (C-compatible subset). PascalCase for types and functions. K&R brace placement: `{` on the same line.
+
+**`chromium`** — Chromium style guide (derives from Google). PascalCase for types and functions. K&R brace placement: `{` on the same line.
+
+**`mozilla`** — Mozilla coding style. PascalCase for types, camelCase for functions and variables. Mixed brace placement: function-body `{` on its own line (Allman); control-flow `{` on the same line (K&R).
+
+**`webkit`** — WebKit code style guidelines. PascalCase for types, camelCase for functions and variables. Mixed brace placement: function-body `{` on its own line (Allman); control-flow `{` on the same line (K&R).
+
+In all styles, `}` must appear on its own line.
 
 ### 4.7 Using cake inside Visual Studio
 Use cake as Custom Build Tool for a specific file.c
 
 - Command line: `cake -sarif -sarif-path "$(SolutionDir).sarif" -line-directives -msvc-output file.c`
-- Ouputs: `x86/file.c`
-- Add Ouput to item type: `C/C++ Compiler`
+- Outputs: `x86/file.c`
+- Add Output to item type: `C/C++ Compiler`
 
 Then you can run/debug normally.
 

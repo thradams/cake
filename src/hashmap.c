@@ -181,6 +181,10 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 
     void* _Opt p = NULL;
     enum tag type = TAG_TYPE_NUMBER;
+
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignored 29
+
     if (item->p_declarator)
     {
         type = TAG_TYPE_DECLARATOR;
@@ -240,6 +244,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
         p = (void*)item->number;
     }
     
+#pragma CAKE diagnostic pop
 
     try
     {
@@ -294,6 +299,10 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
         }
         else
         {
+
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignored 33
+
             switch (pentry->type)
             {
             case TAG_TYPE_NUMBER:break;
@@ -332,6 +341,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
                 item->text = pentry->data.p_text;
                 break;
             }
+#pragma CAKE diagnostic pop
 
             result = 1;
             pentry->data.p_declarator = (void*)p;

@@ -1647,7 +1647,8 @@ struct object object_dup(const struct object* src)
             object_list_push(&result.members, pnew);
         }
     }
-    catch{
+    catch
+    {
     }
     return result;
 }
@@ -1671,21 +1672,21 @@ enum type_specifier_flags object_type_to_type_specifier(enum object_type type)
         return TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_CHAR;
     case TYPE_UNSIGNED_CHAR: return TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR;
 
-    case TYPE_SIGNED_SHORT:return  TYPE_SPECIFIER_SHORT;
-    case TYPE_UNSIGNED_SHORT:return TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT;
+    case TYPE_SIGNED_SHORT: return TYPE_SPECIFIER_SHORT;
+    case TYPE_UNSIGNED_SHORT: return TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT;
 
-    case TYPE_SIGNED_INT:return TYPE_SPECIFIER_INT;
-    case TYPE_UNSIGNED_INT:return TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
+    case TYPE_SIGNED_INT: return TYPE_SPECIFIER_INT;
+    case TYPE_UNSIGNED_INT: return TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
 
-    case TYPE_SIGNED_LONG:return TYPE_SPECIFIER_LONG;
-    case TYPE_UNSIGNED_LONG:return TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG;
+    case TYPE_SIGNED_LONG: return TYPE_SPECIFIER_LONG;
+    case TYPE_UNSIGNED_LONG: return TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG;
 
-    case TYPE_SIGNED_LONG_LONG:return TYPE_SPECIFIER_LONG_LONG;
-    case TYPE_UNSIGNED_LONG_LONG:return TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
+    case TYPE_SIGNED_LONG_LONG: return TYPE_SPECIFIER_LONG_LONG;
+    case TYPE_UNSIGNED_LONG_LONG: return TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
 
-    case TYPE_FLOAT:return TYPE_SPECIFIER_FLOAT;
-    case TYPE_DOUBLE:return TYPE_SPECIFIER_DOUBLE;
-    case TYPE_LONG_DOUBLE:return TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE;
+    case TYPE_FLOAT: return TYPE_SPECIFIER_FLOAT;
+    case TYPE_DOUBLE: return TYPE_SPECIFIER_DOUBLE;
+    case TYPE_LONG_DOUBLE: return TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE;
 
     default:        
         break;
@@ -1748,7 +1749,7 @@ enum object_type type_to_object_type(const struct type* type, enum target target
 {
     if (type_is_pointer(type))
     {
-        return  get_platform(target)->size_t_type;
+        return get_platform(target)->size_t_type;
     }
 
     /*

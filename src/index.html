@@ -618,6 +618,253 @@
         }
 
         /* Syntax highlighting and find handled by Monaco */
+
+        /* ══ SETTINGS OVERLAY ═══════════════════════════════════════════ */
+        #settings-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 500;
+            background: var(--bg);
+            flex-direction: column;
+        }
+
+            #settings-overlay.open {
+                display: flex;
+            }
+
+        #settings-panel {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            max-width: 780px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        /* header */
+        #settings-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 28px;
+            height: 48px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            background: var(--bg-toolbar);
+        }
+
+        #settings-back-btn {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px 4px 7px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            color: var(--text-dim);
+            font-size: 12.5px;
+            cursor: pointer;
+            transition: background 0.12s, color 0.12s, border-color 0.12s;
+        }
+
+            #settings-back-btn:hover {
+                background: rgba(255,255,255,0.07);
+                color: var(--text-bright);
+                border-color: #666;
+            }
+
+        #settings-title {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--text-bright);
+            letter-spacing: 0.02em;
+        }
+
+        /* scrollable body */
+        #settings-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px 28px 12px;
+        }
+
+            #settings-body::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            #settings-body::-webkit-scrollbar-thumb {
+                background: #444;
+                border-radius: 3px;
+            }
+
+        /* sections */
+        .settings-section {
+            margin-bottom: 32px;
+        }
+
+        .settings-section-title {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            margin-bottom: 4px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* rows */
+        .settings-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            padding: 13px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+
+            .settings-row:last-child {
+                border-bottom: none;
+            }
+
+        .settings-row-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .settings-label {
+            display: block;
+            font-size: 13px;
+            color: var(--text);
+            margin-bottom: 3px;
+        }
+
+        .settings-desc {
+            font-size: 11.5px;
+            color: var(--text-dim);
+            line-height: 1.5;
+        }
+
+            .settings-desc code {
+                font-family: 'Cascadia Code', 'JetBrains Mono', monospace;
+                font-size: 11px;
+                background: rgba(255,255,255,0.07);
+                padding: 1px 5px;
+                border-radius: 3px;
+                color: #9cdcfe;
+            }
+
+        /* text inputs */
+        .settings-input {
+            flex-shrink: 0;
+            width: 240px;
+            height: 26px;
+            background: var(--bg-dark);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0 9px;
+            font-size: 12px;
+            font-family: 'Cascadia Code', 'JetBrains Mono', monospace;
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .settings-input-sm {
+            width: 72px;
+        }
+
+        .settings-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(0,122,204,0.22);
+        }
+
+        .settings-input::placeholder {
+            color: var(--text-dim);
+            opacity: 0.55;
+        }
+
+        /* toggle switch */
+        .settings-toggle {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+            .settings-toggle input {
+                display: none;
+            }
+
+        .settings-toggle-track {
+            width: 36px;
+            height: 20px;
+            border-radius: 10px;
+            background: #444;
+            position: relative;
+            transition: background 0.2s;
+        }
+
+        .settings-toggle input:checked + .settings-toggle-track {
+            background: var(--accent);
+        }
+
+        .settings-toggle-thumb {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #fff;
+            transition: transform 0.18s;
+        }
+
+        .settings-toggle input:checked + .settings-toggle-track .settings-toggle-thumb {
+            transform: translateX(16px);
+        }
+
+        /* footer */
+        #settings-footer {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 12px 28px;
+            border-top: 1px solid var(--border);
+            background: var(--bg-toolbar);
+            flex-shrink: 0;
+        }
+
+        .settings-btn-primary, .settings-btn-secondary {
+            height: 28px;
+            padding: 0 16px;
+            border-radius: 4px;
+            font-size: 12.5px;
+            cursor: pointer;
+            border: none;
+            transition: opacity 0.12s, background 0.12s;
+        }
+
+        .settings-btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+            .settings-btn-primary:hover {
+                opacity: 0.88;
+            }
+
+        .settings-btn-secondary {
+            background: transparent;
+            color: var(--text-dim);
+            border: 1px solid var(--border);
+        }
+
+            .settings-btn-secondary:hover {
+                background: rgba(255,255,255,0.06);
+                color: var(--text);
+            }
     </style>
 </head>
 <body>
@@ -636,6 +883,23 @@
                 <line x1="3" y1="6" x2="21" y2="6" />
                 <line x1="3" y1="12" x2="21" y2="12" />
                 <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+        </button>
+        <!-- Settings button pinned to bottom -->
+        <button class="activity-btn" id="btn-settings" onclick="openSettings()" title="Settings"
+                style="margin-top:auto; margin-bottom:6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06
+                         a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09
+                         A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83
+                         l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09
+                         A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83
+                         l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09
+                         a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83
+                         l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09
+                         a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
         </button>
     </div>
@@ -667,8 +931,7 @@
             <div id="tabs-list"></div>
             <div id="action-bar">
                 <button class="icon-btn" id="reloadBtn" onclick="reload()" title="Reload" style="width:auto;padding:0 10px;" disabled>Reload</button>
-                <button class="icon-btn" id="saveBtn" onclick="saveFile()" title="Save (Ctrl+S)" style="width:auto;padding:0 10px;" disabled>Save</button>
-                <button class="icon-btn" id="saveCompileBtn" onclick="compile()" title="Save &amp; Compile (Ctrl+Enter)" style="width:auto;padding:0 10px;">Save &amp; Compile</button>
+                <button class="icon-btn" id="saveBtn" onclick="saveAndCompile()" title="Save (Ctrl+S)" style="width:auto;padding:0 10px;" disabled>Save</button>
                 <div class="v-sep"></div>
                 <button class="icon-btn" onclick="diagFirst()" title="First diagnostic (Ctrl+Home)" style="width:auto;padding:0 8px;">First</button>
                 <button class="icon-btn" onclick="diagPrev()" title="Previous diagnostic (Ctrl+↑ or Shift+F8)" style="width:auto;padding:0 8px;">Prev</button>
@@ -710,6 +973,114 @@
         <div class="status-item right" id="status-cursor">Ln 1, Col 1</div>
         <div class="status-item">C</div>
     </div>
+
+    <!-- ══ SETTINGS OVERLAY ══════════════════════════════════════════ -->
+    <div id="settings-overlay">
+        <div id="settings-panel">
+            <div id="settings-header">
+                <button id="settings-back-btn" onclick="closeSettings()" title="Back to editor">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                         fill="none" stroke="currentColor" stroke-width="2.5"
+                         stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                    Back
+                </button>
+                <span id="settings-title">Settings</span>
+            </div>
+
+            <div id="settings-body">
+
+                <!-- ── Compiler ───────────────────────────────────── -->
+                <section class="settings-section">
+                    <h2 class="settings-section-title">Compiler</h2>
+
+                    <div class="settings-row">
+                        <div class="settings-row-info">
+                            <label class="settings-label" for="compilerOpts">Extra compiler flags</label>
+                            <p class="settings-desc">
+                                Appended to every compile invocation.<br>
+                                Example: <code>-Wall -Wextra -O2 -std=c11</code>
+                            </p>
+                        </div>
+                        <input id="compilerOpts" class="settings-input" type="text"
+                               placeholder="-Wall -O2 …"
+                               spellcheck="false" autocomplete="off" />
+                    </div>
+                    <!--
+                    <div class="settings-row">
+                        <div class="settings-row-info">
+                            <label class="settings-label" for="serverPath">Server path</label>
+                            <p class="settings-desc">Base URL of the compile/save API.</p>
+                        </div>
+                        <input id="serverPath" class="settings-input" type="text"
+                               value="http://localhost:8080"
+                               spellcheck="false" autocomplete="off" />
+                    </div>
+                    -->
+                </section>
+
+                <!-- ── Editor ────────────────────────────────────── -->
+                <section class="settings-section">
+                    <h2 class="settings-section-title">Editor</h2>
+
+                    <div class="settings-row">
+                        <div class="settings-row-info">
+                            <label class="settings-label" for="settingFontSize">Font size</label>
+                            <p class="settings-desc">Editor font size in px.</p>
+                        </div>
+                        <input id="settingFontSize" class="settings-input settings-input-sm"
+                               type="number" min="8" max="32" value="13" />
+                    </div>
+                    <!--
+                    <div class="settings-row">
+                        <div class="settings-row-info">
+                            <label class="settings-label" for="settingMinimap">Minimap</label>
+                            <p class="settings-desc">Show the code minimap on the right.</p>
+                        </div>
+                        <label class="settings-toggle">
+                            <input id="settingMinimap" type="checkbox" checked />
+                            <span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span>
+                        </label>
+                    </div>
+
+                    <div class="settings-row">
+                        <div class="settings-row-info">
+                            <label class="settings-label" for="settingWordWrap">Word wrap</label>
+                            <p class="settings-desc">Wrap long lines in the editor.</p>
+                        </div>
+                        <label class="settings-toggle">
+                            <input id="settingWordWrap" type="checkbox" />
+                            <span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span>
+                        </label>
+                    </div>
+                                    -->
+                </section>
+
+                <!-- ── Workspace ──────────────────────────────────── -->
+                <!--
+                        <section class="settings-section">
+                            <h2 class="settings-section-title">Workspace</h2>
+
+                            <div class="settings-row">
+                                <div class="settings-row-info">
+                                    <label class="settings-label" for="workspacePath">Default path</label>
+                                    <p class="settings-desc">Directory opened on startup.</p>
+                                </div>
+                                <input id="workspacePath" class="settings-input" type="text"
+                                       placeholder="/home/user/project"
+                                       spellcheck="false" autocomplete="off" />
+                            </div>
+                        </section>
+                    -->
+            </div><!-- /settings-body -->
+
+            <div id="settings-footer">
+                <button class="settings-btn-secondary" onclick="resetSettings()">Reset to defaults</button>
+                <button class="settings-btn-primary" onclick="applySettings()">Apply &amp; Close</button>
+            </div>
+        </div>
+    </div><!-- /settings-overlay -->
 
     <script src="./vs/loader.js"></script>
     <script src="server.js"></script>
@@ -1256,6 +1627,126 @@
                 document.addEventListener('mouseup', onUp);
             });
         })();
+
+        // ══ SETTINGS ═════════════════════════════════════════════════════
+
+        const _settingsDefaults = {
+            compilerOpts: '',
+            serverPath: 'http://localhost:8080',
+            fontSize: 13,
+            minimap: true,
+            wordWrap: false,
+            workspacePath: '',
+        };
+
+        // Load persisted settings (or defaults) and populate fields
+        function _loadSettingsToForm()
+        {
+            let saved = {};
+            try { saved = JSON.parse(localStorage.getItem('ide_settings') || '{}'); } catch (_) { }
+            const s = Object.assign({}, _settingsDefaults, saved);
+
+            document.getElementById('compilerOpts').value = s.compilerOpts;
+            //document.getElementById('serverPath').value = s.serverPath;
+            //document.getElementById('settingFontSize').value = s.fontSize;
+            //document.getElementById('settingMinimap').checked = s.minimap;
+            //document.getElementById('settingWordWrap').checked = s.wordWrap;
+            //document.getElementById('workspacePath').value = s.workspacePath;
+        }
+
+        // Read fields → object (does NOT save yet)
+        function _readSettingsFromForm()
+        {
+            return {
+                compilerOpts: document.getElementById('compilerOpts').value.trim()
+                //serverPath: document.getElementById('serverPath').value.trim() || _settingsDefaults.serverPath,
+                //fontSize: parseInt(document.getElementById('settingFontSize').value, 10) || _settingsDefaults.fontSize,
+                //minimap: document.getElementById('settingMinimap').checked,
+                //wordWrap: document.getElementById('settingWordWrap').checked,
+            };
+        }
+
+        // Apply live settings to the editor and global API variable
+        function _applySettingsLive(s)
+        {
+            // Update the API base URL used by server.js
+            if (typeof API !== 'undefined') window.API = s.serverPath;
+
+            // Monaco options
+            if (_monacoReady && _monacoEditor)
+            {
+                _monacoEditor.updateOptions({
+                    fontSize: s.fontSize,
+                    minimap: { enabled: s.minimap },
+                    wordWrap: s.wordWrap ? 'on' : 'off',
+                });
+            }
+        }
+
+        function openSettings()
+        {
+            _loadSettingsToForm();
+            document.getElementById('settings-overlay').classList.add('open');
+            document.getElementById('btn-settings').classList.add('active');
+        }
+
+        function closeSettings()
+        {
+            document.getElementById('settings-overlay').classList.remove('open');
+            document.getElementById('btn-settings').classList.remove('active');
+        }
+
+        function applySettings()
+        {
+            const s = _readSettingsFromForm();
+            localStorage.setItem('ide_settings', JSON.stringify(s));
+            _applySettingsLive(s);
+            closeSettings();
+            setStatus('\u2713 Settings saved', 3000);
+        }
+
+        function resetSettings()
+        {
+            localStorage.removeItem('ide_settings');
+            _loadSettingsToForm();   // repopulate with defaults (visual feedback)
+            setStatus('Settings reset to defaults', 3000);
+        }
+
+        // Restore settings on page load (before Monaco is ready; Monaco picks them up via _applySettingsLive)
+        (function initSettings()
+        {
+            let saved = {};
+            try { saved = JSON.parse(localStorage.getItem('ide_settings') || '{}'); } catch (_) { }
+            const s = Object.assign({}, _settingsDefaults, saved);
+            // Override API global that server.js defines at the top
+            if (s.serverPath) window.API = s.serverPath;
+            // Seed compilerOpts input so getCompilerOpts() works before settings are ever opened
+            window.addEventListener('DOMContentLoaded', () =>
+            {
+                const el = document.getElementById('compilerOpts');
+                if (el && !el.value) el.value = s.compilerOpts || '';
+            });
+        })();
+
+        // Also apply Monaco-specific settings once Monaco is ready
+        // Patch into the existing _monacoReady flag set by the Monaco bootstrap above
+        const _origMonacoReadyCb = window._onMonacoReady;
+        window._onMonacoReady = function ()
+        {
+            if (_origMonacoReadyCb) _origMonacoReadyCb();
+            let saved = {};
+            try { saved = JSON.parse(localStorage.getItem('ide_settings') || '{}'); } catch (_) { }
+            _applySettingsLive(Object.assign({}, _settingsDefaults, saved));
+        };
+
+        // Escape key closes settings
+        document.addEventListener('keydown', e =>
+        {
+            if (e.key === 'Escape' && document.getElementById('settings-overlay').classList.contains('open'))
+            {
+                closeSettings();
+            }
+        });
 
     </script>
 </body>

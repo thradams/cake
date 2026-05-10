@@ -76,6 +76,7 @@ void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, st
 void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage);
 void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, struct type* type);
 
+static void check_knr_brace_space_style(struct parser_ctx* ctx, struct token* token);
 static bool trying_to_use_vm_type_from_enclosing_function(const struct type* p_type, struct declarator* p_function);
 
 static void check_open_brace_style(struct parser_ctx* ctx, struct token* token)
@@ -88,16 +89,41 @@ static void check_open_brace_style(struct parser_ctx* ctx, struct token* token)
         token->prev &&
         is_diagnostic_enabled(&ctx->options, W_STYLE))
     {
-        if (ctx->options.style == STYLE_CAKE)
+        /*
+         * Allman style: { must be on its own line, preceded by optional
+         * indentation whitespace (TK_BLANKS) then a newline (TK_NEWLINE).
+         */
+        const bool allman_ok =
+            (token->prev->type == TK_BLANKS &&
+             token->prev->prev &&
+             token->prev->prev->type == TK_NEWLINE) ||
+            (token->prev->type == TK_NEWLINE);
+
+        /*
+         * K&R style: { must appear on the same line as the controlling
+         * statement, preceded by a single space (TK_BLANKS) that is NOT
+         * itself preceded by a newline.
+         */
+        const bool knr_ok =
+            token->prev->type == TK_BLANKS &&
+            !(token->prev->prev && token->prev->prev->type == TK_NEWLINE);
+
+        if (ctx->options.style.open_brace_style == BRACE_STYLE_ALLMAN)
         {
-            if (token->prev->type == TK_BLANKS &&
-                token->prev->prev &&
-                token->prev->prev->type == TK_NEWLINE)
+            if (!allman_ok)
             {
+                diagnostic(W_STYLE, ctx, token, NULL, "not following correct brace style {");
+            }
+        }
+        else /* BRACE_STYLE_KNR */
+        {
+            if (!knr_ok)
+            {
+                diagnostic(W_STYLE, ctx, token, NULL, "not following correct brace style {");
             }
             else
             {
-                diagnostic(W_STYLE, ctx, token, NULL, "not following correct brace style {");
+                check_knr_brace_space_style(ctx, token);
             }
         }
     }
@@ -105,7 +131,7 @@ static void check_open_brace_style(struct parser_ctx* ctx, struct token* token)
 
 static void check_close_brace_style(struct parser_ctx* ctx, struct token* token)
 {
-    /* token points to { */
+    /* token points to } */
 
     if (token->level == 0 &&
         !(token->flags & TK_FLAG_MACRO_EXPANDED) &&
@@ -114,16 +140,19 @@ static void check_close_brace_style(struct parser_ctx* ctx, struct token* token)
         token->prev->prev &&
         is_diagnostic_enabled(&ctx->options, W_STYLE))
     {
-        if (ctx->options.style == STYLE_CAKE)
+        /*
+         * All styles require } on its own line, preceded by indentation
+         * whitespace (TK_BLANKS) then a newline (TK_NEWLINE), or directly
+         * preceded by a newline when at column 0.
+         */
+        const bool close_ok =
+            (token->prev->type == TK_BLANKS &&
+             token->prev->prev->type == TK_NEWLINE) ||
+            (token->prev->type == TK_NEWLINE);
+
+        if (!close_ok)
         {
-            if (token->prev->type == TK_BLANKS &&
-                token->prev->prev->type == TK_NEWLINE)
-            {
-            }
-            else
-            {
-                diagnostic(W_STYLE, ctx, token, NULL, "not following correct close brace style }");
-            }
+            diagnostic(W_STYLE, ctx, token, NULL, "not following correct close brace style }");
         }
     }
 }
@@ -138,16 +167,181 @@ static void check_func_open_brace_style(struct parser_ctx* ctx, struct token* to
         token->prev &&
         is_diagnostic_enabled(&ctx->options, W_STYLE))
     {
-        if (ctx->options.style == STYLE_CAKE)
+        /*
+         * Allman style for function bodies: { must be at the start of a new
+         * line (directly preceded by TK_NEWLINE, column 0).
+         */
+        const bool func_allman_ok = (token->prev->type == TK_NEWLINE);
+
+        /*
+         * K&R style for function bodies: { on the same line as the signature,
+         * preceded by a space that is NOT itself preceded by a newline.
+         */
+        const bool func_knr_ok =
+            token->prev->type == TK_BLANKS &&
+            !(token->prev->prev && token->prev->prev->type == TK_NEWLINE);
+
+        if (ctx->options.style.func_open_brace_style == FUNC_BRACE_STYLE_ALLMAN)
         {
-            if (token->prev->type == TK_NEWLINE)
-            {
-            }
-            else
+            if (!func_allman_ok)
             {
                 diagnostic(W_STYLE, ctx, token, NULL, "not following correct brace style {");
             }
         }
+        else /* FUNC_BRACE_STYLE_KNR */
+        {
+            if (!func_knr_ok)
+            {
+                diagnostic(W_STYLE, ctx, token, NULL, "not following correct brace style {");
+            }
+            else
+            {
+                check_knr_brace_space_style(ctx, token);
+            }
+        }
+    }
+}
+
+static void check_keyword_space_style(struct parser_ctx* ctx, struct token* token)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
+        return;
+
+    if (token->level != 0 ||
+        (token->flags & TK_FLAG_MACRO_EXPANDED) ||
+        !ctx->options.style.space_after_keyword)
+    {
+        return;
+    }
+
+    if (!token_is_one_space(token->prev))
+    {
+        diagnostic(W_STYLE, ctx, token, NULL, "expected one space between keyword and '('");
+    }
+}
+static void check_indentation_style(struct parser_ctx* ctx, struct token* token)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
+        return;
+
+    if (token->level != 0 ||
+        (token->flags & TK_FLAG_MACRO_EXPANDED))
+    {
+        return;
+    }
+
+    /* We only care about indentation — the TK_BLANKS that immediately
+     * follow a TK_NEWLINE.  If there is no leading whitespace the
+     * token is at column 0 and there is nothing to validate. */
+    if (token->prev == NULL ||
+        token->prev->type != TK_BLANKS ||
+        token->prev->prev == NULL ||
+        token->prev->prev->type != TK_NEWLINE)
+    {
+        return;
+    }
+
+    const char* blanks = token->prev->lexeme;
+
+    /* Count tabs and spaces in the indentation run. */
+    int tab_count = 0;
+    int space_count = 0;
+    for (const char* p = blanks; *p != '\0'; p++)
+    {
+        if (*p == '\t')
+            tab_count++;
+        else if (*p == ' ')
+            space_count++;
+        else
+            break; /* non-whitespace should not appear here */
+    }
+
+    if (ctx->options.style.indent_style == INDENT_STYLE_TABS)
+    {
+        if (tab_count == 0 && space_count > 0)
+        {
+            diagnostic(W_STYLE, ctx, token, NULL,
+                       "style requires tab indentation, not spaces");
+        }
+    }
+    else
+    {
+        /* Space indentation: no tabs allowed. */
+        if (tab_count > 0)
+        {
+            diagnostic(W_STYLE, ctx, token, NULL,
+                       "use spaces for indentation, not tabs");
+        }
+        else if (ctx->options.style.indent_width > 0 &&
+                 space_count % ctx->options.style.indent_width != 0)
+        {
+            diagnostic(W_STYLE, ctx, token, NULL,
+                       "indentation should be a multiple of %d spaces",
+                       ctx->options.style.indent_width);
+        }
+    }
+}
+static void check_space_after_comma_style(struct parser_ctx* ctx, struct token* token)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
+        return;
+    assert(token->type == ',');
+
+    if (token->level != 0 ||
+        (token->flags & TK_FLAG_MACRO_EXPANDED) ||
+        !is_diagnostic_enabled(&ctx->options, W_STYLE) ||
+        !ctx->options.style.space_after_comma)
+    {
+        return;
+    }
+
+    if (token->next == NULL)
+        return;
+
+    if (token_is_one_space(token->next))
+    {
+    }
+    else if (token_is_newline(token->next))
+    {
+    }
+    else
+    {
+        diagnostic(W_STYLE, ctx, token, NULL, "expected one space after ','");
+    }
+}
+
+static void check_no_space_before_semicolon_style(struct parser_ctx* ctx, struct token* token)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
+        return;
+
+    if (token->level != 0 ||
+        (token->flags & TK_FLAG_MACRO_EXPANDED) ||
+        !ctx->options.style.no_space_before_semicolon)
+    {
+        return;
+    }
+
+    if (token_is_blank(token->prev))
+    {
+        diagnostic(W_STYLE, ctx, token, NULL, "no space before ';'");
+    }
+}
+
+static void check_knr_brace_space_style(struct parser_ctx* ctx, struct token* token)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
+        return;
+
+    if (token->level != 0 || (token->flags & TK_FLAG_MACRO_EXPANDED))
+    {
+        return;
+    }
+
+    if (!token_is_one_space(token->prev))
+    {
+        diagnostic(W_STYLE, ctx, token, NULL,
+                   "expected exactly one space before '{'");
     }
 }
 
@@ -156,6 +350,149 @@ void scope_destroy(_Dtor struct scope* p)
     hashmap_destroy(&p->tags);
     hashmap_destroy(&p->variables);
 }
+
+static void check_pointer_style(struct parser_ctx* ctx, struct token* token)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
+        return;
+
+    if (token->level != 0 || (token->flags & TK_FLAG_MACRO_EXPANDED))
+    {
+        return;
+    }
+
+    const bool space_before =
+        token->prev != NULL &&
+        token->prev->type == TK_BLANKS &&
+        !(token->prev->prev != NULL &&
+          token->prev->prev->type == TK_NEWLINE);
+
+    const bool space_after =
+        token->next != NULL &&
+        (token->next->type == TK_BLANKS ||
+         token->next->type == ')' ||
+         token->next->type == '*');
+
+    if (ctx->options.style.pointer_style == POINTER_STYLE_WEST)
+    {
+        /* West: space before *, no space after.  "int *p" */
+        if (!space_before || space_after)
+        {
+            diagnostic(W_STYLE, ctx, token, NULL,
+                       "pointer '*' should be adjacent to the name: 'type *name'");
+        }
+    }
+    else /* POINTER_STYLE_EAST */
+    {
+        /* East: no space before *, space after.  "int* p" */
+        if (space_before || !space_after)
+        {
+            diagnostic(W_STYLE, ctx, token, NULL,
+                       "pointer '*' should be adjacent to the type: 'type* name'");
+        }
+    }
+}
+
+static void check_else_placement_style(struct parser_ctx* ctx, struct token* token)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
+        return;
+
+    if (token->level != 0 ||
+        (token->flags & TK_FLAG_MACRO_EXPANDED))
+    {
+        return;
+    }
+
+    const bool else_on_new_line =
+        (token->prev != NULL && token->prev->type == TK_NEWLINE) ||
+        (token->prev != NULL && token->prev->type == TK_BLANKS &&
+         token->prev->prev != NULL && token->prev->prev->type == TK_NEWLINE);
+
+    if (ctx->options.style.else_style == ELSE_STYLE_SAME_LINE)
+    {
+        if (else_on_new_line)
+        {
+            diagnostic(W_STYLE, ctx, token, NULL,
+                       "'else' should be on the same line as '}': '} else'");
+        }
+    }
+    else /* ELSE_STYLE_NEW_LINE */
+    {
+        if (!else_on_new_line)
+        {
+            diagnostic(W_STYLE, ctx, token, NULL,
+                       "'else' should be on a new line after '}'");
+        }
+    }
+}
+
+static void check_return_space_style(struct parser_ctx* ctx, struct token* token)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
+        return;
+
+    if (token->level != 0 ||
+        (token->flags & TK_FLAG_MACRO_EXPANDED) ||
+        !ctx->options.style.space_after_return)
+    {
+        return;
+    }
+
+    if (token->next == NULL)
+        return;
+
+    if (token->next->type == ';')
+    {
+    }
+    else if (token_is_one_space(token->next))
+    {
+    }
+    else
+    {
+        diagnostic(W_STYLE, ctx, token, NULL,
+                   "expected one space between 'return' and expression");
+    }
+}
+
+static void check_no_space_before_paren_style(struct parser_ctx* ctx, struct token* token)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
+        return;
+
+    if (token->level != 0 ||
+        (token->flags & TK_FLAG_MACRO_EXPANDED) ||
+        !ctx->options.style.no_space_before_call_paren)
+    {
+        return;
+    }
+
+    if (token->type != '(')
+        return;
+
+    /* Skip if preceded by a keyword — those are handled by check_keyword_space_style */
+    if (token->prev != NULL && token->prev->type == TK_BLANKS &&
+        token->prev->prev != NULL)
+    {
+        const int prev_type = token->prev->prev->type;
+        if (prev_type == TK_KEYWORD_IF ||
+            prev_type == TK_KEYWORD_FOR ||
+            prev_type == TK_KEYWORD_WHILE ||
+            prev_type == TK_KEYWORD_SWITCH ||
+            prev_type == TK_KEYWORD_RETURN)
+        {
+            return;
+        }
+    }
+
+    if (token_is_blank(token->prev))
+    {
+        diagnostic(W_STYLE, ctx, token, NULL,
+                   "no space between function name and '('");
+    }
+}
+
+
 
 void scope_list_push(struct scope_list* list, struct scope* pnew)
 {
@@ -309,11 +646,11 @@ bool diagnostic_queue_remove(struct diagnostic_queue* q, int line, enum diagnost
         {
             if (prev)
             {
-                prev->next = it->next;
+                prev->next = it->next; //lint 29
             }
             else
             {
-                q->head = it->next;
+                q->head = it->next; //lint 29
             }
 
             if (q->tail == it)
@@ -354,15 +691,16 @@ static int parse_diagnostic_suppression(const char* p, int ids[], int ids_max)
 
         if (*p >= '0' && *p <= '9')
         {
-            int id = 0;
+            unsigned int id = 0;
             while (*p >= '0' && *p <= '9')
             {
                 if (id > (INT_MAX - (*p - '0')) / 10)
                     return -1;
-                id = id * 10 + (*p++ - '0');
+                id = id * 10 + (*p - '0');
+                p++;
             }
 
-            if (id < 0 || id > INT_MAX)
+            if (id > INT_MAX)
                 return -1;
 
             ids[count++] = id;
@@ -580,9 +918,12 @@ _Bool diagnostic(enum diagnostic_id w,
     }
 
     ss_fprintf(&ss, "\n");
-
     struct marker m = marker; /* ss_print_line_and_token writes start/end col back */
-    ss_print_line_and_token(&ss, &m, color_enabled);
+
+    if (!ctx->options.visual_studio_ouput_format)
+    {
+        ss_print_line_and_token(&ss, &m, color_enabled);
+    }
 
     e->text = ss.c_str;
     ss.c_str = NULL;
@@ -1014,7 +1355,7 @@ bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* p
         p_token->type == TK_KEYWORD__DECIMAL32 ||
         p_token->type == TK_KEYWORD__DECIMAL64 ||
         p_token->type == TK_KEYWORD__DECIMAL128 ||
-        p_token->type == TK_KEYWORD_TYPEOF ||        // C23
+        p_token->type == TK_KEYWORD_TYPEOF || // C23
         p_token->type == TK_KEYWORD_TYPEOF_UNQUAL || // C23
 
         p_token->type == TK_KEYWORD_GCC__BUILTIN_VA_LIST ||
@@ -1687,18 +2028,18 @@ static struct token* _Opt pragma_declaration_match(const struct token* p_current
 }
 
 
-void check_dianostic_suppression_core(struct parser_ctx* ctx, struct token* pToken, int phase)
+void check_dianostic_suppression_core(struct parser_ctx* ctx, struct token* p_token, int phase)
 {
-    if (pToken->type == TK_LINE_COMMENT || pToken->type == TK_COMMENT)
+    if (p_token->type == TK_LINE_COMMENT || p_token->type == TK_COMMENT)
     {
         int ids[32] = { 0 };
-        int count = parse_diagnostic_suppression(pToken->lexeme, ids, sizeof ids);
+        int count = parse_diagnostic_suppression(p_token->lexeme, ids, sizeof ids);
 
         for (int i = 0; i < count; i++)
         {
             if (get_diagnostic_phase(ids[i]) == phase)
             {
-                if (!diagnostic_queue_remove(&ctx->diagnostic_queue, pToken->line, (enum diagnostic_id)ids[i]))
+                if (!diagnostic_queue_remove(&ctx->diagnostic_queue, p_token->line, (enum diagnostic_id)ids[i]))
                 {
                     ids[i] = -ids[i];
                 }
@@ -1711,7 +2052,7 @@ void check_dianostic_suppression_core(struct parser_ctx* ctx, struct token* pTok
             {
                 diagnostic(W_WARNING_DID_NOT_HAPPEN,
                                            ctx,
-                                           pToken,
+                                           p_token,
                                            NULL,
                                            "diagnostic '%d' not recognized",
                                            -ids[i]);
@@ -1720,14 +2061,14 @@ void check_dianostic_suppression_core(struct parser_ctx* ctx, struct token* pTok
     }
 }
 
-void check_compiler_dianostic_suppression(struct parser_ctx* ctx, struct token* pToken)
+void check_compiler_dianostic_suppression(struct parser_ctx* ctx, struct token* p_token)
 {
-    check_dianostic_suppression_core(ctx, pToken, 0);
+    check_dianostic_suppression_core(ctx, p_token, 0);
 }
 
-static void check_dianostic_suppression_after(struct parser_ctx* ctx, struct token* pToken)
+static void check_dianostic_suppression_after(struct parser_ctx* ctx, struct token* p_token)
 {
-    check_dianostic_suppression_core(ctx, pToken, 1);
+    check_dianostic_suppression_core(ctx, p_token, 1);
 }
 
 static void parser_skip_blanks(struct parser_ctx* ctx, struct token** _Opt pp_token_lint)
@@ -2120,8 +2461,8 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
                 const enum storage_class_specifier_flags new_flags =
                     p_declaration_specifier->storage_class_specifier->flags;
 
-                if ((old_flags & STORAGE_SPECIFIER_TYPEDEF && new_flags & STORAGE_SPECIFIER_STATIC)
-                    || (old_flags & STORAGE_SPECIFIER_STATIC && new_flags & STORAGE_SPECIFIER_TYPEDEF))
+                if ((old_flags & STORAGE_SPECIFIER_TYPEDEF && new_flags & STORAGE_SPECIFIER_STATIC) ||
+                    (old_flags & STORAGE_SPECIFIER_STATIC && new_flags & STORAGE_SPECIFIER_TYPEDEF))
                 {
                     /*typedef + static*/
                     diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG,
@@ -2247,7 +2588,7 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
         if (first_of_static_assertion_declaration(ctx))
         {
             p_declaration->static_assertion = static_assertion(ctx);
-            parser_match_tk(ctx, ';');
+            if (parser_match_tk(ctx, ';') != 0) throw;
         }
         else if (first_of_pragma_declaration(ctx))
         {
@@ -2309,6 +2650,7 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
 #endif
                 else
                 {
+                    check_no_space_before_semicolon_style(ctx, ctx->current);
                     if (!without_semicolon && parser_match_tk_lint(ctx, ';', &p_declaration->lint_token) != 0)
                         throw;
                 }
@@ -2330,17 +2672,16 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                 parser_match(ctx); // we need to go ahead
             }
         }
+
+        if (p_declaration->lint_token) //lint 28 bug out
+        {
+            check_compiler_dianostic_suppression(ctx, p_declaration->lint_token); //lint 35
+        }
     }
     catch
     {
         declaration_delete(p_declaration);
         p_declaration = NULL;
-    }
-
-
-    if (p_declaration && p_declaration->lint_token)
-    {
-        check_compiler_dianostic_suppression(ctx, p_declaration->lint_token);
     }
 
     attribute_specifier_sequence_delete(p_attribute_specifier_sequence);
@@ -2428,7 +2769,11 @@ struct simple_declaration* _Owner _Opt simple_declaration(struct parser_ctx* ctx
 
         p_simple_declaration->last_token = prev;
 
-        if (!ignore_semicolon && parser_match_tk(ctx, ';') != 0) throw;
+        if (!ignore_semicolon)
+        {
+            check_no_space_before_semicolon_style(ctx, ctx->current);
+            if (parser_match_tk(ctx, ';') != 0) throw;
+        }
     }
     catch
     {
@@ -2542,6 +2887,11 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             }
 
             check_func_open_brace_style(ctx, ctx->current);
+
+            if (p_declarator->name_opt)
+            {
+                naming_convention_function(ctx, p_declarator->name_opt);
+            }
 
             if (ctx->current == NULL)
             {
@@ -3380,6 +3730,8 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     throw;
                 }
 
+
+            case SIZEOF_RESULT_BITFIELD:
             case SIZEOF_RESULT_FUNCTION:
                 break;
             }
@@ -3487,6 +3839,8 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
 
         while (ctx->current != NULL && ctx->current->type == ',')
         {
+            check_space_after_comma_style(ctx, ctx->current);
+
             parser_match(ctx);
             p_init_declarator = init_declarator(ctx, p_declaration_specifiers);
             if (p_init_declarator == NULL)
@@ -4037,7 +4391,7 @@ struct attribute* _Owner _Opt msvc_declspec(struct parser_ctx* ctx)
     struct attribute* _Owner _Opt p_decl_specifier = NULL;
     try
     {
-        if (ctx->current->type != TK_KEYWORD_MSVC__DECLSPEC)
+        if (ctx->current == NULL || ctx->current->type != TK_KEYWORD_MSVC__DECLSPEC)
             throw;
         if (parser_match_tk(ctx, TK_KEYWORD_MSVC__DECLSPEC) != 0) throw;
         if (parser_match_tk(ctx, TK_LEFT_PARENTHESIS) != 0) throw;
@@ -4553,9 +4907,6 @@ struct struct_or_union_specifier* _Owner struct_or_union_specifier_add_ref(struc
     return (struct struct_or_union_specifier* _Owner) p;
 }
 
-
-void struct_or_union_specifier_sink(struct struct_or_union_specifier* _Owner _Opt p) {}
-
 bool struct_or_union_specifier_is_union(const struct struct_or_union_specifier* p)
 {
     return p->first_token->type == TK_KEYWORD_UNION;
@@ -4568,8 +4919,7 @@ void struct_or_union_specifier_delete(struct struct_or_union_specifier* _Owner _
         if (p->has_shared_ownership)
         {
             p->has_shared_ownership = false;
-            struct_or_union_specifier_sink(p);
-            return;
+            return; //lint 29 (not leak)
         }
 
         member_declaration_list_destroy(&p->member_declaration_list);
@@ -4628,6 +4978,13 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                      p_struct_or_union_specifier->tagtoken->lexeme);
 
             parser_match(ctx);
+
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
             const bool is_struct_definition = (ctx->current->type == '{');
 
             /*
@@ -4729,12 +5086,6 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             hash_item_set_destroy(&item);
         }
 
-        if (ctx->current == NULL)
-        {
-            unexpected_end_of_file(ctx);
-            throw;
-        }
-
         if (ctx->current->type == '{')
         {
             /*
@@ -4771,10 +5122,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
 
             if (ctx->current->type != '}') /*not official extensions yet..missing sizeof etc*/
             {
-#pragma cake diagnostic push
-#pragma cake diagnostic ignored "-Wmissing-destructor"
                 p_struct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, p_struct_or_union_specifier);
-#pragma cake diagnostic pop
 
                 /* an empty struct is not allowed */
                 if (p_struct_or_union_specifier->member_declaration_list.head == NULL) throw;
@@ -4879,10 +5227,7 @@ struct member_declarator* _Owner _Opt member_declarator(
         p_member_declarator->declarator->name_opt = p_token_name;
         p_member_declarator->declarator->specifier_qualifier_list = p_specifier_qualifier_list;
 
-#pragma cake diagnostic push
-#pragma cake diagnostic ignored "-Wmissing-destructor"    
         p_member_declarator->declarator->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
-#pragma cake diagnostic pop
 
         if (type_is_function(&p_member_declarator->declarator->type))
         {
@@ -5086,6 +5431,8 @@ struct member_declarator_list* _Owner _Opt member_declarator_list(
 
         while (ctx->current->type == ',')
         {
+            check_space_after_comma_style(ctx, ctx->current);
+
             parser_match(ctx);
 
             struct member_declarator* _Opt _Owner p_member_declarator2 = member_declarator(ctx, p_struct_or_union_specifier, p_specifier_qualifier_list);
@@ -5238,6 +5585,7 @@ struct member_declaration* _Owner _Opt member_declaration(struct parser_ctx* ctx
                 if (p_member_declaration->member_declarator_list_opt == NULL) throw;
             }
 
+            check_no_space_before_semicolon_style(ctx, ctx->current);
             if (parser_match_tk(ctx, ';') != 0)
                 throw;
         }
@@ -5693,7 +6041,6 @@ struct enum_specifier* _Owner enum_specifier_add_ref(struct enum_specifier* p)
     return (struct enum_specifier* _Owner)p;
 }
 
-void enum_specifier_delete_sink(struct enum_specifier* _Owner _Opt p) {}
 
 void enum_specifier_delete(struct enum_specifier* _Owner _Opt p)
 {
@@ -5702,8 +6049,7 @@ void enum_specifier_delete(struct enum_specifier* _Owner _Opt p)
         if (p->has_shared_ownership)
         {
             p->has_shared_ownership = false;
-            enum_specifier_delete_sink(p);
-            return;
+            return; //lint 29
         }
 
         specifier_qualifier_list_delete(p->specifier_qualifier_list);
@@ -5943,6 +6289,8 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
 
         while (ctx->current != NULL && ctx->current->type == ',')
         {
+            check_space_after_comma_style(ctx, ctx->current);
+
             parser_match(ctx); /* trailing comma is allowed */
 
             if (ctx->current && ctx->current->type != '}')
@@ -5971,7 +6319,6 @@ struct enumerator* _Owner enumerator_add_ref(struct enumerator* p)
 }
 
 
-void enumerator_sink(struct enumerator* _Owner _Opt p) {}
 
 void enumerator_delete(struct enumerator* _Owner _Opt p)
 {
@@ -5980,8 +6327,7 @@ void enumerator_delete(struct enumerator* _Owner _Opt p)
         if (p->has_shared_ownership)
         {
             p->has_shared_ownership = false;
-            enumerator_sink(p);
-            return;
+            return; //lint 29 not a leak
         }
 
         assert(p->next == NULL);
@@ -6342,8 +6688,6 @@ struct declarator* _Owner declarator_add_ref(struct declarator* p)
     return (struct declarator* _Owner)p;
 }
 
-void declarator_sink(struct declarator* _Owner _Opt p) {}
-
 void declarator_delete(struct declarator* _Owner _Opt p)
 {
     if (p)
@@ -6351,8 +6695,7 @@ void declarator_delete(struct declarator* _Owner _Opt p)
         if (p->has_shared_ownership)
         {
             p->has_shared_ownership = false;
-            declarator_sink(p);
-            return;
+            return; //lint 29 not a leak
         }
 
         type_destroy(&p->type);
@@ -6813,6 +7156,7 @@ struct function_declarator* _Owner _Opt function_declarator(struct direct_declar
         p_function_declarator->parameters_scope.variables.capacity = 5;
         p_function_declarator->parameters_scope.tags.capacity = 1;
 
+        check_no_space_before_paren_style(ctx, ctx->current);
         if (parser_match_tk(ctx, '(') != 0)
             throw;
 
@@ -6950,6 +7294,7 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
             calling_convention = NULL;
 
             p = p_pointer;
+            check_pointer_style(ctx, ctx->current);
             parser_match(ctx);
 
             p_pointer->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
@@ -7183,6 +7528,8 @@ struct parameter_list* _Owner _Opt parameter_list(struct parser_ctx* ctx)
 
         while (ctx->current != NULL && ctx->current->type == ',')
         {
+            check_space_after_comma_style(ctx, ctx->current);
+
             parser_match(ctx);
 
             if (ctx->current == NULL)
@@ -7190,6 +7537,7 @@ struct parameter_list* _Owner _Opt parameter_list(struct parser_ctx* ctx)
                 unexpected_end_of_file(ctx);
                 throw;
             }
+
 
             if (ctx->current->type == '...')
             {
@@ -7273,10 +7621,7 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
         p_parameter_declaration->declarator->name_opt = p_token_name;
         p_parameter_declaration->declarator->declaration_specifiers = p_parameter_declaration->declaration_specifiers;
 
-#pragma cake diagnostic push
-#pragma cake diagnostic ignored "-Wmissing-destructor"        
         p_parameter_declaration->declarator->type = make_type_using_declarator(ctx, p_parameter_declaration->declarator);
-#pragma cake diagnostic pop
 
         if (p_parameter_declaration->declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
         {
@@ -7588,10 +7933,7 @@ struct type_name* _Owner _Opt type_name(struct parser_ctx* ctx)
 
         p_type_name->abstract_declarator->specifier_qualifier_list = p_type_name->specifier_qualifier_list;
 
-#pragma cake diagnostic push
-#pragma cake diagnostic ignored "-Wmissing-destructor"    
         p_type_name->abstract_declarator->type = make_type_using_declarator(ctx, p_type_name->abstract_declarator);
-#pragma cake diagnostic pop
 
         if (ctx->current == NULL)
         {
@@ -7877,6 +8219,8 @@ struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx, en
 
         while (ctx->current != NULL && ctx->current->type == ',')
         {
+            check_space_after_comma_style(ctx, ctx->current);
+
             parser_match(ctx);
 
             if (ctx->current == NULL)
@@ -7884,6 +8228,7 @@ struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx, en
                 unexpected_end_of_file(ctx);
                 throw;
             }
+
 
             if (ctx->current->type == '}')
                 break; // follow
@@ -8377,6 +8722,10 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
         else if (strcmp(p_pragma_token->lexeme, "warning") == 0)
         {
             //MSVC pragma warning
+        }
+        else if (strcmp(p_pragma_token->lexeme, "once") == 0)
+        {
+
         }
         else
         {
@@ -9324,8 +9673,7 @@ bool unlabeled_statement_ends_with_jump(struct unlabeled_statement* p_unlabeled_
         p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail &&
         p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement)
     {
-        return
-            p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->jump_statement != NULL;
+        return p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->jump_statement != NULL;
     }
 
     return false;
@@ -10175,6 +10523,8 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
 
         p_block_item->first_token = ctx->current;
 
+        check_indentation_style(ctx, ctx->current);
+
         if (first_of_declaration_specifier(ctx) ||
             first_of_pragma_declaration(ctx))
         {
@@ -10719,10 +11069,12 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
             throw;
         }
 
-        if (!(ctx->current->flags & TK_FLAG_MACRO_EXPANDED) && !style_has_one_space(ctx->current))
+        if (!(ctx->current->flags & TK_FLAG_MACRO_EXPANDED) && !token_is_one_space(ctx->current->prev))
         {
             diagnostic(W_STYLE, ctx, ctx->current, NULL, "one space");
         }
+
+        check_keyword_space_style(ctx, ctx->current);
 
         p_selection_statement->open_parentesis_token = ctx->current;
 
@@ -10898,6 +11250,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
         if (is_if && ctx->current && ctx->current->type == TK_KEYWORD_ELSE)
         {
+            check_else_placement_style(ctx, ctx->current);
             p_selection_statement->else_token_opt = ctx->current;
             parser_match(ctx);
             assert(p_selection_statement->else_secondary_block_opt == NULL);
@@ -11103,12 +11456,16 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
             }
             if (parser_match_tk(ctx, ')') != 0)
                 throw;
+            check_no_space_before_semicolon_style(ctx, ctx->current);
             if (parser_match_tk(ctx, ';') != 0)
                 throw;
         }
         else if (ctx->current->type == TK_KEYWORD_WHILE)
         {
             parser_match(ctx);
+
+            check_keyword_space_style(ctx, ctx->current);
+
             if (parser_match_tk(ctx, '(') != 0)
                 throw;
 
@@ -11138,6 +11495,9 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
         else if (ctx->current->type == TK_KEYWORD_FOR)
         {
             parser_match(ctx);
+
+            check_keyword_space_style(ctx, ctx->current);
+
             if (parser_match_tk(ctx, '(') != 0)
                 throw;
             if (first_of_declaration_specifier(ctx))
@@ -11397,6 +11757,8 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
                              "return cannot be used inside defer statement");
             }
 
+            check_return_space_style(ctx, ctx->current);
+
             const struct token* const p_return_token = ctx->current;
             parser_match(ctx);
 
@@ -11406,9 +11768,11 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
                 throw;
             }
 
+
+
             /*
-                     * Check is return type is compatible with function return
-                     */
+             * Check if return type is compatible with function return
+             */
             struct type return_type =
                 get_function_return_type(&ctx->p_current_function_opt->type);
 
@@ -11470,6 +11834,7 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
         }
 
         p_jump_statement->last_token = ctx->current;
+        check_no_space_before_semicolon_style(ctx, ctx->current);
         if (parser_match_tk_lint(ctx, ';', &p_jump_statement->p_lint_token) != 0)
             throw;
         if (p_jump_statement &&
@@ -11529,8 +11894,12 @@ struct expression_statement* _Owner _Opt  expression_statement(struct parser_ctx
         }
 
 
-        if (!ignore_semicolon && parser_match_tk_lint(ctx, ';', &p_expression_statement->p_lint_token) != 0)
-            throw;
+        if (!ignore_semicolon)
+        {
+            check_no_space_before_semicolon_style(ctx, ctx->current);
+            if (parser_match_tk_lint(ctx, ';', &p_expression_statement->p_lint_token) != 0)
+                throw;
+        }
         if (p_expression_statement &&
             p_expression_statement->p_lint_token)
         {
@@ -12239,6 +12608,45 @@ static bool is_pascal_case(const char* text)
     return true;
 }
 
+static void check_case_style(struct parser_ctx* ctx, enum case_style s, struct token* token, const char* thing)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
+    {
+        return;
+    }
+
+    if (s == CASE_SNAKE)
+    {
+        if (!is_snake_case(token->lexeme))
+        {
+            diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for %s", thing);
+        }
+    }
+    else if (s == CASE_PASCALCASE)
+    {
+        if (!is_pascal_case(token->lexeme))
+        {
+            diagnostic(W_STYLE, ctx, token, NULL, "use PascalCase for %s", thing);
+        }
+    }
+    else if (s == CASE_CAMELCASE)
+    {
+        if (!is_camel_case(token->lexeme))
+        {
+            diagnostic(W_STYLE, ctx, token, NULL, "use camelCase for %s", thing);
+        }
+    }
+    else if (s == CASE_UPPERCASE)
+    {
+        if (!is_all_upper(token->lexeme))
+        {
+            diagnostic(W_STYLE, ctx, token, NULL, "use UPPERCASE for %s", thing);
+        }
+    }
+}
+
+
+
 /*
  * This naming conventions are not ready yet...
  * but not dificult to implement.maybe options to choose style
@@ -12250,20 +12658,7 @@ void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
         return;
     }
 
-    if (ctx->options.style == STYLE_CAKE)
-    {
-        if (!is_snake_case(token->lexeme))
-        {
-            diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for struct/union tags");
-        }
-    }
-    else if (ctx->options.style == STYLE_MICROSOFT)
-    {
-        if (!is_pascal_case(token->lexeme))
-        {
-            diagnostic(W_STYLE, ctx, token, NULL, "use camelCase for struct/union tags");
-        }
-    }
+    check_case_style(ctx, ctx->options.style.struct_name_case, token, "struct/union");
 }
 
 void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
@@ -12273,20 +12668,7 @@ void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
         return;
     }
 
-    if (ctx->options.style == STYLE_CAKE)
-    {
-        if (!is_snake_case(token->lexeme))
-        {
-            diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for enum tags");
-        }
-    }
-    else if (ctx->options.style == STYLE_MICROSOFT)
-    {
-        if (!is_pascal_case(token->lexeme))
-        {
-            diagnostic(W_STYLE, ctx, token, NULL, "use PascalCase for enum tags");
-        }
-    }
+    check_case_style(ctx, ctx->options.style.enum_name_case, token, "enum");
 }
 
 void naming_convention_function(struct parser_ctx* ctx, struct token* token)
@@ -12295,21 +12677,10 @@ void naming_convention_function(struct parser_ctx* ctx, struct token* token)
     {
         return;
     }
+    if (strcmp(token->lexeme, "main") == 0)
+        return;
 
-    if (ctx->options.style == STYLE_CAKE)
-    {
-        if (!is_snake_case(token->lexeme))
-        {
-            diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for functions");
-        }
-    }
-    else if (ctx->options.style == STYLE_MICROSOFT)
-    {
-        if (!is_pascal_case(token->lexeme))
-        {
-            diagnostic(W_STYLE, ctx, token, NULL, "use PascalCase for functions");
-        }
-    }
+    check_case_style(ctx, ctx->options.style.function_name_case, token, "function");
 }
 
 void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage)
@@ -12318,28 +12689,7 @@ void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, s
     {
         return;
     }
-
-    if (!type_is_function_or_function_pointer(type))
-    {
-        if (storage & STORAGE_SPECIFIER_STATIC)
-        {
-            if (type_is_const(type))
-            {
-                //all upper
-            }
-            else
-            {
-                if (token->lexeme[0] != 's' || token->lexeme[1] != '_')
-                {
-                    diagnostic(W_STYLE, ctx, token, NULL, "use prefix s_ for static global variables");
-                }
-            }
-        }
-        if (!is_snake_case(token->lexeme))
-        {
-            diagnostic(W_STYLE, ctx, token, NULL, "use snake_case global variables");
-        }
-    }
+    check_case_style(ctx, ctx->options.style.global_name_case, token, "global variable");
 }
 
 void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, struct type* type)
@@ -12349,20 +12699,7 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
         return;
     }
 
-    if (ctx->options.style == STYLE_CAKE)
-    {
-        if (!is_snake_case(token->lexeme))
-        {
-            diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for local variables");
-        }
-    }
-    else if (ctx->options.style == STYLE_MICROSOFT)
-    {
-        if (!is_camel_case(token->lexeme))
-        {
-            diagnostic(W_STYLE, ctx, token, NULL, "use camelCase for local variables");
-        }
-    }
+    check_case_style(ctx, ctx->options.style.local_name_case, token, "local");
 }
 
 void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
@@ -12372,10 +12709,7 @@ void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
         return;
     }
 
-    if (!is_all_upper(token->lexeme))
-    {
-        diagnostic(W_STYLE, ctx, token, NULL, "use UPPERCASE for enumerators");
-    }
+    check_case_style(ctx, ctx->options.style.enumerator_name_case, token, "enumerator");
 }
 
 void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token, struct type* type)
@@ -12385,10 +12719,7 @@ void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token
         return;
     }
 
-    if (!is_snake_case(token->lexeme))
-    {
-        diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for struct members");
-    }
+    check_case_style(ctx, ctx->options.style.member_name_case, token, "member");
 }
 
 void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, struct type* type)
@@ -12398,10 +12729,7 @@ void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, st
         return;
     }
 
-    if (!is_snake_case(token->lexeme))
-    {
-        diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for arguments");
-    }
+    check_case_style(ctx, ctx->options.style.parameter_name_case, token, "parameter");
 }
 
 static struct object* _Opt find_first_subobject_old(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out, bool* sub_object_of_union)

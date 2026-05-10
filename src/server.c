@@ -319,34 +319,6 @@ static void handle_list(SocketFd client, const char* query)
 }
 
 
-/* ══════════════════════════════════════════════════════════════════════
-   compile_and_respond  –  run cake on full, send source + output
-   ══════════════════════════════════════════════════════════════════════ */
-#define DELIM "\n=====CAKE" "-" "OUTPUT=====\n"
-
-/* ══════════════════════════════════════════════════════════════════════
-   compile_only_and_respond  –  run cake on full, send compiler output only
-   ══════════════════════════════════════════════════════════════════════ */
-static void compile_only_and_respond(SocketFd client, const char* full)
-{
-    char cmd[MAX_CMD_LEN];
-    snprintf(cmd, sizeof(cmd), "cake \"%s\" > output.txt", full);
-    system(cmd);
-
-    size_t out_len;
-    char* out = file_read_all("output.txt", &out_len);
-    if (!out)
-    {
-        out = strdup("(no compiler output)");
-        out_len = out ? strlen(out) : 0;
-    }
-    if (!out) return;
-
-    send_response(client, "text/plain", out, out_len);
-    free(out);
-}
-
-
 
 static void handle_read(SocketFd client, const char* query)
 {
@@ -411,11 +383,15 @@ size_t first_line_copy(const char* src, char* dst, size_t dst_size)
    ══════════════════════════════════════════════════════════════════════ */
 static void handle_save(SocketFd client, const char* body, size_t body_len)
 {
+        printf("handle_save\n");
+
     char file[512] = "";
     const char* content; size_t content_len;
     size_t sz = first_line_copy(body, file, sizeof file);
     content = body + sz + 1;
     content_len = strlen(content);
+    
+    printf("filename '%s'\n", file);
 
     char full[MAX_PATH_LEN];
     snprintf(full, sizeof(full), "%s" PATH_SEP "%s",
@@ -435,51 +411,43 @@ static void handle_save(SocketFd client, const char* body, size_t body_len)
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   handle_compile  –  POST body: "<file>\n"
+   handle_compile  –  POST body: "<opts>\n<file>"
+                      opts may be empty (just "\n<file>" or "<file>" alone)
                       Compile the already-saved file, return output only
    ══════════════════════════════════════════════════════════════════════ */
 static void handle_compile(SocketFd client, const char* body, size_t body_len)
 {
+    char opts[512] = "";
     char file[512] = "";
-    first_line_copy(body, file, sizeof file);
+    size_t opts_len = first_line_copy(body, opts, sizeof opts);
+
+    /* filename is on the second line */
+    const char* file_start = body + opts_len + (body[opts_len] == '\n' ? 1 : 0);
+    first_line_copy(file_start, file, sizeof file);
 
     char full[MAX_PATH_LEN];
     snprintf(full, sizeof(full), "%s" PATH_SEP "%s",
         BASE_DIR2, file);
 
-    compile_only_and_respond(client, full);
+
+    char cmd[MAX_CMD_LEN] = {0};
+    if (opts[0])
+        snprintf(cmd, sizeof(cmd), "cake  %s \"%s\" > output.txt", opts, full);
+    else
+        snprintf(cmd, sizeof(cmd), "cake  \"%s\" > output.txt", full);
+    
+    printf("%s\n", cmd);
+    system(cmd);
+
+    size_t out_len;
+    char* out = file_read_all("output.txt", &out_len);
+    if (!out) { out = strdup("(no compiler output)"); out_len = out ? strlen(out) : 0; }
+    if (!out) return;
+    send_response(client, "text/plain", out, out_len);
+    free(out);
     (void)body_len;
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   handle_save_compile  –  POST body: "<file>\n<content>"
-                            Save file, compile, return output only
-   ══════════════════════════════════════════════════════════════════════ */
-static void handle_save_compile(SocketFd client, const char* body, size_t body_len)
-{
-    char file[512] = "";
-    const char* content;
-    size_t content_len;
-    size_t sz = first_line_copy(body, file, sizeof file);
-    content = body + sz + 1;
-    content_len = strlen(content);
-
-    char full[MAX_PATH_LEN];
-    snprintf(full, sizeof(full), "%s" PATH_SEP "%s",
-        BASE_DIR2, file);
-
-    FILE* f = fopen(full, "wb");
-    if (!f)
-    {
-        send_str(client, "text/plain", "Cannot write file");
-        return;
-    }
-    fwrite(content, 1, content_len, f);
-    fclose(f);
-
-    compile_only_and_respond(client, full);
-    (void)body_len;
-}
 
 /* ══════════════════════════════════════════════════════════════════════
    recv_all  –  grow a DynBuf until the full HTTP request is received
@@ -712,8 +680,6 @@ int main(int argc, char* argv[])
                 handle_save(client, body ? body : "", body_len);
             else if (strcmp(url, "/compile") == 0)
                 handle_compile(client, body ? body : "", body_len);
-            else if (strcmp(url, "/savecompile") == 0)
-                handle_save_compile(client, body ? body : "", body_len);
             else
                 send_str(client, "text/plain", "Not found");
         }

@@ -10,44 +10,44 @@
 static char gcc_builtins_include[] =
 {
  #include "include/x86_x64_gcc_builtins.h.include"
- ,0
+ , 0
 };
 
 static char x86_x64_gcc_macros[] =
 {
  #include "include/x86_x64_gcc_macros.h.include"
- ,0
+ , 0
 };
 
 static char x86_msvc_macros[] =
 {
  #include "include/x86_msvc_macros.h.include"
- ,0
+ , 0
 };
 
 static char x64_msvc_macros[] =
 {
  #include "include/x64_msvc_macros.h.include"
- ,0
+ , 0 
 };
 
 
 static char catalina_macros[] =
 {
  #include "include/catalina_macros.h.include"
- ,0
+ , 0
 };
 
 static char catalina_builtins[] =
 {
  #include "include/catalina_builtins.h.include"
- ,0
+ , 0
 };
 
 static char ccu8_macros[] =
 {
  #include "include/ccu8_macros.h.include"
- ,0
+ , 0
 };
 
 

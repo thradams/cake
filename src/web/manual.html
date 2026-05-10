@@ -552,7 +552,28 @@ Treat string literals as <code>const char[]</code> rather than <code>char[]</cod
 <h3 id="toc_15">4.6 Style and Formatting Options</h3>
 
 <p><strong><code>-style=&lt;name&gt;</code></strong><br>
-Set the naming-style convention used by style warnings (<code>-w011</code>). Available styles: <code>cake</code>, <code>gnu</code>, <code>microsoft</code>.</p>
+Set the naming and formatting convention enforced by style warnings (<code>-Wstyle</code> / <code>-w011</code>).
+When enabled, Cake checks identifier casing, brace placement, and spacing against the chosen guide.</p>
+
+<p>Available styles:</p>
+
+<p><strong><code>cake</code></strong> — The Cake default style. Snake_case identifiers. Allman brace placement: both function-body and control-flow <code>{</code> appear on their own line, indented. <code>}</code> always on its own line.</p>
+
+<p><strong><code>gnu</code></strong> — GNU coding standards. Snake_case identifiers. Allman brace placement, same as <code>cake</code>.</p>
+
+<p><strong><code>microsoft</code></strong> — Microsoft style guide. PascalCase for types and functions. Allman brace placement: <code>{</code> on its own line for both function bodies and control-flow blocks.</p>
+
+<p><strong><code>llvm</code></strong> — LLVM coding standards. PascalCase for types and functions, camelCase for variables. K&amp;R brace placement: <code>{</code> on the same line as the controlling statement or function signature, preceded by a space.</p>
+
+<p><strong><code>google</code></strong> — Google C++ style guide (C-compatible subset). PascalCase for types and functions. K&amp;R brace placement: <code>{</code> on the same line.</p>
+
+<p><strong><code>chromium</code></strong> — Chromium style guide (derives from Google). PascalCase for types and functions. K&amp;R brace placement: <code>{</code> on the same line.</p>
+
+<p><strong><code>mozilla</code></strong> — Mozilla coding style. PascalCase for types, camelCase for functions and variables. Mixed brace placement: function-body <code>{</code> on its own line (Allman); control-flow <code>{</code> on the same line (K&amp;R).</p>
+
+<p><strong><code>webkit</code></strong> — WebKit code style guidelines. PascalCase for types, camelCase for functions and variables. Mixed brace placement: function-body <code>{</code> on its own line (Allman); control-flow <code>{</code> on the same line (K&amp;R).</p>
+
+<p>In all styles, <code>}</code> must appear on its own line.</p>
 
 <h3 id="toc_16">4.7 Using cake inside Visual Studio</h3>
 
@@ -560,8 +581,8 @@ Set the naming-style convention used by style warnings (<code>-w011</code>). Ava
 
 <ul>
 <li>Command line: <code>cake -sarif -sarif-path &quot;$(SolutionDir).sarif&quot; -line-directives -msvc-output file.c</code></li>
-<li>Ouputs: <code>x86/file.c</code></li>
-<li>Add Ouput to item type: <code>C/C++ Compiler</code></li>
+<li>Outputs: <code>x86/file.c</code></li>
+<li>Add Output to item type: <code>C/C++ Compiler</code></li>
 </ul>
 
 <p>Then you can run/debug normally.</p>

@@ -1,12 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommandArguments>file.c</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>-style=cake -sarif-path "path.sarif"  error.c</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)../src/</LocalDebuggerWorkingDirectory>
-    <LocalDebuggerCommand>
-    </LocalDebuggerCommand>
-    <LocalDebuggerCommandArgumentsHistory>compile.c|token.c|C:\Users\thiago\source\repos\cake_private\tests\en-cpp-reference-c\cCode339.c|parser.c|file.c|</LocalDebuggerCommandArgumentsHistory>
+    <LocalDebuggerCommand>$(TargetPath)</LocalDebuggerCommand>
+    <LocalDebuggerCommandArgumentsHistory>codegen.c -style=cake |file.c -style=cake |fs.c error.c|-style=cake error.c|-style=cake -sarif-path "path.sarif"  error.c|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugTest|Win32'">
     <LocalDebuggerCommandArguments>-selftest</LocalDebuggerCommandArguments>
@@ -18,7 +17,7 @@
     <LocalDebuggerWorkingDirectory>$(ProjectDir)../src/</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>token.c</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>fs.c error.c</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)..\src\</LocalDebuggerWorkingDirectory>
     <LocalDebuggerCommandArgumentsHistory>token.c|</LocalDebuggerCommandArgumentsHistory>

@@ -412,9 +412,9 @@ int compile_one_file(const char* file_name,
         const char* builtin = target_get_builtins(ctx.options.target);
         if (builtin[0] != '\0')
         {
-          struct token_list builtin_tokens = tokenizer(&tctx, builtin, "builtins", 0, TK_FLAG_NONE);          
-          token_list_append_list_at_beginning(&tokens, &builtin_tokens);
-          token_list_destroy(&builtin_tokens);
+            struct token_list builtin_tokens = tokenizer(&tctx, builtin, "builtins", 0, TK_FLAG_NONE);
+            token_list_append_list_at_beginning(&tokens, &builtin_tokens);
+            token_list_destroy(&builtin_tokens);
         }
 
         if (options->dump_tokens)
@@ -526,14 +526,14 @@ int compile_one_file(const char* file_name,
 
     if (ctx.options.test_mode_inout)
     {
-        char dir_name[FS_MAX_PATH] = {0};
+        char dir_name[FS_MAX_PATH] = { 0 };
         snprintf(dir_name, sizeof dir_name, "%s", file_name);
         dirname(dir_name);
 
         //lets check if the generated file is the expected
         //char just_file_name[FS_MAX_PATH] = { 0 };
         //snprintf(just_file_name, sizeof just_file_name, "%s", file_name);
-        char * p_just_file_name = basename(file_name);
+        char* p_just_file_name = basename(file_name);
         //remove_file_extension(file_name, sizeof(file_name_no_ext), file_name_no_ext);
 
         char buf[FS_MAX_PATH] = { 0 };
@@ -725,6 +725,14 @@ static void longest_common_path(int argc, const char** argv, char root_dir[FS_MA
         if (argv[i][0] == '-')
             continue;
 
+        if (strcmp(argv[i], "-o") == 0 ||
+            strcmp(argv[i], "-sarif-path") == 0)
+        {
+            //ignore these files and consume next.
+            i++;
+            continue;
+        }
+
         char fullpath_i[FS_MAX_PATH] = { 0 };
         realpath(argv[i], fullpath_i);
         strcpy(root_dir, fullpath_i);
@@ -911,6 +919,7 @@ int compile(int argc, const char** argv, struct report* report)
                 dirname(outdir);
                 if (create_multiple_paths(root_dir, outdir) != 0)
                 {
+                    printf("error creating directory\n");
                     return 1;
                 }
             }

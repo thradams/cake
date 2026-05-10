@@ -1,12 +1,17 @@
-
 #pragma safety enable
 
-char* _Owner _Opt strdup(const char*);
-void free(void* _Owner _Opt ptr);
+struct X 
+{
+    int* _Opt a;
+    int* _Opt b;
+};
 
-void f(const char* _Opt s) {
-   const char* _Owner _Opt p;
-   p  = s ? strdup(s) : 0;
-   free((void* _Owner)p);
+void f(struct X* p);
+void f2(int** p);
+
+int main()
+{
+    struct X x = {0};
+    f2(&x.a);
+    assert_state(x.a, "not-null null");    
 }
-

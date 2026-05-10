@@ -191,7 +191,6 @@ async function readFileFromServer(file)
 {
     try
     {
-        // 1. Read plain source
         setStatus("Loading " + file + "...");
         const readRes = await fetch(
             `${API}/read?path=${encodeURIComponent(currentPath)}&file=${encodeURIComponent(file)}`
@@ -202,20 +201,7 @@ async function readFileFromServer(file)
         document.getElementById("c-editor").value = text;
         isDirty = false;
 
-        // 2. Compile the file as-is on disk
-        setStatus("Compiling " + file + "...");
-        const compRes = await fetch(`${API}/compile`, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain" },
-            body: file
-        });
-        if (!compRes.ok) throw new Error(`Compile ${file}: server ${compRes.status}`);
-        const output = await compRes.text();
-
-        setDiagMessages(parseCompilerLines(output));
-        document.getElementById("output").innerHTML = renderOutput(output);
-        setStatus("\u2713 Ready", 3000);
-        if (typeof autoCollapsePanel === "function") autoCollapsePanel();
+        await compile();
     }
     catch (err)
     {
@@ -248,32 +234,18 @@ async function saveFile()
     }
 }
 
+// Returns the trimmed value of the compiler-options input, or "" if absent.
+function getCompilerOpts()
+{
+    const el = document.getElementById("compilerOpts");
+    return el ? el.value.trim() : "";
+}
+
 async function saveAndCompile()
 {
     if (!currentFile) return;
-    try
-    {
-        setStatus("Saving & compiling...");
-        const content = document.getElementById("c-editor").value;
-
-        const res = await fetch(`${API}/savecompile`, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain" },
-            body: currentFile + "\n" + content
-        });
-        if (!res.ok) throw new Error(`Server ${res.status}: ${res.statusText}`);
-
-        const output = await res.text();
-        isDirty = false;
-        if (typeof setTabDirty === "function") setTabDirty(currentFile, false);
-        setDiagMessages(parseCompilerLines(output));
-        document.getElementById("output").innerHTML = renderOutput(output);
-        if (typeof autoCollapsePanel === "function") autoCollapsePanel();
-    }
-    catch (err)
-    {
-        setError("Save & Compile: " + err.message);
-    }
+    await saveFile();
+    await compile();
 }
 
 async function compile()
@@ -282,10 +254,11 @@ async function compile()
     try
     {
         setStatus("Compiling...");
+        const opts = getCompilerOpts();
         const res = await fetch(`${API}/compile`, {
             method: "POST",
             headers: { "Content-Type": "text/plain" },
-            body: currentFile
+            body: opts + "\n" + currentFile
         });
         if (!res.ok) throw new Error(`Server ${res.status}: ${res.statusText}`);
 

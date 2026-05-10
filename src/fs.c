@@ -115,7 +115,7 @@ bool path_is_relative(const char* path)
 
 #ifdef __CAKE__
 #pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wstyle"
+#pragma CAKE diagnostic ignored 11
 #endif
 
 struct TAGDIR
@@ -331,7 +331,7 @@ int copy_folder(const char* from, const char* to)
 #ifdef _WIN32
 int get_self_path(char* buffer, int maxsize)
 {
-    DWORD r = GetModuleFileNameA(NULL, buffer, maxsize); 
+    DWORD r = GetModuleFileNameA(NULL, buffer, maxsize); //lint 60 35 33 
     return r;
 }
 

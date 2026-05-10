@@ -769,8 +769,8 @@ bool macro_is_same(const struct macro* macro_a, const struct macro* macro_b)
     if (!token_list_is_equal(&macro_a->replacement_list, &macro_b->replacement_list) != 0)
         return false;
 
-    const struct macro_parameter* p_a = macro_a->parameters;
-    const struct macro_parameter* p_b = macro_b->parameters;
+    const struct macro_parameter* _Opt p_a = macro_a->parameters;
+    const struct macro_parameter* _Opt p_b = macro_b->parameters;
     while (p_a && p_b)
     {
         if (strcmp(p_a->name, p_b->name) != 0)
@@ -1448,7 +1448,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
     try
     {
 #ifndef MOCKFILES
-        file = (FILE * _Owner _Opt)fopen(filename_opt, "rb");
+        file = (FILE* _Owner _Opt)fopen(filename_opt, "rb");
         if (file == NULL)
         {
             preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, position, "file '%s' not found", filename_opt);
@@ -1958,7 +1958,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
 }
 
 
-bool fread2(void* buffer, size_t size, size_t count, FILE * stream, size_t * sz)
+bool fread2(void* buffer, size_t size, size_t count, FILE* stream, size_t* sz)
 {
     *sz = 0;//out
     bool result = false;
@@ -3996,7 +3996,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             naming_convention_macro(ctx, macro_name_token);
 
-            struct macro* existing_macro = find_macro(ctx, macro->name);
+            struct macro* _Opt existing_macro = find_macro(ctx, macro->name);
             if (existing_macro)
             {
                 if (!macro_is_same(macro, existing_macro))
@@ -5797,7 +5797,7 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
     options_set_clear_all_warnings(&ctx->options);
 
     struct tokenizer_ctx tctx = { 0 };
-    struct token_list l = tokenizer(&tctx, str, "standard macros inclusion", 0, TK_FLAG_NONE);
+    struct token_list l = tokenizer(&tctx, str, "include_config_header", 0, TK_FLAG_NONE);
     struct token_list l10 = preprocessor(ctx, &l, 0);
     mark_macros_as_used(&ctx->macros);
     token_list_destroy(&l);
@@ -5866,7 +5866,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
 
     const char* pre_defined_macros_text = target_get_predefined_macros(target);
 
-    struct token_list l = tokenizer(&tctx, pre_defined_macros_text, "standard macros inclusion", 0, TK_FLAG_NONE);
+    struct token_list l = tokenizer(&tctx, pre_defined_macros_text, "add_standard_macros", 0, TK_FLAG_NONE);
     struct token_list l10 = preprocessor(ctx, &l, 0);
 
     /* do not warn about unused standard macros */
@@ -6089,6 +6089,11 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_GCC__BUILTIN_VA_COPY: return "TK_KEYWORD_GCC__BUILTIN_VA_COPY";
     case TK_KEYWORD_GCC__BUILTIN_OFFSETOF: return "TK_KEYWORD_GCC__BUILTIN_OFFSETOF";
 
+    case TK_KEYWORD_MSVC__UNALIGNED: return "TK_KEYWORD_MSVC__UNALIGNED";
+    case TK_KEYWORD_MSVC__TRY: return "TK_KEYWORD_MSVC__TRY";
+    case TK_KEYWORD_MSVC__EXCEPT: return "TK_KEYWORD_MSVC__EXCEPT";
+    case TK_KEYWORD_MSVC__FINALLY: return "TK_KEYWORD_MSVC__FINALLY";
+    case TK_KEYWORD_MSVC__LEAVE: return "TK_KEYWORD_MSVC__LEAVE";
     }
     return "TK_X_MISSING_NAME";
 };

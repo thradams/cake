@@ -3603,7 +3603,8 @@ static void emmit_clear_declarator(struct codegen_ctx* ctx, struct osstream* ss,
         sz);
         ctx->memset_used = true;
     }
-    catch{
+    catch
+    {
     }
 }
 
@@ -4188,7 +4189,9 @@ static void print_initializer(struct codegen_ctx* ctx,
             }
         }
     }
-    catch    {    }
+    catch
+    {    
+    }
 }
 
 static void vm_emit_snapshot_decls(struct codegen_ctx* ctx,
@@ -4709,7 +4712,9 @@ static int parse_line_directive(const char* src,
 
     *line_num = 0;
     while (isdigit((unsigned char)*p))
-        *line_num = *line_num * 10 + (*p++ - '0');
+    {
+        *line_num = *line_num * 10 + (*p++ - '0'); //lint 33 (bug #439)
+    }
 
     while (*p == ' ' || *p == '\t') p++;
 
@@ -4796,7 +4801,7 @@ size_t clean_line_directives(char* buf)
             if (w != line_start)
                 memmove(w, line_start, line_len);
             w += line_len;
-            *w++ = '\n';
+            *w++ = '\n'; //lint 33 bug #439
             expected_line++;
         }
     }

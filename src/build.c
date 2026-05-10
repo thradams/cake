@@ -246,12 +246,12 @@ int main()
     HEADER("Runs cake on its own source");
 
 
-    execute_cmd("cake.exe -DTEST -const-literal -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -w11 " CAKE_SOURCE_FILES);
+    execute_cmd("cake.exe -DTEST -const-literal -style=cake " CAKE_SOURCE_FILES);
 
 #ifdef _WIN64
-    echo_chdir("../x64_msvc/src");
+    echo_chdir("./x64_msvc/");
 #else
-    echo_chdir("../x86_msvc/src");
+    echo_chdir("./x86_msvc/");
 #endif
 
     execute_cmd("cl  -o cake89.exe" CAKE_SOURCE_FILES);
@@ -285,7 +285,7 @@ int main()
            " -o cake.exe");
 
     //Runs cake on its own source
-    execute_cmd("cake.exe -ownership=enable -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable " CAKE_SOURCE_FILES);
+    execute_cmd("cake.exe -style=cake " CAKE_SOURCE_FILES);
 
 #endif
 
@@ -348,7 +348,7 @@ int main()
 
 
     //Uses previouly generated cakeconf.h to find include dir
-    execute_cmd("./cake -DTEST -fanalyzer " CAKE_SOURCE_FILES);
+    execute_cmd("./cake -DTEST -style=cake " CAKE_SOURCE_FILES);
 
 
     echo_chdir("./x86_x64_gcc/");

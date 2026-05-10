@@ -128,13 +128,13 @@ static void defer_visit_ctx_pop_until(struct defer_visit_ctx* ctx, struct defer_
                 }
                 p = p->previous;
 
-                struct defer_scope* _Opt _Owner pDelete = defer_visit_ctx_pop_child(ctx);
-                defer_scope_delete(pDelete);
+                struct defer_scope* _Opt _Owner p_delete = defer_visit_ctx_pop_child(ctx);
+                defer_scope_delete(p_delete);
             }
             else
             {
-                struct defer_scope* _Opt _Owner pDelete = defer_visit_ctx_pop_child(ctx);
-                defer_scope_delete(pDelete);
+                struct defer_scope* _Opt _Owner p_delete = defer_visit_ctx_pop_child(ctx);
+                defer_scope_delete(p_delete);
                 break;
             }
         }

@@ -293,6 +293,11 @@ void token_list_append_list_at_beginning(struct token_list* dest, struct token_l
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew);
 char* _Owner _Opt token_list_join_tokens(struct token_list* list, bool bliteral);
 void token_list_clear(struct token_list* list);
+
+
+bool token_is_one_space(const struct token* _Opt token);
+bool token_is_newline(const struct token* _Opt token);
+
 bool token_is_blank(const struct token* _Opt p);
 bool token_is_final(const struct token* _Opt p);
 bool token_is_identifier_or_keyword(enum token_type t);
@@ -347,8 +352,6 @@ int is_digit(const struct stream* p);
 int is_nondigit(const struct stream* p);
 void stream_match(struct stream* stream);
 
-bool style_has_space(const struct token*  token);
-bool style_has_one_space(const struct token*  token);
 
 enum token_type parse_number(const char* lexeme, char suffix[4], _Ctor char erromsg[100]);
 const unsigned char* _Opt str_utf8_decode(const unsigned char* s, _Ctor unsigned int* c);

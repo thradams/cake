@@ -48,6 +48,98 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
 struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 
+static void check_binary_operator_space_style(struct parser_ctx* ctx,
+                                              const struct token* op_token,
+                                              const struct token* next_token)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
+        return;
+
+    if (op_token->level != 0)
+        return;
+
+    if ((op_token->flags & TK_FLAG_MACRO_EXPANDED) ||
+        (next_token->flags & TK_FLAG_MACRO_EXPANDED))
+        return;
+
+
+    if (!ctx->options.style.space_around_binary_operators)
+        return;
+
+    if (!(token_is_one_space(op_token->prev) || token_is_newline(op_token->prev)))
+    {
+        diagnostic(W_STYLE, ctx, op_token, NULL,
+                   "expected one space before binary operator");
+    }
+
+    if (!(token_is_one_space(op_token->next) || token_is_newline(op_token->next)))
+    {
+        diagnostic(W_STYLE, ctx, next_token, NULL,
+                   "expected one space after binary operator");
+    }
+}
+
+static void check_expr_space_after_comma_style(struct parser_ctx* ctx,
+                                               const struct token* token)
+{
+    assert(token->type == ',');
+
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
+        return;
+
+    if (token->level != 0)
+        return;
+
+    if (token->flags & TK_FLAG_MACRO_EXPANDED)
+        return;
+
+    if (!ctx->options.style.space_after_comma)
+        return;
+
+    if (token->next && token_is_blank(token->next) && token->next->next)
+    {
+        if (token->next->next->type == TK_LINE_COMMENT ||
+            token->next->next->type == TK_COMMENT)
+        {
+            /*
+                f(a,  //comment
+                  b)
+                  a, comment
+              */
+            return;
+        }
+    }
+
+    if (!(token_is_one_space(token->next) || token_is_newline(token->next)))
+    {
+        diagnostic(W_STYLE, ctx, token, NULL, "expected one space after ','");
+    }
+}
+
+static void check_no_space_before_paren_call_style(struct parser_ctx* ctx,
+                                                   const struct token* token)
+{
+    assert(token->type == '(');
+
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
+        return;
+
+
+    if (token->level != 0)
+        return;
+
+    if (token->flags & TK_FLAG_MACRO_EXPANDED)
+        return;
+
+    if (!ctx->options.style.no_space_before_call_paren)
+        return;
+
+    if (token_is_blank(token->prev))
+    {
+        diagnostic(W_STYLE, ctx, token, NULL,
+                   "no space between function name and '('");
+    }
+}
 
 bool is_primary_expression(enum expression_type t)
 {
@@ -359,6 +451,8 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, enum 
 
         while (ctx->current->type == ',')
         {
+            check_expr_space_after_comma_style(ctx, ctx->current);
+
             parser_match(ctx);
             if (ctx->current == NULL)
             {
@@ -1846,6 +1940,8 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx,
 
         while (ctx->current->type == ',')
         {
+            check_expr_space_after_comma_style(ctx, ctx->current);
+
             parser_match(ctx);
             if (ctx->current == NULL)
             {
@@ -2068,6 +2164,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 p_expression_node->last_token = ctx->current;
                 p_expression_node_new->first_token = p_expression_node->first_token;
                 p_expression_node_new->expression_type = POSTFIX_FUNCTION_CALL;
+
+                check_no_space_before_paren_call_style(ctx, ctx->current);
 
                 if (!type_is_function_or_function_pointer(&p_expression_node->type))
                 {
@@ -2704,9 +2802,7 @@ bool is_first_of_compiler_function(struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
-    return
-        // traits
-        ctx->current->type == TK_KEYWORD_IS_LVALUE ||
+    return ctx->current->type == TK_KEYWORD_IS_LVALUE ||
         ctx->current->type == TK_KEYWORD_IS_OWNER ||
         ctx->current->type == TK_KEYWORD_IS_CONST ||
         ctx->current->type == TK_KEYWORD_IS_POINTER ||
@@ -4321,10 +4417,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
         else if (is_first_of_unary_expression(ctx))
         {
             p_expression_node = unary_expression(ctx, eval_mode);
-            if (p_expression_node == NULL)
-            {
-                throw;
-            }
+            if (p_expression_node == NULL) throw;
         }
         else
         {
@@ -4388,6 +4481,9 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
 
             new_expression->first_token = ctx->current;
             const enum token_type op = ctx->current->type;
+            const struct token* const op_tok_mul = ctx->current;
+            check_binary_operator_space_style(ctx, op_tok_mul, ctx->current);
+
             parser_match(ctx);
             if (ctx->current == NULL)
             {
@@ -4583,6 +4679,8 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
             new_expression->first_token = ctx->current;
 
             enum token_type op = ctx->current->type;
+            check_binary_operator_space_style(ctx, operator_position, ctx->current);
+
             parser_match(ctx);
             if (ctx->current == NULL)
             {
@@ -4590,6 +4688,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
                 expression_delete(new_expression);
                 throw;
             }
+
 
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
@@ -4836,6 +4935,9 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, enum exp
             new_expression->first_token = ctx->current;
 
             enum token_type op = ctx->current->type;
+            const struct token* const op_tok_shift = ctx->current;
+            check_binary_operator_space_style(ctx, op_tok_shift, ctx->current);
+
             parser_match(ctx);
             if (ctx->current == NULL)
             {
@@ -4844,6 +4946,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, enum exp
                 new_expression = NULL;
                 throw;
             }
+
 
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
@@ -5058,12 +5161,15 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, enu
             new_expression->first_token = ctx->current;
             struct token* optk = ctx->current;
             enum token_type op = ctx->current->type;
+            check_binary_operator_space_style(ctx, optk, ctx->current);
+
             parser_match(ctx);
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
                 throw;
             }
+
 
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
@@ -5304,12 +5410,15 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, enum 
             new_expression->first_token = ctx->current;
 
             struct token* operator_token = ctx->current;
+            check_binary_operator_space_style(ctx, operator_token, ctx->current);
+
             parser_match(ctx);
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
                 throw;
             }
+
 
             if (operator_token->type == '==')
                 new_expression->expression_type = EQUALITY_EXPRESSION_EQUAL;
@@ -5390,6 +5499,9 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, enum expre
 
         while (ctx->current != NULL && ctx->current->type == '&')
         {
+            struct token* const op_tok_and = ctx->current;
+            check_binary_operator_space_style(ctx, op_tok_and, ctx->current);
+
             parser_match(ctx);
             if (ctx->current == NULL)
             {
@@ -5397,11 +5509,11 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, enum expre
                 throw;
             }
 
+
             assert(new_expression == NULL);
             new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
                 throw;
-
             new_expression->first_token = ctx->current;
             new_expression->expression_type = AND_EXPRESSION;
             new_expression->left = p_expression_node;
@@ -5470,12 +5582,16 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx, 
         while (ctx->current != NULL &&
                (ctx->current->type == '^'))
         {
+            struct token* const op_tok_xor = ctx->current;
+            check_binary_operator_space_style(ctx, op_tok_xor, ctx->current);
+
             parser_match(ctx);
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
                 throw;
             }
+
 
             assert(new_expression == NULL);
             new_expression = calloc(1, sizeof * new_expression);
@@ -5550,12 +5666,15 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx, e
                (ctx->current->type == '|'))
         {
             struct token* operator_token = ctx->current;
+            check_binary_operator_space_style(ctx, operator_token, ctx->current);
+
             parser_match(ctx);
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
                 throw;
             }
+
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
@@ -5635,12 +5754,16 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx, en
         while (ctx->current != NULL &&
                (ctx->current->type == '&&'))
         {
+            struct token* const op_tok_land = ctx->current;
+            check_binary_operator_space_style(ctx, op_tok_land, ctx->current);
+
             parser_match(ctx);
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
                 throw;
             }
+
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
@@ -5747,12 +5870,16 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx, enu
         while (ctx->current != NULL &&
                (ctx->current->type == '||'))
         {
+            struct token* const op_tok_lor = ctx->current;
+            check_binary_operator_space_style(ctx, op_tok_lor, ctx->current);
+
             parser_match(ctx);
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
                 throw;
             }
+
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
@@ -5889,12 +6016,15 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, enu
         {
 
             const struct token* const op_token = ctx->current;
+            check_binary_operator_space_style(ctx, op_token, ctx->current);
+
             parser_match(ctx);
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
                 throw;
             }
+
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
@@ -6209,6 +6339,8 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expressio
         {
             while (ctx->current->type == ',')
             {
+                check_expr_space_after_comma_style(ctx, ctx->current);
+
                 parser_match(ctx);
                 if (ctx->current == NULL)
                 {
@@ -6469,7 +6601,9 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
             const struct expression* p_left_or_cond =
                 (p_conditional_expression->left != NULL)
                 ? p_conditional_expression->left
-                : p_conditional_expression->condition_expr;
+                : p_conditional_expression->condition_expr; //lint 35 bug #440
+
+            assert(p_left_or_cond);
 
             if (expression_is_subjected_to_lvalue_conversion(p_left_or_cond))
             {

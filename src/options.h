@@ -59,7 +59,6 @@ enum diagnostic_id {
     W_FLOW_NULLABLE_TO_NON_NULLABLE = 35,
     W_FLOW_DIVIZION_BY_ZERO = 36,
 
-
     W_DIVIZION_BY_ZERO = 37,
     W_UNUSED_WARNING_38 = 38,
     W_PASSING_NULL_AS_ARRAY = 39,
@@ -68,8 +67,8 @@ enum diagnostic_id {
     W_OUT_OF_BOUNDS = 42,
     W_ASSIGNMENT_OF_ARRAY_PARAMETER = 43,
     W_CONDITIONAL_IS_CONSTANT = 44,
-    
-    W_SWITCH = 45, //
+
+    W_SWITCH = 45,
 
     W_UNSUAL_NULL_POINTER_CONSTANT = 46,
     W_SIZEOF_ARRAY_ARGUMENT = 47,
@@ -79,11 +78,10 @@ enum diagnostic_id {
     W_INTEGER_OVERFLOW = 51,
     W_ARRAY_SIZE = 52,
 
-
     W_SIZEOF_FUNCTION = 53,
     W_ERROR_INCOMPATIBLE_TYPES = 54,
-    
-    W_UNUSED_LABEL = 55, //
+
+    W_UNUSED_LABEL = 55,
 
     W_REDEFINING_BUITIN_MACRO = 56,
     W_UNUSED_FUNCTION = 57,
@@ -95,7 +93,6 @@ enum diagnostic_id {
     W_TO_MANY_INITIALIZERS = 62,
     W_FLOAT_RANGE = 63,
 
-    
     W_WARNING_LIT_STRING = 64,
     W_SIGNED_TO_UNSIGNED = 65,
     W_INFO = 66,
@@ -160,13 +157,11 @@ enum diagnostic_id {
     W_UNUSED_WARNING_125 = 125,
     W_UNUSED_WARNING_126 = 126,
     W_UNUSED_WARNING_127 = 127,
-    
 
-    
-    
-    C_ERROR_TOKENIZER_MISSING_TERMINATING = 630, //'
-    C_ERROR_TOKENIZER_MISSING_TERMINATING_QUOTE = 631, //"
-    C_ERROR_TOKENIZER_MISSING_END_OF_COMMENT = 632, //"
+
+    C_ERROR_TOKENIZER_MISSING_TERMINATING = 630,
+    C_ERROR_TOKENIZER_MISSING_TERMINATING_QUOTE = 631,
+    C_ERROR_TOKENIZER_MISSING_END_OF_COMMENT = 632,
 
     C_ERROR_INVALID_QUALIFIER_FOR_POINTER = 640,
     C_ERROR_UNEXPECTED = 650,
@@ -179,7 +174,7 @@ enum diagnostic_id {
     C_ERROR_STRUCT_MEMBER_NOT_FOUND = 720,
     C_ERROR_STRUCTURE_OR_UNION_REQUIRED = 730,
     C_ERROR_STRUCT_IS_INCOMPLETE = 740,
-    
+
     C_ERROR_CASE_NOT_IN_SWITCH = 750,
 
     C_ERROR_BREAK_NOT_WITHIN_ITERATION = 760,
@@ -196,7 +191,7 @@ enum diagnostic_id {
     C_ERROR_INVALID_TYPE = 860,
     C_ERROR_LEFT_IS_NOT_SCALAR = 870,
     C_ERROR_RIGHT_IS_NOT_SCALAR = 880,
-    C_ERROR_INCOMPATIBLE_POINTER_TYPES = 890, //warning?
+    C_ERROR_INCOMPATIBLE_POINTER_TYPES = 890,
     C_ERROR_ASSIGNMENT_OF_FUNCTION = 900,
     C_ERROR_ASSIGNMENT_TO_EXPRESSION_WITH_ARRAY_TYPE = 910,
     C_ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT = 920,
@@ -234,7 +229,7 @@ enum diagnostic_id {
     C_ERROR_JUMP_OVER_VLA = 1202,
     C_ERROR_PREPROCESSOR_MISSING_MACRO_ARGUMENT = 1210,
     C_ERROR_ADDRESS_OF_REGISTER = 1220,
-    C_ERROR_OPERATOR_NEEDS_LVALUE = 1230, //C2105
+    C_ERROR_OPERATOR_NEEDS_LVALUE = 1230,
     C_ERROR_CHARACTER_TOO_LARGE = 1240,
     C_ERROR_PRAGMA_ERROR = 1250,
     C_ERROR_OUT_OF_MEM = 1260,
@@ -254,8 +249,8 @@ enum diagnostic_id {
     C_ERROR_RETURN_CANNOT_BE_USED_INSIDE_DEFER = 1400,
     C_ERROR_FUNCTION_RETURNS_FUNCTION = 1410,
     C_ERROR_FUNCTION_RETURNS_ARRAY = 1420,
-    
-    C_ERROR_LABEL_NOT_DEFINED = 1430, //
+
+    C_ERROR_LABEL_NOT_DEFINED = 1430,
 
     C_ERROR_DUPLICATED_LABEL = 1440,
     C_ERROR_DUPLICATED_CASE = 1450,
@@ -280,35 +275,89 @@ enum diagnostic_id {
 
 bool is_diagnostic_configurable(enum diagnostic_id id);
 
-
-
 int get_diagnostic_phase(enum diagnostic_id w);
 
-enum style
+enum case_style
 {
-    STYLE_CAKE,
-
-    // https://llvm.org/docs/CodingStandards.html
-    STYLE_LLVM,// A style complying with the LLVM coding standards
-
-    //https://google.github.io/styleguide/cppguide.html
-    STYLE_GOOGLE,// A style complying with Google’s C++ style guide
-
-    //https://chromium.googlesource.com/chromium/src/+/refs/heads/main/styleguide/styleguide.md
-    //https://www.kernel.org/doc/html/latest/process/coding-style.html
-    STYLE_CHROMIUM,// A style complying with Chromium’s style guide
-
-    //https://firefox-source-docs.mozilla.org/code-quality/coding-style/index.html
-    STYLE_MOZILLA,// A style complying with Mozilla’s style guide
-
-    //https://www.webkit.org/code-style-guidelines/
-    STYLE_WEBKIT,// A style complying with WebKit’s style guide
-
-    STYLE_MICROSOFT,// A style complying with Microsoft’s style guide
-
-    STYLE_GNU,// A style complying with the GNU coding standards
-
+    CASE_SNAKE,
+    CASE_CAMELCASE,
+    CASE_PASCALCASE,
+    CASE_UPPERCASE,
 };
+
+enum brace_style
+{
+    BRACE_STYLE_ALLMAN, // { on its own line
+    BRACE_STYLE_KNR,    // { on the same line as the controlling statement,
+};
+
+
+enum func_brace_style
+{
+    FUNC_BRACE_STYLE_ALLMAN, // { on its own line
+    FUNC_BRACE_STYLE_KNR,    // { on the same line as the controlling statement,
+};
+
+enum else_style
+{
+    ELSE_STYLE_NEW_LINE,  
+    ELSE_STYLE_SAME_LINE, 
+};
+
+enum pointer_style
+{
+    POINTER_STYLE_WEST,
+    POINTER_STYLE_EAST,
+};
+
+enum indent_style
+{
+    INDENT_STYLE_SPACES,
+    INDENT_STYLE_TABS,
+};
+
+
+struct style_options
+{
+
+    enum case_style struct_name_case;
+    enum case_style enum_name_case;
+    enum case_style function_name_case;
+    enum case_style global_name_case;
+    enum case_style local_name_case;
+    enum case_style enumerator_name_case;
+    enum case_style member_name_case;
+    enum case_style parameter_name_case;
+
+    /* --- brace placement --- */
+    enum brace_style      open_brace_style;       /* control-flow blocks  */
+    enum func_brace_style func_open_brace_style;  /* function bodies      */
+
+    /* --- else placement --- */
+    enum else_style else_style;
+
+    /* --- pointer * placement --- */
+    enum pointer_style pointer_style;
+
+    /* --- indentation --- */
+    enum indent_style indent_style;
+    int               indent_width; /* spaces per level; ignored for TABS */
+
+    /* --- spacing rules ---
+     * All built-in presets set every flag to true.  Exposed individually so
+     * a single rule can be disabled without defining a whole new preset.   */
+    bool space_after_comma;             /* one space after ','                 */
+    bool no_space_before_semicolon;     /* no space before ';'                 */
+    bool space_after_keyword;           /* one space between keyword and '('   */
+    bool space_after_return;            /* one space between 'return' and expr */
+    bool no_space_before_call_paren;    /* no space between callee and '('     */
+    bool space_around_binary_operators; /* one space on each side of binary op */
+};
+
+
+struct style_options style_options_cake(void);
+struct style_options style_options_gnu(void);
+struct style_options style_options_microsoft(void);
 
 #define BITSET_SIZE 128
 #define BITSET_WORD_BITS (CHAR_BIT * sizeof(unsigned long))
@@ -322,7 +371,6 @@ struct bitset
 
 struct diagnostic
 {
-
     /*set of warnings reported as errors*/
     struct bitset errors;
 
@@ -359,7 +407,11 @@ struct options
     */
     struct diagnostic_stack diagnostic_stack;
 
-    enum style style;
+    /*
+     * Formatting style rules.  Filled by style_options_<name>() or left
+     * as style_options_none() when no -style flag is supplied.
+     */
+    struct style_options style;
 
     /*
        Causes the compiler to output a list of the include files.
@@ -376,7 +428,6 @@ struct options
     /*
       -line-directives
     */
-
     bool line_directives;
 
     /*
@@ -406,14 +457,12 @@ struct options
     */
     bool preprocess_only;
 
-
-
     /*
       -preprocess-def-macro
     */
     bool preprocess_def_macro;
 
-    bool clear_error_at_end; //used by tests
+    bool clear_error_at_end; /*used by tests*/
 
     /*
       -sarif
