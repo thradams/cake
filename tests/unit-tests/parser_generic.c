@@ -8,5 +8,7 @@ int main(void)
     //expressions are evaluated
     static_assert(_Generic(0, double: 0.0, int: -2) == -2);
 
+    int i;
+    _Generic(i, int:1, int:2); //lint 1570 two compatible types.
 }
 

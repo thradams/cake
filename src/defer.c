@@ -569,10 +569,10 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
             label_ctx.searching_label_mode = true;
             label_ctx.label_name = p_jump_statement->label->lexeme;
-            defer_start_visit_declaration(&label_ctx, ctx->p_declaration);
+            defer_start_visit_declaration(&label_ctx, ctx->p_declaration); //lint 35 33
 
             struct defer_scope* _Opt p_common =
-                find_common_defer_scope(label_ctx.tail_block /*label*/, ctx->tail_block /*goto*/);
+                find_common_defer_scope(label_ctx.tail_block /*label*/, ctx->tail_block /*goto*/); //lint  35
 
             if (p_common == NULL)
             {
@@ -601,7 +601,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                     if (!found)
                     {
                         diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "jumping over defer. from here");
-                        diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
+                        diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here"); //lint 33
                         diagnostic(W_LOCATION, ctx->ctx, p1->p_defer_statement->first_token, NULL, "defer");
                     }
                 }
@@ -622,7 +622,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                     if (!found)
                     {
                         diagnostic(C_ERROR_JUMP_OVER_VLA, ctx->ctx, p_jump_statement->first_token, NULL, "jumping over vm. from here");
-                        diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
+                        diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here"); //lint 33
                         diagnostic(W_LOCATION, ctx->ctx, p1->p_declarator->first_token_opt, NULL, "declarator");
                     }
                 }
@@ -642,7 +642,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                     if (!found)
                     {
                         diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "jumping into defer. from here");
-                        diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
+                        diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here"); //lint 33
                         //diagnostic(W_LOCATION, ctx->ctx, p1->p_defer_block->first_token, NULL, "defer");
                     }
                 }
@@ -693,7 +693,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                         if (p->p_defer_block)
                         {
                             diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "jumping out of defer.");
-                            diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
+                            diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here"); //lint 33
                             // diagnostic(W_LOCATION, ctx->ctx, p1->p_defer_statement->first_token, NULL, "defer");                            
                         }
                         p2 = p2->previous;
@@ -729,7 +729,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                 if (p->p_defer_block)
                 {
                     diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "goto is jumping out of defer.");
-                    diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
+                    diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here"); //lint 33
                 }
 
                 p = p->previous;
@@ -752,7 +752,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
         check_dianostic_suppression_core(ctx->ctx, p_jump_statement->p_lint_token, 1);
     }
 
-    defer_visit_ctx_destroy(&label_ctx);
+    defer_visit_ctx_destroy(&label_ctx); //lint 33 33 
 }
 
 static void defer_visit_labeled_statement(struct defer_visit_ctx* ctx, struct labeled_statement* p_labeled_statement)

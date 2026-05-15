@@ -1,7 +1,7 @@
 pre {
-    
-    vertical-align: text-top;    
+    vertical-align: text-top;
     margin-top: 2px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 
@@ -24,7 +24,7 @@ p {
 
 code {
     background-color: #f3f3f3;
-    font-family: Consolas
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 select {

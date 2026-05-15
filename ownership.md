@@ -1,18 +1,18 @@
-# Cake Static Analysis — Ownership & Nullable Pointers
+# Cake Static Analysis — Ownership & Nullable Contracts
 
 *Last Updated: May 2026*
 
-A hands-on guide to Cake's ownership qualifiers and nullable pointer semantics - with working examples, 
+A hands-on guide to Cake's ownership and nullable pointer annotations - with working examples, 
 enforced rules, and an incremental migration strategy for existing codebases.
 
 ---
 
 ## Introduction
 
-Cake provides a set of annotations and extended qualifiers recognized 
-by its static analyzer. With ownership qualifiers, you can achieve the 
+Cake provides a set of contract annotations recognized 
+by its static analyzer. With ownership annotations, you can achieve the 
 same guarantees as C++ RAII and often stronger ones. 
-Cake also introduces nullable pointer semantics, making it explicit 
+Cake also introduces nullable pointer annotations, making it explicit 
 when a pointer may be null and preventing mistakes like accidentally 
 dereferencing a null pointer.
 
@@ -24,11 +24,11 @@ these features incrementally in an existing codebase.
 
 ## Chapter 1: Nullable Pointers
 
-### The `_Opt` Qualifier
+### The `_Opt` pointer annotation
 
-The qualifier `_Opt` explicitly marks a pointer as nullable. 
+The `_Opt` pointer annotation explicitly marks a pointer as nullable. 
 The absence of `_Opt` means the pointer is non-nullable. 
-Like `const`, the qualifier is placed after the `*`.
+The annotation is placed after the `*`.
 
 For example, the following declaration says that `strdup()` accepts a non-nullable pointer and returns a nullable one:
 
@@ -48,7 +48,7 @@ Because existing C code was not written with nullability in mind, Cake provides 
 // new rules apply: absence of _Opt = non-nullable
 #pragma nullable enable   
 
-// Unannotated source: all unqualified pointers are nullable
+// Unannotated source: all unannotated pointers are nullable
 #pragma nullable disable  
 ```
 
@@ -57,7 +57,7 @@ Only static analysis behavior changes; the runtime behavior of your program is u
 
 ---
 
-### Example 1: Assigning null to a Non-Nullable Pointer
+### Example 1: Assigning Nullable to a Non-Nullable Pointer
 
 Once nullable rules are enabled, assigning `nullptr` to an unqualified pointer generates a warning:
 
@@ -281,11 +281,11 @@ of these rules.
 #pragma safety enable      
 ```
 
-> **Note:** `_Owner` qualifiers are parsed even when ownership is disabled, but have no effect. Use `#pragma safety enable` as a shorthand for both features.
+> **Note:** `_Owner` annotations are parsed even when ownership is disabled, but have no effect. Use `#pragma safety enable` as a shorthand for both features.
 
 ---
 
-### Owner References and the `_Owner` Qualifier
+### Owner References and the `_Owner` annotation
 
 An **owner reference** is an object that manages the lifetime of the thing it references. The most common form is an **owner pointer** — a pointer to a heap-allocated object that is responsible for freeing it.
 
@@ -352,13 +352,15 @@ _Owner int server_socket = socket(AF_INET, SOCK_STREAM, 0);
 close(server_socket);
 ```
 
-> **Note:** The `_Owner` qualifier belongs to the storage holding the reference, not to the pointed-to type. Its placement follows the same rules as `const`.
+> **Note:** The `_Owner` annotation belongs to the storage holding the reference, not to the pointed-to type. Its placement follows the same rules as `const`.
 
 ---
 
 ### View References
 
-A **view reference** accesses an object without managing its lifetime. Regular (non-`_Owner`) pointers are view references by default. The `_View` qualifier is used on struct types, not on pointer declarations.
+A **view reference** accesses an object without managing its lifetime. Regular (non-`_Owner`) 
+pointers are view references by default. The `_View` annotation is used on struct types, 
+not on pointer declarations.
 
 > **Rule:** The lifetime of the referenced object must exceed the lifetime of the view reference.
 
@@ -382,9 +384,9 @@ int main()
 
 ---
 
-### The `_View` qualifier.
+### The `_View` annotation
 
-The `_View` qualifier enables assignment without ownership transfer. 
+The `_View` annotation enables assignment without ownership transfer. 
 A `_View` object does not own the resource.
 
 ```c
@@ -438,11 +440,13 @@ void x_delete(struct X * _Owner _Opt p) {
 
 ---
 
-## Chapter 3: Destructors and Constructors
+## Chapter 3: Parameter annotations
 
-### The `[[dtor]]` Contract Attribute
+### The `_Dtor` parameter annotation
 
-`[[dtor]]` tells the analyzer that the function will move out all owner contents of the pointed-to struct, leaving it uninitialized. The compiler also verifies that the implementation fulfills this contract.
+`_Dtor` tells the analyzer that the function will move out all owner contents of 
+the pointed-to struct, leaving it uninitialized. The compiler also verifies that the 
+implementation fulfills this contract.
 
 ```c
 #pragma safety enable
@@ -450,7 +454,7 @@ void x_delete(struct X * _Owner _Opt p) {
 
 struct X { char * _Owner _Opt text; };
 
-void x_destroy([[dtor]] struct X * x) {
+void x_destroy(_Dtor struct X * x) {
     free(x->text);  // moves x->text; contract fulfilled
 }
 
@@ -478,9 +482,11 @@ void x_delete(_Opt struct X * _Owner _Opt p) {
 
 ---
 
-### The `[[ctor]]` Contract Attribute
+### The `_Ctor` parameter annotation
 
-`[[ctor]]` is the inverse of `[[dtor]]`. It tells the analyzer that the function expects an **uninitialized** object as input and initializes it on return. This is the pattern for init-style functions.
+`_Ctor` is the inverse of `_Dtor`. It tells the analyzer that the 
+function expects an **uninitialized** object as input and initializes it 
+on return. This is the pattern for init-style functions.
 
 ```c
 #pragma safety enable
@@ -489,7 +495,7 @@ void x_delete(_Opt struct X * _Owner _Opt p) {
 struct X { char * _Owner _Opt text; };
 
 
-int init([[ctor]] struct X *p, const char * text) {
+int init(_Ctor struct X *p, const char * text) {
     p->text = strdup(text);  // safe: p->text is uninitialized
 }
 
@@ -501,7 +507,8 @@ int main() {
 ```
 <button onclick="Try(this)">try</button>
 
-Contrast this with a setter, which operates on an already-initialized object and must free the old value first:
+Contrast this with a setter, which operates on an already-initialized object and
+must free the old value first:
 
 ```c
 #pragma safety enable
@@ -520,21 +527,21 @@ int set(struct X *p, const char * text) {
 
 ---
 
-### `[[dtor]]` vs `[[ctor]]` — Summary
+### `_Dtor` vs `_Ctor` — Summary
 
 Think of them as describing the state of the object before and after the call:
 
-`[[ctor]]` — the input must be uninitialized or moved; the function's job is to fully initialize it.
+`_Ctor` — the input must be uninitialized or moved; the function's job is to fully initialize it.
 
-`[[dtor]]` — the input must be fully initialized; the function's job is to move out all owner contents, leaving the object uninitialized.
+`_Dtor` — the input must be fully initialized; the function's job is to move out all owner contents, leaving the object uninitialized.
 
 ---
 
-### Qualifiers in Arrays
+### Type Annotations in Arrays parameters
 
 In C, array types in arguments are pointers. This characteristics is preserved.
 
-To use owner qualifier in array we do. (Just like const)
+To use the owner annotation in an array we do. (Just like const)
 
 ```c
 #pragma safety enable
@@ -716,29 +723,29 @@ These are implementation constraints, not flaws in the ownership model itself.
 
 Adopting Cake's static analysis in an existing codebase does not require a big-bang migration. The recommended approach is incremental:
 
-1. **Create `safe.h`** — define all Cake extensions (`_Owner`, `_Opt`, `_View`, `[[dtor]]`, `[[ctor]]`, `assert_state`, `override_state`, `static_debug`) as empty macros. This lets your code compile cleanly with a standard C compiler before you begin annotating.
+1. **Create `safe.h`** — define all Cake extensions (`_Owner`, `_Opt`, `_View`, `_Dtor`, `_Ctor`, `assert_state`, `override_state`, `static_debug`) as empty macros. This lets your code compile cleanly with a standard C compiler before you begin annotating.
 
 2. **Enable nullable rules one file at a time** — add `#pragma nullable enable` to one translation unit, fix its warnings, then move to the next.
 
 3. **Enable ownership rules** — once nullable warnings are clean in a file, add `#pragma ownership enable` (or `#pragma safety enable`).
 
-4. **Annotate signatures progressively** — add `_Owner`, `_Opt`, `[[ctor]]`, and `[[dtor]]` as you work through each file. The pragma-controlled rollout ensures you always have a compiling codebase.
+4. **Annotate signatures progressively** — add `_Owner`, `_Opt`, `_Ctor`, and `_Dtor` annotations as you work through each file. The pragma-controlled rollout ensures you always have a compiling codebase.
 
 ---
 
 ## Quick Reference
 
-### Qualifiers
+### Type Annotations
 
-`_Opt` — the pointer may be null (nullable). Without this qualifier, a pointer is treated as non-nullable when nullable rules are enabled.
+`_Opt` — the pointer may be null (nullable). Without this type annotation, a pointer is treated as non-nullable when nullable rules are enabled.
 
 `_Owner` — the reference manages the lifetime of the object it references. Ownership is transferred on assignment or when passed to a function.
 
 `_View` on struct — strips `_Owner` from all members for the duration of that variable's scope. Used to pass an owner struct without transferring ownership.
 
-`[[ctor]]` — the parameter must be uninitialized on entry; the function is responsible for initializing it before returning.
+`_Ctor` — the parameter must be uninitialized on entry; the function is responsible for initializing it before returning.
 
-`[[dtor]]` — the parameter must be fully initialized on entry; the function is responsible for moving out all owner contents before returning.
+`_Dtor` — the parameter must be fully initialized on entry; the function is responsible for moving out all owner contents before returning.
 
 ---
 

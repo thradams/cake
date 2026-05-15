@@ -31,7 +31,7 @@
 <h1>Cake - C23 and Beyond</h1>
 <ul>
 <li>
-<a href="#toc_0">Cake Static Analysis — Ownership &amp; Nullable Pointers</a>
+<a href="#toc_0">Cake Static Analysis — Ownership &amp; Nullable Contracts</a>
 <ul>
 <li>
 <a href="#toc_1">Introduction</a>
@@ -40,13 +40,13 @@
 <a href="#toc_2">Chapter 1: Nullable Pointers</a>
 <ul>
 <li>
-<a href="#toc_3">The <code>_Opt</code> Qualifier</a>
+<a href="#toc_3">The <code>_Opt</code> pointer annotation</a>
 </li>
 <li>
 <a href="#toc_4">Enabling Nullable Rules: <code>#pragma nullable</code></a>
 </li>
 <li>
-<a href="#toc_5">Example 1: Assigning null to a Non-Nullable Pointer</a>
+<a href="#toc_5">Example 1: Assigning Nullable to a Non-Nullable Pointer</a>
 </li>
 <li>
 <a href="#toc_6">Example 2: Converting Non-Nullable to Nullable</a>
@@ -72,7 +72,7 @@
 <a href="#toc_12">Enabling Ownership Checks</a>
 </li>
 <li>
-<a href="#toc_13">Owner References and the <code>_Owner</code> Qualifier</a>
+<a href="#toc_13">Owner References and the <code>_Owner</code> annotation</a>
 </li>
 <li>
 <a href="#toc_14">The Two Core Ownership Rules</a>
@@ -87,7 +87,7 @@
 <a href="#toc_17">View References</a>
 </li>
 <li>
-<a href="#toc_18">The <code>_View</code> qualifier.</a>
+<a href="#toc_18">The <code>_View</code> annotation</a>
 </li>
 <li>
 <a href="#toc_19">Deleting Owner Pointers</a>
@@ -95,19 +95,19 @@
 </ul>
 </li>
 <li>
-<a href="#toc_20">Chapter 3: Destructors and Constructors</a>
+<a href="#toc_20">Chapter 3: Parameter annotations</a>
 <ul>
 <li>
-<a href="#toc_21">The <code>[[dtor]]</code> Contract Attribute</a>
+<a href="#toc_21">The <code>_Dtor</code> parameter annotation</a>
 </li>
 <li>
-<a href="#toc_22">The <code>[[ctor]]</code> Contract Attribute</a>
+<a href="#toc_22">The <code>_Ctor</code> parameter annotation</a>
 </li>
 <li>
-<a href="#toc_23"><code>[[dtor]]</code> vs <code>[[ctor]]</code> — Summary</a>
+<a href="#toc_23"><code>_Dtor</code> vs <code>_Ctor</code> — Summary</a>
 </li>
 <li>
-<a href="#toc_24">Qualifiers in Arrays</a>
+<a href="#toc_24">Type Annotations in Arrays parameters</a>
 </li>
 </ul>
 </li>
@@ -155,7 +155,7 @@
 <a href="#toc_37">Quick Reference</a>
 <ul>
 <li>
-<a href="#toc_38">Qualifiers</a>
+<a href="#toc_38">Type Annotations</a>
 </li>
 <li>
 <a href="#toc_39">Pragmas</a>
@@ -171,21 +171,21 @@
 </ul>
 </li>
 </ul>
-<h1 id="toc_0">Cake Static Analysis — Ownership &amp; Nullable Pointers</h1>
+<h1 id="toc_0">Cake Static Analysis — Ownership &amp; Nullable Contracts</h1>
 
 <p><em>Last Updated: May 2026</em></p>
 
-<p>A hands-on guide to Cake&#39;s ownership qualifiers and nullable pointer semantics - with working examples, 
+<p>A hands-on guide to Cake&#39;s ownership and nullable pointer annotations - with working examples, 
 enforced rules, and an incremental migration strategy for existing codebases.</p>
 
 <hr>
 
 <h2 id="toc_1">Introduction</h2>
 
-<p>Cake provides a set of annotations and extended qualifiers recognized 
-by its static analyzer. With ownership qualifiers, you can achieve the 
+<p>Cake provides a set of contract annotations recognized 
+by its static analyzer. With ownership annotations, you can achieve the 
 same guarantees as C++ RAII and often stronger ones. 
-Cake also introduces nullable pointer semantics, making it explicit 
+Cake also introduces nullable pointer annotations, making it explicit 
 when a pointer may be null and preventing mistakes like accidentally 
 dereferencing a null pointer.</p>
 
@@ -197,11 +197,11 @@ these features incrementally in an existing codebase.</p>
 
 <h2 id="toc_2">Chapter 1: Nullable Pointers</h2>
 
-<h3 id="toc_3">The <code>_Opt</code> Qualifier</h3>
+<h3 id="toc_3">The <code>_Opt</code> pointer annotation</h3>
 
-<p>The qualifier <code>_Opt</code> explicitly marks a pointer as nullable. 
+<p>The <code>_Opt</code> pointer annotation explicitly marks a pointer as nullable. 
 The absence of <code>_Opt</code> means the pointer is non-nullable. 
-Like <code>const</code>, the qualifier is placed after the <code>*</code>.</p>
+The annotation is placed after the <code>*</code>.</p>
 
 <p>For example, the following declaration says that <code>strdup()</code> accepts a non-nullable pointer and returns a nullable one:</p>
 
@@ -219,7 +219,7 @@ Like <code>const</code>, the qualifier is placed after the <code>*</code>.</p>
 <pre><code class="language-c">// new rules apply: absence of _Opt = non-nullable
 #pragma nullable enable   
 
-// Unannotated source: all unqualified pointers are nullable
+// Unannotated source: all unannotated pointers are nullable
 #pragma nullable disable  
 </code></pre>
 
@@ -228,7 +228,7 @@ Only static analysis behavior changes; the runtime behavior of your program is u
 
 <hr>
 
-<h3 id="toc_5">Example 1: Assigning null to a Non-Nullable Pointer</h3>
+<h3 id="toc_5">Example 1: Assigning Nullable to a Non-Nullable Pointer</h3>
 
 <p>Once nullable rules are enabled, assigning <code>nullptr</code> to an unqualified pointer generates a warning:</p>
 
@@ -444,12 +444,12 @@ of these rules.</p>
 </code></pre>
 
 <blockquote>
-<p><strong>Note:</strong> <code>_Owner</code> qualifiers are parsed even when ownership is disabled, but have no effect. Use <code>#pragma safety enable</code> as a shorthand for both features.</p>
+<p><strong>Note:</strong> <code>_Owner</code> annotations are parsed even when ownership is disabled, but have no effect. Use <code>#pragma safety enable</code> as a shorthand for both features.</p>
 </blockquote>
 
 <hr>
 
-<h3 id="toc_13">Owner References and the <code>_Owner</code> Qualifier</h3>
+<h3 id="toc_13">Owner References and the <code>_Owner</code> annotation</h3>
 
 <p>An <strong>owner reference</strong> is an object that manages the lifetime of the thing it references. The most common form is an <strong>owner pointer</strong> — a pointer to a heap-allocated object that is responsible for freeing it.</p>
 
@@ -519,14 +519,16 @@ close(server_socket);
 </code></pre>
 
 <blockquote>
-<p><strong>Note:</strong> The <code>_Owner</code> qualifier belongs to the storage holding the reference, not to the pointed-to type. Its placement follows the same rules as <code>const</code>.</p>
+<p><strong>Note:</strong> The <code>_Owner</code> annotation belongs to the storage holding the reference, not to the pointed-to type. Its placement follows the same rules as <code>const</code>.</p>
 </blockquote>
 
 <hr>
 
 <h3 id="toc_17">View References</h3>
 
-<p>A <strong>view reference</strong> accesses an object without managing its lifetime. Regular (non-<code>_Owner</code>) pointers are view references by default. The <code>_View</code> qualifier is used on struct types, not on pointer declarations.</p>
+<p>A <strong>view reference</strong> accesses an object without managing its lifetime. Regular (non-<code>_Owner</code>) 
+pointers are view references by default. The <code>_View</code> annotation is used on struct types, 
+not on pointer declarations.</p>
 
 <blockquote>
 <p><strong>Rule:</strong> The lifetime of the referenced object must exceed the lifetime of the view reference.</p>
@@ -550,9 +552,9 @@ close(server_socket);
 
 <hr>
 
-<h3 id="toc_18">The <code>_View</code> qualifier.</h3>
+<h3 id="toc_18">The <code>_View</code> annotation</h3>
 
-<p>The <code>_View</code> qualifier enables assignment without ownership transfer. 
+<p>The <code>_View</code> annotation enables assignment without ownership transfer. 
 A <code>_View</code> object does not own the resource.</p>
 
 <pre><code class="language-c">#pragma safety enable
@@ -605,18 +607,20 @@ void x_delete(struct X * _Owner _Opt p) {
 
 <hr>
 
-<h2 id="toc_20">Chapter 3: Destructors and Constructors</h2>
+<h2 id="toc_20">Chapter 3: Parameter annotations</h2>
 
-<h3 id="toc_21">The <code>[[dtor]]</code> Contract Attribute</h3>
+<h3 id="toc_21">The <code>_Dtor</code> parameter annotation</h3>
 
-<p><code>[[dtor]]</code> tells the analyzer that the function will move out all owner contents of the pointed-to struct, leaving it uninitialized. The compiler also verifies that the implementation fulfills this contract.</p>
+<p><code>_Dtor</code> tells the analyzer that the function will move out all owner contents of 
+the pointed-to struct, leaving it uninitialized. The compiler also verifies that the 
+implementation fulfills this contract.</p>
 
 <pre><code class="language-c">#pragma safety enable
 #include &lt;stdlib.h&gt;
 
 struct X { char * _Owner _Opt text; };
 
-void x_destroy([[dtor]] struct X * x) {
+void x_destroy(_Dtor struct X * x) {
     free(x-&gt;text);  // moves x-&gt;text; contract fulfilled
 }
 
@@ -641,9 +645,11 @@ int main() {
 
 <hr>
 
-<h3 id="toc_22">The <code>[[ctor]]</code> Contract Attribute</h3>
+<h3 id="toc_22">The <code>_Ctor</code> parameter annotation</h3>
 
-<p><code>[[ctor]]</code> is the inverse of <code>[[dtor]]</code>. It tells the analyzer that the function expects an <strong>uninitialized</strong> object as input and initializes it on return. This is the pattern for init-style functions.</p>
+<p><code>_Ctor</code> is the inverse of <code>_Dtor</code>. It tells the analyzer that the 
+function expects an <strong>uninitialized</strong> object as input and initializes it 
+on return. This is the pattern for init-style functions.</p>
 
 <pre><code class="language-c">#pragma safety enable
 #include &lt;stdlib.h&gt;
@@ -651,7 +657,7 @@ int main() {
 struct X { char * _Owner _Opt text; };
 
 
-int init([[ctor]] struct X *p, const char * text) {
+int init(_Ctor struct X *p, const char * text) {
     p-&gt;text = strdup(text);  // safe: p-&gt;text is uninitialized
 }
 
@@ -664,7 +670,8 @@ int main() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>Contrast this with a setter, which operates on an already-initialized object and must free the old value first:</p>
+<p>Contrast this with a setter, which operates on an already-initialized object and
+must free the old value first:</p>
 
 <pre><code class="language-c">#pragma safety enable
 #include &lt;stdlib.h&gt;
@@ -682,21 +689,21 @@ int set(struct X *p, const char * text) {
 
 <hr>
 
-<h3 id="toc_23"><code>[[dtor]]</code> vs <code>[[ctor]]</code> — Summary</h3>
+<h3 id="toc_23"><code>_Dtor</code> vs <code>_Ctor</code> — Summary</h3>
 
 <p>Think of them as describing the state of the object before and after the call:</p>
 
-<p><code>[[ctor]]</code> — the input must be uninitialized or moved; the function&#39;s job is to fully initialize it.</p>
+<p><code>_Ctor</code> — the input must be uninitialized or moved; the function&#39;s job is to fully initialize it.</p>
 
-<p><code>[[dtor]]</code> — the input must be fully initialized; the function&#39;s job is to move out all owner contents, leaving the object uninitialized.</p>
+<p><code>_Dtor</code> — the input must be fully initialized; the function&#39;s job is to move out all owner contents, leaving the object uninitialized.</p>
 
 <hr>
 
-<h3 id="toc_24">Qualifiers in Arrays</h3>
+<h3 id="toc_24">Type Annotations in Arrays parameters</h3>
 
 <p>In C, array types in arguments are pointers. This characteristics is preserved.</p>
 
-<p>To use owner qualifier in array we do. (Just like const)</p>
+<p>To use the owner annotation in an array we do. (Just like const)</p>
 
 <pre><code class="language-c">#pragma safety enable
 
@@ -874,27 +881,27 @@ This leads to a small number of false positives in certain patterns.</p>
 <p>Adopting Cake&#39;s static analysis in an existing codebase does not require a big-bang migration. The recommended approach is incremental:</p>
 
 <ol>
-<li><p><strong>Create <code>safe.h</code></strong> — define all Cake extensions (<code>_Owner</code>, <code>_Opt</code>, <code>_View</code>, <code>[[dtor]]</code>, <code>[[ctor]]</code>, <code>assert_state</code>, <code>override_state</code>, <code>static_debug</code>) as empty macros. This lets your code compile cleanly with a standard C compiler before you begin annotating.</p></li>
+<li><p><strong>Create <code>safe.h</code></strong> — define all Cake extensions (<code>_Owner</code>, <code>_Opt</code>, <code>_View</code>, <code>_Dtor</code>, <code>_Ctor</code>, <code>assert_state</code>, <code>override_state</code>, <code>static_debug</code>) as empty macros. This lets your code compile cleanly with a standard C compiler before you begin annotating.</p></li>
 <li><p><strong>Enable nullable rules one file at a time</strong> — add <code>#pragma nullable enable</code> to one translation unit, fix its warnings, then move to the next.</p></li>
 <li><p><strong>Enable ownership rules</strong> — once nullable warnings are clean in a file, add <code>#pragma ownership enable</code> (or <code>#pragma safety enable</code>).</p></li>
-<li><p><strong>Annotate signatures progressively</strong> — add <code>_Owner</code>, <code>_Opt</code>, <code>[[ctor]]</code>, and <code>[[dtor]]</code> as you work through each file. The pragma-controlled rollout ensures you always have a compiling codebase.</p></li>
+<li><p><strong>Annotate signatures progressively</strong> — add <code>_Owner</code>, <code>_Opt</code>, <code>_Ctor</code>, and <code>_Dtor</code> annotations as you work through each file. The pragma-controlled rollout ensures you always have a compiling codebase.</p></li>
 </ol>
 
 <hr>
 
 <h2 id="toc_37">Quick Reference</h2>
 
-<h3 id="toc_38">Qualifiers</h3>
+<h3 id="toc_38">Type Annotations</h3>
 
-<p><code>_Opt</code> — the pointer may be null (nullable). Without this qualifier, a pointer is treated as non-nullable when nullable rules are enabled.</p>
+<p><code>_Opt</code> — the pointer may be null (nullable). Without this type annotation, a pointer is treated as non-nullable when nullable rules are enabled.</p>
 
 <p><code>_Owner</code> — the reference manages the lifetime of the object it references. Ownership is transferred on assignment or when passed to a function.</p>
 
 <p><code>_View</code> on struct — strips <code>_Owner</code> from all members for the duration of that variable&#39;s scope. Used to pass an owner struct without transferring ownership.</p>
 
-<p><code>[[ctor]]</code> — the parameter must be uninitialized on entry; the function is responsible for initializing it before returning.</p>
+<p><code>_Ctor</code> — the parameter must be uninitialized on entry; the function is responsible for initializing it before returning.</p>
 
-<p><code>[[dtor]]</code> — the parameter must be fully initialized on entry; the function is responsible for moving out all owner contents before returning.</p>
+<p><code>_Dtor</code> — the parameter must be fully initialized on entry; the function is responsible for moving out all owner contents before returning.</p>
 
 <hr>
 

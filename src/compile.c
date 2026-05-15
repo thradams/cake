@@ -102,7 +102,7 @@ int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_c
 
 WINBASEAPI unsigned long WINAPI GetEnvironmentVariableA(const char* name,
 char* buffer,
-unsigned long size);
+unsigned long size); //lint 11
 
 #endif
 
@@ -382,7 +382,7 @@ int compile_one_file(const char* file_name,
                 snprintf(sarif_file_name, sizeof sarif_file_name, "%s.cake.sarif", file_name);
             }
 
-            ctx.sarif_file = (FILE * _Owner _Opt) fopen(sarif_file_name, "w");
+            ctx.sarif_file = (FILE* _Owner _Opt) fopen(sarif_file_name, "w");
             if (ctx.sarif_file)
             {
                 const char* begin_sarif =

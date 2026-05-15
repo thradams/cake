@@ -20,13 +20,6 @@ struct defer_list
 };
 
 
-enum expression_eval_mode
-{
-    EXPRESSION_EVAL_MODE_NONE,
-    EXPRESSION_EVAL_MODE_TYPE,
-    EXPRESSION_EVAL_MODE_VALUE_AND_TYPE,
-};
-
 enum expression_type
 {
     EXPRESSION_TYPE_INVALID, 
@@ -255,11 +248,11 @@ bool expression_is_calloc(const struct expression* p);
 void expression_delete(struct expression* _Owner _Opt p);
 
 /*cake extension*/
-struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, bool is_discarded);
 
-struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
-struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
-struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant, enum expression_eval_mode eval_mode);
+struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, bool is_discarded);
+struct expression* _Owner _Opt expression(struct parser_ctx* ctx, bool is_discarded);
+struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant, bool is_discarded);
 bool expression_is_subjected_to_lvalue_conversion(const struct expression*);
 
 

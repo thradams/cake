@@ -694,7 +694,7 @@ static int parse_diagnostic_suppression(const char* p, int ids[], int ids_max)
             unsigned int id = 0;
             while (*p >= '0' && *p <= '9')
             {
-                if (id > (INT_MAX - (*p - '0')) / 10)
+                if (id > ((unsigned int)INT_MAX - (*p - '0')) / 10)
                     return -1;
                 id = id * 10 + (*p - '0');
                 p++;
@@ -1473,79 +1473,77 @@ bool first_of_static_assertion_declaration(const struct parser_ctx* ctx)
       I am doing this to avoid complicate the parser.
       It is hard to decide if it is a declaration or expression all static_assert is ambuigous
     */
+    if (!first_of_static_assertion(ctx))
+        return false;
 
-    if (first_of_static_assertion(ctx))
+    struct token* _Opt p = ctx->current;
+    p = p->next; // skip 'static_assert'
+    while (p && !token_is_final(p)) p = p->next;
+
+    // skip '('
+    if (p)
     {
-        struct token* _Opt p = ctx->current;
-        p = p->next; // skip 'static_assert'
-        while (p && !token_is_final(p)) p = p->next;
+        if (p->type != '(') return false;
+        p = p->next;
+    }
 
-        // skip '('
-        if (p)
-        {
-            if (p->type != '(') return false;
-            p = p->next;
-        }
+    while (p && !token_is_final(p)) p = p->next;
 
-        while (p && !token_is_final(p)) p = p->next;
+    // scan expression using balanced parens to find end
+    int depth = 1; // we already consumed the opening '('
 
-        // scan expression using balanced parens to find end
-        int depth = 1; // we already consumed the opening '('
-
-        while (p && depth > 0)
-        {
-            while (p && !token_is_final(p)) p = p->next;
-
-            if (p == NULL)
-                break;
-
-            if (p->type == '(') depth++;
-            else if (p->type == ')')
-            {
-                depth--;
-                if (depth == 0) break; // this is the closing ')'
-            }
-            else if (p->type == ',' && depth == 1)
-            {
-                // found the comma separator — optional message follows
-                break;
-            }
-            p = p->next;
-        }
-
-        // p is now at ',' or ')' (depth==0)
-        if (p && p->type == ',')
-        {
-            // has optional message: static_assert(expr, "msg")
-            p = p->next; // skip ','
-            while (p && !token_is_final(p)) p = p->next;
-
-            // p should now point to the string literal
-            if (p && p->type == TK_STRING_LITERAL)
-            {
-            }
-            else
-            {
-            }
-            if (p) p = p->next; // skip "message"
-
-            // advance past the string, find closing ')'
-            while (p && p->type != ')') p = p->next;
-            // p is now at ')'
-        }
-        // else p->type == ')': no message, single-arg form
-
-        // skip closing ')'
-        if (p) p = p->next;
+    while (p && depth > 0)
+    {
         while (p && !token_is_final(p)) p = p->next;
 
         if (p == NULL)
-            return false;
+            break;
 
-        // p should now be at ';'
-        return p->type == ';';
+        if (p->type == '(') depth++;
+        else if (p->type == ')')
+        {
+            depth--;
+            if (depth == 0) break; // this is the closing ')'
+        }
+        else if (p->type == ',' && depth == 1)
+        {
+            // found the comma separator — optional message follows
+            break;
+        }
+        p = p->next;
     }
-    return false;
+
+    // p is now at ',' or ')' (depth==0)
+    if (p && p->type == ',')
+    {
+        // has optional message: static_assert(expr, "msg")
+        p = p->next; // skip ','
+        while (p && !token_is_final(p)) p = p->next;
+
+        // p should now point to the string literal
+        if (p && p->type == TK_STRING_LITERAL)
+        {
+        }
+        else
+        {
+        }
+        if (p) p = p->next; // skip "message"
+
+        // advance past the string, find closing ')'
+        while (p && p->type != ')') p = p->next;
+        // p is now at ')'
+    }
+    // else p->type == ')': no message, single-arg form
+
+    // skip closing ')'
+    if (p) p = p->next;
+    while (p && !token_is_final(p)) p = p->next;
+
+    if (p == NULL)
+        return false;
+
+    // p should now be at ';'
+    return p->type == ';';
 }
 
 bool first_of_static_assertion(const struct parser_ctx* ctx)
@@ -3367,7 +3365,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             parser_match(ctx);
 
             assert(p_init_declarator->initializer == NULL);
-            p_init_declarator->initializer = initializer(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+            p_init_declarator->initializer = initializer(ctx, false);
 
             if (p_init_declarator->initializer == NULL)
             {
@@ -4024,7 +4022,7 @@ struct typeof_specifier_argument* _Owner _Opt typeof_specifier_argument(struct p
         }
         else
         {
-            new_typeof_specifier_argument->expression = expression(ctx, EXPRESSION_EVAL_MODE_TYPE);
+            new_typeof_specifier_argument->expression = expression(ctx, true);
 
             if (new_typeof_specifier_argument->expression == NULL)
                 throw;
@@ -5330,7 +5328,7 @@ struct member_declarator* _Owner _Opt member_declarator(
             sz = sz * CHAR_BIT;
 
             parser_match(ctx);
-            p_member_declarator->constant_expression = constant_expression(ctx, true, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+            p_member_declarator->constant_expression = constant_expression(ctx, true, false);
 
             long long bit_field_width =
                 object_to_signed_long_long(&p_member_declarator->constant_expression->object);
@@ -6383,7 +6381,7 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
         {
             parser_match(ctx);
             assert(p_enumerator->constant_expression_opt == NULL);
-            p_enumerator->constant_expression_opt = constant_expression(ctx, true, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+            p_enumerator->constant_expression_opt = constant_expression(ctx, true, false);
             if (p_enumerator->constant_expression_opt == NULL) throw;
 
             if (enum_specifier_has_fixed_underlying_type(p_enum_specifier))
@@ -6455,7 +6453,7 @@ struct alignment_specifier* _Owner _Opt alignment_specifier(struct parser_ctx* c
         }
         else
         {
-            alignment_specifier->constant_expression = constant_expression(ctx, true, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+            alignment_specifier->constant_expression = constant_expression(ctx, true, false);
             if (alignment_specifier->constant_expression == NULL)
                 throw;
             if (object_has_constant_value(&alignment_specifier->constant_expression->object))
@@ -6806,7 +6804,7 @@ struct function_declarator* _Opt declarator_find_function_declarator(const struc
     return NULL;
 }
 
-struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* _Owner p_direct_declarator, struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* _Owner p_direct_declarator, struct parser_ctx* ctx, bool is_discarded);
 struct function_declarator* _Owner _Opt function_declarator(struct direct_declarator* _Owner p_direct_declarator, struct parser_ctx* ctx);
 
 void function_declarator_delete(struct function_declarator* _Owner _Opt p)
@@ -6932,7 +6930,7 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
 
             if (ctx->current->type == '[')
             {
-                p_direct_declarator2->array_declarator = array_declarator(p_direct_declarator, ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+                p_direct_declarator2->array_declarator = array_declarator(p_direct_declarator, ctx, false);
                 p_direct_declarator = NULL; //MOVED
                 if (p_direct_declarator2->array_declarator == NULL)
                 {
@@ -7028,7 +7026,7 @@ static bool declarator_has_vm_type(const struct declarator* p_declarator)
     return false;
 }
 
-struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* _Owner p_direct_declarator, struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
+struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* _Owner p_direct_declarator, struct parser_ctx* ctx, bool is_discarded)
 {
     // direct_declarator '['          type_qualifier_list_opt           assignment_expression_opt ']'
     // direct_declarator '[' 'static' type_qualifier_list_opt           assignment_expression     ']'
@@ -7086,7 +7084,7 @@ struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* 
 
         if (has_static)
         {
-            p_array_declarator->assignment_expression = checked_expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+            p_array_declarator->assignment_expression = checked_expression(ctx, false);
 
             if (p_array_declarator->assignment_expression == NULL)
                 throw;
@@ -7107,7 +7105,7 @@ struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* 
             else if (ctx->current->type != ']')
             {
                 p_array_declarator->assignment_expression =
-                    checked_expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+                    checked_expression(ctx, false);
 
                 if (p_array_declarator->assignment_expression == NULL)
                     throw;
@@ -8005,7 +8003,7 @@ struct braced_initializer* _Owner _Opt braced_initializer(struct parser_ctx* ctx
 
         if (ctx->current->type != '}')
         {
-            p_bracket_initializer_list->initializer_list = initializer_list(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+            p_bracket_initializer_list->initializer_list = initializer_list(ctx, false);
         }
         if (parser_match_tk(ctx, '}') != 0)
             throw;
@@ -8034,7 +8032,7 @@ void initializer_delete(struct initializer* _Owner _Opt p)
     }
 }
 
-struct initializer* _Owner _Opt initializer(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
+struct initializer* _Owner _Opt initializer(struct parser_ctx* ctx, bool is_discarded)
 {
     /*
     initializer:
@@ -8065,7 +8063,7 @@ struct initializer* _Owner _Opt initializer(struct parser_ctx* ctx, enum express
         }
         else
         {
-            p_initializer->assignment_expression = checked_expression(ctx, eval_mode);
+            p_initializer->assignment_expression = checked_expression(ctx, is_discarded);
             if (p_initializer->assignment_expression == NULL) throw;
         }
     }
@@ -8162,7 +8160,7 @@ void initializer_list_delete(struct initializer_list* _Owner _Opt p)
         free(p);
     }
 }
-struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
+struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx, bool is_discarded)
 {
     /*
     initializer-list:
@@ -8202,7 +8200,7 @@ struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx, en
             p_initializer_list_item->designation = p_designation;
         }
 
-        struct initializer* _Owner _Opt p_initializer = initializer(ctx, eval_mode);
+        struct initializer* _Owner _Opt p_initializer = initializer(ctx, is_discarded);
 
         if (p_initializer == NULL)
         {
@@ -8246,7 +8244,7 @@ struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx, en
             }
             p_initializer_list_item->designation = p_designation2;
 
-            struct initializer* _Owner _Opt p_initializer2 = initializer(ctx, eval_mode);
+            struct initializer* _Owner _Opt p_initializer2 = initializer(ctx, is_discarded);
             if (p_initializer2 == NULL)
             {
                 designation_delete(p_designation2);
@@ -8404,7 +8402,7 @@ struct designator* _Owner _Opt designator(struct parser_ctx* ctx)
         {
             if (parser_match_tk(ctx, '[') != 0)
                 throw;
-            p_designator->constant_expression_opt = constant_expression(ctx, true, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+            p_designator->constant_expression_opt = constant_expression(ctx, true, false);
             if (parser_match_tk(ctx, ']') != 0)
                 throw;
         }
@@ -8828,7 +8826,7 @@ struct static_assertion* _Owner _Opt static_assertion(struct parser_ctx* ctx)
         if (ctx->options.flow_analysis)
             show_error_if_not_constant = false;
 
-        struct expression* _Owner _Opt p_constant_expression = constant_expression(ctx, show_error_if_not_constant, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+        struct expression* _Owner _Opt p_constant_expression = constant_expression(ctx, show_error_if_not_constant, false);
         if (p_constant_expression == NULL)
             throw;
 
@@ -9955,7 +9953,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
 
 
             parser_match(ctx);
-            p_label->constant_expression = constant_expression(ctx, true, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+            p_label->constant_expression = constant_expression(ctx, true, false);
             if (p_label->constant_expression == NULL)
                 throw;
 
@@ -9968,7 +9966,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
             if (ctx->current->type == '...')
             {
                 parser_match(ctx);
-                p_label->constant_expression_end = constant_expression(ctx, true, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+                p_label->constant_expression_end = constant_expression(ctx, true, false);
                 if (p_label->constant_expression_end == NULL)
                     throw;
                 /*
@@ -10526,7 +10524,8 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
         check_indentation_style(ctx, ctx->current);
 
         if (first_of_declaration_specifier(ctx) ||
-            first_of_pragma_declaration(ctx))
+            first_of_pragma_declaration(ctx) ||
+            first_of_static_assertion_declaration(ctx))
         {
             p_block_item->declaration = declaration(ctx, p_attribute_specifier_sequence, STORAGE_SPECIFIER_BLOCK_SCOPE, false);
             p_attribute_specifier_sequence = NULL; /*MOVED*/
@@ -10543,7 +10542,7 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
                 }
                 p = p->next;
             }
-        }
+        }        
         else if (first_of_label(ctx))
         {
             /* identifier can be confused with an expression here */
@@ -10961,7 +10960,7 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
 
             if (parser_match_tk(ctx, '(') != 0) throw;
 
-            p_try_statement->msvc_except_expression = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+            p_try_statement->msvc_except_expression = expression(ctx, false);
 
             if (parser_match_tk(ctx, ')') != 0) throw;
 
@@ -11444,7 +11443,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
             if (parser_match_tk(ctx, '(') != 0)
                 throw;
 
-            p_iteration_statement->expression1 = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+            p_iteration_statement->expression1 = expression(ctx, false);
             if (p_iteration_statement->expression1 != NULL &&
                 !type_is_scalar_decay(&p_iteration_statement->expression1->type))
             {
@@ -11469,7 +11468,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
             if (parser_match_tk(ctx, '(') != 0)
                 throw;
 
-            p_iteration_statement->expression1 = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+            p_iteration_statement->expression1 = expression(ctx, false);
             if (p_iteration_statement->expression1 != NULL &&
                 !type_is_scalar_decay(&p_iteration_statement->expression1->type))
             {
@@ -11519,7 +11518,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
 
                 if (ctx->current->type != ';')
                 {
-                    p_iteration_statement->expression1 = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+                    p_iteration_statement->expression1 = expression(ctx, false);
                     if (p_iteration_statement->expression1 == NULL)
                     {
                         scope_list_pop(&ctx->scopes);
@@ -11546,7 +11545,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                 }
 
                 if (ctx->current->type != ')')
-                    p_iteration_statement->expression2 = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+                    p_iteration_statement->expression2 = expression(ctx, false);
 
                 if (parser_match_tk(ctx, ')') != 0)
                 {
@@ -11585,7 +11584,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                 }
 
                 if (ctx->current->type != ';')
-                    p_iteration_statement->expression0 = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+                    p_iteration_statement->expression0 = expression(ctx, false);
                 if (parser_match_tk(ctx, ';') != 0)
                     throw;
 
@@ -11596,7 +11595,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                 }
 
                 if (ctx->current->type != ';')
-                    p_iteration_statement->expression1 = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+                    p_iteration_statement->expression1 = expression(ctx, false);
 
                 if (parser_match_tk(ctx, ';') != 0)
                     throw;
@@ -11608,7 +11607,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                 }
 
                 if (ctx->current->type != ')')
-                    p_iteration_statement->expression2 = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+                    p_iteration_statement->expression2 = expression(ctx, false);
 
                 if (parser_match_tk(ctx, ')') != 0)
                     throw;
@@ -11778,7 +11777,7 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
 
             if (ctx->current->type != ';')
             {
-                p_jump_statement->expression_opt = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+                p_jump_statement->expression_opt = expression(ctx, false);
 
                 if (p_jump_statement->expression_opt)
                 {
@@ -11885,7 +11884,7 @@ struct expression_statement* _Owner _Opt  expression_statement(struct parser_ctx
 
         if (ctx->current->type != ';')
         {
-            p_expression_statement->expression_opt = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+            p_expression_statement->expression_opt = expression(ctx, false);
 
 
 
@@ -11996,7 +11995,7 @@ struct condition* _Owner _Opt condition(struct parser_ctx* ctx)
         }
         else
         {
-            p_condition->expression = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+            p_condition->expression = expression(ctx, false);
             if (p_condition->expression == NULL)
                 throw;
 

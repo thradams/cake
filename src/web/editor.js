@@ -81,7 +81,7 @@ function validate(model)
          17 |   return xxx;
             |          ^~~     
         */
-        if (ouputlines[i].search("main.c:") == 0)
+        if (ouputlines[i].match(/\.c:\d+:\d+:/))
         {
             let line_start = 0;
             let start_col = 0;
@@ -111,17 +111,22 @@ function validate(model)
 
             var nn = ouputlines[i].split(":");
             let severity_str = nn[3].trim();
-            var severity;
-            if (severity_str == "warning")
+            var severity = monaco.MarkerSeverity.Info;
+            if (severity_str.startsWith("warning"))
                 severity = monaco.MarkerSeverity.Warning;
-            else if (severity_str == "error")
+            else if (severity_str.startsWith("error"))
                 severity = monaco.MarkerSeverity.Error;
-            else
-                severity = monaco.MarkerSeverity.Info;
+            
+
+            var message = "";
+            for (var i = 4; i < nn.length; i++)
+            {
+                message += nn[i];
+            }
 
             const line = parseInt(nn[1]);
             markers.push({
-                message: severity_str + ":" + nn[4],
+                message: severity_str + ":" + message,
                 severity: severity,
                 startLineNumber: line,//range.startLineNumber,
                 startColumn: start_col,//range.startColumn,

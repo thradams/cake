@@ -5847,7 +5847,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         {
             if (flow_object_can_be_zero(p_object))
             {
-                diagnostic(W_FLOW_DIVIZION_BY_ZERO, ctx->ctx, p_expression->right->first_token, NULL, "possible division by zero");
+                diagnostic(W_FLOW_DIVISION_BY_ZERO, ctx->ctx, p_expression->right->first_token, NULL, "possible division by zero");
             }
         }
 

@@ -1,17 +1,28 @@
-#pragma safety enable
+#pragma flow enable
 
-struct X 
-{
-    int* _Opt a;
-    int* _Opt b;
+struct X {
+    struct X* _Opt next;
 };
 
-void f(struct X* p);
-void f2(int** p);
+struct X* _Opt f();
 
 int main()
 {
-    struct X x = {0};
-    f2(&x.a);
-    assert_state(x.a, "not-null null");    
+    struct X* _Opt p = f();
+    for (; p; p = p->next)
+    {
+
+    }
+    static_debug(p); //should be null
+
+    for (p = f(); p; p = p->next)
+    {
+    }
+    assert_state(p, "null"); //should be null
+
+    for (p = f(); p; )
+    {
+        p = p->next;
+    }
+    assert_state(p, "null"); //should be null
 }

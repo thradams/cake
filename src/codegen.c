@@ -1594,8 +1594,11 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
     case EXPRESSION_EXPRESSION:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        codegen_visit_expression(ctx, oss, p_expression->left);
-        ss_fprintf(oss, ", ");
+        if (p_expression->left->expression_type != UNARY_EXPRESSION_STATIC_ASSERTION)
+        {
+            codegen_visit_expression(ctx, oss, p_expression->left);
+            ss_fprintf(oss, ", ");
+        }
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
@@ -1874,6 +1877,9 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         }
 
         break;
+    case CHECKED_EXPRESSION:
+        /*handled before*/
+        break;
     }
 }
 
@@ -1889,14 +1895,18 @@ static void codegen_visit_expression_statement(struct codegen_ctx* ctx, struct o
 
     print_identation(ctx, &local);
     if (p_expression_statement->expression_opt)
-        codegen_visit_expression(ctx, &local, p_expression_statement->expression_opt);
+    {
+        if (p_expression_statement->expression_opt->expression_type != UNARY_EXPRESSION_STATIC_ASSERTION)
+        {
+            codegen_visit_expression(ctx, &local, p_expression_statement->expression_opt);
+        }
+    }
 
 
     if (ctx->add_this_before.size > 0)
     {
         ss_fprintf(oss, "%s", ctx->add_this_before.c_str);
         ss_clear(&ctx->add_this_before);
-
     }
 
     ss_fprintf(oss, "%s;\n", local.c_str);
@@ -2617,6 +2627,24 @@ static void codegen_visit_label(struct codegen_ctx* ctx, struct osstream* oss, s
 
 }
 
+static bool block_item_is_empty(struct block_item* p_block_item)
+{
+    if (p_block_item->declaration &&
+        p_block_item->declaration->static_assertion)
+    {
+        return true;
+    }
+
+    if (p_block_item->unlabeled_statement &&
+        p_block_item->unlabeled_statement->expression_statement &&
+        p_block_item->unlabeled_statement->expression_statement->expression_opt == NULL)
+    {
+        return true;
+    }
+
+    return false;
+}
+
 static void codegen_visit_block_item(struct codegen_ctx* ctx, struct osstream* oss, struct block_item* p_block_item)
 {
     struct osstream ss0 = { 0 };
@@ -2624,17 +2652,36 @@ static void codegen_visit_block_item(struct codegen_ctx* ctx, struct osstream* o
 
     ss_clear(&ctx->add_this_before);
 
-    if (p_block_item->declaration)
+    if (block_item_is_empty(p_block_item))
     {
-        codegen_visit_declaration(ctx, oss, p_block_item->declaration);
+
     }
-    else if (p_block_item->unlabeled_statement)
+    else
     {
-        codegen_visit_unlabeled_statement(ctx, oss, p_block_item->unlabeled_statement);
-    }
-    else if (p_block_item->label)
-    {
-        codegen_visit_label(ctx, oss, p_block_item->label);
+
+        /*empty statement or static_assert(1)*/
+        if (p_block_item->declaration)
+        {
+            codegen_visit_declaration(ctx, oss, p_block_item->declaration);
+        }
+        else if (p_block_item->unlabeled_statement)
+        {
+            codegen_visit_unlabeled_statement(ctx, oss, p_block_item->unlabeled_statement);
+        }
+        else if (p_block_item->label)
+        {
+            codegen_visit_label(ctx, oss, p_block_item->label);
+
+            /* In C89/C90, a label must be followed by a statement. */
+            if (p_block_item->label->p_first_token->type == TK_IDENTIFIER)
+            {
+                if (p_block_item->next == NULL || block_item_is_empty(p_block_item->next))
+                {
+                    print_identation(ctx, oss);
+                    ss_fprintf(oss, ";\n");
+                }
+            }
+        }
     }
 
     if (ctx->add_this_before.size > 0)
@@ -3521,8 +3568,8 @@ static void object_print_source_object_non_constant_initialization(
 static void assign_each_member_from_constexpr(
     struct codegen_ctx* ctx,
     struct osstream* ss,
-    const struct object* object,   /* destination - drives structure traversal */
-    const struct object* source,   /* source      - provides the values        */
+    const struct object* object, /* destination - drives structure traversal */
+    const struct object* source, /* source      - provides the values        */
     bool* first)
 {
     /* Resolve any reference indirection on both sides */
@@ -4190,7 +4237,7 @@ static void print_initializer(struct codegen_ctx* ctx,
         }
     }
     catch
-    {    
+    {
     }
 }
 
