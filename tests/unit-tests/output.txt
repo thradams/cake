@@ -1,3 +1,0 @@
-Cake 0.13.29 (x86_msvc)
-C:\Users\thiag\source\repos\cake_private\tests\unit-tests\char_literal_types.c
-

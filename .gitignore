@@ -93,3 +93,4 @@ src/cake
 /tests/en-cpp-reference-c/x86_msvc
 /tests/output-test/x86_msvc
 /tests/preprocessor/x86_msvc
+/tests/unit-tests/output.txt
