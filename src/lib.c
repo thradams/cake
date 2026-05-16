@@ -22071,7 +22071,7 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
             else
             {
                 /*not the same then it will be discarded*/
-                is_discarded =  true;
+                is_discarded = true;
             }
         }
         else
@@ -24641,21 +24641,33 @@ static int is_offsetof_pattern(struct parser_ctx* ctx, struct expression* p_expr
 {
     /*
          offsetof pattern evaluated at compile time
-
-         Sample:
-         & ((struct { int i; int i2; }*)0)->i2
-
-         & (((struct { int i; int i2; }*)0)->i2)
-
          If the pointer has a constant value, we compute the member's
          offset and then add it to that constant value that is generally zero.
-  */
-    struct expression* _Opt right = p_expression->right;
+    */
+    struct expression* _Opt right = p_expression;
 
-    /* skip extra parenthesis */
-    while (right && right->expression_type == PRIMARY_EXPRESSION_PARENTHESIS)
+    if (right && right->expression_type != POSTFIX_ARROW)
     {
-        right = right->right;
+        /*
+           & (((struct { int i; int i2; }*)0)->i2)
+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                       p_expression
+        */
+        right = p_expression->right;
+
+        /* skip extra parenthesis */
+        while (right && right->expression_type == PRIMARY_EXPRESSION_PARENTHESIS)
+        {
+            right = right->right;
+        }
+    }
+    else
+    {
+        /*
+           & ((type *)0)->ident
+             ~~~~~~~~~~~~~~~~~~
+                p_expression
+        */
     }
 
     if (right == NULL)
@@ -30293,7 +30305,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.13.33"
+#define CAKE_VERSION "0.13.34"
 
 
 

@@ -1,28 +1,11 @@
-#pragma flow enable
 
-struct X {
-    struct X* _Opt next;
+typedef unsigned long size_t;
+#define offsetof(type, ident) ((size_t) (unsigned long) &((type *)0)->ident)
+
+struct X { 
+  int i; 
 };
-
-struct X* _Opt f();
-
-int main()
-{
-    struct X* _Opt p = f();
-    for (; p; p = p->next)
-    {
-
-    }
-    static_debug(p); //should be null
-
-    for (p = f(); p; p = p->next)
-    {
-    }
-    assert_state(p, "null"); //should be null
-
-    for (p = f(); p; )
-    {
-        p = p->next;
-    }
-    assert_state(p, "null"); //should be null
-}
+int main(){
+static_assert(&((struct X *)0)->i));
+}//static_assert(offsetof(struct X, i));
+//static_assert(offsetof(struct X, i));
