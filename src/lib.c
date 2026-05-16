@@ -22247,6 +22247,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struc
     catch
     {
     }
+    type_destroy(&lvalue_type);
     return list;
 }
 
@@ -24649,9 +24650,9 @@ static int is_offsetof_pattern(struct parser_ctx* ctx, struct expression* p_expr
     if (right && right->expression_type != POSTFIX_ARROW)
     {
         /*
-           & (((struct { int i; int i2; }*)0)->i2)
-             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                       p_expression
+           & (((type*)0)->i2)
+             ~~~~~~~~~~~~~~~~
+               p_expression
         */
         right = p_expression->right;
 
@@ -30305,7 +30306,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.13.34"
+#define CAKE_VERSION "0.13.35"
 
 
 
@@ -51488,7 +51489,7 @@ void flow_objects_clear(struct flow_objects* p)
     {
         flow_object_delete(p->data[i]); //lint 30 (bug #436)
     }
-    p->size = 0;    
+    p->size = 0;
 }
 
 int objects_reserve(struct flow_objects* p, int n)
@@ -57562,9 +57563,9 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 }
 static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
-    const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_FOR);
+    struct expression* _Opt next = p_iteration_statement->expression2;
 
     if (p_iteration_statement->declaration &&
         p_iteration_statement->declaration->init_declarator_list.head)
@@ -57589,62 +57590,92 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
         true_false_set_destroy(&true_false_set);
     }
 
-    if (p_iteration_statement->expression1)
-    {
-        /*
-            int i;
-            for (i = 0;        i < 10;      i++)
-                               ^^^^^^
-                               expression1
-        */
-        flow_check_pointer_used_as_bool(ctx, p_iteration_statement->expression1);
-        struct true_false_set true_false_set = { 0 };
-        flow_visit_full_expression(ctx, p_iteration_statement->expression1, &true_false_set);
-        true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
-        true_false_set_destroy(&true_false_set);
-    }
 
+    if (p_iteration_statement->expression1 == NULL)
+        return;
 
+    const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
+
+    const int old_initial_state = ctx->initial_state;
+    const int old_break_join_state = ctx->break_join_state;
+
+    ctx->initial_state = arena_add_copy_of_current_state(ctx, "original");
+    ctx->break_join_state = arena_add_empty_state(ctx, "break join");
+
+    struct true_false_set true_false_set = { 0 };
+
+    /*
+        we do like this to acumulate states.
+
+        if (expression)
+        {
+           statements...
+           if (expression)
+           {
+             statements...
+           }
+        }
+        break_exit:
+    */
+
+    //We do a visit but this is not conclusive..so we ignore warnings
     diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
+    flow_visit_full_expression(ctx, p_iteration_statement->expression1, &true_false_set);
+
+
+    true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
+
     flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
+    if (next)
+        flow_visit_full_expression(ctx, next, &true_false_set);
+
+
+    //Second pass warning is ON
     diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
 
-    //int after_first_iteration = arena_add_copy_of_current_state(ctx, "after first iteration");
-
-    if (p_iteration_statement->expression2)
     {
-        /*
-          int i;
-          for (i = 0;        i < 10;      i++)
-                                       ^^^^^^
-                                   expression2
-        */
-        struct true_false_set s = { 0 };
-        flow_visit_full_expression(ctx, p_iteration_statement->expression2, &s);
-        true_false_set_destroy(&s);
+        struct true_false_set true_false_set2 = { 0 };
+        flow_visit_full_expression(ctx, p_iteration_statement->expression1, &true_false_set2);
+        true_false_set_destroy(&true_false_set2);
     }
 
-    const bool b_secondary_block_ends_with_jump =
+    //visit secondary_block again
+    true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
+    flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
+    if (next)
+        flow_visit_full_expression(ctx, next, &true_false_set);
+
+    flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
+
+    const bool was_last_statement_inside_true_branch_return =
         secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
 
-    /*we visit again*/
-    if (!b_secondary_block_ends_with_jump)
+    if (was_last_statement_inside_true_branch_return)
     {
-        if (p_iteration_statement->expression1)
-        {
-            struct true_false_set true_false_set = { 0 };
-            flow_visit_full_expression(ctx, p_iteration_statement->expression1, &true_false_set);
-            true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
-            true_false_set_destroy(&true_false_set);
-        }
-        flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-
-        flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
-        flow_defer_list_set_end_of_lifetime(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
+        /*
+           while (p) { return; }
+        */
+        arena_restore_current_state_from(ctx, ctx->initial_state);
+        true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
     }
     else
     {
+        true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
+        arena_merge_current_state_with_state_number(ctx, ctx->break_join_state);
+        arena_restore_current_state_from(ctx, ctx->break_join_state);
     }
+
+    flow_defer_list_set_end_of_lifetime(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
+
+    arena_remove_state(ctx, ctx->initial_state);
+    arena_remove_state(ctx, ctx->break_join_state);
+
+
+    //restore
+    ctx->initial_state = old_initial_state;
+    ctx->break_join_state = old_break_join_state;
+    true_false_set_destroy(&true_false_set);
+
 }
 
 static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)

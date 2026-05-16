@@ -578,6 +578,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struc
     catch
     {
     }
+    type_destroy(&lvalue_type);
     return list;
 }
 
