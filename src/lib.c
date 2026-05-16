@@ -30306,7 +30306,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.13.36"
+#define CAKE_VERSION "0.13.37"
 
 
 
@@ -57590,11 +57590,8 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
         */
         struct true_false_set true_false_set = { 0 };
         flow_visit_full_expression(ctx, p_iteration_statement->expression0, &true_false_set);
-        true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
         true_false_set_destroy(&true_false_set);
     }
-
-
 
 
     const int old_initial_state = ctx->initial_state;
@@ -57618,6 +57615,20 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
         }
         break_exit:
     */
+
+    if (p_condition)
+    {   
+        /*
+            for (int * _Opt p = 0; p; )
+            {
+                f(p); //complains
+            }
+        */
+        bool inside_loop = ctx->inside_loop;
+        ctx->inside_loop = false;
+        flow_check_pointer_used_as_bool(ctx, p_condition);
+        ctx->inside_loop = inside_loop;
+    }
 
     //We do a visit but this is not conclusive..so we ignore warnings
     diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
