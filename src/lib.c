@@ -30306,7 +30306,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.13.35"
+#define CAKE_VERSION "0.13.36"
 
 
 
@@ -57565,7 +57565,10 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
 {
 
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_FOR);
-    struct expression* _Opt next = p_iteration_statement->expression2;
+    const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
+
+    struct expression* _Opt p_next = p_iteration_statement->expression2;
+    struct expression* _Opt p_condition = p_iteration_statement->expression1;
 
     if (p_iteration_statement->declaration &&
         p_iteration_statement->declaration->init_declarator_list.head)
@@ -57587,14 +57590,12 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
         */
         struct true_false_set true_false_set = { 0 };
         flow_visit_full_expression(ctx, p_iteration_statement->expression0, &true_false_set);
+        true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
         true_false_set_destroy(&true_false_set);
     }
 
 
-    if (p_iteration_statement->expression1 == NULL)
-        return;
 
-    const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
     const int old_initial_state = ctx->initial_state;
     const int old_break_join_state = ctx->break_join_state;
@@ -57602,7 +57603,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
     ctx->initial_state = arena_add_copy_of_current_state(ctx, "original");
     ctx->break_join_state = arena_add_empty_state(ctx, "break join");
 
-    struct true_false_set true_false_set = { 0 };
+
 
     /*
         we do like this to acumulate states.
@@ -57620,32 +57621,57 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
 
     //We do a visit but this is not conclusive..so we ignore warnings
     diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
-    flow_visit_full_expression(ctx, p_iteration_statement->expression1, &true_false_set);
 
+    struct true_false_set true_false_set_false_branch = { 0 };
 
-    true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
+    if (p_condition)
+    {
+        flow_visit_full_expression(ctx, p_condition, &true_false_set_false_branch);
+        true_false_set_set_objects_to_true_branch(ctx, &true_false_set_false_branch, nullable_enabled);
+    }
+
 
     flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-    if (next)
-        flow_visit_full_expression(ctx, next, &true_false_set);
-
+    if (p_next)
+    {
+        struct true_false_set true_false_set = { 0 };
+        flow_visit_full_expression(ctx, p_next, &true_false_set);
+        //true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
+        true_false_set_destroy(&true_false_set);
+    }
 
     //Second pass warning is ON
     diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
 
+
+
+    if (p_condition)
     {
-        struct true_false_set true_false_set2 = { 0 };
-        flow_visit_full_expression(ctx, p_iteration_statement->expression1, &true_false_set2);
-        true_false_set_destroy(&true_false_set2);
+        struct true_false_set true_false_set = { 0 };
+        flow_visit_full_expression(ctx, p_condition, &true_false_set);
+        true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
+        true_false_set_destroy(&true_false_set);
     }
 
-    //visit secondary_block again
-    true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
     flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-    if (next)
-        flow_visit_full_expression(ctx, next, &true_false_set);
+    if (p_next)
+    {
+        struct true_false_set true_false_set = { 0 };
+        flow_visit_full_expression(ctx, p_next, &true_false_set);
+        //true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
+        true_false_set_destroy(&true_false_set);
+    }
 
+    if (p_condition)
+    {
+        struct true_false_set true_false_set = { 0 };
+        flow_visit_full_expression(ctx, p_condition, &true_false_set);
+        true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
+        true_false_set_destroy(&true_false_set);
+    }
     flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
+
+
 
     const bool was_last_statement_inside_true_branch_return =
         secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
@@ -57656,11 +57682,11 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
            while (p) { return; }
         */
         arena_restore_current_state_from(ctx, ctx->initial_state);
-        true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
+        true_false_set_set_objects_to_false_branch(ctx, &true_false_set_false_branch, nullable_enabled);
     }
     else
     {
-        true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
+        true_false_set_set_objects_to_false_branch(ctx, &true_false_set_false_branch, nullable_enabled);
         arena_merge_current_state_with_state_number(ctx, ctx->break_join_state);
         arena_restore_current_state_from(ctx, ctx->break_join_state);
     }
@@ -57674,7 +57700,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
     //restore
     ctx->initial_state = old_initial_state;
     ctx->break_join_state = old_break_join_state;
-    true_false_set_destroy(&true_false_set);
+    true_false_set_destroy(&true_false_set_false_branch);
 
 }
 
