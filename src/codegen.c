@@ -4129,7 +4129,7 @@ static void print_initializer(struct codegen_ctx* ctx,
                       struct X x2  = x;
                     }
                     */
-                    ss_fprintf(oss, "= {");
+                    ss_fprintf(oss, " = {");
                     bool first = true;
                     assign_each_member_from_constexpr(
                     ctx,

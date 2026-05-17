@@ -81,7 +81,7 @@ function validate(model)
          17 |   return xxx;
             |          ^~~     
         */
-        if (ouputlines[i].match(/\.c:\d+:\d+:/))
+        if (ouputlines[i].indexOf(".c:") > 0)
         {
             let line_start = 0;
             let start_col = 0;
@@ -110,29 +110,31 @@ function validate(model)
             start_col = start_col - line_start;
 
             var nn = ouputlines[i].split(":");
-            let severity_str = nn[3].trim();
-            var severity = monaco.MarkerSeverity.Info;
-            if (severity_str.startsWith("warning"))
-                severity = monaco.MarkerSeverity.Warning;
-            else if (severity_str.startsWith("error"))
-                severity = monaco.MarkerSeverity.Error;
-            
-
-            var message = "";
-            for (var i = 4; i < nn.length; i++)
+            if (nn.length >= 4)
             {
-                message += nn[i];
-            }
+                let severity_str = nn[3].trim();
+                var severity = monaco.MarkerSeverity.Info;
+                if (severity_str.startsWith("warning"))
+                    severity = monaco.MarkerSeverity.Warning;
+                else if (severity_str.startsWith("error"))
+                    severity = monaco.MarkerSeverity.Error;
 
-            const line = parseInt(nn[1]);
-            markers.push({
-                message: severity_str + ":" + message,
-                severity: severity,
-                startLineNumber: line,//range.startLineNumber,
-                startColumn: start_col,//range.startColumn,
-                endLineNumber: line,//range.endLineNumber,
-                endColumn: end_col + 1 //model.getLineLength(line) + 1//range.endColumn,
-            });
+                var message = "";
+                for (var k = 4; k < nn.length; k++)
+                {
+                    message += nn[k];
+                }
+
+                const line = parseInt(nn[1]);
+                markers.push({
+                    message: severity_str + ":" + message,
+                    severity: severity,
+                    startLineNumber: line,//range.startLineNumber,
+                    startColumn: start_col,//range.startColumn,
+                    endLineNumber: line,//range.endLineNumber,
+                    endColumn: end_col + 1 //model.getLineLength(line) + 1//range.endColumn,
+                });
+            }          
         }
     }
 
