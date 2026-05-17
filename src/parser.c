@@ -11758,6 +11758,12 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
 
             check_return_space_style(ctx, ctx->current);
 
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
             const struct token* const p_return_token = ctx->current;
             parser_match(ctx);
 
@@ -13402,6 +13408,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                                         "warning: excess elements in initializer");
 
         }
+
         if (compute_array_size)
         {
             current_object->type.array_num_elements = array_to_expand_max_index + 1;
