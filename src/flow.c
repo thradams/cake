@@ -183,6 +183,22 @@ static void object_state_to_string_core(enum flow_state e, struct osstream* ss0)
     ss_fprintf(ss0, "\"");
 
 }
+/* Forward declarations for functions defined later in this file */
+void objects_view_destroy(_Dtor struct flow_objects_view* p);
+int  objects_view_reserve(struct flow_objects_view* p, int n);
+void objects_view_copy(struct flow_objects_view* dest, const struct flow_objects_view* source);
+bool objects_view_find(const struct flow_objects_view* p, const struct flow_object* p_object);
+void flow_objects_destroy(_Dtor struct flow_objects* p);
+void flow_objects_clear(struct flow_objects* p);
+int  flow_objects_push_back(struct flow_objects* p, struct flow_object* _Owner p_object);
+void flow_object_destroy(_Dtor struct flow_object* p);
+void object_set_pointer(struct flow_object* p_object, struct flow_object* p_object2);
+void flow_object_push_states_from(const struct flow_object* p_object_from, struct flow_object* p_object_to);
+void flow_object_set_unknown(struct type* p_type, bool t_is_nullable, struct flow_object* p_object, bool nullable_enabled);
+struct flow_object* _Opt make_flow_object(struct flow_visit_ctx* ctx,
+    struct type* p_type,
+                                          const struct declarator* _Opt p_declarator_opt,
+                                          const struct expression* _Opt p_expression_origin);
 
 void flow_object_state_delete(struct flow_object_state* _Owner _Opt p)
 {
@@ -263,7 +279,6 @@ void flow_object_delete(struct flow_object* _Owner _Opt p)
     }
 }
 
-int objects_view_reserve(struct flow_objects_view* p, int n);
 void object_set_pointer(struct flow_object* p_object, struct flow_object* p_object2)
 {
     p_object->current.pointed = p_object2;
@@ -6565,7 +6580,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
     */
 
     if (p_condition)
-    {   
+    {
         /*
             for (int * _Opt p = 0; p; )
             {

@@ -330,6 +330,53 @@ static void d_print_type(struct codegen_ctx* ctx,
     const char* _Opt name_opt,
     bool print_storage_qualifier);
 
+static void print_cast_array_to_vm(struct codegen_ctx* ctx, struct osstream* oss, const struct type* p_type)
+{
+    assert(type_is_vm(p_type));
+
+    /*
+       Conversion from an array to a VM type requires a cast in the generated
+       code because multidimensional arrays are reduced to a single dimension
+       in VM types.
+    
+       Sample:
+       
+
+        void f(int n, int m, int (*p)[n][m]); -> void f(int n, int m, int (* p)[]);
+        void f2(int n, int m, int a[n][m]);   -> void f2(int n, int m, int a[]);
+
+        int main(void)
+        {
+            int a[3][4] = { 0 };
+            f(3, 4, &a);           -> f(3, 4, (int (*)[]) &a);
+            f2(3, 4, a);           -> f2(3, 4, (int *) a);
+        }
+
+    */
+    ss_fprintf(oss, "(");
+    if (type_is_array(p_type))
+    {
+        struct type t1 = get_array_item_type(p_type);
+
+        while (type_is_array(&t1))
+        {
+            struct type t0;
+            t0 = get_array_item_type(&t1);
+            type_swap(&t0, &t1);
+            type_destroy(&t0);
+        }
+
+        struct type t2 = type_add_pointer(&t1, ctx->options.null_checks_enabled);
+        d_print_type(ctx, oss, &t2, NULL, false);
+        type_destroy(&t1);
+        type_destroy(&t2);
+    }
+    else
+    {
+        d_print_type(ctx, oss, p_type, NULL, false);
+    }
+    ss_fprintf(oss, ") ");
+}
 
 static void print_identation_core(struct osstream* ss, int indentation)
 {
@@ -1309,6 +1356,15 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                 !(type_is_bool(&arg->expression->type) ||
                   type_is_essential_bool(&arg->expression->type));
 
+            if (param &&
+                type_is_vm(&param->type) &&
+                !type_is_vm(&arg->expression->type) &&
+                !type_is_void_ptr(&arg->expression->type) &&
+                !expression_is_null_pointer_constant(arg->expression))
+            {
+                print_cast_array_to_vm(ctx, oss, &param->type);                
+            }
+
             if (to_bool)
             {
                 expression_to_bool_value(ctx, oss, arg->expression);
@@ -1610,6 +1666,15 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " %s ", get_op_by_expression_type(p_expression->expression_type));
+
+        if (type_is_vm(&p_expression->left->type) &&
+            !type_is_vm(&p_expression->right->type) &&
+            !type_is_void_ptr(&p_expression->right->type) &&
+            !expression_is_null_pointer_constant(p_expression)
+            )
+        {
+            print_cast_array_to_vm(ctx, oss, &p_expression->left->type);
+        }
 
         if (type_is_bool(&p_expression->left->type))
         {
@@ -1979,6 +2044,14 @@ static void codegen_visit_jump_statement(struct codegen_ctx* ctx, struct osstrea
             ss_fprintf(oss, "%s = ", name);
             if (p_jump_statement->expression_opt)
             {
+                if (type_is_vm(&return_type) &&
+                    !type_is_vm(&p_jump_statement->expression_opt->type) &&
+                    !type_is_void_ptr(&p_jump_statement->expression_opt->type) &&
+                    !expression_is_null_pointer_constant(p_jump_statement->expression_opt))
+                {
+                    print_cast_array_to_vm(ctx, oss, &return_type);
+                }
+
                 if (type_is_bool(&return_type))
                 {
                     expression_to_bool_value(ctx, oss, p_jump_statement->expression_opt);
@@ -4104,6 +4177,14 @@ static void print_initializer(struct codegen_ctx* ctx,
                         emit_line_directive(ctx, oss, p_init_declarator->initializer->first_token);
                         print_identation_core(oss, ctx->indentation);
                         ss_fprintf(oss, "%s%s = ", p_init_declarator->p_declarator->name_opt->lexeme, "");
+
+                        if (type_is_vm(&p_init_declarator->p_declarator->type) && 
+                            !type_is_vm(&p_init_declarator->initializer->assignment_expression->type) &&
+                            !type_is_void_ptr(&p_init_declarator->initializer->assignment_expression->type) &&
+                            !expression_is_null_pointer_constant(p_init_declarator->initializer->assignment_expression))
+                        {
+                            print_cast_array_to_vm(ctx, oss, &p_init_declarator->p_declarator->type);
+                        }
 
                         if (type_is_bool(&p_init_declarator->p_declarator->type))
                         {

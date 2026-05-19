@@ -2976,9 +2976,9 @@ static int is_offsetof_pattern(struct parser_ctx* ctx, struct expression* p_expr
          If the pointer has a constant value, we compute the member's
          offset and then add it to that constant value that is generally zero.
     */
-    struct expression* _Opt right = NULL;
+    struct expression* _Opt right = p_expression;
 
-    if (p_expression->expression_type != POSTFIX_ARROW)
+    if (right && right->expression_type != POSTFIX_ARROW)
     {
         /*
            & (((type*)0)->i2)
@@ -3000,7 +3000,6 @@ static int is_offsetof_pattern(struct parser_ctx* ctx, struct expression* p_expr
              ~~~~~~~~~~~~~~~~~~
                 p_expression
         */
-        right = p_expression;
     }
 
     if (right == NULL)
