@@ -830,7 +830,7 @@ struct declarator
     struct object object;
 
     /*user by flow analysis*/
-    struct flow_object* _Opt p_flow_object;
+    struct flow1_object* _Opt p_flow_object;
 
     struct expression* _Opt _Owner p_expression_true;
     struct expression* _Opt _Owner p_expression_false;
@@ -1815,4 +1815,4 @@ int initializer_init_new(struct parser_ctx* ctx,
 
 struct object* _Opt find_object_declarator_by_index(struct object* p_object, struct member_declaration_list* list, int member_index);
 
-void check_dianostic_suppression_core(struct parser_ctx* ctx, struct token* pToken, int phase);
+void check_dianostic_suppression_phase(struct parser_ctx* ctx, struct token* pToken, int phase);

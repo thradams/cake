@@ -19,7 +19,7 @@
 #include "console.h"
 #include "fs.h"
 #include <ctype.h>
-#include "flow.h"
+#include "flow1.h"
 #include "defer.h"
 #include <errno.h>
 
@@ -2026,7 +2026,7 @@ static struct token* _Opt pragma_declaration_match(const struct token* p_current
 }
 
 
-void check_dianostic_suppression_core(struct parser_ctx* ctx, struct token* p_token, int phase)
+void check_dianostic_suppression_phase(struct parser_ctx* ctx, struct token* p_token, int phase)
 {
     if (p_token->type == TK_LINE_COMMENT || p_token->type == TK_COMMENT)
     {
@@ -2061,12 +2061,12 @@ void check_dianostic_suppression_core(struct parser_ctx* ctx, struct token* p_to
 
 void check_compiler_dianostic_suppression(struct parser_ctx* ctx, struct token* p_token)
 {
-    check_dianostic_suppression_core(ctx, p_token, 0);
+    check_dianostic_suppression_phase(ctx, p_token, 0);
 }
 
 static void check_dianostic_suppression_after(struct parser_ctx* ctx, struct token* p_token)
 {
-    check_dianostic_suppression_core(ctx, p_token, 1);
+    check_dianostic_suppression_phase(ctx, p_token, 1);
 }
 
 static void parser_skip_blanks(struct parser_ctx* ctx, struct token** _Opt pp_token_lint)
@@ -2096,7 +2096,7 @@ static void parser_skip_blanks(struct parser_ctx* ctx, struct token** _Opt pp_to
                 else
                 {
                     /* execute now */
-                    check_dianostic_suppression_core(ctx, ctx->current, 0);
+                    check_dianostic_suppression_phase(ctx, ctx->current, 0);
                 }
             }
         }
@@ -2996,9 +2996,9 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
         {
             if (ctx->options.flow_analysis && extern_declaration)
             {
-                struct flow_visit_ctx ctx2 = { .ctx = ctx };
-                flow_start_visit_declaration(&ctx2, p_declaration);
-                flow_visit_ctx_destroy(&ctx2);
+                struct flow1_visit_ctx ctx2 = { .ctx = ctx };
+                flow1_start_visit_declaration(&ctx2, p_declaration);
+                flow1_visit_ctx_destroy(&ctx2);
             }
         }
 
@@ -8622,11 +8622,11 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 throw;
             }
 
-            const bool flow_enable = strcmp(p_pragma_token->lexeme, "enable") == 0;
+            const bool flow1_enable = strcmp(p_pragma_token->lexeme, "enable") == 0;
 
             p_pragma_token = pragma_declaration_match(p_pragma_token);
 
-            ctx->options.flow_analysis = flow_enable;
+            ctx->options.flow_analysis = flow1_enable;
         }
         else if (strcmp(p_pragma_token->lexeme, "safety") == 0)
         {
@@ -12237,9 +12237,9 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
         {
             struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
 
-            struct flow_visit_ctx ctx3 = { .ctx = ctx };
-            flow_start_visit_declaration(&ctx3, it);
-            flow_visit_ctx_destroy(&ctx3);
+            struct flow1_visit_ctx ctx3 = { .ctx = ctx };
+            flow1_start_visit_declaration(&ctx3, it);
+            flow1_visit_ctx_destroy(&ctx3);
 
             /* visiting the function again; restore the same diagnostic state */
             ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = before_function_diagnostics;

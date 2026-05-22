@@ -749,7 +749,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
     if (p_jump_statement->p_lint_token)
     {
         //remove diagnostics related with defer.
-        check_dianostic_suppression_core(ctx->ctx, p_jump_statement->p_lint_token, 1);
+        check_dianostic_suppression_phase(ctx->ctx, p_jump_statement->p_lint_token, 1);
     }
 
     defer_visit_ctx_destroy(&label_ctx); //lint 33 33 

@@ -29,7 +29,7 @@
     " compile.c "             \
     " defer.c "         \
     " codegen.c "             \
-    " flow.c "                \
+    " flow1.c "                \
     " error.c "               \
     " target.c "              \
     " type.c "
