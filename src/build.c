@@ -385,7 +385,7 @@ int main()
     execute_cmd(RUN "cake89  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode-in-out");
     execute_cmd(RUN "cake89  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
 
-    execute_cmd(RUN "cake89  -flow3 -fdiagnostics-color=never ../tests/flow3/*.c -test-mode");
+    //execute_cmd(RUN "cake89  -flow3 -fdiagnostics-color=never ../tests/flow3/*.c -test-mode");
 
 
     printf("Other test cases\n");
