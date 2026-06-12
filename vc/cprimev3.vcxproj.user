@@ -20,7 +20,7 @@
     <LocalDebuggerCommandArguments>fs.c error.c</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)..\src\</LocalDebuggerWorkingDirectory>
-    <LocalDebuggerCommandArgumentsHistory>token.c|</LocalDebuggerCommandArgumentsHistory>
+    <LocalDebuggerCommandArgumentsHistory>token.c|fs.c error.c|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugTest|x64'">
     <LocalDebuggerCommandArguments>*.c -fanalyzer </LocalDebuggerCommandArguments>

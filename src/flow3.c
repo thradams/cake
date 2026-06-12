@@ -282,7 +282,7 @@ struct flow3_map* _Owner _Opt flow3_map_arena_new(struct flow3_map_arena* a, str
 
         if (a->size == a->capacity)
         {
-            size_t new_capacity = a->capacity == 0 ? 4 : a->capacity * 2;
+            int new_capacity = a->capacity == 0 ? 4 : a->capacity * 2;
             struct flow3_map** new_data = realloc(a->data, new_capacity * sizeof(struct flow3_map*));
             if (new_data == NULL) throw;
             a->data = new_data;
@@ -330,7 +330,7 @@ struct object* flow3_allocated_object_arena_new(struct flow3_allocated_object_ar
 
         if (a->size == a->capacity)
         {
-            size_t new_capacity = a->capacity == 0 ? 4 : a->capacity * 2;
+            int new_capacity = a->capacity == 0 ? 4 : a->capacity * 2;
             struct object** new_data = realloc(a->data, new_capacity * sizeof(struct object*));
             if (new_data == NULL) throw;
             a->data = new_data;
