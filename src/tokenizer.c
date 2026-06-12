@@ -1448,7 +1448,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
     try
     {
 #ifndef MOCKFILES
-        file = (FILE* _Owner _Opt)fopen(filename_opt, "rb");
+        file = (FILE * _Owner _Opt)fopen(filename_opt, "rb");
         if (file == NULL)
         {
             preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, position, "file '%s' not found", filename_opt);
@@ -1958,7 +1958,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
 }
 
 
-bool fread2(void* buffer, size_t size, size_t count, FILE* stream, size_t* sz)
+bool fread2(void* buffer, size_t size, size_t count, FILE * stream, size_t * sz)
 {
     *sz = 0;//out
     bool result = false;
@@ -6031,6 +6031,7 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD__IMAGINARY: return "TK_KEYWORD__IMAGINARY";
     case TK_KEYWORD__NORETURN: return "TK_KEYWORD__NORETURN";
     case TK_KEYWORD__STATIC_ASSERT: return "TK_KEYWORD__STATIC_ASSERT";
+    case TK_KEYWORD__COMPILE_ASSERT: return "TK_KEYWORD__COMPILE_ASSERT";
     case TK_KEYWORD_ASSERT: return "TK_KEYWORD_ASSERT"; /*extension*/
     case TK_KEYWORD__THREAD_LOCAL: return "TK_KEYWORD__THREAD_LOCAL";
 
@@ -6046,8 +6047,8 @@ const char* get_token_name(enum token_type tk)
 
         /*cake extension*/
     case TK_KEYWORD_CAKE_OWNER: return "TK_KEYWORD_CAKE_OWNER";
-    case TK_KEYWORD__CTOR: return "TK_KEYWORD__OUT";
-    case TK_KEYWORD__DTOR: return "TK_KEYWORD__OBJ_OWNER";
+    case TK_KEYWORD_CAKE_CTOR: return "TK_KEYWORD__OUT";
+    case TK_KEYWORD_CAKE_DTOR: return "TK_KEYWORD__OBJ_OWNER";
     case TK_KEYWORD_CAKE_VIEW: return "TK_KEYWORD_CAKE_VIEW";
     case TK_KEYWORD_CAKE_OPT: return "TK_KEYWORD_CAKE_OPT";
 
@@ -6248,6 +6249,7 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
     case TK_KEYWORD__IMAGINARY: return "_IMAGINARY";
     case TK_KEYWORD__NORETURN: return "_Noreturn";
     case TK_KEYWORD__STATIC_ASSERT: return "static_assert";
+    case TK_KEYWORD__COMPILE_ASSERT: return "compile_assert";
     case TK_KEYWORD_ASSERT: return "assert"; /*extension*/
     case TK_KEYWORD__THREAD_LOCAL: return "_THREAD_LOCAL";
 
@@ -6261,8 +6263,8 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
 
         /*cake extension*/
     case TK_KEYWORD_CAKE_OWNER: return "_Owner";
-    case TK_KEYWORD__CTOR: return "Out";
-    case TK_KEYWORD__DTOR: return "_OBJ_OWNER";
+    case TK_KEYWORD_CAKE_CTOR: return "Out";
+    case TK_KEYWORD_CAKE_DTOR: return "_OBJ_OWNER";
     case TK_KEYWORD_CAKE_VIEW: return "_view";
     case TK_KEYWORD_CAKE_OPT: return "_Opt";
 
@@ -7769,7 +7771,7 @@ int test_predefined_macros()
     {
 
     }
-    free(result);
+    free((void* _Owner)result);
 
     return 0;
 }

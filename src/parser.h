@@ -851,7 +851,6 @@ struct declarator
 };
 
 struct function_declarator* _Opt declarator_find_function_declarator(const struct declarator* p_declarator);
-const struct declarator* _Opt declarator_get_innert_function_declarator(const struct declarator* p);
 
 const struct declarator* _Opt declarator_get_function_definition(const struct declarator* p);
 enum type_specifier_flags declarator_get_type_specifier_flags(const struct declarator* p);
@@ -1816,3 +1815,4 @@ int initializer_init_new(struct parser_ctx* ctx,
 struct object* _Opt find_object_declarator_by_index(struct object* p_object, struct member_declaration_list* list, int member_index);
 
 void check_dianostic_suppression_phase(struct parser_ctx* ctx, struct token* pToken, int phase);
+const struct direct_declarator* get_innermost_direct_declarator(const struct direct_declarator* p);

@@ -803,7 +803,7 @@ static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expressio
 
     switch (p_expression->expression_type)
     {
-    case CHECKED_EXPRESSION:
+    case EXPR_CHECKED:
     {
         /*similar of throw TODO make a function?*/
         try
@@ -844,7 +844,7 @@ static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expressio
     }
     break;
 
-    case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
+    case EXPR_POSTFIX_FUNCTION_LITERAL:
     {
         assert(p_expression->compound_statement != NULL);
 

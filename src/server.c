@@ -142,9 +142,9 @@ static int has_c_extension(const char* name)
 {
     const char* dot = strrchr(name, '.');
     if (!dot) return 0;
-    
+
     //if (strcasecmp(dot, ".h") == 0)
-      //  return 1;
+    //    return 1;
 
     return strcasecmp(dot, ".c") == 0;
 }
@@ -319,7 +319,6 @@ static void handle_list(SocketFd client, const char* query)
 }
 
 
-
 static void handle_read(SocketFd client, const char* query)
 {
     char rel[512] = "";
@@ -383,14 +382,14 @@ size_t first_line_copy(const char* src, char* dst, size_t dst_size)
    ══════════════════════════════════════════════════════════════════════ */
 static void handle_save(SocketFd client, const char* body, size_t body_len)
 {
-        printf("handle_save\n");
+    printf("handle_save\n");
 
     char file[512] = "";
     const char* content; size_t content_len;
     size_t sz = first_line_copy(body, file, sizeof file);
     content = body + sz + 1;
     content_len = strlen(content);
-    
+
     printf("filename '%s'\n", file);
 
     char full[MAX_PATH_LEN];
@@ -429,13 +428,12 @@ static void handle_compile(SocketFd client, const char* body, size_t body_len)
     snprintf(full, sizeof(full), "%s" PATH_SEP "%s",
         BASE_DIR2, file);
 
-
     char cmd[MAX_CMD_LEN] = {0};
     if (opts[0])
         snprintf(cmd, sizeof(cmd), "cake  %s \"%s\" > output.txt", opts, full);
     else
         snprintf(cmd, sizeof(cmd), "cake  \"%s\" > output.txt", full);
-    
+
     printf("%s\n", cmd);
     system(cmd);
 
@@ -482,6 +480,9 @@ static int recv_all(SocketFd client, DynBuf* buf)
 }
 
 
+/* ══════════════════════════════════════════════════════════════════════
+   get_exe_path  –  platform-specific
+   ══════════════════════════════════════════════════════════════════════ */
 #if defined(_WIN32)
 
 char* get_exe_path(char* buffer, size_t size)
@@ -500,8 +501,18 @@ char* get_exe_path(char* buffer, size_t size)
     ssize_t len = readlink("/proc/self/exe", buffer, size - 1);
     if (len == -1)
         return NULL;
-
     buffer[len] = '\0';
+    return buffer;
+}
+
+#elif defined(__APPLE__)
+#include <mach-o/dyld.h>
+
+char* get_exe_path(char* buffer, size_t size)
+{
+    uint32_t sz = (uint32_t)size;
+    if (_NSGetExecutablePath(buffer, &sz) != 0)
+        return NULL;  /* buffer too small */
     return buffer;
 }
 
@@ -509,31 +520,34 @@ char* get_exe_path(char* buffer, size_t size)
 #error "Unsupported platform"
 #endif
 
-// Função para obter o diretório corrente
+
+/* ══════════════════════════════════════════════════════════════════════
+   get_current_path
+   ══════════════════════════════════════════════════════════════════════ */
 char* get_current_path(char path[], int sz)
 {
-
 #ifdef _WIN32
-    // Para Windows
-    if (GetCurrentDirectoryA(512, path) == 0) {
+    if (GetCurrentDirectoryA(sz, path) == 0) {
         perror("Erro ao obter diretório atual");
         return NULL;
     }
 #else
-    // Para Linux e outros sistemas POSIX
-    if (getcwd(path, 512) == NULL) {
+    if (getcwd(path, (size_t)sz) == NULL) {
         perror("Erro ao obter diretório atual");
         return NULL;
     }
 #endif
-
     return path;
 }
 
-#ifdef _WIN32
 
-void open_browser(const char* url) {
+/* ══════════════════════════════════════════════════════════════════════
+   open_browser  –  platform-specific
+   ══════════════════════════════════════════════════════════════════════ */
+#if defined(_WIN32)
 
+void open_browser(const char* url)
+{
     ShellExecuteA(
         NULL,
         "open",
@@ -542,17 +556,28 @@ void open_browser(const char* url) {
         NULL,
         SW_SHOWNORMAL
     );
-
-    /*ShellExecuteA(
-        NULL,           // parent window
-        "open",         // operation
-        url,            // URL to open
-        NULL,           // parameters
-        NULL,           // default directory
-        SW_SHOWNORMAL   // how to show
-    );*/
 }
+
+#elif defined(__APPLE__)
+
+void open_browser(const char* url)
+{
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd), "open \"%s\"", url);
+    system(cmd);
+}
+
+#else  /* Linux */
+
+void open_browser(const char* url)
+{
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd), "xdg-open \"%s\"", url);
+    system(cmd);
+}
+
 #endif
+
 
 /* ══════════════════════════════════════════════════════════════════════
    main
@@ -573,9 +598,9 @@ void remove_filename(char *path)
     }
 
     if (last_sep) {
-        *(last_sep + 1) = '\0'; // keep the trailing slash
+        *(last_sep + 1) = '\0'; /* keep the trailing slash */
     } else {
-        path[0] = '\0'; // no separator → no directory part
+        path[0] = '\0'; /* no separator → no directory part */
     }
 }
 
@@ -587,13 +612,11 @@ int main(int argc, char* argv[])
     }
     else
     {
-       strncpy(BASE_DIR2, argv[1], sizeof(BASE_DIR2) - 1);
-       BASE_DIR2[sizeof(BASE_DIR2) - 1] = '\0'; // ensure null-termination
+        strncpy(BASE_DIR2, argv[1], sizeof(BASE_DIR2) - 1);
+        BASE_DIR2[sizeof(BASE_DIR2) - 1] = '\0';
     }
 
     printf("Current dir: %s\n", BASE_DIR2);
-
-
 
     get_exe_path(BASE_DIR, sizeof BASE_DIR);
     printf("Web dir: %s\n", BASE_DIR);
@@ -604,10 +627,7 @@ int main(int argc, char* argv[])
     strcat(BASE_DIR, "\\web");
 #else
     remove_filename(BASE_DIR);
-//        BASE_DIR[strlen(BASE_DIR) - sizeof("server.exe")] = 0;
-
 #endif
-
 
 #ifdef _WIN32
     WSADATA wsa;
@@ -634,8 +654,8 @@ int main(int argc, char* argv[])
     listen(server, 10);
     printf("Server running at http://localhost:%d\n", PORT);
 
-#if !defined DEBUG_IDE && defined _WIN32
-    open_browser("msedge --app=http://localhost:8080");
+#if !defined(DEBUG_IDE) && (defined(_WIN32) || defined(__APPLE__))
+    open_browser("http://localhost:8080");
 #endif
 
     while (1)
@@ -686,7 +706,6 @@ int main(int argc, char* argv[])
         else
         {
             send_str(client, "text/plain", "Not found");
-
         }
         db_free(&req);
         CLOSE_SOCKET(client);

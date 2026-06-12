@@ -526,15 +526,15 @@ int flow1_objects_push_back(struct flow1_objects* p, struct flow1_object* _Owner
 
     return 0;
 }
-struct object_name_list
+struct flow1_object_name_list
 {
     const char* name;
-    struct object_name_list* _Opt previous;
+    struct flow1_object_name_list* _Opt previous;
 };
 
-bool flow1_has_name(const char* name, struct object_name_list* list)
+bool flow1_has_name(const char* name, struct flow1_object_name_list* list)
 {
-    struct object_name_list* _Opt p = list;
+    struct flow1_object_name_list* _Opt p = list;
 
     while (p)
     {
@@ -547,9 +547,9 @@ bool flow1_has_name(const char* name, struct object_name_list* list)
     return false;
 }
 
-struct flow1_object* _Opt make_object_core(struct flow1_visit_ctx* ctx,
+struct flow1_object* _Opt flow1_make_object_core(struct flow1_visit_ctx* ctx,
     struct type* p_type,
-    struct object_name_list* list,
+    struct flow1_object_name_list* list,
     const struct declarator* _Opt p_declarator_opt,
     const struct expression* _Opt p_expression_origin)
 {
@@ -585,7 +585,7 @@ struct flow1_object* _Opt make_object_core(struct flow1_visit_ctx* ctx,
                 struct member_declaration* _Opt p_member_declaration =
                     p_struct_or_union_specifier->member_declaration_list.head;
 
-                struct object_name_list l = {
+                struct flow1_object_name_list l = {
                   .name = p_struct_or_union_specifier->tag_name,
                   .previous = list
                 };
@@ -633,7 +633,7 @@ struct flow1_object* _Opt make_object_core(struct flow1_visit_ctx* ctx,
                                 else
                                 {
                                     struct flow1_object* _Opt p_member_obj =
-                                        make_object_core(ctx,
+                                        flow1_make_object_core(ctx,
                                             &p_member_declarator->declarator->type,
                                             &l,
                                             p_declarator_opt,
@@ -659,7 +659,7 @@ struct flow1_object* _Opt make_object_core(struct flow1_visit_ctx* ctx,
                             t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
                             t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
 
-                            struct flow1_object* _Opt member_obj = make_object_core(ctx, &t, &l, p_declarator_opt, p_expression_origin);
+                            struct flow1_object* _Opt member_obj = flow1_make_object_core(ctx, &t, &l, p_declarator_opt, p_expression_origin);
                             if (member_obj == NULL)
                             {
                                 type_destroy(&t);
@@ -713,8 +713,8 @@ struct flow1_object* _Opt flow1_make_flow_object(struct flow1_visit_ctx* ctx,
                            const struct expression* _Opt p_expression_origin)
 {
 
-    struct object_name_list list = { .name = "" };
-    struct flow1_object* _Opt p_object = make_object_core(ctx, p_type, &list, p_declarator_opt, p_expression_origin);
+    struct flow1_object_name_list list = { .name = "" };
+    struct flow1_object* _Opt p_object = flow1_make_object_core(ctx, p_type, &list, p_declarator_opt, p_expression_origin);
 
     return p_object;
 }
@@ -3071,7 +3071,7 @@ struct flow1_object* _Opt  flow1_expression_get_flow_object(struct flow1_visit_c
 {
     try
     {
-        if (p_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+        if (p_expression->expression_type == EXPR_PRIMARY_DECLARATOR)
         {
             assert(p_expression->declarator);
             if (p_expression->declarator->p_alias_of_expression)
@@ -3105,7 +3105,7 @@ struct flow1_object* _Opt  flow1_expression_get_flow_object(struct flow1_visit_c
             }
         }
 
-        else if (p_expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
+        else if (p_expression->expression_type == EXPR_UNARY_ADDRESSOF)
         {
             assert(p_expression->right != NULL);
 
@@ -3122,12 +3122,12 @@ struct flow1_object* _Opt  flow1_expression_get_flow_object(struct flow1_visit_c
             p_object->is_temporary = true;
             return p_object;
         }
-        else if (p_expression->expression_type == PRIMARY_EXPRESSION_PARENTHESIS)
+        else if (p_expression->expression_type == EXPR_PRIMARY_PARENTHESIS)
         {
             assert(p_expression->right != NULL);
             return flow1_expression_get_flow_object(ctx, p_expression->right, nullable_enabled);
         }
-        else if (p_expression->expression_type == PRIMARY_EXPRESSION_STATEMENT_EXPRESSION)
+        else if (p_expression->expression_type == EXPR_PRIMARY_STATEMENT_EXPRESSION)
         {
             assert(p_expression->compound_statement);
 
@@ -3148,7 +3148,7 @@ struct flow1_object* _Opt  flow1_expression_get_flow_object(struct flow1_visit_c
             if (p_last_expression)
                 return flow1_expression_get_flow_object(ctx, p_last_expression, nullable_enabled);
         }
-        else if (p_expression->expression_type == CAST_EXPRESSION)
+        else if (p_expression->expression_type == EXPR_CAST)
         {
             assert(p_expression->left != NULL);
             struct flow1_object* _Opt p = flow1_expression_get_flow_object(ctx, p_expression->left, nullable_enabled);
@@ -3172,7 +3172,7 @@ struct flow1_object* _Opt  flow1_expression_get_flow_object(struct flow1_visit_c
             }
             return p;
         }
-        else if (p_expression->expression_type == POSTFIX_DOT)
+        else if (p_expression->expression_type == EXPR_POSTFIX_DOT)
         {
             assert(p_expression->left != NULL);
 
@@ -3188,7 +3188,7 @@ struct flow1_object* _Opt  flow1_expression_get_flow_object(struct flow1_visit_c
                 }
             }
         }
-        else if (p_expression->expression_type == POSTFIX_ARRAY)
+        else if (p_expression->expression_type == EXPR_POSTFIX_ARRAY)
         {
             assert(p_expression->left != NULL);
 
@@ -3241,7 +3241,7 @@ struct flow1_object* _Opt  flow1_expression_get_flow_object(struct flow1_visit_c
             }
             return NULL;
         }
-        else if (p_expression->expression_type == POSTFIX_ARROW)
+        else if (p_expression->expression_type == EXPR_POSTFIX_ARROW)
         {
             assert(p_expression->left != NULL);
 
@@ -3270,7 +3270,7 @@ struct flow1_object* _Opt  flow1_expression_get_flow_object(struct flow1_visit_c
             }
             return NULL;
         }
-        else if (p_expression->expression_type == UNARY_EXPRESSION_CONTENT)
+        else if (p_expression->expression_type == EXPR_UNARY_CONTENT)
         {
             assert(p_expression->right != NULL);
 
@@ -3289,7 +3289,7 @@ struct flow1_object* _Opt  flow1_expression_get_flow_object(struct flow1_visit_c
             }
             return p_obj;
         }
-        else if (p_expression->expression_type == POSTFIX_FUNCTION_CALL)
+        else if (p_expression->expression_type == EXPR_POSTFIX_FUNCTION_CALL)
         {
             struct flow1_object* _Opt p_object = flow1_make_flow_object(ctx, &p_expression->type, NULL, p_expression);
             if (p_object == NULL) throw;
@@ -3306,12 +3306,12 @@ struct flow1_object* _Opt  flow1_expression_get_flow_object(struct flow1_visit_c
 
             return p_object;
         }
-        else if (p_expression->expression_type == POSTFIX_EXPRESSION_COMPOUND_LITERAL)
+        else if (p_expression->expression_type == EXPR_POSTFIX_COMPOUND_LITERAL)
         {
             assert(p_expression->type_name != NULL);
             return p_expression->type_name->abstract_declarator->p_flow_object;
         }
-        else if (p_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
+        else if (p_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL)
         {
             struct flow1_object* _Opt p_object = flow1_make_flow_object(ctx, &p_expression->type, NULL, p_expression);
             if (p_object == NULL) throw;
@@ -3319,7 +3319,7 @@ struct flow1_object* _Opt  flow1_expression_get_flow_object(struct flow1_visit_c
             p_object->current.state = FLOW1_OBJECT_STATE_NOT_NULL;
             return p_object;
         }
-        else if (p_expression->expression_type == PRIMARY_EXPRESSION_PREDEFINED_CONSTANT)
+        else if (p_expression->expression_type == EXPR_PRIMARY_PREDEFINED_CONSTANT)
         {
             struct flow1_object* _Opt p_object = flow1_make_flow_object(ctx, &p_expression->type, NULL, p_expression);
             if (p_object == NULL) throw;
@@ -3339,7 +3339,7 @@ struct flow1_object* _Opt  flow1_expression_get_flow_object(struct flow1_visit_c
 
             return p_object;
         }
-        else if (p_expression->expression_type == ASSIGNMENT_EXPRESSION_ASSIGN)
+        else if (p_expression->expression_type == EXPR_ASSIGNMENT_ASSIGN)
         {
             assert(p_expression->left != NULL);
 
@@ -3349,7 +3349,7 @@ struct flow1_object* _Opt  flow1_expression_get_flow_object(struct flow1_visit_c
             //
             return p_obj;
         }
-        else if (p_expression->expression_type == CONDITIONAL_EXPRESSION)
+        else if (p_expression->expression_type == EXPR_CONDITIONAL)
         {
             assert(p_expression->right != NULL);
 
@@ -3372,15 +3372,15 @@ struct flow1_object* _Opt  flow1_expression_get_flow_object(struct flow1_visit_c
 
             return p_object;
         }
-        else if (p_expression->expression_type == CHECKED_EXPRESSION)
+        else if (p_expression->expression_type == EXPR_CHECKED)
         {
             struct flow1_object* _Opt p_object = flow1_make_flow_object(ctx, &p_expression->type, NULL, p_expression);
             if (p_object == NULL) throw;
             p_object->current.state = FLOW1_OBJECT_STATE_NOT_ZERO;
             return p_object;
         }
-        else if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL ||
-                 p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL)
+        else if (p_expression->expression_type == EXPR_EQUALITY_EQUAL ||
+                 p_expression->expression_type == EXPR_EQUALITY_NOT_EQUAL)
         {
 
             struct flow1_object* _Opt p_object = flow1_make_flow_object(ctx, &p_expression->type, NULL, p_expression);
@@ -3397,7 +3397,7 @@ struct flow1_object* _Opt  flow1_expression_get_flow_object(struct flow1_visit_c
             }
             return p_object;
         }
-        else if (p_expression->expression_type == ADDITIVE_EXPRESSION_PLUS)
+        else if (p_expression->expression_type == EXPR_ADDITIVE_PLUS)
         {
             struct flow1_object* _Opt p_object = flow1_make_flow_object(ctx, &p_expression->type, NULL, p_expression);
             if (p_object == NULL) throw;
@@ -3422,8 +3422,8 @@ struct flow1_object* _Opt  flow1_expression_get_flow_object(struct flow1_visit_c
             }
             return p_object;
         }
-        else if (p_expression->expression_type == UNARY_EXPRESSION_NEG ||
-                 p_expression->expression_type == UNARY_EXPRESSION_PLUS)
+        else if (p_expression->expression_type == EXPR_UNARY_NEG ||
+                 p_expression->expression_type == EXPR_UNARY_PLUS)
         {
             assert(p_expression->right != NULL);
 
@@ -3713,9 +3713,9 @@ static void flow1_visit_expression_statement(struct flow1_visit_ctx* ctx, struct
 
 enum flow1_boolean_flag
 {
-    BOOLEAN_FLAG_NONE = 0,
-    BOOLEAN_FLAG_TRUE = 1 << 0,
-    BOOLEAN_FLAG_FALSE = 1 << 1,
+    FLOW1_BOOLEAN_FLAG_NONE = 0,
+    FLOW1_BOOLEAN_FLAG_TRUE = 1 << 0,
+    FLOW1_BOOLEAN_FLAG_FALSE = 1 << 1,
 };
 
 struct flow1_true_false_set_item
@@ -3742,10 +3742,10 @@ static void flow1_true_false_set_clear(struct flow1_true_false_set* p)
 
 enum flow1_merge_options
 {
-    MERGE_OPTIONS_A_TRUE = 1 << 0,
-    MERGE_OPTIONS_A_FALSE = 1 << 1,
-    MERGE_OPTIONS_B_TRUE = 1 << 2,
-    MERGE_OPTIONS_B_FALSE = 1 << 3
+    FLOW1_MERGE_OPTIONS_A_TRUE = 1 << 0,
+    FLOW1_MERGE_OPTIONS_A_FALSE = 1 << 1,
+    FLOW1_MERGE_OPTIONS_B_TRUE = 1 << 2,
+    FLOW1_MERGE_OPTIONS_B_FALSE = 1 << 3
 };
 
 void flow1_true_false_set_destroy(_Dtor struct flow1_true_false_set* p)
@@ -3852,16 +3852,16 @@ static void flow1_true_false_set_merge(struct flow1_true_false_set* result,
         _Opt struct flow1_true_false_set_item new_item = { 0 };
         new_item.p_expression = p_item_a->p_expression;
 
-        if (options_true & MERGE_OPTIONS_A_TRUE)
+        if (options_true & FLOW1_MERGE_OPTIONS_A_TRUE)
             new_item.true_branch_state |= p_item_a->true_branch_state;
 
-        if (options_true & MERGE_OPTIONS_A_FALSE)
+        if (options_true & FLOW1_MERGE_OPTIONS_A_FALSE)
             new_item.true_branch_state |= p_item_a->false_branch_state;
 
-        if (options_false & MERGE_OPTIONS_A_TRUE)
+        if (options_false & FLOW1_MERGE_OPTIONS_A_TRUE)
             new_item.false_branch_state |= p_item_a->true_branch_state;
 
-        if (options_false & MERGE_OPTIONS_A_FALSE)
+        if (options_false & FLOW1_MERGE_OPTIONS_A_FALSE)
             new_item.true_branch_state |= p_item_a->false_branch_state;
 
 
@@ -3883,16 +3883,16 @@ static void flow1_true_false_set_merge(struct flow1_true_false_set* result,
 
         struct flow1_true_false_set_item* p_item_result = &result->data[index];
 
-        if (options_true & MERGE_OPTIONS_B_TRUE)
+        if (options_true & FLOW1_MERGE_OPTIONS_B_TRUE)
             p_item_result->true_branch_state |= p_item_b->true_branch_state;
 
-        if (options_true & MERGE_OPTIONS_B_FALSE)
+        if (options_true & FLOW1_MERGE_OPTIONS_B_FALSE)
             p_item_result->true_branch_state |= p_item_b->false_branch_state;
 
-        if (options_false & MERGE_OPTIONS_B_TRUE)
+        if (options_false & FLOW1_MERGE_OPTIONS_B_TRUE)
             p_item_result->false_branch_state |= p_item_b->true_branch_state;
 
-        if (options_false & MERGE_OPTIONS_B_FALSE)
+        if (options_false & FLOW1_MERGE_OPTIONS_B_FALSE)
             p_item_result->true_branch_state |= p_item_b->false_branch_state;
     }
 }
@@ -3926,15 +3926,15 @@ static void flow1_true_false_set_set_objects_to_core_branch(struct flow1_visit_c
                 a->data[i].true_branch_state :
                 a->data[i].false_branch_state;
 
-            if ((flag & BOOLEAN_FLAG_TRUE) && (flag & BOOLEAN_FLAG_FALSE))
+            if ((flag & FLOW1_BOOLEAN_FLAG_TRUE) && (flag & FLOW1_BOOLEAN_FLAG_FALSE))
             {
             }
-            else if (flag & BOOLEAN_FLAG_FALSE)
+            else if (flag & FLOW1_BOOLEAN_FLAG_FALSE)
             {
                 p_object->current.state &= ~FLOW1_OBJECT_STATE_NOT_NULL;
                 p_object->current.state &= ~FLOW1_OBJECT_STATE_MOVED;
             }
-            else if (flag & BOOLEAN_FLAG_TRUE)
+            else if (flag & FLOW1_BOOLEAN_FLAG_TRUE)
             {
                 p_object->current.state &= ~FLOW1_OBJECT_STATE_NULL;
                 p_object->current.state &= ~FLOW1_OBJECT_STATE_ZERO;
@@ -4608,7 +4608,7 @@ static void flow1_visit_if_statement(struct flow1_visit_ctx* ctx, struct selecti
         p_selection_statement->condition->expression == NULL &&
         p_selection_statement->condition->p_init_declarator != NULL)
     {
-        hidden_expression.expression_type = PRIMARY_EXPRESSION_DECLARATOR;
+        hidden_expression.expression_type = EXPR_PRIMARY_DECLARATOR;
         hidden_expression.declarator = p_selection_statement->condition->p_init_declarator->p_declarator;
         assert(p_selection_statement->condition->p_init_declarator->p_declarator->first_token_opt != NULL);
         hidden_expression.first_token = p_selection_statement->condition->p_init_declarator->p_declarator->first_token_opt;
@@ -5087,7 +5087,7 @@ static void flow1_check_uninitialized(struct flow1_visit_ctx* ctx, struct expres
     {
         if (p_object && p_object->current.state == FLOW1_OBJECT_STATE_UNINITIALIZED)
         {
-            if (p_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR &&
+            if (p_expression->expression_type == EXPR_PRIMARY_DECLARATOR &&
                 p_expression->declarator &&
                 p_expression->declarator->name_opt)
             {
@@ -5253,7 +5253,7 @@ static void flow1_expression_bind(struct flow1_visit_ctx* ctx,
                                  struct argument_expression_list* p_argument_expression_list)
 {
 
-    if (p_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+    if (p_expression->expression_type == EXPR_PRIMARY_DECLARATOR)
     {
         assert(p_expression->declarator != NULL);
         assert(p_expression->declarator->name_opt != NULL);
@@ -5313,17 +5313,17 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
 
     switch (p_expression->expression_type)
     {
-    case EXPRESSION_TYPE_INVALID:
+    case EXPR_INVALID:
         assert(false);
         break;
 
-    case PRIMARY_EXPRESSION__FUNC__:
+    case EXPR_PRIMARY__FUNC__:
         break;
 
-    case PRIMARY_EXPRESSION_ENUMERATOR:
+    case EXPR_PRIMARY_ENUMERATOR:
 
         break;
-    case PRIMARY_EXPRESSION_DECLARATOR:
+    case EXPR_PRIMARY_DECLARATOR:
     {
         assert(p_expression->declarator != NULL);
 
@@ -5340,36 +5340,36 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
         {
             _Opt struct flow1_true_false_set_item item = { 0 };
             item.p_expression = p_expression;
-            item.true_branch_state = BOOLEAN_FLAG_TRUE;
-            item.false_branch_state = BOOLEAN_FLAG_FALSE;
+            item.true_branch_state = FLOW1_BOOLEAN_FLAG_TRUE;
+            item.false_branch_state = FLOW1_BOOLEAN_FLAG_FALSE;
             flow1_true_false_set_push_back(expr_true_false_set, &item);
             flow1_check_uninitialized(ctx, p_expression);
         }
     }
     break;
 
-    case PRIMARY_EXPRESSION_PARENTHESIS:
+    case EXPR_PRIMARY_PARENTHESIS:
         assert(p_expression->right != NULL);
         flow1_visit_expression(ctx, p_expression->right, expr_true_false_set);
         break;
 
-    case PRIMARY_EXPRESSION_STATEMENT_EXPRESSION:
+    case EXPR_PRIMARY_STATEMENT_EXPRESSION:
         assert(p_expression->compound_statement != NULL);
         flow1_visit_compound_statement(ctx, p_expression->compound_statement);
         break;
 
-    case PRIMARY_EXPRESSION_STRING_LITERAL:
-    case PRIMARY_EXPRESSION_CHAR_LITERAL:
-    case PRIMARY_EXPRESSION_NUMBER:
-    case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
+    case EXPR_PRIMARY_STRING_LITERAL:
+    case EXPR_PRIMARY_CHAR_LITERAL:
+    case EXPR_PRIMARY_NUMBER:
+    case EXPR_PRIMARY_PREDEFINED_CONSTANT:
         break;
 
-    case PRIMARY_EXPRESSION_GENERIC:
+    case EXPR_PRIMARY_GENERIC:
         assert(p_expression->generic_selection != NULL);
         flow1_visit_generic_selection(ctx, p_expression->generic_selection);
         break;
 
-    case POSTFIX_DOT:
+    case EXPR_POSTFIX_DOT:
     {
         assert(p_expression->left != NULL);
 
@@ -5381,13 +5381,13 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
 
         struct flow1_true_false_set_item item;
         item.p_expression = p_expression;
-        item.true_branch_state = BOOLEAN_FLAG_TRUE;
-        item.false_branch_state = BOOLEAN_FLAG_FALSE;
+        item.true_branch_state = FLOW1_BOOLEAN_FLAG_TRUE;
+        item.false_branch_state = FLOW1_BOOLEAN_FLAG_FALSE;
         flow1_true_false_set_push_back(expr_true_false_set, &item);
     }
     break;
 
-    case POSTFIX_ARROW:
+    case EXPR_POSTFIX_ARROW:
     {
         assert(p_expression->left != NULL);
 
@@ -5466,14 +5466,14 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
 
         struct flow1_true_false_set_item item;
         item.p_expression = p_expression;
-        item.true_branch_state = BOOLEAN_FLAG_TRUE;
-        item.false_branch_state = BOOLEAN_FLAG_FALSE;
+        item.true_branch_state = FLOW1_BOOLEAN_FLAG_TRUE;
+        item.false_branch_state = FLOW1_BOOLEAN_FLAG_FALSE;
         flow1_true_false_set_push_back(expr_true_false_set, &item);
     }
     break;
 
-    case POSTFIX_INCREMENT:
-    case POSTFIX_DECREMENT:
+    case EXPR_POSTFIX_INCREMENT:
+    case EXPR_POSTFIX_DECREMENT:
     {
         assert(p_expression->left != NULL);
 
@@ -5495,7 +5495,7 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
     }
     break;
 
-    case POSTFIX_ARRAY:
+    case EXPR_POSTFIX_ARRAY:
     {
         assert(p_expression->right != NULL);
         assert(p_expression->left != NULL);
@@ -5506,14 +5506,14 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
 
         struct flow1_true_false_set_item item;
         item.p_expression = p_expression;
-        item.true_branch_state = BOOLEAN_FLAG_TRUE;
-        item.false_branch_state = BOOLEAN_FLAG_FALSE;
+        item.true_branch_state = FLOW1_BOOLEAN_FLAG_TRUE;
+        item.false_branch_state = FLOW1_BOOLEAN_FLAG_FALSE;
         flow1_true_false_set_push_back(expr_true_false_set, &item);
 
     }
     break;
 
-    case POSTFIX_FUNCTION_CALL:
+    case EXPR_POSTFIX_FUNCTION_CALL:
     {
         if (!ctx->inside_contract)
         {
@@ -5583,13 +5583,13 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
     }
     break;
 
-    case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
+    case EXPR_POSTFIX_FUNCTION_LITERAL:
         assert(p_expression->compound_statement != NULL);
         flow1_visit_compound_statement(ctx, p_expression->compound_statement);
 
         break;
 
-    case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
+    case EXPR_POSTFIX_COMPOUND_LITERAL:
 
         assert(p_expression->left == NULL);
         assert(p_expression->right == NULL);
@@ -5615,7 +5615,7 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
 
         break;
 
-    case UNARY_EXPRESSION_STATIC_ASSERTION:
+    case EXPR_UNARY_STATIC_ASSERTION:
 
         if (p_expression->static_assertion)
         {
@@ -5623,7 +5623,7 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
         }
         break;
 
-    case UNARY_EXPRESSION_ALIGNOF_EXPRESSION:
+    case EXPR_UNARY_ALIGNOF_EXPRESSION:
 
         if (p_expression->right)
         {
@@ -5632,10 +5632,10 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
 
         break;
 
-    case UNARY_EXPRESSION_ALIGNOF_TYPE:
+    case EXPR_UNARY_ALIGNOF_TYPE:
         break;
 
-    case UNARY_EXPRESSION_ASSERT:
+    case EXPR_UNARY_ASSERT:
 
         if (p_expression->right)
         {
@@ -5650,7 +5650,7 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
 
         break;
 
-    case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
+    case EXPR_UNARY_SIZEOF_EXPRESSION:
 
         if (p_expression->right)
         {
@@ -5663,20 +5663,20 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
 
         break;
 
-    case UNARY_EXPRESSION_NEG:
-    case UNARY_EXPRESSION_PLUS:
+    case EXPR_UNARY_NEG:
+    case EXPR_UNARY_PLUS:
         assert(p_expression->right != NULL);
         flow1_visit_expression(ctx, p_expression->right, expr_true_false_set);
         break;
 
-    case UNARY_EXPRESSION_NOT:
+    case EXPR_UNARY_NOT:
         assert(p_expression->right != NULL);
         flow1_check_pointer_used_as_bool(ctx, p_expression->right);
         flow1_visit_expression(ctx, p_expression->right, expr_true_false_set);
         flow1_true_false_set_invert(expr_true_false_set);
         break;
 
-    case CHECKED_EXPRESSION:
+    case EXPR_CHECKED:
         //state before throw
         flow1_arena_merge_current_state_with_state_number(ctx, ctx->throw_join_state);
 
@@ -5687,15 +5687,15 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
 
         break;
 
-    case UNARY_EXPRESSION_SIZEOF_TYPE:
-    case UNARY_EXPRESSION_COUNTOF:
-    case UNARY_EXPRESSION_INCREMENT:
-    case UNARY_EXPRESSION_DECREMENT:
-    case UNARY_EXPRESSION_BITNOT:
-    case UNARY_EXPRESSION_ADDRESSOF:
+    case EXPR_UNARY_SIZEOF_TYPE:
+    case EXPR_UNARY_COUNTOF:
+    case EXPR_UNARY_INCREMENT:
+    case EXPR_UNARY_DECREMENT:
+    case EXPR_UNARY_BITNOT:
+    case EXPR_UNARY_ADDRESSOF:
         break;
 
-    case UNARY_EXPRESSION_CONTENT:
+    case EXPR_UNARY_CONTENT:
     {
         assert(p_expression->right != NULL);
 
@@ -5733,17 +5733,17 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
     }
     break;
 
-    case ASSIGNMENT_EXPRESSION_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_PLUS_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_MINUS_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_MULTI_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_DIV_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_MOD_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_SHIFT_LEFT_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_AND_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_OR_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
+    case EXPR_ASSIGNMENT_ASSIGN:
+    case EXPR_ASSIGNMENT_PLUS_ASSIGN:
+    case EXPR_ASSIGNMENT_MINUS_ASSIGN:
+    case EXPR_ASSIGNMENT_MULTI_ASSIGN:
+    case EXPR_ASSIGNMENT_DIV_ASSIGN:
+    case EXPR_ASSIGNMENT_MOD_ASSIGN:
+    case EXPR_ASSIGNMENT_SHIFT_LEFT_ASSIGN:
+    case EXPR_ASSIGNMENT_SHIFT_RIGHT_ASSIGN:
+    case EXPR_ASSIGNMENT_AND_ASSIGN:
+    case EXPR_ASSIGNMENT_OR_ASSIGN:
+    case EXPR_ASSIGNMENT_NOT_ASSIGN:
     {
         assert(p_expression->right != NULL);
         assert(p_expression->left != NULL);
@@ -5773,7 +5773,7 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
         //TODO
 
 
-        if (p_expression->expression_type != ASSIGNMENT_EXPRESSION_ASSIGN)
+        if (p_expression->expression_type != EXPR_ASSIGNMENT_ASSIGN)
         {
             if (flow1_object_can_be_uninitialized(p_dest_object))
             {
@@ -5844,7 +5844,7 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
         }
     }
     break;
-    case MULTIPLICATIVE_EXPRESSION_DIV:
+    case EXPR_MULTIPLICATIVE_DIV:
     {
         assert(p_expression->right != NULL);
         assert(p_expression->left != NULL);
@@ -5871,20 +5871,20 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
 
         flow1_visit_expression(ctx, p_expression->right, &right_set);
         flow1_true_false_set_merge(expr_true_false_set, &left_set, &right_set,
-            MERGE_OPTIONS_A_TRUE | MERGE_OPTIONS_B_TRUE,
-            MERGE_OPTIONS_A_TRUE | MERGE_OPTIONS_B_TRUE);
+            FLOW1_MERGE_OPTIONS_A_TRUE | FLOW1_MERGE_OPTIONS_B_TRUE,
+            FLOW1_MERGE_OPTIONS_A_TRUE | FLOW1_MERGE_OPTIONS_B_TRUE);
 
         flow1_true_false_set_destroy(&left_set);
         flow1_true_false_set_destroy(&right_set);
     }
     break;
-    case CAST_EXPRESSION:
-    case MULTIPLICATIVE_EXPRESSION_MULT:
-    case MULTIPLICATIVE_EXPRESSION_MOD:
-    case ADDITIVE_EXPRESSION_PLUS:
-    case ADDITIVE_EXPRESSION_MINUS:
-    case SHIFT_EXPRESSION_RIGHT:
-    case SHIFT_EXPRESSION_LEFT:
+    case EXPR_CAST:
+    case EXPR_MULTIPLICATIVE_MULT:
+    case EXPR_MULTIPLICATIVE_MOD:
+    case EXPR_ADDITIVE_PLUS:
+    case EXPR_ADDITIVE_MINUS:
+    case EXPR_SHIFT_RIGHT:
+    case EXPR_SHIFT_LEFT:
     {
         if (p_expression->left)
         {
@@ -5902,10 +5902,10 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
     }
     break;
 
-    case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
-    case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
-    case RELATIONAL_EXPRESSION_BIGGER_THAN:
-    case RELATIONAL_EXPRESSION_LESS_THAN:
+    case EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN:
+    case EXPR_RELATIONAL_LESS_OR_EQUAL_THAN:
+    case EXPR_RELATIONAL_BIGGER_THAN:
+    case EXPR_RELATIONAL_LESS_THAN:
     {
         assert(p_expression->right != NULL);
         assert(p_expression->left != NULL);
@@ -5928,8 +5928,8 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
                     item->false_branch_state |= item->true_branch_state;
                 }
 
-                if (p_expression->expression_type == RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN ||
-                    p_expression->expression_type == RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN)
+                if (p_expression->expression_type == EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN ||
+                    p_expression->expression_type == EXPR_RELATIONAL_LESS_OR_EQUAL_THAN)
                 {
                     flow1_true_false_set_invert(expr_true_false_set);
                 }
@@ -5950,8 +5950,8 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
                     struct flow1_true_false_set_item* item = &expr_true_false_set->data[i];
                     item->false_branch_state |= item->true_branch_state;
                 }
-                if (p_expression->expression_type == RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN ||
-                    p_expression->expression_type == RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN)
+                if (p_expression->expression_type == EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN ||
+                    p_expression->expression_type == EXPR_RELATIONAL_LESS_OR_EQUAL_THAN)
                 {
                     flow1_true_false_set_invert(expr_true_false_set);
                 }
@@ -5968,8 +5968,8 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
     }
     break;
 
-    case EQUALITY_EXPRESSION_NOT_EQUAL:
-    case EQUALITY_EXPRESSION_EQUAL:
+    case EXPR_EQUALITY_NOT_EQUAL:
+    case EXPR_EQUALITY_EQUAL:
     {
         assert(p_expression->right != NULL);
         assert(p_expression->left != NULL);
@@ -6009,7 +6009,7 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
 
                 if ((flow1_object_is_null(p_object) || flow1_object_is_zero(p_object)) && value == 0)
                 {
-                    if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL)
+                    if (p_expression->expression_type == EXPR_EQUALITY_EQUAL)
                     {
                         if (ctx->inside_assert)
                         {
@@ -6033,7 +6033,7 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
                             }
                         }
                     }
-                    else if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL)
+                    else if (p_expression->expression_type == EXPR_EQUALITY_NOT_EQUAL)
                     {
                         /*
                            runtime check is diferent from static state
@@ -6047,7 +6047,7 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
                 }
                 else if ((flow1_object_is_not_null(p_object) || flow1_object_is_not_zero(p_object)) && value == 0)
                 {
-                    if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL)
+                    if (p_expression->expression_type == EXPR_EQUALITY_EQUAL)
                     {
                         /*
                            runtime check is diferent from static state
@@ -6064,7 +6064,7 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
                                 diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "value is always non-zero");
                         }
                     }
-                    else if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL)
+                    else if (p_expression->expression_type == EXPR_EQUALITY_NOT_EQUAL)
                     {
                         /*
                            assert checks in runtime the same state we have at compile time
@@ -6095,11 +6095,11 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
             }
 
             flow1_true_false_set_swap(expr_true_false_set, &true_false_set);
-            if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL && value == 0)
+            if (p_expression->expression_type == EXPR_EQUALITY_EQUAL && value == 0)
             {
                 flow1_true_false_set_invert(expr_true_false_set);
             }
-            else if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL && value != 0)
+            else if (p_expression->expression_type == EXPR_EQUALITY_NOT_EQUAL && value != 0)
             {
                 flow1_true_false_set_invert(expr_true_false_set);
             }
@@ -6115,7 +6115,7 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
     }
     break;
 
-    case LOGICAL_OR_EXPRESSION:
+    case EXPR_LOGICAL_OR:
     {
         assert(p_expression->right != NULL);
         assert(p_expression->left != NULL);
@@ -6177,7 +6177,7 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
                 expr_true_false_set->data[index].false_branch_state |= right_set.data[k].false_branch_state;
 
                 //No path true seria possivel nao ser feito o right
-                expr_true_false_set->data[index].true_branch_state |= (BOOLEAN_FLAG_TRUE | BOOLEAN_FLAG_FALSE);
+                expr_true_false_set->data[index].true_branch_state |= (FLOW1_BOOLEAN_FLAG_TRUE | FLOW1_BOOLEAN_FLAG_FALSE);
 
             }
 
@@ -6192,7 +6192,7 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
     }
     break;
 
-    case LOGICAL_AND_EXPRESSION:
+    case EXPR_LOGICAL_AND:
     {
         assert(p_expression->right != NULL);
         assert(p_expression->left != NULL);
@@ -6252,7 +6252,7 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
 
             //right expression may not be evaluated, in this case all previous states are also valid
             //so if the variable could be true and false then we need to add            
-            expr_true_false_set->data[index].false_branch_state |= (BOOLEAN_FLAG_TRUE | BOOLEAN_FLAG_FALSE);
+            expr_true_false_set->data[index].false_branch_state |= (FLOW1_BOOLEAN_FLAG_TRUE | FLOW1_BOOLEAN_FLAG_FALSE);
 
         }
 
@@ -6263,7 +6263,7 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
     }
     break;
 
-    case INCLUSIVE_OR_EXPRESSION:
+    case EXPR_INCLUSIVE_OR:
     {
         assert(p_expression->right != NULL);
         assert(p_expression->left != NULL);
@@ -6278,8 +6278,8 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
     }
     break;
 
-    case AND_EXPRESSION:
-    case EXCLUSIVE_OR_EXPRESSION:
+    case EXPR_AND:
+    case EXPR_EXCLUSIVE_OR:
 
         assert(p_expression->right != NULL);
         assert(p_expression->left != NULL);
@@ -6290,16 +6290,16 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
 
         break;
 
-    case UNARY_EXPRESSION_TRAITS:
+    case EXPR_UNARY_TRAITS:
         break;
 
-    case UNARY_EXPRESSION_IS_SAME:
+    case EXPR_UNARY_IS_SAME:
         break;
 
-    case UNARY_DECLARATOR_ATTRIBUTE_EXPR:
+    case EXPR_UNARY_DECLARATOR_ATTRIBUTE:
         break;
 
-    case EXPRESSION_EXPRESSION:
+    case EXPR_EXPRESSION:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
 
@@ -6309,7 +6309,7 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
 
         break;
 
-    case CONDITIONAL_EXPRESSION:
+    case EXPR_CONDITIONAL:
     {
         assert(p_expression->condition_expr != NULL);
         assert(p_expression->right != NULL);
@@ -6355,13 +6355,13 @@ static void flow1_visit_expression(struct flow1_visit_ctx* ctx, struct expressio
     }
     break;
 
-    case UNARY_EXPRESSION_GCC__BUILTIN_VA_START:
-    case UNARY_EXPRESSION_GCC__BUILTIN_VA_END:
-    case UNARY_EXPRESSION_GCC__BUILTIN_VA_COPY:
-    case UNARY_EXPRESSION_GCC__BUILTIN_VA_ARG:
+    case EXPR_UNARY_GCC__BUILTIN_VA_START:
+    case EXPR_UNARY_GCC__BUILTIN_VA_END:
+    case EXPR_UNARY_GCC__BUILTIN_VA_COPY:
+    case EXPR_UNARY_GCC__BUILTIN_VA_ARG:
         break;
-    case UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF:
-    case UNARY_EXPRESSION_CONSTEVAL:
+    case EXPR_UNARY_GCC__BUILTIN_OFFSETOF:
+    case EXPR_UNARY_CONSTEVAL:
         break;
 
     }
@@ -6978,7 +6978,7 @@ static void flow1_visit_block_item_list(struct flow1_visit_ctx* ctx, struct bloc
     }
 }
 
-static enum flow1_state parse_string_state(const char* s, bool* invalid)
+static enum flow1_state flow1_parse_string_state(const char* s, bool* invalid)
 {
     //TODO faling with _
     *invalid = false;
@@ -7110,7 +7110,7 @@ static void flow1_visit_static_assertion(struct flow1_visit_ctx* ctx, struct sta
         bool is_invalid = false;
         enum flow1_state e = 0;
         if (p_static_assertion->string_literal_opt)
-            e = parse_string_state(p_static_assertion->string_literal_opt->lexeme, &is_invalid);
+            e = flow1_parse_string_state(p_static_assertion->string_literal_opt->lexeme, &is_invalid);
         if (is_invalid)
         {
             diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assertion->first_token, NULL, "invalid parameter %s", p_static_assertion->string_literal_opt->lexeme);
@@ -7172,7 +7172,7 @@ static void flow1_visit_static_assertion(struct flow1_visit_ctx* ctx, struct sta
                 {
                     bool is_invalid = false;
                     enum flow1_state e =
-                        parse_string_state(p_static_assertion->string_literal_opt->lexeme, &is_invalid);
+                        flow1_parse_string_state(p_static_assertion->string_literal_opt->lexeme, &is_invalid);
 
                     if (!is_invalid)
                     {

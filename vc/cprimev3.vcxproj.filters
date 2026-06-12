@@ -64,6 +64,9 @@
     <ClCompile Include="..\src\compile.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\flow3.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\console.h">
@@ -123,5 +126,12 @@
     <ClInclude Include="..\src\compile.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\flow3.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="flow2.md" />
+    <None Include="manual.md" />
   </ItemGroup>
 </Project>

@@ -30,13 +30,18 @@ unsigned long long target_unsigned_max(enum  target target, enum object_type typ
 
 enum object_value_state
 {
-    CONSTANT_VALUE_STATE_UNINITIALIZED,
-    CONSTANT_VALUE_STATE_ANY,
+    CONSTANT_VALUE_STATE_UNINITIALIZED = 0,
     CONSTANT_VALUE_STATE_CONSTANT,
-
-    /*flow analysis*/
-    CONSTANT_VALUE_NOT_EQUAL,
     CONSTANT_VALUE_EQUAL,
+    CONSTANT_VALUE_STATE_ANY,    
+ };
+
+enum make_state
+{
+    MAKE_STATE_ZERO,
+    MAKE_STATE_ZERO_CONSTANT,
+    MAKE_STATE_UNITIALIZED,
+    MAKE_STATE_ANY
 };
 
 struct object_list
@@ -75,6 +80,8 @@ void object_print_value_debug(const struct object* a);
 void object_destroy(_Opt _Dtor struct object* p);
 void object_delete(struct object* _Opt _Owner p);
 bool object_has_constant_value(const struct object* a);
+bool object_has_known_value(const struct object* a);
+
 bool object_has_all_members_constants(const struct object* object);
 
 
@@ -148,10 +155,10 @@ bool signed_long_long_mul(_Ctor signed long long* result, signed long long a, si
 
 void object_default_initialization(struct object* p_object, bool is_constant);
 
-struct object* _Opt object_get_member(struct object* p_object, size_t index);
+struct object* _Opt object_get_member(const struct object* p_object, size_t index);
 
-int make_object_with_member_designator(const struct type* p_type, struct object* obj, const char* member_designator, enum target target);
-int make_object(const struct type* p_type, struct object* obj, enum target target);
+int make_object_with_member_designator(const struct type* p_type, struct object* obj, const char* member_designator, enum make_state make_state, enum target target);
+int make_object(const struct type* p_type, struct object* obj, enum make_state make_state, enum target target);
 struct object object_dup(const struct object* src);
 
 bool object_is_reference(const struct object* p_object);

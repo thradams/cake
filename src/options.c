@@ -306,18 +306,9 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-debug") == 0)
+        if (strcmp(argv[i], "-static-debug") == 0)
         {
             options->do_static_debug = true;
-            if (i + 1 < argc)
-            {
-                i++;
-                options->static_debug_lines = atoi(argv[i]);
-            }
-            else
-            {
-                //ops
-            }
             continue;
         }
 
@@ -357,6 +348,12 @@ int fill_options(struct options* options,
         {
             options->test_mode = true;
             options->test_mode_inout = true;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-flow3") == 0)
+        {
+            options->flow3 = true;            
             continue;
         }
 

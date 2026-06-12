@@ -354,25 +354,20 @@ int get_self_path(char* buffer, int maxsize)
 
 }
 #elif defined __APPLE__
+#include <mach-o/dyld.h>
 
 int get_self_path(char* buffer, int maxsize) {
-    //uint32_t size = 0;
-
-    // First call gets required buffer size
-    //_NSGetExecutablePath(NULL, &size);
-
-    // Allocate buffer for the raw path
-
-    if (_NSGetExecutablePath(buffer,maxsize) != 0) {
-        return NULL;
+    if (_NSGetExecutablePath(buffer, (uint32_t*)&maxsize) != 0) {
+        return 1;
     }
 
-    // Canonicalize (resolve symlinks, ., ..)
     char resolved[4096];
     if (!realpath(buffer, resolved)) {
-        return NULL;
+        return 1;
     }
-    
+
+    strncpy(buffer, resolved, maxsize - 1);
+    buffer[maxsize - 1] = '\0';
     return 0;
 }
 #endif

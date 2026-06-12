@@ -478,6 +478,7 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD__IMAGINARY:
     case TK_KEYWORD__NORETURN:
     case TK_KEYWORD__STATIC_ASSERT:
+    case TK_KEYWORD__COMPILE_ASSERT:
     case TK_KEYWORD_ASSERT: /*extension*/
     case TK_KEYWORD__THREAD_LOCAL:
 
@@ -493,8 +494,10 @@ bool token_is_identifier_or_keyword(enum token_type t)
 
         /*cake extension*/
     case TK_KEYWORD_CAKE_OWNER:
-    case TK_KEYWORD__CTOR:
-    case TK_KEYWORD__DTOR:
+    case TK_KEYWORD_CAKE_CTOR:
+    case TK_KEYWORD_CAKE_DTOR:
+    case TK_KEYWORD_CAKE_UNINIT:
+    case TK_KEYWORD_CAKE_CLEAR:
     case TK_KEYWORD_CAKE_VIEW:
     case TK_KEYWORD_CAKE_OPT:
 

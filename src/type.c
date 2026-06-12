@@ -22,7 +22,9 @@
      TYPE_QUALIFIER_CAKE_VIEW  | \
      TYPE_QUALIFIER_CAKE_OPT   | \
      TYPE_QUALIFIER_CAKE_DTOR  | \
-     TYPE_QUALIFIER_CAKE_CTOR)
+     TYPE_QUALIFIER_CAKE_CTOR  | \
+     TYPE_QUALIFIER_CAKE_UNINIT | \
+     TYPE_QUALIFIER_CAKE_CLEAR)
 
 bool is_automatic_variable(enum storage_class_specifier_flags f)
 {
@@ -154,6 +156,12 @@ void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qual
 
     if (e_type_qualifier_flags & TYPE_QUALIFIER_CAKE_DTOR)
         print_item(ss, first, "_Dtor");
+
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_CAKE_UNINIT)
+        print_item(ss, first, "_Uninit");
+
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_CAKE_CLEAR)
+        print_item(ss, first, "_Clear");
 
     if (e_type_qualifier_flags & TYPE_QUALIFIER_CAKE_VIEW)
         print_item(ss, first, "_View");
@@ -798,6 +806,36 @@ bool type_is_dtor(const struct type* p_type)
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_DTOR;
 }
 
+bool type_is_uninit(const struct type* p_type)
+{
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_UNINIT;
+}
+
+bool type_is_clear(const struct type* p_type)
+{
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_CLEAR;
+}
+
+bool type_is_pointed_const(const struct type* p_type)
+{
+    if (!type_is_pointer(p_type))
+        return false;
+
+    assert(p_type->next != NULL);
+
+    return type_is_const(p_type->next);
+}
+
+bool type_is_pointed_ctor(const struct type* p_type)
+{
+    if (!type_is_pointer(p_type))
+        return false;
+
+    assert(p_type->next != NULL);
+
+    return type_is_ctor(p_type->next);
+}
+
 bool type_is_pointed_dtor(const struct type* p_type)
 {
     if (!type_is_pointer(p_type))
@@ -806,6 +844,26 @@ bool type_is_pointed_dtor(const struct type* p_type)
     assert(p_type->next != NULL);
 
     return type_is_dtor(p_type->next);
+}
+
+bool type_is_pointed_uninit(const struct type* p_type)
+{
+    if (!type_is_pointer(p_type))
+        return false;
+
+    assert(p_type->next != NULL);
+
+    return type_is_uninit(p_type->next);
+}
+
+bool type_is_pointed_clear(const struct type* p_type)
+{
+    if (!type_is_pointer(p_type))
+        return false;
+
+    assert(p_type->next != NULL);
+
+    return type_is_clear(p_type->next);
 }
 
 bool type_is_owner(const struct type* p_type)
@@ -1187,6 +1245,14 @@ bool type_is_unsigned_integer(const struct type* p_type)
     return false;
 }
 
+bool type_is_signed(const struct type* p_type)
+{
+    if (type_is_bool(p_type))
+        return false;
+
+    return !(p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED);
+}
+
 bool type_is_signed_integer(const struct type* p_type)
 {
     if (type_is_bool(p_type))
@@ -1488,7 +1554,7 @@ struct type type_add_pointer(const struct type* p_type, bool null_checks_enabled
         if (p == NULL) throw;
         struct type r0 = type_dup(p_type);
         *p = r0;
-        struct type r2 = {0};
+        struct type r2 = { 0 };
         r2.next = p;
         r2.category = TYPE_CATEGORY_POINTER;
         r2.storage_class_specifier_flags = p_type->storage_class_specifier_flags;
@@ -1498,7 +1564,7 @@ struct type type_add_pointer(const struct type* p_type, bool null_checks_enabled
     {
     }
 
-    struct type r = {0};
+    struct type r = { 0 };
     return r;
 }
 
@@ -3425,7 +3491,8 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
             enum type_qualifier_flags bq = pb->type_qualifier_flags;
 
             unsigned int all = (TYPE_QUALIFIER_CAKE_OWNER | TYPE_QUALIFIER_CAKE_VIEW |
-             TYPE_QUALIFIER_CAKE_OPT | TYPE_QUALIFIER_CAKE_DTOR | TYPE_QUALIFIER_CAKE_CTOR);
+             TYPE_QUALIFIER_CAKE_OPT | TYPE_QUALIFIER_CAKE_DTOR | TYPE_QUALIFIER_CAKE_CTOR |
+             TYPE_QUALIFIER_CAKE_UNINIT | TYPE_QUALIFIER_CAKE_CLEAR);
 
             aq = aq & ~all;
             bq = bq & ~all;

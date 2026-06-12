@@ -1,50 +1,30 @@
-#include <stdio.h>
-#include <stdlib.h>
 
-void f(int n, int m, int (*p)[n][m])
+#pragma flow enable
+struct X {
+    int a, b;
+};
+void f(int c)
 {
-    for (int i = 0; i < n; i++)
+    struct X x = {1, 2};
+    struct X y= {3, 2};
+    struct X *p;
+
+    //x.a = 1;
+    //x.b = 2;
+
+
+    //y.a = 3;
+    //y.b = 4;
+    
+    if (c)
     {
-
-        for (int j = 0; j < m; j++)
-        {
-            printf("%d ", (*p)[i][j]);
-
-        }
-        printf("\n");
+          p = &x;
     }
-    printf("\n");
-}
-
-void f2(int n, int m, int a[n][m])
-{
-    for (int i = 0; i < n; i++)
+    else
     {
+          p = &y;
 
-        for (int j = 0; j < m; j++)
-        {
-            printf("%d ", a[i][j]);
-
-        }
-        printf("\n");
     }
-    printf("\n");
+    static_debug((*p).a);
 }
-
-int main(void)
-{
-    int a[2][3] = {
-         1, 2,
-         3, 4,
-         5, 6
-    };
-    f(2, 3, &a);
-
-
-    f2(2, 3, a);
-
-    int n = 2, m = 3;
-    int (*p)[n][m] = &a;
-    p = &a;
-    f(2, 3, p);
-}
+ 

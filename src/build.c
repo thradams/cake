@@ -30,6 +30,7 @@
     " defer.c "         \
     " codegen.c "             \
     " flow1.c "                \
+    " flow3.c "                \
     " error.c "               \
     " target.c "              \
     " type.c "
@@ -160,8 +161,7 @@ int main()
     generate_doc("../README.md", "./web/index.html");
     generate_doc("../warnings.md", "./web/warnings.html");
     generate_doc("../ownership.md", "./web/ownership.html");
-    generate_doc("../code.md", "./web/code.html");
-
+   
     remove("hoedown.exe");
 
 
@@ -296,6 +296,7 @@ int main()
 #ifdef TEST
            "-DTEST"
 #endif
+           " -g "
            " -Wall "
            " -D_DEFAULT_SOURCE "
            " -Wno-unknown-pragmas "
@@ -383,6 +384,9 @@ int main()
 
     execute_cmd(RUN "cake89  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode-in-out");
     execute_cmd(RUN "cake89  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
+
+    execute_cmd(RUN "cake89  -flow3 -fdiagnostics-color=never ../tests/flow3/*.c -test-mode");
+
 
     printf("Other test cases\n");
     printf("cake ../tests/unit-tests/failing/*.c -test-mode\n");

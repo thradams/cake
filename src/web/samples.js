@@ -3763,3 +3763,1618 @@ auto i64_max1 = 9'223'372'036'854'775'808;
 auto u64_max = 18'446'744'073'709'551'615;
 
 `;
+
+sample["Flow3"] = [];
+
+sample["Flow3"]["static init"] =
+    `
+    #pragma flow enable
+
+constexpr int a = 1;
+constexpr int b = 2;
+int c;
+
+void f()
+{
+    compile_assert(a == 1);
+    compile_assert(b == 2);
+    c = 3;
+    compile_assert(c == 3);
+
+    c = 4;
+    compile_assert(c == 4);
+}
+
+`;
+
+
+sample["Flow3"]["if"] =
+    `
+
+#pragma flow enable
+
+void f(int * p)
+{
+    if (p)
+    {
+        compile_assert(p != 0);
+    }
+    else
+    {
+        compile_assert(p == 0);
+    }
+}
+
+
+
+`;
+
+
+sample["Flow3"]["test"] =
+    `
+
+#pragma flow enable
+
+/*
+ * 1. NOT_EQUAL 0 — pointer in true branch
+ *    p has NOT_EQUAL 0 alternative → p != 0 folds to EQUAL 1
+ */
+void f1(int * p)
+{
+    if (p)
+    {
+        compile_assert(p != 0);   /* ok */
+    }
+    else
+    {
+        compile_assert(p == 0);   /* ok */
+    }
+}
+
+/*
+ * 2. EQUAL — integer with known value
+ */
+void f2(void)
+{
+    int a = 1;
+    compile_assert(a == 1);   /* ok */
+    compile_assert(a != 0);   /* ok */
+}
+
+/*
+ * 3. Multi-value — EQUAL alternatives, proven by enumeration
+ *    a is either 1 or 2; compile_assert proves the disjunction holds
+ *    for every combination.
+ */
+void f3(int c)
+{
+    int a;
+    if (c)
+        a = 1;
+    else
+        a = 2;
+    compile_assert(a == 1 || a == 2);   /* ok — both alternatives satisfy */
+    compile_assert(a != 0);             /* ok — neither 1 nor 2 is zero   */
+}
+
+/*
+ * 4. UNINITIALIZED — should warn about uninitialized use,
+ *    and compile_assert fails because value is unknown.
+ */
+void f4(void)
+{
+    int a;
+    compile_assert(a != 0);   /* warning: uninitialized use; compile_state failed */
+}
+
+/*
+ * 5. ANY — value completely unknown, compile_assert cannot prove anything.
+ */
+void f5(int x)
+{
+    compile_assert(x != 0);   /* compile_state any */
+}
+
+/*
+ * 6. NOT_EQUAL nonzero — x != 2 means x could be 0 or nonzero,
+ *    so x != 0 is not provable.
+ */
+void f6(int x)
+{
+    if (x != 2)
+    {
+        compile_assert(x != 2);   /* ok — NOT_EQUAL 2, definitely not 2 */
+        compile_assert(x != 0);   /* compile_state any — 0 is still possible */
+    }
+}
+
+/*
+ * 7. Null pointer check — EQUAL 0 alternative in false branch
+ */
+void f7(int * p)
+{
+    if (!p)
+    {
+        compile_assert(p == 0);   /* ok */
+    }
+}
+
+/*
+ * 8. Multiple variables — cross-product enumeration
+ *    Both a and b are 0 or 1; a+b could be 0,1,2 but a||b is true
+ *    whenever at least one is nonzero.  compile_assert(a || b) cannot
+ *    be proven because the {a=0, b=0} combination fails.
+ */
+void f8(int c1, int c2)
+{
+    int a, b;
+    if (c1) a = 1; else a = 0;
+    if (c2) b = 1; else b = 0;
+
+    compile_assert(a == 0 || a == 1);   /* ok — exhaustive */
+    compile_assert(a || b);             /* compile_state any — {0,0} fails */
+}
+
+/*
+ * 9. Pointer equality — EQUAL null vs NOT_EQUAL null
+ */
+void f9(int * _Opt p)
+{
+    if (p != 0)
+    {
+        compile_assert(p != 0);   /* ok */
+    }
+    else
+    {
+        compile_assert(p == 0);   /* ok */
+    }
+}
+
+/*
+ * 10. Chained narrowing — after two checks, value is pinned
+ */
+void f10(int x)
+{
+    if (x == 3)
+    {
+        compile_assert(x == 3);   /* ok — EQUAL 3 */
+        compile_assert(x != 0);   /* ok — EQUAL 3, nonzero */
+        compile_assert(x != 4);   /* ok — EQUAL 3, not 4 */
+    }
+}
+
+`;
+
+sample["Flow3"]["test2"] =
+`
+#pragma safety enable
+
+/* -----------------------------------------------------------------------
+ * A. Basic narrowing — the fixed bug: x == 3 must give x == 3, not x != 0
+ * ----------------------------------------------------------------------- */
+
+void f_eq_nonzero_true_branch(int x)
+{
+    if (x == 3)
+    {
+        compile_assert(x == 3);          /* was failing: engine reported x != 0 */
+    }
+}
+
+void f_eq_nonzero_false_branch(int x)
+{
+    if (x == 3)
+    {
+        /* nothing */
+    }
+    else
+    {
+        compile_assert(x != 3);          /* false branch: x definitively != 3 */
+    }
+}
+
+void f_eq_one_true_branch(int x)
+{
+    if (x == 1)
+    {
+        compile_assert(x == 1);
+    }
+}
+
+void f_eq_neg_true_branch(int x)
+{
+    if (x == -1)
+    {
+        compile_assert(x == -1);
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * B. != with nonzero constant
+ * ----------------------------------------------------------------------- */
+
+void f_neq_nonzero_true_branch(int x)
+{
+    if (x != 2)
+    {
+        compile_assert(x != 2);          /* was failing after first fix */
+    }
+}
+
+void f_neq_nonzero_false_branch(int x)
+{
+    if (x != 2)
+    {
+        /* nothing */
+    }
+    else
+    {
+        compile_assert(x == 2);          /* false branch of !=: x must be 2 */
+    }
+}
+
+void f_neq_one_true_branch(int x)
+{
+    if (x != 1)
+    {
+        compile_assert(x != 1);
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * C. compile_assert re-evaluates the same condition inside the branch
+ * ----------------------------------------------------------------------- */
+
+void f_compile_assert_same_cond_eq(int x)
+{
+    if (x == 5)
+    {
+        compile_assert(x == 5);
+        compile_assert(x != 4);          /* 5 != 4 */
+        compile_assert(x != 0);          /* 5 != 0 */
+    }
+}
+
+void f_compile_assert_same_cond_neq(int x)
+{
+    if (x != 7)
+    {
+        compile_assert(x != 7);
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * D. Multi-alternative variable set by if/else
+ * ----------------------------------------------------------------------- */
+
+void f_two_alternatives(int c)
+{
+    int a;
+    if (c)
+        a = 1;
+    else
+        a = 2;
+
+    compile_assert(a == 1 || a == 2);    /* the f3 regression */
+    compile_assert(a != 3);              /* 1!=3 and 2!=3 */
+    compile_assert(a != 0);              /* 1!=0 and 2!=0 */
+}
+
+void f_three_alternatives(int c)
+{
+    int a;
+    if (c == 1)
+        a = 10;
+    else if (c == 2)
+        a = 20;
+    else
+        a = 30;
+
+    compile_assert(a == 10 || a == 20 || a == 30);
+    compile_assert(a != 0);
+}
+
+void f_same_value_both_branches(int c)
+{
+    int a;
+    if (c)
+        a = 5;
+    else
+        a = 5;
+
+    compile_assert(a == 5);              /* single known value after merge */
+}
+
+/* -----------------------------------------------------------------------
+ * E. Logical OR over multi-alternative variable
+ * ----------------------------------------------------------------------- */
+
+void f_or_two_alternatives(int c)
+{
+    int a;
+    if (c)
+        a = 1;
+    else
+        a = 2;
+
+    compile_assert(a == 1 || a == 2);
+}
+
+void f_or_with_known_true_left(int x)
+{
+    if (x == 4)
+    {
+        compile_assert(x == 4 || x == 9);   /* left is true, OR is true */
+    }
+}
+
+void f_or_with_known_true_right(int x)
+{
+    if (x == 9)
+    {
+        compile_assert(x == 4 || x == 9);   /* right is true, OR is true */
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * F. Logical AND
+ * ----------------------------------------------------------------------- */
+
+void f_and_both_known(int x)
+{
+    if (x == 6)
+    {
+        compile_assert(x == 6 && x != 7);   /* 6==6 true, 6!=7 true */
+    }
+}
+
+void f_and_short_circuit(int x)
+{
+    if (x == 0)
+    {
+        compile_assert(x == 0 && x != 1);
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * G. Nested / chained equality tests
+ * ----------------------------------------------------------------------- */
+
+void f_nested_eq(int x)
+{
+    if (x == 3)
+    {
+        if (x == 3)                      /* always true inside outer true branch */
+        {
+            compile_assert(x == 3);
+        }
+    }
+}
+
+void f_inner_refine(int x)
+{
+    /* outer narrows to != 0; inner narrows further to == 5 */
+    if (x != 0)
+    {
+        if (x == 5)
+        {
+            compile_assert(x == 5);
+            compile_assert(x != 0);
+        }
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * H. Commuted operands: constant on left
+ * ----------------------------------------------------------------------- */
+
+void f_commuted_eq(int x)
+{
+    if (3 == x)
+    {
+        compile_assert(x == 3);
+        compile_assert(3 == x);
+    }
+}
+
+void f_commuted_neq(int x)
+{
+    if (2 != x)
+    {
+        compile_assert(x != 2);
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * I. Zero boundary: == 0 and != 0 must still work after refactor
+ * ----------------------------------------------------------------------- */
+
+void f_eq_zero_true_branch(int x)
+{
+    if (x == 0)
+    {
+        compile_assert(x == 0);
+    }
+}
+
+void f_eq_zero_false_branch(int x)
+{
+    if (x == 0)
+    {
+        /* nothing */
+    }
+    else
+    {
+        compile_assert(x != 0);
+    }
+}
+
+void f_neq_zero_true_branch(int x)
+{
+    if (x != 0)
+    {
+        compile_assert(x != 0);
+    }
+}
+
+void f_neq_zero_false_branch(int x)
+{
+    if (x != 0)
+    {
+        /* nothing */
+    }
+    else
+    {
+        compile_assert(x == 0);
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * J. Sequential narrowing: two independent comparisons in sequence
+ * ----------------------------------------------------------------------- */
+
+void f_sequential_eq(int x, int y)
+{
+    if (x == 3)
+    {
+        if (y == 7)
+        {
+            compile_assert(x == 3);
+            compile_assert(y == 7);
+            compile_assert(x != y);      /* 3 != 7 */
+        }
+    }
+}
+
+void f_sequential_neq(int x, int y)
+{
+    if (x != 3)
+    {
+        if (y != 3)
+        {
+            compile_assert(x != 3);
+            compile_assert(y != 3);
+        }
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * K. NOT_EQUAL V (V != value) case: engine must not confuse the two
+ * ----------------------------------------------------------------------- */
+
+void f_neq_different_constants(int x)
+{
+    /* After if (x != 5): x has NOT_EQUAL 5 in the map.
+       Evaluating x != 3 inside: NOT_EQUAL 5 does not tell us about x vs 3,
+       so the engine must NOT fold this to a known value — it should stay ANY.
+       We cannot compile_assert(x != 3) here; just verify no crash / misfire. */
+    if (x != 5)
+    {
+        /* x != 5, but x could be 3 or not — compile_assert(x != 3) must NOT pass */
+        (void)x;
+    }
+}
+
+void f_neq_same_constant_twice(int x)
+{
+    if (x != 4)
+    {
+        compile_assert(x != 4);         /* same constant: must fold to true */
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * L. Tautologies and contradictions detectable from two-alternative state
+ * ----------------------------------------------------------------------- */
+
+void f_tautology_from_alternatives(int c)
+{
+    int a;
+    if (c)
+        a = 0;
+    else
+        a = 1;
+
+    /* Every alternative (0 and 1) satisfies a == 0 || a == 1 */
+    compile_assert(a == 0 || a == 1);
+
+    /* Every alternative satisfies a != 2 */
+    compile_assert(a != 2);
+}
+
+void f_eq_after_known_assign(int x)
+{
+    int a = 42;
+    compile_assert(a == 42);
+    compile_assert(a != 0);
+    compile_assert(a != 41);
+    compile_assert(a != 43);
+    (void)x;
+}
+`;
+sample["Flow3"]["test3"] =
+`
+#pragma flow enable
+
+/*
+ * flow3_relational_tests.c
+ *
+ * Tests for compile_assert() under relational operators (< > <= >=).
+ *
+ * Naming convention:
+ *   f_rel_<scenario>
+ *
+ * Each function documents what the analyser should be able to prove
+ * at the point of the compile_assert().
+ */
+
+/* -----------------------------------------------------------------------
+ * 1. Single variable narrowed by == then tested with a constant
+ * --------------------------------------------------------------------- */
+
+/* x==5, prove x > 3 */
+void f_rel_eq_then_gt_const(int x)
+{
+    if (x == 5)
+    {
+        compile_assert(x > 3);   /* 5 > 3 */
+    }
+}
+
+/* x==5, prove x < 10 */
+void f_rel_eq_then_lt_const(int x)
+{
+    if (x == 5)
+    {
+        compile_assert(x < 10);  /* 5 < 10 */
+    }
+}
+
+/* x==5, prove x >= 5 */
+void f_rel_eq_then_ge_const(int x)
+{
+    if (x == 5)
+    {
+        compile_assert(x >= 5);  /* 5 >= 5 */
+    }
+}
+
+/* x==5, prove x <= 5 */
+void f_rel_eq_then_le_const(int x)
+{
+    if (x == 5)
+    {
+        compile_assert(x <= 5);  /* 5 <= 5 */
+    }
+}
+
+/* x==5, prove 3 < x  (constant on left) */
+void f_rel_const_lt_eq(int x)
+{
+    if (x == 5)
+    {
+        compile_assert(3 < x);   /* 3 < 5 */
+    }
+}
+
+/* x==5, prove 10 > x  (constant on left) */
+void f_rel_const_gt_eq(int x)
+{
+    if (x == 5)
+    {
+        compile_assert(10 > x);  /* 10 > 5 */
+    }
+}
+
+/* x==5, prove 5 <= x  (constant on left, equal boundary) */
+void f_rel_const_le_eq(int x)
+{
+    if (x == 5)
+    {
+        compile_assert(5 <= x);  /* 5 <= 5 */
+    }
+}
+
+/* x==5, prove 5 >= x  (constant on left, equal boundary) */
+void f_rel_const_ge_eq(int x)
+{
+    if (x == 5)
+    {
+        compile_assert(5 >= x);  /* 5 >= 5 */
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * 2. Two variables, both narrowed by ==, compared with each other
+ * --------------------------------------------------------------------- */
+
+/* x==3, y==7, prove x < y */
+void f_rel_two_vars_lt(int x, int y)
+{
+    if (x == 3)
+    {
+        if (y == 7)
+        {
+            compile_assert(x < y);   /* 3 < 7 */
+        }
+    }
+}
+
+/* x==3, y==7, prove x <= y */
+void f_rel_two_vars_le(int x, int y)
+{
+    if (x == 3)
+    {
+        if (y == 7)
+        {
+            compile_assert(x <= y);  /* 3 <= 7 */
+        }
+    }
+}
+
+/* x==7, y==3, prove x > y */
+void f_rel_two_vars_gt(int x, int y)
+{
+    if (x == 7)
+    {
+        if (y == 3)
+        {
+            compile_assert(x > y);   /* 7 > 3 */
+        }
+    }
+}
+
+/* x==7, y==3, prove x >= y */
+void f_rel_two_vars_ge(int x, int y)
+{
+    if (x == 7)
+    {
+        if (y == 3)
+        {
+            compile_assert(x >= y);  /* 7 >= 3 */
+        }
+    }
+}
+
+/* x==5, y==5, prove x <= y (equal values, <= boundary) */
+void f_rel_two_vars_le_equal(int x, int y)
+{
+    if (x == 5)
+    {
+        if (y == 5)
+        {
+            compile_assert(x <= y);  /* 5 <= 5 */
+        }
+    }
+}
+
+/* x==5, y==5, prove x >= y (equal values, >= boundary) */
+void f_rel_two_vars_ge_equal(int x, int y)
+{
+    if (x == 5)
+    {
+        if (y == 5)
+        {
+            compile_assert(x >= y);  /* 5 >= 5 */
+        }
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * 3. Nested outer != narrows to inner == then relational check
+ *    (exercises the prior fix: NOT_EQUAL 0 + inner EQUAL value)
+ * --------------------------------------------------------------------- */
+
+/* outer: x != 0; inner: x == 5; prove x > 0 */
+void f_rel_outer_ne_inner_eq_gt(int x)
+{
+    if (x != 0)
+    {
+        if (x == 5)
+        {
+            compile_assert(x > 0);   /* 5 > 0 */
+        }
+    }
+}
+
+/* outer: x != 0; inner: x == 5; prove x < 10 */
+void f_rel_outer_ne_inner_eq_lt(int x)
+{
+    if (x != 0)
+    {
+        if (x == 5)
+        {
+            compile_assert(x < 10);  /* 5 < 10 */
+        }
+    }
+}
+
+/* outer: x != 0; inner: x == 5, y == 2; prove x > y */
+void f_rel_outer_ne_inner_eq_two_vars(int x, int y)
+{
+    if (x != 0)
+    {
+        if (x == 5)
+        {
+            if (y == 2)
+            {
+                compile_assert(x > y);   /* 5 > 2 */
+            }
+        }
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * 4. Negative values
+ * --------------------------------------------------------------------- */
+
+/* x==-3, prove x < 0 */
+void f_rel_negative_lt_zero(int x)
+{
+    if (x == -3)
+    {
+        compile_assert(x < 0);   /* -3 < 0 */
+    }
+}
+
+/* x==-3, y==-1, prove x < y */
+void f_rel_negative_two_vars(int x, int y)
+{
+    if (x == -3)
+    {
+        if (y == -1)
+        {
+            compile_assert(x < y);   /* -3 < -1 */
+        }
+    }
+}
+
+/* x==-1, y==-3, prove x > y */
+void f_rel_negative_gt(int x, int y)
+{
+    if (x == -1)
+    {
+        if (y == -3)
+        {
+            compile_assert(x > y);   /* -1 > -3 */
+        }
+    }
+}
+
+/* x==-5, prove -10 < x */
+void f_rel_negative_const_left(int x)
+{
+    if (x == -5)
+    {
+        compile_assert(-10 < x);  /* -10 < -5 */
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * 5. Boundary / edge cases
+ * --------------------------------------------------------------------- */
+
+/* x==0, prove x >= 0 (zero is >= zero) */
+void f_rel_zero_ge(int x)
+{
+    if (x == 0)
+    {
+        compile_assert(x >= 0);  /* 0 >= 0 */
+    }
+}
+
+/* x==0, prove x <= 0 */
+void f_rel_zero_le(int x)
+{
+    if (x == 0)
+    {
+        compile_assert(x <= 0);  /* 0 <= 0 */
+    }
+}
+
+/* x==1, prove x > 0 (smallest positive) */
+void f_rel_one_gt_zero(int x)
+{
+    if (x == 1)
+    {
+        compile_assert(x > 0);   /* 1 > 0 */
+    }
+}
+
+/* x==-1, prove x < 0 (largest negative) */
+void f_rel_neg_one_lt_zero(int x)
+{
+    if (x == -1)
+    {
+        compile_assert(x < 0);   /* -1 < 0 */
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * 6. Three variables all narrowed, chained relational
+ * --------------------------------------------------------------------- */
+
+/* x==1, y==2, z==3, prove x < z */
+void f_rel_three_vars_skip(int x, int y, int z)
+{
+    if (x == 1)
+    {
+        if (y == 2)
+        {
+            if (z == 3)
+            {
+                compile_assert(x < z);   /* 1 < 3  (y not used) */
+            }
+        }
+    }
+}
+
+/* x==10, y==20, z==30, prove y < z */
+void f_rel_three_vars_middle(int x, int y, int z)
+{
+    if (x == 10)
+    {
+        if (y == 20)
+        {
+            if (z == 30)
+            {
+                compile_assert(y < z);   /* 20 < 30 */
+            }
+        }
+    }
+}
+
+`;
+
+sample["Flow3"]["test4"] =
+    `
+    #pragma flow enable
+
+/*
+ * flow3_logical_tests.c
+ *
+ * Tests for compile_assert() involving logical operators (&& and ||).
+ *
+ * Key semantics implemented by the analyser:
+ *
+ *   L && R  — R is visited on left_true map; true result = right_pair.p_true
+ *             (both L and R narrowings are active inside the true branch)
+ *
+ *   L || R  — R is visited on left_false map; true result = merge(left_true, right_true)
+ *             (on the false branch, both L and R were false)
+ *
+ * Naming: f_logical_<scenario>
+ */
+
+/* -----------------------------------------------------------------------
+ * 1. && used as the if-condition: both halves narrow the body
+ * --------------------------------------------------------------------- */
+
+/* if (x == 3 && y == 7): body knows x==3 AND y==7 */
+void f_logical_and_two_eq(int x, int y)
+{
+    if (x == 3 && y == 7)
+    {
+        compile_assert(x == 3);   /* left narrowing active */
+        compile_assert(y == 7);   /* right narrowing active */
+        compile_assert(x != y);   /* 3 != 7 — two-var equality */
+        compile_assert(x < y);    /* 3 < 7  — two-var relational */
+    }
+}
+
+/* if (x == 5 && y == 5): body knows both are 5 */
+void f_logical_and_same_value(int x, int y)
+{
+    if (x == 5 && y == 5)
+    {
+        compile_assert(x == y);   /* 5 == 5 */
+        compile_assert(x <= y);   /* 5 <= 5 */
+        compile_assert(x >= y);   /* 5 >= 5 */
+    }
+}
+
+/* three-way &&: x==1 && y==2 && z==3 */
+void f_logical_and_three(int x, int y, int z)
+{
+    if (x == 1 && y == 2 && z == 3)
+    {
+        compile_assert(x < y);    /* 1 < 2 */
+        compile_assert(y < z);    /* 2 < 3 */
+        compile_assert(x < z);    /* 1 < 3 */
+    }
+}
+
+/* && with relational on left: x > 0 && x == 5 */
+void f_logical_and_rel_then_eq(int x)
+{
+    if (x > 0 && x == 5)
+    {
+        compile_assert(x == 5);   /* right side narrows to exactly 5 */
+        compile_assert(x > 0);    /* 5 > 0 */
+        compile_assert(x > 3);    /* 5 > 3 */
+    }
+}
+
+/* && with != on left narrows further on right */
+void f_logical_and_ne_then_eq(int x)
+{
+    if (x != 0 && x == 7)
+    {
+        compile_assert(x == 7);   /* right fully narrows */
+        compile_assert(x > 0);    /* 7 > 0 */
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * 2. compile_assert on the && expression itself
+ *    (result object is EQUAL 1 when both sides are provably true)
+ * --------------------------------------------------------------------- */
+
+/* x==3, y==7: (x == 3 && y == 7) is provably 1 */
+void f_logical_and_result_true(int x, int y)
+{
+    if (x == 3)
+    {
+        if (y == 7)
+        {
+            compile_assert(x == 3 && y == 7);   /* both known true */
+        }
+    }
+}
+
+/* x==3: (x == 3 && x > 0) is provably 1 */
+void f_logical_and_result_single_var(int x)
+{
+    if (x == 3)
+    {
+        compile_assert(x == 3 && x > 0);   /* 3==3 && 3>0 */
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * 3. || used as the if-condition: false branch knows both sides were false
+ * --------------------------------------------------------------------- */
+
+/* false branch of (x == 3 || y == 7): x != 3 AND y != 7 */
+void f_logical_or_false_branch(int x, int y)
+{
+    if (x == 3 || y == 7)
+    {
+        /* true branch: x==3 OR y==7 — too broad to assert specific values */
+    }
+    else
+    {
+        /* false branch: neither condition held */
+        compile_assert(x != 3);   /* x was not 3 */
+        compile_assert(y != 7);   /* y was not 7 */
+    }
+}
+
+/* false branch of (x == 0 || y == 0): both are != 0 */
+void f_logical_or_false_both_nonzero(int x, int y)
+{
+    if (x == 0 || y == 0)
+    {
+    }
+    else
+    {
+        compile_assert(x != 0);
+        compile_assert(y != 0);
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * 4. compile_assert on the || expression itself
+ * --------------------------------------------------------------------- */
+
+/* x==5: (x == 5 || x == 99) is provably 1 — left is true so short-circuits */
+void f_logical_or_result_left_true(int x)
+{
+    if (x == 5)
+    {
+        compile_assert(x == 5 || x == 99);   /* left is true -> whole expr true */
+    }
+}
+
+/* x==3, y==7: (x == 3 || y == 99) is provably 1 — left is true */
+void f_logical_or_result_known_true(int x, int y)
+{
+    if (x == 3)
+    {
+        if (y == 7)
+        {
+            compile_assert(x == 3 || y == 99);  /* left true, right irrelevant */
+        }
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * 5. Negation (!) combined with && / ||
+ * --------------------------------------------------------------------- */
+
+/* if (!(x == 0)): equivalent to x != 0 */
+void f_logical_not_eq(int x)
+{
+    if (!(x == 0))
+    {
+        compile_assert(x != 0);
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * 6. Nested && inside outer if-narrowing
+ * --------------------------------------------------------------------- */
+
+/* outer narrows x!=0; inner && narrows x==4 and y==9 */
+void f_logical_and_inside_outer_ne(int x, int y)
+{
+    if (x != 0)
+    {
+        if (x == 4 && y == 9)
+        {
+            compile_assert(x == 4);
+            compile_assert(y == 9);
+            compile_assert(x < y);    /* 4 < 9 */
+            compile_assert(x != y);   /* 4 != 9 */
+        }
+    }
+}
+
+/* outer == then inner && with two more vars */
+void f_logical_and_three_vars_nested(int x, int y, int z)
+{
+    if (x == 10)
+    {
+        if (y == 20 && z == 5)
+        {
+            compile_assert(z < x);    /* 5 < 10 */
+            compile_assert(z < y);    /* 5 < 20 */
+            compile_assert(x < y);    /* 10 < 20 */
+        }
+    }
+}
+    `;
+
+
+
+sample["Flow3"]["test5"] =
+
+`
+#pragma flow enable
+/*
+ * flow3_test.c
+ *
+ * Tests for constant-value propagation through ++/--, +/-, and * operators.
+ *
+ * compile_assert(expr) must be provably true; if the analyser cannot prove
+ * it, it emits "could not be proven".  If it proves it false, it emits
+ * "compile_assert failed".  A passing test is silent on every compile_assert.
+ *
+ * Negative tests (in #if 0) are expected to produce a diagnostic.
+ */
+
+/* =========================================================================
+ * 1. POSTFIX INCREMENT / DECREMENT — variable update
+ * ========================================================================= */
+
+void test_postfix_increment_basic(void)
+{
+    int i = 0;
+    i++;
+    compile_assert(i == 1);
+}
+
+void test_postfix_increment_chain(void)
+{
+    int i = 0;
+    i++;
+    i++;
+    compile_assert(i == 2);
+}
+
+void test_postfix_increment_from_nonzero(void)
+{
+    int i = 5;
+    i++;
+    compile_assert(i == 6);
+}
+
+void test_postfix_decrement_basic(void)
+{
+    int i = 3;
+    i--;
+    compile_assert(i == 2);
+}
+
+void test_postfix_decrement_to_zero(void)
+{
+    int i = 1;
+    i--;
+    compile_assert(i == 0);
+}
+
+void test_postfix_decrement_below_zero(void)
+{
+    int i = 0;
+    i--;
+    compile_assert(i == -1);
+}
+
+/* =========================================================================
+ * 2. POSTFIX — expression value via initializer (int j = i++)
+ *    This exercises flow3_visit_init_declarator's else branch, which must
+ *    look up &p_init_expr->object directly rather than through
+ *    object_get_referenced (which would alias to i, giving the new value).
+ * ========================================================================= */
+
+void test_postfix_increment_init_expression_value(void)
+{
+    int i = 0;
+    int j = i++;    /* j gets OLD value (0); i becomes 1 */
+    compile_assert(j == 0);
+    compile_assert(i == 1);
+}
+
+void test_postfix_decrement_init_expression_value(void)
+{
+    int i = 7;
+    int j = i--;    /* j gets OLD value (7); i becomes 6 */
+    compile_assert(j == 7);
+    compile_assert(i == 6);
+}
+
+/* =========================================================================
+ * 3. POSTFIX — expression value via assignment (j = i++)
+ *    Exercises EXPR_ASSIGNMENT_ASSIGN's post-visit copy path.
+ * ========================================================================= */
+
+void test_postfix_increment_assign_expression_value(void)
+{
+    int i = 0;
+    int j;
+    j = i++;        /* j gets OLD value (0); i becomes 1 */
+    compile_assert(j == 0);
+    compile_assert(i == 1);
+}
+
+void test_postfix_decrement_assign_expression_value(void)
+{
+    int i = 4;
+    int j;
+    j = i--;        /* j gets OLD value (4); i becomes 3 */
+    compile_assert(j == 4);
+    compile_assert(i == 3);
+}
+
+/* =========================================================================
+ * 4. PREFIX INCREMENT / DECREMENT — variable update
+ * ========================================================================= */
+
+void test_prefix_increment_basic(void)
+{
+    int i = 0;
+    ++i;
+    compile_assert(i == 1);
+}
+
+void test_prefix_increment_chain(void)
+{
+    int i = 0;
+    ++i;
+    ++i;
+    ++i;
+    compile_assert(i == 3);
+}
+
+void test_prefix_decrement_basic(void)
+{
+    int i = 4;
+    --i;
+    compile_assert(i == 3);
+}
+
+/* =========================================================================
+ * 5. PREFIX — expression value via initializer (int j = ++i)
+ *    Same init_declarator path as section 2, but prefix yields NEW value.
+ * ========================================================================= */
+
+void test_prefix_increment_init_expression_value(void)
+{
+    int i = 0;
+    int j = ++i;    /* j and i both become 1 */
+    compile_assert(j == 1);
+    compile_assert(i == 1);
+}
+
+void test_prefix_decrement_init_expression_value(void)
+{
+    int i = 5;
+    int j = --i;    /* j and i both become 4 */
+    compile_assert(j == 4);
+    compile_assert(i == 4);
+}
+
+/* =========================================================================
+ * 6. PREFIX — expression value via assignment (j = ++i)
+ * ========================================================================= */
+
+void test_prefix_increment_assign_expression_value(void)
+{
+    int i = 0;
+    int j;
+    j = ++i;        /* j and i both become 1 */
+    compile_assert(j == 1);
+    compile_assert(i == 1);
+}
+
+void test_prefix_decrement_assign_expression_value(void)
+{
+    int i = 5;
+    int j;
+    j = --i;        /* j and i both become 4 */
+    compile_assert(j == 4);
+    compile_assert(i == 4);
+}
+
+/* =========================================================================
+ * 7. COMMA EXPRESSION — the original bug report pattern
+ * ========================================================================= */
+
+void test_comma_postfix_then_assert(void)
+{
+    int i = 0;
+    i++, compile_assert(i == 1);
+}
+
+void test_comma_prefix_then_assert(void)
+{
+    int i = 0;
+    ++i, compile_assert(i == 1);
+}
+
+/* =========================================================================
+ * 8. MIX — interleaved prefix and postfix on the same variable
+ * ========================================================================= */
+
+void test_mixed_increment_decrement(void)
+{
+    int i = 0;
+    i++;    /* 1 */
+    ++i;    /* 2 */
+    i--;    /* 1 */
+    --i;    /* 0 */
+    compile_assert(i == 0);
+}
+
+/* =========================================================================
+ * 9. ADDITIVE — both operands map-tracked (not AST literals)
+ * ========================================================================= */
+
+void test_add_tracked_plus_literal(void)
+{
+    int i = 0;
+    i++;                /* i == 1 */
+    int j = i + 2;
+    compile_assert(j == 3);
+}
+
+void test_add_tracked_plus_tracked(void)
+{
+    int a = 0;
+    int b = 0;
+    a++;                /* a == 1 */
+    b++; b++;           /* b == 2 */
+    int c = a + b;
+    compile_assert(c == 3);
+}
+
+void test_sub_tracked_minus_literal(void)
+{
+    int i = 0;
+    i++; i++; i++;      /* i == 3 */
+    int j = i - 1;
+    compile_assert(j == 2);
+}
+
+void test_add_zero_identity_tracked(void)   /* x + 0 == x */
+{
+    int x = 0;
+    x++;                /* x == 1 */
+    int y = x + 0;
+    compile_assert(y == 1);
+}
+
+void test_zero_plus_tracked(void)           /* 0 + x == x */
+{
+    int x = 0;
+    x++; x++;           /* x == 2 */
+    int y = 0 + x;
+    compile_assert(y == 2);
+}
+
+void test_sub_zero_identity_tracked(void)   /* x - 0 == x */
+{
+    int x = 0;
+    x++;                /* x == 1 */
+    int y = x - 0;
+    compile_assert(y == 1);
+}
+
+void test_sub_self_is_zero(void)            /* x - x == 0 */
+{
+    int x = 0;
+    x++; x++;           /* x == 2, value doesn't matter for this identity */
+    int y = x - x;
+    compile_assert(y == 0);
+}
+
+/* =========================================================================
+ * 10. MULTIPLICATIVE — both operands map-tracked
+ * ========================================================================= */
+
+void test_mul_one_identity_right(void)      /* x * 1 == x */
+{
+    int x = 0;
+    x++; x++;           /* x == 2 */
+    int y = x * 1;
+    compile_assert(y == 2);
+}
+
+void test_mul_one_identity_left(void)       /* 1 * x == x */
+{
+    int x = 0;
+    x++; x++; x++;      /* x == 3 */
+    int y = 1 * x;
+    compile_assert(y == 3);
+}
+
+void test_mul_zero_absorb_right(void)       /* x * 0 == 0 */
+{
+    int x = 0;
+    x++;                /* x == 1 — value doesn't matter */
+    int y = x * 0;
+    compile_assert(y == 0);
+}
+
+void test_mul_zero_absorb_left(void)        /* 0 * x == 0 */
+{
+    int x = 0;
+    x++; x++;           /* x == 2 — value doesn't matter */
+    int y = 0 * x;
+    compile_assert(y == 0);
+}
+
+void test_mul_tracked_times_tracked(void)
+{
+    int a = 0;
+    int b = 0;
+    a++; a++;           /* a == 2 */
+    b++; b++; b++;      /* b == 3 */
+    int c = a * b;
+    compile_assert(c == 6);
+}
+
+/* =========================================================================
+ * 11. NEGATIVE TESTS — uncomment one block at a time to verify diagnostics
+ * ========================================================================= */
+
+#if 0
+
+/* Expected: "compile_assert failed" — i is 1 after i++, not 0 */
+void test_FAIL_postfix_wrong_value(void)
+{
+    int i = 0;
+    i++;
+    compile_assert(i == 0); /*FAIL*/
+}
+
+/* Expected: "compile_assert failed" — j=i++ gives OLD value (0), not 1 */
+void test_FAIL_postfix_init_expression_value_wrong(void)
+{
+    int i = 0;
+    int j = i++;
+    compile_assert(j == 1); /*FAIL*/
+}
+
+/* Expected: "compile_assert failed" — j=++i gives NEW value (1), not 0 */
+void test_FAIL_prefix_init_expression_value_wrong(void)
+{
+    int i = 0;
+    int j = ++i;
+    compile_assert(j == 0); /*FAIL*/
+}
+
+/* Expected: "compile_assert failed" — 2 * 3 == 6, not 5 */
+void test_FAIL_mul_wrong_result(void)
+{
+    int a = 0; int b = 0;
+    a++; a++;       /* a == 2 */
+    b++; b++; b++;  /* b == 3 */
+    int c = a * b;
+    compile_assert(c == 5); /*FAIL*/
+}
+
+/* Expected: "could not be proven" — x is unknown after unknown_fn() */
+void test_FAIL_unknown_operand(void)
+{
+    int x = unknown_fn();
+    x++;
+    compile_assert(x == 1); /*FAIL: x was unknown, still unknown after ++*/
+}
+
+#endif
+`; 
+
+sample["Flow3"]["ownership"] =
+`
+#pragma safety enable
+
+
+void* _Owner _Opt malloc(unsigned long size);
+void free(void* _Owner _Opt ptr);
+
+struct X {
+    char* _Owner _Opt text;
+    int i;
+};
+
+void x_init(_Ctor struct X* p);
+void x_destroy(_Dtor struct X* p);
+char* _Owner _Opt my_strdup(const char* s);
+void my_free(void* _Owner _Opt p);
+
+void test_nonnull_param_ok(int* p) {
+    *p = 42; /* ok: p is known non-null */
+}
+
+void test_nonnull_param_callee(int* p); /* non-nullable */
+
+void test_nonnull_param_caller(int* _Opt q) {
+    test_nonnull_param_callee(q);  //lint 33  q may be null
+}
+
+void test_nonnull_param_caller_fixed(int* _Opt q) {
+    if (q)
+      test_nonnull_param_callee(q); /* ok: q is not-null inside the if */
+}
+
+int* test_nonnull_param_return(int* p) { return p; /* ok */ }
+
+void test_opt_param_guarded(int* _Opt p) {
+    if (p) *p = 1; /* ok: p != null inside if */
+}
+
+void test_opt_param_unguarded(int* _Opt p) {
+    *p = 1; //lint 33 p may be null
+}
+
+
+void test_opt_param_to_opt(int* _Opt p, int* _Opt* _Opt out) {
+    if (out) *out = p; /* ok */
+}
+
+void takes_nonnull(int* q);
+
+void test_opt_to_nonnull_no_check(int* _Opt p) {
+    takes_nonnull(p); //lint 33
+}
+
+void test_opt_to_nonnull_checked(int* _Opt p) {
+    if (p) takes_nonnull(p); /* ok */
+}
+
+void x_init(_Ctor struct X* p) {
+    p->text = my_strdup("hello"); /* initializes p->text */
+} /* ok: p->text is now initialized (moved from my_strdup) */
+
+void x_init_forgot(_Ctor struct X* p) {
+    /* p->text is never written */
+} //  _Ctor parameter: pointed object is uninitialized at end of function
+
+
+int x_init_or_fail(_Ctor struct X* p, int flag) {
+    if (flag) {
+        p->text = my_strdup("ok");
+        return 1;
+    }
+    p->text = 0;
+    return 0;
+} /* ok */
+
+
+void x_destroy(_Dtor struct X* p) {
+    my_free(p->text); /* moves p->text; p->text is now uninitialized */
+} //ok
+
+
+void x_destroy_forgot(_Dtor struct X* p) {
+    /* p->text is never freed/moved */
+} // _Dtor parameter: pointed object is not uninitialized at end of function
+
+void x_destroy_cond(_Dtor struct X* p) {
+    if (p->text) my_free(p->text); //moved
+} /* ok */
+
+
+void consume_x(struct X _Owner x) {
+    my_free(x.text);
+} //ok
+
+
+void leak_x(struct X _Owner x) {
+    /* x.text is never freed or moved */
+} //leak
+
+
+void take_x(struct X _Owner x); /* forward */
+
+void my_free_x(struct X* _Owner _Opt p) {
+    if (p) {
+        x_destroy(p); /* moves *p contents */
+        my_free(p);   /* frees p itself → p is expired */
+    }
+} /* ok */
+
+
+void my_free_x_forgot(struct X* _Owner p) {
+    x_destroy(p); /* moves *p contents, but p itself still lives */
+    /* missing: my_free(p) */
+} // error
+
+
+void read_x(_View struct X x) {
+    /* just reads x.text, does not own it */
+    (void)x.text;
+} /* ok: _View means no ownership check at exit */
+
+
+void maybe_free(struct X* _Owner _Opt p) {
+    if (p) {
+        x_destroy(p);
+        my_free(p);
+    }
+    /* if p is null: nothing to free */
+} /* ok */
+
+void accepts_opt(int* _Opt p);
+
+void test_nonnull_to_opt(int* p) {
+    accepts_opt(p); //ok
+}
+
+
+int * _Owner _Opt f(int c)
+{
+    int * _Owner _Opt p = malloc(sizeof *p);
+    try {
+        if (c) throw;
+    }
+    catch {
+        free(p);
+        p = nullptr;
+    }
+
+    return p;
+}
+`;
+

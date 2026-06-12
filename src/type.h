@@ -37,6 +37,8 @@ enum attribute_flags
     //TODO decide attribute or not
     CAKE_ATTRIBUTE_CTOR = 1 << 7,
     CAKE_ATTRIBUTE_DTOR = 1 << 8,
+    CAKE_ATTRIBUTE_UNINIT = 1 << 9,
+    CAKE_ATTRIBUTE_CLEAR = 1 << 10,
 
     /*
      1 == 2 results in int in C
@@ -103,14 +105,18 @@ enum type_qualifier_flags
 
 
 
-    /* ownership extensions TODO separate this from qualifiers??*/
+    /*------------------  contracts -------------------------*/
+
     TYPE_QUALIFIER_CAKE_OWNER = 1 << 4,
     TYPE_QUALIFIER_CAKE_VIEW = 1 << 5,
     TYPE_QUALIFIER_CAKE_OPT = 1 << 6,
-
-    /*function contract*/
+    
     TYPE_QUALIFIER_CAKE_DTOR = 1 << 7,
     TYPE_QUALIFIER_CAKE_CTOR = 1 << 8,
+    TYPE_QUALIFIER_CAKE_UNINIT = 1 << 12,
+    TYPE_QUALIFIER_CAKE_CLEAR = 1 << 13,
+
+    /*-------------------------------------------------------*/
 
     TYPE_QUALIFIER_MSVC_PTR32 = 1 << 9,
     TYPE_QUALIFIER_MSVC_PTR64 = 1 << 10,
@@ -314,7 +320,13 @@ bool type_is_opt(const struct type* p_type, bool nullable_enabled);
 bool type_is_view(const struct type* p_type);
 
 bool type_is_owner(const struct type* p_type);
+
 bool type_is_pointed_dtor(const struct type* p_type);
+bool type_is_pointed_ctor(const struct type* p_type);
+bool type_is_pointed_uninit(const struct type* p_type);
+bool type_is_pointed_clear(const struct type* p_type);
+
+bool type_is_pointed_const(const struct type* p_type);
 bool type_is_owner_or_pointer_to_dtor(const struct type* p_type);
 
 bool type_is_pointer_to_const(const struct type* p_type);
@@ -328,6 +340,7 @@ bool type_is_char(const struct type* p_type);
 bool type_is_array_of_char(const struct type* p_type);
 bool type_is_unsigned_integer(const struct type* p_type);
 bool type_is_signed_integer(const struct type* p_type);
+bool type_is_signed(const struct type* p_type);
 bool type_is_floating_point(const struct type* p_type);
 int type_get_integer_rank(const struct type* p_type1);
 

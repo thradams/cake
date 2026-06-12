@@ -109,32 +109,33 @@ function validate(model)
             end_col = end_col - line_start;
             start_col = start_col - line_start;
 
-            var nn = ouputlines[i].split(":");
-            if (nn.length >= 4)
+            var s = ouputlines[i];
+            var c1 = s.indexOf(":");           // end of filename
+            var c2 = s.indexOf(":", c1 + 1);   // end of line number
+            var c3 = s.indexOf(":", c2 + 1);   // end of col number
+            var c4 = s.indexOf(":", c3 + 1);   // end of severity word
+
+            if (c1 >= 0 && c2 > c1 && c3 > c2 && c4 > c3)
             {
-                let severity_str = nn[3].trim();
+                const line = parseInt(s.substring(c1 + 1, c2), 10);
+                const severity_str = s.substring(c3 + 1, c4).trim();
+                const message = s.substring(c4 + 1).trim();
+
                 var severity = monaco.MarkerSeverity.Info;
                 if (severity_str.startsWith("warning"))
                     severity = monaco.MarkerSeverity.Warning;
                 else if (severity_str.startsWith("error"))
                     severity = monaco.MarkerSeverity.Error;
 
-                var message = "";
-                for (var k = 4; k < nn.length; k++)
-                {
-                    message += nn[k];
-                }
-
-                const line = parseInt(nn[1]);
                 markers.push({
-                    message: severity_str + ":" + message,
+                    message: severity_str + ": " + message,
                     severity: severity,
-                    startLineNumber: line,//range.startLineNumber,
-                    startColumn: start_col,//range.startColumn,
-                    endLineNumber: line,//range.endLineNumber,
-                    endColumn: end_col + 1 //model.getLineLength(line) + 1//range.endColumn,
+                    startLineNumber: line,
+                    startColumn: start_col,
+                    endLineNumber: line,
+                    endColumn: end_col + 1
                 });
-            }          
+            }
         }
     }
 

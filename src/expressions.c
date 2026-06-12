@@ -48,6 +48,16 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
 struct expression* _Owner _Opt expression(struct parser_ctx* ctx, bool is_discarded);
 struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, bool is_discarded);
 
+struct marker expression_to_marker(const struct expression* p_expression)
+{
+    struct marker m = {
+        .p_token_begin = p_expression->first_token,
+        .p_token_end = p_expression->last_token
+    };
+    return m;
+}
+
+
 static void check_binary_operator_space_style(struct parser_ctx* ctx,
                                               const struct token* op_token,
                                               const struct token* next_token)
@@ -145,16 +155,16 @@ bool is_primary_expression(enum expression_type t)
 {
     switch (t)
     {
-    case PRIMARY_EXPRESSION_ENUMERATOR:
-    case PRIMARY_EXPRESSION_DECLARATOR:
-    case PRIMARY_EXPRESSION_STRING_LITERAL:
-    case PRIMARY_EXPRESSION__FUNC__:
-    case PRIMARY_EXPRESSION_CHAR_LITERAL:
-    case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
-    case PRIMARY_EXPRESSION_GENERIC:
-    case PRIMARY_EXPRESSION_NUMBER:
-    case PRIMARY_EXPRESSION_PARENTHESIS:
-    case PRIMARY_EXPRESSION_STATEMENT_EXPRESSION:
+    case EXPR_PRIMARY_ENUMERATOR:
+    case EXPR_PRIMARY_DECLARATOR:
+    case EXPR_PRIMARY_STRING_LITERAL:
+    case EXPR_PRIMARY__FUNC__:
+    case EXPR_PRIMARY_CHAR_LITERAL:
+    case EXPR_PRIMARY_PREDEFINED_CONSTANT:
+    case EXPR_PRIMARY_GENERIC:
+    case EXPR_PRIMARY_NUMBER:
+    case EXPR_PRIMARY_PARENTHESIS:
+    case EXPR_PRIMARY_STATEMENT_EXPRESSION:
         return true;
 
     default:
@@ -733,7 +743,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
         if (p_expression_node == NULL)
             throw;
 
-        p_expression_node->expression_type = PRIMARY_EXPRESSION_CHAR_LITERAL;
+        p_expression_node->expression_type = EXPR_PRIMARY_CHAR_LITERAL;
         p_expression_node->first_token = ctx->current;
         p_expression_node->last_token = p_expression_node->first_token;
         p_expression_node->type.attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_INT_LIKE_CHAR;
@@ -1398,7 +1408,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
             {
                 assert(p_entry->data.p_enumerator != NULL);
                 struct enumerator* p_enumerator = p_entry->data.p_enumerator;
-                p_expression_node->expression_type = PRIMARY_EXPRESSION_ENUMERATOR;
+                p_expression_node->expression_type = EXPR_PRIMARY_ENUMERATOR;
                 p_expression_node->object = object_dup(&p_enumerator->value);
 
                 p_expression_node->type = type_make_enumerator(p_enumerator->enum_specifier);
@@ -1522,7 +1532,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                 p_expression_node->declarator = p_declarator;
                 p_expression_node->p_init_declarator = p_init_declarator;
 
-                p_expression_node->expression_type = PRIMARY_EXPRESSION_DECLARATOR;
+                p_expression_node->expression_type = EXPR_PRIMARY_DECLARATOR;
 
                 p_expression_node->type = type_dup(&p_declarator->type);
                 p_expression_node->object = object_make_reference(&p_declarator->object);
@@ -1535,7 +1545,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                     ctx->p_current_function_opt->name_opt->lexeme :
                     "unnamed";
 
-                p_expression_node->expression_type = PRIMARY_EXPRESSION__FUNC__;
+                p_expression_node->expression_type = EXPR_PRIMARY__FUNC__;
                 p_expression_node->first_token = ctx->current;
                 p_expression_node->last_token = ctx->current;
 
@@ -1559,7 +1569,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
             if (p_expression_node == NULL)
                 throw;
 
-            p_expression_node->expression_type = PRIMARY_EXPRESSION_STRING_LITERAL;
+            p_expression_node->expression_type = EXPR_PRIMARY_STRING_LITERAL;
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
 
@@ -1746,7 +1756,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
             if (p_expression_node == NULL)
                 throw;
 
-            p_expression_node->expression_type = PRIMARY_EXPRESSION_PREDEFINED_CONSTANT;
+            p_expression_node->expression_type = EXPR_PRIMARY_PREDEFINED_CONSTANT;
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
 
@@ -1768,7 +1778,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
             if (p_expression_node == NULL)
                 throw;
 
-            p_expression_node->expression_type = PRIMARY_EXPRESSION_PREDEFINED_CONSTANT;
+            p_expression_node->expression_type = EXPR_PRIMARY_PREDEFINED_CONSTANT;
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
 
@@ -1793,7 +1803,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
 
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
-            p_expression_node->expression_type = PRIMARY_EXPRESSION_NUMBER;
+            p_expression_node->expression_type = EXPR_PRIMARY_NUMBER;
 
             convert_to_number(ctx, p_expression_node, false /*ctx->evaluation_is_disabled*/, ctx->options.target);
 
@@ -1811,7 +1821,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                 throw;
             p_expression_node->first_token = ctx->current;
 
-            p_expression_node->expression_type = PRIMARY_EXPRESSION_GENERIC;
+            p_expression_node->expression_type = EXPR_PRIMARY_GENERIC;
 
             p_expression_node->generic_selection = generic_selection(ctx, is_discarded);
             if (p_expression_node->generic_selection == NULL)
@@ -1835,7 +1845,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
             p_expression_node = calloc(1, sizeof * p_expression_node);
             if (p_expression_node == NULL) throw;
 
-            p_expression_node->expression_type = PRIMARY_EXPRESSION_PARENTHESIS;
+            p_expression_node->expression_type = EXPR_PRIMARY_PARENTHESIS;
             p_expression_node->first_token = ctx->current;
             parser_match(ctx);
             if (ctx->current == NULL)
@@ -1854,7 +1864,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                    https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3643.htm
                 */
 
-                p_expression_node->expression_type = PRIMARY_EXPRESSION_STATEMENT_EXPRESSION;
+                p_expression_node->expression_type = EXPR_PRIMARY_STATEMENT_EXPRESSION;
 
                 bool e = is_diagnostic_enabled(&ctx->options, W_EXPRESSION_RESULT_NOT_USED);
                 options_set_warning(&ctx->options, W_EXPRESSION_RESULT_NOT_USED, false);
@@ -2113,7 +2123,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 if (p_expression_node_new == NULL) throw;
                 p_expression_node->last_token = ctx->current;
                 p_expression_node_new->first_token = ctx->current;
-                p_expression_node_new->expression_type = POSTFIX_ARRAY;
+                p_expression_node_new->expression_type = EXPR_POSTFIX_ARRAY;
                 /* result of the subscript operator [] */
 
                 if (!type_is_pointer_or_array(&p_expression_node->type))
@@ -2201,7 +2211,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 if (p_expression_node_new == NULL) throw;
                 p_expression_node->last_token = ctx->current;
                 p_expression_node_new->first_token = p_expression_node->first_token;
-                p_expression_node_new->expression_type = POSTFIX_FUNCTION_CALL;
+                p_expression_node_new->expression_type = EXPR_POSTFIX_FUNCTION_CALL;
 
                 check_no_space_before_paren_call_style(ctx, ctx->current);
 
@@ -2247,7 +2257,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     throw;
                 }
 
-                make_object(&p_expression_node_new->type, &p_expression_node_new->object, ctx->options.target);
+                make_object(&p_expression_node_new->type, &p_expression_node_new->object, CONSTANT_VALUE_STATE_ANY, ctx->options.target);
                 p_expression_node_new->last_token = ctx->previous;
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
@@ -2258,7 +2268,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 if (p_expression_node_new == NULL) throw;
                 p_expression_node->last_token = ctx->current;
                 p_expression_node_new->first_token = ctx->current;
-                p_expression_node_new->expression_type = POSTFIX_DOT;
+                p_expression_node_new->expression_type = EXPR_POSTFIX_DOT;
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node_new->lvalue_disabled = p_expression_node->lvalue_disabled;
                 p_expression_node = NULL; /*MOVED*/
@@ -2391,7 +2401,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 p_expression_node->last_token = ctx->current;
                 p_expression_node_new->first_token = p_expression_node->first_token;
                 p_expression_node_new->last_token = ctx->current;
-                p_expression_node_new->expression_type = POSTFIX_ARROW;
+                p_expression_node_new->expression_type = EXPR_POSTFIX_ARROW;
 
                 /* result of a member access via -> operator is an lvalue */
 
@@ -2446,6 +2456,20 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                         p_expression_node_new->type.array_num_elements =
                                             p_member_declarator->declarator->type.array_num_elements;
                                         p_expression_node_new->type.storage_class_specifier_flags |= STORAGE_SPECIFIER_BITFIELD;
+                                    }
+
+                                    /*
+                                     * Propagate the object for the selected member, mirroring
+                                     * what EXPR_POSTFIX_DOT does for direct struct access.
+                                     */
+                                    struct object* _Opt object =
+                                        find_object_declarator_by_index(
+                                            &p_expression_node->object,
+                                            &p_complete->member_declaration_list,
+                                            member_index);
+                                    if (object)
+                                    {
+                                        p_expression_node_new->object = object_make_reference(object);
                                     }
                                 }
                                 else
@@ -2526,12 +2550,13 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 p_expression_node->last_token = ctx->current;
                 p_expression_node_new->first_token = ctx->current;
-                p_expression_node_new->expression_type = POSTFIX_INCREMENT;
+                p_expression_node_new->expression_type = EXPR_POSTFIX_INCREMENT;
 
                 p_expression_node_new->type = type_dup(&p_expression_node->type);
                 /* postfix ++ yields the old value — not a bitfield designator */
                 p_expression_node_new->type.array_num_elements = 0;
                 p_expression_node_new->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
+                p_expression_node_new->object = object_dup(&p_expression_node->object);
                 parser_match(ctx);
                 if (ctx->current == NULL)
                 {
@@ -2569,12 +2594,13 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
 
                 p_expression_node_new->first_token = ctx->current;
-                p_expression_node_new->expression_type = POSTFIX_DECREMENT;
+                p_expression_node_new->expression_type = EXPR_POSTFIX_DECREMENT;
 
                 p_expression_node_new->type = type_dup(&p_expression_node->type);
                 /* postfix -- yields the old value — not a bitfield designator */
                 p_expression_node_new->type.array_num_elements = 0;
                 p_expression_node_new->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
+                p_expression_node_new->object = object_dup(&p_expression_node->object);
                 parser_match(ctx);
                 if (ctx->current == NULL)
                 {
@@ -2637,16 +2663,15 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
         p_expression_node->type_name = p_type_name; /*MOVED*/
         p_type_name = NULL; /*MOVED*/
         p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->abstract_declarator);
+        
+        const struct direct_declarator* _Opt p_innermost_direct_declarator =
+            p_expression_node->type_name->abstract_declarator ? 
+            get_innermost_direct_declarator(p_expression_node->type_name->abstract_declarator->direct_declarator) : 
+            NULL;
 
-        if (type_is_function(&p_expression_node->type_name->abstract_declarator->type))
+        //this keep the typedef out (by design)
+        if (p_innermost_direct_declarator && p_innermost_direct_declarator->function_declarator)
         {
-            //this keep the typedef for function out.. we must have the function declarator
-            const struct declarator* _Opt inner = declarator_get_innert_function_declarator(p_expression_node->type_name->abstract_declarator);
-            if (inner && inner->direct_declarator && inner->direct_declarator->function_declarator == NULL)
-            {
-                diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->type_name->first_token, NULL, "missing function declarator");
-                throw;
-            }
 
             if (p_expression_node->p_storage_class_specifiers)
             {
@@ -2664,12 +2689,11 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
                     "function literals must have 'static' storage qualifier");
             }
 
-            p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
+            p_expression_node->expression_type = EXPR_POSTFIX_FUNCTION_LITERAL;
 
 
 
-            struct scope* parameters_scope =
-                &p_expression_node->type_name->abstract_declarator->direct_declarator->function_declarator->parameters_scope;
+            struct scope* parameters_scope = &p_innermost_direct_declarator->function_declarator->parameters_scope;
 
             scope_list_push(&ctx->scopes, parameters_scope);
 
@@ -2688,7 +2712,7 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
         }
         else
         {
-            p_expression_node->expression_type = POSTFIX_EXPRESSION_COMPOUND_LITERAL;
+            p_expression_node->expression_type = EXPR_POSTFIX_COMPOUND_LITERAL;
             p_expression_node->braced_initializer = braced_initializer(ctx);
 
             type_destroy(&p_expression_node->type);
@@ -2700,7 +2724,7 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
                 diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "compound literal cannot be of variable-length array type");
             }
 
-            int er = make_object(&p_expression_node->type, &p_expression_node->object, ctx->options.target);
+            int er = make_object(&p_expression_node->type, &p_expression_node->object, CONSTANT_VALUE_STATE_UNINITIALIZED, ctx->options.target);
             if (er != 0)
             {
                 diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "incomplete struct/union type");
@@ -2795,7 +2819,7 @@ struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx, bool i
 
             if (type_is_function(&p_expression_node->type))
             {
-                p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
+                p_expression_node->expression_type = EXPR_POSTFIX_FUNCTION_LITERAL;
                 p_expression_node->compound_statement = compound_statement(ctx);
                 if (p_expression_node->compound_statement == NULL)
                     throw;
@@ -2804,7 +2828,7 @@ struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx, bool i
             }
             else
             {
-                p_expression_node->expression_type = POSTFIX_EXPRESSION_COMPOUND_LITERAL;
+                p_expression_node->expression_type = EXPR_POSTFIX_COMPOUND_LITERAL;
                 p_expression_node->braced_initializer = braced_initializer(ctx);
                 if (p_expression_node->braced_initializer == NULL) throw;
                 if (ctx->current == NULL)
@@ -2866,9 +2890,6 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         if (ahead && ahead->type == '(')
             return true; //const(expr)
     }
-
-    if (first_of_static_assertion(ctx))
-        return true; //C2Y
 
     return first_of_postfix_expression(ctx) ||
         ctx->current->type == '++' ||
@@ -2978,7 +2999,7 @@ static int is_offsetof_pattern(struct parser_ctx* ctx, struct expression* p_expr
     */
     struct expression* _Opt right = p_expression;
 
-    if (right && right->expression_type != POSTFIX_ARROW)
+    if (right && right->expression_type != EXPR_POSTFIX_ARROW)
     {
         /*
            & (((type*)0)->i2)
@@ -2988,7 +3009,7 @@ static int is_offsetof_pattern(struct parser_ctx* ctx, struct expression* p_expr
         right = p_expression->right;
 
         /* skip extra parenthesis */
-        while (right && right->expression_type == PRIMARY_EXPRESSION_PARENTHESIS)
+        while (right && right->expression_type == EXPR_PRIMARY_PARENTHESIS)
         {
             right = right->right;
         }
@@ -3005,7 +3026,7 @@ static int is_offsetof_pattern(struct parser_ctx* ctx, struct expression* p_expr
     if (right == NULL)
         return -1;
 
-    if (right->expression_type != POSTFIX_ARROW)
+    if (right->expression_type != EXPR_POSTFIX_ARROW)
         return -1;
 
     if (!object_has_constant_value(&right->left->object))
@@ -3033,6 +3054,41 @@ static int is_offsetof_pattern(struct parser_ctx* ctx, struct expression* p_expr
 
     type_destroy(&struct_type);
     return (int)(pointer_value + offset_of);
+}
+
+struct expression* _Owner _Opt static_assertion_expr(struct parser_ctx* ctx, bool is_discarded)
+{
+    struct expression* _Owner _Opt p_new_expression = NULL;
+    try
+    {
+        p_new_expression = calloc(1, sizeof * p_new_expression);
+        if (p_new_expression == NULL) throw;
+
+        p_new_expression->first_token = ctx->current;
+        p_new_expression->static_assertion = static_assertion(ctx);
+        if (p_new_expression->static_assertion == NULL)
+        {
+            throw;
+        }
+
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
+
+        p_new_expression->expression_type = EXPR_UNARY_STATIC_ASSERTION;
+        p_new_expression->type = make_void_type();
+        struct token* _Opt tk = previous_parser_token(ctx->current);
+        assert(tk);
+        p_new_expression->last_token = tk;
+    }
+    catch
+    {
+        expression_delete(p_new_expression);
+        p_new_expression = NULL;
+    }
+    return p_new_expression;
 }
 
 struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_discarded)
@@ -3069,9 +3125,9 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             new_expression->first_token = ctx->current;
 
             if (ctx->current->type == '++')
-                new_expression->expression_type = UNARY_EXPRESSION_INCREMENT;
+                new_expression->expression_type = EXPR_UNARY_INCREMENT;
             else
-                new_expression->expression_type = UNARY_EXPRESSION_DECREMENT;
+                new_expression->expression_type = EXPR_UNARY_DECREMENT;
             parser_match(ctx);
             if (ctx->current == NULL)
             {
@@ -3092,6 +3148,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             /* prefix ++/-- yields the new value — not a bitfield designator */
             new_expression->type.array_num_elements = 0;
             new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
+            new_expression->object = object_dup(&new_expression->right->object);
             p_expression_node = new_expression;
         }
         else if (ctx->current->type == '&' ||
@@ -3134,7 +3191,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             new_expression->last_token = new_expression->right->last_token;
             if (op == '!')
             {
-                new_expression->expression_type = UNARY_EXPRESSION_NOT;
+                new_expression->expression_type = EXPR_UNARY_NOT;
                 if (!is_discarded &&
                     object_has_constant_value(&new_expression->right->object))
                 {
@@ -3157,7 +3214,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                     throw;
                 }
 
-                new_expression->expression_type = UNARY_EXPRESSION_BITNOT;
+                new_expression->expression_type = EXPR_UNARY_BITNOT;
 
                 /*
                 The result of the ~ operator is the bitwise complement of its (promoted) operand (that is, each bit in
@@ -3180,9 +3237,9 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             else if (op == '-' || op == '+')
             {
                 if (op == '-')
-                    new_expression->expression_type = UNARY_EXPRESSION_NEG;
+                    new_expression->expression_type = EXPR_UNARY_NEG;
                 else
-                    new_expression->expression_type = UNARY_EXPRESSION_PLUS;
+                    new_expression->expression_type = EXPR_UNARY_PLUS;
 
                 /* promote */
                 new_expression->type = type_common(&new_expression->right->type, &new_expression->right->type, ctx->options.target);
@@ -3204,7 +3261,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             }
             else if (op == '*')
             {
-                new_expression->expression_type = UNARY_EXPRESSION_CONTENT;
+                new_expression->expression_type = EXPR_UNARY_CONTENT;
                 /* result of the indirection (unary *) operator applied to a pointer to object */
 
                 if (!type_is_pointer_or_array(&new_expression->right->type))
@@ -3227,6 +3284,18 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                                                 "array indirection");
                     new_expression->type = get_array_item_type(&new_expression->right->type);
                 }
+
+                /*
+                 * *p dereferences a pointer. The pointer's own object holds
+                 * the address value — NOT the pointee's value. We cannot
+                 * statically know what the pointee contains, so create a
+                 * fresh object with the correct shape for the pointee type
+                 * but mark it CONSTANT_VALUE_STATE_ANY (unknown at compile
+                 * time), exactly as a function-call return does.
+                 * object_dup of the pointer object would be wrong: it would
+                 * copy the address, not the value at that address.
+                 */
+                make_object(&new_expression->type, &new_expression->object, CONSTANT_VALUE_STATE_ANY, ctx->options.target);
             }
             else if (op == '&')
             {
@@ -3235,7 +3304,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                   If the type of the lvalue-expression is " . . . ", the type of the result is
                   "pointer to . . ."
                 */
-                new_expression->expression_type = UNARY_EXPRESSION_ADDRESSOF;
+                new_expression->expression_type = EXPR_UNARY_ADDRESSOF;
 
 
                 int offsetof_value = is_offsetof_pattern(ctx, new_expression->right);
@@ -3315,7 +3384,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
             new_expression->first_token = ctx->current;
-            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_VA_START;
+            new_expression->expression_type = EXPR_UNARY_GCC__BUILTIN_VA_START;
             parser_match(ctx);
             if (ctx->current == NULL)
             {
@@ -3368,7 +3437,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
             new_expression->first_token = ctx->current;
-            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_VA_END;
+            new_expression->expression_type = EXPR_UNARY_GCC__BUILTIN_VA_END;
 
             parser_match(ctx);
             if (ctx->current == NULL)
@@ -3404,7 +3473,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
             new_expression->first_token = ctx->current;
-            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_VA_ARG;
+            new_expression->expression_type = EXPR_UNARY_GCC__BUILTIN_VA_ARG;
 
             parser_match(ctx);
             if (ctx->current == NULL)
@@ -3454,7 +3523,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
             new_expression->first_token = ctx->current;
-            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_VA_COPY;
+            new_expression->expression_type = EXPR_UNARY_GCC__BUILTIN_VA_COPY;
             parser_match(ctx);
             if (ctx->current == NULL)
             {
@@ -3503,7 +3572,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
             new_expression->first_token = ctx->current;
-            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF;
+            new_expression->expression_type = EXPR_UNARY_GCC__BUILTIN_OFFSETOF;
 
             parser_match(ctx);
 
@@ -3610,7 +3679,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
 
             if (first_of_type_name_ahead(ctx))
             {
-                new_expression->expression_type = UNARY_EXPRESSION_SIZEOF_TYPE;
+                new_expression->expression_type = EXPR_UNARY_SIZEOF_TYPE;
                 if (parser_match_tk(ctx, '(') != 0)
                 {
                     expression_delete(new_expression);
@@ -3678,7 +3747,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                     throw;
                 }
 
-                new_expression->expression_type = UNARY_EXPRESSION_SIZEOF_EXPRESSION;
+                new_expression->expression_type = EXPR_UNARY_SIZEOF_EXPRESSION;
 
                 if (check_sizeof_argument(ctx, new_expression->right, &new_expression->right->type) != 0)
                 {
@@ -3724,34 +3793,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             new_expression->type = type_make_size_t(ctx->options.target);
             p_expression_node = new_expression;
             new_expression = NULL; //MOVED
-        } //not leak
-        else if (first_of_static_assertion(ctx))
-        {
-            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
-            if (new_expression == NULL) throw;
-
-            new_expression->first_token = ctx->current;
-            new_expression->static_assertion = static_assertion(ctx);
-            if (new_expression->static_assertion == NULL)
-            {
-                expression_delete(new_expression);
-                throw;
-            }
-
-            if (ctx->current == NULL)
-            {
-                unexpected_end_of_file(ctx);
-                expression_delete(new_expression);
-                throw;
-            }
-
-            new_expression->expression_type = UNARY_EXPRESSION_STATIC_ASSERTION;
-            new_expression->type = make_void_type();
-            struct token* _Opt tk = previous_parser_token(ctx->current);
-            assert(tk);
-            new_expression->last_token = tk;
-            p_expression_node = new_expression;
-        }
+        } //not leak        
         else if (ctx->current->type == TK_KEYWORD__COUNTOF)//C2Y
         {
             /* a defer statement would be useful here */
@@ -3770,7 +3812,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 throw;
             }
 
-            new_expression->expression_type = UNARY_EXPRESSION_COUNTOF;
+            new_expression->expression_type = EXPR_UNARY_COUNTOF;
 
             if (first_of_type_name_ahead(ctx))
             {
@@ -3927,7 +3969,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
 
-            new_expression->expression_type = UNARY_EXPRESSION_ASSERT;
+            new_expression->expression_type = EXPR_UNARY_ASSERT;
             new_expression->first_token = ctx->current;
 
             parser_match(ctx);
@@ -3951,7 +3993,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
 
-            new_expression->expression_type = UNARY_EXPRESSION_CONSTEVAL;
+            new_expression->expression_type = EXPR_UNARY_CONSTEVAL;
             new_expression->first_token = ctx->current;
 
             parser_match(ctx);
@@ -3988,7 +4030,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
 
             if (first_of_type_name_ahead(ctx))
             {
-                new_expression->expression_type = UNARY_EXPRESSION_ALIGNOF_TYPE;
+                new_expression->expression_type = EXPR_UNARY_ALIGNOF_TYPE;
                 if (parser_match_tk(ctx, '(') != 0)
                 {
                     expression_delete(new_expression);
@@ -4048,7 +4090,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                     throw;
                 }
 
-                new_expression->expression_type = UNARY_EXPRESSION_ALIGNOF_EXPRESSION;
+                new_expression->expression_type = EXPR_UNARY_ALIGNOF_EXPRESSION;
 
                 if (check_sizeof_argument(ctx, new_expression->right, &new_expression->right->type) != 0)
                 {
@@ -4095,7 +4137,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             if (new_expression == NULL) throw;
 
             new_expression->first_token = ctx->current;
-            new_expression->expression_type = UNARY_EXPRESSION_TRAITS;
+            new_expression->expression_type = EXPR_UNARY_TRAITS;
 
             parser_match(ctx);
             if (ctx->current == NULL)
@@ -4301,7 +4343,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                     throw;
 
                 p_expression_node->first_token = open_parenthesis_token;
-                p_expression_node->expression_type = CAST_EXPRESSION;
+                p_expression_node->expression_type = EXPR_CAST;
                 p_expression_node->type_name = p_type_name; /*MOVED*/
                 p_type_name = NULL;
 
@@ -4545,13 +4587,13 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
             switch (op)
             {
             case '*':
-                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_MULT;
+                new_expression->expression_type = EXPR_MULTIPLICATIVE_MULT;
                 break;
             case '/':
-                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_DIV;
+                new_expression->expression_type = EXPR_MULTIPLICATIVE_DIV;
                 break;
             case '%':
-                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_MOD;
+                new_expression->expression_type = EXPR_MULTIPLICATIVE_MOD;
                 break;
             default:
                 assert(false);
@@ -4772,7 +4814,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, bool 
 
             if (op == '+')
             {
-                new_expression->expression_type = ADDITIVE_EXPRESSION_PLUS;
+                new_expression->expression_type = EXPR_ADDITIVE_PLUS;
 
                 /*
                  For addition, either both operands shall have arithmetic type,
@@ -4862,7 +4904,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, bool 
             }
             else if (op == '-')
             {
-                new_expression->expression_type = ADDITIVE_EXPRESSION_MINUS;
+                new_expression->expression_type = EXPR_ADDITIVE_MINUS;
 
                 /*
                  For subtraction, one of the following shall hold:
@@ -5012,11 +5054,11 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, bool is_
 
             if (op == '>>')
             {
-                new_expression->expression_type = SHIFT_EXPRESSION_RIGHT;
+                new_expression->expression_type = EXPR_SHIFT_RIGHT;
             }
             else if (op == '<<')
             {
-                new_expression->expression_type = SHIFT_EXPRESSION_LEFT;
+                new_expression->expression_type = EXPR_SHIFT_LEFT;
             }
 
             new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
@@ -5245,19 +5287,19 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, boo
 
             if (op == '>')
             {
-                new_expression->expression_type = RELATIONAL_EXPRESSION_BIGGER_THAN;
+                new_expression->expression_type = EXPR_RELATIONAL_BIGGER_THAN;
             }
             else if (op == '<')
             {
-                new_expression->expression_type = RELATIONAL_EXPRESSION_LESS_THAN;
+                new_expression->expression_type = EXPR_RELATIONAL_LESS_THAN;
             }
             else if (op == '>=')
             {
-                new_expression->expression_type = RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN;
+                new_expression->expression_type = EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN;
             }
             else if (op == '<=')
             {
-                new_expression->expression_type = RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN;
+                new_expression->expression_type = EXPR_RELATIONAL_LESS_OR_EQUAL_THAN;
             }
 
             /* Each of the operands shall have arithmetic type */
@@ -5471,9 +5513,9 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, bool 
 
 
             if (operator_token->type == '==')
-                new_expression->expression_type = EQUALITY_EXPRESSION_EQUAL;
+                new_expression->expression_type = EXPR_EQUALITY_EQUAL;
             else
-                new_expression->expression_type = EQUALITY_EXPRESSION_NOT_EQUAL;
+                new_expression->expression_type = EXPR_EQUALITY_NOT_EQUAL;
 
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
@@ -5565,7 +5607,7 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, bool is_di
             if (new_expression == NULL)
                 throw;
             new_expression->first_token = ctx->current;
-            new_expression->expression_type = AND_EXPRESSION;
+            new_expression->expression_type = EXPR_AND;
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
@@ -5649,7 +5691,7 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx, 
                 throw;
 
             new_expression->first_token = ctx->current;
-            new_expression->expression_type = EXCLUSIVE_OR_EXPRESSION;
+            new_expression->expression_type = EXPR_EXCLUSIVE_OR;
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
@@ -5732,7 +5774,7 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx, b
 
 
             new_expression->first_token = ctx->current;
-            new_expression->expression_type = INCLUSIVE_OR_EXPRESSION;
+            new_expression->expression_type = EXPR_INCLUSIVE_OR;
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
@@ -5820,7 +5862,7 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx, bo
                 throw;
 
             new_expression->first_token = ctx->current;
-            new_expression->expression_type = LOGICAL_AND_EXPRESSION;
+            new_expression->expression_type = EXPR_LOGICAL_AND;
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
@@ -5932,7 +5974,7 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx, boo
                 throw;
 
             new_expression->first_token = ctx->current;
-            new_expression->expression_type = LOGICAL_OR_EXPRESSION;
+            new_expression->expression_type = EXPR_LOGICAL_OR;
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
@@ -6037,7 +6079,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
         if (p_expression_node == NULL)
             throw;
 
-        assert(p_expression_node->expression_type != EXPRESSION_TYPE_INVALID);
+        assert(p_expression_node->expression_type != EXPR_INVALID);
 
         while (ctx->current != NULL &&
                (ctx->current->type == '=' ||
@@ -6073,37 +6115,37 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
             switch (op_token->type)
             {
             case '=':
-                new_expression->expression_type = ASSIGNMENT_EXPRESSION_ASSIGN;
+                new_expression->expression_type = EXPR_ASSIGNMENT_ASSIGN;
                 break;
             case '*=':
-                new_expression->expression_type = ASSIGNMENT_EXPRESSION_MULTI_ASSIGN;
+                new_expression->expression_type = EXPR_ASSIGNMENT_MULTI_ASSIGN;
                 break;
             case '/=':
-                new_expression->expression_type = ASSIGNMENT_EXPRESSION_DIV_ASSIGN;
+                new_expression->expression_type = EXPR_ASSIGNMENT_DIV_ASSIGN;
                 break;
             case '%=':
-                new_expression->expression_type = ASSIGNMENT_EXPRESSION_MOD_ASSIGN;
+                new_expression->expression_type = EXPR_ASSIGNMENT_MOD_ASSIGN;
                 break;
             case '+=':
-                new_expression->expression_type = ASSIGNMENT_EXPRESSION_PLUS_ASSIGN;
+                new_expression->expression_type = EXPR_ASSIGNMENT_PLUS_ASSIGN;
                 break;
             case '-=':
-                new_expression->expression_type = ASSIGNMENT_EXPRESSION_MINUS_ASSIGN;
+                new_expression->expression_type = EXPR_ASSIGNMENT_MINUS_ASSIGN;
                 break;
             case '<<=':
-                new_expression->expression_type = ASSIGNMENT_EXPRESSION_SHIFT_LEFT_ASSIGN;
+                new_expression->expression_type = EXPR_ASSIGNMENT_SHIFT_LEFT_ASSIGN;
                 break;
             case '>>=':
-                new_expression->expression_type = ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN;
+                new_expression->expression_type = EXPR_ASSIGNMENT_SHIFT_RIGHT_ASSIGN;
                 break;
             case '&=':
-                new_expression->expression_type = ASSIGNMENT_EXPRESSION_AND_ASSIGN;
+                new_expression->expression_type = EXPR_ASSIGNMENT_AND_ASSIGN;
                 break;
             case '^=':
-                new_expression->expression_type = ASSIGNMENT_EXPRESSION_NOT_ASSIGN;
+                new_expression->expression_type = EXPR_ASSIGNMENT_NOT_ASSIGN;
                 break;
             case '|=':
-                new_expression->expression_type = ASSIGNMENT_EXPRESSION_OR_ASSIGN;
+                new_expression->expression_type = EXPR_ASSIGNMENT_OR_ASSIGN;
                 break;
             default:
                 assert(false);
@@ -6114,10 +6156,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
             new_expression->left = p_expression_node;
             p_expression_node = NULL; // MOVED
 
-            const struct marker left_operand_marker = {
-                      .p_token_begin = new_expression->left->first_token,
-                      .p_token_end = new_expression->left->last_token,
-            };
+            const struct marker left_operand_marker = expression_to_marker(new_expression->left);
 
             if (type_is_function(&new_expression->left->type))
             {
@@ -6195,6 +6234,10 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
             new_expression->type.array_num_elements = 0;
             new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
 
+
+            new_expression->object = object_make_reference(&new_expression->left->object);
+
+
             check_diferent_enuns(ctx,
                 op_token,
                 new_expression->left,
@@ -6231,7 +6274,7 @@ struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, bool i
         if (p_expression_node == NULL)
             throw;
 
-        assert(p_expression_node->expression_type != EXPRESSION_TYPE_INVALID);
+        assert(p_expression_node->expression_type != EXPR_INVALID);
 
         if (ctx->current == NULL)
         {
@@ -6255,8 +6298,9 @@ struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, bool i
             if (p_expression_node_new == NULL) throw;
 
             p_expression_node_new->first_token = ctx->current;
-            p_expression_node_new->expression_type = CHECKED_EXPRESSION;
+            p_expression_node_new->expression_type = EXPR_CHECKED;
             p_expression_node_new->type = type_dup(&p_expression_node->type);
+            p_expression_node_new->object = object_dup(&p_expression_node->object);
             parser_match(ctx);
             p_expression_node_new->left = p_expression_node;
             p_expression_node = p_expression_node_new;
@@ -6300,7 +6344,7 @@ void argument_expression_list_destroy(_Dtor struct argument_expression_list* p)
 
 bool expression_is_malloc(const struct expression* p)
 {
-    if (p->expression_type == POSTFIX_FUNCTION_CALL &&
+    if (p->expression_type == EXPR_POSTFIX_FUNCTION_CALL &&
         p->left &&
         p->left->declarator &&
         p->left->declarator->name_opt)
@@ -6313,7 +6357,7 @@ bool expression_is_malloc(const struct expression* p)
 
 bool expression_is_calloc(const struct expression* p)
 {
-    if (p->expression_type == POSTFIX_FUNCTION_CALL &&
+    if (p->expression_type == EXPR_POSTFIX_FUNCTION_CALL &&
         p->left &&
         p->left->declarator &&
         p->left->declarator->name_opt)
@@ -6352,8 +6396,11 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx, bool is_discar
 {
     /*expression:
       assignment-expression
+      static_assert
       expression, assignment-expression
+      expression, static_assert
     */
+
     struct expression* _Owner _Opt p_expression_node = NULL;
     try
     {
@@ -6363,7 +6410,15 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx, bool is_discar
             throw;
         }
 
-        p_expression_node = checked_expression(ctx, is_discarded);
+        if (first_of_static_assertion(ctx))
+        {
+            p_expression_node = static_assertion_expr(ctx, is_discarded);
+        }
+        else
+        {
+            p_expression_node = checked_expression(ctx, is_discarded);
+        }
+
         if (p_expression_node == NULL)
             throw;
 
@@ -6391,18 +6446,39 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx, bool is_discar
                     throw;
 
                 p_expression_node_new->first_token = ctx->current;
-                p_expression_node_new->expression_type = EXPRESSION_EXPRESSION;
+                p_expression_node_new->expression_type = EXPR_EXPRESSION;
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node = NULL; /*MOVED*/
 
-                p_expression_node_new->right = expression(ctx, is_discarded);
-                if (p_expression_node_new->right == NULL)
+                if (first_of_static_assertion(ctx))
                 {
-                    expression_delete(p_expression_node_new);
-                    throw;
+                    p_expression_node_new->right = static_assertion_expr(ctx, is_discarded);
+                    if (p_expression_node_new->right == NULL)
+                    {
+                        expression_delete(p_expression_node_new);
+                        throw;
+                    }
+                    p_expression_node_new->object = object_dup(&p_expression_node_new->left->object);
+                    p_expression_node_new->type = type_dup(&p_expression_node_new->left->type);
                 }
+                else
+                {
+                    p_expression_node_new->right = checked_expression(ctx, is_discarded);
+                    if (p_expression_node_new->right == NULL)
+                    {
+                        expression_delete(p_expression_node_new);
+                        throw;
+                    }
 
-                p_expression_node_new->object = object_dup(&p_expression_node_new->right->object);
+                    p_expression_node_new->object = object_dup(&p_expression_node_new->right->object);
+                    p_expression_node_new->type = type_dup(&p_expression_node_new->right->type);
+
+                    if (p_expression_node_new->object.state == CONSTANT_VALUE_STATE_CONSTANT)
+                    {
+                        //expression with , are not constants
+                        p_expression_node_new->object.state = CONSTANT_VALUE_EQUAL;
+                    }
+                }
 
                 /*
                     void main() {
@@ -6412,14 +6488,11 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx, bool is_discar
                       }
                     }
                 */
-                if (p_expression_node_new->object.state == CONSTANT_VALUE_STATE_CONSTANT)
+
+                if (p_expression_node_new->left)
                 {
-                    //expression with , are not constants
-                    p_expression_node_new->object.state = CONSTANT_VALUE_EQUAL;
+                    p_expression_node_new->left->last_token = p_expression_node_new->right->last_token;
                 }
-
-                p_expression_node_new->left->last_token = p_expression_node_new->right->last_token;
-
                 p_expression_node = p_expression_node_new;
 
                 if (ctx->current == NULL)
@@ -6429,9 +6502,6 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx, bool is_discar
                 }
             }
 
-            /* same type as the last expression */
-            type_destroy(&p_expression_node->type);
-            p_expression_node->type = type_dup(&p_expression_node->right->type);
         }
     }
     catch
@@ -6450,7 +6520,7 @@ bool is_first_of_conditional_expression(struct parser_ctx* ctx)
 
 bool expression_is_one(const struct expression* expression)
 {
-    if (expression->expression_type == PRIMARY_EXPRESSION_NUMBER)
+    if (expression->expression_type == EXPR_PRIMARY_NUMBER)
     {
         return (object_has_constant_value(&expression->object) &&
                 object_is_one(&expression->object));
@@ -6460,7 +6530,7 @@ bool expression_is_one(const struct expression* expression)
 
 bool expression_is_zero(const struct expression* expression)
 {
-    if (expression->expression_type == PRIMARY_EXPRESSION_NUMBER)
+    if (expression->expression_type == EXPR_PRIMARY_NUMBER)
     {
         return (object_has_constant_value(&expression->object) &&
                 object_is_zero(&expression->object));
@@ -6520,7 +6590,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
 
 
             p_conditional_expression->first_token = ctx->current;
-            p_conditional_expression->expression_type = CONDITIONAL_EXPRESSION;
+            p_conditional_expression->expression_type = EXPR_CONDITIONAL;
             p_conditional_expression->condition_expr = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
@@ -6793,24 +6863,24 @@ bool expression_is_lvalue(const struct expression* expr)
 
     switch (expr->expression_type)
     {
-    case PRIMARY_EXPRESSION_DECLARATOR:
-    case PRIMARY_EXPRESSION__FUNC__:
-    case PRIMARY_EXPRESSION_STRING_LITERAL:
-    case POSTFIX_ARRAY:
-    case POSTFIX_ARROW:
-    case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
-    case UNARY_EXPRESSION_CONTENT:
+    case EXPR_PRIMARY_DECLARATOR:
+    case EXPR_PRIMARY__FUNC__:
+    case EXPR_PRIMARY_STRING_LITERAL:
+    case EXPR_POSTFIX_ARRAY:
+    case EXPR_POSTFIX_ARROW:
+    case EXPR_POSTFIX_COMPOUND_LITERAL:
+    case EXPR_UNARY_CONTENT:
         return true;
     default:
         break;
     }
 
-    if (expr->expression_type == PRIMARY_EXPRESSION_PARENTHESIS &&
+    if (expr->expression_type == EXPR_PRIMARY_PARENTHESIS &&
         expr->right)
     {
         return expression_is_lvalue(expr->right);
     }
-    else if (expr->expression_type == POSTFIX_DOT &&
+    else if (expr->expression_type == EXPR_POSTFIX_DOT &&
              expr->left)
     {
         return expression_is_lvalue(expr->left);
@@ -6824,24 +6894,24 @@ bool expression_has_side_effects(const struct expression* expr)
     switch (expr->expression_type)
     {
         /* assignments */
-    case ASSIGNMENT_EXPRESSION_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_PLUS_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_MINUS_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_MULTI_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_DIV_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_MOD_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_SHIFT_LEFT_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_AND_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_OR_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
+    case EXPR_ASSIGNMENT_ASSIGN:
+    case EXPR_ASSIGNMENT_PLUS_ASSIGN:
+    case EXPR_ASSIGNMENT_MINUS_ASSIGN:
+    case EXPR_ASSIGNMENT_MULTI_ASSIGN:
+    case EXPR_ASSIGNMENT_DIV_ASSIGN:
+    case EXPR_ASSIGNMENT_MOD_ASSIGN:
+    case EXPR_ASSIGNMENT_SHIFT_LEFT_ASSIGN:
+    case EXPR_ASSIGNMENT_SHIFT_RIGHT_ASSIGN:
+    case EXPR_ASSIGNMENT_AND_ASSIGN:
+    case EXPR_ASSIGNMENT_OR_ASSIGN:
+    case EXPR_ASSIGNMENT_NOT_ASSIGN:
         /* increment / decrement */
-    case POSTFIX_INCREMENT:
-    case POSTFIX_DECREMENT:
-    case UNARY_EXPRESSION_INCREMENT:
-    case UNARY_EXPRESSION_DECREMENT:
+    case EXPR_POSTFIX_INCREMENT:
+    case EXPR_POSTFIX_DECREMENT:
+    case EXPR_UNARY_INCREMENT:
+    case EXPR_UNARY_DECREMENT:
         /* function calls may have arbitrary side effects */
-    case POSTFIX_FUNCTION_CALL:
+    case EXPR_POSTFIX_FUNCTION_CALL:
         return true;
 
     default:
@@ -6868,11 +6938,11 @@ bool expression_is_subjected_to_lvalue_conversion(const struct expression* expre
 
     switch (expression->expression_type)
     {
-    case UNARY_EXPRESSION_ADDRESSOF:
-    case UNARY_EXPRESSION_INCREMENT:
-    case UNARY_EXPRESSION_DECREMENT:
-    case POSTFIX_INCREMENT:
-    case POSTFIX_DECREMENT:
+    case EXPR_UNARY_ADDRESSOF:
+    case EXPR_UNARY_INCREMENT:
+    case EXPR_UNARY_DECREMENT:
+    case EXPR_POSTFIX_INCREMENT:
+    case EXPR_POSTFIX_DECREMENT:
         return false;
     default:
         if (expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
@@ -6934,7 +7004,7 @@ void check_assigment(struct parser_ctx* ctx,
         {
             if (is_null_pointer_constant)
             {
-                if (p_b_expression->expression_type == PRIMARY_EXPRESSION_NUMBER)
+                if (p_b_expression->expression_type == EXPR_PRIMARY_NUMBER)
                 {
                     // This is the only exception.
                     // p = 0;
@@ -7298,5 +7368,48 @@ void check_assigment(struct parser_ctx* ctx,
 
     type_destroy(&b_type_lvalue);
 
+
+}
+
+
+/*
+ * flow3_expression_to_string — serialize an expression back to source text
+ * by walking its token range [first_token, last_token].
+ *
+ * Only FINAL, non-hidden tokens are included (same filter as
+ * get_code_as_compiler_see).  Space and newline flags are skipped so the
+ * result is a compact, single-line string — useful for diagnostics that
+ * want to quote the expression without re-introducing formatting noise.
+ *
+ * The caller owns the returned string and must free it, or pass it to
+ * ss_close when done.  Returns NULL when the expression has no tokens.
+ */
+void flow3_expression_to_string(const struct expression* p_expression, struct osstream* ss)
+{
+    ss_clear(ss);
+
+    if (p_expression->first_token == NULL || p_expression->last_token == NULL)
+        return;
+
+
+    const struct token* _Opt current = p_expression->first_token;
+    while (current && current != p_expression->last_token->next)
+    {
+        if (!(current->flags & TK_C_BACKEND_FLAG_HIDE) &&
+            current->type != TK_BEGIN_OF_FILE &&
+            (current->flags & TK_FLAG_FINAL))
+        {
+            if (current->type == TK_LINE_COMMENT ||
+                current->type == TK_COMMENT)
+            {
+                /* skip comments entirely */
+            }
+            else
+            {
+                ss_fprintf(ss, "%s", current->lexeme);
+            }
+        }
+        current = current->next;
+    }
 
 }

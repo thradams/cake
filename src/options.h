@@ -96,7 +96,7 @@ enum diagnostic_id {
     W_WARNING_LIT_STRING = 64,
     W_SIGNED_TO_UNSIGNED = 65,
     W_INFO = 66,
-    W_UNUSED_WARNING_67 = 67,
+    W_COMPILE_ASSERT_UNPROVEM = 67,
     W_UNUSED_WARNING_68 = 68,
     W_UNUSED_WARNING_69 = 69,
     W_UNUSED_WARNING_70 = 70,
@@ -445,6 +445,12 @@ struct options
     */
     bool test_mode_inout;
 
+
+    /*
+      -flow3
+    */
+    bool flow3;
+
     /*
     * -nullchecks
     */
@@ -510,8 +516,7 @@ struct options
     bool auto_config;
 
     bool do_static_debug;
-    int static_debug_lines;
-
+    
     /*
       -o filename
       defines the ouputfile when 1 file is used

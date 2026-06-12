@@ -20,6 +20,8 @@
 #include "fs.h"
 #include <ctype.h>
 #include "flow1.h"
+#include "flow3.h"
+
 #include "defer.h"
 #include <errno.h>
 
@@ -45,6 +47,7 @@
    Anonymous structs/unions receive a name
 */
 #define CAKE_GENERATED_TAG_PREFIX  "__tag"
+
 
 _Attr(nodiscard)
 int initializer_init_new(struct parser_ctx* ctx,
@@ -1138,9 +1141,11 @@ bool first_of_type_qualifier_token(const struct token* p_token)
         p_token->type == TK_KEYWORD_MSVC__UNALIGNED ||
 
         /*extensions*/
-        p_token->type == TK_KEYWORD__CTOR ||
+        p_token->type == TK_KEYWORD_CAKE_CTOR ||
         p_token->type == TK_KEYWORD_CAKE_OWNER ||
-        p_token->type == TK_KEYWORD__DTOR ||
+        p_token->type == TK_KEYWORD_CAKE_DTOR ||
+        p_token->type == TK_KEYWORD_CAKE_UNINIT ||
+        p_token->type == TK_KEYWORD_CAKE_CLEAR ||
         p_token->type == TK_KEYWORD_CAKE_VIEW ||
         p_token->type == TK_KEYWORD_CAKE_OPT;
 
@@ -1552,6 +1557,7 @@ bool first_of_static_assertion(const struct parser_ctx* ctx)
         return false;
 
     return ctx->current->type == TK_KEYWORD__STATIC_ASSERT ||
+        ctx->current->type == TK_KEYWORD__COMPILE_ASSERT ||
         ctx->current->type == TK_KEYWORD_CAKE_STATIC_DEBUG ||
         ctx->current->type == TK_KEYWORD_CAKE_STATIC_DEBUG_EX ||
         ctx->current->type == TK_KEYWORD_STATIC_STATE ||
@@ -1654,6 +1660,8 @@ enum token_type is_keyword(const char* text, enum target target)
             return TK_KEYWORD_CONTINUE;
         if (strcmp("catch", text) == 0)
             return TK_KEYWORD_CAKE_CATCH;
+        if (strcmp("compile_assert", text) == 0)
+            return TK_KEYWORD__COMPILE_ASSERT;
         break;
 
     case 'd':
@@ -1785,11 +1793,15 @@ enum token_type is_keyword(const char* text, enum target target)
 
         /*ownership*/
         if (strcmp("_Ctor", text) == 0)
-            return TK_KEYWORD__CTOR; /* extension */
+            return TK_KEYWORD_CAKE_CTOR; /* extension */
         if (strcmp("_Owner", text) == 0)
             return TK_KEYWORD_CAKE_OWNER; /* extension */
         if (strcmp("_Dtor", text) == 0)
-            return TK_KEYWORD__DTOR; /* extension */
+            return TK_KEYWORD_CAKE_DTOR; /* extension */
+        if (strcmp("_Uninit", text) == 0)
+            return TK_KEYWORD_CAKE_UNINIT; /* extension */
+        if (strcmp("_Clear", text) == 0)
+            return TK_KEYWORD_CAKE_CLEAR; /* extension */
         if (strcmp("_Opt", text) == 0)
             return TK_KEYWORD_CAKE_OPT; /* extension */
 
@@ -2996,9 +3008,18 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
         {
             if (ctx->options.flow_analysis && extern_declaration)
             {
-                struct flow1_visit_ctx ctx2 = { .ctx = ctx };
-                flow1_start_visit_declaration(&ctx2, p_declaration);
-                flow1_visit_ctx_destroy(&ctx2);
+                if (ctx->options.flow3)
+                {
+                    struct flow3_visit_ctx ctx3 = { .ctx = ctx };
+                    flow3_start_visit_declaration(&ctx3, p_declaration);
+                    flow3_visit_ctx_destroy(&ctx3);
+                }
+                else
+                {
+                    struct flow1_visit_ctx ctx2 = { .ctx = ctx };
+                    flow1_start_visit_declaration(&ctx2, p_declaration);
+                    flow1_visit_ctx_destroy(&ctx2);
+                }
             }
         }
 
@@ -3378,8 +3399,11 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 {
                     const char* name2 = p_init_declarator->p_declarator->name_opt ?
                         p_init_declarator->p_declarator->name_opt->lexeme : "";
+
                     make_object_with_member_designator(&p_init_declarator->p_declarator->type,
-                         &p_init_declarator->p_declarator->object, name2, ctx->options.target);
+                         &p_init_declarator->p_declarator->object, name2,
+                        MAKE_STATE_UNITIALIZED,
+                        ctx->options.target);
 
 
                     if (braced_initializer_is_empty(p_init_declarator->initializer->braced_initializer))
@@ -3407,7 +3431,11 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     }
 
 
-                    int er = make_object(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object, ctx->options.target);
+                    int er = make_object(&p_init_declarator->p_declarator->type,
+                        &p_init_declarator->p_declarator->object,
+                        MAKE_STATE_UNITIALIZED,
+                        ctx->options.target);
+
                     if (er != 0)
                     {
                         diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
@@ -3491,7 +3519,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
                     struct type t = { 0 };
 
-                    if (p_init_declarator->initializer->assignment_expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
+                    if (p_init_declarator->initializer->assignment_expression->expression_type == EXPR_UNARY_ADDRESSOF)
                     {
                         t = type_dup(&p_init_declarator->initializer->assignment_expression->type);
                     }
@@ -3534,7 +3562,9 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     p_init_declarator->p_declarator->name_opt->lexeme : "";
 
                 int er = make_object_with_member_designator(&p_init_declarator->p_declarator->type,
-                    &p_init_declarator->p_declarator->object, name2, ctx->options.target);
+                    &p_init_declarator->p_declarator->object, name2,
+                    MAKE_STATE_UNITIALIZED,
+                    ctx->options.target);
 
                 if (er != 0)
                 {
@@ -3567,7 +3597,9 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
                 int er = make_object_with_member_designator(&p_init_declarator->p_declarator->type,
                     &p_init_declarator->p_declarator->object,
-                    name2, ctx->options.target);
+                    name2,
+                    MAKE_STATE_UNITIALIZED,
+                    ctx->options.target);
 
                 if (er != 0)
                 {
@@ -3640,6 +3672,44 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     ctx,
                     p_init_declarator->initializer->first_token, NULL,
                     "_Dtor qualifier can only be used with pointers");
+                }
+            }
+
+            if (!type_is_pointer(&p_init_declarator->p_declarator->type) &&
+                p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_CAKE_UNINIT)
+            {
+                if (p_init_declarator->p_declarator->first_token_opt)
+                {
+                    diagnostic(C_ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
+                        ctx,
+                        p_init_declarator->p_declarator->first_token_opt, NULL,
+                        "_Uninit qualifier can only be used with pointers");
+                }
+                else if (p_init_declarator->initializer)
+                {
+                    diagnostic(C_ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
+                    ctx,
+                    p_init_declarator->initializer->first_token, NULL,
+                    "_Uninit qualifier can only be used with pointers");
+                }
+            }
+
+            if (!type_is_pointer(&p_init_declarator->p_declarator->type) &&
+                p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_CAKE_CLEAR)
+            {
+                if (p_init_declarator->p_declarator->first_token_opt)
+                {
+                    diagnostic(C_ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
+                        ctx,
+                        p_init_declarator->p_declarator->first_token_opt, NULL,
+                        "_Clear qualifier can only be used with pointers");
+                }
+                else if (p_init_declarator->initializer)
+                {
+                    diagnostic(C_ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
+                    ctx,
+                    p_init_declarator->initializer->first_token, NULL,
+                    "_Clear qualifier can only be used with pointers");
                 }
             }
         }
@@ -6578,12 +6648,20 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
     {
         switch (ctx->current->type)
         {
-        case TK_KEYWORD__CTOR:
+        case TK_KEYWORD_CAKE_CTOR:
             p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_CTOR;
             break;
 
-        case TK_KEYWORD__DTOR:
+        case TK_KEYWORD_CAKE_DTOR:
             p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_DTOR;
+            break;
+
+        case TK_KEYWORD_CAKE_UNINIT:
+            p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_UNINIT;
+            break;
+
+        case TK_KEYWORD_CAKE_CLEAR:
+            p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_CLEAR;
             break;
 
         case TK_KEYWORD_CAKE_OWNER:
@@ -7602,6 +7680,14 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
             {
                 p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_CAKE_DTOR;
             }
+            else if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_UNINIT)
+            {
+                p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_CAKE_UNINIT;
+            }
+            else if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_CLEAR)
+            {
+                p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_CAKE_CLEAR;
+            }
         }
         p_parameter_declaration->declaration_specifiers = p_declaration_specifiers;
 
@@ -7626,7 +7712,11 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
         }
         else
         {
-            int er = make_object(&p_parameter_declaration->declarator->type, &p_parameter_declaration->declarator->object, ctx->options.target);
+            int er = make_object(&p_parameter_declaration->declarator->type,
+                &p_parameter_declaration->declarator->object,
+                MAKE_STATE_UNITIALIZED,
+                ctx->options.target);
+
             if (er != 0)
             {
                 //diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
@@ -7804,22 +7894,32 @@ void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_di
     }
 }
 
-const struct declarator* _Opt declarator_get_innert_function_declarator(const struct declarator* p)
+
+const struct direct_declarator* get_innermost_direct_declarator(const struct direct_declarator* p)
 {
-    const struct declarator* inner = p;
-    for (;;)
+    const struct direct_declarator* previous = p;
+
+    while (p != NULL)
     {
-        if (inner->direct_declarator &&
-            inner->direct_declarator->function_declarator &&
-            inner->direct_declarator->function_declarator->direct_declarator &&
-            inner->direct_declarator->function_declarator->direct_declarator->declarator)
-        {
-            inner = inner->direct_declarator->function_declarator->direct_declarator->declarator;
-        }
+        if (p->declarator && p->declarator->direct_declarator)
+            p = p->declarator->direct_declarator;
+        else if (p->array_declarator && p->array_declarator->direct_declarator)
+            p = p->array_declarator->direct_declarator;
+        else if (p->function_declarator && p->function_declarator->direct_declarator)
+            p = p->function_declarator->direct_declarator;
         else
             break;
+
+        if (p->name_opt == NULL &&
+            p->declarator == NULL &&
+            p->array_declarator == NULL &&
+            p->function_declarator == NULL)
+            break;
+
+        previous = p;
     }
-    return inner;
+
+    return previous;
 }
 
 const struct declarator* _Opt declarator_get_function_definition(const struct declarator* declarator)
@@ -9266,6 +9366,16 @@ enum attribute_flags attribute_token(struct parser_ctx* ctx, struct attribute* p
             is_standard_attribute = true;
             attribute_flags = CAKE_ATTRIBUTE_CTOR;
         }
+        else if (strcmp(attr_token->lexeme, "uninit") == 0)
+        {
+            is_standard_attribute = true;
+            attribute_flags = CAKE_ATTRIBUTE_UNINIT;
+        }
+        else if (strcmp(attr_token->lexeme, "clear") == 0)
+        {
+            is_standard_attribute = true;
+            attribute_flags = CAKE_ATTRIBUTE_CLEAR;
+        }
 
         const bool is_cake_attr = strcmp(attr_token->lexeme, "cake") == 0;
 
@@ -9827,7 +9937,7 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
                 }
             }
             if (p_unlabeled_statement->expression_statement->expression_opt &&
-                p_unlabeled_statement->expression_statement->expression_opt->expression_type == POSTFIX_FUNCTION_CALL)
+                p_unlabeled_statement->expression_statement->expression_opt->expression_type == EXPR_POSTFIX_FUNCTION_CALL)
             {
             }
             else
@@ -9841,8 +9951,8 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
                     p_unlabeled_statement->expression_statement != NULL &&
                     p_unlabeled_statement->expression_statement->expression_opt)
                 {
-                    if (p_unlabeled_statement->expression_statement->expression_opt->expression_type == PRIMARY_EXPRESSION_DECLARATOR ||
-                        p_unlabeled_statement->expression_statement->expression_opt->expression_type == PRIMARY_EXPRESSION_NUMBER)
+                    if (p_unlabeled_statement->expression_statement->expression_opt->expression_type == EXPR_PRIMARY_DECLARATOR ||
+                        p_unlabeled_statement->expression_statement->expression_opt->expression_type == EXPR_PRIMARY_NUMBER)
                     {
                         if (ctx->current &&
                             ctx->current->level == 0)
@@ -10542,7 +10652,7 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
                 }
                 p = p->next;
             }
-        }        
+        }
         else if (first_of_label(ctx))
         {
             /* identifier can be confused with an expression here */
@@ -12237,9 +12347,18 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
         {
             struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
 
-            struct flow1_visit_ctx ctx3 = { .ctx = ctx };
-            flow1_start_visit_declaration(&ctx3, it);
-            flow1_visit_ctx_destroy(&ctx3);
+            if (ctx->options.flow3)
+            {
+                struct flow3_visit_ctx ctx4 = { .ctx = ctx };
+                flow3_start_visit_declaration(&ctx4, it);
+                flow3_visit_ctx_destroy(&ctx4);
+            }
+            else
+            {
+                struct flow1_visit_ctx ctx3 = { .ctx = ctx };
+                flow1_start_visit_declaration(&ctx3, it);
+                flow1_visit_ctx_destroy(&ctx3);
+            }
 
             /* visiting the function again; restore the same diagnostic state */
             ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = before_function_diagnostics;
@@ -13169,7 +13288,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                 }
                 if (p_initializer_list_item2->initializer->assignment_expression != NULL)
                 {
-                    if (p_initializer_list_item2->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
+                    if (p_initializer_list_item2->initializer->assignment_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL)
                     {
                         size_t num_of_elements =
                             p_initializer_list_item2->initializer->assignment_expression->type.array_num_elements;
@@ -13308,7 +13427,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                 bool entire_object_initialized = false;
 
                 if (type_is_array_of_char(&subobject_type) &&
-                    p_initializer_list_item->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
+                    p_initializer_list_item->initializer->assignment_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL)
                 {
                     /*
                     struct X { int i; char text[4]; };

@@ -124,10 +124,10 @@ static enum object_type to_unsigned(enum object_type t)
     case TYPE_LONG_DOUBLE:
         return t;
 
-    default:        
+    default:
         break;
     }
-    
+
     return t;
 }
 
@@ -155,7 +155,7 @@ static bool object_type_is_signed_integer(enum object_type type)
     case TYPE_LONG_DOUBLE:
         break;
 
-    default:        
+    default:
         break;
     }
     return false;
@@ -463,6 +463,14 @@ bool object_has_constant_value(const struct object* a)
     return a->state == CONSTANT_VALUE_STATE_CONSTANT;
 }
 
+
+bool object_has_known_value(const struct object* a)
+{
+    a = object_get_referenced(a);
+    return a->state == CONSTANT_VALUE_STATE_CONSTANT ||
+        a->state == CONSTANT_VALUE_EQUAL;
+}
+
 struct object object_make_size_t(enum target target, unsigned long long value)
 {
     struct object r = { 0 };
@@ -624,7 +632,7 @@ bool object_is_true(const struct object* a)
     case TYPE_LONG_DOUBLE:
         return a->value.host_long_double;
 
-    default:        
+    default:
         break;
     }
     assert(0);
@@ -1304,7 +1312,7 @@ static void object_fix_parent(struct object* p_object, struct object* parent)
     }
 }
 
-struct object* _Opt object_get_member(struct object* p_object, size_t index)
+struct object* _Opt object_get_member(const struct object* p_object, size_t index)
 {
     p_object = (struct object* _Opt) object_get_referenced(p_object);
 
@@ -1346,7 +1354,7 @@ int object_set(
             while (it_from && it_to)
             {
                 if (object_set(ctx, it_to, NULL, it_from, is_constant, requires_constant_initialization) != 0)
-                   throw;
+                    throw;
                 it_to = it_to->next;
                 it_from = it_from->next;
             }
@@ -1415,7 +1423,10 @@ int object_set(
     return 0;
 }
 
-struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const char* member_designator, enum target target)
+struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
+    const char* member_designator,
+    enum make_state make_state,
+    enum target target)
 {
     struct object* _Owner _Opt p_object = NULL;
 
@@ -1468,7 +1479,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                 {
                     char buffer[200] = { 0 };
                     snprintf(buffer, sizeof buffer, "%s[%llu]", member_designator, i);
-                    struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&array_item_type, buffer, target);
+                    struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&array_item_type, buffer, make_state, target);
                     if (p_member_obj == NULL)
                     {
                         type_destroy(&array_item_type);
@@ -1493,10 +1504,30 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             if (p_object == NULL)
                 throw;
 
+            switch (make_state)
+            {
+            case MAKE_STATE_ZERO_CONSTANT:
+                p_object->state = CONSTANT_VALUE_STATE_CONSTANT;
+                p_object->value.host_long_long = 0;
+                break;
 
-            p_object->state = CONSTANT_VALUE_STATE_UNINITIALIZED;
+            case MAKE_STATE_ZERO:
+                p_object->state = CONSTANT_VALUE_EQUAL;
+                p_object->value.host_long_long = 0;
+                break;
+
+            case MAKE_STATE_UNITIALIZED:
+                p_object->state = CONSTANT_VALUE_STATE_UNINITIALIZED;
+                p_object->value.host_long_long = -1;
+                break;
+            case MAKE_STATE_ANY:
+                p_object->state = CONSTANT_VALUE_STATE_ANY;
+                p_object->value.host_long_long = -1;
+                break;
+            }
+
             p_object->value_type = type_to_object_type(p_type, target);
-            p_object->value.host_long_long = -1;
+
             p_object->member_designator = strdup(member_designator);
             p_object->type = type_dup(p_type);
 
@@ -1546,7 +1577,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                             */
                         }
 
-                        struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&p_member_declarator->declarator->type, buffer, target);
+                        struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&p_member_declarator->declarator->type, buffer, make_state, target);
                         if (p_member_obj == NULL)
                             throw;
 
@@ -1572,7 +1603,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                     snprintf(buffer, sizeof buffer, ".%s", member_designator);
 
 
-                    struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&t, buffer, target);
+                    struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&t, buffer, make_state, target);
                     if (p_member_obj == NULL)
                         throw;
 
@@ -1599,12 +1630,16 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
 
 }
 
-struct object* _Owner _Opt make_object_ptr(const struct type* p_type, enum target target)
+struct object* _Owner _Opt make_object_ptr(const struct type* p_type, enum make_state make_state, enum target target)
 {
-    return make_object_ptr_core(p_type, "", target);
+    return make_object_ptr_core(p_type, "", make_state, target);
 }
 
-int make_object_with_member_designator(const struct type* p_type, struct object* obj, const char* name, enum target target)
+int make_object_with_member_designator(const struct type* p_type,
+    struct object* obj,
+    const char* name,
+    enum make_state make_state,
+    enum target target)
 {
     object_destroy(obj);
     memset(obj, 0, sizeof(struct object));
@@ -1612,7 +1647,7 @@ int make_object_with_member_designator(const struct type* p_type, struct object*
     assert(obj->members.head == NULL);
     assert(obj->next == NULL);
 
-    struct object* _Owner _Opt p = make_object_ptr_core(p_type, name, target);
+    struct object* _Owner _Opt p = make_object_ptr_core(p_type, name, make_state, target);
     if (p)
     {
         *obj = *p; //not an error    
@@ -1653,9 +1688,9 @@ struct object object_dup(const struct object* src)
     return result;
 }
 
-int make_object(const struct type* p_type, struct object* obj, enum target target)
+int make_object(const struct type* p_type, struct object* obj, enum make_state make_state, enum target target)
 {
-    return make_object_with_member_designator(p_type, obj, "", target);
+    return make_object_with_member_designator(p_type, obj, "", make_state, target);
 }
 
 enum type_specifier_flags object_type_to_type_specifier(enum object_type type)
@@ -1688,10 +1723,10 @@ enum type_specifier_flags object_type_to_type_specifier(enum object_type type)
     case TYPE_DOUBLE: return TYPE_SPECIFIER_DOUBLE;
     case TYPE_LONG_DOUBLE: return TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE;
 
-    default:        
+    default:
         break;
     }
-    
+
     return 0;
 }
 
@@ -1850,8 +1885,8 @@ void object_print_value_debug(const struct object* a)
     case TYPE_LONG_DOUBLE:
         printf("%Lf (long double)", a->value.host_long_double);
         break;
-    
-    default:        
+
+    default:
         break;
     }
 
@@ -1902,7 +1937,6 @@ void object_print_to_debug_core(const struct object* object, int n, enum target 
         case CONSTANT_VALUE_STATE_ANY:printf(" unknown "); break;
         case CONSTANT_VALUE_EQUAL:printf(" exact "); break;
         case CONSTANT_VALUE_STATE_CONSTANT:printf(" constant_exact "); break;
-        case CONSTANT_VALUE_NOT_EQUAL:printf(" not_equal "); break;
         }
 
         printf("\n");
@@ -1929,11 +1963,14 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
             char name[50] = { 0 };
             snprintf(name, sizeof name, "[%zu]", count);
 
-            struct object* _Owner _Opt p = make_object_ptr_core(p_type, name, target);
+            struct object* _Owner _Opt p = make_object_ptr_core(p_type,
+                name, 
+                is_constant ? MAKE_STATE_ZERO_CONSTANT : MAKE_STATE_ZERO,
+                target);
             if (p == NULL)
                 throw;
 
-            p->parent = a;
+            p->parent = a;            
             object_default_initialization(p, is_constant);
             object_list_push(&a->members, p);
         }
@@ -2974,7 +3011,7 @@ struct object object_mod(enum target target,
         snprintf(warning_message, 200, " invalid operands for");
         break;
 
-    default:        
+    default:
         break;
     }
 
@@ -2986,7 +3023,7 @@ struct object object_mod(enum target target,
 
 int object_is_equal(enum target target, const struct object* a, const struct object* b)
 {
-    char message[200]= {0};
+    char message[200] = { 0 };
     struct object r = object_equal(target, a, b, message);
     int i = r.value.host_long_long != 0;
     object_destroy(&r);
@@ -2995,7 +3032,7 @@ int object_is_equal(enum target target, const struct object* a, const struct obj
 
 int object_is_not_equal(enum target target, const struct object* a, const struct object* b)
 {
-    char message[200] = {0};
+    char message[200] = { 0 };
     struct object r = object_not_equal(target, a, b, message);
     int i = r.value.host_long_long != 0;
     object_destroy(&r);
@@ -3005,7 +3042,7 @@ int object_is_not_equal(enum target target, const struct object* a, const struct
 
 int object_is_greater_than_or_equal(enum target target, const struct object* a, const struct object* b)
 {
-    char message[200]= {0};
+    char message[200] = { 0 };
     struct object r = object_greater_than_or_equal(target, a, b, message);
     int i = r.value.host_long_long != 0;
     object_destroy(&r);
@@ -3014,7 +3051,7 @@ int object_is_greater_than_or_equal(enum target target, const struct object* a, 
 
 int object_is_smaller_than_or_equal(enum target target, const struct object* a, const struct object* b)
 {
-    char message[200]= {0};
+    char message[200] = { 0 };
     struct object r = object_smaller_than_or_equal(target, a, b, message);
     int i = r.value.host_long_long != 0;
     object_destroy(&r);
@@ -3494,7 +3531,7 @@ struct object object_shift_right(enum target target,
         assert(false);
         snprintf(warning_message, 200, " invalid operands");
         break;
-    
+
     default:
         break;
     }

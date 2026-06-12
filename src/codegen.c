@@ -454,26 +454,26 @@ static void expression_to_bool_value(struct codegen_ctx* ctx, struct osstream* o
         {
             switch (p_expression->expression_type)
             {
-            case EQUALITY_EXPRESSION_EQUAL:
-            case EQUALITY_EXPRESSION_NOT_EQUAL:
-            case AND_EXPRESSION:
-            case EXCLUSIVE_OR_EXPRESSION:
-            case INCLUSIVE_OR_EXPRESSION:
-            case LOGICAL_OR_EXPRESSION:
-            case LOGICAL_AND_EXPRESSION:
-            case ASSIGNMENT_EXPRESSION_ASSIGN:
-            case ASSIGNMENT_EXPRESSION_PLUS_ASSIGN:
-            case ASSIGNMENT_EXPRESSION_MINUS_ASSIGN:
-            case ASSIGNMENT_EXPRESSION_MULTI_ASSIGN:
-            case ASSIGNMENT_EXPRESSION_DIV_ASSIGN:
-            case ASSIGNMENT_EXPRESSION_MOD_ASSIGN:
-            case ASSIGNMENT_EXPRESSION_SHIFT_LEFT_ASSIGN:
-            case ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN:
-            case ASSIGNMENT_EXPRESSION_AND_ASSIGN:
-            case ASSIGNMENT_EXPRESSION_OR_ASSIGN:
-            case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
-            case EXPRESSION_EXPRESSION:
-            case CONDITIONAL_EXPRESSION:
+            case EXPR_EQUALITY_EQUAL:
+            case EXPR_EQUALITY_NOT_EQUAL:
+            case EXPR_AND:
+            case EXPR_EXCLUSIVE_OR:
+            case EXPR_INCLUSIVE_OR:
+            case EXPR_LOGICAL_OR:
+            case EXPR_LOGICAL_AND:
+            case EXPR_ASSIGNMENT_ASSIGN:
+            case EXPR_ASSIGNMENT_PLUS_ASSIGN:
+            case EXPR_ASSIGNMENT_MINUS_ASSIGN:
+            case EXPR_ASSIGNMENT_MULTI_ASSIGN:
+            case EXPR_ASSIGNMENT_DIV_ASSIGN:
+            case EXPR_ASSIGNMENT_MOD_ASSIGN:
+            case EXPR_ASSIGNMENT_SHIFT_LEFT_ASSIGN:
+            case EXPR_ASSIGNMENT_SHIFT_RIGHT_ASSIGN:
+            case EXPR_ASSIGNMENT_AND_ASSIGN:
+            case EXPR_ASSIGNMENT_OR_ASSIGN:
+            case EXPR_ASSIGNMENT_NOT_ASSIGN:
+            case EXPR_EXPRESSION:
+            case EXPR_CONDITIONAL:
                 ss_fprintf(oss, "((");
                 codegen_visit_expression(ctx, oss, p_expression);
                 ss_fprintf(oss, ") != 0)");
@@ -652,27 +652,27 @@ static const char* get_op_by_expression_type(enum expression_type type)
 {
     switch (type)
     {
-    case ASSIGNMENT_EXPRESSION_ASSIGN:
+    case EXPR_ASSIGNMENT_ASSIGN:
         return "=";
-    case ASSIGNMENT_EXPRESSION_PLUS_ASSIGN:
+    case EXPR_ASSIGNMENT_PLUS_ASSIGN:
         return "+=";
-    case ASSIGNMENT_EXPRESSION_MINUS_ASSIGN:
+    case EXPR_ASSIGNMENT_MINUS_ASSIGN:
         return "-=";
-    case ASSIGNMENT_EXPRESSION_MULTI_ASSIGN:
+    case EXPR_ASSIGNMENT_MULTI_ASSIGN:
         return "*=";
-    case ASSIGNMENT_EXPRESSION_DIV_ASSIGN:
+    case EXPR_ASSIGNMENT_DIV_ASSIGN:
         return "/=";
-    case ASSIGNMENT_EXPRESSION_MOD_ASSIGN:
+    case EXPR_ASSIGNMENT_MOD_ASSIGN:
         return "%=";
-    case ASSIGNMENT_EXPRESSION_SHIFT_LEFT_ASSIGN:
+    case EXPR_ASSIGNMENT_SHIFT_LEFT_ASSIGN:
         return "<<=";
-    case ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN:
+    case EXPR_ASSIGNMENT_SHIFT_RIGHT_ASSIGN:
         return ">>=";
-    case ASSIGNMENT_EXPRESSION_AND_ASSIGN:
+    case EXPR_ASSIGNMENT_AND_ASSIGN:
         return "&=";
-    case ASSIGNMENT_EXPRESSION_OR_ASSIGN:
+    case EXPR_ASSIGNMENT_OR_ASSIGN:
         return "|=";
-    case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
+    case EXPR_ASSIGNMENT_NOT_ASSIGN:
         return "^=";
 
     default:
@@ -791,7 +791,7 @@ static void vm_emit_countof_expr(struct codegen_ctx* ctx,
 static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* oss, struct expression* p_expression)
 {
 
-    if (p_expression->expression_type == CHECKED_EXPRESSION)
+    if (p_expression->expression_type == EXPR_CHECKED)
     {
 
         assert(p_expression->left);
@@ -842,7 +842,19 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
     }
 
     if (!ctx->address_of_argument &&
-        p_expression->expression_type != PRIMARY_EXPRESSION_STATEMENT_EXPRESSION &&
+        p_expression->expression_type != EXPR_PRIMARY_STATEMENT_EXPRESSION &&
+        p_expression->expression_type != EXPR_ASSIGNMENT_ASSIGN &&
+        p_expression->expression_type != EXPR_ASSIGNMENT_PLUS_ASSIGN &&
+        p_expression->expression_type != EXPR_ASSIGNMENT_MINUS_ASSIGN &&
+        p_expression->expression_type != EXPR_ASSIGNMENT_MULTI_ASSIGN &&
+        p_expression->expression_type != EXPR_ASSIGNMENT_DIV_ASSIGN &&
+        p_expression->expression_type != EXPR_ASSIGNMENT_MOD_ASSIGN &&
+        p_expression->expression_type != EXPR_ASSIGNMENT_SHIFT_LEFT_ASSIGN &&
+        p_expression->expression_type != EXPR_ASSIGNMENT_SHIFT_RIGHT_ASSIGN &&
+        p_expression->expression_type != EXPR_ASSIGNMENT_AND_ASSIGN &&
+        p_expression->expression_type != EXPR_ASSIGNMENT_OR_ASSIGN &&
+        p_expression->expression_type != EXPR_ASSIGNMENT_NOT_ASSIGN &&
+    
         object_has_constant_value(&p_expression->object))
     {
         if (type_is_void_ptr(&p_expression->type) ||
@@ -873,11 +885,11 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
     switch (p_expression->expression_type)
     {
-    case EXPRESSION_TYPE_INVALID:
+    case EXPR_INVALID:
         assert(false);
         break;
 
-    case PRIMARY_EXPRESSION__FUNC__:
+    case EXPR_PRIMARY__FUNC__:
     {
         assert(ctx->p_current_function_opt);
 
@@ -906,7 +918,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
     }
     break;
 
-    case PRIMARY_EXPRESSION_DECLARATOR:
+    case EXPR_PRIMARY_DECLARATOR:
     {
         assert(p_expression->declarator != NULL);
         assert(p_expression->declarator->declaration_specifiers != NULL);
@@ -1068,21 +1080,21 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
     }
     break;
 
-    case PRIMARY_EXPRESSION_STRING_LITERAL:
+    case EXPR_PRIMARY_STRING_LITERAL:
         il_print_string(p_expression->first_token, p_expression->last_token, oss);
         break;
 
-    case PRIMARY_EXPRESSION_ENUMERATOR:
-    case PRIMARY_EXPRESSION_CHAR_LITERAL:
-    case PRIMARY_EXPRESSION_NUMBER:
-    case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
+    case EXPR_PRIMARY_ENUMERATOR:
+    case EXPR_PRIMARY_CHAR_LITERAL:
+    case EXPR_PRIMARY_NUMBER:
+    case EXPR_PRIMARY_PREDEFINED_CONSTANT:
         object_print_value(oss, &p_expression->object, ctx->options.target);
         break;
 
-    case PRIMARY_EXPRESSION_PARENTHESIS:
+    case EXPR_PRIMARY_PARENTHESIS:
 
         assert(p_expression->right != NULL);
-        if (p_expression->right->expression_type == PRIMARY_EXPRESSION_PARENTHESIS)
+        if (p_expression->right->expression_type == EXPR_PRIMARY_PARENTHESIS)
         {
             /* remove extra (()) — could also be removed from other cases */
             codegen_visit_expression(ctx, oss, p_expression->right);
@@ -1096,7 +1108,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         break;
 
-    case PRIMARY_EXPRESSION_STATEMENT_EXPRESSION:
+    case EXPR_PRIMARY_STATEMENT_EXPRESSION:
     {
         char name[100] = { 0 };
         generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
@@ -1121,7 +1133,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
     }
     break;
 
-    case PRIMARY_EXPRESSION_GENERIC:
+    case EXPR_PRIMARY_GENERIC:
         assert(p_expression->generic_selection != NULL);
 
         if (p_expression->generic_selection->p_view_selected_expression)
@@ -1130,11 +1142,11 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         }
         break;
 
-    case UNARY_EXPRESSION_STATIC_ASSERTION:
+    case EXPR_UNARY_STATIC_ASSERTION:
         ss_fprintf(oss, "(void)0");
         break;
 
-    case UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF:
+    case EXPR_UNARY_GCC__BUILTIN_OFFSETOF:
         ss_fprintf(oss, "__builtin_offsetof(");
 
         if (p_expression->type_name)
@@ -1146,7 +1158,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         ss_fprintf(oss, ")");
         break;
 
-    case UNARY_EXPRESSION_GCC__BUILTIN_VA_START:
+    case EXPR_UNARY_GCC__BUILTIN_VA_START:
         assert(p_expression->left != NULL);
 
         if (p_expression->right != NULL)
@@ -1169,14 +1181,14 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         }
         break;
 
-    case UNARY_EXPRESSION_GCC__BUILTIN_VA_END:
+    case EXPR_UNARY_GCC__BUILTIN_VA_END:
         assert(p_expression->left != NULL);
         ss_fprintf(oss, "__builtin_va_end(");
         codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, ")");
         break;
 
-    case UNARY_EXPRESSION_GCC__BUILTIN_VA_COPY:
+    case EXPR_UNARY_GCC__BUILTIN_VA_COPY:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
 
@@ -1187,7 +1199,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         ss_fprintf(oss, ")");
         break;
 
-    case UNARY_EXPRESSION_GCC__BUILTIN_VA_ARG:
+    case EXPR_UNARY_GCC__BUILTIN_VA_ARG:
         assert(p_expression->left != NULL);
 
         ss_fprintf(oss, "__builtin_va_arg(");
@@ -1201,7 +1213,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         ss_fprintf(oss, ")");
         break;
 
-    case POSTFIX_DOT:
+    case EXPR_POSTFIX_DOT:
     {
         assert(p_expression->left != NULL);
 
@@ -1216,7 +1228,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
     }
     break;
 
-    case POSTFIX_ARROW:
+    case EXPR_POSTFIX_ARROW:
     {
         assert(p_expression->left != NULL);
 
@@ -1237,21 +1249,21 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
     break;
 
 
-    case POSTFIX_INCREMENT:
+    case EXPR_POSTFIX_INCREMENT:
         assert(p_expression->left != NULL);
 
         codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, "++");
         break;
 
-    case POSTFIX_DECREMENT:
+    case EXPR_POSTFIX_DECREMENT:
         assert(p_expression->left != NULL);
 
         codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, "--");
         break;
 
-    case POSTFIX_ARRAY:
+    case EXPR_POSTFIX_ARRAY:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
 
@@ -1262,7 +1274,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         */
 
         struct expression* _Opt expr0 = p_expression;
-        while (expr0 && expr0->expression_type == POSTFIX_ARRAY)
+        while (expr0 && expr0->expression_type == EXPR_POSTFIX_ARRAY)
         {
             expr0 = expr0->left;
         }
@@ -1286,7 +1298,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
             struct osstream offset_flat = { 0 };
 
             struct expression* _Opt expr = p_expression;
-            while (expr && expr->expression_type == POSTFIX_ARRAY)
+            while (expr && expr->expression_type == EXPR_POSTFIX_ARRAY)
             {
                 assert(expr->right != NULL);
                 if (offset_flat.size > 0)
@@ -1337,7 +1349,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         break;
 
-    case POSTFIX_FUNCTION_CALL:
+    case EXPR_POSTFIX_FUNCTION_CALL:
     {
         assert(p_expression->left != NULL);
 
@@ -1385,7 +1397,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
     }
     break;
 
-    case UNARY_EXPRESSION_ADDRESSOF:
+    case EXPR_UNARY_ADDRESSOF:
     {
         //bool address_of_argument = ctx->address_of_argument;
         assert(p_expression->right != NULL);
@@ -1396,7 +1408,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
     }
     break;
 
-    case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
+    case EXPR_POSTFIX_FUNCTION_LITERAL:
     {
         assert(p_expression->type_name != NULL);
 
@@ -1455,7 +1467,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
     break;
 
 
-    case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
+    case EXPR_POSTFIX_COMPOUND_LITERAL:
     {
         char name[100] = { 0 };
 
@@ -1506,7 +1518,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
     }
     break;
 
-    case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
+    case EXPR_UNARY_SIZEOF_EXPRESSION:
         if (p_expression->right != NULL &&
             type_is_vm(&p_expression->right->type))
         {
@@ -1518,7 +1530,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         }
         break;
 
-    case UNARY_EXPRESSION_SIZEOF_TYPE:
+    case EXPR_UNARY_SIZEOF_TYPE:
         if (p_expression->type_name != NULL &&
             type_is_vm(&p_expression->type_name->type))
         {
@@ -1533,12 +1545,12 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         }
         break;
 
-    case UNARY_EXPRESSION_ALIGNOF_EXPRESSION:
-    case UNARY_EXPRESSION_ALIGNOF_TYPE:
+    case EXPR_UNARY_ALIGNOF_EXPRESSION:
+    case EXPR_UNARY_ALIGNOF_TYPE:
         object_print_value(oss, &p_expression->object, ctx->options.target);
         break;
 
-    case UNARY_EXPRESSION_COUNTOF:
+    case EXPR_UNARY_COUNTOF:
         if (p_expression->right != NULL &&
             type_is_vm(&p_expression->right->type))
         {
@@ -1556,58 +1568,58 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         }
         break;
 
-    case UNARY_EXPRESSION_CONSTEVAL:
+    case EXPR_UNARY_CONSTEVAL:
         assert(p_expression->right != NULL);
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case UNARY_EXPRESSION_INCREMENT:
+    case EXPR_UNARY_INCREMENT:
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "++");
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case UNARY_EXPRESSION_DECREMENT:
+    case EXPR_UNARY_DECREMENT:
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "--");
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case UNARY_EXPRESSION_NOT:
+    case EXPR_UNARY_NOT:
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "!");
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case UNARY_EXPRESSION_BITNOT:
+    case EXPR_UNARY_BITNOT:
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "~");
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case UNARY_EXPRESSION_NEG:
+    case EXPR_UNARY_NEG:
 
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "-");
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
-    case UNARY_EXPRESSION_PLUS:
+    case EXPR_UNARY_PLUS:
 
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "+");
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case UNARY_EXPRESSION_CONTENT:
+    case EXPR_UNARY_CONTENT:
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "*");
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case UNARY_EXPRESSION_ASSERT:
+    case EXPR_UNARY_ASSERT:
         break;
 
-    case ADDITIVE_EXPRESSION_MINUS:
+    case EXPR_ADDITIVE_MINUS:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
         codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1615,7 +1627,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case ADDITIVE_EXPRESSION_PLUS:
+    case EXPR_ADDITIVE_PLUS:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
         codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1623,14 +1635,14 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case MULTIPLICATIVE_EXPRESSION_MULT:
+    case EXPR_MULTIPLICATIVE_MULT:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
         codegen_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " * ");
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
-    case MULTIPLICATIVE_EXPRESSION_DIV:
+    case EXPR_MULTIPLICATIVE_DIV:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
         codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1638,7 +1650,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case MULTIPLICATIVE_EXPRESSION_MOD:
+    case EXPR_MULTIPLICATIVE_MOD:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
         codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1647,10 +1659,10 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         break;
 
 
-    case EXPRESSION_EXPRESSION:
+    case EXPR_EXPRESSION:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        if (p_expression->left->expression_type != UNARY_EXPRESSION_STATIC_ASSERTION)
+        if (p_expression->left->expression_type != EXPR_UNARY_STATIC_ASSERTION)
         {
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, ", ");
@@ -1659,7 +1671,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         break;
 
 
-    case ASSIGNMENT_EXPRESSION_ASSIGN:
+    case EXPR_ASSIGNMENT_ASSIGN:
 
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
@@ -1687,16 +1699,16 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         break;
 
-    case ASSIGNMENT_EXPRESSION_PLUS_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_MINUS_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_MULTI_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_DIV_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_MOD_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_SHIFT_LEFT_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_AND_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_OR_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
+    case EXPR_ASSIGNMENT_PLUS_ASSIGN:
+    case EXPR_ASSIGNMENT_MINUS_ASSIGN:
+    case EXPR_ASSIGNMENT_MULTI_ASSIGN:
+    case EXPR_ASSIGNMENT_DIV_ASSIGN:
+    case EXPR_ASSIGNMENT_MOD_ASSIGN:
+    case EXPR_ASSIGNMENT_SHIFT_LEFT_ASSIGN:
+    case EXPR_ASSIGNMENT_SHIFT_RIGHT_ASSIGN:
+    case EXPR_ASSIGNMENT_AND_ASSIGN:
+    case EXPR_ASSIGNMENT_OR_ASSIGN:
+    case EXPR_ASSIGNMENT_NOT_ASSIGN:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
         codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1704,7 +1716,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case CAST_EXPRESSION:
+    case EXPR_CAST:
     {
         assert(p_expression->left != NULL);
 
@@ -1722,7 +1734,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
     }
     break;
 
-    case SHIFT_EXPRESSION_RIGHT:
+    case EXPR_SHIFT_RIGHT:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
         codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1730,7 +1742,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case SHIFT_EXPRESSION_LEFT:
+    case EXPR_SHIFT_LEFT:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
         codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1738,7 +1750,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case RELATIONAL_EXPRESSION_BIGGER_THAN:
+    case EXPR_RELATIONAL_BIGGER_THAN:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
         codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1746,7 +1758,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case RELATIONAL_EXPRESSION_LESS_THAN:
+    case EXPR_RELATIONAL_LESS_THAN:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
 
@@ -1755,7 +1767,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         codegen_visit_expression(ctx, oss, p_expression->right);
 
         break;
-    case EQUALITY_EXPRESSION_EQUAL:
+    case EXPR_EQUALITY_EQUAL:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
         codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1763,7 +1775,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case EQUALITY_EXPRESSION_NOT_EQUAL:
+    case EXPR_EQUALITY_NOT_EQUAL:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
         codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1771,7 +1783,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case AND_EXPRESSION:
+    case EXPR_AND:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
         codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1779,7 +1791,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case EXCLUSIVE_OR_EXPRESSION:
+    case EXPR_EXCLUSIVE_OR:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
         codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1787,7 +1799,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case INCLUSIVE_OR_EXPRESSION:
+    case EXPR_INCLUSIVE_OR:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
         codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1795,7 +1807,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
+    case EXPR_RELATIONAL_LESS_OR_EQUAL_THAN:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
         codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1803,7 +1815,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
+    case EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
         codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1811,7 +1823,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case LOGICAL_AND_EXPRESSION:
+    case EXPR_LOGICAL_AND:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
         codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1819,7 +1831,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case LOGICAL_OR_EXPRESSION:
+    case EXPR_LOGICAL_OR:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
         codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1827,12 +1839,12 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         codegen_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case UNARY_EXPRESSION_TRAITS:
-    case UNARY_EXPRESSION_IS_SAME:
-    case UNARY_DECLARATOR_ATTRIBUTE_EXPR:
+    case EXPR_UNARY_TRAITS:
+    case EXPR_UNARY_IS_SAME:
+    case EXPR_UNARY_DECLARATOR_ATTRIBUTE:
         break;
 
-    case CONDITIONAL_EXPRESSION:
+    case EXPR_CONDITIONAL:
         assert(p_expression->condition_expr != NULL);
         assert(p_expression->right != NULL);
 
@@ -1840,10 +1852,10 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         {
             const bool cond_is_stmtexpr =
                 p_expression->condition_expr->expression_type ==
-                PRIMARY_EXPRESSION_STATEMENT_EXPRESSION;
+                EXPR_PRIMARY_STATEMENT_EXPRESSION;
             const bool right_is_stmtexpr =
                 p_expression->right->expression_type ==
-                PRIMARY_EXPRESSION_STATEMENT_EXPRESSION;
+                EXPR_PRIMARY_STATEMENT_EXPRESSION;
 
             if (cond_is_stmtexpr || right_is_stmtexpr)
             {
@@ -1942,7 +1954,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         }
 
         break;
-    case CHECKED_EXPRESSION:
+    case EXPR_CHECKED:
         /*handled before*/
         break;
     }
@@ -1961,7 +1973,7 @@ static void codegen_visit_expression_statement(struct codegen_ctx* ctx, struct o
     print_identation(ctx, &local);
     if (p_expression_statement->expression_opt)
     {
-        if (p_expression_statement->expression_opt->expression_type != UNARY_EXPRESSION_STATIC_ASSERTION)
+        if (p_expression_statement->expression_opt->expression_type != EXPR_UNARY_STATIC_ASSERTION)
         {
             codegen_visit_expression(ctx, &local, p_expression_statement->expression_opt);
         }
@@ -3774,7 +3786,7 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
 
 
     if (object->p_init_expression &&
-        object->p_init_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
+        object->p_init_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL)
     {
         if (!(*first))
             ss_fprintf(ss, ",");
@@ -3818,7 +3830,7 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
             {
                 object_print_value(ss, &object->p_init_expression->object, ctx->options.target);
             }
-            else if (object->p_init_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
+            else if (object->p_init_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL)
             {
                 //literals also can be used in c89 initializers
                 il_print_string(object->p_init_expression->first_token, object->p_init_expression->last_token, ss);
@@ -3896,7 +3908,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
         else
         {
             if (object->p_init_expression &&
-                object->p_init_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL &&
+                object->p_init_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL &&
                 type_is_array(&object->type))
             {
                 //char b[] = "abc";
@@ -3994,7 +4006,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
         {
             if (!all)
             {
-                if (object->p_init_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
+                if (object->p_init_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL)
                 {
                     //skip
                 }
@@ -4057,7 +4069,7 @@ static void print_initializer(struct codegen_ctx* ctx,
 
             if (is_local && !bstatic)
             {
-                if (p_init_declarator->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL &&
+                if (p_init_declarator->initializer->assignment_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL &&
                     type_is_array(&p_init_declarator->p_declarator->type))
                 {
                     /*
@@ -4078,7 +4090,7 @@ static void print_initializer(struct codegen_ctx* ctx,
                 {
                     bool done = false;
                     if (type_is_struct_or_union(&p_init_declarator->p_declarator->type) &&
-                        p_init_declarator->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+                        p_init_declarator->initializer->assignment_expression->expression_type == EXPR_PRIMARY_DECLARATOR)
                     {
                         /*
                         int main()
@@ -4112,7 +4124,7 @@ static void print_initializer(struct codegen_ctx* ctx,
                         }
                     }
                     else if (type_is_array(&p_init_declarator->p_declarator->type) &&
-                        p_init_declarator->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+                        p_init_declarator->initializer->assignment_expression->expression_type == EXPR_PRIMARY_DECLARATOR)
                     {
                         /*
                         int a[2] = {1, 2};
@@ -4202,7 +4214,7 @@ static void print_initializer(struct codegen_ctx* ctx,
             {
                 if ((type_is_struct_or_union(&p_init_declarator->p_declarator->type) ||
                     type_is_array(&p_init_declarator->p_declarator->type)) &&
-                    p_init_declarator->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+                    p_init_declarator->initializer->assignment_expression->expression_type == EXPR_PRIMARY_DECLARATOR)
                 {
                     /*
                      int main() {
