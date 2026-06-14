@@ -8,7 +8,7 @@ permissions:
 jobs:
 
   clang-mac:
-    if: false
+    if: true
     runs-on: macos-latest
 
     steps:    
@@ -17,8 +17,8 @@ jobs:
     - name: Build and Test Clang      
       run: |        
         cd src
-        clang -DTEST -o build  build.c 
-        ./build
+        clang -o build  build.c 
+        ./build test
             
   linux-gcc:
     runs-on: ubuntu-22.04
@@ -28,8 +28,8 @@ jobs:
     - name: Build and test
       run: |
         cd src
-        gcc -DTEST build.c -o build
-        ./build
+        gcc build.c -o build
+        ./build test
 
 
 
@@ -43,8 +43,8 @@ jobs:
     - name: Build and test
       run: |
         cd src
-        cl build.c -DTEST 
-        .\build.exe
+        cl build.c  
+        .\build.exe test
 
   windows-msvc-x64:
     runs-on: windows-2022
@@ -56,7 +56,7 @@ jobs:
     - name: Build and test
       run: |
         cd src
-        cl build.c -DTEST 
-        .\build.exe
+        cl build.c  
+        .\build.exe test
 
  
