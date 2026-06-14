@@ -58,7 +58,11 @@
 /* ------------------------------------------------------------------ */
 
 #define APP_DIR_NAME "cake"
+#ifdef _WIN32
 #define APP_DIR_NAME_VERSION  "cake\\" CAKE_VERSION
+#else
+#define APP_DIR_NAME_VERSION  "cake/" CAKE_VERSION
+#endif
 
 /*
  * Install entries: { "source", "dest_subfolder", recursive, exec_bit }
@@ -102,7 +106,9 @@ static const InstallEntry INSTALL_ENTRIES[] = {
     { "cake",           "",      0 , 1},
 #endif
     { "cakeconf.h",        "",   0 , 0},
+#ifdef _WIN32
     { "cakeserver.exe",        "",   0 , 0},
+#endif
     { "server.js",        "",   0 , 0},
     { "index.html",        "",   0 , 0},
     { "web",        "web", 1 , 0},   /* recursive: copies entire plugins\ tree */
@@ -370,7 +376,6 @@ static int copy_dir_recursive(const char* src_dir, const char* dest_dir, int exe
 
 static int copy_with_wildcard(const char* src_pattern, const char* dest_dir, int exec_bit)
 {
-    char src_file[PATH_MAX_LEN];
     char dest_file[PATH_MAX_LEN];
     char src_dir[PATH_MAX_LEN];
     const char* last_sep;
@@ -463,7 +468,7 @@ static int copy_with_wildcard(const char* src_pattern, const char* dest_dir, int
 
             snprintf(dest_file, sizeof dest_file, "%s/%s", dest_dir, fname);
 
-            if (!copy_file(match, dest_file, 0))
+            if (!copy_file(match, dest_file, exec_bit))
                 errors++;
             else
                 printf("  [OK]      %s\n         -> %s\n", match, dest_file);
@@ -811,41 +816,45 @@ static int is_app_path_entry_linux(const char* token)
     return 1;
 }
 
-static void add_to_system_path(const char* target_dir)
+/*
+ * write_path_to_file()
+ *   Scans 'path_file' for stale cake entries, then rewrites it with the
+ *   current target_dir.  Returns 1 if a stale entry was found, 0 otherwise.
+ *   Sets *already_current to 1 if the correct entry already exists.
+ */
+static int write_path_to_file(const char* path_file,
+                               const char* target_dir,
+                               int*        already_current)
 {
-    const char* profile_file = "/etc/profile.d/cake.sh";
     FILE* fp;
-    char        existing[4096] = { 0 };
-    int         stale_found = 0;
+    int   stale_found = 0;
+    *already_current = 0;
 
-    print_separator();
-    printf("  Checking system PATH (/etc/profile.d)...\n");
-    print_separator();
-
-    /* ---- Read existing profile file if present ------------------- */
-    fp = fopen(profile_file, "r");
+    fp = fopen(path_file, "r");
     if (fp)
     {
         char line[512];
-        printf("  Existing entries in %s:\n", profile_file);
+        printf("  Existing entries in %s:\n", path_file);
         while (fgets(line, sizeof line, fp))
         {
-            /* Look for lines like: export PATH="/old/path:$PATH" */
             char* start = strstr(line, "export PATH=\"");
             if (start)
             {
-                start += 13; /* skip: export PATH=" */
+                start += 13;
                 char* colon = strchr(start, ':');
                 if (colon)
                 {
-                    char entry[PATH_MAX];
+                    char   entry[PATH_MAX];
                     size_t elen = (size_t)(colon - start);
                     strncpy(entry, start, elen);
                     entry[elen] = '\0';
                     if (is_app_path_entry_linux(entry))
                     {
                         if (strcmp(entry, target_dir) == 0)
+                        {
                             printf("  [CURRENT] %s\n", entry);
+                            *already_current = 1;
+                        }
                         else
                         {
                             printf("  [STALE]   %s  (will be replaced)\n", entry);
@@ -858,19 +867,44 @@ static void add_to_system_path(const char* target_dir)
         fclose(fp);
         printf("\n");
     }
-    else
+
+    if (*already_current && !stale_found)
+        return 0;   /* nothing to do for this file */
+
+    fp = fopen(path_file, "w");
+    if (!fp)
     {
-        printf("  No existing profile file found.\n\n");
+        fprintf(stderr, "  Error: cannot write %s: %s\n"
+                        "  Try running as root (sudo).\n\n",
+                path_file, strerror(errno));
+        return stale_found;
     }
+    fprintf(fp, "# Added by Cake installer\n");
+    fprintf(fp, "export PATH=\"%s:$PATH\"\n", target_dir);
+    fclose(fp);
+    chmod(path_file, 0644);
+    printf("  Created/updated: %s\n", path_file);
+    return stale_found;
+}
+
+static void add_to_system_path(const char* target_dir)
+{
+    int stale_found    = 0;
+    int already_current = 0;
+
+    print_separator();
+    printf("  Checking system PATH...\n");
+    print_separator();
 
     if (!stale_found)
     {
-        /* Check if already correct */
+        /* Check if already in the running PATH */
         const char* sys_path = getenv("PATH");
         if (sys_path)
         {
             char buf[4096]; char* tok;
             strncpy(buf, sys_path, sizeof buf - 1);
+            buf[sizeof buf - 1] = '\0';
             tok = strtok(buf, ":");
             while (tok)
             {
@@ -894,24 +928,27 @@ static void add_to_system_path(const char* target_dir)
         return;
     }
 
-    /* ---- (Re)write the profile file with only the current entry -- */
-    fp = fopen(profile_file, "w");
-    if (!fp)
+    /*
+     * Write to /etc/profile.d/cake.sh  (bash, sh on Linux and macOS)
+     * Write to /etc/zshenv              (zsh – default shell on macOS Catalina+)
+     * Both files are safe to write on Linux too (zshenv is a no-op if zsh
+     * is not installed).
+     */
+    stale_found |= write_path_to_file("/etc/profile.d/cake.sh", target_dir,
+                                      &already_current);
+
+#ifdef __APPLE__
     {
-        fprintf(stderr, "  Error: cannot write %s: %s\n"
-                        "  Try running as root (sudo).\n\n",
-                profile_file, strerror(errno));
-        return;
+        int mac_current = 0;
+        stale_found |= write_path_to_file("/etc/zshenv", target_dir,
+                                          &mac_current);
+        already_current |= mac_current;
     }
-    fprintf(fp, "# Added by Cake installer\n");
-    fprintf(fp, "export PATH=\"%s:$PATH\"\n", target_dir);
-    fclose(fp);
-    chmod(profile_file, 0644);
+#endif
 
     if (stale_found)
-        printf("  Stale entry replaced.\n");
-    printf("  Created: %s\n"
-           "  PATH will be updated for new login shells.\n\n", profile_file);
+        printf("  Stale entry(s) replaced.\n");
+    printf("  PATH will be updated for new login shells.\n\n");
 }
 
 #endif  /* _WIN32 */
@@ -1036,13 +1073,14 @@ int main(void)
             const char* subdir = INSTALL_ENTRIES[i].dest_subdir;
             int         recursive = INSTALL_ENTRIES[i].recursive;
             int         exec_bit = INSTALL_ENTRIES[i].exec_bit;
-            char        dest_dir[PATH_MAX_LEN];
+            char        dest_dir[PATH_MAX_LEN * 2];
 
             if (subdir[0] != '\0')
                 snprintf(dest_dir, sizeof dest_dir,
                          "%s%c%s", target_dir, PATH_SEP, subdir);
             else
                 strncpy(dest_dir, target_dir, sizeof dest_dir - 1);
+            dest_dir[sizeof dest_dir - 1] = '\0';
 
             if (recursive)
             {

@@ -707,13 +707,25 @@ int f(int c) {
 When an owner is freed in one branch and set to null, the analyzer may still report it as possibly having a lifetime-ended state in a later check:
 
 ```c
+#pragma safety enable
+
+void* _Owner _Opt malloc(unsigned long size);
+void free(void* _Owner _Opt ptr);
+
 int * _Owner _Opt f(int c) {
     int * _Owner _Opt p = malloc(sizeof *p);
-    try { if (c) throw; }
-    catch { free(p); p = nullptr; }
+    try {
+        if (c) throw; 
+    }
+    catch {
+         free(p); 
+         p = nullptr; 
+    }
     return p;  // warning: possible lifetime-ended 'p'
 }
 ```
+
+<button onclick="Try(this)">try</button>
 
 These are implementation constraints, not flaws in the ownership model itself.
 

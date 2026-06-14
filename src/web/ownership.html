@@ -1,34 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-  
-    <link rel="stylesheet" href="default.min.css">
-    <script src="highlight.min.js"></script>
-    <script>hljs.highlightAll();</script>
-    <link rel="stylesheet" href="style.css" />
-    <title>Cake C Compiler</title>
-    <meta name="description" content="Cake C Compiler">
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
-    <script>
-    function Try(elm)
-    {
-        //collect the text previous sample
-        var source = elm.parentElement.previousElementSibling.innerText;
-
-        var link = "./playground.html?code=" + encodeURIComponent(btoa(source)) +
-            "&to=" + encodeURI("-2") +
-            "&options=" + encodeURI("");
-
-        window.open(link, '_blank');
-    }
-// find-replace for this
-// <button onclick="Try(this)">try</button> 
-</script></head>
+  <link rel="stylesheet" href="default.min.css">
+  <script src="highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+  <link rel="stylesheet" href="style.css" />
+  <title>Cake C Compiler</title>
+  <meta name="description" content="Cake C Compiler">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <script>
+  function Try(elm) {
+    var source = elm.parentElement.previousElementSibling.innerText;
+    var link = "./playground.html?code=" + encodeURIComponent(btoa(source))
+             + "&to=" + encodeURI("-2")
+             + "&options=" + encodeURI("");
+    window.open(link, '_blank');
+  }
+  // find-replace for this:
+  // <button onclick="Try(this)">try</button>
+  </script>
+</head>
 <body>
-    <article style="max-width: 40em; margin:auto">
-<p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="ownership.html">Static Analysis</a> | <a href="playground.html">Playground</a></p>
-<article>
-<h1>Cake - C23 and Beyond</h1>
+  <article style="max-width: 40em; margin:auto">
+    <p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="ownership.html">Static Analysis</a> | <a href="playground.html">Playground</a></p>
+    <article>
+    <h1>Cake - C23 and Beyond</h1>
 <ul>
 <li>
 <a href="#toc_0">Cake Static Analysis — Ownership &amp; Nullable Contracts</a>
@@ -864,13 +860,25 @@ This leads to a small number of false positives in certain patterns.</p>
 
 <p>When an owner is freed in one branch and set to null, the analyzer may still report it as possibly having a lifetime-ended state in a later check:</p>
 
-<pre><code class="language-c">int * _Owner _Opt f(int c) {
+<pre><code class="language-c">#pragma safety enable
+
+void* _Owner _Opt malloc(unsigned long size);
+void free(void* _Owner _Opt ptr);
+
+int * _Owner _Opt f(int c) {
     int * _Owner _Opt p = malloc(sizeof *p);
-    try { if (c) throw; }
-    catch { free(p); p = nullptr; }
+    try {
+        if (c) throw; 
+    }
+    catch {
+         free(p); 
+         p = nullptr; 
+    }
     return p;  // warning: possible lifetime-ended &#39;p&#39;
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <p>These are implementation constraints, not flaws in the ownership model itself.</p>
 

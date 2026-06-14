@@ -29,16 +29,12 @@ struct flow3_allocated_object_arena
 
 struct flow3_visit_ctx
 {
-    struct secondary_block* _Opt catch_secondary_block_opt;
-
     struct parser_ctx* const ctx;
 
     struct type* _Opt p_return_type;
     int parameter_list;
 
-    
     bool expression_is_not_evaluated; //true when is expression for sizeof, missing state_set, typeof
-    bool inside_assert;
 
     /*avoid messages like always something, because in loop the same expression is visited in diferent states*/
     bool inside_loop;

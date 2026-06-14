@@ -1,30 +1,21 @@
 
-#pragma flow enable
+#pragma safety enable
+
+void* _Owner _Opt malloc(unsigned long size);
+void free(void* _Owner _Opt ptr);
+
 struct X {
     int a, b;
 };
 void f(int c)
 {
-    struct X x = {1, 2};
-    struct X y= {3, 2};
-    struct X *p;
-
-    //x.a = 1;
-    //x.b = 2;
-
-
-    //y.a = 3;
-    //y.b = 4;
-    
-    if (c)
+    struct X* p;
+    p = malloc(sizeof(struct X));
+    if (p)
     {
-          p = &x;
+        static_debug(*p);
     }
-    else
-    {
-          p = &y;
+   // static_debug(0);
 
-    }
-    static_debug((*p).a);
 }
- 
+

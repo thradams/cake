@@ -1,18 +1,25 @@
-
-
 /*
- WINDOWS
-   cl -DTEST build.c && build
-
-   Debugging on windows:
-   cl /Zi build.c
-   devenv /DebugExe  build.exe
-
- LINUX/MACOS
-   gcc  build.c -o build && ./build
+ * Build system for Cake C Compiler
+ *
+ * WINDOWS
+ *   cl -DTEST build.c && build
+ *   Debugging: cl /Zi build.c && devenv /DebugExe build.exe
+ *
+ * LINUX/MACOS
+ *   gcc build.c -o build && ./build
+ *   ./build fast             (incremental: only recompile changed files)
+ *   ./build test             (pass compile cake with -DTEST and run tests)
+ *   ./build debug            (debug build: no optimization, debug runtime)
+ *   ./build fast debug test  (flags combine freely)
  */
 
 #include "build.h"
+#include <sys/stat.h>
+
+
+ /*---------------------------------------------------------------------------
+  * Source file lists
+  *---------------------------------------------------------------------------*/
 
 #define CAKE_LIB_SOURCE_FILES \
     " token.c "               \
@@ -27,10 +34,10 @@
     " pre_expressions.c "     \
     " parser.c "              \
     " compile.c "             \
-    " defer.c "         \
+    " defer.c "               \
     " codegen.c "             \
-    " flow1.c "                \
-    " flow3.c "                \
+    " flow1.c "               \
+    " flow3.c "               \
     " error.c "               \
     " target.c "              \
     " type.c "
@@ -40,212 +47,353 @@
     " main.c "
 
 #define HOEDOWN_SOURCE_FILES \
- " autolink.c " \
- " buffer.c "   \
- " document.c " \
- " escape.c "   \
- " hoedown.c "  \
- " html.c "     \
- " html_blocks.c "\
- " html_smartypants.c "\
- " stack.c "\
- " version.c"
+    " autolink.c "           \
+    " buffer.c "             \
+    " document.c "           \
+    " escape.c "             \
+    " hoedown.c "            \
+    " html.c "               \
+    " html_blocks.c "        \
+    " html_smartypants.c "   \
+    " stack.c "              \
+    " version.c "
+
+
+  /*---------------------------------------------------------------------------
+   * Compiler flags (per platform/config)
+   *---------------------------------------------------------------------------*/
+
+#if defined COMPILER_MSVC
+
+#define MSVC_DEBUG_CONFIG_FLAGS \
+        " /D_CRTDBG_MAP_ALLOC " \
+        " /Od /MDd /RTC1 "      \
+        " /Dstrdup=_strdup "
+
+#define MSVC_RELEASE_CONFIG_FLAGS \
+        " /GL /Gy /O2 /MT /Ot " \
+        " /DNDEBUG "             \
+        " /Dstrdup=_strdup "
+
+#define MSVC_COMMON_FLAGS        \
+      " /D_CRT_NONSTDC_NO_WARNINGS " \
+      " /wd4996 "                    \
+      " /wd4100 "                    \
+      " /wd4068 "                    \
+      " /permissive- "               \
+      " /GS "                        \
+      " /Zc:preprocessor- "          \
+      " /std:c17 "                   \
+      " /utf-8 "                     \
+      " /W4 "                        \
+      " /Zi "                        \
+      " /Gm- "                       \
+      " /std:clatest "               \
+      " /Zc:inline "                 \
+      " /Gd "                        \
+      " /Oy- "                       \
+      " /FC "                        \
+      " /EHsc "                      \
+      " /D_CRT_SECURE_NO_WARNINGS "
+
+#define MSVC_DEBUG_LINK_FLAGS    \
+      " /link "                    \
+      " /NODEFAULTLIB "            \
+      " ucrtd.lib vcruntimed.lib msvcrtd.lib " \
+      " Kernel32.lib User32.lib Advapi32.lib " \
+      " uuid.lib Ws2_32.lib Rpcrt4.lib Bcrypt.lib "
+
+#define MSVC_RELEASE_LINK_FLAGS  \
+      " /link "                    \
+      " /NODEFAULTLIB "            \
+      " ucrt.lib vcruntime.lib msvcrt.lib " \
+      " Kernel32.lib User32.lib Advapi32.lib " \
+      " uuid.lib Ws2_32.lib Rpcrt4.lib Bcrypt.lib "
+
+#endif /* COMPILER_MSVC */
+
+#if defined PLATFORM_WINDOWS && defined COMPILER_CLANG
+
+#define CLANG_WIN_DEBUG_FLAGS    " -D_DEBUG "
+#define CLANG_WIN_RELEASE_FLAGS  " -DNDEBUG "
+
+#define CLANG_WIN_FLAGS          \
+      " -Dstrdup=_strdup "         \
+      " -Wno-switch "              \
+      " -DWIN32 "                  \
+      " -D_CRT_SECURE_NO_WARNINGS " \
+      " -std=c17 -Wno-multichar "  \
+      " -D_MT "                    \
+      " -Xlinker /NODEFAULTLIB "   \
+      " -lucrt.lib -lvcruntime.lib -lmsvcrt.lib " \
+      " -lKernel32.lib -lUser32.lib -lAdvapi32.lib " \
+      " -luuid.lib -lWs2_32.lib -lRpcrt4.lib -lBcrypt.lib "
+
+#endif /* PLATFORM_WINDOWS && COMPILER_CLANG */
+
+#if (defined PLATFORM_LINUX || defined PLATFORM_MACOS) && defined COMPILER_CLANG
+
+#define CLANG_UNIX_FLAGS   \
+      " -g "                 \
+      " -Wall "              \
+      " -D_DEFAULT_SOURCE "  \
+      " -Wno-unknown-pragmas " \
+      " -Wno-multichar "     \
+      " -std=c17 "
+
+#endif /* (PLATFORM_LINUX || PLATFORM_MACOS) && COMPILER_CLANG */
+
+#if defined COMPILER_GCC && !defined COMPILER_TINYC
+
+#define GCC_FLAGS            \
+      " -Wall "                \
+      " -Wno-multichar "       \
+      " -Wno-unknown-pragmas " \
+      " -g "
+
+#endif /* COMPILER_GCC && !COMPILER_TINYC */
+
+
+static void print_header(const char* text)
+{
+    printf("================================================\n");
+    printf(" %s\n", text);
+    printf("================================================\n");
+}
 
 static void generate_doc(const char* mdfilename, const char* outfile)
 {
-    const char* header =
+    static const char header[] =
         "<!DOCTYPE html>\n"
         "<html>\n"
         "<head>\n"
-        "  \n"
-        "    <link rel=\"stylesheet\" href=\"default.min.css\">\n"
-        "    <script src=\"highlight.min.js\"></script>\n"
-        "    <script>hljs.highlightAll();</script>\n"
-        "    <link rel=\"stylesheet\" href=\"style.css\" />\n"
-        "    <title>Cake C Compiler</title>\n"
-        "    <meta name=\"description\" content=\"Cake C Compiler\">\n"
-        "    <link rel=\"icon\" type=\"image/x-icon\" href=\"favicon.ico\">\n"
-        "    <script>\n"
-        "    function Try(elm)\n"
-        "    {\n"
-        "        //collect the text previous sample\n"
-        "        var source = elm.parentElement.previousElementSibling.innerText;\n"
-        "\n"
-        "        var link = \"./playground.html?code=\" + encodeURIComponent(btoa(source)) +\n"
-        "            \"&to=\" + encodeURI(\"-2\") +\n"
-        "            \"&options=\" + encodeURI(\"\");\n"
-        "\n"
-        "        window.open(link, '_blank');\n"
-        "    }\n"
-        "// find-replace for this\n"
-        "// <button onclick=\"Try(this)\">try</button> \n"
-        "</script>"
+        "  <link rel=\"stylesheet\" href=\"default.min.css\">\n"
+        "  <script src=\"highlight.min.js\"></script>\n"
+        "  <script>hljs.highlightAll();</script>\n"
+        "  <link rel=\"stylesheet\" href=\"style.css\" />\n"
+        "  <title>Cake C Compiler</title>\n"
+        "  <meta name=\"description\" content=\"Cake C Compiler\">\n"
+        "  <link rel=\"icon\" type=\"image/x-icon\" href=\"favicon.ico\">\n"
+        "  <script>\n"
+        "  function Try(elm) {\n"
+        "    var source = elm.parentElement.previousElementSibling.innerText;\n"
+        "    var link = \"./playground.html?code=\" + encodeURIComponent(btoa(source))\n"
+        "             + \"&to=\" + encodeURI(\"-2\")\n"
+        "             + \"&options=\" + encodeURI(\"\");\n"
+        "    window.open(link, '_blank');\n"
+        "  }\n"
+        "  // find-replace for this:\n"
+        "  // <button onclick=\"Try(this)\">try</button>\n"
+        "  </script>\n"
         "</head>\n"
         "<body>\n"
-        "    <article style=\"max-width: 40em; margin:auto\">\n"
-        "<p><a href=\"index.html\">Home</a> | <a href=\"manual.html\">Manual</a> | <a href=\"ownership.html\">Static Analysis</a> | <a href=\"playground.html\">Playground</a></p>\n"
-        "<article>\n"
-        "<h1>Cake - C23 and Beyond</h1>\n";
+        "  <article style=\"max-width: 40em; margin:auto\">\n"
+        "    <p><a href=\"index.html\">Home</a>"
+        " | <a href=\"manual.html\">Manual</a>"
+        " | <a href=\"ownership.html\">Static Analysis</a>"
+        " | <a href=\"playground.html\">Playground</a></p>\n"
+        "    <article>\n"
+        "    <h1>Cake - C23 and Beyond</h1>\n";
 
-    FILE* f2 = fopen(outfile /*"./web/index.html"*/, "w");
-    if (f2)
-    {
-        fwrite(header, 1, strlen(header), f2);
-        fclose(f2);
-    }
-    else
-    {
-        printf("could not open index.html for writing\n");
-        exit(1);
-    }
+    static const char footer[] = "</article></body></html>";
 
     char cmd[200];
-    snprintf(cmd, sizeof cmd, RUN "hoedown.exe --html-toc --toc-level 3 --autolink --fenced-code %s >> %s", mdfilename, outfile);
+
+    FILE* f = fopen(outfile, "w");
+    if (!f) { printf("error: could not open %s for writing\n", outfile); exit(1); }
+    fwrite(header, 1, strlen(header), f);
+    fclose(f);
+
+    snprintf(cmd, sizeof cmd,
+             RUN "hoedown.exe --html-toc --toc-level 3 --autolink --fenced-code %s >> %s",
+             mdfilename, outfile);
     execute_cmd(cmd);
 
-    snprintf(cmd, sizeof cmd, RUN "hoedown.exe  --toc-level 3 --autolink --fenced-code %s >> %s", mdfilename, outfile);
+    snprintf(cmd, sizeof cmd,
+             RUN "hoedown.exe --toc-level 3 --autolink --fenced-code %s >> %s",
+             mdfilename, outfile);
     execute_cmd(cmd);
 
-    FILE* f3 = fopen(outfile /*"./web/index.html"*/, "a");
-    if (f3)
-    {
-        fwrite("</article></body></html>", 1, strlen("</article></body></html>"), f3);
-        fclose(f3);
-    }
-    else
-    {
-        printf("could not open index.html for writing\n");
-        exit(1);
-    }
+    f = fopen(outfile, "a");
+    if (!f) { printf("error: could not open %s for appending\n", outfile); exit(1); }
+    fwrite(footer, 1, strlen(footer), f);
+    fclose(f);
 }
 
-static void HEADER(const char* text)
+static void build_tools(void)
 {
-    printf("************************************************\n");
-    printf(" %s\n", text);
-    printf("************************************************\n");
+    print_header("Build tools");
 
-}
-
-int main()
-{
 #ifdef _WIN32
-    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS install.c advapi32.lib user32.lib " CC_OUTPUT("install.exe"));
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS install.c advapi32.lib user32.lib "
+                CC_OUTPUT("install.exe"));
 #else
     execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS install.c " CC_OUTPUT("install.exe"));
 #endif
 
-
-    HEADER("Build tools");
-
-    execute_cmd(CC " server.c " CC_OUTPUT("cakeserver.exe"));
+    execute_cmd(CC " server.c "  CC_OUTPUT("cakeserver.exe"));
     execute_cmd(CC " install.c " CC_OUTPUT("install.exe"));
 
     echo_chdir("./tools");
-
-    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c " CC_OUTPUT("../maketest.exe"));
-    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c " CC_OUTPUT("../amalgamator.exe"));
-    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS -I.. embed.c  ../fs.c ../error.c " CC_OUTPUT("../embed.exe"));
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c "           CC_OUTPUT("../maketest.exe"));
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c "        CC_OUTPUT("../amalgamator.exe"));
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS -I.. embed.c ../fs.c ../error.c "
+                CC_OUTPUT("../embed.exe"));
 
     echo_chdir("./hoedown");
-
     execute_cmd(CC HOEDOWN_SOURCE_FILES CC_OUTPUT("../../hoedown.exe"));
 
+    echo_chdir("../..");
+}
 
-    HEADER("Build docs");
-
-    echo_chdir("..");
-    echo_chdir("..");
+static void build_docs(void)
+{
+    print_header("Build docs");
 
     generate_doc("../manual.md", "./web/manual.html");
     generate_doc("../README.md", "./web/index.html");
     generate_doc("../warnings.md", "./web/warnings.html");
     generate_doc("../ownership.md", "./web/ownership.html");
-   
+
     remove("hoedown.exe");
+}
 
-
-    HEADER("Build inner tests");
-
+static void build_inner_tests(void)
+{
+    print_header("Build inner tests");
     execute_cmd(RUN "maketest.exe unit_test.c " CAKE_SOURCE_FILES);
-
     remove("maketest.exe");
+}
 
-    HEADER("Build embedded files");
-
-
+static void build_embedded_files(void)
+{
+    print_header("Build embedded files");
     execute_cmd(RUN "embed.exe \"./include\" ");
+}
 
-
-    HEADER("Build amalgamated file");
-
+static void build_amalgamation(void)
+{
+    print_header("Build amalgamated file");
     execute_cmd(RUN "amalgamator.exe -olib.c" CAKE_LIB_SOURCE_FILES);
     remove("amalgamator.exe");
+}
 
+static time_t get_mtime(const char* path)
+{
+    struct stat st;
+    if (stat(path, &st) != 0)
+        return 0;
+    return st.st_mtime;
+}
 
-    HEADER("Build cake");
+/*
+ * Iterates space-separated `sources`, compiles each .c to .o if the .o
+ * is missing or older than the .c, then links all .o files into `output`.
+ * `compiler` is the compiler binary (e.g. "gcc", "clang").
+ * `compile_flags` are the flags used for both compile and link steps.
+ * `link_flags` are appended only at link time (libs, /link, etc.).
+ * `obj_flag` is the flag for specifying the object output ("-o" or "/Fo").
+ * `out_flag` is the flag for specifying the final output ("-o" or "/out:").
+ */
+static void build_incremental(const char* compiler,
+                               const char* compile_flags,
+                               const char* sources,
+                               const char* link_flags,
+                               const char* obj_flag,
+                               const char* out_flag,
+                               const char* output)
+{
+    char src[64];
+    char obj[72];
+    char cmd[2048];
+    char obj_list[4096];
+    int  any_changed = 0;
 
+    obj_list[0] = '\0';
+
+    const char* p = sources;
+    while (*p)
+    {
+        /* skip whitespace */
+        while (*p == ' ' || *p == '\t') p++;
+        if (!*p) break;
+
+        /* read token */
+        int i = 0;
+        while (*p && *p != ' ' && *p != '\t' && i < (int)(sizeof src) - 1)
+            src[i++] = *p++;
+        src[i] = '\0';
+        if (i == 0) continue;
+
+        /* derive .o name: "flow3.c" -> "flow3.o" */
+        snprintf(obj, sizeof obj, "%s", src);
+        char* dot = strrchr(obj, '.');
+        if (dot) strcpy(dot, ".o");
+        else      strcat(obj, ".o");
+
+        /* append to object list */
+        strcat(obj_list, " ");
+        strcat(obj_list, obj);
+
+        /* compile if .o missing or .c newer */
+        if (get_mtime(src) > get_mtime(obj))
+        {
+            printf("compiling: %s\n", src);
+            snprintf(cmd, sizeof cmd, "%s %s -c %s %s%s",
+                     compiler, compile_flags, src, obj_flag, obj);
+            execute_cmd(cmd);
+            any_changed = 1;
+        }
+    }
+
+    /* link if anything changed or output missing */
+    if (any_changed || get_mtime(output) == 0)
+    {
+        printf("linking: %s\n", output);
+        snprintf(cmd, sizeof cmd, "%s %s%s %s %s",
+                 compiler, out_flag, output, obj_list, link_flags);
+        execute_cmd(cmd);
+    }
+    else
+    {
+        printf("No sources changed, skipping.\n");
+    }
+}
+
+static void build_cake(int fastbuild, int debug, const char* test_flag)
+{
+    print_header("Build cake");
 
 #if defined COMPILER_MSVC
 
-    execute_cmd(CC CAKE_SOURCE_FILES
+    const char* msvc_config = debug ? MSVC_DEBUG_CONFIG_FLAGS   : MSVC_RELEASE_CONFIG_FLAGS;
+    const char* msvc_link   = debug ? MSVC_DEBUG_LINK_FLAGS      : MSVC_RELEASE_LINK_FLAGS;
 
-#if defined DEBUG
-               " /D_CRTDBG_MAP_ALLOC " /*leak detector */
-               " /Od /MDd /RTC1 "
-               " /Dstrdup=_strdup" /*nao linka em release*/
-#else                              // RELEASE
-               " /GL /Gy /O2 /MT /Ot"
-               " /DNDEBUG "
-               " /Dstrdup=_strdup"
-#endif
-               " /D_CRT_NONSTDC_NO_WARNINGS "
-               " /wd4996 "
-               " /wd4100 " //unreferenced formal paramet
-               " /wd4068 " //unknown pragma
-               " /permissive- "
-               " /GS "
-               " /Zc:preprocessor- "
-               " /std:c17 "
-               " /utf-8 "
-               " /W4 "
-               " /Zi "
-               " /Gm- "
-               " /std:clatest "
-               " /Zc:inline "
-               //" /WX " //Treats all compiler warnings as errors.
-               " /Gd "
-               " /Oy- "
-               " /FC "
-               " /EHsc "
-#ifdef TEST
-               "-DTEST"
-#endif
-               " /D_CRT_SECURE_NO_WARNINGS "
+    if (fastbuild)
+    {
+        char flags[512];
+        snprintf(flags, sizeof flags, "%s%s%s", msvc_config, MSVC_COMMON_FLAGS, test_flag);
+        build_incremental("cl",
+                          flags,
+                          CAKE_SOURCE_FILES,
+                          msvc_link,
+                          "/Fo",
+                          "/out:",
+                          "cake.exe");
+    }
+    else
+    {
+        char cmd[512];
+        snprintf(cmd, sizeof cmd, "cl %s%s%s%s /out:cake.exe " CAKE_SOURCE_FILES,
+                 msvc_config, MSVC_COMMON_FLAGS, test_flag, msvc_link);
+        execute_cmd(cmd);
+    }
 
-               " /link "
-               " /NODEFAULTLIB "
-#if defined DEBUG
-               " ucrtd.lib vcruntimed.lib msvcrtd.lib "
-#else
-               " ucrt.lib vcruntime.lib msvcrt.lib "
-#endif
-               " Kernel32.lib User32.lib Advapi32.lib"
-               " uuid.lib Ws2_32.lib Rpcrt4.lib Bcrypt.lib "
-               " /out:cake.exe ");
-
-#ifdef CAKE_HEADERS
-    //uses cakeconfig
-#else
-    //Generates cakeconf.h with the include dir used by gcc
+#ifndef CAKE_HEADERS
     execute_cmd("cake.exe -autoconfig");
 #endif
 
-    //Runs cake on its own source
-
-    HEADER("Runs cake on its own source");
-
-
+    print_header("Run cake on its own source");
     execute_cmd("cake.exe -DTEST -const-literal -style=cake " CAKE_SOURCE_FILES);
 
 #ifdef _WIN64
@@ -253,148 +401,172 @@ int main()
 #else
     echo_chdir("./x86_msvc/");
 #endif
-
-    execute_cmd("cl  -o cake89.exe" CAKE_SOURCE_FILES);
+    execute_cmd("cl -o cake89.exe" CAKE_SOURCE_FILES);
     copy_file("cake89.exe", "../../src/cake89.exe");
     echo_chdir("../../src");
 
-#endif
+#endif /* COMPILER_MSVC */
 
 #if defined PLATFORM_WINDOWS && defined COMPILER_CLANG
 
-    execute_cmd("clang " CAKE_SOURCE_FILES
-#if defined DEBUG
-           " -D_DEBUG"
-#else
-           " -D_NDEBUG"
-#endif
+    const char* clang_win_config = debug ? CLANG_WIN_DEBUG_FLAGS : CLANG_WIN_RELEASE_FLAGS;
 
-#ifdef TEST
-           " -DTEST"
-#endif
-           " -Dstrdup=_strdup "
-           " -Wno-switch"
-           " -DWIN32"
-           " -D_CRT_SECURE_NO_WARNINGS "
-           " -std=c17 -Wno-multichar "
-           " -D_MT "
-           " -Xlinker /NODEFAULTLIB "
-           " -lucrt.lib -lvcruntime.lib -lmsvcrt.lib "
-           " -lKernel32.lib -lUser32.lib -lAdvapi32.lib"
-           " -luuid.lib -lWs2_32.lib -lRpcrt4.lib -lBcrypt.lib "
-           " -o cake.exe");
+    if (fastbuild)
+    {
+        char flags[512];
+        snprintf(flags, sizeof flags, "%s%s%s", clang_win_config, CLANG_WIN_FLAGS, test_flag);
+        build_incremental("clang",
+                          flags,
+                          CAKE_SOURCE_FILES,
+                          "",
+                          "-o ",
+                          "-o ",
+                          "cake.exe");
+    }
+    else
+    {
+        char cmd[512];
+        snprintf(cmd, sizeof cmd, "clang %s%s%s -o cake.exe %s",
+                 clang_win_config, CLANG_WIN_FLAGS, test_flag, CAKE_SOURCE_FILES);
+        execute_cmd(cmd);
+    }
 
-    //Runs cake on its own source
+    print_header("Run cake on its own source");
     execute_cmd("cake.exe -style=cake " CAKE_SOURCE_FILES);
 
+#endif /* PLATFORM_WINDOWS && COMPILER_CLANG */
+
+#if (defined PLATFORM_LINUX || defined PLATFORM_MACOS) && defined COMPILER_CLANG
+
+    const char* clang_unix_config = debug ? "" : " -DNDEBUG ";
+
+    if (fastbuild)
+    {
+        char flags[512];
+        snprintf(flags, sizeof flags, "%s%s%s", CLANG_UNIX_FLAGS, clang_unix_config, test_flag);
+        build_incremental("clang",
+                          flags,
+                          CAKE_SOURCE_FILES,
+                          "",
+                          "-o ",
+                          "-o ",
+                          "cake");
+    }
+    else
+    {
+        char cmd[512];
+        snprintf(cmd, sizeof cmd, "clang %s%s%s -o cake %s",
+                 CLANG_UNIX_FLAGS, clang_unix_config, test_flag, CAKE_SOURCE_FILES);
+        execute_cmd(cmd);
+    }
+
+#if !defined CAKE_HEADERS
+    if (!fastbuild)
+        execute_cmd("./cake -autoconfig");
 #endif
 
-
-#if (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS)) && defined COMPILER_CLANG
-    execute_cmd("clang "
-
-#ifdef TEST
-           "-DTEST"
-#endif
-           " -g "
-           " -Wall "
-           " -D_DEFAULT_SOURCE "
-           " -Wno-unknown-pragmas "
-           " -Wno-multichar "
-           " -std=c17 "
-
-           " -o cake "
-           CAKE_SOURCE_FILES);
-
-
-#ifdef CAKE_HEADERS
-    //uses cakeconfig
+#if defined PLATFORM_MACOS
+    //cake is not ready to parse headers on macos yet, so we skip this test for now
 #else
-    //Generates cakeconf.h with the include dir used by gcc
-    execute_cmd("./cake  -autoconfig");
+    if (!fastbuild)
+        execute_cmd("./cake -fanalyzer " CAKE_SOURCE_FILES);
 #endif
 
-    //Uses previouly generated cakeconf.h to find include dir
-    execute_cmd("./cake "
-               " -fanalyzer "
-               CAKE_SOURCE_FILES);
+#endif /* (PLATFORM_LINUX || PLATFORM_MACOS) && COMPILER_CLANG */
 
-    //run unit test if -DTEST
+#if defined COMPILER_GCC && !defined COMPILER_TINYC
+
+    const char* gcc_config = debug ? "" : " -DNDEBUG ";
+
+    if (fastbuild)
+    {
+        char flags[512];
+        snprintf(flags, sizeof flags, "%s%s%s", GCC_FLAGS, gcc_config, test_flag);
+        build_incremental("gcc",
+                          flags,
+                          CAKE_SOURCE_FILES,
+                          "",
+                          "-o ",
+                          "-o ",
+                          "cake");
+    }
+    else
+    {
+        char cmd[512];
+        snprintf(cmd, sizeof cmd, "gcc %s%s%s -o cake %s",
+                 GCC_FLAGS, gcc_config, test_flag, CAKE_SOURCE_FILES);
+        execute_cmd(cmd);
+    }
+
+#ifndef CAKE_HEADERS
+     if (!fastbuild)
+        execute_cmd("./cake -autoconfig");
 #endif
 
-#if defined COMPILER_GCC && !defined(COMPILER_TINYC)
+    if (!fastbuild)
+    {
+        print_header("Run cake on its own source");
+        execute_cmd("./cake -DTEST -style=cake " CAKE_SOURCE_FILES);
 
-    // #define GCC_ANALIZER  " -fanalyzer "
-    execute_cmd("gcc "
-           "  -Wall "
-           " -Wno-multichar "
-           " -Wno-unknown-pragmas "
-           " -g  " CAKE_SOURCE_FILES
+        echo_chdir("./x86_x64_gcc/");
+        execute_cmd("gcc -o cake89 " CAKE_SOURCE_FILES);
+        execute_cmd("cp cake89 ../cake89");
+        echo_chdir("../");
+    }
 
-#ifdef TEST
-           " -DTEST "
-#endif
-           " -o cake");
+#endif /* COMPILER_GCC && !COMPILER_TINYC */
+}
 
-
-#ifdef CAKE_HEADERS
-    //uses cakeconfig
-#else
-    //Generates cakeconf.h with the include dir used by gcc
-    execute_cmd("./cake  -autoconfig");
-#endif
-
-
-    HEADER("Runs cake on its own source");
-
-
-    //Uses previouly generated cakeconf.h to find include dir
-    execute_cmd("./cake -DTEST -style=cake " CAKE_SOURCE_FILES);
-
-
-    echo_chdir("./x86_x64_gcc/");
-
-    execute_cmd("gcc  -o cake89 " CAKE_SOURCE_FILES);
-    //execute_cmd("cp "cake"")
-    execute_cmd("cp cake89 ../cake89");
-    echo_chdir("../");
-
-#endif
-
-#ifdef TEST
-
-    HEADER("Runs tests");
-
+static void run_tests(void)
+{
+    print_header("Run tests");
 
     execute_cmd(RUN "cake -selftest");
     execute_cmd(RUN "cake -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -test-mode");
     execute_cmd(RUN "cake  -fdiagnostics-color=never -wd20 ../tests/unit-tests/*.c -test-mode");
-
     execute_cmd(RUN "cake  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode-in-out");
     execute_cmd(RUN "cake  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
 
-
-
-    HEADER("Runs tests 89");
-
+    print_header("Run tests (cake89)");
 
     execute_cmd(RUN "cake89 -selftest");
     execute_cmd(RUN "cake89 -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -test-mode");
     execute_cmd(RUN "cake89  -fdiagnostics-color=never -wd20 ../tests/unit-tests/*.c -test-mode");
-
     execute_cmd(RUN "cake89  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode-in-out");
     execute_cmd(RUN "cake89  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
 
-    //execute_cmd(RUN "cake89  -flow3 -fdiagnostics-color=never ../tests/flow3/*.c -test-mode");
+    printf("Other test cases:\n");
+    printf("  cake ../tests/unit-tests/failing/*.c -test-mode\n");
+}
+
+int main(int argc, char* argv[])
+{
+    int fastbuild = 0;
+    int test      = 0;
+    int debug     = 0;
+    for (int i = 1; i < argc; i++)
+    {
+        if (strcmp(argv[i], "fast")  == 0) fastbuild = 1;
+        if (strcmp(argv[i], "test")  == 0) test      = 1;
+        if (strcmp(argv[i], "debug") == 0) debug     = 1;
+    }
+
+    const char* test_flag = test ? " -DTEST " : "";
+
+    if (!fastbuild)
+    {
+        build_tools();
+        build_docs();
+        build_inner_tests();
+        build_embedded_files();
+        build_amalgamation();
+    }
+
+    build_cake(fastbuild, debug, test_flag);
 
 
-    printf("Other test cases\n");
-    printf("cake ../tests/unit-tests/failing/*.c -test-mode\n");
-
-
-#endif // TEST
-
-    //cake ..\tests\sqlite\sqlite3.c -DSQLITE_OMIT_SEH -Wno-out-of-bounds
+    if (test)
+        run_tests();
 
     return 0;
 }

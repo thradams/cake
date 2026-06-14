@@ -90,13 +90,13 @@ GitHub
 https://github.com/thradams/cake
 
 ## MSVC build instructions
-Open the Developer Command Prompt of visual studio. Go to the *src* directory and type
+Open the Developer Command Prompt of Visual Studio. Go to the `src` directory and type
 
 ```
 cl build.c && build
 ```
 
-This will build *cake.exe*, then run cake on its own source code.
+This will build `cake.exe`, then run cake on its own source code.
 
 
 ## GCC on Linux build instructions
@@ -115,7 +115,7 @@ clang build.c -o build && ./build
 
 ## Running tests
 
-Adding *-DTEST* on any platform will run a large set of tests.
+Adding `-DTEST` on any platform will run a large set of tests.
 
 ```
 gcc -DTEST build.c -o build && ./build
@@ -127,9 +127,9 @@ Emscripten https://emscripten.org/  is required.
 
 First do the normal build. 
 
-The normal build also generates a file *lib.c* that is the amalgamated  version of the "core lib".
+The normal build also generates a file `lib.c` that is the amalgamated  version of the "core lib".
 
-Then at _./src_ dir type:
+Then at `./src` dir type:
 
 ```
 call emcc -sSTACK_SIZE=8388608 -DMOCKFILES -Wno-multichar "lib.c" -o "Web\cakejs.js" -s WASM=0 -s EXPORTED_FUNCTIONS="['_CompileText']" -s EXTRA_EXPORTED_RUNTIME_METHODS="['ccall', 'cwrap']"
@@ -137,10 +137,43 @@ call emcc -sSTACK_SIZE=8388608 -DMOCKFILES -Wno-multichar "lib.c" -o "Web\cakejs
 
 This will generate the *\src\Web\cake.js*
 
+# Installation
 
-# Running cake at command line
+Cake installs the compiler and supporting files into a system 
+directory and updates the system `PATH` so the `cake` command can 
+be executed from any terminal.
 
-Make sure cake is on your system path.
+## Windows
+
+Run the installer as Administrator.
+
+```bash
+install.exe
+```
+
+The installer:
+
+* Copies Cake files into `Program Files`
+* Updates the system `PATH`
+* Removes obsolete Cake `PATH` entries from previous installations
+
+## Linux / macOS
+
+Run the installer using:
+
+```bash
+sudo ./install
+```
+
+The installer:
+
+* Copies Cake files into the installation directory
+* Creates or updates a file in `/etc/profile.d/`
+* Adds Cake to the system `PATH`
+
+Changes become available in new login sessions.
+
+# Running cake
 
 Samples
 

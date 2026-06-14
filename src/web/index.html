@@ -1,34 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-  
-    <link rel="stylesheet" href="default.min.css">
-    <script src="highlight.min.js"></script>
-    <script>hljs.highlightAll();</script>
-    <link rel="stylesheet" href="style.css" />
-    <title>Cake C Compiler</title>
-    <meta name="description" content="Cake C Compiler">
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
-    <script>
-    function Try(elm)
-    {
-        //collect the text previous sample
-        var source = elm.parentElement.previousElementSibling.innerText;
-
-        var link = "./playground.html?code=" + encodeURIComponent(btoa(source)) +
-            "&to=" + encodeURI("-2") +
-            "&options=" + encodeURI("");
-
-        window.open(link, '_blank');
-    }
-// find-replace for this
-// <button onclick="Try(this)">try</button> 
-</script></head>
+  <link rel="stylesheet" href="default.min.css">
+  <script src="highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+  <link rel="stylesheet" href="style.css" />
+  <title>Cake C Compiler</title>
+  <meta name="description" content="Cake C Compiler">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <script>
+  function Try(elm) {
+    var source = elm.parentElement.previousElementSibling.innerText;
+    var link = "./playground.html?code=" + encodeURIComponent(btoa(source))
+             + "&to=" + encodeURI("-2")
+             + "&options=" + encodeURI("");
+    window.open(link, '_blank');
+  }
+  // find-replace for this:
+  // <button onclick="Try(this)">try</button>
+  </script>
+</head>
 <body>
-    <article style="max-width: 40em; margin:auto">
-<p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="ownership.html">Static Analysis</a> | <a href="playground.html">Playground</a></p>
-<article>
-<h1>Cake - C23 and Beyond</h1>
+  <article style="max-width: 40em; margin:auto">
+    <p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="ownership.html">Static Analysis</a> | <a href="playground.html">Playground</a></p>
+    <article>
+    <h1>Cake - C23 and Beyond</h1>
 <ul>
 <li>
 <a href="#toc_0">About</a>
@@ -63,22 +59,33 @@
 </ul>
 </li>
 <li>
-<a href="#toc_10">Running cake at command line</a>
+<a href="#toc_10">Installation</a>
+<ul>
+<li>
+<a href="#toc_11">Windows</a>
 </li>
 <li>
-<a href="#toc_11">Road map</a>
+<a href="#toc_12">Linux / macOS</a>
+</li>
+</ul>
 </li>
 <li>
-<a href="#toc_12">Participating</a>
+<a href="#toc_13">Running cake</a>
 </li>
 <li>
-<a href="#toc_13">How cake is developed ?</a>
+<a href="#toc_14">Road map</a>
 </li>
 <li>
-<a href="#toc_14">Cake x CFront</a>
+<a href="#toc_15">Participating</a>
 </li>
 <li>
-<a href="#toc_15">License</a>
+<a href="#toc_16">How cake is developed ?</a>
+</li>
+<li>
+<a href="#toc_17">Cake x CFront</a>
+</li>
+<li>
+<a href="#toc_18">License</a>
 </li>
 </ul>
 <p>The C Programming language 1978</p>
@@ -169,12 +176,12 @@ automatic documentation and more.</p>
 
 <h2 id="toc_5">MSVC build instructions</h2>
 
-<p>Open the Developer Command Prompt of visual studio. Go to the <em>src</em> directory and type</p>
+<p>Open the Developer Command Prompt of Visual Studio. Go to the <code>src</code> directory and type</p>
 
 <pre><code>cl build.c &amp;&amp; build
 </code></pre>
 
-<p>This will build <em>cake.exe</em>, then run cake on its own source code.</p>
+<p>This will build <code>cake.exe</code>, then run cake on its own source code.</p>
 
 <h2 id="toc_6">GCC on Linux build instructions</h2>
 
@@ -192,7 +199,7 @@ automatic documentation and more.</p>
 
 <h2 id="toc_8">Running tests</h2>
 
-<p>Adding <em>-DTEST</em> on any platform will run a large set of tests.</p>
+<p>Adding <code>-DTEST</code> on any platform will run a large set of tests.</p>
 
 <pre><code>gcc -DTEST build.c -o build &amp;&amp; ./build
 </code></pre>
@@ -203,18 +210,54 @@ automatic documentation and more.</p>
 
 <p>First do the normal build. </p>
 
-<p>The normal build also generates a file <em>lib.c</em> that is the amalgamated  version of the &quot;core lib&quot;.</p>
+<p>The normal build also generates a file <code>lib.c</code> that is the amalgamated  version of the &quot;core lib&quot;.</p>
 
-<p>Then at <em>./src</em> dir type:</p>
+<p>Then at <code>./src</code> dir type:</p>
 
 <pre><code>call emcc -sSTACK_SIZE=8388608 -DMOCKFILES -Wno-multichar &quot;lib.c&quot; -o &quot;Web\cakejs.js&quot; -s WASM=0 -s EXPORTED_FUNCTIONS=&quot;[&#39;_CompileText&#39;]&quot; -s EXTRA_EXPORTED_RUNTIME_METHODS=&quot;[&#39;ccall&#39;, &#39;cwrap&#39;]&quot;
 </code></pre>
 
 <p>This will generate the <em>\src\Web\cake.js</em></p>
 
-<h1 id="toc_10">Running cake at command line</h1>
+<h1 id="toc_10">Installation</h1>
 
-<p>Make sure cake is on your system path.</p>
+<p>Cake installs the compiler and supporting files into a system 
+directory and updates the system <code>PATH</code> so the <code>cake</code> command can 
+be executed from any terminal.</p>
+
+<h2 id="toc_11">Windows</h2>
+
+<p>Run the installer as Administrator.</p>
+
+<pre><code class="language-bash">install.exe
+</code></pre>
+
+<p>The installer:</p>
+
+<ul>
+<li>Copies Cake files into <code>Program Files</code></li>
+<li>Updates the system <code>PATH</code></li>
+<li>Removes obsolete Cake <code>PATH</code> entries from previous installations</li>
+</ul>
+
+<h2 id="toc_12">Linux / macOS</h2>
+
+<p>Run the installer using:</p>
+
+<pre><code class="language-bash">sudo ./install
+</code></pre>
+
+<p>The installer:</p>
+
+<ul>
+<li>Copies Cake files into the installation directory</li>
+<li>Creates or updates a file in <code>/etc/profile.d/</code></li>
+<li>Adds Cake to the system <code>PATH</code></li>
+</ul>
+
+<p>Changes become available in new login sessions.</p>
+
+<h1 id="toc_13">Running cake</h1>
 
 <p>Samples</p>
 
@@ -225,7 +268,7 @@ automatic documentation and more.</p>
 
 <p>See <a href="manual.html">Manual</a></p>
 
-<h1 id="toc_11">Road map</h1>
+<h1 id="toc_14">Road map</h1>
 
 <ul>
 <li>function literal and local functions implementation</li>
@@ -233,7 +276,7 @@ automatic documentation and more.</p>
 <li>Flow v2 algorithm was delayed</li>
 </ul>
 
-<h1 id="toc_12">Participating</h1>
+<h1 id="toc_15">Participating</h1>
 
 <p>You can contribute by trying out cake, reporting bugs, and giving feedback.</p>
 
@@ -243,7 +286,7 @@ automatic documentation and more.</p>
 
 <p><a href="https://discord.gg/YRekr2N65S">https://discord.gg/YRekr2N65S</a></p>
 
-<h1 id="toc_13">How cake is developed ?</h1>
+<h1 id="toc_16">How cake is developed ?</h1>
 
 <p>I use Visual Studio 2022 IDE to write and debug the Cake source.
 Cake parses itself using the MSVC includes and generates the X_86_msvc 
@@ -251,7 +294,7 @@ directory after the build.
 The Linux version is tested inside WSL, and the macOS version is 
 currently the least tested but is expected to work.</p>
 
-<h1 id="toc_14">Cake x CFront</h1>
+<h1 id="toc_17">Cake x CFront</h1>
 
 <p>CFront was the first C++ compiler, designed to translate C++ source code into C.
 Initially compatible with C89, it diverged as the C and C++ languages evolved 
@@ -264,7 +307,7 @@ development of C, ensuring full compatibility.</p>
 of C while supporting experimentation and open contributions to the 
 language&#39;s evolution.</p>
 
-<h1 id="toc_15">License</h1>
+<h1 id="toc_18">License</h1>
 
 <p>Cake uses the same license of GCC. GPLv3</p>
 </article></body></html>
