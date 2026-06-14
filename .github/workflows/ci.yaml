@@ -8,7 +8,7 @@ permissions:
 jobs:
 
   clang-mac:
-    if: false
+    if: true
     runs-on: macos-latest
 
     steps:    
