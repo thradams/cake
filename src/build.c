@@ -371,8 +371,8 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     if (fastbuild)
     {
         char flags[512];
-        snprintf(flags, sizeof flags, "%s%s%s", msvc_config, MSVC_COMMON_FLAGS, test_flag);
-        build_incremental("cl",
+        snprintf(flags, sizeof flags, "%s %s %s", msvc_config, MSVC_COMMON_FLAGS, test_flag);
+        build_incremental("cl ",
                           flags,
                           CAKE_SOURCE_FILES,
                           msvc_link,
@@ -401,7 +401,9 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     if (!fastbuild)
     {
         print_header("Run cake on its own source");
-        execute_cmd("cake.exe -const-literal -style=cake " CAKE_SOURCE_FILES);
+
+        
+        execute_cmd("cake.exe -DTEST -const-literal -style=cake " CAKE_SOURCE_FILES);
 
         print_header("Build cake89");
 
@@ -448,7 +450,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     }
 
     print_header("Run cake on its own source");
-    execute_cmd("cake.exe -style=cake " CAKE_SOURCE_FILES);
+    execute_cmd("cake.exe -DTEST -style=cake " CAKE_SOURCE_FILES);
 
 #endif /* PLATFORM_WINDOWS && COMPILER_CLANG */
 
@@ -497,7 +499,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     if (fastbuild)
     {
         char flags[512];
-        snprintf(flags, sizeof flags, "%s%s%s", GCC_FLAGS, gcc_config, test_flag);
+        snprintf(flags, sizeof flags, "%s %s %s", GCC_FLAGS, gcc_config, test_flag);
         build_incremental("gcc",
                           flags,
                           CAKE_SOURCE_FILES,
@@ -509,7 +511,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     else
     {
         char cmd[512];
-        snprintf(cmd, sizeof cmd, "gcc %s%s%s -o cake %s",
+        snprintf(cmd, sizeof cmd, "gcc %s %s %s -o cake %s",
                  GCC_FLAGS, gcc_config, test_flag, CAKE_SOURCE_FILES);
         execute_cmd(cmd);
     }
@@ -522,10 +524,17 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     if (!fastbuild)
     {
         print_header("Run cake on its own source");
-        execute_cmd("./cake -style=cake " CAKE_SOURCE_FILES);
+        execute_cmd("./cake -DTEST -style=cake " CAKE_SOURCE_FILES);
+
+        
+        print_header("Build cake89");
 
         echo_chdir("./x86_x64_gcc/");        
-        execute_cmd("gcc -o cake89 " CAKE_SOURCE_FILES);
+        char* cmd = calloc(2000, sizeof(char));
+        snprintf(cmd, 2000, "gcc %s -o cake89 " CAKE_SOURCE_FILES, test_flag);
+        execute_cmd(cmd);
+        free(cmd);
+
         execute_cmd("cp cake89 ../cake89");
         echo_chdir("../");
     }
