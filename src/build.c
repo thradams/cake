@@ -385,7 +385,11 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
         char* cmd = calloc(2000, sizeof(char));
 
         snprintf(cmd, 2000, "cl %s%s%s -o cake.exe " CAKE_SOURCE_FILES "%s",
-                 msvc_config, MSVC_COMMON_FLAGS, test_flag, msvc_link);
+                 msvc_config,
+                 MSVC_COMMON_FLAGS, 
+                 test_flag,
+                 msvc_link);
+
         execute_cmd(cmd);
         free(cmd);
     }
@@ -406,7 +410,13 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
 #else
         echo_chdir("./x86_msvc/");
 #endif
-        execute_cmd("cl -o cake89.exe " CAKE_SOURCE_FILES);
+        
+        
+        char* cmd = calloc(2000, sizeof(char));
+        snprintf(cmd, 2000, "cl %s -o cake89.exe " CAKE_SOURCE_FILES, test_flag);
+        execute_cmd(cmd);
+        free(cmd);
+        
         copy_file("cake89.exe", "../../src/cake89.exe");
         echo_chdir("../../src");
     }
@@ -512,9 +522,9 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     if (!fastbuild)
     {
         print_header("Run cake on its own source");
-        execute_cmd("./cake -DTEST -style=cake " CAKE_SOURCE_FILES);
+        execute_cmd("./cake -style=cake " CAKE_SOURCE_FILES);
 
-        echo_chdir("./x86_x64_gcc/");
+        echo_chdir("./x86_x64_gcc/");        
         execute_cmd("gcc -o cake89 " CAKE_SOURCE_FILES);
         execute_cmd("cp cake89 ../cake89");
         echo_chdir("../");
