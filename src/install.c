@@ -377,6 +377,7 @@ static int copy_dir_recursive(const char* src_dir, const char* dest_dir, int exe
 static int copy_with_wildcard(const char* src_pattern, const char* dest_dir, int exec_bit)
 {
     char dest_file[PATH_MAX_LEN];
+    char src_file[PATH_MAX_LEN];
     char src_dir[PATH_MAX_LEN];
     const char* last_sep;
     int  errors = 0;

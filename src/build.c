@@ -83,7 +83,6 @@
       " /permissive- "               \
       " /GS "                        \
       " /Zc:preprocessor- "          \
-      " /std:c17 "                   \
       " /utf-8 "                     \
       " /W4 "                        \
       " /Zi "                        \
@@ -366,8 +365,8 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
 
 #if defined COMPILER_MSVC
 
-    const char* msvc_config = debug ? MSVC_DEBUG_CONFIG_FLAGS   : MSVC_RELEASE_CONFIG_FLAGS;
-    const char* msvc_link   = debug ? MSVC_DEBUG_LINK_FLAGS      : MSVC_RELEASE_LINK_FLAGS;
+    const char* msvc_config = debug ? MSVC_DEBUG_CONFIG_FLAGS : MSVC_RELEASE_CONFIG_FLAGS;
+    const char* msvc_link = debug ? MSVC_DEBUG_LINK_FLAGS : MSVC_RELEASE_LINK_FLAGS;
 
     if (fastbuild)
     {
@@ -383,27 +382,32 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     }
     else
     {
-        char cmd[512];
-        snprintf(cmd, sizeof cmd, "cl %s%s%s%s /out:cake.exe " CAKE_SOURCE_FILES,
+        char* cmd = calloc(2000, sizeof(char));
+
+        snprintf(cmd, 2000, "cl %s%s%s /out:cake.exe " CAKE_SOURCE_FILES "%s",
                  msvc_config, MSVC_COMMON_FLAGS, test_flag, msvc_link);
         execute_cmd(cmd);
+        free(cmd);
     }
 
 #ifndef CAKE_HEADERS
     execute_cmd("cake.exe -autoconfig");
 #endif
 
-    print_header("Run cake on its own source");
-    execute_cmd("cake.exe -DTEST -const-literal -style=cake " CAKE_SOURCE_FILES);
+    if (!fastbuild)
+    {
+        print_header("Run cake on its own source");
+        execute_cmd("cake.exe -DTEST -const-literal -style=cake " CAKE_SOURCE_FILES);
 
 #ifdef _WIN64
-    echo_chdir("./x64_msvc/");
+        echo_chdir("./x64_msvc/");
 #else
-    echo_chdir("./x86_msvc/");
+        echo_chdir("./x86_msvc/");
 #endif
-    execute_cmd("cl -o cake89.exe" CAKE_SOURCE_FILES);
-    copy_file("cake89.exe", "../../src/cake89.exe");
-    echo_chdir("../../src");
+        execute_cmd("cl -o cake89.exe " CAKE_SOURCE_FILES);
+        copy_file("cake89.exe", "../../src/cake89.exe");
+        echo_chdir("../../src");
+    }
 
 #endif /* COMPILER_MSVC */
 
@@ -499,7 +503,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     }
 
 #ifndef CAKE_HEADERS
-     if (!fastbuild)
+    if (!fastbuild)
         execute_cmd("./cake -autoconfig");
 #endif
 
@@ -542,13 +546,13 @@ static void run_tests(void)
 int main(int argc, char* argv[])
 {
     int fastbuild = 0;
-    int test      = 0;
-    int debug     = 0;
+    int test = 0;
+    int debug = 0;
     for (int i = 1; i < argc; i++)
     {
-        if (strcmp(argv[i], "fast")  == 0) fastbuild = 1;
-        if (strcmp(argv[i], "test")  == 0) test      = 1;
-        if (strcmp(argv[i], "debug") == 0) debug     = 1;
+        if (strcmp(argv[i], "fast") == 0) fastbuild = 1;
+        if (strcmp(argv[i], "test") == 0) test = 1;
+        if (strcmp(argv[i], "debug") == 0) debug = 1;
     }
 
     const char* test_flag = test ? " -DTEST " : "";
