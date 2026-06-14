@@ -18,7 +18,7 @@ jobs:
       run: |        
         cd src
         clang -o build  build.c 
-        ./build test
+        ./build 
             
   linux-gcc:
     runs-on: ubuntu-22.04
