@@ -3620,13 +3620,13 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 struct token_list operand = {0};
 
-                while (input_list->head && input_list->head->type != TK_NEWLINE)
+                while (input_list->head != NULL && input_list->head->type != TK_NEWLINE)
                 {
                     prematch_level(&operand, input_list, level, is_active);
                 }
 
-                struct token *origin = operand.head;
-                struct token *next = input_list->head;
+                struct token* origin = operand.head;
+                struct token* next = input_list->head;
 
                 struct token_list expanded = replacement_list_reexamination(ctx, NULL, &operand, level, origin);
                 if (ctx->n_errors > 0)
@@ -7949,6 +7949,37 @@ void newline_macro_func()
 
     assert(test_preprocessor_in_out_match(input, output));
 
+}
+
+void test_include_macro()
+{
+    const char* input =
+        "#define F "test_include_macro_file.h"\n"
+        "#include F\n"
+        "X\n";
+
+    const char* output =
+        "1"
+        ;
+
+
+    assert(test_preprocessor_in_out_match(input, output));
+}
+
+void test_include_function_macro()
+{
+    const char* input =
+        "#define G(...) #__VA_ARGS__\n"
+        "#define F(...) G(__VA_ARGS__)\n"
+        "#include F(test_include_macro_file.h)\n"
+        "X\n";
+
+    const char* output =
+        "1"
+        ;
+
+
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 #endif
