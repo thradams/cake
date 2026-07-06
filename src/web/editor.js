@@ -9,6 +9,46 @@ var on_edited_timer = -1; // setTimeout(myGreeting, 3000);
 // Pattern: filename:line:col:   e.g. main.c:17:11:
 var OUTPUT_LOCATION_RE = /^([^\s:]+\.c(?:pp)?):(\d+):(\d+):/;
 
+let useServer = false;
+
+function toggleServerMode()
+{
+    useServer = document.getElementById('serverMode').checked;
+    // Optionally recompile if you want an immediate switch
+    // OnCompileButton();
+}
+
+function httpPost(url, data, callback)
+{
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url, true);
+    xhr.setRequestHeader('Content-Type', 'text/plain');
+    xhr.onreadystatechange = function ()
+    {
+        if (xhr.readyState === 4)
+        {
+            if (xhr.status === 200) callback(null, xhr.responseText);
+            else callback(new Error('HTTP ' + xhr.status), null);
+        }
+    };
+    xhr.send(data);
+}
+
+function httpGet(url, callback)
+{
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.onreadystatechange = function ()
+    {
+        if (xhr.readyState === 4)
+        {
+            if (xhr.status === 200) callback(null, xhr.responseText);
+            else callback(new Error('HTTP ' + xhr.status), null);
+        }
+    };
+    xhr.send();
+}
+
 // Sets the output element's HTML and wraps each line in a <div>.
 // Lines matching file:line:col: become clickable and jump the editor.
 // htmlContent must already be the final HTML (ANSI colors converted, etc.)
@@ -217,39 +257,57 @@ function Run()
     var coloredHtml = convert.toHtml(text);
     setOutputHtml(coloredHtml);
 }
-
-
 function OnCompileButton()
 {
     var element = document.getElementById('output');
     if (element) element.innerHTML = "";
     outputEditor.setValue("");
-    var outputLanguage = -2;// document.getElementById("outtype").value;
 
     var options = document.getElementById("options").value;
-
     var target = document.getElementById("target").value;
     options += " -target=" + target;
 
-    if (outputLanguage == 0)
-        options += " -E";
-
     var source = inputEditor.getValue();
-    var ot = CompileText(options, source);
 
-    // CompileText writes plain text into #output; read it back as HTML then re-render clickable
-    var rawHtml = element ? element.innerHTML : "";
-
-    if (model)
+    if (useServer)
     {
-        validate(model);
+        httpPost('/build', options + "\n" + source, function (err, res)
+        {
+            if (err)
+            {
+                setOutputHtml("Build error: " + err.message);
+                return;
+            }
+
+            var data;
+            try { data = JSON.parse(res); }
+            catch (e) { setOutputHtml("Bad response: " + res); return; }
+
+            // diagnostics → output panel (with ANSI colour)
+            var convert = new Filter();
+            var coloredHtml = convert.toHtml(data.output || "");
+            setOutputHtml(coloredHtml);
+
+            // transformed source → output editor (right panel)
+            console.log("build code length:", (data.code || "").length, "output length:", (data.output || "").length);
+            outputEditor.setValue(data.code || "");
+
+            if (model) validate(model);
+        });
     }
-
-    // Re-render with clickable lines (colors from CompileText are already in innerHTML)
-    setOutputHtml(rawHtml);
-
-    outputEditor.setValue(ot);
+    else
+    {
+        // Original client‑side mode (WebAssembly)
+        var outputLanguage = -2;
+        if (outputLanguage == 0) options += " -E";
+        var ot = CompileText(options, source);
+        var rawHtml = element ? element.innerHTML : "";
+        if (model) validate(model);
+        setOutputHtml(rawHtml);
+        outputEditor.setValue(ot);
+    }
 }
+
 
 function OnChangeSelectionSample(index)
 {
