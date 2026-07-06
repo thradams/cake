@@ -3921,9 +3921,10 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
 
                         emit_line_directive(ctx, ss, object->p_init_expression->first_token);
                         print_identation_core(ss, ctx->indentation);
-                        ss_fprintf(ss, "%s(%s, %s, %zu);\n",
+                        ss_fprintf(ss, "%s(&%s%s, &%s, %zu);\n",
                             ctx->memcpy_function_name,
                             declarator_name,
+                            object->member_designator,
                             object->p_init_expression->declarator->name_opt->lexeme,
                             sz2);
 
@@ -5071,5 +5072,3 @@ void codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 
     ss_close(&declarations);
 }
-
-

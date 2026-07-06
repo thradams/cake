@@ -78,10 +78,6 @@
     <ClInclude Include="..\src\type.h" />
     <ClInclude Include="..\src\version.h" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="flow2.md" />
-    <None Include="manual.md" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
