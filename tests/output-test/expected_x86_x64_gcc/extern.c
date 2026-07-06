@@ -1,0 +1,8 @@
+/* Cake x86_x64_gcc */
+
+extern int i;
+
+int main()
+{
+    i = 1;
+}

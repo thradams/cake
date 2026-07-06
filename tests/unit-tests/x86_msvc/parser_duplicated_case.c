@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.13.29 x86_msvc */
 
 int main()
 {
@@ -6,10 +6,10 @@ int main()
 
     /*switch*/
     {
-        int __v0 = i;
-        if (__v0 == 1) goto __L1; /*case 1*/
-        if (__v0 == 2) goto __L2; /*case 2*/
-        if (__v0 == 1) goto __L3; /*case 1*/
+        int __a = i;
+        if (__a == 1) goto __L1; /*case 1*/
+        if (__a == 2) goto __L2; /*case 2*/
+        if (__a == 1) goto __L3; /*case 1*/
         goto __L0;
 
         {
@@ -26,5 +26,3 @@ int main()
         __L0:;
     }
 }
-
-

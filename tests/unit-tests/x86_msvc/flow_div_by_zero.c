@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 void f(int i)
 {
@@ -52,7 +52,6 @@ void f(int i)
     }
 }
 
-
 void f2(int i)
 {
     if (i <= 0)
@@ -104,5 +103,3 @@ void f2(int i)
         j = 1 / i;
     }
 }
-
-

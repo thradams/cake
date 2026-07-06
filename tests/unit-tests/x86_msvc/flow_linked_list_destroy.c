@@ -1,4 +1,5 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct item;
 
 struct list {
@@ -10,14 +11,7 @@ struct item {
     struct item * next;
 };
 
-
-static void _cake_zmem(void *dest, unsigned int len)
-{
-  unsigned char *ptr;
-
-  ptr = (unsigned char*)dest;
-  while (len-- > 0) *ptr++ = 0;
-}
+static void * memset(void *dest, int ch, unsigned int count);
 
 void item_delete(struct item * p);
 
@@ -37,13 +31,25 @@ void list_destroy(struct list * list)
     }
 }
 
-
 int main()
 {
-    struct list  list;
+    struct list list;
 
-    _cake_zmem(&list, 8);
+    memset(&list, 0, 8);
     list_destroy(&list);
 }
 
+static void * memset(void *ptr, int value, unsigned int count)
+{
+    unsigned char *p;
+    unsigned char v;
 
+    p = (unsigned char *) ptr;
+    v = (unsigned char) value;
+    while (count--)
+    {
+        *p++ = v;
+    }
+
+    return ptr;
+}

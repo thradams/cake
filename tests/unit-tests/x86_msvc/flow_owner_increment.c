@@ -1,8 +1,8 @@
-/* Cake x86_msvc */
+/* Cake 0.13.29 x86_msvc */
+
 struct X {
     char * name;
 };
-
 
 struct X *make();
 void del(struct X * p);
@@ -16,5 +16,3 @@ int main()
     p--;
     del(p);
 }
-
-

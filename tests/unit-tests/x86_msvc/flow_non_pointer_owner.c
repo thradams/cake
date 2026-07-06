@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 void destroy(int i);
 
@@ -11,5 +11,3 @@ int main()
     v = i;
     destroy(v);
 }
-
-

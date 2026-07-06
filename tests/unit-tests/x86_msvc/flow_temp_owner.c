@@ -1,8 +1,8 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct X {
     char * name;
 };
-
 
 void *malloc(unsigned long size);
 
@@ -12,5 +12,3 @@ int main()
 
     p = (struct X *)malloc(1);
 }
-
-

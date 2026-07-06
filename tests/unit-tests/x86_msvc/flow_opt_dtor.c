@@ -1,4 +1,5 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct Y;
 
 struct X {
@@ -8,7 +9,6 @@ struct X {
 struct Y {
     char * text;
 };
-
 
 void free(void * p);
 char *strdup(char * s);
@@ -21,5 +21,3 @@ void f(struct X * pX)
         pX->pY->text = strdup("a");
     }
 }
-
-

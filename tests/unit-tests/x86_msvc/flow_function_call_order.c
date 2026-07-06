@@ -1,8 +1,8 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct X {
     int * p;
 };
-
 
 struct X *make();
 void f(struct X * p, int * p);
@@ -17,5 +17,3 @@ int main()
         f(pX, pX->p);
     }
 }
-
-

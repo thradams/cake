@@ -1,4 +1,5 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct X {
     char * name;
 };
@@ -7,28 +8,34 @@ struct Y {
     int i;
 };
 
-
-static void _cake_zmem(void *dest, unsigned int len)
-{
-  unsigned char *ptr;
-
-  ptr = (unsigned char*)dest;
-  while (len-- > 0) *ptr++ = 0;
-}
+static void * memset(void *dest, int ch, unsigned int count);
 
 int main()
 {
-    struct Y  y1;
-    struct Y  y2;
-    struct X  x1;
-    struct X  x2;
+    struct Y y1;
+    struct Y y2;
+    struct X x1;
+    struct X x2;
 
-    _cake_zmem(&y1, 4);
-    _cake_zmem(&y2, 4);
+    memset(&y1, 0, 4);
+    memset(&y2, 0, 4);
     y1 = y2;
-    _cake_zmem(&x1, 4);
-    _cake_zmem(&x2, 4);
+    memset(&x1, 0, 4);
+    memset(&x2, 0, 4);
     x1 = x2;
 }
 
+static void * memset(void *ptr, int value, unsigned int count)
+{
+    unsigned char *p;
+    unsigned char v;
 
+    p = (unsigned char *) ptr;
+    v = (unsigned char) value;
+    while (count--)
+    {
+        *p++ = v;
+    }
+
+    return ptr;
+}

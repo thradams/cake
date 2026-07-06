@@ -1,4 +1,4 @@
-﻿#pragma safety enable
+#pragma safety enable
 
 int main()
 {
@@ -10,5 +10,5 @@ int main()
      }
      int k = 0;
      k--;
-     static_state(k, "not-zero");
+     assert_state(k, "not-zero");
 }

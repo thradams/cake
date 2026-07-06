@@ -1,5 +1,4 @@
-/* Cake x86_msvc */
-
+/* Cake 0.14.05 x86_msvc */
 char a1;
 char b1;
 char a2[2];

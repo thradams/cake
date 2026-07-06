@@ -1,41 +1,48 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct Y {
     int g;
 };
 
 union __tag1 {
-    unsigned char  d;
+    unsigned char d;
     short e;
 };
 
 union __tag0 {
     char b;
     long c;
-    union __tag1  __m0;
+    union __tag1 __m0;
     double f;
 };
 
 struct X {
     int a;
-    union __tag0  __m0;
-    struct Y  y;
+    union __tag0 __m0;
+    struct Y y;
 };
 
-
-static void _cake_zmem(void *dest, unsigned int len)
-{
-  unsigned char *ptr;
-
-  ptr = (unsigned char*)dest;
-  while (len-- > 0) *ptr++ = 0;
-}
+static void * memset(void *dest, int ch, unsigned int count);
 
 void f()
 {
-    struct X  s;
+    struct X s;
 
-    _cake_zmem(&s, 24);
+    memset(&s, 0, 24);
     s.__m0.f = 1;
 }
 
+static void * memset(void *ptr, int value, unsigned int count)
+{
+    unsigned char *p;
+    unsigned char v;
 
+    p = (unsigned char *) ptr;
+    v = (unsigned char) value;
+    while (count--)
+    {
+        *p++ = v;
+    }
+
+    return ptr;
+}

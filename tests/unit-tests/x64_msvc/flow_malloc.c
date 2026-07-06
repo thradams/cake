@@ -1,0 +1,27 @@
+/* Cake x64_msvc */
+
+struct Y;
+
+struct X {
+    char * text;
+    int * p1;
+    int i;
+    struct Y * pY;
+};
+
+struct Y {
+    char * p0;
+    int * p2;
+    double i2;
+};
+
+void *malloc(unsigned long size);
+void free(void * ptr);
+
+int main()
+{
+    struct X * x;
+
+    x = malloc(32ULL);
+    free(x);
+}

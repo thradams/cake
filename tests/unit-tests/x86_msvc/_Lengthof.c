@@ -2,8 +2,12 @@
 
 void f(int n)
 {
-    int v[123][];
+    int __v0;
+    int * v;
 
+/* vla-free */ free(v);
+    __v0 = (n);
+    v = (int *)malloc(sizeof(int) * 123 * __v0);
 }
 
 

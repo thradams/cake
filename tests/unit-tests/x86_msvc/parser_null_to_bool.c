@@ -1,14 +1,12 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
-void f(unsigned char  b);
+void f(unsigned char b);
 
 int main(void)
 {
-    unsigned char  b;
+    unsigned char b;
 
     b = 0;
     b = 0;
     f(0);
 }
-
-

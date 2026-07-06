@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 void f_const(int a);
 void f(int a);
@@ -10,5 +10,3 @@ int main(void)
     f_const(a);
     f(a);
 }
-
-

@@ -1,9 +1,9 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct X {
     int i;
     void * p;
 };
-
 
 void *malloc(int i, int sz);
 void free(void * p);
@@ -18,5 +18,3 @@ int main()
     }
     free(p);
 }
-
-

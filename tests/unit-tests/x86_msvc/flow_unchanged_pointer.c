@@ -1,4 +1,5 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct Y;
 
 struct X {
@@ -8,7 +9,6 @@ struct X {
 struct Y {
     int i;
 };
-
 
 void *calloc(int n, unsigned long size);
 void f(struct Y * p);
@@ -31,5 +31,3 @@ int main()
         free(p);
     }
 }
-
-

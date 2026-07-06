@@ -1,14 +1,14 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct Y {
     int a;
     int ar[3];
     int b;
 };
 
-
 void T2()
 {
-    struct Y  y;
+    struct Y y;
 
     y.a = 0;
     y.ar[0] = 0;
@@ -16,5 +16,3 @@ void T2()
     y.ar[2] = 3;
     y.b = 4;
 }
-
-

@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 void *malloc(unsigned int size);
 void free(void * ptr);
@@ -10,9 +10,9 @@ void f(int i)
     p1 = malloc(1);
     /*switch*/
     {
-        int __v0 = i;
-        if (__v0 == 1) goto __L1; /*case 1*/
-        if (__v0 == 2) goto __L2; /*case 2*/
+        int __a = i;
+        if (__a == 1) goto __L1; /*case 1*/
+        if (__a == 2) goto __L2; /*case 2*/
         goto __L0;
 
         {
@@ -39,5 +39,3 @@ void f(int i)
     }
     free(p1);
 }
-
-

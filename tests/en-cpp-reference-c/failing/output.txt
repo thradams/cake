@@ -1,0 +1,3 @@
+Cake 0.13.29 (x86_msvc)
+C:\Users\thiag\source\repos\cake_private\tests\en-cpp-reference-c\failing\cCode68.c
+

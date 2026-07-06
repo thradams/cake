@@ -1,8 +1,8 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct X {
     char * text;
 };
-
 
 struct X *make();
 void free(void * p);
@@ -33,5 +33,3 @@ void f(int condition)
         free(p);
     }
 }
-
-

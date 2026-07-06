@@ -1,8 +1,8 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct X {
     char * name;
 };
-
 
 void free(void * p);
 
@@ -13,5 +13,3 @@ void x_delete(struct X * p)
         free(p);
     }
 }
-
-

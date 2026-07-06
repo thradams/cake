@@ -1,8 +1,8 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct X {
     char * name;
 };
-
 
 void *calloc(unsigned int n, unsigned int size);
 
@@ -13,9 +13,9 @@ struct X *F(int i)
     p1 = 0;
     /*switch*/
     {
-        int __v0 = i;
-        if (__v0 == 1) goto __L1; /*case 1*/
-        if (__v0 == 2) goto __L3; /*case 2*/
+        int __a = i;
+        if (__a == 1) goto __L1; /*case 1*/
+        if (__a == 2) goto __L3; /*case 2*/
         goto __L0;
 
         {
@@ -37,5 +37,3 @@ struct X *F(int i)
     }
     return p1;
 }
-
-

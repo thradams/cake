@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 int socket();
 void close(int fd);
@@ -14,5 +14,3 @@ int main()
     }
     close(fd);
 }
-
-

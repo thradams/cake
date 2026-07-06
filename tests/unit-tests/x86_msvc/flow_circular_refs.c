@@ -1,4 +1,5 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct item;
 
 struct items {
@@ -10,29 +11,21 @@ struct item {
     struct item * other;
 };
 
+static void * memset(void *dest, int ch, unsigned int count);
 
-static void _cake_zmem(void *dest, unsigned int len)
-{
-  unsigned char *ptr;
-
-  ptr = (unsigned char*)dest;
-  while (len-- > 0) *ptr++ = 0;
-}
-
-void f(struct items  i)
+void f(struct items i)
 {
 }
-
 
 int main()
 {
-    struct item  one;
-    struct item  two;
-    struct items  items;
+    struct item one;
+    struct item two;
+    struct items items;
 
-    _cake_zmem(&one, 4);
-    _cake_zmem(&two, 4);
-    _cake_zmem(&items, 8);
+    memset(&one, 0, 4);
+    memset(&two, 0, 4);
+    memset(&items, 0, 8);
     items.one = &two;
     items.two = &one;
     one.other = &two;
@@ -40,4 +33,17 @@ int main()
     f(items);
 }
 
+static void * memset(void *ptr, int value, unsigned int count)
+{
+    unsigned char *p;
+    unsigned char v;
 
+    p = (unsigned char *) ptr;
+    v = (unsigned char) value;
+    while (count--)
+    {
+        *p++ = v;
+    }
+
+    return ptr;
+}

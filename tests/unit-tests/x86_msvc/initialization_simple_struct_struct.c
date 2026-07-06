@@ -1,20 +1,18 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct Y {
     double d;
 };
 
 struct X {
-    struct Y  y;
+    struct Y y;
     int i;
 };
 
-
 void T3()
 {
-    struct X  x;
+    struct X x;
 
     x.y.d = 0;
     x.i = 1;
 }
-
-

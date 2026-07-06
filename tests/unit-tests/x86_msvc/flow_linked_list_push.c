@@ -1,4 +1,5 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct item;
 
 struct list {
@@ -11,7 +12,6 @@ struct item {
     struct item * next;
     struct item * previous;
 };
-
 
 void list_push(struct list * list, struct item * pnew)
 {
@@ -29,5 +29,3 @@ void list_push(struct list * list, struct item * pnew)
         list->tail = pnew;
     }
 }
-
-

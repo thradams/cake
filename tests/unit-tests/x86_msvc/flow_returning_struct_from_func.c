@@ -1,8 +1,8 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct X {
     char * name;
 };
-
 
 struct X f();
 
@@ -10,5 +10,3 @@ struct X f2()
 {
     return f();
 }
-
-

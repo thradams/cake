@@ -1,10 +1,10 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct token {
     int type;
     struct token * next;
     struct token * prev;
 };
-
 
 void print_line(struct token * p)
 {
@@ -22,5 +22,3 @@ void print_line(struct token * p)
         }
     }
 }
-
-

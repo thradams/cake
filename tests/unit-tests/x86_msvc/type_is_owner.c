@@ -1,4 +1,5 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct Y {
     char * owner_variable;
     char * non_owner_variable;
@@ -7,17 +8,14 @@ struct Y {
 struct X {
     char * owner_variable;
     char * non_owner_variable;
-    struct Y  y1;
-    struct Y  y2;
+    struct Y y1;
+    struct Y y2;
 };
-
 
 void f()
 {
-    struct X  x;
-    struct X  x2;
+    struct X x;
+    struct X x2;
     char * p;
 
 }
-
-

@@ -1,8 +1,8 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct X {
     char * name;
 };
-
 
 void *calloc(int n, int size);
 
@@ -17,5 +17,3 @@ void *f1()
     }
     return p;
 }
-
-

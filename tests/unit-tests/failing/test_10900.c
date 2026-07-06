@@ -17,7 +17,7 @@ struct Y
     struct X * _Opt px;
 };
 
-void x_destroy(struct X *_Obj_owner _Opt p)
+void x_destroy(_Dtor struct X * _Opt p)
 {
     if (p)
      free(p->name);

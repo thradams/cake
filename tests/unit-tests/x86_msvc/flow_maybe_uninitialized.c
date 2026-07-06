@@ -1,8 +1,8 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct X {
     int i;
 };
-
 
 void f(struct X * x, int i)
 {
@@ -12,15 +12,12 @@ void f(struct X * x, int i)
     }
 }
 
-
 int printf(char * format, ...);
 
 int main()
 {
-    struct X  x;
+    struct X x;
 
     f(&x, 1);
     printf("%d", x.i);
 }
-
-

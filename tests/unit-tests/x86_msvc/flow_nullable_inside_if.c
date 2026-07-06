@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 void *malloc(unsigned long size);
 void free(void * ptr);
@@ -14,7 +14,6 @@ void f1()
     free(p);
 }
 
-
 void f2(int condition)
 {
     void * p;
@@ -24,7 +23,6 @@ void f2(int condition)
     {
     }
 }
-
 
 void f3(int condition)
 {
@@ -41,7 +39,6 @@ void f3(int condition)
     }
 }
 
-
 void f4(int condition)
 {
     void * p;
@@ -55,7 +52,6 @@ void f4(int condition)
         free(p);
     }
 }
-
 
 void f5(int condition)
 {
@@ -71,7 +67,6 @@ void f5(int condition)
     }
 }
 
-
 void f6(int condition)
 {
     void * p;
@@ -83,5 +78,3 @@ void f6(int condition)
         return;
     }
 }
-
-

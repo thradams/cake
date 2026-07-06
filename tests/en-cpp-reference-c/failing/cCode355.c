@@ -10,7 +10,7 @@ int main(void)
 {
     setlocale(LC_ALL, "en_US.utf8");
     const char32_t in[] = U"zß水🍌"; // or "z\u00df\u6c34\U0001F34C"
-    size_t in_sz = sizeof in / sizeof *in;
+    size_t in_sz = sizeof in / sizeof *in; //lint 20
  
     printf("Processing %zu UTF-32 code units: [ ", in_sz);
     for (size_t n = 0; n < in_sz; ++n)

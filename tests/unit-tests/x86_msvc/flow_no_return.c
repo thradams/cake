@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 char *strdup(char * s);
 void exit(int exit_code);
@@ -15,5 +15,3 @@ void f()
     }
     free(s);
 }
-
-

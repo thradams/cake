@@ -1,11 +1,10 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 unsigned char init(int * a)
 {
     *a = 3;
     return 1;
 }
-
 
 int main()
 {
@@ -21,5 +20,3 @@ int main()
     }
     return a;
 }
-
-

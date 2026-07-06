@@ -1,24 +1,30 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
-static void _cake_zmem(void *dest, unsigned int len)
-{
-  unsigned char *ptr;
-
-  ptr = (unsigned char*)dest;
-  while (len-- > 0) *ptr++ = 0;
-}
+static void * memset(void *dest, int ch, unsigned int count);
 
 void F(char * s)
 {
 }
 
-
 int main()
 {
     char buffer[2];
 
-    _cake_zmem(&buffer, 2);
+    memset(&buffer, 0, 2);
     F(buffer + 1);
 }
 
+static void * memset(void *ptr, int value, unsigned int count)
+{
+    unsigned char *p;
+    unsigned char v;
 
+    p = (unsigned char *) ptr;
+    v = (unsigned char) value;
+    while (count--)
+    {
+        *p++ = v;
+    }
+
+    return ptr;
+}

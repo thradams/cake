@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 void *calloc(int i, int n);
 void free(void * p);
@@ -21,5 +21,3 @@ int main()
     free(p1);
     return 0;
 }
-
-

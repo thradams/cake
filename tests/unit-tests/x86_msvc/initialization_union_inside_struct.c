@@ -1,4 +1,5 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 union U {
     int b;
     double c;
@@ -6,18 +7,15 @@ union U {
 
 struct X {
     double a;
-    union U  u;
+    union U u;
     int d;
 };
 
-
 int main()
 {
-    struct X  x;
+    struct X x;
 
     x.a = 1;
     x.u.b = 2;
     x.d = 3;
 }
-
-

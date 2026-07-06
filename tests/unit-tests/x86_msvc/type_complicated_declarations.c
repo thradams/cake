@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 void (*f(int i))(void)
 {
@@ -6,10 +6,7 @@ void (*f(int i))(void)
     return 0;
 }
 
-
 int main()
 {
     f(1);
 }
-
-

@@ -1,4 +1,5 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 union __tag1 {
     int y;
 };
@@ -9,18 +10,15 @@ union __tag0 {
 };
 
 struct X {
-    union __tag0  __m0;
-    union __tag1  __m1;
+    union __tag0 __m0;
+    union __tag1 __m1;
 };
-
 
 int main()
 {
-    struct X  x;
+    struct X x;
 
     x..x = 0;
     x..a = 0;
     x..y = 50;
 }
-
-

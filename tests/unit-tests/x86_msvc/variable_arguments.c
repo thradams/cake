@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 void f1();
 void f2(void);
@@ -11,5 +11,3 @@ int main()
     f3("");
     f3("", 1, 2, 3);
 }
-
-

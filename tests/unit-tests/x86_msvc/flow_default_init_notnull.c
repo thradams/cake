@@ -1,9 +1,9 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct X {
     char * p;
     char * p2;
 };
-
 
 char *strdup(char * s);
 void free(void * p);
@@ -11,12 +11,10 @@ void free(void * p);
 int main()
 {
     char * p0;
-    struct X  x;
+    struct X x;
 
     p0 = strdup("a");
     x.p = p0;
     x.p2 = 0;
     free(x.p);
 }
-
-

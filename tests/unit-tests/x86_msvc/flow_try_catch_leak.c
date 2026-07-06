@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 void *malloc(int i);
 int rand();
@@ -24,5 +24,3 @@ int main()
     {
     }
 }
-
-

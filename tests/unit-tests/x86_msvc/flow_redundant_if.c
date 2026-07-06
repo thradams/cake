@@ -1,4 +1,5 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct Y;
 
 struct X {
@@ -8,7 +9,6 @@ struct X {
 struct Y {
     int type;
 };
-
 
 void f(struct X * ctx)
 {
@@ -24,5 +24,3 @@ void f(struct X * ctx)
         ctx->current->type = 1;
     }
 }
-
-

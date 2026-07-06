@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 void *make();
 void free(void * p);
@@ -10,9 +10,9 @@ void f(int condition)
     p = make();
     /*switch*/
     {
-        int __v0 = condition;
-        if (__v0 == 1) goto __L1; /*case 1*/
-        if (__v0 == 2) goto __L2; /*case 2*/
+        int __a = condition;
+        if (__a == 1) goto __L1; /*case 1*/
+        if (__a == 2) goto __L2; /*case 2*/
         goto __L3; /* default */
 
         {
@@ -36,5 +36,3 @@ void f(int condition)
         __L0:;
     }
 }
-
-

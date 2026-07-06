@@ -1,21 +1,21 @@
-/* Cake x86_msvc */
+/* Cake 0.13.29 x86_msvc */
 
 void f();
 static int g;
-static int __c0_s;
-static void __c2_f()
-{
-    f();
-    g++;
-    __c0_s++;
-    i++;
-}
+static int s;
+static void _fn();
 
 int main()
 {
     int i;
 
-    __c2_f;
+    _fn;
 }
 
-
+static void _fn()
+{
+    f();
+    g++;
+    s++;
+    i++;
+}

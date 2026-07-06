@@ -1,4 +1,3 @@
-/* Cake x86_msvc */
-
+/* Cake 0.14.05 x86_msvc */
 int i = 123;
 int i2 = {123};

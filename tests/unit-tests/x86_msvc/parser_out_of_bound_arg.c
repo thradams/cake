@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 void f1(int array[5])
 {
@@ -6,5 +6,3 @@ void f1(int array[5])
 
     i = array[5];
 }
-
-

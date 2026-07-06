@@ -1,12 +1,12 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 void func(int e)
 {
     /*switch*/
     {
-        int __v0 = e;
-        if (__v0 == 0) goto __L1; /*case 0*/
-        if (__v0 == 1) goto __L2; /*case 1*/
+        int __a = e;
+        if (__a == 0) goto __L1; /*case 0*/
+        if (__a == 1) goto __L2; /*case 1*/
         goto __L0;
 
         {
@@ -21,9 +21,6 @@ void func(int e)
     }
 }
 
-
 int main()
 {
 }
-
-

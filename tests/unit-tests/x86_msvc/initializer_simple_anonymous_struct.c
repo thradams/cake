@@ -1,20 +1,18 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 union __tag0 {
     int x;
 };
 
 struct X {
-    union __tag0  __m0;
+    union __tag0 __m0;
 };
-
 
 int main()
 {
-    struct X  x;
-    struct X  __v0;
+    struct X x;
+    struct X __a;
 
-    __v0..x = 50;
-    x = __v0;
+    __a..x = 50;
+    x = __a;
 }
-
-

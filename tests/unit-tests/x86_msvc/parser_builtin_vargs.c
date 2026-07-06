@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 int add_nums_C23(int count, ...)
 {
@@ -20,10 +20,7 @@ int add_nums_C23(int count, ...)
     return result;
 }
 
-
 int main(void)
 {
     add_nums_C23(4, 25, 25, 50, 50);
 }
-
-

@@ -1,0 +1,29 @@
+/* Cake x86_x64_gcc */
+
+extern int wcscmp(int * __s1, int * __s2);
+extern char *setlocale(int __category, char * __locale);
+extern int printf(char * __format, ...);
+
+void demo(int * lhs, int * rhs)
+{
+    int rc;
+    char * rel;
+
+    rc = wcscmp(lhs, rhs);
+    rel = rc < 0 ? "precedes" : rc > 0 ? "follows" : "equals";
+    setlocale(6, "en_US.utf8");
+    printf("[%ls] %s [%ls]\n", lhs, rel, rhs);
+}
+
+
+int main(void)
+{
+    int * string;
+
+    string = L"\xe3\x81\xa9\xe3\x81\x86\xe3\x82\x82\xe3\x81\x82\xe3\x82\x8a\xe3\x81\x8c\xe3\x81\xa8\xe3\x81\x86\xe3\x81\x94\xe3\x81\x96\xe3\x81\x84\xe3\x81\xbe\xe3\x81\x99";
+    demo(string, L"\xe3\x81\xa9\xe3\x81\x86\xe3\x82\x82");
+    demo(string, L"\xe5\x8a\xa9\xe3\x81\x8b\xe3\x81\xa3\xe3\x81\x9f");
+    demo(string + 9, L"\xe3\x81\x82\xe3\x82\x8a\xe3\x81\x8c\xe3\x81\xa8\xe3\x81\x86\xe3\x81\x94\xe3\x81\x96\xe3\x81\x84\xe3\x81\xbe\xe3\x81\x99" + 6);
+}
+
+

@@ -1,8 +1,8 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct X {
     int i;
 };
-
 
 void f(struct X * p)
 {
@@ -14,5 +14,3 @@ void f(struct X * p)
     i3 = p->i;
     i2 = p ? 0 : p->i;
 }
-
-

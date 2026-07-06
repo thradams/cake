@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 int main()
 {
@@ -8,5 +8,3 @@ int main()
     a[1] = 2;
     a[2] = 3;
 }
-
-

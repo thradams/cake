@@ -1,4 +1,5 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct Y;
 
 struct X {
@@ -14,16 +15,13 @@ struct Y {
     double i2;
 };
 
-
 struct X f();
 void destroy(struct X * x);
 
 int main()
 {
-    struct X  x;
+    struct X x;
 
     x = f();
     destroy(&x);
 }
-
-

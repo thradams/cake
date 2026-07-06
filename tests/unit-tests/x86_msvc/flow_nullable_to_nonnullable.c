@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 int strlen(char * s);
 
@@ -10,5 +10,3 @@ int main()
     p = 0;
     strlen(p);
 }
-
-

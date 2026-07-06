@@ -1,4 +1,5 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct Y;
 
 struct X {
@@ -15,7 +16,6 @@ struct Z {
     int i;
 };
 
-
 void f(struct X * p)
 {
     if (p && p->pY && p->pY->pZ)
@@ -23,5 +23,3 @@ void f(struct X * p)
         p->pY->pZ->i = 1;
     }
 }
-
-

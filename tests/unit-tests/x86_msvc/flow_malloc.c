@@ -1,4 +1,5 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct Y;
 
 struct X {
@@ -14,7 +15,6 @@ struct Y {
     double i2;
 };
 
-
 void *malloc(unsigned long size);
 void free(void * ptr);
 
@@ -25,5 +25,3 @@ int main()
     x = malloc(16);
     free(x);
 }
-
-

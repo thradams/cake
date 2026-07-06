@@ -1,0 +1,16 @@
+/* Cake x64_msvc */
+
+struct X {
+    char * name;
+};
+
+void *malloc(int i);
+void free(void * p);
+
+int main()
+{
+    struct X * p;
+
+    p = malloc(8ULL);
+    free(p);
+}

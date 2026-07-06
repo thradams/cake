@@ -1,9 +1,8 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 void f(char s[2])
 {
 }
-
 
 void test1()
 {
@@ -12,12 +11,10 @@ void test1()
     f(s);
 }
 
-
 void f2(char * s)
 {
     *s = 0;
 }
-
 
 void test2()
 {
@@ -26,9 +23,6 @@ void test2()
     f2(s);
 }
 
-
 int main()
 {
 }
-
-

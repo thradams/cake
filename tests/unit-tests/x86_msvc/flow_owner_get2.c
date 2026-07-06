@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 int *get();
 void dtor(int * p);
@@ -11,5 +11,3 @@ void f(int a)
     p = get();
     dtor(p);
 }
-
-

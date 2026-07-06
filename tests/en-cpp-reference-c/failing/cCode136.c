@@ -9,7 +9,7 @@ int main(void)
     int n = f().x; // f() is an expression of type struct s
 //  f().x = 1; // Error: this member access expression is not an lvalue
  
-    const struct s sc;
+    const struct s sc = {0};
 //  sc.x = 3;  // Error: sc.x is const, can't be assigned
  
     union { int x; double d; } u = {1};

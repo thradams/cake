@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 void *malloc(int size);
 void free(void * ptr);
@@ -13,5 +13,3 @@ int main()
         free(p);
     }
 }
-
-

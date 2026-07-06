@@ -1,14 +1,13 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
+
 struct X {
     char * text;
 };
-
 
 void f(struct X * p1, struct X ** p2)
 {
     *p2 = p1;
 }
-
 
 void *malloc(unsigned long size);
 void free(void * ptr);
@@ -29,5 +28,3 @@ int main()
         free(p2);
     }
 }
-
-

@@ -1,3 +1,5 @@
+//external var problem
+
 #pragma safety enable
 
 
@@ -27,7 +29,7 @@ void f1()
         return;
     }
 
-    static_state(i ,"uninitialized");
+    assert_state(i ,"uninitialized");
 }
 
 void f2()
@@ -47,7 +49,7 @@ void f2()
     {        
     }
 
-    static_state(i ,"uninitialized | not-zero");
+    assert_state(i ,"uninitialized | not-zero");
 }
 
 void f2()
@@ -68,7 +70,7 @@ void f2()
     {        
     }
 
-    static_state(i ,"uninitialized | zero | not-zero");
+    assert_state(i ,"uninitialized | zero | not-zero");
 }
 
 void f3()
@@ -90,7 +92,7 @@ void f3()
     {        
     }
 
-    static_state(i ,"uninitialized | not-zero");
+    assert_state(i ,"uninitialized | not-zero");
 }
 
 void f4()
@@ -110,7 +112,7 @@ void f4()
         i = 0;
     }
 
-    static_state(i ,"uninitialized | zero");
+    assert_state(i ,"uninitialized | zero");
 }
 
 

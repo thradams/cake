@@ -1,4 +1,4 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 void *calloc(int n, int i);
 
@@ -9,8 +9,8 @@ char *f(int i)
     p = calloc(1, 2);
     /*switch*/
     {
-        int __v0 = i;
-        if (__v0 == 1) goto __L1; /*case 1*/
+        int __a = i;
+        if (__a == 1) goto __L1; /*case 1*/
         goto __L0;
 
         {
@@ -22,5 +22,3 @@ char *f(int i)
     }
     return p;
 }
-
-

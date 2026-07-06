@@ -1,11 +1,6 @@
-/* Cake x86_msvc */
+/* Cake 0.14.05 x86_msvc */
 
 char *f()
 {
-    char * p;
-
-    p = 0;
-    return p;
+    return 0;
 }
-
-
