@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300" width="100%" height="100%">
+  <defs>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#0f172a" flood-opacity="0.08" />
+    </filter>
+    <marker id="arrow-main" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#3b82f6" />
+    </marker>
+    <marker id="arrow-cake" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#f59e0b" />
+    </marker>
+    <linearGradient id="grad-main" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#f8fafc" />
+    </linearGradient>
+    <linearGradient id="grad-cake" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#fffbeb" />
+    </linearGradient>
+  </defs>
+
+  <!-- Connections -->
+  <g fill="none">
+    <!-- Main flow -->
+    <path d="M 200 75 L 276 75" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arrow-main)" stroke-linecap="round" />
+    <path d="M 440 75 L 516 75" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arrow-main)" stroke-linecap="round" />
+    
+    <!-- Source → cake preprocessor (L‑shape) -->
+    <path d="M 120 100 L 120 185 L 158 185" stroke="#f59e0b" stroke-width="2.5" marker-end="url(#arrow-cake)" stroke-linecap="round" stroke-linejoin="round" />
+    
+    <!-- cake preprocessor → cake compiler -->
+    <path d="M 360 185 L 396 185" stroke="#f59e0b" stroke-width="2.5" marker-end="url(#arrow-cake)" stroke-linecap="round" />
+    
+    <!-- cake compiler → merge before compiler -->
+    <path d="M 500 210 L 500 100 L 516 100" stroke="#f59e0b" stroke-width="2.5" marker-end="url(#arrow-cake)" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+
+  <!-- Boxes -->
+  <g filter="url(#shadow)">
+    <!-- Main flow boxes -->
+    <rect x="40" y="50" width="160" height="50" rx="6" fill="url(#grad-main)" stroke="#3b82f6" stroke-width="2" />
+    <rect x="280" y="50" width="160" height="50" rx="6" fill="url(#grad-main)" stroke="#3b82f6" stroke-width="2" />
+    <rect x="520" y="50" width="160" height="50" rx="6" fill="url(#grad-main)" stroke="#3b82f6" stroke-width="2" />
+
+    <!-- Alternative flow boxes (dashed) -->
+    <rect x="160" y="160" width="200" height="50" rx="6" fill="url(#grad-cake)" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 2" />
+    <rect x="400" y="160" width="200" height="50" rx="6" fill="url(#grad-cake)" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 2" />
+  </g>
+
+  <!-- Labels -->
+  <g font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="600" text-anchor="middle" dominant-baseline="middle">
+    <text x="120" y="75" fill="#1e293b">source</text>
+    <text x="360" y="75" fill="#1e293b">preprocessor</text>
+    <text x="600" y="75" fill="#1e293b">compiler</text>
+    <text x="260" y="185" fill="#d97706">cake preprocessor</text>
+    <text x="500" y="185" fill="#d97706">cake compiler</text>
+  </g>
+
+  <!-- c89 label moved up on vertical merge arrow (box y=136, text y=145) -->
+  <g>
+    <rect x="508" y="136" width="30" height="18" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" />
+    <text x="523" y="145" font-family="monospace, sans-serif" font-size="11" font-weight="bold" fill="#475569" text-anchor="middle" dominant-baseline="middle">c89</text>
+  </g>
+</svg>

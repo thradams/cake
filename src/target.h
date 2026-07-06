@@ -41,9 +41,10 @@ enum target
     TARGET_CCU8,
     TARGET_LCCU16,
     TARGET_CATALINA,
-
+    TARGET_APPLE_ARM64,
 };
-#define NUMBER_OF_TARGETS  6
+
+#define NUMBER_OF_TARGETS  7
 
 struct platform
 {
@@ -129,6 +130,7 @@ unsigned long long target_unsigned_max(enum  target target, enum object_type typ
 #define CAKE_COMPILE_TIME_SELECTED_TARGET TARGET_X86_X64_GCC
 #endif
 
-#if defined(__APPLE__) && defined(__MACH__)
-#define CAKE_COMPILE_TIME_SELECTED_TARGET TARGET_X86_X64_GCC
+#if defined(__APPLE__) && (defined(__aarch64__) || defined(__arm64__))
+#define CAKE_COMPILE_TIME_SELECTED_TARGET TARGET_APPLE_ARM64
 #endif
+

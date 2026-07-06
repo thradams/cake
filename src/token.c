@@ -198,7 +198,7 @@ void token_delete(struct token* _Owner _Opt p)
     }
 }
 
-void token_list_set_file(struct token_list* list, struct token* filetoken, int line, int col)
+void token_list_set_file(struct token_list* list, const struct token* filetoken, int line, int col)
 {
     struct token* _Opt p = list->head;
     while (p)

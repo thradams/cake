@@ -41,7 +41,7 @@ typedef int SocketFd;
 /* ─────────────────────────────────────────────────────────────────────── */
 #define PORT         8080
 #define MAX_PATH_LEN 2048   /* max filesystem path length */
-#define MAX_CMD_LEN  (MAX_PATH_LEN + 32)
+#define MAX_CMD_LEN  (MAX_PATH_LEN * 2 + 64)
 
 
 char BASE_DIR[512];
@@ -56,7 +56,7 @@ typedef struct {
     size_t cap;   /* total bytes allocated                    */
 } DynBuf;
 
-static int db_init(DynBuf* b, size_t initial)
+static int sv_db_init(DynBuf* b, size_t initial)
 {
     b->data = malloc(initial);
     if (!b->data) return -1;
@@ -66,7 +66,7 @@ static int db_init(DynBuf* b, size_t initial)
     return 0;
 }
 
-static int db_ensure(DynBuf* b, size_t extra)
+static int sv_db_ensure(DynBuf* b, size_t extra)
 {
     if (b->len + extra + 1 <= b->cap) return 0;
     size_t newcap = b->cap * 2;
@@ -78,21 +78,21 @@ static int db_ensure(DynBuf* b, size_t extra)
     return 0;
 }
 
-static int db_append(DynBuf* b, const char* s, size_t n)
+static int sv_db_append(DynBuf* b, const char* s, size_t n)
 {
-    if (db_ensure(b, n) != 0) return -1;
+    if (sv_db_ensure(b, n) != 0) return -1;
     memcpy(b->data + b->len, s, n);
     b->len += n;
     b->data[b->len] = '\0';
     return 0;
 }
 
-static int db_appends(DynBuf* b, const char* s)
+static int sv_db_appends(DynBuf* b, const char* s)
 {
-    return db_append(b, s, strlen(s));
+    return sv_db_append(b, s, strlen(s));
 }
 
-static void db_free(DynBuf* b)
+static void sv_db_free(DynBuf* b)
 {
     free(b->data);
     b->data = NULL;
@@ -100,10 +100,10 @@ static void db_free(DynBuf* b)
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   file_read_all  –  read an entire file into a malloc'd, NUL-terminated
+   sv_file_read_all  –  read an entire file into a malloc'd, NUL-terminated
                      buffer; *out_len receives the byte count.
    ══════════════════════════════════════════════════════════════════════ */
-static char* file_read_all(const char* path, size_t* out_len)
+static char* sv_file_read_all(const char* path, size_t* out_len)
 {
     FILE* f = fopen(path, "rb");
     if (!f) return NULL;
@@ -126,7 +126,7 @@ static char* file_read_all(const char* path, size_t* out_len)
 /* ══════════════════════════════════════════════════════════════════════
    path / MIME helpers
    ══════════════════════════════════════════════════════════════════════ */
-static const char* get_content_type(const char* path)
+static const char* sv_get_content_type(const char* path)
 {
     const char* ext = strrchr(path, '.');
     if (!ext) return "application/octet-stream";
@@ -138,7 +138,7 @@ static const char* get_content_type(const char* path)
     return "application/octet-stream";
 }
 
-static int has_c_extension(const char* name)
+static int sv_has_c_extension(const char* name)
 {
     const char* dot = strrchr(name, '.');
     if (!dot) return 0;
@@ -149,12 +149,12 @@ static int has_c_extension(const char* name)
     return strcasecmp(dot, ".c") == 0;
 }
 
-static int is_safe(const char* s)
+static int sv_is_safe(const char* s)
 {
     return strstr(s, "..") == NULL;
 }
 
-static void get_param(const char* query, const char* key,
+static void sv_get_param(const char* query, const char* key,
     char* out, int max)
 {
     const char* p = strstr(query, key);
@@ -167,9 +167,9 @@ static void get_param(const char* query, const char* key,
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   send_response  –  header sized exactly to content length
+   sv_send_response  –  header sized exactly to content length
    ══════════════════════════════════════════════════════════════════════ */
-static void send_response(SocketFd client,
+static void sv_send_response(SocketFd client,
     const char* type,
     const char* body, size_t body_len)
 {
@@ -200,15 +200,15 @@ static void send_response(SocketFd client,
 }
 
 /* convenience for plain C-string bodies */
-static void send_str(SocketFd client, const char* type, const char* body)
+static void sv_send_str(SocketFd client, const char* type, const char* body)
 {
-    send_response(client, type, body, strlen(body));
+    sv_send_response(client, type, body, strlen(body));
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   handle_static
+   sv_handle_static
    ══════════════════════════════════════════════════════════════════════ */
-static void handle_static(SocketFd client, const char* url)
+static void sv_handle_static(SocketFd client, const char* url)
 {
     char path[MAX_PATH_LEN];
 
@@ -219,39 +219,39 @@ static void handle_static(SocketFd client, const char* url)
 
     if (strstr(path, ".."))
     {
-        send_str(client, "text/plain", "Invalid path");
+        sv_send_str(client, "text/plain", "Invalid path");
         return;
     }
 
     size_t flen;
-    char* buf = file_read_all(path, &flen);
+    char* buf = sv_file_read_all(path, &flen);
     if (!buf)
     {
-        send_str(client, "text/plain", "Not found");
+        sv_send_str(client, "text/plain", "Not found");
         return;
     }
 
-    send_response(client, get_content_type(path), buf, flen);
+    sv_send_response(client, sv_get_content_type(path), buf, flen);
     free(buf);
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   handle_list  –  JSON array of .c filenames, built with DynBuf
+   sv_handle_list  –  JSON array of .c filenames, built with DynBuf
    ══════════════════════════════════════════════════════════════════════ */
-static void handle_list(SocketFd client, const char* query)
+static void sv_handle_list(SocketFd client, const char* query)
 {
     char rel[512] = "";
-    get_param(query, "path=", rel, sizeof(rel));
+    sv_get_param(query, "path=", rel, sizeof(rel));
 
-    if (!is_safe(rel))
+    if (!sv_is_safe(rel))
     {
-        send_str(client, "text/plain", "Invalid path");
+        sv_send_str(client, "text/plain", "Invalid path");
         return;
     }
 
     DynBuf json;
-    if (db_init(&json, 256) != 0) return;
-    db_appends(&json, "[");
+    if (sv_db_init(&json, 256) != 0) return;
+    sv_db_appends(&json, "[");
     int first = 1;
 
 #ifdef _WIN32
@@ -266,20 +266,20 @@ static void handle_list(SocketFd client, const char* query)
 
     if (h == INVALID_HANDLE_VALUE)
     {
-        send_str(client, "text/plain", "Cannot open directory");
-        db_free(&json);
+        sv_send_str(client, "text/plain", "Cannot open directory");
+        sv_db_free(&json);
         return;
     }
     do
     {
         if (strcmp(fd.cFileName, ".") == 0 ||
             strcmp(fd.cFileName, "..") == 0) continue;
-        if (!has_c_extension(fd.cFileName)) continue;
-        if (!first) db_appends(&json, ",");
+        if (!sv_has_c_extension(fd.cFileName)) continue;
+        if (!first) sv_db_appends(&json, ",");
         first = 0;
-        db_appends(&json, "\"");
-        db_appends(&json, fd.cFileName);
-        db_appends(&json, "\"");
+        sv_db_appends(&json, "\"");
+        sv_db_appends(&json, fd.cFileName);
+        sv_db_appends(&json, "\"");
     } while (FindNextFileA(h, &fd));
     FindClose(h);
 
@@ -294,8 +294,8 @@ static void handle_list(SocketFd client, const char* query)
 
     if (!dir)
     {
-        send_str(client, "text/plain", "Cannot open directory");
-        db_free(&json);
+        sv_send_str(client, "text/plain", "Cannot open directory");
+        sv_db_free(&json);
         return;
     }
     struct dirent* entry;
@@ -303,32 +303,32 @@ static void handle_list(SocketFd client, const char* query)
     {
         if (strcmp(entry->d_name, ".") == 0 ||
             strcmp(entry->d_name, "..") == 0) continue;
-        if (!has_c_extension(entry->d_name)) continue;
-        if (!first) db_appends(&json, ",");
+        if (!sv_has_c_extension(entry->d_name)) continue;
+        if (!first) sv_db_appends(&json, ",");
         first = 0;
-        db_appends(&json, "\"");
-        db_appends(&json, entry->d_name);
-        db_appends(&json, "\"");
+        sv_db_appends(&json, "\"");
+        sv_db_appends(&json, entry->d_name);
+        sv_db_appends(&json, "\"");
     }
     closedir(dir);
 #endif
 
-    db_appends(&json, "]");
-    send_response(client, "application/json", json.data, json.len);
-    db_free(&json);
+    sv_db_appends(&json, "]");
+    sv_send_response(client, "application/json", json.data, json.len);
+    sv_db_free(&json);
 }
 
 
-static void handle_read(SocketFd client, const char* query)
+static void sv_handle_read(SocketFd client, const char* query)
 {
     char rel[512] = "";
     char file[512] = "";
-    get_param(query, "path=", rel, sizeof(rel));
-    get_param(query, "file=", file, sizeof(file));
+    sv_get_param(query, "path=", rel, sizeof(rel));
+    sv_get_param(query, "file=", file, sizeof(file));
 
-    if (!is_safe(rel) || !is_safe(file))
+    if (!sv_is_safe(rel) || !sv_is_safe(file))
     {
-        send_str(client, "text/plain", "Invalid path");
+        sv_send_str(client, "text/plain", "Invalid path");
         return;
     }
 
@@ -337,19 +337,19 @@ static void handle_read(SocketFd client, const char* query)
         BASE_DIR2, rel, file);
 
     size_t flen;
-    char* src = file_read_all(full, &flen);
+    char* src = sv_file_read_all(full, &flen);
     if (!src)
     {
-        send_str(client, "text/plain", "Cannot read file");
+        sv_send_str(client, "text/plain", "Cannot read file");
         return;
     }
 
-    send_response(client, "text/plain", src, flen);
+    sv_send_response(client, "text/plain", src, flen);
     free(src);
 }
 
 
-size_t first_line_copy(const char* src, char* dst, size_t dst_size)
+static size_t sv_first_line_copy(const char* src, char* dst, size_t dst_size)
 {
     size_t i = 0;
 
@@ -377,16 +377,16 @@ size_t first_line_copy(const char* src, char* dst, size_t dst_size)
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   handle_save  –  POST {"path":...,"file":...,"content":...}
+   sv_handle_save  –  POST {"path":...,"file":...,"content":...}
                    Write file, return "OK"
    ══════════════════════════════════════════════════════════════════════ */
-static void handle_save(SocketFd client, const char* body, size_t body_len)
+static void sv_handle_save(SocketFd client, const char* body, size_t body_len)
 {
-    printf("handle_save\n");
+    printf("sv_handle_save\n");
 
     char file[512] = "";
     const char* content; size_t content_len;
-    size_t sz = first_line_copy(body, file, sizeof file);
+    size_t sz = sv_first_line_copy(body, file, sizeof file);
     content = body + sz + 1;
     content_len = strlen(content);
 
@@ -399,36 +399,39 @@ static void handle_save(SocketFd client, const char* body, size_t body_len)
     FILE* f = fopen(full, "wb");
     if (!f)
     {
-        send_str(client, "text/plain", "Cannot write file");
+        sv_send_str(client, "text/plain", "Cannot write file");
         return;
     }
     fwrite(content, 1, content_len, f);
     fclose(f);
 
-    send_str(client, "text/plain", "OK");
+    sv_send_str(client, "text/plain", "OK");
     (void)body_len;
 }
 
+
 /* ══════════════════════════════════════════════════════════════════════
-   handle_compile  –  POST body: "<opts>\n<file>"
+   sv_handle_compile  –  POST body: "<opts>\n<file>"
                       opts may be empty (just "\n<file>" or "<file>" alone)
                       Compile the already-saved file, return output only
    ══════════════════════════════════════════════════════════════════════ */
-static void handle_compile(SocketFd client, const char* body, size_t body_len)
+static void sv_handle_compile(SocketFd client, const char* body, size_t body_len)
 {
     char opts[512] = "";
     char file[512] = "";
-    size_t opts_len = first_line_copy(body, opts, sizeof opts);
+    size_t opts_len = sv_first_line_copy(body, opts, sizeof opts);
+
+    printf("sv_handle_compile: opts='%s', file='%s'\n", opts, file);
 
     /* filename is on the second line */
     const char* file_start = body + opts_len + (body[opts_len] == '\n' ? 1 : 0);
-    first_line_copy(file_start, file, sizeof file);
+    sv_first_line_copy(file_start, file, sizeof file);
 
     char full[MAX_PATH_LEN];
     snprintf(full, sizeof(full), "%s" PATH_SEP "%s",
         BASE_DIR2, file);
 
-    char cmd[MAX_CMD_LEN] = {0};
+    char cmd[MAX_CMD_LEN] = { 0 };
     if (opts[0])
         snprintf(cmd, sizeof(cmd), "cake  %s \"%s\" > output.txt", opts, full);
     else
@@ -438,19 +441,112 @@ static void handle_compile(SocketFd client, const char* body, size_t body_len)
     system(cmd);
 
     size_t out_len;
-    char* out = file_read_all("output.txt", &out_len);
+    char* out = sv_file_read_all("output.txt", &out_len);
     if (!out) { out = strdup("(no compiler output)"); out_len = out ? strlen(out) : 0; }
     if (!out) return;
-    send_response(client, "text/plain", out, out_len);
+    sv_send_response(client, "text/plain", out, out_len);
     free(out);
     (void)body_len;
 }
 
 
 /* ══════════════════════════════════════════════════════════════════════
-   recv_all  –  grow a DynBuf until the full HTTP request is received
+   sv_json_escape  –  append src to b with JSON string escaping
    ══════════════════════════════════════════════════════════════════════ */
-static int recv_all(SocketFd client, DynBuf* buf)
+static int sv_json_escape(DynBuf* b, const char* src, size_t src_len)
+{
+    for (size_t i = 0; i < src_len; i++)
+    {
+        unsigned char c = (unsigned char)src[i];
+        if (c == '"') { if (sv_db_append(b, "\\\"", 2) != 0) return -1; }
+        else if (c == '\\') { if (sv_db_append(b, "\\\\", 2) != 0) return -1; }
+        else if (c == '\n') { if (sv_db_append(b, "\\n", 2) != 0) return -1; }
+        else if (c == '\r') { if (sv_db_append(b, "\\r", 2) != 0) return -1; }
+        else if (c == '\t') { if (sv_db_append(b, "\\t", 2) != 0) return -1; }
+        else if (c < 0x20)
+        {
+            char esc[7];
+            snprintf(esc, sizeof(esc), "\\u%04x", c);
+            if (sv_db_append(b, esc, 6) != 0) return -1;
+        }
+        else { if (sv_db_append(b, (const char*)&c, 1) != 0) return -1; }
+    }
+    return 0;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   sv_handle_build  –  POST body: "<opts>\n<source_code>"
+                       Saves source to temp.c, runs cake, returns JSON:
+                       {"output":"<diagnostics>","code":"<transformed_c>"}
+   ══════════════════════════════════════════════════════════════════════ */
+static void sv_handle_build(SocketFd client, const char* body, size_t body_len)
+{
+    /* ── 1. split opts / source ── */
+    char opts[512] = "";
+    size_t opts_len = sv_first_line_copy(body, opts, sizeof opts);
+    const char* source = body + opts_len + (body[opts_len] == '\n' ? 1 : 0);
+    size_t source_len = body_len > (opts_len + 1) ? body_len - opts_len - 1 : 0;
+
+    /* ── 2. write source to temp.c ── */
+    char input_path[MAX_PATH_LEN];
+    snprintf(input_path, sizeof(input_path), "%s" PATH_SEP "temp.c", BASE_DIR2);
+
+    FILE* f = fopen(input_path, "wb");
+    if (!f)
+    {
+        sv_send_str(client, "application/json",
+                  "{\"output\":\"Cannot write temp.c\",\"code\":\"\"}"); return;
+    }
+    fwrite(source, 1, source_len, f);
+    fclose(f);
+
+    /* ── 3. run cake; diagnostics → output.txt, code → out.c ── */
+    char out_path[MAX_PATH_LEN];
+    snprintf(out_path, sizeof(out_path), "%s" PATH_SEP "out.c", BASE_DIR2);
+
+    char cmd[MAX_CMD_LEN] = { 0 };
+    if (opts[0])
+        snprintf(cmd, sizeof(cmd), "cake %s -o \"%s\" \"%s\" > output.txt 2>&1", opts, out_path, input_path);
+    else
+        snprintf(cmd, sizeof(cmd), "cake -o \"%s\" \"%s\" > output.txt 2>&1", out_path, input_path);
+
+    printf("sv_handle_build: %s\n", cmd);
+    system(cmd);
+
+    /* ── 4. read diagnostics ── */
+    size_t diag_len = 0;
+    char* diag = sv_file_read_all("output.txt", &diag_len);
+    if (!diag) { diag = strdup(""); diag_len = 0; }
+
+    /* ── 5. read transformed output ── */
+    size_t code_len = 0;
+    char* code = sv_file_read_all(out_path, &code_len);
+    if (!code) { code = strdup(""); code_len = 0; }
+
+    /* ── 6. build JSON response ── */
+    DynBuf json;
+    if (sv_db_init(&json, diag_len + code_len + 32) != 0)
+    {
+        free(diag); free(code); return;
+    }
+    sv_db_appends(&json, "{\"output\":\"");
+    sv_json_escape(&json, diag, diag_len);
+    sv_db_appends(&json, "\",\"code\":\"");
+    sv_json_escape(&json, code, code_len);
+    sv_db_appends(&json, "\"}");
+
+    sv_send_response(client, "application/json", json.data, json.len);
+
+    sv_db_free(&json);
+    free(diag);
+    free(code);
+    (void)body_len;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   sv_recv_all  –  grow a DynBuf until the full HTTP request is received
+   ══════════════════════════════════════════════════════════════════════ */
+static int sv_recv_all(SocketFd client, DynBuf* buf)
 {
     char chunk[4096];
     size_t content_length = 0;
@@ -460,7 +556,7 @@ static int recv_all(SocketFd client, DynBuf* buf)
     {
         int n = (int)recv(client, chunk, sizeof(chunk), 0);
         if (n <= 0) break;
-        if (db_append(buf, chunk, (size_t)n) != 0) return -1;
+        if (sv_db_append(buf, chunk, (size_t)n) != 0) return -1;
 
         char* sep = strstr(buf->data, "\r\n\r\n");
         if (!sep) continue;   /* headers not complete yet */
@@ -481,11 +577,11 @@ static int recv_all(SocketFd client, DynBuf* buf)
 
 
 /* ══════════════════════════════════════════════════════════════════════
-   get_exe_path  –  platform-specific
+   sv_get_exe_path  –  platform-specific
    ══════════════════════════════════════════════════════════════════════ */
 #if defined(_WIN32)
 
-char* get_exe_path(char* buffer, size_t size)
+static char* sv_get_exe_path(char* buffer, size_t size)
 {
     DWORD len = GetModuleFileNameA(NULL, buffer, (DWORD)size);
     if (len == 0 || len == size)
@@ -496,7 +592,7 @@ char* get_exe_path(char* buffer, size_t size)
 #elif defined(__linux__)
 #include <unistd.h>
 
-char* get_exe_path(char* buffer, size_t size)
+static char* sv_get_exe_path(char* buffer, size_t size)
 {
     ssize_t len = readlink("/proc/self/exe", buffer, size - 1);
     if (len == -1)
@@ -508,7 +604,7 @@ char* get_exe_path(char* buffer, size_t size)
 #elif defined(__APPLE__)
 #include <mach-o/dyld.h>
 
-char* get_exe_path(char* buffer, size_t size)
+static char* sv_get_exe_path(char* buffer, size_t size)
 {
     uint32_t sz = (uint32_t)size;
     if (_NSGetExecutablePath(buffer, &sz) != 0)
@@ -521,18 +617,20 @@ char* get_exe_path(char* buffer, size_t size)
 #endif
 
 
-/* ══════════════════════════════════════════════════════════════════════
-   get_current_path
-   ══════════════════════════════════════════════════════════════════════ */
-char* get_current_path(char path[], int sz)
+   /* ══════════════════════════════════════════════════════════════════════
+      sv_get_current_path
+      ══════════════════════════════════════════════════════════════════════ */
+static char* sv_get_current_path(char path[], int sz)
 {
 #ifdef _WIN32
-    if (GetCurrentDirectoryA(sz, path) == 0) {
+    if (GetCurrentDirectoryA(sz, path) == 0)
+    {
         perror("Erro ao obter diretório atual");
         return NULL;
     }
 #else
-    if (getcwd(path, (size_t)sz) == NULL) {
+    if (getcwd(path, (size_t)sz) == NULL)
+    {
         perror("Erro ao obter diretório atual");
         return NULL;
     }
@@ -542,11 +640,11 @@ char* get_current_path(char path[], int sz)
 
 
 /* ══════════════════════════════════════════════════════════════════════
-   open_browser  –  platform-specific
+   sv_open_browser  –  platform-specific
    ══════════════════════════════════════════════════════════════════════ */
 #if defined(_WIN32)
 
-void open_browser(const char* url)
+static void sv_open_browser(const char* url)
 {
     ShellExecuteA(
         NULL,
@@ -560,7 +658,7 @@ void open_browser(const char* url)
 
 #elif defined(__APPLE__)
 
-void open_browser(const char* url)
+static void sv_open_browser(const char* url)
 {
     char cmd[512];
     snprintf(cmd, sizeof(cmd), "open \"%s\"", url);
@@ -569,7 +667,7 @@ void open_browser(const char* url)
 
 #else  /* Linux */
 
-void open_browser(const char* url)
+static void sv_open_browser(const char* url)
 {
     char cmd[512];
     snprintf(cmd, sizeof(cmd), "xdg-open \"%s\"", url);
@@ -585,48 +683,52 @@ void open_browser(const char* url)
 
 #include <stdio.h>
 
-void remove_filename(char *path)
+static void sv_remove_filename(char* path)
 {
     if (!path) return;
 
-    char *last_sep = NULL;
+    char* last_sep = NULL;
 
-    for (char *p = path; *p; ++p) {
-        if (*p == '/' || *p == '\\') {
+    for (char* p = path; *p; ++p)
+    {
+        if (*p == '/' || *p == '\\')
+        {
             last_sep = p;
         }
     }
 
-    if (last_sep) {
+    if (last_sep)
+    {
         *(last_sep + 1) = '\0'; /* keep the trailing slash */
-    } else {
+    }
+    else
+    {
         path[0] = '\0'; /* no separator → no directory part */
     }
 }
 
-int main(int argc, char* argv[])
+static int sv_start(void);
+
+int main(void)
 {
-    if (argc <= 1)
-    {
-        get_current_path(BASE_DIR2, sizeof BASE_DIR2);
-    }
-    else
-    {
-        strncpy(BASE_DIR2, argv[1], sizeof(BASE_DIR2) - 1);
-        BASE_DIR2[sizeof(BASE_DIR2) - 1] = '\0';
-    }
+    sv_start();
+}
+
+static int sv_start(void)
+{
+    sv_get_current_path(BASE_DIR2, sizeof BASE_DIR2);
 
     printf("Current dir: %s\n", BASE_DIR2);
 
-    get_exe_path(BASE_DIR, sizeof BASE_DIR);
+    sv_get_exe_path(BASE_DIR, sizeof BASE_DIR);
     printf("Web dir: %s\n", BASE_DIR);
 
-//#define DEBUG_IDE
+    //#define DEBUG_IDE
 #ifdef DEBUG_IDE
     BASE_DIR[strlen(BASE_DIR) - sizeof("Debug\\server.exe")] = 0;
     strcat(BASE_DIR, "\\web");
 #else
-    remove_filename(BASE_DIR);
+    sv_remove_filename(BASE_DIR);
 #endif
 
 #ifdef _WIN32
@@ -655,7 +757,7 @@ int main(int argc, char* argv[])
     printf("Server running at http://localhost:%d\n", PORT);
 
 #if !defined(DEBUG_IDE) && (defined(_WIN32) || defined(__APPLE__))
-    open_browser("http://localhost:8080");
+    //sv_open_browser("http://localhost:8080/web/playground.html");
 #endif
 
     while (1)
@@ -664,11 +766,11 @@ int main(int argc, char* argv[])
         if (client == INVALID_SOCKET) continue;
 
         DynBuf req;
-        if (db_init(&req, 4096) != 0) { CLOSE_SOCKET(client); continue; }
+        if (sv_db_init(&req, 4096) != 0) { CLOSE_SOCKET(client); continue; }
 
-        if (recv_all(client, &req) != 0 || req.len == 0)
+        if (sv_recv_all(client, &req) != 0 || req.len == 0)
         {
-            db_free(&req); CLOSE_SOCKET(client); continue;
+            sv_db_free(&req); CLOSE_SOCKET(client); continue;
         }
 
         char method[8] = { 0 }, url[1024] = { 0 };
@@ -688,26 +790,29 @@ int main(int argc, char* argv[])
         if (strcmp(method, "GET") == 0)
         {
             if (strcmp(url, "/list") == 0)
-                handle_list(client, query ? query : "");
+                sv_handle_list(client, query ? query : "");
             else if (strcmp(url, "/read") == 0)
-                handle_read(client, query ? query : "");
+                sv_handle_read(client, query ? query : "");
             else
-                handle_static(client, url);
+                sv_handle_static(client, url);
         }
         else if (strcmp(method, "POST") == 0)
         {
             if (strcmp(url, "/save") == 0)
-                handle_save(client, body ? body : "", body_len);
+                sv_handle_save(client, body ? body : "", body_len);
             else if (strcmp(url, "/compile") == 0)
-                handle_compile(client, body ? body : "", body_len);
+                sv_handle_compile(client, body ? body : "", body_len);
+            else if (strcmp(url, "/build") == 0)
+                sv_handle_build(client, body ? body : "", body_len);
+
             else
-                send_str(client, "text/plain", "Not found");
+                sv_send_str(client, "text/plain", "Not found");
         }
         else
         {
-            send_str(client, "text/plain", "Not found");
+            sv_send_str(client, "text/plain", "Not found");
         }
-        db_free(&req);
+        sv_db_free(&req);
         CLOSE_SOCKET(client);
     }
 

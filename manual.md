@@ -344,15 +344,19 @@ Standard reference documents:
 
 `restrict` is parsed and type-checked but stripped from the generated C89 output.
 
+<!-- runnable -->
+
 ```c
 void f(const char* restrict s);
 int main() { f(""); }
 ```
-<button onclick="Try(this)">try</button>
+
 
 ### 7.2 Variably-Modified (VM) Types and Variable-Length Arrays
 
 **VM type pointer:**
+
+<!-- runnable -->
 
 ```c
 #include <stdlib.h>
@@ -365,9 +369,11 @@ int main() {
     free(p);
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 **VLA as 2D function parameter:**
+
+<!-- runnable -->
 
 ```c
 #include <stdio.h>
@@ -389,12 +395,13 @@ int main(void) {
     print_matrix(r, c, m);
 }
 ```
-<button onclick="Try(this)">try</button>
 
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n683.htm
 
 ### 7.3 Flexible Array Members
+
+<!-- runnable -->
 
 ```c
 #include <stdio.h>
@@ -417,13 +424,15 @@ int main() {
     free(p);
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 The size of a structure with a flexible array member is computed as if the member were omitted, except that additional trailing padding may be present.
 
 ### 7.4 `static` and Type Qualifiers in Array Declarators
 
 The `static` keyword in array declarators is parsed and checked. Passing `NULL`, `nullptr`, or an array smaller than the declared minimum is a diagnostic.
+
+<!-- runnable -->
 
 ```c
 #include <stdlib.h>
@@ -439,7 +448,7 @@ int main() {
     F(b);              /* ok */
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 ### 7.5 Hexadecimal Floating Constants
 
@@ -450,6 +459,8 @@ double d = 0x1p+1;
 Cake converts hexadecimal floating-point literals to decimal representation using `strtod` followed by `snprintf`. This conversion may introduce minor precision loss.
 
 ### 7.6 Compound Literals
+
+<!-- runnable -->
 
 ```c
 struct s { int i; };
@@ -463,11 +474,13 @@ int f(void) {
     return p == q && q->i == 1;
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n716.htm
 
 ### 7.7 Designated Initializers
+
+<!-- runnable -->
 
 ```c
 int main() {
@@ -476,11 +489,12 @@ int main() {
     struct point p = { .y = 2, .x = 3 };
 }
 ```
-<button onclick="Try(this)">try</button>
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n494.pdf
 
 ### 7.8 Declarations in `for` Loop Initializers
+
+<!-- runnable -->
 
 ```c
 int main() {
@@ -490,9 +504,11 @@ int main() {
     }
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 ### 7.9 `inline` Functions
+
+<!-- runnable -->
 
 ```c
 inline int sum(int a, int b) { return a + b; }
@@ -501,7 +517,7 @@ int main(void) {
     int r = sum(1, 2);
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Inline functions in Cake are equivalent to static, since Cake does 
 not currently perform function inlining.
@@ -518,6 +534,8 @@ LISTING(..listing.dir)
 
 ### 7.11 `__func__` Predefined Identifier
 
+<!-- runnable -->
+
 ```c
 #include <stdio.h>
 int main() {
@@ -525,9 +543,11 @@ int main() {
 }
 ```
 
-<button onclick="Try(this)">try</button>
+
 
 ### 7.12 Variadic Macros
+
+<!-- runnable -->
 
 ```c
 #include <stdio.h>
@@ -538,11 +558,12 @@ int main() {
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n707.htm
 
 ### 7.13 `_Bool`
+
+<!-- runnable -->
 
 ```c
 int main(void) {
@@ -550,7 +571,6 @@ int main(void) {
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 7.14 Line Comments
 
@@ -570,18 +590,22 @@ C99 `//` line comments are implemented.
 
 ### 8.1 `_Static_assert` / `static_assert`
 
+<!-- runnable -->
+
 ```c
 int main() {
     _Static_assert(1 == 1, "error");
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 `_Static_assert` is aliased to `static_assert` in C23.
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf
 
 ### 8.2 Anonymous Structures and Unions
+
+<!-- runnable -->
 
 ```c
 struct v {
@@ -597,7 +621,7 @@ int main() {
     v1.w.k = 5;  /* valid */
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1406.pdf
 
@@ -621,6 +645,8 @@ Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1478.htm
 
 ### 8.5 `_Generic` Type-Generic Expressions
 
+<!-- runnable -->
+
 ```c
 #include <math.h>
 
@@ -632,27 +658,31 @@ Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1478.htm
 
 int main(void) { cbrt(1.0); }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1441.htm
 
 ### 8.6 Unicode Character Constants (`u''`, `U''`)
 
+<!-- runnable -->
+
 ```c
 int i  = U'ç';
 int i2 = u'ç';
 ```
-<button onclick="Try(this)">try</button>
+
 
 > **Note:** Cake assumes source files are UTF-8 encoded.
 
 ### 8.7 UTF-8 String Literals (`u8"..."`)
 
+<!-- runnable -->
+
 ```c
 char* s1 = u8"maçã";
 char* s2 = u8"maca";
 ```
-<button onclick="Try(this)">try</button>
+
 
 > **Note:** Cake assumes source files are UTF-8 encoded.
 
@@ -660,12 +690,14 @@ Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1488.htm
 
 ### 8.8 `_Alignof` / `alignof`
 
+<!-- runnable -->
+
 ```c
 int main() {
     int align = alignof(int);
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 `_Alignof` became `alignof` in C23.
 
@@ -693,33 +725,40 @@ The use of VLA is discouraged.
 **VM types** (`int (*p)[n]`) are **mandatory** in all conforming C23 implementations. 
 Cake supports VM type pointers and translates them to C89-compatible output.
 
+
+<!-- runnable -->
+
 ```c
 /* VM type pointer - mandatory in C23 */
 void foo(int n, double (*x)[n]) {
     (*x)[0] = 1.0;
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf
 
 ### 9.2 `static_assert` — Single-Argument Form
+
+<!-- runnable -->
 
 ```c
 int main(void) {
     static_assert(1 == 2);   /* no message argument required */
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 ### 9.3 `u8` Character Prefix
+
+<!-- runnable -->
 
 ```c
 int main() {
     unsigned char c = u8'~';
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf
 
@@ -727,16 +766,20 @@ Reference: https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf
 
 In C23, calling an undeclared function is a constraint violation:
 
+<!-- runnable -->
+
 ```c
 int main() {
     func();   /* error in C23 */
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://www.open-std.org/JTC1/SC22/WG14/www/docs/n2841.htm
 
 ### 9.5 Unnamed Parameters in Function Definitions
+
+<!-- runnable -->
 
 ```c
 int f(int);
@@ -745,7 +788,7 @@ int f(int) {   /* unnamed parameter is valid */
     return 0;
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 > **Note:** TODO add placeholder name in the C89 output.
 
@@ -753,16 +796,20 @@ Reference: https://open-std.org/JTC1/SC22/WG14/www/docs/n2480.pdf
 
 ### 9.6 Digit Separators
 
+<!-- runnable -->
+
 ```c
 int main() {
     int a = 1000'00;
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf
 
 ### 9.7 Binary Literals
+
+<!-- runnable -->
 
 ```c
 #define X  0b1010
@@ -772,9 +819,11 @@ int main() {
     int b = 0B1010;
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 ### 9.8 `nullptr` Constant
+
+<!-- runnable -->
 
 ```c
 int main() {
@@ -783,22 +832,26 @@ int main() {
     typeof(nullptr) p3 = nullptr;
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm
 
 ### 9.9 `true` and `false` as First-Class Keywords
+
+<!-- runnable -->
 
 ```c
 int main() {
     bool b = true;
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2935.pdf
 
 ### 9.10 Empty Initializer `{}`
+
+<!-- runnable -->
 
 ```c
 int main() {
@@ -806,13 +859,15 @@ int main() {
     x = (struct X){};
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 > **Note** Empty initializer can be used initialize VLAs
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2900.htm
 
 ### 9.11 `auto` Type Deduction
+
+<!-- runnable -->
 
 ```c
 static auto a = 3.5;
@@ -822,11 +877,13 @@ double A[3] = { 0 };
 auto pA = A;
 auto qA = &A;
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://open-std.org/JTC1/SC22/WG14/www/docs/n3007.htm
 
 ### 9.12 `typeof` / `typeof_unqual`
+
+<!-- runnable -->
 
 ```c
 #define SWAP(a, b) \
@@ -839,11 +896,13 @@ int main() {
     SWAP(a, b);
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://open-std.org/JTC1/SC22/WG14/www/docs/n2927.htm
 
 ### 9.13 `constexpr`
+
+<!-- runnable -->
 
 ```c
 #include <stdio.h>
@@ -860,11 +919,13 @@ int main() {
     printf("%f %c", PI, ch);
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm
 
 ### 9.14 Enhancements to Enumerations (Typed Enums)
+
+<!-- runnable -->
 
 ```c
 enum X : short { A };
@@ -873,7 +934,7 @@ int main() {
     enum X x = A;
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 > **Note** TODO Missing some details.
 
@@ -889,6 +950,9 @@ Suppresses the fallthrough diagnostic on a switch case.
 **`[[deprecated]]`** *(Supported)*  
 Emits a warning when the annotated entity is used. Compile with `-w03`.
 
+
+<!-- runnable -->
+
 ```c
 [[deprecated]] void f2(void) {}
 struct [[deprecated]] S { int a; };
@@ -899,7 +963,6 @@ int main(void) {
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 
 **`[[maybe_unused]]`** *(Supported)*  
@@ -912,6 +975,8 @@ void f([[maybe_unused]] int arg1, int arg2) {}
 **`[[nodiscard]]`** *(Supported — optional message argument not yet implemented)*  
 Emits a warning when the return value of the annotated function is discarded.
 
+<!-- runnable -->
+
 ```c
 struct [[nodiscard]] error_info { int error; };
 struct error_info enable_safety(void);
@@ -921,7 +986,7 @@ void test(void) {
 }
 ```
 
-<button onclick="Try(this)">try</button>
+
 
 **`[[noreturn]]`** *(Supported)*  
 Replaces C11 `_Noreturn`.
@@ -932,6 +997,8 @@ Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf
 
 ### 9.16 `__has_attribute` / `__has_include`
 
+<!-- runnable -->
+
 ```c
 #if __has_c_attribute(fallthrough)
 #  warning Attribute supported
@@ -941,10 +1008,10 @@ Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf
 #  warning Header found
 #endif
 ```
-<button onclick="Try(this)">try</button>
-
 
 ### 9.17 `#warning` Directive
+
+<!-- runnable -->
 
 ```c
 int main() {
@@ -952,13 +1019,15 @@ int main() {
 }
 ```
 
-<button onclick="Try(this)">try</button>
+
 
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf
 
 ### 9.18 `#embed` Directive
 
+
+<!-- runnable -->
 
 ```c
 #include <stdio.h>
@@ -972,11 +1041,13 @@ int main() {
 }
 ```
 
-<button onclick="Try(this)">try</button>
+
 
 > **Note** Some details are not implemented yet.
 
 ### 9.19 `#elifdef` / `#elifndef`
+
+<!-- runnable -->
 
 ```c
 #define Y
@@ -989,9 +1060,11 @@ int main() {
 #  define VERSION 3
 #endif
 ```
-<button onclick="Try(this)">try</button>
+
 
 ### 9.20 `__VA_OPT__`
+
+<!-- runnable -->
 
 ```c
 #define F(...)    f(0 __VA_OPT__(,) __VA_ARGS__)
@@ -1007,13 +1080,14 @@ int main() {
     G(a);
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3033.htm
 
 ### 9.21 `_BitInt(N)` — Bit-Precise Integers
 
 **Not implemented yet**
+
 
 ```c
 int main() {
@@ -1036,6 +1110,8 @@ Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3037.pdf
 
 ### 9.24 Compound Literals with Storage Specifier
 
+<!-- runnable -->
+
 ```c
 void F(int* p) {}
 
@@ -1043,7 +1119,7 @@ int main() {
     F((static int[]){1, 2, 3, 0});
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm
 
@@ -1055,6 +1131,8 @@ These features are from the current C2Y working draft. Support status is noted f
 
 ### 10.1 Octal Literals with `0o` / `0O` Prefix
 
+<!-- runnable -->
+
 ```c
 static_assert(0o52 == 052);
 static_assert(0O52 == 42);
@@ -1063,11 +1141,12 @@ int main() {
     int i = 0o52;
 }
 ```
-<button onclick="Try(this)">try</button>
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm
 
 ### 10.2 Case Range Expressions
+
+<!-- runnable -->
 
 ```c
 #include <stdio.h>
@@ -1082,13 +1161,14 @@ void f(int n) {
     }
 }
 ```
-<button onclick="Try(this)">try</button>
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3370.htm
 
 ### 10.3 `#def` / `#enddef` Multi-Line Macro Blocks
 
 This feature is implemented in Cake as an experimental extension while its inclusion in C2Y is evaluated.
+
+<!-- runnable -->
 
 ```c
 /* Use -E to observe expansion */
@@ -1102,13 +1182,15 @@ This feature is implemented in Cake as an experimental extension while its inclu
 foo(1)
 foo(2)
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt
 
 ### 10.4 `_Countof` Operator
 
 Returns the number of elements in the outermost dimension of an array type.
+
+<!-- runnable -->
 
 ```c
 int main() {
@@ -1118,15 +1200,15 @@ int main() {
 }
 ```
 
-<button onclick="Try(this)">try</button>
+
 
 **Cake extension:** `_Countof` is additionally defined for enum types, returning the number of enumerators. This is not part of C2Y.
 
+<!-- runnable -->
 ```c
 enum E { A, B, C, D, E, F };
 static_assert(_Countof(enum E) == 6);
 ```
-<button onclick="Try(this)">try</button>
 
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf
@@ -1142,6 +1224,8 @@ Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf
 - Execution order is **reverse** — the last `_Defer` encountered in a scope runs first.
 - `_Defer` statements that are never reached are never executed.
 
+<!-- runnable -->
+
 ```c
 #include <stdlib.h>
 
@@ -1152,10 +1236,11 @@ int main() {
     /* buf is freed AFTER use_buffer returns */
 }
 ```
-<button onclick="Try(this)">try</button>
 
 
 **Reverse execution order:**
+
+<!-- runnable -->
 
 ```c
 int main() {
@@ -1171,13 +1256,15 @@ int main() {
     return r;   /* returns 20 */
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3734.pdf
 
 ### 10.6 `if` Declarations
 
 A declaration can appear in the initializer clause of an `if` statement, scoping the declared variable to the entire `if`/`else` chain.
+
+<!-- runnable -->
 
 ```c
 #include <stdio.h>
@@ -1205,13 +1292,15 @@ int main()
    }
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3388.htm
 
 ### 10.7 `typename` in `_Generic`
 
 Allows type names as the controlling expression in `_Generic`.
+
+<!-- runnable -->
 
 ```c
 int main() {
@@ -1221,11 +1310,13 @@ int main() {
     static_assert(_Generic(typeof(p), const int* const: 1));
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3260.pdf
 
 ### 10.8 `__COUNTER__` Predefined Macro
+
+<!-- runnable -->
 
 ```c
 /* Use -E to observe expansion */
@@ -1234,12 +1325,13 @@ X(__COUNTER__)   /* 0 0 */
 X(__COUNTER__)   /* 1 1 */
 ```
 
-<button onclick="Try(this)">try</button>
 
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3457.htm
 
 ### 10.9 Local Functions
+
+<!-- runnable -->
 
 ```c
 int main() {
@@ -1247,12 +1339,13 @@ int main() {
     return dup(1);
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3678.pdf
 
 ### 10.10 Function Literals
 
+<!-- runnable -->
 ```c
 #include <stdio.h>
 
@@ -1260,11 +1353,13 @@ int main() {
     printf("%d", (static int (void)){ return 1; }());
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3679.pdf
 
 ### 10.11 Statement Expressions
+
+<!-- runnable -->
 
 ```c
 #include <stdio.h>
@@ -1276,7 +1371,7 @@ int main() {
     printf("%d", maxint(1, 2));
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3643.htm
 
@@ -1292,6 +1387,8 @@ a ?: b
 
 is equivalent to `a ? a : b`, but `a` is evaluated only once.
 
+<!-- runnable -->
+
 ```c
 #include <stdio.h>
 
@@ -1304,7 +1401,6 @@ int main() {
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 **Pointer fallback — most common usage:**
 
@@ -1349,6 +1445,8 @@ With this change, `static_assert` can be used naturally in combination with the 
 
 **Example — bounds-checked bit-shift macro:**
 
+<!-- runnable -->
+
 ```c
 #include <limits.h>
 
@@ -1364,13 +1462,14 @@ int main() {
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 **Disambiguation rule:** A block item consisting solely of `static_assert(...)` followed
 by a semicolon is always treated as a `static_assert` *declaration*, preserving 
 backward compatibility. `static_assert` is only treated as an *expression* when it 
 appears in an expression context (e.g., as an operand of the comma operator, 
 or as the controlling expression of `_Generic`).
+
+<!-- runnable -->
 
 ```c
 void func() {
@@ -1379,7 +1478,7 @@ void func() {
 }
 ```
 
-<button onclick="Try(this)">try</button>
+
 
 **Using `_Generic` to produce an integer constant expression:**
 
@@ -1387,6 +1486,8 @@ Because the comma operator and `void` are not permitted in integer
 constant expressions, the result of the comma-based form cannot be 
 used where an integer constant expression is required (e.g., as an array size). 
 A `_Generic` workaround can be used in those cases:
+
+<!-- runnable -->
 
 ```c
 
@@ -1399,12 +1500,13 @@ A `_Generic` workaround can be used in those cases:
 int arr[BIT(unsigned int, 2)];   /* ok - integer constant expression */
 ```
 
-<button onclick="Try(this)">try</button>
 
 Reference: https://open-std.org/jtc1/sc22/wg14/www/docs/n3715.pdf
 
 
 Cake extensions `static_debug`, `assert_state`, `override_state` also works in the same way.
+
+<!-- runnable -->
 
 ```c
 #pragma safety enable
@@ -1415,9 +1517,8 @@ void func() {
     p = p ? (static_debug(p), p) : 0;
 }
 ```
-<button onclick="Try(this)">try</button>
 
----
+
 
 ## 11. Cake Language Extensions
 
@@ -1440,7 +1541,6 @@ void list_push_back(struct list* list, struct item* _Owner p_item)
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 
 To disable this built-in behavior and use a standard macro instead, pass `-disable-assert`.
@@ -1451,6 +1551,7 @@ Cake provides a structured local-jump mechanism for error handling. `try`/`catch
 jump - it cannot propagate across function boundaries. This is by design.
 
 
+<!-- runnable -->
 
 ```c
 extern int error;
@@ -1468,6 +1569,7 @@ int main() {
     }
 }
 ```
+
 > **Note** The `catch` block is optional. `throw` transfers control to the end of the nearest enclosing `try` block.
 
 <button onclick="Try(this)">try</button>
@@ -1496,6 +1598,8 @@ If the result compares equal to zero (or is a null pointer), control transfers t
 the nearest enclosing `catch` block. 
 Otherwise the value is returned unchanged. Applicable to any scalar expression.
 
+<!-- runnable -->
+
 ```c
 int f(void);
 int* get_ptr(void);
@@ -1511,9 +1615,10 @@ int main() {
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 Combined with ownership:
+
+<!-- runnable -->
 
 ```c
 #pragma safety enable
@@ -1532,7 +1637,7 @@ int main() {
 }
 ```
 
-<button onclick="Try(this)">try</button>
+
 
 > **Note** this is a very experimental feature
 
@@ -1552,6 +1657,8 @@ In Cake, `offsetof` is a built-in operator rather than a macro.  Similar of GCC 
 This allows its use in constant expressions and avoids the undefined 
 behavior associated with traditional macro implementations.
 
+<!-- runnable -->
+
 ```c
 #include <stdio.h>
 
@@ -1569,8 +1676,6 @@ int main() {
     printf("m3 offset = %zu\n", offsetof(struct S, m3));
 }
 ```
-
-<button onclick="Try(this)">try</button>
 
 
 Cake also supports compile time macro based `offsetof` by creating exceptions for constant 
@@ -1592,6 +1697,8 @@ Cake provides compile-time type introspection functions that return boolean inte
 
 **`_is_function(T)`** — true for function types
 
+<!-- runnable -->
+
 ```c
 int main()
 {
@@ -1602,8 +1709,6 @@ int main()
   static_assert(_is_pointer(b));
 }
 ```
-
-<button onclick="Try(this)">try</button>
 
 
 ### 11.7 Object Lifetime Checks (Ownership)

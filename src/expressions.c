@@ -1086,7 +1086,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
 
         //This code follows the table in the standard.
 
-        static_assert(NUMBER_OF_TARGETS == 6, "does your target follow the C rules? (MSVC is different)");
+        static_assert(NUMBER_OF_TARGETS == 7, "does your target follow the C rules? (MSVC is different)");
         const bool is_msvc = (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC);
 
         const bool is_decimal_constant = (token->type == TK_COMPILER_DECIMAL_CONSTANT);
@@ -2257,7 +2257,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     throw;
                 }
 
-                make_object(&p_expression_node_new->type, &p_expression_node_new->object, CONSTANT_VALUE_STATE_ANY, ctx->options.target);
+                make_object(&p_expression_node_new->type, &p_expression_node_new->object, MAKE_STATE_UNITIALIZED, ctx->options.target);
                 p_expression_node_new->last_token = ctx->previous;
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
@@ -2724,7 +2724,7 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
                 diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "compound literal cannot be of variable-length array type");
             }
 
-            int er = make_object(&p_expression_node->type, &p_expression_node->object, CONSTANT_VALUE_STATE_UNINITIALIZED, ctx->options.target);
+            int er = make_object(&p_expression_node->type, &p_expression_node->object, MAKE_STATE_UNITIALIZED, ctx->options.target);
             if (er != 0)
             {
                 diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "incomplete struct/union type");
@@ -3295,7 +3295,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                  * object_dup of the pointer object would be wrong: it would
                  * copy the address, not the value at that address.
                  */
-                make_object(&new_expression->type, &new_expression->object, CONSTANT_VALUE_STATE_ANY, ctx->options.target);
+                make_object(&new_expression->type, &new_expression->object, MAKE_STATE_ANY, ctx->options.target);
             }
             else if (op == '&')
             {
@@ -7077,22 +7077,7 @@ void check_assigment(struct parser_ctx* ctx,
         }
     }
 
-    if (assignment_type == ASSIGMENT_TYPE_RETURN)
-    {
-        if (!type_is_owner(p_a_type) && type_is_owner_or_pointer_to_dtor(&p_b_expression->type))
-        {
-            if (is_automatic_variable(p_b_expression->type.storage_class_specifier_flags))
-            {
-                diagnostic(C_ERROR_RETURN_LOCAL_OWNER_TO_NON_OWNER,
-                    ctx,
-                    p_b_expression->first_token, NULL,
-                    "cannot return a automatic storage duration _Owner to non-owner");
-                type_destroy(&b_type_lvalue);
-                // type_destroy(&t2);
-                return;
-            }
-        }
-    }
+    
 #if 1
     /*
     TODO REMOVE THiS

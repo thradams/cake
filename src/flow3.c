@@ -13,28 +13,18 @@
 #include <stdio.h>
 #include "osstream.h"
 
+enum
+{
+    ANY_VALUE = 0xCAFE,
+    UNINITIALIZED_VALUE = 0xBAD,
+};
+
 enum flow3_relation
 {
     FLOW3_UNINITIALIZED = 0, // value == trash
     FLOW3_EQUAL,             // == value
     FLOW3_NOT_EQUAL,         // != value
-    FLOW3_ANY,               // value >= TYPE_MIN and value <= TYPE_MAX
-
-    FLOW3_NOT_APPLICABLE,    // cannot be used
-};
-
-enum
-{
-    ANY_VALUE = 0xCAFE,
-    UNINITIALIZED_VALUE = 0xBAD,
-    NOT_APPLICABLE_VALUE = 0xFACE
-};
-
-struct object_set
-{
-    const struct object** items;
-    int             size;
-    int             capacity;
+    FLOW3_ANY,               // value >= TYPE_MIN and value <= TYPE_MAX    
 };
 
 enum flow3_value_kind
@@ -43,6 +33,7 @@ enum flow3_value_kind
     FLOW3_VALUE_UNSIGNED,    /* unsigned long long .u                           */
     FLOW3_VALUE_PTR,     /* struct object*   .p  (concrete arena pointer)  */
     FLOW3_VALUE_REF,     /* struct object*   .p  (reference — always non-null) */
+
 };
 
 struct flow3_value
@@ -55,15 +46,19 @@ struct flow3_value
     } as;
 };
 
+enum flow3_imaginary
+{
+    FLOW3_IMAGINARY_NONE = 0,   // no imaginary state (default, zero-init safe)
+    FLOW3_IMAGINARY_MOVED,      // target was moved elsewhere, target is alive
+    FLOW3_IMAGINARY_ENDED,      // this object's lifetime ended
+    FLOW3_IMAGINARY_ABSENT,     // no object is present
+};
+
 struct flow3_alternative
 {
     struct flow3_value value;
     enum flow3_relation relation;
-
-    bool moved;    // target was moved elsewhere, target is alive
-    bool expired;  // target may  no longer be alive
-    bool ended;    // this object's lifetime ended
-    bool absent;   // no object is present
+    enum flow3_imaginary imaginary;   // MOVED, ENDED, or ABSENT (or NONE)
 
     const struct flow3_map* origin;   /* which map arm set this value */
     int                line;     /* source line for reference */
@@ -97,6 +92,12 @@ struct flow3_branch_pair
     struct flow3_map* p_false;
 };
 
+struct object_set
+{
+    const struct object** items;
+    int             size;
+    int             capacity;
+};
 
 static void object_set_add(struct object_set* l, const struct object* obj);
 static void object_set_destroy(struct object_set* l);
@@ -120,18 +121,26 @@ static void flow3_visit_label(struct flow3_visit_ctx* ctx, struct label* p_label
 
 static struct flow3_branch_pair flow3_visit_full_expression(struct flow3_visit_ctx* ctx, struct expression* p_expression);
 
-static void flow3_check_pointer_used_as_bool(struct flow3_visit_ctx* ctx, struct expression* p_expression);
-
-static void flow3_check_params_at_function_exit(struct flow3_visit_ctx* ctx, struct declaration* p_declaration);
 static void flow3_check_file_scope_objects_at_function_exit(struct flow3_visit_ctx* ctx, const struct marker* marker);
 
-static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* ctx, struct expression* p_expression);
+static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* ctx, const struct expression* p_expression);
 static void object_static_debug(struct flow3_visit_ctx* ctx, const struct object* p_object, struct token* first_token, struct token* last_token);
 
-static void flow3_check_owner_object_at_exit(struct flow3_visit_ctx* ctx, const struct type* p_type, struct object* p_obj, const struct marker* marker);
+static void flow3_check_object_at_exit(struct flow3_visit_ctx* ctx, const struct type* p_type, const struct object* p_obj, const struct marker* marker, const struct token* p_exit_token);
 static void flow3_check_arena_objects_at_function_exit(struct flow3_visit_ctx* ctx);
-static void flow3_check_rhs_value(struct flow3_visit_ctx* ctx, const struct type* p_dest_type, struct expression* p_rhs_expr);
-static void flow3_check_rhs_owner_validity(struct flow3_visit_ctx* ctx, const struct object* p_right_obj, struct expression* p_right_expr);
+
+enum init_type
+{
+    INIT_PARAMETER,
+    INIT_RETURN,
+    INIT_OBJ
+};
+
+static void flow3_check_object_init_assigment(struct flow3_visit_ctx* ctx,
+    struct expression* p_expression,
+     const struct object* p_object_dest, //uninitialized alawys
+     const struct object* p_object_src,
+    enum init_type init_type);
 
 static void object_set_add(struct object_set* l, const struct object* obj)
 {
@@ -188,6 +197,45 @@ static bool object_is_file_scope(const struct object* p_object)
     return false;
 }
 
+static long long flow3_cast_integer_value(struct flow3_visit_ctx* ctx, long long value, const struct type* target_type)
+{
+    if (target_type == NULL) return value;
+    if (!type_is_integer(target_type)) return value;
+
+
+    size_t width = 1;
+    enum sizeof_result r = type_get_sizeof(target_type, &width, ctx->ctx->options.target) * 8;
+    if (r != SIZEOF_RESULT_OK)
+        return 0;
+
+    if (width >= (int)(sizeof(long long) * 8))
+    {
+        /* Target can represent the full range of long long, no change. */
+        return value;
+    }
+
+    unsigned long long mask = (width == 64) ? ~0ULL : ((1ULL << width) - 1);
+    unsigned long long uval = (unsigned long long)value & mask;
+
+    if (type_is_unsigned_integer(target_type))
+    {
+        return (long long)uval;
+    }
+    else
+    {
+        /* Signed: interpret as width-bit two's complement. */
+        long long sign_bit = 1LL << (width - 1);
+        if (uval & sign_bit)
+        {
+            return (long long)(uval - (1ULL << width));
+        }
+        else
+        {
+            return (long long)uval;
+        }
+    }
+}
+
 static inline bool flow3_value_is_same(struct flow3_value a, struct flow3_value b)
 {
     if (a.kind != b.kind)
@@ -211,6 +259,9 @@ static bool flow3_value_is_true(struct flow3_value a)
     case FLOW3_VALUE_SIGNED:  return a.as.i != 0;
     case FLOW3_VALUE_UNSIGNED: return a.as.u != 0;
     case FLOW3_VALUE_PTR:  return a.as.p != 0;
+    case FLOW3_VALUE_REF:
+        //assert(false);
+        break;
     }
     return false;
 }
@@ -222,6 +273,9 @@ static bool flow3_value_is_false(struct flow3_value a)
     case FLOW3_VALUE_SIGNED:  return a.as.i == 0;
     case FLOW3_VALUE_UNSIGNED: return a.as.u == 0;
     case FLOW3_VALUE_PTR:  return a.as.p == 0;
+    case FLOW3_VALUE_REF:
+        //r/eturn false;
+        break;
     }
     return false;
 }
@@ -372,14 +426,15 @@ struct object* flow3_allocated_object_arena_new(struct flow3_allocated_object_ar
     }
 }
 
-static void flow3_alternatives_add(struct flow3_alternatives* vs, struct flow3_value value, enum flow3_relation state, const struct flow3_map* origin, int line)
+static void flow3_alternatives_add(struct flow3_alternatives* vs, const struct flow3_alternative* p_alternative, const struct flow3_map* origin, int line)
 {
     try
     {
         for (int i = 0; i < vs->size; i++)
         {
-            if (flow3_value_is_same(vs->data[i].value, value) &&
-                vs->data[i].relation == state &&
+            if (flow3_value_is_same(vs->data[i].value, p_alternative->value) &&
+                vs->data[i].relation == p_alternative->relation &&
+                vs->data[i].imaginary == p_alternative->imaginary &&
                 vs->data[i].origin == origin)
             {
                 return;
@@ -399,32 +454,34 @@ static void flow3_alternatives_add(struct flow3_alternatives* vs, struct flow3_v
         }
 
         memset(&vs->data[vs->size], 0, sizeof(vs->data[vs->size]));
-        vs->data[vs->size].value = value;
-        vs->data[vs->size].relation = state;
+        vs->data[vs->size].value = p_alternative->value;
+        vs->data[vs->size].relation = p_alternative->relation;
+        vs->data[vs->size].imaginary = p_alternative->imaginary;
         vs->data[vs->size].origin = origin;
         vs->data[vs->size].line = line;
         vs->size++;
     }
-    catch {
+    catch
+    {
     }
 }
 
-static void flow3_alternatives_add_object_ptr(struct flow3_alternatives* vs, const struct object* p_pointed, enum flow3_relation relation, const struct flow3_map* origin, int line)
+static void flow3_alternatives_add_object_ptr(struct flow3_alternatives* vs, const struct object* p_pointed, enum flow3_relation relation, enum flow3_imaginary imaginary, const struct flow3_map* origin, int line)
 {
-    struct flow3_value v = { .kind = FLOW3_VALUE_PTR, .as = {.p = p_pointed } };
-    flow3_alternatives_add(vs, v, relation, origin, line);
+    struct flow3_alternative a = { .value = {.kind = FLOW3_VALUE_PTR, .as = {.p = p_pointed } }, .relation = relation, .imaginary = imaginary };
+    flow3_alternatives_add(vs, &a, origin, line);
 }
 
-static void flow3_alternatives_add_object_ref(struct flow3_alternatives* vs, const struct object* p_pointed, const struct flow3_map* origin, int line)
+static void flow3_alternatives_add_object_ref(struct flow3_alternatives* vs, const struct object* p_pointed, enum flow3_imaginary imaginary, const struct flow3_map* origin, int line)
 {
-    struct flow3_value v = { .kind = FLOW3_VALUE_REF, .as = {.p = p_pointed } };
-    flow3_alternatives_add(vs, v, FLOW3_EQUAL, origin, line);
+    struct flow3_alternative a = { .value = {.kind = FLOW3_VALUE_REF, .as = {.p = p_pointed } }, .relation = FLOW3_EQUAL, .imaginary = imaginary };
+    flow3_alternatives_add(vs, &a, origin, line);
 }
 
-static void flow3_alternatives_add_i(struct flow3_alternatives* vs, signed long long i, enum flow3_relation relation, const struct flow3_map* origin, int line)
+static void flow3_alternatives_add_i(struct flow3_alternatives* vs, signed long long i, enum flow3_relation relation, enum flow3_imaginary imaginary, const struct flow3_map* origin, int line)
 {
-    struct flow3_value v = { .kind = FLOW3_VALUE_SIGNED, .as = {.i = i } };
-    flow3_alternatives_add(vs, v, relation, origin, line);
+    struct flow3_alternative a = { .value = {.kind = FLOW3_VALUE_SIGNED, .as = {.i = i } }, .relation = relation, .imaginary = imaginary };
+    flow3_alternatives_add(vs, &a, origin, line);
 }
 
 static void flow3_alternatives_add_does_not_exist(struct flow3_alternatives* vs, const struct flow3_map* origin, int line)
@@ -433,7 +490,7 @@ static void flow3_alternatives_add_does_not_exist(struct flow3_alternatives* vs,
     {
         for (int i = 0; i < vs->size; i++)
         {
-            if (vs->data[i].absent &&
+            if (vs->data[i].imaginary == FLOW3_IMAGINARY_ABSENT &&
                 vs->data[i].origin == origin)
             {
                 return;
@@ -454,8 +511,8 @@ static void flow3_alternatives_add_does_not_exist(struct flow3_alternatives* vs,
 
         /* zero-init the slot first so relation/value/flags are clean */
         memset(&vs->data[vs->size], 0, sizeof(vs->data[vs->size]));
-        vs->data[vs->size].absent = true;
-        vs->data[vs->size].relation = FLOW3_NOT_APPLICABLE;
+        vs->data[vs->size].imaginary = FLOW3_IMAGINARY_ABSENT;
+        vs->data[vs->size].relation = FLOW3_EQUAL;
         vs->data[vs->size].origin = origin;
         vs->data[vs->size].line = line;
         vs->size++;
@@ -469,8 +526,7 @@ static void flow3_alternatives_append(struct flow3_alternatives* dst, const stru
     for (int i = 0; i < src->size; i++)
     {
         flow3_alternatives_add(dst,
-                               src->data[i].value,
-                               src->data[i].relation,
+                               &src->data[i],
                                src->data[i].origin,
                                src->data[i].line);
     }
@@ -529,6 +585,7 @@ static struct flow3_key_alternatives* flow3_map_find_add(struct flow3_map* m, co
                 throw;
             }
         }
+
         struct flow3_key_alternatives* e = flow3_map_find(m, obj);
         if (e)
         {
@@ -556,7 +613,8 @@ static void flow3_map_replace_alternatives(struct flow3_map* m, const struct obj
 {
     struct flow3_key_alternatives* e = flow3_map_find_add(m, dest);
     flow3_alternatives_clear(&e->alternatives);
-    flow3_alternatives_add(&e->alternatives, value, state, m, line);
+    struct flow3_alternative a = { .value = value, .relation = state, .imaginary = FLOW3_IMAGINARY_NONE };
+    flow3_alternatives_add(&e->alternatives, &a, m, line);
 }
 
 static void flow3_map_replace_alternatives_i(struct flow3_map* m, const struct object* dest, signed long long i, enum flow3_relation state, int line)
@@ -571,28 +629,65 @@ static void flow3_map_replace_alternatives_ref(struct flow3_map* m, const struct
     flow3_map_replace_alternatives(m, dest, v, state, line);
 }
 
-static void flow3_map_set_object_expired(struct flow3_map* m, const struct object* obj, int line)
+static void flow3_map_set_object_moved(struct flow3_map* m, const struct object* obj, int line)
 {
     if (obj->members.head)
     {
         for (const struct object* member = obj->members.head; member; member = member->next)
-            flow3_map_set_object_expired(m, member, line);
+            flow3_map_set_object_moved(m, member, line);
         return;
     }
     struct flow3_key_alternatives* e = flow3_map_find_add(m, obj);
-    if (e == NULL)
+    if (e == NULL) return;
+    if (e->alternatives.size == 0)
+    {
+        flow3_alternatives_add_i(&e->alternatives, ANY_VALUE, FLOW3_ANY, FLOW3_IMAGINARY_MOVED, m, line);
+    }
+    else
+    {
+        for (int i = 0; i < e->alternatives.size; i++)
+        {
+            e->alternatives.data[i].imaginary = FLOW3_IMAGINARY_MOVED;
+        }
+    }
+}
+
+static void flow3_map_set_object_zero(struct flow3_map* m, const struct object* obj, int line)
+{
+    if (obj->members.head)
+    {
+        for (const struct object* member = obj->members.head; member; member = member->next)
+        {
+            flow3_map_set_object_zero(m, member, line);
+        }
+        return;
+    }
+    struct flow3_key_alternatives* p_flow3_key_alternatives = flow3_map_find_add(m, obj);
+    if (p_flow3_key_alternatives == NULL)
     {
         return;
     }
-    if (e->alternatives.size == 0)
+    flow3_alternatives_clear(&p_flow3_key_alternatives->alternatives);
+    flow3_alternatives_add_i(&p_flow3_key_alternatives->alternatives, 0, FLOW3_EQUAL, FLOW3_IMAGINARY_NONE, m, line);
+}
+
+static void flow3_map_set_object_any(struct flow3_map* m, const struct object* obj, int line)
+{
+    if (obj->members.head)
     {
-        /* No existing value to preserve - add a neutral carrier. */
-        flow3_alternatives_add_i(&e->alternatives, ANY_VALUE, FLOW3_ANY, m, line);
+        for (const struct object* member = obj->members.head; member; member = member->next)
+        {
+            flow3_map_set_object_any(m, member, line);
+        }
+        return;
     }
-    for (int i = 0; i < e->alternatives.size; i++)
+    struct flow3_key_alternatives* p_flow3_key_alternatives = flow3_map_find_add(m, obj);
+    if (p_flow3_key_alternatives == NULL)
     {
-        e->alternatives.data[i].expired = true;
+        return;
     }
+    flow3_alternatives_clear(&p_flow3_key_alternatives->alternatives);
+    flow3_alternatives_add_i(&p_flow3_key_alternatives->alternatives, ANY_VALUE, FLOW3_ANY, FLOW3_IMAGINARY_NONE, m, line);
 }
 
 static void flow3_map_set_object_lifetime_ended(struct flow3_map* m, const struct object* obj, int line)
@@ -610,9 +705,16 @@ static void flow3_map_set_object_lifetime_ended(struct flow3_map* m, const struc
     {
         return;
     }
-    flow3_alternatives_clear(&e->alternatives);
-    flow3_alternatives_add_i(&e->alternatives, UNINITIALIZED_VALUE, FLOW3_UNINITIALIZED, m, line);
-    e->alternatives.data[0].ended = true;
+    if (e->alternatives.size == 0)
+    {
+        flow3_alternatives_add_i(&e->alternatives, UNINITIALIZED_VALUE, FLOW3_UNINITIALIZED, FLOW3_IMAGINARY_NONE, m, line);
+    }
+
+
+    for (int i = 0; i < e->alternatives.size; i++)
+    {
+        e->alternatives.data[i].imaginary = FLOW3_IMAGINARY_ENDED;
+    }
 }
 
 static void flow3_map_clear(struct flow3_map* m)
@@ -659,9 +761,7 @@ static bool flow3_is_ancestor_or_equal(const struct flow3_map* ancestor, const s
 static void flow3_map_move_entries(struct flow3_map* dest, struct flow3_map* src)
 {
     if (src->buckets == NULL)
-    {
         return;
-    }
 
     for (int i = 0; i < src->num_of_buckets; i++)
     {
@@ -669,16 +769,16 @@ static void flow3_map_move_entries(struct flow3_map* dest, struct flow3_map* src
         while (e)
         {
             struct flow3_key_alternatives* next = e->next;
-
-            /* Find or create the slot in dest. */
             struct flow3_key_alternatives* d = flow3_map_find_add(dest, e->p_obj_key);
-            flow3_alternatives_clear(&d->alternatives);
-            /* Steal the alternatives from src entry. */
-            d->alternatives = e->alternatives;
-            e->alternatives.data = NULL;
-            e->alternatives.size = 0;
-            e->alternatives.capacity = 0;
-
+            if (d)
+            {
+                flow3_alternatives_clear(&d->alternatives);
+                d->alternatives = e->alternatives;
+                /* Zero out e's alternatives so clear doesn't double-free */
+                memset(&e->alternatives, 0, sizeof(e->alternatives));
+                /* Remove e from src by unlinking it */
+                /* (Note: e is still in the list but its alternatives are gone) */
+            }
             e = next;
         }
         src->buckets[i] = NULL;
@@ -778,7 +878,7 @@ static void flow3_map_merge_a_b(struct flow3_map* parent, const struct flow3_map
                     {
                         const struct flow3_alternative* a2 = &p_pre_entry->alternatives.data[k];
                         flow3_alternatives_add(&p_temp_entry->alternatives,
-                            a2->value, a2->relation,
+                            a2,
                             arms[j],   /* re-tag: value flowed through THIS arm */
                             a2->line);
                     }
@@ -839,6 +939,7 @@ static void print_object_ptr(struct osstream* ss, const struct object* p, bool i
     {
         ss_fprintf(ss, "%s", p->member_designator);
     }
+
     if (!is_parent)
     {
         ss_fprintf(ss, "'");
@@ -861,7 +962,6 @@ static void flow3_alternative_sprint(struct osstream* ss, const struct flow3_alt
     case FLOW3_NOT_EQUAL:     ss_fprintf(ss, "!= ");     break;
     case FLOW3_ANY:           ss_fprintf(ss, "ANY ");    break;
     case FLOW3_UNINITIALIZED: ss_fprintf(ss, "UNINIT "); break;
-    case FLOW3_NOT_APPLICABLE: ss_fprintf(ss, "N/A ");   break;
     }
 
     switch (alt->value.kind)
@@ -869,8 +969,7 @@ static void flow3_alternative_sprint(struct osstream* ss, const struct flow3_alt
     case FLOW3_VALUE_SIGNED:
     {
         if (alt->value.as.i == UNINITIALIZED_VALUE ||
-            alt->value.as.i == ANY_VALUE ||
-            alt->value.as.i == NOT_APPLICABLE_VALUE)
+            alt->value.as.i == ANY_VALUE)
         {
             //ss_fprintf(ss, "%llx", alt->value.as.i);
         }
@@ -893,25 +992,22 @@ static void flow3_alternative_sprint(struct osstream* ss, const struct flow3_alt
     }
     case FLOW3_VALUE_REF:
     {
-        ss_fprintf(ss, "&");
+        ss_fprintf(ss, "ref ");
         print_object_ptr(ss, alt->value.as.p, false);
         break;
     }
     }
 
-    if (alt->moved)
+    if (alt->imaginary == FLOW3_IMAGINARY_MOVED)
     {
         ss_fprintf(ss, " MOVED");
     }
-    if (alt->expired)
-    {
-        ss_fprintf(ss, " EXPIRED");
-    }
-    if (alt->ended)
+
+    if (alt->imaginary == FLOW3_IMAGINARY_ENDED)
     {
         ss_fprintf(ss, " ENDED");
     }
-    if (alt->absent)
+    if (alt->imaginary == FLOW3_IMAGINARY_ABSENT)
     {
         ss_fprintf(ss, "ABSENT");
     }
@@ -931,6 +1027,7 @@ static void flow3_alternative_print(const struct flow3_alternative* alt)
     printf("%s", ss.c_str);
     ss_close(&ss);
 }
+
 static void flow3_alternatives_print(const struct flow3_alternatives* alternatives)
 {
     for (int i = 0; i < alternatives->size; i++)
@@ -1025,385 +1122,6 @@ static bool flow3_alternative_can_be_zero(const struct flow3_alternative* alt)
     return false;
 }
 
-static bool flow3_object_is_not_null(struct flow3_map* flow3_map, const struct object* p)
-{
-    //p = object_get_referenced(p);
-
-
-    if (p->state == CONSTANT_VALUE_STATE_CONSTANT)
-    {
-        return !object_is_zero(p);
-    }
-
-
-    /* null-ness is a property of pointer leaves, not of struct objects with members */
-    if (p->members.head)
-    {
-        return false;
-    }
-
-    /* true only if every alternative is definitely non-null */
-    const struct flow3_key_alternatives* e = flow3_map_search_up(flow3_map, p);
-    if (e == NULL || e->alternatives.size == 0)
-    {
-        return false;
-    }
-    for (int i = 0; i < e->alternatives.size; i++)
-    {
-        if (!flow3_alternative_is_true(&e->alternatives.data[i]))
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
-static bool flow3_object_is_zero(struct flow3_map* flow3_map, const struct object* p)
-{
-    //p = object_get_referenced(p);
-
-    if (p->state == CONSTANT_VALUE_STATE_CONSTANT)
-    {
-        return object_is_zero(p);
-    }
-
-
-    /* zero-ness is a scalar leaf property; not applicable to struct objects with members */
-    if (p->members.head)
-    {
-        return false;
-    }
-
-    /* true only if every alternative is zero */
-    const struct flow3_key_alternatives* e = flow3_map_search_up(flow3_map, p);
-    if (e == NULL || e->alternatives.size == 0)
-    {
-        return false;
-    }
-    for (int i = 0; i < e->alternatives.size; i++)
-    {
-        if (!flow3_alternative_is_zero(&e->alternatives.data[i]))
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
-static bool flow3_object_is_null(struct flow3_map* flow3_map, const struct object* p)
-{
-    return flow3_object_is_zero(flow3_map, p);
-}
-
-static bool flow3_object_is_not_zero(struct flow3_map* flow3_map, const struct object* p)
-{
-    //p = object_get_referenced(p);
-
-    if (p->state == CONSTANT_VALUE_STATE_CONSTANT)
-    {
-        return !object_is_zero(p);
-    }
-
-
-    /* zero-ness is a scalar leaf property; not applicable to struct objects with members */
-    if (p->members.head)
-    {
-        return false;
-    }
-
-    /* true only if every alternative is definitely non-zero */
-    const struct flow3_key_alternatives* e = flow3_map_search_up(flow3_map, p);
-    if (e == NULL || e->alternatives.size == 0)
-    {
-        return false;
-    }
-    for (int i = 0; i < e->alternatives.size; i++)
-    {
-        if (!flow3_alternative_is_true(&e->alternatives.data[i]))
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
-static bool flow3_object_get_known_equal_int(struct flow3_map* flow3_map, const struct object* p, long long* out_value)
-{
-    const struct flow3_key_alternatives* e = flow3_map_search_up(flow3_map, p);
-    if (e == NULL || e->alternatives.size == 0)
-    {
-        return false;
-    }
-
-    bool found = false;
-    long long known = 0;
-
-    for (int i = 0; i < e->alternatives.size; i++)
-    {
-        const struct flow3_alternative* alt = &e->alternatives.data[i];
-        if (alt->relation != FLOW3_EQUAL)
-        {
-            return false;
-        }
-
-        long long v;
-        if (alt->value.kind == FLOW3_VALUE_SIGNED)
-        {
-            v = alt->value.as.i;
-        }
-        else if (alt->value.kind == FLOW3_VALUE_UNSIGNED)
-        {
-            v = (long long)alt->value.as.u;
-        }
-        else
-        {
-            return false;
-        } /* PTR — not an integer comparison */
-
-        if (!found)
-        {
-            known = v;
-            found = true;
-        }
-        else if (v != known)
-        {
-            return false; /* alternatives disagree */
-        }
-    }
-
-    if (found)
-    {
-        *out_value = known;
-    }
-    return found;
-}
-
-static bool flow3_get_known_int(struct flow3_map* flow3_map, const struct object* p, long long* out_value)
-{
-    if (flow3_object_get_known_equal_int(flow3_map, p, out_value))
-    {
-        return true;
-    }
-    /* Fallback: compile-time constant in the AST (e.g. literal "1"). */
-    if (p->state == CONSTANT_VALUE_STATE_CONSTANT)
-    {
-        *out_value = object_to_signed_long_long(p);
-        return true;
-    }
-    return false;
-}
-
-static bool flow3_object_can_be_zero(struct flow3_map* flow3_map, const struct object* p)
-{
-    p = object_get_referenced(p);
-
-    if (p->state == CONSTANT_VALUE_STATE_CONSTANT)
-    {
-        return object_is_zero(p);
-    }
-
-    /* zero-ness is a scalar leaf property; not applicable to struct objects with members */
-    if (p->members.head)
-    {
-        return false;
-    }
-
-    /* true if at least one alternative can be zero */
-    const struct flow3_key_alternatives* e = flow3_map_search_up(flow3_map, p);
-    if (e == NULL)
-    {
-        return false;
-    }
-    for (int i = 0; i < e->alternatives.size; i++)
-    {
-        if (flow3_alternative_can_be_zero(&e->alternatives.data[i]))
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-static bool flow3_object_can_be_moved(struct flow3_map* flow3_map, const struct object* p)
-{
-    p = object_get_referenced(p);
-
-    if (p->state == CONSTANT_VALUE_STATE_CONSTANT)
-    {
-        return false;
-    }
-
-    if (p->members.head)
-    {
-        /* true if any member can be moved */
-        for (const struct object* m = p->members.head; m; m = m->next)
-        {
-            if (flow3_object_can_be_moved(flow3_map, m))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /* true if at least one alternative is moved.
-     * does_not_exist alternatives are skipped — a non-existent object
-     * (null-pointer arm) has no state to report. */
-    const struct flow3_key_alternatives* e = flow3_map_search_up(flow3_map, p);
-    if (e == NULL)
-    {
-        return false;
-    }
-    for (int i = 0; i < e->alternatives.size; i++)
-    {
-        if (e->alternatives.data[i].absent)
-        {
-            continue;
-        }
-        if (e->alternatives.data[i].moved)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-static bool flow3_object_can_be_null(struct flow3_map* flow3_map, const struct object* p)
-{
-    return flow3_object_can_be_zero(flow3_map, p);
-}
-
-static bool flow3_object_is_uninitialized(struct flow3_map* flow3_map, const struct object* p)
-{
-    p = object_get_referenced(p);
-    if (p->state == CONSTANT_VALUE_STATE_CONSTANT)
-    {
-        return false;
-    }
-
-    if (p->members.head)
-    {
-        /* true only if every member is uninitialized */
-        for (const struct object* m = p->members.head; m; m = m->next)
-        {
-            if (!flow3_object_is_uninitialized(flow3_map, m))
-            {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /* true only if every non-does_not_exist alternative is uninitialized.
-     * does_not_exist alternatives are skipped — a non-existent object
-     * (null-pointer arm) has no state to report. */
-    const struct flow3_key_alternatives* e = flow3_map_search_up(flow3_map, p);
-    if (e == NULL || e->alternatives.size == 0)
-    {
-        return false;
-    }
-    bool has_real = false;
-    for (int i = 0; i < e->alternatives.size; i++)
-    {
-        if (e->alternatives.data[i].absent)
-        {
-            continue;
-        }
-        has_real = true;
-        if (e->alternatives.data[i].relation != FLOW3_UNINITIALIZED)
-        {
-            return false;
-        }
-    }
-    return has_real;
-}
-
-static bool flow3_object_can_be_uninitialized(struct flow3_map* flow3_map, const struct object* p)
-{
-    p = object_get_referenced(p);
-    if (p->state == CONSTANT_VALUE_STATE_CONSTANT)
-    {
-        return false;
-    }
-
-    if (p->members.head)
-    {
-        /* true if any member can be uninitialized */
-        for (const struct object* m = p->members.head; m; m = m->next)
-        {
-            if (flow3_object_can_be_uninitialized(flow3_map, m))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /* true if at least one alternative is uninitialized.
-     * does_not_exist alternatives are skipped — a non-existent object
-     * (null-pointer arm) has no state to report. */
-    const struct flow3_key_alternatives* e = flow3_map_search_up(flow3_map, p);
-    if (e == NULL)
-    {
-        return false;
-    }
-    for (int i = 0; i < e->alternatives.size; i++)
-    {
-        if (e->alternatives.data[i].absent)
-        {
-            continue;
-        }
-        if (e->alternatives.data[i].relation == FLOW3_UNINITIALIZED)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-static bool flow3_object_can_have_its_lifetime_ended(struct flow3_map* flow3_map, const struct object* p)
-{
-    p = object_get_referenced(p);
-    if (p->state == CONSTANT_VALUE_STATE_CONSTANT)
-    {
-        return false;
-    }
-
-    if (p->members.head)
-    {
-        /* true if any member can have its lifetime ended */
-        for (const struct object* m = p->members.head; m; m = m->next)
-        {
-            if (flow3_object_can_have_its_lifetime_ended(flow3_map, m))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /* true if at least one alternative is expired or lifetime_ended.
-     * does_not_exist alternatives are skipped — a non-existent object
-     * (null-pointer arm) has no state to report. */
-    const struct flow3_key_alternatives* e = flow3_map_search_up(flow3_map, p);
-    if (e == NULL)
-    {
-        return false;
-    }
-    for (int i = 0; i < e->alternatives.size; i++)
-    {
-        if (e->alternatives.data[i].absent)
-        {
-            continue;
-        }
-        if (e->alternatives.data[i].expired || e->alternatives.data[i].ended)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
 static void flow3_narrow_map_into(struct flow3_map* p_dest, struct flow3_map* p_before, const struct object* p_obj_key, bool true_branch)
 {
     struct flow3_key_alternatives* p_existing = flow3_map_search_up(p_before, p_obj_key);
@@ -1455,7 +1173,7 @@ static void flow3_narrow_map_into(struct flow3_map* p_dest, struct flow3_map* p_
     /* Filter correlated variables by surviving origins. */
     if (surviving_origins.size > 0)
     {
-        for (struct flow3_map* cur = p_before; cur; cur = cur->p_parent_map)
+        for (const struct flow3_map* cur = p_before; cur; cur = cur->p_parent_map)
         {
             if (!cur->buckets)
             {
@@ -1501,7 +1219,7 @@ static void flow3_narrow_map_into(struct flow3_map* p_dest, struct flow3_map* p_
                         if (keep)
                         {
                             flow3_alternatives_add(&filtered,
-                                alt->value, alt->relation, alt->origin, alt->line);
+                                alt, alt->origin, alt->line);
                         }
                     }
 
@@ -1532,11 +1250,11 @@ static void flow3_narrow_map_into(struct flow3_map* p_dest, struct flow3_map* p_
         {
             if (true_branch)
             {
-                flow3_alternatives_add_i(&p_dest_entry->alternatives, 0, FLOW3_NOT_EQUAL, p_dest, alt->line);
+                flow3_alternatives_add_i(&p_dest_entry->alternatives, 0, FLOW3_NOT_EQUAL, FLOW3_IMAGINARY_NONE, p_dest, alt->line);
             }
             else
             {
-                flow3_alternatives_add_i(&p_dest_entry->alternatives, 0, FLOW3_EQUAL, p_dest, alt->line);
+                flow3_alternatives_add_i(&p_dest_entry->alternatives, 0, FLOW3_EQUAL, FLOW3_IMAGINARY_NONE, p_dest, alt->line);
             }
             continue;
         }
@@ -1545,11 +1263,11 @@ static void flow3_narrow_map_into(struct flow3_map* p_dest, struct flow3_map* p_
         {
             if (true_branch)
             {
-                flow3_alternatives_add_i(&p_dest_entry->alternatives, 0, FLOW3_NOT_EQUAL, p_dest, alt->line);
+                flow3_alternatives_add_i(&p_dest_entry->alternatives, 0, FLOW3_NOT_EQUAL, FLOW3_IMAGINARY_NONE, p_dest, alt->line);
             }
             else
             {
-                flow3_alternatives_add_i(&p_dest_entry->alternatives, 0, FLOW3_EQUAL, p_dest, alt->line);
+                flow3_alternatives_add_i(&p_dest_entry->alternatives, 0, FLOW3_EQUAL, FLOW3_IMAGINARY_NONE, p_dest, alt->line);
             }
             continue;
         }
@@ -1574,11 +1292,13 @@ static void flow3_narrow_map_into(struct flow3_map* p_dest, struct flow3_map* p_
         {
             if (true_branch)
             {
-                flow3_alternatives_add(&p_dest_entry->alternatives, alt->value, FLOW3_NOT_EQUAL, p_dest, alt->line);
+                struct flow3_alternative a = { .value = alt->value, .relation = FLOW3_NOT_EQUAL, .imaginary = alt->imaginary };
+                flow3_alternatives_add(&p_dest_entry->alternatives, &a, p_dest, alt->line);
             }
             else
             {
-                flow3_alternatives_add(&p_dest_entry->alternatives, alt->value, FLOW3_EQUAL, p_dest, alt->line);
+                struct flow3_alternative a = { .value = alt->value, .relation = FLOW3_EQUAL, .imaginary = alt->imaginary };
+                flow3_alternatives_add(&p_dest_entry->alternatives, &a, p_dest, alt->line);
             }
             continue;
         }
@@ -1592,7 +1312,7 @@ static void flow3_narrow_map_into(struct flow3_map* p_dest, struct flow3_map* p_
 
         if (keep)
         {
-            flow3_alternatives_add(&p_dest_entry->alternatives, alt->value, alt->relation, alt->origin, alt->line);
+            flow3_alternatives_add(&p_dest_entry->alternatives, alt, alt->origin, alt->line);
         }
     }
 
@@ -1603,8 +1323,7 @@ static void flow3_narrow_map_into(struct flow3_map* p_dest, struct flow3_map* p_
             if (p_existing->alternatives.data[k].relation == FLOW3_UNINITIALIZED)
             {
                 flow3_alternatives_add(&p_dest_entry->alternatives,
-                    p_existing->alternatives.data[k].value,
-                    p_existing->alternatives.data[k].relation,
+                    &p_existing->alternatives.data[k],
                     p_existing->alternatives.data[k].origin,
                     p_existing->alternatives.data[k].line);
             }
@@ -1621,7 +1340,7 @@ static struct flow3_map* flow3_narrow_map(struct flow3_map_arena* arena, struct 
     return p_dest;
 }
 
-static void flow3_exit_block_visit_defer_item(struct flow3_visit_ctx* ctx, struct defer_list_item* p_item, struct token* position_token)
+static void flow3_exit_block_visit_defer_item(struct flow3_visit_ctx* ctx, const struct defer_list_item* p_item, const struct token* position_token)
 {
     if (p_item->defer_statement)
     {
@@ -1641,16 +1360,27 @@ static void flow3_exit_block_visit_defer_item(struct flow3_visit_ctx* ctx, struc
     else if (p_item->declarator)
     {
         struct declarator* p_declarator = p_item->declarator;
-        struct token* p_token = p_declarator->name_opt ? p_declarator->name_opt : p_declarator->specifier_qualifier_list->first_token;
+        struct token* p_token = NULL;
+        if (p_declarator->name_opt)
+            p_token = p_declarator->name_opt;
+        else if (p_declarator->specifier_qualifier_list)
+            p_token = p_declarator->specifier_qualifier_list->first_token;
+        else if (p_declarator->declaration_specifiers)
+            p_token = p_declarator->declaration_specifiers->first_token;
+        else
+            assert(false);
         const struct marker marker = { .p_token_begin = p_token, .p_token_end = p_token };
-        flow3_check_owner_object_at_exit(ctx,
+        flow3_check_object_at_exit(ctx,
             &p_declarator->type,
             &p_declarator->object,
-            &marker);
+            &marker,
+        position_token);
     }
 }
 
-static void flow3_exit_block_visit_defer_list(struct flow3_visit_ctx* ctx, struct defer_list* p_defer_list, struct token* position_token)
+static void flow3_exit_block_visit_defer_list(struct flow3_visit_ctx* ctx,
+    const struct defer_list* p_defer_list,
+    const struct token* position_token)
 {
     struct defer_list_item* _Opt p_item = p_defer_list->head;
     while (p_item)
@@ -1676,7 +1406,9 @@ static void flow3_defer_item_set_end_of_lifetime(struct flow3_visit_ctx* ctx, st
     }
 }
 
-static void flow3_defer_list_set_end_of_lifetime(struct flow3_visit_ctx* ctx, struct defer_list* p_defer_list, struct token* position_token)
+static void flow3_defer_list_set_end_of_lifetime(struct flow3_visit_ctx* ctx,
+    const struct defer_list* p_defer_list,
+    struct token* position_token)
 {
     struct defer_list_item* _Opt p_item = p_defer_list->head;
     while (p_item)
@@ -1703,10 +1435,10 @@ static void flow3_object_init(struct flow3_visit_ctx* ctx, struct object* p_obje
 {
     if (p_object->members.head)
     {
-        flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+        flow3_map_replace_alternatives_ref(ctx->p_current_flow3_map,
          p_object,
-         NOT_APPLICABLE_VALUE,
-         FLOW3_NOT_APPLICABLE,
+         p_object,
+         FLOW3_EQUAL,
          line);
 
         p_object = p_object->members.head;
@@ -1762,10 +1494,10 @@ static void flow3_parameter_object_init(struct flow3_visit_ctx* ctx, struct obje
 
     if (p_object->members.head)
     {
-        flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+        flow3_map_replace_alternatives_ref(ctx->p_current_flow3_map,
          p_object,
-         NOT_APPLICABLE_VALUE,
-         FLOW3_NOT_APPLICABLE,
+         p_object,
+         FLOW3_EQUAL,
          line);
 
         p_object = p_object->members.head;
@@ -1851,12 +1583,12 @@ static void flow3_parameter_object_init(struct flow3_visit_ctx* ctx, struct obje
         if (p_pointed != NULL)
         {
             flow3_alternatives_add_object_ptr(&ep->alternatives, p_pointed,
-                FLOW3_EQUAL, ctx->p_current_flow3_map, line);
+                FLOW3_EQUAL, FLOW3_IMAGINARY_NONE, ctx->p_current_flow3_map, line);
         }
         else
         {
             flow3_alternatives_add_object_ptr(&ep->alternatives, NULL,
-                FLOW3_NOT_EQUAL, ctx->p_current_flow3_map, line);
+                FLOW3_NOT_EQUAL, FLOW3_IMAGINARY_NONE, ctx->p_current_flow3_map, line);
         }
 
         if (p_pointed != NULL)
@@ -1880,8 +1612,8 @@ static void flow3_parameter_object_init(struct flow3_visit_ctx* ctx, struct obje
                             m, UNINITIALIZED_VALUE, FLOW3_UNINITIALIZED, line);
                     }
                     /* Parent node: NOT_APPLICABLE (aggregate, state lives in members). */
-                    flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                        p_pointed, NOT_APPLICABLE_VALUE, FLOW3_NOT_APPLICABLE, line);
+                    //flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+                    //    p_pointed, NOT_APPLICABLE_VALUE, FLOW3_NOT_APPLICABLE, line);
                 }
                 else
                 {
@@ -1945,15 +1677,15 @@ static void flow3_parameter_object_init(struct flow3_visit_ctx* ctx, struct obje
         struct flow3_key_alternatives* ep = flow3_map_find_add(ctx->p_current_flow3_map, p_object);
         flow3_alternatives_clear(&ep->alternatives);
         /* null arm */
-        flow3_alternatives_add_object_ptr(&ep->alternatives, NULL, FLOW3_EQUAL, p_null_map, line);
+        flow3_alternatives_add_object_ptr(&ep->alternatives, NULL, FLOW3_EQUAL, FLOW3_IMAGINARY_NONE, p_null_map, line);
         /* non-null arm */
         if (p_pointed != NULL)
         {
-            flow3_alternatives_add_object_ptr(&ep->alternatives, p_pointed, FLOW3_EQUAL, p_nonnull_map, line);
+            flow3_alternatives_add_object_ptr(&ep->alternatives, p_pointed, FLOW3_EQUAL, FLOW3_IMAGINARY_NONE, p_nonnull_map, line);
         }
         else
         {
-            flow3_alternatives_add_object_ptr(&ep->alternatives, NULL, FLOW3_NOT_EQUAL, p_nonnull_map, line);
+            flow3_alternatives_add_object_ptr(&ep->alternatives, NULL, FLOW3_NOT_EQUAL, FLOW3_IMAGINARY_NONE, p_nonnull_map, line);
         }
 
         /* --- pointed-to object alternatives --- */
@@ -1980,157 +1712,10 @@ static void flow3_parameter_object_init(struct flow3_visit_ctx* ctx, struct obje
                 flow3_alternatives_clear(&eo->alternatives);
 
                 /* Non-null arm: ANY state, correlated with p_nonnull_map. */
-                flow3_alternatives_add_i(&eo->alternatives, ANY_VALUE, FLOW3_ANY, p_nonnull_map, line);
+                flow3_alternatives_add_i(&eo->alternatives, ANY_VALUE, FLOW3_ANY, FLOW3_IMAGINARY_NONE, p_nonnull_map, line);
 
                 /* Null arm: object does not exist when pointer is null. */
                 flow3_alternatives_add_does_not_exist(&eo->alternatives, p_null_map, line);
-            }
-        }
-    }
-}
-
-static void flow3_assign_rhs_to_lhs(struct flow3_visit_ctx* ctx, const struct object* p_left_obj, struct expression* p_rhs_expr)
-{
-    const struct object* p_right_obj = &p_rhs_expr->object;
-    const int            line = p_rhs_expr->first_token->line;
-
-    if (object_has_known_value(&p_rhs_expr->object)
-        && p_rhs_expr->expression_type != EXPR_UNARY_INCREMENT
-        && p_rhs_expr->expression_type != EXPR_UNARY_DECREMENT)
-    {
-        /* Compile-time constant: record exact value. */
-        flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-            p_left_obj,
-            object_to_signed_long_long(&p_rhs_expr->object),
-            FLOW3_EQUAL,
-            line);
-    }
-    else if (p_rhs_expr->declarator != NULL
-             && p_rhs_expr->expression_type != EXPR_UNARY_INCREMENT
-             && p_rhs_expr->expression_type != EXPR_UNARY_DECREMENT)
-    {
-        /* Variable reference: copy its current alternatives. */
-        struct flow3_key_alternatives* p_rhs_entry =
-            flow3_map_search_up(ctx->p_current_flow3_map, p_right_obj);
-        if (p_rhs_entry && p_rhs_entry->alternatives.size > 0)
-        {
-            struct flow3_key_alternatives* p_lhs_entry =
-                flow3_map_find_add(ctx->p_current_flow3_map, p_left_obj);
-            if (p_lhs_entry)
-            {
-                flow3_alternatives_clear(&p_lhs_entry->alternatives);
-                flow3_alternatives_append(&p_lhs_entry->alternatives,
-                                          &p_rhs_entry->alternatives);
-            }
-        }
-        else
-        {
-            flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                                             p_left_obj, 0, FLOW3_ANY, line);
-        }
-    }
-    else
-    {
-        /*
-         * Arbitrary expression (--i, ++i, i--, i++, arithmetic, call, cast …).
-         * Look up the expression object directly — not via p_right_obj — because
-         * pre/post inc/dec produce a result object that differs from the
-         * underlying variable.
-         */
-        const struct flow3_key_alternatives* p_rhs_entry = flow3_map_search_up(ctx->p_current_flow3_map, &p_rhs_expr->object);
-        if (p_rhs_entry && p_rhs_entry->alternatives.size > 0)
-        {
-            struct flow3_key_alternatives* p_lhs_entry = flow3_map_find_add(ctx->p_current_flow3_map, p_left_obj);
-            if (p_lhs_entry)
-            {
-                flow3_alternatives_clear(&p_lhs_entry->alternatives);
-                flow3_alternatives_append(&p_lhs_entry->alternatives, &p_rhs_entry->alternatives);
-            }
-        }
-        else
-        {
-            flow3_map_replace_alternatives_i(ctx->p_current_flow3_map, p_left_obj, ANY_VALUE, FLOW3_ANY, line);
-        }
-    }
-}
-
-static void flow3_check_rhs_value(struct flow3_visit_ctx* ctx, const struct type* p_dest_type, struct expression* p_rhs_expr)
-{
-    const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
-    const bool ownership_enabled = ctx->ctx->options.ownership_enabled;
-
-    const struct object* p_rhs_obj = object_get_referenced(&p_rhs_expr->object);
-
-    /* Uninitialized source — always invalid (§2.3/§3.3/§4.4). */
-    if (flow3_object_is_uninitialized(ctx->p_current_flow3_map, p_rhs_obj))
-    {
-        struct marker marker = expression_to_marker(p_rhs_expr);
-        diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, &marker, "object is uninitialized");
-    }
-    else if (flow3_object_can_be_uninitialized(ctx->p_current_flow3_map, p_rhs_obj))
-    {
-        struct marker marker = expression_to_marker(p_rhs_expr);
-        diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, &marker, "object may be uninitialized");
-    }
-
-    /* Expired source (§2.3/§3.3/§4.4) */
-    if (flow3_object_can_have_its_lifetime_ended(ctx->p_current_flow3_map, p_rhs_obj))
-    {
-        struct marker marker = expression_to_marker(p_rhs_expr);
-        diagnostic(W_FLOW_LIFETIME_ENDED, ctx->ctx, NULL, &marker, "object lifetime ended");
-    }
-
-    /* Moved source — invalid in all contexts (§3.3/§4.4).
-     * For _Owner types this is caught by the ownership block below;
-     * check here covers non-owner moved objects. */
-    if (!type_is_owner(&p_rhs_expr->type) &&
-        flow3_object_can_be_moved(ctx->p_current_flow3_map, p_rhs_obj))
-    {
-        struct marker marker = expression_to_marker(p_rhs_expr);
-        diagnostic(W_FLOW_LIFETIME_ENDED, ctx->ctx, NULL, &marker, "object is moved");
-    }
-
-    /* Nullable: non-_Opt pointer destination must not receive a possibly-null
-     * value (§2.1/§3.1/§4.2). */
-    if (nullable_enabled && type_is_pointer(p_dest_type))
-    {
-        if (!type_is_opt(p_dest_type, nullable_enabled))
-        {
-            if (flow3_object_can_be_null(ctx->p_current_flow3_map, p_rhs_obj))
-            {
-                struct marker marker = expression_to_marker(p_rhs_expr);
-                diagnostic(W_FLOW_NULL_DEREFERENCE, ctx->ctx, NULL, &marker, "assigning possibly null pointer to non-nullable destination");
-            }
-        }
-        else
-        {
-            /* _Opt destination: null is allowed but the pointer value (when
-             * non-null) must still be valid — not moved or expired (§2.1). */
-            if (flow3_object_can_be_moved(ctx->p_current_flow3_map, p_rhs_obj))
-            {
-                struct marker marker = expression_to_marker(p_rhs_expr);
-                diagnostic(W_FLOW_LIFETIME_ENDED, ctx->ctx, NULL, &marker, "assigning a moved pointer to an _Opt destination");
-            }
-        }
-    }
-
-    if (ownership_enabled)
-    {
-        /* Returning/assigning an _Owner source into a non-_Owner destination
-         * silently drops the ownership and leaks the resource (§2.2/§3.2). */
-        if (type_is_owner(&p_rhs_expr->type) && !type_is_owner(p_dest_type))
-        {
-            struct marker marker = expression_to_marker(p_rhs_expr);
-            diagnostic(W_FLOW_LIFETIME_ENDED, ctx->ctx, NULL, &marker, "assigning an _Owner object to a non-_Owner destination (resource leak)");
-        }
-
-        /* _Owner destination must not receive a moved object (§3.2/§4.3). */
-        if (type_is_owner(p_dest_type))
-        {
-            if (flow3_object_can_be_moved(ctx->p_current_flow3_map, p_rhs_obj))
-            {
-                struct marker marker = expression_to_marker(p_rhs_expr);
-                diagnostic(W_FLOW_LIFETIME_ENDED, ctx->ctx, NULL, &marker, "assigning a moved object to an _Owner destination");
             }
         }
     }
@@ -2154,28 +1739,28 @@ static void flow3_visit_init_declarator(struct flow3_visit_ctx* ctx, struct init
         {
             struct expression* p_init_expr = p_init_declarator->initializer->assignment_expression;
             flow3_visit_full_expression(ctx, p_init_expr);
-
-            /*
-             * Shared diagnostic checks (uninitialized, expired, nullable, ownership).
-             * The source object must never be uninitialized — the spec is unconditional
-             * across initialization, assignment, and return.
-             */
-            flow3_check_rhs_value(ctx,
-                                  &p_init_declarator->p_declarator->type,
-                                  p_init_expr);
-
-            /* Shared alternative-copy: write RHS flow state into LHS map entry. */
-            flow3_assign_rhs_to_lhs(ctx, &p_init_declarator->p_declarator->object, p_init_expr);
+            flow3_check_object_init_assigment(ctx,
+                p_init_declarator->initializer->assignment_expression,
+                &p_init_declarator->p_declarator->object,
+                &p_init_expr->object,
+                INIT_OBJ
+            );
+            //  flow3_check_rhs_value(ctx, &p_init_declarator->p_declarator->type, p_init_expr);
+              //flow3_assign_rhs_to_lhs(ctx, &p_init_declarator->p_declarator->object, p_init_expr);
         }
-        else
+        else if (p_init_declarator->initializer->braced_initializer)
         {
-            if (p_init_declarator->initializer->braced_initializer)
+            struct object* p_aggregate = &p_init_declarator->p_declarator->object;
+
+
+            /* 1. Visit the whole braced initializer – evaluates all RHS expressions. */
+            flow3_visit_bracket_initializer_list(ctx, p_init_declarator->initializer->braced_initializer);
+
+
+            /* 3. Zero‑initialise any scalar members not explicitly set. */
+            if (type_is_struct_or_union(&p_aggregate->type))
             {
-                flow3_visit_bracket_initializer_list(ctx, p_init_declarator->initializer->braced_initializer);
-            }
-            else
-            {
-                assert(false);
+                //flow3_zero_initialize_uninitialized_members(ctx, p_aggregate, line);
             }
         }
     }
@@ -2227,7 +1812,6 @@ static void flow3_visit_if_statement(struct flow3_visit_ctx* ctx, struct selecti
     if (p_selection_statement->condition &&
         p_selection_statement->condition->expression)
     {
-        flow3_check_pointer_used_as_bool(ctx, p_selection_statement->condition->expression);
         cond_pair = flow3_visit_full_expression(ctx, p_selection_statement->condition->expression);
     }
 
@@ -2486,42 +2070,327 @@ static void flow3_visit_generic_selection(struct flow3_visit_ctx* ctx, struct ge
     }
 }
 
-static const struct object* get_lvalue_object_from_expr(const struct expression* p_arg_expr)
+const char* flow3_get_only_member_name(const char* member_designator)
 {
-    if (p_arg_expr->expression_type == EXPR_POSTFIX_ARROW)
+    const char* s = member_designator;
+    const char* dot = s;
+    while (*s)
     {
-        /* p->member: the pointer variable is the left operand. */
-        if (p_arg_expr->left != NULL)
-        {
-            return object_get_referenced(&p_arg_expr->left->object);
-        }
+        if (*s == '.')
+            dot = s;
+        s++;
     }
-    else if (p_arg_expr->expression_type == EXPR_UNARY_CONTENT)
+    return dot;
+}
+/*
+  Check the state of some reachable object,
+  struct X * f(){
+      return p;
+  }
+  p2 = p1;
+*/
+static void flow3_check_object_access(struct flow3_visit_ctx* ctx,
+    const char* parent_expression_str,
+    struct expression* p_expression,
+    const struct object* p_object_src,
+    bool check_unitialized)
+{
+    struct marker marker = expression_to_marker(p_expression);
+
+    if (p_object_src->members.head)
     {
-        /* *p: the pointer variable is the right operand. */
-        if (p_arg_expr->right != NULL)
+        struct object* member = p_object_src->members.head;
+        while (member)
         {
-            return object_get_referenced(&p_arg_expr->right->object);
-        }
-    }
-    else if (p_arg_expr->expression_type == EXPR_PRIMARY_PARENTHESIS)
-    {
-        while (p_arg_expr->expression_type == EXPR_PRIMARY_PARENTHESIS)
-        {
-            assert(p_arg_expr->right != NULL);
-            p_arg_expr = p_arg_expr->right;
+            struct osstream ss = { 0 };
+            ss_fprintf(&ss, "%s%s", parent_expression_str, flow3_get_only_member_name(member->member_designator));
+            //p->
+            flow3_check_object_access(ctx, ss.c_str, p_expression, member, check_unitialized);
+            member = member->next;
+            ss_close(&ss);
         }
     }
 
-    return object_get_referenced(&p_arg_expr->object);
+    const struct flow3_key_alternatives* p_source_key_alternatives = flow3_map_search_up(ctx->p_current_flow3_map, p_object_src);
+    if (p_source_key_alternatives == NULL)
+        return;
+
+    for (int ri = 0; ri < p_source_key_alternatives->alternatives.size; ri++)
+    {
+        struct flow3_alternative* p_alternative = &p_source_key_alternatives->alternatives.data[ri];
+        //flow3_alternative_print(p_alternative);
+        //printf("\n");
+
+        if (p_alternative->imaginary == FLOW3_IMAGINARY_ENDED)
+        {
+            diagnostic(W_FLOW_LIFETIME_ENDED,
+                ctx->ctx, NULL, &marker,
+                "object '%s' lifetime has ended (see line %d)",
+                parent_expression_str, p_alternative->line);
+
+            continue; //no need to print other errors
+        }
+
+        if (p_alternative->value.kind == FLOW3_VALUE_REF)
+        {
+            if (p_alternative->value.as.p != p_object_src)
+            {
+                flow3_check_object_access(ctx,
+                    parent_expression_str,
+                                                    p_expression,
+                                                    p_alternative->value.as.p, check_unitialized);
+
+                continue;
+            }
+        }
+
+        if (type_is_pointer(&p_object_src->type) &&
+            !type_is_opt(&p_object_src->type, ctx->ctx->options.null_checks_enabled) &&
+            flow3_alternative_can_be_zero(p_alternative))
+        {
+            diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+                ctx->ctx, NULL, &marker,
+                "passing a possible null pointer '%s' to non-nullable pointer parameter (see line %d)",
+                parent_expression_str, p_alternative->line);
+        }
+
+        if (p_alternative->imaginary != FLOW3_IMAGINARY_ENDED && p_alternative->relation == FLOW3_UNINITIALIZED)
+        {
+            if (check_unitialized)
+            {
+
+                diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+                    ctx->ctx, NULL, &marker,
+                    "passing a possible uninitialized object  '%s' (see line %d)",
+                    parent_expression_str, p_alternative->line);
+            }
+        }
+
+        if (p_alternative->imaginary == FLOW3_IMAGINARY_MOVED)
+        {
+            diagnostic(W_FLOW_LIFETIME_ENDED,
+                ctx->ctx, NULL, &marker,
+                "object '%s' is moved (see line %d)",
+                parent_expression_str, p_alternative->line);
+        }
+    }
 }
 
-static void flow3_visit_function_arguments(struct flow3_visit_ctx* ctx, struct type* p_type, struct argument_expression_list* p_argument_expression_list)
+static void flow3_check_object_init_assigment(struct flow3_visit_ctx* ctx,
+    struct expression* p_expression,
+     const struct object* p_object_dest, //uninitialized alawys
+     const struct object* p_object_src,
+     enum init_type init_type)
+{
+    if (p_object_dest == NULL)
+    {
+        return;
+    }
+    struct marker marker = expression_to_marker(p_expression);
+
+    if (p_object_src->members.head)
+    {
+        struct object* member_dest = p_object_dest->members.head;
+        struct object* member_src = p_object_src->members.head;
+        while (member_src && member_dest)
+        {
+            flow3_check_object_init_assigment(ctx, p_expression, member_dest, member_src, init_type);
+            member_src = member_src->next;
+            member_dest = member_dest->next;
+        }
+        return;
+    }
+
+    const struct flow3_key_alternatives* p_src_key_alternatives = flow3_map_search_up(ctx->p_current_flow3_map, p_object_src);
+    if (p_src_key_alternatives == NULL)
+        return;
+
+    struct flow3_key_alternatives* p_dest_key_alternatives = NULL;
+
+    if (init_type == INIT_OBJ)
+    {
+        p_dest_key_alternatives = flow3_map_find_add(ctx->p_current_flow3_map, p_object_dest);
+        flow3_alternatives_clear(&p_dest_key_alternatives->alternatives);
+    }
+
+    for (int ri = 0; ri < p_src_key_alternatives->alternatives.size; ri++)
+    {
+        struct flow3_alternative* p_src_alternative = &p_src_key_alternatives->alternatives.data[ri];
+        //flow3_alternative_print(p_src_alternative);
+        //printf("\n");
+
+        if (p_src_alternative->imaginary == FLOW3_IMAGINARY_ENDED)
+        {
+            struct osstream ss = { 0 };
+            flow3_expression_to_string(p_expression, &ss);
+            diagnostic(W_FLOW_LIFETIME_ENDED,
+                ctx->ctx, NULL, &marker,
+                "object '%s' lifetime has ended (see line %d)",
+                ss.c_str, p_src_alternative->line);
+            ss_close(&ss);
+            continue; //avoid printing extra errors
+        }
+
+        if (p_src_alternative->value.kind == FLOW3_VALUE_REF)
+        {
+            if (p_src_alternative->value.as.p != p_object_src)
+            {
+                flow3_check_object_init_assigment(ctx,
+                                                    p_expression,
+                                                    p_object_dest, //uninitialized alawys
+                                                    p_src_alternative->value.as.p,
+                                                    init_type);
+
+
+                if (type_is_owner(&p_object_dest->type))
+                {
+                    flow3_map_set_object_moved(ctx->p_current_flow3_map, p_src_alternative->value.as.p, p_expression->first_token->line);
+                }
+                continue;
+            }
+        }
+
+        if (init_type == INIT_OBJ)
+        {
+            flow3_alternatives_add(&p_dest_key_alternatives->alternatives,
+                                         p_src_alternative,
+                                         p_src_alternative->origin,
+                                         p_src_alternative->line);
+        }
+
+
+
+        if (p_src_alternative->relation == FLOW3_EQUAL &&
+            p_src_alternative->value.kind == FLOW3_VALUE_PTR &&
+            p_src_alternative->value.as.p)
+        {
+            struct osstream ss = { 0 };
+            flow3_expression_to_string(p_expression, &ss);
+            struct osstream ss2 = { 0 };
+
+            ss_fprintf(&ss2, "(*%s)", ss.c_str);
+
+
+            /*
+            struct X * f() {
+                struct X* p;
+                {
+                    struct X x;
+                    p = &x;
+                }
+                return p;
+            }
+            */
+            //we check (*p)
+            //*expression
+            //expression-> 
+            const bool check_unitialized = !type_is_pointed_ctor(&p_object_dest->type);
+            flow3_check_object_access(ctx, ss2.c_str, p_expression, p_src_alternative->value.as.p, check_unitialized);
+
+
+            if (init_type == INIT_PARAMETER)
+            {
+                if (type_is_pointed_clear(&p_object_dest->type))
+                {
+                    flow3_map_set_object_zero(ctx->p_current_flow3_map,
+                  p_src_alternative->value.as.p, p_expression->first_token->line);
+                }
+
+                if (type_is_pointed_dtor(&p_object_dest->type))
+                {
+                    flow3_map_set_object_lifetime_ended(ctx->p_current_flow3_map,
+                  p_src_alternative->value.as.p, p_expression->first_token->line);
+                }
+
+                if (type_is_pointed_ctor(&p_object_dest->type))
+                {
+                    flow3_map_set_object_any(ctx->p_current_flow3_map,
+                  p_src_alternative->value.as.p, p_expression->first_token->line);
+                }
+
+                if (type_is_owner(&p_object_dest->type))
+                {
+                    flow3_map_set_object_lifetime_ended(ctx->p_current_flow3_map,
+                  p_src_alternative->value.as.p, p_expression->first_token->line);
+                }
+            }
+
+            ss_close(&ss);
+            ss_close(&ss2);
+        }
+
+        if (type_is_pointer(&p_object_dest->type) &&
+            !type_is_opt(&p_object_dest->type, ctx->ctx->options.null_checks_enabled) &&
+            flow3_alternative_can_be_zero(p_src_alternative))
+        {
+            struct osstream ss = { 0 };
+            flow3_expression_to_string(p_expression, &ss);
+            diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+                ctx->ctx, NULL, &marker,
+                "passing a possible null pointer '%s' to non-nullable pointer parameter (see line %d)",
+                ss.c_str, p_src_alternative->line);
+            ss_close(&ss);
+        }
+
+        if (p_src_alternative->relation == FLOW3_UNINITIALIZED)
+        {
+            if (type_is_pointed_ctor(&p_object_dest->type))
+            {
+            }
+            else
+            {
+                diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+                    ctx->ctx, NULL, &marker,
+                    "passing a possible uninitialized object  '%s' (see line %d)",
+                    p_object_src->member_designator, p_src_alternative->line);
+            }
+        }
+
+        if (p_src_alternative->imaginary == FLOW3_IMAGINARY_MOVED)
+        {
+            struct osstream ss = { 0 };
+            flow3_expression_to_string(p_expression, &ss);
+            diagnostic(W_FLOW_LIFETIME_ENDED,
+                ctx->ctx, NULL, &marker,
+                "object '%s' is moved (see line %d)",
+                ss.c_str, p_src_alternative->line);
+            ss_close(&ss);
+        }
+    }
+}
+
+static void flow3_check_assigment(struct flow3_visit_ctx* ctx,
+    struct expression* p_expression_dest,
+    struct expression* p_expression_src)
+{
+    const struct flow3_key_alternatives* p_expression_dest_key_alternatives =
+        flow3_map_search_up(ctx->p_current_flow3_map, &p_expression_dest->object);
+
+    if (p_expression_dest_key_alternatives == NULL)
+        return;
+
+    for (int i = 0; i < p_expression_dest_key_alternatives->alternatives.size; i++)
+    {
+        const struct flow3_alternative* p_expression_dest_alternative =
+            &p_expression_dest_key_alternatives->alternatives.data[i];
+
+        if (p_expression_dest_alternative->value.kind == FLOW3_VALUE_REF)
+        {
+            flow3_check_object_init_assigment(ctx,
+                p_expression_src,
+                p_expression_dest_alternative->value.as.p,
+                &p_expression_src->object,
+                INIT_OBJ);
+        }
+    }
+}
+
+static void flow3_visit_function_arguments(struct flow3_visit_ctx* ctx,
+    const struct type* p_type,
+    const struct argument_expression_list* p_argument_expression_list)
 {
     try
     {
-        const bool ownership_enabled = ctx->ctx->options.ownership_enabled;
-
         const struct param_list* _Opt p_param_list = type_get_func_or_func_ptr_params(p_type);
         if (p_param_list == NULL)
         {
@@ -2531,238 +2400,26 @@ static void flow3_visit_function_arguments(struct flow3_visit_ctx* ctx, struct t
         struct param* _Opt p_current_parameter_type = p_param_list->head;
         struct argument_expression* _Opt p_current_argument = p_argument_expression_list->head;
 
-        //////////////////////////// FIRST PASS ////////////////////////////
-        /*
-         * Visit each argument expression for its side-effects (updating the
-         * flow map, resolving sub-expressions, etc.).  W_FLOW_UNINITIALIZED is
-         * suppressed here because the uninitialized check is performed manually
-         * in the second pass, where the _Ctor distinction is applied.
-         *
-         * Motivation: in a call like f(pX, pX->p) the pointed member pX->p
-         * must be evaluated with the map state that exists *before* the call
-         * rewrites it; deferring the uninitialized diagnostic to the second
-         * pass preserves that ordering.
-         */
         while (p_current_argument && p_current_parameter_type)
         {
-            struct diagnostic temp = ctx->ctx->options.diagnostic_stack.stack[ctx->ctx->options.diagnostic_stack.top_index];
-
-            /* Suppress; will be re-checked per-parameter in the second pass. */
-            diagnostic_remove(&ctx->ctx->options.diagnostic_stack.stack[ctx->ctx->options.diagnostic_stack.top_index], W_FLOW_UNINITIALIZED);
-
-            flow3_visit_full_expression(ctx, p_current_argument->expression);
-
-            ctx->ctx->options.diagnostic_stack.stack[ctx->ctx->options.diagnostic_stack.top_index] = temp;
-
-            p_current_argument = p_current_argument->next;
-            p_current_parameter_type = p_current_parameter_type->next;
-        }
-
-        /* Variadic tail — visit remaining arguments with no paired parameter. */
-        while (p_current_argument)
-        {
-            flow3_visit_full_expression(ctx, p_current_argument->expression);
-            p_current_argument = p_current_argument->next;
-        }
-
-        //////////////////////////// SECOND PASS ////////////////////////////
-
-        p_current_parameter_type = p_param_list->head;
-        p_current_argument = p_argument_expression_list->head;
-
-        while (p_current_argument && p_current_parameter_type)
-        {
-            const struct type* p_param_type = &p_current_parameter_type->type;
             struct expression* p_arg_expr = p_current_argument->expression;
-            const int           line = p_arg_expr->first_token->line;
+            const struct type* p_param_type = &p_current_parameter_type->type;
 
+            struct object param_object = { 0 };
+            make_object(p_param_type, &param_object, MAKE_STATE_UNITIALIZED, ctx->ctx->options.target);
 
-            /* ------------------------------------------------------------
-             * Spec — RHS value checks (uninitialized, expired, moved, nullable,
-             *         ownership) — same rules as return and initialization.
-             *
-             * _Ctor exception: when the parameter is a pointer-to-_Ctor the
-             * callee is the constructor; the pointed object is intentionally
-             * uninitialized on entry, so we skip flow3_check_rhs_value for
-             * that case.  The "becomes ANY" update below still applies.
-             *
-             * For _Owner arguments flow3_check_rhs_owner_validity runs the
-             * member-recursive uninitialized/expired/moved checks, mirroring
-             * EXPR_ASSIGNMENT_ASSIGN.
-             * ------------------------------------------------------------
-             */
-            {
-                const bool param_is_ctor = type_is_pointer(p_param_type) &&
-                    type_is_pointed_ctor(p_param_type);
-
-                if (!param_is_ctor)
-                {
-                    flow3_check_rhs_value(ctx, p_param_type, p_arg_expr);
-                }
-
-                if (ownership_enabled && type_is_owner(&p_arg_expr->type))
-                {
-                    const struct object* p_arg_obj = object_get_referenced(&p_arg_expr->object);
-                    flow3_check_rhs_owner_validity(ctx, p_arg_obj, p_arg_expr);
-                }
-            }
-
-            if (type_is_pointer(p_param_type))
-            {
-                /*
-                 * Both _Ctor and non-_Ctor: after the call the pointed object's
-                 * state is unknown — mark every concrete alias as ANY.
-                 *
-                 * Use get_pointer_object_from_expr so that p->member arguments
-                 * are keyed on the pointer variable (left operand), not on the
-                 * transient result node.
-                 */
-                {
-                    const struct object* p_ptr_obj = get_lvalue_object_from_expr(p_arg_expr);
-                    const struct flow3_key_alternatives* e = flow3_map_search_up(ctx->p_current_flow3_map, p_ptr_obj);
-                    if (e != NULL)
-                    {
-                        for (int i = 0; i < e->alternatives.size; i++)
-                        {
-                            const struct flow3_alternative* alt = &e->alternatives.data[i];
-                            if (alt->value.kind == FLOW3_VALUE_PTR &&
-                                alt->value.as.p != NULL)
-                            {
-                                flow3_map_replace_alternatives_i(
-                                    ctx->p_current_flow3_map,
-                                    alt->value.as.p,
-                                    ANY_VALUE,
-                                    FLOW3_ANY,
-                                    line);
-                            }
-                        }
-                    }
-                }
-            }
-
-            /* ------------------------------------------------------------
-             * Spec — Ownership transfer
-             *
-             *   If `ownership_enabled` is enabled, and the parameter is
-             *   marked `_Owner`, then ownership is transferred to the callee
-             *   and the argument object becomes expired.
-             *   If the parameter is an `_Owner` pointer, then the pointed
-             *   object also becomes expired.
-             *
-             * Spec — Destructor ownership propagation
-             *
-             *   If `ownership_enabled` is enabled, and the pointed object
-             *   type of the parameter is marked `_Dtor`, then both the
-             *   argument object and the pointed object become expired.
-             *
-             *   If the pointed object type is marked `_Clear`, the same
-             *   call-site effect applies: the pointed object becomes expired
-             *   after the call, and the pointer variable remains live.
-             * ------------------------------------------------------------
-             */
-            if (ownership_enabled)
-            {
-                const bool param_is_owner = type_is_owner(p_param_type);
-                const bool param_is_dtor = type_is_pointed_dtor(p_param_type);
-                const bool param_is_clear = type_is_pointed_clear(p_param_type);
-
-                if (param_is_owner || param_is_dtor || param_is_clear)
-                {
-                    if (type_is_pointer(p_param_type))
-                    {
-                        /*
-                         * void * _Owner exception:
-                         * When the parameter is void * _Owner the analyser cannot follow
-                         * the pointer to the concrete pointed object.  The callee will
-                         * take raw ownership and may free whatever the pointer aliases.
-                         * We therefore require that the pointed object is already in a
-                         * safe state (zero, uninitialized, moved, or expired) before the
-                         * call — the caller must have cleaned it up first.
-                         *
-                         * For all other _Owner pointer / _Dtor / _Clear parameters:
-                         * the pointed object's lifetime ends — the callee may actually
-                         * free the memory, so the value is gone (not just moved).
-                         */
-                         /* _Dtor, _Clear, and _Ctor cannot be applied to void* —
-                          * the void * _Owner exception is only for _Owner. */
-                        const bool param_points_to_void = param_is_owner && type_is_void((p_param_type));
-                        const struct object* p_ptr_obj2 = get_lvalue_object_from_expr(p_arg_expr);
-                        const struct flow3_key_alternatives* e = flow3_map_search_up(ctx->p_current_flow3_map, p_ptr_obj2);
-                        if (e != NULL)
-                        {
-                            for (int i = 0; i < e->alternatives.size; i++)
-                            {
-                                const struct flow3_alternative* alt = &e->alternatives.data[i];
-                                if (alt->value.kind == FLOW3_VALUE_PTR &&
-                                    alt->value.as.p != NULL)
-                                {
-                                    if (param_points_to_void)
-                                    {
-                                        /*
-                                         * void * _Owner: check the pointed object is already
-                                         * safe — zero, uninitialized, moved, or expired.
-                                         * We cannot end its lifetime because we don't know
-                                         * its type or layout.
-                                         */
-                                        const struct object* p_pointed = alt->value.as.p;
-                                        const bool is_zero = flow3_object_is_zero(ctx->p_current_flow3_map, p_pointed);
-                                        const bool is_uninit = flow3_object_is_uninitialized(ctx->p_current_flow3_map, p_pointed);
-                                        const bool is_moved = flow3_object_can_be_moved(ctx->p_current_flow3_map, p_pointed);
-                                        const bool is_expired = flow3_object_can_have_its_lifetime_ended(ctx->p_current_flow3_map, p_pointed);
-                                        if (!is_zero && !is_uninit && !is_moved && !is_expired)
-                                        {
-                                            struct marker marker = expression_to_marker(p_arg_expr);
-                                            diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, &marker,
-                                                "pointed object must be zero, uninitialized, moved, or expired "
-                                                "before passing as void * _Owner argument");
-                                        }
-                                    }
-                                    else
-                                    {
-                                        /* Pointed object's lifetime ends — memory may be freed. */
-                                        flow3_map_set_object_lifetime_ended(ctx->p_current_flow3_map, alt->value.as.p, line);
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    /*
-                     * For _Owner parameters ownership of the argument itself is
-                     * transferred to the callee — the pointer is moved (ownership
-                     * gone from the caller's side).
-                     *
-                     * For _Dtor and _Clear parameters only the *contents* of the
-                     * pointed object are consumed (lifetime ended above).  The pointer
-                     * variable remains live — the caller is expected to free it
-                     * afterwards (e.g. my_free(p) after x_destroy(p)).
-                     */
-                    if (param_is_owner)
-                    {
-                        flow3_map_set_object_expired(
-                            ctx->p_current_flow3_map,
-                            object_get_referenced(&p_arg_expr->object),
-                            line);
-                    }
-                }
-            }
-
-            /*
-             * const pointer: no state change — callee cannot modify the
-             * pointed object, and the "becomes ANY" block above already
-             * skips const-pointed cases via FLOW3_RELATION_ANY write being
-             * irrelevant when ownership_enabled rules don't fire.
-             * (The pointed-object ANY update was applied unconditionally for
-             * non-owner/non-dtor pointers in the _Ctor block above.)
-             */
+            flow3_visit_full_expression(ctx, p_arg_expr);
+            flow3_check_object_init_assigment(ctx, p_arg_expr, &param_object, &p_arg_expr->object, INIT_PARAMETER);
 
             p_current_argument = p_current_argument->next;
             p_current_parameter_type = p_current_parameter_type->next;
+            object_destroy(&param_object);
         }
 
-        /* Variadic tail — no parameter rules to apply. */
+        /* Variadic tail – visit remaining arguments with no paired parameter */
         while (p_current_argument)
         {
+            flow3_visit_full_expression(ctx, p_current_argument->expression);
             p_current_argument = p_current_argument->next;
         }
     }
@@ -2771,61 +2428,12 @@ static void flow3_visit_function_arguments(struct flow3_visit_ctx* ctx, struct t
     }
 }
 
-static void flow3_check_pointer_used_as_bool(struct flow3_visit_ctx* ctx, struct expression* p_expression)
-{
-    if (ctx->inside_loop || ctx->expression_is_not_evaluated)
-    {
-        return;
-    }
-
-    struct marker marker = expression_to_marker(p_expression);
-
-    if (type_is_pointer(&p_expression->type))
-    {
-        if (flow3_object_is_null(ctx->p_current_flow3_map, &p_expression->object))
-        {
-            diagnostic(W_FLOW_NON_NULL,
-                    ctx->ctx,
-                    NULL,
-                    &marker,
-                    "pointer is always null");
-        }
-        else if (flow3_object_is_not_null(ctx->p_current_flow3_map, &p_expression->object))
-        {
-            diagnostic(W_FLOW_NON_NULL,
-                    ctx->ctx,
-                    NULL,
-                    &marker,
-                    "pointer is always not-null");
-        }
-    }
-    else if (type_is_integer(&p_expression->type))
-    {
-        /*
-         * if (a) {} when a has a statically known value, e.g.  a == 5 => always true,
-         *                                                        a == 0 => always false.
-         */
-        long long known = 0;
-        if (flow3_object_get_known_equal_int(ctx->p_current_flow3_map, &p_expression->object, &known))
-        {
-            if (known != 0)
-            {
-                diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "condition is always true (value is known == %lld)", known);
-            }
-            else
-            {
-                diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "condition is always false (value is known == 0)");
-            }
-        }
-    }
-}
-
 static void flow3_check_dianostic_suppression(struct flow3_visit_ctx* ctx, struct token* p_token)
 {
     check_dianostic_suppression_phase(ctx->ctx, p_token, 2);
 }
 
-static struct expression* skip_parenthesis(struct expression* expr)
+static const struct expression* skip_parenthesis(const struct expression* expr)
 {
     while (expr && expr->expression_type == EXPR_PRIMARY_PARENTHESIS)
     {
@@ -2839,13 +2447,7 @@ static void flow3_expression_static_debug(struct flow3_visit_ctx* ctx, const str
 {
     struct token* first_token = p_expression->first_token;
     struct token* last_token = p_expression->last_token;
-
-    while (p_expression && p_expression->expression_type == EXPR_PRIMARY_PARENTHESIS)
-    {
-        assert(p_expression->right != NULL);
-        p_expression = p_expression->right;
-    }
-
+    p_expression = skip_parenthesis(p_expression);
     object_static_debug(ctx, &p_expression->object, first_token, last_token);
 }
 
@@ -2854,47 +2456,466 @@ static struct flow3_branch_pair flow3_visit_full_expression(struct flow3_visit_c
     return flow3_visit_expression(ctx, p_expression);
 }
 
-static void flow3_check_rhs_owner_validity(struct flow3_visit_ctx* ctx, const struct object* p_right_obj, struct expression* p_right_expr)
+typedef enum { KNOWN_EQUAL, KNOWN_NOT_EQUAL, KNOWN_NONE } known_rel_t;
+
+static bool flow3_alternatives_is_single_constant(const struct flow3_alternatives* alts, long long* out_val)
 {
-    if (p_right_obj->members.head)
+    if (alts->size != 1) return false;
+    const struct flow3_alternative* alt = &alts->data[0];
+    if (alt->relation != FLOW3_EQUAL) return false;
+    if (alt->value.kind == FLOW3_VALUE_SIGNED)
     {
-        for (const struct object* m = p_right_obj->members.head; m; m = m->next)
+        *out_val = alt->value.as.i;
+        return true;
+    }
+    else if (alt->value.kind == FLOW3_VALUE_UNSIGNED)
+    {
+        *out_val = (long long)alt->value.as.u;
+        return true;
+    }
+    else if (alt->value.kind == FLOW3_VALUE_PTR)
+    {
+        *out_val = (uintptr_t)alt->value.as.p;
+        return true;
+    }
+    return false;
+}
+
+static void narrow_by_constant(const struct flow3_alternatives* src,
+                               long long c,
+                               bool is_equal,   /* true for ==, false for != */
+                               struct flow3_alternatives* true_alts,
+                               struct flow3_alternatives* false_alts,
+                               const struct flow3_map* origin,
+                               int line)
+{
+    for (int i = 0; i < src->size; i++)
+    {
+        const struct flow3_alternative* alt = &src->data[i];
+        if (alt->relation == FLOW3_UNINITIALIZED)
+            continue;
+
+        /* Handle absent: treat as value 0 (null) */
+        if (alt->imaginary == FLOW3_IMAGINARY_ABSENT)
         {
-            flow3_check_rhs_owner_validity(ctx, m, p_right_expr);
+            bool result = is_equal ? (0 == c) : (0 != c);
+            if (result)
+                flow3_alternatives_add(true_alts, alt, origin, line);
+            else
+                flow3_alternatives_add(false_alts, alt, origin, line);
+            continue;
         }
-        return;
-    }
 
-    if (flow3_object_is_uninitialized(ctx->p_current_flow3_map, p_right_obj))
-    {
-        struct marker marker = expression_to_marker(p_right_expr);
-        diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, &marker, "assigning an uninitialized _Owner object");
-    }
-    else if (flow3_object_can_be_uninitialized(ctx->p_current_flow3_map, p_right_obj))
-    {
-        struct marker marker = expression_to_marker(p_right_expr);
-        diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, &marker, "assigning a possibly uninitialized _Owner object");
-    }
+        /* Extract numeric value from the alternative if possible */
+        long long val;
+        bool is_ptr = false;
+        if (alt->value.kind == FLOW3_VALUE_SIGNED)
+            val = alt->value.as.i;
+        else if (alt->value.kind == FLOW3_VALUE_UNSIGNED)
+            val = (long long)alt->value.as.u;
+        else if (alt->value.kind == FLOW3_VALUE_PTR)
+        {
+            val = (uintptr_t)alt->value.as.p;
+            is_ptr = true;
+        }
+        else if (alt->value.kind == FLOW3_VALUE_REF)
+        {
+            /* REF should have been resolved before calling this function */
+            continue;
+        }
+        else
+        {
+            continue;
+        }
 
-    if (flow3_object_can_have_its_lifetime_ended(ctx->p_current_flow3_map, p_right_obj))
-    {
-        struct marker marker = expression_to_marker(p_right_expr);
-        diagnostic(W_FLOW_LIFETIME_ENDED, ctx->ctx, NULL, &marker, "assigning an _Owner object whose lifetime has ended");
-    }
-
-    if (flow3_object_can_be_moved(ctx->p_current_flow3_map, p_right_obj))
-    {
-        struct marker marker = expression_to_marker(p_right_expr);
-        diagnostic(W_FLOW_LIFETIME_ENDED, ctx->ctx, NULL, &marker, "assigning a moved _Owner object");
+        if (alt->relation == FLOW3_EQUAL)
+        {
+            bool result = is_equal ? (val == c) : (val != c);
+            if (result)
+                flow3_alternatives_add(true_alts, alt, origin, line);
+            else
+                flow3_alternatives_add(false_alts, alt, origin, line);
+        }
+        else if (alt->relation == FLOW3_NOT_EQUAL)
+        {
+            if (val == c)
+            {
+                /* Already known to be NOT_EQUAL c */
+                if (is_equal)
+                {
+                    /* == c is false, keep NOT_EQUAL c in false branch only */
+                    flow3_alternatives_add(false_alts, alt, origin, line);
+                }
+                else
+                {
+                    /* != c is true, keep NOT_EQUAL c in true branch only */
+                    flow3_alternatives_add(true_alts, alt, origin, line);
+                }
+            }
+            else
+            {
+                /* val != c */
+                if (is_equal)
+                {
+                    /* For true branch of ==, we must enforce x == c, overriding the NOT_EQUAL val */
+                    struct flow3_value v;
+                    if (is_ptr)
+                    {
+                        v.kind = FLOW3_VALUE_PTR;
+                        v.as.p = (const struct object*)(uintptr_t)c;
+                    }
+                    else
+                    {
+                        v.kind = FLOW3_VALUE_SIGNED;
+                        v.as.i = c;
+                    }
+                    struct flow3_alternative a_eq = { .value = v, .relation = FLOW3_EQUAL, .imaginary = alt->imaginary };
+                    flow3_alternatives_add(true_alts, &a_eq, origin, line);
+                    /* For false branch, keep the original NOT_EQUAL val (we lose the info x != c) */
+                    flow3_alternatives_add(false_alts, alt, origin, line);
+                }
+                else
+                {
+                    /* For !=, the condition x != c is not determined by x != val when val != c,
+                       so we keep NOT_EQUAL val in both branches */
+                    flow3_alternatives_add(true_alts, alt, origin, line);
+                    flow3_alternatives_add(false_alts, alt, origin, line);
+                }
+            }
+        }
+        else if (alt->relation == FLOW3_ANY)
+        {
+            /* Unknown value – refine to EQUAL c for true, NOT_EQUAL c for false */
+            struct flow3_value v;
+            if (is_ptr)
+            {
+                v.kind = FLOW3_VALUE_PTR;
+                v.as.p = (const struct object*)(uintptr_t)c;
+            }
+            else
+            {
+                v.kind = FLOW3_VALUE_SIGNED;
+                v.as.i = c;
+            }
+            if (is_equal)
+            {
+                struct flow3_alternative a_eq = { .value = v, .relation = FLOW3_EQUAL, .imaginary = alt->imaginary };
+                struct flow3_alternative a_ne = { .value = v, .relation = FLOW3_NOT_EQUAL, .imaginary = alt->imaginary };
+                flow3_alternatives_add(true_alts, &a_eq, origin, line);
+                flow3_alternatives_add(false_alts, &a_ne, origin, line);
+            }
+            else
+            {
+                struct flow3_alternative a_ne = { .value = v, .relation = FLOW3_NOT_EQUAL, .imaginary = alt->imaginary };
+                struct flow3_alternative a_eq = { .value = v, .relation = FLOW3_EQUAL, .imaginary = alt->imaginary };
+                flow3_alternatives_add(true_alts, &a_ne, origin, line);
+                flow3_alternatives_add(false_alts, &a_eq, origin, line);
+            }
+        }
     }
 }
 
-static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* ctx, struct expression* p_expression)
+static int flow3_evaluate_equality_against_constant(const struct flow3_alternatives* alts,
+                                                    long long c,
+                                                    bool is_equal)
+{
+    bool all_true = true, all_false = true;
+    for (int i = 0; i < alts->size; i++)
+    {
+        const struct flow3_alternative* alt = &alts->data[i];
+        if (alt->imaginary == FLOW3_IMAGINARY_ABSENT)
+        {
+            bool is_null = true;
+            bool result = is_equal ? is_null : !is_null;
+            if (result) all_false = false; else all_true = false;
+            continue;
+        }
+        bool result = false, known = false;
+        if (alt->value.kind == FLOW3_VALUE_PTR)
+        {
+            if (c == 0)
+            {
+                if (alt->relation == FLOW3_EQUAL)
+                {
+                    result = is_equal ? (alt->value.as.p == NULL) : (alt->value.as.p != NULL);
+                    known = true;
+                }
+                else if (alt->relation == FLOW3_NOT_EQUAL && alt->value.as.p == NULL)
+                {
+                    result = is_equal ? false : true;
+                    known = true;
+                }
+            }
+        }
+        else if (alt->value.kind == FLOW3_VALUE_SIGNED || alt->value.kind == FLOW3_VALUE_UNSIGNED)
+        {
+            long long val = (alt->value.kind == FLOW3_VALUE_SIGNED) ? alt->value.as.i : (long long)alt->value.as.u;
+            if (alt->relation == FLOW3_EQUAL)
+            {
+                result = is_equal ? (val == c) : (val != c);
+                known = true;
+            }
+            else if (alt->relation == FLOW3_NOT_EQUAL && val == c)
+            {
+                result = is_equal ? false : true;
+                known = true;
+            }
+        }
+        if (!known) return -1;
+        if (result) all_false = false; else all_true = false;
+    }
+    if (all_true) return 1;
+    if (all_false) return 0;
+    return -1;
+}
+
+
+static int flow3_evaluate_relational(const struct flow3_alternatives* left_alts,
+                                     const struct flow3_alternatives* right_alts,
+                                     enum expression_type op)
+{
+    long long left_vals[32];
+    int left_count = 0;
+    for (int i = 0; i < left_alts->size && left_count < 32; i++)
+    {
+        const struct flow3_alternative* alt = &left_alts->data[i];
+        if (alt->imaginary == FLOW3_IMAGINARY_ABSENT || alt->relation != FLOW3_EQUAL) return -1;
+        if (alt->value.kind != FLOW3_VALUE_SIGNED && alt->value.kind != FLOW3_VALUE_UNSIGNED) return -1;
+        left_vals[left_count++] = (alt->value.kind == FLOW3_VALUE_SIGNED) ? alt->value.as.i : (long long)alt->value.as.u;
+    }
+    if (left_count == 0) return -1;
+
+    long long right_vals[32];
+    int right_count = 0;
+    for (int i = 0; i < right_alts->size && right_count < 32; i++)
+    {
+        const struct flow3_alternative* alt = &right_alts->data[i];
+        if (alt->imaginary == FLOW3_IMAGINARY_ABSENT || alt->relation != FLOW3_EQUAL) return -1;
+        if (alt->value.kind != FLOW3_VALUE_SIGNED && alt->value.kind != FLOW3_VALUE_UNSIGNED) return -1;
+        right_vals[right_count++] = (alt->value.kind == FLOW3_VALUE_SIGNED) ? alt->value.as.i : (long long)alt->value.as.u;
+    }
+    if (right_count == 0) return -1;
+
+    bool all_true = true, all_false = true;
+    for (int i = 0; i < left_count; i++)
+    {
+        for (int j = 0; j < right_count; j++)
+        {
+            bool result;
+            switch (op)
+            {
+            case EXPR_RELATIONAL_BIGGER_THAN:          result = left_vals[i] > right_vals[j]; break;
+            case EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN: result = left_vals[i] >= right_vals[j]; break;
+            case EXPR_RELATIONAL_LESS_THAN:            result = left_vals[i] < right_vals[j]; break;
+            case EXPR_RELATIONAL_LESS_OR_EQUAL_THAN:   result = left_vals[i] <= right_vals[j]; break;
+            default: return -1;
+            }
+            if (result) all_false = false;
+            else all_true = false;
+        }
+    }
+
+    if (all_true) return 1;
+    if (all_false) return 0;
+    return -1;
+}
+
+// Helper: get a display name (uses member_designator if present)
+const char* obj_display(const struct object* obj)
+{
+    if (obj && obj->member_designator && obj->member_designator[0])
+        return obj->member_designator;
+    static char buf[32];
+    snprintf(buf, sizeof(buf), "0x%lx", (unsigned long)(uintptr_t)obj);
+    return buf;
+}
+
+// Helper: print a single alternative’s value (ignores relation)
+void print_value(const struct flow3_alternative* alt)
+{
+    if (alt->imaginary == FLOW3_IMAGINARY_ABSENT)
+    {
+        printf("ABSENT");
+        return;
+    }
+    switch (alt->value.kind)
+    {
+    case FLOW3_VALUE_SIGNED:   printf("%lld", alt->value.as.i); break;
+    case FLOW3_VALUE_UNSIGNED: printf("%llu", alt->value.as.u); break;
+    case FLOW3_VALUE_PTR:      printf("%s", obj_display(alt->value.as.p)); break;
+    case FLOW3_VALUE_REF:      printf("REF->%s", obj_display(alt->value.as.p)); break;
+    default:                   printf("?");
+    }
+}
+
+
+static void flow3_evaluate_binary_arithmetic(struct flow3_visit_ctx* ctx,
+                                             const struct expression* p_left,
+                                             const struct expression* p_right,
+                                             const struct expression* p_result,
+                                             char op)
+{
+    const struct flow3_key_alternatives* left_entry =
+        flow3_map_search_up(ctx->p_current_flow3_map, &p_left->object);
+    const struct flow3_key_alternatives* right_entry =
+        flow3_map_search_up(ctx->p_current_flow3_map, &p_right->object);
+
+    if (!left_entry || !right_entry)
+    {
+        flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+                                         &p_result->object,
+                                         ANY_VALUE, FLOW3_ANY,
+                                         p_result->first_token->line);
+        return;
+    }
+
+    struct flow3_alternatives result_alts = { 0 };
+    struct marker marker = expression_to_marker(p_result);
+
+    // ---- Outer loop over left top‑level alternatives ----
+    for (int li = 0; li < left_entry->alternatives.size; li++)
+    {
+        const struct flow3_alternative* lalt = &left_entry->alternatives.data[li];
+        if (lalt->imaginary == FLOW3_IMAGINARY_ABSENT) continue;
+
+        // Resolve left REF if present
+        const struct flow3_key_alternatives* left_resolved = left_entry;
+        if (lalt->value.kind == FLOW3_VALUE_REF && lalt->value.as.p != NULL)
+        {
+            left_resolved = flow3_map_search_up(ctx->p_current_flow3_map, lalt->value.as.p);
+            if (!left_resolved) continue;
+        }
+
+        // ---- Loop over resolved left values ----
+        for (int lvi = 0; lvi < left_resolved->alternatives.size; lvi++)
+        {
+            const struct flow3_alternative* lval = &left_resolved->alternatives.data[lvi];
+            if (lval->imaginary == FLOW3_IMAGINARY_ABSENT) continue;
+
+            // ---- Middle loop over right top‑level alternatives ----
+            for (int ri = 0; ri < right_entry->alternatives.size; ri++)
+            {
+                const struct flow3_alternative* ralt = &right_entry->alternatives.data[ri];
+                if (ralt->imaginary == FLOW3_IMAGINARY_ABSENT) continue;
+
+                // Resolve right REF if present
+                const struct flow3_key_alternatives* right_resolved = right_entry;
+                if (ralt->value.kind == FLOW3_VALUE_REF && ralt->value.as.p != NULL)
+                {
+                    right_resolved = flow3_map_search_up(ctx->p_current_flow3_map, ralt->value.as.p);
+                    if (!right_resolved) continue;
+                }
+
+                // ---- Loop over resolved right values ----
+                for (int rvi = 0; rvi < right_resolved->alternatives.size; rvi++)
+                {
+                    const struct flow3_alternative* rval = &right_resolved->alternatives.data[rvi];
+                    if (rval->imaginary == FLOW3_IMAGINARY_ABSENT) continue;
+
+                    enum flow3_relation result_rel = FLOW3_ANY;
+                    long long result_val = ANY_VALUE;
+
+                    // Only if both are EQUAL and numeric can we compute an exact result
+                    if (lval->relation == FLOW3_EQUAL && rval->relation == FLOW3_EQUAL)
+                    {
+                        bool lnum = (lval->value.kind == FLOW3_VALUE_SIGNED || lval->value.kind == FLOW3_VALUE_UNSIGNED);
+                        bool rnum = (rval->value.kind == FLOW3_VALUE_SIGNED || rval->value.kind == FLOW3_VALUE_UNSIGNED);
+                        if (lnum && rnum)
+                        {
+                            long long l = (lval->value.kind == FLOW3_VALUE_SIGNED) ? lval->value.as.i : (long long)lval->value.as.u;
+                            long long r = (rval->value.kind == FLOW3_VALUE_SIGNED) ? rval->value.as.i : (long long)rval->value.as.u;
+
+                            switch (op)
+                            {
+                            case '+':
+                                result_val = l + r;
+                                result_rel = FLOW3_EQUAL;
+                                break;
+                            case '-':
+                                result_val = l - r;
+                                result_rel = FLOW3_EQUAL;
+                                break;
+                            case '*':
+                                result_val = l * r;
+                                result_rel = FLOW3_EQUAL;
+                                break;
+                            case '/':
+                                if (r == 0)
+                                {
+                                    diagnostic(W_FLOW_DIVISION_BY_ZERO, ctx->ctx, NULL, &marker, "division by zero");
+                                    // result remains ANY
+                                }
+                                else
+                                {
+                                    result_val = l / r;
+                                    result_rel = FLOW3_EQUAL;
+                                }
+                                break;
+                            case '%':
+                                if (r == 0)
+                                {
+                                    diagnostic(W_FLOW_DIVISION_BY_ZERO, ctx->ctx, NULL, &marker, "modulo by zero");
+                                    // result remains ANY
+                                }
+                                else
+                                {
+                                    result_val = l % r;
+                                    result_rel = FLOW3_EQUAL;
+                                }
+                                break;
+                            default:
+                                break;
+                            }
+                        }
+                    }
+
+                    // Build the result alternative
+                    enum flow3_value_kind result_kind = FLOW3_VALUE_SIGNED; // could be refined based on type
+                    struct flow3_value v;
+                    if (result_rel == FLOW3_EQUAL)
+                    {
+                        v.kind = result_kind;
+                        v.as.i = result_val;
+                    }
+                    else
+                    {
+                        v.kind = result_kind;
+                        v.as.i = ANY_VALUE;
+                    }
+
+                    struct flow3_alternative a = { .value = v, .relation = result_rel, .imaginary = FLOW3_IMAGINARY_NONE };
+                    flow3_alternatives_add(&result_alts, &a,
+                                           ctx->p_current_flow3_map,
+                                           p_result->first_token->line);
+                }
+            }
+        }
+    }
+
+    // ---- Write the computed alternatives into the result expression ----
+    struct flow3_key_alternatives* dst =
+        flow3_map_find_add(ctx->p_current_flow3_map, &p_result->object);
+    if (dst)
+    {
+        flow3_alternatives_clear(&dst->alternatives);
+        if (result_alts.size > 0)
+            dst->alternatives = result_alts;   // move
+        else
+            flow3_alternatives_add_i(&dst->alternatives, ANY_VALUE, FLOW3_ANY, FLOW3_IMAGINARY_NONE,
+                                     ctx->p_current_flow3_map,
+                                     p_result->first_token->line);
+    }
+    else
+    {
+        flow3_alternatives_clear(&result_alts);
+    }
+}
+
+
+static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* ctx, const struct expression* p_expression)
 {
     struct flow3_map* p_before = ctx->p_current_flow3_map;
     (void)p_before; /* used in some cases below */
-    struct object* p_expresssion_object = &p_expression->object;
-    p_expresssion_object;
 
     switch (p_expression->expression_type)
     {
@@ -2928,11 +2949,6 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
             FLOW3_EQUAL,
             p_expression->first_token->line);
 
-
-        if (ctx->ctx->options.do_static_debug)
-        {
-            flow3_expression_static_debug(ctx, p_expression);
-        }
         /* Build true/false branch maps narrowed on this variable. */
         const struct object* p_obj2 = &p_expression->declarator->object;
         struct flow3_map* p_true = flow3_narrow_map(&ctx->flow3_map_arena, ctx->p_current_flow3_map, p_obj2, true, "var-true");
@@ -2975,9 +2991,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
         struct flow3_key_alternatives* result_entry = flow3_map_find_add(ctx->p_current_flow3_map, &p_expression->object);
         flow3_alternatives_clear(&result_entry->alternatives);
 
-
         const struct flow3_key_alternatives* p_left_alternatives = flow3_map_search_up(ctx->p_current_flow3_map, &skip_parenthesis(p_expression->left)->object);
-
 
         struct flow3_map* p_true = flow3_map_arena_new(&ctx->flow3_map_arena, ctx->p_current_flow3_map, ".true");
         struct flow3_map* p_false = flow3_map_arena_new(&ctx->flow3_map_arena, ctx->p_current_flow3_map, ".false");
@@ -2994,6 +3008,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
                 flow3_alternatives_add_object_ref(&result_entry->alternatives,
                      p_member,
+                     FLOW3_IMAGINARY_NONE,
                      ctx->p_current_flow3_map,
                      p_expression->first_token->line);
 
@@ -3009,19 +3024,14 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
     case EXPR_POSTFIX_ARROW:
     {
-        /*
-           pointer->member
-           (*pointer).member
-        */
-
         assert(p_expression->left != NULL);
 
         flow3_visit_expression(ctx, p_expression->left);
 
         const int member_index = p_expression->member_index;
+        struct marker marker = expression_to_marker(p_expression);
 
         const struct flow3_key_alternatives* p_left_alternatives = flow3_map_search_up(ctx->p_current_flow3_map, &p_expression->left->object);
-
 
         struct flow3_key_alternatives* result_entry = flow3_map_find_add(ctx->p_current_flow3_map, &p_expression->object);
         flow3_alternatives_clear(&result_entry->alternatives);
@@ -3037,30 +3047,118 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
             {
                 const struct flow3_alternative* ptr_alt = &p_left_alternatives->alternatives.data[i];
 
-                /* left->object holds PTR alternatives (concrete arena objects). */
-                //if (ptr_alt->relation != FLOW3_EQUAL ||
-                  //  ptr_alt->value.kind != FLOW3_VALUE_PTR ||
-//                    ptr_alt->value.as.p == NULL)
-  //                  continue;
+                if (ptr_alt->imaginary == FLOW3_IMAGINARY_ABSENT)
+                    continue;
 
-                /* Step 1: dereference — get the REF alternatives of *p. */
-                const struct flow3_key_alternatives* p_pointed_alternatives = flow3_map_search_up(ctx->p_current_flow3_map, ptr_alt->value.as.p);
-                if (p_pointed_alternatives == NULL)
+                /* Resolve LHS to concrete pointer alternatives */
+                const struct flow3_key_alternatives* p_pointer_alts = NULL;
+                if (ptr_alt->relation == FLOW3_EQUAL &&
+                    ptr_alt->value.kind == FLOW3_VALUE_REF &&
+                    ptr_alt->value.as.p != NULL)
+                {
+                    p_pointer_alts = flow3_map_search_up(ctx->p_current_flow3_map, ptr_alt->value.as.p);
+                }
+                else if (ptr_alt->value.kind == FLOW3_VALUE_PTR)
+                {
+                    /* Direct pointer – treat as single-alternative */
+                    p_pointer_alts = NULL;
+                }
+                else
                 {
                     continue;
                 }
 
-                for (int j = 0; j < p_pointed_alternatives->alternatives.size; j++)
+                /* Process a list of pointer alternatives (resolved from REF) */
+                if (p_pointer_alts != NULL)
                 {
-                    const struct flow3_alternative* ref_alt = &p_pointed_alternatives->alternatives.data[j];
+                    for (int k = 0; k < p_pointer_alts->alternatives.size; k++)
+                    {
+                        const struct flow3_alternative* p_pointer_alt = &p_pointer_alts->alternatives.data[k];
 
-                    // if (ref_alt->relation != FLOW3_EQUAL ||
-                      //   ref_alt->value.kind != FLOW3_VALUE_REF ||
-                        // ref_alt->value.as.p == NULL)
-                         //continue;
+                        if (p_pointer_alt->imaginary == FLOW3_IMAGINARY_ABSENT)
+                            continue;
 
-                     /* Step 2: index the member on the struct object. */
-                    struct object* member_obj = object_get_member(ref_alt->value.as.p, member_index);
+                        /* Null check */
+                        if (p_pointer_alt->relation == FLOW3_EQUAL &&
+                            p_pointer_alt->value.kind == FLOW3_VALUE_PTR &&
+                            p_pointer_alt->value.as.p == NULL)
+                        {
+                            diagnostic(W_FLOW_NULL_DEREFERENCE, ctx->ctx, NULL, &marker,
+                                       "-> operator applied to a null pointer");
+                            continue;
+                        }
+
+                        if (p_pointer_alt->value.kind != FLOW3_VALUE_PTR || p_pointer_alt->value.as.p == NULL)
+                            continue;
+
+                        const struct object* p_pointed_obj = p_pointer_alt->value.as.p;
+
+                        /* Lifetime check for the pointed object */
+                        const struct flow3_key_alternatives* p_pointed_entry = flow3_map_search_up(ctx->p_current_flow3_map, p_pointed_obj);
+                        if (p_pointed_entry)
+                        {
+                            for (int j = 0; j < p_pointed_entry->alternatives.size; j++)
+                            {
+                                const struct flow3_alternative* pointed_alt = &p_pointed_entry->alternatives.data[j];
+                                if (pointed_alt->imaginary == FLOW3_IMAGINARY_ENDED)
+                                {
+                                    diagnostic(W_FLOW_LIFETIME_ENDED, ctx->ctx, NULL, &marker,
+                                               "-> operator: pointed object lifetime has ended");
+                                }
+                            }
+                        }
+
+                        struct object* member_obj = object_get_member(p_pointed_obj, member_index);
+                        if (member_obj == NULL)
+                        {
+                            //assert(false);
+                            continue;
+                        }
+
+                        flow3_alternatives_add_object_ref(&result_entry->alternatives,
+                            member_obj,
+                            FLOW3_IMAGINARY_NONE,
+                            ctx->p_current_flow3_map,
+                            p_expression->first_token->line);
+
+                        flow3_narrow_map_into(p_true, ctx->p_current_flow3_map, member_obj, true);
+                        flow3_narrow_map_into(p_false, ctx->p_current_flow3_map, member_obj, false);
+
+                        any_member_resolved = true;
+                    }
+                }
+                else
+                {
+                    /* Direct pointer alternative (ptr_alt is FLOW3_VALUE_PTR) */
+                    if (ptr_alt->relation == FLOW3_EQUAL &&
+                        ptr_alt->value.kind == FLOW3_VALUE_PTR &&
+                        ptr_alt->value.as.p == NULL)
+                    {
+                        diagnostic(W_FLOW_NULL_DEREFERENCE, ctx->ctx, NULL, &marker,
+                                   "-> operator applied to a null pointer");
+                        continue;
+                    }
+
+                    if (ptr_alt->value.kind != FLOW3_VALUE_PTR || ptr_alt->value.as.p == NULL)
+                        continue;
+
+                    const struct object* p_pointed_obj = ptr_alt->value.as.p;
+
+                    const struct flow3_key_alternatives* p_pointed_entry = flow3_map_search_up(ctx->p_current_flow3_map, p_pointed_obj);
+                    if (p_pointed_entry)
+                    {
+                        for (int j = 0; j < p_pointed_entry->alternatives.size; j++)
+                        {
+                            const struct flow3_alternative* pointed_alt = &p_pointed_entry->alternatives.data[j];
+                            if (pointed_alt->imaginary == FLOW3_IMAGINARY_ENDED)
+                            {
+                                diagnostic(W_FLOW_LIFETIME_ENDED, ctx->ctx, NULL, &marker,
+                                           "-> operator: pointed object lifetime has ended");
+                            }
+                        }
+                    }
+
+                    struct object* member_obj = object_get_member(p_pointed_obj, member_index);
                     if (member_obj == NULL)
                     {
                         assert(false);
@@ -3069,10 +3167,10 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
                     flow3_alternatives_add_object_ref(&result_entry->alternatives,
                         member_obj,
+                        FLOW3_IMAGINARY_NONE,
                         ctx->p_current_flow3_map,
                         p_expression->first_token->line);
 
-                    /* Narrow both branch maps on this member. */
                     flow3_narrow_map_into(p_true, ctx->p_current_flow3_map, member_obj, true);
                     flow3_narrow_map_into(p_false, ctx->p_current_flow3_map, member_obj, false);
 
@@ -3083,56 +3181,12 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
         if (!any_member_resolved)
         {
-            /* No concrete member resolved — fall back to narrowing the
-             * transient expression object, preserving pre-existing behaviour. */
             p_true = flow3_narrow_map(&ctx->flow3_map_arena, ctx->p_current_flow3_map, &p_expression->object, true, "arrow-true");
             p_false = flow3_narrow_map(&ctx->flow3_map_arena, ctx->p_current_flow3_map, &p_expression->object, false, "arrow-false");
         }
 
         flow3_map_remove(ctx->p_current_flow3_map, &p_expression->left->object);
         return (struct flow3_branch_pair) { p_true, p_false };
-    }
-    break;
-
-    case EXPR_POSTFIX_INCREMENT:
-    case EXPR_POSTFIX_DECREMENT:
-    {
-        assert(p_expression->left != NULL);
-        flow3_visit_expression(ctx, p_expression->left);
-        {
-            long long old_val = 0;
-            if (flow3_object_get_known_equal_int(ctx->p_current_flow3_map, &p_expression->left->object, &old_val))
-            {
-                /*
-                 * Operand has a known EQUAL value in the map: compute both the
-                 * expression result (the original value, post semantics) and the
-                 * new value of the variable itself.
-                 */
-                const long long new_val = (p_expression->expression_type == EXPR_POSTFIX_INCREMENT)
-                    ? old_val + 1 : old_val - 1;
-
-                /* The expression yields the OLD value. */
-                flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                    &p_expression->object, old_val, FLOW3_EQUAL,
-                    p_expression->first_token->line);
-
-                /* The operand variable is updated to the NEW value. */
-                flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                    &p_expression->left->object, new_val, FLOW3_EQUAL,
-                    p_expression->first_token->line);
-            }
-            else
-            {
-                /*
-                 * Operand value unknown — result and updated variable are both
-                 * unknown.  Mark the expression object as ANY so downstream
-                 * consumers don't read a stale zero.
-                 */
-                flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                    &p_expression->object, ANY_VALUE, FLOW3_ANY,
-                    p_expression->first_token->line);
-            }
-        }
     }
     break;
 
@@ -3147,6 +3201,8 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
         const struct object* p_obj = &p_expression->object;
         struct flow3_map* p_true = flow3_narrow_map(&ctx->flow3_map_arena, ctx->p_current_flow3_map, p_obj, true, "arr-true");
         struct flow3_map* p_false = flow3_narrow_map(&ctx->flow3_map_arena, ctx->p_current_flow3_map, p_obj, false, "arr-false");
+        flow3_map_remove(ctx->p_current_flow3_map, &p_expression->left->object);
+        flow3_map_remove(ctx->p_current_flow3_map, &p_expression->right->object);
         return (struct flow3_branch_pair) { p_true, p_false };
     }
 
@@ -3168,7 +3224,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
 
             struct flow3_map* p_null_map = flow3_map_arena_new(&ctx->flow3_map_arena, ctx->p_current_flow3_map, "call-opt-null");
-            flow3_alternatives_add_object_ptr(&p_result_alternatives->alternatives, NULL, FLOW3_EQUAL, p_null_map, call_line);
+            flow3_alternatives_add_object_ptr(&p_result_alternatives->alternatives, NULL, FLOW3_EQUAL, FLOW3_IMAGINARY_NONE, p_null_map, call_line);
 
             struct flow3_map* p_nonnull_map = flow3_map_arena_new(&ctx->flow3_map_arena, ctx->p_current_flow3_map, "call-opt-nonnull");
 
@@ -3181,7 +3237,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
             flow3_object_init(ctx, p_pointed, &pointed_type, call_line);
             ctx->p_current_flow3_map = old;
 
-            flow3_alternatives_add_object_ptr(&p_result_alternatives->alternatives, p_pointed, FLOW3_EQUAL, p_nonnull_map, call_line);
+            flow3_alternatives_add_object_ptr(&p_result_alternatives->alternatives, p_pointed, FLOW3_EQUAL, FLOW3_IMAGINARY_NONE, p_nonnull_map, call_line);
 
 
         }
@@ -3190,6 +3246,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
             struct flow3_value v = { .kind = FLOW3_VALUE_PTR, .as = {.p = NULL } };
             flow3_map_replace_alternatives(ctx->p_current_flow3_map, &p_expression->object, v, FLOW3_NOT_EQUAL, call_line);
         }
+        flow3_map_remove(ctx->p_current_flow3_map, &p_expression->left->object);
     }
     break;
 
@@ -3199,37 +3256,39 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
         break;
 
     case EXPR_POSTFIX_COMPOUND_LITERAL:
-
+    {
         assert(p_expression->left == NULL);
         assert(p_expression->right == NULL);
         assert(p_expression->type_name != NULL);
         assert(p_expression->braced_initializer != NULL);
+
+        //const struct object* p_agg = &p_expression->object;
+        int line = p_expression->first_token->line;
+
+        /* 1. Evaluate all RHS expressions. */
         flow3_visit_bracket_initializer_list(ctx, p_expression->braced_initializer);
-        /*
-         * A compound literal produces a value that is not tracked as a named
-         * variable.  Record ANY so the expression object is not left
-         * uninitialized in the map.
-         */
+
+
+        /* 4. Compound literal object is now fully initialised; mark as ANY. */
         flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-            &p_expression->object, ANY_VALUE, FLOW3_ANY,
-            p_expression->first_token->line);
+            &p_expression->object, ANY_VALUE, FLOW3_ANY, line);
         break;
+    }
 
     case EXPR_UNARY_STATIC_ASSERTION:
-
         assert(p_expression->static_assertion);
         flow3_visit_static_assertion(ctx, p_expression->static_assertion);
-
         break;
 
     case EXPR_UNARY_ALIGNOF_EXPRESSION:
-        if (p_expression->right)
-        {
-            flow3_visit_expression(ctx, p_expression->right);
-        }
+        assert(p_expression->right);
+        flow3_visit_expression(ctx, p_expression->right);
+        //TODO returns a constant
         break;
 
     case EXPR_UNARY_ALIGNOF_TYPE:
+        //TODO returns a constant
+
         break;
 
     case EXPR_UNARY_ASSERT:
@@ -3253,13 +3312,13 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
         break;
 
     case EXPR_UNARY_SIZEOF_EXPRESSION:
-        if (p_expression->right)
-        {
-            const bool t2 = ctx->expression_is_not_evaluated;
-            ctx->expression_is_not_evaluated = true;
-            flow3_visit_expression(ctx, p_expression->right);
-            ctx->expression_is_not_evaluated = t2;
-        }
+        assert(p_expression->right);
+
+        const bool t2 = ctx->expression_is_not_evaluated;
+        ctx->expression_is_not_evaluated = true;
+        flow3_visit_expression(ctx, p_expression->right);
+        ctx->expression_is_not_evaluated = t2;
+        //TODO return a constant
         break;
 
     case EXPR_UNARY_NEG:
@@ -3286,12 +3345,12 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
                 &p_expression->object, ANY_VALUE, FLOW3_ANY,
                 p_expression->first_token->line);
         }
+        flow3_map_remove(ctx->p_current_flow3_map, &p_expression->right->object);
         break;
 
     case EXPR_UNARY_NOT:
     {
         assert(p_expression->right != NULL);
-        flow3_check_pointer_used_as_bool(ctx, p_expression->right);
 
         /*
          * Visit the child first so that any sub-expression is fully evaluated
@@ -3308,6 +3367,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
             flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
                 &p_expression->object, result, FLOW3_EQUAL,
                 p_expression->first_token->line);
+            flow3_map_remove(ctx->p_current_flow3_map, &p_expression->right->object);
             if (result != 0)
             {
                 struct flow3_map* p_dead = flow3_map_arena_new(&ctx->flow3_map_arena, p_before, "not-dead-false");
@@ -3320,34 +3380,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
             }
         }
 
-        /* Propagate the boolean result into this expression's object. */
-        {
-            long long result_value;
-            enum flow3_relation result_rel;
-
-            if (flow3_object_is_zero(ctx->p_current_flow3_map,
-                &p_expression->right->object))
-            {
-                /* Operand is definitively zero -> !x is 1. */
-                result_value = 1; result_rel = FLOW3_EQUAL;
-            }
-            else if (flow3_object_is_not_zero(ctx->p_current_flow3_map,
-                &p_expression->right->object))
-            {
-                /* Operand is definitively nonzero -> !x is 0. */
-                result_value = 0; result_rel = FLOW3_EQUAL;
-            }
-            else
-            {
-                result_value = 0; result_rel = FLOW3_ANY;
-            }
-
-            flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                &p_expression->object,
-                result_value, result_rel,
-                p_expression->first_token->line);
-        }
-
+        flow3_map_remove(ctx->p_current_flow3_map, &p_expression->right->object);
         /* NOT swaps the two branches. */
         return (struct flow3_branch_pair) { child.p_false, child.p_true };
     }
@@ -3363,48 +3396,135 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
     case EXPR_UNARY_SIZEOF_TYPE:
     case EXPR_UNARY_COUNTOF:
+        //todo return constnat
         break;
 
     case EXPR_UNARY_INCREMENT:
     case EXPR_UNARY_DECREMENT:
-        assert(p_expression->right != NULL);
-        flow3_visit_expression(ctx, p_expression->right);
+    case EXPR_POSTFIX_INCREMENT:
+    case EXPR_POSTFIX_DECREMENT:
+    {
+        struct expression* p_operand = NULL;
+
+        if (p_expression->expression_type == EXPR_UNARY_INCREMENT ||
+            p_expression->expression_type == EXPR_UNARY_DECREMENT)
         {
-            long long old_val = 0;
-            if (flow3_object_get_known_equal_int(ctx->p_current_flow3_map,
-                &p_expression->right->object, &old_val))
-            {
-                /*
-                 * Operand has a known EQUAL value in the map: compute the new
-                 * value.  Pre-increment/decrement yields the NEW value (unlike
-                 * postfix).
-                 */
-                const long long new_val = (p_expression->expression_type == EXPR_UNARY_INCREMENT)
-                    ? old_val + 1 : old_val - 1;
+            assert(p_expression->right != NULL);
+            p_operand = p_expression->right;
+        }
+        else // postfix
+        {
+            assert(p_expression->left != NULL);
+            p_operand = p_expression->left;
+        }
 
-                /* The expression yields the NEW value. */
-                flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                    &p_expression->object, new_val, FLOW3_EQUAL,
-                    p_expression->first_token->line);
+        // Evaluate the operand first.
+        flow3_visit_expression(ctx, p_operand);
 
-                /* The operand variable is updated to the NEW value. */
-                flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                    &p_expression->right->object, new_val, FLOW3_EQUAL,
-                    p_expression->first_token->line);
-            }
-            else
+        bool is_postfix = (p_expression->expression_type == EXPR_POSTFIX_INCREMENT ||
+                           p_expression->expression_type == EXPR_POSTFIX_DECREMENT);
+        bool is_increment = (p_expression->expression_type == EXPR_UNARY_INCREMENT ||
+                             p_expression->expression_type == EXPR_POSTFIX_INCREMENT);
+
+        // Resolve the operand's object to its actual alternatives.
+        const struct object* p_obj = &p_operand->object;
+        const struct flow3_key_alternatives* p_entry =
+            flow3_map_search_up(ctx->p_current_flow3_map, p_obj);
+        if (p_entry == NULL)
+        {
+            flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+                p_obj, ANY_VALUE, FLOW3_ANY, p_expression->first_token->line);
+            flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+                &p_expression->object, ANY_VALUE, FLOW3_ANY,
+                p_expression->first_token->line);
+            break;
+        }
+
+        // Follow REF indirections.
+        const struct flow3_key_alternatives* p_resolved = p_entry;
+        if (p_entry->alternatives.size == 1 &&
+            p_entry->alternatives.data[0].relation == FLOW3_EQUAL &&
+            p_entry->alternatives.data[0].value.kind == FLOW3_VALUE_REF &&
+            p_entry->alternatives.data[0].value.as.p != NULL)
+        {
+            p_resolved = flow3_map_search_up(ctx->p_current_flow3_map,
+                                             p_entry->alternatives.data[0].value.as.p);
+            if (p_resolved == NULL)
             {
-                /*
-                 * Operand value unknown — result and updated variable are both
-                 * unknown.  Mark the expression object as ANY so downstream
-                 * consumers don't read a stale zero.
-                 */
+                flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+                    p_obj, ANY_VALUE, FLOW3_ANY, p_expression->first_token->line);
                 flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
                     &p_expression->object, ANY_VALUE, FLOW3_ANY,
                     p_expression->first_token->line);
+                break;
             }
         }
+
+        const struct object* p_actual_obj = p_resolved->p_obj_key;
+        struct flow3_alternatives new_var_alts = { 0 };
+        struct flow3_alternatives new_result_alts = { 0 };
+
+        for (int i = 0; i < p_resolved->alternatives.size; i++)
+        {
+            const struct flow3_alternative* alt = &p_resolved->alternatives.data[i];
+
+            if (alt->imaginary == FLOW3_IMAGINARY_ABSENT || alt->relation == FLOW3_UNINITIALIZED)
+            {
+                flow3_alternatives_add_i(&new_var_alts, ANY_VALUE, FLOW3_ANY, FLOW3_IMAGINARY_NONE,
+                    ctx->p_current_flow3_map, p_expression->first_token->line);
+                flow3_alternatives_add_i(&new_result_alts, ANY_VALUE, FLOW3_ANY, FLOW3_IMAGINARY_NONE,
+                    ctx->p_current_flow3_map, p_expression->first_token->line);
+                continue;
+            }
+
+            if (alt->relation == FLOW3_EQUAL &&
+                (alt->value.kind == FLOW3_VALUE_SIGNED ||
+                    alt->value.kind == FLOW3_VALUE_UNSIGNED))
+            {
+                long long old = (alt->value.kind == FLOW3_VALUE_SIGNED)
+                    ? alt->value.as.i
+                    : (long long)alt->value.as.u;
+                long long new_val = is_increment ? old + 1 : old - 1;
+
+                flow3_alternatives_add_i(&new_var_alts, new_val, FLOW3_EQUAL, FLOW3_IMAGINARY_NONE,
+                    ctx->p_current_flow3_map, p_expression->first_token->line);
+
+                long long result_val = is_postfix ? old : new_val;
+                flow3_alternatives_add_i(&new_result_alts, result_val, FLOW3_EQUAL, FLOW3_IMAGINARY_NONE,
+                    ctx->p_current_flow3_map, p_expression->first_token->line);
+            }
+            else
+            {
+                flow3_alternatives_add_i(&new_var_alts, ANY_VALUE, FLOW3_ANY, FLOW3_IMAGINARY_NONE,
+                    ctx->p_current_flow3_map, p_expression->first_token->line);
+                flow3_alternatives_add_i(&new_result_alts, ANY_VALUE, FLOW3_ANY, FLOW3_IMAGINARY_NONE,
+                    ctx->p_current_flow3_map, p_expression->first_token->line);
+            }
+        }
+
+        // Replace the variable's alternatives.
+        struct flow3_key_alternatives* p_var_entry =
+            flow3_map_find_add(ctx->p_current_flow3_map, p_actual_obj);
+        if (p_var_entry)
+        {
+            flow3_alternatives_clear(&p_var_entry->alternatives);
+            p_var_entry->alternatives = new_var_alts;
+        }
+
+        // Replace the expression result's alternatives.
+        struct flow3_key_alternatives* p_result_entry =
+            flow3_map_find_add(ctx->p_current_flow3_map, &p_expression->object);
+        if (p_result_entry)
+        {
+            flow3_alternatives_clear(&p_result_entry->alternatives);
+            p_result_entry->alternatives = new_result_alts;
+        }
+
+        // Remove the temporary operand object entry.
+        flow3_map_remove(ctx->p_current_flow3_map, &p_operand->object);
         break;
+    }
+    break;
 
     case EXPR_UNARY_BITNOT:
         assert(p_expression->right != NULL);
@@ -3428,6 +3548,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
                 &p_expression->object, ANY_VALUE, FLOW3_ANY,
                 p_expression->first_token->line);
         }
+        flow3_map_remove(ctx->p_current_flow3_map, &p_expression->right->object);
         break;
 
     case EXPR_UNARY_ADDRESSOF:
@@ -3449,10 +3570,12 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
                 flow3_alternatives_add_object_ptr(&result_entry->alternatives,
                     p_right_alternative->value.as.p,
                     FLOW3_EQUAL,
+                    FLOW3_IMAGINARY_NONE,
                     ctx->p_current_flow3_map,
                     p_expression->first_token->line);
             }
         }
+        flow3_map_remove(ctx->p_current_flow3_map, &p_expression->right->object);
     }
 
     break;
@@ -3465,24 +3588,47 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
         struct flow3_key_alternatives* result_entry = flow3_map_find_add(ctx->p_current_flow3_map, &p_expression->object);
         flow3_alternatives_clear(&result_entry->alternatives);
+        struct marker marker = expression_to_marker(p_expression);
 
         const struct flow3_key_alternatives* p_right_alternatives = flow3_map_search_up(ctx->p_current_flow3_map, &p_expression->right->object);
 
         for (int i = 0; i < p_right_alternatives->alternatives.size; i++)
         {
-            const struct flow3_alternative* p_right_alternative = &p_right_alternatives->alternatives.data[i];
+            const struct flow3_alternative* p_right_alt = &p_right_alternatives->alternatives.data[i];
 
-            const struct flow3_key_alternatives* p_pointed_alternatives = flow3_map_search_up(ctx->p_current_flow3_map, p_right_alternative->value.as.p);
-            for (int j = 0; j < p_pointed_alternatives->alternatives.size; j++)
+            if (p_right_alt->imaginary == FLOW3_IMAGINARY_ABSENT)
+                continue;
+            if (p_right_alt->value.kind == FLOW3_VALUE_REF)
             {
-                const struct flow3_alternative* pointed_alternative = &p_pointed_alternatives->alternatives.data[j];
+                const struct flow3_key_alternatives* p_right_alternatives2 = flow3_map_search_up(ctx->p_current_flow3_map,
+                    p_right_alt->value.as.p);
 
-                flow3_alternatives_add_object_ref(&result_entry->alternatives,
-                        pointed_alternative->value.as.p,
-                        ctx->p_current_flow3_map,
-                        p_expression->first_token->line);
+                for (int j = 0; j < p_right_alternatives2->alternatives.size; j++)
+                {
+                    const struct flow3_alternative* p_right_alt2 = &p_right_alternatives2->alternatives.data[j];
+
+                    if (flow3_alternative_can_be_zero(p_right_alt2))
+                    {
+                        diagnostic(W_FLOW_NULL_DEREFERENCE, ctx->ctx, NULL, &marker,
+                                                        "possible null pointer dereference");
+
+                    }
+
+                    flow3_alternatives_add_object_ref(&result_entry->alternatives,
+                                                    p_right_alt2->value.as.p,
+                                                    FLOW3_IMAGINARY_NONE,
+                                                    ctx->p_current_flow3_map,
+                                                    p_expression->first_token->line);
+                }
+            }
+            else
+            {
+                //*0 ?
+                // *(p ++)
             }
         }
+
+        flow3_map_remove(ctx->p_current_flow3_map, &p_expression->right->object);
     }
     break;
 
@@ -3490,49 +3636,28 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
     {
         assert(p_expression->right != NULL);
         assert(p_expression->left != NULL);
-        struct object* p_right_object = &p_expression->right->object;
-        struct object* p_left_object = &p_expression->left->object;
-        p_left_object; p_right_object;
+
+        // Evaluate both sides (side effects, constant folding)
         flow3_visit_expression(ctx, p_expression->left);
         flow3_visit_expression(ctx, p_expression->right);
 
-        struct flow3_key_alternatives* p_result_alternatives = flow3_map_find_add(ctx->p_current_flow3_map, &p_expression->object);
-        flow3_alternatives_clear(&p_result_alternatives->alternatives);
+        flow3_check_assigment(ctx, p_expression->left, p_expression->right);
+        // ---- Branch maps for boolean context ----
+        struct flow3_map* p_true = flow3_narrow_map(&ctx->flow3_map_arena,
+                                                    ctx->p_current_flow3_map,
+                                                    &p_expression->left->object,
+                                                    true,
+                                                    "assign-true");
+        struct flow3_map* p_false = flow3_narrow_map(&ctx->flow3_map_arena,
+                                                     ctx->p_current_flow3_map,
+                                                     &p_expression->left->object,
+                                                      false,
+                                                       "assign-false");
 
-        const struct flow3_key_alternatives* p_left_alternatives = flow3_map_search_up(ctx->p_current_flow3_map, &p_expression->left->object);
-        const struct flow3_key_alternatives* p_right_alternatives = flow3_map_search_up(ctx->p_current_flow3_map, &p_expression->right->object);
-
-        struct flow3_map* p_true = flow3_map_arena_new(&ctx->flow3_map_arena, ctx->p_current_flow3_map, ".true");
-        struct flow3_map* p_false = flow3_map_arena_new(&ctx->flow3_map_arena, ctx->p_current_flow3_map, ".false");
-
-        for (int i = 0; i < p_left_alternatives->alternatives.size; i++)
-        {
-            const struct flow3_alternative* p_left_alternative = &p_left_alternatives->alternatives.data[i];
-            if (p_left_alternative->relation == FLOW3_EQUAL &&
-                p_left_alternative->value.kind == FLOW3_VALUE_REF &&
-                p_left_alternative->value.as.p != NULL)
-            {
-                struct flow3_key_alternatives* p_left_object_alternatives = flow3_map_find_add(ctx->p_current_flow3_map, p_left_alternative->value.as.p);
-                flow3_alternatives_clear(&p_left_object_alternatives->alternatives);
-
-                for (int j = 0; j < p_right_alternatives->alternatives.size; j++)
-                {
-
-                    const struct flow3_alternative* p_right_alternative = &p_right_alternatives->alternatives.data[j];
-                    if (p_right_alternative->relation == FLOW3_EQUAL)
-                    {
-                        flow3_alternatives_add(&p_left_object_alternatives->alternatives, p_right_alternative->value, FLOW3_EQUAL, ctx->p_current_flow3_map, p_expression->first_token->line);
-                    }
-                }
-
-                flow3_alternatives_add_object_ref(&p_result_alternatives->alternatives, &p_expression->left->object, ctx->p_current_flow3_map, p_expression->first_token->line);
-
-            }
-        }
+        // Remove temporary entries for left and right sub‑expressions
         flow3_map_remove(ctx->p_current_flow3_map, &p_expression->left->object);
         flow3_map_remove(ctx->p_current_flow3_map, &p_expression->right->object);
 
-        /* Narrow on the member field used as bool. */
         return (struct flow3_branch_pair) { p_true, p_false };
     }
 
@@ -3550,22 +3675,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
         assert(p_expression->right != NULL);
         assert(p_expression->left != NULL);
 
-        /*
-         * Uninitialized check must happen BEFORE the map is updated so
-         * that we diagnose reading an uninitialised LHS (e.g. b += 1
-         * when b was never written).
-         */
-        if (flow3_object_can_be_uninitialized(ctx->p_current_flow3_map, &p_expression->left->object))
-        {
-            if (flow3_object_is_uninitialized(ctx->p_current_flow3_map, &p_expression->left->object))
-            {
-                diagnostic(W_UNINITIALZED, ctx->ctx, p_expression->left->first_token, NULL, "left object is uninitialized");
-            }
-            else
-            {
-                diagnostic(W_UNINITIALZED, ctx->ctx, p_expression->left->first_token, NULL, "left object can be uninitialized");
-            }
-        }
+
 
         struct flow3_branch_pair lhs_pair2 = flow3_visit_expression(ctx, p_expression->left);
         flow3_visit_expression(ctx, p_expression->right);
@@ -3611,245 +3721,310 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
                 p_expression->right->first_token->line);
         }
 
+        flow3_map_remove(ctx->p_current_flow3_map, &p_expression->left->object);
+        flow3_map_remove(ctx->p_current_flow3_map, &p_expression->right->object);
         return lhs_pair2;
     }
+    case EXPR_MULTIPLICATIVE_MULT:
     case EXPR_MULTIPLICATIVE_DIV:
+    case EXPR_MULTIPLICATIVE_MOD:
     {
-        assert(p_expression->right != NULL);
-        assert(p_expression->left != NULL);
-
-        if (object_has_constant_value(&p_expression->left->object) &&
-            object_has_constant_value(&p_expression->right->object))
+        char op = 0;
+        switch (p_expression->expression_type)
         {
-            const long long lv = object_to_signed_long_long(&p_expression->left->object);
-            const long long rv = object_to_signed_long_long(&p_expression->right->object);
-            if (rv == 0)
-            {
-                diagnostic(W_FLOW_DIVISION_BY_ZERO, ctx->ctx, p_expression->right->first_token, NULL, "division by zero");
-            }
-            else
-            {
-                flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                    &p_expression->object, lv / rv, FLOW3_EQUAL,
-                    p_expression->first_token->line);
-            }
-            break;
+        case EXPR_MULTIPLICATIVE_MULT: op = '*'; break;
+        case EXPR_MULTIPLICATIVE_DIV:  op = '/'; break;
+        case EXPR_MULTIPLICATIVE_MOD:  op = '%'; break;
+        default: break;
         }
 
         flow3_visit_expression(ctx, p_expression->left);
-
-        if (flow3_object_can_be_zero(ctx->p_current_flow3_map, &p_expression->right->object))
-        {
-            diagnostic(W_FLOW_DIVISION_BY_ZERO, ctx->ctx, p_expression->right->first_token, NULL, "possible division by zero");
-        }
-
         flow3_visit_expression(ctx, p_expression->right);
+
+        flow3_evaluate_binary_arithmetic(ctx,
+                                         p_expression->left,
+                                         p_expression->right,
+                                         p_expression,
+                                         op);
+
+        flow3_map_remove(ctx->p_current_flow3_map, &p_expression->left->object);
+        flow3_map_remove(ctx->p_current_flow3_map, &p_expression->right->object);
+        break;
     }
-    break;
+
 
     case EXPR_ADDITIVE_PLUS:
     case EXPR_ADDITIVE_MINUS:
     {
-        assert(p_expression->left != NULL);
-        assert(p_expression->right != NULL);
+        char op = 0;
+        switch (p_expression->expression_type)
+        {
+        case EXPR_ADDITIVE_PLUS:  op = '+'; break;
+        case EXPR_ADDITIVE_MINUS: op = '-'; break;
+        default: break;
+        }
 
         flow3_visit_expression(ctx, p_expression->left);
         flow3_visit_expression(ctx, p_expression->right);
 
-        long long lv = 0, rv = 0;
-        const bool left_is_const = flow3_get_known_int(ctx->p_current_flow3_map,
-                                        &p_expression->left->object, &lv);
-        const bool right_is_const = flow3_get_known_int(ctx->p_current_flow3_map,
-                                        &p_expression->right->object, &rv);
+        flow3_evaluate_binary_arithmetic(ctx,
+                                         p_expression->left,
+                                         p_expression->right,
+                                         p_expression,
+                                         op);
 
-        if (left_is_const && right_is_const)
-        {
-            /* Both sides known: fold to a single constant. */
-            const long long result = (p_expression->expression_type == EXPR_ADDITIVE_PLUS)
-                ? lv + rv
-                : lv - rv;
-            flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                &p_expression->object, result, FLOW3_EQUAL,
-                p_expression->first_token->line);
-        }
-        else if (p_expression->expression_type == EXPR_ADDITIVE_PLUS && right_is_const && rv == 0)
-        {
-            /*
-             * x + 0 == x: copy all of left's current alternatives into this
-             * expression's object so downstream consumers see the same value set.
-             */
-            const struct flow3_key_alternatives* src = flow3_map_search_up(ctx->p_current_flow3_map, &p_expression->left->object);
-            struct flow3_key_alternatives* dst = flow3_map_find_add(ctx->p_current_flow3_map, &p_expression->object);
-            if (dst)
-            {
-                flow3_alternatives_clear(&dst->alternatives);
-                if (src)
-                {
-                    flow3_alternatives_append(&dst->alternatives, &src->alternatives);
-                }
-            }
-        }
-        else if (p_expression->expression_type == EXPR_ADDITIVE_PLUS && left_is_const && lv == 0)
-        {
-            /*
-             * 0 + x == x: copy all of right's current alternatives into this
-             * expression's object.
-             */
-            const struct flow3_key_alternatives* src = flow3_map_search_up(ctx->p_current_flow3_map, &p_expression->right->object);
-            struct flow3_key_alternatives* dst = flow3_map_find_add(ctx->p_current_flow3_map, &p_expression->object);
-            if (dst)
-            {
-                flow3_alternatives_clear(&dst->alternatives);
-                if (src)
-                {
-                    flow3_alternatives_append(&dst->alternatives, &src->alternatives);
-                }
-            }
-        }
-        else if (p_expression->expression_type == EXPR_ADDITIVE_MINUS && right_is_const && rv == 0)
-        {
-            /*
-             * x - 0 == x: copy all of left's current alternatives into this
-             * expression's object.
-             */
-            const struct flow3_key_alternatives* src = flow3_map_search_up(ctx->p_current_flow3_map, &p_expression->left->object);
-            struct flow3_key_alternatives* dst = flow3_map_find_add(ctx->p_current_flow3_map, &p_expression->object);
-            if (dst)
-            {
-                flow3_alternatives_clear(&dst->alternatives);
-                if (src)
-                {
-                    flow3_alternatives_append(&dst->alternatives, &src->alternatives);
-                }
-            }
-        }
-        else if (p_expression->expression_type == EXPR_ADDITIVE_MINUS &&
-                 object_get_referenced(&p_expression->left->object) ==
-                 object_get_referenced(&p_expression->right->object))
-        {
-            /*
-             * x - x == 0: both operands are the same object, so the result is
-             * always zero regardless of the runtime value of x.
-             */
-            flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                &p_expression->object, 0, FLOW3_EQUAL,
-                p_expression->first_token->line);
-        }
-        else
-        {
-            /* Result not statically known. */
-            flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                &p_expression->object, ANY_VALUE, FLOW3_ANY,
-                p_expression->first_token->line);
-        }
+        flow3_map_remove(ctx->p_current_flow3_map, &p_expression->left->object);
+        flow3_map_remove(ctx->p_current_flow3_map, &p_expression->right->object);
         break;
     }
 
-    case EXPR_MULTIPLICATIVE_MULT:
-    {
-        assert(p_expression->left != NULL);
-        assert(p_expression->right != NULL);
-        flow3_visit_expression(ctx, p_expression->left);
-        flow3_visit_expression(ctx, p_expression->right);
-
-        long long lv = 0, rv = 0;
-        const bool left_is_const = flow3_get_known_int(ctx->p_current_flow3_map, &p_expression->left->object, &lv);
-        const bool right_is_const = flow3_get_known_int(ctx->p_current_flow3_map, &p_expression->right->object, &rv);
-
-        if (left_is_const && right_is_const)
-        {
-            /* Both sides known: fold directly. */
-            flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                &p_expression->object, lv * rv, FLOW3_EQUAL,
-                p_expression->first_token->line);
-        }
-        else if (right_is_const && rv == 1)
-        {
-            /*
-             * x * 1 == x: propagate left's alternatives unchanged.
-             */
-            const struct flow3_key_alternatives* src = flow3_map_search_up(ctx->p_current_flow3_map, &p_expression->left->object);
-            struct flow3_key_alternatives* dst = flow3_map_find_add(ctx->p_current_flow3_map, &p_expression->object);
-            if (dst)
-            {
-                flow3_alternatives_clear(&dst->alternatives);
-                if (src)
-                {
-                    flow3_alternatives_append(&dst->alternatives, &src->alternatives);
-                }
-            }
-        }
-        else if (left_is_const && lv == 1)
-        {
-            /*
-             * 1 * x == x: propagate right's alternatives unchanged.
-             */
-            const struct flow3_key_alternatives* src = flow3_map_search_up(ctx->p_current_flow3_map, &p_expression->right->object);
-            struct flow3_key_alternatives* dst = flow3_map_find_add(ctx->p_current_flow3_map, &p_expression->object);
-            if (dst)
-            {
-                flow3_alternatives_clear(&dst->alternatives);
-                if (src)
-                {
-                    flow3_alternatives_append(&dst->alternatives, &src->alternatives);
-                }
-            }
-        }
-        else if ((right_is_const && rv == 0) || (left_is_const && lv == 0))
-        {
-            /*
-             * x * 0 == 0 or 0 * x == 0: result is always zero.
-             */
-            flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                &p_expression->object, 0, FLOW3_EQUAL,
-                p_expression->first_token->line);
-        }
-        else
-        {
-            flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                &p_expression->object, ANY_VALUE, FLOW3_ANY,
-                p_expression->first_token->line);
-        }
-        break;
-    }
 
     case EXPR_CAST:
-    case EXPR_MULTIPLICATIVE_MOD:
-    case EXPR_SHIFT_RIGHT:
-    case EXPR_SHIFT_LEFT:
-        if (object_has_constant_value(&p_expression->left->object) &&
-            object_has_constant_value(&p_expression->right->object))
+    {
+        assert(p_expression->left != NULL);
+
+        flow3_visit_expression(ctx, p_expression->left);
+
+        const struct type* p_target_type = &p_expression->type;
+        const struct object* p_src_obj = &p_expression->left->object;
+        const struct flow3_key_alternatives* p_src_entry =
+            flow3_map_search_up(ctx->p_current_flow3_map, p_src_obj);
+
+        if (p_src_entry == NULL)
         {
-            const long long lv = object_to_signed_long_long(&p_expression->left->object);
-            const long long rv = object_to_signed_long_long(&p_expression->right->object);
-            long long result = 0;
-            switch (p_expression->expression_type)
-            {
-            case EXPR_MULTIPLICATIVE_MOD:  result = rv != 0 ? lv % rv : 0; break;
-            case EXPR_ADDITIVE_PLUS:       result = lv + rv;               break;
-            case EXPR_ADDITIVE_MINUS:      result = lv - rv;               break;
-            case EXPR_SHIFT_RIGHT:         result = lv >> rv;              break;
-            case EXPR_SHIFT_LEFT:          result = lv << rv;              break;
-            default:                       result = 0;                     break;
-            }
             flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                &p_expression->object, result, FLOW3_EQUAL,
+                &p_expression->object, ANY_VALUE, FLOW3_ANY,
                 p_expression->first_token->line);
             break;
         }
-        if (p_expression->left)
-        {
-            flow3_visit_expression(ctx, p_expression->left);
-        }
-        if (p_expression->right)
-        {
-            flow3_visit_expression(ctx, p_expression->right);
-        }
-        flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-            &p_expression->object, ANY_VALUE, FLOW3_ANY,
-            p_expression->first_token->line);
-        break;
 
+        // Resolve REF indirections
+        const struct flow3_key_alternatives* p_src_resolved = p_src_entry;
+        if (p_src_entry->alternatives.size == 1 &&
+            p_src_entry->alternatives.data[0].relation == FLOW3_EQUAL &&
+            p_src_entry->alternatives.data[0].value.kind == FLOW3_VALUE_REF &&
+            p_src_entry->alternatives.data[0].value.as.p != NULL)
+        {
+            p_src_resolved = flow3_map_search_up(ctx->p_current_flow3_map,
+                                                 p_src_entry->alternatives.data[0].value.as.p);
+            if (p_src_resolved == NULL)
+            {
+                flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+                    &p_expression->object, ANY_VALUE, FLOW3_ANY,
+                    p_expression->first_token->line);
+                break;
+            }
+        }
+
+        struct flow3_alternatives new_alts = { 0 };
+        bool all_handled = true;
+
+        for (int i = 0; i < p_src_resolved->alternatives.size; i++)
+        {
+            const struct flow3_alternative* alt = &p_src_resolved->alternatives.data[i];
+
+            if (alt->imaginary == FLOW3_IMAGINARY_ABSENT || alt->relation == FLOW3_UNINITIALIZED)
+            {
+                all_handled = false;
+                break;
+            }
+
+            if (alt->relation == FLOW3_EQUAL)
+            {
+                // Integer source
+                if (alt->value.kind == FLOW3_VALUE_SIGNED ||
+                    alt->value.kind == FLOW3_VALUE_UNSIGNED)
+                {
+                    long long val = (alt->value.kind == FLOW3_VALUE_SIGNED)
+                        ? alt->value.as.i
+                        : (long long)alt->value.as.u;
+                    if (type_is_integer(p_target_type))
+                    {
+                        long long casted = flow3_cast_integer_value(ctx, val, p_target_type);
+                        struct flow3_value v = { .kind = FLOW3_VALUE_SIGNED, .as.i = casted };
+                        struct flow3_alternative a = { .value = v, .relation = FLOW3_EQUAL, .imaginary = alt->imaginary };
+                        flow3_alternatives_add(&new_alts, &a,
+                                               ctx->p_current_flow3_map,
+                                               p_expression->first_token->line);
+                    }
+                    else if (type_is_pointer(p_target_type))
+                    {
+                        // Integer to pointer – cannot safely compute address; set to ANY.
+                        all_handled = false;
+                        break;
+                    }
+                    else
+                    {
+                        all_handled = false;
+                        break;
+                    }
+                }
+                // Pointer source
+                else if (alt->value.kind == FLOW3_VALUE_PTR)
+                {
+                    if (type_is_pointer(p_target_type))
+                    {
+                        // Preserve the pointer value
+                        flow3_alternatives_add(&new_alts, alt,
+                                               ctx->p_current_flow3_map,
+                                               p_expression->first_token->line);
+                    }
+                    else if (type_is_integer(p_target_type))
+                    {
+                        // Pointer to integer – cannot safely compute integer; set to ANY.
+                        all_handled = false;
+                        break;
+                    }
+                    else
+                    {
+                        all_handled = false;
+                        break;
+                    }
+                }
+                else
+                {
+                    all_handled = false;
+                    break;
+                }
+            }
+            else
+            {
+                // NOT_EQUAL or ANY – cannot cast exactly
+                all_handled = false;
+                break;
+            }
+        }
+
+        if (all_handled && new_alts.size > 0)
+        {
+            struct flow3_key_alternatives* dst =
+                flow3_map_find_add(ctx->p_current_flow3_map, &p_expression->object);
+            flow3_alternatives_clear(&dst->alternatives);
+            dst->alternatives = new_alts; /* move */
+        }
+        else
+        {
+            flow3_alternatives_clear(&new_alts);
+            flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+                &p_expression->object, ANY_VALUE, FLOW3_ANY,
+                p_expression->first_token->line);
+        }
+
+        flow3_map_remove(ctx->p_current_flow3_map, &p_expression->left->object);
+        break;
+    }
+    break;
+
+    case EXPR_SHIFT_RIGHT:
+    case EXPR_SHIFT_LEFT:
+    {
+        assert(p_expression->left != NULL);
+        assert(p_expression->right != NULL);
+
+        bool is_left = (p_expression->expression_type == EXPR_SHIFT_LEFT);
+
+        flow3_visit_expression(ctx, p_expression->left);
+        flow3_visit_expression(ctx, p_expression->right);
+
+        // Resolve left and right to concrete alternatives (following REF)
+        const struct flow3_key_alternatives* p_left_entry =
+            flow3_map_search_up(ctx->p_current_flow3_map, &p_expression->left->object);
+        const struct flow3_key_alternatives* p_right_entry =
+            flow3_map_search_up(ctx->p_current_flow3_map, &p_expression->right->object);
+
+        const struct flow3_key_alternatives* p_left_resolved = p_left_entry;
+        if (p_left_entry && p_left_entry->alternatives.size == 1 &&
+            p_left_entry->alternatives.data[0].relation == FLOW3_EQUAL &&
+            p_left_entry->alternatives.data[0].value.kind == FLOW3_VALUE_REF &&
+            p_left_entry->alternatives.data[0].value.as.p != NULL)
+        {
+            p_left_resolved = flow3_map_search_up(ctx->p_current_flow3_map,
+                                                  p_left_entry->alternatives.data[0].value.as.p);
+        }
+
+        const struct flow3_key_alternatives* p_right_resolved = p_right_entry;
+        if (p_right_entry && p_right_entry->alternatives.size == 1 &&
+            p_right_entry->alternatives.data[0].relation == FLOW3_EQUAL &&
+            p_right_entry->alternatives.data[0].value.kind == FLOW3_VALUE_REF &&
+            p_right_entry->alternatives.data[0].value.as.p != NULL)
+        {
+            p_right_resolved = flow3_map_search_up(ctx->p_current_flow3_map,
+                                                   p_right_entry->alternatives.data[0].value.as.p);
+        }
+
+        // Extract single constant values if available
+        long long lv = 0, rv = 0;
+        bool left_is_const = false, right_is_const = false;
+        if (p_left_resolved)
+        {
+            left_is_const = flow3_alternatives_is_single_constant(&p_left_resolved->alternatives, &lv);
+        }
+        if (p_right_resolved)
+        {
+            right_is_const = flow3_alternatives_is_single_constant(&p_right_resolved->alternatives, &rv);
+        }
+
+        // Both sides known: fold if shift count is within valid range (0..63)
+        if (left_is_const && right_is_const)
+        {
+            if (rv < 0 || rv >= (long long)(sizeof(long long) * 8))
+            {
+                // Shift count out of range: result is undefined – set to ANY to avoid incorrect folding.
+                flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+                    &p_expression->object, ANY_VALUE, FLOW3_ANY,
+                    p_expression->first_token->line);
+            }
+            else
+            {
+                long long result;
+                if (is_left)
+                    result = lv << rv;
+                else
+                    result = lv >> rv;
+                flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+                    &p_expression->object, result, FLOW3_EQUAL,
+                    p_expression->first_token->line);
+            }
+        }
+        // x << 0  or x >> 0  -> copy left alternatives (identity)
+        else if (right_is_const && rv == 0)
+        {
+            if (p_left_resolved && p_left_resolved->alternatives.size > 0)
+            {
+                struct flow3_key_alternatives* dst =
+                    flow3_map_find_add(ctx->p_current_flow3_map, &p_expression->object);
+                flow3_alternatives_clear(&dst->alternatives);
+                flow3_alternatives_append(&dst->alternatives, &p_left_resolved->alternatives);
+            }
+            else
+            {
+                flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+                    &p_expression->object, ANY_VALUE, FLOW3_ANY,
+                    p_expression->first_token->line);
+            }
+        }
+        // 0 << x  or 0 >> x  -> 0, but only if x is a known non-negative constant (otherwise undefined)
+        else if (left_is_const && lv == 0 && right_is_const && rv >= 0)
+        {
+            flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+                &p_expression->object, 0, FLOW3_EQUAL,
+                p_expression->first_token->line);
+        }
+        // Otherwise, result is unknown
+        else
+        {
+            flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+                &p_expression->object, ANY_VALUE, FLOW3_ANY,
+                p_expression->first_token->line);
+        }
+
+        // Remove temporary operand entries
+        flow3_map_remove(ctx->p_current_flow3_map, &p_expression->left->object);
+        flow3_map_remove(ctx->p_current_flow3_map, &p_expression->right->object);
+        break;
+    }
+
+    break;
     case EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN:
     case EXPR_RELATIONAL_LESS_OR_EQUAL_THAN:
     case EXPR_RELATIONAL_BIGGER_THAN:
@@ -3858,332 +4033,67 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
         assert(p_expression->right != NULL);
         assert(p_expression->left != NULL);
 
-        const bool left_is_constant = object_has_constant_value(&p_expression->left->object);
-        const bool right_is_constant = object_has_constant_value(&p_expression->right->object);
+        flow3_visit_expression(ctx, p_expression->left);
+        flow3_visit_expression(ctx, p_expression->right);
 
-        if (left_is_constant && right_is_constant)
+        // Resolve REF indirections to get concrete alternatives
+        const struct flow3_key_alternatives* p_left_entry =
+            flow3_map_search_up(ctx->p_current_flow3_map, &p_expression->left->object);
+        const struct flow3_key_alternatives* p_right_entry =
+            flow3_map_search_up(ctx->p_current_flow3_map, &p_expression->right->object);
+
+        const struct flow3_key_alternatives* p_left_resolved = p_left_entry;
+        if (p_left_entry && p_left_entry->alternatives.size == 1 &&
+            p_left_entry->alternatives.data[0].relation == FLOW3_EQUAL &&
+            p_left_entry->alternatives.data[0].value.kind == FLOW3_VALUE_REF &&
+            p_left_entry->alternatives.data[0].value.as.p != NULL)
         {
-            const long long lv = object_to_signed_long_long(&p_expression->left->object);
-            const long long rv = object_to_signed_long_long(&p_expression->right->object);
-            long long result;
-            switch (p_expression->expression_type)
-            {
-            case EXPR_RELATIONAL_BIGGER_THAN:          result = lv > rv ? 1 : 0; break;
-            case EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN: result = lv >= rv ? 1 : 0; break;
-            case EXPR_RELATIONAL_LESS_THAN:            result = lv < rv ? 1 : 0; break;
-            case EXPR_RELATIONAL_LESS_OR_EQUAL_THAN:   result = lv <= rv ? 1 : 0; break;
-            default:                                   result = 0;                break;
-            }
+            p_left_resolved = flow3_map_search_up(ctx->p_current_flow3_map,
+                                                  p_left_entry->alternatives.data[0].value.as.p);
+        }
+        const struct flow3_key_alternatives* p_right_resolved = p_right_entry;
+        if (p_right_entry && p_right_entry->alternatives.size == 1 &&
+            p_right_entry->alternatives.data[0].relation == FLOW3_EQUAL &&
+            p_right_entry->alternatives.data[0].value.kind == FLOW3_VALUE_REF &&
+            p_right_entry->alternatives.data[0].value.as.p != NULL)
+        {
+            p_right_resolved = flow3_map_search_up(ctx->p_current_flow3_map,
+                                                   p_right_entry->alternatives.data[0].value.as.p);
+        }
+
+        // Attempt to fold the relational expression
+        int fold_result = -1;
+        if (p_left_resolved && p_left_resolved->alternatives.size > 0 &&
+            p_right_resolved && p_right_resolved->alternatives.size > 0)
+        {
+            fold_result = flow3_evaluate_relational(&p_left_resolved->alternatives,
+                                                    &p_right_resolved->alternatives,
+                                                    p_expression->expression_type);
+        }
+
+        if (fold_result != -1)
+        {
+            // Expression always true or always false
             flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                &p_expression->object, result, FLOW3_EQUAL,
+                &p_expression->object, fold_result ? 1 : 0, FLOW3_EQUAL,
                 p_expression->first_token->line);
-            if (result != 0)
+            struct flow3_map* p_dead = flow3_map_arena_new(&ctx->flow3_map_arena,
+                                                           ctx->p_current_flow3_map,
+                                                           "rel-dead");
+            return (struct flow3_branch_pair)
             {
-                struct flow3_map* p_dead = flow3_map_arena_new(&ctx->flow3_map_arena, p_before, "rel-dead-false");
-                return (struct flow3_branch_pair) { ctx->p_current_flow3_map, p_dead };
-            }
-            else
-            {
-                struct flow3_map* p_dead = flow3_map_arena_new(&ctx->flow3_map_arena, p_before, "rel-dead-true");
-                return (struct flow3_branch_pair) { p_dead, ctx->p_current_flow3_map };
-            }
+                fold_result ? ctx->p_current_flow3_map : p_dead,
+                    fold_result ? p_dead : ctx->p_current_flow3_map
+            };
         }
 
-        if (left_is_constant)
-        {
-            const long long left_value = object_to_signed_long_long(&p_expression->left->object);
-            struct flow3_branch_pair right_pair = flow3_visit_expression(ctx, p_expression->right);
-
-            /*
-             * Diagnose when the right operand has a statically known value:
-             *   e.g.  0 < a  when a is known == 5  =>  always true
-             */
-            if (!ctx->inside_loop && !ctx->expression_is_not_evaluated)
-            {
-                long long right_known = 0;
-                if (flow3_object_get_known_equal_int(ctx->p_current_flow3_map,
-                    &p_expression->right->object,
-                    &right_known))
-                {
-                    bool result;
-                    switch (p_expression->expression_type)
-                    {
-                    case EXPR_RELATIONAL_BIGGER_THAN:          result = left_value > right_known; break;
-                    case EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN: result = left_value >= right_known; break;
-                    case EXPR_RELATIONAL_LESS_THAN:            result = left_value < right_known; break;
-                    case EXPR_RELATIONAL_LESS_OR_EQUAL_THAN:   result = left_value <= right_known; break;
-                    default: result = false; break;
-                    }
-                    struct marker marker = expression_to_marker(p_expression->right);
-                    diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker,
-                               result ? "comparison is always true (value is known == %lld)"
-                                      : "comparison is always false (value is known == %lld)",
-                               right_known);
-                }
-            }
-
-            {
-                long long right_known2 = 0;
-                if (flow3_object_get_known_equal_int(ctx->p_current_flow3_map,
-                    &p_expression->right->object, &right_known2))
-                {
-                    bool result;
-                    switch (p_expression->expression_type)
-                    {
-                    case EXPR_RELATIONAL_BIGGER_THAN:          result = left_value > right_known2;  break;
-                    case EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN: result = left_value >= right_known2; break;
-                    case EXPR_RELATIONAL_LESS_THAN:            result = left_value < right_known2;  break;
-                    case EXPR_RELATIONAL_LESS_OR_EQUAL_THAN:   result = left_value <= right_known2; break;
-                    default: result = false; break;
-                    }
-                    flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                        &p_expression->object,
-                        result ? 1 : 0,
-                        FLOW3_EQUAL,
-                        p_expression->first_token->line);
-                }
-                else
-                {
-                    flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                        &p_expression->object,
-                        ANY_VALUE, FLOW3_ANY,
-                        p_expression->first_token->line);
-                }
-            }
-
-            if (left_value == 0)
-            {
-                /*
-                 * 0 < x  => x is non-zero on the true branch  (map as NOT_EQUAL 0)
-                 * 0 > x  => x is non-zero on the false branch (impossible for unsigned; keep pair)
-                 * 0 >= x => x is zero on the true branch      (swap pair)
-                 * 0 <= x => x is non-zero on the false branch  (keep pair)
-                 */
-                bool invert = (p_expression->expression_type == EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN ||
-                               p_expression->expression_type == EXPR_RELATIONAL_LESS_OR_EQUAL_THAN);
-                if (invert)
-                {
-                    return (struct flow3_branch_pair) { right_pair.p_false, right_pair.p_true };
-                }
-                return right_pair;
-            }
-            else
-            {
-                /*
-                 * N < x  (N != 0):
-                 *   true  branch => x > N  — not representable exactly; keep as NOT_EQUAL N
-                 *                             (conservative: rules out only x==N on true arm)
-                 *   false branch => x <= N — on strict < false means x==N is possible;
-                 *                             keep as EQUAL N (best single-value approximation)
-                 * Mirror logic applies to the other three operators via the swap below.
-                 *
-                 * This gives the analyser basic knowledge after comparisons like
-                 *   if (n < MAX)  or  if (x > threshold)
-                 * without implementing full range intervals.
-                 */
-                const struct object* p_right_obj = &p_expression->right->object;
-
-                bool strict = (p_expression->expression_type == EXPR_RELATIONAL_LESS_THAN ||
-                               p_expression->expression_type == EXPR_RELATIONAL_BIGGER_THAN);
-
-                struct flow3_map* p_true_map =
-                    flow3_map_arena_new(&ctx->flow3_map_arena, p_before, "rel-true");
-                struct flow3_map* p_false_map =
-                    flow3_map_arena_new(&ctx->flow3_map_arena, p_before, "rel-false");
-
-                if (strict)
-                {
-                    /* true arm: variable != N  (conservative under-approximation) */
-                    flow3_map_replace_alternatives_i(p_true_map, p_right_obj,
-                        left_value, FLOW3_NOT_EQUAL,
-                        p_expression->left->first_token->line);
-                    /* false arm: variable == N  (false of strict < means >=N; EQUAL is safe) */
-                    flow3_map_replace_alternatives_i(p_false_map, p_right_obj,
-                        left_value, FLOW3_EQUAL,
-                        p_expression->left->first_token->line);
-                }
-                /* For <= / >= with non-zero N both arms are too imprecise to narrow usefully;
-                   leave the maps empty (inherits parent state). */
-
-                   /*
-                    * 0 < x  is already handled above (left_value == 0 branch).
-                    * For N > x (left_value > 0) the roles swap: true arm means x < N.
-                    * Re-use the same maps — the pair orientation matches the operator.
-                    */
-                bool swap_arms =
-                    (p_expression->expression_type == EXPR_RELATIONAL_BIGGER_THAN ||
-                     p_expression->expression_type == EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN);
-
-                if (swap_arms)
-                {
-                    return (struct flow3_branch_pair) { p_false_map, p_true_map };
-                }
-                return (struct flow3_branch_pair) { p_true_map, p_false_map };
-            }
-        }
-        else if (right_is_constant)
-        {
-            const long long right_value = object_to_signed_long_long(&p_expression->right->object);
-            struct flow3_branch_pair left_pair = flow3_visit_expression(ctx, p_expression->left);
-
-            /*
-             * Diagnose when the left operand has a statically known value:
-             *   e.g.  a > 0  when a is known == 5  =>  always true
-             */
-            if (!ctx->inside_loop && !ctx->expression_is_not_evaluated)
-            {
-                long long left_known = 0;
-                if (flow3_object_get_known_equal_int(ctx->p_current_flow3_map,
-                    &p_expression->left->object,
-                    &left_known))
-                {
-                    bool result;
-                    switch (p_expression->expression_type)
-                    {
-                    case EXPR_RELATIONAL_BIGGER_THAN:          result = left_known > right_value; break;
-                    case EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN: result = left_known >= right_value; break;
-                    case EXPR_RELATIONAL_LESS_THAN:            result = left_known < right_value; break;
-                    case EXPR_RELATIONAL_LESS_OR_EQUAL_THAN:   result = left_known <= right_value; break;
-                    default: result = false; break;
-                    }
-                    struct marker marker = expression_to_marker(p_expression->left);
-                    diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker,
-                               result ? "comparison is always true (value is known == %lld)"
-                                      : "comparison is always false (value is known == %lld)",
-                               left_known);
-                }
-            }
-
-            /*
-             * Store the boolean result (0 or 1) of this comparison into
-             * p_expression->object so downstream consumers such as
-             * assert_state, static_debug, and "int b = (a > 0)" can read it.
-             * We fold to a concrete value only when the left operand's value
-             * is also statically known; otherwise we record FLOW3_ANY.
-             */
-            {
-                long long left_known2 = 0;
-                if (flow3_object_get_known_equal_int(ctx->p_current_flow3_map,
-                    &p_expression->left->object, &left_known2))
-                {
-                    bool result;
-                    switch (p_expression->expression_type)
-                    {
-                    case EXPR_RELATIONAL_BIGGER_THAN:          result = left_known2 > right_value;  break;
-                    case EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN: result = left_known2 >= right_value; break;
-                    case EXPR_RELATIONAL_LESS_THAN:            result = left_known2 < right_value;  break;
-                    case EXPR_RELATIONAL_LESS_OR_EQUAL_THAN:   result = left_known2 <= right_value; break;
-                    default: result = false; break;
-                    }
-                    flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                        &p_expression->object,
-                        result ? 1 : 0,
-                        FLOW3_EQUAL,
-                        p_expression->first_token->line);
-                }
-                else
-                {
-                    flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                        &p_expression->object,
-                        ANY_VALUE, FLOW3_ANY,
-                        p_expression->first_token->line);
-                }
-            }
-
-            if (right_value == 0)
-            {
-                bool invert = (p_expression->expression_type == EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN ||
-                               p_expression->expression_type == EXPR_RELATIONAL_LESS_OR_EQUAL_THAN);
-                if (invert)
-                {
-                    return (struct flow3_branch_pair) { left_pair.p_false, left_pair.p_true };
-                }
-                return left_pair;
-            }
-            else
-            {
-                /*
-                 * x > N  (N != 0):
-                 *   true  branch => x != N  (conservative)
-                 *   false branch => x == N  (safe single-value approximation for strict >)
-                 *
-                 * x < N  (N != 0):
-                 *   true  branch => x != N
-                 *   false branch => x == N
-                 */
-                const struct object* p_left_obj = &p_expression->left->object;
-
-                bool strict = (p_expression->expression_type == EXPR_RELATIONAL_LESS_THAN ||
-                               p_expression->expression_type == EXPR_RELATIONAL_BIGGER_THAN);
-
-                struct flow3_map* p_true_map2 = flow3_map_arena_new(&ctx->flow3_map_arena, p_before, "rel-true");
-                struct flow3_map* p_false_map2 = flow3_map_arena_new(&ctx->flow3_map_arena, p_before, "rel-false");
-
-                if (strict)
-                {
-                    flow3_map_replace_alternatives_i(p_true_map2, p_left_obj,
-                        right_value, FLOW3_NOT_EQUAL,
-                        p_expression->right->first_token->line);
-
-                    flow3_map_replace_alternatives_i(p_false_map2, p_left_obj,
-                        right_value, FLOW3_EQUAL,
-                        p_expression->right->first_token->line);
-                }
-
-                /*
-                 * x < N (true = x!=N, false = x==N) — already correct.
-                 * x > N (true = x!=N, false = x==N) — same orientation.
-                 * x <= N (no useful narrowing) — maps inherit parent.
-                 * x >= N (no useful narrowing) — maps inherit parent.
-                 */
-                return (struct flow3_branch_pair) { p_true_map2, p_false_map2 };
-            }
-        }
-        else
-        {
-            flow3_visit_expression(ctx, p_expression->left);
-            flow3_visit_expression(ctx, p_expression->right);
-
-            /*
-             * Neither operand is a compile-time constant.  Before giving up,
-             * try to fold by looking up the known EQUAL value for each side.
-             * If both resolve to a single statically-known integer we can
-             * evaluate the comparison exactly.
-             *
-             * Example: inside  if (x == 3) { if (y == 7) { compile_assert(x < y); } }
-             * the map knows x==3 and y==7, so  x < y  folds to  3 < 7  → 1 (true).
-             */
-            long long left_known = 0;
-            long long right_known = 0;
-            bool left_ok = flow3_object_get_known_equal_int(ctx->p_current_flow3_map, &p_expression->left->object, &left_known);
-            bool right_ok = flow3_object_get_known_equal_int(ctx->p_current_flow3_map, &p_expression->right->object, &right_known);
-
-            if (left_ok && right_ok)
-            {
-                long long result;
-                switch (p_expression->expression_type)
-                {
-                case EXPR_RELATIONAL_BIGGER_THAN:          result = left_known > right_known ? 1 : 0; break;
-                case EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN: result = left_known >= right_known ? 1 : 0; break;
-                case EXPR_RELATIONAL_LESS_THAN:            result = left_known < right_known ? 1 : 0; break;
-                case EXPR_RELATIONAL_LESS_OR_EQUAL_THAN:   result = left_known <= right_known ? 1 : 0; break;
-                default:                                   result = 0;                                  break;
-                }
-                flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                    &p_expression->object, result, FLOW3_EQUAL,
-                    p_expression->first_token->line);
-            }
-            else
-            {
-                /* Truly unknown — record ANY so downstream consumers don't read a stale zero. */
-                flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                    &p_expression->object, ANY_VALUE, FLOW3_ANY,
-                    p_expression->first_token->line);
-            }
-        }
+        // Not foldable: result is unknown
+        flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+            &p_expression->object, ANY_VALUE, FLOW3_ANY,
+            p_expression->first_token->line);
+        return (struct flow3_branch_pair) { ctx->p_current_flow3_map, ctx->p_current_flow3_map };
     }
     break;
-
     case EXPR_EQUALITY_NOT_EQUAL:
     case EXPR_EQUALITY_EQUAL:
     {
@@ -4193,93 +4103,158 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
         flow3_visit_expression(ctx, p_expression->left);
         flow3_visit_expression(ctx, p_expression->right);
 
-        struct flow3_key_alternatives* p_result_alternatives = flow3_map_find_add(ctx->p_current_flow3_map, &p_expression->object);
+        struct flow3_key_alternatives* p_result_alternatives =
+            flow3_map_find_add(ctx->p_current_flow3_map, &p_expression->object);
         flow3_alternatives_clear(&p_result_alternatives->alternatives);
 
-        const struct flow3_key_alternatives* p_left_alternatives = flow3_map_search_up(ctx->p_current_flow3_map, &p_expression->left->object);
-        const struct flow3_key_alternatives* p_right_alternatives = flow3_map_search_up(ctx->p_current_flow3_map, &p_expression->right->object);
+        const struct flow3_key_alternatives* p_left_alts =
+            flow3_map_search_up(ctx->p_current_flow3_map, &p_expression->left->object);
+        const struct flow3_key_alternatives* p_right_alts =
+            flow3_map_search_up(ctx->p_current_flow3_map, &p_expression->right->object);
+
+        /* Resolve REF indirections to get the concrete object entries */
+        const struct flow3_key_alternatives* p_left_resolved = p_left_alts;
+        if (p_left_alts && p_left_alts->alternatives.size == 1 &&
+            p_left_alts->alternatives.data[0].relation == FLOW3_EQUAL &&
+            p_left_alts->alternatives.data[0].value.kind == FLOW3_VALUE_REF &&
+            p_left_alts->alternatives.data[0].value.as.p != NULL)
+        {
+            p_left_resolved = flow3_map_search_up(ctx->p_current_flow3_map,
+                                                  p_left_alts->alternatives.data[0].value.as.p);
+        }
+        const struct flow3_key_alternatives* p_right_resolved = p_right_alts;
+        if (p_right_alts && p_right_alts->alternatives.size == 1 &&
+            p_right_alts->alternatives.data[0].relation == FLOW3_EQUAL &&
+            p_right_alts->alternatives.data[0].value.kind == FLOW3_VALUE_REF &&
+            p_right_alts->alternatives.data[0].value.as.p != NULL)
+        {
+            p_right_resolved = flow3_map_search_up(ctx->p_current_flow3_map,
+                                                   p_right_alts->alternatives.data[0].value.as.p);
+        }
 
         struct flow3_map* p_true = flow3_map_arena_new(&ctx->flow3_map_arena, ctx->p_current_flow3_map, "eq-true");
         struct flow3_map* p_false = flow3_map_arena_new(&ctx->flow3_map_arena, ctx->p_current_flow3_map, "eq-false");
 
-        for (int i = 0; i < p_left_alternatives->alternatives.size; i++)
+        bool is_equal_op = (p_expression->expression_type == EXPR_EQUALITY_EQUAL);
+
+        /* -------- Try to fold the comparison (always true/false) -------- */
+        long long left_const = 0, right_const = 0;
+        bool left_is_const = p_left_resolved &&
+            flow3_alternatives_is_single_constant(&p_left_resolved->alternatives, &left_const);
+        bool right_is_const = p_right_resolved &&
+            flow3_alternatives_is_single_constant(&p_right_resolved->alternatives, &right_const);
+
+        if (left_is_const && p_right_resolved)
         {
-            const struct flow3_alternative* p_left_alt = &p_left_alternatives->alternatives.data[i];
-
-            const struct flow3_key_alternatives* p_left_resolved = p_left_alternatives;
-            if (p_left_alt->relation == FLOW3_EQUAL &&
-                p_left_alt->value.kind == FLOW3_VALUE_REF &&
-                p_left_alt->value.as.p != NULL)
+            int fold = flow3_evaluate_equality_against_constant(&p_right_resolved->alternatives,
+                                                                left_const, is_equal_op);
+            if (fold != -1)
             {
-                p_left_resolved = flow3_map_search_up(ctx->p_current_flow3_map, p_left_alt->value.as.p);
+                flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+                    &p_expression->object, fold ? 1 : 0, FLOW3_EQUAL,
+                    p_expression->first_token->line);
+                struct flow3_map* p_dead = flow3_map_arena_new(&ctx->flow3_map_arena,
+                                                               ctx->p_current_flow3_map,
+                                                               "eq-dead");
+                return (struct flow3_branch_pair)
+                {
+                    fold ? ctx->p_current_flow3_map : p_dead,
+                        fold ? p_dead : ctx->p_current_flow3_map
+                };
             }
-
-            for (int j = 0; j < p_right_alternatives->alternatives.size; j++)
+        }
+        else if (right_is_const && p_left_resolved)
+        {
+            int fold = flow3_evaluate_equality_against_constant(&p_left_resolved->alternatives,
+                                                                right_const, is_equal_op);
+            if (fold != -1)
             {
-                const struct flow3_alternative* p_right_alt = &p_right_alternatives->alternatives.data[j];
-
-                const struct flow3_key_alternatives* p_right_resolved = p_right_alternatives;
-                if (p_right_alt->relation == FLOW3_EQUAL &&
-                    p_right_alt->value.kind == FLOW3_VALUE_REF &&
-                    p_right_alt->value.as.p != NULL)
+                flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+                    &p_expression->object, fold ? 1 : 0, FLOW3_EQUAL,
+                    p_expression->first_token->line);
+                struct flow3_map* p_dead = flow3_map_arena_new(&ctx->flow3_map_arena,
+                                                               ctx->p_current_flow3_map,
+                                                               "eq-dead");
+                return (struct flow3_branch_pair)
                 {
-                    p_right_resolved = flow3_map_search_up(ctx->p_current_flow3_map, p_right_alt->value.as.p);
-                }
-
-                for (int li = 0; li < p_left_resolved->alternatives.size; li++)
-                {
-                    const struct flow3_alternative* lv = &p_left_resolved->alternatives.data[li];
-                    for (int rj = 0; rj < p_right_resolved->alternatives.size; rj++)
-                    {
-                        const struct flow3_alternative* rv = &p_right_resolved->alternatives.data[rj];
-
-                        if (lv->relation == FLOW3_EQUAL && rv->relation == FLOW3_EQUAL)
-                        {
-                            bool values_are_same = flow3_value_is_same(lv->value, rv->value);
-                            bool result_is_true =
-                                (p_expression->expression_type == EXPR_EQUALITY_EQUAL)
-                                ? values_are_same
-                                : !values_are_same;
-
-                            flow3_alternatives_add_i(&p_result_alternatives->alternatives,
-                                result_is_true ? 1 : 0, FLOW3_EQUAL,
-                                ctx->p_current_flow3_map,
-                                p_expression->first_token->line);
-
-                            /* Narrow branch maps on the left object */
-                            if (p_expression->expression_type == EXPR_EQUALITY_EQUAL)
-                            {
-                                flow3_map_replace_alternatives(p_true,
-                                    &p_expression->left->object, rv->value, FLOW3_EQUAL,
-                                    p_expression->first_token->line);
-                                flow3_map_replace_alternatives(p_false,
-                                    &p_expression->left->object, rv->value, FLOW3_NOT_EQUAL,
-                                    p_expression->first_token->line);
-                            }
-                            else
-                            {
-                                flow3_map_replace_alternatives(p_true,
-                                    &p_expression->left->object, rv->value, FLOW3_NOT_EQUAL,
-                                    p_expression->first_token->line);
-                                flow3_map_replace_alternatives(p_false,
-                                    &p_expression->left->object, rv->value, FLOW3_EQUAL,
-                                    p_expression->first_token->line);
-                            }
-                        }
-                        else
-                        {
-                            flow3_alternatives_add_i(&p_result_alternatives->alternatives,
-                                ANY_VALUE, FLOW3_ANY,
-                                ctx->p_current_flow3_map,
-                                p_expression->first_token->line);
-                        }
-                    }
-                }
+                    fold ? ctx->p_current_flow3_map : p_dead,
+                        fold ? p_dead : ctx->p_current_flow3_map
+                };
             }
         }
 
-        return (struct flow3_branch_pair) { p_true, p_false };
+        /* If both are constants, handle as fallback */
+        if (left_is_const && right_is_const)
+        {
+            bool result = (left_const == right_const) ? is_equal_op : !is_equal_op;
+            flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+                &p_expression->object, result ? 1 : 0, FLOW3_EQUAL,
+                p_expression->first_token->line);
+            struct flow3_map* p_dead = flow3_map_arena_new(&ctx->flow3_map_arena,
+                                                           ctx->p_current_flow3_map,
+                                                           "eq-dead");
+            return (struct flow3_branch_pair)
+            {
+                result ? ctx->p_current_flow3_map : p_dead,
+                    result ? p_dead : ctx->p_current_flow3_map
+            };
+        }
+
+        /* -------- Narrowing for if‑conditions (when one side is a constant) -------- */
+        if (left_is_const && p_right_resolved)
+        {
+            const struct object* p_right_obj = p_right_resolved->p_obj_key;
+            struct flow3_alternatives true_alts = { 0 }, false_alts = { 0 };
+            narrow_by_constant(&p_right_resolved->alternatives, left_const, is_equal_op,
+                               &true_alts, &false_alts, p_true, p_expression->first_token->line);
+            if (true_alts.size > 0)
+            {
+                struct flow3_key_alternatives* e = flow3_map_find_add(p_true, p_right_obj);
+                flow3_alternatives_clear(&e->alternatives);
+                e->alternatives = true_alts;
+            }
+            if (false_alts.size > 0)
+            {
+                struct flow3_key_alternatives* e = flow3_map_find_add(p_false, p_right_obj);
+                flow3_alternatives_clear(&e->alternatives);
+                e->alternatives = false_alts;
+            }
+            flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+                &p_expression->object, ANY_VALUE, FLOW3_ANY,
+                p_expression->first_token->line);
+            return (struct flow3_branch_pair) { p_true, p_false };
+        }
+        else if (right_is_const && p_left_resolved)
+        {
+            const struct object* p_left_obj = p_left_resolved->p_obj_key;
+            struct flow3_alternatives true_alts = { 0 }, false_alts = { 0 };
+            narrow_by_constant(&p_left_resolved->alternatives, right_const, is_equal_op,
+                               &true_alts, &false_alts, p_true, p_expression->first_token->line);
+            if (true_alts.size > 0)
+            {
+                struct flow3_key_alternatives* e = flow3_map_find_add(p_true, p_left_obj);
+                flow3_alternatives_clear(&e->alternatives);
+                e->alternatives = true_alts;
+            }
+            if (false_alts.size > 0)
+            {
+                struct flow3_key_alternatives* e = flow3_map_find_add(p_false, p_left_obj);
+                flow3_alternatives_clear(&e->alternatives);
+                e->alternatives = false_alts;
+            }
+            flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+                &p_expression->object, ANY_VALUE, FLOW3_ANY,
+                p_expression->first_token->line);
+            return (struct flow3_branch_pair) { p_true, p_false };
+        }
+
+        /* -------- Fallback: unknown -------- */
+        flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
+            &p_expression->object, ANY_VALUE, FLOW3_ANY,
+            p_expression->first_token->line);
+        return (struct flow3_branch_pair) { ctx->p_current_flow3_map, ctx->p_current_flow3_map };
     }
+    break;
 
     case EXPR_LOGICAL_OR:
     {
@@ -4293,8 +4268,6 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
         assert(p_expression->right != NULL);
         assert(p_expression->left != NULL);
 
-        flow3_check_pointer_used_as_bool(ctx, p_expression->left);
-        flow3_check_pointer_used_as_bool(ctx, p_expression->right);
 
         if (object_has_constant_value(&p_expression->left->object) &&
             object_has_constant_value(&p_expression->right->object))
@@ -4330,41 +4303,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
         struct flow3_map* p_or_true = flow3_map_arena_new(&ctx->flow3_map_arena, p_before, "or-true");
         flow3_map_merge_a_b(p_or_true, left_pair.p_true, right_pair.p_true);
 
-        /* Propagate the boolean result into this expression's object. */
-        {
-            /*
-             * left->object was written into p_before (= ctx->p_current_flow3_map).
-             * right->object was written into left_pair.p_false.
-             * Check each result in the map where it was actually evaluated.
-             */
-            bool left_is_zero = flow3_object_is_zero(p_before, &p_expression->left->object);
-            bool left_is_true = flow3_object_is_not_zero(p_before, &p_expression->left->object);
-            bool right_is_zero = flow3_object_is_zero(left_pair.p_false, &p_expression->right->object);
-            bool right_is_true = flow3_object_is_not_zero(left_pair.p_false, &p_expression->right->object);
 
-            long long result_value;
-            enum flow3_relation result_rel;
-
-            if (left_is_true || right_is_true)
-            {
-                /* At least one side is definitively nonzero -> always true. */
-                result_value = 1; result_rel = FLOW3_EQUAL;
-            }
-            else if (left_is_zero && right_is_zero)
-            {
-                /* Both sides are definitively zero -> always false. */
-                result_value = 0; result_rel = FLOW3_EQUAL;
-            }
-            else
-            {
-                result_value = 0; result_rel = FLOW3_ANY;
-            }
-
-            flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                &p_expression->object,
-                result_value, result_rel,
-                p_expression->first_token->line);
-        }
 
         return (struct flow3_branch_pair) { p_or_true, right_pair.p_false };
     }
@@ -4381,8 +4320,6 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
         assert(p_expression->right != NULL);
         assert(p_expression->left != NULL);
 
-        flow3_check_pointer_used_as_bool(ctx, p_expression->left);
-        flow3_check_pointer_used_as_bool(ctx, p_expression->right);
 
         if (object_has_constant_value(&p_expression->left->object) &&
             object_has_constant_value(&p_expression->right->object))
@@ -4424,41 +4361,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
         struct flow3_map* p_and_false = flow3_map_arena_new(&ctx->flow3_map_arena, p_before, "and-false");
         flow3_map_merge_a_b(p_and_false, left_pair.p_false, right_pair.p_false);
 
-        /* Propagate the boolean result into this expression's object. */
-        {
-            /*
-             * left->object was written into p_before.
-             * right->object was written into left_pair.p_true.
-             * Check each result in the map where it was actually evaluated.
-             */
-            bool left_is_zero = flow3_object_is_zero(p_before, &p_expression->left->object);
-            bool left_is_true = flow3_object_is_not_zero(p_before, &p_expression->left->object);
-            bool right_is_zero = flow3_object_is_zero(left_pair.p_true, &p_expression->right->object);
-            bool right_is_true = flow3_object_is_not_zero(left_pair.p_true, &p_expression->right->object);
 
-            long long result_value;
-            enum flow3_relation result_rel;
-
-            if (left_is_zero || right_is_zero)
-            {
-                /* At least one side is definitively zero -> always false. */
-                result_value = 0; result_rel = FLOW3_EQUAL;
-            }
-            else if (left_is_true && right_is_true)
-            {
-                /* Both sides are definitively nonzero -> always true. */
-                result_value = 1; result_rel = FLOW3_EQUAL;
-            }
-            else
-            {
-                result_value = 0; result_rel = FLOW3_ANY;
-            }
-
-            flow3_map_replace_alternatives_i(ctx->p_current_flow3_map,
-                &p_expression->object,
-                result_value, result_rel,
-                p_expression->first_token->line);
-        }
 
         return (struct flow3_branch_pair) { right_pair.p_true, p_and_false };
     }
@@ -4530,7 +4433,6 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
         assert(p_expression->condition_expr != NULL);
         assert(p_expression->right != NULL);
 
-        flow3_check_pointer_used_as_bool(ctx, p_expression->condition_expr);
         struct flow3_branch_pair cond_pair = flow3_visit_expression(ctx, p_expression->condition_expr);
 
         /* true branch */
@@ -4583,7 +4485,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
                 }
                 if (p_result_entry->alternatives.size == 0)
                 {
-                    flow3_alternatives_add_i(&p_result_entry->alternatives, ANY_VALUE, FLOW3_ANY, ctx->p_current_flow3_map,
+                    flow3_alternatives_add_i(&p_result_entry->alternatives, ANY_VALUE, FLOW3_ANY, FLOW3_IMAGINARY_NONE, ctx->p_current_flow3_map,
                         p_expression->first_token->line);
                 }
             }
@@ -4638,7 +4540,6 @@ static void flow3_visit_compound_statement(struct flow3_visit_ctx* ctx, struct c
 static void flow3_visit_do_while_statement(struct flow3_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_DO);
-    //const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
     struct flow3_map* _Opt old_p_initial_map = ctx->p_initial_map;
     struct flow3_map* _Opt old_p_break_join_map = ctx->p_break_join_map;
@@ -4799,7 +4700,6 @@ static void flow3_visit_for_statement(struct flow3_visit_ctx* ctx, struct iterat
     {
         bool inside_loop = ctx->inside_loop;
         ctx->inside_loop = false;
-        flow3_check_pointer_used_as_bool(ctx, p_condition);
         ctx->inside_loop = inside_loop;
     }
 
@@ -4910,7 +4810,6 @@ static void flow3_check_arena_objects_at_function_exit(struct flow3_visit_ctx* c
          */
     }
 }
-
 static void flow3_check_file_scope_objects_at_function_exit(struct flow3_visit_ctx* ctx, const struct marker* marker)
 {
     /* Build a fast-lookup set of arena object pointers so we can skip them. */
@@ -4934,7 +4833,15 @@ static void flow3_check_file_scope_objects_at_function_exit(struct flow3_visit_c
         for (int i = 0; i < cur->num_of_buckets; i++)
         {
             for (const struct flow3_key_alternatives* e = cur->buckets[i]; e; e = e->next)
+            {
+                /* Skip sentinel keys that are not real objects */
+                uintptr_t val = (uintptr_t)e->p_obj_key;
+                if (val == UNINITIALIZED_VALUE || val == ANY_VALUE)
+                {
+                    continue;
+                }
                 object_set_add(&all_keys, e->p_obj_key);
+            }
         }
     }
 
@@ -4958,57 +4865,6 @@ static void flow3_check_file_scope_objects_at_function_exit(struct flow3_visit_c
         {
             continue;
         }
-
-        /* Check leaves: for struct objects recurse into members. */
-        if (p_obj->members.head)
-        {
-            for (const struct object* m = p_obj->members.head; m; m = m->next)
-            {
-                const bool m_uninit = flow3_object_is_uninitialized(ctx->p_current_flow3_map, m);
-                const bool m_moved = flow3_object_can_be_moved(ctx->p_current_flow3_map, m);
-                const bool m_expired = flow3_object_can_have_its_lifetime_ended(ctx->p_current_flow3_map, m);
-
-                if (m_uninit || m_moved || m_expired)
-                {
-                    const bool can_uninit = flow3_object_can_be_uninitialized(ctx->p_current_flow3_map, m);
-                    if (can_uninit || m_moved || m_expired)
-                    {
-                        diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, marker,
-                            "file-scope object member may be uninitialized, "
-                            "expired, or moved at function exit");
-                    }
-                    else
-                    {
-                        diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, marker,
-                            "file-scope object member is uninitialized, "
-                            "expired, or moved at function exit");
-                    }
-                }
-            }
-        }
-        else
-        {
-            const bool uninit = flow3_object_is_uninitialized(ctx->p_current_flow3_map, p_obj);
-            const bool moved = flow3_object_can_be_moved(ctx->p_current_flow3_map, p_obj);
-            const bool expired = flow3_object_can_have_its_lifetime_ended(ctx->p_current_flow3_map, p_obj);
-
-            if (uninit || moved || expired)
-            {
-                const bool can_uninit = flow3_object_can_be_uninitialized(ctx->p_current_flow3_map, p_obj);
-                if (can_uninit || moved || expired)
-                {
-                    diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, marker,
-                        "file-scope object may be uninitialized, "
-                        "expired, or moved at function exit");
-                }
-                else
-                {
-                    diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, marker,
-                        "file-scope object is uninitialized, "
-                        "expired, or moved at function exit");
-                }
-            }
-        }
     }
 
     object_set_destroy(&all_keys);
@@ -5020,16 +4876,13 @@ static void flow3_check_function_exit(struct flow3_visit_ctx* ctx, struct jump_s
     flow3_exit_block_visit_defer_list(ctx,
                                      &p_jump_statement->defer_list,
                                      p_jump_statement->first_token);
+
     flow3_defer_list_set_end_of_lifetime(ctx,
                                          &p_jump_statement->defer_list,
                                          p_jump_statement->first_token);
 
-    if (ctx->p_current_function_declaration != NULL)
-    {
-        flow3_check_params_at_function_exit(ctx, ctx->p_current_function_declaration);
-    }
 
-    flow3_check_arena_objects_at_function_exit(ctx);
+    flow3_check_arena_objects_at_function_exit(ctx);//TODO do file scope together
 
     const struct marker marker = {
         .p_token_begin = p_jump_statement->first_token,
@@ -5040,13 +4893,11 @@ static void flow3_check_function_exit(struct flow3_visit_ctx* ctx, struct jump_s
 
 static void flow3_visit_jump_statement(struct flow3_visit_ctx* ctx, struct jump_statement* p_jump_statement)
 {
-    //const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
     try
     {
         if (p_jump_statement->first_token->type == TK_KEYWORD_CAKE_THROW)
         {
 
-            /* accumulate into map-based throw join */
             if (ctx->p_throw_join_map != NULL)
             {
                 flow3_map_merge_a_b(ctx->p_throw_join_map,
@@ -5067,72 +4918,15 @@ static void flow3_visit_jump_statement(struct flow3_visit_ctx* ctx, struct jump_
                 throw;
             }
 
-            const bool ownership_enabled = ctx->ctx->options.ownership_enabled;
+            //const bool ownership_enabled = ctx->ctx->options.ownership_enabled;
 
             if (p_jump_statement->expression_opt)
             {
                 flow3_visit_full_expression(ctx, p_jump_statement->expression_opt);
-            }
 
-            if (p_jump_statement->expression_opt)
-            {
-                struct expression* p_ret_expr = p_jump_statement->expression_opt;
-                const int          line = p_ret_expr->first_token->line;
-                const struct object* p_ret_obj =
-                    object_get_referenced(&p_ret_expr->object);
-
-                /*
-                 * Shared checks: uninitialized, expired, nullable, ownership-moved.
-                 */
-                flow3_check_rhs_value(ctx, ctx->p_return_type, p_ret_expr);
-
-                /* ------------------------------------------------------------
-                 * Spec — Ownership transfer
-                 *
-                 *   If `ownership_enabled` is enabled, and the return type is
-                 *   marked `_Owner`, then ownership is transferred to the
-                 *   caller and the source object becomes expired.
-                 *   If the return type is an `_Owner` pointer, then the
-                 *   pointed object also becomes expired.
-                 * ------------------------------------------------------------
-                 */
-                if (ownership_enabled && type_is_owner(ctx->p_return_type))
-                {
-                    if (type_is_pointer(ctx->p_return_type))
-                    {
-                        /*
-                         * _Owner pointer: expire every concrete object the
-                         * returned pointer may currently alias.
-                         */
-                        const struct flow3_key_alternatives* e =
-                            flow3_map_search_up(ctx->p_current_flow3_map, p_ret_obj);
-                        if (e != NULL)
-                        {
-                            for (int i = 0; i < e->alternatives.size; i++)
-                            {
-                                const struct flow3_alternative* alt = &e->alternatives.data[i];
-                                if (alt->value.kind == FLOW3_VALUE_PTR &&
-                                    alt->value.as.p != NULL)
-                                {
-                                    /* Pointed object's lifetime ends — ownership is transferred
-                                     * to the caller who may free it. */
-                                    flow3_map_set_object_lifetime_ended(
-                                        ctx->p_current_flow3_map, alt->value.as.p, line);
-                                }
-                            }
-                        }
-                    }
-
-                    /*
-                     * The source object itself is expired — ownership transferred
-                     * to the caller, whether the return type is a pointer or
-                     * a non-pointer _Owner.
-                     */
-                    flow3_map_set_object_expired(
-                        ctx->p_current_flow3_map,
-                        p_ret_obj,
-                        line);
-                }
+                struct object param_object = { 0 };
+                make_object(ctx->p_return_type, &param_object, MAKE_STATE_UNITIALIZED, ctx->ctx->options.target);
+                flow3_check_object_init_assigment(ctx, p_jump_statement->expression_opt, &param_object, &p_jump_statement->expression_opt->object, INIT_RETURN);
             }
 
             /*
@@ -5208,7 +5002,6 @@ static void flow3_visit_labeled_statement(struct flow3_visit_ctx* ctx, struct la
 
 static void flow3_visit_primary_block(struct flow3_visit_ctx* ctx, struct primary_block* p_primary_block)
 {
-
     if (p_primary_block->compound_statement)
     {
         flow3_visit_compound_statement(ctx, p_primary_block->compound_statement);
@@ -5229,7 +5022,6 @@ static void flow3_visit_primary_block(struct flow3_visit_ctx* ctx, struct primar
 
 static void flow3_visit_unlabeled_statement(struct flow3_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement)
 {
-
     if (p_unlabeled_statement->primary_block)
     {
         flow3_visit_primary_block(ctx, p_unlabeled_statement->primary_block);
@@ -5250,7 +5042,6 @@ static void flow3_visit_unlabeled_statement(struct flow3_visit_ctx* ctx, struct 
     {
         assert(false);
     }
-
 }
 
 static void flow3_visit_statement(struct flow3_visit_ctx* ctx, struct statement* p_statement)
@@ -5349,166 +5140,27 @@ static void flow3_visit_pragma_declaration(struct flow3_visit_ctx* ctx, struct p
     execute_pragma_declaration(ctx->ctx, p_pragma_declaration, true);
 }
 
-static bool flow3_alternative_satisfies_token(const struct flow3_alternative* alt, const char* token_start, int token_len)
+static void object_static_debug(struct flow3_visit_ctx* ctx, const struct object* p_object, struct token* first_token, struct token* last_token)
 {
-    if (strncmp(token_start, "null", token_len) == 0 ||
-        strncmp(token_start, "zero", token_len) == 0)
+    const struct object* member = p_object->members.head;
+    if (member)
     {
-        return alt->relation == FLOW3_EQUAL && flow3_value_is_false(alt->value);
-    }
-
-    if (strncmp(token_start, "not-null", token_len) == 0 ||
-        strncmp(token_start, "not-zero", token_len) == 0)
-    {
-        /* NOT_EQUAL 0  -or-  EQUAL N where N != 0 */
-        return (alt->relation == FLOW3_NOT_EQUAL && flow3_value_is_false(alt->value)) ||
-            (alt->relation == FLOW3_EQUAL && flow3_value_is_true(alt->value));
-    }
-
-    if (strncmp(token_start, "any", token_len) == 0)
-    {
-        return alt->relation == FLOW3_ANY;
-    }
-
-    if (strncmp(token_start, "moved", token_len) == 0)
-    {
-        return alt->moved;
-    }
-
-    if (strncmp(token_start, "absent", token_len) == 0)
-    {
-        return alt->absent;
-    }
-
-    if (strncmp(token_start, "uninitialized", token_len) == 0)
-    {
-        return alt->relation == FLOW3_UNINITIALIZED;
-    }
-
-    return false; /* unknown token */
-}
-
-static bool flow3_assert_state_check(struct flow3_visit_ctx* ctx, const struct object* p_obj_key, const char* state_str)
-{
-    struct flow3_key_alternatives* p_entry =
-        flow3_map_search_up(ctx->p_current_flow3_map, p_obj_key);
-
-    if (p_entry == NULL)
-    {
-        return false;
-    }
-
-    const char* p = state_str;
-    if (*p == '"')
-    {
-        p++;
-    }
-
-    int expected_count = 0;
-
-    while (*p && *p != '"')
-    {
-        while (*p == ' ' || *p == '|' || *p == ',') p++;
-        if (*p == '\0' || *p == '"')
+        while (member)
         {
-            break;
+            object_static_debug(ctx, member, first_token, last_token);
+            member = member->next;
         }
-
-        const char* start = p;
-        while (*p && *p != ' ' && *p != '|' && *p != ',' && *p != '"') p++;
-        int len = (int)(p - start);
-
-        /* verify the token is known */
-        bool known = strncmp(start, "null", len) == 0 ||
-            strncmp(start, "zero", len) == 0 ||
-            strncmp(start, "not-null", len) == 0 ||
-            strncmp(start, "not-zero", len) == 0 ||
-            strncmp(start, "any", len) == 0 ||
-            strncmp(start, "moved", len) == 0 ||
-            strncmp(start, "does-not-exist", len) == 0 ||
-            strncmp(start, "uninitialized", len) == 0;
-        if (!known)
-        {
-            return false;
-        }
-
-        /* find exactly one alternative that satisfies this token,
-           and make sure it isn't claimed by another token */
-        bool found = false;
-        for (int k = 0; k < p_entry->alternatives.size; k++)
-        {
-            if (flow3_alternative_satisfies_token(&p_entry->alternatives.data[k], start, len))
-            {
-                found = true;
-                break;
-            }
-        }
-
-        if (!found)
-        {
-            return false;
-        }
-
-        expected_count++;
+        return;
     }
 
-    /* The number of expected tokens must equal the number of actual alternatives.
-       Without this check, assert_state("null") would pass even when the object
-       has two alternatives (null + not-null), because each token found its match
-       and each alternative was covered — but the counts don't agree. */
-    if (expected_count != p_entry->alternatives.size)
-    {
-        return false;
-    }
-
-    /* every alternative in the entry must be explained by some token */
-    for (int k = 0; k < p_entry->alternatives.size; k++)
-    {
-        const struct flow3_alternative* alt = &p_entry->alternatives.data[k];
-        bool covered = false;
-
-        const char* q = state_str;
-        if (*q == '"')
-        {
-            q++;
-        }
-        while (*q && *q != '"')
-        {
-            while (*q == ' ' || *q == '|' || *q == ',') q++;
-            if (*q == '\0' || *q == '"')
-            {
-                break;
-            }
-            const char* start = q;
-            while (*q && *q != ' ' && *q != '|' && *q != ',' && *q != '"') q++;
-            int len = (int)(q - start);
-
-            if (flow3_alternative_satisfies_token(alt, start, len))
-            {
-                covered = true;
-                break;
-            }
-        }
-
-        if (!covered)
-        {
-            return false;
-        } /* unexpected alternative present */
-    }
-
-    return true;
-}
-
-static void object_static_debug_concrete(struct flow3_visit_ctx* ctx, const struct object* p_object, struct token* first_token, struct token* last_token)
-{
     struct flow3_key_alternatives* p_entry = flow3_map_search_up(ctx->p_current_flow3_map, p_object);
     if (p_entry == NULL)
     {
-                 const struct marker m =
-                    {
-                        .p_token_begin = first_token,
-                        .p_token_end = last_token
-                    };
+        const struct marker m =
+        {
+            .p_token_begin = first_token,
+            .p_token_end = last_token
+        };
 
         struct osstream ss = { 0 };
         print_object_ptr(&ss, p_object, false);
@@ -5517,123 +5169,121 @@ static void object_static_debug_concrete(struct flow3_visit_ctx* ctx, const stru
         return;
     }
 
-    const struct object* member = p_object->members.head;
-    if (member)
+    for (int i = 0; i < p_entry->alternatives.size; i++)
     {
-        while (member)
+        struct flow3_alternative* p_flow3_alternative = &p_entry->alternatives.data[i];
+
+        if (p_flow3_alternative->imaginary == FLOW3_IMAGINARY_ABSENT)
         {
-            struct flow3_key_alternatives* p_entry_member = flow3_map_search_up(ctx->p_current_flow3_map, member);
-            if (p_entry_member)
-            {
-                for (int i = 0; i < p_entry_member->alternatives.size; i++)
-                {
-                    struct flow3_alternative* p_flow3_alternative = &p_entry_member->alternatives.data[i];
-
-                    /* does_not_exist marks the null-pointer arm of an _Opt
-                     * pointer.  After narrowing (e.g. inside `if (p)`) the
-                     * live map only retains alternatives correlated with the
-                     * non-null arm, but the does_not_exist slot on the arena
-                     * object is stored at the root map level and therefore
-                     * still visible via flow3_map_search_up.  Skip it here
-                     * so static_debug never reports "!EXIST" for an object
-                     * that is provably reachable. */
-                    if (p_flow3_alternative->absent)
-                    {
-                        continue;
-                    }
-
-                    const struct marker m =
-                    {
-                        .p_token_begin = first_token,
-                        .p_token_end = last_token
-                    };
-
-                    struct osstream ss = { 0 };
-                    flow3_alternative_sprint(&ss, p_flow3_alternative);
-
-                    const char* member_designator =
-                        member->member_designator ?
-                        member->member_designator : "";
-
-                    diagnostic(W_INFO, ctx->ctx, NULL, &m, "%s %s",
-                        member_designator,
-                        ss.c_str);
-                    ss_close(&ss);
-                }
-            }
-            member = member->next;
+            continue;
         }
+        if (p_flow3_alternative->value.kind == FLOW3_VALUE_REF)
+        {
+            object_static_debug(ctx, p_flow3_alternative->value.as.p, first_token, last_token);
+            continue;
+        }
+
+        const struct marker m =
+        {
+            .p_token_begin = first_token,
+            .p_token_end = last_token
+        };
+
+        struct osstream key_ss = { 0 };
+
+        if (p_entry->p_obj_key->member_designator)
+        {
+            print_object_ptr(&key_ss, p_entry->p_obj_key, false);
+        }
+
+        struct osstream ss = { 0 };
+        flow3_alternative_sprint(&ss, p_flow3_alternative);
+
+        diagnostic(W_INFO, ctx->ctx, NULL, &m, "%s %s",
+            key_ss.c_str ? key_ss.c_str : "",
+            ss.c_str);
+        ss_close(&key_ss);
+        ss_close(&ss);
+    }
+}
+
+// Explains, in human terms, why an alternative fails flow3_alternative_is_true.
+static void flow3_explain_alternative_not_true(struct osstream* ss, const struct flow3_alternative* alt)
+{
+    if (alt->relation == FLOW3_UNINITIALIZED)
+    {
+        ss_fprintf(ss, "value is uninitialized");
+    }
+    else if (alt->relation == FLOW3_ANY)
+    {
+        ss_fprintf(ss, "value could be any value, including zero");
+    }
+    else if (alt->relation == FLOW3_EQUAL && flow3_value_is_false(alt->value))
+    {
+        ss_fprintf(ss, "value equals zero");
+    }
+    else if (alt->relation == FLOW3_NOT_EQUAL)
+    {
+        ss_fprintf(ss, "value is only known to differ from a nonzero value, so it could still be zero");
     }
     else
     {
-        for (int i = 0; i < p_entry->alternatives.size; i++)
+        ss_fprintf(ss, "value cannot be proven nonzero");
+    }
+
+    switch (alt->imaginary)
+    {
+    case FLOW3_IMAGINARY_MOVED:  ss_fprintf(ss, " (object was moved)");           break;
+    case FLOW3_IMAGINARY_ENDED:  ss_fprintf(ss, " (object's lifetime has ended)"); break;
+    case FLOW3_IMAGINARY_ABSENT: ss_fprintf(ss, " (object is absent)");           break;
+    default: break;
+    }
+
+    ss_fprintf(ss, ", set at line %d", alt->line);
+
+    if (alt->origin)
+    {
+        ss_fprintf(ss, " in \"%s\"", alt->origin->name ? alt->origin->name : "");
+    }
+}
+
+static void check_object_true(struct flow3_visit_ctx* ctx, const struct object* p_object, const struct token* p_position_token)
+{
+    struct flow3_key_alternatives* p_entry = flow3_map_search_up(ctx->p_current_flow3_map, p_object);
+    if (p_entry == NULL)
+        return;
+
+    for (int i = 0; i < p_entry->alternatives.size; i++)
+    {
+        const struct flow3_alternative* alt = &p_entry->alternatives.data[i];
+        if (alt->value.kind == FLOW3_VALUE_REF)
         {
-            struct flow3_alternative* p_flow3_alternative = &p_entry->alternatives.data[i];
+            check_object_true(ctx, alt->value.as.p, p_position_token);
+            continue;
+        }
 
-            if (p_flow3_alternative->absent)
-            {
-                continue;
-            }
-
-            const struct marker m =
-            {
-                .p_token_begin = first_token,
-                .p_token_end = last_token
-            };
-
-            struct osstream key_ss = { 0 };
-
-            if (p_entry->p_obj_key->member_designator)
-            {
-                print_object_ptr(&key_ss, p_entry->p_obj_key, false);
-            }
-
+        if (!flow3_alternative_is_true(alt))
+        {
             struct osstream ss = { 0 };
-            flow3_alternative_sprint(&ss, p_flow3_alternative);
-
-            diagnostic(W_INFO, ctx->ctx, NULL, &m, "%s %s",
-                key_ss.c_str ? key_ss.c_str : "",
-                ss.c_str);
-            ss_close(&key_ss);
+            flow3_explain_alternative_not_true(&ss, alt);
+            diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx,
+                       p_position_token, NULL, "compile_assert failed: %s", ss.c_str);
             ss_close(&ss);
         }
     }
 }
 
-static void object_static_debug(struct flow3_visit_ctx* ctx, const struct object* p_object, struct token* first_token, struct token* last_token)
+static void flow3_visit_compile_assert(struct flow3_visit_ctx* ctx, struct static_assertion* p_static_assertion)
 {
-    const struct flow3_key_alternatives* p_entry = flow3_map_search_up(ctx->p_current_flow3_map, p_object);
-    if (p_entry == NULL)
-    {
-        return;
-    }
-
-    bool any_ref = false;
-    for (int i = 0; i < p_entry->alternatives.size; i++)
-    {
-        const struct flow3_alternative* alt = &p_entry->alternatives.data[i];
-        if (alt->absent)
-        {
-            continue;
-        }
-        if (alt->value.kind == FLOW3_VALUE_REF && alt->value.as.p != NULL)
-        {
-            any_ref = true;
-            object_static_debug_concrete(ctx, alt->value.as.p, first_token, last_token);
-        }
-    }
-
-    if (!any_ref)
-    {
-        object_static_debug_concrete(ctx, p_object, first_token, last_token);
-    }
+    check_object_true(ctx,
+        &p_static_assertion->constant_expression->object,
+        p_static_assertion->first_token);
 }
 
 static void flow3_visit_static_assertion(struct flow3_visit_ctx* ctx, struct static_assertion* p_static_assertion)
 {
     const bool t2 = ctx->expression_is_not_evaluated;
     ctx->expression_is_not_evaluated = true;
-
 
     flow3_visit_full_expression(ctx, p_static_assertion->constant_expression);
 
@@ -5653,62 +5303,14 @@ static void flow3_visit_static_assertion(struct flow3_visit_ctx* ctx, struct sta
     }
     else if (p_static_assertion->first_token->type == TK_KEYWORD_STATIC_STATE)
     {
-        if (p_static_assertion->string_literal_opt == NULL)
-        {
-            diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED,
-                       ctx->ctx,
-                       p_static_assertion->first_token, NULL,
-                       "assert_state requires a string argument");
-        }
-        else
-        {
-            const struct object* p_obj_key =
-                object_get_referenced(&p_static_assertion->constant_expression->object);
-
-            if (!flow3_assert_state_check(ctx,
-                p_obj_key,
-                p_static_assertion->string_literal_opt->lexeme))
-            {
-                struct flow3_key_alternatives* p_entry = flow3_map_search_up(ctx->p_current_flow3_map, p_obj_key);
-
-                diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED,
-                           ctx->ctx,
-                           p_static_assertion->first_token, NULL,
-                           "assert_state failed: expected '%s', got %d alternative(s)",
-                           p_static_assertion->string_literal_opt->lexeme,
-                           p_entry ? p_entry->alternatives.size : 0);
-            }
-        }
     }
     else if (p_static_assertion->first_token->type == TK_KEYWORD__COMPILE_ASSERT)
     {
-
-        if (flow3_object_is_not_zero(ctx->p_current_flow3_map, &p_static_assertion->constant_expression->object))
-        {
-            /* Provably true — assertion holds. */
-        }
-        else if (flow3_object_is_zero(ctx->p_current_flow3_map, &p_static_assertion->constant_expression->object))
-        {
-            diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED,
-                       ctx->ctx,
-                       p_static_assertion->first_token, NULL,
-                       "compile_assert failed");
-        }
-        else
-        {
-            /* Result is ANY or unknown — cannot prove the assertion. */
-            diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED,
-                       ctx->ctx,
-                       p_static_assertion->first_token, NULL,
-                       "compile_assert: assertion could not be proven");
-        }
+        flow3_visit_compile_assert(ctx, p_static_assertion);
     }
     else if (p_static_assertion->first_token->type == TK_KEYWORD_STATIC_SET)
     {
-
-
     }
-
 }
 
 static void flow3_visit_direct_declarator(struct flow3_visit_ctx* ctx, struct direct_declarator* p_direct_declarator)
@@ -5747,14 +5349,11 @@ static void flow3_visit_direct_declarator(struct flow3_visit_ctx* ctx, struct di
         {
             flow3_visit_full_expression(ctx, p_direct_declarator->array_declarator->assignment_expression);
         }
-
     }
 }
 
 static void flow3_visit_declarator(struct flow3_visit_ctx* ctx, struct declarator* p_declarator)
 {
-    //const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
-
     if (p_declarator->type.category != TYPE_CATEGORY_FUNCTION)
     {
         if (ctx->parameter_list > 1)
@@ -5889,459 +5488,79 @@ static void flow3_visit_declaration_specifiers(struct flow3_visit_ctx* ctx, stru
     }
 }
 
-static void flow3_check_owner_object_at_exit(struct flow3_visit_ctx* ctx, const struct type* p_type, struct object* p_obj, const struct marker* marker)
+static void flow3_check_object_at_exit(struct flow3_visit_ctx* ctx,
+                                             const struct type* p_type,
+                                             const struct object* p_obj,
+                                             const struct marker* marker,
+                                             const struct token* p_exit_token)
 {
-    /* ----------------------------------------------------------------
-     * _Ctor pointer: pointed object must be initialized at exit.
-     * ---------------------------------------------------------------- */
-    if (type_is_pointer(p_type) && type_is_pointed_ctor(p_type))
+    if (p_obj->members.head)
     {
-        const struct object* p_ptr_obj = object_get_referenced(p_obj);
-        const struct flow3_key_alternatives* e =
-            flow3_map_search_up(ctx->p_current_flow3_map, p_ptr_obj);
-        if (e != NULL)
+        for (const struct object* member = p_obj->members.head; member; member = member->next)
         {
-            for (int i = 0; i < e->alternatives.size; i++)
-            {
-                const struct flow3_alternative* alt = &e->alternatives.data[i];
-                if (alt->absent)
-                {
-                    continue;
-                } /* null arm — no object */
-                if (alt->value.kind == FLOW3_VALUE_PTR && alt->value.as.p != NULL)
-                {
-                    const struct object* p_pointed = alt->value.as.p;
-                    if (flow3_object_is_uninitialized(ctx->p_current_flow3_map, p_pointed))
-                    {
-                        diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, marker,
-                                   "_Ctor: pointed object is uninitialized at end of scope");
-                    }
-                    else if (flow3_object_can_be_uninitialized(ctx->p_current_flow3_map, p_pointed))
-                    {
-                        diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, marker,
-                                   "_Ctor: pointed object may be uninitialized at end of scope");
-                    }
-                }
-            }
+            flow3_check_object_at_exit(ctx,
+                                       &member->type,
+                                       member,
+                                       marker,
+                                       p_exit_token);
         }
-    }
-
-    /* ----------------------------------------------------------------
-     * _Dtor pointer: pointed object must be uninitialized, moved, or
-     * expired at exit.  All three states are valid: the destructor may
-     * have zeroed/released the object (uninitialized), transferred its
-     * ownership elsewhere (moved), or ended its lifetime via some other
-     * path (expired).  Any other state means the destructor failed to
-     * consume the object and a resource leak or use-after-destroy is
-     * possible.
-     * ---------------------------------------------------------------- */
-    if (type_is_pointer(p_type) && type_is_pointed_dtor(p_type))
-    {
-        const struct object* p_ptr_obj = object_get_referenced(p_obj);
-        const struct flow3_key_alternatives* e = flow3_map_search_up(ctx->p_current_flow3_map, p_ptr_obj);
-        if (e != NULL)
-        {
-            for (int i = 0; i < e->alternatives.size; i++)
-            {
-                const struct flow3_alternative* alt = &e->alternatives.data[i];
-                if (alt->absent)
-                {
-                    continue;
-                }
-                if (alt->value.kind == FLOW3_VALUE_PTR && alt->value.as.p != NULL)
-                {
-                    const struct object* p_pointed = alt->value.as.p;
-                    const bool is_uninit = flow3_object_is_uninitialized(ctx->p_current_flow3_map, p_pointed);
-                    const bool is_moved = flow3_object_can_be_moved(ctx->p_current_flow3_map, p_pointed);
-                    const bool is_expired = flow3_object_can_have_its_lifetime_ended(ctx->p_current_flow3_map, p_pointed);
-
-                    if (!is_uninit && !is_moved && !is_expired)
-                    {
-                        const bool can_uninit = flow3_object_can_be_uninitialized(ctx->p_current_flow3_map, p_pointed);
-                        if (can_uninit)
-                        {
-                            diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, marker,
-                                       "_Dtor: pointed object may not be uninitialized, moved, or expired at end of scope");
-                        }
-                        else
-                        {
-                            diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, marker,
-                                       "_Dtor: pointed object is not uninitialized, moved, or expired at end of scope");
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /* ----------------------------------------------------------------
-     * _Clear pointer: every leaf of the pointed object must be zero
-     * (EQUAL 0) at exit.  The callee is expected to zero-clear the
-     * object (e.g. assign members to 0/NULL, memset to 0).
-     * For struct objects the check is applied to every leaf member.
-     * ---------------------------------------------------------------- */
-    if (type_is_pointer(p_type) && type_is_pointed_clear(p_type))
-    {
-        const struct object* p_ptr_obj = object_get_referenced(p_obj);
-        const struct flow3_key_alternatives* e =
-            flow3_map_search_up(ctx->p_current_flow3_map, p_ptr_obj);
-        if (e != NULL)
-        {
-            for (int i = 0; i < e->alternatives.size; i++)
-            {
-                const struct flow3_alternative* alt = &e->alternatives.data[i];
-                if (alt->absent)
-                {
-                    continue;
-                }
-                if (alt->value.kind == FLOW3_VALUE_PTR && alt->value.as.p != NULL)
-                {
-                    const struct object* p_pointed = alt->value.as.p;
-
-                    /* For struct objects check every leaf member individually. */
-                    if (p_pointed->members.head)
-                    {
-                        for (const struct object* m = p_pointed->members.head; m; m = m->next)
-                        {
-                            if (!flow3_object_is_zero(ctx->p_current_flow3_map, m))
-                            {
-                                if (flow3_object_can_be_zero(ctx->p_current_flow3_map, m))
-                                {
-                                    diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, marker,
-                                               "_Clear: pointed object member may not be zero at end of scope");
-                                }
-                                else
-                                {
-                                    diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, marker,
-                                               "_Clear: pointed object member is not zero at end of scope");
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (!flow3_object_is_zero(ctx->p_current_flow3_map, p_pointed))
-                        {
-                            if (flow3_object_can_be_zero(ctx->p_current_flow3_map, p_pointed))
-                            {
-                                diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, marker,
-                                           "_Clear: pointed object may not be zero at end of scope");
-                            }
-                            else
-                            {
-                                diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, marker,
-                                           "_Clear: pointed object is not zero at end of scope");
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (!ctx->ctx->options.ownership_enabled)
-    {
         return;
     }
 
-    /* ----------------------------------------------------------------
-     * _Owner pointer: pointer itself and every alias must be
-     * moved, expired, or uninitialized at exit.
-     * ---------------------------------------------------------------- */
-    if (type_is_pointer(p_type) && type_is_owner(p_type))
-    {
-        const struct object* p_ptr_obj = object_get_referenced(p_obj);
+    const bool is_owner = type_is_owner(&p_obj->type);
 
-        const bool ptr_uninit = flow3_object_is_uninitialized(ctx->p_current_flow3_map, p_ptr_obj);
-        const bool ptr_moved = flow3_object_can_be_moved(ctx->p_current_flow3_map, p_ptr_obj);
-        const bool ptr_expired = flow3_object_can_have_its_lifetime_ended(ctx->p_current_flow3_map, p_ptr_obj);
-
-        if (!ptr_uninit && !ptr_moved && !ptr_expired)
-        {
-            const struct flow3_key_alternatives* e =
-                flow3_map_search_up(ctx->p_current_flow3_map, p_ptr_obj);
-            if (e != NULL)
-            {
-                for (int i = 0; i < e->alternatives.size; i++)
-                {
-                    const struct flow3_alternative* alt = &e->alternatives.data[i];
-                    if (alt->absent)
-                    {
-                        continue;
-                    } /* null — nothing to own */
-                    if (alt->moved || alt->expired || alt->ended)
-                    {
-                        continue;
-                    }
-                    /* UNINITIALIZED relation means the pointer slot has been freed/consumed:
-                       treat as safe regardless of the value kind. */
-                    if (alt->relation == FLOW3_UNINITIALIZED)
-                    {
-                        continue;
-                    }
-                    if (alt->value.kind == FLOW3_VALUE_PTR && alt->value.as.p != NULL)
-                    {
-                        const struct object* p_pointed = alt->value.as.p;
-                        const bool pointed_uninit = flow3_object_is_uninitialized(ctx->p_current_flow3_map, p_pointed);
-                        const bool pointed_moved = flow3_object_can_be_moved(ctx->p_current_flow3_map, p_pointed);
-                        const bool pointed_expired = flow3_object_can_have_its_lifetime_ended(ctx->p_current_flow3_map, p_pointed);
-
-                        if (!pointed_uninit && !pointed_moved && !pointed_expired)
-                        {
-                            diagnostic(W_FLOW_LIFETIME_ENDED, ctx->ctx, NULL, marker,
-                                "_Owner pointer: pointed object is not moved, "
-                                "expired, or uninitialized at end of scope (possible resource leak)");
-                        }
-                    }
-                    else if (alt->value.kind == FLOW3_VALUE_PTR && alt->value.as.p == NULL)
-                    {
-                        /* EQUAL null — pointer is null, nothing leaked */
-                    }
-                    else
-                    {
-                        /* Pointer value unknown (ANY relation) — conservative leak warning.
-                         * Only warn for truly unknown state; UNINITIALIZED is already
-                         * handled by the continue above. */
-                        if (alt->relation == FLOW3_ANY)
-                        {
-                            diagnostic(W_FLOW_LIFETIME_ENDED, ctx->ctx, NULL, marker,
-                                "_Owner pointer: pointed object may not be moved, "
-                                "expired, or uninitialized at end of scope (possible resource leak)");
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /* ----------------------------------------------------------------
-     * Non-pointer _Owner: the object (or its owner members for structs)
-     * must be expired, uninitialized, or moved at exit.
-     * _View objects are excluded: they carry no ownership.
-     * ---------------------------------------------------------------- */
-    if (!type_is_pointer(p_type) && type_is_owner(p_type))
-    {
-        const struct object* p_obj_ref = object_get_referenced(p_obj);
-
-        if (p_obj_ref->members.head)
-        {
-            for (const struct object* m = p_obj_ref->members.head; m; m = m->next)
-            {
-                if (!type_is_owner(&m->type))
-                {
-                    continue;
-                } /* non-owner member — skip */
-
-                const bool m_uninit = flow3_object_is_uninitialized(ctx->p_current_flow3_map, m);
-                const bool m_moved = flow3_object_can_be_moved(ctx->p_current_flow3_map, m);
-                const bool m_expired = flow3_object_can_have_its_lifetime_ended(ctx->p_current_flow3_map, m);
-                const bool m_can_uninit = flow3_object_can_be_uninitialized(ctx->p_current_flow3_map, m);
-
-                if (!m_uninit && !m_moved && !m_expired)
-                {
-                    if (m_can_uninit)
-                    {
-                        diagnostic(W_FLOW_LIFETIME_ENDED, ctx->ctx, NULL, marker,
-                            "_Owner member may not be expired, uninitialized, "
-                            "or moved at end of scope (possible resource leak)");
-                    }
-                    else
-                    {
-                        diagnostic(W_FLOW_LIFETIME_ENDED, ctx->ctx, NULL, marker,
-                            "_Owner member is not expired, uninitialized, "
-                            "or moved at end of scope (possible resource leak)");
-                    }
-                }
-            }
-        }
-        else
-        {
-            const bool uninit = flow3_object_is_uninitialized(ctx->p_current_flow3_map, p_obj_ref);
-            const bool moved = flow3_object_can_be_moved(ctx->p_current_flow3_map, p_obj_ref);
-            const bool expired = flow3_object_can_have_its_lifetime_ended(ctx->p_current_flow3_map, p_obj_ref);
-            const bool can_uninit = flow3_object_can_be_uninitialized(ctx->p_current_flow3_map, p_obj_ref);
-
-            if (!uninit && !moved && !expired)
-            {
-                if (can_uninit)
-                {
-                    diagnostic(W_FLOW_LIFETIME_ENDED, ctx->ctx, NULL, marker,
-                        "_Owner object may not be expired, uninitialized, "
-                        "or moved at end of scope (possible resource leak)");
-                }
-                else
-                {
-                    diagnostic(W_FLOW_LIFETIME_ENDED, ctx->ctx, NULL, marker,
-                        "_Owner object is not expired, uninitialized, "
-                        "or moved at end of scope (possible resource leak)");
-                }
-            }
-        }
-    }
-}
-
-static void flow3_check_plain_ptr_param_at_exit(struct flow3_visit_ctx* ctx, const struct type* p_type, struct object* p_obj, const struct marker* marker)
-{
-    /* Only plain pointers: must be a pointer but NOT any special annotation. */
-    if (!type_is_pointer(p_type))
-    {
-        return;
-    }
-    if (type_is_owner(p_type))
-    {
-        return;
-    }
-    if (type_is_pointed_dtor(p_type))
-    {
-        return;
-    }
-    if (type_is_pointed_ctor(p_type))
-    {
-        return;
-    }
-    if (type_is_pointed_clear(p_type))
-    {
-        return;
-    }
-
-    const struct object* p_ptr_obj = object_get_referenced(p_obj);
-
-    const struct flow3_key_alternatives* e =
-        flow3_map_search_up(ctx->p_current_flow3_map, p_ptr_obj);
-    if (e == NULL)
-    {
-        return;
-    }
+    const struct flow3_key_alternatives* e = flow3_map_search_up(ctx->p_current_flow3_map, p_obj);
+    if (e == NULL) return;
 
     for (int i = 0; i < e->alternatives.size; i++)
     {
-        const struct flow3_alternative* alt = &e->alternatives.data[i];
+        const struct flow3_alternative* p_alternative = &e->alternatives.data[i];
 
-        /* Null arm — nothing pointed to, nothing to check. */
-        if (alt->absent)
+        if (p_alternative->value.kind == FLOW3_VALUE_REF)
         {
-            continue;
-        }
-
-        /* Pointer is null (EQUAL 0) — nothing pointed to. */
-        if (alt->relation == FLOW3_EQUAL &&
-            alt->value.kind == FLOW3_VALUE_PTR &&
-            alt->value.as.p == NULL)
-        {
-            continue;
-        }
-
-        /* Uninitialized pointer slot — the pointer itself is garbage,
-           treat as no reachable object. */
-        if (alt->relation == FLOW3_UNINITIALIZED)
-        {
-            continue;
-        }
-
-        if (alt->value.kind == FLOW3_VALUE_PTR && alt->value.as.p != NULL)
-        {
-            const struct object* p_pointed = alt->value.as.p;
-
-            /* Check leaf members individually for struct objects. */
-            if (p_pointed->members.head)
+            //IS THIS POSSIBLE?
+            if (p_alternative->value.as.p != p_obj)
             {
-                for (const struct object* m = p_pointed->members.head; m; m = m->next)
-                {
-                    const bool m_uninit = flow3_object_is_uninitialized(ctx->p_current_flow3_map, m);
-                    const bool m_moved = flow3_object_can_be_moved(ctx->p_current_flow3_map, m);
-                    const bool m_expired = flow3_object_can_have_its_lifetime_ended(ctx->p_current_flow3_map, m);
+                flow3_check_object_at_exit(ctx,
+                                            p_type,
+                                            p_alternative->value.as.p,
+                                            marker,
+                                            p_exit_token);
+                continue;
+            }
+        }
 
-                    if (m_uninit || m_moved || m_expired)
-                    {
-                        const bool can_uninit = flow3_object_can_be_uninitialized(ctx->p_current_flow3_map, m);
-                        if (can_uninit || m_moved || m_expired)
-                        {
-                            diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, marker,
-                                "pointed object member may be uninitialized, "
-                                "expired, or moved at end of scope");
-                        }
-                        else
-                        {
-                            diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, marker,
-                                "pointed object member is uninitialized, "
-                                "expired, or moved at end of scope");
-                        }
-                    }
-                }
+        if (p_alternative->imaginary == FLOW3_IMAGINARY_ABSENT)
+            continue;
+
+        if (is_owner && (p_alternative->imaginary != FLOW3_IMAGINARY_MOVED))
+        {
+            if (flow3_alternative_is_zero(p_alternative))
+            {
+
             }
             else
             {
-                const bool uninit = flow3_object_is_uninitialized(ctx->p_current_flow3_map, p_pointed);
-                const bool moved = flow3_object_can_be_moved(ctx->p_current_flow3_map, p_pointed);
-                const bool expired = flow3_object_can_have_its_lifetime_ended(ctx->p_current_flow3_map, p_pointed);
-
-                if (uninit || moved || expired)
+                const char* object_name = p_obj->member_designator;
+                if (diagnostic(W_FLOW_LIFETIME_ENDED,
+                    ctx->ctx,
+                    NULL,
+                    marker,
+                    "owner object (%s) not moved (%s see line %d)",
+                    object_name,
+                    p_alternative->origin->name,
+                    p_alternative->line))
                 {
-                    const bool can_uninit = flow3_object_can_be_uninitialized(ctx->p_current_flow3_map, p_pointed);
-                    if (can_uninit || moved || expired)
-                    {
-                        diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, marker,
-                            "pointed object may be uninitialized, "
-                            "expired, or moved at end of scope");
-                    }
-                    else
-                    {
-                        diagnostic(W_FLOW_UNINITIALIZED, ctx->ctx, NULL, marker,
-                            "pointed object is uninitialized, "
-                            "expired, or moved at end of scope");
-                    }
+                    diagnostic(W_INFO,
+                     ctx->ctx,
+                     p_exit_token,
+                     NULL,
+                     "exit point");
                 }
             }
         }
-        /*
-         * alt->relation == FLOW3_ANY: pointer value is completely unknown —
-         * no concrete arena object to inspect, skip conservatively.
-         */
-    }
-}
 
-static void flow3_check_params_at_function_exit(struct flow3_visit_ctx* ctx, struct declaration* p_declaration)
-{
-    if (p_declaration->init_declarator_list.head == NULL)
-    {
-        return;
-    }
 
-    struct declarator* p_func_declarator = p_declaration->init_declarator_list.head->p_declarator;
-
-    if (p_func_declarator == NULL ||
-        p_func_declarator->direct_declarator == NULL ||
-        p_func_declarator->direct_declarator->function_declarator == NULL)
-    {
-        return;
-    }
-
-    struct function_declarator* p_func_decl = p_func_declarator->direct_declarator->function_declarator;
-
-    if (p_func_decl->parameter_type_list_opt == NULL ||
-        p_func_decl->parameter_type_list_opt->parameter_list == NULL)
-    {
-        return;
-    }
-
-    struct parameter_declaration* _Opt parameter = p_func_decl->parameter_type_list_opt->parameter_list->head;
-
-    while (parameter)
-    {
-        if (parameter->declarator != NULL)
-        {
-            struct token* p_token = parameter->declaration_specifiers->first_token;
-            const struct marker marker = { .p_token_begin = p_token, .p_token_end = p_token };
-            flow3_check_owner_object_at_exit(ctx,
-                &parameter->declarator->type,
-                &parameter->declarator->object,
-                &marker);
-            flow3_check_plain_ptr_param_at_exit(ctx,
-                &parameter->declarator->type,
-                &parameter->declarator->object,
-                &marker);
-        }
-        parameter = parameter->next;
     }
 }
 
@@ -6370,7 +5589,6 @@ void flow3_visit_declaration(struct flow3_visit_ctx* ctx, struct declaration* p_
     {
         flow3_visit_pragma_declaration(ctx, p_declaration->pragma_declaration);
     }
-
 
     if (p_declaration->declaration_specifiers)
     {
@@ -6404,19 +5622,11 @@ void flow3_visit_declaration(struct flow3_visit_ctx* ctx, struct declaration* p_
         type_destroy(&type);
         ctx->p_return_type = NULL;
 
-        /*
-         * Spec — fall-through exit checks (§1.3–§1.6):
-         * When the last item in the body is NOT a return, control can
-         * fall off the end of the function.  Run the full exit audit here.
-         * When the last item IS a return, flow3_visit_jump_statement has
-         * already called all helpers for every explicit return path, so
-         * there is nothing left to do and we must not call them again.
-         */
         if (!flow3_is_last_item_return(p_declaration->function_body))
         {
             flow3_exit_block_visit_defer_list(ctx, &p_declaration->defer_list, p_declaration->function_body->last_token);
             flow3_defer_list_set_end_of_lifetime(ctx, &p_declaration->defer_list, p_declaration->function_body->last_token);
-            flow3_check_params_at_function_exit(ctx, p_declaration);
+            //flow3_check_params_at_function_exit(ctx, p_declaration);
             flow3_check_arena_objects_at_function_exit(ctx);
             const struct marker marker = {
                 .p_token_begin = p_declaration->function_body->last_token,

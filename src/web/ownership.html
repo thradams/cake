@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
   <link rel="stylesheet" href="default.min.css">
   <script src="highlight.min.js"></script>
   <script>hljs.highlightAll();</script>
@@ -8,17 +9,157 @@
   <title>Cake C Compiler</title>
   <meta name="description" content="Cake C Compiler">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+
   <script>
-  function Try(elm) {
-    var source = elm.parentElement.previousElementSibling.innerText;
-    var link = "./playground.html?code=" + encodeURIComponent(btoa(source))
-             + "&to=" + encodeURI("-2")
-             + "&options=" + encodeURI("");
-    window.open(link, '_blank');
-  }
-  // find-replace for this:
-  // <button onclick="Try(this)">try</button>
+    // Playground launcher
+    function launchPlayground(sourceCode) {
+      var link = "./playground.html?code=" + encodeURIComponent(btoa(sourceCode))
+               + "&to=" + encodeURI("-2")
+               + "&options=-flow3";
+      window.open(link, '_blank');
+    }
+
+    // Copy to clipboard
+    async function copyToClipboard(text, btnElement) {
+      try {
+        await navigator.clipboard.writeText(text);
+        const originalText = btnElement.innerText;
+        btnElement.innerText = "Copied!";
+        setTimeout(() => {
+          btnElement.innerText = originalText;
+        }, 1500);
+      } catch (err) {
+        btnElement.innerText = "Error";
+        setTimeout(() => {
+          btnElement.innerText = "Copy";
+        }, 1000);
+      }
+    }
+
+    // Check if a code block is marked as runnable
+    // Supports:
+    // - HTML comment <!-- runnable --> immediately before <pre>
+    // - data-runnable="true" attribute on <pre>
+    // - class="runnable" on <pre> (legacy)
+    function isRunnable(preElement) {
+      // Check attribute or class
+      if (preElement.hasAttribute('data-runnable') && preElement.getAttribute('data-runnable') === 'true') return true;
+      if (preElement.classList && preElement.classList.contains('runnable')) return true;
+      
+      // Check previous sibling for comment
+      let prev = preElement.previousSibling;
+      while (prev && prev.nodeType === Node.TEXT_NODE && prev.textContent.trim() === '') {
+        prev = prev.previousSibling;
+      }
+      if (prev && prev.nodeType === Node.COMMENT_NODE) {
+        const commentText = prev.textContent.trim().toLowerCase();
+        if (commentText === 'runnable' || commentText === ' runnable ') {
+          // Optionally remove the comment so it doesn't clutter the DOM
+          prev.remove();
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // Wrap each code block in a frame, add Copy (always) and Run (if runnable)
+    function enhanceCodeSnippets() {
+      const codeBlocks = Array.from(document.querySelectorAll('pre code.language-c'));
+      
+      for (const codeElement of codeBlocks) {
+        const preElement = codeElement.parentElement;
+        if (!preElement) continue;
+        if (preElement.closest('.code-frame')) continue;
+        
+        const codeText = codeElement.innerText;
+        const runnable = isRunnable(preElement);
+        
+        // Find original "try" button to remove
+        let tryButton = null;
+        let tryButtonContainer = null;
+        let sibling = preElement.nextElementSibling;
+        while (sibling && !tryButton) {
+          if (sibling.tagName === 'BUTTON' && sibling.getAttribute('onclick')?.includes('Try(this)')) {
+            tryButton = sibling;
+            tryButtonContainer = sibling.parentElement;
+            break;
+          }
+          const btn = sibling.querySelector('button[onclick*="Try(this)"]');
+          if (btn) {
+            tryButton = btn;
+            tryButtonContainer = sibling;
+            break;
+          }
+          sibling = sibling.nextElementSibling;
+        }
+        
+        // Save position before DOM changes
+        const parent = preElement.parentNode;
+        const nextSibling = preElement.nextSibling;
+        
+        // Create frame
+        const frameDiv = document.createElement('div');
+        frameDiv.className = 'code-frame';
+        
+        // Move pre element into frame
+        preElement.remove();
+        frameDiv.appendChild(preElement);
+        
+        // Create action buttons
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'code-actions';
+        
+        // Copy button (always)
+        const copyBtn = document.createElement('button');
+        copyBtn.innerText = 'Copy';
+        copyBtn.title = 'Copy code to clipboard';
+        copyBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          copyToClipboard(codeText, copyBtn);
+        });
+        actionsDiv.appendChild(copyBtn);
+        
+        // Run button (only if marked runnable)
+        if (runnable) {
+          const runBtn = document.createElement('button');
+          runBtn.innerText = 'Run';
+          runBtn.title = 'Run in Playground';
+          runBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            launchPlayground(codeText);
+          });
+          actionsDiv.appendChild(runBtn);
+        }
+        
+        frameDiv.appendChild(actionsDiv);
+        
+        // Insert frame
+        if (parent) {
+          parent.insertBefore(frameDiv, nextSibling);
+        } else {
+          const article = document.querySelector('article');
+          if (article) article.appendChild(frameDiv);
+        }
+        
+        // Remove original try button and empty container
+        if (tryButton) {
+          tryButton.remove();
+          if (tryButtonContainer && tryButtonContainer.children.length === 0 && !tryButtonContainer.innerText.trim()) {
+            tryButtonContainer.remove();
+          }
+        }
+      }
+    }
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      enhanceCodeSnippets();
+      if (typeof hljs !== 'undefined' && hljs.highlightAll) {
+        hljs.highlightAll();
+      }
+    });
+    
   </script>
+
 </head>
 <body>
   <article style="max-width: 40em; margin:auto">
@@ -100,69 +241,66 @@
 <a href="#toc_22">The <code>_Ctor</code> parameter annotation</a>
 </li>
 <li>
-<a href="#toc_23"><code>_Dtor</code> vs <code>_Ctor</code> — Summary</a>
-</li>
-<li>
-<a href="#toc_24">Type Annotations in Arrays parameters</a>
+<a href="#toc_23">Type Annotations in Arrays parameters</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_25">Chapter 4: Flow Analysis and Object States</a>
+<a href="#toc_24">Chapter 4: Flow Analysis and Object States</a>
 <ul>
 <li>
-<a href="#toc_26">Enabling Flow Analysis</a>
+<a href="#toc_25">Enabling Flow Analysis</a>
 </li>
 <li>
-<a href="#toc_27">The State Model</a>
+<a href="#toc_26">The State Model</a>
 </li>
 <li>
-<a href="#toc_28">Inspecting State with <code>assert_state</code> and <code>static_debug</code></a>
+<a href="#toc_27">Inspecting State with <code>assert_state</code> and <code>static_debug</code></a>
 </li>
 <li>
-<a href="#toc_29">Uninitialized State</a>
+<a href="#toc_28">Uninitialized State</a>
 </li>
 <li>
-<a href="#toc_30">Moved State</a>
+<a href="#toc_29">Moved State</a>
 </li>
 <li>
-<a href="#toc_31">Null and Not-Null States</a>
+<a href="#toc_30">Null and Not-Null States</a>
 </li>
 <li>
-<a href="#toc_32">Overriding State with <code>override_state</code></a>
+<a href="#toc_31">Overriding State with <code>override_state</code></a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_33">Chapter 5: Known Limitations</a>
+<a href="#toc_32">Chapter 5: Known Limitations</a>
 <ul>
 <li>
-<a href="#toc_34">Correlated Conditions</a>
+<a href="#toc_33">Correlated Conditions</a>
 </li>
 <li>
-<a href="#toc_35">State Relationships After Branching</a>
+<a href="#toc_34">State Relationships After Branching</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_36">Chapter 6: Code Transition Strategy</a>
+<a href="#toc_35">Chapter 6: Code Transition Strategy</a>
 </li>
 <li>
-<a href="#toc_37">Quick Reference</a>
+<a href="#toc_36">Quick Reference</a>
 <ul>
 <li>
-<a href="#toc_38">Type Annotations</a>
+<a href="#toc_37">Type Annotations</a>
 </li>
 <li>
-<a href="#toc_39">Pragmas</a>
+<a href="#toc_38">Pragmas</a>
 </li>
 <li>
-<a href="#toc_40">Built-in Intrinsics</a>
+<a href="#toc_39">Built-in Intrinsics</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_41">References</a>
+<a href="#toc_40">References</a>
 </li>
 </ul>
 </li>
@@ -173,8 +311,6 @@
 
 <p>A hands-on guide to Cake&#39;s ownership and nullable pointer annotations - with working examples, 
 enforced rules, and an incremental migration strategy for existing codebases.</p>
-
-<hr>
 
 <h2 id="toc_1">Introduction</h2>
 
@@ -188,8 +324,6 @@ dereferencing a null pointer.</p>
 <p>This manual walks you through each concept with working code examples, 
 explains the rules enforced by the analyzer, and shows you how to adopt 
 these features incrementally in an existing codebase.</p>
-
-<hr>
 
 <h2 id="toc_2">Chapter 1: Nullable Pointers</h2>
 
@@ -206,8 +340,6 @@ The annotation is placed after the <code>*</code>.</p>
 
 <p>A pointer without <code>_Opt</code> is always assumed to be non-nullable.</p>
 
-<hr>
-
 <h3 id="toc_4">Enabling Nullable Rules: <code>#pragma nullable</code></h3>
 
 <p>Because existing C code was not written with nullability in mind, Cake provides a pragma to control when the new rules apply:</p>
@@ -222,11 +354,11 @@ The annotation is placed after the <code>*</code>.</p>
 <p>This lets you migrate code incrementally enabling the rules file-by-file or region-by-region. 
 Only static analysis behavior changes; the runtime behavior of your program is unaffected.</p>
 
-<hr>
-
 <h3 id="toc_5">Example 1: Assigning Nullable to a Non-Nullable Pointer</h3>
 
 <p>Once nullable rules are enabled, assigning <code>nullptr</code> to an unqualified pointer generates a warning:</p>
+
+<!-- runnable -->
 
 <pre><code class="language-c">#pragma nullable enable
 
@@ -235,13 +367,11 @@ int main() {
 }
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
-
-<hr>
-
 <h3 id="toc_6">Example 2: Converting Non-Nullable to Nullable</h3>
 
 <p>Assigning a non-nullable pointer to a nullable variable is always safe and explicitly allowed:</p>
+
+<!-- runnable -->
 
 <pre><code class="language-c">#pragma nullable enable
 
@@ -252,14 +382,12 @@ int main() {
 }
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
-
-<hr>
-
 <h3 id="toc_7">Example 3: Nullable Pointer to a Non-Nullable Parameter</h3>
 
 <p>Narrowing from nullable to non-nullable requires a null check. 
 Without one, the analyzer warns you:</p>
+
+<!-- runnable -->
 
 <pre><code class="language-c">#pragma nullable enable
 
@@ -272,18 +400,25 @@ int main() {
 }
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
-
 <p>To fix this, add a null check before the call:</p>
 
-<pre><code class="language-c">  if (s1)
-    f(s1);  // ok: flow analysis confirms s1 is not null here
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma nullable enable
+
+char * _Opt strdup(const char * src);
+void f(char *s);   // s is non-nullable
+
+int main() {
+  char * _Opt s1 = strdup(&quot;a&quot;);
+  if (s1)
+     f(s1);  // ok: flow analysis confirms s1 is not null here
+}
+
 </code></pre>
 
 <p>Cake uses flow analysis to track possible nullability through branches.
 Once you check a pointer, the analyzer knows it is non-null inside the guarded block.</p>
-
-<hr>
 
 <h3 id="toc_8">Helping the Analyzer with <code>assert()</code></h3>
 
@@ -291,6 +426,8 @@ Once you check a pointer, the analyzer knows it is non-null inside the guarded b
 it cannot infer postconditions from called functions. </p>
 
 <p>When the analyzer cannot determine a pointer&#39;s state on its own, you can hint with <code>assert()</code>:</p>
+
+<!-- runnable -->
 
 <pre><code class="language-c">#pragma safety enable
 
@@ -308,8 +445,6 @@ void f(struct X * p) {
 }
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
-
 <p>From a flow analysis perspective, <code>assert(expr)</code> is equivalent to <code>if (!(expr)) exit(1);</code>.</p>
 
 <blockquote>
@@ -318,13 +453,13 @@ void f(struct X * p) {
 <p><strong>Note:</strong> A contract-based approach (postconditions declared alongside the function) is under development and will eventually replace the need for remote <code>assert()</code> hints.</p>
 </blockquote>
 
-<hr>
-
 <h3 id="toc_9">Non-Nullable Initialization</h3>
 
 <p>Non-nullable pointers can be initialized with <code>{}</code>, meaning they are set to zero; however, 
 they are still in an invalid state despite having a value. 
 This is very similar to being uninitialized. For instance:</p>
+
+<!-- runnable -->
 
 <pre><code class="language-c">#pragma nullable enable
 
@@ -336,20 +471,24 @@ struct X f() {
 }
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
-
 <p>Compare with:</p>
 
-<pre><code class="language-c">struct X f() {
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma nullable enable
+
+struct X { char * text; };
+
+struct X f() {
     struct X x = {};
     return x;  // warning: returning possible null pointer &#39;x.text&#39;
 }
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
-
 <p>In both cases, the object is in an invalid state. In the first case, <code>x.text</code> is uninitialized (it has no defined value). 
 In the second case, <code>x.text</code> is initialized to zero (null), which is a defined value but still invalid for a non-nullable pointer.</p>
+
+<!-- runnable -->
 
 <pre><code class="language-c">#pragma nullable enable
 
@@ -366,10 +505,6 @@ void f() {
 }
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
-
-<hr>
-
 <h3 id="toc_10">Using <code>malloc()</code> and <code>calloc()</code> with Structs</h3>
 
 <p>Cake understands the built-in semantics of <code>malloc()</code> and <code>calloc()</code>:</p>
@@ -378,6 +513,8 @@ void f() {
 <li><strong><code>malloc()</code></strong> — returns an uninitialized block; members must be assigned before use.</li>
 <li><strong><code>calloc()</code></strong> — returns a zero-initialized block; non-nullable members start as null and must be assigned before passing to functions expecting non-nullable pointers.</li>
 </ul>
+
+<!-- runnable -->
 
 <pre><code class="language-c">#pragma nullable enable
 
@@ -398,7 +535,7 @@ void f() {
 }
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
+<!-- runnable -->
 
 <pre><code class="language-c">#pragma safety enable  
 
@@ -420,10 +557,6 @@ void f() {
 }
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
-
-<hr>
-
 <h2 id="toc_11">Chapter 2: Object Lifetime and Ownership</h2>
 
 <p>Object lifetime as the portion of program execution during which storage 
@@ -443,13 +576,13 @@ of these rules.</p>
 <p><strong>Note:</strong> <code>_Owner</code> annotations are parsed even when ownership is disabled, but have no effect. Use <code>#pragma safety enable</code> as a shorthand for both features.</p>
 </blockquote>
 
-<hr>
-
 <h3 id="toc_13">Owner References and the <code>_Owner</code> annotation</h3>
 
 <p>An <strong>owner reference</strong> is an object that manages the lifetime of the thing it references. The most common form is an <strong>owner pointer</strong> — a pointer to a heap-allocated object that is responsible for freeing it.</p>
 
 <p>Declare an owner pointer by adding <code>_Owner</code> after the <code>*</code>:</p>
+
+<!-- runnable -->
 
 <pre><code class="language-c">#pragma safety enable
 
@@ -463,14 +596,10 @@ int main() {
 }
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
-
 <p>If you comment out <code>fclose()</code>, the analyzer warns that <code>f</code> leaves scope without its ownership being transferred:</p>
 
 <pre><code class="language-c">} // warning: &#39;f&#39; leaves scope with an owned resource
 </code></pre>
-
-<hr>
 
 <h3 id="toc_14">The Two Core Ownership Rules</h3>
 
@@ -485,8 +614,6 @@ int main() {
 <pre><code class="language-c">FILE * _Owner _Opt f2 = f;  // ownership transferred: f is now &#39;moved&#39;
 if (f2) fclose(f2);         // f2&#39;s ownership transferred to fclose
 </code></pre>
-
-<hr>
 
 <h3 id="toc_15">Additional Owner Rules</h3>
 
@@ -503,8 +630,6 @@ if (f2) fclose(f2);         // f2&#39;s ownership transferred to fclose
 <p><strong>Rule:</strong> The null pointer constant can be used to initialize owner objects (it represents an empty owner).</p>
 </blockquote>
 
-<hr>
-
 <h3 id="toc_16">Non-Pointer Owner References</h3>
 
 <p>Ownership is not limited to pointers. Berkeley sockets, for example, use an integer file descriptor. You can mark any type as an owner:</p>
@@ -518,8 +643,6 @@ close(server_socket);
 <p><strong>Note:</strong> The <code>_Owner</code> annotation belongs to the storage holding the reference, not to the pointed-to type. Its placement follows the same rules as <code>const</code>.</p>
 </blockquote>
 
-<hr>
-
 <h3 id="toc_17">View References</h3>
 
 <p>A <strong>view reference</strong> accesses an object without managing its lifetime. Regular (non-<code>_Owner</code>) 
@@ -532,7 +655,11 @@ not on pointer declarations.</p>
 
 <p>The analyzer detects when a view pointer outlives what it points to:</p>
 
-<pre><code class="language-c">int main()
+<!-- runnable -->
+
+<pre><code class="language-c">struct X { int i; };
+
+int main()
 {
     struct X * _Opt p = nullptr;
 
@@ -542,16 +669,17 @@ not on pointer declarations.</p>
     }
 
     p-&gt;i = 1;  // warning: &#39;x&#39; lifetime ended
+    static_debug(p);
+}
+
 </code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<hr>
 
 <h3 id="toc_18">The <code>_View</code> annotation</h3>
 
 <p>The <code>_View</code> annotation enables assignment without ownership transfer. 
 A <code>_View</code> object does not own the resource.</p>
+
+<!-- runnable -->
 
 <pre><code class="language-c">#pragma safety enable
 
@@ -571,14 +699,12 @@ int main() {
 
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
-
-<hr>
-
 <h3 id="toc_19">Deleting Owner Pointers</h3>
 
 <p>Owner pointers take responsibility for both the pointed-to object and its storage. 
 A common pattern is to implement a <code>delete</code> function that releases both:</p>
+
+<!-- runnable -->
 
 <pre><code class="language-c">#pragma safety enable
 #include &lt;stdlib.h&gt;
@@ -593,15 +719,11 @@ void x_delete(struct X * _Owner _Opt p) {
 }
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
-
 <blockquote>
 <p><strong>Note:</strong> <code>void * _Owner</code>  owns <em>only the storage</em>.</p>
 
 <p><strong>Note:</strong> Converting <code>T * _Owner</code> to <code>void * _Owner</code> requires the pointed-to object to be empty first. This is how the analyzer distinguishes between moving the object and moving only the raw storage.</p>
 </blockquote>
-
-<hr>
 
 <h2 id="toc_20">Chapter 3: Parameter annotations</h2>
 
@@ -610,6 +732,8 @@ void x_delete(struct X * _Owner _Opt p) {
 <p><code>_Dtor</code> tells the analyzer that the function will move out all owner contents of 
 the pointed-to struct, leaving it uninitialized. The compiler also verifies that the 
 implementation fulfills this contract.</p>
+
+<!-- runnable -->
 
 <pre><code class="language-c">#pragma safety enable
 #include &lt;stdlib.h&gt;
@@ -627,8 +751,6 @@ int main() {
 }
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
-
 <p>You can build a <code>delete</code> function on top of <code>x_destroy</code>:</p>
 
 <pre><code class="language-c">void x_delete(_Opt struct X * _Owner _Opt p) {
@@ -639,19 +761,18 @@ int main() {
 }
 </code></pre>
 
-<hr>
-
 <h3 id="toc_22">The <code>_Ctor</code> parameter annotation</h3>
 
 <p><code>_Ctor</code> is the inverse of <code>_Dtor</code>. It tells the analyzer that the 
 function expects an <strong>uninitialized</strong> object as input and initializes it 
 on return. This is the pattern for init-style functions.</p>
 
+<!-- runnable -->
+
 <pre><code class="language-c">#pragma safety enable
-#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
 
 struct X { char * _Owner _Opt text; };
-
 
 int init(_Ctor struct X *p, const char * text) {
     p-&gt;text = strdup(text);  // safe: p-&gt;text is uninitialized
@@ -664,13 +785,13 @@ int main() {
 }
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
-
 <p>Contrast this with a setter, which operates on an already-initialized object and
 must free the old value first:</p>
 
+<!-- runnable -->
+
 <pre><code class="language-c">#pragma safety enable
-#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
 
 struct X { char * _Owner _Opt text; };
 
@@ -681,21 +802,7 @@ int set(struct X *p, const char * text) {
 }
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
-
-<hr>
-
-<h3 id="toc_23"><code>_Dtor</code> vs <code>_Ctor</code> — Summary</h3>
-
-<p>Think of them as describing the state of the object before and after the call:</p>
-
-<p><code>_Ctor</code> — the input must be uninitialized or moved; the function&#39;s job is to fully initialize it.</p>
-
-<p><code>_Dtor</code> — the input must be fully initialized; the function&#39;s job is to move out all owner contents, leaving the object uninitialized.</p>
-
-<hr>
-
-<h3 id="toc_24">Type Annotations in Arrays parameters</h3>
+<h3 id="toc_23">Type Annotations in Arrays parameters</h3>
 
 <p>In C, array types in arguments are pointers. This characteristics is preserved.</p>
 
@@ -714,21 +821,19 @@ void f(int a[_Owner])
 
 <p>But I think this is quite uncommon.</p>
 
-<h2 id="toc_25">Chapter 4: Flow Analysis and Object States</h2>
+<h2 id="toc_24">Chapter 4: Flow Analysis and Object States</h2>
 
 <p>Flow analysis is the foundation of Cake&#39;s nullable and ownership checks. 
 It tracks the possible states of every variable at every point in your program.</p>
 
-<h3 id="toc_26">Enabling Flow Analysis</h3>
+<h3 id="toc_25">Enabling Flow Analysis</h3>
 
 <pre><code class="language-c">#pragma flow enable    // standalone
 #pragma safety enable  // enables flow automatically
 // or compile with: -fanalyzer
 </code></pre>
 
-<hr>
-
-<h3 id="toc_27">The State Model</h3>
+<h3 id="toc_26">The State Model</h3>
 
 <p>The analyzer tracks the following states for each variable:</p>
 
@@ -746,9 +851,7 @@ It tracks the possible states of every variable at every point in your program.<
 
 <p><code>lifetime-ended</code> — the object the pointer was referencing has gone out of scope.</p>
 
-<hr>
-
-<h3 id="toc_28">Inspecting State with <code>assert_state</code> and <code>static_debug</code></h3>
+<h3 id="toc_27">Inspecting State with <code>assert_state</code> and <code>static_debug</code></h3>
 
 <p>Use these built-in declarations to inspect or assert variable states during development:</p>
 
@@ -763,9 +866,7 @@ int main() {
 
 <p>String literals are used because states like <code>&quot;uninitialized&quot;</code> and <code>&quot;moved&quot;</code> have no runtime representation.</p>
 
-<hr>
-
-<h3 id="toc_29">Uninitialized State</h3>
+<h3 id="toc_28">Uninitialized State</h3>
 
 <p>Reading an uninitialized variable triggers a warning. This also applies after a move:</p>
 
@@ -774,9 +875,7 @@ free(p);   // p is now uninitialized (moved into free)
 free(p);   // warning: p is uninitialized
 </code></pre>
 
-<hr>
-
-<h3 id="toc_30">Moved State</h3>
+<h3 id="toc_29">Moved State</h3>
 
 <p>When you assign an owner to another owner in local scope, the source enters the moved state. The analyzer knows the pointed-to object is still valid but the source no longer owns it:</p>
 
@@ -787,9 +886,7 @@ free(p);      // warning: p was moved
 free(p2);     // ok
 </code></pre>
 
-<hr>
-
-<h3 id="toc_31">Null and Not-Null States</h3>
+<h3 id="toc_30">Null and Not-Null States</h3>
 
 <p>After a null check, the analyzer refines the state inside each branch:</p>
 
@@ -801,9 +898,7 @@ assert_state(p, &quot;null | not-null&quot;); // outside: could be either
 free(p);
 </code></pre>
 
-<hr>
-
-<h3 id="toc_32">Overriding State with <code>override_state</code></h3>
+<h3 id="toc_31">Overriding State with <code>override_state</code></h3>
 
 <p>Sometimes the analyzer cannot determine the correct state — for example, when a non-pointer owner (like a socket) uses a sentinel value such as <code>-1</code> to represent &quot;no resource&quot;. Use <code>override_state()</code> to assert the correct state explicitly:</p>
 
@@ -830,15 +925,13 @@ free(p);
 <p><strong>Note</strong> Note: <code>override_state</code> is a dangerous function and should be avoided. Before using it, consider alternatives such as warning suppression or assert.</p>
 </blockquote>
 
-<hr>
-
-<h2 id="toc_33">Chapter 5: Known Limitations</h2>
+<h2 id="toc_32">Chapter 5: Known Limitations</h2>
 
 <p>Cake&#39;s flow analysis is not intra-procedural ; it does not trace relationships across function call 
 boundaries or between separate branches that share the same underlying condition. 
 This leads to a small number of false positives in certain patterns.</p>
 
-<h3 id="toc_34">Correlated Conditions</h3>
+<h3 id="toc_33">Correlated Conditions</h3>
 
 <p>If the same condition governs two separate branches, the analyzer may warn inside the second branch because it has forgotten the correlation:</p>
 
@@ -854,11 +947,11 @@ This leads to a small number of false positives in certain patterns.</p>
 <p><strong>Workaround:</strong> Combine the two <code>if</code> blocks into one, or add <code>assert(p != 0)</code> before the dereference.</p>
 </blockquote>
 
-<hr>
-
-<h3 id="toc_35">State Relationships After Branching</h3>
+<h3 id="toc_34">State Relationships After Branching</h3>
 
 <p>When an owner is freed in one branch and set to null, the analyzer may still report it as possibly having a lifetime-ended state in a later check:</p>
+
+<!-- runnable -->
 
 <pre><code class="language-c">#pragma safety enable
 
@@ -878,13 +971,9 @@ int * _Owner _Opt f(int c) {
 }
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
-
 <p>These are implementation constraints, not flaws in the ownership model itself.</p>
 
-<hr>
-
-<h2 id="toc_36">Chapter 6: Code Transition Strategy</h2>
+<h2 id="toc_35">Chapter 6: Code Transition Strategy</h2>
 
 <p>Adopting Cake&#39;s static analysis in an existing codebase does not require a big-bang migration. The recommended approach is incremental:</p>
 
@@ -895,11 +984,9 @@ int * _Owner _Opt f(int c) {
 <li><p><strong>Annotate signatures progressively</strong> — add <code>_Owner</code>, <code>_Opt</code>, <code>_Ctor</code>, and <code>_Dtor</code> annotations as you work through each file. The pragma-controlled rollout ensures you always have a compiling codebase.</p></li>
 </ol>
 
-<hr>
+<h2 id="toc_36">Quick Reference</h2>
 
-<h2 id="toc_37">Quick Reference</h2>
-
-<h3 id="toc_38">Type Annotations</h3>
+<h3 id="toc_37">Type Annotations</h3>
 
 <p><code>_Opt</code> — the pointer may be null (nullable). Without this type annotation, a pointer is treated as non-nullable when nullable rules are enabled.</p>
 
@@ -911,9 +998,7 @@ int * _Owner _Opt f(int c) {
 
 <p><code>_Dtor</code> — the parameter must be fully initialized on entry; the function is responsible for moving out all owner contents before returning.</p>
 
-<hr>
-
-<h3 id="toc_39">Pragmas</h3>
+<h3 id="toc_38">Pragmas</h3>
 
 <p><code>#pragma nullable enable</code> / <code>#pragma nullable disable</code> — toggles non-nullable enforcement. When enabled, any pointer without <code>_Opt</code> is treated as non-nullable.</p>
 
@@ -923,9 +1008,7 @@ int * _Owner _Opt f(int c) {
 
 <p><code>#pragma flow enable</code> — enables flow analysis without enabling nullable or ownership rules.</p>
 
-<hr>
-
-<h3 id="toc_40">Built-in Intrinsics</h3>
+<h3 id="toc_39">Built-in Intrinsics</h3>
 
 <p><code>assert_state(var, &quot;state&quot;)</code> — asserts that <code>var</code> is currently in the given state. Useful for verifying your understanding of what the analyzer tracks at a given point.</p>
 
@@ -933,9 +1016,7 @@ int * _Owner _Opt f(int c) {
 
 <p><code>override_state(var, &quot;state&quot;)</code> — overrides <code>var</code>&#39;s state in the analyzer. Use this when the analyzer cannot infer the correct state on its own, such as after <code>realloc()</code> or when working with non-pointer owners.</p>
 
-<hr>
-
-<h2 id="toc_41">References</h2>
+<h2 id="toc_40">References</h2>
 
 <ul>
 <li>C# Nullable References: <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references</a></li>

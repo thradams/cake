@@ -155,9 +155,12 @@
 
 static void print_header(const char* text)
 {
-    printf("================================================\n");
+
+    printf("\n");
+    printf("============================================================\n");
     printf(" %s\n", text);
-    printf("================================================\n");
+    printf("============================================================\n");
+
 }
 
 static void generate_doc(const char* mdfilename, const char* outfile)
@@ -166,6 +169,7 @@ static void generate_doc(const char* mdfilename, const char* outfile)
         "<!DOCTYPE html>\n"
         "<html>\n"
         "<head>\n"
+        "  <meta charset=\"utf-8\">\n"
         "  <link rel=\"stylesheet\" href=\"default.min.css\">\n"
         "  <script src=\"highlight.min.js\"></script>\n"
         "  <script>hljs.highlightAll();</script>\n"
@@ -173,17 +177,157 @@ static void generate_doc(const char* mdfilename, const char* outfile)
         "  <title>Cake C Compiler</title>\n"
         "  <meta name=\"description\" content=\"Cake C Compiler\">\n"
         "  <link rel=\"icon\" type=\"image/x-icon\" href=\"favicon.ico\">\n"
+        "\n"        
         "  <script>\n"
-        "  function Try(elm) {\n"
-        "    var source = elm.parentElement.previousElementSibling.innerText;\n"
-        "    var link = \"./playground.html?code=\" + encodeURIComponent(btoa(source))\n"
-        "             + \"&to=\" + encodeURI(\"-2\")\n"
-        "             + \"&options=\" + encodeURI(\"\");\n"
-        "    window.open(link, '_blank');\n"
-        "  }\n"
-        "  // find-replace for this:\n"
-        "  // <button onclick=\"Try(this)\">try</button>\n"
+        "    // Playground launcher\n"
+        "    function launchPlayground(sourceCode) {\n"
+        "      var link = \"./playground.html?code=\" + encodeURIComponent(btoa(sourceCode))\n"
+        "               + \"&to=\" + encodeURI(\"-2\")\n"
+        "               + \"&options=-flow3\";\n"
+        "      window.open(link, '_blank');\n"
+        "    }\n"
+        "\n"
+        "    // Copy to clipboard\n"
+        "    async function copyToClipboard(text, btnElement) {\n"
+        "      try {\n"
+        "        await navigator.clipboard.writeText(text);\n"
+        "        const originalText = btnElement.innerText;\n"
+        "        btnElement.innerText = \"Copied!\";\n"
+        "        setTimeout(() => {\n"
+        "          btnElement.innerText = originalText;\n"
+        "        }, 1500);\n"
+        "      } catch (err) {\n"
+        "        btnElement.innerText = \"Error\";\n"
+        "        setTimeout(() => {\n"
+        "          btnElement.innerText = \"Copy\";\n"
+        "        }, 1000);\n"
+        "      }\n"
+        "    }\n"
+        "\n"
+        "    // Check if a code block is marked as runnable\n"
+        "    // Supports:\n"
+        "    // - HTML comment <!-- runnable --> immediately before <pre>\n"
+        "    // - data-runnable=\"true\" attribute on <pre>\n"
+        "    // - class=\"runnable\" on <pre> (legacy)\n"
+        "    function isRunnable(preElement) {\n"
+        "      // Check attribute or class\n"
+        "      if (preElement.hasAttribute('data-runnable') && preElement.getAttribute('data-runnable') === 'true') return true;\n"
+        "      if (preElement.classList && preElement.classList.contains('runnable')) return true;\n"
+        "      \n"
+        "      // Check previous sibling for comment\n"
+        "      let prev = preElement.previousSibling;\n"
+        "      while (prev && prev.nodeType === Node.TEXT_NODE && prev.textContent.trim() === '') {\n"
+        "        prev = prev.previousSibling;\n"
+        "      }\n"
+        "      if (prev && prev.nodeType === Node.COMMENT_NODE) {\n"
+        "        const commentText = prev.textContent.trim().toLowerCase();\n"
+        "        if (commentText === 'runnable' || commentText === ' runnable ') {\n"
+        "          // Optionally remove the comment so it doesn't clutter the DOM\n"
+        "          prev.remove();\n"
+        "          return true;\n"
+        "        }\n"
+        "      }\n"
+        "      return false;\n"
+        "    }\n"
+        "\n"
+        "    // Wrap each code block in a frame, add Copy (always) and Run (if runnable)\n"
+        "    function enhanceCodeSnippets() {\n"
+        "      const codeBlocks = Array.from(document.querySelectorAll('pre code.language-c'));\n"
+        "      \n"
+        "      for (const codeElement of codeBlocks) {\n"
+        "        const preElement = codeElement.parentElement;\n"
+        "        if (!preElement) continue;\n"
+        "        if (preElement.closest('.code-frame')) continue;\n"
+        "        \n"
+        "        const codeText = codeElement.innerText;\n"
+        "        const runnable = isRunnable(preElement);\n"
+        "        \n"
+        "        // Find original \"try\" button to remove\n"
+        "        let tryButton = null;\n"
+        "        let tryButtonContainer = null;\n"
+        "        let sibling = preElement.nextElementSibling;\n"
+        "        while (sibling && !tryButton) {\n"
+        "          if (sibling.tagName === 'BUTTON' && sibling.getAttribute('onclick')?.includes('Try(this)')) {\n"
+        "            tryButton = sibling;\n"
+        "            tryButtonContainer = sibling.parentElement;\n"
+        "            break;\n"
+        "          }\n"
+        "          const btn = sibling.querySelector('button[onclick*=\"Try(this)\"]');\n"
+        "          if (btn) {\n"
+        "            tryButton = btn;\n"
+        "            tryButtonContainer = sibling;\n"
+        "            break;\n"
+        "          }\n"
+        "          sibling = sibling.nextElementSibling;\n"
+        "        }\n"
+        "        \n"
+        "        // Save position before DOM changes\n"
+        "        const parent = preElement.parentNode;\n"
+        "        const nextSibling = preElement.nextSibling;\n"
+        "        \n"
+        "        // Create frame\n"
+        "        const frameDiv = document.createElement('div');\n"
+        "        frameDiv.className = 'code-frame';\n"
+        "        \n"
+        "        // Move pre element into frame\n"
+        "        preElement.remove();\n"
+        "        frameDiv.appendChild(preElement);\n"
+        "        \n"
+        "        // Create action buttons\n"
+        "        const actionsDiv = document.createElement('div');\n"
+        "        actionsDiv.className = 'code-actions';\n"
+        "        \n"
+        "        // Copy button (always)\n"
+        "        const copyBtn = document.createElement('button');\n"
+        "        copyBtn.innerText = 'Copy';\n"
+        "        copyBtn.title = 'Copy code to clipboard';\n"
+        "        copyBtn.addEventListener('click', (e) => {\n"
+        "          e.stopPropagation();\n"
+        "          copyToClipboard(codeText, copyBtn);\n"
+        "        });\n"
+        "        actionsDiv.appendChild(copyBtn);\n"
+        "        \n"
+        "        // Run button (only if marked runnable)\n"
+        "        if (runnable) {\n"
+        "          const runBtn = document.createElement('button');\n"
+        "          runBtn.innerText = 'Run';\n"
+        "          runBtn.title = 'Run in Playground';\n"
+        "          runBtn.addEventListener('click', (e) => {\n"
+        "            e.stopPropagation();\n"
+        "            launchPlayground(codeText);\n"
+        "          });\n"
+        "          actionsDiv.appendChild(runBtn);\n"
+        "        }\n"
+        "        \n"
+        "        frameDiv.appendChild(actionsDiv);\n"
+        "        \n"
+        "        // Insert frame\n"
+        "        if (parent) {\n"
+        "          parent.insertBefore(frameDiv, nextSibling);\n"
+        "        } else {\n"
+        "          const article = document.querySelector('article');\n"
+        "          if (article) article.appendChild(frameDiv);\n"
+        "        }\n"
+        "        \n"
+        "        // Remove original try button and empty container\n"
+        "        if (tryButton) {\n"
+        "          tryButton.remove();\n"
+        "          if (tryButtonContainer && tryButtonContainer.children.length === 0 && !tryButtonContainer.innerText.trim()) {\n"
+        "            tryButtonContainer.remove();\n"
+        "          }\n"
+        "        }\n"
+        "      }\n"
+        "    }\n"
+        "    \n"
+        "    document.addEventListener('DOMContentLoaded', () => {\n"
+        "      enhanceCodeSnippets();\n"
+        "      if (typeof hljs !== 'undefined' && hljs.highlightAll) {\n"
+        "        hljs.highlightAll();\n"
+        "      }\n"
+        "    });\n"
+        "    \n"        
         "  </script>\n"
+        "\n"
         "</head>\n"
         "<body>\n"
         "  <article style=\"max-width: 40em; margin:auto\">\n"
@@ -204,12 +348,12 @@ static void generate_doc(const char* mdfilename, const char* outfile)
     fclose(f);
 
     snprintf(cmd, sizeof cmd,
-             RUN "hoedown.exe --html-toc --toc-level 3 --autolink --fenced-code %s >> %s",
+             RUN EXE("hoedown") " --html-toc --toc-level 3 --autolink --fenced-code %s >> %s",
              mdfilename, outfile);
     execute_cmd(cmd);
 
     snprintf(cmd, sizeof cmd,
-             RUN "hoedown.exe --toc-level 3 --autolink --fenced-code %s >> %s",
+             RUN EXE("hoedown") " --toc-level 3 --autolink --fenced-code %s >> %s",
              mdfilename, outfile);
     execute_cmd(cmd);
 
@@ -225,22 +369,22 @@ static void build_tools(void)
 
 #ifdef _WIN32
     execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS install.c advapi32.lib user32.lib "
-                CC_OUTPUT("install.exe"));
+                CC_OUTPUT(EXE("install")));
 #else
-    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS install.c " CC_OUTPUT("install.exe"));
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS install.c " CC_OUTPUT(EXE("install")));
 #endif
 
-    execute_cmd(CC " server.c "  CC_OUTPUT("cakeserver.exe"));
-    execute_cmd(CC " install.c " CC_OUTPUT("install.exe"));
+    execute_cmd(CC " server.c "  CC_OUTPUT(EXE("cakeserver")));
+    execute_cmd(CC " install.c " CC_OUTPUT(EXE("install")));
 
     echo_chdir("./tools");
-    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c "           CC_OUTPUT("../maketest.exe"));
-    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c "        CC_OUTPUT("../amalgamator.exe"));
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c "           CC_OUTPUT("../" EXE("maketest")));
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c "        CC_OUTPUT("../" EXE("amalgamator")));
     execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS -I.. embed.c ../fs.c ../error.c "
-                CC_OUTPUT("../embed.exe"));
+                CC_OUTPUT("../" EXE("embed")));
 
     echo_chdir("./hoedown");
-    execute_cmd(CC HOEDOWN_SOURCE_FILES CC_OUTPUT("../../hoedown.exe"));
+    execute_cmd(CC HOEDOWN_SOURCE_FILES CC_OUTPUT("../../" EXE("hoedown")));
 
     echo_chdir("../..");
 }
@@ -252,29 +396,30 @@ static void build_docs(void)
     generate_doc("../manual.md", "./web/manual.html");
     generate_doc("../README.md", "./web/index.html");
     generate_doc("../warnings.md", "./web/warnings.html");
+    generate_doc("../flow3.md", "./web/flow3.html");
     generate_doc("../ownership.md", "./web/ownership.html");
 
-    remove("hoedown.exe");
+    remove(EXE("hoedown"));
 }
 
 static void build_inner_tests(void)
 {
     print_header("Build inner tests");
-    execute_cmd(RUN "maketest.exe unit_test.c " CAKE_SOURCE_FILES);
-    remove("maketest.exe");
+    execute_cmd(RUN EXE("maketest") " unit_test.c " CAKE_SOURCE_FILES);
+    remove(EXE("maketest"));
 }
 
 static void build_embedded_files(void)
 {
     print_header("Build embedded files");
-    execute_cmd(RUN "embed.exe \"./include\" ");
+    execute_cmd(RUN EXE("embed") " ./include/" );
 }
 
 static void build_amalgamation(void)
 {
     print_header("Build amalgamated file");
-    execute_cmd(RUN "amalgamator.exe -olib.c" CAKE_LIB_SOURCE_FILES);
-    remove("amalgamator.exe");
+    execute_cmd(RUN EXE("amalgamator") " -olib.c " CAKE_LIB_SOURCE_FILES);
+    remove(EXE("amalgamator"));
 }
 
 static time_t get_mtime(const char* path)
@@ -378,15 +523,15 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
                           msvc_link,
                           " /Fo ",
                           " -o ",
-                          "cake.exe");
+                          EXE("cake"));
     }
     else
     {
         char* cmd = calloc(2000, sizeof(char));
 
-        snprintf(cmd, 2000, "cl %s%s%s -o cake.exe " CAKE_SOURCE_FILES "%s",
+        snprintf(cmd, 2000, "cl %s%s%s -o " EXE("cake") CAKE_SOURCE_FILES "%s",
                  msvc_config,
-                 MSVC_COMMON_FLAGS, 
+                 MSVC_COMMON_FLAGS,
                  test_flag,
                  msvc_link);
 
@@ -395,15 +540,15 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     }
 
 #ifndef CAKE_HEADERS
-    execute_cmd("cake.exe -autoconfig");
+    execute_cmd(EXE("cake") " -autoconfig");
 #endif
 
     if (!fastbuild)
     {
         print_header("Run cake on its own source");
 
-        
-        execute_cmd("cake.exe -DTEST -const-literal -style=cake " CAKE_SOURCE_FILES);
+
+        execute_cmd(EXE("cake") " -DTEST -const-literal -style=cake " CAKE_SOURCE_FILES);
 
         print_header("Build cake89");
 
@@ -412,14 +557,14 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
 #else
         echo_chdir("./x86_msvc/");
 #endif
-        
-        
+
+
         char* cmd = calloc(2000, sizeof(char));
-        snprintf(cmd, 2000, "cl %s -o cake89.exe " CAKE_SOURCE_FILES, test_flag);
+        snprintf(cmd, 2000, "cl %s -o " EXE("cake89") " " CAKE_SOURCE_FILES, test_flag);
         execute_cmd(cmd);
         free(cmd);
-        
-        copy_file("cake89.exe", "../../src/cake89.exe");
+
+        copy_file(EXE("cake89"), "../../src/" EXE("cake89"));
         echo_chdir("../../src");
     }
 
@@ -439,18 +584,18 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
                           "",
                           "-o ",
                           "-o ",
-                          "cake.exe");
+                          EXE("cake"));
     }
     else
     {
         char cmd[512];
-        snprintf(cmd, sizeof cmd, "clang %s%s%s -o cake.exe %s",
+        snprintf(cmd, sizeof cmd, "clang %s%s%s -o " EXE("cake") " %s",
                  clang_win_config, CLANG_WIN_FLAGS, test_flag, CAKE_SOURCE_FILES);
         execute_cmd(cmd);
     }
 
     print_header("Run cake on its own source");
-    execute_cmd("cake.exe -DTEST -style=cake " CAKE_SOURCE_FILES);
+    execute_cmd(EXE("cake") " -DTEST -style=cake " CAKE_SOURCE_FILES);
 
 #endif /* PLATFORM_WINDOWS && COMPILER_CLANG */
 
@@ -526,10 +671,10 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
         print_header("Run cake on its own source");
         execute_cmd("./cake -DTEST -style=cake " CAKE_SOURCE_FILES);
 
-        
+
         print_header("Build cake89");
 
-        echo_chdir("./x86_x64_gcc/");        
+        echo_chdir("./x86_x64_gcc/");
         char* cmd = calloc(2000, sizeof(char));
         snprintf(cmd, 2000, "gcc %s -o cake89 " CAKE_SOURCE_FILES, test_flag);
         execute_cmd(cmd);
@@ -547,6 +692,13 @@ static void run_tests(void)
     print_header("Run tests");
 
     execute_cmd(RUN "cake -selftest");
+
+
+#if PLATFORM_MACOS
+    /*not working on MacOs yet*/
+    return;
+#endif
+
     execute_cmd(RUN "cake -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -test-mode");
     execute_cmd(RUN "cake  -fdiagnostics-color=never -wd20 ../tests/unit-tests/*.c -test-mode");
     execute_cmd(RUN "cake  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode-in-out");

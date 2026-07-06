@@ -1,0 +1,4728 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="default.min.css">
+  <script src="highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+  <link rel="stylesheet" href="style.css" />
+  <title>Cake C Compiler</title>
+  <meta name="description" content="Cake C Compiler">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+
+  <script>
+    // Playground launcher
+    function launchPlayground(sourceCode) {
+      var link = "./playground.html?code=" + encodeURIComponent(btoa(sourceCode))
+               + "&to=" + encodeURI("-2")
+               + "&options=-flow3";
+      window.open(link, '_blank');
+    }
+
+    // Copy to clipboard
+    async function copyToClipboard(text, btnElement) {
+      try {
+        await navigator.clipboard.writeText(text);
+        const originalText = btnElement.innerText;
+        btnElement.innerText = "Copied!";
+        setTimeout(() => {
+          btnElement.innerText = originalText;
+        }, 1500);
+      } catch (err) {
+        btnElement.innerText = "Error";
+        setTimeout(() => {
+          btnElement.innerText = "Copy";
+        }, 1000);
+      }
+    }
+
+    // Check if a code block is marked as runnable
+    // Supports:
+    // - HTML comment <!-- runnable --> immediately before <pre>
+    // - data-runnable="true" attribute on <pre>
+    // - class="runnable" on <pre> (legacy)
+    function isRunnable(preElement) {
+      // Check attribute or class
+      if (preElement.hasAttribute('data-runnable') && preElement.getAttribute('data-runnable') === 'true') return true;
+      if (preElement.classList && preElement.classList.contains('runnable')) return true;
+      
+      // Check previous sibling for comment
+      let prev = preElement.previousSibling;
+      while (prev && prev.nodeType === Node.TEXT_NODE && prev.textContent.trim() === '') {
+        prev = prev.previousSibling;
+      }
+      if (prev && prev.nodeType === Node.COMMENT_NODE) {
+        const commentText = prev.textContent.trim().toLowerCase();
+        if (commentText === 'runnable' || commentText === ' runnable ') {
+          // Optionally remove the comment so it doesn't clutter the DOM
+          prev.remove();
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // Wrap each code block in a frame, add Copy (always) and Run (if runnable)
+    function enhanceCodeSnippets() {
+      const codeBlocks = Array.from(document.querySelectorAll('pre code.language-c'));
+      
+      for (const codeElement of codeBlocks) {
+        const preElement = codeElement.parentElement;
+        if (!preElement) continue;
+        if (preElement.closest('.code-frame')) continue;
+        
+        const codeText = codeElement.innerText;
+        const runnable = isRunnable(preElement);
+        
+        // Find original "try" button to remove
+        let tryButton = null;
+        let tryButtonContainer = null;
+        let sibling = preElement.nextElementSibling;
+        while (sibling && !tryButton) {
+          if (sibling.tagName === 'BUTTON' && sibling.getAttribute('onclick')?.includes('Try(this)')) {
+            tryButton = sibling;
+            tryButtonContainer = sibling.parentElement;
+            break;
+          }
+          const btn = sibling.querySelector('button[onclick*="Try(this)"]');
+          if (btn) {
+            tryButton = btn;
+            tryButtonContainer = sibling;
+            break;
+          }
+          sibling = sibling.nextElementSibling;
+        }
+        
+        // Save position before DOM changes
+        const parent = preElement.parentNode;
+        const nextSibling = preElement.nextSibling;
+        
+        // Create frame
+        const frameDiv = document.createElement('div');
+        frameDiv.className = 'code-frame';
+        
+        // Move pre element into frame
+        preElement.remove();
+        frameDiv.appendChild(preElement);
+        
+        // Create action buttons
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'code-actions';
+        
+        // Copy button (always)
+        const copyBtn = document.createElement('button');
+        copyBtn.innerText = 'Copy';
+        copyBtn.title = 'Copy code to clipboard';
+        copyBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          copyToClipboard(codeText, copyBtn);
+        });
+        actionsDiv.appendChild(copyBtn);
+        
+        // Run button (only if marked runnable)
+        if (runnable) {
+          const runBtn = document.createElement('button');
+          runBtn.innerText = 'Run';
+          runBtn.title = 'Run in Playground';
+          runBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            launchPlayground(codeText);
+          });
+          actionsDiv.appendChild(runBtn);
+        }
+        
+        frameDiv.appendChild(actionsDiv);
+        
+        // Insert frame
+        if (parent) {
+          parent.insertBefore(frameDiv, nextSibling);
+        } else {
+          const article = document.querySelector('article');
+          if (article) article.appendChild(frameDiv);
+        }
+        
+        // Remove original try button and empty container
+        if (tryButton) {
+          tryButton.remove();
+          if (tryButtonContainer && tryButtonContainer.children.length === 0 && !tryButtonContainer.innerText.trim()) {
+            tryButtonContainer.remove();
+          }
+        }
+      }
+    }
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      enhanceCodeSnippets();
+      if (typeof hljs !== 'undefined' && hljs.highlightAll) {
+        hljs.highlightAll();
+      }
+    });
+    
+  </script>
+
+</head>
+<body>
+  <article style="max-width: 40em; margin:auto">
+    <p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="ownership.html">Static Analysis</a> | <a href="playground.html">Playground</a></p>
+    <article>
+    <h1>Cake - C23 and Beyond</h1>
+<ul>
+<li>
+<a href="#toc_0">Flow3</a>
+<ul>
+<li>
+<a href="#toc_1">Functions</a>
+<ul>
+<li>
+<a href="#toc_2">Sample 1</a>
+</li>
+<li>
+<a href="#toc_3">Sample 2</a>
+</li>
+<li>
+<a href="#toc_4">Sample 3</a>
+</li>
+<li>
+<a href="#toc_5">Sample 4</a>
+</li>
+<li>
+<a href="#toc_6">Sample 5</a>
+</li>
+<li>
+<a href="#toc_7">Sample 6</a>
+</li>
+<li>
+<a href="#toc_8">Sample 7</a>
+</li>
+<li>
+<a href="#toc_9">Sample 8</a>
+</li>
+<li>
+<a href="#toc_10">Sample 9</a>
+</li>
+<li>
+<a href="#toc_11">Sample 10</a>
+</li>
+<li>
+<a href="#toc_12">Sample 11</a>
+</li>
+<li>
+<a href="#toc_13">Sample 12</a>
+</li>
+<li>
+<a href="#toc_14">Sample 13</a>
+</li>
+<li>
+<a href="#toc_15">Sample 14</a>
+</li>
+<li>
+<a href="#toc_16">Sample 15</a>
+</li>
+<li>
+<a href="#toc_17">Sample 16</a>
+</li>
+<li>
+<a href="#toc_18">Sample 17</a>
+</li>
+<li>
+<a href="#toc_19">Sample 18</a>
+</li>
+<li>
+<a href="#toc_20">Sample 19</a>
+</li>
+<li>
+<a href="#toc_21">Sample 20</a>
+</li>
+<li>
+<a href="#toc_22">Sample 21</a>
+</li>
+<li>
+<a href="#toc_23">Sample 22</a>
+</li>
+<li>
+<a href="#toc_24">Sample 23</a>
+</li>
+<li>
+<a href="#toc_25">Sample 24</a>
+</li>
+<li>
+<a href="#toc_26">Sample 25</a>
+</li>
+<li>
+<a href="#toc_27">Sample 26</a>
+</li>
+<li>
+<a href="#toc_28">Sample 27</a>
+</li>
+<li>
+<a href="#toc_29">Sample 28</a>
+</li>
+<li>
+<a href="#toc_30">Sample 29</a>
+</li>
+<li>
+<a href="#toc_31">Sample 30</a>
+</li>
+<li>
+<a href="#toc_32">Sample 31</a>
+</li>
+<li>
+<a href="#toc_33">Sample 32</a>
+</li>
+<li>
+<a href="#toc_34">Sample 33</a>
+</li>
+<li>
+<a href="#toc_35">Sample 34</a>
+</li>
+<li>
+<a href="#toc_36">Sample 35</a>
+</li>
+<li>
+<a href="#toc_37">Sample 36</a>
+</li>
+<li>
+<a href="#toc_38">Sample 37</a>
+</li>
+<li>
+<a href="#toc_39">Sample 38</a>
+</li>
+<li>
+<a href="#toc_40">Sample 39</a>
+</li>
+<li>
+<a href="#toc_41">Sample 40</a>
+</li>
+<li>
+<a href="#toc_42">Sample 41</a>
+</li>
+<li>
+<a href="#toc_43">Sample 42</a>
+</li>
+<li>
+<a href="#toc_44">Sample 43</a>
+</li>
+<li>
+<a href="#toc_45">Sample 44</a>
+</li>
+<li>
+<a href="#toc_46">Sample 45</a>
+</li>
+<li>
+<a href="#toc_47">Sample 46</a>
+</li>
+<li>
+<a href="#toc_48">Sample 47</a>
+</li>
+<li>
+<a href="#toc_49">Sample 48</a>
+</li>
+<li>
+<a href="#toc_50">Sample 49</a>
+</li>
+<li>
+<a href="#toc_51">Sample 50</a>
+</li>
+<li>
+<a href="#toc_52">Sample 51</a>
+</li>
+<li>
+<a href="#toc_53">Sample 52</a>
+</li>
+<li>
+<a href="#toc_54">Sample 53</a>
+</li>
+<li>
+<a href="#toc_55">Sample 54</a>
+</li>
+<li>
+<a href="#toc_56">Sample 55</a>
+</li>
+<li>
+<a href="#toc_57">Sample 56</a>
+</li>
+<li>
+<a href="#toc_58">Sample 57</a>
+</li>
+<li>
+<a href="#toc_59">Sample 58</a>
+</li>
+<li>
+<a href="#toc_60">Sample 59</a>
+</li>
+<li>
+<a href="#toc_61">Sample 60</a>
+</li>
+<li>
+<a href="#toc_62">Sample 61</a>
+</li>
+<li>
+<a href="#toc_63">Sample 62</a>
+</li>
+<li>
+<a href="#toc_64">Sample 63</a>
+</li>
+<li>
+<a href="#toc_65">Sample 64</a>
+</li>
+<li>
+<a href="#toc_66">Sample 65</a>
+</li>
+<li>
+<a href="#toc_67">Sample 66</a>
+</li>
+<li>
+<a href="#toc_68">Sample 67</a>
+</li>
+<li>
+<a href="#toc_69">Sample 68</a>
+</li>
+<li>
+<a href="#toc_70">Sample 69</a>
+</li>
+<li>
+<a href="#toc_71">Sample 70</a>
+</li>
+<li>
+<a href="#toc_72">Sample 71</a>
+</li>
+<li>
+<a href="#toc_73">Sample 72</a>
+</li>
+<li>
+<a href="#toc_74">Sample 73</a>
+</li>
+<li>
+<a href="#toc_75">Sample 74</a>
+</li>
+<li>
+<a href="#toc_76">Sample 75</a>
+</li>
+<li>
+<a href="#toc_77">Sample 76</a>
+</li>
+<li>
+<a href="#toc_78">Sample 77</a>
+</li>
+<li>
+<a href="#toc_79">Sample 78</a>
+</li>
+<li>
+<a href="#toc_80">Sample 79</a>
+</li>
+<li>
+<a href="#toc_81">Sample 80</a>
+</li>
+<li>
+<a href="#toc_82">Sample 81</a>
+</li>
+<li>
+<a href="#toc_83">Sample 82</a>
+</li>
+<li>
+<a href="#toc_84">Sample 83</a>
+</li>
+<li>
+<a href="#toc_85">Sample 84</a>
+</li>
+<li>
+<a href="#toc_86">Sample 85</a>
+</li>
+<li>
+<a href="#toc_87">Sample 86</a>
+</li>
+<li>
+<a href="#toc_88">Sample 87</a>
+</li>
+<li>
+<a href="#toc_89">Sample 88</a>
+</li>
+<li>
+<a href="#toc_90">Sample 89</a>
+</li>
+<li>
+<a href="#toc_91">Sample 90</a>
+</li>
+<li>
+<a href="#toc_92">Sample 91</a>
+</li>
+<li>
+<a href="#toc_93">Sample 92</a>
+</li>
+<li>
+<a href="#toc_94">Sample 93</a>
+</li>
+<li>
+<a href="#toc_95">Sample 94</a>
+</li>
+<li>
+<a href="#toc_96">Sample 95</a>
+</li>
+<li>
+<a href="#toc_97">Sample 96</a>
+</li>
+<li>
+<a href="#toc_98">Sample 97</a>
+</li>
+<li>
+<a href="#toc_99">Sample 98</a>
+</li>
+<li>
+<a href="#toc_100">Sample 99</a>
+</li>
+<li>
+<a href="#toc_101">Sample 100</a>
+</li>
+<li>
+<a href="#toc_102">Sample 101</a>
+</li>
+<li>
+<a href="#toc_103">Sample 102</a>
+</li>
+<li>
+<a href="#toc_104">Sample 103</a>
+</li>
+<li>
+<a href="#toc_105">Sample 104</a>
+</li>
+<li>
+<a href="#toc_106">Sample 105</a>
+</li>
+<li>
+<a href="#toc_107">Sample 106</a>
+</li>
+<li>
+<a href="#toc_108">Sample 107</a>
+</li>
+<li>
+<a href="#toc_109">Sample 108</a>
+</li>
+<li>
+<a href="#toc_110">Sample 109</a>
+</li>
+<li>
+<a href="#toc_111">Sample 110</a>
+</li>
+<li>
+<a href="#toc_112">Sample 111</a>
+</li>
+<li>
+<a href="#toc_113">Sample 112</a>
+</li>
+<li>
+<a href="#toc_114">Sample 113</a>
+</li>
+<li>
+<a href="#toc_115">Sample 114</a>
+</li>
+<li>
+<a href="#toc_116">Sample 115</a>
+</li>
+<li>
+<a href="#toc_117">Sample 116</a>
+</li>
+<li>
+<a href="#toc_118">Sample 117</a>
+</li>
+<li>
+<a href="#toc_119">Sample 118</a>
+</li>
+<li>
+<a href="#toc_120">Sample 119</a>
+</li>
+<li>
+<a href="#toc_121">Sample 120</a>
+</li>
+<li>
+<a href="#toc_122">Sample 121</a>
+</li>
+<li>
+<a href="#toc_123">Sample 122</a>
+</li>
+<li>
+<a href="#toc_124">Sample 123</a>
+</li>
+<li>
+<a href="#toc_125">Sample 124</a>
+</li>
+<li>
+<a href="#toc_126">Sample 125</a>
+</li>
+<li>
+<a href="#toc_127">Sample 126</a>
+</li>
+<li>
+<a href="#toc_128">Sample 127</a>
+</li>
+<li>
+<a href="#toc_129">Sample 128</a>
+</li>
+<li>
+<a href="#toc_130">Sample 129</a>
+</li>
+<li>
+<a href="#toc_131">Sample 130</a>
+</li>
+<li>
+<a href="#toc_132">Sample 131</a>
+</li>
+<li>
+<a href="#toc_133">Sample 132</a>
+</li>
+<li>
+<a href="#toc_134">Sample 133</a>
+</li>
+<li>
+<a href="#toc_135">Sample 134</a>
+</li>
+<li>
+<a href="#toc_136">Sample 135</a>
+</li>
+<li>
+<a href="#toc_137">Sample 136</a>
+</li>
+<li>
+<a href="#toc_138">Sample 137</a>
+</li>
+<li>
+<a href="#toc_139">Sample 138</a>
+</li>
+<li>
+<a href="#toc_140">Sample 139</a>
+</li>
+<li>
+<a href="#toc_141">Sample 140</a>
+</li>
+<li>
+<a href="#toc_142">Sample 141</a>
+</li>
+<li>
+<a href="#toc_143">Sample 142</a>
+</li>
+<li>
+<a href="#toc_144">Sample 143</a>
+</li>
+<li>
+<a href="#toc_145">Sample 144</a>
+</li>
+<li>
+<a href="#toc_146">Sample 145</a>
+</li>
+<li>
+<a href="#toc_147">Sample 146</a>
+</li>
+<li>
+<a href="#toc_148">Sample 147</a>
+</li>
+<li>
+<a href="#toc_149">Sample 148</a>
+</li>
+<li>
+<a href="#toc_150">Sample 149</a>
+</li>
+<li>
+<a href="#toc_151">Sample 150</a>
+</li>
+<li>
+<a href="#toc_152">Sample 151</a>
+</li>
+<li>
+<a href="#toc_153">Sample 152</a>
+</li>
+<li>
+<a href="#toc_154">Sample 153</a>
+</li>
+<li>
+<a href="#toc_155">Sample 154</a>
+</li>
+<li>
+<a href="#toc_156">Sample 155</a>
+</li>
+<li>
+<a href="#toc_157">Sample 156</a>
+</li>
+<li>
+<a href="#toc_158">Sample 157</a>
+</li>
+<li>
+<a href="#toc_159">Sample 158</a>
+</li>
+<li>
+<a href="#toc_160">Sample 159</a>
+</li>
+<li>
+<a href="#toc_161">Sample 160</a>
+</li>
+<li>
+<a href="#toc_162">Sample 161</a>
+</li>
+<li>
+<a href="#toc_163">Sample 162</a>
+</li>
+<li>
+<a href="#toc_164">Sample 163</a>
+</li>
+<li>
+<a href="#toc_165">Sample 164</a>
+</li>
+<li>
+<a href="#toc_166">Sample 165</a>
+</li>
+<li>
+<a href="#toc_167">Sample 166</a>
+</li>
+<li>
+<a href="#toc_168">Sample 167</a>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h1 id="toc_0">Flow3</h1>
+
+<h2 id="toc_1">Functions</h2>
+
+<h3 id="toc_2">Sample 1</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma nullable enable
+
+char* _Opt make();
+void receives_non_null(char* p);
+
+int main()
+{
+    char* _Opt p1 = make();
+    receives_non_null(p1);
+}
+
+</code></pre>
+
+<h3 id="toc_3">Sample 2</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma nullable enable
+
+void receives_non_null(char* p);
+
+int main()
+{
+    receives_non_null(0);
+}
+
+</code></pre>
+
+<h3 id="toc_4">Sample 3</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma nullable enable
+
+struct X { char* name; };
+
+void receives_non_null(struct X* p) {};
+
+int main()
+{
+    struct X x = {};
+    receives_non_null(&amp;x);
+}
+</code></pre>
+
+<h3 id="toc_5">Sample 4</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma nullable enable
+
+struct X { char* name; };
+
+void receives_non_null(struct X* p) {};
+
+int main()
+{
+    struct X x;
+    receives_non_null(&amp;x);
+}
+</code></pre>
+
+<h3 id="toc_6">Sample 5</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma nullable enable
+
+struct X { char* name; };
+
+void f(struct X x) {};
+
+int main()
+{
+    struct X x;
+    f(x);
+}
+</code></pre>
+
+<h3 id="toc_7">Sample 6</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma nullable enable
+
+struct X { char* name; };
+
+struct X return_struct()
+{
+    struct X x;
+    return x;
+}
+</code></pre>
+
+<h3 id="toc_8">Sample 7</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma nullable enable
+
+char* _Opt make();
+
+char * returns_non_null()
+{
+    char* _Opt p1 = make();
+    return p1;
+}
+
+</code></pre>
+
+<h3 id="toc_9">Sample 8</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma nullable enable
+
+struct X { char* name; };
+
+struct X return_struct()
+{
+    struct X* p;
+    {
+        struct X x;
+        p = &amp;x;
+    }
+    static_debug(*p);
+    return *p;
+}
+</code></pre>
+
+<h3 id="toc_10">Sample 9</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">
+#pragma safety enable
+
+void* _Owner _Opt malloc(unsigned long size);
+
+int * _Owner _Opt f(int c) {
+    int * _Owner _Opt p = malloc(sizeof *p);
+    return p;
+}
+
+</code></pre>
+
+<h3 id="toc_11">Sample 10</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma nullable enable
+
+struct X { char* name; };
+
+struct X * f()
+{
+    struct X* p;
+    {
+        struct X x;
+        p = &amp;x;
+    }
+    
+    return p;
+}
+
+</code></pre>
+
+<h3 id="toc_12">Sample 11</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety  enable
+
+
+void f(int* _Owner p2)
+{
+    int* _Owner p1 = p2;
+}
+</code></pre>
+
+<h3 id="toc_13">Sample 12</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety  enable
+
+
+void f(int* _Owner p2)
+{
+    int* _Owner p1;
+    p1 = p2;
+}
+</code></pre>
+
+<h3 id="toc_14">Sample 13</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety  enable
+
+void consume(int* _Owner p);
+
+void f(int* _Owner p2)
+{
+    int* _Owner p1 = p2;
+    consume(p1);
+}
+</code></pre>
+
+<h3 id="toc_15">Sample 14</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety  enable
+
+void consume(int* _Owner p);
+
+void f(int* _Owner p2)
+{
+    int* _Owner p1;
+    p1 = p2;
+    consume(p1);
+    static_debug(*p1); //ended
+}
+
+</code></pre>
+
+<h3 id="toc_16">Sample 15</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">
+#pragma nullable enable
+
+struct X { int i; int j; };
+
+void clear(_Clear struct X* p) {};
+
+int main()
+{
+    struct X x = {1, 2};
+    clear(&amp;x);
+    static_debug(x); //should print  0
+}
+
+</code></pre>
+
+<h3 id="toc_17">Sample 16</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">
+#pragma nullable enable
+
+void f(int i) {
+
+  int a;
+     switch(i)
+     {
+        case 1:
+          a = 1;
+        break;
+
+        case 2:
+          a = 2;
+        break;
+        
+        default:
+          a = 3;
+     }
+     static_debug(a);
+};
+
+
+</code></pre>
+
+<h3 id="toc_18">Sample 17</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+struct X {
+    char* _Owner p;
+};
+void x_destroy(_Dtor struct X* p);
+void f(struct X* x)
+{
+
+    x_destroy(x); //lint 19 source expression of _Dtor must be addressof
+}
+</code></pre>
+
+<h3 id="toc_19">Sample 18</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void f(int* p)
+{
+
+    if (p != 0) //lint 28 pointer is always non-null   
+    {
+    } 
+
+    //pointer is always non-null
+
+    if (0 != p)  //lint 28 pointer is always non-null   
+    {}
+
+    //pointer is always non-null
+
+    if (p == 0)  //lint 28 pointer is always non-null   
+    {}
+
+
+    if (0 == p)  //lint 28 pointer is always non-null   
+    {}
+}
+</code></pre>
+
+<h3 id="toc_20">Sample 19</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+int* _Opt f();
+
+int main()
+{
+    int* _Opt p1 = f();
+    int* _Opt p2 = f();
+
+    if (p1 &amp;&amp; p2)
+    {
+        compile_assert(p1 != 0);
+        compile_assert(p2 != 0);
+    }
+    else
+    {
+    }
+}
+</code></pre>
+
+<h3 id="toc_21">Sample 20</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Opt f();
+int strcmp(const char * s1, const char *s2);
+void g()
+{
+    const char* _Opt s1 = f();    
+    if (s1 &amp;&amp; strcmp(s1, &quot;a&quot;)==0)
+    {
+        compile_assert(s1 != 0);
+    }
+    else
+    {        
+        //assert_state(s1, &quot;null not-null&quot;);
+    }
+}
+</code></pre>
+
+<h3 id="toc_22">Sample 21</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+int strcmp(const char* s1, const char* s2);
+char* _Opt f();
+
+int main()
+{
+    const char* _Opt s = f();
+    if (s &amp;&amp; strcmp(s, &quot;a&quot;) == 0)
+    {
+    }
+    else if (s)
+    {
+    }
+}
+</code></pre>
+
+<h3 id="toc_23">Sample 22</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+struct X {
+    int i;
+};
+
+void f(struct X* _Opt p)
+{
+    if (p &amp;&amp; p-&gt;i || p-&gt;i &gt; 2) //lint 33 pointer may be null
+    {
+    }
+    else
+    {
+    }
+}
+</code></pre>
+
+<h3 id="toc_24">Sample 23</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+struct X {
+    int i;
+};
+
+void f(struct X * _Opt p)
+{
+      if (p &amp;&amp; p-&gt;i)
+      {          
+      }
+      else
+      {          
+      }
+}
+</code></pre>
+
+<h3 id="toc_25">Sample 24</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Opt p);
+char* _Owner _Opt strdup(const char* s);
+
+
+struct X {
+
+    char* _Owner _Opt text;
+};
+#define NULL ((void*)0)
+
+struct X makex();
+void clear(struct X* p);
+void f(struct X* _Opt pX)
+{
+    struct X x = makex();
+    clear(&amp;x);
+    assert(x.text == 0);
+}
+</code></pre>
+
+<h3 id="toc_26">Sample 25</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">struct X { const char* _Owner text; };
+void destroyX(struct X x) 
+{
+    assert(x.text == 0);
+}
+
+int main() 
+{
+}
+</code></pre>
+
+<h3 id="toc_27">Sample 26</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+/*
+  returns a non-null pointer
+*/
+int* f();
+
+int main()
+{
+    int* p;
+
+    if ((p = f()) == 0) //lint 28 pointer is always non-null
+    {
+        //if will not change the state
+        compile_assert(p != 0);
+    }
+    else
+    {
+        compile_assert(p != 0);
+    }
+}
+</code></pre>
+
+<h3 id="toc_28">Sample 27</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">struct X { int i; void* p; };
+int main() {
+    struct X x;
+    x = (struct X){ 0 };
+    compile_assert(x.i == 0);
+    compile_assert(x.p == 0);
+}
+</code></pre>
+
+<h3 id="toc_29">Sample 28</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void* _Owner calloc(unsigned long n , unsigned long size);
+void free(void* _Owner _Opt ptr);
+
+struct Y {
+  char * _Owner _Opt p0;
+  int * _Owner _Opt p2;
+  double i2;
+};
+
+struct X {
+  char * _Owner _Opt text;
+  int * _Owner _Opt p1;
+  int i;
+  struct Y  * _Opt pY;
+};
+
+int main() {   
+   struct X * _Owner x = calloc(1,sizeof * x);
+ 
+   compile_assert(x-&gt;p1 == 0);
+   compile_assert(x-&gt;i == 0);
+   compile_assert(x-&gt;pY == 0);
+   free(x);
+}
+</code></pre>
+
+<h3 id="toc_30">Sample 29</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+
+struct X { int i; void* _Opt p; };
+void* _Owner _Opt calloc(int i, int sz);
+void free(void* _Owner _Opt p);
+
+int main()
+{
+    struct X* _Owner _Opt p = calloc(1, 1);
+    if (p)
+    {
+    compile_assert(p-&gt;i == 0);
+    compile_assert(p-&gt;p == 0);
+    }
+    free(p);
+}
+</code></pre>
+
+<h3 id="toc_31">Sample 30</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+struct item
+{
+    struct item* _Opt other;
+};
+
+struct items
+{
+    struct item * _Opt one;
+    struct item * _Opt two;
+};
+
+void f(struct items i){}
+
+int main()
+{
+    struct item one = {0};
+    struct item two = {0};
+    struct items items = {0};
+    items.one = &amp;two;
+    items.two = &amp;one;
+    one.other = &amp;two;
+    two.other = &amp;one;
+    f(items);
+}
+</code></pre>
+
+<h3 id="toc_32">Sample 31</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+
+struct X {
+  void * _Owner _Opt text;
+};
+
+void f(const struct X* list);
+
+int main()
+{
+  struct X x = {};
+  f(&amp;x);
+}
+</code></pre>
+
+<h3 id="toc_33">Sample 32</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+
+void free(void* _Owner p);
+struct X
+{
+    int i;
+    void* _Owner _Opt p;
+};
+void f(const struct X* _Opt p);
+int main()
+{
+    struct X x = { 0 };
+    f(&amp;x);
+    compile_assert(x.p == 0);
+}
+</code></pre>
+
+<h3 id="toc_34">Sample 33</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+struct Y {
+  char * _Owner p0;
+  int * _Owner p2;
+  double i2;
+};
+
+struct X {
+  char * _Owner text;
+  int * _Owner p1;
+  int i;
+  struct Y  *pY;
+};
+
+int main() {   
+   _Opt struct X x = {0};   
+   compile_assert(x.text == 0);
+   compile_assert(x.p1 == 0);
+   compile_assert(x.i == 0);
+   compile_assert(x.pY == 0);
+}
+</code></pre>
+
+<h3 id="toc_35">Sample 34</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable;
+
+struct X
+ {
+   char * _Owner _Opt p;
+   char * p2;
+ };
+
+ char* _Owner _Opt strdup(const char *s);
+ void free(void* _Owner _Opt p);
+
+ int main() {
+     const char* _Owner _Opt p0 = strdup(&quot;a&quot;);
+     struct X x = {
+         .p = p0
+     };         
+     free(x.p);
+ }
+</code></pre>
+
+<h3 id="toc_36">Sample 35</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">
+#pragma safety enable
+
+
+
+void free( void* _Owner ptr);
+void* _Owner malloc(int size);
+struct X { char * _Owner text; };
+
+void x_destroy(_Dtor struct X*  p)
+{
+    free(p-&gt;text);
+}
+
+void x_delete(struct X* _Owner _Opt p)
+{
+    if (p)
+    {
+        x_destroy(p);
+        free(p);
+    }
+}
+</code></pre>
+
+<h3 id="toc_37">Sample 36</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void free(void * _Owner _Opt p);
+struct X {
+    char * _Owner text;
+};
+
+void x_destroy(_Opt _Dtor struct X *  x) {
+    free(x-&gt;text);
+}
+
+int main() {
+    _Opt struct X x = {};
+    x_destroy(&amp;x);
+}
+</code></pre>
+
+<h3 id="toc_38">Sample 37</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void free( void * _Owner p);
+
+struct X {
+  char * _Owner name;
+};
+
+void x_destroy( _Dtor struct X *  p);
+
+struct Y {
+  struct X x;
+};
+
+void y_destroy(_Dtor struct Y *  p) {
+   x_destroy(&amp;p-&gt;x);
+}
+</code></pre>
+
+<h3 id="toc_39">Sample 38</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">
+#pragma safety enable
+
+void f(int i)
+{
+    if (i &lt; 0)
+    {
+        int k = 1 / i;
+    }
+    else
+    {
+        int j = 1 / i; //lint 36 possible division by zero
+    }
+
+    if (0 &gt; i)
+    {
+        int k = 1 / i;
+    }
+    else
+    {
+        int j = 1 / i; //lint 36 possible division by zero
+    }
+
+    if (0 &lt; i)
+    {
+        int k = 1 / i;
+    }
+    else
+    {
+        int j = 1 / i; //lint 36 possible division by zero
+    }
+
+    if (i &gt; 0)
+    {
+        int k = 1 / i;
+    }
+    else
+    {
+        int j = 1 / i; //lint 36 possible division by zero
+    }
+}
+
+
+void f2(int i)
+{
+    if (i &lt;= 0)
+    {
+        int k = 1 / i; //lint 36 possible division by zero
+    }
+    else
+    {
+        int j = 1 / i;
+
+    }
+
+    if (0 &gt;= i)
+    {
+        int k = 1 / i; //lint 36 possible division by zero
+    }
+    else
+    {
+        int j = 1 / i;
+    }
+
+    if (0 &lt;= i)
+    {
+        int k = 1 / i; //lint 36 possible division by zero
+    }
+    else
+    {
+        int j = 1 / i;
+
+    }
+
+
+    if (i &gt;= 0)
+    {
+        int k = 1 / i; //lint 36 possible division by zero
+    }
+    else
+    {
+        int j = 1 / i;
+
+    }
+}
+</code></pre>
+
+<h3 id="toc_40">Sample 39</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">
+#pragma safety enable
+
+void  f(int i)
+{
+    int k = 1;
+    int* p = &amp;k;
+
+    if (i)
+    {
+        *p = 0;
+    }
+
+    int h = 212 / k; //lint 36 possible division by zero
+}
+
+int main() {}
+</code></pre>
+
+<h3 id="toc_41">Sample 40</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+
+void* _Owner _Opt malloc(unsigned size);
+void free(void* _Owner _Opt  ptr);
+
+int main() {
+   void * _Owner _Opt p = malloc(1);
+   do{
+      free(p);
+   }
+   while(0);   
+}
+</code></pre>
+
+<h3 id="toc_42">Sample 41</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void* _Owner _Opt malloc(int sz);
+
+void f(int i)
+{
+    if (i)
+    {
+    }
+    else
+    {
+        int* _Owner _Opt p3 = malloc(1);
+    } //lint 29 memory leak
+}
+</code></pre>
+
+<h3 id="toc_43">Sample 42</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+struct Y {
+  char * _Owner p0;
+  int * _Owner p2;
+  double i2;
+};
+
+struct X {
+  char * _Owner text;
+  int * _Owner p1;
+  int i;
+  struct Y  *pY;
+};
+
+int main() {   
+   _Opt struct X x = {};   
+   compile_assert(x.text == 0);
+   compile_assert(x.p1 == 0);
+   compile_assert(x.i == 0);
+   compile_assert(x.pY == 0);
+}
+</code></pre>
+
+<h3 id="toc_44">Sample 43</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+int g = 1;
+
+void f1()
+{
+     //externa non constant variable are any state
+     g  = 1;
+     compile_assert(g != 0);
+     g = 0;
+     compile_assert(g == 0);
+}
+
+void f2()
+{
+     g = 2;
+     g = 3;
+}
+</code></pre>
+
+<h3 id="toc_45">Sample 44</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void* _Owner malloc(unsigned long size);
+void free(void* _Owner _Opt ptr);
+
+int main()
+{
+    void* _Owner _Opt p = 0;
+    for (int i = 0; i &lt; 2; i++)
+    {
+
+        //object &#39;p&#39; may not be empty
+        
+        p = malloc(1); //lint 29
+
+    }
+    free(p);
+}
+</code></pre>
+
+<h3 id="toc_46">Sample 45</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X {
+    struct X* _Opt next;
+};
+
+
+void f(struct X* p);
+struct X* _Opt get();
+
+int c;
+
+int main()
+{
+    struct X* _Opt p = get();
+    for (; p; p = p-&gt;next)
+    {
+        compile_assert(p != 0);
+    }
+    compile_assert(p == 0);
+
+    for (p = get(); p; p = p-&gt;next)
+    {
+        compile_assert(p != 0);
+    }
+    compile_assert(p == 0);
+
+    for (p = get(); p; )
+    {
+        compile_assert(p != 0);
+        p = p-&gt;next;
+    }
+    compile_assert(p == 0);
+
+    for (p = get(); p; )
+    {
+        if (c)
+        {
+            compile_assert(p != 0);
+            break;
+        }
+        p = p-&gt;next;
+    }
+   
+    for (struct X* _Opt p2 = get(); p2; )
+    {
+        compile_assert(p2 != 0);
+        f(p2);
+    }
+
+    
+    struct X* _Opt p3 = get();
+    for (;;)
+    {
+        break;
+    }
+    
+}
+</code></pre>
+
+<h3 id="toc_47">Sample 46</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">int main()
+{
+  int j;
+  for (j = 0; j &lt;10; j++) {}
+  return j;
+}
+</code></pre>
+
+<h3 id="toc_48">Sample 47</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X {
+    int i;
+};
+
+void fill_options(struct X* options)
+{
+    for (int i = 1; i &lt; 2; i++)
+    {
+        options-&gt;i = 1; //cannot say options end lifetime (caused by return)
+        return;
+    }    
+}
+</code></pre>
+
+<h3 id="toc_49">Sample 48</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void* _Owner _Opt calloc(unsigned long n, unsigned long size);
+void free(void* _Owner _Opt ptr);
+
+
+int main()
+{
+    int* _Owner _Opt p = calloc(1, sizeof(int));
+    int* _Owner _Opt p2 = p;    //MOVED
+    free(p2);
+
+    //object may be already moved
+    free(p); //lint 32
+
+}
+</code></pre>
+
+<h3 id="toc_50">Sample 49</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X {
+  int * _Opt p;
+};
+
+struct X * make();
+
+void f(struct X *p,  int * p);
+
+int main()
+{
+    struct X *  pX = make();
+    if (pX-&gt;p)
+    {
+       //cake is making pX-&gt;p  unkown before function call..it must be after
+       f(pX, pX-&gt;p);
+    }
+}
+</code></pre>
+
+<h3 id="toc_51">Sample 50</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+
+void * _Owner _Opt  malloc(int sz);
+void free( void * _Owner _Opt p);
+
+
+void f(int i) {   
+    void * _Owner _Opt p = 0;
+    if (i)
+    {
+        if (i)
+        {
+            p =  malloc(1);
+        }
+        else
+        {
+            p = malloc(1);
+        }     
+    }
+    
+    free(p);
+}
+</code></pre>
+
+<h3 id="toc_52">Sample 51</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+int rand();
+void free(void* _Owner ptr);
+
+struct X { char* _Owner _Opt name; };
+
+void x_destroy(_Dtor struct X*  p);
+struct X f();
+
+void g()
+{
+    {
+        struct X x = {0};   
+        
+        if (rand())
+        {            
+            x = f();
+        }
+        else
+        {         
+            x = f();
+        }
+        x_destroy(&amp;x);
+    }
+}
+</code></pre>
+
+<h3 id="toc_53">Sample 52</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void *_Owner _Opt p);
+char * _Owner _Opt strdup(const char* s);
+
+struct X {
+  char *_Owner _Opt text;
+};
+
+struct X * _Owner make();
+
+void f(int condition)
+{
+    struct X * _Owner _Opt p = nullptr;
+    if (condition)
+    {
+        p = make();        
+    }
+    else
+    {
+        p = make();        
+    }
+    
+    free(p-&gt;text);
+    p-&gt;text = strdup(&quot;c&quot;);
+    
+    free(p-&gt;text);
+    free(p);
+}
+</code></pre>
+
+<h3 id="toc_54">Sample 53</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct Z {
+    int i;
+};
+
+struct Y {
+    struct Z* _Opt pZ;
+};
+
+struct X {
+    struct Y* _Opt pY;
+};
+
+void f(struct X* _Opt p)
+{
+    if (p &amp;&amp; p-&gt;pY &amp;&amp; p-&gt;pY-&gt;pZ)
+    {
+        p-&gt;pY-&gt;pZ-&gt;i = 1;
+    }
+}
+</code></pre>
+
+<h3 id="toc_55">Sample 54</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+    
+void * _Owner _Opt calloc(int i, int n);
+void free(void * _Owner _Opt p);
+
+int main() {
+    int * _Owner _Opt p1 = 0;
+    int * _Owner _Opt p2 = calloc(1, sizeof(int));
+
+    if (p2 == 0) {
+        return 1;
+    }
+    else
+    {
+      p1 = p2;
+    }
+    free(p1);
+    return 0;
+}
+</code></pre>
+
+<h3 id="toc_56">Sample 55</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void f(int i, int c)
+{
+    if (c &lt; 4)
+    {
+        if (c &lt; 1)
+        {
+           return;
+        }
+        else
+        {
+            return;
+        }
+    }
+
+    i = 0; //saying i end of lifetime
+}
+</code></pre>
+
+<h3 id="toc_57">Sample 56</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+
+int f();
+int main()
+{
+    int i;
+    try
+    {
+        if (f()){
+            i = 1;
+            throw;
+        }
+        i = 0;
+    }
+    catch
+    {
+        compile_assert(i != 0);
+    }
+   
+}
+</code></pre>
+
+<h3 id="toc_58">Sample 57</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable;
+
+struct X
+{
+    char* _Owner _Opt p;
+};
+
+char* _Owner _Opt strdup(const char* s);
+
+int main()
+{
+    struct X x  = {
+        .p = strdup(&quot;a&quot;)
+    };
+} //lint 29 leak x.p
+</code></pre>
+
+<h3 id="toc_59">Sample 58</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">﻿#pragma safety enable;
+
+struct X
+ {
+   char * _Owner _Opt p;
+ };
+
+ char* _Owner _Opt strdup(const char *s);
+ void free(void* _Owner _Opt p);
+
+ int main() {
+     const char* _Owner _Opt p0 = strdup(&quot;a&quot;);
+     struct X x = {
+         .p = p0
+     };         
+     free(x.p);
+ }
+</code></pre>
+
+<h3 id="toc_60">Sample 59</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void * _Owner malloc(int i);
+void free( void * _Owner _Opt p);
+
+struct X {
+  char * _Owner name;    
+};
+
+int main() {
+   struct X * _Owner p = malloc(sizeof * p);
+   if (p) {
+     p-&gt;name = malloc(10);
+     free(p-&gt;name);
+   }
+   free(p);   
+}
+</code></pre>
+
+<h3 id="toc_61">Sample 60</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void F(int i);
+_Owner int make();
+int main()
+{
+    F(make()); //lint 23 cannot assign a temporary owner to non-owner object
+}
+</code></pre>
+
+<h3 id="toc_62">Sample 61</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void* _Owner _Opt malloc(int i);
+void free(void* _Owner p);
+
+struct X {
+    char* _Owner name;
+};
+
+int main()
+{
+    struct X* _Owner _Opt p = malloc(sizeof * p);
+
+    //object &#39;p&#39; may not be empty
+
+    p = 0; //lint 29
+}
+</code></pre>
+
+<h3 id="toc_63">Sample 62</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+
+void free(void* _Owner _Opt ptr);
+void* _Owner _Opt malloc(int size);
+
+void f(int c)
+{
+    int* _Owner _Opt p = malloc(sizeof(int));
+    if (c)
+    {
+        free(p);
+    }
+} //lint 29 leak
+</code></pre>
+
+<h3 id="toc_64">Sample 63</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void free(void* _Owner _Opt ptr);
+void* _Owner _Opt malloc(int size);
+
+void f(int condition)
+{
+    int* _Owner _Opt p = malloc(sizeof(int));
+
+    if (condition)
+    {
+        goto end;
+    }
+
+    free(p);
+end:
+} //lint 29 leak p
+</code></pre>
+
+<h3 id="toc_65">Sample 64</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void free(void* _Owner _Opt ptr);
+void* _Owner _Opt malloc(int size);
+
+void f(int condition)
+{
+    int* _Owner _Opt p = malloc(sizeof(int));
+
+    if (condition)
+        goto end; /*memory leak o p*/
+
+    free(p);
+end:
+
+} //lint 29 leak
+</code></pre>
+
+<h3 id="toc_66">Sample 65</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void* _Owner _Opt f();
+void free(void* _Owner p);
+int main()
+{
+    void* _Owner _Opt p  = f();
+    if (p)
+    {
+        free(p);
+        p = f();
+    }
+} //lint 29 memory leak
+</code></pre>
+
+<h3 id="toc_67">Sample 66</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void* _Owner _Opt calloc(int n, int size);
+
+struct X {
+    char* _Owner _Opt name;
+};
+
+void* _Owner _Opt f1()
+{
+    struct X* _Owner _Opt p = calloc(1, sizeof(struct X));
+    if (p)
+    {
+        p-&gt;name = calloc(1, 2);
+    }
+
+    //
+    return p; //lint 29  object &#39;name&#39; may not be empty
+}
+</code></pre>
+
+<h3 id="toc_68">Sample 67</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X {
+    int _Owner i;
+};
+
+void f()
+{
+    const struct X x  = {0};
+} //lint 29 x.i
+</code></pre>
+
+<h3 id="toc_69">Sample 68</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+
+char* _Owner strdup(const char* s);
+void free(void* _Owner p);
+
+struct X
+{
+    char* _Owner _Opt text;
+};
+
+void f(int a)
+{
+    struct X x  = {0};
+    x.text = strdup(&quot;a&quot;);
+} //lint 29 leak
+</code></pre>
+
+<h3 id="toc_70">Sample 69</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X {
+    int i;
+};
+
+void f2()
+{
+    struct X* _Opt p = 0;
+    {
+        struct X x = {0};
+        p = &amp;x;
+    }
+
+    if (p-&gt;i)  //lint 31  object lifetime ended 
+    {
+    }
+}
+</code></pre>
+
+<h3 id="toc_71">Sample 70</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+struct item {
+    struct item* _Owner _Opt next;
+};
+void item_delete(struct item* _Owner p);
+
+struct list {
+    struct item* _Owner _Opt head;
+    struct item* _Opt tail;
+};
+
+void list_destroy(_Dtor struct list*  list)
+{
+    struct item* _Owner _Opt p = list-&gt;head;
+    while (p)
+    {
+        struct item* _Owner _Opt next = p-&gt;next;
+        p-&gt;next = 0;
+        item_delete(p);
+        p = next;
+    }
+}
+
+int main()
+{
+    struct list list = { 0 };
+    list_destroy(&amp;list);
+}
+</code></pre>
+
+<h3 id="toc_72">Sample 71</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+
+#define NULL ((void*)0)
+
+struct item {
+  int i;
+  struct item * _Owner _Opt next;
+  struct item * _Opt previous;
+};
+
+struct list
+{
+    struct item* _Owner _Opt head;
+    struct item* _Opt tail;
+};
+void list_push(struct list* list, struct item* _Owner pnew)
+{
+    if (list-&gt;head == NULL)
+    {
+        list-&gt;head = pnew;
+        list-&gt;tail = pnew;
+    }
+    else
+    {
+        assert(list-&gt;tail != NULL);
+        assert(list-&gt;tail-&gt;next == NULL);
+        pnew-&gt;previous = list-&gt;tail;
+        list-&gt;tail-&gt;next = pnew;
+        list-&gt;tail = pnew;
+    }
+    
+}
+</code></pre>
+
+<h3 id="toc_73">Sample 72</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void free(void* _Owner _Opt p);
+
+struct token
+{
+    int type;
+    struct token* _Opt next;
+    struct token* _Opt prev;
+};
+
+void print_line(struct token* p)
+{
+    struct token* _Opt prev = p-&gt;prev;
+    if (prev)
+    {
+        struct token* _Opt next = prev;
+        while (next &amp;&amp; next-&gt;type != 0)
+        {
+            next = next-&gt;next;
+        }
+    }
+}
+</code></pre>
+
+<h3 id="toc_74">Sample 73</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">int main()
+{
+    int* p = &amp;1; //lint 1220 error: lvalue required as unary &#39;&amp;&#39; operand 
+}
+</code></pre>
+
+<h3 id="toc_75">Sample 74</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void* _Owner malloc(unsigned long size);
+void free(void* _Owner _Opt ptr);
+
+struct Y {
+  char * _Owner p0;
+  int * _Owner p2;
+  double i2;
+};
+
+struct X {
+  char * _Owner text;
+  int * _Owner p1;
+  int i;
+  struct Y  *pY;
+};
+
+int main() {   
+   struct X * _Owner x = malloc(sizeof * x);
+  
+  // assert_state(x-&gt;p1, &quot;uninitialized&quot;);
+   //assert_state(x-&gt;i, &quot;uninitialized&quot;);
+   //assert_state(x-&gt;pY, &quot;uninitialized&quot;);
+   free(x);
+}
+</code></pre>
+
+<h3 id="toc_76">Sample 75</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+struct X
+{
+    int i;
+    void *p;
+};
+void *_Owner _Opt malloc(int i, int sz);
+void free(void *_Owner _Opt p);
+
+int main()
+{
+    struct X *_Owner _Opt p = malloc(1, 1);
+      if (p)
+    {
+    }
+    free(p);
+}
+</code></pre>
+
+<h3 id="toc_77">Sample 76</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Opt p);
+char* _Owner _Opt strdup(const char* s);
+
+struct X {
+    char* _Owner _Opt text;
+};
+
+struct X* _Owner make();
+
+void f(int condition)
+{
+    struct X* _Owner _Opt p1 = make();
+
+    {
+        struct X* _Owner _Opt p2 = make();
+
+        struct X* _Owner _Opt p = nullptr;
+        if (condition)
+        {
+            p = p1;
+        }
+        else
+        {
+            p = p2;
+        }
+
+        free(p-&gt;text);
+        p-&gt;text = strdup(&quot;c&quot;);
+
+        free(p-&gt;text);
+        free(p);
+    } //lint 29 leak
+} //lint 29 leak
+</code></pre>
+
+<h3 id="toc_78">Sample 77</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+int printf(const char* restrict format, ...);
+
+struct X {
+    int i;
+};
+
+//warning: uninitialized object &#39;x.i&#39;
+
+void f(_Ctor struct X* x, int i)
+{
+    if (i &gt; 0)
+    {
+        x-&gt;i = 1;
+    }
+} //lint 30
+
+//external variables, in this case object *x cannot leave scope
+//with uninitialized values.
+
+int main()
+{
+    struct X x;
+    f(&amp;x, 1);
+    printf(&quot;%d&quot;, x.i);
+}
+</code></pre>
+
+<h3 id="toc_79">Sample 78</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void* _Owner _Opt malloc(unsigned long size);
+
+struct X {
+    char* _Owner text;
+};
+
+void x_delete(struct X* _Owner  _Opt p);
+
+int main()
+{
+    struct X* _Owner _Opt p = malloc(sizeof(struct X));
+    //warning: uninitialized object &#39;p.text&#39;
+    
+    x_delete(p); //lint 30
+}
+</code></pre>
+
+<h3 id="toc_80">Sample 79</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+
+void free(void* _Owner _Opt p);
+
+struct X {
+    char* _Owner name;
+};
+
+void x_delete(struct X* _Owner _Opt p)
+{
+    if (p)
+    {
+
+        //object &#39;name&#39; may not be empty
+
+        free(p); //lint 29
+    }
+}
+</code></pre>
+
+<h3 id="toc_81">Sample 80</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+
+void* _Owner calloc(unsigned n, unsigned size);
+void free(void* _Owner ptr);
+
+struct X {
+    char* _Owner _Opt name;
+};
+
+struct X* _Owner _Opt F(int i)
+{
+    struct X* _Owner _Opt p1 = 0;
+    struct X* _Owner _Opt p2 = calloc(1, sizeof * p2);
+    if (p2)
+    {
+        p1 = p2;
+    }
+    return p1;
+}
+</code></pre>
+
+<h3 id="toc_82">Sample 81</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+char * _Owner _Opt f() {
+    char * _Owner _Opt p = 0;
+    return p; /*implicit move*/
+}
+</code></pre>
+
+<h3 id="toc_83">Sample 82</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void* _Owner malloc(unsigned size);
+void free(void* _Owner ptr);
+
+
+struct X {  char *_Owner name; };
+struct Y { struct X x; };
+
+void f(struct Y * y, _Dtor struct X *  p) 
+{
+    free(y-&gt;x.name);
+    y-&gt;x = *p;
+}
+</code></pre>
+
+<h3 id="toc_84">Sample 83</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void *_Owner _Opt p);
+
+void f(int* _Opt _Owner p)
+{
+   int * _Opt _Owner p2 = p;   
+   //assert_state(p, &quot;null, moved&quot;);
+   if (p)
+   {
+     //assert_state(p, &quot;moved&quot;);
+   }
+   free(p2);
+}
+</code></pre>
+
+<h3 id="toc_85">Sample 84</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void free( void* _Owner ptr);
+void* _Owner malloc(int size);
+
+int main()
+{
+    int* _Owner p = malloc(sizeof(int));
+    if (p)
+    {
+       free(p);     
+    }
+}
+</code></pre>
+
+<h3 id="toc_86">Sample 85</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void free( void* _Owner ptr);
+void* _Owner malloc(int size);
+
+int main()
+{
+    int* _Owner p = malloc(sizeof(int));
+    if (p != 0)
+    {
+       free(p);     
+    }
+}
+</code></pre>
+
+<h3 id="toc_87">Sample 86</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void free( void * _Owner p);
+struct X {
+  char * _Owner text;
+};
+void x_delete( struct X * _Owner _Opt p)
+{
+    if (p)
+    {
+      free(p-&gt;text);
+      free(p);
+    }
+}
+</code></pre>
+
+<h3 id="toc_88">Sample 87</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void * _Owner _Opt calloc(int i, int sz);
+void free( void * _Owner _Opt p);
+
+struct X { int i; };
+struct Y { struct X * _Owner _Opt p; };
+
+int main() {
+   struct Y y = {0};
+   struct X * _Owner _Opt p = calloc(1, sizeof(struct X));
+   if (p){
+     y.p = p;
+   }
+  free(y.p);
+}
+</code></pre>
+
+<h3 id="toc_89">Sample 88</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+char * _Owner strdup(const char* s);
+void free(void* _Owner p);
+
+struct X {
+  char * _Owner _Opt text;
+};
+
+void f(int a)
+{
+    struct X x = {0};
+    x.text = strdup(&quot;a&quot;);
+    free(x.text);
+}
+</code></pre>
+
+<h3 id="toc_90">Sample 89</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Opt p);
+char* _Owner _Opt strdup(const char* s);
+[[noreturn]] void exit( int exit_code );
+
+void f()
+{
+    char * _Opt _Owner s = strdup(&quot;a&quot;);
+    
+    if (s == nullptr)
+    {
+        exit(1);
+    }
+    
+    compile_assert(s != 0);
+    free(s);
+}
+</code></pre>
+
+<h3 id="toc_91">Sample 90</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+struct X {
+    void* _Owner _Opt text;
+};
+
+void x_change(struct X* list);
+void x_destroy(_Dtor struct X* p);
+
+int main()
+{
+    //object pointed by &#39;x.text&#39; was not released
+    struct X x = {};
+    x_change(&amp;x);
+} //lint 29
+</code></pre>
+
+<h3 id="toc_92">Sample 91</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void free(void* _Owner _Opt p);
+struct X
+{
+    int i;
+    void* _Owner _Opt p;
+};
+void f(struct X* _Opt p);
+int main()
+{
+    struct X x = { 0 };
+    compile_assert(x.p == 0);
+    f(&amp;x);
+    //assert_state(x.p, &quot;null | not-null&quot;);
+    free(x.p);
+}
+</code></pre>
+
+<h3 id="toc_93">Sample 92</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void f(int *p)
+{
+    compile_assert(p != 0);
+}
+</code></pre>
+
+<h3 id="toc_94">Sample 93</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+void f(int  *p)
+{
+  compile_assert(p != 0);
+}
+</code></pre>
+
+<h3 id="toc_95">Sample 94</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+int* f();
+int main()
+{
+    int* _Opt p = f();
+
+
+    if (p) //lint 28 pointer is always not-null
+        return 0;
+
+}
+</code></pre>
+
+<h3 id="toc_96">Sample 95</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+
+void* f();
+int main()
+{
+    //cannot assign a non-owner to owner
+    void* _Owner p  = f(); //lint 25
+} //lint 29
+</code></pre>
+
+<h3 id="toc_97">Sample 96</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void* f();
+
+int main()
+{
+    //cannot assign a non-owner to owner
+
+    void* _Owner p = f(); //lint 25
+} //lint 29
+</code></pre>
+
+<h3 id="toc_98">Sample 97</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void destroy(_Owner int i);
+
+int main()
+{
+    _Owner int i = 0;
+    int v = i;
+
+    //warning: cannot assign a non-owner to owner
+
+    destroy(v); //lint 25
+
+} //lint 29
+</code></pre>
+
+<h3 id="toc_99">Sample 98</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+_Owner int socket();
+void close(_Owner int fd);
+
+int main()
+{
+  _Owner int fd;
+  
+  fd = socket();
+  if (fd &lt; 0)
+  {
+     override_state(fd, &quot;null&quot;);   
+     return 1;
+  }
+  close(fd);
+}
+</code></pre>
+
+<h3 id="toc_100">Sample 99</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+//warning: object pointed by &#39;?&#39; was not released.
+
+void free(void* _Owner)
+{
+
+} //lint 29
+</code></pre>
+
+<h3 id="toc_101">Sample 100</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Opt f();
+
+void g()
+{
+    const char* _Opt s1 = f();    
+    if (!s1)
+    {
+        compile_assert(s1 == 0);
+    }
+    else
+    {        
+        compile_assert(s1 != 0);
+    }
+}
+</code></pre>
+
+<h3 id="toc_102">Sample 101</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Opt f();
+
+void g()
+{
+    const char* _Opt s1 = f();    
+    if (s1 != 0)
+    {
+        compile_assert(s1 != 0);
+    }
+    else
+    {        
+        compile_assert(s1 == 0);
+    }
+}
+</code></pre>
+
+<h3 id="toc_103">Sample 102</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Opt f();
+
+void g()
+{
+    const char* _Opt s1 = f();    
+    if (s1 == 0)
+    {
+        compile_assert(s1 == 0);
+    }
+    else
+    {        
+        compile_assert(s1 != 0);
+    }
+}
+</code></pre>
+
+<h3 id="toc_104">Sample 103</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X {
+    int i;
+};
+
+void f(struct X* _Opt p)
+{
+    int i = p ? p-&gt;i : 0; //no warning
+
+    int i3 = p-&gt;i;      //lint 33 warning: pointer may be null
+
+    int i2 = p ? 0 : p-&gt;i; //lint 33 warning: pointer may be null
+}
+</code></pre>
+
+<h3 id="toc_105">Sample 104</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+int main()
+{
+    int* _Opt ptr = 0;
+
+    int k = *ptr; //lint 33 warning: dereference a NULL object
+    k = 0;
+    return 0;
+}
+</code></pre>
+
+<h3 id="toc_106">Sample 105</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void* _Owner malloc(unsigned long size);
+void free(void* _Owner ptr);
+
+void f5()
+{
+    void * _Owner p = malloc(1);
+    
+    if (p) {
+       free(p);
+       return;
+    }
+    
+    compile_assert(p == 0);
+}
+</code></pre>
+
+<h3 id="toc_107">Sample 106</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+
+int* _Owner make1();
+int* _Owner _Opt make2();
+void free(void * _Owner _Opt p);
+
+
+void f(int condition)
+{
+  int * _Owner _Opt p = 0;
+  compile_assert(p == 0);
+
+  if (condition)
+  {
+       compile_assert(p == 0);
+       p = make1();
+       compile_assert(p != 0);
+       free(p);
+       p = make2();
+       //assert_state(p, &quot;null | not-null &quot;);
+  }
+  else
+  {
+    compile_assert(p == 0);
+  }
+  free(p);
+}
+</code></pre>
+
+<h3 id="toc_108">Sample 107</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void f(int * _Owner _Opt p);
+int main()
+{
+   int * _Owner _Opt p = 0;
+   p = ((void *) 0); 
+   f(0);
+   f((void *) 0);
+   f(nullptr);
+}
+</code></pre>
+
+<h3 id="toc_109">Sample 108</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+void f(int  * _Opt p)
+{
+  //assert_state(p, &quot;null | not-null&quot;);
+}
+</code></pre>
+
+<h3 id="toc_110">Sample 109</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void* _Owner _Opt malloc(int i);
+void free(void* _Owner _Opt);
+
+struct X {
+    char* _Owner _Opt name;
+};
+
+int main()
+{
+    struct X* _Owner _Opt p = malloc(sizeof(struct X));
+    if (p)
+    {
+        p-&gt;name = malloc(1);
+    }
+    else
+    {
+        //p-&gt;name = malloc(1);        
+    }
+    //warning: pointer may be null
+
+    free(p-&gt;name); //lint 33 30
+
+    // warning: object &#39;name&#39; may not be empty
+
+    free(p); //lint 29
+}
+</code></pre>
+
+<h3 id="toc_111">Sample 110</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma nullable disable
+void f(int  *p)
+{
+  //assert_state(p, &quot;null | not-null&quot;);
+}
+</code></pre>
+
+<h3 id="toc_112">Sample 111</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+
+void* _Owner _Opt  malloc(unsigned long size);
+void free(void* _Owner _Opt  ptr);
+
+void f1()
+{
+    void * _Owner _Opt p = malloc(1);
+    if (p) {
+      compile_assert(p != 0);
+    }
+
+    //assert_state(p, &quot;null | not-null &quot;);
+    free(p);
+}
+
+void f2(int condition)
+{
+    void * _Owner _Opt  p = malloc(1);
+    if (condition) {
+      //assert_state(p, &quot;null | not-null &quot;);
+    }
+
+    //assert_state(p, &quot;null | not-null &quot;);
+    override_state(p, &quot;null&quot;);
+}
+
+void f3(int condition)
+{
+    void * _Owner _Opt  p = malloc(1);
+
+    if (condition) {
+       free(p);
+    }
+    else {
+       free(p);
+    }
+
+    //assert_state(p, &quot;uninitialized&quot;);
+}
+
+void f4(int condition)
+{
+    void * _Owner _Opt  p = malloc(1);
+
+    if (condition) {
+
+    }
+    else {
+       free(p);
+    }
+
+    //assert_state(p, &quot;uninitialized  null | not-null &quot;);
+    override_state(p, &quot;null&quot;);
+}
+
+
+void f5(int condition)
+{
+    void * _Owner _Opt  p = malloc(1);
+
+    if (condition) {
+       free(p);
+    }
+    else {
+
+    }
+
+    //assert_state(p, &quot;uninitialized null | not-null &quot;);
+    override_state(p, &quot;null&quot;);
+}
+
+void f6(int condition)
+{
+    void * _Owner _Opt  p = malloc(1);
+
+    if (p) {
+       free(p);
+       return;
+    }
+
+    compile_assert(p == 0);
+}
+</code></pre>
+
+<h3 id="toc_113">Sample 112</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+struct Y {
+    char* _Owner p0;
+    int* _Owner p2;
+    double i2;
+};
+
+struct X {
+    char* _Owner text;
+    int* _Owner p1;
+    int i;
+    struct Y* _Opt pY;
+};
+
+struct X f();
+void destroy(_Dtor struct X *  x);
+
+int main()
+{
+    struct X x;
+    x = f();
+    compile_assert(x.text != 0);
+    compile_assert(x.p1 != 0);
+    //assert_state(x.i, &quot;zero | not-zero&quot;);
+    //assert_state(x.pY, &quot;null | not-null&quot;);
+    compile_assert(x.pY-&gt;p0 != 0);
+    destroy(&amp;x);
+}
+</code></pre>
+
+<h3 id="toc_114">Sample 113</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void * f();
+int main() {
+  void * _Owner _Opt p = 0;
+}
+</code></pre>
+
+<h3 id="toc_115">Sample 114</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+int strlen(const char* s);
+
+int main()
+{
+    //warning: cannot convert a null pointer constant to non-nullable pointer
+
+    strlen(0); //lint 60
+
+    char* _Opt p = 0;
+
+    //flow
+    //warning: passing a possible null pointer &#39;p&#39; to non-nullable pointer parameter
+
+    strlen(p); //lint 35
+
+}
+</code></pre>
+
+<h3 id="toc_116">Sample 115</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Opt p);
+char* _Owner _Opt strdup(const char* s);
+
+struct Y {
+    char* _Owner _Opt text;
+};
+
+struct X {
+    
+    struct Y* _Owner pY;
+};
+
+void f(struct X* _Opt pX)
+{
+    if (pX)
+    {
+        free(pX-&gt;pY-&gt;text);
+        pX-&gt;pY-&gt;text = strdup(&quot;a&quot;);
+    }
+}
+</code></pre>
+
+<h3 id="toc_117">Sample 116</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void f() {
+    _Owner int * _Opt p = 0;
+}
+</code></pre>
+
+<h3 id="toc_118">Sample 117</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void f(int i)
+{
+    int j;
+
+    if (i || j) //lint 30 warning: using a uninitialized object &#39;j&#39;
+    {
+    }
+}
+</code></pre>
+
+<h3 id="toc_119">Sample 118</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+struct Y {
+  char * _Owner p0;
+  int * _Owner p2;
+  double i2;
+};
+
+struct X {
+  char * _Owner text;
+  int * _Owner p1;
+  int i;
+  struct Y  *pY;
+};
+
+void init(_Ctor struct X * p);
+void destroy(_Dtor struct X *  p);
+
+int main() {
+   struct X x;
+   init(&amp;x);
+
+   compile_assert(x.p1 != 0);
+   //assert_state(x.i, &quot;zero | not-zero&quot;);
+   compile_assert(x.pY != 0);
+   compile_assert(x.pY-&gt;p0 != 0);
+   compile_assert(x.pY-&gt;p2 != 0);
+   //assert_state(x.pY-&gt;i2, &quot;zero | not-zero&quot;);
+   destroy(&amp;x);
+}
+</code></pre>
+
+<h3 id="toc_120">Sample 119</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void* _Owner malloc(unsigned long size);
+void free(void* _Owner ptr);
+
+struct Y {
+    char* _Owner p0;
+    int* _Owner p2;
+    double i2;
+};
+
+struct X {
+    char* _Owner _Opt text;
+    int* _Owner _Opt p1;
+    int i;
+    struct Y* _Opt pY;
+};
+
+void f(const struct X* p);
+void destroy(_Dtor struct X *  p);
+
+int main()
+{
+    struct X x = {0};
+    f(&amp;x);
+
+    compile_assert(x.p1 == 0);
+    compile_assert(x.i == 0);
+    compile_assert(x.pY == 0);
+
+    destroy(&amp;x);
+}
+</code></pre>
+
+<h3 id="toc_121">Sample 120</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">﻿#pragma safety enable
+
+bool init(_Ctor int *a) {
+    *a = 3;
+    return true;
+}
+
+int main() {
+    int a;
+    if (init(&amp;a) || a == 0) return a;
+    if (init(&amp;a) &amp;&amp; a == 0) return a;
+    return a;
+}
+</code></pre>
+
+<h3 id="toc_122">Sample 121</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">﻿#pragma safety enable
+
+void f(_Ctor char s[2]) 
+{
+}
+
+void test1()
+{
+    char s[2];
+    f(s);
+}
+
+void f2(_Ctor char *s) 
+{
+    *s= &#39;\0&#39;;
+}
+
+void test2()
+{
+    char s[2];
+    f2(s);
+}
+
+int main()
+{
+}
+</code></pre>
+
+<h3 id="toc_123">Sample 122</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void  free(void* _Owner p);
+char* _Owner strdup(const char* s);
+
+struct X {
+    char* _Owner s;
+};
+void init(_Ctor struct X* px)
+{
+    compile_assert(px != 0);
+    //assert_state(px-&gt;s, &quot;uninitialized&quot;);
+    px-&gt;s = strdup(&quot;a&quot;);
+}
+
+int main() {
+    struct X x;
+    init(&amp;x);
+    free(x.s);
+}
+</code></pre>
+
+<h3 id="toc_124">Sample 123</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+int* _Owner  get();
+
+void f()
+{
+    int* _Owner _Opt p = 0;
+    p = get();
+} //lint 29
+</code></pre>
+
+<h3 id="toc_125">Sample 124</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">
+#pragma safety enable
+
+
+int* _Owner  get();
+void dtor(int* _Owner p);
+
+void f(int a)
+{
+    int* _Owner _Opt p = 0;
+    p = get();    
+    dtor(p);    
+}
+</code></pre>
+
+<h3 id="toc_126">Sample 125</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X {
+    char* _Owner _Opt name;
+};
+
+struct X* _Owner make();
+void del(struct X* _Owner _Opt p);
+
+int main()
+{
+    struct X* _Owner p = make();
+
+    //error: operator ++ cannot be used in _Owner pointers
+
+    p++; //lint 1310
+
+    //error: operator -- cannot be used in _Owner pointers
+
+    p--; //lint 1320
+
+    del(p);
+}
+</code></pre>
+
+<h3 id="toc_127">Sample 126</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+#define NULL ((void*)0)
+
+int main()
+{
+    const char * _Owner _Opt s;
+    s = NULL;    
+    s = 0;    
+    s = nullptr;    
+}
+</code></pre>
+
+<h3 id="toc_128">Sample 127</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void destroy(char* _Owner x);
+char   * _Owner  get();
+
+int main()
+{
+  destroy(get());
+}
+</code></pre>
+
+<h3 id="toc_129">Sample 128</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+char * _Owner create();
+void f(char * _Owner p);
+
+int main()
+{
+    f(create());
+}
+</code></pre>
+
+<h3 id="toc_130">Sample 129</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X {
+    int* _Opt pi;
+};
+
+int* f();
+int main(struct X* _Opt pX)
+{
+    if (pX)
+    {
+        compile_assert(pX != 0);
+    }
+    else
+    {
+        compile_assert(pX == 0);
+    }
+
+    if (!pX)
+    {
+        compile_assert(pX == 0);
+    }
+    else
+    {
+        compile_assert(pX != 0);
+    }
+
+    if (pX &amp;&amp; pX-&gt;pi)
+    {
+        compile_assert(pX != 0);
+        compile_assert(pX-&gt;pi != 0);
+    }
+    else
+    {
+        //static_debug(pX);
+        //assert_state(pX, &quot;not-null null&quot;);
+        //assert_state(pX-&gt;pi, &quot;not-null null&quot;);
+    }
+
+    // warning: pointer is always non-null 
+
+    if (pX == 0 || (pX-&gt;pi = f()) == 0) //lint 28
+    {
+        //assert_state(pX, &quot;null not-null&quot;);
+    }
+    else
+    {
+        //assert_state(pX, &quot;not-null&quot;); //FAILS only on github windows!? WTF
+    }
+
+
+}
+</code></pre>
+
+<h3 id="toc_131">Sample 130</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void* _Owner malloc(unsigned long size);
+void free(void* _Owner _Opt ptr);
+
+struct X {
+    char* _Owner _Opt text;
+};
+
+void f(struct X* _Owner p1, struct X* _Ctor _Owner* p2)
+{
+    *p2 = p1;
+}
+
+int main()
+{
+    struct X* _Owner p1 = malloc(sizeof * p1);
+    if (p1)
+    {
+        p1-&gt;text = 0;
+        struct X* _Owner _Opt p2 = 0;
+        f(p1, &amp;p2);
+
+        //warning: pointer may be null (p2)
+
+        free(p2-&gt;text); //lint 33
+
+        free(p2);
+    }
+}
+</code></pre>
+
+<h3 id="toc_132">Sample 131</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void f(void (*pf)(void *_Owner p)) {}
+</code></pre>
+
+<h3 id="toc_133">Sample 132</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">
+#pragma safety enable
+
+struct Y {
+    int type;
+};
+
+struct X {
+    struct Y* _Opt current;
+};
+
+void f(struct X* ctx)
+{
+    if (ctx-&gt;current == 0)
+        return;
+
+    if (ctx-&gt;current != 0) //lint 28 warning: pointer is always non-null
+    {
+
+    }
+    else
+    {
+        //still not null, so no warning
+        ctx-&gt;current-&gt;type = 1;
+    }
+
+}
+</code></pre>
+
+<h3 id="toc_134">Sample 133</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+char* _Owner _Opt strdup(const char* s);
+void free(void* _Owner _Opt p);
+
+struct X {
+    char* _Owner _Opt name;
+};
+
+struct X make()
+{
+    struct X x = {0};
+    x.name = strdup(&quot;text&quot;);
+    free(x.name);
+    
+    return x; //lint 30 warning: returning an uninitialized &#39;x.name&#39; object 
+}
+</code></pre>
+
+<h3 id="toc_135">Sample 134</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+struct X { char  * _Owner _Opt owner_variable;   };
+struct X global;
+char * _Opt f() 
+{
+    return global.owner_variable;
+}
+</code></pre>
+
+<h3 id="toc_136">Sample 135</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+char* _Opt f()
+{
+    //char* _Owner _Opt p = 0;    
+    //return p;
+    return  0;
+}
+</code></pre>
+
+<h3 id="toc_137">Sample 136</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+struct X { char  * _Owner owner_variable;   };
+char * f(struct X *parameter) 
+{
+    return parameter-&gt;owner_variable;
+}
+</code></pre>
+
+<h3 id="toc_138">Sample 137</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+char * _Owner strdup(const char* s);
+void free(void * _Owner p);
+
+struct X {
+  char *_Owner _Opt name;
+};
+
+struct X make()
+{
+  struct X x = {0};
+  x.name = strdup(&quot;text&quot;);  
+  return x;
+}
+</code></pre>
+
+<h3 id="toc_139">Sample 138</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+struct X {
+  char * _Owner name;
+};
+
+struct X f();
+struct X f2()
+{
+    return f();
+}
+</code></pre>
+
+<h3 id="toc_140">Sample 139</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">
+#pragma safety enable
+
+
+void * _Owner _Opt malloc(int i);
+void free( void * _Owner _Opt  p);
+
+struct X {
+  char * _Owner name;    
+};
+
+int main() {
+   struct X * _Owner _Opt p = malloc(sizeof * p);
+   free(p);   
+}
+</code></pre>
+
+<h3 id="toc_141">Sample 140</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">
+#pragma safety enable
+
+
+struct X { int i;  };
+void f(struct X* p);
+void f2(struct X* p);
+
+void delete(struct X* p)
+{
+    compile_assert(p != 0);
+    f(p);
+    compile_assert(p != 0);
+    f2(p);
+}
+</code></pre>
+
+<h3 id="toc_142">Sample 141</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">
+#pragma safety enable
+
+
+struct Y { 
+    int i;
+};
+
+struct X { 
+    char * _Owner _Opt name;
+};
+
+int main()
+{
+    struct Y y1 = {};
+    struct Y y2 = {};
+    y1 = y2; //ok
+
+    struct X x1 = {};
+    struct X x2 = {};
+    x1 = x2; //ok
+
+}
+</code></pre>
+
+<h3 id="toc_143">Sample 142</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+
+void* _Owner make();
+void free( void* _Owner p);
+
+void f(int condition)
+{
+    void* _Owner p = make();
+
+
+    switch (condition)
+    {
+        case 1:
+        {
+            free(p);
+        }
+        break;
+        case 2:
+        {
+            free(p);
+        }
+        break;
+
+        default:
+            free(p);
+            break;
+    }        
+}
+</code></pre>
+
+<h3 id="toc_144">Sample 143</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+
+void* _Owner _Opt calloc(int n ,unsigned size);
+
+char* _Owner _Opt f(int i)
+{
+    char* _Owner _Opt p = calloc(1,2);
+    switch (i)
+    {
+        case 1:
+            break;
+        case 2:
+            break;
+    }
+
+    return p;
+}
+</code></pre>
+
+<h3 id="toc_145">Sample 144</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+
+void * _Owner _Opt calloc(int n , int i);
+
+char* _Owner _Opt f(int i)
+{
+    char* _Owner _Opt p = calloc(1,2);        
+    switch (i) {
+        case 1: break;
+    }
+    return p;
+}
+</code></pre>
+
+<h3 id="toc_146">Sample 145</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void* _Owner calloc(unsigned n, unsigned size);
+void free(void* _Owner ptr);
+
+struct X {
+    char* _Owner _Opt name;
+};
+
+struct X* _Owner _Opt F(int i)
+{
+    struct X* _Owner _Opt p1 = 0;
+
+    switch (i)
+    {
+        case 1:
+            struct X* _Owner p2 = calloc(1, sizeof * p2);
+            if (p2)
+            {
+              override_state(*p2, &quot;zero&quot;);
+                p1 = p2;
+            }
+            break;
+        case 2:
+            break;
+    }
+
+    return p1;
+}
+</code></pre>
+
+<h3 id="toc_147">Sample 146</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void* _Owner malloc(unsigned size);
+void free(void* _Owner _Opt ptr);
+
+
+void f(int i)
+{
+  void * _Owner p1 = malloc(1);
+  switch(i)
+  {
+      case 1:
+      {
+          void * _Owner p2 = malloc(1);
+          free(p2);
+      }
+      break;
+
+      case 2:
+      {
+          void * _Owner p3 = malloc(1);
+            free(p3);
+      }
+      break;
+  }
+
+  free(p1);
+  
+}
+</code></pre>
+
+<h3 id="toc_148">Sample 147</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void* _Owner malloc(unsigned size);
+void free(void* _Owner _Opt ptr);
+    
+
+void f(int i)
+{
+    void* _Owner p1 = malloc(1);
+    switch (i)
+    {
+        case 1:
+            void* _Owner p2 = malloc(1);
+            free(p2);
+            break;
+
+        case 3:
+            void* _Owner p3 = malloc(1);
+            free(p3);
+            break;
+    }
+
+    free(p1);
+
+}
+</code></pre>
+
+<h3 id="toc_149">Sample 148</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void* _Owner _Opt malloc(unsigned long size);
+void free(void* _Owner _Opt ptr);
+
+struct X {
+    char* _Owner name;
+};
+
+int main()
+{
+    //warning: cannot assign a temporary owner to non-owner object. 
+    struct X* _Opt p = (struct X* _Owner _Opt) malloc(1); //lint 23
+}
+</code></pre>
+
+<h3 id="toc_150">Sample 149</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void* _Owner _Opt malloc(unsigned long size);
+void free(void* _Owner _Opt ptr);
+
+int main()
+{
+    //warning: cannot assign a temporary owner to non-owner object.
+    void* _Opt p = malloc(1); //lint 23
+
+    //warning: cannot assign a non-owner to owner 
+    free(p); //lint 25
+}
+</code></pre>
+
+<h3 id="toc_151">Sample 150</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">struct X { int i; };
+struct X f()
+{
+    struct X x = {};
+    return x;
+}
+
+int main()
+{
+    //error: lvalue required as left operand of assignment
+    f().i = 1; //lint 1230
+}
+</code></pre>
+
+<h3 id="toc_152">Sample 151</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void free(void * _Owner p);
+struct X;
+struct X f();
+struct X { char * _Owner p; };
+int main()
+{
+    struct X x = 1 ? f() : f(); 
+    free(x.p);
+}
+</code></pre>
+
+<h3 id="toc_153">Sample 152</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+
+struct X {
+    char * _Owner _Opt text;
+};
+
+void f(int condition) {
+    struct X x1 = {};
+    struct X x2 = {};
+    struct X * p = condition ? &amp;x1 : &amp;x2;
+
+    static_debug(p);
+}
+</code></pre>
+
+<h3 id="toc_154">Sample 153</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+int f(int condition)
+{
+    int * _Owner _Opt p = 0;
+    try
+    {
+        int * _Owner _Opt p2 = p;
+
+        //p is still null here because null pointers are not moved.
+        compile_assert(p == 0);
+
+        if (condition) throw;
+        p = 0;
+    }
+    catch
+    {
+    }
+    
+    compile_assert(p == 0);
+}
+</code></pre>
+
+<h3 id="toc_155">Sample 154</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void* _Owner _Opt malloc(int i);
+void free(void* _Owner _Opt p);
+int rand();
+
+int main()
+{
+    char* _Owner _Opt s = malloc(1);
+    try
+    {
+        if (rand())
+        {
+            free(s);
+        }
+        else
+        {
+            //static_debug(s);
+            throw;
+        }
+    }
+    catch
+    {
+    }
+} //lint 29 leak
+</code></pre>
+
+<h3 id="toc_156">Sample 155</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void* _Owner malloc(unsigned size);
+void free(void* _Owner ptr);
+
+struct X {
+    char* _Owner name;
+};
+
+struct X* _Owner _Opt F(int i)
+{
+
+    struct X* _Owner _Opt p1 = 0;
+    try
+    {
+        if (i == 1)
+        {
+            p1 = malloc(sizeof * p1);
+            while (0) {}
+        }
+        else if (i == 3)
+        {
+            p1 = malloc(sizeof * p1);
+        }
+    }
+    catch
+    {
+    }
+
+    //warning: uninitialized object &#39;p1.name&#39;
+    return p1;  //lint 30 30 p1.name not initialized
+}
+</code></pre>
+
+<h3 id="toc_157">Sample 156</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">﻿
+#pragma safety enable
+
+void* _Owner _Opt calloc(int n, unsigned long size);
+void free(void* _Owner _Opt ptr);
+
+struct Y {
+    int i;
+};
+struct X {
+    struct Y* _Owner _Opt pY;
+};
+
+void f(struct Y* p);
+int main()
+{
+
+    struct X* _Owner _Opt p = calloc(1, sizeof * p);
+    if (p)
+    {
+        p-&gt;pY = calloc(1, sizeof(struct Y));
+        if (p-&gt;pY)
+        {
+            f(p-&gt;pY);
+            p-&gt;pY-&gt;i = 1;
+//          ^^^^^ still not null
+        }
+        free(p-&gt;pY);
+        free(p);
+    }
+}
+</code></pre>
+
+<h3 id="toc_158">Sample 157</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void f_const(const int a);
+void f(int a);
+
+
+int main(void)
+{
+    int a;
+
+    //warning: passing an uninitialized argument &#39;a&#39; object
+
+    f_const(a); //lint 30
+
+    //warning: passing an uninitialized argument &#39;a&#39; objec
+    f(a); //lint 30 
+
+}
+</code></pre>
+
+<h3 id="toc_159">Sample 158</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void f_const(const char* s);
+
+void f_non_const(char* s);
+
+int main(void)
+{
+    char buffer[20];
+
+    //warning: uninitialized object &#39;buffer&#39; passed to non-optional parameter
+
+    f_const(buffer); //lint 30 
+
+    //static_debug_ex(buffer);
+
+    //warning: uninitialized object &#39;buffer&#39; passed to non-optional parameter
+
+    f_non_const(buffer); //lint 30
+}
+</code></pre>
+
+<h3 id="toc_160">Sample 159</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+void* _Owner _Opt malloc(int i);
+void free(void* _Owner _Opt p);
+
+struct X {
+    char* _Owner name;
+};
+
+void x_delete(struct X* _Owner _Opt p)
+{
+    if (p)
+    {
+        free(p-&gt;name);
+        free(p);
+    }
+}
+
+int main()
+{
+    struct X* _Owner _Opt p = malloc(sizeof * p);
+
+    //warning: uninitialized object &#39;p.name&#39;
+
+    x_delete(p); //lint 30
+}
+</code></pre>
+
+<h3 id="toc_161">Sample 160</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X {
+    char* _Owner text;
+};
+
+void x_destroy(_Dtor struct X* p);
+
+int main()
+{
+    struct X x;
+    // warning: uninitialized object &#39;&amp;x.text&#39;
+    x_destroy(&amp;x); //lint 30
+}
+</code></pre>
+
+<h3 id="toc_162">Sample 161</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma flow enable
+
+void f_const(const char* s);
+
+void f_non_const(char* s);
+
+int main(void)
+{
+    char buffer[20];
+
+    //warning: uninitialized object &#39;buffer&#39; passed to non-optional parameter
+
+    f_const(buffer); //lint 30
+
+    f_non_const(buffer);
+}
+</code></pre>
+
+<h3 id="toc_163">Sample 162</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+char* _Owner strdup(const char* s);
+void* _Owner malloc(unsigned size);
+
+void free(void* _Owner _Opt ptr);
+
+struct X {
+    char* _Owner _Opt name;
+};
+
+void x_destroy(_Dtor struct X* p)
+{
+    free(p-&gt;name);
+}
+
+void x_print(struct X* p)
+{
+    //printf(&quot;%s&quot;, p-&gt;name);
+}
+
+int main()
+{
+    //warning: object pointed by &#39;x.name&#39; was not released.
+    struct X x = {0};
+    x.name = strdup(&quot;a&quot;);
+    x_destroy(&amp;x);
+
+    //warning: uninitialized object &#39;&amp;x.name&#39;
+    x_print(&amp;x); //lint 30
+
+} //lint 29
+</code></pre>
+
+<h3 id="toc_164">Sample 163</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+
+bool f()
+{
+    int* _Opt p = 0;
+
+    //warning: pointer is always null
+
+    return p == 0; //lint 28
+}
+</code></pre>
+
+<h3 id="toc_165">Sample 164</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+ 
+struct X {
+    char * _Owner text;
+};
+
+struct Y {
+    _View struct X x;
+};
+
+struct Y f();
+int main()
+{
+    struct Y y = f();
+}
+</code></pre>
+
+<h3 id="toc_166">Sample 165</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+struct X {
+  char * _Owner name;
+};
+
+_View struct X f();
+
+int main()
+{
+  f();
+}
+</code></pre>
+
+<h3 id="toc_167">Sample 166</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+
+struct X { char* _Owner text; };
+
+void x_destroy(_Dtor struct X* p);
+
+void x_delete(struct X* _Owner _Opt p )
+{
+    if (p)
+    {
+        x_destroy(p);
+        //memory pointed by p not deleted
+    }
+} //lint 29
+</code></pre>
+
+<h3 id="toc_168">Sample 167</h3>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void f(char* p)
+{   
+  while (*p) { p++; }
+}
+</code></pre>
+</article></body></html>

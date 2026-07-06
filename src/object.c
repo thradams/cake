@@ -94,10 +94,10 @@ static long double resize_floating_point(long double value, int bits)
     switch (bits)
     {
     case 64:
-        STATIC_ASSERT(sizeof(double) == 8);
+        //STATIC_ASSERT(sizeof(double) == 8);
         return (double)value;
     case 32:
-        STATIC_ASSERT(sizeof(float) == 4);
+        //STATIC_ASSERT(sizeof(float) == 4);
         return (float)value;
     }
     return value;

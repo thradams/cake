@@ -1,11 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommandArguments>-flow3   file.c -E</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>file.c </LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)../src/</LocalDebuggerWorkingDirectory>
-    <LocalDebuggerCommand>$(TargetPath) </LocalDebuggerCommand>
-    <LocalDebuggerCommandArgumentsHistory>-style=cake -sarif-path "path.sarif"  file.c|-style=cake -sarif-path "path.sarif" -flow3  file.c|-style=cake -sarif-path "path.sarif"  -flow3 -static-debug   file.c|-flow3   file.c|-flow3   file.c -E|</LocalDebuggerCommandArgumentsHistory>
+    <LocalDebuggerCommand>$(TargetPath)</LocalDebuggerCommand>
+    <LocalDebuggerCommandArgumentsHistory>-flow3   file.c| file.c -test-mode| -flow3 file.c|file.c -E|file.c |</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugTest|Win32'">
     <LocalDebuggerCommandArguments>-selftest</LocalDebuggerCommandArguments>
@@ -17,10 +17,10 @@
     <LocalDebuggerWorkingDirectory>$(ProjectDir)../src/</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>fs.c error.c</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>-flow3  file.c</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)..\src\</LocalDebuggerWorkingDirectory>
-    <LocalDebuggerCommandArgumentsHistory>token.c|fs.c error.c|</LocalDebuggerCommandArgumentsHistory>
+    <LocalDebuggerCommandArgumentsHistory>token.c|fs.c error.c| file.c -test-mode|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugTest|x64'">
     <LocalDebuggerCommandArguments>*.c -fanalyzer </LocalDebuggerCommandArguments>
@@ -31,6 +31,7 @@
     <LocalDebuggerCommandArguments>flow_object.c -ownership=enable -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable </LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)..\src\</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArgumentsHistory>flow_object.c -ownership=enable -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable |</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup>
     <ShowAllFiles>false</ShowAllFiles>

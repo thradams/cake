@@ -306,12 +306,6 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-static-debug") == 0)
-        {
-            options->do_static_debug = true;
-            continue;
-        }
-
         if (strcmp(argv[i], "-line-directives") == 0)
         {
             options->line_directives = true;

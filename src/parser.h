@@ -110,7 +110,7 @@ bool diagnostic_queue_remove(struct diagnostic_queue* q, int line, enum diagnost
 void diagnostic_queue_destroy(_Dtor struct diagnostic_queue* q);
 
 
-static int parse_diagnostic_suppression(const char* p, int ids[], int ids_max);
+int parse_diagnostic_suppression(const char* p, int ids[], int ids_max);
 
 
 struct parser_ctx

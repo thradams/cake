@@ -514,9 +514,7 @@ struct options
       -autoconfig
     */
     bool auto_config;
-
-    bool do_static_debug;
-    
+  
     /*
       -o filename
       defines the ouputfile when 1 file is used

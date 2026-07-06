@@ -5,7 +5,7 @@
 A hands-on guide to Cake's ownership and nullable pointer annotations - with working examples, 
 enforced rules, and an incremental migration strategy for existing codebases.
 
----
+
 
 ## Introduction
 
@@ -20,7 +20,7 @@ This manual walks you through each concept with working code examples,
 explains the rules enforced by the analyzer, and shows you how to adopt 
 these features incrementally in an existing codebase.
 
----
+
 
 ## Chapter 1: Nullable Pointers
 
@@ -38,7 +38,7 @@ char * _Opt strdup(const char * src);
 
 A pointer without `_Opt` is always assumed to be non-nullable.
 
----
+
 
 ### Enabling Nullable Rules: `#pragma nullable`
 
@@ -55,11 +55,13 @@ Because existing C code was not written with nullability in mind, Cake provides 
 This lets you migrate code incrementally enabling the rules file-by-file or region-by-region. 
 Only static analysis behavior changes; the runtime behavior of your program is unaffected.
 
----
+
 
 ### Example 1: Assigning Nullable to a Non-Nullable Pointer
 
 Once nullable rules are enabled, assigning `nullptr` to an unqualified pointer generates a warning:
+
+<!-- runnable -->
 
 ```c
 #pragma nullable enable
@@ -69,13 +71,13 @@ int main() {
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
----
 
 ### Example 2: Converting Non-Nullable to Nullable
 
 Assigning a non-nullable pointer to a nullable variable is always safe and explicitly allowed:
+
+<!-- runnable -->
 
 ```c
 #pragma nullable enable
@@ -87,14 +89,14 @@ int main() {
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
----
 
 ### Example 3: Nullable Pointer to a Non-Nullable Parameter
 
 Narrowing from nullable to non-nullable requires a null check. 
 Without one, the analyzer warns you:
+
+<!-- runnable -->
 
 ```c
 #pragma nullable enable
@@ -108,19 +110,29 @@ int main() {
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 To fix this, add a null check before the call:
 
+<!-- runnable -->
+
 ```c
+#pragma nullable enable
+
+char * _Opt strdup(const char * src);
+void f(char *s);   // s is non-nullable
+
+int main() {
+  char * _Opt s1 = strdup("a");
   if (s1)
-    f(s1);  // ok: flow analysis confirms s1 is not null here
+     f(s1);  // ok: flow analysis confirms s1 is not null here
+}
+
 ```
 
 Cake uses flow analysis to track possible nullability through branches.
 Once you check a pointer, the analyzer knows it is non-null inside the guarded block.
 
----
+
 
 ### Helping the Analyzer with `assert()`
 
@@ -128,6 +140,8 @@ Because Cake's analysis is not inter-procedural,
 it cannot infer postconditions from called functions. 
 
 When the analyzer cannot determine a pointer's state on its own, you can hint with `assert()`:
+
+<!-- runnable -->
 
 ```c
 #pragma safety enable
@@ -146,7 +160,6 @@ void f(struct X * p) {
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 From a flow analysis perspective, `assert(expr)` is equivalent to `if (!(expr)) exit(1);`.
 
@@ -154,7 +167,7 @@ From a flow analysis perspective, `assert(expr)` is equivalent to `if (!(expr)) 
 
 > **Note:** A contract-based approach (postconditions declared alongside the function) is under development and will eventually replace the need for remote `assert()` hints.
 
----
+
 
 ### Non-Nullable Initialization
 
@@ -162,6 +175,7 @@ Non-nullable pointers can be initialized with `{}`, meaning they are set to zero
 they are still in an invalid state despite having a value. 
 This is very similar to being uninitialized. For instance:
 
+<!-- runnable -->
 
 ```c
 #pragma nullable enable
@@ -174,21 +188,28 @@ struct X f() {
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 Compare with:
 
+
+<!-- runnable -->
+
 ```c
+#pragma nullable enable
+
+struct X { char * text; };
+
 struct X f() {
     struct X x = {};
     return x;  // warning: returning possible null pointer 'x.text'
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 In both cases, the object is in an invalid state. In the first case, `x.text` is uninitialized (it has no defined value). 
 In the second case, `x.text` is initialized to zero (null), which is a defined value but still invalid for a non-nullable pointer.
+
+<!-- runnable -->
 
 ```c
 #pragma nullable enable
@@ -206,9 +227,7 @@ void f() {
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
----
 
 ### Using `malloc()` and `calloc()` with Structs
 
@@ -216,6 +235,8 @@ Cake understands the built-in semantics of `malloc()` and `calloc()`:
 
 - **`malloc()`** — returns an uninitialized block; members must be assigned before use.
 - **`calloc()`** — returns a zero-initialized block; non-nullable members start as null and must be assigned before passing to functions expecting non-nullable pointers.
+
+<!-- runnable -->
 
 ```c
 #pragma nullable enable
@@ -236,9 +257,8 @@ void f() {
    }
 }
 ```
-<button onclick="Try(this)">try</button>
 
-
+<!-- runnable -->
 
 ```c
 #pragma safety enable  
@@ -261,9 +281,7 @@ void f() {
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
----
 
 ## Chapter 2: Object Lifetime and Ownership
 
@@ -283,13 +301,15 @@ of these rules.
 
 > **Note:** `_Owner` annotations are parsed even when ownership is disabled, but have no effect. Use `#pragma safety enable` as a shorthand for both features.
 
----
+
 
 ### Owner References and the `_Owner` annotation
 
 An **owner reference** is an object that manages the lifetime of the thing it references. The most common form is an **owner pointer** — a pointer to a heap-allocated object that is responsible for freeing it.
 
 Declare an owner pointer by adding `_Owner` after the `*`:
+
+<!-- runnable -->
 
 ```c
 #pragma safety enable
@@ -303,7 +323,7 @@ int main() {
         fclose(f);  // ownership is transferred to fclose
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 If you comment out `fclose()`, the analyzer warns that `f` leaves scope without its ownership being transferred:
 
@@ -311,7 +331,7 @@ If you comment out `fclose()`, the analyzer warns that `f` leaves scope without 
 } // warning: 'f' leaves scope with an owned resource
 ```
 
----
+
 
 ### The Two Core Ownership Rules
 
@@ -326,7 +346,7 @@ FILE * _Owner _Opt f2 = f;  // ownership transferred: f is now 'moved'
 if (f2) fclose(f2);         // f2's ownership transferred to fclose
 ```
 
----
+
 
 ### Additional Owner Rules
 
@@ -340,7 +360,7 @@ fopen("file.txt", "r");  // warning: discarding owner return value
 
 > **Rule:** The null pointer constant can be used to initialize owner objects (it represents an empty owner).
 
----
+
 
 ### Non-Pointer Owner References
 
@@ -354,7 +374,7 @@ close(server_socket);
 
 > **Note:** The `_Owner` annotation belongs to the storage holding the reference, not to the pointed-to type. Its placement follows the same rules as `const`.
 
----
+
 
 ### View References
 
@@ -366,8 +386,11 @@ not on pointer declarations.
 
 The analyzer detects when a view pointer outlives what it points to:
 
+<!-- runnable -->
 
 ```c
+struct X { int i; };
+
 int main()
 {
     struct X * _Opt p = nullptr;
@@ -378,16 +401,19 @@ int main()
     }
 
     p->i = 1;  // warning: 'x' lifetime ended
+    static_debug(p);
+}
+
 ```
 
-<button onclick="Try(this)">try</button>
 
----
 
 ### The `_View` annotation
 
 The `_View` annotation enables assignment without ownership transfer. 
 A `_View` object does not own the resource.
+
+<!-- runnable -->
 
 ```c
 #pragma safety enable
@@ -408,15 +434,17 @@ int main() {
 
 ```
 
-<button onclick="Try(this)">try</button>
 
----
+
+
 
 
 ### Deleting Owner Pointers
 
 Owner pointers take responsibility for both the pointed-to object and its storage. 
 A common pattern is to implement a `delete` function that releases both:
+
+<!-- runnable -->
 
 ```c
 #pragma safety enable
@@ -432,13 +460,13 @@ void x_delete(struct X * _Owner _Opt p) {
 }
 ```
 
-<button onclick="Try(this)">try</button>
+
 
 > **Note:** `void * _Owner`  owns *only the storage*.
 
 > **Note:** Converting `T * _Owner` to `void * _Owner` requires the pointed-to object to be empty first. This is how the analyzer distinguishes between moving the object and moving only the raw storage.
 
----
+
 
 ## Chapter 3: Parameter annotations
 
@@ -447,6 +475,8 @@ void x_delete(struct X * _Owner _Opt p) {
 `_Dtor` tells the analyzer that the function will move out all owner contents of 
 the pointed-to struct, leaving it uninitialized. The compiler also verifies that the 
 implementation fulfills this contract.
+
+<!-- runnable -->
 
 ```c
 #pragma safety enable
@@ -465,7 +495,6 @@ int main() {
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 You can build a `delete` function on top of `x_destroy`:
 
@@ -480,7 +509,7 @@ void x_delete(_Opt struct X * _Owner _Opt p) {
 
 
 
----
+
 
 ### The `_Ctor` parameter annotation
 
@@ -488,12 +517,13 @@ void x_delete(_Opt struct X * _Owner _Opt p) {
 function expects an **uninitialized** object as input and initializes it 
 on return. This is the pattern for init-style functions.
 
+<!-- runnable -->
+
 ```c
 #pragma safety enable
-#include <stdlib.h>
+#include <string.h>
 
 struct X { char * _Owner _Opt text; };
-
 
 int init(_Ctor struct X *p, const char * text) {
     p->text = strdup(text);  // safe: p->text is uninitialized
@@ -505,14 +535,16 @@ int main() {
     free(x.text);
 }
 ```
-<button onclick="Try(this)">try</button>
+
 
 Contrast this with a setter, which operates on an already-initialized object and
 must free the old value first:
 
+<!-- runnable -->
+
 ```c
 #pragma safety enable
-#include <stdlib.h>
+#include <string.h>
 
 struct X { char * _Owner _Opt text; };
 
@@ -523,19 +555,6 @@ int set(struct X *p, const char * text) {
 }
 ```
 
-<button onclick="Try(this)">try</button>
-
----
-
-### `_Dtor` vs `_Ctor` — Summary
-
-Think of them as describing the state of the object before and after the call:
-
-`_Ctor` — the input must be uninitialized or moved; the function's job is to fully initialize it.
-
-`_Dtor` — the input must be fully initialized; the function's job is to move out all owner contents, leaving the object uninitialized.
-
----
 
 ### Type Annotations in Arrays parameters
 
@@ -554,6 +573,7 @@ void f(int a[_Owner])
 }
 
 ```
+
 But I think this is quite uncommon.
 
 ## Chapter 4: Flow Analysis and Object States
@@ -569,7 +589,7 @@ It tracks the possible states of every variable at every point in your program.
 // or compile with: -fanalyzer
 ```
 
----
+
 
 ### The State Model
 
@@ -589,7 +609,7 @@ The analyzer tracks the following states for each variable:
 
 `lifetime-ended` — the object the pointer was referencing has gone out of scope.
 
----
+
 
 ### Inspecting State with `assert_state` and `static_debug`
 
@@ -607,7 +627,6 @@ int main() {
 
 String literals are used because states like `"uninitialized"` and `"moved"` have no runtime representation.
 
----
 
 ### Uninitialized State
 
@@ -619,7 +638,7 @@ free(p);   // p is now uninitialized (moved into free)
 free(p);   // warning: p is uninitialized
 ```
 
----
+
 
 ### Moved State
 
@@ -633,7 +652,7 @@ free(p);      // warning: p was moved
 free(p2);     // ok
 ```
 
----
+
 
 ### Null and Not-Null States
 
@@ -648,7 +667,7 @@ assert_state(p, "null | not-null"); // outside: could be either
 free(p);
 ```
 
----
+
 
 ### Overriding State with `override_state`
 
@@ -677,7 +696,7 @@ free(p);
 
 > **Note** Note: `override_state` is a dangerous function and should be avoided. Before using it, consider alternatives such as warning suppression or assert.
 
----
+
 
 ## Chapter 5: Known Limitations
 
@@ -700,11 +719,14 @@ int f(int c) {
 
 > **Workaround:** Combine the two `if` blocks into one, or add `assert(p != 0)` before the dereference.
 
----
+
 
 ### State Relationships After Branching
 
 When an owner is freed in one branch and set to null, the analyzer may still report it as possibly having a lifetime-ended state in a later check:
+
+
+<!-- runnable -->
 
 ```c
 #pragma safety enable
@@ -725,11 +747,10 @@ int * _Owner _Opt f(int c) {
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 These are implementation constraints, not flaws in the ownership model itself.
 
----
+
 
 ## Chapter 6: Code Transition Strategy
 
@@ -743,7 +764,7 @@ Adopting Cake's static analysis in an existing codebase does not require a big-b
 
 4. **Annotate signatures progressively** — add `_Owner`, `_Opt`, `_Ctor`, and `_Dtor` annotations as you work through each file. The pragma-controlled rollout ensures you always have a compiling codebase.
 
----
+
 
 ## Quick Reference
 
@@ -759,7 +780,7 @@ Adopting Cake's static analysis in an existing codebase does not require a big-b
 
 `_Dtor` — the parameter must be fully initialized on entry; the function is responsible for moving out all owner contents before returning.
 
----
+
 
 ### Pragmas
 
@@ -771,7 +792,7 @@ Adopting Cake's static analysis in an existing codebase does not require a big-b
 
 `#pragma flow enable` — enables flow analysis without enabling nullable or ownership rules.
 
----
+
 
 ### Built-in Intrinsics
 
@@ -781,7 +802,6 @@ Adopting Cake's static analysis in an existing codebase does not require a big-b
 
 `override_state(var, "state")` — overrides `var`'s state in the analyzer. Use this when the analyzer cannot infer the correct state on its own, such as after `realloc()` or when working with non-pointer owners.
 
----
 
 ## References
 

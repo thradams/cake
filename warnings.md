@@ -23,12 +23,15 @@ We can make a warning to be a note or error using pragma.
 
 
 ### 1 \#warning directive (preprocessor)
+<!-- runnable -->
+
 ```c
 #warning message
 ```
-<button onclick="Try(this)">try</button>
 
 ### 2 Unused variable
+
+<!-- runnable -->
 
 ```c
 // -w02
@@ -37,9 +40,10 @@ void f()
     int i;    
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 3 Deprecated
+
+<!-- runnable -->
 
 ```c
 [[deprecated]] void f2() {}
@@ -50,9 +54,10 @@ int main(void)
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 4 Enum conversion issue
+
+<!-- runnable -->
 
 ```c
 enum E1 {A};
@@ -63,19 +68,21 @@ int main()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 5 token sliced
 
 
 ### 6 Unused function parameter (disabled by default)
 
+<!-- runnable -->
+
 ```c
 // -w06
 void f(int i) {}
 ```
-<button onclick="Try(this)">try</button>
 ### 7 Declarator hides previous declaration
+
+<!-- runnable -->
 
 ```c
 void f() {
@@ -85,8 +92,9 @@ void f() {
     }
 }
 ```
-<button onclick="Try(this)">try</button>
 ### 8 typeof used on array parameter
+
+<!-- runnable -->
 
 ```c
 void f(int a[])
@@ -94,8 +102,9 @@ void f(int a[])
     typeof(a) p;
 }
 ```
-<button onclick="Try(this)">try</button>
 ### 9 ignoring the result of _Owner type 
+
+<!-- runnable -->
 
 ```c
 #pragma safety enable
@@ -105,9 +114,10 @@ int main()
   f();  //warning C0009: ignoring the result of _Owner type 
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 10 Expression result not used
+
+<!-- runnable -->
 
 ```c
 int main()
@@ -121,9 +131,10 @@ int main()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 11 Style issue (disabled by default)
+
+<!-- runnable -->
 
 ```c
 //-w011
@@ -132,9 +143,10 @@ int main() { //  warning C0011: not following correct brace style
 
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 12  multi-line comment
+
+<!-- runnable -->
 
 ```c
 int main()
@@ -144,18 +156,20 @@ int main()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 13 Line slicing occurred
+<!-- runnable -->
+
 ```c
 int a \
    = 1; // warning C0013: unnecessary line-slicing
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 14 String was sliced
+<!-- runnable -->
+
 ```c
 int main()
 {  
@@ -163,9 +177,10 @@ int main()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 15 Discarded qualifiers
+
+<!-- runnable -->
 
 ```c
 char* f(){
@@ -174,12 +189,13 @@ char* f(){
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 16 (unused)
 
 
 ### 17 Uninitialized variable
+<!-- runnable -->
+
 ```c
 int main()
 {  
@@ -188,9 +204,10 @@ int main()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 18 Returning address of local variable (TODO)
+<!-- runnable -->
+
 ```c
 int * f()
 {  
@@ -199,18 +216,20 @@ int * f()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 19 Missing address-of operator
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 20 Array indirection issue
+<!-- runnable -->
+
 ```c
 void f(int a[])
 {
@@ -218,11 +237,12 @@ void f(int a[])
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 21 (unused)
 
 ### 22 Using object without being owner
+<!-- runnable -->
+
 ```c
 int main()
 {  
@@ -230,9 +250,10 @@ int main()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 23 Using temporary owner incorrectly
+<!-- runnable -->
+
 ```c
 int main()
 {  
@@ -240,18 +261,20 @@ int main()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 24 Move-assignment to non-owner
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 25 Assigning non-owner to owner
+<!-- runnable -->
+
 ```c
 #pragma safety enable
 
@@ -263,9 +286,10 @@ int main()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 26 Discarding an owner
+<!-- runnable -->
+
 ```c
 
 #pragma safety enable
@@ -278,11 +302,12 @@ int main() {
    f((int*)malloc(1)); //warning C0026: discarding _Owner pointer   
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 27 (unused)
 
 ### 28 Non-null flow violation
+
+<!-- runnable -->
 
 ```c
 #pragma nullable enable
@@ -295,7 +320,8 @@ void f(int *p)
 }
 int main() {}
 ```
-<button onclick="Try(this)">try</button>
+
+<!-- runnable -->
 
 ```c
 #pragma nullable enable
@@ -307,10 +333,11 @@ int main() {
   }
 }
 ```
-<button onclick="Try(this)">try</button>
 See [object lifetime](ownership.md)
 
 ### 29 pointed object was not released (flow analysis)
+<!-- runnable -->
+
 ```c
 #pragma safety enable
 
@@ -323,12 +350,13 @@ void delete_x(struct X *_Owner p) //warning C0029: object pointed by 'p' was not
 }
 int main() {}
 ```
-<button onclick="Try(this)">try</button>
 
 ### 30 Uninitialized value (flow analysis)
 
 This warning is issued when a local variable is used before it has 
 been initialized. 
+
+<!-- runnable -->
 
 ```c
 #pragma safety enable
@@ -342,7 +370,8 @@ void f(int i)
 int main() {}
 
 ```
-<button onclick="Try(this)">try</button>
+
+<!-- runnable -->
 
 ```c
 
@@ -367,9 +396,10 @@ int main() {
 
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 31 Lifetime has ended (flow analysis)
+<!-- runnable -->
+
 ```c
 
 #pragma safety enable
@@ -387,12 +417,13 @@ int main() {
 
 ```
 
-<button onclick="Try(this)">try</button>
 
 See [object lifetime](ownership.md)
 
 
 ### 32 Object already moved (flow analysis)
+<!-- runnable -->
+
 ```c
 
 #pragma safety enable
@@ -409,11 +440,12 @@ int main() {
 
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 33 Null dereference (flow analysis)
 
 This warning indicates that your code dereferences a potentially null pointer. 
+
+<!-- runnable -->
 
 ```c
 #pragma safety enable
@@ -424,12 +456,13 @@ int main()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 
 ### 34 (not used flow)
 
 ### 35 Nullable converted to non-nullable (flow)
+<!-- runnable -->
+
 ```c
 #pragma safety enable
 
@@ -441,9 +474,10 @@ int main()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 36 Division by zero (flow analysis)
+<!-- runnable -->
+
 ```c
 #pragma safety enable
 
@@ -457,9 +491,10 @@ void f(int i)
     int j = 1/i; //warning C0036: possible division by zero
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 37 Division by zero (without flow analysis)
+
+<!-- runnable -->
 
 ```c
 int main()
@@ -469,12 +504,13 @@ int main()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 
 ### 38 (not used)
 
 ### 39 Passing null as array
+<!-- runnable -->
+
 ```c
 void f(int a[]){}
 int main(){
@@ -483,10 +519,11 @@ int main(){
 
 ```
 
-<button onclick="Try(this)">try</button>
 
 
 ### 40 Incompatible enum types
+<!-- runnable -->
+
 ```c
 enum E1 {A};
 enum E2 {B};
@@ -495,18 +532,20 @@ int main()
    enum E1 e = B; //warning C0040:  incompatible types
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 41 Multi-character literal
+<!-- runnable -->
+
 ```c
 int main()
 {  
   int i = 'abc';
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 42 Out-of-bounds access
+<!-- runnable -->
+
 ```c
 int main()
 {  
@@ -514,17 +553,19 @@ int main()
   a[2] = 1; //warning C0042: index 2 is past the end of the array
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 43 Assignment to array parameter
+<!-- runnable -->
+
 ```c
 void f(int a[]){
     a = 1; // warning C0043: assignment to array parameter
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 44 Conditional is constant (currently disabled)
+
+<!-- runnable -->
 
 ```c
 int main()
@@ -533,9 +574,10 @@ int main()
   }
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 45 Suspicious switch statement
+
+<!-- runnable -->
 
 ```c
 int main()
@@ -548,36 +590,40 @@ int main()
 
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 46 Unusual null pointer constant
+<!-- runnable -->
+
 ```c
 int main()
 {
     int * p = '\0'; //warning C0046: unusual expression/type used as null pointer constant
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 47 sizeof applied to array argument
+<!-- runnable -->
+
 ```c
 void f(int a[])
 {
     sizeof(a); //warning C0047: sizeof applied to array function parameter
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 48 const object not initialized
+<!-- runnable -->
+
 ```c
 int main()
 {  
   const int i;
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 49 implicit conversion of nullptr constant to 'bool'
+<!-- runnable -->
+
 ```c
 void f(bool b){}
 int main(){
@@ -585,9 +631,10 @@ int main(){
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 50 Implicitly unsigned literal
+<!-- runnable -->
+
 ```c
 
 int main(){
@@ -597,9 +644,10 @@ int main(){
 }
 
 ```
-<button onclick="Try(this)">try</button>
 
 ### 51 Integer overflow
+<!-- runnable -->
+
 ```c
 
 int main(){
@@ -607,21 +655,23 @@ int main(){
 }
 
 ```
-<button onclick="Try(this)">try</button>
 
 ### 52 Invalid array size
+<!-- runnable -->
+
 ```c
 int main()
 {
     char a[2] = "1234"; // warning C0052: initializer for array is too long
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 53 (unused)
 
 
 ### 54 Incompatible types
+<!-- runnable -->
+
 ```c
 void f(double * p);
 int main()
@@ -631,25 +681,28 @@ int main()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 55 Unused label
+<!-- runnable -->
+
 ```c
 int main()
 {  
   A: //warning C0055: label 'A' defined but not used
 }
 ```
-<button onclick="Try(this)">try</button>
 ### 56 Redefining builtin macro
+
+<!-- runnable -->
 
 ```c
 #define __FILE__ 1 //warning C0056: redefining built-in macro
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 57 Unused function
+<!-- runnable -->
+
 ```c
 static void f(){};
 int main()
@@ -657,9 +710,10 @@ int main()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 58 Boolean comparison issue
+<!-- runnable -->
+
 ```c
 int main()
 {
@@ -670,9 +724,10 @@ int main()
     }
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 59 Expected warning did not occur
+<!-- runnable -->
+
 ```c
 int main()
 {
@@ -683,9 +738,10 @@ int main()
     }
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 60 Null pointer constant to non-nullable pointer
+
+<!-- runnable -->
 
 ```c
 #pragma safety enable
@@ -694,9 +750,10 @@ int main() {
   int * p2 = nullptr; //warning C0060: cannot convert a null pointer constant to non-nullable pointer
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 61 Cast to same type (inactive)
+<!-- runnable -->
+
 ```c
 int main()
 {  
@@ -704,9 +761,10 @@ int main()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 62 Too many initializers
+
+<!-- runnable -->
 
 ```c
 int main()
@@ -714,17 +772,19 @@ int main()
   int a[2] = {1, 2, 3};
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 63 Float out of range
+<!-- runnable -->
+
 ```c
 int main() {
   float f = 1e300f; //warning C0063: floating constant exceeds range of float
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 63 Signed to unsigned
+<!-- runnable -->
+
 ```c
 void f(unsigned i) { (void)i; }
 
@@ -736,7 +796,6 @@ int main(void) {
     return 0;
 }
 ```
-<button onclick="Try(this)">try</button>
 
 
 ### 64–127 Reserved / unused warnings
@@ -750,6 +809,8 @@ int main(void) {
 ### 632 Missing end of comment 
 
 ### 640 \_View is the default qualifier
+<!-- runnable -->
+
 ```c
 #pragma safety enable
 
@@ -757,12 +818,13 @@ int main() {
   int * _View i; //error C0640: invalid qualifier for pointer
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 650 Unexpected compiler error
 Some internal error.
 
 ### 660 Too many arguments
+
+<!-- runnable -->
 
 ```c
 void f(void);
@@ -772,9 +834,10 @@ int main()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 670 Too few arguments
+<!-- runnable -->
+
 ```c
 void f(int i);
 int main()
@@ -783,48 +846,54 @@ int main()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 
 ### 680 Not found
+<!-- runnable -->
+
 ```c
 int main()
 {  
    i = 1;
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 690 No match for generic selection
+<!-- runnable -->
+
 ```c
 int main(){
     int i;
     _Generic(i, double: 0); // error C0690: no match for generic
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 700 Subscripted value is neither array nor pointer
+<!-- runnable -->
+
 ```c
 int main(){
     int i;
     i[0]; //error C0700: subscripted value is neither array nor pointer
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 710 Called object is not function or function pointer
+<!-- runnable -->
+
 ```c
 int main(){
     int i;
     i(); // error C0710: called object is not a function or function pointer
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 720 Struct member not found
+<!-- runnable -->
+
 ```c
-struct X{int a;}
+struct X{int a;};
+
 int main()
 {
   struct X x;
@@ -832,171 +901,191 @@ int main()
   return 0;
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 730 Structure or union required
+<!-- runnable -->
+
 ```c
 int main() {  
   int a;
   a.a = 1; // error C0730: structure or union required
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 740 Struct is incomplete
+
+<!-- runnable -->
+
 ```c
 struct X;
 int main(){
     struct X x;
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 750  case label or default not within a switch statement
+<!-- runnable -->
+
 ```c
 int main() {
  case 1:;
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 760 'break' statement not in loop or switch statement
+
+<!-- runnable -->
 
 ```c
 int main() {
  break;
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 770 'continue' statement not in loop statement
+
+<!-- runnable -->
 
 ```c
 int main() {
  continue;
 }
 ```
-<button onclick="Try(this)">try</button>
 
 
 ### 780 Indirection requires pointer operand
+<!-- runnable -->
+
 ```c
 int main() {
     int i;
     *i = 1; //error C0780: indirection requires pointer operand
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 790 Invalid token
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 800 Expected struct type
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 810 Expected type name
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 820 Left operand is not arithmetic
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 830 Right operand is not arithmetic
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 840 Left operand is not integer
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 850 Right operand is not integer
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 860 Invalid type
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 870 Left operand is not scalar
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 880 Right operand is not scalar
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 890 Incompatible pointer types
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 900 Assignment of function
+<!-- runnable -->
+
 ```c
 int main()
 {
     main = 0;    
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 910 Assignment to array expression
+
+<!-- runnable -->
 
 ```c
 int main()
@@ -1005,9 +1094,10 @@ int main()
     a = 1; //error C0910: assignment to expression with array type
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 920 Assignment of read-only object
+<!-- runnable -->
+
 ```c
 int main()
 {
@@ -1016,19 +1106,21 @@ int main()
 }
 
 ```
-<button onclick="Try(this)">try</button>
 
 ### 930 lvalue required as left operand of assignment
+<!-- runnable -->
+
 ```c
 int main()
 {  
   1 = 2; //error C1230: lvalue required as left operand of assignment
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 940 Condition must have scalar type
 
+
+<!-- runnable -->
 
 ```c
 int main(){
@@ -1036,18 +1128,20 @@ int main(){
     x ? 1 : 0; //error C0940: condition must have scalar type
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 950 Incompatible types
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 960 Expected constant expression
+
+<!-- runnable -->
 
 ```c
 void f(int i)
@@ -1059,69 +1153,77 @@ void f(int i)
     }
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 970 Unexpected token
+<!-- runnable -->
+
 ```c
 int main)
 ```
-<button onclick="Try(this)">try</button>
 
 ### 980 Cannot combine with previous 'long long'
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 990 Expected declaration
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1000 Static/type qualifiers not allowed here
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1010 Owner qualifier can only be used with pointers
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1020 Redeclaration error
+<!-- runnable -->
+
 ```c
 
 #pragma safety enable
 int a;
 double a; //error C1020: conflicting types for 'a' (int)
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1030 Tag type mismatch with previous declaration
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1040 type specifier or qualifier expected
+<!-- runnable -->
+
 ```c
 struct X7
 {
@@ -1129,36 +1231,40 @@ struct X7
 };
 
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1050 Multiple enum definitions
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1060 static_assert failed
+<!-- runnable -->
+
 ```c
 int main()
 {  
   static_assert(1 == 2); // error C1060: static_assert failed
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1070 override_state error
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1080 Static-state analysis failed
+
+<!-- runnable -->
 
 ```c
 #pragma safety enable
@@ -1171,99 +1277,111 @@ int main() {
 } 
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 1090 Unbalanced attribute
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1100 Unexpected end of file
+
+<!-- runnable -->
 
 ```c
 int main()
 {  //error C0970: unexpected end of file
 
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1110 throw used outside try block
+<!-- runnable -->
+
 ```c
 int main()
 {  
  throw; //error C1110: throw statement not within try block
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1120 void function returning a value
+<!-- runnable -->
+
 ```c
 void f(){
     return 1; //error C1120: void function 'f' should not return a value
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1121 Non-void function missing return value
+<!-- runnable -->
+
 ```c
 int f(){
   return; //error C1121: non void function 'f' should return a value
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1130 Argument size smaller than parameter size
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1140 Token invalid in preprocessor expression
+<!-- runnable -->
+
 ```c
 #if ()
 #endif
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1150 File not found (preprocessor)
+<!-- runnable -->
+
 ```c
 #include <file>
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1160 Missing parenthesis
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1170 Expression error
+<!-- runnable -->
+
 ```c
 #if 1+
 #endif
 ```
-<button onclick="Try(this)">try</button>
 
 
 ### 1180 Preprocessor error directive
+<!-- runnable -->
+
 ```c
 #error message
 ```
 
-<button onclick="Try(this)">try</button>
 
 
 ### 1190 Too few arguments to macro
+<!-- runnable -->
+
 ```c
 #define F(a, b) a
 int main()
@@ -1271,9 +1389,10 @@ int main()
     F(1);  //error C1190: too few arguments provided to function-like macro invocation
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1191 Too many arguments to macro
+<!-- runnable -->
+
 ```c
 #define F(a, b) a
 int main()
@@ -1281,9 +1400,10 @@ int main()
     F(1, 2, 3);  //error C1191: too many arguments provided to function-like macro invocation
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1200 jump out of defer
+
+<!-- runnable -->
 
 ```c
 
@@ -1299,9 +1419,10 @@ target:
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 1201 jump over defer
+
+<!-- runnable -->
 
 ```c
 void f(int n)
@@ -1312,10 +1433,11 @@ void f(int n)
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 
 ### 1202 jump over VLA
+
+<!-- runnable -->
 
 ```c
 void f(int n)
@@ -1326,7 +1448,6 @@ void f(int n)
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 1210 Missing macro argument
 ```c
@@ -1344,13 +1465,14 @@ int main()
 }
 ```
 ### 1230 Operator requires lvalue
+<!-- runnable -->
+
 ```c
 int main()
 {  
  1 == 2;
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1240 Character literal too large
 ```c
@@ -1360,32 +1482,37 @@ int main()
 }
 ```
 ### 1250 Pragma error
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 
 ### 1260 Out of memory
 Internal compiler error
 
 ### 1270 Invalid storage size
+<!-- runnable -->
+
 ```c
 int a[-2]; // error C1270: sizeof 'a' is too large
 ```
-<button onclick="Try(this)">try</button>
+
+<!-- runnable -->
 
 ```c
 int main() {
   int a[2147483647]; //error C1270: sizeof 'a' is too large
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1280 Returning owner to non-owner
+<!-- runnable -->
+
 ```c
 #pragma safety enable
 
@@ -1395,25 +1522,28 @@ int * _Owner f(){
   return g(); //warning C0025: cannot assign a non-owner to owner
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1290 auto requires a single declarator
+<!-- runnable -->
+
 ```c
 int main()
 {
    auto  * p = 0; //error C1290: 'auto' requires a plain identifier
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1300 Multiple incompatible specifiers
+
+<!-- runnable -->
 
 ```c
 long short s;
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1310 Increment operator cannot be used on owner
+<!-- runnable -->
+
 ```c
 #pragma safety enable
 int main(){
@@ -1422,10 +1552,11 @@ int main(){
     p++; //error C1310: operator ++ cannot be used in _Owner pointers
 }
 ```
-<button onclick="Try(this)">try</button>
 
 
 ### 1320 Decrement operator cannot be used on owner
+<!-- runnable -->
+
 ```c
 #pragma safety enable
 int main(){
@@ -1434,17 +1565,19 @@ int main(){
     p--; //error C1320: operator -- cannot be used in owner pointers
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1330 Preprocessor division by zero
+<!-- runnable -->
+
 ```c
 #if 1/0
 #endif
 ```
-<button onclick="Try(this)">try</button>
 
 
 ### 1340 non-pointer to pointer error
+<!-- runnable -->
+
 ```c
 
 void f(int * p);
@@ -1454,9 +1587,10 @@ int main() {
     f(i); //error C1340: non-pointer to pointer   
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1350 Literal overflow
+<!-- runnable -->
+
 ```c
 int main()
 {  
@@ -1464,10 +1598,11 @@ int main()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 
 ### 1360 Character not encodable in one code unit
+<!-- runnable -->
+
 ```c
 int main()
 {
@@ -1475,10 +1610,11 @@ int main()
 }
 
 ```
-<button onclick="Try(this)">try</button>
 
 
 ### 1370 Multi-character literal error
+<!-- runnable -->
+
 ```c
 int main()
 {  
@@ -1486,67 +1622,75 @@ int main()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 ### 1380 Invalid token
+<!-- runnable -->
+
 ```c
 int main()
 {  
 //TODO
 }
 ```
-<button onclick="Try(this)">try</button>
 
 
 ### 1390 Invalid argument to \_Countof
+<!-- runnable -->
+
 ```c
 int main(){
   int a;
   _Countof(a); //error C1390: argument of _Countof must be an array
 }
 ```
-<button onclick="Try(this)">try</button>
 
 
 ### 1400 return used inside defer
+<!-- runnable -->
+
 ```c
 int main(){  
   defer return 0; //error C1400: return cannot be used inside defer statement
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1410 Function returns function type
+<!-- runnable -->
+
 ```c
 int f()(int){} //error C1410: function returning function
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1420 Function returns array type
+<!-- runnable -->
+
 ```c
 int f()[2]{} //error C1420: function returning array
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1430 Label not defined
+<!-- runnable -->
+
 ```c
 int main(){
     goto A; //error C1430: label 'A' used but not defined
 }
 ```
-<button onclick="Try(this)">try</button>
 
 
 ### 1440 Duplicate label
+<!-- runnable -->
+
 ```c
 int main(){
     A:
     A: // error C1440: duplicated label 'A'
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1450 Duplicate case label
+<!-- runnable -->
+
 ```c
 void f(int i)
 {
@@ -1559,16 +1703,16 @@ void f(int i)
     }
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1560 Array subscript is not an integer
+<!-- runnable -->
+
 ```c
 int main(){
     int a[2];
     a[1.0] = 1; //error C1560: array subscript is not an integer
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1570 Duplicate default generic association
 ```c
@@ -1578,6 +1722,8 @@ int main()
 }
 ```
 ### 1780 Multiple default labels in switch
+<!-- runnable -->
+
 ```c
 void f(int i)
 {
@@ -1590,10 +1736,11 @@ void f(int i)
     }
 }
 ```
-<button onclick="Try(this)">try</button>
 
 
 ### 1790 Pointer to floating type
+
+<!-- runnable -->
 
 ```c
 int main()
@@ -1602,9 +1749,10 @@ int main()
     double d = (double) p; //error C1790: pointer type cannot be converted to any floating type
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1800 Floating type converted to pointer
+
+<!-- runnable -->
 
 ```c
 int main()
@@ -1612,9 +1760,10 @@ int main()
     int *p = (int*)1.2; //error C1800: A floating type cannot be converted to any pointer type
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1810 nullptr cast error
+
+<!-- runnable -->
 
 ```c
 int main()
@@ -1622,24 +1771,27 @@ int main()
     int i = (int)nullptr; // error C1810: cannot cast nullptr_t to this type
 }
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1820 Macro redefinition
+
+<!-- runnable -->
 
 ```c
 #define A 1
 #define A 2 //error C1820: macro redefinition
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1830 Invalid preprocessing directive
+
+<!-- runnable -->
 
 ```c
 #blablabla //error C1830: invalid preprocessor directive '#blablabla'
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1840 Function cannot be a member
+
+<!-- runnable -->
 
 ```c
 struct X
@@ -1647,16 +1799,18 @@ struct X
     void f(); //error C1840: members having a function type are not allowed
 };
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1850 Non-integral enum type
+
+<!-- runnable -->
 
 ```c
 enum E : double {A}; //error C1850: expected an integer type
 ```
-<button onclick="Try(this)">try</button>
 
 ### 1860 Requires compile-time constant
+
+<!-- runnable -->
 
 ```c
 int a;
@@ -1666,10 +1820,11 @@ int main()
 }
 ```
 
-<button onclick="Try(this)">try</button>
 
 
 ### 1870 Outer scope error
+
+<!-- runnable -->
 
 ```c
 
@@ -1682,4 +1837,3 @@ int main()
 
 ```
 
-<button onclick="Try(this)">try</button>

@@ -31,11 +31,8 @@ literal functions and defer statements.
 The current backend generates C89-compatible code, which can be pipelined with existing 
 or old compilers to produce executables. 
 
-```c
-    [source] ───────────► [preprocessor]  ───────────► [compiler]  
-       │                                           ▲                
-       └─► [cake preprocessor] ──►[cake compiler] ─┘ c89            
-```
+![Alt text](pipeline.svg)
+
 
 Cake aims to enhance C's safety by providing high-quality [warning messages](warnings.md) and advanced 
 flow analysis, including [object lifetime](ownership.md) checks.
@@ -115,10 +112,10 @@ clang build.c -o build && ./build
 
 ## Running tests
 
-Adding `-DTEST` on any platform will run a large set of tests.
+Passing `test` argument on any platform will run a large set of tests.
 
 ```
-gcc -DTEST build.c -o build && ./build
+gcc  build.c -o build && ./build test
 ```
 
 ## Emscripten build instructions (web)

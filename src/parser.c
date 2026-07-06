@@ -670,7 +670,7 @@ bool diagnostic_queue_remove(struct diagnostic_queue* q, int line, enum diagnost
     return false;
 }
 
-static int parse_diagnostic_suppression(const char* p, int ids[], int ids_max)
+int parse_diagnostic_suppression(const char* p, int ids[], int ids_max)
 {
     if (ids_max <= 0) return 0;
 
@@ -10984,10 +10984,11 @@ struct asm_statement* _Owner _Opt asm_statement(struct parser_ctx* ctx)
     case TARGET_CCU8:
     case TARGET_LCCU16:
     case TARGET_CATALINA:
+    case TARGET_APPLE_ARM64:
         break;
     }
 
-    static_assert(NUMBER_OF_TARGETS == 6, "how this target handle asm blocks?");
+    static_assert(NUMBER_OF_TARGETS == 7, "how this target handle asm blocks?");
 
     //balanced tokens ( ... ) 
     return gcc_asm(ctx, true);

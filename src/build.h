@@ -228,6 +228,17 @@ static int system_like(const char* command)
 
 
 /* ============================================================
+ * EXECUTABLE NAME HELPER
+ * ============================================================ */
+
+#ifdef PLATFORM_WINDOWS
+#  define EXE(name) name ".exe"
+#else
+#  define EXE(name) name
+#endif
+
+
+/* ============================================================
  * FILE UTILITIES
  * ============================================================ */
 

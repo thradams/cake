@@ -108,11 +108,8 @@ static const InstallEntry INSTALL_ENTRIES[] = {
     { "cakeconf.h",        "",   0 , 0},
 #ifdef _WIN32
     { "cakeserver.exe",        "",   0 , 0},
-#endif
-    { "server.js",        "",   0 , 0},
-    { "index.html",        "",   0 , 0},
-    { "web",        "web", 1 , 0},   /* recursive: copies entire plugins\ tree */
-    { "vs",        "vs", 1 , 0},   /* recursive: copies entire plugins\ tree */
+#endif    
+    { "web",        "web", 1 , 0}
 
 };
 #define INSTALL_ENTRIES_COUNT  (sizeof(INSTALL_ENTRIES) / sizeof(INSTALL_ENTRIES[0]))
@@ -263,9 +260,7 @@ static int copy_file(const char* src, const char* dest, int exec_bit)
         chmod(dest, 0644);  /* fallback: rw-r--r-- */
     }
 
-    if (exec_bit)
-        printf("  [CHMOD+X] %s\n", dest);
-
+    (void)exec_bit;
     return 1;
 #endif
 }
@@ -309,8 +304,6 @@ static int copy_dir_recursive(const char* src_dir, const char* dest_dir, int exe
 
             if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
             {
-                /* Recurse into sub-directory */
-                printf("  [DIR]     %s\n", src_child);
                 errors += copy_dir_recursive(src_child, dst_child, exec_bit);
             }
             else
@@ -318,7 +311,9 @@ static int copy_dir_recursive(const char* src_dir, const char* dest_dir, int exe
                 if (!copy_file(src_child, dst_child, exec_bit))
                     errors++;
                 else
-                    printf("  [OK]      %s\n         -> %s\n", src_child, dst_child);
+                {
+                    printf("  [OK]  %-100s\r", src_child); fflush(stdout);
+                }
             }
         } while (FindNextFileA(hfind, &fd));
         FindClose(hfind);
@@ -351,7 +346,6 @@ static int copy_dir_recursive(const char* src_dir, const char* dest_dir, int exe
 
             if (S_ISDIR(st.st_mode))
             {
-                printf("  [DIR]     %s\n", src_child);
                 errors += copy_dir_recursive(src_child, dst_child, exec_bit);
             }
             else
@@ -359,7 +353,9 @@ static int copy_dir_recursive(const char* src_dir, const char* dest_dir, int exe
                 if (!copy_file(src_child, dst_child, exec_bit))
                     errors++;
                 else
-                    printf("  [OK]      %s\n         -> %s\n", src_child, dst_child);
+                {
+                    printf("  [OK]  %-100s\r", src_child); fflush(stdout);
+                }
             }
         }
         closedir(d);
@@ -430,7 +426,9 @@ static int copy_with_wildcard(const char* src_pattern, const char* dest_dir, int
             if (!copy_file(src_file, dest_file, 0))
                 errors++;
             else
-                printf("  [OK]      %s\n         -> %s\n", src_file, dest_file);
+            {
+                printf("  [OK]  %-100s\r", src_file); fflush(stdout);
+            }
 
         } while (FindNextFileA(hfind, &fd));
         FindClose(hfind);
@@ -472,7 +470,9 @@ static int copy_with_wildcard(const char* src_pattern, const char* dest_dir, int
             if (!copy_file(match, dest_file, exec_bit))
                 errors++;
             else
-                printf("  [OK]      %s\n         -> %s\n", match, dest_file);
+            {
+                printf("  [OK]  %-100s\r", match); fflush(stdout);
+            }
         }
         globfree(&gl);
     }
@@ -520,7 +520,7 @@ static int clean_directory(const char* dir)
             }
             else
             {
-                printf("  [DEL-DIR]  %s\n", child);
+                printf("  [DEL-DIR]  %-100s\r", child); fflush(stdout);
             }
         }
         else
@@ -536,7 +536,7 @@ static int clean_directory(const char* dir)
             }
             else
             {
-                printf("  [DEL-FILE] %s\n", child);
+                printf("  [DEL-FILE] %-100s\r", child); fflush(stdout);
             }
         }
     } while (FindNextFileA(hfind, &fd));
@@ -572,7 +572,7 @@ static int clean_directory(const char* dir)
             }
             else
             {
-                printf("  [DEL-DIR]  %s\n", child);
+                printf("  [DEL-DIR]  %-100s\r", child); fflush(stdout);
             }
         }
         else
@@ -585,7 +585,7 @@ static int clean_directory(const char* dir)
             }
             else
             {
-                printf("  [DEL-FILE] %s\n", child);
+                printf("  [DEL-FILE] %-100s\r", child); fflush(stdout);
             }
         }
     }
@@ -707,9 +707,9 @@ static void add_to_system_path(const char* target_dir)
     const char* REG_ENV =
         "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment";
 
-    print_separator();
-    printf("  Checking system PATH (registry)...\n");
-    print_separator();
+    
+    printf("  Checking system PATH...\n");
+    
 
     if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, REG_ENV, 0, KEY_READ, &hkey) != ERROR_SUCCESS)
     {
@@ -735,32 +735,22 @@ static void add_to_system_path(const char* target_dir)
     }
     RegCloseKey(hkey);
 
-    /* ---- Scan: show what will be removed / kept ------------------- */
-    printf("  Scanning for stale %s entries...\n\n", APP_DIR_NAME);
     int bExist = 0;
     removed = rebuild_path_without_app(old_path, new_path,
                                        data_size + MAX_PATH + 4,
                                        target_dir,
                                        &bExist);
 
-    if (removed > 0)
-        printf("\n  %d stale PATH entry(s) will be removed.\n", removed);
-    else
-        printf("  No stale entries found.\n");
-
     if (bExist && removed == 0)
     {
-        printf("  PATH already contains the correct entry:\n    %s\n"
-               "  No changes needed.\n\n", target_dir);
+        printf("  Already in PATH.\n\n");
         free(old_path); free(new_path); return;
     }
 
-    /* ---- Confirm with user --------------------------------------- */
-    printf("\n");
     if (removed > 0 && !bExist)
         printf("  Will remove stale entry(s) and add:\n    %s\n\n", target_dir);
     else if (removed > 0)
-        printf("  Will remove stale entry(s) only.\n\n");
+        printf("  Will remove stale entry(s).\n\n");
     else
         printf("  Will add:\n    %s\n\n", target_dir);
 
@@ -835,7 +825,6 @@ static int write_path_to_file(const char* path_file,
     if (fp)
     {
         char line[512];
-        printf("  Existing entries in %s:\n", path_file);
         while (fgets(line, sizeof line, fp))
         {
             char* start = strstr(line, "export PATH=\"");
@@ -852,21 +841,14 @@ static int write_path_to_file(const char* path_file,
                     if (is_app_path_entry_linux(entry))
                     {
                         if (strcmp(entry, target_dir) == 0)
-                        {
-                            printf("  [CURRENT] %s\n", entry);
                             *already_current = 1;
-                        }
                         else
-                        {
-                            printf("  [STALE]   %s  (will be replaced)\n", entry);
                             stale_found = 1;
-                        }
                     }
                 }
             }
         }
         fclose(fp);
-        printf("\n");
     }
 
     if (*already_current && !stale_found)
@@ -893,9 +875,7 @@ static void add_to_system_path(const char* target_dir)
     int stale_found    = 0;
     int already_current = 0;
 
-    print_separator();
     printf("  Checking system PATH...\n");
-    print_separator();
 
     if (!stale_found)
     {
@@ -922,8 +902,8 @@ static void add_to_system_path(const char* target_dir)
 
     printf("  Target : %s\n\n", target_dir);
     if (!ask_yes_no(stale_found
-        ? "Replace stale entry and update PATH?"
-        : "Add install directory to system PATH?"))
+        ? "  Replace stale entry and update PATH?"
+        : "  Add install directory to system PATH?"))
     {
         printf("  PATH not modified.\n\n");
         return;
@@ -1002,8 +982,7 @@ int main(void)
     }
 #endif
 
-    printf("  Install path:\n");
-    printf("  %s\n\n", target_dir);
+    printf("  Install path: %s\n\n", target_dir);
 
     /* ---- 2. Check / create root install directory ----------------- */
     {
@@ -1019,7 +998,7 @@ int main(void)
 
     if (!dir_exists)
     {
-        printf("The directory does not exist.\n");
+        printf("  The directory does not exist.\n");
         if (!ask_yes_no("Create it now?"))
         {
             printf("\nInstallation cancelled.\n");
@@ -1034,35 +1013,33 @@ int main(void)
 #endif
             return 1;
         }
-        printf("Directory created successfully.\n\n");
+        printf("  Directory created successfully.\n\n");
     }
     else
     {
-        printf(" The directory already exists.\n");
-        if (!ask_yes_no(" Override / reinstall?"))
+        printf("  The directory already exists.\n");
+        if (!ask_yes_no("  Override / reinstall?"))
         {
-            printf("\nInstallation cancelled.\n");
+            printf("\n  Installation cancelled.\n");
             return 0;
         }
 
         /* Clean existing contents before copying fresh files */
-        print_separator();
-        printf("  Cleaning existing directory...\n");
-        print_separator();
+        printf("\n  Cleaning...\n");
         {
             int clean_errors = clean_directory(target_dir);
             if (clean_errors > 0)
-                fprintf(stderr, "  Warning: %d item(s) could not be removed.\n", clean_errors);
-            else
-                printf("  Directory cleaned successfully.\n");
+            {
+                fprintf(stderr, "\r  Error: %d item(s) could not be removed.%-60s\n"
+                                "  Try running as root: sudo ./install\n", clean_errors, "");
+                return 1;
+            }
+            printf("\r  Done.%-100s\n", "");
         }
-        printf("\n");
     }
 
     /* ---- 3. Copy entries (wildcard loop) -------------------------- */
-    print_separator();
-    printf("  Copying files (%zu pattern(s))...\n", INSTALL_ENTRIES_COUNT);
-    print_separator();
+    printf("  Copying files...\n");
 
     {
         size_t i;
@@ -1085,32 +1062,30 @@ int main(void)
 
             if (recursive)
             {
-                printf("\n  [RECURSIVE] %s  ->  %s\n", source, dest_dir);
                 total_errors += copy_dir_recursive(source, dest_dir, exec_bit);
             }
             else
             {
-                printf("\n  Pattern : %s  ->  %s\n", source, dest_dir);
                 total_errors += copy_with_wildcard(source, dest_dir, exec_bit);
             }
         }
 
-        printf("\n");
         if (total_errors == 0)
-            printf("  All files copied successfully.\n\n");
+            printf("\r  Done.%-100s\n\n", "");
         else
-            fprintf(stderr, "  Warning: %d file(s) could not be copied.\n\n",
-                    total_errors);
+        {
+            fprintf(stderr, "\r  Error: %d file(s) could not be copied.%-60s\n"
+                            "  Try running as root: sudo ./install\n\n",
+                    total_errors, "");
+            return 1;
+        }
     }
 
     /* ---- 4. Check / update system PATH ---------------------------- */
     add_to_system_path(target_dir);
 
     /* ---- 5. Done -------------------------------------------------- */
-    print_separator();
-    printf("  Installation complete!\n");
-    print_separator();
-    printf("\n");
+    printf("  Installation complete!\n\n");
     printf("  Press any key to exit...\n");
     fflush(stdout);
 #ifdef _WIN32

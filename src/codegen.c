@@ -3740,43 +3740,6 @@ static void emmit_clear_declarator(struct codegen_ctx* ctx, struct osstream* ss,
     }
 }
 
-static void assign_each_member_to_zero(
-    struct codegen_ctx* ctx,
-    struct osstream* ss,
-    const struct object* object,
-    const char* declarator_name,
-    struct token* line_token)
-{
-    if (object_is_reference(object))
-        object = object_get_referenced(object);
-
-    if (object->members.head != NULL)
-    {
-        if (type_is_union(&object->type))
-        {
-            /* C89: only the first member is initialized */
-            assign_each_member_to_zero(ctx, ss, object->members.head, declarator_name, line_token);
-        }
-        else
-        {
-            struct object* _Opt member = object->members.head;
-            while (member)
-            {
-                assign_each_member_to_zero(ctx, ss, member, declarator_name, line_token);
-                member = member->next;
-            }
-        }
-    }
-    else
-    {
-        emit_line_directive(ctx, ss, line_token);
-        print_identation(ctx, ss);
-
-        /* 0.0 for floating point? */
-        ss_fprintf(ss, "%s%s = 0;\n", declarator_name, object->member_designator);
-    }
-}
-
 static void object_print_initialization_list(struct codegen_ctx* ctx, struct osstream* ss, const struct object* object, bool* first)
 {
     if (object_is_reference(object))

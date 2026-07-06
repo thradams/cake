@@ -1493,7 +1493,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
 
                 p_new_token->flags |= addflags;
                 p_new_token->level = level;
-                p_new_token->token_origin = NULL;
+                p_new_token->token_origin = position;
                 p_new_token->line = line;
                 p_new_token->col = col;
                 token_list_add(&list, p_new_token);
@@ -1509,7 +1509,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
                     }
 
                     p_new3->level = level;
-                    p_new3->token_origin = NULL;
+                    p_new3->token_origin = position;
                     p_new3->line = line;
                     p_new3->col = col;
                     token_list_add(&list, p_new3);
@@ -1527,7 +1527,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
 
             p_new_token->flags |= addflags;
             p_new_token->level = level;
-            p_new_token->token_origin = NULL;
+            p_new_token->token_origin = position;
             p_new_token->line = line;
             p_new_token->col = col;
             token_list_add(&list, p_new_token);
@@ -1548,13 +1548,13 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
         }
 
         p_new_token->level = level;
-        p_new_token->token_origin = NULL;
+        p_new_token->token_origin = position;
         p_new_token->line = line;
         p_new_token->col = col;
         token_list_add(&list, p_new_token);
 
         assert(list.head != NULL);
-    }
+        }
     catch
     {
     }
@@ -1563,7 +1563,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
         fclose(file);
 
     return list;
-}
+    }
 
 static bool set_sliced_flag(struct stream* stream, struct token* p_new_token)
 {
@@ -3618,7 +3618,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             if (input_list->head->type != '<' && input_list->head->type != TK_STRING_LITERAL)
             {
-                struct token_list pptokens = {0};
+                struct token_list pptokens = { 0 };
 
                 while (input_list->head != NULL && input_list->head->type != TK_NEWLINE)
                 {
@@ -3635,7 +3635,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 struct token_list expanded = replacement_list_reexamination(ctx, NULL, &pptokens, level, pptokens.head);
 
                 if (ctx->n_errors > 0)
-                {                    
+                {
                     token_list_destroy(&pptokens);
                     token_list_destroy(&expanded);
                     throw;
