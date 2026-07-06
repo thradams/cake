@@ -1,4 +1,4 @@
-/* Cake 0.14.03 x86_msvc */
+/* Cake 0.14.05 x64_msvc */
 
 struct A {
     int x;
@@ -9,7 +9,7 @@ struct B {
     struct A a;
 };
 
-static void* memcpy(void * dest, const void * src, unsigned int n);
+static void* memcpy(void * dest, const void * src, unsigned long long n);
 
 int main(void)
 {
@@ -22,11 +22,11 @@ int main(void)
     b.a.y = 42;
 }
 
-static void* memcpy(void * dest, const void * src, unsigned int n)
+static void* memcpy(void * dest, const void * src, unsigned long long n)
 {
     char *csrc;
     char *cdest;
-    unsigned int i; 
+    unsigned long long i; 
 
     csrc = (char *)src;
     cdest = (char *)dest;
