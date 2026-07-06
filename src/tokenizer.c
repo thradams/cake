@@ -3616,35 +3616,34 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 throw;
             }
 
-            if (input_list->head->type != '<' && input_list->head->type != '"')
+            if (input_list->head->type != '<' && input_list->head->type != TK_STRING_LITERAL)
             {
-                struct token_list operand = {0};
+                struct token_list pptokens = {0};
 
                 while (input_list->head != NULL && input_list->head->type != TK_NEWLINE)
                 {
-                    prematch_level(&operand, input_list, level, is_active);
+                    prematch_level(&pptokens, input_list, level, is_active);
+
+                    if (input_list->head == NULL)
+                    {
+                        /*new line not found*/
+                        pre_unexpected_end_of_file(pptokens.tail, ctx);
+                        throw;
+                    }
                 }
 
-                struct token* origin = operand.head;
-                struct token* next = input_list->head;
+                struct token_list expanded = replacement_list_reexamination(ctx, NULL, &pptokens, level, pptokens.head);
 
-                struct token_list expanded = replacement_list_reexamination(ctx, NULL, &operand, level, origin);
                 if (ctx->n_errors > 0)
-                {
-                    token_list_destroy(&operand);
+                {                    
+                    token_list_destroy(&pptokens);
                     token_list_destroy(&expanded);
                     throw;
                 }
 
-                token_list_clear(&operand);
-                *input_list = expanded;
-
-                if (input_list->tail != NULL)
-                {
-                    input_list->tail->next = next;
-                    if (next != NULL)
-                        next->prev = input_list->tail;
-                }
+                token_list_append_list_at_beginning(input_list, &expanded);
+                token_list_destroy(&expanded);
+                token_list_destroy(&pptokens);
             }
 
             char path[100] = { 0 };
@@ -3654,7 +3653,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 strcat(path, input_list->head->lexeme);
                 prematch_level(&r, input_list, level, is_active);
             }
-            else
+            else if (input_list->head->type == '<')
             {
                 is_angle_bracket_form = true;
                 while (input_list->head->type != '>')
@@ -3671,7 +3670,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 strcat(path, input_list->head->lexeme);
                 prematch_level(&r, input_list, level, is_active);
             }
-
+            else
+            {
+                preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, input_list->head, "expected \"filename\" or <filename>");
+                throw;
+            }
 
             while (input_list->head->type != TK_NEWLINE)
             {
@@ -3767,13 +3770,44 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 throw;
             }
 
+
+            if (input_list->head->type != '<' && input_list->head->type != TK_STRING_LITERAL)
+            {
+                struct token_list pptokens = { 0 };
+
+                while (input_list->head != NULL && input_list->head->type != TK_NEWLINE)
+                {
+                    prematch_level(&pptokens, input_list, level, is_active);
+
+                    if (input_list->head == NULL)
+                    {
+                        /*new line not found*/
+                        pre_unexpected_end_of_file(pptokens.tail, ctx);
+                        throw;
+                    }
+                }
+
+                struct token_list expanded = replacement_list_reexamination(ctx, NULL, &pptokens, level, pptokens.head);
+
+                if (ctx->n_errors > 0)
+                {
+                    token_list_destroy(&pptokens);
+                    token_list_destroy(&expanded);
+                    throw;
+                }
+
+                token_list_append_list_at_beginning(input_list, &expanded);
+                token_list_destroy(&expanded);
+                token_list_destroy(&pptokens);
+            }
+
             char path[100] = { 0 };
             if (input_list->head->type == TK_STRING_LITERAL)
             {
                 strcat(path, input_list->head->lexeme);
                 prematch_level(p_list, input_list, level, is_active);
             }
-            else
+            else if (input_list->head->type == '<')
             {
                 while (input_list->head->type != '>')
                 {
@@ -3787,6 +3821,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 }
                 strcat(path, input_list->head->lexeme);
                 prematch_level(p_list, input_list, level, is_active);
+            }
+            else
+            {
+                preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, input_list->head, "expected \"filename\" or <filename>");
+                throw;
             }
 
             if (input_list->head)
