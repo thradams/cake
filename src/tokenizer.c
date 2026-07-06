@@ -3544,6 +3544,13 @@ void print_path(const char* path, bool fullpath)
         p++;
     }
 }
+
+struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
+    struct macro_expanded* p_list,
+    struct token_list* oldlist,
+    int level,
+    const struct token* origin);
+
 struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
 
@@ -3607,6 +3614,37 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 pre_unexpected_end_of_file(r.tail, ctx);
                 throw;
+            }
+
+            if (input_list->head->type != '<' && input_list->head->type != '"')
+            {
+                struct token_list operand = {0};
+
+                while (input_list->head != NULL && input_list->head->type != TK_NEWLINE)
+                {
+                    prematch_level(&operand, input_list, level, is_active);
+                }
+
+                struct token* origin = operand.head;
+                struct token* next = input_list->head;
+
+                struct token_list expanded = replacement_list_reexamination(ctx, NULL, &operand, level, origin);
+                if (ctx->n_errors > 0)
+                {
+                    token_list_destroy(&operand);
+                    token_list_destroy(&expanded);
+                    throw;
+                }
+
+                token_list_clear(&operand);
+                *input_list = expanded;
+
+                if (input_list->tail != NULL)
+                {
+                    input_list->tail->next = next;
+                    if (next != NULL)
+                        next->prev = input_list->tail;
+                }
             }
 
             char path[100] = { 0 };
