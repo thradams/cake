@@ -30484,7 +30484,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.14.04"
+#define CAKE_VERSION "0.14.05"
 
 
 
@@ -51336,7 +51336,7 @@ void codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
     if (ctx->memcpy_used)
     {
         ss_fprintf(oss,
-            "static void %s(void * dest, const void * src, %s n);\n", ctx->memcpy_function_name, ctx->size_t_type_name);
+            "static void* %s(void * dest, const void * src, %s n);\n", ctx->memcpy_function_name, ctx->size_t_type_name);
     }
 
     if (ctx->memset_used)
@@ -51378,7 +51378,7 @@ void codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
     {
         ss_fprintf(oss, "\n");
         ss_fprintf(oss,
-            "static void %s(void * dest, const void * src, %s n)\n"
+            "static void* %s(void * dest, const void * src, %s n)\n"
             "{\n"
             "    char *csrc;\n"
             "    char *cdest;\n"
