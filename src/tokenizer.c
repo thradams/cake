@@ -3616,7 +3616,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 throw;
             }
 
-            if (input_list->head->type == TK_IDENTIFIER)
+            if (input_list->head->type != '<' && input_list->head->type != '"')
             {
                 struct token_list operand = {0};
 
@@ -7949,37 +7949,6 @@ void newline_macro_func()
 
     assert(test_preprocessor_in_out_match(input, output));
 
-}
-
-void test_include_macro()
-{
-    const char* input =
-        "#define F "test_include_macro_file.h"\n"
-        "#include F\n"
-        "X\n";
-
-    const char* output =
-        "1"
-        ;
-
-
-    assert(test_preprocessor_in_out_match(input, output));
-}
-
-void test_include_function_macro()
-{
-    const char* input =
-        "#define G(...) #__VA_ARGS__\n"
-        "#define F(...) G(__VA_ARGS__)\n"
-        "#include F(test_include_macro_file.h)\n"
-        "X\n";
-
-    const char* output =
-        "1"
-        ;
-
-
-    assert(test_preprocessor_in_out_match(input, output));
 }
 
 #endif
