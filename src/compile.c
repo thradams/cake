@@ -102,7 +102,7 @@ int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_c
 
 WINBASEAPI unsigned long WINAPI GetEnvironmentVariableA(const char* name,
 char* buffer,
-unsigned long size); //lint 11
+unsigned long size);
 
 #endif
 

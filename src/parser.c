@@ -7266,6 +7266,8 @@ struct function_declarator* _Owner _Opt function_declarator(struct direct_declar
                     assert(p->x == 0);
             };
         */
+        if (ctx->current == NULL)
+            throw;
         if (ctx->current->type == TK_IDENTIFIER && strcmp(ctx->current->lexeme, "in") == 0)
         {
             scope_list_push(&ctx->scopes, &p_function_declarator->parameters_scope);

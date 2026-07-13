@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <stdint.h>
+#include <time.h>
 #include "codegen.h"
 #include "expressions.h"
 #include <ctype.h>
@@ -4920,7 +4921,21 @@ void codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 
     ctx->print_qualifiers = false; //TODO not ready yet..
 
-    ss_fprintf(oss, "/* Cake " CAKE_VERSION " %s */\n", get_platform(ctx->options.target)->name);
+    char timestamp[64] = { 0 };
+    time_t now = time(NULL);
+    struct tm* _Opt tm_info = localtime(&now);
+    if (tm_info != NULL)
+    {
+        strftime(timestamp, sizeof timestamp, "%Y-%m-%d %H:%M:%S", tm_info);
+    }
+    else
+    {
+        snprintf(timestamp, sizeof timestamp, "unknown");
+    }
+
+    ss_fprintf(oss, "/* Cake " CAKE_VERSION " %s %s */\n",
+               get_platform(ctx->options.target)->name,
+               timestamp);
 
     ctx->indentation = 0;
 

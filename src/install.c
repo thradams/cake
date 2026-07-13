@@ -100,16 +100,16 @@ typedef struct {
 
 static const InstallEntry INSTALL_ENTRIES[] = {
 #ifdef _WIN32
-    { "cake.exe",          "",        0 , 0},
+    { "ckc.exe",        "",        0 , 0},
+    { "cake.exe",           "",        0 , 0},
 
 #else
-    { "cake",           "",      0 , 1},
+    { "ckc",            "",        0 , 1},
+    { "cake",               "",        0 , 1},
 #endif
-    { "cakeconf.h",        "",   0 , 0},
-#ifdef _WIN32
-    { "cakeserver.exe",        "",   0 , 0},
-#endif    
-    { "web",        "web", 1 , 0}
+    { "cakeconf.h",        "",        0 , 0},
+    { "help",              "help",    1 , 0},
+    { "samples",           "samples", 1 , 0}
 
 };
 #define INSTALL_ENTRIES_COUNT  (sizeof(INSTALL_ENTRIES) / sizeof(INSTALL_ENTRIES[0]))
