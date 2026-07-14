@@ -183,6 +183,9 @@ this will output *./platform short name/source.c*
 See [Manual](manual.md)
 
 
+# IDE
+
+![Alt text](cakeide.png)
 
 # Road map
 
