@@ -185,6 +185,26 @@ See [Manual](manual.md)
 
 # IDE
 
+Cake now ships with its own IDE: a lightweight, editor built
+directly on top of the compiler, with no external dependencies.
+
+It includes a file/folder browser, a tabbed multi-document editor with undo/redo,
+find and replace, go-to-line, and one-key compilation with results shown in an
+Output window you can jump from straight to the error line. Compiler options,
+diagnostics, and themes (classic, dark, white) are all configurable from within
+the IDE itself.
+
+Markdown is also a supported file type, with its own syntax highlighting and
+clickable links between documents. This makes the IDE a natural place to write
+documentation, specifications, and other project docs alongside the code.
+
+The IDE runs natively on Windows, macOS, and Linux.
+
+It was built to make working on the compiler itself more productive: writing
+code, checking that it is correct, and analyzing its output all happen in one
+place, without switching tools. It also gives users a feeling of a complete,
+self-contained package.
+
 ![Alt text](cakeide.png)
 
 # Road map
