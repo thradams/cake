@@ -136,11 +136,12 @@ call emcc -sSTACK_SIZE=8388608 -DMOCKFILES -Wno-multichar "lib.c" -o "Web\cakejs
 
 This will generate the *\src\Web\cake.js*
 
-# Installation
+# Installation (optional)
 
-Cake installs the compiler and supporting files into a system 
-directory and updates the system `PATH` so the `cake` command can
-be executed from any terminal.
+Installation is optional. Cake can be built and run directly from the `src` 
+directory as shown above, without installing anything. Installing simply 
+copies the compiler and supporting files into a system directory and updates 
+the system `PATH` so the `cake` command can be executed from any terminal.
 
 ## Windows
 
