@@ -54,14 +54,27 @@
 #endif
 
 /* ------------------------------------------------------------------ */
+/*  Output binary / product names (kept in sync with build.c)          */
+/* ------------------------------------------------------------------ */
+
+#define CKC_NAME   "cake"
+#define CAKE_NAME  "cakeide"
+
+#ifdef _WIN32
+#define EXE(name) name ".exe"
+#else
+#define EXE(name) name
+#endif
+
+/* ------------------------------------------------------------------ */
 /*  Install configuration                                               */
 /* ------------------------------------------------------------------ */
 
-#define APP_DIR_NAME "cake"
+#define APP_DIR_NAME CAKE_NAME
 #ifdef _WIN32
-#define APP_DIR_NAME_VERSION  "cake\\" CAKE_VERSION
+#define APP_DIR_NAME_VERSION  "cake" "\\" CAKE_VERSION
 #else
-#define APP_DIR_NAME_VERSION  "cake/" CAKE_VERSION
+#define APP_DIR_NAME_VERSION  "cake" "/" CAKE_VERSION
 #endif
 
 /*
@@ -100,12 +113,12 @@ typedef struct {
 
 static const InstallEntry INSTALL_ENTRIES[] = {
 #ifdef _WIN32
-    { "ckc.exe",        "",        0 , 0},
-    { "cake.exe",           "",        0 , 0},
+    { EXE(CKC_NAME),       "",        0 , 0},
+    { EXE(CAKE_NAME),      "",        0 , 0},
 
 #else
-    { "ckc",            "",        0 , 1},
-    { "cake",               "",        0 , 1},
+    { CKC_NAME,             "",        0 , 1},
+    { CAKE_NAME,            "",        0 , 1},
 #endif
     { "cakeconf.h",        "",        0 , 0},
     { "help",              "help",    1 , 0},
