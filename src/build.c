@@ -706,8 +706,13 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
                           "-o ",
                           EXE(CAKE_NAME));
 #else
+        /* Xft.h pulls in <ft2build.h>, which on Debian/Ubuntu lives under
+         * /usr/include/freetype2 rather than directly on the default
+         * include path, so it must be added explicitly. */
+        char ide_flags_x11[560];
+        snprintf(ide_flags_x11, sizeof ide_flags_x11, "%s -I/usr/include/freetype2 ", ide_flags);
         build_incremental("clang",
-                          ide_flags,
+                          ide_flags_x11,
                           "ide_x11.c " CAKE_IDE_SOURCE_FILES,
                           " -lX11 -lXft -lXrender -lfreetype ",
                           "-o ",
@@ -729,7 +734,10 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
              CLANG_UNIX_FLAGS, clang_unix_config, CAKE_IDE_SOURCE_FILES);
         execute_cmd(cmd);
     #else
-        snprintf(cmd, sizeof cmd, "clang %s%s  ide_x11.c %s -o " EXE(CAKE_NAME) " %s",
+        /* Xft.h pulls in <ft2build.h>, which on Debian/Ubuntu lives under
+         * /usr/include/freetype2 rather than directly on the default
+         * include path, so it must be added explicitly. */
+        snprintf(cmd, sizeof cmd, "clang %s%s -I/usr/include/freetype2  ide_x11.c %s -o " EXE(CAKE_NAME) " %s",
              CLANG_UNIX_FLAGS, clang_unix_config, "-lX11 -lXft -lXrender -lfreetype", CAKE_IDE_SOURCE_FILES);
         execute_cmd(cmd);
     #endif
@@ -778,8 +786,13 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
                   "-o ",
                   EXE(CAKE_NAME));
     #else
+        /* Xft.h pulls in <ft2build.h>, which on Debian/Ubuntu lives under
+         * /usr/include/freetype2 rather than directly on the default
+         * include path, so it must be added explicitly. */
+        char ide_flags_x11[560];
+        snprintf(ide_flags_x11, sizeof ide_flags_x11, "%s -I/usr/include/freetype2 ", ide_flags);
         build_incremental("gcc",
-                  ide_flags,
+                  ide_flags_x11,
                   "ide_x11.c " CAKE_IDE_SOURCE_FILES,
                   " -lX11 -lXft -lXrender -lfreetype ",
                   "-o ",
@@ -793,6 +806,22 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
         snprintf(cmd, sizeof cmd, "gcc %s %s %s -o " CKC_NAME " %s",
                  GCC_FLAGS, gcc_config, test_flag, CAKE_SOURCE_FILES);
         execute_cmd(cmd);
+
+        /* Build IDE: use Cocoa frontend on macOS, X11 frontend on Linux.
+         * No test_flag here - see comment in the MSVC branch. */
+        print_header("Build cake IDE");
+    #if defined PLATFORM_MACOS
+        snprintf(cmd, sizeof cmd, "gcc %s %s  ide_cocoa.c  -framework Cocoa -framework CoreText -framework CoreGraphics -lobjc -o " EXE(CAKE_NAME) " %s",
+             GCC_FLAGS, gcc_config, CAKE_IDE_SOURCE_FILES);
+        execute_cmd(cmd);
+    #else
+        /* Xft.h pulls in <ft2build.h>, which on Debian/Ubuntu lives under
+         * /usr/include/freetype2 rather than directly on the default
+         * include path, so it must be added explicitly. */
+        snprintf(cmd, sizeof cmd, "gcc %s %s -I/usr/include/freetype2  ide_x11.c %s -o " EXE(CAKE_NAME) " %s",
+             GCC_FLAGS, gcc_config, "-lX11 -lXft -lXrender -lfreetype", CAKE_IDE_SOURCE_FILES);
+        execute_cmd(cmd);
+    #endif
     }
 
 #ifndef CAKE_HEADERS
