@@ -914,7 +914,7 @@ int main(int argc, char** argv)
                            DefaultDepth(g_dpy, g_screen), InputOutput, g_visual,
                            CWBackPixel | CWBitGravity, &attrs);
 
-    XStoreName(g_dpy, g_win, "Turbo C");
+    XStoreName(g_dpy, g_win, "");
     set_wm_resize_hints();  /* see its own comment - live-resize cell snapping */
 
     g_wm_delete = XInternAtom(g_dpy, "WM_DELETE_WINDOW", False);
