@@ -110,6 +110,8 @@ Got to the *src* directory and type:
 clang build.c -o build && ./build
 ```
 
+> Note: Cake currently compiles and runs on macOS. However, Clang's system headers are not yet parsed correctly on macOS, so you may need to provide a few declarations manually while testing.
+
 ## Running tests
 
 Passing `test` argument on any platform will run a large set of tests.
@@ -186,6 +188,9 @@ See [Manual](manual.md)
 # IDE
 
 The Cake IDE was developed with the help of AI tools. It has now been adopted as part of the Cake project and will be maintained alongside the rest of the codebase. Over time, the IDE code will be reviewed, refined, and gradually humanized as the project evolves.
+
+The IDE works in macOS, Windows and Linux.
+
 
 ![Alt text](cakeide.png)
 
