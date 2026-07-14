@@ -94,3 +94,5 @@ src/cake
 /tests/output-test/x86_msvc
 /tests/preprocessor/x86_msvc
 /tests/unit-tests/output.txt
+/vc/cake/x64/DebugTest
+/vc/ide/Debug
