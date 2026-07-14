@@ -87,7 +87,7 @@ Projects can have their own local `cakeconf.h` that includes a shared system-lev
 The `-auto-config` option generates a root `cakeconf.h` automatically by querying the active compiler environment:
 
 ```
-cake -auto-config
+ckc -auto-config
 ```
 
 ---
@@ -97,23 +97,23 @@ cake -auto-config
 ### 3.1 Synopsis
 
 ```
-cake [options] source1.c [source2.c ...]
+ckc [options] source1.c [source2.c ...]
 ```
 
 ### 3.2 Examples
 
 ```
-cake source.c
+ckc source.c
 ```
 Compiles `source.c` and writes the C89 output to `/[default-target]/source.c`.
 
 ```
-cake -target=X86_msvc source.c
+ckc -target=X86_msvc source.c
 ```
 Compiles `source.c` targeting MSVC x86 and writes output to `/X86_msvc/source.c`.
 
 ```
-cake file.c -o file.cc && cl file.cc
+ckc file.c -o file.cc && cl file.cc
 ```
 Compiles `file.c` to `file.cc`, then passes `file.cc` to the MSVC compiler.
 
@@ -230,10 +230,10 @@ Available styles:
 
 In all styles, `}` must appear on its own line.
 
-### 4.7 Using cake inside Visual Studio
-Use cake as Custom Build Tool for a specific file.c
+### 4.7 Using ckc inside Visual Studio
+Use ckc as Custom Build Tool for a specific file.c
 
-- Command line: `cake -sarif -sarif-path "$(SolutionDir).sarif" -line-directives -msvc-output file.c`
+- Command line: `ckc -sarif -sarif-path "$(SolutionDir).sarif" -line-directives -msvc-output file.c`
 - Outputs: `x86/file.c`
 - Add Output to item type: `C/C++ Compiler`
 
@@ -241,12 +241,12 @@ Then you can run/debug normally.
 
 It also can be used as external tool for static analysis:
 
-- Command: `cake.exe`
+- Command: `ckc.exe`
 - Arguments: `-msvc-output -no-output -sarif -sarif-path "$(SolutionDir).sarif"  $(ItemPath)`
 - Initial directory: `$(ItemDir)`
 - [x] Use output window
 
-### 4.8 Using cake inside Visual Studio Code
+### 4.8 Using ckc inside Visual Studio Code
 *TODO*
 
 
@@ -281,7 +281,7 @@ It currently requires bit-fields, but they are planned for removal.
 For a single input file:
 
 ```
-cake c:\project\file1.c
+ckc c:\project\file1.c
 ```
 
 ```
@@ -293,7 +293,7 @@ c:\project\
 or using `-o` option:
 
 ```
-cake c:\project\file1.c -o file89.c
+ckc c:\project\file1.c -o file89.c
 ```
 
 ```
@@ -306,7 +306,7 @@ For multiple input files:
 
 
 ```
-cake c:\project\file1.c c:\project\other\file2.c
+ckc c:\project\file1.c c:\project\other\file2.c
 ```
 
 Cake determines the common root path, in this case `c:\project\`,

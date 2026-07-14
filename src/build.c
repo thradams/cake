@@ -437,6 +437,22 @@ static time_t get_mtime(const char* path)
 }
 
 /*
+ * main.c does `#include "unit_test.c"` when TEST is defined, so main.o's
+ * real dependencies include unit_test.c even though build_incremental only
+ * looks at main.c's own timestamp. When building with the test flag,
+ * force main.c to be recompiled if unit_test.c changed more recently than
+ * main.o, otherwise incremental builds can silently keep stale test code.
+ */
+static void refresh_test_dependency(int test)
+{
+    if (!test)
+        return;
+
+    if (get_mtime("unit_test.c") > get_mtime("main.o"))
+        remove("main.o");
+}
+
+/*
  * Iterates space-separated `sources`, compiles each .c to .o if the .o
  * is missing or older than the .c, then links all .o files into `output`.
  * `compiler` is the compiler binary (e.g. "gcc", "clang").
@@ -514,6 +530,8 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
 {
     print_header("Build cake");
 
+    const int test = (*test_flag != '\0');
+
 #if defined COMPILER_MSVC
 
     const char* msvc_config = debug ? MSVC_DEBUG_CONFIG_FLAGS : MSVC_RELEASE_CONFIG_FLAGS;
@@ -522,7 +540,16 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     if (fastbuild)
     {
         char flags[512];
+        char ide_flags[512];
+        /* The IDE (cake) never links unit_test.c, so it must never be
+         * compiled with -DTEST - doing so pulls in TEST-guarded test
+         * functions (via the assert() macro in unit_test.h) that reference
+         * g_unit_test_error_count/g_unit_test_success_count, which are only
+         * defined when main.c's include of unit_test.c is compiled in.
+         * Linking those into cake.exe fails with unresolved externals. */
         snprintf(flags, sizeof flags, "%s %s %s", msvc_config, MSVC_COMMON_FLAGS, test_flag);
+        snprintf(ide_flags, sizeof ide_flags, "%s %s", msvc_config, MSVC_COMMON_FLAGS);
+        refresh_test_dependency(test);
         build_incremental("cl ",
                           flags,
                           CAKE_SOURCE_FILES,
@@ -532,7 +559,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
                           EXE("ckc"));
         /* Also incrementally build the IDE when doing a fast build. */
         build_incremental("cl ",
-                          flags,
+                          ide_flags,
                           CAKE_IDE_SOURCE_FILES,
                           msvc_link,
                           " ../vc/ide/ide.res /Fo ",
@@ -554,12 +581,15 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
 
         print_header("Build cake IDE");
 
-        
-        execute_cmd("rc ../vc/ide/ide.rc");
-        snprintf(cmd, 2000, "cl %s%s%s  -o " EXE("cake") " ide_win32.c ../vc/ide/ide.res  %s",
-                 MSVC_COMMON_FLAGS, msvc_config, test_flag, CAKE_IDE_SOURCE_FILES);
 
-        
+        execute_cmd("rc ../vc/ide/ide.rc");
+        /* No test_flag here: the IDE doesn't link unit_test.c, so building
+         * it with -DTEST leaves g_unit_test_error_count/success_count
+         * unresolved at link time (see comment in the fastbuild branch). */
+        snprintf(cmd, 2000, "cl %s%s  -o " EXE("cake") " ide_win32.c ../vc/ide/ide.res  %s",
+                 MSVC_COMMON_FLAGS, msvc_config, CAKE_IDE_SOURCE_FILES);
+
+
         execute_cmd(cmd);
 
         free(cmd);
@@ -586,11 +616,11 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
 
 
         char* cmd = calloc(2000, sizeof(char));
-        snprintf(cmd, 2000, "cl %s -o " EXE("cakecc89") " " CAKE_SOURCE_FILES, test_flag);
+        snprintf(cmd, 2000, "cl %s -o " EXE("ckc89") " " CAKE_SOURCE_FILES, test_flag);
         execute_cmd(cmd);
         free(cmd);
 
-        copy_file(EXE("cakecc89"), "../../src/" EXE("cakecc89"));
+        copy_file(EXE("ckc89"), "../../src/" EXE("ckc89"));
         echo_chdir("../../src");
     }
 
@@ -603,7 +633,11 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     if (fastbuild)
     {
         char flags[512];
+        char ide_flags[512];
+        /* No test_flag for the IDE build - see comment in the MSVC branch. */
         snprintf(flags, sizeof flags, "%s%s%s", clang_win_config, CLANG_WIN_FLAGS, test_flag);
+        snprintf(ide_flags, sizeof ide_flags, "%s%s", clang_win_config, CLANG_WIN_FLAGS);
+        refresh_test_dependency(test);
         build_incremental("clang",
                           flags,
                           CAKE_SOURCE_FILES,
@@ -613,7 +647,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
                           EXE("ckc"));
         /* Also build the IDE incrementally on fast builds. */
         build_incremental("clang",
-                          flags,
+                          ide_flags,
                           CAKE_IDE_SOURCE_FILES,
                           "",
                           "-o ",
@@ -640,19 +674,23 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     if (fastbuild)
     {
         char flags[512];
+        char ide_flags[512];
+        /* No test_flag for the IDE build - see comment in the MSVC branch. */
         snprintf(flags, sizeof flags, "%s%s%s", CLANG_UNIX_FLAGS, clang_unix_config, test_flag);
+        snprintf(ide_flags, sizeof ide_flags, "%s%s", CLANG_UNIX_FLAGS, clang_unix_config);
+        refresh_test_dependency(test);
         build_incremental("clang",
                           flags,
                           CAKE_SOURCE_FILES,
                           "",
                           "-o ",
                           "-o ",
-                          "cakecc");
+                          "ckc");
         /* Also incrementally build the IDE on fast builds using the
          * platform-specific frontend file. */
 #if defined PLATFORM_MACOS
         build_incremental("clang",
-                          flags,
+                          ide_flags,
                           "ide_cocoa.c " CAKE_IDE_SOURCE_FILES,
                           " -framework Cocoa -framework CoreText -framework CoreGraphics -lobjc ",
                           "-o ",
@@ -660,7 +698,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
                           EXE("cake"));
 #else
         build_incremental("clang",
-                          flags,
+                          ide_flags,
                           "ide_x11.c " CAKE_IDE_SOURCE_FILES,
                           " -lX11 -lXft -lXrender -lfreetype ",
                           "-o ",
@@ -671,32 +709,33 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     else
     {
         char cmd[512];
-        snprintf(cmd, sizeof cmd, "clang %s%s%s -o cakecc %s",
+        snprintf(cmd, sizeof cmd, "clang %s%s%s -o ckc %s",
                  CLANG_UNIX_FLAGS, clang_unix_config, test_flag, CAKE_SOURCE_FILES);
         execute_cmd(cmd);
 
-        /* Build IDE: use Cocoa frontend on macOS, X11 frontend on Linux. */
+        /* Build IDE: use Cocoa frontend on macOS, X11 frontend on Linux.
+         * No test_flag here - see comment in the MSVC branch. */
     #if defined PLATFORM_MACOS
-        snprintf(cmd, sizeof cmd, "clang %s%s%s  ide_cocoa.c  -framework Cocoa -framework CoreText -framework CoreGraphics -lobjc -o " EXE("cake") " %s",
-             CLANG_UNIX_FLAGS, clang_unix_config, test_flag, CAKE_IDE_SOURCE_FILES);
+        snprintf(cmd, sizeof cmd, "clang %s%s  ide_cocoa.c  -framework Cocoa -framework CoreText -framework CoreGraphics -lobjc -o " EXE("cake") " %s",
+             CLANG_UNIX_FLAGS, clang_unix_config, CAKE_IDE_SOURCE_FILES);
         execute_cmd(cmd);
     #else
-        snprintf(cmd, sizeof cmd, "clang %s%s%s  ide_x11.c %s -o " EXE("cake") " %s",
-             CLANG_UNIX_FLAGS, clang_unix_config, test_flag, "-lX11 -lXft -lXrender -lfreetype", CAKE_IDE_SOURCE_FILES);
+        snprintf(cmd, sizeof cmd, "clang %s%s  ide_x11.c %s -o " EXE("cake") " %s",
+             CLANG_UNIX_FLAGS, clang_unix_config, "-lX11 -lXft -lXrender -lfreetype", CAKE_IDE_SOURCE_FILES);
         execute_cmd(cmd);
     #endif
     }
 
 #if !defined CAKE_HEADERS
     if (!fastbuild)
-        execute_cmd("./cakecc -autoconfig");
+        execute_cmd("./ckc -autoconfig");
 #endif
 
 #if defined PLATFORM_MACOS
     //cake is not ready to parse headers on macos yet, so we skip this test for now
 #else
     if (!fastbuild)
-        execute_cmd("./cakecc -fanalyzer " CAKE_SOURCE_FILES);
+        execute_cmd("./ckc -fanalyzer " CAKE_SOURCE_FILES);
 #endif
 
 #endif /* (PLATFORM_LINUX || PLATFORM_MACOS) && COMPILER_CLANG */
@@ -708,18 +747,22 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     if (fastbuild)
     {
         char flags[512];
+        char ide_flags[512];
+        /* No test_flag for the IDE build - see comment in the MSVC branch. */
         snprintf(flags, sizeof flags, "%s %s %s", GCC_FLAGS, gcc_config, test_flag);
+        snprintf(ide_flags, sizeof ide_flags, "%s %s", GCC_FLAGS, gcc_config);
+        refresh_test_dependency(test);
         build_incremental("gcc",
                           flags,
                           CAKE_SOURCE_FILES,
                           "",
                           "-o ",
                           "-o ",
-                          "cakecc");
+                          "ckc");
         /* Also incrementally build the IDE when doing a fast build. */
     #if defined PLATFORM_MACOS
         build_incremental("gcc",
-                  flags,
+                  ide_flags,
                   "ide_cocoa.c " CAKE_IDE_SOURCE_FILES,
                   " -framework Cocoa -framework CoreText -framework CoreGraphics -lobjc ",
                   "-o ",
@@ -727,7 +770,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
                   EXE("cake"));
     #else
         build_incremental("gcc",
-                  flags,
+                  ide_flags,
                   "ide_x11.c " CAKE_IDE_SOURCE_FILES,
                   " -lX11 -lXft -lXrender -lfreetype ",
                   "-o ",
@@ -738,31 +781,31 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     else
     {
         char cmd[512];
-        snprintf(cmd, sizeof cmd, "gcc %s %s %s -o cakecc %s",
+        snprintf(cmd, sizeof cmd, "gcc %s %s %s -o ckc %s",
                  GCC_FLAGS, gcc_config, test_flag, CAKE_SOURCE_FILES);
         execute_cmd(cmd);
     }
 
 #ifndef CAKE_HEADERS
     if (!fastbuild)
-        execute_cmd("./cakecc -autoconfig");
+        execute_cmd("./ckc -autoconfig");
 #endif
 
     if (!fastbuild)
     {
         print_header("Run cake on its own source");
-        execute_cmd("./cakecc -DTEST -style=cake " CAKE_SOURCE_FILES);
+        execute_cmd("./ckc -DTEST -style=cake " CAKE_SOURCE_FILES);
 
 
         print_header("Build cake89");
 
         echo_chdir("./x86_x64_gcc/");
         char* cmd = calloc(2000, sizeof(char));
-        snprintf(cmd, 2000, "gcc %s -o cakecc89 " CAKE_SOURCE_FILES, test_flag);
+        snprintf(cmd, 2000, "gcc %s -o ckc89 " CAKE_SOURCE_FILES, test_flag);
         execute_cmd(cmd);
         free(cmd);
 
-        execute_cmd("cp cakecc89 ../cakecc89");
+        execute_cmd("cp ckc89 ../ckc89");
         echo_chdir("../");
     }
 
@@ -773,7 +816,7 @@ static void run_tests(void)
 {
     print_header("Run tests");
 
-    execute_cmd(RUN "cakecc -selftest");
+    execute_cmd(RUN "ckc -selftest");
 
 
 #if PLATFORM_MACOS
@@ -781,21 +824,21 @@ static void run_tests(void)
     return;
 #endif
 
-    execute_cmd(RUN "cakecc -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -test-mode");
-    execute_cmd(RUN "cakecc  -fdiagnostics-color=never -wd20 ../tests/unit-tests/*.c -test-mode");
-    execute_cmd(RUN "cakecc  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode-in-out");
-    execute_cmd(RUN "cakecc  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
+    execute_cmd(RUN "ckc -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -test-mode");
+    execute_cmd(RUN "ckc  -fdiagnostics-color=never -wd20 ../tests/unit-tests/*.c -test-mode");
+    execute_cmd(RUN "ckc  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode-in-out");
+    execute_cmd(RUN "ckc  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
 
     print_header("Run tests (cake89)");
 
-    execute_cmd(RUN "cakecc89 -selftest");
-    execute_cmd(RUN "cakecc89 -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -test-mode");
-    execute_cmd(RUN "cakecc89  -fdiagnostics-color=never -wd20 ../tests/unit-tests/*.c -test-mode");
-    execute_cmd(RUN "cakecc89  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode-in-out");
-    execute_cmd(RUN "cakecc89  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
+    execute_cmd(RUN "ckc89 -selftest");
+    execute_cmd(RUN "ckc89 -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -test-mode");
+    execute_cmd(RUN "ckc89  -fdiagnostics-color=never -wd20 ../tests/unit-tests/*.c -test-mode");
+    execute_cmd(RUN "ckc89  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode-in-out");
+    execute_cmd(RUN "ckc89  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
 
     printf("Other test cases:\n");
-    printf("  cakecc ../tests/unit-tests/failing/*.c -test-mode\n");
+    printf("  ckc ../tests/unit-tests/failing/*.c -test-mode\n");
 }
 
 int main(int argc, char* argv[])

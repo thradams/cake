@@ -220,10 +220,10 @@
 <a href="#toc_15">4.6 Style and Formatting Options</a>
 </li>
 <li>
-<a href="#toc_16">4.7 Using cake inside Visual Studio</a>
+<a href="#toc_16">4.7 Using ckc inside Visual Studio</a>
 </li>
 <li>
-<a href="#toc_17">4.8 Using cake inside Visual Studio Code</a>
+<a href="#toc_17">4.8 Using ckc inside Visual Studio Code</a>
 </li>
 </ul>
 </li>
@@ -578,7 +578,7 @@ If no local <code>cakeconf.h</code> is found, the root <code>cakeconf.h</code> f
 
 <p>The <code>-auto-config</code> option generates a root <code>cakeconf.h</code> automatically by querying the active compiler environment:</p>
 
-<pre><code>cake -auto-config
+<pre><code>ckc -auto-config
 </code></pre>
 
 <hr>
@@ -587,22 +587,22 @@ If no local <code>cakeconf.h</code> is found, the root <code>cakeconf.h</code> f
 
 <h3 id="toc_7">3.1 Synopsis</h3>
 
-<pre><code>cake [options] source1.c [source2.c ...]
+<pre><code>ckc [options] source1.c [source2.c ...]
 </code></pre>
 
 <h3 id="toc_8">3.2 Examples</h3>
 
-<pre><code>cake source.c
+<pre><code>ckc source.c
 </code></pre>
 
 <p>Compiles <code>source.c</code> and writes the C89 output to <code>/[default-target]/source.c</code>.</p>
 
-<pre><code>cake -target=X86_msvc source.c
+<pre><code>ckc -target=X86_msvc source.c
 </code></pre>
 
 <p>Compiles <code>source.c</code> targeting MSVC x86 and writes output to <code>/X86_msvc/source.c</code>.</p>
 
-<pre><code>cake file.c -o file.cc &amp;&amp; cl file.cc
+<pre><code>ckc file.c -o file.cc &amp;&amp; cl file.cc
 </code></pre>
 
 <p>Compiles <code>file.c</code> to <code>file.cc</code>, then passes <code>file.cc</code> to the MSVC compiler.</p>
@@ -721,12 +721,12 @@ When enabled, Cake checks identifier casing, brace placement, and spacing agains
 
 <p>In all styles, <code>}</code> must appear on its own line.</p>
 
-<h3 id="toc_16">4.7 Using cake inside Visual Studio</h3>
+<h3 id="toc_16">4.7 Using ckc inside Visual Studio</h3>
 
-<p>Use cake as Custom Build Tool for a specific file.c</p>
+<p>Use ckc as Custom Build Tool for a specific file.c</p>
 
 <ul>
-<li>Command line: <code>cake -sarif -sarif-path &quot;$(SolutionDir).sarif&quot; -line-directives -msvc-output file.c</code></li>
+<li>Command line: <code>ckc -sarif -sarif-path &quot;$(SolutionDir).sarif&quot; -line-directives -msvc-output file.c</code></li>
 <li>Outputs: <code>x86/file.c</code></li>
 <li>Add Output to item type: <code>C/C++ Compiler</code></li>
 </ul>
@@ -736,13 +736,13 @@ When enabled, Cake checks identifier casing, brace placement, and spacing agains
 <p>It also can be used as external tool for static analysis:</p>
 
 <ul>
-<li>Command: <code>cake.exe</code></li>
+<li>Command: <code>ckc.exe</code></li>
 <li>Arguments: <code>-msvc-output -no-output -sarif -sarif-path &quot;$(SolutionDir).sarif&quot;  $(ItemPath)</code></li>
 <li>Initial directory: <code>$(ItemDir)</code></li>
 <li>[x] Use output window</li>
 </ul>
 
-<h3 id="toc_17">4.8 Using cake inside Visual Studio Code</h3>
+<h3 id="toc_17">4.8 Using ckc inside Visual Studio Code</h3>
 
 <p><em>TODO</em></p>
 
@@ -778,7 +778,7 @@ replaced with equivalent C89 idioms. Specifically, the output contains:</p>
 
 <p>For a single input file:</p>
 
-<pre><code>cake c:\project\file1.c
+<pre><code>ckc c:\project\file1.c
 </code></pre>
 
 <pre><code>c:\project\
@@ -789,7 +789,7 @@ replaced with equivalent C89 idioms. Specifically, the output contains:</p>
 
 <p>or using <code>-o</code> option:</p>
 
-<pre><code>cake c:\project\file1.c -o file89.c
+<pre><code>ckc c:\project\file1.c -o file89.c
 </code></pre>
 
 <pre><code>c:\project\
@@ -799,7 +799,7 @@ replaced with equivalent C89 idioms. Specifically, the output contains:</p>
 
 <p>For multiple input files:</p>
 
-<pre><code>cake c:\project\file1.c c:\project\other\file2.c
+<pre><code>ckc c:\project\file1.c c:\project\other\file2.c
 </code></pre>
 
 <p>Cake determines the common root path, in this case <code>c:\project\</code>,

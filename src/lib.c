@@ -349,9 +349,6 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set * it
 
 //#pragma once
 
-
-#include <stdbool.h>
-
 enum token_type
 {
     /*When changing here we need also change in tokenizer.c::get_token_name*/
@@ -748,9 +745,6 @@ void throw_break_point();
 */
 
 //#pragma once
-
-
-#include <stdbool.h>
 
 
 //#pragma once
@@ -1542,9 +1536,6 @@ void print_path(const char* path, bool fullpath);
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
 
 
 #include <debugapi.h>
@@ -3275,31 +3266,10 @@ void token_list_remove_get_test2()
 #pragma safety enable
 
 
-
-#include <stdlib.h>
-
-
-#include <string.h>
-
-
-#include <stdbool.h>
-
-
-#include <assert.h>
-
-
-
-#include <assert.h>
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 #if defined _MSC_VER
-
-
-#include <crtdbg.h>
 #endif
 
 static unsigned int string_hash(const char* key)
@@ -3645,14 +3615,8 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 #ifdef _WIN32
 
 
-#include <Windows.h>
-
-
 #include <conio.h>
 #else
-
-
-#include <stdlib.h>
 
 
 #include <termios.h>
@@ -3665,16 +3629,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 
 
 #include <sys/ioctl.h>
-
-
-#include <stdio.h>
 #endif
-
-
-#include <stdbool.h>
-
-
-#include <stdio.h>
 
 #ifndef WIN32
 
@@ -3822,40 +3777,13 @@ void c_gotoxy(int x, int y)
 #include <ctype.h>
 
 
-#include <stdlib.h>
-
-
-#include <string.h>
-
-
-#include <stdio.h>
-
-
-#include <stdlib.h>
-
-
 #include <sys/stat.h>
 
 
 #include <errno.h>
 
 
-#include <string.h>
-
-
-#include <stdbool.h>
-
-
-#include <assert.h>
-
-
-#include <stdlib.h>
-
-
 #include <stddef.h>
-
-
-#include <assert.h>
 
 
 #include <time.h>
@@ -3867,9 +3795,6 @@ void c_gotoxy(int x, int y)
 */
 
 //#pragma once
-
-
-#include <stdbool.h>
 
 
 #if defined(PATH_MAX)
@@ -3887,9 +3812,6 @@ void c_gotoxy(int x, int y)
 
 
 #include <sys/types.h>
-
-
-#include <sys/stat.h>
 
 #ifdef __CAKE__
 #pragma cake diagnostic push
@@ -3962,18 +3884,6 @@ struct dirent* _Opt readdir(DIR* dirp);
 //https://man7.org/linux/man-pages/man2/mkdir.2.html
 
 
-#include <sys/types.h>
-
-
-#include <dirent.h>
-
-
-#include <unistd.h>
-
-
-#include <sys/stat.h>
-
-
 #include <dirent.h>
 #endif
 
@@ -4013,18 +3923,9 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue);
 
 
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
-
-
-#include <debugapi.h>
 #endif
 
 #define STRINGIFY(x) #x
@@ -11998,21 +11899,6 @@ void newline_macro_func()
 #pragma safety enable
 
 
-
-#include <stdbool.h>
-
-
-#include <errno.h>
-
-
-#include <stdio.h>
-
-
-#include <stdlib.h>
-
-
-#include <assert.h>
-
 void ss_swap(_View struct osstream* a, _View struct osstream* b)
 {
     _View struct osstream r = *a;
@@ -12125,32 +12011,11 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 #include <wchar.h>
 
 
-
-#include <sys/types.h>
-
-
-#include <stdio.h>
-
-
-#include <sys/stat.h>
-
-
-#include <stdlib.h>
-
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
-
-
-#include <debugapi.h>
 #endif
 
 
@@ -12162,27 +12027,9 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 #pragma comment (lib, "Rpcrt4.lib")
 
 #else
-
-
-#include <stdlib.h>
-
-
-#include <unistd.h>
 #endif
 
 
-
-#include <assert.h>
-
-
-
-#include <string.h>
-
-
-#include <stdbool.h>
-
-
-#include <errno.h>
 
 bool path_is_normalized(const char* path)
 {
@@ -14849,18 +14696,6 @@ char* _Owner read_file(const char* path, bool append_newline)
 #pragma safety enable
 
 
-
-#include <string.h>
-
-
-#include <stdio.h>
-
-
-#include <assert.h>
-
-
-#include <stdlib.h>
-
 #ifndef _Countof
 #define _Countof(X) (sizeof(X)/sizeof(X[0]))
 #endif
@@ -15537,9 +15372,6 @@ bool options_diagnostic_is_note(const struct options* options, enum diagnostic_i
 */
 
 
-
-#include <string.h>
-
 struct style_options style_options_cake(void)
 {
     struct style_options s  = {0};
@@ -15652,24 +15484,12 @@ struct style_options style_options_microsoft(void)
 
 
 
-#include <stdbool.h>
-
-
-#include <wchar.h>
-
-
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
 
 //#pragma once
-
-
-#include <stdbool.h>
-
-
-#include <stddef.h>
 
 
 struct parser_ctx;
@@ -16383,15 +16203,6 @@ struct object object_shift_right(enum target target,
     char warning_message[200]);
 
 
-#include <limits.h>
-
-
-#include <stdio.h>
-
-
-#include <assert.h>
-
-
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -16399,12 +16210,6 @@ struct object object_shift_right(enum target target,
 
 //#pragma once
 
-
-
-#include <stdio.h>
-
-
-#include <errno.h>
 
 
 /*
@@ -16686,9 +16491,6 @@ struct marker expression_to_marker(const struct expression* p_expression);
 
 void flow3_expression_to_string(const struct expression* p_expression, struct osstream* oss);
 
-
-
-#include <stdbool.h>
 
 
 struct scope
@@ -18491,12 +18293,6 @@ struct object* _Opt find_object_declarator_by_index(struct object* p_object, str
 void check_dianostic_suppression_phase(struct parser_ctx* ctx, struct token* pToken, int phase);
 const struct direct_declarator* get_innermost_direct_declarator(const struct direct_declarator* p);
 
-
-
-#include <stdlib.h>
-
-
-#include <string.h>
 
 
 #include <math.h>
@@ -22034,39 +21830,12 @@ struct object object_shift_right(enum target target,
 
 
 
-#include <limits.h>
-
-
-#include <stdlib.h>
-
-
-#include <stdio.h>
-
-
-#include <assert.h>
-
-
-#include <string.h>
-
-
-#include <math.h>
-
-
 #include <float.h>
 
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
-
-
-#include <debugapi.h>
 #endif
 
 
@@ -29455,36 +29224,12 @@ void flow3_expression_to_string(const struct expression* p_expression, struct os
 
 
 
-#include <stdlib.h>
-
-
 #include <locale.h>
 
-
-#include <assert.h>
-
-
-#include <limits.h>
-
-
-#include <errno.h>
-
-
-#include <stdio.h>
-
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
-
-
-#include <debugapi.h>
 #endif
 
 /*context expressions preprocessor*/
@@ -30502,24 +30247,6 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue)
 
 
 
-#include <stdlib.h>
-
-
-#include <stdio.h>
-
-
-#include <assert.h>
-
-
-#include <string.h>
-
-
-#include <stddef.h>
-
-
-#include <ctype.h>
-
-
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -30747,13 +30474,7 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p);
 void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declaration* p_declaration);
 
 
-
-#include <errno.h>
-
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 
@@ -30763,19 +30484,13 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.14.05"
+#define CAKE_VERSION "0.14.06"
 
 
 
 
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
-
-
-#include <debugapi.h>
 #endif
 
 
@@ -30859,13 +30574,7 @@ void codegen_visit_ctx_destroy( _Dtor struct codegen_ctx* ctx);
 
 
 
-#include <time.h>
 
-
-
-
-
-#include <stddef.h>  // for NULL
 
 /*
    Anonymous structs/unions receive a name
@@ -44430,9 +44139,6 @@ int initializer_init_new(struct parser_ctx* ctx,
 //#pragma once
 
 
-#include <stdbool.h>
-
-
 struct report;
 int compile(int argc, const char** argv, struct report* report);
 const char* _Owner _Opt compile_source(const char* pszoptions, const char* content, struct report* report);
@@ -44443,36 +44149,12 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
 char* _Owner _Opt CompileText(const char* pszoptions, const char* content);
 void print_report(struct report* report);
 
-
-#include <stdlib.h>
-
-
-#include <stdio.h>
-
-
-#include <assert.h>
-
-
-#include <string.h>
-
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
-
-
-#include <debugapi.h>
 #endif
 
-
-
-#include <time.h>
 
 
 static char* _Opt strrchr2(const char* s, int c)
@@ -45535,22 +45217,7 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
 
 
 
-#include <assert.h>
-
-
-#include <string.h>
-
-
-#include <ctype.h> 
-
-
-#include <stdlib.h>
-
-
 #include <stdint.h>
-
-
-#include <limits.h>
 
 
 /*
@@ -46682,30 +46349,6 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 
 
 #pragma safety enable
-
-
-#include <stdlib.h>
-
-
-#include <string.h>
-
-
-#include <stdio.h>
-
-
-#include <assert.h>
-
-
-#include <limits.h>
-
-
-#include <stdint.h>
-
-
-#include <time.h>
-
-
-#include <ctype.h>
 
 #define LITERAL_FUNCTION_BASE_NAME "_fn"
 #define COMPOUND_LITERAL_BASE_NAME "_obj"
@@ -51790,24 +51433,6 @@ void codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 
 #pragma safety enable
 
-
-
-#include <assert.h>
-
-
-#include <string.h>
-
-
-#include <ctype.h>
-
-
-#include <stdlib.h>
-
-
-#include <stdint.h>
-
-
-#include <limits.h>
 
 static void flow1_check_dianostic_suppression(struct flow1_visit_ctx* ctx, struct token* p_token);
 static void flow1_visit_unlabeled_statement(struct flow1_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement);
@@ -59327,27 +58952,6 @@ void flow1_visit_ctx_destroy(_Dtor struct flow1_visit_ctx* p)
 #pragma safety enable
 
 
-
-#include <assert.h>
-
-
-#include <string.h>
-
-
-#include <ctype.h>
-
-
-#include <stdlib.h>
-
-
-#include <stdint.h>
-
-
-#include <limits.h>
-
-
-#include <stdio.h>
-
 enum
 {
     ANY_VALUE = 0xCAFE,
@@ -65804,18 +65408,6 @@ void flow3_visit_ctx_destroy(_Dtor struct flow3_visit_ctx* ctx)
 #pragma safety enable
 
 
-
-#include <stdio.h>
-
-
-#include <stdarg.h>
-
-
-#include <assert.h>
-
-
-#include <errno.h>
-
 #ifdef _WIN32
 
 
@@ -66275,27 +65867,6 @@ int GetWindowsOrLinuxSocketLastErrorAsPosix(void)
 
 
 
-
-
-#include <limits.h>
-
-
-#include <assert.h>
-
-
-#include <stdbool.h>
-
-
-#include <stdio.h>
-
-
-#include <string.h>
-
-
-#include <inttypes.h>
-
-
-#include <assert.h>
 
 static char gcc_builtins_include[] =
 {
@@ -66881,21 +66452,6 @@ void target_self_test()
 
 #pragma safety enable
 
-
-
-#include <assert.h>
-
-
-#include <stdbool.h>
-
-
-#include <stdio.h>
-
-
-#include <string.h>
-
-
-#include <stdlib.h>
 
 
 #define TYPE_QUALIFIER_CAKE_MASK \

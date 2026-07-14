@@ -93,7 +93,7 @@ Open the Developer Command Prompt of Visual Studio. Go to the `src` directory an
 cl build.c && build
 ```
 
-This will build `cake.exe`, then run cake on its own source code.
+This will build `ckc.exe`, then run ckc on its own source code.
 
 
 ## GCC on Linux build instructions
@@ -137,7 +137,7 @@ This will generate the *\src\Web\cake.js*
 # Installation
 
 Cake installs the compiler and supporting files into a system 
-directory and updates the system `PATH` so the `cake` command can 
+directory and updates the system `PATH` so the `ckc` command can
 be executed from any terminal.
 
 ## Windows
@@ -170,12 +170,12 @@ The installer:
 
 Changes become available in new login sessions.
 
-# Running cake
+# Running ckc
 
 Samples
 
 ```
-cake source.c
+ckc source.c
 ```
 
 this will output *./platform short name/source.c*
