@@ -905,7 +905,7 @@ void print_position(const char* _Opt path, int line, int col, bool msvc_format, 
                        msvc_format,
                        color_enabled);
     if (ss.c_str)
-        puts(ss.c_str);
+        fputs(ss.c_str, stdout);
     ss_close(&ss);
 }
 
@@ -1729,10 +1729,10 @@ void token_list_remove_get_test2()
         struct token* _Owner _Opt pnew2 = calloc(1, sizeof * pnew2);
         if (pnew2 == NULL) throw;
 
-        token_list_add(&list, pnew2); //lint 33 33 33 
+        token_list_add(&list, pnew2); //lint 33 33 33
 
-        r = token_list_remove_get(&list, pnew1, pnew1); //lint 30 30  
-        assert(list.head == pnew2); //lint 30 
+        r = token_list_remove_get(&list, pnew1, pnew1); //lint 30 30
+        assert(list.head == pnew2); //lint 30
         assert(list.tail == pnew2); //lint 30
     }
     catch

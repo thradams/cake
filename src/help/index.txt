@@ -1,0 +1,15 @@
+C11 Features \ C11 Features
+C23 Features \ C23 Features
+C2Y Features \ C2Y Features
+C99 Features \ C99 Features
+Cake Language Extensions \ Cake Language Extensions
+Command-Line Options \ Command-Line Options
+Getting Started \ Getting Started
+Invocation \ Invocation
+Output \ Output
+gcc compatibility \ gcc compatibility.md
+introduction \ introduction.md
+language standard support \ language standard support.md
+msvc compatibility \ msvc compatibility.md
+Cake Static Analysis — Ownership & Nullable Contracts \ ownership.md
+warnings \ warnings.md

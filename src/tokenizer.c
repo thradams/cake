@@ -1384,19 +1384,16 @@ static struct token* _Owner _Opt ppnumber(struct stream* stream)
     {
         if (stream->current[0] == '\'')
         {
-            //digit separators c23
-            stream_match(stream);
-            if (is_digit(stream))
+            struct stream peek = *stream;
+            peek.current = stream->current + 1;
+
+            if (is_digit(&peek) || is_nondigit(&peek))
             {
-                stream_match(stream);
-            }
-            else if (is_nondigit(stream))
-            {
-                stream_match(stream);
+                stream_match(stream); //'
+                stream_match(stream); //digit or nondigit
             }
             else
             {
-                assert(false);
                 break;
             }
         }
@@ -2184,6 +2181,20 @@ static void prematch(struct token_list* dest, struct token_list* input_list, boo
 
 struct token_list pp_tokens_opt(struct preprocessor_ctx* ctx, struct token_list* input_list, int level, bool is_active);
 
+static bool checked_strcat(char* dest, size_t dest_size, const char* src)
+{
+    size_t dest_len = strlen(dest);
+    size_t src_len = strlen(src);
+
+    if (dest_len + src_len + 1 > dest_size)
+    {
+        return false;
+    }
+
+    strcat(dest, src);
+    return true;
+}
+
 struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_list* input_list)
 {
     struct token_list r = { 0 };
@@ -2195,12 +2206,18 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
             if (input_list->head->type == TK_IDENTIFIER &&
                 strcmp(input_list->head->lexeme, "defined") == 0)
             {
-                token_list_pop_front(input_list);
+                struct token* _Owner _Opt p_defined_token = token_list_pop_front_get(input_list);
+                if (p_defined_token == NULL)
+                {
+                    throw;
+                }
+
                 skip_blanks(ctx, &r, input_list);
 
                 if (input_list->head == NULL)
                 {
-                    pre_unexpected_end_of_file(r.tail, ctx);
+                    pre_unexpected_end_of_file(r.tail != NULL ? r.tail : p_defined_token, ctx);
+                    token_delete(p_defined_token);
                     throw;
                 }
 
@@ -2216,9 +2233,12 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
                 if (input_list->head == NULL)
                 {
-                    pre_unexpected_end_of_file(r.tail, ctx);
+                    pre_unexpected_end_of_file(r.tail != NULL ? r.tail : p_defined_token, ctx);
+                    token_delete(p_defined_token);
                     throw;
                 }
+
+                token_delete(p_defined_token);
 
                 struct macro* _Opt macro = find_macro(ctx, input_list->head->lexeme);
                 struct token* _Owner _Opt p_new_token = token_list_pop_front_get(input_list);
@@ -2289,7 +2309,11 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
                 if (input_list->head->type == TK_STRING_LITERAL)
                 {
-                    strcat(path, input_list->head->lexeme);
+                    if (!checked_strcat(path, sizeof(path), input_list->head->lexeme))
+                    {
+                        preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "include path is too long (limit is %d characters)", (int)sizeof(path) - 1);
+                        throw;
+                    }
                     token_list_pop_front(input_list); //pop "file"
                 }
                 else
@@ -2305,7 +2329,11 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
                     while (input_list->head->type != '>')
                     {
-                        strcat(path, input_list->head->lexeme);
+                        if (!checked_strcat(path, sizeof(path), input_list->head->lexeme))
+                        {
+                            preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "include path is too long (limit is %d characters)", (int)sizeof(path) - 1);
+                            throw;
+                        }
                         token_list_pop_front(input_list); //pop (
 
                         if (input_list->head == NULL)
@@ -2372,7 +2400,11 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 char path[100] = { 0 };
                 while (input_list->head->type != ')')
                 {
-                    strcat(path, input_list->head->lexeme);
+                    if (!checked_strcat(path, sizeof(path), input_list->head->lexeme))
+                    {
+                        preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "attribute name is too long (limit is %d characters)", (int)sizeof(path) - 1);
+                        throw;
+                    }
                     token_list_pop_front(input_list); //pop (
 
                     if (input_list->head == NULL)
@@ -2594,24 +2626,32 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
         /* here defined and has_c_attribute are transformed into constants */
         struct token_list list3 = process_defined(ctx, &list2);
 
-        struct token_list list4 = process_identifiers(ctx, &list3);
-
-        assert(list4.head != NULL);
-
-        struct preprocessor_ctx pre_ctx = { 0 };
-
-        pre_ctx.options = ctx->options;
-        pre_ctx.input_list = list4;
-        pre_ctx.current = pre_ctx.input_list.head;
-
-        if (pre_constant_expression(&pre_ctx, &value) != 0)
+        if (list3.head == NULL)
         {
-            preprocessor_diagnostic(C_ERROR_EXPRESSION_ERROR, ctx, first, "expression error");
+            /* process_defined() hit something malformed enough that it
+            already reported its own diagnostic*/
         }
+        else
+        {
+            struct token_list list4 = process_identifiers(ctx, &list3);
 
-        ctx->conditional_inclusion = false;
+            assert(list4.head != NULL);
 
-        preprocessor_ctx_destroy(&pre_ctx);
+            struct preprocessor_ctx pre_ctx = { 0 };
+
+            pre_ctx.options = ctx->options;
+            pre_ctx.input_list = list4;
+            pre_ctx.current = pre_ctx.input_list.head;
+
+            if (pre_constant_expression(&pre_ctx, &value) != 0)
+            {
+                preprocessor_diagnostic(C_ERROR_EXPRESSION_ERROR, ctx, first, "expression error");
+            }
+
+            ctx->conditional_inclusion = false;
+
+            preprocessor_ctx_destroy(&pre_ctx);
+        }
     }
 
     token_list_destroy(&list1);
@@ -3650,7 +3690,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             bool is_angle_bracket_form = false;
             if (input_list->head->type == TK_STRING_LITERAL)
             {
-                strcat(path, input_list->head->lexeme);
+                if (!checked_strcat(path, sizeof(path), input_list->head->lexeme))
+                {
+                    preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "include path is too long (limit is %d characters)", (int)sizeof(path) - 1);
+                    throw;
+                }
                 prematch_level(&r, input_list, level, is_active);
             }
             else if (input_list->head->type == '<')
@@ -3658,7 +3702,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 is_angle_bracket_form = true;
                 while (input_list->head->type != '>')
                 {
-                    strcat(path, input_list->head->lexeme);
+                    if (!checked_strcat(path, sizeof(path), input_list->head->lexeme))
+                    {
+                        preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "include path is too long (limit is %d characters)", (int)sizeof(path) - 1);
+                        throw;
+                    }
                     prematch_level(&r, input_list, level, is_active);
 
                     if (input_list->head == NULL)
@@ -3667,7 +3715,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         throw;
                     }
                 }
-                strcat(path, input_list->head->lexeme);
+                if (!checked_strcat(path, sizeof(path), input_list->head->lexeme))
+                {
+                    preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "include path is too long (limit is %d characters)", (int)sizeof(path) - 1);
+                    throw;
+                }
                 prematch_level(&r, input_list, level, is_active);
             }
             else
@@ -3804,14 +3856,22 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             char path[100] = { 0 };
             if (input_list->head->type == TK_STRING_LITERAL)
             {
-                strcat(path, input_list->head->lexeme);
+                if (!checked_strcat(path, sizeof(path), input_list->head->lexeme))
+                {
+                    preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "embed path is too long (limit is %d characters)", (int)sizeof(path) - 1);
+                    throw;
+                }
                 prematch_level(p_list, input_list, level, is_active);
             }
             else if (input_list->head->type == '<')
             {
                 while (input_list->head->type != '>')
                 {
-                    strcat(path, input_list->head->lexeme);
+                    if (!checked_strcat(path, sizeof(path), input_list->head->lexeme))
+                    {
+                        preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "embed path is too long (limit is %d characters)", (int)sizeof(path) - 1);
+                        throw;
+                    }
                     prematch_level(p_list, input_list, level, is_active);
 
                     if (input_list->head == NULL)
@@ -3819,7 +3879,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         throw;
                     }
                 }
-                strcat(path, input_list->head->lexeme);
+                if (!checked_strcat(path, sizeof(path), input_list->head->lexeme))
+                {
+                    preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "embed path is too long (limit is %d characters)", (int)sizeof(path) - 1);
+                    throw;
+                }
                 prematch_level(p_list, input_list, level, is_active);
             }
             else
@@ -4453,12 +4517,17 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
             else
             {
                 token_list_clone_and_add(&p_argument->tokens, input_list->head);
-                prematch_level(&macro_argument_list.tokens, input_list, level, 1);
-                //token_list_add(&list, token_list_pop_front(input_list));
+                prematch_level(&macro_argument_list.tokens, input_list, level, 1);                
             }
         }
 
-        assert(p_argument == NULL);
+        if (p_argument != NULL)
+        {
+            pre_unexpected_end_of_file(macro_argument_list.tokens.tail, ctx);
+            macro_argument_delete(p_argument);
+            p_argument = NULL;
+            throw;
+        }        
     }
     catch
     {
@@ -5897,13 +5966,13 @@ static bool is_builtin_macro(const char* name)
 
     return false;
 }
-static void add_define(struct preprocessor_ctx* ctx, const char* text)
+static void add_builtin_define(struct preprocessor_ctx* ctx, const char* text)
 {
     struct tokenizer_ctx tctx = { 0 };
     struct token_list l2 = tokenizer(&tctx, text, "define", 0, TK_FLAG_NONE);
-    struct token_list tl2 = preprocessor(ctx, &l2, 0);
-    token_list_destroy(&tl2);
-    token_list_destroy(&l2);
+    struct token_list tl2 = preprocessor(ctx, &l2, 0);    
+    token_list_append_list(&ctx->input_list, &tl2);
+    token_list_append_list(&ctx->input_list, &l2);
 }
 void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
 {
@@ -5921,19 +5990,19 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
     struct tm* tm = localtime(&now);
 
     struct tokenizer_ctx tctx = { 0 };
-    add_define(ctx, "#define __CAKE__  1\n");
-    add_define(ctx, "#define __FILE__ \"\" \n");
-    add_define(ctx, "#define __LINE__  0 \n");
-    add_define(ctx, "#define __COUNTER__  0 \n");
-    add_define(ctx, "#define __STDC_VERSION__  202311L \n");
+    add_builtin_define(ctx, "#define __CAKE__  1\n");
+    add_builtin_define(ctx, "#define __FILE__ \"\" \n");
+    add_builtin_define(ctx, "#define __LINE__  0 \n");
+    add_builtin_define(ctx, "#define __COUNTER__  0 \n");
+    add_builtin_define(ctx, "#define __STDC_VERSION__  202311L \n");
 
 
     char datastr[100] = { 0 };
     snprintf(datastr, sizeof datastr, "#define __DATE__ \"%s %2d %d\"\n", mon[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);
-    add_define(ctx, datastr);
+    add_builtin_define(ctx, datastr);
     char timestr[100] = { 0 };
     snprintf(timestr, sizeof timestr, "#define __TIME__ \"%02d:%02d:%02d\"\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
-    add_define(ctx, datastr);
+    add_builtin_define(ctx, datastr);
 
 
     /*
@@ -6977,7 +7046,7 @@ char* _Opt normalize_line_end(char* input)
 
 bool test_preprocessor_in_out_match(const char* input, const char* output)
 {
-    bool res = 0;
+    bool res = true;
 
     struct tokenizer_ctx tctx = { 0 };
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
@@ -6999,7 +7068,7 @@ bool test_preprocessor_in_out_match(const char* input, const char* output)
 
     free((void* _Owner)result);
 
-    return true; //OK
+    return res;
 }
 
 void test_lexeme_cmp()
@@ -7306,6 +7375,21 @@ void test_defined()
     assert(test_preprocessor_in_out_match(input, output));
 }
 
+void test_char_constant_if()
+{
+    const char* input =
+        "#if 'a' == 0\n"
+        "WRONG_ZERO\n"
+        "#elif 'a' == 97\n"
+        "CORRECT\n"
+        "#else\n"
+        "WRONG_OTHER\n"
+        "#endif\n";
+    const char* output =
+        "CORRECT";
+    assert(test_preprocessor_in_out_match(input, output));
+}
+
 void testline()
 {
     const char* input =
@@ -7553,8 +7637,8 @@ void empty_and_no_args()
 void empty_and_args()
 {
     const char* input =
-        "#define F() 1\n"
-        "F(1)";
+        "#define F(a) 1 a\n"
+        "F()";
     const char* output =
         "1"
         ;
@@ -7565,7 +7649,7 @@ void empty_and_args()
 void test4()
 {
     const char* input =
-        "#define F(a, b) 1 2 ## a 4\n"
+        "#define F(a) 1 2 ## a 4\n"
         "F(  3   )"
         ;
     const char* output =
@@ -7879,8 +7963,23 @@ void test_counter()
         "0 0"
         ;
 
-    assert(test_preprocessor_in_out_match(input, output));
+    struct tokenizer_ctx tctx = { 0 };
+    struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
 
+    struct preprocessor_ctx ctx = { 0 };
+    ctx.options.color_disabled = true;
+    add_macro(&ctx, "__COUNTER__");
+
+    struct token_list r = preprocessor(&ctx, &list, 0);
+    const char* result = print_preprocessed_to_string(r.head);
+    if (result == NULL)
+    {
+        result = strdup("");
+    }
+
+    assert(strcmp(result, output) == 0);
+
+    free((void* _Owner)result);
 }
 
 void bug_test()

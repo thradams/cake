@@ -4531,9 +4531,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
         expression_delete(p_expression_node);
         p_expression_node = NULL;
     }
-
-    assert(p_type_name == NULL);
-    assert(p_storage_class_specifiers == NULL);
+    
     type_name_delete(p_type_name);
     storage_class_specifiers_delete(p_storage_class_specifiers);
 

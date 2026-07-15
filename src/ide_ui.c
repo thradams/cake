@@ -450,6 +450,18 @@ struct ui_node {
     int msgbox;           /* MODAL only: 1 if built by ui_message_box - the
                             * framework auto-closes and frees it when any of
                             * its buttons is pressed (or on Escape) */
+    int transient;        /* MODAL (window wrapper) only: 0 (default) for a
+                            * reusable singleton the app re-shows later as-is
+                            * (a docked panel, an About/Options dialog, ...) -
+                            * closing it just hides it, same as always. 1 for
+                            * a one-off window meant to be torn down for good
+                            * when closed (a document/editor window - see
+                            * ui_set_transient/ui_screen_close_modal/
+                            * ui_screen_take_closed_window). */
+    int untitled;         /* MODAL (window wrapper) only: 1 while it's still
+                            * at its original never-saved placeholder path -
+                            * see ui_set_untitled. App-only flag; the
+                            * framework never reads it itself. */
 
                             /* EDITOR only: render_editor's scan cache - the byte offset and block-
                              * comment state at the start of line `scan_line`, so a repaint at an
@@ -636,6 +648,16 @@ struct ui_screen {
      * finishes (set when one of its buttons fires, or on Escape) - deferred so
      * the tree isn't mutated mid-walk. */
     ui_node* msgbox_to_free;
+
+    /* A transient window (see ui_set_transient) that just closed - set by
+     * ui_screen_close_modal(), consumed once by the app via
+     * ui_screen_take_closed_window() polling after ui_screen_update()
+     * returns. Deferred for the same reason msgbox_to_free is: the app may
+     * still hold its own pointer to this window (e.g. "the active editor
+     * window") that needs clearing before the node is actually freed, which
+     * only the app can do - freeing it here, mid-update, would leave that
+     * pointer dangling for the rest of the frame. */
+    ui_node* window_closed;
 
     ui_event key_events[UI_MAX_KEY_EVENTS];
     int key_event_count;
@@ -1089,6 +1111,28 @@ void ui_set_resizable(ui_node* n, int resizable)
 int ui_get_resizable(const ui_node* n)
 {
     return n->resizable;
+}
+
+void ui_set_transient(ui_node* n, int transient)
+{
+    if (n)
+        n->transient = transient;
+}
+
+int ui_get_transient(const ui_node* n)
+{
+    return n && n->transient;
+}
+
+void ui_set_untitled(ui_node* n, int untitled)
+{
+    if (n)
+        n->untitled = untitled;
+}
+
+int ui_get_untitled(const ui_node* n)
+{
+    return n && n->untitled;
 }
 
 void ui_set_dock(ui_node* n, ui_dock_side side, int size)
@@ -1614,6 +1658,21 @@ void ui_screen_show_window(ui_screen* s, ui_node* modal)
     {
         s->windows[s->window_count++] = modal;
     }
+    else
+    {
+        /* Stack already full (UI_WINDOW_STACK_MAX) - evict the oldest
+         * floating window, windows[0] (the bottom of the z-order - see the
+         * back-to-front comment on the array's own declaration), to make
+         * room instead of overflowing the array. window_count stays at
+         * UI_WINDOW_STACK_MAX: one dropped from the front, one added at the
+         * back. The evicted window is just no longer tracked/rendered as a
+         * floating window (same visible effect as closing it) - nothing is
+         * freed here, so a still-open document window pushed out this way
+         * can still be found again by path and reopened normally later. */
+        for (int j = 0; j < s->window_count - 1; j++)
+            s->windows[j] = s->windows[j + 1];
+        s->windows[s->window_count - 1] = modal;
+    }
     s->open_menu = NULL;
     s->open_select = NULL;
     s->focused = NULL;
@@ -1674,6 +1733,23 @@ void ui_screen_close_modal(ui_screen* s, ui_node* modal)
      * every other dock and every maximized window - reflow right now. */
     dock_layout(s);
     resync_maximized_windows(s);
+
+    /* A transient window (see ui_set_transient) is a one-off - record it for
+     * the app to actually tear down via ui_screen_take_closed_window(), once
+     * it's had a chance to clear any of its own pointers to it. Everything
+     * above this point still runs exactly as it always has (this window is
+     * every bit as "closed" - out of windows[]/modal_stack, focus cleared,
+     * docks reflowed) whether or not it's transient; this is purely about
+     * what happens to the node itself afterward. */
+    if (modal->transient)
+        s->window_closed = modal;
+}
+
+ui_node* ui_screen_take_closed_window(ui_screen* s)
+{
+    ui_node* w = s->window_closed;
+    s->window_closed = NULL;
+    return w;
 }
 
 ui_node* ui_screen_active_modal(ui_screen* s)
@@ -2865,6 +2941,199 @@ void ui_editor_replace_selection(ui_node* n, int lo, int hi, const char* new_tex
     editor_ensure_cursor_visible(n);
 }
 
+/* Tab/Shift+Tab block indent - see the UI_KEY_TAB handling in
+ * ui_screen_update() below, which only calls this once a selection is
+ * confirmed present. How many columns one indent level is worth. */
+#define EDITOR_INDENT_WIDTH 4
+
+/* A tiny growable byte buffer, same shape as the one this reflow-style
+ * transform needs elsewhere (see wordwrap_text() in ide.c) - the output
+ * length isn't a fixed function of the input length (removing a leading
+ * tab shrinks a line by 1, adding four spaces grows it by 4), so a single
+ * malloc(block_len + slack) guess doesn't work cleanly here either. */
+typedef struct { char* buf; size_t len; size_t cap; } indent_buf;
+
+static void ibuf_init(indent_buf* b)
+{
+    b->cap = 256;
+    b->buf = malloc(b->cap);
+    b->len = 0;
+    if (b->buf)
+        b->buf[0] = 0;
+}
+
+static void ibuf_append(indent_buf* b, const char* text, size_t n)
+{
+    if (!b->buf)
+        return;
+    if (b->len + n + 1 > b->cap)
+    {
+        size_t newcap = b->cap;
+        while (b->len + n + 1 > newcap)
+            newcap *= 2;
+        char* nb = realloc(b->buf, newcap);
+        if (!nb)
+        {
+            free(b->buf);
+            b->buf = NULL;
+            return;
+        }
+        b->buf = nb;
+        b->cap = newcap;
+    }
+    memcpy(b->buf + b->len, text, n);
+    b->len += n;
+    b->buf[b->len] = 0;
+}
+
+/* Tab (outdent=0) or Shift+Tab (outdent=1) with an active selection: shifts
+ * every selected line right by EDITOR_INDENT_WIDTH spaces, or left by
+ * removing up to that many - a single leading '\t' counts as one full
+ * level and is removed whole rather than counted as one column, so mixed
+ * tab/space-indented code still de-indents sensibly one level at a time.
+ * A line the selection merely reaches by ending exactly at its own start
+ * (e.g. a Shift+Down that stopped at column 0) is left untouched, same as
+ * VS Code/Sublime's block-indent - nothing on that line was actually
+ * highlighted. Routed through ui_editor_replace_selection() so the whole
+ * shift is one Ctrl+Z away and the affected lines stay selected afterward
+ * (letting repeated Tab presses keep indenting the same block). A no-op on
+ * a read-only editor or with no selection. */
+static void editor_indent_selection(ui_node* n, int outdent)
+{
+    if (!n || n->type != UI_TAG_EDITOR || n->read_only || !has_selection(n))
+        return;
+
+    int lo, hi;
+    selection_range(n, &lo, &hi);
+    const char* label = n->label;
+
+    int block_start = lo;
+    while (block_start > 0 && label[block_start - 1] != '\n')
+        block_start--;
+
+    int hi_line_start = hi;
+    while (hi_line_start > 0 && label[hi_line_start - 1] != '\n')
+        hi_line_start--;
+    int skip_last_line = (hi > lo) && (hi == hi_line_start) && (hi_line_start > block_start);
+
+    int block_end = hi;
+    while (label[block_end] && label[block_end] != '\n')
+        block_end++;
+
+    indent_buf out;
+    ibuf_init(&out);
+
+    int pos = block_start;
+    for (;;)
+    {
+        int line_start = pos;
+        while (pos < block_end && label[pos] != '\n')
+            pos++;
+        int line_len = pos - line_start;
+        const char* line = label + line_start;
+        int is_last = (pos >= block_end);
+
+        if (is_last && skip_last_line)
+        {
+            ibuf_append(&out, line, (size_t)line_len);
+        }
+        else if (!outdent)
+        {
+            ibuf_append(&out, "    ", EDITOR_INDENT_WIDTH);
+            ibuf_append(&out, line, (size_t)line_len);
+        }
+        else
+        {
+            int cut;
+            if (line_len > 0 && line[0] == '\t')
+                cut = 1;
+            else
+            {
+                cut = 0;
+                while (cut < line_len && cut < EDITOR_INDENT_WIDTH && line[cut] == ' ')
+                    cut++;
+            }
+            ibuf_append(&out, line + cut, (size_t)(line_len - cut));
+        }
+
+        if (is_last)
+            break;
+        ibuf_append(&out, "\n", 1);
+        pos++;  /* skip the '\n' just scanned past */
+    }
+
+    if (out.buf)
+        ui_editor_replace_selection(n, block_start, block_end, out.buf);
+    free(out.buf);
+}
+
+/* Tab with no selection: ordinary typing, not a block operation - inserts
+ * enough spaces to reach the next EDITOR_INDENT_WIDTH-column stop (a "soft
+ * tab"), same as pressing space that many times, confined to wherever the
+ * caret already is rather than touching any other line.
+ *
+ * A plain mouse click leaves sel_anchor == cursor (not -1) as its own way of
+ * saying "no selection" (see the UI_TAG_EDITOR mouse handling above) -
+ * input_insert() never touches sel_anchor, so once the caret moves away from
+ * that anchor by typing, has_selection() flips true and whatever was just
+ * typed reads back as selected. Explicitly collapsing the selection onto the
+ * new caret position afterward (rather than only calling
+ * editor_ensure_cursor_visible, which leaves sel_anchor untouched) keeps
+ * this a plain "moved the caret while typing", the same as it would be after
+ * any other keystroke that starts from a real caret (sel_anchor == -1). */
+static void editor_insert_soft_tab(ui_node* n)
+{
+    if (!n || n->type != UI_TAG_EDITOR || n->read_only)
+        return;
+
+    int line, line_start;
+    editor_cursor_line(n, &line, &line_start);
+    int col = utf8_col_of(n->label + line_start, n->cursor - line_start);
+    int spaces = EDITOR_INDENT_WIDTH - (col % EDITOR_INDENT_WIDTH);
+    for (int k = 0; k < spaces; k++)
+        input_insert(n, ' ', UI_UNDO_TYPE);
+    ui_editor_set_selection(n, n->cursor, n->cursor);
+    editor_ensure_cursor_visible(n);
+}
+
+/* Shift+Tab with no selection: outdents just the caret's own line (removing
+ * one leading tab, or up to EDITOR_INDENT_WIDTH leading spaces - same rule
+ * as editor_indent_selection's per-line outdent) and keeps the caret at the
+ * same piece of text it was next to, shifted left by however much leading
+ * whitespace actually got removed (clamped to the new line start if the
+ * caret itself sat inside the removed whitespace). */
+static void editor_outdent_current_line(ui_node* n)
+{
+    if (!n || n->type != UI_TAG_EDITOR || n->read_only)
+        return;
+
+    int line, line_start;
+    editor_cursor_line(n, &line, &line_start);
+    const char* label = n->label;
+    int line_end = line_start;
+    while (label[line_end] && label[line_end] != '\n')
+        line_end++;
+    int line_len = line_end - line_start;
+
+    int cut;
+    if (line_len > 0 && label[line_start] == '\t')
+        cut = 1;
+    else
+    {
+        cut = 0;
+        while (cut < line_len && cut < EDITOR_INDENT_WIDTH && label[line_start + cut] == ' ')
+            cut++;
+    }
+    if (cut == 0)
+        return;
+
+    int cursor_col = n->cursor - line_start;
+    ui_editor_replace_selection(n, line_start, line_start + cut, "");
+    int new_cursor = line_start + (cursor_col > cut ? cursor_col - cut : 0);
+    ui_editor_set_selection(n, new_cursor, new_cursor);
+    editor_ensure_cursor_visible(n);
+}
+
 /* Public undo/redo - for an Edit menu's Undo/Redo items, same effect as the
  * focused node's own Ctrl+Z/Ctrl+Y (see ui_screen_update). A no-op with
  * nothing focused or nothing to undo/redo. */
@@ -3364,7 +3633,16 @@ static int process_window(ui_screen* s, ui_node* container, ui_node* window,
         s->mouse_x >= window->x + 1 && s->mouse_x < window->x + 1 + UI_WINDOW_CLOSE_W)
     {
         s->open_menu = NULL;  /* this click is "elsewhere" for the menu */
-        ui_screen_close_modal(s, container);
+
+        /* A transient window (a document/editor window) with unsaved edits
+         * doesn't just close - see UI_CLOSE_REQUEST_ID's own doc comment.
+         * Every other window (non-transient, or no dirty EDITOR inside)
+         * closes immediately, exactly as before. */
+        ui_node* ed = container->transient ? find_child_by_type(window, UI_TAG_EDITOR) : NULL;
+        if (ed && ed->dirty)
+            ui_fire_event(s, UI_CLOSE_REQUEST_ID, container);
+        else
+            ui_screen_close_modal(s, container);
         return 1;
     }
     if (window_has_zoom_icon(window) && s->mouse_pressed && !over_menu &&
@@ -4125,7 +4403,32 @@ void ui_screen_update(ui_screen* s, ui_env* env)
         }
         if (ev2->data.key.code == UI_KEY_TAB)
         {
-            focus_next(s, !(ev2->data.key.mods & UI_MOD_SHIFT));
+            /* An editor never uses Tab to move keyboard focus - it's always
+             * a text-editing key there, same as any real code editor:
+             *   - a selection: Tab/Shift+Tab shifts every selected line
+             *     right/left (block indent/outdent) - see
+             *     editor_indent_selection() above.
+             *   - no selection: Tab is ordinary typing at the caret (a
+             *     soft tab, affecting only the current line -
+             *     editor_insert_soft_tab()); Shift+Tab outdents just that
+             *     one line (editor_outdent_current_line()).
+             * Anywhere else (dialog fields, buttons, ...), Tab keeps its
+             * usual job of moving focus to the next/previous widget. */
+            if (s->focused && s->focused->type == UI_TAG_EDITOR)
+            {
+                ui_node* ed = s->focused;
+                int shift = (ev2->data.key.mods & UI_MOD_SHIFT) != 0;
+                if (has_selection(ed))
+                    editor_indent_selection(ed, shift);
+                else if (shift)
+                    editor_outdent_current_line(ed);
+                else
+                    editor_insert_soft_tab(ed);
+            }
+            else
+            {
+                focus_next(s, !(ev2->data.key.mods & UI_MOD_SHIFT));
+            }
             continue;
         }
         if (activate_menu_shortcut(s, ev2->data.key.code, ev2->data.key.mods,
@@ -4958,6 +5261,38 @@ static void render_hotkey(ui_screen* s, ui_node* h)
     {
         uint32_t fg = is_hot ? g_theme.hotkey_fg_hot : g_theme.hotkey_fg;
         draw_text(h->x + key_len, h->y, colon, fg, bg);
+    }
+}
+
+/* Full-width background, then each hotkey item (see render_hotkey), then -
+ * space permitting - the bar's own `label` (see ui_set_label/ui_get_label),
+ * right-aligned past the last hotkey. Nothing in the framework requires a
+ * statusbar to have a label; the app uses it purely decoratively (e.g.
+ * "Cake 0.14.08" - see build_screen()). Silently omitted (not truncated)
+ * whenever the bar is too narrow to fit it without overlapping the hotkeys -
+ * a partial version string would be more confusing than none, and this is
+ * cosmetic enough that it isn't worth a scroll/ellipsis treatment. Shared by
+ * both places the statusbar is drawn each frame (its normal spot in the
+ * base-layer document walk, and again as part of the app's always-on-top
+ * chrome - see render_node/render() below) so the two can't drift apart. */
+static void render_statusbar(ui_screen* s, ui_node* n)
+{
+    draw_fill(n->x, n->y, n->w, n->h, g_theme.hotkey_fg, g_theme.hotkey_bg);
+    for (int j = 0; j < n->child_count; j++)
+        render_hotkey(s, n->children[j]);
+
+    if (n->label && n->label[0])
+    {
+        int used_x = 1;
+        if (n->child_count > 0)
+        {
+            ui_node* last = n->children[n->child_count - 1];
+            used_x = last->x + last->w;
+        }
+        int len = (int)strlen(n->label);
+        int lx = n->x + n->w - 1 - len;  /* right-aligned, 1 col from the edge */
+        if (lx > used_x + 1)
+            draw_text(lx, n->y, n->label, g_theme.hotkey_fg, g_theme.hotkey_bg);
     }
 }
 
@@ -5898,7 +6233,20 @@ static void render_editor_line(int x, int y, int w, int scroll_x,
         j++;
     int is_preproc = !*in_block && (j < line_len && line[j] == '#');
 
-    while (i < line_len && col < scroll_x + w)
+    /* Scan the WHOLE line, not just the visible [scroll_x, scroll_x + w)
+     * slice - col starts at 0 regardless of scroll_x, so bounding this loop
+     * by the viewport width would stop scanning the instant a line is wider
+     * than the editor, even with no horizontal scroll at all. That used to
+     * cut the scan off before reaching a comment's closing "*\/" (or a
+     * bracket) that happens to sit past that column, leaving *in_block/
+     * *depth wrong for every line below - visibly, a long enough /* comment
+     * would "leak" comment coloring onto the rest of the file. Safe to
+     * always scan the full line: emit_hscroll() below already no-ops any
+     * draw whose column falls outside the viewport, so there's no visible
+     * cost, only the CPU to classify the off-screen characters - same
+     * tradeoff already made for rows scrolled above the viewport (see
+     * scan_multiline_state() in render_editor()). */
+    while (i < line_len)
     {
         uint32_t cp;
         int clen = utf8_decode(line + i, &cp);
@@ -6004,16 +6352,26 @@ static void render_editor_line(int x, int y, int w, int scroll_x,
             }
             if (closed)
             {
-                while (i < k && col < scroll_x + w)
+                /* Draw only the visible slice, but always advance `i` all
+                 * the way to `k` regardless - same reasoning as the
+                 * identifier/number branches below: if the draw loop below
+                 * stops early because col has scrolled past the viewport,
+                 * `i` must still land exactly where the literal actually
+                 * ends, not wherever drawing happened to give up, or the
+                 * outer loop would resume mid-literal and could misread the
+                 * remaining "'" as a new one. */
+                int p = i;
+                while (p < k && col < scroll_x + w)
                 {
                     uint32_t wc;
-                    int wl = utf8_decode(line + i, &wc);
+                    int wl = utf8_decode(line + p, &wc);
                     int selected = col >= sel_col_lo && col < sel_col_hi;
                     emit_hscroll(x, y, col, scroll_x, w, wc, g_theme.editor_char_fg,
                               selected ? g_theme.editor_sel_bg : bg);
                     col++;
-                    i += wl;
+                    p += wl;
                 }
+                i = k;
                 continue;
             }
         }
@@ -6806,12 +7164,8 @@ static void render_node(ui_screen* s, ui_node* n)
         render_menubar(s, n);
         break;
     case UI_TAG_STATUSBAR:
-        /* Positions already set by the last ui_screen_update() call.
-         * Full-width background first, same reasoning as the menubar. */
-        draw_fill(n->x, n->y, n->w, n->h,
-                  g_theme.hotkey_fg, g_theme.hotkey_bg);
-        for (int j = 0; j < n->child_count; j++)
-            render_hotkey(s, n->children[j]);
+        /* Positions already set by the last ui_screen_update() call. */
+        render_statusbar(s, n);
         break;
     case UI_TAG_BUTTON:
         render_button(s, n);
@@ -6963,12 +7317,7 @@ int ui_screen_render(ui_screen* s, int* out_x, int* out_y, int* out_w, int* out_
     if (menubar)
         render_menubar(s, menubar);
     if (statusbar)
-    {
-        draw_fill(statusbar->x, statusbar->y, statusbar->w, statusbar->h,
-                  g_theme.hotkey_fg, g_theme.hotkey_bg);
-        for (int j = 0; j < statusbar->child_count; j++)
-            render_hotkey(s, statusbar->children[j]);
-    }
+        render_statusbar(s, statusbar);
 
     if (s->cursor_on)
         emit_box(s->cursor_x, s->cursor_y, 1, 1, 0, 0, UI_BOX_INVERT);

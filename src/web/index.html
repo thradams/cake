@@ -200,7 +200,7 @@
 </ul>
 </li>
 <li>
-<a href="#toc_10">Installation</a>
+<a href="#toc_10">Installation (optional)</a>
 <ul>
 <li>
 <a href="#toc_11">Windows</a>
@@ -338,6 +338,20 @@ automatic documentation and more.</p>
 <pre><code>clang build.c -o build &amp;&amp; ./build
 </code></pre>
 
+<blockquote>
+<p>Note: Cake currently compiles and runs on macOS. However, Clang&#39;s system headers are not yet parsed correctly on macOS, so you may need to provide a few declarations manually while testing.</p>
+</blockquote>
+
+<p>If you encounter an error such as:
+fatal error: X11/Xft/Xft.h: No such file or directory</p>
+
+<p>Ubuntu / Debian:  <code>sudo apt install libx11-dev libxft-dev</code>
+Fedora: <code>sudo dnf install libX11-devel libXft-devel</code>
+Arch Linux: <code>sudo pacman -S libx11 libxft</code>
+openSUSE:<code>sudo zypper install libX11-devel libXft-devel</code></p>
+
+<p>These headers are used by the IDE.</p>
+
 <h2 id="toc_8">Running tests</h2>
 
 <p>Passing <code>test</code> argument on any platform will run a large set of tests.</p>
@@ -360,11 +374,12 @@ automatic documentation and more.</p>
 
 <p>This will generate the <em>\src\Web\cake.js</em></p>
 
-<h1 id="toc_10">Installation</h1>
+<h1 id="toc_10">Installation (optional)</h1>
 
-<p>Cake installs the compiler and supporting files into a system 
-directory and updates the system <code>PATH</code> so the <code>cake</code> command can
-be executed from any terminal.</p>
+<p>Installation is optional. Cake can be built and run directly from the <code>src</code> 
+directory as shown above, without installing anything. Installing simply 
+copies the compiler and supporting files into a system directory and updates 
+the system <code>PATH</code> so the <code>cake</code> command can be executed from any terminal.</p>
 
 <h2 id="toc_11">Windows</h2>
 
@@ -412,6 +427,8 @@ be executed from any terminal.</p>
 <h1 id="toc_14">IDE</h1>
 
 <p>The Cake IDE was developed with the help of AI tools. It has now been adopted as part of the Cake project and will be maintained alongside the rest of the codebase. Over time, the IDE code will be reviewed, refined, and gradually humanized as the project evolves.</p>
+
+<p>The IDE works in macOS, Windows and Linux.</p>
 
 <p><img src="cakeide.png" alt="Alt text"></p>
 

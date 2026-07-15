@@ -369,7 +369,7 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expr
 
         if (ctx->current->type == TK_CHAR_CONSTANT)
         {
-            const char* p = ctx->current->lexeme + 1;
+            const char* p = ctx->current->lexeme;
             char errmsg[200] = { 0 };
             struct object v = char_constant_to_value(p, errmsg, sizeof errmsg, ctx->options.target);
             if (errmsg[0] != '\0')
@@ -564,7 +564,15 @@ static void pre_multiplicative_expression(struct preprocessor_ctx* ctx, struct p
             }
             else if (op == '%')
             {
-                ectx->value = (left_value % ectx->value);
+                if (ectx->value == 0)
+                {
+                    preprocessor_diagnostic(C_PRE_DIVISION_BY_ZERO, ctx, op_token, "division by zero");
+                    throw;
+                }
+                else
+                {
+                    ectx->value = (left_value % ectx->value);
+                }
             }
         }
     }

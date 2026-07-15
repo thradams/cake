@@ -112,6 +112,16 @@ clang build.c -o build && ./build
 
 > Note: Cake currently compiles and runs on macOS. However, Clang's system headers are not yet parsed correctly on macOS, so you may need to provide a few declarations manually while testing.
 
+If you encounter an error such as:
+fatal error: X11/Xft/Xft.h: No such file or directory
+
+Ubuntu / Debian:  `sudo apt install libx11-dev libxft-dev`
+Fedora: `sudo dnf install libX11-devel libXft-devel`
+Arch Linux: `sudo pacman -S libx11 libxft`
+openSUSE:`sudo zypper install libX11-devel libXft-devel`
+
+These headers are used by the IDE.
+
 ## Running tests
 
 Passing `test` argument on any platform will run a large set of tests.

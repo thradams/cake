@@ -66,8 +66,14 @@ enum {
     EVT_WINDOW_CASCADE = 81,
     EVT_WINDOW_CLOSEALL = 82,
     EVT_WINDOW_REFRESH = 84,
-    EVT_WINDOW_FOLDER = 87,  /* the Window > "Folder" menu item's id - re-raises
-                              * the persistent folder browser window */
+    EVT_WINDOW_FOLDER = 87,  /* the View > "Show Folder" menu item's id -
+                              * re-raises the persistent folder browser
+                              * window (moved here from Window, its ids kept
+                              * as-is - see build_screen()) */
+    EVT_WINDOW_PLAYGROUND = 88,  /* View > "Show Playground" - opens (or
+                                  * re-raises, if already open) the scratch
+                                  * editor window pinned to playground.c;
+                                  * see open_playground() */
     EVT_EDIT_UNDO = 10,
     EVT_EDIT_CUT = 11,
     EVT_EDIT_COPY = 12,
@@ -76,10 +82,14 @@ enum {
     EVT_EDIT_STRINGIFY = 15,  /* Edit > "Stringify" - see do_edit_stringify() */
     EVT_EDIT_TOUPPER = 16,    /* Edit > "To Upper" */
     EVT_EDIT_TOLOWER = 17,    /* Edit > "To Lower" */
+    EVT_EDIT_WORDWRAP = 18,   /* Edit > "Word Wrap..." - opens the Columns
+                               * dialog, see do_edit_wordwrap() */
     EVT_COMPILE = 40,
     EVT_COMPILE_OPTIONS = 45,  /* Compile > Options... - opens the dialog below */
     EVT_TOGGLE_AUTOCOMPILE = 44,
-    EVT_WINDOW_OUTPUT = 83,
+    EVT_WINDOW_OUTPUT = 83,  /* the View > "Show Output" menu item's id -
+                              * re-raises the diagnostics Output window
+                              * (moved here from Window - see build_screen()) */
     /* Window > Font Size +/- drive the same backend action as Ctrl+/Ctrl-,
      * via ui_env_adjust_font_size() (see ui.h). */
     EVT_WINDOW_FONT_INC = 85,
@@ -123,7 +133,17 @@ enum {
     EVT_EDITOR_COPY_PATH = 814,  /* the editor popup's "Copy Full Path" item */
     EVT_EDITOR_TOGGLE_HDRSRC = 815,  /* the editor popup's "Toggle Header/
                                       * Source" item - .c/.h files only */
-    EVT_EDITOR_SHOW_OUTPUT = 816,  /* the editor popup's "Show output" item */
+    EVT_EDITOR_SHOW_OUTPUT = 816,  /* the editor popup's/Compile menu's "Show
+                                    * Generated Code" item - opens the
+                                    * compiled/generated code, distinct from
+                                    * View > "Show Output" (EVT_WINDOW_OUTPUT),
+                                    * which raises the errors/diagnostics
+                                    * window - kept "OUTPUT" in the id name
+                                    * only for history's sake */
+    EVT_EDITOR_SHOW_FOLDER = 817,  /* the editor popup's "Show My Folder" item -
+                                    * reveals the document's containing folder
+                                    * in the Folder panel, see
+                                    * folder_reveal_directory() */
     EVT_SEARCH_FIND = 20,      /* the Search > "Find..." menu item's id */
     EVT_SEARCH_REPLACE = 21,   /* the Search > "Replace..." menu item's id */
     EVT_SEARCH_NEXT = 23,      /* Search > "Search Next" (F3) */
@@ -133,6 +153,12 @@ enum {
     EVT_FIND_OK = 830,
     EVT_FIND_CANCEL = 831,
     EVT_SAVEAS_OVERWRITE = 840,  /* "Yes" in the overwrite-confirm message box */
+    EVT_CLOSE_DISCARD = 841,  /* "Discard" in the unsaved-changes-on-close
+                               * confirm message box - see UI_CLOSE_REQUEST_ID
+                               * and g_pending_close_window */
+    EVT_WORDWRAP_INPUT = 850,   /* Edit > Word Wrap...'s "Columns" <input> */
+    EVT_WORDWRAP_OK = 851,
+    EVT_WORDWRAP_CANCEL = 852,
     EVT_COPTS_OK = 900,
     EVT_COPTS_CANCEL = 901,
     EVT_COPTS_TARGET = 910,  /* base id for the Target <select>'s options */
@@ -147,6 +173,17 @@ enum {
                                   * reserves 960..96x */
     EVT_NAV_BACK = 970,     /* status bar's "Back" hotkey - see nav_back() */
     EVT_NAV_FORWARD = 971,  /* status bar's "Forward" hotkey - see nav_forward() */
+    EVT_FOLDER_TOGGLE_FILTER = 972,  /* the Folder panel's own right-click
+                                      * popup's "Filter" item - see
+                                      * g_folder_popup/g_folder_filter_enabled */
+    EVT_FOLDER_SHOW_FILTER = 973,  /* same popup's "Show Filter"/"Create
+                                    * Filter" item - opens g_folder_dir's
+                                    * CAKE_FOLDER_FILTER_NAME into an editor
+                                    * window, creating it first (pre-filled
+                                    * with the current listing) if it
+                                    * doesn't exist yet - see
+                                    * refresh_folder_show_filter_item/
+                                    * create_default_filter_file */
 };
 
 /* One row of a <menu>'s dropdown: an id/label/shortcut triple, "---" for a
@@ -238,6 +275,8 @@ static void build_screen(ui_node* root)
         { EVT_EDIT_STRINGIFY, "Stringify", NULL, 1 },
         { EVT_EDIT_TOUPPER, "To Upper", NULL, 1 },
         { EVT_EDIT_TOLOWER, "To Lower", NULL, 1 },
+        SEP,
+        { EVT_EDIT_WORDWRAP, "Word Wrap...", NULL, 1 },
     };
     ui_node* edit_menu = add_menu(menubar, "Edit", edit_items, sizeof edit_items / sizeof edit_items[0]);
     ui_node* edit_sep = ui_create_element(UI_TAG_ITEM);
@@ -248,11 +287,28 @@ static void build_screen(ui_node* root)
     ui_append_child(edit_menu, edit_readonly);
     g_edit_readonly_item = edit_readonly;
 
+    /* View > "Show Output"/"Show Folder"/"Show Playground" - previously on
+     * the Window menu (see EVT_WINDOW_OUTPUT/EVT_WINDOW_FOLDER/
+     * EVT_WINDOW_PLAYGROUND's own doc comments) alongside window-management
+     * commands (Tile/Cascade/Close all/Refresh/Font size) that don't really
+     * belong with "raise this panel" commands - moved next to Edit into
+     * their own menu instead. ids are unchanged, only where they're shown. */
+    static const menu_item_spec view_items[] = {
+        { EVT_WINDOW_OUTPUT, "Show Output", NULL, 1 },
+        { EVT_WINDOW_FOLDER, "Show Folder", NULL, 1 },
+        { EVT_WINDOW_PLAYGROUND, "Show Playground", NULL, 1 },
+    };
+    add_menu(menubar, "View", view_items, sizeof view_items / sizeof view_items[0]);
+
     static const menu_item_spec search_items[] = {
         { 20, "Find...", "Ctrl+F", 1 },
         { 21, "Replace...", "Ctrl+R", 1 },
         { 23, "Search Next", "F3", 1 },
         { 22, "Go to line...", "Ctrl+G", 1 },
+        SEP,
+        { EVT_TOOLS_FINDREPLACE, "Find in Files...", NULL, 1 }
+       
+      
     };
     add_menu(menubar, "Search", search_items, sizeof search_items / sizeof search_items[0]);
 
@@ -274,7 +330,7 @@ static void build_screen(ui_node* root)
        // { 42, "Link", NULL, 1 },
        // { 43, "Build all", NULL, 1 },
         SEP,
-        { EVT_EDITOR_SHOW_OUTPUT, "Show Output", NULL, 1 },
+        { EVT_EDITOR_SHOW_OUTPUT, "Show Generated Code", NULL, 1 },
         { 44, "Auto-compile: Off", NULL, 1 },
         { 45, "Options...", NULL, 1 },
     };
@@ -308,8 +364,6 @@ static void build_screen(ui_node* root)
      }
   */
     static const menu_item_spec tools_items[] = {
-        { EVT_TOOLS_FINDREPLACE, "Find and Replace...", NULL, 1 },
-        SEP,
         { EVT_TOOLS_TERMINAL, "Terminal", NULL, 1 },
     };
     add_menu(menubar, "Tools", tools_items, sizeof tools_items / sizeof tools_items[0]);
@@ -326,9 +380,6 @@ static void build_screen(ui_node* root)
         { 80, "Tile", NULL, 1 },
         { 81, "Cascade", NULL, 1 },
         { 82, "Close all", NULL, 1 },
-        SEP,
-        { 83, "Output", NULL, 1 },
-        { EVT_WINDOW_FOLDER, "Folder", NULL, 1 },
         SEP,
         { 84, "Refresh", "F5", 1 },
         SEP,
@@ -384,6 +435,11 @@ static void build_screen(ui_node* root)
     ui_set_label(auto_item, "Auto:Off");
     ui_append_child(statusbar, auto_item);
     g_statusbar_autocompile_item = auto_item;
+
+    /* Purely decorative - see render_statusbar() in ide_ui.c: drawn
+     * right-aligned in whatever room is left past the hotkeys above, and
+     * just as silently skipped if the window's too narrow to fit it. */
+    ui_set_label(statusbar, "Cake " CAKE_VERSION);
 }
 
 static ui_screen* g_screen;
@@ -445,6 +501,26 @@ static ui_node* g_output_editor;
 static ui_node* g_folder_window;
 static ui_node* g_folder_listbox;
 static char g_folder_dir[1024];
+
+/* The Folder panel's own right-click popup - a "Filter" toggle (see
+ * EVT_FOLDER_TOGGLE_FILTER) that flips g_folder_filter_enabled, plus a
+ * second item that opens g_folder_dir's own CAKE_FOLDER_FILTER_NAME (see
+ * EVT_FOLDER_SHOW_FILTER); opened over g_folder_listbox the same way
+ * g_editor_popup opens over an editor (see app_frame()). g_folder_popup_filter
+ * and g_folder_popup_show are those two items, whose labels are refreshed
+ * each time the popup opens (refresh_folder_filter_item and
+ * refresh_folder_show_filter_item), same pattern as the editor popup's
+ * "Read-only" (refresh_readonly_item). */
+static ui_node* g_folder_popup;
+static ui_node* g_folder_popup_filter;
+static ui_node* g_folder_popup_show;
+
+/* Whether folder_window_refresh applies the browsed directory's own
+ * index.txt (filtering the listing down to just what it lists, in that
+ * order - see apply_index_order) - on by default. Unchecking "[x] Filter"
+ * in the Folder panel's right-click popup turns it off, showing every entry
+ * unfiltered instead, same as a folder with no index.txt always has. */
+static int g_folder_filter_enabled = 1;
 
 /* Tools > Find and Replace - a persistent docked panel (UI_DOCK_RIGHT), same
  * singleton pattern as g_folder_window/g_output_window above: raised again
@@ -531,6 +607,14 @@ static ui_node* g_save_window;
 static char g_save_name[300];
 static char g_saveas_path[1024];  /* target path, pending the overwrite prompt */
 
+/* Set right before opening the Save As dialog on behalf of a Compile (see
+ * do_compile()'s untitled-file check): resumes the compile from
+ * save_as_commit() once the file has actually been saved for real, since an
+ * untitled window has no real path to hand the compiler yet. Cleared (without
+ * compiling) if the dialog is canceled instead - see EVT_OPEN_CANCEL. Left at
+ * 0 for an ordinary Save/Save As not triggered by a pending compile. */
+static int g_pending_compile_after_saveas;
+
 /* Search > Go to line...'s dialog. g_goto_pending_focus is the editor to
  * focus once the current ui_screen_update() finishes - focusing from inside
  * the event handler doesn't stick, since firing the input's Enter event then
@@ -538,6 +622,14 @@ static char g_saveas_path[1024];  /* target path, pending the overwrite prompt *
 static ui_node* g_goto_modal;
 static ui_node* g_goto_input;
 static ui_node* g_goto_pending_focus;
+
+/* Edit > Word Wrap...'s dialog: a single "Columns" <input>, prefilled with
+ * the last value used (COLUMNS_DEFAULT the first time). OK reflows the
+ * active editor's selection to that width - see do_edit_wordwrap(). */
+#define WORDWRAP_COLUMNS_DEFAULT 80
+static ui_node* g_wordwrap_modal;
+static ui_node* g_wordwrap_input;
+static int g_wordwrap_columns = WORDWRAP_COLUMNS_DEFAULT;
 
 /* Search > Replace...'s dialog. The widget handles are kept so the OK/Change
  * All handlers can read what the user typed/checked; g_replace_target is the
@@ -568,6 +660,9 @@ static ui_node* g_find_target;
 static ui_node* g_editor_popup;
 static ui_node* g_editor_popup_readonly;
 static ui_node* g_editor_popup_hdrsrc;  /* "Toggle Header/Source" item */
+static ui_node* g_editor_popup_show_output;  /* "Show Generated Code" item -
+                                              * disabled for a .md file, see
+                                              * app_frame() */
 
 /* Forward declaration: the <editor> inside a document window's wrapper. */
 static ui_node* editor_in_window(ui_node* wrapper);
@@ -587,15 +682,36 @@ static ui_node* editor_in_window(ui_node* wrapper);
  * find_open_window), so that's what distinguishes a real one here. */
 static ui_node* g_active_editor_window;
 
+/* The document window a UI_CLOSE_REQUEST_ID event (see ide_ui.h) is currently
+ * asking to discard-or-cancel-close for - set when that prompt is shown,
+ * consumed (and cleared) by EVT_CLOSE_DISCARD if the user confirms. Left
+ * alone (and simply overwritten) if a second close request fires before the
+ * first is answered - message boxes are themselves modal, so at most one can
+ * ever be showing at a time. */
+static ui_node* g_pending_close_window;
+
 /* Options > Compile > Auto-compile toggle. Declared up here (not with the
  * rest of the auto-compile state further down) so open_dialog_activate can
  * see it - opening a file while it's on compiles that file immediately. */
 static int g_auto_compile_enabled = 0;
 static void do_compile(void);  /* defined below; called on auto-compile-open */
+static char* dupstr(const char* s);  /* defined below; used by auto_compile_tick() */
+static void open_playground(void);  /* defined below; called on View > "Show Playground" */
+static const char* label_for_path(const char* path);  /* defined below; used wherever a
+                                                        * path is reopened without going
+                                                        * through open_playground() itself */
 static char g_open_dir[1024] = ".";
 static char g_open_mask[64] = "*.c";
 
 #define OPEN_MAX_ENTRIES 512
+
+/* The Folder panel's own per-folder filter file (see apply_index_order and
+ * EVT_FOLDER_SHOW_FILTER) - deliberately not "index.txt": that's a plain,
+ * common filename a real project folder might already use for its own
+ * content, and this app would otherwise silently swallow it into the
+ * filtering feature (and hide it from the listing). A dotfile-style name
+ * only this feature would ever create keeps the two from colliding. */
+#define CAKE_FOLDER_FILTER_NAME ".cakefilter"
 
 /* Options > Environment...'s Theme select: "Classic" is just whatever
  * ui_get_theme() returns at startup, snapshotted once before anything could
@@ -907,6 +1023,12 @@ static ui_node* make_editor_window(ui_node* root, int seq, const char* title,
 {
     ui_node* wrapper = ui_create_element(UI_TAG_MODAL);
     ui_set_path(wrapper, path);
+    ui_set_transient(wrapper, 1);  /* a one-off document window - torn down
+                                    * for good when closed, not kept around
+                                    * as a reusable singleton like a docked
+                                    * panel/dialog - see ui_set_transient and
+                                    * app_frame()'s ui_screen_take_closed_
+                                    * window() call. */
     ui_append_child(root, wrapper);
 
     int ew_x = 5 + (seq % 6) * 2, ew_y = 2 + (seq % 6), ew_w = 70, ew_h = 20;
@@ -944,7 +1066,7 @@ static ui_node* make_new_editor_window(ui_node* root, int seq)
     char title[16], path[16];
     snprintf(title, sizeof title, " NONAME%02d.C ", seq);
     snprintf(path, sizeof path, "NONAME%02d.C", seq);
-    return make_editor_window(root, seq, title,
+    ui_node* wrapper = make_editor_window(root, seq, title,
         "#include <stdio.h>\n"
         "\n"
         "int main(void)\n"
@@ -952,6 +1074,13 @@ static ui_node* make_new_editor_window(ui_node* root, int seq)
         "    printf(\"Hello, world!\\n\");\n"
         "    return 0;\n"
         "}\n", path);
+
+    /* Still at this placeholder path, not a real file the user chose - see
+     * ui_set_untitled. File > Save (and Compile) both check this to route to
+     * Save As instead of silently writing/compiling "NONAME00.C" into
+     * whatever the current directory happens to be. */
+    ui_set_untitled(wrapper, 1);
+    return wrapper;
 }
 
 /* Switches the whole running app to `theme`: the framework-drawn chrome
@@ -1042,6 +1171,42 @@ static void refresh_readonly_item(ui_node* item, ui_node* win)
     ui_set_enabled(item, !vt100);
 }
 
+/* Update the Folder panel popup's "Filter" item's label to reflect
+ * g_folder_filter_enabled - same [x]/[ ] convention as refresh_readonly_item,
+ * just with nothing to disable (unlike Read-only, this toggle is always
+ * available). */
+static void refresh_folder_filter_item(ui_node* item)
+{
+    if (!item)
+        return;
+    ui_set_label(item, g_folder_filter_enabled ? "[x] Filter" : "[ ] Filter");
+}
+
+/* Update the Folder panel popup's "Show Filter"/"Create Filter" item's
+ * label to reflect whether g_folder_dir already has a
+ * CAKE_FOLDER_FILTER_NAME on disk - "Show Filter" opens the existing one
+ * (EVT_FOLDER_SHOW_FILTER's original behavior); "Create Filter" means that
+ * same click will first generate one, pre-filled with the folder's current
+ * contents (see create_default_filter_file), before opening it. Refreshed
+ * each time the popup opens, same pattern as refresh_folder_filter_item. */
+static void refresh_folder_show_filter_item(ui_node* item)
+{
+    if (!item)
+        return;
+    char path[1024];
+    snprintf(path, sizeof path, "%s/%s", g_folder_dir, CAKE_FOLDER_FILTER_NAME);
+    FILE* f = fopen(path, "rb");
+    if (f)
+    {
+        fclose(f);
+        ui_set_label(item, "Show Filter");
+    }
+    else
+    {
+        ui_set_label(item, "Create Filter");
+    }
+}
+
 /* Classic '*'/'?' glob, case-insensitive - just enough to match a DOS-style
  * mask like "*.C" against a filename. */
 static int wildcard_match(const char* pattern, const char* name)
@@ -1118,15 +1283,213 @@ static void open_path_up(char* dir)
         dir[len - 1] = 0;
 }
 
+/* Forward-declared here (defined further below, alongside the other small
+ * file-reading helpers) so apply_index_order can use it without moving it
+ * up the file. */
+static char* read_file_to_string(const char* path);
+
+/* ---- CAKE_FOLDER_FILTER_NAME (".cakefilter"): optional per-folder
+ * filter+order for the persistent Folder browser window only
+ * (folder_window_refresh, gated further by g_folder_filter_enabled - see
+ * EVT_FOLDER_TOGGLE_FILTER) - never applied to the Open/Save-As/
+ * folder-picker dialog (open_dialog_refresh), which is about opening/
+ * saving one file, not browsing. Each line names one entry already on
+ * disk - a plain file/subfolder name - and that's the only listing shown,
+ * in that order (right after ".."): anything on disk this file doesn't
+ * list is left out entirely, not merely sorted after. A line may also use
+ * a "Title / name" form, similar in spirit to (but with a plain "/" instead
+ * of " \ ", to keep the example any auto-created file leads with legible)
+ * src/tools/help2md's own index.txt "Title \ name" syntax - a different,
+ * unrelated file, see its own comment for why this one isn't also named
+ * index.txt. When a title is present that's what the listbox displays for
+ * that row (e.g. "Introduction" for "Introduction / introduction.md"), same
+ * idea as help2md's own sidebar. Either way the row's
+ * real disk name is preserved as its ui_set_path (see
+ * populate_listbox_from_dir) so navigating into it or opening it is
+ * unaffected by the display text. No filter file, or an unreadable one,
+ * just means no filtering at all - every entry shows, same as before this
+ * feature existed. Nothing here writes the file as a side effect of
+ * filtering/browsing - unlike help2md's generator, newly-discovered entries
+ * are never silently persisted back to disk. The one exception is
+ * EVT_FOLDER_SHOW_FILTER itself: if the folder doesn't have one yet, the
+ * popup item reads "Create Filter" instead of "Show Filter" (see
+ * refresh_folder_show_filter_item), and clicking it generates one up front
+ * - pre-filled with the folder's current contents via
+ * create_default_filter_file - before opening it, so the user edits/prunes
+ * a real starting point by hand instead of an empty file. */
+
+/* Parses one filter-file line into an optional title and a required name -
+ * same "Title / diskname" idea as help2md's own parse_idx_line, just with a
+ * plain "/" delimiter as the current, preferred form (see
+ * CAKE_FOLDER_FILTER_NAME's own doc comment for why the two files don't
+ * have to match). The older " \ " delimiter (this format's own original
+ * separator, before it switched to "/") is still recognized too, purely for
+ * backward compatibility with filter files already on disk (e.g.
+ * help/Manual's) written before the switch - whichever of the two appears
+ * first in the line wins, so a line can't accidentally match both. `title`
+ * is left as an empty string when the line has neither (bare name only).
+ * Returns 0 for a blank line (nothing to place). */
+static int idx_parse_line(const char* line, char* title, size_t title_size,
+                           char* name, size_t name_size)
+{
+    while (*line == ' ' || *line == '\t')
+        line++;
+    if (*line == 0 || *line == '\r' || *line == '\n')
+        return 0;
+
+    title[0] = 0;
+    const char* sep_slash = strstr(line, " / ");
+    const char* sep_bslash = strstr(line, " \\ ");
+    const char* sep;
+    if (sep_slash && sep_bslash)
+        sep = sep_slash < sep_bslash ? sep_slash : sep_bslash;
+    else
+        sep = sep_slash ? sep_slash : sep_bslash;
+    const char* nm;
+    if (sep)
+    {
+        size_t tlen = (size_t)(sep - line);
+        while (tlen > 0 && (line[tlen - 1] == ' ' || line[tlen - 1] == '\t'))
+            tlen--;
+        if (tlen >= title_size)
+            tlen = title_size - 1;
+        memcpy(title, line, tlen);
+        title[tlen] = 0;
+        nm = sep + 3;
+    }
+    else
+    {
+        nm = line;
+    }
+    while (*nm == ' ' || *nm == '\t')
+        nm++;
+
+    size_t len = strlen(nm);
+    while (len > 0 && (nm[len - 1] == '\r' || nm[len - 1] == '\n' ||
+                        nm[len - 1] == ' ' || nm[len - 1] == '\t'))
+        len--;
+    if (len == 0)
+        return 0;
+    if (len >= name_size)
+        len = name_size - 1;
+    memcpy(name, nm, len);
+    name[len] = 0;
+    return 1;
+}
+
+/* Filters+reorders `names[0..count)` (each still carrying
+ * populate_listbox_from_dir's trailing "\" marker for directories - the
+ * real disk identity, unaffected by any of this) down to just what
+ * `dir`/CAKE_FOLDER_FILTER_NAME lists, in that file's order (matched
+ * against `names` with or without the "\", so the filter file itself never
+ * needs to spell that out) - entries on disk but not listed are dropped
+ * from the listing entirely, not merely reordered after. Fills
+ * `titles[0..newcount)` with what should be displayed for each: the line's
+ * title if it gave one (plus the same trailing "\" its disk name carries,
+ * so a retitled folder still reads as one), otherwise its disk name as-is.
+ * Returns the new, filtered count. If `dir` has no readable filter file,
+ * `names`/`titles` are left untouched and `count` is returned as-is - no
+ * filter file means no filtering, every entry still shows (see
+ * populate_listbox_from_dir). Caller must pre-size both arrays the same
+ * (OPEN_MAX_ENTRIES x 300, as populate_listbox_from_dir does). */
+static int apply_index_order(const char* dir, char names[][300], char titles[][300], int count)
+{
+    char idx_path[1024];
+    snprintf(idx_path, sizeof idx_path, "%s/%s", dir, CAKE_FOLDER_FILTER_NAME);
+    char* text = read_file_to_string(idx_path);
+    if (!text)
+        return count;
+
+    static char oname[OPEN_MAX_ENTRIES][300];
+    static char otitle[OPEN_MAX_ENTRIES][300];
+    static int used[OPEN_MAX_ENTRIES];
+    memset(used, 0, (size_t)count * sizeof used[0]);
+    int n_ordered = 0;
+
+    char* line = text;
+    while (line && *line)
+    {
+        char* nl = strchr(line, '\n');
+        if (nl)
+            *nl = 0;
+
+        char title[300], want[300];
+        if (idx_parse_line(line, title, sizeof title, want, sizeof want))
+        {
+            for (int i = 0; i < count; i++)
+            {
+                if (used[i])
+                    continue;
+                char bare[300];
+                strncpy(bare, names[i], sizeof bare - 1);
+                bare[sizeof bare - 1] = 0;
+                size_t bl = strlen(bare);
+                int is_dir = bl > 0 && bare[bl - 1] == '\\';
+                if (is_dir)
+                    bare[bl - 1] = 0;
+                if (strcmp(bare, want) == 0)
+                {
+                    used[i] = 1;
+                    strncpy(oname[n_ordered], names[i], sizeof oname[n_ordered] - 1);
+                    oname[n_ordered][sizeof oname[n_ordered] - 1] = 0;
+                    if (title[0])
+                        snprintf(otitle[n_ordered], sizeof otitle[n_ordered], "%s%s",
+                                 title, is_dir ? "\\" : "");
+                    else
+                    {
+                        strncpy(otitle[n_ordered], names[i], sizeof otitle[n_ordered] - 1);
+                        otitle[n_ordered][sizeof otitle[n_ordered] - 1] = 0;
+                    }
+                    n_ordered++;
+                    break;
+                }
+            }
+        }
+        line = nl ? nl + 1 : NULL;
+    }
+    free(text);
+
+    /* Unlike an earlier version of this function, entries index.txt doesn't
+     * list are simply dropped here - no append-the-rest step - so the
+     * Folder panel shows exactly index.txt's list and nothing else. */
+    for (int i = 0; i < n_ordered; i++)
+    {
+        strncpy(names[i], oname[i], sizeof names[i] - 1);
+        names[i][sizeof names[i] - 1] = 0;
+        strncpy(titles[i], otitle[i], sizeof titles[i] - 1);
+        titles[i][sizeof titles[i] - 1] = 0;
+    }
+    return n_ordered;
+}
+
 /* Rebuilds `listbox`'s rows from `dir`'s contents: ".." to go up, then every
  * subdirectory (marked with a trailing "\" - see dir_row_navigate, which
  * keys off that marker) and, unless `dirs_only`, every file whose name
  * matches `mask` (NULL/empty = no filtering, show them all) - dirs-first,
- * alphabetical (case-insensitive) within each group. Shared by the
- * Open/Save-As/folder-picker dialog (open_dialog_refresh, below) and the
- * persistent folder browser window (folder_window_refresh). */
+ * alphabetical (case-insensitive) within each group, unless `use_index_order`
+ * asks to filter that down to just the folder's own CAKE_FOLDER_FILTER_NAME
+ * (and, per-entry, retitle) on top of that (see apply_index_order above) -
+ * true only for the persistent Folder browser window (folder_window_refresh,
+ * itself gated by g_folder_filter_enabled); the Open/Save-As/folder-picker
+ * dialog (open_dialog_refresh, below) always passes 0, so opening a file is
+ * never affected. When a filter file exists, anything on disk it doesn't
+ * list is left out of the listing entirely - it's the whole list, not a
+ * partial order merged with the rest. No filter file (or an unreadable one)
+ * just means no filtering - every entry still shows, same as before this
+ * parameter existed. Either way, the filter file itself is also hidden from
+ * the listing, same as help2md treats its own index.txt.
+ *
+ * Every row's real disk name (with the trailing "\" marker) is always kept
+ * in ui_set_path, regardless of `use_index_order` - that's what
+ * dir_row_navigate/folder_window_activate/open_dialog_activate key off of.
+ * ui_set_label carries what's actually displayed, which is the same disk
+ * name unless the filter file gave that entry a title (see
+ * apply_index_order) - so a listed "Introduction \ introduction.md" shows
+ * as "Introduction" in the Folder panel while still opening introduction.md
+ * underneath. Shared by both callers. */
 static void populate_listbox_from_dir(ui_node* listbox, const char* dir,
-                                       const char* mask, int dirs_only)
+                                       const char* mask, int dirs_only,
+                                       int use_index_order)
 {
     static ui_dir_entry raw[OPEN_MAX_ENTRIES];
     int n = ui_list_dir(dir, raw, OPEN_MAX_ENTRIES);
@@ -1139,11 +1502,14 @@ static void populate_listbox_from_dir(ui_node* listbox, const char* dir,
     }
 
     static char names[OPEN_MAX_ENTRIES][300];
+    static char titles[OPEN_MAX_ENTRIES][300];
     int count = 0;
     for (int i = 0; i < n; i++)
     {
         if (!raw[i].is_dir)
         {
+            if (use_index_order && strcmp(raw[i].name, CAKE_FOLDER_FILTER_NAME) == 0)
+                continue;  /* the filter file itself, never a listing entry */
             if (dirs_only)
                 continue;
             if (mask && mask[0] && !mask_matches(mask, raw[i].name))
@@ -1156,17 +1522,104 @@ static void populate_listbox_from_dir(ui_node* listbox, const char* dir,
     if (count > 1)
         qsort(names, (size_t)count, sizeof names[0], open_entry_cmp);
 
+    /* Default display = the disk name, until/unless index.txt overrides it
+     * below - so a folder with no index.txt (or an entry it doesn't list)
+     * looks exactly as it always has. */
+    for (int i = 0; i < count; i++)
+    {
+        strncpy(titles[i], names[i], sizeof titles[i] - 1);
+        titles[i][sizeof titles[i] - 1] = 0;
+    }
+    if (use_index_order && count > 0)
+        count = apply_index_order(dir, names, titles, count);
+
     ui_node* up_item = ui_create_element(UI_TAG_ITEM);
     ui_set_label(up_item, "..\\");
+    ui_set_path(up_item, "..\\");
     ui_append_child(listbox, up_item);
 
     for (int i = 0; i < count; i++)
     {
         ui_node* item = ui_create_element(UI_TAG_ITEM);
-        ui_set_label(item, names[i]);
+        ui_set_label(item, titles[i]);
+        ui_set_path(item, names[i]);
         ui_append_child(listbox, item);
     }
     ui_select_set_selected(listbox, 0);
+}
+
+/* Writes `name` with its extension removed (the part from the last '.'
+ * onward - a leading dot, as in a dotfile with no other '.', doesn't count,
+ * so ".gitignore" is left whole rather than reduced to an empty title) into
+ * `out`. Used only to build the "Title" half of create_default_filter_file's
+ * generated "Title / name" lines - a folder or already-extensionless file
+ * just gets its own name back unchanged. */
+static void name_without_extension(const char* name, char* out, size_t out_size)
+{
+    const char* dot = strrchr(name, '.');
+    size_t len = (dot && dot != name) ? (size_t)(dot - name) : strlen(name);
+    if (len >= out_size)
+        len = out_size - 1;
+    memcpy(out, name, len);
+    out[len] = 0;
+}
+
+/* Creates `dir`'s own CAKE_FOLDER_FILTER_NAME from scratch, pre-filled with
+ * every entry currently on disk there, dirs-first-then-alphabetical - the
+ * same order the Folder panel itself would show before any filtering (see
+ * open_entry_cmp/populate_listbox_from_dir) - so "Create Filter"
+ * (EVT_FOLDER_SHOW_FILTER when the file doesn't exist yet, see
+ * refresh_folder_show_filter_item) hands the user a ready-made starting
+ * point to prune/reorder/retitle by hand rather than an empty file. Every
+ * line is written in the full "Title / name" form (see idx_parse_line/
+ * CAKE_FOLDER_FILTER_NAME's own doc comment) - name_without_extension() as
+ * the title, the real disk name as-is after it - rather than a bare name,
+ * so the generated file itself demonstrates that syntax on real, live
+ * entries instead of needing a separate made-up example line. Silently does
+ * nothing if `dir` can't be listed or the file can't be written -
+ * EVT_FOLDER_SHOW_FILTER's own open_file_path_into_editor still reports a
+ * missing file exactly as it always has in that case. */
+static void create_default_filter_file(const char* dir)
+{
+    static ui_dir_entry raw[OPEN_MAX_ENTRIES];
+    int n = ui_list_dir(dir, raw, OPEN_MAX_ENTRIES);
+    if (n <= 0)
+        return;
+
+    static char names[OPEN_MAX_ENTRIES][300];
+    int count = 0;
+    for (int i = 0; i < n; i++)
+    {
+        if (!raw[i].is_dir && strcmp(raw[i].name, CAKE_FOLDER_FILTER_NAME) == 0)
+            continue;  /* never list the filter file inside itself */
+        snprintf(names[count], sizeof names[count], "%s%s", raw[i].name,
+                 raw[i].is_dir ? "\\" : "");
+        count++;
+    }
+    if (count > 1)
+        qsort(names, (size_t)count, sizeof names[0], open_entry_cmp);
+
+    char path[1024];
+    snprintf(path, sizeof path, "%s/%s", dir, CAKE_FOLDER_FILTER_NAME);
+    FILE* f = fopen(path, "wb");
+    if (!f)
+        return;
+
+    for (int i = 0; i < count; i++)
+    {
+        /* The trailing "\" is populate_listbox_from_dir's own disk-identity
+         * marker (used above just to sort dirs first) - the filter file's
+         * own format is a plain name either way (see CAKE_FOLDER_FILTER_NAME's
+         * doc comment), so strip it back off before writing. */
+        size_t len = strlen(names[i]);
+        if (len > 0 && names[i][len - 1] == '\\')
+            names[i][len - 1] = 0;
+
+        char title[300];
+        name_without_extension(names[i], title, sizeof title);
+        fprintf(f, "%s / %s\n", title, names[i]);
+    }
+    fclose(f);
 }
 
 /* Rebuilds g_open_listbox's rows from g_open_dir (see
@@ -1176,8 +1629,11 @@ static void populate_listbox_from_dir(ui_node* listbox, const char* dir,
 static void open_dialog_refresh(void)
 {
     int folder_mode = g_open_dialog_mode == OPEN_DLG_FOLDER;
+    /* use_index_order is always 0 here - the Open/Save-As/folder-picker
+     * dialog is about opening/saving one file, never reordered by
+     * index.txt even in folder-picker mode. See populate_listbox_from_dir. */
     populate_listbox_from_dir(g_open_listbox, g_open_dir,
-                               folder_mode ? NULL : g_open_mask, folder_mode);
+                               folder_mode ? NULL : g_open_mask, folder_mode, 0);
 
     /* Cosmetic display only (backslashes regardless of platform, matching
      * this whole app's DOS/Windows IDE look) - never parsed back except
@@ -1420,7 +1876,7 @@ static void nav_restore(const nav_pos* pos)
     ui_node* win = find_open_window(pos->path);
     if (!win)
     {
-        open_file_path_into_editor(pos->path, basename_of(pos->path));
+        open_file_path_into_editor(pos->path, label_for_path(pos->path));
         win = find_open_window(pos->path);
         if (!win)
             return;
@@ -1501,10 +1957,15 @@ static void open_dialog_activate(int index)
 /* Rebuilds the persistent folder browser window's listbox from g_folder_dir
  * (only source files - see the mask - plus all subdirectories for
  * navigation, see populate_listbox_from_dir), and retitles the window to
- * show the directory it's now showing. */
+ * show the directory it's now showing. use_index_order tracks
+ * g_folder_filter_enabled - the Folder panel's own right-click "Filter"
+ * toggle (see EVT_FOLDER_TOGGLE_FILTER) - rather than always being on, so
+ * the user can turn g_folder_dir's own CAKE_FOLDER_FILTER_NAME filtering
+ * off and see everything unfiltered instead. */
 static void folder_window_refresh(void)
 {
-    populate_listbox_from_dir(g_folder_listbox, g_folder_dir, "*.h;*.c;*.md", 0);
+    populate_listbox_from_dir(g_folder_listbox, g_folder_dir, "*.h;*.c;*.md", 0,
+                               g_folder_filter_enabled);
 
     /* Just the folder's own name, not the full path - there's no room for
      * that in the title bar. */
@@ -1520,25 +1981,29 @@ static void folder_window_refresh(void)
 /* A row in the folder browser window was activated (double-click/Enter) -
  * a directory navigates the listing in place; a file opens it, same as
  * picking one in the Open dialog (open_dialog_activate) does, just with no
- * modal to close afterward since this window isn't one. */
+ * modal to close afterward since this window isn't one. Reads the row's
+ * ui_get_path, not its ui_get_label - the Folder panel may be showing an
+ * index.txt title in the label (see populate_listbox_from_dir), but the
+ * path always still carries the real disk name underneath, which is what
+ * navigation/opening (and the opened editor window's own title) need. */
 static void folder_window_activate(int index)
 {
     if (index < 0 || index >= ui_child_count(g_folder_listbox))
         return;
-    const char* label = ui_get_label(ui_child_at(g_folder_listbox, index));
-    if (!label[0])
+    const char* entry = ui_get_path(ui_child_at(g_folder_listbox, index));
+    if (!entry[0])
         return;
 
-    if (dir_row_navigate(g_folder_dir, sizeof g_folder_dir, label))
+    if (dir_row_navigate(g_folder_dir, sizeof g_folder_dir, entry))
     {
         folder_window_refresh();
         return;
     }
 
     char path[1024];
-    snprintf(path, sizeof path, "%s/%s", g_folder_dir, label);
+    snprintf(path, sizeof path, "%s/%s", g_folder_dir, entry);
     nav_record_jump();
-    open_file_path_into_editor(path, label);
+    open_file_path_into_editor(path, entry);
 }
 
 /* File > Open Folder...'s OK/"Select" confirmation (EVT_OPEN_OK while
@@ -1553,6 +2018,23 @@ static void folder_select_confirm(void)
 
     ui_screen_close_modal(g_screen, g_open_modal);
     g_open_dialog_mode = OPEN_DLG_FILE;
+    ui_screen_show_window(g_screen, g_folder_window);
+}
+
+/* Points the persistent Folder panel at `dir` and raises it - shared by the
+ * editor popup's "Show My Folder" (EVT_EDITOR_SHOW_FOLDER) and F1's contextual
+ * help (do_help_contextual), so both land the user on the relevant folder
+ * without a separate File > Open Folder... trip. Same "write g_folder_dir
+ * directly, then refresh+show" idiom folder_select_confirm uses above, just
+ * without an Open dialog to close first - neither caller has one open. A
+ * no-op for a NULL/empty dir (e.g. a document with no path yet). */
+static void folder_reveal_directory(const char* dir)
+{
+    if (!dir || !dir[0])
+        return;
+    strncpy(g_folder_dir, dir, sizeof g_folder_dir - 1);
+    g_folder_dir[sizeof g_folder_dir - 1] = 0;
+    folder_window_refresh();
     ui_screen_show_window(g_screen, g_folder_window);
 }
 
@@ -1683,6 +2165,27 @@ static void do_help_check(void);
 
 static void do_help_contextual(void)
 {
+    char dir[1024] = { 0 };
+    char exe_path[1024] = { 0 };
+    if (!get_self_path(exe_path, sizeof exe_path))
+    {
+        strncpy(dir, exe_path, sizeof dir - 1);
+        dir[sizeof dir - 1] = 0;
+        dirname(dir);
+    }
+    if (!dir[0] && !ui_get_cwd(dir, sizeof dir))
+        dir[0] = 0;
+
+    /* Whichever help file F1 lands on below - a dedicated topic, a matched
+     * heading in the general index, or the index itself - always lives in
+     * this same help/ subfolder, so reveal it in the Folder panel right
+     * away rather than duplicating this call in all three outcomes.
+     * Shared with the editor popup's "Show My Folder" - see
+     * folder_reveal_directory(). */
+    char help_dir[1024];
+    snprintf(help_dir, sizeof help_dir, "%s/help", dir);
+    folder_reveal_directory(help_dir);
+
     ui_node* win = g_active_editor_window;
     ui_node* ed = win ? editor_in_window(win) : NULL;
 
@@ -1700,17 +2203,6 @@ static void do_help_contextual(void)
         do_help_index();
         return;
     }
-
-    char dir[1024] = { 0 };
-    char exe_path[1024] = { 0 };
-    if (!get_self_path(exe_path, sizeof exe_path))
-    {
-        strncpy(dir, exe_path, sizeof dir - 1);
-        dir[sizeof dir - 1] = 0;
-        dirname(dir);
-    }
-    if (!dir[0] && !ui_get_cwd(dir, sizeof dir))
-        dir[0] = 0;
 
     /* A dedicated help/<word>.md topic, if the help set has one. */
     char topic_path[1024];
@@ -2191,9 +2683,19 @@ static void save_as_commit(void)
         ui_set_syntax(editor, syntax_for_path(g_saveas_path));
 
     save_active_file(g_save_window);  /* writes content, clears dirty */
+    ui_set_untitled(g_save_window, 0);  /* it's a real, named file now */
 
     ui_screen_close_modal(g_screen, g_open_modal);
     g_open_dialog_mode = OPEN_DLG_FILE;
+
+    /* Resume a Compile that was waiting on this exact Save As (see
+     * do_compile's untitled-file check) - the file now has the real path a
+     * compile needs, so pick up right where that request left off. */
+    if (g_pending_compile_after_saveas)
+    {
+        g_pending_compile_after_saveas = 0;
+        do_compile();
+    }
 }
 
 /* The current "Files of type" filter's extension, including the leading
@@ -2297,6 +2799,52 @@ static void save_as_activate(void)
     }
 
     save_as_commit();
+}
+
+/* Opens the Save As dialog for `win` - the guts of EVT_FILE_SAVEAS, pulled
+ * out so File > Save (see EVT_FILE_SAVE) and Compile (see do_compile) can
+ * both reuse it for a still-untitled window (see ui_get_untitled): a normal
+ * numbered-placeholder path like "NONAME00.C" is never something to silently
+ * write to or hand the compiler - it has to become a real file first, same
+ * as a "normal text editor". No-op if `win` isn't a real document window. */
+static void open_saveas_dialog_for(ui_node* win)
+{
+    if (!win || !editor_in_window(win))
+        return;
+
+    g_save_window = win;
+    g_open_dialog_mode = OPEN_DLG_SAVE;
+
+    /* Default the Name to the window's current file, and start browsing in
+     * that file's own directory when it has one. */
+    const char* cur = ui_get_path(win);
+    const char* base = basename_of(cur);
+    strncpy(g_save_name, base, sizeof g_save_name - 1);
+    g_save_name[sizeof g_save_name - 1] = 0;
+
+    if (base > cur)
+    {
+        size_t dlen = (size_t)(base - cur - 1);
+        if (dlen > 0 && dlen < sizeof g_open_dir)
+        {
+            memcpy(g_open_dir, cur, dlen);
+            g_open_dir[dlen] = 0;
+        }
+        else if (!ui_get_cwd(g_open_dir, sizeof g_open_dir))
+            strcpy(g_open_dir, ".");
+    }
+    else if (!ui_get_cwd(g_open_dir, sizeof g_open_dir))
+    {
+        strcpy(g_open_dir, ".");
+    }
+    strcpy(g_open_mask, g_open_filters[0].mask);
+    ui_select_set_selected(g_open_filter, 0);
+    open_dialog_set_filter_visible(1);
+
+    ui_set_label(g_open_window, " Save File As ");
+    ui_set_label(g_open_ok, "  Save  ");
+    open_dialog_refresh();
+    ui_screen_show_modal(g_screen, g_open_modal);
 }
 
 /* Strips embedded VT100 SGR escape sequences ("\x1b[...m") from `s`, in
@@ -2649,11 +3197,34 @@ static void refresh_open_windows(void)
 
 /* Run > Compile (EVT_COMPILE) / F7 - the test integration point for the
  * real compiler, linked in separately. Compiles whichever document window
- * is currently active (frontmost - see ui_screen_top_window), not just
- * whichever was opened/created most recently. */
+ * is currently active - g_active_editor_window, not ui_screen_top_window()
+ * (see g_active_editor_window's own doc comment): top_window() also returns
+ * the docked Folder/Output panel whenever one of those is frontmost instead,
+ * and neither carries a real path, so compiling "whatever's on top" without
+ * this distinction would silently hand the compiler an empty path the moment
+ * Output (e.g. from a previous compile) or Folder happened to be the last
+ * window clicked - reachable from the menu (a mouse trip up to Compile
+ * doesn't require clicking back into the document first) even though F7
+ * usually doesn't hit it, since typing right before pressing F7 naturally
+ * keeps the real document on top. Save/Save As already got this same fix -
+ * Compile just never had it applied. */
 static void do_compile(void)
 {
-    ui_node* active = ui_screen_top_window(g_screen);
+    ui_node* active = g_active_editor_window;
+
+    /* Still untitled (see ui_get_untitled) - e.g. Run > Compile straight from
+     * File > New, never saved - there's no real path yet to hand the
+     * compiler, so ask for one first via the same Save As dialog Ctrl+Shift+S
+     * opens, then resume this exact compile once it's actually saved (see
+     * save_as_commit). Canceling that dialog aborts the compile instead of
+     * going ahead against a placeholder path (see EVT_OPEN_CANCEL). */
+    if (active && ui_get_untitled(active))
+    {
+        g_pending_compile_after_saveas = 1;
+        open_saveas_dialog_for(active);
+        return;
+    }
+
     save_active_file(active);
     const char* file = active ? ui_get_path(active) : "";
 
@@ -2734,6 +3305,38 @@ static void do_compile(void)
     refresh_open_windows();
 }
 
+/* Splits the desktop area (see ui_screen_desktop_rect) in half and places
+ * `left`/`right` - each a real <window> node, NOT its <modal> wrapper - side
+ * by side, `left` on the left half and `right` on the right. Used by "Show
+ * Generated Code" (EVT_EDITOR_SHOW_OUTPUT, below) whenever the source window
+ * is currently maximized - which every editor window starts as, Playground
+ * included, see make_editor_window() - since simply raising the artifact
+ * window on top in that case would cover
+ * the source completely edge-to-edge, hiding the very thing that produced
+ * it. Only reached for when the source is actually maximized (see the call
+ * site's own check) - a source left at some smaller, user-placed rect is
+ * never touched by this.
+ *
+ * ui_window_set_rect() clears the maximized flag on whichever window it's
+ * given (see its own doc comment) - that's deliberate here: once tiled,
+ * neither window is "maximized" edge-to-edge anymore, and leaving the flag
+ * set would have resync_maximized_windows() snap it straight back to full
+ * width the very next frame, fighting the tile layout. */
+static void tile_side_by_side(ui_node* left, ui_node* right)
+{
+    if (!left || !right)
+        return;
+
+    int dx, dy, dw, dh;
+    ui_screen_desktop_rect(g_screen, &dx, &dy, &dw, &dh);
+    int left_w = dw / 2;
+    if (left_w < 1) left_w = 1;
+    int right_w = dw - left_w;
+    if (right_w < 1) right_w = 1;
+    ui_window_set_rect(left, dx, dy, left_w, dh);
+    ui_window_set_rect(right, dx + left_w, dy, right_w, dh);
+}
+
 static char* dupstr(const char* s)
 {
     size_t len = strlen(s) + 1;
@@ -2764,9 +3367,20 @@ static void auto_compile_tick(void)
     if (!g_auto_compile_enabled)
         return;
 
-    ui_node* active = ui_screen_top_window(g_screen);
+    /* g_active_editor_window, not ui_screen_top_window() - same reasoning as
+     * do_compile() above: a docked Folder/Output panel can be frontmost
+     * instead, and neither has a real path or a document <editor> to check
+     * dirty on. */
+    ui_node* active = g_active_editor_window;
     ui_node* editor = editor_in_window(active);
-    if (!editor)
+
+    /* Still untitled (see ui_get_untitled) - the idle auto-compile timer
+     * must never pop the Save As dialog on its own just because the user
+     * paused typing in a brand new, never-saved file; that only happens for
+     * an explicit Run > Compile (see do_compile). Treated the same as "no
+     * editor" below - stop tracking it until it either becomes a real file
+     * (Save/Save As) or the user switches away. */
+    if (!editor || ui_get_untitled(active))
     {
         free(g_auto_compile_snapshot);
         g_auto_compile_snapshot = NULL;
@@ -4038,6 +4652,234 @@ static void do_edit_case(int upper)
         edit_replace_selection(ed, lo, hi, out, out_len);
 }
 
+/* Edit > Word Wrap...: a tiny growable byte buffer, used below to assemble
+ * the reflowed text since - unlike Stringify/To Upper/To Lower - the output
+ * length isn't a fixed function of the input length (wrapping can both add
+ * newlines, when a long line splits, and remove them, when short lines
+ * merge), so a single malloc(sel_len * k) worst-case estimate doesn't work
+ * here. */
+typedef struct { char* buf; size_t len; size_t cap; } wordwrap_buf;
+
+static void wwbuf_init(wordwrap_buf* b)
+{
+    b->cap = 256;
+    b->buf = malloc(b->cap);
+    b->len = 0;
+    if (b->buf)
+        b->buf[0] = 0;
+}
+
+/* Grows `b` if needed, then appends `n` bytes from `text`. Silently gives up
+ * (leaves `b->buf` NULL) on allocation failure - checked once at the end by
+ * the caller rather than after every append. */
+static void wwbuf_append(wordwrap_buf* b, const char* text, size_t n)
+{
+    if (!b->buf)
+        return;
+    if (b->len + n + 1 > b->cap)
+    {
+        size_t newcap = b->cap;
+        while (b->len + n + 1 > newcap)
+            newcap *= 2;
+        char* nb = realloc(b->buf, newcap);
+        if (!nb)
+        {
+            free(b->buf);
+            b->buf = NULL;
+            return;
+        }
+        b->buf = nb;
+        b->cap = newcap;
+    }
+    memcpy(b->buf + b->len, text, n);
+    b->len += n;
+    b->buf[b->len] = 0;
+}
+
+static int wordwrap_is_space(char c)
+{
+    return c == ' ' || c == '\t' || c == '\r';
+}
+
+/* A line is blank if every byte in it is whitespace (an empty span, e.g. the
+ * phantom trailing line a selection ending in '\n' splits into below,
+ * counts as blank too). */
+static int wordwrap_is_blank_line(const char* s, int len)
+{
+    for (int i = 0; i < len; i++)
+        if (!wordwrap_is_space(s[i]))
+            return 0;
+    return 1;
+}
+
+/* Edit > Word Wrap...: reflows `sel[0, sel_len)` to `columns` columns, one
+ * paragraph at a time. A "paragraph" is a run of consecutive non-blank
+ * lines; blank lines (any line that's empty or all whitespace - including
+ * the phantom line after a trailing '\n', which is what reproduces the
+ * selection's trailing newline in the output) pass straight through
+ * unchanged and reset the paragraph. Each paragraph's lines are re-split on
+ * whitespace into words, then repacked greedily into new lines no wider
+ * than `columns` (a single word longer than that still gets its own line
+ * rather than being split mid-word) - all reindented to match the
+ * paragraph's first line's own leading whitespace. Returns a malloc'd,
+ * NUL-terminated buffer (or NULL if out of memory); *out_len is the
+ * reflowed text's length (excluding the NUL). */
+static char* wordwrap_text(const char* sel, int sel_len, int columns, int* out_len)
+{
+    if (columns < 1)
+        columns = 1;
+
+    wordwrap_buf out;
+    wwbuf_init(&out);
+    int have_output = 0;  /* has at least one line already been emitted? -
+                           * decides whether the next line needs a leading
+                           * '\n' separator first. */
+
+    int pos = 0;
+    while (out.buf)
+    {
+        int line_start = pos;
+        while (pos < sel_len && sel[pos] != '\n')
+            pos++;
+        int line_len = pos - line_start;
+        const char* line = sel + line_start;
+        int at_end = (pos >= sel_len);
+
+        if (wordwrap_is_blank_line(line, line_len))
+        {
+            if (have_output)
+                wwbuf_append(&out, "\n", 1);
+            have_output = 1;
+            /* Blank lines are emitted empty (trailing whitespace on an
+             * otherwise-blank line is never meaningful) rather than copied
+             * verbatim. */
+        }
+        else
+        {
+            /* Leading whitespace of the paragraph's first line becomes
+             * every wrapped line's indent. */
+            int indent_len = 0;
+            while (indent_len < line_len && wordwrap_is_space(line[indent_len]))
+                indent_len++;
+
+            /* Collect every word (a maximal run of non-whitespace bytes)
+             * across all of this paragraph's lines - joining them is what
+             * lets short original lines merge back together. */
+            typedef struct { int start, len; } word_span;
+            int word_cap = 16, word_count = 0;
+            word_span* words = malloc(sizeof(word_span) * (size_t)word_cap);
+
+            for (;;)
+            {
+                int wi = 0;
+                while (wi < line_len)
+                {
+                    while (wi < line_len && wordwrap_is_space(line[wi]))
+                        wi++;
+                    int wstart = wi;
+                    while (wi < line_len && !wordwrap_is_space(line[wi]))
+                        wi++;
+                    if (wi > wstart && words)
+                    {
+                        if (word_count >= word_cap)
+                        {
+                            word_cap *= 2;
+                            word_span* nw = realloc(words, sizeof(word_span) * (size_t)word_cap);
+                            if (!nw) { free(words); words = NULL; }
+                            else words = nw;
+                        }
+                        if (words)
+                        {
+                            words[word_count].start = (int)(line + wstart - sel);
+                            words[word_count].len = wi - wstart;
+                            word_count++;
+                        }
+                    }
+                }
+
+                if (at_end)
+                    break;
+                /* Peek at the next line: still part of this paragraph
+                 * (non-blank)? If so, fold it in and keep collecting words;
+                 * otherwise leave `pos`/`line`/`at_end` alone so the outer
+                 * loop reprocesses it (as a blank line or a new paragraph). */
+                int next_start = pos + 1;
+                int p2 = next_start;
+                while (p2 < sel_len && sel[p2] != '\n')
+                    p2++;
+                if (next_start <= sel_len && !wordwrap_is_blank_line(sel + next_start, p2 - next_start))
+                {
+                    pos = p2;
+                    line = sel + next_start;
+                    line_len = p2 - next_start;
+                    at_end = (pos >= sel_len);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            if (have_output)
+                wwbuf_append(&out, "\n", 1);
+            have_output = 1;
+
+            int cur_len = 0;  /* bytes on the output line being built, incl. indent */
+            for (int w = 0; w < word_count; w++)
+            {
+                int wlen = words[w].len;
+                const char* wtext = sel + words[w].start;
+                int is_first_on_line = (cur_len == 0);
+                int needed = is_first_on_line ? indent_len + wlen : cur_len + 1 + wlen;
+
+                if (!is_first_on_line && needed > columns)
+                {
+                    wwbuf_append(&out, "\n", 1);
+                    cur_len = 0;
+                    is_first_on_line = 1;
+                }
+                if (is_first_on_line)
+                {
+                    for (int k = 0; k < indent_len; k++)
+                        wwbuf_append(&out, " ", 1);
+                    cur_len = indent_len;
+                }
+                else
+                {
+                    wwbuf_append(&out, " ", 1);
+                    cur_len++;
+                }
+                wwbuf_append(&out, wtext, (size_t)wlen);
+                cur_len += wlen;
+            }
+
+            free(words);
+        }
+
+        if (at_end)
+            break;
+        pos++;  /* skip the '\n' just scanned past */
+    }
+
+    if (!out.buf)
+        return NULL;
+    *out_len = (int)out.len;
+    return out.buf;
+}
+
+static void do_edit_wordwrap(int columns)
+{
+    int lo, hi;
+    ui_node* ed = edit_selection_target(&lo, &hi);
+    if (!ed)
+        return;
+    const char* text = ui_get_value(ed);
+    int out_len;
+    char* out = wordwrap_text(text + lo, hi - lo, columns, &out_len);
+    if (out)
+        edit_replace_selection(ed, lo, hi, out, out_len);
+}
+
 /* Fired synchronously by ui_screen_update() for whatever widget was
  * activated this frame - pushed straight to us, not pulled via polling.
  * `param` is NULL for most ids (see ui_fire_event's call sites in ui.c) but
@@ -4134,6 +4976,28 @@ static void on_ui_event(void* ctx, int id, void* param)
     {
         ui_screen_close_modal(g_screen, g_goto_modal);
     }
+    else if (id == EVT_EDIT_WORDWRAP)
+    {
+        char buf[16];
+        snprintf(buf, sizeof buf, "%d", g_wordwrap_columns);
+        ui_set_value(g_wordwrap_input, buf);
+        ui_screen_show_modal(g_screen, g_wordwrap_modal);
+        ui_screen_focus(g_screen, g_wordwrap_input);
+    }
+    else if (id == EVT_WORDWRAP_OK || id == EVT_WORDWRAP_INPUT)
+    {
+        int columns = atoi(ui_get_value(g_wordwrap_input));
+        if (columns > 0)
+        {
+            g_wordwrap_columns = columns;
+            do_edit_wordwrap(columns);
+        }
+        ui_screen_close_modal(g_screen, g_wordwrap_modal);
+    }
+    else if (id == EVT_WORDWRAP_CANCEL)
+    {
+        ui_screen_close_modal(g_screen, g_wordwrap_modal);
+    }
     else if (id == EVT_OUTPUT_DBLCLICK)
     {
         output_goto_source();
@@ -4157,6 +5021,35 @@ static void on_ui_event(void* ctx, int id, void* param)
         if (ed)
             ui_set_read_only(ed, !ui_get_read_only(ed));
     }
+    else if (id == EVT_FOLDER_TOGGLE_FILTER)
+    {
+        /* Flips the Folder panel's own filtering (see
+         * g_folder_filter_enabled/apply_index_order) and re-lists
+         * g_folder_dir immediately, so the effect is visible without
+         * having to navigate away and back. */
+        g_folder_filter_enabled = !g_folder_filter_enabled;
+        folder_window_refresh();
+    }
+    else if (id == EVT_FOLDER_SHOW_FILTER)
+    {
+        /* Opens g_folder_dir's own CAKE_FOLDER_FILTER_NAME - creating it
+         * first, pre-filled with the folder's current contents, if it
+         * doesn't exist yet (the popup item itself already read "Create
+         * Filter" in that case - see refresh_folder_show_filter_item).
+         * Either way this then opens it via the same open_file_path_
+         * into_editor as any other file. */
+        char path[1024];
+        snprintf(path, sizeof path, "%s/%s", g_folder_dir, CAKE_FOLDER_FILTER_NAME);
+
+        FILE* existing = fopen(path, "rb");
+        if (existing)
+            fclose(existing);
+        else
+            create_default_filter_file(g_folder_dir);
+
+        nav_record_jump();
+        open_file_path_into_editor(path, CAKE_FOLDER_FILTER_NAME);
+    }
     else if (id == EVT_EDITOR_COPY_PATH)
     {
         ui_node* win = (ui_node*)param;
@@ -4168,6 +5061,29 @@ static void on_ui_event(void* ctx, int id, void* param)
             const char* path = ui_get_path(win);
             if (path && path[0])
                 ui_clipboard_set_text(path);
+        }
+    }
+    else if (id == EVT_EDITOR_SHOW_FOLDER)
+    {
+        /* Reveal this document's containing folder in the Folder panel -
+         * same folder_reveal_directory() F1's contextual help uses (see
+         * do_help_contextual). A no-op for a window with no path (shouldn't
+         * happen - see EVT_EDITOR_COPY_PATH just above). */
+        ui_node* win = (ui_node*)param;
+        if (!win)
+            win = ui_screen_top_window(g_screen);
+
+        if (win)
+        {
+            const char* path = ui_get_path(win);
+            if (path && path[0])
+            {
+                char dir[1024];
+                strncpy(dir, path, sizeof dir - 1);
+                dir[sizeof dir - 1] = 0;
+                dirname(dir);
+                folder_reveal_directory(dir);
+            }
         }
     }
     else if (id == EVT_EDITOR_TOGGLE_HDRSRC)
@@ -4188,14 +5104,15 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_EDITOR_SHOW_OUTPUT)
     {
-        /* The editor popup's "Show Output" passes the right-clicked window
-         * as param. The Compile menu's copy of the same command fires with
+        /* The editor popup's "Show Generated Code" passes the right-clicked
+         * window as param. The Compile menu's copy of the same command fires with
          * no param (a plain top-menu item, not context-sensitive) - fall
          * back to the active editor window so it acts on the current file,
          * same as every other Compile menu command. */
         ui_node* win = (ui_node*)param;
         if (!win)
             win = g_active_editor_window;
+
         ui_node* ed = editor_in_window(win);
         if (win && ed)
         {
@@ -4242,6 +5159,21 @@ static void on_ui_event(void* ctx, int id, void* param)
             ui_node* new_editor = editor_in_window(new_wrapper);
             if (new_editor)
                 ui_set_read_only(new_editor, 1);
+
+            /* make_editor_window() always opens the new artifact window
+             * maximized (see its own doc comment), same as any new document
+             * window - which, if the source window it was compiled from is
+             * ALSO currently maximized (every editor window starts this way,
+             * Playground included), would otherwise land right on top of it,
+             * completely hiding the source. Tile the two side by side
+             * instead in that case (see tile_side_by_side()); a source
+             * window the user has resized/moved off maximized is left
+             * exactly where it is, same as before this existed. */
+            ui_node* src_real = win ? ui_child_at(win, 0) : NULL;
+            ui_node* new_real = ui_child_at(new_wrapper, 0);
+            if (src_real && new_real && ui_get_maximized(src_real))
+                tile_side_by_side(src_real, new_real);
+
             ui_screen_show_window(g_screen, new_wrapper);
             free(content);
         }
@@ -4263,6 +5195,36 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_SAVEAS_OVERWRITE)
     {
         save_as_commit();  /* user confirmed overwrite; the prompt auto-closed */
+    }
+    else if (id == UI_CLOSE_REQUEST_ID)
+    {
+        /* The framework deferred to us instead of just closing (see
+         * UI_CLOSE_REQUEST_ID's own doc comment): `param` is the document
+         * window whose close icon was clicked while it still had unsaved
+         * changes. Ask before throwing them away, same as a normal text
+         * editor. */
+        ui_node* win = (ui_node*)param;
+        g_pending_close_window = win;
+        char msg[400];
+        snprintf(msg, sizeof msg, "%s has unsaved changes.\nDiscard them?",
+                 basename_of(ui_get_path(win)));
+        ui_msgbox_button btns[] = {
+            { " Discard ", EVT_CLOSE_DISCARD },
+            { " Cancel ", 0 },
+        };
+        ui_message_box(g_screen, "Close", msg, btns, 2);
+    }
+    else if (id == EVT_CLOSE_DISCARD)
+    {
+        /* User confirmed discarding - actually close the window now (the
+         * prompt itself already auto-closed). Deferred/freed for real via the
+         * usual transient-window path - see ui_screen_take_closed_window and
+         * app_frame(). */
+        if (g_pending_close_window)
+        {
+            ui_screen_close_modal(g_screen, g_pending_close_window);
+            g_pending_close_window = NULL;
+        }
     }
     else if (id == EVT_FIND_CANCEL)
     {
@@ -4353,48 +5315,12 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_FILE_SAVEAS)
     {
         /* Reuse the Open dialog in "save" mode - same DOM, different
-         * behavior (see save_as_activate). Save the frontmost *document*
-         * window (g_active_editor_window, not top_window() - see its
-         * declaration: a docked Folder/Output panel can be frontmost
-         * instead, and editor_in_window() alone can't tell the two apart);
-         * do nothing if there isn't one. */
-        ui_node* win = g_active_editor_window;
-        if (win && editor_in_window(win))
-        {
-            g_save_window = win;
-            g_open_dialog_mode = OPEN_DLG_SAVE;
-
-            /* Default the Name to the window's current file, and start
-             * browsing in that file's own directory when it has one. */
-            const char* cur = ui_get_path(win);
-            const char* base = basename_of(cur);
-            strncpy(g_save_name, base, sizeof g_save_name - 1);
-            g_save_name[sizeof g_save_name - 1] = 0;
-
-            if (base > cur)
-            {
-                size_t dlen = (size_t)(base - cur - 1);
-                if (dlen > 0 && dlen < sizeof g_open_dir)
-                {
-                    memcpy(g_open_dir, cur, dlen);
-                    g_open_dir[dlen] = 0;
-                }
-                else if (!ui_get_cwd(g_open_dir, sizeof g_open_dir))
-                    strcpy(g_open_dir, ".");
-            }
-            else if (!ui_get_cwd(g_open_dir, sizeof g_open_dir))
-            {
-                strcpy(g_open_dir, ".");
-            }
-            strcpy(g_open_mask, g_open_filters[0].mask);
-            ui_select_set_selected(g_open_filter, 0);
-            open_dialog_set_filter_visible(1);
-
-            ui_set_label(g_open_window, " Save File As ");
-            ui_set_label(g_open_ok, "  Save  ");
-            open_dialog_refresh();
-            ui_screen_show_modal(g_screen, g_open_modal);
-        }
+         * behavior (see save_as_activate/open_saveas_dialog_for). Save the
+         * frontmost *document* window (g_active_editor_window, not
+         * top_window() - see its declaration: a docked Folder/Output panel
+         * can be frontmost instead, and editor_in_window() alone can't tell
+         * the two apart); does nothing if there isn't one. */
+        open_saveas_dialog_for(g_active_editor_window);
     }
     else if (id == EVT_OPEN_NAME)
     {
@@ -4492,13 +5418,26 @@ static void on_ui_event(void* ctx, int id, void* param)
     {
         ui_screen_close_modal(g_screen, g_open_modal);
         g_open_dialog_mode = OPEN_DLG_FILE;
+
+        /* Canceling out of a Save As that a Compile opened (see do_compile's
+         * untitled-file check) aborts the compile too, rather than going
+         * ahead and compiling a placeholder path - there's nothing sensible
+         * to compile until the file actually has a real name. */
+        g_pending_compile_after_saveas = 0;
     }
     else if (id == EVT_FILE_SAVE)
     {
         /* Write the active editor window to its file (see save_active_file).
          * g_active_editor_window, not top_window() - a docked Folder/Output
-         * panel can be frontmost instead (see g_active_editor_window). */
-        save_active_file(g_active_editor_window);
+         * panel can be frontmost instead (see g_active_editor_window). Still
+         * untitled (see ui_get_untitled) - e.g. straight from File > New -
+         * means there's no real file to write yet, so this behaves like
+         * Save As instead, exactly like a normal text editor's Save on a
+         * never-saved document. */
+        if (ui_get_untitled(g_active_editor_window))
+            open_saveas_dialog_for(g_active_editor_window);
+        else
+            save_active_file(g_active_editor_window);
     }
     else if (id == EVT_FILE_SAVEALL)
     {
@@ -4542,6 +5481,10 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_WINDOW_FOLDER)
     {
         ui_screen_show_window(g_screen, g_folder_window);
+    }
+    else if (id == EVT_WINDOW_PLAYGROUND)
+    {
+        open_playground();
     }
     else if (id == EVT_TOOLS_FINDREPLACE)
     {
@@ -4644,14 +5587,15 @@ static void on_ui_event(void* ctx, int id, void* param)
  * per-user config directory - never binary, so it's easy to read, hand-
  * edit, or just delete to reset. --- */
 
-/* %APPDATA%\cake_ide\session.txt on Windows, ~/Library/Application
- * Support/cake_ide/session.txt on macOS, $XDG_CONFIG_HOME/cake_ide/
- * session.txt (or ~/.config/cake_ide/session.txt if that's unset)
- * elsewhere. Creates the directory if it doesn't exist yet. Returns 0 if
- * the relevant environment variable isn't set at all (e.g. a stripped-down
- * container) - session persistence just silently doesn't happen rather
- * than erroring. */
-static int get_session_file_path(char* buf, size_t cap)
+/* %APPDATA%\cake_ide on Windows, ~/Library/Application Support/cake_ide on
+ * macOS, $XDG_CONFIG_HOME/cake_ide (or ~/.config/cake_ide if that's unset)
+ * elsewhere - the one config directory session.txt (get_session_file_path)
+ * and playground.c (get_playground_file_path) both live in. Creates it if it
+ * doesn't exist yet. Returns 0 if the relevant environment variable isn't
+ * set at all (e.g. a stripped-down container) - callers each fail the same
+ * way this does (session persistence/Playground's file just silently don't
+ * happen, rather than erroring). */
+static int get_config_dir(char* buf, size_t cap)
 {
     char base[FS_MAX_PATH];
 
@@ -4681,13 +5625,20 @@ static int get_session_file_path(char* buf, size_t cap)
     }
 #endif
 
-    char dir[FS_MAX_PATH];
 #ifdef _WIN32
-    snprintf(dir, sizeof dir, "%s\\cake_ide", base);
+    snprintf(buf, cap, "%s\\cake_ide", base);
 #else
-    snprintf(dir, sizeof dir, "%s/cake_ide", base);
+    snprintf(buf, cap, "%s/cake_ide", base);
 #endif
-    mkdir(dir, 0755);  /* fine if it already exists - return value ignored */
+    mkdir(buf, 0755);  /* fine if it already exists - return value ignored */
+    return 1;
+}
+
+static int get_session_file_path(char* buf, size_t cap)
+{
+    char dir[FS_MAX_PATH];
+    if (!get_config_dir(dir, sizeof dir))
+        return 0;
 
 #ifdef _WIN32
     snprintf(buf, cap, "%s\\session.txt", dir);
@@ -4695,6 +5646,81 @@ static int get_session_file_path(char* buf, size_t cap)
     snprintf(buf, cap, "%s/session.txt", dir);
 #endif
     return 1;
+}
+
+/* Playground's own fixed file - unlike every other document window, it
+ * always opens this exact path, never anything File > Open picked. Kept
+ * next to session.txt (same config directory, see get_config_dir) rather
+ * than under the project/cwd the IDE happens to be launched from, since
+ * Playground is meant as a standing scratch pad independent of whatever
+ * project's open at the time. See open_playground() below. */
+static int get_playground_file_path(char* buf, size_t cap)
+{
+    char dir[FS_MAX_PATH];
+    if (!get_config_dir(dir, sizeof dir))
+        return 0;
+
+#ifdef _WIN32
+    snprintf(buf, cap, "%s\\playground.c", dir);
+#else
+    snprintf(buf, cap, "%s/playground.c", dir);
+#endif
+    return 1;
+}
+
+/* View > "Show Playground" (EVT_WINDOW_PLAYGROUND): opens the scratch editor
+ * pinned to playground.c. Playground is now a completely ordinary transient
+ * document window (see make_editor_window/open_file_path_into_editor) that
+ * just always happens to open the same fixed path - closing it destroys it
+ * like any other window, and reopening it (via this handler, or session
+ * restore) rereads playground.c fresh from disk rather than restoring any
+ * in-memory state, so edits made outside the IDE between opens are picked
+ * up. The file is created with a small Hello World the first time the IDE
+ * ever runs (or if it's ever deleted); every run after that just reopens
+ * whatever it was last saved as. */
+static void open_playground(void)
+{
+    char path[FS_MAX_PATH] = "playground.c";
+    get_playground_file_path(path, sizeof path);
+
+    FILE* probe = fopen(path, "rb");
+    if (probe)
+    {
+        fclose(probe);
+    }
+    else
+    {
+        static const char playground_default[] =
+            "#include <stdio.h>\n"
+            "int main(void)\n"
+            "{\n"
+            "  printf(\"Hello, world!\\n\");\n"
+            "  return 0;\n"
+            "}\n";
+        FILE* pf = fopen(path, "wb");
+        if (pf)
+        {
+            fwrite(playground_default, 1, sizeof playground_default - 1, pf);
+            fclose(pf);
+        }
+    }
+
+    open_file_path_into_editor(path, "Playground");
+}
+
+/* Every place that reopens a document by path alone (session restore, the
+ * Back/Forward navigation history) would otherwise label Playground with
+ * basename_of's default "playground.c", rather than "Playground" - the
+ * title it always gets when opened the normal way, through this file's own
+ * open_playground() above. Route the label through here instead, so an
+ * incidentally-reopened Playground window still reads the same either way. */
+static const char* label_for_path(const char* path)
+{
+    char playground_path[FS_MAX_PATH];
+    if (get_playground_file_path(playground_path, sizeof playground_path) &&
+        strcmp(path, playground_path) == 0)
+        return "Playground";
+    return basename_of(path);
 }
 
 /* Help > Check (EVT_HELP_CHECK): prints a couple of paths worth knowing when
@@ -4778,8 +5804,45 @@ static void do_help_check(void)
                  cakeconfig_path);
     }
 
+    /* playground.c: the fixed file the Playground window always edits (see
+     * get_playground_file_path/open_playground's own doc comment) - created
+     * automatically the first time Playground is opened, so "not found"
+     * here just means Playground hasn't been opened yet this install (or
+     * something deleted the file out from under a running IDE). */
+    char playground_path[FS_MAX_PATH] = "(unavailable)";
+    int playground_found = 0;
+    if (get_playground_file_path(playground_path, sizeof playground_path))
+    {
+        FILE* pf = fopen(playground_path, "rb");
+        if (pf)
+        {
+            playground_found = 1;
+            fclose(pf);
+        }
+    }
+
+    char playground_section[FS_MAX_PATH + 256];
+    if (playground_found)
+    {
+        snprintf(playground_section, sizeof playground_section,
+                 "playground.c: found\n"
+                 "  %s\n"
+                 "  The fixed scratch file the Playground window always edits.\n",
+                 playground_path);
+    }
+    else
+    {
+        snprintf(playground_section, sizeof playground_section,
+                 "playground.c: NOT FOUND\n"
+                 "  looked in: %s\n"
+                 "  The fixed scratch file the Playground window always edits -\n"
+                 "  recreated automatically next time the IDE starts.\n",
+                 playground_path);
+    }
+
     char* msg = NULL;
-    size_t total = sizeof cakeconfig_section + strlen(exe_dir) + strlen(session_dir) +
+    size_t total = sizeof cakeconfig_section + sizeof playground_section +
+                    strlen(exe_dir) + strlen(session_dir) +
                     (cakeconfig_content ? strlen(cakeconfig_content) : 0) + 768;
     msg = malloc(total);
     if (msg)
@@ -4803,8 +5866,9 @@ static void do_help_check(void)
                  "  Remembers your last session: open file, window size/position,\n"
                  "  and panel layout - kept separately from the app itself.\n"
                  "  Tip: if the IDE opens looking wrong, delete session.txt here\n"
-                 "  to reset it.\n",
-                 exe_dir, cakeconfig_section, session_dir);
+                 "  to reset it.\n\n"
+                 "%s",
+                 exe_dir, cakeconfig_section, session_dir, playground_section);
 
         if (cakeconfig_found && cakeconfig_content && n > 0 && (size_t)n < total)
         {
@@ -5029,7 +6093,7 @@ static int load_session(void)
     if (!current_file[0])
         return 0;
 
-    open_file_path_into_editor(current_file, basename_of(current_file));
+    open_file_path_into_editor(current_file, label_for_path(current_file));
     ui_node* win = find_open_window(current_file);
     if (!win)
         return 0;  /* reported "File not found" already, nothing more to do */
@@ -5147,6 +6211,30 @@ void app_init(ui_env* env)
     ui_set_label(goto_cancel, "Cancel");
     ui_append_child(goto_window, goto_cancel);
     g_goto_modal = goto_modal;
+
+    /* --- Word Wrap modal --- */
+    ui_node* wordwrap_modal = ui_create_element(UI_TAG_MODAL);
+    ui_append_child(root, wordwrap_modal);
+    ui_node* wordwrap_window = ui_create_element(UI_TAG_WINDOW);
+    ui_set_rect(wordwrap_window, 20, 7, 40, 8);
+    ui_set_label(wordwrap_window, " Word Wrap ");
+    ui_set_color(wordwrap_window, theme->modal_fg, theme->modal_bg);
+    ui_append_child(wordwrap_modal, wordwrap_window);
+    add_text(wordwrap_window, 23, 9, "Columns", COLOR_YELLOW, theme->modal_bg);
+    g_wordwrap_input = add_input(wordwrap_window, 46, 9, 11, "80");
+    ui_set_id(g_wordwrap_input, EVT_WORDWRAP_INPUT);
+    ui_set_numeric(g_wordwrap_input, 1);
+    ui_node* wordwrap_ok = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(wordwrap_ok, EVT_WORDWRAP_OK);
+    ui_set_rect(wordwrap_ok, 29, 12, 10, 1);
+    ui_set_label(wordwrap_ok, "  OK  ");
+    ui_append_child(wordwrap_window, wordwrap_ok);
+    ui_node* wordwrap_cancel = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(wordwrap_cancel, EVT_WORDWRAP_CANCEL);
+    ui_set_rect(wordwrap_cancel, 41, 12, 10, 1);
+    ui_set_label(wordwrap_cancel, "Cancel");
+    ui_append_child(wordwrap_window, wordwrap_cancel);
+    g_wordwrap_modal = wordwrap_modal;
 
     /* --- Replace modal --- */
     ui_node* rep_modal = ui_create_element(UI_TAG_MODAL);
@@ -5284,13 +6372,35 @@ void app_init(ui_env* env)
     g_editor_popup_hdrsrc = popup_hdrsrc;
     ui_node* popup_show_output = ui_create_element(UI_TAG_ITEM);
     ui_set_id(popup_show_output, EVT_EDITOR_SHOW_OUTPUT);
-    ui_set_label(popup_show_output, "Show Output");
+    ui_set_label(popup_show_output, "Show Generated Code");
     ui_append_child(popup, popup_show_output);
+    g_editor_popup_show_output = popup_show_output;
     ui_node* popup_copy_path = ui_create_element(UI_TAG_ITEM);
     ui_set_id(popup_copy_path, EVT_EDITOR_COPY_PATH);
     ui_set_label(popup_copy_path, "Copy Full Path");
     ui_append_child(popup, popup_copy_path);
+    ui_node* popup_show_folder = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(popup_show_folder, EVT_EDITOR_SHOW_FOLDER);
+    ui_set_label(popup_show_folder, "Show My Folder");
+    ui_append_child(popup, popup_show_folder);
     g_editor_popup = popup;
+
+    /* --- Folder panel context menu popup --- */
+    ui_node* folder_popup = ui_create_element(UI_TAG_MENU);
+    ui_append_child(root, folder_popup);
+    ui_node* folder_popup_filter = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(folder_popup_filter, EVT_FOLDER_TOGGLE_FILTER);
+    ui_append_child(folder_popup, folder_popup_filter);
+    g_folder_popup_filter = folder_popup_filter;
+    ui_node* folder_popup_sep = ui_create_element(UI_TAG_ITEM);
+    ui_set_separator(folder_popup_sep, 1);
+    ui_append_child(folder_popup, folder_popup_sep);
+    ui_node* folder_popup_show = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(folder_popup_show, EVT_FOLDER_SHOW_FILTER);
+    ui_set_label(folder_popup_show, "Show Filter");
+    ui_append_child(folder_popup, folder_popup_show);
+    g_folder_popup_show = folder_popup_show;
+    g_folder_popup = folder_popup;
 
     /* --- Environment modal --- */
     ui_node* env_modal = ui_create_element(UI_TAG_MODAL);
@@ -5507,6 +6617,26 @@ int app_frame(ui_env* env)
         return 1;
     }
 
+    /* A document/editor window's close icon (or the various File > Open/
+     * Save As/Find-and-Replace-Change-All paths that reuse the same "one
+     * file, one window" shape) just closed a transient window this update -
+     * tear it down for real now, rather than leaking it forever like every
+     * reusable singleton window (Folder/Output/Find & Replace, About,
+     * Environment, ...) correctly keeps doing (see ui_set_transient's own
+     * doc comment). Done first thing, before anything below reads
+     * g_active_editor_window or walks g_root, so nothing this frame can ever
+     * see - let alone dereference - a pointer to the now-freed node. */
+    {
+        ui_node* closed = ui_screen_take_closed_window(g_screen);
+        if (closed)
+        {
+            if (closed == g_active_editor_window)
+                g_active_editor_window = NULL;
+            ui_remove_child(g_root, closed);
+            ui_node_free(closed);
+        }
+    }
+
     /* Find and Replace panel: notice a dock-border drag (the framework only
      * shifts the existing INPUT/GROUP/SELECT/BUTTON children's position on a
      * window resize, never their width - see set_window_rect in ide_ui.c,
@@ -5574,12 +6704,34 @@ int app_frame(ui_env* env)
             int has_counterpart = header_source_counterpart(ui_get_path(win), cp, sizeof cp);
             ui_set_enabled(g_editor_popup_hdrsrc, has_counterpart);
 
+            /* Refresh "Show Generated Code" - disabled for a .md file, same
+             * idea as Toggle Header/Source above: Markdown is never
+             * compiled, so there's no generated code to show. */
+            ui_set_enabled(g_editor_popup_show_output,
+                           syntax_for_path(ui_get_path(win)) != UI_SYNTAX_MARKDOWN);
+
             ui_screen_open_popup(g_screen, g_editor_popup, mx, my, win);
         }
     }
 
-    auto_compile_tick();
+    /* Right-click over the Folder panel's listbox opens its own popup (the
+     * "Filter" toggle + "Show Filter"/"Create Filter") at the cursor - no
+     * modal must be blocking. Independent of the editor popup check above: when the
+     * Folder panel is frontmost, ui_screen_top_window() returns it (not an
+     * editor window), so `ed` there is NULL and that block's
+     * ui_node_contains(NULL, ...) already no-ops - see its own doc comment. */
+    if (ui_screen_mouse_right_pressed(g_screen) && !ui_screen_active_modal(g_screen))
+    {
+        int mx = ui_screen_mouse_x(g_screen), my = ui_screen_mouse_y(g_screen);
+        if (ui_node_contains(g_folder_listbox, mx, my))
+        {
+            refresh_folder_filter_item(g_folder_popup_filter);
+            refresh_folder_show_filter_item(g_folder_popup_show);
+            ui_screen_open_popup(g_screen, g_folder_popup, mx, my, NULL);
+        }
+    }
 
+    auto_compile_tick();
 
     return 0;
 }

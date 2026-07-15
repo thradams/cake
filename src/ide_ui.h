@@ -429,6 +429,43 @@ int ui_get_read_only(const ui_node* n);
 void ui_set_resizable(ui_node* n, int resizable);
 int ui_get_resizable(const ui_node* n);
 
+/* MODAL (a top-level window wrapper) only: whether closing it should tear
+ * the whole subtree down for good, instead of just hiding it for a later
+ * ui_screen_show_window() to bring back as-is. Off by default, matching
+ * every existing window/dialog/docked panel's "reusable singleton"
+ * behavior - opt in per wrapper for one-off windows meant to be freed when
+ * closed, like a document/editor window (see make_editor_window). A closed
+ * transient window is detached from the tree lazily, not inside
+ * ui_screen_close_modal() itself (freeing it synchronously mid-frame, while
+ * the app may still hold its own pointer to it - e.g. "the active editor
+ * window" - would leave that pointer dangling for the rest of the frame) -
+ * see ui_screen_take_closed_window(). */
+void ui_set_transient(ui_node* n, int transient);
+int ui_get_transient(const ui_node* n);
+
+/* MODAL (a document window wrapper) only: whether it's still at its original
+ * never-saved placeholder path (e.g. "NONAME00.C" - see make_new_editor_
+ * window) rather than a real file the user picked/opened. Off by default,
+ * and off again as soon as the app commits a real Save As target (see
+ * save_as_commit) - a File > Open'd window never has this set in the first
+ * place. Meant purely as a flag for the app's own File > Save / Compile
+ * logic to check ("does this window need a Save As target before it can be
+ * written to disk for real?"); the framework itself never reads it. */
+void ui_set_untitled(ui_node* n, int untitled);
+int ui_get_untitled(const ui_node* n);
+
+/* Returns the most recently closed transient window (see ui_set_transient)
+ * and clears the pending slot, or NULL if none is pending - meant to be
+ * polled once per frame, right after ui_screen_update(), before anything
+ * else runs that might read a stale reference to it. The caller (the app)
+ * is responsible for the actual teardown: clear any of its own globals that
+ * might still point at the returned node, then ui_remove_child() it from
+ * wherever it was attached (always ui_screen_root() for a document window)
+ * and ui_node_free() it. Returns the same window only once - a second call
+ * this frame (or any later one, until another transient window closes)
+ * returns NULL. */
+ui_node* ui_screen_take_closed_window(ui_screen* s);
+
 /* WINDOW-only: whether it casts a drop shadow - on by default, like every
  * other shadow-casting widget (button/box/menu dropdown/modal dialog). Turn
  * it off for windows that shouldn't look "raised" above the document, like a
@@ -687,6 +724,21 @@ typedef void (*ui_event_fn)(void* ctx, int id, void* param);
  * Replaces any previously registered handler. Pass fn=NULL to stop receiving
  * events (they're then silently dropped, same as an unset handler). */
 void ui_screen_set_on_event(ui_screen* s, ui_event_fn fn, void* ctx);
+
+/* Reserved id fired through the same on_event handler (see ui_screen_set_
+ * on_event) instead of an ordinary close, when a transient window's (see
+ * ui_set_transient) close icon is clicked while it has a dirty EDITOR
+ * descendant (see ui_set_dirty) - closing right away would silently discard
+ * unsaved changes, so the framework defers to the app rather than calling
+ * ui_screen_close_modal() itself. `param` is the window (the MODAL wrapper -
+ * exactly what ui_screen_close_modal() expects); the app's handler decides
+ * what to do (e.g. show a Discard/Cancel prompt) and calls
+ * ui_screen_close_modal() itself once/if the user confirms discarding.
+ * Negative so it can never collide with an app's own (always >= 0 by
+ * convention) widget ids. Never fired for a non-transient window (a docked
+ * panel/dialog) or one with no unsaved changes - those still just close
+ * immediately, exactly as before. */
+#define UI_CLOSE_REQUEST_ID (-1)
 
 /* Keyboard focus - like element.focus() / document.activeElement. Only
  * <input> is focusable today. While a node is focused, ui_screen_update()
