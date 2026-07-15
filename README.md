@@ -21,7 +21,7 @@ efficient, and universal._
 # About
 
 
-Cake is a compiler front-end written from scratch in C, adhering to the C23 language 
+Cake is a compiler front end written from scratch in C by a human, implementing the C23 language 
 specification and beyond.
 
 It serves as a platform for experimenting with new features, 
@@ -110,6 +110,8 @@ Got to the *src* directory and type:
 clang build.c -o build && ./build
 ```
 
+> Note: Cake currently compiles and runs on macOS. However, Clang's system headers are not yet parsed correctly on macOS, so you may need to provide a few declarations manually while testing.
+
 ## Running tests
 
 Passing `test` argument on any platform will run a large set of tests.
@@ -134,11 +136,12 @@ call emcc -sSTACK_SIZE=8388608 -DMOCKFILES -Wno-multichar "lib.c" -o "Web\cakejs
 
 This will generate the *\src\Web\cake.js*
 
-# Installation
+# Installation (optional)
 
-Cake installs the compiler and supporting files into a system 
-directory and updates the system `PATH` so the `cake` command can
-be executed from any terminal.
+Installation is optional. Cake can be built and run directly from the `src` 
+directory as shown above, without installing anything. Installing simply 
+copies the compiler and supporting files into a system directory and updates 
+the system `PATH` so the `cake` command can be executed from any terminal.
 
 ## Windows
 
@@ -185,25 +188,10 @@ See [Manual](manual.md)
 
 # IDE
 
-Cake now ships with its own IDE: a lightweight, editor built
-directly on top of the compiler, with no external dependencies.
+The Cake IDE was developed with the help of AI tools. It has now been adopted as part of the Cake project and will be maintained alongside the rest of the codebase. Over time, the IDE code will be reviewed, refined, and gradually humanized as the project evolves.
 
-It includes a file/folder browser, a tabbed multi-document editor with undo/redo,
-find and replace, go-to-line, and one-key compilation with results shown in an
-Output window you can jump from straight to the error line. Compiler options,
-diagnostics, and themes (classic, dark, white) are all configurable from within
-the IDE itself.
+The IDE works in macOS, Windows and Linux.
 
-Markdown is also a supported file type, with its own syntax highlighting and
-clickable links between documents. This makes the IDE a natural place to write
-documentation, specifications, and other project docs alongside the code.
-
-The IDE runs natively on Windows, macOS, and Linux.
-
-It was built to make working on the compiler itself more productive: writing
-code, checking that it is correct, and analyzing its output all happen in one
-place, without switching tools. It also gives users a feeling of a complete,
-self-contained package.
 
 ![Alt text](cakeide.png)
 

@@ -4786,6 +4786,13 @@ static void do_help_check(void)
     {
         int n = snprintf(msg, total,
                  "=== Installation Check ===\n\n"
+#if defined(__APPLE__)
+                 "Note: Cake currently compiles and runs on macOS. However,\n"
+                 "Clang's system headers are not yet parsed correctly on\n"
+                 "macOS, so you may need to provide a few declarations\n"
+                 "manually while testing. This should be fixed soon, and\n"
+                 "hopefully it won't require Cake to implement Objective-C.\n\n"
+#endif
                  "App directory\n"
                  "  %s\n"
                  "  Folder containing this program - the other files below are\n"

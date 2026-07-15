@@ -26,6 +26,7 @@
 #include <X11/keysym.h>
 #include <X11/Xft/Xft.h>
 #include <X11/extensions/Xrender.h>
+#include <X11/cursorfont.h>
 
 #include <locale.h>
 #include <stdio.h>
@@ -455,26 +456,18 @@ static void render_frame(void)
     XFlush(g_dpy);
 }
 
-/* Hide the native cursor over the window - the app draws its own block
- * cursor (see ui_draw_box's UI_BOX_INVERT branch), so showing both would be redundant/
- * confusing, same as win32.c's WM_SETCURSOR/SetCursor(NULL). X11 has no
- * "hide the cursor" call directly; the standard trick is defining a cursor
- * built from a fully transparent 1x1 bitmap - the pixmap only needs to
- * exist for this call, not for the cursor's own lifetime afterward.
- *
- * KNOWN ISSUE: confirmed still showing the native pointer when tested under
- * WSLg - unconfirmed on a real X11 desktop. This is the textbook-correct
- * ICCCM way to do it and matches working examples elsewhere, so the
- * remaining gap is presumably WSLg's compositor not honoring XDefineCursor
- * rather than a bug here - not chasing further for now. */
-static void hide_cursor(void)
+/* Explicitly give the window a normal arrow pointer - matches win32.c's
+ * wc.hCursor = LoadCursor(NULL, IDC_ARROW): the app draws its own block
+ * cursor for the text caret (see ui_draw_box's UI_BOX_INVERT branch), but
+ * the OS pointer tracking the mouse is still the standard arrow, same as
+ * every other native app. Set explicitly (rather than relying on whatever
+ * default the window manager/X server hands out) so it's consistent across
+ * WMs. */
+static void set_normal_cursor(void)
 {
-    char data[1] = {0};
-    Pixmap blank = XCreateBitmapFromData(g_dpy, g_win, data, 1, 1);
-    XColor dummy = {0};
-    Cursor cursor = XCreatePixmapCursor(g_dpy, blank, blank, &dummy, &dummy, 0, 0);
+    Cursor cursor = XCreateFontCursor(g_dpy, XC_left_ptr);
     XDefineCursor(g_dpy, g_win, cursor);
-    XFreePixmap(g_dpy, blank);
+    XFreeCursor(g_dpy, cursor);
     /* Push it to the server right away rather than leaving it sitting in
      * Xlib's output buffer until whatever the next unrelated flush happens
      * to be - cheap insurance against this being applied later than the
@@ -914,7 +907,7 @@ int main(int argc, char** argv)
                            DefaultDepth(g_dpy, g_screen), InputOutput, g_visual,
                            CWBackPixel | CWBitGravity, &attrs);
 
-    XStoreName(g_dpy, g_win, "Turbo C");
+    XStoreName(g_dpy, g_win, "");
     set_wm_resize_hints();  /* see its own comment - live-resize cell snapping */
 
     g_wm_delete = XInternAtom(g_dpy, "WM_DELETE_WINDOW", False);
@@ -932,7 +925,7 @@ int main(int argc, char** argv)
     g_gc = XCreateGC(g_dpy, g_win, 0, NULL);
     g_pict_format = XRenderFindVisualFormat(g_dpy, g_visual);
     ensure_pixmap(win_w, win_h);
-    hide_cursor();
+    set_normal_cursor();
 
     g_env = ui_env_create(ui_default_cols, ui_default_rows);
     ui_env_set_font_zoom_fn(g_env, adjust_font_size, NULL);
