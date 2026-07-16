@@ -308,6 +308,33 @@ typedef struct {
                                 * ...) - see render_editor_line's bounded
                                 * char-literal lookahead. */
 
+    /* UI_SYNTAX_MARKDOWN only - see render_editor_line_markdown(). Its own
+     * knobs rather than reusing the UI_SYNTAX_C colors above, so a theme can
+     * restyle a Markdown document (help viewer, README preview, ...)
+     * independently of how it colors C source. */
+    uint32_t md_heading_fg;      /* an ATX heading line ("# ..." through
+                                   * "###### ...") */
+    uint32_t md_blockquote_fg;   /* a "> ..." blockquote line */
+    uint32_t md_code_fg;         /* fenced ```code block``` content and
+                                   * inline `code span`s alike */
+    uint32_t md_bold_fg;         /* **bold** span text (and its ** markers) -
+                                   * colored in both edit and read-only mode;
+                                   * only read-only actually collapses the
+                                   * ** markers away */
+    uint32_t md_link_fg;         /* the visible text of a [link](dest) (and
+                                   * its [] brackets) - colored in both edit
+                                   * and read-only mode; only read-only
+                                   * collapses the brackets/"(dest)" away */
+    uint32_t md_code_bg;         /* background tint for every row that's part
+                                   * of a fenced ```code block``` - the fence
+                                   * delimiter lines themselves and every
+                                   * content line between them (whatever
+                                   * language, not just ```c) - see render_
+                                   * editor()'s line_bg computation. Takes
+                                   * priority over editor_current_line_bg, so
+                                   * the caret's row inside a code block still
+                                   * reads as "code", not "current line". */
+
     uint32_t listbox_fg, listbox_bg, listbox_sel_fg, listbox_sel_bg;
     uint32_t diag_error_fg;
     uint32_t diag_error_bg;
@@ -572,6 +599,16 @@ void ui_editor_goto_line(ui_node* n, int line);
  * A mouse click positions the caret, so a double-click handler (an <editor>
  * fires its id on double-click) can read back which line was clicked. */
 int ui_editor_caret_line(const ui_node* n);
+
+/* EDITOR-only: the 0-based document line under screen point (x, y) - e.g. a
+ * right-click, which (unlike a plain click) never moves the caret, so
+ * there's no ui_editor_caret_line() to read back afterward. Returns -1 for
+ * a non-<editor> node, a NULL node, or a point outside the editor's own
+ * rect; a point past the last real line (the blank rows below a short
+ * document) still returns whatever line index that row would be, same as a
+ * plain click there moving the caret to the document's end - the caller
+ * decides what a line past the end means for its own purposes. */
+int ui_editor_line_at_point(const ui_node* n, int x, int y);
 
 /* EDITOR-only cursor/selection access by byte offset into the value - the
  * hooks a find/replace feature needs to locate matches and highlight them.

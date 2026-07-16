@@ -265,6 +265,32 @@ static ui_theme g_theme = {
                                                    * literals, distinct from
                                                    * string_fg's green */
 
+    /* UI_SYNTAX_MARKDOWN - see render_editor_line_markdown(). Defaults just
+     * match the colors Markdown used to borrow from the C editor palette
+     * (keyword/comment/string_fg), so switching to these dedicated fields
+     * doesn't change how anything already looks; md_link_fg is new (link
+     * text previously had no color of its own). */
+    .md_heading_fg = TB_RGB(0xFF, 0xFF, 0x55),     /* bright yellow, same as
+                                                     * editor_keyword_fg */
+    .md_blockquote_fg = TB_RGB(0x55, 0xFF, 0xFF),  /* cyan, same as
+                                                     * editor_comment_fg */
+    .md_code_fg = TB_RGB(0x55, 0xFF, 0x55),        /* green, same as
+                                                     * editor_string_fg */
+    .md_bold_fg = TB_RGB(0xC0, 0xC0, 0xC0),        /* same as editor_fg -
+                                                     * bold text with no real
+                                                     * bold attribute to fall
+                                                     * back on, just plain */
+    .md_link_fg = TB_RGB(0xAA, 0xAA, 0xFF),        /* light blue/lavender -
+                                                     * distinct from every
+                                                     * other Markdown color */
+    .md_code_bg = TB_RGB(0x00, 0x00, 0x80),        /* navy - one step darker
+                                                     * than editor_bg (the
+                                                     * opposite direction from
+                                                     * editor_current_line_bg,
+                                                     * which is lighter), so a
+                                                     * code block reads as
+                                                     * "recessed" */
+
     /* <listbox> - the classic Turbo Vision file-list cyan, dark-blue
      * selection bar (same blue as <input>'s body). */
     .listbox_fg = TB_RGB(0x00, 0x00, 0x00),
@@ -475,6 +501,17 @@ struct ui_node {
     int scan_bracket_depth;  /* C syntax only: ( [ { nesting depth at the
                               * start of that line - see render_editor_line's
                               * rainbow bracket coloring */
+    int scan_c_block;    /* Markdown only: whether line `scan_line` starts
+                          * inside a ```c fenced block - see render_editor()'s
+                          * embedded-C dispatch, md_fence_lang_is_c() */
+    int scan_c_comment;  /* that embedded block's own C block-comment state
+                          * at `scan_line` - independent of scan_block above,
+                          * which tracks Markdown's "inside *some* fence" */
+    int scan_c_bracket;  /* that embedded block's own bracket-nesting depth -
+                          * independent of scan_bracket_depth above, which is
+                          * only ever used when n->syntax itself is
+                          * UI_SYNTAX_C (a whole file of C, not a block
+                          * embedded in Markdown) */
 
     /* WINDOW only: geometry saved across a maximize, so a later restore can
      * put it back exactly where (and what size) it was. */
@@ -1873,6 +1910,284 @@ static int utf8_col_of(const char* s, int byte_pos)
     return col;
 }
 
+/* --- Read-only Markdown "true removal" column mapping ---------------------
+ * render_editor_line_markdown() further down hides the same handful of
+ * Markdown delimiters copy/paste already strips for a read-only document
+ * (see strip_markdown_readonly() and editor_selected_text()) - fenced code
+ * block "```" markers, inline `code span` backticks, **bold** markers,
+ * <!-- html comments --> and [link text](dest) brackets/parens+url - by
+ * actually removing them from the rendered line instead of leaving a blank
+ * gap the width they used to occupy, so a read-only Markdown document reads
+ * like a real preview rather than source-with-holes-punched-in-it.
+ *
+ * That means a screen column no longer lines up 1:1 with a raw source
+ * codepoint the way it does for every other syntax mode (and the way
+ * utf8_col_of() above assumes) - cursor placement, click hit-testing,
+ * selection-highlight bounds and the horizontal scrollbar's width all need
+ * to agree with the *collapsed* column a byte offset ends up drawn at, or
+ * they'd silently drift out of sync with what render_editor_line_markdown()
+ * actually puts on screen: a caret drawn over the wrong glyph, a selection
+ * that doesn't match what was dragged over, or a scrollbar that under/
+ * overshoots the visible text. md_scan_line() below is the one place that
+ * answers "what column does this byte end up at" and "what byte ends up at
+ * this column", by replaying the exact same hide rules
+ * render_editor_line_markdown() draws with (the two are kept in sync
+ * deliberately, same convention as strip_markdown_readonly() uses with the
+ * renderer - see the comment there). Every read/click/scroll site that
+ * needs this translation for a read-only Markdown document calls through
+ * here instead of re-deriving its own copy of the hide rules. */
+
+static int scan_markdown_fence_state(const char* line, int len, int in_block);
+
+/* Answers exactly one of three questions about one line, given `in_block`
+ * (the fenced-code-block state entering the line - threaded line-to-line by
+ * the caller, same in/out convention as scan_markdown_fence_state(), which
+ * this updates identically for a "```" line):
+ *
+ *  - byte_target >= 0, col_target < 0: returns the visual column the raw
+ *    byte offset `byte_target` is drawn at (a byte inside a hidden run
+ *    collapses to the column right before that run, since nothing inside
+ *    the run advances a column).
+ *  - byte_target < 0, col_target >= 0: returns the raw byte offset of
+ *    whichever visible codepoint is drawn at visual column `col_target`
+ *    (or line_len, the line's own end, if that column is at or past the
+ *    end of the visible line - clicking/arrowing past the visible text
+ *    lands at the line's end, same as every other syntax mode).
+ *  - both < 0: returns the line's total visible width in columns (for
+ *    editor_content_cols()'s scrollbar-width purposes). */
+static int md_scan_line(const char* line, int line_len, int* in_block,
+                         int byte_target, int col_target)
+{
+    int j = 0;
+    while (j < line_len && (line[j] == ' ' || line[j] == '\t'))
+        j++;
+    int is_fence = (line_len - j >= 3 && line[j] == '`' && line[j + 1] == '`' && line[j + 2] == '`');
+    if (is_fence)
+        *in_block = !*in_block;
+    int in_code_block = *in_block || is_fence;
+
+    int col = 0, i = 0, in_span = 0, in_link_text = 0, in_link_dest = 0, in_html_comment = 0;
+    while (i < line_len)
+    {
+        if (byte_target >= 0 && i >= byte_target)
+            return col;
+
+        uint32_t cp;
+        int clen = utf8_decode(line + i, &cp);
+        int hide_char = 0, skip_extra = 0;
+
+        if (in_html_comment)
+        {
+            hide_char = 1;
+            if (i + 2 < line_len && line[i] == '-' && line[i + 1] == '-' && line[i + 2] == '>')
+            {
+                skip_extra = 2;
+                in_html_comment = 0;
+            }
+        }
+        else if (is_fence)
+        {
+            hide_char = 1;
+        }
+        else if (!in_code_block)
+        {
+            if (cp == '`')
+            {
+                hide_char = 1;
+                in_span = !in_span;
+            }
+            else if (cp == '*' && i + 1 < line_len && line[i + 1] == '*')
+            {
+                hide_char = 1;
+                skip_extra = 1;
+            }
+            else if (cp == '<' && i + 3 < line_len && line[i + 1] == '!' &&
+                     line[i + 2] == '-' && line[i + 3] == '-')
+            {
+                in_html_comment = 1;
+                hide_char = 1;
+                skip_extra = 3;
+            }
+            else if (cp == '[')
+            {
+                const char* p = line + i + 1;
+                while (p < line + line_len && *p != ']' && *p != '\n')
+                    p++;
+                if (p < line + line_len && *p == ']' && p + 1 < line + line_len && p[1] == '(')
+                {
+                    in_link_text = 1;
+                    hide_char = 1;
+                }
+            }
+            else if (cp == ']' && in_link_text)
+            {
+                in_link_text = 0;
+                hide_char = 1;
+                if (i + 1 < line_len && line[i + 1] == '(')
+                    in_link_dest = 1;
+            }
+            else if (in_link_dest)
+            {
+                hide_char = 1;
+                if (cp == ')')
+                    in_link_dest = 0;
+            }
+        }
+
+        if (!hide_char)
+        {
+            if (col_target >= 0 && col == col_target)
+                return i;
+            col++;
+        }
+        i += clen + skip_extra;
+    }
+
+    if (byte_target >= 0)
+        return col;
+    if (col_target >= 0)
+        return line_len;
+    return col;
+}
+
+/* Fenced-code-block state at the start of the line beginning at byte offset
+ * `line_start` in `text` - replays scan_markdown_fence_state() over every
+ * earlier line, the same priming editor_selected_text() does before calling
+ * strip_markdown_readonly() on a selection that starts mid-document. Used
+ * wherever md_scan_line() is needed outside render_editor()'s own top-to-
+ * bottom repaint loop (which already threads this state line-to-line as it
+ * goes) - a click, or a caret Up/Down move - so those agree with what's
+ * drawn even for a line the last repaint didn't necessarily just scan up
+ * to. */
+static int md_in_block_at(const char* text, int line_start)
+{
+    int in_block = 0, off = 0;
+    while (off < line_start)
+    {
+        int ls = off;
+        while (off < line_start && text[off] != '\n')
+            off++;
+        in_block = scan_markdown_fence_state(text + ls, off - ls, in_block);
+        if (off < line_start)
+            off++;
+    }
+    return in_block;
+}
+
+/* --- Read-only Markdown vertical line-folding --------------------------
+ * A fenced code block's own delimiter line ("```" or "```lang") and a
+ * comment-only metadata line (e.g. "<!-- runnable -->" on its own, marking
+ * the block right after it) are, in read-only/preview mode, removed
+ * entirely rather than just having their text hidden the way
+ * render_editor_line_markdown() collapses inline delimiters (see the
+ * md_scan_line() block comment above) - they don't just draw empty, they
+ * take up no row at all, so the surrounding content closes the gap instead
+ * of leaving a blank line behind. That means, for a read-only Markdown
+ * document, a screen ROW no longer lines up 1:1 with a document LINE the
+ * way it does for every other syntax mode - render_editor()'s per-row
+ * loop, click-to-line mapping (editor_row_to_line), Up/Down (editor_move_
+ * lines), and the vertical scrollbar (editor_clamp_scroll/editor_has_
+ * vscrollbar/editor_vscrollbar_thumb/editor_visible_line_count) all need
+ * to skip a foldable line rather than assign it a row/count it, or they'd
+ * silently disagree with each other - a caret landing a row off from a
+ * click, a scrollbar sized for rows that are never actually shown, or
+ * Up/Down leaving the caret stranded on a line that never gets painted.
+ * md_is_foldable_line()/md_line_at_index_is_foldable() below are the one
+ * place that answers "is this line folded away" - kept in sync with
+ * render_editor_line_markdown()'s own hide rules deliberately, same
+ * convention as md_scan_line() uses with the renderer. */
+
+/* Whether `line`[0, line_len) is a fenced code block delimiter, given its
+ * byte range directly - the form every caller that's already walking the
+ * document line-by-line (and so already has [ls, le) in hand) can use
+ * without re-locating the line first. */
+static int md_is_fence_line(const char* line, int line_len)
+{
+    int j = 0;
+    while (j < line_len && (line[j] == ' ' || line[j] == '\t'))
+        j++;
+    return line_len - j >= 3 && line[j] == '`' && line[j + 1] == '`' && line[j + 2] == '`';
+}
+
+/* Whether an OPENING fence line (already confirmed via md_is_fence_line())
+ * tags its block as C - "```c" or "```C", nothing else after the language
+ * tag but trailing whitespace/'\r'. Used by render_editor() to decide
+ * whether that block's content lines get highlighted with the real C
+ * highlighter (render_editor_line(), same as a UI_SYNTAX_C file) instead of
+ * Markdown's own flat md_code_fg - see the block comment above render_
+ * editor()'s row loop where in_c_block is threaded. Meaningless on a
+ * closing "```" (no tag to read); callers only ask this when a block is
+ * opening in the first place. */
+static int md_fence_lang_is_c(const char* line, int line_len)
+{
+    int j = 0;
+    while (j < line_len && (line[j] == ' ' || line[j] == '\t'))
+        j++;
+    j += 3;  /* past the "```" itself - already confirmed present by the caller */
+    int k = line_len;
+    while (k > j && (line[k - 1] == ' ' || line[k - 1] == '\t' || line[k - 1] == '\r'))
+        k--;
+    return k - j == 1 && (line[j] == 'c' || line[j] == 'C');
+}
+
+/* Whether `line`[0, line_len) is ENTIRELY a single-line HTML comment
+ * ("<!-- ... -->", nothing else outside it, e.g. a "<!-- runnable -->"
+ * metadata annotation marking the code block right after it) - foldable
+ * the same way a fence delimiter line is (see md_is_foldable_line() just
+ * below), not just the inline "hide the delimiters, keep the row"
+ * treatment render_editor_line_markdown() gives an <!-- --> that shares a
+ * line with real content. Trims trailing '\r' too, so this still matches
+ * on a CRLF-saved document (lines are only ever split on '\n' - see every
+ * line-walking loop in this file). */
+static int md_is_comment_only_line(const char* line, int line_len)
+{
+    int j = 0, k = line_len;
+    while (j < k && (line[j] == ' ' || line[j] == '\t'))
+        j++;
+    while (k > j && (line[k - 1] == ' ' || line[k - 1] == '\t' || line[k - 1] == '\r'))
+        k--;
+    if (k - j < 7)  /* "<!--" (4) + "-->" (3) is the shortest possible match */
+        return 0;
+    return line[j] == '<' && line[j + 1] == '!' && line[j + 2] == '-' && line[j + 3] == '-' &&
+           line[k - 1] == '>' && line[k - 2] == '-' && line[k - 3] == '-';
+}
+
+/* Whether `line`[0, line_len) should be removed entirely (no row at all)
+ * from a read-only Markdown preview - a fence delimiter or a comment-only
+ * line, the two cases md_is_fence_line()/md_is_comment_only_line() cover
+ * respectively. Every vertical-folding call site (render_editor()'s row
+ * loop, editor_row_to_line(), editor_move_lines(), editor_visible_line_
+ * count()) goes through this one function rather than checking each case
+ * separately, so a third foldable-line kind only ever needs adding here. */
+static int md_is_foldable_line(const char* line, int line_len)
+{
+    return md_is_fence_line(line, line_len) || md_is_comment_only_line(line, line_len);
+}
+
+/* Whether 0-based document line `line_idx` in `text` is foldable (see
+ * md_is_foldable_line()) - the by-index form md_line_at_index_is_fence()
+ * above provides for a fence line alone; used by callers (a click's target
+ * row, Up/Down's target line) that only have a line index in hand, not
+ * its byte range. */
+static int md_line_at_index_is_foldable(const char* text, int line_idx)
+{
+    int idx = 0, off = 0;
+    int len = (int)strlen(text);
+    while (off <= len)
+    {
+        int ls = off;
+        while (off < len && text[off] != '\n')
+            off++;
+        if (idx == line_idx)
+            return md_is_foldable_line(text + ls, off - ls);
+        if (off >= len)
+            break;
+        off++;
+        idx++;
+    }
+    return 0;
+}
+
 /* Wall-clock ms for the edit currently being processed - set once per
  * ui_screen_update() call from the env's time (see ui_env_set_time_ms) and
  * read by editor_undo_mark() below to decide whether an edit is close
@@ -2117,7 +2432,6 @@ static void editor_move_lines(ui_node* n, int delta)
 {
     int line, line_start;
     editor_cursor_line(n, &line, &line_start);
-    int col = utf8_col_of(n->label + line_start, n->cursor - line_start);
 
     int target = line + delta;
     if (target < 0)
@@ -2126,10 +2440,42 @@ static void editor_move_lines(ui_node* n, int delta)
     if (target > last)
         target = last;
 
+    /* Never land the caret on a fence/comment-only line for a read-only
+     * Markdown document - render_editor() never draws a row for one (see
+     * the md_is_foldable_line() block comment above), so the caret would
+     * just vanish there instead of visibly moving. Keep stepping the same
+     * direction Up/Down was already moving until landing on a real line,
+     * or hitting whichever end of the document is closer. */
+    if (n->syntax == UI_SYNTAX_MARKDOWN && n->read_only)
+    {
+        int step = delta >= 0 ? 1 : -1;
+        while (target > 0 && target < last && md_line_at_index_is_foldable(n->label, target))
+            target += step;
+    }
+
     int ls, le;
     if (!editor_line_range(n->label, target, &ls, &le))
         return;
 
+    /* For a read-only Markdown document, keep the caret's *visual* column
+     * (post-collapse - see the md_scan_line() block comment above) rather
+     * than its raw source column, so Up/Down actually tracks the column the
+     * caret appears under on screen instead of drifting sideways whenever
+     * the two lines hide a different number of delimiters. */
+    if (n->syntax == UI_SYNTAX_MARKDOWN && n->read_only)
+    {
+        int src_end = line_start;
+        while (n->label[src_end] && n->label[src_end] != '\n')
+            src_end++;
+        int src_block = md_in_block_at(n->label, line_start);
+        int col = md_scan_line(n->label + line_start, src_end - line_start, &src_block,
+                                n->cursor - line_start, -1);
+        int dst_block = md_in_block_at(n->label, ls);
+        n->cursor = ls + md_scan_line(n->label + ls, le - ls, &dst_block, -1, col);
+        return;
+    }
+
+    int col = utf8_col_of(n->label + line_start, n->cursor - line_start);
     int off = ls, c = 0;
     while (c < col && off < le)
     {
@@ -2145,12 +2491,47 @@ static void editor_move_vertical(ui_node* n, int dir)
     editor_move_lines(n, dir);
 }
 
+/* The document line that ends up drawn at screen row `click_row` (0-based,
+ * relative to the editor's own scrolled view) - identity (n->scroll +
+ * click_row) for every syntax except a read-only Markdown document, where
+ * a fence/comment-only line takes no row at all (see the md_is_foldable_
+ * line() block comment above) - this mirrors render_editor()'s own row
+ * loop skip so a click lands on the same line that's actually drawn there,
+ * not on whatever line a naive n->scroll + click_row would name once
+ * something above it has been skipped. */
+static int editor_row_to_line(const ui_node* n, int click_row)
+{
+    if (n->syntax != UI_SYNTAX_MARKDOWN || !n->read_only)
+        return n->scroll + click_row;
+
+    int total = editor_line_count(n->label);
+    int line = n->scroll;
+    int shown = 0;
+    while (line < total)
+    {
+        if (md_line_at_index_is_foldable(n->label, line))
+        {
+            line++;
+            continue;
+        }
+        if (shown == click_row)
+            return line;
+        shown++;
+        line++;
+    }
+    /* Ran off the end still short of click_row - past the document, same
+     * as a plain click below a short document today (editor_line_range()
+     * below rejects it and the caller falls back to "clicked past the last
+     * line"). */
+    return line;
+}
+
 /* Place the cursor at (click_row, click_col) within the editor's currently
  * scrolled view - click_row/click_col are relative to the widget's top-left,
  * already adjusted for its own x/y by the caller. */
 static void editor_click_set_cursor(ui_node* n, int click_row, int click_col)
 {
-    int target = n->scroll + click_row;
+    int target = editor_row_to_line(n, click_row);
 
     int ls, le;
     if (!editor_line_range(n->label, target, &ls, &le))
@@ -2162,6 +2543,19 @@ static void editor_click_set_cursor(ui_node* n, int click_row, int click_col)
     /* click_col is a viewport column; the logical column is offset by the
      * horizontal scroll so clicks land on the character actually shown. */
     int target_col = n->hscroll + click_col;
+
+    /* A read-only Markdown document draws with delimiters actually removed
+     * (see the md_scan_line() block comment above render_editor()), so a
+     * screen column has to be mapped back to a byte offset the same
+     * collapsed way, or a click would land on the wrong character whenever
+     * the line hides anything before the click point. */
+    if (n->syntax == UI_SYNTAX_MARKDOWN && n->read_only)
+    {
+        int in_block = md_in_block_at(n->label, ls);
+        n->cursor = ls + md_scan_line(n->label + ls, le - ls, &in_block, -1, target_col);
+        return;
+    }
+
     int off = ls, col = 0;
     while (col < target_col && off < le)
     {
@@ -2274,12 +2668,43 @@ static void editor_select_word(ui_node* n)
     n->cursor = end;
 }
 
+/* editor_line_count(), but for a read-only Markdown document a fence/
+ * comment-only line doesn't count - it never gets a row of its own (see
+ * the md_is_foldable_line() block comment above), so counting it here
+ * would size the vertical scrollbar/max-scroll for more rows than the
+ * document actually ever shows, letting the view scroll down into blank
+ * space past the real end of the content, or undersize the thumb. Every
+ * other syntax mode (and an *editable* Markdown document, which draws
+ * every line as its own row same as any other syntax) just falls back to
+ * the plain per-line count. */
+static int editor_visible_line_count(ui_node* n)
+{
+    if (n->syntax != UI_SYNTAX_MARKDOWN || !n->read_only)
+        return editor_line_count(n->label);
+
+    const char* text = n->label;
+    int text_len = (int)strlen(text);
+    int off = 0, count = 0;
+    while (off <= text_len)
+    {
+        int ls = off;
+        while (off < text_len && text[off] != '\n')
+            off++;
+        if (!md_is_foldable_line(text + ls, off - ls))
+            count++;
+        if (off >= text_len)
+            break;
+        off++;
+    }
+    return count > 0 ? count : 1;  /* editor_line_count() never returns less than 1 either */
+}
+
 /* Keep n->scroll (the index of the topmost visible line) in range - called
  * both after edits that can shrink the document and directly by mouse-wheel
  * scrolling, which moves it without touching the cursor at all. */
 static void editor_clamp_scroll(ui_node* n)
 {
-    int max_scroll = editor_line_count(n->label) - n->h;
+    int max_scroll = editor_visible_line_count(n) - n->h;
     if (max_scroll < 0)
         max_scroll = 0;
     if (n->scroll > max_scroll)
@@ -2300,7 +2725,7 @@ static void editor_clamp_scroll(ui_node* n)
 
 static int editor_has_vscrollbar(ui_node* n)
 {
-    return n->w > 0 && n->h > 0 && editor_line_count(n->label) > n->h;
+    return n->w > 0 && n->h > 0 && editor_visible_line_count(n) > n->h;
 }
 
 /* Same shape as listbox_scrollbar_thumb, just over line count instead of
@@ -2308,7 +2733,7 @@ static int editor_has_vscrollbar(ui_node* n)
  * carve out of it (unlike the old window-border version). */
 static void editor_vscrollbar_thumb(ui_node* n, int* out_start, int* out_len)
 {
-    int total = editor_line_count(n->label);
+    int total = editor_visible_line_count(n);
     int max_scroll = total - n->h;
     if (max_scroll <= 0 || n->h <= 0)
     {
@@ -2336,7 +2761,7 @@ static void editor_vscrollbar_set_from_mouse(ui_node* n, int mouse_y)
     }
     else
     {
-        int max_scroll = editor_line_count(n->label) - n->h;
+        int max_scroll = editor_visible_line_count(n) - n->h;
         if (max_scroll < 0)
             max_scroll = 0;
         int row = mouse_y - n->y;
@@ -2406,6 +2831,15 @@ int ui_editor_caret_line(const ui_node* n)
     int line, line_start;
     editor_cursor_line((ui_node*)n, &line, &line_start);
     return line + 1;  /* 1-based */
+}
+
+int ui_editor_line_at_point(const ui_node* n, int x, int y)
+{
+    if (!n || n->type != UI_TAG_EDITOR)
+        return -1;
+    if (x < n->x || x >= n->x + n->w || y < n->y || y >= n->y + n->h)
+        return -1;
+    return n->scroll + (y - n->y);
 }
 
 static int has_selection(const ui_node* n);
@@ -2728,7 +3162,16 @@ static char* strip_markdown_readonly(const char* s, int len, int in_block)
 
         if (off < len)
         {
-            out[o++] = '\n';
+            /* A fence delimiter line ("```" or "```c") already contributed
+             * zero bytes of content above (is_fence hides every character on
+             * it) - also skip its own newline, so the line vanishes from the
+             * copied text entirely instead of leaving a blank line behind
+             * where it used to be. Without this, pasting a selection that
+             * spans a fence would still show the gap it used to fill, even
+             * though none of its actual text (the backticks/language tag)
+             * survived the copy. */
+            if (!is_fence)
+                out[o++] = '\n';
             off++;
         }
         else
@@ -6198,6 +6641,56 @@ static int scan_multiline_state(int syntax, const char* line, int len, int in_bl
     return in_block;
 }
 
+/* The fence-line half of Markdown's embedded-```c-block tracking: given a
+ * line already confirmed to be a "```"/"```lang" delimiter, updates in_c_
+ * block (whether the block it opens or closes is tagged "c") and, on open,
+ * resets that block's own C block-comment continuation and bracket-nesting
+ * depth (c_comment_block/c_bracket_depth - completely separate from the
+ * `in_block`/`bracket_depth` a caller may also be tracking, which are about
+ * "inside *some* fence" and UI_SYNTAX_C's own top-level state respectively,
+ * not this). `in_block_before` is `in_block`'s value *before* this same
+ * fence line's own scan_markdown_fence_state() toggle - a fence's language
+ * tag only matters at the instant its block opens, i.e. whether the fence
+ * was seen while NOT already inside one. See render_editor()'s row loop for
+ * where in_c_block decides whether a content line gets Markdown's flat
+ * md_code_fg or the real C highlighter (render_editor_line()). */
+static void md_toggle_c_block_on_fence(const char* line, int line_len, int in_block_before,
+                                        int* in_c_block, int* c_comment_block, int* c_bracket_depth)
+{
+    if (!in_block_before)
+    {
+        *in_c_block = md_fence_lang_is_c(line, line_len);
+        *c_comment_block = 0;
+        *c_bracket_depth = 0;
+    }
+    else
+    {
+        *in_c_block = 0;
+    }
+}
+
+/* Full per-line advance built on md_toggle_c_block_on_fence() above: also
+ * handles a non-fence line, running it through scan_line_block_state() to
+ * carry the embedded block's own C state forward when it's content inside
+ * one (in_c_block already true). For a line that's never actually drawn
+ * (the pre-scroll priming walk, the fence/comment-only skip loop) this is
+ * the whole story; render_editor()'s row loop instead lets render_editor_
+ * line() do this same advancing itself as a side effect of drawing a
+ * VISIBLE ```c content line - see the dispatch switch - and only calls
+ * md_toggle_c_block_on_fence() directly (not this) for a fence line, or
+ * this line's md_is_fence_line() check plus a direct scan_line_block_state()
+ * call for a content line scrolled off the top of the screen (sy < 0,
+ * never drawn either), to avoid scanning the same line's C state twice. */
+static void md_advance_c_block_state(const char* line, int line_len, int in_block_before,
+                                      int* in_c_block, int* c_comment_block, int* c_bracket_depth)
+{
+    if (md_is_fence_line(line, line_len))
+        md_toggle_c_block_on_fence(line, line_len, in_block_before,
+                                    in_c_block, c_comment_block, c_bracket_depth);
+    else if (*in_c_block)
+        *c_comment_block = scan_line_block_state(line, line_len, *c_comment_block, c_bracket_depth);
+}
+
 /* Draw one source line. `in_block` (in/out) carries /* ... *\/ block-comment
  * state across lines: on entry, whether this line starts inside a block
  * comment; on return, whether it ends inside one. `depth` (in/out) is the
@@ -6539,9 +7032,20 @@ static void render_editor_line_plain(int x, int y, int w, int scroll_x,
  * their whole line, fenced code blocks ("```" ... "```", tracked line-to-line
  * via `in_block` the same way render_editor_line's block comments are) color
  * every line between the fences (including the fences themselves), and
- * inline `code spans` color just the span. In read-only mode, markdown
- * delimiters are hidden in a presentation-style pass so the source reads more
- * like a rendered preview while still keeping columns aligned for scrolling. */
+ * inline `code span`s, **bold** spans, and [link text](dest) color just
+ * their own bit - using the theme's dedicated md_heading_fg/md_blockquote_fg/md_code_fg/
+ * md_bold_fg/md_link_fg, not the UI_SYNTAX_C colors, so a theme can restyle
+ * Markdown independently of C source.
+ *
+ * That coloring is the same whether editing or previewing - only whether the
+ * delimiter punctuation itself (the "```"/"`"/"**"/"<!-- -->"/"[]()" bytes)
+ * is actually drawn differs: editing shows the real source, delimiters
+ * included (so what you type is what you see); read-only mode removes them
+ * in a presentation-style pass (not just blanked out - see the
+ * md_scan_line() block comment above) so the line reads like a rendered
+ * preview instead of source-with-holes-in-it. The caller keeps cursor/
+ * selection/scrollbar math agreeing with that read-only collapse via
+ * md_scan_line() rather than a raw column count. */
 static void render_editor_line_markdown(int x, int y, int w, int scroll_x,
                                          const char* line, int line_len, int sel_col_lo, int sel_col_hi,
                                          int* in_block, int read_only, uint32_t bg)
@@ -6572,114 +7076,133 @@ static void render_editor_line_markdown(int x, int y, int w, int scroll_x,
         uint32_t cp;
         int clen = utf8_decode(line + i, &cp);
         uint32_t fg;
-        uint32_t draw_cp = cp;
-        int hide_char = 0;
+        /* is_delim: this codepoint (plus any skip_extra bytes right after
+         * it) is Markdown punctuation, not document text - collapsed away
+         * entirely in read-only mode, still drawn (just colored) while
+         * editing. The is_*_marker flags identify which span a delimiter
+         * itself belongs to, so (unlike in_span/in_bold/in_link_text, which
+         * only become true *after* an opening delimiter toggles them) both
+         * the opening and closing delimiter of a span get that span's color
+         * too, not just the plain text color for whichever one happens to
+         * flip the flag off. */
+        int is_delim = 0, skip_extra = 0;
+        int is_code_marker = 0, is_bold_marker = 0, is_link_marker = 0;
 
-        if (read_only)
+        if (in_html_comment)
         {
-            if (in_html_comment)
+            is_delim = 1;
+            if (i + 2 < line_len && line[i] == '-' && line[i + 1] == '-' && line[i + 2] == '>')
             {
-                hide_char = 1;
-                if (i + 2 < line_len && line[i] == '-' && line[i + 1] == '-' && line[i + 2] == '>')
+                /* The closing "-->" is 2 more delimiter bytes beyond the one
+                 * already accounted for by is_delim below. */
+                skip_extra = 2;
+                in_html_comment = 0;
+            }
+        }
+        else if (is_fence)
+        {
+            is_delim = 1;
+        }
+        else if (!in_code_block)
+        {
+            if (cp == '`')
+            {
+                is_delim = 1;
+                is_code_marker = 1;
+                in_span = !in_span;
+            }
+            else if (cp == '*' && i + 1 < line_len && line[i + 1] == '*')
+            {
+                is_delim = 1;
+                is_bold_marker = 1;
+                skip_extra = 1;
+                in_bold = !in_bold;
+            }
+            else if (cp == '<' && i + 3 < line_len && line[i + 1] == '!' &&
+                    line[i + 2] == '-' && line[i + 3] == '-')
+            {
+                is_delim = 1;
+                skip_extra = 3;
+                in_html_comment = 1;
+            }
+            else if (cp == '[')
+            {
+                const char* p = line + i + 1;
+                while (p < line + line_len && *p != ']' && *p != '\n')
+                    p++;
+                if (p < line + line_len && *p == ']' && p + 1 < line + line_len && p[1] == '(')
                 {
-                    for (int k = 0; k < 3 && col + k < scroll_x + w; k++)
-                    {
-                        int selected = col + k >= sel_col_lo && col + k < sel_col_hi;
-                        emit_hscroll(x, y, col + k, scroll_x, w, ' ', g_theme.editor_fg,
-                                     selected ? g_theme.editor_sel_bg : bg);
-                    }
-                    col += 3;
-                    i += 3;
-                    in_html_comment = 0;
-                    continue;
+                    in_link_text = 1;
+                    is_delim = 1;
+                    is_link_marker = 1;
                 }
             }
-            else if (is_fence)
+            else if (cp == ']' && in_link_text)
             {
-                hide_char = 1;
+                in_link_text = 0;
+                is_delim = 1;
+                is_link_marker = 1;
+                if (i + 1 < line_len && line[i + 1] == '(')
+                    in_link_dest = 1;
             }
-            else if (!in_code_block)
+            else if (in_link_dest)
             {
-                if (cp == '`')
+                is_delim = 1;
+                if (cp == ')')
                 {
-                    hide_char = 1;
-                    in_span = !in_span;
-                }
-                else if (cp == '*' && i + 1 < line_len && line[i + 1] == '*')
-                {
-                    in_bold = !in_bold;
-                    for (int k = 0; k < 2 && col + k < scroll_x + w; k++)
-                    {
-                        int selected = col + k >= sel_col_lo && col + k < sel_col_hi;
-                        emit_hscroll(x, y, col + k, scroll_x, w, ' ', g_theme.editor_fg,
-                                     selected ? g_theme.editor_sel_bg : bg);
-                    }
-                    col += 2;
-                    i += 2;
-                    continue;
-                }
-                else if (cp == '<' && i + 3 < line_len && line[i + 1] == '!' &&
-                        line[i + 2] == '-' && line[i + 3] == '-')
-                {
-                    in_html_comment = 1;
-                    for (int k = 0; k < 4 && col + k < scroll_x + w; k++)
-                    {
-                        int selected = col + k >= sel_col_lo && col + k < sel_col_hi;
-                        emit_hscroll(x, y, col + k, scroll_x, w, ' ', g_theme.editor_fg,
-                                     selected ? g_theme.editor_sel_bg : bg);
-                    }
-                    col += 4;
-                    i += 4;
-                    continue;
-                }
-                else if (cp == '[')
-                {
-                    const char* p = line + i + 1;
-                    while (p < line + line_len && *p != ']' && *p != '\n')
-                        p++;
-                    if (p < line + line_len && *p == ']' && p + 1 < line + line_len && p[1] == '(')
-                    {
-                        in_link_text = 1;
-                        hide_char = 1;
-                    }
-                }
-                else if (cp == ']' && in_link_text)
-                {
-                    in_link_text = 0;
-                    hide_char = 1;
-                    if (i + 1 < line_len && line[i + 1] == '(')
-                        in_link_dest = 1;
-                }
-                else if (in_link_dest)
-                {
-                    hide_char = 1;
-                    if (cp == ')')
-                    {
-                        in_link_dest = 0;
-                    }
+                    in_link_dest = 0;
                 }
             }
         }
 
-        if (hide_char)
-            draw_cp = ' ';
+        if (read_only && is_delim)
+        {
+            /* True removal, not a blanked-out placeholder: no glyph drawn
+             * and no column consumed, so the line visually closes the gap.
+             * The caller (render_editor()) maps cursor/selection/scrollbar
+             * columns through md_scan_line() instead of a raw column count,
+             * so this doesn't desync the caret or a drag-selection from what
+             * ends up on screen - see the block comment above it. */
+            i += clen + skip_extra;
+            continue;
+        }
 
         if (in_code_block)
-            fg = g_theme.editor_string_fg;
+            fg = g_theme.md_code_fg;
         else if (heading)
-            fg = g_theme.editor_keyword_fg;
+            fg = g_theme.md_heading_fg;
         else if (blockquote)
-            fg = g_theme.editor_comment_fg;
+            fg = g_theme.md_blockquote_fg;
+        else if (in_span || is_code_marker)
+            fg = g_theme.md_code_fg;
+        else if (in_link_text || is_link_marker)
+            fg = g_theme.md_link_fg;
         else
-            fg = in_span ? g_theme.editor_string_fg : g_theme.editor_fg;
-        if (read_only && in_bold)
             fg = g_theme.editor_fg;
+        if (in_bold || is_bold_marker)
+            fg = g_theme.md_bold_fg;
 
         int selected = col >= sel_col_lo && col < sel_col_hi;
-        emit_hscroll(x, y, col, scroll_x, w, draw_cp, fg,
+        emit_hscroll(x, y, col, scroll_x, w, cp, fg,
                      selected ? g_theme.editor_sel_bg : bg);
         col++;
         i += clen;
+
+        /* Editing mode only reaches here with skip_extra > 0 (read-only
+         * already collapsed the whole run above) - draw the marker's
+         * remaining bytes (the 2nd '*' of "**", "!--" of "<!--", "--" of
+         * "-->") one codepoint at a time, same color as the byte just
+         * drawn. */
+        for (; skip_extra > 0; skip_extra--)
+        {
+            uint32_t ecp;
+            int eclen = utf8_decode(line + i, &ecp);
+            int esel = col >= sel_col_lo && col < sel_col_hi;
+            emit_hscroll(x, y, col, scroll_x, w, ecp, fg,
+                         esel ? g_theme.editor_sel_bg : bg);
+            col++;
+            i += eclen;
+        }
     }
     for (; col < scroll_x + w; col++)
     {
@@ -6762,13 +7285,22 @@ static int editor_content_cols(ui_node* n)
 {
     int text_len = (int)strlen(n->label);
     ui_diagnostic* diag = n->syntax == UI_SYNTAX_VT100 ? NULL : n->diagnostics;
+    int md_ro = n->syntax == UI_SYNTAX_MARKDOWN && n->read_only;
+    int in_block = 0;
     int line_idx = 0, off = 0, max_cols = 0;
     for (;;)
     {
         int ls = off;
         while (off < text_len && n->label[off] != '\n')
             off++;
-        int cols = utf8_col_of(n->label + ls, off - ls);
+        /* A read-only Markdown line's *visible* width, once hidden
+         * delimiters are actually collapsed (see the md_scan_line() block
+         * comment above render_editor()) - using the raw utf8_col_of() here
+         * would size the scrollbar/max-hscroll for text that's wider than
+         * what's actually drawn, letting the view scroll right past the end
+         * of the visible content into blank space. */
+        int cols = md_ro ? md_scan_line(n->label + ls, off - ls, &in_block, -1, -1)
+                          : utf8_col_of(n->label + ls, off - ls);
 
         while (diag && diag->line - 1 < line_idx)
             diag = diag->next;
@@ -6902,7 +7434,24 @@ static void render_editor(ui_screen* s, ui_node* n)
 
     int cursor_line, cursor_line_start;
     editor_cursor_line(n, &cursor_line, &cursor_line_start);
-    int cursor_col = utf8_col_of(n->label + cursor_line_start, n->cursor - cursor_line_start);
+    int cursor_col;
+    if (n->syntax == UI_SYNTAX_MARKDOWN && n->read_only)
+    {
+        /* The caret's *visual* column once hidden delimiters are actually
+         * collapsed away (see the md_scan_line() block comment above) -
+         * a raw utf8_col_of() here would draw the caret block over the
+         * wrong glyph on any line that hides something before it. */
+        int cursor_line_end = cursor_line_start;
+        while (n->label[cursor_line_end] && n->label[cursor_line_end] != '\n')
+            cursor_line_end++;
+        int block_at_cursor_line = md_in_block_at(n->label, cursor_line_start);
+        cursor_col = md_scan_line(n->label + cursor_line_start, cursor_line_end - cursor_line_start,
+                                   &block_at_cursor_line, n->cursor - cursor_line_start, -1);
+    }
+    else
+    {
+        cursor_col = utf8_col_of(n->label + cursor_line_start, n->cursor - cursor_line_start);
+    }
 
     int has_sel = has_selection(n);
     int sel_lo = 0, sel_hi = 0;
@@ -6930,6 +7479,15 @@ static void render_editor(ui_screen* s, ui_node* n)
     int bracket_depth = 0;  /* C syntax only - see render_editor_line's
                              * rainbow bracket coloring; harmless dead weight
                              * for every other syntax, which never reads it */
+    /* Markdown only - see md_advance_c_block_state()'s block comment above:
+     * whether the line currently being walked lies inside a ```c fenced
+     * block, and (only meaningful when it does) that block's own C block-
+     * comment continuation / bracket depth, entirely separate from
+     * in_block/bracket_depth just above. Harmless dead weight for every
+     * other syntax mode, same as bracket_depth is. */
+    int in_c_block = 0;
+    int c_comment_block = 0;
+    int c_bracket_depth = 0;
     int off = 0, have_line = 1;  /* start of the current line; whether it exists */
     int start_line = 0;
 
@@ -6945,12 +7503,18 @@ static void render_editor(ui_screen* s, ui_node* n)
         off = n->scan_off;
         in_block = n->scan_block;
         bracket_depth = n->scan_bracket_depth;
+        in_c_block = n->scan_c_block;
+        c_comment_block = n->scan_c_comment;
+        c_bracket_depth = n->scan_c_bracket;
     }
     for (int line = start_line; line < n->scroll && have_line; line++)
     {
         int ls = off;
         while (off < text_len && n->label[off] != '\n')
             off++;
+        if (n->syntax == UI_SYNTAX_MARKDOWN)
+            md_advance_c_block_state(n->label + ls, off - ls, in_block,
+                                      &in_c_block, &c_comment_block, &c_bracket_depth);
         in_block = scan_multiline_state(n->syntax, n->label + ls, off - ls, in_block, &bracket_depth);
         if (off < text_len)
             off++;           /* skip the '\n' onto the next line */
@@ -6967,7 +7531,21 @@ static void render_editor(ui_screen* s, ui_node* n)
         n->scan_off = off;
         n->scan_block = in_block;
         n->scan_bracket_depth = bracket_depth;
+        n->scan_c_block = in_c_block;
+        n->scan_c_comment = c_comment_block;
+        n->scan_c_bracket = c_bracket_depth;
     }
+
+    /* Persistent (not row-derived) from here down: for every other syntax
+     * mode line_idx == n->scroll + row always, but a read-only Markdown
+     * document's fence/comment-only lines take no row at all (see the
+     * md_is_foldable_line() block comment above), so a row and the document
+     * line it shows can drift apart as soon as one of those is skipped -
+     * line_idx has to be threaded through the loop instead of recomputed
+     * each time, incremented once for every document line consumed
+     * (skipped or drawn), same as `off`/`in_block`/`bracket_depth` already
+     * are. */
+    int line_idx = n->scroll;
 
     for (int row = 0; row < n->h; row++)
     {
@@ -6975,7 +7553,28 @@ static void render_editor(ui_screen* s, ui_node* n)
         if (sy >= s->screen_h)
             break;  /* this row and every one below it are off the bottom */
 
-        int line_idx = n->scroll + row;
+        if (n->syntax == UI_SYNTAX_MARKDOWN && n->read_only)
+        {
+            /* Skip forward past a run of fence/comment-only lines - none of
+             * them get a row, so this row's content is whatever real line
+             * comes after them (or none, if the document ends first). */
+            while (have_line)
+            {
+                int fls = off, fle = off;
+                while (fle < text_len && n->label[fle] != '\n')
+                    fle++;
+                if (!md_is_foldable_line(n->label + fls, fle - fls))
+                    break;
+                md_advance_c_block_state(n->label + fls, fle - fls, in_block,
+                                          &in_c_block, &c_comment_block, &c_bracket_depth);
+                in_block = scan_multiline_state(n->syntax, n->label + fls, fle - fls, in_block, &bracket_depth);
+                if (fle < text_len)
+                    off = fle + 1;
+                else
+                    have_line = 0;
+                line_idx++;
+            }
+        }
 
         if (!have_line)
         {
@@ -6994,12 +7593,33 @@ static void render_editor(ui_screen* s, ui_node* n)
         else
             have_line = 0;
 
+        /* Whether *this* line is itself a fence delimiter, and (using
+         * in_block's value from *before* the scan_multiline_state()/render_
+         * editor_line_markdown() call below toggles it) whether it opens or
+         * closes a ```c block - see md_toggle_c_block_on_fence()'s block
+         * comment. Computed unconditionally (cheap - a handful of byte
+         * compares) rather than only under UI_SYNTAX_MARKDOWN, since a
+         * non-Markdown document's lines never start with "```" as their
+         * first non-blank content in any way that matters here anyway. */
+        int line_is_fence = n->syntax == UI_SYNTAX_MARKDOWN && md_is_fence_line(n->label + ls, le - ls);
+        if (line_is_fence)
+            md_toggle_c_block_on_fence(n->label + ls, le - ls, in_block,
+                                        &in_c_block, &c_comment_block, &c_bracket_depth);
+
         if (sy < 0)
         {
             /* Row is above the top of the screen: don't draw it, but keep the
              * block-comment state (and bracket depth) advancing so visible
-             * rows below color right. */
+             * rows below color right - including, for Markdown, the embedded
+             * ```c block's own state (already toggled above if this line was
+             * the fence itself; scanned here directly if it's content inside
+             * one, since render_editor_line() - which would otherwise do
+             * this as a side effect of drawing - never runs for a row that's
+             * never drawn). */
+            if (!line_is_fence && in_c_block)
+                c_comment_block = scan_line_block_state(n->label + ls, le - ls, c_comment_block, &c_bracket_depth);
             in_block = scan_multiline_state(n->syntax, n->label + ls, le - ls, in_block, &bracket_depth);
+            line_idx++;
             continue;
         }
 
@@ -7016,11 +7636,30 @@ static void render_editor(ui_screen* s, ui_node* n)
             int hi = sel_hi < line_end_incl ? sel_hi : line_end_incl;
             if (lo < hi)
             {
-                sel_col_lo = utf8_col_of(n->label + ls, lo - ls);
-                /* A selection past this line's end fills to the visible right
-                 * edge (hscroll + w), not just column w, so the cue still
-                 * spans the viewport when scrolled horizontally. */
-                sel_col_hi = hi > le ? n->hscroll + n->w : utf8_col_of(n->label + ls, hi - ls);
+                if (n->syntax == UI_SYNTAX_MARKDOWN && n->read_only)
+                {
+                    /* Selection bounds in the same collapsed column space
+                     * render_editor_line_markdown() draws in (see the
+                     * md_scan_line() block comment above) - a scratch copy
+                     * of `in_block` here, since md_scan_line() toggles it
+                     * for a fence line the same way the real renderer call
+                     * just below does, and that one is the one whose result
+                     * should actually carry over to the next row. */
+                    int tmp_block = in_block;
+                    sel_col_lo = md_scan_line(n->label + ls, le - ls, &tmp_block, lo - ls, -1);
+                    tmp_block = in_block;
+                    sel_col_hi = hi > le ? n->hscroll + n->w
+                                         : md_scan_line(n->label + ls, le - ls, &tmp_block, hi - ls, -1);
+                }
+                else
+                {
+                    sel_col_lo = utf8_col_of(n->label + ls, lo - ls);
+                    /* A selection past this line's end fills to the visible
+                     * right edge (hscroll + w), not just column w, so the
+                     * cue still spans the viewport when scrolled
+                     * horizontally. */
+                    sel_col_hi = hi > le ? n->hscroll + n->w : utf8_col_of(n->label + ls, hi - ls);
+                }
             }
         }
         /* The whole row the caret is on gets a subtle background tint (see
@@ -7029,9 +7668,43 @@ static void render_editor(ui_screen* s, ui_node* n)
          * by reusing the selection color for its own line, now generalized
          * to every syntax mode with a color of its own so it doesn't read
          * as an actual selection. Only when there's no real selection - a
-         * real one (has_sel above) always wins. */
-        uint32_t line_bg = (!has_sel && line_idx == cursor_line)
-            ? g_theme.editor_current_line_bg : g_theme.editor_bg;
+         * real one (has_sel above) always wins.
+         *
+         * For Markdown, a row that's part of a fenced code block - the
+         * fence delimiter lines themselves and every content line between
+         * them, any language, not just ```c - gets g_theme.md_code_bg
+         * instead, so a code block reads as a visually distinct panel (in
+         * both edit and read-only mode, same as every other Markdown color -
+         * see the md_heading_fg et al. block comment in ide_ui.h). That
+         * takes priority over the current-line tint (but still loses to an
+         * actual selection) - `in_block` here is this line's PRE-toggle
+         * state (see line_is_fence's own comment above), so it already
+         * covers a plain content line (in_block was 1 entering it); ORing in
+         * line_is_fence additionally covers the fence line itself, which
+         * enters the block with in_block still 0 (opening) or leaves it with
+         * in_block still 1 (closing) - either way it's part of the block.
+         *
+         * A read-only Markdown preview never gets the current-line tint at
+         * all (nor, further down, a blinking caret - see the caret block's
+         * own comment) - there's nothing being "edited" for a highlighted
+         * line/caret to track, and both would just be a stray visual left
+         * over from wherever the cursor last happened to land (a click, a
+         * search result, ...) rather than an actual editing cue. */
+        uint32_t line_bg;
+        int md_readonly = n->syntax == UI_SYNTAX_MARKDOWN && n->read_only;
+        if (!has_sel && n->syntax == UI_SYNTAX_MARKDOWN && (in_block || line_is_fence))
+            line_bg = g_theme.md_code_bg;
+        else if (!has_sel && !md_readonly && line_idx == cursor_line)
+            line_bg = g_theme.editor_current_line_bg;
+        else
+            line_bg = g_theme.editor_bg;
+
+        /* Captured before render_editor_line_markdown() below mutates
+         * `in_block` for this line, so the caret "under" char lookup further
+         * down (which runs after the switch) can still map cursor_col back
+         * to a byte offset using the state this line actually started
+         * from. */
+        int line_entry_block = in_block;
 
         switch (n->syntax)
         {
@@ -7040,8 +7713,22 @@ static void render_editor(ui_screen* s, ui_node* n)
                                      sel_col_lo, sel_col_hi, line_bg);
             break;
         case UI_SYNTAX_MARKDOWN:
-            render_editor_line_markdown(n->x, n->y + row, n->w, n->hscroll, n->label + ls, le - ls,
-                                         sel_col_lo, sel_col_hi, &in_block, n->read_only, line_bg);
+            /* A content line (not the fence itself) inside a block tagged
+             * "```c" reuses the real C highlighter - same coloring a plain
+             * .c file gets - instead of Markdown's own flat md_code_fg; see
+             * md_toggle_c_block_on_fence()'s block comment for how in_c_
+             * block/c_comment_block/c_bracket_depth get here. Column math
+             * (sel_col_lo/sel_col_hi, cursor_col above) needs no special
+             * case either way - md_scan_line() already treats every byte in
+             * a code block (of any language) as unhidden, i.e. plain
+             * per-codepoint columns, the same thing utf8_col_of() would've
+             * produced - see the `!in_code_block` gate in its block comment. */
+            if (!line_is_fence && in_c_block)
+                render_editor_line(n->x, n->y + row, n->w, n->hscroll, n->label + ls, le - ls,
+                                    sel_col_lo, sel_col_hi, &c_comment_block, line_bg, &c_bracket_depth);
+            else
+                render_editor_line_markdown(n->x, n->y + row, n->w, n->hscroll, n->label + ls, le - ls,
+                                             sel_col_lo, sel_col_hi, &in_block, n->read_only, line_bg);
             break;
         case UI_SYNTAX_C:
             render_editor_line(n->x, n->y + row, n->w, n->hscroll, n->label + ls, le - ls,
@@ -7074,24 +7761,44 @@ static void render_editor(ui_screen* s, ui_node* n)
         /* No blinking caret block in the VT100/Output window - it's read-only
          * compiler output, not something the user is typing into, so a caret
          * there would just be a distracting artifact of wherever the last
-         * click/goto-source landed. The current-line tint above (line_bg)
-         * still shows which line that is - that's the part worth keeping. */
-        if (caret && !has_sel && n->syntax != UI_SYNTAX_VT100 && line_idx == cursor_line &&
+         * click/goto-source landed. Same reasoning for a read-only Markdown
+         * preview - there's nothing to type into there either, and (see
+         * line_bg above) it no longer gets the current-line tint either, so
+         * a caret alone would be an orphaned block with no line-level cue to
+         * go with it. */
+        if (caret && !has_sel && n->syntax != UI_SYNTAX_VT100 && !md_readonly && line_idx == cursor_line &&
             cursor_col >= n->hscroll && cursor_col < n->hscroll + n->w)
         {
             uint32_t under = ' ';
-            int off = ls, col = 0;
-            while (col < cursor_col && off < le)
+            int off;
+            if (n->syntax == UI_SYNTAX_MARKDOWN && n->read_only)
             {
-                uint32_t cp;
-                off += utf8_decode(n->label + off, &cp);
-                col++;
+                /* Reverse the same collapsed column mapping used for
+                 * cursor_col/sel_col_* above, from the state this line
+                 * entered with (line_entry_block), not the post-toggle
+                 * `in_block` left behind by render_editor_line_markdown()
+                 * a few lines up. */
+                int tmp_block = line_entry_block;
+                off = ls + md_scan_line(n->label + ls, le - ls, &tmp_block, -1, cursor_col);
+            }
+            else
+            {
+                int col = 0;
+                off = ls;
+                while (col < cursor_col && off < le)
+                {
+                    uint32_t cp;
+                    off += utf8_decode(n->label + off, &cp);
+                    col++;
+                }
             }
             if (off < le)
                 utf8_decode(n->label + off, &under);
             emit_char(n->x + cursor_col - n->hscroll, n->y + row, under,
                       g_theme.editor_sel_fg, g_theme.editor_sel_bg);
         }
+
+        line_idx++;  /* this row's document line is now fully processed */
     }
 
     /* The scrollbar overlays (see editor_has_vscrollbar/editor_has_

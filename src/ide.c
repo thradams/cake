@@ -144,6 +144,16 @@ enum {
                                     * reveals the document's containing folder
                                     * in the Folder panel, see
                                     * folder_reveal_directory() */
+    EVT_EDITOR_CODEBLOCK_COPY = 818,  /* the editor popup's "Copy Code Block"
+                                       * item - only enabled when the right-
+                                       * click that opened the popup landed on/
+                                       * in a Markdown fenced code block, see
+                                       * refresh_codeblock_items() */
+    EVT_EDITOR_CODEBLOCK_PLAYGROUND = 819,  /* the editor popup's "Copy to
+                                             * Playground" item - writes that
+                                             * same fenced code block into
+                                             * playground.c and opens it, see
+                                             * refresh_codeblock_items() */
     EVT_SEARCH_FIND = 20,      /* the Search > "Find..." menu item's id */
     EVT_SEARCH_REPLACE = 21,   /* the Search > "Replace..." menu item's id */
     EVT_SEARCH_NEXT = 23,      /* Search > "Search Next" (F3) */
@@ -162,6 +172,7 @@ enum {
     EVT_COPTS_OK = 900,
     EVT_COPTS_CANCEL = 901,
     EVT_COPTS_TARGET = 910,  /* base id for the Target <select>'s options */
+    EVT_COPTS_STYLE = 920,   /* base id for the Style <select>'s options */
     EVT_TOOLS_FINDREPLACE = 63,  /* Tools > "Find and Replace..." - opens/
                                   * raises the docked panel (see g_fr_window) */
     EVT_TOOLS_TERMINAL = 64,    /* Tools > "Terminal" - see do_open_terminal() */
@@ -184,6 +195,46 @@ enum {
                                     * doesn't exist yet - see
                                     * refresh_folder_show_filter_item/
                                     * create_default_filter_file */
+    EVT_FOLDER_COPY_PATH = 974,  /* same popup's "Copy Full Path" item -
+                                  * copies g_folder_dir itself (the directory
+                                  * the panel is currently browsing), not a
+                                  * particular row - the popup isn't opened
+                                  * per-row (see its own EVT_FOLDER_TOGGLE_
+                                  * FILTER doc comment), unlike the editor
+                                  * popup's identically-labeled EVT_EDITOR_
+                                  * COPY_PATH, which copies a document
+                                  * window's own path */
+    EVT_FOLDER_NEWFILE = 975,  /* same popup's "New File..." item - opens the
+                                * dialog below (g_foldernew_modal), same one
+                                * EVT_FOLDER_NEWFOLDER opens - see
+                                * g_foldernew_is_folder's own doc comment for
+                                * how the two share it */
+    EVT_FOLDERNEW_OK = 976,   /* also the file/folder name <input>'s own id
+                               * (same "Enter commits like clicking OK"
+                               * convention as g_copts_input/EVT_COPTS_OK) */
+    EVT_FOLDERNEW_CANCEL = 977,
+    EVT_FOLDER_NEWFOLDER = 980,  /* same popup's "New Folder..." item - opens
+                                  * the same dialog as EVT_FOLDER_NEWFILE */
+    EVT_FOLDER_DELETE = 978,  /* same popup's "Delete" item - deletes a file
+                               * or an empty subdirectory, whichever the
+                               * listbox's currently *selected* row is
+                               * (ui_select_get_selected(g_folder_listbox)) -
+                               * same as EVT_FOLDER_COPY_PATH's own doc
+                               * comment notes, the popup itself isn't opened
+                               * per-row; a right-click doesn't reposition
+                               * the listbox's selection the way a left-click
+                               * does (see process_window's UI_TAG_LISTBOX
+                               * branch in ide_ui.c, gated on
+                               * s->mouse_pressed, which is left-button-
+                               * only), so this deletes whatever row was last
+                               * actually selected, not necessarily the one
+                               * under the cursor - the confirm prompt names
+                               * it so a mismatch is caught before it's too
+                               * late. */
+    EVT_FOLDER_DELETE_CONFIRM = 979,  /* the confirm message box's "OK" -
+                                       * Cancel just closes it, id 0, same
+                                       * convention as EVT_CLOSE_DISCARD's own
+                                       * confirm box */
 };
 
 /* One row of a <menu>'s dropdown: an id/label/shortcut triple, "---" for a
@@ -238,6 +289,38 @@ static ui_node* add_menu(ui_node* menubar, const char* label,
   * app's globals. Kept in sync with the active editor once per frame (see
   * app_frame()), the same way the popup's own copy is refreshed on open. */
 static ui_node* g_edit_readonly_item;
+
+/* The View menu's "Show Output"/"Show Folder"/"Show Playground" items (see
+ * build_screen() below) - same forward-declared-for-build_screen()/kept-
+ * current-every-frame pattern as g_edit_readonly_item just above, showing
+ * "[x]"/"[ ]" for whether each one's window is currently open rather than
+ * the active editor's read-only state - see refresh_view_item()/
+ * window_is_shown() and their app_frame() call sites. */
+static ui_node* g_view_output_item;
+static ui_node* g_view_folder_item;
+static ui_node* g_view_playground_item;
+
+/* The Compile menu's own "Compile" item (id 40 / EVT_COMPILE, "F7") - see
+ * build_screen() below) - same forward-declared-for-build_screen()/kept-
+ * current-every-frame pattern as g_edit_readonly_item above. Disabling the
+ * top-level <menu> container itself (as opposed to this leaf item) turns out
+ * not to do anything in this framework - clicking a menubar header opens its
+ * dropdown unconditionally (see the menubar loop in ide_ui.c's update()),
+ * and F7 is dispatched by activate_menu_shortcut() scanning each *item*'s
+ * own enabled flag, never the parent menu's - so this has to be the actual
+ * item, not the menu, for either route (click or F7) to actually be blocked.
+ * See path_is_c_source() and this pointer's app_frame() call site. */
+static ui_node* g_compile_item;
+
+/* The Compile menu's own "Show Generated Code" item - a separate node from
+ * the editor popup's identically-labeled/identically-idd (EVT_EDITOR_SHOW_
+ * OUTPUT) copy (see g_editor_popup_show_output), which already disables
+ * itself for a .md file on its own popup-open refresh. This one has no such
+ * open-time hook (it's a plain menubar dropdown - same reasoning as
+ * g_compile_item above), so it's kept current every frame instead,
+ * alongside g_compile_item and with the same path_is_c_source() condition -
+ * there's nothing to show without a compiled .c to show it for. */
+static ui_node* g_compile_show_output_item;
 
 /* Compile > Auto-compile's status bar mirror (see EVT_TOGGLE_AUTOCOMPILE in
  * on_ui_event) - a second clickable node with the same id as the menu item,
@@ -298,7 +381,15 @@ static void build_screen(ui_node* root)
         { EVT_WINDOW_FOLDER, "Show Folder", NULL, 1 },
         { EVT_WINDOW_PLAYGROUND, "Show Playground", NULL, 1 },
     };
-    add_menu(menubar, "View", view_items, sizeof view_items / sizeof view_items[0]);
+    ui_node* view_menu = add_menu(menubar, "View", view_items, sizeof view_items / sizeof view_items[0]);
+    /* Grabbed back out by id (add_menu builds items from the plain spec
+     * array above, so it never hands back per-item pointers) so app_frame()
+     * can relabel them "[x]"/"[ ] Show ..." each frame - see
+     * refresh_view_item()/window_is_shown() and g_view_output_item's own
+     * doc comment. */
+    g_view_output_item = ui_find_by_id(view_menu, EVT_WINDOW_OUTPUT);
+    g_view_folder_item = ui_find_by_id(view_menu, EVT_WINDOW_FOLDER);
+    g_view_playground_item = ui_find_by_id(view_menu, EVT_WINDOW_PLAYGROUND);
 
     static const menu_item_spec search_items[] = {
         { 20, "Find...", "Ctrl+F", 1 },
@@ -334,7 +425,13 @@ static void build_screen(ui_node* root)
         { 44, "Auto-compile: Off", NULL, 1 },
         { 45, "Options...", NULL, 1 },
     };
-    add_menu(menubar, "Compile", compile_items, sizeof compile_items / sizeof compile_items[0]);
+    ui_node* compile_menu = add_menu(menubar, "Compile", compile_items, sizeof compile_items / sizeof compile_items[0]);
+    /* Grabbed back out by id, same reason/pattern as the View menu's items
+     * just above - app_frame() needs the actual item node to disable (see
+     * g_compile_item's own doc comment for why the menu container itself
+     * wouldn't work). */
+    g_compile_item = ui_find_by_id(compile_menu, EVT_COMPILE);
+    g_compile_show_output_item = ui_find_by_id(compile_menu, EVT_EDITOR_SHOW_OUTPUT);
 
     /* Debug > Watches is a submenu (an <item> with its own <item> children),
      * not a plain leaf - built by hand rather than through add_menu(). */
@@ -452,14 +549,48 @@ static ui_node* g_env_theme_select;  /* the "Theme" <select> - refreshed to
                                       * match g_theme_index each time the
                                       * modal opens (see EVT_OPTIONS_ENV) */
 
-                                      /* Compile > Options... dialog and the settings it edits. g_compile_options is
-                                       * the raw text from the "Options" field (split on whitespace into argv tokens
-                                       * at compile time); g_compile_target is the slug for the chosen Target, or ""
-                                       * for none - both fed into do_compile()'s argv. */
+                                      /* Compile > Options... dialog and the settings it edits - all of it
+                                       * gathered into one compile_settings struct (g_compile) rather than a
+                                       * pile of separate globals, so do_compile()/save_session()/load_session()
+                                       * each just touch g_compile.* instead of five individually-named
+                                       * variables. options is the raw text from the "Options" field (split on
+                                       * whitespace into argv tokens at compile time); target is the slug for
+                                       * the chosen Target, or "" for none - both fed into do_compile()'s argv,
+                                       * same as no_output/line_directives/fanalyzer/flow3 below. */
 static ui_node* g_copts_modal;
 static ui_node* g_copts_input;
 static ui_node* g_copts_target;
-static char g_compile_options[512] = "";
+static ui_node* g_copts_style;  /* -style=<name> <select>, same pattern as
+                                 * g_copts_target - "Do not check" (index 0)
+                                 * maps to the empty slug, meaning no -style
+                                 * flag at all (see do_compile()). */
+static ui_node* g_copts_flags;  /* "-no-output"/"-line-directives"/"-fanalyzer"/
+                                 * "-flow3" - a check-box GROUP (multi=1),
+                                 * same control as Find's "Options"
+                                 * (g_find_opts). Read/written via
+                                 * ui_group_get_checked/ui_group_set_checked,
+                                 * only at dialog-open/OK time - see
+                                 * EVT_COMPILE_OPTIONS/EVT_COPTS_OK - same as the
+                                 * Target <select> above, so Cancel discards
+                                 * whatever got clicked. */
+
+typedef struct
+{
+    char options[512];    /* free-text tokens, split on whitespace at compile time */
+    const char* target;   /* slug for the chosen Target, or "" for none */
+    const char* style;    /* slug for -style=<name>, or "" for "Do not check" */
+    int no_output;         /* -no-output */
+    int line_directives;   /* -line-directives */
+    int fanalyzer;          /* -fanalyzer */
+    int flow3;              /* -flow3 - enables the newer flow3 analysis
+                             * engine/pass (see flow3.c/flow3.h) - like
+                             * -fanalyzer, undocumented in options.c's own
+                             * -help output (no print_option() call for it),
+                             * so there's no fuller description to quote
+                             * here beyond the flag name and module it
+                             * turns on. */
+} compile_settings;
+
 static const char* g_target_slugs[] = {
     "x86_msvc",
     "x64_msvc",
@@ -482,13 +613,53 @@ static int target_slug_to_index(const char* slug)
     return 0;
 }
 
+/* -style=<name>'s accepted values, per options.c/lib.c's own argument
+ * parser (has_prefix(argv[i], "-style") block) - "none"/"cake"/"gnu"/
+ * "microsoft" are all it currently recognizes, so that's what's offered
+ * here; the manual's llvm/google/chromium/mozilla/webkit entries aren't
+ * wired into the compiler yet (no style_options_llvm() etc.), and passing
+ * -style=llvm today just gets rejected with "Invalid style" at compile
+ * time - left out until the compiler itself grows them. Index 0 is the
+ * empty slug, i.e. no -style flag at all ("Do not check" in the dialog). */
+static const char* g_style_slugs[] = {
+    "",
+    "cake",
+    "gnu",
+    "microsoft",
+};
+
+static int style_slug_to_index(const char* slug)
+{
+    if (!slug)
+        slug = "";
+
+    int count = (int)(sizeof g_style_slugs / sizeof g_style_slugs[0]);
+    for (int i = 0; i < count; i++)
+    {
+        if (strcmp(slug, g_style_slugs[i]) == 0)
+            return i;
+    }
+
+    return 0;
+}
+
+static compile_settings g_compile =
+{
+    .options = "",
 #if defined(__APPLE__)
-static const char* g_compile_target = "macos_arm64";
+    .target = "macos_arm64",
 #elif defined(_WIN32)
-static const char* g_compile_target = "x86_msvc";
+    .target = "x86_msvc",
 #else
-static const char* g_compile_target = "x86_x64_gcc";
+    .target = "x86_x64_gcc",
 #endif
+    .style = "",
+    .no_output = 0,
+    .line_directives = 0,
+    .fanalyzer = 0,
+    .flow3 = 0,
+};
+
 static ui_node* g_output_window;
 static ui_node* g_output_editor;
 
@@ -514,6 +685,24 @@ static char g_folder_dir[1024];
 static ui_node* g_folder_popup;
 static ui_node* g_folder_popup_filter;
 static ui_node* g_folder_popup_show;
+
+/* Same popup's "New File..."/"New Folder..." items (EVT_FOLDER_NEWFILE/
+ * EVT_FOLDER_NEWFOLDER) - one shared name-then-OK/Cancel dialog (same shape
+ * as g_goto_modal/g_goto_input) that creates either an empty file or an
+ * empty directory inside g_folder_dir (the directory the popup was opened
+ * over), depending on which item opened it - see EVT_FOLDERNEW_OK. */
+static ui_node* g_foldernew_modal;
+static ui_node* g_foldernew_window;  /* retitled " New File "/" New Folder "
+                                     * each time it opens - see g_foldernew_
+                                     * is_folder just below */
+static ui_node* g_foldernew_input;
+static int g_foldernew_is_folder;  /* which of the two items opened the
+                                    * dialog this time - set right before
+                                    * ui_screen_show_modal(), read back by
+                                    * EVT_FOLDERNEW_OK to decide fopen+
+                                    * open_file_path_into_editor vs plain
+                                    * mkdir (a folder isn't something to open
+                                    * into an editor). */
 
 /* Whether folder_window_refresh applies the browsed directory's own
  * index.txt (filtering the listing down to just what it lists, in that
@@ -663,6 +852,22 @@ static ui_node* g_editor_popup_hdrsrc;  /* "Toggle Header/Source" item */
 static ui_node* g_editor_popup_show_output;  /* "Show Generated Code" item -
                                               * disabled for a .md file, see
                                               * app_frame() */
+static ui_node* g_editor_popup_codeblock_copy;        /* "Copy Code Block" item */
+static ui_node* g_editor_popup_codeblock_playground;  /* "Copy to Playground" item */
+
+/* The fenced code block (see markdown_codeblock_at_line()) the right-click
+ * that's currently open landed on/in, if any - a malloc'd copy captured by
+ * refresh_codeblock_items() when the popup opens (the same point-in-time
+ * "refresh state for whichever window/click this popup is about" the other
+ * g_editor_popup_* items above use), read back by EVT_EDITOR_CODEBLOCK_COPY/
+ * _PLAYGROUND's handlers when an item actually fires. NULL whenever the
+ * click wasn't on a Markdown fenced code block - both items are disabled in
+ * that case, so their handlers should never see it, but they still guard
+ * against it (a stale click position, or the document changing between
+ * the popup opening and an item firing, are all this is really protecting
+ * against - see refresh_codeblock_items() itself for why this can't just be
+ * recomputed from mx/my as it is there). */
+static char* g_md_codeblock_text;
 
 /* Forward declaration: the <editor> inside a document window's wrapper. */
 static ui_node* editor_in_window(ui_node* wrapper);
@@ -690,6 +895,17 @@ static ui_node* g_active_editor_window;
  * ever be showing at a time. */
 static ui_node* g_pending_close_window;
 
+/* The Folder panel popup's "Delete File" - the full path awaiting the
+ * confirm message box's "OK" (EVT_FOLDER_DELETE_CONFIRM), same "set right
+ * before showing the prompt, consumed and cleared once confirmed" shape as
+ * g_pending_close_window just above, just a path instead of a window (a
+ * listbox row has no ui_node of its own worth keeping around). Empty when
+ * no delete is pending. */
+static char g_pending_delete_path[1024];
+static int g_pending_delete_is_dir;  /* set alongside g_pending_delete_path -
+                                      * rmdir() vs remove() at confirm time,
+                                      * see EVT_FOLDER_DELETE_CONFIRM */
+
 /* Options > Compile > Auto-compile toggle. Declared up here (not with the
  * rest of the auto-compile state further down) so open_dialog_activate can
  * see it - opening a file while it's on compiles that file immediately. */
@@ -697,6 +913,11 @@ static int g_auto_compile_enabled = 0;
 static void do_compile(void);  /* defined below; called on auto-compile-open */
 static char* dupstr(const char* s);  /* defined below; used by auto_compile_tick() */
 static void open_playground(void);  /* defined below; called on View > "Show Playground" */
+static int get_playground_file_path(char* buf, size_t cap);  /* defined below;
+                                                               * used by
+                                                               * EVT_EDITOR_
+                                                               * CODEBLOCK_
+                                                               * PLAYGROUND */
 static const char* label_for_path(const char* path);  /* defined below; used wherever a
                                                         * path is reopened without going
                                                         * through open_playground() itself */
@@ -814,6 +1035,25 @@ static const ui_theme g_theme_dark = {
                                                    * distinct from string_fg's
                                                    * tan */
 
+    /* UI_SYNTAX_MARKDOWN - mirrors this theme's own C-highlighting accents
+     * rather than reusing them directly, so Markdown reads as part of the
+     * same VS Code Dark palette. */
+    .md_heading_fg = TB_RGB(0x56, 0x9C, 0xD6),     /* same VS blue as
+                                                     * editor_keyword_fg */
+    .md_blockquote_fg = TB_RGB(0x6A, 0x99, 0x55),  /* same green as
+                                                     * editor_comment_fg */
+    .md_code_fg = TB_RGB(0xCE, 0x91, 0x78),        /* same tan as
+                                                     * editor_string_fg */
+    .md_bold_fg = TB_RGB(0xD4, 0xD4, 0xD4),        /* same as editor_fg */
+    .md_link_fg = TB_RGB(0x3D, 0xA8, 0xF5),        /* VS Code Dark's actual
+                                                     * hyperlink blue */
+    .md_code_bg = TB_RGB(0x28, 0x2C, 0x34),        /* slate - subtly lighter/
+                                                     * cooler than editor_bg
+                                                     * and distinct from
+                                                     * editor_current_line_bg,
+                                                     * GitHub dark's own code-
+                                                     * block tint */
+
     /* <listbox> - same body colors as <editor>/<input> rather than the
      * classic theme's cyan, selection reuses the same #007ACC accent as
      * every other "selected" state in this theme. */
@@ -918,6 +1158,24 @@ static const ui_theme g_theme_white = {
     .editor_char_fg = TB_RGB(0xAF, 0x00, 0x75),  /* deep pink - distinct from
                                                    * string_fg's dark red and
                                                    * keyword2_fg's purple */
+
+    /* UI_SYNTAX_MARKDOWN - mirrors this theme's own C-highlighting accents
+     * rather than reusing them directly, so Markdown reads as part of the
+     * same VS Code Light palette. */
+    .md_heading_fg = TB_RGB(0x00, 0x00, 0xFF),     /* same blue as
+                                                     * editor_keyword_fg */
+    .md_blockquote_fg = TB_RGB(0x00, 0x80, 0x00),  /* same green as
+                                                     * editor_comment_fg */
+    .md_code_fg = TB_RGB(0xA3, 0x15, 0x15),        /* same dark red as
+                                                     * editor_string_fg */
+    .md_bold_fg = TB_RGB(0x1E, 0x1E, 0x1E),        /* same as editor_fg */
+    .md_link_fg = TB_RGB(0x00, 0x66, 0xCC),        /* VS Code Light's actual
+                                                     * hyperlink blue */
+    .md_code_bg = TB_RGB(0xF6, 0xF8, 0xFA),        /* GitHub Light's actual
+                                                     * code-block gray -
+                                                     * distinct from both
+                                                     * editor_bg and editor_
+                                                     * current_line_bg */
 
     /* <listbox> - same body colors as <editor>/<input> rather than the
      * classic theme's cyan, selection reuses the same #CCE8FF accent as
@@ -1046,8 +1304,16 @@ static ui_node* make_editor_window(ui_node* root, int seq, const char* title,
     ui_node* editor = ui_create_element(UI_TAG_EDITOR);
     ui_set_id(editor, EVT_EDITOR_CTRLCLICK);
     ui_set_rect(editor, ew_x + 1, ew_y + 1, ew_w - 2, ew_h - 2);
-    ui_set_syntax(editor, syntax_for_path(path));
+    ui_syntax syntax = syntax_for_path(path);
+    ui_set_syntax(editor, syntax);
     ui_set_value(editor, content);
+    if (syntax == UI_SYNTAX_MARKDOWN)
+        ui_set_read_only(editor, 1);  /* .md always opens read-only - see
+                                       * syntax_for_path's own doc comment;
+                                       * still toggleable by hand afterward
+                                       * via the editor popup/Edit menu's
+                                       * "Read-only" item like any other file,
+                                       * this is just the opening default. */
     ui_append_child(window, editor);
 
     /* Every new document window opens filling whatever desktop space is
@@ -1115,7 +1381,14 @@ static int ci_strcmp(const char* a, const char* b)
  * and the fallback (no coloring at all, like a real .txt file) for anything
  * else, including a path with no extension at all. The Output window's
  * editor is the one exception (see its own ui_set_syntax call) - its content
- * is always set programmatically, never opened from a file. */
+ * is always set programmatically, never opened from a file.
+ *
+ * make_editor_window() also uses the UI_SYNTAX_MARKDOWN result to default
+ * every .md file to read-only when it's opened - Markdown in this project is
+ * always either shipped reference text (help/*.md) or generated/prose meant
+ * to be read, not hand-edited in place; still just a default, toggleable
+ * afterward like any other file via the editor popup/Edit menu's "Read-only"
+ * item. */
 static ui_syntax syntax_for_path(const char* path)
 {
     const char* dot = strrchr(path, '.');
@@ -1126,6 +1399,17 @@ static ui_syntax syntax_for_path(const char* path)
     if (ci_strcmp(dot, ".md") == 0)
         return UI_SYNTAX_MARKDOWN;
     return UI_SYNTAX_NONE;
+}
+
+/* Whether `path` is a compilable translation unit - deliberately stricter
+ * than "syntax_for_path(path) == UI_SYNTAX_C", which also covers .h (a
+ * header alone isn't something do_compile() can hand the compiler as its
+ * own file argument). Gates "Compile"/F7 - see g_compile_item's own doc
+ * comment and its app_frame() call site. */
+static int path_is_c_source(const char* path)
+{
+    const char* dot = strrchr(path, '.');
+    return dot && ci_strcmp(dot, ".c") == 0;
 }
 
 /* Writes `path` with its extension swapped .c<->.h (case preserved: .c/.h
@@ -1171,6 +1455,100 @@ static void refresh_readonly_item(ui_node* item, ui_node* win)
     ui_set_enabled(item, !vt100);
 }
 
+/* Whether `text`'s line at byte range [ls, ls+line_len) opens/closes a
+ * fenced code block - same "```" leading-whitespace-then-3-backticks test
+ * ide_ui.c's own scan_markdown_fence_state()/render_editor_line_markdown()
+ * use, duplicated here (not exposed from ide_ui.c) since this is the only
+ * place ide.c itself needs to walk a Markdown document's fence structure. */
+static int md_line_is_fence(const char* text, int ls, int line_len)
+{
+    int j = 0;
+    while (j < line_len && (text[ls + j] == ' ' || text[ls + j] == '\t'))
+        j++;
+    return line_len - j >= 3 && text[ls + j] == '`' && text[ls + j + 1] == '`' && text[ls + j + 2] == '`';
+}
+
+/* The fenced code block ("```" ... "```") containing 0-based document line
+ * `click_line` in Markdown source `text`, if any - either a line strictly
+ * between the fences, or one of the fence lines themselves (so right-
+ * clicking the opening/closing ``` still counts as "on" the block, not just
+ * its content). Returns a malloc'd copy of the block's *content* (the lines
+ * between the fences, excluding both fence lines and their language tag)
+ * the caller must free, or NULL if click_line isn't part of a fenced block
+ * - including an unterminated one that never closes before EOF, since
+ * there's then no real block to have clicked on. */
+static char* markdown_codeblock_at_line(const char* text, int click_line)
+{
+    int text_len = (int)strlen(text);
+    int line_idx = 0, off = 0;
+    int in_block = 0, block_open_line = -1, content_start = -1;
+
+    while (off <= text_len)
+    {
+        int ls = off;
+        while (off < text_len && text[off] != '\n')
+            off++;
+
+        if (!in_block && md_line_is_fence(text, ls, off - ls))
+        {
+            in_block = 1;
+            block_open_line = line_idx;
+            content_start = (off < text_len) ? off + 1 : off;
+        }
+        else if (in_block && md_line_is_fence(text, ls, off - ls))
+        {
+            if (click_line >= block_open_line && click_line <= line_idx)
+            {
+                int len = ls - content_start;
+                if (len < 0)
+                    len = 0;
+                char* out = malloc(len + 1);
+                memcpy(out, text + content_start, len);
+                out[len] = 0;
+                return out;
+            }
+            in_block = 0;
+            block_open_line = -1;
+            content_start = -1;
+        }
+
+        if (off >= text_len)
+            break;
+        off++;  /* skip the '\n' onto the next line */
+        line_idx++;
+    }
+
+    return NULL;  /* click_line never fell inside/on a *closed* fenced block */
+}
+
+/* Refreshes the editor popup's "Copy Code Block"/"Copy to Playground" items
+ * (see g_md_codeblock_text) for the right-click at screen point (mx, my) -
+ * enabled only when `win` is a Markdown document and that point lands on/in
+ * one of its fenced code blocks, same "point-in-time snapshot" pattern as
+ * refresh_readonly_item() above. Captured now (rather than re-deriving the
+ * block from mx/my again when an item actually fires) because by then the
+ * popup may have scrolled the editor via its own scrollbar, or the document
+ * may simply have changed - the block under the original click is whatever
+ * this function decides right now, once, not whatever happens to be under
+ * that same screen point later. */
+static void refresh_codeblock_items(ui_node* copy_item, ui_node* playground_item,
+                                     ui_node* win, int mx, int my)
+{
+    free(g_md_codeblock_text);
+    g_md_codeblock_text = NULL;
+
+    ui_node* ed = editor_in_window(win);
+    if (ed && ui_get_syntax(ed) == UI_SYNTAX_MARKDOWN)
+    {
+        int line = ui_editor_line_at_point(ed, mx, my);
+        if (line >= 0)
+            g_md_codeblock_text = markdown_codeblock_at_line(ui_get_label(ed), line);
+    }
+
+    ui_set_enabled(copy_item, g_md_codeblock_text != NULL);
+    ui_set_enabled(playground_item, g_md_codeblock_text != NULL);
+}
+
 /* Update the Folder panel popup's "Filter" item's label to reflect
  * g_folder_filter_enabled - same [x]/[ ] convention as refresh_readonly_item,
  * just with nothing to disable (unlike Read-only, this toggle is always
@@ -1180,6 +1558,41 @@ static void refresh_folder_filter_item(ui_node* item)
     if (!item)
         return;
     ui_set_label(item, g_folder_filter_enabled ? "[x] Filter" : "[ ] Filter");
+}
+
+/* Whether `wrapper` is one of the currently open floating windows - i.e. it
+ * would actually show up on screen right now, not just that the node
+ * exists somewhere in the tree (a closed-but-not-torn-down persistent
+ * singleton like g_output_window/g_folder_window stays a child of root -
+ * see ui_set_transient's own doc comment - so checking the tree wouldn't
+ * tell "open" from "closed"; the shown-window list does). Used by the View
+ * menu's "[x] Show ..." items below. */
+static int window_is_shown(ui_node* wrapper)
+{
+    if (!wrapper)
+        return 0;
+    int count = ui_screen_window_count(g_screen);
+    for (int i = 0; i < count; i++)
+    {
+        if (ui_screen_window_at(g_screen, i) == wrapper)
+            return 1;
+    }
+    return 0;
+}
+
+/* View > "Show Output"/"Show Folder"/"Show Playground" - same "[x] Label"/
+ * "[ ] Label" convention as refresh_readonly_item/refresh_folder_filter_item
+ * above, just reporting whether the window is currently open instead of a
+ * boolean setting. Refreshed every frame from app_frame() (see
+ * refresh_readonly_item's own doc comment for why - the menubar's dropdowns
+ * have no app-level open-time hook to piggyback on instead). */
+static void refresh_view_item(ui_node* item, const char* label, int visible)
+{
+    if (!item)
+        return;
+    char buf[40];
+    snprintf(buf, sizeof buf, "%s %s", visible ? "[x]" : "[ ]", label);
+    ui_set_label(item, buf);
 }
 
 /* Update the Folder panel popup's "Show Filter"/"Create Filter" item's
@@ -2096,10 +2509,8 @@ static void do_help_index(void)
 
     ui_node* win = make_editor_window(g_root, g_new_count++, " help/index.md ", content ? content : "", path);
     free(content);
-
-    ui_node* editor = editor_in_window(win);
-    if (editor)
-        ui_set_read_only(editor, 1);  /* help/index.md is reference text, never hand-edited */
+    /* Already opened read-only - .md defaults to it, see syntax_for_path's
+     * own doc comment. */
 
     ui_screen_show_window(g_screen, win);
 }
@@ -2212,12 +2623,9 @@ static void do_help_contextual(void)
     {
         fclose(tf);
         nav_record_jump();
+        /* Already opened read-only - .md defaults to it, see
+         * syntax_for_path's own doc comment. */
         open_file_path_into_editor(topic_path, word);
-        /* Reference text, like help/index.md - never hand-edited. */
-        ui_node* topic_win = find_open_window(topic_path);
-        ui_node* topic_ed = topic_win ? editor_in_window(topic_win) : NULL;
-        if (topic_ed)
-            ui_set_read_only(topic_ed, 1);
         return;
     }
 
@@ -3239,13 +3647,30 @@ static void do_compile(void)
     int argc = 0;
     argv[argc++] = "tcc";
     char target[20] = { 0 };
-    if (g_compile_target[0])
+    if (g_compile.target[0])
     {
-        snprintf(target, sizeof target, "-target=%s", g_compile_target);
+        snprintf(target, sizeof target, "-target=%s", g_compile.target);
         argv[argc++] = target;
     }
-    char optbuf[sizeof g_compile_options];
-    snprintf(optbuf, sizeof optbuf, "%s", g_compile_options);
+    char style[24] = { 0 };
+    if (g_compile.style[0])
+    {
+        snprintf(style, sizeof style, "-style=%s", g_compile.style);
+        argv[argc++] = style;
+    }
+    /* The Compiler Options dialog's "[x] -flag" toggles - each one just adds
+     * its literal flag when on, same as the free-text tokens below. */
+    if (g_compile.no_output)
+        argv[argc++] = "-no-output";
+    if (g_compile.line_directives)
+        argv[argc++] = "-line-directives";
+    if (g_compile.fanalyzer)
+        argv[argc++] = "-fanalyzer";
+    if (g_compile.flow3)
+        argv[argc++] = "-flow3";
+
+    char optbuf[sizeof g_compile.options];
+    snprintf(optbuf, sizeof optbuf, "%s", g_compile.options);
 
     for (char* tok = strtok(optbuf, " \t"); tok && argc < 63;
          tok = strtok(NULL, " \t"))
@@ -4899,18 +5324,35 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_COMPILE_OPTIONS)
     {
-        ui_select_set_selected(g_copts_target, target_slug_to_index(g_compile_target));
+        ui_select_set_selected(g_copts_target, target_slug_to_index(g_compile.target));
+        ui_select_set_selected(g_copts_style, style_slug_to_index(g_compile.style));
+        /* Re-sync the check-box group from the committed state every time
+         * the dialog opens, same reasoning as the Target/Style <select>s
+         * above - so a Cancel below discards whatever gets clicked this
+         * time (same pattern as Find's g_find_opts). */
+        ui_group_set_checked(g_copts_flags, 0, g_compile.no_output);
+        ui_group_set_checked(g_copts_flags, 1, g_compile.line_directives);
+        ui_group_set_checked(g_copts_flags, 2, g_compile.fanalyzer);
+        ui_group_set_checked(g_copts_flags, 3, g_compile.flow3);
         ui_screen_show_modal(g_screen, g_copts_modal);
     }
     else if (id == EVT_COPTS_OK)
     {
-        /* Persist what was typed/picked so the next compile uses it. Target
-         * index maps to the compiler's slug; the last option ("") -> "". */
-        snprintf(g_compile_options, sizeof g_compile_options, "%s",
+        /* Persist what was typed/picked so the next compile uses it. Target/
+         * Style indices map to the compiler's slugs; the last option ("")
+         * -> "". */
+        snprintf(g_compile.options, sizeof g_compile.options, "%s",
                  ui_get_value(g_copts_input));
         int sel = ui_select_get_selected(g_copts_target);
         int slug_count = (int)(sizeof g_target_slugs / sizeof g_target_slugs[0]);
-        g_compile_target = (sel >= 0 && sel < slug_count) ? g_target_slugs[sel] : "";
+        g_compile.target = (sel >= 0 && sel < slug_count) ? g_target_slugs[sel] : "";
+        int style_sel = ui_select_get_selected(g_copts_style);
+        int style_count = (int)(sizeof g_style_slugs / sizeof g_style_slugs[0]);
+        g_compile.style = (style_sel >= 0 && style_sel < style_count) ? g_style_slugs[style_sel] : "";
+        g_compile.no_output = ui_group_get_checked(g_copts_flags, 0);
+        g_compile.line_directives = ui_group_get_checked(g_copts_flags, 1);
+        g_compile.fanalyzer = ui_group_get_checked(g_copts_flags, 2);
+        g_compile.flow3 = ui_group_get_checked(g_copts_flags, 3);
         ui_screen_close_modal(g_screen, g_copts_modal);
     }
     else if (id == EVT_COPTS_CANCEL)
@@ -5050,6 +5492,173 @@ static void on_ui_event(void* ctx, int id, void* param)
         nav_record_jump();
         open_file_path_into_editor(path, CAKE_FOLDER_FILTER_NAME);
     }
+    else if (id == EVT_FOLDER_COPY_PATH)
+    {
+        /* Copies g_folder_dir itself - see this id's own doc comment for why
+         * that's what "Copy Full Path" means here, unlike the editor popup's
+         * copy of the same label just below. */
+        if (g_folder_dir[0])
+            ui_clipboard_set_text(g_folder_dir);
+    }
+    else if (id == EVT_FOLDER_NEWFILE || id == EVT_FOLDER_NEWFOLDER)
+    {
+        if (g_folder_dir[0])
+        {
+            g_foldernew_is_folder = (id == EVT_FOLDER_NEWFOLDER);
+            ui_set_label(g_foldernew_window, g_foldernew_is_folder ? " New Folder " : " New File ");
+            ui_set_value(g_foldernew_input, "");
+            ui_screen_show_modal(g_screen, g_foldernew_modal);
+            ui_screen_focus(g_screen, g_foldernew_input);
+        }
+    }
+    else if (id == EVT_FOLDERNEW_OK)
+    {
+        const char* name = ui_get_value(g_foldernew_input);
+        const char* caption = g_foldernew_is_folder ? "New Folder" : "New File";
+
+        /* A bare name, not a path - same restriction Save As implicitly has
+         * (its own Name field never carries a separator either, since it's
+         * always typed alongside a directory picker, never a full path).
+         * Rejecting one here keeps the new file/folder inside g_folder_dir
+         * instead of silently escaping it. */
+        if (!name[0] || strchr(name, '/') || strchr(name, '\\'))
+        {
+            ui_msgbox_button ok = { "   OK   ", 0 };
+            ui_message_box(g_screen, caption,
+                            "Enter a name (no \\ or /).", &ok, 1);
+        }
+        else
+        {
+            char path[1024];
+            snprintf(path, sizeof path, "%s/%s", g_folder_dir, name);
+            int created = 0;
+
+            if (g_foldernew_is_folder)
+            {
+                /* fs.h's own mkdir(path, mode) shim (#define mkdir(a, b)
+                 * _mkdir(a) on Windows) already treats "fine if it already
+                 * exists" as this file's own get_config_dir() does - here,
+                 * unlike that fire-and-forget case, the user is watching, so
+                 * a non-zero return (already exists, or just not creatable)
+                 * gets reported instead of silently ignored. */
+                created = mkdir(path, 0755) == 0;
+                if (!created)
+                {
+                    ui_msgbox_button ok = { "   OK   ", 0 };
+                    char message[1200];
+                    snprintf(message, sizeof message,
+                             "Could not create %s.\nIt may already exist.", name);
+                    ui_message_box(g_screen, caption, message, &ok, 1);
+                }
+            }
+            else
+            {
+                FILE* existing = fopen(path, "rb");
+                if (existing)
+                {
+                    fclose(existing);
+                    ui_msgbox_button ok = { "   OK   ", 0 };
+                    char message[1200];
+                    snprintf(message, sizeof message, "%s already exists.", name);
+                    ui_message_box(g_screen, caption, message, &ok, 1);
+                }
+                else
+                {
+                    FILE* f = fopen(path, "wb");
+                    if (f)
+                        fclose(f);
+                    created = 1;
+                }
+            }
+
+            if (created)
+            {
+                ui_screen_close_modal(g_screen, g_foldernew_modal);
+
+                /* Show it in the listing (same refresh Show Filter/creating
+                 * one triggers). A folder stops there; a file also opens
+                 * into an editor window, same as clicking any other row -
+                 * see folder_window_activate. */
+                folder_window_refresh();
+                if (!g_foldernew_is_folder)
+                {
+                    nav_record_jump();
+                    open_file_path_into_editor(path, name);
+                }
+            }
+        }
+    }
+    else if (id == EVT_FOLDERNEW_CANCEL)
+    {
+        ui_screen_close_modal(g_screen, g_foldernew_modal);
+    }
+    else if (id == EVT_FOLDER_DELETE)
+    {
+        /* Acts on the listbox's currently selected row - see this id's own
+         * doc comment for why that isn't necessarily the row the popup was
+         * opened over. Silently does nothing for no selection or ".." - a
+         * subdirectory (populate_listbox_from_dir's own trailing "\" marker,
+         * same one dir_row_navigate keys off of) is otherwise fair game now,
+         * same as a plain file. */
+        int index = ui_select_get_selected(g_folder_listbox);
+        if (index >= 0 && index < ui_child_count(g_folder_listbox))
+        {
+            const char* entry = ui_get_path(ui_child_at(g_folder_listbox, index));
+            size_t elen = strlen(entry);
+            int is_dir = elen > 0 && entry[elen - 1] == '\\';
+
+            char name[300];
+            snprintf(name, sizeof name, "%s", entry);
+            if (is_dir)
+                name[strlen(name) - 1] = 0;  /* drop the trailing "\" marker -
+                                              * same as dir_row_navigate */
+
+            if (name[0] && strcmp(name, "..") != 0)
+            {
+                g_pending_delete_is_dir = is_dir;
+                snprintf(g_pending_delete_path, sizeof g_pending_delete_path,
+                         "%s/%s", g_folder_dir, name);
+
+                char message[1200];
+                snprintf(message, sizeof message,
+                         "Are you sure you want to delete this %s?\n%s",
+                         is_dir ? "folder" : "file", name);
+                ui_msgbox_button btns[] = {
+                    { "   OK   ", EVT_FOLDER_DELETE_CONFIRM },
+                    { " Cancel ", 0 },
+                };
+                ui_message_box(g_screen, is_dir ? "Delete Folder" : "Delete File",
+                                message, btns, 2);
+            }
+        }
+    }
+    else if (id == EVT_FOLDER_DELETE_CONFIRM)
+    {
+        /* g_pending_delete_path/g_pending_delete_is_dir were set right
+         * before the confirm box above - same "stash it, consume+clear it
+         * here" shape as g_pending_close_window/EVT_CLOSE_DISCARD. rmdir()
+         * (fs.h's own #define rmdir _rmdir shim on Windows) only for a
+         * directory - unlike EVT_FOLDER_NEWFOLDER's mkdir(), a failure here
+         * (almost always a non-empty directory) is worth telling the user
+         * about rather than pretending it worked. */
+        if (g_pending_delete_path[0])
+        {
+            int ok = g_pending_delete_is_dir
+                ? rmdir(g_pending_delete_path) == 0
+                : remove(g_pending_delete_path) == 0;
+
+            if (!ok && g_pending_delete_is_dir)
+            {
+                ui_msgbox_button msgok = { "   OK   ", 0 };
+                ui_message_box(g_screen, "Delete Folder",
+                                "Could not delete the folder.\nIt may not be empty.",
+                                &msgok, 1);
+            }
+
+            g_pending_delete_path[0] = 0;
+            folder_window_refresh();
+        }
+    }
     else if (id == EVT_EDITOR_COPY_PATH)
     {
         ui_node* win = (ui_node*)param;
@@ -5083,6 +5692,55 @@ static void on_ui_event(void* ctx, int id, void* param)
                 dir[sizeof dir - 1] = 0;
                 dirname(dir);
                 folder_reveal_directory(dir);
+            }
+        }
+    }
+    else if (id == EVT_EDITOR_CODEBLOCK_COPY)
+    {
+        /* g_md_codeblock_text was captured when this popup opened (see
+         * refresh_codeblock_items()) - the item is disabled whenever it's
+         * NULL, so this should always have real text by the time a click
+         * gets here, but the check costs nothing. */
+        if (g_md_codeblock_text)
+            ui_clipboard_set_text(g_md_codeblock_text);
+    }
+    else if (id == EVT_EDITOR_CODEBLOCK_PLAYGROUND)
+    {
+        /* Overwrite playground.c with this code block, then show it in the
+         * Playground window. open_playground()/open_file_path_into_editor()
+         * only actually reads the file from disk when no window for that
+         * path exists yet (see open_file_path_into_editor) - if Playground
+         * is already open, reopening it would just refocus the *stale*
+         * window instead of picking up what was just written, so that case
+         * is handled directly here instead: swap the existing window's text
+         * and reset its cursor/selection to the start, the same "freshly
+         * opened this file" state a brand new window would start in. */
+        if (g_md_codeblock_text)
+        {
+            char path[FS_MAX_PATH];
+            if (get_playground_file_path(path, sizeof path))
+            {
+                FILE* f = fopen(path, "wb");
+                if (f)
+                {
+                    fwrite(g_md_codeblock_text, 1, strlen(g_md_codeblock_text), f);
+                    fclose(f);
+                }
+
+                ui_node* existing = find_open_window(path);
+                ui_node* existing_ed = existing ? editor_in_window(existing) : NULL;
+                if (existing_ed)
+                {
+                    ui_set_label(existing_ed, g_md_codeblock_text);
+                    ui_editor_set_selection(existing_ed, 0, 0);
+                    ui_screen_show_window(g_screen, existing);
+                    if (g_auto_compile_enabled)
+                        do_compile();
+                }
+                else
+                {
+                    open_playground();
+                }
             }
         }
     }
@@ -5134,8 +5792,8 @@ static void on_ui_event(void* ctx, int id, void* param)
 
             // Build new path: dir/target/basename (or original if target empty)
             char new_path[1024];
-            if (g_compile_target[0] != '\0')
-                snprintf(new_path, sizeof(new_path), "%s/%s/%s", dir, g_compile_target, base);
+            if (g_compile.target[0] != '\0')
+                snprintf(new_path, sizeof(new_path), "%s/%s/%s", dir, g_compile.target, base);
             else
                 snprintf(new_path, sizeof(new_path), "%s", path);   // fallback
 
@@ -5153,7 +5811,7 @@ static void on_ui_event(void* ctx, int id, void* param)
             // Title with target info
             char title[300];
             snprintf(title, sizeof(title), " %s [%s] ", base,
-                     g_compile_target[0] ? g_compile_target : "default");
+                     g_compile.target[0] ? g_compile.target : "default");
 
             ui_node* new_wrapper = make_editor_window(g_root, g_new_count++, title, content, new_path);
             ui_node* new_editor = editor_in_window(new_wrapper);
@@ -5476,15 +6134,39 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_WINDOW_OUTPUT)
     {
-        ui_screen_show_window(g_screen, g_output_window);
+        /* Toggle, matching the "[x]"/"[ ]" the View menu now shows for this
+         * item (see refresh_view_item) - already open closes it instead of
+         * just re-raising it. No unsaved-changes prompt to worry about
+         * either way (Output is never dirty), same as EVT_WINDOW_CLOSEALL's
+         * own unconditional ui_screen_close_modal below. */
+        if (window_is_shown(g_output_window))
+            ui_screen_close_modal(g_screen, g_output_window);
+        else
+            ui_screen_show_window(g_screen, g_output_window);
     }
     else if (id == EVT_WINDOW_FOLDER)
     {
-        ui_screen_show_window(g_screen, g_folder_window);
+        if (window_is_shown(g_folder_window))
+            ui_screen_close_modal(g_screen, g_folder_window);
+        else
+            ui_screen_show_window(g_screen, g_folder_window);
     }
     else if (id == EVT_WINDOW_PLAYGROUND)
     {
-        open_playground();
+        /* Same toggle, but Playground has no singleton wrapper to check
+         * (see open_playground()'s own doc comment) - look it up by path,
+         * same as open_file_path_into_editor() does before deciding whether
+         * to reuse it. Closing it here skips the unsaved-changes prompt just
+         * like EVT_WINDOW_CLOSEALL - if that turns out to matter in
+         * practice, route through UI_CLOSE_REQUEST_ID's confirm flow
+         * instead. */
+        char playground_path[FS_MAX_PATH];
+        ui_node* existing = get_playground_file_path(playground_path, sizeof playground_path)
+            ? find_open_window(playground_path) : NULL;
+        if (existing)
+            ui_screen_close_modal(g_screen, existing);
+        else
+            open_playground();
     }
     else if (id == EVT_TOOLS_FINDREPLACE)
     {
@@ -5896,8 +6578,13 @@ static void save_session(void)
     if (!f)
         return;
 
-    fprintf(f, "compile_options=%s\n", g_compile_options);
-    fprintf(f, "compile_target=%s\n", g_compile_target);
+    fprintf(f, "compile_options=%s\n", g_compile.options);
+    fprintf(f, "compile_target=%s\n", g_compile.target);
+    fprintf(f, "compile_style=%s\n", g_compile.style);
+    fprintf(f, "compile_opt_no_output=%d\n", g_compile.no_output);
+    fprintf(f, "compile_opt_line_directives=%d\n", g_compile.line_directives);
+    fprintf(f, "compile_opt_fanalyzer=%d\n", g_compile.fanalyzer);
+    fprintf(f, "compile_opt_flow3=%d\n", g_compile.flow3);
     fprintf(f, "folder_dir=%s\n", g_folder_dir);
 
     nav_pos cur;
@@ -6030,9 +6717,19 @@ static int load_session(void)
     while (session_read_line(f, key, sizeof key, val, sizeof val))
     {
         if (strcmp(key, "compile_options") == 0)
-            snprintf(g_compile_options, sizeof g_compile_options, "%s", val);
+            snprintf(g_compile.options, sizeof g_compile.options, "%s", val);
         else if (strcmp(key, "compile_target") == 0)
-            g_compile_target = g_target_slugs[target_slug_to_index(val)];
+            g_compile.target = g_target_slugs[target_slug_to_index(val)];
+        else if (strcmp(key, "compile_style") == 0)
+            g_compile.style = g_style_slugs[style_slug_to_index(val)];
+        else if (strcmp(key, "compile_opt_no_output") == 0)
+            g_compile.no_output = atoi(val);
+        else if (strcmp(key, "compile_opt_line_directives") == 0)
+            g_compile.line_directives = atoi(val);
+        else if (strcmp(key, "compile_opt_fanalyzer") == 0)
+            g_compile.fanalyzer = atoi(val);
+        else if (strcmp(key, "compile_opt_flow3") == 0)
+            g_compile.flow3 = atoi(val);
         else if (strcmp(key, "folder_dir") == 0)
         {
             strncpy(g_folder_dir, val, sizeof g_folder_dir - 1);
@@ -6081,14 +6778,14 @@ static int load_session(void)
             ui_set_dock(win, UI_DOCK_BOTTOM, output_h);
     }
 
-    /* Compiler Options dialog: g_compile_options/g_compile_target above
+    /* Compiler Options dialog: g_compile.options/g_compile.target above
      * already drive do_compile() directly; only the "Options" text field
      * needs an explicit push here, since (unlike the Target <select>) it
      * isn't re-synced every time the dialog opens (see EVT_COMPILE_OPTIONS)
      * - it just keeps whatever was last typed into it for the rest of the
      * run, so it has to be seeded once, here, at startup. */
     if (g_copts_input)
-        ui_set_value(g_copts_input, g_compile_options);
+        ui_set_value(g_copts_input, g_compile.options);
 
     if (!current_file[0])
         return 0;
@@ -6383,6 +7080,19 @@ void app_init(ui_env* env)
     ui_set_id(popup_show_folder, EVT_EDITOR_SHOW_FOLDER);
     ui_set_label(popup_show_folder, "Show My Folder");
     ui_append_child(popup, popup_show_folder);
+    ui_node* popup_sep3 = ui_create_element(UI_TAG_ITEM);
+    ui_set_separator(popup_sep3, 1);
+    ui_append_child(popup, popup_sep3);
+    ui_node* popup_codeblock_copy = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(popup_codeblock_copy, EVT_EDITOR_CODEBLOCK_COPY);
+    ui_set_label(popup_codeblock_copy, "Copy Code Block");
+    ui_append_child(popup, popup_codeblock_copy);
+    g_editor_popup_codeblock_copy = popup_codeblock_copy;
+    ui_node* popup_codeblock_playground = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(popup_codeblock_playground, EVT_EDITOR_CODEBLOCK_PLAYGROUND);
+    ui_set_label(popup_codeblock_playground, "Copy to Playground");
+    ui_append_child(popup, popup_codeblock_playground);
+    g_editor_popup_codeblock_playground = popup_codeblock_playground;
     g_editor_popup = popup;
 
     /* --- Folder panel context menu popup --- */
@@ -6400,7 +7110,58 @@ void app_init(ui_env* env)
     ui_set_label(folder_popup_show, "Show Filter");
     ui_append_child(folder_popup, folder_popup_show);
     g_folder_popup_show = folder_popup_show;
+    ui_node* folder_popup_sep2 = ui_create_element(UI_TAG_ITEM);
+    ui_set_separator(folder_popup_sep2, 1);
+    ui_append_child(folder_popup, folder_popup_sep2);
+    ui_node* folder_popup_copy_path = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(folder_popup_copy_path, EVT_FOLDER_COPY_PATH);
+    ui_set_label(folder_popup_copy_path, "Copy Full Path");
+    ui_append_child(folder_popup, folder_popup_copy_path);
+    ui_node* folder_popup_sep3 = ui_create_element(UI_TAG_ITEM);
+    ui_set_separator(folder_popup_sep3, 1);
+    ui_append_child(folder_popup, folder_popup_sep3);
+    ui_node* folder_popup_newfile = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(folder_popup_newfile, EVT_FOLDER_NEWFILE);
+    ui_set_label(folder_popup_newfile, "New File...");
+    ui_append_child(folder_popup, folder_popup_newfile);
+    ui_node* folder_popup_newfolder = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(folder_popup_newfolder, EVT_FOLDER_NEWFOLDER);
+    ui_set_label(folder_popup_newfolder, "New Folder...");
+    ui_append_child(folder_popup, folder_popup_newfolder);
+    ui_node* folder_popup_sep4 = ui_create_element(UI_TAG_ITEM);
+    ui_set_separator(folder_popup_sep4, 1);
+    ui_append_child(folder_popup, folder_popup_sep4);
+    ui_node* folder_popup_delete = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(folder_popup_delete, EVT_FOLDER_DELETE);
+    ui_set_label(folder_popup_delete, "Delete");
+    ui_append_child(folder_popup, folder_popup_delete);
     g_folder_popup = folder_popup;
+
+    /* --- New File/Folder modal --- shared by EVT_FOLDER_NEWFILE and
+     * EVT_FOLDER_NEWFOLDER, which retitle it (g_foldernew_window) and set
+     * g_foldernew_is_folder before showing it - see EVT_FOLDERNEW_OK. */
+    ui_node* foldernew_modal = ui_create_element(UI_TAG_MODAL);
+    ui_append_child(root, foldernew_modal);
+    ui_node* foldernew_window = ui_create_element(UI_TAG_WINDOW);
+    ui_set_rect(foldernew_window, 20, 7, 44, 8);
+    ui_set_label(foldernew_window, " New File ");
+    ui_set_color(foldernew_window, theme->modal_fg, theme->modal_bg);
+    ui_append_child(foldernew_modal, foldernew_window);
+    add_text(foldernew_window, 23, 9, "Name", COLOR_YELLOW, theme->modal_bg);
+    g_foldernew_input = add_input(foldernew_window, 34, 9, 26, "");
+    ui_set_id(g_foldernew_input, EVT_FOLDERNEW_OK);
+    ui_node* foldernew_ok = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(foldernew_ok, EVT_FOLDERNEW_OK);
+    ui_set_rect(foldernew_ok, 30, 12, 10, 1);
+    ui_set_label(foldernew_ok, "  OK  ");
+    ui_append_child(foldernew_window, foldernew_ok);
+    ui_node* foldernew_cancel = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(foldernew_cancel, EVT_FOLDERNEW_CANCEL);
+    ui_set_rect(foldernew_cancel, 44, 12, 10, 1);
+    ui_set_label(foldernew_cancel, "Cancel");
+    ui_append_child(foldernew_window, foldernew_cancel);
+    g_foldernew_window = foldernew_window;
+    g_foldernew_modal = foldernew_modal;
 
     /* --- Environment modal --- */
     ui_node* env_modal = ui_create_element(UI_TAG_MODAL);
@@ -6428,7 +7189,7 @@ void app_init(ui_env* env)
     ui_node* copts_modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, copts_modal);
     ui_node* copts_window = ui_create_element(UI_TAG_WINDOW);
-    ui_set_rect(copts_window, 15, 5, 50, 10);
+    ui_set_rect(copts_window, 15, 5, 50, 16);
     ui_set_label(copts_window, " Compiler Options ");
     ui_set_color(copts_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(copts_modal, copts_window);
@@ -6441,15 +7202,39 @@ void app_init(ui_env* env)
     add_select_item(g_copts_target, EVT_COPTS_TARGET + 1, "X64 MSVC");
     add_select_item(g_copts_target, EVT_COPTS_TARGET + 2, "X64 GCC");
     add_select_item(g_copts_target, EVT_COPTS_TARGET + 3, "macOS ARM64");
-    ui_select_set_selected(g_copts_target, target_slug_to_index(g_compile_target));
+    ui_select_set_selected(g_copts_target, target_slug_to_index(g_compile.target));
+
+    /* Style (-style=<name>) - see g_style_slugs' own comment for why only
+     * these four are offered. */
+    add_text(copts_window, 18, 11, "Style", COLOR_YELLOW, theme->modal_bg);
+    g_copts_style = add_select(copts_window, 27, 11, 20);
+    add_select_item(g_copts_style, EVT_COPTS_STYLE + 0, "Do not check");
+    add_select_item(g_copts_style, EVT_COPTS_STYLE + 1, "cake");
+    add_select_item(g_copts_style, EVT_COPTS_STYLE + 2, "gnu");
+    add_select_item(g_copts_style, EVT_COPTS_STYLE + 3, "microsoft");
+    ui_select_set_selected(g_copts_style, style_slug_to_index(g_compile.style));
+
+    /* Flags - a check-box GROUP, same control as Find's "Options"
+     * (g_find_opts) above (add_group/add_group_item). */
+    add_text(copts_window, 18, 13, "Flags", COLOR_YELLOW, theme->modal_bg);
+    g_copts_flags = add_group(copts_window, 27, 13, 30, 4, 1);
+    add_group_item(g_copts_flags, "-no-output");
+    add_group_item(g_copts_flags, "-line-directives");
+    add_group_item(g_copts_flags, "-fanalyzer");
+    add_group_item(g_copts_flags, "-flow3");
+    ui_group_set_checked(g_copts_flags, 0, g_compile.no_output);
+    ui_group_set_checked(g_copts_flags, 1, g_compile.line_directives);
+    ui_group_set_checked(g_copts_flags, 2, g_compile.fanalyzer);
+    ui_group_set_checked(g_copts_flags, 3, g_compile.flow3);
+
     ui_node* copts_ok = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(copts_ok, EVT_COPTS_OK);
-    ui_set_rect(copts_ok, 27, 12, 10, 1);
+    ui_set_rect(copts_ok, 27, 18, 10, 1);
     ui_set_label(copts_ok, "  OK  ");
     ui_append_child(copts_window, copts_ok);
     ui_node* copts_cancel = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(copts_cancel, EVT_COPTS_CANCEL);
-    ui_set_rect(copts_cancel, 41, 12, 10, 1);
+    ui_set_rect(copts_cancel, 41, 18, 10, 1);
     ui_set_label(copts_cancel, "Cancel");
     ui_append_child(copts_window, copts_cancel);
     g_copts_modal = copts_modal;
@@ -6677,6 +7462,38 @@ int app_frame(ui_env* env)
      * off of whichever document window is frontmost. */
     refresh_readonly_item(g_edit_readonly_item, g_active_editor_window);
 
+    /* Same reasoning as the Read-only item just above - the View menu's
+     * "Show ..." items get their "[x]"/"[ ]" kept current every frame too.
+     * Output/Folder are persistent singletons (see window_is_shown's own
+     * doc comment); Playground has no such singleton pointer (a normal
+     * transient document window - see open_playground()), so it's looked up
+     * by its fixed path instead, the same way open_file_path_into_editor()
+     * itself checks for an already-open Playground before creating a new
+     * one. */
+    refresh_view_item(g_view_output_item, "Show Output", window_is_shown(g_output_window));
+    refresh_view_item(g_view_folder_item, "Show Folder", window_is_shown(g_folder_window));
+    {
+        char playground_path[FS_MAX_PATH];
+        int have_path = get_playground_file_path(playground_path, sizeof playground_path);
+        refresh_view_item(g_view_playground_item, "Show Playground",
+                           have_path && find_open_window(playground_path) != NULL);
+    }
+
+    /* Same reasoning again - "Compile" (both the menu entry and its F7
+     * shortcut, since they're the same node - see g_compile_item's own doc
+     * comment) is only reachable while a real .c file is frontmost (see
+     * path_is_c_source's own doc comment for why .h doesn't count either);
+     * with no document open at all (g_active_editor_window NULL, e.g. only
+     * Folder/Output panels visible) there's nothing to compile, so it's
+     * disabled the same as for a .md. */
+    int compile_targets_c = g_active_editor_window != NULL &&
+        path_is_c_source(ui_get_path(g_active_editor_window));
+    ui_set_enabled(g_compile_item, compile_targets_c);
+    /* Same condition - the Compile menu's own "Show Generated Code" (not
+     * the popup's copy, which refreshes itself separately - see
+     * g_compile_show_output_item's own doc comment). */
+    ui_set_enabled(g_compile_show_output_item, compile_targets_c);
+
     /* Apply a Go-to-line focus request now that update() (and its
      * fire-then-blur of the input) is done, so the editor caret stays put. */
     if (g_goto_pending_focus)
@@ -6709,6 +7526,12 @@ int app_frame(ui_env* env)
              * compiled, so there's no generated code to show. */
             ui_set_enabled(g_editor_popup_show_output,
                            syntax_for_path(ui_get_path(win)) != UI_SYNTAX_MARKDOWN);
+
+            /* Refresh "Copy Code Block"/"Copy to Playground" - enabled only
+             * when this click landed on/in one of this Markdown document's
+             * fenced code blocks. */
+            refresh_codeblock_items(g_editor_popup_codeblock_copy,
+                                     g_editor_popup_codeblock_playground, win, mx, my);
 
             ui_screen_open_popup(g_screen, g_editor_popup, mx, my, win);
         }
@@ -6748,3 +7571,4 @@ void app_invalidate(void)
     if (g_screen)
         ui_screen_invalidate(g_screen);
 }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            

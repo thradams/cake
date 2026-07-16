@@ -2,7 +2,6 @@ Introduction \ introduction.md
 Getting Started \ Getting Started
 Invocation \ Invocation
 Output \ Output
-Cake Language Extensions \ Cake Language Extensions
 Command-Line Options \ Command-Line Options
 gcc compatibility \ gcc compatibility.md
 language standard support \ language standard support.md
@@ -13,4 +12,5 @@ C99 Features \ C99 Features
 C11 Features \ C11 Features
 C23 Features \ C23 Features
 C2Y Features \ C2Y Features
+Cake Language Extensions \ Cake Language Extensions
 
