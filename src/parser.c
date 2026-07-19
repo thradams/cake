@@ -4872,6 +4872,10 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
 
             parser_match(ctx);
         }
+        else
+        {
+            throw;
+        }
 
     }
     catch
@@ -6132,6 +6136,23 @@ bool enum_specifier_has_fixed_underlying_type(const struct enum_specifier* p_enu
     return p_enum_specifier->specifier_qualifier_list != NULL;
 }
 
+bool type_specifier_ahead(struct parser_ctx* ctx)
+{
+    struct token *current = ctx->current;
+    struct token *previous = ctx->previous;
+    parser_match(ctx);
+
+    struct type_specifier* spec = type_specifier(ctx);
+
+    ctx->current = current;
+    ctx->previous = previous;
+
+    if(spec)
+        type_specifier_delete(spec);
+
+    return spec != NULL;
+}
+
 struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
 {
     /*
@@ -6195,7 +6216,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
 
         if (ctx->current->type == ':')
         {
-            if (!ctx->inside_generic_association)
+            if (!ctx->inside_generic_association || type_specifier_ahead(ctx))
             {
                 /* C23 */
                 parser_match(ctx);
@@ -6203,8 +6224,16 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 if (p_enum_specifier->specifier_qualifier_list == NULL)
                     throw;
 
-                struct type enum_underline_type =
-                    make_with_type_specifier_flags(p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
+                struct type enum_underline_type;
+                if (p_enum_specifier->specifier_qualifier_list->typedef_declarator)
+                {
+                    enum_underline_type = p_enum_specifier->specifier_qualifier_list->typedef_declarator->type;
+                    enum_underline_type = type_dup(&enum_underline_type);
+                }
+                else
+                {
+                    enum_underline_type = make_with_type_specifier_flags(p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
+                }
 
                 if (!type_is_integer(&enum_underline_type))
                 {
