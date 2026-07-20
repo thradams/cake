@@ -6136,20 +6136,6 @@ bool enum_specifier_has_fixed_underlying_type(const struct enum_specifier* p_enu
     return p_enum_specifier->specifier_qualifier_list != NULL;
 }
 
-bool type_specifier_ahead(struct parser_ctx* ctx)
-{
-    struct token *current = ctx->current;
-    struct token *previous = ctx->previous;
-    parser_match(ctx);
-
-    bool ret = first_of_type_specifier(ctx);
-
-    ctx->current = current;
-    ctx->previous = previous;
-
-    return ret;
-}
-
 struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
 {
     /*
@@ -6213,7 +6199,9 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
 
         if (ctx->current->type == ':')
         {
-            if (!ctx->inside_generic_association || type_specifier_ahead(ctx))
+            struct token * p_token_ahead = parser_look_ahead(ctx);
+            
+            if (!ctx->inside_generic_association || first_of_type_specifier_token(ctx, p_token_ahead))
             {
                 /* C23 */
                 parser_match(ctx);
