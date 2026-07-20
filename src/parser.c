@@ -6142,15 +6142,12 @@ bool type_specifier_ahead(struct parser_ctx* ctx)
     struct token *previous = ctx->previous;
     parser_match(ctx);
 
-    struct type_specifier* spec = type_specifier(ctx);
+    bool ret = first_of_type_specifier(ctx);
 
     ctx->current = current;
     ctx->previous = previous;
 
-    if(spec)
-        type_specifier_delete(spec);
-
-    return spec != NULL;
+    return ret;
 }
 
 struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
