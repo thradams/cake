@@ -6199,8 +6199,8 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
 
         if (ctx->current->type == ':')
         {
-            struct token* p_token_ahead = parser_look_ahead(ctx);
-
+            struct token * p_token_ahead = parser_look_ahead(ctx);
+            
             if (!ctx->inside_generic_association || first_of_type_specifier_token(ctx, p_token_ahead))
             {
                 /* C23 */
