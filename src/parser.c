@@ -4872,6 +4872,10 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
 
             parser_match(ctx);
         }
+        else
+        {
+            throw;
+        }
 
     }
     catch
@@ -6195,7 +6199,9 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
 
         if (ctx->current->type == ':')
         {
-            if (!ctx->inside_generic_association)
+            struct token* p_token_ahead = parser_look_ahead(ctx);
+
+            if (!ctx->inside_generic_association || first_of_type_specifier_token(ctx, p_token_ahead))
             {
                 /* C23 */
                 parser_match(ctx);
@@ -6203,8 +6209,16 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 if (p_enum_specifier->specifier_qualifier_list == NULL)
                     throw;
 
-                struct type enum_underline_type =
-                    make_with_type_specifier_flags(p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
+                struct type enum_underline_type;
+                if (p_enum_specifier->specifier_qualifier_list->typedef_declarator)
+                {
+                    enum_underline_type = p_enum_specifier->specifier_qualifier_list->typedef_declarator->type;
+                    enum_underline_type = type_dup(&enum_underline_type);
+                }
+                else
+                {
+                    enum_underline_type = make_with_type_specifier_flags(p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
+                }
 
                 if (!type_is_integer(&enum_underline_type))
                 {

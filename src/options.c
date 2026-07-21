@@ -181,6 +181,8 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_NON_NULL:
     case W_FLOW_LIFETIME_ENDED:
     case W_FLOW_DIVISION_BY_ZERO:
+    case W_FLOW_UNREACHABLE_CODE:
+    case W_FLOW_CLEAR_NOT_ZERO_AT_EXIT:
 
         return 2; /*returns 2 if it flow analysis*/
 

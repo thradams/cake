@@ -2,23 +2,23 @@
 
 *Last Updated: May 2026*
 
-A hands-on guide to Cake's ownership and nullable pointer annotations - with working examples, 
-enforced rules, and an incremental migration strategy for existing codebases.
+A hands-on guide to Cake's ownership and nullable pointer annotations - with
+working examples, enforced rules, and an incremental migration strategy for
+existing codebases.
 
 
 
 ## Introduction
 
-Cake provides a set of contract annotations recognized 
-by its static analyzer. With ownership annotations, you can achieve the 
-same guarantees as C++ RAII and often stronger ones. 
-Cake also introduces nullable pointer annotations, making it explicit 
-when a pointer may be null and preventing mistakes like accidentally 
+Cake provides a set of contract annotations recognized by its static analyzer.
+With ownership annotations, you can achieve the same guarantees as C++ RAII and
+often stronger ones. Cake also introduces nullable pointer annotations, making
+it explicit when a pointer may be null and preventing mistakes like accidentally
 dereferencing a null pointer.
 
-This manual walks you through each concept with working code examples, 
-explains the rules enforced by the analyzer, and shows you how to adopt 
-these features incrementally in an existing codebase.
+This manual walks you through each concept with working code examples, explains
+the rules enforced by the analyzer, and shows you how to adopt these features
+incrementally in an existing codebase.
 
 
 
@@ -26,11 +26,12 @@ these features incrementally in an existing codebase.
 
 ### The `_Opt` pointer annotation
 
-The `_Opt` pointer annotation explicitly marks a pointer as nullable. 
-The absence of `_Opt` means the pointer is non-nullable. 
-The annotation is placed after the `*`.
+The `_Opt` pointer annotation explicitly marks a pointer as nullable. The
+absence of `_Opt` means the pointer is non-nullable. The annotation is placed
+after the `*`.
 
-For example, the following declaration says that `strdup()` accepts a non-nullable pointer and returns a nullable one:
+For example, the following declaration says that `strdup()` accepts a
+non-nullable pointer and returns a nullable one:
 
 ```c
 char * _Opt strdup(const char * src);
@@ -42,7 +43,8 @@ A pointer without `_Opt` is always assumed to be non-nullable.
 
 ### Enabling Nullable Rules: `#pragma nullable`
 
-Because existing C code was not written with nullability in mind, Cake provides a pragma to control when the new rules apply:
+Because existing C code was not written with nullability in mind, Cake provides
+a pragma to control when the new rules apply:
 
 ```c
 // new rules apply: absence of _Opt = non-nullable
@@ -52,14 +54,16 @@ Because existing C code was not written with nullability in mind, Cake provides 
 #pragma nullable disable  
 ```
 
-This lets you migrate code incrementally enabling the rules file-by-file or region-by-region. 
-Only static analysis behavior changes; the runtime behavior of your program is unaffected.
+This lets you migrate code incrementally enabling the rules file-by-file or
+region-by-region. Only static analysis behavior changes; the runtime behavior of
+your program is unaffected.
 
 
 
 ### Example 1: Assigning Nullable to a Non-Nullable Pointer
 
-Once nullable rules are enabled, assigning `nullptr` to an unqualified pointer generates a warning:
+Once nullable rules are enabled, assigning `nullptr` to an unqualified pointer
+generates a warning:
 
 <!-- runnable -->
 
@@ -75,7 +79,8 @@ int main() {
 
 ### Example 2: Converting Non-Nullable to Nullable
 
-Assigning a non-nullable pointer to a nullable variable is always safe and explicitly allowed:
+Assigning a non-nullable pointer to a nullable variable is always safe and
+explicitly allowed:
 
 <!-- runnable -->
 
@@ -129,17 +134,18 @@ int main() {
 
 ```
 
-Cake uses flow analysis to track possible nullability through branches.
-Once you check a pointer, the analyzer knows it is non-null inside the guarded block.
+Cake uses flow analysis to track possible nullability through branches. Once you
+check a pointer, the analyzer knows it is non-null inside the guarded block.
 
 
 
 ### Helping the Analyzer with `assert()`
 
-Because Cake's analysis is not inter-procedural, 
-it cannot infer postconditions from called functions. 
+Because Cake's analysis is not inter-procedural, it cannot infer postconditions
+from called functions.
 
-When the analyzer cannot determine a pointer's state on its own, you can hint with `assert()`:
+When the analyzer cannot determine a pointer's state on its own, you can hint
+with `assert()`:
 
 <!-- runnable -->
 
@@ -171,9 +177,9 @@ From a flow analysis perspective, `assert(expr)` is equivalent to `if (!(expr)) 
 
 ### Non-Nullable Initialization
 
-Non-nullable pointers can be initialized with `{}`, meaning they are set to zero; however, 
-they are still in an invalid state despite having a value. 
-This is very similar to being uninitialized. For instance:
+Non-nullable pointers can be initialized with `{}`, meaning they are set to
+zero; however, they are still in an invalid state despite having a value. This
+is very similar to being uninitialized. For instance:
 
 <!-- runnable -->
 
@@ -206,8 +212,10 @@ struct X f() {
 ```
 
 
-In both cases, the object is in an invalid state. In the first case, `x.text` is uninitialized (it has no defined value). 
-In the second case, `x.text` is initialized to zero (null), which is a defined value but still invalid for a non-nullable pointer.
+In both cases, the object is in an invalid state. In the first case, `x.text` is
+uninitialized (it has no defined value). In the second case, `x.text` is
+initialized to zero (null), which is a defined value but still invalid for a
+non-nullable pointer.
 
 <!-- runnable -->
 
@@ -285,9 +293,9 @@ void f() {
 
 ## Chapter 2: Object Lifetime and Ownership
 
-Object lifetime as the portion of program execution during which storage 
-is reserved for that object. Cake's ownership system gives you compile-time enforcement 
-of these rules.
+Object lifetime as the portion of program execution during which storage is
+reserved for that object. Cake's ownership system gives you compile-time
+enforcement of these rules.
 
 ### Enabling Ownership Checks
 
@@ -305,7 +313,9 @@ of these rules.
 
 ### Owner References and the `_Owner` annotation
 
-An **owner reference** is an object that manages the lifetime of the thing it references. The most common form is an **owner pointer** — a pointer to a heap-allocated object that is responsible for freeing it.
+An **owner reference** is an object that manages the lifetime of the thing it
+references. The most common form is an **owner pointer** — a pointer to a
+heap-allocated object that is responsible for freeing it.
 
 Declare an owner pointer by adding `_Owner` after the `*`:
 
@@ -364,7 +374,8 @@ fopen("file.txt", "r");  // warning: discarding owner return value
 
 ### Non-Pointer Owner References
 
-Ownership is not limited to pointers. Berkeley sockets, for example, use an integer file descriptor. You can mark any type as an owner:
+Ownership is not limited to pointers. Berkeley sockets, for example, use an
+integer file descriptor. You can mark any type as an owner:
 
 ```c
 _Owner int server_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -378,9 +389,9 @@ close(server_socket);
 
 ### View References
 
-A **view reference** accesses an object without managing its lifetime. Regular (non-`_Owner`) 
-pointers are view references by default. The `_View` annotation is used on struct types, 
-not on pointer declarations.
+A **view reference** accesses an object without managing its lifetime. Regular
+(non-`_Owner`) pointers are view references by default. The `_View` annotation
+is used on struct types, not on pointer declarations.
 
 > **Rule:** The lifetime of the referenced object must exceed the lifetime of the view reference.
 

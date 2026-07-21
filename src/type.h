@@ -313,6 +313,8 @@ bool type_is_enum(const struct type* p_type);
 bool type_is_array(const struct type* p_type);
 
 bool type_is_ctor(const struct type* p_type);
+bool type_is_dtor(const struct type* p_type);
+bool type_is_clear(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
 bool type_is_constexpr(const struct type* p_type);
 bool type_is_const_or_constexpr(const struct type* p_type);

@@ -745,16 +745,18 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
 
 #if !defined CAKE_HEADERS
     if (!fastbuild)
+    {
+        print_header("Cake auto-config");
         execute_cmd("./" CKC_NAME " -autoconfig");
+    }
 #endif
 
-#if defined PLATFORM_MACOS
-    //cake is not ready to parse headers on macos yet, so we skip this test for now
-#else
+    /* Run cake on its own source (self-analysis) on Linux and macOS. */
     if (!fastbuild)
+    {
+        print_header("Running Cake on its own source");
         execute_cmd("./" CKC_NAME " -fanalyzer " CAKE_SOURCE_FILES);
-#endif
-
+    }
 #endif /* (PLATFORM_LINUX || PLATFORM_MACOS) && COMPILER_CLANG */
 
 #if defined COMPILER_GCC && !defined COMPILER_TINYC
@@ -856,17 +858,14 @@ static void run_tests(void)
 
     execute_cmd(RUN CKC_NAME " -selftest");
 
-
-#if PLATFORM_MACOS
-    /*not working on MacOs yet*/
-    return;
-#endif
-
     execute_cmd(RUN CKC_NAME " -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -test-mode");
     execute_cmd(RUN CKC_NAME "  -fdiagnostics-color=never -wd20 ../tests/unit-tests/*.c -test-mode");
     execute_cmd(RUN CKC_NAME "  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode-in-out");
     execute_cmd(RUN CKC_NAME "  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
 
+#if !PLATFORM_MACOS
+    /* cake89 (C89) is not built in the macOS/clang branch, so its tests
+       only run where it is produced (MSVC / GCC). */
     print_header("Run tests (cake89)");
 
     execute_cmd(RUN CKC89_NAME " -selftest");
@@ -874,6 +873,7 @@ static void run_tests(void)
     execute_cmd(RUN CKC89_NAME "  -fdiagnostics-color=never -wd20 ../tests/unit-tests/*.c -test-mode");
     execute_cmd(RUN CKC89_NAME "  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode-in-out");
     execute_cmd(RUN CKC89_NAME "  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
+#endif
 
     printf("Other test cases:\n");
     printf("  " CKC_NAME " ../tests/unit-tests/failing/*.c -test-mode\n");

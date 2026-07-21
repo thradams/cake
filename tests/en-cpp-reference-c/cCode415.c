@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/thread/call_once.html
+/* <threads.h> is not provided by the macOS SDK */
+#ifndef __APPLE__
 #include <stdio.h>
 #include <threads.h>
  
@@ -25,3 +27,4 @@ int main(void)
     thrd_join(t3, NULL);
     thrd_join(t4, NULL);
 }
+#endif /* !__APPLE__ */

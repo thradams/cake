@@ -243,6 +243,12 @@ static ui_theme g_theme = {
     .editor_keyword2_fg = TB_RGB(0xFF, 0xFF, 0xFF),  /* control flow: bright white */
     .editor_string_fg = TB_RGB(0x55, 0xFF, 0x55),
     .editor_comment_fg = TB_RGB(0x55, 0xFF, 0xFF),
+    .editor_linenum_fg = TB_RGB(0x80, 0x80, 0xC0),  /* muted blue-gray -
+                                                     * readable against this
+                                                     * theme's dark blue
+                                                     * editor_bg without
+                                                     * competing with any
+                                                     * syntax color */
     .editor_preproc_fg = TB_RGB(0xFF, 0x55, 0xFF),
     .editor_sel_bg = TB_RGB(0x80, 0x80, 0x80),
     .editor_sel_fg = TB_RGB(0x00, 0x00, 0x00),
@@ -2302,7 +2308,15 @@ static void input_insert(ui_node* n, uint32_t cp, int undo_kind)
     editor_undo_settle(n);
 
     if (n->type == UI_TAG_EDITOR)
+    {
         n->dirty = 1;
+        /* Stale as of this keystroke - line numbers below the edit may have
+         * already shifted, and the diagnostic's own line may no longer even
+         * say what it used to. Cleared outright rather than re-mapped: the
+         * app re-populates them on the next compile (see do_compile()'s own
+         * ui_editor_clear_diagnostics() call, now redundant but harmless). */
+        ui_editor_clear_diagnostics(n);
+    }
 }
 
 static void input_backspace(ui_node* n)
@@ -2323,7 +2337,10 @@ static void input_backspace(ui_node* n)
     editor_undo_settle(n);
 
     if (n->type == UI_TAG_EDITOR)
+    {
         n->dirty = 1;
+        ui_editor_clear_diagnostics(n);  /* see input_insert()'s own comment */
+    }
 }
 
 static void input_delete_forward(ui_node* n)
@@ -2347,7 +2364,10 @@ static void input_delete_forward(ui_node* n)
     editor_undo_settle(n);
 
     if (n->type == UI_TAG_EDITOR)
+    {
         n->dirty = 1;
+        ui_editor_clear_diagnostics(n);  /* see input_insert()'s own comment */
+    }
 }
 
 /* Place an <input>'s cursor at click_col, a column relative to the widget's
@@ -2421,6 +2441,56 @@ static int editor_line_count(const char* text)
         if (*p == '\n')
             n++;
     return n;
+}
+
+/* Global ON/OFF switch for the line-number gutter (see ui_set_show_line_
+ * numbers/ui_get_show_line_numbers in ide_ui.h) - defaults ON. Not per-
+ * editor and not persisted, same as the app's theme choice. */
+static int g_show_line_numbers = 1;
+
+void ui_set_show_line_numbers(int on)
+{
+    g_show_line_numbers = on ? 1 : 0;
+}
+
+int ui_get_show_line_numbers(void)
+{
+    return g_show_line_numbers;
+}
+
+/* Width in columns of `n`'s line-number gutter, 0 when the feature is off
+ * (ui_set_show_line_numbers) or `n` isn't a plain C source editor -
+ * UI_SYNTAX_VT100 (compiler/terminal output) and UI_SYNTAX_MARKDOWN (README/
+ * help viewer - prose, not source lines worth numbering) both stay gutter-
+ * less, same as View > "Line Numbers" itself only being enabled while the
+ * frontmost document is code (see g_view_linenumbers_item's own doc comment
+ * in ide.c). Wide enough for the document's last line number plus a one-
+ * column gap, with a 3-digit (+ gap) floor so a short document doesn't get
+ * a cramped 2-wide gutter - every render_editor() row, plus every hscroll/
+ * click/scrollbar computation below that has to agree on where the actual
+ * text starts, calls this so they can never drift apart. */
+static int editor_gutter_width(const ui_node* n)
+{
+    if (!g_show_line_numbers || n->syntax != UI_SYNTAX_C)
+        return 0;
+    int total = editor_line_count(n->label);
+    int digits = 1;
+    for (int t = total; t >= 10; t /= 10)
+        digits++;
+    if (digits < 3)
+        digits = 3;
+    return digits + 1;  /* + 1 column gap before the text */
+}
+
+/* `n`'s text viewport width - n->w minus whatever the gutter (just above)
+ * currently claims - clamped at 0 so a pathologically narrow editor can't
+ * go negative. Every place that used to treat n->w as "how many text
+ * columns are visible" (hscroll clamping, the horizontal scrollbar, caret-
+ * follow scrolling) uses this instead once a gutter can be in the way. */
+static int editor_text_w(const ui_node* n)
+{
+    int w = n->w - editor_gutter_width(n);
+    return w > 0 ? w : 0;
 }
 
 /* Move the cursor by `delta` lines (negative = up, positive = down),
@@ -2528,9 +2598,18 @@ static int editor_row_to_line(const ui_node* n, int click_row)
 
 /* Place the cursor at (click_row, click_col) within the editor's currently
  * scrolled view - click_row/click_col are relative to the widget's top-left,
- * already adjusted for its own x/y by the caller. */
+ * already adjusted for its own x/y by the caller (still including the
+ * gutter, if any - every call site just passes mouse_x - n->x, same as
+ * before the gutter existed, so the adjustment lives here in one place
+ * instead of at each of them). A click that lands on the gutter itself
+ * clamps to column 0 of the text, same as clicking the first visible
+ * character would. */
 static void editor_click_set_cursor(ui_node* n, int click_row, int click_col)
 {
+    click_col -= editor_gutter_width(n);
+    if (click_col < 0)
+        click_col = 0;
+
     int target = editor_row_to_line(n, click_row);
 
     int ls, le;
@@ -2792,10 +2871,11 @@ static void editor_ensure_cursor_visible(ui_node* n)
      * it can't push hscroll past the content - no upper clamp needed here
      * (the mouse-wheel pan handles that, via editor_clamp_hscroll). */
     int col = utf8_col_of(n->label + line_start, n->cursor - line_start);
+    int text_w = editor_text_w(n);
     if (col < n->hscroll)
         n->hscroll = col;
-    else if (col >= n->hscroll + n->w)
-        n->hscroll = col - n->w + 1;
+    else if (col >= n->hscroll + text_w)
+        n->hscroll = col - text_w + 1;
     if (n->hscroll < 0)
         n->hscroll = 0;
 }
@@ -3021,7 +3101,10 @@ static void editor_delete_selection(ui_node* n)
     editor_undo_settle(n);
 
     if (n->type == UI_TAG_EDITOR)
+    {
         n->dirty = 1;
+        ui_editor_clear_diagnostics(n);  /* see input_insert()'s own comment */
+    }
 }
 
 /* Defined later, next to the VT100/Markdown line renderers that also need
@@ -3296,6 +3379,10 @@ void ui_editor_undo(ui_node* n)
     editor_clamp_scroll(n);
     editor_ensure_cursor_visible(n);
     n->dirty = 1;
+    ui_editor_clear_diagnostics(n);  /* see input_insert()'s own comment - the
+                                      * restored text may not be what the
+                                      * diagnostics were reported against
+                                      * either */
 }
 
 /* Redo the most recently undone edit group - the mirror image of
@@ -3319,6 +3406,7 @@ void ui_editor_redo(ui_node* n)
     editor_clamp_scroll(n);
     editor_ensure_cursor_visible(n);
     n->dirty = 1;
+    ui_editor_clear_diagnostics(n);  /* see ui_editor_undo()'s own comment */
 }
 
 int ui_editor_can_undo(const ui_node* n)
@@ -5113,7 +5201,19 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                 if (has_selection(in))
                     editor_delete_selection(in);
                 else
+                {
                     input_backspace(in);
+                    /* A plain click leaves sel_anchor == cursor, not -1 (see
+                     * editor_insert_soft_tab's own comment on this) -
+                     * input_backspace() never touches sel_anchor, so left
+                     * alone it now sits one character ahead of the moved
+                     * caret and has_selection() flips true next frame,
+                     * reading back as a real (if tiny) selection out of
+                     * nowhere. Collapsing it onto the caret keeps this a
+                     * plain "moved while editing", same as any other
+                     * keystroke starting from a real caret. */
+                    in->sel_anchor = -1;
+                }
             }
             else if (ev2->data.key.codepoint == '\r' || ev2->data.key.codepoint == '\n')
             {
@@ -5121,6 +5221,8 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                 {
                     if (has_selection(in))
                         editor_delete_selection(in);
+                    else
+                        in->sel_anchor = -1;  /* see the Backspace branch's own comment above */
                     input_insert(in, '\n', UI_UNDO_NEWLINE);  /* a real newline, not a submit */
                 }
                 else
@@ -5133,6 +5235,8 @@ void ui_screen_update(ui_screen* s, ui_env* env)
             {
                 if (has_selection(in))
                     editor_delete_selection(in);
+                else
+                    in->sel_anchor = -1;  /* see the Backspace branch's own comment above */
                 input_insert(in, ev2->data.key.codepoint, UI_UNDO_TYPE);
             }
             break;
@@ -6290,6 +6394,7 @@ static int is_c_keyword1(const char* word, int len)
         if (len == 5 && memcmp(word, "catch", 5) == 0) return 1;  // C++
         if (len == 8 && memcmp(word, "continue", 8) == 0) return 1;
         if (len == 14 && memcmp(word, "compile_assert", 14) == 0) return 1;
+        if (len == 9 && memcmp(word, "constexpr", 9) == 0) return 1;
     }
     else if (c == 'd')
     {
@@ -6322,6 +6427,10 @@ static int is_c_keyword1(const char* word, int len)
     else if (c == 'l')
     {
         if (len == 4 && memcmp(word, "long", 4) == 0) return 1;
+    }
+    else if (c == 'n')
+    {
+        if (len == 7 && memcmp(word, "nullptr", 7) == 0) return 1;
     }
     else if (c == 'r')
     {
@@ -6399,6 +6508,7 @@ static int is_c_keyword2(const char* word, int len)
     if (len == 5 && memcmp(word, "_Ctor", 5) == 0) return 1;
     if (len == 6 && memcmp(word, "assert", 6) == 0) return 1;
     if (len == 4 && memcmp(word, "NULL", 4) == 0) return 1;
+    if (len == 6 && memcmp(word, "_Clear", 6) == 0) return 1;
 
     return 0;
 }
@@ -7342,7 +7452,7 @@ static int editor_content_cols(ui_node* n)
  * stay within real text and clamp themselves). */
 static void editor_clamp_hscroll(ui_node* n)
 {
-    int max_hscroll = editor_content_cols(n) - n->w;
+    int max_hscroll = editor_content_cols(n) - editor_text_w(n);
     if (max_hscroll < 0)
         max_hscroll = 0;
     if (n->hscroll > max_hscroll)
@@ -7362,16 +7472,18 @@ static int editor_has_hscrollbar(ui_node* n)
 {
     if (!(n->w > 0 && n->h > 0))
         return 0;
-    return editor_content_cols(n) > n->w;
+    return editor_content_cols(n) > editor_text_w(n);
 }
 
-/* Trivial 1:1 mapping onto the editor's own row - kept as its own function
- * (rather than inlining n->x/n->w everywhere) so process_window's hit-test,
- * the thumb math below, and render_editor's drawing can't drift apart. */
+/* Maps onto the editor's own row, but starting past the line-number gutter
+ * (if any) and narrowed to match - kept as its own function (rather than
+ * inlining n->x/n->w everywhere) so process_window's hit-test, the thumb
+ * math below, and render_editor's drawing can't drift apart. */
 static void editor_hscrollbar_layout(ui_node* n, int* out_track_x0, int* out_track_w)
 {
-    *out_track_x0 = n->x;
-    *out_track_w = n->w;
+    int gutter_w = editor_gutter_width(n);
+    *out_track_x0 = n->x + gutter_w;
+    *out_track_w = n->w - gutter_w;
 }
 
 static void editor_hscrollbar_thumb(ui_node* n, int* out_start, int* out_len)
@@ -7380,15 +7492,16 @@ static void editor_hscrollbar_thumb(ui_node* n, int* out_start, int* out_len)
     editor_hscrollbar_layout(n, &track_x0, &track_w);
     (void)track_x0;
 
+    int text_w = editor_text_w(n);
     int total = editor_content_cols(n);
-    int max_hscroll = total - n->w;
+    int max_hscroll = total - text_w;
     if (max_hscroll <= 0 || track_w <= 0)
     {
         *out_start = 0;
         *out_len = track_w;
         return;
     }
-    int len = track_w * n->w / total;
+    int len = track_w * text_w / total;
     if (len < 1) len = 1;
     if (len > track_w) len = track_w;
     int start = (n->hscroll * (track_w - len)) / max_hscroll;
@@ -7411,7 +7524,7 @@ static void editor_hscrollbar_set_from_mouse(ui_node* n, int mouse_x)
     }
     else
     {
-        int max_hscroll = editor_content_cols(n) - n->w;
+        int max_hscroll = editor_content_cols(n) - editor_text_w(n);
         if (max_hscroll < 0)
             max_hscroll = 0;
         int col = mouse_x - track_x0;
@@ -7425,12 +7538,25 @@ static void editor_hscrollbar_set_from_mouse(ui_node* n, int mouse_x)
 /* A multi-line syntax-highlighted text area, scrolled to n->scroll vertically
  * and n->hscroll horizontally (both kept in view of the caret by
  * editor_ensure_cursor_visible(), or moved independently by the mouse wheel -
- * see ui_screen_update()). Columns left of n->hscroll or past n->hscroll+n->w
- * are clipped by emit_hscroll inside each line renderer. */
+ * see ui_screen_update()). Columns left of n->hscroll or past n->hscroll+
+ * text_w are clipped by emit_hscroll inside each line renderer - text_w
+ * being n->w minus whatever the line-number gutter (editor_gutter_width())
+ * currently claims on the left, 0 when it's off. */
 static void render_editor(ui_screen* s, ui_node* n)
 {
     int focused = (s->focused == n);
     int caret = focused && s->caret_visible;  /* blink phase - see ui_screen_update */
+
+    /* Line-number gutter (see editor_gutter_width/ui_set_show_line_numbers) -
+     * text_x/text_w stand in for n->x/n->w everywhere below that actually
+     * draws or measures the document's text, so the gutter (when present)
+     * simply isn't overwritten by it. The gutter's own numbers are drawn
+     * per-row further down, alongside each row's line_bg, so a gutter cell
+     * picks up the same current-line/code-block tint as the text next to
+     * it. */
+    int gutter_w = editor_gutter_width(n);
+    int text_x = n->x + gutter_w;
+    int text_w = n->w - gutter_w;
 
     int cursor_line, cursor_line_start;
     editor_cursor_line(n, &cursor_line, &cursor_line_start);
@@ -7706,10 +7832,26 @@ static void render_editor(ui_screen* s, ui_node* n)
          * from. */
         int line_entry_block = in_block;
 
+        /* The gutter cell for this row - drawn before the text so a wide
+         * line's leftmost (hscrolled-off) glyphs never bleed into it. Right-
+         * aligned within [n->x, text_x), same convention as line_bg above:
+         * it picks up whatever tint this row got (current line/code block),
+         * so it reads as part of the same row rather than a separate strip.
+         * Skipped entirely when gutter_w is 0 (feature off, or VT100). */
+        if (gutter_w > 0)
+        {
+            char num[16];
+            int len = snprintf(num, sizeof num, "%d", line_idx + 1);
+            draw_fill(n->x, n->y + row, gutter_w, 1, g_theme.editor_linenum_fg, line_bg);
+            if (len > 0 && len < gutter_w)
+                draw_text(n->x + (gutter_w - 1 - len), n->y + row, num,
+                          g_theme.editor_linenum_fg, line_bg);
+        }
+
         switch (n->syntax)
         {
         case UI_SYNTAX_VT100:
-            render_editor_line_ansi(n->x, n->y + row, n->w, n->hscroll, n->label + ls, le - ls,
+            render_editor_line_ansi(text_x, n->y + row, text_w, n->hscroll, n->label + ls, le - ls,
                                      sel_col_lo, sel_col_hi, line_bg);
             break;
         case UI_SYNTAX_MARKDOWN:
@@ -7724,18 +7866,18 @@ static void render_editor(ui_screen* s, ui_node* n)
              * per-codepoint columns, the same thing utf8_col_of() would've
              * produced - see the `!in_code_block` gate in its block comment. */
             if (!line_is_fence && in_c_block)
-                render_editor_line(n->x, n->y + row, n->w, n->hscroll, n->label + ls, le - ls,
+                render_editor_line(text_x, n->y + row, text_w, n->hscroll, n->label + ls, le - ls,
                                     sel_col_lo, sel_col_hi, &c_comment_block, line_bg, &c_bracket_depth);
             else
-                render_editor_line_markdown(n->x, n->y + row, n->w, n->hscroll, n->label + ls, le - ls,
+                render_editor_line_markdown(text_x, n->y + row, text_w, n->hscroll, n->label + ls, le - ls,
                                              sel_col_lo, sel_col_hi, &in_block, n->read_only, line_bg);
             break;
         case UI_SYNTAX_C:
-            render_editor_line(n->x, n->y + row, n->w, n->hscroll, n->label + ls, le - ls,
+            render_editor_line(text_x, n->y + row, text_w, n->hscroll, n->label + ls, le - ls,
                                 sel_col_lo, sel_col_hi, &in_block, line_bg, &bracket_depth);
             break;
         default:
-            render_editor_line_plain(n->x, n->y + row, n->w, n->hscroll, n->label + ls, le - ls,
+            render_editor_line_plain(text_x, n->y + row, text_w, n->hscroll, n->label + ls, le - ls,
                                       sel_col_lo, sel_col_hi, line_bg);
             break;
         }
@@ -7754,7 +7896,7 @@ static void render_editor(ui_screen* s, ui_node* n)
                 p = p->next;
             }
             int diag_text_cols = utf8_col_of(n->label + ls, le - ls);
-            render_diagnostic(n->x, n->y + row, n->w, n->hscroll, diag_text_cols, best, count - 1);
+            render_diagnostic(text_x, n->y + row, text_w, n->hscroll, diag_text_cols, best, count - 1);
             diag = p;  /* past this whole line's group - never revisited */
         }
 
@@ -7767,7 +7909,7 @@ static void render_editor(ui_screen* s, ui_node* n)
          * a caret alone would be an orphaned block with no line-level cue to
          * go with it. */
         if (caret && !has_sel && n->syntax != UI_SYNTAX_VT100 && !md_readonly && line_idx == cursor_line &&
-            cursor_col >= n->hscroll && cursor_col < n->hscroll + n->w)
+            cursor_col >= n->hscroll && cursor_col < n->hscroll + text_w)
         {
             uint32_t under = ' ';
             int off;
@@ -7794,7 +7936,7 @@ static void render_editor(ui_screen* s, ui_node* n)
             }
             if (off < le)
                 utf8_decode(n->label + off, &under);
-            emit_char(n->x + cursor_col - n->hscroll, n->y + row, under,
+            emit_char(text_x + cursor_col - n->hscroll, n->y + row, under,
                       g_theme.editor_sel_fg, g_theme.editor_sel_bg);
         }
 

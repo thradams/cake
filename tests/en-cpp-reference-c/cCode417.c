@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/thread/thrd_yield.html
+/* <threads.h> is not provided by the macOS SDK */
+#ifndef __APPLE__
 #include <stdio.h>
 #include <time.h>
 #include <threads.h>
@@ -31,3 +33,4 @@ int main()
     timespec_get(&end, TIME_UTC);
     printf("Waited for %.3f us\n", usdiff(start, end));
 }
+#endif /* !__APPLE__ */

@@ -278,6 +278,14 @@ typedef struct {
      * struct, const, ...); editor_keyword2_fg colors control-flow keywords
      * (is_c_keyword2 - if, for, return, ...). */
 
+    uint32_t editor_linenum_fg;  /* the line-number gutter's digits (see
+                                  * ui_set_show_line_numbers/render_editor in
+                                  * ide_ui.c) - deliberately its own muted
+                                  * color rather than reusing editor_comment_fg
+                                  * (which is a syntax-highlight accent, e.g.
+                                  * green, not the neutral gray real editors
+                                  * use for line numbers). */
+
     uint32_t editor_current_line_bg;  /* the whole row the caret is on, in
                                        * every <editor> (source or VT100/
                                        * Output alike) - a subtle fill,
@@ -560,6 +568,15 @@ typedef enum {
  * hand-edited, so there's no path back to plain-text editing once set. */
 void ui_set_syntax(ui_node* n, ui_syntax syntax);
 ui_syntax ui_get_syntax(const ui_node* n);
+
+/* Global (not per-editor) ON/OFF switch for the line-number gutter drawn
+ * along the left edge of every EDITOR that isn't UI_SYNTAX_VT100 (compiler/
+ * terminal output has no source lines worth numbering) - see render_editor()
+ * and editor_gutter_width() in ide_ui.c. Defaults to ON, same as most source
+ * editors; not persisted across sessions, matching the Environment dialog's
+ * own theme choice (see g_theme_index in ide.c). */
+void ui_set_show_line_numbers(int on);
+int ui_get_show_line_numbers(void);
 
 /* EDITOR-only: whether it has unsaved changes - like a document's "modified"
  * flag. The framework sets this to 1 on its own (any edit - typing, paste,

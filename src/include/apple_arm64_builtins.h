@@ -1,6 +1,14 @@
 
 typedef typeof(sizeof(1)) size_t;
 
+/* clang builtin types cake has no keyword for. _Float16 (Apple math.h)
+   aliased to float. The 128-bit ints only appear as declared fields in
+   arm64 CPU/NEON state structs (never used in arithmetic here), so model
+   them as a 16-byte aggregate rather than depending on _BitInt. */
+typedef float _Float16;
+typedef struct { unsigned long long __a, __b; } __uint128_t;
+typedef struct { unsigned long long __a, __b; } __int128_t;
+
 
 /*
   https://gcc.gnu.org/onlinedocs/gcc/Integer-Overflow-Builtins.html
@@ -121,6 +129,8 @@ void* __builtin_realloc(void* ptr, size_t size);
 int __builtin_signbit(double x);
 int __builtin_signbitf(float x);
 int __builtin_signbitl(long double x);
+
+int __builtin_flt_rounds(void);
 
 
 

@@ -74,6 +74,17 @@ enum {
                                   * re-raises, if already open) the scratch
                                   * editor window pinned to playground.c;
                                   * see open_playground() */
+    EVT_VIEW_LINENUMBERS = 89,  /* View > "Line Numbers" - toggles the
+                                 * gutter drawn in every source <editor> (see
+                                 * ui_set_show_line_numbers/render_editor in
+                                 * ide_ui.c). Same "[x]"/"[ ]" convention and
+                                 * per-frame refresh as the other View items
+                                 * just above, but a real boolean setting
+                                 * rather than "is this window open" - see
+                                 * g_view_linenumbers_item's own doc
+                                 * comment. Defaults ON, not persisted
+                                 * across sessions (same as the Environment
+                                 * dialog's theme choice). */
     EVT_EDIT_UNDO = 10,
     EVT_EDIT_CUT = 11,
     EVT_EDIT_COPY = 12,
@@ -171,6 +182,9 @@ enum {
     EVT_WORDWRAP_CANCEL = 852,
     EVT_COPTS_OK = 900,
     EVT_COPTS_CANCEL = 901,
+    EVT_COPTS_HELP = 902,  /* Compiler Options' Help button - opens
+                             * help/cmdline.md, same idea as F1's contextual
+                             * help but a fixed topic - see do_help_cmdline() */
     EVT_COPTS_TARGET = 910,  /* base id for the Target <select>'s options */
     EVT_COPTS_STYLE = 920,   /* base id for the Style <select>'s options */
     EVT_TOOLS_FINDREPLACE = 63,  /* Tools > "Find and Replace..." - opens/
@@ -300,6 +314,13 @@ static ui_node* g_view_output_item;
 static ui_node* g_view_folder_item;
 static ui_node* g_view_playground_item;
 
+/* View > "Line Numbers" (EVT_VIEW_LINENUMBERS) - same forward-declared/kept-
+ * current-every-frame pattern as the three above, but mirrors a plain
+ * boolean (ui_get_show_line_numbers()) instead of "is this window open" -
+ * see refresh_view_item()'s own doc comment, which already covers either
+ * shape. */
+static ui_node* g_view_linenumbers_item;
+
 /* The Compile menu's own "Compile" item (id 40 / EVT_COMPILE, "F7") - see
  * build_screen() below) - same forward-declared-for-build_screen()/kept-
  * current-every-frame pattern as g_edit_readonly_item above. Disabling the
@@ -356,10 +377,10 @@ static void build_screen(ui_node* root)
         { EVT_EDIT_PASTE, "Paste", "Ctrl+V", 1 },
         SEP,
         { EVT_EDIT_STRINGIFY, "Stringify", NULL, 1 },
-        { EVT_EDIT_TOUPPER, "To Upper", NULL, 1 },
-        { EVT_EDIT_TOLOWER, "To Lower", NULL, 1 },
+        { EVT_EDIT_TOUPPER, "To Upper", "Ctrl+U", 1 },
+        { EVT_EDIT_TOLOWER, "To Lower", "Ctrl+L", 1 },
         SEP,
-        { EVT_EDIT_WORDWRAP, "Word Wrap...", NULL, 1 },
+        { EVT_EDIT_WORDWRAP, "Word Wrap...", "Ctrl+W", 1 },
     };
     ui_node* edit_menu = add_menu(menubar, "Edit", edit_items, sizeof edit_items / sizeof edit_items[0]);
     ui_node* edit_sep = ui_create_element(UI_TAG_ITEM);
@@ -380,6 +401,8 @@ static void build_screen(ui_node* root)
         { EVT_WINDOW_OUTPUT, "Show Output", NULL, 1 },
         { EVT_WINDOW_FOLDER, "Show Folder", NULL, 1 },
         { EVT_WINDOW_PLAYGROUND, "Show Playground", NULL, 1 },
+        SEP,
+        { EVT_VIEW_LINENUMBERS, "Line Numbers", NULL, 1 },
     };
     ui_node* view_menu = add_menu(menubar, "View", view_items, sizeof view_items / sizeof view_items[0]);
     /* Grabbed back out by id (add_menu builds items from the plain spec
@@ -390,6 +413,7 @@ static void build_screen(ui_node* root)
     g_view_output_item = ui_find_by_id(view_menu, EVT_WINDOW_OUTPUT);
     g_view_folder_item = ui_find_by_id(view_menu, EVT_WINDOW_FOLDER);
     g_view_playground_item = ui_find_by_id(view_menu, EVT_WINDOW_PLAYGROUND);
+    g_view_linenumbers_item = ui_find_by_id(view_menu, EVT_VIEW_LINENUMBERS);
 
     static const menu_item_spec search_items[] = {
         { 20, "Find...", "Ctrl+F", 1 },
@@ -1011,6 +1035,8 @@ static const ui_theme g_theme_dark = {
     .editor_keyword2_fg = TB_RGB(0xC5, 0x86, 0xC0),  /* control flow: VS purple */
     .editor_string_fg = TB_RGB(0xCE, 0x91, 0x78),
     .editor_comment_fg = TB_RGB(0x6A, 0x99, 0x55),
+    .editor_linenum_fg = TB_RGB(0x85, 0x85, 0x85),  /* VS Code Dark's actual
+                                                     * gutter gray */
     .editor_preproc_fg = TB_RGB(0xC5, 0x86, 0xC0),
     .editor_sel_bg = TB_RGB(0x26, 0x4F, 0x78),  /* #264F78 - VS Dark's actual selection color */
     .editor_sel_fg = TB_RGB(0xFF, 0xFF, 0xFF),
@@ -1138,6 +1164,8 @@ static const ui_theme g_theme_white = {
     .editor_keyword2_fg = TB_RGB(0xAF, 0x00, 0xDB),  /* control flow: purple */
     .editor_string_fg = TB_RGB(0xA3, 0x15, 0x15),
     .editor_comment_fg = TB_RGB(0x00, 0x80, 0x00),
+    .editor_linenum_fg = TB_RGB(0x9E, 0x9E, 0x9E),  /* VS Code Light's actual
+                                                     * gutter gray */
     .editor_preproc_fg = TB_RGB(0x80, 0x00, 0x80),
     .editor_sel_bg = TB_RGB(0xAD, 0xD6, 0xFF),  /* #ADD6FF - VS Light's actual selection color */
     .editor_sel_fg = TB_RGB(0x00, 0x00, 0x00),
@@ -2451,15 +2479,20 @@ static void folder_reveal_directory(const char* dir)
     ui_screen_show_window(g_screen, g_folder_window);
 }
 
-/* Help > Index (EVT_HELP_INDEX): opens the help index from the executable's
- * help directory, so the help content travels with the app. Already open?
- * Just re-raise it, same as File > Open would. Missing? A message box
- * instead of silently doing nothing. */
-static void do_help_index(void)
+/* Opens a specific help/<filename> topic (e.g. "index.md", "cmdline.md") into
+ * an editor window - the shared "resolve the help/ folder, reveal it in the
+ * Folder panel, record the jump, open the file" job every help entry point
+ * needs: Help > Index (do_help_index(), "index.md"), F1's contextual help
+ * (do_help_contextual(), whichever help/<word>.md topic matches the caret),
+ * and the Compiler Options dialog's Help button (do_help_cmdline(), the
+ * fixed "cmdline.md" topic). `filename` is relative to the help/ folder;
+ * `label` is the new window's title, same as open_file_path_into_editor's
+ * own `label` param - pass "help/<filename>" to title the window the way
+ * Help > Index always has. Already open? open_file_path_into_editor's own
+ * existing-window check just re-raises it. Missing? Its own message box
+ * reports that instead of silently doing nothing. */
+static void open_help_topic(const char* filename, const char* label)
 {
-    nav_record_jump();  /* opening help counts as an explicit jump too - see
-                         * nav_record_jump()'s own doc comment */
-
     char dir[1024] = { 0 };
     char exe_path[1024] = { 0 };
 
@@ -2473,46 +2506,34 @@ static void do_help_index(void)
     if (!dir[0] && !ui_get_cwd(dir, sizeof dir))
         dir[0] = 0;
 
+    char help_dir[1024];
+    snprintf(help_dir, sizeof help_dir, "%s/help", dir);
+    folder_reveal_directory(help_dir);
+
+    nav_record_jump();  /* opening help counts as an explicit jump too - see
+                         * nav_record_jump()'s own doc comment */
+
     char path[1024];
-    snprintf(path, sizeof path, "%s/help/index.md", dir);
-
-    ui_node* existing = find_open_window(path);
-    if (existing)
-    {
-        ui_screen_show_window(g_screen, existing);
-        return;
-    }
-
-    FILE* f = fopen(path, "rb");
-    if (!f)
-    {
-        ui_msgbox_button ok = { "   OK   ", 0 };
-        char message[1536];
-        snprintf(message, sizeof message, "help/index.md not found at:\n%s", path);
-        ui_message_box(g_screen, "Help", message, &ok, 1);
-        return;
-    }
-
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    if (size < 0)
-        size = 0;
-
-    char* content = malloc((size_t)size + 1);
-    if (content)
-    {
-        size_t got = fread(content, 1, (size_t)size, f);
-        content[got] = 0;
-    }
-    fclose(f);
-
-    ui_node* win = make_editor_window(g_root, g_new_count++, " help/index.md ", content ? content : "", path);
-    free(content);
+    snprintf(path, sizeof path, "%s/help/%s", dir, filename);
     /* Already opened read-only - .md defaults to it, see syntax_for_path's
      * own doc comment. */
+    open_file_path_into_editor(path, label);
+}
 
-    ui_screen_show_window(g_screen, win);
+/* Help > Index (EVT_HELP_INDEX): opens the help index from the executable's
+ * help directory, so the help content travels with the app. */
+static void do_help_index(void)
+{
+    open_help_topic("index.md", "help/index.md");
+}
+
+/* Compiler Options' Help button (EVT_COPTS_HELP): opens help/cmdline.md, the
+ * command-line reference - same job as F1's contextual help
+ * (do_help_contextual), just a fixed topic instead of whatever's under the
+ * caret, since there's no editor caret to look at from inside this dialog. */
+static void do_help_cmdline(void)
+{
+    open_help_topic("cmdline.md", "cmdline");
 }
 
 static int is_word_char(int c) { return isalnum((unsigned char)c) || c == '_'; }
@@ -2622,10 +2643,9 @@ static void do_help_contextual(void)
     if (tf)
     {
         fclose(tf);
-        nav_record_jump();
-        /* Already opened read-only - .md defaults to it, see
-         * syntax_for_path's own doc comment. */
-        open_file_path_into_editor(topic_path, word);
+        char topic_filename[160];
+        snprintf(topic_filename, sizeof topic_filename, "%s.md", word);
+        open_help_topic(topic_filename, word);
         return;
     }
 
@@ -5359,6 +5379,10 @@ static void on_ui_event(void* ctx, int id, void* param)
     {
         ui_screen_close_modal(g_screen, g_copts_modal);
     }
+    else if (id == EVT_COPTS_HELP)
+    {
+        do_help_cmdline();
+    }
     else if (id == EVT_TOGGLE_AUTOCOMPILE)
     {
         g_auto_compile_enabled = !g_auto_compile_enabled;
@@ -6167,6 +6191,14 @@ static void on_ui_event(void* ctx, int id, void* param)
             ui_screen_close_modal(g_screen, existing);
         else
             open_playground();
+    }
+    else if (id == EVT_VIEW_LINENUMBERS)
+    {
+        /* Toggle, matching the "[x]"/"[ ]" the View menu shows for this item
+         * (see refresh_view_item) - takes effect immediately on every open
+         * editor, since render_editor() reads ui_get_show_line_numbers()
+         * fresh on each repaint rather than caching it per-window. */
+        ui_set_show_line_numbers(!ui_get_show_line_numbers());
     }
     else if (id == EVT_TOOLS_FINDREPLACE)
     {
@@ -7189,7 +7221,7 @@ void app_init(ui_env* env)
     ui_node* copts_modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, copts_modal);
     ui_node* copts_window = ui_create_element(UI_TAG_WINDOW);
-    ui_set_rect(copts_window, 15, 5, 50, 16);
+    ui_set_rect(copts_window, 15, 5, 62, 16);
     ui_set_label(copts_window, " Compiler Options ");
     ui_set_color(copts_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(copts_modal, copts_window);
@@ -7237,6 +7269,11 @@ void app_init(ui_env* env)
     ui_set_rect(copts_cancel, 41, 18, 10, 1);
     ui_set_label(copts_cancel, "Cancel");
     ui_append_child(copts_window, copts_cancel);
+    ui_node* copts_help = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(copts_help, EVT_COPTS_HELP);
+    ui_set_rect(copts_help, 55, 18, 10, 1);
+    ui_set_label(copts_help, " Help ");
+    ui_append_child(copts_window, copts_help);
     g_copts_modal = copts_modal;
 
     /* --- Open File modal --- */
@@ -7477,6 +7514,18 @@ int app_frame(ui_env* env)
         int have_path = get_playground_file_path(playground_path, sizeof playground_path);
         refresh_view_item(g_view_playground_item, "Show Playground",
                            have_path && find_open_window(playground_path) != NULL);
+    }
+    refresh_view_item(g_view_linenumbers_item, "Line Numbers", ui_get_show_line_numbers());
+    /* Line numbers only ever apply to a plain C source editor (see
+     * editor_gutter_width() in ide_ui.c) - Markdown/VT100/no document at all
+     * have nothing to number, so the item itself is disabled rather than
+     * left clickable-but-inert, same "enable only when it'd actually do
+     * something" reasoning as g_compile_item just below (though that one
+     * keys off the window's path; this one keys off the editor's own syntax
+     * mode, since that's what editor_gutter_width() itself checks). */
+    {
+        ui_node* active_ed = g_active_editor_window ? editor_in_window(g_active_editor_window) : NULL;
+        ui_set_enabled(g_view_linenumbers_item, active_ed && ui_get_syntax(active_ed) == UI_SYNTAX_C);
     }
 
     /* Same reasoning again - "Compile" (both the menu entry and its F7

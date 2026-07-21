@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/string/multibyte/mbrtoc16.html
+/* <uchar.h> is not provided by the macOS SDK */
+#ifndef __APPLE__
 #include <locale.h>
 #include <stdio.h>
 #include <uchar.h>
@@ -40,3 +42,4 @@ int main(void)
         printf("%#x ", out[x]);
     puts("]");
 }
+#endif /* !__APPLE__ */

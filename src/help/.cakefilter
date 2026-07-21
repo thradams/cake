@@ -1,16 +1,18 @@
 Introduction \ introduction.md
-Getting Started \ Getting Started
+Getting Started \ starting.md
 Invocation \ Invocation
-Output \ Output
-Command-Line Options \ Command-Line Options
+Output \ output.md
+Command-Line Options \ cmdline.md
 gcc compatibility \ gcc compatibility.md
 language standard support \ language standard support.md
 msvc compatibility \ msvc compatibility.md
-Cake Static Analysis — Ownership & Nullable Contracts \ ownership.md
+Ownership & Nullable Contracts \ Ownership
 warnings \ warnings.md
-C99 Features \ C99 Features
+C99 Features \ featuresc99.md
+C11 Features \ featuresc11.md
+C23 Features \ featuresc23.md
+C2Y Features \ featuresc2y.md
 C11 Features \ C11 Features
 C23 Features \ C23 Features
 C2Y Features \ C2Y Features
 Cake Language Extensions \ Cake Language Extensions
-

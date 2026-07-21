@@ -27,6 +27,18 @@ struct flow3_allocated_object_arena
     int capacity;
 };
 
+/* One recorded comparison predicate (see same-predicate branch correlation in
+   flow3.c): a comparison of the same operands controlling more than one branch
+   reuses the branch id first assigned to it. */
+struct flow3_predicate_entry
+{
+    enum expression_type op;
+    const struct object* left_obj;
+    const struct object* right_obj;   /* NULL when the right side is a constant */
+    long long right_const;
+    int branch_id;
+};
+
 struct flow3_visit_ctx
 {
     struct parser_ctx* const ctx;
@@ -47,6 +59,10 @@ struct flow3_visit_ctx
 
     struct flow3_label_state labels[100]; //max 100 labels in a function (case not included)
     int labels_size;
+
+    /* Same-predicate branch correlation cache; reset per function. */
+    struct flow3_predicate_entry predicate_cache[128];
+    int predicate_cache_size;
 
     
     struct flow3_allocated_object_arena allocated_object_arena;

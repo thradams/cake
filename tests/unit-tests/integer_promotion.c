@@ -2782,7 +2782,11 @@ static_assert(TYPE_OF(1 + 1.0L, long double));
 static_assert(TYPE_OF(1L + 1, long));
 static_assert(TYPE_OF(1L + 1L, long));
 static_assert(TYPE_OF(1L + 1LL, long long));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1L + 1U, long));
+#else
 static_assert(TYPE_OF(1L + 1U, unsigned long));
+#endif
 static_assert(TYPE_OF(1L + 1UL, unsigned long));
 static_assert(TYPE_OF(1L + 1ULL, unsigned long long));
 static_assert(TYPE_OF(1L + 1.0, double));
@@ -2792,13 +2796,21 @@ static_assert(TYPE_OF(1LL + 1, long long));
 static_assert(TYPE_OF(1LL + 1L, long long));
 static_assert(TYPE_OF(1LL + 1LL, long long));
 static_assert(TYPE_OF(1LL + 1U, long long));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1LL + 1UL, unsigned long long));
+#else
 static_assert(TYPE_OF(1LL + 1UL, long long));
+#endif
 static_assert(TYPE_OF(1LL + 1ULL, unsigned long long));
 static_assert(TYPE_OF(1LL + 1.0, double));
 static_assert(TYPE_OF(1LL + 1.0f, float));
 static_assert(TYPE_OF(1LL + 1.0L, long double));
 static_assert(TYPE_OF(1U + 1, unsigned));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1U + 1L, long));
+#else
 static_assert(TYPE_OF(1U + 1L, unsigned long));
+#endif
 static_assert(TYPE_OF(1U + 1LL, long long));
 static_assert(TYPE_OF(1U + 1U, unsigned));
 static_assert(TYPE_OF(1U + 1UL, unsigned long));
@@ -2808,7 +2820,11 @@ static_assert(TYPE_OF(1U + 1.0f, float));
 static_assert(TYPE_OF(1U + 1.0L, long double));
 static_assert(TYPE_OF(1UL + 1, unsigned long));
 static_assert(TYPE_OF(1UL + 1L, unsigned long));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1UL + 1LL, unsigned long long));
+#else
 static_assert(TYPE_OF(1UL + 1LL, long long));
+#endif
 static_assert(TYPE_OF(1UL + 1U, unsigned long));
 static_assert(TYPE_OF(1UL + 1UL, unsigned long));
 static_assert(TYPE_OF(1UL + 1ULL, unsigned long long));
@@ -2866,7 +2882,11 @@ static_assert(TYPE_OF(1 - 1.0L, long double));
 static_assert(TYPE_OF(1L - 1, long));
 static_assert(TYPE_OF(1L - 1L, long));
 static_assert(TYPE_OF(1L - 1LL, long long));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1L - 1U, long));
+#else
 static_assert(TYPE_OF(1L - 1U, unsigned long));
+#endif
 static_assert(TYPE_OF(1L - 1UL, unsigned long));
 static_assert(TYPE_OF(1L - 1ULL, unsigned long long));
 static_assert(TYPE_OF(1L - 1.0, double));
@@ -2876,13 +2896,21 @@ static_assert(TYPE_OF(1LL - 1, long long));
 static_assert(TYPE_OF(1LL - 1L, long long));
 static_assert(TYPE_OF(1LL - 1LL, long long));
 static_assert(TYPE_OF(1LL - 1U, long long));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1LL - 1UL, unsigned long long));
+#else
 static_assert(TYPE_OF(1LL - 1UL, long long));
+#endif
 static_assert(TYPE_OF(1LL - 1ULL, unsigned long long));
 static_assert(TYPE_OF(1LL - 1.0, double));
 static_assert(TYPE_OF(1LL - 1.0f, float));
 static_assert(TYPE_OF(1LL - 1.0L, long double));
 static_assert(TYPE_OF(1U - 1, unsigned));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1U - 1L, long));
+#else
 static_assert(TYPE_OF(1U - 1L, unsigned long));
+#endif
 static_assert(TYPE_OF(1U - 1LL, long long));
 static_assert(TYPE_OF(1U - 1U, unsigned));
 static_assert(TYPE_OF(1U - 1UL, unsigned long));
@@ -2892,7 +2920,11 @@ static_assert(TYPE_OF(1U - 1.0f, float));
 static_assert(TYPE_OF(1U - 1.0L, long double));
 static_assert(TYPE_OF(1UL - 1, unsigned long));
 static_assert(TYPE_OF(1UL - 1L, unsigned long));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1UL - 1LL, unsigned long long));
+#else
 static_assert(TYPE_OF(1UL - 1LL, long long));
+#endif
 static_assert(TYPE_OF(1UL - 1U, unsigned long));
 static_assert(TYPE_OF(1UL - 1UL, unsigned long));
 static_assert(TYPE_OF(1UL - 1ULL, unsigned long long));
@@ -2950,7 +2982,11 @@ static_assert(TYPE_OF(1 * 1.0L, long double));
 static_assert(TYPE_OF(1L * 1, long));
 static_assert(TYPE_OF(1L * 1L, long));
 static_assert(TYPE_OF(1L * 1LL, long long));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1L * 1U, long));
+#else
 static_assert(TYPE_OF(1L * 1U, unsigned long));
+#endif
 static_assert(TYPE_OF(1L * 1UL, unsigned long));
 static_assert(TYPE_OF(1L * 1ULL, unsigned long long));
 static_assert(TYPE_OF(1L * 1.0, double));
@@ -2960,13 +2996,21 @@ static_assert(TYPE_OF(1LL * 1, long long));
 static_assert(TYPE_OF(1LL * 1L, long long));
 static_assert(TYPE_OF(1LL * 1LL, long long));
 static_assert(TYPE_OF(1LL * 1U, long long));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1LL * 1UL, unsigned long long));
+#else
 static_assert(TYPE_OF(1LL * 1UL, long long));
+#endif
 static_assert(TYPE_OF(1LL * 1ULL, unsigned long long));
 static_assert(TYPE_OF(1LL * 1.0, double));
 static_assert(TYPE_OF(1LL * 1.0f, float));
 static_assert(TYPE_OF(1LL * 1.0L, long double));
 static_assert(TYPE_OF(1U * 1, unsigned));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1U * 1L, long));
+#else
 static_assert(TYPE_OF(1U * 1L, unsigned long));
+#endif
 static_assert(TYPE_OF(1U * 1LL, long long));
 static_assert(TYPE_OF(1U * 1U, unsigned));
 static_assert(TYPE_OF(1U * 1UL, unsigned long));
@@ -2976,7 +3020,11 @@ static_assert(TYPE_OF(1U * 1.0f, float));
 static_assert(TYPE_OF(1U * 1.0L, long double));
 static_assert(TYPE_OF(1UL * 1, unsigned long));
 static_assert(TYPE_OF(1UL * 1L, unsigned long));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1UL * 1LL, unsigned long long));
+#else
 static_assert(TYPE_OF(1UL * 1LL, long long));
+#endif
 static_assert(TYPE_OF(1UL * 1U, unsigned long));
 static_assert(TYPE_OF(1UL * 1UL, unsigned long));
 static_assert(TYPE_OF(1UL * 1ULL, unsigned long long));
@@ -3034,7 +3082,11 @@ static_assert(TYPE_OF(1 / 1.0L, long double));
 static_assert(TYPE_OF(1L / 1, long));
 static_assert(TYPE_OF(1L / 1L, long));
 static_assert(TYPE_OF(1L / 1LL, long long));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1L / 1U, long));
+#else
 static_assert(TYPE_OF(1L / 1U, unsigned long));
+#endif
 static_assert(TYPE_OF(1L / 1UL, unsigned long));
 static_assert(TYPE_OF(1L / 1ULL, unsigned long long));
 static_assert(TYPE_OF(1L / 1.0, double));
@@ -3044,13 +3096,21 @@ static_assert(TYPE_OF(1LL / 1, long long));
 static_assert(TYPE_OF(1LL / 1L, long long));
 static_assert(TYPE_OF(1LL / 1LL, long long));
 static_assert(TYPE_OF(1LL / 1U, long long));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1LL / 1UL, unsigned long long));
+#else
 static_assert(TYPE_OF(1LL / 1UL, long long));
+#endif
 static_assert(TYPE_OF(1LL / 1ULL, unsigned long long));
 static_assert(TYPE_OF(1LL / 1.0, double));
 static_assert(TYPE_OF(1LL / 1.0f, float));
 static_assert(TYPE_OF(1LL / 1.0L, long double));
 static_assert(TYPE_OF(1U / 1, unsigned));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1U / 1L, long));
+#else
 static_assert(TYPE_OF(1U / 1L, unsigned long));
+#endif
 static_assert(TYPE_OF(1U / 1LL, long long));
 static_assert(TYPE_OF(1U / 1U, unsigned));
 static_assert(TYPE_OF(1U / 1UL, unsigned long));
@@ -3060,7 +3120,11 @@ static_assert(TYPE_OF(1U / 1.0f, float));
 static_assert(TYPE_OF(1U / 1.0L, long double));
 static_assert(TYPE_OF(1UL / 1, unsigned long));
 static_assert(TYPE_OF(1UL / 1L, unsigned long));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1UL / 1LL, unsigned long long));
+#else
 static_assert(TYPE_OF(1UL / 1LL, long long));
+#endif
 static_assert(TYPE_OF(1UL / 1U, unsigned long));
 static_assert(TYPE_OF(1UL / 1UL, unsigned long));
 static_assert(TYPE_OF(1UL / 1ULL, unsigned long long));
@@ -3118,7 +3182,11 @@ static_assert(TYPE_OF(1 % 1ULL, unsigned long long));
 static_assert(TYPE_OF(1L % 1, long));
 static_assert(TYPE_OF(1L % 1L, long));
 static_assert(TYPE_OF(1L % 1LL, long long));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1L % 1U, long));
+#else
 static_assert(TYPE_OF(1L % 1U, unsigned long));
+#endif
 static_assert(TYPE_OF(1L % 1UL, unsigned long));
 static_assert(TYPE_OF(1L % 1ULL, unsigned long long));
 //static_assert(TYPE_OF(1L % 1.0, double));
@@ -3128,13 +3196,21 @@ static_assert(TYPE_OF(1LL % 1, long long));
 static_assert(TYPE_OF(1LL % 1L, long long));
 static_assert(TYPE_OF(1LL % 1LL, long long));
 static_assert(TYPE_OF(1LL % 1U, long long));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1LL % 1UL, unsigned long long));
+#else
 static_assert(TYPE_OF(1LL % 1UL, long long));
+#endif
 static_assert(TYPE_OF(1LL % 1ULL, unsigned long long));
 //static_assert(TYPE_OF(1LL % 1.0, double));
 //static_assert(TYPE_OF(1LL % 1.0f, float));
 //static_assert(TYPE_OF(1LL % 1.0L, long double));
 static_assert(TYPE_OF(1U % 1, unsigned));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1U % 1L, long));
+#else
 static_assert(TYPE_OF(1U % 1L, unsigned long));
+#endif
 static_assert(TYPE_OF(1U % 1LL, long long));
 static_assert(TYPE_OF(1U % 1U, unsigned));
 static_assert(TYPE_OF(1U % 1UL, unsigned long));
@@ -3144,7 +3220,11 @@ static_assert(TYPE_OF(1U % 1ULL, unsigned long long));
 //static_assert(TYPE_OF(1U % 1.0L, long double));
 static_assert(TYPE_OF(1UL % 1, unsigned long));
 static_assert(TYPE_OF(1UL % 1L, unsigned long));
+#ifdef __APPLE__ /* LP64 */
+static_assert(TYPE_OF(1UL % 1LL, unsigned long long));
+#else
 static_assert(TYPE_OF(1UL % 1LL, long long));
+#endif
 static_assert(TYPE_OF(1UL % 1U, unsigned long));
 static_assert(TYPE_OF(1UL % 1UL, unsigned long));
 static_assert(TYPE_OF(1UL % 1ULL, unsigned long long));

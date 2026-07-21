@@ -1,7 +1,9 @@
 //en.cppreference.com/w/c/thread/ONCE_FLAG_INIT.html
+/* <threads.h> is not provided by the macOS SDK */
+#ifndef __APPLE__
 #include <stdio.h>
 #include <threads.h>
- 
+
 void do_once(void) {
     puts("called once");
 }
@@ -25,3 +27,4 @@ int main(void)
     thrd_join(t3, NULL);
     thrd_join(t4, NULL);
 }
+#endif /* !__APPLE__ */

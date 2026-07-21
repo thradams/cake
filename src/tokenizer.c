@@ -2195,6 +2195,89 @@ static bool checked_strcat(char* dest, size_t dest_size, const char* src)
     return true;
 }
 
+/*
+  Is 'name' one of the clang preprocessor query operators handled natively
+  below (a function-like operator valid only in #if expressions)?
+  Note: __has_include / __has_embed / __has_c_attribute are handled
+  separately and are intentionally excluded here.
+*/
+static bool is_clang_query_operator(const char* name)
+{
+    return
+        strcmp(name, "__has_builtin") == 0 ||
+        strcmp(name, "__has_feature") == 0 ||
+        strcmp(name, "__has_extension") == 0 ||
+        strcmp(name, "__has_attribute") == 0 ||
+        strcmp(name, "__has_cpp_attribute") == 0 ||
+        strcmp(name, "__has_declspec_attribute") == 0 ||
+        strcmp(name, "__has_warning") == 0 ||
+        strcmp(name, "__building_module") == 0 ||
+        strcmp(name, "__is_target_arch") == 0 ||
+        strcmp(name, "__is_target_os") == 0 ||
+        strcmp(name, "__is_target_vendor") == 0 ||
+        strcmp(name, "__is_target_environment") == 0;
+}
+
+/*
+  Evaluate a clang query operator to "0" or "1" for the given target.
+  'op' is the operator name, 'arg' the (single) argument text.
+*/
+static const char* clang_query_operator_value(enum target target, const char* op, const char* arg)
+{
+    const bool is_apple = (target == TARGET_APPLE_ARM64 || target == TARGET_CATALINA);
+
+    if (strcmp(op, "__has_builtin") == 0)
+    {
+        /* The target-detection builtins are the ones the SDK probes for
+           (e.g. TargetConditionals.h). Report those as available; other
+           codegen builtins are reported unavailable so headers fall back. */
+        if (strcmp(arg, "__is_target_arch") == 0 ||
+            strcmp(arg, "__is_target_os") == 0 ||
+            strcmp(arg, "__is_target_vendor") == 0 ||
+            strcmp(arg, "__is_target_environment") == 0)
+        {
+            return "1";
+        }
+        return "0";
+    }
+
+    if (strcmp(op, "__is_target_arch") == 0)
+    {
+        if (target == TARGET_APPLE_ARM64)
+            return (strcmp(arg, "arm64") == 0 || strcmp(arg, "aarch64") == 0) ? "1" : "0";
+        if (target == TARGET_X86_X64_GCC)
+            return (strcmp(arg, "x86_64") == 0) ? "1" : "0";
+        return "0";
+    }
+
+    if (strcmp(op, "__is_target_os") == 0)
+    {
+        if (is_apple)
+            return (strcmp(arg, "macos") == 0 || strcmp(arg, "macosx") == 0 || strcmp(arg, "darwin") == 0) ? "1" : "0";
+        if (target == TARGET_X86_X64_GCC)
+            return (strcmp(arg, "linux") == 0) ? "1" : "0";
+        return "0";
+    }
+
+    if (strcmp(op, "__is_target_vendor") == 0)
+    {
+        if (is_apple)
+            return (strcmp(arg, "apple") == 0) ? "1" : "0";
+        return "0";
+    }
+
+    if (strcmp(op, "__is_target_environment") == 0)
+    {
+        /* no simulator / macabi / gnu environment modeled */
+        return "0";
+    }
+
+    /* __has_feature / __has_extension / __has_attribute /
+       __has_cpp_attribute / __has_declspec_attribute / __has_warning /
+       __building_module: cake models none of these. */
+    return "0";
+}
+
 struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_list* input_list)
 {
     struct token_list r = { 0 };
@@ -2250,7 +2333,22 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 p_new_token->type = TK_PPNUMBER;
                 char* _Owner _Opt temp = NULL;
 
-                if (macro)
+                /*
+                  clang treats its builtin preprocessor operators as
+                  "defined" (e.g. defined(__has_builtin) is 1), and SDK
+                  headers such as TargetConditionals.h guard on this before
+                  using them. These operators are implemented natively (not
+                  as macros), so recognize them here too.
+                */
+                const char* const defname = p_new_token->lexeme;
+                const bool is_native_operator =
+                    is_clang_query_operator(defname) ||
+                    strcmp(defname, "__has_include") == 0 ||
+                    strcmp(defname, "__has_include_next") == 0 ||
+                    strcmp(defname, "__has_embed") == 0 ||
+                    strcmp(defname, "__has_c_attribute") == 0;
+
+                if (macro || is_native_operator)
                 {
                     temp = strdup("1");
                 }
@@ -2468,6 +2566,76 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                     throw;
                 }
 
+                p_new_token->lexeme = temp;
+                p_new_token->flags |= TK_FLAG_FINAL;
+
+                token_list_add(&r, p_new_token);
+                token_list_pop_front(input_list); //pop )
+            }
+            else if (input_list->head->type == TK_IDENTIFIER &&
+                is_clang_query_operator(input_list->head->lexeme))
+            {
+                /*
+                  clang query operators: __has_builtin(x), __has_feature(x),
+                  __is_target_arch(x), __is_target_os(x), etc. Evaluate them
+                  natively so system headers (e.g. TargetConditionals.h) do
+                  not need macro shims.
+                */
+                char op[64] = { 0 };
+                snprintf(op, sizeof op, "%s", input_list->head->lexeme);
+
+                token_list_pop_front(input_list); //pop operator name
+                skip_blanks(ctx, &r, input_list);
+                token_list_pop_front(input_list); //pop (
+                skip_blanks(ctx, &r, input_list);
+
+                if (input_list->head == NULL)
+                {
+                    pre_unexpected_end_of_file(r.tail, ctx);
+                    throw;
+                }
+
+                /* collect the argument up to the matching ) */
+                char arg[100] = { 0 };
+                int depth = 1;
+                while (input_list->head != NULL)
+                {
+                    if (input_list->head->type == '(')
+                        depth++;
+                    else if (input_list->head->type == ')')
+                    {
+                        depth--;
+                        if (depth == 0)
+                            break;
+                    }
+
+                    if (input_list->head->type != TK_BLANKS)
+                        checked_strcat(arg, sizeof(arg), input_list->head->lexeme);
+
+                    token_list_pop_front(input_list);
+
+                    if (input_list->head == NULL)
+                    {
+                        pre_unexpected_end_of_file(r.tail, ctx);
+                        throw;
+                    }
+                }
+
+                const char* value = clang_query_operator_value(ctx->options.target, op, arg);
+
+                struct token* _Owner _Opt p_new_token = calloc(1, sizeof * p_new_token);
+                if (p_new_token == NULL)
+                {
+                    throw;
+                }
+
+                p_new_token->type = TK_PPNUMBER;
+                char* _Owner _Opt temp = strdup(value);
+                if (temp == NULL)
+                {
+                    token_delete(p_new_token);
+                    throw;
+                }
                 p_new_token->lexeme = temp;
                 p_new_token->flags |= TK_FLAG_FINAL;
 
@@ -4142,19 +4310,30 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 if (!macro_is_same(macro, existing_macro))
                 {
-                    if (preprocessor_diagnostic(C_ERROR_MACRO_REDEFINITION,
-                        ctx,
-                        macro->p_name_token,
-                        "macro redefinition"))
-                    {
-                        preprocessor_diagnostic(W_LOCATION,
-                        ctx,
-                        existing_macro->p_name_token,
-                        "previous definition");
-                    }
+                    /*
+                      Redefining a macro with a different body is a warning in
+                      clang/gcc (-Wmacro-redefined), not a fatal error - system
+                      headers legitimately do it (e.g. NAN in <math.h>). Warn
+                      only for the user's own code and keep the existing
+                      definition; redefinitions inside included headers are
+                      silently ignored (they are not the user's concern).
+                    */
+                    const bool in_included_file =
+                        macro->p_name_token != NULL && macro->p_name_token->level > 0;
 
-                    macro_delete(macro);
-                    throw;
+                    if (!in_included_file)
+                    {
+                        if (preprocessor_diagnostic(W_MACRO_REDEFINITION,
+                            ctx,
+                            macro->p_name_token,
+                            "macro redefinition"))
+                        {
+                            preprocessor_diagnostic(W_LOCATION,
+                            ctx,
+                            existing_macro->p_name_token,
+                            "previous definition");
+                        }
+                    }
                 }
                 macro_delete(macro);
             }

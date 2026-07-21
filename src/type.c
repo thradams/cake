@@ -3515,6 +3515,22 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
             b_flags &= ~TYPE_SPECIFIER_SIGNED;
         }
 
+        /*
+          'int' is redundant when short/long/long long is present, so
+          'long long' and 'long long int' name the same type (likewise
+          'long'/'long int' and 'short'/'short int'). Normalize away the
+          redundant TYPE_SPECIFIER_INT before comparing. (issue #164)
+        */
+        if (a_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG))
+        {
+            a_flags &= ~TYPE_SPECIFIER_INT;
+        }
+
+        if (b_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG))
+        {
+            b_flags &= ~TYPE_SPECIFIER_INT;
+        }
+
         if (a_flags != b_flags)
         {
             return false;
@@ -3634,6 +3650,22 @@ bool type_is_compatible(const struct type* a, const struct type* b)
         if ((b_flags & TYPE_SPECIFIER_CHAR) == 0)
         {
             b_flags &= ~TYPE_SPECIFIER_SIGNED;
+        }
+
+        /*
+          'int' is redundant when short/long/long long is present, so
+          'long long' and 'long long int' name the same type (likewise
+          'long'/'long int' and 'short'/'short int'). Normalize away the
+          redundant TYPE_SPECIFIER_INT before comparing. (issue #164)
+        */
+        if (a_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG))
+        {
+            a_flags &= ~TYPE_SPECIFIER_INT;
+        }
+
+        if (b_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG))
+        {
+            b_flags &= ~TYPE_SPECIFIER_INT;
         }
 
         if (a_flags != b_flags)
