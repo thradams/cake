@@ -420,6 +420,8 @@ struct type make_void_ptr_type();
 struct type make_size_t_type(enum target target);
 struct type make_with_type_specifier_flags(enum type_specifier_flags f);
 
+struct specifier_qualifier_list;
+struct type make_with_specifier_qualifier_list(const struct specifier_qualifier_list *list);
 
 struct type get_function_return_type(const struct type* p_type);
 bool function_returns_void(const struct type* p_type);

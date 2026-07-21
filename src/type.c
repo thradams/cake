@@ -1701,14 +1701,28 @@ int type_get_integer_rank(const struct type* p_type1)
     return 0;
 }
 
+struct type make_with_specifier_qualifier_list(const struct specifier_qualifier_list *list)
+{
+    if (list->typeof_specifier)
+    {
+        return list->typeof_specifier->type;
+    }
+    else if (list->typedef_declarator)
+    {
+        return list->typedef_declarator->type;
+    }
+    else
+    {
+        return make_with_type_specifier_flags(list->type_specifier_flags);
+    }
+}
+
 struct type type_get_enum_underlying_type(const struct enum_specifier* p)
 {
-    if(!p->specifier_qualifier_list)
+    if (!p->p_complete_enum_specifier->specifier_qualifier_list)
         return type_make_int();
-    if(p->specifier_qualifier_list->typedef_declarator)
-        return p->specifier_qualifier_list->typedef_declarator->type;
     else
-        return make_with_type_specifier_flags(p->specifier_qualifier_list->type_specifier_flags);
+        return make_with_specifier_qualifier_list(p->p_complete_enum_specifier->specifier_qualifier_list);
 }
 
 struct type type_common(const struct type* p_type1, const struct type* p_type2, enum target target)
@@ -2751,12 +2765,8 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
         {
             if (p_type->enum_specifier)
             {
-                enum type_specifier_flags enum_type_specifier_flags =
-                    get_enum_type_specifier_flags(p_type->enum_specifier);
-
-                struct type t = make_with_type_specifier_flags(enum_type_specifier_flags);
+                struct type t = type_get_enum_underlying_type(p_type->enum_specifier);
                 align = type_get_alignof(&t, target);
-                type_destroy(&t);
             }
             else
                 align = get_platform(target)->int_alignment;
@@ -3063,12 +3073,8 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
     {
         if (p_type->enum_specifier)
         {
-            enum type_specifier_flags enum_type_specifier_flags =
-                get_enum_type_specifier_flags(p_type->enum_specifier);
-
-            struct type t = make_with_type_specifier_flags(enum_type_specifier_flags);
+            struct type t = type_get_enum_underlying_type(p_type->enum_specifier);
             enum sizeof_result e = type_get_sizeof(&t, size, target);
-            type_destroy(&t);
             return e;
         }
         else

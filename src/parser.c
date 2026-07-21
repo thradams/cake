@@ -3,6 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
+#include "type.h"
 #pragma safety enable
 
 #include "ownership.h"
@@ -6209,16 +6210,8 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 if (p_enum_specifier->specifier_qualifier_list == NULL)
                     throw;
 
-                struct type enum_underline_type;
-                if (p_enum_specifier->specifier_qualifier_list->typedef_declarator)
-                {
-                    enum_underline_type = p_enum_specifier->specifier_qualifier_list->typedef_declarator->type;
-                    enum_underline_type = type_dup(&enum_underline_type);
-                }
-                else
-                {
-                    enum_underline_type = make_with_type_specifier_flags(p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
-                }
+                struct type enum_underline_type = make_with_specifier_qualifier_list(p_enum_specifier->specifier_qualifier_list);
+                enum_underline_type = type_dup(&enum_underline_type);
 
                 if (!type_is_integer(&enum_underline_type))
                 {
