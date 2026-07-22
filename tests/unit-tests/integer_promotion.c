@@ -1,4 +1,4 @@
-﻿#if 0
+#if 0
 
 //GENERATES unit test
 #include <stdio.h>
@@ -270,9 +270,9 @@ const char * printtype2(const struct lit * a, const struct lit * b)
     const struct lit * tsigned = is_signed2(a->type) ? a : b;
     const struct lit * tunsigned = is_unsigned2(a->type) ? a : b;
 
-    assert(tsigned != tunsigned);
-    assert(is_signed2(tsigned->type));
-    assert(is_unsigned2(tunsigned->type));
+    runtime_assert(tsigned != tunsigned);
+    runtime_assert(is_signed2(tsigned->type));
+    runtime_assert(is_unsigned2(tunsigned->type));
     /*
     * Otherwise, if the operand that has unsigned integer type has rank greater or equal to
     the rank of the type of the other operand, then the operand with signed integer type is

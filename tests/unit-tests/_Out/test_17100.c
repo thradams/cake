@@ -24,8 +24,8 @@ void list_push(struct list* list, struct item* /*_Owner*/ pnew)
     }
     else
     {
-        assert(list->tail != NULL);
-        assert(list->tail->next == NULL);
+        runtime_assert(list->tail != NULL);
+        runtime_assert(list->tail->next == NULL);
         pnew->previous = list->tail;
         list->tail->next = pnew;
         list->tail = pnew;

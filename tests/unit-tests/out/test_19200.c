@@ -16,5 +16,5 @@ void f(struct X* /*_Opt*/ pX)
 {
     struct X x = makex();
     clear(&x);
-    assert(x.text == 0);
+    runtime_assert(x.text == 0);
 }
