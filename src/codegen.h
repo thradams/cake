@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
  *  This visit generates a new and preprocessed C89 code from the AST
  */
- 
+
 #pragma once
 #include "parser.h"
 #include "ownership.h"
@@ -15,13 +15,13 @@ struct codegen_ctx
     struct options options;
     int indentation;
     bool print_qualifiers;
-    
+
     /*
        This counter is reset in each function
     */
     unsigned int cake_local_declarator_number;
 
-    
+
     struct hash_map tag_names;
     struct hash_map structs_map;
 
@@ -37,14 +37,14 @@ struct codegen_ctx
        The value is the name of the instantiated function (that can be reused)
     */
     struct hash_map instantiated_function_literals;
-    
-    
+
+
     struct osstream block_scope_declarators;
     struct osstream add_this_before;
     struct osstream add_this_before_external_decl;
     struct osstream add_this_after_external_decl;
     bool is_local;
-    
+
     bool memset_used;
     char memset_function_name[50];
 
@@ -52,13 +52,16 @@ struct codegen_ctx
 
     bool memcpy_used;
     char memcpy_function_name[50];
-    
+
+    bool runtime_assert_used;
+    char runtime_assert_function_name[50];
+
 
     bool define_nullptr;
     bool null_pointer_constant_used;
 
     bool address_of_argument;
-        
+
     /*
     * Points to the function we're in. Or null in file scope.
     */
@@ -66,15 +69,18 @@ struct codegen_ctx
 
     struct break_reference
     {
-      struct selection_statement * _Opt p_selection_statement;
-      struct iteration_statement * _Opt p_iteration_statement;
+        struct selection_statement* _Opt p_selection_statement;
+        struct iteration_statement* _Opt p_iteration_statement;
     } break_reference;
 
     bool is__func__predefined_identifier_added;
     struct try_statement* _Opt p_current_try_statement;
 
-    struct ast * p_ast;    
+    struct ast* p_ast;
+    
+    bool error;
 };
 
-void codegen_visit(struct codegen_ctx* ctx, struct osstream* oss);
-void codegen_visit_ctx_destroy( _Dtor struct codegen_ctx* ctx);
+/* Returns 0 on success, non-zero if code generation failed (ctx->error). */
+int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss);
+void codegen_visit_ctx_destroy(_Dtor struct codegen_ctx* ctx);

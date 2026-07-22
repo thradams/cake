@@ -389,7 +389,6 @@ static void build_tools(void)
     execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS install.c " CC_OUTPUT(EXE("install")));
 #endif
 
-    execute_cmd(CC " server.c "  CC_OUTPUT(EXE("cakeserver")));
     execute_cmd(CC " install.c " CC_OUTPUT(EXE("install")));
 
     echo_chdir("./tools");

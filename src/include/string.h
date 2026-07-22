@@ -63,7 +63,7 @@ char* strpbrk(char const* _Str, char const* _Control);
 size_t strspn(char const* _Str, char const* _Control);
 char* strtok(char* _String, char const* _Delimiter);
 
-#if defined(__STDC_OWNERSHIP__) 
+#if defined(__CAKE__)
 char* _Owner _Opt strdup(char const* _String);
 #else
 char* strdup(char const* _String);

@@ -44,7 +44,7 @@ int object_type_bitfield_width(enum object_type t)
     if (object_type_is_signed_bitfield(t))
         return (int)(t - TYPE_SIGNED_BITFIELD_1 + 1);
 
-    assert(false);
+    runtime_assert(false);
     return 0;
 }
 
@@ -60,7 +60,7 @@ static enum object_type bitfield_to_unsigned(enum object_type t)
 
 static unsigned long long wrap_unsigned_integer(unsigned long long value, int bits)
 {
-    assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
+    runtime_assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
 
     if (bits == 0 || bits >= sizeof(unsigned long long) * CHAR_BIT)
         return value;
@@ -72,7 +72,7 @@ static unsigned long long wrap_unsigned_integer(unsigned long long value, int bi
 
 static long long wrap_signed_integer(long long value, int bits)
 {
-    assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
+    runtime_assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
 
     if (bits == 0 || bits >= sizeof(unsigned long long) * CHAR_BIT)
         return value;
@@ -382,7 +382,7 @@ bool signed_long_long_mul(_Ctor signed long long* result, signed long long a, si
 
 void object_list_push(struct object_list* list, struct object* _Owner pnew)
 {
-    assert(pnew->next == NULL);
+    runtime_assert(pnew->next == NULL);
 
     if (list->head == NULL)
     {
@@ -391,8 +391,8 @@ void object_list_push(struct object_list* list, struct object* _Owner pnew)
     }
     else
     {
-        assert(list->tail != NULL);
-        assert(list->tail->next == NULL);
+        runtime_assert(list->tail != NULL);
+        runtime_assert(list->tail->next == NULL);
         list->tail->next = pnew;
         list->tail = pnew;
     }
@@ -408,10 +408,10 @@ void object_swap(struct object* a, struct object* b)
 
 void object_destroy(_Opt _Dtor struct object* p)
 {
-    assert(p->next == NULL);
+    runtime_assert(p->next == NULL);
 
     type_destroy(&p->type);
-    free((void* _Owner)p->member_designator);
+    free((void* _Owner _Opt)p->member_designator);
 
     struct object* _Owner _Opt item = p->members.head;
     while (item)
@@ -635,7 +635,7 @@ bool object_is_true(const struct object* a)
     default:
         break;
     }
-    assert(0);
+    runtime_assert(0);
     return 0;
 }
 
@@ -823,7 +823,7 @@ signed long long object_to_signed_long_long(const struct object* a)
     default:
         break;
     }
-    assert(0);
+    runtime_assert(0);
     return 0;
 }
 struct object object_make_unsigned_long_long(enum target target, unsigned long long value)
@@ -868,7 +868,7 @@ unsigned long long object_to_unsigned_long_long(const struct object* a)
     default:
         break;
     }
-    assert(0);
+    runtime_assert(0);
     return 0;
 }
 
@@ -901,7 +901,7 @@ struct object object_make_long_double(enum target target, long double value)
 
 struct object object_make_signed_bitfield(int width, long long value)
 {
-    assert(width >= 1 && width <= 128);
+    runtime_assert(width >= 1 && width <= 128);
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = (enum object_type)(TYPE_SIGNED_BITFIELD_1 + width - 1);
@@ -911,7 +911,7 @@ struct object object_make_signed_bitfield(int width, long long value)
 
 struct object object_make_unsigned_bitfield(int width, unsigned long long value)
 {
-    assert(width >= 1 && width <= 128);
+    runtime_assert(width >= 1 && width <= 128);
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = (enum object_type)(TYPE_UNSIGNED_BITFIELD_1 + width - 1);
@@ -1047,7 +1047,7 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
         return r;
     }
 
-    assert(false);
+    runtime_assert(false);
     return r;
 }
 
@@ -1244,7 +1244,7 @@ bool object_is_zero(const struct object* p_object)
     default:
         break;
     }
-    assert(0);
+    runtime_assert(0);
     return 0;
 }
 
@@ -1285,7 +1285,7 @@ bool object_is_one(const struct object* p_object)
     default:
         break;
     }
-    assert(0);
+    runtime_assert(0);
     return 0;
 }
 
@@ -1361,7 +1361,7 @@ int object_set(
         }
         else
         {
-            assert(to->members.head == NULL);
+            runtime_assert(to->members.head == NULL);
 
             to->state = from->state;
 
@@ -1450,7 +1450,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
 
             *p_object = object_make_nullptr(target);
             p_object->state = CONSTANT_VALUE_STATE_UNINITIALIZED;
-            assert(p_object->member_designator == NULL);
+            runtime_assert(p_object->member_designator == NULL);
             p_object->member_designator = strdup(member_designator);
 
             type_destroy(&p_object->type);
@@ -1644,8 +1644,8 @@ int make_object_with_member_designator(const struct type* p_type,
     object_destroy(obj);
     memset(obj, 0, sizeof(struct object));
 
-    assert(obj->members.head == NULL);
-    assert(obj->next == NULL);
+    runtime_assert(obj->members.head == NULL);
+    runtime_assert(obj->next == NULL);
 
     struct object* _Owner _Opt p = make_object_ptr_core(p_type, name, make_state, target);
     if (p)
@@ -3007,7 +3007,7 @@ struct object object_mod(enum target target,
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
-        assert(false);
+        runtime_assert(false);
         snprintf(warning_message, 200, " invalid operands for");
         break;
 
@@ -3300,7 +3300,7 @@ struct object object_bitwise_xor(enum target target,
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
-        assert(false);
+        runtime_assert(false);
         snprintf(warning_message, 200, " invalid operands");
         break;
 
@@ -3357,7 +3357,7 @@ struct object object_bitwise_or(enum target target,
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
-        assert(false);
+        runtime_assert(false);
         snprintf(warning_message, 200, " invalid operands");
         break;
 
@@ -3415,7 +3415,7 @@ struct object object_bitwise_and(enum target target,
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
-        assert(false);
+        runtime_assert(false);
         snprintf(warning_message, 200, " invalid operands");
         break;
 
@@ -3472,7 +3472,7 @@ struct object object_shift_left(enum target target,
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
-        assert(false);
+        runtime_assert(false);
         snprintf(warning_message, 200, " invalid operands");
         break;
 
@@ -3528,7 +3528,7 @@ struct object object_shift_right(enum target target,
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
-        assert(false);
+        runtime_assert(false);
         snprintf(warning_message, 200, " invalid operands");
         break;
 

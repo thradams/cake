@@ -278,7 +278,7 @@ static bool flow3_value_is_true(const struct flow3_alternative* a)
     case FLOW3_VALUE_KIND_UNSIGNED: return a->value.u != 0;
     case FLOW3_VALUE_KIND_PTR:  return a->value.p != 0;
     case FLOW3_VALUE_KIND_REF:
-        //assert(false);
+        
         break;
     }
     return false;
@@ -705,6 +705,39 @@ static void flow3_map_set_object_zero(struct flow3_map* m, const struct object* 
             .value_kind = FLOW3_VALUE_KIND_SIGNED,
             .value = {.i = 0},
             .value_relation = FLOW3_RELATION_EQUAL,
+            .imaginary = FLOW3_IMAGINARY_NONE,
+            .origin = m,
+            .line = line
+        };
+        flow3_alternatives_add(&p_flow3_key_alternatives->alternatives, &a);
+    }
+}
+
+/* Mirror of flow3_map_set_object_zero, but seeds each leaf member as
+   UNINITIALIZED (used for a _Uninitialized return, e.g. malloc: the returned
+   region exists but its contents are indeterminate -- reading a member before
+   writing it should warn). */
+static void flow3_map_set_object_uninitialized(struct flow3_map* m, const struct object* obj, int line)
+{
+    if (obj->members.head)
+    {
+        for (const struct object* member = obj->members.head; member; member = member->next)
+        {
+            flow3_map_set_object_uninitialized(m, member, line);
+        }
+        return;
+    }
+    struct flow3_key_alternatives* p_flow3_key_alternatives = flow3_map_find_add(m, obj);
+    if (p_flow3_key_alternatives == NULL)
+    {
+        return;
+    }
+    flow3_alternatives_clear(&p_flow3_key_alternatives->alternatives);
+    {
+        struct flow3_alternative a = {
+            .value_kind = FLOW3_VALUE_KIND_SIGNED,
+            .value = {.i = UNINITIALIZED_VALUE},
+            .value_relation = FLOW3_RELATION_UNINITIALIZED,
             .imaginary = FLOW3_IMAGINARY_NONE,
             .origin = m,
             .line = line
@@ -1872,7 +1905,7 @@ static void flow3_exit_block_visit_defer_item(struct flow3_visit_ctx* ctx, const
         else if (p_declarator->declaration_specifiers)
             p_token = p_declarator->declaration_specifiers->first_token;
         else
-            assert(false);
+            runtime_assert(false);
         const struct marker marker = { .p_token_begin = p_token, .p_token_end = p_token };
         flow3_check_object_at_exit(ctx,
             &p_declarator->type,
@@ -2231,8 +2264,15 @@ static void flow3_parameter_object_init_r(struct flow3_visit_ctx* ctx, struct ob
             }
             else if (depth < FLOW3_PARAMETER_OBJECT_INIT_MAX_DEPTH)
             {
-                /* Seed the pointed object as ANY. */
-                flow3_parameter_object_init_r(ctx, p_pointed, NULL, line, depth + 1);
+                /* Recurse with the pointee's ACTUAL type (not NULL). Passing
+                   NULL here dropped the type, so the non-_Opt-pointer =>
+                   non-null rule at the top of this function never fired for
+                   the pointee: the *pp of a `T**` parameter (where *pp is a
+                   non-_Opt `T*`) was left ANY = possibly-null, producing a
+                   false "passing a possible null pointer '(*pp)' to
+                   non-nullable pointer parameter" (parser.c:2184). With the
+                   real type, a non-_Opt pointee pointer is seeded non-null. */
+                flow3_parameter_object_init_r(ctx, p_pointed, &p_pointed->type, line, depth + 1);
             }
             /* else: depth cap reached (see FLOW3_PARAMETER_OBJECT_INIT_MAX_DEPTH) --
                leave p_pointed's members in the ANY state make_object already
@@ -2427,13 +2467,25 @@ static void flow3_seed_aggregate_from_init_exprs(struct flow3_visit_ctx* ctx, st
         return;
     }
 
-    /* Leaf INTEGER member set by a non-constant initializer expression.
-       Restricted to integer members on purpose: pointer/owner members have
-       their own move / init / null tracking, and re-running the init-assignment
-       machinery on them would perturb that. Integers only carry a value
-       relation, which is exactly what we want to propagate here. */
+    /* Leaf member set by a non-constant initializer expression: copy the
+       expression's flow3 state into the member (value relation for integers;
+       initialized / null / non-null for plain pointers). Without this a plain
+       pointer member set in a braced initializer -- e.g.
+       `struct marker m = { .p_token_begin = p->first_token };` -- stayed
+       "uninitialized" and was wrongly flagged when the aggregate was used.
+
+       Owner members are included too: an owner member explicitly set in a
+       braced initializer (e.g. `struct hash_item_set item = { .p_macro = macro };`)
+       must be marked initialized (and its source moved), just like a plain
+       pointer -- otherwise it was wrongly reported "possibly uninitialized"
+       when the aggregate was used. Only members with an explicit initializer
+       expression are touched. */
+    const bool seedable_member =
+        type_is_integer(&p_object->type) ||
+        type_is_pointer(&p_object->type);
+
     if (p_object->p_init_expression != NULL &&
-        type_is_integer(&p_object->type) &&
+        seedable_member &&
         p_object->state != CONSTANT_VALUE_STATE_CONSTANT &&
         p_object->state != CONSTANT_VALUE_EQUAL)
     {
@@ -2555,13 +2607,13 @@ static void flow3_visit_if_statement(struct flow3_visit_ctx* ctx, struct selecti
     {
         hidden_expression.expression_type = EXPR_PRIMARY_DECLARATOR;
         hidden_expression.declarator = p_selection_statement->condition->p_init_declarator->p_declarator;
-        assert(p_selection_statement->condition->p_init_declarator->p_declarator->first_token_opt != NULL);
+        runtime_assert(p_selection_statement->condition->p_init_declarator->p_declarator->first_token_opt != NULL);
         hidden_expression.first_token = p_selection_statement->condition->p_init_declarator->p_declarator->first_token_opt;
         hidden_expression.last_token = hidden_expression.first_token;
         cond_pair = flow3_visit_full_expression(ctx, &hidden_expression);
     }
 
-    assert(p_selection_statement->first_token->type == TK_KEYWORD_IF);
+    runtime_assert(p_selection_statement->first_token->type == TK_KEYWORD_IF);
 
     struct flow3_map* p_before = ctx->p_current_flow3_map;
 
@@ -2767,7 +2819,7 @@ static void flow3_visit_selection_statement(struct flow3_visit_ctx* ctx, struct 
     }
     else
     {
-        assert(false);
+        runtime_assert(false);
     }
 
     if (p_selection_statement->lint_token)
@@ -2795,7 +2847,7 @@ static void flow3_visit_bracket_initializer_list(struct flow3_visit_ctx* ctx, st
 
 static void flow3_visit_initializer_list_item(struct flow3_visit_ctx* ctx, struct initializer_list_item* p_initializer)
 {
-    assert(p_initializer->initializer != NULL);
+    runtime_assert(p_initializer->initializer != NULL);
     flow3_visit_initializer(ctx, p_initializer->initializer);
 }
 
@@ -2886,6 +2938,39 @@ static bool flow3_map_is_ancestor_or_self(const struct flow3_map* ancestor, cons
   (found dogfooding flow3 on cake's own codegen.c, a similar
   free()-then-reset-to-null-in-a-catch-block shape).
 */
+/* Does this object currently have any initialized flow state? (used to decide
+   whether a union -- whose members share storage -- counts as initialized). */
+static bool flow3_object_has_initialized_state(struct flow3_visit_ctx* ctx, const struct object* obj)
+{
+    const struct flow3_key_alternatives* e = flow3_map_search_up(ctx->p_current_flow3_map, obj);
+    for (int i = 0; e != NULL && i < e->alternatives.size; i++)
+    {
+        if (e->alternatives.data[i].value_relation != FLOW3_RELATION_UNINITIALIZED)
+            return true;
+    }
+    /* A member that is itself an aggregate has no direct entry; recurse. */
+    for (const struct object* m = obj->members.head; m != NULL; m = m->next)
+    {
+        if (flow3_object_has_initialized_state(ctx, m))
+            return true;
+    }
+    return false;
+}
+
+/* Is p_union a union with at least one initialized member? Then the shared
+   storage is initialized and no member should be reported uninitialized. */
+static bool flow3_union_is_initialized(struct flow3_visit_ctx* ctx, const struct object* p_union)
+{
+    if (!type_is_union(&p_union->type))
+        return false;
+    for (const struct object* m = p_union->members.head; m != NULL; m = m->next)
+    {
+        if (flow3_object_has_initialized_state(ctx, m))
+            return true;
+    }
+    return false;
+}
+
 static void flow3_check_object_access(struct flow3_visit_ctx* ctx,
     const char* parent_expression_str,
     struct expression* p_expression,
@@ -2897,13 +2982,22 @@ static void flow3_check_object_access(struct flow3_visit_ctx* ctx,
 
     if (p_object_src->members.head)
     {
+        /* A union's members share storage: if ANY member is initialized (e.g.
+           after `struct S s = { 0 };` sets the first union member) the whole
+           union is initialized, so the sibling members must not be reported as
+           "possibly uninitialized". Treating union members like independent
+           struct members warned on every member other than the one written. */
+        bool members_check_uninit = check_unitialized;
+        if (members_check_uninit && flow3_union_is_initialized(ctx, p_object_src))
+            members_check_uninit = false;
+
         struct object* member = p_object_src->members.head;
         while (member)
         {
             struct osstream ss = { 0 };
             ss_fprintf(&ss, "%s%s", parent_expression_str, flow3_get_only_member_name(member->member_designator));
             //p->
-            flow3_check_object_access(ctx, ss.c_str, p_expression, member, check_unitialized, p_origin_filter);
+            flow3_check_object_access(ctx, ss.c_str, p_expression, member, members_check_uninit, p_origin_filter);
             member = member->next;
             ss_close(&ss);
         }
@@ -2999,15 +3093,36 @@ static void flow3_check_object_init_assigment(struct flow3_visit_ctx* ctx,
     {
         return;
     }
+
+    /* A directly-_Ctor destination (e.g. an array out-parameter
+       `_Ctor char errmsg[100]`) receives uninitialized memory on purpose: the
+       callee constructs it. There is nothing to check or propagate from the
+       argument, and recursing would report every element as "possibly
+       uninitialized" (the _Ctor lives on the array, not on each char element,
+       so the per-element checks below could not see it). A pointer-to-_Ctor
+       pointee is handled separately via type_is_pointed_ctor. */
+    if (type_is_ctor(&p_object_dest->type))
+    {
+        return;
+    }
+
     struct marker marker = expression_to_marker(p_expression);
 
     if (p_object_src->members.head && p_object_dest->members.head)
     {
+        /* A union's members share storage: once any member is initialized the
+           whole union is, so recurse only on the initialized member(s) and skip
+           the uninitialized siblings -- otherwise every member other than the
+           one written (e.g. after `struct S s = { 0 };`) was reported "possibly
+           uninitialized". */
+        const bool union_init = flow3_union_is_initialized(ctx, p_object_src);
+
         struct object* member_dest = p_object_dest->members.head;
         struct object* member_src = p_object_src->members.head;
         while (member_src && member_dest)
         {
-            flow3_check_object_init_assigment(ctx, p_expression, member_dest, member_src, init_type);
+            if (!(union_init && !flow3_object_has_initialized_state(ctx, member_src)))
+                flow3_check_object_init_assigment(ctx, p_expression, member_dest, member_src, init_type);
             member_src = member_src->next;
             member_dest = member_dest->next;
         }
@@ -3179,7 +3294,16 @@ static void flow3_check_object_init_assigment(struct flow3_visit_ctx* ctx,
                looks at any of them. */
             if (!type_is_void_ptr(&p_object_dest->type))
             {
-                const bool check_unitialized = !type_is_pointed_ctor(&p_object_dest->type);
+                /* Skip the pointee uninitialized-check when the SOURCE is a
+                   `_Uninitialized` pointer (e.g. `malloc`): the returned region
+                   is uninitialized by contract, and merely copying the pointer
+                   into a variable is legitimate. Only an actual member READ
+                   (a later `x->m`) should warn -- that goes through a separate
+                   path and is unaffected. Mirrors the _Ctor exemption. */
+                const bool source_uninit =
+                    type_is_uninit(&p_expression->type) || type_is_pointed_uninit(&p_expression->type);
+                const bool check_unitialized =
+                    !type_is_pointed_ctor(&p_object_dest->type) && !source_uninit;
                 /*
                    Pass THIS alternative's own origin as the correlation
                    filter: p_src_alternative->value.p (the pointee) may
@@ -3196,62 +3320,60 @@ static void flow3_check_object_init_assigment(struct flow3_visit_ctx* ctx,
 
             if (init_type == INIT_PARAMETER)
             {
-                bool pointee_write_qualifier_handled = false;
+                /* Determine the write-effect this parameter has on the pointee.
+                   kind: 0 = set zero (_Clear), 1 = lifetime ended (_Dtor/_Owner),
+                         2 = ANY / possibly-modified (_Ctor, or plain mutable). */
+                const struct object* pointee = p_src_alternative->value.p;
+                const int effect_line = p_expression->first_token->line;
+                int effect_kind = -1;
 
                 if (type_is_pointed_clear(&p_object_dest->type))
+                    effect_kind = 0;
+                else if (type_is_pointed_dtor(&p_object_dest->type))
+                    effect_kind = 1;
+                else if (type_is_pointed_ctor(&p_object_dest->type))
+                    effect_kind = 2;
+                else if (type_is_owner(&p_object_dest->type))
+                    effect_kind = 1;
+                else if (!type_is_pointed_const(&p_object_dest->type) &&
+                         pointee != &p_expression->object)
                 {
-                    flow3_map_set_object_zero(ctx->p_current_flow3_map,
-                  p_src_alternative->value.p, p_expression->first_token->line);
-                    pointee_write_qualifier_handled = true;
+                    /* Plain mutable pointer parameter (no _Clear/_Dtor/_Ctor/
+                       _Owner and not pointing to const): the callee may write
+                       anything through it, so the caller's knowledge of the
+                       pointee is invalid afterward. (The `pointee != &object`
+                       guard excludes array arguments, whose "pointee" is the
+                       array's own object.) */
+                    effect_kind = 2;
                 }
 
-                if (type_is_pointed_dtor(&p_object_dest->type))
+                if (effect_kind >= 0)
                 {
-                    flow3_map_set_object_lifetime_ended(ctx->p_current_flow3_map,
-                  p_src_alternative->value.p, p_expression->first_token->line);
-                    pointee_write_qualifier_handled = true;
-                }
-
-                if (type_is_pointed_ctor(&p_object_dest->type))
-                {
-                    flow3_map_set_object_any_n(ctx->p_current_flow3_map,
-                  p_src_alternative->value.p, p_expression->first_token->line,
-                  ctx->ctx->options.null_checks_enabled);
-                    pointee_write_qualifier_handled = true;
-                }
-
-                if (type_is_owner(&p_object_dest->type))
-                {
-                    flow3_map_set_object_lifetime_ended(ctx->p_current_flow3_map,
-                  p_src_alternative->value.p, p_expression->first_token->line);
-                    pointee_write_qualifier_handled = true;
-                }
-
-                if (!pointee_write_qualifier_handled &&
-                    !type_is_pointed_const(&p_object_dest->type) &&
-                    p_src_alternative->value.p != &p_expression->object)
-                {
-                    /* Plain mutable pointer parameter, no _Clear/_Dtor/_Ctor/_Owner
-                       qualifier and not pointing to const: the callee is free to
-                       write anything through it, so nothing the caller knew about
-                       the pointee before the call can be trusted afterward.
-                       Without this, flow3 would silently keep treating the old
-                       (possibly stale) alternatives as still valid post-call.
-
-                       The `value.p != &p_expression->object` guard excludes array
-                       arguments: an array decays to a pointer whose "pointee" IS
-                       the array's own object (there's no separate allocation the
-                       way there is for a real pointer variable). Invalidating it
-                       here clobbered the SAME entry that also carries the array's
-                       own "definitely non-null" tracking, so passing an array to
-                       one plain mutable-pointer parameter and then to another
-                       falsely started warning "passing a possible null pointer"
-                       on the second call. Found via a user-reported false
-                       positive on real code (generate_file_scope_new_name's
-                       `char new_name[]` passed to snprintf then hashmap_find). */
-                    flow3_map_set_object_any_n(ctx->p_current_flow3_map,
-                  p_src_alternative->value.p, p_expression->first_token->line,
-                  ctx->ctx->options.null_checks_enabled);
+                    /* Apply the effect only AFTER all arguments are evaluated:
+                       C evaluates the arguments first, then the callee runs. So
+                       `f(&x, x.text)` must read x.text at its current value and
+                       only invalidate *x afterward -- not while checking &x. */
+                    if (ctx->collect_deferred_effects)
+                    {
+                        if (ctx->deferred_effects_count <
+                            (int)(sizeof ctx->deferred_effects / sizeof ctx->deferred_effects[0]))
+                        {
+                            ctx->deferred_effects[ctx->deferred_effects_count].pointee = pointee;
+                            ctx->deferred_effects[ctx->deferred_effects_count].kind = effect_kind;
+                            ctx->deferred_effects[ctx->deferred_effects_count].line = effect_line;
+                            ctx->deferred_effects_count++;
+                        }
+                    }
+                    else
+                    {
+                        switch (effect_kind)
+                        {
+                        case 0: flow3_map_set_object_zero(ctx->p_current_flow3_map, pointee, effect_line); break;
+                        case 1: flow3_map_set_object_lifetime_ended(ctx->p_current_flow3_map, pointee, effect_line); break;
+                        case 2: flow3_map_set_object_any_n(ctx->p_current_flow3_map, pointee, effect_line, ctx->ctx->options.null_checks_enabled); break;
+                        default: break;
+                        }
+                    }
                 }
             }
 
@@ -3286,8 +3408,15 @@ static void flow3_check_object_init_assigment(struct flow3_visit_ctx* ctx,
             }
         }
 
-        if (p_src_alternative->imaginary == FLOW3_IMAGINARY_MOVED)
+        if (p_src_alternative->imaginary == FLOW3_IMAGINARY_MOVED &&
+            type_is_owner(&p_object_dest->type))
         {
+            /* Only warn when the destination takes OWNERSHIP of a moved object
+               (a real use-after-move / double-move). Copying a moved owner's
+               pointer into a NON-owner (view) target is fine -- the object is
+               still alive, owned elsewhere. e.g. the linked-list tail pattern:
+                   q->tail->next = e;   // move e into the list
+                   q->tail = e;         // tail is a _View pointer -- OK */
             struct osstream ss = { 0 };
             flow3_expression_to_string(p_expression, &ss);
             diagnostic(W_FLOW_LIFETIME_ENDED,
@@ -3516,6 +3645,16 @@ static void flow3_visit_function_arguments(struct flow3_visit_ctx* ctx,
         struct param* _Opt p_current_parameter_type = p_param_list->head;
         struct argument_expression* _Opt p_current_argument = p_argument_expression_list->head;
 
+        /* Collect pointee write-effects instead of applying them per-argument:
+           C evaluates ALL arguments first, then the callee runs. Applying them
+           immediately would let an earlier argument (e.g. `&x`) invalidate a
+           later one (e.g. `x.text`) before it is read. Nested calls in an
+           argument save/restore this state so their effects don't leak out. */
+        const bool saved_collect = ctx->collect_deferred_effects;
+        const int saved_count = ctx->deferred_effects_count;
+        ctx->collect_deferred_effects = true;
+        ctx->deferred_effects_count = saved_count;
+
         while (p_current_argument && p_current_parameter_type)
         {
             struct expression* p_arg_expr = p_current_argument->expression;
@@ -3531,6 +3670,22 @@ static void flow3_visit_function_arguments(struct flow3_visit_ctx* ctx,
             p_current_parameter_type = p_current_parameter_type->next;
             object_destroy(&param_object);
         }
+
+        /* All arguments evaluated: now apply the deferred write-effects (the
+           callee "runs"). Restore the collection state for the caller. */
+        ctx->collect_deferred_effects = saved_collect;
+        for (int i = saved_count; i < ctx->deferred_effects_count; i++)
+        {
+            const struct flow3_deferred_pointee_effect* e = &ctx->deferred_effects[i];
+            switch (e->kind)
+            {
+            case 0: flow3_map_set_object_zero(ctx->p_current_flow3_map, e->pointee, e->line); break;
+            case 1: flow3_map_set_object_lifetime_ended(ctx->p_current_flow3_map, e->pointee, e->line); break;
+            case 2: flow3_map_set_object_any_n(ctx->p_current_flow3_map, e->pointee, e->line, ctx->ctx->options.null_checks_enabled); break;
+            default: break;
+            }
+        }
+        ctx->deferred_effects_count = saved_count;
 
         /* Variadic tail – visit remaining arguments with no paired parameter */
         while (p_current_argument)
@@ -3553,7 +3708,7 @@ static const struct expression* skip_parenthesis(const struct expression* expr)
 {
     while (expr && expr->expression_type == EXPR_PRIMARY_PARENTHESIS)
     {
-        assert(expr->right != NULL);
+        runtime_assert(expr->right != NULL);
         expr = expr->right;
     }
     return expr;
@@ -4047,8 +4202,12 @@ static int flow3_evaluate_equality_against_constant(const struct flow3_alternati
                     result = is_equal ? (alt->value.p == NULL) : (alt->value.p != NULL);
                     known = true;
                 }
-                else if (alt->value_relation == FLOW3_RELATION_NOT_EQUAL && alt->value.p == NULL)
+                else if (alt->value_relation == FLOW3_RELATION_NOT_EQUAL)
                 {
+                    /* A NOT_EQUAL pointer alternative is non-null (whether it
+                       records `!= null` directly or a concrete non-null target,
+                       e.g. the result of array-decay pointer arithmetic) --
+                       consistent with flow3_alternative_can_be_zero. */
                     result = is_equal ? false : true;
                     known = true;
                 }
@@ -4154,6 +4313,21 @@ static int flow3_pair_equality(const struct flow3_alternative* lval,
     long long lc, rc;
     bool lk = flow3_alt_concrete_int(lval, &lc);
     bool rk = flow3_alt_concrete_int(rval, &rc);
+
+    /* Two non-null POINTER values that name DIFFERENT objects cannot be
+       concluded unequal: distinct pointer variables may alias at runtime (e.g.
+       two _Opt parameters that happen to point at the same object -- their
+       non-null arms are separate synthesized pointees, but nothing proves they
+       differ). Reporting them as definitely-not-equal wrongly killed branches
+       like `if (list->head == list->tail)` after a head!=NULL guard. Only NULL
+       vs non-null, and same-object, remain decidable here. REF values (the
+       address of a real named object) keep their exact comparison below. */
+    if (lval->value_relation == FLOW3_RELATION_EQUAL && lval->value_kind == FLOW3_VALUE_KIND_PTR && lval->value.p != NULL &&
+        rval->value_relation == FLOW3_RELATION_EQUAL && rval->value_kind == FLOW3_VALUE_KIND_PTR && rval->value.p != NULL &&
+        lval->value.p != rval->value.p)
+    {
+        return -1; /* different non-null pointers: may or may not alias */
+    }
 
     if (lk && rk)
     {
@@ -4771,16 +4945,50 @@ static void flow3_evaluate_binary_arithmetic(struct flow3_visit_ctx* ctx,
                        sharper about which element it now points to).
                     */
                     {
-                        bool lptr = (lval->value_kind == FLOW3_VALUE_KIND_PTR);
-                        bool rptr = (rval->value_kind == FLOW3_VALUE_KIND_PTR);
-                        if (lptr && !rptr && (op == '+' || op == '-'))
+                        /* A "pointer base" is either a real pointer value (PTR)
+                           or a non-null address (REF) -- the latter is how an
+                           array-decay operand like `int arr[10]` shows up
+                           (`arr + 3`). Offsetting either by an integer can never
+                           produce a null pointer, so keep the result non-null
+                           instead of degrading to a plain SIGNED ANY. Without
+                           the REF case, `arr + 3` was wrongly treated as
+                           possibly null. */
+                        const bool lnum2 = (lval->value_kind == FLOW3_VALUE_KIND_SIGNED ||
+                                            lval->value_kind == FLOW3_VALUE_KIND_UNSIGNED);
+                        const bool rnum2 = (rval->value_kind == FLOW3_VALUE_KIND_SIGNED ||
+                                            rval->value_kind == FLOW3_VALUE_KIND_UNSIGNED);
+                        const bool lbase = (lval->value_kind == FLOW3_VALUE_KIND_PTR) ||
+                                           (lval->value_kind == FLOW3_VALUE_KIND_REF && lval->value.p != NULL);
+                        const bool rbase = (rval->value_kind == FLOW3_VALUE_KIND_PTR) ||
+                                           (rval->value_kind == FLOW3_VALUE_KIND_REF && rval->value.p != NULL);
+
+                        const struct flow3_alternative* base = NULL;
+                        if (lbase && rnum2 && (op == '+' || op == '-'))
+                            base = lval;
+                        else if (rbase && lnum2 && op == '+')
+                            base = rval;
+
+                        if (base != NULL)
                         {
-                            flow3_alternatives_add(&result_alts, lval);
-                            continue;
-                        }
-                        if (rptr && !lptr && op == '+')
-                        {
-                            flow3_alternatives_add(&result_alts, rval);
+                            if (base->value_kind == FLOW3_VALUE_KIND_PTR)
+                            {
+                                /* Keep the pointer alternative unchanged. */
+                                flow3_alternatives_add(&result_alts, base);
+                            }
+                            else
+                            {
+                                /* Array-decay / address base: the offset result
+                                   is a non-null pointer of unknown exact target. */
+                                struct flow3_alternative a = {
+                                    .value_kind = FLOW3_VALUE_KIND_PTR,
+                                    .value = {.p = base->value.p},
+                                    .value_relation = FLOW3_RELATION_NOT_EQUAL,
+                                    .imaginary = FLOW3_IMAGINARY_NONE,
+                                    .origin = flow3_origin_more_specific(lval->origin, rval->origin),
+                                    .line = p_result->first_token->line
+                                };
+                                flow3_alternatives_add(&result_alts, &a);
+                            }
                             continue;
                         }
                     }
@@ -4844,7 +5052,7 @@ static void flow3_evaluate_binary_arithmetic(struct flow3_visit_ctx* ctx,
 /* Seed an expression's result as a known EQUAL constant read from its parser
    object (used for operators the parser already folds but flow3 didn't seed,
    e.g. sizeof / _Alignof). The result is size_t-like, so it's unsigned. */
-static void flow3_seed_constant_result(struct flow3_visit_ctx* ctx, struct expression* p_expression)
+static void flow3_seed_constant_result(struct flow3_visit_ctx* ctx, const struct expression* p_expression)
 {
     if (!object_has_known_value(&p_expression->object))
         return;
@@ -4860,6 +5068,44 @@ static void flow3_seed_constant_result(struct flow3_visit_ctx* ctx, struct expre
         .line = p_expression->first_token->line
     };
     flow3_alternatives_add(&e->alternatives, &a);
+}
+
+/* When a struct member is read but has no flow state yet -- e.g. it belongs to
+   the pointee of a narrowed _Opt pointer, whose members parameter-init did not
+   seed -- fall back to its DECLARED nullability: a non-optional pointer member
+   is non-null by contract. Without this, reading such a member came back
+   possibly-null and a later dereference falsely warned. Only touches unseeded
+   non-_Opt pointer members. */
+static void flow3_seed_member_default(struct flow3_visit_ctx* ctx, struct object* member_obj, int line)
+{
+    if (member_obj == NULL)
+        return;
+    if (flow3_map_search_up(ctx->p_current_flow3_map, member_obj) != NULL)
+        return;   /* already has flow state */
+
+    const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
+    if (type_is_pointer(&member_obj->type))
+    {
+        /* Seed an unseeded pointer member from its declared nullability:
+             non-_Opt member -> non-null (!= null) by contract;
+             _Opt member     -> possibly-null (ANY).
+           Leaving an _Opt member EMPTY was wrong: a later `m != NULL` then
+           found no null alternative and treated the pointer as definitely
+           non-null, killing the else branch (e.g. `list->head = old->next;`
+           where next is _Opt, then `if (list->head != NULL) ... else ...`). */
+        const bool is_opt = type_is_opt(&member_obj->type, nullable_enabled);
+        struct flow3_key_alternatives* me = flow3_map_find_add(ctx->p_current_flow3_map, member_obj);
+        flow3_alternatives_clear(&me->alternatives);
+        struct flow3_alternative a = {
+            .value_kind = FLOW3_VALUE_KIND_PTR,
+            .value = {.p = NULL},
+            .value_relation = is_opt ? FLOW3_RELATION_ANY : FLOW3_RELATION_NOT_EQUAL,
+            .imaginary = FLOW3_IMAGINARY_NONE,
+            .origin = ctx->p_current_flow3_map,
+            .line = line
+        };
+        flow3_alternatives_add(&me->alternatives, &a);
+    }
 }
 
 static bool flow3_cast_one_value(struct flow3_visit_ctx* ctx,
@@ -4921,7 +5167,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
     switch (p_expression->expression_type)
     {
     case EXPR_INVALID:
-        assert(false);
+        runtime_assert(false);
         break;
 
     case EXPR_PRIMARY__FUNC__:
@@ -4960,6 +5206,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
             {
                 struct flow3_key_alternatives* e = flow3_map_find_add(ctx->p_current_flow3_map, p_obj);
                 flow3_alternatives_clear(&e->alternatives);
+
                 struct flow3_alternative a = {
                     .value_kind = FLOW3_VALUE_KIND_SIGNED,
                     .value = {.i = ANY_VALUE},
@@ -4968,6 +5215,21 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
                     .origin = ctx->p_current_flow3_map,
                     .line = p_expression->first_token->line
                 };
+
+                /* A pointer global respects its declared nullability, just like
+                   a parameter or member: a non-_Opt global pointer is non-null
+                   (e.g. `stdout`), an _Opt one is possibly-null. Without this a
+                   plain `FILE* stdout` read as ANY and passing it to a
+                   non-nullable parameter falsely warned. */
+                if (type_is_pointer(&p_expression->type))
+                {
+                    a.value_kind = FLOW3_VALUE_KIND_PTR;
+                    a.value.p = NULL;
+                    a.value_relation = type_is_opt(&p_expression->type, ctx->ctx->options.null_checks_enabled)
+                        ? FLOW3_RELATION_ANY
+                        : FLOW3_RELATION_NOT_EQUAL;
+                }
+
                 flow3_alternatives_add(&e->alternatives, &a);
             }
         }
@@ -5009,7 +5271,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
             flow3_alternatives_add(&e->alternatives, &a);
         }
 
-        assert(p_expression->declarator != NULL);
+        runtime_assert(p_expression->declarator != NULL);
 
         {
             struct flow3_key_alternatives* e = flow3_map_find_add(ctx->p_current_flow3_map, &p_expression->object);
@@ -5035,7 +5297,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
     case EXPR_PRIMARY_PARENTHESIS:
     {
-        assert(p_expression->right != NULL);
+        runtime_assert(p_expression->right != NULL);
         const struct expression* p_inner = skip_parenthesis(p_expression->right);
         struct flow3_branch_pair paren_pair = flow3_visit_expression(ctx, p_inner);
 
@@ -5068,7 +5330,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
     }
 
     case EXPR_PRIMARY_STATEMENT_EXPRESSION:
-        assert(p_expression->compound_statement != NULL);
+        runtime_assert(p_expression->compound_statement != NULL);
         flow3_visit_compound_statement(ctx, p_expression->compound_statement);
         break;
 
@@ -5081,7 +5343,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
            per-character members), not a scalar constant, so
            object_to_signed_long_long(&p_expression->object) has no
            sensible integer value to return for it (falls through to the
-           `default: assert(0); return 0;` branch, which in an NDEBUG
+           `default: runtime_assert(0); return 0;` branch, which in an NDEBUG
            build silently yields 0). That previously tagged every string
            literal as value_kind SIGNED, value 0, relation EQUAL -- i.e.
            indistinguishable from a literal `0`/NULL -- which would have
@@ -5136,7 +5398,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
     break;
 
     case EXPR_PRIMARY_GENERIC:
-        assert(p_expression->generic_selection != NULL);
+        runtime_assert(p_expression->generic_selection != NULL);
         flow3_visit_generic_selection(ctx, p_expression->generic_selection);
         break;
 
@@ -5188,7 +5450,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
     case EXPR_POSTFIX_ARROW:
     {
-        assert(p_expression->left != NULL);
+        runtime_assert(p_expression->left != NULL);
 
         flow3_visit_expression(ctx, p_expression->left);
 
@@ -5278,9 +5540,11 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
                         struct object* member_obj = object_get_member(p_pointed_obj, member_index);
                         if (member_obj == NULL)
                         {
-                            //assert(false);
+                            //runtime_assert(false);
                             continue;
                         }
+
+                        flow3_seed_member_default(ctx, member_obj, p_expression->first_token->line);
 
                         {
                             struct flow3_alternative a = {
@@ -5335,9 +5599,11 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
                     struct object* member_obj = object_get_member(p_pointed_obj, member_index);
                     if (member_obj == NULL)
                     {
-                        assert(false);
+                        runtime_assert(false);
                         continue;
                     }
+
+                    flow3_seed_member_default(ctx, member_obj, p_expression->first_token->line);
 
                     {
                         struct flow3_alternative a = {
@@ -5372,8 +5638,8 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
     case EXPR_POSTFIX_ARRAY:
     {
-        assert(p_expression->right != NULL);
-        assert(p_expression->left != NULL);
+        runtime_assert(p_expression->right != NULL);
+        runtime_assert(p_expression->left != NULL);
         flow3_visit_expression(ctx, p_expression->left);
         flow3_visit_expression(ctx, p_expression->right);
 
@@ -5496,6 +5762,29 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
                to plain narrowing on this expression's object. */
         }
 
+        /* Seed the (unresolved) subscript result as an ANY value of its
+           element type, so it is never an EMPTY operand. An empty operand
+           makes flow3_evaluate_equality_multi fold `v[i] == c` to "always
+           true" (the vacuous-empty rule), which marked the else branch of
+           e.g. `if (s->current[0] == '\n')` as unreachable code. `*p`
+           (EXPR_UNARY *) already seeds ANY; subscript did not. */
+        if (type_is_integer(&p_expression->type))
+        {
+            struct flow3_key_alternatives* e = flow3_map_find_add(ctx->p_current_flow3_map, &p_expression->object);
+            if (e->alternatives.size == 0)
+            {
+                struct flow3_alternative a = {
+                    .value_kind = type_is_signed(&p_expression->type)
+                        ? FLOW3_VALUE_KIND_SIGNED : FLOW3_VALUE_KIND_UNSIGNED,
+                    .value_relation = FLOW3_RELATION_ANY,
+                    .imaginary = FLOW3_IMAGINARY_NONE,
+                    .origin = ctx->p_current_flow3_map,
+                    .line = p_expression->first_token->line
+                };
+                flow3_alternatives_add(&e->alternatives, &a);
+            }
+        }
+
         /* Array element used as bool (unknown index or unresolved). */
         const struct object* p_obj = &p_expression->object;
         struct flow3_map* p_true = flow3_narrow_map(&ctx->flow3_map_arena, ctx->p_current_flow3_map, p_obj, true, "arr-true");
@@ -5508,7 +5797,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
     case EXPR_POSTFIX_FUNCTION_CALL:
     {
-        assert(p_expression->left != NULL);
+        runtime_assert(p_expression->left != NULL);
 
         flow3_visit_expression(ctx, p_expression->left);
         flow3_visit_function_arguments(ctx, &p_expression->left->type, &p_expression->argument_expression_list);
@@ -5516,6 +5805,10 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
         const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
         const struct type* p_ret_type = &p_expression->type;
         const int call_line = p_expression->first_token->line;
+        const bool ret_zero = type_is_pointer(p_ret_type) &&
+            (type_is_zero(p_ret_type) || type_is_pointed_zero(p_ret_type));
+        const bool ret_uninit = type_is_pointer(p_ret_type) &&
+            (type_is_uninit(p_ret_type) || type_is_pointed_uninit(p_ret_type));
 
         if (nullable_enabled && type_is_pointer(p_ret_type) && type_is_opt(p_ret_type, nullable_enabled))
         {
@@ -5547,6 +5840,21 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
                 ctx->p_current_flow3_map = p_nonnull_map;
                 flow3_object_init(ctx, p_pointed, &pointed_type, call_line);
                 ctx->p_current_flow3_map = old;
+                /* Return-type contract on the pointee: `_Zero` (e.g. calloc)
+                   means the returned region is all-zero -- seed each member
+                   EQUAL 0 so `p->m == 0` is concretely true; `_Uninitialized`
+                   (e.g. malloc) means the contents are indeterminate. The
+                   qualifier may sit on the returned pointer (`T* _Opt _Zero f()`,
+                   next to _Owner/_Opt) or on the pointee (`_Zero T* f()`).
+                   Seed into the live (parent) map -- not p_nonnull_map, whose
+                   member state is a sibling branch that execution never enters
+                   after the call; p_pointed is only ever reached through the
+                   surviving non-null alternative, so the parent map is where a
+                   later `x->m` read resolves it. */
+                if (ret_zero)
+                    flow3_map_set_object_zero(ctx->p_current_flow3_map, p_pointed, call_line);
+                else if (ret_uninit)
+                    flow3_map_set_object_uninitialized(ctx->p_current_flow3_map, p_pointed, call_line);
                 type_destroy(&pointed_type);
             }
 
@@ -5568,17 +5876,31 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
         }
         else if (type_is_pointer(p_ret_type))
         {
-            struct flow3_alternative v = {
-                .value_kind = FLOW3_VALUE_KIND_PTR,
-                .value = {.p = NULL }
-            };
+            /* Non-_Opt pointer return: non-null. For a `_Zero`/`_Uninitialized`
+               pointee contract, build a concrete pointee so members can be
+               seeded zero/uninitialized (mirrors the _Opt branch above). */
+            struct object* p_pointed = NULL;
+            if (ret_zero || ret_uninit)
+            {
+                p_pointed = flow3_allocated_object_arena_new(&ctx->allocated_object_arena);
+                if (p_pointed != NULL)
+                {
+                    struct type pointed_type = type_remove_pointer(p_ret_type);
+                    make_object(&pointed_type, p_pointed, MAKE_STATE_ANY, ctx->ctx->options.target);
+                    if (ret_zero)
+                        flow3_map_set_object_zero(ctx->p_current_flow3_map, p_pointed, call_line);
+                    else
+                        flow3_map_set_object_uninitialized(ctx->p_current_flow3_map, p_pointed, call_line);
+                    type_destroy(&pointed_type);
+                }
+            }
             {
                 struct flow3_key_alternatives* e = flow3_map_find_add(ctx->p_current_flow3_map, &p_expression->object);
                 flow3_alternatives_clear(&e->alternatives);
                 struct flow3_alternative a = {
-                    .value_kind = v.value_kind,
-                    .value = v.value,
-                    .value_relation = FLOW3_RELATION_NOT_EQUAL,
+                    .value_kind = FLOW3_VALUE_KIND_PTR,
+                    .value = {.p = p_pointed},
+                    .value_relation = p_pointed != NULL ? FLOW3_RELATION_EQUAL : FLOW3_RELATION_NOT_EQUAL,
                     .imaginary = FLOW3_IMAGINARY_NONE,
                     .origin = ctx->p_current_flow3_map,
                     .line = call_line
@@ -5635,16 +5957,16 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
     break;
 
     case EXPR_POSTFIX_FUNCTION_LITERAL:
-        assert(p_expression->compound_statement != NULL);
+        runtime_assert(p_expression->compound_statement != NULL);
         flow3_visit_compound_statement(ctx, p_expression->compound_statement);
         break;
 
     case EXPR_POSTFIX_COMPOUND_LITERAL:
     {
-        assert(p_expression->left == NULL);
-        assert(p_expression->right == NULL);
-        assert(p_expression->type_name != NULL);
-        assert(p_expression->braced_initializer != NULL);
+        runtime_assert(p_expression->left == NULL);
+        runtime_assert(p_expression->right == NULL);
+        runtime_assert(p_expression->type_name != NULL);
+        runtime_assert(p_expression->braced_initializer != NULL);
 
         //const struct object* p_agg = &p_expression->object;
         int line = p_expression->first_token->line;
@@ -5671,13 +5993,13 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
     }
 
     case EXPR_UNARY_STATIC_ASSERTION:
-        assert(p_expression->static_assertion);
+        runtime_assert(p_expression->static_assertion);
         flow3_visit_static_assertion(ctx, p_expression->static_assertion);
         break;
 
     case EXPR_UNARY_ALIGNOF_EXPRESSION:
     {
-        assert(p_expression->right);
+        runtime_assert(p_expression->right);
         const bool t2 = ctx->expression_is_not_evaluated;
         ctx->expression_is_not_evaluated = true;
         flow3_visit_expression(ctx, p_expression->right);
@@ -5692,7 +6014,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
     case EXPR_UNARY_ASSERT:
         /*
-         * assert(expr) is equivalent to:
+         * runtime_assert(expr) is equivalent to:
          *   if (!expr) exit();   // exit does not return
          *
          * So after assert, only the TRUE branch of expr is reachable.
@@ -5712,7 +6034,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
     case EXPR_UNARY_SIZEOF_EXPRESSION:
     {
-        assert(p_expression->right);
+        runtime_assert(p_expression->right);
 
         const bool t2 = ctx->expression_is_not_evaluated;
         ctx->expression_is_not_evaluated = true;
@@ -5724,7 +6046,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
     case EXPR_UNARY_NEG:
     case EXPR_UNARY_PLUS:
-        assert(p_expression->right != NULL);
+        runtime_assert(p_expression->right != NULL);
         /*
          * Visit the child first so that any sub-expression (e.g. -(a + b))
          * is fully evaluated and its constant value — if any — is propagated
@@ -5771,7 +6093,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
     case EXPR_UNARY_NOT:
     {
-        assert(p_expression->right != NULL);
+        runtime_assert(p_expression->right != NULL);
 
         /*
          * Visit the child first so that any sub-expression is fully evaluated
@@ -5811,6 +6133,23 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
             }
         }
 
+        /* Seed the NOT result's OWN value: `!x` yields a boolean (0 or 1) and is
+           always INITIALIZED. Without this, `bool c = !x;` (non-constant x) left
+           c with no value and c was wrongly reported "possibly uninitialized". */
+        {
+            struct flow3_key_alternatives* e = flow3_map_find_add(ctx->p_current_flow3_map, &p_expression->object);
+            flow3_alternatives_clear(&e->alternatives);
+            struct flow3_alternative a = {
+                .value_kind = FLOW3_VALUE_KIND_SIGNED,
+                .value = {.i = ANY_VALUE},
+                .value_relation = FLOW3_RELATION_ANY,
+                .imaginary = FLOW3_IMAGINARY_NONE,
+                .origin = ctx->p_current_flow3_map,
+                .line = p_expression->first_token->line
+            };
+            flow3_alternatives_add(&e->alternatives, &a);
+        }
+
         flow3_map_remove(ctx->p_current_flow3_map, &p_expression->right->object);
         /* NOT swaps the two branches. */
         return (struct flow3_branch_pair) { child.p_false, child.p_true };
@@ -5818,7 +6157,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
     case EXPR_CHECKED:
     {
-        assert(p_expression->left != NULL);
+        runtime_assert(p_expression->left != NULL);
         struct flow3_branch_pair checked_pair = flow3_visit_expression(ctx, p_expression->left);
         flow3_exit_block_visit_defer_list(ctx, &p_expression->defer_list, p_expression->first_token);
         flow3_defer_list_set_end_of_lifetime(ctx, &p_expression->defer_list, p_expression->first_token);
@@ -5842,12 +6181,12 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
         if (p_expression->expression_type == EXPR_UNARY_INCREMENT ||
             p_expression->expression_type == EXPR_UNARY_DECREMENT)
         {
-            assert(p_expression->right != NULL);
+            runtime_assert(p_expression->right != NULL);
             p_operand = p_expression->right;
         }
         else // postfix
         {
-            assert(p_expression->left != NULL);
+            runtime_assert(p_expression->left != NULL);
             p_operand = p_expression->left;
         }
 
@@ -5950,9 +6289,41 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
                 }
                 else if (alt->value_kind == FLOW3_VALUE_KIND_PTR)
                 {
-                    /* advancing a pointer keeps its null/pointee identity */
-                    flow3_alternatives_add(&new_var_alts, alt);
-                    flow3_alternatives_add(&new_result_alts, alt);
+                    /* Advancing a pointer preserves its null-ness (it still
+                       points within the same object/array, so non-null stays
+                       non-null) but moves it to a DIFFERENT element -- the
+                       pointed-to VALUE is now unknown. Keeping the SAME pointee
+                       object would leave a stale fact like `*p == c` (from an
+                       earlier narrowing, e.g. a `while (*p != '"') p++;` loop
+                       exit) attached to the advanced pointer, which wrongly
+                       folded `*p != c` to false and reported dead code
+                       (tokenizer.c). Repoint to a fresh ANY pointee; a pointer
+                       copied off BEFORE the increment keeps the old pointee, so
+                       its knowledge of `*q` is correctly preserved. */
+                    struct flow3_alternative a = *alt;
+                    if (alt->value_relation == FLOW3_RELATION_EQUAL &&
+                        alt->value.p != NULL &&
+                        type_is_pointer(&p_operand->type))
+                    {
+                        struct object* p_fresh = flow3_allocated_object_arena_new(&ctx->allocated_object_arena);
+                        if (p_fresh != NULL)
+                        {
+                            struct type pointed_type = type_remove_pointer(&p_operand->type);
+                            make_object(&pointed_type, p_fresh, MAKE_STATE_ANY, ctx->ctx->options.target);
+                            type_destroy(&pointed_type);
+                            a.value.p = p_fresh;
+                        }
+                        else
+                        {
+                            /* Can't allocate a fresh pointee: fall back to a
+                               generic non-null pointer (drops the stale value
+                               without inventing a bogus one). */
+                            a.value.p = NULL;
+                            a.value_relation = FLOW3_RELATION_NOT_EQUAL;
+                        }
+                    }
+                    flow3_alternatives_add(&new_var_alts, &a);
+                    flow3_alternatives_add(&new_result_alts, &a);
                 }
                 else
                 {
@@ -5986,7 +6357,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
     break;
 
     case EXPR_UNARY_BITNOT:
-        assert(p_expression->right != NULL);
+        runtime_assert(p_expression->right != NULL);
         /*
          * Visit the child first so that any sub-expression is fully evaluated
          * and its constant value — if any — is propagated into
@@ -6070,7 +6441,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
     case EXPR_UNARY_CONTENT:
     {
-        assert(p_expression->right != NULL);
+        runtime_assert(p_expression->right != NULL);
 
         flow3_visit_expression(ctx, p_expression->right);
 
@@ -6146,8 +6517,8 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
     case EXPR_ASSIGNMENT_ASSIGN:
     {
-        assert(p_expression->right != NULL);
-        assert(p_expression->left != NULL);
+        runtime_assert(p_expression->right != NULL);
+        runtime_assert(p_expression->left != NULL);
 
         // Evaluate both sides (side effects, constant folding)
         flow3_visit_expression(ctx, p_expression->left);
@@ -6238,8 +6609,8 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
     case EXPR_ASSIGNMENT_OR_ASSIGN:
     case EXPR_ASSIGNMENT_NOT_ASSIGN:
     {
-        assert(p_expression->right != NULL);
-        assert(p_expression->left != NULL);
+        runtime_assert(p_expression->right != NULL);
+        runtime_assert(p_expression->left != NULL);
 
 
 
@@ -6398,7 +6769,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
     case EXPR_CAST:
     {
-        assert(p_expression->left != NULL);
+        runtime_assert(p_expression->left != NULL);
 
         flow3_visit_expression(ctx, p_expression->left);
 
@@ -6482,6 +6853,17 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
             }
         }
 
+        /* Casting an owner to an _Owner target transfers ownership: the source
+           is moved into the cast result. Without this, `free((void* _Owner)s)`
+           freed the cast temporary but left the original `s` looking un-moved,
+           producing a false "owner object 's' not moved" leak warning. */
+        if (type_is_owner(p_target_type) && type_is_owner(&p_expression->left->type))
+        {
+            const struct object* p_src_var = object_get_referenced(&p_expression->left->object);
+            if (p_src_var != NULL)
+                flow3_map_set_object_moved(ctx->p_current_flow3_map, p_src_var, p_expression->first_token->line);
+        }
+
         flow3_map_remove(ctx->p_current_flow3_map, &p_expression->left->object);
         break;
     }
@@ -6490,8 +6872,8 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
     case EXPR_SHIFT_RIGHT:
     case EXPR_SHIFT_LEFT:
     {
-        assert(p_expression->left != NULL);
-        assert(p_expression->right != NULL);
+        runtime_assert(p_expression->left != NULL);
+        runtime_assert(p_expression->right != NULL);
 
         flow3_visit_expression(ctx, p_expression->left);
         flow3_visit_expression(ctx, p_expression->right);
@@ -6514,8 +6896,8 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
     case EXPR_RELATIONAL_BIGGER_THAN:
     case EXPR_RELATIONAL_LESS_THAN:
     {
-        assert(p_expression->right != NULL);
-        assert(p_expression->left != NULL);
+        runtime_assert(p_expression->right != NULL);
+        runtime_assert(p_expression->left != NULL);
 
         flow3_visit_expression(ctx, p_expression->left);
         flow3_visit_expression(ctx, p_expression->right);
@@ -6560,7 +6942,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
         /* ... but if this compares a scalar variable against a constant, we
            can still narrow the variable on each branch (true: var OP c,
            false: var !OP c). This is what lets `if (a > 0)` -- and, via the
-           EXPR_UNARY_ASSERT true-branch merge, `assert(a > 0)` -- record the
+           EXPR_UNARY_ASSERT true-branch merge, `runtime_assert(a > 0)` -- record the
            half-line fact so a later compile_assert(a > 0) can prove it. */
         {
             long long cst = 0;
@@ -6595,8 +6977,8 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
     case EXPR_EQUALITY_NOT_EQUAL:
     case EXPR_EQUALITY_EQUAL:
     {
-        assert(p_expression->right != NULL);
-        assert(p_expression->left != NULL);
+        runtime_assert(p_expression->right != NULL);
+        runtime_assert(p_expression->left != NULL);
 
         flow3_visit_expression(ctx, p_expression->left);
         flow3_visit_expression(ctx, p_expression->right);
@@ -6671,8 +7053,8 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
          *   false = right_false_from_left_false
          *           (both were false)
          */
-        assert(p_expression->right != NULL);
-        assert(p_expression->left != NULL);
+        runtime_assert(p_expression->right != NULL);
+        runtime_assert(p_expression->left != NULL);
 
 
         if (object_has_constant_value(&p_expression->left->object) &&
@@ -6798,8 +7180,8 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
          *   false = merge(left_false, right_false_from_left_true)
          *           (left was false, OR left was true but right was false)
          */
-        assert(p_expression->right != NULL);
-        assert(p_expression->left != NULL);
+        runtime_assert(p_expression->right != NULL);
+        runtime_assert(p_expression->left != NULL);
 
 
         if (object_has_constant_value(&p_expression->left->object) &&
@@ -6922,8 +7304,8 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
     }
 
     case EXPR_INCLUSIVE_OR:
-        assert(p_expression->right != NULL);
-        assert(p_expression->left != NULL);
+        runtime_assert(p_expression->right != NULL);
+        runtime_assert(p_expression->left != NULL);
         if (object_has_constant_value(&p_expression->left->object) &&
             object_has_constant_value(&p_expression->right->object))
         {
@@ -6963,8 +7345,8 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
     case EXPR_AND:
     case EXPR_EXCLUSIVE_OR:
-        assert(p_expression->right != NULL);
-        assert(p_expression->left != NULL);
+        runtime_assert(p_expression->right != NULL);
+        runtime_assert(p_expression->left != NULL);
         if (object_has_constant_value(&p_expression->left->object) &&
             object_has_constant_value(&p_expression->right->object))
         {
@@ -7016,17 +7398,37 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
     case EXPR_EXPRESSION:
     {
-        assert(p_expression->left != NULL);
-        assert(p_expression->right != NULL);
+        runtime_assert(p_expression->left != NULL);
+        runtime_assert(p_expression->right != NULL);
         flow3_visit_expression(ctx, p_expression->left);
         /* Comma: the value (and branch state) of the right operand is what matters. */
-        return flow3_visit_expression(ctx, p_expression->right);
+        struct flow3_branch_pair pair = flow3_visit_expression(ctx, p_expression->right);
+
+        /* Forward the right operand's value to the comma's OWN object, so a
+           consumer that reads this node (e.g. a function-argument check) sees
+           the comma's result -- otherwise `f((p = 0, p))` found no value on the
+           comma node and missed that p was just set to null. Mirrors the value
+           forwarding done for EXPR_PRIMARY_PARENTHESIS. */
+        const struct expression* p_inner = skip_parenthesis(p_expression->right);
+        const struct flow3_key_alternatives* p_inner_entry =
+            flow3_map_search_up(ctx->p_current_flow3_map, &p_inner->object);
+        if (p_inner_entry)
+        {
+            struct flow3_key_alternatives* p_entry =
+                flow3_map_find_add(ctx->p_current_flow3_map, &p_expression->object);
+            if (p_entry)
+            {
+                flow3_alternatives_clear(&p_entry->alternatives);
+                flow3_alternatives_append(&p_entry->alternatives, &p_inner_entry->alternatives);
+            }
+        }
+        return pair;
     }
 
     case EXPR_CONDITIONAL:
     {
-        assert(p_expression->condition_expr != NULL);
-        assert(p_expression->right != NULL);
+        runtime_assert(p_expression->condition_expr != NULL);
+        runtime_assert(p_expression->right != NULL);
 
         struct flow3_branch_pair cond_pair = flow3_visit_expression(ctx, p_expression->condition_expr);
         cond_pair = flow3_ensure_branch_pair(ctx, ctx->p_current_flow3_map, cond_pair, "cond-true", "cond-false");
@@ -7144,7 +7546,7 @@ static void flow3_visit_compound_statement(struct flow3_visit_ctx* ctx, struct c
 
 static void flow3_visit_do_while_statement(struct flow3_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
-    assert(p_iteration_statement->first_token->type == TK_KEYWORD_DO);
+    runtime_assert(p_iteration_statement->first_token->type == TK_KEYWORD_DO);
 
     struct flow3_map* _Opt old_p_initial_map = ctx->p_initial_map;
     struct flow3_map* _Opt old_p_break_join_map = ctx->p_break_join_map;
@@ -7246,7 +7648,7 @@ static void flow3_visit_do_while_statement(struct flow3_visit_ctx* ctx, struct i
 
 static void flow3_visit_while_statement(struct flow3_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
-    assert(p_iteration_statement->first_token->type == TK_KEYWORD_WHILE);
+    runtime_assert(p_iteration_statement->first_token->type == TK_KEYWORD_WHILE);
 
     if (p_iteration_statement->expression1 == NULL)
     {
@@ -7350,7 +7752,7 @@ static void flow3_visit_while_statement(struct flow3_visit_ctx* ctx, struct iter
 
 static void flow3_visit_for_statement(struct flow3_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
-    assert(p_iteration_statement->first_token->type == TK_KEYWORD_FOR);
+    runtime_assert(p_iteration_statement->first_token->type == TK_KEYWORD_FOR);
     //const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
     struct expression* _Opt p_next = p_iteration_statement->expression2;
@@ -7492,7 +7894,7 @@ static void flow3_visit_iteration_statement(struct flow3_visit_ctx* ctx, struct 
         flow3_visit_for_statement(ctx, p_iteration_statement);
         break;
     default:
-        assert(false);
+        runtime_assert(false);
         break;
     }
     ctx->inside_loop = inside_loop; //restore
@@ -7831,7 +8233,7 @@ static void flow3_visit_jump_statement(struct flow3_visit_ctx* ctx, struct jump_
         }
         else if (p_jump_statement->first_token->type == TK_KEYWORD_GOTO)
         {
-            assert(p_jump_statement->label != NULL);
+            runtime_assert(p_jump_statement->label != NULL);
 
             bool found = false;
             for (int i = 0; i < ctx->labels_size; i++)
@@ -7883,7 +8285,7 @@ static void flow3_visit_jump_statement(struct flow3_visit_ctx* ctx, struct jump_
         }
         else
         {
-            assert(false);
+            runtime_assert(false);
         }
     }
     catch
@@ -7941,7 +8343,7 @@ static void flow3_visit_unlabeled_statement(struct flow3_visit_ctx* ctx, struct 
     }
     else
     {
-        assert(false);
+        runtime_assert(false);
     }
 }
 
@@ -8260,6 +8662,20 @@ static void flow3_visit_compile_assert(struct flow3_visit_ctx* ctx, struct stati
 
 static void flow3_visit_static_assertion(struct flow3_visit_ctx* ctx, struct static_assertion* p_static_assertion)
 {
+    if (p_static_assertion->first_token->type == TK_KEYWORD_RUNTIME_ASSERT)
+    {
+        /* runtime_assert(cond) narrows like assert: after it, only the branch
+           where cond is true is reachable (a failed runtime_assert aborts).
+           Visit the condition EVALUATED so it narrows, then keep only the true
+           arm. Unlike the `assert` macro this is a keyword, so it is never
+           stripped and narrows in every build, including release. */
+        struct flow3_map* p_before = ctx->p_current_flow3_map;
+        struct flow3_branch_pair pair = flow3_visit_full_expression(ctx, p_static_assertion->constant_expression);
+        flow3_map_merge_a_b(p_before, pair.p_true, pair.p_true);
+        ctx->p_current_flow3_map = p_before;
+        return;
+    }
+
     const bool t2 = ctx->expression_is_not_evaluated;
     ctx->expression_is_not_evaluated = true;
 
@@ -8687,7 +9103,7 @@ void flow3_visit_declaration(struct flow3_visit_ctx* ctx, struct declaration* p_
 
     if (p_declaration->function_body)
     {
-        assert(ctx->p_return_type == NULL);
+        runtime_assert(ctx->p_return_type == NULL);
 
         struct type type = get_function_return_type(&p_declaration->init_declarator_list.head->p_declarator->type);
         ctx->p_return_type = &type;
@@ -8729,6 +9145,8 @@ void flow3_start_visit_declaration(struct flow3_visit_ctx* ctx, struct declarati
 {
     ctx->labels_size = 0;
     flow3_predicate_cache_reset(ctx);
+    ctx->collect_deferred_effects = false;
+    ctx->deferred_effects_count = 0;
 
     flow3_allocated_object_arena_clear(&ctx->allocated_object_arena);
     flow3_map_arena_clear(&ctx->flow3_map_arena);

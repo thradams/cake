@@ -1,6 +1,5 @@
 #define __STDC_VERSION__ 202311L
 #define _CONSOLE
-#define __STDC_OWNERSHIP__ 1
 #define _WIN32 1
 #define _WIN64 1
 #define _INTEGRAL_MAX_BITS 64

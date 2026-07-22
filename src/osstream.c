@@ -57,7 +57,7 @@ static int reserve(struct osstream* stream, int size)
 
 int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args)
 {
-    assert(fmt != 0);
+    runtime_assert(fmt != 0);
     int size = 0;
 
     va_list tmpa = { 0 };

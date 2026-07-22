@@ -26,7 +26,7 @@ int rand(void);
 void srand(unsigned int seed);
 void* aligned_alloc(size_t alignment, size_t size);
 
-#if defined(__STDC_OWNERSHIP__) 
+#if defined(__CAKE__)
 [[nodiscard]] void* _Owner _Opt calloc(size_t nmemb, size_t size);
 void free(void* _Owner _Opt ptr);
 [[nodiscard]] void* _Owner _Opt malloc(size_t size);

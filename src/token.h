@@ -182,9 +182,10 @@ enum token_type
     TK_KEYWORD__GENERIC,
     TK_KEYWORD__IMAGINARY,
     TK_KEYWORD__NORETURN,
-    TK_KEYWORD__STATIC_ASSERT,    
-    TK_KEYWORD__COMPILE_ASSERT,    
-    TK_KEYWORD_ASSERT, /*extension*/
+    TK_KEYWORD__STATIC_ASSERT,
+    TK_KEYWORD__COMPILE_ASSERT,
+    TK_KEYWORD_RUNTIME_ASSERT,
+     /*extension*/
     TK_KEYWORD__THREAD_LOCAL,
 
     TK_KEYWORD_TYPEOF, /*C23*/
@@ -201,7 +202,8 @@ enum token_type
     TK_KEYWORD_CAKE_OWNER,
     TK_KEYWORD_CAKE_CTOR,
     TK_KEYWORD_CAKE_DTOR,
-    TK_KEYWORD_CAKE_UNINIT,
+    TK_KEYWORD_CAKE_UNINIT,   /* _Uninitialized (return/pointee is uninitialized) */
+    TK_KEYWORD_CAKE_ZERO,     /* _Zero (return/pointee is all-zero) */
     TK_KEYWORD_CAKE_CLEAR,
     TK_KEYWORD_CAKE_VIEW,    
     TK_KEYWORD_CAKE_OPT, 

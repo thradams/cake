@@ -130,7 +130,7 @@ struct TAGDIR
 
 DIR* _Owner _Opt opendir(const char* name)
 {
-    assert(name != 0);
+    runtime_assert(name != 0);
     WIN32_FIND_DATAA fdfile = { 0 };
 
     char path[FS_MAX_PATH] = { 0 };
@@ -331,7 +331,7 @@ int copy_folder(const char* from, const char* to)
 #ifdef _WIN32
 int get_self_path(char* buffer, int maxsize)
 {
-    DWORD r = GetModuleFileNameA(NULL, buffer, maxsize); //lint 60 35 33 
+    DWORD r = GetModuleFileNameA(NULL, buffer, maxsize); //lint 60 35  
     return r;
 }
 
@@ -522,7 +522,7 @@ char* _Owner _Opt read_file(const char* const path, bool append_newline)
         data[bytes_read_part2] = '\n';
 
         //we already allocated an extra char for this
-        assert(bytes_read_part2 + 1 < mem_size_bytes);
+        runtime_assert(bytes_read_part2 + 1 < mem_size_bytes);
         data[bytes_read_part2 + 1] = '\0';
     }
 

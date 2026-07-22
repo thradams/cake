@@ -455,6 +455,14 @@ struct options
     bool flow3;
 
     /*
+      -runtime-asserts
+      When set, `runtime_assert(cond)` generates a runtime check (a small
+      emitted helper function); otherwise it produces no runtime code and only
+      the compile-time flow3 narrowing applies.
+    */
+    bool runtime_asserts;
+
+    /*
     * -nullchecks
     */
     bool null_checks_enabled;

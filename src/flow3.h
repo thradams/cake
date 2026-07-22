@@ -39,6 +39,17 @@ struct flow3_predicate_entry
     int branch_id;
 };
 
+/* A pointee write-effect of a function call, deferred until after all
+   arguments are evaluated (C evaluates arguments first, then the callee runs).
+   kind: 0 = set to zero (_Clear), 1 = lifetime ended (_Dtor / _Owner),
+         2 = ANY / possibly-modified (_Ctor, or a plain mutable pointer). */
+struct flow3_deferred_pointee_effect
+{
+    const struct object* pointee;
+    int kind;
+    int line;
+};
+
 struct flow3_visit_ctx
 {
     struct parser_ctx* const ctx;
@@ -63,6 +74,12 @@ struct flow3_visit_ctx
     /* Same-predicate branch correlation cache; reset per function. */
     struct flow3_predicate_entry predicate_cache[128];
     int predicate_cache_size;
+
+    /* Function-call pointee write-effects, deferred until after all arguments
+       are evaluated (see flow3_visit_function_arguments). */
+    struct flow3_deferred_pointee_effect deferred_effects[64];
+    int deferred_effects_count;
+    bool collect_deferred_effects;
 
     
     struct flow3_allocated_object_arena allocated_object_arena;

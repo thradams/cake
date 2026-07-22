@@ -475,10 +475,16 @@ int compile_one_file(const char* file_name,
                 struct codegen_ctx ctx2 = { 0 };
                 ctx2.p_ast = &ast;
                 ctx2.options = ctx.options;
-                codegen_visit(&ctx2, &ss);
+                const int codegen_error = codegen_visit(&ctx2, &ss);
                 p_output_string = ss.c_str; //MOVE
                 codegen_visit_ctx_destroy(&ctx2);
 
+                if (codegen_error != 0)
+                {
+                    report->error_count++;
+                    printf("code generation failed for '%s'\n", out_file_name);
+                    throw;
+                }
 
                 FILE* _Owner _Opt outfile = fopen(out_file_name, "w");
                 if (outfile)
@@ -639,7 +645,7 @@ static int compile_many_files(const char* file_name,
 
     if (file_name_extension == NULL)
     {
-        assert(false);
+        runtime_assert(false);
     }
 
     int num_files = 0;
@@ -987,7 +993,7 @@ static int strtoargv(char* s, int n, const char* argv[/*n*/])
             break;
         argv[argvc] = p;
         argvc++;
-        while (*p != ' ' && *p != '\0') //lint 28 (error in cake static analysis, #431)
+        while (*p != ' ' && *p != '\0')
             p++;
         if (*p == 0)
             break;
@@ -1048,9 +1054,17 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
             struct codegen_ctx ctx2 = { 0 };
             ctx2.p_ast = &ast;
             ctx2.options = options;
-            codegen_visit(&ctx2, &ss);
+            const int codegen_error = codegen_visit(&ctx2, &ss);
             s = ss.c_str; //MOVED
             codegen_visit_ctx_destroy(&ctx2);
+
+            if (codegen_error != 0)
+            {
+                report->error_count++;
+                free((void* _Owner _Opt)s);
+                s = NULL;
+                throw;
+            }
         }
     }
     catch

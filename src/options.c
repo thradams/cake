@@ -4,7 +4,7 @@
 */
 
 #pragma safety enable
-
+#include "ownership.h"
 #include "options.h"
 #include <string.h>
 #include "console.h"
@@ -101,7 +101,7 @@ int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack)
 {
     if (diagnostic_stack->top_index >= _Countof(diagnostic_stack->stack))
     {
-        assert(false);
+        runtime_assert(false);
         return 0;
     }
 
@@ -121,7 +121,7 @@ void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack)
     }
     else
     {
-        assert(false);
+        runtime_assert(false);
     }
 }
 
@@ -349,7 +349,13 @@ int fill_options(struct options* options,
 
         if (strcmp(argv[i], "-flow3") == 0)
         {
-            options->flow3 = true;            
+            options->flow3 = true;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-runtime-asserts") == 0)
+        {
+            options->runtime_asserts = true;
             continue;
         }
 

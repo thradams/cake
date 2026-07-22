@@ -2,7 +2,7 @@
 #ifndef __OWNERSHIP_H__
 #define __OWNERSHIP_H__
 
-#ifdef __STDC_OWNERSHIP__
+#ifdef __CAKE__
 
 
 #ifdef _WIN64
@@ -20,12 +20,19 @@
 
 #endif
 
+#ifdef __APPLE__
+
+    typedef struct __sFILE FILE;
+    typedef __SIZE_TYPE__ size_t;
+
+#endif
+
 /*
   ownership is suported
 */
-void* _Owner _Opt calloc(size_t nmemb, size_t size);
+void* _Owner _Opt _Zero calloc(size_t nmemb, size_t size);
 void free(void* _Owner _Opt ptr);
-void* _Owner _Opt malloc(size_t size);
+void* _Owner _Opt _Uninitialized malloc(size_t size);
 void* _Owner _Opt realloc(void* _Opt ptr, size_t size);
 char* _Owner _Opt strdup(const char* src);
 char* _Opt strstr(const char* str, const char* substr);
@@ -102,8 +109,12 @@ float strtof(char const* _String, char** _Opt _EndPtr);
 #define _Owner
 #define _Dtor
 #define _View
+#define _Clear
+#define _Zero
+#define _Uninitialized
 #define static_debug(x)
 #define override_state(x, s)
+#define runtime_assert(x) ((void)0)
 #endif
 
 #endif

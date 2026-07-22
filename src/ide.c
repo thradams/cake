@@ -4299,6 +4299,7 @@ typedef enum {
 
 typedef enum {
     FR_FILETYPE_C = 0,
+    FR_FILETYPE_H,
     FR_FILETYPE_C_H,
     FR_FILETYPE_MD,
     FR_FILETYPE_ALL,
@@ -4335,6 +4336,7 @@ static const char* fr_file_type_mask(fr_file_type v)
     switch (v)
     {
         case FR_FILETYPE_C:   return "*.c";
+        case FR_FILETYPE_H:   return "*.h";
         case FR_FILETYPE_C_H: return "*.c;*.h";
         case FR_FILETYPE_MD:  return "*.md";
         case FR_FILETYPE_ALL: return "*";
@@ -4911,9 +4913,10 @@ static void fr_rebuild_content(void)
     cy += 1;
     g_fr_filetypes = add_select(g_fr_panel, cx, cy, cw);
     add_select_item(g_fr_filetypes, EVT_FR_FILETYPE_BASE + 0, "*.c");
-    add_select_item(g_fr_filetypes, EVT_FR_FILETYPE_BASE + 1, "*.c;*.h");
-    add_select_item(g_fr_filetypes, EVT_FR_FILETYPE_BASE + 2, "*.md");
-    add_select_item(g_fr_filetypes, EVT_FR_FILETYPE_BASE + 3, "*.*");
+    add_select_item(g_fr_filetypes, EVT_FR_FILETYPE_BASE + 1, "*.h");
+    add_select_item(g_fr_filetypes, EVT_FR_FILETYPE_BASE + 2, "*.c;*.h");
+    add_select_item(g_fr_filetypes, EVT_FR_FILETYPE_BASE + 3, "*.md");
+    add_select_item(g_fr_filetypes, EVT_FR_FILETYPE_BASE + 4, "*.*");
     ui_select_set_selected(g_fr_filetypes, g_fr_file_type);
     cy += 2;
 

@@ -39,6 +39,7 @@ enum attribute_flags
     CAKE_ATTRIBUTE_DTOR = 1 << 8,
     CAKE_ATTRIBUTE_UNINIT = 1 << 9,
     CAKE_ATTRIBUTE_CLEAR = 1 << 10,
+    CAKE_ATTRIBUTE_ZERO = 1 << 11,
 
     /*
      1 == 2 results in int in C
@@ -84,7 +85,7 @@ enum type_specifier_flags
     TYPE_SPECIFIER_ENUM = 1 << 16,
     TYPE_SPECIFIER_TYPEDEF = 1 << 17,
 
-   
+
     TYPE_SPECIFIER_LONG_LONG = 1 << 22,
 
     TYPE_SPECIFIER_TYPEOF = 1 << 23,
@@ -110,11 +111,12 @@ enum type_qualifier_flags
     TYPE_QUALIFIER_CAKE_OWNER = 1 << 4,
     TYPE_QUALIFIER_CAKE_VIEW = 1 << 5,
     TYPE_QUALIFIER_CAKE_OPT = 1 << 6,
-    
+
     TYPE_QUALIFIER_CAKE_DTOR = 1 << 7,
     TYPE_QUALIFIER_CAKE_CTOR = 1 << 8,
     TYPE_QUALIFIER_CAKE_UNINIT = 1 << 12,
     TYPE_QUALIFIER_CAKE_CLEAR = 1 << 13,
+    TYPE_QUALIFIER_CAKE_ZERO = 1 << 14,
 
     /*-------------------------------------------------------*/
 
@@ -255,12 +257,12 @@ struct type
     const struct enum_specifier* _Opt enum_specifier;
 
     //Expression used as array size. Can be constant or not constant (VLA)
-    const struct expression* _Opt p_array_num_elements_expression;    
+    const struct expression* _Opt p_array_num_elements_expression;
     /*
       id/number of local variable to store the vm
     */
     int vm_dim_id;
-    
+
     /*
       This is the function where the vm type variable exists
     */
@@ -274,7 +276,7 @@ struct type
     size_t array_num_elements;
 
     bool has_static_array_size;
-    
+
 
     /*
       address_of is true when the type is created by address of operator.
@@ -315,6 +317,7 @@ bool type_is_array(const struct type* p_type);
 bool type_is_ctor(const struct type* p_type);
 bool type_is_dtor(const struct type* p_type);
 bool type_is_clear(const struct type* p_type);
+bool type_is_uninit(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
 bool type_is_constexpr(const struct type* p_type);
 bool type_is_const_or_constexpr(const struct type* p_type);
@@ -326,6 +329,8 @@ bool type_is_owner(const struct type* p_type);
 bool type_is_pointed_dtor(const struct type* p_type);
 bool type_is_pointed_ctor(const struct type* p_type);
 bool type_is_pointed_uninit(const struct type* p_type);
+bool type_is_zero(const struct type* p_type);
+bool type_is_pointed_zero(const struct type* p_type);
 bool type_is_pointed_clear(const struct type* p_type);
 
 bool type_is_pointed_const(const struct type* p_type);
@@ -420,6 +425,8 @@ struct type make_void_ptr_type();
 struct type make_size_t_type(enum target target);
 struct type make_with_type_specifier_flags(enum type_specifier_flags f);
 
+struct specifier_qualifier_list;
+struct type make_with_specifier_qualifier_list(const struct specifier_qualifier_list* list);
 
 struct type get_function_return_type(const struct type* p_type);
 bool function_returns_void(const struct type* p_type);

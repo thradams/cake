@@ -6437,6 +6437,7 @@ static int is_c_keyword1(const char* word, int len)
         if (len == 8 && memcmp(word, "register", 8) == 0) return 1;
         if (len == 6 && memcmp(word, "return", 6) == 0) return 1;
         if (len == 8 && memcmp(word, "restrict", 8) == 0) return 1; // C99
+        if (len == 14 && memcmp(word, "runtime_assert", 14) == 0) return 1;
     }
     else if (c == 's')
     {

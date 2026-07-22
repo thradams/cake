@@ -42,13 +42,13 @@ int remove(const char* filename);
 int rename(const char* old, const char* news);
 FILE* _Opt tmpfile(void);
 char* tmpnam(char* s);
-#if defined(__STDC_OWNERSHIP__) 
+#if defined(__CAKE__)
 int fclose(FILE* _Owner stream);
 #else
 int fclose(FILE* stream);
 #endif
 int fflush(FILE* stream);
-#if defined(__STDC_OWNERSHIP__) 
+#if defined(__CAKE__)
 FILE* _Owner _Opt fopen(const char* restrict filename, const char* restrict mode);
 FILE* _Owner _Opt freopen(const char* restrict filename, const char* restrict mode, FILE* restrict stream);
 #else

@@ -168,7 +168,7 @@ static void tokenizer_diagnostic(enum diagnostic_id w, struct tokenizer_ctx* ctx
     va_list args = { 0 };
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args); //lint 35 33
+    va_end(args); //lint 35 
 
     print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format, color_enabled);
     if (ctx->options.visual_studio_ouput_format)
@@ -260,7 +260,7 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
 
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args); //lint 33 35
+    va_end(args);
 
     if (ctx->options.visual_studio_ouput_format)
     {
@@ -357,8 +357,8 @@ struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const ch
         }
         else
         {
-            assert(list->tail != NULL);
-            assert(list->tail->next == NULL);
+            runtime_assert(list->tail != NULL);
+            runtime_assert(list->tail->next == NULL);
             list->tail->next = p_new_include_dir;
             list->tail = p_new_include_dir;
         }
@@ -379,8 +379,8 @@ struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const ch
 static void pragma_once_add(struct preprocessor_ctx* ctx, const char* path)
 {
     //FAILING ON EMSCRIPT
-    //assert(path_is_absolute(path));
-    //assert(path_is_normalized(path));
+    //runtime_assert(path_is_absolute(path));
+    //runtime_assert(path_is_normalized(path));
     struct hash_item_set item = { 0 };
     item.number = 1;
     hashmap_set(&ctx->pragma_once_map, path, &item /*in out*/);
@@ -390,8 +390,8 @@ static void pragma_once_add(struct preprocessor_ctx* ctx, const char* path)
 static bool pragma_once_already_included(struct preprocessor_ctx* ctx, const char* path)
 {
     //FAILING ON EMSCRIPT
-    //assert(path_is_absolute(path));
-    //assert(path_is_normalized(path));
+    //runtime_assert(path_is_absolute(path));
+    //runtime_assert(path_is_normalized(path));
     return hashmap_find(&ctx->pragma_once_map, path) != NULL;
 }
 
@@ -619,7 +619,7 @@ void macro_argument_delete(struct macro_argument* _Owner _Opt p)
 {
     if (p)
     {
-        assert(p->next == NULL);
+        runtime_assert(p->next == NULL);
         token_list_destroy(&p->tokens);
         free(p);
     }
@@ -711,17 +711,17 @@ struct macro_argument* _Opt find_macro_argument_by_name(struct macro_argument_li
 
 void argument_list_add(struct macro_argument_list* list, struct macro_argument* _Owner pnew)
 {
-    assert(pnew->next == NULL);
+    runtime_assert(pnew->next == NULL);
     if (list->head == NULL)
     {
         list->head = pnew;
-        assert(list->tail == NULL);
+        runtime_assert(list->tail == NULL);
         list->tail = pnew;
     }
     else
     {
-        assert(list->tail != NULL);
-        assert(list->tail->next == NULL);
+        runtime_assert(list->tail != NULL);
+        runtime_assert(list->tail->next == NULL);
         list->tail->next = pnew;
         list->tail = pnew;
     }
@@ -1377,7 +1377,7 @@ static struct token* _Owner _Opt ppnumber(struct stream* stream)
     }
     else
     {
-        assert(false);
+        runtime_assert(false);
     }
 
     for (;;)
@@ -1550,7 +1550,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
         p_new_token->col = col;
         token_list_add(&list, p_new_token);
 
-        assert(list.head != NULL);
+        runtime_assert(list.head != NULL);
         }
     catch
     {
@@ -1950,7 +1950,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
     {
     }
 
-    assert(list.head != NULL);
+    runtime_assert(list.head != NULL);
     return list;
 }
 
@@ -1996,7 +1996,7 @@ struct token_list group_opt(struct preprocessor_ctx* ctx, struct token_list* inp
         }
         while (!token_list_is_empty(input_list))
         {
-            assert(input_list->head != NULL);
+            runtime_assert(input_list->head != NULL);
 
             if (input_list->head->type == TK_PREPROCESSOR_LINE &&
                 (preprocessor_token_ahead_is_identifier(input_list->head, "endif") ||
@@ -2112,7 +2112,7 @@ static void skip_blanks_level(struct preprocessor_ctx* ctx, struct token_list* d
         {
             struct token* _Owner _Opt p =
                 token_list_pop_front_get(input_list);
-            assert(p != NULL); //because input_list is not empty
+            runtime_assert(p != NULL); //because input_list is not empty
             token_list_add(dest, p);
         }
         else
@@ -2128,7 +2128,7 @@ static void skip_blanks(struct preprocessor_ctx* ctx, struct token_list* dest, s
             break;
         struct token* _Owner _Opt p =
             token_list_pop_front_get(input_list);
-        assert(p != NULL); //because input_list is not empty
+        runtime_assert(p != NULL); //because input_list is not empty
 
         token_list_add(dest, p);
     }
@@ -2146,7 +2146,7 @@ static void skip_blanks_including_newline(struct preprocessor_ctx* ctx, struct t
 
         struct token* _Owner _Opt p =
             token_list_pop_front_get(input_list);
-        assert(p != NULL); //because input_list is not empty
+        runtime_assert(p != NULL); //because input_list is not empty
 
         token_list_add(dest, p);
     }
@@ -2660,7 +2660,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
 struct token_list process_identifiers(struct preprocessor_ctx* ctx, _Dtor struct token_list* list)
 {
-    assert(!token_list_is_empty(list));
+    runtime_assert(!token_list_is_empty(list));
 
     struct token_list list2 = { 0 };
 
@@ -2682,7 +2682,7 @@ struct token_list process_identifiers(struct preprocessor_ctx* ctx, _Dtor struct
                 */
 
                 struct token* _Owner _Opt p_new_token = token_list_pop_front_get(list);
-                assert(p_new_token != NULL); //because the list is not empty
+                runtime_assert(p_new_token != NULL); //because the list is not empty
                 p_new_token->type = TK_PPNUMBER;
 
                 if (strcmp(p_new_token->lexeme, "true") == 0)
@@ -2712,19 +2712,19 @@ struct token_list process_identifiers(struct preprocessor_ctx* ctx, _Dtor struct
             else
             {
                 struct token* _Owner _Opt ptk = token_list_pop_front_get(list);
-                assert(ptk != NULL); //because the list is not empty
+                runtime_assert(ptk != NULL); //because the list is not empty
                 token_list_add(&list2, ptk);
             }
         }
-        assert(!token_list_is_empty(&list2));
+        runtime_assert(!token_list_is_empty(&list2));
     }
     catch
     {
         token_list_destroy(list);
     }
 
-    assert(list->head == NULL);
-    assert(list->tail == NULL);
+    runtime_assert(list->head == NULL);
+    runtime_assert(list->tail == NULL);
 
     return list2;
 }
@@ -2735,7 +2735,7 @@ struct token_list ignore_preprocessor_line(struct token_list* input_list)
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
         struct token* _Owner _Opt tk = token_list_pop_front_get(input_list);
-        assert(tk != NULL); //because the list is not empty
+        runtime_assert(tk != NULL); //because the list is not empty
         token_list_add(&r, tk);
     }
     return r;
@@ -2748,7 +2748,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     int level
 )
 {
-    assert(input_list->head != NULL);
+    runtime_assert(input_list->head != NULL);
 
     struct token* first = input_list->head;
 
@@ -2758,7 +2758,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
         struct token* _Owner _Opt tk = token_list_pop_front_get(input_list);
-        assert(tk != NULL); //because the list is not empty
+        runtime_assert(tk != NULL); //because the list is not empty
         token_list_add(&r, tk);
 
         /*
@@ -2767,7 +2767,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
           Let's remove TK_FLAG_LINE_CONTINUATION from the original token
           to avoid warning inside constant expressions
         */
-        assert(r.tail != NULL);
+        runtime_assert(r.tail != NULL);
         r.tail->flags &= ~TK_FLAG_LINE_CONTINUATION;
     }
 
@@ -2803,7 +2803,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
         {
             struct token_list list4 = process_identifiers(ctx, &list3);
 
-            assert(list4.head != NULL);
+            runtime_assert(list4.head != NULL);
 
             struct preprocessor_ctx pre_ctx = { 0 };
 
@@ -2886,7 +2886,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
 {
     *p_result = 0; //out
 
-    assert(input_list->head != NULL);
+    runtime_assert(input_list->head != NULL);
 
     struct token_list r = { 0 };
     try
@@ -2903,7 +2903,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
         if (input_list->head == NULL)
             throw;
 
-        assert(input_list->head->type == TK_IDENTIFIER);
+        runtime_assert(input_list->head->type == TK_IDENTIFIER);
         if (strcmp(input_list->head->lexeme, "ifdef") == 0)
         {
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //ifdef
@@ -2972,8 +2972,8 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
         }
         struct token_list r2 = group_opt(ctx, input_list, is_active && *p_result, level);
         token_list_append_list(&r, &r2);
-        assert(r2.head == NULL);
-        assert(r2.tail == NULL);
+        runtime_assert(r2.head == NULL);
+        runtime_assert(r2.tail == NULL);
     }
     catch
     {
@@ -2985,7 +2985,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
 struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, bool* p_elif_result)
 {
     *p_elif_result = 0; //out
-    assert(input_list->head != NULL);
+    runtime_assert(input_list->head != NULL);
 
     struct token_list r = { 0 };
 
@@ -3069,7 +3069,7 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
 
 struct token_list elif_groups(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, bool* pelif_result)
 {
-    assert(input_list->head != NULL);
+    runtime_assert(input_list->head != NULL);
 
     struct token_list r = { 0 };
     /*
@@ -3240,7 +3240,7 @@ struct token_list def_line(struct preprocessor_ctx* ctx, struct token_list* inpu
             macro_delete(macro);
             throw;
         }
-        assert(macro->name == NULL);
+        runtime_assert(macro->name == NULL);
         macro->name = temp;
 
 
@@ -3289,7 +3289,7 @@ struct token_list def_line(struct preprocessor_ctx* ctx, struct token_list* inpu
                 p_macro_parameter->name = temp2;
                 macro->parameters = p_macro_parameter;
 
-                // assert(false);
+                // runtime_assert(false);
                 match_token_level(&r, input_list, '...', level, ctx); //nome da macro
                 skip_blanks_level(ctx, &r, input_list, level);
                 match_token_level(&r, input_list, ')', level, ctx); //nome da macro
@@ -3332,7 +3332,7 @@ struct token_list def_line(struct preprocessor_ctx* ctx, struct token_list* inpu
 
                     p_macro_parameter->name = temp3;
                     struct macro_parameter* _Opt p_last = macro->parameters;
-                    assert(p_last != NULL);
+                    runtime_assert(p_last != NULL);
                     while (p_last->next)
                     {
                         p_last = p_last->next;
@@ -3489,7 +3489,7 @@ struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* in
      if-section:
        if-group elif-groups_opt else-group_opt endif-line
     */
-    assert(input_list->head != NULL);
+    runtime_assert(input_list->head != NULL);
 
     struct token_list r = { 0 };
 
@@ -3557,7 +3557,7 @@ struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* in
 
 struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* macro, struct token_list* input_list, int level)
 {
-    assert(input_list->head != NULL);
+    runtime_assert(input_list->head != NULL);
     struct token_list r = { 0 };
 
     try
@@ -3583,7 +3583,7 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
         }
         p_macro_parameter->name = temp;
 
-        assert(macro->parameters == NULL);
+        runtime_assert(macro->parameters == NULL);
         macro->parameters = p_macro_parameter;
 
         struct macro_parameter* p_last_parameter = macro->parameters;
@@ -3624,7 +3624,7 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
 
             p_new_macro_parameter->name = temp2;
 
-            assert(p_last_parameter->next == NULL);
+            runtime_assert(p_last_parameter->next == NULL);
             p_last_parameter->next = p_new_macro_parameter;
             p_last_parameter = p_last_parameter->next;
 
@@ -3666,7 +3666,7 @@ struct token_list replacement_list(struct preprocessor_ctx* ctx, struct macro* m
             }
         }
 
-        assert(macro->replacement_list.head == NULL);
+        runtime_assert(macro->replacement_list.head == NULL);
         struct token_list copy = copy_replacement_list(ctx, &r);
         token_list_append_list(&macro->replacement_list, &copy);
         token_list_destroy(&copy);
@@ -3754,7 +3754,7 @@ void print_path(const char* path, bool fullpath)
 }
 
 struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
-    struct macro_expanded* p_list,
+    struct macro_expanded* _Opt p_list,
     struct token_list* oldlist,
     int level,
     const struct token* origin);
@@ -4152,7 +4152,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 macro_delete(macro);
                 throw;
             }
-            assert(macro->name == NULL);
+            runtime_assert(macro->name == NULL);
             macro->name = temp;
 
 
@@ -4199,7 +4199,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     p_macro_parameter->name = temp2;
                     macro->parameters = p_macro_parameter;
 
-                    // assert(false);
+                    // runtime_assert(false);
                     match_token_level(&r, input_list, '...', level, ctx); //nome da macro
                     skip_blanks_level(ctx, &r, input_list, level);
                     match_token_level(&r, input_list, ')', level, ctx); //nome da macro
@@ -4243,7 +4243,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                         p_macro_parameter->name = temp3;
                         struct macro_parameter* _Opt p_last = macro->parameters;
-                        assert(p_last != NULL);
+                        runtime_assert(p_last != NULL);
                         while (p_last->next)
                         {
                             p_last = p_last->next;
@@ -4275,7 +4275,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             if (!ctx->options.disable_assert && strcmp(macro->name, "assert") == 0)
             {
                 //cake overrides macro assert in debug and release to be defined as 
-                //assert(__VA_ARGS__)
+                //runtime_assert(__VA_ARGS__)
                 if (!is_empty_assert(&macro->replacement_list))
                 {
                     macro_parameters_delete(macro->parameters);
@@ -4299,7 +4299,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                     token_list_destroy(&macro->replacement_list);
                     struct tokenizer_ctx tctx = { 0 };
-                    macro->replacement_list = tokenizer(&tctx, "assert(__VA_ARGS__)", NULL, level, TK_FLAG_NONE);
+                    macro->replacement_list = tokenizer(&tctx, "runtime_assert(__VA_ARGS__)", NULL, level, TK_FLAG_NONE);
                 }
             }
 
@@ -4360,7 +4360,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
 
             struct macro* _Owner _Opt macro = (struct macro* _Owner _Opt) hashmap_remove(&ctx->macros, input_list->head->lexeme, NULL);
-            assert(find_macro(ctx, input_list->head->lexeme) == NULL);
+            runtime_assert(find_macro(ctx, input_list->head->lexeme) == NULL);
             if (macro)
             {
                 macro_delete(macro);
@@ -4484,7 +4484,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             struct token_list r7 = pp_tokens_opt(ctx, input_list, level, is_active);
             token_list_append_list(&r, &r7);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
-            assert(r.tail != NULL);
+            runtime_assert(r.tail != NULL);
             r.tail->type = TK_PRAGMA_END;
             r.tail->flags |= TK_FLAG_FINAL;
             token_list_destroy(&r7);
@@ -4538,7 +4538,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
             throw;
         }
 
-        assert(input_list->head->type == TK_IDENTIFIER);//macro name
+        runtime_assert(input_list->head->type == TK_IDENTIFIER);//macro name
         const struct token* const macro_name_token = input_list->head;
 
         match_token_level(&macro_argument_list.tokens, input_list, TK_IDENTIFIER, level, ctx); //MACRO NAME
@@ -4716,7 +4716,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
 }
 
 struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* _Opt p_list, struct macro* macro, struct macro_argument_list* arguments, int level, const struct token* origin);
-struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct token_list* oldlist, int level, const struct token* origin);
+struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct macro_expanded* _Opt p_list, struct token_list* oldlist, int level, const struct token* origin);
 
 
 struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, struct macro* macro, const struct token* origin);
@@ -4745,7 +4745,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
             //printf("input="); print_list(input_list);
 
             //#def macro
-            //assert(!(input_list->head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
+            //runtime_assert(!(input_list->head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
             if (input_list->head->type == '##')
             {
                 if (r.tail == NULL)
@@ -4813,7 +4813,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
                     p_new_token->lexeme = temp;
                     p_new_token->type = TK_PLACEMARKER;
                     token_list_add(&newlist, p_new_token);
-                    assert(newlist.head != NULL);
+                    runtime_assert(newlist.head != NULL);
                     newlist.head->flags = r.tail->flags;
                 }
                 /*
@@ -4899,9 +4899,9 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
 
         while (input_list->head)
         {
-            assert(!(input_list->head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
-            assert(!token_is_blank(input_list->head));
-            assert(r.tail == NULL || !token_is_blank(r.tail));
+            runtime_assert(!(input_list->head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
+            runtime_assert(!token_is_blank(input_list->head));
+            runtime_assert(r.tail == NULL || !token_is_blank(r.tail));
             struct macro_argument* _Opt p_argument = NULL;
             if (input_list->head->type == TK_IDENTIFIER)
             {
@@ -5345,7 +5345,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
                 new_list.head->flags |= TK_FLAG_MACRO_EXPANDED;
 
                 //OBS: #def macro have newlinew
-                //assert(!(new_list.head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
+                //runtime_assert(!(new_list.head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
                 prematch(&r, &new_list, true); //it wasn't macro
             }
         }
@@ -5535,7 +5535,7 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
         struct tokenizer_ctx tctx = { 0 };
         char line[50] = { 0 };
 
-        assert(origin != NULL);
+        runtime_assert(origin != NULL);
         snprintf(line, sizeof line, "%d", origin->line);
 
         struct token_list r = tokenizer(&tctx, line, "", 0, TK_FLAG_NONE);
@@ -5600,7 +5600,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
     struct token_list r = { 0 };
     try
     {
-        assert(!macro_already_expanded(p_list_of_macro_expanded_opt, macro->name));
+        runtime_assert(!macro_already_expanded(p_list_of_macro_expanded_opt, macro->name));
 
         if (macro->is_function)
         {
@@ -5874,7 +5874,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     if (is_final)
                     {
                         prematch(&r, input_list, is_active);
-                        assert(r.tail != NULL);
+                        runtime_assert(r.tail != NULL);
                         r.tail->flags |= TK_FLAG_FINAL;
                     }
                     else
@@ -5900,7 +5900,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             prematch(&r, input_list, is_active);
                             if (is_final)
                             {
-                                assert(r.tail != NULL);
+                                runtime_assert(r.tail != NULL);
                                 r.tail->flags |= TK_FLAG_FINAL;
                             }
                         }
@@ -5909,7 +5909,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             if (is_final)
                             {
                                 prematch(&r, input_list, is_active);
-                                assert(r.tail != NULL);
+                                runtime_assert(r.tail != NULL);
                                 r.tail->flags |= TK_FLAG_FINAL;
                             }
                             else
@@ -5941,7 +5941,7 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
      # non-directive
     */
 
-    assert(input_list->head != NULL);
+    runtime_assert(input_list->head != NULL);
 
     if (input_list->head->type == TK_PREPROCESSOR_LINE)
     {
@@ -6025,7 +6025,7 @@ static void mark_macros_as_used(struct hash_map* map)
 
             while (pentry != NULL)
             {
-                assert(pentry->data.p_macro != NULL);
+                runtime_assert(pentry->data.p_macro != NULL);
                 struct macro* macro = pentry->data.p_macro;
                 macro->usage = 1;
                 pentry = pentry->next;
@@ -6048,7 +6048,7 @@ void check_unused_macros(const struct hash_map* map)
 
             while (pentry != NULL)
             {
-                assert(pentry->data.p_macro != NULL);
+                runtime_assert(pentry->data.p_macro != NULL);
 
                 struct macro* macro = pentry->data.p_macro;
                 if (macro->usage == 0)
@@ -6357,7 +6357,8 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD__NORETURN: return "TK_KEYWORD__NORETURN";
     case TK_KEYWORD__STATIC_ASSERT: return "TK_KEYWORD__STATIC_ASSERT";
     case TK_KEYWORD__COMPILE_ASSERT: return "TK_KEYWORD__COMPILE_ASSERT";
-    case TK_KEYWORD_ASSERT: return "TK_KEYWORD_ASSERT"; /*extension*/
+    case TK_KEYWORD_RUNTIME_ASSERT: return "TK_KEYWORD_RUNTIME_ASSERT";
+
     case TK_KEYWORD__THREAD_LOCAL: return "TK_KEYWORD__THREAD_LOCAL";
 
     case TK_KEYWORD_TYPEOF: return "TK_KEYWORD_TYPEOF"; /*C23*/
@@ -6376,6 +6377,9 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_CAKE_DTOR: return "TK_KEYWORD__OBJ_OWNER";
     case TK_KEYWORD_CAKE_VIEW: return "TK_KEYWORD_CAKE_VIEW";
     case TK_KEYWORD_CAKE_OPT: return "TK_KEYWORD_CAKE_OPT";
+    case TK_KEYWORD_CAKE_UNINIT: return "TK_KEYWORD_CAKE_UNINIT";
+    case TK_KEYWORD_CAKE_ZERO: return "TK_KEYWORD_CAKE_ZERO";
+    case TK_KEYWORD_CAKE_CLEAR: return "TK_KEYWORD_CAKE_CLEAR";
 
 
         /*extension compile time functions*/
@@ -6574,8 +6578,7 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
     case TK_KEYWORD__IMAGINARY: return "_IMAGINARY";
     case TK_KEYWORD__NORETURN: return "_Noreturn";
     case TK_KEYWORD__STATIC_ASSERT: return "static_assert";
-    case TK_KEYWORD__COMPILE_ASSERT: return "compile_assert";
-    case TK_KEYWORD_ASSERT: return "assert"; /*extension*/
+    case TK_KEYWORD__COMPILE_ASSERT: return "compile_assert";    
     case TK_KEYWORD__THREAD_LOCAL: return "_THREAD_LOCAL";
 
     case TK_KEYWORD_TYPEOF: return "typeof"; /*C23*/
@@ -6955,7 +6958,7 @@ const char* _Owner _Opt print_preprocessed_to_string(const struct token* p_token
     bool first = true;
     while (current)
     {
-        assert(current->token_origin != NULL);
+        runtime_assert(current->token_origin != NULL);
         if (current->flags & TK_FLAG_FINAL)
         {
             if (!first && current->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
@@ -7014,7 +7017,7 @@ void print_all_macros(const struct preprocessor_ctx* prectx)
     {
         struct map_entry* _Opt entry = prectx->macros.table[i];
         if (entry == NULL) continue;
-        assert(entry->data.p_macro != NULL);
+        runtime_assert(entry->data.p_macro != NULL);
 
         struct macro* macro = entry->data.p_macro;
         printf("#define %s", macro->name);
@@ -7252,13 +7255,13 @@ bool test_preprocessor_in_out_match(const char* input, const char* output)
 
 void test_lexeme_cmp()
 {
-    assert(lexeme_cmp("a", "\\\na") == 0);
-    assert(lexeme_cmp("a", "a\\\n") == 0);
-    assert(lexeme_cmp("\\\na", "a") == 0);
-    assert(lexeme_cmp("a\\\n", "a") == 0);
-    assert(lexeme_cmp("a\\\nb", "ab") == 0);
-    assert(lexeme_cmp("define", "define") == 0);
-    assert(lexeme_cmp("de\\\nfine", "define") == 0);
+    runtime_assert(lexeme_cmp("a", "\\\na") == 0);
+    runtime_assert(lexeme_cmp("a", "a\\\n") == 0);
+    runtime_assert(lexeme_cmp("\\\na", "a") == 0);
+    runtime_assert(lexeme_cmp("a\\\n", "a") == 0);
+    runtime_assert(lexeme_cmp("a\\\nb", "ab") == 0);
+    runtime_assert(lexeme_cmp("define", "define") == 0);
+    runtime_assert(lexeme_cmp("de\\\nfine", "define") == 0);
 }
 
 void token_list_pop_front_test()
@@ -7288,7 +7291,7 @@ void token_list_pop_back_test()
     struct tokenizer_ctx tctx = { 0 };
     list = tokenizer(&tctx, "a", NULL, 0, TK_FLAG_NONE);
     token_list_pop_back(&list);
-    assert(list.head == NULL && list.tail == NULL);
+    runtime_assert(list.head == NULL && list.tail == NULL);
 
 
     /*
@@ -7299,9 +7302,9 @@ void token_list_pop_back_test()
     list = tokenizer(&tctx, "a,", NULL, 0, TK_FLAG_NONE);
     token_list_pop_back(&list);
 
-    assert(strcmp(list.head->lexeme, "a") == 0);
+    runtime_assert(strcmp(list.head->lexeme, "a") == 0);
 
-    assert(list.head != NULL &&
+    runtime_assert(list.head != NULL &&
         list.head->prev == NULL &&
         list.head->next == NULL &&
         list.tail->prev == NULL &&
@@ -7314,12 +7317,12 @@ void token_list_pop_back_test()
 
     list = tokenizer(&tctx, "a,b", NULL, 0, TK_FLAG_NONE);
     token_list_pop_back(&list);
-    assert(strcmp(list.head->lexeme, "a") == 0);
-    assert(strcmp(list.head->next->lexeme, ",") == 0);
-    assert(strcmp(list.tail->lexeme, ",") == 0);
-    assert(strcmp(list.tail->prev->lexeme, "a") == 0);
-    assert(list.head->prev == NULL);
-    assert(list.tail->next == NULL);
+    runtime_assert(strcmp(list.head->lexeme, "a") == 0);
+    runtime_assert(strcmp(list.head->next->lexeme, ",") == 0);
+    runtime_assert(strcmp(list.tail->lexeme, ",") == 0);
+    runtime_assert(strcmp(list.tail->prev->lexeme, "a") == 0);
+    runtime_assert(list.head->prev == NULL);
+    runtime_assert(list.tail->next == NULL);
 }
 
 int token_list_append_list_test()
@@ -7329,7 +7332,7 @@ int token_list_append_list_test()
     struct token_list source = { 0 };
     struct token_list dest = tokenizer(&tctx, "a", NULL, 0, TK_FLAG_NONE);
     token_list_append_list(&dest, &source);
-    assert(strcmp(dest.head->lexeme, "a") == 0);
+    runtime_assert(strcmp(dest.head->lexeme, "a") == 0);
 
 
     token_list_clear(&source);
@@ -7339,18 +7342,18 @@ int token_list_append_list_test()
     dest = tokenizer(&tctx, "a", NULL, 0, TK_FLAG_NONE);
     token_list_append_list(&dest, &source);
 
-    assert(strcmp(dest.head->lexeme, "a") == 0);
+    runtime_assert(strcmp(dest.head->lexeme, "a") == 0);
 
     token_list_clear(&source);
     token_list_clear(&dest);
     source = tokenizer(&tctx, "a,", NULL, 0, TK_FLAG_NONE);
     dest = tokenizer(&tctx, "1", NULL, 0, TK_FLAG_NONE);
     token_list_append_list(&dest, &source);
-    assert(strcmp(dest.head->lexeme, "1") == 0);
-    assert(strcmp(dest.tail->lexeme, ",") == 0);
-    assert(dest.tail->next == NULL);
-    assert(dest.head->next->next == dest.tail);
-    assert(dest.tail->prev->prev == dest.head);
+    runtime_assert(strcmp(dest.head->lexeme, "1") == 0);
+    runtime_assert(strcmp(dest.tail->lexeme, ",") == 0);
+    runtime_assert(dest.tail->next == NULL);
+    runtime_assert(dest.head->next->next == dest.tail);
+    runtime_assert(dest.tail->prev->prev == dest.head);
 
     return 0;
 }
@@ -7365,7 +7368,7 @@ void test_collect()
         "ab"
         ;
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 
@@ -7377,7 +7380,7 @@ void test_va_opt_0()
     const char* output =
         "f(0, a, b, c)";
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_1()
@@ -7387,7 +7390,7 @@ void test_va_opt_1()
         "F()";
     const char* output =
         "f(0)";
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_2()
@@ -7398,7 +7401,7 @@ void test_va_opt_2()
     const char* output =
         "(1)";
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_3()
@@ -7409,7 +7412,7 @@ void test_va_opt_3()
     const char* output =
         "(!1)";
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_4()
@@ -7423,7 +7426,7 @@ void test_va_opt_4()
     const char* output =
         "int x = 42;";
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_5()
@@ -7435,7 +7438,7 @@ void test_va_opt_5()
         ;
     const char* output =
         "f(0)";
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_6()
@@ -7448,7 +7451,7 @@ void test_va_opt_6()
     const char* output =
         "f(0, a)";
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 void test_va_opt_7()
 {
@@ -7460,7 +7463,7 @@ void test_va_opt_7()
     const char* output =
         "a b";
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void concatenation_problem()
@@ -7473,7 +7476,7 @@ void concatenation_problem()
     const char* output =
         "a b";
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 
@@ -7487,7 +7490,7 @@ void test_va_opt_G2()
     const char* output =
         "f(0, a)";
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 
@@ -7499,7 +7502,7 @@ void test_va_opt()
         "F(EMPTY)";
     const char* output =
         "f(0)";
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_empty_va_args()
@@ -7508,7 +7511,7 @@ void test_empty_va_args()
         "M(1)\n";
     const char* output =
         "1,";
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_args_single()
@@ -7518,7 +7521,7 @@ void test_va_args_single()
         "F(1, 2)";
     const char* output =
         "1, 2";
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_args_extra_args()
@@ -7528,7 +7531,7 @@ void test_va_args_extra_args()
         "F(0, 1, 2)";
     const char* output =
         "0 1, 2";
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_empty_va_args_empty()
@@ -7538,7 +7541,7 @@ void test_empty_va_args_empty()
         "F()";
     const char* output =
         "a";
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_defined()
@@ -7551,7 +7554,7 @@ void test_defined()
         "#endif\n";
     const char* output =
         "B";
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_char_constant_if()
@@ -7566,7 +7569,7 @@ void test_char_constant_if()
         "#endif\n";
     const char* output =
         "CORRECT";
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void testline()
@@ -7578,7 +7581,7 @@ void testline()
         "M";
     const char* output =
         "a b";
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void ifelse()
@@ -7591,7 +7594,7 @@ void ifelse()
         "#endif\n";
     const char* output =
         "A";
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void T1()
@@ -7605,7 +7608,7 @@ void T1()
     //error: too few arguments provided to function-like macro invocation
     //se f nao tivesse nenhum ou menus
     //too many arguments provided to function-like macro invocation
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 int EXAMPLE5()
@@ -7650,7 +7653,7 @@ void recursivetest1()
     //  "f(2 * (f(2 * (z[0]))))";
     const char* output =
         "f(2 * (f(2 * (z[0]))))";
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void rectest()
@@ -7666,7 +7669,7 @@ void rectest()
     //  "f(2 * (y + 1)) + f(2 * (f(2 * (z[0])))) % t(t(f)(0) + t)(1);";
     const char* output =
         "f(2 * (y + 1)) + f(2 * (f(2 * (z[0])))) % t(t(f)(0) + t)(1);";
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void emptycall()
@@ -7678,7 +7681,7 @@ void emptycall()
     const char* output =
         ""
         ;
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void semiempty()
@@ -7690,7 +7693,7 @@ void semiempty()
     const char* output =
         "1"
         ;
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void calling_one_arg_with_empty_arg()
@@ -7702,7 +7705,7 @@ void calling_one_arg_with_empty_arg()
     const char* output =
         "\"\""
         ;
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 
@@ -7715,7 +7718,7 @@ void test_argument_with_parentesis()
     const char* output =
         "(1, 2, 3)4"
         ;
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void two_empty_arguments()
@@ -7727,7 +7730,7 @@ void two_empty_arguments()
     const char* output =
         ""
         ;
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void simple_object_macro()
@@ -7739,7 +7742,7 @@ void simple_object_macro()
     const char* output =
         "a b\n"
         "c";
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test2()
@@ -7752,7 +7755,7 @@ void test2()
         "1 23 4"
         ;
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 
@@ -7787,7 +7790,7 @@ void tetris()
         "De"
         ;
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void recursive_macro_expansion()
@@ -7799,7 +7802,7 @@ void recursive_macro_expansion()
     const char* output =
         "1 2 3 4 B"
         ;
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void empty_and_no_args()
@@ -7810,7 +7813,7 @@ void empty_and_no_args()
     const char* output =
         "1"
         ;
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void empty_and_args()
@@ -7822,7 +7825,7 @@ void empty_and_args()
         "1"
         ;
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test4()
@@ -7836,7 +7839,7 @@ void test4()
         ;
 
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_string()
@@ -7857,7 +7860,7 @@ void test_string()
     const char* output =
         "A \"\\\"B\\\"\"";
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test6()
@@ -7946,7 +7949,7 @@ void test_concatenation_o()
         ;
 
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void  test_concatenation()
@@ -7960,7 +7963,7 @@ void  test_concatenation()
         ;
 
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 
 
 }
@@ -7973,7 +7976,7 @@ void bad_test()
         "0xfe-BAD(3);"
         ;
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 /*
@@ -7994,7 +7997,7 @@ void test_spaces()
         ;
 
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_stringfy()
@@ -8008,7 +8011,7 @@ void test_stringfy()
         ;
 
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 
 }
 
@@ -8032,7 +8035,7 @@ void test_stringfy_scape()
         ;
 
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 
 }
 
@@ -8058,7 +8061,7 @@ void test_stringfy_scape3()
         "\"\\\"\\\\n\\\"\"";
 
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 
 }
 
@@ -8156,7 +8159,7 @@ void test_counter()
         result = strdup("");
     }
 
-    assert(strcmp(result, output) == 0);
+    runtime_assert(strcmp(result, output) == 0);
 
     free((void* _Owner)result);
 }
@@ -8171,7 +8174,7 @@ void bug_test()
         "a \"1\""
         ;
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 int test_line_continuation()
@@ -8213,10 +8216,10 @@ int stringify_test()
 {
     char buffer[200];
     int n = stringify("\"ab\\c\"", sizeof buffer, buffer);
-    assert(n == sizeof(STRINGIFY("\"ab\\c\"")));
+    runtime_assert(n == sizeof(STRINGIFY("\"ab\\c\"")));
     const char* r = STRINGIFY("\"ab\\c\"");
 
-    assert(strcmp(buffer, r) == 0);
+    runtime_assert(strcmp(buffer, r) == 0);
     return 0;
 
 }
@@ -8234,7 +8237,7 @@ void recursive_macro_expr()
         "1"
         ;
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 }
 
 void quasi_recursive_macro()
@@ -8248,7 +8251,7 @@ void quasi_recursive_macro()
         "2"
         ;
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 
 }
 
@@ -8264,7 +8267,7 @@ void newline_macro_func()
         ;
 
 
-    assert(test_preprocessor_in_out_match(input, output));
+    runtime_assert(test_preprocessor_in_out_match(input, output));
 
 }
 
