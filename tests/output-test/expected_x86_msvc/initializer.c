@@ -1,4 +1,4 @@
-/* Cake 0.14.05 x86_msvc */
+/* Cake 0.14.12 x86_msvc 2026-07-21 22:43:27 */
 
 struct A {
     int x;
@@ -34,5 +34,6 @@ static void* memcpy(void * dest, const void * src, unsigned int n)
     {
        cdest[i] = csrc[i]; 
     }
+    return dest;
 }
 

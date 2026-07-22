@@ -34,5 +34,6 @@ static void* memcpy(void * dest, const void * src, unsigned long n)
     {
        cdest[i] = csrc[i]; 
     }
+    return dest;
 }
 
