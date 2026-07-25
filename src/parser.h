@@ -657,9 +657,12 @@ struct enum_specifier
         - false, only AST OR and some map have the ownership
     */
     bool has_shared_ownership;
+    bool has_underlying;
+
+    struct type integer_type;
 
     struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_opt;
-    struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list;
+    // struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list;
 
     char tag_name[200];
 

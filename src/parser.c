@@ -1158,7 +1158,7 @@ bool first_of_type_qualifier(const struct parser_ctx* ctx)
     return first_of_type_qualifier_token(ctx->current);
 }
 
-struct map_entry* _Opt find_tag(struct parser_ctx* ctx, const char* lexeme)
+struct map_entry* _Opt find_tag(struct parser_ctx* ctx, const char* lexeme, struct scope* _Opt* _Opt ppscope_opt)
 {
     struct scope* _Opt scope = ctx->scopes.tail;
     while (scope)
@@ -1166,6 +1166,8 @@ struct map_entry* _Opt find_tag(struct parser_ctx* ctx, const char* lexeme)
         struct map_entry* _Opt p_entry = hashmap_find(&scope->tags, lexeme);
         if (p_entry)
         {
+            if (ppscope_opt)
+                *ppscope_opt = scope;
             return p_entry;
         }
         scope = scope->previous;
@@ -4792,24 +4794,7 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
 
 enum type_specifier_flags get_enum_type_specifier_flags(const struct enum_specifier* p_enum_specifier)
 {
-    if (p_enum_specifier->specifier_qualifier_list)
-    {
-        return p_enum_specifier->specifier_qualifier_list->type_specifier_flags;
-    }
-
-    if (p_enum_specifier->p_complete_enum_specifier &&
-        p_enum_specifier->p_complete_enum_specifier->specifier_qualifier_list)
-    {
-        return p_enum_specifier->p_complete_enum_specifier->specifier_qualifier_list->type_specifier_flags;
-    }
-    else if (p_enum_specifier->p_complete_enum_specifier &&
-        p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier &&
-        p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier->specifier_qualifier_list)
-    {
-        return p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier->specifier_qualifier_list->type_specifier_flags;
-    }
-
-    return TYPE_SPECIFIER_INT;
+    return p_enum_specifier->integer_type.type_specifier_flags;
 }
 
 const struct enum_specifier* _Opt get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier)
@@ -6022,7 +6007,8 @@ void enum_specifier_delete(struct enum_specifier* _Owner _Opt p)
             return; //lint 29
         }
 
-        specifier_qualifier_list_delete(p->specifier_qualifier_list);
+        // TODO delete this comment:
+        // specifier_qualifier_list_delete(p->specifier_qualifier_list);
         attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
         enumerator_list_destroy(&p->enumerator_list);
         free(p);
@@ -6031,7 +6017,7 @@ void enum_specifier_delete(struct enum_specifier* _Owner _Opt p)
 
 bool enum_specifier_has_fixed_underlying_type(const struct enum_specifier* p_enum_specifier)
 {
-    return p_enum_specifier->specifier_qualifier_list != NULL;
+    return p_enum_specifier->has_underlying;
 }
 
 struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
@@ -6051,6 +6037,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
         { enumerator-list , }
         enum identifier enum-type-specifier _Opt
     */
+
 
     struct enum_specifier* _Owner _Opt p_enum_specifier = NULL;
     try
@@ -6077,12 +6064,23 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             throw;
         }
 
+        struct enum_specifier *prev_decl = NULL; // previous enum definition in the same scope. must be identical
         if (ctx->current->type == TK_IDENTIFIER)
         {
             snprintf(p_enum_specifier->tag_name, sizeof p_enum_specifier->tag_name, "%s", ctx->current->lexeme);
 
             p_enum_specifier->tag_token = ctx->current;
             parser_match(ctx);
+
+            struct scope *sc;
+            struct map_entry *found_tag = find_tag(ctx, p_enum_specifier->tag_token->lexeme, &sc);
+            if (found_tag && sc == ctx->scopes.tail)
+            {
+                if (found_tag->type == TAG_TYPE_ENUM_SPECIFIER)
+                {
+                    prev_decl = found_tag->data.p_enum_specifier;
+                }
+            }
         }
         else
         {
@@ -6102,26 +6100,37 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             if (!ctx->inside_generic_association || first_of_type_specifier_token(ctx, p_token_ahead))
             {
                 /* C23 */
+
+                if (prev_decl && !prev_decl->has_underlying)
+                {
+                    diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, ctx->current, NULL, "enum redeclared with underlying type");
+                    throw;
+                }
+
+                p_enum_specifier->has_underlying = true;
+
                 parser_match(ctx);
-                p_enum_specifier->specifier_qualifier_list = specifier_qualifier_list(ctx);
-                if (p_enum_specifier->specifier_qualifier_list == NULL)
+                struct specifier_qualifier_list *list = specifier_qualifier_list(ctx);
+                if (list == NULL)
                     throw;
 
-                struct type enum_underline_type = make_with_specifier_qualifier_list(p_enum_specifier->specifier_qualifier_list);
-                enum_underline_type = type_dup(&enum_underline_type);
+                p_enum_specifier->integer_type = make_with_specifier_qualifier_list(list);
 
-                if (!type_is_integer(&enum_underline_type))
+                if (!type_is_integer(&p_enum_specifier->integer_type))
                 {
-                    type_destroy(&enum_underline_type);
                     diagnostic(C_ERROR_NON_INTEGRAL_ENUM_TYPE,
                         ctx,
-                        p_enum_specifier->specifier_qualifier_list->first_token,
+                        list->first_token,
                         NULL,
                         "expected an integer type");
 
                     throw;
                 }
-                type_destroy(&enum_underline_type);
+                if(prev_decl && !type_is_same(&prev_decl->integer_type, &p_enum_specifier->integer_type, false))
+                {
+                    diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, list->first_token, NULL, "enum redeclared with different underlying type");
+                    throw;
+                }
             }
             else
             {
@@ -6136,6 +6145,12 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
 
         if (ctx->current->type == '{')
         {
+            if (prev_decl && (p_enum_specifier->has_underlying != prev_decl->has_underlying))
+            {
+                diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_enum_specifier->first_token, NULL, "enum redeclared without underlying type");
+                throw;
+            }
+
             if (p_enum_specifier->tag_token)
                 naming_convention_enum_tag(ctx, p_enum_specifier->tag_token);
 
@@ -6241,9 +6256,9 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
 
     struct object next_enumerator_value = object_make_signed_int(ctx->options.target, 0);
 
-    if (p_enum_specifier->specifier_qualifier_list)
+    if (p_enum_specifier->has_underlying)
     {
-        enum object_type vt = type_specifier_to_object_type(p_enum_specifier->specifier_qualifier_list->type_specifier_flags, ctx->options.target);
+        enum object_type vt = type_specifier_to_object_type(p_enum_specifier->integer_type.type_specifier_flags, ctx->options.target);
         next_enumerator_value = object_cast(ctx->options.target, vt, &next_enumerator_value);
     }
 
