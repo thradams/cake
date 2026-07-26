@@ -6348,13 +6348,13 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
 
             enum object_type final_type;
 
-            if (max_value <= int_max && min_value >= int_min)
-            {
-                final_type = TYPE_SIGNED_INT;
-            }
-            else if(max_value <= uint_max && min_value >= 0)
+            if(max_value <= uint_max && min_value >= 0)
             {
                 final_type = TYPE_UNSIGNED_INT;
+            }
+            else if (max_value <= int_max && min_value >= int_min)
+            {
+                final_type = TYPE_SIGNED_INT;
             }
             else if(max_value <= ulong_max && min_value >= 0)
             {
