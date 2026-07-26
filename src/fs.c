@@ -331,7 +331,7 @@ int copy_folder(const char* from, const char* to)
 #ifdef _WIN32
 int get_self_path(char* buffer, int maxsize)
 {
-    DWORD r = GetModuleFileNameA(NULL, buffer, maxsize); //lint 60 35  
+    DWORD r = GetModuleFileNameA(NULL, buffer, maxsize); //lint 35
     return r;
 }
 

@@ -30,7 +30,7 @@
 /*
   ownership is suported
 */
-void* _Owner _Opt _Zero calloc(size_t nmemb, size_t size);
+void* _Owner _Opt _Clear calloc(size_t nmemb, size_t size);
 void free(void* _Owner _Opt ptr);
 void* _Owner _Opt _Uninitialized malloc(size_t size);
 void* _Owner _Opt realloc(void* _Opt ptr, size_t size);
@@ -110,7 +110,6 @@ float strtof(char const* _String, char** _Opt _EndPtr);
 #define _Dtor
 #define _View
 #define _Clear
-#define _Zero
 #define _Uninitialized
 #define static_debug(x)
 #define override_state(x, s)

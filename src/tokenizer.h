@@ -41,6 +41,9 @@ struct preprocessor_ctx
 
     /*map of pragma once already included files*/
     struct hash_map pragma_once_map;
+
+    /*options -copy-headers*/
+    struct hash_map copy_headers;
     
     struct token* _Opt current;
     struct token_list input_list;
@@ -109,3 +112,5 @@ void print_all_macros(const struct preprocessor_ctx* prectx);
 int include_config_header(struct preprocessor_ctx* ctx, const char* file_name);
 int stringify(const char* input, int n, char output[]);
 void print_path(const char* path, bool fullpath);
+int preprocessor_copy_included_headers(const struct preprocessor_ctx* ctx, const char* dest_dir);
+

@@ -39,7 +39,6 @@ enum attribute_flags
     CAKE_ATTRIBUTE_DTOR = 1 << 8,
     CAKE_ATTRIBUTE_UNINIT = 1 << 9,
     CAKE_ATTRIBUTE_CLEAR = 1 << 10,
-    CAKE_ATTRIBUTE_ZERO = 1 << 11,
 
     /*
      1 == 2 results in int in C
@@ -116,7 +115,6 @@ enum type_qualifier_flags
     TYPE_QUALIFIER_CAKE_CTOR = 1 << 8,
     TYPE_QUALIFIER_CAKE_UNINIT = 1 << 12,
     TYPE_QUALIFIER_CAKE_CLEAR = 1 << 13,
-    TYPE_QUALIFIER_CAKE_ZERO = 1 << 14,
 
     /*-------------------------------------------------------*/
 
@@ -329,8 +327,7 @@ bool type_is_owner(const struct type* p_type);
 bool type_is_pointed_dtor(const struct type* p_type);
 bool type_is_pointed_ctor(const struct type* p_type);
 bool type_is_pointed_uninit(const struct type* p_type);
-bool type_is_zero(const struct type* p_type);
-bool type_is_pointed_zero(const struct type* p_type);
+bool type_is_pointed_clear(const struct type* p_type);
 bool type_is_pointed_clear(const struct type* p_type);
 
 bool type_is_pointed_const(const struct type* p_type);

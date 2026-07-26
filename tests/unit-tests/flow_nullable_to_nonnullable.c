@@ -7,7 +7,7 @@ int main()
 {
     //warning: cannot convert a null pointer constant to non-nullable pointer
 
-    strlen(0); //lint 60
+    strlen(0); //lint 35
 
     char* _Opt p = 0;
 

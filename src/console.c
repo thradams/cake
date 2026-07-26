@@ -5,7 +5,6 @@
 
 #pragma safety enable
 
-
 #ifdef _WIN32
 #include <Windows.h>
 #include <conio.h>
@@ -82,20 +81,20 @@ int c_getch(void)
 bool enable_vt_mode(void)
 {
     //missing in mingw (installed with codeblocs)
-#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING  
-#define ENABLE_VIRTUAL_TERMINAL_PROCESSING  0x0004
-#endif
+    #ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING  
+    #define ENABLE_VIRTUAL_TERMINAL_PROCESSING  0x0004
+    #endif
 
     DWORD mode = 0;
     HANDLE h_out = GetStdHandle(STD_OUTPUT_HANDLE);
     if (h_out != INVALID_HANDLE_VALUE &&
-            GetConsoleMode(h_out, &mode) != 0 &&
-            SetConsoleMode(h_out, mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0 &&
-            SetConsoleOutputCP(CP_UTF8) != 0)
+        GetConsoleMode(h_out, &mode) != 0 &&
+        SetConsoleMode(h_out, mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0 &&
+        SetConsoleOutputCP(CP_UTF8) != 0)
     {
-        return true;//ok
+        return true; //ok
     }
-    return false;//error
+    return false; //error
 }
 
 int c_kbhit(void)

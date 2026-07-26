@@ -48,6 +48,7 @@
 
 #define CAKE_IDE_SOURCE_FILES \
     CAKE_LIB_SOURCE_FILES \
+    " ide_format.c " \
     " ide_ui.c " \
     " ide.c " \
     
@@ -677,7 +678,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
 
 #if (defined PLATFORM_LINUX || defined PLATFORM_MACOS) && defined COMPILER_CLANG
 
-    const char* clang_unix_config = debug ? "" : " -DNDEBUG ";
+    const char* clang_unix_config = debug ? "" : " -DNDEBUG -O2 ";
 
     if (fastbuild)
     {
@@ -760,7 +761,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
 
 #if defined COMPILER_GCC && !defined COMPILER_TINYC
 
-    const char* gcc_config = debug ? "" : " -DNDEBUG ";
+    const char* gcc_config = debug ? "" : " -DNDEBUG -O2 ";
 
     if (fastbuild)
     {

@@ -141,6 +141,7 @@ void preprocessor_ctx_destroy(_Dtor struct preprocessor_ctx* p)
     hashmap_destroy(&p->macros);
     include_dir_list_destroy(&p->include_dir);
     hashmap_destroy(&p->pragma_once_map);
+    hashmap_destroy(&p->copy_headers);
     token_list_destroy(&p->input_list);
 }
 
@@ -387,6 +388,14 @@ static void pragma_once_add(struct preprocessor_ctx* ctx, const char* path)
     hash_item_set_destroy(&item);
 }
 
+static void copy_headers_add(struct preprocessor_ctx* ctx, const char* path)
+{
+    struct hash_item_set item = { 0 };
+    item.number = 1;
+    hashmap_set(&ctx->copy_headers, path, &item /*in out*/);
+    hash_item_set_destroy(&item);
+}
+
 static bool pragma_once_already_included(struct preprocessor_ctx* ctx, const char* path)
 {
     //FAILING ON EMSCRIPT
@@ -592,6 +601,7 @@ struct token_list copy_argument_list_tokens(struct token_list* list)
             current = current->next;
             continue;
         }
+        //
         struct token* token = token_list_clone_and_add(&r, current);
         if (token->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
         {
@@ -1551,7 +1561,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
         token_list_add(&list, p_new_token);
 
         runtime_assert(list.head != NULL);
-        }
+    }
     catch
     {
     }
@@ -1560,7 +1570,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
         fclose(file);
 
     return list;
-    }
+}
 
 static bool set_sliced_flag(struct stream* stream, struct token* p_new_token)
 {
@@ -3929,6 +3939,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             if (content != NULL)
             {
+                if (ctx->options.copy_headers[0] != '\0')
+                {
+                    copy_headers_add(ctx, full_path_result);
+                }
+
                 if (ctx->options.show_includes)
                 {
                     for (int i = 0; i < (level + 1); i++)
@@ -4696,7 +4711,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
             else
             {
                 token_list_clone_and_add(&p_argument->tokens, input_list->head);
-                prematch_level(&macro_argument_list.tokens, input_list, level, 1);                
+                prematch_level(&macro_argument_list.tokens, input_list, level, 1);
             }
         }
 
@@ -4706,7 +4721,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
             macro_argument_delete(p_argument);
             p_argument = NULL;
             throw;
-        }        
+        }
     }
     catch
     {
@@ -6080,7 +6095,7 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
     while (str == NULL)
     {
         dirname(local_cakeconfig_path);
-        dirname(local_cakeconfig_path);
+
         if (local_cakeconfig_path[0] == '\0')
             break;
         str = read_file(local_cakeconfig_path, true);
@@ -6149,7 +6164,7 @@ static void add_builtin_define(struct preprocessor_ctx* ctx, const char* text)
 {
     struct tokenizer_ctx tctx = { 0 };
     struct token_list l2 = tokenizer(&tctx, text, "define", 0, TK_FLAG_NONE);
-    struct token_list tl2 = preprocessor(ctx, &l2, 0);    
+    struct token_list tl2 = preprocessor(ctx, &l2, 0);
     token_list_append_list(&ctx->input_list, &tl2);
     token_list_append_list(&ctx->input_list, &l2);
 }
@@ -6378,7 +6393,6 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_CAKE_VIEW: return "TK_KEYWORD_CAKE_VIEW";
     case TK_KEYWORD_CAKE_OPT: return "TK_KEYWORD_CAKE_OPT";
     case TK_KEYWORD_CAKE_UNINIT: return "TK_KEYWORD_CAKE_UNINIT";
-    case TK_KEYWORD_CAKE_ZERO: return "TK_KEYWORD_CAKE_ZERO";
     case TK_KEYWORD_CAKE_CLEAR: return "TK_KEYWORD_CAKE_CLEAR";
 
 
@@ -6578,7 +6592,7 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
     case TK_KEYWORD__IMAGINARY: return "_IMAGINARY";
     case TK_KEYWORD__NORETURN: return "_Noreturn";
     case TK_KEYWORD__STATIC_ASSERT: return "static_assert";
-    case TK_KEYWORD__COMPILE_ASSERT: return "compile_assert";    
+    case TK_KEYWORD__COMPILE_ASSERT: return "compile_assert";
     case TK_KEYWORD__THREAD_LOCAL: return "_THREAD_LOCAL";
 
     case TK_KEYWORD_TYPEOF: return "typeof"; /*C23*/
@@ -7064,6 +7078,82 @@ void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
 
 }
 
+static bool copy_file_bytes(const char* src, const char* dst)
+{
+    FILE* in = fopen(src, "rb");
+    if (!in) return false;
+
+    FILE* out = fopen(dst, "wb");
+    if (!out) { fclose(in); return false; }
+
+    char buf[8192];
+    size_t n;
+    bool ok = true;
+    while ((n = fread(buf, 1, sizeof buf, in)) > 0)
+    {
+        if (fwrite(buf, 1, n, out) != n) { ok = false; break; }
+    }
+    fclose(in);
+    fclose(out);
+    return ok;
+}
+
+int preprocessor_copy_included_headers(const struct preprocessor_ctx* ctx,
+                                       const char* dest_dir)
+{
+    if (dest_dir == NULL || dest_dir[0] == '\0' ||
+        ctx->copy_headers.table == NULL)
+        return 0;
+
+    int count = 0;
+
+    for (int i = 0; i < ctx->copy_headers.capacity; i++)
+    {
+        struct map_entry* _Opt p = ctx->copy_headers.table[i];
+
+        while (p)
+        {
+            const char* full = p->key;
+
+            /* Extract filename */
+            const char* name1 = strrchr(full, '/');
+            const char* name2 = strrchr(full, '\\');
+
+            const char* name = name1;
+            if (name2 && (!name || name2 > name))
+                name = name2;
+
+            name = name ? name + 1 : full;
+
+            char dest_path[FS_MAX_PATH];
+            snprintf(dest_path, sizeof(dest_path), "%s/%s", dest_dir, name);
+
+            /* Fail if destination already exists */
+            FILE* fp = fopen(dest_path, "rb");
+            if (fp)
+            {
+                fclose(fp);
+                fprintf(stderr,
+                        "error: destination file already exists: %s\n",
+                        dest_path);
+                return -1;
+            }
+
+            if (!copy_file_bytes(full, dest_path))
+            {
+                fprintf(stderr,
+                        "error: failed to copy %s -> %s\n",
+                        full, dest_path);
+                return -1;
+            }
+
+            count++;
+            p = p->next;
+        }
+    }
+
+    return count;
+}
 
 #ifdef TEST
 #include "unit_test.h"

@@ -24,7 +24,6 @@
      TYPE_QUALIFIER_CAKE_DTOR  | \
      TYPE_QUALIFIER_CAKE_CTOR  | \
      TYPE_QUALIFIER_CAKE_UNINIT | \
-     TYPE_QUALIFIER_CAKE_ZERO  | \
      TYPE_QUALIFIER_CAKE_CLEAR)
 
 bool is_automatic_variable(enum storage_class_specifier_flags f)
@@ -160,9 +159,6 @@ void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qual
 
     if (e_type_qualifier_flags & TYPE_QUALIFIER_CAKE_UNINIT)
         print_item(ss, first, "_Uninitialized");
-
-    if (e_type_qualifier_flags & TYPE_QUALIFIER_CAKE_ZERO)
-        print_item(ss, first, "_Zero");
 
     if (e_type_qualifier_flags & TYPE_QUALIFIER_CAKE_CLEAR)
         print_item(ss, first, "_Clear");
@@ -376,7 +372,7 @@ struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_en
         t.category = t.category;
         return t;
     }
-    break;
+
     case TYPE_CATEGORY_ARRAY:
     {
         /*
@@ -399,9 +395,10 @@ struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_en
         t2.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_PARAMETER;
         return t2;
     }
-    break;
+
     case TYPE_CATEGORY_POINTER:
         break;
+
     case TYPE_CATEGORY_ITSELF:
     default:
         break;
@@ -870,20 +867,6 @@ bool type_is_pointed_clear(const struct type* p_type)
     return type_is_clear(p_type->next);
 }
 
-bool type_is_zero(const struct type* p_type)
-{
-    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_ZERO;
-}
-
-bool type_is_pointed_zero(const struct type* p_type)
-{
-    if (!type_is_pointer(p_type))
-        return false;
-
-    runtime_assert(p_type->next != NULL);
-
-    return type_is_zero(p_type->next);
-}
 
 bool type_is_owner(const struct type* p_type)
 {
@@ -1160,7 +1143,7 @@ bool type_is_decimal32(const struct type* p_type)
 bool type_is_long_double(const struct type* p_type)
 {
     if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
-        return  false;
+        return false;
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
     {
@@ -1176,7 +1159,7 @@ bool type_is_long_double(const struct type* p_type)
 bool type_is_double(const struct type* p_type)
 {
     if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
-        return  false;
+        return false;
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
     {
@@ -1192,7 +1175,7 @@ bool type_is_double(const struct type* p_type)
 bool type_is_int(const struct type* p_type)
 {
     if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
-        return  false;
+        return false;
 
     if ((p_type->type_specifier_flags == (TYPE_SPECIFIER_INT | TYPE_SPECIFIER_SIGNED)) ||
         (p_type->type_specifier_flags == TYPE_SPECIFIER_INT))
@@ -1414,127 +1397,6 @@ const struct param_list* _Opt type_get_func_or_func_ptr_params(const struct type
     return NULL;
 }
 
-void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx,
-    struct argument_expression* current_argument,
-    struct type* paramer_type,
-    int param_num)
-{
-    //            _Owner     _Dtor  _View parameter
-    // _Owner      OK                   OK
-    // _Dtor  X         OK         OK
-    // _View       X (NULL)  X          OK
-
-    const bool paramer_is_obj_owner = type_is_pointed_dtor(paramer_type);
-    const bool paramer_is_owner = type_is_owner(paramer_type);
-    const bool paramer_is_view = !paramer_is_obj_owner && !paramer_is_owner;
-
-    const struct type* const argument_type = &current_argument->expression->type;
-    const bool argument_is_owner = type_is_owner(&current_argument->expression->type);
-    const bool argument_is_obj_owner = type_is_pointed_dtor(&current_argument->expression->type);
-    const bool argument_is_view = !argument_is_owner && !argument_is_obj_owner;
-
-    if (argument_is_owner && paramer_is_owner)
-    {
-        //ok
-    }
-    else if (argument_is_owner && paramer_is_obj_owner)
-    {
-        //ok
-    }
-    else if (argument_is_owner && paramer_is_view)
-    {
-        //ok
-        if (current_argument->expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
-        {
-            diagnostic(W_OWNERSHIP_USING_TEMPORARY_OWNER,
-                ctx,
-                current_argument->expression->first_token, NULL,
-                "passing a temporary owner to a view");
-        }
-
-    }////////////////////////////////////////////////////////////
-    else if (argument_is_obj_owner && paramer_is_owner)
-    {
-        diagnostic(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
-            ctx,
-            current_argument->expression->first_token, NULL,
-            "cannot move _Dtor to _Owner");
-    }
-    else if (argument_is_obj_owner && paramer_is_obj_owner)
-    {
-        //ok
-    }
-    else if (argument_is_obj_owner && paramer_is_view)
-    {
-        //ok
-        //ok
-        if (current_argument->expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
-        {
-            diagnostic(W_OWNERSHIP_USING_TEMPORARY_OWNER,
-                ctx,
-                current_argument->expression->first_token, NULL,
-                "passing a temporary owner to a view");
-        }
-
-
-    }///////////////////////////////////////////////////////////////
-    else if (argument_is_view && paramer_is_owner)
-    {
-        if (!expression_is_null_pointer_constant(current_argument->expression))
-        {
-            diagnostic(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
-                ctx,
-                current_argument->expression->first_token, NULL,
-                "passing a _View argument to a _Owner parameter");
-        }
-    }
-    else if (argument_is_view && paramer_is_obj_owner)
-    {
-        //check if the contented of pointer is _Owner.
-        if (type_is_pointer(argument_type))
-        {
-            struct type t2 = type_remove_pointer(argument_type);
-            if (!type_is_owner(&t2))
-            {
-
-                diagnostic(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
-                    ctx,
-                    current_argument->expression->first_token, NULL,
-                    "pointed object is not _Owner");
-
-            }
-            else
-            {
-                //pointer object is _Owner
-                if (!argument_type->address_of)
-                {
-                    //we need something created with address of.
-                    diagnostic(W_MUST_USE_ADDRESSOF,
-                        ctx,
-                        current_argument->expression->first_token, NULL,
-                        "_Dtor pointer must be created using address of operator &");
-                }
-            }
-
-            type_destroy(&t2);
-        }
-        else
-        {
-            if (!expression_is_null_pointer_constant(current_argument->expression))
-            {
-                diagnostic(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
-                    ctx,
-                    current_argument->expression->first_token, NULL,
-                    "passing a _View argument to a _Dtor parameter");
-            }
-        }
-
-    }
-    else if (argument_is_view && paramer_is_view)
-    {
-        //ok
-    }///////////////////////////////////////////////////////////////
-}
 
 
 bool type_is_function(const struct type* p_type)
@@ -3547,7 +3409,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
 
             unsigned int all = (TYPE_QUALIFIER_CAKE_OWNER | TYPE_QUALIFIER_CAKE_VIEW |
              TYPE_QUALIFIER_CAKE_OPT | TYPE_QUALIFIER_CAKE_DTOR | TYPE_QUALIFIER_CAKE_CTOR |
-             TYPE_QUALIFIER_CAKE_UNINIT | TYPE_QUALIFIER_CAKE_ZERO | TYPE_QUALIFIER_CAKE_CLEAR);
+             TYPE_QUALIFIER_CAKE_UNINIT | TYPE_QUALIFIER_CAKE_CLEAR);
 
             aq = aq & ~all;
             bq = bq & ~all;

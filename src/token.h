@@ -203,8 +203,7 @@ enum token_type
     TK_KEYWORD_CAKE_CTOR,
     TK_KEYWORD_CAKE_DTOR,
     TK_KEYWORD_CAKE_UNINIT,   /* _Uninitialized (return/pointee is uninitialized) */
-    TK_KEYWORD_CAKE_ZERO,     /* _Zero (return/pointee is all-zero) */
-    TK_KEYWORD_CAKE_CLEAR,
+    TK_KEYWORD_CAKE_CLEAR,    /* _Clear (param: callee zeroes pointee; return: pointee is all-zero) */
     TK_KEYWORD_CAKE_VIEW,    
     TK_KEYWORD_CAKE_OPT, 
     

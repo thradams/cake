@@ -15,14 +15,14 @@ struct flow3_label_state
 
 struct flow3_map_arena
 {
-    struct flow3_map** data;
+    struct flow3_map* _Owner _Opt * _Owner _Opt  data;
     int size;
     int capacity;
 };
 
 struct flow3_allocated_object_arena
 {
-    struct object** data;
+    struct object*  _Owner _Opt * _Owner _Opt data;
     int size;
     int capacity;
 };
@@ -33,8 +33,8 @@ struct flow3_allocated_object_arena
 struct flow3_predicate_entry
 {
     enum expression_type op;
-    const struct object* left_obj;
-    const struct object* right_obj;   /* NULL when the right side is a constant */
+    const struct object* _Opt left_obj;
+    const struct object* _Opt right_obj;   /* NULL when the right side is a constant */
     long long right_const;
     int branch_id;
 };
@@ -45,9 +45,20 @@ struct flow3_predicate_entry
          2 = ANY / possibly-modified (_Ctor, or a plain mutable pointer). */
 struct flow3_deferred_pointee_effect
 {
-    const struct object* pointee;
+    const struct object* _Opt pointee;
     int kind;
     int line;
+};
+
+/* base object -> the pointee fabricated for it (see fabricated_pointees). */
+struct flow3_fabricated_pointee
+{
+    /* Both _Opt: the array is brace-initialized (zero-filled) with the rest of
+       flow3_visit_ctx, so every unused slot legitimately holds null. Declaring
+       them non-_Opt would (correctly, per "zero is not OK") report every slot
+       as a null non-nullable pointer at each `struct flow3_visit_ctx x = {0}`. */
+    const struct object* _Opt base;
+    struct object* _Opt pointee;
 };
 
 struct flow3_visit_ctx
@@ -65,7 +76,7 @@ struct flow3_visit_ctx
     struct flow3_map* _Opt p_throw_join_map;  /*map where throws are joined*/
     struct flow3_map* _Opt p_break_join_map;  /*map where breaks are joined*/
     struct flow3_map* _Opt p_initial_map;     /*map snapshot of the original state*/
-    const struct object* p_switch_obj_key;
+    const struct object* _Opt p_switch_obj_key;
     
 
     struct flow3_label_state labels[100]; //max 100 labels in a function (case not included)
@@ -81,10 +92,20 @@ struct flow3_visit_ctx
     int deferred_effects_count;
     bool collect_deferred_effects;
 
+    /* Fabricated pointees: a base pointer that is known non-null but has no
+       modeled pointee gets one invented on demand at the member access.
+       The mapping base -> pointee must be STABLE: minting a fresh object on
+       every access would mean a guard narrowed on one read is invisible on the
+       next, which breaks retention inside loops (the body is analysed more than
+       once). Keyed by the base object, so the same base always yields the same
+       fabricated pointee. */
+    struct flow3_fabricated_pointee fabricated_pointees[256];
+    int fabricated_pointees_count;
+
     
     struct flow3_allocated_object_arena allocated_object_arena;
     struct flow3_map_arena flow3_map_arena;
-    struct flow3_map* p_current_flow3_map;
+    struct flow3_map* _Opt p_current_flow3_map;
 
     /*
      * Set while visiting a function body so that flow3_visit_jump_statement

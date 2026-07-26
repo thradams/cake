@@ -47,7 +47,7 @@ bool token_is_one_space(const struct token* _Opt token)
     if (token->type != TK_BLANKS)
         return false;
 
-    return token->lexeme[0] == ' ' && token->lexeme[1] == '\0'; //lint 28 bug #435
+    return token->lexeme[0] == ' ' && token->lexeme[1] == '\0'; 
 }
 
 void print_literal2(const char* s);
@@ -496,7 +496,6 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD_CAKE_CTOR:
     case TK_KEYWORD_CAKE_DTOR:
     case TK_KEYWORD_CAKE_UNINIT:
-    case TK_KEYWORD_CAKE_ZERO:
     case TK_KEYWORD_CAKE_CLEAR:
     case TK_KEYWORD_CAKE_VIEW:
     case TK_KEYWORD_CAKE_OPT:
@@ -967,7 +966,7 @@ void ss_print_position(struct osstream* ss,
         if (color_enabled)
             ss_fprintf(ss, WHITE);
 
-        ss_print_path(ss, path, false /*full path*/);
+        ss_print_path(ss, path, true /*full path*/);
 
         if (color_enabled)
             ss_fprintf(ss, WHITE ":%d:%d: ", line, col);
@@ -1662,7 +1661,8 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
             break;
         case 'r':
             *out_value = '\r';
-            break;            
+            break;
+            
         case 't':
             *out_value = '\t';
             break;

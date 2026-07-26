@@ -1,6 +1,5 @@
-int main(){
-
-
-  runtime_assert(1);
-//
+#include <stdio.h>
+int main()
+{
+    printf("a");
 }

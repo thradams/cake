@@ -184,7 +184,43 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_UNREACHABLE_CODE:
     case W_FLOW_CLEAR_NOT_ZERO_AT_EXIT:
 
+        /* The former W_OWNERSHIP_* group (22-26). These are now reported by
+           flow analysis (flow1/flow3), so they must be phase 2 -- otherwise
+           they default to phase 0 and a `//lint 26` is checked while parsing,
+           before flow analysis has queued the diagnostic. The removal then
+           fails and the suppression itself is reported as
+           "diagnostic '26' not recognized" while the warning still fires. */
+    case W_FLOW_NOT_OWNER:
+    case W_FLOW_USING_TEMPORARY_OWNER:
+    case W_FLOW_MOVE_ASSIGNMENT_OF_NON_OWNER:
+    case W_FLOW_NON_OWNER_TO_OWNER_ASSIGN:
+    case W_FLOW_DISCARDING_OWNER:
+
+        /* Emitted only from flow1.c. */
+    case W_UNINITIALZED:
+
+        /* ERRORS reported by flow analysis. They are suppressible with a
+           `//lint <id>` comment just like warnings are, so they need the flow
+           phase too -- otherwise the suppression is checked while parsing,
+           before flow analysis has queued the diagnostic, and the comment is
+           reported as "diagnostic '<id>' not recognized" while the error still
+           fires (tests/unit-tests/flow_owner_increment.c). */
+    case C_ERROR_FLOW_OPERATOR_INCREMENT_CANNOT_BE_USED_IN_OWNER:
+    case C_ERROR_FLOW_OPERATOR_DECREMENT_CANNOT_BE_USED_IN_OWNER:
+    case C_ERROR_FLOW_WRITE_QUALIFIER_MUST_QUALIFY_POINTEE:
+    case C_ERROR_FLOW_WRITE_QUALIFIER_CANNOT_BE_CONST:
+
         return 2; /*returns 2 if it flow analysis*/
+
+        /*
+           NOTE: W_OUT_OF_BOUNDS (42) is deliberately NOT here. It is emitted
+           from BOTH phases -- expressions.c reports a constant index at parse
+           time, flow3.c reports a flow-derived one -- so no single phase is
+           correct for it. Suppressing it with a comment therefore only works
+           for the parse-time form; the flow-time form would report
+           "diagnostic '42' not recognized". Fixing that needs the phase to be
+           per-diagnostic-site rather than per-diagnostic-id.
+        */
 
     default:
         break;
@@ -512,6 +548,12 @@ int fill_options(struct options* options,
         if (strcmp(argv[i], "-disable-assert") == 0)
         {
             options->disable_assert = true;
+            continue;
+        }
+
+        if (has_prefix(argv[i], "-copy-headers="))
+        {
+            snprintf(options->copy_headers, sizeof options->copy_headers, "%s", argv[i]+14);            
             continue;
         }
 
