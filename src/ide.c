@@ -10,6 +10,7 @@
 #include "ide_ui.h"
 #include "fs.h"
 #include "version.h"
+#include "ide_format.h"
 
 #include <ctype.h>
 #include <stdbool.h>
@@ -95,6 +96,7 @@ enum {
     EVT_EDIT_TOLOWER = 17,    /* Edit > "To Lower" */
     EVT_EDIT_WORDWRAP = 18,   /* Edit > "Word Wrap..." - opens the Columns
                                * dialog, see do_edit_wordwrap() */
+    EVT_EDIT_FORMAT = 19,     /* Edit > "Format C Source" - see do_edit_format() */
     EVT_COMPILE = 40,
     EVT_COMPILE_OPTIONS = 45,  /* Compile > Options... - opens the dialog below */
     EVT_TOGGLE_AUTOCOMPILE = 44,
@@ -333,6 +335,14 @@ static ui_node* g_view_linenumbers_item;
  * See path_is_c_source() and this pointer's app_frame() call site. */
 static ui_node* g_compile_item;
 
+/* The Edit menu's "Format" item (EVT_EDIT_FORMAT, "Ctrl+Shift+F") - same
+ * forward-declared/kept-current-every-frame pattern as g_compile_item above,
+ * and the same path_is_c_source() condition, since format_c_source() only
+ * makes sense for a real .c file. The editor popup's own copy of this item
+ * (g_editor_popup_format) is a separate node and refreshes alongside it. */
+static ui_node* g_edit_format_item;
+static ui_node* g_editor_popup_format;
+
 /* The Compile menu's own "Show Generated Code" item - a separate node from
  * the editor popup's identically-labeled/identically-idd (EVT_EDITOR_SHOW_
  * OUTPUT) copy (see g_editor_popup_show_output), which already disables
@@ -381,8 +391,11 @@ static void build_screen(ui_node* root)
         { EVT_EDIT_TOLOWER, "To Lower", "Ctrl+L", 1 },
         SEP,
         { EVT_EDIT_WORDWRAP, "Word Wrap...", "Ctrl+W", 1 },
+        SEP,
+        { EVT_EDIT_FORMAT, "Format", "Ctrl+Shift+F", 1 },
     };
     ui_node* edit_menu = add_menu(menubar, "Edit", edit_items, sizeof edit_items / sizeof edit_items[0]);
+    g_edit_format_item = ui_find_by_id(edit_menu, EVT_EDIT_FORMAT);
     ui_node* edit_sep = ui_create_element(UI_TAG_ITEM);
     ui_set_separator(edit_sep, 1);
     ui_append_child(edit_menu, edit_sep);
@@ -416,12 +429,12 @@ static void build_screen(ui_node* root)
     g_view_linenumbers_item = ui_find_by_id(view_menu, EVT_VIEW_LINENUMBERS);
 
     static const menu_item_spec search_items[] = {
-        { 20, "Find...", "Ctrl+F", 1 },
+        { 20, "Find...", NULL, 1 },
         { 21, "Replace...", "Ctrl+R", 1 },
         { 23, "Search Next", "F3", 1 },
         { 22, "Go to line...", "Ctrl+G", 1 },
         SEP,
-        { EVT_TOOLS_FINDREPLACE, "Find in Files...", NULL, 1 }
+        { EVT_TOOLS_FINDREPLACE, "Find in Files...", "Ctrl+F", 1 }
        
       
     };
@@ -1040,6 +1053,14 @@ static const ui_theme g_theme_dark = {
     .editor_preproc_fg = TB_RGB(0xC5, 0x86, 0xC0),
     .editor_sel_bg = TB_RGB(0x26, 0x4F, 0x78),  /* #264F78 - VS Dark's actual selection color */
     .editor_sel_fg = TB_RGB(0xFF, 0xFF, 0xFF),
+    .editor_caret_bg = TB_RGB(0xFF, 0xD7, 0x00),  /* yellow block caret - the
+                                                   * blue selection color is too
+                                                   * close to this theme's dark
+                                                   * background to spot the
+                                                   * caret against it */
+    .editor_caret_fg = TB_RGB(0x1E, 0x1E, 0x1E),  /* editor_bg, so the glyph
+                                                   * under the caret reads as
+                                                   * knocked out of the block */
     .editor_current_line_bg = TB_RGB(0x2A, 0x2A, 0x2A),  /* subtle - close to
                                                           * VS Code Dark's own
                                                           * current-line tint */
@@ -1169,6 +1190,10 @@ static const ui_theme g_theme_white = {
     .editor_preproc_fg = TB_RGB(0x80, 0x00, 0x80),
     .editor_sel_bg = TB_RGB(0xAD, 0xD6, 0xFF),  /* #ADD6FF - VS Light's actual selection color */
     .editor_sel_fg = TB_RGB(0x00, 0x00, 0x00),
+    /* Caret cell - a solid dark block against this theme's white page, which
+     * is what a light editor needs (the reverse of the dark theme's yellow). */
+    .editor_caret_bg = TB_RGB(0x00, 0x00, 0x00),
+    .editor_caret_fg = TB_RGB(0xFF, 0xFF, 0xFF),
     .editor_current_line_bg = TB_RGB(0xF0, 0xF0, 0xF0),  /* subtle - close to
                                                           * VS Code Light's own
                                                           * current-line tint */
@@ -3951,19 +3976,25 @@ static ui_node* fr_setup(int* ci, int* whole, int* lo, int* hi)
  * editor's selection when those dialogs open, so the common case (search for
  * the word you just selected) needs no typing. Leaves `input` untouched if
  * `ed` is NULL or nothing is selected. */
-static void fill_from_selection(ui_node* ed, ui_node* input)
+static int copy_selection(ui_node* ed, char* out, size_t out_size)
 {
     int lo, hi;
     if (!ed || !ui_editor_get_selection(ed, &lo, &hi))
-        return;
+        return 0;
     const char* text = ui_get_value(ed);
-    char buf[256];
     int len = hi - lo;
-    if (len >= (int)sizeof buf)
-        len = sizeof buf - 1;
-    memcpy(buf, text + lo, len);
-    buf[len] = '\0';
-    ui_set_value(input, buf);
+    if (len >= (int)out_size)
+        len = (int)out_size - 1;
+    memcpy(out, text + lo, len);
+    out[len] = '\0';
+    return 1;
+}
+
+static void fill_from_selection(ui_node* ed, ui_node* input)
+{
+    char buf[256];
+    if (copy_selection(ed, buf, sizeof buf))
+        ui_set_value(input, buf);
 }
 
 /* Find (and select) the next match in `ed` per the given Options/Direction/
@@ -5328,6 +5359,39 @@ static void do_edit_wordwrap(int columns)
         edit_replace_selection(ed, lo, hi, out, out_len);
 }
 
+/* Edit > Format C Source: reformats the *entire* active document by handing
+ * it to format_c_source() (ide_format.c) - purely in memory, no temp files.
+ * Unlike Stringify/To Upper/Word Wrap, this always acts on the whole buffer
+ * rather than the current selection (indentation depth depends on brace
+ * nesting from the start of the file, so formatting an arbitrary sub-range
+ * in isolation wouldn't make sense), so it goes through editor_in_window()
+ * + ui_set_value() (the same whole-buffer-rebuild path do_replace_all()
+ * uses) instead of edit_selection_target()/edit_replace_selection(). */
+static void do_edit_format(void)
+{
+    ui_node* ed = editor_in_window(g_active_editor_window);
+    if (!ed)
+        return;
+
+    const char* text = ui_get_value(ed);
+    size_t len = strlen(text);
+
+    Options opt = { 4, 0 };  /* 4-space indent, spaces not tabs */
+    size_t out_len;
+    char* formatted = format_c_source(text, len, &opt, &out_len);
+    if (formatted)
+    {
+        int cur = ui_editor_get_cursor(ed);      /* keep the caret put */
+        int scroll = ui_editor_get_scroll(ed);   /* and the scroll position */
+        ui_set_value(ed, formatted);  /* (ui_set_value moves the caret to the
+                                        * end and resets scroll to the top) */
+        ui_editor_set_selection(ed, cur, cur);
+        ui_editor_set_scroll(ed, scroll);
+        ui_set_dirty(ed, 1);
+        free(formatted);
+    }
+}
+
 /* Fired synchronously by ui_screen_update() for whatever widget was
  * activated this frame - pushed straight to us, not pulled via polling.
  * `param` is NULL for most ids (see ui_fire_event's call sites in ui.c) but
@@ -6220,6 +6284,16 @@ static void on_ui_event(void* ctx, int id, void* param)
          * now - after the dock, using ui_get_rect() to read the now-correct
          * rect - sidesteps that shift heuristic entirely instead of
          * fighting it. */
+        /* Pre-fill the Find field with the active editor's selection, same as
+         * Search > Find/Replace do. Goes through g_active_editor_window rather
+         * than ui_screen_top_window() for the same reason
+         * fr_search_current_file() does: this panel is docked, so once it's
+         * open top_window() reports the panel itself, not the document behind
+         * it. Written into g_fr_find_text so fr_rebuild_content() (which
+         * rebuilds the input from scratch just below) picks it up. */
+        copy_selection(editor_in_window(g_active_editor_window),
+                       g_fr_find_text, sizeof g_fr_find_text);
+
         ui_screen_show_window(g_screen, g_fr_window);
         fr_rebuild_content();
         ui_get_rect(g_fr_panel, NULL, NULL, &g_fr_last_w, NULL);
@@ -6291,6 +6365,10 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_EDIT_TOLOWER)
     {
         do_edit_case(0);
+    }
+    else if (id == EVT_EDIT_FORMAT)
+    {
+        do_edit_format();
     }
 }
 
@@ -7074,12 +7152,13 @@ void app_init(ui_env* env)
     ui_node* popup = ui_create_element(UI_TAG_MENU);
     ui_append_child(root, popup);
     struct { int id; const char* label; const char* shortcut; } popup_items[] = {
-        { EVT_SEARCH_FIND,    "Find...",      "Ctrl+F" },
-        { EVT_SEARCH_REPLACE, "Replace...",   "Ctrl+R" },
-        { EVT_SEARCH_NEXT,    "Search Next",  "F3" },
-        { EVT_SEARCH_GOTO,    "Go to line...", "Ctrl+G" },
+        { EVT_SEARCH_FIND,       "Find...",          NULL },
+        { EVT_SEARCH_REPLACE,    "Replace...",       "Ctrl+R" },
+        { EVT_SEARCH_NEXT,       "Search Next",      "F3" },
+        { EVT_SEARCH_GOTO,       "Go to line...",    "Ctrl+G" },
+        { EVT_TOOLS_FINDREPLACE, "Find in Files...", "Ctrl+F" },
     };
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 5; i++)
     {
         ui_node* it = ui_create_element(UI_TAG_ITEM);
         ui_set_id(it, popup_items[i].id);
@@ -7094,6 +7173,7 @@ void app_init(ui_env* env)
     ui_set_id(popup_readonly, EVT_EDITOR_TOGGLE_READONLY);
     ui_append_child(popup, popup_readonly);
     g_editor_popup_readonly = popup_readonly;
+
     ui_node* popup_sep2 = ui_create_element(UI_TAG_ITEM);
     ui_set_separator(popup_sep2, 1);
     ui_append_child(popup, popup_sep2);
@@ -7127,6 +7207,13 @@ void app_init(ui_env* env)
     ui_set_id(popup_codeblock_playground, EVT_EDITOR_CODEBLOCK_PLAYGROUND);
     ui_set_label(popup_codeblock_playground, "Copy to Playground");
     ui_append_child(popup, popup_codeblock_playground);
+    ui_node* popup_format = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(popup_format, EVT_EDIT_FORMAT);
+    ui_set_label(popup_format, "Format");
+    ui_set_shortcut(popup_format, "Ctrl+Shift+F");
+    ui_append_child(popup, popup_format);
+    g_editor_popup_format = popup_format;
+
     g_editor_popup_codeblock_playground = popup_codeblock_playground;
     g_editor_popup = popup;
 
@@ -7546,6 +7633,12 @@ int app_frame(ui_env* env)
      * g_compile_show_output_item's own doc comment). */
     ui_set_enabled(g_compile_show_output_item, compile_targets_c);
 
+    /* "Format" (Edit menu and the editor popup's copy) only makes sense for
+     * a real .c file - same path_is_c_source() condition as Compile just
+     * above, since format_c_source() assumes C syntax. */
+    ui_set_enabled(g_edit_format_item, compile_targets_c);
+    ui_set_enabled(g_editor_popup_format, compile_targets_c);
+
     /* Apply a Go-to-line focus request now that update() (and its
      * fire-then-blur of the input) is done, so the editor caret stays put. */
     if (g_goto_pending_focus)
@@ -7623,4 +7716,3 @@ void app_invalidate(void)
     if (g_screen)
         ui_screen_invalidate(g_screen);
 }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            

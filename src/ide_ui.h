@@ -278,6 +278,14 @@ typedef struct {
      * struct, const, ...); editor_keyword2_fg colors control-flow keywords
      * (is_c_keyword2 - if, for, return, ...). */
 
+    uint32_t editor_caret_fg, editor_caret_bg;  /* the <editor>'s block caret
+                                                 * cell - its own pair rather
+                                                 * than reusing editor_sel_*,
+                                                 * so a theme can make the
+                                                 * caret an accent color
+                                                 * without touching how a
+                                                 * selection looks. */
+
     uint32_t editor_linenum_fg;  /* the line-number gutter's digits (see
                                   * ui_set_show_line_numbers/render_editor in
                                   * ide_ui.c) - deliberately its own muted

@@ -252,6 +252,10 @@ static ui_theme g_theme = {
     .editor_preproc_fg = TB_RGB(0xFF, 0x55, 0xFF),
     .editor_sel_bg = TB_RGB(0x80, 0x80, 0x80),
     .editor_sel_fg = TB_RGB(0x00, 0x00, 0x00),
+    /* Caret cell - same gray/black as the selection, the way it has always
+     * looked in this theme. */
+    .editor_caret_bg = TB_RGB(0x80, 0x80, 0x80),
+    .editor_caret_fg = TB_RGB(0x00, 0x00, 0x00),
     .editor_current_line_bg = TB_RGB(0x18, 0x18, 0xCE),  /* one step lighter
                                                           * than editor_bg -
                                                           * visible without
@@ -900,9 +904,29 @@ static const char* display_shortcut(const char* shortcut, char* buf, size_t bufs
     return shortcut;
 }
 
+/* Slides a box's top-left (x, y) so it stays fully within [0, max_w) x
+ * [0, max_h) - used to keep an open dropdown/submenu/popup on screen. A box
+ * bigger than the available area is pinned to the top-left corner rather
+ * than given a negative position. */
+static void clamp_box_to_screen(int* x, int* y, int box_w, int box_h,
+                                 int max_w, int max_h)
+{
+    if (*x + box_w > max_w)
+        *x = max_w - box_w;
+    if (*x < 0)
+        *x = 0;
+    if (*y + box_h > max_h)
+        *y = max_h - box_h;
+    if (*y < 0)
+        *y = 0;
+}
+
 /* Lays out the dropdown box for an open menu, and each item's own x/y/w/h
- * (inset by the border, ready for both hit-testing and drawing). */
-static void layout_dropdown(ui_node* menu, int* out_dx, int* out_dy,
+ * (inset by the border, ready for both hit-testing and drawing). Clamped to
+ * stay fully within the screen (and above the statusbar's row, if any) - a
+ * menubar header near the right edge, or a popup opened near an edge, must
+ * not push the box off screen. */
+static void layout_dropdown(ui_screen* s, ui_node* menu, int* out_dx, int* out_dy,
                              int* out_box_w, int* out_box_h)
 {
     int maxw = 0;
@@ -922,6 +946,11 @@ static void layout_dropdown(ui_node* menu, int* out_dx, int* out_dy,
     int box_h = menu->child_count + 2;
     int dx = menu->x;
     int dy = menu->y + 1;
+
+    int max_h = s->screen_h;
+    if (find_child_by_type(s->root, UI_TAG_STATUSBAR))
+        max_h -= 1;  /* leave the statusbar's row clear */
+    clamp_box_to_screen(&dx, &dy, box_w, box_h, s->screen_w, max_h);
 
     for (int i = 0; i < menu->child_count; i++)
     {
@@ -961,8 +990,11 @@ static int is_direct_child(const ui_node* parent, const ui_node* node)
 /* Lays out a submenu's box (the children of submenu-parent `item`) to the
  * right of the parent dropdown, its first child aligned with `item`'s row,
  * and each child's x/y/w/h. `box_left` is the parent dropdown box's right
- * edge. */
-static void layout_submenu(ui_node* item, int box_left, int* out_dx, int* out_dy,
+ * edge. Clamped to stay on screen the same way layout_dropdown() is - most
+ * visibly, a submenu that wouldn't fit past the right edge slides back left
+ * (it may then overlap its parent dropdown, but that beats drawing off
+ * screen). */
+static void layout_submenu(ui_screen* s, ui_node* item, int box_left, int* out_dx, int* out_dy,
                            int* out_box_w, int* out_box_h)
 {
     int maxw = 0;
@@ -982,6 +1014,11 @@ static void layout_submenu(ui_node* item, int box_left, int* out_dx, int* out_dy
     int box_h = item->child_count + 2;
     int dx = box_left;
     int dy = item->y - 1;  /* box top one above the item, so child 0 aligns with it */
+
+    int max_h = s->screen_h;
+    if (find_child_by_type(s->root, UI_TAG_STATUSBAR))
+        max_h -= 1;  /* leave the statusbar's row clear */
+    clamp_box_to_screen(&dx, &dy, box_w, box_h, s->screen_w, max_h);
 
     for (int i = 0; i < item->child_count; i++)
     {
@@ -1807,9 +1844,13 @@ void ui_screen_open_popup(ui_screen* s, ui_node* menu, int x, int y, void* param
     /* Reuse the whole dropdown machinery: a popup is just a <menu> shown at an
      * arbitrary spot instead of under a menubar header. layout_dropdown() draws
      * the box at menu->x, menu->y + 1, so bias y up by one to put the box's
-     * top-left at (x, y). */
+     * top-left at (x, y) - and, same as any other dropdown, clamps that box
+     * to stay fully on screen (and clear of the statusbar) every time it's
+     * laid out, so a popup opened near a screen edge is never partly or
+     * entirely off screen. */
     menu->x = x;
     menu->y = y - 1;
+
     s->open_menu = menu;
     s->open_submenu = NULL;
     s->open_select = NULL;
@@ -2860,24 +2901,34 @@ static void editor_ensure_cursor_visible(ui_node* n)
 {
     int line, line_start;
     editor_cursor_line(n, &line, &line_start);
-    if (line < n->scroll)
+
+    // --- Vertical scroll: keep cursor in view, with one line of context below ---
+    if (line < n->scroll) {
+        // Cursor moved above the viewport
         n->scroll = line;
-    else if (line >= n->scroll + n->h)
-        n->scroll = line - n->h + 1;
+    } else if (line >= n->scroll + n->h - 1) {
+        // Cursor is on or beyond the last visible line.
+        // Scroll so that the cursor lands on the *second‑last* visible row.
+        int new_scroll = line - n->h + 2;
+        if (new_scroll < 0) new_scroll = 0;
+        int max_scroll = editor_visible_line_count(n) - n->h;
+        if (max_scroll < 0) max_scroll = 0;
+        if (new_scroll > max_scroll) new_scroll = max_scroll;
+        n->scroll = new_scroll;
+    }
     editor_clamp_scroll(n);
 
-    /* Horizontal counterpart: keep the caret's column inside [hscroll,
-     * hscroll + w). The caret only ever sits within real text, so following
-     * it can't push hscroll past the content - no upper clamp needed here
-     * (the mouse-wheel pan handles that, via editor_clamp_hscroll). */
+    // --- Horizontal scroll: keep the caret's column visible ---
     int col = utf8_col_of(n->label + line_start, n->cursor - line_start);
     int text_w = editor_text_w(n);
-    if (col < n->hscroll)
+    if (col < n->hscroll) {
         n->hscroll = col;
-    else if (col >= n->hscroll + text_w)
+    } else if (col >= n->hscroll + text_w) {
         n->hscroll = col - text_w + 1;
-    if (n->hscroll < 0)
+    }
+    if (n->hscroll < 0) {
         n->hscroll = 0;
+    }
 }
 
 void ui_editor_goto_line(ui_node* n, int line)
@@ -5321,7 +5372,7 @@ void ui_screen_update(ui_screen* s, ui_env* env)
              * s->open_menu->child_count after that (NULL dereference). */
             ui_node* menu = s->open_menu;
             int dx, dy, box_w, box_h;
-            layout_dropdown(menu, &dx, &dy, &box_w, &box_h);
+            layout_dropdown(s, menu, &dx, &dy, &box_w, &box_h);
             if (s->mouse_x >= dx && s->mouse_x < dx + box_w &&
                 s->mouse_y >= dy && s->mouse_y < dy + box_h)
                 over_menu = 1;  /* the dropdown's whole box, not just its items */
@@ -5374,7 +5425,7 @@ void ui_screen_update(ui_screen* s, ui_env* env)
             {
                 ui_node* sm = s->open_submenu;
                 int sdx, sdy, sbw, sbh;
-                layout_submenu(sm, dx + box_w, &sdx, &sdy, &sbw, &sbh);
+                layout_submenu(s, sm, dx + box_w, &sdx, &sdy, &sbw, &sbh);
                 if (s->mouse_x >= sdx && s->mouse_x < sdx + sbw &&
                     s->mouse_y >= sdy && s->mouse_y < sdy + sbh)
                     over_menu = 1;
@@ -5929,7 +5980,7 @@ static void render_open_dropdown(ui_screen* s)
 
     ui_node* menu = s->open_menu;
     int dx, dy, box_w, box_h;
-    layout_dropdown(menu, &dx, &dy, &box_w, &box_h);
+    layout_dropdown(s, menu, &dx, &dy, &box_w, &box_h);
     render_menu_panel(s, menu, dx, dy, box_w, box_h);
 
     /* The open submenu, if any, as a second panel to the right (validated
@@ -5938,7 +5989,7 @@ static void render_open_dropdown(ui_screen* s)
     {
         ui_node* sm = s->open_submenu;
         int sdx, sdy, sbw, sbh;
-        layout_submenu(sm, dx + box_w, &sdx, &sdy, &sbw, &sbh);
+        layout_submenu(s, sm, dx + box_w, &sdx, &sdy, &sbw, &sbh);
         render_menu_panel(s, sm, sdx, sdy, sbw, sbh);
     }
 }
@@ -7334,7 +7385,8 @@ static const char* diag_tag(ui_diag_type type)
     }
 }
 
-/* Builds the inline annotation string render_diagnostic draws: a leading
+/* Builds the inline annotation string render_diagnostic draws: a few spaces
+ * of left padding (so it doesn't sit flush against the source text), then a
  * "\xE2\x86\x90" (U+2190 left arrow) pointing back at the offending code, the
  * severity tag and message, and a "(+N more)" suffix when other diagnostics
  * share the line. Factored out so editor_content_cols() can measure it for
@@ -7342,9 +7394,9 @@ static const char* diag_tag(ui_diag_type type)
 static void format_diagnostic(char* buf, size_t cap, const ui_diagnostic* d, int extra_count)
 {
     if (extra_count > 0)
-        snprintf(buf, cap, "\xE2\x86\x90 %s: %s (+%d more)", diag_tag(d->type), d->message, extra_count);
+        snprintf(buf, cap, " \xE2\x86\x90 %s: %s (+%d more)", diag_tag(d->type), d->message, extra_count);
     else
-        snprintf(buf, cap, "\xE2\x86\x90 %s: %s", diag_tag(d->type), d->message);
+        snprintf(buf, cap, " \xE2\x86\x90 %s: %s", diag_tag(d->type), d->message);
 }
 
 /* Renders one line's diagnostic inline, "Error Lens"-style, right after its
@@ -7938,7 +7990,7 @@ static void render_editor(ui_screen* s, ui_node* n)
             if (off < le)
                 utf8_decode(n->label + off, &under);
             emit_char(text_x + cursor_col - n->hscroll, n->y + row, under,
-                      g_theme.editor_sel_fg, g_theme.editor_sel_bg);
+                      g_theme.editor_caret_fg, g_theme.editor_caret_bg);
         }
 
         line_idx++;  /* this row's document line is now fully processed */
