@@ -6007,8 +6007,6 @@ void enum_specifier_delete(struct enum_specifier* _Owner _Opt p)
             return; //lint 29
         }
 
-        // TODO delete this comment:
-        // specifier_qualifier_list_delete(p->specifier_qualifier_list);
         attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
         enumerator_list_destroy(&p->enumerator_list);
         free(p);
@@ -6032,7 +6030,6 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
         { enumerator-list , }
         enum identifier enum-type-specifier _Opt
     */
-
 
     struct enum_specifier* _Owner _Opt p_enum_specifier = NULL;
     try

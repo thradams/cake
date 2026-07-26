@@ -662,7 +662,6 @@ struct enum_specifier
     struct type integer_type;
 
     struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_opt;
-    // struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list;
 
     char tag_name[200];
 
