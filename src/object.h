@@ -110,6 +110,9 @@ struct object        object_make_reference(struct object* object);
 struct object   object_make_signed_bitfield(int width, long long value);
 struct object object_make_unsigned_bitfield(int width, unsigned long long value);
 
+bool object_type_is_signed_integer(enum object_type type);
+bool object_type_is_unsigned_integer(enum object_type type);
+
 /* Bitfield type queries */
 bool object_type_is_bitfield(enum object_type t);
 bool object_type_is_signed_bitfield(enum object_type t);
@@ -128,7 +131,7 @@ enum object_type  type_specifier_to_object_type(const enum type_specifier_flags 
 enum type_specifier_flags object_type_to_type_specifier(enum object_type type);
 
 
-void object_increment_value(enum target target, struct object* a);
+bool object_increment_value(enum target target, struct object* a);
 
 
 signed long long object_to_signed_long_long(const struct object* a);

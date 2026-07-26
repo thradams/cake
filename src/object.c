@@ -127,7 +127,7 @@ static enum object_type to_unsigned(enum object_type t)
     return t;
 }
 
-static bool object_type_is_signed_integer(enum object_type type)
+bool object_type_is_signed_integer(enum object_type type)
 {
     if (object_type_is_signed_bitfield(type))
     return true;
@@ -157,7 +157,7 @@ static bool object_type_is_signed_integer(enum object_type type)
     return false;
 }
 
-static bool object_type_is_unsigned_integer(enum object_type type)
+bool object_type_is_unsigned_integer(enum object_type type)
 {
     if (object_type_is_unsigned_bitfield(type))
     return true;
@@ -638,19 +638,21 @@ struct object object_make_signed_char(signed char value)
     return r;
 }
 
-void object_increment_value(enum target target, struct object* a)
+bool object_increment_value(enum target target, struct object* a)
 {
     if (object_type_is_signed_bitfield(a->value_type))
     {
         int w = object_type_bitfield_width(a->value_type);
+        long long prev = a->value.host_long_long;
         a->value.host_long_long = wrap_signed_integer(a->value.host_long_long + 1, w);
-        return;
+        return prev > a->value.host_long_long;
     }
     if (object_type_is_unsigned_bitfield(a->value_type))
     {
         int w = object_type_bitfield_width(a->value_type);
+        unsigned long long prev = a->value.host_u_long_long;
         a->value.host_u_long_long = wrap_unsigned_integer(a->value.host_u_long_long + 1, w);
-        return;
+        return prev > a->value.host_u_long_long;
     }
 
     switch (a->value_type)
@@ -661,24 +663,27 @@ void object_increment_value(enum target target, struct object* a)
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
-
+        ;
+        long long llprev = a->value.host_long_long;
         a->value.host_long_long = wrap_signed_integer(a->value.host_long_long + 1, target_get_num_of_bits(target, a->value_type));
-        break;
+        return llprev > a->value.host_long_long;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
     case TYPE_UNSIGNED_INT:
     case TYPE_UNSIGNED_LONG:
     case TYPE_UNSIGNED_LONG_LONG:
+        ;
+        unsigned long long ullprev = a->value.host_u_long_long;
         a->value.host_u_long_long = wrap_unsigned_integer(a->value.host_u_long_long + 1, target_get_num_of_bits(target, a->value_type));
-        break;
+        return ullprev > a->value.host_u_long_long;
 
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
         a->value.host_long_double++;
         a->value.host_long_double = resize_floating_point(a->value.host_long_double, target_get_num_of_bits(target, a->value_type));
-        break;
+        return false;
 
     default:
         break;
