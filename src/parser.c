@@ -6379,6 +6379,8 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
             }
 
             p_enum_specifier->integer_type = make_with_type_specifier_flags(object_type_to_type_specifier(final_type));
+            if (final_type == TYPE_UNSIGNED_INT && max_value <= int_max)
+                final_type = TYPE_SIGNED_INT;
 
             struct enumerator *it = enumeratorlist.head;
             while (it)

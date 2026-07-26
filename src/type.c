@@ -3059,13 +3059,10 @@ void type_set_int(struct type* p_type)
     p_type->category = TYPE_CATEGORY_ITSELF;
 }
 
-struct type type_make_enumerator(const struct enum_specifier* enum_specifier)
+struct type type_make_enumerator(const struct enumerator* enumerator)
 {
-    struct type t = { 0 };
-    t.type_specifier_flags = TYPE_SPECIFIER_ENUM;
-    t.enum_specifier = enum_specifier;
-    t.category = TYPE_CATEGORY_ITSELF;
-    return t;
+    enum type_specifier_flags flags = object_type_to_type_specifier(enumerator->value.value_type);
+    return make_with_type_specifier_flags(flags);
 }
 
 struct type type_get_enum_type(const struct type* p_type)
