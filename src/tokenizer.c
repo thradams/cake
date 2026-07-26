@@ -7098,6 +7098,23 @@ static bool copy_file_bytes(const char* src, const char* dst)
     return ok;
 }
 
+
+/* Find the last occurrence of c1 or c2 in s. */
+static char* _Opt strrchr_ex(const char* s, int c1)
+{
+    const char* _Opt last = NULL;
+    const char* p = s;
+    while (*p)
+    {
+        if (*p == c1)
+        {
+            last = p;
+        }
+        p++;
+    }
+    return (char*)last;
+}
+
 int preprocessor_copy_included_headers(const struct preprocessor_ctx* ctx,
                                        const char* dest_dir)
 {
@@ -7116,8 +7133,8 @@ int preprocessor_copy_included_headers(const struct preprocessor_ctx* ctx,
             const char* full = p->key;
 
             /* Extract filename */
-            const char* name1 = strrchr(full, '/');
-            const char* name2 = strrchr(full, '\\');
+            const char* name1 = strrchr_ex(full, '/'); //TODO problem in strrchr
+            const char* name2 = strrchr_ex(full, '\\');
 
             const char* name = name1;
             if (name2 && (!name || name2 > name))

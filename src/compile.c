@@ -435,7 +435,7 @@ int compile_one_file(const char* file_name,
 
         if (options->preprocess_only || options->copy_headers[0] != 0)
         {
-            if (options->copy_headers[0] != 0)
+            if (options->copy_headers[0] != '\0')
             {
                 preprocessor_copy_included_headers(&prectx, options->copy_headers);
             }
@@ -1021,7 +1021,7 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
         prectx.options = options;
         add_standard_macros(&prectx, options.target);
 
-        if (options.preprocess_only || options.copy_headers)
+        if (options.preprocess_only || options.copy_headers[0] != '\0')
         {
             struct tokenizer_ctx tctx = { 0 };
             struct token_list tokens = tokenizer(&tctx, content, "c:/main.c", 0, TK_FLAG_NONE);
@@ -1029,9 +1029,9 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
             struct token_list token_list = preprocessor(&prectx, &tokens, 0);
             if (prectx.n_errors == 0)
             {
-                if (options.copy_headers)
+                if (options.copy_headers[0] != '\0')
                 {
-                    preprocessor_copy_included_headers(&prectx, "c:/include");
+                    preprocessor_copy_included_headers(&prectx, options.copy_headers);
                 }
                 else
                 {
