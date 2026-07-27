@@ -6243,7 +6243,7 @@ void enumerator_list_destroy(_Dtor struct enumerator_list* p)
     }
 }
 
-static void update_enumerator_list_range(struct enumerator* p_enumerator, int64_t* min_value, uint64_t* max_value)
+static void update_enumerator_list_range(struct enumerator* p_enumerator, long long* min_value, unsigned long long* max_value)
 {
     bool is_signed = object_type_is_signed_integer(p_enumerator->value.value_type);
     bool is_negative = is_signed && p_enumerator->value.value.host_long_long < 0;
@@ -6278,8 +6278,8 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
     }
 
     // hard limits, only used when enum has fixed underlying type
-    int64_t lo_limit;
-    uint64_t hi_limit;
+    long long lo_limit = 0;
+    unsigned long long hi_limit = 0;
 
     if (p_enum_specifier->has_underlying)
     {
@@ -6293,10 +6293,10 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
             lo_limit = 0;
             hi_limit = target_unsigned_max(ctx->options.target, next_enumerator_value.value_type);
         }
-    }
+    }    
 
-    uint64_t max_value = 0;
-    int64_t min_value = 0;
+    unsigned long long max_value = 0;
+    long long min_value = 0;
 
     struct enumerator_list enumeratorlist = { 0 };
     struct enumerator* _Owner _Opt p_enumerator = NULL;
@@ -6425,8 +6425,8 @@ void enumerator_delete(struct enumerator* _Owner _Opt p)
 struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
     const struct enum_specifier* p_enum_specifier,
     struct object* p_next_enumerator_value,
-    int64_t lo_limit,
-    uint64_t hi_limit,
+    long long lo_limit,
+    unsigned long long hi_limit,
     bool* next_ovf)
 {
     /* TODO: value */
