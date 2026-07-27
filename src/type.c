@@ -1598,14 +1598,6 @@ struct type make_with_specifier_qualifier_list(const struct specifier_qualifier_
     }
 }
 
-struct type type_get_enum_underlying_type(const struct enum_specifier* p)
-{
-    if (!p->p_complete_enum_specifier->specifier_qualifier_list)
-        return type_make_int();
-    else
-        return make_with_specifier_qualifier_list(p->p_complete_enum_specifier->specifier_qualifier_list);
-}
-
 struct type type_common(const struct type* p_type1, const struct type* p_type2, enum target target)
 {
     //See 6.3.1.8 Usual arithmetic conversions
@@ -1710,7 +1702,7 @@ struct type type_common(const struct type* p_type1, const struct type* p_type2, 
 
     if (type_is_enum(p_type1))
     {
-        promoted_a = type_get_enum_underlying_type(p_type1->enum_specifier);
+        promoted_a = p_type1->enum_specifier->integer_type;
 
     }
     else
@@ -1720,7 +1712,7 @@ struct type type_common(const struct type* p_type1, const struct type* p_type2, 
 
     if (type_is_enum(p_type2))
     {
-        promoted_b = type_get_enum_underlying_type(p_type2->enum_specifier);
+        promoted_b = p_type2->enum_specifier->integer_type;
     }
     else
     {
@@ -2646,7 +2638,7 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
         {
             if (p_type->enum_specifier)
             {
-                struct type t = type_get_enum_underlying_type(p_type->enum_specifier);
+                struct type t = p_type->enum_specifier->integer_type;
                 align = type_get_alignof(&t, target);
             }
             else
@@ -2954,7 +2946,7 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
     {
         if (p_type->enum_specifier)
         {
-            struct type t = type_get_enum_underlying_type(p_type->enum_specifier);
+            struct type t = p_type->enum_specifier->integer_type;
             enum sizeof_result e = type_get_sizeof(&t, size, target);
             return e;
         }
@@ -3067,13 +3059,12 @@ void type_set_int(struct type* p_type)
     p_type->category = TYPE_CATEGORY_ITSELF;
 }
 
-struct type type_make_enumerator(const struct enum_specifier* enum_specifier)
+struct type type_make_enumerator(const struct enumerator* enumerator)
 {
-    struct type t = { 0 };
-    t.type_specifier_flags = TYPE_SPECIFIER_ENUM;
-    t.enum_specifier = enum_specifier;
-    t.category = TYPE_CATEGORY_ITSELF;
-    return t;
+    enum type_specifier_flags flags = object_type_to_type_specifier(enumerator->value.value_type) | TYPE_SPECIFIER_ENUM;
+    struct type type = make_with_type_specifier_flags(flags);
+    type.enum_specifier = enumerator->enum_specifier;
+    return type;
 }
 
 struct type type_get_enum_type(const struct type* p_type)
@@ -3083,21 +3074,7 @@ struct type type_get_enum_type(const struct type* p_type)
         if (p_type->enum_specifier == NULL)
             throw;
 
-        const struct enum_specifier* _Opt p_complete_enum_specifier =
-            get_complete_enum_specifier(p_type->enum_specifier);
-
-        if (p_complete_enum_specifier &&
-            p_complete_enum_specifier->specifier_qualifier_list)
-        {
-            struct type t = { 0 };
-            t.type_qualifier_flags = p_complete_enum_specifier->specifier_qualifier_list->type_qualifier_flags;
-            t.type_specifier_flags = p_complete_enum_specifier->specifier_qualifier_list->type_specifier_flags;
-            return t;
-        }
-
-        struct type t = { 0 };
-        t.type_specifier_flags = TYPE_SPECIFIER_INT;
-        return t;
+        return p_type->enum_specifier->integer_type;
     }
     catch
     {
@@ -3302,28 +3279,22 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
         bool underlying_matched = false;
         if (pa->enum_specifier)
         {
-            if (pa->enum_specifier->p_complete_enum_specifier->specifier_qualifier_list)
+            struct type a_underlying = pa->enum_specifier->integer_type;
+            if (!type_is_same(&a_underlying, pb, compare_qualifiers))
             {
-                struct type a_underlying = type_get_enum_underlying_type(pa->enum_specifier->p_complete_enum_specifier);
-                if (!type_is_same(&a_underlying, b, compare_qualifiers))
-                {
-                    return false;
-                }
-                underlying_matched = true;
+                return false;
             }
+            underlying_matched = true;
         }
 
         if (pb->enum_specifier)
         {
-            if (pb->enum_specifier->p_complete_enum_specifier->specifier_qualifier_list)
+            struct type b_underlying = pb->enum_specifier->integer_type;
+            if (!type_is_same(pa, &b_underlying, compare_qualifiers))
             {
-                struct type b_underlying = type_get_enum_underlying_type(pb->enum_specifier->p_complete_enum_specifier);
-                if (!type_is_same(a, &b_underlying, compare_qualifiers))
-                {
-                    return false;
-                }
-                underlying_matched = true;
+                return false;
             }
+            underlying_matched = true;
         }
 
         if (pa->enum_specifier &&

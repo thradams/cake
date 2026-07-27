@@ -633,7 +633,7 @@ struct enumerator_list
 };
 
 struct enumerator_list enumerator_list(struct parser_ctx* ctx,
-    const struct enum_specifier* p_enum_specifier
+    struct enum_specifier* p_enum_specifier
 );
 
 void enumerator_list_destroy(_Dtor struct enumerator_list* p_enum_specifier);
@@ -657,9 +657,11 @@ struct enum_specifier
         - false, only AST OR and some map have the ownership
     */
     bool has_shared_ownership;
+    bool has_underlying;
+
+    struct type integer_type;
 
     struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_opt;
-    struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list;
 
     char tag_name[200];
 
@@ -671,7 +673,6 @@ struct enum_specifier
     struct enum_specifier* _Opt p_complete_enum_specifier;
 };
 
-bool enum_specifier_has_fixed_underlying_type(const struct enum_specifier*);
 struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx*);
 
 struct enum_specifier* _Owner enum_specifier_add_ref(struct enum_specifier* p);
@@ -1714,7 +1715,7 @@ struct enumerator
     struct object value;
 };
 
-struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, struct object* p_enumerator_value);
+struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, struct object* p_enumerator_value, int64_t lo_limit, uint64_t hi_limit, bool *next_ovf);
 struct enumerator* _Owner enumerator_add_ref(struct enumerator* p);
 void enumerator_delete(struct enumerator* _Owner _Opt  p);
 

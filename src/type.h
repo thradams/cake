@@ -415,8 +415,8 @@ struct type type_make_long_double();
 struct type type_make_double();
 struct type type_make_float();
 
-
-struct type type_make_enumerator(const struct enum_specifier* enum_specifier);
+struct enumerator;
+struct type type_make_enumerator(const struct enumerator* enumerator);
 struct type make_void_type();
 struct type make_void_ptr_type();
 struct type make_size_t_type(enum target target);

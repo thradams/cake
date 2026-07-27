@@ -1401,7 +1401,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                 p_expression_node->expression_type = EXPR_PRIMARY_ENUMERATOR;
                 p_expression_node->object = object_dup(&p_enumerator->value);
 
-                p_expression_node->type = type_make_enumerator(p_enumerator->enum_specifier);
+                p_expression_node->type = type_make_enumerator(p_enumerator);
             }
             else if (p_entry &&
                 (p_entry->type == TAG_TYPE_DECLARATOR || p_entry->type == TAG_TYPE_INIT_DECLARATOR))

@@ -1158,7 +1158,7 @@ bool first_of_type_qualifier(const struct parser_ctx* ctx)
     return first_of_type_qualifier_token(ctx->current);
 }
 
-struct map_entry* _Opt find_tag(struct parser_ctx* ctx, const char* lexeme)
+struct map_entry* _Opt find_tag(struct parser_ctx* ctx, const char* lexeme, struct scope* _Opt* _Opt ppscope_opt)
 {
     struct scope* _Opt scope = ctx->scopes.tail;
     while (scope)
@@ -1166,6 +1166,8 @@ struct map_entry* _Opt find_tag(struct parser_ctx* ctx, const char* lexeme)
         struct map_entry* _Opt p_entry = hashmap_find(&scope->tags, lexeme);
         if (p_entry)
         {
+            if (ppscope_opt)
+                *ppscope_opt = scope;
             return p_entry;
         }
         scope = scope->previous;
@@ -4792,24 +4794,7 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
 
 enum type_specifier_flags get_enum_type_specifier_flags(const struct enum_specifier* p_enum_specifier)
 {
-    if (p_enum_specifier->specifier_qualifier_list)
-    {
-        return p_enum_specifier->specifier_qualifier_list->type_specifier_flags;
-    }
-
-    if (p_enum_specifier->p_complete_enum_specifier &&
-        p_enum_specifier->p_complete_enum_specifier->specifier_qualifier_list)
-    {
-        return p_enum_specifier->p_complete_enum_specifier->specifier_qualifier_list->type_specifier_flags;
-    }
-    else if (p_enum_specifier->p_complete_enum_specifier &&
-        p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier &&
-        p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier->specifier_qualifier_list)
-    {
-        return p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier->specifier_qualifier_list->type_specifier_flags;
-    }
-
-    return TYPE_SPECIFIER_INT;
+    return p_enum_specifier->integer_type.type_specifier_flags;
 }
 
 const struct enum_specifier* _Opt get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier)
@@ -6022,16 +6007,10 @@ void enum_specifier_delete(struct enum_specifier* _Owner _Opt p)
             return; //lint 29
         }
 
-        specifier_qualifier_list_delete(p->specifier_qualifier_list);
         attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
         enumerator_list_destroy(&p->enumerator_list);
         free(p);
     }
-}
-
-bool enum_specifier_has_fixed_underlying_type(const struct enum_specifier* p_enum_specifier)
-{
-    return p_enum_specifier->specifier_qualifier_list != NULL;
 }
 
 struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
@@ -6069,6 +6048,8 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
         if (parser_match_tk(ctx, TK_KEYWORD_ENUM) != 0)
             throw;
 
+        p_enum_specifier->integer_type = type_make_int();
+
         p_enum_specifier->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
         if (ctx->current == NULL)
@@ -6077,12 +6058,23 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             throw;
         }
 
+        struct enum_specifier *prev_decl = NULL; // previous enum definition in the same scope. must be identical
         if (ctx->current->type == TK_IDENTIFIER)
         {
             snprintf(p_enum_specifier->tag_name, sizeof p_enum_specifier->tag_name, "%s", ctx->current->lexeme);
 
             p_enum_specifier->tag_token = ctx->current;
             parser_match(ctx);
+
+            struct scope *sc;
+            struct map_entry *found_tag = find_tag(ctx, p_enum_specifier->tag_token->lexeme, &sc);
+            if (found_tag && sc == ctx->scopes.tail)
+            {
+                if (found_tag->type == TAG_TYPE_ENUM_SPECIFIER)
+                {
+                    prev_decl = found_tag->data.p_enum_specifier;
+                }
+            }
         }
         else
         {
@@ -6102,26 +6094,38 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             if (!ctx->inside_generic_association || first_of_type_specifier_token(ctx, p_token_ahead))
             {
                 /* C23 */
-                parser_match(ctx);
-                p_enum_specifier->specifier_qualifier_list = specifier_qualifier_list(ctx);
-                if (p_enum_specifier->specifier_qualifier_list == NULL)
-                    throw;
 
-                struct type enum_underline_type = make_with_specifier_qualifier_list(p_enum_specifier->specifier_qualifier_list);
-                enum_underline_type = type_dup(&enum_underline_type);
-
-                if (!type_is_integer(&enum_underline_type))
+                if (prev_decl && !prev_decl->has_underlying)
                 {
-                    type_destroy(&enum_underline_type);
-                    diagnostic(C_ERROR_NON_INTEGRAL_ENUM_TYPE,
-                        ctx,
-                        p_enum_specifier->specifier_qualifier_list->first_token,
-                        NULL,
-                        "expected an integer type");
-
+                    diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, ctx->current, NULL, "enum redeclared with underlying type");
                     throw;
                 }
-                type_destroy(&enum_underline_type);
+
+                p_enum_specifier->has_underlying = true;
+
+                parser_match(ctx);
+                struct specifier_qualifier_list *list = specifier_qualifier_list(ctx);
+                if (list == NULL)
+                    throw;
+                struct token *first_token = list->first_token;
+                p_enum_specifier->integer_type = make_with_specifier_qualifier_list(list);
+
+                specifier_qualifier_list_delete(list);
+
+                if (!type_is_integer(&p_enum_specifier->integer_type))
+                {
+                    diagnostic(C_ERROR_NON_INTEGRAL_ENUM_TYPE,
+                        ctx,
+                        first_token,
+                        NULL,
+                        "expected an integer type");
+                    throw;
+                }
+                if(prev_decl && !type_is_same(&prev_decl->integer_type, &p_enum_specifier->integer_type, false))
+                {
+                    diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, first_token, NULL, "enum redeclared with different underlying type");
+                    throw;
+                }
             }
             else
             {
@@ -6136,6 +6140,12 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
 
         if (ctx->current->type == '{')
         {
+            if (prev_decl && (p_enum_specifier->has_underlying != prev_decl->has_underlying))
+            {
+                diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_enum_specifier->first_token, NULL, "enum redeclared without underlying type");
+                throw;
+            }
+
             if (p_enum_specifier->tag_token)
                 naming_convention_enum_tag(ctx, p_enum_specifier->tag_token);
 
@@ -6183,6 +6193,8 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 //ja existe
                 /* check for another tag with the same name in this scope */
                 p_enum_specifier->p_complete_enum_specifier = p_existing_enum_specifier;
+                p_enum_specifier->integer_type = p_existing_enum_specifier->integer_type;
+                p_enum_specifier->has_underlying = p_existing_enum_specifier->has_underlying;
             }
             else
             {
@@ -6231,7 +6243,25 @@ void enumerator_list_destroy(_Dtor struct enumerator_list* p)
     }
 }
 
-struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier)
+static void update_enumerator_list_range(struct enumerator *p_enumerator, int64_t *min_value, uint64_t *max_value)
+{
+    bool is_signed = object_type_is_signed_integer(p_enumerator->value.value_type);
+    bool is_negative = is_signed && p_enumerator->value.value.host_long_long < 0;
+    
+    if (is_signed && p_enumerator->value.value.host_long_long < *min_value)
+    {
+        *min_value = p_enumerator->value.value.host_long_long;
+    }
+    if (
+        (is_signed && !is_negative && p_enumerator->value.value.host_long_long > *max_value) ||
+        (!is_signed && p_enumerator->value.value.host_u_long_long > *max_value)
+    )
+    {
+        *max_value = p_enumerator->value.value.host_u_long_long;
+    }
+}
+
+struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_specifier* p_enum_specifier)
 {
 
     /*
@@ -6241,20 +6271,43 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
 
     struct object next_enumerator_value = object_make_signed_int(ctx->options.target, 0);
 
-    if (p_enum_specifier->specifier_qualifier_list)
+    if (p_enum_specifier->has_underlying)
     {
-        enum object_type vt = type_specifier_to_object_type(p_enum_specifier->specifier_qualifier_list->type_specifier_flags, ctx->options.target);
+        enum object_type vt = type_specifier_to_object_type(p_enum_specifier->integer_type.type_specifier_flags, ctx->options.target);
         next_enumerator_value = object_cast(ctx->options.target, vt, &next_enumerator_value);
     }
+
+    // hard limits, only used when enum has fixed underlying type
+    int64_t lo_limit;
+    uint64_t hi_limit;
+
+    if (p_enum_specifier->has_underlying)
+    {
+        if (type_is_signed_integer(&p_enum_specifier->integer_type))
+        {
+            lo_limit = target_signed_min(ctx->options.target, next_enumerator_value.value_type);
+            hi_limit = target_signed_max(ctx->options.target, next_enumerator_value.value_type);
+        }
+        else
+        {
+            lo_limit = 0;
+            hi_limit = target_unsigned_max(ctx->options.target, next_enumerator_value.value_type);
+        }
+    }
+
+    uint64_t max_value = 0;
+    int64_t min_value = 0;
 
     struct enumerator_list enumeratorlist = { 0 };
     struct enumerator* _Owner _Opt p_enumerator = NULL;
     try
     {
-        p_enumerator = enumerator(ctx, p_enum_specifier, &next_enumerator_value);
+        bool next_ovf = false;
+        p_enumerator = enumerator(ctx, p_enum_specifier, &next_enumerator_value, lo_limit, hi_limit, &next_ovf);
         if (p_enumerator == NULL)
             throw;
 
+        update_enumerator_list_range(p_enumerator, &min_value, &max_value);
         enumerator_list_add(&enumeratorlist, p_enumerator);
 
         while (ctx->current != NULL && ctx->current->type == ',')
@@ -6265,10 +6318,73 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
 
             if (ctx->current && ctx->current->type != '}')
             {
-                p_enumerator = enumerator(ctx, p_enum_specifier, &next_enumerator_value);
+                p_enumerator = enumerator(ctx, p_enum_specifier, &next_enumerator_value, lo_limit, hi_limit, &next_ovf);
                 if (p_enumerator == NULL)
                     throw;
+                update_enumerator_list_range(p_enumerator, &min_value, &max_value);
                 enumerator_list_add(&enumeratorlist, p_enumerator);
+            }
+        }
+
+        if (!p_enum_specifier->has_underlying)
+        {
+            long long int_min = target_signed_min(ctx->options.target, TYPE_SIGNED_INT);
+            long long int_max = target_signed_max(ctx->options.target, TYPE_SIGNED_INT);
+            
+            unsigned long long uint_max = target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_INT);
+
+            unsigned long long ulong_max = target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG);
+            
+            long long long_min = target_signed_min(ctx->options.target, TYPE_SIGNED_LONG);
+            long long long_max = target_signed_max(ctx->options.target, TYPE_SIGNED_LONG);
+
+            
+            unsigned long long ullong_max = target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG_LONG);
+
+            long long llong_min = target_signed_min(ctx->options.target, TYPE_SIGNED_LONG_LONG);
+            long long llong_max = target_signed_max(ctx->options.target, TYPE_SIGNED_LONG_LONG);
+
+            enum object_type final_type;
+
+            if(max_value <= uint_max && min_value >= 0)
+            {
+                final_type = TYPE_UNSIGNED_INT;
+            }
+            else if (max_value <= int_max && min_value >= int_min)
+            {
+                final_type = TYPE_SIGNED_INT;
+            }
+            else if(max_value <= ulong_max && min_value >= 0)
+            {
+                final_type = TYPE_UNSIGNED_LONG;
+            }
+            else if(max_value <= long_max && min_value >= long_min)
+            {
+                final_type = TYPE_SIGNED_LONG;
+            }
+            else if(max_value <= ullong_max && min_value >= 0)
+            {
+                final_type = TYPE_UNSIGNED_LONG_LONG;
+            }
+            else if(max_value <= llong_max && min_value >= llong_min)
+            {
+                final_type = TYPE_SIGNED_LONG_LONG;
+            }
+            else
+            {
+                diagnostic(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "enum value range unsupported");
+                throw;
+            }
+
+            p_enum_specifier->integer_type = make_with_type_specifier_flags(object_type_to_type_specifier(final_type));
+            if (final_type == TYPE_UNSIGNED_INT && max_value <= int_max)
+                final_type = TYPE_SIGNED_INT;
+
+            struct enumerator *it = enumeratorlist.head;
+            while (it)
+            {
+                it->value = object_cast(ctx->options.target, final_type, &it->value);
+                it = it->next;
             }
         }
     }
@@ -6308,7 +6424,10 @@ void enumerator_delete(struct enumerator* _Owner _Opt p)
 
 struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
     const struct enum_specifier* p_enum_specifier,
-    struct object* p_next_enumerator_value)
+    struct object* p_next_enumerator_value,
+    int64_t lo_limit,
+    uint64_t hi_limit,
+    bool* next_ovf)
 {
     /* TODO: value */
     struct enumerator* _Owner _Opt p_enumerator = NULL;
@@ -6353,27 +6472,42 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
             runtime_assert(p_enumerator->constant_expression_opt == NULL);
             p_enumerator->constant_expression_opt = constant_expression(ctx, true, false);
             if (p_enumerator->constant_expression_opt == NULL) throw;
-
-            if (enum_specifier_has_fixed_underlying_type(p_enum_specifier))
+            if (!type_is_integer(&p_enumerator->constant_expression_opt->type))
             {
+                diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->constant_expression_opt->first_token, NULL, "enumerator initializer must be integer");
+                throw;
+            }
 
-            }
-            else
-            {
-                //if the value is bigger than int the enum whould type must be fixed
-            }
             p_enumerator->value = p_enumerator->constant_expression_opt->object;
+            bool is_signed = object_type_is_signed_integer(p_enumerator->value.value_type);
+            bool is_negative = is_signed && (p_enumerator->value.value.host_long_long < 0);
+
+            if (p_enum_specifier->has_underlying)
+            {
+                if(
+                    (is_signed && ((!is_negative && (uint64_t)p_enumerator->value.value.host_long_long > hi_limit) || p_enumerator->value.value.host_long_long < lo_limit)) ||
+                    (!is_signed && (p_enumerator->value.value.host_u_long_long > hi_limit))
+                )
+                {
+                    diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->token, NULL, "enumerator value outside of underlying type range");
+                    throw;
+                }
+            }
 
             //fixes #257
             *p_next_enumerator_value = *object_get_referenced(&p_enumerator->value);
 
-            object_increment_value(ctx->options.target, p_next_enumerator_value);
-            //overflow?
+            *next_ovf = object_increment_value(ctx->options.target, p_next_enumerator_value);
         }
         else
         {
+            if (*next_ovf)
+            {
+                diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->token, NULL, "enumerator overflow");
+                throw;
+            }
             p_enumerator->value = *p_next_enumerator_value;
-            object_increment_value(ctx->options.target, p_next_enumerator_value);
+            *next_ovf = object_increment_value(ctx->options.target, p_next_enumerator_value);
         }
     }
     catch
