@@ -3061,8 +3061,10 @@ void type_set_int(struct type* p_type)
 
 struct type type_make_enumerator(const struct enumerator* enumerator)
 {
-    enum type_specifier_flags flags = object_type_to_type_specifier(enumerator->value.value_type);
-    return make_with_type_specifier_flags(flags);
+    enum type_specifier_flags flags = object_type_to_type_specifier(enumerator->value.value_type) | TYPE_SPECIFIER_ENUM;
+    struct type type = make_with_type_specifier_flags(flags);
+    type.enum_specifier = enumerator->enum_specifier;
+    return type;
 }
 
 struct type type_get_enum_type(const struct type* p_type)
