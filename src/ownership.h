@@ -122,5 +122,4 @@ float strtof(char const* _String, char** _Opt _EndPtr);
 //#include <stdlib.h>
 //#include <crtdbg.h>
 #endif
-//#pragma CAKE diagnostic error "C0029"
 

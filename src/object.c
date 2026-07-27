@@ -37,10 +37,10 @@ bool object_type_is_bitfield(enum object_type t)
 int object_type_bitfield_width(enum object_type t)
 {
     if (object_type_is_unsigned_bitfield(t))
-    return (int)(t - TYPE_UNSIGNED_BITFIELD_1 + 1);
+        return (int)(t - TYPE_UNSIGNED_BITFIELD_1 + 1);
 
     if (object_type_is_signed_bitfield(t))
-    return (int)(t - TYPE_SIGNED_BITFIELD_1 + 1);
+        return (int)(t - TYPE_SIGNED_BITFIELD_1 + 1);
 
     runtime_assert(false);
     return 0;
@@ -61,7 +61,7 @@ static unsigned long long wrap_unsigned_integer(unsigned long long value, int bi
     runtime_assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
 
     if (bits == 0 || bits >= sizeof(unsigned long long) * CHAR_BIT)
-    return value;
+        return value;
 
     const unsigned long long mask = (1ULL << bits) - 1;
     return value & mask;
@@ -72,7 +72,7 @@ static long long wrap_signed_integer(long long value, int bits)
     runtime_assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
 
     if (bits == 0 || bits >= sizeof(unsigned long long) * CHAR_BIT)
-    return value;
+        return value;
 
     // Mask to keep lower n bits
     const unsigned long long mask = (1ULL << bits) - 1;
@@ -80,7 +80,7 @@ static long long wrap_signed_integer(long long value, int bits)
 
     // If the sign bit (bit n-1) is set, interpret as negative
     if (wrapped & (1ULL << (bits - 1)))
-    return (long long)(wrapped | ~mask); // sign-extend
+        return (long long)(wrapped | ~mask); // sign-extend
 
     return (long long)wrapped;
 }
@@ -102,10 +102,10 @@ static long double resize_floating_point(long double value, int bits)
 static enum object_type to_unsigned(enum object_type t)
 {
     if (object_type_is_signed_bitfield(t))
-    return bitfield_to_unsigned(t);
+        return bitfield_to_unsigned(t);
 
     if (object_type_is_unsigned_bitfield(t))
-    return t;
+        return t;
 
     switch (t)
     {
@@ -130,7 +130,7 @@ static enum object_type to_unsigned(enum object_type t)
 bool object_type_is_signed_integer(enum object_type type)
 {
     if (object_type_is_signed_bitfield(type))
-    return true;
+        return true;
 
     switch (type)
     {
@@ -160,7 +160,7 @@ bool object_type_is_signed_integer(enum object_type type)
 bool object_type_is_unsigned_integer(enum object_type type)
 {
     if (object_type_is_unsigned_bitfield(type))
-    return true;
+        return true;
 
     switch (type)
     {
@@ -195,7 +195,7 @@ bool unsigned_long_long_sub(_Ctor unsigned long long* result, unsigned long long
     *result = 0;
 
     if (a < b)
-    return false;
+        return false;
 
     *result = a - b;
     return true;
@@ -217,7 +217,7 @@ bool unsigned_long_long_mul(_Ctor unsigned long long* result, unsigned long long
     }
 
     if (a > ULLONG_MAX / b)
-    return false;
+        return false;
 
     *result = a * b;
     return true;
@@ -359,8 +359,8 @@ bool signed_long_long_mul(_Ctor signed long long* result, signed long long a, si
         if (b > 0)
         {
             if (a < LLONG_MIN / b)
-            //(-127) * (2)
-            return false;
+                //(-127) * (2)
+                return false;
         }
         else
         {
@@ -441,7 +441,7 @@ bool object_has_all_members_constants(const struct object* object)
         while (member)
         {
             if (!object_has_all_members_constants(member))
-            return false;
+                return false;
             member = member->next;
         }
         return true; /* all members passed */
@@ -460,7 +460,7 @@ bool object_has_known_value(const struct object* a)
 {
     a = object_get_referenced(a);
     return a->state == CONSTANT_VALUE_STATE_CONSTANT ||
-    a->state == CONSTANT_VALUE_EQUAL;
+        a->state == CONSTANT_VALUE_EQUAL;
 }
 
 struct object object_make_size_t(enum target target, unsigned long long value)
@@ -527,7 +527,7 @@ struct object object_make_bool(enum target target, bool value)
     return r;
 }
 
-int object_to_str(const struct object* a, int n, char str[ /*n*/ ])
+int object_to_str(const struct object* a, int n, char str[ /*n*/])
 {
     str[0] = '\0';
 
@@ -597,9 +597,9 @@ bool object_is_true(const struct object* a)
     a = object_get_referenced(a);
 
     if (object_type_is_signed_bitfield(a->value_type))
-    return a->value.host_long_long != 0;
+        return a->value.host_long_long != 0;
     if (object_type_is_unsigned_bitfield(a->value_type))
-    return a->value.host_u_long_long != 0;
+        return a->value.host_u_long_long != 0;
 
     switch (a->value_type)
     {
@@ -786,9 +786,9 @@ signed long long object_to_signed_long_long(const struct object* a)
     a = object_get_referenced(a);
 
     if (object_type_is_signed_bitfield(a->value_type))
-    return a->value.host_long_long;
+        return a->value.host_long_long;
     if (object_type_is_unsigned_bitfield(a->value_type))
-    return (signed long long)a->value.host_u_long_long;
+        return (signed long long)a->value.host_u_long_long;
 
     switch (a->value_type)
     {
@@ -831,9 +831,9 @@ unsigned long long object_to_unsigned_long_long(const struct object* a)
     a = object_get_referenced(a);
 
     if (object_type_is_signed_bitfield(a->value_type))
-    return (unsigned long long)a->value.host_long_long;
+        return (unsigned long long)a->value.host_long_long;
     if (object_type_is_unsigned_bitfield(a->value_type))
-    return a->value.host_u_long_long;
+        return a->value.host_u_long_long;
 
     switch (a->value_type)
     {
@@ -940,7 +940,7 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
 
     //No changes
     if (v->value_type == dest_type)
-    return object_dup(v);
+        return object_dup(v);
 
     const enum object_type source_type = v->value_type;
 
@@ -1045,9 +1045,9 @@ void object_default_initialization(struct object* p_object, bool is_constant)
     if (p_object->members.head == NULL)
     {
         if (is_constant)
-        p_object->state = CONSTANT_VALUE_STATE_CONSTANT;
+            p_object->state = CONSTANT_VALUE_STATE_CONSTANT;
         else
-        p_object->state = CONSTANT_VALUE_EQUAL;
+            p_object->state = CONSTANT_VALUE_EQUAL;
         p_object->value.host_u_long_long = 0;
     }
 
@@ -1196,12 +1196,12 @@ bool object_is_zero(const struct object* p_object)
     p_object = (struct object* _Opt) object_get_referenced(p_object);
 
     if (!object_has_constant_value(p_object))
-    return false;
+        return false;
 
     if (object_type_is_signed_bitfield(p_object->value_type))
-    return p_object->value.host_long_long == 0;
+        return p_object->value.host_long_long == 0;
     if (object_type_is_unsigned_bitfield(p_object->value_type))
-    return p_object->value.host_u_long_long == 0;
+        return p_object->value.host_u_long_long == 0;
 
     switch (p_object->value_type)
     {
@@ -1236,12 +1236,12 @@ bool object_is_one(const struct object* p_object)
     p_object = (struct object* _Opt) object_get_referenced(p_object);
 
     if (!object_has_constant_value(p_object))
-    return false;
+        return false;
 
     if (object_type_is_signed_bitfield(p_object->value_type))
-    return p_object->value.host_long_long == 1;
+        return p_object->value.host_long_long == 1;
     if (object_type_is_unsigned_bitfield(p_object->value_type))
-    return p_object->value.host_u_long_long == 1;
+        return p_object->value.host_u_long_long == 1;
 
     switch (p_object->value_type)
     {
@@ -1274,7 +1274,7 @@ bool object_is_one(const struct object* p_object)
 bool object_is_derived(const struct object* p_object)
 {
     if (p_object->p_ref != NULL)
-    return false;
+        return false;
 
     return p_object->members.head != NULL;
 }
@@ -1299,14 +1299,14 @@ struct object* _Opt object_get_member(const struct object* p_object, size_t inde
     p_object = (struct object* _Opt) object_get_referenced(p_object);
 
     if (p_object->members.head == NULL)
-    return NULL; //tODO
+        return NULL; //tODO
 
     struct object* _Opt it = p_object->members.head;
     size_t count = 0;
     while (it)
     {
         if (index == count)
-        return it;
+            return it;
         count++;
         it = it->next;
     }
@@ -1336,7 +1336,7 @@ int object_set(
             while (it_from && it_to)
             {
                 if (object_set(ctx, it_to, NULL, it_from, is_constant, requires_constant_initialization) != 0)
-                throw;
+                    throw;
                 it_to = it_to->next;
                 it_from = it_from->next;
             }
@@ -1418,7 +1418,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
         {
             p_object = calloc(1, sizeof * p_object);
             if (p_object == NULL)
-            throw;
+                throw;
             p_object->member_designator = strdup(member_designator);
             p_object->type = type_dup(p_type);
             return p_object;
@@ -1428,7 +1428,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
         {
             p_object = calloc(1, sizeof * p_object);
             if (p_object == NULL)
-            throw;
+                throw;
 
             *p_object = object_make_nullptr(target);
             p_object->state = CONSTANT_VALUE_STATE_UNINITIALIZED;
@@ -1445,7 +1445,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
         {
             p_object = calloc(1, sizeof * p_object);
             if (p_object == NULL)
-            throw;
+                throw;
             p_object->type = type_dup(p_type);
             p_object->member_designator = strdup(member_designator);
 
@@ -1482,7 +1482,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
         {
             p_object = calloc(1, sizeof * p_object);
             if (p_object == NULL)
-            throw;
+                throw;
 
             switch (make_state)
             {
@@ -1515,7 +1515,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
         }
 
         struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
-        get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
         if (p_struct_or_union_specifier == NULL)
         {
@@ -1525,20 +1525,20 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
 
         p_object = calloc(1, sizeof * p_object);
         if (p_object == NULL)
-        throw;
+            throw;
 
         p_object->member_designator = strdup(member_designator);
         p_object->type = type_dup(p_type);
 
         struct member_declaration* _Opt p_member_declaration =
-        p_struct_or_union_specifier->member_declaration_list.head;
+            p_struct_or_union_specifier->member_declaration_list.head;
 
         while (p_member_declaration)
         {
             if (p_member_declaration->member_declarator_list_opt)
             {
                 struct member_declarator* _Opt p_member_declarator =
-                p_member_declaration->member_declarator_list_opt->head;
+                    p_member_declaration->member_declarator_list_opt->head;
 
                 while (p_member_declarator)
                 {
@@ -1558,7 +1558,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
 
                         struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&p_member_declarator->declarator->type, buffer, make_state, target);
                         if (p_member_obj == NULL)
-                        throw;
+                            throw;
 
                         p_member_obj->parent = p_object;
 
@@ -1583,7 +1583,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
 
                     struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&t, buffer, make_state, target);
                     if (p_member_obj == NULL)
-                    throw;
+                        throw;
 
                     free((void* _Owner)p_member_obj->member_designator);
                     p_member_obj->member_designator = strdup(buffer);
@@ -1674,10 +1674,10 @@ int make_object(const struct type* p_type, struct object* obj, enum make_state m
 enum type_specifier_flags object_type_to_type_specifier(enum object_type type)
 {
     if (object_type_is_signed_bitfield(type))
-    return TYPE_SPECIFIER_INT;
+        return TYPE_SPECIFIER_INT;
 
     if (object_type_is_unsigned_bitfield(type))
-    return TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
+        return TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
 
     switch (type)
     {
@@ -1712,10 +1712,10 @@ enum object_type type_specifier_to_object_type(const enum type_specifier_flags t
 {
 
     if (type_specifier_flags & TYPE_SPECIFIER_BOOL)
-    return get_platform(target)->bool_type;
+        return get_platform(target)->bool_type;
 
     if (type_specifier_flags & TYPE_SPECIFIER_FLOAT)
-    return TYPE_FLOAT;
+        return TYPE_FLOAT;
 
     if (type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
     {
@@ -1729,30 +1729,30 @@ enum object_type type_specifier_to_object_type(const enum type_specifier_flags t
     if (type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
     {
         if (type_specifier_flags & TYPE_SPECIFIER_CHAR)
-        return TYPE_UNSIGNED_CHAR;
+            return TYPE_UNSIGNED_CHAR;
         if (type_specifier_flags & TYPE_SPECIFIER_SHORT)
-        return TYPE_UNSIGNED_SHORT;
+            return TYPE_UNSIGNED_SHORT;
 
         if (type_specifier_flags & TYPE_SPECIFIER_LONG)
-        return TYPE_UNSIGNED_LONG;
+            return TYPE_UNSIGNED_LONG;
 
         if (type_specifier_flags & TYPE_SPECIFIER_INT)
-        return TYPE_UNSIGNED_INT;
+            return TYPE_UNSIGNED_INT;
         if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
-        return TYPE_UNSIGNED_LONG_LONG;
+            return TYPE_UNSIGNED_LONG_LONG;
     }
     else
     {
         if (type_specifier_flags & TYPE_SPECIFIER_CHAR)
-        return TYPE_SIGNED_CHAR;
+            return TYPE_SIGNED_CHAR;
         if (type_specifier_flags & TYPE_SPECIFIER_SHORT)
-        return TYPE_SIGNED_SHORT;
+            return TYPE_SIGNED_SHORT;
         if (type_specifier_flags & TYPE_SPECIFIER_LONG)
-        return TYPE_SIGNED_LONG;
+            return TYPE_SIGNED_LONG;
         if (type_specifier_flags & TYPE_SPECIFIER_INT)
-        return TYPE_SIGNED_INT;
+            return TYPE_SIGNED_INT;
         if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
-        return TYPE_SIGNED_LONG_LONG;
+            return TYPE_SIGNED_LONG_LONG;
     }
     return TYPE_SIGNED_INT;
 }
@@ -1778,14 +1778,14 @@ enum object_type type_to_object_type(const struct type* type, enum target target
         bool is_unsigned_base = false;
 
         if (type_is_bool(type))
-        is_unsigned_base = true;
+            is_unsigned_base = true;
         else
-        is_unsigned_base = !!(type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED);
+            is_unsigned_base = !!(type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED);
 
         if (is_unsigned_base)
-        return (enum object_type)(TYPE_UNSIGNED_BITFIELD_1 + (width - 1)); /* TYPE_UNSIGNED_BITFIELD_N */
+            return (enum object_type)(TYPE_UNSIGNED_BITFIELD_1 + (width - 1)); /* TYPE_UNSIGNED_BITFIELD_N */
         else
-        return (enum object_type)(TYPE_SIGNED_BITFIELD_1 + (width - 1)); /* TYPE_SIGNED_BITFIELD_N  */
+            return (enum object_type)(TYPE_SIGNED_BITFIELD_1 + (width - 1)); /* TYPE_SIGNED_BITFIELD_N  */
     }
 
     return type_specifier_to_object_type(type->type_specifier_flags, target);
@@ -1876,7 +1876,7 @@ void object_print_to_debug_core(const struct object* object, int n, enum target 
 
     for (int i = 0; i < n; i++) printf("  ");
     if (object->member_designator)
-    printf("%s ", object->member_designator);
+        printf("%s ", object->member_designator);
 
     if (object->members.head != NULL)
     {
@@ -1940,7 +1940,7 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
                 is_constant ? MAKE_STATE_ZERO_CONSTANT : MAKE_STATE_ZERO,
                 target);
             if (p == NULL)
-            throw;
+                throw;
 
             p->parent = a;
             object_default_initialization(p, is_constant);
@@ -2209,9 +2209,9 @@ void object_print_value(struct osstream* ss, const struct object* a, enum target
         }
 
         if (a->value_type == TYPE_FLOAT)
-        ss_fprintf(ss, "f");
+            ss_fprintf(ss, "f");
         else if (a->value_type == TYPE_LONG_DOUBLE)
-        ss_fprintf(ss, "Lf");
+            ss_fprintf(ss, "Lf");
         break;
 
     default:
@@ -2243,11 +2243,11 @@ struct object object_equal(enum target target,
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
-        {
-            r.value.host_long_long =
+    {
+        r.value.host_long_long =
             wrap_signed_integer(a0.value.host_long_long == b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-        }
-        break;
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -2256,7 +2256,7 @@ struct object object_equal(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(a0.value.host_u_long_long == b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(a0.value.host_u_long_long == b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -2298,11 +2298,11 @@ struct object object_not_equal(enum target target,
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
-        {
-            r.value.host_long_long =
+    {
+        r.value.host_long_long =
             wrap_signed_integer(a0.value.host_long_long != b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-        }
-        break;
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -2311,7 +2311,7 @@ struct object object_not_equal(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(a0.value.host_u_long_long != b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(a0.value.host_u_long_long != b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -2354,11 +2354,11 @@ struct object object_greater_than_or_equal(enum target target,
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
-        {
-            r.value.host_long_long =
+    {
+        r.value.host_long_long =
             wrap_signed_integer(a0.value.host_long_long >= b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-        }
-        break;
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -2367,7 +2367,7 @@ struct object object_greater_than_or_equal(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(a0.value.host_u_long_long >= b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(a0.value.host_u_long_long >= b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -2408,11 +2408,11 @@ struct object object_greater_than(enum target target,
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
-        {
-            r.value.host_long_long =
+    {
+        r.value.host_long_long =
             wrap_signed_integer(a0.value.host_long_long > b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-        }
-        break;
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -2421,7 +2421,7 @@ struct object object_greater_than(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(a0.value.host_u_long_long > b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(a0.value.host_u_long_long > b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -2462,11 +2462,11 @@ struct object object_smaller_than_or_equal(enum target target,
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
-        {
-            r.value.host_long_long =
+    {
+        r.value.host_long_long =
             wrap_signed_integer(a0.value.host_long_long <= b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-        }
-        break;
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -2475,7 +2475,7 @@ struct object object_smaller_than_or_equal(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(a0.value.host_u_long_long <= b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(a0.value.host_u_long_long <= b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -2516,11 +2516,11 @@ struct object object_smaller_than(enum target target,
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
-        {
-            r.value.host_long_long =
+    {
+        r.value.host_long_long =
             wrap_signed_integer(a0.value.host_long_long < b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-        }
-        break;
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -2529,7 +2529,7 @@ struct object object_smaller_than(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(a0.value.host_u_long_long < b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(a0.value.host_u_long_long < b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -2570,28 +2570,28 @@ struct object object_add(enum target target,
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
-        {
-            r.value.host_long_long =
+    {
+        r.value.host_long_long =
             wrap_signed_integer(a0.value.host_long_long + b0.value.host_long_long, target_get_num_of_bits(target, common_type));
 
-            signed long long exact_result;
-            if (signed_long_long_add(&exact_result, a0.value.host_long_long, b0.value.host_long_long))
-            {
-                if (r.value.host_long_long != exact_result)
-                {
-                    snprintf(warning_message,
-                        200,
-                        "integer overflow results in '%lld'. The exact result is '%lld'.", r.value.host_long_long, exact_result);
-                }
-            }
-            else
+        signed long long exact_result;
+        if (signed_long_long_add(&exact_result, a0.value.host_long_long, b0.value.host_long_long))
+        {
+            if (r.value.host_long_long != exact_result)
             {
                 snprintf(warning_message,
                     200,
-                    "integer overflow");
+                    "integer overflow results in '%lld'. The exact result is '%lld'.", r.value.host_long_long, exact_result);
             }
         }
-        break;
+        else
+        {
+            snprintf(warning_message,
+                200,
+                "integer overflow");
+        }
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -2600,7 +2600,7 @@ struct object object_add(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(a0.value.host_u_long_long + b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(a0.value.host_u_long_long + b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         unsigned long long exact_result;
         if (unsigned_long_long_add(&exact_result, a0.value.host_u_long_long, b0.value.host_u_long_long))
@@ -2658,28 +2658,28 @@ struct object object_sub(enum target target,
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
-        {
-            r.value.host_long_long =
+    {
+        r.value.host_long_long =
             wrap_signed_integer(a0.value.host_long_long - b0.value.host_long_long, target_get_num_of_bits(target, common_type));
 
-            signed long long exact_result;
-            if (signed_long_long_sub(&exact_result, a0.value.host_long_long, b0.value.host_long_long))
-            {
-                if (r.value.host_long_long != exact_result)
-                {
-                    snprintf(warning_message,
-                        200,
-                        "integer overflow results in '%lld'. The exact result is '%lld'.", r.value.host_long_long, exact_result);
-                }
-            }
-            else
+        signed long long exact_result;
+        if (signed_long_long_sub(&exact_result, a0.value.host_long_long, b0.value.host_long_long))
+        {
+            if (r.value.host_long_long != exact_result)
             {
                 snprintf(warning_message,
                     200,
-                    "integer overflow");
+                    "integer overflow results in '%lld'. The exact result is '%lld'.", r.value.host_long_long, exact_result);
             }
         }
-        break;
+        else
+        {
+            snprintf(warning_message,
+                200,
+                "integer overflow");
+        }
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -2688,7 +2688,7 @@ struct object object_sub(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(a0.value.host_u_long_long - b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(a0.value.host_u_long_long - b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         unsigned long long exact_result;
         if (unsigned_long_long_sub(&exact_result, a0.value.host_u_long_long, b0.value.host_u_long_long))
@@ -2747,28 +2747,28 @@ struct object object_mul(enum target target,
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
-        {
-            r.value.host_long_long =
+    {
+        r.value.host_long_long =
             wrap_signed_integer(a0.value.host_long_long * b0.value.host_long_long, target_get_num_of_bits(target, common_type));
 
-            signed long long exact_result;
-            if (signed_long_long_mul(&exact_result, a0.value.host_long_long, b0.value.host_long_long))
-            {
-                if (r.value.host_long_long != exact_result)
-                {
-                    snprintf(warning_message,
-                        200,
-                        "integer overflow results in '%lld'. The exact result is '%lld'.", r.value.host_long_long, exact_result);
-                }
-            }
-            else
+        signed long long exact_result;
+        if (signed_long_long_mul(&exact_result, a0.value.host_long_long, b0.value.host_long_long))
+        {
+            if (r.value.host_long_long != exact_result)
             {
                 snprintf(warning_message,
                     200,
-                    "integer overflow");
+                    "integer overflow results in '%lld'. The exact result is '%lld'.", r.value.host_long_long, exact_result);
             }
         }
-        break;
+        else
+        {
+            snprintf(warning_message,
+                200,
+                "integer overflow");
+        }
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -2777,7 +2777,7 @@ struct object object_mul(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(a0.value.host_u_long_long * b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(a0.value.host_u_long_long * b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         unsigned long long exact_result;
         if (unsigned_long_long_mul(&exact_result, a0.value.host_u_long_long, b0.value.host_u_long_long))
@@ -2836,27 +2836,27 @@ struct object object_div(enum target target,
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
+    {
+        if (b0.value.host_long_long == 0)
         {
-            if (b0.value.host_long_long == 0)
-            {
-                snprintf(warning_message, 200, "division by zero");
-                object_destroy(&a0);
-                object_destroy(&b0);
-                return r;
-            }
-
-            const long long m = target_signed_min(target, common_type);
-            if (a0.value.host_long_long == m && b0.value.host_long_long == -1)
-            {
-                snprintf(warning_message, 200, "integer overflow");
-                r.value.host_long_long = m; /* wrapped result stays m */
-                break;
-            }
-
-            r.value.host_long_long =
-            wrap_signed_integer(a0.value.host_long_long / b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+            snprintf(warning_message, 200, "division by zero");
+            object_destroy(&a0);
+            object_destroy(&b0);
+            return r;
         }
-        break;
+
+        const long long m = target_signed_min(target, common_type);
+        if (a0.value.host_long_long == m && b0.value.host_long_long == -1)
+        {
+            snprintf(warning_message, 200, "integer overflow");
+            r.value.host_long_long = m; /* wrapped result stays m */
+            break;
+        }
+
+        r.value.host_long_long =
+            wrap_signed_integer(a0.value.host_long_long / b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -2874,7 +2874,7 @@ struct object object_div(enum target target,
         }
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(a0.value.host_u_long_long / b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(a0.value.host_u_long_long / b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -2917,19 +2917,19 @@ struct object object_mod(enum target target,
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
+    {
+        if (b0.value.host_long_long == 0)
         {
-            if (b0.value.host_long_long == 0)
-            {
-                snprintf(warning_message, 200, "division by zero");
-                object_destroy(&a0);
-                object_destroy(&b0);
-                return r;
-            }
-
-            r.value.host_long_long =
-            wrap_signed_integer(a0.value.host_long_long % b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+            snprintf(warning_message, 200, "division by zero");
+            object_destroy(&a0);
+            object_destroy(&b0);
+            return r;
         }
-        break;
+
+        r.value.host_long_long =
+            wrap_signed_integer(a0.value.host_long_long % b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -2946,7 +2946,7 @@ struct object object_mod(enum target target,
         }
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(a0.value.host_u_long_long % b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(a0.value.host_u_long_long % b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -3021,11 +3021,11 @@ struct object object_logical_not(enum target target, const struct object* a, cha
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
-        {
-            r.value.host_long_long =
+    {
+        r.value.host_long_long =
             wrap_signed_integer(!a->value.host_long_long, target_get_num_of_bits(target, common_type));
-        }
-        break;
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -3034,7 +3034,7 @@ struct object object_logical_not(enum target target, const struct object* a, cha
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(!a->value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(!a->value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -3068,11 +3068,11 @@ struct object object_bitwise_not(enum target target, const struct object* a, cha
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
-        {
-            r.value.host_long_long =
+    {
+        r.value.host_long_long =
             wrap_signed_integer(~a->value.host_long_long, target_get_num_of_bits(target, common_type));
-        }
-        break;
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -3081,7 +3081,7 @@ struct object object_bitwise_not(enum target target, const struct object* a, cha
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(~a->value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(~a->value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -3116,11 +3116,11 @@ struct object object_unary_minus(enum target target, const struct object* a, cha
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
-        {
-            r.value.host_long_long =
+    {
+        r.value.host_long_long =
             wrap_signed_integer(-(a->value.host_long_long), target_get_num_of_bits(target, common_type));
-        }
-        break;
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -3129,7 +3129,7 @@ struct object object_unary_minus(enum target target, const struct object* a, cha
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(-(a->value.host_u_long_long), target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(-(a->value.host_u_long_long), target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -3169,11 +3169,11 @@ struct object object_unary_plus(enum target target, const struct object* a, char
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
-        {
-            r.value.host_long_long =
+    {
+        r.value.host_long_long =
             wrap_signed_integer(+(a->value.host_long_long), target_get_num_of_bits(target, common_type));
-        }
-        break;
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -3182,7 +3182,7 @@ struct object object_unary_plus(enum target target, const struct object* a, char
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(+(a->value.host_u_long_long), target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(+(a->value.host_u_long_long), target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -3223,11 +3223,11 @@ struct object object_bitwise_xor(enum target target,
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
-        {
-            r.value.host_long_long =
+    {
+        r.value.host_long_long =
             wrap_signed_integer(a0.value.host_long_long ^ b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-        }
-        break;
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -3236,7 +3236,7 @@ struct object object_bitwise_xor(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(a0.value.host_u_long_long ^ b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(a0.value.host_u_long_long ^ b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -3280,11 +3280,11 @@ struct object object_bitwise_or(enum target target,
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
-        {
-            r.value.host_long_long =
+    {
+        r.value.host_long_long =
             wrap_signed_integer(a0.value.host_long_long | b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-        }
-        break;
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -3293,7 +3293,7 @@ struct object object_bitwise_or(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(a0.value.host_u_long_long | b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(a0.value.host_u_long_long | b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -3337,11 +3337,11 @@ struct object object_bitwise_and(enum target target,
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
-        {
-            r.value.host_long_long =
+    {
+        r.value.host_long_long =
             wrap_signed_integer(a0.value.host_long_long & b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-        }
-        break;
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -3350,7 +3350,7 @@ struct object object_bitwise_and(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(a0.value.host_u_long_long & b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(a0.value.host_u_long_long & b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -3394,11 +3394,11 @@ struct object object_shift_left(enum target target,
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
-        {
-            r.value.host_long_long =
+    {
+        r.value.host_long_long =
             wrap_signed_integer(a0.value.host_long_long << b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-        }
-        break;
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -3407,7 +3407,7 @@ struct object object_shift_left(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(a0.value.host_u_long_long << b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(a0.value.host_u_long_long << b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -3449,11 +3449,11 @@ struct object object_shift_right(enum target target,
     case TYPE_SIGNED_INT:
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
-        {
-            r.value.host_long_long =
+    {
+        r.value.host_long_long =
             wrap_signed_integer(a0.value.host_long_long >> b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-        }
-        break;
+    }
+    break;
 
     case TYPE_UNSIGNED_CHAR:
     case TYPE_UNSIGNED_SHORT:
@@ -3462,7 +3462,7 @@ struct object object_shift_right(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-        wrap_unsigned_integer(a0.value.host_u_long_long >> b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(a0.value.host_u_long_long >> b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 

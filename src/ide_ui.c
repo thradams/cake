@@ -6431,6 +6431,7 @@ static int is_c_keyword1(const char* word, int len)
     if (c == 'a')
     {
         if (len == 4 && memcmp(word, "auto", 4) == 0) return 1;
+        if (len == 7 && memcmp(word, "alignof", 7) == 0) return 1;
     }
     else if (c == 'b')
     {

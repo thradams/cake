@@ -41,7 +41,7 @@ struct report
 {
     int no_files;
     double cpu_time_used_sec;
-    
+
     /*has_errors is not reseted when we remove diagnostics*/
     bool has_errors;
 
@@ -83,7 +83,7 @@ struct diagnostic_item;
 struct diagnostic_queue
 {
     struct diagnostic_item* _Owner _Opt head;
-    struct diagnostic_item* _Opt        tail;    
+    struct diagnostic_item* _Opt        tail;
     int count;
 };
 
@@ -355,7 +355,7 @@ struct attribute_specifier
     /*
      attribute-specifier:
         [ [ attribute-list ] ]
-    */    
+    */
     struct token* first_token;
     struct token* last_token;
     struct attribute_list* _Owner attribute_list;
@@ -535,7 +535,7 @@ struct declaration
     struct token* first_token;
     struct token* last_token;
     struct token* _Opt lint_token;
-    
+
     struct declaration* _Owner _Opt next;
 };
 
@@ -1715,7 +1715,7 @@ struct enumerator
     struct object value;
 };
 
-struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, struct object* p_enumerator_value, int64_t lo_limit, uint64_t hi_limit, bool *next_ovf);
+struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, struct object* p_enumerator_value, int64_t lo_limit, uint64_t hi_limit, bool* next_ovf);
 struct enumerator* _Owner enumerator_add_ref(struct enumerator* p);
 void enumerator_delete(struct enumerator* _Owner _Opt  p);
 

@@ -281,7 +281,7 @@ bool is_first_of_floating_constant(const struct parser_ctx* ctx)
       hexadecimal-floating-constan
     */
     return ctx->current->type == TK_COMPILER_DECIMAL_FLOATING_CONSTANT ||
-    ctx->current->type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
+        ctx->current->type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
 }
 
 bool is_first_of_integer_constant(const struct parser_ctx* ctx)
@@ -298,9 +298,9 @@ bool is_first_of_integer_constant(const struct parser_ctx* ctx)
         return false;
 
     return ctx->current->type == TK_COMPILER_DECIMAL_CONSTANT ||
-    ctx->current->type == TK_COMPILER_OCTAL_CONSTANT ||
-    ctx->current->type == TK_COMPILER_HEXADECIMAL_CONSTANT ||
-    ctx->current->type == TK_COMPILER_BINARY_CONSTANT;
+        ctx->current->type == TK_COMPILER_OCTAL_CONSTANT ||
+        ctx->current->type == TK_COMPILER_HEXADECIMAL_CONSTANT ||
+        ctx->current->type == TK_COMPILER_BINARY_CONSTANT;
 }
 
 bool is_predefined_constant(const struct parser_ctx* ctx)
@@ -309,8 +309,8 @@ bool is_predefined_constant(const struct parser_ctx* ctx)
         return false;
 
     return ctx->current->type == TK_KEYWORD_TRUE ||
-    ctx->current->type == TK_KEYWORD_FALSE ||
-    ctx->current->type == TK_KEYWORD_NULLPTR;
+        ctx->current->type == TK_KEYWORD_FALSE ||
+        ctx->current->type == TK_KEYWORD_NULLPTR;
 }
 
 bool is_first_of_constant(const struct parser_ctx* ctx)
@@ -327,10 +327,10 @@ bool is_first_of_constant(const struct parser_ctx* ctx)
         return false;
 
     return is_first_of_integer_constant(ctx) ||
-    is_first_of_floating_constant(ctx) ||
-    is_enumeration_constant(ctx) ||
-    (ctx->current->type == TK_CHAR_CONSTANT) ||
-    is_predefined_constant(ctx);
+        is_first_of_floating_constant(ctx) ||
+        is_enumeration_constant(ctx) ||
+        (ctx->current->type == TK_CHAR_CONSTANT) ||
+        is_predefined_constant(ctx);
 }
 
 bool is_first_of_primary_expression(const struct parser_ctx* ctx)
@@ -348,10 +348,10 @@ bool is_first_of_primary_expression(const struct parser_ctx* ctx)
         return false;
 
     return ctx->current->type == TK_IDENTIFIER ||
-    is_first_of_constant(ctx) ||
-    ctx->current->type == TK_STRING_LITERAL ||
-    ctx->current->type == '(' ||
-    ctx->current->type == TK_KEYWORD__GENERIC;
+        is_first_of_constant(ctx) ||
+        ctx->current->type == TK_STRING_LITERAL ||
+        ctx->current->type == '(' ||
+        ctx->current->type == TK_KEYWORD__GENERIC;
 }
 
 struct generic_association* _Owner _Opt generic_association(struct parser_ctx* ctx, struct type* p_selection_type, bool is_discarded, bool* p_selected)
@@ -717,10 +717,10 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
     struct expression* _Owner _Opt p_expression_node = NULL;
 
     const unsigned long long
-    wchar_max_value = target_unsigned_max(ctx->options.target, get_platform(ctx->options.target)->wchar_t_type);
+        wchar_max_value = target_unsigned_max(ctx->options.target, get_platform(ctx->options.target)->wchar_t_type);
 
     const unsigned long long
-    int_max_value = target_signed_max(ctx->options.target, TYPE_SIGNED_INT);
+        int_max_value = target_signed_max(ctx->options.target, TYPE_SIGNED_INT);
 
     try
     {
@@ -851,7 +851,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             p++;
 
             p_expression_node->type.type_specifier_flags =
-            object_type_to_type_specifier(get_platform(ctx->options.target)->wchar_t_type);
+                object_type_to_type_specifier(get_platform(ctx->options.target)->wchar_t_type);
 
             /*
              wchar_t character constant prefixed by the letter L has type wchar_t, an integer type defined in
@@ -970,22 +970,22 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_node, bool disabled, enum target target)
 {
     const unsigned long long unsigned_int_max_value =
-    target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_INT);
+        target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_INT);
 
     const unsigned long long signed_int_max_value =
-    target_signed_max(ctx->options.target, TYPE_SIGNED_INT);
+        target_signed_max(ctx->options.target, TYPE_SIGNED_INT);
 
     const unsigned long long signed_long_max_value =
-    target_signed_max(ctx->options.target, TYPE_SIGNED_LONG);
+        target_signed_max(ctx->options.target, TYPE_SIGNED_LONG);
 
     const unsigned long long unsigned_long_max_value =
-    target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG);
+        target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG);
 
     const unsigned long long signed_long_long_max_value =
-    target_signed_max(ctx->options.target, TYPE_SIGNED_LONG_LONG);
+        target_signed_max(ctx->options.target, TYPE_SIGNED_LONG_LONG);
 
     const unsigned long long unsigned_long_long_max_value =
-    target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG_LONG);
+        target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG_LONG);
 
     errno = 0;
 
@@ -1034,238 +1034,220 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
     case TK_COMPILER_OCTAL_CONSTANT:
     case TK_COMPILER_HEXADECIMAL_CONSTANT:
     case TK_COMPILER_BINARY_CONSTANT:
+    {
+        unsigned long long value = 0;
+        switch (token->type)
         {
-            unsigned long long value = 0;
-            switch (token->type)
+        case TK_COMPILER_DECIMAL_CONSTANT:
+            value = strtoull(buffer, NULL, 10);
+            break;
+        case TK_COMPILER_OCTAL_CONSTANT:
+            if (buffer[1] == 'o' || buffer[1] == 'O')
             {
-            case TK_COMPILER_DECIMAL_CONSTANT:
-                value = strtoull(buffer, NULL, 10);
-                break;
-            case TK_COMPILER_OCTAL_CONSTANT:
-                if (buffer[1] == 'o' || buffer[1] == 'O')
-                {
-                    //C2Y
-                    //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3319.htm
-                    value = strtoull(buffer + 2, NULL, 8);
-                }
-                else
-                {
-                    value = strtoull(buffer + 1, NULL, 8);
-                }
-                break;
-            case TK_COMPILER_HEXADECIMAL_CONSTANT:
-                value = strtoull(buffer + 2, NULL, 16);
-                break;
-            case TK_COMPILER_BINARY_CONSTANT:
-                value = strtoull(buffer + 2, NULL, 2);
-                break;
-            default:
-                break;
+                //C2Y
+                //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3319.htm
+                value = strtoull(buffer + 2, NULL, 8);
             }
-
-            if (value == unsigned_long_long_max_value && errno == ERANGE)
+            else
             {
-                diagnostic(
-                    C_ERROR_LITERAL_OVERFLOW,
+                value = strtoull(buffer + 1, NULL, 8);
+            }
+            break;
+        case TK_COMPILER_HEXADECIMAL_CONSTANT:
+            value = strtoull(buffer + 2, NULL, 16);
+            break;
+        case TK_COMPILER_BINARY_CONSTANT:
+            value = strtoull(buffer + 2, NULL, 2);
+            break;
+        default:
+            break;
+        }
+
+        if (value == unsigned_long_long_max_value && errno == ERANGE)
+        {
+            diagnostic(
+                C_ERROR_LITERAL_OVERFLOW,
+                ctx,
+                token,
+                NULL,
+                "integer literal is too large to be represented in any integer type");
+        }
+
+        //This code follows the table in the standard.
+
+        static_assert(NUMBER_OF_TARGETS == 7, "does your target follow the C rules? (MSVC is different)");
+        const bool is_msvc = (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC);
+
+        const bool is_decimal_constant = (token->type == TK_COMPILER_DECIMAL_CONSTANT);
+        const bool suffix_none = (suffix[0] == '\0');
+        const bool suffix_u = (suffix[0] == 'U' && suffix[1] == '\0');
+
+        const bool suffix_l = ((suffix[0] == 'L' && suffix[1] == '\0')) ||
+            ((suffix[0] == 'i' && suffix[1] == '3' && suffix[2] == '2' && suffix[3] == '\0'));
+
+        const bool suffix_ul = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == '\0');
+
+        const bool suffix_ll = (suffix[0] == 'L' && suffix[1] == 'L' && suffix[2] == '\0') ||
+            (suffix[0] == 'i' && suffix[1] == '6' && suffix[2] == '4' && suffix[3] == '\0');
+
+        const bool suffix_ull = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == 'L' && suffix[3] == '\0');
+
+        object_destroy(&p_expression_node->object);
+        p_expression_node->object = (struct object){ 0 };
+
+        if (suffix_none)
+        {
+            if (value <= signed_int_max_value)
+            {
+                p_expression_node->object = object_make_signed_int(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
+            }
+            else if (value <= unsigned_int_max_value && !is_decimal_constant)
+            {
+                p_expression_node->object = object_make_unsigned_int(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
+            }
+            else if (value <= signed_long_max_value)
+            {
+                p_expression_node->object = object_make_signed_long(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
+            }
+            else if (value <= unsigned_long_max_value && (!is_decimal_constant || is_msvc))
+            {
+                p_expression_node->object = object_make_unsigned_long(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG;
+            }
+            else if (value <= signed_long_long_max_value)
+            {
+                p_expression_node->object = object_make_signed_long_long(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG;
+            }
+            else if (value <= unsigned_long_long_max_value && !is_decimal_constant)
+            {
+                p_expression_node->object = object_make_unsigned_long_long(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
+            }
+            else
+            {
+                diagnostic(W_IMPLICITLY_UNSIGNED_LITERAL,
                     ctx,
                     token,
                     NULL,
-                    "integer literal is too large to be represented in any integer type");
-            }
+                    "integer literal is too large to be represented in a signed integer type, interpreting as unsigned");
 
-            //This code follows the table in the standard.
-
-            static_assert(NUMBER_OF_TARGETS == 7, "does your target follow the C rules? (MSVC is different)");
-            const bool is_msvc = (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC);
-
-            const bool is_decimal_constant = (token->type == TK_COMPILER_DECIMAL_CONSTANT);
-            const bool suffix_none = (suffix[0] == '\0');
-            const bool suffix_u = (suffix[0] == 'U' && suffix[1] == '\0');
-
-            const bool suffix_l = ((suffix[0] == 'L' && suffix[1] == '\0')) ||
-            ((suffix[0] == 'i' && suffix[1] == '3' && suffix[2] == '2' && suffix[3] == '\0'));
-
-            const bool suffix_ul = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == '\0');
-
-            const bool suffix_ll = (suffix[0] == 'L' && suffix[1] == 'L' && suffix[2] == '\0') ||
-            (suffix[0] == 'i' && suffix[1] == '6' && suffix[2] == '4' && suffix[3] == '\0');
-
-            const bool suffix_ull = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == 'L' && suffix[3] == '\0');
-
-            object_destroy(&p_expression_node->object);
-            p_expression_node->object = (struct object){ 0 };
-
-            if (suffix_none)
-            {
-                if (value <= signed_int_max_value)
-                {
-                    p_expression_node->object = object_make_signed_int(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
-                }
-                else if (value <= unsigned_int_max_value && !is_decimal_constant)
-                {
-                    p_expression_node->object = object_make_unsigned_int(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
-                }
-                else if (value <= signed_long_max_value)
-                {
-                    p_expression_node->object = object_make_signed_long(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
-                }
-                else if (value <= unsigned_long_max_value && (!is_decimal_constant || is_msvc))
-                {
-                    p_expression_node->object = object_make_unsigned_long(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG;
-                }
-                else if (value <= signed_long_long_max_value)
-                {
-                    p_expression_node->object = object_make_signed_long_long(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG;
-                }
-                else if (value <= unsigned_long_long_max_value && !is_decimal_constant)
-                {
-                    p_expression_node->object = object_make_unsigned_long_long(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
-                }
-                else
-                {
-                    diagnostic(W_IMPLICITLY_UNSIGNED_LITERAL,
-                        ctx,
-                        token,
-                        NULL,
-                        "integer literal is too large to be represented in a signed integer type, interpreting as unsigned");
-
-                    p_expression_node->object = object_make_unsigned_long_long(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
-                }
-            }
-            else if (suffix_u)
-            {
-                if (value <= unsigned_int_max_value)
-                {
-                    p_expression_node->object = object_make_unsigned_int(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
-                }
-                else if (value <= unsigned_long_max_value)
-                {
-                    p_expression_node->object = object_make_unsigned_long(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG;
-                }
-                else //if (value <= unsigned_long_long_max_value)
-                {
-                    p_expression_node->object = object_make_unsigned_long_long(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
-                }
-            }
-            else if (suffix_l)
-            {
-                if (value <= signed_long_max_value)
-                {
-                    p_expression_node->object = object_make_signed_long(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
-                }
-                else if (value <= unsigned_long_max_value && !is_decimal_constant)
-                {
-                    p_expression_node->object = object_make_unsigned_long(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG;
-                }
-                else if (value <= signed_long_long_max_value)
-                {
-                    p_expression_node->object = object_make_signed_long_long(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG;
-                }
-                else if (value <= unsigned_long_long_max_value && !is_decimal_constant)
-                {
-                    p_expression_node->object = object_make_unsigned_long_long(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
-                }
-                else
-                {
-                    diagnostic(W_IMPLICITLY_UNSIGNED_LITERAL,
-                        ctx,
-                        token,
-                        NULL,
-                        "integer literal is too large to be represented in a signed integer type, interpreting as unsigned");
-
-                    p_expression_node->object = object_make_unsigned_long_long(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
-                }
-            }
-            else if (suffix_ul)
-            {
-                if (value <= unsigned_long_max_value)
-                {
-                    p_expression_node->object = object_make_unsigned_long(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG;
-                }
-                else //if (value <= unsigned_long_long_max_value)
-                {
-                    p_expression_node->object = object_make_unsigned_long_long(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
-                }
-            }
-            else if (suffix_ll)
-            {
-                if (value <= signed_long_long_max_value)
-                {
-                    p_expression_node->object = object_make_signed_long_long(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG;
-                }
-                else if (value <= unsigned_long_long_max_value && !is_decimal_constant)
-                {
-                    p_expression_node->object = object_make_unsigned_long_long(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
-                }
-                else
-                {
-                    diagnostic(W_IMPLICITLY_UNSIGNED_LITERAL,
-                        ctx,
-                        token,
-                        NULL,
-                        "integer literal is too large to be represented in a signed integer type, interpreting as unsigned");
-
-                    p_expression_node->object = object_make_unsigned_long_long(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
-                }
-            }
-            else if (suffix_ull)
-            {
-                //if (value <= unsigned_long_long_max_value && !is_decimal_constant)
-                {
-                    p_expression_node->object = object_make_unsigned_long_long(ctx->options.target, value);
-                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
-                }
+                p_expression_node->object = object_make_unsigned_long_long(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
             }
         }
-        break;
+        else if (suffix_u)
+        {
+            if (value <= unsigned_int_max_value)
+            {
+                p_expression_node->object = object_make_unsigned_int(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
+            }
+            else if (value <= unsigned_long_max_value)
+            {
+                p_expression_node->object = object_make_unsigned_long(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG;
+            }
+            else //if (value <= unsigned_long_long_max_value)
+            {
+                p_expression_node->object = object_make_unsigned_long_long(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
+            }
+        }
+        else if (suffix_l)
+        {
+            if (value <= signed_long_max_value)
+            {
+                p_expression_node->object = object_make_signed_long(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
+            }
+            else if (value <= unsigned_long_max_value && !is_decimal_constant)
+            {
+                p_expression_node->object = object_make_unsigned_long(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG;
+            }
+            else if (value <= signed_long_long_max_value)
+            {
+                p_expression_node->object = object_make_signed_long_long(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG;
+            }
+            else if (value <= unsigned_long_long_max_value && !is_decimal_constant)
+            {
+                p_expression_node->object = object_make_unsigned_long_long(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
+            }
+            else
+            {
+                diagnostic(W_IMPLICITLY_UNSIGNED_LITERAL,
+                    ctx,
+                    token,
+                    NULL,
+                    "integer literal is too large to be represented in a signed integer type, interpreting as unsigned");
+
+                p_expression_node->object = object_make_unsigned_long_long(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
+            }
+        }
+        else if (suffix_ul)
+        {
+            if (value <= unsigned_long_max_value)
+            {
+                p_expression_node->object = object_make_unsigned_long(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG;
+            }
+            else //if (value <= unsigned_long_long_max_value)
+            {
+                p_expression_node->object = object_make_unsigned_long_long(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
+            }
+        }
+        else if (suffix_ll)
+        {
+            if (value <= signed_long_long_max_value)
+            {
+                p_expression_node->object = object_make_signed_long_long(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG;
+            }
+            else if (value <= unsigned_long_long_max_value && !is_decimal_constant)
+            {
+                p_expression_node->object = object_make_unsigned_long_long(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
+            }
+            else
+            {
+                diagnostic(W_IMPLICITLY_UNSIGNED_LITERAL,
+                    ctx,
+                    token,
+                    NULL,
+                    "integer literal is too large to be represented in a signed integer type, interpreting as unsigned");
+
+                p_expression_node->object = object_make_unsigned_long_long(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
+            }
+        }
+        else if (suffix_ull)
+        {
+            //if (value <= unsigned_long_long_max_value && !is_decimal_constant)
+            {
+                p_expression_node->object = object_make_unsigned_long_long(ctx->options.target, value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
+            }
+        }
+    }
+    break;
 
     case TK_COMPILER_DECIMAL_FLOATING_CONSTANT:
     case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT:
+    {
+        if (suffix[0] == 'F')
         {
-            if (suffix[0] == 'F')
+            const double value = strtod(buffer, NULL);
+            if (errno == ERANGE)
             {
-                const double value = strtod(buffer, NULL);
-                if (errno == ERANGE)
-                {
-                    if (isinf(value))
-                    {
-                        diagnostic(W_FLOAT_RANGE,
-                            ctx,
-                            token,
-                            NULL,
-                            "floating constant exceeds range of float");
-                    }
-                    else
-                    {
-                        diagnostic(W_FLOAT_RANGE,
-                            ctx,
-                            token,
-                            NULL,
-                            "floating constant truncated to zero");
-                    }
-                }
-                else if ((value > 0 && value > (double)FLT_MAX) ||
-                    (value < 0 && value < -(double)FLT_MAX))
+                if (isinf(value))
                 {
                     diagnostic(W_FLOAT_RANGE,
                         ctx,
@@ -1273,75 +1255,93 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                         NULL,
                         "floating constant exceeds range of float");
                 }
-                else if (value > 0 && value < (double)FLT_MIN)
+                else
                 {
-                    /*Minimum positive*/
                     diagnostic(W_FLOAT_RANGE,
                         ctx,
                         token,
                         NULL,
-                        "floating constant is too small for float.");
+                        "floating constant truncated to zero");
                 }
-                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_FLOAT;
-                object_destroy(&p_expression_node->object);
-                p_expression_node->object = object_make_float(ctx->options.target, value);
             }
-            else if (suffix[0] == 'L')
+            else if ((value > 0 && value > (double)FLT_MAX) ||
+                (value < 0 && value < -(double)FLT_MAX))
             {
-                const long double value = strtod(buffer, NULL);
-
-                if (errno == ERANGE)
-                {
-                    if (isinf(value))
-                    {
-                        diagnostic(W_FLOAT_RANGE,
-                            ctx,
-                            token,
-                            NULL,
-                            "floating constant exceeds range of long double");
-                    }
-                    else
-                    {
-                        diagnostic(W_FLOAT_RANGE,
-                            ctx,
-                            token,
-                            NULL,
-                            "floating constant truncated to zero");
-                    }
-                }
-
-                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_DOUBLE | TYPE_SPECIFIER_LONG;
-                object_destroy(&p_expression_node->object);
-                p_expression_node->object = object_make_long_double(ctx->options.target, value);
+                diagnostic(W_FLOAT_RANGE,
+                    ctx,
+                    token,
+                    NULL,
+                    "floating constant exceeds range of float");
             }
-            else
+            else if (value > 0 && value < (double)FLT_MIN)
             {
-                const double value = strtod(buffer, NULL);
-                if (errno == ERANGE)
-                {
-                    if (isinf(value))
-                    {
-                        diagnostic(W_FLOAT_RANGE,
-                            ctx,
-                            token,
-                            NULL,
-                            "floating constant exceeds range of double");
-                    }
-                    else
-                    {
-                        diagnostic(W_FLOAT_RANGE,
-                            ctx,
-                            token,
-                            NULL,
-                            "floating constant truncated to zero");
-                    }
-                }
-                object_destroy(&p_expression_node->object);
-                p_expression_node->object = object_make_double(ctx->options.target, value);
-                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_DOUBLE;
+                /*Minimum positive*/
+                diagnostic(W_FLOAT_RANGE,
+                    ctx,
+                    token,
+                    NULL,
+                    "floating constant is too small for float.");
             }
+            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_FLOAT;
+            object_destroy(&p_expression_node->object);
+            p_expression_node->object = object_make_float(ctx->options.target, value);
         }
-        break;
+        else if (suffix[0] == 'L')
+        {
+            const long double value = strtod(buffer, NULL);
+
+            if (errno == ERANGE)
+            {
+                if (isinf(value))
+                {
+                    diagnostic(W_FLOAT_RANGE,
+                        ctx,
+                        token,
+                        NULL,
+                        "floating constant exceeds range of long double");
+                }
+                else
+                {
+                    diagnostic(W_FLOAT_RANGE,
+                        ctx,
+                        token,
+                        NULL,
+                        "floating constant truncated to zero");
+                }
+            }
+
+            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_DOUBLE | TYPE_SPECIFIER_LONG;
+            object_destroy(&p_expression_node->object);
+            p_expression_node->object = object_make_long_double(ctx->options.target, value);
+        }
+        else
+        {
+            const double value = strtod(buffer, NULL);
+            if (errno == ERANGE)
+            {
+                if (isinf(value))
+                {
+                    diagnostic(W_FLOAT_RANGE,
+                        ctx,
+                        token,
+                        NULL,
+                        "floating constant exceeds range of double");
+                }
+                else
+                {
+                    diagnostic(W_FLOAT_RANGE,
+                        ctx,
+                        token,
+                        NULL,
+                        "floating constant truncated to zero");
+                }
+            }
+            object_destroy(&p_expression_node->object);
+            p_expression_node->object = object_make_double(ctx->options.target, value);
+            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_DOUBLE;
+        }
+    }
+    break;
 
     default:
         runtime_assert(false);
@@ -1354,11 +1354,11 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
 static bool is_integer_or_floating_constant(enum token_type type)
 {
     return type == TK_COMPILER_DECIMAL_CONSTANT ||
-    type == TK_COMPILER_OCTAL_CONSTANT ||
-    type == TK_COMPILER_HEXADECIMAL_CONSTANT ||
-    type == TK_COMPILER_BINARY_CONSTANT ||
-    type == TK_COMPILER_DECIMAL_FLOATING_CONSTANT ||
-    type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
+        type == TK_COMPILER_OCTAL_CONSTANT ||
+        type == TK_COMPILER_HEXADECIMAL_CONSTANT ||
+        type == TK_COMPILER_BINARY_CONSTANT ||
+        type == TK_COMPILER_DECIMAL_FLOATING_CONSTANT ||
+        type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
 }
 
 struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool is_discarded)
@@ -1531,8 +1531,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                 strcmp(ctx->current->lexeme, "__func__") == 0)
             {
                 const char* func_name = ctx->p_current_function_opt->name_opt ?
-                ctx->p_current_function_opt->name_opt->lexeme :
-                "unnamed";
+                    ctx->p_current_function_opt->name_opt->lexeme :
+                    "unnamed";
 
                 p_expression_node->expression_type = EXPR_PRIMARY__FUNC__;
                 p_expression_node->first_token = ctx->current;
@@ -1575,7 +1575,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                 is_wide = true;
                 is_bigger_than_char = true;
                 char_type_specifiers =
-                object_type_to_type_specifier(get_platform(ctx->options.target)->wchar_t_type);
+                    object_type_to_type_specifier(get_platform(ctx->options.target)->wchar_t_type);
             }
             else if (ctx->current->lexeme[0] == 'u' &&
                 ctx->current->lexeme[1] == '8')
@@ -1792,7 +1792,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
             p_expression_node->last_token = ctx->current;
             p_expression_node->expression_type = EXPR_PRIMARY_NUMBER;
 
-            convert_to_number(ctx, p_expression_node, false /*ctx->evaluation_is_disabled*/ , ctx->options.target);
+            convert_to_number(ctx, p_expression_node, false /*ctx->evaluation_is_disabled*/, ctx->options.target);
 
             parser_match(ctx);
             if (ctx->current == NULL)
@@ -2161,7 +2161,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 if (object_has_constant_value(&p_expression_node_new->right->object))
                 {
                     unsigned long long index =
-                    object_to_unsigned_long_long(&p_expression_node_new->right->object);
+                        object_to_unsigned_long_long(&p_expression_node_new->right->object);
                     if (type_is_array(&p_expression_node->type))
                     {
                         if (p_expression_node->type.array_num_elements > 0)
@@ -2277,7 +2277,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     runtime_assert(p_expression_node_new->left->type.struct_or_union_specifier != NULL);
 
                     struct struct_or_union_specifier* _Opt p_complete =
-                    find_struct_or_union_specifier(ctx, p_expression_node_new->left->type.struct_or_union_specifier->tag_name);
+                        find_struct_or_union_specifier(ctx, p_expression_node_new->left->type.struct_or_union_specifier->tag_name);
 
                     if (p_complete)
                         p_complete = get_complete_struct_or_union_specifier(p_complete);
@@ -2288,7 +2288,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                         int member_index = 0;
                         struct member_declarator* _Opt p_member_declarator =
-                        find_member_declarator(&p_complete->member_declaration_list, ctx->current->lexeme, &member_index);
+                            find_member_declarator(&p_complete->member_declaration_list, ctx->current->lexeme, &member_index);
 
                         if (p_member_declarator)
                         {
@@ -2304,7 +2304,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                 if (type_is_bitfield(&p_member_declarator->declarator->type))
                                 {
                                     p_expression_node_new->type.array_num_elements =
-                                    p_member_declarator->declarator->type.array_num_elements;
+                                        p_member_declarator->declarator->type.array_num_elements;
                                     p_expression_node_new->type.storage_class_specifier_flags |= STORAGE_SPECIFIER_BITFIELD;
                                 }
                             }
@@ -2417,13 +2417,13 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                         runtime_assert(p_expression_node->type.next->struct_or_union_specifier);
 
                         struct struct_or_union_specifier* _Opt p_complete =
-                        get_complete_struct_or_union_specifier(p_expression_node->type.next->struct_or_union_specifier);
+                            get_complete_struct_or_union_specifier(p_expression_node->type.next->struct_or_union_specifier);
 
                         if (p_complete)
                         {
                             int member_index = 0;
                             struct member_declarator* _Opt p_member_declarator =
-                            find_member_declarator(&p_complete->member_declaration_list, ctx->current->lexeme, &member_index);
+                                find_member_declarator(&p_complete->member_declaration_list, ctx->current->lexeme, &member_index);
 
                             if (p_member_declarator)
                             {
@@ -2439,7 +2439,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                     if (type_is_bitfield(&p_member_declarator->declarator->type))
                                     {
                                         p_expression_node_new->type.array_num_elements =
-                                        p_member_declarator->declarator->type.array_num_elements;
+                                            p_member_declarator->declarator->type.array_num_elements;
                                         p_expression_node_new->type.storage_class_specifier_flags |= STORAGE_SPECIFIER_BITFIELD;
                                     }
 
@@ -2448,10 +2448,10 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                      * what EXPR_POSTFIX_DOT does for direct struct access.
                                      */
                                     struct object* _Opt object =
-                                    find_object_declarator_by_index(
-                                        &p_expression_node->object,
-                                        &p_complete->member_declaration_list,
-                                        member_index);
+                                        find_object_declarator_by_index(
+                                            &p_expression_node->object,
+                                            &p_complete->member_declaration_list,
+                                            member_index);
                                     if (object)
                                     {
                                         p_expression_node_new->object = object_make_reference(object);
@@ -2626,7 +2626,7 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
             throw;
 
         runtime_assert(p_expression_node->type_name == NULL);
-        p_expression_node->p_storage_class_specifiers = p_storage_class_specifiers_ /*moved*/ ;
+        p_expression_node->p_storage_class_specifiers = p_storage_class_specifiers_ /*moved*/;
         p_storage_class_specifiers_ = NULL; /*MOVED*/
 
         p_expression_node->first_token = p_first_token;
@@ -2636,9 +2636,9 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
         p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->abstract_declarator);
 
         const struct direct_declarator* _Opt p_innermost_direct_declarator =
-        p_expression_node->type_name->abstract_declarator ?
-        get_innermost_direct_declarator(p_expression_node->type_name->abstract_declarator->direct_declarator) :
-        NULL;
+            p_expression_node->type_name->abstract_declarator ?
+            get_innermost_direct_declarator(p_expression_node->type_name->abstract_declarator->direct_declarator) :
+            NULL;
 
         //this keep the typedef out (by design)
         if (p_innermost_direct_declarator && p_innermost_direct_declarator->function_declarator)
@@ -2831,16 +2831,16 @@ bool is_first_of_compiler_function(struct parser_ctx* ctx)
         return false;
 
     return ctx->current->type == TK_KEYWORD_IS_LVALUE ||
-    ctx->current->type == TK_KEYWORD_IS_OWNER ||
-    ctx->current->type == TK_KEYWORD_IS_CONST ||
-    ctx->current->type == TK_KEYWORD_IS_POINTER ||
-    ctx->current->type == TK_KEYWORD_IS_ARRAY ||
-    ctx->current->type == TK_KEYWORD_IS_FUNCTION ||
+        ctx->current->type == TK_KEYWORD_IS_OWNER ||
+        ctx->current->type == TK_KEYWORD_IS_CONST ||
+        ctx->current->type == TK_KEYWORD_IS_POINTER ||
+        ctx->current->type == TK_KEYWORD_IS_ARRAY ||
+        ctx->current->type == TK_KEYWORD_IS_FUNCTION ||
 
-    ctx->current->type == TK_KEYWORD_IS_SCALAR ||
-    ctx->current->type == TK_KEYWORD_IS_ARITHMETIC ||
-    ctx->current->type == TK_KEYWORD_IS_FLOATING_POINT ||
-    ctx->current->type == TK_KEYWORD_IS_INTEGRAL;
+        ctx->current->type == TK_KEYWORD_IS_SCALAR ||
+        ctx->current->type == TK_KEYWORD_IS_ARITHMETIC ||
+        ctx->current->type == TK_KEYWORD_IS_FLOATING_POINT ||
+        ctx->current->type == TK_KEYWORD_IS_INTEGRAL;
 }
 
 bool is_first_of_unary_expression(struct parser_ctx* ctx)
@@ -2856,25 +2856,25 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
     }
 
     return first_of_postfix_expression(ctx) ||
-    ctx->current->type == '++' ||
-    ctx->current->type == '--' ||
-    ctx->current->type == '&' ||
-    ctx->current->type == '*' ||
-    ctx->current->type == '+' ||
-    ctx->current->type == '-' ||
-    ctx->current->type == '~' ||
-    ctx->current->type == '!' ||
-    ctx->current->type == TK_KEYWORD_SIZEOF ||
-    ctx->current->type == TK_KEYWORD__COUNTOF ||
-    ctx->current->type == TK_KEYWORD__ALIGNOF ||
+        ctx->current->type == '++' ||
+        ctx->current->type == '--' ||
+        ctx->current->type == '&' ||
+        ctx->current->type == '*' ||
+        ctx->current->type == '+' ||
+        ctx->current->type == '-' ||
+        ctx->current->type == '~' ||
+        ctx->current->type == '!' ||
+        ctx->current->type == TK_KEYWORD_SIZEOF ||
+        ctx->current->type == TK_KEYWORD__COUNTOF ||
+        ctx->current->type == TK_KEYWORD__ALIGNOF ||
 
-    ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_END ||
-    ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_ARG ||
-    ctx->current->type == TK_KEYWORD_GCC__BUILTIN_C23_VA_START ||
-    ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_COPY ||
-    ctx->current->type == TK_KEYWORD_GCC__BUILTIN_OFFSETOF ||
+        ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_END ||
+        ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_ARG ||
+        ctx->current->type == TK_KEYWORD_GCC__BUILTIN_C23_VA_START ||
+        ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_COPY ||
+        ctx->current->type == TK_KEYWORD_GCC__BUILTIN_OFFSETOF ||
 
-    is_first_of_compiler_function(ctx);
+        is_first_of_compiler_function(ctx);
 }
 
 static int check_sizeof_argument(struct parser_ctx* ctx,
@@ -2922,7 +2922,7 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
         runtime_assert(p_type->struct_or_union_specifier);
 
         struct struct_or_union_specifier* _Opt p_complete =
-        get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
         if (p_complete == NULL)
         {
             /* The sizeof operator shall not be applied to an expression that has function type or an incomplete type */
@@ -3010,7 +3010,7 @@ static int is_offsetof_pattern(struct parser_ctx* ctx, struct expression* p_expr
 
     size_t offset_of = 0;
     enum sizeof_result e = type_get_offsetof(&struct_type,
-        right->last_token->lexeme /*member identifier*/ ,
+        right->last_token->lexeme /*member identifier*/,
         &offset_of,
         ctx->options.target);
     if (e != SIZEOF_RESULT_OK)
@@ -3140,13 +3140,13 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 expression_delete(new_expression);
                 throw;
             }
-            #if 0
+#if 0
             /* Visual Studio formatter is adding spaces... */
             if (style_has_space(ctx->current))
             {
                 diagnostic(W_STYLE, ctx, ctx->current, "don't use spaces");
             }
-            #endif
+#endif
 
             new_expression->right = cast_expression(ctx, is_discarded);
             if (new_expression->right == NULL)
@@ -3218,7 +3218,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                     if (op == '-')
                     {
                         new_expression->object =
-                        object_unary_minus(ctx->options.target, &new_expression->right->object, warning_message);
+                            object_unary_minus(ctx->options.target, &new_expression->right->object, warning_message);
                     }
                     else if (op == '+')
                     {
@@ -3600,7 +3600,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             size_t offset_of = 0;
 
             enum sizeof_result e =
-            type_get_offsetof(&new_expression->type_name->type, new_expression->offsetof_member_designator->lexeme, &offset_of, ctx->options.target);
+                type_get_offsetof(&new_expression->type_name->type, new_expression->offsetof_member_designator->lexeme, &offset_of, ctx->options.target);
 
             switch (e)
             {
@@ -3685,7 +3685,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 {
                     size_t sz = 0;
                     enum sizeof_result sizeof_result =
-                    type_get_sizeof(&new_expression->type_name->abstract_declarator->type, &sz, ctx->options.target);
+                        type_get_sizeof(&new_expression->type_name->abstract_declarator->type, &sz, ctx->options.target);
                     switch (sizeof_result)
                     {
                     case SIZEOF_RESULT_OK:
@@ -3723,7 +3723,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
 
                 size_t sz3 = 0;
                 enum sizeof_result res =
-                type_get_sizeof(&new_expression->right->type, &sz3, ctx->options.target);
+                    type_get_sizeof(&new_expression->right->type, &sz3, ctx->options.target);
 
                 switch (res)
                 {
@@ -3814,12 +3814,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                     runtime_assert(new_expression->type_name->type.enum_specifier);
 
                     const struct enum_specifier* _Opt p_enum_specifier =
-                    get_complete_enum_specifier(new_expression->type_name->type.enum_specifier);
+                        get_complete_enum_specifier(new_expression->type_name->type.enum_specifier);
                     size_t nelements = 0;
                     if (p_enum_specifier)
                     {
                         struct enumerator* _Opt p =
-                        p_enum_specifier->enumerator_list.head;
+                            p_enum_specifier->enumerator_list.head;
                         while (p)
                         {
                             nelements++;
@@ -3882,12 +3882,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                     runtime_assert(new_expression->right->type.enum_specifier);
 
                     const struct enum_specifier* _Opt p_enum_specifier =
-                    get_complete_enum_specifier(new_expression->right->type.enum_specifier);
+                        get_complete_enum_specifier(new_expression->right->type.enum_specifier);
                     size_t nelements = 0;
                     if (p_enum_specifier)
                     {
                         struct enumerator* _Opt p =
-                        p_enum_specifier->enumerator_list.head;
+                            p_enum_specifier->enumerator_list.head;
                         while (p)
                         {
                             nelements++;
@@ -4250,7 +4250,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                     if (parser_match_tk(ctx, ')') != 0)
                         throw;
                 }
-                else if (first_of_type_name_token(ctx /*only to typedef*/ , token_ahead))
+                else if (first_of_type_name_token(ctx /*only to typedef*/, token_ahead))
                 {
                     if (parser_match_tk(ctx, '(') != 0)
                         throw;
@@ -4296,8 +4296,8 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                 // Thinking it was a cast expression was a mistake... 
                 // because the { appeared then it is a compound literal which is a postfix.
                 p_expression_node = postfix_expression_compound_func_literal(ctx,
-                    p_type_name /*MOVED*/ ,
-                    p_storage_class_specifiers /*MOVED*/ ,
+                    p_type_name /*MOVED*/,
+                    p_storage_class_specifiers /*MOVED*/,
                     open_parenthesis_token,
                     is_discarded);
 
@@ -4419,7 +4419,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                 }
 
                 p_expression_node->type.storage_class_specifier_flags =
-                p_expression_node->left->type.storage_class_specifier_flags;
+                    p_expression_node->left->type.storage_class_specifier_flags;
             }
             else
             {
@@ -4478,8 +4478,8 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
 
         while (ctx->current != NULL &&
             (ctx->current->type == '*' ||
-            ctx->current->type == '/' ||
-            ctx->current->type == '%'))
+                ctx->current->type == '/' ||
+                ctx->current->type == '%'))
         {
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
@@ -4671,7 +4671,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, bool 
 
         while (ctx->current != NULL &&
             (ctx->current->type == '+' ||
-            ctx->current->type == '-'))
+                ctx->current->type == '-'))
         {
             struct token* operator_position = ctx->current;
 
@@ -4770,7 +4770,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, bool 
                 }
                 else
                 {
-                    if (left_category == TYPE_CATEGORY_POINTER || left_category == TYPE_CATEGORY_ARRAY /* || left_category == TYPE_CATEGORY_FUNCTION*/ )
+                    if (left_category == TYPE_CATEGORY_POINTER || left_category == TYPE_CATEGORY_ARRAY /* || left_category == TYPE_CATEGORY_FUNCTION*/)
                     {
                         if (type_is_integer(&new_expression->right->type))
                         {
@@ -4791,7 +4791,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, bool 
                             diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "expected integer type on right");
                         }
                     }
-                    else if (right_category == TYPE_CATEGORY_POINTER || right_category == TYPE_CATEGORY_ARRAY /*|| right_category == TYPE_CATEGORY_FUNCTION*/ )
+                    else if (right_category == TYPE_CATEGORY_POINTER || right_category == TYPE_CATEGORY_ARRAY /*|| right_category == TYPE_CATEGORY_FUNCTION*/)
                     {
                         if (type_is_integer(&new_expression->left->type))
                         {
@@ -4930,7 +4930,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, bool is_
 
         while (ctx->current != NULL &&
             (ctx->current->type == '>>' ||
-            ctx->current->type == '<<'))
+                ctx->current->type == '<<'))
         {
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
@@ -5062,8 +5062,8 @@ static void check_comparison(struct parser_ctx* ctx,
     }
 
     bool equal_not_equal =
-    op_token->type == '!=' ||
-    op_token->type == '==';
+        op_token->type == '!=' ||
+        op_token->type == '==';
 
     struct type* p_a_type = &p_a_expression->type;
     struct type* p_b_type = &p_b_expression->type;
@@ -5108,7 +5108,7 @@ static void check_comparison(struct parser_ctx* ctx,
     {
         if (equal_not_equal &&
             (object_is_zero(&p_a_expression->object) ||
-            object_is_one(&p_a_expression->object)))
+                object_is_one(&p_a_expression->object)))
         {
             /* no warning when comparing == 0, == 1, != 0, != 1 */
         }
@@ -5149,9 +5149,9 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, boo
 
         while (ctx->current != NULL &&
             (ctx->current->type == '>' ||
-            ctx->current->type == '<' ||
-            ctx->current->type == '>=' ||
-            ctx->current->type == '<='))
+                ctx->current->type == '<' ||
+                ctx->current->type == '>=' ||
+                ctx->current->type == '<='))
         {
             runtime_assert(new_expression == NULL);
             new_expression = calloc(1, sizeof * new_expression);
@@ -5396,7 +5396,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, bool 
 
         while (ctx->current != NULL &&
             (ctx->current->type == '==' ||
-            ctx->current->type == '!='))
+                ctx->current->type == '!='))
         {
             struct token* p_token_operator = ctx->current;
             runtime_assert(new_expression == NULL);
@@ -5958,13 +5958,13 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
        conditional-expression
        unary-expression assignment-operator assignment-expression
        */
-    /*
-          assignment-operator: one of
-          = *= /= %= += -= <<= >>= &= ^= |=
-       */
-    // aqui eh duvidoso mas conditional faz a unary tb.
-    // a diferenca q nao eh qualquer expressao
-    // que pode ser de atribuicao
+       /*
+             assignment-operator: one of
+             = *= /= %= += -= <<= >>= &= ^= |=
+          */
+          // aqui eh duvidoso mas conditional faz a unary tb.
+          // a diferenca q nao eh qualquer expressao
+          // que pode ser de atribuicao
     struct expression* _Owner _Opt p_expression_node = NULL;
     try
     {
@@ -5976,16 +5976,16 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
 
         while (ctx->current != NULL &&
             (ctx->current->type == '=' ||
-            ctx->current->type == '*=' ||
-            ctx->current->type == '/=' ||
-            ctx->current->type == '%=' ||
-            ctx->current->type == '+=' ||
-            ctx->current->type == '-=' ||
-            ctx->current->type == '<<=' ||
-            ctx->current->type == '>>=' ||
-            ctx->current->type == '&=' ||
-            ctx->current->type == '^=' ||
-            ctx->current->type == '|='))
+                ctx->current->type == '*=' ||
+                ctx->current->type == '/=' ||
+                ctx->current->type == '%=' ||
+                ctx->current->type == '+=' ||
+                ctx->current->type == '-=' ||
+                ctx->current->type == '<<=' ||
+                ctx->current->type == '>>=' ||
+                ctx->current->type == '&=' ||
+                ctx->current->type == '^=' ||
+                ctx->current->type == '|='))
         {
 
             const struct token* const op_token = ctx->current;
@@ -6402,7 +6402,7 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx, bool is_discar
 bool is_first_of_conditional_expression(struct parser_ctx* ctx)
 {
     return is_first_of_unary_expression(ctx) ||
-    is_first_of_primary_expression(ctx);
+        is_first_of_primary_expression(ctx);
 }
 
 bool expression_is_one(const struct expression* expression)
@@ -6566,9 +6566,9 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
                      * true-branch value — use the condition's own object.
                      */
                     struct object* true_obj =
-                    (p_conditional_expression->left != NULL)
-                    ? &p_conditional_expression->left->object
-                    : &p_conditional_expression->condition_expr->object;
+                        (p_conditional_expression->left != NULL)
+                        ? &p_conditional_expression->left->object
+                        : &p_conditional_expression->condition_expr->object;
                     p_conditional_expression->object = object_make_reference(true_obj);
                 }
                 else
@@ -6582,9 +6582,9 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
              * condition's own type.
              */
             const struct expression* p_left_or_cond =
-            (p_conditional_expression->left != NULL)
-            ? p_conditional_expression->left
-            : p_conditional_expression->condition_expr;
+                (p_conditional_expression->left != NULL)
+                ? p_conditional_expression->left
+                : p_conditional_expression->condition_expr;
 
             runtime_assert(p_left_or_cond);
 
