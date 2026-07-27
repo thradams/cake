@@ -3278,7 +3278,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
         if (pa->enum_specifier)
         {
             struct type a_underlying = pa->enum_specifier->integer_type;
-            if (!type_is_same(&a_underlying, b, compare_qualifiers))
+            if (!type_is_same(&a_underlying, pb, compare_qualifiers))
             {
                 return false;
             }
@@ -3288,7 +3288,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
         if (pb->enum_specifier)
         {
             struct type b_underlying = pb->enum_specifier->integer_type;
-            if (!type_is_same(a, &b_underlying, compare_qualifiers))
+            if (!type_is_same(pa, &b_underlying, compare_qualifiers))
             {
                 return false;
             }

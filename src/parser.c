@@ -6107,22 +6107,23 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 struct specifier_qualifier_list *list = specifier_qualifier_list(ctx);
                 if (list == NULL)
                     throw;
-
+                struct token *first_token = list->first_token;
                 p_enum_specifier->integer_type = make_with_specifier_qualifier_list(list);
+
+                specifier_qualifier_list_delete(list);
 
                 if (!type_is_integer(&p_enum_specifier->integer_type))
                 {
                     diagnostic(C_ERROR_NON_INTEGRAL_ENUM_TYPE,
                         ctx,
-                        list->first_token,
+                        first_token,
                         NULL,
                         "expected an integer type");
-
                     throw;
                 }
                 if(prev_decl && !type_is_same(&prev_decl->integer_type, &p_enum_specifier->integer_type, false))
                 {
-                    diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, list->first_token, NULL, "enum redeclared with different underlying type");
+                    diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, first_token, NULL, "enum redeclared with different underlying type");
                     throw;
                 }
             }
