@@ -287,3 +287,11 @@ enum D
 
 static_assert(_Generic(enum D, unsigned: 1, default: 0));
 static_assert(_Generic(D, unsigned: 1, default: 0));
+
+enum E
+{
+    F = 11111111111L,
+};
+
+static_assert(_Generic(enum E, unsigned long: 1, default: 0));
+static_assert(_Generic(F, unsigned long: 1, default: 0));
