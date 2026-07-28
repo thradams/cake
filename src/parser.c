@@ -6421,21 +6421,6 @@ void enumerator_delete(struct enumerator* _Owner _Opt p)
     }
 }
 
-static bool exceeds_high_limit(unsigned long long hi_limit, struct object *val)
-{
-    bool is_signed = object_type_is_signed_integer(val->value_type);
-    bool is_negative = is_signed && (val->value.host_long_long < 0);
-
-    return (is_signed && (!is_negative && (uint64_t)val->value.host_long_long > hi_limit)) || (!is_signed && (val->value.host_u_long_long > hi_limit));
-}
-
-static bool exceeds_low_limit(long long lo_limit, struct object *val)
-{
-    bool is_signed = object_type_is_signed_integer(val->value_type);
-
-    return is_signed && (val->value.host_long_long < lo_limit);
-}
-
 struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
     const struct enum_specifier* p_enum_specifier,
     struct object* p_next_enumerator_value,
@@ -6482,6 +6467,7 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
             throw;
         }
 
+        bool is_negative;
         if (ctx->current->type == '=')
         {
             parser_match(ctx);
@@ -6496,9 +6482,15 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
 
             p_enumerator->value = p_enumerator->constant_expression_opt->object;
 
+            bool is_signed = object_type_is_signed_integer(p_enumerator->value.value_type);
+            is_negative = is_signed && (p_enumerator->value.value.host_long_long < 0);
+
             if (p_enum_specifier->has_underlying)
             {
-                if (exceeds_high_limit(hi_limit, &p_enumerator->value) || exceeds_low_limit(lo_limit, &p_enumerator->value))
+                bool under_range = is_signed && (p_enumerator->value.value.host_long_long < lo_limit);
+                bool over_range = (is_signed && (!is_negative && (uint64_t)p_enumerator->value.value.host_long_long > hi_limit)) || (!is_signed && (p_enumerator->value.value.host_u_long_long > hi_limit));
+
+                if (under_range || over_range)
                 {
                     diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->token, NULL, "enumerator value outside of underlying type range");
                     throw;
@@ -6507,17 +6499,9 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
 
             update_enumerator_list_range(p_enumerator, min_value, max_value);
 
-            bool is_signed = object_type_is_signed_integer(p_enumerator->value.value_type);
-            bool is_negative = is_signed && p_enumerator->value.value.host_long_long < 0;
-            if (!is_negative)
-            {
-                p_enumerator->value = object_cast(ctx->options.target, TYPE_UNSIGNED_LONG_LONG, &p_enumerator->value);
-            }
 
             //fixes #257
             *p_next_enumerator_value = *object_get_referenced(&p_enumerator->value);
-
-            *next_ovf = object_increment_value(ctx->options.target, p_next_enumerator_value);
         }
         else
         {
@@ -6527,8 +6511,14 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
                 throw;
             }
             p_enumerator->value = *p_next_enumerator_value;
-            *next_ovf = object_increment_value(ctx->options.target, p_next_enumerator_value);
+
+            is_negative = object_type_is_signed_integer(p_enumerator->value.value_type) && (p_enumerator->value.value.host_long_long < 0);
         }
+
+        if (!p_enum_specifier->has_underlying && !is_negative)
+            *p_next_enumerator_value = object_cast(ctx->options.target, TYPE_UNSIGNED_LONG_LONG, p_next_enumerator_value);
+
+        *next_ovf = object_increment_value(ctx->options.target, p_next_enumerator_value);
     }
     catch
     {
