@@ -6278,7 +6278,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
     }
 
     long long lo_limit = 0;
-    unsigned long long hi_limit = target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG_LONG);
+    unsigned long long hi_limit = 0;
 
     if (p_enum_specifier->has_underlying)
     {
