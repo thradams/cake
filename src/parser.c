@@ -6306,7 +6306,6 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
         if (p_enumerator == NULL)
             throw;
 
-        update_enumerator_list_range(p_enumerator, &min_value, &max_value);
         enumerator_list_add(&enumeratorlist, p_enumerator);
 
         while (ctx->current != NULL && ctx->current->type == ',')
@@ -6320,7 +6319,6 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
                 p_enumerator = enumerator(ctx, p_enum_specifier, &next_enumerator_value, lo_limit, hi_limit, &min_value, &max_value, &next_ovf);
                 if (p_enumerator == NULL)
                     throw;
-                update_enumerator_list_range(p_enumerator, &min_value, &max_value);
                 enumerator_list_add(&enumeratorlist, p_enumerator);
             }
         }
@@ -6497,9 +6495,6 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
                 }
             }
 
-            update_enumerator_list_range(p_enumerator, min_value, max_value);
-
-
             //fixes #257
             *p_next_enumerator_value = *object_get_referenced(&p_enumerator->value);
         }
@@ -6514,6 +6509,8 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
 
             is_negative = object_type_is_signed_integer(p_enumerator->value.value_type) && (p_enumerator->value.value.host_long_long < 0);
         }
+
+        update_enumerator_list_range(p_enumerator, min_value, max_value);
 
         if (!p_enum_specifier->has_underlying && !is_negative)
             *p_next_enumerator_value = object_cast(ctx->options.target, TYPE_UNSIGNED_LONG_LONG, p_next_enumerator_value);
