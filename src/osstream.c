@@ -13,9 +13,9 @@
 #include <assert.h>
 #include "ownership.h"
 
-void ss_swap(_View struct osstream* a, _View struct osstream* b)
+void ss_swap(struct osstream* a, struct osstream* b)
 {
-    _View struct osstream r = *a;
+    struct osstream r = *a;
     *a = *b;
     *b = r;
 }
@@ -26,7 +26,6 @@ void ss_clear(struct osstream* stream)
         stream->c_str[0] = '\0';
     stream->size = 0;
 }
-
 
 void ss_close(_Dtor struct osstream* stream)
 {
@@ -42,7 +41,7 @@ static int reserve(struct osstream* stream, int size)
         if (pnew)
         {
             override_state(stream->c_str, "moved");
-            stream->c_str = pnew;
+            stream->c_str = pnew; //lint 26 (realloc)
             stream->capacity = size;
             stream->c_str[size] = 0;
         }
@@ -78,7 +77,7 @@ int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args)
         return -1;
     }
 
-    size = vsprintf(stream->c_str + stream->size, fmt, args);
+    size = vsprintf(stream->c_str + stream->size, fmt, args); //lint 35
     if (size > 0)
     {
         stream->size += size;
@@ -106,8 +105,7 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
     va_list args = { 0 };
     va_start(args, fmt);
     int size = ss_vafprintf(stream, fmt, args);
-    va_end(args); 
+    va_end(args);
 
     return size;
 }
-

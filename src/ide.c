@@ -1081,6 +1081,9 @@ static const ui_theme g_theme_dark = {
                                                    * character/constant color,
                                                    * distinct from string_fg's
                                                    * tan */
+    .editor_function_fg = TB_RGB(0xDC, 0xDC, 0xAA),  /* soft yellow - VS Code
+                                                       * Dark's actual function-
+                                                       * name color */
 
     /* UI_SYNTAX_MARKDOWN - mirrors this theme's own C-highlighting accents
      * rather than reusing them directly, so Markdown reads as part of the
@@ -1211,6 +1214,9 @@ static const ui_theme g_theme_white = {
     .editor_char_fg = TB_RGB(0xAF, 0x00, 0x75),  /* deep pink - distinct from
                                                    * string_fg's dark red and
                                                    * keyword2_fg's purple */
+    .editor_function_fg = TB_RGB(0x79, 0x5E, 0x26),  /* dark gold - VS Code
+                                                       * Light's actual function-
+                                                       * name color */
 
     /* UI_SYNTAX_MARKDOWN - mirrors this theme's own C-highlighting accents
      * rather than reusing them directly, so Markdown reads as part of the

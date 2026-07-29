@@ -161,6 +161,11 @@ static int g_cell_h = 16;
  * forward across events instead of discarding it. */
 static double g_wheel_accum_y = 0.0;
 
+/* Horizontal counterpart of g_wheel_accum_y - carries the fraction of a
+ * column not yet consumed from NSEvent deltaX (tilt wheel / trackpad
+ * two-finger horizontal swipe) forward across events. */
+static double g_wheel_accum_x = 0.0;
+
 
 /* Single persistent off-screen bitmap: cleared and fully redrawn (by
  * walking the app's DOM) every frame, then blitted once per timer tick -
@@ -706,7 +711,8 @@ static void view_drawRect(id self, SEL _cmd, CGRect dirty)
 static BOOL view_isFlipped(id self, SEL _cmd) { (void)self; (void)_cmd; return YES; }
 static BOOL view_yes(id self, SEL _cmd) { (void)self; (void)_cmd; return YES; }
 
-static void post_mouse(int x, int y, int button, int action, int mods, int wheel_delta)
+static void post_mouse(int x, int y, int button, int action, int mods,
+                       int wheel_delta, int wheel_hdelta)
 {
     ui_event ev = {0};
     ev.type = UI_EVENT_MOUSE;
@@ -716,6 +722,7 @@ static void post_mouse(int x, int y, int button, int action, int mods, int wheel
     ev.data.mouse.action = action;
     ev.data.mouse.mods = mods;
     ev.data.mouse.wheel_delta = wheel_delta;
+    ev.data.mouse.wheel_hdelta = wheel_hdelta;
     ui_env_post_event(g_env, &ev);
     g_force_render = 1;  /* every mouse event type routes through here */
 }
@@ -735,7 +742,7 @@ static void view_mouse_button(id self, id event, int button, int is_down)
         action = (button == UI_MOUSE_BUTTON_LEFT && click_count >= 2) ? UI_MOUSE_DBLCLICK
                                                                        : UI_MOUSE_PRESSED;
     }
-    post_mouse(x, y, button, action, mods, 0);
+    post_mouse(x, y, button, action, mods, 0, 0);
 }
 
 static void view_mouseDown(id self, SEL _cmd, id event)
@@ -754,7 +761,7 @@ static void view_otherMouseUp(id self, SEL _cmd, id event)
 static void view_mouse_move(id self, id event)
 {
     CGPoint pt = view_local_point(self, event);
-    post_mouse((int)(pt.x / g_cell_w), (int)(pt.y / g_cell_h), 0, UI_MOUSE_MOVED, mac_mods(event), 0);
+    post_mouse((int)(pt.x / g_cell_w), (int)(pt.y / g_cell_h), 0, UI_MOUSE_MOVED, mac_mods(event), 0, 0);
 }
 
 static void view_mouseMoved(id self, SEL _cmd, id event) { (void)_cmd; view_mouse_move(self, event); }
@@ -765,7 +772,8 @@ static void view_scrollWheel(id self, SEL _cmd, id event)
 {
     (void)_cmd;
     double dy = ((double (*)(id, SEL))objc_msgSend)(event, sel("deltaY"));
-    if (dy == 0)
+    double dx = ((double (*)(id, SEL))objc_msgSend)(event, sel("deltaX"));
+    if (dy == 0 && dx == 0)
         return;
 
     /* Snapping every nonzero delta straight to +-1 (the old behavior) loses
@@ -777,16 +785,26 @@ static void view_scrollWheel(id self, SEL _cmd, id event)
      * only emit however many whole lines it's now worth, carrying any
      * fractional remainder forward to the next event - same as the
      * WM_MOUSEWHEEL accumulator on Windows, just with a fractional (rather
-     * than integer-notch) input. */
+     * than integer-notch) input. deltaX is handled identically for the
+     * horizontal axis (tilt wheel / trackpad two-finger swipe). */
     g_wheel_accum_y += dy;
     int lines = (int)g_wheel_accum_y;  /* truncates toward zero */
-    if (lines == 0)
-        return;  /* not a full line yet - saved in g_wheel_accum_y for next time */
     g_wheel_accum_y -= lines;
 
+    g_wheel_accum_x += dx;
+    int cols = (int)g_wheel_accum_x;
+    g_wheel_accum_x -= cols;
+
+    if (lines == 0 && cols == 0)
+        return;  /* not a full line/col yet - remainder saved for next time */
+
+    /* deltaX/deltaY share the same "content follows the finger" sense (a
+     * positive deltaY scrolls the view up, so the handler subtracts it), so
+     * negate deltaX into the event's "+1 = scroll view right" convention to
+     * match: a swipe that scrolls content left shows later columns. */
     CGPoint pt = view_local_point(self, event);
     post_mouse((int)(pt.x / g_cell_w), (int)(pt.y / g_cell_h), 0, UI_MOUSE_WHEEL,
-               mac_mods(event), lines);
+               mac_mods(event), lines, -cols);
 }
 
 /* --- NSTextInputClient shim (dead-key/diacritic composition) --- */

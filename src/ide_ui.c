@@ -274,6 +274,12 @@ static ui_theme g_theme = {
     .editor_char_fg = TB_RGB(0xFF, 0xAA, 0xAA),  /* light pink - char
                                                    * literals, distinct from
                                                    * string_fg's green */
+    .editor_function_fg = TB_RGB(0xFF, 0xD7, 0x00),  /* gold - a non-keyword
+                                                       * identifier followed by
+                                                       * '(' (a function name);
+                                                       * distinct from the cyan
+                                                       * comment color it must
+                                                       * not be confused with */
 
     /* UI_SYNTAX_MARKDOWN - see render_editor_line_markdown(). Defaults just
      * match the colors Markdown used to borrow from the C editor palette
@@ -4926,17 +4932,30 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                     hit->scroll -= ev.data.mouse.wheel_delta;  /* 1 row/notch */
                     listbox_clamp_scroll(hit);
                 }
-                else if (hit && (ev.data.mouse.mods & UI_MOD_SHIFT))
-                {
-                    /* Shift+wheel pans horizontally, so long lines and the
-                     * inline diagnostics past their end can be read. */
-                    hit->hscroll -= ev.data.mouse.wheel_delta;  /* 1 col/notch */
-                    editor_clamp_hscroll(hit);
-                }
                 else if (hit)
                 {
-                    hit->scroll -= ev.data.mouse.wheel_delta;  /* 1 line/notch */
-                    editor_clamp_scroll(hit);
+                    /* A horizontal wheel/tilt (or trackpad two-finger swipe)
+                     * pans directly; Shift+vertical-wheel does the same for
+                     * mice with no horizontal axis. wheel_hdelta is +1/notch
+                     * to the right (show later columns), so it adds straight
+                     * into hscroll. Both axes are applied: a trackpad can move
+                     * diagonally, carrying wheel_delta and wheel_hdelta at once. */
+                    int hdelta = ev.data.mouse.wheel_hdelta;
+                    if (ev.data.mouse.mods & UI_MOD_SHIFT)
+                        hdelta -= ev.data.mouse.wheel_delta;  /* 1 col/notch */
+                    if (hdelta)
+                    {
+                        hit->hscroll += hdelta;
+                        editor_clamp_hscroll(hit);
+                    }
+                    /* Shift repurposes the vertical wheel for panning, so it no
+                     * longer also scrolls vertically. */
+                    if (ev.data.mouse.wheel_delta &&
+                        !(ev.data.mouse.mods & UI_MOD_SHIFT))
+                    {
+                        hit->scroll -= ev.data.mouse.wheel_delta;  /* 1 line/notch */
+                        editor_clamp_scroll(hit);
+                    }
                 }
             }
         }
@@ -7073,6 +7092,21 @@ static void render_editor_line(int x, int y, int w, int scroll_x,
                 wfg = g_theme.editor_keyword_fg;
             else if (is_c_keyword2(line + wstart, i - wstart))
                 wfg = g_theme.editor_keyword2_fg;
+            else
+            {
+                /* A non-keyword identifier whose next token is '(' is a
+                 * function name (call or definition) - e.g. the foo in
+                 * "foo(x)" or "int foo(void)". Keywords that take a
+                 * parenthesized operand (if/for/while/switch/sizeof/...) are
+                 * already handled by the keyword branches above, so they never
+                 * reach here. Whitespace between the name and '(' is skipped so
+                 * "foo (x)" still counts. */
+                int k = i;
+                while (k < line_len && (line[k] == ' ' || line[k] == '\t'))
+                    k++;
+                if (k < line_len && line[k] == '(')
+                    wfg = g_theme.editor_function_fg;
+            }
             pending_tag = is_c_tag_keyword(line + wstart, i - wstart);
             int k = wstart;
             while (k < i && col < scroll_x + w)

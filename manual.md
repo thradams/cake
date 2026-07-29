@@ -923,7 +923,7 @@ int main() {
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm
 
-### 9.14 Enhancements to Enumerations (Typed Enums)
+### 9.14 Improved and enhancements to Enumerations (Typed Enums)
 
 <!-- runnable -->
 
@@ -936,9 +936,25 @@ int main() {
 ```
 
 
-> **Note** TODO Missing some details.
+Reference: 
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm
 
-Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm
+Improved enumerations
+Reference: 
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3029.htm
+
+<!-- runnable -->
+
+```c
+//https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3029.htm
+
+enum a {
+	a0 = 0xFFFFFFFFFFFFFFFFULL
+};
+
+int main () {}
+```
+
 
 ### 9.15 Attributes (`[[...]]`)
 

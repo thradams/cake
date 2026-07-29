@@ -361,7 +361,7 @@ int get_self_path(char* buffer, int maxsize) {
         return 1;
     }
 
-    char resolved[4096];
+    char resolved[250] = {0};
     if (!realpath(buffer, resolved)) {
         return 1;
     }

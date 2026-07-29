@@ -765,16 +765,22 @@ static void handle_button_press(XButtonEvent *xb)
     int y = xb->y / g_cell_h;
     int mods = mods_from_state(xb->state);
 
-    /* X11 reports the wheel as button 4 (up)/5 (down) presses (each
-     * immediately followed by a synthetic release), not a distinct event
-     * type - translate here rather than exposing that quirk to the app. */
-    if (xb->button == 4 || xb->button == 5) {
+    /* X11 reports the wheel as button presses (each immediately followed by a
+     * synthetic release), not a distinct event type: 4 (up)/5 (down) for the
+     * vertical wheel, and 6 (left)/7 (right) for the horizontal tilt wheel or
+     * a touchpad's two-finger horizontal scroll. Translate here rather than
+     * exposing that quirk to the app. wheel_hdelta is +1 to scroll the view
+     * right, so button 7 (right) maps to +1. */
+    if (xb->button >= 4 && xb->button <= 7) {
         ui_event ev = {0};
         ev.type = UI_EVENT_MOUSE;
         ev.data.mouse.x = x;
         ev.data.mouse.y = y;
         ev.data.mouse.action = UI_MOUSE_WHEEL;
-        ev.data.mouse.wheel_delta = (xb->button == 4) ? 1 : -1;
+        if (xb->button == 4 || xb->button == 5)
+            ev.data.mouse.wheel_delta = (xb->button == 4) ? 1 : -1;
+        else
+            ev.data.mouse.wheel_hdelta = (xb->button == 7) ? 1 : -1;
         ev.data.mouse.mods = mods;
         ui_env_post_event(g_env, &ev);
         return;
@@ -806,7 +812,7 @@ static void handle_button_press(XButtonEvent *xb)
 
 static void handle_button_release(XButtonEvent *xb)
 {
-    if (xb->button == 4 || xb->button == 5)
+    if (xb->button >= 4 && xb->button <= 7)
         return;  /* the wheel's paired "release" is synthetic - nothing to do */
 
     ui_event ev = {0};

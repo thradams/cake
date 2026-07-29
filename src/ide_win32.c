@@ -77,6 +77,10 @@ static unsigned g_last_render_ms = 0;
  * remainder forward across messages instead of truncating (and losing) it. */
 static int g_wheel_accum = 0;
 
+/* Horizontal counterpart of g_wheel_accum, for WM_MOUSEHWHEEL (tilt wheel /
+ * precision-touchpad horizontal scroll) - same partial-notch accumulation. */
+static int g_wheel_accum_h = 0;
+
 /* GDI has no automatic font fallback (TextOutW draws a missing glyph as a
  * tofu box using whatever font is selected) - so pick one font up front that
  * actually has clean box-drawing glyphs, rather than assuming Consolas. */
@@ -656,6 +660,34 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         ev.data.mouse.y = pt.y / g_cell_h;
         ev.data.mouse.action = UI_MOUSE_WHEEL;
         ev.data.mouse.wheel_delta = notches;
+        ev.data.mouse.mods = (GetKeyState(VK_SHIFT) < 0 ? UI_MOD_SHIFT : 0) |
+                             (GetKeyState(VK_CONTROL) < 0 ? UI_MOD_CTRL : 0) |
+                             (GetKeyState(VK_MENU) < 0 ? UI_MOD_ALT : 0);
+        ui_env_post_event(g_env, &ev);
+        g_dirty = 1;  /* input changed something - repaint next tick */
+        return 0;
+    }
+    case WM_MOUSEHWHEEL: {
+        /* Horizontal tilt wheel / precision-touchpad horizontal scroll. Same
+         * screen->client coordinate conversion and partial-notch accumulation
+         * as WM_MOUSEWHEEL above. HIWORD(wp) is positive when tilted RIGHT,
+         * which matches the event's "+1 = scroll view right" convention, so it
+         * maps straight onto wheel_hdelta. */
+        POINT pt = { GET_X_LPARAM(lp), GET_Y_LPARAM(lp) };
+        ScreenToClient(hwnd, &pt);
+
+        g_wheel_accum_h += (int)((short)HIWORD(wp));
+        int notches = g_wheel_accum_h / WHEEL_DELTA;
+        g_wheel_accum_h -= notches * WHEEL_DELTA;
+        if (notches == 0)
+            return 0;  /* not a full notch yet - saved in g_wheel_accum_h */
+
+        ui_event ev = {0};
+        ev.type = UI_EVENT_MOUSE;
+        ev.data.mouse.x = pt.x / g_cell_w;
+        ev.data.mouse.y = pt.y / g_cell_h;
+        ev.data.mouse.action = UI_MOUSE_WHEEL;
+        ev.data.mouse.wheel_hdelta = notches;
         ev.data.mouse.mods = (GetKeyState(VK_SHIFT) < 0 ? UI_MOD_SHIFT : 0) |
                              (GetKeyState(VK_CONTROL) < 0 ? UI_MOD_CTRL : 0) |
                              (GetKeyState(VK_MENU) < 0 ? UI_MOD_ALT : 0);

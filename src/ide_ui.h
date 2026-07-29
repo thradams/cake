@@ -123,6 +123,12 @@ typedef struct {
             int mods;            /* UI_MOD_* flags */
             int wheel_delta;     /* UI_MOUSE_WHEEL only: +1 per notch up/away
                                    * from the user, -1 per notch down/toward */
+            int wheel_hdelta;    /* UI_MOUSE_WHEEL only: horizontal wheel/tilt
+                                   * (trackpad two-finger swipe, tilt wheel).
+                                   * +1 per notch to scroll the view RIGHT (show
+                                   * later columns), -1 to scroll left. A single
+                                   * wheel event may carry both wheel_delta and
+                                   * wheel_hdelta (trackpads move diagonally). */
         } mouse;
     } data;
 } ui_event;
@@ -323,6 +329,12 @@ typedef struct {
                                 * constant, including escapes ('\n', '\'',
                                 * ...) - see render_editor_line's bounded
                                 * char-literal lookahead. */
+
+    uint32_t editor_function_fg;  /* UI_SYNTAX_C only: an identifier used as a
+                                    * function - a non-keyword name immediately
+                                    * followed by '(' (e.g. the foo in
+                                    * "foo(x)") - see render_editor_line's
+                                    * call lookahead. */
 
     /* UI_SYNTAX_MARKDOWN only - see render_editor_line_markdown(). Its own
      * knobs rather than reusing the UI_SYNTAX_C colors above, so a theme can
