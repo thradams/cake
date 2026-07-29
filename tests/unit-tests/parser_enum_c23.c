@@ -277,7 +277,11 @@ enum C
     C = -1
 };
 
-static_assert(_Generic(enum C, signed long: 1, default: 0));
+#ifdef _WIN32
+    static_assert(_Generic(enum C, signed long long: 1, default: 0));
+#else
+    static_assert(_Generic(enum C, signed long: 1, default: 0));
+#endif
 
 enum D
 {
@@ -285,13 +289,23 @@ enum D
     E
 };
 
-static_assert(_Generic(enum D, unsigned: 1, default: 0));
-static_assert(_Generic(D, unsigned: 1, default: 0));
+#ifdef _WIN32
+    static_assert(_Generic(enum D, unsigned long long: 1, default: 0));
+    static_assert(_Generic(D, unsigned long long: 1, default: 0));
+#else
+    static_assert(_Generic(enum D, unsigned: 1, default: 0));
+    static_assert(_Generic(D, unsigned: 1, default: 0));
+#endif
 
 enum E
 {
     F = 11111111111L,
 };
 
-static_assert(_Generic(enum E, unsigned long: 1, default: 0));
-static_assert(_Generic(F, unsigned long: 1, default: 0));
+#ifdef _WIN32
+    static_assert(_Generic(enum E, unsigned long long: 1, default: 0));
+    static_assert(_Generic(F, unsigned long long: 1, default: 0));
+#else
+    static_assert(_Generic(enum E, unsigned long: 1, default: 0));
+    static_assert(_Generic(F, unsigned long: 1, default: 0));
+#endif
