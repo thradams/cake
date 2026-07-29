@@ -289,13 +289,8 @@ enum D
     E
 };
 
-#ifdef _WIN32
-    static_assert(_Generic(enum D, unsigned long long: 1, default: 0));
-    static_assert(_Generic(D, unsigned long long: 1, default: 0));
-#else
-    static_assert(_Generic(enum D, unsigned: 1, default: 0));
-    static_assert(_Generic(D, unsigned: 1, default: 0));
-#endif
+static_assert(_Generic(enum D, unsigned: 1, default: 0));
+static_assert(_Generic(D, unsigned: 1, default: 0));
 
 enum E
 {
