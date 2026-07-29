@@ -752,7 +752,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
         check_dianostic_suppression_phase(ctx->ctx, p_jump_statement->p_lint_token, 1);
     }
 
-    defer_visit_ctx_destroy(&label_ctx); //lint 35 label context does not use ctx  
+    defer_visit_ctx_destroy(&label_ctx);
 }
 
 static void defer_visit_labeled_statement(struct defer_visit_ctx* ctx, struct labeled_statement* p_labeled_statement)

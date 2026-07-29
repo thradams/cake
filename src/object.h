@@ -78,7 +78,7 @@ struct object
 void object_swap(struct object* a, struct object* b);
 void object_print_value_debug(const struct object* a);
 void object_destroy(_Opt _Dtor struct object* p);
-void object_delete(struct object* _Opt _Owner p);
+void object_delete(_Dtor struct object* _Opt _Owner p);
 bool object_has_constant_value(const struct object* a);
 bool object_has_known_value(const struct object* a);
 

@@ -276,7 +276,7 @@ struct token
     struct token* _Opt prev;
 };
 
-void token_delete( struct token* _Owner _Opt p);
+void token_delete( _Dtor struct token* _Owner _Opt p);
 
 struct token_list
 {

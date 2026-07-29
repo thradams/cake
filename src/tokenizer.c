@@ -120,7 +120,7 @@ struct macro
 };
 
 
-void macro_delete(struct macro* _Owner _Opt macro);
+void macro_delete(_Dtor struct macro* _Owner _Opt macro);
 bool macro_is_same(const struct macro* macro_a, const struct macro* macro_b);
 
 
@@ -169,7 +169,7 @@ static void tokenizer_diagnostic(enum diagnostic_id w, struct tokenizer_ctx* ctx
     va_list args = { 0 };
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args); //lint 35 
+    va_end(args); 
 
     print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format, color_enabled);
     if (ctx->options.visual_studio_ouput_format)

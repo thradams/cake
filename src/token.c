@@ -184,7 +184,7 @@ void token_list_swap(struct token_list* a, struct token_list* b)
     *b = temp;
 }
 
-void token_delete(struct token* _Owner _Opt p)
+void token_delete(_Dtor struct token* _Owner _Opt p)
 {
     if (p)
     {

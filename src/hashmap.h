@@ -15,15 +15,15 @@ struct struct_or_union_specifier;
 struct macro;
 struct struct_entry;
 
-void declarator_delete(struct declarator* _Owner _Opt p);
-void init_declarator_delete(struct init_declarator* _Owner _Opt p);
+void declarator_delete(_Dtor struct declarator* _Owner _Opt p);
+void init_declarator_delete(_Dtor struct init_declarator* _Owner _Opt p);
 
-void enumerator_delete(struct enumerator* _Owner _Opt p);
-void enum_specifier_delete(struct enum_specifier* _Owner _Opt p);
-void struct_or_union_specifier_delete(struct struct_or_union_specifier* _Owner _Opt p);
-void struct_entry_delete(struct struct_entry* _Opt _Owner p);
+void enumerator_delete(_Dtor struct enumerator* _Owner _Opt p);
+void enum_specifier_delete(_Dtor struct enum_specifier* _Owner _Opt p);
+void struct_or_union_specifier_delete(_Dtor struct struct_or_union_specifier* _Owner _Opt p);
+void struct_entry_delete(_Dtor struct struct_entry* _Opt _Owner p);
 
-void macro_delete(struct macro* _Owner _Opt p);
+void macro_delete(_Dtor struct macro* _Owner _Opt p);
 
 
 /*
