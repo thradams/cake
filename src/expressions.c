@@ -6935,7 +6935,7 @@ void check_assigment(struct parser_ctx* ctx,
     */
     if (type_is_enum(p_b_type) && type_is_enum(p_a_type))
     {
-        if (!type_is_same(p_b_type, p_a_type, false))
+        if (p_b_type->enum_specifier->p_complete_enum_specifier != p_a_type->enum_specifier->p_complete_enum_specifier)
         {
             diagnostic(W_INCOMPATIBLE_ENUN_TYPES, ctx,
                 p_b_expression->first_token, NULL,
