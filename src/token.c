@@ -333,7 +333,8 @@ void token_list_insert_after(struct token_list* token_list, struct token* _Opt a
         runtime_assert(append_list->tail != NULL);
         runtime_assert(append_list->tail->next == NULL);
         append_list->tail->next = follow;
-        follow->prev = append_list->tail;
+        if (follow != NULL)
+            follow->prev = append_list->tail;
         after->next = append_list->head;
         append_list->head->prev = after;
 
@@ -619,8 +620,8 @@ struct token* _Owner _Opt clone_token(struct token* p)
     }
 
     *token = *p;
-    token->lexeme = lexeme; 
-    token->next = NULL; 
+    token->lexeme = lexeme; //lint 26
+    token->next = NULL; //lint 26
     token->prev = NULL;
 
     return token;
@@ -655,7 +656,7 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
     }
     else
     {
-        list->tail = NULL;
+        list->tail = before_first;
     }
 
     last->next = NULL; /*MOVED*/

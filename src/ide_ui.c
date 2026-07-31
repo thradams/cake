@@ -280,6 +280,13 @@ static ui_theme g_theme = {
                                                        * distinct from the cyan
                                                        * comment color it must
                                                        * not be confused with */
+    .editor_output_bg = TB_RGB(0x00, 0x00, 0xB0),    /* same as editor_bg - this
+                                                       * base theme gives the
+                                                       * Output panel no distinct
+                                                       * look (see ide.c themes) */
+    .editor_output_fg = TB_RGB(0xC0, 0xC0, 0xC0),    /* same as editor_fg - no
+                                                       * distinct Output text
+                                                       * color in the base theme */
 
     /* UI_SYNTAX_MARKDOWN - see render_editor_line_markdown(). Defaults just
      * match the colors Markdown used to borrow from the C editor palette
@@ -3999,10 +4006,24 @@ static void dock_layout(ui_screen* s)
     int top = 1, screen_bottom = s->screen_h - 1, full_w = s->screen_w;
     int left_w = 0, right_w = 0;
 
+    /* Cap a dock's thickness so it can never swallow the whole editor area,
+     * leaving the same minimum room the interactive resize handler reserves
+     * (see process_window's docked-resize branch: screen_w - 8 for a side
+     * panel, screen_h - 6 for the bottom one). Without this, a thickness
+     * restored from a session saved on a larger screen - or one dragged to the
+     * old, looser limit - would lay the panel out flush to the menubar (y == 1
+     * for the bottom dock), hiding every other window behind it. On a screen
+     * too small for even the reserve, fall back to the full span (>= 1) rather
+     * than a nonsensical negative cap. */
+    int side_cap = full_w - 8;
+    if (side_cap < 1) side_cap = full_w;
+    int bottom_cap = (screen_bottom - top) - 4;  /* == screen_h - 6 */
+    if (bottom_cap < 1) bottom_cap = screen_bottom - top;
+
     if (left)
     {
         int w = left->w;
-        if (w > full_w) w = full_w;
+        if (w > side_cap) w = side_cap;
         if (w < 1) w = 1;
         int h = screen_bottom - top;
         if (h < 1) h = 1;
@@ -4014,7 +4035,7 @@ static void dock_layout(ui_screen* s)
     if (right)
     {
         int w = right->w;
-        if (w > full_w) w = full_w;
+        if (w > side_cap) w = side_cap;
         if (w < 1) w = 1;
         int h = screen_bottom - top;
         if (h < 1) h = 1;
@@ -4029,7 +4050,7 @@ static void dock_layout(ui_screen* s)
         int bw = full_w - left_w - right_w;
         if (bw < 1) bw = 1;
         int h = bottom->h;
-        if (h > screen_bottom - top) h = screen_bottom - top;
+        if (h > bottom_cap) h = bottom_cap;
         if (h < 1) h = 1;
         int y = screen_bottom - h;
         if (bottom->x != left_w || bottom->y != y || bottom->w != bw || bottom->h != h)
@@ -6611,6 +6632,45 @@ static const uint32_t ansi_palette[16] = {
     TB_RGB(0x55, 0xFF, 0xFF), TB_RGB(0xFF, 0xFF, 0xFF),
 };
 
+/* Perceived luminance (0..255) of a packed 0xRRGGBB color - Rec.601 weights. */
+static int color_luma(uint32_t c)
+{
+    int r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, b = c & 0xFF;
+    return (r * 299 + g * 587 + b * 114) / 1000;
+}
+
+/* The ansi_palette above is tuned for a DARK Output background (its bright
+ * entries - the compiler's \x1b[97m WHITE path prefix, yellow, cyan - assume
+ * a dark panel to stand out against). On a LIGHT Output panel (e.g. the white
+ * theme's gray editor_output_bg) those come out nearly invisible. Only for a
+ * light panel, and only when a resolved foreground has too little contrast
+ * with it, swap in the theme's default editor_fg, which is always chosen
+ * readable against that background. A dark panel keeps the palette exactly as
+ * before, so no other theme's Output rendering changes. The threshold is set
+ * just below the green diagnostic squiggle's contrast so those stay green. */
+static uint32_t ansi_readable_fg(uint32_t fg, uint32_t bg)
+{
+    if (color_luma(bg) < 128)
+        return fg;                 /* dark panel - leave the palette alone */
+
+    /* Deepen a couple of the retro ansi_palette's bright entries that read as
+     * washed-out on a light panel, to the saturated shades the playground
+     * uses. Only reached for a light panel (the dark theme early-returned
+     * above), so it keeps the brights it was designed for.
+     *   - \x1b[31;1m bright red  (error text) -> deep red
+     *   - \x1b[92m   bright green (the ~~~ diagnostic underline) -> teal-green */
+    if (fg == TB_RGB(0xFF, 0x55, 0x55))
+        return TB_RGB(0xCD, 0x31, 0x31);
+    if (fg == TB_RGB(0x55, 0xFF, 0x55))
+        return TB_RGB(0x2A, 0xA1, 0x98);
+
+    int diff = color_luma(fg) - color_luma(bg);
+    if (diff < 0) diff = -diff;
+    if (diff < 45)
+        return g_theme.editor_output_fg;
+    return fg;
+}
+
 /* Parses one CSI escape at s[0]=='\x1b', s[1]=='[' and, if it's an SGR
  * ("...m") sequence, updates *fg/*bold from its ';'-separated parameter
  * list. Background codes (40-47/100-107) and other SGR attributes
@@ -6648,7 +6708,7 @@ static int ansi_parse_sgr(const char* s, int len, uint32_t* fg, int* bold)
 
         if (val == 0)
         {
-            *fg = g_theme.editor_fg;
+            *fg = g_theme.editor_output_fg;
             *bold = 0;
         }
         else if (val == 1)
@@ -6665,7 +6725,7 @@ static int ansi_parse_sgr(const char* s, int len, uint32_t* fg, int* bold)
         }
         else if (val == 39)
         {
-            *fg = g_theme.editor_fg;
+            *fg = g_theme.editor_output_fg;
         }
         else if (val >= 90 && val <= 97)
         {
@@ -6704,7 +6764,7 @@ static void render_editor_line_ansi(int x, int y, int w, int scroll_x,
                                      uint32_t bg)
 {
     int col = 0, i = 0;
-    uint32_t fg = g_theme.editor_fg;
+    uint32_t fg = g_theme.editor_output_fg;
     int bold = 0;
 
     while (i < line_len && col < scroll_x + w)
@@ -6722,7 +6782,8 @@ static void render_editor_line_ansi(int x, int y, int w, int scroll_x,
         uint32_t cp;
         int clen = utf8_decode(line + i, &cp);
         int selected = col >= sel_col_lo && col < sel_col_hi;
-        emit_hscroll(x, y, col, scroll_x, w, cp, fg, selected ? g_theme.editor_sel_bg : bg);
+        uint32_t dfg = ansi_readable_fg(fg, bg);
+        emit_hscroll(x, y, col, scroll_x, w, cp, dfg, selected ? g_theme.editor_sel_bg : bg);
         col++;
         i += clen;
     }
@@ -7793,7 +7854,14 @@ static void render_editor(ui_screen* s, ui_node* n)
         if (!have_line)
         {
             if (sy >= 0)  /* a blank row past the document's end - only if visible */
-                draw_fill(n->x, n->y + row, n->w, 1, g_theme.editor_fg, g_theme.editor_bg);
+            {
+                /* Same own-fill as the text rows below: the Output panel's
+                 * blank area uses editor_output_bg, not a source editor_bg. */
+                uint32_t blank_bg = n->syntax == UI_SYNTAX_VT100
+                                        ? g_theme.editor_output_bg
+                                        : g_theme.editor_bg;
+                draw_fill(n->x, n->y + row, n->w, 1, g_theme.editor_fg, blank_bg);
+            }
             continue;
         }
 
@@ -7904,6 +7972,14 @@ static void render_editor(ui_screen* s, ui_node* n)
          * line/caret to track, and both would just be a stray visual left
          * over from wherever the cursor last happened to land (a click, a
          * search result, ...) rather than an actual editing cue. */
+        /* The Output/compiler panel (VT100 mode) fills with its own
+         * editor_output_bg rather than a source editor's editor_bg, so a theme
+         * can make it a recessed, chrome-colored pane (see ide_ui.h). Its rows
+         * carry no source-editing cues (no current-line tint, no Markdown code
+         * block), so this is the base fill for every one of its rows. */
+        uint32_t base_bg = n->syntax == UI_SYNTAX_VT100
+                               ? g_theme.editor_output_bg
+                               : g_theme.editor_bg;
         uint32_t line_bg;
         int md_readonly = n->syntax == UI_SYNTAX_MARKDOWN && n->read_only;
         if (!has_sel && n->syntax == UI_SYNTAX_MARKDOWN && (in_block || line_is_fence))
@@ -7911,7 +7987,7 @@ static void render_editor(ui_screen* s, ui_node* n)
         else if (!has_sel && !md_readonly && line_idx == cursor_line)
             line_bg = g_theme.editor_current_line_bg;
         else
-            line_bg = g_theme.editor_bg;
+            line_bg = base_bg;
 
         /* Captured before render_editor_line_markdown() below mutates
          * `in_block` for this line, so the caret "under" char lookup further
@@ -8084,7 +8160,8 @@ static void render_editor(ui_screen* s, ui_node* n)
                 int is_thumb = col >= thumb_start && col < thumb_start + thumb_len;
                 emit_char(track_x0 + col, sy, 0x2584 /* lower half block */,
                           is_thumb ? g_theme.scrollbar_thumb_bg : g_theme.scrollbar_bg,
-                          g_theme.editor_bg);
+                          n->syntax == UI_SYNTAX_VT100 ? g_theme.editor_output_bg
+                                                       : g_theme.editor_bg);
             }
         }
     }

@@ -1930,7 +1930,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
     return p_expression_node;
 }
 
-void argument_expression_delete(struct argument_expression* _Owner _Opt p)
+void argument_expression_delete(_Dtor struct argument_expression* _Owner _Opt p)
 {
     if (p)
     {

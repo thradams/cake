@@ -1084,6 +1084,13 @@ static const ui_theme g_theme_dark = {
     .editor_function_fg = TB_RGB(0xDC, 0xDC, 0xAA),  /* soft yellow - VS Code
                                                        * Dark's actual function-
                                                        * name color */
+    .editor_output_bg = TB_RGB(0x18, 0x18, 0x18),    /* one step darker than
+                                                       * editor_bg (#1E1E1E) -
+                                                       * VS Code Dark's recessed
+                                                       * panel look for Output */
+    .editor_output_fg = TB_RGB(0xD4, 0xD4, 0xD4),    /* same as editor_fg - the
+                                                       * dark panel keeps the
+                                                       * plain light default */
 
     /* UI_SYNTAX_MARKDOWN - mirrors this theme's own C-highlighting accents
      * rather than reusing them directly, so Markdown reads as part of the
@@ -1188,8 +1195,10 @@ static const ui_theme g_theme_white = {
     .editor_keyword2_fg = TB_RGB(0xAF, 0x00, 0xDB),  /* control flow: purple */
     .editor_string_fg = TB_RGB(0xA3, 0x15, 0x15),
     .editor_comment_fg = TB_RGB(0x00, 0x80, 0x00),
-    .editor_linenum_fg = TB_RGB(0x9E, 0x9E, 0x9E),  /* VS Code Light's actual
-                                                     * gutter gray */
+    .editor_linenum_fg = TB_RGB(0x23, 0x78, 0x93),  /* teal-blue - VS Code
+                                                     * Light+'s actual line-
+                                                     * number color (matches the
+                                                     * playground's gutter) */
     .editor_preproc_fg = TB_RGB(0x80, 0x00, 0x80),
     .editor_sel_bg = TB_RGB(0xAD, 0xD6, 0xFF),  /* #ADD6FF - VS Light's actual selection color */
     .editor_sel_fg = TB_RGB(0x00, 0x00, 0x00),
@@ -1217,6 +1226,19 @@ static const ui_theme g_theme_white = {
     .editor_function_fg = TB_RGB(0x79, 0x5E, 0x26),  /* dark gold - VS Code
                                                        * Light's actual function-
                                                        * name color */
+    .editor_output_bg = TB_RGB(0xF3, 0xF3, 0xF3),    /* light gray - VS Code
+                                                       * Light's panel/chrome
+                                                       * color, so the Output
+                                                       * panel reads as recessed
+                                                       * against the white
+                                                       * document (editor_bg) */
+    .editor_output_fg = TB_RGB(0x1A, 0x73, 0xE8),    /* bright azure blue - the
+                                                       * playground's Output text
+                                                       * color; also the readable
+                                                       * fallback for bright ANSI
+                                                       * colors that would vanish
+                                                       * on the gray
+                                                       * editor_output_bg */
 
     /* UI_SYNTAX_MARKDOWN - mirrors this theme's own C-highlighting accents
      * rather than reusing them directly, so Markdown reads as part of the

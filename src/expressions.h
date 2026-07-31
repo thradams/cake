@@ -158,7 +158,7 @@ struct generic_association
     struct generic_association* _Owner _Opt next;
 };
 
-void generic_association_delete(struct generic_association* _Owner _Opt p);
+void generic_association_delete(_Dtor struct generic_association* _Owner _Opt p);
 
 struct generic_assoc_list
 {
@@ -200,7 +200,7 @@ struct generic_selection
     struct token* last_token;
 };
 
-void generic_selection_delete(struct generic_selection* _Owner _Opt p);
+void generic_selection_delete(_Dtor struct generic_selection* _Owner _Opt p);
 
 struct expression
 {
@@ -247,7 +247,7 @@ struct expression
 bool expression_is_malloc(const struct expression* p);
 bool expression_is_calloc(const struct expression* p);
 
-void expression_delete(struct expression* _Owner _Opt p);
+void expression_delete(_Dtor struct expression* _Owner _Opt p);
 
 /*cake extension*/
 struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, bool is_discarded);

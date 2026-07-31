@@ -3578,9 +3578,9 @@ void type_clear(struct type* a)
     type_destroy(&tmp);
 }
 
-void type_swap(_View struct type* a, _View struct type* b)
+void type_swap(struct type* a, struct type* b)
 {
-    _View struct type temp = *a;
+    struct type temp = *a;
     *a = *b;
     *b = temp;
 }

@@ -369,7 +369,7 @@
 <a href="#toc_62">9.13 <code>constexpr</code></a>
 </li>
 <li>
-<a href="#toc_63">9.14 Enhancements to Enumerations (Typed Enums)</a>
+<a href="#toc_63">9.14 Improved and enhancements to Enumerations (Typed Enums)</a>
 </li>
 <li>
 <a href="#toc_64">9.15 Attributes (<code>[[...]]</code>)</a>
@@ -1357,7 +1357,7 @@ int main() {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm</a></p>
 
-<h3 id="toc_63">9.14 Enhancements to Enumerations (Typed Enums)</h3>
+<h3 id="toc_63">9.14 Improved and enhancements to Enumerations (Typed Enums)</h3>
 
 <!-- runnable -->
 
@@ -1368,11 +1368,23 @@ int main() {
 }
 </code></pre>
 
-<blockquote>
-<p><strong>Note</strong> TODO Missing some details.</p>
-</blockquote>
+<p>Reference: 
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm</a></p>
 
-<p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm</a></p>
+<p>Improved enumerations
+Reference: 
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3029.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3029.htm</a></p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">//https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3029.htm
+
+enum a {
+    a0 = 0xFFFFFFFFFFFFFFFFULL
+};
+
+int main () {}
+</code></pre>
 
 <h3 id="toc_64">9.15 Attributes (<code>[[...]]</code>)</h3>
 

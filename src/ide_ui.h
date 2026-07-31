@@ -336,6 +336,22 @@ typedef struct {
                                     * "foo(x)") - see render_editor_line's
                                     * call lookahead. */
 
+    uint32_t editor_output_bg;  /* UI_SYNTAX_VT100 only (the Output/compiler
+                                  * panel): its own body fill, distinct from a
+                                  * source editor's editor_bg, so the Output
+                                  * panel can read as a recessed chrome-colored
+                                  * pane (e.g. gray against a white document).
+                                  * A theme with no dedicated Output look sets
+                                  * this equal to editor_bg. */
+
+    uint32_t editor_output_fg;  /* UI_SYNTAX_VT100 only: the Output panel's
+                                  * default text color (uncolored output, and
+                                  * the readable fallback when a bright ANSI
+                                  * color would be invisible against a light
+                                  * editor_output_bg - see ansi_readable_fg).
+                                  * A theme with no dedicated Output look sets
+                                  * this equal to editor_fg. */
+
     /* UI_SYNTAX_MARKDOWN only - see render_editor_line_markdown(). Its own
      * knobs rather than reusing the UI_SYNTAX_C colors above, so a theme can
      * restyle a Markdown document (help viewer, README preview, ...)

@@ -755,7 +755,7 @@ void print_macro(bool color_enabled, struct macro* macro)
     print_list(color_enabled, &macro->replacement_list);
 }
 
-void macro_parameters_delete(struct macro_parameter* _Owner _Opt parameters)
+void macro_parameters_delete(_Dtor struct macro_parameter* _Owner _Opt parameters)
 {
     struct macro_parameter* _Owner _Opt p = parameters;
     while (p)
@@ -3846,6 +3846,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     {
                         /*new line not found*/
                         pre_unexpected_end_of_file(pptokens.tail, ctx);
+                        token_list_destroy(&pptokens);
                         throw;
                     }
                 }
@@ -4018,6 +4019,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     {
                         /*new line not found*/
                         pre_unexpected_end_of_file(pptokens.tail, ctx);
+                        token_list_destroy(&pptokens);                 
                         throw;
                     }
                 }
