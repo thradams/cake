@@ -1,0 +1,28 @@
+#pragma safety enable
+
+/*
+   Regression test confirming _Ctor works identically whether the
+   parameter is declared as an array (which decays to a pointer per C's
+   parameter-adjustment rule) or as a plain pointer -- no warning should
+   be emitted for either call, and the array is genuinely treated as
+   initialized afterward.
+*/
+
+void parse1(_Ctor char a[]);
+void parse2(_Ctor char* a);
+
+char file_scope_buf[200];
+
+void use_file_scope(void)
+{
+    parse1(file_scope_buf); /* ok */
+    parse2(file_scope_buf); /* ok */ //lint 35 passing a possible null pointer 'file_scope_buf' to non-nullable pointer parameter (see
+}
+
+void use_local(void)
+{
+    char buf[200];
+    parse1(buf); /* ok */
+    parse2(buf); /* ok */
+    buf[0] = 1;  /* ok: _Ctor initialized it */
+}

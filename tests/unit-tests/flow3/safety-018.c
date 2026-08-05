@@ -1,0 +1,23 @@
+#pragma safety enable
+
+void f(int* p)
+{
+
+    if (p != 0) // pointer is always non-null
+    {
+    } 
+
+    //pointer is always non-null
+
+    if (0 != p) // pointer is always non-null
+    {}
+
+    //pointer is always non-null
+
+    if (p == 0) // pointer is always non-null
+    {}
+
+
+    if (0 == p) // pointer is always non-null
+    {}
+}
