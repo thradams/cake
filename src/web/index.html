@@ -15,7 +15,7 @@
     function launchPlayground(sourceCode) {
       var link = "./playground.html?code=" + encodeURIComponent(btoa(sourceCode))
                + "&to=" + encodeURI("-2")
-               + "&options=-flow3";
+               + "&options=";
       window.open(link, '_blank');
     }
 
@@ -223,13 +223,10 @@
 <a href="#toc_16">Participating</a>
 </li>
 <li>
-<a href="#toc_17">How cake is developed ?</a>
+<a href="#toc_17">Cake x CFront</a>
 </li>
 <li>
-<a href="#toc_18">Cake x CFront</a>
-</li>
-<li>
-<a href="#toc_19">License</a>
+<a href="#toc_18">License</a>
 </li>
 </ul>
 <p>The C Programming language 1978</p>
@@ -246,26 +243,27 @@
 <p><em>&quot;As we said in the preface to the first edition, C &quot;wears well as one&#39;s experience with it grows.&quot; With a decade more experience, we still feel that way.&quot;</em></p>
 </blockquote>
 
-<p><em>C is everywhere. From operating systems to embedded devices, from high-performance apps 
-to essential technology, C powers the technology we rely on every day. Timeless, 
-efficient, and universal.</em></p>
+<p><em>C is everywhere. From operating systems to embedded devices, from
+high-performance apps to essential technology, C powers the technology we rely
+on every day. Timeless, efficient, and universal.</em></p>
 
 <h1 id="toc_0">About</h1>
 
-<p>Cake is a compiler front end written from scratch in C by a human, implementing the C23 language 
-specification and beyond.</p>
+<p>Cake is a compiler front end written from scratch in C by a human, implementing
+the C23 language specification and beyond.</p>
 
-<p>It serves as a platform for experimenting with new features, 
-including C2Y language proposals, safety enhancements, and extensions such as 
-literal functions and defer statements.</p>
+<p>It serves as a platform for experimenting with new features, including C2Y
+language proposals, safety enhancements, and extensions such as literal
+functions and defer statements.</p>
 
-<p>The current backend generates C89-compatible code, which can be pipelined with existing 
-or old compilers to produce executables. </p>
+<p>The current backend generates C89-compatible code, which can be pipelined with
+existing or old compilers to produce executables.</p>
 
 <p><img src="pipeline.svg" alt="Alt text"></p>
 
-<p>Cake aims to enhance C&#39;s safety by providing high-quality <a href="warnings.html">warning messages</a> and advanced 
-flow analysis, including <a href="ownership.html">object lifetime</a> checks.</p>
+<p>Cake aims to enhance C&#39;s safety by providing high-quality <a href="warnings.html">warning
+messages</a> and advanced flow analysis, including <a href="ownership.html">object
+lifetime</a> checks.</p>
 
 <h1 id="toc_1">Web Playground</h1>
 
@@ -275,24 +273,22 @@ flow analysis, including <a href="ownership.html">object lifetime</a> checks.</p
 
 <h1 id="toc_2">Use cases</h1>
 
-<p>Note: Cake is still in development and has not yet reached 
-a stable version.</p>
+<p>Note: Cake is still in development and has not yet reached a stable version.</p>
 
-<p>Cake can be used as a static analyzer alongside other compilers. 
-It generates SARIF files, which are recognized by popular IDEs 
-such as Visual Studio and Visual Studio Code, providing a 
-seamless integration.</p>
+<p>Cake can be used as a static analyzer alongside other compilers. It generates
+SARIF files, which are recognized by popular IDEs such as Visual Studio and
+Visual Studio Code, providing a seamless integration.</p>
 
-<p>It can also function as a preprocessor, converting C23 code to C89. 
-This allows developers to use modern or experimental features while targeting 
-compilers that do not yet support the latest language standards.</p>
+<p>It can also function as a preprocessor, converting C23 code to C89. This allows
+developers to use modern or experimental features while targeting compilers that
+do not yet support the latest language standards.</p>
 
-<p>Cake is also a cross-compiler. For example, on Windows it can use Linux 
-headers and generate GCC-compatible code for Linux, and vice versa. 
-This makes it very useful when developing multiplatform code.</p>
+<p>Cake is also a cross-compiler. For example, on Windows it can use Linux headers
+and generate GCC-compatible code for Linux, and vice versa. This makes it very
+useful when developing multiplatform code.</p>
 
-<p>Another use of Cake is as a library to parse source code and build an AST, 
-which can then be used for other purposes; for instance, automatic serialization,
+<p>Another use of Cake is as a library to parse source code and build an AST, which
+can then be used for other purposes; for instance, automatic serialization,
 automatic documentation and more.</p>
 
 <h1 id="toc_3">Features</h1>
@@ -338,17 +334,16 @@ automatic documentation and more.</p>
 <pre><code>clang build.c -o build &amp;&amp; ./build
 </code></pre>
 
-<blockquote>
-<p>Note: Cake currently compiles and runs on macOS. However, Clang&#39;s system headers are not yet parsed correctly on macOS, so you may need to provide a few declarations manually while testing.</p>
-</blockquote>
-
 <p>If you encounter an error such as:
 fatal error: X11/Xft/Xft.h: No such file or directory</p>
 
-<p>Ubuntu / Debian:  <code>sudo apt install libx11-dev libxft-dev</code>
-Fedora: <code>sudo dnf install libX11-devel libXft-devel</code>
-Arch Linux: <code>sudo pacman -S libx11 libxft</code>
-openSUSE:<code>sudo zypper install libX11-devel libXft-devel</code></p>
+<p>Ubuntu / Debian:  <code>sudo apt install libx11-dev libxft-dev</code></p>
+
+<p>Fedora: <code>sudo dnf install libX11-devel libXft-devel</code></p>
+
+<p>Arch Linux: <code>sudo pacman -S libx11 libxft</code></p>
+
+<p>openSUSE:<code>sudo zypper install libX11-devel libXft-devel</code></p>
 
 <p>These headers are used by the IDE.</p>
 
@@ -426,9 +421,13 @@ the system <code>PATH</code> so the <code>cake</code> command can be executed fr
 
 <h1 id="toc_14">IDE</h1>
 
-<p>The Cake IDE was developed with the help of AI tools. It has now been adopted as part of the Cake project and will be maintained alongside the rest of the codebase. Over time, the IDE code will be reviewed, refined, and gradually humanized as the project evolves.</p>
+<p>The Cake IDE was developed with the help of AI tools. It has now been adopted as
+part of the Cake project and will be maintained alongside the rest of the
+codebase. Over time, the IDE code will be reviewed, refined, and gradually
+humanized as the project evolves.</p>
 
-<p>The IDE works in macOS, Windows and Linux.</p>
+<p>The IDE works in macOS, Windows and Linux and it is very useful to visualize and
+remove warnings.</p>
 
 <p><img src="cakeide.png" alt="Alt text"></p>
 
@@ -437,7 +436,7 @@ the system <code>PATH</code> so the <code>cake</code> command can be executed fr
 <ul>
 <li>function literal and local functions implementation</li>
 <li>Making it usable as C89 backend and fixes</li>
-<li>Flow v2 algorithm was delayed</li>
+<li>Flow3 is landing!</li>
 </ul>
 
 <h1 id="toc_16">Participating</h1>
@@ -450,28 +449,20 @@ the system <code>PATH</code> so the <code>cake</code> command can be executed fr
 
 <p><a href="https://discord.gg/YRekr2N65S">https://discord.gg/YRekr2N65S</a></p>
 
-<h1 id="toc_17">How cake is developed ?</h1>
-
-<p>I use Visual Studio 2022 IDE to write and debug the Cake source.
-Cake parses itself using the MSVC includes and generates the X_86_msvc 
-directory after the build.
-The Linux version is tested inside WSL, and the macOS version is 
-currently the least tested but is expected to work.</p>
-
-<h1 id="toc_18">Cake x CFront</h1>
+<h1 id="toc_17">Cake x CFront</h1>
 
 <p>CFront was the first C++ compiler, designed to translate C++ source code into C.
-Initially compatible with C89, it diverged as the C and C++ languages evolved 
+Initially compatible with C89, it diverged as the C and C++ languages evolved
 independently.</p>
 
-<p>Cake maintains alignment with the standard specifications and ongoing 
+<p>Cake maintains alignment with the standard specifications and ongoing
 development of C, ensuring full compatibility.</p>
 
-<p>The compiler introduces extensions that preserve the fundamental design 
-of C while supporting experimentation and open contributions to the 
-language&#39;s evolution.</p>
+<p>The compiler introduces extensions that preserve the fundamental design of C
+while supporting experimentation and open contributions to the language&#39;s
+evolution.</p>
 
-<h1 id="toc_19">License</h1>
+<h1 id="toc_18">License</h1>
 
 <p>Cake uses the same license of GCC. GPLv3</p>
 </article></body></html>

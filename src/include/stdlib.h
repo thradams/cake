@@ -27,9 +27,9 @@ void srand(unsigned int seed);
 void* aligned_alloc(size_t alignment, size_t size);
 
 #if defined(__CAKE__)
-[[nodiscard]] void* _Owner _Opt calloc(size_t nmemb, size_t size);
+[[nodiscard]] void* _Owner _Opt _Clear calloc(size_t nmemb, size_t size);
 void free(void* _Owner _Opt ptr);
-[[nodiscard]] void* _Owner _Opt malloc(size_t size);
+[[nodiscard]] void* _Owner _Opt _Uninitialized malloc(size_t size);
 [[nodiscard]] void* _Owner _Opt realloc(void* _Opt ptr, size_t size);
 #else
 [[nodiscard]] void* calloc(size_t nmemb, size_t size);

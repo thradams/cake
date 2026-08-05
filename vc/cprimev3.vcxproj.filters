@@ -55,9 +55,6 @@
     <ClCompile Include="..\src\defer.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\flow1.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\target.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -120,9 +117,6 @@
     <ClInclude Include="..\src\defer.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\flow1.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\src\target.h">
       <Filter>Source Files</Filter>
     </ClInclude>
@@ -132,9 +126,5 @@
     <ClInclude Include="..\src\flow3.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="flow2.md" />
-    <None Include="manual.md" />
   </ItemGroup>
 </Project>

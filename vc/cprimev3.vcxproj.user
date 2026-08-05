@@ -1,11 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommandArguments>-copy-headers=c:\include2 file.c</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>-flow3 flow3.c</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)../src/</LocalDebuggerWorkingDirectory>
     <LocalDebuggerCommand>$(TargetPath)</LocalDebuggerCommand>
-    <LocalDebuggerCommandArgumentsHistory>-flow3   file.c| file.c -test-mode| -flow3 file.c|expressions.c|-copy-headers=c:\include2 file.c|</LocalDebuggerCommandArgumentsHistory>
+    <LocalDebuggerCommandArgumentsHistory> file.c -test-mode| -flow3 file.c|expressions.c|-copy-headers=c:\include2 file.c|-flow3 flow3.c|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugTest|Win32'">
     <LocalDebuggerCommandArguments>-selftest</LocalDebuggerCommandArguments>

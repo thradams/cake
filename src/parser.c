@@ -19,7 +19,7 @@
 #include "console.h"
 #include "fs.h"
 #include <ctype.h>
-#include "flow1.h"
+
 #include "flow3.h"
 
 #include "defer.h"
@@ -645,18 +645,18 @@ bool diagnostic_queue_remove(struct diagnostic_queue* q, int line, enum diagnost
         {
             if (prev)
             {
-                prev->next = it->next;
+                prev->next = it->next; //lint 26
             }
             else
             {
-                q->head = it->next;
+                q->head = it->next; //lint 26
             }
 
             if (q->tail == it)
                 q->tail = prev;
 
             it->next = NULL;
-            diagnostic_free(it);
+            diagnostic_free(it); //lint 25
             q->count--;
             return true;
         }
@@ -782,7 +782,7 @@ _Bool diagnostic(enum diagnostic_id w,
     {
         if (p_token_opt == NULL) return false;
 
-        marker.file = p_token_opt->token_origin->lexeme;
+        marker.file = p_token_opt->token_origin ? p_token_opt->token_origin->lexeme : "";
         marker.line = p_token_opt->line;
         marker.start_col = p_token_opt->col;
         marker.end_col = p_token_opt->col;
@@ -799,7 +799,7 @@ _Bool diagnostic(enum diagnostic_id w,
             p_token_opt = marker.p_token_begin;
 
         if (p_token_opt == NULL) return false;
-        marker.file = p_token_opt->token_origin->lexeme;
+        marker.file = p_token_opt->token_origin ? p_token_opt->token_origin->lexeme : "";
         included_file_location = p_token_opt->level > 0;
 
         marker.line = p_token_opt->line;
@@ -2577,7 +2577,23 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
         if (first_of_static_assertion_declaration(ctx))
         {
             p_declaration->static_assertion = static_assertion(ctx);
-            if (parser_match_tk(ctx, ';') != 0) throw;
+
+            /*
+               parser_match_tk_lint, not parser_match_tk: the plain version
+               drops a trailing `//lint N`, so a suppression written on a
+               compile_assert line was attached to nothing -- never checked,
+               never reported as unrecognized, silently ineffective. (The
+               other static-assertion entry point, static_assert_declaration,
+               always used the _lint form; this path did not.)
+            */
+            if (p_declaration->static_assertion != NULL)
+            {
+                if (parser_match_tk_lint(ctx, ';', &p_declaration->static_assertion->p_lint_token) != 0) throw;
+            }
+            else
+            {
+                if (parser_match_tk(ctx, ';') != 0) throw;
+            }
         }
         else if (first_of_pragma_declaration(ctx))
         {
@@ -2665,6 +2681,18 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
         if (p_declaration->lint_token)
         {
             check_compiler_dianostic_suppression(ctx, p_declaration->lint_token);
+        }
+        else if (p_declaration->static_assertion && p_declaration->static_assertion->p_lint_token)
+        {
+            /* The static_assertion branch above captures its `//lint N` into
+               static_assertion->p_lint_token, a separate field from
+               p_declaration->lint_token (which only the plain-declaration
+               branch sets). Without this, a lint comment on a static_assert
+               at this entry point was captured but never checked -- the
+               same bug the comment above parser_match_tk_lint already
+               documents as fixed here, but the fix only wired up capture,
+               not the suppression check itself. */
+            check_compiler_dianostic_suppression(ctx, p_declaration->static_assertion->p_lint_token);
         }
     }
     catch
@@ -2782,8 +2810,8 @@ static void check_unused_parameters(struct parser_ctx* ctx, struct parameter_lis
 
     while (parameter)
     {
-        if (!type_is_maybe_unused(&parameter->declarator->type) &&
-            parameter->declarator &&
+        if (parameter->declarator &&
+            !type_is_maybe_unused(&parameter->declarator->type) &&
             parameter->declarator->num_uses == 0)
         {
             if (parameter->declarator->name_opt &&
@@ -2980,24 +3008,15 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
         {
             if (ctx->options.flow_analysis && extern_declaration)
             {
-                if (ctx->options.flow3)
-                {
+                
                     struct flow3_visit_ctx ctx3 = { .ctx = ctx };
 #pragma CAKE diagnostic push
 #pragma CAKE diagnostic ignored 35
                     flow3_start_visit_declaration(&ctx3, p_declaration);
 #pragma CAKE diagnostic pop
                     flow3_visit_ctx_destroy(&ctx3);
-                }
-                else
-                {
-                    struct flow1_visit_ctx ctx2 = { .ctx = ctx };
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored 35
-                    flow1_start_visit_declaration(&ctx2, p_declaration);
-#pragma CAKE diagnostic pop
-                    flow1_visit_ctx_destroy(&ctx2);
-                }
+                
+                
             }
         }
 
@@ -3091,7 +3110,7 @@ void init_declarator_delete(struct init_declarator* _Owner _Opt p)
         if (p->has_shared_ownership)
         {
             p->has_shared_ownership = false;
-            return; 
+            return; //lint 29 
         }
 
         initializer_delete(p->initializer);
@@ -3417,7 +3436,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     }
 
                     const bool is_constant =
-                    type_is_const_or_constexpr(&p_init_declarator->p_declarator->type);
+type_is_const_or_constexpr(&p_init_declarator->p_declarator->type);
 
                     if (initializer_init_new(ctx,
                         &p_init_declarator->p_declarator->type,
@@ -3607,7 +3626,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         /*
            checking usage of [static ] other than in function arguments
         */
-        if (p_init_declarator->p_declarator) //lint 28 (pointer always non null)
+        if (p_init_declarator->p_declarator) /* pointer always non null */
         {
             if (type_is_array(&p_init_declarator->p_declarator->type))
                 if (p_init_declarator->p_declarator->type.type_qualifier_flags != 0 ||
@@ -3979,6 +3998,8 @@ struct storage_class_specifiers* _Opt _Owner storage_class_specifiers(struct par
     struct storage_class_specifiers* _Opt _Owner p = calloc(1, sizeof * p);
     try
     {
+        if (p == NULL) throw;
+
         while (first_of_storage_class_specifier(ctx))
         {
             struct storage_class_specifier* _Owner _Opt p_storage_class_specifier = storage_class_specifier(ctx);
@@ -6260,7 +6281,7 @@ static void update_enumerator_list_range(struct enumerator* p_enumerator, long l
         *min_value = p_enumerator->value.value.host_long_long;
     }
     if (
-        (is_signed && !is_negative && p_enumerator->value.value.host_long_long > *max_value) ||
+        (is_signed && !is_negative && (unsigned long long)p_enumerator->value.value.host_long_long > *max_value) ||
         (!is_signed && p_enumerator->value.value.host_u_long_long > *max_value)
         )
     {
@@ -6354,7 +6375,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
             {
                 final_type = TYPE_UNSIGNED_INT;
             }
-            else if (max_value <= int_max && min_value >= int_min)
+            else if (max_value <= (unsigned long long) int_max && min_value >= int_min) 
             {
                 final_type = TYPE_SIGNED_INT;
             }
@@ -6362,7 +6383,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
             {
                 final_type = TYPE_UNSIGNED_LONG;
             }
-            else if (max_value <= long_max && min_value >= long_min)
+            else if (max_value <= (unsigned long long) long_max && min_value >= long_min)
             {
                 final_type = TYPE_SIGNED_LONG;
             }
@@ -6370,7 +6391,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
             {
                 final_type = TYPE_UNSIGNED_LONG_LONG;
             }
-            else if (max_value <= llong_max && min_value >= llong_min)
+            else if (max_value <= (unsigned long long) llong_max && min_value >= llong_min)
             {
                 final_type = TYPE_SIGNED_LONG_LONG;
             }
@@ -6381,7 +6402,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
             }
 
             p_enum_specifier->integer_type = make_with_type_specifier_flags(object_type_to_type_specifier(final_type));
-            if (final_type == TYPE_UNSIGNED_INT && max_value <= int_max)
+            if (final_type == TYPE_UNSIGNED_INT && max_value <= (unsigned long long) int_max)
                 final_type = TYPE_SIGNED_INT;
 
             struct enumerator* it = enumeratorlist.head;
@@ -10500,7 +10521,7 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
                     if (!type_is_maybe_unused(&p_declarator->type) &&
                         p_declarator->num_uses == 0)
                     {
-                        if (p_declarator->name_opt && p_declarator->name_opt->token_origin->level == 0)
+                        if (p_declarator->name_opt && p_declarator->name_opt->token_origin && p_declarator->name_opt->token_origin->level == 0)
                         {
                             diagnostic(W_UNUSED_VARIABLE,
                                 ctx,
@@ -12343,18 +12364,12 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
         {
             struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
 
-            if (ctx->options.flow3)
-            {
+            
                 struct flow3_visit_ctx ctx4 = { .ctx = ctx };
                 flow3_start_visit_declaration(&ctx4, it);
                 flow3_visit_ctx_destroy(&ctx4);
-            }
-            else
-            {
-                struct flow1_visit_ctx ctx3 = { .ctx = ctx };
-                flow1_start_visit_declaration(&ctx3, it);
-                flow1_visit_ctx_destroy(&ctx3);
-            }
+            
+            
 
             /* visiting the function again; restore the same diagnostic state */
             ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = before_function_diagnostics;

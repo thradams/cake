@@ -467,8 +467,9 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struc
         {
             throw;
         }
-
-        struct generic_association* _Opt p_default_generic_association = NULL;
+        
+        struct token* _Opt p_default_generic_association_first_token = NULL;
+        struct expression* _Opt p_default_generic_association_expression = NULL;
 
         bool selected = false;
         struct generic_association* _Owner _Opt p_generic_association = generic_association(ctx, p_selection_type, is_discarded, &selected);
@@ -484,7 +485,8 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struc
 
         if (p_generic_association->first_token->type == TK_KEYWORD_DEFAULT)
         {
-            p_default_generic_association = p_generic_association;
+            p_default_generic_association_first_token = p_generic_association->first_token;
+            p_default_generic_association_expression = p_generic_association->expression;
         }
 
         generic_assoc_list_add(&list, p_generic_association);
@@ -543,7 +545,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struc
 
             if (p_generic_association2->first_token->type == TK_KEYWORD_DEFAULT)
             {
-                if (p_default_generic_association != NULL)
+                if (p_default_generic_association_first_token != NULL)
                 {
                     if (diagnostic(C_ERROR_DUPLICATE_DEFAULT_GENERIC_ASSOCIATION,
                         ctx,
@@ -553,14 +555,15 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struc
                     {
                         diagnostic(W_LOCATION,
                             ctx,
-                            p_default_generic_association->first_token,
+                            p_default_generic_association_first_token,
                             NULL,
                             "previous default generic association");
                     }
                 }
                 else
                 {
-                    p_default_generic_association = p_generic_association2;
+                    p_default_generic_association_first_token = p_generic_association2->first_token;
+                    p_default_generic_association_expression = p_generic_association2->expression;
                 }
             }
 
@@ -573,9 +576,9 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struc
         }
 
         if (p_generic_selection->p_view_selected_expression == NULL &&
-            p_default_generic_association != NULL)
+            p_default_generic_association_expression != NULL)
         {
-            p_generic_selection->p_view_selected_expression = p_default_generic_association->expression;
+            p_generic_selection->p_view_selected_expression = p_default_generic_association_expression;
         }
     }
     catch
@@ -2188,6 +2191,23 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     throw;
                 }
 
+                if (ctx->current == NULL)
+                {
+                    unexpected_end_of_file(ctx);
+                    expression_delete(p_expression_node_new);
+                    p_expression_node_new = NULL;
+                    throw;
+                }
+
+                struct token* _Opt p_last = previous_parser_token(ctx->current);
+                if (p_last == NULL)
+                {
+                    expression_delete(p_expression_node_new);
+                    p_expression_node_new = NULL;
+                    throw;
+                }
+
+                p_expression_node_new->last_token = p_last;
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
             }
@@ -2253,7 +2273,13 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 if (p_expression_node_new == NULL) throw;
                 p_expression_node->last_token = ctx->current;
-                p_expression_node_new->first_token = ctx->current;
+                /* Inherit the left operand's first token (matching EXPR_POSTFIX_ARROW
+                   just below), not the '.' token itself -- otherwise
+                   flow3_expression_to_string() renders only the tail of the
+                   expression starting at the dot (e.g. ".head->p_declarator"
+                   instead of "list.head->p_declarator"), since it walks the
+                   node's own [first_token, last_token] range verbatim. */
+                p_expression_node_new->first_token = p_expression_node->first_token;
                 p_expression_node_new->expression_type = EXPR_POSTFIX_DOT;
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node_new->lvalue_disabled = p_expression_node->lvalue_disabled;
@@ -2355,6 +2381,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                             p_expression_node_new->left->type.struct_or_union_specifier->tag_name);
                         /* print_scope(&ctx->scopes); */
                     }
+                    p_expression_node_new->last_token = ctx->current;
+
                     if (parser_match_tk(ctx, TK_IDENTIFIER) != 0)
                     {
                         expression_delete(p_expression_node_new);
@@ -2530,6 +2558,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 p_expression_node->last_token = ctx->current;
                 p_expression_node_new->first_token = ctx->current;
+                p_expression_node_new->last_token = ctx->current;
                 p_expression_node_new->expression_type = EXPR_POSTFIX_INCREMENT;
 
                 p_expression_node_new->type = type_dup(&p_expression_node->type);
@@ -2565,6 +2594,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 if (p_expression_node_new == NULL) throw;
 
                 p_expression_node_new->first_token = ctx->current;
+                p_expression_node_new->last_token = ctx->current;
                 p_expression_node_new->expression_type = EXPR_POSTFIX_DECREMENT;
 
                 p_expression_node_new->type = type_dup(&p_expression_node->type);
@@ -2598,6 +2628,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
     catch
     {
     }
+
+    runtime_assert(p_expression_node == NULL || (p_expression_node->first_token && p_expression_node->last_token));
 
     return p_expression_node;
 }
@@ -3111,6 +3143,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 throw;
             }
 
+            new_expression->last_token = new_expression->right->last_token;
             new_expression->type = type_dup(&new_expression->right->type);
             /* prefix ++/-- yields the new value — not a bitfield designator */
             new_expression->type.array_num_elements = 0;
@@ -7137,27 +7170,53 @@ void flow3_expression_to_string(const struct expression* p_expression, struct os
 {
     ss_clear(ss);
 
-    if (p_expression->first_token == NULL || p_expression->last_token == NULL)
-        return;
-
-    const struct token* _Opt current = p_expression->first_token;
-    while (current && current != p_expression->last_token->next)
+    /*
+       Must never leave ss->c_str NULL: callers pass it straight to a "%s" in a
+       diagnostic, so an empty result printed literally as "(null)" -- e.g.
+       "object '(null)' lifetime has ended". The two fallbacks below make that
+       impossible.
+    */
+    if (p_expression->first_token != NULL && p_expression->last_token != NULL)
     {
-        if (!(current->flags & TK_C_BACKEND_FLAG_HIDE) &&
-            current->type != TK_BEGIN_OF_FILE &&
-            (current->flags & TK_FLAG_FINAL))
+        const struct token* _Opt current = p_expression->first_token;
+        while (current && current != p_expression->last_token->next)
         {
-            if (current->type == TK_LINE_COMMENT ||
-                current->type == TK_COMMENT)
+            if (!(current->flags & TK_C_BACKEND_FLAG_HIDE) &&
+                current->type != TK_BEGIN_OF_FILE &&
+                (current->flags & TK_FLAG_FINAL))
             {
-                /* skip comments entirely */
+                if (current->type == TK_LINE_COMMENT ||
+                    current->type == TK_COMMENT)
+                {
+                    /* skip comments entirely */
+                }
+                else
+                {
+                    ss_fprintf(ss, "%s", current->lexeme);
+                }
             }
-            else
+            current = current->next;
+        }
+
+        /* Nothing was FINAL -- a macro-expanded or synthesized expression, and
+           the case that produced the "(null)" names. The text is still the best
+           description available, so take it without the FINAL requirement. */
+        if (ss->c_str == NULL)
+        {
+            current = p_expression->first_token;
+            while (current && current != p_expression->last_token->next)
             {
-                ss_fprintf(ss, "%s", current->lexeme);
+                if (current->type != TK_BEGIN_OF_FILE &&
+                    current->type != TK_LINE_COMMENT &&
+                    current->type != TK_COMMENT)
+                {
+                    ss_fprintf(ss, "%s", current->lexeme);
+                }
+                current = current->next;
             }
         }
-        current = current->next;
     }
 
+    if (ss->c_str == NULL)
+        ss_fprintf(ss, "%s", "?");
 }

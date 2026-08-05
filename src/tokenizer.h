@@ -73,7 +73,7 @@ struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const ch
 struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);
 struct token_list copy_replacement_list(struct preprocessor_ctx* ctx, const struct token_list* list);
 
-void token_list_append_list(struct token_list* dest, _Dtor struct token_list* source);
+void token_list_append_list(struct token_list* dest, _Clear struct token_list* source);
 void print_list(bool color_enabled, struct token_list* list);
 void token_list_destroy(_Opt _Dtor struct token_list* list);
 bool token_is_blank(const struct token* p);

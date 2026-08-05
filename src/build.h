@@ -251,10 +251,10 @@ static int system_like(const char* command)
 static int copy_file(const char* src, const char* dst)
 {
     FILE* fin = fopen(src, "rb");
-    if (!fin) { perror("fopen(src)"); exit(1); }
+    if (!fin) { perror("fopen(src)"); printf("we are exiting build without continuing\n"); exit(1); }
 
     FILE* fout = fopen(dst, "wb");
-    if (!fout) { perror("fopen(dst)"); fclose(fin); exit(1); }
+    if (!fout) { perror("fopen(dst)"); fclose(fin); printf("we are exiting build without continuing\n"); exit(1); }
 
     int c;
     while ((c = fgetc(fin)) != EOF)
@@ -297,7 +297,11 @@ static void execute_cmd(const char* cmd)
     printf("%s\n", cmd);
     fflush(stdout);
     if (system_like(cmd) != 0)
+    {
+        printf("command failed: %s\n", cmd);
+        printf("we are exiting build without continuing\n");
         exit(1);
+    }
 }
 
 /*
@@ -326,6 +330,7 @@ static void echo_chdir(const char* path)
     if (chdir(path) != 0)
     {
         printf("chdir failed: %s\n", path);
+        printf("we are exiting build without continuing\n");
         exit(1);
     }
 }

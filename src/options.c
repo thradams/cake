@@ -183,6 +183,10 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_DIVISION_BY_ZERO:
     case W_FLOW_UNREACHABLE_CODE:
     case W_FLOW_CLEAR_NOT_ZERO_AT_EXIT:
+    case W_FLOW_OUT_OF_BOUNDS:
+    case W_FLOW_CTOR_NOT_INITIALIZED_AT_EXIT:
+    case W_FLOW_PARAM_OWNER_CONSUMED_AT_EXIT:
+    case W_COMPILE_ASSERT_UNPROVEM:
 
         /* The former W_OWNERSHIP_* group (22-26). These are now reported by
            flow analysis (flow1/flow3), so they must be phase 2 -- otherwise
@@ -213,13 +217,14 @@ int get_diagnostic_phase(enum diagnostic_id w)
         return 2; /*returns 2 if it flow analysis*/
 
         /*
-           NOTE: W_OUT_OF_BOUNDS (42) is deliberately NOT here. It is emitted
-           from BOTH phases -- expressions.c reports a constant index at parse
-           time, flow3.c reports a flow-derived one -- so no single phase is
-           correct for it. Suppressing it with a comment therefore only works
-           for the parse-time form; the flow-time form would report
-           "diagnostic '42' not recognized". Fixing that needs the phase to be
-           per-diagnostic-site rather than per-diagnostic-id.
+           NOTE: W_OUT_OF_BOUNDS (42) is deliberately NOT here -- it stays
+           phase 0. It used to be emitted from BOTH phases (expressions.c for
+           a constant index, flow3.c for a flow-derived one), which no single
+           per-id phase can describe: `//lint 42` worked on the parse-time
+           form and reported "diagnostic '42' not recognized" on the flow one.
+           Rather than make the phase per-site, the flow form was given its
+           own id, W_FLOW_OUT_OF_BOUNDS (70), listed above as phase 2. Each id
+           now has exactly one emitting phase. See samples/flow3/array-bounds.c.
         */
 
     default:
@@ -277,6 +282,12 @@ int fill_options(struct options* options,
         if (strcmp(argv[i], "-const-literal") == 0)
         {
             options->const_literal = true;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-dont-generate-time-stamp") == 0)
+        {
+            options->dont_generate_time_stamp = true;
             continue;
         }
 
@@ -382,12 +393,7 @@ int fill_options(struct options* options,
             options->test_mode_inout = true;
             continue;
         }
-
-        if (strcmp(argv[i], "-flow3") == 0)
-        {
-            options->flow3 = true;
-            continue;
-        }
+        
 
         if (strcmp(argv[i], "-runtime-asserts") == 0)
         {
@@ -649,6 +655,7 @@ void print_help()
     print_option("-dump-pp-tokens", "Output tokens after preprocessor");
     print_option("-disable-assert", "disables built-in assert");
     print_option("-const-literal", "literal string becomes const");
+    print_option("-dont-generate-time-stamp", "Do not include the timestamp comment in the generated file");
     print_option("-preprocess-def-macro", "preprocess def macros after expansion");
     print_option("-style=name", "Set the style used in w011 style warnings. Options are `-style=cake`, `-style=gnu`, `-style=microsoft`");
     print_option("-selftest", "Runs Cake's internal tests. The code must be compiled with -DTEST.");

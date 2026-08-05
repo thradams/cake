@@ -13,29 +13,30 @@ The C Programming language Second Edition 1988
 
 
 
-_C is everywhere. From operating systems to embedded devices, from high-performance apps 
-to essential technology, C powers the technology we rely on every day. Timeless, 
-efficient, and universal._
+_C is everywhere. From operating systems to embedded devices, from
+high-performance apps to essential technology, C powers the technology we rely
+on every day. Timeless, efficient, and universal._
 
 
 # About
 
 
-Cake is a compiler front end written from scratch in C by a human, implementing the C23 language 
-specification and beyond.
+Cake is a compiler front end written from scratch in C by a human, implementing
+the C23 language specification and beyond.
 
-It serves as a platform for experimenting with new features, 
-including C2Y language proposals, safety enhancements, and extensions such as 
-literal functions and defer statements.
+It serves as a platform for experimenting with new features, including C2Y
+language proposals, safety enhancements, and extensions such as literal
+functions and defer statements.
 
-The current backend generates C89-compatible code, which can be pipelined with existing 
-or old compilers to produce executables. 
+The current backend generates C89-compatible code, which can be pipelined with
+existing or old compilers to produce executables.
 
 ![Alt text](pipeline.svg)
 
 
-Cake aims to enhance C's safety by providing high-quality [warning messages](warnings.md) and advanced 
-flow analysis, including [object lifetime](ownership.md) checks.
+Cake aims to enhance C's safety by providing high-quality [warning
+messages](warnings.md) and advanced flow analysis, including [object
+lifetime](ownership.md) checks.
 
 
 
@@ -47,24 +48,22 @@ http://cakecc.org/playground.html
 
 # Use cases
 
-Note: Cake is still in development and has not yet reached 
-a stable version.
+Note: Cake is still in development and has not yet reached a stable version.
 
-Cake can be used as a static analyzer alongside other compilers. 
-It generates SARIF files, which are recognized by popular IDEs 
-such as Visual Studio and Visual Studio Code, providing a 
-seamless integration.
+Cake can be used as a static analyzer alongside other compilers. It generates
+SARIF files, which are recognized by popular IDEs such as Visual Studio and
+Visual Studio Code, providing a seamless integration.
 
-It can also function as a preprocessor, converting C23 code to C89. 
-This allows developers to use modern or experimental features while targeting 
-compilers that do not yet support the latest language standards.
+It can also function as a preprocessor, converting C23 code to C89. This allows
+developers to use modern or experimental features while targeting compilers that
+do not yet support the latest language standards.
 
-Cake is also a cross-compiler. For example, on Windows it can use Linux 
-headers and generate GCC-compatible code for Linux, and vice versa. 
-This makes it very useful when developing multiplatform code.
+Cake is also a cross-compiler. For example, on Windows it can use Linux headers
+and generate GCC-compatible code for Linux, and vice versa. This makes it very
+useful when developing multiplatform code.
 
-Another use of Cake is as a library to parse source code and build an AST, 
-which can then be used for other purposes; for instance, automatic serialization,
+Another use of Cake is as a library to parse source code and build an AST, which
+can then be used for other purposes; for instance, automatic serialization,
 automatic documentation and more.
 
 # Features
@@ -110,14 +109,15 @@ Got to the *src* directory and type:
 clang build.c -o build && ./build
 ```
 
-> Note: Cake currently compiles and runs on macOS. However, Clang's system headers are not yet parsed correctly on macOS, so you may need to provide a few declarations manually while testing.
-
 If you encounter an error such as:
 fatal error: X11/Xft/Xft.h: No such file or directory
 
 Ubuntu / Debian:  `sudo apt install libx11-dev libxft-dev`
+
 Fedora: `sudo dnf install libX11-devel libXft-devel`
+
 Arch Linux: `sudo pacman -S libx11 libxft`
+
 openSUSE:`sudo zypper install libX11-devel libXft-devel`
 
 These headers are used by the IDE.
@@ -198,9 +198,13 @@ See [Manual](manual.md)
 
 # IDE
 
-The Cake IDE was developed with the help of AI tools. It has now been adopted as part of the Cake project and will be maintained alongside the rest of the codebase. Over time, the IDE code will be reviewed, refined, and gradually humanized as the project evolves.
+The Cake IDE was developed with the help of AI tools. It has now been adopted as
+part of the Cake project and will be maintained alongside the rest of the
+codebase. Over time, the IDE code will be reviewed, refined, and gradually
+humanized as the project evolves.
 
-The IDE works in macOS, Windows and Linux.
+The IDE works in macOS, Windows and Linux and it is very useful to visualize and
+remove warnings.
 
 
 ![Alt text](cakeide.png)
@@ -209,8 +213,7 @@ The IDE works in macOS, Windows and Linux.
 
 * function literal and local functions implementation
 * Making it usable as C89 backend and fixes
-* Flow v2 algorithm was delayed
-
+* Flow3 is landing!
 
 
 # Participating
@@ -224,27 +227,18 @@ DISCORD SERVER
 [https://discord.gg/YRekr2N65S](https://discord.gg/YRekr2N65S)
 
 
-# How cake is developed ?
-
-I use Visual Studio 2022 IDE to write and debug the Cake source.
-Cake parses itself using the MSVC includes and generates the X\_86\_msvc 
-directory after the build.
-The Linux version is tested inside WSL, and the macOS version is 
-currently the least tested but is expected to work.
-
-
 # Cake x CFront
 
 CFront was the first C++ compiler, designed to translate C++ source code into C.
-Initially compatible with C89, it diverged as the C and C++ languages evolved 
+Initially compatible with C89, it diverged as the C and C++ languages evolved
 independently.
 
-Cake maintains alignment with the standard specifications and ongoing 
+Cake maintains alignment with the standard specifications and ongoing
 development of C, ensuring full compatibility.
 
-The compiler introduces extensions that preserve the fundamental design 
-of C while supporting experimentation and open contributions to the 
-language's evolution.
+The compiler introduces extensions that preserve the fundamental design of C
+while supporting experimentation and open contributions to the language's
+evolution.
 
 
 # License

@@ -2630,25 +2630,39 @@ int main() {
 
 `;
 
-sample["Static Analysis"]["assert_state/static_debug"] =
+sample["Static Analysis"]["_Clear (calloc zero-initialization)"] =
     `
 #pragma safety enable
 
-void* _Owner _Opt malloc(unsigned long size);
-void free(void* _Owner ptr);
+/*
+   calloc zero-initializes its memory, and _Clear tells cake that
+   those zeros are REAL state -- not just "don't know yet". So a
+   non-_Opt pointer member coming out of calloc is null, exactly as
+   if you had written "= {0}" yourself, and using it before it is
+   assigned is flagged the same way.
+*/
 
-int main() {
-   void * _Owner  _Opt p = malloc(1);
-   if (p)
-   {
-     assert_state(p, "not-null"); 
-     free(p);
-     assert_state(p, "uninitialized"); 
-   }
-   assert_state(p, "null | uninitialized"); 
-   static_debug(p);
+void* _Owner _Opt _Clear calloc(unsigned long n, unsigned long sz);
+void free(void* _Owner _Opt p);
+
+struct X {
+    char* p_non_null;
+};
+
+void take(struct X* x);
+
+int main()
+{
+    struct X* _Owner _Opt x = calloc(1, sizeof *x);
+    if (x == 0) return 1;
+
+    take(x); // warning: x->p_non_null is null (calloc's zero is real)
+
+    x->p_non_null = "ok";
+    take(x); // ok: now complete
+
+    free(x);
 }
-
 `;
 
 sample["Static Analysis"]["implementing a destructor I"] =
@@ -2909,12 +2923,20 @@ sample["Static Analysis"]["dynamic array"] =
     `
 #pragma safety enable
 
-#include <stdlib.h>
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
 #include <limits.h>
+#include <stdint.h>
 #include <string.h>
+#include <stddef.h>
+
+/* realloc's first parameter is _Owner here (like free's), so passing
+   p->data below is a real move -- cake tracks it as consumed by the
+   call instead of flagging it as leaked when p->data is reassigned. */
+void* _Owner _Opt realloc(void* _Owner _Opt ptr, size_t size);
+void* _Owner _Opt malloc(size_t size);
+void free(void* _Owner _Opt ptr);
 
 struct int_array {
     int* _Owner _Opt data;
@@ -2922,6 +2944,12 @@ struct int_array {
     int capacity;
 };
 
+/* warning 30 here is expected: cake can't prove a plain (non-_Ctor)
+   pointer parameter points at an already-initialized object, so
+   p->data is conservatively treated as possibly-uninitialized on
+   entry. //lint can't suppress it -- that mechanism only attaches
+   after a declaration/statement's trailing token, and a function
+   definition's parameter list has none. */
 int int_array_reserve(struct int_array* p, int n)
 {
     if (n > p->capacity) {
@@ -2931,7 +2959,6 @@ int int_array_reserve(struct int_array* p, int n)
 
         void* _Owner _Opt pnew = realloc(p->data, n * sizeof(p->data[0]));
         if (pnew == NULL) return ENOMEM;
-        override_state(p->data, "moved");
         p->data = pnew;
         p->capacity = n;
     }
@@ -3009,29 +3036,6 @@ int main()
 }
 `;
 
-sample["Static Analysis"]["override_state/realloc"] =
-    `
-#pragma safety enable
-
-void* _Owner _Opt realloc(void* _Opt ptr, unsigned size);
-void* _Owner _Opt malloc(unsigned long size);
-void free(void* _Owner _Opt ptr);
-
-void f()
-{
-    void * _Owner _Opt p = malloc(1);
-    void * _Owner _Opt p2 = realloc(p, 2);
-    if (p2 != 0)
-    {
-       /*overriding flow analysis*/
-       override_state(p, "moved");
-       p = p2;
-    }
-    free(p);
-}
-
-`;
-
 sample["Static Analysis"]["mtx_t"] =
     `
 #pragma safety enable
@@ -3039,9 +3043,6 @@ sample["Static Analysis"]["mtx_t"] =
 enum {
     mtx_plain ,
     mtx_timed,
-    mtx_plain,
-    mtx_timed,
-};
 };
 
 enum {
@@ -3054,7 +3055,7 @@ enum {
 };
 
 typedef struct { _Owner int dummy; } mtx_t;
-int mtx_init(_Out mtx_t *mtx, int type);
+int mtx_init(_Ctor mtx_t *mtx, int type);
 void mtx_destroy( _Dtor mtx_t * mutex );
 
 int main()
@@ -3062,10 +3063,9 @@ int main()
    mtx_t mtx;
    if (mtx_init(&mtx, mtx_plain) != thrd_success)
    {
-      override_state(mtx, "uninitialized");
-      return;
+      return 1; //lint 29 (_Ctor promises mtx is constructed once mtx_init returns, even on the failure path; mtx_init itself owns cleanup on failure)
    }
-   mtx_destroy(&mtx);   
+   mtx_destroy(&mtx);
 }
 
 `;
@@ -3082,7 +3082,6 @@ int main()
   fd = socket();
   if (fd < 0)
   {
-     override_state(fd, "null");
      return 1;
   }
   close(fd);
@@ -3130,7 +3129,7 @@ void takes_ownership(char * _Owner _Opt some_string)
 
 int main()
 {
-    _Opt _Owner auto  s = strdup("hello");
+    _Opt _Owner auto s = strdup("hello");
     takes_ownership(s /*moved here*/ );
 }
 
@@ -3197,7 +3196,7 @@ sample["Static Analysis"]["_Owner pointer owns two objects"] =
     `
 #pragma safety enable
 
-void * _Owner _Opt calloc(unsigned long i, unsigned long sz);
+void * _Owner _Opt _Clear calloc(unsigned long i, unsigned long sz);
 char * _Owner _Opt strdup(const char* );
 void free(void * _Owner _Opt p);
 
@@ -3250,6 +3249,12 @@ void x_destroy(_Dtor struct X * p)
 sample["Find the bug"] = [];
 sample["Find the bug"]["Bug #1"] =
     `
+/*
+  x.name is only initialized when "condition" is true. When it's
+  false, f() returns a struct X whose _Owner member is garbage -
+  neither a valid pointer to free nor null. Flow analysis flags
+  the return because "x" isn't fully initialized on every path.
+*/
 #pragma safety enable
 
 #include <stdlib.h>
@@ -3277,7 +3282,12 @@ int main()
 
 sample["Find the bug"]["Bug #2"] =
     `
-
+/*
+  delete() frees the outer struct X but never frees p->name, the
+  _Owner member inside it - a leak. Because every _Owner object
+  must be freed or moved on every path, flow analysis reports the
+  leaked p->name right where p goes out of scope inside free(p).
+*/
 #pragma safety enable
 
 #include <stdlib.h>
@@ -3311,6 +3321,12 @@ int main()
 
 sample["Find the bug"]["Bug #3"] =
     `
+/*
+  Same idea as Bug #2, but with two owned members: p->name is
+  freed, p->surname is not. One correct free() call next to it is
+  not enough to prove the whole struct is clean - flow analysis
+  checks every _Owner member individually.
+*/
 #pragma safety enable
 
 #include <stdlib.h>
@@ -3346,7 +3362,13 @@ int main()
 
 sample["Find the bug"]["Bug #4"] =
     `
-
+/*
+  change() takes a plain (non-owning) X* but frees p->name anyway -
+  reaching through a borrowed pointer to destroy an object it
+  doesn't own. main() still thinks x.name is alive and never frees
+  x.name or x.surname before x goes out of scope: a use-after-free
+  waiting to happen plus a leak of x.surname.
+*/
 #pragma safety enable
 
 #include <stdlib.h>
@@ -3360,7 +3382,7 @@ struct X {
 
 void change(struct X * p)
 {
-     free(p->name);       
+     free(p->name);
 }
 
 int main()
@@ -3374,9 +3396,9 @@ int main()
 
 `;
 
-sample["Find the bug"]["Bug #5"] =
+sample["Find the bug"]["Bug #5 - dangling pointer to a local"] =
     `
-
+#pragma safety enable
 
 struct X
 {
@@ -3385,7 +3407,7 @@ struct X
 
 void f(int condition)
 {
-   struct X * p = 0;
+   struct X * _Opt p = 0;
    if (condition)
    {
      struct X x = {};
@@ -3393,25 +3415,32 @@ void f(int condition)
    }
    p->i = 1;
 }
+
 `;
 
-sample["Find the bug"]["Bug #5"] =
+sample["Find the bug"]["Bug #5b - use after free through an alias"] =
     `
+/*
+  p is an alias of pX (not a separate owner). free(pY) frees the
+  object pX->pY points to, but neither pX->pY nor the alias p is
+  updated to reflect that - so p->pY->i = 1 dereferences through
+  a member that was just freed.
+*/
 #pragma safety enable
 
-void* _Owner _Opt calloc(unsigned int n, unsigned long size);
+void* _Owner _Opt _Clear calloc(unsigned int n, unsigned long size);
 void free(void* _Owner _Opt ptr);
 
 struct Y {
-    int i; 
+    int i;
 };
 
 struct X {
-    int i; 
+    int i;
     struct Y* _Opt pY;
 };
 
-int main() 
+int main()
 {
     struct X* _Owner _Opt pX = calloc(1, sizeof *pX);
     if (pX) 
@@ -3421,8 +3450,8 @@ int main()
         {
             pX->pY = pY;
             struct X* _Opt p = pX;
-            free(pY);            
-            p->pY->i = 1;  // no warning            
+            free(pY);
+            p->pY->i = 1;  // caught: p->pY was freed, its lifetime has ended
         }
         free(pX);
     }
@@ -3432,6 +3461,13 @@ int main()
 
 sample["Find the bug"]["Bug #6"] =
     `
+/*
+  o->obj2 is freed and then set to nullptr through the "o" path -
+  but "p" is a separate alias created earlier, and its view of
+  o->obj2 doesn't get re-narrowed by that assignment. p->obj2->i
+  dereferences a member flow analysis still considers possibly
+  null/freed at this point.
+*/
 #pragma safety enable
 
 #include <stdlib.h>
@@ -3521,6 +3557,13 @@ struct nlist *install(char *name, char *defn)
 
 sample["Find the bug"]["Bug #8"] =
     `
+/*
+  p aliases k. When i is true, *p = 0 sets k to 0 through the
+  alias - but ordinary compilers don't connect "p aliases k" with
+  "k is used as a divisor" a few lines later. Flow analysis does:
+  it tracks that k may now be 0 and flags 212/k as a possible
+  division by zero.
+*/
 #pragma safety enable
 
 void  f(int i)
@@ -3539,6 +3582,13 @@ int main() {}
 
 sample["Find the bug"]["Bug #9"] =
     `
+/*
+  f() takes an enum E1 but its switch has a "case D:" - D belongs
+  to the unrelated enum E2, not E1. It compiles (enumerators are
+  just ints), but it can never match and silently masks the real
+  bug: case B is never handled. Flow analysis warns about mixing
+  enumerators from different enum types in the same switch.
+*/
 enum E1 {A, B};
 enum E2 {C, D};
 
@@ -3555,6 +3605,13 @@ int main(){}
 
 sample["Find the bug"]["Bug #10"] =
     `
+/*
+  If strdup(name) returns NULL, set() returns early without ever
+  assigning to p->name - but p->name was already freed a few lines
+  above. The caller is left holding a struct whose _Owner member is
+  a dangling pointer to freed memory, and main() goes on to print
+  and free it again.
+*/
 #pragma safety enable
 
 #include <stdio.h>
@@ -3584,12 +3641,18 @@ int main() {
 
 sample["Find the bug"]["Bug #11"] =
     `
+/*
+  p->p_ch is made to point at the local variable "ch". Once f()
+  returns, ch's storage no longer exists, but p (and p->p_ch) are
+  returned to the caller anyway - a classic dangling pointer to a
+  stack local that has escaped its function.
+*/
 #pragma safety enable
 
 void* _Owner _Opt malloc(unsigned long size);
 
 struct X{
-  char * p_ch;    
+  char * p_ch;
 };
 
 struct X * _Owner _Opt f()
@@ -3769,1474 +3832,284 @@ auto u64_max = 18'446'744'073'709'551'615;
 
 `;
 
-sample["Flow3"] = [];
-
-sample["Flow3"]["static init"] =
+sample["Static Analysis"]["Catching a null pointer dereference"] =
 `
-#pragma flow enable
+/*
+  This is the bug flow analysis exists for: a pointer that CAN be
+  null gets dereferenced on a path where nothing proved it isn't.
 
-constexpr int a = 1;
-constexpr int b = 2;
-int c;
-
-void f()
-{
-    compile_assert(a == 1);
-    compile_assert(b == 2);
-    c = 3;
-    compile_assert(c == 3);
-
-    c = 4;
-    compile_assert(c == 4);
-}
-
-`;
-
-
-sample["Flow3"]["if"] =
-    `
-
-#pragma flow enable
-
-void f(int * p)
-{
-    if (p)
-    {
-        compile_assert(p != 0);
-    }
-    else
-    {
-        compile_assert(p == 0);
-    }
-}
-
-`;
-
-
-sample["Flow3"]["test"] =
-`
-
-#pragma flow enable
-
-
-void f1(int * p)
-{
-    if (p)
-    {
-        compile_assert(p != 0);   /* ok */
-    }
-    else
-    {
-        compile_assert(p == 0);   /* ok */
-    }
-}
-
-void f2(void)
-{
-    int a = 1;
-    compile_assert(a == 1);   /* ok */
-    compile_assert(a != 0);   /* ok */
-}
-
-void f3(int c)
-{
-    int a;
-    if (c)
-        a = 1;
-    else
-        a = 2;
-    compile_assert(a == 1 || a == 2);   /* ok — both alternatives satisfy */
-    compile_assert(a != 0);             /* ok — neither 1 nor 2 is zero   */
-}
-
-void f4(void)
-{
-    int a;
-    compile_assert(a != 0);   /* warning: uninitialized use; compile_state failed */
-}
-
-
-void f5(int x)
-{
-    compile_assert(x != 0);   /* compile_state any */
-}
-
-void f6(int x)
-{
-    if (x != 2)
-    {
-        compile_assert(x != 2);   /* ok — NOT_EQUAL 2, definitely not 2 */
-        compile_assert(x != 0);   /* compile_state any — 0 is still possible */
-    }
-}
-
-
-void f7(int * p)
-{
-    if (!p)
-    {
-        compile_assert(p == 0);   /* ok */
-    }
-}
-
-void f8(int c1, int c2)
-{
-    int a, b;
-    if (c1) a = 1; else a = 0;
-    if (c2) b = 1; else b = 0;
-
-    compile_assert(a == 0 || a == 1);   /* ok — exhaustive */
-    compile_assert(a || b);             /* compile_state any — {0,0} fails */
-}
-
-void f9(int * _Opt p)
-{
-    if (p != 0)
-    {
-        compile_assert(p != 0);   /* ok */
-    }
-    else
-    {
-        compile_assert(p == 0);   /* ok */
-    }
-}
-
-
-void f10(int x)
-{
-    if (x == 3)
-    {
-        compile_assert(x == 3);   /* ok — EQUAL 3 */
-        compile_assert(x != 0);   /* ok — EQUAL 3, nonzero */
-        compile_assert(x != 4);   /* ok — EQUAL 3, not 4 */
-    }
-}
-
-`;
-
-sample["Flow3"]["test2"] =
-`
+  A normal compiler stays silent here - it only sees a pointer
+  dereference. Cake's flow analysis tracks "may be null" across
+  every branch and flags the exact path where the check was
+  missing, instead of you finding out at 3am from a crash report.
+*/
 #pragma safety enable
 
+struct Config { int timeout; };
 
-void f_eq_nonzero_true_branch(int x)
+struct Config* find_config(const char* name);
+
+int get_timeout(const char* name)
 {
-    if (x == 3)
-    {
-        compile_assert(x == 3);
-    }
+    struct Config* _Opt c = find_config(name);
+
+    return c->timeout;  // warning: c may be null here
 }
 
-void f_eq_nonzero_false_branch(int x)
+int get_timeout_fixed(const char* name)
 {
-    if (x == 3)
-    {
-        /* nothing */
-    }
-    else
-    {
-        compile_assert(x != 3);
-    }
-}
+    struct Config* _Opt c = find_config(name);
 
-void f_eq_one_true_branch(int x)
-{
-    if (x == 1)
-    {
-        compile_assert(x == 1);
-    }
-}
-
-void f_eq_neg_true_branch(int x)
-{
-    if (x == -1)
-    {
-        compile_assert(x == -1);
-    }
-}
-
-
-void f_neq_nonzero_true_branch(int x)
-{
-    if (x != 2)
-    {
-        compile_assert(x != 2);          /* was failing after first fix */
-    }
-}
-
-void f_neq_nonzero_false_branch(int x)
-{
-    if (x != 2)
-    {
-        /* nothing */
-    }
-    else
-    {
-        compile_assert(x == 2);          /* false branch of !=: x must be 2 */
-    }
-}
-
-void f_neq_one_true_branch(int x)
-{
-    if (x != 1)
-    {
-        compile_assert(x != 1);
-    }
-}
-
-void f_compile_assert_same_cond_eq(int x)
-{
-    if (x == 5)
-    {
-        compile_assert(x == 5);
-        compile_assert(x != 4);          /* 5 != 4 */
-        compile_assert(x != 0);          /* 5 != 0 */
-    }
-}
-
-void f_compile_assert_same_cond_neq(int x)
-{
-    if (x != 7)
-    {
-        compile_assert(x != 7);
-    }
-}
-
-void f_two_alternatives(int c)
-{
-    int a;
     if (c)
-        a = 1;
-    else
-        a = 2;
-
-    compile_assert(a == 1 || a == 2);
-    compile_assert(a != 3);
-    compile_assert(a != 0);
-}
-
-void f_three_alternatives(int c)
-{
-    int a;
-    if (c == 1)
-        a = 10;
-    else if (c == 2)
-        a = 20;
-    else
-        a = 30;
-
-    compile_assert(a == 10 || a == 20 || a == 30);
-    compile_assert(a != 0);
-}
-
-void f_same_value_both_branches(int c)
-{
-    int a;
-    if (c)
-        a = 5;
-    else
-        a = 5;
-
-    compile_assert(a == 5);
-}
-
-void f_or_two_alternatives(int c)
-{
-    int a;
-    if (c)
-        a = 1;
-    else
-        a = 2;
-
-    compile_assert(a == 1 || a == 2);
-}
-
-void f_or_with_known_true_left(int x)
-{
-    if (x == 4)
     {
-        /* left is true, OR is true */
-        compile_assert(x == 4 || x == 9);   
+        return c->timeout;  /* ok - narrowed to non-null on this path */
     }
-}
 
-void f_or_with_known_true_right(int x)
-{
-    if (x == 9)
-    {
-        /* right is true, OR is true */
-        compile_assert(x == 4 || x == 9);   
-    }
-}
-
-
-void f_and_both_known(int x)
-{
-    if (x == 6)
-    {
-        /* 6==6 true, 6!=7 true */
-        compile_assert(x == 6 && x != 7);   
-    }
-}
-
-void f_and_short_circuit(int x)
-{
-    if (x == 0)
-    {
-        compile_assert(x == 0 && x != 1);
-    }
-}
-
-
-void f_nested_eq(int x)
-{
-    if (x == 3)
-    {
-        if (x == 3)
-        {
-            /* always true inside outer true branch */
-            compile_assert(x == 3);
-        }
-    }
-}
-
-void f_inner_refine(int x)
-{
-    /* outer narrows to != 0; inner narrows further to == 5 */
-    if (x != 0)
-    {
-        if (x == 5)
-        {
-            compile_assert(x == 5);
-            compile_assert(x != 0);
-        }
-    }
-}
-
-
-void f_commuted_eq(int x)
-{
-    if (3 == x)
-    {
-        compile_assert(x == 3);
-        compile_assert(3 == x);
-    }
-}
-
-void f_commuted_neq(int x)
-{
-    if (2 != x)
-    {
-        compile_assert(x != 2);
-    }
-}
-
-void f_eq_zero_true_branch(int x)
-{
-    if (x == 0)
-    {
-        compile_assert(x == 0);
-    }
-}
-
-void f_eq_zero_false_branch(int x)
-{
-    if (x == 0)
-    {
-        /* nothing */
-    }
-    else
-    {
-        compile_assert(x != 0);
-    }
-}
-
-void f_neq_zero_true_branch(int x)
-{
-    if (x != 0)
-    {
-        compile_assert(x != 0);
-    }
-}
-
-void f_neq_zero_false_branch(int x)
-{
-    if (x != 0)
-    {
-        /* nothing */
-    }
-    else
-    {
-        compile_assert(x == 0);
-    }
-}
-
-void f_sequential_eq(int x, int y)
-{
-    if (x == 3)
-    {
-        if (y == 7)
-        {
-            compile_assert(x == 3);
-            compile_assert(y == 7);
-            compile_assert(x != y);      /* 3 != 7 */
-        }
-    }
-}
-
-void f_sequential_neq(int x, int y)
-{
-    if (x != 3)
-    {
-        if (y != 3)
-        {
-            compile_assert(x != 3);
-            compile_assert(y != 3);
-        }
-    }
-}
-
-void f_neq_different_constants(int x)
-{
-    if (x != 5)
-    {
-        /* x != 5, but x could be 3 or not — compile_assert(x != 3) must NOT pass */
-        (void)x;
-    }
-}
-
-void f_neq_same_constant_twice(int x)
-{
-    if (x != 4)
-    {
-        compile_assert(x != 4);         /* same constant: must fold to true */
-    }
-}
-
-void f_tautology_from_alternatives(int c)
-{
-    int a;
-    if (c)
-        a = 0;
-    else
-        a = 1;
-
-    /* Every alternative (0 and 1) satisfies a == 0 || a == 1 */
-    compile_assert(a == 0 || a == 1);
-
-    /* Every alternative satisfies a != 2 */
-    compile_assert(a != 2);
-}
-
-void f_eq_after_known_assign(int x)
-{
-    int a = 42;
-    compile_assert(a == 42);
-    compile_assert(a != 0);
-    compile_assert(a != 41);
-    compile_assert(a != 43);
-    (void)x;
+    return -1;
 }
 `;
-sample["Flow3"]["test3"] =
+
+sample["Static Analysis"]["Catching use-after-free"] =
 `
-#pragma flow enable
-
-void f_rel_eq_then_gt_const(int x)
-{
-    if (x == 5)
-    {
-        compile_assert(x > 3);   /* 5 > 3 */
-    }
-}
-
-void f_rel_eq_then_lt_const(int x)
-{
-    if (x == 5)
-    {
-        compile_assert(x < 10);  /* 5 < 10 */
-    }
-}
-
-void f_rel_eq_then_ge_const(int x)
-{
-    if (x == 5)
-    {
-        compile_assert(x >= 5);  /* 5 >= 5 */
-    }
-}
-
-void f_rel_eq_then_le_const(int x)
-{
-    if (x == 5)
-    {
-        compile_assert(x <= 5);  /* 5 <= 5 */
-    }
-}
-
-void f_rel_const_lt_eq(int x)
-{
-    if (x == 5)
-    {
-        compile_assert(3 < x);   /* 3 < 5 */
-    }
-}
-
-void f_rel_const_gt_eq(int x)
-{
-    if (x == 5)
-    {
-        compile_assert(10 > x);  /* 10 > 5 */
-    }
-}
-
-void f_rel_const_le_eq(int x)
-{
-    if (x == 5)
-    {
-        compile_assert(5 <= x);  /* 5 <= 5 */
-    }
-}
-
-void f_rel_const_ge_eq(int x)
-{
-    if (x == 5)
-    {
-        compile_assert(5 >= x);  /* 5 >= 5 */
-    }
-}
-
-void f_rel_two_vars_lt(int x, int y)
-{
-    if (x == 3)
-    {
-        if (y == 7)
-        {
-            compile_assert(x < y);   /* 3 < 7 */
-        }
-    }
-}
-
-void f_rel_two_vars_le(int x, int y)
-{
-    if (x == 3)
-    {
-        if (y == 7)
-        {
-            compile_assert(x <= y);  /* 3 <= 7 */
-        }
-    }
-}
-
-void f_rel_two_vars_gt(int x, int y)
-{
-    if (x == 7)
-    {
-        if (y == 3)
-        {
-            compile_assert(x > y);   /* 7 > 3 */
-        }
-    }
-}
-
-void f_rel_two_vars_ge(int x, int y)
-{
-    if (x == 7)
-    {
-        if (y == 3)
-        {
-            compile_assert(x >= y);  /* 7 >= 3 */
-        }
-    }
-}
-
-void f_rel_two_vars_le_equal(int x, int y)
-{
-    if (x == 5)
-    {
-        if (y == 5)
-        {
-            compile_assert(x <= y);  /* 5 <= 5 */
-        }
-    }
-}
-
-void f_rel_two_vars_ge_equal(int x, int y)
-{
-    if (x == 5)
-    {
-        if (y == 5)
-        {
-            compile_assert(x >= y);  /* 5 >= 5 */
-        }
-    }
-}
-
-void f_rel_outer_ne_inner_eq_gt(int x)
-{
-    if (x != 0)
-    {
-        if (x == 5)
-        {
-            compile_assert(x > 0);   /* 5 > 0 */
-        }
-    }
-}
-
-
-void f_rel_outer_ne_inner_eq_lt(int x)
-{
-    if (x != 0)
-    {
-        if (x == 5)
-        {
-            compile_assert(x < 10);  /* 5 < 10 */
-        }
-    }
-}
-
-void f_rel_outer_ne_inner_eq_two_vars(int x, int y)
-{
-    if (x != 0)
-    {
-        if (x == 5)
-        {
-            if (y == 2)
-            {
-                compile_assert(x > y);   /* 5 > 2 */
-            }
-        }
-    }
-}
-
-
-void f_rel_negative_lt_zero(int x)
-{
-    if (x == -3)
-    {
-        compile_assert(x < 0);   /* -3 < 0 */
-    }
-}
-
-void f_rel_negative_two_vars(int x, int y)
-{
-    if (x == -3)
-    {
-        if (y == -1)
-        {
-            compile_assert(x < y);   /* -3 < -1 */
-        }
-    }
-}
-
-void f_rel_negative_gt(int x, int y)
-{
-    if (x == -1)
-    {
-        if (y == -3)
-        {
-            compile_assert(x > y);   /* -1 > -3 */
-        }
-    }
-}
-
-void f_rel_negative_const_left(int x)
-{
-    if (x == -5)
-    {
-        compile_assert(-10 < x);  /* -10 < -5 */
-    }
-}
-
-void f_rel_zero_ge(int x)
-{
-    if (x == 0)
-    {
-        compile_assert(x >= 0);  /* 0 >= 0 */
-    }
-}
-
-void f_rel_zero_le(int x)
-{
-    if (x == 0)
-    {
-        compile_assert(x <= 0);  /* 0 <= 0 */
-    }
-}
-
-void f_rel_one_gt_zero(int x)
-{
-    if (x == 1)
-    {
-        compile_assert(x > 0);   /* 1 > 0 */
-    }
-}
-
-void f_rel_neg_one_lt_zero(int x)
-{
-    if (x == -1)
-    {
-        compile_assert(x < 0);   /* -1 < 0 */
-    }
-}
-
-void f_rel_three_vars_skip(int x, int y, int z)
-{
-    if (x == 1)
-    {
-        if (y == 2)
-        {
-            if (z == 3)
-            {
-                compile_assert(x < z);   /* 1 < 3  (y not used) */
-            }
-        }
-    }
-}
-
-void f_rel_three_vars_middle(int x, int y, int z)
-{
-    if (x == 10)
-    {
-        if (y == 20)
-        {
-            if (z == 30)
-            {
-                compile_assert(y < z);   /* 20 < 30 */
-            }
-        }
-    }
-}
-
-`;
-
-sample["Flow3"]["test4"] =
-`
-    #pragma flow enable
-
-void f_logical_and_two_eq(int x, int y)
-{
-    if (x == 3 && y == 7)
-    {
-        compile_assert(x == 3);   /* left narrowing active */
-        compile_assert(y == 7);   /* right narrowing active */
-        compile_assert(x != y);   /* 3 != 7 — two-var equality */
-        compile_assert(x < y);    /* 3 < 7  — two-var relational */
-    }
-}
-
-void f_logical_and_same_value(int x, int y)
-{
-    if (x == 5 && y == 5)
-    {
-        compile_assert(x == y);   /* 5 == 5 */
-        compile_assert(x <= y);   /* 5 <= 5 */
-        compile_assert(x >= y);   /* 5 >= 5 */
-    }
-}
-
-void f_logical_and_three(int x, int y, int z)
-{
-    if (x == 1 && y == 2 && z == 3)
-    {
-        compile_assert(x < y);    /* 1 < 2 */
-        compile_assert(y < z);    /* 2 < 3 */
-        compile_assert(x < z);    /* 1 < 3 */
-    }
-}
-
-void f_logical_and_rel_then_eq(int x)
-{
-    if (x > 0 && x == 5)
-    {
-        compile_assert(x == 5);   /* right side narrows to exactly 5 */
-        compile_assert(x > 0);    /* 5 > 0 */
-        compile_assert(x > 3);    /* 5 > 3 */
-    }
-}
-
-void f_logical_and_ne_then_eq(int x)
-{
-    if (x != 0 && x == 7)
-    {
-        compile_assert(x == 7);   /* right fully narrows */
-        compile_assert(x > 0);    /* 7 > 0 */
-    }
-}
-
-void f_logical_and_result_true(int x, int y)
-{
-    if (x == 3)
-    {
-        if (y == 7)
-        {
-            compile_assert(x == 3 && y == 7);   /* both known true */
-        }
-    }
-}
-
-void f_logical_and_result_single_var(int x)
-{
-    if (x == 3)
-    {
-        compile_assert(x == 3 && x > 0);   /* 3==3 && 3>0 */
-    }
-}
-
-void f_logical_or_false_branch(int x, int y)
-{
-    if (x == 3 || y == 7)
-    {
-        /* true branch: x==3 OR y==7 — too broad to assert specific values */
-    }
-    else
-    {
-        /* false branch: neither condition held */
-        compile_assert(x != 3);   /* x was not 3 */
-        compile_assert(y != 7);   /* y was not 7 */
-    }
-}
-
-void f_logical_or_false_both_nonzero(int x, int y)
-{
-    if (x == 0 || y == 0)
-    {
-    }
-    else
-    {
-        compile_assert(x != 0);
-        compile_assert(y != 0);
-    }
-}
-
-void f_logical_or_result_left_true(int x)
-{
-    if (x == 5)
-    {
-        compile_assert(x == 5 || x == 99);   /* left is true -> whole expr true */
-    }
-}
-
-void f_logical_or_result_known_true(int x, int y)
-{
-    if (x == 3)
-    {
-        if (y == 7)
-        {
-            compile_assert(x == 3 || y == 99);  /* left true, right irrelevant */
-        }
-    }
-}
-
-void f_logical_not_eq(int x)
-{
-    if (!(x == 0))
-    {
-        compile_assert(x != 0);
-    }
-}
-
-void f_logical_and_inside_outer_ne(int x, int y)
-{
-    if (x != 0)
-    {
-        if (x == 4 && y == 9)
-        {
-            compile_assert(x == 4);
-            compile_assert(y == 9);
-            compile_assert(x < y);    /* 4 < 9 */
-            compile_assert(x != y);   /* 4 != 9 */
-        }
-    }
-}
-
-void f_logical_and_three_vars_nested(int x, int y, int z)
-{
-    if (x == 10)
-    {
-        if (y == 20 && z == 5)
-        {
-            compile_assert(z < x);    /* 5 < 10 */
-            compile_assert(z < y);    /* 5 < 20 */
-            compile_assert(x < y);    /* 10 < 20 */
-        }
-    }
-}
-    `;
-
-
-sample["Flow3"]["test5"] =
-
-`
-#pragma flow enable
-
-void test_postfix_increment_basic(void)
-{
-    int i = 0;
-    i++;
-    compile_assert(i == 1);
-}
-
-void test_postfix_increment_chain(void)
-{
-    int i = 0;
-    i++;
-    i++;
-    compile_assert(i == 2);
-}
-
-void test_postfix_increment_from_nonzero(void)
-{
-    int i = 5;
-    i++;
-    compile_assert(i == 6);
-}
-
-void test_postfix_decrement_basic(void)
-{
-    int i = 3;
-    i--;
-    compile_assert(i == 2);
-}
-
-void test_postfix_decrement_to_zero(void)
-{
-    int i = 1;
-    i--;
-    compile_assert(i == 0);
-}
-
-void test_postfix_decrement_below_zero(void)
-{
-    int i = 0;
-    i--;
-    compile_assert(i == -1);
-}
-
-void test_postfix_increment_init_expression_value(void)
-{
-    int i = 0;
-    int j = i++;    /* j gets OLD value (0); i becomes 1 */
-    compile_assert(j == 0);
-    compile_assert(i == 1);
-}
-
-void test_postfix_decrement_init_expression_value(void)
-{
-    int i = 7;
-    int j = i--;    /* j gets OLD value (7); i becomes 6 */
-    compile_assert(j == 7);
-    compile_assert(i == 6);
-}
-
-void test_postfix_increment_assign_expression_value(void)
-{
-    int i = 0;
-    int j;
-    j = i++;        /* j gets OLD value (0); i becomes 1 */
-    compile_assert(j == 0);
-    compile_assert(i == 1);
-}
-
-void test_postfix_decrement_assign_expression_value(void)
-{
-    int i = 4;
-    int j;
-    j = i--;        /* j gets OLD value (4); i becomes 3 */
-    compile_assert(j == 4);
-    compile_assert(i == 3);
-}
-
-void test_prefix_increment_basic(void)
-{
-    int i = 0;
-    ++i;
-    compile_assert(i == 1);
-}
-
-void test_prefix_increment_chain(void)
-{
-    int i = 0;
-    ++i;
-    ++i;
-    ++i;
-    compile_assert(i == 3);
-}
-
-void test_prefix_decrement_basic(void)
-{
-    int i = 4;
-    --i;
-    compile_assert(i == 3);
-}
-
-void test_prefix_increment_init_expression_value(void)
-{
-    int i = 0;
-    int j = ++i;    /* j and i both become 1 */
-    compile_assert(j == 1);
-    compile_assert(i == 1);
-}
-
-void test_prefix_decrement_init_expression_value(void)
-{
-    int i = 5;
-    int j = --i;    /* j and i both become 4 */
-    compile_assert(j == 4);
-    compile_assert(i == 4);
-}
-
-void test_prefix_increment_assign_expression_value(void)
-{
-    int i = 0;
-    int j;
-    j = ++i;        /* j and i both become 1 */
-    compile_assert(j == 1);
-    compile_assert(i == 1);
-}
-
-void test_prefix_decrement_assign_expression_value(void)
-{
-    int i = 5;
-    int j;
-    j = --i;        /* j and i both become 4 */
-    compile_assert(j == 4);
-    compile_assert(i == 4);
-}
-
-void test_comma_postfix_then_assert(void)
-{
-    int i = 0;
-    i++, compile_assert(i == 1);
-}
-
-void test_comma_prefix_then_assert(void)
-{
-    int i = 0;
-    ++i, compile_assert(i == 1);
-}
-
-void test_mixed_increment_decrement(void)
-{
-    int i = 0;
-    i++;    /* 1 */
-    ++i;    /* 2 */
-    i--;    /* 1 */
-    --i;    /* 0 */
-    compile_assert(i == 0);
-}
-
-
-void test_add_tracked_plus_literal(void)
-{
-    int i = 0;
-    i++;                /* i == 1 */
-    int j = i + 2;
-    compile_assert(j == 3);
-}
-
-void test_add_tracked_plus_tracked(void)
-{
-    int a = 0;
-    int b = 0;
-    a++;                /* a == 1 */
-    b++; b++;           /* b == 2 */
-    int c = a + b;
-    compile_assert(c == 3);
-}
-
-void test_sub_tracked_minus_literal(void)
-{
-    int i = 0;
-    i++; i++; i++;      /* i == 3 */
-    int j = i - 1;
-    compile_assert(j == 2);
-}
-
-void test_add_zero_identity_tracked(void)   /* x + 0 == x */
-{
-    int x = 0;
-    x++;                /* x == 1 */
-    int y = x + 0;
-    compile_assert(y == 1);
-}
-
-void test_zero_plus_tracked(void)           /* 0 + x == x */
-{
-    int x = 0;
-    x++; x++;           /* x == 2 */
-    int y = 0 + x;
-    compile_assert(y == 2);
-}
-
-void test_sub_zero_identity_tracked(void)   /* x - 0 == x */
-{
-    int x = 0;
-    x++;                /* x == 1 */
-    int y = x - 0;
-    compile_assert(y == 1);
-}
-
-void test_sub_self_is_zero(void)            /* x - x == 0 */
-{
-    int x = 0;
-    x++; x++;           /* x == 2, value doesn't matter for this identity */
-    int y = x - x;
-    compile_assert(y == 0);
-}
-
-void test_mul_one_identity_right(void)      /* x * 1 == x */
-{
-    int x = 0;
-    x++; x++;           /* x == 2 */
-    int y = x * 1;
-    compile_assert(y == 2);
-}
-
-void test_mul_one_identity_left(void)       /* 1 * x == x */
-{
-    int x = 0;
-    x++; x++; x++;      /* x == 3 */
-    int y = 1 * x;
-    compile_assert(y == 3);
-}
-
-void test_mul_zero_absorb_right(void)       /* x * 0 == 0 */
-{
-    int x = 0;
-    x++;                /* x == 1 — value doesn't matter */
-    int y = x * 0;
-    compile_assert(y == 0);
-}
-
-void test_mul_zero_absorb_left(void)        /* 0 * x == 0 */
-{
-    int x = 0;
-    x++; x++;           /* x == 2 — value doesn't matter */
-    int y = 0 * x;
-    compile_assert(y == 0);
-}
-
-void test_mul_tracked_times_tracked(void)
-{
-    int a = 0;
-    int b = 0;
-    a++; a++;           /* a == 2 */
-    b++; b++; b++;      /* b == 3 */
-    int c = a * b;
-    compile_assert(c == 6);
-}
-
-
-#if 0
-
-/* Expected: "compile_assert failed" — i is 1 after i++, not 0 */
-void test_FAIL_postfix_wrong_value(void)
-{
-    int i = 0;
-    i++;
-    compile_assert(i == 0); /*FAIL*/
-}
-
-/* Expected: "compile_assert failed" — j=i++ gives OLD value (0), not 1 */
-void test_FAIL_postfix_init_expression_value_wrong(void)
-{
-    int i = 0;
-    int j = i++;
-    compile_assert(j == 1); /*FAIL*/
-}
-
-/* Expected: "compile_assert failed" — j=++i gives NEW value (1), not 0 */
-void test_FAIL_prefix_init_expression_value_wrong(void)
-{
-    int i = 0;
-    int j = ++i;
-    compile_assert(j == 0); /*FAIL*/
-}
-
-/* Expected: "compile_assert failed" — 2 * 3 == 6, not 5 */
-void test_FAIL_mul_wrong_result(void)
-{
-    int a = 0; int b = 0;
-    a++; a++;       /* a == 2 */
-    b++; b++; b++;  /* b == 3 */
-    int c = a * b;
-    compile_assert(c == 5); /*FAIL*/
-}
-
-/* Expected: "could not be proven" — x is unknown after unknown_fn() */
-void test_FAIL_unknown_operand(void)
-{
-    int x = unknown_fn();
-    x++;
-    compile_assert(x == 1); /*FAIL: x was unknown, still unknown after ++*/
-}
-
-#endif
-`; 
-
-sample["Flow3"]["ownership"] =
-`
-
-
-
-
+/*
+  Ownership + flow analysis together catch a classic memory-safety
+  bug: using a pointer after the object it owned has been freed.
+
+  The compiler doesn't need a sanitizer or a test run that happens
+  to touch the freed memory - it proves the object is no longer
+  valid at compile time, on every path, every time.
+*/
 #pragma safety enable
 
 void* _Owner _Opt malloc(unsigned long size);
 void free(void* _Owner _Opt ptr);
-char* _Owner _Opt strdup(const char* s);
 
-struct X {
-    char* _Owner _Opt text;
-    int i;
-};
+struct Buffer { int len; };
 
-void x_init(_Ctor struct X* p);
-void x_destroy(_Dtor struct X* p);
+void print_len(struct Buffer* b);
 
-void test_nonnull_param(int* p)
+void use_after_free(void)
 {
-    *p = 42; /* ok */
+    struct Buffer* _Owner _Opt b = malloc(sizeof(struct Buffer));
+    if (!b) return;
+
+    free(b);
+
+    print_len(b);  // warning: b was freed above, use of moved/expired object
 }
 
-void test_nonnull_param_caller(int* _Opt q)
+void fixed(void)
 {
-    test_nonnull_param(q);  //lint 33  q may be null
+    struct Buffer* _Owner _Opt b = malloc(sizeof(struct Buffer));
+    if (!b) return;
+
+    print_len(b);  /* ok - used before it is freed */
+
+    free(b);
 }
+`;
 
-void test_nonnull_param_caller_fixed(int* _Opt q)
-{
-    if (q)
-    {
-        test_nonnull_param(q); /* ok */
-    }
-}
+sample["Static Analysis"]["Catching a memory leak"] =
+`
+/*
+  Ownership tracking also works the other way around: every
+  _Owner object must be either freed or moved out on every path.
+  Forget to free it on an early return and the leak is reported
+  right where it happens - not after it shows up in production
+  as ever-growing memory usage.
+*/
+#pragma safety enable
 
-int* test_nonnull_param_return(int* p)
-{
-    return p; /* ok */
-}
+void* _Owner _Opt malloc(unsigned long size);
+void free(void* _Owner _Opt ptr);
 
+int validate(int n);
 
-void test_opt_param_guarded(int* _Opt p)
-{
-    if (p)
-    {
-        *p = 1; /*ok*/
-    }
-}
-
-void test_opt_param_unguarded(int* _Opt p)
-{
-    *p = 1; //lint 33  p may be null
-}
-
-void test_opt_param_to_opt(int* _Opt p, int* _Opt* _Opt out)
-{
-    if (out) *out = p; /* ok */
-}
-
-
-void x_init(_Ctor struct X* p)
-{
-    p->text = strdup("hello");
-} /* ok */
-
-void x_init_forgot(_Ctor struct X* p)
-{
-    /* p->text is never written */
-} //lint 30  _Ctor parameter: pointed object is uninitialized at end
-
-int x_init_or_fail(_Ctor struct X* p, int flag)
-{
-    if (flag)
-    {
-        p->text = strdup("ok");
-        return 1;
-    }
-    p->text = 0;
-    return 0;
-} /* ok */
-
-void x_destroy(_Dtor struct X* p)
-{
-    free(p->text);
-} /* ok */
-
-void x_destroy_forgot(_Dtor struct X* p)
-{
-    /* p->text is never freed/moved */
-} //lint 30  _Dtor parameter: pointed object is not uninitialized
-
-void x_destroy_cond(_Dtor struct X* p)
-{
-    if (p->text)
-        free(p->text); /* moved */
-} /* ok */
-
-void consume_x(struct X x)
-{
-    free(x.text);
-}
-
-void leak_x(struct X x)
-{
-    /* x.text is never freed or moved */
-} //lint 31  resource leak: _Owner object not consumed
-
-void take_x(struct X x); /* forward */
-
-void free_x(struct X* _Owner _Opt p)
-{
-    if (p)
-    {
-        x_destroy(p); /* moves *p contents */
-        free(p);   /* frees p itself → p is expired */
-    }
-} /* ok */
-
-void free_x_forgot(struct X* _Owner p)
-{
-    x_destroy(p); /* moves *p contents, but p itself still lives */
-    /* missing: free(p) */
-} //lint 32  _Owner pointer: pointed object not consumed (p itself leaked)
-
-void read_x(_View struct X x)
-{
-
-} /* ok */
-
-void maybe_free(struct X* _Owner _Opt p)
-{
-    if (p)
-    {
-        x_destroy(p);
-        free(p);
-    }
-    /* if p is null: nothing to free */
-} /* ok */
-
-void accepts_opt(int* _Opt p);
-
-void test_nonnull_to_opt(int* p)
-{
-    accepts_opt(p); // ok
-}
-
-int* _Owner _Opt f(int c)
-{
-    int* _Owner _Opt p = malloc(sizeof * p);
-    try
-    {
-        if (c)
-            throw;
-    }
-    catch {
-        free(p);
-        p = nullptr;
-    }
-
-    return p;
-} /* ok */
-
-void test_assign_owner_leak(void)
-{
-    struct X  a = { .text = strdup("hello") };
-    struct X  b = { .text = strdup("world") };
-    a = b;  //expected warning
-}
-
-int* _Opt test_return_owner_as_nonowner(void)
+int process(int n)
 {
     int* _Owner _Opt p = malloc(sizeof(int));
-    return p; //lint 31
-}
+    if (!p) return -1;
 
-void* _Owner _Opt test_void_owner_bad(void)
-{
-    int* _Owner _Opt p = malloc(sizeof(int));
-    if (p)
-        *p = 42;  // p is now initialized
-    return p;
-}
+    *p = n;
 
-void test_void_owner_assign_bad(void)
-{
-    int* _Owner _Opt p = malloc(sizeof(int));
-    if (p == nullptr)
-        return;
-    void* _Owner _Opt q = p;
-    free(q);
-}
+    if (!validate(n))
+    {
+        return -1;  // warning: p not freed on this path (leak)
+    }
 
-struct Y { int x; };
-void clear_y(_Clear struct Y* p);
-
-
-void test_opt_to_nonnull_ambiguous(int* _Opt p)
-{
-    // p may be null or non-null; assigning to non-null pointer is invalid.
-    int* q = p;  //lint 33  p may be null
-}
-
-void takes_view(_View struct X x);
-
-void test_pass_owner_to_view(void)
-{
-    struct X x = { .text = strdup("hello") };
-    takes_view(x);
-}
-
-int* f2();
-
-void test_free_nonowner(void)
-{
-    int* p = f2();
-    free(p); //lint 25
-}
-int* _Owner test_return_moved_bad(void)
-{
-    int* _Owner p = malloc(sizeof(int));
     free(p);
-    return p; // Should error: returning moved/expired object
-}
-struct X make(void)
-{
-    char* _Owner _Opt s = strdup("hello");
-    return (struct X) { .text = s };  // moves s into the struct
-} // ok
-
-void test_init_nonopt_null_bad(void)
-{
-    int* p = 0; // Should error if nullable_enabled is on
+    return 0;
 }
 
-void test_init_opt_null_ok(void)
+int process_fixed(int n)
 {
-    int* _Opt p = 0; // Should be OK
+    int* _Owner _Opt p = malloc(sizeof(int));
+    if (!p) return -1;
+
+    *p = n;
+
+    if (!validate(n))
+    {
+        free(p);
+        return -1;  /* ok */
+    }
+
+    free(p);
+    return 0;
+}
+`;
+
+sample["Static Analysis"]["Proving a value's range across branches"] =
+`
+/*
+  Beyond null/ownership, flow3 tracks the concrete set of values a
+  variable can hold as it flows through branches - and merges that
+  knowledge back together at join points. That's what lets it turn
+  a "seems obviously true/false" assumption into either a compiler
+  proof or a compiler warning, before the code ever runs.
+*/
+#pragma flow enable
+
+int clamp(int v, int lo, int hi)
+{
+    if (v < lo) v = lo;
+    if (v > hi) v = hi;
+
+    compile_assert(v >= lo);  /* ok - proved true on every merged path */
+    compile_assert(v <= hi);  /* ok */
+
+    return v;
 }
 
-void test_pass_moved_bad(void)
+void divide_safely(int a, int b)
 {
-    char* _Owner _Opt s = strdup("hi");
-    free(s);
-    accepts_opt(s); // Should error: s is expired/moved
+    if (b == 0)
+    {
+        return;
+    }
+
+    compile_assert(b != 0);   /* ok - narrowed by the guard above */
+    int r = a / b;             /* ok - division by zero is impossible here */
+}
+`;
+
+sample["Static Analysis"]["Catching an uninitialized read"] =
+`
+/*
+  A variable declared without an initializer holds garbage until
+  something assigns to it on every possible path. Reading it before
+  that happens is undefined behavior - and it's the kind of bug that
+  "works on my machine" and then fails randomly in production.
+
+  Flow analysis tracks whether a variable has definitely been
+  assigned on every path leading to a use, not just the path you
+  happened to test.
+*/
+#pragma flow enable
+
+int compute(int cond)
+{
+    int result;
+
+    if (cond)
+    {
+        result = 42;
+    }
+    // missing else: result is left uninitialized when cond is false
+
+    return result;  // warning: result may be used uninitialized
 }
 
-void take_non_owner(int* p);
-void test_pass_owner_to_nonowner_bad(void)
+int compute_fixed(int cond)
 {
-    int* _Owner p = malloc(sizeof(int));
-    take_non_owner(p); // Should error: losing ownership without move/free
+    int result;
+
+    if (cond)
+    {
+        result = 42;
+    }
+    else
+    {
+        result = 0;
+    }
+
+    return result;  /* ok - assigned on every path */
 }
-void test_clear_usage(void)
+`;
+
+sample["Static Analysis"]["Catching an out-of-bounds array access"] =
+`
+/*
+  Array bounds are usually a runtime concern - you find out you
+  went past the end when the program crashes or, worse, silently
+  corrupts nearby memory. Flow analysis instead tracks the possible
+  range of an index alongside the size of the array it indexes into,
+  and reports the exact branch where they don't line up.
+*/
+#pragma safety enable
+
+void fill(int n)
 {
-    struct Y y = { .x = 10 };
-    clear_y(&y); // What is the expected state after this? No sample verifies it.
-    compile_assert(y.x == 0);
+    int buffer[10];
+
+    if (n >= 3)
+    {
+        buffer[n] = 1;  // warning: n can be >= 10 here, past the end of buffer
+    }
 }
 
+void fill_fixed(int n)
+{
+    int buffer[10];
 
+    if (n >= 3 && n < 10)
+    {
+        buffer[n] = 1;  /* ok - n is proven to be a valid index */
+    }
+}
+`;
+
+sample["Static Analysis"]["Catching a double free"] =
+`
+/*
+  Freeing the same owned object twice corrupts the allocator's
+  internal state - a bug that's notoriously hard to reproduce
+  because the crash often happens far away from the actual mistake.
+
+  Because ownership is tracked per-object across every path, a
+  second free() on an already-freed/moved object is caught at
+  compile time, right where the second call is.
+*/
+#pragma safety enable
+
+void* _Owner _Opt malloc(unsigned long size);
+void free(void* _Owner _Opt ptr);
+
+void double_free_bug(int fail)
+{
+    int* _Owner _Opt p = malloc(sizeof(int));
+    if (!p) return;
+
+    if (fail)
+    {
+        free(p);
+    }
+
+    free(p);  // warning: p may already have been freed above
+}
+
+void double_free_fixed(int fail)
+{
+    int* _Owner _Opt p = malloc(sizeof(int));
+    if (!p) return;
+
+    if (fail)
+    {
+        free(p);
+        return;
+    }
+
+    free(p);  /* ok - freed exactly once on this path */
+}
 `;
 

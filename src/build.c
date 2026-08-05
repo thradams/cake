@@ -15,6 +15,7 @@
 
 #include "build.h"
 #include <sys/stat.h>
+#include <ctype.h>
 
 
  /*---------------------------------------------------------------------------
@@ -36,7 +37,6 @@
     " compile.c "             \
     " defer.c "               \
     " codegen.c "             \
-    " flow1.c "               \
     " flow3.c "               \
     " error.c "               \
     " target.c "              \
@@ -171,10 +171,15 @@
 
 static void print_header(const char* text)
 {
+    char upper[256];
+    size_t i = 0;
+    for (; text[i] != '\0' && i < sizeof(upper) - 1; i++)
+        upper[i] = (char)toupper((unsigned char)text[i]);
+    upper[i] = '\0';
 
     printf("\n");
     printf("============================================================\n");
-    printf(" %s\n", text);
+    printf(" %s\n", upper);
     printf("============================================================\n");
 
 }
@@ -199,7 +204,7 @@ static void generate_doc(const char* mdfilename, const char* outfile)
         "    function launchPlayground(sourceCode) {\n"
         "      var link = \"./playground.html?code=\" + encodeURIComponent(btoa(sourceCode))\n"
         "               + \"&to=\" + encodeURI(\"-2\")\n"
-        "               + \"&options=-flow3\";\n"
+        "               + \"&options=\";\n"
         "      window.open(link, '_blank');\n"
         "    }\n"
         "\n"
@@ -747,7 +752,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     if (!fastbuild)
     {
         print_header("Cake auto-config");
-        execute_cmd("./" CKC_NAME " -autoconfig");
+        execute_cmd("./" EXE(CKC_NAME) " -autoconfig");
     }
 #endif
 
@@ -755,7 +760,14 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     if (!fastbuild)
     {
         print_header("Running Cake on its own source");
-        execute_cmd("./" CKC_NAME " -fanalyzer " CAKE_SOURCE_FILES);
+        execute_cmd("./" EXE(CKC_NAME) " -fanalyzer " CAKE_SOURCE_FILES);
+
+        print_header("Build cake89");
+
+        char* cmd89 = calloc(2000, sizeof(char));
+        snprintf(cmd89, 2000, "clang %s -o " CKC89_NAME " " CAKE_SOURCE_FILES, test_flag);
+        execute_cmd(cmd89);
+        free(cmd89);
     }
 #endif /* (PLATFORM_LINUX || PLATFORM_MACOS) && COMPILER_CLANG */
 
@@ -856,24 +868,24 @@ static void run_tests(void)
 {
     print_header("Run tests");
 
-    execute_cmd(RUN CKC_NAME " -selftest");
+    execute_cmd(RUN EXE(CKC_NAME) " -selftest");
 
-    execute_cmd(RUN CKC_NAME " -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -test-mode");
-    execute_cmd(RUN CKC_NAME "  -fdiagnostics-color=never -wd20 ../tests/unit-tests/*.c -test-mode");
-    execute_cmd(RUN CKC_NAME "  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode-in-out");
-    execute_cmd(RUN CKC_NAME "  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
+    execute_cmd(RUN EXE(CKC_NAME) " -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -test-mode");
+    execute_cmd(RUN EXE(CKC_NAME) "  -fdiagnostics-color=never -wd20 ../tests/unit-tests/*.c -test-mode");
+    execute_cmd(RUN EXE(CKC_NAME) "  -fdiagnostics-color=never -wd20 ../tests/unit-tests/flow3/*.c -test-mode");
+    execute_cmd(RUN EXE(CKC_NAME) "  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode-in-out");
+    execute_cmd(RUN EXE(CKC_NAME) "  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
 
-#if !PLATFORM_MACOS
-    /* cake89 (C89) is not built in the macOS/clang branch, so its tests
-       only run where it is produced (MSVC / GCC). */
+
     print_header("Run tests (cake89)");
 
-    execute_cmd(RUN CKC89_NAME " -selftest");
-    execute_cmd(RUN CKC89_NAME " -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -test-mode");
-    execute_cmd(RUN CKC89_NAME "  -fdiagnostics-color=never -wd20 ../tests/unit-tests/*.c -test-mode");
-    execute_cmd(RUN CKC89_NAME "  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode-in-out");
-    execute_cmd(RUN CKC89_NAME "  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
-#endif
+    execute_cmd(RUN EXE(CKC89_NAME) " -selftest");
+    execute_cmd(RUN EXE(CKC89_NAME) " -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -test-mode");
+    execute_cmd(RUN EXE(CKC89_NAME) "  -fdiagnostics-color=never -wd20 ../tests/unit-tests/*.c -test-mode");
+    execute_cmd(RUN EXE(CKC89_NAME) "  -fdiagnostics-color=never -wd20 ../tests/unit-tests/flow3/*.c -test-mode");
+    execute_cmd(RUN EXE(CKC89_NAME) "  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode-in-out");
+    execute_cmd(RUN EXE(CKC89_NAME) "  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
+
 
     printf("Other test cases:\n");
     printf("  " CKC_NAME " ../tests/unit-tests/failing/*.c -test-mode\n");
@@ -887,8 +899,17 @@ int main(int argc, char* argv[])
     for (int i = 1; i < argc; i++)
     {
         if (strcmp(argv[i], "fast") == 0) fastbuild = 1;
-        if (strcmp(argv[i], "test") == 0) test = 1;
-        if (strcmp(argv[i], "debug") == 0) debug = 1;
+        else if (strcmp(argv[i], "test") == 0) test = 1;
+        else if (strcmp(argv[i], "debug") == 0) debug = 1;
+        else
+        {
+            printf("unrecognized option: %s\n", argv[i]);
+            printf("usage: %s [fast] [test] [debug]\n", argv[0]);
+            printf("  fast  - incremental build, skips tools/docs/inner-tests/amalgamation\n");
+            printf("  test  - build with -DTEST and run the test suite afterwards\n");
+            printf("  debug - build without optimizations/-DNDEBUG\n");
+            return 1;
+        }
     }
 
     const char* test_flag = test ? " -DTEST " : "";
@@ -907,6 +928,8 @@ int main(int argc, char* argv[])
 
     if (test)
         run_tests();
+
+    print_header("Build succeeded");
 
     return 0;
 }

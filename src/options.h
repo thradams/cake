@@ -99,9 +99,19 @@ enum diagnostic_id {
     W_COMPILE_ASSERT_UNPROVEM = 67,
     W_FLOW_UNREACHABLE_CODE = 68,
     W_FLOW_CLEAR_NOT_ZERO_AT_EXIT = 69,
-    W_UNUSED_WARNING_70 = 70,
-    W_UNUSED_WARNING_71 = 71,
-    W_UNUSED_WARNING_72 = 72,
+    /*
+       Flow-derived out-of-bounds. Deliberately a DIFFERENT id from
+       W_OUT_OF_BOUNDS (42), which expressions.c reports at parse time for a
+       constant index. get_diagnostic_phase is per-id, so one id emitted from
+       two phases cannot have a correct phase -- and `//lint` is checked at
+       that phase, so a suppression written for the flow form was tested
+       before flow analysis had queued anything. Splitting the id gives each
+       form an unambiguous phase: 42 -> phase 0, this -> phase 2.
+       See samples/flow3/array-bounds.c.
+    */
+    W_FLOW_OUT_OF_BOUNDS = 70,
+    W_FLOW_CTOR_NOT_INITIALIZED_AT_EXIT = 71,
+    W_FLOW_PARAM_OWNER_CONSUMED_AT_EXIT = 72,
     W_UNUSED_WARNING_73 = 73,
     W_UNUSED_WARNING_74 = 74,
     W_UNUSED_WARNING_75 = 75,
@@ -456,11 +466,6 @@ struct options
 
 
     /*
-      -flow3
-    */
-    bool flow3;
-
-    /*
       -runtime-asserts
       When set, `runtime_assert(cond)` generates a runtime check (a small
       emitted helper function); otherwise it produces no runtime code and only
@@ -538,6 +543,13 @@ struct options
     */
     char output[200];
     char sarifpath[200];
+
+    /*
+      -dont-generate-time-stamp
+      When set, the generated file does not include the timestamp comment
+      at the top (useful for reproducible builds / diffing).
+    */
+    bool dont_generate_time_stamp;
 };
 
 int fill_options(struct options* options,

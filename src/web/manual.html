@@ -15,7 +15,7 @@
     function launchPlayground(sourceCode) {
       var link = "./playground.html?code=" + encodeURIComponent(btoa(sourceCode))
                + "&to=" + encodeURI("-2")
-               + "&options=-flow3";
+               + "&options=";
       window.open(link, '_blank');
     }
 
@@ -505,6 +505,7 @@
 <ul>
 <li>On <strong>Windows</strong>, it operates as an extension for MSVC.</li>
 <li>On <strong>Linux</strong>, it operates as an extension for GCC.</li>
+<li>On <strong>macOS</strong>, it operates as an extension for Clang.</li>
 </ul>
 
 <p>Where applicable, Cake uses the same command-line flags as GCC and MSVC to minimize friction when integrating into existing projects.</p>
@@ -515,7 +516,7 @@
 
 <h3 id="toc_3">2.1 Platform Support</h3>
 
-<p>Cake runs on Windows (targeting MSVC) and Linux (targeting GCC). 
+<p>Cake runs on Windows (targeting MSVC), Linux (targeting GCC), and macOS (targeting Clang).
 Cake can also perform cross-compilation, as long as you provide the headers from the target platform.</p>
 
 <h3 id="toc_4">2.2 Include Directories</h3>
@@ -534,6 +535,11 @@ If no local <code>cakeconf.h</code> is found, the root <code>cakeconf.h</code> f
 <p>On Linux:</p>
 
 <pre><code>echo | gcc -E -Wp,-v -
+</code></pre>
+
+<p>On macOS:</p>
+
+<pre><code>echo | clang -v -E -
 </code></pre>
 
 <p><strong>Sample <code>cakeconf.h</code> for Linux:</strong></p>
@@ -558,6 +564,15 @@ If no local <code>cakeconf.h</code> is found, the root <code>cakeconf.h</code> f
 #pragma dir &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/winrt&quot;
 #pragma dir &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/cppwinrt&quot;
 #pragma dir &quot;C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um&quot;
+#endif
+</code></pre>
+
+<p><strong>Sample <code>cakeconf.h</code> for macOS:</strong></p>
+
+<pre><code class="language-c">#ifdef __APPLE__
+#pragma dir &quot;/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include&quot;
+#pragma dir &quot;/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include&quot;
+#pragma dir &quot;/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include&quot;
 #endif
 </code></pre>
 
@@ -680,6 +695,7 @@ Set the compilation target. Controls integer sizes, alignment, and the style of 
 <li><code>x86_x64_gcc</code> — Linux x86-64, GCC output</li>
 <li><code>x86_msvc</code> — Windows x86, MSVC output</li>
 <li><code>x64_msvc</code> — Windows x64, MSVC output</li>
+<li><code>macos_arm64</code> — macOS arm64 (Apple Silicon), Clang output</li>
 <li><code>catalina</code> — Catalina C compiler</li>
 <li><code>ccu8</code> — Embedded / custom target</li>
 </ul>

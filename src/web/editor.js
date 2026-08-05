@@ -6,8 +6,10 @@ var model = {};
 
 var on_edited_timer = -1; // setTimeout(myGreeting, 3000);
 
-// Pattern: filename:line:col:   e.g. main.c:17:11:
-var OUTPUT_LOCATION_RE = /^([^\s:]+\.c(?:pp)?):(\d+):(\d+):/;
+// Pattern: filename:line:col:   e.g. main.c:17:11: or c:/main.c:8:23:
+// The optional [A-Za-z]: prefix covers Windows drive-letter paths, whose
+// own colon would otherwise be consumed by the [^\s:]+ filename match.
+var OUTPUT_LOCATION_RE = /^([A-Za-z]:)?([^\s:]+\.c(?:pp)?):(\d+):(\d+):/;
 
 let useServer = false;
 
@@ -72,8 +74,8 @@ function setOutputHtml(htmlContent)
 
         if (match)
         {
-            var lineNum = parseInt(match[2], 10);
-            var colNum = parseInt(match[3], 10);
+            var lineNum = parseInt(match[3], 10);
+            var colNum = parseInt(match[4], 10);
             result += '<div class="output-line output-location"'
                 + ' data-line="' + lineNum + '"'
                 + ' data-col="' + colNum + '"'
@@ -150,16 +152,17 @@ function validate(model)
             start_col = start_col - line_start;
 
             var s = ouputlines[i];
-            var c1 = s.indexOf(":");           // end of filename
-            var c2 = s.indexOf(":", c1 + 1);   // end of line number
-            var c3 = s.indexOf(":", c2 + 1);   // end of col number
-            var c4 = s.indexOf(":", c3 + 1);   // end of severity word
+            // filename:line:col: severity: message
+            // The filename may be a Windows drive-letter path (c:/main.c),
+            // whose own colon would otherwise be mistaken for the filename
+            // terminator, so it's matched and skipped explicitly.
+            var locMatch = /^(?:[A-Za-z]:)?[^\s:]+\.c(?:pp)?:(\d+):(\d+):\s*([^:]+):\s*(.*)$/.exec(s);
 
-            if (c1 >= 0 && c2 > c1 && c3 > c2 && c4 > c3)
+            if (locMatch)
             {
-                const line = parseInt(s.substring(c1 + 1, c2), 10);
-                const severity_str = s.substring(c3 + 1, c4).trim();
-                const message = s.substring(c4 + 1).trim();
+                const line = parseInt(locMatch[1], 10);
+                const severity_str = locMatch[3].trim();
+                const message = locMatch[4].trim();
 
                 var severity = monaco.MarkerSeverity.Info;
                 if (severity_str.startsWith("warning"))

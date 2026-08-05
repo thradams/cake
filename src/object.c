@@ -688,6 +688,7 @@ bool object_increment_value(enum target target, struct object* a)
     default:
         break;
     }
+    return false;
 }
 
 struct object object_make_unsigned_char(enum target target, unsigned char value)

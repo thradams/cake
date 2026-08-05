@@ -276,6 +276,11 @@ typedef struct {
                                                   * solid fill on top of it */
 
     uint32_t input_bg, input_fg, input_fg_focus, input_sel_bg, input_sel_fg;
+    uint32_t input_bg_focus;  /* the focused <input>'s own row fill, distinct
+                               * from input_bg - lets a theme visually mark
+                               * which field has focus (e.g. Visual Studio's
+                               * blue-tinted active text box) instead of only
+                               * the caret/selection giving it away */
 
     uint32_t editor_bg, editor_fg, editor_keyword_fg, editor_keyword2_fg,
         editor_string_fg,
@@ -1154,5 +1159,8 @@ typedef enum {
     UI_DIAG_ERROR,
 } ui_diag_type;
 
-void ui_editor_add_diagnostic(ui_node* n, ui_diag_type type, int line, const char* message);
+/* `code` is the compiler's numeric diagnostic id (cake prints "warning 42:"),
+ * shown right after the severity tag in the inline annotation - pass 0 when
+ * the diagnostic has no number (notes/info never do). */
+void ui_editor_add_diagnostic(ui_node* n, ui_diag_type type, int line, int code, const char* message);
 void ui_editor_clear_diagnostics(ui_node* n);

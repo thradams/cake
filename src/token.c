@@ -581,7 +581,7 @@ void token_list_append_list_at_beginning(struct token_list* dest, struct token_l
     runtime_assert(dest->head == NULL || dest->head->prev == NULL);
 }
 
-void token_list_append_list(struct token_list* dest, struct token_list* source)
+void token_list_append_list(struct token_list* dest, _Clear struct token_list* source)
 {
     if (source->head == NULL)
     {

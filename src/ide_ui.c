@@ -8,6 +8,10 @@
 #include <string.h>
 #include <stdio.h>
 
+#if defined(_MSC_VER)
+#include <intrin.h>  /* __debugbreak() - see ui_fatal_oom() */
+#endif
+
  /* --- Environment: event queue + screen dimensions --- */
 
 #define UI_ENV_EVENT_QUEUE_SIZE 256
@@ -15,6 +19,12 @@
 /* Text-caret blink half-period, ms (~classic Windows caret rate) - the caret
  * is solid for this long, then hidden for this long, repeating. */
 #define UI_CARET_BLINK_MS 530
+
+/* Lines (or listbox rows, or columns when panning) the view moves per mouse-
+ * wheel notch. wheel_delta is +-1 per notch (see ui.h), so the pace lives
+ * here: 3 matches the Windows system default (SPI_GETWHEELSCROLLLINES) and
+ * what every other editor does - 1 line/notch feels sluggish. */
+#define UI_WHEEL_LINES 3
 
  /* Whether macOS-style shortcut conventions are active - see
   * ui_set_mac_shortcuts()/ui_mac_shortcuts() in ui.h. Defaults to the
@@ -229,6 +239,7 @@ static ui_theme g_theme = {
      * text color and the caret indicate focus, same as Turbo Vision's edit
      * lines. */
     .input_bg = TB_RGB(0x00, 0x00, 0xB0),
+    .input_bg_focus = TB_RGB(0x00, 0x00, 0xB0),
     .input_fg = TB_RGB(0x54, 0xFF, 0xFF),
     .input_fg_focus = TB_RGB(0xFF, 0xFF, 0xFF),
     /* Caret cell - same green/black combo as the menu's selection highlight. */
@@ -424,16 +435,32 @@ static int utf8_vis_len(const char* s)
 
 struct ui_diagnostic;  /* full definition below, right after struct ui_node */
 
-/* One snapshot in an EDITOR's undo/redo history - see ui_editor_undo/redo
- * and the undo_stack/redo_stack fields on ui_node below. */
+/* One step in an EDITOR's undo/redo history - see ui_editor_undo/redo and
+ * the undo_stack/redo_stack fields on ui_node below.
+ *
+ * A step is stored as a DELTA, not a snapshot: "at byte offset `pos`, the
+ * text `del` was replaced by the text `ins`". Undo splices `del` back in
+ * over `ins`; redo does the reverse. Either string may be "" (a pure
+ * insertion has an empty `del`, a pure deletion an empty `ins`).
+ *
+ * This is what keeps memory proportional to how much was EDITED rather
+ * than to how big the document is: an earlier version snapshotted the
+ * whole label per step, which on a large file meant a few hundred KB per
+ * keystroke-group and, at UI_UNDO_MAX steps across two stacks, enough to
+ * exhaust a 32-bit process's address space outright - at which point
+ * ordinary small allocations start failing and edits crash or silently
+ * stop working. */
 typedef struct ui_undo_entry {
-    char* text;       /* malloc'd copy of the node's label at this point */
-    int cursor;
-    int sel_anchor;
+    int pos;              /* byte offset in the label where the change starts */
+    char* del;            /* malloc'd text that was removed at pos ("" if none) */
+    char* ins;            /* malloc'd text that was inserted at pos ("" if none) */
+    int cursor_before;    /* caret/selection to restore when undoing this step */
+    int sel_before;
+    int cursor_after;     /* caret to restore when redoing it */
 } ui_undo_entry;
 
 /* Kinds of edit an EDITOR's undo grouping distinguishes - see
- * editor_undo_mark(). Edits of the same kind, at adjacent cursor positions
+ * editor_undo_record(). Edits of the same kind, at adjacent positions
  * and close together in time, coalesce into one undo step; anything else
  * starts a new one. */
 enum {
@@ -455,6 +482,15 @@ enum {
 #define UI_UNDO_MAX 500           /* cap per editor, oldest entries evicted
                                     * first - keeps a long editing session's
                                     * memory use bounded */
+#define UI_UNDO_MAX_BYTES (8 * 1024 * 1024)
+                                  /* second cap, on the total del+ins bytes
+                                   * held by one stack - UI_UNDO_MAX alone
+                                   * bounds the STEP COUNT, which says
+                                   * nothing about size once a step can be a
+                                   * multi-megabyte paste or select-all
+                                   * delete. Oldest steps are evicted until
+                                   * the stack fits, same as hitting the
+                                   * count cap. */
 
 struct ui_node {
     int type;            /* a ui_tag value */
@@ -559,14 +595,15 @@ struct ui_node {
                       * ui_editor_add_diagnostic and render_editor(). */
 
                       /* EDITOR only: undo/redo history - see ui_editor_undo/redo below. Each
-                       * entry is a full-buffer snapshot; an <editor> holds one file's worth of
-                       * text at a time, never large enough that a per-edit diff would be worth
-                       * the extra complexity. undo_group/undo_group_pos/undo_group_time let a
-                       * run of the same kind of edit (a burst of typing, a held-down
-                       * Backspace, one paste) collapse into a single undo step instead of one
-                       * per keystroke - see editor_undo_mark(). */
-    struct ui_undo_entry* undo_stack; int undo_count, undo_cap;
-    struct ui_undo_entry* redo_stack; int redo_count, redo_cap;
+                       * entry is a DELTA (see struct ui_undo_entry), so memory scales with how
+                       * much was edited rather than with the document's size.
+                       * undo_group/undo_group_pos/undo_group_time let a run of the same kind of
+                       * edit (a burst of typing, a held-down Backspace, one paste) collapse into
+                       * a single undo step instead of one per keystroke - see
+                       * editor_undo_record(). *_bytes track each stack's total del+ins payload
+                       * for the UI_UNDO_MAX_BYTES cap. */
+    struct ui_undo_entry* undo_stack; int undo_count, undo_cap; size_t undo_bytes;
+    struct ui_undo_entry* redo_stack; int redo_count, redo_cap; size_t redo_bytes;
     int undo_group;            /* a UI_UNDO_* kind, or UI_UNDO_NONE between edits */
     int undo_group_pos;        /* cursor offset a continuing edit of the same
                                  * kind must start at to extend the group */
@@ -589,6 +626,8 @@ struct ui_diagnostic {
     ui_diag_type type;
     int line;              /* 1-based source line, matching how compilers
                              * report diagnostics */
+    int code;              /* compiler's numeric id ("warning 42: ..."), or 0
+                             * when the diagnostic carries no number */
     char* message;
     struct ui_diagnostic* next;
 };
@@ -691,13 +730,26 @@ struct ui_screen {
     ui_node* resizing_window;
 
     /* Dragging an <editor>'s own scrollbar thumb (see editor_has_vscrollbar/
-     * editor_has_hscrollbar) - stateless: the scroll position is recomputed
-     * straight from the mouse's row/column every frame, no offset needed.
-     * Holds the <editor> itself, not its window - like <listbox> below, an
-     * editor's scrollbar is self-contained rather than window-driven (see
-     * process_window's UI_TAG_EDITOR branch). */
+     * editor_has_hscrollbar). Holds the <editor> itself, not its window -
+     * like <listbox> below, an editor's scrollbar is self-contained rather
+     * than window-driven (see process_window's UI_TAG_EDITOR branch). */
     ui_node* dragging_editor_vscrollbar;
     ui_node* dragging_editor_hscrollbar;  /* horizontal counterpart (bottom row) */
+
+    /* The grab's column within the horizontal thumb (mouse column - thumb's
+     * own start column), captured once when the drag begins and held
+     * constant for the whole drag - same "click position relative to the
+     * thing being dragged, not the thing's origin" idea as drag_offset_x/y
+     * above, just for the thumb instead of the window. Without this, each
+     * mouse-moved event would re-derive the scroll position straight from
+     * the absolute mouse column (editor_hscrollbar_set_from_mouse's own
+     * mapping), which only agrees with where the thumb already was if the
+     * grab happened to land on the track's implied "center" reference point -
+     * anywhere else on the thumb, the first move after the initial click
+     * (which does behave correctly, since editor_hscrollbar_thumb's on_thumb
+     * check leaves the scroll alone) would jump the thumb out from under the
+     * cursor instead of tracking it. See editor_hscrollbar_drag_to(). */
+    int hbar_drag_offset;
 
     /* Dragging a <listbox>'s own scrollbar thumb (see listbox_has_scrollbar)
      * - stateless like the two above, holding the <listbox> itself for the
@@ -787,12 +839,37 @@ struct ui_screen {
                             * invalidate next frame */
 };
 
+/* Out of memory is fatal, loudly and immediately, rather than something
+ * every allocation site tries to limp along through. Silently dropping the
+ * edit (the alternative) makes an exhausted process look like a UI bug -
+ * keys stop doing anything, or a stale pointer faults later somewhere
+ * unrelated to the allocation that actually failed. abort() traps straight
+ * into the debugger with the real call stack still intact, which is the
+ * only thing that makes the true cause diagnosable. */
+static void ui_fatal_oom(const char* where)
+{
+    /* stderr alone isn't enough to see this: a Windows GUI-subsystem build
+     * has no console attached, and this app redirects stdout into its own
+     * Output window while compiling (see capture_and_compile), so a plain
+     * fprintf here can vanish entirely. Break into the debugger first -
+     * that's the whole point of failing loudly, and it stops with the real
+     * call stack still live rather than unwound by abort(). */
+    fflush(stdout);
+    fprintf(stderr, "\nFATAL: out of memory in %s\n", where);
+    fflush(stderr);
+#if defined(_WIN32) && defined(_DEBUG)
+    __debugbreak();
+#endif
+    abort();
+}
+
 static char* xstrdup(const char* s)
 {
     size_t n = strlen(s) + 1;
     char* p = malloc(n);
-    if (p)
-        memcpy(p, s, n);
+    if (!p)
+        ui_fatal_oom("xstrdup");
+    memcpy(p, s, n);
     return p;
 }
 
@@ -800,6 +877,8 @@ static char* xstrdup(const char* s)
 static ui_node* alloc_node(int type)
 {
     ui_node* n = calloc(1, sizeof(*n));
+    if (!n)
+        ui_fatal_oom("alloc_node");
     n->type = type;
     n->label = xstrdup("");
     n->shortcut = xstrdup("");
@@ -812,8 +891,11 @@ static ui_node* alloc_node(int type)
 
 static void node_add_child(ui_node* parent, ui_node* child)
 {
-    parent->children = realloc(parent->children,
-                                sizeof(ui_node*) * (parent->child_count + 1));
+    ui_node** grown = realloc(parent->children,
+                               sizeof(ui_node*) * (parent->child_count + 1));
+    if (!grown)
+        ui_fatal_oom("node_add_child");
+    parent->children = grown;
     parent->children[parent->child_count++] = child;
 }
 
@@ -840,10 +922,16 @@ static void node_free(ui_node* n)
     free(n->path);
     free_diagnostics(n->diagnostics);
     for (int i = 0; i < n->undo_count; i++)
-        free(n->undo_stack[i].text);
+    {
+        free(n->undo_stack[i].del);
+        free(n->undo_stack[i].ins);
+    }
     free(n->undo_stack);
     for (int i = 0; i < n->redo_count; i++)
-        free(n->redo_stack[i].text);
+    {
+        free(n->redo_stack[i].del);
+        free(n->redo_stack[i].ins);
+    }
     free(n->redo_stack);
     free(n);
 }
@@ -1089,6 +1177,8 @@ static void layout_select_popup(ui_node* select, int* out_dx, int* out_dy,
 ui_screen* ui_screen_create(void)
 {
     ui_screen* s = calloc(1, sizeof(*s));
+    if (!s)
+        ui_fatal_oom("ui_screen_create");
     s->root = alloc_node(UI_TAG_SCREEN);
     return s;
 }
@@ -1122,8 +1212,17 @@ void ui_set_id(ui_node* n, int id)
 
 void ui_set_label(ui_node* n, const char* label)
 {
+    /* Allocate the replacement BEFORE freeing the old one: xstrdup returns
+     * NULL if the allocation fails, and the old "free then assign" order
+     * left n->label NULL in that case. Every other place in this file
+     * treats n->label as a valid string (strlen/utf8 walks/render), so a
+     * NULL there faults on the next read - an access violation reading
+     * address 0, typically nowhere near the allocation that actually
+     * failed. Keeping the previous text on failure is both safe and the
+     * more useful outcome: the edit is dropped, not the document. */
+    char* copy = xstrdup(label ? label : "");  /* fatal on OOM - see ui_fatal_oom */
     free(n->label);
-    n->label = xstrdup(label ? label : "");
+    n->label = copy;
     n->scan_valid = 0;  /* content changed - render_editor's scan cache is stale */
 }
 
@@ -1323,11 +1422,14 @@ ui_syntax ui_get_syntax(const ui_node* n)
 /* Adds one diagnostic to an <editor>'s list, kept sorted ascending by line
  * (same-line diagnostics stay in the order they were added) - see
  * render_editor()'s single merge pass over this list. */
-void ui_editor_add_diagnostic(ui_node* n, ui_diag_type type, int line, const char* message)
+void ui_editor_add_diagnostic(ui_node* n, ui_diag_type type, int line, int code, const char* message)
 {
     ui_diagnostic* d = malloc(sizeof(*d));
+    if (!d)
+        ui_fatal_oom("ui_editor_add_diagnostic");
     d->type = type;
     d->line = line;
+    d->code = code;
     d->message = xstrdup(message ? message : "");
     d->next = NULL;
 
@@ -1408,6 +1510,7 @@ static int editor_has_hscrollbar(ui_node* n);
 static void editor_hscrollbar_layout(ui_node* n, int* out_track_x0, int* out_track_w);
 static void editor_hscrollbar_thumb(ui_node* n, int* out_start, int* out_len);
 static void editor_hscrollbar_set_from_mouse(ui_node* n, int mouse_x);
+static void editor_hscrollbar_drag_to(ui_node* n, int mouse_x, int grab_offset);
 
 void ui_select_set_selected(ui_node* select, int index)
 {
@@ -1461,11 +1564,19 @@ void ui_set_value(ui_node* n, const char* value)
     /* Fresh content (e.g. a different file opened into this editor) - the
      * undo history belongs to the document that was open, not the widget. */
     for (int i = 0; i < n->undo_count; i++)
-        free(n->undo_stack[i].text);
+    {
+        free(n->undo_stack[i].del);
+        free(n->undo_stack[i].ins);
+    }
     n->undo_count = 0;
+    n->undo_bytes = 0;
     for (int i = 0; i < n->redo_count; i++)
-        free(n->redo_stack[i].text);
+    {
+        free(n->redo_stack[i].del);
+        free(n->redo_stack[i].ins);
+    }
     n->redo_count = 0;
+    n->redo_bytes = 0;
     n->undo_group = UI_UNDO_NONE;
 }
 
@@ -2250,93 +2361,249 @@ static int md_line_at_index_is_foldable(const char* text, int line_idx)
 
 /* Wall-clock ms for the edit currently being processed - set once per
  * ui_screen_update() call from the env's time (see ui_env_set_time_ms) and
- * read by editor_undo_mark() below to decide whether an edit is close
+ * read by editor_undo_record() below to decide whether an edit is close
  * enough in time to a prior one of the same kind to coalesce with it. Safe
  * as a file-static: ui.c has no threading, and every edit happens inside
  * ui_screen_update()'s single-frame key-handling loop where this is valid. */
 static unsigned g_ui_undo_now_ms = 0;
 
-/* Append a snapshot to a growable undo/redo array (shared by both -
- * `arr`/`count`/`cap` are whichever of the pair is being pushed to). Once
- * full, grows up to UI_UNDO_MAX entries, then evicts the oldest instead of
- * growing further. Takes ownership of `text`. */
+/* malloc'd copy of s[lo, hi) - the raw material for an undo entry's del/ins
+ * strings. Returns an empty string (never NULL) for an empty range, so
+ * callers can treat "nothing removed"/"nothing inserted" uniformly. NULL
+ * only on allocation failure. */
+static char* str_dup_range(const char* s, int lo, int hi)
+{
+    if (hi < lo)
+        hi = lo;
+    size_t n = (size_t)(hi - lo);
+    char* p = malloc(n + 1);
+    if (!p)
+        ui_fatal_oom("str_dup_range");
+    memcpy(p, s + lo, n);
+    p[n] = 0;
+    return p;
+}
+
+static size_t undo_entry_bytes(const ui_undo_entry* e)
+{
+    return strlen(e->del) + strlen(e->ins);
+}
+
+static void undo_entry_free(ui_undo_entry* e)
+{
+    free(e->del);
+    free(e->ins);
+    e->del = e->ins = NULL;
+}
+
+/* Drop oldest entries until the stack satisfies both caps (UI_UNDO_MAX
+ * steps and UI_UNDO_MAX_BYTES of del+ins payload). `keep_one` stops the
+ * byte cap from emptying the stack outright when a single entry is larger
+ * than the whole budget - that one step is still undoable, it just leaves
+ * no room for history behind it. */
+static void undo_array_trim(ui_undo_entry** arr, int* count, size_t* bytes)
+{
+    int drop = 0;
+    size_t total = *bytes;
+    while (drop < *count &&
+           (*count - drop > UI_UNDO_MAX ||
+            (total > UI_UNDO_MAX_BYTES && *count - drop > 1)))
+    {
+        total -= undo_entry_bytes(&(*arr)[drop]);
+        drop++;
+    }
+    if (drop <= 0)
+        return;
+    for (int i = 0; i < drop; i++)
+        undo_entry_free(&(*arr)[i]);
+    memmove(&(*arr)[0], &(*arr)[drop],
+            (size_t)(*count - drop) * sizeof * *arr);
+    *count -= drop;
+    *bytes = total;
+}
+
+/* Append one delta to a growable undo/redo array (shared by both -
+ * arr/count/cap/bytes are whichever of the pair is being pushed to). Takes
+ * ownership of e's del/ins on success; frees them and does nothing on
+ * allocation failure, so the existing history always stays valid. */
 static void undo_array_push(ui_undo_entry** arr, int* count, int* cap,
-                             char* text, int cursor, int sel_anchor)
+                             size_t* bytes, ui_undo_entry e)
 {
     if (*count == *cap)
     {
-        if (*cap >= UI_UNDO_MAX)
-        {
-            free((*arr)[0].text);
-            memmove(&(*arr)[0], &(*arr)[1],
-                    (size_t)(*count - 1) * sizeof * *arr);
-            (*count)--;
-        }
-        else
-        {
-            int newcap = *cap ? *cap * 2 : 16;
-            if (newcap > UI_UNDO_MAX)
-                newcap = UI_UNDO_MAX;
-            *arr = realloc(*arr, (size_t)newcap * sizeof * *arr);
-            *cap = newcap;
-        }
+        int newcap = *cap ? *cap * 2 : 16;
+        if (newcap > UI_UNDO_MAX)
+            newcap = UI_UNDO_MAX;
+        if (newcap <= *count)
+            newcap = *count + 1;  /* count cap is enforced by trim below */
+        ui_undo_entry* grown = realloc(*arr, (size_t)newcap * sizeof * *arr);
+        if (!grown)
+            ui_fatal_oom("undo_array_push");
+        *arr = grown;
+        *cap = newcap;
     }
-    ui_undo_entry* e = &(*arr)[(*count)++];
-    e->text = text;
-    e->cursor = cursor;
-    e->sel_anchor = sel_anchor;
+    (*arr)[(*count)++] = e;
+    *bytes += undo_entry_bytes(&e);
+    undo_array_trim(arr, count, bytes);
 }
 
 /* Free every entry in an undo/redo array and reset its count (capacity/
  * allocation are left alone - the array itself is reused). */
-static void undo_array_clear(ui_undo_entry** arr, int* count)
+static void undo_array_clear(ui_undo_entry** arr, int* count, size_t* bytes)
 {
     for (int i = 0; i < *count; i++)
-        free((*arr)[i].text);
+        undo_entry_free(&(*arr)[i]);
     *count = 0;
+    *bytes = 0;
 }
 
-/* Push `n`'s current content onto its undo stack - the "before" snapshot for
- * whatever edit is about to happen - and clear its redo stack, the ordinary
- * "a new edit invalidates whatever was undone" rule. */
-static void editor_undo_push(ui_node* n)
+/* Records one completed edit ("at `pos`, `del` became `ins`") on `n`'s undo
+ * stack, and clears the redo stack - the ordinary "a new edit invalidates
+ * whatever was undone" rule. Takes ownership of `del`/`ins`.
+ *
+ * `kind` identifies the operation: if it matches the kind and recency of
+ * the step on top of the stack AND this edit is physically adjacent to it,
+ * the two merge into one step rather than accumulating one per keystroke -
+ * see the UI_UNDO_* enum and UI_UNDO_COALESCE_MS. UI_UNDO_NEWLINE and
+ * UI_UNDO_DELSEL never merge, so each Enter and each selection erase stays
+ * independently undoable.
+ *
+ * Adjacency is checked against the stored delta itself rather than against
+ * the caret, so a merge can never produce a step that doesn't describe one
+ * contiguous replacement:
+ *   - typing/pasting forward: previous step inserted only, and this
+ *     insertion starts exactly where the previous one ended;
+ *   - Backspace: previous step deleted only, and this deletion ends exactly
+ *     where the previous one started (it grows leftward);
+ *   - Delete-forward: previous step deleted only, at this same offset (it
+ *     grows rightward).
+ * Anything else starts a fresh step. Called on EDITOR only - single-line
+ * INPUTs don't get undo history. */
+static void editor_undo_record(ui_node* n, int kind, int pos,
+                                char* del, char* ins,
+                                int cursor_before, int sel_before,
+                                int cursor_after)
 {
-    undo_array_push(&n->undo_stack, &n->undo_count, &n->undo_cap,
-                     xstrdup(n->label), n->cursor, n->sel_anchor);
-    undo_array_clear(&n->redo_stack, &n->redo_count);
-}
-
-/* Call right before every content-changing operation on an EDITOR (never on
- * INPUT - single-line fields don't get undo history). `kind` identifies the
- * operation; if it matches the kind, cursor position, and recency of the
- * edit currently being grouped, this extends that group instead of starting
- * a new one - see the UI_UNDO_* enum and UI_UNDO_COALESCE_MS. UI_UNDO_NEWLINE
- * and UI_UNDO_DELSEL never coalesce, not even with a run of their own kind -
- * each Enter, and each selection erase, is always its own undo step. Always
- * call editor_undo_settle() after the mutation completes. */
-static void editor_undo_mark(ui_node* n, int kind)
-{
-    if (n->type != UI_TAG_EDITOR)
+    if (!del || !ins || n->type != UI_TAG_EDITOR)
+    {
+        free(del);
+        free(ins);
         return;
+    }
 
-    int coalesce = kind == n->undo_group &&
+    size_t dlen = strlen(del), ilen = strlen(ins);
+    if (dlen == 0 && ilen == 0)
+    {
+        free(del);
+        free(ins);
+        return;  /* nothing actually changed */
+    }
+
+    int mergeable = kind == n->undo_group &&
         kind != UI_UNDO_NEWLINE && kind != UI_UNDO_DELSEL &&
-        n->cursor == n->undo_group_pos &&
+        n->undo_count > 0 &&
         (g_ui_undo_now_ms - n->undo_group_time) <= UI_UNDO_COALESCE_MS;
-    if (!coalesce)
-        editor_undo_push(n);
+
+    if (mergeable)
+    {
+        ui_undo_entry* t = &n->undo_stack[n->undo_count - 1];
+        size_t tdlen = strlen(t->del), tilen = strlen(t->ins);
+
+        char* merged = NULL;
+        if (dlen == 0 && tdlen == 0 && t->pos + (int)tilen == pos)
+        {
+            /* forward insertion continuing the previous one */
+            merged = malloc(tilen + ilen + 1);
+            if (merged)
+            {
+                memcpy(merged, t->ins, tilen);
+                memcpy(merged + tilen, ins, ilen + 1);
+                free(t->ins);
+                t->ins = merged;
+                n->undo_bytes += ilen;
+            }
+        }
+        else if (ilen == 0 && tilen == 0 && pos + (int)dlen == t->pos)
+        {
+            /* Backspace: this deletion grows the previous one leftward */
+            merged = malloc(dlen + tdlen + 1);
+            if (merged)
+            {
+                memcpy(merged, del, dlen);
+                memcpy(merged + dlen, t->del, tdlen + 1);
+                free(t->del);
+                t->del = merged;
+                t->pos = pos;
+                n->undo_bytes += dlen;
+            }
+        }
+        else if (ilen == 0 && tilen == 0 && pos == t->pos)
+        {
+            /* Delete-forward: grows the previous deletion rightward */
+            merged = malloc(tdlen + dlen + 1);
+            if (merged)
+            {
+                memcpy(merged, t->del, tdlen);
+                memcpy(merged + tdlen, del, dlen + 1);
+                free(t->del);
+                t->del = merged;
+                n->undo_bytes += dlen;
+            }
+        }
+
+        if (merged)
+        {
+            t->cursor_after = cursor_after;
+            n->undo_group_time = g_ui_undo_now_ms;
+            n->undo_group_pos = cursor_after;
+            free(del);
+            free(ins);
+            undo_array_clear(&n->redo_stack, &n->redo_count, &n->redo_bytes);
+            undo_array_trim(&n->undo_stack, &n->undo_count, &n->undo_bytes);
+            return;
+        }
+        /* merge allocation failed - fall through and store it as its own
+         * step; the history stays correct, just one entry longer */
+    }
+
+    ui_undo_entry e;
+    e.pos = pos;
+    e.del = del;
+    e.ins = ins;
+    e.cursor_before = cursor_before;
+    e.sel_before = sel_before;
+    e.cursor_after = cursor_after;
+    undo_array_push(&n->undo_stack, &n->undo_count, &n->undo_cap,
+                     &n->undo_bytes, e);
+    undo_array_clear(&n->redo_stack, &n->redo_count, &n->redo_bytes);
 
     n->undo_group = kind;
     n->undo_group_time = g_ui_undo_now_ms;
+    n->undo_group_pos = cursor_after;
 }
 
-/* Call right after a marked mutation completes, once the cursor has settled
- * at its final position - records where a *continuing* edit of the same
- * kind must start from for editor_undo_mark()'s next coalescing check. */
-static void editor_undo_settle(ui_node* n)
+/* Replaces label[pos, pos+del_len) with `ins` - the single splice both
+ * ui_editor_undo and ui_editor_redo apply, and the only place either one
+ * touches the text. Deliberately does NOT record any history of its own:
+ * undo/redo move entries between the two stacks themselves. */
+static void editor_apply_splice(ui_node* n, int pos, int del_len, const char* ins)
 {
-    if (n->type == UI_TAG_EDITOR)
-        n->undo_group_pos = n->cursor;
+    size_t oldlen = strlen(n->label);
+    size_t inslen = strlen(ins);
+
+    if (pos < 0) pos = 0;
+    if ((size_t)pos > oldlen) pos = (int)oldlen;
+    if (del_len < 0) del_len = 0;
+    if ((size_t)(pos + del_len) > oldlen) del_len = (int)(oldlen - (size_t)pos);
+
+    char* buf = malloc(oldlen - (size_t)del_len + inslen + 1);
+    if (!buf)
+        ui_fatal_oom("editor_apply_splice");
+    memcpy(buf, n->label, (size_t)pos);
+    memcpy(buf + pos, ins, inslen);
+    strcpy(buf + (size_t)pos + inslen, n->label + pos + del_len);
+    ui_set_label(n, buf);
+    free(buf);
 }
 
 static void input_insert(ui_node* n, uint32_t cp, int undo_kind)
@@ -2346,20 +2613,29 @@ static void input_insert(ui_node* n, uint32_t cp, int undo_kind)
     if (n->numeric && (cp < '0' || cp > '9'))
         return;
 
-    editor_undo_mark(n, undo_kind);
-
     char enc[4];
     int enclen = utf8_encode(cp, enc);
     size_t oldlen = strlen(n->label);
 
     char* buf = malloc(oldlen + (size_t)enclen + 1);
+    if (!buf)
+        ui_fatal_oom("input_insert");
     memcpy(buf, n->label, n->cursor);
     memcpy(buf + n->cursor, enc, enclen);
     strcpy(buf + n->cursor + enclen, n->label + n->cursor);
+
+    int pos = n->cursor;
+    int cursor_before = n->cursor, sel_before = n->sel_anchor;
     ui_set_label(n, buf);
     free(buf);
     n->cursor += enclen;
-    editor_undo_settle(n);
+
+    if (n->type == UI_TAG_EDITOR)
+    {
+        char* ins = str_dup_range(enc, 0, enclen);
+        editor_undo_record(n, undo_kind, pos, str_dup_range("", 0, 0), ins,
+                           cursor_before, sel_before, n->cursor);
+    }
 
     if (n->type == UI_TAG_EDITOR)
     {
@@ -2378,17 +2654,25 @@ static void input_backspace(ui_node* n)
     if (n->read_only || n->cursor == 0)
         return;
 
-    editor_undo_mark(n, UI_UNDO_BACKSPACE);
-
     int len = utf8_prev_len(n->label, n->cursor);
 
     char* buf = malloc(strlen(n->label) + 1);
+    if (!buf)
+        ui_fatal_oom("input_backspace");
     memcpy(buf, n->label, n->cursor - len);
     strcpy(buf + n->cursor - len, n->label + n->cursor);
+
+    int pos = n->cursor - len;
+    int cursor_before = n->cursor, sel_before = n->sel_anchor;
+    char* del = n->type == UI_TAG_EDITOR
+        ? str_dup_range(n->label, pos, n->cursor) : NULL;
     ui_set_label(n, buf);
     free(buf);
     n->cursor -= len;
-    editor_undo_settle(n);
+
+    if (n->type == UI_TAG_EDITOR)
+        editor_undo_record(n, UI_UNDO_BACKSPACE, pos, del, str_dup_range("", 0, 0),
+                           cursor_before, sel_before, n->cursor);
 
     if (n->type == UI_TAG_EDITOR)
     {
@@ -2405,17 +2689,25 @@ static void input_delete_forward(ui_node* n)
     if (n->cursor >= len)
         return;
 
-    editor_undo_mark(n, UI_UNDO_DELFWD);
-
     uint32_t cp;
     int clen = utf8_decode(n->label + n->cursor, &cp);
 
     char* buf = malloc((size_t)len + 1);
+    if (!buf)
+        ui_fatal_oom("edit");
     memcpy(buf, n->label, n->cursor);
     strcpy(buf + n->cursor, n->label + n->cursor + clen);
+
+    int pos = n->cursor;
+    int sel_before = n->sel_anchor;
+    char* del = n->type == UI_TAG_EDITOR
+        ? str_dup_range(n->label, pos, pos + clen) : NULL;
     ui_set_label(n, buf);
     free(buf);
-    editor_undo_settle(n);
+
+    if (n->type == UI_TAG_EDITOR)
+        editor_undo_record(n, UI_UNDO_DELFWD, pos, del, str_dup_range("", 0, 0),
+                           pos, sel_before, pos);
 
     if (n->type == UI_TAG_EDITOR)
     {
@@ -2650,6 +2942,16 @@ static int editor_row_to_line(const ui_node* n, int click_row)
     return line;
 }
 
+/* Forward declared here (bodies live next to the VT100 line renderer further
+ * down, which they mirror) so editor_click_set_cursor() below and the
+ * selection-highlight column math near render_editor() can map a VT100/
+ * Output line's byte offsets to/from the same zero-width-escape column space
+ * render_editor_line_ansi() draws in, instead of the plain utf8_col_of()
+ * walk that miscounts escape bytes as visible columns. */
+static int ansi_parse_sgr(const char* s, int len, uint32_t* fg, int* bold);
+static int ansi_byte_of_col(const char* s, int len, int target_col);
+static int ansi_col_of(const char* s, int len, int byte_pos);
+
 /* Place the cursor at (click_row, click_col) within the editor's currently
  * scrolled view - click_row/click_col are relative to the widget's top-left,
  * already adjusted for its own x/y by the caller (still including the
@@ -2686,6 +2988,19 @@ static void editor_click_set_cursor(ui_node* n, int click_row, int click_col)
     {
         int in_block = md_in_block_at(n->label, ls);
         n->cursor = ls + md_scan_line(n->label + ls, le - ls, &in_block, -1, target_col);
+        return;
+    }
+
+    /* A VT100/Output line draws its embedded "\x1b[...m" SGR escapes as
+     * zero-width (see render_editor_line_ansi) - a plain byte-per-column
+     * utf8 walk would count those escape bytes as columns too, shifting
+     * every click after the first escape earlier than the character
+     * actually under the mouse. Map through the same zero-width-escape
+     * column space the renderer uses instead, so clicks (and therefore
+     * drag-selections and what Copy grabs) land on the right byte. */
+    if (n->syntax == UI_SYNTAX_VT100)
+    {
+        n->cursor = ls + ansi_byte_of_col(n->label + ls, le - ls, target_col);
         return;
     }
 
@@ -3151,18 +3466,25 @@ static void editor_delete_selection(ui_node* n)
     if (n->read_only || !has_selection(n))
         return;
 
-    editor_undo_mark(n, UI_UNDO_DELSEL);
-
     int lo, hi;
     selection_range(n, &lo, &hi);
     char* buf = malloc(strlen(n->label) + 1);
+    if (!buf)
+        ui_fatal_oom("edit");
     memcpy(buf, n->label, lo);
     strcpy(buf + lo, n->label + hi);
+
+    int cursor_before = n->cursor, sel_before = n->sel_anchor;
+    char* del = n->type == UI_TAG_EDITOR
+        ? str_dup_range(n->label, lo, hi) : NULL;
     ui_set_label(n, buf);
     free(buf);
     n->cursor = lo;
     n->sel_anchor = -1;
-    editor_undo_settle(n);
+
+    if (n->type == UI_TAG_EDITOR)
+        editor_undo_record(n, UI_UNDO_DELSEL, lo, del, str_dup_range("", 0, 0),
+                           cursor_before, sel_before, lo);
 
     if (n->type == UI_TAG_EDITOR)
     {
@@ -3171,36 +3493,54 @@ static void editor_delete_selection(ui_node* n)
     }
 }
 
-/* Defined later, next to the VT100/Markdown line renderers that also need
- * them (ansi_parse_sgr for color, scan_markdown_fence_state for fenced-code-
- * block state) - forward declared so editor_selected_text() below can strip
- * VT100 escapes / markdown delimiters before they reach the clipboard. */
-static int ansi_parse_sgr(const char* s, int len, uint32_t* fg, int* bold);
+/* ansi_parse_sgr is already forward declared above (editor_click_set_cursor
+ * needs it too); scan_markdown_fence_state is defined later next to the
+ * Markdown line renderer that also needs it - forward declared so
+ * editor_selected_text() below can strip VT100 escapes / markdown delimiters
+ * before they reach the clipboard. */
 static int scan_markdown_fence_state(const char* line, int len, int in_block);
 
 /* Strips embedded "\x1b[...m" SGR escape sequences from a VT100/Output-window
  * selection so Copy/Cut put only the plain visible text on the clipboard,
  * not the color codes used to render it. Non-SGR/malformed escapes (rare -
  * ansi_parse_sgr returns 0 for those) are left as literal bytes, same as the
- * renderer does when it can't make sense of them. */
-static char* strip_vt100_sgr(const char* s, int len)
+ * renderer does when it can't make sense of them.
+ *
+ * Scans the WHOLE line/document from `full[0]`, not from `full[lo]` - an
+ * escape sequence can only be recognized correctly by starting at its own
+ * ESC byte, and lo/hi (the selection's byte offsets) have no reason to land
+ * on one of those; they're set by whatever put the caret there (a mouse
+ * click mapped through screen columns, Home/End, word-select, ...), any of
+ * which can legitimately stop mid-sequence. Scanning from `full[lo]` as if
+ * it were always a sequence boundary - the previous approach - meant a
+ * selection that happened to start or end inside one of those escapes
+ * copied its raw tail ("31m", "0m", ...) as if it were visible text instead
+ * of stripping it, which is what made Copy from Output look like it was
+ * dropping or corrupting text. Scanning from byte 0 keeps escape detection
+ * correct regardless of where lo/hi fall; only bytes within [lo, hi) that
+ * survive stripping are actually written to `out`. */
+static char* strip_vt100_sgr_range(const char* full, int total_len, int lo, int hi)
 {
-    char* out = malloc(len + 1);
+    char* out = malloc((size_t)(hi - lo) + 1);
+    if (!out)
+        ui_fatal_oom("strip");
     int o = 0, i = 0;
-    while (i < len)
+    while (i < hi)
     {
-        if (s[i] == '\x1b')
+        if (full[i] == '\x1b')
         {
             uint32_t fg;
             int bold;
-            int used = ansi_parse_sgr(s + i, len - i, &fg, &bold);
+            int used = ansi_parse_sgr(full + i, total_len - i, &fg, &bold);
             if (used > 0)
             {
                 i += used;
                 continue;
             }
         }
-        out[o++] = s[i++];
+        if (i >= lo)
+            out[o++] = full[i];
+        i++;
     }
     out[o] = 0;
     return out;
@@ -3219,6 +3559,8 @@ static char* strip_vt100_sgr(const char* s, int len)
 static char* strip_markdown_readonly(const char* s, int len, int in_block)
 {
     char* out = malloc(len + 1);
+    if (!out)
+        ui_fatal_oom("strip");
     int o = 0;
     int off = 0;
     while (off <= len)
@@ -3334,7 +3676,7 @@ static char* strip_markdown_readonly(const char* s, int len, int in_block)
  * the caller frees it. Copies the raw substring unchanged for most nodes;
  * for a VT100 output window (always read-only) or a Markdown document that's
  * currently read-only, strips the escape codes / syntax delimiters that
- * wouldn't make sense pasted elsewhere - see strip_vt100_sgr() and
+ * wouldn't make sense pasted elsewhere - see strip_vt100_sgr_range() and
  * strip_markdown_readonly(). An editable Markdown document still copies its
  * raw source, unchanged, exactly as before. */
 static char* editor_selected_text(const ui_node* n)
@@ -3346,7 +3688,7 @@ static char* editor_selected_text(const ui_node* n)
     int len = hi - lo;
 
     if (n->syntax == UI_SYNTAX_VT100)
-        return strip_vt100_sgr(n->label + lo, len);
+        return strip_vt100_sgr_range(n->label, (int)strlen(n->label), lo, hi);
 
     if (n->syntax == UI_SYNTAX_MARKDOWN && n->read_only)
     {
@@ -3368,6 +3710,8 @@ static char* editor_selected_text(const ui_node* n)
     }
 
     char* buf = malloc(len + 1);
+    if (!buf)
+        ui_fatal_oom("editor_selected_text");
     memcpy(buf, n->label + lo, len);
     buf[len] = 0;
     return buf;
@@ -3428,14 +3772,18 @@ void ui_editor_undo(ui_node* n)
     if (!n || n->type != UI_TAG_EDITOR || n->undo_count == 0)
         return;
 
-    undo_array_push(&n->redo_stack, &n->redo_count, &n->redo_cap,
-                     xstrdup(n->label), n->cursor, n->sel_anchor);
+    /* Pop the step and invert it: put `del` back where `ins` currently is.
+     * The entry itself then moves to the redo stack unchanged - redo just
+     * applies it in the forward direction again. */
+    ui_undo_entry e = n->undo_stack[--n->undo_count];
+    n->undo_bytes -= undo_entry_bytes(&e);
 
-    ui_undo_entry* e = &n->undo_stack[--n->undo_count];
-    ui_set_label(n, e->text);
-    n->cursor = e->cursor;
-    n->sel_anchor = e->sel_anchor;
-    free(e->text);
+    editor_apply_splice(n, e.pos, (int)strlen(e.ins), e.del);
+    n->cursor = e.cursor_before;
+    n->sel_anchor = e.sel_before;
+
+    undo_array_push(&n->redo_stack, &n->redo_count, &n->redo_cap,
+                     &n->redo_bytes, e);
 
     n->undo_group = UI_UNDO_NONE;  /* the next edit starts its own group
                                      * rather than coalescing with whatever
@@ -3457,14 +3805,17 @@ void ui_editor_redo(ui_node* n)
     if (!n || n->type != UI_TAG_EDITOR || n->redo_count == 0)
         return;
 
-    undo_array_push(&n->undo_stack, &n->undo_count, &n->undo_cap,
-                     xstrdup(n->label), n->cursor, n->sel_anchor);
+    /* The mirror of ui_editor_undo: re-apply the step forward (`del` ->
+     * `ins`) and hand the entry back to the undo stack. */
+    ui_undo_entry e = n->redo_stack[--n->redo_count];
+    n->redo_bytes -= undo_entry_bytes(&e);
 
-    ui_undo_entry* e = &n->redo_stack[--n->redo_count];
-    ui_set_label(n, e->text);
-    n->cursor = e->cursor;
-    n->sel_anchor = e->sel_anchor;
-    free(e->text);
+    editor_apply_splice(n, e.pos, (int)strlen(e.del), e.ins);
+    n->cursor = e.cursor_after;
+    n->sel_anchor = -1;
+
+    undo_array_push(&n->undo_stack, &n->undo_count, &n->undo_cap,
+                     &n->undo_bytes, e);
 
     n->undo_group = UI_UNDO_NONE;
     editor_clamp_scroll(n);
@@ -4505,15 +4856,40 @@ static int process_window(ui_screen* s, ui_node* container, ui_node* window,
                 s->dragging_editor_hscrollbar = c;
                 int thumb_start, thumb_len;
                 editor_hscrollbar_thumb(c, &thumb_start, &thumb_len);
-                int col = s->mouse_x - c->x;
+                /* thumb_start is relative to the track (editor_hscrollbar_
+                 * layout's track_x0 = c->x + gutter_w), not to c->x itself -
+                 * using c->x here undercounts by the gutter width whenever
+                 * there's a line-number gutter, so a click squarely on the
+                 * thumb reads as "off the thumb" and jumps the scroll
+                 * position instead of just grabbing it (the on_hbar
+                 * hit-test just above already uses track_x0 via
+                 * editor_hscrollbar_layout - this needs the same base). */
+                int track_x0, track_w;
+                editor_hscrollbar_layout(c, &track_x0, &track_w);
+                int col = s->mouse_x - track_x0;
                 int on_thumb = col >= thumb_start && col < thumb_start + thumb_len;
-                if (!on_thumb)
+                if (on_thumb)
+                {
+                    /* Remember where within the thumb the grab landed (see
+                     * ui_screen's hbar_drag_offset) so the first drag move
+                     * tracks the cursor from here instead of snapping via
+                     * editor_hscrollbar_set_from_mouse's absolute mapping. */
+                    s->hbar_drag_offset = col - thumb_start;
+                }
+                else
+                {
                     editor_hscrollbar_set_from_mouse(c, s->mouse_x);
+                    /* Off-thumb click jumped the scroll - re-read where the
+                     * thumb landed so a follow-up drag (without releasing)
+                     * still tracks the cursor rather than jumping again. */
+                    editor_hscrollbar_thumb(c, &thumb_start, &thumb_len);
+                    s->hbar_drag_offset = col - thumb_start;
+                }
                 *click_consumed = 1;
             }
             else if (s->dragging_editor_hscrollbar == c && s->mouse_down && s->mouse_moved)
             {
-                editor_hscrollbar_set_from_mouse(c, s->mouse_x);
+                editor_hscrollbar_drag_to(c, s->mouse_x, s->hbar_drag_offset);
             }
             else if (inside && s->mouse_pressed && !*click_consumed)
             {
@@ -4566,9 +4942,23 @@ static int process_window(ui_screen* s, ui_node* container, ui_node* window,
              * click fires it too. Guarded against also being a double-click
              * so the two don't both fire for the same press, and against the
              * scrollbar columns/rows for the same reason as the double-click
-             * guard just above. */
+             * guard just above.
+             *
+             * Excludes UI_SYNTAX_VT100: the Output window is always
+             * read_only too, but its id is wired to output_goto_source()
+             * (see the double-click branch just above), which refocuses a
+             * *different* editor window - the source file the clicked
+             * diagnostic references. Firing that on every plain click (not
+             * just the intended double-click) meant starting a drag to
+             * select/copy text in Output immediately reassigned s->focused
+             * elsewhere on mouse-down, before the drag even happened - the
+             * Output selection this same press was starting still drew
+             * fine, but Ctrl+C afterwards copied from (or found no
+             * selection in) whatever editor had just stolen focus instead,
+             * so Copy from Output looked like it silently did nothing or
+             * left the clipboard holding whatever was copied previously. */
             if (inside && s->mouse_pressed && !s->mouse_dblclick && !on_vbar && !on_hbar &&
-                ((s->mouse_mods & UI_MOD_CTRL) || c->read_only))
+                ((s->mouse_mods & UI_MOD_CTRL) || (c->read_only && c->syntax != UI_SYNTAX_VT100)))
             {
                 if (c->id)
                     ui_fire_event(s, c->id, NULL);
@@ -4820,7 +5210,7 @@ static void free_pending_msgbox(ui_screen* s)
 
 void ui_screen_update(ui_screen* s, ui_env* env)
 {
-    g_ui_undo_now_ms = env->time_ms;  /* drives editor_undo_mark's coalescing
+    g_ui_undo_now_ms = env->time_ms;  /* drives editor_undo_record's coalescing
                                         * window for any edits this frame */
     s->mouse_pressed = 0;
     s->mouse_released = 0;
@@ -4924,10 +5314,10 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                  * the only thing that ever touches n->scroll/hscroll for a
                  * wheel event, so nothing else (caret-follow, edits, resize)
                  * can eat or resize a step out from under it. wheel_delta is
-                 * already exactly +-1 per notch (see ui.h) and every notch
-                 * moves the view exactly one line/row/column - no per-event
-                 * multiplier - so scrolling tracks the wheel continuously
-                 * instead of jumping in multi-line chunks. Checked
+                 * already exactly +-1 per notch (see ui.h); each notch moves
+                 * the view UI_WHEEL_LINES lines/rows/columns, matching the
+                 * platform default (3 on Windows) so the pace feels like
+                 * every other editor. Checked
                  * front-to-back across every floating window (only the
                  * topmost one at that point can be under the cursor), or
                  * just the active modal's window while one is blocking. */
@@ -4950,7 +5340,7 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                 }
                 if (hit && hit->type == UI_TAG_LISTBOX)
                 {
-                    hit->scroll -= ev.data.mouse.wheel_delta;  /* 1 row/notch */
+                    hit->scroll -= ev.data.mouse.wheel_delta * UI_WHEEL_LINES;
                     listbox_clamp_scroll(hit);
                 }
                 else if (hit)
@@ -4963,10 +5353,10 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                      * diagonally, carrying wheel_delta and wheel_hdelta at once. */
                     int hdelta = ev.data.mouse.wheel_hdelta;
                     if (ev.data.mouse.mods & UI_MOD_SHIFT)
-                        hdelta -= ev.data.mouse.wheel_delta;  /* 1 col/notch */
+                        hdelta -= ev.data.mouse.wheel_delta;
                     if (hdelta)
                     {
-                        hit->hscroll += hdelta;
+                        hit->hscroll += hdelta * UI_WHEEL_LINES;
                         editor_clamp_hscroll(hit);
                     }
                     /* Shift repurposes the vertical wheel for panning, so it no
@@ -4974,7 +5364,7 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                     if (ev.data.mouse.wheel_delta &&
                         !(ev.data.mouse.mods & UI_MOD_SHIFT))
                     {
-                        hit->scroll -= ev.data.mouse.wheel_delta;  /* 1 line/notch */
+                        hit->scroll -= ev.data.mouse.wheel_delta * UI_WHEEL_LINES;
                         editor_clamp_scroll(hit);
                     }
                 }
@@ -6178,8 +6568,16 @@ static void render_window(ui_screen* s, ui_node* win)
         draw_shadow(x + 1, y + h, w - 1, 1, UI_BOX_SHADOW_SHRINK_H);
     }
 
+    /* Body fill: always the live theme's window/modal colors, same as
+     * border_fg/border_bg above - never win->fg/win->bg, since every
+     * ui_set_color() call on a <window>/<modal> node just passes through
+     * whatever theme was active when that window was created (see ide.c's
+     * app_init), so a stored value would go stale the moment the theme
+     * changes afterward instead of re-styling like the border already does. */
+    uint32_t body_fg = is_modal ? g_theme.modal_fg : g_theme.window_fg;
+    uint32_t body_bg = is_modal ? g_theme.modal_bg : g_theme.window_bg;
     if (w > 2 && h > 2)
-        draw_fill(x + 1, y + 1, w - 2, h - 2, win->fg, win->bg);
+        draw_fill(x + 1, y + 1, w - 2, h - 2, body_fg, body_bg);
 
     emit_char(x, y, corner_tl, border_fg, border_bg);
     for (int i = 1; i < w - 1; i++)
@@ -6297,7 +6695,7 @@ static void render_input(ui_screen* s, ui_node* n)
     int focused = (s->focused == n);
     int caret = focused && s->caret_visible;  /* blink phase - see ui_screen_update */
     uint32_t fg = focused ? g_theme.input_fg_focus : g_theme.input_fg;
-    uint32_t bg = g_theme.input_bg;
+    uint32_t bg = focused ? g_theme.input_bg_focus : g_theme.input_bg;
 
     int cursor_col = utf8_col_of(n->label, n->cursor);
     int offset = cursor_col >= n->w ? cursor_col - n->w + 1 : 0;
@@ -6602,6 +7000,9 @@ static int is_c_keyword2(const char* word, int len)
     if (len == 6 && memcmp(word, "assert", 6) == 0) return 1;
     if (len == 4 && memcmp(word, "NULL", 4) == 0) return 1;
     if (len == 6 && memcmp(word, "_Clear", 6) == 0) return 1;
+    if (len == 14 && memcmp(word, "_Uninitialized", 14) == 0) return 1;
+
+
 
     return 0;
 }
@@ -6620,11 +7021,23 @@ static int is_c_tag_keyword(const char* word, int len)
 /* The classic 16-color EGA/CGA palette VT100 SGR codes 30-37/90-97 index
  * into - built from the same 0x00/0x55/0xAA/0xFF channel steps already used
  * throughout g_theme, so colored compiler output reads as part of the same
- * retro palette rather than a jarring true-color mismatch. */
+ * retro palette rather than a jarring true-color mismatch.
+ *
+ * Slot 4 (plain "\x1b[34m" BLUE, SGR 34 with no bold flag) is the one
+ * exception: lib.c's ss_print_line_and_token() emits it, and only it, to
+ * color keyword tokens (TK_KEYWORD_AUTO..TK_KEYWORD_IS_INTEGRAL) when
+ * reprinting a source line inside a diagnostic - nothing else in the
+ * compiler uses plain (non-bold) blue, so this slot is safe to repoint at
+ * g_theme.editor_keyword_fg's bright yellow instead of true blue, to match
+ * how the very same keywords are colored in the live editor (see
+ * is_c_keyword1/editor_keyword_fg). Bold blue ("\x1b[34;1m" LIGHTBLUE,
+ * slot 12) is a separate slot used elsewhere (banners, the "invisible
+ * used/ignored" legend) and is untouched, as is comments' own yellow
+ * ("\x1b[93m", slot 11). */
 static const uint32_t ansi_palette[16] = {
     TB_RGB(0x00, 0x00, 0x00), TB_RGB(0xAA, 0x00, 0x00),
     TB_RGB(0x00, 0xAA, 0x00), TB_RGB(0xAA, 0xAA, 0x00),
-    TB_RGB(0x00, 0x00, 0xAA), TB_RGB(0xAA, 0x00, 0xAA),
+    TB_RGB(0xFF, 0xFF, 0x55), TB_RGB(0xAA, 0x00, 0xAA),
     TB_RGB(0x00, 0xAA, 0xAA), TB_RGB(0xAA, 0xAA, 0xAA),
     TB_RGB(0x55, 0x55, 0x55), TB_RGB(0xFF, 0x55, 0x55),
     TB_RGB(0x55, 0xFF, 0x55), TB_RGB(0xFF, 0xFF, 0x55),
@@ -6738,6 +7151,63 @@ static int ansi_parse_sgr(const char* s, int len, uint32_t* fg, int* bold)
             break;
     }
     return i + 1;              /* consume the whole "\x1b[...m" */
+}
+
+/* Inverse pair for mapping a VT100/Output line between byte offsets and the
+ * zero-width-escape column space render_editor_line_ansi() below actually
+ * draws in - used by editor_click_set_cursor() (click -> byte, so a click
+ * lands on the glyph under the mouse instead of one shifted earlier by the
+ * width of any escape codes before it) and the selection-highlight setup
+ * near render_editor() (byte -> click, so the highlighted columns line up
+ * with what a Copy of that same byte range actually grabs). Before this,
+ * both call sites used the plain utf8_col_of() walk, which counts each
+ * escape byte as its own column; on any colored Output line that overcounts
+ * the escapes as visible width, so drags/copies land short of - and clicks
+ * land before - the character actually on screen. */
+static int ansi_byte_of_col(const char* s, int len, int target_col)
+{
+    int off = 0, col = 0;
+    while (col < target_col && off < len)
+    {
+        if (s[off] == '\x1b')
+        {
+            uint32_t fg;
+            int bold;
+            int used = ansi_parse_sgr(s + off, len - off, &fg, &bold);
+            if (used > 0)
+            {
+                off += used;
+                continue;
+            }
+        }
+        uint32_t cp;
+        off += utf8_decode(s + off, &cp);
+        col++;
+    }
+    return off;
+}
+
+static int ansi_col_of(const char* s, int len, int byte_pos)
+{
+    int off = 0, col = 0;
+    while (off < byte_pos && off < len)
+    {
+        if (s[off] == '\x1b')
+        {
+            uint32_t fg;
+            int bold;
+            int used = ansi_parse_sgr(s + off, len - off, &fg, &bold);
+            if (used > 0)
+            {
+                off += used;
+                continue;
+            }
+        }
+        uint32_t cp;
+        off += utf8_decode(s + off, &cp);
+        col++;
+    }
+    return col;
 }
 
 /* UI_SYNTAX_VT100 rendering path (see ui_set_syntax): same column/selection
@@ -7484,15 +7954,33 @@ static const char* diag_tag(ui_diag_type type)
 /* Builds the inline annotation string render_diagnostic draws: a few spaces
  * of left padding (so it doesn't sit flush against the source text), then a
  * "\xE2\x86\x90" (U+2190 left arrow) pointing back at the offending code, the
- * severity tag and message, and a "(+N more)" suffix when other diagnostics
- * share the line. Factored out so editor_content_cols() can measure it for
- * horizontal-scroll clamping without duplicating the format. */
+ * severity tag, the compiler's diagnostic number when it has one (d->code -
+ * matching the "warning 42:" form the compiler itself prints, so a diagnostic
+ * seen inline can be looked up or suppressed by number without going back to
+ * the Output window), the message, and a "(+N more)" suffix when other
+ * diagnostics share the line. Factored out so editor_content_cols() can
+ * measure it for horizontal-scroll clamping without duplicating the format. */
 static void format_diagnostic(char* buf, size_t cap, const ui_diagnostic* d, int extra_count)
 {
-    if (extra_count > 0)
-        snprintf(buf, cap, " \xE2\x86\x90 %s: %s (+%d more)", diag_tag(d->type), d->message, extra_count);
+    /* Notes/info carry no number, so their tag stays bare rather than
+     * printing a meaningless "0". */
+    char tag[64];
+    if (d->code > 0)
+        snprintf(tag, sizeof tag, "%s %d", diag_tag(d->type), d->code);
     else
-        snprintf(buf, cap, " \xE2\x86\x90 %s: %s", diag_tag(d->type), d->message);
+        snprintf(tag, sizeof tag, "%s", diag_tag(d->type));
+
+    /* d->message is an xstrdup() of the compiler's text, and xstrdup returns
+     * NULL if that allocation failed - passing NULL to "%s" is undefined and
+     * faults outright on the MSVC CRT (glibc's "(null)" is the lenient
+     * outlier). Cheap to tolerate here: the annotation still renders, just
+     * without its text. */
+    const char* msg = d->message ? d->message : "";
+
+    if (extra_count > 0)
+        snprintf(buf, cap, " \xE2\x86\x90 %s: %s (+%d more)", tag, msg, extra_count);
+    else
+        snprintf(buf, cap, " \xE2\x86\x90 %s: %s", tag, msg);
 }
 
 /* Renders one line's diagnostic inline, "Error Lens"-style, right after its
@@ -7680,6 +8168,42 @@ static void editor_hscrollbar_set_from_mouse(ui_node* n, int mouse_x)
         if (col < 0) col = 0;
         if (col > track_w - 1) col = track_w - 1;
         n->hscroll = (col * max_hscroll + (track_w - 1) / 2) / (track_w - 1);
+    }
+    editor_clamp_hscroll(n);
+}
+
+/* Sets n->hscroll while dragging an already-grabbed thumb, keeping
+ * `grab_offset` (the mouse's column within the thumb, captured once when the
+ * drag started - see ui_screen's hbar_drag_offset) constant so the thumb
+ * tracks the cursor from wherever it was grabbed, instead of snapping to
+ * editor_hscrollbar_set_from_mouse()'s absolute mapping (which only agrees
+ * with the thumb's current position if the grab happened to land on that
+ * mapping's implied reference point). The exact inverse of
+ * editor_hscrollbar_thumb()'s start-from-hscroll formula, just solved for
+ * hscroll-from-start instead. */
+static void editor_hscrollbar_drag_to(ui_node* n, int mouse_x, int grab_offset)
+{
+    int track_x0, track_w;
+    editor_hscrollbar_layout(n, &track_x0, &track_w);
+
+    int thumb_start, thumb_len;
+    editor_hscrollbar_thumb(n, &thumb_start, &thumb_len);
+
+    int max_hscroll = editor_content_cols(n) - editor_text_w(n);
+    if (max_hscroll < 0)
+        max_hscroll = 0;
+
+    int denom = track_w - thumb_len;
+    if (denom <= 0 || max_hscroll <= 0)
+    {
+        n->hscroll = 0;
+    }
+    else
+    {
+        int target_start = (mouse_x - track_x0) - grab_offset;
+        if (target_start < 0) target_start = 0;
+        if (target_start > denom) target_start = denom;
+        n->hscroll = (target_start * max_hscroll + denom / 2) / denom;
     }
     editor_clamp_hscroll(n);
 }
@@ -7932,6 +8456,16 @@ static void render_editor(ui_screen* s, ui_node* n)
                     tmp_block = in_block;
                     sel_col_hi = hi > le ? n->hscroll + n->w
                                          : md_scan_line(n->label + ls, le - ls, &tmp_block, hi - ls, -1);
+                }
+                else if (n->syntax == UI_SYNTAX_VT100)
+                {
+                    /* Same zero-width-escape column space
+                     * render_editor_line_ansi() draws in - see
+                     * ansi_byte_of_col()'s comment on editor_click_set_cursor
+                     * for why plain utf8_col_of() is wrong here too. */
+                    sel_col_lo = ansi_col_of(n->label + ls, le - ls, lo - ls);
+                    sel_col_hi = hi > le ? n->hscroll + n->w
+                                         : ansi_col_of(n->label + ls, le - ls, hi - ls);
                 }
                 else
                 {

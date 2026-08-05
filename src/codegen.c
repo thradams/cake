@@ -36,7 +36,7 @@ static void emit_line_directive(struct codegen_ctx* ctx,
     if (tk == NULL)
         return;
 
-    ss_fprintf(oss, "#line %d \"%s\"\n", tk->line, tk->token_origin->lexeme);
+    ss_fprintf(oss, "#line %d \"%s\"\n", tk->line, tk->token_origin ? tk->token_origin->lexeme : "");
 }
 
 static void vm_emit_snapshot_decls(struct codegen_ctx* ctx,
@@ -2414,6 +2414,7 @@ static bool is_compound_statement(struct secondary_block* p_secondary_block)
 
 static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct osstream* oss, struct selection_statement* p_selection_statement)
 {
+    struct osstream ss = { 0 };
     try
     {
         if (p_selection_statement->first_token->type == TK_KEYWORD_SWITCH)
@@ -2423,8 +2424,6 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
             ctx->break_reference.p_iteration_statement = NULL;
             ctx->break_reference.p_selection_statement = p_selection_statement;
             runtime_assert(p_selection_statement->condition != NULL);
-
-            struct osstream ss = { 0 };
 
             ss_fprintf(&ss, "/*switch*/\n");
             print_identation(ctx, &ss);
@@ -2439,7 +2438,6 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
             /* a switch always has a controlling expression */
             if (p_selection_statement->condition->expression == NULL)
             {
-                ss_close(&ss); /* ss owns its buffer */
                 throw;
             }
 
@@ -2455,13 +2453,15 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
             struct label* _Opt p_label_default = NULL;
             while (p_label)
             {
-
                 if (p_label->p_first_token->type == TK_KEYWORD_DEFAULT)
                 {
                     p_label_default = p_label;
                 }
                 else
                 {
+                    if (p_label->constant_expression == NULL)
+                        throw;
+
                     print_identation(ctx, &ss);
                     if (p_label->constant_expression_end == NULL)
                     {
@@ -2506,7 +2506,7 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
             ss_fprintf(&ss, "}\n");
 
             ss_fprintf(oss, "%s", ss.c_str);
-            ss_close(&ss);
+
             //restore
             ctx->break_reference = old;
         }
@@ -2571,9 +2571,12 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
 
                     emit_line_directive(ctx, oss, p_selection_statement->condition->first_token);
 
+                    const char* name = p_selection_statement->condition->p_init_declarator->p_declarator->name_opt ?
+                    p_selection_statement->condition->p_init_declarator->p_declarator->name_opt->lexeme : "";
+
                     print_identation(ctx, oss);
                     ss_fprintf(oss, "if (");
-                    ss_fprintf(oss, "%s", p_selection_statement->condition->p_init_declarator->p_declarator->name_opt->lexeme);
+                    ss_fprintf(oss, "%s", name);
                     ss_fprintf(oss, ")\n");
                     ss_close(&block_scope_declarators);
                 }
@@ -2639,6 +2642,7 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
     {
         ctx->error = true;
     }
+    ss_close(&ss);
 }
 
 static void codegen_visit_try_statement(struct codegen_ctx* ctx, struct osstream* oss, struct try_statement* p_try_statement)
@@ -3942,6 +3946,25 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                 {
                     /* already initialized */
                 }
+                else if (object->p_init_expression)
+                {
+                    /* The initializer targets the UNION AS A WHOLE via a plain
+                       expression -- e.g. `.value = v.value`, copying another
+                       union variable, as opposed to a per-member designator
+                       like `.value = {.i = 5}`. In that case none of the
+                       individual members (.u/.i/.p) carry a p_init_expression
+                       of their own, so the loop below would find nothing and
+                       (when `all` is set) zero every member, silently
+                       discarding the real value. Emit a direct whole-union
+                       assignment from the source expression instead. */
+                    print_identation_core(ss, ctx->indentation);
+                    ss_fprintf(ss, "%s%s = ", declarator_name, object->member_designator);
+                    struct osstream local = { 0 };
+                    codegen_visit_expression(ctx, &local, object->p_init_expression);
+                    ss_fprintf(ss, "%s", local.c_str);
+                    ss_fprintf(ss, ";\n");
+                    ss_close(&local);
+                }
                 else
                 {
                     /* TODO: external declarations bug */
@@ -5048,21 +5071,29 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
     {
         ctx->print_qualifiers = false; //TODO not ready yet..
 
-        char timestamp[64] = { 0 };
-        time_t now = time(NULL); //lint 35 60
-        struct tm* _Opt tm_info = localtime(&now);
-        if (tm_info != NULL)
+        if (ctx->options.dont_generate_time_stamp)
         {
-            strftime(timestamp, sizeof timestamp, "%Y-%m-%d %H:%M:%S", tm_info);
+            ss_fprintf(oss, "/* Cake " CAKE_VERSION " %s */\n",
+                get_platform(ctx->options.target)->name);
         }
         else
         {
-            snprintf(timestamp, sizeof timestamp, "unknown");
-        }
+            char timestamp[64] = { 0 };
+            time_t now = time(NULL); //lint 35
+            struct tm* _Opt tm_info = localtime(&now);
+            if (tm_info != NULL)
+            {
+                strftime(timestamp, sizeof timestamp, "%Y-%m-%d %H:%M:%S", tm_info);
+            }
+            else
+            {
+                snprintf(timestamp, sizeof timestamp, "unknown");
+            }
 
-        ss_fprintf(oss, "/* Cake " CAKE_VERSION " %s %s */\n",
-            get_platform(ctx->options.target)->name,
-            timestamp);
+            ss_fprintf(oss, "/* Cake " CAKE_VERSION " %s %s */\n",
+                get_platform(ctx->options.target)->name,
+                timestamp);
+        }
 
         ctx->indentation = 0;
 

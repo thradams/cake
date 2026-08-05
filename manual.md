@@ -8,6 +8,7 @@ Cake integrates directly into existing build environments:
 
 - On **Windows**, it operates as an extension for MSVC.
 - On **Linux**, it operates as an extension for GCC.
+- On **macOS**, it operates as an extension for Clang.
 
 Where applicable, Cake uses the same command-line flags as GCC and MSVC to minimize friction when integrating into existing projects.
 
@@ -17,7 +18,7 @@ Where applicable, Cake uses the same command-line flags as GCC and MSVC to minim
 
 ### 2.1 Platform Support
 
-Cake runs on Windows (targeting MSVC) and Linux (targeting GCC). 
+Cake runs on Windows (targeting MSVC), Linux (targeting GCC), and macOS (targeting Clang).
 Cake can also perform cross-compilation, as long as you provide the headers from the target platform.
 
 ### 2.2 Include Directories
@@ -39,6 +40,12 @@ On Linux:
 
 ```
 echo | gcc -E -Wp,-v -
+```
+
+On macOS:
+
+```
+echo | clang -v -E -
 ```
 
 **Sample `cakeconf.h` for Linux:**
@@ -65,6 +72,16 @@ echo | gcc -E -Wp,-v -
 #pragma dir "C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/winrt"
 #pragma dir "C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/cppwinrt"
 #pragma dir "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um"
+#endif
+```
+
+**Sample `cakeconf.h` for macOS:**
+
+```c
+#ifdef __APPLE__
+#pragma dir "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include"
+#pragma dir "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include"
+#pragma dir "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include"
 #endif
 ```
 
@@ -190,6 +207,7 @@ Available targets:
 - `x86_x64_gcc` — Linux x86-64, GCC output
 - `x86_msvc` — Windows x86, MSVC output
 - `x64_msvc` — Windows x64, MSVC output
+- `macos_arm64` — macOS arm64 (Apple Silicon), Clang output
 - `catalina` — Catalina C compiler
 - `ccu8` — Embedded / custom target
 

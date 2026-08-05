@@ -259,7 +259,7 @@ struct token
 {
     enum token_type type;
     char* _Owner lexeme; //TODO make const
-    char* original;
+    char* _Opt original;
 
     int line;
     int col;
@@ -270,7 +270,11 @@ struct token
     enum token_flags flags;
 
     /*points to the token with file name or macro*/
-    const struct token* token_origin;
+    /* _Opt: a TK_PLACEMARKER built from a zeroed allocation (tokenizer.c, two
+       sites) has no origin token. codegen.c already guarded this deref, which
+       is the evidence null occurs in practice; the other readers did not, so a
+       placemarker reaching a diagnostic would have crashed. */
+    const struct token* _Opt token_origin;
 
     struct token* _Owner _Opt next;
     struct token* _Opt prev;
@@ -292,7 +296,7 @@ struct token* _Owner _Opt clone_token(struct token* p);
 struct token* token_list_add(struct token_list* list, struct token* _Owner pnew);
 void token_list_remove(struct token_list* list, struct token* first, struct token* last);
 struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last);
-void token_list_append_list(struct token_list* dest, struct token_list* source);
+void token_list_append_list(struct token_list* dest, _Clear struct token_list* source);
 void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* source);
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew);
 char* _Owner _Opt token_list_join_tokens(struct token_list* list, bool bliteral);

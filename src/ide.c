@@ -593,7 +593,7 @@ static ui_node* g_env_theme_select;  /* the "Theme" <select> - refreshed to
                                        * variables. options is the raw text from the "Options" field (split on
                                        * whitespace into argv tokens at compile time); target is the slug for
                                        * the chosen Target, or "" for none - both fed into do_compile()'s argv,
-                                       * same as no_output/line_directives/fanalyzer/flow3 below. */
+                                       * same as no_output/line_directives/fanalyzer below. */
 static ui_node* g_copts_modal;
 static ui_node* g_copts_input;
 static ui_node* g_copts_target;
@@ -601,8 +601,8 @@ static ui_node* g_copts_style;  /* -style=<name> <select>, same pattern as
                                  * g_copts_target - "Do not check" (index 0)
                                  * maps to the empty slug, meaning no -style
                                  * flag at all (see do_compile()). */
-static ui_node* g_copts_flags;  /* "-no-output"/"-line-directives"/"-fanalyzer"/
-                                 * "-flow3" - a check-box GROUP (multi=1),
+static ui_node* g_copts_flags;  /* "-no-output"/"-line-directives"/"-fanalyzer" -
+                                 * a check-box GROUP (multi=1),
                                  * same control as Find's "Options"
                                  * (g_find_opts). Read/written via
                                  * ui_group_get_checked/ui_group_set_checked,
@@ -619,13 +619,6 @@ typedef struct
     int no_output;         /* -no-output */
     int line_directives;   /* -line-directives */
     int fanalyzer;          /* -fanalyzer */
-    int flow3;              /* -flow3 - enables the newer flow3 analysis
-                             * engine/pass (see flow3.c/flow3.h) - like
-                             * -fanalyzer, undocumented in options.c's own
-                             * -help output (no print_option() call for it),
-                             * so there's no fuller description to quote
-                             * here beyond the flag name and module it
-                             * turns on. */
 } compile_settings;
 
 static const char* g_target_slugs[] = {
@@ -694,7 +687,6 @@ static compile_settings g_compile =
     .no_output = 0,
     .line_directives = 0,
     .fanalyzer = 0,
-    .flow3 = 0,
 };
 
 static ui_node* g_output_window;
@@ -1027,16 +1019,31 @@ static const ui_theme g_theme_dark = {
     .window_border_style_docked_unfocused = UI_BORDER_SINGLE,
     .window_close_bg = TB_RGB(0xE8, 0x11, 0x23),
     .window_fg = TB_RGB(0xF1, 0xF1, 0xF1),
-    .window_bg = TB_RGB(0x2D, 0x2D, 0x30),
+    .window_bg = TB_RGB(0x25, 0x25, 0x26),  /* VS's actual docked-panel
+                                             * (Git Changes/Folder/Solution
+                                             * Explorer) body color */
     .modal_border_fg = TB_RGB(0xF1, 0xF1, 0xF1),
-    .modal_border_bg = TB_RGB(0x2D, 0x2D, 0x30),
+    .modal_border_bg = TB_RGB(0x25, 0x25, 0x26),
     .modal_border_style = UI_BORDER_DOUBLE,
     .modal_fg = TB_RGB(0xF1, 0xF1, 0xF1),
-    .modal_bg = TB_RGB(0x2D, 0x2D, 0x30),
+    .modal_bg = TB_RGB(0x25, 0x25, 0x26),  /* VS's actual Find/Replace and
+                                            * other dialog body color */
     .scrollbar_bg = TB_RGB(0x2D, 0x2D, 0x30),  /* matches the window border */
     .scrollbar_thumb_bg = TB_RGB(0x42, 0x42, 0x42),
 
-    .input_bg = TB_RGB(0x1E, 0x1E, 0x1E),
+    .input_bg = TB_RGB(0x3C, 0x3C, 0x3C),  /* VS's actual text box/dropdown
+                                            * fill - lighter than modal_bg
+                                            * so fields stand out in dialogs */
+    .input_bg_focus = TB_RGB(0x1E, 0x1E, 0x1E),  /* darker than the neutral
+                                                  * gray input_bg, so focus is
+                                                  * still visible - deliberately
+                                                  * NOT a blue tint, since
+                                                  * input_sel_bg below (the
+                                                  * caret/selection block,
+                                                  * #264F78) is a similar blue
+                                                  * and would nearly vanish
+                                                  * against a same-hued focus
+                                                  * fill */
     .input_fg = TB_RGB(0xD4, 0xD4, 0xD4),
     .input_fg_focus = TB_RGB(0xFF, 0xFF, 0xFF),
     .input_sel_bg = TB_RGB(0x26, 0x4F, 0x78),
@@ -1180,8 +1187,23 @@ static const ui_theme g_theme_white = {
     .scrollbar_thumb_bg = TB_RGB(0xC2, 0xC2, 0xC2),
 
     .input_bg = TB_RGB(0xFF, 0xFF, 0xFF),
+    .input_bg_focus = TB_RGB(0x00, 0x33, 0x66),  /* dark navy - unlike the
+                                                  * other themes, White's own
+                                                  * unfocused fill is already
+                                                  * plain white, so a light
+                                                  * focus tint wouldn't read
+                                                  * as a change (and hides
+                                                  * the caret); going dark
+                                                  * instead keeps the caret/
+                                                  * selection block (light
+                                                  * blue) visible against it */
     .input_fg = TB_RGB(0x1E, 0x1E, 0x1E),
-    .input_fg_focus = TB_RGB(0x00, 0x00, 0x00),
+    .input_fg_focus = TB_RGB(0xFF, 0xFF, 0xFF),  /* white - must stay
+                                                  * readable against the dark
+                                                  * input_bg_focus above,
+                                                  * unlike the black used
+                                                  * against the plain white
+                                                  * unfocused fill */
     /* #ADD6FF - Visual Studio Light's actual text-selection color (also used
      * by <editor>, which reuses input_sel_*). Pale, so the selected text's
      * own color stays dark instead of the white used against the old darker
@@ -3552,7 +3574,8 @@ static void output_goto_source(void)
     g_goto_pending_focus = editor;  /* focus after this update finishes - see app_frame */
 }
 
-static int parse_diagnostic_line(char* line, ui_diag_type* type, int* out_line, char** message)
+static int parse_diagnostic_line(char* line, ui_diag_type* type, int* out_line,
+                                 int* out_code, char** message)
 {
     strip_ansi_sgr(line);
 
@@ -3615,11 +3638,18 @@ static int parse_diagnostic_line(char* line, ui_diag_type* type, int* out_line, 
     *out_line = line_num;
 
     // 3. Extract the diagnostic message after the severity keyword
-    // Skip keyword itself, then any whitespace, then optional digits (error code),
-    // then whitespace and a colon, then the actual message.
+    // Skip keyword itself, then any whitespace, then the optional diagnostic
+    // number (captured, not discarded - it's shown inline next to the severity
+    // tag), then whitespace and a colon, then the actual message.
     const char* msg_start = kw_pos + strlen(keywords[found_type]);
     while (*msg_start == ' ' || *msg_start == '\t') msg_start++;
-    while (isdigit((unsigned char)*msg_start)) msg_start++;  // skip error code (nonexistent for "note")
+    int code = 0;
+    while (isdigit((unsigned char)*msg_start))  // nonexistent for "note"
+    {
+        code = code * 10 + (*msg_start - '0');
+        msg_start++;
+    }
+    *out_code = code;
     while (*msg_start == ' ' || *msg_start == '\t') msg_start++;
     if (*msg_start == ':') msg_start++;  // skip colon
     while (*msg_start == ' ' || *msg_start == '\t') msg_start++;
@@ -3663,6 +3693,18 @@ static void refresh_open_windows(void)
         {
             size_t got = fread(content, 1, (size_t)size, f);
             content[got] = 0;
+            /* Nothing actually changed on disk - most often this *is* the
+             * file we just wrote out ourselves (save_active_file, called by
+             * do_compile right before this). Reloading it would be a no-op
+             * visually but ui_set_value() throws the editor's undo/redo
+             * history away, so the user would silently lose Ctrl+Z after
+             * every save/compile. Only reload when the bytes really differ. */
+            if (strcmp(content, ui_get_value(ed)) == 0)
+            {
+                free(content);
+                fclose(f);
+                continue;
+            }
             int cur = ui_editor_get_cursor(ed);      /* keep the caret put */
             int scroll = ui_editor_get_scroll(ed);   /* and the scroll position */
             ui_set_value(ed, content);  /* (ui_set_value moves the caret to the
@@ -3739,8 +3781,6 @@ static void do_compile(void)
         argv[argc++] = "-line-directives";
     if (g_compile.fanalyzer)
         argv[argc++] = "-fanalyzer";
-    if (g_compile.flow3)
-        argv[argc++] = "-flow3";
 
     char optbuf[sizeof g_compile.options];
     snprintf(optbuf, sizeof optbuf, "%s", g_compile.options);
@@ -3775,9 +3815,10 @@ static void do_compile(void)
         {
             ui_diag_type type;
             int diag_line;
+            int diag_code;
             char* message;
-            if (parse_diagnostic_line(line, &type, &diag_line, &message))
-                ui_editor_add_diagnostic(src_editor, type, diag_line, message);
+            if (parse_diagnostic_line(line, &type, &diag_line, &diag_code, &message))
+                ui_editor_add_diagnostic(src_editor, type, diag_line, diag_code, message);
         }
     }
     free(captured);
@@ -4938,6 +4979,7 @@ static void fr_rebuild_content(void)
     add_text(g_fr_panel, cx, cy, "Find:", COLOR_YELLOW, theme->window_bg);
     cy += 1;
     g_fr_find_input = add_input(g_fr_panel, cx, cy, cw, g_fr_find_text);
+    ui_set_id(g_fr_find_input, EVT_FR_FIND_BTN);  /* Enter in the field == clicking Find */
     cy += 2;
 
     if (g_fr_mode)
@@ -5448,7 +5490,6 @@ static void on_ui_event(void* ctx, int id, void* param)
         ui_group_set_checked(g_copts_flags, 0, g_compile.no_output);
         ui_group_set_checked(g_copts_flags, 1, g_compile.line_directives);
         ui_group_set_checked(g_copts_flags, 2, g_compile.fanalyzer);
-        ui_group_set_checked(g_copts_flags, 3, g_compile.flow3);
         ui_screen_show_modal(g_screen, g_copts_modal);
     }
     else if (id == EVT_COPTS_OK)
@@ -5467,7 +5508,6 @@ static void on_ui_event(void* ctx, int id, void* param)
         g_compile.no_output = ui_group_get_checked(g_copts_flags, 0);
         g_compile.line_directives = ui_group_get_checked(g_copts_flags, 1);
         g_compile.fanalyzer = ui_group_get_checked(g_copts_flags, 2);
-        g_compile.flow3 = ui_group_get_checked(g_copts_flags, 3);
         ui_screen_close_modal(g_screen, g_copts_modal);
     }
     else if (id == EVT_COPTS_CANCEL)
@@ -6672,13 +6712,6 @@ static void do_help_check(void)
     {
         int n = snprintf(msg, total,
                  "=== Installation Check ===\n\n"
-#if defined(__APPLE__)
-                 "Note: Cake currently compiles and runs on macOS. However,\n"
-                 "Clang's system headers are not yet parsed correctly on\n"
-                 "macOS, so you may need to provide a few declarations\n"
-                 "manually while testing. This should be fixed soon, and\n"
-                 "hopefully it won't require Cake to implement Objective-C.\n\n"
-#endif
                  "App directory\n"
                  "  %s\n"
                  "  Folder containing this program - the other files below are\n"
@@ -6725,7 +6758,6 @@ static void save_session(void)
     fprintf(f, "compile_opt_no_output=%d\n", g_compile.no_output);
     fprintf(f, "compile_opt_line_directives=%d\n", g_compile.line_directives);
     fprintf(f, "compile_opt_fanalyzer=%d\n", g_compile.fanalyzer);
-    fprintf(f, "compile_opt_flow3=%d\n", g_compile.flow3);
     fprintf(f, "folder_dir=%s\n", g_folder_dir);
 
     nav_pos cur;
@@ -6869,8 +6901,6 @@ static int load_session(void)
             g_compile.line_directives = atoi(val);
         else if (strcmp(key, "compile_opt_fanalyzer") == 0)
             g_compile.fanalyzer = atoi(val);
-        else if (strcmp(key, "compile_opt_flow3") == 0)
-            g_compile.flow3 = atoi(val);
         else if (strcmp(key, "folder_dir") == 0)
         {
             strncpy(g_folder_dir, val, sizeof g_folder_dir - 1);
@@ -6974,6 +7004,12 @@ void app_init(ui_env* env)
 
     apply_theme(&g_theme_dark);
     g_theme_index = 1;  /* matches the "Dark" row set as startup default here */
+    theme = &g_theme_dark;  /* every ui_set_color(..., theme->...) below must
+                             * use the theme actually applied above, not the
+                             * classic snapshot captured before it - otherwise
+                             * windows built during init (About, Find/Replace,
+                             * Output, Folder) bake in Classic colors even
+                             * though Dark is the active theme */
 
     /* --- About modal --- */
     ui_node* modal = ui_create_element(UI_TAG_MODAL);
@@ -7367,15 +7403,13 @@ void app_init(ui_env* env)
     /* Flags - a check-box GROUP, same control as Find's "Options"
      * (g_find_opts) above (add_group/add_group_item). */
     add_text(copts_window, 18, 13, "Flags", COLOR_YELLOW, theme->modal_bg);
-    g_copts_flags = add_group(copts_window, 27, 13, 30, 4, 1);
+    g_copts_flags = add_group(copts_window, 27, 13, 30, 3, 1);
     add_group_item(g_copts_flags, "-no-output");
     add_group_item(g_copts_flags, "-line-directives");
     add_group_item(g_copts_flags, "-fanalyzer");
-    add_group_item(g_copts_flags, "-flow3");
     ui_group_set_checked(g_copts_flags, 0, g_compile.no_output);
     ui_group_set_checked(g_copts_flags, 1, g_compile.line_directives);
     ui_group_set_checked(g_copts_flags, 2, g_compile.fanalyzer);
-    ui_group_set_checked(g_copts_flags, 3, g_compile.flow3);
 
     ui_node* copts_ok = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(copts_ok, EVT_COPTS_OK);

@@ -251,7 +251,7 @@ int main()
 ```
 
 
-### 23 Using temporary owner incorrectly
+### 23 Using temporary owner incorrectly (flow)
 <!-- runnable -->
 
 ```c
@@ -272,7 +272,7 @@ int main()
 }
 ```
 
-### 25 Assigning non-owner to owner
+### 25 Assigning non-owner to owner (flow)
 <!-- runnable -->
 
 ```c
@@ -287,7 +287,7 @@ int main()
 ```
 
 
-### 26 Discarding an owner
+### 26 Discarding an owner (flow)
 <!-- runnable -->
 
 ```c
@@ -335,7 +335,7 @@ int main() {
 ```
 See [object lifetime](ownership.md)
 
-### 29 pointed object was not released (flow analysis)
+### 29 pointed object was not released (flow)
 <!-- runnable -->
 
 ```c
@@ -351,7 +351,7 @@ void delete_x(struct X *_Owner p) //warning C0029: object pointed by 'p' was not
 int main() {}
 ```
 
-### 30 Uninitialized value (flow analysis)
+### 30 Uninitialized value (flow)
 
 This warning is issued when a local variable is used before it has 
 been initialized. 
@@ -397,7 +397,7 @@ int main() {
 ```
 
 
-### 31 Lifetime has ended (flow analysis)
+### 31 Lifetime has ended (flow)
 <!-- runnable -->
 
 ```c
@@ -412,7 +412,7 @@ int main() {
       struct X x ={};
       p = &x;
     }
-    p->i = 0; //warning C0031: object lifetime ended
+    p->i = 0; //warning C0031: operator -> applied to 'p->i': pointed object lifetime has ended (see line ...)
 }
 
 ```
@@ -421,7 +421,7 @@ int main() {
 See [object lifetime](ownership.md)
 
 
-### 32 Object already moved (flow analysis)
+### 32 Object already moved (flow)
 <!-- runnable -->
 
 ```c
@@ -441,7 +441,7 @@ int main() {
 ```
 
 
-### 33 Null dereference (flow analysis)
+### 33 Null dereference (flow)
 
 This warning indicates that your code dereferences a potentially null pointer. 
 
@@ -452,7 +452,7 @@ This warning indicates that your code dereferences a potentially null pointer.
 int main()
 {
   int * _Opt p = 0;
-  *p =1; //warning C0033: dereference a NULL object
+  *p =1; //warning C0033: possible null pointer dereference '*p'
 }
 ```
 
@@ -475,7 +475,7 @@ int main()
 ```
 
 
-### 36 Division by zero (flow analysis)
+### 36 Division by zero (flow)
 <!-- runnable -->
 
 ```c
@@ -798,7 +798,100 @@ int main(void) {
 ```
 
 
-### 64–127 Reserved / unused warnings
+### 64–66 Reserved / unused warnings
+
+### 67 compile_assert could not be proven (flow)
+<!-- runnable -->
+
+```c
+#pragma safety enable
+
+int f();
+
+int main() {
+    int i = f();
+    compile_assert(i == 1); //warning C0067: compile_assert failed: value could be any value, including zero, set at line 5 in "root"
+}
+```
+
+### 68 Unreachable code (flow)
+<!-- runnable -->
+
+```c
+#pragma safety enable
+
+int f() {
+    return 1;
+    return 2; //warning C0068: unreachable code
+}
+```
+
+### 69 _Clear parameter pointee not zeroed at exit (flow)
+<!-- runnable -->
+
+```c
+#pragma safety enable
+
+struct outer { int a; int c; };
+
+void clear_outer_forgets_a_member(_Clear struct outer* p)
+{
+    p->a = 0;
+    /* forgot p->c = 0; */
+} //warning C0069: _Clear parameter 'p->c' is not zero at exit (see line 3)
+```
+
+### 70 Array index out of bounds (flow)
+<!-- runnable -->
+
+```c
+#pragma safety enable
+
+int main(int cond) {
+    int a[2];
+    int i;
+    if (cond) i = 2; else i = 3;
+    a[i] = 1; //warning C0070: array index is past the end of the array (size 2)
+}
+```
+
+### 71 _Ctor parameter pointee not initialized at exit (flow)
+<!-- runnable -->
+
+```c
+#pragma safety enable
+
+struct outer { int a; int c; };
+
+void ctor_outer_forgets_a_member(_Ctor struct outer* p)
+{
+    p->a = 1;
+    /* forgot p->c = ...; */
+} //warning C0071: _Ctor parameter 'p->c' is possibly not initialized at exit (see line 3)
+```
+
+### 72 Borrowed parameter's owner consumed at exit (flow)
+<!-- runnable -->
+
+```c
+#pragma safety enable
+
+typedef unsigned long size_t;
+char* _Owner _Opt strdup(const char* s);
+void free(void* _Owner _Opt p);
+
+struct person { char* _Opt _Owner name; };
+
+void set(struct person* p, char* name)
+{
+    free(p->name);
+    char* _Opt _Owner temp = strdup(name);
+    if (temp == 0) return; //warning C0072: parameter 'p->name' was moved/released here (see line ...) but never reassigned -- only a _Dtor parameter may leave the caller's object consumed
+    p->name = temp;
+}
+```
+
+### 73–127 Reserved / unused warnings
 
 ## Errors 
 
