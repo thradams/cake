@@ -181,6 +181,35 @@ typedef void (*ui_font_zoom_fn)(void* ctx, int delta);
 void ui_env_set_font_zoom_fn(ui_env* e, ui_font_zoom_fn fn, void* ctx);
 void ui_env_adjust_font_size(ui_env* e, int delta);
 
+/* Font family selection - same "backend registers, app calls" shape as the
+ * font zoom above, for the same reason: which monospaced fonts exist, and
+ * how to open one, is entirely platform business, but the Environment
+ * dialog that offers them is not.
+ *
+ * Each backend publishes its OWN curated shortlist, already filtered to
+ * what is actually installed (Cascadia Mono/Consolas/... on Win32,
+ * Menlo/Monaco/Courier New on macOS, the Xft candidates on X11). Curated
+ * rather than "every monospaced font on the system" deliberately: this UI
+ * draws box-drawing glyphs everywhere, and plenty of monospaced fonts have
+ * no box-drawing coverage at all and would render as tofu.
+ *
+ * count_fn returns how many are on offer; name_fn returns entry `index`'s
+ * display name (valid until the next call, backend-owned - the caller
+ * copies it); set_fn switches to entry `index` and re-derives the cell
+ * size/window, exactly as a zoom does. A backend that registers none of
+ * these reports a count of 0, and the app simply omits the control. */
+typedef int         (*ui_font_family_count_fn)(void* ctx);
+typedef const char* (*ui_font_family_name_fn)(void* ctx, int index);
+typedef void        (*ui_font_family_set_fn)(void* ctx, int index);
+void ui_env_set_font_family_fns(ui_env* e,
+                                 ui_font_family_count_fn count_fn,
+                                 ui_font_family_name_fn name_fn,
+                                 ui_font_family_set_fn set_fn,
+                                 void* ctx);
+int         ui_env_font_family_count(ui_env* e);
+const char* ui_env_font_family_name(ui_env* e, int index);
+void        ui_env_set_font_family(ui_env* e, int index);
+
 /* Poll for an event. Returns 1 if an event was available and written to `out`,
  * 0 if the queue is empty. Non-blocking. */
 int ui_env_poll_event(ui_env* e, ui_event* out);
@@ -385,6 +414,11 @@ typedef struct {
                                    * reads as "code", not "current line". */
 
     uint32_t listbox_fg, listbox_bg, listbox_sel_fg, listbox_sel_bg;
+    /* The selected row while the <listbox> does NOT have keyboard focus -
+     * a muted stand-in for listbox_sel_* so the selection stays readable
+     * without competing with whichever widget is actually focused (the
+     * convention every desktop toolkit follows). */
+    uint32_t listbox_sel_inactive_fg, listbox_sel_inactive_bg;
     uint32_t diag_error_fg;
     uint32_t diag_error_bg;
     uint32_t diag_warning_fg;
@@ -909,6 +943,51 @@ int ui_get_cwd(char* buf, int buf_size);
  * (%COMSPEC%'s cmd.exe on Windows, Terminal.app on macOS, the first of a
  * handful of common emulators found on Linux/X11). */
 void ui_open_terminal(const char* dir);
+
+/* --- Child process with captured output -----------------------------------
+ *
+ * Unlike ui_open_terminal above, this one IS managed: the process is a real
+ * child whose stdout+stderr are redirected into a pipe we own, so its text
+ * can be streamed into the Output window as it is produced (see ide.c's
+ * External Tools). Deliberately non-blocking throughout, because the caller
+ * drains it from inside the per-frame tick - a blocking read there would
+ * freeze the UI for the entire life of the process, which is the exact
+ * problem this design exists to avoid.
+ *
+ * Usage: ui_process_start() once, then ui_process_read() every frame until
+ * it reports -1 (the child closed its end AND the pipe is drained), then
+ * ui_process_close() to reap it and get the exit code. Closing early is
+ * allowed and simply abandons the rest of the output.
+ *
+ * `command` is a full command line, already expanded by the caller (no
+ * macro/quote handling happens here); `dir` is the working directory, or
+ * NULL/empty to inherit the app's own.
+ *
+ * The command runs through the platform's shell (%COMSPEC% /c on Windows,
+ * /bin/sh -c elsewhere), so shell syntax works and - more importantly - a
+ * missing program is reported BY THE SHELL into the captured output
+ * ("'cl' is not recognized...", "sh: cl: not found") instead of failing
+ * invisibly before anything is captured.
+ *
+ * ui_process_start returns NULL only if the pipe/process could not be
+ * created at all, and then writes the OS's own description of why into
+ * `err` (when non-NULL) - that is a real infrastructure failure, distinct
+ * from "the program you named doesn't exist", which is a normal run whose
+ * output happens to be an error message. */
+typedef struct ui_process ui_process;
+
+ui_process* ui_process_start(const char* command, const char* dir,
+                              char* err, int errcap);
+
+/* Reads whatever is available right now, without blocking.
+ * Returns: >0 = that many bytes written to `buf`
+ *           0 = nothing available yet, process still running
+ *          -1 = process finished and pipe drained (nothing more will come) */
+int ui_process_read(ui_process* p, char* buf, int cap);
+
+/* Waits for the child to exit (it has already, in normal use), releases
+ * everything, and returns its exit code - or -1 if unavailable. */
+int ui_process_close(ui_process* p);
 
 /* Modal dialogs and floating windows share the same <modal>/<window> DOM
  * shape and the same drag/resize/maximize/close chrome - they only differ in

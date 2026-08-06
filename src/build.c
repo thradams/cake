@@ -51,6 +51,7 @@
     " ide_format.c " \
     " ide_ui.c " \
     " ide.c " \
+    " tinycthread.c " \
     
 
 #define HOEDOWN_SOURCE_FILES \
@@ -485,9 +486,26 @@ static void build_incremental(const char* compiler,
 {
     char src[64];
     char obj[72];
-    char cmd[2048];
-    char obj_list[4096];
     int  any_changed = 0;
+
+    /* On the heap, not the stack: the object list holds every .o name in the
+     * build and the link command holds all of that PLUS the surrounding
+     * flags, so together they are far too big to park in a stack frame.
+     * cmd must stay larger than obj_list - the link line below is
+     * "compiler out_flag output <obj_list> link_flags", so if it were the
+     * smaller of the two a long object list would be silently truncated
+     * into a broken link command (which is what -Wformat-truncation was
+     * warning about when cmd was 2048 and obj_list 4096). */
+    enum { OBJ_LIST_SIZE = 8192, CMD_SIZE = OBJ_LIST_SIZE * 2 };
+    char* obj_list = malloc(OBJ_LIST_SIZE);
+    char* cmd = malloc(CMD_SIZE);
+    if (!obj_list || !cmd)
+    {
+        printf("out of memory\n");
+        free(obj_list);
+        free(cmd);
+        return;
+    }
 
     obj_list[0] = '\0';
 
@@ -511,15 +529,16 @@ static void build_incremental(const char* compiler,
         if (dot) strcpy(dot, ".o");
         else      strcat(obj, ".o");
 
-        /* append to object list */
-        strcat(obj_list, " ");
-        strcat(obj_list, obj);
+        /* append to object list (bounded - obj_list is a plain pointer
+         * now, so there is no sizeof to lean on) */
+        size_t used = strlen(obj_list);
+        snprintf(obj_list + used, OBJ_LIST_SIZE - used, " %s", obj);
 
         /* compile if .o missing or .c newer */
         if (get_mtime(src) > get_mtime(obj))
         {
             printf("compiling: %s\n", src);
-            snprintf(cmd, sizeof cmd, "%s %s -c %s %s%s",
+            snprintf(cmd, CMD_SIZE, "%s %s -c %s %s%s",
                      compiler, compile_flags, src, obj_flag, obj);
             execute_cmd(cmd);
             any_changed = 1;
@@ -530,7 +549,7 @@ static void build_incremental(const char* compiler,
     if (any_changed || get_mtime(output) == 0)
     {
         printf("linking: %s\n", output);
-        snprintf(cmd, sizeof cmd, "%s %s%s %s %s",
+        snprintf(cmd, CMD_SIZE, "%s %s%s %s %s",
                  compiler, out_flag, output, obj_list, link_flags);
         execute_cmd(cmd);
     }
@@ -538,6 +557,9 @@ static void build_incremental(const char* compiler,
     {
         printf("No sources changed, skipping.\n");
     }
+
+    free(obj_list);
+    free(cmd);
 }
 
 static void build_cake(int fastbuild, int debug, const char* test_flag)
@@ -716,10 +738,14 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
          * include path, so it must be added explicitly. */
         char ide_flags_x11[560];
         snprintf(ide_flags_x11, sizeof ide_flags_x11, "%s -I/usr/include/freetype2 ", ide_flags);
+        /* -lpthread: tinycthread.c (the compile now runs on a worker thread -
+         * see compile_stream_start in ide.c) is pthreads underneath on
+         * POSIX. glibc 2.34+ folded pthread into libc so this links without
+         * it on new distros, but older ones still need it explicitly. */
         build_incremental("clang",
                           ide_flags_x11,
                           "ide_x11.c " CAKE_IDE_SOURCE_FILES,
-                          " -lX11 -lXft -lXrender -lfreetype ",
+                          " -lX11 -lXft -lXrender -lfreetype -lpthread ",
                           "-o ",
                           "-o ",
                           EXE(CAKE_NAME));
@@ -743,7 +769,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
          * /usr/include/freetype2 rather than directly on the default
          * include path, so it must be added explicitly. */
         snprintf(cmd, sizeof cmd, "clang %s%s -I/usr/include/freetype2  ide_x11.c %s -o " EXE(CAKE_NAME) " %s",
-             CLANG_UNIX_FLAGS, clang_unix_config, "-lX11 -lXft -lXrender -lfreetype", CAKE_IDE_SOURCE_FILES);
+             CLANG_UNIX_FLAGS, clang_unix_config, "-lX11 -lXft -lXrender -lfreetype -lpthread", CAKE_IDE_SOURCE_FILES);
         execute_cmd(cmd);
     #endif
     }
@@ -808,7 +834,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
         build_incremental("gcc",
                   ide_flags_x11,
                   "ide_x11.c " CAKE_IDE_SOURCE_FILES,
-                  " -lX11 -lXft -lXrender -lfreetype ",
+                  " -lX11 -lXft -lXrender -lfreetype -lpthread ",
                   "-o ",
                   "-o ",
                   EXE(CAKE_NAME));
@@ -833,7 +859,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
          * /usr/include/freetype2 rather than directly on the default
          * include path, so it must be added explicitly. */
         snprintf(cmd, sizeof cmd, "gcc %s %s -I/usr/include/freetype2  ide_x11.c %s -o " EXE(CAKE_NAME) " %s",
-             GCC_FLAGS, gcc_config, "-lX11 -lXft -lXrender -lfreetype", CAKE_IDE_SOURCE_FILES);
+             GCC_FLAGS, gcc_config, "-lX11 -lXft -lXrender -lfreetype -lpthread", CAKE_IDE_SOURCE_FILES);
         execute_cmd(cmd);
     #endif
     }

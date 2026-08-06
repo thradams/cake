@@ -113,6 +113,18 @@ struct flow3_visit_ctx
      * NULL outside of a function body.
      */
     struct declaration* _Opt p_current_function_declaration;
+
+    /*
+     * Set by EXPR_UNARY_CONTENT's own "dereference of an ended pointee"
+     * check right after it reports one, so flow3_check_object_init_assigment
+     * -- called right afterward when that same dereference is ALSO used as
+     * an assignment/return/argument source -- can tell it was already
+     * reported and skip its own, otherwise-duplicate, report of the exact
+     * same fact. NULL/0 when nothing is pending consumption. See the
+     * comment above the EXPR_UNARY_CONTENT lifetime check itself.
+     */
+    const struct object* _Opt p_pending_ended_report_obj;
+    int pending_ended_report_line;
 };
 
 void flow3_visit_ctx_destroy(_Dtor struct flow3_visit_ctx* p);

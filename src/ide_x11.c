@@ -37,6 +37,8 @@
 #include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <errno.h>   /* EAGAIN - see ui_process_read */
+#include <fcntl.h>   /* O_NONBLOCK - see ui_process_start */
 #include <dirent.h>
 
 
@@ -59,11 +61,35 @@ static XRenderPictFormat *g_pict_format;
 static int g_pixmap_w, g_pixmap_h;
 
 static XftDraw *g_xft_draw;
-static XftFont *g_font;      /* antialiased - used for everything except box-drawing */
-static XftFont *g_font_box;  /* non-antialiased - box-drawing glyphs only, see ui_draw_char */
-static int g_font_pt = 11;  /* adjustable via Ctrl+/Ctrl- */
 static int g_cell_w = 8;
 static int g_cell_h = 16;
+
+/* Preference order: DejaVu Sans Mono (near-universal on Linux, excellent
+ * Unicode/box-drawing coverage) > Liberation Mono > Noto Sans Mono >
+ * "Monospace" (fontconfig's generic alias - always resolves to *something*,
+ * unlike GDI, fontconfig does substitution on its own so this practically
+ * never returns NULL). */
+static const char *const g_font_candidates[] = {
+    "DejaVu Sans Mono", "Liberation Mono", "Noto Sans Mono", "Monospace",
+};
+#define FONT_CANDIDATE_COUNT \
+    ((int)(sizeof g_font_candidates / sizeof g_font_candidates[0]))
+
+/* All font state in one place: the two live XftFonts, the current size, and
+ * the openable-candidate shortlist behind the Environment dialog's Font
+ * <select>. `avail` holds indices into g_font_candidates, so the names live
+ * in one place only. */
+static struct
+{
+    XftFont *main;   /* antialiased - everything except box-drawing */
+    XftFont *box;    /* non-antialiased - box-drawing glyphs only, see ui_draw_char */
+    int pt;          /* point size - adjustable via Ctrl+/Ctrl- */
+
+    int avail[FONT_CANDIDATE_COUNT];
+    int avail_count; /* -1 = not probed yet */
+    int selected;    /* index into avail; -1 = follow the preference order */
+} g_fonts = { .pt = 11, .avail_count = -1, .selected = -1 };
+
 
 static ui_env *g_env;
 static int g_app_initialized = 0;
@@ -205,7 +231,7 @@ void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
     unsigned char utf8[4];
     int len = utf8_encode_cp(cp, utf8);
 
-    XftFont *font = (is_box_drawing(cp) && g_font_box) ? g_font_box : g_font;
+    XftFont *font = (is_box_drawing(cp) && g_fonts.box) ? g_fonts.box : g_fonts.main;
     XftColor color;
     xft_color_from_rgb(fg, &color);
     /* Clip the glyph to its own cell: an overhang (antialiased fringe, or a
@@ -216,7 +242,7 @@ void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
      * column, leaving stale fringe along the track as the view scrolls. */
     XRectangle clip = { (short)px, (short)py, (unsigned short)g_cell_w, (unsigned short)g_cell_h };
     XftDrawSetClipRectangles(g_xft_draw, 0, 0, &clip, 1);
-    XftDrawStringUtf8(g_xft_draw, &color, font, px, py + g_font->ascent, utf8, len);
+    XftDrawStringUtf8(g_xft_draw, &color, font, px, py + g_fonts.main->ascent, utf8, len);
     XftDrawSetClip(g_xft_draw, None);
     XftColorFree(g_dpy, g_visual, g_cmap, &color);
 }
@@ -284,47 +310,66 @@ static XftFont *try_open_font(const char *family, int pt, const char *extra)
     return XftFontOpenName(g_dpy, g_screen, name);
 }
 
-/* Preference order: DejaVu Sans Mono (near-universal on Linux, excellent
- * Unicode/box-drawing coverage) > Liberation Mono > Noto Sans Mono >
- * "Monospace" (fontconfig's generic alias - always resolves to *something*,
- * unlike GDI, fontconfig does substitution on its own so this practically
- * never returns NULL). */
+static void probe_available_fonts(void)
+{
+    if (g_fonts.avail_count >= 0)
+        return;
+    g_fonts.avail_count = 0;
+    for (int i = 0; i < FONT_CANDIDATE_COUNT; i++) {
+        XftFont *f = try_open_font(g_font_candidates[i], g_fonts.pt, "");
+        if (f) {
+            XftFontClose(g_dpy, f);
+            g_fonts.avail[g_fonts.avail_count++] = i;
+        }
+    }
+    /* "Monospace" is a fontconfig generic that practically always resolves,
+     * so an empty list should be impossible - but never offer nothing. */
+    if (g_fonts.avail_count == 0)
+        g_fonts.avail[g_fonts.avail_count++] = FONT_CANDIDATE_COUNT - 1;
+}
+
 static XftFont *pick_and_open_font(int pt, const char *extra)
 {
-    static const char *candidates[] = {
-        "DejaVu Sans Mono", "Liberation Mono", "Noto Sans Mono", "Monospace",
-    };
-    for (size_t i = 0; i < sizeof(candidates) / sizeof(candidates[0]); i++) {
-        XftFont *f = try_open_font(candidates[i], pt, extra);
+    probe_available_fonts();
+
+    /* An explicit choice is tried first, then the ordinary preference order
+     * as a fallback (a font can stop resolving between probe and use). */
+    if (g_fonts.selected >= 0 && g_fonts.selected < g_fonts.avail_count) {
+        XftFont *f = try_open_font(g_font_candidates[g_fonts.avail[g_fonts.selected]], pt, extra);
+        if (f)
+            return f;
+    }
+    for (int i = 0; i < FONT_CANDIDATE_COUNT; i++) {
+        XftFont *f = try_open_font(g_font_candidates[i], pt, extra);
         if (f)
             return f;
     }
     return NULL;
 }
 
-/* (Re)load g_font/g_font_box at g_font_pt and derive g_cell_w/h from the
+/* (Re)load g_fonts.main/g_fonts.box at g_fonts.pt and derive g_cell_w/h from the
  * main font's metrics. Called at startup and again from Ctrl+/Ctrl- to
  * change size. Two variants at the same size/family: antialiased for
  * everything, and a non-antialiased twin used only for box-drawing glyphs
  * (ui_draw_char picks between them) - see is_box_drawing() for why. */
 static void apply_font(void)
 {
-    XftFont *new_font = pick_and_open_font(g_font_pt, "");
+    XftFont *new_font = pick_and_open_font(g_fonts.pt, "");
     if (!new_font)
         return;  /* keep whatever font (if any) we already had */
-    XftFont *new_font_box = pick_and_open_font(g_font_pt, ":antialias=false:hinting=false");
+    XftFont *new_font_box = pick_and_open_font(g_fonts.pt, ":antialias=false:hinting=false");
 
     XGlyphInfo extents;
     XftTextExtentsUtf8(g_dpy, new_font, (const FcChar8 *)"M", 1, &extents);
     g_cell_w = extents.xOff > 0 ? extents.xOff : (int)new_font->max_advance_width;
     g_cell_h = new_font->ascent + new_font->descent;
 
-    if (g_font)
-        XftFontClose(g_dpy, g_font);
-    if (g_font_box)
-        XftFontClose(g_dpy, g_font_box);
-    g_font = new_font;
-    g_font_box = new_font_box;
+    if (g_fonts.main)
+        XftFontClose(g_dpy, g_fonts.main);
+    if (g_fonts.box)
+        XftFontClose(g_dpy, g_fonts.box);
+    g_fonts.main = new_font;
+    g_fonts.box = new_font_box;
 
     /* Every cell's pixel size just changed, so the render shadow no longer
      * matches the pixmap - repaint fully next frame. (Usually followed by a
@@ -378,13 +423,13 @@ static void set_wm_resize_hints(void)
 static void adjust_font_size(void *ctx, int delta)
 {
     (void)ctx;
-    int new_pt = g_font_pt + delta;
+    int new_pt = g_fonts.pt + delta;
     if (new_pt < 6) new_pt = 6;
     if (new_pt > 36) new_pt = 36;
-    if (new_pt == g_font_pt)
+    if (new_pt == g_fonts.pt)
         return;
 
-    g_font_pt = new_pt;
+    g_fonts.pt = new_pt;
     int cols = ui_env_width(g_env);
     int rows = ui_env_height(g_env);
     apply_font();
@@ -392,6 +437,42 @@ static void adjust_font_size(void *ctx, int delta)
     XResizeWindow(g_dpy, g_win, (unsigned)(cols * g_cell_w), (unsigned)(rows * g_cell_h));
     /* The resulting ConfigureNotify drives ui_env_resize/ensure_pixmap with
      * whatever size the window manager actually granted. */
+}
+
+/* --- Font family shortlist for the Environment dialog (see
+ * ui_env_set_font_family_fns in ide_ui.h) - same shape as the zoom above,
+ * and the same follow-up: reopen the font, re-derive the cell size, resize
+ * the window so the grid keeps its column/row count. --- */
+
+static int font_family_count(void *ctx)
+{
+    (void)ctx;
+    probe_available_fonts();
+    return g_fonts.avail_count;
+}
+
+static const char *font_family_name(void *ctx, int index)
+{
+    (void)ctx;
+    probe_available_fonts();
+    if (index < 0 || index >= g_fonts.avail_count)
+        return "";
+    return g_font_candidates[g_fonts.avail[index]];  /* static string */
+}
+
+static void font_family_set(void *ctx, int index)
+{
+    (void)ctx;
+    probe_available_fonts();
+    if (index < 0 || index >= g_fonts.avail_count || index == g_fonts.selected)
+        return;
+
+    g_fonts.selected = index;
+    int cols = ui_env_width(g_env);
+    int rows = ui_env_height(g_env);
+    apply_font();
+    set_wm_resize_hints();
+    XResizeWindow(g_dpy, g_win, (unsigned)(cols * g_cell_w), (unsigned)(rows * g_cell_h));
 }
 
 /* --- Pixmap (back buffer) --- */
@@ -535,10 +616,22 @@ void ui_clipboard_set_text(const char *utf8)
     XSetSelectionOwner(g_dpy, g_clipboard_atom, g_win, CurrentTime);
 }
 
+/* Defined further down with the rest of the event handling - forward
+ * declared because the wait loop below has to answer one of these itself
+ * (see the self-paste note there). */
+static void handle_selection_request(const XSelectionRequestEvent *req);
+
 char *ui_clipboard_get_text(void)
 {
     if (!g_dpy)
         return NULL;
+
+    /* We own the clipboard: the text is already right here. Short-circuit
+     * rather than round-tripping through X to ask ourselves - that request
+     * would have to be answered from inside the wait loop below, which is
+     * both slower and needlessly delicate. */
+    if (XGetSelectionOwner(g_dpy, g_clipboard_atom) == g_win)
+        return g_clip_text ? strdup(g_clip_text) : NULL;
 
     Atom prop = XInternAtom(g_dpy, "TUI_CLIP_PASTE", False);
     XConvertSelection(g_dpy, g_clipboard_atom, g_utf8_string_atom, prop, g_win, CurrentTime);
@@ -556,6 +649,17 @@ char *ui_clipboard_get_text(void)
         while (XPending(g_dpy)) {
             XEvent ev;
             XNextEvent(g_dpy, &ev);
+            /* Must still be answered while we wait: another client asking
+             * US for the clipboard. Dropping it (as this loop does with
+             * everything else) would leave that client hanging, and if the
+             * request is our own it deadlocks this very wait - the reply we
+             * are blocking for can only be produced by handling it. The
+             * owner check above normally avoids the self case, but this
+             * keeps the loop correct rather than relying on that. */
+            if (ev.type == SelectionRequest) {
+                handle_selection_request(&ev.xselectionrequest);
+                continue;
+            }
             if (ev.type == SelectionNotify && ev.xselection.requestor == g_win) {
                 if (ev.xselection.property == None)
                     return NULL;  /* owner has no text, or declined */
@@ -664,6 +768,114 @@ void ui_open_terminal(const char *dir)
         _exit(0);
     }
     waitpid(pid, NULL, 0);
+}
+
+/* --- Child process with captured output (see ui_process_start in ide_ui.h) ---
+ *
+ * Run through "sh -c" so the caller can write an ordinary command line
+ * (quotes, arguments, even a pipeline) without this having to tokenize it.
+ * stdout and stderr both go to the one pipe, interleaved the way a terminal
+ * would show them. The read end is O_NONBLOCK because the caller drains it
+ * from the per-frame tick, where blocking would freeze the UI. */
+struct ui_process
+{
+    int fd;       /* read end of the pipe */
+    pid_t pid;
+    int ended;    /* EOF seen - latched, see ui_process_read */
+};
+
+ui_process *ui_process_start(const char *command, const char *dir,
+                              char *err, int errcap)
+{
+    if (err && errcap > 0)
+        err[0] = 0;
+
+    int fds[2];
+    if (pipe(fds) != 0) {
+        if (err && errcap > 0)
+            snprintf(err, (size_t)errcap, "pipe failed: %s", strerror(errno));
+        return NULL;
+    }
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        if (err && errcap > 0)
+            snprintf(err, (size_t)errcap, "fork failed: %s", strerror(errno));
+        close(fds[0]);
+        close(fds[1]);
+        return NULL;
+    }
+
+    if (pid == 0) {
+        /* Child: wire both output streams to the pipe, drop the read end
+         * (holding it open here would stop the parent ever seeing EOF). */
+        close(fds[0]);
+        dup2(fds[1], STDOUT_FILENO);
+        dup2(fds[1], STDERR_FILENO);
+        close(fds[1]);
+        if (dir && dir[0]) {
+            if (chdir(dir) != 0) {
+                /* Goes down the pipe like any other output, so the user
+                 * sees WHY rather than the tool silently running in the
+                 * wrong directory. */
+                fprintf(stderr, "cannot change directory to '%s': %s\n",
+                        dir, strerror(errno));
+                fflush(stderr);
+                _exit(127);
+            }
+        }
+        execl("/bin/sh", "sh", "-c", command, (char *)NULL);
+        fprintf(stderr, "cannot run /bin/sh: %s\n", strerror(errno));
+        fflush(stderr);
+        _exit(127);  /* exec failed - same code a shell reports */
+    }
+
+    close(fds[1]);  /* parent keeps only the read end */
+    fcntl(fds[0], F_SETFL, O_NONBLOCK);
+
+    ui_process *p = calloc(1, sizeof *p);
+    if (!p) {
+        if (err && errcap > 0)
+            snprintf(err, (size_t)errcap, "out of memory");
+        close(fds[0]);
+        return NULL;
+    }
+    p->fd = fds[0];
+    p->pid = pid;
+    return p;
+}
+
+int ui_process_read(ui_process *p, char *buf, int cap)
+{
+    if (!p || p->ended)
+        return -1;
+
+    ssize_t n = read(p->fd, buf, (size_t)cap);
+    if (n > 0)
+        return (int)n;
+    if (n == 0) {
+        /* Every write end is closed: the child is done and the pipe is
+         * drained. This is the authoritative signal - no need to poll the
+         * exit status separately. */
+        p->ended = 1;
+        return -1;
+    }
+    if (errno == EAGAIN || errno == EWOULDBLOCK)
+        return 0;   /* nothing yet, still running */
+    p->ended = 1;
+    return -1;
+}
+
+int ui_process_close(ui_process *p)
+{
+    if (!p)
+        return -1;
+    int status = 0;
+    close(p->fd);
+    if (waitpid(p->pid, &status, 0) < 0)
+        status = -1;
+    free(p);
+    return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 }
 
 /* Answers another client's request for our clipboard content - the other
@@ -894,7 +1106,7 @@ int main(int argc, char** argv)
     g_cmap = DefaultColormap(g_dpy, g_screen);
 
     apply_font();
-    if (!g_font) {
+    if (!g_fonts.main) {
         fprintf(stderr, "x11: no usable font found (is fontconfig installed?)\n");
         return 1;
     }
@@ -935,6 +1147,8 @@ int main(int argc, char** argv)
 
     g_env = ui_env_create(ui_default_cols, ui_default_rows);
     ui_env_set_font_zoom_fn(g_env, adjust_font_size, NULL);
+    ui_env_set_font_family_fns(g_env, font_family_count, font_family_name,
+                                font_family_set, NULL);
 
     XMapWindow(g_dpy, g_win);
 
@@ -993,8 +1207,8 @@ int main(int argc, char** argv)
     if (g_xic) XDestroyIC(g_xic);
     if (g_xim) XCloseIM(g_xim);
     ui_env_free(g_env);
-    if (g_font) XftFontClose(g_dpy, g_font);
-    if (g_font_box) XftFontClose(g_dpy, g_font_box);
+    if (g_fonts.main) XftFontClose(g_dpy, g_fonts.main);
+    if (g_fonts.box) XftFontClose(g_dpy, g_fonts.box);
     if (g_xft_draw) XftDrawDestroy(g_xft_draw);
     if (g_pixmap_picture) XRenderFreePicture(g_dpy, g_pixmap_picture);
     if (g_pixmap) XFreePixmap(g_dpy, g_pixmap);

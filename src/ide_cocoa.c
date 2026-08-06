@@ -49,6 +49,8 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <errno.h>   /* EAGAIN - see ui_process_read */
+#include <fcntl.h>   /* O_NONBLOCK - see ui_process_start */
 #include <dirent.h>
 #include <unistd.h>
 
@@ -147,8 +149,6 @@ static id g_app, g_window, g_view;
 static Class g_view_class, g_delegate_class;
 
 static CGColorSpaceRef g_colorspace;
-static CTFontRef g_font;      /* smoothed - used for everything except box-drawing */
-static CGFloat g_font_pt = 14;
 static int g_cell_w = 8;
 static int g_cell_h = 16;
 
@@ -300,42 +300,108 @@ static int is_box_drawing(uint32_t ch)
  * Monaco, ships on every Mac since 10.7, excellent Unicode/box-drawing
  * coverage) > Monaco (older Macs) > Courier New (always present, final
  * fallback). */
-static CTFontRef pick_and_open_font(CGFloat pt)
+static const char *const g_font_candidates[] = { "Menlo", "Monaco", "Courier New" };
+#define FONT_CANDIDATE_COUNT \
+    ((int)(sizeof g_font_candidates / sizeof g_font_candidates[0]))
+
+/* Which candidates actually resolve - probed once and offered to the
+ * Environment dialog's Font <select> (see ui_env_set_font_family_fns).
+ * Indices into g_font_candidates so the names live in one place.
+ *
+ * CTFontCreateWithName substitutes rather than failing for an unknown name,
+ * so "did we get what we asked for" is checked by comparing the resulting
+ * font's actual family back against the request. */
+static struct
 {
-    static const char *candidates[] = { "Menlo", "Monaco", "Courier New" };
-    for (size_t i = 0; i < sizeof(candidates) / sizeof(candidates[0]); i++) {
-        CFStringRef name = cfstr(candidates[i]);
-        CTFontRef font = CTFontCreateWithName(name, pt, NULL);
+    CTFontRef main;    /* smoothed - everything except box-drawing */
+    CGFloat pt;        /* point size - adjustable via Ctrl+/Ctrl- */
+
+    int avail[FONT_CANDIDATE_COUNT];
+    int avail_count;   /* -1 = not probed yet */
+    int selected;      /* index into avail; -1 = follow the preference order */
+} g_fonts = { .pt = 14, .avail_count = -1, .selected = -1 };
+
+static CTFontRef open_font_named(const char *family, CGFloat pt)
+{
+    CFStringRef name = cfstr(family);
+    CTFontRef font = CTFontCreateWithName(name, pt, NULL);
+    if (!font) {
         CFRelease(name);
-        if (font)
-            return font;
+        return NULL;
     }
+    CFStringRef got = CTFontCopyFamilyName(font);
+    Boolean same = got && CFStringCompare(got, name, 0) == kCFCompareEqualTo;
+    if (got)
+        CFRelease(got);
+    CFRelease(name);
+    if (same)
+        return font;
+    CFRelease(font);
     return NULL;
 }
 
-/* (Re)load g_font at g_font_pt and derive g_cell_w/h from its metrics.
+static void probe_available_fonts(void)
+{
+    if (g_fonts.avail_count >= 0)
+        return;
+    g_fonts.avail_count = 0;
+    for (int i = 0; i < FONT_CANDIDATE_COUNT; i++) {
+        CTFontRef f = open_font_named(g_font_candidates[i], g_fonts.pt);
+        if (f) {
+            CFRelease(f);
+            g_fonts.avail[g_fonts.avail_count++] = i;
+        }
+    }
+    /* Courier New ships with every Mac; never offer an empty list. */
+    if (g_fonts.avail_count == 0)
+        g_fonts.avail[g_fonts.avail_count++] = FONT_CANDIDATE_COUNT - 1;
+}
+
+static CTFontRef pick_and_open_font(CGFloat pt)
+{
+    probe_available_fonts();
+
+    if (g_fonts.selected >= 0 && g_fonts.selected < g_fonts.avail_count) {
+        CTFontRef f = open_font_named(g_font_candidates[g_fonts.avail[g_fonts.selected]], pt);
+        if (f)
+            return f;
+    }
+    /* No explicit choice (or it stopped resolving) - original order, and
+     * finally whatever CoreText substitutes rather than nothing at all. */
+    for (int i = 0; i < FONT_CANDIDATE_COUNT; i++) {
+        CTFontRef f = open_font_named(g_font_candidates[i], pt);
+        if (f)
+            return f;
+    }
+    CFStringRef fallback = cfstr(g_font_candidates[FONT_CANDIDATE_COUNT - 1]);
+    CTFontRef font = CTFontCreateWithName(fallback, pt, NULL);
+    CFRelease(fallback);
+    return font;
+}
+
+/* (Re)load g_fonts.main at g_fonts.pt and derive g_cell_w/h from its metrics.
  * Called at startup and again from Ctrl+/Ctrl- to change size. */
 static void apply_font(void)
 {
-    CTFontRef new_font = pick_and_open_font(g_font_pt);
+    CTFontRef new_font = pick_and_open_font(g_fonts.pt);
     if (!new_font)
         return;  /* keep whatever font (if any) we already had */
 
-    if (g_font)
-        CFRelease(g_font);
-    g_font = new_font;
+    if (g_fonts.main)
+        CFRelease(g_fonts.main);
+    g_fonts.main = new_font;
 
     /* Monospace cell size: 'M's advance for width, the font's own vertical
      * metrics for height (ascent+descent+leading, like a terminal line). */
     UniChar ch = 'M';
     CGGlyph glyph = 0;
-    CTFontGetGlyphsForCharacters(g_font, &ch, &glyph, 1);
+    CTFontGetGlyphsForCharacters(g_fonts.main, &ch, &glyph, 1);
     CGSize advance = { 0, 0 };
     if (glyph)
-        CTFontGetAdvancesForGlyphs(g_font, kCTFontOrientationDefault, &glyph, &advance, 1);
-    g_cell_w = advance.width > 0 ? (int)(advance.width + 0.5) : (int)(g_font_pt * 0.6 + 0.5);
-    g_cell_h = (int)(CTFontGetAscent(g_font) + CTFontGetDescent(g_font) +
-                      CTFontGetLeading(g_font) + 0.5);
+        CTFontGetAdvancesForGlyphs(g_fonts.main, kCTFontOrientationDefault, &glyph, &advance, 1);
+    g_cell_w = advance.width > 0 ? (int)(advance.width + 0.5) : (int)(g_fonts.pt * 0.6 + 0.5);
+    g_cell_h = (int)(CTFontGetAscent(g_fonts.main) + CTFontGetDescent(g_fonts.main) +
+                      CTFontGetLeading(g_fonts.main) + 0.5);
 
     /* Every cell's pixel size just changed, so the render shadow no longer
      * matches the bitmap - clear it and repaint fully next frame. (Usually
@@ -424,10 +490,10 @@ void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
     UniChar units[2];
     int n = cp_to_utf16(cp, units);
     CGGlyph glyphs[2] = {0, 0};
-    if (!CTFontGetGlyphsForCharacters(g_font, units, glyphs, n) || glyphs[0] == 0)
+    if (!CTFontGetGlyphsForCharacters(g_fonts.main, units, glyphs, n) || glyphs[0] == 0)
         return;  /* no glyph for this char in the font - skip rather than draw a tofu box */
 
-    CGFloat ascent = CTFontGetAscent(g_font);
+    CGFloat ascent = CTFontGetAscent(g_fonts.main);
     int box = is_box_drawing(cp);
 
     CGContextSaveGState(c);
@@ -477,7 +543,7 @@ void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
     CGContextTranslateCTM(c, (CGFloat)px, (CGFloat)py + ascent);
     CGContextScaleCTM(c, 1, -1);
     CGPoint pos = { 0, 0 };
-    CTFontDrawGlyphs(g_font, glyphs, &pos, 1, c);
+    CTFontDrawGlyphs(g_fonts.main, glyphs, &pos, 1, c);
 
     CGContextRestoreGState(c);
 }
@@ -641,20 +707,54 @@ static int mac_mods(id event)
 static void adjust_font_size(void *ctx, int delta)
 {
     (void)ctx;
-    int new_pt = (int)g_font_pt + delta;
+    int new_pt = (int)g_fonts.pt + delta;
     if (new_pt < 6) new_pt = 6;
     if (new_pt > 36) new_pt = 36;
-    if (new_pt == (int)g_font_pt)
+    if (new_pt == (int)g_fonts.pt)
         return;
 
     int cols = ui_env_width(g_env);
     int rows = ui_env_height(g_env);
-    g_font_pt = new_pt;
+    g_fonts.pt = new_pt;
     apply_font();
 
     /* -setContentSize: resizes the window so its CONTENT area (excluding
      * the title bar) becomes this size - exactly what we want, without
      * having to account for the title bar's height ourselves. */
+    CGSize size = { (CGFloat)(cols * g_cell_w), (CGFloat)(rows * g_cell_h) };
+    ((void (*)(id, SEL, CGSize))objc_msgSend)(g_window, sel("setContentSize:"), size);
+}
+
+/* --- Font family shortlist for the Environment dialog (see
+ * ui_env_set_font_family_fns in ide_ui.h) - same shape as the zoom above. --- */
+
+static int font_family_count(void *ctx)
+{
+    (void)ctx;
+    probe_available_fonts();
+    return g_fonts.avail_count;
+}
+
+static const char *font_family_name(void *ctx, int index)
+{
+    (void)ctx;
+    probe_available_fonts();
+    if (index < 0 || index >= g_fonts.avail_count)
+        return "";
+    return g_font_candidates[g_fonts.avail[index]];  /* static string */
+}
+
+static void font_family_set(void *ctx, int index)
+{
+    (void)ctx;
+    probe_available_fonts();
+    if (index < 0 || index >= g_fonts.avail_count || index == g_fonts.selected)
+        return;
+
+    g_fonts.selected = index;
+    int cols = ui_env_width(g_env);
+    int rows = ui_env_height(g_env);
+    apply_font();
     CGSize size = { (CGFloat)(cols * g_cell_w), (CGFloat)(rows * g_cell_h) };
     ((void (*)(id, SEL, CGSize))objc_msgSend)(g_window, sel("setContentSize:"), size);
 }
@@ -1276,6 +1376,114 @@ void ui_open_terminal(const char *dir)
     waitpid(pid, NULL, 0);
 }
 
+/* --- Child process with captured output (see ui_process_start in ide_ui.h) ---
+ *
+ * Run through "sh -c" so the caller can write an ordinary command line
+ * (quotes, arguments, even a pipeline) without this having to tokenize it.
+ * stdout and stderr both go to the one pipe, interleaved the way a terminal
+ * would show them. The read end is O_NONBLOCK because the caller drains it
+ * from the per-frame tick, where blocking would freeze the UI. */
+struct ui_process
+{
+    int fd;       /* read end of the pipe */
+    pid_t pid;
+    int ended;    /* EOF seen - latched, see ui_process_read */
+};
+
+ui_process *ui_process_start(const char *command, const char *dir,
+                              char *err, int errcap)
+{
+    if (err && errcap > 0)
+        err[0] = 0;
+
+    int fds[2];
+    if (pipe(fds) != 0) {
+        if (err && errcap > 0)
+            snprintf(err, (size_t)errcap, "pipe failed: %s", strerror(errno));
+        return NULL;
+    }
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        if (err && errcap > 0)
+            snprintf(err, (size_t)errcap, "fork failed: %s", strerror(errno));
+        close(fds[0]);
+        close(fds[1]);
+        return NULL;
+    }
+
+    if (pid == 0) {
+        /* Child: wire both output streams to the pipe, drop the read end
+         * (holding it open here would stop the parent ever seeing EOF). */
+        close(fds[0]);
+        dup2(fds[1], STDOUT_FILENO);
+        dup2(fds[1], STDERR_FILENO);
+        close(fds[1]);
+        if (dir && dir[0]) {
+            if (chdir(dir) != 0) {
+                /* Goes down the pipe like any other output, so the user
+                 * sees WHY rather than the tool silently running in the
+                 * wrong directory. */
+                fprintf(stderr, "cannot change directory to '%s': %s\n",
+                        dir, strerror(errno));
+                fflush(stderr);
+                _exit(127);
+            }
+        }
+        execl("/bin/sh", "sh", "-c", command, (char *)NULL);
+        fprintf(stderr, "cannot run /bin/sh: %s\n", strerror(errno));
+        fflush(stderr);
+        _exit(127);  /* exec failed - same code a shell reports */
+    }
+
+    close(fds[1]);  /* parent keeps only the read end */
+    fcntl(fds[0], F_SETFL, O_NONBLOCK);
+
+    ui_process *p = calloc(1, sizeof *p);
+    if (!p) {
+        if (err && errcap > 0)
+            snprintf(err, (size_t)errcap, "out of memory");
+        close(fds[0]);
+        return NULL;
+    }
+    p->fd = fds[0];
+    p->pid = pid;
+    return p;
+}
+
+int ui_process_read(ui_process *p, char *buf, int cap)
+{
+    if (!p || p->ended)
+        return -1;
+
+    ssize_t n = read(p->fd, buf, (size_t)cap);
+    if (n > 0)
+        return (int)n;
+    if (n == 0) {
+        /* Every write end is closed: the child is done and the pipe is
+         * drained. This is the authoritative signal - no need to poll the
+         * exit status separately. */
+        p->ended = 1;
+        return -1;
+    }
+    if (errno == EAGAIN || errno == EWOULDBLOCK)
+        return 0;   /* nothing yet, still running */
+    p->ended = 1;
+    return -1;
+}
+
+int ui_process_close(ui_process *p)
+{
+    if (!p)
+        return -1;
+    int status = 0;
+    close(p->fd);
+    if (waitpid(p->pid, &status, 0) < 0)
+        status = -1;
+    free(p);
+    return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+}
+
 int main(int argc, char** argv)
 {
     g_argc = argc;
@@ -1290,7 +1498,7 @@ int main(int argc, char** argv)
     g_colorspace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
 
     apply_font();
-    if (!g_font) {
+    if (!g_fonts.main) {
         fprintf(stderr, "cocoa: no usable font found\n");
         return 1;
     }
@@ -1358,6 +1566,8 @@ int main(int argc, char** argv)
     ensure_bitmap(win_w, win_h);
     g_env = ui_env_create(ui_default_cols, ui_default_rows);
     ui_env_set_font_zoom_fn(g_env, adjust_font_size, NULL);
+    ui_env_set_font_family_fns(g_env, font_family_count, font_family_name,
+                                font_family_set, NULL);
 
     /* ~60Hz, not 1000Hz: mouse/keyboard input already arrives independently
      * via mouseDown:/keyDown:/etc (posted straight into g_env, not gated by

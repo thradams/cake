@@ -24,7 +24,11 @@
  * wheel notch. wheel_delta is +-1 per notch (see ui.h), so the pace lives
  * here: 3 matches the Windows system default (SPI_GETWHEELSCROLLLINES) and
  * what every other editor does - 1 line/notch feels sluggish. */
-#define UI_WHEEL_LINES 3
+#ifdef __APPLE__
+ #define UI_WHEEL_LINES 1
+#else
+ #define UI_WHEEL_LINES 3
+#endif
 
  /* Whether macOS-style shortcut conventions are active - see
   * ui_set_mac_shortcuts()/ui_mac_shortcuts() in ui.h. Defaults to the
@@ -75,6 +79,14 @@ struct ui_env {
                          * ui_env_adjust_font_size. NULL on a backend that doesn't support it. */
     ui_font_zoom_fn font_zoom_fn;
     void* font_zoom_ctx;
+
+    /* The backend's font-family shortlist - see ui_env_set_font_family_fns.
+     * All NULL on a backend that doesn't offer one, which reports a count
+     * of 0 and makes the whole feature invisible to the app. */
+    ui_font_family_count_fn font_family_count_fn;
+    ui_font_family_name_fn  font_family_name_fn;
+    ui_font_family_set_fn   font_family_set_fn;
+    void* font_family_ctx;
 };
 
 int ui_default_cols = 120;
@@ -93,6 +105,10 @@ ui_env* ui_env_create(int w, int h)
     e->time_ms = 0;
     e->font_zoom_fn = NULL;
     e->font_zoom_ctx = NULL;
+    e->font_family_count_fn = NULL;
+    e->font_family_name_fn = NULL;
+    e->font_family_set_fn = NULL;
+    e->font_family_ctx = NULL;
     return e;
 }
 
@@ -106,6 +122,38 @@ void ui_env_adjust_font_size(ui_env* e, int delta)
 {
     if (e && e->font_zoom_fn)
         e->font_zoom_fn(e->font_zoom_ctx, delta);
+}
+
+void ui_env_set_font_family_fns(ui_env* e,
+                                 ui_font_family_count_fn count_fn,
+                                 ui_font_family_name_fn name_fn,
+                                 ui_font_family_set_fn set_fn,
+                                 void* ctx)
+{
+    e->font_family_count_fn = count_fn;
+    e->font_family_name_fn = name_fn;
+    e->font_family_set_fn = set_fn;
+    e->font_family_ctx = ctx;
+}
+
+int ui_env_font_family_count(ui_env* e)
+{
+    if (e && e->font_family_count_fn)
+        return e->font_family_count_fn(e->font_family_ctx);
+    return 0;
+}
+
+const char* ui_env_font_family_name(ui_env* e, int index)
+{
+    if (e && e->font_family_name_fn)
+        return e->font_family_name_fn(e->font_family_ctx, index);
+    return "";
+}
+
+void ui_env_set_font_family(ui_env* e, int index)
+{
+    if (e && e->font_family_set_fn)
+        e->font_family_set_fn(e->font_family_ctx, index);
 }
 
 void ui_env_set_time_ms(ui_env* e, unsigned ms)
@@ -331,6 +379,8 @@ static ui_theme g_theme = {
     .listbox_bg = TB_RGB(0x00, 0xAA, 0xAA),
     .listbox_sel_fg = TB_RGB(0xFF, 0xFF, 0xFF),
     .listbox_sel_bg = TB_RGB(0x00, 0x00, 0xAA),
+    .listbox_sel_inactive_fg = TB_RGB(0xFF, 0xFF, 0xFF),
+    .listbox_sel_inactive_bg = TB_RGB(0x55, 0x55, 0x55),
 
     /* <editor> inline diagnostics (see ui_editor_add_diagnostic) - bright
      * CGA red/yellow/blue, same "bright" family as editor_keyword_fg/
@@ -4100,8 +4150,14 @@ void ui_screen_redo(ui_screen* s)
 
 static int is_focusable(int type)
 {
+    /* BUTTON is here so Tab reaches a dialog's OK/Cancel/Add/... instead of
+     * cycling only between its text fields - which also makes those
+     * dialogs operable without a mouse. Focused buttons draw like hovered
+     * ones (see render_button) and fire on Space/Enter (see the BUTTON
+     * branch in ui_screen_update's key handling). */
     return type == UI_TAG_INPUT || type == UI_TAG_EDITOR ||
-        type == UI_TAG_LISTBOX || type == UI_TAG_GROUP;
+        type == UI_TAG_LISTBOX || type == UI_TAG_GROUP ||
+        type == UI_TAG_BUTTON || type == UI_TAG_SELECT;
 }
 
 /* Whichever container (a blocking modal's window, or the frontmost floating
@@ -5451,6 +5507,50 @@ void ui_screen_update(ui_screen* s, ui_env* env)
 
         ui_node* in = s->focused;
 
+        /* SELECT: Up/Down change the choice in place (firing the option's
+         * id, exactly as clicking it in the popup does - the app's handlers
+         * key off that), Space/Enter toggle the popup open for browsing.
+         * Handled before the text-widget code below, which assumes a node
+         * with a label/cursor to edit. */
+        if (in->type == UI_TAG_SELECT)
+        {
+            int cnt = in->child_count;
+            int sel = in->selected;
+            if (ev2->data.key.code == UI_KEY_UP && sel > 0)
+                sel--;
+            else if (ev2->data.key.code == UI_KEY_DOWN && sel < cnt - 1)
+                sel++;
+            else if (ev2->data.key.codepoint == ' ' ||
+                     ev2->data.key.codepoint == '\r' ||
+                     ev2->data.key.codepoint == '\n' ||
+                     ev2->data.key.code == UI_KEY_ENTER)
+            {
+                s->open_select = (s->open_select == in) ? NULL : in;
+                continue;
+            }
+            if (sel != in->selected && sel >= 0 && sel < cnt)
+            {
+                in->selected = sel;
+                s->open_select = NULL;
+                ui_fire_event(s, in->children[sel]->id, NULL);
+            }
+            continue;
+        }
+
+        /* BUTTON: Space/Enter press it, the way every other toolkit does.
+         * Handled before the text-widget code below, which assumes a node
+         * with a label/cursor to edit. */
+        if (in->type == UI_TAG_BUTTON)
+        {
+            if (ev2->data.key.codepoint == ' ' || ev2->data.key.codepoint == '\r' ||
+                ev2->data.key.codepoint == '\n' || ev2->data.key.code == UI_KEY_ENTER)
+            {
+                if (in->enabled)
+                    ui_fire_event(s, in->id, NULL);
+            }
+            continue;
+        }
+
         /* GROUP: Up/Down move the keyboard-focused row, Space activates it
          * (toggles a check box, or picks a radio); a radio also follows the
          * arrows directly, like a native radio cluster. */
@@ -6235,8 +6335,11 @@ static void draw_border(int x, int y, int w, int h,
 static void render_button(ui_screen* s, ui_node* b)
 {
     int is_active = (s->active == b && s->hot == b);
+    /* Keyboard focus reads the same as hover - without it a Tab-focused
+     * button would be invisible, and there is no separate "focus ring"
+     * concept in this cell-based renderer. */
     uint32_t bg = is_active ? g_theme.btn_bg_active :
-        (s->hot == b ? g_theme.btn_bg_hot : g_theme.btn_bg);
+        ((s->hot == b || s->focused == b) ? g_theme.btn_bg_hot : g_theme.btn_bg);
 
     /* Pressed: the face shifts right by one cell, into the space the shadow
      * otherwise occupies - like the button being pushed in flush with the
@@ -6753,7 +6856,10 @@ static void render_select(ui_screen* s, ui_node* n)
     if (text_w < n->w)
     {
         int open = (s->open_select == n);
-        uint32_t abg = (open || s->hot == n) ? g_theme.btn_bg_hot : g_theme.btn_bg;
+        /* Keyboard focus reads like hover, same as render_button - without
+         * it a Tab-focused <select> would look identical to an idle one. */
+        uint32_t abg = (open || s->hot == n || s->focused == n)
+                       ? g_theme.btn_bg_hot : g_theme.btn_bg;
         emit_char(n->x + text_w, n->y, 0x2193 /* down arrow */, g_theme.btn_fg, abg);
     }
 }
@@ -6768,8 +6874,16 @@ static void render_listbox(ui_screen* s, ui_node* n)
     {
         int index = n->scroll + row;
         int is_sel = (index == n->selected);
-        uint32_t fg = is_sel ? g_theme.listbox_sel_fg : g_theme.listbox_fg;
-        uint32_t bg = is_sel ? g_theme.listbox_sel_bg : g_theme.listbox_bg;
+        /* Unfocused lists show their selection muted - see
+         * listbox_sel_inactive_* - so the highlight doesn't read as "this
+         * is where your keystrokes are going" when it isn't. */
+        int has_focus = (s->focused == n);
+        uint32_t fg = is_sel ? (has_focus ? g_theme.listbox_sel_fg
+                                          : g_theme.listbox_sel_inactive_fg)
+                             : g_theme.listbox_fg;
+        uint32_t bg = is_sel ? (has_focus ? g_theme.listbox_sel_bg
+                                          : g_theme.listbox_sel_inactive_bg)
+                             : g_theme.listbox_bg;
 
         if (index < 0 || index >= n->child_count)
         {

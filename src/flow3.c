@@ -135,30 +135,6 @@ struct flow3_alternative
 
 struct flow3_alternatives
 {
-    /*
-       Array of OWNED POINTERS to individually-allocated flow3_alternative
-       structs, not an inline array of the structs themselves.
-
-       This matters under a debug CRT (MSVC /MDd + _CRTDBG_MAP_ALLOC): growing
-       this array happens constantly -- flow3_evaluate_binary_arithmetic alone
-       calls flow3_alternatives_add tens of millions of times against lists that
-       reach 100+ entries -- and each growth used to realloc and copy the WHOLE
-       struct (value union + 3 enums + origin pointer + line). Storing pointers
-       means growth only moves 8 bytes per element instead of the full struct,
-       which matters both for the bytes actually copied and for the transient
-       peak (realloc may need old+new space live simultaneously for a large
-       in-place-incapable grow).
-
-       The trade-off: this now does one allocation per alternative instead of
-       one allocation per ARRAY. That is more total malloc/free calls, which
-       costs more under debug heap's per-call overhead than under a release
-       allocator. Accepted because clear+rebuild churn (an object's alternatives
-       are cleared and re-seeded constantly as narrowing progresses) needs real,
-       prompt reclamation -- a bump/arena allocator that never frees individual
-       elements would accumulate the churn instead of reclaiming it, which is
-       worse, not better, for a function called 50 million times within a
-       single declaration's analysis.
-    */
     struct flow3_alternative* _Owner _Opt* _Owner _Opt data;
     int size;
     int capacity;
@@ -735,31 +711,10 @@ struct object* _Opt flow3_allocated_object_arena_new(struct flow3_allocated_obje
 }
 
 /*
-   Free-list pool for individual flow3_alternative nodes, recycling freed
-   slots instead of returning them to the CRT allocator.
-
-   Storing data[] as an array of pointers (see the struct's comment) means one
-   calloc/free PER ALTERNATIVE instead of per array -- more total allocator
-   calls, which is fine under glibc's release allocator but expensive under a
-   debug CRT (MSVC /MDd + _CRTDBG_MAP_ALLOC), which pays real per-call
-   overhead: guard bytes, a debug header, a leak-tracking list entry. This
-   workload calls add/clear tens of millions of times within a single
-   declaration (flow3_evaluate_binary_arithmetic alone), so that overhead is
-   what was turning "slow" into "out of memory" even after the array itself
-   got fast (dynamic buckets fixed the map-lookup side of this).
-
-   Recycling through a free list bounds the actual number of CRT calls to a
-   handful of large block allocations, however many logical alternatives are
-   created and discarded. The block is a union so the SAME memory serves as
-   either a live flow3_alternative or a free-list link, never both at once:
-   `next` is only read/written while a node sits on the free list, `alt` only
-   while it's checked out to a caller.
-
-   Global and never torn down mid-run: this analysis is single-pass,
-   single-threaded, and freed at process exit along with everything else --
-   there is nothing a per-declaration teardown would reclaim that recycling
-   doesn't already handle, since the pool's peak size tracks the largest
-   declaration's peak LIVE count, not a running total.
+   Free-list pool for flow3_alternative nodes: recycles freed slots instead
+   of calloc/free per alternative, since this runs tens of millions of times
+   per declaration and per-call CRT overhead (esp. under a debug allocator)
+   was turning "slow" into "out of memory".
 */
 #define FLOW3_ALT_POOL_BLOCK_NODES 4096
 
@@ -769,28 +724,52 @@ union flow3_alt_pool_node
     union flow3_alt_pool_node* _Opt next;
 };
 
-static union flow3_alt_pool_node* _Opt g_flow3_alt_pool_free_list = NULL;
-
-static struct flow3_alternative* _Opt _Owner flow3_alt_pool_alloc(void)
+struct flow3_alt_pool
 {
-    if (g_flow3_alt_pool_free_list == NULL)
+    union flow3_alt_pool_node* _Opt free_list;
+    /* Block start addresses, tracked only so flow3_alt_pool_free_all can
+       free() them -- once threaded onto free_list, individual nodes are no
+       longer grouped by block. */
+    union flow3_alt_pool_node* _Opt* _Owner _Opt blocks;
+    int blocks_size;
+    int blocks_capacity;
+};
+
+static struct flow3_alt_pool g_flow3_alt_pool = { 0 };
+
+static struct flow3_alternative* _Opt _Owner flow3_alt_pool_alloc(struct flow3_alt_pool* pool)
+{
+    if (pool->free_list == NULL)
     {
         union flow3_alt_pool_node* _Owner _Opt block =
         calloc(FLOW3_ALT_POOL_BLOCK_NODES, sizeof(union flow3_alt_pool_node));
         if (block == NULL)
             return NULL;
 
-        /* Thread every node in this block onto the free list. Blocks need no
-           separate tracking list for teardown -- nothing ever frees one -- so
-           this loop is the only place a block's identity matters. */
+        if (pool->blocks_size == pool->blocks_capacity)
+        {
+            int new_capacity = pool->blocks_capacity == 0 ? 8 : pool->blocks_capacity * 2;
+            union flow3_alt_pool_node* _Opt* _Owner _Opt new_blocks =
+            realloc(pool->blocks, new_capacity * sizeof(union flow3_alt_pool_node*));
+            if (new_blocks == NULL)
+            {
+                free(block);
+                return NULL;
+            }
+            pool->blocks = new_blocks;
+            pool->blocks_capacity = new_capacity;
+        }
+        pool->blocks[pool->blocks_size++] = block;
+
+        /* Thread every node in this block onto the free list. */
         for (int i = 0; i < FLOW3_ALT_POOL_BLOCK_NODES - 1; i++)
             block[i].next = &block[i + 1];
-        block[FLOW3_ALT_POOL_BLOCK_NODES - 1].next = g_flow3_alt_pool_free_list;
-        g_flow3_alt_pool_free_list = block; //lint 26 (pool block, intentionally never freed)
+        block[FLOW3_ALT_POOL_BLOCK_NODES - 1].next = pool->free_list;
+        pool->free_list = block; //lint 26 (pool block, freed by flow3_alt_pool_free_all)
     }
 
-    union flow3_alt_pool_node* node = g_flow3_alt_pool_free_list;
-    g_flow3_alt_pool_free_list = node->next;
+    union flow3_alt_pool_node* node = pool->free_list;
+    pool->free_list = node->next;
     /* Recycled nodes carry stale bytes from their previous life (only the
        leading `next` field was written while parked on the free list).
        Callers rely on calloc-style zero defaults for fields they don't set
@@ -800,13 +779,42 @@ static struct flow3_alternative* _Opt _Owner flow3_alt_pool_alloc(void)
     return &node->alt;
 }
 
-static void flow3_alt_pool_free(struct flow3_alternative* _Owner _Opt p)
+/*
+   Frees every block flow3_alt_pool_alloc has ever calloc'd, and resets the
+   pool to its startup state (empty free list, no tracked blocks). Not
+   called anywhere in the normal compile path -- the pool is deliberately
+   left live across the whole run (see the comment above
+   FLOW3_ALT_POOL_BLOCK_NODES: single-pass, single-threaded, recycling
+   already bounds allocator calls, nothing a per-declaration teardown would
+   reclaim). This exists for callers that DO want a clean teardown -- e.g. a
+   leak-checked build (ASAN/LeakSanitizer) or an embedder that runs cake
+   as a library and expects to reclaim everything it allocated, rather than
+   relying on process exit.
+
+   Must not be called while any flow3_alternative from this pool is still
+   live (i.e. not between flow3_alt_pool_alloc and its matching
+   flow3_alt_pool_free) -- like flow3_map_arena_clear and the other arena
+   clears in this file, this frees the backing memory outright, not just
+   the free list.
+*/
+static void flow3_alt_pool_free_all(_Clear struct flow3_alt_pool* pool)
+{
+    for (int i = 0; i < pool->blocks_size; i++)
+    {
+        free(pool->blocks[i]);
+    }
+    free(pool->blocks);
+
+    *pool = (struct flow3_alt_pool){ 0 };
+}
+
+static void flow3_alt_pool_free(struct flow3_alt_pool* pool, struct flow3_alternative* _Owner _Opt p)
 {
     if (p == NULL)
         return;
     union flow3_alt_pool_node* node = (union flow3_alt_pool_node*)p;
-    node->next = g_flow3_alt_pool_free_list;
-    g_flow3_alt_pool_free_list = node;
+    node->next = pool->free_list;
+    pool->free_list = node;
 }
 
 /*
@@ -865,7 +873,7 @@ static void flow3_alternatives_add(struct flow3_alternatives* vs, const struct f
             throw;
         }
 
-        struct flow3_alternative*  _Opt p_new = flow3_alt_pool_alloc();
+        struct flow3_alternative*  _Opt p_new = flow3_alt_pool_alloc(&g_flow3_alt_pool);
         if (p_new == NULL)
         {
             throw;
@@ -897,7 +905,7 @@ static void flow3_alternatives_add_does_not_exist(struct flow3_alternatives* vs,
             throw;
         }
 
-        struct flow3_alternative*  _Opt p_new = flow3_alt_pool_alloc();
+        struct flow3_alternative*  _Opt p_new = flow3_alt_pool_alloc(&g_flow3_alt_pool);
         if (p_new == NULL)
         {
             throw;
@@ -926,7 +934,7 @@ static void flow3_alternatives_clear(_Clear struct flow3_alternatives* vs)
 {
     for (int i = 0; i < vs->size; i++)
     {
-        flow3_alt_pool_free(vs->data[i]);
+        flow3_alt_pool_free(&g_flow3_alt_pool, vs->data[i]);
     }
     free(vs->data);
     vs->data = NULL;
@@ -2549,6 +2557,17 @@ static void flow3_defer_item_set_end_of_lifetime(struct flow3_visit_ctx* ctx, st
     else if (p_item->declarator)
     {
         struct declarator* p_declarator = p_item->declarator;
+
+        /* A static (or extern) declarator reached via the scope chain does
+           not actually end its lifetime here -- only automatic storage
+           (locals, parameters) does. Without this check, `static int x;`
+           going out of its block's syntactic scope got marked ENDED just
+           like a true local. */
+        if (!is_automatic_variable(p_declarator->type.storage_class_specifier_flags))
+        {
+            return;
+        }
+
         const int line = position_token ? position_token->line : 0;
         flow3_map_set_object_lifetime_ended(ctx->p_current_flow3_map,
             &p_declarator->object,
@@ -3386,10 +3405,29 @@ static void flow3_visit_try_statement(struct flow3_visit_ctx* ctx, struct try_st
     }
     else
     {
-        /* no catch block */
+        /* No catch block: `throw` still exits the try body immediately (it
+           just has nowhere of its own to land), so the state AT THE THROW
+           POINT is exactly as live after the try statement as the state
+           from reaching the end of the try body normally -- both are
+           possible outcomes the code after the try must account for. Only
+           merging p_try_branch here (as if throw simply didn't happen)
+           silently dropped whatever the throw path had done up to that
+           point, e.g. `int* _Owner p2 = p; if (c) throw; p = 0;` left p
+           looking unconditionally null afterward, when the throw path
+           actually leaves it MOVED (into p2), never reset. User-reported. */
+        const struct flow3_map* arms[2];
+        int num_arms = 0;
         if (try_reached_the_end)
         {
-            flow3_map_merge_a_b(p_before, p_try_branch, p_try_branch);
+            arms[num_arms++] = p_try_branch;
+        }
+        if (flow3_map_arm_has_entries(p_throw_join, p_before))
+        {
+            arms[num_arms++] = p_throw_join;
+        }
+        if (num_arms > 0)
+        {
+            flow3_map_merge_arms(p_before, arms, num_arms);
         }
     }
 
@@ -4204,6 +4242,25 @@ static void flow3_seed_all_members_default(struct flow3_visit_ctx* ctx, struct o
     flow3_seed_member_default(ctx, p_obj, line);
 }
 
+/*
+   True if p_obj IS ctx's pending pre-reported object, or is a member of it
+   (walking p_obj's own `parent` chain -- bounded, no cycles: struct members
+   cannot contain themselves by value). Used only to consume
+   ctx->p_pending_ended_report_obj; see the field comment in flow3.h.
+*/
+static bool flow3_object_is_pending_ended_report(const struct flow3_visit_ctx* ctx, const struct object* p_obj)
+{
+    if (ctx->p_pending_ended_report_obj == NULL)
+        return false;
+
+    for (const struct object* _Opt cur = p_obj; cur; cur = cur->parent)
+    {
+        if (cur == ctx->p_pending_ended_report_obj)
+            return true;
+    }
+    return false;
+}
+
 static void flow3_check_object_init_assigment(struct flow3_visit_ctx* ctx,
     struct expression* p_expression,
     const struct object* p_object_dest, //uninitialized always
@@ -4438,6 +4495,19 @@ static void flow3_check_object_init_assigment(struct flow3_visit_ctx* ctx,
 
             if (p_src_alternative->imaginary == FLOW3_IMAGINARY_ENDED)
             {
+                /* Already reported by EXPR_UNARY_CONTENT's own dereference
+                   check for this exact object/line, when this same
+                   expression was visited just before this call -- see the
+                   field comment in flow3.h. Consume it once so it does not
+                   suppress an unrelated later report. */
+                if (p_src_alternative->line == ctx->pending_ended_report_line &&
+                    flow3_object_is_pending_ended_report(ctx, p_object_src))
+                {
+                    lifetime_ended_reported = true;
+                    ctx->p_pending_ended_report_obj = NULL;
+                    continue;
+                }
+
                 if (!lifetime_ended_reported)
                 {
                     lifetime_ended_reported = true;
@@ -8666,6 +8736,8 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
                 const struct flow3_key_alternatives* p_right_alternatives = flow3_map_search_up(ctx->p_current_flow3_map, &p_expression->right->object);
 
+                bool content_lifetime_ended_reported = false;
+
                 for (int i = 0; p_right_alternatives != NULL && i < p_right_alternatives->alternatives.size; i++)
                 {
                     const struct flow3_alternative* p_right_alt = p_right_alternatives->alternatives.data[i];
@@ -8683,6 +8755,41 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
                         for (int j = 0; j < p_right_alternatives2->alternatives.size; j++)
                         {
                             const struct flow3_alternative* p_right_alt2 = p_right_alternatives2->alternatives.data[j];
+
+                            /* Lifetime check: `*p` after p's pointee was freed/moved
+                               (e.g. consumed by an _Owner parameter, or _Dtor'd)
+                               mirrors the same check EXPR_POSTFIX_ARROW does for
+                               `p->member` -- without it, `*p = 0;` after `consume(p)`
+                               (p an _Owner pointer parameter, no member access
+                               involved) went entirely unchecked. See the two-origin
+                               rationale on flow3_object_leaves_in_state_2 above:
+                               same shape applies here, just checking the WHOLE
+                               pointee rather than one member (there's no member
+                               index for `*p`, only a value it derefs to). */
+                            int ended_line = 0;
+                            if (p_right_alt2->value_kind == FLOW3_VALUE_KIND_PTR &&
+                                p_right_alt2->value.p != NULL &&
+                                !content_lifetime_ended_reported &&
+                                flow3_object_leaves_in_state_2(ctx, p_right_alt2->value.p, FLOW3_LEAF_ENDED,
+                                    p_right_alt2->origin, ctx->p_current_flow3_map, false, &ended_line))
+                            {
+                                content_lifetime_ended_reported = true;
+                                struct osstream ss = { 0 };
+                                flow3_expression_to_string(p_expression, &ss);
+                                diagnostic(W_FLOW_LIFETIME_ENDED, ctx->ctx, NULL, &marker,
+                                    "dereference of '%s': pointed object lifetime has ended (see line %d)",
+                                    ss.c_str ? ss.c_str : "", ended_line);
+                                ss_close(&ss);
+
+                                /* If this same dereference is ALSO used as
+                                   an assignment/return/argument source,
+                                   flow3_check_object_init_assigment runs
+                                   right after and would otherwise report
+                                   this identical fact a second time -- see
+                                   the field comment in flow3.h. */
+                                ctx->p_pending_ended_report_obj = p_right_alt2->value.p;
+                                ctx->pending_ended_report_line = ended_line;
+                            }
 
                             if (flow3_alternative_can_be_zero(p_right_alt2) &&
                                 !ctx->expression_is_not_evaluated &&
@@ -9862,6 +9969,11 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
 
 static void flow3_visit_expression_statement(struct flow3_visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
+    /* Only meant to bridge a report from THIS statement's own expression
+       visit into a check running right after it (see the field comment in
+       flow3.h) -- must not leak into an unrelated later statement. */
+    ctx->p_pending_ended_report_obj = NULL;
+
     if (p_expression_statement->expression_opt)
     {
         flow3_visit_full_expression(ctx, p_expression_statement->expression_opt);
@@ -10845,6 +10957,11 @@ static void flow3_check_function_exit(struct flow3_visit_ctx* ctx, struct jump_s
 
 static void flow3_visit_jump_statement(struct flow3_visit_ctx* ctx, struct jump_statement* p_jump_statement)
 {
+    /* Only meant to bridge a report from THIS statement's own expression
+       visit into a check running right after it (see the field comment in
+       flow3.h) -- must not leak into an unrelated later statement. */
+    ctx->p_pending_ended_report_obj = NULL;
+
     try
     {
         if (p_jump_statement->first_token->type == TK_KEYWORD_CAKE_THROW)
@@ -11945,7 +12062,7 @@ void flow3_visit_declaration(struct flow3_visit_ctx* ctx, struct declaration* p_
 
         if (!flow3_is_last_item_return(p_declaration->function_body))
         {
-            flow3_exit_block_visit_defer_list(ctx, &p_declaration->defer_list, p_declaration->function_body->last_token);
+            flow3_exit_block_visit_defer_list(ctx, &p_declaration->function_body->defer_list, p_declaration->function_body->last_token);
             //flow3_check_params_at_function_exit(ctx, p_declaration);
             flow3_check_arena_objects_at_function_exit(ctx);
             const struct marker marker = {
@@ -11963,7 +12080,7 @@ void flow3_visit_declaration(struct flow3_visit_ctx* ctx, struct declaration* p_
                the identical reordering (and the false-negative it fixes)
                in flow3_check_function_exit, just above. */
             flow3_check_write_qualified_params_at_exit(ctx, &marker, p_declaration->function_body->last_token);
-            flow3_defer_list_set_end_of_lifetime(ctx, &p_declaration->defer_list, p_declaration->function_body->last_token);
+            flow3_defer_list_set_end_of_lifetime(ctx, &p_declaration->function_body->defer_list, p_declaration->function_body->last_token);
         }
 
         if (p_declaration->function_body->lint_token)
@@ -12020,4 +12137,5 @@ void flow3_visit_ctx_destroy(_Dtor struct flow3_visit_ctx* ctx)
 {
     flow3_allocated_object_arena_clear(&ctx->allocated_object_arena);
     flow3_map_arena_clear(&ctx->flow3_map_arena);
+    flow3_alt_pool_free_all(&g_flow3_alt_pool);
 }

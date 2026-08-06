@@ -12,6 +12,8 @@
 #include <windows.h>
 #include <shellapi.h>
 #include <stdlib.h>
+#include <stdio.h>   /* snprintf - see win32_last_error/ui_process_start */
+#include <wchar.h>   /* swprintf - building the shell command line */
 
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "gdi32.lib")
@@ -22,11 +24,8 @@
 #define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))
 
 static ui_env *g_env;
-static HFONT g_font;      /* ClearType - used for everything except box-drawing */
-static HFONT g_font_box;  /* non-antialiased - box-drawing glyphs only, see ui_draw_char */
 static int g_cell_w = 8;
 static int g_cell_h = 16;
-static int g_font_pt = 11;  /* adjustable via Ctrl+/Ctrl- */
 
 /* Single persistent off-screen bitmap: cleared and fully redrawn (by walking
  * the app's DOM) every frame, then blitted once in WM_PAINT. This is plain
@@ -109,17 +108,51 @@ static int font_exists(HDC dc, const wchar_t *name)
  * excellent box-drawing) > Cascadia Code > Consolas > DejaVu Sans Mono (often
  * present via other dev tools) > Lucida Console > Courier New (always on
  * Windows - the final fallback). */
+static const wchar_t *const g_font_candidates[] = {
+    L"Cascadia Mono", L"Cascadia Code", L"Consolas",
+    L"DejaVu Sans Mono", L"Lucida Console", L"Courier New",
+};
+#define FONT_CANDIDATE_COUNT \
+    ((int)(sizeof g_font_candidates / sizeof g_font_candidates[0]))
+
+/* All font state in one place: the two live HFONTs, the current size, and
+ * the installed-candidate shortlist behind the Environment dialog's Font
+ * <select>. `avail` holds indices into g_font_candidates so the names
+ * themselves live in exactly one place. */
+static struct
+{
+    HFONT main;      /* ClearType - everything except box-drawing */
+    HFONT box;       /* non-antialiased - box-drawing glyphs only, see ui_draw_char */
+    int pt;          /* point size - adjustable via Ctrl+/Ctrl- */
+
+    int avail[FONT_CANDIDATE_COUNT];
+    int avail_count; /* -1 = not probed yet */
+    int selected;    /* index into avail; -1 = follow the preference order */
+} g_fonts = { .pt = 11, .avail_count = -1, .selected = -1 };
+
+static void probe_available_fonts(HDC dc)
+{
+    if (g_fonts.avail_count >= 0)
+        return;
+    g_fonts.avail_count = 0;
+    for (int i = 0; i < FONT_CANDIDATE_COUNT; i++) {
+        if (font_exists(dc, g_font_candidates[i]))
+            g_fonts.avail[g_fonts.avail_count++] = i;
+    }
+    /* Courier New always exists on Windows, but if the probe somehow found
+     * nothing at all, still offer it rather than an empty dropdown. */
+    if (g_fonts.avail_count == 0)
+        g_fonts.avail[g_fonts.avail_count++] = FONT_CANDIDATE_COUNT - 1;
+}
+
 static const wchar_t *pick_font(HDC dc)
 {
-    static const wchar_t *candidates[] = {
-        L"Cascadia Mono", L"Cascadia Code", L"Consolas",
-        L"DejaVu Sans Mono", L"Lucida Console", L"Courier New",
-    };
-    for (size_t i = 0; i < sizeof(candidates) / sizeof(candidates[0]); i++) {
-        if (font_exists(dc, candidates[i]))
-            return candidates[i];
-    }
-    return L"Courier New";
+    probe_available_fonts(dc);
+    if (g_fonts.selected >= 0 && g_fonts.selected < g_fonts.avail_count)
+        return g_font_candidates[g_fonts.avail[g_fonts.selected]];
+    /* No explicit choice - first installed candidate, i.e. the original
+     * preference order. */
+    return g_font_candidates[g_fonts.avail[0]];
 }
 
 /* Our colors are 0x00RRGGBB; GDI COLORREF is 0x00BBGGRR. Swap R and B. */
@@ -181,7 +214,7 @@ void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
 
     RECT cellrc = { px, py, px + g_cell_w, py + g_cell_h };
 
-    SelectObject(mem, is_box_drawing(ch) ? g_font_box : g_font);
+    SelectObject(mem, is_box_drawing(ch) ? g_fonts.box : g_fonts.main);
     SetBkColor(mem, bgc);
     SetTextColor(mem, fgc);
     WCHAR w[2];
@@ -268,7 +301,7 @@ static void ensure_bitmap(HWND hwnd)
     ReleaseDC(hwnd, dc);
 
     SelectObject(g_mem, g_bmp);
-    SelectObject(g_mem, g_font);
+    SelectObject(g_mem, g_fonts.main);
     SetBkMode(g_mem, OPAQUE);
 
     g_bmp_w = rc.right;
@@ -367,7 +400,7 @@ static void resize_window_to_grid(HWND hwnd, int cols, int rows)
                  SWP_NOMOVE | SWP_NOZORDER);
 }
 
-/* (Re)create g_font at g_font_pt and derive g_cell_w/h from its metrics.
+/* (Re)create g_fonts.main at g_fonts.pt and derive g_cell_w/h from its metrics.
  * Called at window creation and again from Ctrl+/Ctrl- to change size. */
 static void apply_font(HWND hwnd)
 {
@@ -377,7 +410,7 @@ static void apply_font(HWND hwnd)
      * stretch (and blur) our output. With the process marked DPI-aware,
      * LOGPIXELSY reports the true DPI. */
     int dpi = GetDeviceCaps(dc, LOGPIXELSY);
-    int height = -MulDiv(g_font_pt, dpi, 72);
+    int height = -MulDiv(g_fonts.pt, dpi, 72);
 
     /* Monospace font; derive cell size from its metrics. Two variants at the
      * same size/family: ClearType for everything, and a non-antialiased twin
@@ -405,12 +438,12 @@ static void apply_font(HWND hwnd)
     SelectObject(dc, old);
     ReleaseDC(hwnd, dc);
 
-    if (g_font)
-        DeleteObject(g_font);
-    if (g_font_box)
-        DeleteObject(g_font_box);
-    g_font = new_font;
-    g_font_box = new_font_box;
+    if (g_fonts.main)
+        DeleteObject(g_fonts.main);
+    if (g_fonts.box)
+        DeleteObject(g_fonts.box);
+    g_fonts.main = new_font;
+    g_fonts.box = new_font_box;
 
     /* Every cell's pixel size/position just changed, so the render shadow no
      * longer matches the screen - repaint fully next frame. (On a font-zoom
@@ -431,13 +464,62 @@ static void apply_font(HWND hwnd)
 static void adjust_font_size(void *ctx, int delta)
 {
     HWND hwnd = (HWND)ctx;
-    int new_pt = g_font_pt + delta;
+    int new_pt = g_fonts.pt + delta;
     if (new_pt < 6) new_pt = 6;
     if (new_pt > 36) new_pt = 36;
-    if (new_pt == g_font_pt)
+    if (new_pt == g_fonts.pt)
         return;
 
-    g_font_pt = new_pt;
+    g_fonts.pt = new_pt;
+    int cols = ui_env_width(g_env);
+    int rows = ui_env_height(g_env);
+    apply_font(hwnd);
+    resize_window_to_grid(hwnd, cols, rows);  /* triggers WM_SIZE -> refresh */
+}
+
+/* --- Font family shortlist, offered to the Environment dialog (see
+ * ui_env_set_font_family_fns in ide_ui.h). Same ctx/callback shape as the
+ * zoom above, and the same follow-up work: reopen the font, re-derive the
+ * cell size, resize the window to keep the grid. --- */
+
+static int font_family_count(void *ctx)
+{
+    HWND hwnd = (HWND)ctx;
+    HDC dc = GetDC(hwnd);
+    probe_available_fonts(dc);
+    ReleaseDC(hwnd, dc);
+    return g_fonts.avail_count;
+}
+
+static const char *font_family_name(void *ctx, int index)
+{
+    HWND hwnd = (HWND)ctx;
+    HDC dc = GetDC(hwnd);
+    probe_available_fonts(dc);
+    ReleaseDC(hwnd, dc);
+
+    if (index < 0 || index >= g_fonts.avail_count)
+        return "";
+
+    /* The candidate names are wide; hand back a narrow copy. One rotating
+     * buffer set, since the caller (a <select> being populated) copies each
+     * name into its own item as it goes. */
+    static char bufs[FONT_CANDIDATE_COUNT][64];
+    static int next;
+    char *out = bufs[next];
+    next = (next + 1) % FONT_CANDIDATE_COUNT;
+    WideCharToMultiByte(CP_UTF8, 0, g_font_candidates[g_fonts.avail[index]], -1,
+                        out, (int)sizeof bufs[0], NULL, NULL);
+    return out;
+}
+
+static void font_family_set(void *ctx, int index)
+{
+    HWND hwnd = (HWND)ctx;
+    if (index < 0 || index >= g_fonts.avail_count || index == g_fonts.selected)
+        return;
+
+    g_fonts.selected = index;
     int cols = ui_env_width(g_env);
     int rows = ui_env_height(g_env);
     apply_font(hwnd);
@@ -478,6 +560,8 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 
         g_env = ui_env_create(ui_default_cols, ui_default_rows);
         ui_env_set_font_zoom_fn(g_env, adjust_font_size, hwnd);
+        ui_env_set_font_family_fns(g_env, font_family_count, font_family_name,
+                                    font_family_set, hwnd);
         ensure_bitmap(hwnd);
         /* ~60Hz tick to pump the app. Rendering is throttled separately (see
          * WM_TIMER) - the tick itself is cheap; the old 1ms timer made it try
@@ -715,8 +799,8 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         if (g_mem) { DeleteObject(g_bmp); DeleteDC(g_mem); }
         if (g_shadow_src) { DeleteObject(g_shadow_src_bmp); DeleteDC(g_shadow_src); }
         ui_env_free(g_env);
-        DeleteObject(g_font);
-        DeleteObject(g_font_box);
+        DeleteObject(g_fonts.main);
+        DeleteObject(g_fonts.box);
         PostQuitMessage(0);
         return 0;
     }
@@ -991,6 +1075,154 @@ void ui_open_terminal(const char *dir)
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
     }
+}
+
+/* --- Child process with captured output (see ui_process_start in ide_ui.h) ---
+ *
+ * CREATE_NO_WINDOW matters here: without it a console child (which is what
+ * a compiler is) pops a console window on top of the IDE for its lifetime.
+ * The pipe's write end must be inheritable and the read end must NOT be,
+ * or the child holds a handle to the read side and the pipe never reports
+ * EOF once the child exits. */
+struct ui_process
+{
+    HANDLE hread;
+    HANDLE hproc;
+    int ended;   /* child exited AND pipe drained - latched, see _read */
+};
+
+/* Formats the last Win32 error into `err` - so a start failure says what
+ * actually went wrong instead of just "failed". */
+static void win32_last_error(char *err, int errcap, const char *what)
+{
+    if (!err || errcap <= 0)
+        return;
+    DWORD code = GetLastError();
+    WCHAR wmsg[512] = { 0 };
+    FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                    NULL, code, 0, wmsg, 512, NULL);
+
+    char msg[512] = { 0 };
+    WideCharToMultiByte(CP_UTF8, 0, wmsg, -1, msg, (int)sizeof msg, NULL, NULL);
+    /* FormatMessage tacks on CRLF - trim so it sits on one line. */
+    for (char *q = msg; *q; q++)
+        if (*q == '\r' || *q == '\n') { *q = 0; break; }
+
+    snprintf(err, (size_t)errcap, "%s failed (error %lu): %s",
+              what, (unsigned long)code, msg[0] ? msg : "unknown error");
+}
+
+ui_process *ui_process_start(const char *command, const char *dir,
+                              char *err, int errcap)
+{
+    if (err && errcap > 0)
+        err[0] = 0;
+
+    SECURITY_ATTRIBUTES sa = { sizeof sa, NULL, TRUE };
+    HANDLE hread = NULL, hwrite = NULL;
+    if (!CreatePipe(&hread, &hwrite, &sa, 1 << 20)) {
+        win32_last_error(err, errcap, "CreatePipe");
+        return NULL;
+    }
+    SetHandleInformation(hread, HANDLE_FLAG_INHERIT, 0);
+
+    /* Run through the command processor rather than exec'ing `command`
+     * directly: it makes shell syntax work, and it means a program that
+     * isn't on PATH produces cmd.exe's own "'x' is not recognized as an
+     * internal or external command" ON THE PIPE, where the user can read
+     * it - CreateProcessW on the bare name would just fail with error 2
+     * and capture nothing at all. */
+    WCHAR shell[MAX_PATH];
+    DWORD n = GetEnvironmentVariableW(L"COMSPEC", shell, MAX_PATH);
+    if (n == 0 || n >= MAX_PATH)
+        wcscpy(shell, L"cmd.exe");
+
+    WCHAR wcmd[4096] = { 0 };
+    WCHAR wcommand[3500] = { 0 };
+    MultiByteToWideChar(CP_UTF8, 0, command, -1, wcommand, 3500);
+    swprintf(wcmd, 4096, L"%s /c %s", shell, wcommand);
+    wcmd[4095] = 0;
+
+    WCHAR wdir[MAX_PATH] = { 0 };
+    if (dir && dir[0])
+        MultiByteToWideChar(CP_UTF8, 0, dir, -1, wdir, MAX_PATH);
+
+    STARTUPINFOW si;
+    ZeroMemory(&si, sizeof si);
+    si.cb = sizeof si;
+    si.dwFlags = STARTF_USESTDHANDLES;
+    si.hStdOutput = hwrite;
+    si.hStdError = hwrite;   /* both streams into the one pipe, interleaved
+                              * the way a terminal would show them */
+    si.hStdInput = NULL;
+
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&pi, sizeof pi);
+
+    BOOL ok = CreateProcessW(NULL, wcmd, NULL, NULL, TRUE, CREATE_NO_WINDOW,
+                              NULL, wdir[0] ? wdir : NULL, &si, &pi);
+    if (!ok)
+        win32_last_error(err, errcap, "CreateProcess");
+
+    CloseHandle(hwrite);  /* our copy - the child has its own; keeping this
+                           * open would stop the pipe ever reaching EOF */
+    if (!ok) {
+        CloseHandle(hread);
+        return NULL;
+    }
+    CloseHandle(pi.hThread);
+
+    ui_process *p = calloc(1, sizeof *p);
+    if (!p) {
+        if (err && errcap > 0)
+            snprintf(err, (size_t)errcap, "out of memory");
+        CloseHandle(hread);
+        CloseHandle(pi.hProcess);
+        return NULL;
+    }
+    p->hread = hread;
+    p->hproc = pi.hProcess;
+    return p;
+}
+
+int ui_process_read(ui_process *p, char *buf, int cap)
+{
+    if (!p || p->ended)
+        return -1;
+
+    DWORD avail = 0;
+    if (PeekNamedPipe(p->hread, NULL, 0, NULL, &avail, NULL) && avail > 0) {
+        DWORD want = avail > (DWORD)cap ? (DWORD)cap : avail;
+        DWORD got = 0;
+        if (ReadFile(p->hread, buf, want, &got, NULL) && got > 0)
+            return (int)got;
+    }
+
+    /* Nothing right now. Only report the end once the child has exited AND
+     * the peek above came back empty - checking exit alone would race a
+     * final burst still sitting in the pipe. */
+    if (WaitForSingleObject(p->hproc, 0) == WAIT_OBJECT_0) {
+        avail = 0;
+        if (!PeekNamedPipe(p->hread, NULL, 0, NULL, &avail, NULL) || avail == 0) {
+            p->ended = 1;
+            return -1;
+        }
+    }
+    return 0;
+}
+
+int ui_process_close(ui_process *p)
+{
+    if (!p)
+        return -1;
+    DWORD code = 0;
+    WaitForSingleObject(p->hproc, INFINITE);
+    if (!GetExitCodeProcess(p->hproc, &code))
+        code = (DWORD)-1;
+    CloseHandle(p->hproc);
+    CloseHandle(p->hread);
+    free(p);
+    return (int)code;
 }
 
 int WINAPI wWinMain(HINSTANCE inst, HINSTANCE prev, PWSTR cmd, int show)

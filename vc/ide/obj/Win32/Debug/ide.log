@@ -1,0 +1,27 @@
+﻿  codegen.c
+  compile.c
+  console.c
+  defer.c
+  error.c
+  expressions.c
+  flow3.c
+  fs.c
+  hashmap.c
+  ide.c
+  ide_format.c
+  ide_ui.c
+  ide_win32.c
+  object.c
+  options.c
+  osstream.c
+  parser.c
+  pre_expressions.c
+  target.c
+  tinycthread.c
+  Generating Code...
+  Compiling...
+  token.c
+  tokenizer.c
+  type.c
+  Generating Code...
+  ide.vcxproj -> C:\Users\thiag\source\repos\cake\vc\ide\bin\Win32\Debug\ide.exe

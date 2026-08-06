@@ -121,9 +121,13 @@ enum {
     EVT_DIRS_CANCEL = 502,
     EVT_DIRS_HELP = 503,
     EVT_ENV_OK = 601,
-    EVT_ENV_THEME_CLASSIC = 610,
+    EVT_ENV_THEME_AMBAR = 610,
     EVT_ENV_THEME_DARK = 611,
     EVT_ENV_THEME_WHITE = 612,
+    EVT_ENV_FONT_BASE = 620,  /* base id for the "Font" <select>'s options -
+                               * EVT_ENV_FONT_BASE + index, reserving 620..63x
+                               * (the backend's shortlist is a handful of
+                               * entries; see ui_env_font_family_count) */
     EVT_OPEN_NAME = 700,
     EVT_OPEN_LISTBOX = 701,
     EVT_OPEN_OK = 702,
@@ -190,8 +194,23 @@ enum {
     EVT_COPTS_TARGET = 910,  /* base id for the Target <select>'s options */
     EVT_COPTS_STYLE = 920,   /* base id for the Style <select>'s options */
     EVT_TOOLS_FINDREPLACE = 63,  /* Tools > "Find and Replace..." - opens/
-                                  * raises the docked panel (see g_fr_window) */
+                                  * raises the docked panel (see g_fr.window) */
     EVT_TOOLS_TERMINAL = 64,    /* Tools > "Terminal" - see do_open_terminal() */
+    EVT_TOOLS_EXTERNAL = 65,    /* Tools > "External Tools..." - the config dialog */
+    EVT_TOOL_RUN_BASE = 1200,   /* base id for the configured tools' own Tools-menu
+                                 * items - EVT_TOOL_RUN_BASE + index, reserving
+                                 * 1200..12xx (EXT_TOOL_MAX of them) */
+    EVT_EXTTOOL_LIST = 1230,    /* the dialog's tool <listbox> */
+    EVT_EXTTOOL_OK = 1231,
+    EVT_EXTTOOL_CANCEL = 1232,
+    EVT_EXTTOOL_ADD = 1233,
+    EVT_EXTTOOL_DELETE = 1234,
+    EVT_EXTTOOL_TITLE = 1235,   /* the four field <input>s */
+    EVT_EXTTOOL_CMD = 1236,
+    EVT_EXTTOOL_ARGS = 1237,
+    EVT_EXTTOOL_DIR = 1238,
+    EVT_EXTTOOL_MOVEUP = 1239,    /* reorder - the list order IS the menu order */
+    EVT_EXTTOOL_MOVEDOWN = 1240,
     EVT_FR_MODE = 950,        /* the panel's own Find/Replace mode-toggle button */
     EVT_FR_FIND_BTN = 951,
     EVT_FR_REPLACE_BTN = 952,
@@ -202,9 +221,9 @@ enum {
     EVT_NAV_FORWARD = 971,  /* status bar's "Forward" hotkey - see nav_forward() */
     EVT_FOLDER_TOGGLE_FILTER = 972,  /* the Folder panel's own right-click
                                       * popup's "Filter" item - see
-                                      * g_folder_popup/g_folder_filter_enabled */
+                                      * g_folder.popup/g_folder.filter_enabled */
     EVT_FOLDER_SHOW_FILTER = 973,  /* same popup's "Show Filter"/"Create
-                                    * Filter" item - opens g_folder_dir's
+                                    * Filter" item - opens g_folder.dir's
                                     * CAKE_FOLDER_FILTER_NAME into an editor
                                     * window, creating it first (pre-filled
                                     * with the current listing) if it
@@ -212,7 +231,7 @@ enum {
                                     * refresh_folder_show_filter_item/
                                     * create_default_filter_file */
     EVT_FOLDER_COPY_PATH = 974,  /* same popup's "Copy Full Path" item -
-                                  * copies g_folder_dir itself (the directory
+                                  * copies g_folder.dir itself (the directory
                                   * the panel is currently browsing), not a
                                   * particular row - the popup isn't opened
                                   * per-row (see its own EVT_FOLDER_TOGGLE_
@@ -221,20 +240,20 @@ enum {
                                   * COPY_PATH, which copies a document
                                   * window's own path */
     EVT_FOLDER_NEWFILE = 975,  /* same popup's "New File..." item - opens the
-                                * dialog below (g_foldernew_modal), same one
+                                * dialog below (g_foldernew.modal), same one
                                 * EVT_FOLDER_NEWFOLDER opens - see
-                                * g_foldernew_is_folder's own doc comment for
+                                * g_foldernew.is_folder's own doc comment for
                                 * how the two share it */
     EVT_FOLDERNEW_OK = 976,   /* also the file/folder name <input>'s own id
                                * (same "Enter commits like clicking OK"
-                               * convention as g_copts_input/EVT_COPTS_OK) */
+                               * convention as g_copts.input/EVT_COPTS_OK) */
     EVT_FOLDERNEW_CANCEL = 977,
     EVT_FOLDER_NEWFOLDER = 980,  /* same popup's "New Folder..." item - opens
                                   * the same dialog as EVT_FOLDER_NEWFILE */
     EVT_FOLDER_DELETE = 978,  /* same popup's "Delete" item - deletes a file
                                * or an empty subdirectory, whichever the
                                * listbox's currently *selected* row is
-                               * (ui_select_get_selected(g_folder_listbox)) -
+                               * (ui_select_get_selected(g_folder.listbox)) -
                                * same as EVT_FOLDER_COPY_PATH's own doc
                                * comment notes, the popup itself isn't opened
                                * per-row; a right-click doesn't reposition
@@ -312,6 +331,17 @@ static ui_node* g_edit_readonly_item;
  * "[x]"/"[ ]" for whether each one's window is currently open rather than
  * the active editor's read-only state - see refresh_view_item()/
  * window_is_shown() and their app_frame() call sites. */
+/* The Tools <menu> itself - the configured External Tools are appended to
+ * it as their own items, and re-appended whenever the list changes (see
+ * rebuild_tools_menu()). Same forward-declared-for-build_screen() pattern
+ * as the item globals around it. */
+static ui_node* g_tools_menu;
+
+/* Defined much further down, next to the External Tools list it renders -
+ * forward declared so build_screen() (well above that point) can do the
+ * initial fill. */
+static void rebuild_tools_menu(void);
+
 static ui_node* g_view_output_item;
 static ui_node* g_view_folder_item;
 static ui_node* g_view_playground_item;
@@ -360,6 +390,8 @@ static ui_node* g_compile_show_output_item;
  * because that only ever returns the first match in the tree (the menu item),
  * so the status bar copy needs its label updated separately. */
 static ui_node* g_statusbar_autocompile_item;
+static ui_node* g_statusbar_compile_item;  /* "Compiling..." while a build
+                                            * runs - see compile_status_set */
 
 static void build_screen(ui_node* root)
 {
@@ -500,7 +532,11 @@ static void build_screen(ui_node* root)
     static const menu_item_spec tools_items[] = {
         { EVT_TOOLS_TERMINAL, "Terminal", NULL, 1 },
     };
-    add_menu(menubar, "Tools", tools_items, sizeof tools_items / sizeof tools_items[0]);
+    g_tools_menu = add_menu(menubar, "Tools", tools_items, sizeof tools_items / sizeof tools_items[0]);
+    /* Everything below "Terminal" - the configured tools, then "External
+     * Tools..." last - is appended by rebuild_tools_menu(), which re-runs
+     * whenever the list changes. */
+    rebuild_tools_menu();
 
     static const menu_item_spec options_items[] = {
         //   { 70, "Compiler...", NULL, 1 },
@@ -570,6 +606,17 @@ static void build_screen(ui_node* root)
     ui_append_child(statusbar, auto_item);
     g_statusbar_autocompile_item = auto_item;
 
+    /* Compile state - blank when idle, "Compiling..." while a build is in
+     * flight (see compile_status_set). Now that the compile streams on a
+     * worker thread instead of freezing the whole window, there is no other
+     * cue that one is running, and Compile/F7 silently does nothing while
+     * one is (see do_compile's re-entry guard) - which needs explaining
+     * rather than looking broken. No id: not clickable, display only. */
+    ui_node* compile_item = ui_create_element(UI_TAG_HOTKEY);
+    ui_set_label(compile_item, "");
+    ui_append_child(statusbar, compile_item);
+    g_statusbar_compile_item = compile_item;
+
     /* Purely decorative - see render_statusbar() in ide_ui.c: drawn
      * right-aligned in whatever room is left past the hotkeys above, and
      * just as silently skipped if the window's too narrow to fit it. */
@@ -581,10 +628,20 @@ static ui_env* g_env;  /* stashed in app_init() so menu handlers (e.g. Window
                         * > Font Size +/-) can drive ui_env_adjust_font_size() */
 static ui_node* g_about_modal;
 static ui_node* g_dirs_modal;
-static ui_node* g_env_modal;
-static ui_node* g_env_theme_select;  /* the "Theme" <select> - refreshed to
-                                      * match g_theme_index each time the
-                                      * modal opens (see EVT_OPTIONS_ENV) */
+/* Options > Environment... dialog: the modal, its two <select>s, and the
+ * settings they edit. Both indices are persisted with the session, and both
+ * <select>s are re-synced from them each time the modal opens (see
+ * EVT_OPTIONS_ENV). */
+static struct
+{
+    ui_node* modal;
+    ui_node* theme_select;
+    ui_node* font_select;   /* populated from the backend's shortlist (see
+                             * ui_env_font_family_count); NULL when the
+                             * backend offers none, and the row is omitted */
+    int theme_index;
+    int font_index;
+} g_envdlg;
 
                                       /* Compile > Options... dialog and the settings it edits - all of it
                                        * gathered into one compile_settings struct (g_compile) rather than a
@@ -594,17 +651,22 @@ static ui_node* g_env_theme_select;  /* the "Theme" <select> - refreshed to
                                        * whitespace into argv tokens at compile time); target is the slug for
                                        * the chosen Target, or "" for none - both fed into do_compile()'s argv,
                                        * same as no_output/line_directives/fanalyzer below. */
-static ui_node* g_copts_modal;
-static ui_node* g_copts_input;
-static ui_node* g_copts_target;
-static ui_node* g_copts_style;  /* -style=<name> <select>, same pattern as
-                                 * g_copts_target - "Do not check" (index 0)
-                                 * maps to the empty slug, meaning no -style
-                                 * flag at all (see do_compile()). */
-static ui_node* g_copts_flags;  /* "-no-output"/"-line-directives"/"-fanalyzer" -
+/* Compile > Options... dialog - every widget in it, grouped rather than
+ * spread over five separate globals (they are only ever touched together:
+ * opened as a unit, read back as a unit on OK - see EVT_COMPILE_OPTIONS /
+ * EVT_COPTS_OK). */
+static struct
+{
+    ui_node* modal;
+    ui_node* input;
+    ui_node* target;
+    ui_node* style;   /* -style=<name> <select> */
+    ui_node* flags;   /* "-no-output"/"-line-directives"/"-fanalyzer"/"-flow3"
+                       * check-box GROUP - same control as Find's "Options" */
+} g_copts;  /* "-no-output"/"-line-directives"/"-fanalyzer" -
                                  * a check-box GROUP (multi=1),
                                  * same control as Find's "Options"
-                                 * (g_find_opts). Read/written via
+                                 * (g_find.opts). Read/written via
                                  * ui_group_get_checked/ui_group_set_checked,
                                  * only at dialog-open/OK time - see
                                  * EVT_COMPILE_OPTIONS/EVT_COPTS_OK - same as the
@@ -695,91 +757,103 @@ static ui_node* g_output_editor;
 /* The persistent folder browser window - File > Open Folder... (via the
  * picker dialog, folder_select_confirm) or Window > Folder both just
  * re-raise this one singleton, same pattern as g_output_window above.
- * g_folder_dir is the directory it's currently showing (independent of the
- * Open dialog's own g_open_dir, which is only live while that dialog is
+ * g_folder.dir is the directory it's currently showing (independent of the
+ * Open dialog's own g_open.dir, which is only live while that dialog is
  * open). */
-static ui_node* g_folder_window;
-static ui_node* g_folder_listbox;
-static char g_folder_dir[1024];
+static struct
+{
+    ui_node* window;
+    ui_node* listbox;
+    char dir[1024];       /* directory currently shown */
+
+    /* Its right-click popup and the two items whose labels are refreshed
+     * each time it opens (refresh_folder_filter_item /
+     * refresh_folder_show_filter_item). */
+    ui_node* popup;
+    ui_node* popup_filter;
+    ui_node* popup_show;
+
+    int filter_enabled;   /* apply the directory's own index.txt? default on */
+} g_folder = { .filter_enabled = 1 };
 
 /* The Folder panel's own right-click popup - a "Filter" toggle (see
- * EVT_FOLDER_TOGGLE_FILTER) that flips g_folder_filter_enabled, plus a
- * second item that opens g_folder_dir's own CAKE_FOLDER_FILTER_NAME (see
- * EVT_FOLDER_SHOW_FILTER); opened over g_folder_listbox the same way
- * g_editor_popup opens over an editor (see app_frame()). g_folder_popup_filter
- * and g_folder_popup_show are those two items, whose labels are refreshed
+ * EVT_FOLDER_TOGGLE_FILTER) that flips g_folder.filter_enabled, plus a
+ * second item that opens g_folder.dir's own CAKE_FOLDER_FILTER_NAME (see
+ * EVT_FOLDER_SHOW_FILTER); opened over g_folder.listbox the same way
+ * g_editor_popup opens over an editor (see app_frame()). g_folder.popup_filter
+ * and g_folder.popup_show are those two items, whose labels are refreshed
  * each time the popup opens (refresh_folder_filter_item and
  * refresh_folder_show_filter_item), same pattern as the editor popup's
  * "Read-only" (refresh_readonly_item). */
-static ui_node* g_folder_popup;
-static ui_node* g_folder_popup_filter;
-static ui_node* g_folder_popup_show;
-
 /* Same popup's "New File..."/"New Folder..." items (EVT_FOLDER_NEWFILE/
  * EVT_FOLDER_NEWFOLDER) - one shared name-then-OK/Cancel dialog (same shape
  * as g_goto_modal/g_goto_input) that creates either an empty file or an
- * empty directory inside g_folder_dir (the directory the popup was opened
+ * empty directory inside g_folder.dir (the directory the popup was opened
  * over), depending on which item opened it - see EVT_FOLDERNEW_OK. */
-static ui_node* g_foldernew_modal;
-static ui_node* g_foldernew_window;  /* retitled " New File "/" New Folder "
-                                     * each time it opens - see g_foldernew_
-                                     * is_folder just below */
-static ui_node* g_foldernew_input;
-static int g_foldernew_is_folder;  /* which of the two items opened the
-                                    * dialog this time - set right before
-                                    * ui_screen_show_modal(), read back by
-                                    * EVT_FOLDERNEW_OK to decide fopen+
-                                    * open_file_path_into_editor vs plain
-                                    * mkdir (a folder isn't something to open
-                                    * into an editor). */
+/* Folder panel's "New File..."/"New Folder..." dialog - one dialog serving
+ * both, retitled per use. */
+static struct
+{
+    ui_node* modal;
+    ui_node* window;    /* retitled " New File "/" New Folder " */
+    ui_node* input;
+    int is_folder;      /* which of the two items opened it */
+} g_foldernew;
 
 /* Whether folder_window_refresh applies the browsed directory's own
  * index.txt (filtering the listing down to just what it lists, in that
  * order - see apply_index_order) - on by default. Unchecking "[x] Filter"
  * in the Folder panel's right-click popup turns it off, showing every entry
  * unfiltered instead, same as a folder with no index.txt always has. */
-static int g_folder_filter_enabled = 1;
 
 /* Tools > Find and Replace - a persistent docked panel (UI_DOCK_RIGHT), same
- * singleton pattern as g_folder_window/g_output_window above: raised again
+ * singleton pattern as g_folder.window/g_output_window above: raised again
  * instead of rebuilt every time the Tools menu item fires. Its content is
  * rebuilt from scratch (fr_rebuild_content, defined near do_find_replace
  * below) each time the mode toggles between Find and Replace, since the two
- * modes show a different set of fields - the g_fr_find_text..g_fr_file_type
+ * modes show a different set of fields - the g_fr.find_text..g_fr.file_type
  * fields below are what survives that rebuild (the widgets themselves don't).
- * fr_rebuild_content() reads g_fr_panel's CURRENT rect (ui_get_rect), not
+ * fr_rebuild_content() reads g_fr.panel's CURRENT rect (ui_get_rect), not
  * whatever it was created with - it's a docked window, so ui_set_dock's first
  * layout pass (dock_layout, in ide_ui.c) relocates it once shown, and a node
  * built fresh after that has no shift history of its own to inherit; only
  * nodes that already existed at the time of that move get carried along with
  * it (see set_window_rect in ide_ui.c). */
-static ui_node* g_fr_window;         /* wrapper <modal> passed to ui_screen_show_window */
-static ui_node* g_fr_panel;          /* the <window> node itself */
+/* Tools > Find and Replace - the docked panel, its controls, and the
+ * search settings they edit. One struct because the whole thing is torn
+ * down and rebuilt as a unit whenever the mode flips or the panel is
+ * resized (see fr_rebuild_content). */
+static struct
+{
+    ui_node* window;        /* wrapper <modal> passed to ui_screen_show_window */
+    ui_node* panel;         /* the <window> node itself */
+
+    int last_w;             /* width as of the last fr_rebuild_content() -
+                             * app_frame() compares against this each frame
+                             * to notice a dock-border drag */
+    int mode;               /* 0 = Find, 1 = Replace */
+
+    ui_node* mode_btn;
+    ui_node* find_input;
+    ui_node* replace_input; /* NULL while in Find mode (not built) */
+    ui_node* opts;          /* "Match case"/"Match whole word" - GROUP multi=1 */
+    ui_node* lookin;        /* "Current File"/"Current Dir"/"Include Dir" */
+    ui_node* filetypes;     /* "*.c" / "*.c;*.h" / "*.md" / "*.*" - SELECT */
+    ui_node* find_btn;
+    ui_node* replace_btn;   /* NULL while in Find mode (not built) */
+
+    char find_text[256];
+    char replace_text[256];
+    int match_case;
+    int match_word;
+    int look_in;            /* index into "Look in" - see fr_look_in */
+    int file_type;          /* index into "File Types" - see fr_file_type */
+} g_fr = { .match_case = 1 };
 #define FR_PANEL_MIN_W 26  /* dragging the dock border narrower than this
                             * would crush the Find/Replace buttons and
                             * checkboxes past usability - enforced each frame
                             * in app_frame() rather than left to the generic
                             * dock-resize clamp (which only floors at 1) */
-static int g_fr_last_w;              /* the panel's width as of the last
-                                      * fr_rebuild_content() call - app_frame()
-                                      * compares against this each frame to
-                                      * notice a border drag and re-lay-out the
-                                      * controls to the new width */
-static int g_fr_mode = 0;            /* 0 = Find, 1 = Replace */
-static ui_node* g_fr_mode_btn;
-static ui_node* g_fr_find_input;
-static ui_node* g_fr_replace_input;  /* NULL while in Find mode (not built) */
-static ui_node* g_fr_opts;           /* "Match case" / "Match whole word" - GROUP multi=1 */
-static ui_node* g_fr_lookin;         /* "Current File"/"Current Dir"/"Include Dir" - GROUP multi=0 */
-static ui_node* g_fr_filetypes;      /* "*.c" / "*.c;*.h" / "*.md" / "*.*" - SELECT */
-static ui_node* g_fr_find_btn;
-static ui_node* g_fr_replace_btn;    /* NULL while in Find mode (not built) */
-static char g_fr_find_text[256] = "";
-static char g_fr_replace_text[256] = "";
-static int g_fr_match_case = 1;
-static int g_fr_match_word = 0;
-static int g_fr_look_in = 0;         /* index into "Look in" - see fr_look_in */
-static int g_fr_file_type = 0;       /* index into "File Types" - see fr_file_type */
 
 static ui_node* g_root;
 static int g_new_count = 0;
@@ -787,17 +861,30 @@ static int g_new_count = 0;
 /* Options > File > Open...'s dialog state - the directory currently being
  * browsed and the wildcard mask filtering its file rows (directories always
  * show regardless of the mask, same as a classic DOS-era file dialog). */
-static ui_node* g_open_modal;
-static ui_node* g_open_window;      /* the <window> node - title changes per mode */
-static ui_node* g_open_name_input;
-static ui_node* g_open_listbox;
-static ui_node* g_open_ok;          /* the OK button - label changes per mode */
-static ui_node* g_open_filter;      /* the "Files of type" <select> - see g_open_filters */
-static ui_node* g_open_filter_label; /* its "Type" <text> label - shown/hidden together, see open_dialog_set_filter_visible */
+typedef enum { OPEN_DLG_FILE, OPEN_DLG_SAVE, OPEN_DLG_FOLDER } open_dialog_mode;
+
+/* The Open/Save As dialog - one dialog serving several modes (see
+ * open_dialog_mode / g_open.dialog_mode), so its title, OK label and
+ * filter visibility are all retargeted per use rather than duplicated. */
+static struct
+{
+    ui_node* modal;
+    ui_node* window;        /* title changes per mode */
+    ui_node* name_input;
+    ui_node* listbox;
+    ui_node* ok;            /* label changes per mode */
+    ui_node* filter;        /* "Files of type" <select> - see g_open_filters */
+    ui_node* filter_label;  /* its "Type" <text> - shown/hidden together,
+                             * see open_dialog_set_filter_visible */
+
+    open_dialog_mode dialog_mode;
+    char dir[1024];         /* directory being browsed */
+    char mask[64];          /* active filename mask, e.g. "*.c" */
+} g_open = { .dir = ".", .mask = "*.c" };
 
 /* The Open/Save dialog's "Files of type" options, Windows-Explorer style -
  * label shown in the dropdown paired with the mask it applies to
- * g_open_mask (see mask_matches). Picking one re-filters g_open_listbox and,
+ * g_open.mask (see mask_matches). Picking one re-filters g_open.listbox and,
  * in File-Open mode, replaces the mask portion of the Name field too (see
  * open_dialog_refresh and the EVT_OPEN_FILTER handler). Index 0 is the
  * default selected when the dialog opens (see EVT_FILE_OPEN/EVT_FILE_SAVEAS). */
@@ -812,15 +899,13 @@ static const open_filter_entry g_open_filters[] = {
 #define OPEN_FILTER_COUNT ((int)(sizeof g_open_filters / sizeof g_open_filters[0]))
 
 /* File > Save As... and File > Open Folder... both reuse the Open dialog
- * (see save_as_activate/folder_select_confirm) - g_open_dialog_mode picks
+ * (see save_as_activate/folder_select_confirm) - g_open.dialog_mode picks
  * which behavior its Name field/listbox/OK button follow. In save mode the
  * OK button writes the active editor to the chosen path instead of opening a
  * file; g_save_window is the editor window being saved, g_save_name the bare
  * filename shown/edited in the Name field. In folder mode the listbox shows
  * only directories and OK confirms the current one (see open_dialog_refresh/
  * activate). */
-typedef enum { OPEN_DLG_FILE, OPEN_DLG_SAVE, OPEN_DLG_FOLDER } open_dialog_mode;
-static open_dialog_mode g_open_dialog_mode;
 static ui_node* g_save_window;
 static char g_save_name[300];
 static char g_saveas_path[1024];  /* target path, pending the overwrite prompt */
@@ -850,26 +935,35 @@ static ui_node* g_wordwrap_input;
 static int g_wordwrap_columns = WORDWRAP_COLUMNS_DEFAULT;
 
 /* Search > Replace...'s dialog. The widget handles are kept so the OK/Change
- * All handlers can read what the user typed/checked; g_replace_target is the
+ * All handlers can read what the user typed/checked; g_replace.target is the
  * editor window's editor captured when the dialog opened. */
-static ui_node* g_replace_modal;
-static ui_node* g_replace_find;    /* "Text to Find" <input> */
-static ui_node* g_replace_new;     /* "New Text" <input> */
-static ui_node* g_replace_opts;    /* Options check-box group */
-static ui_node* g_replace_dir;     /* Direction radio group */
-static ui_node* g_replace_scope;   /* Scope radio group */
-static ui_node* g_replace_origin;  /* Origin radio group */
-static ui_node* g_replace_target;  /* the <editor> being searched */
+/* Replace Text dialog - the modal and every control in it. */
+static struct
+{
+    ui_node* modal;
+    ui_node* find;    /* "Text to Find" <input> */
+    ui_node* new_;    /* "New Text" <input> */
+    ui_node* opts;    /* Options check-box group */
+    ui_node* dir;     /* Direction radio group */
+    ui_node* scope;   /* Scope radio group */
+    ui_node* origin;  /* Origin radio group */
+    ui_node* target;  /* the <editor> being searched */
+} g_replace;
 
 /* Search > Find...'s dialog - same shape as Replace minus the New Text field
  * (OK just locates and selects the next match, no replacement). */
-static ui_node* g_find_modal;
-static ui_node* g_find_input;
-static ui_node* g_find_opts;
-static ui_node* g_find_dir;
-static ui_node* g_find_scope;
-static ui_node* g_find_origin;
-static ui_node* g_find_target;
+/* Find Text dialog - same shape as g_replace above, minus the "New Text"
+ * field. */
+static struct
+{
+    ui_node* modal;
+    ui_node* input;
+    ui_node* opts;
+    ui_node* dir;
+    ui_node* scope;
+    ui_node* origin;
+    ui_node* target;
+} g_find;
 
 /* Right-click context menu for the editor (see ui_screen_open_popup).
  * g_editor_popup_readonly is its "Read-only" item - its label/enabled state
@@ -878,6 +972,8 @@ static ui_node* g_find_target;
 static ui_node* g_editor_popup;
 static ui_node* g_editor_popup_readonly;
 static ui_node* g_editor_popup_hdrsrc;  /* "Toggle Header/Source" item */
+static ui_node* g_editor_popup_compile;  /* "Compile" item - .c files only,
+                                          * same EVT_COMPILE id as the menu */
 static ui_node* g_editor_popup_show_output;  /* "Show Generated Code" item -
                                               * disabled for a .md file, see
                                               * app_frame() */
@@ -950,8 +1046,6 @@ static int get_playground_file_path(char* buf, size_t cap);  /* defined below;
 static const char* label_for_path(const char* path);  /* defined below; used wherever a
                                                         * path is reopened without going
                                                         * through open_playground() itself */
-static char g_open_dir[1024] = ".";
-static char g_open_mask[64] = "*.c";
 
 #define OPEN_MAX_ENTRIES 512
 
@@ -963,17 +1057,184 @@ static char g_open_mask[64] = "*.c";
  * only this feature would ever create keeps the two from colliding. */
 #define CAKE_FOLDER_FILTER_NAME ".cakefilter"
 
-/* Options > Environment...'s Theme select: "Classic" is just whatever
- * ui_get_theme() returns at startup, snapshotted once before anything could
- * change it, rather than a duplicated literal that could drift out of sync
- * with the framework's actual default. "Dark" and "White" mirror Visual
- * Studio's own Dark and Light (Blue-accented) themes' actual palette, and
- * prove ui_set_theme() really does re-theme the whole running app, not just
- * newly-created widgets. */
-static ui_theme g_theme_classic;
+/* Options > Environment...'s Theme select offers "Ambar" (see
+ * g_theme_ambar below), plus "Dark" and "White", which mirror Visual
+ * Studio's own Dark and Light (Blue-accented) palettes - together they
+ * prove ui_set_theme() really does re-theme the whole running app, not
+ * just newly-created widgets. */
 
 /* Visual Studio Dark theme palette (editor #1E1E1E/#D4D4D4, chrome #2D2D30,
  * accent #007ACC). */
+/* "Ambar" - dark chrome with an amber accent (#F5C242): the accent
+ * carries buttons, the active border, selection and keywords, with a
+ * warm grey text ramp and a gruvbox-leaning syntax palette. Replaces
+ * the old "Classic" entry, which was only ever a snapshot of the
+ * framework default. */
+static const ui_theme g_theme_ambar = {
+    /* NOTE: anything drawn ON the #F5C242 accent uses dark ink, not white -
+     * white scores 1.66:1 against this amber (unreadable), dark ink 10:1.
+     * Buttons are the exception: their text is light, so their hover state
+     * stays grey instead of turning amber. */
+    .desktop_bg = TB_RGB(0x1E, 0x1E, 0x20),
+
+    .btn_bg = TB_RGB(0x3A, 0x3A, 0x3F),
+    .btn_bg_hot = TB_RGB(0x4A, 0x4A, 0x50),
+    .btn_bg_active = TB_RGB(0x7A, 0x5A, 0x12),
+    .btn_fg = TB_RGB(0xE8, 0xE4, 0xDA),
+
+    .hotkey_fg = TB_RGB(0x1E, 0x1E, 0x20),
+    .hotkey_key_fg = TB_RGB(0x8A, 0x3B, 0x0A),
+    .hotkey_bg = TB_RGB(0xF5, 0xC2, 0x42),
+    .hotkey_fg_hot = TB_RGB(0x1E, 0x1E, 0x20),
+    .hotkey_bg_hot = TB_RGB(0xFF, 0xD1, 0x66),
+
+    .menu_fg = TB_RGB(0xE8, 0xE4, 0xDA),
+    .menu_bg = TB_RGB(0x2F, 0x2F, 0x35),
+    .menu_fg_sel = TB_RGB(0x1E, 0x1E, 0x20),
+    .menu_bg_sel = TB_RGB(0xF5, 0xC2, 0x42),
+    .menu_item_fg = TB_RGB(0xE8, 0xE4, 0xDA),
+    .menu_item_bg = TB_RGB(0x26, 0x26, 0x2B),
+    .menu_item_fg_hot = TB_RGB(0x1E, 0x1E, 0x20),
+    .menu_item_bg_hot = TB_RGB(0xF5, 0xC2, 0x42),
+    .menu_item_shortcut_fg = TB_RGB(0xA8, 0xA2, 0x94),
+    .menu_item_fg_disabled = TB_RGB(0x65, 0x65, 0x65),
+    .menu_border_fg = TB_RGB(0x3A, 0x3A, 0x3F),  /* dark gray, not bright white */
+    .menu_border_bg = TB_RGB(0x26, 0x26, 0x2B),
+    .menu_border_style = UI_BORDER_SINGLE,
+
+    .box_fg = TB_RGB(0xE8, 0xE4, 0xDA),
+    .box_bg = TB_RGB(0x26, 0x26, 0x2B),
+    .box_border_style = UI_BORDER_DOUBLE,
+
+    .window_border_fg = TB_RGB(0xE8, 0xE4, 0xDA),
+    .window_border_bg = TB_RGB(0x2F, 0x2F, 0x35),
+    .window_border_fg_dragging = TB_RGB(0xF5, 0xC2, 0x42),
+    .window_border_fg_unfocused = TB_RGB(0x65, 0x65, 0x65),
+    .window_border_style = UI_BORDER_DOUBLE,
+    .window_border_style_unfocused = UI_BORDER_SINGLE,
+    .window_border_style_docked = UI_BORDER_SINGLE,  /* Output/Folder panels -
+                                                       * a lighter frame than
+                                                       * a floating document
+                                                       * window's */
+    .window_border_style_docked_unfocused = UI_BORDER_SINGLE,
+    .window_close_bg = TB_RGB(0xE0, 0x3E, 0x36),
+    .window_fg = TB_RGB(0xE8, 0xE4, 0xDA),
+    .window_bg = TB_RGB(0x26, 0x26, 0x2B),  /* VS's actual docked-panel
+                                             * (Git Changes/Folder/Solution
+                                             * Explorer) body color */
+    .modal_border_fg = TB_RGB(0xE8, 0xE4, 0xDA),
+    .modal_border_bg = TB_RGB(0x26, 0x26, 0x2B),
+    .modal_border_style = UI_BORDER_DOUBLE,
+    .modal_fg = TB_RGB(0xE8, 0xE4, 0xDA),
+    .modal_bg = TB_RGB(0x26, 0x26, 0x2B),  /* VS's actual Find/Replace and
+                                            * other dialog body color */
+    .scrollbar_bg = TB_RGB(0x2F, 0x2F, 0x35),  /* matches the window border */
+    .scrollbar_thumb_bg = TB_RGB(0x42, 0x42, 0x42),
+
+    .input_bg = TB_RGB(0x3C, 0x3C, 0x3C),  /* VS's actual text box/dropdown
+                                            * fill - lighter than modal_bg
+                                            * so fields stand out in dialogs */
+    .input_bg_focus = TB_RGB(0x1E, 0x1E, 0x20),  /* darker than the neutral
+                                                  * gray input_bg, so focus is
+                                                  * still visible - deliberately
+                                                  * NOT a blue tint, since
+                                                  * input_sel_bg below (the
+                                                  * caret/selection block,
+                                                  * #264F78) is a similar blue
+                                                  * and would nearly vanish
+                                                  * against a same-hued focus
+                                                  * fill */
+    .input_fg = TB_RGB(0xD8, 0xD6, 0xD0),
+    .input_fg_focus = TB_RGB(0xFF, 0xFF, 0xFF),
+    .input_sel_bg = TB_RGB(0x5A, 0x48, 0x1C),
+    .input_sel_fg = TB_RGB(0xFF, 0xFF, 0xFF),
+
+    .editor_bg = TB_RGB(0x1E, 0x1E, 0x20),
+    .editor_fg = TB_RGB(0xD8, 0xD6, 0xD0),
+    .editor_keyword_fg = TB_RGB(0xF5, 0xC2, 0x42),   /* types/storage: VS blue */
+    .editor_keyword2_fg = TB_RGB(0xD3, 0x86, 0x9B),  /* control flow: VS purple */
+    .editor_string_fg = TB_RGB(0xB8, 0xBB, 0x6B),
+    .editor_comment_fg = TB_RGB(0x7C, 0x7C, 0x74),
+    .editor_linenum_fg = TB_RGB(0x85, 0x85, 0x85),  /* VS Code Dark's actual
+                                                     * gutter gray */
+    .editor_preproc_fg = TB_RGB(0xD3, 0x86, 0x9B),
+    .editor_sel_bg = TB_RGB(0x5A, 0x48, 0x1C),  /* #264F78 - VS Dark's actual selection color */
+    .editor_sel_fg = TB_RGB(0xFF, 0xFF, 0xFF),
+    .editor_caret_bg = TB_RGB(0xFF, 0xD1, 0x66),  /* yellow block caret - the
+                                                   * blue selection color is too
+                                                   * close to this theme's dark
+                                                   * background to spot the
+                                                   * caret against it */
+    .editor_caret_fg = TB_RGB(0x1E, 0x1E, 0x20),  /* editor_bg, so the glyph
+                                                   * under the caret reads as
+                                                   * knocked out of the block */
+    .editor_current_line_bg = TB_RGB(0x2A, 0x2A, 0x2A),  /* subtle - close to
+                                                          * VS Code Dark's own
+                                                          * current-line tint */
+    .editor_bracket_fg = {
+        TB_RGB(0xFF, 0xD1, 0x66),  /* gold */
+        TB_RGB(0xFF, 0xB4, 0x5A),  /* pink */
+        TB_RGB(0x40, 0xE0, 0xD0),  /* turquoise */
+        TB_RGB(0x8A, 0xB4, 0xF8),  /* steel blue */
+    },
+    .editor_tag_fg = TB_RGB(0xE7, 0x8A, 0x4E),  /* teal - same accent as this
+                                                 * theme's own hotkey_key_fg,
+                                                 * VS Code Dark's actual type-
+                                                 * name color */
+    .editor_number_fg = TB_RGB(0xB5, 0xCE, 0xA8),  /* pale green - VS Code
+                                                     * Dark's actual numeric
+                                                     * literal color */
+    .editor_char_fg = TB_RGB(0xF0, 0x55, 0x4E),  /* rose - Atom One Dark's
+                                                   * character/constant color,
+                                                   * distinct from string_fg's
+                                                   * tan */
+    .editor_function_fg = TB_RGB(0xDC, 0xDC, 0xAA),  /* soft yellow - VS Code
+                                                       * Dark's actual function-
+                                                       * name color */
+    .editor_output_bg = TB_RGB(0x18, 0x18, 0x18),    /* one step darker than
+                                                       * editor_bg (#1E1E1E) -
+                                                       * VS Code Dark's recessed
+                                                       * panel look for Output */
+    .editor_output_fg = TB_RGB(0xD8, 0xD6, 0xD0),    /* same as editor_fg - the
+                                                       * dark panel keeps the
+                                                       * plain light default */
+
+    /* UI_SYNTAX_MARKDOWN - mirrors this theme's own C-highlighting accents
+     * rather than reusing them directly, so Markdown reads as part of the
+     * same VS Code Dark palette. */
+    .md_heading_fg = TB_RGB(0xF5, 0xC2, 0x42),     /* same VS blue as
+                                                     * editor_keyword_fg */
+    .md_blockquote_fg = TB_RGB(0x7C, 0x7C, 0x74),  /* same green as
+                                                     * editor_comment_fg */
+    .md_code_fg = TB_RGB(0xB8, 0xBB, 0x6B),        /* same tan as
+                                                     * editor_string_fg */
+    .md_bold_fg = TB_RGB(0xD8, 0xD6, 0xD0),        /* same as editor_fg */
+    .md_link_fg = TB_RGB(0xE9, 0xB4, 0x6A),        /* VS Code Dark's actual
+                                                     * hyperlink blue */
+    .md_code_bg = TB_RGB(0x28, 0x2C, 0x34),        /* slate - subtly lighter/
+                                                     * cooler than editor_bg
+                                                     * and distinct from
+                                                     * editor_current_line_bg,
+                                                     * GitHub dark's own code-
+                                                     * block tint */
+
+    /* <listbox> - same body colors as <editor>/<input> rather than the
+     * classic theme's cyan, selection reuses the same #007ACC accent as
+     * every other "selected" state in this theme. */
+    .listbox_fg = TB_RGB(0xD8, 0xD6, 0xD0),
+    .listbox_bg = TB_RGB(0x1E, 0x1E, 0x20),
+    .listbox_sel_fg = TB_RGB(0x1E, 0x1E, 0x20),
+    .listbox_sel_bg = TB_RGB(0xF5, 0xC2, 0x42),
+    .listbox_sel_inactive_fg = TB_RGB(0xD8, 0xD6, 0xD0),
+    .listbox_sel_inactive_bg = TB_RGB(0x3A, 0x3A, 0x3F),  /* VS's own muted gray */
+
+    /* <editor> inline diagnostics - VS Code Dark's actual error/warning/info
+     * squiggle colors, so they read as authentically part of this theme. */
+    .diag_error_fg = TB_RGB(0xF0, 0x55, 0x4E),
+    .diag_warning_fg = TB_RGB(0xCC, 0xA7, 0x00),
+    .diag_info_fg = TB_RGB(0xE9, 0xC4, 0x6A),
+};
+
 static const ui_theme g_theme_dark = {
     .desktop_bg = TB_RGB(0x1E, 0x1E, 0x1E),
 
@@ -1125,6 +1386,8 @@ static const ui_theme g_theme_dark = {
     .listbox_bg = TB_RGB(0x1E, 0x1E, 0x1E),
     .listbox_sel_fg = TB_RGB(0xFF, 0xFF, 0xFF),
     .listbox_sel_bg = TB_RGB(0x00, 0x7A, 0xCC),
+    .listbox_sel_inactive_fg = TB_RGB(0xD4, 0xD4, 0xD4),
+    .listbox_sel_inactive_bg = TB_RGB(0x3F, 0x3F, 0x46),  /* VS's own muted gray */
 
     /* <editor> inline diagnostics - VS Code Dark's actual error/warning/info
      * squiggle colors, so they read as authentically part of this theme. */
@@ -1287,6 +1550,8 @@ static const ui_theme g_theme_white = {
     .listbox_bg = TB_RGB(0xFF, 0xFF, 0xFF),
     .listbox_sel_fg = TB_RGB(0x00, 0x00, 0x00),
     .listbox_sel_bg = TB_RGB(0xCC, 0xE8, 0xFF),
+    .listbox_sel_inactive_fg = TB_RGB(0x1E, 0x1E, 0x1E),
+    .listbox_sel_inactive_bg = TB_RGB(0xE0, 0xE0, 0xE0),
 
     /* <editor> inline diagnostics - VS Code Light's actual error/warning/
      * info squiggle colors, so they read as authentically part of this
@@ -1296,12 +1561,11 @@ static const ui_theme g_theme_white = {
     .diag_info_fg = TB_RGB(0x1A, 0x85, 0xFF),
 };
 
-/* Index into the Theme <select> (Classic=0/Dark=1/White=2 - matches the
+/* Index into the Theme <select> (Ambar=0/Dark=1/White=2 - matches the
  * add_select_item() order in app_init()) of whichever theme is currently
  * applied. Kept in sync by apply_theme()'s three callers below and read
  * back by EVT_OPTIONS_ENV to select the right row each time the dialog
- * opens, instead of always defaulting to "Classic". */
-static int g_theme_index = 0;
+ * opens, instead of always defaulting to the first. */
 
 static int g_quit = 0;
 
@@ -1457,6 +1721,59 @@ static ui_node* make_new_editor_window(ui_node* root, int seq)
  * next frame just from ui_set_theme() - the desktop backdrop doesn't,
  * since it's a per-screen value the app set explicitly (ui_screen_set_
  * desktop()), so it needs this one extra call to track the theme too. */
+/* Theme <select> row order - Ambar=0/Dark=1/White=2, matching the
+ * add_select_item() calls in app_init(). Out-of-range (a hand-edited or
+ * future session file) falls back to the startup default rather than
+ * indexing off the end. */
+static const ui_theme* theme_by_index(int index)
+{
+    switch (index)
+    {
+    case 0:  return &g_theme_ambar;
+    case 2:  return &g_theme_white;
+    default: return &g_theme_dark;
+    }
+}
+
+/* Both defined further down with the rest of the session plumbing -
+ * forward declared so the peek below (which app_init needs early) can use
+ * them. */
+static int get_session_file_path(char* buf, size_t cap);
+static int session_read_line(FILE* f, char* key, size_t key_cap, char* val, size_t val_cap);
+
+/* Reads a single integer key straight out of the session file, before the
+ * real load_session() runs.
+ *
+ * Needed because the theme has to be known BEFORE app_init() builds its
+ * windows: 14 of them bake theme colors into ui_set_color() at construction
+ * time, and apply_theme() only swaps the live palette - it cannot go back
+ * and re-color what was already built. Restoring the theme at the end of
+ * app_init (where the font is restored) would leave every one of those
+ * windows wearing the startup theme's colors. */
+static int session_peek_int(const char* key, int fallback)
+{
+    char path[FS_MAX_PATH];
+    if (!get_session_file_path(path, sizeof path))
+        return fallback;
+
+    FILE* f = fopen(path, "rb");
+    if (!f)
+        return fallback;
+
+    int value = fallback;
+    char k[256], v[1024];
+    while (session_read_line(f, k, sizeof k, v, sizeof v))
+    {
+        if (strcmp(k, key) == 0)
+        {
+            value = atoi(v);
+            break;
+        }
+    }
+    fclose(f);
+    return value;
+}
+
 static void apply_theme(const ui_theme* theme)
 {
     ui_set_theme(theme);
@@ -1653,20 +1970,20 @@ static void refresh_codeblock_items(ui_node* copy_item, ui_node* playground_item
 }
 
 /* Update the Folder panel popup's "Filter" item's label to reflect
- * g_folder_filter_enabled - same [x]/[ ] convention as refresh_readonly_item,
+ * g_folder.filter_enabled - same [x]/[ ] convention as refresh_readonly_item,
  * just with nothing to disable (unlike Read-only, this toggle is always
  * available). */
 static void refresh_folder_filter_item(ui_node* item)
 {
     if (!item)
         return;
-    ui_set_label(item, g_folder_filter_enabled ? "[x] Filter" : "[ ] Filter");
+    ui_set_label(item, g_folder.filter_enabled ? "[x] Filter" : "[ ] Filter");
 }
 
 /* Whether `wrapper` is one of the currently open floating windows - i.e. it
  * would actually show up on screen right now, not just that the node
  * exists somewhere in the tree (a closed-but-not-torn-down persistent
- * singleton like g_output_window/g_folder_window stays a child of root -
+ * singleton like g_output_window/g_folder.window stays a child of root -
  * see ui_set_transient's own doc comment - so checking the tree wouldn't
  * tell "open" from "closed"; the shown-window list does). Used by the View
  * menu's "[x] Show ..." items below. */
@@ -1699,7 +2016,7 @@ static void refresh_view_item(ui_node* item, const char* label, int visible)
 }
 
 /* Update the Folder panel popup's "Show Filter"/"Create Filter" item's
- * label to reflect whether g_folder_dir already has a
+ * label to reflect whether g_folder.dir already has a
  * CAKE_FOLDER_FILTER_NAME on disk - "Show Filter" opens the existing one
  * (EVT_FOLDER_SHOW_FILTER's original behavior); "Create Filter" means that
  * same click will first generate one, pre-filled with the folder's current
@@ -1710,7 +2027,7 @@ static void refresh_folder_show_filter_item(ui_node* item)
     if (!item)
         return;
     char path[1024];
-    snprintf(path, sizeof path, "%s/%s", g_folder_dir, CAKE_FOLDER_FILTER_NAME);
+    snprintf(path, sizeof path, "%s/%s", g_folder.dir, CAKE_FOLDER_FILTER_NAME);
     FILE* f = fopen(path, "rb");
     if (f)
     {
@@ -1806,7 +2123,7 @@ static char* read_file_to_string(const char* path);
 
 /* ---- CAKE_FOLDER_FILTER_NAME (".cakefilter"): optional per-folder
  * filter+order for the persistent Folder browser window only
- * (folder_window_refresh, gated further by g_folder_filter_enabled - see
+ * (folder_window_refresh, gated further by g_folder.filter_enabled - see
  * EVT_FOLDER_TOGGLE_FILTER) - never applied to the Open/Save-As/
  * folder-picker dialog (open_dialog_refresh), which is about opening/
  * saving one file, not browsing. Each line names one entry already on
@@ -1986,7 +2303,7 @@ static int apply_index_order(const char* dir, char names[][300], char titles[][3
  * asks to filter that down to just the folder's own CAKE_FOLDER_FILTER_NAME
  * (and, per-entry, retitle) on top of that (see apply_index_order above) -
  * true only for the persistent Folder browser window (folder_window_refresh,
- * itself gated by g_folder_filter_enabled); the Open/Save-As/folder-picker
+ * itself gated by g_folder.filter_enabled); the Open/Save-As/folder-picker
  * dialog (open_dialog_refresh, below) always passes 0, so opening a file is
  * never affected. When a filter file exists, anything on disk it doesn't
  * list is left out of the listing entirely - it's the whole list, not a
@@ -2138,18 +2455,18 @@ static void create_default_filter_file(const char* dir)
     fclose(f);
 }
 
-/* Rebuilds g_open_listbox's rows from g_open_dir (see
+/* Rebuilds g_open.listbox's rows from g_open.dir (see
  * populate_listbox_from_dir), and refreshes the Name field to match -
  * called on first opening the dialog and after every navigation (up, into a
  * subdirectory, or a typed Name field). */
 static void open_dialog_refresh(void)
 {
-    int folder_mode = g_open_dialog_mode == OPEN_DLG_FOLDER;
+    int folder_mode = g_open.dialog_mode == OPEN_DLG_FOLDER;
     /* use_index_order is always 0 here - the Open/Save-As/folder-picker
      * dialog is about opening/saving one file, never reordered by
      * index.txt even in folder-picker mode. See populate_listbox_from_dir. */
-    populate_listbox_from_dir(g_open_listbox, g_open_dir,
-                               folder_mode ? NULL : g_open_mask, folder_mode, 0);
+    populate_listbox_from_dir(g_open.listbox, g_open.dir,
+                               folder_mode ? NULL : g_open.mask, folder_mode, 0);
 
     /* Cosmetic display only (backslashes regardless of platform, matching
      * this whole app's DOS/Windows IDE look) - never parsed back except
@@ -2157,14 +2474,14 @@ static void open_dialog_refresh(void)
      * mode shows just the directory - there's no mask/filename to append. */
     char display[1024];
     if (folder_mode)
-        snprintf(display, sizeof display, "%s", g_open_dir);
+        snprintf(display, sizeof display, "%s", g_open.dir);
     else
-        snprintf(display, sizeof display, "%s/%s", g_open_dir,
-                  g_open_dialog_mode == OPEN_DLG_SAVE ? g_save_name : g_open_mask);
+        snprintf(display, sizeof display, "%s/%s", g_open.dir,
+                  g_open.dialog_mode == OPEN_DLG_SAVE ? g_save_name : g_open.mask);
     for (char* p = display; *p; p++)
         if (*p == '/')
             *p = '\\';
-    ui_set_value(g_open_name_input, display);
+    ui_set_value(g_open.name_input, display);
 
     /* Select just the mask/filename portion (after the last backslash), not
      * the directory - so the user can start typing a new mask like *.md
@@ -2173,7 +2490,7 @@ static void open_dialog_refresh(void)
      * always leaves the cursor at the end with nothing selected). */
     const char* last_bslash = strrchr(display, '\\');
     int sel_start = last_bslash ? (int)(last_bslash - display + 1) : 0;
-    ui_editor_set_selection(g_open_name_input, sel_start, (int)strlen(display));
+    ui_editor_set_selection(g_open.name_input, sel_start, (int)strlen(display));
 }
 
 /* Shows or hides the "Type" label + files-of-type <select> as a pair.
@@ -2185,13 +2502,13 @@ static void open_dialog_refresh(void)
  * regardless of the dialog's previous mode. */
 static void open_dialog_set_filter_visible(int visible)
 {
-    ui_remove_child(g_open_window, g_open_filter_label);
-    ui_remove_child(g_open_window, g_open_filter);
+    ui_remove_child(g_open.window, g_open.filter_label);
+    ui_remove_child(g_open.window, g_open.filter);
     if (visible)
     {
-        ui_append_child(g_open_window, g_open_filter_label);
-        ui_append_child(g_open_window, g_open_filter);
-        ui_set_enabled(g_open_filter, 1);
+        ui_append_child(g_open.window, g_open.filter_label);
+        ui_append_child(g_open.window, g_open.filter);
+        ui_set_enabled(g_open.filter, 1);
     }
 }
 
@@ -2226,7 +2543,7 @@ static const char* basename_of(const char* p);
   * still has to refresh its own listbox), or 0 if it's a plain file row the
   * caller must handle itself. Shared by open_dialog_activate and
   * folder_window_activate, which each navigate a different directory
-  * (g_open_dir vs g_folder_dir). */
+  * (g_open.dir vs g_folder.dir). */
 static int dir_row_navigate(char* dir_buf, size_t dir_buf_size, const char* label)
 {
     size_t len = strlen(label);
@@ -2323,15 +2640,16 @@ typedef struct
 } nav_pos;
 
 #define NAV_STACK_MAX 64
-static nav_pos g_nav_back[NAV_STACK_MAX];
-static int g_nav_back_count = 0;
-static nav_pos g_nav_fwd[NAV_STACK_MAX];
-static int g_nav_fwd_count = 0;
-
-/* Set while nav_back()/nav_forward() are themselves the ones moving the
- * caret, so the jump they perform isn't mistaken for a brand new explicit
- * jump and re-recorded - that would bulldoze the very stack being walked. */
-static int g_nav_restoring = 0;
+/* Navigate Back/Forward history - the two stacks and the re-entry guard
+ * that keeps a restore from recording itself as a new jump. */
+static struct
+{
+    nav_pos back[NAV_STACK_MAX];
+    int back_count;
+    nav_pos fwd[NAV_STACK_MAX];
+    int fwd_count;
+    int restoring;
+} g_nav;
 
 /* Fills `out` from g_active_editor_window's current path/caret/scroll, or
  * returns 0 if there's no active document window to capture (every window
@@ -2369,16 +2687,16 @@ static void nav_push(nav_pos* stack, int* count, const nav_pos* pos)
 /* Records the current position as a Back stop and clears the Forward stack -
  * call this right before an explicit jump actually moves the caret/window,
  * so Back always returns to where the jump was made FROM. A no-op while
- * g_nav_restoring (see above) or if there's nothing to capture. */
+ * g_nav.restoring (see above) or if there's nothing to capture. */
 static void nav_record_jump(void)
 {
-    if (g_nav_restoring)
+    if (g_nav.restoring)
         return;
     nav_pos here;
     if (!nav_capture(&here))
         return;
-    nav_push(g_nav_back, &g_nav_back_count, &here);
-    g_nav_fwd_count = 0;
+    nav_push(g_nav.back, &g_nav.back_count, &here);
+    g_nav.fwd_count = 0;
 }
 
 /* Opens/raises `pos`'s window - reusing find_open_window/
@@ -2409,45 +2727,45 @@ static void nav_restore(const nav_pos* pos)
 
 static void nav_back(void)
 {
-    if (g_nav_back_count == 0)
+    if (g_nav.back_count == 0)
         return;
     nav_pos here;
     int have_here = nav_capture(&here);
 
-    nav_pos target = g_nav_back[--g_nav_back_count];
+    nav_pos target = g_nav.back[--g_nav.back_count];
     if (have_here)
-        nav_push(g_nav_fwd, &g_nav_fwd_count, &here);
+        nav_push(g_nav.fwd, &g_nav.fwd_count, &here);
 
-    g_nav_restoring = 1;
+    g_nav.restoring = 1;
     nav_restore(&target);
-    g_nav_restoring = 0;
+    g_nav.restoring = 0;
 }
 
 static void nav_forward(void)
 {
-    if (g_nav_fwd_count == 0)
+    if (g_nav.fwd_count == 0)
         return;
     nav_pos here;
     int have_here = nav_capture(&here);
 
-    nav_pos target = g_nav_fwd[--g_nav_fwd_count];
+    nav_pos target = g_nav.fwd[--g_nav.fwd_count];
     if (have_here)
-        nav_push(g_nav_back, &g_nav_back_count, &here);
+        nav_push(g_nav.back, &g_nav.back_count, &here);
 
-    g_nav_restoring = 1;
+    g_nav.restoring = 1;
     nav_restore(&target);
-    g_nav_restoring = 0;
+    g_nav.restoring = 0;
 }
 
 static void open_dialog_activate(int index)
 {
-    if (index < 0 || index >= ui_child_count(g_open_listbox))
+    if (index < 0 || index >= ui_child_count(g_open.listbox))
         return;
-    const char* label = ui_get_label(ui_child_at(g_open_listbox, index));
+    const char* label = ui_get_label(ui_child_at(g_open.listbox, index));
     if (!label[0])
         return;
 
-    if (dir_row_navigate(g_open_dir, sizeof g_open_dir, label))
+    if (dir_row_navigate(g_open.dir, sizeof g_open.dir, label))
     {
         open_dialog_refresh();
         return;
@@ -2455,7 +2773,7 @@ static void open_dialog_activate(int index)
 
     /* Save mode: picking a file row doesn't open it - it drops that name into
      * the Name field to overwrite (the user still confirms via Save). */
-    if (g_open_dialog_mode == OPEN_DLG_SAVE)
+    if (g_open.dialog_mode == OPEN_DLG_SAVE)
     {
         strncpy(g_save_name, label, sizeof g_save_name - 1);
         g_save_name[sizeof g_save_name - 1] = 0;
@@ -2464,32 +2782,32 @@ static void open_dialog_activate(int index)
     }
 
     char path[1024];
-    snprintf(path, sizeof path, "%s/%s", g_open_dir, label);
+    snprintf(path, sizeof path, "%s/%s", g_open.dir, label);
     nav_record_jump();
     open_file_path_into_editor(path, label);
-    ui_screen_close_modal(g_screen, g_open_modal);
+    ui_screen_close_modal(g_screen, g_open.modal);
 }
 
-/* Rebuilds the persistent folder browser window's listbox from g_folder_dir
+/* Rebuilds the persistent folder browser window's listbox from g_folder.dir
  * (only source files - see the mask - plus all subdirectories for
  * navigation, see populate_listbox_from_dir), and retitles the window to
  * show the directory it's now showing. use_index_order tracks
- * g_folder_filter_enabled - the Folder panel's own right-click "Filter"
+ * g_folder.filter_enabled - the Folder panel's own right-click "Filter"
  * toggle (see EVT_FOLDER_TOGGLE_FILTER) - rather than always being on, so
- * the user can turn g_folder_dir's own CAKE_FOLDER_FILTER_NAME filtering
+ * the user can turn g_folder.dir's own CAKE_FOLDER_FILTER_NAME filtering
  * off and see everything unfiltered instead. */
 static void folder_window_refresh(void)
 {
-    populate_listbox_from_dir(g_folder_listbox, g_folder_dir, "*.h;*.c;*.md", 0,
-                               g_folder_filter_enabled);
+    populate_listbox_from_dir(g_folder.listbox, g_folder.dir, "*.h;*.c;*.md", 0,
+                               g_folder.filter_enabled);
 
     /* Just the folder's own name, not the full path - there's no room for
      * that in the title bar. */
-    ui_node* window = ui_child_at(g_folder_window, 0);
+    ui_node* window = ui_child_at(g_folder.window, 0);
     if (window)
     {
         char title[320];
-        snprintf(title, sizeof title, " %s ", basename_of(g_folder_dir));
+        snprintf(title, sizeof title, " %s ", basename_of(g_folder.dir));
         ui_set_label(window, title);
     }
 }
@@ -2504,43 +2822,43 @@ static void folder_window_refresh(void)
  * navigation/opening (and the opened editor window's own title) need. */
 static void folder_window_activate(int index)
 {
-    if (index < 0 || index >= ui_child_count(g_folder_listbox))
+    if (index < 0 || index >= ui_child_count(g_folder.listbox))
         return;
-    const char* entry = ui_get_path(ui_child_at(g_folder_listbox, index));
+    const char* entry = ui_get_path(ui_child_at(g_folder.listbox, index));
     if (!entry[0])
         return;
 
-    if (dir_row_navigate(g_folder_dir, sizeof g_folder_dir, entry))
+    if (dir_row_navigate(g_folder.dir, sizeof g_folder.dir, entry))
     {
         folder_window_refresh();
         return;
     }
 
     char path[1024];
-    snprintf(path, sizeof path, "%s/%s", g_folder_dir, entry);
+    snprintf(path, sizeof path, "%s/%s", g_folder.dir, entry);
     nav_record_jump();
     open_file_path_into_editor(path, entry);
 }
 
 /* File > Open Folder...'s OK/"Select" confirmation (EVT_OPEN_OK while
- * g_open_dialog_mode == OPEN_DLG_FOLDER): point the singleton folder browser
+ * g_open.dialog_mode == OPEN_DLG_FOLDER): point the singleton folder browser
  * window at whichever directory the picker had navigated to, close the
  * picker, and raise it. */
 static void folder_select_confirm(void)
 {
-    strncpy(g_folder_dir, g_open_dir, sizeof g_folder_dir - 1);
-    g_folder_dir[sizeof g_folder_dir - 1] = 0;
+    strncpy(g_folder.dir, g_open.dir, sizeof g_folder.dir - 1);
+    g_folder.dir[sizeof g_folder.dir - 1] = 0;
     folder_window_refresh();
 
-    ui_screen_close_modal(g_screen, g_open_modal);
-    g_open_dialog_mode = OPEN_DLG_FILE;
-    ui_screen_show_window(g_screen, g_folder_window);
+    ui_screen_close_modal(g_screen, g_open.modal);
+    g_open.dialog_mode = OPEN_DLG_FILE;
+    ui_screen_show_window(g_screen, g_folder.window);
 }
 
 /* Points the persistent Folder panel at `dir` and raises it - shared by the
  * editor popup's "Show My Folder" (EVT_EDITOR_SHOW_FOLDER) and F1's contextual
  * help (do_help_contextual), so both land the user on the relevant folder
- * without a separate File > Open Folder... trip. Same "write g_folder_dir
+ * without a separate File > Open Folder... trip. Same "write g_folder.dir
  * directly, then refresh+show" idiom folder_select_confirm uses above, just
  * without an Open dialog to close first - neither caller has one open. A
  * no-op for a NULL/empty dir (e.g. a document with no path yet). */
@@ -2548,10 +2866,10 @@ static void folder_reveal_directory(const char* dir)
 {
     if (!dir || !dir[0])
         return;
-    strncpy(g_folder_dir, dir, sizeof g_folder_dir - 1);
-    g_folder_dir[sizeof g_folder_dir - 1] = 0;
+    strncpy(g_folder.dir, dir, sizeof g_folder.dir - 1);
+    g_folder.dir[sizeof g_folder.dir - 1] = 0;
     folder_window_refresh();
-    ui_screen_show_window(g_screen, g_folder_window);
+    ui_screen_show_window(g_screen, g_folder.window);
 }
 
 /* Opens a specific help/<filename> topic (e.g. "index.md", "cmdline.md") into
@@ -2809,9 +3127,9 @@ static void do_open_terminal(void)
         }
     }
 
-    if (!dir[0] && g_folder_dir[0])
+    if (!dir[0] && g_folder.dir[0])
     {
-        strncpy(dir, g_folder_dir, sizeof dir - 1);
+        strncpy(dir, g_folder.dir, sizeof dir - 1);
         dir[sizeof dir - 1] = 0;
     }
 
@@ -3048,44 +3366,589 @@ static void do_editor_ctrlclick(void)
 #define CAPTURE_BUF_SIZE 16384
 #define CAPTURE_TMP_FILE ".compile_output.tmp"
 
-/* Runs compile(), capturing whatever it printf's to stdout along the way -
- * it has no other channel back to us for that text. A GUI-subsystem build
- * (win32.c links -mwindows) has no console, so stdout's underlying file
- * descriptor is invalid from the very start of the process - redirecting
- * fd 1 via dup2 doesn't help, since the CRT's stdout stream object already
- * recorded that invalid descriptor and every printf() using it short-
- * circuits before ever reaching a real fd. freopen() sidesteps that by
- * fully reassociating the stream with a real file, discarding whatever fd
- * (valid or not) it had before - the portable way to do this regardless of
- * whether a console is attached. Returns a calloc'd buffer - caller's to
- * free(). */
-static char* capture_and_compile(int argc, const char** argv, struct report* report)
+/* --- External Tools (Visual Studio-style) --------------------------------
+ *
+ * A short list of user-configured programs, each appearing as its own item
+ * in the Tools menu. Running one spawns it as a real child process (see
+ * ui_process_start) and streams its stdout+stderr into the Output window
+ * through exactly the same per-frame drain the internal compile uses - the
+ * only difference is where the bytes come from, a pipe-from-a-child rather
+ * than a pipe-from-a-worker-thread.
+ *
+ * Arguments support the usual Visual Studio macros, expanded against the
+ * active document (see exttool_expand):
+ *     $(FilePath)  full path            $(FileDir)   containing directory
+ *     $(FileName)  name without ext     $(FileExt)   extension, with the dot
+ * A literal "$$" produces a single "$".
+ */
+#define EXT_TOOL_MAX 12
+
+typedef struct
 {
-    char* buf = calloc(CAPTURE_BUF_SIZE, 1);
+    char title[64];    /* shown in the Tools menu */
+    char command[512]; /* program to run */
+    char args[512];    /* argument string, macros expanded before use */
+    char dir[512];     /* working directory, macros expanded too ("" = inherit) */
+} ext_tool;
 
+static struct
+{
+    ext_tool items[EXT_TOOL_MAX];
+    int count;
+} g_tools;
+
+/* Tools > External Tools... - the config dialog. `edit` is a working copy
+ * the dialog mutates; it is only committed over g_tools on OK, so Cancel
+ * discards everything (same pattern as the Compiler Options dialog
+ * re-syncing its controls on open). `sel` is the row being edited. */
+static struct
+{
+    ui_node* modal;
+    ui_node* listbox;
+    ui_node* title_input;
+    ui_node* cmd_input;
+    ui_node* args_input;
+    ui_node* dir_input;
+
+    ext_tool edit[EXT_TOOL_MAX];
+    int count;
+    int sel;
+} g_exttool;
+
+/* --- External Tools dialog helpers ---
+ * The dialog edits g_exttool.edit (a working copy) and only writes it back
+ * over g_tools on OK, so Cancel is a true discard. */
+
+static void exttool_refresh_list(void)
+{
+    ui_node* lb = g_exttool.listbox;
+    if (!lb)
+        return;
+    while (ui_child_count(lb) > 0)
+    {
+        ui_node* c = ui_child_at(lb, 0);
+        ui_remove_child(lb, c);
+        ui_node_free(c);
+    }
+    for (int i = 0; i < g_exttool.count; i++)
+    {
+        ui_node* it = ui_create_element(UI_TAG_ITEM);
+        ui_set_label(it, g_exttool.edit[i].title[0] ? g_exttool.edit[i].title
+                                                     : "(untitled)");
+        ui_append_child(lb, it);
+    }
+    if (g_exttool.sel >= g_exttool.count)
+        g_exttool.sel = g_exttool.count - 1;
+    if (g_exttool.sel < 0 && g_exttool.count > 0)
+        g_exttool.sel = 0;
+    ui_select_set_selected(lb, g_exttool.sel);
+}
+
+/* Copies the selected row into the four field <input>s (all blank when
+ * there is no selection). */
+static void exttool_load_fields(void)
+{
+    const ext_tool* t = (g_exttool.sel >= 0 && g_exttool.sel < g_exttool.count)
+                        ? &g_exttool.edit[g_exttool.sel] : NULL;
+    ui_set_value(g_exttool.title_input, t ? t->title : "");
+    ui_set_value(g_exttool.cmd_input, t ? t->command : "");
+    ui_set_value(g_exttool.args_input, t ? t->args : "");
+    ui_set_value(g_exttool.dir_input, t ? t->dir : "");
+}
+
+/* The reverse: fields back into the selected row. Called on every change
+ * that could move the selection away, so edits aren't silently lost. */
+static void exttool_store_fields(void)
+{
+    if (g_exttool.sel < 0 || g_exttool.sel >= g_exttool.count)
+        return;
+    ext_tool* t = &g_exttool.edit[g_exttool.sel];
+    snprintf(t->title, sizeof t->title, "%s", ui_get_value(g_exttool.title_input));
+    snprintf(t->command, sizeof t->command, "%s", ui_get_value(g_exttool.cmd_input));
+    snprintf(t->args, sizeof t->args, "%s", ui_get_value(g_exttool.args_input));
+    snprintf(t->dir, sizeof t->dir, "%s", ui_get_value(g_exttool.dir_input));
+}
+
+/* Rebuilds everything in the Tools menu below its one fixed item
+ * ("Terminal", built in build_screen()): the configured tools, then
+ * "External Tools..." pinned LAST so the configuration entry stays at the
+ * bottom no matter how many tools are defined. No separator before it -
+ * it reads as part of the same list. Dropped and refilled each
+ * time the list changes - same remove-then-refill idiom the Open dialog's
+ * listbox uses (see open_dialog_refresh). */
+#define TOOLS_MENU_FIXED_ITEMS 1
+
+static void rebuild_tools_menu(void)
+{
+    if (!g_tools_menu)
+        return;
+
+    while (ui_child_count(g_tools_menu) > TOOLS_MENU_FIXED_ITEMS)
+    {
+        ui_node* c = ui_child_at(g_tools_menu, ui_child_count(g_tools_menu) - 1);
+        ui_remove_child(g_tools_menu, c);
+        ui_node_free(c);
+    }
+
+    if (g_tools.count > 0)
+    {
+        ui_node* sep = ui_create_element(UI_TAG_ITEM);
+        ui_set_separator(sep, 1);
+        ui_append_child(g_tools_menu, sep);
+
+        for (int i = 0; i < g_tools.count; i++)
+        {
+            ui_node* it = ui_create_element(UI_TAG_ITEM);
+            ui_set_id(it, EVT_TOOL_RUN_BASE + i);
+            ui_set_label(it, g_tools.items[i].title[0] ? g_tools.items[i].title
+                                                        : g_tools.items[i].command);
+            ui_append_child(g_tools_menu, it);
+        }
+    }
+
+    ui_node* cfg = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(cfg, EVT_TOOLS_EXTERNAL);
+    ui_set_label(cfg, "External Tools...");
+    ui_append_child(g_tools_menu, cfg);
+}
+
+/* Appends `text` to buf (capacity `cap`), never overflowing. */
+static void exttool_append(char* buf, size_t cap, size_t* len, const char* text)
+{
+    while (*text && *len + 1 < cap)
+        buf[(*len)++] = *text++;
+    buf[*len] = 0;
+}
+
+/* Expands the $(...) macros above in `in`, writing to `out`. `path` is the
+ * active document's full path ("" when there is none, which simply makes
+ * every file macro expand to nothing rather than failing). */
+static void exttool_expand(const char* in, const char* path, char* out, size_t cap)
+{
+    size_t len = 0;
+    out[0] = 0;
+
+    char dir[1024] = { 0 }, name[512] = { 0 }, ext[64] = { 0 };
+    if (path && path[0])
+    {
+        snprintf(dir, sizeof dir, "%s", path);
+        char* slash = strrchr(dir, '/');
+        char* back = strrchr(dir, '\\');
+        if (back && (!slash || back > slash))
+            slash = back;
+        const char* base = slash ? slash + 1 : dir;
+        snprintf(name, sizeof name, "%s", base);
+        if (slash)
+            *slash = 0;          /* dir now holds just the directory */
+        else
+            dir[0] = 0;          /* bare filename - no directory part */
+
+        char* dot = strrchr(name, '.');
+        if (dot)
+        {
+            snprintf(ext, sizeof ext, "%s", dot);
+            *dot = 0;            /* name now has no extension */
+        }
+    }
+
+    for (const char* p = in; *p && len + 1 < cap; )
+    {
+        if (p[0] == '$' && p[1] == '$')          /* "$$" -> literal '$' */
+        {
+            out[len++] = '$';
+            out[len] = 0;
+            p += 2;
+        }
+        else if (p[0] == '$' && p[1] == '(')
+        {
+            const char* close = strchr(p + 2, ')');
+            if (!close)                          /* unterminated - copy as-is */
+            {
+                out[len++] = *p++;
+                out[len] = 0;
+                continue;
+            }
+            size_t n = (size_t)(close - (p + 2));
+            char macro[32];
+            if (n >= sizeof macro)
+                n = sizeof macro - 1;
+            memcpy(macro, p + 2, n);
+            macro[n] = 0;
+
+            if (strcmp(macro, "FilePath") == 0)      exttool_append(out, cap, &len, path ? path : "");
+            else if (strcmp(macro, "FileDir") == 0)  exttool_append(out, cap, &len, dir);
+            else if (strcmp(macro, "FileName") == 0) exttool_append(out, cap, &len, name);
+            else if (strcmp(macro, "FileExt") == 0)  exttool_append(out, cap, &len, ext);
+            /* An unknown macro expands to nothing, rather than being left in
+             * the command line where it would confuse the program. */
+            p = close + 1;
+        }
+        else
+        {
+            out[len++] = *p++;
+            out[len] = 0;
+        }
+    }
+}
+
+/* --- Streaming compile ---------------------------------------------------
+ *
+ * compile() is linked in and called IN-PROCESS (deliberately: it keeps the
+ * compiler debuggable from this same debugger session - breakpoints, call
+ * stack, stepping all work). The cost is that it printf()s its diagnostics
+ * and has no other channel back to us, and it runs for many seconds on a
+ * large file.
+ *
+ * The old shape redirected stdout to a temp file, called compile(), and
+ * only read the file back once it returned - so nothing appeared until the
+ * end, and because do_compile() is invoked from inside app_frame() (the
+ * WM_TIMER tick), the whole message loop was blocked meanwhile: no repaint,
+ * no scrolling, frozen window for the duration.
+ *
+ * Now: stdout is redirected onto an anonymous PIPE, compile() runs on a
+ * worker thread, and the main thread drains the pipe's read end without
+ * blocking once per frame (see compile_stream_poll), appending whatever has
+ * arrived to the Output window. Same process, same debuggability - only the
+ * frame loop stops being held hostage.
+ *
+ * Two traps worth naming, both already implied by the note this replaces:
+ *
+ * 1. A GUI-subsystem build has no console, so stdout's underlying fd is
+ *    invalid from process start and _dup2 onto it fails. freopen() to the
+ *    null device FIRST gives the stream a real fd, which _dup2 can then
+ *    legally replace with the pipe.
+ * 2. stdout to a pipe is fully buffered by default (~4 KB), which would
+ *    defeat the entire point - output would arrive in lumps, not as
+ *    produced. setvbuf(_IONBF) makes each printf reach the pipe
+ *    immediately.
+ */
+
+#include "tinycthread.h"  /* C11-style threads - one API on every backend */
+
+#ifdef _WIN32
+#include <windows.h>
+#include <io.h>
+#include <fcntl.h>
+/* MSVC provides these under their POSIX names too, but deprecated (C4996).
+ * Alias to the underscored spellings so the shared code below reads the
+ * same on every platform without warnings. */
+#define ide_dup    _dup
+#define ide_dup2   _dup2
+#define ide_close  _close
+#define ide_fileno _fileno
+#else
+#include <unistd.h>
+#include <fcntl.h>
+#define ide_dup    dup
+#define ide_dup2   dup2
+#define ide_close  close
+#define ide_fileno fileno
+#endif
+
+#define COMPILE_STREAM_MAX_BYTES (8 * 1024 * 1024)
+
+static struct compile_job
+{
+    int running;          /* a compile is in flight - guards re-entry */
+    int finished;         /* worker returned; drain the pipe, then finalize */
+
+    /* argv must outlive do_compile()'s stack frame now that the compile
+     * runs on another thread, so the strings live here instead. */
+    char storage[64][512];
+    const char* argv[64];
+    int argc;
+
+    struct report report;
+
+    char* text;           /* everything read from the pipe so far */
+    size_t len, cap;
+    int lines;            /* newlines seen - keeps the Output view pinned to
+                           * the bottom without rescanning the buffer every
+                           * frame (there is no ui_editor_line_count) */
+
+    ui_node* active;      /* window being compiled - captured at start */
+
+    int saved_stdout;     /* dup of the original stdout fd, restored at end */
+
+    thrd_t thread;
+
+    /* Non-NULL when this job is an External Tool rather than the in-process
+     * compile: output then comes from a child process's pipe instead of the
+     * worker thread's, and there is no report/diagnostic ownership to hand
+     * back (see compile_stream_poll / exttool_finish). */
+    ui_process* proc;
+    char proc_title[64];   /* tool name, for the status bar and Output header */
+
+    /* The pipe itself still has to be platform-specific: Win32 needs the
+     * HANDLE for PeekNamedPipe (the only way to check "is there anything to
+     * read" without blocking), while POSIX gets the same effect from a
+     * plain O_NONBLOCK fd. */
+#ifdef _WIN32
+    HANDLE hread, hwrite;
+#else
+    int fdread, fdwrite;
+#endif
+} g_job;
+
+/* The status bar's compile slot - "" when idle. Kept as one helper so the
+ * start/finish/rejected paths can't drift out of sync. */
+static void compile_status_set(const char* text)
+{
+    if (g_statusbar_compile_item)
+        ui_set_label(g_statusbar_compile_item, text);
+}
+
+static void compile_text_append(const char* data, size_t n)
+{
+    if (g_job.len + n + 1 > COMPILE_STREAM_MAX_BYTES)
+        n = g_job.len < COMPILE_STREAM_MAX_BYTES ? COMPILE_STREAM_MAX_BYTES - g_job.len - 1 : 0;
+    if (n == 0)
+        return;
+
+    if (g_job.len + n + 1 > g_job.cap)
+    {
+        size_t newcap = g_job.cap ? g_job.cap * 2 : 65536;
+        while (newcap < g_job.len + n + 1)
+            newcap *= 2;
+        char* p = realloc(g_job.text, newcap);
+        if (!p)
+            return;  /* keep what we have rather than losing the run */
+        g_job.text = p;
+        g_job.cap = newcap;
+    }
+    memcpy(g_job.text + g_job.len, data, n);
+    g_job.len += n;
+    g_job.text[g_job.len] = 0;
+
+    for (size_t i = 0; i < n; i++)
+        if (data[i] == '\n')
+            g_job.lines++;
+}
+
+/* Worker thread body: nothing but the compile itself. It must touch NO ui_*
+ * state - every UI update happens on the main thread in
+ * compile_stream_poll() below, which is what keeps this safe without any
+ * locking beyond the `finished` flag. */
+static int compile_thread_main(void* param)
+{
+    (void)param;
+    compile(g_job.argc, g_job.argv, &g_job.report);
+
+    /* Flush only - deliberately no closing of the pipe's write end here.
+     *
+     * The reader does NOT depend on EOF: compile_stream_poll() finishes on
+     * `finished` plus a drained pipe, precisely because the write end can't
+     * be closed from here. stdout holds its own duplicate of it either way
+     * (dup2'd in compile_stream_start), so closing our copy would not
+     * produce EOF anyway - and on Windows there is no copy left to close:
+     * _open_osfhandle() hands the HANDLE's ownership to the CRT descriptor,
+     * so _close() there has already closed it. Doing it again threw
+     * 0xC0000008 "invalid handle".
+     *
+     * The write end is released for real by compile_stream_end(), when it
+     * restores the original stdout descriptor. */
     fflush(stdout);
-    freopen(CAPTURE_TMP_FILE, "w+", stdout);
 
-    compile(argc, argv, report);
+    /* Written last: compile_stream_poll() treats this as "no more output is
+     * coming", so everything above must already have happened. */
+    g_job.finished = 1;
+    return 0;
+}
 
+/* Redirects stdout onto a fresh pipe and starts the worker. Returns 0 if
+ * anything failed, in which case nothing was redirected and the caller
+ * should just not start a compile. */
+static int compile_stream_start(void)
+{
+    g_job.len = 0;
+    g_job.lines = 0;
+    if (g_job.text)
+        g_job.text[0] = 0;
+    g_job.finished = 0;
+    memset(&g_job.report, 0, sizeof g_job.report);
+
+    /* See trap 1 above: give stdout a valid fd before dup2'ing onto it. */
     fflush(stdout);
-    long len = ftell(stdout);
-    if (len < 0)
-        len = 0;
-    if (len > CAPTURE_BUF_SIZE - 1)
-        len = CAPTURE_BUF_SIZE - 1;
-    rewind(stdout);
-    size_t n = fread(buf, 1, (size_t)len, stdout);
-    buf[n] = 0;
-
 #ifdef _WIN32
     freopen("NUL", "w", stdout);
 #else
     freopen("/dev/null", "w", stdout);
 #endif
-    remove(CAPTURE_TMP_FILE);
 
-    return buf;
+    g_job.saved_stdout = ide_dup(ide_fileno(stdout));
+
+#ifdef _WIN32
+    SECURITY_ATTRIBUTES sa = { sizeof sa, NULL, TRUE };
+    if (!CreatePipe(&g_job.hread, &g_job.hwrite, &sa, 1 << 20))
+        return 0;
+
+    int wfd = _open_osfhandle((intptr_t)g_job.hwrite, _O_WRONLY | _O_TEXT);
+    if (wfd == -1)
+    {
+        CloseHandle(g_job.hread);
+        CloseHandle(g_job.hwrite);
+        return 0;
+    }
+    _dup2(wfd, _fileno(stdout));
+    _close(wfd);
+    /* _open_osfhandle() transferred the HANDLE to wfd, so the _close()
+     * above closed hwrite along with it. stdout keeps its own duplicate
+     * (made by _dup2), which is the one that matters; forget ours so
+     * nothing tries to close it twice. */
+    g_job.hwrite = NULL;
+#else
+    int fds[2];
+    if (pipe(fds) != 0)
+        return 0;
+    g_job.fdread = fds[0];
+    g_job.fdwrite = fds[1];
+    fcntl(g_job.fdread, F_SETFL, O_NONBLOCK);
+    dup2(g_job.fdwrite, fileno(stdout));
+    /* stdout now holds its own duplicate of the write end, so drop ours -
+     * otherwise every compile leaks a descriptor. Mirrors the Windows side,
+     * where the CRT took ownership of the handle instead. */
+    close(g_job.fdwrite);
+    g_job.fdwrite = -1;
+#endif
+
+    /* See trap 2: unbuffered, or nothing streams. */
+    setvbuf(stdout, NULL, _IONBF, 0);
+
+    g_job.running = 1;
+
+    if (thrd_create(&g_job.thread, compile_thread_main, NULL) != thrd_success)
+    {
+        g_job.running = 0;
+        return 0;
+    }
+    return 1;
+}
+
+/* Puts stdout back the way it was and releases the pipe/thread handles. */
+static void compile_stream_end(void)
+{
+    /* The worker has already set `finished`, so this never actually waits -
+     * it just reaps the thread. */
+    thrd_join(g_job.thread, NULL);
+
+#ifdef _WIN32
+    if (g_job.hread)
+    {
+        CloseHandle(g_job.hread);
+        g_job.hread = NULL;
+    }
+#else
+    if (g_job.fdread >= 0)
+    {
+        close(g_job.fdread);
+        g_job.fdread = -1;
+    }
+#endif
+
+    fflush(stdout);
+    if (g_job.saved_stdout >= 0)
+    {
+        ide_dup2(g_job.saved_stdout, ide_fileno(stdout));
+        ide_close(g_job.saved_stdout);
+        g_job.saved_stdout = -1;
+    }
+    g_job.running = 0;
+}
+
+/* Reads whatever is sitting in the pipe right now, without ever blocking.
+ * Returns the number of bytes appended. */
+static size_t compile_stream_drain(void)
+{
+    char buf[8192];
+    size_t total = 0;
+
+#ifdef _WIN32
+    for (;;)
+    {
+        DWORD avail = 0;
+        if (!g_job.hread || !PeekNamedPipe(g_job.hread, NULL, 0, NULL, &avail, NULL))
+            break;
+        if (avail == 0)
+            break;
+        DWORD want = avail > sizeof buf ? (DWORD)sizeof buf : avail;
+        DWORD got = 0;
+        if (!ReadFile(g_job.hread, buf, want, &got, NULL) || got == 0)
+            break;
+        compile_text_append(buf, got);
+        total += got;
+    }
+#else
+    for (;;)
+    {
+        ssize_t got = read(g_job.fdread, buf, sizeof buf);
+        if (got <= 0)
+            break;
+        compile_text_append(buf, (size_t)got);
+        total += (size_t)got;
+    }
+#endif
+    return total;
+}
+
+static void compile_finish(void);
+static void exttool_finish(void);
+
+/* Called once per frame from app_frame(). Cheap no-op when idle. */
+static void compile_stream_poll(void)
+{
+    if (!g_job.running)
+        return;
+
+    /* External Tool: drain the child's pipe instead of the worker's. Same
+     * shape otherwise - append, show, and finalize when the source ends. */
+    if (g_job.proc)
+    {
+        char buf[8192];
+        int total = 0;
+        for (;;)
+        {
+            int n = ui_process_read(g_job.proc, buf, (int)sizeof buf);
+            if (n > 0)
+            {
+                compile_text_append(buf, (size_t)n);
+                total += n;
+                continue;
+            }
+            if (n < 0)
+            {
+                if (total > 0)
+                {
+                    ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
+                    ui_editor_goto_line(g_output_editor, g_job.lines + 1);
+                }
+                exttool_finish();
+                return;
+            }
+            break;  /* nothing available this frame */
+        }
+        if (total > 0)
+        {
+            ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
+            ui_editor_goto_line(g_output_editor, g_job.lines + 1);
+        }
+        return;
+    }
+
+    size_t got = compile_stream_drain();
+    if (got > 0)
+    {
+        /* Show it as it arrives - this is the whole point. */
+        ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
+        ui_editor_goto_line(g_output_editor, g_job.lines + 1);  /* follow the tail */
+    }
+
+    /* Only finalize once the worker is done AND the pipe has run dry, so no
+     * trailing output is dropped. */
+    if (g_job.finished && got == 0)
+    {
+        compile_stream_drain();  /* last sip, post-EOF */
+        compile_finish();
+    }
 }
 
 /* An editor window's only child is its <window>, whose only child is its
@@ -3188,8 +4051,8 @@ static void save_as_commit(void)
     save_active_file(g_save_window);  /* writes content, clears dirty */
     ui_set_untitled(g_save_window, 0);  /* it's a real, named file now */
 
-    ui_screen_close_modal(g_screen, g_open_modal);
-    g_open_dialog_mode = OPEN_DLG_FILE;
+    ui_screen_close_modal(g_screen, g_open.modal);
+    g_open.dialog_mode = OPEN_DLG_FILE;
 
     /* Resume a Compile that was waiting on this exact Save As (see
      * do_compile's untitled-file check) - the file now has the real path a
@@ -3208,7 +4071,7 @@ static void save_as_commit(void)
  * none, the way native Windows Save dialogs do. */
 static const char* current_filter_extension(void)
 {
-    int idx = ui_select_get_selected(g_open_filter);
+    int idx = ui_select_get_selected(g_open.filter);
     if (idx < 0 || idx >= OPEN_FILTER_COUNT)
         return NULL;
     const char* mask = g_open_filters[idx].mask;
@@ -3224,8 +4087,8 @@ static void save_as_activate(void)
 {
     if (!g_save_window || !editor_in_window(g_save_window))
     {
-        ui_screen_close_modal(g_screen, g_open_modal);
-        g_open_dialog_mode = OPEN_DLG_FILE;
+        ui_screen_close_modal(g_screen, g_open.modal);
+        g_open.dialog_mode = OPEN_DLG_FILE;
         return;
     }
 
@@ -3239,7 +4102,7 @@ static void save_as_activate(void)
      * the fopen() in save_active_file silently fails and nothing gets
      * written, even though the window's title/path already updated. */
     char buf[1024];
-    strncpy(buf, ui_get_value(g_open_name_input), sizeof buf - 1);
+    strncpy(buf, ui_get_value(g_open.name_input), sizeof buf - 1);
     buf[sizeof buf - 1] = 0;
     for (char* p = buf; *p; p++)
         if (*p == '\\')
@@ -3257,8 +4120,8 @@ static void save_as_activate(void)
         name = sep + 1;
         if (buf[0])
         {
-            strncpy(g_open_dir, buf, sizeof g_open_dir - 1);
-            g_open_dir[sizeof g_open_dir - 1] = 0;
+            strncpy(g_open.dir, buf, sizeof g_open.dir - 1);
+            g_open.dir[sizeof g_open.dir - 1] = 0;
         }
     }
     if (!name[0])
@@ -3283,7 +4146,7 @@ static void save_as_activate(void)
     strncpy(g_save_name, name, sizeof g_save_name - 1);
     g_save_name[sizeof g_save_name - 1] = 0;
 
-    snprintf(g_saveas_path, sizeof g_saveas_path, "%s/%s", g_open_dir, g_save_name);
+    snprintf(g_saveas_path, sizeof g_saveas_path, "%s/%s", g_open.dir, g_save_name);
 
     /* If the target already exists, confirm the overwrite first (the Save As
      * dialog stays open behind the prompt so "No" returns to it). */
@@ -3316,7 +4179,7 @@ static void open_saveas_dialog_for(ui_node* win)
         return;
 
     g_save_window = win;
-    g_open_dialog_mode = OPEN_DLG_SAVE;
+    g_open.dialog_mode = OPEN_DLG_SAVE;
 
     /* Default the Name to the window's current file, and start browsing in
      * that file's own directory when it has one. */
@@ -3328,26 +4191,26 @@ static void open_saveas_dialog_for(ui_node* win)
     if (base > cur)
     {
         size_t dlen = (size_t)(base - cur - 1);
-        if (dlen > 0 && dlen < sizeof g_open_dir)
+        if (dlen > 0 && dlen < sizeof g_open.dir)
         {
-            memcpy(g_open_dir, cur, dlen);
-            g_open_dir[dlen] = 0;
+            memcpy(g_open.dir, cur, dlen);
+            g_open.dir[dlen] = 0;
         }
-        else if (!ui_get_cwd(g_open_dir, sizeof g_open_dir))
-            strcpy(g_open_dir, ".");
+        else if (!ui_get_cwd(g_open.dir, sizeof g_open.dir))
+            strcpy(g_open.dir, ".");
     }
-    else if (!ui_get_cwd(g_open_dir, sizeof g_open_dir))
+    else if (!ui_get_cwd(g_open.dir, sizeof g_open.dir))
     {
-        strcpy(g_open_dir, ".");
+        strcpy(g_open.dir, ".");
     }
-    strcpy(g_open_mask, g_open_filters[0].mask);
-    ui_select_set_selected(g_open_filter, 0);
+    strcpy(g_open.mask, g_open_filters[0].mask);
+    ui_select_set_selected(g_open.filter, 0);
     open_dialog_set_filter_visible(1);
 
-    ui_set_label(g_open_window, " Save File As ");
-    ui_set_label(g_open_ok, "  Save  ");
+    ui_set_label(g_open.window, " Save File As ");
+    ui_set_label(g_open.ok, "  Save  ");
     open_dialog_refresh();
-    ui_screen_show_modal(g_screen, g_open_modal);
+    ui_screen_show_modal(g_screen, g_open.modal);
 }
 
 /* Strips embedded VT100 SGR escape sequences ("\x1b[...m") from `s`, in
@@ -3455,9 +4318,9 @@ static void resolve_referenced_path(const char* filename, char* out, size_t out_
         if (file_readable(candidate))
             open_path = candidate;
     }
-    if (!open_path && g_folder_dir[0])
+    if (!open_path && g_folder.dir[0])
     {
-        snprintf(candidate, sizeof candidate, "%s/%s", g_folder_dir, filename);
+        snprintf(candidate, sizeof candidate, "%s/%s", g_folder.dir, filename);
         if (file_readable(candidate))
             open_path = candidate;
     }
@@ -3733,6 +4596,13 @@ static void refresh_open_windows(void)
  * Compile just never had it applied. */
 static void do_compile(void)
 {
+    /* One compile at a time. Without this, a second F7 (or an auto-compile
+     * tick landing mid-build) would redirect stdout again underneath the
+     * running worker and race it for g_job. Silently ignored: the status
+     * bar already reads "Compiling...", which is answer enough. */
+    if (g_job.running)
+        return;
+
     ui_node* active = g_active_editor_window;
 
     /* Still untitled (see ui_get_untitled) - e.g. Run > Compile straight from
@@ -3792,45 +4662,20 @@ static void do_compile(void)
     }
     argv[argc++] = file;
 
-    char* captured = capture_and_compile(argc, argv, &report);
-
-    char summary[256];
-    snprintf(summary, sizeof summary, "\n%d error(s), %d warning(s), %.2f sec\n",
-              report.error_count, report.warnings_count, report.cpu_time_used_sec);
-
-    static char full[CAPTURE_BUF_SIZE + sizeof summary];
-    snprintf(full, sizeof full, "%s%s", captured, summary);
-
-    /* Re-parse the same captured text (before it's freed) into the active
-     * editor's diagnostic list - see parse_diagnostic_line(). Cleared first
-     * so every compile starts from a blank slate instead of accumulating
-     * stale diagnostics on top of a previous run's. strtok mutates
-     * `captured` in place, which is fine - `full` above already has its
-     * own independent copy of the text. */
-    ui_node* src_editor = editor_in_window(active);
-    if (src_editor)
+    /* Hand argv to the worker through storage that outlives this frame -
+     * `target`/`style`/`optbuf`/`file` above are all stack locals, and the
+     * compile now outlives do_compile()'s return. */
+    g_job.argc = 0;
+    for (int i = 0; i < argc && i < 64; i++)
     {
-        ui_editor_clear_diagnostics(src_editor);
-        for (char* line = strtok(captured, "\n"); line; line = strtok(NULL, "\n"))
-        {
-            ui_diag_type type;
-            int diag_line;
-            int diag_code;
-            char* message;
-            if (parse_diagnostic_line(line, &type, &diag_line, &diag_code, &message))
-                ui_editor_add_diagnostic(src_editor, type, diag_line, diag_code, message);
-        }
+        snprintf(g_job.storage[i], sizeof g_job.storage[i], "%s", argv[i]);
+        g_job.argv[i] = g_job.storage[i];
+        g_job.argc++;
     }
-    free(captured);
+    g_job.active = active;
 
-    ui_set_value(g_output_editor, full);
+    ui_set_value(g_output_editor, "");
     ui_screen_show_window(g_screen, g_output_window);
-
-    /* ui_screen_show_window() promotes whatever it's given to the front and
-     * clears focus - Compile must never steal the editor's keyboard focus
-     * or hand its "active window" status (which F7/auto-compile target -
-     * see ui_screen_top_window) over to Output, so immediately hand both
-     * back. Output stays open, just no longer frontmost/focused. */
     if (active)
     {
         ui_screen_show_window(g_screen, active);
@@ -3839,9 +4684,176 @@ static void do_compile(void)
             ui_screen_focus(g_screen, editor);
     }
 
+    if (!compile_stream_start())
+    {
+        compile_status_set("");
+        ui_set_value(g_output_editor, "Could not start the compile (pipe/thread creation failed).\n");
+        return;
+    }
+    compile_status_set("Compiling...");
+    /* Returns immediately now - compile_stream_poll(), called once per frame
+     * from app_frame(), streams the output and calls compile_finish() when
+     * the worker is done. */
+}
+
+/* Launches External Tool `index`. Returns quietly if one is already
+ * running (same one-at-a-time rule as Compile - they share g_job) or the
+ * tool has no command configured. */
+static void do_run_external_tool(int index)
+{
+    if (g_job.running || index < 0 || index >= g_tools.count)
+        return;
+
+    const ext_tool* t = &g_tools.items[index];
+    if (!t->command[0])
+        return;
+
+    /* Save first, like Compile does - a tool almost always reads the file
+     * from disk, so running it against a stale copy would be surprising. */
+    ui_node* active = g_active_editor_window;
+    save_active_file(active);
+    const char* path = active ? ui_get_path(active) : "";
+
+    char args[1024], dir[1024], cmd[2048];
+    exttool_expand(t->args, path, args, sizeof args);
+    exttool_expand(t->dir, path, dir, sizeof dir);
+    snprintf(cmd, sizeof cmd, "%s%s%s", t->command, args[0] ? " " : "", args);
+
+    g_job.len = 0;
+    g_job.lines = 0;
+    if (g_job.text)
+        g_job.text[0] = 0;
+    g_job.active = active;
+    snprintf(g_job.proc_title, sizeof g_job.proc_title, "%s", t->title);
+
+    /* Echo exactly what is about to run - the fully expanded command and
+     * the directory it runs in - the way Visual Studio's Output window
+     * does. Without it a tool that prints nothing looks like nothing
+     * happened, and a macro that expanded to something unexpected is
+     * invisible. */
+    char header[3400];
+    snprintf(header, sizeof header, "> %s\n  (in %s)\n",
+              cmd, dir[0] ? dir : "the IDE's own directory");
+    compile_text_append(header, strlen(header));
+    ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
+
+    ui_screen_show_window(g_screen, g_output_window);
+    if (active)
+    {
+        ui_screen_show_window(g_screen, active);
+        ui_node* editor = editor_in_window(active);
+        if (editor)
+            ui_screen_focus(g_screen, editor);
+    }
+
+    /* The err out-param is not shown - see the failure block below. */
+    g_job.proc = ui_process_start(cmd, dir[0] ? dir : NULL, NULL, 0);
+    if (!g_job.proc)
+    {
+        /* Report the PATHS actually attempted, post-macro-expansion -
+         * that is what is worth checking when a tool doesn't run. The OS
+         * error code itself is deliberately not shown: it says nothing
+         * useful here, and the common "program not found" case never
+         * reaches this path anyway - the command runs through a shell, so
+         * that arrives as ordinary captured output instead. */
+        char msg[4096];
+        snprintf(msg, sizeof msg,
+                  "Failed to start.\n"
+                  "  Command  : %s\n"
+                  "  Arguments: %s\n"
+                  "  Directory: %s\n",
+                  t->command,
+                  args[0] ? args : "(none)",
+                  dir[0] ? dir : "(inherited from the IDE)");
+        compile_text_append(msg, strlen(msg));
+        ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
+        compile_status_set("");
+        return;
+    }
+    g_job.running = 1;
+    compile_status_set(g_job.proc_title[0] ? g_job.proc_title : "Running...");
+}
+
+/* External Tool counterpart of compile_finish(): reap the child, note its
+ * exit code, and re-parse the captured text for diagnostics so a tool that
+ * prints compiler-style "file:line:col: error: msg" gets inline squiggles
+ * exactly like the internal compile. */
+static void exttool_finish(void)
+{
+    int code = ui_process_close(g_job.proc);
+    g_job.proc = NULL;
+    g_job.running = 0;
+
+    char footer[128];
+    snprintf(footer, sizeof footer, "\nExit code %d\n", code);
+    compile_text_append(footer, strlen(footer));
+    ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
+
+    ui_node* src_editor = editor_in_window(g_job.active);
+    if (src_editor && g_job.text)
+    {
+        ui_editor_clear_diagnostics(src_editor);
+        for (char* line = strtok(g_job.text, "\n"); line; line = strtok(NULL, "\n"))
+        {
+            ui_diag_type type;
+            int diag_line;
+            int diag_code;
+            char* message;
+            if (parse_diagnostic_line(line, &type, &diag_line, &diag_code, &message))
+                ui_editor_add_diagnostic(src_editor, type, diag_line, diag_code, message);
+        }
+        g_job.len = 0;  /* strtok chopped it up - see compile_finish() */
+    }
+
+    refresh_open_windows();
+    compile_status_set("");
+}
+
+/* Runs on the main thread once the worker has finished AND the pipe is
+ * drained - everything the old do_compile() used to do after
+ * capture_and_compile() returned. */
+static void compile_finish(void)
+{
+    compile_stream_end();
+
+    ui_node* active = g_job.active;
+
+    char summary[256];
+    snprintf(summary, sizeof summary, "\n%d error(s), %d warning(s), %.2f sec\n",
+              g_job.report.error_count, g_job.report.warnings_count,
+              g_job.report.cpu_time_used_sec);
+    compile_text_append(summary, strlen(summary));
+    ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
+
+    /* Re-parse the captured text into the active editor's diagnostic list -
+     * see parse_diagnostic_line(). Cleared first so every compile starts
+     * from a blank slate instead of accumulating stale diagnostics on top
+     * of a previous run's. strtok mutates the buffer in place, which is
+     * fine: ui_set_value() above already took its own copy of the text. */
+    ui_node* src_editor = editor_in_window(active);
+    if (src_editor && g_job.text)
+    {
+        ui_editor_clear_diagnostics(src_editor);
+        for (char* line = strtok(g_job.text, "\n"); line; line = strtok(NULL, "\n"))
+        {
+            ui_diag_type type;
+            int diag_line;
+            int diag_code;
+            char* message;
+            if (parse_diagnostic_line(line, &type, &diag_line, &diag_code, &message))
+                ui_editor_add_diagnostic(src_editor, type, diag_line, diag_code, message);
+        }
+        g_job.len = 0;  /* strtok chopped it up - don't reuse it as text */
+    }
+
     /* Pick up any on-disk changes the build produced (leaves dirty windows
      * and the caret positions untouched - see refresh_open_windows). */
     refresh_open_windows();
+
+    /* Back to blank - the slot only means "a compile is running". The
+     * error/warning counts are already in the Output window's summary line,
+     * so repeating them here would just be a second, staler copy. */
+    compile_status_set("");
 }
 
 /* Splits the desktop area (see ui_screen_desktop_rect) in half and places
@@ -4020,15 +5032,15 @@ static int fr_find(const char* hay, int hlen, const char* needle, int nlen,
  * scope). Returns the editor, or NULL if there's nothing to search. */
 static ui_node* fr_setup(int* ci, int* whole, int* lo, int* hi)
 {
-    ui_node* ed = g_replace_target;
+    ui_node* ed = g_replace.target;
     if (!ed)
         return NULL;
-    *ci = !ui_group_get_checked(g_replace_opts, 0);  /* Case sensitive off => ignore case */
-    *whole = ui_group_get_checked(g_replace_opts, 1);
+    *ci = !ui_group_get_checked(g_replace.opts, 0);  /* Case sensitive off => ignore case */
+    *whole = ui_group_get_checked(g_replace.opts, 1);
     int len = (int)strlen(ui_get_value(ed));
     *lo = 0;
     *hi = len;
-    if (ui_select_get_selected(g_replace_scope) == 1)
+    if (ui_select_get_selected(g_replace.scope) == 1)
     {  /* Selected text */
         int slo, shi;
         if (ui_editor_get_selection(ed, &slo, &shi))
@@ -4126,13 +5138,13 @@ static int fr_find_in_editor(ui_node* ed, const char* needle, ui_node* opts,
 static void do_find(void)
 {
     int found = 0;
-    if (g_find_target)
-        found = fr_find_in_editor(g_find_target, ui_get_value(g_find_input),
-                                  g_find_opts, g_find_dir, g_find_scope, g_find_origin);
-    ui_screen_close_modal(g_screen, g_find_modal);
+    if (g_find.target)
+        found = fr_find_in_editor(g_find.target, ui_get_value(g_find.input),
+                                  g_find.opts, g_find.dir, g_find.scope, g_find.origin);
+    ui_screen_close_modal(g_screen, g_find.modal);
     if (found)
     {
-        g_goto_pending_focus = g_find_target;  /* focus so the selection shows */
+        g_goto_pending_focus = g_find.target;  /* focus so the selection shows */
     }
     else
     {
@@ -4147,14 +5159,14 @@ static void do_find(void)
 static void do_find_next(void)
 {
     ui_node* ed = editor_in_window(ui_screen_top_window(g_screen));
-    const char* needle = ui_get_value(g_find_input);
+    const char* needle = ui_get_value(g_find.input);
     if (!ed || !needle[0])
     {
-        g_find_target = ed;
-        ui_screen_show_modal(g_screen, g_find_modal);
+        g_find.target = ed;
+        ui_screen_show_modal(g_screen, g_find.modal);
         return;
     }
-    if (fr_find_in_editor(ed, needle, g_find_opts, g_find_dir, g_find_scope, g_find_origin))
+    if (fr_find_in_editor(ed, needle, g_find.opts, g_find.dir, g_find.scope, g_find.origin))
     {
         g_goto_pending_focus = ed;
     }
@@ -4171,17 +5183,17 @@ static void do_replace_one(void)
 {
     int ci, whole, lo, hi;
     ui_node* ed = fr_setup(&ci, &whole, &lo, &hi);
-    const char* needle = ui_get_value(g_replace_find);
+    const char* needle = ui_get_value(g_replace.find);
     int nlen = (int)strlen(needle);
     if (ed && nlen > 0)
     {
-        const char* newtext = ui_get_value(g_replace_new);
+        const char* newtext = ui_get_value(g_replace.new_);
         int rlen = (int)strlen(newtext);
         const char* text = ui_get_value(ed);
         int len = (int)strlen(text);
 
-        int fwd = ui_select_get_selected(g_replace_dir) == 0;
-        int from_cursor = ui_select_get_selected(g_replace_origin) == 0;
+        int fwd = ui_select_get_selected(g_replace.dir) == 0;
+        int from_cursor = ui_select_get_selected(g_replace.origin) == 0;
         int from = from_cursor ? ui_editor_get_cursor(ed) : (fwd ? lo : hi - nlen);
 
         int pos = fr_find(text, len, needle, nlen, from, fwd, ci, whole, lo, hi);
@@ -4206,7 +5218,7 @@ static void do_replace_one(void)
             }
         }
     }
-    ui_screen_close_modal(g_screen, g_replace_modal);
+    ui_screen_close_modal(g_screen, g_replace.modal);
     if (ed)
         g_goto_pending_focus = ed;  /* focus so the selection/caret shows */
 }
@@ -4217,12 +5229,12 @@ static void do_replace_all(void)
 {
     int ci, whole, lo, hi;
     ui_node* ed = fr_setup(&ci, &whole, &lo, &hi);
-    const char* needle = ui_get_value(g_replace_find);
+    const char* needle = ui_get_value(g_replace.find);
     int nlen = (int)strlen(needle);
     int count = 0;
     if (ed && nlen > 0)
     {
-        const char* newtext = ui_get_value(g_replace_new);
+        const char* newtext = ui_get_value(g_replace.new_);
         int rlen = (int)strlen(newtext);
         const char* text = ui_get_value(ed);
         int len = (int)strlen(text);
@@ -4266,7 +5278,7 @@ static void do_replace_all(void)
             }
         }
     }
-    ui_screen_close_modal(g_screen, g_replace_modal);
+    ui_screen_close_modal(g_screen, g_replace.modal);
 
     char msg[64];
     snprintf(msg, sizeof msg, "%d occurrence(s) replaced.", count);
@@ -4383,7 +5395,7 @@ static char* read_file_to_string(const char* path)
 }
 
 /* --- Tools > Find and Replace ----------------------------------------------
- * A dockable panel (see g_fr_window/g_fr_panel above), distinct from the
+ * A dockable panel (see g_fr.window/g_fr.panel above), distinct from the
  * Search menu's Find/Replace modals (do_find/do_replace_one above): those
  * act on the active editor's own text directly, while this one gathers a
  * scope (Look in: current file/dir/include dir) and a file-type filter meant
@@ -4923,27 +5935,27 @@ static void do_find_replace(const find_replace_options* opts)
  * the g_fr_* fields - called right before fr_rebuild_content() destroys and
  * recreates those widgets (mode toggle), and right before do_find_replace()
  * reads a snapshot of them (Find/Replace button), so neither loses what the
- * user typed/picked. g_fr_replace_input/g_fr_replace_btn are NULL while in
+ * user typed/picked. g_fr.replace_input/g_fr.replace_btn are NULL while in
  * Find mode (never built - see fr_rebuild_content), so those are skipped
  * rather than dereferenced. */
 static void fr_sync_from_widgets(void)
 {
-    if (g_fr_find_input)
-        snprintf(g_fr_find_text, sizeof g_fr_find_text, "%s", ui_get_value(g_fr_find_input));
-    if (g_fr_replace_input)
-        snprintf(g_fr_replace_text, sizeof g_fr_replace_text, "%s", ui_get_value(g_fr_replace_input));
-    if (g_fr_opts)
+    if (g_fr.find_input)
+        snprintf(g_fr.find_text, sizeof g_fr.find_text, "%s", ui_get_value(g_fr.find_input));
+    if (g_fr.replace_input)
+        snprintf(g_fr.replace_text, sizeof g_fr.replace_text, "%s", ui_get_value(g_fr.replace_input));
+    if (g_fr.opts)
     {
-        g_fr_match_case = ui_group_get_checked(g_fr_opts, 0);
-        g_fr_match_word = ui_group_get_checked(g_fr_opts, 1);
+        g_fr.match_case = ui_group_get_checked(g_fr.opts, 0);
+        g_fr.match_word = ui_group_get_checked(g_fr.opts, 1);
     }
-    if (g_fr_lookin)
-        g_fr_look_in = ui_select_get_selected(g_fr_lookin);
-    if (g_fr_filetypes)
-        g_fr_file_type = ui_select_get_selected(g_fr_filetypes);
+    if (g_fr.lookin)
+        g_fr.look_in = ui_select_get_selected(g_fr.lookin);
+    if (g_fr.filetypes)
+        g_fr.file_type = ui_select_get_selected(g_fr.filetypes);
 }
 
-/* (Re)builds the panel's content from scratch to match g_fr_mode - clearing
+/* (Re)builds the panel's content from scratch to match g_fr.mode - clearing
  * every child first (same clear-then-repopulate pattern as
  * populate_listbox_from_dir above). This is how "the window changes itself"
  * between Find and Replace: in Find mode there's no Replace field/button at
@@ -4953,19 +5965,19 @@ static void fr_sync_from_widgets(void)
  * fr_sync_from_widgets) so toggling modes never loses what was typed/picked. */
 static void fr_rebuild_content(void)
 {
-    if (!g_fr_panel)
+    if (!g_fr.panel)
         return;
 
-    while (ui_child_count(g_fr_panel) > 0)
+    while (ui_child_count(g_fr.panel) > 0)
     {
-        ui_node* c = ui_child_at(g_fr_panel, 0);
-        ui_remove_child(g_fr_panel, c);
+        ui_node* c = ui_child_at(g_fr.panel, 0);
+        ui_remove_child(g_fr.panel, c);
         ui_node_free(c);
     }
 
     const ui_theme* theme = ui_get_theme();
     int px, py, pw;
-    ui_get_rect(g_fr_panel, &px, &py, &pw, NULL);
+    ui_get_rect(g_fr.panel, &px, &py, &pw, NULL);
     /* +2/-4 rather than the flush +1/-2 an interior rect would normally use
      * (e.g. the Folder window's listbox) - leaves a 1-cell margin between
      * the border and the controls on all of the left/top/right (matching
@@ -4976,82 +5988,82 @@ static void fr_rebuild_content(void)
     int cx = px + 2, cw = pw - 4;
     int cy = py + 2;
 
-    add_text(g_fr_panel, cx, cy, "Find:", COLOR_YELLOW, theme->window_bg);
+    add_text(g_fr.panel, cx, cy, "Find:", COLOR_YELLOW, theme->window_bg);
     cy += 1;
-    g_fr_find_input = add_input(g_fr_panel, cx, cy, cw, g_fr_find_text);
-    ui_set_id(g_fr_find_input, EVT_FR_FIND_BTN);  /* Enter in the field == clicking Find */
+    g_fr.find_input = add_input(g_fr.panel, cx, cy, cw, g_fr.find_text);
+    ui_set_id(g_fr.find_input, EVT_FR_FIND_BTN);  /* Enter in the field == clicking Find */
     cy += 2;
 
-    if (g_fr_mode)
+    if (g_fr.mode)
     {
-        add_text(g_fr_panel, cx, cy, "Replace:", COLOR_YELLOW, theme->window_bg);
+        add_text(g_fr.panel, cx, cy, "Replace:", COLOR_YELLOW, theme->window_bg);
         cy += 1;
-        g_fr_replace_input = add_input(g_fr_panel, cx, cy, cw, g_fr_replace_text);
+        g_fr.replace_input = add_input(g_fr.panel, cx, cy, cw, g_fr.replace_text);
         cy += 2;
     }
     else
     {
-        g_fr_replace_input = NULL;
+        g_fr.replace_input = NULL;
     }
 
-    g_fr_opts = add_group(g_fr_panel, cx, cy, cw, 2, 1);
-    add_group_item(g_fr_opts, "Match case");
-    add_group_item(g_fr_opts, "Match whole word");
-    ui_group_set_checked(g_fr_opts, 0, g_fr_match_case);
-    ui_group_set_checked(g_fr_opts, 1, g_fr_match_word);
+    g_fr.opts = add_group(g_fr.panel, cx, cy, cw, 2, 1);
+    add_group_item(g_fr.opts, "Match case");
+    add_group_item(g_fr.opts, "Match whole word");
+    ui_group_set_checked(g_fr.opts, 0, g_fr.match_case);
+    ui_group_set_checked(g_fr.opts, 1, g_fr.match_word);
     cy += 3;
 
-    add_text(g_fr_panel, cx, cy, "Look in:", COLOR_YELLOW, theme->window_bg);
+    add_text(g_fr.panel, cx, cy, "Look in:", COLOR_YELLOW, theme->window_bg);
     cy += 1;
-    g_fr_lookin = add_group(g_fr_panel, cx, cy, cw, 3, 0);
-    add_group_item(g_fr_lookin, "Current File");
-    add_group_item(g_fr_lookin, "Current Dir");
-    add_group_item(g_fr_lookin, "Include Dir");
-    ui_select_set_selected(g_fr_lookin, g_fr_look_in);
+    g_fr.lookin = add_group(g_fr.panel, cx, cy, cw, 3, 0);
+    add_group_item(g_fr.lookin, "Current File");
+    add_group_item(g_fr.lookin, "Current Dir");
+    add_group_item(g_fr.lookin, "Include Dir");
+    ui_select_set_selected(g_fr.lookin, g_fr.look_in);
     cy += 4;
 
-    add_text(g_fr_panel, cx, cy, "File Types:", COLOR_YELLOW, theme->window_bg);
+    add_text(g_fr.panel, cx, cy, "File Types:", COLOR_YELLOW, theme->window_bg);
     cy += 1;
-    g_fr_filetypes = add_select(g_fr_panel, cx, cy, cw);
-    add_select_item(g_fr_filetypes, EVT_FR_FILETYPE_BASE + 0, "*.c");
-    add_select_item(g_fr_filetypes, EVT_FR_FILETYPE_BASE + 1, "*.h");
-    add_select_item(g_fr_filetypes, EVT_FR_FILETYPE_BASE + 2, "*.c;*.h");
-    add_select_item(g_fr_filetypes, EVT_FR_FILETYPE_BASE + 3, "*.md");
-    add_select_item(g_fr_filetypes, EVT_FR_FILETYPE_BASE + 4, "*.*");
-    ui_select_set_selected(g_fr_filetypes, g_fr_file_type);
+    g_fr.filetypes = add_select(g_fr.panel, cx, cy, cw);
+    add_select_item(g_fr.filetypes, EVT_FR_FILETYPE_BASE + 0, "*.c");
+    add_select_item(g_fr.filetypes, EVT_FR_FILETYPE_BASE + 1, "*.h");
+    add_select_item(g_fr.filetypes, EVT_FR_FILETYPE_BASE + 2, "*.c;*.h");
+    add_select_item(g_fr.filetypes, EVT_FR_FILETYPE_BASE + 3, "*.md");
+    add_select_item(g_fr.filetypes, EVT_FR_FILETYPE_BASE + 4, "*.*");
+    ui_select_set_selected(g_fr.filetypes, g_fr.file_type);
     cy += 2;
 
-    g_fr_find_btn = ui_create_element(UI_TAG_BUTTON);
-    ui_set_id(g_fr_find_btn, EVT_FR_FIND_BTN);
-    ui_set_label(g_fr_find_btn, "  Find  ");
-    if (g_fr_mode)
+    g_fr.find_btn = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(g_fr.find_btn, EVT_FR_FIND_BTN);
+    ui_set_label(g_fr.find_btn, "  Find  ");
+    if (g_fr.mode)
     {
         int half = (cw - 1) / 2;
-        ui_set_rect(g_fr_find_btn, cx, cy, half, 1);
-        ui_append_child(g_fr_panel, g_fr_find_btn);
+        ui_set_rect(g_fr.find_btn, cx, cy, half, 1);
+        ui_append_child(g_fr.panel, g_fr.find_btn);
 
-        g_fr_replace_btn = ui_create_element(UI_TAG_BUTTON);
-        ui_set_id(g_fr_replace_btn, EVT_FR_REPLACE_BTN);
-        ui_set_label(g_fr_replace_btn, " Replace ");
-        ui_set_rect(g_fr_replace_btn, cx + half + 1, cy, cw - half - 1, 1);
-        ui_append_child(g_fr_panel, g_fr_replace_btn);
+        g_fr.replace_btn = ui_create_element(UI_TAG_BUTTON);
+        ui_set_id(g_fr.replace_btn, EVT_FR_REPLACE_BTN);
+        ui_set_label(g_fr.replace_btn, " Replace ");
+        ui_set_rect(g_fr.replace_btn, cx + half + 1, cy, cw - half - 1, 1);
+        ui_append_child(g_fr.panel, g_fr.replace_btn);
     }
     else
     {
-        ui_set_rect(g_fr_find_btn, cx, cy, cw, 1);
-        ui_append_child(g_fr_panel, g_fr_find_btn);
-        g_fr_replace_btn = NULL;
+        ui_set_rect(g_fr.find_btn, cx, cy, cw, 1);
+        ui_append_child(g_fr.panel, g_fr.find_btn);
+        g_fr.replace_btn = NULL;
     }
     cy += 2;
 
     /* Mode toggle - last control, below Find/Replace rather than above them
      * (per request), so the buttons that act don't shift position depending
      * on how many fields are showing above the toggle. */
-    g_fr_mode_btn = ui_create_element(UI_TAG_BUTTON);
-    ui_set_id(g_fr_mode_btn, EVT_FR_MODE);
-    ui_set_rect(g_fr_mode_btn, cx, cy, cw, 1);
-    ui_set_label(g_fr_mode_btn, g_fr_mode ? "Mode: Replace" : "Mode: Find");
-    ui_append_child(g_fr_panel, g_fr_mode_btn);
+    g_fr.mode_btn = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(g_fr.mode_btn, EVT_FR_MODE);
+    ui_set_rect(g_fr.mode_btn, cx, cy, cw, 1);
+    ui_set_label(g_fr.mode_btn, g_fr.mode ? "Mode: Replace" : "Mode: Find");
+    ui_append_child(g_fr.panel, g_fr.mode_btn);
 }
 
 /* Shared by Edit > Stringify/To Upper/To Lower: the active document's
@@ -5481,16 +6493,16 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_COMPILE_OPTIONS)
     {
-        ui_select_set_selected(g_copts_target, target_slug_to_index(g_compile.target));
-        ui_select_set_selected(g_copts_style, style_slug_to_index(g_compile.style));
+        ui_select_set_selected(g_copts.target, target_slug_to_index(g_compile.target));
+        ui_select_set_selected(g_copts.style, style_slug_to_index(g_compile.style));
         /* Re-sync the check-box group from the committed state every time
          * the dialog opens, same reasoning as the Target/Style <select>s
          * above - so a Cancel below discards whatever gets clicked this
-         * time (same pattern as Find's g_find_opts). */
-        ui_group_set_checked(g_copts_flags, 0, g_compile.no_output);
-        ui_group_set_checked(g_copts_flags, 1, g_compile.line_directives);
-        ui_group_set_checked(g_copts_flags, 2, g_compile.fanalyzer);
-        ui_screen_show_modal(g_screen, g_copts_modal);
+         * time (same pattern as Find's g_find.opts). */
+        ui_group_set_checked(g_copts.flags, 0, g_compile.no_output);
+        ui_group_set_checked(g_copts.flags, 1, g_compile.line_directives);
+        ui_group_set_checked(g_copts.flags, 2, g_compile.fanalyzer);
+        ui_screen_show_modal(g_screen, g_copts.modal);
     }
     else if (id == EVT_COPTS_OK)
     {
@@ -5498,21 +6510,21 @@ static void on_ui_event(void* ctx, int id, void* param)
          * Style indices map to the compiler's slugs; the last option ("")
          * -> "". */
         snprintf(g_compile.options, sizeof g_compile.options, "%s",
-                 ui_get_value(g_copts_input));
-        int sel = ui_select_get_selected(g_copts_target);
+                 ui_get_value(g_copts.input));
+        int sel = ui_select_get_selected(g_copts.target);
         int slug_count = (int)(sizeof g_target_slugs / sizeof g_target_slugs[0]);
         g_compile.target = (sel >= 0 && sel < slug_count) ? g_target_slugs[sel] : "";
-        int style_sel = ui_select_get_selected(g_copts_style);
+        int style_sel = ui_select_get_selected(g_copts.style);
         int style_count = (int)(sizeof g_style_slugs / sizeof g_style_slugs[0]);
         g_compile.style = (style_sel >= 0 && style_sel < style_count) ? g_style_slugs[style_sel] : "";
-        g_compile.no_output = ui_group_get_checked(g_copts_flags, 0);
-        g_compile.line_directives = ui_group_get_checked(g_copts_flags, 1);
-        g_compile.fanalyzer = ui_group_get_checked(g_copts_flags, 2);
-        ui_screen_close_modal(g_screen, g_copts_modal);
+        g_compile.no_output = ui_group_get_checked(g_copts.flags, 0);
+        g_compile.line_directives = ui_group_get_checked(g_copts.flags, 1);
+        g_compile.fanalyzer = ui_group_get_checked(g_copts.flags, 2);
+        ui_screen_close_modal(g_screen, g_copts.modal);
     }
     else if (id == EVT_COPTS_CANCEL)
     {
-        ui_screen_close_modal(g_screen, g_copts_modal);
+        ui_screen_close_modal(g_screen, g_copts.modal);
     }
     else if (id == EVT_COPTS_HELP)
     {
@@ -5625,60 +6637,60 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_FOLDER_TOGGLE_FILTER)
     {
         /* Flips the Folder panel's own filtering (see
-         * g_folder_filter_enabled/apply_index_order) and re-lists
-         * g_folder_dir immediately, so the effect is visible without
+         * g_folder.filter_enabled/apply_index_order) and re-lists
+         * g_folder.dir immediately, so the effect is visible without
          * having to navigate away and back. */
-        g_folder_filter_enabled = !g_folder_filter_enabled;
+        g_folder.filter_enabled = !g_folder.filter_enabled;
         folder_window_refresh();
     }
     else if (id == EVT_FOLDER_SHOW_FILTER)
     {
-        /* Opens g_folder_dir's own CAKE_FOLDER_FILTER_NAME - creating it
+        /* Opens g_folder.dir's own CAKE_FOLDER_FILTER_NAME - creating it
          * first, pre-filled with the folder's current contents, if it
          * doesn't exist yet (the popup item itself already read "Create
          * Filter" in that case - see refresh_folder_show_filter_item).
          * Either way this then opens it via the same open_file_path_
          * into_editor as any other file. */
         char path[1024];
-        snprintf(path, sizeof path, "%s/%s", g_folder_dir, CAKE_FOLDER_FILTER_NAME);
+        snprintf(path, sizeof path, "%s/%s", g_folder.dir, CAKE_FOLDER_FILTER_NAME);
 
         FILE* existing = fopen(path, "rb");
         if (existing)
             fclose(existing);
         else
-            create_default_filter_file(g_folder_dir);
+            create_default_filter_file(g_folder.dir);
 
         nav_record_jump();
         open_file_path_into_editor(path, CAKE_FOLDER_FILTER_NAME);
     }
     else if (id == EVT_FOLDER_COPY_PATH)
     {
-        /* Copies g_folder_dir itself - see this id's own doc comment for why
+        /* Copies g_folder.dir itself - see this id's own doc comment for why
          * that's what "Copy Full Path" means here, unlike the editor popup's
          * copy of the same label just below. */
-        if (g_folder_dir[0])
-            ui_clipboard_set_text(g_folder_dir);
+        if (g_folder.dir[0])
+            ui_clipboard_set_text(g_folder.dir);
     }
     else if (id == EVT_FOLDER_NEWFILE || id == EVT_FOLDER_NEWFOLDER)
     {
-        if (g_folder_dir[0])
+        if (g_folder.dir[0])
         {
-            g_foldernew_is_folder = (id == EVT_FOLDER_NEWFOLDER);
-            ui_set_label(g_foldernew_window, g_foldernew_is_folder ? " New Folder " : " New File ");
-            ui_set_value(g_foldernew_input, "");
-            ui_screen_show_modal(g_screen, g_foldernew_modal);
-            ui_screen_focus(g_screen, g_foldernew_input);
+            g_foldernew.is_folder = (id == EVT_FOLDER_NEWFOLDER);
+            ui_set_label(g_foldernew.window, g_foldernew.is_folder ? " New Folder " : " New File ");
+            ui_set_value(g_foldernew.input, "");
+            ui_screen_show_modal(g_screen, g_foldernew.modal);
+            ui_screen_focus(g_screen, g_foldernew.input);
         }
     }
     else if (id == EVT_FOLDERNEW_OK)
     {
-        const char* name = ui_get_value(g_foldernew_input);
-        const char* caption = g_foldernew_is_folder ? "New Folder" : "New File";
+        const char* name = ui_get_value(g_foldernew.input);
+        const char* caption = g_foldernew.is_folder ? "New Folder" : "New File";
 
         /* A bare name, not a path - same restriction Save As implicitly has
          * (its own Name field never carries a separator either, since it's
          * always typed alongside a directory picker, never a full path).
-         * Rejecting one here keeps the new file/folder inside g_folder_dir
+         * Rejecting one here keeps the new file/folder inside g_folder.dir
          * instead of silently escaping it. */
         if (!name[0] || strchr(name, '/') || strchr(name, '\\'))
         {
@@ -5689,10 +6701,10 @@ static void on_ui_event(void* ctx, int id, void* param)
         else
         {
             char path[1024];
-            snprintf(path, sizeof path, "%s/%s", g_folder_dir, name);
+            snprintf(path, sizeof path, "%s/%s", g_folder.dir, name);
             int created = 0;
 
-            if (g_foldernew_is_folder)
+            if (g_foldernew.is_folder)
             {
                 /* fs.h's own mkdir(path, mode) shim (#define mkdir(a, b)
                  * _mkdir(a) on Windows) already treats "fine if it already
@@ -5732,14 +6744,14 @@ static void on_ui_event(void* ctx, int id, void* param)
 
             if (created)
             {
-                ui_screen_close_modal(g_screen, g_foldernew_modal);
+                ui_screen_close_modal(g_screen, g_foldernew.modal);
 
                 /* Show it in the listing (same refresh Show Filter/creating
                  * one triggers). A folder stops there; a file also opens
                  * into an editor window, same as clicking any other row -
                  * see folder_window_activate. */
                 folder_window_refresh();
-                if (!g_foldernew_is_folder)
+                if (!g_foldernew.is_folder)
                 {
                     nav_record_jump();
                     open_file_path_into_editor(path, name);
@@ -5749,7 +6761,7 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_FOLDERNEW_CANCEL)
     {
-        ui_screen_close_modal(g_screen, g_foldernew_modal);
+        ui_screen_close_modal(g_screen, g_foldernew.modal);
     }
     else if (id == EVT_FOLDER_DELETE)
     {
@@ -5759,10 +6771,10 @@ static void on_ui_event(void* ctx, int id, void* param)
          * subdirectory (populate_listbox_from_dir's own trailing "\" marker,
          * same one dir_row_navigate keys off of) is otherwise fair game now,
          * same as a plain file. */
-        int index = ui_select_get_selected(g_folder_listbox);
-        if (index >= 0 && index < ui_child_count(g_folder_listbox))
+        int index = ui_select_get_selected(g_folder.listbox);
+        if (index >= 0 && index < ui_child_count(g_folder.listbox))
         {
-            const char* entry = ui_get_path(ui_child_at(g_folder_listbox, index));
+            const char* entry = ui_get_path(ui_child_at(g_folder.listbox, index));
             size_t elen = strlen(entry);
             int is_dir = elen > 0 && entry[elen - 1] == '\\';
 
@@ -5776,7 +6788,7 @@ static void on_ui_event(void* ctx, int id, void* param)
             {
                 g_pending_delete_is_dir = is_dir;
                 snprintf(g_pending_delete_path, sizeof g_pending_delete_path,
-                         "%s/%s", g_folder_dir, name);
+                         "%s/%s", g_folder.dir, name);
 
                 char message[1200];
                 snprintf(message, sizeof message,
@@ -5997,9 +7009,9 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_SEARCH_FIND)
     {
-        g_find_target = editor_in_window(ui_screen_top_window(g_screen));
-        fill_from_selection(g_find_target, g_find_input);
-        ui_screen_show_modal(g_screen, g_find_modal);
+        g_find.target = editor_in_window(ui_screen_top_window(g_screen));
+        fill_from_selection(g_find.target, g_find.input);
+        ui_screen_show_modal(g_screen, g_find.modal);
     }
     else if (id == EVT_FIND_OK)
     {
@@ -6045,15 +7057,15 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_FIND_CANCEL)
     {
-        ui_screen_close_modal(g_screen, g_find_modal);
+        ui_screen_close_modal(g_screen, g_find.modal);
     }
     else if (id == EVT_SEARCH_REPLACE)
     {
         /* Remember which editor to search - the frontmost editor window's
          * editor - before the modal covers it. */
-        g_replace_target = editor_in_window(ui_screen_top_window(g_screen));
-        fill_from_selection(g_replace_target, g_replace_find);
-        ui_screen_show_modal(g_screen, g_replace_modal);
+        g_replace.target = editor_in_window(ui_screen_top_window(g_screen));
+        fill_from_selection(g_replace.target, g_replace.find);
+        ui_screen_show_modal(g_screen, g_replace.modal);
     }
     else if (id == EVT_REPLACE_OK)
     {
@@ -6065,31 +7077,42 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_REPLACE_CANCEL)
     {
-        ui_screen_close_modal(g_screen, g_replace_modal);
+        ui_screen_close_modal(g_screen, g_replace.modal);
     }
     else if (id == EVT_OPTIONS_ENV)
     {
-        ui_select_set_selected(g_env_theme_select, g_theme_index);
-        ui_screen_show_modal(g_screen, g_env_modal);
+        ui_select_set_selected(g_envdlg.theme_select, g_envdlg.theme_index);
+        if (g_envdlg.font_select)
+            ui_select_set_selected(g_envdlg.font_select, g_envdlg.font_index);
+        ui_screen_show_modal(g_screen, g_envdlg.modal);
     }
     else if (id == EVT_ENV_OK)
     {
-        ui_screen_close_modal(g_screen, g_env_modal);
+        ui_screen_close_modal(g_screen, g_envdlg.modal);
     }
-    else if (id == EVT_ENV_THEME_CLASSIC)
+    else if (id == EVT_ENV_THEME_AMBAR)
     {
-        apply_theme(&g_theme_classic);
-        g_theme_index = 0;
+        apply_theme(&g_theme_ambar);
+        g_envdlg.theme_index = 0;
     }
     else if (id == EVT_ENV_THEME_DARK)
     {
         apply_theme(&g_theme_dark);
-        g_theme_index = 1;
+        g_envdlg.theme_index = 1;
     }
     else if (id == EVT_ENV_THEME_WHITE)
     {
         apply_theme(&g_theme_white);
-        g_theme_index = 2;
+        g_envdlg.theme_index = 2;
+    }
+    else if (id >= EVT_ENV_FONT_BASE &&
+             id < EVT_ENV_FONT_BASE + ui_env_font_family_count(g_env))
+    {
+        /* Applies immediately, same as picking a theme - the backend
+         * reopens the font, re-derives the cell size and resizes the
+         * window to keep the same column/row count. */
+        g_envdlg.font_index = id - EVT_ENV_FONT_BASE;
+        ui_env_set_font_family(g_env, g_envdlg.font_index);
     }
     else if (id == EVT_FILE_NEW)
     {
@@ -6100,16 +7123,16 @@ static void on_ui_event(void* ctx, int id, void* param)
         /* An absolute path, not the symbolic "." - "up" from "." has
          * nothing to strip once already back at it, a dead end one
          * directory above the start (see open_path_up). */
-        g_open_dialog_mode = OPEN_DLG_FILE;
-        ui_set_label(g_open_window, " Open a File ");
-        ui_set_label(g_open_ok, "  Open  ");
-        if (!ui_get_cwd(g_open_dir, sizeof g_open_dir))
-            strcpy(g_open_dir, ".");
-        strcpy(g_open_mask, g_open_filters[0].mask);
-        ui_select_set_selected(g_open_filter, 0);
+        g_open.dialog_mode = OPEN_DLG_FILE;
+        ui_set_label(g_open.window, " Open a File ");
+        ui_set_label(g_open.ok, "  Open  ");
+        if (!ui_get_cwd(g_open.dir, sizeof g_open.dir))
+            strcpy(g_open.dir, ".");
+        strcpy(g_open.mask, g_open_filters[0].mask);
+        ui_select_set_selected(g_open.filter, 0);
         open_dialog_set_filter_visible(1);
         open_dialog_refresh();
-        ui_screen_show_modal(g_screen, g_open_modal);
+        ui_screen_show_modal(g_screen, g_open.modal);
     }
     else if (id == EVT_FILE_OPENFOLDER)
     {
@@ -6120,14 +7143,14 @@ static void on_ui_event(void* ctx, int id, void* param)
          * open_dialog_refresh), so the file-type filter doesn't apply here -
          * it's hidden rather than just disabled (see
          * open_dialog_set_filter_visible). */
-        g_open_dialog_mode = OPEN_DLG_FOLDER;
-        ui_set_label(g_open_window, " Open Folder ");
-        ui_set_label(g_open_ok, " Select ");
-        if (!ui_get_cwd(g_open_dir, sizeof g_open_dir))
-            strcpy(g_open_dir, ".");
+        g_open.dialog_mode = OPEN_DLG_FOLDER;
+        ui_set_label(g_open.window, " Open Folder ");
+        ui_set_label(g_open.ok, " Select ");
+        if (!ui_get_cwd(g_open.dir, sizeof g_open.dir))
+            strcpy(g_open.dir, ".");
         open_dialog_set_filter_visible(0);
         open_dialog_refresh();
-        ui_screen_show_modal(g_screen, g_open_modal);
+        ui_screen_show_modal(g_screen, g_open.modal);
     }
     else if (id == EVT_FILE_SAVEAS)
     {
@@ -6141,11 +7164,11 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_OPEN_NAME)
     {
-        if (g_open_dialog_mode == OPEN_DLG_SAVE)
+        if (g_open.dialog_mode == OPEN_DLG_SAVE)
         {
             save_as_activate();
         }
-        else if (g_open_dialog_mode == OPEN_DLG_FOLDER)
+        else if (g_open.dialog_mode == OPEN_DLG_FOLDER)
         {
             /* The whole field is the target directory in folder mode -
              * there's no mask to split off. Normalize back to '/' first -
@@ -6154,15 +7177,15 @@ static void on_ui_event(void* ctx, int id, void* param)
              * an unedited default would otherwise get baked in literally
              * (see save_as_activate for the same fix on the Save side). */
             char text[1024];
-            strncpy(text, ui_get_value(g_open_name_input), sizeof text - 1);
+            strncpy(text, ui_get_value(g_open.name_input), sizeof text - 1);
             text[sizeof text - 1] = 0;
             for (char* p = text; *p; p++)
                 if (*p == '\\')
                     *p = '/';
             if (text[0])
             {
-                strncpy(g_open_dir, text, sizeof g_open_dir - 1);
-                g_open_dir[sizeof g_open_dir - 1] = 0;
+                strncpy(g_open.dir, text, sizeof g_open.dir - 1);
+                g_open.dir[sizeof g_open.dir - 1] = 0;
             }
             open_dialog_refresh();
         }
@@ -6171,7 +7194,7 @@ static void on_ui_event(void* ctx, int id, void* param)
             /* The user typed a new path/mask and pressed Enter - split it at
              * the last separator (either style) into directory + mask, same as
              * the real dialog's Name field. */
-            const char* text = ui_get_value(g_open_name_input);
+            const char* text = ui_get_value(g_open.name_input);
             char buf[1024];
             strncpy(buf, text, sizeof buf - 1);
             buf[sizeof buf - 1] = 0;
@@ -6185,18 +7208,18 @@ static void on_ui_event(void* ctx, int id, void* param)
             if (last_sep)
             {
                 *last_sep = 0;
-                strncpy(g_open_mask, last_sep + 1, sizeof g_open_mask - 1);
-                g_open_mask[sizeof g_open_mask - 1] = 0;
+                strncpy(g_open.mask, last_sep + 1, sizeof g_open.mask - 1);
+                g_open.mask[sizeof g_open.mask - 1] = 0;
                 if (buf[0])
                 {
-                    strncpy(g_open_dir, buf, sizeof g_open_dir - 1);
-                    g_open_dir[sizeof g_open_dir - 1] = 0;
+                    strncpy(g_open.dir, buf, sizeof g_open.dir - 1);
+                    g_open.dir[sizeof g_open.dir - 1] = 0;
                 }
             }
             else if (buf[0])
             {
-                strncpy(g_open_mask, buf, sizeof g_open_mask - 1);
-                g_open_mask[sizeof g_open_mask - 1] = 0;
+                strncpy(g_open.mask, buf, sizeof g_open.mask - 1);
+                g_open.mask[sizeof g_open.mask - 1] = 0;
             }
             open_dialog_refresh();
         }
@@ -6206,13 +7229,13 @@ static void on_ui_event(void* ctx, int id, void* param)
         /* "Files of type" picked from the dropdown - same effect as typing
          * that mask into the Name field (EVT_OPEN_NAME's non-Save branch),
          * just friendlier. Works in both File-Open and Save-As mode: it
-         * always re-filters g_open_listbox; in File-Open mode it also
+         * always re-filters g_open.listbox; in File-Open mode it also
          * replaces the mask portion of the Name field's text, since that
          * field *is* dir+mask there (in Save mode the field is the target
          * filename instead, so it's left alone - see open_dialog_refresh). */
         int idx = id - EVT_OPEN_FILTER;
-        strncpy(g_open_mask, g_open_filters[idx].mask, sizeof g_open_mask - 1);
-        g_open_mask[sizeof g_open_mask - 1] = 0;
+        strncpy(g_open.mask, g_open_filters[idx].mask, sizeof g_open.mask - 1);
+        g_open.mask[sizeof g_open.mask - 1] = 0;
         open_dialog_refresh();
     }
     else if (id == EVT_OPEN_LISTBOX)
@@ -6220,21 +7243,21 @@ static void on_ui_event(void* ctx, int id, void* param)
         /* A row was activated: directories navigate in either mode; a file
          * row opens it (open mode) or drops its name in the Name field (save
          * mode) - see open_dialog_activate. */
-        open_dialog_activate(ui_select_get_selected(g_open_listbox));
+        open_dialog_activate(ui_select_get_selected(g_open.listbox));
     }
     else if (id == EVT_OPEN_OK)
     {
-        if (g_open_dialog_mode == OPEN_DLG_SAVE)
+        if (g_open.dialog_mode == OPEN_DLG_SAVE)
             save_as_activate();
-        else if (g_open_dialog_mode == OPEN_DLG_FOLDER)
+        else if (g_open.dialog_mode == OPEN_DLG_FOLDER)
             folder_select_confirm();
         else
-            open_dialog_activate(ui_select_get_selected(g_open_listbox));
+            open_dialog_activate(ui_select_get_selected(g_open.listbox));
     }
     else if (id == EVT_OPEN_CANCEL)
     {
-        ui_screen_close_modal(g_screen, g_open_modal);
-        g_open_dialog_mode = OPEN_DLG_FILE;
+        ui_screen_close_modal(g_screen, g_open.modal);
+        g_open.dialog_mode = OPEN_DLG_FILE;
 
         /* Canceling out of a Save As that a Compile opened (see do_compile's
          * untitled-file check) aborts the compile too, rather than going
@@ -6305,10 +7328,10 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_WINDOW_FOLDER)
     {
-        if (window_is_shown(g_folder_window))
-            ui_screen_close_modal(g_screen, g_folder_window);
+        if (window_is_shown(g_folder.window))
+            ui_screen_close_modal(g_screen, g_folder.window);
         else
-            ui_screen_show_window(g_screen, g_folder_window);
+            ui_screen_show_window(g_screen, g_folder.window);
     }
     else if (id == EVT_WINDOW_PLAYGROUND)
     {
@@ -6357,21 +7380,97 @@ static void on_ui_event(void* ctx, int id, void* param)
          * than ui_screen_top_window() for the same reason
          * fr_search_current_file() does: this panel is docked, so once it's
          * open top_window() reports the panel itself, not the document behind
-         * it. Written into g_fr_find_text so fr_rebuild_content() (which
+         * it. Written into g_fr.find_text so fr_rebuild_content() (which
          * rebuilds the input from scratch just below) picks it up. */
         copy_selection(editor_in_window(g_active_editor_window),
-                       g_fr_find_text, sizeof g_fr_find_text);
+                       g_fr.find_text, sizeof g_fr.find_text);
 
-        ui_screen_show_window(g_screen, g_fr_window);
+        ui_screen_show_window(g_screen, g_fr.window);
         fr_rebuild_content();
-        ui_get_rect(g_fr_panel, NULL, NULL, &g_fr_last_w, NULL);
+        ui_get_rect(g_fr.panel, NULL, NULL, &g_fr.last_w, NULL);
 
         /* Land the caret in the Find field right away rather than leaving
          * the user to click it - ui_screen_show_window() itself blurs
          * whatever was focused (see its own doc comment), and
-         * fr_rebuild_content() just built a brand new g_fr_find_input node,
+         * fr_rebuild_content() just built a brand new g_fr.find_input node,
          * so this has to happen last, after both. */
-        ui_screen_focus(g_screen, g_fr_find_input);
+        ui_screen_focus(g_screen, g_fr.find_input);
+    }
+    else if (id == EVT_TOOLS_EXTERNAL)
+    {
+        /* Open on a fresh working copy of the real list - see g_exttool. */
+        memcpy(g_exttool.edit, g_tools.items, sizeof g_exttool.edit);
+        g_exttool.count = g_tools.count;
+        g_exttool.sel = g_tools.count > 0 ? 0 : -1;
+        exttool_refresh_list();
+        exttool_load_fields();
+        ui_screen_show_modal(g_screen, g_exttool.modal);
+    }
+    else if (id == EVT_EXTTOOL_LIST)
+    {
+        /* Selection moved: bank the fields into the row being left, then
+         * load the newly selected one. */
+        exttool_store_fields();
+        g_exttool.sel = ui_select_get_selected(g_exttool.listbox);
+        exttool_load_fields();
+    }
+    else if (id == EVT_EXTTOOL_ADD)
+    {
+        exttool_store_fields();
+        if (g_exttool.count < EXT_TOOL_MAX)
+        {
+            ext_tool* t = &g_exttool.edit[g_exttool.count];
+            memset(t, 0, sizeof *t);
+            snprintf(t->title, sizeof t->title, "New Tool");
+            g_exttool.sel = g_exttool.count++;
+            exttool_refresh_list();
+            exttool_load_fields();
+        }
+    }
+    else if (id == EVT_EXTTOOL_DELETE)
+    {
+        if (g_exttool.sel >= 0 && g_exttool.sel < g_exttool.count)
+        {
+            for (int i = g_exttool.sel; i < g_exttool.count - 1; i++)
+                g_exttool.edit[i] = g_exttool.edit[i + 1];
+            g_exttool.count--;
+            exttool_refresh_list();
+            exttool_load_fields();
+        }
+    }
+    else if (id == EVT_EXTTOOL_MOVEUP || id == EVT_EXTTOOL_MOVEDOWN)
+    {
+        /* The list order IS the Tools-menu order, so this is how the menu
+         * gets arranged. Fields are banked first, since the row moves with
+         * whatever is currently typed into it. */
+        exttool_store_fields();
+        int from = g_exttool.sel;
+        int to = from + (id == EVT_EXTTOOL_MOVEUP ? -1 : 1);
+        if (from >= 0 && from < g_exttool.count && to >= 0 && to < g_exttool.count)
+        {
+            ext_tool tmp = g_exttool.edit[from];
+            g_exttool.edit[from] = g_exttool.edit[to];
+            g_exttool.edit[to] = tmp;
+            g_exttool.sel = to;      /* selection follows the row it moved */
+            exttool_refresh_list();
+            exttool_load_fields();
+        }
+    }
+    else if (id == EVT_EXTTOOL_OK)
+    {
+        exttool_store_fields();
+        memcpy(g_tools.items, g_exttool.edit, sizeof g_tools.items);
+        g_tools.count = g_exttool.count;
+        rebuild_tools_menu();
+        ui_screen_close_modal(g_screen, g_exttool.modal);
+    }
+    else if (id == EVT_EXTTOOL_CANCEL)
+    {
+        ui_screen_close_modal(g_screen, g_exttool.modal);  /* working copy discarded */
+    }
+    else if (id >= EVT_TOOL_RUN_BASE && id < EVT_TOOL_RUN_BASE + EXT_TOOL_MAX)
+    {
+        do_run_external_tool(id - EVT_TOOL_RUN_BASE);
     }
     else if (id == EVT_TOOLS_TERMINAL)
     {
@@ -6380,7 +7479,7 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_FR_MODE)
     {
         fr_sync_from_widgets();
-        g_fr_mode = !g_fr_mode;
+        g_fr.mode = !g_fr.mode;
         fr_rebuild_content();
     }
     else if (id == EVT_FR_FIND_BTN || id == EVT_FR_REPLACE_BTN)
@@ -6390,17 +7489,17 @@ static void on_ui_event(void* ctx, int id, void* param)
         find_replace_options opts;
         memset(&opts, 0, sizeof opts);
         opts.mode = (id == EVT_FR_REPLACE_BTN) ? 1 : 0;
-        snprintf(opts.find_text, sizeof opts.find_text, "%s", g_fr_find_text);
-        snprintf(opts.replace_text, sizeof opts.replace_text, "%s", g_fr_replace_text);
-        opts.match_case = g_fr_match_case;
-        opts.match_whole_word = g_fr_match_word;
-        opts.look_in = (fr_look_in)g_fr_look_in;
-        opts.file_type = (fr_file_type)g_fr_file_type;
+        snprintf(opts.find_text, sizeof opts.find_text, "%s", g_fr.find_text);
+        snprintf(opts.replace_text, sizeof opts.replace_text, "%s", g_fr.replace_text);
+        opts.match_case = g_fr.match_case;
+        opts.match_whole_word = g_fr.match_word;
+        opts.look_in = (fr_look_in)g_fr.look_in;
+        opts.file_type = (fr_file_type)g_fr.file_type;
         do_find_replace(&opts);
     }
     else if (id == EVT_FOLDER_LISTBOX)
     {
-        folder_window_activate(ui_select_get_selected(g_folder_listbox));
+        folder_window_activate(ui_select_get_selected(g_folder.listbox));
     }
     else if (id == EVT_EDIT_UNDO)
     {
@@ -6758,7 +7857,20 @@ static void save_session(void)
     fprintf(f, "compile_opt_no_output=%d\n", g_compile.no_output);
     fprintf(f, "compile_opt_line_directives=%d\n", g_compile.line_directives);
     fprintf(f, "compile_opt_fanalyzer=%d\n", g_compile.fanalyzer);
-    fprintf(f, "folder_dir=%s\n", g_folder_dir);
+    fprintf(f, "folder_dir=%s\n", g_folder.dir);
+    fprintf(f, "theme_index=%d\n", g_envdlg.theme_index);
+    fprintf(f, "font_index=%d\n", g_envdlg.font_index);
+    /* External Tools, one numbered key per field - see load_session's
+     * matching parse. Written even when empty so removing every tool
+     * actually persists. */
+    fprintf(f, "tool_count=%d\n", g_tools.count);
+    for (int i = 0; i < g_tools.count; i++)
+    {
+        fprintf(f, "tool%d_title=%s\n", i, g_tools.items[i].title);
+        fprintf(f, "tool%d_command=%s\n", i, g_tools.items[i].command);
+        fprintf(f, "tool%d_args=%s\n", i, g_tools.items[i].args);
+        fprintf(f, "tool%d_dir=%s\n", i, g_tools.items[i].dir);
+    }
 
     nav_pos cur;
     if (nav_capture(&cur))
@@ -6783,9 +7895,9 @@ static void save_session(void)
         }
     }
 
-    if (g_folder_window)
+    if (g_folder.window)
     {
-        ui_node* win = ui_child_at(g_folder_window, 0);
+        ui_node* win = ui_child_at(g_folder.window, 0);
         if (win)
         {
             int w;
@@ -6901,10 +8013,40 @@ static int load_session(void)
             g_compile.line_directives = atoi(val);
         else if (strcmp(key, "compile_opt_fanalyzer") == 0)
             g_compile.fanalyzer = atoi(val);
+        else if (strcmp(key, "theme_index") == 0)
+            g_envdlg.theme_index = atoi(val);
+        else if (strcmp(key, "font_index") == 0)
+            g_envdlg.font_index = atoi(val);
+        else if (strcmp(key, "tool_count") == 0)
+        {
+            g_tools.count = atoi(val);
+            if (g_tools.count < 0) g_tools.count = 0;
+            if (g_tools.count > EXT_TOOL_MAX) g_tools.count = EXT_TOOL_MAX;
+        }
+        else if (strncmp(key, "tool", 4) == 0 && isdigit((unsigned char)key[4]))
+        {
+            /* "tool<N>_<field>" - N is bounds-checked against EXT_TOOL_MAX
+             * rather than trusted, since this is a file on disk. */
+            int idx = atoi(key + 4);
+            const char* field = strchr(key, '_');
+            if (field && idx >= 0 && idx < EXT_TOOL_MAX)
+            {
+                field++;
+                ext_tool* t = &g_tools.items[idx];
+                if (strcmp(field, "title") == 0)
+                    snprintf(t->title, sizeof t->title, "%s", val);
+                else if (strcmp(field, "command") == 0)
+                    snprintf(t->command, sizeof t->command, "%s", val);
+                else if (strcmp(field, "args") == 0)
+                    snprintf(t->args, sizeof t->args, "%s", val);
+                else if (strcmp(field, "dir") == 0)
+                    snprintf(t->dir, sizeof t->dir, "%s", val);
+            }
+        }
         else if (strcmp(key, "folder_dir") == 0)
         {
-            strncpy(g_folder_dir, val, sizeof g_folder_dir - 1);
-            g_folder_dir[sizeof g_folder_dir - 1] = 0;
+            strncpy(g_folder.dir, val, sizeof g_folder.dir - 1);
+            g_folder.dir[sizeof g_folder.dir - 1] = 0;
         }
         else if (strcmp(key, "current_file") == 0)
             snprintf(current_file, sizeof current_file, "%s", val);
@@ -6933,12 +8075,12 @@ static int load_session(void)
      * refresh()'s populate_listbox_from_dir silently no-ops on a bad path,
      * same as browsing there manually would, so a stale/deleted directory
      * just leaves the panel showing nothing rather than crashing. */
-    if (g_folder_dir[0])
+    if (g_folder.dir[0])
         folder_window_refresh();
 
-    if (have_folder_w && g_folder_window)
+    if (have_folder_w && g_folder.window)
     {
-        ui_node* win = ui_child_at(g_folder_window, 0);
+        ui_node* win = ui_child_at(g_folder.window, 0);
         if (win)
             ui_set_dock(win, UI_DOCK_LEFT, folder_w);
     }
@@ -6955,8 +8097,8 @@ static int load_session(void)
      * isn't re-synced every time the dialog opens (see EVT_COMPILE_OPTIONS)
      * - it just keeps whatever was last typed into it for the rest of the
      * run, so it has to be seeded once, here, at startup. */
-    if (g_copts_input)
-        ui_set_value(g_copts_input, g_compile.options);
+    if (g_copts.input)
+        ui_set_value(g_copts.input, g_compile.options);
 
     if (!current_file[0])
         return 0;
@@ -6991,25 +8133,25 @@ static int load_session(void)
 void app_init(ui_env* env)
 {
     g_env = env;
-    g_theme_classic = *ui_get_theme();  /* snapshot before anything can change it */
-    const ui_theme* theme = &g_theme_classic;
+    const ui_theme* theme = ui_get_theme();
     g_screen = ui_screen_create();
     ui_node* root = ui_screen_root(g_screen);
     g_root = root;
     build_screen(root);
 
 
-    /* Classic Turbo Vision desktop backdrop. */
     ui_screen_set_desktop(g_screen, theme->desktop_bg);
 
-    apply_theme(&g_theme_dark);
-    g_theme_index = 1;  /* matches the "Dark" row set as startup default here */
-    theme = &g_theme_dark;  /* every ui_set_color(..., theme->...) below must
-                             * use the theme actually applied above, not the
-                             * classic snapshot captured before it - otherwise
-                             * windows built during init (About, Find/Replace,
-                             * Output, Folder) bake in Classic colors even
-                             * though Dark is the active theme */
+    /* Adopt the saved theme here, before any window is built - see
+     * session_peek_int()'s own comment for why this cannot wait for
+     * load_session() at the end of app_init. Defaults to Dark (row 1) on a
+     * first run or an unreadable session. */
+    g_envdlg.theme_index = session_peek_int("theme_index", 1);
+    theme = theme_by_index(g_envdlg.theme_index);
+    apply_theme(theme);  /* every ui_set_color(..., theme->...) below must use
+                          * the theme actually applied here - windows built
+                          * during init (About, Find/Replace, Output, Folder)
+                          * bake their colors in permanently */
 
     /* --- About modal --- */
     ui_node* modal = ui_create_element(UI_TAG_MODAL);
@@ -7120,14 +8262,14 @@ void app_init(ui_env* env)
     ui_set_color(rep_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(rep_modal, rep_window);
     add_text(rep_window, rx + 2, ry + 2, "Text to Find", COLOR_YELLOW, theme->modal_bg);
-    g_replace_find = add_input(rep_window, rx + 16, ry + 2, 40, "");
-    ui_set_id(g_replace_find, EVT_REPLACE_OK);
+    g_replace.find = add_input(rep_window, rx + 16, ry + 2, 40, "");
+    ui_set_id(g_replace.find, EVT_REPLACE_OK);
     add_text(rep_window, rx + 4, ry + 4, "New Text", COLOR_YELLOW, theme->modal_bg);
-    g_replace_new = add_input(rep_window, rx + 16, ry + 4, 40, "");
-    ui_set_id(g_replace_new, EVT_REPLACE_OK);
+    g_replace.new_ = add_input(rep_window, rx + 16, ry + 4, 40, "");
+    ui_set_id(g_replace.new_, EVT_REPLACE_OK);
     add_text(rep_window, rx + 2, ry + 6, "Options", COLOR_YELLOW, theme->modal_bg);
     ui_node* opts = add_group(rep_window, rx + 2, ry + 7, 26, 3, 1);
-    g_replace_opts = opts;
+    g_replace.opts = opts;
     add_group_item(opts, "Case sensitive");
     add_group_item(opts, "Whole words only");
     add_group_item(opts, "Prompt on replace");
@@ -7135,19 +8277,19 @@ void app_init(ui_env* env)
     ui_group_set_checked(opts, 2, 1);
     add_text(rep_window, rx + 32, ry + 6, "Direction", COLOR_YELLOW, theme->modal_bg);
     ui_node* dir = add_group(rep_window, rx + 32, ry + 7, 22, 2, 0);
-    g_replace_dir = dir;
+    g_replace.dir = dir;
     add_group_item(dir, "Forward");
     add_group_item(dir, "Backward");
     ui_select_set_selected(dir, 0);
     add_text(rep_window, rx + 2, ry + 12, "Scope", COLOR_YELLOW, theme->modal_bg);
     ui_node* scope = add_group(rep_window, rx + 2, ry + 13, 26, 2, 0);
-    g_replace_scope = scope;
+    g_replace.scope = scope;
     add_group_item(scope, "Global");
     add_group_item(scope, "Selected text");
     ui_select_set_selected(scope, 0);
     add_text(rep_window, rx + 32, ry + 12, "Origin", COLOR_YELLOW, theme->modal_bg);
     ui_node* origin = add_group(rep_window, rx + 32, ry + 13, 22, 2, 0);
-    g_replace_origin = origin;
+    g_replace.origin = origin;
     add_group_item(origin, "From cursor");
     add_group_item(origin, "Entire scope");
     ui_select_set_selected(origin, 0);
@@ -7164,7 +8306,7 @@ void app_init(ui_env* env)
         ui_set_label(b, rep_btns[i].label);
         ui_append_child(rep_window, b);
     }
-    g_replace_modal = rep_modal;
+    g_replace.modal = rep_modal;
 
     /* --- Find modal --- */
     ui_node* fnd_modal = ui_create_element(UI_TAG_MODAL);
@@ -7176,28 +8318,28 @@ void app_init(ui_env* env)
     ui_set_color(fnd_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(fnd_modal, fnd_window);
     add_text(fnd_window, fx + 2, fy + 2, "Text to Find", COLOR_YELLOW, theme->modal_bg);
-    g_find_input = add_input(fnd_window, fx + 16, fy + 2, 36, "");
-    ui_set_id(g_find_input, EVT_FIND_OK);
+    g_find.input = add_input(fnd_window, fx + 16, fy + 2, 36, "");
+    ui_set_id(g_find.input, EVT_FIND_OK);
     add_text(fnd_window, fx + 2, fy + 4, "Options", COLOR_YELLOW, theme->modal_bg);
-    g_find_opts = add_group(fnd_window, fx + 2, fy + 5, 26, 2, 1);
-    add_group_item(g_find_opts, "Case sensitive");
-    add_group_item(g_find_opts, "Whole words only");
-    ui_group_set_checked(g_find_opts, 0, 1);
+    g_find.opts = add_group(fnd_window, fx + 2, fy + 5, 26, 2, 1);
+    add_group_item(g_find.opts, "Case sensitive");
+    add_group_item(g_find.opts, "Whole words only");
+    ui_group_set_checked(g_find.opts, 0, 1);
     add_text(fnd_window, fx + 30, fy + 4, "Direction", COLOR_YELLOW, theme->modal_bg);
-    g_find_dir = add_group(fnd_window, fx + 30, fy + 5, 22, 2, 0);
-    add_group_item(g_find_dir, "Forward");
-    add_group_item(g_find_dir, "Backward");
-    ui_select_set_selected(g_find_dir, 0);
+    g_find.dir = add_group(fnd_window, fx + 30, fy + 5, 22, 2, 0);
+    add_group_item(g_find.dir, "Forward");
+    add_group_item(g_find.dir, "Backward");
+    ui_select_set_selected(g_find.dir, 0);
     add_text(fnd_window, fx + 2, fy + 9, "Scope", COLOR_YELLOW, theme->modal_bg);
-    g_find_scope = add_group(fnd_window, fx + 2, fy + 10, 26, 2, 0);
-    add_group_item(g_find_scope, "Global");
-    add_group_item(g_find_scope, "Selected text");
-    ui_select_set_selected(g_find_scope, 0);
+    g_find.scope = add_group(fnd_window, fx + 2, fy + 10, 26, 2, 0);
+    add_group_item(g_find.scope, "Global");
+    add_group_item(g_find.scope, "Selected text");
+    ui_select_set_selected(g_find.scope, 0);
     add_text(fnd_window, fx + 30, fy + 9, "Origin", COLOR_YELLOW, theme->modal_bg);
-    g_find_origin = add_group(fnd_window, fx + 30, fy + 10, 22, 2, 0);
-    add_group_item(g_find_origin, "From cursor");
-    add_group_item(g_find_origin, "Entire scope");
-    ui_select_set_selected(g_find_origin, 0);
+    g_find.origin = add_group(fnd_window, fx + 30, fy + 10, 22, 2, 0);
+    add_group_item(g_find.origin, "From cursor");
+    add_group_item(g_find.origin, "Entire scope");
+    ui_select_set_selected(g_find.origin, 0);
     struct { int id; int x; int w; const char* label; } fnd_btns[] = {
         { EVT_FIND_OK,     fx + 16, 10, "   OK   " },
         { EVT_FIND_CANCEL, fx + 30, 10, " Cancel " },
@@ -7210,7 +8352,7 @@ void app_init(ui_env* env)
         ui_set_label(b, fnd_btns[i].label);
         ui_append_child(fnd_window, b);
     }
-    g_find_modal = fnd_modal;
+    g_find.modal = fnd_modal;
 
     /* --- Editor context menu popup --- */
     ui_node* popup = ui_create_element(UI_TAG_MENU);
@@ -7278,6 +8420,21 @@ void app_init(ui_env* env)
     ui_append_child(popup, popup_format);
     g_editor_popup_format = popup_format;
 
+    /* Last item in the popup, after its own separator. Same id as Run >
+     * Compile and the F7 status-bar hotkey - all three share one handler
+     * (see on_ui_event), so this is purely a second way to reach it, not a
+     * second implementation. Enabled only for .c files, refreshed each
+     * frame next to the menu's own copy (see g_editor_popup_compile). */
+    ui_node* popup_sep4 = ui_create_element(UI_TAG_ITEM);
+    ui_set_separator(popup_sep4, 1);
+    ui_append_child(popup, popup_sep4);
+    ui_node* popup_compile = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(popup_compile, EVT_COMPILE);
+    ui_set_label(popup_compile, "Compile");
+    ui_set_shortcut(popup_compile, "F7");
+    ui_append_child(popup, popup_compile);
+    g_editor_popup_compile = popup_compile;
+
     g_editor_popup_codeblock_playground = popup_codeblock_playground;
     g_editor_popup = popup;
 
@@ -7287,7 +8444,7 @@ void app_init(ui_env* env)
     ui_node* folder_popup_filter = ui_create_element(UI_TAG_ITEM);
     ui_set_id(folder_popup_filter, EVT_FOLDER_TOGGLE_FILTER);
     ui_append_child(folder_popup, folder_popup_filter);
-    g_folder_popup_filter = folder_popup_filter;
+    g_folder.popup_filter = folder_popup_filter;
     ui_node* folder_popup_sep = ui_create_element(UI_TAG_ITEM);
     ui_set_separator(folder_popup_sep, 1);
     ui_append_child(folder_popup, folder_popup_sep);
@@ -7295,7 +8452,7 @@ void app_init(ui_env* env)
     ui_set_id(folder_popup_show, EVT_FOLDER_SHOW_FILTER);
     ui_set_label(folder_popup_show, "Show Filter");
     ui_append_child(folder_popup, folder_popup_show);
-    g_folder_popup_show = folder_popup_show;
+    g_folder.popup_show = folder_popup_show;
     ui_node* folder_popup_sep2 = ui_create_element(UI_TAG_ITEM);
     ui_set_separator(folder_popup_sep2, 1);
     ui_append_child(folder_popup, folder_popup_sep2);
@@ -7321,11 +8478,11 @@ void app_init(ui_env* env)
     ui_set_id(folder_popup_delete, EVT_FOLDER_DELETE);
     ui_set_label(folder_popup_delete, "Delete");
     ui_append_child(folder_popup, folder_popup_delete);
-    g_folder_popup = folder_popup;
+    g_folder.popup = folder_popup;
 
     /* --- New File/Folder modal --- shared by EVT_FOLDER_NEWFILE and
-     * EVT_FOLDER_NEWFOLDER, which retitle it (g_foldernew_window) and set
-     * g_foldernew_is_folder before showing it - see EVT_FOLDERNEW_OK. */
+     * EVT_FOLDER_NEWFOLDER, which retitle it (g_foldernew.window) and set
+     * g_foldernew.is_folder before showing it - see EVT_FOLDERNEW_OK. */
     ui_node* foldernew_modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, foldernew_modal);
     ui_node* foldernew_window = ui_create_element(UI_TAG_WINDOW);
@@ -7334,8 +8491,8 @@ void app_init(ui_env* env)
     ui_set_color(foldernew_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(foldernew_modal, foldernew_window);
     add_text(foldernew_window, 23, 9, "Name", COLOR_YELLOW, theme->modal_bg);
-    g_foldernew_input = add_input(foldernew_window, 34, 9, 26, "");
-    ui_set_id(g_foldernew_input, EVT_FOLDERNEW_OK);
+    g_foldernew.input = add_input(foldernew_window, 34, 9, 26, "");
+    ui_set_id(g_foldernew.input, EVT_FOLDERNEW_OK);
     ui_node* foldernew_ok = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(foldernew_ok, EVT_FOLDERNEW_OK);
     ui_set_rect(foldernew_ok, 30, 12, 10, 1);
@@ -7346,30 +8503,137 @@ void app_init(ui_env* env)
     ui_set_rect(foldernew_cancel, 44, 12, 10, 1);
     ui_set_label(foldernew_cancel, "Cancel");
     ui_append_child(foldernew_window, foldernew_cancel);
-    g_foldernew_window = foldernew_window;
-    g_foldernew_modal = foldernew_modal;
+    g_foldernew.window = foldernew_window;
+    g_foldernew.modal = foldernew_modal;
 
     /* --- Environment modal --- */
     ui_node* env_modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, env_modal);
     ui_node* env_window = ui_create_element(UI_TAG_WINDOW);
-    ui_set_rect(env_window, 20, 6, 40, 8);
+    ui_set_rect(env_window, 20, 6, 40, 10);
     ui_set_label(env_window, " Environment ");
     ui_set_color(env_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(env_modal, env_window);
     add_text(env_window, 23, 8, "Theme:", COLOR_YELLOW, theme->modal_bg);
     ui_node* theme_select = add_select(env_window, 30, 8, 20);
-    add_select_item(theme_select, EVT_ENV_THEME_CLASSIC, "Classic");
+    add_select_item(theme_select, EVT_ENV_THEME_AMBAR, "Ambar");
     add_select_item(theme_select, EVT_ENV_THEME_DARK, "Dark");
     add_select_item(theme_select, EVT_ENV_THEME_WHITE, "White");
-    ui_select_set_selected(theme_select, g_theme_index);
-    g_env_theme_select = theme_select;
+    ui_select_set_selected(theme_select, g_envdlg.theme_index);
+    g_envdlg.theme_select = theme_select;
+
+    /* Font family, from whatever monospaced shortlist the backend offers
+     * for this OS (see ui_env_set_font_family_fns). A backend that offers
+     * none reports 0 and the row is simply left out - no empty control. */
+    int font_count = ui_env_font_family_count(env);
+    if (font_count > 0)
+    {
+        add_text(env_window, 23, 10, "Font:", COLOR_YELLOW, theme->modal_bg);
+        ui_node* font_select = add_select(env_window, 30, 10, 20);
+        for (int i = 0; i < font_count; i++)
+            add_select_item(font_select, EVT_ENV_FONT_BASE + i,
+                            ui_env_font_family_name(env, i));
+        if (g_envdlg.font_index >= font_count)
+            g_envdlg.font_index = 0;
+        ui_select_set_selected(font_select, g_envdlg.font_index);
+        g_envdlg.font_select = font_select;
+    }
+
     ui_node* env_ok = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(env_ok, EVT_ENV_OK);
-    ui_set_rect(env_ok, 35, 11, 10, 1);
+    ui_set_rect(env_ok, 35, 13, 10, 1);
     ui_set_label(env_ok, "  OK  ");
     ui_append_child(env_window, env_ok);
-    g_env_modal = env_modal;
+    g_envdlg.modal = env_modal;
+
+    /* --- External Tools modal (Tools > External Tools...) --- */
+    ui_node* ext_modal = ui_create_element(UI_TAG_MODAL);
+    ui_append_child(root, ext_modal);
+    /* Laid out against ex/ey so the whole dialog moves as a unit. Widths
+     * are chosen so the list and the field inputs share the same right
+     * edge (ex + 2 + LIST_W == ex + 12 + FIELD_W), with the Add/Delete
+     * column parked to the right of the list. */
+    int ex = 10, ey = 2, ew = 66, eh = 24;
+    const int list_w = 46, list_h = 10;      /* rows visible; the list scrolls
+                                              * past that up to EXT_TOOL_MAX */
+    const int btn_x = ex + 2 + list_w + 2;   /* right of the list */
+    const int btn_w = 12;
+    ui_node* ext_window = ui_create_element(UI_TAG_WINDOW);
+    ui_set_rect(ext_window, ex, ey, ew, eh);
+    ui_set_label(ext_window, " External Tools ");
+    ui_set_color(ext_window, theme->modal_fg, theme->modal_bg);
+    ui_append_child(ext_modal, ext_window);
+
+    /* Layout mirrors Visual Studio's own External Tools dialog: the list
+     * on the left with its action buttons in a column to the right, then
+     * the field rows underneath - labels left-aligned in their own column,
+     * every input starting at the same x so they form a clean edge. */
+    add_text(ext_window, ex + 2, ey + 2, "Menu contents:", COLOR_YELLOW, theme->modal_bg);
+    g_exttool.listbox = ui_create_element(UI_TAG_LISTBOX);
+    ui_set_rect(g_exttool.listbox, ex + 2, ey + 3, list_w, list_h);
+    ui_set_id(g_exttool.listbox, EVT_EXTTOOL_LIST);
+    ui_append_child(ext_window, g_exttool.listbox);
+
+    /* One button per row, evenly spaced, sharing the column at btn_x. */
+    static const struct { int id; const char* label; } ext_buttons[] = {
+        { EVT_EXTTOOL_ADD,      "  Add  "  },
+        { EVT_EXTTOOL_DELETE,   " Delete " },
+        { EVT_EXTTOOL_MOVEUP,   " Move Up " },
+        { EVT_EXTTOOL_MOVEDOWN, "Move Down" },
+    };
+    for (int i = 0; i < (int)(sizeof ext_buttons / sizeof ext_buttons[0]); i++)
+    {
+        ui_node* b = ui_create_element(UI_TAG_BUTTON);
+        ui_set_id(b, ext_buttons[i].id);
+        ui_set_rect(b, btn_x, ey + 3 + i * 2, btn_w, 1);
+        ui_set_label(b, ext_buttons[i].label);
+        ui_append_child(ext_window, b);
+    }
+
+    int ext_fy = ey + 3 + list_h + 1;        /* first field row, below the list */
+    /* Widest label ("Arguments:") sets where the inputs begin, so all four
+     * share one left edge. They run all the way to the window's inner right
+     * edge - past the list and its button column above - because these hold
+     * full paths and command lines, which are the longest things in the
+     * dialog and the most painful to edit through a short window. */
+    const int field_x = ex + 2 + 12;
+    const int field_w = (ex + ew - 2) - field_x - 1;  /* one column of margin */
+
+    static const struct { int id; const char* label; } ext_fields[] = {
+        { EVT_EXTTOOL_TITLE, "Title:"     },
+        { EVT_EXTTOOL_CMD,   "Command:"   },
+        { EVT_EXTTOOL_ARGS,  "Arguments:" },
+        { EVT_EXTTOOL_DIR,   "Directory:" },
+    };
+    ui_node* ext_inputs[4];
+    for (int i = 0; i < 4; i++)
+    {
+        add_text(ext_window, ex + 2, ext_fy + i, ext_fields[i].label,
+                 COLOR_YELLOW, theme->modal_bg);
+        ext_inputs[i] = add_input(ext_window, field_x, ext_fy + i, field_w, "");
+        ui_set_id(ext_inputs[i], ext_fields[i].id);
+    }
+    g_exttool.title_input = ext_inputs[0];
+    g_exttool.cmd_input   = ext_inputs[1];
+    g_exttool.args_input  = ext_inputs[2];
+    g_exttool.dir_input   = ext_inputs[3];
+
+    add_text(ext_window, field_x, ext_fy + 5,
+             "$(FilePath) $(FileDir) $(FileName) $(FileExt)",
+             COLOR_CYAN, theme->modal_bg);
+
+    /* OK/Cancel bottom-right, sharing the button column's right edge. */
+    ui_node* ext_ok = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(ext_ok, EVT_EXTTOOL_OK);
+    ui_set_rect(ext_ok, btn_x - btn_w - 2, ext_fy + 7, btn_w, 1);
+    ui_set_label(ext_ok, "  OK  ");
+    ui_append_child(ext_window, ext_ok);
+    ui_node* ext_cancel = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(ext_cancel, EVT_EXTTOOL_CANCEL);
+    ui_set_rect(ext_cancel, btn_x, ext_fy + 7, btn_w, 1);
+    ui_set_label(ext_cancel, "Cancel");
+    ui_append_child(ext_window, ext_cancel);
+    g_exttool.modal = ext_modal;
 
     /* --- Compiler Options modal --- */
     ui_node* copts_modal = ui_create_element(UI_TAG_MODAL);
@@ -7380,36 +8644,36 @@ void app_init(ui_env* env)
     ui_set_color(copts_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(copts_modal, copts_window);
     add_text(copts_window, 18, 7, "Options", COLOR_YELLOW, theme->modal_bg);
-    g_copts_input = add_input(copts_window, 27, 7, 34, "");
-    ui_set_id(g_copts_input, EVT_COPTS_OK);
+    g_copts.input = add_input(copts_window, 27, 7, 34, "");
+    ui_set_id(g_copts.input, EVT_COPTS_OK);
     add_text(copts_window, 18, 9, "Target", COLOR_YELLOW, theme->modal_bg);
-    g_copts_target = add_select(copts_window, 27, 9, 20);
-    add_select_item(g_copts_target, EVT_COPTS_TARGET + 0, "X86 MSVC");
-    add_select_item(g_copts_target, EVT_COPTS_TARGET + 1, "X64 MSVC");
-    add_select_item(g_copts_target, EVT_COPTS_TARGET + 2, "X64 GCC");
-    add_select_item(g_copts_target, EVT_COPTS_TARGET + 3, "macOS ARM64");
-    ui_select_set_selected(g_copts_target, target_slug_to_index(g_compile.target));
+    g_copts.target = add_select(copts_window, 27, 9, 20);
+    add_select_item(g_copts.target, EVT_COPTS_TARGET + 0, "X86 MSVC");
+    add_select_item(g_copts.target, EVT_COPTS_TARGET + 1, "X64 MSVC");
+    add_select_item(g_copts.target, EVT_COPTS_TARGET + 2, "X64 GCC");
+    add_select_item(g_copts.target, EVT_COPTS_TARGET + 3, "macOS ARM64");
+    ui_select_set_selected(g_copts.target, target_slug_to_index(g_compile.target));
 
     /* Style (-style=<name>) - see g_style_slugs' own comment for why only
      * these four are offered. */
     add_text(copts_window, 18, 11, "Style", COLOR_YELLOW, theme->modal_bg);
-    g_copts_style = add_select(copts_window, 27, 11, 20);
-    add_select_item(g_copts_style, EVT_COPTS_STYLE + 0, "Do not check");
-    add_select_item(g_copts_style, EVT_COPTS_STYLE + 1, "cake");
-    add_select_item(g_copts_style, EVT_COPTS_STYLE + 2, "gnu");
-    add_select_item(g_copts_style, EVT_COPTS_STYLE + 3, "microsoft");
-    ui_select_set_selected(g_copts_style, style_slug_to_index(g_compile.style));
+    g_copts.style = add_select(copts_window, 27, 11, 20);
+    add_select_item(g_copts.style, EVT_COPTS_STYLE + 0, "Do not check");
+    add_select_item(g_copts.style, EVT_COPTS_STYLE + 1, "cake");
+    add_select_item(g_copts.style, EVT_COPTS_STYLE + 2, "gnu");
+    add_select_item(g_copts.style, EVT_COPTS_STYLE + 3, "microsoft");
+    ui_select_set_selected(g_copts.style, style_slug_to_index(g_compile.style));
 
     /* Flags - a check-box GROUP, same control as Find's "Options"
-     * (g_find_opts) above (add_group/add_group_item). */
+     * (g_find.opts) above (add_group/add_group_item). */
     add_text(copts_window, 18, 13, "Flags", COLOR_YELLOW, theme->modal_bg);
-    g_copts_flags = add_group(copts_window, 27, 13, 30, 3, 1);
-    add_group_item(g_copts_flags, "-no-output");
-    add_group_item(g_copts_flags, "-line-directives");
-    add_group_item(g_copts_flags, "-fanalyzer");
-    ui_group_set_checked(g_copts_flags, 0, g_compile.no_output);
-    ui_group_set_checked(g_copts_flags, 1, g_compile.line_directives);
-    ui_group_set_checked(g_copts_flags, 2, g_compile.fanalyzer);
+    g_copts.flags = add_group(copts_window, 27, 13, 30, 3, 1);
+    add_group_item(g_copts.flags, "-no-output");
+    add_group_item(g_copts.flags, "-line-directives");
+    add_group_item(g_copts.flags, "-fanalyzer");
+    ui_group_set_checked(g_copts.flags, 0, g_compile.no_output);
+    ui_group_set_checked(g_copts.flags, 1, g_compile.line_directives);
+    ui_group_set_checked(g_copts.flags, 2, g_compile.fanalyzer);
 
     ui_node* copts_ok = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(copts_ok, EVT_COPTS_OK);
@@ -7426,7 +8690,7 @@ void app_init(ui_env* env)
     ui_set_rect(copts_help, 55, 18, 10, 1);
     ui_set_label(copts_help, " Help ");
     ui_append_child(copts_window, copts_help);
-    g_copts_modal = copts_modal;
+    g_copts.modal = copts_modal;
 
     /* --- Open File modal --- */
     ui_node* open_modal = ui_create_element(UI_TAG_MODAL);
@@ -7443,33 +8707,33 @@ void app_init(ui_env* env)
     ui_set_label(open_window, " Open a File ");
     ui_set_color(open_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(open_modal, open_window);
-    g_open_window = open_window;
+    g_open.window = open_window;
     add_text(open_window, ox + 2, oy + 2, "Name", COLOR_YELLOW, theme->modal_bg);
-    g_open_name_input = add_input(open_window, ox + 2, oy + 3, 42, "");
-    ui_set_id(g_open_name_input, EVT_OPEN_NAME);
+    g_open.name_input = add_input(open_window, ox + 2, oy + 3, 42, "");
+    ui_set_id(g_open.name_input, EVT_OPEN_NAME);
     add_text(open_window, ox + 2, oy + 5, "Files", COLOR_YELLOW, theme->modal_bg);
-    g_open_listbox = ui_create_element(UI_TAG_LISTBOX);
-    ui_set_rect(g_open_listbox, ox + 2, oy + 6, 42, 10);
-    ui_set_id(g_open_listbox, EVT_OPEN_LISTBOX);
-    ui_append_child(open_window, g_open_listbox);
-    g_open_filter_label = add_text(open_window, ox + 2, oy + 17, "Type", COLOR_YELLOW, theme->modal_bg);
-    g_open_filter = add_select(open_window, ox + 2, oy + 18, 42);
+    g_open.listbox = ui_create_element(UI_TAG_LISTBOX);
+    ui_set_rect(g_open.listbox, ox + 2, oy + 6, 42, 10);
+    ui_set_id(g_open.listbox, EVT_OPEN_LISTBOX);
+    ui_append_child(open_window, g_open.listbox);
+    g_open.filter_label = add_text(open_window, ox + 2, oy + 17, "Type", COLOR_YELLOW, theme->modal_bg);
+    g_open.filter = add_select(open_window, ox + 2, oy + 18, 42);
     for (int i = 0; i < OPEN_FILTER_COUNT; i++)
-        add_select_item(g_open_filter, EVT_OPEN_FILTER + i, g_open_filters[i].label);
-    ui_select_set_selected(g_open_filter, 0);
+        add_select_item(g_open.filter, EVT_OPEN_FILTER + i, g_open_filters[i].label);
+    ui_select_set_selected(g_open.filter, 0);
     int obx = ox + 46;
     ui_node* open_ok = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(open_ok, EVT_OPEN_OK);
     ui_set_rect(open_ok, obx, oy + 3, 12, 1);
     ui_set_label(open_ok, "  Open  ");
     ui_append_child(open_window, open_ok);
-    g_open_ok = open_ok;
+    g_open.ok = open_ok;
     ui_node* open_cancel = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(open_cancel, EVT_OPEN_CANCEL);
     ui_set_rect(open_cancel, obx, oy + 5, 12, 1);
     ui_set_label(open_cancel, " Cancel ");
     ui_append_child(open_window, open_cancel);
-    g_open_modal = open_modal;
+    g_open.modal = open_modal;
 
     /* --- Output window --- */
     ui_node* output_wrapper = ui_create_element(UI_TAG_MODAL);
@@ -7505,13 +8769,13 @@ void app_init(ui_env* env)
     ui_set_dock(folder_window, UI_DOCK_LEFT, fw_w);
     ui_append_child(folder_wrapper, folder_window);
 
-    g_folder_listbox = ui_create_element(UI_TAG_LISTBOX);
-    ui_set_id(g_folder_listbox, EVT_FOLDER_LISTBOX);
-    ui_set_rect(g_folder_listbox, fw_x + 1, fw_y + 1, fw_w - 2, fw_h - 2);
-    ui_append_child(folder_window, g_folder_listbox);
-    g_folder_window = folder_wrapper;
-    if (!ui_get_cwd(g_folder_dir, sizeof g_folder_dir))
-        strcpy(g_folder_dir, ".");
+    g_folder.listbox = ui_create_element(UI_TAG_LISTBOX);
+    ui_set_id(g_folder.listbox, EVT_FOLDER_LISTBOX);
+    ui_set_rect(g_folder.listbox, fw_x + 1, fw_y + 1, fw_w - 2, fw_h - 2);
+    ui_append_child(folder_window, g_folder.listbox);
+    g_folder.window = folder_wrapper;
+    if (!ui_get_cwd(g_folder.dir, sizeof g_folder.dir))
+        strcpy(g_folder.dir, ".");
     folder_window_refresh();
 
     /* --- Find and Replace panel (Tools > "Find and Replace...") --- */
@@ -7524,17 +8788,17 @@ void app_init(ui_env* env)
     ui_set_color(fr_panel, theme->window_fg, theme->window_bg);
     ui_set_resizable(fr_panel, 1);  /* dock border can be dragged - its
                                      * controls' width tracks the panel's
-                                     * current width (see g_fr_last_w/
+                                     * current width (see g_fr.last_w/
                                      * FR_PANEL_MIN_W and app_frame() below),
                                      * clamped to a sane minimum rather than
                                      * left to just misalign or get crushed */
     ui_set_shadow(fr_panel, 0);
     ui_set_dock(fr_panel, UI_DOCK_RIGHT, fr_w);
     ui_append_child(fr_wrapper, fr_panel);
-    g_fr_window = fr_wrapper;
-    g_fr_panel = fr_panel;
+    g_fr.window = fr_wrapper;
+    g_fr.panel = fr_panel;
     fr_rebuild_content();
-    g_fr_last_w = fr_w;  /* matches what fr_rebuild_content() just laid out
+    g_fr.last_w = fr_w;  /* matches what fr_rebuild_content() just laid out
                           * against - see the width-change check in app_frame() */
     /* Not shown at startup, unlike Folder/Output - it opens on demand from
      * Tools > "Find and Replace..." (EVT_TOOLS_FINDREPLACE) and its own
@@ -7545,7 +8809,7 @@ void app_init(ui_env* env)
     ui_screen_update(g_screen, env);   /* reads env->width/height into g_screen->screen_w/h */
 
     /* Now show the docked windows – they will get correct sizes */
-    ui_screen_show_window(g_screen, g_folder_window);
+    ui_screen_show_window(g_screen, g_folder.window);
     ui_screen_show_window(g_screen, g_output_window);
 
     /* Restore last session's compiler options/target, Folder panel
@@ -7560,6 +8824,21 @@ void app_init(ui_env* env)
         ui_node* demo_wrapper = make_new_editor_window(root, g_new_count++);
         ui_node* demo_editor = editor_in_window(demo_wrapper);
         ui_screen_show_window(g_screen, demo_wrapper);
+    }
+
+    /* Apply the restored font choice now: load_session() has just supplied
+     * g_envdlg.font_index, and the backend registered its shortlist before
+     * app_init ran, so this is the first point where both are known. Also
+     * re-syncs the dialog's <select>, which was populated (and defaulted to
+     * row 0) before the session was read. */
+    /* Tools restored by load_session() above only reach the menu here. */
+    rebuild_tools_menu();
+
+    if (g_envdlg.font_index > 0 && g_envdlg.font_index < ui_env_font_family_count(env))
+    {
+        ui_env_set_font_family(env, g_envdlg.font_index);
+        if (g_envdlg.font_select)
+            ui_select_set_selected(g_envdlg.font_select, g_envdlg.font_index);
     }
 
     ui_screen_set_on_event(g_screen, on_ui_event, NULL);
@@ -7617,20 +8896,20 @@ int app_frame(ui_env* env)
      * which only auto-stretches EDITOR/LISTBOX children) and re-lay-out the
      * panel's controls to the new width via fr_rebuild_content(), clamping
      * first so the border can't be dragged narrower than FR_PANEL_MIN_W. */
-    if (g_fr_panel)
+    if (g_fr.panel)
     {
         int pw;
-        ui_get_rect(g_fr_panel, NULL, NULL, &pw, NULL);
+        ui_get_rect(g_fr.panel, NULL, NULL, &pw, NULL);
         if (pw < FR_PANEL_MIN_W)
         {
             int px, py, ph;
-            ui_get_rect(g_fr_panel, &px, &py, NULL, &ph);
-            ui_set_rect(g_fr_panel, px, py, FR_PANEL_MIN_W, ph);
+            ui_get_rect(g_fr.panel, &px, &py, NULL, &ph);
+            ui_set_rect(g_fr.panel, px, py, FR_PANEL_MIN_W, ph);
             pw = FR_PANEL_MIN_W;
         }
-        if (pw != g_fr_last_w)
+        if (pw != g_fr.last_w)
         {
-            g_fr_last_w = pw;
+            g_fr.last_w = pw;
             fr_rebuild_content();
         }
     }
@@ -7660,7 +8939,7 @@ int app_frame(ui_env* env)
      * itself checks for an already-open Playground before creating a new
      * one. */
     refresh_view_item(g_view_output_item, "Show Output", window_is_shown(g_output_window));
-    refresh_view_item(g_view_folder_item, "Show Folder", window_is_shown(g_folder_window));
+    refresh_view_item(g_view_folder_item, "Show Folder", window_is_shown(g_folder.window));
     {
         char playground_path[FS_MAX_PATH];
         int have_path = get_playground_file_path(playground_path, sizeof playground_path);
@@ -7700,6 +8979,10 @@ int app_frame(ui_env* env)
      * above, since format_c_source() assumes C syntax. */
     ui_set_enabled(g_edit_format_item, compile_targets_c);
     ui_set_enabled(g_editor_popup_format, compile_targets_c);
+
+    /* The popup's own "Compile" - same .c-only rule as the Compile menu's
+     * copy above, kept here so both refresh from the one condition. */
+    ui_set_enabled(g_editor_popup_compile, compile_targets_c);
 
     /* Apply a Go-to-line focus request now that update() (and its
      * fire-then-blur of the input) is done, so the editor caret stays put. */
@@ -7753,13 +9036,45 @@ int app_frame(ui_env* env)
     if (ui_screen_mouse_right_pressed(g_screen) && !ui_screen_active_modal(g_screen))
     {
         int mx = ui_screen_mouse_x(g_screen), my = ui_screen_mouse_y(g_screen);
-        if (ui_node_contains(g_folder_listbox, mx, my))
+        if (ui_node_contains(g_folder.listbox, mx, my))
         {
-            refresh_folder_filter_item(g_folder_popup_filter);
-            refresh_folder_show_filter_item(g_folder_popup_show);
-            ui_screen_open_popup(g_screen, g_folder_popup, mx, my, NULL);
+            refresh_folder_filter_item(g_folder.popup_filter);
+            refresh_folder_show_filter_item(g_folder.popup_show);
+            ui_screen_open_popup(g_screen, g_folder.popup, mx, my, NULL);
         }
     }
+
+    /* External Tools dialog: follow the listbox selection as it moves.
+     * A single click only sets <listbox>'s selection - the id event fires
+     * on double-click/Enter (see process_window's UI_TAG_LISTBOX branch),
+     * which is what the Open dialog wants but not this one: here picking a
+     * row should immediately show that tool's fields. Polling the selection
+     * while the modal is up gets that without changing the shared widget's
+     * behavior for every other dialog. */
+    if (g_exttool.modal && ui_screen_active_modal(g_screen) == g_exttool.modal)
+    {
+        int sel = ui_select_get_selected(g_exttool.listbox);
+        if (sel != g_exttool.sel)
+        {
+            /* Commit whatever is in the fields to the row being LEFT before
+             * switching, so edits are never silently lost by clicking away.
+             * Order matters: g_exttool.sel must advance before the refresh,
+             * because exttool_refresh_list() re-asserts the listbox
+             * selection from it and would otherwise snap back to the old
+             * row. The refresh is what makes a retitled tool show its new
+             * name in the list straight away. */
+            exttool_store_fields();
+            g_exttool.sel = sel;
+            exttool_refresh_list();
+            exttool_load_fields();
+        }
+    }
+
+    /* Stream whatever the running compile has printed since the last frame
+     * (no-op when none is running) - see compile_stream_poll(). Kept here,
+     * at the end of the frame, so the Output window it writes into is
+     * updated before the next render rather than a frame later. */
+    compile_stream_poll();
 
     auto_compile_tick();
 
