@@ -157,8 +157,6 @@ struct parser_ctx
 
     _View struct token_list input_list;
     struct token* _Opt current;
-    struct token* _Opt previous;
-
 
     bool inside_generic_association;
 
@@ -199,6 +197,7 @@ int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
 int parser_match_tk_lint(struct parser_ctx* ctx, enum token_type type, struct token** pp_token_lint);
 
 struct token* _Opt previous_parser_token(const struct token* token);
+struct token* _Opt parser_get_previous_token(struct parser_ctx* ctx);
 struct declarator* _Opt find_declarator(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Opt* _Opt ppscope_opt);
 struct enumerator* _Opt find_enumerator(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Opt* _Opt ppscope_opt);
 struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Opt* _Opt ppscope_opt);
@@ -1816,4 +1815,4 @@ int initializer_init_new(struct parser_ctx* ctx,
 struct object* _Opt find_object_declarator_by_index(struct object* p_object, struct member_declaration_list* list, int member_index);
 
 void check_dianostic_suppression_phase(struct parser_ctx* ctx, struct token* pToken, int phase);
-const struct direct_declarator* get_innermost_direct_declarator(const struct direct_declarator* p);
+const struct direct_declarator* _Opt get_innermost_direct_declarator(const struct direct_declarator* _Opt p);

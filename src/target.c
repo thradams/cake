@@ -548,36 +548,36 @@ const char* target_get_builtins(enum target e)
 
 void target_self_test()
 {
-    _Assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_CHAR) == UCHAR_MAX);
-    _Assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_SHORT) == USHRT_MAX);
-    _Assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_INT) == UINT_MAX);
-    _Assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG) == ULONG_MAX);
-    _Assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG_LONG) == ULLONG_MAX);
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_CHAR) == UCHAR_MAX);
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_SHORT) == USHRT_MAX);
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_INT) == UINT_MAX);
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG) == ULONG_MAX);
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG_LONG) == ULLONG_MAX);
 
-    _Assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_CHAR) == CHAR_MAX);
-    _Assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_SHORT) == SHRT_MAX);
-    _Assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_INT) == INT_MAX);
-    _Assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG) == LONG_MAX);
-    _Assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG_LONG) == LLONG_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_CHAR) == CHAR_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_SHORT) == SHRT_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_INT) == INT_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG) == LONG_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG_LONG) == LLONG_MAX);
 
-    _Assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_CHAR) == sizeof(char) * CHAR_BIT);
-    _Assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_SHORT) == sizeof(short) * CHAR_BIT);
-    _Assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_INT) == sizeof(int) * CHAR_BIT);
-    _Assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG) == sizeof(long) * CHAR_BIT);
-    _Assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG_LONG) == sizeof(long long) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_CHAR) == sizeof(char) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_SHORT) == sizeof(short) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_INT) == sizeof(int) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG) == sizeof(long) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG_LONG) == sizeof(long long) * CHAR_BIT);
 
-    _Assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_LONG_DOUBLE) == sizeof(long double) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_LONG_DOUBLE) == sizeof(long double) * CHAR_BIT);
 
 
-    _Assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->size_t_type) == sizeof(sizeof(1)) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->size_t_type) == sizeof(sizeof(1)) * CHAR_BIT);
 
-    _Assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->wchar_t_type) == sizeof(L' ') * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->wchar_t_type) == sizeof(L' ') * CHAR_BIT);
 
 
 #if CHAR_MIN < 0
-    _Assert(get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->char_t_type == TYPE_SIGNED_CHAR);
+    assert(get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->char_t_type == TYPE_SIGNED_CHAR);
 #else
-    _Assert(get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->char_t_type == TYPE_UNSIGNED_CHAR);
+    assert(get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->char_t_type == TYPE_UNSIGNED_CHAR);
 #endif
 
 

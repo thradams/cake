@@ -6194,6 +6194,10 @@ const char* get_token_name(enum token_type tk)
     case TK_LESS_THAN_SIGN: return "TK_LESS_THAN_SIGN";
     case TK_EQUALS_SIGN: return "TK_EQUALS_SIGN";
     case TK_GREATER_THAN_SIGN: return "TK_GREATER_THAN_SIGN";
+    case TK_LESS_EQUAL: return "TK_LESS_EQUAL";
+    case TK_GREATER_EQUAL: return "TK_GREATER_EQUAL";
+    case TK_EQUAL_EQUAL: return "TK_EQUAL_EQUAL";
+    case TK_NOT_EQUAL: return "TK_NOT_EQUAL";
     case TK_QUESTION_MARK: return "TK_QUESTION_MARK";
     case TK_COMMERCIAL_AT: return "TK_COMMERCIAL_AT";
     case TK_LEFT_SQUARE_BRACKET: return "TK_LEFT_SQUARE_BRACKET";
@@ -6410,6 +6414,10 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
     case TK_LESS_THAN_SIGN: return "<";
     case TK_EQUALS_SIGN: return "=";
     case TK_GREATER_THAN_SIGN: return ">";
+    case TK_LESS_EQUAL: return "<=";
+    case TK_GREATER_EQUAL: return ">=";
+    case TK_EQUAL_EQUAL: return "==";
+    case TK_NOT_EQUAL: return "!=";
     case TK_QUESTION_MARK: return "?";
     case TK_COMMERCIAL_AT: return "@";
     case TK_LEFT_SQUARE_BRACKET: return "[";
@@ -7293,13 +7301,13 @@ bool test_preprocessor_in_out_match(const char* input, const char* output)
 
 void test_lexeme_cmp()
 {
-    _Assert(lexeme_cmp("a", "\\\na") == 0);
-    _Assert(lexeme_cmp("a", "a\\\n") == 0);
-    _Assert(lexeme_cmp("\\\na", "a") == 0);
-    _Assert(lexeme_cmp("a\\\n", "a") == 0);
-    _Assert(lexeme_cmp("a\\\nb", "ab") == 0);
-    _Assert(lexeme_cmp("define", "define") == 0);
-    _Assert(lexeme_cmp("de\\\nfine", "define") == 0);
+    assert(lexeme_cmp("a", "\\\na") == 0);
+    assert(lexeme_cmp("a", "a\\\n") == 0);
+    assert(lexeme_cmp("\\\na", "a") == 0);
+    assert(lexeme_cmp("a\\\n", "a") == 0);
+    assert(lexeme_cmp("a\\\nb", "ab") == 0);
+    assert(lexeme_cmp("define", "define") == 0);
+    assert(lexeme_cmp("de\\\nfine", "define") == 0);
 }
 
 void token_list_pop_front_test()
@@ -7329,7 +7337,7 @@ void token_list_pop_back_test()
     struct tokenizer_ctx tctx = { 0 };
     list = tokenizer(&tctx, "a", NULL, 0, TK_FLAG_NONE);
     token_list_pop_back(&list);
-    _Assert(list.head == NULL && list.tail == NULL);
+    assert(list.head == NULL && list.tail == NULL);
 
     /*
 * pop bacl com 2
@@ -7339,9 +7347,9 @@ void token_list_pop_back_test()
     list = tokenizer(&tctx, "a,", NULL, 0, TK_FLAG_NONE);
     token_list_pop_back(&list);
 
-    _Assert(strcmp(list.head->lexeme, "a") == 0);
+    assert(strcmp(list.head->lexeme, "a") == 0);
 
-    _Assert(list.head != NULL &&
+    assert(list.head != NULL &&
         list.head->prev == NULL &&
         list.head->next == NULL &&
         list.tail->prev == NULL &&
@@ -7354,12 +7362,12 @@ void token_list_pop_back_test()
 
     list = tokenizer(&tctx, "a,b", NULL, 0, TK_FLAG_NONE);
     token_list_pop_back(&list);
-    _Assert(strcmp(list.head->lexeme, "a") == 0);
-    _Assert(strcmp(list.head->next->lexeme, ",") == 0);
-    _Assert(strcmp(list.tail->lexeme, ",") == 0);
-    _Assert(strcmp(list.tail->prev->lexeme, "a") == 0);
-    _Assert(list.head->prev == NULL);
-    _Assert(list.tail->next == NULL);
+    assert(strcmp(list.head->lexeme, "a") == 0);
+    assert(strcmp(list.head->next->lexeme, ",") == 0);
+    assert(strcmp(list.tail->lexeme, ",") == 0);
+    assert(strcmp(list.tail->prev->lexeme, "a") == 0);
+    assert(list.head->prev == NULL);
+    assert(list.tail->next == NULL);
 }
 
 int token_list_append_list_test()
@@ -7369,7 +7377,7 @@ int token_list_append_list_test()
     struct token_list source = { 0 };
     struct token_list dest = tokenizer(&tctx, "a", NULL, 0, TK_FLAG_NONE);
     token_list_append_list(&dest, &source);
-    _Assert(strcmp(dest.head->lexeme, "a") == 0);
+    assert(strcmp(dest.head->lexeme, "a") == 0);
 
     token_list_clear(&source);
     token_list_clear(&dest);
@@ -7377,18 +7385,18 @@ int token_list_append_list_test()
     dest = tokenizer(&tctx, "a", NULL, 0, TK_FLAG_NONE);
     token_list_append_list(&dest, &source);
 
-    _Assert(strcmp(dest.head->lexeme, "a") == 0);
+    assert(strcmp(dest.head->lexeme, "a") == 0);
 
     token_list_clear(&source);
     token_list_clear(&dest);
     source = tokenizer(&tctx, "a,", NULL, 0, TK_FLAG_NONE);
     dest = tokenizer(&tctx, "1", NULL, 0, TK_FLAG_NONE);
     token_list_append_list(&dest, &source);
-    _Assert(strcmp(dest.head->lexeme, "1") == 0);
-    _Assert(strcmp(dest.tail->lexeme, ",") == 0);
-    _Assert(dest.tail->next == NULL);
-    _Assert(dest.head->next->next == dest.tail);
-    _Assert(dest.tail->prev->prev == dest.head);
+    assert(strcmp(dest.head->lexeme, "1") == 0);
+    assert(strcmp(dest.tail->lexeme, ",") == 0);
+    assert(dest.tail->next == NULL);
+    assert(dest.head->next->next == dest.tail);
+    assert(dest.tail->prev->prev == dest.head);
 
     return 0;
 }
@@ -7403,7 +7411,7 @@ void test_collect()
         "ab"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_0()
@@ -7414,7 +7422,7 @@ void test_va_opt_0()
     const char* output =
         "f(0, a, b, c)";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_1()
@@ -7424,7 +7432,7 @@ void test_va_opt_1()
         "F()";
     const char* output =
         "f(0)";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_2()
@@ -7435,7 +7443,7 @@ void test_va_opt_2()
     const char* output =
         "(1)";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_3()
@@ -7446,7 +7454,7 @@ void test_va_opt_3()
     const char* output =
         "(!1)";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_4()
@@ -7460,7 +7468,7 @@ void test_va_opt_4()
     const char* output =
         "int x = 42;";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_5()
@@ -7472,7 +7480,7 @@ void test_va_opt_5()
         ;
     const char* output =
         "f(0)";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_6()
@@ -7485,7 +7493,7 @@ void test_va_opt_6()
     const char* output =
         "f(0, a)";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 void test_va_opt_7()
 {
@@ -7497,7 +7505,7 @@ void test_va_opt_7()
     const char* output =
         "a b";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void concatenation_problem()
@@ -7510,7 +7518,7 @@ void concatenation_problem()
     const char* output =
         "a b";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_G2()
@@ -7523,7 +7531,7 @@ void test_va_opt_G2()
     const char* output =
         "f(0, a)";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt()
@@ -7534,7 +7542,7 @@ void test_va_opt()
         "F(EMPTY)";
     const char* output =
         "f(0)";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_empty_va_args()
@@ -7543,7 +7551,7 @@ void test_empty_va_args()
         "M(1)\n";
     const char* output =
         "1,";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_args_single()
@@ -7553,7 +7561,7 @@ void test_va_args_single()
         "F(1, 2)";
     const char* output =
         "1, 2";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_args_extra_args()
@@ -7563,7 +7571,7 @@ void test_va_args_extra_args()
         "F(0, 1, 2)";
     const char* output =
         "0 1, 2";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_empty_va_args_empty()
@@ -7573,7 +7581,7 @@ void test_empty_va_args_empty()
         "F()";
     const char* output =
         "a";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_defined()
@@ -7586,7 +7594,7 @@ void test_defined()
         "#endif\n";
     const char* output =
         "B";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_char_constant_if()
@@ -7601,7 +7609,7 @@ void test_char_constant_if()
         "#endif\n";
     const char* output =
         "CORRECT";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void testline()
@@ -7613,7 +7621,7 @@ void testline()
         "M";
     const char* output =
         "a b";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void ifelse()
@@ -7626,7 +7634,7 @@ void ifelse()
         "#endif\n";
     const char* output =
         "A";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void T1()
@@ -7640,7 +7648,7 @@ void T1()
     //error: too few arguments provided to function-like macro invocation
     //se f nao tivesse nenhum ou menus
     //too many arguments provided to function-like macro invocation
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 int EXAMPLE5()
@@ -7685,7 +7693,7 @@ void recursivetest1()
     //  "f(2 * (f(2 * (z[0]))))";
     const char* output =
         "f(2 * (f(2 * (z[0]))))";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void rectest()
@@ -7701,7 +7709,7 @@ void rectest()
     //  "f(2 * (y + 1)) + f(2 * (f(2 * (z[0])))) % t(t(f)(0) + t)(1);";
     const char* output =
         "f(2 * (y + 1)) + f(2 * (f(2 * (z[0])))) % t(t(f)(0) + t)(1);";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void emptycall()
@@ -7713,7 +7721,7 @@ void emptycall()
     const char* output =
         ""
         ;
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void semiempty()
@@ -7725,7 +7733,7 @@ void semiempty()
     const char* output =
         "1"
         ;
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void calling_one_arg_with_empty_arg()
@@ -7737,7 +7745,7 @@ void calling_one_arg_with_empty_arg()
     const char* output =
         "\"\""
         ;
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_argument_with_parentesis()
@@ -7749,7 +7757,7 @@ void test_argument_with_parentesis()
     const char* output =
         "(1, 2, 3)4"
         ;
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void two_empty_arguments()
@@ -7761,7 +7769,7 @@ void two_empty_arguments()
     const char* output =
         ""
         ;
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void simple_object_macro()
@@ -7773,7 +7781,7 @@ void simple_object_macro()
     const char* output =
         "a b\n"
         "c";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test2()
@@ -7786,7 +7794,7 @@ void test2()
         "1 23 4"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test3()
@@ -7819,7 +7827,7 @@ void tetris()
         "De"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void recursive_macro_expansion()
@@ -7831,7 +7839,7 @@ void recursive_macro_expansion()
     const char* output =
         "1 2 3 4 B"
         ;
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void empty_and_no_args()
@@ -7842,7 +7850,7 @@ void empty_and_no_args()
     const char* output =
         "1"
         ;
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void empty_and_args()
@@ -7854,7 +7862,7 @@ void empty_and_args()
         "1"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test4()
@@ -7867,7 +7875,7 @@ void test4()
         "1 23 4"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_string()
@@ -7887,7 +7895,7 @@ void test_string()
     const char* output =
         "A \"\\\"B\\\"\"";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test6()
@@ -7973,7 +7981,7 @@ void test_concatenation_o()
         "*i_A_j k"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_concatenation()
@@ -7986,7 +7994,7 @@ void test_concatenation()
         "ijk"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 
 }
 
@@ -7998,7 +8006,7 @@ void bad_test()
         "0xfe-BAD(3);"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 /*
@@ -8018,7 +8026,7 @@ void test_spaces()
         "A B"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_stringfy()
@@ -8031,7 +8039,7 @@ void test_stringfy()
         "\"unsigned int\""
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 
 }
 
@@ -8054,7 +8062,7 @@ void test_stringfy_scape()
         "\"\\\"\\\\\\\"ab\\\\\\\\c\\\\\\\"\\\"\""
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 
 }
 
@@ -8077,7 +8085,7 @@ void test_stringfy_scape3()
     const char* output =
         "\"\\\"\\\\n\\\"\"";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 
 }
 
@@ -8174,7 +8182,7 @@ void test_counter()
         result = strdup("");
     }
 
-    _Assert(strcmp(result, output) == 0);
+    assert(strcmp(result, output) == 0);
 
     free((void* _Owner)result);
 }
@@ -8189,7 +8197,7 @@ void bug_test()
         "a \"1\""
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 int test_line_continuation()
@@ -8228,10 +8236,10 @@ int stringify_test()
 {
     char buffer[200];
     int n = stringify("\"ab\\c\"", sizeof buffer, buffer);
-    _Assert(n == sizeof(STRINGIFY("\"ab\\c\"")));
+    assert(n == sizeof(STRINGIFY("\"ab\\c\"")));
     const char* r = STRINGIFY("\"ab\\c\"");
 
-    _Assert(strcmp(buffer, r) == 0);
+    assert(strcmp(buffer, r) == 0);
     return 0;
 
 }
@@ -8249,7 +8257,7 @@ void recursive_macro_expr()
         "1"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void quasi_recursive_macro()
@@ -8263,7 +8271,7 @@ void quasi_recursive_macro()
         "2"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 
 }
 
@@ -8278,7 +8286,7 @@ void newline_macro_func()
         "1"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 
 }
 

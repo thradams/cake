@@ -635,7 +635,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     execute_cmd(EXE(CKC_NAME) " -autoconfig");
 #endif
 
-    if (!fastbuild)
+    if (!fastbuild && test)
     {
         print_header("Run cake on its own source");
 
@@ -698,8 +698,11 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
         execute_cmd(cmd);
     }
 
-    print_header("Run cake on its own source");
-    execute_cmd(EXE(CKC_NAME) " -DTEST -style=cake " CAKE_SOURCE_FILES);
+    if (test)
+    {
+        print_header("Run cake on its own source");
+        execute_cmd(EXE(CKC_NAME) " -DTEST -style=cake " CAKE_SOURCE_FILES);
+    }
 
 #endif /* PLATFORM_WINDOWS && COMPILER_CLANG */
 
@@ -869,7 +872,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
         execute_cmd("./" CKC_NAME " -autoconfig");
 #endif
 
-    if (!fastbuild)
+    if (!fastbuild && test)
     {
         print_header("Run cake on its own source");
         execute_cmd("./" CKC_NAME " -DTEST -style=cake " CAKE_SOURCE_FILES);

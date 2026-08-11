@@ -1706,8 +1706,8 @@ void token_list_remove_get_test()
         
         token_list_add(&list, pnew); //lint 33 33 33
         r = token_list_remove_get(&list, pnew, pnew); //lint 30 30
-        _Assert(list.head == NULL);
-        _Assert(list.tail == NULL);
+        assert(list.head == NULL);
+        assert(list.tail == NULL);
     }
     catch
     {
@@ -1732,8 +1732,8 @@ void token_list_remove_get_test2()
         token_list_add(&list, pnew2); //lint 33 33 33
 
         r = token_list_remove_get(&list, pnew1, pnew1); //lint 30 30
-        _Assert(list.head == pnew2); //lint 30
-        _Assert(list.tail == pnew2); //lint 30
+        assert(list.head == pnew2); //lint 30
+        assert(list.tail == pnew2); //lint 30
     }
     catch
     {

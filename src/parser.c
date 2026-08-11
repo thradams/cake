@@ -1613,6 +1613,19 @@ struct token* _Opt previous_parser_token(const struct token* token)
     return prev;
 }
 
+/*
+   Returns the last token consumed by the parser so far (i.e. the token
+   just before ctx->current in the final-token stream), or NULL if there
+   isn't one (start of file) or ctx->current itself is NULL (end of file).
+*/
+struct token* _Opt parser_get_previous_token(struct parser_ctx* ctx)
+{
+    if (ctx->current == NULL)
+        return NULL;
+
+    return previous_parser_token(ctx->current);
+}
+
 enum token_type is_keyword(const char* text, enum target target)
 {
     switch (text[0])
@@ -2116,9 +2129,7 @@ static void parser_skip_blanks(struct parser_ctx* ctx, struct token** _Opt pp_to
 void parser_match(struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
-        return;
-
-    ctx->previous = ctx->current;
+        return;    
     ctx->current = ctx->current->next;
     parser_skip_blanks(ctx, NULL);
 }
@@ -2146,9 +2157,7 @@ static int parser_match_tk_core(struct parser_ctx* ctx, enum token_type type, st
             );
 
             error = 1;
-        }
-
-        ctx->previous = ctx->current;
+        }        
         ctx->current = ctx->current->next;
         parser_skip_blanks(ctx, pp_token_lint);
     }
@@ -2512,7 +2521,7 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
             }
         }
 
-        struct token* _Opt prev = previous_parser_token(ctx->current);
+        struct token* _Opt prev = parser_get_previous_token(ctx);
         if (prev == NULL)
             throw;
 
@@ -2782,7 +2791,7 @@ struct simple_declaration* _Owner _Opt simple_declaration(struct parser_ctx* ctx
             throw;
         }
 
-        struct token* _Opt prev = previous_parser_token(ctx->current);
+        struct token* _Opt prev = parser_get_previous_token(ctx);
         if (prev == NULL) throw;
 
         p_simple_declaration->last_token = prev;
@@ -5909,7 +5918,7 @@ struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct par
         }
 
         final_specifier(ctx, &p_specifier_qualifier_list->type_specifier_flags);
-        struct token* _Opt p_previous_parser_token = previous_parser_token(ctx->current);
+        struct token* _Opt p_previous_parser_token = parser_get_previous_token(ctx);
         if (p_previous_parser_token == NULL) throw;
 
         p_specifier_qualifier_list->last_token = p_previous_parser_token;
@@ -6432,8 +6441,7 @@ void enumerator_delete(struct enumerator* _Owner _Opt p)
 
         _Assert(p->next == NULL);
         attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
-        expression_delete(p->constant_expression_opt);
-
+        expression_delete(p->constant_expression_opt);        object_destroy(&p->value);
         free(p);
     }
 }
@@ -6884,7 +6892,7 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
 
         if (ctx->current != p_declarator->first_token_opt)
         {
-            p_declarator->last_token_opt = previous_parser_token(ctx->current);
+            p_declarator->last_token_opt = parser_get_previous_token(ctx);
         }
         else
         {
@@ -7948,8 +7956,11 @@ void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_di
     }
 }
 
-const struct direct_declarator* get_innermost_direct_declarator(const struct direct_declarator* p)
+const struct direct_declarator* get_innermost_direct_declarator(const struct direct_declarator* _Opt  p)
 {
+    if (p == NULL)
+      return NULL;
+
     const struct direct_declarator* previous = p;
 
     while (p != NULL)
@@ -9139,10 +9150,11 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
 
             }
 
-            if (ctx->previous == NULL)
+            struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
+            if (p_previous_token == NULL)
                 throw;
 
-            p_attribute_specifier_sequence->last_token = ctx->previous;
+            p_attribute_specifier_sequence->last_token = p_previous_token;
         }
     }
     catch
@@ -9771,10 +9783,11 @@ struct secondary_block* _Owner _Opt secondary_block(struct parser_ctx* ctx)
 
         p_secondary_block->statement = p_statement;
 
-        if (ctx->previous == NULL)
+        struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
+        if (p_previous_token == NULL)
             throw;
 
-        p_secondary_block->last_token = ctx->previous;
+        p_secondary_block->last_token = p_previous_token;
 
         check_close_brace_style(ctx, p_secondary_block->last_token);
     }
@@ -11103,10 +11116,11 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
             if (p_try_statement->catch_secondary_block_opt == NULL) throw;
         }
 
-        if (ctx->previous == NULL)
+        struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
+        if (p_previous_token == NULL)
             throw;
 
-        p_try_statement->last_token = ctx->previous;
+        p_try_statement->last_token = p_previous_token;
     }
     catch
     {
@@ -11397,7 +11411,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
             throw;
         }
 
-        struct token* _Opt p_tk = previous_parser_token(ctx->current);
+        struct token* _Opt p_tk = parser_get_previous_token(ctx);
         if (p_tk == NULL)
         {
             throw;
@@ -11494,9 +11508,10 @@ struct defer_statement* _Owner _Opt defer_statement(struct parser_ctx* ctx)
         if (p_unlabeled_statement == NULL) throw;
 
         p_defer_statement->unlabeled_statement = p_unlabeled_statement;
-        if (ctx->previous == NULL) throw;
+        struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
+        if (p_previous_token == NULL) throw;
 
-        p_defer_statement->last_token = ctx->previous;
+        p_defer_statement->last_token = p_previous_token;
 
         ctx->p_current_defer_statement_opt = p_previous_defer_statement_opt;
     }
@@ -12142,7 +12157,7 @@ struct condition* _Owner _Opt condition(struct parser_ctx* ctx)
             throw;
         }
 
-        struct token* _Opt previous = previous_parser_token(ctx->current);
+        struct token* _Opt previous = parser_get_previous_token(ctx);
 
         if (previous)
         {

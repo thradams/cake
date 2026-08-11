@@ -683,7 +683,7 @@ static const char* get_op_by_expression_type(enum expression_type type)
     return "";
 }
 
-static void codegen_visit_compound_statement_2(const char* var_name, struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
+static void codegen_visit_compound_statement_2(const char* _Opt var_name, struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
 
 static enum sizeof_result vm_emit_sizeof_expr_core(struct codegen_ctx* ctx,
     struct osstream* oss,
@@ -944,7 +944,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                     _Assert(ctx->p_current_function_opt);
 
                     ctx->is__func__predefined_identifier_added = true;
-                    ss_fprintf(&ctx->add_this_before_external_decl, "static const char %s[] = \"%s\";\n", name, func_name);
+                    ss_fprintf(&ctx->add_this_before_external_decl, "static char %s[] = \"%s\";\n", name, func_name);
                 }
                 ss_fprintf(oss, "%s", name);
 
@@ -1156,26 +1156,49 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         case EXPR_PRIMARY_STATEMENT_EXPRESSION:
             {
-                char name[100] = { 0 };
-                generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
-
-                struct osstream local = { 0 };
-
-                ss_swap(&ctx->block_scope_declarators, &local);
-                print_identation_core(&local, ctx->indentation);
-                d_print_type(ctx, &local, &p_expression->type, name, false);
-                ss_fprintf(&local, ";\n", name);
-                ss_fprintf(&ctx->block_scope_declarators, "%s", local.c_str);
-
-                ss_clear(&local);
-
                 _Assert(p_expression->compound_statement);
-                //we need to change the last statment
-                codegen_visit_compound_statement_2(name, ctx, &local, p_expression->compound_statement);
 
-                ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
-                ss_close(&local);
-                ss_fprintf(oss, "%s", name);
+                if (type_is_void(&p_expression->type))
+                {
+                    /* A void statement-expression (e.g. `({ ... });` with no
+                       trailing value, or ending in a void expression) has no
+                       result to hoist into a temporary. Declaring `void name;`
+                       is not valid C, so just emit the compound statement's
+                       side effects here. But this expression can still be used
+                       as a subexpression (e.g. the right side of a comma
+                       operator), so `oss` still needs a syntactically valid
+                       void placeholder value instead of nothing. */
+                    struct osstream local = { 0 };
+
+                    codegen_visit_compound_statement_2(NULL, ctx, &local, p_expression->compound_statement);
+
+                    ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
+                    ss_close(&local);
+
+                    ss_fprintf(oss, "(void)0");
+                }
+                else
+                {
+                    char name[100] = { 0 };
+                    generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
+
+                    struct osstream local = { 0 };
+
+                    ss_swap(&ctx->block_scope_declarators, &local);
+                    print_identation_core(&local, ctx->indentation);
+                    d_print_type(ctx, &local, &p_expression->type, name, false);
+                    ss_fprintf(&local, ";\n", name);
+                    ss_fprintf(&ctx->block_scope_declarators, "%s", local.c_str);
+
+                    ss_clear(&local);
+
+                    //we need to change the last statment
+                    codegen_visit_compound_statement_2(name, ctx, &local, p_expression->compound_statement);
+
+                    ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
+                    ss_close(&local);
+                    ss_fprintf(oss, "%s", name);
+                }
             }
             break;
 
@@ -2981,7 +3004,7 @@ static void codegen_visit_compound_statement(struct codegen_ctx* ctx,
     ss_close(&local);
 }
 
-static void codegen_visit_compound_statement_2(const char* var_name, struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement)
+static void codegen_visit_compound_statement_2(const char* _Opt var_name, struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement)
 {
     bool is_local = ctx->is_local;
     ctx->is_local = true;
@@ -2996,7 +3019,7 @@ static void codegen_visit_compound_statement_2(const char* var_name, struct code
     struct block_item* _Opt p_block_item = p_compound_statement->block_item_list.head;
     while (p_block_item)
     {
-        if (p_block_item->next == NULL)
+        if (p_block_item->next == NULL && var_name != NULL)
         {
             /* last */
 
@@ -3021,6 +3044,9 @@ static void codegen_visit_compound_statement_2(const char* var_name, struct code
         }
         else
         {
+            /* var_name == NULL means this is a void statement-expression:
+               there is no result to capture, so the last item (if any) is
+               just emitted as a normal statement, like any other item. */
             codegen_visit_block_item(ctx, &local, p_block_item);
         }
         p_block_item = p_block_item->next;
@@ -3077,6 +3103,14 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
     const struct declarator* _Opt previous_func = ctx->p_current_function_opt;
     ctx->p_current_function_opt = function_definition;
 
+    /* __func__'s generated variable name is per-function (__cake_func_<name>),
+       so the "already added" flag must be reset for each function, otherwise
+       only the first function in the translation unit that uses __func__
+       gets its static const char[] declaration emitted, and every other
+       function that uses __func__ references an undeclared identifier. */
+    bool previous_is__func__predefined_identifier_added = ctx->is__func__predefined_identifier_added;
+    ctx->is__func__predefined_identifier_added = false;
+
     const struct type* _Opt func_type = &function_definition->type;
     while (func_type && func_type->category != TYPE_CATEGORY_FUNCTION)
         func_type = func_type->next;
@@ -3107,6 +3141,7 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
     ss_close(&bk);
     ss_close(&snaps);
     ctx->p_current_function_opt = previous_func; //restore
+    ctx->is__func__predefined_identifier_added = previous_is__func__predefined_identifier_added; //restore
     ctx->indentation = indentation; //restore
 }
 
@@ -5204,20 +5239,20 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
         if (ctx->runtime_assert_used)
         {
             ss_fprintf(oss,
-                "static void %s(const char * file, int line, const char * text);\n",
+                "static void %s(char * file, int line, char * text);\n",
                 ctx->runtime_assert_function_name);
         }
 
         if (ctx->assert_fail_used)
         {
             ss_fprintf(oss,
-                "static void __assert_fail(const char * assertion, const char * file, unsigned int line, const char * function);\n");
+                "static void __assert_fail(char * assertion, char * file, unsigned int line, char * function);\n");
         }
 
         if (ctx->assert_rtn_used)
         {
             ss_fprintf(oss,
-                "static void __assert_rtn(const char * function, const char * file, int line, const char * message);\n");
+                "static void __assert_rtn(char * function, char * file, int line, char * message);\n");
         }
 
         if (declarations.c_str)
@@ -5278,7 +5313,7 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
                abort / trap) is compiler/platform specific and filled in later. */
             ss_fprintf(oss, "\n");
             ss_fprintf(oss,
-                "static void %s(const char * file, int line, const char * text)\n"
+                "static void %s(char * file, int line, char * text)\n"
                 "{\n"
                 "}\n\n",
                 ctx->runtime_assert_function_name);
@@ -5291,7 +5326,7 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
                now, filled in later with the real report/abort behaviour. */
             ss_fprintf(oss, "\n");
             ss_fprintf(oss,
-                "static void __assert_fail(const char * assertion, const char * file, unsigned int line, const char * function)\n"
+                "static void __assert_fail(char * assertion, char * file, unsigned int line, char * function)\n"
                 "{\n"
                 "}\n\n");
         }
@@ -5302,7 +5337,7 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
                Same idea as __assert_fail above. */
             ss_fprintf(oss, "\n");
             ss_fprintf(oss,
-                "static void __assert_rtn(const char * function, const char * file, int line, const char * message)\n"
+                "static void __assert_rtn(char * function, char * file, int line, char * message)\n"
                 "{\n"
                 "}\n\n");
         }

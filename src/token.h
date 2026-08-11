@@ -87,6 +87,11 @@ enum token_type
     TK_OR_ASSIGN ='|=',
     TK_NOT_ASSIGN = '^=',
 
+    TK_LESS_EQUAL = '<=',
+    TK_GREATER_EQUAL = '>=',
+    TK_EQUAL_EQUAL = '==',
+    TK_NOT_EQUAL = '!=',
+
     TK_MACRO_CONCATENATE_OPERATOR = '##',
 
     TK_IDENTIFIER,

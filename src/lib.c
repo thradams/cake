@@ -446,6 +446,11 @@ enum token_type
     TK_OR_ASSIGN ='|=',
     TK_NOT_ASSIGN = '^=',
 
+    TK_LESS_EQUAL = '<=',
+    TK_GREATER_EQUAL = '>=',
+    TK_EQUAL_EQUAL = '==',
+    TK_NOT_EQUAL = '!=',
+
     TK_MACRO_CONCATENATE_OPERATOR = '##',
 
     TK_IDENTIFIER,
@@ -3271,8 +3276,8 @@ void token_list_remove_get_test()
         
         token_list_add(&list, pnew); //lint 33 33 33
         r = token_list_remove_get(&list, pnew, pnew); //lint 30 30
-        _Assert(list.head == NULL);
-        _Assert(list.tail == NULL);
+        assert(list.head == NULL);
+        assert(list.tail == NULL);
     }
     catch
     {
@@ -3297,8 +3302,8 @@ void token_list_remove_get_test2()
         token_list_add(&list, pnew2); //lint 33 33 33
 
         r = token_list_remove_get(&list, pnew1, pnew1); //lint 30 30
-        _Assert(list.head == pnew2); //lint 30
-        _Assert(list.tail == pnew2); //lint 30
+        assert(list.head == pnew2); //lint 30
+        assert(list.tail == pnew2); //lint 30
     }
     catch
     {
@@ -10107,6 +10112,10 @@ const char* get_token_name(enum token_type tk)
     case TK_LESS_THAN_SIGN: return "TK_LESS_THAN_SIGN";
     case TK_EQUALS_SIGN: return "TK_EQUALS_SIGN";
     case TK_GREATER_THAN_SIGN: return "TK_GREATER_THAN_SIGN";
+    case TK_LESS_EQUAL: return "TK_LESS_EQUAL";
+    case TK_GREATER_EQUAL: return "TK_GREATER_EQUAL";
+    case TK_EQUAL_EQUAL: return "TK_EQUAL_EQUAL";
+    case TK_NOT_EQUAL: return "TK_NOT_EQUAL";
     case TK_QUESTION_MARK: return "TK_QUESTION_MARK";
     case TK_COMMERCIAL_AT: return "TK_COMMERCIAL_AT";
     case TK_LEFT_SQUARE_BRACKET: return "TK_LEFT_SQUARE_BRACKET";
@@ -10323,6 +10332,10 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
     case TK_LESS_THAN_SIGN: return "<";
     case TK_EQUALS_SIGN: return "=";
     case TK_GREATER_THAN_SIGN: return ">";
+    case TK_LESS_EQUAL: return "<=";
+    case TK_GREATER_EQUAL: return ">=";
+    case TK_EQUAL_EQUAL: return "==";
+    case TK_NOT_EQUAL: return "!=";
     case TK_QUESTION_MARK: return "?";
     case TK_COMMERCIAL_AT: return "@";
     case TK_LEFT_SQUARE_BRACKET: return "[";
@@ -11247,13 +11260,13 @@ bool test_preprocessor_in_out_match(const char* input, const char* output)
 
 void test_lexeme_cmp()
 {
-    _Assert(lexeme_cmp("a", "\\\na") == 0);
-    _Assert(lexeme_cmp("a", "a\\\n") == 0);
-    _Assert(lexeme_cmp("\\\na", "a") == 0);
-    _Assert(lexeme_cmp("a\\\n", "a") == 0);
-    _Assert(lexeme_cmp("a\\\nb", "ab") == 0);
-    _Assert(lexeme_cmp("define", "define") == 0);
-    _Assert(lexeme_cmp("de\\\nfine", "define") == 0);
+    assert(lexeme_cmp("a", "\\\na") == 0);
+    assert(lexeme_cmp("a", "a\\\n") == 0);
+    assert(lexeme_cmp("\\\na", "a") == 0);
+    assert(lexeme_cmp("a\\\n", "a") == 0);
+    assert(lexeme_cmp("a\\\nb", "ab") == 0);
+    assert(lexeme_cmp("define", "define") == 0);
+    assert(lexeme_cmp("de\\\nfine", "define") == 0);
 }
 
 void token_list_pop_front_test()
@@ -11283,7 +11296,7 @@ void token_list_pop_back_test()
     struct tokenizer_ctx tctx = { 0 };
     list = tokenizer(&tctx, "a", NULL, 0, TK_FLAG_NONE);
     token_list_pop_back(&list);
-    _Assert(list.head == NULL && list.tail == NULL);
+    assert(list.head == NULL && list.tail == NULL);
 
     /*
 * pop bacl com 2
@@ -11293,9 +11306,9 @@ void token_list_pop_back_test()
     list = tokenizer(&tctx, "a,", NULL, 0, TK_FLAG_NONE);
     token_list_pop_back(&list);
 
-    _Assert(strcmp(list.head->lexeme, "a") == 0);
+    assert(strcmp(list.head->lexeme, "a") == 0);
 
-    _Assert(list.head != NULL &&
+    assert(list.head != NULL &&
         list.head->prev == NULL &&
         list.head->next == NULL &&
         list.tail->prev == NULL &&
@@ -11308,12 +11321,12 @@ void token_list_pop_back_test()
 
     list = tokenizer(&tctx, "a,b", NULL, 0, TK_FLAG_NONE);
     token_list_pop_back(&list);
-    _Assert(strcmp(list.head->lexeme, "a") == 0);
-    _Assert(strcmp(list.head->next->lexeme, ",") == 0);
-    _Assert(strcmp(list.tail->lexeme, ",") == 0);
-    _Assert(strcmp(list.tail->prev->lexeme, "a") == 0);
-    _Assert(list.head->prev == NULL);
-    _Assert(list.tail->next == NULL);
+    assert(strcmp(list.head->lexeme, "a") == 0);
+    assert(strcmp(list.head->next->lexeme, ",") == 0);
+    assert(strcmp(list.tail->lexeme, ",") == 0);
+    assert(strcmp(list.tail->prev->lexeme, "a") == 0);
+    assert(list.head->prev == NULL);
+    assert(list.tail->next == NULL);
 }
 
 int token_list_append_list_test()
@@ -11323,7 +11336,7 @@ int token_list_append_list_test()
     struct token_list source = { 0 };
     struct token_list dest = tokenizer(&tctx, "a", NULL, 0, TK_FLAG_NONE);
     token_list_append_list(&dest, &source);
-    _Assert(strcmp(dest.head->lexeme, "a") == 0);
+    assert(strcmp(dest.head->lexeme, "a") == 0);
 
     token_list_clear(&source);
     token_list_clear(&dest);
@@ -11331,18 +11344,18 @@ int token_list_append_list_test()
     dest = tokenizer(&tctx, "a", NULL, 0, TK_FLAG_NONE);
     token_list_append_list(&dest, &source);
 
-    _Assert(strcmp(dest.head->lexeme, "a") == 0);
+    assert(strcmp(dest.head->lexeme, "a") == 0);
 
     token_list_clear(&source);
     token_list_clear(&dest);
     source = tokenizer(&tctx, "a,", NULL, 0, TK_FLAG_NONE);
     dest = tokenizer(&tctx, "1", NULL, 0, TK_FLAG_NONE);
     token_list_append_list(&dest, &source);
-    _Assert(strcmp(dest.head->lexeme, "1") == 0);
-    _Assert(strcmp(dest.tail->lexeme, ",") == 0);
-    _Assert(dest.tail->next == NULL);
-    _Assert(dest.head->next->next == dest.tail);
-    _Assert(dest.tail->prev->prev == dest.head);
+    assert(strcmp(dest.head->lexeme, "1") == 0);
+    assert(strcmp(dest.tail->lexeme, ",") == 0);
+    assert(dest.tail->next == NULL);
+    assert(dest.head->next->next == dest.tail);
+    assert(dest.tail->prev->prev == dest.head);
 
     return 0;
 }
@@ -11357,7 +11370,7 @@ void test_collect()
         "ab"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_0()
@@ -11368,7 +11381,7 @@ void test_va_opt_0()
     const char* output =
         "f(0, a, b, c)";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_1()
@@ -11378,7 +11391,7 @@ void test_va_opt_1()
         "F()";
     const char* output =
         "f(0)";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_2()
@@ -11389,7 +11402,7 @@ void test_va_opt_2()
     const char* output =
         "(1)";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_3()
@@ -11400,7 +11413,7 @@ void test_va_opt_3()
     const char* output =
         "(!1)";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_4()
@@ -11414,7 +11427,7 @@ void test_va_opt_4()
     const char* output =
         "int x = 42;";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_5()
@@ -11426,7 +11439,7 @@ void test_va_opt_5()
         ;
     const char* output =
         "f(0)";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_6()
@@ -11439,7 +11452,7 @@ void test_va_opt_6()
     const char* output =
         "f(0, a)";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 void test_va_opt_7()
 {
@@ -11451,7 +11464,7 @@ void test_va_opt_7()
     const char* output =
         "a b";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void concatenation_problem()
@@ -11464,7 +11477,7 @@ void concatenation_problem()
     const char* output =
         "a b";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt_G2()
@@ -11477,7 +11490,7 @@ void test_va_opt_G2()
     const char* output =
         "f(0, a)";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_opt()
@@ -11488,7 +11501,7 @@ void test_va_opt()
         "F(EMPTY)";
     const char* output =
         "f(0)";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_empty_va_args()
@@ -11497,7 +11510,7 @@ void test_empty_va_args()
         "M(1)\n";
     const char* output =
         "1,";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_args_single()
@@ -11507,7 +11520,7 @@ void test_va_args_single()
         "F(1, 2)";
     const char* output =
         "1, 2";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_va_args_extra_args()
@@ -11517,7 +11530,7 @@ void test_va_args_extra_args()
         "F(0, 1, 2)";
     const char* output =
         "0 1, 2";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_empty_va_args_empty()
@@ -11527,7 +11540,7 @@ void test_empty_va_args_empty()
         "F()";
     const char* output =
         "a";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_defined()
@@ -11540,7 +11553,7 @@ void test_defined()
         "#endif\n";
     const char* output =
         "B";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_char_constant_if()
@@ -11555,7 +11568,7 @@ void test_char_constant_if()
         "#endif\n";
     const char* output =
         "CORRECT";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void testline()
@@ -11567,7 +11580,7 @@ void testline()
         "M";
     const char* output =
         "a b";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void ifelse()
@@ -11580,7 +11593,7 @@ void ifelse()
         "#endif\n";
     const char* output =
         "A";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void T1()
@@ -11594,7 +11607,7 @@ void T1()
     //error: too few arguments provided to function-like macro invocation
     //se f nao tivesse nenhum ou menus
     //too many arguments provided to function-like macro invocation
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 int EXAMPLE5()
@@ -11639,7 +11652,7 @@ void recursivetest1()
     //  "f(2 * (f(2 * (z[0]))))";
     const char* output =
         "f(2 * (f(2 * (z[0]))))";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void rectest()
@@ -11655,7 +11668,7 @@ void rectest()
     //  "f(2 * (y + 1)) + f(2 * (f(2 * (z[0])))) % t(t(f)(0) + t)(1);";
     const char* output =
         "f(2 * (y + 1)) + f(2 * (f(2 * (z[0])))) % t(t(f)(0) + t)(1);";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void emptycall()
@@ -11667,7 +11680,7 @@ void emptycall()
     const char* output =
         ""
         ;
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void semiempty()
@@ -11679,7 +11692,7 @@ void semiempty()
     const char* output =
         "1"
         ;
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void calling_one_arg_with_empty_arg()
@@ -11691,7 +11704,7 @@ void calling_one_arg_with_empty_arg()
     const char* output =
         "\"\""
         ;
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_argument_with_parentesis()
@@ -11703,7 +11716,7 @@ void test_argument_with_parentesis()
     const char* output =
         "(1, 2, 3)4"
         ;
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void two_empty_arguments()
@@ -11715,7 +11728,7 @@ void two_empty_arguments()
     const char* output =
         ""
         ;
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void simple_object_macro()
@@ -11727,7 +11740,7 @@ void simple_object_macro()
     const char* output =
         "a b\n"
         "c";
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test2()
@@ -11740,7 +11753,7 @@ void test2()
         "1 23 4"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test3()
@@ -11773,7 +11786,7 @@ void tetris()
         "De"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void recursive_macro_expansion()
@@ -11785,7 +11798,7 @@ void recursive_macro_expansion()
     const char* output =
         "1 2 3 4 B"
         ;
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void empty_and_no_args()
@@ -11796,7 +11809,7 @@ void empty_and_no_args()
     const char* output =
         "1"
         ;
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void empty_and_args()
@@ -11808,7 +11821,7 @@ void empty_and_args()
         "1"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test4()
@@ -11821,7 +11834,7 @@ void test4()
         "1 23 4"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_string()
@@ -11841,7 +11854,7 @@ void test_string()
     const char* output =
         "A \"\\\"B\\\"\"";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test6()
@@ -11927,7 +11940,7 @@ void test_concatenation_o()
         "*i_A_j k"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_concatenation()
@@ -11940,7 +11953,7 @@ void test_concatenation()
         "ijk"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 
 }
 
@@ -11952,7 +11965,7 @@ void bad_test()
         "0xfe-BAD(3);"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 /*
@@ -11972,7 +11985,7 @@ void test_spaces()
         "A B"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void test_stringfy()
@@ -11985,7 +11998,7 @@ void test_stringfy()
         "\"unsigned int\""
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 
 }
 
@@ -12008,7 +12021,7 @@ void test_stringfy_scape()
         "\"\\\"\\\\\\\"ab\\\\\\\\c\\\\\\\"\\\"\""
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 
 }
 
@@ -12031,7 +12044,7 @@ void test_stringfy_scape3()
     const char* output =
         "\"\\\"\\\\n\\\"\"";
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 
 }
 
@@ -12128,7 +12141,7 @@ void test_counter()
         result = strdup("");
     }
 
-    _Assert(strcmp(result, output) == 0);
+    assert(strcmp(result, output) == 0);
 
     free((void* _Owner)result);
 }
@@ -12143,7 +12156,7 @@ void bug_test()
         "a \"1\""
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 int test_line_continuation()
@@ -12182,10 +12195,10 @@ int stringify_test()
 {
     char buffer[200];
     int n = stringify("\"ab\\c\"", sizeof buffer, buffer);
-    _Assert(n == sizeof(STRINGIFY("\"ab\\c\"")));
+    assert(n == sizeof(STRINGIFY("\"ab\\c\"")));
     const char* r = STRINGIFY("\"ab\\c\"");
 
-    _Assert(strcmp(buffer, r) == 0);
+    assert(strcmp(buffer, r) == 0);
     return 0;
 
 }
@@ -12203,7 +12216,7 @@ void recursive_macro_expr()
         "1"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 }
 
 void quasi_recursive_macro()
@@ -12217,7 +12230,7 @@ void quasi_recursive_macro()
         "2"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 
 }
 
@@ -12232,7 +12245,7 @@ void newline_macro_func()
         "1"
         ;
 
-    _Assert(test_preprocessor_in_out_match(input, output));
+    assert(test_preprocessor_in_out_match(input, output));
 
 }
 
@@ -16641,7 +16654,7 @@ enum expression_type
     EXPR_PRIMARY_ENUMERATOR,
     EXPR_PRIMARY_DECLARATOR,    
     EXPR_PRIMARY_STRING_LITERAL,
-    EXPR_PRIMARY__FUNC__, /*predefined identifier __func__ */
+    EXPR_PRIMARY__FUNC__, /*predefined identifier __func__ (also aliases __FUNCTION__ and __PRETTY_FUNCTION__) */
     EXPR_PRIMARY_CHAR_LITERAL,
     EXPR_PRIMARY_PREDEFINED_CONSTANT, /*true false*/
     EXPR_PRIMARY_GENERIC,
@@ -17037,8 +17050,6 @@ struct parser_ctx
 
     _View struct token_list input_list;
     struct token* _Opt current;
-    struct token* _Opt previous;
-
 
     bool inside_generic_association;
 
@@ -17079,6 +17090,7 @@ int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
 int parser_match_tk_lint(struct parser_ctx* ctx, enum token_type type, struct token** pp_token_lint);
 
 struct token* _Opt previous_parser_token(const struct token* token);
+struct token* _Opt parser_get_previous_token(struct parser_ctx* ctx);
 struct declarator* _Opt find_declarator(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Opt* _Opt ppscope_opt);
 struct enumerator* _Opt find_enumerator(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Opt* _Opt ppscope_opt);
 struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Opt* _Opt ppscope_opt);
@@ -18696,7 +18708,7 @@ int initializer_init_new(struct parser_ctx* ctx,
 struct object* _Opt find_object_declarator_by_index(struct object* p_object, struct member_declaration_list* list, int member_index);
 
 void check_dianostic_suppression_phase(struct parser_ctx* ctx, struct token* pToken, int phase);
-const struct direct_declarator* get_innermost_direct_declarator(const struct direct_declarator* p);
+const struct direct_declarator* _Opt get_innermost_direct_declarator(const struct direct_declarator* _Opt p);
 
 
 
@@ -23690,7 +23702,9 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
 
             }
             else if (ctx->p_current_function_opt &&
-                strcmp(ctx->current->lexeme, "__func__") == 0)
+                (strcmp(ctx->current->lexeme, "__func__") == 0 ||
+                 strcmp(ctx->current->lexeme, "__FUNCTION__") == 0 ||
+                 strcmp(ctx->current->lexeme, "__PRETTY_FUNCTION__") == 0))
             {
                 const char* func_name = ctx->p_current_function_opt->name_opt ?
                     ctx->p_current_function_opt->name_opt->lexeme :
@@ -23808,7 +23822,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                     }
                     else
                     {
-                        c = *it;
+                        c = *it;                        
                         it++;
                     }
 
@@ -24358,7 +24372,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     throw;
                 }
 
-                struct token* _Opt p_last = previous_parser_token(ctx->current);
+                struct token* _Opt p_last = parser_get_previous_token(ctx);
                 if (p_last == NULL)
                 {
                     expression_delete(p_expression_node_new);
@@ -24415,7 +24429,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 compare_function_arguments(ctx, &p_expression_node->type, &p_expression_node_new->argument_expression_list);
 
-                if (ctx->previous == NULL)
+                struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
+                if (p_previous_token == NULL)
                 {
                     expression_delete(p_expression_node_new);
                     p_expression_node_new = NULL;
@@ -24423,7 +24438,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 }
 
                 make_object(&p_expression_node_new->type, &p_expression_node_new->object, MAKE_STATE_UNITIALIZED, ctx->options.target);
-                p_expression_node_new->last_token = ctx->previous;
+                p_expression_node_new->last_token = p_previous_token;
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
             }
@@ -24784,7 +24799,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             }
             else
             {
-                struct token* _Opt p_last = previous_parser_token(ctx->current);
+                struct token* _Opt p_last = parser_get_previous_token(ctx);
                 if (p_last == NULL)
                     throw; //unexpected
 
@@ -24918,10 +24933,11 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
 
         }
 
-        if (ctx->previous == NULL)
+        struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
+        if (p_previous_token == NULL)
             throw;
 
-        p_expression_node->last_token = ctx->previous;
+        p_expression_node->last_token = p_previous_token;
 
         p_expression_node = postfix_expression_tail(ctx, p_expression_node, is_discarded);
         if (p_expression_node == NULL)
@@ -25228,6 +25244,13 @@ struct expression* _Owner _Opt static_assertion_expr(struct parser_ctx* ctx, boo
     struct expression* _Owner _Opt p_new_expression = NULL;
     try
     {
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
+
+
         p_new_expression = calloc(1, sizeof * p_new_expression);
         if (p_new_expression == NULL) throw;
 
@@ -25246,7 +25269,7 @@ struct expression* _Owner _Opt static_assertion_expr(struct parser_ctx* ctx, boo
 
         p_new_expression->expression_type = EXPR_UNARY_STATIC_ASSERTION;
         p_new_expression->type = make_void_type();
-        struct token* _Opt tk = previous_parser_token(ctx->current);
+        struct token* _Opt tk = parser_get_previous_token(ctx);
         _Assert(tk);
         p_new_expression->last_token = tk;
     }
@@ -25595,7 +25618,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 expression_delete(new_expression);
                 throw;
             }
+            struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
+            if (p_previous_token == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
             new_expression->type = make_void_type();
+            new_expression->last_token = p_previous_token;
             return new_expression;
 
         }
@@ -25631,7 +25661,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 expression_delete(new_expression);
                 throw;
             }
+            struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
+            if (p_previous_token == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
             new_expression->type = make_void_type();
+            new_expression->last_token = p_previous_token;
             return new_expression;
 
         }
@@ -25682,7 +25719,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 throw;
             }
 
+            struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
+            if (p_previous_token == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
             new_expression->type = type_dup(&new_expression->type_name->type);
+            new_expression->last_token = p_previous_token;
             return new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_COPY)
@@ -25731,7 +25775,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 throw;
             }
 
+            struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
+            if (p_previous_token == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
             new_expression->type = make_void_type();
+            new_expression->last_token = p_previous_token;
             return new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_OFFSETOF)
@@ -25827,6 +25878,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             }
 
             new_expression->object = object_make_size_t(ctx->options.target, offset_of);
+
+            struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
+            if (p_previous_token == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+            new_expression->last_token = p_previous_token;
 
             return new_expression;
         }
@@ -26151,6 +26210,13 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 expression_delete(new_expression);
                 throw;
             }
+            struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
+            if (p_previous_token == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+            new_expression->last_token = p_previous_token;
             return new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
@@ -26327,13 +26393,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 }
 
                 p_type = &new_expression->right->type;
-                if (ctx->previous == NULL)
+                struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
+                if (p_previous_token == NULL)
                 {
                     expression_delete(new_expression);
                     throw;
                 }
 
-                new_expression->last_token = ctx->previous;
+                new_expression->last_token = p_previous_token;
             }
 
             switch (traits_token->type)
@@ -26639,13 +26706,14 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
             throw;
         }
 
-        if (ctx->current == NULL || ctx->previous == NULL)
+        struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
+        if (ctx->current == NULL || p_previous_token == NULL)
         {
             unexpected_end_of_file(ctx);
             throw;
         }
 
-        p_expression_node->last_token = ctx->previous;
+        p_expression_node->last_token = p_previous_token;
     }
     catch
     {
@@ -28756,6 +28824,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
                 throw;
             }
             p_conditional_expression->right = p_right;
+            p_conditional_expression->last_token = p_conditional_expression->right->last_token;
 
             if (object_has_constant_value(&p_conditional_expression->condition_expr->object))
             {
@@ -30595,7 +30664,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 */
 
 //#pragma once
-#define CAKE_VERSION "0.14.19"
+#define CAKE_VERSION "0.14.20"
 
 
 
@@ -30659,6 +30728,15 @@ struct codegen_ctx
 
     bool runtime_assert_used;
     char runtime_assert_function_name[50];
+
+    /* set when the user's code calls __assert_fail (e.g. via the glibc
+       assert() macro) without providing its own definition, so codegen
+       emits a stub -- same idea as the runtime_assert_failed handler above. */
+    bool assert_fail_used;
+
+    /* same as assert_fail_used, but for __assert_rtn (macOS/Apple's
+       assert() failure function). */
+    bool assert_rtn_used;
 
 
     bool define_nullptr;
@@ -32263,6 +32341,19 @@ struct token* _Opt previous_parser_token(const struct token* token)
     return prev;
 }
 
+/*
+   Returns the last token consumed by the parser so far (i.e. the token
+   just before ctx->current in the final-token stream), or NULL if there
+   isn't one (start of file) or ctx->current itself is NULL (end of file).
+*/
+struct token* _Opt parser_get_previous_token(struct parser_ctx* ctx)
+{
+    if (ctx->current == NULL)
+        return NULL;
+
+    return previous_parser_token(ctx->current);
+}
+
 enum token_type is_keyword(const char* text, enum target target)
 {
     switch (text[0])
@@ -32766,9 +32857,7 @@ static void parser_skip_blanks(struct parser_ctx* ctx, struct token** _Opt pp_to
 void parser_match(struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
-        return;
-
-    ctx->previous = ctx->current;
+        return;    
     ctx->current = ctx->current->next;
     parser_skip_blanks(ctx, NULL);
 }
@@ -32796,9 +32885,7 @@ static int parser_match_tk_core(struct parser_ctx* ctx, enum token_type type, st
             );
 
             error = 1;
-        }
-
-        ctx->previous = ctx->current;
+        }        
         ctx->current = ctx->current->next;
         parser_skip_blanks(ctx, pp_token_lint);
     }
@@ -33162,7 +33249,7 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
             }
         }
 
-        struct token* _Opt prev = previous_parser_token(ctx->current);
+        struct token* _Opt prev = parser_get_previous_token(ctx);
         if (prev == NULL)
             throw;
 
@@ -33432,7 +33519,7 @@ struct simple_declaration* _Owner _Opt simple_declaration(struct parser_ctx* ctx
             throw;
         }
 
-        struct token* _Opt prev = previous_parser_token(ctx->current);
+        struct token* _Opt prev = parser_get_previous_token(ctx);
         if (prev == NULL) throw;
 
         p_simple_declaration->last_token = prev;
@@ -36559,7 +36646,7 @@ struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct par
         }
 
         final_specifier(ctx, &p_specifier_qualifier_list->type_specifier_flags);
-        struct token* _Opt p_previous_parser_token = previous_parser_token(ctx->current);
+        struct token* _Opt p_previous_parser_token = parser_get_previous_token(ctx);
         if (p_previous_parser_token == NULL) throw;
 
         p_specifier_qualifier_list->last_token = p_previous_parser_token;
@@ -37082,8 +37169,7 @@ void enumerator_delete(struct enumerator* _Owner _Opt p)
 
         _Assert(p->next == NULL);
         attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
-        expression_delete(p->constant_expression_opt);
-
+        expression_delete(p->constant_expression_opt);        object_destroy(&p->value);
         free(p);
     }
 }
@@ -37534,7 +37620,7 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
 
         if (ctx->current != p_declarator->first_token_opt)
         {
-            p_declarator->last_token_opt = previous_parser_token(ctx->current);
+            p_declarator->last_token_opt = parser_get_previous_token(ctx);
         }
         else
         {
@@ -38598,8 +38684,11 @@ void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_di
     }
 }
 
-const struct direct_declarator* get_innermost_direct_declarator(const struct direct_declarator* p)
+const struct direct_declarator* get_innermost_direct_declarator(const struct direct_declarator* _Opt  p)
 {
+    if (p == NULL)
+      return NULL;
+
     const struct direct_declarator* previous = p;
 
     while (p != NULL)
@@ -39789,10 +39878,11 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
 
             }
 
-            if (ctx->previous == NULL)
+            struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
+            if (p_previous_token == NULL)
                 throw;
 
-            p_attribute_specifier_sequence->last_token = ctx->previous;
+            p_attribute_specifier_sequence->last_token = p_previous_token;
         }
     }
     catch
@@ -40421,10 +40511,11 @@ struct secondary_block* _Owner _Opt secondary_block(struct parser_ctx* ctx)
 
         p_secondary_block->statement = p_statement;
 
-        if (ctx->previous == NULL)
+        struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
+        if (p_previous_token == NULL)
             throw;
 
-        p_secondary_block->last_token = ctx->previous;
+        p_secondary_block->last_token = p_previous_token;
 
         check_close_brace_style(ctx, p_secondary_block->last_token);
     }
@@ -41753,10 +41844,11 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
             if (p_try_statement->catch_secondary_block_opt == NULL) throw;
         }
 
-        if (ctx->previous == NULL)
+        struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
+        if (p_previous_token == NULL)
             throw;
 
-        p_try_statement->last_token = ctx->previous;
+        p_try_statement->last_token = p_previous_token;
     }
     catch
     {
@@ -42010,8 +42102,10 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
         if (p_secondary_block->statement->unlabeled_statement &&
             p_secondary_block->statement->unlabeled_statement->expression_statement &&
-            p_secondary_block->statement->unlabeled_statement->expression_statement->expression_opt == NULL)
+            p_secondary_block->statement->unlabeled_statement->expression_statement->expression_opt == NULL &&
+            !(is_if && ctx->current && ctx->current->type == TK_KEYWORD_ELSE))
         {
+            /* if (cond) ; else ...  is a common idiom (e.g. assert()-style macros), not a mistake */
             diagnostic(W_SWITCH,
                 ctx,
                 p_secondary_block->first_token,
@@ -42045,7 +42139,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
             throw;
         }
 
-        struct token* _Opt p_tk = previous_parser_token(ctx->current);
+        struct token* _Opt p_tk = parser_get_previous_token(ctx);
         if (p_tk == NULL)
         {
             throw;
@@ -42142,9 +42236,10 @@ struct defer_statement* _Owner _Opt defer_statement(struct parser_ctx* ctx)
         if (p_unlabeled_statement == NULL) throw;
 
         p_defer_statement->unlabeled_statement = p_unlabeled_statement;
-        if (ctx->previous == NULL) throw;
+        struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
+        if (p_previous_token == NULL) throw;
 
-        p_defer_statement->last_token = ctx->previous;
+        p_defer_statement->last_token = p_previous_token;
 
         ctx->p_current_defer_statement_opt = p_previous_defer_statement_opt;
     }
@@ -42790,7 +42885,7 @@ struct condition* _Owner _Opt condition(struct parser_ctx* ctx)
             throw;
         }
 
-        struct token* _Opt previous = previous_parser_token(ctx->current);
+        struct token* _Opt previous = parser_get_previous_token(ctx);
 
         if (previous)
         {
@@ -47127,7 +47222,7 @@ static const char* get_op_by_expression_type(enum expression_type type)
     return "";
 }
 
-static void codegen_visit_compound_statement_2(const char* var_name, struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
+static void codegen_visit_compound_statement_2(const char* _Opt var_name, struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
 
 static enum sizeof_result vm_emit_sizeof_expr_core(struct codegen_ctx* ctx,
     struct osstream* oss,
@@ -47388,7 +47483,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                     _Assert(ctx->p_current_function_opt);
 
                     ctx->is__func__predefined_identifier_added = true;
-                    ss_fprintf(&ctx->add_this_before_external_decl, "static const char %s[] = \"%s\";\n", name, func_name);
+                    ss_fprintf(&ctx->add_this_before_external_decl, "static char %s[] = \"%s\";\n", name, func_name);
                 }
                 ss_fprintf(oss, "%s", name);
 
@@ -47405,6 +47500,20 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                     declarator_name = p_expression->declarator->name_opt->lexeme;
 
                 bool is_function = type_is_function(&p_expression->declarator->type);
+
+                if (is_function &&
+                    p_expression->declarator->function_body == NULL &&
+                    strcmp(declarator_name, "__assert_fail") == 0)
+                {
+                    ctx->assert_fail_used = true;
+                }
+
+                if (is_function &&
+                    p_expression->declarator->function_body == NULL &&
+                    strcmp(declarator_name, "__assert_rtn") == 0)
+                {
+                    ctx->assert_rtn_used = true;
+                }
 
                 if (is_function &&
                     (p_expression->declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER))
@@ -47586,26 +47695,49 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         case EXPR_PRIMARY_STATEMENT_EXPRESSION:
             {
-                char name[100] = { 0 };
-                generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
-
-                struct osstream local = { 0 };
-
-                ss_swap(&ctx->block_scope_declarators, &local);
-                print_identation_core(&local, ctx->indentation);
-                d_print_type(ctx, &local, &p_expression->type, name, false);
-                ss_fprintf(&local, ";\n", name);
-                ss_fprintf(&ctx->block_scope_declarators, "%s", local.c_str);
-
-                ss_clear(&local);
-
                 _Assert(p_expression->compound_statement);
-                //we need to change the last statment
-                codegen_visit_compound_statement_2(name, ctx, &local, p_expression->compound_statement);
 
-                ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
-                ss_close(&local);
-                ss_fprintf(oss, "%s", name);
+                if (type_is_void(&p_expression->type))
+                {
+                    /* A void statement-expression (e.g. `({ ... });` with no
+                       trailing value, or ending in a void expression) has no
+                       result to hoist into a temporary. Declaring `void name;`
+                       is not valid C, so just emit the compound statement's
+                       side effects here. But this expression can still be used
+                       as a subexpression (e.g. the right side of a comma
+                       operator), so `oss` still needs a syntactically valid
+                       void placeholder value instead of nothing. */
+                    struct osstream local = { 0 };
+
+                    codegen_visit_compound_statement_2(NULL, ctx, &local, p_expression->compound_statement);
+
+                    ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
+                    ss_close(&local);
+
+                    ss_fprintf(oss, "(void)0");
+                }
+                else
+                {
+                    char name[100] = { 0 };
+                    generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
+
+                    struct osstream local = { 0 };
+
+                    ss_swap(&ctx->block_scope_declarators, &local);
+                    print_identation_core(&local, ctx->indentation);
+                    d_print_type(ctx, &local, &p_expression->type, name, false);
+                    ss_fprintf(&local, ";\n", name);
+                    ss_fprintf(&ctx->block_scope_declarators, "%s", local.c_str);
+
+                    ss_clear(&local);
+
+                    //we need to change the last statment
+                    codegen_visit_compound_statement_2(name, ctx, &local, p_expression->compound_statement);
+
+                    ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
+                    ss_close(&local);
+                    ss_fprintf(oss, "%s", name);
+                }
             }
             break;
 
@@ -49411,7 +49543,7 @@ static void codegen_visit_compound_statement(struct codegen_ctx* ctx,
     ss_close(&local);
 }
 
-static void codegen_visit_compound_statement_2(const char* var_name, struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement)
+static void codegen_visit_compound_statement_2(const char* _Opt var_name, struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement)
 {
     bool is_local = ctx->is_local;
     ctx->is_local = true;
@@ -49426,7 +49558,7 @@ static void codegen_visit_compound_statement_2(const char* var_name, struct code
     struct block_item* _Opt p_block_item = p_compound_statement->block_item_list.head;
     while (p_block_item)
     {
-        if (p_block_item->next == NULL)
+        if (p_block_item->next == NULL && var_name != NULL)
         {
             /* last */
 
@@ -49451,6 +49583,9 @@ static void codegen_visit_compound_statement_2(const char* var_name, struct code
         }
         else
         {
+            /* var_name == NULL means this is a void statement-expression:
+               there is no result to capture, so the last item (if any) is
+               just emitted as a normal statement, like any other item. */
             codegen_visit_block_item(ctx, &local, p_block_item);
         }
         p_block_item = p_block_item->next;
@@ -49507,6 +49642,14 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
     const struct declarator* _Opt previous_func = ctx->p_current_function_opt;
     ctx->p_current_function_opt = function_definition;
 
+    /* __func__'s generated variable name is per-function (__cake_func_<name>),
+       so the "already added" flag must be reset for each function, otherwise
+       only the first function in the translation unit that uses __func__
+       gets its static const char[] declaration emitted, and every other
+       function that uses __func__ references an undeclared identifier. */
+    bool previous_is__func__predefined_identifier_added = ctx->is__func__predefined_identifier_added;
+    ctx->is__func__predefined_identifier_added = false;
+
     const struct type* _Opt func_type = &function_definition->type;
     while (func_type && func_type->category != TYPE_CATEGORY_FUNCTION)
         func_type = func_type->next;
@@ -49537,6 +49680,7 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
     ss_close(&bk);
     ss_close(&snaps);
     ctx->p_current_function_opt = previous_func; //restore
+    ctx->is__func__predefined_identifier_added = previous_is__func__predefined_identifier_added; //restore
     ctx->indentation = indentation; //restore
 }
 
@@ -51634,8 +51778,20 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
         if (ctx->runtime_assert_used)
         {
             ss_fprintf(oss,
-                "static void %s(const char * file, int line, const char * text);\n",
+                "static void %s(char * file, int line, char * text);\n",
                 ctx->runtime_assert_function_name);
+        }
+
+        if (ctx->assert_fail_used)
+        {
+            ss_fprintf(oss,
+                "static void __assert_fail(char * assertion, char * file, unsigned int line, char * function);\n");
+        }
+
+        if (ctx->assert_rtn_used)
+        {
+            ss_fprintf(oss,
+                "static void __assert_rtn(char * function, char * file, int line, char * message);\n");
         }
 
         if (declarations.c_str)
@@ -51696,10 +51852,33 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
                abort / trap) is compiler/platform specific and filled in later. */
             ss_fprintf(oss, "\n");
             ss_fprintf(oss,
-                "static void %s(const char * file, int line, const char * text)\n"
+                "static void %s(char * file, int line, char * text)\n"
                 "{\n"
                 "}\n\n",
                 ctx->runtime_assert_function_name);
+        }
+
+        if (ctx->assert_fail_used)
+        {
+            /* Stub for __assert_fail (glibc's assert() failure handler), same
+               idea as the runtime_assert_failed handler above: left empty for
+               now, filled in later with the real report/abort behaviour. */
+            ss_fprintf(oss, "\n");
+            ss_fprintf(oss,
+                "static void __assert_fail(char * assertion, char * file, unsigned int line, char * function)\n"
+                "{\n"
+                "}\n\n");
+        }
+
+        if (ctx->assert_rtn_used)
+        {
+            /* Stub for __assert_rtn (macOS/Apple's assert() failure handler).
+               Same idea as __assert_fail above. */
+            ss_fprintf(oss, "\n");
+            ss_fprintf(oss,
+                "static void __assert_rtn(char * function, char * file, int line, char * message)\n"
+                "{\n"
+                "}\n\n");
         }
 
         if (ctx->options.line_directives)
@@ -65268,36 +65447,36 @@ const char* target_get_builtins(enum target e)
 
 void target_self_test()
 {
-    _Assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_CHAR) == UCHAR_MAX);
-    _Assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_SHORT) == USHRT_MAX);
-    _Assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_INT) == UINT_MAX);
-    _Assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG) == ULONG_MAX);
-    _Assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG_LONG) == ULLONG_MAX);
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_CHAR) == UCHAR_MAX);
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_SHORT) == USHRT_MAX);
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_INT) == UINT_MAX);
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG) == ULONG_MAX);
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG_LONG) == ULLONG_MAX);
 
-    _Assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_CHAR) == CHAR_MAX);
-    _Assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_SHORT) == SHRT_MAX);
-    _Assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_INT) == INT_MAX);
-    _Assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG) == LONG_MAX);
-    _Assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG_LONG) == LLONG_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_CHAR) == CHAR_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_SHORT) == SHRT_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_INT) == INT_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG) == LONG_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG_LONG) == LLONG_MAX);
 
-    _Assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_CHAR) == sizeof(char) * CHAR_BIT);
-    _Assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_SHORT) == sizeof(short) * CHAR_BIT);
-    _Assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_INT) == sizeof(int) * CHAR_BIT);
-    _Assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG) == sizeof(long) * CHAR_BIT);
-    _Assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG_LONG) == sizeof(long long) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_CHAR) == sizeof(char) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_SHORT) == sizeof(short) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_INT) == sizeof(int) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG) == sizeof(long) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG_LONG) == sizeof(long long) * CHAR_BIT);
 
-    _Assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_LONG_DOUBLE) == sizeof(long double) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_LONG_DOUBLE) == sizeof(long double) * CHAR_BIT);
 
 
-    _Assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->size_t_type) == sizeof(sizeof(1)) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->size_t_type) == sizeof(sizeof(1)) * CHAR_BIT);
 
-    _Assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->wchar_t_type) == sizeof(L' ') * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->wchar_t_type) == sizeof(L' ') * CHAR_BIT);
 
 
 #if CHAR_MIN < 0
-    _Assert(get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->char_t_type == TYPE_SIGNED_CHAR);
+    assert(get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->char_t_type == TYPE_SIGNED_CHAR);
 #else
-    _Assert(get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->char_t_type == TYPE_UNSIGNED_CHAR);
+    assert(get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->char_t_type == TYPE_UNSIGNED_CHAR);
 #endif
 
 
