@@ -113,7 +113,7 @@ float strtof(char const* _String, char** _Opt _EndPtr);
 #define _Uninitialized
 #define static_debug(x)
 #define override_state(x, s)
-#define runtime_assert(x) ((void)0)
+#define _Assert(x) ((void)0)
 #endif
 
 #endif

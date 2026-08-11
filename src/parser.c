@@ -286,7 +286,7 @@ static void check_space_after_comma_style(struct parser_ctx* ctx, struct token* 
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
         return;
-    runtime_assert(token->type == ',');
+    _Assert(token->type == ',');
 
     if (token->level != 0 ||
         (token->flags & TK_FLAG_MACRO_EXPANDED) ||
@@ -506,7 +506,7 @@ void scope_list_push(struct scope_list* list, struct scope* pnew)
     }
     else
     {
-        runtime_assert(list->tail != NULL);
+        _Assert(list->tail != NULL);
         pnew->previous = list->tail;
         list->tail->next = pnew;
         list->tail = pnew;
@@ -518,7 +518,7 @@ void scope_list_pop(struct scope_list* list)
 
     if (list->head == NULL)
         return;
-    runtime_assert(list->tail != NULL);
+    _Assert(list->tail != NULL);
     struct scope* p = list->tail;
     if (list->head == list->tail)
     {
@@ -530,7 +530,7 @@ void scope_list_pop(struct scope_list* list)
         list->tail = list->tail->previous;
         if (list->tail == list->head)
         {
-            runtime_assert(list->tail != NULL);
+            _Assert(list->tail != NULL);
             list->tail->next = NULL;
             list->tail->previous = NULL;
         }
@@ -542,8 +542,8 @@ void scope_list_pop(struct scope_list* list)
 void parser_ctx_destroy(_Dtor struct parser_ctx* ctx)
 {
     label_list_clear(&ctx->label_list);
-    runtime_assert(ctx->label_list.head == NULL);
-    runtime_assert(ctx->label_list.tail == NULL);
+    _Assert(ctx->label_list.head == NULL);
+    _Assert(ctx->label_list.tail == NULL);
 
     diagnostic_queue_destroy(&ctx->diagnostic_queue);
 
@@ -595,7 +595,7 @@ static void diagnostic_free(struct diagnostic_item* _Owner _Opt e)
             diagnostic_free(child);
             child = next_child;
         }
-        runtime_assert(e->next == NULL);
+        _Assert(e->next == NULL);
         free(e->text);
         free(e->sarif_text);
         free(e);
@@ -606,12 +606,12 @@ void diagnostic_queue_add(struct diagnostic_queue* q, struct diagnostic_item* _O
 {
     if (q->tail)
     {
-        runtime_assert(q->tail->next == NULL);
+        _Assert(q->tail->next == NULL);
         q->tail->next = e;
     }
     else
     {
-        runtime_assert(q->head == NULL);
+        _Assert(q->head == NULL);
         q->head = e;
     }
     q->tail = e;
@@ -791,7 +791,7 @@ _Bool diagnostic(enum diagnostic_id w,
     }
     else
     {
-        //runtime_assert(p_token_opt == NULL);
+        //_Assert(p_token_opt == NULL);
         marker = *p_marker_temp;
         if (marker.p_token_caret)
             p_token_opt = marker.p_token_caret;
@@ -1206,7 +1206,7 @@ struct enum_specifier* _Opt find_enum_specifier(struct parser_ctx* ctx, const ch
         if (p_entry &&
             p_entry->type == TAG_TYPE_ENUM_SPECIFIER)
         {
-            runtime_assert(p_entry->data.p_enum_specifier != NULL);
+            _Assert(p_entry->data.p_enum_specifier != NULL);
 
             best = p_entry->data.p_enum_specifier;
             if (best->enumerator_list.head != NULL)
@@ -1231,7 +1231,7 @@ struct struct_or_union_specifier* _Opt find_struct_or_union_specifier(const stru
         if (p_entry &&
             p_entry->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
         {
-            runtime_assert(p_entry->data.p_struct_or_union_specifier != NULL);
+            _Assert(p_entry->data.p_struct_or_union_specifier != NULL);
             p = p_entry->data.p_struct_or_union_specifier;
             break;
         }
@@ -1248,7 +1248,7 @@ struct declarator* _Opt find_declarator(const struct parser_ctx* ctx, const char
     {
         if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
         {
-            runtime_assert(p_entry->data.p_init_declarator != NULL);
+            _Assert(p_entry->data.p_init_declarator != NULL);
             struct init_declarator* p_init_declarator = p_entry->data.p_init_declarator;
             return (struct declarator*)p_init_declarator->p_declarator;
         }
@@ -1722,9 +1722,7 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strcmp("restrict", text) == 0)
             return TK_KEYWORD_RESTRICT;
         if (strcmp("return", text) == 0)
-            return TK_KEYWORD_RETURN;
-        if (strcmp("runtime_assert", text) == 0)
-            return TK_KEYWORD_RUNTIME_ASSERT; /* extension */
+            return TK_KEYWORD_RETURN;        
         break;
 
     case 's':
@@ -1807,6 +1805,9 @@ enum token_type is_keyword(const char* text, enum target target)
 
         if (strcmp("_Countof", text) == 0)
             return TK_KEYWORD__COUNTOF; /* C2Y */
+
+        if (strcmp("_Assert", text) == 0)
+            return TK_KEYWORD_RUNTIME_ASSERT; /* extension */
 
         /*TRAITS EXTENSION*/
         if (strcmp("_is_lvalue", text) == 0)
@@ -2186,7 +2187,7 @@ void print_declaration_specifiers(struct osstream* ss, struct declaration_specif
         }
         else
         {
-            runtime_assert(false);
+            _Assert(false);
         }
     }
     else if (p_declaration_specifiers->struct_or_union_specifier)
@@ -2350,8 +2351,8 @@ void declaration_specifiers_add(struct declaration_specifiers* list, struct decl
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->next == NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
     list->tail = p_item;
@@ -2866,7 +2867,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 
             if (storage_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE)
             {
-                runtime_assert(p_declaration->declaration_specifiers != NULL);
+                _Assert(p_declaration->declaration_specifiers != NULL);
                 if (!(p_declaration->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC))
                 {
                     diagnostic(C_ERROR_UNEXPECTED, ctx, p_declaration->first_token,
@@ -2889,7 +2890,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 }
             */
 
-            runtime_assert(p_declaration->init_declarator_list.head != NULL); //because functions definitions have names
+            _Assert(p_declaration->init_declarator_list.head != NULL); //because functions definitions have names
 
             if (ctx->current == NULL)
             {
@@ -2941,7 +2942,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             if (p_function_body == NULL)
                 throw;
 
-            runtime_assert(p_declaration->function_body == NULL);
+            _Assert(p_declaration->function_body == NULL);
             p_declaration->function_body = p_function_body;
             p_declaration->init_declarator_list.head->p_declarator->function_body = p_declaration->function_body;
 
@@ -3017,7 +3018,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
         p_declaration = NULL;
     }
 
-    runtime_assert(p_attribute_specifier_sequence == NULL);
+    _Assert(p_attribute_specifier_sequence == NULL);
     attribute_specifier_sequence_delete(p_attribute_specifier_sequence);
     return p_declaration;
 
@@ -3035,7 +3036,7 @@ void declaration_specifier_delete(struct declaration_specifier* _Owner _Opt p)
         type_specifier_qualifier_delete(p->type_specifier_qualifier);
         storage_class_specifier_delete(p->storage_class_specifier);
         alignment_specifier_delete(p->alignment_specifier);
-        runtime_assert(p->next == NULL);
+        _Assert(p->next == NULL);
         free(p);
     }
 }
@@ -3100,7 +3101,7 @@ void init_declarator_delete(struct init_declarator* _Owner _Opt p)
 
         initializer_delete(p->initializer);
         declarator_delete(p->p_declarator);
-        runtime_assert(p->next == NULL);
+        _Assert(p->next == NULL);
         free(p);
     }
 }
@@ -3190,7 +3191,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 false,
                 &tkname);
             if (p_temp_declarator == NULL) throw;
-            runtime_assert(p_init_declarator->p_declarator == NULL);
+            _Assert(p_init_declarator->p_declarator == NULL);
             p_init_declarator->p_declarator = p_temp_declarator;
         }
 
@@ -3214,13 +3215,13 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         }
         else
         {
-            runtime_assert(p_init_declarator->p_declarator->type.type_specifier_flags == 0);
+            _Assert(p_init_declarator->p_declarator->type.type_specifier_flags == 0);
             p_init_declarator->p_declarator->type = make_type_using_declarator(ctx, p_init_declarator->p_declarator);
         }
 
-        runtime_assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
+        _Assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
 
-        runtime_assert(ctx->scopes.tail != NULL);
+        _Assert(ctx->scopes.tail != NULL);
 
         /*
           Checking naming conventions
@@ -3241,8 +3242,8 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         if (p_previous_declarator)
         {
             p_init_declarator->p_declarator->p_complete_declarator = p_previous_declarator;
-            runtime_assert(out_scope != NULL);
-            runtime_assert(ctx->scopes.tail != NULL);
+            _Assert(out_scope != NULL);
+            _Assert(ctx->scopes.tail != NULL);
 
             if (out_scope->scope_level == ctx->scopes.tail->scope_level)
             {
@@ -3297,7 +3298,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 {
                     if (type_is_function(&p_previous_declarator->type))
                     {
-                        runtime_assert(p_previous_declarator->declaration_specifiers != NULL);
+                        _Assert(p_previous_declarator->declaration_specifiers != NULL);
 
                         if (!(p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
                             (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
@@ -3365,7 +3366,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
             parser_match(ctx);
 
-            runtime_assert(p_init_declarator->initializer == NULL);
+            _Assert(p_init_declarator->initializer == NULL);
             p_init_declarator->initializer = initializer(ctx, false);
 
             if (p_init_declarator->initializer == NULL)
@@ -3477,7 +3478,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 /*
                   Fixing the type of auto declarator
                 */
-                runtime_assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
+                _Assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
 
                 if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
                 {
@@ -3509,7 +3510,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     }
 
                     type_remove_names(&t);
-                    runtime_assert(t.name_opt == NULL);
+                    _Assert(t.name_opt == NULL);
                     if (p_init_declarator->p_declarator->name_opt)
                     {
                         t.name_opt = strdup(p_init_declarator->p_declarator->name_opt->lexeme);
@@ -3677,7 +3678,6 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     "sizeof '%s' is too large",
                     p_init_declarator->p_declarator->name_opt->lexeme);
                 throw;
-                break;
 
             case SIZEOF_RESULT_RUNTIME:
 #if 0
@@ -3731,7 +3731,10 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         p_init_declarator = NULL;
     }
 
-    if (p_init_declarator && trying_to_use_vm_type_from_enclosing_function(&p_init_declarator->p_declarator->type, ctx->p_current_function_opt))
+ 
+   if (p_init_declarator &&
+       ctx->p_current_function_opt &&
+       trying_to_use_vm_type_from_enclosing_function(&p_init_declarator->p_declarator->type, ctx->p_current_function_opt))
     {
         /*
         void func()
@@ -3784,8 +3787,8 @@ void init_declarator_list_add(struct init_declarator_list* list, struct init_dec
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->next == NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
     list->tail = p_item;
@@ -3895,7 +3898,7 @@ struct storage_class_specifier* _Owner _Opt storage_class_specifier(struct parse
             p_storage_class_specifier->flags = STORAGE_SPECIFIER_REGISTER;
             break;
         default:
-            runtime_assert(false);
+            _Assert(false);
             break;
         }
 
@@ -3939,8 +3942,8 @@ void storage_class_specifiers_push(struct storage_class_specifiers* p,
         }
         else
         {
-            runtime_assert(p->tail != NULL);
-            runtime_assert(p->tail->next == NULL);
+            _Assert(p->tail != NULL);
+            _Assert(p->tail->next == NULL);
             p->tail->next = pnew;
             p->tail = pnew;
         }
@@ -3956,7 +3959,7 @@ void storage_class_specifier_node_delete(struct storage_class_specifier_node* _O
 {
     if (p)
     {
-        runtime_assert(p->next == NULL);
+        _Assert(p->next == NULL);
         free(p);
     }
 }
@@ -4787,7 +4790,7 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
                 find_declarator(ctx, ctx->current->lexeme, NULL);
 
             /* if we got here, it must already exist (reuse?) */
-            runtime_assert(p_type_specifier->typedef_declarator != NULL);
+            _Assert(p_type_specifier->typedef_declarator != NULL);
 
             parser_match(ctx);
         }
@@ -4931,7 +4934,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             throw;
         }
 
-        runtime_assert(p_struct_or_union_specifier->attribute_specifier_sequence_opt == NULL);
+        _Assert(p_struct_or_union_specifier->attribute_specifier_sequence_opt == NULL);
         p_struct_or_union_specifier->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
         struct struct_or_union_specifier* _Opt p_first_tag_in_this_scope = NULL;
@@ -4975,7 +4978,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                         p_entry->data.p_struct_or_union_specifier->first_token->type)
                     {
 
-                        runtime_assert(p_entry->data.p_struct_or_union_specifier != NULL);
+                        _Assert(p_entry->data.p_struct_or_union_specifier != NULL);
                         p_first_tag_in_this_scope = p_entry->data.p_struct_or_union_specifier;
                         p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_in_this_scope;
                     }
@@ -5205,8 +5208,9 @@ struct member_declarator* _Owner _Opt member_declarator(
             //A structure or union shall not contain a member with incomplete 
             // or function type 
 
-            struct token* p_token =
-                p_member_declarator->declarator->first_token_opt;
+            struct token* _Opt p_token =
+p_member_declarator->declarator->first_token_opt;
+
             if (p_token == NULL)
                 p_token = ctx->current;
 
@@ -5226,7 +5230,7 @@ struct member_declarator* _Owner _Opt member_declarator(
               object type other than a variably modified type
             */
 
-            struct token* p_token =
+            struct token* _Opt p_token =
                 p_member_declarator->declarator->first_token_opt;
             if (p_token == NULL)
                 p_token = ctx->current;
@@ -5253,8 +5257,9 @@ struct member_declarator* _Owner _Opt member_declarator(
              *   int n;
              *   struct X { int (*a)[n]; };  // error: VM member
              */
-            struct token* p_token =
-                p_member_declarator->declarator->first_token_opt;
+            struct token* _Opt p_token =
+p_member_declarator->declarator->first_token_opt;
+
             if (p_token == NULL)
                 p_token = ctx->current;
 
@@ -5342,7 +5347,7 @@ void member_declarator_delete(struct member_declarator* _Owner _Opt p)
     if (p)
     {
         expression_delete(p->constant_expression);
-        runtime_assert(p->next == NULL);
+        _Assert(p->next == NULL);
         declarator_delete(p->declarator);
         free(p);
     }
@@ -5356,8 +5361,8 @@ void member_declarator_list_add(struct member_declarator_list* list, struct memb
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->next == NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
     list->tail = p_item;
@@ -5435,8 +5440,8 @@ void member_declaration_list_add(struct member_declaration_list* list, struct me
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->next == NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
     list->tail = p_item;
@@ -5494,7 +5499,7 @@ void member_declaration_delete(struct member_declaration* _Owner _Opt p)
 {
     if (p)
     {
-        runtime_assert(p->next == NULL);
+        _Assert(p->next == NULL);
         specifier_qualifier_list_delete(p->specifier_qualifier_list);
         member_declarator_list_delete(p->member_declarator_list_opt);
         attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence);
@@ -5532,7 +5537,7 @@ struct member_declaration* _Owner _Opt member_declaration(struct parser_ctx* ctx
         }
         else
         {
-            runtime_assert(p_member_declaration->p_attribute_specifier_sequence == NULL);
+            _Assert(p_member_declaration->p_attribute_specifier_sequence == NULL);
             p_member_declaration->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
 
             p_member_declaration->specifier_qualifier_list = specifier_qualifier_list(ctx);
@@ -5751,7 +5756,7 @@ void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct spe
     {
 
         // TODO
-        runtime_assert(false);
+        _Assert(false);
     }
     else if (p_specifier_qualifier_list->struct_or_union_specifier)
     {
@@ -5776,8 +5781,8 @@ void specifier_qualifier_list_add(struct specifier_qualifier_list* list, struct 
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->next == NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
     list->tail = p_item;
@@ -5891,7 +5896,7 @@ struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct par
                 p_specifier_qualifier_list->type_qualifier_flags |= p_type_specifier_qualifier->type_qualifier->flags;
             }
 
-            runtime_assert(p_specifier_qualifier_list->p_attribute_specifier_sequence == NULL);
+            _Assert(p_specifier_qualifier_list->p_attribute_specifier_sequence == NULL);
             p_specifier_qualifier_list->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
 
             specifier_qualifier_list_add(p_specifier_qualifier_list, p_type_specifier_qualifier);
@@ -5922,7 +5927,7 @@ void type_qualifier_delete(struct type_qualifier* _Owner _Opt p)
 {
     if (p)
     {
-        runtime_assert(p->next == NULL);
+        _Assert(p->next == NULL);
         free(p);
     }
 }
@@ -5931,10 +5936,10 @@ void type_specifier_qualifier_delete(struct type_specifier_qualifier* _Owner _Op
 {
     if (p)
     {
-        runtime_assert(p->next == NULL);
+        _Assert(p->next == NULL);
         if (p->type_qualifier)
         {
-            runtime_assert(p->type_qualifier->next == NULL);
+            _Assert(p->type_qualifier->next == NULL);
             free(p->type_qualifier);
         }
         alignment_specifier_delete(p->alignment_specifier);
@@ -5976,7 +5981,7 @@ struct type_specifier_qualifier* _Owner _Opt type_specifier_qualifier(struct par
         }
         else
         {
-            runtime_assert(false);
+            _Assert(false);
         }
     }
     catch
@@ -6022,6 +6027,7 @@ void enum_specifier_delete(struct enum_specifier* _Owner _Opt p)
 
         attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
         enumerator_list_destroy(&p->enumerator_list);
+        type_destroy(&p->integer_type);
         free(p);
     }
 }
@@ -6102,7 +6108,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
 
         if (ctx->current->type == ':')
         {
-            struct token* p_token_ahead = parser_look_ahead(ctx);
+            struct token* _Opt p_token_ahead = parser_look_ahead(ctx);
 
             if (!ctx->inside_generic_association || first_of_type_specifier_token(ctx, p_token_ahead))
             {
@@ -6117,7 +6123,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 p_enum_specifier->has_underlying = true;
 
                 parser_match(ctx);
-                struct specifier_qualifier_list* list = specifier_qualifier_list(ctx);
+                struct specifier_qualifier_list* _Owner _Opt list = specifier_qualifier_list(ctx);
                 if (list == NULL)
                     throw;
                 struct token* first_token = list->first_token;
@@ -6206,7 +6212,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 //ja existe
                 /* check for another tag with the same name in this scope */
                 p_enum_specifier->p_complete_enum_specifier = p_existing_enum_specifier;
-                p_enum_specifier->integer_type = p_existing_enum_specifier->integer_type;
+                p_enum_specifier->integer_type = type_dup(&p_existing_enum_specifier->integer_type);
                 p_enum_specifier->has_underlying = p_existing_enum_specifier->has_underlying;
             }
             else
@@ -6237,8 +6243,8 @@ void enumerator_list_add(struct enumerator_list* list, struct enumerator* _Owner
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->next == NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
     list->tail = p_item;
@@ -6424,7 +6430,7 @@ void enumerator_delete(struct enumerator* _Owner _Opt p)
             return; //lint 29 not a leak
         }
 
-        runtime_assert(p->next == NULL);
+        _Assert(p->next == NULL);
         attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
         expression_delete(p->constant_expression_opt);
 
@@ -6482,7 +6488,7 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
         if (ctx->current->type == '=')
         {
             parser_match(ctx);
-            runtime_assert(p_enumerator->constant_expression_opt == NULL);
+            _Assert(p_enumerator->constant_expression_opt == NULL);
             p_enumerator->constant_expression_opt = constant_expression(ctx, true, false);
             if (p_enumerator->constant_expression_opt == NULL) throw;
             if (!type_is_integer(&p_enumerator->constant_expression_opt->type))
@@ -7079,7 +7085,7 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
             }
             p_direct_declarator = p_direct_declarator2;
 
-            runtime_assert(p_direct_declarator->p_attribute_specifier_sequence == NULL);
+            _Assert(p_direct_declarator->p_attribute_specifier_sequence == NULL);
             p_direct_declarator->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
         }
     }
@@ -7313,7 +7319,7 @@ struct function_declarator* _Owner _Opt function_declarator(struct direct_declar
             out(r)
             {
                 if (r)
-                    runtime_assert(p->x == 0);
+                    _Assert(p->x == 0);
             };
         */
         if (ctx->current == NULL)
@@ -7429,7 +7435,7 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
 
             if (first_of_type_qualifier(ctx))
             {
-                runtime_assert(ctx->current != NULL);
+                _Assert(ctx->current != NULL);
 
                 if (ctx->current->type == TK_KEYWORD_CAKE_VIEW)
                 {
@@ -7470,8 +7476,8 @@ void type_qualifier_list_add(struct type_qualifier_list* list, struct type_quali
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->next == NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
     list->tail = p_item;
@@ -7609,8 +7615,8 @@ void parameter_list_add(struct parameter_list* list, struct parameter_declaratio
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->next == NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
     list->tail = p_item;
@@ -7696,7 +7702,7 @@ void parameter_declaration_delete(struct parameter_declaration* _Owner _Opt p)
         declaration_specifiers_delete(p->declaration_specifiers);
         declarator_delete(p->declarator);
 
-        runtime_assert(p->next == NULL);
+        _Assert(p->next == NULL);
         free(p);
     }
 }
@@ -7801,7 +7807,7 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
             struct hash_item_set item = { 0 };
             item.p_declarator = declarator_add_ref(p_parameter_declaration->declarator);
 
-            runtime_assert(p_parameter_declaration->declarator->name_opt != NULL); //add_ref will not change that
+            _Assert(p_parameter_declaration->declarator->name_opt != NULL); //add_ref will not change that
 
             /* void parameter has no name */
             hashmap_set(&ctx->scopes.tail->variables,
@@ -7872,7 +7878,7 @@ struct specifier_qualifier_list* _Owner _Opt copy(struct declaration_specifiers*
                     p_type_specifier->flags = p_declaration_specifier->type_specifier_qualifier->type_specifier->flags;
 
                     // todo
-                    runtime_assert(p_declaration_specifier->type_specifier_qualifier->type_specifier->struct_or_union_specifier == NULL);
+                    _Assert(p_declaration_specifier->type_specifier_qualifier->type_specifier->struct_or_union_specifier == NULL);
 
                     p_type_specifier->token = p_declaration_specifier->type_specifier_qualifier->type_specifier->token;
                     p_specifier_qualifier->type_specifier = p_type_specifier;
@@ -7911,7 +7917,7 @@ void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_di
 
     if (p_direct_declarator->function_declarator)
     {
-        runtime_assert(p_direct_declarator->function_declarator->direct_declarator != NULL);
+        _Assert(p_direct_declarator->function_declarator->direct_declarator != NULL);
 
         print_direct_declarator(ss, p_direct_declarator->function_declarator->direct_declarator, is_abstract);
 
@@ -7992,7 +7998,7 @@ const struct declarator* _Opt declarator_get_function_definition(const struct de
         p_function_defined = declarator->p_complete_declarator->p_complete_declarator;
     }
 
-    runtime_assert(p_function_defined == NULL || (p_function_defined && p_function_defined->function_body));
+    _Assert(p_function_defined == NULL || (p_function_defined && p_function_defined->function_body));
     return p_function_defined;
 }
 
@@ -8230,8 +8236,8 @@ void defer_list_add(struct defer_list* list, struct defer_list_item* _Owner p_it
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->next == NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
     list->tail = p_item;
@@ -8274,8 +8280,8 @@ void initializer_list_add(struct initializer_list* list, struct initializer_list
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->next == NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
     list->tail = p_item;
@@ -8451,8 +8457,8 @@ void designator_list_add(struct designator_list* list, struct designator* _Owner
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->next == NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
     list->tail = p_item;
@@ -8514,7 +8520,7 @@ void designator_delete(struct designator* _Owner _Opt p)
 {
     if (p)
     {
-        runtime_assert(p->next == NULL);
+        _Assert(p->next == NULL);
         expression_delete(p->constant_expression_opt);
         free(p);
     }
@@ -8868,7 +8874,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
              #pragma warning(disable:4001)
             */
             diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "unknown pragma");
-            throw;
+            //throw;
         }
     }
     catch
@@ -8883,7 +8889,7 @@ struct pragma_declaration* _Owner _Opt pragma_declaration(struct parser_ctx* ctx
     {
         if (ctx->current == NULL || ctx->current->type != TK_PRAGMA)
         {
-            runtime_assert(false);
+            _Assert(false);
             throw;
         }
 
@@ -9056,8 +9062,8 @@ void attribute_specifier_sequence_add(struct attribute_specifier_sequence* list,
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->next == NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
     list->tail = p_item;
@@ -9180,7 +9186,7 @@ void attribute_specifier_delete(struct attribute_specifier* _Owner _Opt p)
     if (p)
     {
         attribute_list_delete(p->attribute_list);
-        runtime_assert(p->next == NULL);
+        _Assert(p->next == NULL);
         free(p);
     }
 }
@@ -9240,7 +9246,7 @@ void attribute_delete(struct attribute* _Owner _Opt p)
     if (p)
     {
         attribute_argument_clause_delete(p->attribute_argument_clause);
-        runtime_assert(p->next == NULL);
+        _Assert(p->next == NULL);
         free(p);
     }
 }
@@ -9253,8 +9259,8 @@ void attribute_list_add(struct attribute_list* list, struct attribute* _Owner p_
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->next == NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
     list->tail = p_item;
@@ -9678,7 +9684,7 @@ struct statement* _Owner _Opt statement(struct parser_ctx* ctx, struct attribute
 
 struct primary_block* _Owner _Opt primary_block(struct parser_ctx* ctx)
 {
-    runtime_assert(ctx->current != NULL);
+    _Assert(ctx->current != NULL);
     struct primary_block* _Owner _Opt p_primary_block = calloc(1, sizeof(struct primary_block));
     try
     {
@@ -10134,7 +10140,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                         p_label->constant_expression->first_token, NULL,
                         "case '%s' ... '%s' is duplicating values", str1, str2);
 
-                    runtime_assert(p_label->constant_expression != NULL); //because case have values
+                    _Assert(p_label->constant_expression != NULL); //because case have values
                     diagnostic(W_LOCATION,
                         ctx,
                         p_existing_label->constant_expression->first_token, NULL, "previous case");
@@ -10158,7 +10164,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                         p_label->constant_expression->first_token, NULL,
                         "duplicate case '%s'", str);
 
-                    runtime_assert(p_label->constant_expression != NULL); //because case have values
+                    _Assert(p_label->constant_expression != NULL); //because case have values
                     diagnostic(W_LOCATION,
                         ctx,
                         p_existing_label->constant_expression->first_token, NULL, "previous declaration");
@@ -10277,7 +10283,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
         label_delete(p_label);
         p_label = NULL;
     }
-    runtime_assert(p_attribute_specifier_sequence == NULL);
+    _Assert(p_attribute_specifier_sequence == NULL);
     attribute_specifier_sequence_delete(p_attribute_specifier_sequence);
     return p_label;
 }
@@ -10355,7 +10361,7 @@ void case_label_list_push(struct case_label_list* list, struct label* pnew)
     }
     else
     {
-        runtime_assert(list->tail != NULL);
+        _Assert(list->tail != NULL);
         list->tail->next = pnew;
         list->tail = pnew;
     }
@@ -10491,7 +10497,7 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
                 struct init_declarator* _Opt p_init_declarator = NULL;
                 if (entry->type == TAG_TYPE_INIT_DECLARATOR)
                 {
-                    runtime_assert(entry->data.p_init_declarator != NULL);
+                    _Assert(entry->data.p_init_declarator != NULL);
                     p_init_declarator = entry->data.p_init_declarator;
                     p_declarator = p_init_declarator->p_declarator;
                 }
@@ -10546,8 +10552,8 @@ void block_item_list_add(struct block_item_list* list, struct block_item* _Owner
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->next == NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
     list->tail = p_item;
@@ -10610,7 +10616,7 @@ void block_item_delete(struct block_item* _Owner _Opt p)
         declaration_delete(p->declaration);
         label_delete(p->label);
         unlabeled_statement_delete(p->unlabeled_statement);
-        runtime_assert(p->next == NULL);
+        _Assert(p->next == NULL);
         free(p);
     }
 }
@@ -11063,7 +11069,7 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
             p_try_statement->catch_token_opt = ctx->current;
             parser_match(ctx);
 
-            runtime_assert(p_try_statement->catch_secondary_block_opt == NULL);
+            _Assert(p_try_statement->catch_secondary_block_opt == NULL);
 
             p_try_statement->catch_secondary_block_opt = secondary_block(ctx);
             if (p_try_statement->catch_secondary_block_opt == NULL) throw;
@@ -11074,7 +11080,7 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
             p_try_statement->catch_token_opt = ctx->current;
             parser_match(ctx);
 
-            runtime_assert(p_try_statement->catch_secondary_block_opt == NULL);
+            _Assert(p_try_statement->catch_secondary_block_opt == NULL);
 
             p_try_statement->catch_secondary_block_opt = secondary_block(ctx);
             if (p_try_statement->catch_secondary_block_opt == NULL) throw;
@@ -11092,7 +11098,7 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
 
             if (parser_match_tk(ctx, ')') != 0) throw;
 
-            runtime_assert(p_try_statement->catch_secondary_block_opt == NULL);
+            _Assert(p_try_statement->catch_secondary_block_opt == NULL);
             p_try_statement->catch_secondary_block_opt = secondary_block(ctx);
             if (p_try_statement->catch_secondary_block_opt == NULL) throw;
         }
@@ -11272,7 +11278,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
                     p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.tail)
                 {
                     //tODO only 1
-                    runtime_assert(false);
+                    _Assert(false);
                     throw;
                 }
                 p_selection_statement->condition->p_init_declarator =
@@ -11364,7 +11370,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
         }
 
-        runtime_assert(p_selection_statement->secondary_block == NULL); //lint 28
+        _Assert(p_selection_statement->secondary_block == NULL); //lint 28
 
         p_selection_statement->secondary_block = p_secondary_block;
 
@@ -11375,7 +11381,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
             check_else_placement_style(ctx, ctx->current);
             p_selection_statement->else_token_opt = ctx->current;
             parser_match(ctx);
-            runtime_assert(p_selection_statement->else_secondary_block_opt == NULL);
+            _Assert(p_selection_statement->else_secondary_block_opt == NULL);
 
             struct secondary_block* _Owner _Opt p_secondary_block2 = secondary_block(ctx);
             if (p_secondary_block2 == NULL) throw;
@@ -11941,7 +11947,7 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
         }
         else
         {
-            runtime_assert(false);
+            _Assert(false);
         }
 
         if (ctx->current == NULL)
@@ -12039,8 +12045,8 @@ void declaration_list_add(struct declaration_list* list, struct declaration* _Ow
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->next == NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->next == NULL);
         list->tail->next = p_declaration;
     }
     list->tail = p_declaration;
@@ -12211,7 +12217,7 @@ void declaration_delete(struct declaration* _Owner _Opt p)
 
         init_declarator_list_destroy(&p->init_declarator_list);
         defer_list_destroy(&p->defer_list);
-        runtime_assert(p->next == NULL);
+        _Assert(p->next == NULL);
         free(p);
     }
 }
@@ -12261,7 +12267,7 @@ static void check_unused_static_declarators(struct parser_ctx* ctx, struct decla
                         p_declarator_local = p_entry->data.p_declarator;
                     }
 
-                    runtime_assert(p_declarator_local);
+                    _Assert(p_declarator_local);
 
                     int num_uses = p_declarator_local->num_uses;
                     if (num_uses == 0)
@@ -12388,7 +12394,7 @@ void label_list_swap(struct label_list* a, struct label_list* b)
     *b = temp;
 }
 
-void label_list_destroy(struct label_list* list)
+void label_list_destroy(_Dtor struct label_list* list)
 {
     struct label_list_item* _Owner _Opt item = list->head;
     while (item)
@@ -12403,7 +12409,8 @@ void label_list_destroy(struct label_list* list)
 void label_list_clear(_Clear struct label_list* list)
 {
     label_list_destroy(list);
-    memset(list, 0, sizeof(struct label_list));
+    list->head = NULL;
+    list->tail = NULL;
 }
 
 void label_list_push(struct label_list* list, struct label_list_item* _Owner pitem)
@@ -12414,8 +12421,8 @@ void label_list_push(struct label_list* list, struct label_list_item* _Owner pit
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->next == NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->next == NULL);
         list->tail->next = pitem;
     }
     list->tail = pitem;
@@ -12981,7 +12988,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
     {
         if (type_is_struct_or_union(p_current_object_type))
         {
-            runtime_assert(p_current_object_type->struct_or_union_specifier);
+            _Assert(p_current_object_type->struct_or_union_specifier);
 
             struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
                 get_complete_struct_or_union_specifier(p_current_object_type->struct_or_union_specifier);
@@ -13163,7 +13170,7 @@ int initializer_init_new(struct parser_ctx* ctx,
 
 static struct initializer_list_item* _Opt find_innner_initializer_list_item(struct braced_initializer* braced_initializer)
 {
-    runtime_assert(braced_initializer->initializer_list);
+    _Assert(braced_initializer->initializer_list);
 
     struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head;
 
@@ -13174,7 +13181,7 @@ static struct initializer_list_item* _Opt find_innner_initializer_list_item(stru
 
         if (p_initializer_list_item == NULL)
         {
-            runtime_assert(false);
+            _Assert(false);
             return NULL;
         }
 
@@ -13451,8 +13458,8 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
                 if (is_subobject_of_union)
                 {
-                    runtime_assert(p_subobject);
-                    runtime_assert(p_subobject->parent);
+                    _Assert(p_subobject);
+                    _Assert(p_subobject->parent);
                     struct type t = { 0 };
                     is_subobject_of_union = true;
                     p_subobject = find_last_suboject_of_suboject(&p_subobject->parent->type,
@@ -13469,7 +13476,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                 }
                 else if (entire_object_initialized)
                 {
-                    runtime_assert(p_subobject);
+                    _Assert(p_subobject);
 
                     struct type t = { 0 };
                     is_subobject_of_union = type_is_union(p_current_object_type);

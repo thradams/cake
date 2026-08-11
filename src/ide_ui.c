@@ -80,6 +80,12 @@ struct ui_env {
     ui_font_zoom_fn font_zoom_fn;
     void* font_zoom_ctx;
 
+    /* The backend's font-size getter - see ui_env_set_font_size_get_fn/
+     * ui_env_get_font_size. NULL on a backend that doesn't support it
+     * (same backends that leave font_zoom_fn NULL). */
+    ui_font_size_get_fn font_size_get_fn;
+    void* font_size_get_ctx;
+
     /* The backend's font-family shortlist - see ui_env_set_font_family_fns.
      * All NULL on a backend that doesn't offer one, which reports a count
      * of 0 and makes the whole feature invisible to the app. */
@@ -105,6 +111,8 @@ ui_env* ui_env_create(int w, int h)
     e->time_ms = 0;
     e->font_zoom_fn = NULL;
     e->font_zoom_ctx = NULL;
+    e->font_size_get_fn = NULL;
+    e->font_size_get_ctx = NULL;
     e->font_family_count_fn = NULL;
     e->font_family_name_fn = NULL;
     e->font_family_set_fn = NULL;
@@ -122,6 +130,29 @@ void ui_env_adjust_font_size(ui_env* e, int delta)
 {
     if (e && e->font_zoom_fn)
         e->font_zoom_fn(e->font_zoom_ctx, delta);
+}
+
+void ui_env_set_font_size_get_fn(ui_env* e, ui_font_size_get_fn fn, void* ctx)
+{
+    e->font_size_get_fn = fn;
+    e->font_size_get_ctx = ctx;
+}
+
+int ui_env_get_font_size(ui_env* e)
+{
+    if (e && e->font_size_get_fn)
+        return e->font_size_get_fn(e->font_size_get_ctx);
+    return 0;
+}
+
+void ui_env_set_font_size(ui_env* e, int size)
+{
+    if (!e || size <= 0)
+        return;
+    int cur = ui_env_get_font_size(e);
+    if (cur <= 0)
+        return;
+    ui_env_adjust_font_size(e, size - cur);
 }
 
 void ui_env_set_font_family_fns(ui_env* e,
@@ -7040,8 +7071,7 @@ static int is_c_keyword1(const char* word, int len)
     {
         if (len == 8 && memcmp(word, "register", 8) == 0) return 1;
         if (len == 6 && memcmp(word, "return", 6) == 0) return 1;
-        if (len == 8 && memcmp(word, "restrict", 8) == 0) return 1; // C99
-        if (len == 14 && memcmp(word, "runtime_assert", 14) == 0) return 1;
+        if (len == 8 && memcmp(word, "restrict", 8) == 0) return 1; // C99        
     }
     else if (c == 's')
     {
@@ -7100,6 +7130,7 @@ static int is_c_keyword1(const char* word, int len)
         if (len == 10 && word[1] == 'I' && memcmp(word, "_Imaginary", 10) == 0) return 1;
         if (len == 13 && word[1] == 'T' && memcmp(word, "_Thread_local", 13) == 0) return 1;
         if (len == 14 && word[1] == 'S' && memcmp(word, "_Static_assert", 14) == 0) return 1;
+        if (len == 7 && memcmp(word, "_Assert", 7) == 0) return 1;
     }
     return 0;
 }

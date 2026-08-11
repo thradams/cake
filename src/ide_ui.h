@@ -181,6 +181,20 @@ typedef void (*ui_font_zoom_fn)(void* ctx, int delta);
 void ui_env_set_font_zoom_fn(ui_env* e, ui_font_zoom_fn fn, void* ctx);
 void ui_env_adjust_font_size(ui_env* e, int delta);
 
+/* Current font size, in the backend's own units (e.g. points) - the same
+ * units ui_env_adjust_font_size's `delta` is expressed in. Lets a caller
+ * (session save/restore) read back whatever Ctrl+/Ctrl-/menu zooming last
+ * landed on, and later get back to that exact size via
+ * ui_env_set_font_size (which just calls the zoom callback with the
+ * difference, so it's clamped the same way manual zooming is). A backend
+ * that never registers a font-zoom callback also never registers a size
+ * getter, so this returns 0 and ui_env_set_font_size is a no-op - callers
+ * should treat 0 as "unknown/unsupported" and skip persisting it. */
+typedef int (*ui_font_size_get_fn)(void* ctx);
+void ui_env_set_font_size_get_fn(ui_env* e, ui_font_size_get_fn fn, void* ctx);
+int ui_env_get_font_size(ui_env* e);
+void ui_env_set_font_size(ui_env* e, int size);
+
 /* Font family selection - same "backend registers, app calls" shape as the
  * font zoom above, for the same reason: which monospaced fonts exist, and
  * how to open one, is entirely platform business, but the Environment

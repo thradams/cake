@@ -39,7 +39,13 @@ void destroy_members_one_by_one(_Dtor struct ctx* ctx)
 
 /* The check must still catch genuine reuse of the SAME object whose
    lifetime ended -- the fix narrows the scope of the check, it must not
-   disable it. */
+   disable it.
+
+   Note: a _Dtor call's post-effect on the pointee is to mark its members
+   UNINITIALIZED (not lifetime-ended) -- the destructor consumed *n's
+   contents, but *n itself still exists as storage (see the _Dtor/_Clear
+   post-effect fix: reading h->a->x afterward is "possibly uninitialized",
+   warning 30, not "lifetime has ended", warning 31). */
 struct node { int x; };
 void destroy_node(_Dtor struct node* n);
 struct holder { struct node* _Owner a; };
@@ -47,6 +53,6 @@ struct holder { struct node* _Owner a; };
 int use_after_destroy_same_member_warns(_Dtor struct holder* h)
 {
     destroy_node(h->a);
-    int v = h->a->x; /* warns: h->a's lifetime already ended */ //lint 31 31
-    return v; //lint 29
+    int v = h->a->x; /* warns: h->a's contents are uninitialized after destroy_node */ //lint 30
+    return v; //lint 29 30
 }

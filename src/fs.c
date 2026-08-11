@@ -130,7 +130,7 @@ struct TAGDIR
 
 DIR* _Owner _Opt opendir(const char* name)
 {
-    runtime_assert(name != 0);
+    _Assert(name != 0);
     WIN32_FIND_DATAA fdfile = { 0 };
 
     char path[FS_MAX_PATH] = { 0 };
@@ -522,7 +522,7 @@ char* _Owner _Opt read_file(const char* const path, bool append_newline)
         data[bytes_read_part2] = '\n';
 
         //we already allocated an extra char for this
-        runtime_assert(bytes_read_part2 + 1 < mem_size_bytes);
+        _Assert(bytes_read_part2 + 1 < mem_size_bytes);
         data[bytes_read_part2 + 1] = '\0';
     }
 

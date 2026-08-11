@@ -725,6 +725,15 @@ static void adjust_font_size(void *ctx, int delta)
     ((void (*)(id, SEL, CGSize))objc_msgSend)(g_window, sel("setContentSize:"), size);
 }
 
+/* Reports the current font size in points - registered as the ui_env's
+ * font-size getter (see ui_env_set_font_size_get_fn in ide_ui.h) so session
+ * save/restore can read back whatever adjust_font_size last landed on. */
+static int get_font_size(void *ctx)
+{
+    (void)ctx;
+    return (int)g_fonts.pt;
+}
+
 /* --- Font family shortlist for the Environment dialog (see
  * ui_env_set_font_family_fns in ide_ui.h) - same shape as the zoom above. --- */
 
@@ -1566,6 +1575,7 @@ int main(int argc, char** argv)
     ensure_bitmap(win_w, win_h);
     g_env = ui_env_create(ui_default_cols, ui_default_rows);
     ui_env_set_font_zoom_fn(g_env, adjust_font_size, NULL);
+    ui_env_set_font_size_get_fn(g_env, get_font_size, NULL);
     ui_env_set_font_family_fns(g_env, font_family_count, font_family_name,
                                 font_family_set, NULL);
 

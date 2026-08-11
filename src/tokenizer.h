@@ -38,6 +38,8 @@ struct preprocessor_ctx
     enum preprocessor_ctx_flags flags;
     struct hash_map macros;
     struct include_dir_list include_dir;
+        
+    char cake_config_path[200]; /*we store the final path to the config file, helps when a header is not found*/
 
     /*map of pragma once already included files*/
     struct hash_map pragma_once_map;

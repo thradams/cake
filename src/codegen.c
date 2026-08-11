@@ -112,7 +112,7 @@ int generate_file_scope_new_name(struct codegen_ctx* ctx, const char* current_na
                 else
                     i++;
             }
-            runtime_assert(false);
+            _Assert(false);
         }
         it = it->next;
     }
@@ -171,7 +171,7 @@ int rename_file_scope_declarator_if_necessary(struct codegen_ctx* ctx, struct in
                     else
                         i++;
                 }
-                runtime_assert(false);
+                _Assert(false);
             }
             it = it->next;
         }
@@ -326,7 +326,7 @@ static void d_print_type(struct codegen_ctx* ctx,
 
 static void print_cast_array_to_vm(struct codegen_ctx* ctx, struct osstream* oss, const struct type* p_type)
 {
-    runtime_assert(type_is_vm(p_type));
+    _Assert(type_is_vm(p_type));
 
     /*
        Conversion from an array to a VM type requires a cast in the generated
@@ -557,7 +557,7 @@ static int find_member_name(const struct type* p_type, int index, char name[100]
     if (!type_is_struct_or_union(p_type))
         return 1;
 
-    runtime_assert(p_type->struct_or_union_specifier != NULL);
+    _Assert(p_type->struct_or_union_specifier != NULL);
 
     struct struct_or_union_specifier* _Opt p_complete =
     get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
@@ -679,7 +679,7 @@ static const char* get_op_by_expression_type(enum expression_type type)
     default:
         break;
     }
-    runtime_assert(false);
+    _Assert(false);
     return "";
 }
 
@@ -745,11 +745,11 @@ static enum sizeof_result vm_emit_sizeof_expr_core(struct codegen_ctx* ctx,
         }
         return SIZEOF_RESULT_OK;
     }
-    runtime_assert(p_type->next == NULL);
+    _Assert(p_type->next == NULL);
     size_t sz2 = 0;
     enum sizeof_result r = type_get_sizeof(p_type, &sz2, target);
     *size = sz2;
-    runtime_assert(r != SIZEOF_RESULT_RUNTIME);
+    _Assert(r != SIZEOF_RESULT_RUNTIME);
     return r;
 }
 
@@ -786,16 +786,16 @@ static void vm_emit_countof_expr(struct codegen_ctx* ctx,
     }
 }
 
-/* Emit the runtime_assert check as an EXPRESSION (runtime_assert has the same
+/* Emit the _Assert check as an EXPRESSION (_Assert has the same
    grammar as compile_assert and, like it, can appear in expression position):
 
        (condition) ? (void)0 : <handler>("file", line, "message")
 
    The handler is emitted once, like the memcpy helper. */
-/* True when this expression is a runtime_assert that will emit code (i.e. the
-      -runtime-asserts flag is set). Other static assertions -- and runtime_assert
+/* True when this expression is a _Assert that will emit code (i.e. the
+      -runtime-asserts flag is set). Other static assertions -- and _Assert
       without the flag -- are dropped by the callers below (comma operator,
-      expression statement), so those must NOT drop an emitted runtime_assert. */
+      expression statement), so those must NOT drop an emitted _Assert. */
 static bool codegen_expr_is_emitted_runtime_assert(const struct codegen_ctx* ctx, const struct expression* p_expr)
 {
     return p_expr->expression_type == EXPR_UNARY_STATIC_ASSERTION &&
@@ -814,7 +814,7 @@ static void codegen_emit_runtime_assert_expr(struct codegen_ctx* ctx, struct oss
 
     /* Wrap the whole conditional in parentheses: the ?: operator has low
        precedence, so without them it could bind incorrectly when the
-       runtime_assert appears inside a larger expression. */
+       _Assert appears inside a larger expression. */
     ss_fprintf(oss, "((");
     codegen_visit_expression(ctx, oss, p_sa->constant_expression);
     ss_fprintf(oss, ") ? (void)0 : %s(\"%s\", %d, %s))",
@@ -830,7 +830,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         if (p_expression->expression_type == EXPR_CHECKED)
         {
 
-            runtime_assert(p_expression->left);
+            _Assert(p_expression->left);
 
             struct osstream add_this_before = { 0 };
 
@@ -919,12 +919,12 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         switch (p_expression->expression_type)
         {
         case EXPR_INVALID:
-            runtime_assert(false);
+            _Assert(false);
             break;
 
         case EXPR_PRIMARY__FUNC__:
             {
-                runtime_assert(ctx->p_current_function_opt);
+                _Assert(ctx->p_current_function_opt);
 
                 char func_name[200] = { 0 };
                 char name[100] = { 0 };
@@ -941,7 +941,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
                 if (!ctx->is__func__predefined_identifier_added)
                 {
-                    runtime_assert(ctx->p_current_function_opt);
+                    _Assert(ctx->p_current_function_opt);
 
                     ctx->is__func__predefined_identifier_added = true;
                     ss_fprintf(&ctx->add_this_before_external_decl, "static const char %s[] = \"%s\";\n", name, func_name);
@@ -953,8 +953,8 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         case EXPR_PRIMARY_DECLARATOR:
             {
-                runtime_assert(p_expression->declarator != NULL);
-                runtime_assert(p_expression->declarator->declaration_specifiers != NULL);
+                _Assert(p_expression->declarator != NULL);
+                _Assert(p_expression->declarator->declaration_specifiers != NULL);
 
                 const char* declarator_name = "";
                 if (p_expression->declarator->name_opt)
@@ -1027,7 +1027,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                         ss_fprintf(&ctx->add_this_before_external_decl, "%s", ss.c_str);
                         ss_fprintf(&ctx->add_this_before_external_decl, ";\n");
 
-                        runtime_assert(p_expression->declarator != NULL);
+                        _Assert(p_expression->declarator != NULL);
 
                         const struct declarator* _Opt p_function_defined
                         = declarator_get_function_definition(p_expression->declarator);
@@ -1045,8 +1045,8 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
                             codegen_visit_function_body(ctx, &local3, p_function_defined);
 
-                            runtime_assert(ss.c_str);
-                            runtime_assert(oss->c_str);
+                            _Assert(ss.c_str);
+                            _Assert(oss->c_str);
 
                             ss_fprintf(&ctx->add_this_after_external_decl, "\n");
                             ss_fprintf(&ctx->add_this_after_external_decl, "%s", local3.c_str);
@@ -1082,8 +1082,8 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                         i.number = 1;
                         hashmap_set(&ctx->file_scope_declarator_map, declarator_name, &i);
 
-                        runtime_assert(p_expression->declarator);
-                        runtime_assert(p_expression->declarator->name_opt);
+                        _Assert(p_expression->declarator);
+                        _Assert(p_expression->declarator->name_opt);
 
                         struct osstream ss = { 0 };
 
@@ -1093,12 +1093,12 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                             p_expression->p_init_declarator->initializer)
                         {
                             print_initializer(ctx, &ss, p_expression->p_init_declarator, true);
-                            runtime_assert(ss.c_str);
+                            _Assert(ss.c_str);
                             ss_fprintf(&ctx->add_this_before_external_decl, "%s\n", ss.c_str);
                         }
                         else
                         {
-                            runtime_assert(ss.c_str);
+                            _Assert(ss.c_str);
                             ss_fprintf(&ctx->add_this_before_external_decl, "%s;\n", ss.c_str);
                         }
 
@@ -1125,7 +1125,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         case EXPR_PRIMARY_PARENTHESIS:
 
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->right != NULL);
             if (p_expression->right->expression_type == EXPR_PRIMARY_PARENTHESIS)
             {
                 /* remove extra (()) — could also be removed from other cases */
@@ -1155,7 +1155,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
                 ss_clear(&local);
 
-                runtime_assert(p_expression->compound_statement);
+                _Assert(p_expression->compound_statement);
                 //we need to change the last statment
                 codegen_visit_compound_statement_2(name, ctx, &local, p_expression->compound_statement);
 
@@ -1166,7 +1166,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
             break;
 
         case EXPR_PRIMARY_GENERIC:
-            runtime_assert(p_expression->generic_selection != NULL);
+            _Assert(p_expression->generic_selection != NULL);
 
             if (p_expression->generic_selection->p_view_selected_expression)
             {
@@ -1183,7 +1183,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
             }
             else
             {
-                /* compile_assert / static_assert (and runtime_assert without the
+                /* compile_assert / static_assert (and _Assert without the
                    -runtime-asserts flag) are compile-time only: a void no-op. */
                 ss_fprintf(oss, "(void)0");
             }
@@ -1205,7 +1205,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
             break;
 
         case EXPR_UNARY_GCC__BUILTIN_VA_START:
-            runtime_assert(p_expression->left != NULL);
+            _Assert(p_expression->left != NULL);
 
             if (p_expression->right != NULL)
             {
@@ -1228,15 +1228,15 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
             break;
 
         case EXPR_UNARY_GCC__BUILTIN_VA_END:
-            runtime_assert(p_expression->left != NULL);
+            _Assert(p_expression->left != NULL);
             ss_fprintf(oss, "__builtin_va_end(");
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, ")");
             break;
 
         case EXPR_UNARY_GCC__BUILTIN_VA_COPY:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
 
             ss_fprintf(oss, "__builtin_va_copy(");
             codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1246,7 +1246,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
             break;
 
         case EXPR_UNARY_GCC__BUILTIN_VA_ARG:
-            runtime_assert(p_expression->left != NULL);
+            _Assert(p_expression->left != NULL);
 
             ss_fprintf(oss, "__builtin_va_arg(");
             codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1261,7 +1261,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         case EXPR_POSTFIX_DOT:
             {
-                runtime_assert(p_expression->left != NULL);
+                _Assert(p_expression->left != NULL);
 
                 codegen_visit_expression(ctx, oss, p_expression->left);
 
@@ -1276,7 +1276,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         case EXPR_POSTFIX_ARROW:
             {
-                runtime_assert(p_expression->left != NULL);
+                _Assert(p_expression->left != NULL);
 
                 codegen_visit_expression(ctx, oss, p_expression->left);
                 {
@@ -1294,22 +1294,22 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
             break;
 
         case EXPR_POSTFIX_INCREMENT:
-            runtime_assert(p_expression->left != NULL);
+            _Assert(p_expression->left != NULL);
 
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, "++");
             break;
 
         case EXPR_POSTFIX_DECREMENT:
-            runtime_assert(p_expression->left != NULL);
+            _Assert(p_expression->left != NULL);
 
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, "--");
             break;
 
         case EXPR_POSTFIX_ARRAY:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
 
             /*
                We need to check if A is VM,
@@ -1344,7 +1344,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                 struct expression* _Opt expr = p_expression;
                 while (expr && expr->expression_type == EXPR_POSTFIX_ARRAY)
                 {
-                    runtime_assert(expr->right != NULL);
+                    _Assert(expr->right != NULL);
                     if (offset_flat.size > 0)
                         ss_fprintf(&offset_flat, " + ");
 
@@ -1359,7 +1359,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                         ss_fprintf(&offset_flat, ")");
                     }
 
-                    runtime_assert(expr->left);
+                    _Assert(expr->left);
                     struct type* _Opt p_type = expr->left->type.next;
                     while (p_type && type_is_array(p_type))
                     {
@@ -1401,7 +1401,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         case EXPR_POSTFIX_FUNCTION_CALL:
             {
-                runtime_assert(p_expression->left != NULL);
+                _Assert(p_expression->left != NULL);
 
                 codegen_visit_expression(ctx, oss, p_expression->left);
 
@@ -1449,7 +1449,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         case EXPR_UNARY_ADDRESSOF:
             {
                 //bool address_of_argument = ctx->address_of_argument;
-                runtime_assert(p_expression->right != NULL);
+                _Assert(p_expression->right != NULL);
                 ss_fprintf(oss, "&");
                 ctx->address_of_argument = true;
                 codegen_visit_expression(ctx, oss, p_expression->right);
@@ -1459,7 +1459,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         case EXPR_POSTFIX_FUNCTION_LITERAL:
             {
-                runtime_assert(p_expression->type_name != NULL);
+                _Assert(p_expression->type_name != NULL);
 
                 char new_name[200] = { 0 };
 
@@ -1468,7 +1468,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                 struct osstream function_literal_nameless = { 0 };
                 d_print_type(ctx, &function_literal_nameless, &p_expression->type, NULL, false);
 
-                runtime_assert(p_expression->compound_statement != NULL);
+                _Assert(p_expression->compound_statement != NULL);
 
                 const struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
                 ctx->p_current_function_opt = p_expression->type_name->abstract_declarator;
@@ -1482,7 +1482,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                 struct osstream function_literal = { 0 };
                 ss_fprintf(&function_literal, "%s%s", function_literal_nameless.c_str, function_literal_body.c_str);
 
-                runtime_assert(function_literal_nameless.c_str);
+                _Assert(function_literal_nameless.c_str);
 
                 if (function_literal.c_str == NULL)
                 {
@@ -1565,7 +1565,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                     {
                         assign_each_member_from_initialization(ctx, &local, &p_expression->object, name, true, true);
                     }
-                    runtime_assert(local.c_str);
+                    _Assert(local.c_str);
                     ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
                     ss_close(&local);
                     ss_fprintf(oss, "%s", name);
@@ -1624,49 +1624,49 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
             break;
 
         case EXPR_UNARY_CONSTEVAL:
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->right != NULL);
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_UNARY_INCREMENT:
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->right != NULL);
             ss_fprintf(oss, "++");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_UNARY_DECREMENT:
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->right != NULL);
             ss_fprintf(oss, "--");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_UNARY_NOT:
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->right != NULL);
             ss_fprintf(oss, "!");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_UNARY_BITNOT:
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->right != NULL);
             ss_fprintf(oss, "~");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_UNARY_NEG:
 
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->right != NULL);
             ss_fprintf(oss, "-");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
         case EXPR_UNARY_PLUS:
 
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->right != NULL);
             ss_fprintf(oss, "+");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_UNARY_CONTENT:
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->right != NULL);
             ss_fprintf(oss, "*");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
@@ -1675,47 +1675,47 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
             break;
 
         case EXPR_ADDITIVE_MINUS:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " - ");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_ADDITIVE_PLUS:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " + ");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_MULTIPLICATIVE_MULT:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " * ");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
         case EXPR_MULTIPLICATIVE_DIV:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " / ");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_MULTIPLICATIVE_MOD:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, "%s", " % ");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_EXPRESSION:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
             if (p_expression->left->expression_type != EXPR_UNARY_STATIC_ASSERTION ||
                 codegen_expr_is_emitted_runtime_assert(ctx, p_expression->left))
             {
@@ -1727,8 +1727,8 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         case EXPR_ASSIGNMENT_ASSIGN:
 
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
 
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " %s ", get_op_by_expression_type(p_expression->expression_type));
@@ -1763,8 +1763,8 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         case EXPR_ASSIGNMENT_AND_ASSIGN:
         case EXPR_ASSIGNMENT_OR_ASSIGN:
         case EXPR_ASSIGNMENT_NOT_ASSIGN:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " %s ", get_op_by_expression_type(p_expression->expression_type));
             codegen_visit_expression(ctx, oss, p_expression->right);
@@ -1772,7 +1772,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         case EXPR_CAST:
             {
-                runtime_assert(p_expression->left != NULL);
+                _Assert(p_expression->left != NULL);
 
                 struct osstream local2 = { 0 };
 
@@ -1789,32 +1789,32 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
             break;
 
         case EXPR_SHIFT_RIGHT:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " >> ");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_SHIFT_LEFT:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " << ");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_RELATIONAL_BIGGER_THAN:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " > ");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_RELATIONAL_LESS_THAN:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
 
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " < ");
@@ -1822,72 +1822,72 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
             break;
         case EXPR_EQUALITY_EQUAL:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " == ");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_EQUALITY_NOT_EQUAL:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " != ");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_AND:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " & ");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_EXCLUSIVE_OR:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " ^ ");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_INCLUSIVE_OR:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " | ");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_RELATIONAL_LESS_OR_EQUAL_THAN:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " <= ");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " >= ");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_LOGICAL_AND:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " && ");
             codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
         case EXPR_LOGICAL_OR:
-            runtime_assert(p_expression->left != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " || ");
             codegen_visit_expression(ctx, oss, p_expression->right);
@@ -1899,8 +1899,8 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
             break;
 
         case EXPR_CONDITIONAL:
-            runtime_assert(p_expression->condition_expr != NULL);
-            runtime_assert(p_expression->right != NULL);
+            _Assert(p_expression->condition_expr != NULL);
+            _Assert(p_expression->right != NULL);
 
             if (p_expression->left == NULL)
             {
@@ -1928,7 +1928,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
                     if (cond_is_stmtexpr)
                     {
-                        runtime_assert(p_expression->condition_expr->compound_statement != NULL);
+                        _Assert(p_expression->condition_expr->compound_statement != NULL);
                         struct osstream stmtexpr_body = { 0 };
                         codegen_visit_compound_statement_2(name, ctx, &stmtexpr_body,
                             p_expression->condition_expr->compound_statement);
@@ -1948,7 +1948,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                         print_identation_core(&add_this_before, ctx->indentation);
                         ss_fprintf(&add_this_before, "if (!%s)\n", name);
 
-                        runtime_assert(p_expression->right->compound_statement != NULL);
+                        _Assert(p_expression->right->compound_statement != NULL);
                         struct osstream right_body = { 0 };
                         codegen_visit_compound_statement_2(name, ctx, &right_body, p_expression->right->compound_statement);
                         ss_fprintf(&add_this_before, "%s", right_body.c_str);
@@ -2179,7 +2179,7 @@ static void codegen_visit_jump_statement(struct codegen_ctx* ctx, struct osstrea
         }
         else
         {
-            runtime_assert(false);
+            _Assert(false);
         }
     }
     catch
@@ -2192,7 +2192,7 @@ static void codegen_visit_label(struct codegen_ctx* ctx, struct osstream* oss, s
 
 static void codegen_visit_labeled_statement(struct codegen_ctx* ctx, struct osstream* oss, struct labeled_statement* p_labeled_statement)
 {
-    runtime_assert(p_labeled_statement->label != NULL);
+    _Assert(p_labeled_statement->label != NULL);
 
     emit_line_directive(ctx, oss, p_labeled_statement->label->p_first_token);
     codegen_visit_label(ctx, oss, p_labeled_statement->label);
@@ -2251,7 +2251,7 @@ static void codegen_visit_iteration_statement(struct codegen_ctx* ctx, struct os
         }
         else if (p_iteration_statement->first_token->type == TK_KEYWORD_DO)
         {
-            runtime_assert(p_iteration_statement->expression1);
+            _Assert(p_iteration_statement->expression1);
 
             ss_fprintf(oss, "do\n");
 
@@ -2261,7 +2261,7 @@ static void codegen_visit_iteration_statement(struct codegen_ctx* ctx, struct os
             print_identation(ctx, oss);
             ss_fprintf(oss, "while (");
 
-            runtime_assert(p_iteration_statement->expression1 != NULL);
+            _Assert(p_iteration_statement->expression1 != NULL);
             codegen_visit_expression(ctx, oss, p_iteration_statement->expression1);
 
             ss_fprintf(oss, ");\n");
@@ -2387,7 +2387,7 @@ static void codegen_visit_condition(struct codegen_ctx* ctx, struct osstream* os
 {
     if (p_condition->p_init_declarator)
     {
-        runtime_assert(p_condition->p_init_declarator->p_declarator->declaration_specifiers);
+        _Assert(p_condition->p_init_declarator->p_declarator->declaration_specifiers);
         enum storage_class_specifier_flags storage_class_specifier_flags =
         p_condition->p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags;
 
@@ -2400,7 +2400,7 @@ static void codegen_visit_condition(struct codegen_ctx* ctx, struct osstream* os
 
 static bool is_compound_statement(struct secondary_block* p_secondary_block)
 {
-    runtime_assert(p_secondary_block->statement != NULL);
+    _Assert(p_secondary_block->statement != NULL);
 
     if (p_secondary_block->statement->unlabeled_statement &&
         p_secondary_block->statement->unlabeled_statement->primary_block &&
@@ -2423,7 +2423,7 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
             struct break_reference old = ctx->break_reference;
             ctx->break_reference.p_iteration_statement = NULL;
             ctx->break_reference.p_selection_statement = p_selection_statement;
-            runtime_assert(p_selection_statement->condition != NULL);
+            _Assert(p_selection_statement->condition != NULL);
 
             ss_fprintf(&ss, "/*switch*/\n");
             print_identation(ctx, &ss);
@@ -2445,7 +2445,7 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
 
             ss_fprintf(&ss, " = ");
 
-            runtime_assert(p_selection_statement->condition != NULL);
+            _Assert(p_selection_statement->condition != NULL);
             codegen_visit_condition(ctx, &ss, p_selection_statement->condition);
             ss_fprintf(&ss, ";\n");
 
@@ -2553,7 +2553,7 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
 
                     struct osstream local2 = { 0 };
 
-                    runtime_assert(p_selection_statement->condition->p_init_declarator->p_declarator->declaration_specifiers);
+                    _Assert(p_selection_statement->condition->p_init_declarator->p_declarator->declaration_specifiers);
                     enum storage_class_specifier_flags storage_class_specifier_flags =
                     p_selection_statement->condition->p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags;
 
@@ -2591,7 +2591,7 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
 
             }
 
-            runtime_assert(p_selection_statement->secondary_block != NULL);
+            _Assert(p_selection_statement->secondary_block != NULL);
 
             if (is_compound_statement(p_selection_statement->secondary_block))
             {
@@ -2672,7 +2672,7 @@ static void codegen_visit_try_statement(struct codegen_ctx* ctx, struct osstream
         }
         else if (p_try_statement->catch_token_opt->type == TK_KEYWORD_MSVC__EXCEPT)
         {
-            runtime_assert(p_try_statement->msvc_except_expression);
+            _Assert(p_try_statement->msvc_except_expression);
             ss_fprintf(oss, "__except(");
             codegen_visit_expression(ctx, oss, p_try_statement->msvc_except_expression);
             ss_fprintf(oss, ")\n");
@@ -2766,7 +2766,7 @@ static void codegen_visit_unlabeled_statement(struct codegen_ctx* ctx, struct os
     }
     else
     {
-        runtime_assert(false);
+        _Assert(false);
     }
 }
 
@@ -2819,7 +2819,7 @@ static bool block_item_is_empty(struct codegen_ctx* ctx, struct block_item* p_bl
     if (p_block_item->declaration &&
         p_block_item->declaration->static_assertion)
     {
-        /* With -runtime-asserts, runtime_assert emits a real runtime check, so
+        /* With -runtime-asserts, _Assert emits a real runtime check, so
            it is NOT empty. Without the flag (and for every other static
            assertion: static_assert / compile_assert / debug / state / set) it
            is compile-time only and produces no code -- just like compile_assert. */
@@ -3052,7 +3052,7 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
 
     if (function_definition->function_body == NULL)
     {
-        runtime_assert(false);
+        _Assert(false);
         return;
     }
 
@@ -3088,7 +3088,7 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
     }
     ss_swap(&bk, &ctx->block_scope_declarators);
 
-    runtime_assert(function_definition->function_body);
+    _Assert(function_definition->function_body);
     codegen_visit_compound_statement(ctx, oss, function_definition->function_body, &bk, &snaps);
     ss_close(&bk);
     ss_close(&snaps);
@@ -3185,7 +3185,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                             {
                                                 if (type_is_struct_or_union(&member_declarator->declarator->type))
                                                 {
-                                                    runtime_assert(member_declarator->declarator->type.struct_or_union_specifier != NULL);
+                                                    _Assert(member_declarator->declarator->type.struct_or_union_specifier != NULL);
 
                                                     struct struct_or_union_specifier* _Opt p_complete_member =
                                                     get_complete_struct_or_union_specifier(member_declarator->declarator->type.struct_or_union_specifier);
@@ -3200,7 +3200,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                                     struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
                                                     if (p2 != NULL)
                                                     {
-                                                        runtime_assert(p2->data.p_struct_entry != NULL);
+                                                        _Assert(p2->data.p_struct_entry != NULL);
                                                         struct_entry_list_push_back(&p_struct_entry->hard_dependencies, p2->data.p_struct_entry);
                                                     }
                                                 }
@@ -3209,7 +3209,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                                     struct type t = get_array_item_type(&member_declarator->declarator->type);
                                                     if (type_is_struct_or_union(&t))
                                                     {
-                                                        runtime_assert(t.struct_or_union_specifier != NULL);
+                                                        _Assert(t.struct_or_union_specifier != NULL);
 
                                                         struct struct_or_union_specifier* _Opt p_complete_member =
                                                         p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
@@ -3221,7 +3221,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                                         struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
                                                         if (p2 != NULL)
                                                         {
-                                                            runtime_assert(p2->data.p_struct_entry != NULL);
+                                                            _Assert(p2->data.p_struct_entry != NULL);
                                                             struct_entry_list_push_back(&p_struct_entry->hard_dependencies, p2->data.p_struct_entry);
                                                         }
                                                     }
@@ -3253,7 +3253,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
 
                                             if (type_is_struct_or_union(&t))
                                             {
-                                                runtime_assert(t.struct_or_union_specifier != NULL);
+                                                _Assert(t.struct_or_union_specifier != NULL);
                                                 struct struct_or_union_specifier* _Opt p_complete_member =
                                                 p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
 
@@ -3264,7 +3264,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                                 struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
                                                 if (p2 != NULL)
                                                 {
-                                                    runtime_assert(p2->data.p_struct_entry != NULL);
+                                                    _Assert(p2->data.p_struct_entry != NULL);
                                                     struct_entry_list_push_back(&p_struct_entry->hard_dependencies, p2->data.p_struct_entry);
                                                 }
                                             }
@@ -3273,7 +3273,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                                 struct type t2 = get_array_item_type(&t);
                                                 if (type_is_struct_or_union(&t2))
                                                 {
-                                                    runtime_assert(t.struct_or_union_specifier);
+                                                    _Assert(t.struct_or_union_specifier);
                                                     struct struct_or_union_specifier* _Opt p_complete_member =
                                                     p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
 
@@ -3290,7 +3290,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                                     struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
                                                     if (p2 != NULL)
                                                     {
-                                                        runtime_assert(p2->data.p_struct_entry != NULL);
+                                                        _Assert(p2->data.p_struct_entry != NULL);
                                                         struct_entry_list_push_back(&p_struct_entry->hard_dependencies, p2->data.p_struct_entry);
                                                     }
                                                 }
@@ -3819,7 +3819,7 @@ static void assign_each_member_from_constexpr(
     else
     {
         /*should be all const*/
-        runtime_assert(false);
+        _Assert(false);
         /* No value at all: fall back to zero */
         ss_fprintf(ss, "0");
     }
@@ -4064,7 +4064,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                     }
                     else
                     {
-                        runtime_assert(false); //!!impossible???TODO
+                        _Assert(false); //!!impossible???TODO
                         print_identation_core(ss, ctx->indentation);
                         ss_fprintf(ss, "%s(&%s%s, ", ctx->memcpy_function_name, declarator_name, object->member_designator);
                         struct osstream local = { 0 };
@@ -4149,7 +4149,7 @@ static void print_initializer(struct codegen_ctx* ctx,
     struct init_declarator* p_init_declarator,
     bool bstatic)
 {
-    runtime_assert(p_init_declarator->initializer != NULL);
+    _Assert(p_init_declarator->initializer != NULL);
 
     try
     {
@@ -4745,7 +4745,7 @@ static void codegen_visit_declaration(struct codegen_ctx* ctx, struct osstream* 
     if (p_declaration->static_assertion &&
         p_declaration->static_assertion->first_token->type == TK_KEYWORD_RUNTIME_ASSERT)
     {
-        /* runtime_assert(cond [, "text"]) is not a function call: when the
+        /* _Assert(cond [, "text"]) is not a function call: when the
            condition is false it calls the emitted handler with the file name,
            line number and message text. Whether any runtime code is generated
            at all is controlled by the -runtime-asserts flag; otherwise only
@@ -4763,7 +4763,7 @@ static void codegen_visit_declaration(struct codegen_ctx* ctx, struct osstream* 
 
     if (p_declaration->init_declarator_list.head)
     {
-        runtime_assert(p_declaration->declaration_specifiers != NULL);
+        _Assert(p_declaration->declaration_specifiers != NULL);
 
         enum storage_class_specifier_flags storage_class_specifier_flags =
         p_declaration->declaration_specifiers->storage_class_specifier_flags;
@@ -5155,7 +5155,7 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
             struct map_entry* _Opt entry = ctx->structs_map.table[i];
             while (entry)
             {
-                runtime_assert(entry->data.p_struct_entry != NULL);
+                _Assert(entry->data.p_struct_entry != NULL);
                 d_print_structs(ctx, oss, entry->data.p_struct_entry);
                 if (ctx->error)
                     throw;
@@ -5246,7 +5246,7 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 
         if (ctx->runtime_assert_used)
         {
-            /* Handler emitted for runtime_assert (like the memcpy helper): the real
+            /* Handler emitted for _Assert (like the memcpy helper): the real
                function invoked on failure, receiving the file name, line number and
                message text. Left empty for now -- the actual behaviour (report /
                abort / trap) is compiler/platform specific and filled in later. */

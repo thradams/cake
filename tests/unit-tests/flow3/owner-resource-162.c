@@ -28,6 +28,6 @@ int main()
     x_destroy(&x);
 
     //warning: uninitialized object '&x.name'
-    x_print(&x); //lint 31 object '(*&x).name' lifetime has ended (see line 27)
+    x_print(&x); //lint 30 possible uninitialized object '*&x' (name is uninitialized after x_destroy)
 
 } //lint 29 owner object (.name) not moved (root see line 31)

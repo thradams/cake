@@ -440,11 +440,6 @@ struct options
     char copy_headers[200];
 
     /*
-       -disable-assert
-    */
-    bool disable_assert;
-
-    /*
       -line-directives
     */
     bool line_directives;
@@ -467,7 +462,7 @@ struct options
 
     /*
       -runtime-asserts
-      When set, `runtime_assert(cond)` generates a runtime check (a small
+      When set, `_Assert(cond)` generates a runtime check (a small
       emitted helper function); otherwise it produces no runtime code and only
       the compile-time flow3 narrowing applies.
     */

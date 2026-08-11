@@ -40,25 +40,26 @@ struct flow3_predicate_entry
 };
 
 /* A pointee write-effect of a function call, deferred until after all
-   arguments are evaluated (C evaluates arguments first, then the callee runs).
-   kind: 0 = set to zero (_Clear), 1 = lifetime ended (_Dtor / _Owner),
-         2 = ANY / possibly-modified (_Ctor, or a plain mutable pointer). */
+   arguments are evaluated (C evaluates arguments first, then the callee runs). */
+enum flow3_pointee_effect_kind
+{
+    FLOW3_EFFECT_NONE = 0,             /* no write-effect on the pointee */
+    FLOW3_EFFECT_CLEAR,                /* _Clear: every member set to zero
+                                           (+ reachable owner pointees ended) */
+    FLOW3_EFFECT_LIFETIME_ENDED,       /* plain _Owner parameter consuming the
+                                           whole object: every member ended */
+    FLOW3_EFFECT_ANY,                  /* _Ctor, or a plain mutable pointer:
+                                           possibly-modified/unknown */
+    FLOW3_EFFECT_DTOR                  /* _Dtor: every member set to
+                                           uninitialized (+ reachable owner
+                                           pointees ended) */
+};
+
 struct flow3_deferred_pointee_effect
 {
     const struct object* _Opt pointee;
-    int kind;
+    enum flow3_pointee_effect_kind kind;
     int line;
-};
-
-/* base object -> the pointee fabricated for it (see fabricated_pointees). */
-struct flow3_fabricated_pointee
-{
-    /* Both _Opt: the array is brace-initialized (zero-filled) with the rest of
-       flow3_visit_ctx, so every unused slot legitimately holds null. Declaring
-       them non-_Opt would (correctly, per "zero is not OK") report every slot
-       as a null non-nullable pointer at each `struct flow3_visit_ctx x = {0}`. */
-    const struct object* _Opt base;
-    struct object* _Opt pointee;
 };
 
 struct flow3_visit_ctx
@@ -92,17 +93,6 @@ struct flow3_visit_ctx
     int deferred_effects_count;
     bool collect_deferred_effects;
 
-    /* Fabricated pointees: a base pointer that is known non-null but has no
-       modeled pointee gets one invented on demand at the member access.
-       The mapping base -> pointee must be STABLE: minting a fresh object on
-       every access would mean a guard narrowed on one read is invisible on the
-       next, which breaks retention inside loops (the body is analysed more than
-       once). Keyed by the base object, so the same base always yields the same
-       fabricated pointee. */
-    struct flow3_fabricated_pointee fabricated_pointees[256];
-    int fabricated_pointees_count;
-
-    
     struct flow3_allocated_object_arena allocated_object_arena;
     struct flow3_map_arena flow3_map_arena;
     struct flow3_map* _Opt p_current_flow3_map;

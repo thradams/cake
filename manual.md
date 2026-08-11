@@ -194,8 +194,6 @@ Disable warning number `<number>`.
 **`-Wall`**  
 Enable all warnings.
 
-**`-disable-assert`**  
-Disable Cake's built-in `assert` statement extension and revert to standard macro behavior.
 
 ### 4.4 Target Options
 
@@ -1556,7 +1554,7 @@ void func() {
 
 ## 11. Cake Language Extensions
 
-### 11.1 Built-in `assert`
+### 11.1 Built-in `_Assert`
 
 In Cake, `assert` is a built-in statement rather than a macro because flow analysis need it even in release builds.
 The effect of `assert(expression)` is equivalent of `if (!(expression)) exit(1);`.
@@ -1567,17 +1565,14 @@ void list_push_back(struct list* list, struct item* _Owner p_item)
     if (list->head == NULL) {
         list->head = p_item;
     } else {
-        assert(list->tail != nullptr);       /* narrows: tail is non-null below */
-        assert(list->tail->next == nullptr); /* narrows: tail->next is null below */
+        _Assert(list->tail != nullptr);       /* narrows: tail is non-null below */
+        _Assert(list->tail->next == nullptr); /* narrows: tail->next is null below */
         list->tail->next = p_item;
     }
     list->tail = p_item;
 }
 ```
 
-
-
-To disable this built-in behavior and use a standard macro instead, pass `-disable-assert`.
 
 ### 11.2 `try` / `throw` / `catch`
 

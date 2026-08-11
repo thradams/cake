@@ -2757,6 +2757,25 @@ static void nav_forward(void)
     g_nav.restoring = 0;
 }
 
+/* True if `path` names an existing regular file - used so pasting/typing a
+ * full path into the Open dialog's Name field and pressing Enter/OK can open
+ * it immediately, rather than the field's normal dir+mask split (see
+ * EVT_OPEN_NAME/EVT_OPEN_OK) navigating into it as if it were just a new
+ * mask. Deliberately narrow: directories and nonexistent paths fall through
+ * to the existing split/navigate behavior unchanged. */
+static int path_is_regular_file(const char* path)
+{
+    if (!path || !path[0])
+        return 0;
+    struct stat st;
+    if (stat(path, &st) != 0)
+        return 0;
+    /* MSVC's <sys/stat.h> doesn't define the POSIX S_ISREG macro (only
+     * S_IFREG/S_IFMT), so test the mode bits directly - works the same on
+     * both. */
+    return (st.st_mode & S_IFMT) == S_IFREG ? 1 : 0;
+}
+
 static void open_dialog_activate(int index)
 {
     if (index < 0 || index >= ui_child_count(g_open.listbox))
@@ -7201,6 +7220,22 @@ static void on_ui_event(void* ctx, int id, void* param)
             for (char* p = buf; *p; p++)
                 if (*p == '\\')
                     *p = '/';
+
+            /* If the whole field is already a real, existing file (e.g. a
+             * full path just pasted in), open it straight away instead of
+             * treating it as a dir+mask to navigate to - matches what a
+             * user pressing Enter/OK on a pasted path expects. Falls
+             * through to the split/navigate behavior below for anything
+             * that isn't an existing file (a directory, a bare mask like
+             * *.c, a not-yet-existing name, ...). */
+            if (path_is_regular_file(buf))
+            {
+                nav_record_jump();
+                open_file_path_into_editor(buf, basename_of(buf));
+                ui_screen_close_modal(g_screen, g_open.modal);
+                return;
+            }
+
             char* last_sep = NULL;
             for (char* p = buf; *p; p++)
                 if (*p == '/')
@@ -7252,7 +7287,27 @@ static void on_ui_event(void* ctx, int id, void* param)
         else if (g_open.dialog_mode == OPEN_DLG_FOLDER)
             folder_select_confirm();
         else
-            open_dialog_activate(ui_select_get_selected(g_open.listbox));
+        {
+            /* Same "pasted a full path" shortcut as EVT_OPEN_NAME: if the
+             * Name field itself already names an existing file, OK opens it
+             * directly rather than acting on whatever row happens to be
+             * selected in the listbox (which may be stale/unrelated to what
+             * was just typed/pasted). */
+            char buf[1024];
+            strncpy(buf, ui_get_value(g_open.name_input), sizeof buf - 1);
+            buf[sizeof buf - 1] = 0;
+            for (char* p = buf; *p; p++)
+                if (*p == '\\')
+                    *p = '/';
+            if (path_is_regular_file(buf))
+            {
+                nav_record_jump();
+                open_file_path_into_editor(buf, basename_of(buf));
+                ui_screen_close_modal(g_screen, g_open.modal);
+            }
+            else
+                open_dialog_activate(ui_select_get_selected(g_open.listbox));
+        }
     }
     else if (id == EVT_OPEN_CANCEL)
     {
@@ -7860,6 +7915,11 @@ static void save_session(void)
     fprintf(f, "folder_dir=%s\n", g_folder.dir);
     fprintf(f, "theme_index=%d\n", g_envdlg.theme_index);
     fprintf(f, "font_index=%d\n", g_envdlg.font_index);
+    {
+        int fs = ui_env_get_font_size(g_env);
+        if (fs > 0)
+            fprintf(f, "font_size=%d\n", fs);
+    }
     /* External Tools, one numbered key per field - see load_session's
      * matching parse. Written even when empty so removing every tool
      * actually persists. */
@@ -8017,6 +8077,8 @@ static int load_session(void)
             g_envdlg.theme_index = atoi(val);
         else if (strcmp(key, "font_index") == 0)
             g_envdlg.font_index = atoi(val);
+        else if (strcmp(key, "font_size") == 0)
+            ui_env_set_font_size(g_env, atoi(val));
         else if (strcmp(key, "tool_count") == 0)
         {
             g_tools.count = atoi(val);

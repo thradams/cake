@@ -477,6 +477,15 @@ static void adjust_font_size(void *ctx, int delta)
     resize_window_to_grid(hwnd, cols, rows);  /* triggers WM_SIZE -> refresh */
 }
 
+/* Reports the current font size in points - registered as the ui_env's
+ * font-size getter (see ui_env_set_font_size_get_fn in ide_ui.h) so session
+ * save/restore can read back whatever adjust_font_size last landed on. */
+static int get_font_size(void* ctx)
+{
+    (void)ctx;
+    return g_fonts.pt;
+}
+
 /* --- Font family shortlist, offered to the Environment dialog (see
  * ui_env_set_font_family_fns in ide_ui.h). Same ctx/callback shape as the
  * zoom above, and the same follow-up work: reopen the font, re-derive the
@@ -560,6 +569,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 
         g_env = ui_env_create(ui_default_cols, ui_default_rows);
         ui_env_set_font_zoom_fn(g_env, adjust_font_size, hwnd);
+        ui_env_set_font_size_get_fn(g_env, get_font_size, hwnd);
         ui_env_set_font_family_fns(g_env, font_family_count, font_family_name,
                                     font_family_set, hwnd);
         ensure_bitmap(hwnd);

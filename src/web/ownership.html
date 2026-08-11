@@ -1052,12 +1052,12 @@ void f(int c) {
 }
 </code></pre>
 
-<p>Unlike <code>assert()</code> and <code>runtime_assert()</code>, <code>compile_assert</code> is purely a compile-time check:</p>
+<p>Unlike <code>assert()</code> and <code>_Assert()</code>, <code>compile_assert</code> is purely a compile-time check:</p>
 
 <ul>
 <li><strong>It generates no code and has no runtime effect</strong> — the condition is never evaluated. It exists
 only for the analyzer.</li>
-<li><strong>It does not narrow later state.</strong> <code>assert()</code>/<code>runtime_assert()</code> discard the branches where the
+<li><strong>It does not narrow later state.</strong> <code>assert()</code>/<code>_Assert()</code> discard the branches where the
 condition is false, so the analyzer treats it as proven from that point on; <code>compile_assert</code> does
 not — it only reports whether the fact is <em>already</em> provable, and leaves the tracked state
 untouched either way:</li>
@@ -1073,7 +1073,7 @@ void f(int* _Opt p) {
 
 <p>Because of this, <code>compile_assert</code> is mainly a development and regression-testing tool: use it to
 pin down exactly what the analyzer can currently prove at a given point, and to catch the analyzer
-regressing on a previously-provable fact. Prefer <code>assert()</code>/<code>runtime_assert()</code> in real code where
+regressing on a previously-provable fact. Prefer <code>assert()</code>/<code>_Assert()</code> in real code where
 you actually want to establish a fact for the analysis (and the runtime) going forward.</p>
 
 <h3 id="toc_32">Uninitialized State</h3>

@@ -16,5 +16,5 @@ void f(struct X* _Opt pX)
 {
     struct X x = makex(); // owner object (x.text) not moved (root see line 17)
     clear(&x); // passing a possible uninitialized object  '(*&x).text' (see line 17)
-    runtime_assert(x.text == 0);
+    _Assert(x.text == 0);
 }

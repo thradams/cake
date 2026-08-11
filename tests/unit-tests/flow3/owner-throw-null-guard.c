@@ -67,7 +67,7 @@ int rename_if_necessary(struct decl* p, const char* nn)
                     else
                         i++;
                 }
-                runtime_assert(false);
+                _Assert(false);
             }
             it = it->next;
         }

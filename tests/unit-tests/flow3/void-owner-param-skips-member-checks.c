@@ -48,5 +48,5 @@ void read_x(struct X* p);
 void g(struct X* _Owner p)
 {
     x_destroy(p);
-    read_x(p); //lint 31 object '(*p).i' lifetime has ended (see line 48)
+    read_x(p); //lint 30 possible uninitialized object '*p' (i is uninitialized after x_destroy)
 } //lint 29 owner object (p) not moved (root see line 48)

@@ -45,7 +45,7 @@ void defer_scope_delete(struct defer_scope* _Opt _Owner p)
 {
     if (p)
     {
-        runtime_assert(p->previous == NULL);        
+        _Assert(p->previous == NULL);        
         free(p);
     }
 }
@@ -64,7 +64,7 @@ static struct defer_scope* _Opt defer_visit_ctx_push_child(struct defer_visit_ct
 {
     if (ctx->searching_label_mode && ctx->p_label)
     {
-        runtime_assert(false);
+        _Assert(false);
     }
 
     struct defer_scope* _Owner _Opt child = calloc(1, sizeof * child);
@@ -209,7 +209,7 @@ static void defer_visit_if_statement(struct defer_visit_ctx* ctx, struct selecti
             defer_visit_init_declarator(ctx, p_selection_statement->condition->p_init_declarator);
         }
 
-        runtime_assert(p_selection_statement->first_token->type == TK_KEYWORD_IF);
+        _Assert(p_selection_statement->first_token->type == TK_KEYWORD_IF);
 
         defer_visit_secondary_block(ctx, p_selection_statement->secondary_block);
 
@@ -282,7 +282,7 @@ static void defer_visit_selection_statement(struct defer_visit_ctx* ctx, struct 
         defer_visit_switch_statement(ctx, p_selection_statement);
     }
     else
-        runtime_assert(false);
+        _Assert(false);
 }
 
 static void defer_visit_block_item_list(struct defer_visit_ctx* ctx, struct block_item_list* p_block_item_list)
@@ -323,7 +323,7 @@ static void defer_visit_compound_statement(struct defer_visit_ctx* ctx, struct c
 
 static void defer_visit_do_while_statement(struct defer_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
-    runtime_assert(p_iteration_statement->first_token->type == TK_KEYWORD_DO);
+    _Assert(p_iteration_statement->first_token->type == TK_KEYWORD_DO);
 
     try
     {
@@ -344,7 +344,7 @@ static void defer_visit_while_statement(struct defer_visit_ctx* ctx, struct iter
 {
     try
     {
-        runtime_assert(p_iteration_statement->first_token->type == TK_KEYWORD_WHILE);
+        _Assert(p_iteration_statement->first_token->type == TK_KEYWORD_WHILE);
 
         if (p_iteration_statement->expression1 == NULL) throw;
 
@@ -366,7 +366,7 @@ static void defer_visit_while_statement(struct defer_visit_ctx* ctx, struct iter
 
 static void defer_visit_for_statement(struct defer_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
-    runtime_assert(p_iteration_statement->first_token->type == TK_KEYWORD_FOR);
+    _Assert(p_iteration_statement->first_token->type == TK_KEYWORD_FOR);
 
     try
     {
@@ -402,7 +402,7 @@ static void defer_visit_iteration_statement(struct defer_visit_ctx* ctx, struct 
         defer_visit_for_statement(ctx, p_iteration_statement);
         break;
     default:
-        runtime_assert(false);
+        _Assert(false);
         break;
     }
 }
@@ -449,7 +449,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
     if (ctx->searching_label_mode)
         return;
 
-    runtime_assert(ctx->tail_block != NULL);
+    _Assert(ctx->tail_block != NULL);
     struct defer_visit_ctx label_ctx = { 0 };
     try
     {
@@ -565,7 +565,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
         else if (p_jump_statement->first_token->type == TK_KEYWORD_GOTO)
         {
             //Visit to find the route until label
-            runtime_assert(p_jump_statement->label);
+            _Assert(p_jump_statement->label);
 
             label_ctx.searching_label_mode = true;
             label_ctx.label_name = p_jump_statement->label->lexeme;
@@ -737,7 +737,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
         }
         else
         {
-            runtime_assert(false);
+            _Assert(false);
             throw;
         }
     }
@@ -846,12 +846,12 @@ static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expressio
 
     case EXPR_POSTFIX_FUNCTION_LITERAL:
     {
-        runtime_assert(p_expression->compound_statement != NULL);
+        _Assert(p_expression->compound_statement != NULL);
 
         //TODO missing parameters of literal functions
         //without it static analysis will not work
         defer_visit_compound_statement(ctx, p_expression->compound_statement);
-        //runtime_assert(ctx->tail_block == NULL);
+        //_Assert(ctx->tail_block == NULL);
         //struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
         //if (p_defer == NULL)
         //{
@@ -860,7 +860,7 @@ static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expressio
         //p_defer->p_function_body = p_declaration->function_body;
 
         //defer_visit_typen(ctx, p_declaration);
-        //runtime_assert(p_declaration->function_body != NULL); //defer_visit_declaration does not change this
+        //_Assert(p_declaration->function_body != NULL); //defer_visit_declaration does not change this
 
         //parameters
         //if (ctx->tail_block)
@@ -905,7 +905,7 @@ static void defer_visit_unlabeled_statement(struct defer_visit_ctx* ctx, struct 
     }
     else
     {
-        runtime_assert(false);
+        _Assert(false);
     }
 }
 
@@ -939,7 +939,7 @@ static void defer_visit_block_item(struct defer_visit_ctx* ctx, struct block_ite
             {
                 if (ctx->searching_label_mode)
                 {
-                    runtime_assert(ctx->label_name != NULL);
+                    _Assert(ctx->label_name != NULL);
 
                     if (strcmp(ctx->label_name, p_block_item->label->p_first_token->lexeme) == 0)
                     {
@@ -950,7 +950,7 @@ static void defer_visit_block_item(struct defer_visit_ctx* ctx, struct block_ite
 
                 struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
                 if (p_defer == NULL) throw;
-                runtime_assert(p_defer->label == NULL);
+                _Assert(p_defer->label == NULL);
                 p_defer->label = p_block_item->label;
             }
             else if (p_block_item->first_token->type == TK_KEYWORD_CASE)
@@ -1093,7 +1093,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
         if (p_declaration->function_body)
         {
-            runtime_assert(ctx->tail_block == NULL);
+            _Assert(ctx->tail_block == NULL);
             struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
             if (p_defer == NULL)
             {
@@ -1102,7 +1102,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
             p_defer->p_function_body = p_declaration->function_body;
 
             defer_visit_declaration(ctx, p_declaration);
-            runtime_assert(p_declaration->function_body != NULL); //defer_visit_declaration does not change this
+            _Assert(p_declaration->function_body != NULL); //defer_visit_declaration does not change this
             defer_visit_ctx_pop_until(ctx, p_defer, &p_declaration->function_body->defer_list);
 
             //parameters

@@ -101,7 +101,7 @@ int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack)
 {
     if (diagnostic_stack->top_index >= _Countof(diagnostic_stack->stack))
     {
-        runtime_assert(false);
+        _Assert(false);
         return 0;
     }
 
@@ -121,7 +121,7 @@ void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack)
     }
     else
     {
-        runtime_assert(false);
+        _Assert(false);
     }
 }
 
@@ -551,12 +551,6 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-disable-assert") == 0)
-        {
-            options->disable_assert = true;
-            continue;
-        }
-
         if (has_prefix(argv[i], "-copy-headers="))
         {
             snprintf(options->copy_headers, sizeof options->copy_headers, "%s", argv[i]+14);            
@@ -652,14 +646,13 @@ void print_help()
     print_option("-msvc-output", "Output is compatible with visual studio");
     print_option("-fdiagnostics-color=never", "Output will not use colors");
     print_option("-dump-tokens", "Output tokens before preprocessor");
-    print_option("-dump-pp-tokens", "Output tokens after preprocessor");
-    print_option("-disable-assert", "disables built-in assert");
+    print_option("-dump-pp-tokens", "Output tokens after preprocessor");    
     print_option("-const-literal", "literal string becomes const");
     print_option("-dont-generate-time-stamp", "Do not include the timestamp comment in the generated file");
     print_option("-preprocess-def-macro", "preprocess def macros after expansion");
     print_option("-style=name", "Set the style used in w011 style warnings. Options are `-style=cake`, `-style=gnu`, `-style=microsoft`");
     print_option("-selftest", "Runs Cake's internal tests. The code must be compiled with -DTEST.");
-    print_option("-disable-assert", "Disable cake assert extension.");
+    
     print_option("-const-literal", "Makes the compiler handle string literals as const char[] rather than char[].");
 
     printf("\n");

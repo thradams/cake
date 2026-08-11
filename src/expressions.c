@@ -88,7 +88,7 @@ static void check_binary_operator_space_style(struct parser_ctx* ctx,
 static void check_expr_space_after_comma_style(struct parser_ctx* ctx,
     const struct token* token)
 {
-    runtime_assert(token->type == ',');
+    _Assert(token->type == ',');
 
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
         return;
@@ -125,7 +125,7 @@ static void check_expr_space_after_comma_style(struct parser_ctx* ctx,
 static void check_no_space_before_paren_call_style(struct parser_ctx* ctx,
     const struct token* token)
 {
-    runtime_assert(token->type == '(');
+    _Assert(token->type == '(');
 
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
         return;
@@ -394,7 +394,7 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
             p_generic_association->p_type_name = type_name(ctx);
             if (p_generic_association->p_type_name == NULL) throw;
 
-            runtime_assert(p_generic_association->p_type_name->abstract_declarator != NULL);
+            _Assert(p_generic_association->p_type_name->abstract_declarator != NULL);
 
             ctx->inside_generic_association = old;
             p_generic_association->type = make_type_using_declarator(ctx, p_generic_association->p_type_name->abstract_declarator);
@@ -467,7 +467,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struc
         {
             throw;
         }
-        
+
         struct token* _Opt p_default_generic_association_first_token = NULL;
         struct expression* _Opt p_default_generic_association_expression = NULL;
 
@@ -479,7 +479,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struc
 
         if (selected)
         {
-            runtime_assert(p_generic_selection->p_view_selected_expression == NULL);
+            _Assert(p_generic_selection->p_view_selected_expression == NULL);
             p_generic_selection->p_view_selected_expression = p_generic_association->expression;
         }
 
@@ -592,7 +592,7 @@ void generic_association_delete(struct generic_association* _Owner _Opt p)
 {
     if (p)
     {
-        runtime_assert(p->next == NULL);
+        _Assert(p->next == NULL);
         type_name_delete(p->p_type_name);
         expression_delete(p->expression);
         type_destroy(&p->type);
@@ -608,8 +608,8 @@ void generic_assoc_list_add(struct generic_assoc_list* list, struct generic_asso
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->next == NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->next == NULL);
         list->tail->next = pitem;
     }
     list->tail = pitem;
@@ -1347,7 +1347,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
     break;
 
     default:
-        runtime_assert(false);
+        _Assert(false);
         break;
     }
 
@@ -1399,7 +1399,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
 
             if (p_entry && p_entry->type == TAG_TYPE_ENUMERATOR)
             {
-                runtime_assert(p_entry->data.p_enumerator != NULL);
+                _Assert(p_entry->data.p_enumerator != NULL);
                 struct enumerator* p_enumerator = p_entry->data.p_enumerator;
                 p_expression_node->expression_type = EXPR_PRIMARY_ENUMERATOR;
                 p_expression_node->object = object_dup(&p_enumerator->value);
@@ -1413,7 +1413,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                 struct init_declarator* _Opt p_init_declarator = NULL;
                 if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
                 {
-                    runtime_assert(p_entry->data.p_init_declarator != NULL);
+                    _Assert(p_entry->data.p_init_declarator != NULL);
                     p_init_declarator = p_entry->data.p_init_declarator;
                     p_declarator = p_init_declarator->p_declarator;
                 }
@@ -1422,7 +1422,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                     p_declarator = p_entry->data.p_declarator;
                 }
 
-                runtime_assert(p_declarator != NULL);
+                _Assert(p_declarator != NULL);
 
                 if (p_declarator->declaration_specifiers &&
                     p_declarator->declaration_specifiers->attributes_flags & STD_ATTRIBUTE_DEPRECATED)
@@ -1435,7 +1435,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                     diagnostic(W_DEPRECATED, ctx, ctx->current, NULL, "'%s' is deprecated", ctx->current->lexeme);
                 }
 
-                runtime_assert(p_scope != NULL);
+                _Assert(p_scope != NULL);
                 if (ctx->p_current_function_scope_opt)
                 {
                     bool b_type_is_function = type_is_function(&p_declarator->type);
@@ -1631,7 +1631,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                 while (*it != '"')
                     it++;
 
-                runtime_assert(*it == '"');
+                _Assert(*it == '"');
                 it++; //skip "
 
                 unsigned int value = 0;
@@ -1928,7 +1928,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
         p_expression_node = NULL;
     }
 
-    runtime_assert(p_expression_node == NULL || (p_expression_node->first_token && p_expression_node->last_token));
+    _Assert(p_expression_node == NULL || (p_expression_node->first_token && p_expression_node->last_token));
 
     return p_expression_node;
 }
@@ -1938,7 +1938,7 @@ void argument_expression_delete(_Dtor struct argument_expression* _Owner _Opt p)
     if (p)
     {
         expression_delete(p->expression);
-        runtime_assert(p->next == NULL);
+        _Assert(p->next == NULL);
         free(p);
     }
 }
@@ -2300,7 +2300,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 if (p_expression_node_new->left->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
                 {
-                    runtime_assert(p_expression_node_new->left->type.struct_or_union_specifier != NULL);
+                    _Assert(p_expression_node_new->left->type.struct_or_union_specifier != NULL);
 
                     struct struct_or_union_specifier* _Opt p_complete =
                         find_struct_or_union_specifier(ctx, p_expression_node_new->left->type.struct_or_union_specifier->tag_name);
@@ -2310,7 +2310,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                     if (p_complete)
                     {
-                        runtime_assert(ctx->current != NULL);
+                        _Assert(ctx->current != NULL);
 
                         int member_index = 0;
                         struct member_declarator* _Opt p_member_declarator =
@@ -2359,7 +2359,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                             else
                             {
                                 /* not fixed yet */
-                                /* runtime_assert(false); */
+                                /* _Assert(false); */
                             }
                         }
                         else
@@ -2381,6 +2381,15 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                             p_expression_node_new->left->type.struct_or_union_specifier->tag_name);
                         /* print_scope(&ctx->scopes); */
                     }
+
+                    if (ctx->current == NULL)
+                    {
+                        unexpected_end_of_file(ctx);
+                        expression_delete(p_expression_node_new);
+                        p_expression_node_new = NULL;
+                        throw;
+                    }
+
                     p_expression_node_new->last_token = ctx->current;
 
                     if (parser_match_tk(ctx, TK_IDENTIFIER) != 0)
@@ -2441,8 +2450,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                     if (type_is_struct_or_union(&item_type))
                     {
-                        runtime_assert(p_expression_node->type.next);
-                        runtime_assert(p_expression_node->type.next->struct_or_union_specifier);
+                        _Assert(p_expression_node->type.next);
+                        _Assert(p_expression_node->type.next->struct_or_union_specifier);
 
                         struct struct_or_union_specifier* _Opt p_complete =
                             get_complete_struct_or_union_specifier(p_expression_node->type.next->struct_or_union_specifier);
@@ -2487,7 +2496,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                 }
                                 else
                                 {
-                                    runtime_assert(false); //TODO
+                                    _Assert(false); //TODO
                                 }
                             }
                             else
@@ -2629,7 +2638,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
     {
     }
 
-    runtime_assert(p_expression_node == NULL || (p_expression_node->first_token && p_expression_node->last_token));
+    _Assert(p_expression_node == NULL || (p_expression_node->first_token && p_expression_node->last_token));
 
     return p_expression_node;
 }
@@ -2657,7 +2666,7 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
         if (p_expression_node == NULL)
             throw;
 
-        runtime_assert(p_expression_node->type_name == NULL);
+        _Assert(p_expression_node->type_name == NULL);
         p_expression_node->p_storage_class_specifiers = p_storage_class_specifiers_ /*moved*/;
         p_storage_class_specifiers_ = NULL; /*MOVED*/
 
@@ -2794,12 +2803,12 @@ struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx, bool i
 
         if (first_of_type_name_ahead(ctx)) /* need to check if this is not a primary expression */
         {
-            runtime_assert(false); /* this case is handled inside cast_expression */
+            _Assert(false); /* this case is handled inside cast_expression */
             p_expression_node = calloc(1, sizeof * p_expression_node);
             if (p_expression_node == NULL)
                 throw;
 
-            runtime_assert(ctx->current != NULL);
+            _Assert(ctx->current != NULL);
             p_expression_node->first_token = ctx->current;
             if (parser_match_tk(ctx, '(') != 0)
                 throw;
@@ -2951,7 +2960,7 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
     else if (category == TYPE_CATEGORY_ITSELF &&
         p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
     {
-        runtime_assert(p_type->struct_or_union_specifier);
+        _Assert(p_type->struct_or_union_specifier);
 
         struct struct_or_union_specifier* _Opt p_complete =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
@@ -3079,7 +3088,7 @@ struct expression* _Owner _Opt static_assertion_expr(struct parser_ctx* ctx, boo
         p_new_expression->expression_type = EXPR_UNARY_STATIC_ASSERTION;
         p_new_expression->type = make_void_type();
         struct token* _Opt tk = previous_parser_token(ctx->current);
-        runtime_assert(tk);
+        _Assert(tk);
         p_new_expression->last_token = tk;
     }
     catch
@@ -3844,7 +3853,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
 
                 if (type_is_enum(&new_expression->type_name->abstract_declarator->type))
                 {
-                    runtime_assert(new_expression->type_name->type.enum_specifier);
+                    _Assert(new_expression->type_name->type.enum_specifier);
 
                     const struct enum_specifier* _Opt p_enum_specifier =
                         get_complete_enum_specifier(new_expression->type_name->type.enum_specifier);
@@ -3912,7 +3921,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
 
                 if (type_is_enum(&new_expression->right->type))
                 {
-                    runtime_assert(new_expression->right->type.enum_specifier);
+                    _Assert(new_expression->right->type.enum_specifier);
 
                     const struct enum_specifier* _Opt p_enum_specifier =
                         get_complete_enum_specifier(new_expression->right->type.enum_specifier);
@@ -4171,7 +4180,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             switch (traits_token->type)
             {
             case TK_KEYWORD_IS_LVALUE:
-                runtime_assert(new_expression->right != NULL);
+                _Assert(new_expression->right != NULL);
                 new_expression->object = object_make_signed_int(ctx->options.target, expression_is_lvalue(new_expression->right));
                 break;
 
@@ -4212,7 +4221,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 break;
 
             default:
-                runtime_assert(false);
+                _Assert(false);
                 break;
             }
 
@@ -4467,7 +4476,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
         else
         {
             diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "expected expression");
-            runtime_assert(p_expression_node == NULL);
+            _Assert(p_expression_node == NULL);
             throw;
         }
 
@@ -4547,7 +4556,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
                 new_expression->expression_type = EXPR_MULTIPLICATIVE_MOD;
                 break;
             default:
-                runtime_assert(false);
+                _Assert(false);
                 break;
             }
 
@@ -5186,7 +5195,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, boo
                 ctx->current->type == '>=' ||
                 ctx->current->type == '<='))
         {
-            runtime_assert(new_expression == NULL);
+            _Assert(new_expression == NULL);
             new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
             {
@@ -5366,14 +5375,14 @@ void check_diferent_enuns(struct parser_ctx* ctx,
     if (left->type.type_specifier_flags & TYPE_SPECIFIER_ENUM &&
         right->type.type_specifier_flags & TYPE_SPECIFIER_ENUM)
     {
-        runtime_assert(left->type.enum_specifier);
-        runtime_assert(right->type.enum_specifier);
+        _Assert(left->type.enum_specifier);
+        _Assert(right->type.enum_specifier);
 
         if (get_complete_enum_specifier(left->type.enum_specifier) !=
             get_complete_enum_specifier(right->type.enum_specifier))
         {
-            runtime_assert(left->type.enum_specifier != NULL);
-            runtime_assert(right->type.enum_specifier != NULL);
+            _Assert(left->type.enum_specifier != NULL);
+            _Assert(right->type.enum_specifier != NULL);
 
             const char* lefttag = "";
             if (left->type.enum_specifier->tag_token)
@@ -5432,7 +5441,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, bool 
                 ctx->current->type == '!='))
         {
             struct token* p_token_operator = ctx->current;
-            runtime_assert(new_expression == NULL);
+            _Assert(new_expression == NULL);
             new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
                 throw;
@@ -5538,7 +5547,7 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, bool is_di
                 throw;
             }
 
-            runtime_assert(new_expression == NULL);
+            _Assert(new_expression == NULL);
             new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
                 throw;
@@ -5620,7 +5629,7 @@ struct expression* _Owner _Opt exclusive_or_expression(struct parser_ctx* ctx, b
                 throw;
             }
 
-            runtime_assert(new_expression == NULL);
+            _Assert(new_expression == NULL);
             new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
                 throw;
@@ -5992,12 +6001,12 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
        unary-expression assignment-operator assignment-expression
        */
        /*
-             assignment-operator: one of
-             = *= /= %= += -= <<= >>= &= ^= |=
-          */
-          // aqui eh duvidoso mas conditional faz a unary tb.
-          // a diferenca q nao eh qualquer expressao
-          // que pode ser de atribuicao
+                assignment-operator: one of
+                = *= /= %= += -= <<= >>= &= ^= |=
+             */
+             // aqui eh duvidoso mas conditional faz a unary tb.
+             // a diferenca q nao eh qualquer expressao
+             // que pode ser de atribuicao
     struct expression* _Owner _Opt p_expression_node = NULL;
     try
     {
@@ -6005,7 +6014,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
         if (p_expression_node == NULL)
             throw;
 
-        runtime_assert(p_expression_node->expression_type != EXPR_INVALID);
+        _Assert(p_expression_node->expression_type != EXPR_INVALID);
 
         while (ctx->current != NULL &&
             (ctx->current->type == '=' ||
@@ -6073,7 +6082,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
                 new_expression->expression_type = EXPR_ASSIGNMENT_OR_ASSIGN;
                 break;
             default:
-                runtime_assert(false);
+                _Assert(false);
                 break;
             }
 
@@ -6195,7 +6204,7 @@ struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, bool i
         if (p_expression_node == NULL)
             throw;
 
-        runtime_assert(p_expression_node->expression_type != EXPR_INVALID);
+        _Assert(p_expression_node->expression_type != EXPR_INVALID);
 
         if (ctx->current == NULL)
         {
@@ -6244,8 +6253,8 @@ void argument_expression_list_push(struct argument_expression_list* list, struct
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->next == NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->next == NULL);
         list->tail->next = pitem;
     }
     list->tail = pitem;
@@ -6506,7 +6515,6 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
         {
             struct expression* _Owner _Opt p_conditional_expression = calloc(1, sizeof(struct expression));
             if (p_conditional_expression == NULL) throw;
-
             p_conditional_expression->first_token = ctx->current;
             p_conditional_expression->expression_type = EXPR_CONDITIONAL;
             p_conditional_expression->condition_expr = p_expression_node;
@@ -6619,7 +6627,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
                 ? p_conditional_expression->left
                 : p_conditional_expression->condition_expr;
 
-            runtime_assert(p_left_or_cond);
+            _Assert(p_left_or_cond);
 
             if (expression_is_subjected_to_lvalue_conversion(p_left_or_cond))
             {
@@ -6968,6 +6976,9 @@ void check_assigment(struct parser_ctx* ctx,
     */
     if (type_is_enum(p_b_type) && type_is_enum(p_a_type))
     {
+        _Assert(p_a_type->enum_specifier);
+        _Assert(p_b_type->enum_specifier);
+
         if (p_b_type->enum_specifier->p_complete_enum_specifier != p_a_type->enum_specifier->p_complete_enum_specifier)
         {
             diagnostic(W_INCOMPATIBLE_ENUN_TYPES, ctx,

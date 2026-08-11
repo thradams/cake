@@ -3,7 +3,7 @@
 /*
    Test for flow3's `case EXPR_UNARY_ASSERT:` handling.
 
-   runtime_assert(expr) is equivalent to:
+   _Assert(expr) is equivalent to:
 
        if (!(expr)) exit(1);   // exit does not return
 
@@ -31,12 +31,12 @@ struct X
 struct X* _Opt get(void);
 
 /* --------------------------------------------------------------------
-   1. runtime_assert(p) narrows a nullable pointer to non-null.
+   1. _Assert(p) narrows a nullable pointer to non-null.
    -------------------------------------------------------------------- */
 
 void asserted(struct X* _Opt p)
 {
-    runtime_assert(p);
+    _Assert(p);
     p->i = 1; /* ok: assert proved p is non-null */
 }
 
@@ -46,14 +46,14 @@ void not_asserted(struct X* _Opt p)
 }
 
 /* --------------------------------------------------------------------
-   2. assert with an explicit comparison (runtime_assert(p != NULL)) narrows the
+   2. assert with an explicit comparison (_Assert(p != NULL)) narrows the
       same way -- the refinement comes from the true branch of the
       comparison, not from the bare pointer.
    -------------------------------------------------------------------- */
 
 void asserted_cmp(struct X* _Opt p)
 {
-    runtime_assert(p != NULL);
+    _Assert(p != NULL);
     p->i = 1; /* ok */
 }
 
@@ -68,18 +68,18 @@ struct ctx
 
 void asserted_member(struct ctx* c)
 {
-    runtime_assert(c->p);
+    _Assert(c->p);
     c->p->i = 1; /* ok */
 }
 
 /* --------------------------------------------------------------------
-   4. A compound condition narrows every conjunct: after runtime_assert(p && p->next)
+   4. A compound condition narrows every conjunct: after _Assert(p && p->next)
       both p and p->next are known non-null.
    -------------------------------------------------------------------- */
 
 void asserted_and(struct X* _Opt p)
 {
-    runtime_assert(p && p->next);
+    _Assert(p && p->next);
     p->i = 1;       /* ok */
     p->next->i = 2; /* ok */
 }
@@ -92,13 +92,13 @@ void asserted_and(struct X* _Opt p)
 
 void asserted_value(int a)
 {
-    runtime_assert(a == 5);
+    _Assert(a == 5);
     compile_assert(a == 5); /* holds because of the assert above */
 }
 
 void asserted_range(int a)
 {
-    runtime_assert(a > 0);
+    _Assert(a > 0);
     // static_debug(a);
     compile_assert(a > 0); /* range refinement survives the assert */
 }
@@ -113,7 +113,7 @@ void asserted_range(int a)
 
 void asserted_then_reassigned(struct X* _Opt p)
 {
-    runtime_assert(p);
+    _Assert(p);
     p = get();
     p->i = 1; //lint 33 warning: pointer 'p' may be null
 }

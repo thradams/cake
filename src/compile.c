@@ -325,7 +325,7 @@ int compile_one_file(const char* file_name,
     prectx.macros.capacity = 5000;
 
     add_standard_macros(&prectx, options->target);
-
+    
     if (include_config_header(&prectx, file_name) != 0)
     {
         //cakeconf.h is optional               
@@ -644,7 +644,7 @@ static int compile_many_files(const char* file_name,
 
     if (file_name_extension == NULL)
     {
-        runtime_assert(false);
+        _Assert(false);
     }
 
     int num_files = 0;

@@ -815,11 +815,11 @@ void f(int c) {
 }
 ```
 
-Unlike `assert()` and `runtime_assert()`, `compile_assert` is purely a compile-time check:
+Unlike `assert()` and `_Assert()`, `compile_assert` is purely a compile-time check:
 
 - **It generates no code and has no runtime effect** — the condition is never evaluated. It exists
   only for the analyzer.
-- **It does not narrow later state.** `assert()`/`runtime_assert()` discard the branches where the
+- **It does not narrow later state.** `assert()`/`_Assert()` discard the branches where the
   condition is false, so the analyzer treats it as proven from that point on; `compile_assert` does
   not — it only reports whether the fact is *already* provable, and leaves the tracked state
   untouched either way:
@@ -835,7 +835,7 @@ void f(int* _Opt p) {
 
 Because of this, `compile_assert` is mainly a development and regression-testing tool: use it to
 pin down exactly what the analyzer can currently prove at a given point, and to catch the analyzer
-regressing on a previously-provable fact. Prefer `assert()`/`runtime_assert()` in real code where
+regressing on a previously-provable fact. Prefer `assert()`/`_Assert()` in real code where
 you actually want to establish a fact for the analysis (and the runtime) going forward.
 
 

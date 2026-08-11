@@ -10,7 +10,7 @@
            p_type = &new_expression->type_name->abstract_declarator->type;
        else
            p_type = &new_expression->right->type;
-       runtime_assert(p_type != NULL);
+       _Assert(p_type != NULL);
        switch (traits_token->type) { ... uses p_type ... }  // false "possibly null"
 
    Root cause: `obj = calloc(...)` is an IMPLICIT void*->T* conversion (no
@@ -65,7 +65,7 @@ void one_branch_ok(void)
 
     int* _Opt p = &obj->a;
 
-    runtime_assert(p != NULL);
+    _Assert(p != NULL);
     use(p); /* ok: no warning */
 
     free(obj);
@@ -86,7 +86,7 @@ void merged_branches_bug(int cond)
     else
         p = &obj->b;
 
-    runtime_assert(p != NULL);
+    _Assert(p != NULL);
 
     /* FIXED: no longer warns. obj->a and obj->b now resolve to real member
        objects, so taking their address produces a REF alternative and the

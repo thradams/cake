@@ -460,7 +460,7 @@
 <a href="#toc_89">11. Cake Language Extensions</a>
 <ul>
 <li>
-<a href="#toc_90">11.1 Built-in <code>assert</code></a>
+<a href="#toc_90">11.1 Built-in <code>_Assert</code></a>
 </li>
 <li>
 <a href="#toc_91">11.2 <code>try</code> / <code>throw</code> / <code>catch</code></a>
@@ -680,9 +680,6 @@ Disable warning number <code>&lt;number&gt;</code>.</p>
 
 <p><strong><code>-Wall</code></strong><br>
 Enable all warnings.</p>
-
-<p><strong><code>-disable-assert</code></strong><br>
-Disable Cake&#39;s built-in <code>assert</code> statement extension and revert to standard macro behavior.</p>
 
 <h3 id="toc_13">4.4 Target Options</h3>
 
@@ -1921,7 +1918,7 @@ void func() {
 
 <h2 id="toc_88">11. Cake Language Extensions</h2>
 
-<h3 id="toc_89">11.1 Built-in <code>assert</code></h3>
+<h3 id="toc_89">11.1 Built-in <code>_Assert</code></h3>
 
 <p>In Cake, <code>assert</code> is a built-in statement rather than a macro because flow analysis need it even in release builds.
 The effect of <code>assert(expression)</code> is equivalent of <code>if (!(expression)) exit(1);</code>.</p>
@@ -1931,15 +1928,13 @@ The effect of <code>assert(expression)</code> is equivalent of <code>if (!(expre
     if (list-&gt;head == NULL) {
         list-&gt;head = p_item;
     } else {
-        assert(list-&gt;tail != nullptr);       /* narrows: tail is non-null below */
-        assert(list-&gt;tail-&gt;next == nullptr); /* narrows: tail-&gt;next is null below */
+        _Assert(list-&gt;tail != nullptr);       /* narrows: tail is non-null below */
+        _Assert(list-&gt;tail-&gt;next == nullptr); /* narrows: tail-&gt;next is null below */
         list-&gt;tail-&gt;next = p_item;
     }
     list-&gt;tail = p_item;
 }
 </code></pre>
-
-<p>To disable this built-in behavior and use a standard macro instead, pass <code>-disable-assert</code>.</p>
 
 <h3 id="toc_90">11.2 <code>try</code> / <code>throw</code> / <code>catch</code></h3>
 

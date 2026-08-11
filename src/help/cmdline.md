@@ -37,8 +37,7 @@ Disable warning number `<number>`.
 `-Wall`  
 Enable all warnings.
 
-`-disable-assert`  
-Disable Cake's built-in `assert` statement extension and revert to standard macro behavior.
+
 
 ### Output Options
 

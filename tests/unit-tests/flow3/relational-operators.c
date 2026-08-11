@@ -6,8 +6,8 @@
    When a scalar variable is compared against a constant and the result is
    not constant-foldable, flow3 records a half-line constraint on the
    variable: the true branch gets `var OP const`, the false branch gets the
-   negated relation. runtime_assert(expr) keeps only the true branch, so after
-   `runtime_assert(a > 0)` the fact `a > 0` holds.
+   negated relation. _Assert(expr) keeps only the true branch, so after
+   `_Assert(a > 0)` the fact `a > 0` holds.
 
    Every compile_assert below is a POSITIVE check: it only passes if flow3
    can prove the condition from the recorded constraints, so this file must
@@ -19,25 +19,25 @@
 
 void assert_greater(int a)
 {
-    runtime_assert(a > 0);
+    _Assert(a > 0);
     compile_assert(a > 0);
 }
 
 void assert_greater_equal(int a)
 {
-    runtime_assert(a >= 5);
+    _Assert(a >= 5);
     compile_assert(a >= 5);
 }
 
 void assert_less(int a)
 {
-    runtime_assert(a < 10);
+    _Assert(a < 10);
     compile_assert(a < 10);
 }
 
 void assert_less_equal(int a)
 {
-    runtime_assert(a <= -1);
+    _Assert(a <= -1);
     compile_assert(a <= -1);
 }
 
@@ -45,13 +45,13 @@ void assert_less_equal(int a)
 
 void constant_on_left(int a)
 {
-    runtime_assert(0 < a);          /* equivalent to a > 0 */
+    _Assert(0 < a);          /* equivalent to a > 0 */
     compile_assert(a > 0);
 }
 
 void constant_on_left_ge(int a)
 {
-    runtime_assert(10 >= a);        /* equivalent to a <= 10 */
+    _Assert(10 >= a);        /* equivalent to a <= 10 */
     compile_assert(a <= 10);
 }
 
@@ -59,7 +59,7 @@ void constant_on_left_ge(int a)
 
 void implication(int a)
 {
-    runtime_assert(a > 5);
+    _Assert(a > 5);
     compile_assert(a > 0);   /* a > 5 implies a > 0  */
     compile_assert(a >= 1);  /* ...and a >= 1        */
     compile_assert(a >= 5);  /* ...and a >= 5        */
@@ -119,7 +119,7 @@ void concrete_folds(void)
 
 void boundary_inclusive(int a)
 {
-    runtime_assert(a >= 0);
+    _Assert(a >= 0);
     compile_assert(a >= 0);
     /* a > 0 is deliberately NOT provable here: a could be exactly 0.
          compile_assert(a > 0);   // correctly rejected
@@ -130,7 +130,7 @@ void boundary_inclusive(int a)
 
 void negative_bound(int a)
 {
-    runtime_assert(a < 0);
+    _Assert(a < 0);
     compile_assert(a < 0);
     compile_assert(a <= -1);   /* for ints, a < 0 implies a <= -1... */
     compile_assert(a < 1);     /* ...and certainly a < 1 */

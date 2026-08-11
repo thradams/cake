@@ -113,8 +113,8 @@ void token_list_pop_back(struct token_list* list)
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->prev != NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->prev != NULL);
         list->tail = list->tail->prev;
         token_delete(list->tail->next);
         list->tail->next = NULL;
@@ -123,7 +123,7 @@ void token_list_pop_back(struct token_list* list)
             list->tail->prev = NULL;
         }
     }
-    runtime_assert(list->head == NULL || list->head->prev == NULL);
+    _Assert(list->head == NULL || list->head->prev == NULL);
 }
 
 void token_list_pop_front(struct token_list* list) /*unchecked*/
@@ -132,7 +132,7 @@ void token_list_pop_front(struct token_list* list) /*unchecked*/
         return;
 
     struct token* _Owner _Opt p = list->head;
-    runtime_assert(p->prev == NULL);
+    _Assert(p->prev == NULL);
 
     if (list->head == list->tail)
     {
@@ -149,7 +149,7 @@ void token_list_pop_front(struct token_list* list) /*unchecked*/
     p->prev = NULL;
     token_delete(p);
 
-    runtime_assert(list->head == NULL || list->head->prev == NULL);
+    _Assert(list->head == NULL || list->head->prev == NULL);
 }
 
 struct token* _Owner _Opt token_list_pop_front_get(struct token_list* list)
@@ -170,7 +170,7 @@ struct token* _Owner _Opt token_list_pop_front_get(struct token_list* list)
         list->tail = NULL;
     }
 
-    runtime_assert(list->head == NULL || list->head->prev == NULL);
+    _Assert(list->head == NULL || list->head->prev == NULL);
 
     old_head->prev = NULL;
     old_head->next = NULL;
@@ -192,7 +192,7 @@ void token_delete(_Dtor struct token* _Owner _Opt p)
          * ownership warning here is about the p->next
          * we need a way to remove only this specific warning
         */
-        runtime_assert(p->next == NULL);
+        _Assert(p->next == NULL);
         free(p->lexeme);
         free(p);
     }
@@ -302,7 +302,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* _Opt a
 
     if (token_list->head == NULL)
     {
-        runtime_assert(after == NULL);
+        _Assert(after == NULL);
         token_list->head = append_list->head;
         token_list->tail = append_list->tail;
         append_list->head = NULL;
@@ -312,8 +312,8 @@ void token_list_insert_after(struct token_list* token_list, struct token* _Opt a
 
     if (after == NULL)
     {
-        runtime_assert(append_list->tail != NULL);
-        runtime_assert(append_list->tail->next == NULL);
+        _Assert(append_list->tail != NULL);
+        _Assert(append_list->tail->next == NULL);
         append_list->tail->next = token_list->head;
         token_list->head->prev = append_list->tail; //TODO empty case
 
@@ -330,8 +330,8 @@ void token_list_insert_after(struct token_list* token_list, struct token* _Opt a
         else if (token_list->head == after)
         {
         }
-        runtime_assert(append_list->tail != NULL);
-        runtime_assert(append_list->tail->next == NULL);
+        _Assert(append_list->tail != NULL);
+        _Assert(append_list->tail->next == NULL);
         append_list->tail->next = follow;
         if (follow != NULL)
             follow->prev = append_list->tail;
@@ -342,7 +342,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* _Opt a
 
     append_list->head = NULL;
     append_list->tail = NULL;
-    runtime_assert(token_list->head == NULL || token_list->head->prev == NULL);
+    _Assert(token_list->head == NULL || token_list->head->prev == NULL);
 }
 
 void token_list_insert_before(struct token_list* token_list, struct token* after, struct token_list* append_list)
@@ -372,8 +372,8 @@ bool token_list_is_equal(const struct token_list* list_a, const struct token_lis
 
 struct token* token_list_add(struct token_list* list, struct token* _Owner pnew) /*unchecked*/
 {
-    runtime_assert(pnew->next == NULL);
-    runtime_assert(pnew->prev == NULL);
+    _Assert(pnew->next == NULL);
+    _Assert(pnew->prev == NULL);
 
     if (list->head == NULL)
     {
@@ -384,17 +384,17 @@ struct token* token_list_add(struct token_list* list, struct token* _Owner pnew)
     }
     else
     {
-        runtime_assert(list->tail != NULL);
-        runtime_assert(list->tail->next == NULL);
+        _Assert(list->tail != NULL);
+        _Assert(list->tail->next == NULL);
 
         pnew->prev = list->tail;
         list->tail->next = pnew;
         list->tail = pnew;
     }
-    runtime_assert(list->tail != NULL);
-    runtime_assert(list->tail->next == NULL);
+    _Assert(list->tail != NULL);
+    _Assert(list->tail->next == NULL);
 
-    runtime_assert(list->head == NULL || list->head->prev == NULL);
+    _Assert(list->head == NULL || list->head->prev == NULL);
 
     return list->tail;
 
@@ -570,15 +570,15 @@ void token_list_append_list_at_beginning(struct token_list* dest, struct token_l
     }
     else
     {
-        runtime_assert(source->tail != NULL);
-        runtime_assert(source->tail->next == NULL);
+        _Assert(source->tail != NULL);
+        _Assert(source->tail->next == NULL);
         source->tail->next = dest->head;
         dest->head = source->head;
     }
 
     source->head = NULL;
     source->tail = NULL;
-    runtime_assert(dest->head == NULL || dest->head->prev == NULL);
+    _Assert(dest->head == NULL || dest->head->prev == NULL);
 }
 
 void token_list_append_list(struct token_list* dest, _Clear struct token_list* source)
@@ -594,15 +594,15 @@ void token_list_append_list(struct token_list* dest, _Clear struct token_list* s
     }
     else
     {
-        runtime_assert(dest->tail != NULL);
-        runtime_assert(dest->tail->next == NULL);
+        _Assert(dest->tail != NULL);
+        _Assert(dest->tail->next == NULL);
         dest->tail->next = source->head;
         source->head->prev = dest->tail;
         dest->tail = source->tail;
     }
     source->head = NULL;
     source->tail = NULL;
-    runtime_assert(dest->head == NULL || dest->head->prev == NULL);
+    _Assert(dest->head == NULL || dest->head->prev == NULL);
 }
 
 
@@ -678,7 +678,7 @@ void token_list_remove(struct token_list* list, struct token* first, struct toke
 
 bool token_list_is_empty(struct token_list* p)
 {
-    runtime_assert((p->head == NULL && p->tail == NULL) ||
+    _Assert((p->head == NULL && p->tail == NULL) ||
         (p->head != NULL && p->tail != NULL));
 
     return p->head == NULL;
@@ -1530,14 +1530,14 @@ const unsigned char* _Opt str_utf8_decode(const unsigned char* s, _Ctor unsigned
     if (s[0] < 0x80)
     {
         *c = s[0];
-        runtime_assert(*c <= 0x007F);
+        _Assert(*c <= 0x007F);
         next = s + 1;
     }
     else if ((s[0] & 0xe0) == 0xc0)
     {
         *c = ((int)(s[0] & 0x1f) << 6) |
             ((int)(s[1] & 0x3f) << 0);
-        runtime_assert(*c >= 0x0080 && *c <= 0x07FF);
+        _Assert(*c >= 0x0080 && *c <= 0x07FF);
         next = s + 2;
     }
     else if ((s[0] & 0xf0) == 0xe0)
@@ -1545,7 +1545,7 @@ const unsigned char* _Opt str_utf8_decode(const unsigned char* s, _Ctor unsigned
         *c = ((int)(s[0] & 0x0f) << 12) |
             ((int)(s[1] & 0x3f) << 6) |
             ((int)(s[2] & 0x3f) << 0);
-        runtime_assert(*c >= 0x0800 && *c <= 0xFFFF);
+        _Assert(*c >= 0x0800 && *c <= 0xFFFF);
         next = s + 3;
     }
     else if ((s[0] & 0xf8) == 0xf0 && (s[0] <= 0xf4))
@@ -1554,7 +1554,7 @@ const unsigned char* _Opt str_utf8_decode(const unsigned char* s, _Ctor unsigned
             ((int)(s[1] & 0x3f) << 12) |
             ((int)(s[2] & 0x3f) << 6) |
             ((int)(s[3] & 0x3f) << 0);
-        runtime_assert(*c >= 0x10000 && *c <= 0x10FFFF);
+        _Assert(*c >= 0x10000 && *c <= 0x10FFFF);
         next = s + 4;
     }
     else
@@ -1684,7 +1684,7 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
             break;
 
         default:
-            runtime_assert(false);
+            _Assert(false);
             return NULL;
         }
         p++;
@@ -1706,8 +1706,8 @@ void token_list_remove_get_test()
         
         token_list_add(&list, pnew); //lint 33 33 33
         r = token_list_remove_get(&list, pnew, pnew); //lint 30 30
-        runtime_assert(list.head == NULL);
-        runtime_assert(list.tail == NULL);
+        _Assert(list.head == NULL);
+        _Assert(list.tail == NULL);
     }
     catch
     {
@@ -1732,8 +1732,8 @@ void token_list_remove_get_test2()
         token_list_add(&list, pnew2); //lint 33 33 33
 
         r = token_list_remove_get(&list, pnew1, pnew1); //lint 30 30
-        runtime_assert(list.head == pnew2); //lint 30
-        runtime_assert(list.tail == pnew2); //lint 30
+        _Assert(list.head == pnew2); //lint 30
+        _Assert(list.tail == pnew2); //lint 30
     }
     catch
     {

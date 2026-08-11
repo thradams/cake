@@ -2,17 +2,17 @@
 
 /*
    PATTERN 3 -- warnings caused by the standard `assert` disappearing in a
-   RELEASE build, and how runtime_assert fixes them.
+   RELEASE build, and how _Assert fixes them.
 
    `assert` is a MACRO. With a real <assert.h> in a release build (NDEBUG) it
    expands to `((void)0)` -- the check vanishes, flow3 has no invariant to
    narrow on, and the following `p->member` reads possibly-null and warns.
 
-   runtime_assert is a cake KEYWORD, so no header macro can shadow or strip it:
+   _Assert is a cake KEYWORD, so no header macro can shadow or strip it:
    it narrows in every build, including release. This is the fix for the
    assert-guarded warning-33s seen when dogfooding expressions.c.
 
-   Function A (runtime_assert) is clean; B (stripped assert) reproduces the
+   Function A (_Assert) is clean; B (stripped assert) reproduces the
    warning.
 */
 
@@ -22,10 +22,10 @@
 struct spec { int flags; };
 struct decl { struct spec* _Opt declaration_specifiers; };
 
-/* A: runtime_assert narrows even though `assert` is stripped -> clean. */
+/* A: _Assert narrows even though `assert` is stripped -> clean. */
 void A(struct decl* _Opt p)
 {
-    runtime_assert(p != NULL);
+    _Assert(p != NULL);
     if (p->declaration_specifiers) { }        /* clean */
 }
 

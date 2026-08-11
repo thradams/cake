@@ -108,7 +108,7 @@ void hashmap_remove_all(struct hash_map* map)
 void hashmap_destroy(_Dtor struct hash_map* map)
 {
     hashmap_remove_all(map);
-    runtime_assert(map->table == NULL);
+    _Assert(map->table == NULL);
 }
 
 struct map_entry* _Opt hashmap_find(struct hash_map* map, const char* key)
@@ -116,7 +116,7 @@ struct map_entry* _Opt hashmap_find(struct hash_map* map, const char* key)
     if (map->table == NULL)
         return NULL;
 
-    runtime_assert(map->capacity != 0);
+    _Assert(map->capacity != 0);
 
     const unsigned int hash = string_hash(key);
     const int index = hash % map->capacity;
@@ -139,7 +139,7 @@ void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt 
 {
     if (map->table != NULL)
     {
-        runtime_assert(map->capacity != 0);
+        _Assert(map->capacity != 0);
 
         const unsigned int hash = string_hash(key);
         struct map_entry** pp_entry = &map->table[hash % map->capacity];
@@ -263,7 +263,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
             if (map->table == NULL) throw;
         }
 
-        runtime_assert(map->capacity != 0);
+        _Assert(map->capacity != 0);
         unsigned int hash = string_hash(key);
         int index = hash % map->capacity;
 
@@ -295,7 +295,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
                 throw;
             }
 
-            runtime_assert(p_new_entry->key == NULL);
+            _Assert(p_new_entry->key == NULL);
             p_new_entry->key = temp_key;
             p_new_entry->next = map->table[index];
             map->table[index] = p_new_entry;
@@ -313,36 +313,36 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
             case TAG_TYPE_NUMBER:break;
 
             case TAG_TYPE_ENUM_SPECIFIER:
-                runtime_assert(pentry->data.p_enum_specifier != NULL);
+                _Assert(pentry->data.p_enum_specifier != NULL);
                 item->p_enum_specifier = pentry->data.p_enum_specifier;
                 break;
             case TAG_TYPE_STRUCT_OR_UNION_SPECIFIER:
-                runtime_assert(pentry->data.p_struct_or_union_specifier != NULL);
+                _Assert(pentry->data.p_struct_or_union_specifier != NULL);
                 item->p_struct_or_union_specifier = pentry->data.p_struct_or_union_specifier;
                 break;
 
             case TAG_TYPE_ENUMERATOR:
-                runtime_assert(pentry->data.p_enumerator != NULL);
+                _Assert(pentry->data.p_enumerator != NULL);
                 item->p_enumerator = pentry->data.p_enumerator;
                 break;
             case TAG_TYPE_DECLARATOR:
-                runtime_assert(pentry->data.p_declarator != NULL);
+                _Assert(pentry->data.p_declarator != NULL);
                 item->p_declarator = pentry->data.p_declarator;
                 break;
             case TAG_TYPE_INIT_DECLARATOR:
-                runtime_assert(pentry->data.p_init_declarator != NULL);
+                _Assert(pentry->data.p_init_declarator != NULL);
                 item->p_init_declarator = pentry->data.p_init_declarator;
                 break;
             case TAG_TYPE_MACRO:
-                runtime_assert(pentry->data.p_macro != NULL);
+                _Assert(pentry->data.p_macro != NULL);
                 item->p_macro = pentry->data.p_macro;
                 break;
             case TAG_TYPE_STRUCT_ENTRY:
-                runtime_assert(pentry->data.p_struct_entry != NULL);
+                _Assert(pentry->data.p_struct_entry != NULL);
                 item->p_struct_entry = pentry->data.p_struct_entry;
                 break;
             case TAG_TYPE_TEXT:
-                runtime_assert(pentry->data.p_struct_entry != NULL);
+                _Assert(pentry->data.p_struct_entry != NULL);
                 item->text = pentry->data.p_text;
                 break;
             }
