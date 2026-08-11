@@ -56,6 +56,15 @@ struct codegen_ctx
     bool runtime_assert_used;
     char runtime_assert_function_name[50];
 
+    /* set when the user's code calls __assert_fail (e.g. via the glibc
+       assert() macro) without providing its own definition, so codegen
+       emits a stub -- same idea as the runtime_assert_failed handler above. */
+    bool assert_fail_used;
+
+    /* same as assert_fail_used, but for __assert_rtn (macOS/Apple's
+       assert() failure function). */
+    bool assert_rtn_used;
+
 
     bool define_nullptr;
     bool null_pointer_constant_used;

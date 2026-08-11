@@ -963,6 +963,20 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                 bool is_function = type_is_function(&p_expression->declarator->type);
 
                 if (is_function &&
+                    p_expression->declarator->function_body == NULL &&
+                    strcmp(declarator_name, "__assert_fail") == 0)
+                {
+                    ctx->assert_fail_used = true;
+                }
+
+                if (is_function &&
+                    p_expression->declarator->function_body == NULL &&
+                    strcmp(declarator_name, "__assert_rtn") == 0)
+                {
+                    ctx->assert_rtn_used = true;
+                }
+
+                if (is_function &&
                     (p_expression->declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER))
                 {
 
@@ -5194,6 +5208,18 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
                 ctx->runtime_assert_function_name);
         }
 
+        if (ctx->assert_fail_used)
+        {
+            ss_fprintf(oss,
+                "static void __assert_fail(const char * assertion, const char * file, unsigned int line, const char * function);\n");
+        }
+
+        if (ctx->assert_rtn_used)
+        {
+            ss_fprintf(oss,
+                "static void __assert_rtn(const char * function, const char * file, int line, const char * message);\n");
+        }
+
         if (declarations.c_str)
         {
             ss_fprintf(oss, "%s", declarations.c_str);
@@ -5256,6 +5282,29 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
                 "{\n"
                 "}\n\n",
                 ctx->runtime_assert_function_name);
+        }
+
+        if (ctx->assert_fail_used)
+        {
+            /* Stub for __assert_fail (glibc's assert() failure handler), same
+               idea as the runtime_assert_failed handler above: left empty for
+               now, filled in later with the real report/abort behaviour. */
+            ss_fprintf(oss, "\n");
+            ss_fprintf(oss,
+                "static void __assert_fail(const char * assertion, const char * file, unsigned int line, const char * function)\n"
+                "{\n"
+                "}\n\n");
+        }
+
+        if (ctx->assert_rtn_used)
+        {
+            /* Stub for __assert_rtn (macOS/Apple's assert() failure handler).
+               Same idea as __assert_fail above. */
+            ss_fprintf(oss, "\n");
+            ss_fprintf(oss,
+                "static void __assert_rtn(const char * function, const char * file, int line, const char * message)\n"
+                "{\n"
+                "}\n\n");
         }
 
         if (ctx->options.line_directives)

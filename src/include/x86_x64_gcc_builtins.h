@@ -1,6 +1,7 @@
 
 typedef typeof(sizeof(1)) size_t;
 
+long __builtin_expect(long exp, long c);
 
 /*
   https://gcc.gnu.org/onlinedocs/gcc/Integer-Overflow-Builtins.html
