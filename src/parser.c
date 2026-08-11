@@ -3,6 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
+#include "options.h"
 #pragma safety enable
 
 #include "ownership.h"
@@ -2893,6 +2894,38 @@ static void check_unused_parameters(const struct parser_ctx* ctx, struct paramet
     }
 }
 
+int check_function_types_complete(struct parser_ctx* ctx, struct declarator* funcdecl)
+{
+    runtime_assert(funcdecl->type.category == TYPE_CATEGORY_FUNCTION);
+
+    struct token* diagtok = NULL;
+    if (funcdecl->name_opt)
+        diagtok = funcdecl->name_opt;
+    else if (funcdecl->first_token_opt)
+        diagtok = funcdecl->first_token_opt;
+    else
+        diagtok = ctx->current;
+
+    struct type return_type = get_function_return_type(&funcdecl->type);
+    if (type_is_incomplete(&return_type))
+    {
+        diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, diagtok, NULL, "function has incomplete return type");
+        return 1;
+    }
+    struct param_list params = funcdecl->type.params;
+    struct param* param = params.head;
+    while (param)
+    {
+        if (type_is_incomplete(&param->type))
+        {
+            diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, diagtok, NULL, "function has incomplete parameter type");
+            return 1;
+        }
+        param = param->next;
+    }
+    return 0;
+}
+
 struct secondary_block* _Owner _Opt secondary_block(struct parser_ctx* ctx);
 
 struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
@@ -2986,6 +3019,9 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 
                 throw;
             }
+
+            if (check_function_types_complete(ctx, p_declarator) != 0)
+                throw;
 
             struct function_declarator* _Opt pfuncdecl = declarator_find_function_declarator(p_declarator);
             if (pfuncdecl == NULL) throw;
@@ -3650,8 +3686,15 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
-                        throw;
+                        if (p_init_declarator->p_declarator->type.enum_specifier)
+                        {
+                            
+                        }
+                        else
+                        {
+                            diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
+                            throw;
+                        }
                     }
                 }
 
@@ -6144,8 +6187,6 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
         if (parser_match_tk(ctx, TK_KEYWORD_ENUM) != 0)
             throw;
 
-        p_enum_specifier->integer_type = type_make_int();
-
         p_enum_specifier->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
         if (ctx->current == NULL)
@@ -6249,7 +6290,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 naming_convention_enum_tag(ctx, p_enum_specifier->tag_token);
 
             /*points to itself*/
-            p_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
+            // p_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
 
             if (parser_match_tk(ctx, '{') != 0)
                 throw;
@@ -6276,7 +6317,6 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             struct hash_item_set item = { 0 };
             item.p_enum_specifier = enum_specifier_add_ref(p_enum_specifier);
             hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, &item);
-            p_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
             hash_item_set_destroy(&item);
         }
         else
@@ -6286,11 +6326,13 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             {
                 p_existing_enum_specifier = find_enum_specifier(ctx, p_enum_specifier->tag_token->lexeme);
             }
-            if (p_existing_enum_specifier)
+
+            if (p_existing_enum_specifier && p_existing_enum_specifier->integer_type.type_specifier_flags != TYPE_SPECIFIER_NONE)
             {
                 //p_existing_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
                 //ja existe
                 /* check for another tag with the same name in this scope */
+
                 p_enum_specifier->p_complete_enum_specifier = p_existing_enum_specifier;
                 type_destroy(&p_enum_specifier->integer_type);
                 p_enum_specifier->integer_type = type_dup(&p_existing_enum_specifier->integer_type);
@@ -6302,7 +6344,8 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 struct hash_item_set item = { 0 };
                 item.p_enum_specifier = enum_specifier_add_ref(p_enum_specifier);
                 hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, &item);
-                p_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
+                if (p_enum_specifier->integer_type.type_specifier_flags != TYPE_SPECIFIER_NONE)
+                    p_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
                 hash_item_set_destroy(&item);
             }
         }
@@ -7890,7 +7933,7 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
             if (er != 0)
             {
                 //diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
-                throw;
+                //throw;
             }
         }
 

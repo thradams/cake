@@ -996,6 +996,19 @@ bool type_is_pointer(const struct type* p_type)
     return p_type->category == TYPE_CATEGORY_POINTER;
 }
 
+bool type_is_incomplete(const struct type* p_type)
+{
+    if (p_type->struct_or_union_specifier && !p_type->struct_or_union_specifier->complete_struct_or_union_specifier_indirection)
+    {
+        return true;
+    }
+    if (p_type->enum_specifier && p_type->enum_specifier->integer_type.type_specifier_flags == TYPE_SPECIFIER_NONE)
+    {
+        return true;
+    }
+    return false;
+}
+
 bool type_is_essential_bool(const struct type* p_type)
 {
     return p_type->attributes_flags & CAKE_HIDDEN_ATTRIBUTE_LIKE_BOOL;
