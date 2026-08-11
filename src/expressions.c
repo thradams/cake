@@ -1531,7 +1531,9 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
 
             }
             else if (ctx->p_current_function_opt &&
-                strcmp(ctx->current->lexeme, "__func__") == 0)
+                (strcmp(ctx->current->lexeme, "__func__") == 0 ||
+                 strcmp(ctx->current->lexeme, "__FUNCTION__") == 0 ||
+                 strcmp(ctx->current->lexeme, "__PRETTY_FUNCTION__") == 0))
             {
                 const char* func_name = ctx->p_current_function_opt->name_opt ?
                     ctx->p_current_function_opt->name_opt->lexeme :

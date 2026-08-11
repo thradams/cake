@@ -5,7 +5,7 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)../src/</LocalDebuggerWorkingDirectory>
     <LocalDebuggerCommand>$(TargetPath)</LocalDebuggerCommand>
-    <LocalDebuggerCommandArgumentsHistory> file.c -test-mode| -flow3 file.c|expressions.c|-copy-headers=c:\include2 file.c|-flow3 flow3.c|</LocalDebuggerCommandArgumentsHistory>
+    <LocalDebuggerCommandArgumentsHistory> -flow3 file.c|expressions.c|-copy-headers=c:\include2 file.c|-flow3 flow3.c|"C:/Users/thiago/Downloads/sqlite-amalgamation-3530400/sqlite-amalgamation-3530400/sqlite3.c"|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugTest|Win32'">
     <LocalDebuggerCommandArguments>-selftest</LocalDebuggerCommandArguments>

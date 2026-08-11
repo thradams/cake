@@ -11360,8 +11360,10 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
         if (p_secondary_block->statement->unlabeled_statement &&
             p_secondary_block->statement->unlabeled_statement->expression_statement &&
-            p_secondary_block->statement->unlabeled_statement->expression_statement->expression_opt == NULL)
+            p_secondary_block->statement->unlabeled_statement->expression_statement->expression_opt == NULL &&
+            !(is_if && ctx->current && ctx->current->type == TK_KEYWORD_ELSE))
         {
+            /* if (cond) ; else ...  is a common idiom (e.g. assert()-style macros), not a mistake */
             diagnostic(W_SWITCH,
                 ctx,
                 p_secondary_block->first_token,

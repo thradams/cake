@@ -27,7 +27,7 @@ enum expression_type
     EXPR_PRIMARY_ENUMERATOR,
     EXPR_PRIMARY_DECLARATOR,    
     EXPR_PRIMARY_STRING_LITERAL,
-    EXPR_PRIMARY__FUNC__, /*predefined identifier __func__ */
+    EXPR_PRIMARY__FUNC__, /*predefined identifier __func__ (also aliases __FUNCTION__ and __PRETTY_FUNCTION__) */
     EXPR_PRIMARY_CHAR_LITERAL,
     EXPR_PRIMARY_PREDEFINED_CONSTANT, /*true false*/
     EXPR_PRIMARY_GENERIC,
