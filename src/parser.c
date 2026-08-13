@@ -6294,6 +6294,10 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
 
                 prev_decl_same_scope->p_complete_enum_specifier = p_enum_specifier;
             }
+            if (!p_enum_specifier->has_underlying)
+            {
+                p_enum_specifier->integer_type.type_specifier_flags = TYPE_SPECIFIER_INT;
+            }
 
             if (p_enum_specifier->tag_token)
                 naming_convention_enum_tag(ctx, p_enum_specifier->tag_token);
