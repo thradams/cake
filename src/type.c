@@ -3312,12 +3312,17 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
             underlying_matched = true;
         }
 
-        if (pa->enum_specifier &&
-            pb->enum_specifier &&
-            get_complete_enum_specifier(pa->enum_specifier) !=
-            get_complete_enum_specifier(pb->enum_specifier))
+        if (pa->enum_specifier && pb->enum_specifier)
         {
-            return false;
+            const struct enum_specifier* pa_complete_enum = get_complete_enum_specifier(pa->enum_specifier);
+            const struct enum_specifier* pb_complete_enum = get_complete_enum_specifier(pb->enum_specifier);
+            if (pa_complete_enum != pb_complete_enum)
+                return false;
+
+            // both dont have enumerator list
+            // must have same tag
+            if (pa_complete_enum == NULL && pb_complete_enum == NULL && strcmp(pa->enum_specifier->tag_name, pb->enum_specifier->tag_name) != 0)
+                return false;
         }
 
 

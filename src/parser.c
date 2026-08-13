@@ -4929,20 +4929,20 @@ const struct enum_specifier* _Opt get_complete_enum_specifier(const struct enum_
       Then the result will be there at end of first pass.
       This crazy code finds the complete definition of the struct if exists.
     */
-    if (p_enum_specifier->integer_type.type_specifier_flags != TYPE_SPECIFIER_NONE)
+    if (p_enum_specifier->enumerator_list.head)
     {
         /*p_struct_or_union_specifier is complete*/
         return p_enum_specifier;
     }
     else if (p_enum_specifier->p_complete_enum_specifier &&
-        p_enum_specifier->p_complete_enum_specifier->integer_type.type_specifier_flags != TYPE_SPECIFIER_NONE)
+        p_enum_specifier->p_complete_enum_specifier->enumerator_list.head)
     {
         /*p_struct_or_union_specifier is the first seem tag tag points directly to complete*/
         return p_enum_specifier->p_complete_enum_specifier;
     }
     else if (p_enum_specifier->p_complete_enum_specifier &&
         p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier &&
-        p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier->integer_type.type_specifier_flags != TYPE_SPECIFIER_NONE)
+        p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier->enumerator_list.head)
     {
         /* all others points to the first seem that points to the complete*/
         return p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier;

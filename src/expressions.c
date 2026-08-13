@@ -2992,7 +2992,7 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
 
         }
     }
-    else if (category == TYPE_CATEGORY_ITSELF && p_type->enum_specifier && get_complete_enum_specifier(p_type->enum_specifier) == NULL)
+    else if (category == TYPE_CATEGORY_ITSELF && p_type->enum_specifier && p_type->enum_specifier->integer_type.type_specifier_flags == TYPE_SPECIFIER_NONE)
     {
         diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE,
                    ctx,
