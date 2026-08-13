@@ -3,7 +3,6 @@
  *  https://github.com/thradams/cake
 */
 
-#include "options.h"
 #pragma safety enable
 
 #include "ownership.h"

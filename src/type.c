@@ -1000,7 +1000,7 @@ bool type_is_incomplete(const struct type* p_type)
 {
     if (p_type->enum_specifier)
     {
-        return get_complete_enum_specifier(p_type->enum_specifier) == NULL;
+        return p_type->enum_specifier->integer_type.type_specifier_flags == TYPE_SPECIFIER_NONE;
     }
     if (p_type->struct_or_union_specifier)
     {
