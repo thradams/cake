@@ -411,20 +411,34 @@ int fill_options(struct options* options,
 
             if (strcmp(argv[i], "-fdiagnostics-format=msvc") == 0) //same as clang
             {
-                options->visual_studio_ouput_format = true;
+                options->diagnostic_ouput_format = DIAGNOSTIC_OUTPUT_FORMAT_MSVC;
+                continue;
+            }
+
+            if (strcmp(argv[i], "-fdiagnostics-format=gcc") == 0)
+            {
+                options->diagnostic_ouput_format = DIAGNOSTIC_OUTPUT_FORMAT_GCC;
+                continue;
+            }
+
+            if (strcmp(argv[i], "-fdiagnostics-format=ide") == 0)
+            {
+                options->diagnostic_ouput_format = DIAGNOSTIC_OUTPUT_FORMAT_CAKE;
                 continue;
             }
 
             printf("Invalid. Valid options are:"
                    "-fdiagnostics-color=never" " "
-                   "-fdiagnostics-format=msvc"
+                   "-fdiagnostics-format=gcc" " "
+                   "-fdiagnostics-format=msvc" " "
+                   "-fdiagnostics-format=ide"
                    "\n");
         }
 
         if (strcmp(argv[i], "-msvc-output") == 0) //same as clang
         {
             options->color_disabled = true;
-            options->visual_studio_ouput_format = true;
+            options->diagnostic_ouput_format = DIAGNOSTIC_OUTPUT_FORMAT_MSVC;
             continue;
         }
 

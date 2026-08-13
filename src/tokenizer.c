@@ -109,7 +109,7 @@ struct macro
     struct token_list replacement_list; /*copy*/
     struct macro_parameter* _Owner _Opt parameters;
     bool is_function;
-    int usage;
+    int usage;
     bool def_macro;
 };
 
@@ -162,8 +162,8 @@ static void tokenizer_diagnostic(enum diagnostic_id w, struct tokenizer_ctx* ctx
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format, color_enabled);
-    if (ctx->options.visual_studio_ouput_format)
+    print_position(stream->path, stream->line, stream->col, ctx->options.diagnostic_ouput_format, color_enabled, false);
+    if (ctx->options.diagnostic_ouput_format == DIAGNOSTIC_OUTPUT_FORMAT_MSVC)
     {
         printf("warning %d: %s\n", w, buffer);
     }
@@ -241,7 +241,7 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
     }
 
     const bool color_enabled = !ctx->options.color_disabled;
-    print_position(marker.file, marker.line, marker.start_col, ctx->options.visual_studio_ouput_format, color_enabled);
+    print_position(marker.file, marker.line, marker.start_col, ctx->options.diagnostic_ouput_format, color_enabled, included_file_location);
 
     char buffer[200] = { 0 };
 
@@ -251,7 +251,7 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    if (ctx->options.visual_studio_ouput_format)
+    if (ctx->options.diagnostic_ouput_format == DIAGNOSTIC_OUTPUT_FORMAT_MSVC)
     {
         if (is_warning)
             printf("warning: " "%s\n", buffer);
@@ -260,7 +260,7 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
         else if (is_note)
             printf("note: " "%s\n", buffer);
 
-        print_line_and_token(&marker, ctx->options.visual_studio_ouput_format);
+        print_line_and_token(&marker, color_enabled);
     }
     else
     {
@@ -286,7 +286,7 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
                 printf("note: " "%s\n", buffer);
         }
 
-        print_line_and_token(&marker, ctx->options.visual_studio_ouput_format);
+        print_line_and_token(&marker, color_enabled);
 
     }
 

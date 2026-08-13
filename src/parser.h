@@ -637,6 +637,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx,
 );
 
 void enumerator_list_destroy(_Dtor struct enumerator_list* p_enum_specifier);
+void enumerator_list_swap(struct enumerator_list* a, struct enumerator_list* b);
 void enumerator_list_add(struct enumerator_list* list, struct enumerator* _Owner p_item);
 
 struct enum_specifier
@@ -698,6 +699,7 @@ struct member_declaration_list
 
 struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier*);
 void member_declaration_list_destroy(_Opt _Dtor struct member_declaration_list* p);
+void member_declaration_list_swap(struct member_declaration_list* a, struct member_declaration_list* b);
 void member_declaration_list_add(struct member_declaration_list* list, struct member_declaration* _Owner p_item);
 
 struct member_declarator* _Opt find_member_declarator(struct member_declaration_list* list, const char* name, int* p_member_index);

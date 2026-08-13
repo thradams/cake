@@ -168,6 +168,7 @@ struct generic_assoc_list
 
 void generic_assoc_list_add(struct generic_assoc_list* p, struct generic_association* _Owner item);
 void generic_assoc_list_destroy(_Dtor struct generic_assoc_list* p);
+void generic_assoc_list_swap(struct generic_assoc_list* a, struct generic_assoc_list* b);
 
 struct generic_selection
 {

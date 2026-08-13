@@ -6,6 +6,7 @@
 #pragma once
 #include <stdbool.h>
 #include "ownership.h"
+#include "options.h" /*enum diagnostic_ouput_format*/
 
 enum token_type
 {
@@ -335,16 +336,18 @@ struct marker
     const struct token* _Opt p_token_end;
 };
 
-void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_format);
-void print_position(const char* _Opt path, int line, int col, bool msvc_format, bool color_enabled);
+
+void print_line_and_token(struct marker* p_marker, bool color_enabled);
+void print_position(const char* _Opt path, int line, int col, enum diagnostic_ouput_format format, bool color_enabled, bool fullpath);
 
 struct osstream;
 
 void ss_print_position(struct osstream* ss,
                        const char* _Opt path,
                        int line, int col,
-                       bool visual_studio_ouput_format,
-                       bool color_enabled);
+                       enum diagnostic_ouput_format format,
+                       bool color_enabled,
+                       bool fullpath);
 
 void ss_print_line_and_token(struct osstream* ss,
                              struct marker* p_marker,

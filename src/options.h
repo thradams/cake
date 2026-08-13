@@ -15,6 +15,13 @@ enum standard_version
     STD_EXT,
 };
 
+enum diagnostic_ouput_format
+{
+    DIAGNOSTIC_OUTPUT_FORMAT_GCC,
+    DIAGNOSTIC_OUTPUT_FORMAT_MSVC,
+    DIAGNOSTIC_OUTPUT_FORMAT_CAKE,
+};
+
 enum diagnostic_id {
 
     W_LOCATION = 0,
@@ -508,7 +515,7 @@ struct options
       -fdiagnostics-format=msvc
       -msvc-output
     */
-    bool visual_studio_ouput_format;
+    enum diagnostic_ouput_format diagnostic_ouput_format;
 
     /*
       -fdiagnostics-color=never

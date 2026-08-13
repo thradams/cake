@@ -897,14 +897,15 @@ void print_tokens_html(struct token* p_token)
     }
     printf("\n</pre>");
 }
-void print_position(const char* _Opt path, int line, int col, bool msvc_format, bool color_enabled)
+void print_position(const char* _Opt path, int line, int col, enum diagnostic_ouput_format format, bool color_enabled, bool fullpath)
 {
     struct osstream ss = { 0 };
     ss_print_position(&ss,
                        path,
                        line, col,
-                       msvc_format,
-                       color_enabled);
+                       format,
+                       color_enabled,
+                       fullpath);
     if (ss.c_str)
         fputs(ss.c_str, stdout);
     ss_close(&ss);
@@ -952,15 +953,16 @@ static void ss_print_path(struct osstream* ss, const char* path, bool fullpath)
 void ss_print_position(struct osstream* ss,
                        const char* _Opt path,
                        int line, int col,
-                       bool visual_studio_ouput_format,
-                       bool color_enabled)
+                       enum diagnostic_ouput_format format,
+                       bool color_enabled,
+                       bool fullpath)
 {
     if (path == NULL)
         path = "";
 
-    if (visual_studio_ouput_format)
+    if (format == DIAGNOSTIC_OUTPUT_FORMAT_MSVC)
     {
-        ss_print_path(ss, path, true /*full path*/);
+        ss_print_path(ss, path, fullpath);
         ss_fprintf(ss, "(%d,%d): ", line, col);
     }
     else
@@ -968,7 +970,7 @@ void ss_print_position(struct osstream* ss,
         if (color_enabled)
             ss_fprintf(ss, WHITE);
 
-        ss_print_path(ss, path, true /*full path*/);
+        ss_print_path(ss, path, fullpath);
 
         if (color_enabled)
             ss_fprintf(ss, WHITE ":%d:%d: ", line, col);

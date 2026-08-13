@@ -665,7 +665,18 @@ Specify the directory for SARIF output. Typical Visual Studio External Tools inv
 <code>-Wstyle -msvc-output -no-output -sarif -sarif-path &quot;$(SolutionDir).sarif&quot; $(ItemPath)</code></p>
 
 <p><strong><code>-msvc-output</code></strong><br>
-Format diagnostic output to be compatible with the Visual Studio IDE error parser.</p>
+Format diagnostic output to be compatible with the Visual Studio IDE error parser. Same as <code>-fdiagnostics-format=msvc</code> plus <code>-fdiagnostics-color=never</code>.</p>
+
+<p><strong><code>-fdiagnostics-format=&lt;format&gt;</code></strong><br>
+Select how the position of each diagnostic is printed. Valid formats:</p>
+
+<p><code>gcc</code> (default)  <code>file.c:1:2: warning 10: message</code> </p>
+
+<p><code>msvc</code>  <code>file.c(1,2): warning 10: message</code> </p>
+
+<p><code>ide</code>   <code>file.c:1:2: warning 10: message</code> </p>
+
+<p>Both shapes are understood by Visual Studio and by Visual Studio Code. The file being compiled is printed by name only; files reached through <code>#include</code> are printed with their full path.</p>
 
 <p><strong><code>-fdiagnostics-color=never</code></strong><br>
 Disable ANSI color codes in diagnostic output. Same as GCC.</p>

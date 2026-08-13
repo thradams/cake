@@ -193,6 +193,7 @@ enum {
                              * help but a fixed topic - see do_help_cmdline() */
     EVT_COPTS_TARGET = 910,  /* base id for the Target <select>'s options */
     EVT_COPTS_STYLE = 920,   /* base id for the Style <select>'s options */
+    EVT_COPTS_DIAGFORMAT = 930, /* base id for the Output Format <select>'s options */
     EVT_TOOLS_FINDREPLACE = 63,  /* Tools > "Find and Replace..." - opens/
                                   * raises the docked panel (see g_fr.window) */
     EVT_TOOLS_TERMINAL = 64,    /* Tools > "Terminal" - see do_open_terminal() */
@@ -239,6 +240,14 @@ enum {
                                   * popup's identically-labeled EVT_EDITOR_
                                   * COPY_PATH, which copies a document
                                   * window's own path */
+    /* The dock popup's three items - one per side a panel can be moved to,
+     * see g_dockmenu / EVT_DOCK_* handling. Kept contiguous and in
+     * ui_dock_side order (LEFT/RIGHT/BOTTOM) so the handler can subtract the
+     * base id instead of switching on each one. */
+    EVT_DOCK_LEFT = 1000,
+    EVT_DOCK_RIGHT = 1001,
+    EVT_DOCK_BOTTOM = 1002,
+
     EVT_FOLDER_NEWFILE = 975,  /* same popup's "New File..." item - opens the
                                 * dialog below (g_foldernew.modal), same one
                                 * EVT_FOLDER_NEWFOLDER opens - see
@@ -661,6 +670,7 @@ static struct
     ui_node* input;
     ui_node* target;
     ui_node* style;   /* -style=<name> <select> */
+    ui_node* diagformat; /* -fdiagnostics-format=<name> <select> */
     ui_node* flags;   /* "-no-output"/"-line-directives"/"-fanalyzer"/"-flow3"
                        * check-box GROUP - same control as Find's "Options" */
 } g_copts;  /* "-no-output"/"-line-directives"/"-fanalyzer" -
@@ -678,6 +688,7 @@ typedef struct
     char options[512];    /* free-text tokens, split on whitespace at compile time */
     const char* target;   /* slug for the chosen Target, or "" for none */
     const char* style;    /* slug for -style=<name>, or "" for "Do not check" */
+    const char* diagnostic_format; /* slug for -fdiagnostics-format=<name> */
     int no_output;         /* -no-output */
     int line_directives;   /* -line-directives */
     int fanalyzer;          /* -fanalyzer */
@@ -735,6 +746,38 @@ static int style_slug_to_index(const char* slug)
     return 0;
 }
 
+/* -fdiagnostics-format=<name>'s accepted values (see options.c). They differ
+ * in how each diagnostic's position is printed - "ide" prints it the same way
+ * "gcc" does, and is the default here so the format the IDE reads can evolve
+ * on its own:
+ *
+ *   ide   file.c:1:2:
+ *   gcc   file.c:1:2:
+ *   msvc  file.c(1,2):
+ *
+ * output_goto_source() parses all of them, so this only changes how the
+ * Output window reads. */
+static const char* g_diagformat_slugs[] = {
+    "ide",
+    "gcc",
+    "msvc",
+};
+
+static int diagformat_slug_to_index(const char* slug)
+{
+    if (!slug)
+        slug = "";
+
+    int count = (int)(sizeof g_diagformat_slugs / sizeof g_diagformat_slugs[0]);
+    for (int i = 0; i < count; i++)
+    {
+        if (strcmp(slug, g_diagformat_slugs[i]) == 0)
+            return i;
+    }
+
+    return 0;
+}
+
 static compile_settings g_compile =
 {
     .options = "",
@@ -746,6 +789,7 @@ static compile_settings g_compile =
     .target = "x86_x64_gcc",
 #endif
     .style = "",
+    .diagnostic_format = "ide",
     .no_output = 0,
     .line_directives = 0,
     .fanalyzer = 0,
@@ -799,6 +843,26 @@ static struct
     ui_node* input;
     int is_folder;      /* which of the two items opened it */
 } g_foldernew;
+
+/* The "Dock Left/Right/Bottom" popup, shared by every dockable panel
+ * (Output, Folder, Find and Replace) rather than built once per panel - the
+ * three items always mean the same thing, so only which panel they act on
+ * changes. It opens on a right-click that lands on a docked panel's frame
+ * (its border/title row, i.e. inside the <window> but outside every control
+ * in it) - the panel's *contents* keep their own popups, which is why the
+ * Output editor and the Folder listbox still show theirs.
+ *
+ * target is the <window> node the popup was last opened over - the same node
+ * ui_set_dock() was called on at build time, i.e. child 0 of the panel's
+ * wrapper, not the wrapper itself. It is only read while the popup is up.
+ * items[] is indexed by ui_dock_side - 1 so the open code can check the side
+ * the panel is already on. */
+static struct
+{
+    ui_node* popup;
+    ui_node* target;
+    ui_node* items[3];  /* [UI_DOCK_LEFT-1], [UI_DOCK_RIGHT-1], [UI_DOCK_BOTTOM-1] */
+} g_dockmenu;
 
 /* Whether folder_window_refresh applies the browsed directory's own
  * index.txt (filtering the listing down to just what it lists, in that
@@ -2047,6 +2111,103 @@ static void refresh_view_item(ui_node* item, const char* label, int visible)
     char buf[40];
     snprintf(buf, sizeof buf, "%s %s", visible ? "[x]" : "[ ]", label);
     ui_set_label(item, buf);
+}
+
+/* The docked panel whose frame is under (x, y), or NULL. "Frame" means the
+ * <window>'s own border/title row: inside the window but outside every
+ * control in it, so a right-click over the Output editor or the Folder
+ * listbox still gets that control's own popup and only the surrounding
+ * border opens the dock menu. Returns the <window> node (child 0 of the
+ * panel's wrapper), which is what ui_set_dock/ui_get_dock take. */
+static ui_node* _Opt docked_panel_frame_at(int x, int y)
+{
+    for (int i = 0; i < ui_child_count(g_root); i++)
+    {
+        ui_node* wrapper = ui_child_at(g_root, i);
+        if (!window_is_shown(wrapper))
+            continue;
+
+        ui_node* win = ui_child_at(wrapper, 0);
+        if (!win || ui_get_dock(win) == UI_DOCK_NONE)
+            continue;
+
+        if (!ui_node_contains(win, x, y))
+            continue;
+
+        int on_content = 0;
+        for (int k = 0; k < ui_child_count(win); k++)
+        {
+            if (ui_node_contains(ui_child_at(win, k), x, y))
+            {
+                on_content = 1;
+                break;
+            }
+        }
+
+        if (!on_content)
+            return win;
+    }
+
+    return NULL;
+}
+
+/* The shown docked panel occupying `side`, other than `except`, or NULL. A
+ * side holds one panel: ui_set_dock gives each docked window the full extent
+ * of its edge, so two on the same side would sit on top of each other. Until
+ * the panels could be moved at runtime (see g_dockmenu) that couldn't happen
+ * - Folder was built LEFT, Find and Replace RIGHT, Output BOTTOM - so the
+ * check lives here, at the one place that changes a side. */
+static ui_node* _Opt docked_panel_on_side(ui_dock_side side, const ui_node* _Opt except)
+{
+    for (int i = 0; i < ui_child_count(g_root); i++)
+    {
+        ui_node* wrapper = ui_child_at(g_root, i);
+        if (!window_is_shown(wrapper))
+            continue;
+
+        ui_node* win = ui_child_at(wrapper, 0);
+        if (win && win != except && ui_get_dock(win) == side)
+            return win;
+    }
+
+    return NULL;
+}
+
+/* Move `win` to `side`, sizing it to a quarter of the screen along whichever
+ * axis that side owns - a panel keeps only the extent it can control (a
+ * left/right dock's width, a bottom dock's height; the other axis always
+ * spans the full edge - see ui_set_dock), and the size it had on its old
+ * axis means nothing on the new one. A quarter is what the Folder/Output
+ * panels are built with anyway, and the dock border stays draggable from
+ * there.
+ *
+ * Refuses, with a message box, when another panel already holds that side -
+ * see docked_panel_on_side. */
+static void dock_panel_to(ui_node* _Opt win, ui_dock_side side)
+{
+    if (!win)
+        return;
+
+    ui_node* _Opt occupied_by = docked_panel_on_side(side, win);
+    if (occupied_by)
+    {
+        const char* label = ui_get_label(occupied_by);
+        char msg[160];
+        snprintf(msg, sizeof msg,
+                 "There is already a panel there (%s).\n"
+                 "Move or close it first.",
+                 (label && label[0]) ? label : "another panel");
+        ui_msgbox_button ok = { "   OK   ", 0 };
+        ui_message_box(g_screen, "Dock", msg, &ok, 1);
+        return;
+    }
+
+    int size = (side == UI_DOCK_BOTTOM) ? ui_screen_height(g_screen) / 4
+                                        : ui_screen_width(g_screen) / 4;
+    if (size < 1)
+        size = 1;
+
+    ui_set_dock(win, side, size);
 }
 
 /* Update the Folder panel popup's "Show Filter"/"Create Filter" item's
@@ -4454,20 +4615,42 @@ static void output_goto_source(void)
 
     strip_ansi_sgr(line);
 
-    /* The filename ends at the first ':' that's followed by a digit - so a
-     * Windows drive letter ("C:") isn't mistaken for the separator - and the
-     * line number is the digits right after it. */
-    char* colon = NULL;
+    /* Both diagnostic formats are accepted here (Compile > Options... picks
+     * which one the compiler prints - see g_diagformat_slugs), so a line
+     * pasted from either still jumps:
+     *
+     *   file.c:1:2: ...   gcc/ide  - the filename ends at the first ':'
+     *                     followed by a digit, so a Windows drive letter
+     *                     ("C:") isn't mistaken for the separator
+     *   file.c(1,2): ...  msvc     - the filename ends at the '(' of a
+     *                     "(<digits>,<digits>)" group
+     */
+    char* sep = NULL;
+    int src_line = 0;
     for (char* p = line; *p; p++)
+    {
         if (*p == ':' && isdigit((unsigned char)p[1]))
         {
-            colon = p;
+            sep = p;
+            src_line = atoi(p + 1);
             break;
         }
-    if (!colon)
+
+        if (*p == '(' && isdigit((unsigned char)p[1]))
+        {
+            char* q = p + 1;
+            while (isdigit((unsigned char)*q))
+                q++;
+            if (*q != ',')
+                continue;  /* not a position group - keep looking */
+            sep = p;
+            src_line = atoi(p + 1);
+            break;
+        }
+    }
+    if (!sep)
         return;
-    *colon = '\0';
-    int src_line = atoi(colon + 1);
+    *sep = '\0';
     if (src_line < 1)
         return;
 
@@ -4557,8 +4740,11 @@ static int parse_diagnostic_line(char* line, ui_diag_type* type, int* out_line,
 
     *type = types[found_type];
 
-    // 2. Extract source line number from the "file:line:col" prefix
-    // Find the first colon that is followed by a digit (skips drive letters)
+    // 2. Extract source line number from the "file:line:col" (gcc/ide) or
+    // "file(line,col)" (msvc) prefix - both formats are accepted, same as
+    // output_goto_source(). For the first, find the first colon followed by a
+    // digit (skips drive letters); for the second, the '(' of the
+    // "(<digits>,<digits>)" group.
     const char* p = line;
     const char* line_start = NULL;
     while (*p)
@@ -4567,6 +4753,18 @@ static int parse_diagnostic_line(char* line, ui_diag_type* type, int* out_line,
         {
             line_start = p + 1; // point to the first digit of the line number
             break;
+        }
+
+        if (*p == '(' && isdigit((unsigned char)*(p + 1)))
+        {
+            const char* q = p + 1;
+            while (isdigit((unsigned char)*q))
+                q++;
+            if (*q == ',')
+            {
+                line_start = p + 1;
+                break;
+            }
         }
         p++;
     }
@@ -4712,6 +4910,14 @@ static void do_compile(void)
     const char* argv[64];
     int argc = 0;
     argv[argc++] = "tcc";
+    /* Compile > Options...' "Output Format" row - see g_diagformat_slugs. */
+    char diagformat[32] = { 0 };
+    if (g_compile.diagnostic_format && g_compile.diagnostic_format[0])
+    {
+        snprintf(diagformat, sizeof diagformat, "-fdiagnostics-format=%s",
+                 g_compile.diagnostic_format);
+        argv[argc++] = diagformat;
+    }
     char target[20] = { 0 };
     if (g_compile.target[0])
     {
@@ -6577,6 +6783,7 @@ static void on_ui_event(void* ctx, int id, void* param)
     {
         ui_select_set_selected(g_copts.target, target_slug_to_index(g_compile.target));
         ui_select_set_selected(g_copts.style, style_slug_to_index(g_compile.style));
+        ui_select_set_selected(g_copts.diagformat, diagformat_slug_to_index(g_compile.diagnostic_format));
         /* Re-sync the check-box group from the committed state every time
          * the dialog opens, same reasoning as the Target/Style <select>s
          * above - so a Cancel below discards whatever gets clicked this
@@ -6599,10 +6806,20 @@ static void on_ui_event(void* ctx, int id, void* param)
         int style_sel = ui_select_get_selected(g_copts.style);
         int style_count = (int)(sizeof g_style_slugs / sizeof g_style_slugs[0]);
         g_compile.style = (style_sel >= 0 && style_sel < style_count) ? g_style_slugs[style_sel] : "";
+        int diag_sel = ui_select_get_selected(g_copts.diagformat);
+        int diag_count = (int)(sizeof g_diagformat_slugs / sizeof g_diagformat_slugs[0]);
+        g_compile.diagnostic_format = (diag_sel >= 0 && diag_sel < diag_count) ? g_diagformat_slugs[diag_sel] : "";
         g_compile.no_output = ui_group_get_checked(g_copts.flags, 0);
         g_compile.line_directives = ui_group_get_checked(g_copts.flags, 1);
         g_compile.fanalyzer = ui_group_get_checked(g_copts.flags, 2);
         ui_screen_close_modal(g_screen, g_copts.modal);
+    }
+    else if (id == EVT_DOCK_LEFT || id == EVT_DOCK_RIGHT || id == EVT_DOCK_BOTTOM)
+    {
+        /* The three ids are contiguous and in ui_dock_side order, so the
+         * offset from EVT_DOCK_LEFT is the side (UI_DOCK_LEFT is 1). */
+        dock_panel_to(g_dockmenu.target, (ui_dock_side)(UI_DOCK_LEFT + (id - EVT_DOCK_LEFT)));
+        g_dockmenu.target = NULL;
     }
     else if (id == EVT_COPTS_CANCEL)
     {
@@ -7982,6 +8199,7 @@ static void save_session(void)
     fprintf(f, "compile_options=%s\n", g_compile.options);
     fprintf(f, "compile_target=%s\n", g_compile.target);
     fprintf(f, "compile_style=%s\n", g_compile.style);
+    fprintf(f, "compile_diagnostic_format=%s\n", g_compile.diagnostic_format);
     fprintf(f, "compile_opt_no_output=%d\n", g_compile.no_output);
     fprintf(f, "compile_opt_line_directives=%d\n", g_compile.line_directives);
     fprintf(f, "compile_opt_fanalyzer=%d\n", g_compile.fanalyzer);
@@ -8028,14 +8246,21 @@ static void save_session(void)
         }
     }
 
+    /* Both panels can be moved between sides at runtime (see g_dockmenu), so
+     * the side is saved alongside the size - and the size read back is the
+     * extent of whichever axis that side owns, since a left/right dock
+     * controls its width and a bottom dock its height. The keys keep their
+     * original names so an older session file still restores. */
     if (g_folder.window)
     {
         ui_node* win = ui_child_at(g_folder.window, 0);
         if (win)
         {
-            int w;
-            ui_get_rect(win, NULL, NULL, &w, NULL);
-            fprintf(f, "folder_dock_w=%d\n", w);
+            int w, h;
+            ui_dock_side side = ui_get_dock(win);
+            ui_get_rect(win, NULL, NULL, &w, &h);
+            fprintf(f, "folder_dock_side=%d\n", (int)side);
+            fprintf(f, "folder_dock_w=%d\n", side == UI_DOCK_BOTTOM ? h : w);
         }
     }
     if (g_output_window)
@@ -8043,9 +8268,11 @@ static void save_session(void)
         ui_node* win = ui_child_at(g_output_window, 0);
         if (win)
         {
-            int h;
-            ui_get_rect(win, NULL, NULL, NULL, &h);
-            fprintf(f, "output_dock_h=%d\n", h);
+            int w, h;
+            ui_dock_side side = ui_get_dock(win);
+            ui_get_rect(win, NULL, NULL, &w, &h);
+            fprintf(f, "output_dock_side=%d\n", (int)side);
+            fprintf(f, "output_dock_h=%d\n", side == UI_DOCK_BOTTOM ? h : w);
         }
     }
 
@@ -8130,6 +8357,11 @@ static int load_session(void)
     int have_main_rect = 0, main_x = 0, main_y = 0, main_w = 0, main_h = 0, main_maximized = 0;
     int have_folder_w = 0, folder_w = 0;
     int have_output_h = 0, output_h = 0;
+    /* The side each panel was last docked to (see g_dockmenu) - defaults to
+       where it is built, so a session file written before the sides could be
+       moved restores exactly as it used to. */
+    ui_dock_side folder_side = UI_DOCK_LEFT;
+    ui_dock_side output_side = UI_DOCK_BOTTOM;
 
     char key[64], val[1024];
     while (session_read_line(f, key, sizeof key, val, sizeof val))
@@ -8140,6 +8372,8 @@ static int load_session(void)
             g_compile.target = g_target_slugs[target_slug_to_index(val)];
         else if (strcmp(key, "compile_style") == 0)
             g_compile.style = g_style_slugs[style_slug_to_index(val)];
+        else if (strcmp(key, "compile_diagnostic_format") == 0)
+            g_compile.diagnostic_format = g_diagformat_slugs[diagformat_slug_to_index(val)];
         else if (strcmp(key, "compile_opt_no_output") == 0)
             g_compile.no_output = atoi(val);
         else if (strcmp(key, "compile_opt_line_directives") == 0)
@@ -8201,6 +8435,10 @@ static int load_session(void)
             main_maximized = atoi(val);
         else if (strcmp(key, "folder_dock_w") == 0)
             { folder_w = atoi(val); have_folder_w = 1; }
+        else if (strcmp(key, "folder_dock_side") == 0)
+            folder_side = (ui_dock_side)atoi(val);
+        else if (strcmp(key, "output_dock_side") == 0)
+            output_side = (ui_dock_side)atoi(val);
         else if (strcmp(key, "output_dock_h") == 0)
             { output_h = atoi(val); have_output_h = 1; }
     }
@@ -8217,13 +8455,13 @@ static int load_session(void)
     {
         ui_node* win = ui_child_at(g_folder.window, 0);
         if (win)
-            ui_set_dock(win, UI_DOCK_LEFT, folder_w);
+            ui_set_dock(win, folder_side, folder_w);
     }
     if (have_output_h && g_output_window)
     {
         ui_node* win = ui_child_at(g_output_window, 0);
         if (win)
-            ui_set_dock(win, UI_DOCK_BOTTOM, output_h);
+            ui_set_dock(win, output_side, output_h);
     }
 
     /* Compiler Options dialog: g_compile.options/g_compile.target above
@@ -8615,6 +8853,24 @@ void app_init(ui_env* env)
     ui_append_child(folder_popup, folder_popup_delete);
     g_folder.popup = folder_popup;
 
+    /* --- Dock popup --- one menu for every dockable panel, see g_dockmenu. */
+    ui_node* dock_popup = ui_create_element(UI_TAG_MENU);
+    ui_append_child(root, dock_popup);
+    struct { int id; const char* label; } dock_items[] = {
+        { EVT_DOCK_LEFT,   "Dock Left" },
+        { EVT_DOCK_RIGHT,  "Dock Right" },
+        { EVT_DOCK_BOTTOM, "Dock Bottom" },
+    };
+    for (int i = 0; i < 3; i++)
+    {
+        ui_node* it = ui_create_element(UI_TAG_ITEM);
+        ui_set_id(it, dock_items[i].id);
+        ui_set_label(it, dock_items[i].label);
+        ui_append_child(dock_popup, it);
+        g_dockmenu.items[i] = it;
+    }
+    g_dockmenu.popup = dock_popup;
+
     /* --- New File/Folder modal --- shared by EVT_FOLDER_NEWFILE and
      * EVT_FOLDER_NEWFOLDER, which retitle it (g_foldernew.window) and set
      * g_foldernew.is_folder before showing it - see EVT_FOLDERNEW_OK. */
@@ -8774,15 +9030,12 @@ void app_init(ui_env* env)
     ui_node* copts_modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, copts_modal);
     ui_node* copts_window = ui_create_element(UI_TAG_WINDOW);
-    ui_set_rect(copts_window, 15, 5, 62, 16);
+    ui_set_rect(copts_window, 15, 5, 62, 17);
     ui_set_label(copts_window, " Compiler Options ");
     ui_set_color(copts_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(copts_modal, copts_window);
-    add_text(copts_window, 18, 7, "Options", theme->label_fg, theme->modal_bg);
-    g_copts.input = add_input(copts_window, 27, 7, 34, "");
-    ui_set_id(g_copts.input, EVT_COPTS_OK);
-    add_text(copts_window, 18, 9, "Target", theme->label_fg, theme->modal_bg);
-    g_copts.target = add_select(copts_window, 27, 9, 20);
+    add_text(copts_window, 18, 7, "Target", theme->label_fg, theme->modal_bg);
+    g_copts.target = add_select(copts_window, 29, 7, 20);
     add_select_item(g_copts.target, EVT_COPTS_TARGET + 0, "X86 MSVC");
     add_select_item(g_copts.target, EVT_COPTS_TARGET + 1, "X64 MSVC");
     add_select_item(g_copts.target, EVT_COPTS_TARGET + 2, "X64 GCC");
@@ -8791,18 +9044,26 @@ void app_init(ui_env* env)
 
     /* Style (-style=<name>) - see g_style_slugs' own comment for why only
      * these four are offered. */
-    add_text(copts_window, 18, 11, "Style", theme->label_fg, theme->modal_bg);
-    g_copts.style = add_select(copts_window, 27, 11, 20);
+    add_text(copts_window, 18, 9, "Style", theme->label_fg, theme->modal_bg);
+    g_copts.style = add_select(copts_window, 29, 9, 20);
     add_select_item(g_copts.style, EVT_COPTS_STYLE + 0, "Do not check");
     add_select_item(g_copts.style, EVT_COPTS_STYLE + 1, "cake");
     add_select_item(g_copts.style, EVT_COPTS_STYLE + 2, "gnu");
     add_select_item(g_copts.style, EVT_COPTS_STYLE + 3, "microsoft");
     ui_select_set_selected(g_copts.style, style_slug_to_index(g_compile.style));
 
+    /* Output Format (-fdiagnostics-format=<name>) - see g_diagformat_slugs. */
+    add_text(copts_window, 18, 11, "Diagnostic", theme->label_fg, theme->modal_bg);
+    g_copts.diagformat = add_select(copts_window, 29, 11, 20);
+    add_select_item(g_copts.diagformat, EVT_COPTS_DIAGFORMAT + 0, "cake ide");
+    add_select_item(g_copts.diagformat, EVT_COPTS_DIAGFORMAT + 1, "gcc");
+    add_select_item(g_copts.diagformat, EVT_COPTS_DIAGFORMAT + 2, "msvc");
+    ui_select_set_selected(g_copts.diagformat, diagformat_slug_to_index(g_compile.diagnostic_format));
+
     /* Flags - a check-box GROUP, same control as Find's "Options"
      * (g_find.opts) above (add_group/add_group_item). */
     add_text(copts_window, 18, 13, "Flags", theme->label_fg, theme->modal_bg);
-    g_copts.flags = add_group(copts_window, 27, 13, 30, 3, 1);
+    g_copts.flags = add_group(copts_window, 29, 13, 45, 3, 1);
     add_group_item(g_copts.flags, "-no-output");
     add_group_item(g_copts.flags, "-line-directives");
     add_group_item(g_copts.flags, "-fanalyzer");
@@ -8810,19 +9071,24 @@ void app_init(ui_env* env)
     ui_group_set_checked(g_copts.flags, 1, g_compile.line_directives);
     ui_group_set_checked(g_copts.flags, 2, g_compile.fanalyzer);
 
+    /* Free-text options last - anything the rows above don't cover. */
+    add_text(copts_window, 18, 17, "Options", theme->label_fg, theme->modal_bg);
+    g_copts.input = add_input(copts_window, 29, 17, 45, "");
+    ui_set_id(g_copts.input, EVT_COPTS_OK);
+
     ui_node* copts_ok = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(copts_ok, EVT_COPTS_OK);
-    ui_set_rect(copts_ok, 27, 18, 10, 1);
+    ui_set_rect(copts_ok, 27, 19, 10, 1);
     ui_set_label(copts_ok, "  OK  ");
     ui_append_child(copts_window, copts_ok);
     ui_node* copts_cancel = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(copts_cancel, EVT_COPTS_CANCEL);
-    ui_set_rect(copts_cancel, 41, 18, 10, 1);
+    ui_set_rect(copts_cancel, 41, 19, 10, 1);
     ui_set_label(copts_cancel, "Cancel");
     ui_append_child(copts_window, copts_cancel);
     ui_node* copts_help = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(copts_help, EVT_COPTS_HELP);
-    ui_set_rect(copts_help, 55, 18, 10, 1);
+    ui_set_rect(copts_help, 55, 19, 10, 1);
     ui_set_label(copts_help, " Help ");
     ui_append_child(copts_window, copts_help);
     g_copts.modal = copts_modal;
@@ -9176,6 +9442,26 @@ int app_frame(ui_env* env)
             refresh_folder_filter_item(g_folder.popup_filter);
             refresh_folder_show_filter_item(g_folder.popup_show);
             ui_screen_open_popup(g_screen, g_folder.popup, mx, my, NULL);
+        }
+    }
+
+    /* Right-click on a docked panel's frame opens the "Dock Left/Right/
+     * Bottom" popup for that panel (see g_dockmenu/docked_panel_frame_at).
+     * The side it is already on is marked, same "[x] Label" convention the
+     * View menu and the Folder popup's "Filter" use. */
+    if (ui_screen_mouse_right_pressed(g_screen) && !ui_screen_active_modal(g_screen))
+    {
+        int mx = ui_screen_mouse_x(g_screen), my = ui_screen_mouse_y(g_screen);
+        ui_node* panel = docked_panel_frame_at(mx, my);
+        if (panel)
+        {
+            static const char* dock_labels[3] = { "Dock Left", "Dock Right", "Dock Bottom" };
+            ui_dock_side current = ui_get_dock(panel);
+            for (int i = 0; i < 3; i++)
+                refresh_view_item(g_dockmenu.items[i], dock_labels[i], current == (ui_dock_side)(i + 1));
+
+            g_dockmenu.target = panel;
+            ui_screen_open_popup(g_screen, g_dockmenu.popup, mx, my, NULL);
         }
     }
 

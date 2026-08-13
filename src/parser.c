@@ -914,10 +914,11 @@ _Bool diagnostic(enum diagnostic_id w,
     /* build the complete formatted stdout text */
     struct osstream ss = { 0 };
 
+    /*the main source file prints only the file name, includes print the full path*/
     ss_print_position(&ss, marker.file, marker.line, marker.start_col,
-        ctx->options.visual_studio_ouput_format, color_enabled);
+        ctx->options.diagnostic_ouput_format, color_enabled, included_file_location);
 
-    if (ctx->options.visual_studio_ouput_format)
+    if (ctx->options.diagnostic_ouput_format == DIAGNOSTIC_OUTPUT_FORMAT_MSVC)
     {
         if (is_error) ss_fprintf(&ss, "error %d: ", w);
         else if (is_warning) ss_fprintf(&ss, "warning %d: ", w);
@@ -953,7 +954,7 @@ _Bool diagnostic(enum diagnostic_id w,
     ss_fprintf(&ss, "\n");
     struct marker m = marker; /* ss_print_line_and_token writes start/end col back */
 
-    if (!ctx->options.visual_studio_ouput_format)
+    if (ctx->options.diagnostic_ouput_format != DIAGNOSTIC_OUTPUT_FORMAT_MSVC)
     {
         ss_print_line_and_token(&ss, &m, color_enabled);
     }
@@ -3279,7 +3280,13 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         else
         {
             _Assert(p_init_declarator->p_declarator->type.type_specifier_flags == 0);
-            p_init_declarator->p_declarator->type = make_type_using_declarator(ctx, p_init_declarator->p_declarator);
+            /* Through a temporary: make_type_using_declarator takes the
+               declarator non-const and can write its ->type, so assigning
+               the result straight back onto ->type would overwrite -- and
+               leak -- whatever the callee had already stored there. */
+            struct type t = make_type_using_declarator(ctx, p_init_declarator->p_declarator);
+            type_swap(&p_init_declarator->p_declarator->type, &t);
+            type_destroy(&t);
         }
 
         _Assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
@@ -3944,7 +3951,6 @@ struct storage_class_specifier* _Owner _Opt storage_class_specifier(struct parse
             p_storage_class_specifier->flags = STORAGE_SPECIFIER_EXTERN;
             break;
         case TK_KEYWORD_CONSTEXPR:
-
             p_storage_class_specifier->flags = STORAGE_SPECIFIER_CONSTEXPR;
             if (ctx->scopes.tail && ctx->scopes.tail->scope_level == 0)
                 p_storage_class_specifier->flags |= STORAGE_SPECIFIER_CONSTEXPR_STATIC;
@@ -3962,8 +3968,7 @@ struct storage_class_specifier* _Owner _Opt storage_class_specifier(struct parse
             p_storage_class_specifier->flags = STORAGE_SPECIFIER_REGISTER;
             break;
         default:
-            _Assert(false);
-            break;
+            throw;
         }
 
         /*
@@ -5159,7 +5164,9 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
 
             if (ctx->current->type != '}') /*not official extensions yet..missing sizeof etc*/
             {
-                p_struct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, p_struct_or_union_specifier);
+                struct member_declaration_list list = member_declaration_list(ctx, p_struct_or_union_specifier);
+                member_declaration_list_swap(&p_struct_or_union_specifier->member_declaration_list, &list);
+                member_declaration_list_destroy(&list);
 
                 /* an empty struct is not allowed */
                 if (p_struct_or_union_specifier->member_declaration_list.head == NULL) throw;
@@ -5264,7 +5271,9 @@ struct member_declarator* _Owner _Opt member_declarator(
         p_member_declarator->declarator->name_opt = p_token_name;
         p_member_declarator->declarator->specifier_qualifier_list = p_specifier_qualifier_list;
 
-        p_member_declarator->declarator->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
+        struct type t = make_type_using_declarator(ctx, p_member_declarator->declarator);
+        type_swap(&p_member_declarator->declarator->type, &t);
+        type_destroy(&t);
 
         if (type_is_function(&p_member_declarator->declarator->type))
         {
@@ -5510,6 +5519,13 @@ void member_declaration_list_add(struct member_declaration_list* list, struct me
         list->tail->next = p_item;
     }
     list->tail = p_item;
+}
+
+void member_declaration_list_swap(struct member_declaration_list* a, struct member_declaration_list* b)
+{
+    struct member_declaration_list temp = *a;
+    *a = *b;
+    *b = temp;
 }
 
 void member_declaration_list_destroy(_Opt _Dtor struct member_declaration_list* p)
@@ -6254,7 +6270,9 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, '{') != 0)
                 throw;
 
-            p_enum_specifier->enumerator_list = enumerator_list(ctx, p_enum_specifier);
+            struct enumerator_list list = enumerator_list(ctx, p_enum_specifier);
+            enumerator_list_swap(&p_enum_specifier->enumerator_list, &list);
+            enumerator_list_destroy(&list);
 
             if (p_enum_specifier->enumerator_list.head == NULL)
                 throw;
@@ -6329,6 +6347,13 @@ void enumerator_list_add(struct enumerator_list* list, struct enumerator* _Owner
         list->tail->next = p_item;
     }
     list->tail = p_item;
+}
+
+void enumerator_list_swap(struct enumerator_list* a, struct enumerator_list* b)
+{
+    struct enumerator_list temp = *a;
+    *a = *b;
+    *b = temp;
 }
 
 void enumerator_list_destroy(_Dtor struct enumerator_list* p)
@@ -6586,7 +6611,9 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
                 throw;
             }
 
-            p_enumerator->value = p_enumerator->constant_expression_opt->object;
+            struct object newvalue = object_dup(&p_enumerator->constant_expression_opt->object);
+            object_swap(&p_enumerator->value, &newvalue);
+            object_destroy(&newvalue);
 
             bool is_signed = object_type_is_signed_integer(p_enumerator->value.value_type);
             is_negative = is_signed && (p_enumerator->value.value.host_long_long < 0);
@@ -7530,7 +7557,7 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
             }
         }
 
-        while (ctx->current != NULL && ctx->current->type == '*')
+        if (ctx->current != NULL && ctx->current->type == '*')
         {
             p_pointer = calloc(1, sizeof(struct pointer));
             if (p_pointer == NULL)
@@ -7875,7 +7902,9 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
         p_parameter_declaration->declarator->name_opt = p_token_name;
         p_parameter_declaration->declarator->declaration_specifiers = p_parameter_declaration->declaration_specifiers;
 
-        p_parameter_declaration->declarator->type = make_type_using_declarator(ctx, p_parameter_declaration->declarator);
+        struct type t = make_type_using_declarator(ctx, p_parameter_declaration->declarator);
+        type_swap(&p_parameter_declaration->declarator->type, &t);
+        type_destroy(&t);
 
         if (p_parameter_declaration->declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
         {
@@ -8206,7 +8235,9 @@ struct type_name* _Owner _Opt type_name(struct parser_ctx* ctx)
 
         p_type_name->abstract_declarator->specifier_qualifier_list = p_type_name->specifier_qualifier_list;
 
-        p_type_name->abstract_declarator->type = make_type_using_declarator(ctx, p_type_name->abstract_declarator);
+        struct type t = make_type_using_declarator(ctx, p_type_name->abstract_declarator);
+        type_swap(&p_type_name->abstract_declarator->type, &t);
+        type_destroy(&t);
 
         if (ctx->current == NULL)
         {
@@ -9383,8 +9414,10 @@ struct attribute_specifier* _Owner _Opt attribute_specifier(struct parser_ctx* c
 
         if (p_attribute_list == NULL)
             throw;
-
+        
+        attribute_list_delete(p_attribute_specifier->attribute_list);
         p_attribute_specifier->attribute_list = p_attribute_list;
+
         if (parser_match_tk(ctx, ']') != 0)
             throw;
 
@@ -9676,6 +9709,8 @@ struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx, struct attribute
                 attribute_argument_clause(ctx);
             if (p_attribute_argument_clause == NULL)
                 throw;
+
+            attribute_argument_clause_delete(p_attribute->attribute_argument_clause);
             p_attribute->attribute_argument_clause = p_attribute_argument_clause;
         }
     }

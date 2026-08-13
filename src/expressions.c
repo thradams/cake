@@ -627,6 +627,13 @@ void generic_assoc_list_destroy(_Dtor struct generic_assoc_list* p)
     }
 }
 
+void generic_assoc_list_swap(struct generic_assoc_list* a, struct generic_assoc_list* b)
+{
+    struct generic_assoc_list temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
 void generic_selection_delete(struct generic_selection* _Owner _Opt p)
 {
     if (p)
@@ -692,7 +699,10 @@ struct generic_selection* _Owner _Opt generic_selection(struct parser_ctx* ctx, 
         if (parser_match_tk(ctx, ',') != 0)
             throw;
 
-        p_generic_selection->generic_assoc_list = generic_association_list(ctx, p_generic_selection, is_discarded);
+        struct generic_assoc_list list = generic_association_list(ctx, p_generic_selection, is_discarded);
+        generic_assoc_list_swap(&p_generic_selection->generic_assoc_list, &list);
+        generic_assoc_list_destroy(&list);
+
         if (p_generic_selection->generic_assoc_list.head == NULL) throw;
 
         if (ctx->current == NULL)
@@ -3184,6 +3194,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             if (new_expression == NULL) throw;
 
             new_expression->first_token = ctx->current;
+            new_expression->last_token = ctx->current;
 
             struct token* op_position = ctx->current; /* mark position */
             enum token_type op = ctx->current->type;
@@ -3732,6 +3743,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             if (new_expression == NULL) throw;
 
             new_expression->first_token = ctx->current;
+            new_expression->last_token = ctx->current;
 
             if (first_of_type_name_ahead(ctx))
             {
@@ -4371,23 +4383,8 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                 throw;
             }
 
-            if (ctx->current->type != '{')
-            {
-                p_expression_node = calloc(1, sizeof * p_expression_node);
-                if (p_expression_node == NULL)
-                    throw;
-
-                p_expression_node->first_token = open_parenthesis_token;
-                p_expression_node->expression_type = EXPR_CAST;
-                p_expression_node->type_name = p_type_name; /*MOVED*/
-                p_type_name = NULL;
-
-                p_expression_node->type = type_dup(&p_expression_node->type_name->type);
-            }
-
             if (ctx->current->type == '{')
             {
-
                 /*
                     ( storage-class-specifier opt type-name ) { ... }
                 */
@@ -4404,9 +4401,25 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
 
                 if (p_expression_node == NULL) throw;
             }
-            else if (is_first_of_unary_expression(ctx))
+            else
             {
-                if (p_expression_node == NULL) throw;
+                p_expression_node = calloc(1, sizeof * p_expression_node);
+                if (p_expression_node == NULL)
+                    throw;
+
+                p_expression_node->first_token = open_parenthesis_token;
+                p_expression_node->expression_type = EXPR_CAST;
+                p_expression_node->type_name = p_type_name; /*MOVED*/
+                p_type_name = NULL;
+
+                p_expression_node->type = type_dup(&p_expression_node->type_name->type);
+
+                if (!is_first_of_unary_expression(ctx))
+                {
+                    diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "expected expression");
+                }
+                else
+                {
 
                 p_expression_node->left = cast_expression(ctx, is_discarded);
                 if (p_expression_node->left == NULL)
@@ -4516,12 +4529,9 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                     p_expression_node->object = object_cast(ctx->options.target, vt, &p_expression_node->left->object);
                 }
 
-                p_expression_node->type.storage_class_specifier_flags =
-                    p_expression_node->left->type.storage_class_specifier_flags;
-            }
-            else
-            {
-                diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "expected expression");
+                    p_expression_node->type.storage_class_specifier_flags =
+                        p_expression_node->left->type.storage_class_specifier_flags;
+                }
             }
         }
         else if (is_first_of_unary_expression(ctx))
@@ -5239,7 +5249,6 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, boo
     */
 
     struct expression* _Owner _Opt p_expression_node = NULL;
-    struct expression* _Owner _Opt new_expression = NULL;
     try
     {
         p_expression_node = shift_expression(ctx, is_discarded);
@@ -5252,8 +5261,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, boo
                 ctx->current->type == '>=' ||
                 ctx->current->type == '<='))
         {
-            _Assert(new_expression == NULL);
-            new_expression = calloc(1, sizeof * new_expression);
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
             {
                 throw;
@@ -5267,6 +5275,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, boo
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
+                expression_delete(new_expression);
                 throw;
             }
 
@@ -5277,7 +5286,6 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, boo
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -5286,7 +5294,6 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, boo
             {
                 unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -5410,12 +5417,10 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, boo
             new_expression->type = type_make_int_bool_like();
 
             p_expression_node = new_expression;
-            new_expression = NULL; /*MOVED*/
         }
     }
     catch
     {
-        expression_delete(new_expression);
         expression_delete(p_expression_node);
         p_expression_node = NULL;
     }
@@ -5485,7 +5490,6 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, bool 
     — one operand is a pointer and the other is a null pointer constant.
     */
     struct expression* _Owner _Opt p_expression_node = NULL;
-    struct expression* _Owner _Opt new_expression = NULL;
 
     try
     {
@@ -5498,8 +5502,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, bool 
                 ctx->current->type == '!='))
         {
             struct token* p_token_operator = ctx->current;
-            _Assert(new_expression == NULL);
-            new_expression = calloc(1, sizeof * new_expression);
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
                 throw;
 
@@ -5517,6 +5520,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, bool 
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
+                expression_delete(new_expression);
                 throw;
             }
 
@@ -5530,11 +5534,15 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, bool 
 
             new_expression->right = relational_expression(ctx, is_discarded);
             if (new_expression->right == NULL)
+            {
+                expression_delete(new_expression);
                 throw;
+            }
 
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
+                expression_delete(new_expression);
                 throw;
             }
 
@@ -5571,7 +5579,6 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, bool 
 
             new_expression->type = type_make_int_bool_like();
             p_expression_node = new_expression;
-            new_expression = NULL; /*MOVED*/
         }
     }
     catch
@@ -5580,7 +5587,6 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, bool 
         p_expression_node = NULL;
     }
 
-    expression_delete(new_expression);
     return p_expression_node;
 }
 
@@ -5592,7 +5598,6 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, bool is_di
       AND-expression & equality-expression
     */
     struct expression* _Owner _Opt p_expression_node = NULL;
-    struct expression* _Owner _Opt new_expression = NULL;
 
     try
     {
@@ -5612,8 +5617,7 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, bool is_di
                 throw;
             }
 
-            _Assert(new_expression == NULL);
-            new_expression = calloc(1, sizeof * new_expression);
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
                 throw;
             new_expression->first_token = ctx->current;
@@ -5623,7 +5627,10 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, bool is_di
 
             new_expression->right = equality_expression(ctx, is_discarded);
             if (new_expression->right == NULL)
+            {
+                expression_delete(new_expression);
                 throw;
+            }
 
             new_expression->last_token = new_expression->right->last_token;
 
@@ -5633,12 +5640,14 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, bool is_di
             if (!type_is_integer(&new_expression->left->type))
             {
                 diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
+                expression_delete(new_expression);
                 throw;
             }
 
             if (!type_is_integer(&new_expression->right->type))
             {
                 diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
+                expression_delete(new_expression);
                 throw;
             }
 
@@ -5652,7 +5661,6 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, bool is_di
             }
 
             p_expression_node = new_expression;
-            new_expression = NULL; /*MOVED*/
         }
     }
     catch
@@ -5661,7 +5669,6 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, bool is_di
         p_expression_node = NULL;
     }
 
-    expression_delete(new_expression);
     return p_expression_node;
 }
 
@@ -5673,7 +5680,6 @@ struct expression* _Owner _Opt exclusive_or_expression(struct parser_ctx* ctx, b
       exclusive-OR-expression ^ AND-expression
     */
     struct expression* _Owner _Opt p_expression_node = NULL;
-    struct expression* _Owner _Opt new_expression = NULL;
 
     try
     {
@@ -5694,8 +5700,7 @@ struct expression* _Owner _Opt exclusive_or_expression(struct parser_ctx* ctx, b
                 throw;
             }
 
-            _Assert(new_expression == NULL);
-            new_expression = calloc(1, sizeof * new_expression);
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
                 throw;
 
@@ -5706,7 +5711,10 @@ struct expression* _Owner _Opt exclusive_or_expression(struct parser_ctx* ctx, b
 
             new_expression->right = and_expression(ctx, is_discarded);
             if (new_expression->right == NULL)
+            {
+                expression_delete(new_expression);
                 throw;
+            }
 
             new_expression->last_token = new_expression->right->last_token;
             new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
@@ -5715,12 +5723,14 @@ struct expression* _Owner _Opt exclusive_or_expression(struct parser_ctx* ctx, b
             if (!type_is_integer(&new_expression->left->type))
             {
                 diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
+                expression_delete(new_expression);
                 throw;
             }
 
             if (!type_is_integer(&new_expression->right->type))
             {
                 diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
+                expression_delete(new_expression);
                 throw;
             }
 
@@ -5734,7 +5744,6 @@ struct expression* _Owner _Opt exclusive_or_expression(struct parser_ctx* ctx, b
             }
 
             p_expression_node = new_expression;
-            new_expression = NULL;
         }
     }
     catch
@@ -5743,7 +5752,6 @@ struct expression* _Owner _Opt exclusive_or_expression(struct parser_ctx* ctx, b
         p_expression_node = NULL;
     }
 
-    expression_delete(new_expression);
     return p_expression_node;
 }
 
@@ -6440,6 +6448,7 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx, bool is_discar
                     throw;
 
                 p_expression_node_new->first_token = ctx->current;
+                p_expression_node_new->last_token = ctx->current;
                 p_expression_node_new->expression_type = EXPR_EXPRESSION;
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node = NULL; /*MOVED*/
@@ -6581,6 +6590,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
             struct expression* _Owner _Opt p_conditional_expression = calloc(1, sizeof(struct expression));
             if (p_conditional_expression == NULL) throw;
             p_conditional_expression->first_token = ctx->current;
+            p_conditional_expression->last_token = ctx->current;
             p_conditional_expression->expression_type = EXPR_CONDITIONAL;
             p_conditional_expression->condition_expr = p_expression_node;
             p_expression_node = NULL; /*MOVED*/

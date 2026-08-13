@@ -8539,9 +8539,13 @@ static void editor_hscrollbar_drag_to(ui_node* n, int mouse_x, int grab_offset)
  * highlight but dragging across "oo_b" or "foo(" doesn't. Returns a pointer
  * into n->label and the length in bytes.
  *
- * Two bytes minimum: a one-character selection matches so much of a typical
- * source file that the highlight stops carrying information. */
-#define UI_WORD_MATCH_MIN 2
+ * One byte minimum, i.e. no minimum beyond a non-empty selection: a match
+ * has to be a whole word (both the selection and every occurrence are
+ * checked for word bytes on either side, here and in
+ * highlight_word_matches), so selecting a one-character name like `p`
+ * highlights the other standalone `p`s and not the p inside `ptr` - the same
+ * useful cue every longer name gets. */
+#define UI_WORD_MATCH_MIN 1
 static const char* editor_selected_word(ui_node* n, int* out_len)
 {
     if (!has_selection(n))
