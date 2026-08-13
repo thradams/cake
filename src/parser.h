@@ -113,6 +113,16 @@ void diagnostic_queue_destroy(_Dtor struct diagnostic_queue* q);
 
 int parse_diagnostic_suppression(const char* p, int ids[], int ids_max);
 
+struct block_item_list
+{
+    /*
+     block-item-list:
+       block-item
+       block-item-list block-item
+    */
+    struct block_item* _Owner _Opt head;
+    struct block_item* _Opt tail;
+};
 
 struct parser_ctx
 {
@@ -122,6 +132,8 @@ struct parser_ctx
       file scope -> function params -> function -> inner scope
     */
     struct scope_list scopes;
+
+    struct block_item_list used_incomplete_enums;
 
     /*
     * Points to the function we're in. Or null in file scope.
@@ -1203,17 +1215,6 @@ struct member_declarator_list* _Owner _Opt member_declarator_list(struct parser_
 void member_declarator_list_delete(_Dtor struct member_declarator_list* _Owner _Opt p);
 void member_declarator_list_add(struct member_declarator_list* list, struct member_declarator* _Owner p_item);
 
-struct block_item_list
-{
-    /*
-     block-item-list:
-       block-item
-       block-item-list block-item
-    */
-    struct block_item* _Owner _Opt head;
-    struct block_item* _Opt tail;
-};
-
 struct block_item_list block_item_list(struct parser_ctx* ctx, bool* error);
 void block_item_list_destroy(_Dtor struct block_item_list* p);
 void block_item_list_add(struct block_item_list* list, struct block_item* _Owner p_item);
@@ -1446,6 +1447,7 @@ struct block_item
     */
     struct token* first_token; //?necessary
     struct declaration* _Owner _Opt declaration;
+    struct declarator* _Owner _Opt declarator;
     struct unlabeled_statement* _Owner _Opt unlabeled_statement;
     struct label* _Owner _Opt label;
 

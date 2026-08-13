@@ -1481,6 +1481,15 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
 
         if (p_type->struct_or_union_specifier == NULL)
         {
+            if (p_type->enum_specifier)
+            {
+                const struct enum_specifier* complete_enum_specifier = get_complete_enum_specifier(p_type->enum_specifier);
+                if (complete_enum_specifier == NULL)
+                {
+                    return NULL;
+                }
+            }
+
             p_object = calloc(1, sizeof * p_object);
             if (p_object == NULL)
                 throw;
