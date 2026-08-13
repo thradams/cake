@@ -1128,6 +1128,7 @@ static const ui_theme g_theme_ambar = {
     .modal_fg = TB_RGB(0xE8, 0xE4, 0xDA),
     .modal_bg = TB_RGB(0x26, 0x26, 0x2B),  /* VS's actual Find/Replace and
                                             * other dialog body color */
+    .label_fg = TB_RGB(0xF5, 0xC2, 0x42),  /* the theme's amber accent */
     .scrollbar_bg = TB_RGB(0x2F, 0x2F, 0x35),  /* matches the window border */
     .scrollbar_thumb_bg = TB_RGB(0x42, 0x42, 0x42),
 
@@ -1168,6 +1169,9 @@ static const ui_theme g_theme_ambar = {
     .editor_caret_fg = TB_RGB(0x1E, 0x1E, 0x20),  /* editor_bg, so the glyph
                                                    * under the caret reads as
                                                    * knocked out of the block */
+    .editor_word_match_bg = TB_RGB(0x3A, 0x33, 0x22),  /* a warm step up from
+                                                        * editor_bg, matching
+                                                        * the amber accent */
     .editor_current_line_bg = TB_RGB(0x2A, 0x2A, 0x2A),  /* subtle - close to
                                                           * VS Code Dark's own
                                                           * current-line tint */
@@ -1230,9 +1234,9 @@ static const ui_theme g_theme_ambar = {
 
     /* <editor> inline diagnostics - VS Code Dark's actual error/warning/info
      * squiggle colors, so they read as authentically part of this theme. */
-    .diag_error_fg = TB_RGB(0xF0, 0x55, 0x4E),
+    .diag_error_fg = TB_RGB(0xF4, 0x47, 0x47),
     .diag_warning_fg = TB_RGB(0xCC, 0xA7, 0x00),
-    .diag_info_fg = TB_RGB(0xE9, 0xC4, 0x6A),
+    .diag_info_fg = TB_RGB(0x37, 0x94, 0xFF),
 };
 
 static const ui_theme g_theme_dark = {
@@ -1289,6 +1293,7 @@ static const ui_theme g_theme_dark = {
     .modal_fg = TB_RGB(0xF1, 0xF1, 0xF1),
     .modal_bg = TB_RGB(0x25, 0x25, 0x26),  /* VS's actual Find/Replace and
                                             * other dialog body color */
+    .label_fg = COLOR_YELLOW,
     .scrollbar_bg = TB_RGB(0x2D, 0x2D, 0x30),  /* matches the window border */
     .scrollbar_thumb_bg = TB_RGB(0x42, 0x42, 0x42),
 
@@ -1329,6 +1334,7 @@ static const ui_theme g_theme_dark = {
     .editor_caret_fg = TB_RGB(0x1E, 0x1E, 0x1E),  /* editor_bg, so the glyph
                                                    * under the caret reads as
                                                    * knocked out of the block */
+    .editor_word_match_bg = TB_RGB(0x33, 0x3A, 0x40),
     .editor_current_line_bg = TB_RGB(0x2A, 0x2A, 0x2A),  /* subtle - close to
                                                           * VS Code Dark's own
                                                           * current-line tint */
@@ -1414,12 +1420,15 @@ static const ui_theme g_theme_white = {
 
     .menu_fg = TB_RGB(0x1E, 0x1E, 0x1E),
     .menu_bg = TB_RGB(0xF3, 0xF3, 0xF3),
-    .menu_fg_sel = TB_RGB(0x00, 0x00, 0x00),
-    .menu_bg_sel = TB_RGB(0xCC, 0xE8, 0xFF),
-    .menu_item_fg = TB_RGB(0x1E, 0x1E, 0x1E),
+    /* #0078D7 - the Windows accent blue, with white ink on it (black would
+     * score 4.1:1 against it, white 4.7:1, and white is what Windows itself
+     * uses for a selected menu row). */
+    .menu_fg_sel = TB_RGB(0xFF, 0xFF, 0xFF),
+    .menu_bg_sel = TB_RGB(0x00, 0x78, 0xD7),
+    .menu_item_fg = TB_RGB(0x00, 0x00, 0x00),
     .menu_item_bg = TB_RGB(0xFF, 0xFF, 0xFF),
-    .menu_item_fg_hot = TB_RGB(0x00, 0x00, 0x00),
-    .menu_item_bg_hot = TB_RGB(0xCC, 0xE8, 0xFF),
+    .menu_item_fg_hot = TB_RGB(0xFF, 0xFF, 0xFF),
+    .menu_item_bg_hot = TB_RGB(0x00, 0x78, 0xD7),
     .menu_item_shortcut_fg = TB_RGB(0x00, 0x66, 0x99),
     .menu_item_fg_disabled = TB_RGB(0xA0, 0xA0, 0xA0),
     .menu_border_fg = TB_RGB(0xCC, 0xCC, 0xCC),  /* light gray, not near-black */
@@ -1430,23 +1439,38 @@ static const ui_theme g_theme_white = {
     .box_bg = TB_RGB(0xFF, 0xFF, 0xFF),
     .box_border_style = UI_BORDER_DOUBLE,
 
-    .window_border_fg = TB_RGB(0x1E, 0x1E, 0x1E),
-    .window_border_bg = TB_RGB(0xF3, 0xF3, 0xF3),
-    .window_border_fg_dragging = TB_RGB(0x00, 0x7A, 0xCC),
-    .window_border_fg_unfocused = TB_RGB(0xA0, 0xA0, 0xA0),
+    /* #99B4D1 - the classic Windows window-frame blue-gray. Near-black
+     * (#1E1E1E) frames around every window and dialog were the loudest thing
+     * on screen in a light theme; this recedes into the chrome the way a real
+     * light UI's frames do, while still separating a window from the desktop
+     * behind it. */
+    .window_border_fg = TB_RGB(0x99, 0xB4, 0xD1),
+    .window_border_bg = TB_RGB(0xF0, 0xF0, 0xF0),
+    .window_border_fg_dragging = TB_RGB(0x00, 0x78, 0xD7),
+    .window_border_fg_unfocused = TB_RGB(0xC8, 0xC8, 0xC8),
     .window_border_style = UI_BORDER_DOUBLE,
     .window_border_style_unfocused = UI_BORDER_SINGLE,
     .window_border_style_docked = UI_BORDER_DOUBLE,
     .window_border_style_docked_unfocused = UI_BORDER_SINGLE,
     .window_close_bg = TB_RGB(0xE8, 0x11, 0x23),
-    .window_fg = TB_RGB(0x1E, 0x1E, 0x1E),
-    .window_bg = TB_RGB(0xF3, 0xF3, 0xF3),
-    .modal_border_fg = TB_RGB(0x1E, 0x1E, 0x1E),
-    .modal_border_bg = TB_RGB(0xF3, 0xF3, 0xF3),
+    .window_fg = TB_RGB(0x00, 0x00, 0x00),
+    .window_bg = TB_RGB(0xF0, 0xF0, 0xF0),
+    .modal_border_fg = TB_RGB(0x99, 0xB4, 0xD1),
+    .modal_border_bg = TB_RGB(0xF0, 0xF0, 0xF0),
     .modal_border_style = UI_BORDER_DOUBLE,
     .modal_fg = TB_RGB(0x1E, 0x1E, 0x1E),
-    .modal_bg = TB_RGB(0xF3, 0xF3, 0xF3),
-    .scrollbar_bg = TB_RGB(0xF3, 0xF3, 0xF3),  /* matches the window border */
+    .modal_bg = TB_RGB(0xF0, 0xF0, 0xF0),
+    .label_fg = TB_RGB(0x00, 0x00, 0x00),  /* plain black, not an accent - the
+                                            * yellow the other two themes use
+                                            * scores ~1.3:1 on this light
+                                            * chrome, i.e. invisible. Kept a
+                                            * shade off modal_fg (#1E1E1E)
+                                            * deliberately: retheme_color()
+                                            * tells a baked label apart from
+                                            * baked body text by its value
+                                            * alone, so the two slots must
+                                            * never hold the same color. */
+    .scrollbar_bg = TB_RGB(0xF0, 0xF0, 0xF0),  /* matches the window border */
     .scrollbar_thumb_bg = TB_RGB(0xC2, 0xC2, 0xC2),
 
     .input_bg = TB_RGB(0xFF, 0xFF, 0xFF),
@@ -1491,6 +1515,11 @@ static const ui_theme g_theme_white = {
      * is what a light editor needs (the reverse of the dark theme's yellow). */
     .editor_caret_bg = TB_RGB(0x00, 0x00, 0x00),
     .editor_caret_fg = TB_RGB(0xFF, 0xFF, 0xFF),
+    .editor_word_match_bg = TB_RGB(0xE0, 0xE8, 0xF0),  /* pale blue-gray -
+                                                        * reads against the
+                                                        * white page without
+                                                        * competing with the
+                                                        * #ADD6FF selection */
     .editor_current_line_bg = TB_RGB(0xF0, 0xF0, 0xF0),  /* subtle - close to
                                                           * VS Code Light's own
                                                           * current-line tint */
@@ -1776,7 +1805,12 @@ static int session_peek_int(const char* key, int fallback)
 
 static void apply_theme(const ui_theme* theme)
 {
-    ui_set_theme(theme);
+    /* ui_screen_set_theme(), not ui_set_theme(): the dialogs and document
+     * windows built in app_init() baked this app's theme colors into their
+     * nodes, and only the screen-aware variant goes back and re-colors them
+     * (see its comment in ui.h). Without it a runtime theme switch left,
+     * say, every dialog label sitting on the old theme's background. */
+    ui_screen_set_theme(g_screen, theme);
     ui_screen_set_desktop(g_screen, theme->desktop_bg);
 }
 
@@ -2120,6 +2154,33 @@ static void open_path_up(char* dir)
  * file-reading helpers) so apply_index_order can use it without moving it
  * up the file. */
 static char* read_file_to_string(const char* path);
+
+/* Collapse every CRLF in `s` to a bare LF, in place.
+ *
+ * The editor's buffer is LF-only by construction - Enter inserts '\n', and
+ * every line-splitting scan in ide_ui.c looks for '\n' alone - and saving
+ * writes the buffer out verbatim through a "wb" stream (see
+ * save_active_file), so LF is what lands on disk. Without this, a file
+ * authored on Windows arrives with its CRs still in the text, where they
+ * are ordinary content bytes: they sit at the end of every line, get
+ * trimmed inconsistently by the renderer, and travel into anything copied
+ * out of the buffer. Converting on the way in makes the whole round trip
+ * LF - deliberately, not as a configurable choice. Lone CRs (classic
+ * Mac line endings) are left alone; they're not a line ending this editor
+ * has ever produced or split on. */
+static void normalize_newlines(char* s)
+{
+    if (!s)
+        return;
+    char* w = s;
+    for (char* r = s; *r; r++)
+    {
+        if (r[0] == '\r' && r[1] == '\n')
+            continue;  /* drop the CR, the LF is copied next iteration */
+        *w++ = *r;
+    }
+    *w = '\0';
+}
 
 /* ---- CAKE_FOLDER_FILTER_NAME (".cakefilter"): optional per-folder
  * filter+order for the persistent Folder browser window only
@@ -2605,6 +2666,7 @@ static void open_file_path_into_editor(const char* path, const char* label)
     {
         size_t got = fread(content, 1, (size_t)size, f);
         content[got] = 0;
+        normalize_newlines(content);
     }
     fclose(f);
 
@@ -5410,6 +5472,7 @@ static char* read_file_to_string(const char* path)
     size_t got = fread(content, 1, (size_t)size, f);
     content[got] = '\0';
     fclose(f);
+    normalize_newlines(content);
     return content;
 }
 
@@ -6007,7 +6070,7 @@ static void fr_rebuild_content(void)
     int cx = px + 2, cw = pw - 4;
     int cy = py + 2;
 
-    add_text(g_fr.panel, cx, cy, "Find:", COLOR_YELLOW, theme->window_bg);
+    add_text(g_fr.panel, cx, cy, "Find:", theme->label_fg, theme->window_bg);
     cy += 1;
     g_fr.find_input = add_input(g_fr.panel, cx, cy, cw, g_fr.find_text);
     ui_set_id(g_fr.find_input, EVT_FR_FIND_BTN);  /* Enter in the field == clicking Find */
@@ -6015,7 +6078,7 @@ static void fr_rebuild_content(void)
 
     if (g_fr.mode)
     {
-        add_text(g_fr.panel, cx, cy, "Replace:", COLOR_YELLOW, theme->window_bg);
+        add_text(g_fr.panel, cx, cy, "Replace:", theme->label_fg, theme->window_bg);
         cy += 1;
         g_fr.replace_input = add_input(g_fr.panel, cx, cy, cw, g_fr.replace_text);
         cy += 2;
@@ -6032,7 +6095,7 @@ static void fr_rebuild_content(void)
     ui_group_set_checked(g_fr.opts, 1, g_fr.match_word);
     cy += 3;
 
-    add_text(g_fr.panel, cx, cy, "Look in:", COLOR_YELLOW, theme->window_bg);
+    add_text(g_fr.panel, cx, cy, "Look in:", theme->label_fg, theme->window_bg);
     cy += 1;
     g_fr.lookin = add_group(g_fr.panel, cx, cy, cw, 3, 0);
     add_group_item(g_fr.lookin, "Current File");
@@ -6041,7 +6104,7 @@ static void fr_rebuild_content(void)
     ui_select_set_selected(g_fr.lookin, g_fr.look_in);
     cy += 4;
 
-    add_text(g_fr.panel, cx, cy, "File Types:", COLOR_YELLOW, theme->window_bg);
+    add_text(g_fr.panel, cx, cy, "File Types:", theme->label_fg, theme->window_bg);
     cy += 1;
     g_fr.filetypes = add_select(g_fr.panel, cx, cy, cw);
     add_select_item(g_fr.filetypes, EVT_FR_FILETYPE_BASE + 0, "*.c");
@@ -7354,8 +7417,18 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_WINDOW_CLOSEALL)
     {
-        while (ui_screen_window_count(g_screen) > 0)
-            ui_screen_close_modal(g_screen, ui_screen_window_at(g_screen, 0));
+        /* Document windows only - the docked Folder/Output panels and the
+         * Find/Replace panel are in the same window stack, but they're app
+         * furniture, not open files, and "Close all" closing them too meant
+         * the command wiped out the whole workspace layout. is_editor_window()
+         * is the same "only a document carries a path" test the rest of the
+         * file uses. Iterating downward because closing compacts the stack. */
+        for (int i = ui_screen_window_count(g_screen) - 1; i >= 0; i--)
+        {
+            ui_node* w = ui_screen_window_at(g_screen, i);
+            if (is_editor_window(w))
+                ui_screen_close_modal(g_screen, w);
+        }
     }
     else if (id == EVT_WINDOW_REFRESH)
     {
@@ -8241,13 +8314,13 @@ void app_init(ui_env* env)
     ui_set_label(dirs_window, " Directories ");
     ui_set_color(dirs_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(dirs_modal, dirs_window);
-    add_text(dirs_window, 13, 4, "Include Directories", COLOR_YELLOW, theme->modal_bg);
+    add_text(dirs_window, 13, 4, "Include Directories", theme->label_fg, theme->modal_bg);
     add_input(dirs_window, 13, 5, 44, "C:\\CAKEIDE\\INCLUDE");
-    add_text(dirs_window, 13, 7, "Library Directories", COLOR_YELLOW, theme->modal_bg);
+    add_text(dirs_window, 13, 7, "Library Directories", theme->label_fg, theme->modal_bg);
     add_input(dirs_window, 13, 8, 44, "C:\\CAKEIDE\\LIB");
-    add_text(dirs_window, 13, 10, "Output Directory", COLOR_YELLOW, theme->modal_bg);
+    add_text(dirs_window, 13, 10, "Output Directory", theme->label_fg, theme->modal_bg);
     add_input(dirs_window, 13, 11, 44, "C:\\CAKEIDE\\SOURCE");
-    add_text(dirs_window, 13, 13, "Source Directories", COLOR_YELLOW, theme->modal_bg);
+    add_text(dirs_window, 13, 13, "Source Directories", theme->label_fg, theme->modal_bg);
     add_input(dirs_window, 13, 14, 44, "C:\\CAKEIDE\\SOURCE");
     ui_node* dirs_ok = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(dirs_ok, EVT_DIRS_OK);
@@ -8274,7 +8347,7 @@ void app_init(ui_env* env)
     ui_set_label(goto_window, " Go to Line Number ");
     ui_set_color(goto_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(goto_modal, goto_window);
-    add_text(goto_window, 23, 9, "Enter New Line Number", COLOR_YELLOW, theme->modal_bg);
+    add_text(goto_window, 23, 9, "Enter New Line Number", theme->label_fg, theme->modal_bg);
     g_goto_input = add_input(goto_window, 46, 9, 11, "");
     ui_set_id(g_goto_input, EVT_GOTO_INPUT);
     ui_set_numeric(g_goto_input, 1);
@@ -8298,7 +8371,7 @@ void app_init(ui_env* env)
     ui_set_label(wordwrap_window, " Word Wrap ");
     ui_set_color(wordwrap_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(wordwrap_modal, wordwrap_window);
-    add_text(wordwrap_window, 23, 9, "Columns", COLOR_YELLOW, theme->modal_bg);
+    add_text(wordwrap_window, 23, 9, "Columns", theme->label_fg, theme->modal_bg);
     g_wordwrap_input = add_input(wordwrap_window, 46, 9, 11, "80");
     ui_set_id(g_wordwrap_input, EVT_WORDWRAP_INPUT);
     ui_set_numeric(g_wordwrap_input, 1);
@@ -8323,13 +8396,13 @@ void app_init(ui_env* env)
     ui_set_label(rep_window, " Replace Text ");
     ui_set_color(rep_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(rep_modal, rep_window);
-    add_text(rep_window, rx + 2, ry + 2, "Text to Find", COLOR_YELLOW, theme->modal_bg);
+    add_text(rep_window, rx + 2, ry + 2, "Text to Find", theme->label_fg, theme->modal_bg);
     g_replace.find = add_input(rep_window, rx + 16, ry + 2, 40, "");
     ui_set_id(g_replace.find, EVT_REPLACE_OK);
-    add_text(rep_window, rx + 4, ry + 4, "New Text", COLOR_YELLOW, theme->modal_bg);
+    add_text(rep_window, rx + 4, ry + 4, "New Text", theme->label_fg, theme->modal_bg);
     g_replace.new_ = add_input(rep_window, rx + 16, ry + 4, 40, "");
     ui_set_id(g_replace.new_, EVT_REPLACE_OK);
-    add_text(rep_window, rx + 2, ry + 6, "Options", COLOR_YELLOW, theme->modal_bg);
+    add_text(rep_window, rx + 2, ry + 6, "Options", theme->label_fg, theme->modal_bg);
     ui_node* opts = add_group(rep_window, rx + 2, ry + 7, 26, 3, 1);
     g_replace.opts = opts;
     add_group_item(opts, "Case sensitive");
@@ -8337,19 +8410,19 @@ void app_init(ui_env* env)
     add_group_item(opts, "Prompt on replace");
     ui_group_set_checked(opts, 0, 1);
     ui_group_set_checked(opts, 2, 1);
-    add_text(rep_window, rx + 32, ry + 6, "Direction", COLOR_YELLOW, theme->modal_bg);
+    add_text(rep_window, rx + 32, ry + 6, "Direction", theme->label_fg, theme->modal_bg);
     ui_node* dir = add_group(rep_window, rx + 32, ry + 7, 22, 2, 0);
     g_replace.dir = dir;
     add_group_item(dir, "Forward");
     add_group_item(dir, "Backward");
     ui_select_set_selected(dir, 0);
-    add_text(rep_window, rx + 2, ry + 12, "Scope", COLOR_YELLOW, theme->modal_bg);
+    add_text(rep_window, rx + 2, ry + 12, "Scope", theme->label_fg, theme->modal_bg);
     ui_node* scope = add_group(rep_window, rx + 2, ry + 13, 26, 2, 0);
     g_replace.scope = scope;
     add_group_item(scope, "Global");
     add_group_item(scope, "Selected text");
     ui_select_set_selected(scope, 0);
-    add_text(rep_window, rx + 32, ry + 12, "Origin", COLOR_YELLOW, theme->modal_bg);
+    add_text(rep_window, rx + 32, ry + 12, "Origin", theme->label_fg, theme->modal_bg);
     ui_node* origin = add_group(rep_window, rx + 32, ry + 13, 22, 2, 0);
     g_replace.origin = origin;
     add_group_item(origin, "From cursor");
@@ -8379,25 +8452,25 @@ void app_init(ui_env* env)
     ui_set_label(fnd_window, " Find Text ");
     ui_set_color(fnd_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(fnd_modal, fnd_window);
-    add_text(fnd_window, fx + 2, fy + 2, "Text to Find", COLOR_YELLOW, theme->modal_bg);
+    add_text(fnd_window, fx + 2, fy + 2, "Text to Find", theme->label_fg, theme->modal_bg);
     g_find.input = add_input(fnd_window, fx + 16, fy + 2, 36, "");
     ui_set_id(g_find.input, EVT_FIND_OK);
-    add_text(fnd_window, fx + 2, fy + 4, "Options", COLOR_YELLOW, theme->modal_bg);
+    add_text(fnd_window, fx + 2, fy + 4, "Options", theme->label_fg, theme->modal_bg);
     g_find.opts = add_group(fnd_window, fx + 2, fy + 5, 26, 2, 1);
     add_group_item(g_find.opts, "Case sensitive");
     add_group_item(g_find.opts, "Whole words only");
     ui_group_set_checked(g_find.opts, 0, 1);
-    add_text(fnd_window, fx + 30, fy + 4, "Direction", COLOR_YELLOW, theme->modal_bg);
+    add_text(fnd_window, fx + 30, fy + 4, "Direction", theme->label_fg, theme->modal_bg);
     g_find.dir = add_group(fnd_window, fx + 30, fy + 5, 22, 2, 0);
     add_group_item(g_find.dir, "Forward");
     add_group_item(g_find.dir, "Backward");
     ui_select_set_selected(g_find.dir, 0);
-    add_text(fnd_window, fx + 2, fy + 9, "Scope", COLOR_YELLOW, theme->modal_bg);
+    add_text(fnd_window, fx + 2, fy + 9, "Scope", theme->label_fg, theme->modal_bg);
     g_find.scope = add_group(fnd_window, fx + 2, fy + 10, 26, 2, 0);
     add_group_item(g_find.scope, "Global");
     add_group_item(g_find.scope, "Selected text");
     ui_select_set_selected(g_find.scope, 0);
-    add_text(fnd_window, fx + 30, fy + 9, "Origin", COLOR_YELLOW, theme->modal_bg);
+    add_text(fnd_window, fx + 30, fy + 9, "Origin", theme->label_fg, theme->modal_bg);
     g_find.origin = add_group(fnd_window, fx + 30, fy + 10, 22, 2, 0);
     add_group_item(g_find.origin, "From cursor");
     add_group_item(g_find.origin, "Entire scope");
@@ -8552,7 +8625,7 @@ void app_init(ui_env* env)
     ui_set_label(foldernew_window, " New File ");
     ui_set_color(foldernew_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(foldernew_modal, foldernew_window);
-    add_text(foldernew_window, 23, 9, "Name", COLOR_YELLOW, theme->modal_bg);
+    add_text(foldernew_window, 23, 9, "Name", theme->label_fg, theme->modal_bg);
     g_foldernew.input = add_input(foldernew_window, 34, 9, 26, "");
     ui_set_id(g_foldernew.input, EVT_FOLDERNEW_OK);
     ui_node* foldernew_ok = ui_create_element(UI_TAG_BUTTON);
@@ -8576,7 +8649,7 @@ void app_init(ui_env* env)
     ui_set_label(env_window, " Environment ");
     ui_set_color(env_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(env_modal, env_window);
-    add_text(env_window, 23, 8, "Theme:", COLOR_YELLOW, theme->modal_bg);
+    add_text(env_window, 23, 8, "Theme:", theme->label_fg, theme->modal_bg);
     ui_node* theme_select = add_select(env_window, 30, 8, 20);
     add_select_item(theme_select, EVT_ENV_THEME_AMBAR, "Ambar");
     add_select_item(theme_select, EVT_ENV_THEME_DARK, "Dark");
@@ -8590,7 +8663,7 @@ void app_init(ui_env* env)
     int font_count = ui_env_font_family_count(env);
     if (font_count > 0)
     {
-        add_text(env_window, 23, 10, "Font:", COLOR_YELLOW, theme->modal_bg);
+        add_text(env_window, 23, 10, "Font:", theme->label_fg, theme->modal_bg);
         ui_node* font_select = add_select(env_window, 30, 10, 20);
         for (int i = 0; i < font_count; i++)
             add_select_item(font_select, EVT_ENV_FONT_BASE + i,
@@ -8630,7 +8703,7 @@ void app_init(ui_env* env)
      * on the left with its action buttons in a column to the right, then
      * the field rows underneath - labels left-aligned in their own column,
      * every input starting at the same x so they form a clean edge. */
-    add_text(ext_window, ex + 2, ey + 2, "Menu contents:", COLOR_YELLOW, theme->modal_bg);
+    add_text(ext_window, ex + 2, ey + 2, "Menu contents:", theme->label_fg, theme->modal_bg);
     g_exttool.listbox = ui_create_element(UI_TAG_LISTBOX);
     ui_set_rect(g_exttool.listbox, ex + 2, ey + 3, list_w, list_h);
     ui_set_id(g_exttool.listbox, EVT_EXTTOOL_LIST);
@@ -8671,7 +8744,7 @@ void app_init(ui_env* env)
     for (int i = 0; i < 4; i++)
     {
         add_text(ext_window, ex + 2, ext_fy + i, ext_fields[i].label,
-                 COLOR_YELLOW, theme->modal_bg);
+                 theme->label_fg, theme->modal_bg);
         ext_inputs[i] = add_input(ext_window, field_x, ext_fy + i, field_w, "");
         ui_set_id(ext_inputs[i], ext_fields[i].id);
     }
@@ -8705,10 +8778,10 @@ void app_init(ui_env* env)
     ui_set_label(copts_window, " Compiler Options ");
     ui_set_color(copts_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(copts_modal, copts_window);
-    add_text(copts_window, 18, 7, "Options", COLOR_YELLOW, theme->modal_bg);
+    add_text(copts_window, 18, 7, "Options", theme->label_fg, theme->modal_bg);
     g_copts.input = add_input(copts_window, 27, 7, 34, "");
     ui_set_id(g_copts.input, EVT_COPTS_OK);
-    add_text(copts_window, 18, 9, "Target", COLOR_YELLOW, theme->modal_bg);
+    add_text(copts_window, 18, 9, "Target", theme->label_fg, theme->modal_bg);
     g_copts.target = add_select(copts_window, 27, 9, 20);
     add_select_item(g_copts.target, EVT_COPTS_TARGET + 0, "X86 MSVC");
     add_select_item(g_copts.target, EVT_COPTS_TARGET + 1, "X64 MSVC");
@@ -8718,7 +8791,7 @@ void app_init(ui_env* env)
 
     /* Style (-style=<name>) - see g_style_slugs' own comment for why only
      * these four are offered. */
-    add_text(copts_window, 18, 11, "Style", COLOR_YELLOW, theme->modal_bg);
+    add_text(copts_window, 18, 11, "Style", theme->label_fg, theme->modal_bg);
     g_copts.style = add_select(copts_window, 27, 11, 20);
     add_select_item(g_copts.style, EVT_COPTS_STYLE + 0, "Do not check");
     add_select_item(g_copts.style, EVT_COPTS_STYLE + 1, "cake");
@@ -8728,7 +8801,7 @@ void app_init(ui_env* env)
 
     /* Flags - a check-box GROUP, same control as Find's "Options"
      * (g_find.opts) above (add_group/add_group_item). */
-    add_text(copts_window, 18, 13, "Flags", COLOR_YELLOW, theme->modal_bg);
+    add_text(copts_window, 18, 13, "Flags", theme->label_fg, theme->modal_bg);
     g_copts.flags = add_group(copts_window, 27, 13, 30, 3, 1);
     add_group_item(g_copts.flags, "-no-output");
     add_group_item(g_copts.flags, "-line-directives");
@@ -8770,15 +8843,15 @@ void app_init(ui_env* env)
     ui_set_color(open_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(open_modal, open_window);
     g_open.window = open_window;
-    add_text(open_window, ox + 2, oy + 2, "Name", COLOR_YELLOW, theme->modal_bg);
+    add_text(open_window, ox + 2, oy + 2, "Name", theme->label_fg, theme->modal_bg);
     g_open.name_input = add_input(open_window, ox + 2, oy + 3, 42, "");
     ui_set_id(g_open.name_input, EVT_OPEN_NAME);
-    add_text(open_window, ox + 2, oy + 5, "Files", COLOR_YELLOW, theme->modal_bg);
+    add_text(open_window, ox + 2, oy + 5, "Files", theme->label_fg, theme->modal_bg);
     g_open.listbox = ui_create_element(UI_TAG_LISTBOX);
     ui_set_rect(g_open.listbox, ox + 2, oy + 6, 42, 10);
     ui_set_id(g_open.listbox, EVT_OPEN_LISTBOX);
     ui_append_child(open_window, g_open.listbox);
-    g_open.filter_label = add_text(open_window, ox + 2, oy + 17, "Type", COLOR_YELLOW, theme->modal_bg);
+    g_open.filter_label = add_text(open_window, ox + 2, oy + 17, "Type", theme->label_fg, theme->modal_bg);
     g_open.filter = add_select(open_window, ox + 2, oy + 18, 42);
     for (int i = 0; i < OPEN_FILTER_COUNT; i++)
         add_select_item(g_open.filter, EVT_OPEN_FILTER + i, g_open_filters[i].label);

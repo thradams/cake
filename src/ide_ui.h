@@ -92,6 +92,13 @@ enum {
 void ui_set_mac_shortcuts(int enable);
 int ui_mac_shortcuts(void);
 
+/* Editor indent width, in spaces - the column stop Tab advances to, the
+ * amount block indent adds and outdent removes, and the unit Shift+Tab
+ * strips from a line's leading whitespace. Indentation is always spaces,
+ * never a '\t' byte. Defaults to 4; a width <= 0 is ignored. */
+void ui_set_indent_width(int spaces);
+int ui_indent_width(void);
+
 /* Mouse button and action. */
 enum {
     UI_MOUSE_BUTTON_LEFT = 0,
@@ -310,6 +317,13 @@ typedef struct {
     uint32_t modal_fg, modal_bg;  /* a modal dialog's own body/interior fill -
                                     * distinct from its border (modal_border_*
                                     * above) */
+    uint32_t label_fg;  /* an accented caption an app puts above a field or
+                          * group inside a dialog/panel ("Include Directories"
+                          * over its <input>) - the framework never draws this
+                          * itself, it's here so apps can pick it per theme
+                          * instead of hardcoding one accent that only reads
+                          * on a dark background. Must stay legible against
+                          * modal_bg AND window_bg. */
     uint32_t scrollbar_bg, scrollbar_thumb_bg;  /* an <editor>'s or <listbox>'s
                                                   * own scrollbar overlay (see
                                                   * editor_has_vscrollbar/
@@ -347,6 +361,18 @@ typedef struct {
                                   * (which is a syntax-highlight accent, e.g.
                                   * green, not the neutral gray real editors
                                   * use for line numbers). */
+
+    uint32_t editor_word_match_bg;  /* every other visible occurrence of the
+                                      * word the selection covers, tinted
+                                      * behind the text (the syntax colors
+                                      * stay) - a "where else is this
+                                      * identifier" cue, NOT a selection:
+                                      * nothing about it is editable or
+                                      * copyable, and the real selection keeps
+                                      * its own input_sel_bg. Keep it subtle
+                                      * and clearly distinct from input_sel_bg
+                                      * so the two don't read as the same
+                                      * thing. */
 
     uint32_t editor_current_line_bg;  /* the whole row the caret is on, in
                                        * every <editor> (source or VT100/
@@ -444,6 +470,16 @@ typedef struct {
 
 const ui_theme* ui_get_theme(void);
 void ui_set_theme(const ui_theme* theme);
+
+/* Switch themes at runtime. ui_set_theme() alone only swaps the palette the
+ * framework draws chrome from - it can't see colors an app already baked
+ * into nodes with ui_set_color() (a <window>/<modal> body, a <text> label),
+ * which is why a dialog built under one theme kept that theme's background
+ * behind its labels after a plain ui_set_theme(). This walks `s` and moves
+ * every such baked color that still matches the outgoing theme onto the
+ * incoming theme's matching slot, leaving colors the app chose itself
+ * untouched. Use this, not ui_set_theme(), to re-theme a live screen. */
+void ui_screen_set_theme(ui_screen* s, const ui_theme* theme);
 
 /* Element tags, needed by ui_create_element() below. TEXT/BOX are generic
  * content, not tied to any particular screen layout - everything else is a

@@ -24,7 +24,7 @@ void f2(int condition)
     }
 
     //assert_state(p, "null | not-null ");
-    override_state(p, "null");
+    
 } //lint 29 owner object (p) not moved (call-opt-nonnull see line 21)
 
 void f3(int condition)
@@ -53,7 +53,7 @@ void f4(int condition)
     }
 
     //assert_state(p, "uninitialized  null | not-null ");
-    override_state(p, "null");
+    
 } //lint 29 owner object (p) not moved (var-true see line 46)
 
 
@@ -69,7 +69,7 @@ void f5(int condition)
     }
 
     //assert_state(p, "uninitialized null | not-null ");
-    override_state(p, "null");
+    
 } //lint 29 owner object (p) not moved (var-false see line 62)
 
 void f6(int condition)

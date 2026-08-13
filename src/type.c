@@ -1463,7 +1463,7 @@ struct type type_remove_pointer(const struct type* p_type)
         /*
           we have moved the contents of r.next, but we also need to delete it's memory
         */
-        free(r.next);
+        free(r.next); //lint 29 29 29 
         r.next = NULL;
         type_destroy_one(&r);
         r = next;
@@ -1489,7 +1489,7 @@ struct type get_array_item_type(const struct type* p_type)
     {
         struct type r2 = *r.next;
 
-        free(r.next);
+        free(r.next); //lint 29 29 29 
         free((void* _Owner) r.name_opt);
         param_list_destroy(&r.params);
         return r2;
@@ -1702,6 +1702,7 @@ struct type type_common(const struct type* p_type1, const struct type* p_type2, 
 
     if (type_is_enum(p_type1))
     {
+        _Assert(p_type1->enum_specifier);
         promoted_a = type_dup(&p_type1->enum_specifier->integer_type);
 
     }
@@ -1712,6 +1713,7 @@ struct type type_common(const struct type* p_type1, const struct type* p_type2, 
 
     if (type_is_enum(p_type2))
     {
+        _Assert(p_type2->enum_specifier);
         promoted_b = type_dup(&p_type2->enum_specifier->integer_type);
     }
     else
@@ -1841,22 +1843,18 @@ struct type type_dup(const struct type* p_type)
             *p_new = *p;
 
             //actually I was not the _Owner of p_new->next
-            override_state(p_new->next, "uninitialized");
             p_new->next = NULL;
 
             if (p->name_opt)
             {
                 //actually p_new->name_opt was not mine..
-                override_state(p_new->name_opt, "uninitialized");
                 p_new->name_opt = strdup(p->name_opt);
             }
 
             if (p->category == TYPE_CATEGORY_FUNCTION)
             {
                 //actually p_new->params.head  p_new->params.tail and was not mine..
-                override_state(p_new->params.head, "uninitialized");
                 p_new->params.head = NULL;
-                override_state(p_new->params.tail, "uninitialized");
                 p_new->params.tail = NULL;
 
                 struct param* _Opt p_param = p->params.head;
@@ -2032,6 +2030,9 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
 
                         size_t align = type_get_alignof(&md->declarator->type, target);
 
+                        if (align == 0)
+                          throw;
+
                         if (align > maxalign)
                             maxalign = align;
 
@@ -2088,6 +2089,7 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
 
                     size_t align = type_get_alignof(&t, target);
 
+                   if (align == 0) throw;
                     if (align > maxalign)
                         maxalign = align;
 
@@ -2308,6 +2310,9 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
 
                         size_t align = type_get_alignof(&md->declarator->type, target);
 
+                        if (align ==  0) 
+                          throw;
+
                         if (align > maxalign)
                             maxalign = align;
 
@@ -2325,11 +2330,10 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                         case SIZEOF_RESULT_FUNCTION:
                         case SIZEOF_RESULT_BITFIELD:
                             throw;
-                            break;
 
                         case SIZEOF_RESULT_INCOMPLETE:
                             /* handle C99 flexible array members */
-                            if (md->next == NULL && d->next == NULL)
+                            if (md->next == NULL && d && d->next == NULL)
                             {
                                 if (type_get_category(&md->declarator->type) == TYPE_CATEGORY_ARRAY)
                                 {
@@ -2388,6 +2392,9 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
 
                     size_t align = type_get_alignof(&t, target);
 
+                   if (align == 0)
+                      throw;
+                      
                     if (align > maxalign)
                         maxalign = align;
 
@@ -2422,6 +2429,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                     throw;
                 }
             }
+
             d = d->next;
         }
 
@@ -2835,11 +2843,6 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
                     return SIZEOF_RESULT_OVERLOW;
                 }
 
-                //
-                if (result > /*SIZEMAX*/ 4294967295)
-                {
-                    return SIZEOF_RESULT_OVERLOW;
-                }
                 *size = (size_t)result;
             }
             else
@@ -3277,6 +3280,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
         bool underlying_matched = false;
         if (pa->type_specifier_flags == TYPE_SPECIFIER_ENUM)
         {
+            _Assert(pa->enum_specifier);
             if (!type_is_same(&pa->enum_specifier->integer_type, pb, compare_qualifiers))
             {
                 return false;
@@ -3286,6 +3290,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
 
         if (pb->type_specifier_flags == TYPE_SPECIFIER_ENUM)
         {
+            _Assert(pb->enum_specifier);
             if (!type_is_same(pa, &pb->enum_specifier->integer_type, compare_qualifiers))
             {
                 return false;
@@ -4147,11 +4152,15 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
                 throw;
             }
 
-            struct type nt =
-                type_dup(&declarator_get_typeof_specifier(pdeclarator)->type);
+            struct typeof_specifier* _Opt p_typeof_specifier = declarator_get_typeof_specifier(pdeclarator);
+            if  (p_typeof_specifier == NULL)
+            {
+                free(p_nt);
+                type_list_destroy(&list);
+                throw;
+            }
 
-            *p_nt = nt;
-
+            *p_nt = type_dup(&p_typeof_specifier->type);
 
             if (list.head != NULL)
                 type_set_qualifiers_using_declarator(list.head, pdeclarator);

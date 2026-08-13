@@ -42,44 +42,49 @@ static unsigned int string_hash(const char* key)
 
 void map_entry_delete(struct map_entry* _Owner _Opt p)
 {
-    if (p == NULL)
-        return;
-
-    switch (p->type)
+    while (p != NULL)
     {
-    case TAG_TYPE_NUMBER:break;
+        struct map_entry* _Owner _Opt next = p->next;
+        p->next = NULL;
 
-    case TAG_TYPE_ENUM_SPECIFIER:
-        enum_specifier_delete(p->data.p_enum_specifier);
-        break;
-    case TAG_TYPE_STRUCT_OR_UNION_SPECIFIER:
-        struct_or_union_specifier_delete(p->data.p_struct_or_union_specifier);
-        break;
+        switch (p->type)
+        {
+        case TAG_TYPE_NUMBER:break;
 
-    case TAG_TYPE_ENUMERATOR:
-        enumerator_delete(p->data.p_enumerator);
-        break;
-    case TAG_TYPE_DECLARATOR:
-        declarator_delete(p->data.p_declarator);
-        break;
-    case TAG_TYPE_INIT_DECLARATOR:
-        init_declarator_delete(p->data.p_init_declarator);
-        break;
-    case TAG_TYPE_MACRO:
-        macro_delete(p->data.p_macro);
-        break;
+        case TAG_TYPE_ENUM_SPECIFIER:
+            enum_specifier_delete(p->data.p_enum_specifier);
+            break;
+        case TAG_TYPE_STRUCT_OR_UNION_SPECIFIER:
+            struct_or_union_specifier_delete(p->data.p_struct_or_union_specifier);
+            break;
 
-    case TAG_TYPE_STRUCT_ENTRY:
-        struct_entry_delete(p->data.p_struct_entry);
-        break;
+        case TAG_TYPE_ENUMERATOR:
+            enumerator_delete(p->data.p_enumerator);
+            break;
+        case TAG_TYPE_DECLARATOR:
+            declarator_delete(p->data.p_declarator);
+            break;
+        case TAG_TYPE_INIT_DECLARATOR:
+            init_declarator_delete(p->data.p_init_declarator);
+            break;
+        case TAG_TYPE_MACRO:
+            macro_delete(p->data.p_macro);
+            break;
 
-    case TAG_TYPE_TEXT:        
-        free(p->data.p_text);
-        break;
+        case TAG_TYPE_STRUCT_ENTRY:
+            struct_entry_delete(p->data.p_struct_entry);
+            break;
+
+        case TAG_TYPE_TEXT:
+            free(p->data.p_text);
+            break;
+        }
+
+        free(p->key);
+        free(p);
+
+        p = next;
     }
-
-    free(p->key);
-    free(p);
 }
 
 void hashmap_remove_all(struct hash_map* map)
@@ -89,14 +94,8 @@ void hashmap_remove_all(struct hash_map* map)
     {
         for (int i = 0; i < map->capacity; i++)
         {
-            struct map_entry* _Owner _Opt pentry = map->table[i];
-
-            while (pentry != NULL)
-            {
-                struct map_entry* _Owner _Opt next = pentry->next;
-                map_entry_delete(pentry);
-                pentry = next;
-            }
+            map_entry_delete(map->table[i]);
+            map->table[i] = NULL;
         }
 
         free(map->table);
@@ -142,7 +141,7 @@ void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt 
         _Assert(map->capacity != 0);
 
         const unsigned int hash = string_hash(key);
-        struct map_entry** pp_entry = &map->table[hash % map->capacity];
+        struct map_entry* _Owner _Opt* pp_entry = &map->table[hash % map->capacity];
         struct map_entry* _Opt p_entry = *pp_entry;
 
         for (; p_entry != NULL; p_entry = p_entry->next)
@@ -176,6 +175,7 @@ void hash_item_set_destroy(_Dtor struct hash_item_set* p)
     init_declarator_delete(p->p_init_declarator);
     struct_or_union_specifier_delete(p->p_struct_or_union_specifier);
     macro_delete(p->p_macro);
+    struct_entry_delete(p->p_struct_entry);
     free(p->text);
 }
 
@@ -187,7 +187,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
     enum tag type = TAG_TYPE_NUMBER;
 
 #pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored 29
+#pragma CAKE diagnostic ignored 26
 
     if (item->p_declarator)
     {
@@ -279,24 +279,22 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 
         if (pentry == NULL)
         {
-            struct map_entry* _Owner _Opt p_new_entry = calloc(1, sizeof(*pentry));
-            if (p_new_entry == NULL) throw;
+            char* _Opt _Owner temp_key = strdup(key);
+            if (temp_key == NULL) throw;
 
+            struct map_entry* _Owner _Opt p_new_entry = calloc(1, sizeof(*pentry));
+            if (p_new_entry == NULL)
+            {
+                free(temp_key);
+                throw;
+            }
+
+            p_new_entry->key = temp_key;
             p_new_entry->hash = hash;
 
             p_new_entry->data.p_declarator = (void*)p;
 
             p_new_entry->type = type;
-
-            char* _Opt _Owner temp_key = strdup(key);
-            if (temp_key == NULL)
-            {
-                map_entry_delete(p_new_entry);
-                throw;
-            }
-
-            _Assert(p_new_entry->key == NULL);
-            p_new_entry->key = temp_key;
             p_new_entry->next = map->table[index];
             map->table[index] = p_new_entry;
             map->size++;
@@ -306,7 +304,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
         {
 
 #pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored 33
+#pragma CAKE diagnostic ignored 26
 
             switch (pentry->type)
             {

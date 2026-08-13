@@ -40,7 +40,6 @@ static int reserve(struct osstream* stream, int size)
         void* _Owner _Opt pnew = realloc(stream->c_str, (size + 1) * sizeof(char));
         if (pnew)
         {
-            override_state(stream->c_str, "moved");
             stream->c_str = pnew; //lint 26 (realloc)
             stream->capacity = size;
             stream->c_str[size] = 0;

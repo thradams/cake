@@ -346,6 +346,7 @@ static ui_theme g_theme = {
      * looked in this theme. */
     .editor_caret_bg = TB_RGB(0x80, 0x80, 0x80),
     .editor_caret_fg = TB_RGB(0x00, 0x00, 0x00),
+    .editor_word_match_bg = TB_RGB(0x28, 0x28, 0xA0),
     .editor_current_line_bg = TB_RGB(0x18, 0x18, 0xCE),  /* one step lighter
                                                           * than editor_bg -
                                                           * visible without
@@ -1341,6 +1342,79 @@ void ui_set_color(ui_node* n, uint32_t fg, uint32_t bg)
     n->fg = fg;
     n->bg = bg;
 }
+/* Remaps one baked color (see ui_screen_set_theme below). A node's fg/bg was
+ * picked from whatever theme was live when the node was built, so the only
+ * way to tell "this was the dialog background" from "the app deliberately
+ * chose this color" after the fact is to compare against the outgoing
+ * theme: a value that still matches one of its slots is a baked theme color
+ * and moves to the incoming theme's counterpart; anything else (a hardcoded
+ * accent on a label, say) doesn't match and is left exactly as it is.
+ *
+ * `in_modal` picks which container slot wins when the outgoing theme used
+ * the same color for both (a light theme where modal_bg == window_bg is
+ * common) - without it, every <window> body in such a theme would come out
+ * wearing the new theme's modal color. */
+static uint32_t retheme_color(uint32_t c, int is_bg, int in_modal,
+                              const ui_theme* from, const ui_theme* to)
+{
+    /* Checked ahead of the container slots: an app's field captions are the
+     * one baked color that is deliberately NOT the body text color, so
+     * label_fg has to win the value comparison before modal_fg/window_fg
+     * could claim it (which is also why a theme must never give label_fg the
+     * same value as either of them). */
+    if (!is_bg && c == from->label_fg)
+        return to->label_fg;
+
+    if (in_modal)
+    {
+        if (is_bg) { if (c == from->modal_bg) return to->modal_bg; }
+        else       { if (c == from->modal_fg) return to->modal_fg; }
+    }
+    else
+    {
+        if (is_bg) { if (c == from->window_bg) return to->window_bg; }
+        else       { if (c == from->window_fg) return to->window_fg; }
+    }
+
+    if (is_bg)
+    {
+        if (c == from->modal_bg)  return to->modal_bg;
+        if (c == from->window_bg) return to->window_bg;
+        if (c == from->box_bg)    return to->box_bg;
+    }
+    else
+    {
+        if (c == from->modal_fg)  return to->modal_fg;
+        if (c == from->window_fg) return to->window_fg;
+        if (c == from->box_fg)    return to->box_fg;
+    }
+    return c;
+}
+
+static void retheme_node(ui_node* n, const ui_theme* from, const ui_theme* to,
+                         int in_modal)
+{
+    /* A modal's own frame is a <window> child of the <modal> wrapper, and it
+     * (and everything under it) is colored from the modal_* slots - so this
+     * only ever latches on, never back off. */
+    if (n->type == UI_TAG_MODAL)
+        in_modal = 1;
+
+    n->fg = retheme_color(n->fg, 0, in_modal, from, to);
+    n->bg = retheme_color(n->bg, 1, in_modal, from, to);
+
+    for (int i = 0; i < n->child_count; i++)
+        retheme_node(n->children[i], from, to, in_modal);
+}
+
+void ui_screen_set_theme(ui_screen* s, const ui_theme* theme)
+{
+    ui_theme from = g_theme;
+    ui_set_theme(theme);
+    if (s && s->root)
+        retheme_node(s->root, &from, theme, 0);
+}
+
 
 void ui_set_shortcut(ui_node* n, const char* shortcut)
 {
@@ -3819,26 +3893,79 @@ static void editor_cut(ui_node* n)
         editor_ensure_cursor_visible(n);
 }
 
+/* Inserts a whole string at the caret in one splice and one undo entry.
+ *
+ * Deliberately NOT a loop over input_insert(): that path is O(document) per
+ * codepoint (each insert rebuilds the whole buffer, and editor_undo_record's
+ * coalescing re-copies the whole accumulated insertion each time), so a large
+ * paste was quadratic and looked like the program had stopped responding.
+ *
+ * Filtering matches what the per-codepoint path did: '\r' is dropped, so the
+ * clipboard's CRLF becomes the single '\n' this document stores, and a
+ * numeric <input> keeps digits only (every non-digit codepoint was rejected
+ * there, so dropping every non-digit byte here is the same thing). A
+ * single-line <input> still ends up with embedded '\n's from a multi-line
+ * clipboard, same as before. */
+static void editor_insert_text(ui_node* n, const char* text)
+{
+    if (n->read_only || !text)
+        return;
+
+    size_t tlen = strlen(text);
+    char* ins = malloc(tlen + 1);
+    if (!ins)
+        ui_fatal_oom("editor_insert_text");
+
+    size_t ilen = 0;
+    for (size_t i = 0; i < tlen; i++)
+    {
+        char c = text[i];
+        if (c == '\r')
+            continue;
+        if (n->numeric && (c < '0' || c > '9'))
+            continue;
+        ins[ilen++] = c;
+    }
+    ins[ilen] = 0;
+    if (ilen == 0)
+    {
+        free(ins);
+        return;
+    }
+
+    size_t oldlen = strlen(n->label);
+    int pos = n->cursor;
+    int cursor_before = n->cursor, sel_before = n->sel_anchor;
+
+    char* buf = malloc(oldlen + ilen + 1);
+    if (!buf)
+        ui_fatal_oom("editor_insert_text");
+    memcpy(buf, n->label, (size_t)pos);
+    memcpy(buf + pos, ins, ilen);
+    strcpy(buf + (size_t)pos + ilen, n->label + pos);
+    ui_set_label(n, buf);
+    free(buf);
+    n->cursor = pos + (int)ilen;
+
+    if (n->type == UI_TAG_EDITOR)
+    {
+        /* takes ownership of ins */
+        editor_undo_record(n, UI_UNDO_PASTE, pos, str_dup_range("", 0, 0), ins,
+                           cursor_before, sel_before, n->cursor);
+        n->dirty = 1;
+        ui_editor_clear_diagnostics(n);  /* see input_insert()'s own comment */
+    }
+    else
+        free(ins);
+}
+
 static void editor_paste(ui_node* n)
 {
     char* text = ui_clipboard_get_text();
     if (!text)
         return;
     editor_delete_selection(n);
-    /* Insert byte-by-byte-decoded codepoints through the same path typing
-     * uses, normalizing CRLF (the clipboard's usual line ending) to the
-     * single '\n' this document already stores. A single-line <input>
-     * pasting a multi-line clipboard just ends up with embedded '\n's, same
-     * as a real text field would truncate/garble it - not worth guarding. */
-    const char* p = text;
-    while (*p)
-    {
-        uint32_t cp;
-        int len = utf8_decode(p, &cp);
-        if (cp != '\r')
-            input_insert(n, cp, UI_UNDO_PASTE);
-        p += len;
-    }
+    editor_insert_text(n, text);
     free(text);
     if (n->type == UI_TAG_EDITOR)
         editor_ensure_cursor_visible(n);
@@ -3943,9 +4070,9 @@ void ui_screen_paste(ui_screen* s)
  * bypasses undo entirely - fine for Find/Replace's "Replace All", not fine
  * for a selection transform the user expects to be able to undo). Reuses
  * exactly the same building blocks editor_paste() does: select the range,
- * delete it (one UI_UNDO_DELSEL step), then insert new_text codepoint by
- * codepoint under UI_UNDO_PASTE (one coalesced step) - so the net result is
- * the same two-step undo group a real paste-over-a-selection would leave. */
+ * delete it (one UI_UNDO_DELSEL step), then insert new_text under
+ * UI_UNDO_PASTE (one step) - so the net result is the same two-step undo
+ * group a real paste-over-a-selection would leave. */
 void ui_editor_replace_selection(ui_node* n, int lo, int hi, const char* new_text)
 {
     if (!n || n->type != UI_TAG_EDITOR || n->read_only || !new_text)
@@ -3954,15 +4081,7 @@ void ui_editor_replace_selection(ui_node* n, int lo, int hi, const char* new_tex
     ui_editor_set_selection(n, lo, hi);
     editor_delete_selection(n);
 
-    const char* p = new_text;
-    while (*p)
-    {
-        uint32_t cp;
-        int len = utf8_decode(p, &cp);
-        if (cp != '\r')
-            input_insert(n, cp, UI_UNDO_PASTE);
-        p += len;
-    }
+    editor_insert_text(n, new_text);
 
     ui_editor_set_selection(n, lo, n->cursor);
     editor_ensure_cursor_visible(n);
@@ -3970,8 +4089,18 @@ void ui_editor_replace_selection(ui_node* n, int lo, int hi, const char* new_tex
 
 /* Tab/Shift+Tab block indent - see the UI_KEY_TAB handling in
  * ui_screen_update() below, which only calls this once a selection is
- * confirmed present. How many columns one indent level is worth. */
-#define EDITOR_INDENT_WIDTH 4
+ * confirmed present. How many columns one indent level is worth - a runtime
+ * setting (ui_set_indent_width/ui_indent_width in ui.h), not a constant, so
+ * an app can expose it as a preference. Indentation is always spaces. */
+#define EDITOR_INDENT_WIDTH_DEFAULT 4
+static int g_indent_width = EDITOR_INDENT_WIDTH_DEFAULT;
+
+void ui_set_indent_width(int spaces)
+{
+    if (spaces > 0)
+        g_indent_width = spaces;
+}
+int ui_indent_width(void) { return g_indent_width; }
 
 /* A tiny growable byte buffer, same shape as the one this reflow-style
  * transform needs elsewhere (see wordwrap_text() in ide.c) - the output
@@ -4014,7 +4143,7 @@ static void ibuf_append(indent_buf* b, const char* text, size_t n)
 }
 
 /* Tab (outdent=0) or Shift+Tab (outdent=1) with an active selection: shifts
- * every selected line right by EDITOR_INDENT_WIDTH spaces, or left by
+ * every selected line right by ui_indent_width() spaces, or left by
  * removing up to that many - a single leading '\t' counts as one full
  * level and is removed whole rather than counted as one column, so mixed
  * tab/space-indented code still de-indents sensibly one level at a time.
@@ -4066,7 +4195,8 @@ static void editor_indent_selection(ui_node* n, int outdent)
         }
         else if (!outdent)
         {
-            ibuf_append(&out, "    ", EDITOR_INDENT_WIDTH);
+            for (int k = 0; k < ui_indent_width(); k++)
+                ibuf_append(&out, " ", 1);
             ibuf_append(&out, line, (size_t)line_len);
         }
         else
@@ -4077,7 +4207,7 @@ static void editor_indent_selection(ui_node* n, int outdent)
             else
             {
                 cut = 0;
-                while (cut < line_len && cut < EDITOR_INDENT_WIDTH && line[cut] == ' ')
+                while (cut < line_len && cut < ui_indent_width() && line[cut] == ' ')
                     cut++;
             }
             ibuf_append(&out, line + cut, (size_t)(line_len - cut));
@@ -4095,7 +4225,7 @@ static void editor_indent_selection(ui_node* n, int outdent)
 }
 
 /* Tab with no selection: ordinary typing, not a block operation - inserts
- * enough spaces to reach the next EDITOR_INDENT_WIDTH-column stop (a "soft
+ * enough spaces to reach the next ui_indent_width()-column stop (a "soft
  * tab"), same as pressing space that many times, confined to wherever the
  * caret already is rather than touching any other line.
  *
@@ -4116,7 +4246,8 @@ static void editor_insert_soft_tab(ui_node* n)
     int line, line_start;
     editor_cursor_line(n, &line, &line_start);
     int col = utf8_col_of(n->label + line_start, n->cursor - line_start);
-    int spaces = EDITOR_INDENT_WIDTH - (col % EDITOR_INDENT_WIDTH);
+    int width = ui_indent_width();
+    int spaces = width - (col % width);
     for (int k = 0; k < spaces; k++)
         input_insert(n, ' ', UI_UNDO_TYPE);
     ui_editor_set_selection(n, n->cursor, n->cursor);
@@ -4124,7 +4255,7 @@ static void editor_insert_soft_tab(ui_node* n)
 }
 
 /* Shift+Tab with no selection: outdents just the caret's own line (removing
- * one leading tab, or up to EDITOR_INDENT_WIDTH leading spaces - same rule
+ * one leading tab, or up to ui_indent_width() leading spaces - same rule
  * as editor_indent_selection's per-line outdent) and keeps the caret at the
  * same piece of text it was next to, shifted left by however much leading
  * whitespace actually got removed (clamped to the new line start if the
@@ -4148,7 +4279,7 @@ static void editor_outdent_current_line(ui_node* n)
     else
     {
         cut = 0;
-        while (cut < line_len && cut < EDITOR_INDENT_WIDTH && label[line_start + cut] == ' ')
+        while (cut < line_len && cut < ui_indent_width() && label[line_start + cut] == ' ')
             cut++;
     }
     if (cut == 0)
@@ -5835,7 +5966,25 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                         editor_delete_selection(in);
                     else
                         in->sel_anchor = -1;  /* see the Backspace branch's own comment above */
+
+                    /* Auto-indent: the new line starts with the same leading
+                     * whitespace as the one the caret is leaving. Measured
+                     * before the split and capped at the caret, so splitting
+                     * inside a line's indentation doesn't invent indent the
+                     * caret was never past. */
+                    int cur_line, cur_line_start;
+                    editor_cursor_line(in, &cur_line, &cur_line_start);
+                    int indent_end = cur_line_start;
+                    while (indent_end < in->cursor &&
+                           (in->label[indent_end] == ' ' || in->label[indent_end] == '\t'))
+                        indent_end++;
+                    char* indent = str_dup_range(in->label, cur_line_start, indent_end);
+
                     input_insert(in, '\n', UI_UNDO_NEWLINE);  /* a real newline, not a submit */
+                    for (const char* q = indent; *q; q++)
+                        input_insert(in, (unsigned char)*q, UI_UNDO_TYPE);
+                    free(indent);
+                    ui_editor_set_selection(in, in->cursor, in->cursor);
                 }
                 else
                 {
@@ -6229,6 +6378,30 @@ static void emit_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
     ui_cell* c = &s->next[y * s->cache_w + x];
     c->ch = ch; c->fg = fg; c->bg = bg;
     c->seq = ++s->emit_seq;  /* z-order stamp for overlay occlusion */
+}
+
+/* Repaint the background of cells already emitted on row `y`, spanning
+ * [x, x+w), leaving each cell's glyph and foreground exactly as they are.
+ *
+ * Used for the word-match highlight (see render_editor), which has to sit
+ * behind text whose colors were decided by a syntax highlighter that already
+ * ran - re-emitting the run would mean re-deriving every one of those
+ * per-character colors out here, where none of that state exists. Blanks
+ * are left alone in the `fg` sense only (emit_char already normalized their
+ * fg to 0); their bg is tinted like anything else, so the highlight covers a
+ * whole word evenly. */
+static void tint_cells_bg(int x, int y, int w, uint32_t bg)
+{
+    ui_screen* s = g_render_screen;
+    if (!s || !s->next || y < 0 || y >= s->cache_h)
+        return;
+    if (x < 0) { w += x; x = 0; }
+    if (x + w > s->cache_w) w = s->cache_w - x;
+    /* `seq` is deliberately left as the content write set it: this recolors
+     * a cell in place rather than drawing over it, so its z-order hasn't
+     * changed, and the diff ignores seq anyway (see ui_cell.seq). */
+    for (int i = 0; i < w; i++)
+        s->next[y * s->cache_w + x + i].bg = bg;
 }
 
 /* Record a destructive overlay (shadow/cursor) for replay after the content
@@ -8360,6 +8533,88 @@ static void editor_hscrollbar_drag_to(ui_node* n, int mouse_x, int grab_offset)
  * text_w are clipped by emit_hscroll inside each line renderer - text_w
  * being n->w minus whatever the line-number gutter (editor_gutter_width())
  * currently claims on the left, 0 when it's off. */
+/* The word the current selection covers, or NULL if the selection isn't
+ * exactly one - i.e. it must be a single line, all word bytes, and bounded
+ * by non-word bytes on both sides, so dragging across "foo_bar" arms the
+ * highlight but dragging across "oo_b" or "foo(" doesn't. Returns a pointer
+ * into n->label and the length in bytes.
+ *
+ * Two bytes minimum: a one-character selection matches so much of a typical
+ * source file that the highlight stops carrying information. */
+#define UI_WORD_MATCH_MIN 2
+static const char* editor_selected_word(ui_node* n, int* out_len)
+{
+    if (!has_selection(n))
+        return NULL;
+
+    int lo, hi;
+    selection_range(n, &lo, &hi);
+    if (hi - lo < UI_WORD_MATCH_MIN)
+        return NULL;
+
+    /* ASCII word bytes only, which is stricter than is_word_byte() (that one
+     * counts UTF-8 continuation bytes as word bytes so double-click doesn't
+     * split a glyph). The match pass below maps a match's length straight to
+     * a column count, and that only holds for one-byte-per-column text. */
+    for (int i = lo; i < hi; i++)
+    {
+        unsigned char c = (unsigned char)n->label[i];
+        if (c >= 0x80 || !is_word_byte(c))
+            return NULL;
+    }
+    if (lo > 0 && is_word_byte((unsigned char)n->label[lo - 1]))
+        return NULL;
+    if (is_word_byte((unsigned char)n->label[hi]))
+        return NULL;
+
+    *out_len = hi - lo;
+    return n->label + lo;
+}
+
+/* Tint every occurrence of `word` on one already-drawn row - the "same word
+ * elsewhere" cue. Only the background changes (tint_cells_bg), so whatever
+ * the syntax highlighter decided for each character stays; this is a
+ * reading aid, not a selection, and nothing here touches the document or
+ * the real selection state.
+ *
+ * `sel_col_lo/hi` are this row's real selection columns (-1 when it has
+ * none): the occurrence the user actually selected keeps input_sel_bg
+ * instead of being repainted, so the origin of the highlight still stands
+ * out from the matches it found. */
+static void highlight_word_matches(ui_node* n, int row, int text_x, int text_w,
+                                   const char* line, int line_len,
+                                   const char* word, int word_len,
+                                   int sel_col_lo, int sel_col_hi)
+{
+    for (int b = 0; b + word_len <= line_len; b++)
+    {
+        if (memcmp(line + b, word, (size_t)word_len) != 0)
+            continue;
+        if (b > 0 && is_word_byte((unsigned char)line[b - 1]))
+            continue;
+        if (b + word_len < line_len && is_word_byte((unsigned char)line[b + word_len]))
+            continue;
+
+        /* A word is word bytes by definition - all ASCII, one column each -
+         * so only its start needs the utf8_col_of() walk (earlier bytes on
+         * the line may well be multi-byte). */
+        int c0 = utf8_col_of(line, b);
+        int c1 = c0 + word_len;
+        b += word_len - 1;  /* matches can't overlap */
+
+        if (sel_col_lo >= 0 && c0 >= sel_col_lo && c1 <= sel_col_hi)
+            continue;
+
+        int vx0 = c0 - n->hscroll, vx1 = c1 - n->hscroll;
+        if (vx1 <= 0 || vx0 >= text_w)
+            continue;  /* scrolled out of the viewport horizontally */
+        if (vx0 < 0) vx0 = 0;
+        if (vx1 > text_w) vx1 = text_w;
+        tint_cells_bg(text_x + vx0, n->y + row, vx1 - vx0,
+                      g_theme.editor_word_match_bg);
+    }
+}
+
 static void render_editor(ui_screen* s, ui_node* n)
 {
     int focused = (s->focused == n);
@@ -8401,6 +8656,15 @@ static void render_editor(ui_screen* s, ui_node* n)
     int sel_lo = 0, sel_hi = 0;
     if (has_sel)
         selection_range(n, &sel_lo, &sel_hi);
+
+    /* Armed once for the whole render, not per row - the word (if any) the
+     * selection covers, whose other occurrences get tinted as each visible
+     * row is drawn. Nothing off-screen is touched: this is a per-row pass
+     * over the rows the loop below already visits, so it costs nothing on a
+     * large document and it is, by construction, "visible area only". */
+    int match_word_len = 0;
+    const char* match_word = editor_selected_word(n, &match_word_len);
+
     int text_len = (int)strlen(n->label);
 
     /* Diagnostics (see ui_editor_add_diagnostic) are kept sorted ascending
@@ -8724,6 +8988,17 @@ static void render_editor(ui_screen* s, ui_node* n)
                                       sel_col_lo, sel_col_hi, line_bg);
             break;
         }
+
+        /* Runs after the row is drawn, since it only re-tints cells the
+         * highlighter already wrote. C and plain text only: VT100's columns
+         * are escape-collapsed and Markdown's are hide-marker-collapsed, so
+         * neither maps a byte offset to a screen column the way the plain
+         * utf8_col_of() walk in here assumes - and "the same identifier
+         * elsewhere" is a code-reading cue, not something the Output panel
+         * or a prose document wants. */
+        if (match_word && (n->syntax == UI_SYNTAX_C || n->syntax == UI_SYNTAX_NONE))
+            highlight_word_matches(n, row, text_x, text_w, n->label + ls, le - ls,
+                                   match_word, match_word_len, sel_col_lo, sel_col_hi);
 
         while (diag && diag->line - 1 < line_idx)
             diag = diag->next;

@@ -168,7 +168,8 @@ static void defer_visit_defer_statement(struct defer_visit_ctx* ctx, struct defe
         return;
 
     p_defer_block->p_defer_block = p_defer_statement;
-    defer_visit_unlabeled_statement(ctx, p_defer_statement->unlabeled_statement);
+    if (p_defer_statement->unlabeled_statement)
+        defer_visit_unlabeled_statement(ctx, p_defer_statement->unlabeled_statement);
 
     defer_visit_ctx_pop_until(ctx, p_defer_block, NULL);
 }
@@ -194,6 +195,8 @@ static void defer_visit_if_statement(struct defer_visit_ctx* ctx, struct selecti
 {
     try
     {
+        if (p_selection_statement->secondary_block == NULL) throw;
+
         struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
         if (p_defer == NULL) throw;
 
@@ -230,6 +233,8 @@ static void defer_visit_try_statement(struct defer_visit_ctx* ctx, struct try_st
 {
     try
     {
+        if (p_try_statement->secondary_block == NULL) throw;
+
         struct secondary_block* _Opt catch_secondary_block_old = ctx->catch_secondary_block_opt;
 
         ctx->catch_secondary_block_opt = p_try_statement->catch_secondary_block_opt;
@@ -258,6 +263,8 @@ static void defer_visit_switch_statement(struct defer_visit_ctx* ctx, struct sel
 {
     try
     {
+        if (p_selection_statement->secondary_block == NULL) throw;
+
         struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
         if (p_defer == NULL) throw;
 
@@ -327,6 +334,8 @@ static void defer_visit_do_while_statement(struct defer_visit_ctx* ctx, struct i
 
     try
     {
+        if (p_iteration_statement->secondary_block == NULL) throw;
+
         struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
         if (p_defer == NULL) throw;
 
@@ -347,6 +356,8 @@ static void defer_visit_while_statement(struct defer_visit_ctx* ctx, struct iter
         _Assert(p_iteration_statement->first_token->type == TK_KEYWORD_WHILE);
 
         if (p_iteration_statement->expression1 == NULL) throw;
+
+        if (p_iteration_statement->secondary_block == NULL) throw;
 
         struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
         if (p_defer == NULL) throw;
@@ -370,6 +381,8 @@ static void defer_visit_for_statement(struct defer_visit_ctx* ctx, struct iterat
 
     try
     {
+        if (p_iteration_statement->secondary_block == NULL) throw;
+
         if (p_iteration_statement->declaration &&
             p_iteration_statement->declaration->init_declarator_list.head)
         {

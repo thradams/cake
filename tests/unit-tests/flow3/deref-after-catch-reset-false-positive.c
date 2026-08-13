@@ -29,6 +29,10 @@
    The same commit also added a report-once guard: a merged pointer can carry
    many alternatives aiming at the same pointee, and the identical diagnostic
    was emitted once per (pointer alternative x pointee alternative) pair.
+
+   A second, independent instance of the same class of bug lived in
+   flow3_check_object_init_assigment (the argument-passing / init path,
+   see the `use(...)` call below) -- also fixed, by the same filter.
 */
 
 void* _Owner _Opt _Clear calloc(unsigned long n, unsigned long s);
@@ -60,19 +64,15 @@ struct I* _Owner _Opt f(void)
        arm that ended it is the one where p is null, which `p &&` excludes. */
     if (p && p->p_declarator)
     {
-        /* REMAINING GAP, same bug one site over. The origin filter above was
-           applied to the `->` operator's own lifetime check, which is why the
-           `if (p && ...)` line is clean. The argument and return paths
-           (flow3_check_object_access / flow3_check_object_init_assigment) do
-           not apply it, so the catch arm's ENDED still reaches them even
-           though that arm's pointer is null and cannot get here.
-
-           The `return p;` below was the second half of this and is now clean:
-           extending the origin filter to the aggregate state check
-           (flow3_object_leaves_in_state) fixed it. This line still warns --
-           the member reached through `p->` is checked on a path the filter does
-           not yet cover -- so it stays annotated as the remaining half. */
-        use(p->p_declarator); //lint 31 object 'p->p_declarator' lifetime has ended (see line 55)
+        /* Formerly a REMAINING GAP: flow3_check_object_init_assigment's own
+           ENDED scan (the path `use(...)`'s argument-passing goes through)
+           checked p_src_alternative->imaginary == FLOW3_IMAGINARY_ENDED with
+           no origin filter at all, so the catch arm's ENDED fact reached it
+           even though that arm's pointer is null and cannot get here. Fixed
+           by applying the same flow3_map_is_ancestor_or_self(origin,
+           ctx->p_current_flow3_map) filter used by flow3_check_object_access's
+           already-fixed lifetime check. */
+        use(p->p_declarator);
     }
 
     return p;

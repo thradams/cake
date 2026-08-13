@@ -237,6 +237,7 @@ struct flow3_branch_pair
 };
 
 static void flow3_map_name_to_string(const struct flow3_map* _Opt map, struct osstream* ss);
+static struct osstream flow3_explain_origin(const struct flow3_map* _Opt map);
 
 struct object_set
 {
@@ -500,10 +501,10 @@ static bool flow3_value_is_false(const struct flow3_alternative* a)
 
 static unsigned int flow3_hash_key(const struct object* obj, int num_of_buckets)
 {
+    _Assert(num_of_buckets > 0);
     uintptr_t p = (uintptr_t)obj;
     return (unsigned int)((p ^ (p >> 5)) % (unsigned int)num_of_buckets);
 }
-
 static void flow3_map_rehash(struct flow3_map* m, int new_num_of_buckets)
 {
     struct flow3_key_alternatives* _Owner _Opt* _Owner _Opt new_buckets = NULL;
@@ -601,7 +602,7 @@ void flow3_map_arena_clear(_Clear struct flow3_map_arena* a)
     a->capacity = 0;
 }
 
-struct flow3_map* _Opt _Owner flow3_map_arena_new(struct flow3_map_arena* a, struct flow3_map* _Opt parent, enum flow3_map_kind kind)
+struct flow3_map* _Opt flow3_map_arena_new(struct flow3_map_arena* a, struct flow3_map* _Opt parent, enum flow3_map_kind kind)
 {
     try
     {
@@ -901,7 +902,7 @@ static void flow3_alternatives_add_does_not_exist(struct flow3_alternatives* vs,
             throw;
         }
 
-        struct flow3_alternative* _Opt p_new = flow3_alt_pool_alloc(&g_flow3_alt_pool);
+        struct flow3_alternative* _Opt _Owner p_new = flow3_alt_pool_alloc(&g_flow3_alt_pool);
         if (p_new == NULL)
         {
             throw;
@@ -2661,6 +2662,246 @@ static void flow3_map_name_to_string(const struct flow3_map* _Opt map, struct os
     ss_fprintf(ss, "?");
 }
 
+/* Max ancestors flow3_explain_origin walks before giving up. Same
+   sanity ceiling as FLOW3_MAP_DEBUG_MAX_CHAIN, kept separate so the
+   compact one-line path and the full tree dump can be tuned apart. */
+#define FLOW3_MAP_PATH_MAX_CHAIN 128
+
+/*
+   Renders the chain of decisions that led to `map`, root first, as a single
+   line:
+
+       true branch (p != NULL) -> false branch (p->next) -> opt-null
+
+   flow3_map_name_to_string() names ONE map, which is all a diagnostic used
+   to report ("... set at line N in \"false branch (p->next)\""). That
+   answers "which map recorded this fact" but not the question a reader
+   actually has when staring at a null-deref warning they believe is
+   impossible: *how did control get into that map* -- which conditions were
+   assumed true, and which false, along the way. That information is
+   already present (every branch map keeps its kind and branch_expr, and
+   p_parent_map chains them back to the root) but was never rendered, so
+   answering it meant re-running with static_debug(0) and reading the full
+   tree dump by hand.
+
+   Only decision points are printed. FLOW3_MAP_ROOT contributes nothing (it
+   is where every path starts, so naming it is pure noise on every single
+   line) and FLOW3_MAP_MERGE_TEMP is the short-lived scratch map from
+   flow3_map_merge_arms, which is an implementation detail of the join, not
+   a branch the source code took. A map whose entire chain is root-only
+   renders as "root" rather than an empty string, so a caller can always
+   splice the result into a sentence without checking for emptiness.
+
+   Returns the stream by value, transferring its buffer to the caller, who
+   must ss_close() it -- same shape as type_dup(). Nothing is allocated up
+   front and the text is re-rendered on every call.
+*/
+static struct osstream flow3_explain_origin(const struct flow3_map* _Opt map)
+{
+    struct osstream ss_storage = { 0 };
+    struct osstream* ss = &ss_storage;
+
+    if (map == NULL)
+    {
+        ss_fprintf(ss, "?");
+        return ss_storage;
+    }
+
+    /* Collect deepest-first, then walk backwards, so the line reads in the
+       order control flow actually took -- same reason flow3_map_debug_print
+       collects the chain into an array before printing it. */
+    const struct flow3_map* chain[FLOW3_MAP_PATH_MAX_CHAIN];
+    int chain_len = 0;
+    for (const struct flow3_map* _Opt cur = map; cur; cur = cur->p_parent_map)
+    {
+        if (chain_len < FLOW3_MAP_PATH_MAX_CHAIN)
+            chain[chain_len] = cur;
+        chain_len++;
+    }
+    const int collected = chain_len < FLOW3_MAP_PATH_MAX_CHAIN ? chain_len : FLOW3_MAP_PATH_MAX_CHAIN;
+
+    if (chain_len > FLOW3_MAP_PATH_MAX_CHAIN)
+        ss_fprintf(ss, "... -> ");
+
+    int printed = 0;
+    for (int i = collected - 1; i >= 0; i--)
+    {
+        const struct flow3_map* m = chain[i];
+
+        if (m->kind == FLOW3_MAP_ROOT || m->kind == FLOW3_MAP_MERGE_TEMP)
+            continue;
+
+        struct osstream name_ss = { 0 };
+        flow3_map_name_to_string(m, &name_ss);
+        ss_fprintf(ss, "%s%s", printed > 0 ? " -> " : "", name_ss.c_str ? name_ss.c_str : "");
+        ss_close(&name_ss);
+
+        /* Branch maps know the condition they came from, and that
+           expression knows where it was written -- so each step of the path
+           can point at the exact `if` the reader needs to look at, instead
+           of leaving them to find which of several identically-spelled
+           conditions this one was. Only branch maps carry branch_expr; the
+           other kinds have no single source line to name. Guarded on
+           line > 0 because compiler-generated tokens carry no real
+           position. */
+        if (m->branch_expr != NULL &&
+            m->branch_expr->first_token->line > 0)
+        {
+            ss_fprintf(ss, " at line %d", m->branch_expr->first_token->line);
+        }
+
+        if (m->is_unreachable)
+            ss_fprintf(ss, " [unreachable]");
+
+        printed++;
+    }
+
+    if (printed == 0)
+        ss_fprintf(ss, "root");
+
+    return ss_storage;
+}
+
+/*
+   Reports `map`'s decision path as a series of W_INFO notes, one per branch
+   taken, each pointing at the condition token it came from -- so the reader
+   gets the actual source line rendered under the warning for every step,
+   root first:
+
+       warning 35: 'p->last_token' may be null ...
+       note: true branch (a)
+         5 |     if (a)
+       note: false branch (b)
+         7 |         if (b)
+
+   Emitted as notes carrying a real token rather than as more text spliced
+   into the parent's message: the diagnostic machinery then renders the
+   source line and caret itself instead of leaving the reader to decode
+   "at line 7" by hand, and a path several branches deep would otherwise
+   make the parent's single line unreadably long.
+
+   W_INFO rather than W_LOCATION is a deliberate choice by the author.
+   The tradeoff to know: W_LOCATION entries attach to the preceding
+   diagnostic as children, so they are freed with it and a `//lint N` that
+   suppresses the warning suppresses its path too. W_INFO notes are
+   independent -- they survive such a suppression and count toward the
+   report's note total.
+
+   Still called only when the parent diagnostic() returned true, so a
+   suppressed warning does not leave orphaned path notes behind.
+
+   Only branch maps produce a note: they are the decisions the source
+   actually took, and they are the only kinds carrying both a name worth
+   printing and a token to point at. Maps with no branch_expr (opt-null,
+   joins, cases) and root/merge-temp are skipped for the same reason
+   flow3_explain_origin leaves them out.
+*/
+static void flow3_diagnose_map_path(struct flow3_visit_ctx* ctx, const struct flow3_map* _Opt map)
+{
+    if (map == NULL)
+        return;
+
+    /* Collect deepest-first then emit backwards, so notes read root-first,
+       in the order control flow took them (same shape as
+       flow3_explain_origin / flow3_map_debug_print). */
+    const struct flow3_map* chain[FLOW3_MAP_PATH_MAX_CHAIN];
+    int chain_len = 0;
+    for (const struct flow3_map* _Opt cur = map; cur; cur = cur->p_parent_map)
+    {
+        if (chain_len < FLOW3_MAP_PATH_MAX_CHAIN)
+            chain[chain_len] = cur;
+        chain_len++;
+    }
+    const int collected = chain_len < FLOW3_MAP_PATH_MAX_CHAIN ? chain_len : FLOW3_MAP_PATH_MAX_CHAIN;
+
+    /* Already-reported (condition, side) pairs, used to drop the repeats a
+       loop produces. Analyzing a loop walks its body more than once, so the
+       same `while (ctx->current->type == TK_STRING_LITERAL)` decision lands
+       on the chain several times -- printing it once per visit padded a
+       real path out to ten notes when six carried all the information, and
+       the duplicates are indistinguishable from each other on screen
+       (identical text, identical line, identical caret), so they read as a
+       rendering glitch rather than as "the loop went round again".
+       Keyed on the expression AND the kind, so a condition genuinely taken
+       both ways -- true on one visit, false on another -- still shows both;
+       only an exact repeat of the same decision is dropped. Bounded by the
+       chain length, so no allocation. */
+    const struct expression* seen_expr[FLOW3_MAP_PATH_MAX_CHAIN];
+    enum flow3_map_kind seen_kind[FLOW3_MAP_PATH_MAX_CHAIN];
+    int seen_count = 0;
+
+    for (int i = collected - 1; i >= 0; i--)
+    {
+        const struct flow3_map* m = chain[i];
+
+        if (m->branch_expr == NULL)
+            continue;
+
+        bool already_reported = false;
+        for (int s = 0; s < seen_count; s++)
+        {
+            if (seen_expr[s] == m->branch_expr && seen_kind[s] == m->kind)
+            {
+                already_reported = true;
+                break;
+            }
+        }
+        if (already_reported)
+            continue;
+
+        if (seen_count < FLOW3_MAP_PATH_MAX_CHAIN)
+        {
+            seen_expr[seen_count] = m->branch_expr;
+            seen_kind[seen_count] = m->kind;
+            seen_count++;
+        }
+
+        /* Underline the whole condition (first_token..last_token) rather
+           than passing just first_token as the caret: with only the first
+           token the marker rendered "~~~" under `ctx` alone for a condition
+           like `ctx->current->type == TK_IDENTIFIER`, pointing at a
+           sub-expression that is not what the branch turned on. */
+        const struct marker branch_marker =
+        {
+            .p_token_begin = m->branch_expr->first_token,
+            .p_token_end = m->branch_expr->last_token,
+        };
+
+        const bool is_true_branch = (m->kind == FLOW3_MAP_TRUE_BRANCH);
+
+        /* One note per decision, naming what was assumed about the
+           condition. Clang's analyzer splits this in two ("Assuming 'p' is
+           null" then "Taking false branch"), which was tried here first and
+           read as noise: both notes carry the same bit, printed against the
+           same caret on the same line, so
+             note: Assuming 'x->type==TK_STRING_LITERAL' is true
+             note: Taking true branch
+           says one thing twice. The assumption is the more informative half
+           -- it states nullness for pointers, which is the very fact the
+           warning goes on to complain about -- and the branch taken follows
+           from it, so only that half is printed. */
+        struct osstream cond_ss = { 0 };
+        flow3_expression_to_string(m->branch_expr, &cond_ss);
+        const char* cond = cond_ss.c_str ? cond_ss.c_str : "";
+
+        /* Phrase the assumption in terms of the condition's own type. For a
+           pointer, "is null"/"is non-null" is what the reader cares about
+           and what the resulting warning will talk about; for anything else
+           claiming nullness would be wrong, so fall back to true/false. */
+        const char* assumption;
+        if (type_is_pointer(&m->branch_expr->type))
+            assumption = is_true_branch ? "is non-null" : "is null";
+        else
+            assumption = is_true_branch ? "is true" : "is false";
+
+        diagnostic(W_INFO, ctx->ctx, NULL, &branch_marker,
+            "Assuming '%s' %s%s", cond, assumption,
+            m->is_unreachable ? " (unreachable)" : "");
+
+        ss_close(&cond_ss);
+    }
+}
+
 /* Create a branch map tagged for on-demand naming: `is_true` and the
    condition expression are stashed on the map, not rendered, until
    flow3_map_name_to_string() is actually asked to build the name (a
@@ -4051,6 +4292,84 @@ static bool flow3_object_leaves_in_state_2(struct flow3_visit_ctx* ctx,
     return false;
 }
 
+/*
+   Findings already reported while checking the assignment currently in
+   progress, so one fact is reported once however many paths reach it.
+
+   flow3_check_object_init_assigment loops over the source's alternatives and
+   recurses into the pointee's members for each one. When several alternatives
+   share a pointee -- the usual case for a function with one `return` and
+   several ways to reach it -- every member finding is rediscovered per
+   alternative and was reported per alternative: expressions.c:4300 emitted
+   "'p_expression_node->first_token' may be null ... (see line 3183)" seven
+   times, once per route through the `'&' || '*' || '+' || '-' || '~' || '!'`
+   chain, all identical. The existing `nullable_reported` flags only cover the
+   object being assigned, not these recursive member checks.
+
+   Keyed on line as well as object, so genuinely distinct origins (a member
+   left null by the calloc at 3142 vs. the one at 3183) still report
+   separately -- only exact repeats are dropped. Reset per assignment, not per
+   function: the same member being null at two different statements is two
+   findings.
+
+   File scope rather than a member of struct flow3_visit_ctx: this is private
+   bookkeeping for one check in this file, and nothing outside it -- nothing
+   that merely includes flow3.h -- has any use for it. Safe because flow3
+   analysis is single-threaded and non-reentrant, like the visit itself.
+
+   Terminated by the first entry with a NULL p_object rather than by a
+   separate count: an entry is only ever meaningful when it names an object,
+   so the array carries its own end marker and there is no second variable
+   that can drift out of step with it.
+*/
+static struct
+{
+    const struct object* _Opt p_object; /* NULL marks the end of the used entries */
+    int line;
+    int diagnostic_id;
+} s_reported_findings[256];
+
+static void flow3_reported_findings_clear(void)
+{
+    s_reported_findings[0].p_object = NULL;
+}
+
+/*
+   True when (p_object, line, diagnostic_id) has already been reported for the
+   assignment being checked; records it as reported otherwise.
+
+   Fails open: once the table is full every finding is reported again, because
+   silently dropping a real one is worse than printing a duplicate.
+*/
+static bool flow3_finding_already_reported(const struct object* p_object, int line, int diagnostic_id)
+{
+    const int max = (int)(sizeof(s_reported_findings) / sizeof(s_reported_findings[0]));
+
+    int i = 0;
+    while (i < max && s_reported_findings[i].p_object != NULL)
+    {
+        if (s_reported_findings[i].p_object == p_object &&
+            s_reported_findings[i].line == line &&
+            s_reported_findings[i].diagnostic_id == diagnostic_id)
+        {
+            return true;
+        }
+        i++;
+    }
+
+    /* Stop one short of the end so slot max-1 stays NULL and keeps
+       terminating the scan above. */
+    if (i < max - 1)
+    {
+        s_reported_findings[i].p_object = p_object;
+        s_reported_findings[i].line = line;
+        s_reported_findings[i].diagnostic_id = diagnostic_id;
+        s_reported_findings[i + 1].p_object = NULL;
+    }
+
+    return false;
+}
+
 static void flow3_check_object_access(struct flow3_visit_ctx* ctx,
     const char* parent_expression_str,
     struct expression* p_expression,
@@ -4163,7 +4482,7 @@ static void flow3_check_object_access(struct flow3_visit_ctx* ctx,
         if (members_check_ended)
         {
             int ended_line = 0;
-            if (flow3_object_leaves_in_state(ctx, p_object_src, FLOW3_LEAF_ENDED, p_origin_filter, false, &ended_line) &&
+            if (flow3_object_leaves_in_state_2(ctx, p_object_src, FLOW3_LEAF_ENDED, p_origin_filter, ctx->p_current_flow3_map, false, &ended_line) &&
                 ended_line != 0)
             {
                 struct osstream ss = { 0 };
@@ -4320,7 +4639,12 @@ static void flow3_check_object_access(struct flow3_visit_ctx* ctx,
             !type_is_opt(p_null_type, ctx->ctx->options.null_checks_enabled) &&
             flow3_alternative_can_be_zero(p_alternative) &&
             !nullable_reported &&
-            !in_array_element)
+            !in_array_element &&
+            /* Same fact, reached by another path, already reported for this
+               assignment -- see reported_findings. Evaluated last so it only
+               records findings that would actually have been printed. */
+            !flow3_finding_already_reported(p_object_src, p_alternative->line,
+                W_FLOW_NULLABLE_TO_NON_NULLABLE))
         {
             nullable_reported = true;
             /* Two different facts get reported through this one call,
@@ -4343,20 +4667,27 @@ static void flow3_check_object_access(struct flow3_visit_ctx* ctx,
                previously got this backwards for parser.c:5214
                (`p_token = ctx->current;` -- ctx->current is legitimately
                _Opt; it's p_token, the destination, that disallows null). */
+            bool reported;
             if (p_dest_governing_type != NULL)
             {
-                diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+                reported = diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
                     ctx->ctx, NULL, &marker,
                     "'%s' may be null, but the destination does not allow null (see line %d)",
                     bare_name, p_alternative->line);
             }
             else
             {
-                diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+                reported = diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
                     ctx->ctx, NULL, &marker,
                     "'%s' may be null, but is declared non-nullable (see line %d)",
                     bare_name, p_alternative->line);
             }
+
+            /* "may be null" is exactly the warning a reader tends to
+               believe is impossible, so show which branches produced the
+               null alternative rather than only where it was set. */
+            if (reported)
+                flow3_diagnose_map_path(ctx, p_alternative->origin);
         }
 
         if (p_alternative->imaginary != FLOW3_IMAGINARY_ENDED && p_alternative->value_relation == FLOW3_RELATION_UNINITIALIZED)
@@ -4759,9 +5090,28 @@ static void flow3_check_object_init_assigment(struct flow3_visit_ctx* ctx,
         bool moved_reported = false;
         bool lifetime_ended_reported = false;
 
+        /* Those four flags cover the object being assigned; the recursive
+           member checks below run once per source alternative and need the
+           same rule applied across calls. Reset here so the scope is exactly
+           one assignment. */
+        flow3_reported_findings_clear();
+
         for (int ri = 0; ri < p_src_key_alternatives->alternatives.size; ri++)
         {
             struct flow3_alternative* p_src_alternative = p_src_key_alternatives->alternatives.data[ri];
+
+            if (p_src_alternative->imaginary == FLOW3_IMAGINARY_ENDED &&
+                !flow3_map_is_ancestor_or_self(p_src_alternative->origin, ctx->p_current_flow3_map))
+            {
+                /* This ENDED fact's origin is a sibling branch that was never
+                   open at the same time as the current path (e.g. a catch arm
+                   that released the object and reset the pointer to null,
+                   already excluded by a null check ahead of this call) --
+                   same class of false positive as flow3_check_object_access's
+                   already-fixed lifetime check. See
+                   deref-after-catch-reset-false-positive.c. */
+                continue;
+            }
 
             if (p_src_alternative->imaginary == FLOW3_IMAGINARY_ENDED)
             {
@@ -5076,10 +5426,13 @@ static void flow3_check_object_init_assigment(struct flow3_visit_ctx* ctx,
                    threaded through -- a genuinely different case.)
                    User-reported: parser.c:5214, `p_token = ctx->current;`
                    -- ctx->current is `struct token* _Opt`; p_token isn't. */
-                diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+                if (diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
                     ctx->ctx, NULL, &marker,
                 "'%s' may be null, but the destination does not allow null (see line %d)",
-                    ss.c_str, p_src_alternative->line);
+                    ss.c_str, p_src_alternative->line))
+                {
+                    flow3_diagnose_map_path(ctx, p_src_alternative->origin);
+                }
                 ss_close(&ss);
             }
 
@@ -7892,7 +8245,7 @@ static struct flow3_branch_pair flow3_visit_expression(struct flow3_visit_ctx* c
                                         struct osstream ss = { 0 };
                                         flow3_expression_to_string(p_expression->left, &ss);
                                         diagnostic(W_FLOW_NULL_DEREFERENCE, ctx->ctx, NULL, &marker,
-                                            "operator -> applied to a possible null pointer '%s'",
+                                            "'%s->' possible null dereference",
                                             ss.c_str ? ss.c_str : "");
                                         ss_close(&ss);
                                     }
@@ -10869,7 +11222,7 @@ static void flow3_check_clear_object_is_zero_at_exit(struct flow3_visit_ctx* ctx
                with the parent and freed with it, so a `//lint N` that removes
                the parent removes this too -- with W_INFO the note survived
                the suppression and still counted towards the report. */
-            diagnostic(W_LOCATION, ctx->ctx, p_exit_token, NULL, "exit point");
+            //diagnostic(W_LOCATION, ctx->ctx, p_exit_token, NULL, "exit point");
         }
         ss_close(&name_ss);
         return;
@@ -10897,7 +11250,7 @@ static void flow3_check_clear_object_is_zero_at_exit(struct flow3_visit_ctx* ctx
                 p_alternative->line))
             {
                 /* child note -- see the W_LOCATION comment above. */
-                diagnostic(W_LOCATION, ctx->ctx, p_exit_token, NULL, "exit point");
+                //diagnostic(W_LOCATION, ctx->ctx, p_exit_token, NULL, "exit point");
             }
             ss_close(&name_ss2);
         }
@@ -10960,7 +11313,7 @@ static void flow3_check_ctor_object_is_initialized_at_exit(struct flow3_visit_ct
             "_Ctor parameter '%s' is never initialized",
             name_ss.c_str ? name_ss.c_str : param_name))
         {
-            diagnostic(W_LOCATION, ctx->ctx, p_exit_token, NULL, "exit point");
+            //diagnostic(W_LOCATION, ctx->ctx, p_exit_token, NULL, "exit point");
         }
         ss_close(&name_ss);
         return;
@@ -10987,7 +11340,7 @@ static void flow3_check_ctor_object_is_initialized_at_exit(struct flow3_visit_ct
                 name_ss2.c_str ? name_ss2.c_str : param_name,
                 p_alternative->line))
             {
-                diagnostic(W_LOCATION, ctx->ctx, p_exit_token, NULL, "exit point");
+                //diagnostic(W_LOCATION, ctx->ctx, p_exit_token, NULL, "exit point");
             }
             ss_close(&name_ss2);
         }
@@ -11099,7 +11452,7 @@ static void flow3_check_non_dtor_param_owner_not_consumed_at_exit(struct flow3_v
                 name_ss.c_str ? name_ss.c_str : param_name,
                 p_alternative->line))
             {
-                diagnostic(W_LOCATION, ctx->ctx, p_exit_token, NULL, "exit point");
+               // diagnostic(W_LOCATION, ctx->ctx, p_exit_token, NULL, "exit point");
             }
             ss_close(&name_ss);
         }
@@ -11785,10 +12138,14 @@ static void flow3_explain_alternative_not_true(struct osstream* ss, const struct
 
     if (alt->origin)
     {
-        struct osstream name_ss = { 0 };
-        flow3_map_name_to_string(alt->origin, &name_ss);
-        ss_fprintf(ss, " in \"%s\"", name_ss.c_str ? name_ss.c_str : "");
-        ss_close(&name_ss);
+        /* The full decision path, not just the name of the one map that
+           recorded the fact: on a warning the reader believes is
+           impossible, "which conditions were assumed along the way" is the
+           question they actually need answered. See
+           flow3_explain_origin. */
+        struct osstream path_ss = flow3_explain_origin(alt->origin);
+        ss_fprintf(ss, " in \"%s\"", path_ss.c_str ? path_ss.c_str : "");
+        ss_close(&path_ss);
     }
 }
 
@@ -11894,9 +12251,7 @@ static void flow3_visit_static_assertion(struct flow3_visit_ctx* ctx, struct sta
     {
         flow3_visit_compile_assert(ctx, p_static_assertion);
     }
-    else if (p_static_assertion->first_token->type == TK_KEYWORD_STATIC_SET)
-    {
-    }
+
 
     /* compile_assert's diagnostic is queued above, during flow analysis, so
        its `//lint N` has to be checked here at phase 2. parser.c checks the

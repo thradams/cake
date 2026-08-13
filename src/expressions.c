@@ -626,6 +626,7 @@ void generic_assoc_list_destroy(_Dtor struct generic_assoc_list* p)
         item = next;
     }
 }
+
 void generic_selection_delete(struct generic_selection* _Owner _Opt p)
 {
     if (p)
@@ -5502,7 +5503,12 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, bool 
             if (new_expression == NULL)
                 throw;
 
-            new_expression->first_token = ctx->current;
+            /* Left operand's first token, not the operator -- same reason
+               spelled out at the additive_expression call site: serializing
+               from the operator drops the left operand, so a flow3 branch
+               note reads "(=='?')" instead of
+               "(ctx->current->type == '?')". */
+            new_expression->first_token = p_expression_node->first_token;
 
             struct token* operator_token = ctx->current;
             check_binary_operator_space_style(ctx, operator_token, ctx->current);
@@ -5535,7 +5541,10 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, bool 
             check_comparison(ctx, new_expression->left, new_expression->right, p_token_operator);
 
             new_expression->last_token = new_expression->right->last_token;
-            new_expression->first_token = operator_token;
+            /* first_token is already the left operand's (set above); it must
+               NOT be re-pointed at the operator here -- that is what made
+               the expression serialize as "=='?'" with the left operand
+               dropped. */
 
             if (object_has_constant_value(&new_expression->left->object) &&
                 object_has_constant_value(&new_expression->right->object))

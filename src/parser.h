@@ -28,6 +28,7 @@ struct scope
 };
 
 void scope_destroy(_Dtor struct scope* p);
+void scope_swap(struct scope* a, struct scope* b);
 
 struct scope_list
 {
@@ -61,8 +62,8 @@ struct report
 
 struct label_list_item
 {
-    struct token* p_last_usage;
-    struct token* p_defined;
+    struct token* _Opt p_last_usage;
+    struct token* _Opt p_defined;
     struct label_list_item* _Owner _Opt  next;
 };
 
@@ -194,7 +195,7 @@ void unexpected_end_of_file(struct parser_ctx* ctx);
 void parser_match(struct parser_ctx* ctx);
 _Attr(nodiscard)
 int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
-int parser_match_tk_lint(struct parser_ctx* ctx, enum token_type type, struct token** pp_token_lint);
+int parser_match_tk_lint(struct parser_ctx* ctx, enum token_type type, struct token* _Opt* pp_token_lint);
 
 struct token* _Opt previous_parser_token(const struct token* token);
 struct token* _Opt parser_get_previous_token(struct parser_ctx* ctx);
@@ -301,7 +302,7 @@ struct static_assertion
 
       extension:
       "static_debug" ( constant-expression ) ;
-      "override_state" ( constant-expression , string-literal) ;
+      
     */
 
     struct token* first_token;
@@ -356,8 +357,8 @@ struct attribute_specifier
         [ [ attribute-list ] ]
     */
     struct token* first_token;
-    struct token* last_token;
-    struct attribute_list* _Owner attribute_list;
+    struct token* _Opt last_token;
+    struct attribute_list* _Owner _Opt attribute_list;
     struct attribute_specifier* _Owner _Opt  next;
 };
 
@@ -551,7 +552,7 @@ struct simple_declaration
       attribute-specifier-sequence declaration-specifiers init-declarator-list ;
     */
     struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
-    struct declaration_specifiers* _Owner p_declaration_specifiers;
+    struct declaration_specifiers* _Owner _Opt p_declaration_specifiers;
     struct init_declarator_list init_declarator_list;
     struct token* first_token;
     struct token* last_token;
@@ -689,8 +690,8 @@ struct member_declaration_list
        member-declaration-list member-declaration
     */
 
-    struct token* first_token; /*TODO ? necessary*/
-    struct token* last_token;
+    struct token* _Opt first_token; /*TODO ? necessary*/
+    struct token* _Opt last_token;
     struct member_declaration* _Owner _Opt head;
     struct member_declaration* _Opt tail;
 };
@@ -714,7 +715,7 @@ struct struct_or_union_specifier
     struct member_declaration_list member_declaration_list;
 
     struct token* first_token;
-    struct token* last_token;
+    struct token* _Opt last_token;
 
     bool is_owner;
 
@@ -881,7 +882,7 @@ struct array_declarator
     struct expression* _Owner _Opt expression;
     struct type_qualifier_list* _Owner _Opt type_qualifier_list_opt;
 
-    struct token* token;
+    struct token* _Opt token;
     struct token* _Opt static_token_opt;
 };
 
@@ -1250,8 +1251,8 @@ struct defer_statement
          unlabeled-statement
     */
     struct token* first_token;
-    struct token* last_token;
-    struct unlabeled_statement* _Owner unlabeled_statement;
+    struct token* _Opt last_token;
+    struct unlabeled_statement* _Owner _Opt unlabeled_statement;
 };
 
 void defer_statement_delete(_Dtor struct defer_statement* _Owner _Opt p);
@@ -1283,10 +1284,10 @@ struct try_statement
        "__finally" secondary-block
        "__except(expression)" secondary-block
     */
-    struct secondary_block* _Owner secondary_block;
+    struct secondary_block* _Owner _Opt secondary_block;
     struct secondary_block* _Owner _Opt catch_secondary_block_opt;
     struct token* first_token; /*try*/
-    struct token* last_token;
+    struct token* _Opt last_token;
     struct token* _Opt catch_token_opt; /*catch*/
 
     struct expression* _Owner _Opt msvc_except_expression;
@@ -1349,7 +1350,7 @@ struct selection_statement
     struct init_statement* _Owner _Opt p_init_statement;
     struct condition* _Owner _Opt _Opt condition;
 
-    struct secondary_block* _Owner secondary_block;
+    struct secondary_block* _Owner _Opt secondary_block;
     struct secondary_block* _Owner _Opt else_secondary_block_opt;
 
     struct token* open_parentesis_token;
@@ -1359,7 +1360,7 @@ struct selection_statement
     struct case_label_list label_list;
 
     struct token* first_token;
-    struct token* last_token;
+    struct token* _Opt last_token;
     struct token* _Opt lint_token;
     struct token* _Opt else_token_opt;
     struct defer_list defer_list;
@@ -1381,9 +1382,9 @@ struct iteration_statement
     */
 
     struct token* first_token;
-    struct token* second_token; /*do {} while*/
+    struct token* _Opt second_token; /*do {} while*/
     struct token* _Opt p_lint_token; /*do {} while*/
-    struct secondary_block* _Owner secondary_block;
+    struct secondary_block* _Owner _Opt secondary_block;
 
     struct expression* _Owner _Opt expression1;
     struct expression* _Owner _Opt expression2;
@@ -1614,7 +1615,6 @@ struct designation
        designator-list =
     */
     struct designator_list* _Owner designator_list;
-    struct token* token;
 };
 
 struct designation* _Owner _Opt designation(struct parser_ctx* ctx);
@@ -1661,7 +1661,7 @@ struct attribute
 
     enum msvc_declspec_flags msvc_declspec_flags;
     enum attribute_flags  attributes_flags;
-    struct attribute_argument_clause* _Owner attribute_argument_clause;
+    struct attribute_argument_clause* _Owner _Opt attribute_argument_clause;
     struct token* _Opt attribute_token;
     struct token* _Opt attribute_prefix;
     struct attribute* _Owner _Opt next;
@@ -1725,7 +1725,7 @@ struct attribute_argument_clause
        ( balanced-token-sequence opt )
     */
     struct balanced_token_sequence* _Owner _Opt p_balanced_token_sequence;
-    struct token* token;
+    struct token* _Opt token;
 };
 
 struct attribute_argument_clause* _Owner _Opt attribute_argument_clause(struct parser_ctx* ctx);

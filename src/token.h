@@ -217,7 +217,6 @@ enum token_type
     TK_KEYWORD_CAKE_STATIC_DEBUG, /*extension*/
     TK_KEYWORD_CAKE_STATIC_DEBUG_EX, /*extension*/
     TK_KEYWORD_STATIC_STATE, /*extension*/
-    TK_KEYWORD_STATIC_SET, /*extension*/
     
     /*https://en.cppreference.com/w/cpp/header/type_traits*/
     
@@ -297,7 +296,7 @@ void token_list_set_file(struct token_list* list, const struct token* filetoken,
 bool token_list_is_empty(struct token_list* p);
 void token_list_swap(struct token_list* a, struct token_list* b);
 
-struct token* _Owner _Opt clone_token(struct token* p);
+struct token* _Owner _Opt clone_token(const struct token* p);
 struct token* token_list_add(struct token_list* list, struct token* _Owner pnew);
 void token_list_remove(struct token_list* list, struct token* first, struct token* last);
 struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last);

@@ -18,7 +18,7 @@ struct X* _Owner _Opt F(int i)
             struct X* _Owner p2 = calloc(1, sizeof * p2); // owner object (p2) not moved (case see line 26)
             if (p2)
             {
-              override_state(*p2, "zero");
+              
                 p1 = p2;
             }
             break;

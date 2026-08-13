@@ -104,13 +104,12 @@ struct macro_parameter
 
 struct macro
 {
-    const struct token* p_name_token;
+    const struct token* _Opt p_name_token;
     const char* _Owner name;
     struct token_list replacement_list; /*copy*/
     struct macro_parameter* _Owner _Opt parameters;
     bool is_function;
-    int usage;
-
+    int usage;
     bool def_macro;
 };
 
@@ -585,7 +584,10 @@ struct token_list copy_argument_list_tokens(struct token_list* list)
             current = current->next;
             continue;
         }
-        //
+
+        if (current == NULL) 
+           break;
+
         struct token* token = token_list_clone_and_add(&r, current);
         if (token->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
         {
@@ -3145,7 +3147,6 @@ struct token_list endif_line(struct preprocessor_ctx* ctx, struct token_list* in
 }
 struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* macro, struct token_list* input_list, int level);
 struct token_list replacement_list(struct preprocessor_ctx* ctx, struct macro* macro, struct token_list* input_list, int level);
-static bool is_empty_assert(struct token_list* replacement_list);
 
 struct token_list def_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, struct macro** pp_macro)
 {
@@ -3650,41 +3651,6 @@ struct token_list pp_tokens_opt(struct preprocessor_ctx* ctx, struct token_list*
         prematch_level(&r, input_list, level, is_active);
     }
     return r;
-}
-
-static bool is_empty_assert(struct token_list* replacement_list)
-{
-    struct token* _Opt token = replacement_list->head;
-
-    if (token == NULL)
-        return false;
-
-    if (strcmp(token->lexeme, "(")) return false;
-    token = token->next;
-
-    if (token == NULL) return false;
-    if (strcmp(token->lexeme, "(")) return false;
-    token = token->next;
-
-    if (token == NULL) return false;
-    if (strcmp(token->lexeme, "void")) return false;
-    token = token->next;
-
-    if (token == NULL) return false;
-    if (strcmp(token->lexeme, ")")) return false;
-    token = token->next;
-
-    if (token == NULL) return false;
-    if (strcmp(token->lexeme, "0")) return false;
-    token = token->next;
-
-    if (token == NULL) return false;
-    if (strcmp(token->lexeme, ")")) return false;
-    token = token->next;
-
-    if (token != NULL) return false;
-
-    return true;
 }
 
 void print_path(const char* path, bool fullpath)
@@ -5116,7 +5082,8 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
     struct token_list r = { 0 };
     try
     {
-        if (input_list->head->type != TK_IDENTIFIER)
+        if (input_list->head == NULL ||
+            input_list->head->type != TK_IDENTIFIER)
         {
             throw; //internal error
         }
@@ -5440,8 +5407,12 @@ struct token_list copy_replacement_list_core(struct preprocessor_ctx* ctx,
         if (!ctx->options.preprocess_def_macro && token_added->type == TK_PREPROCESSOR_LINE)
         {
             token_added->type = '#';
-            free(token_added->lexeme);
-            token_added->lexeme = strdup("#");
+            char* _Owner _Opt p_new_lexeme = strdup("#");
+            if (p_new_lexeme != NULL)
+            {
+                free(token_added->lexeme);
+                token_added->lexeme = p_new_lexeme;
+            }
         }
 
         if (token_added->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
@@ -5595,6 +5566,12 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
             struct token_list list2 = preprocessor(ctx, &r0, level + 1);
             struct tokenizer_ctx tctx = { 0 };
             const char* _Opt _Owner result = print_preprocessed_to_string2(list2.head);
+            if (result == NULL)
+            {
+                token_list_destroy(&list2);
+                token_list_destroy(&r0);
+                throw;
+            }
 
             token_list_clear(&r);
             r = tokenizer(&tctx, result, "", 0, TK_FLAG_MACRO_EXPANDED);
@@ -6345,7 +6322,7 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_CAKE_STATIC_DEBUG: return "TK_KEYWORD_CAKE_STATIC_DEBUG"; /*extension*/
     case TK_KEYWORD_CAKE_STATIC_DEBUG_EX: return "TK_KEYWORD_CAKE_STATIC_DEBUG_EX"; /*extension*/
     case TK_KEYWORD_STATIC_STATE: return "TK_KEYWORD_STATIC_STATE"; /*extension*/
-    case TK_KEYWORD_STATIC_SET: return "TK_KEYWORD_STATIC_SET"; /*extension*/
+
 
         /*https://en.cppreference.com/w/cpp/header/type_traits*/
 
@@ -6561,7 +6538,7 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
     case TK_KEYWORD_CAKE_STATIC_DEBUG: return "static_debugex"; /*extension*/
     case TK_KEYWORD_CAKE_STATIC_DEBUG_EX: return "static_debug_ex"; /*extension*/
     case TK_KEYWORD_STATIC_STATE: return "assert_state"; /*extension*/
-    case TK_KEYWORD_STATIC_SET: return "override_state"; /*extension*/
+
 
         /*https://en.cppreference.com/w/cpp/header/type_traits*/
 
@@ -6849,14 +6826,15 @@ const char* _Owner _Opt print_preprocessed_to_string2(const struct token* _Opt p
 
                 current = current->next;
 
-                while (current->type != TK_PRAGMA_END)
+                while (current && current->type != TK_PRAGMA_END)
                 {
                     ss_fprintf(&ss, "%s", current->lexeme);
                     current = current->next;
                 }
 
                 ss_fprintf(&ss, "\n"); /*added for visualization*/
-                current = current->next;
+                if (current)
+                    current = current->next;
                 continue;
             }
 

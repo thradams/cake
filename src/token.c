@@ -506,7 +506,6 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD_CAKE_STATIC_DEBUG: /*extension*/
     case TK_KEYWORD_CAKE_STATIC_DEBUG_EX: /*extension*/
     case TK_KEYWORD_STATIC_STATE: /*extension*/
-    case TK_KEYWORD_STATIC_SET: /*extension*/
 
         /*https://en.cppreference.com/w/cpp/header/type_traits*/
 
@@ -585,8 +584,10 @@ void token_list_append_list(struct token_list* dest, _Clear struct token_list* s
 {
     if (source->head == NULL)
     {
+        _Assert(source->tail == NULL);
         return;
     }
+
     if (dest->head == NULL)
     {
         dest->head = source->head;
@@ -606,7 +607,7 @@ void token_list_append_list(struct token_list* dest, _Clear struct token_list* s
 }
 
 
-struct token* _Owner _Opt clone_token(struct token* p)
+struct token* _Owner _Opt clone_token(const struct token* p)
 {
     _Opt struct token* _Owner _Opt token = calloc(1, sizeof * token);
     if (token == NULL)
@@ -647,7 +648,7 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
     }
     else
     {
-        list->head = last->next;
+        list->head = after_last;
     }
 
     if (after_last)
