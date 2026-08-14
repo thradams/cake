@@ -1,4 +1,3 @@
-#include "type.h"
 #pragma safety enable
 #include "version.h"
 #include "ownership.h"
