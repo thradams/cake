@@ -305,7 +305,7 @@ void token_list_append_list(struct token_list* dest, _Clear struct token_list* s
 void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* source);
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew);
 char* _Owner _Opt token_list_join_tokens(struct token_list* list, bool bliteral);
-void token_list_clear(struct token_list* list);
+void token_list_clear(_Clear struct token_list* list);
 
 
 bool token_is_one_space(const struct token* _Opt token);

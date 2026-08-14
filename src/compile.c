@@ -336,7 +336,7 @@ int compile_one_file(const char* file_name,
 
     const char* _Owner _Opt p_output_string = NULL;
 
-    _Opt struct parser_ctx ctx = { 0 };
+    _Opt struct parser_ctx ctx = { .p_input_list = &ast.token_list };
 
     struct tokenizer_ctx tctx = { 0 };
     struct token_list tokens = { 0 };

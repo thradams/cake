@@ -1188,7 +1188,7 @@ bool type_is_int(const struct type* p_type)
 bool type_is_unsigned_int(const struct type* p_type)
 {
     if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
-        return  false;
+        return false;
 
     if (p_type->type_specifier_flags == (TYPE_SPECIFIER_INT | TYPE_SPECIFIER_UNSIGNED))
     {
@@ -1201,7 +1201,7 @@ bool type_is_unsigned_int(const struct type* p_type)
 bool type_is_float(const struct type* p_type)
 {
     if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
-        return  false;
+        return false;
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
     {
@@ -1848,7 +1848,7 @@ struct type type_dup(const struct type* p_type)
             if (p->name_opt)
             {
                 //actually p_new->name_opt was not mine..
-                p_new->name_opt = strdup(p->name_opt);
+                p_new->name_opt = strdup(p->name_opt); //lint 35 flow bug
             }
 
             if (p->category == TYPE_CATEGORY_FUNCTION)
@@ -1902,7 +1902,7 @@ struct type type_dup(const struct type* p_type)
     }
 
     struct type empty = { 0 };
-    return empty; //lint 72
+    return empty; //lint 72 72 72
 }
 
 static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier,
@@ -2095,7 +2095,7 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
 
                     size_t align = type_get_alignof(&t, target);
 
-                   if (align == 0) throw;
+                    if (align == 0) throw;
                     if (align > maxalign)
                         maxalign = align;
 
@@ -2316,7 +2316,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
 
                         size_t align = type_get_alignof(&md->declarator->type, target);
 
-                        if (align ==  0) 
+                        if (align == 0) 
                           throw;
 
                         if (align > maxalign)
@@ -2398,7 +2398,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
 
                     size_t align = type_get_alignof(&t, target);
 
-                   if (align == 0)
+                    if (align == 0)
                       throw;
                       
                     if (align > maxalign)
@@ -2436,7 +2436,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                 }
             }
 
-            d = d->next;
+            d = d->next; //lint 33 flow bug
         }
 
         /* Flush any trailing open bitfield storage unit */
@@ -4159,7 +4159,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
             }
 
             struct typeof_specifier* _Opt p_typeof_specifier = declarator_get_typeof_specifier(pdeclarator);
-            if  (p_typeof_specifier == NULL)
+            if (p_typeof_specifier == NULL)
             {
                 free(p_nt);
                 type_list_destroy(&list);

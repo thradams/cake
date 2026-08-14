@@ -172,16 +172,35 @@
 
 static void print_header(const char* text)
 {
+    const int header_width = 80;
     char upper[256];
-    size_t i = 0;
-    for (; text[i] != '\0' && i < sizeof(upper) - 1; i++)
-        upper[i] = (char)toupper((unsigned char)text[i]);
-    upper[i] = '\0';
+    size_t length = 0;
+    int left_padding = 0;
+    int i = 0;
+
+    for (; text[length] != '\0' && length < sizeof(upper) - 1; length++)
+    {
+        upper[length] = (char)toupper((unsigned char)text[length]);
+    }
+    upper[length] = '\0';
+
+    if ((int)length < header_width)
+    {
+        left_padding = (header_width - (int)length) / 2;
+    }
 
     printf("\n");
-    printf("============================================================\n");
-    printf(" %s\n", upper);
-    printf("============================================================\n");
+    for (i = 0; i < header_width; i++)
+    {
+        printf("=");
+    }
+    printf("\n");
+    printf("%*s%s\n", left_padding, "", upper);
+    for (i = 0; i < header_width; i++)
+    {
+        printf("=");
+    }
+    printf("\n");
 
 }
 
@@ -640,7 +659,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
         print_header("Run cake on its own source");
 
 
-        execute_cmd(EXE(CKC_NAME) " -DTEST -const-literal -style=cake " CAKE_SOURCE_FILES);
+        execute_cmd(EXE(CKC_NAME) " -DTEST -const-literal  " CAKE_SOURCE_FILES);
 
         print_header("Build cake89");
 
@@ -701,7 +720,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     if (test)
     {
         print_header("Run cake on its own source");
-        execute_cmd(EXE(CKC_NAME) " -DTEST -style=cake " CAKE_SOURCE_FILES);
+        execute_cmd(EXE(CKC_NAME) " -DTEST  " CAKE_SOURCE_FILES);
     }
 
 #endif /* PLATFORM_WINDOWS && COMPILER_CLANG */
@@ -875,7 +894,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     if (!fastbuild && test)
     {
         print_header("Run cake on its own source");
-        execute_cmd("./" CKC_NAME " -DTEST -style=cake " CAKE_SOURCE_FILES);
+        execute_cmd("./" CKC_NAME " -DTEST  " CAKE_SOURCE_FILES);
 
 
         print_header("Build cake89");

@@ -52,7 +52,7 @@ bool token_is_one_space(const struct token* _Opt token)
 
 void print_literal2(const char* s);
 
-void token_list_clear(struct token_list* list)
+void token_list_clear(_Clear struct token_list* list)
 {
     struct token* _Owner _Opt p = list->head;
     while (p)
@@ -625,7 +625,7 @@ struct token* _Owner _Opt clone_token(const struct token* p)
     token->next = NULL; //lint 26
     token->prev = NULL;
 
-    return token;
+    return token; //lint 72 72 not playing with the rules 
 }
 
 
@@ -644,11 +644,11 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
 
     if (before_first)
     {
-        before_first->next = after_last;
+        before_first->next = after_last; //lint 26 not playing with the rules
     }
     else
     {
-        list->head = after_last;
+        list->head = after_last; //lint 26 not playing with the rules
     }
 
     if (after_last)
@@ -667,7 +667,7 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
     r.tail = last;
 
 
-    return r;
+    return r; //lint 29 not playing with the rules
 }
 
 void token_list_remove(struct token_list* list, struct token* first, struct token* last)
@@ -1707,8 +1707,8 @@ void token_list_remove_get_test()
         struct token* _Opt _Owner pnew = calloc(1, sizeof * pnew);
         if (pnew == NULL) throw;
         
-        token_list_add(&list, pnew); //lint 33 33 33
-        r = token_list_remove_get(&list, pnew, pnew); //lint 30 30
+        token_list_add(&list, pnew); //lint 35 
+        r = token_list_remove_get(&list, pnew, pnew); //lint 31 35 31 35 
         assert(list.head == NULL);
         assert(list.tail == NULL);
     }
@@ -1717,7 +1717,7 @@ void token_list_remove_get_test()
 
     }
     token_list_destroy(&r);
-}
+} //lint 29
 
 void token_list_remove_get_test2()
 {
@@ -1728,15 +1728,15 @@ void token_list_remove_get_test2()
         struct token* _Owner _Opt pnew1 = calloc(1, sizeof * pnew1);
         if (pnew1 == NULL) throw;
 
-        token_list_add(&list, pnew1); //lint 33 33 33
+        token_list_add(&list, pnew1); //35 35 35 35 35 35 35
         struct token* _Owner _Opt pnew2 = calloc(1, sizeof * pnew2);
         if (pnew2 == NULL) throw;
 
-        token_list_add(&list, pnew2); //lint 33 33 33
+        token_list_add(&list, pnew2); //lint 35 35
 
-        r = token_list_remove_get(&list, pnew1, pnew1); //lint 30 30
-        assert(list.head == pnew2); //lint 30
-        assert(list.tail == pnew2); //lint 30
+        r = token_list_remove_get(&list, pnew1, pnew1); //lint 31 35 31 35
+        assert(list.head == pnew2); //
+        assert(list.tail == pnew2); //
     }
     catch
     {

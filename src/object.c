@@ -1194,7 +1194,7 @@ void object_set_any(struct object* p_object)
 
 bool object_is_zero(const struct object* p_object)
 {
-    p_object =  object_get_referenced(p_object);
+    p_object = object_get_referenced(p_object);
 
     if (!object_has_constant_value(p_object))
         return false;
@@ -1234,7 +1234,7 @@ bool object_is_zero(const struct object* p_object)
 
 bool object_is_one(const struct object* p_object)
 {
-    p_object =  object_get_referenced(p_object);
+    p_object = object_get_referenced(p_object);
 
     if (!object_has_constant_value(p_object))
         return false;
@@ -1297,7 +1297,7 @@ static void object_fix_parent(struct object* p_object, struct object* parent)
 
 struct object* _Opt object_get_member(const struct object* p_object, size_t index)
 {
-    p_object =  object_get_referenced(p_object);
+    p_object = object_get_referenced(p_object);
 
     if (p_object->members.head == NULL)
         return NULL; //tODO

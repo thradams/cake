@@ -160,7 +160,7 @@ static void tokenizer_diagnostic(enum diagnostic_id w, struct tokenizer_ctx* ctx
     va_list args = { 0 };
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args);
+    va_end(args); //lint 35
 
     print_position(stream->path, stream->line, stream->col, ctx->options.diagnostic_ouput_format, color_enabled, false);
     if (ctx->options.diagnostic_ouput_format == DIAGNOSTIC_OUTPUT_FORMAT_MSVC)
@@ -249,7 +249,7 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
 
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args);
+    va_end(args); //lint 35
 
     if (ctx->options.diagnostic_ouput_format == DIAGNOSTIC_OUTPUT_FORMAT_MSVC)
     {
@@ -1484,7 +1484,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
                 if (count > 0 && count % 25 == 0)
                 {
                     /*new line*/
-                    char newline[] = "\n";
+                    char newline[] = "\n"; //lint 68 flow bug 
                     struct token* _Owner _Opt p_new3 = new_token(newline, &newline[1], TK_NEWLINE);
                     if (p_new3 == NULL)
                     {
@@ -4763,7 +4763,7 @@ check if the argument list that corresponds to a trailing ...
 of the parameter list is present and has a non-empty substitution.
 */
 static bool has_argument_list_empty_substitution(struct preprocessor_ctx* ctx,
-    struct macro_expanded* p_list,
+    struct macro_expanded* _Opt p_list_opt,
     struct macro_argument_list* p_macro_argument_list,
     const struct token* _Opt origin)
 {
@@ -4780,7 +4780,7 @@ static bool has_argument_list_empty_substitution(struct preprocessor_ctx* ctx,
 
         struct token_list argumentlist = copy_argument_list(p_va_args_argument);
 
-        struct token_list r4 = replacement_list_reexamination(ctx, p_list, &argumentlist, 0, origin);
+        struct token_list r4 = replacement_list_reexamination(ctx, p_list_opt, &argumentlist, 0, origin);
         const bool results_in_empty_substituition = (r4.head == NULL || r4.head->type == TK_PLACEMARKER);
         token_list_destroy(&r4);
 
@@ -4792,7 +4792,7 @@ static bool has_argument_list_empty_substitution(struct preprocessor_ctx* ctx,
     return false;
 }
 
-static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct token_list* input_list, struct macro_argument_list* arguments, const struct token* _Opt origin)
+static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct macro_expanded* _Opt p_list_opt, struct token_list* input_list, struct macro_argument_list* arguments, const struct token* _Opt origin)
 {
     struct token_list r = { 0 };
 
@@ -4826,7 +4826,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                     int parenteses_count = 1; //we already have one
 
                     const bool discard_va_opt =
-                        has_argument_list_empty_substitution(ctx, p_list, arguments, origin);
+                        has_argument_list_empty_substitution(ctx, p_list_opt, arguments, origin);
 
                     if (discard_va_opt)
                     {
@@ -4957,7 +4957,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                       with the resulting token list.
                     */
                         struct token_list copy_list = copy_argument_list(p_argument);
-                        struct token_list r4 = replacement_list_reexamination(ctx, p_list, &copy_list, 0, origin);
+                        struct token_list r4 = replacement_list_reexamination(ctx, p_list_opt, &copy_list, 0, origin);
                         token_list_swap(&p_argument->macro_parameter->expanded_list, &r4);
                         token_list_destroy(&r4);
                         p_argument->macro_parameter->already_expanded = true;
@@ -5152,7 +5152,7 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
 }
 
 struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
-    struct macro_expanded* p_list,
+    struct macro_expanded* _Opt p_list_opt,
     struct token_list* oldlist,
     int level,
     const struct token* _Opt origin)
@@ -5189,7 +5189,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
                     macro = NULL;
                 }
 
-                if (macro && macro_already_expanded(p_list, new_list.head->lexeme))
+                if (macro && macro_already_expanded(p_list_opt, new_list.head->lexeme))
                 {
                     new_list.head->type = TK_IDENTIFIER_RECURSIVE_MACRO;
                     macro = NULL;
@@ -5232,7 +5232,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
                     throw;
                 }
 
-                struct token_list r3 = expand_macro(ctx, p_list, macro, &arguments, level, origin);
+                struct token_list r3 = expand_macro(ctx, p_list_opt, macro, &arguments, level, origin);
                 if (ctx->n_errors > 0)
                 {
                     token_list_destroy(&new_list);
@@ -5355,83 +5355,91 @@ struct token_list copy_replacement_list_core(struct preprocessor_ctx* ctx,
 {
     //Makes a copy of the tokens by trimming the beginning and end 
     //any space in comments etc. becomes a single space
-
-    struct token_list r = { 0 };
-    struct token* _Opt current = list->head;
-
-    /* remove all leading whitespace */
-    if (!new_line_is_space)
-    {
-        while (current && token_is_blank(current))
-        {
-            current = current->next;
-        }
-    }
-    else
-    {
-        while (current && (token_is_blank(current) || current->type == TK_NEWLINE))
-        {
-            current = current->next;
-        }
-    }
-
-    /* remove leading space flag if present */
-    bool is_first = true;
-
-    for (; current;)
-    {
+     struct token_list r = { 0 };
+     
+     try 
+     {
+        struct token* _Opt current = list->head;
+    
+        /* remove all leading whitespace */
         if (!new_line_is_space)
         {
-            if (current && token_is_blank(current))
+            while (current && token_is_blank(current))
             {
-                if (current == list->tail)
-                    break;
-
                 current = current->next;
-                continue;
             }
         }
         else
         {
-            if (current && (token_is_blank(current) || current->type == TK_NEWLINE))
+            while (current && (token_is_blank(current) || current->type == TK_NEWLINE))
             {
-                if (current == list->tail)
-                    break;
-
                 current = current->next;
-                continue;
             }
         }
-        struct token* token_added = token_list_clone_and_add(&r, current);
-
-        if (!ctx->options.preprocess_def_macro && token_added->type == TK_PREPROCESSOR_LINE)
+    
+        /* remove leading space flag if present */
+        bool is_first = true;
+    
+        for (; current;)
         {
-            token_added->type = '#';
-            char* _Owner _Opt p_new_lexeme = strdup("#");
-            if (p_new_lexeme != NULL)
+            if (!new_line_is_space)
             {
-                free(token_added->lexeme);
-                token_added->lexeme = p_new_lexeme;
+                if (current && token_is_blank(current))
+                {
+                    if (current == list->tail)
+                        break;
+    
+                    current = current->next;
+                    continue;
+                }
             }
+            else
+            {
+                if (current && (token_is_blank(current) || current->type == TK_NEWLINE))
+                {
+                    if (current == list->tail)
+                        break;
+    
+                    current = current->next;
+                    continue;
+                }
+            }
+            if (current == NULL) throw;
+            
+            struct token* token_added = token_list_clone_and_add(&r, current);
+    
+            if (!ctx->options.preprocess_def_macro && token_added->type == TK_PREPROCESSOR_LINE)
+            {
+                token_added->type = '#';
+                char* _Owner _Opt p_new_lexeme = strdup("#");
+                if (p_new_lexeme != NULL)
+                {
+                    free(token_added->lexeme);
+                    token_added->lexeme = p_new_lexeme;
+                }
+            }
+    
+            if (token_added->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
+            {
+                token_added->flags = token_added->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
+                token_added->flags |= TK_FLAG_HAS_SPACE_BEFORE;
+            }
+            if (is_first)
+            {
+                token_added->flags = token_added->flags & ~TK_FLAG_HAS_SPACE_BEFORE;
+                token_added->flags = token_added->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
+                is_first = false;
+            }
+            remove_line_continuation(token_added->lexeme);
+    
+            if (current == list->tail)
+                break;
+            current = current->next;
+    
         }
-
-        if (token_added->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
-        {
-            token_added->flags = token_added->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
-            token_added->flags |= TK_FLAG_HAS_SPACE_BEFORE;
-        }
-        if (is_first)
-        {
-            token_added->flags = token_added->flags & ~TK_FLAG_HAS_SPACE_BEFORE;
-            token_added->flags = token_added->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
-            is_first = false;
-        }
-        remove_line_continuation(token_added->lexeme);
-
-        if (current == list->tail)
-            break;
-        current = current->next;
-
+    }
+    catch 
+    {
     }
     return r;
 }
@@ -5466,7 +5474,8 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
     else if (strcmp(macro->name, "__FILE__") == 0)
     {
         char buffer[300] = { 0 };
-        if (stringify(origin->token_origin ? origin->token_origin->lexeme : "", sizeof buffer, buffer) < 0)
+        if (origin &&
+            stringify(origin->token_origin ? origin->token_origin->lexeme : "", sizeof buffer, buffer) < 0)
         {
             //ops TODO
         }
@@ -7092,6 +7101,7 @@ int preprocessor_copy_included_headers(const struct preprocessor_ctx* ctx,
 }
 
 #ifdef TEST
+#pragma safety disable
 #include "unit_test.h"
 
 void print_asserts(struct token* p_token)
@@ -7103,7 +7113,7 @@ void print_asserts(struct token* p_token)
         printf("{ %-20s, %d, ", get_token_name(current->type), (current->flags & TK_FLAG_FINAL));
         print_literal(current->lexeme);
         printf("},\n");
-        current = current->next;
+        current = current->next; //lint 35
     }
     printf("}\n");
 }
@@ -7129,7 +7139,7 @@ void show_all(struct token* p_token)
         }
         printf("%s", current->lexeme);
         printf(COLOR_RESET);
-        current = current->next;
+        current = current->next; //lint 35
     }
 }
 
@@ -7170,7 +7180,7 @@ void show_visible(struct token* p_token)
         }
         printf("%s", current->lexeme);
         printf(COLOR_RESET);
-        current = current->next;
+        current = current->next; //lint 35
     }
 }
 
@@ -7197,7 +7207,7 @@ void show_visible_and_invisible(struct token* p_token)
         }
         printf("%s", current->lexeme);
         printf(COLOR_RESET);
-        current = current->next;
+        current = current->next;  //lint 35
     }
 }
 
@@ -7209,7 +7219,7 @@ int test_preprossessor_input_output(const char* input, const char* output)
     struct preprocessor_ctx ctx = { 0 };
 
     struct token_list r = preprocessor(&ctx, &list, 0);
-    const char* s = print_preprocessed_to_string(r.head);
+    const char* s = print_preprocessed_to_string(r.head);  //lint 23
     if (strcmp(s, output) != 0)
     {
         printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
@@ -8207,13 +8217,13 @@ int test_line_continuation()
     {
     }
 
-    return 0;
+    return 0; //
 }
 
 int stringify_test()
 {
-    char buffer[200];
-    int n = stringify("\"ab\\c\"", sizeof buffer, buffer);
+    char buffer[200] = {0};
+    int n = stringify("\"ab\\c\"", sizeof buffer, buffer); 
     assert(n == sizeof(STRINGIFY("\"ab\\c\"")));
     const char* r = STRINGIFY("\"ab\\c\"");
 

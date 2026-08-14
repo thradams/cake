@@ -1,22 +1,27 @@
 #pragma safety enable
 
 /*
-   Narrowing of a struct member is discarded at the loop back-edge.
+   FIXED: narrowing of a struct member used to be discarded at the loop
+   back-edge.
 
    `if (l->head == 0)` proves the member is null inside the branch, and a
    null member owns nothing -- so assigning to it cannot discard a resource.
-   flow3 uses that correctly in straight-line code (ok_no_loop below emits
-   no warning 26), but when the identical body is placed inside a loop the
-   fact is dropped when the back-edge is merged and warning 26 is reported.
+   flow3 used that correctly in straight-line code (ok_no_loop) but dropped
+   it once the identical body sat inside a loop, and reported warning 26.
 
-   The only difference between the two functions is the enclosing loop.
-   Writing the narrowing as _Assert(l->head == 0) instead of `if` does not
-   help: the assert is honoured in straight-line code and lost in a loop in
-   exactly the same way.
+   The cause was the second (diagnostic) pass of flow3_visit_for_statement
+   starting from the first pass's exit state instead of the union over
+   iterations; see loop-second-pass-narrows-first-iteration.c. warning 26 is
+   gone.
+
+   What bug_in_loop reports now -- warning 72 on l->head -- is CORRECT, and
+   was previously masked by the false 26. p_item is moved into l->head on the
+   first iteration; an owner cannot be moved twice, so on any later iteration
+   `l->head = p_item` stores an already-consumed owner and the caller is left
+   with l->head consumed.
 
    Reduced from src/parser.c balanced_token_sequence_opt, appending to the
-   token list under `if (p_balanced_token_sequence->tail == NULL)`; adding
-   `_Assert(p_balanced_token_sequence->head == NULL)` did not silence it.
+   token list under `if (p_balanced_token_sequence->tail == NULL)`.
 */
 
 struct item { int v; };
@@ -34,6 +39,6 @@ void bug_in_loop(struct list* l, struct item* _Owner p_item)
     for (;;)
     {
         if (l->head == 0)
-            l->head = p_item; //lint 26 32 TODO FALSE WARNING (26)
+            l->head = p_item; //lint 32 (its true, moved twice..)
     }
-} //lint 29 p_item is not moved on every path
+} //lint 29 72 p_item is not moved on every path; l->head left consumed (correct)

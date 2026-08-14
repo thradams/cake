@@ -562,7 +562,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struc
                 }
                 else
                 {
-                    p_default_generic_association_first_token = p_generic_association2->first_token;
+                    p_default_generic_association_first_token = p_generic_association2->first_token; //lint 68 not sure if flow bug
                     p_default_generic_association_expression = p_generic_association2->expression;
                 }
             }
@@ -676,6 +676,7 @@ struct generic_selection* _Owner _Opt generic_selection(struct parser_ctx* ctx, 
             throw;
 
         p_generic_selection->first_token = ctx->current;
+        p_generic_selection->last_token = ctx->current;
 
         if (parser_match_tk(ctx, TK_KEYWORD__GENERIC) != 0)
             throw;
@@ -1258,7 +1259,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
     {
         if (suffix[0] == 'F')
         {
-            const double value = strtod(buffer, NULL);
+            const double value = strtod(buffer, NULL); //lint 68 flow bug in suffex
             if (errno == ERANGE)
             {
                 if (isinf(value))
@@ -1302,7 +1303,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         }
         else if (suffix[0] == 'L')
         {
-            const long double value = strtod(buffer, NULL);
+            const long double value = strtod(buffer, NULL); //lint 68 flow bug in suffix
 
             if (errno == ERANGE)
             {
@@ -2785,7 +2786,7 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
     }
     catch
     {
-        expression_delete(p_expression_node);
+        expression_delete(p_expression_node); //lint 31 31  flow anlysis bug
         p_expression_node = NULL;
     }
 
@@ -2875,7 +2876,7 @@ struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx, bool i
     }
     catch
     {
-        expression_delete(p_expression_node);
+        expression_delete(p_expression_node); //lint 31 flow anlysis bug
         p_expression_node = NULL;
     }
     return p_expression_node;
@@ -4140,6 +4141,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 }
 
                 new_expression->expression_type = EXPR_UNARY_ALIGNOF_EXPRESSION;
+                new_expression->last_token = new_expression->right->last_token;
 
                 if (check_sizeof_argument(ctx, new_expression->right, &new_expression->right->type) != 0)
                 {
@@ -4302,6 +4304,13 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             p_expression_node = postfix_expression(ctx, is_discarded);
             if (p_expression_node == NULL)
                 throw;
+        }
+
+        if (p_expression_node != NULL &&
+            (p_expression_node->first_token == NULL ||
+             p_expression_node->last_token == NULL))
+        {
+            throw;
         }
     }
     catch
@@ -6302,12 +6311,20 @@ struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, bool i
             if (p_expression_node_new == NULL) throw;
 
             p_expression_node_new->first_token = ctx->current;
+            p_expression_node_new->last_token = ctx->current;
             p_expression_node_new->expression_type = EXPR_CHECKED;
             p_expression_node_new->type = type_dup(&p_expression_node->type);
             p_expression_node_new->object = object_dup(&p_expression_node->object);
             parser_match(ctx);
             p_expression_node_new->left = p_expression_node;
             p_expression_node = p_expression_node_new;
+        }
+
+        if (p_expression_node != NULL &&
+            (p_expression_node->first_token == NULL ||
+             p_expression_node->last_token == NULL))
+        {
+            throw;
         }
     }
     catch
@@ -6829,6 +6846,13 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
                 diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL, "incompatible types");
             }
             p_expression_node = p_conditional_expression;
+        }
+
+        if (p_expression_node != NULL &&
+            (p_expression_node->first_token == NULL ||
+             p_expression_node->last_token == NULL))
+        {
+            throw;
         }
     }
     catch

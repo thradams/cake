@@ -6746,7 +6746,10 @@ static void do_edit_format(void)
     const char* text = ui_get_value(ed);
     size_t len = strlen(text);
 
-    Options opt = { 4, 0 };  /* 4-space indent, spaces not tabs */
+    /* Width 0 = auto: match whatever the document already indents by, so
+     * reformatting a 2-space or tab-indented file doesn't convert it to
+     * this project's 4-space style. Falls back to 4 when unmeasurable. */
+    Options opt = { 0, 0 };
     size_t out_len;
     char* formatted = format_c_source(text, len, &opt, &out_len);
     if (formatted)

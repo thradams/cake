@@ -39,7 +39,6 @@ static unsigned int string_hash(const char* key)
     return (hash_val);
 }
 
-
 void map_entry_delete(struct map_entry* _Owner _Opt p)
 {
     while (p != NULL)
@@ -98,7 +97,7 @@ void hashmap_remove_all(struct hash_map* map)
             map->table[i] = NULL;
         }
 
-        free(map->table);
+        free(map->table); //lint 29
         map->table = NULL;
         map->size = 0;
     }
@@ -133,9 +132,12 @@ struct map_entry* _Opt hashmap_find(struct hash_map* map, const char* key)
     return NULL;
 }
 
-
 void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt p_type_opt)
 {
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignored 29
+    //TODO flow.. unions and _Owner 
+
     if (map->table != NULL)
     {
         _Assert(map->capacity != 0);
@@ -153,9 +155,11 @@ void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt 
                 if (p_type_opt)
                     *p_type_opt = p_entry->type;
 
-                void* _Opt p = p_entry->data.p_declarator;
+                void* _Opt p = p_entry->data.p_declarator; //moved
                 free((void* _Owner)p_entry->key);
+
                 free((void* _Owner)p_entry);
+
                 map->size--;
 
                 return p;
@@ -163,6 +167,7 @@ void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt 
             pp_entry = &p_entry->next;
         }
     }
+#pragma CAKE diagnostic pop
 
     return NULL;
 }
@@ -193,7 +198,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
     {
         type = TAG_TYPE_DECLARATOR;
         p = item->p_declarator;
-        item->p_declarator = NULL;//
+        item->p_declarator = NULL; //
 
     }
     else if (item->p_enumerator)
@@ -247,7 +252,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
         type = TAG_TYPE_NUMBER;
         p = (void*)item->number;
     }
-    
+
 #pragma CAKE diagnostic pop
 
     try
@@ -292,7 +297,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
             p_new_entry->key = temp_key;
             p_new_entry->hash = hash;
 
-            p_new_entry->data.p_declarator = (void*)p;
+            p_new_entry->data.p_declarator = (void* _Owner)p;
 
             p_new_entry->type = type;
             p_new_entry->next = map->table[index];
@@ -347,7 +352,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 #pragma CAKE diagnostic pop
 
             result = 1;
-            pentry->data.p_declarator = (void*)p;
+            pentry->data.p_declarator = (void* _Owner)p;
             pentry->type = type;
         }
     }

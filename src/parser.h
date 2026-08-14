@@ -156,7 +156,7 @@ struct parser_ctx
     FILE* _Owner _Opt sarif_file;
     unsigned int sarif_entries;
 
-    _View struct token_list input_list;
+    const struct token_list* const p_input_list;
     struct token* _Opt current;
 
     bool inside_generic_association;
@@ -865,7 +865,7 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
     const struct specifier_qualifier_list* _Opt specifier_qualifier_list,
     struct declaration_specifiers* _Opt declaration_specifiers,
     bool abstract_acceptable,
-    struct token** _Opt pptokenname);
+    struct token*_Opt * _Opt pptokenname);
 
 struct declarator* _Owner declarator_add_ref(struct declarator* p);
 void declarator_delete(_Dtor struct declarator* _Owner _Opt  p);

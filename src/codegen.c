@@ -2406,7 +2406,8 @@ static void codegen_visit_iteration_statement(struct codegen_ctx* ctx, struct os
         }
 
     }
-    catch {
+    catch 
+    {
         ctx->error = true;
     }
     //restore
@@ -4207,7 +4208,8 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
             }
         }
     }
-    catch {
+    catch 
+    {
     }
 }
 

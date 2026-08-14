@@ -567,7 +567,7 @@ int fill_options(struct options* options,
 
         if (has_prefix(argv[i], "-copy-headers="))
         {
-            snprintf(options->copy_headers, sizeof options->copy_headers, "%s", argv[i]+14);            
+            snprintf(options->copy_headers, sizeof options->copy_headers, "%s", argv[i] + 14);            
             continue;
         }
 
