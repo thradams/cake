@@ -1000,7 +1000,7 @@ bool type_is_incomplete(const struct type* p_type)
 {
     if (p_type->enum_specifier)
     {
-        return p_type->enum_specifier->integer_type.type_specifier_flags == TYPE_SPECIFIER_NONE;
+        return get_complete_enum_specifier(p_type->enum_specifier) == NULL;
     }
     if (p_type->struct_or_union_specifier)
     {
@@ -1023,6 +1023,11 @@ bool type_is_enum(const struct type* p_type)
 {
     return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
         p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM;
+}
+
+bool type_is_enumerator(const struct type* p_type)
+{
+    return p_type->enum_specifier && p_type->type_specifier_flags != TYPE_SPECIFIER_ENUM;
 }
 
 bool type_is_struct_or_union(const struct type* p_type)
@@ -1717,7 +1722,8 @@ struct type type_common(const struct type* p_type1, const struct type* p_type2, 
     if (type_is_enum(p_type1))
     {
         _Assert(p_type1->enum_specifier);
-        promoted_a = type_dup(&p_type1->enum_specifier->integer_type);
+        const struct enum_specifier* complete = get_complete_enum_specifier(p_type1->enum_specifier);
+        promoted_a = type_dup(&complete->integer_type);
 
     }
     else
@@ -1728,7 +1734,8 @@ struct type type_common(const struct type* p_type1, const struct type* p_type2, 
     if (type_is_enum(p_type2))
     {
         _Assert(p_type2->enum_specifier);
-        promoted_b = type_dup(&p_type2->enum_specifier->integer_type);
+        const struct enum_specifier* complete = get_complete_enum_specifier(p_type2->enum_specifier);
+        promoted_b = type_dup(&complete->integer_type);
     }
     else
     {
@@ -2658,12 +2665,8 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
         {
-            if (p_type->enum_specifier)
-            {
-                align = type_get_alignof(&p_type->enum_specifier->integer_type, target);
-            }
-            else
-                align = get_platform(target)->int_alignment;
+            const struct enum_specifier* complete = get_complete_enum_specifier(p_type->enum_specifier);
+            align = type_get_alignof(&complete->integer_type, target);
         }
         else if (p_type->type_specifier_flags == (TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE))
         {
@@ -2962,7 +2965,10 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
     {
         if (p_type->enum_specifier)
         {
-            enum sizeof_result e = type_get_sizeof(&p_type->enum_specifier->integer_type, size, target);
+            const struct enum_specifier* complete = get_complete_enum_specifier(p_type->enum_specifier);
+            if (complete == NULL)
+                return SIZEOF_RESULT_INCOMPLETE;
+            enum sizeof_result e = type_get_sizeof(&complete->integer_type, size, target);
             return e;
         }
         else
@@ -3089,7 +3095,8 @@ struct type type_get_enum_type(const struct type* p_type)
         if (p_type->enum_specifier == NULL)
             throw;
 
-        return type_dup(&p_type->enum_specifier->integer_type);
+        const struct enum_specifier* complete = get_complete_enum_specifier(p_type->enum_specifier);
+        return type_dup(&complete->integer_type);
     }
     catch
     {
@@ -3295,7 +3302,8 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
         if (pa->type_specifier_flags == TYPE_SPECIFIER_ENUM)
         {
             _Assert(pa->enum_specifier);
-            if (!type_is_same(&pa->enum_specifier->integer_type, pb, compare_qualifiers))
+            const struct enum_specifier* complete = get_complete_enum_specifier(pa->enum_specifier);
+            if (!type_is_same(&complete->integer_type, pb, compare_qualifiers))
             {
                 return false;
             }
@@ -3305,7 +3313,8 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
         if (pb->type_specifier_flags == TYPE_SPECIFIER_ENUM)
         {
             _Assert(pb->enum_specifier);
-            if (!type_is_same(pa, &pb->enum_specifier->integer_type, compare_qualifiers))
+            const struct enum_specifier* complete = get_complete_enum_specifier(pb->enum_specifier);
+            if (!type_is_same(pa, &complete->integer_type, compare_qualifiers))
             {
                 return false;
             }

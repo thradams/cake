@@ -312,6 +312,7 @@ bool type_is_essential_bool(const struct type* p_type);
 bool type_is_essential_char(const struct type* p_type);
 
 bool type_is_enum(const struct type* p_type);
+bool type_is_enumerator(const struct type* p_type);
 bool type_is_array(const struct type* p_type);
 
 bool type_is_ctor(const struct type* p_type);

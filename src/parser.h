@@ -690,6 +690,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx*);
 struct enum_specifier* _Owner enum_specifier_add_ref(struct enum_specifier* p);
 void enum_specifier_delete(_Dtor struct enum_specifier* _Owner _Opt p);
 const struct enum_specifier* _Opt get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier);
+const struct enum_specifier* _Opt get_enum_specifier_definition(const struct enum_specifier* p_enum_specifier);
 enum type_specifier_flags get_enum_type_specifier_flags(const struct enum_specifier* p_enum_specifier);
 
 const struct enumerator* _Opt find_enumerator_by_value(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, const struct object* object);

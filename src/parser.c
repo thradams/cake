@@ -4918,10 +4918,39 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
 
 enum type_specifier_flags get_enum_type_specifier_flags(const struct enum_specifier* p_enum_specifier)
 {
-    return p_enum_specifier->integer_type.type_specifier_flags;
+    if (p_enum_specifier->integer_type.type_specifier_flags != TYPE_SPECIFIER_NONE)
+        return p_enum_specifier->integer_type.type_specifier_flags;
+
+    const struct enum_specifier* complete = get_complete_enum_specifier(p_enum_specifier);
+    if (complete)
+    {
+        return complete->integer_type.type_specifier_flags;
+    }
+    return TYPE_SPECIFIER_NONE;
 }
 
 const struct enum_specifier* _Opt get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier)
+{
+    if (p_enum_specifier->integer_type.type_specifier_flags != TYPE_SPECIFIER_NONE)
+    {
+        return p_enum_specifier;
+    }
+    else if (p_enum_specifier->p_complete_enum_specifier &&
+        p_enum_specifier->p_complete_enum_specifier->integer_type.type_specifier_flags != TYPE_SPECIFIER_NONE)
+    {
+        return p_enum_specifier->p_complete_enum_specifier;
+    }
+    else if (p_enum_specifier->p_complete_enum_specifier &&
+        p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier &&
+        p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier->integer_type.type_specifier_flags != TYPE_SPECIFIER_NONE)
+    {
+        return p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier;
+    }
+    
+    return NULL;
+}
+
+const struct enum_specifier* _Opt get_enum_specifier_definition(const struct enum_specifier* p_enum_specifier)
 {
     /*
       The way cake find the complete struct is using one pass.. for this task is uses double indirection.
@@ -6347,9 +6376,9 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 /* check for another tag with the same name in this scope */
 
                 p_enum_specifier->p_complete_enum_specifier = p_existing_enum_specifier;
-                type_destroy(&p_enum_specifier->integer_type);
-                p_enum_specifier->integer_type = type_dup(&p_existing_enum_specifier->integer_type);
-                p_enum_specifier->has_underlying = p_existing_enum_specifier->has_underlying;
+                // type_destroy(&p_enum_specifier->integer_type);
+                // p_enum_specifier->integer_type = type_dup(&p_existing_enum_specifier->integer_type);
+                // p_enum_specifier->has_underlying = p_existing_enum_specifier->has_underlying;
             }
             else
             {
@@ -10434,7 +10463,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                     ctx->p_current_switch_statement->condition->expression &&
                     ctx->p_current_switch_statement->condition->expression->type.enum_specifier)
                 {
-                    p_enum_specifier = get_complete_enum_specifier(ctx->p_current_switch_statement->condition->expression->type.enum_specifier);
+                    p_enum_specifier = get_enum_specifier_definition(ctx->p_current_switch_statement->condition->expression->type.enum_specifier);
                 }
 
                 if (p_enum_specifier)
@@ -11648,7 +11677,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
                     p_selection_statement->condition->expression &&
                     p_selection_statement->condition->expression->type.enum_specifier)
                 {
-                    p_enum_specifier = get_complete_enum_specifier(p_selection_statement->condition->expression->type.enum_specifier);
+                    p_enum_specifier = get_enum_specifier_definition(p_selection_statement->condition->expression->type.enum_specifier);
                 }
 
                 if (p_enum_specifier)
@@ -12606,7 +12635,7 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
         {
             const struct enum_specifier* declared_enum = decl->declarator->type.enum_specifier;
             assert(declared_enum != NULL);
-            if (get_complete_enum_specifier(declared_enum) == NULL)
+            if (get_enum_specifier_definition(declared_enum) == NULL)
             {
                 diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, declared_enum->first_token, NULL, "enum incomplete");
             }
