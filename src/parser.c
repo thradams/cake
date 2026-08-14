@@ -3645,6 +3645,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
                 if (er != 0)
                 {
+                    diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "type incomplete");
                     throw;
                 }
 
@@ -6321,11 +6322,6 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                     throw;
                 }
 
-                prev_decl_same_scope->p_complete_enum_specifier = p_enum_specifier;
-            }
-            if (!p_enum_specifier->has_underlying)
-            {
-                p_enum_specifier->integer_type.type_specifier_flags = TYPE_SPECIFIER_INT;
             }
 
             if (p_enum_specifier->tag_token)
@@ -6360,6 +6356,9 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             item.p_enum_specifier = enum_specifier_add_ref(p_enum_specifier);
             hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, &item);
             hash_item_set_destroy(&item);
+
+            if (prev_decl_same_scope)
+                prev_decl_same_scope->p_complete_enum_specifier = p_enum_specifier;
         }
         else
         {
@@ -6376,9 +6375,6 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 /* check for another tag with the same name in this scope */
 
                 p_enum_specifier->p_complete_enum_specifier = p_existing_enum_specifier;
-                // type_destroy(&p_enum_specifier->integer_type);
-                // p_enum_specifier->integer_type = type_dup(&p_existing_enum_specifier->integer_type);
-                // p_enum_specifier->has_underlying = p_existing_enum_specifier->has_underlying;
             }
             else
             {
@@ -6454,7 +6450,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
         enumerator_list ',' enumerator
      */
 
-    struct object next_enumerator_value = object_make_unsigned_long_long(ctx->options.target, 0);
+    struct object next_enumerator_value = object_make_signed_int(ctx->options.target, 0);
 
     if (p_enum_specifier->has_underlying)
     {
@@ -6620,7 +6616,7 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
     unsigned long long* max_value,
     bool* next_ovf)
 {
-    *next_ovf = false;
+    // *next_ovf = false;
 
     struct enumerator* _Owner _Opt p_enumerator = NULL;
     try

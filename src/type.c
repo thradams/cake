@@ -1719,7 +1719,7 @@ struct type type_common(const struct type* p_type1, const struct type* p_type2, 
     struct type promoted_b = { 0 };
 
 
-    if (type_is_enum(p_type1))
+    if (type_is_enum(p_type1) && !type_is_enumerator(p_type1))
     {
         _Assert(p_type1->enum_specifier);
         const struct enum_specifier* complete = get_complete_enum_specifier(p_type1->enum_specifier);
@@ -1731,7 +1731,7 @@ struct type type_common(const struct type* p_type1, const struct type* p_type2, 
         promoted_a = type_dup(p_type1);
     }
 
-    if (type_is_enum(p_type2))
+    if (type_is_enum(p_type2) && !type_is_enumerator(p_type2))
     {
         _Assert(p_type2->enum_specifier);
         const struct enum_specifier* complete = get_complete_enum_specifier(p_type2->enum_specifier);
