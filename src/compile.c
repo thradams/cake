@@ -185,7 +185,7 @@ int generate_config_file(const char* configpath)
         int in_include_section = 0;
 
         // Open the command for reading
-        FILE* fp = popen(command, "r");
+        FILE* _Owner _Opt fp = popen(command, "r");
         if (fp == NULL)
         {
             error = errno;

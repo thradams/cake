@@ -67,6 +67,11 @@ long strtol(
 FILE* _Owner _Opt fopen(char const* _FileName, char const* _Mode);
 int fclose(FILE* _Owner _Stream);
 
+#if defined __linux__ || defined __APPLE__
+FILE* _Owner _Opt popen(const char* _Command, const char* _Mode);
+int pclose(FILE* _Owner _Stream);
+#endif
+
 size_t fread(
         _Ctor void*  _Buffer,
         size_t _ElementSize,

@@ -3688,7 +3688,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
     struct macro_expanded* _Opt p_list,
     struct token_list* oldlist,
     int level,
-    const struct token* origin);
+    const struct token* _Opt origin);
 
 struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
@@ -4631,10 +4631,10 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
     return macro_argument_list;
 }
 
-struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* _Opt p_list, struct macro* macro, struct macro_argument_list* arguments, int level, const struct token* origin);
-struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct macro_expanded* _Opt p_list, struct token_list* oldlist, int level, const struct token* origin);
+struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* _Opt p_list, struct macro* macro, struct macro_argument_list* arguments, int level, const struct token* _Opt origin);
+struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct macro_expanded* _Opt p_list, struct token_list* oldlist, int level, const struct token* _Opt origin);
 
-struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, struct macro* macro, const struct token* origin);
+struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, struct macro* macro, const struct token* _Opt origin);
 
 /*#define hash_hash # ## #
 #define mkstr(a) # a
@@ -4765,7 +4765,7 @@ of the parameter list is present and has a non-empty substitution.
 static bool has_argument_list_empty_substitution(struct preprocessor_ctx* ctx,
     struct macro_expanded* p_list,
     struct macro_argument_list* p_macro_argument_list,
-    const struct token* origin)
+    const struct token* _Opt origin)
 {
     if (p_macro_argument_list->head == NULL)
         return true;
@@ -4792,7 +4792,7 @@ static bool has_argument_list_empty_substitution(struct preprocessor_ctx* ctx,
     return false;
 }
 
-static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct token_list* input_list, struct macro_argument_list* arguments, const struct token* origin)
+static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct token_list* input_list, struct macro_argument_list* arguments, const struct token* _Opt origin)
 {
     struct token_list r = { 0 };
 
@@ -5155,7 +5155,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
     struct macro_expanded* p_list,
     struct token_list* oldlist,
     int level,
-    const struct token* origin)
+    const struct token* _Opt origin)
 {
     struct token_list r = { 0 };
     try
@@ -5442,7 +5442,7 @@ struct token_list copy_replacement_list(struct preprocessor_ctx* ctx,
     return copy_replacement_list_core(ctx, list, !ctx->options.preprocess_def_macro);
 }
 
-struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, struct macro* macro, const struct token* origin)
+struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, struct macro* macro, const struct token* _Opt origin)
 {
     /*dynamic content macros*/
     if (strcmp(macro->name, "__LINE__") == 0)
@@ -5507,7 +5507,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
     struct macro* macro,
     struct macro_argument_list* arguments,
     int level,
-    const struct token* origin)
+    const struct token* _Opt origin)
 {
     macro->usage++;
 

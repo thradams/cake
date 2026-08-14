@@ -463,7 +463,9 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
         return;
 
     _Assert(ctx->tail_block != NULL);
-    struct defer_visit_ctx label_ctx = { 0 };
+    /* ctx is a const member, so it can only be set here; leaving it NULL left
+       the label-search visit without a parser context. */
+    struct defer_visit_ctx label_ctx = { .ctx = ctx->ctx };
     try
     {
         if (p_jump_statement->first_token->type == TK_KEYWORD_CAKE_THROW)
@@ -582,7 +584,17 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
             label_ctx.searching_label_mode = true;
             label_ctx.label_name = p_jump_statement->label->lexeme;
-            defer_start_visit_declaration(&label_ctx, ctx->p_declaration); //lint 35 
+            if (ctx->p_declaration == NULL)
+            {
+                throw;
+            }
+
+            defer_start_visit_declaration(&label_ctx, ctx->p_declaration);
+
+            if (label_ctx.tail_block == NULL || ctx->tail_block == NULL)
+            {
+                throw;
+            }
 
             struct defer_scope* _Opt p_common =
                 find_common_defer_scope(label_ctx.tail_block /*label*/, ctx->tail_block /*goto*/); 
@@ -614,7 +626,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                     if (!found)
                     {
                         diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "jumping over defer. from here");
-                        diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here"); //lint 35
+                        diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
                         diagnostic(W_LOCATION, ctx->ctx, p1->p_defer_statement->first_token, NULL, "defer");
                     }
                 }

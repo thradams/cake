@@ -293,7 +293,7 @@ struct token_list
     struct token* _Opt tail;
 };
 
-void token_list_set_file(struct token_list* list, const struct token* filetoken, int line, int col);
+void token_list_set_file(struct token_list* list, const struct token* _Opt filetoken, int line, int col);
 bool token_list_is_empty(struct token_list* p);
 void token_list_swap(struct token_list* a, struct token_list* b);
 

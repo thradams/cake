@@ -1621,7 +1621,7 @@ int make_object_with_member_designator(const struct type* p_type,
     enum target target)
 {
     object_destroy(obj);
-    memset(obj, 0, sizeof(struct object));
+    *obj = (struct object){ 0 };
 
     _Assert(obj->members.head == NULL);
     _Assert(obj->next == NULL);

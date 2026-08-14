@@ -3153,7 +3153,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             if (new_expression == NULL) throw;
 
             new_expression->first_token = ctx->current;
-
+            new_expression->last_token = ctx->current;
+  
             if (ctx->current->type == '++')
                 new_expression->expression_type = EXPR_UNARY_INCREMENT;
             else

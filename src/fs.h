@@ -82,19 +82,50 @@ struct dirent* _Opt readdir(DIR* dirp);
 
 #else
 
-//TODO fails on macos because it has a diferent declaration
-//typedef struct __dirstream DIR;
-//DIR * _Owner _Opt opendir (const char *__name);
-//int closedir(DIR* _Owner dirp);
-
-
-
 //https://man7.org/linux/man-pages/man2/mkdir.2.html
 #include <sys/types.h>
-#include <dirent.h>
 #include <unistd.h>
 #include <sys/stat.h>
+
+#ifdef __CAKE__
+/*
+  The system <dirent.h> carries no ownership information: opendir's result
+  reads as non-owning and closedir as not releasing it. It cannot simply be
+  re-declared either -- on macos DIR is an anonymous struct typedef, so any
+  pre-declaration conflicts with the SDK one. So for the analyzer only,
+  declare the three entry points we use (with ownership) and skip the SDK
+  header, exactly as the windows branch above already does. The real
+  declarations come from <dirent.h> in every non-cake build.
+*/
+struct _cake_DIR;
+typedef struct _cake_DIR DIR;
+
+enum
+{
+    DT_UNKNOWN = 0,
+    DT_FIFO = 1,
+    DT_CHR = 2,
+    DT_DIR = 4,
+    DT_BLK = 6,
+    DT_REG = 8,
+    DT_LNK = 10,
+    DT_SOCK = 12,
+    DT_WHT = 14
+};
+
+struct dirent
+{
+    unsigned char d_type;
+    char d_name[256];
+};
+
+DIR* _Owner _Opt opendir(const char* name);
+int closedir(DIR* _Owner dirp);
+struct dirent* _Opt readdir(DIR* dirp);
+#else
 #include <dirent.h>
+#endif
+
 #endif
 
 

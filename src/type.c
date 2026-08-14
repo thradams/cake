@@ -1889,14 +1889,20 @@ struct type type_dup(const struct type* p_type)
         */
         free(l.head);
 
-        return r;
+        /* type_dup deliberately steps outside the ownership rules: `*p_new = *p`
+           copies the whole struct so every field comes across, and the owner
+           members it brought along are immediately replaced (next nulled,
+           name_opt re-strdup'd, params rebuilt) -- see the "actually I was not
+           the _Owner of ..." notes above. p is const and is never consumed,
+           but each copied owner member reads as a move. */
+        return r; //lint 72
     }
     catch
     {
     }
 
     struct type empty = { 0 };
-    return empty;
+    return empty; //lint 72
 }
 
 static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier,

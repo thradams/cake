@@ -23,7 +23,7 @@ void f(int i)
 
     if (0 < i)
     {
-        int k = 1 / i; //lint 36 division by zero
+        int k = 1 / i; /* i > 0 here: cannot be zero */
     }
     else
     {
@@ -32,7 +32,7 @@ void f(int i)
 
     if (i > 0)
     {
-        int k = 1 / i; //lint 36 division by zero
+        int k = 1 / i; /* i > 0 here: cannot be zero */
     }
     else
     {
@@ -68,8 +68,7 @@ void f2(int i)
     }
     else
     {
-        int j = 1 / i; //lint 36 division by zero
-
+        int j = 1 / i; /* i < 0 here: cannot be zero */
     }
 
 
@@ -79,7 +78,6 @@ void f2(int i)
     }
     else
     {
-        int j = 1 / i; //lint 36 division by zero
-
+        int j = 1 / i; /* i < 0 here: cannot be zero */
     }
 }

@@ -98,11 +98,10 @@ bool path_is_absolute(const char* path)
         // //server
         return true;
     }
+    return false;
 #else
     return path[0] == '/';
 #endif
-
-    return false;
 }
 
 bool path_is_relative(const char* path)
