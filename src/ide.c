@@ -1903,7 +1903,7 @@ static int ci_strcmp(const char* a, const char* b)
  *
  * make_editor_window() also uses the UI_SYNTAX_MARKDOWN result to default
  * every .md file to read-only when it's opened - Markdown in this project is
- * always either shipped reference text (help/*.md) or generated/prose meant
+ * always either shipped reference text (the .md files under help/) or generated/prose meant
  * to be read, not hand-edited in place; still just a default, toggleable
  * afterward like any other file via the editor popup/Edit menu's "Read-only"
  * item. */
@@ -5314,8 +5314,8 @@ static int fr_find(const char* hay, int hlen, const char* needle, int nlen,
     return -1;
 }
 
-/* Read the dialog's options into *ci/*whole and the search range into
- * *lo/*hi (the whole document, or the current selection for "Selected text"
+/* Read the dialog's options into *ci / *whole and the search range into
+ * *lo / *hi (the whole document, or the current selection for "Selected text"
  * scope). Returns the editor, or NULL if there's nothing to search. */
 static ui_node* fr_setup(int* ci, int* whole, int* lo, int* hi)
 {
@@ -6355,7 +6355,7 @@ static void fr_rebuild_content(void)
 }
 
 /* Shared by Edit > Stringify/To Upper/To Lower: the active document's
- * <editor> and its current selection, or NULL (leaving *out_lo/*out_hi
+ * <editor> and its current selection, or NULL (leaving *out_lo / *out_hi
  * untouched) if there's no active document or nothing is selected in it -
  * same "quietly do nothing" behavior Cut/Copy already have for an empty
  * selection (see editor_copy/editor_cut in ide_ui.c). Deliberately targets
@@ -9226,7 +9226,6 @@ void app_init(ui_env* env)
     {
         /* --- Demo/test file window (maximized) --- */
         ui_node* demo_wrapper = make_new_editor_window(root, g_new_count++);
-        ui_node* demo_editor = editor_in_window(demo_wrapper);
         ui_screen_show_window(g_screen, demo_wrapper);
     }
 

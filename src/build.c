@@ -8,7 +8,8 @@
  * LINUX/MACOS
  *   gcc build.c -o build && ./build
  *   ./build fast             (incremental: only recompile changed files)
- *   ./build test             (pass compile cake with -DTEST and run tests)
+ *   ./build full             (build everything with -DTEST, but do not run tests)
+ *   ./build test             (same as full, and run the tests afterwards)
  *   ./build debug            (debug build: no optimization, debug runtime)
  *   ./build fast debug test  (flags combine freely)
  */
@@ -797,15 +798,16 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     }
 
 #if !defined CAKE_HEADERS
-    if (!fastbuild)
+    if (!fastbuild && test)
     {
         print_header("Cake auto-config");
         execute_cmd("./" EXE(CKC_NAME) " -autoconfig");
     }
 #endif
 
-    /* Run cake on its own source (self-analysis) on Linux and macOS. */
-    if (!fastbuild)
+    /* Run cake on its own source (self-analysis) on Linux and macOS.
+       Only for a full build - same gate the MSVC and GCC branches use. */
+    if (!fastbuild && test)
     {
         print_header("Running Cake on its own source");
         execute_cmd("./" EXE(CKC_NAME) " -fanalyzer " CAKE_SOURCE_FILES);
@@ -813,7 +815,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
         print_header("Build cake89");
 
         char* cmd89 = calloc(2000, sizeof(char));
-        snprintf(cmd89, 2000, "clang %s -o " CKC89_NAME " " CAKE_SOURCE_FILES, test_flag);
+        snprintf(cmd89, 2000, "clang -Wno-multichar %s -o " CKC89_NAME " " CAKE_SOURCE_FILES, test_flag);
         execute_cmd(cmd89);
         free(cmd89);
     }
@@ -942,25 +944,48 @@ static void run_tests(void)
 int main(int argc, char* argv[])
 {
     int fastbuild = 0;
-    int test = 0;
+    int full = 0;
+    int run_test_suite = 0;
     int debug = 0;
     for (int i = 1; i < argc; i++)
     {
-        if (strcmp(argv[i], "fast") == 0) fastbuild = 1;
-        else if (strcmp(argv[i], "test") == 0) test = 1;
-        else if (strcmp(argv[i], "debug") == 0) debug = 1;
+        if (strcmp(argv[i], "fast") == 0)
+        {
+            fastbuild = 1;
+        }
+        else if (strcmp(argv[i], "full") == 0)
+        {
+            full = 1;
+        }
+        else if (strcmp(argv[i], "test") == 0)
+        {
+            /* test is full plus actually running the test suite */
+            full = 1;
+            run_test_suite = 1;
+        }
+        else if (strcmp(argv[i], "debug") == 0)
+        {
+            debug = 1;
+        }
         else
         {
             printf("unrecognized option: %s\n", argv[i]);
-            printf("usage: %s [fast] [test] [debug]\n", argv[0]);
+            printf("usage: %s [fast] [full] [test] [debug]\n", argv[0]);
             printf("  fast  - incremental build, skips tools/docs/inner-tests/amalgamation\n");
-            printf("  test  - build with -DTEST and run the test suite afterwards\n");
+            printf("  full  - build everything with -DTEST, but do not run the test suite\n");
+            printf("  test  - same as full, and run the test suite afterwards\n");
             printf("  debug - build without optimizations/-DNDEBUG\n");
             return 1;
         }
     }
 
-    const char* test_flag = test ? " -DTEST " : "";
+    /* a full build is the opposite of an incremental one */
+    if (full)
+    {
+        fastbuild = 0;
+    }
+
+    const char* test_flag = full ? " -DTEST " : "";
 
     if (!fastbuild)
     {
@@ -974,8 +999,10 @@ int main(int argc, char* argv[])
     build_cake(fastbuild, debug, test_flag);
 
 
-    if (test)
+    if (run_test_suite)
+    {
         run_tests();
+    }
 
     print_header("Build succeeded");
 

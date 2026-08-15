@@ -7403,7 +7403,7 @@ static uint32_t ansi_readable_fg(uint32_t fg, uint32_t bg)
 }
 
 /* Parses one CSI escape at s[0]=='\x1b', s[1]=='[' and, if it's an SGR
- * ("...m") sequence, updates *fg/*bold from its ';'-separated parameter
+ * ("...m") sequence, updates *fg / *bold from its ';'-separated parameter
  * list. Background codes (40-47/100-107) and other SGR attributes
  * (underline, italic, etc.) are intentionally not tracked - editor_bg stays
  * the widget's fixed panel color, same as every other line. Returns the
@@ -7588,9 +7588,9 @@ static void render_editor_line_ansi(int x, int y, int w, int scroll_x,
  * against a keyword list. Deliberately simple - no block comments, no
  * escape sequences in strings - a best-effort visual aid, not a real
  * lexer. */
- /* Advance the /* ... *\/ block-comment state AND ( [ { nesting depth across
+ /* Advance the /\* ... *\/ block-comment state AND ( [ { nesting depth across
   * one line without drawing, respecting strings and // line comments (so a
-  * "/*" - or a bracket - inside a string or after "//" isn't mistaken for
+  * "/\*" - or a bracket - inside a string or after "//" isn't mistaken for
   * the real thing). `in_block` is whether the line begins inside a block
   * comment; the return value is whether it ends inside one. `depth` (in/out,
   * NULL if the caller doesn't need it) is the ( [ { nesting depth, carried
@@ -7722,7 +7722,7 @@ static void md_advance_c_block_state(const char* line, int line_len, int in_bloc
         *c_comment_block = scan_line_block_state(line, line_len, *c_comment_block, c_bracket_depth);
 }
 
-/* Draw one source line. `in_block` (in/out) carries /* ... *\/ block-comment
+/* Draw one source line. `in_block` (in/out) carries /\* ... *\/ block-comment
  * state across lines: on entry, whether this line starts inside a block
  * comment; on return, whether it ends inside one. `depth` (in/out) is the
  * ( [ { nesting depth, carried the same way - each pair is colored from
@@ -7763,7 +7763,7 @@ static void render_editor_line(int x, int y, int w, int scroll_x,
      * than the editor, even with no horizontal scroll at all. That used to
      * cut the scan off before reaching a comment's closing "*\/" (or a
      * bracket) that happens to sit past that column, leaving *in_block/
-     * *depth wrong for every line below - visibly, a long enough /* comment
+     * *depth wrong for every line below - visibly, a long enough /\* comment
      * would "leak" comment coloring onto the rest of the file. Safe to
      * always scan the full line: emit_hscroll() below already no-ops any
      * draw whose column falls outside the viewport, so there's no visible
@@ -7906,7 +7906,7 @@ static void render_editor_line(int x, int y, int w, int scroll_x,
         }
         else if (cp == '/' && i + 1 < line_len && line[i + 1] == '*')
         {
-            /* Start of a block comment - draw "/*" and enter block mode. */
+            /* Start of a block comment - draw "/\*" and enter block mode. */
             uint32_t cfg = g_theme.editor_comment_fg;
             for (int k = 0; k < 2 && col < scroll_x + w; k++)
             {
@@ -8115,7 +8115,6 @@ static void render_editor_line_markdown(int x, int y, int w, int scroll_x,
     int blockquote = !in_code_block && !heading && j < line_len && line[j] == '>';
 
     int col = 0, i = 0, in_span = 0, in_link_text = 0, in_link_dest = 0, in_html_comment = 0;
-    int fence_prefix_len = j + 3;
     int in_bold = 0;
     while (i < line_len && col < scroll_x + w)
     {

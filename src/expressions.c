@@ -3003,6 +3003,15 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
 
         }
     }
+    else if (category == TYPE_CATEGORY_ITSELF && p_type->enum_specifier && get_complete_enum_specifier(p_type->enum_specifier) == NULL && !type_is_enumerator(p_type))
+    {
+        diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE,
+                   ctx,
+                   p_expression->first_token,
+                   NULL,
+                   "enum is incomplete type");
+        return -1;
+    }
 
     return 0; //ok
 }
@@ -3918,7 +3927,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                     _Assert(new_expression->type_name->type.enum_specifier);
 
                     const struct enum_specifier* _Opt p_enum_specifier =
-                        get_complete_enum_specifier(new_expression->type_name->type.enum_specifier);
+                        get_enum_specifier_definition(new_expression->type_name->type.enum_specifier);
                     size_t nelements = 0;
                     if (p_enum_specifier)
                     {
@@ -3986,7 +3995,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                     _Assert(new_expression->right->type.enum_specifier);
 
                     const struct enum_specifier* _Opt p_enum_specifier =
-                        get_complete_enum_specifier(new_expression->right->type.enum_specifier);
+                        get_enum_specifier_definition(new_expression->right->type.enum_specifier);
                     size_t nelements = 0;
                     if (p_enum_specifier)
                     {

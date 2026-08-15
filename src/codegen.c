@@ -3476,7 +3476,7 @@ static void d_print_type_core(struct codegen_ctx* ctx,
                 }
 
             }
-            else if (p_type->enum_specifier)
+            else if (p_type->enum_specifier && !type_is_enumerator(p_type))
             {
                 enum type_specifier_flags enum_type_specifier_flags =
                     get_enum_type_specifier_flags(p_type->enum_specifier);

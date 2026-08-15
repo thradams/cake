@@ -552,6 +552,8 @@ void parser_ctx_destroy(_Dtor struct parser_ctx* ctx)
     _Assert(ctx->label_list.head == NULL);
     _Assert(ctx->label_list.tail == NULL);
 
+    block_item_list_destroy(&ctx->used_incomplete_enums);
+
     diagnostic_queue_destroy(&ctx->diagnostic_queue);
 
     if (ctx->sarif_file)
@@ -890,7 +892,7 @@ _Bool diagnostic(enum diagnostic_id w,
     va_list args = { 0 };
     va_start(args, fmt);
     vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args); //lint 35
+    va_end(args); //lint (only windowws)
 
     struct diagnostic_queue* db = &((struct parser_ctx*)ctx)->diagnostic_queue;
 
@@ -2893,6 +2895,38 @@ static void check_unused_parameters(const struct parser_ctx* ctx, struct paramet
     }
 }
 
+void check_function_types_complete(struct parser_ctx* ctx, struct declarator* funcdecl)
+{
+    _Assert(funcdecl->type.category == TYPE_CATEGORY_FUNCTION);
+
+    struct token* _Opt diagtok = NULL;
+    if (funcdecl->name_opt)
+        diagtok = funcdecl->name_opt;
+    else if (funcdecl->first_token_opt)
+        diagtok = funcdecl->first_token_opt;
+    else
+        diagtok = ctx->current;
+
+    struct type return_type = get_function_return_type(&funcdecl->type);
+    const bool return_type_is_incomplete = type_is_incomplete(&return_type);
+    type_destroy(&return_type);
+
+    if (return_type_is_incomplete)
+    {
+        diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, diagtok, NULL, "function has incomplete return type");
+    }
+
+    struct param* _Opt param = funcdecl->type.params.head;
+    while (param)
+    {
+        if (type_is_incomplete(&param->type))
+        {
+            diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, diagtok, NULL, "function has incomplete parameter type");
+        }
+        param = param->next;
+    }
+}
+
 struct secondary_block* _Owner _Opt secondary_block(struct parser_ctx* ctx);
 
 struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
@@ -2987,6 +3021,8 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 throw;
             }
 
+            check_function_types_complete(ctx, p_declarator);
+
             struct function_declarator* _Opt pfuncdecl = declarator_find_function_declarator(p_declarator);
             if (pfuncdecl == NULL) throw;
 
@@ -3009,13 +3045,25 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             p_declaration->function_body = p_function_body;
             p_declaration->init_declarator_list.head->p_declarator->function_body = p_declaration->function_body;
 
-            if (p_declaration->init_declarator_list.head &&
-                p_declaration->init_declarator_list.head->p_declarator->direct_declarator &&
-                p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator &&
-                p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt &&
-                p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
+            struct init_declarator* _Opt p_first_init_declarator = p_declaration->init_declarator_list.head;
+
+            struct function_declarator* _Opt p_function_declarator = NULL;
+            if (p_first_init_declarator &&
+                p_first_init_declarator->p_declarator->direct_declarator)
             {
-                check_unused_parameters(ctx, p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list);
+                p_function_declarator = p_first_init_declarator->p_declarator->direct_declarator->function_declarator;
+            }
+
+            if (p_function_declarator &&
+                p_function_declarator->parameter_type_list_opt)
+            {
+                struct parameter_list* _Opt p_parameter_list =
+                    p_function_declarator->parameter_type_list_opt->parameter_list;
+
+                if (p_parameter_list)
+                {
+                    check_unused_parameters(ctx, p_parameter_list);
+                }
             }
 
             if (p_declaration->function_body)
@@ -3616,6 +3664,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
                 if (er != 0)
                 {
+                    diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "type incomplete");
                     throw;
                 }
 
@@ -3656,8 +3705,32 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
-                        throw;
+                        if (p_init_declarator->p_declarator->type.enum_specifier)
+                        {
+                            struct token* _Opt p_first_token = p_init_declarator->p_declarator->first_token_opt;
+                            if (p_first_token == NULL)
+                            {
+                                p_first_token = ctx->current;
+                            }
+
+                            if (p_first_token != NULL)
+                            {
+                                struct block_item* _Owner _Opt new_block_item = calloc(1, sizeof * new_block_item);
+                                if (new_block_item == NULL)
+                                {
+                                    throw;
+                                }
+
+                                new_block_item->first_token = p_first_token;
+                                new_block_item->declarator = p_init_declarator->p_declarator;
+                                block_item_list_add(&ctx->used_incomplete_enums, new_block_item);
+                            }
+                        }
+                        else
+                        {
+                            diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
+                            throw;
+                        }
                     }
                 }
 
@@ -3845,7 +3918,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         p_init_declarator = NULL;
     }
 
-    return p_init_declarator; //lint 35 bug flow
+    return p_init_declarator; //lint 35 bug flow 
 }
 
 void init_declarator_list_add(struct init_declarator_list* list, struct init_declarator* _Owner p_item)
@@ -4877,10 +4950,41 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
 
 enum type_specifier_flags get_enum_type_specifier_flags(const struct enum_specifier* p_enum_specifier)
 {
-    return p_enum_specifier->integer_type.type_specifier_flags;
+    if (p_enum_specifier->integer_type.type_specifier_flags != TYPE_SPECIFIER_NONE)
+    {
+        return p_enum_specifier->integer_type.type_specifier_flags;
+    }
+
+    const struct enum_specifier* _Opt p_complete_enum = get_complete_enum_specifier(p_enum_specifier);
+    if (p_complete_enum)
+    {
+        return p_complete_enum->integer_type.type_specifier_flags;
+    }
+    return TYPE_SPECIFIER_NONE;
 }
 
 const struct enum_specifier* _Opt get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier)
+{
+    if (p_enum_specifier->integer_type.type_specifier_flags != TYPE_SPECIFIER_NONE)
+    {
+        return p_enum_specifier;
+    }
+    else if (p_enum_specifier->p_complete_enum_specifier &&
+        p_enum_specifier->p_complete_enum_specifier->integer_type.type_specifier_flags != TYPE_SPECIFIER_NONE)
+    {
+        return p_enum_specifier->p_complete_enum_specifier;
+    }
+    else if (p_enum_specifier->p_complete_enum_specifier &&
+        p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier &&
+        p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier->integer_type.type_specifier_flags != TYPE_SPECIFIER_NONE)
+    {
+        return p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier;
+    }
+    
+    return NULL;
+}
+
+const struct enum_specifier* _Opt get_enum_specifier_definition(const struct enum_specifier* p_enum_specifier)
 {
     /*
       The way cake find the complete struct is using one pass.. for this task is uses double indirection.
@@ -6158,8 +6262,6 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
         if (parser_match_tk(ctx, TK_KEYWORD_ENUM) != 0)
             throw;
 
-        p_enum_specifier->integer_type = type_make_int();
-
         p_enum_specifier->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
         if (ctx->current == NULL)
@@ -6168,7 +6270,9 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             throw;
         }
 
-        struct enum_specifier* _Opt prev_decl = NULL; // previous enum definition in the same scope. must be identical
+
+        struct enum_specifier* _Opt prev_decl_same_scope = NULL; // previous enum definition in the same scope. must be identical
+
         if (ctx->current->type == TK_IDENTIFIER)
         {
             snprintf(p_enum_specifier->tag_name, sizeof p_enum_specifier->tag_name, "%s", ctx->current->lexeme);
@@ -6182,7 +6286,8 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             {
                 if (found_tag->type == TAG_TYPE_ENUM_SPECIFIER)
                 {
-                    prev_decl = found_tag->data.p_enum_specifier;
+                    prev_decl_same_scope = found_tag->data.p_enum_specifier;
+                    p_enum_specifier->p_complete_enum_specifier = prev_decl_same_scope;
                 }
             }
         }
@@ -6207,7 +6312,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             {
                 /* C23 */
 
-                if (prev_decl && !prev_decl->has_underlying)
+                if (prev_decl_same_scope && !prev_decl_same_scope->has_underlying)
                 {
                     diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, ctx->current, NULL, "enum redeclared with underlying type");
                     throw;
@@ -6234,7 +6339,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                         "expected an integer type");
                     throw;
                 }
-                if (prev_decl && !type_is_same(&prev_decl->integer_type, &p_enum_specifier->integer_type, false))
+                if (prev_decl_same_scope && !type_is_same(&prev_decl_same_scope->integer_type, &p_enum_specifier->integer_type, false))
                 {
                     diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, first_token, NULL, "enum redeclared with different underlying type");
                     throw;
@@ -6253,10 +6358,14 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
 
         if (ctx->current->type == '{')
         {
-            if (prev_decl && (p_enum_specifier->has_underlying != prev_decl->has_underlying))
+            if (prev_decl_same_scope)
             {
-                diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_enum_specifier->first_token, NULL, "enum redeclared without underlying type");
-                throw;
+                if (p_enum_specifier->has_underlying != prev_decl_same_scope->has_underlying)
+                {
+                    diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_enum_specifier->first_token, NULL, "enum redeclared without underlying type");
+                    throw;
+                }
+
             }
 
             if (p_enum_specifier->tag_token)
@@ -6292,8 +6401,10 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             struct hash_item_set item = { 0 };
             item.p_enum_specifier = enum_specifier_add_ref(p_enum_specifier);
             hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, &item);
-            p_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
             hash_item_set_destroy(&item);
+
+            if (prev_decl_same_scope)
+                prev_decl_same_scope->p_complete_enum_specifier = p_enum_specifier;
         }
         else
         {
@@ -6302,23 +6413,23 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             {
                 p_existing_enum_specifier = find_enum_specifier(ctx, p_enum_specifier->tag_token->lexeme);
             }
+
             if (p_existing_enum_specifier)
             {
                 //p_existing_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
                 //ja existe
                 /* check for another tag with the same name in this scope */
+
                 p_enum_specifier->p_complete_enum_specifier = p_existing_enum_specifier;
-                type_destroy(&p_enum_specifier->integer_type);
-                p_enum_specifier->integer_type = type_dup(&p_existing_enum_specifier->integer_type);
-                p_enum_specifier->has_underlying = p_existing_enum_specifier->has_underlying;
             }
             else
             {
                 /* tag not found anywhere; add it */
+
+                p_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
                 struct hash_item_set item = { 0 };
                 item.p_enum_specifier = enum_specifier_add_ref(p_enum_specifier);
                 hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, &item);
-                p_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
                 hash_item_set_destroy(&item);
             }
         }
@@ -6392,7 +6503,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
         enumerator_list ',' enumerator
      */
 
-    struct object next_enumerator_value = object_make_unsigned_long_long(ctx->options.target, 0);
+    struct object next_enumerator_value = object_make_signed_int(ctx->options.target, 0);
 
     if (p_enum_specifier->has_underlying)
     {
@@ -6557,7 +6668,7 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
     unsigned long long* max_value,
     bool* next_ovf)
 {
-    *next_ovf = false;
+    // *next_ovf = false;
 
     struct enumerator* _Owner _Opt p_enumerator = NULL;
     try
@@ -7924,7 +8035,7 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
             if (er != 0)
             {
                 //diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
-                throw;
+                //throw;
             }
         }
 
@@ -10421,7 +10532,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                     ctx->p_current_switch_statement->condition->expression &&
                     ctx->p_current_switch_statement->condition->expression->type.enum_specifier)
                 {
-                    p_enum_specifier = get_complete_enum_specifier(ctx->p_current_switch_statement->condition->expression->type.enum_specifier);
+                    p_enum_specifier = get_enum_specifier_definition(ctx->p_current_switch_statement->condition->expression->type.enum_specifier);
                 }
 
                 if (p_enum_specifier)
@@ -11635,7 +11746,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
                     p_selection_statement->condition->expression &&
                     p_selection_statement->condition->expression->type.enum_specifier)
                 {
-                    p_enum_specifier = get_complete_enum_specifier(p_selection_statement->condition->expression->type.enum_specifier);
+                    p_enum_specifier = get_enum_specifier_definition(p_selection_statement->condition->expression->type.enum_specifier);
                 }
 
                 if (p_enum_specifier)
@@ -12587,6 +12698,20 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
 
         check_unused_static_declarators(ctx, &declaration_list);
 
+        // check that all enums that have objects are defined
+        struct block_item* _Opt decl = ctx->used_incomplete_enums.head;
+        while (decl)
+        {
+            const struct enum_specifier* _Opt declared_enum =
+                decl->declarator ? decl->declarator->type.enum_specifier : NULL;
+
+            if (declared_enum != NULL &&
+                get_enum_specifier_definition(declared_enum) == NULL)
+            {
+                diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, declared_enum->first_token, NULL, "enum incomplete");
+            }
+            decl = decl->next;
+        }
     }
     catch
     {

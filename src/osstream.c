@@ -77,7 +77,11 @@ int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args)
     }
     _Assert(stream->c_str); //reserve does that
     
+#ifdef _WIN32
     size = vsprintf(stream->c_str + stream->size, fmt, args); //lint 35
+#else
+    size = vsprintf(stream->c_str + stream->size, fmt, args);
+#endif
     if (size > 0)
     {
         stream->size += size;
@@ -105,7 +109,11 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
     va_list args = { 0 };
     va_start(args, fmt);
     int size = ss_vafprintf(stream, fmt, args);
+#ifdef _WIN32
     va_end(args); //lint 35
+#else
+    va_end(args);
+#endif
 
     return size;
 }

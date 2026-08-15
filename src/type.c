@@ -996,6 +996,20 @@ bool type_is_pointer(const struct type* p_type)
     return p_type->category == TYPE_CATEGORY_POINTER;
 }
 
+bool type_is_incomplete(const struct type* p_type)
+{
+    if (p_type->enum_specifier)
+    {
+        return get_complete_enum_specifier(p_type->enum_specifier) == NULL;
+    }
+    if (p_type->struct_or_union_specifier)
+    {
+        return get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier) == NULL;
+    }
+
+    return false;
+}
+
 bool type_is_essential_bool(const struct type* p_type)
 {
     return p_type->attributes_flags & CAKE_HIDDEN_ATTRIBUTE_LIKE_BOOL;
@@ -1009,6 +1023,11 @@ bool type_is_enum(const struct type* p_type)
 {
     return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
         p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM;
+}
+
+bool type_is_enumerator(const struct type* p_type)
+{
+    return p_type->enum_specifier && p_type->type_specifier_flags != TYPE_SPECIFIER_ENUM;
 }
 
 bool type_is_struct_or_union(const struct type* p_type)
@@ -1700,21 +1719,38 @@ struct type type_common(const struct type* p_type1, const struct type* p_type2, 
     struct type promoted_b = { 0 };
 
 
-    if (type_is_enum(p_type1))
+    if (type_is_enum(p_type1) && !type_is_enumerator(p_type1))
     {
         _Assert(p_type1->enum_specifier);
-        promoted_a = type_dup(&p_type1->enum_specifier->integer_type);
-
+        const struct enum_specifier* _Opt p_complete_left = get_complete_enum_specifier(p_type1->enum_specifier);
+        if (p_complete_left != NULL)
+        {
+            promoted_a = type_dup(&p_complete_left->integer_type);
+        }
+        else
+        {
+            /* incomplete enum, the underlying type is unknown */
+            promoted_a = type_dup(p_type1);
+        }
     }
     else
     {
         promoted_a = type_dup(p_type1);
     }
 
-    if (type_is_enum(p_type2))
+    if (type_is_enum(p_type2) && !type_is_enumerator(p_type2))
     {
         _Assert(p_type2->enum_specifier);
-        promoted_b = type_dup(&p_type2->enum_specifier->integer_type);
+        const struct enum_specifier* _Opt p_complete_right = get_complete_enum_specifier(p_type2->enum_specifier);
+        if (p_complete_right != NULL)
+        {
+            promoted_b = type_dup(&p_complete_right->integer_type);
+        }
+        else
+        {
+            /* incomplete enum, the underlying type is unknown */
+            promoted_b = type_dup(p_type2);
+        }
     }
     else
     {
@@ -2650,12 +2686,20 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
         {
+            const struct enum_specifier* _Opt p_complete_enum = NULL;
             if (p_type->enum_specifier)
             {
-                align = type_get_alignof(&p_type->enum_specifier->integer_type, target);
+                p_complete_enum = get_complete_enum_specifier(p_type->enum_specifier);
+            }
+
+            if (p_complete_enum != NULL)
+            {
+                align = type_get_alignof(&p_complete_enum->integer_type, target);
             }
             else
+            {
                 align = get_platform(target)->int_alignment;
+            }
         }
         else if (p_type->type_specifier_flags == (TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE))
         {
@@ -2954,8 +2998,14 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
     {
         if (p_type->enum_specifier)
         {
-            enum sizeof_result e = type_get_sizeof(&p_type->enum_specifier->integer_type, size, target);
-            return e;
+            const struct enum_specifier* _Opt p_complete_enum = get_complete_enum_specifier(p_type->enum_specifier);
+            if (p_complete_enum == NULL)
+            {
+                return SIZEOF_RESULT_INCOMPLETE;
+            }
+
+            enum sizeof_result result = type_get_sizeof(&p_complete_enum->integer_type, size, target);
+            return result;
         }
         else
         {
@@ -3081,7 +3131,13 @@ struct type type_get_enum_type(const struct type* p_type)
         if (p_type->enum_specifier == NULL)
             throw;
 
-        return type_dup(&p_type->enum_specifier->integer_type);
+        const struct enum_specifier* _Opt p_complete_enum = get_complete_enum_specifier(p_type->enum_specifier);
+        if (p_complete_enum == NULL)
+        {
+            throw;
+        }
+
+        return type_dup(&p_complete_enum->integer_type);
     }
     catch
     {
@@ -3287,29 +3343,48 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
         if (pa->type_specifier_flags == TYPE_SPECIFIER_ENUM)
         {
             _Assert(pa->enum_specifier);
-            if (!type_is_same(&pa->enum_specifier->integer_type, pb, compare_qualifiers))
+            /* an incomplete enum has no known underlying type to compare against */
+            const struct enum_specifier* _Opt p_complete_a = get_complete_enum_specifier(pa->enum_specifier);
+            if (p_complete_a != NULL)
             {
-                return false;
+                if (!type_is_same(&p_complete_a->integer_type, pb, compare_qualifiers))
+                {
+                    return false;
+                }
+                underlying_matched = true;
             }
-            underlying_matched = true;
         }
 
         if (pb->type_specifier_flags == TYPE_SPECIFIER_ENUM)
         {
             _Assert(pb->enum_specifier);
-            if (!type_is_same(pa, &pb->enum_specifier->integer_type, compare_qualifiers))
+            /* an incomplete enum has no known underlying type to compare against */
+            const struct enum_specifier* _Opt p_complete_b = get_complete_enum_specifier(pb->enum_specifier);
+            if (p_complete_b != NULL)
+            {
+                if (!type_is_same(pa, &p_complete_b->integer_type, compare_qualifiers))
+                {
+                    return false;
+                }
+                underlying_matched = true;
+            }
+        }
+
+        if (pa->enum_specifier && pb->enum_specifier)
+        {
+            const struct enum_specifier* _Opt pa_complete_enum = get_complete_enum_specifier(pa->enum_specifier);
+            const struct enum_specifier* _Opt pb_complete_enum = get_complete_enum_specifier(pb->enum_specifier);
+            if (pa_complete_enum != pb_complete_enum)
             {
                 return false;
             }
-            underlying_matched = true;
-        }
 
-        if (pa->enum_specifier &&
-            pb->enum_specifier &&
-            get_complete_enum_specifier(pa->enum_specifier) !=
-            get_complete_enum_specifier(pb->enum_specifier))
-        {
-            return false;
+            // both dont have enumerator list
+            // must have same tag
+            if (pa_complete_enum == NULL && pb_complete_enum == NULL && strcmp(pa->enum_specifier->tag_name, pb->enum_specifier->tag_name) != 0)
+            {
+                return false;
+            }
         }
 
 

@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "version.h"
  /* ------------------------------------------------------------------ */
  /*  Platform detection & OS-specific includes                          */
@@ -145,9 +146,38 @@ static int ask_yes_no(const char* question)
     }
 }
 
-static void print_separator(void)
+/* Same header format used by build.c */
+static void print_header(const char* text)
 {
-    printf("------------------------------------------------------------\n");
+    const int header_width = 80;
+    char upper[256];
+    size_t length = 0;
+    int left_padding = 0;
+    int i = 0;
+
+    for (; text[length] != '\0' && length < sizeof(upper) - 1; length++)
+    {
+        upper[length] = (char)toupper((unsigned char)text[length]);
+    }
+    upper[length] = '\0';
+
+    if ((int)length < header_width)
+    {
+        left_padding = (header_width - (int)length) / 2;
+    }
+
+    printf("\n");
+    for (i = 0; i < header_width; i++)
+    {
+        printf("=");
+    }
+    printf("\n");
+    printf("%*s%s\n", left_padding, "", upper);
+    for (i = 0; i < header_width; i++)
+    {
+        printf("=");
+    }
+    printf("\n");
 }
 
 /* ------------------------------------------------------------------ */
@@ -386,7 +416,9 @@ static int copy_dir_recursive(const char* src_dir, const char* dest_dir, int exe
 static int copy_with_wildcard(const char* src_pattern, const char* dest_dir, int exec_bit)
 {
     char dest_file[PATH_MAX_LEN];
+#ifdef _WIN32
     char src_file[PATH_MAX_LEN];
+#endif
     char src_dir[PATH_MAX_LEN];
     const char* last_sep;
     int  errors = 0;
@@ -956,10 +988,7 @@ int main(void)
     char  target_dir[PATH_MAX_LEN];
     int   dir_exists;
 
-    printf("\n");
-    print_separator();
-    printf("  Cake " CAKE_VERSION " Installer\n");
-    print_separator();
+    print_header("Cake " CAKE_VERSION " Installer");
     printf("\n");
 
     /* ---- 1. Resolve install directory ----------------------------- */

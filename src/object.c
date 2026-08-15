@@ -1481,6 +1481,17 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
 
         if (p_type->struct_or_union_specifier == NULL)
         {
+            if (p_type->enum_specifier && p_type->type_specifier_flags == TYPE_SPECIFIER_ENUM)
+            {
+                const struct enum_specifier* _Opt p_complete_enum = get_complete_enum_specifier(p_type->enum_specifier);
+                if (p_complete_enum == NULL)
+                {
+                    throw;
+                }
+
+                p_type = &p_complete_enum->integer_type;
+            }
+
             p_object = calloc(1, sizeof * p_object);
             if (p_object == NULL)
                 throw;
