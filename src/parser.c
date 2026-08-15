@@ -6668,8 +6668,6 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
     unsigned long long* max_value,
     bool* next_ovf)
 {
-    // *next_ovf = false;
-
     struct enumerator* _Owner _Opt p_enumerator = NULL;
     try
     {
@@ -6738,8 +6736,9 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
                 }
             }
 
-            object_destroy(p_next_enumerator_value);
-            *p_next_enumerator_value = *object_get_referenced(&p_enumerator->value);
+            struct object newvalue2 = object_dup(object_get_referenced(&p_enumerator->value));
+            object_swap(p_next_enumerator_value, &newvalue2);
+            object_destroy(&newvalue2);            
         }
         else
         {
