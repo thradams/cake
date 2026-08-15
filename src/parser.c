@@ -1189,7 +1189,7 @@ bool first_of_type_qualifier_token(const struct token* p_token)
         p_token->type == TK_KEYWORD_MSVC__UNALIGNED ||
 
         /*extensions*/
-        p_token->type == TK_KEYWORD_CAKE_CTOR ||
+        p_token->type == TK_KEYWORD_CAKE_OUT ||
         p_token->type == TK_KEYWORD_CAKE_OWNER ||
         p_token->type == TK_KEYWORD_CAKE_DTOR ||
         p_token->type == TK_KEYWORD_CAKE_UNINIT ||
@@ -1854,7 +1854,7 @@ enum token_type is_keyword(const char* text, enum target target)
 
         /*ownership*/
         if (strcmp("_Out", text) == 0)
-            return TK_KEYWORD_CAKE_CTOR; /* extension */
+            return TK_KEYWORD_CAKE_OUT; /* extension */
         if (strcmp("_Owner", text) == 0)
             return TK_KEYWORD_CAKE_OWNER; /* extension */
         if (strcmp("_Dtor", text) == 0)
@@ -1863,8 +1863,15 @@ enum token_type is_keyword(const char* text, enum target target)
             return TK_KEYWORD_CAKE_UNINIT; /* extension: return/pointee uninitialized */
         if (strcmp("_Clear", text) == 0)
             return TK_KEYWORD_CAKE_CLEAR; /* extension: param zeroes pointee / return pointee all-zero */
-        if (strcmp("_Opt", text) == 0)
+        
+        if (strcmp("_Opt", text) == 0 ||
+            strcmp("_Nullable", text) == 0)
+        {
+            /*
+              _Nullable is used by clang, so still a candidate
+            */
             return TK_KEYWORD_CAKE_OPT; /* extension */
+        }
 
         if (strcmp("_Defer", text) == 0)
             return TK_KEYWORD_DEFER;
@@ -6939,7 +6946,7 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
     {
         switch (ctx->current->type)
         {
-        case TK_KEYWORD_CAKE_CTOR:
+        case TK_KEYWORD_CAKE_OUT:
             p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_CTOR;
             break;
 

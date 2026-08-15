@@ -7319,6 +7319,7 @@ static int is_c_keyword2(const char* word, int len)
     if (len == 4 && memcmp(word, "NULL", 4) == 0) return 1;
     if (len == 6 && memcmp(word, "_Clear", 6) == 0) return 1;
     if (len == 14 && memcmp(word, "_Uninitialized", 14) == 0) return 1;
+    if (len == sizeof("_Nullable") - 1 && memcmp(word, "_Nullable", sizeof("_Nullable") - 1) == 0) return 1;
 
 
 

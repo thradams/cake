@@ -6328,7 +6328,7 @@ const char* get_token_name(enum token_type tk)
 
         /*cake extension*/
     case TK_KEYWORD_CAKE_OWNER: return "TK_KEYWORD_CAKE_OWNER";
-    case TK_KEYWORD_CAKE_CTOR: return "TK_KEYWORD__OUT";
+    case TK_KEYWORD_CAKE_OUT: return "TK_KEYWORD__OUT";
     case TK_KEYWORD_CAKE_DTOR: return "TK_KEYWORD__OBJ_OWNER";
     case TK_KEYWORD_CAKE_VIEW: return "TK_KEYWORD_CAKE_VIEW";
     case TK_KEYWORD_CAKE_OPT: return "TK_KEYWORD_CAKE_OPT";
@@ -6546,7 +6546,7 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
 
         /*cake extension*/
     case TK_KEYWORD_CAKE_OWNER: return "_Owner";
-    case TK_KEYWORD_CAKE_CTOR: return "Out";
+    case TK_KEYWORD_CAKE_OUT: return "Out";
     case TK_KEYWORD_CAKE_DTOR: return "_OBJ_OWNER";
     case TK_KEYWORD_CAKE_VIEW: return "_view";
     case TK_KEYWORD_CAKE_OPT: return "_Opt";
