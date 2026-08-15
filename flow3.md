@@ -1966,7 +1966,7 @@ struct X {
 
 //warning: uninitialized object 'x.i'
 
-void f(_Ctor struct X* x, int i)
+void f(_Out struct X* x, int i)
 {
     if (i > 0)
     {
@@ -2943,7 +2943,7 @@ struct X {
   struct Y  *pY;
 };
 
-void init(_Ctor struct X * p);
+void init(_Out struct X * p);
 void destroy(_Dtor struct X *  p);
 
 int main() {
@@ -3007,7 +3007,7 @@ int main()
 ```c
 ﻿#pragma safety enable
 
-bool init(_Ctor int *a) {
+bool init(_Out int *a) {
     *a = 3;
     return true;
 }
@@ -3027,7 +3027,7 @@ int main() {
 ```c
 ﻿#pragma safety enable
 
-void f(_Ctor char s[2]) 
+void f(_Out char s[2]) 
 {
 }
 
@@ -3037,7 +3037,7 @@ void test1()
     f(s);
 }
 
-void f2(_Ctor char *s) 
+void f2(_Out char *s) 
 {
     *s= '\0';
 }
@@ -3067,7 +3067,7 @@ char* _Owner strdup(const char* s);
 struct X {
     char* _Owner s;
 };
-void init(_Ctor struct X* px)
+void init(_Out struct X* px)
 {
     compile_assert(px != 0);
     //assert_state(px->s, "uninitialized");
@@ -3275,7 +3275,7 @@ struct X {
     char* _Owner _Opt text;
 };
 
-void f(struct X* _Owner p1, struct X* _Ctor _Owner* p2)
+void f(struct X* _Owner p1, struct X* _Out _Owner* p2)
 {
     *p2 = p1;
 }

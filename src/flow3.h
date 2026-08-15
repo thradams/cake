@@ -48,7 +48,7 @@ enum flow3_pointee_effect_kind
                                            (+ reachable owner pointees ended) */
     FLOW3_EFFECT_LIFETIME_ENDED,       /* plain _Owner parameter consuming the
                                            whole object: every member ended */
-    FLOW3_EFFECT_ANY,                  /* _Ctor, or a plain mutable pointer:
+    FLOW3_EFFECT_ANY,                  /* _Out, or a plain mutable pointer:
                                            possibly-modified/unknown */
     FLOW3_EFFECT_DTOR                  /* _Dtor: every member set to
                                            uninitialized (+ reachable owner

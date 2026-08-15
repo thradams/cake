@@ -13,7 +13,7 @@ struct X {
     int i;
 };
 
-void x_init(_Ctor struct X* p);
+void x_init(_Out struct X* p);
 void x_destroy(_Dtor struct X* p);
 
 void test_nonnull_param(int* p)
@@ -59,18 +59,18 @@ void test_opt_param_to_opt(int* _Opt p, int* _Opt* _Opt out)
 }
 
 
-void x_init(_Ctor struct X* p)
+void x_init(_Out struct X* p)
 {
     p->text = strdup("hello");
     p->i = 0;
 } /* ok: every member initialized */
 
-void x_init_forgot(_Ctor struct X* p)
+void x_init_forgot(_Out struct X* p)
 {
     /* p->text and p->i are never written */
-} //lint 71 71 _Ctor parameter 'p' pointee (.text) and (.i) possibly not initialized at exit
+} //lint 71 71 _Out parameter 'p' pointee (.text) and (.i) possibly not initialized at exit
 
-int x_init_or_fail(_Ctor struct X* p, int flag)
+int x_init_or_fail(_Out struct X* p, int flag)
 {
     if (flag)
     {

@@ -13,17 +13,17 @@
        // defined) does nothing we can see.
      }
 
-   f has no write-qualifier at all (no _Clear/_Ctor/_Dtor) and its
+   f has no write-qualifier at all (no _Clear/_Out/_Dtor) and its
    parameter is a plain non-const pointer. That means the callee is free
    to write ANYTHING through it -- flow3 has no way to know it won't. Any
    value flow3 previously knew about *p must therefore be treated as
    unknown (any) the moment the address is passed to such a parameter,
-   the same way _Clear resets the pointee to a known 0 and _Ctor resets
+   the same way _Clear resets the pointee to a known 0 and _Out resets
    it to a known-initialized-but-unknown value.
 
    Before this fix, flow3_check_object_init_assigment only invalidated the
    pointee for the specific qualifiers it already knew about (_Clear ->
-   zero, _Dtor -> lifetime ended, _Ctor -> any, _Owner pointer -> lifetime
+   zero, _Dtor -> lifetime ended, _Out -> any, _Owner pointer -> lifetime
    ended); a plain mutable pointer parameter fell through all four checks
    and the pointee's old alternatives were left completely untouched --
    confirmed with:
@@ -37,9 +37,9 @@
        compile_assert(x.i == 5); // WRONGLY passed before the fix
      }
 
-   Fixed by adding a final case: if none of _Clear/_Dtor/_Ctor/_Owner
+   Fixed by adding a final case: if none of _Clear/_Dtor/_Out/_Owner
    applied and the pointee isn't const, invalidate it to ANY (same
-   primitive _Ctor already used: flow3_map_set_object_any).
+   primitive _Out already used: flow3_map_set_object_any).
 */
 
 struct X

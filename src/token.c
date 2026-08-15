@@ -1341,7 +1341,7 @@ static bool is_nonzero_digit(struct stream* stream)
     return stream->current[0] >= '1' && stream->current[0] <= '9';
 }
 
-enum token_type parse_number_core(struct stream* stream, char suffix[4], _Ctor char errmsg[100])
+enum token_type parse_number_core(struct stream* stream, char suffix[4], _Out char errmsg[100])
 {
     errmsg[0] = '\0';
 
@@ -1490,7 +1490,7 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], _Ctor c
     return type;
 }
 
-enum token_type parse_number(const char* lexeme, char suffix[4], _Ctor char errmsg[100])
+enum token_type parse_number(const char* lexeme, char suffix[4], _Out char errmsg[100])
 {
     struct stream stream = {
         .source = lexeme,
@@ -1519,7 +1519,7 @@ enum token_type parse_number(const char* lexeme, char suffix[4], _Ctor char errm
     U+10000 65536 | U+10FFFF 69631 | 11110xxx | 10xxxxxx | 10xxxxxx | 10xxxxxx
 */
 
-const unsigned char* _Opt str_utf8_decode(const unsigned char* s, _Ctor unsigned int* c)
+const unsigned char* _Opt str_utf8_decode(const unsigned char* s, _Out unsigned int* c)
 {
     *c = 0; //out
 

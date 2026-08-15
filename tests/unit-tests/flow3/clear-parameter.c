@@ -28,10 +28,10 @@
      orders. _Clear means the callee WRITES zero to everything *p
      points to, which directly contradicts const's promise not to
      modify it. Same reasoning applies to `const _Dtor T* p` and
-     `const _Ctor T* p`. Rejected with error 1930; see
+     `const _Out T* p`. Rejected with error 1930; see
      clear_and_const_rejected below.
 
-   - `_Clear`/`_Dtor`/`_Ctor` on a NON-pointer parameter was also
+   - `_Clear`/`_Dtor`/`_Out` on a NON-pointer parameter was also
      silently accepted (e.g. `_Clear int x`), even though all three
      only make sense as a qualifier on what a pointer points to.
      Rejected with error 1940; see clear_on_non_pointer_rejected below.

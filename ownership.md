@@ -318,8 +318,8 @@ hint goes stale if the callee's behavior changes. A `[NotNullWhen]`-equivalent f
 planned; see the contract-based approach mentioned under *Helping the Analyzer with `assert()`*.
 
 Cake's *ownership* analysis, however, already has a working precedent for exactly this shape of
-contract: `_Ctor` and `_Dtor` are postconditions declared on the function signature itself
-(`_Ctor` — "every member will be initialized before I return"; `_Dtor` — "every `_Owner` member
+contract: `_Out` and `_Dtor` are postconditions declared on the function signature itself
+(`_Out` — "every member will be initialized before I return"; `_Dtor` — "every `_Owner` member
 will be released before I return"), checked against the callee's actual implementation, and
 consumed automatically by every caller without a manual hint — the same shape as C#'s `out`
 definite assignment (see *Comparison with C#'s `out` parameters*, Chapter 3). So the interprocedural
@@ -529,7 +529,7 @@ in this chapter is exactly the RAII pattern, but checked by the analyzer instead
 on a class to run the cleanup.
 
 The two approaches provide different guarantees. RAII executes the destructor automatically 
-at scope exit. Cake's _Ctor/_Dtor are contracts that the analyzer verifies were fulfilled, 
+at scope exit. Cake's _Out/_Dtor are contracts that the analyzer verifies were fulfilled, 
 but no code is generated to call them automatically. As a result, there are code paths that 
 RAII would still clean up automatically, whereas Cake relies on the analyzer being able to 
 verify that the required cleanup was written.
@@ -624,14 +624,14 @@ void zero_out(_Clear struct X* p) {
 } // warning: _Clear parameter 'p' pointee (.b) is not zero at exit
 ```
 
-`_Clear` follows the same placement rules as `_Ctor`/`_Dtor`: it annotates the pointee, not the
+`_Clear` follows the same placement rules as `_Out`/`_Dtor`: it annotates the pointee, not the
 pointer, and the pointee cannot also be `const` (the callee has to write it).
 
 
 
-### The `_Ctor` parameter annotation
+### The `_Out` parameter annotation
 
-`_Ctor` is the inverse of `_Dtor`. It tells the analyzer that the 
+`_Out` is the inverse of `_Dtor`. It tells the analyzer that the 
 function expects an **uninitialized** object as input and initializes it 
 on return. This is the pattern for init-style functions.
 
@@ -643,7 +643,7 @@ on return. This is the pattern for init-style functions.
 
 struct X { char * _Owner _Opt text; };
 
-int init(_Ctor struct X *p, const char * text) {
+int init(_Out struct X *p, const char * text) {
     p->text = strdup(text);  // safe: p->text is uninitialized
 }
 
@@ -675,10 +675,10 @@ int set(struct X *p, const char * text) {
 
 #### Comparison with C#'s `out` parameters
 
-`_Ctor` looks like C#'s `out`: both let the callee receive storage the caller has not initialized,
+`_Out` looks like C#'s `out`: both let the callee receive storage the caller has not initialized,
 on the understanding that the callee will initialize it. C#'s `out` is backed by **definite
 assignment** — the compiler rejects any code path in the callee that returns without assigning the
-`out` parameter — and `_Ctor` is checked the same way, against the implementation, not just assumed:
+`out` parameter — and `_Out` is checked the same way, against the implementation, not just assumed:
 
 <!-- runnable -->
 
@@ -689,13 +689,13 @@ char* _Owner _Opt strdup(const char* src);
 
 struct X { char* _Owner _Opt text; };
 
-void x_init_forgot(_Ctor struct X* p) {
+void x_init_forgot(_Out struct X* p) {
     /* p->text is never written */
-} // warning: _Ctor parameter 'p' pointee (.text) is possibly not initialized at exit
+} // warning: _Out parameter 'p' pointee (.text) is possibly not initialized at exit
 ```
 
 Unlike `_Dtor` — which only obligates `_Owner` members, since a plain scalar has no lifetime to end
-— `_Ctor` covers every member of the pointee, the same breadth as `out`. Leaving a non-`_Owner`
+— `_Out` covers every member of the pointee, the same breadth as `out`. Leaving a non-`_Owner`
 field untouched is just as much a violation as leaving an `_Owner` one uninitialized, because the
 caller is trusting that the whole object is now well-formed, not only its owned resources:
 
@@ -706,15 +706,15 @@ char* _Owner _Opt strdup(const char* src);
 
 struct X { char* _Owner _Opt text; int i; };
 
-void x_init(_Ctor struct X* p) {
+void x_init(_Out struct X* p) {
     p->text = strdup("hello");
     p->i = 0;
 } // ok: every member initialized
 
-void x_init_partial(_Ctor struct X* p) {
+void x_init_partial(_Out struct X* p) {
     p->text = strdup("hello");
     /* p->i never touched */
-} // warning: _Ctor parameter 'p' pointee (.i) is possibly not initialized at exit
+} // warning: _Out parameter 'p' pointee (.i) is possibly not initialized at exit
 ```
 
 
@@ -941,13 +941,13 @@ These are implementation constraints, not flaws in the ownership model itself.
 
 Adopting Cake's static analysis in an existing codebase does not require a big-bang migration. The recommended approach is incremental:
 
-1. **Create `safe.h`** — define all Cake extensions (`_Owner`, `_Opt`, `_View`, `_Dtor`, `_Ctor`, `compile_assert`, `static_debug`) as empty macros. This lets your code compile cleanly with a standard C compiler before you begin annotating.
+1. **Create `safe.h`** — define all Cake extensions (`_Owner`, `_Opt`, `_View`, `_Dtor`, `_Out`, `compile_assert`, `static_debug`) as empty macros. This lets your code compile cleanly with a standard C compiler before you begin annotating.
 
 2. **Enable nullable rules one file at a time** — add `#pragma nullable enable` to one translation unit, fix its warnings, then move to the next.
 
 3. **Enable ownership rules** — once nullable warnings are clean in a file, add `#pragma ownership enable` (or `#pragma safety enable`).
 
-4. **Annotate signatures progressively** — add `_Owner`, `_Opt`, `_Ctor`, and `_Dtor` annotations as you work through each file. The pragma-controlled rollout ensures you always have a compiling codebase.
+4. **Annotate signatures progressively** — add `_Owner`, `_Opt`, `_Out`, and `_Dtor` annotations as you work through each file. The pragma-controlled rollout ensures you always have a compiling codebase.
 
 
 
@@ -961,7 +961,7 @@ Adopting Cake's static analysis in an existing codebase does not require a big-b
 
 `_View` on struct — strips `_Owner` from all members for the duration of that variable's scope. Used to pass an owner struct without transferring ownership.
 
-`_Ctor` — the parameter must be uninitialized on entry; the function is responsible for initializing it before returning.
+`_Out` — the parameter must be uninitialized on entry; the function is responsible for initializing it before returning.
 
 `_Dtor` — the parameter must be fully initialized on entry; the function is responsible for moving out all owner contents before returning.
 

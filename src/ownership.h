@@ -40,7 +40,7 @@ char* _Opt strstr(const char* str, const char* substr);
 inline char* _Opt strrchr(char const *  _String, int _Ch);
 
 #ifdef _WIN32
-__inline int __cdecl snprintf(_Ctor char* const _Buffer, size_t  const _BufferCount, char const* const _Format, ...);
+__inline int __cdecl snprintf(_Out char* const _Buffer, size_t  const _BufferCount, char const* const _Format, ...);
 
 char* _Opt _fullpath(
    char* _Opt absPath,
@@ -51,7 +51,7 @@ char* _Opt _fullpath(
 #else
 
 int snprintf(
-        _Ctor char*       const _Buffer,
+        _Out char*       const _Buffer,
         size_t      const _BufferCount,
         char const* const _Format,
         ...);
@@ -73,7 +73,7 @@ int pclose(FILE* _Owner _Stream);
 #endif
 
 size_t fread(
-        _Ctor void*  _Buffer,
+        _Out void*  _Buffer,
         size_t _ElementSize,
         size_t _ElementCount,
         FILE*  _Stream
@@ -109,7 +109,7 @@ float strtof(char const* _String, char** _Opt _EndPtr);
   ownership not suported
 */
 
-#define _Ctor
+#define _Out
 #define _Opt
 #define _Owner
 #define _Dtor

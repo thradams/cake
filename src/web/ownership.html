@@ -247,7 +247,7 @@
 <a href="#toc_24">The <code>_Clear</code> parameter annotation</a>
 </li>
 <li>
-<a href="#toc_25">The <code>_Ctor</code> parameter annotation</a>
+<a href="#toc_25">The <code>_Out</code> parameter annotation</a>
 </li>
 <li>
 <a href="#toc_26">Type Annotations in Arrays parameters</a>
@@ -600,8 +600,8 @@ hint goes stale if the callee&#39;s behavior changes. A <code>[NotNullWhen]</cod
 planned; see the contract-based approach mentioned under <em>Helping the Analyzer with <code>assert()</code></em>.</p>
 
 <p>Cake&#39;s <em>ownership</em> analysis, however, already has a working precedent for exactly this shape of
-contract: <code>_Ctor</code> and <code>_Dtor</code> are postconditions declared on the function signature itself
-(<code>_Ctor</code> — &quot;every member will be initialized before I return&quot;; <code>_Dtor</code> — &quot;every <code>_Owner</code> member
+contract: <code>_Out</code> and <code>_Dtor</code> are postconditions declared on the function signature itself
+(<code>_Out</code> — &quot;every member will be initialized before I return&quot;; <code>_Dtor</code> — &quot;every <code>_Owner</code> member
 will be released before I return&quot;), checked against the callee&#39;s actual implementation, and
 consumed automatically by every caller without a manual hint — the same shape as C#&#39;s <code>out</code>
 definite assignment (see <em>Comparison with C#&#39;s <code>out</code> parameters</em>, Chapter 3). So the interprocedural
@@ -791,7 +791,7 @@ in this chapter is exactly the RAII pattern, but checked by the analyzer instead
 on a class to run the cleanup.</p>
 
 <p>The two approaches provide different guarantees. RAII executes the destructor automatically 
-at scope exit. Cake&#39;s <em>Ctor/</em>Dtor are contracts that the analyzer verifies were fulfilled, 
+at scope exit. Cake&#39;s <em>Out/</em>Dtor are contracts that the analyzer verifies were fulfilled, 
 but no code is generated to call them automatically. As a result, there are code paths that 
 RAII would still clean up automatically, whereas Cake relies on the analyzer being able to 
 verify that the required cleanup was written.</p>
@@ -877,12 +877,12 @@ void zero_out(_Clear struct X* p) {
 } // warning: _Clear parameter &#39;p&#39; pointee (.b) is not zero at exit
 </code></pre>
 
-<p><code>_Clear</code> follows the same placement rules as <code>_Ctor</code>/<code>_Dtor</code>: it annotates the pointee, not the
+<p><code>_Clear</code> follows the same placement rules as <code>_Out</code>/<code>_Dtor</code>: it annotates the pointee, not the
 pointer, and the pointee cannot also be <code>const</code> (the callee has to write it).</p>
 
-<h3 id="toc_25">The <code>_Ctor</code> parameter annotation</h3>
+<h3 id="toc_25">The <code>_Out</code> parameter annotation</h3>
 
-<p><code>_Ctor</code> is the inverse of <code>_Dtor</code>. It tells the analyzer that the 
+<p><code>_Out</code> is the inverse of <code>_Dtor</code>. It tells the analyzer that the 
 function expects an <strong>uninitialized</strong> object as input and initializes it 
 on return. This is the pattern for init-style functions.</p>
 
@@ -893,7 +893,7 @@ on return. This is the pattern for init-style functions.</p>
 
 struct X { char * _Owner _Opt text; };
 
-int init(_Ctor struct X *p, const char * text) {
+int init(_Out struct X *p, const char * text) {
     p-&gt;text = strdup(text);  // safe: p-&gt;text is uninitialized
 }
 
@@ -923,10 +923,10 @@ int set(struct X *p, const char * text) {
 
 <h4>Comparison with C#&#39;s <code>out</code> parameters</h4>
 
-<p><code>_Ctor</code> looks like C#&#39;s <code>out</code>: both let the callee receive storage the caller has not initialized,
+<p><code>_Out</code> looks like C#&#39;s <code>out</code>: both let the callee receive storage the caller has not initialized,
 on the understanding that the callee will initialize it. C#&#39;s <code>out</code> is backed by <strong>definite
 assignment</strong> — the compiler rejects any code path in the callee that returns without assigning the
-<code>out</code> parameter — and <code>_Ctor</code> is checked the same way, against the implementation, not just assumed:</p>
+<code>out</code> parameter — and <code>_Out</code> is checked the same way, against the implementation, not just assumed:</p>
 
 <!-- runnable -->
 
@@ -936,13 +936,13 @@ char* _Owner _Opt strdup(const char* src);
 
 struct X { char* _Owner _Opt text; };
 
-void x_init_forgot(_Ctor struct X* p) {
+void x_init_forgot(_Out struct X* p) {
     /* p-&gt;text is never written */
-} // warning: _Ctor parameter &#39;p&#39; pointee (.text) is possibly not initialized at exit
+} // warning: _Out parameter &#39;p&#39; pointee (.text) is possibly not initialized at exit
 </code></pre>
 
 <p>Unlike <code>_Dtor</code> — which only obligates <code>_Owner</code> members, since a plain scalar has no lifetime to end
-— <code>_Ctor</code> covers every member of the pointee, the same breadth as <code>out</code>. Leaving a non-<code>_Owner</code>
+— <code>_Out</code> covers every member of the pointee, the same breadth as <code>out</code>. Leaving a non-<code>_Owner</code>
 field untouched is just as much a violation as leaving an <code>_Owner</code> one uninitialized, because the
 caller is trusting that the whole object is now well-formed, not only its owned resources:</p>
 
@@ -952,15 +952,15 @@ char* _Owner _Opt strdup(const char* src);
 
 struct X { char* _Owner _Opt text; int i; };
 
-void x_init(_Ctor struct X* p) {
+void x_init(_Out struct X* p) {
     p-&gt;text = strdup(&quot;hello&quot;);
     p-&gt;i = 0;
 } // ok: every member initialized
 
-void x_init_partial(_Ctor struct X* p) {
+void x_init_partial(_Out struct X* p) {
     p-&gt;text = strdup(&quot;hello&quot;);
     /* p-&gt;i never touched */
-} // warning: _Ctor parameter &#39;p&#39; pointee (.i) is possibly not initialized at exit
+} // warning: _Out parameter &#39;p&#39; pointee (.i) is possibly not initialized at exit
 </code></pre>
 
 <h3 id="toc_26">Type Annotations in Arrays parameters</h3>
@@ -1169,10 +1169,10 @@ pointer operands trigger this.</p>
 <p>Adopting Cake&#39;s static analysis in an existing codebase does not require a big-bang migration. The recommended approach is incremental:</p>
 
 <ol>
-<li><p><strong>Create <code>safe.h</code></strong> — define all Cake extensions (<code>_Owner</code>, <code>_Opt</code>, <code>_View</code>, <code>_Dtor</code>, <code>_Ctor</code>, <code>compile_assert</code>, <code>static_debug</code>) as empty macros. This lets your code compile cleanly with a standard C compiler before you begin annotating.</p></li>
+<li><p><strong>Create <code>safe.h</code></strong> — define all Cake extensions (<code>_Owner</code>, <code>_Opt</code>, <code>_View</code>, <code>_Dtor</code>, <code>_Out</code>, <code>compile_assert</code>, <code>static_debug</code>) as empty macros. This lets your code compile cleanly with a standard C compiler before you begin annotating.</p></li>
 <li><p><strong>Enable nullable rules one file at a time</strong> — add <code>#pragma nullable enable</code> to one translation unit, fix its warnings, then move to the next.</p></li>
 <li><p><strong>Enable ownership rules</strong> — once nullable warnings are clean in a file, add <code>#pragma ownership enable</code> (or <code>#pragma safety enable</code>).</p></li>
-<li><p><strong>Annotate signatures progressively</strong> — add <code>_Owner</code>, <code>_Opt</code>, <code>_Ctor</code>, and <code>_Dtor</code> annotations as you work through each file. The pragma-controlled rollout ensures you always have a compiling codebase.</p></li>
+<li><p><strong>Annotate signatures progressively</strong> — add <code>_Owner</code>, <code>_Opt</code>, <code>_Out</code>, and <code>_Dtor</code> annotations as you work through each file. The pragma-controlled rollout ensures you always have a compiling codebase.</p></li>
 </ol>
 
 <h2 id="toc_39">Quick Reference</h2>
@@ -1185,7 +1185,7 @@ pointer operands trigger this.</p>
 
 <p><code>_View</code> on struct — strips <code>_Owner</code> from all members for the duration of that variable&#39;s scope. Used to pass an owner struct without transferring ownership.</p>
 
-<p><code>_Ctor</code> — the parameter must be uninitialized on entry; the function is responsible for initializing it before returning.</p>
+<p><code>_Out</code> — the parameter must be uninitialized on entry; the function is responsible for initializing it before returning.</p>
 
 <p><code>_Dtor</code> — the parameter must be fully initialized on entry; the function is responsible for moving out all owner contents before returning.</p>
 

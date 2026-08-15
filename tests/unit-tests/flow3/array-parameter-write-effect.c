@@ -24,7 +24,7 @@
        ...
        if (suffix[0] == 'F') { ... }             // reported unreachable
 
-   _Ctor is NOT the right annotation for that parameter: floating_suffix_opt
+   _Out is NOT the right annotation for that parameter: floating_suffix_opt
    and integer_suffix_opt write it only conditionally and rely on the
    caller's zero-init for the no-suffix case, so it is a partially-written
    out-parameter, not a constructed one.

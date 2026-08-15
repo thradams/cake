@@ -660,7 +660,7 @@ sample["static-analysis"]["checking-double-free"] =
 
 sample["static-analysis"]["ctor-and-dtor"] =
 `
-#pragma safety enable\n\n#include <stdlib.h>\n#include <string.h>\n\nstruct X {\n    char * _Owner _Opt text;\n};\n\nint init(_Ctor struct X *p)\n{\n    //comment and see what happens\n    p->text = strdup(\"a\");\n}\n\nvoid destructor(_Dtor struct X *p){\n    //comment and see what happens\n    free(p->text);\n}\n\nint main() {\n    struct X x;\n    init(&x);\n    destructor(&x);\n}\n
+#pragma safety enable\n\n#include <stdlib.h>\n#include <string.h>\n\nstruct X {\n    char * _Owner _Opt text;\n};\n\nint init(_Out struct X *p)\n{\n    //comment and see what happens\n    p->text = strdup(\"a\");\n}\n\nvoid destructor(_Dtor struct X *p){\n    //comment and see what happens\n    free(p->text);\n}\n\nint main() {\n    struct X x;\n    init(&x);\n    destructor(&x);\n}\n
 `;
 
 sample["static-analysis"]["dynamic-array"] =
@@ -710,7 +710,7 @@ sample["static-analysis"]["moving-parts-of-view"] =
 
 sample["static-analysis"]["mtx-t"] =
 `
-#pragma safety enable\n\nenum {\n    mtx_plain ,\n    mtx_timed,\n    mtx_plain,\n    mtx_timed,\n};\n\nenum {\n\n    thrd_success , /* unspecified */\n    thrd_nomem , /* unspecified */\n    thrd_timedout , /* unspecified */\n    thrd_busy , /* unspecified */\n    thrd_error /* unspecified */\n};\n\ntypedef struct { _Owner int dummy; } mtx_t;\nint mtx_init(_Ctor mtx_t *mtx, int type);\nvoid mtx_destroy( _Dtor mtx_t * mutex );\n\nint main()\n{\n    mtx_t mtx;\n    if (mtx_init(&mtx, mtx_plain) != thrd_success)\n    {\n        return 1;\n    }\n    mtx_destroy(&mtx);\n}\n
+#pragma safety enable\n\nenum {\n    mtx_plain ,\n    mtx_timed,\n    mtx_plain,\n    mtx_timed,\n};\n\nenum {\n\n    thrd_success , /* unspecified */\n    thrd_nomem , /* unspecified */\n    thrd_timedout , /* unspecified */\n    thrd_busy , /* unspecified */\n    thrd_error /* unspecified */\n};\n\ntypedef struct { _Owner int dummy; } mtx_t;\nint mtx_init(_Out mtx_t *mtx, int type);\nvoid mtx_destroy( _Dtor mtx_t * mutex );\n\nint main()\n{\n    mtx_t mtx;\n    if (mtx_init(&mtx, mtx_plain) != thrd_success)\n    {\n        return 1;\n    }\n    mtx_destroy(&mtx);\n}\n
 `;
 
 sample["static-analysis"]["override-state-realloc"] =

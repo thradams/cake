@@ -10,7 +10,7 @@
      int y = *x.p_non_null;  // "possible null pointer dereference" -- false positive
 
    Whenever flow3 invalidates a struct's members because they might
-   have been changed through a plain mutable pointer or a _Ctor call
+   have been changed through a plain mutable pointer or a _Out call
    (flow3_map_set_object_any / flow3_map_set_object_any_n), it replaced
    every leaf member's tracked value with a generic
    FLOW3_VALUE_KIND_SIGNED ANY alternative -- regardless of the
@@ -21,7 +21,7 @@
    invalidated, even though nothing could have made it null.
 
    This exact mechanism also explains two now-fixed pre-existing
-   failures in this suite: owner-type-118.c (a _Ctor call invalidating
+   failures in this suite: owner-type-118.c (a _Out call invalidating
    non-_Opt _Owner/pointer members, then failing compile_assert(...!=0)
    and warning on a later _Dtor call) and owner-resource-122.c (same shape,
    simpler).

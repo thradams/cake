@@ -30,7 +30,7 @@ Every tracked object is in exactly one of the following states at any program po
 |---|---|
 | `_Owner` | Object owns a resource; must be explicitly released before going out of scope. |
 | `_Opt` | Pointer may be null. Without `_Opt` a pointer is assumed non-null. |
-| `_Ctor` | Constructor context: pointed object starts uninitialized; must be initialized on exit. |
+| `_Out` | Constructor context: pointed object starts uninitialized; must be initialized on exit. |
 | `_Dtor` | Destructor context: pointed object must be uninitialized/moved/expired on exit. |
 | `_View` | Non-owning reference. No ownership or exit checks are applied. |
 
@@ -53,19 +53,19 @@ With `nullable_enabled` off:
 
 ### 2.2 Initialization State of the Pointed Object
 
-- Pointer to `_Ctor` type — the pointed object starts **UNINITIALIZED**.
+- Pointer to `_Out` type — the pointed object starts **UNINITIALIZED**.
 - Any other pointer — the pointed object starts in the **ANY** state.
 
-### 2.3 Exit Requirements for `_Ctor` and `_Dtor` Parameters
+### 2.3 Exit Requirements for `_Out` and `_Dtor` Parameters
 
 Before the function returns:
 
-- Pointer to `_Ctor` — the pointed object **must be initialized**.
+- Pointer to `_Out` — the pointed object **must be initialized**.
 - Pointer to `_Dtor` — the pointed object **must be uninitialized, moved, or expired**.
 
 ```c
 // Constructor: pointed object starts uninitialized, must be initialized at exit
-void string_init(struct string * _Ctor p)
+void string_init(struct string * _Out p)
 {
     p->data = malloc(64);
     p->len  = 0;
@@ -215,7 +215,7 @@ p = NULL;   // OK: _Opt allows null
 
 ### 5.1 Initial Object State
 
-- Object declared with `_Ctor` — starts **UNINITIALIZED**.
+- Object declared with `_Out` — starts **UNINITIALIZED**.
 - All other objects — start in the **ANY** state unless a more specific state can be inferred
   from the initializer.
 
@@ -252,7 +252,7 @@ struct string * _Opt p = NULL;
 
 ### 5.5 Scope Exit Requirements
 
-- `_Ctor` object — must be **initialized** before leaving its scope.
+- `_Out` object — must be **initialized** before leaving its scope.
 - `_Dtor` object — must be **uninitialized** before leaving its scope.
 - All other objects — no required exit state.
 
@@ -268,7 +268,7 @@ evaluated first, then diagnostics are emitted per-parameter so that ordering eff
 ### 6.1 Source Validity
 
 The argument must not be **uninitialized, expired, or moved**. The single exception is the
-`_Ctor` case described in §6.2.
+`_Out` case described in §6.2.
 
 ```c
 // INVALID — passing uninitialized argument
@@ -281,9 +281,9 @@ string_destroy(p);     // p is now expired
 print_string(p);       // diagnostic: object lifetime ended
 ```
 
-### 6.2 `_Ctor` Exception
+### 6.2 `_Out` Exception
 
-When the parameter type is a pointer to a `_Ctor` object, the callee is expected to
+When the parameter type is a pointer to a `_Out` object, the callee is expected to
 **initialize** the pointed object. The analyser therefore:
 
 - Does **not** emit an uninitialized diagnostic for the pointed object.
@@ -349,7 +349,7 @@ free(p);             // OK: pointer variable is still live
 
 ### 6.6 Pointed-Object State After Call
 
-For any pointer argument — owner or not, `_Ctor` or not — the analyser resets every
+For any pointer argument — owner or not, `_Out` or not — the analyser resets every
 concrete object the pointer may alias to **ANY** after the call, because the callee may
 have modified the pointed object.
 
@@ -365,7 +365,7 @@ struct point {
     int count;
 };
 
-void point_init(struct point * _Ctor p, int n)
+void point_init(struct point * _Out p, int n)
 {
     p->data  = malloc(n * sizeof(int));
     p->count = n;

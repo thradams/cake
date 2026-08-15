@@ -1,25 +1,25 @@
 #pragma safety enable
 
 /*
-   A _Ctor parameter is a constructor OUT-parameter: the callee initializes it,
+   A _Out parameter is a constructor OUT-parameter: the callee initializes it,
    so passing an uninitialized object to it is correct and must NOT warn.
 
-   flow3 checks this via the parameter's _Ctor qualifier. For a pointer-to-_Ctor
+   flow3 checks this via the parameter's _Out qualifier. For a pointer-to-_Out
    the qualifier is visible on the pointer, but for an ARRAY out-parameter
-   (`_Ctor char buf[100]`) the _Ctor lives on the array, not on each element --
+   (`_Out char buf[100]`) the _Out lives on the array, not on each element --
    so the per-element uninitialized check used to miss it and reported one
    "possible uninitialized" per element (e.g. 100 warnings for buf[0..99]).
-   Now a directly-_Ctor destination is recognized and the whole subtree is
+   Now a directly-_Out destination is recognized and the whole subtree is
    skipped.
 */
 
-/* _Ctor array out-parameter: the callee fills it. */
-void fill_array(_Ctor char buf[8]);
+/* _Out array out-parameter: the callee fills it. */
+void fill_array(_Out char buf[8]);
 
-/* _Ctor pointer out-parameter (already worked; kept for contrast). */
-void fill_ptr(_Ctor char* p);
+/* _Out pointer out-parameter (already worked; kept for contrast). */
+void fill_ptr(_Out char* p);
 
-/* Non-_Ctor array parameter: the callee reads it, so passing uninitialized
+/* Non-_Out array parameter: the callee reads it, so passing uninitialized
    content is a real hazard and still warns. */
 void reads_array(char buf[8]);
 

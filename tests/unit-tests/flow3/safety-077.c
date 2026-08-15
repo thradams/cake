@@ -8,13 +8,13 @@ struct X {
 
 //warning: uninitialized object 'x.i'
 
-void f(_Ctor struct X* x, int i)
+void f(_Out struct X* x, int i)
 {
     if (i > 0)
     {
         x->i = 1;
     }
-} //lint 71 _Ctor parameter 'x' pointee (.i) possibly not initialized at exit -- only set when i > 0
+} //lint 71 _Out parameter 'x' pointee (.i) possibly not initialized at exit -- only set when i > 0
 
 //external variables, in this case object *x cannot leave scope
 //with uninitialized values.

@@ -368,6 +368,6 @@ int is_nondigit(const struct stream* p);
 void stream_match(struct stream* stream);
 
 
-enum token_type parse_number(const char* lexeme, char suffix[4], _Ctor char erromsg[100]);
-const unsigned char* _Opt str_utf8_decode(const unsigned char* s, _Ctor unsigned int* c);
+enum token_type parse_number(const char* lexeme, char suffix[4], _Out char erromsg[100]);
+const unsigned char* _Opt str_utf8_decode(const unsigned char* s, _Out unsigned int* c);
 const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value);

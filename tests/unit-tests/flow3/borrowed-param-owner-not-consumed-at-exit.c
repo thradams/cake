@@ -1,7 +1,7 @@
 #pragma safety enable
 
 /*
-   A plain pointer parameter (not _Dtor, not _Ctor, not itself _Owner) is a
+   A plain pointer parameter (not _Dtor, not _Out, not itself _Owner) is a
    BORROW: the callee may read and write through it, but every _Owner
    member it touches must still be a real, live value at every exit --
    exactly as if it were a local owner going out of scope. Only a _Dtor
@@ -21,7 +21,7 @@
    to p->name -- but p->name was already freed a few lines above. The
    caller is left holding a struct whose _Owner member is a dangling
    pointer to freed memory. Before this check existed, nothing caught this:
-   p is neither _Ctor (whose contract is "must end up initialized") nor
+   p is neither _Out (whose contract is "must end up initialized") nor
    _Dtor (whose contract is "must end up fully released").
 */
 

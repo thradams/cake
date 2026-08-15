@@ -855,7 +855,7 @@ int main(int cond) {
 }
 ```
 
-### 71 _Ctor parameter pointee not initialized at exit (flow)
+### 71 _Out parameter pointee not initialized at exit (flow)
 <!-- runnable -->
 
 ```c
@@ -863,11 +863,11 @@ int main(int cond) {
 
 struct outer { int a; int c; };
 
-void ctor_outer_forgets_a_member(_Ctor struct outer* p)
+void ctor_outer_forgets_a_member(_Out struct outer* p)
 {
     p->a = 1;
     /* forgot p->c = ...; */
-} //warning C0071: _Ctor parameter 'p->c' is possibly not initialized at exit (see line 3)
+} //warning C0071: _Out parameter 'p->c' is possibly not initialized at exit (see line 3)
 ```
 
 ### 72 Borrowed parameter's owner consumed at exit (flow)

@@ -190,7 +190,7 @@ bool object_type_is_unsigned_integer(enum object_type type)
 }
 
 _Attr(nodiscard)
-bool unsigned_long_long_sub(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b)
+bool unsigned_long_long_sub(_Out unsigned long long* result, unsigned long long a, unsigned long long b)
 {
     *result = 0;
 
@@ -202,7 +202,7 @@ bool unsigned_long_long_sub(_Ctor unsigned long long* result, unsigned long long
 }
 
 _Attr(nodiscard)
-bool unsigned_long_long_mul(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b)
+bool unsigned_long_long_mul(_Out unsigned long long* result, unsigned long long a, unsigned long long b)
 {
     *result = 0;
 
@@ -224,7 +224,7 @@ bool unsigned_long_long_mul(_Ctor unsigned long long* result, unsigned long long
 }
 
 _Attr(nodiscard)
-bool unsigned_long_long_add(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b)
+bool unsigned_long_long_add(_Out unsigned long long* result, unsigned long long a, unsigned long long b)
 {
     *result = 0;
 
@@ -239,7 +239,7 @@ bool unsigned_long_long_add(_Ctor unsigned long long* result, unsigned long long
 }
 
 _Attr(nodiscard)
-bool signed_long_long_sub(_Ctor signed long long* result, signed long long a, signed long long b)
+bool signed_long_long_sub(_Out signed long long* result, signed long long a, signed long long b)
 {
     *result = 0;
 
@@ -283,7 +283,7 @@ bool signed_long_long_sub(_Ctor signed long long* result, signed long long a, si
 }
 
 _Attr(nodiscard)
-bool signed_long_long_add(_Ctor signed long long* result, signed long long a, signed long long b)
+bool signed_long_long_add(_Out signed long long* result, signed long long a, signed long long b)
 {
     *result = 0;
 
@@ -322,7 +322,7 @@ bool signed_long_long_add(_Ctor signed long long* result, signed long long a, si
 }
 
 _Attr(nodiscard)
-bool signed_long_long_mul(_Ctor signed long long* result, signed long long a, signed long long b)
+bool signed_long_long_mul(_Out signed long long* result, signed long long a, signed long long b)
 {
     *result = 0;
 

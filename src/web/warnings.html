@@ -378,7 +378,7 @@
 <a href="#toc_69">70 Array index out of bounds (flow)</a>
 </li>
 <li>
-<a href="#toc_70">71 _Ctor parameter pointee not initialized at exit (flow)</a>
+<a href="#toc_70">71 _Out parameter pointee not initialized at exit (flow)</a>
 </li>
 <li>
 <a href="#toc_71">72 Borrowed parameter&#39;s owner consumed at exit (flow)</a>
@@ -1500,7 +1500,7 @@ int main(int cond) {
 }
 </code></pre>
 
-<h3 id="toc_70">71 _Ctor parameter pointee not initialized at exit (flow)</h3>
+<h3 id="toc_70">71 _Out parameter pointee not initialized at exit (flow)</h3>
 
 <!-- runnable -->
 
@@ -1508,11 +1508,11 @@ int main(int cond) {
 
 struct outer { int a; int c; };
 
-void ctor_outer_forgets_a_member(_Ctor struct outer* p)
+void ctor_outer_forgets_a_member(_Out struct outer* p)
 {
     p-&gt;a = 1;
     /* forgot p-&gt;c = ...; */
-} //warning C0071: _Ctor parameter &#39;p-&gt;c&#39; is possibly not initialized at exit (see line 3)
+} //warning C0071: _Out parameter &#39;p-&gt;c&#39; is possibly not initialized at exit (see line 3)
 </code></pre>
 
 <h3 id="toc_71">72 Borrowed parameter&#39;s owner consumed at exit (flow)</h3>

@@ -1853,7 +1853,7 @@ enum token_type is_keyword(const char* text, enum target target)
     case '_':
 
         /*ownership*/
-        if (strcmp("_Ctor", text) == 0)
+        if (strcmp("_Out", text) == 0)
             return TK_KEYWORD_CAKE_CTOR; /* extension */
         if (strcmp("_Owner", text) == 0)
             return TK_KEYWORD_CAKE_OWNER; /* extension */

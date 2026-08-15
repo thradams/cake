@@ -1,43 +1,43 @@
 #pragma safety enable
 
 /*
-   Regression tests for the _Dtor / _Ctor write-qualifiers, complementing
+   Regression tests for the _Dtor / _Out write-qualifiers, complementing
    clear-parameter.c (which covers _Clear) and ownership.c (which already
-   has a couple of basic _Ctor/_Dtor exit-check cases: x_init/x_init_forgot,
+   has a couple of basic _Out/_Dtor exit-check cases: x_init/x_init_forgot,
    x_destroy/x_destroy_forgot).
 
    flow3_check_write_qualifier_parameters (flow3.c) rejects two kinds of
-   misuse, the same way for all three of _Clear/_Dtor/_Ctor:
+   misuse, the same way for all three of _Clear/_Dtor/_Out:
 
      1. Applied to a NON-pointer parameter -- error 1940 "must be used only
         at the pointed object". See the non-pointer rejection block below.
 
      2. Applied together with `const` on the pointee -- error 1930 "pointee
-        cannot also be const" -- since both _Dtor and _Ctor mean the callee
+        cannot also be const" -- since both _Dtor and _Out mean the callee
         WRITES through the pointer (destroys it / initializes it), which
         contradicts const's promise not to modify it. Checked for both
         qualifier orders (`const _Dtor T*` and `_Dtor const T*`, same for
-        _Ctor).
+        _Out).
 
    Both checks were verified empirically against the built cake binary
-   (not just by reading the code) for _Dtor and _Ctor specifically, since
+   (not just by reading the code) for _Dtor and _Out specifically, since
    only _Clear had a directly-tested example previously:
 
      #pragma safety enable
      void f1(_Dtor int x) {}                       // error 1940
-     void f2(_Ctor int x) {}                       // error 1940
+     void f2(_Out int x) {}                       // error 1940
      void f3(const _Dtor struct X* p) {}            // error 1930
      void f4(_Dtor const struct X* p) {}            // error 1930
-     void f5(const _Ctor struct X* p) {}            // error 1930
-     void f6(_Ctor const struct X* p) {}            // error 1930
+     void f5(const _Out struct X* p) {}            // error 1930
+     void f6(_Out const struct X* p) {}            // error 1930
 
    All six fired the expected error when tried directly. The commented-out
    block at the end of this file reproduces the same six cases so they can
    be re-verified by uncommenting.
 
-   The rest of this file exercises the _Ctor/_Dtor EXIT-check semantics
+   The rest of this file exercises the _Out/_Dtor EXIT-check semantics
    (flow3_check_clear_params_at_exit's counterpart logic for pointed_ctor/
-   pointed_dtor, wired the same way as _Clear's): a _Ctor parameter's
+   pointed_dtor, wired the same way as _Clear's): a _Out parameter's
    pointee must be a fully constructed value (not left uninitialized) by
    every exit point -- EVERY member, not just _Owner ones, the same
    "definite assignment" obligation C#'s `out` enforces for every field.
@@ -53,19 +53,19 @@ struct pair
     int b;
 };
 
-void ctor_pair_ok(_Ctor struct pair* p)
+void ctor_pair_ok(_Out struct pair* p)
 {
     p->a = 1;
     p->b = 2;
 } /* ok: every member initialized */
 
-void ctor_pair_forgets_member(_Ctor struct pair* p)
+void ctor_pair_forgets_member(_Out struct pair* p)
 {
     p->a = 1;
     /* p->b never written -- leak of definite assignment, not of a resource */
-} //lint 71 _Ctor parameter 'p' pointee (.b) is possibly not initialized at exit (see line 63)
+} //lint 71 _Out parameter 'p' pointee (.b) is possibly not initialized at exit (see line 63)
 
-void ctor_pair_conditional(_Ctor struct pair* p, int flag)
+void ctor_pair_conditional(_Out struct pair* p, int flag)
 {
     if (flag)
     {
@@ -102,15 +102,15 @@ struct owned
     char* _Owner _Opt text;
 };
 
-void ctor_owned_ok(_Ctor struct owned* p)
+void ctor_owned_ok(_Out struct owned* p)
 {
-    p->text = strdup("hi"); /* initializes the owned resource: this is what _Ctor requires */
+    p->text = strdup("hi"); /* initializes the owned resource: this is what _Out requires */
 } /* ok */
 
-void ctor_owned_forgets_init(_Ctor struct owned* p)
+void ctor_owned_forgets_init(_Out struct owned* p)
 {
     /* p->text never written -- the _Owner member is left uninitialized */
-} //lint 71 _Ctor parameter 'p' pointee (.text) is possibly not initialized at exit (see line 112)
+} //lint 71 _Out parameter 'p' pointee (.text) is possibly not initialized at exit (see line 112)
 
 void dtor_owned_ok(_Dtor struct owned* p)
 {
@@ -148,16 +148,16 @@ void use_dtor_owned(void)
 
    struct X { int a; };
 
-   error 1940 "_Dtor/_Ctor must be used only at the pointed object"
+   error 1940 "_Dtor/_Out must be used only at the pointed object"
    (non-pointer parameter -- there is no "pointed object" to speak of):
    void dtor_on_non_pointer_rejected(_Dtor int x) {}
-   void ctor_on_non_pointer_rejected(_Ctor int x) {}
+   void ctor_on_non_pointer_rejected(_Out int x) {}
 
-   error 1930 "_Dtor/_Ctor pointee cannot also be const" (either order --
-   _Dtor/_Ctor both mean the callee writes through the pointer, which
+   error 1930 "_Dtor/_Out pointee cannot also be const" (either order --
+   _Dtor/_Out both mean the callee writes through the pointer, which
    contradicts const):
    void dtor_and_const_rejected_a(const _Dtor struct X* p) {}
    void dtor_and_const_rejected_b(_Dtor const struct X* p) {}
-   void ctor_and_const_rejected_a(const _Ctor struct X* p) {}
-   void ctor_and_const_rejected_b(_Ctor const struct X* p) {}
+   void ctor_and_const_rejected_a(const _Out struct X* p) {}
+   void ctor_and_const_rejected_b(_Out const struct X* p) {}
 */

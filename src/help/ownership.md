@@ -522,9 +522,9 @@ void x_delete(_Opt struct X * _Owner _Opt p) {
 
 
 
-### The `_Ctor` parameter annotation
+### The `_Out` parameter annotation
 
-`_Ctor` is the inverse of `_Dtor`. It tells the analyzer that the 
+`_Out` is the inverse of `_Dtor`. It tells the analyzer that the 
 function expects an **uninitialized** object as input and initializes it 
 on return. This is the pattern for init-style functions.
 
@@ -536,7 +536,7 @@ on return. This is the pattern for init-style functions.
 
 struct X { char * _Owner _Opt text; };
 
-int init(_Ctor struct X *p, const char * text) {
+int init(_Out struct X *p, const char * text) {
     p->text = strdup(text);  // safe: p->text is uninitialized
 }
 
@@ -767,13 +767,13 @@ These are implementation constraints, not flaws in the ownership model itself.
 
 Adopting Cake's static analysis in an existing codebase does not require a big-bang migration. The recommended approach is incremental:
 
-1. **Create `safe.h`** — define all Cake extensions (`_Owner`, `_Opt`, `_View`, `_Dtor`, `_Ctor`, `assert_state`, `override_state`, `static_debug`) as empty macros. This lets your code compile cleanly with a standard C compiler before you begin annotating.
+1. **Create `safe.h`** — define all Cake extensions (`_Owner`, `_Opt`, `_View`, `_Dtor`, `_Out`, `assert_state`, `override_state`, `static_debug`) as empty macros. This lets your code compile cleanly with a standard C compiler before you begin annotating.
 
 2. **Enable nullable rules one file at a time** — add `#pragma nullable enable` to one translation unit, fix its warnings, then move to the next.
 
 3. **Enable ownership rules** — once nullable warnings are clean in a file, add `#pragma ownership enable` (or `#pragma safety enable`).
 
-4. **Annotate signatures progressively** — add `_Owner`, `_Opt`, `_Ctor`, and `_Dtor` annotations as you work through each file. The pragma-controlled rollout ensures you always have a compiling codebase.
+4. **Annotate signatures progressively** — add `_Owner`, `_Opt`, `_Out`, and `_Dtor` annotations as you work through each file. The pragma-controlled rollout ensures you always have a compiling codebase.
 
 
 
@@ -787,7 +787,7 @@ Adopting Cake's static analysis in an existing codebase does not require a big-b
 
 `_View` on struct — strips `_Owner` from all members for the duration of that variable's scope. Used to pass an owner struct without transferring ownership.
 
-`_Ctor` — the parameter must be uninitialized on entry; the function is responsible for initializing it before returning.
+`_Out` — the parameter must be uninitialized on entry; the function is responsible for initializing it before returning.
 
 `_Dtor` — the parameter must be fully initialized on entry; the function is responsible for moving out all owner contents before returning.
 

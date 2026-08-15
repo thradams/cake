@@ -1,16 +1,16 @@
 #pragma safety enable
 
-void f(_Ctor char s[2]) 
+void f(_Out char s[2]) 
 {
 }
 
 void test1()
 {
     char s[2];
-    f(s); // ok: f's parameter is _Ctor, so it constructs s (passing uninitialized is correct)
+    f(s); // ok: f's parameter is _Out, so it constructs s (passing uninitialized is correct)
 }
 
-void f2(_Ctor char *s) 
+void f2(_Out char *s) 
 {
     *s= '\0';
 }

@@ -14,14 +14,14 @@ struct X {
   struct Y  *pY;
 };
 
-void init(_Ctor struct X * p);
+void init(_Out struct X * p);
 void destroy(_Dtor struct X *  p);
 
 int main() {
    struct X x;
    init(&x);
 
-   /* FIXED (this whole block used to fail): init's _Ctor call
+   /* FIXED (this whole block used to fail): init's _Out call
       invalidated every member of x to a generic ANY value (could be
       zero), even though p1, pY, text etc. are all plain (non-_Opt)
       pointer/_Owner types whose own type already guarantees they're

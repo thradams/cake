@@ -1194,7 +1194,7 @@ static void flow3_map_set_object_any_n(struct flow3_map* _Opt m, const struct ob
        non-optional pointer member: its own type already guarantees it
        can never be null, "unknown value" or not. Without this,
        invalidating a struct's members (e.g. after passing &x to a
-       plain mutable-pointer parameter, or through a _Ctor call) made
+       plain mutable-pointer parameter, or through a _Out call) made
        every non-_Opt pointer member of that struct look
        possibly-null afterward, even though nothing could have made it
        null -- found via a user-reported false positive:
@@ -3444,7 +3444,7 @@ static void flow3_parameter_object_init_r(struct flow3_visit_ctx* ctx, struct ob
            pointer per C's parameter-adjustment rule and is likewise
            always non-null): assume non-null. Allocate an arena object
            to carry the concrete alias so the analyser can track the
-           pointed state (e.g. _Ctor initialisation checks).
+           pointed state (e.g. _Out initialisation checks).
 
            Before adding the type_is_array(p_type) case here, an array
            parameter (e.g. `char new_name[]`) never took this branch at
@@ -3516,12 +3516,12 @@ static void flow3_parameter_object_init_r(struct flow3_visit_ctx* ctx, struct ob
             if (p_pointed != NULL)
             {
                 /*
-             * _Ctor parameter: the pointed object is uninitialized on entry —
+             * _Out parameter: the pointed object is uninitialized on entry —
              * that is the whole purpose of the constructor.  Seed every _Owner
              * member (and scalar leaves) as UNINITIALIZED so constructor
              * writes are treated as first initialization.
              *
-             * Non-_Ctor parameter: seed as ANY (unknown but valid state).
+             * Non-_Out parameter: seed as ANY (unknown but valid state).
              */
                 if (type_is_pointed_ctor(p_type))
                 {
@@ -5213,8 +5213,8 @@ static void flow3_check_object_init_assigment(struct flow3_visit_ctx* ctx,
         const bool view_here = dest_is_view || type_is_view(&p_object_dest->type) ||
             flow3_object_under_view(p_object_dest);
 
-        /* A directly-_Ctor destination (e.g. an array out-parameter
-       `_Ctor char errmsg[100]`) receives uninitialized memory on purpose:
+        /* A directly-_Out destination (e.g. an array out-parameter
+       `_Out char errmsg[100]`) receives uninitialized memory on purpose:
        the callee constructs it. There is nothing to check or propagate from
        the argument, and recursing would report every element as "possibly
        uninitialized". */
@@ -5601,7 +5601,7 @@ static void flow3_check_object_init_assigment(struct flow3_visit_ctx* ctx,
                        INIT_PARAMETER is deliberately still checked: handing a
                        pointer to uninitialized storage to a callee that may read
                        it IS a bug, and a callee that intends to fill it says so
-                       with _Ctor (flow3_dest_pointee_is_ctor, just below).
+                       with _Out (flow3_dest_pointee_is_ctor, just below).
                     */
                     const bool check_unitialized =
                         !flow3_dest_pointee_is_ctor(&p_object_dest->type) &&
@@ -6020,7 +6020,7 @@ static void flow3_scan_discarded_owners(struct flow3_visit_ctx* ctx,
            confirmed-live one, just without the compile-time proof. The
            false positive above is a real trade-off, not a bug: callers
            are expected to guarantee (by convention/contract) that a
-           plain, non-_Ctor pointer parameter's _Owner fields are either
+           plain, non-_Out pointer parameter's _Owner fields are either
            null or already the caller's problem to release -- flow3 has
            no way to verify that without seeing the caller, so it now
            flags the write and lets the user judge/suppress case by
@@ -12130,7 +12130,7 @@ static void flow3_check_file_scope_objects_at_function_exit(struct flow3_visit_c
 }
 
 /*
-   Render a _Clear/_Ctor/_Dtor parameter exit-check's subject as source code
+   Render a _Clear/_Out/_Dtor parameter exit-check's subject as source code
    would actually spell it -- "source->tail" -- instead of the previous
    "'source' pointee (.tail)", which described the object's shape in terms
    only the analysis itself would use. p_obj->member_designator is always
@@ -12236,14 +12236,14 @@ static void flow3_check_clear_object_is_zero_at_exit(struct flow3_visit_ctx* ctx
 }
 
 /*
-   _Ctor requires EVERY member of the pointee -- not just _Owner ones -- to
+   _Out requires EVERY member of the pointee -- not just _Owner ones -- to
    have been given a real value by every exit point: the same "definite
    assignment" obligation C#'s `out` enforces, for every field. A plain
    scalar member left uninitialized is just as much a violation as an
    untouched _Owner member; the caller is trusting that the whole object is
    now well-formed, not only its owned resources. flow3_parameter_object_init
-   seeds every member of a _Ctor pointee as UNINITIALIZED at function entry
-   (see the _Ctor branch there); this is the check that verifies every one
+   seeds every member of a _Out pointee as UNINITIALIZED at function entry
+   (see the _Out branch there); this is the check that verifies every one
    of them left that state behind.
 */
 static void flow3_check_ctor_object_is_initialized_at_exit(struct flow3_visit_ctx* ctx,
@@ -12264,7 +12264,7 @@ static void flow3_check_ctor_object_is_initialized_at_exit(struct flow3_visit_ct
 
     if (top_level)
     {
-        /* A `_Ctor T* p` pointee that is ITSELF a scalar/pointer (not a
+        /* A `_Out T* p` pointee that is ITSELF a scalar/pointer (not a
            struct with members) is reached only through a bare `*p = ...`
            assignment, never through `->` member access. That specific
            write shape is not yet reliably tracked back onto this exact
@@ -12272,7 +12272,7 @@ static void flow3_check_ctor_object_is_initialized_at_exit(struct flow3_visit_ct
            is -- see the `.text` case in samples/flow3/ownership.c, checked
            below). Rather than emit an unreliable diagnostic here, skip the
            top-level object and only check members reached via `->`. See
-           samples/flow3/owner-resource-130.c (`_Ctor _Owner*` pointee)
+           samples/flow3/owner-resource-130.c (`_Out _Owner*` pointee)
            for the shape that motivated this carve-out. */
         return;
     }
@@ -12288,7 +12288,7 @@ static void flow3_check_ctor_object_is_initialized_at_exit(struct flow3_visit_ct
             ctx->ctx,
             NULL,
             marker,
-            "_Ctor parameter '%s' is never initialized",
+            "_Out parameter '%s' is never initialized",
             name_ss.c_str ? name_ss.c_str : param_name))
         {
             //diagnostic(W_LOCATION, ctx->ctx, p_exit_token, NULL, "exit point");
@@ -12314,7 +12314,7 @@ static void flow3_check_ctor_object_is_initialized_at_exit(struct flow3_visit_ct
                 ctx->ctx,
                 NULL,
                 marker,
-                "_Ctor parameter '%s' is possibly not initialized at exit (see line %d)",
+                "_Out parameter '%s' is possibly not initialized at exit (see line %d)",
                 name_ss2.c_str ? name_ss2.c_str : param_name,
                 p_alternative->line))
             {
@@ -12326,7 +12326,7 @@ static void flow3_check_ctor_object_is_initialized_at_exit(struct flow3_visit_ct
 }
 
 /*
-   A plain pointer parameter (not _Dtor, not _Ctor, not _Owner) is a BORROW:
+   A plain pointer parameter (not _Dtor, not _Out, not _Owner) is a BORROW:
    the callee may read and write through it, but must hand back an object in
    the same basic shape it received -- every _Owner member the callee touches
    must still be a real, live value at every exit, exactly as if it were a
@@ -12357,7 +12357,7 @@ static void flow3_check_ctor_object_is_initialized_at_exit(struct flow3_visit_ct
 
    silently frees p->name and then, on the early-return path, leaves the
    caller's struct holding a dangling pointer -- no diagnostic anywhere,
-   because p is neither _Ctor (whose contract is "must be initialized") nor
+   because p is neither _Out (whose contract is "must be initialized") nor
    _Dtor (whose contract is "must be fully released"). This is the mirror
    image of flow3_check_ctor_object_is_initialized_at_exit: instead of
    checking that every member ended up ASSIGNED, it checks that no _Owner
@@ -12451,7 +12451,7 @@ static void flow3_check_non_dtor_param_owner_not_consumed_at_exit(struct flow3_v
 
 /*
    Exit-point contract check for the write-qualified pointer parameters,
-   _Clear, _Dtor and _Ctor. All three are callee-side obligations verified
+   _Clear, _Dtor and _Out. All three are callee-side obligations verified
    against the same thing -- the synthetic pointee flow3_parameter_object_init
    wired to the parameter at function entry -- so they share one pass over the
    parameter list (this runs at every return and at fall-off-the-end, so
@@ -12459,7 +12459,7 @@ static void flow3_check_non_dtor_param_owner_not_consumed_at_exit(struct flow3_v
 
    _Clear: every member of the pointee must be exactly 0 at exit.
 
-   _Ctor: every member of the pointee must have been assigned a value at
+   _Out: every member of the pointee must have been assigned a value at
    exit (definite assignment, same obligation as a C# `out` parameter) --
    see flow3_check_ctor_object_is_initialized_at_exit.
 
@@ -12513,7 +12513,7 @@ static void flow3_check_write_qualified_params_at_exit(struct flow3_visit_ctx* c
         const bool is_dtor = type_is_pointed_dtor(p_param_type);
         const bool is_ctor = type_is_pointed_ctor(p_param_type);
 
-        /* A plain pointer -- none of _Clear/_Dtor/_Ctor -- is a BORROW: see
+        /* A plain pointer -- none of _Clear/_Dtor/_Out -- is a BORROW: see
            flow3_check_non_dtor_param_owner_not_consumed_at_exit just above
            for why it still needs an exit-point check (its _Owner members
            must not be left consumed). So it is NOT skipped here anymore;
@@ -12521,7 +12521,7 @@ static void flow3_check_write_qualified_params_at_exit(struct flow3_visit_ctx* c
            to check.
 
            Exception: if the POINTER ITSELF is _Owner (`struct X* _Owner p`,
-           as opposed to `_Dtor`/`_Ctor`/`_Clear` qualifying the pointee),
+           as opposed to `_Dtor`/`_Out`/`_Clear` qualifying the pointee),
            the parameter transfers ownership of the whole pointee into this
            function -- consuming/erasing its members (e.g. via `free(p)`,
            `void* v = p;`, or `return p;`) is the expected, correct way to
@@ -12700,7 +12700,7 @@ static void flow3_visit_jump_statement(struct flow3_visit_ctx* ctx, struct jump_
 
             /*
              * On every explicit return: run deferred cleanup, verify
-             * _Ctor/_Dtor/_Owner parameter exit conditions, and check
+             * _Out/_Dtor/_Owner parameter exit conditions, and check
              * arena (synthetic pointed-to) objects.
              */
             flow3_check_function_exit(ctx, p_jump_statement);
@@ -13662,23 +13662,23 @@ static bool flow3_is_last_item_return(struct compound_statement* p_compound_stat
 }
 
 /*
-   _Clear, _Dtor, and _Ctor only make sense as a qualifier on the
+   _Clear, _Dtor, and _Out only make sense as a qualifier on the
    POINTED-TO type of a pointer parameter -- they describe something
    the callee does through the pointer (zero every member, end the
    pointee's lifetime, initialize it), not a property a plain by-value
-   parameter could ever have. `_Clear int x`, `_Dtor int x`, `_Ctor int
+   parameter could ever have. `_Clear int x`, `_Dtor int x`, `_Out int
    x` (qualifying a non-pointer directly) are rejected.
 
    And on a pointer parameter, every one of these three is a WRITE
    through the pointer, which directly contradicts const's promise not
    to modify what it points to: `const _Clear T* p`, `const _Dtor T*
-   p`, `const _Ctor T* p` (in either qualifier order) are also rejected.
+   p`, `const _Out T* p` (in either qualifier order) are also rejected.
 
    Checked here, once per declared function (declaration or
    definition), against every parameter.
 */
 /*
-   Placement rule for the state/write qualifiers (_Clear, _Dtor, _Ctor,
+   Placement rule for the state/write qualifiers (_Clear, _Dtor, _Out,
    _Uninitialized).
 
    Each of them describes what happens to the POINTED-TO object, so putting one
@@ -13687,7 +13687,7 @@ static bool flow3_is_last_item_return(struct compound_statement* p_compound_stat
 
    One helper for every position -- variable declarators AND parameters. It used
    to be split: the parser checked variables (_Dtor/_Uninitialized/_Clear only)
-   and flow3 checked parameters (_Clear/_Dtor/_Ctor only), so `_Ctor int x;` and
+   and flow3 checked parameters (_Clear/_Dtor/_Out only), so `_Out int x;` and
    `void f(_Uninitialized int x)` both slipped through. Sharing the helper closes
    both gaps and keeps every _Owner-family diagnostic inside flow3.
 */
@@ -13718,7 +13718,7 @@ static void flow3_check_write_qualifier_placement(struct flow3_visit_ctx* ctx,
         else if (type_is_ctor(p_type))
         {
             diagnostic(C_ERROR_FLOW_WRITE_QUALIFIER_MUST_QUALIFY_POINTEE, ctx->ctx, p_token, NULL,
-                "_Ctor must be used only at the pointed object");
+                "_Out must be used only at the pointed object");
         }
         else if (type_is_uninit(p_type))
         {
@@ -13744,7 +13744,7 @@ static void flow3_check_write_qualifier_placement(struct flow3_visit_ctx* ctx,
     else if (type_is_pointed_ctor(p_type))
     {
         diagnostic(C_ERROR_FLOW_WRITE_QUALIFIER_CANNOT_BE_CONST, ctx->ctx, p_token, NULL,
-            "_Ctor pointee cannot also be const");
+            "_Out pointee cannot also be const");
     }
     else if (type_is_pointed_uninit(p_type))
     {
