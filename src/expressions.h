@@ -280,4 +280,4 @@ void check_assigment(struct parser_ctx* ctx,
 
 struct marker expression_to_marker(const struct expression* p_expression);
 
-void flow3_expression_to_string(const struct expression* p_expression, struct osstream* oss);
+void flow_expression_to_string(const struct expression* p_expression, struct osstream* oss);

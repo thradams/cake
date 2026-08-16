@@ -12728,19 +12728,19 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
 
     if (ctx->p_report->error_count == 0 && ctx->options.flow_analysis)
     {
-        struct flow3_visit_ctx ctx4 = { .ctx = ctx };
+        struct flow_visit_ctx ctx4 = { .ctx = ctx };
         struct declaration* _Opt it = declaration_list.head;
         while (it)
         {
             struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
-            flow3_start_visit_declaration(&ctx4, it);
+            flow_start_visit_declaration(&ctx4, it);
 
             /* visiting the function again; restore the same diagnostic state */
             ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = before_function_diagnostics;
             it = it->next;
             diagnostic_queue_flush(&ctx->diagnostic_queue, ctx);
         }
-        flow3_visit_ctx_destroy(&ctx4);
+        flow_visit_ctx_destroy(&ctx4);
     }
 
     return declaration_list;

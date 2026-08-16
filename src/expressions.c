@@ -2290,7 +2290,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 p_expression_node->last_token = ctx->current;
                 /* Inherit the left operand's first token (matching EXPR_POSTFIX_ARROW
                    just below), not the '.' token itself -- otherwise
-                   flow3_expression_to_string() renders only the tail of the
+                   flow_expression_to_string() renders only the tail of the
                    expression starting at the dot (e.g. ".head->p_declarator"
                    instead of "list.head->p_declarator"), since it walks the
                    node's own [first_token, last_token] range verbatim. */
@@ -7276,7 +7276,7 @@ void check_assigment(struct parser_ctx* ctx,
 }
 
 /*
- * flow3_expression_to_string — serialize an expression back to source text
+ * flow_expression_to_string — serialize an expression back to source text
  * by walking its token range [first_token, last_token].
  *
  * Only FINAL, non-hidden tokens are included (same filter as
@@ -7287,7 +7287,7 @@ void check_assigment(struct parser_ctx* ctx,
  * The caller owns the returned string and must free it, or pass it to
  * ss_close when done.  Returns NULL when the expression has no tokens.
  */
-void flow3_expression_to_string(const struct expression* p_expression, struct osstream* ss)
+void flow_expression_to_string(const struct expression* p_expression, struct osstream* ss)
 {
     ss_clear(ss);
 
