@@ -531,6 +531,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-Werror") == 0)
+        {
+            options->warnings_as_errors = true;
+            continue;
+        }
+
         //warnings
         if (argv[i][1] == 'w')
         {
@@ -649,6 +655,7 @@ void print_help()
     print_option("-no-discard", "Makes [[nodiscard]] default implicitly");
     print_option("-w -wd", "Enables or disable warning number");
     print_option("-wall", "Enables all warnings");
+    print_option("-Werror", "Treats every enabled warning as an error");
     print_option("-fanalyzer ", "Enable flow analysis");
     print_option("-ownership=enable/disable", "Enables ownership checks");
     print_option("-nullable=enabled/disable", "Enables nullable checks");
@@ -719,7 +726,11 @@ bool options_diagnostic_is_error(const struct options* options, enum diagnostic_
     if (w >= BITSET_SIZE)
         return true;
 
-    return bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].errors, w);
+    if (bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].errors, w))
+        return true;
+
+    return options->warnings_as_errors &&
+           bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings, w);
 }
 
 bool options_diagnostic_is_warning(const struct options* options, enum diagnostic_id w)
@@ -729,6 +740,9 @@ bool options_diagnostic_is_warning(const struct options* options, enum diagnosti
 
     if (w >= BITSET_SIZE)
         return false;
+
+    if (options->warnings_as_errors)
+        return false; /*reported as error, see options_diagnostic_is_error*/
 
     return bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings, w);
 

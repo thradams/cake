@@ -3644,6 +3644,32 @@ struct token_list replacement_list(struct preprocessor_ctx* ctx, struct macro* m
         struct token_list copy = copy_replacement_list(ctx, &r);
         token_list_append_list(&macro->replacement_list, &copy);
         token_list_destroy(&copy);
+
+        /*
+          6.10.5.4 A ## preprocessing token shall not occur at the beginning
+          or at the end of a replacement list.
+
+          The tokens of r are the ones from the file, so they are used for
+          the diagnostic position instead of the copy made above.
+        */
+        struct token* _Opt p_first = r.head;
+        while (p_first != NULL && token_is_blank(p_first))
+            p_first = p_first->next;
+
+        struct token* _Opt p_last = r.tail;
+        while (p_last != NULL && token_is_blank(p_last))
+            p_last = p_last->prev;
+
+        if (p_first != NULL && p_first->type == '##')
+        {
+            preprocessor_diagnostic(C_ERROR_INVALID_TOKEN, ctx, p_first,
+                "'##' cannot appear at the beginning of a replacement list");
+        }
+        else if (p_last != NULL && p_last->type == '##')
+        {
+            preprocessor_diagnostic(C_ERROR_INVALID_TOKEN, ctx, p_last,
+                "'##' cannot appear at the end of a replacement list");
+        }
     }
     catch
     {
@@ -6332,7 +6358,7 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_CAKE_DTOR: return "TK_KEYWORD__OBJ_OWNER";
     case TK_KEYWORD_CAKE_VIEW: return "TK_KEYWORD_CAKE_VIEW";
     case TK_KEYWORD_CAKE_OPT: return "TK_KEYWORD_CAKE_OPT";
-    case TK_KEYWORD_CAKE_UNINIT: return "TK_KEYWORD_CAKE_UNINIT";
+    case TK_KEYWORD_CAKE_UNINITIALIZED: return "TK_KEYWORD_CAKE_UNINITIALIZED";
     case TK_KEYWORD_CAKE_CLEAR: return "TK_KEYWORD_CAKE_CLEAR";
 
         /*extension compile time functions*/
@@ -8284,6 +8310,33 @@ void newline_macro_func()
 
     assert(test_preprocessor_in_out_match(input, output));
 
+}
+
+static int preprocessor_error_count(const char* input)
+{
+    struct tokenizer_ctx tctx = { 0 };
+    struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
+
+    struct preprocessor_ctx ctx = { 0 };
+    ctx.options.color_disabled = true;
+
+    struct token_list r = preprocessor(&ctx, &list, 0);
+
+    return ctx.n_errors;
+}
+
+void hash_hash_at_ends_of_replacement_list()
+{
+    /*
+      6.10.5.4 A ## preprocessing token shall not occur at the beginning
+      or at the end of a replacement list.
+    */
+    assert(preprocessor_error_count("#define F(A, B) A ##\n") == 1);
+    assert(preprocessor_error_count("#define F(A, B) ## A\n") == 1);
+    assert(preprocessor_error_count("#define X ##\n") == 1);
+
+    /* ## in the middle is fine */
+    assert(preprocessor_error_count("#define F(A, B) A ## B\n") == 0);
 }
 
 #endif

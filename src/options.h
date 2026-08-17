@@ -495,6 +495,12 @@ struct options
     bool clear_error_at_end; /*used by tests*/
 
     /*
+      -Werror
+      Reports every enabled warning as an error.
+    */
+    bool warnings_as_errors;
+
+    /*
       -sarif
     */
     bool sarif_output;

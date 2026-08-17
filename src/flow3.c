@@ -1226,7 +1226,7 @@ static void flow_map_set_object_any_n(struct flow_map* _Opt m, const struct obje
         non-_Opt pointer PARAMETER on entry. */
         if (nullable_enabled &&
                 type_is_pointer(&obj->type) &&
-                !type_is_opt(&obj->type, nullable_enabled))
+                !type_is_nullable(&obj->type, nullable_enabled))
         {
             struct flow_alternative a =
             {
@@ -3569,7 +3569,7 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
         if (nullable_enabled &&
                 p_type != NULL &&
                 (type_is_pointer(p_type) || type_is_array(p_type)) &&
-                !type_is_opt(p_type, nullable_enabled) &&
+                !type_is_nullable(p_type, nullable_enabled) &&
                 !force_opt)
         {
             /* Non-optional pointer (or array parameter, which decays to a
@@ -3606,7 +3606,7 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
                 struct type pointed_type = type_is_array(p_type)
                                            ? get_array_item_type(p_type)
                                            : type_remove_pointer(p_type);
-                pointee_is_opt = type_is_opt(&pointed_type, nullable_enabled);
+                pointee_is_opt = type_is_nullable(&pointed_type, nullable_enabled);
                 make_object(&pointed_type, p_pointed, MAKE_STATE_ANY, ctx->ctx->options.target);
                 type_destroy(&pointed_type);
             }
@@ -3657,7 +3657,7 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
                 *
                 * Non-_Out parameter: seed as ANY (unknown but valid state).
                 */
-                if (type_is_pointed_ctor(p_type))
+                if (type_is_pointed_out(p_type))
                 {
                     /* Mark every leaf _Owner member as uninitialized. */
                     if (p_pointed->members.head)
@@ -3750,7 +3750,7 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
         if (relation == FLOW_RELATION_ANY &&
                 p_type != NULL &&
                 type_is_pointer(p_type) &&
-                (type_is_opt(p_type, nullable_enabled) || force_opt))
+                (type_is_nullable(p_type, nullable_enabled) || force_opt))
         {
             /* Two child maps so alternatives from each arm have distinct origins. */
             struct flow_map* _Opt p_null_map =
@@ -5078,7 +5078,7 @@ static void flow_check_object_access(struct flow_visit_ctx* ctx,
                     p_dest_governing_type != NULL ? p_dest_governing_type : &p_object_src->type;
             if (!dest_is_dtor &&
                     type_is_pointer(&p_object_src->type) &&
-                    !type_is_opt(p_null_type, ctx->ctx->options.null_checks_enabled) &&
+                    !type_is_nullable(p_null_type, ctx->ctx->options.null_checks_enabled) &&
                     flow_alternative_can_be_zero(p_alternative) &&
                     !nullable_reported &&
                     !in_array_element &&
@@ -5214,11 +5214,11 @@ static bool flow_dest_pointee_is_ctor(const struct type* p_type)
     if (type_is_array(p_type))
     {
         struct type item = get_array_item_type(p_type);
-        bool r = type_is_ctor(&item);
+        bool r = type_is_out(&item);
         type_destroy(&item);
         return r;
     }
-    return type_is_pointed_ctor(p_type);
+    return type_is_pointed_out(p_type);
 }
 
 static bool flow_dest_pointee_is_dtor(const struct type* p_type)
@@ -5297,7 +5297,7 @@ static void flow_seed_all_members_default(struct flow_visit_ctx* ctx, struct obj
         return;
     }
     if (type_is_pointer(&p_obj->type) &&
-            !type_is_opt(&p_obj->type, ctx->ctx->options.null_checks_enabled))
+            !type_is_nullable(&p_obj->type, ctx->ctx->options.null_checks_enabled))
     {
         return;
     }
@@ -5360,7 +5360,7 @@ static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
         the callee constructs it. There is nothing to check or propagate from
         the argument, and recursing would report every element as "possibly
         uninitialized". */
-        if (type_is_ctor(&p_object_dest->type))
+        if (type_is_out(&p_object_dest->type))
             return;
 
         struct marker marker = expression_to_marker(p_expression);
@@ -5903,7 +5903,7 @@ static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
             partially-created object, so a null member is allowed there. */
             if (!dtor_here &&
                     type_is_pointer(&p_object_dest->type) &&
-                    !type_is_opt(&p_object_dest->type, ctx->ctx->options.null_checks_enabled) &&
+                    !type_is_nullable(&p_object_dest->type, ctx->ctx->options.null_checks_enabled) &&
                     flow_alternative_can_be_zero(p_src_alternative) &&
                     !nullable_reported)
             {
@@ -5978,7 +5978,7 @@ static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
                     type_is_uninit(&p_object_dest->type) ||
                     type_is_pointed_uninit(&p_object_dest->type);
 
-                if (!type_is_pointed_ctor(&p_object_dest->type) && !in_initialized_union &&
+                if (!type_is_pointed_out(&p_object_dest->type) && !in_initialized_union &&
                         !source_uninit && !dest_accepts_uninit &&
                         !uninitialized_reported)
                 {
@@ -8234,14 +8234,14 @@ static void flow_seed_member_default(struct flow_visit_ctx* ctx, struct object* 
                found no null alternative and treated the pointer as definitely
                non-null, killing the else branch (e.g. `list->head = old->next;`
                where next is _Opt, then `if (list->head != NULL) ... else ...`). */
-            const bool is_opt = type_is_opt(&member_obj->type, nullable_enabled);
+            const bool is_nullable = type_is_nullable(&member_obj->type, nullable_enabled);
             struct flow_key_alternatives* _Opt me = flow_map_find_add(ctx->p_current_flow_map, member_obj);
             if (me == NULL)
                 return; /* no entry to seed */
 
             flow_alternatives_clear(&me->alternatives);
 
-            if (is_opt)
+            if (is_nullable)
             {
                 /* Model an _Opt member the same way an _Opt PARAMETER is modeled:
                    two correlated arms, and give the non-null arm a CONCRETE pointee.
@@ -8507,7 +8507,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     {
                         a.value_kind = FLOW_VALUE_KIND_PTR;
                         a.value.p = NULL;
-                        a.value_relation = type_is_opt(&p_expression->type, ctx->ctx->options.null_checks_enabled)
+                        a.value_relation = type_is_nullable(&p_expression->type, ctx->ctx->options.null_checks_enabled)
                                            ? FLOW_RELATION_ANY
                                            : FLOW_RELATION_NOT_EQUAL;
                     }
@@ -9224,7 +9224,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     {
                         a.value_kind = FLOW_VALUE_KIND_PTR;
                         a.value.p = NULL;
-                        a.value_relation = type_is_opt(&p_expression->type, nullable_enabled)
+                        a.value_relation = type_is_nullable(&p_expression->type, nullable_enabled)
                                            ? FLOW_RELATION_ANY : FLOW_RELATION_NOT_EQUAL;
                         flow_alternatives_add(&e_unres->alternatives, &a);
                     }
@@ -9415,7 +9415,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
             }
             else if (type_is_pointer(&p_expression->type) &&
                      ctx->ctx->options.null_checks_enabled &&
-                     !type_is_opt(&p_expression->type, ctx->ctx->options.null_checks_enabled))
+                     !type_is_nullable(&p_expression->type, ctx->ctx->options.null_checks_enabled))
             {
                 /* An unresolved element of a non-_Opt pointer array is non-null by
                 the non-_Opt => non-null rule -- e.g. `argv[i]` for
@@ -9475,7 +9475,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
             const bool ret_uninit = type_is_pointer(p_ret_type) &&
                                     (type_is_uninit(p_ret_type) || type_is_pointed_uninit(p_ret_type));
 
-            if (nullable_enabled && type_is_pointer(p_ret_type) && type_is_opt(p_ret_type, nullable_enabled))
+            if (nullable_enabled && type_is_pointer(p_ret_type) && type_is_nullable(p_ret_type, nullable_enabled))
             {
                 struct flow_key_alternatives* _Opt p_result_alternatives = flow_map_find_add(ctx->p_current_flow_map, &p_expression->object);
                 if (p_result_alternatives == NULL) throw;
@@ -12934,7 +12934,7 @@ static void flow_check_write_qualified_params_at_exit(struct flow_visit_ctx* ctx
 
         const bool is_clear = type_is_pointed_clear(p_param_type);
         const bool is_dtor = type_is_pointed_dtor(p_param_type);
-        const bool is_ctor = type_is_pointed_ctor(p_param_type);
+        const bool is_ctor = type_is_pointed_out(p_param_type);
 
         /* A plain pointer -- none of _Clear/_Dtor/_Out -- is a BORROW: see
            flow_check_non_dtor_param_owner_not_consumed_at_exit just above
@@ -14148,7 +14148,7 @@ static void flow_check_write_qualifier_placement(struct flow_visit_ctx* ctx,
             diagnostic(C_ERROR_FLOW_WRITE_QUALIFIER_MUST_QUALIFY_POINTEE, ctx->ctx, p_token, NULL,
                        "_Dtor must be used only at the pointed object");
         }
-        else if (type_is_ctor(p_type))
+        else if (type_is_out(p_type))
         {
             diagnostic(C_ERROR_FLOW_WRITE_QUALIFIER_MUST_QUALIFY_POINTEE, ctx->ctx, p_token, NULL,
                        "_Out must be used only at the pointed object");
@@ -14174,7 +14174,7 @@ static void flow_check_write_qualifier_placement(struct flow_visit_ctx* ctx,
         diagnostic(C_ERROR_FLOW_WRITE_QUALIFIER_CANNOT_BE_CONST, ctx->ctx, p_token, NULL,
                    "_Dtor pointee cannot also be const");
     }
-    else if (type_is_pointed_ctor(p_type))
+    else if (type_is_pointed_out(p_type))
     {
         diagnostic(C_ERROR_FLOW_WRITE_QUALIFIER_CANNOT_BE_CONST, ctx->ctx, p_token, NULL,
                    "_Out pointee cannot also be const");

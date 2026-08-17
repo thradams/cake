@@ -892,8 +892,11 @@ _Bool diagnostic(enum diagnostic_id w,
     va_list args = { 0 };
     va_start(args, fmt);
     vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args); //lint (only windowws)
-
+ #if _WIN32
+    va_end(args); //lint 35 (only windows)
+#else
+    va_end(args); 
+#endif
     struct diagnostic_queue* db = &((struct parser_ctx*)ctx)->diagnostic_queue;
 
     /* flush the current group when the line changes */
@@ -1192,7 +1195,7 @@ bool first_of_type_qualifier_token(const struct token* p_token)
         p_token->type == TK_KEYWORD_CAKE_OUT ||
         p_token->type == TK_KEYWORD_CAKE_OWNER ||
         p_token->type == TK_KEYWORD_CAKE_DTOR ||
-        p_token->type == TK_KEYWORD_CAKE_UNINIT ||
+        p_token->type == TK_KEYWORD_CAKE_UNINITIALIZED ||
         p_token->type == TK_KEYWORD_CAKE_CLEAR ||
         p_token->type == TK_KEYWORD_CAKE_VIEW ||
         p_token->type == TK_KEYWORD_CAKE_OPT;
@@ -1860,7 +1863,7 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strcmp("_Dtor", text) == 0)
             return TK_KEYWORD_CAKE_DTOR; /* extension */
         if (strcmp("_Uninitialized", text) == 0)
-            return TK_KEYWORD_CAKE_UNINIT; /* extension: return/pointee uninitialized */
+            return TK_KEYWORD_CAKE_UNINITIALIZED; /* extension: return/pointee uninitialized */
         if (strcmp("_Clear", text) == 0)
             return TK_KEYWORD_CAKE_CLEAR; /* extension: param zeroes pointee / return pointee all-zero */
         
@@ -5404,6 +5407,23 @@ struct member_declarator* _Owner _Opt member_declarator(
             throw;
         }
 
+        if (type_is_incomplete(&p_member_declarator->declarator->type))
+        {
+            struct token* _Opt p_token =
+                p_member_declarator->declarator->first_token_opt;
+
+            if (p_token == NULL)
+                p_token = ctx->current;
+
+            diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE,
+                ctx,
+                p_token,
+                NULL,
+                "member has incomplete type");
+
+            throw;
+        }
+
         if (type_is_vm(&p_member_declarator->declarator->type))
         {
             /*
@@ -6954,7 +6974,7 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
             p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_DTOR;
             break;
 
-        case TK_KEYWORD_CAKE_UNINIT:
+        case TK_KEYWORD_CAKE_UNINITIALIZED:
             p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_UNINIT;
             break;
 
@@ -7501,6 +7521,27 @@ struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* 
             else
             {
             }
+        }
+
+        /*
+          C23 6.7.6.2p1 If the size is a constant expression it shall have a
+          value greater than zero.
+
+          Zero is accepted as an extension, negative is not. Checking here
+          instead of at the sizeof computation, where a negative size looks
+          like an overflow, also covers parameters and typedefs.
+        */
+        if (p_array_declarator->assignment_expression != NULL &&
+            type_is_integer(&p_array_declarator->assignment_expression->type) &&
+            object_has_constant_value(&p_array_declarator->assignment_expression->object) &&
+            object_to_signed_long_long(&p_array_declarator->assignment_expression->object) < 0)
+        {
+            diagnostic(C_ERROR_STORAGE_SIZE,
+                ctx,
+                p_array_declarator->assignment_expression->first_token,
+                NULL,
+                "array size is negative");
+            throw;
         }
 
         if (parser_match_tk(ctx, ']') != 0)
@@ -11467,6 +11508,22 @@ void selection_statement_delete(struct selection_statement* _Owner _Opt p)
     }
 }
 
+/*
+  C23 6.8.4.1, 6.8.5.1 the controlling expression of an if, while, do or
+  for statement shall have scalar type.
+*/
+static void check_controlling_expression(struct parser_ctx* ctx, const struct expression* p_expression)
+{
+    if (!type_is_scalar_decay(&p_expression->type))
+    {
+        diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
+            ctx,
+            p_expression->first_token,
+            NULL,
+            "controlling expression must have scalar type");
+    }
+}
+
 struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* ctx)
 {
     /*
@@ -11602,6 +11659,11 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
                 p_selection_statement->condition->expression =
                     p_selection_statement->p_init_statement->p_expression_statement->expression_opt;
                 p_selection_statement->p_init_statement->p_expression_statement->expression_opt = NULL;
+
+                if (is_if)
+                {
+                    check_controlling_expression(ctx, p_selection_statement->condition->expression);
+                }
             }
 
             if (p_selection_statement->p_init_statement->p_simple_declaration)
@@ -12008,6 +12070,8 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                         scope_destroy(&for_scope);
                         throw;
                     }
+
+                    check_controlling_expression(ctx, p_iteration_statement->expression1);
                 }
 
                 if (parser_match_tk(ctx, ';') != 0)
@@ -12078,7 +12142,11 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                 }
 
                 if (ctx->current->type != ';')
+                {
                     p_iteration_statement->expression1 = expression(ctx, false);
+                    if (p_iteration_statement->expression1 == NULL) throw;                    
+                    check_controlling_expression(ctx, p_iteration_statement->expression1);
+                }
 
                 if (parser_match_tk(ctx, ';') != 0)
                     throw;

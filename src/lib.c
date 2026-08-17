@@ -1008,6 +1008,12 @@ struct options
     bool clear_error_at_end; /*used by tests*/
 
     /*
+      -Werror
+      Reports every enabled warning as an error.
+    */
+    bool warnings_as_errors;
+
+    /*
       -sarif
     */
     bool sarif_output;
@@ -1286,8 +1292,8 @@ enum token_type
     TK_KEYWORD_CAKE_OWNER,
     TK_KEYWORD_CAKE_OUT,
     TK_KEYWORD_CAKE_DTOR,
-    TK_KEYWORD_CAKE_UNINIT,   /* _Uninitialized (return/pointee is uninitialized) */
-    TK_KEYWORD_CAKE_CLEAR,    /* _Clear (param: callee zeroes pointee; return: pointee is all-zero) */
+    TK_KEYWORD_CAKE_UNINITIALIZED,
+    TK_KEYWORD_CAKE_CLEAR,
     TK_KEYWORD_CAKE_VIEW,    
     TK_KEYWORD_CAKE_OPT, 
     
@@ -2079,7 +2085,7 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD_CAKE_OWNER:
     case TK_KEYWORD_CAKE_OUT:
     case TK_KEYWORD_CAKE_DTOR:
-    case TK_KEYWORD_CAKE_UNINIT:
+    case TK_KEYWORD_CAKE_UNINITIALIZED:
     case TK_KEYWORD_CAKE_CLEAR:
     case TK_KEYWORD_CAKE_VIEW:
     case TK_KEYWORD_CAKE_OPT:
@@ -7614,6 +7620,32 @@ struct token_list replacement_list(struct preprocessor_ctx* ctx, struct macro* m
         struct token_list copy = copy_replacement_list(ctx, &r);
         token_list_append_list(&macro->replacement_list, &copy);
         token_list_destroy(&copy);
+
+        /*
+          6.10.5.4 A ## preprocessing token shall not occur at the beginning
+          or at the end of a replacement list.
+
+          The tokens of r are the ones from the file, so they are used for
+          the diagnostic position instead of the copy made above.
+        */
+        struct token* _Opt p_first = r.head;
+        while (p_first != NULL && token_is_blank(p_first))
+            p_first = p_first->next;
+
+        struct token* _Opt p_last = r.tail;
+        while (p_last != NULL && token_is_blank(p_last))
+            p_last = p_last->prev;
+
+        if (p_first != NULL && p_first->type == '##')
+        {
+            preprocessor_diagnostic(C_ERROR_INVALID_TOKEN, ctx, p_first,
+                "'##' cannot appear at the beginning of a replacement list");
+        }
+        else if (p_last != NULL && p_last->type == '##')
+        {
+            preprocessor_diagnostic(C_ERROR_INVALID_TOKEN, ctx, p_last,
+                "'##' cannot appear at the end of a replacement list");
+        }
     }
     catch
     {
@@ -10302,7 +10334,7 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_CAKE_DTOR: return "TK_KEYWORD__OBJ_OWNER";
     case TK_KEYWORD_CAKE_VIEW: return "TK_KEYWORD_CAKE_VIEW";
     case TK_KEYWORD_CAKE_OPT: return "TK_KEYWORD_CAKE_OPT";
-    case TK_KEYWORD_CAKE_UNINIT: return "TK_KEYWORD_CAKE_UNINIT";
+    case TK_KEYWORD_CAKE_UNINITIALIZED: return "TK_KEYWORD_CAKE_UNINITIALIZED";
     case TK_KEYWORD_CAKE_CLEAR: return "TK_KEYWORD_CAKE_CLEAR";
 
         /*extension compile time functions*/
@@ -12295,6 +12327,33 @@ void newline_macro_func()
 
     assert(test_preprocessor_in_out_match(input, output));
 
+}
+
+static int preprocessor_error_count(const char* input)
+{
+    struct tokenizer_ctx tctx = { 0 };
+    struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
+
+    struct preprocessor_ctx ctx = { 0 };
+    ctx.options.color_disabled = true;
+
+    struct token_list r = preprocessor(&ctx, &list, 0);
+
+    return ctx.n_errors;
+}
+
+void hash_hash_at_ends_of_replacement_list()
+{
+    /*
+      6.10.5.4 A ## preprocessing token shall not occur at the beginning
+      or at the end of a replacement list.
+    */
+    assert(preprocessor_error_count("#define F(A, B) A ##\n") == 1);
+    assert(preprocessor_error_count("#define F(A, B) ## A\n") == 1);
+    assert(preprocessor_error_count("#define X ##\n") == 1);
+
+    /* ## in the middle is fine */
+    assert(preprocessor_error_count("#define F(A, B) A ## B\n") == 0);
 }
 
 #endif
@@ -15626,6 +15685,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-Werror") == 0)
+        {
+            options->warnings_as_errors = true;
+            continue;
+        }
+
         //warnings
         if (argv[i][1] == 'w')
         {
@@ -15744,6 +15809,7 @@ void print_help()
     print_option("-no-discard", "Makes [[nodiscard]] default implicitly");
     print_option("-w -wd", "Enables or disable warning number");
     print_option("-wall", "Enables all warnings");
+    print_option("-Werror", "Treats every enabled warning as an error");
     print_option("-fanalyzer ", "Enable flow analysis");
     print_option("-ownership=enable/disable", "Enables ownership checks");
     print_option("-nullable=enabled/disable", "Enables nullable checks");
@@ -15814,7 +15880,11 @@ bool options_diagnostic_is_error(const struct options* options, enum diagnostic_
     if (w >= BITSET_SIZE)
         return true;
 
-    return bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].errors, w);
+    if (bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].errors, w))
+        return true;
+
+    return options->warnings_as_errors &&
+           bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings, w);
 }
 
 bool options_diagnostic_is_warning(const struct options* options, enum diagnostic_id w)
@@ -15824,6 +15894,9 @@ bool options_diagnostic_is_warning(const struct options* options, enum diagnosti
 
     if (w >= BITSET_SIZE)
         return false;
+
+    if (options->warnings_as_errors)
+        return false; /*reported as error, see options_diagnostic_is_error*/
 
     return bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings, w);
 
@@ -16271,23 +16344,23 @@ bool type_is_enum(const struct type* p_type);
 bool type_is_enumerator(const struct type* p_type);
 bool type_is_array(const struct type* p_type);
 
-bool type_is_ctor(const struct type* p_type);
+bool type_is_out(const struct type* p_type);
 bool type_is_dtor(const struct type* p_type);
 bool type_is_clear(const struct type* p_type);
 bool type_is_uninit(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
 bool type_is_constexpr(const struct type* p_type);
 bool type_is_const_or_constexpr(const struct type* p_type);
-bool type_is_opt(const struct type* p_type, bool nullable_enabled);
+bool type_is_nullable(const struct type* p_type, bool nullable_enabled);
 bool type_is_view(const struct type* p_type);
 
 bool type_is_owner(const struct type* p_type);
 
 bool type_is_pointed_dtor(const struct type* p_type);
-bool type_is_pointed_ctor(const struct type* p_type);
+bool type_is_pointed_out(const struct type* p_type);
 bool type_is_pointed_uninit(const struct type* p_type);
 bool type_is_pointed_clear(const struct type* p_type);
-bool type_is_pointed_clear(const struct type* p_type);
+
 
 bool type_is_pointed_const(const struct type* p_type);
 bool type_is_owner_or_pointer_to_dtor(const struct type* p_type);
@@ -30807,7 +30880,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 */
 
 //#pragma once
-#define CAKE_VERSION "0.14.26"
+#define CAKE_VERSION "0.14.27"
 
 
 
@@ -31763,8 +31836,11 @@ _Bool diagnostic(enum diagnostic_id w,
     va_list args = { 0 };
     va_start(args, fmt);
     vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args); //lint (only windowws)
-
+ #if _WIN32
+    va_end(args); //lint 35 (only windows)
+#else
+    va_end(args); 
+#endif
     struct diagnostic_queue* db = &((struct parser_ctx*)ctx)->diagnostic_queue;
 
     /* flush the current group when the line changes */
@@ -32063,7 +32139,7 @@ bool first_of_type_qualifier_token(const struct token* p_token)
         p_token->type == TK_KEYWORD_CAKE_OUT ||
         p_token->type == TK_KEYWORD_CAKE_OWNER ||
         p_token->type == TK_KEYWORD_CAKE_DTOR ||
-        p_token->type == TK_KEYWORD_CAKE_UNINIT ||
+        p_token->type == TK_KEYWORD_CAKE_UNINITIALIZED ||
         p_token->type == TK_KEYWORD_CAKE_CLEAR ||
         p_token->type == TK_KEYWORD_CAKE_VIEW ||
         p_token->type == TK_KEYWORD_CAKE_OPT;
@@ -32731,7 +32807,7 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strcmp("_Dtor", text) == 0)
             return TK_KEYWORD_CAKE_DTOR; /* extension */
         if (strcmp("_Uninitialized", text) == 0)
-            return TK_KEYWORD_CAKE_UNINIT; /* extension: return/pointee uninitialized */
+            return TK_KEYWORD_CAKE_UNINITIALIZED; /* extension: return/pointee uninitialized */
         if (strcmp("_Clear", text) == 0)
             return TK_KEYWORD_CAKE_CLEAR; /* extension: param zeroes pointee / return pointee all-zero */
         
@@ -36275,6 +36351,23 @@ struct member_declarator* _Owner _Opt member_declarator(
             throw;
         }
 
+        if (type_is_incomplete(&p_member_declarator->declarator->type))
+        {
+            struct token* _Opt p_token =
+                p_member_declarator->declarator->first_token_opt;
+
+            if (p_token == NULL)
+                p_token = ctx->current;
+
+            diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE,
+                ctx,
+                p_token,
+                NULL,
+                "member has incomplete type");
+
+            throw;
+        }
+
         if (type_is_vm(&p_member_declarator->declarator->type))
         {
             /*
@@ -37825,7 +37918,7 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
             p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_DTOR;
             break;
 
-        case TK_KEYWORD_CAKE_UNINIT:
+        case TK_KEYWORD_CAKE_UNINITIALIZED:
             p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_UNINIT;
             break;
 
@@ -38372,6 +38465,27 @@ struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* 
             else
             {
             }
+        }
+
+        /*
+          C23 6.7.6.2p1 If the size is a constant expression it shall have a
+          value greater than zero.
+
+          Zero is accepted as an extension, negative is not. Checking here
+          instead of at the sizeof computation, where a negative size looks
+          like an overflow, also covers parameters and typedefs.
+        */
+        if (p_array_declarator->assignment_expression != NULL &&
+            type_is_integer(&p_array_declarator->assignment_expression->type) &&
+            object_has_constant_value(&p_array_declarator->assignment_expression->object) &&
+            object_to_signed_long_long(&p_array_declarator->assignment_expression->object) < 0)
+        {
+            diagnostic(C_ERROR_STORAGE_SIZE,
+                ctx,
+                p_array_declarator->assignment_expression->first_token,
+                NULL,
+                "array size is negative");
+            throw;
         }
 
         if (parser_match_tk(ctx, ']') != 0)
@@ -42338,6 +42452,22 @@ void selection_statement_delete(struct selection_statement* _Owner _Opt p)
     }
 }
 
+/*
+  C23 6.8.4.1, 6.8.5.1 the controlling expression of an if, while, do or
+  for statement shall have scalar type.
+*/
+static void check_controlling_expression(struct parser_ctx* ctx, const struct expression* p_expression)
+{
+    if (!type_is_scalar_decay(&p_expression->type))
+    {
+        diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
+            ctx,
+            p_expression->first_token,
+            NULL,
+            "controlling expression must have scalar type");
+    }
+}
+
 struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* ctx)
 {
     /*
@@ -42473,6 +42603,11 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
                 p_selection_statement->condition->expression =
                     p_selection_statement->p_init_statement->p_expression_statement->expression_opt;
                 p_selection_statement->p_init_statement->p_expression_statement->expression_opt = NULL;
+
+                if (is_if)
+                {
+                    check_controlling_expression(ctx, p_selection_statement->condition->expression);
+                }
             }
 
             if (p_selection_statement->p_init_statement->p_simple_declaration)
@@ -42879,6 +43014,8 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                         scope_destroy(&for_scope);
                         throw;
                     }
+
+                    check_controlling_expression(ctx, p_iteration_statement->expression1);
                 }
 
                 if (parser_match_tk(ctx, ';') != 0)
@@ -42949,7 +43086,11 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                 }
 
                 if (ctx->current->type != ';')
+                {
                     p_iteration_statement->expression1 = expression(ctx, false);
+                    if (p_iteration_statement->expression1 == NULL) throw;                    
+                    check_controlling_expression(ctx, p_iteration_statement->expression1);
+                }
 
                 if (parser_match_tk(ctx, ';') != 0)
                     throw;
@@ -53683,7 +53824,7 @@ static void flow_map_set_object_any_n(struct flow_map* _Opt m, const struct obje
         non-_Opt pointer PARAMETER on entry. */
         if (nullable_enabled &&
                 type_is_pointer(&obj->type) &&
-                !type_is_opt(&obj->type, nullable_enabled))
+                !type_is_nullable(&obj->type, nullable_enabled))
         {
             struct flow_alternative a =
             {
@@ -56026,7 +56167,7 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
         if (nullable_enabled &&
                 p_type != NULL &&
                 (type_is_pointer(p_type) || type_is_array(p_type)) &&
-                !type_is_opt(p_type, nullable_enabled) &&
+                !type_is_nullable(p_type, nullable_enabled) &&
                 !force_opt)
         {
             /* Non-optional pointer (or array parameter, which decays to a
@@ -56063,7 +56204,7 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
                 struct type pointed_type = type_is_array(p_type)
                                            ? get_array_item_type(p_type)
                                            : type_remove_pointer(p_type);
-                pointee_is_opt = type_is_opt(&pointed_type, nullable_enabled);
+                pointee_is_opt = type_is_nullable(&pointed_type, nullable_enabled);
                 make_object(&pointed_type, p_pointed, MAKE_STATE_ANY, ctx->ctx->options.target);
                 type_destroy(&pointed_type);
             }
@@ -56114,7 +56255,7 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
                 *
                 * Non-_Out parameter: seed as ANY (unknown but valid state).
                 */
-                if (type_is_pointed_ctor(p_type))
+                if (type_is_pointed_out(p_type))
                 {
                     /* Mark every leaf _Owner member as uninitialized. */
                     if (p_pointed->members.head)
@@ -56207,7 +56348,7 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
         if (relation == FLOW_RELATION_ANY &&
                 p_type != NULL &&
                 type_is_pointer(p_type) &&
-                (type_is_opt(p_type, nullable_enabled) || force_opt))
+                (type_is_nullable(p_type, nullable_enabled) || force_opt))
         {
             /* Two child maps so alternatives from each arm have distinct origins. */
             struct flow_map* _Opt p_null_map =
@@ -57535,7 +57676,7 @@ static void flow_check_object_access(struct flow_visit_ctx* ctx,
                     p_dest_governing_type != NULL ? p_dest_governing_type : &p_object_src->type;
             if (!dest_is_dtor &&
                     type_is_pointer(&p_object_src->type) &&
-                    !type_is_opt(p_null_type, ctx->ctx->options.null_checks_enabled) &&
+                    !type_is_nullable(p_null_type, ctx->ctx->options.null_checks_enabled) &&
                     flow_alternative_can_be_zero(p_alternative) &&
                     !nullable_reported &&
                     !in_array_element &&
@@ -57671,11 +57812,11 @@ static bool flow_dest_pointee_is_ctor(const struct type* p_type)
     if (type_is_array(p_type))
     {
         struct type item = get_array_item_type(p_type);
-        bool r = type_is_ctor(&item);
+        bool r = type_is_out(&item);
         type_destroy(&item);
         return r;
     }
-    return type_is_pointed_ctor(p_type);
+    return type_is_pointed_out(p_type);
 }
 
 static bool flow_dest_pointee_is_dtor(const struct type* p_type)
@@ -57754,7 +57895,7 @@ static void flow_seed_all_members_default(struct flow_visit_ctx* ctx, struct obj
         return;
     }
     if (type_is_pointer(&p_obj->type) &&
-            !type_is_opt(&p_obj->type, ctx->ctx->options.null_checks_enabled))
+            !type_is_nullable(&p_obj->type, ctx->ctx->options.null_checks_enabled))
     {
         return;
     }
@@ -57817,7 +57958,7 @@ static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
         the callee constructs it. There is nothing to check or propagate from
         the argument, and recursing would report every element as "possibly
         uninitialized". */
-        if (type_is_ctor(&p_object_dest->type))
+        if (type_is_out(&p_object_dest->type))
             return;
 
         struct marker marker = expression_to_marker(p_expression);
@@ -58360,7 +58501,7 @@ static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
             partially-created object, so a null member is allowed there. */
             if (!dtor_here &&
                     type_is_pointer(&p_object_dest->type) &&
-                    !type_is_opt(&p_object_dest->type, ctx->ctx->options.null_checks_enabled) &&
+                    !type_is_nullable(&p_object_dest->type, ctx->ctx->options.null_checks_enabled) &&
                     flow_alternative_can_be_zero(p_src_alternative) &&
                     !nullable_reported)
             {
@@ -58435,7 +58576,7 @@ static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
                     type_is_uninit(&p_object_dest->type) ||
                     type_is_pointed_uninit(&p_object_dest->type);
 
-                if (!type_is_pointed_ctor(&p_object_dest->type) && !in_initialized_union &&
+                if (!type_is_pointed_out(&p_object_dest->type) && !in_initialized_union &&
                         !source_uninit && !dest_accepts_uninit &&
                         !uninitialized_reported)
                 {
@@ -60691,14 +60832,14 @@ static void flow_seed_member_default(struct flow_visit_ctx* ctx, struct object* 
                found no null alternative and treated the pointer as definitely
                non-null, killing the else branch (e.g. `list->head = old->next;`
                where next is _Opt, then `if (list->head != NULL) ... else ...`). */
-            const bool is_opt = type_is_opt(&member_obj->type, nullable_enabled);
+            const bool is_nullable = type_is_nullable(&member_obj->type, nullable_enabled);
             struct flow_key_alternatives* _Opt me = flow_map_find_add(ctx->p_current_flow_map, member_obj);
             if (me == NULL)
                 return; /* no entry to seed */
 
             flow_alternatives_clear(&me->alternatives);
 
-            if (is_opt)
+            if (is_nullable)
             {
                 /* Model an _Opt member the same way an _Opt PARAMETER is modeled:
                    two correlated arms, and give the non-null arm a CONCRETE pointee.
@@ -60964,7 +61105,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     {
                         a.value_kind = FLOW_VALUE_KIND_PTR;
                         a.value.p = NULL;
-                        a.value_relation = type_is_opt(&p_expression->type, ctx->ctx->options.null_checks_enabled)
+                        a.value_relation = type_is_nullable(&p_expression->type, ctx->ctx->options.null_checks_enabled)
                                            ? FLOW_RELATION_ANY
                                            : FLOW_RELATION_NOT_EQUAL;
                     }
@@ -61681,7 +61822,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     {
                         a.value_kind = FLOW_VALUE_KIND_PTR;
                         a.value.p = NULL;
-                        a.value_relation = type_is_opt(&p_expression->type, nullable_enabled)
+                        a.value_relation = type_is_nullable(&p_expression->type, nullable_enabled)
                                            ? FLOW_RELATION_ANY : FLOW_RELATION_NOT_EQUAL;
                         flow_alternatives_add(&e_unres->alternatives, &a);
                     }
@@ -61872,7 +62013,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
             }
             else if (type_is_pointer(&p_expression->type) &&
                      ctx->ctx->options.null_checks_enabled &&
-                     !type_is_opt(&p_expression->type, ctx->ctx->options.null_checks_enabled))
+                     !type_is_nullable(&p_expression->type, ctx->ctx->options.null_checks_enabled))
             {
                 /* An unresolved element of a non-_Opt pointer array is non-null by
                 the non-_Opt => non-null rule -- e.g. `argv[i]` for
@@ -61932,7 +62073,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
             const bool ret_uninit = type_is_pointer(p_ret_type) &&
                                     (type_is_uninit(p_ret_type) || type_is_pointed_uninit(p_ret_type));
 
-            if (nullable_enabled && type_is_pointer(p_ret_type) && type_is_opt(p_ret_type, nullable_enabled))
+            if (nullable_enabled && type_is_pointer(p_ret_type) && type_is_nullable(p_ret_type, nullable_enabled))
             {
                 struct flow_key_alternatives* _Opt p_result_alternatives = flow_map_find_add(ctx->p_current_flow_map, &p_expression->object);
                 if (p_result_alternatives == NULL) throw;
@@ -65391,7 +65532,7 @@ static void flow_check_write_qualified_params_at_exit(struct flow_visit_ctx* ctx
 
         const bool is_clear = type_is_pointed_clear(p_param_type);
         const bool is_dtor = type_is_pointed_dtor(p_param_type);
-        const bool is_ctor = type_is_pointed_ctor(p_param_type);
+        const bool is_ctor = type_is_pointed_out(p_param_type);
 
         /* A plain pointer -- none of _Clear/_Dtor/_Out -- is a BORROW: see
            flow_check_non_dtor_param_owner_not_consumed_at_exit just above
@@ -66605,7 +66746,7 @@ static void flow_check_write_qualifier_placement(struct flow_visit_ctx* ctx,
             diagnostic(C_ERROR_FLOW_WRITE_QUALIFIER_MUST_QUALIFY_POINTEE, ctx->ctx, p_token, NULL,
                        "_Dtor must be used only at the pointed object");
         }
-        else if (type_is_ctor(p_type))
+        else if (type_is_out(p_type))
         {
             diagnostic(C_ERROR_FLOW_WRITE_QUALIFIER_MUST_QUALIFY_POINTEE, ctx->ctx, p_token, NULL,
                        "_Out must be used only at the pointed object");
@@ -66631,7 +66772,7 @@ static void flow_check_write_qualifier_placement(struct flow_visit_ctx* ctx,
         diagnostic(C_ERROR_FLOW_WRITE_QUALIFIER_CANNOT_BE_CONST, ctx->ctx, p_token, NULL,
                    "_Dtor pointee cannot also be const");
     }
-    else if (type_is_pointed_ctor(p_type))
+    else if (type_is_pointed_out(p_type))
     {
         diagnostic(C_ERROR_FLOW_WRITE_QUALIFIER_CANNOT_BE_CONST, ctx->ctx, p_token, NULL,
                    "_Out pointee cannot also be const");
@@ -68680,14 +68821,14 @@ bool type_is_pointed_const(const struct type* p_type)
     return type_is_const(p_type->next);
 }
 
-bool type_is_pointed_ctor(const struct type* p_type)
+bool type_is_pointed_out(const struct type* p_type)
 {
     if (!type_is_pointer(p_type))
         return false;
 
     _Assert(p_type->next != NULL);
 
-    return type_is_ctor(p_type->next);
+    return type_is_out(p_type->next);
 }
 
 bool type_is_pointed_dtor(const struct type* p_type)
@@ -68751,7 +68892,7 @@ bool type_is_owner(const struct type* p_type)
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OWNER;
 }
 
-bool type_is_opt(const struct type* p_type, bool nullable_enabled)
+bool type_is_nullable(const struct type* p_type, bool nullable_enabled)
 {
     if (nullable_enabled)
     {
@@ -68767,7 +68908,7 @@ bool type_is_view(const struct type* p_type)
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_VIEW;
 }
 
-bool type_is_ctor(const struct type* p_type)
+bool type_is_out(const struct type* p_type)
 {
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_CTOR;
 }
@@ -68855,7 +68996,7 @@ bool type_is_incomplete(const struct type* p_type)
     {
         return get_complete_enum_specifier(p_type->enum_specifier) == NULL;
     }
-    if (p_type->struct_or_union_specifier)
+    else if (p_type->struct_or_union_specifier)
     {
         return get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier) == NULL;
     }

@@ -496,7 +496,7 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD_CAKE_OWNER:
     case TK_KEYWORD_CAKE_OUT:
     case TK_KEYWORD_CAKE_DTOR:
-    case TK_KEYWORD_CAKE_UNINIT:
+    case TK_KEYWORD_CAKE_UNINITIALIZED:
     case TK_KEYWORD_CAKE_CLEAR:
     case TK_KEYWORD_CAKE_VIEW:
     case TK_KEYWORD_CAKE_OPT:

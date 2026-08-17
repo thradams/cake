@@ -692,6 +692,9 @@ Disable warning number <code>&lt;number&gt;</code>.</p>
 <p><strong><code>-Wall</code></strong><br>
 Enable all warnings.</p>
 
+<p><strong><code>-Werror</code></strong><br>
+Report every enabled warning as an error. Notes are not affected, and warnings that are disabled stay disabled. Because they become errors, warnings coming from included headers are no longer suppressed, and any occurrence makes the compilation fail.</p>
+
 <h3 id="toc_13">4.4 Target Options</h3>
 
 <p><strong><code>-target=&lt;name&gt;</code></strong><br>

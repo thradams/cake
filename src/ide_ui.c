@@ -7314,7 +7314,7 @@ static int is_c_keyword2(const char* word, int len)
     if (len == 6 && memcmp(word, "_Owner", 6) == 0) return 1;
     if (len == 4 && memcmp(word, "_Opt", 4) == 0) return 1;
     if (len == 5 && memcmp(word, "_Dtor", 5) == 0) return 1;
-    if (len == 5 && memcmp(word, "_Out", 5) == 0) return 1;
+    if (len == 4 && memcmp(word, "_Out", 4) == 0) return 1;
     if (len == 6 && memcmp(word, "assert", 6) == 0) return 1;
     if (len == 4 && memcmp(word, "NULL", 4) == 0) return 1;
     if (len == 6 && memcmp(word, "_Clear", 6) == 0) return 1;

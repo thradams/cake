@@ -208,8 +208,8 @@ enum token_type
     TK_KEYWORD_CAKE_OWNER,
     TK_KEYWORD_CAKE_OUT,
     TK_KEYWORD_CAKE_DTOR,
-    TK_KEYWORD_CAKE_UNINIT,   /* _Uninitialized (return/pointee is uninitialized) */
-    TK_KEYWORD_CAKE_CLEAR,    /* _Clear (param: callee zeroes pointee; return: pointee is all-zero) */
+    TK_KEYWORD_CAKE_UNINITIALIZED,
+    TK_KEYWORD_CAKE_CLEAR,
     TK_KEYWORD_CAKE_VIEW,    
     TK_KEYWORD_CAKE_OPT, 
     

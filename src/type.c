@@ -827,14 +827,14 @@ bool type_is_pointed_const(const struct type* p_type)
     return type_is_const(p_type->next);
 }
 
-bool type_is_pointed_ctor(const struct type* p_type)
+bool type_is_pointed_out(const struct type* p_type)
 {
     if (!type_is_pointer(p_type))
         return false;
 
     _Assert(p_type->next != NULL);
 
-    return type_is_ctor(p_type->next);
+    return type_is_out(p_type->next);
 }
 
 bool type_is_pointed_dtor(const struct type* p_type)
@@ -898,7 +898,7 @@ bool type_is_owner(const struct type* p_type)
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OWNER;
 }
 
-bool type_is_opt(const struct type* p_type, bool nullable_enabled)
+bool type_is_nullable(const struct type* p_type, bool nullable_enabled)
 {
     if (nullable_enabled)
     {
@@ -914,7 +914,7 @@ bool type_is_view(const struct type* p_type)
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_VIEW;
 }
 
-bool type_is_ctor(const struct type* p_type)
+bool type_is_out(const struct type* p_type)
 {
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_CTOR;
 }
@@ -1002,7 +1002,7 @@ bool type_is_incomplete(const struct type* p_type)
     {
         return get_complete_enum_specifier(p_type->enum_specifier) == NULL;
     }
-    if (p_type->struct_or_union_specifier)
+    else if (p_type->struct_or_union_specifier)
     {
         return get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier) == NULL;
     }

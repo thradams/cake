@@ -78,6 +78,7 @@ int stringify_test(void);
 void recursive_macro_expr(void);
 void quasi_recursive_macro(void);
 void newline_macro_func(void);
+void hash_hash_at_ends_of_replacement_list(void);
 
 /* tests from target.c*/
 void target_self_test(void);
@@ -152,6 +153,7 @@ g_unit_test_success_count = 0;
     recursive_macro_expr();
     quasi_recursive_macro();
     newline_macro_func();
+    hash_hash_at_ends_of_replacement_list();
     target_self_test();
 return g_unit_test_error_count;
 

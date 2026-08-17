@@ -206,6 +206,9 @@ Disable warning number `<number>`.
 **`-Wall`**  
 Enable all warnings.
 
+**`-Werror`**  
+Report every enabled warning as an error. Notes are not affected, and warnings that are disabled stay disabled. Because they become errors, warnings coming from included headers are no longer suppressed, and any occurrence makes the compilation fail.
+
 
 ### 4.4 Target Options
 
