@@ -6753,8 +6753,9 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
 
             if (p_enum_specifier->has_underlying)
             {
-                bool under_range = is_signed && (p_enumerator->value.value.host_long_long < lo_limit);
-                bool over_range = (is_signed && (!is_negative && (uint64_t)p_enumerator->value.value.host_long_long > hi_limit)) || (!is_signed && (p_enumerator->value.value.host_u_long_long > hi_limit));
+                bool underlying_signed = type_is_signed_integer(&p_enum_specifier->integer_type);
+                bool under_range = underlying_signed && (p_enumerator->value.value.host_long_long < lo_limit);
+                bool over_range = (underlying_signed && (!is_negative && (uint64_t)p_enumerator->value.value.host_long_long > hi_limit)) || (!underlying_signed && (p_enumerator->value.value.host_u_long_long > hi_limit));
 
                 if (under_range || over_range)
                 {
@@ -6765,7 +6766,7 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
 
             struct object newvalue2 = object_dup(object_get_referenced(&p_enumerator->value));
             object_swap(p_next_enumerator_value, &newvalue2);
-            object_destroy(&newvalue2);            
+            object_destroy(&newvalue2);
         }
         else
         {
