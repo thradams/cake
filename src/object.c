@@ -3141,7 +3141,7 @@ struct object object_unary_minus(enum target target, const struct object* a, cha
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            wrap_unsigned_integer(-(a->value.host_u_long_long), target_get_num_of_bits(target, common_type));
+            wrap_unsigned_integer(0ULL - (a->value.host_u_long_long), target_get_num_of_bits(target, common_type));
 
         break;
 

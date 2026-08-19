@@ -2591,6 +2591,17 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
         final_specifier(ctx, &p_declaration_specifiers->type_specifier_flags);
 
         p_declaration_specifiers->storage_class_specifier_flags |= default_storage_flag;
+
+        if ((default_storage_flag & STORAGE_SPECIFIER_BLOCK_SCOPE) &&
+            (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL) &&
+            !(p_declaration_specifiers->storage_class_specifier_flags & (STORAGE_SPECIFIER_STATIC | STORAGE_SPECIFIER_EXTERN)))
+        {
+            diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG,
+                ctx,
+                p_declaration_specifiers->first_token,
+                NULL,
+                "thread_local without static or extern in block scope");
+        }
     }
     catch
     {
@@ -6316,6 +6327,15 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                     prev_decl_same_scope = found_tag->data.p_enum_specifier;
                     p_enum_specifier->p_complete_enum_specifier = prev_decl_same_scope;
                 }
+                else
+                {
+                    diagnostic(C_ERROR_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
+                        ctx,
+                        p_enum_specifier->tag_token,
+                        NULL,
+                        "use of '%s' with tag type that does not match previous declaration.",
+                        p_enum_specifier->tag_token->lexeme);
+                }
             }
         }
         else
@@ -6753,8 +6773,9 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
 
             if (p_enum_specifier->has_underlying)
             {
-                bool under_range = is_signed && (p_enumerator->value.value.host_long_long < lo_limit);
-                bool over_range = (is_signed && (!is_negative && (uint64_t)p_enumerator->value.value.host_long_long > hi_limit)) || (!is_signed && (p_enumerator->value.value.host_u_long_long > hi_limit));
+                bool underlying_signed = type_is_signed_integer(&p_enum_specifier->integer_type);
+                bool under_range = underlying_signed && (p_enumerator->value.value.host_long_long < lo_limit);
+                bool over_range = (underlying_signed && (!is_negative && (unsigned long long)p_enumerator->value.value.host_long_long > hi_limit)) || (!underlying_signed && (p_enumerator->value.value.host_u_long_long > hi_limit));
 
                 if (under_range || over_range)
                 {
@@ -11036,7 +11057,21 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
 
         check_indentation_style(ctx, ctx->current);
 
-        if (first_of_declaration_specifier(ctx) ||
+        if (first_of_label(ctx))
+        {
+            /*
+              check label first, because a typedef-name can be used as a label
+              "typedef int foo; foo:;"
+            */
+            p_block_item->label = label(ctx, p_attribute_specifier_sequence);
+            p_attribute_specifier_sequence = NULL; //MOVED
+
+            if (p_block_item->label == NULL)
+            {
+                throw;
+            }
+        }
+        else if (first_of_declaration_specifier(ctx) ||
             first_of_pragma_declaration(ctx) ||
             first_of_static_assertion_declaration(ctx))
         {
@@ -11056,19 +11091,9 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
                 p = p->next;
             }
         }
-        else if (first_of_label(ctx))
-        {
-            /* identifier can be confused with an expression here */
-            p_block_item->label = label(ctx, p_attribute_specifier_sequence);
-            p_attribute_specifier_sequence = NULL; //MOVED
-
-            if (p_block_item->label == NULL)
-            {
-                throw;
-            }
-        }
         else
         {
+            /* identifier can be confused with an expression here */
             p_block_item->unlabeled_statement = unlabeled_statement(ctx, p_attribute_specifier_sequence);
             p_attribute_specifier_sequence = NULL;
             if (p_block_item->unlabeled_statement == NULL)
@@ -13684,6 +13709,15 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
             if (p_initializer_list_item->initializer->assignment_expression != NULL)
             {
+                /* `T x = { expr };` is still an initialization of x, so it gets
+                   the same checks as `T x = expr;` -- which the braced form
+                   used to skip entirely (object_set does not type-check).
+                   e.g. `char* s = {""};` under -const-literal. */
+                check_assigment(ctx,
+                    p_current_object_type,
+                    p_initializer_list_item->initializer->assignment_expression,
+                    ASSIGMENT_TYPE_INIT);
+
                 if (object_set(ctx,
                     current_object, p_initializer_list_item->initializer->assignment_expression,
                     &p_initializer_list_item->initializer->assignment_expression->object,
@@ -13910,6 +13944,14 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                     type_destroy(&subobject_type);
                     throw;
                 }
+
+                /* Same for each member/element initialized by an expression:
+                   `struct { char* s; } x = {""};` must report the discarded
+                   const that `struct { char* s; } x; x.s = "";` reports. */
+                check_assigment(ctx,
+                    &subobject_type,
+                    p_initializer_list_item->initializer->assignment_expression,
+                    ASSIGMENT_TYPE_INIT);
 
                 if (object_set(ctx,
                     p_subobject,

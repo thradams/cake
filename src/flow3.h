@@ -59,7 +59,7 @@ struct flow_deferred_pointee_effect
 {
     const struct object* _Opt pointee;
     enum flow_pointee_effect_kind kind;
-    int line;
+    const struct token* _Opt p_token; /* where the call is, for the state it sets */
 };
 
 struct flow_visit_ctx

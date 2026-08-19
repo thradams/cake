@@ -5776,7 +5776,7 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                     (ev2->data.key.codepoint >= 'a' && ev2->data.key.codepoint <= 'z'))
             {
                 /* Letter key pressed: jump to first item starting with that letter */
-                char target_letter = ev2->data.key.codepoint;
+                char target_letter = (char)ev2->data.key.codepoint;
                 /* Normalize to uppercase for case-insensitive search */
                 if (target_letter >= 'a' && target_letter <= 'z')
                     target_letter = target_letter - 'a' + 'A';
@@ -9034,7 +9034,7 @@ static void render_editor(ui_screen* s, ui_node* n)
             cursor_col >= n->hscroll && cursor_col < n->hscroll + text_w)
         {
             uint32_t under = ' ';
-            int off;
+            int caret_off;
             if (n->syntax == UI_SYNTAX_MARKDOWN && n->read_only)
             {
                 /* Reverse the same collapsed column mapping used for
@@ -9043,21 +9043,21 @@ static void render_editor(ui_screen* s, ui_node* n)
                  * `in_block` left behind by render_editor_line_markdown()
                  * a few lines up. */
                 int tmp_block = line_entry_block;
-                off = ls + md_scan_line(n->label + ls, le - ls, &tmp_block, -1, cursor_col);
+                caret_off = ls + md_scan_line(n->label + ls, le - ls, &tmp_block, -1, cursor_col);
             }
             else
             {
                 int col = 0;
-                off = ls;
-                while (col < cursor_col && off < le)
+                caret_off = ls;
+                while (col < cursor_col && caret_off < le)
                 {
                     uint32_t cp;
-                    off += utf8_decode(n->label + off, &cp);
+                    caret_off += utf8_decode(n->label + caret_off, &cp);
                     col++;
                 }
             }
-            if (off < le)
-                utf8_decode(n->label + off, &under);
+            if (caret_off < le)
+                utf8_decode(n->label + caret_off, &under);
             emit_char(text_x + cursor_col - n->hscroll, n->y + row, under,
                       g_theme.editor_caret_fg, g_theme.editor_caret_bg);
         }

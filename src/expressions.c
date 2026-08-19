@@ -6214,7 +6214,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
                 }
             }
 
-            if (type_is_const(&new_expression->left->type))
+            if (type_is_const_recursive(&new_expression->left->type))
             {
                 diagnostic(C_ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT,
                     ctx,
@@ -7082,6 +7082,22 @@ void check_assigment(struct parser_ctx* ctx,
     }
 
     /*
+       C23 6.7.11p14: an array of character type may be initialized by a string
+       literal. That is a special initializer form, not an assignment, so the
+       usual assignment conversions -- the qualifier check in particular -- do
+       not apply. With -const-literal the literal's type is `const char[N]`, so
+       treating `char s[2] = "";` as an assignment wrongly reported
+       "discarding const qualifier".
+    */
+    if (assignment_type == ASSIGMENT_TYPE_INIT &&
+        type_is_array(p_a_type) &&
+        p_b_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL)
+    {
+        type_destroy(&b_type_lvalue);
+        return;
+    }
+
+    /*
        less generic tests are first
     */
     if (type_is_enum(p_b_type) && type_is_enum(p_a_type))
@@ -7137,9 +7153,9 @@ void check_assigment(struct parser_ctx* ctx,
     /*
        We have two pointers or pointer/array combination
     */
-    if (type_is_pointer_or_array(p_b_type) && type_is_pointer_or_array(p_a_type))
+    if (type_is_pointer_or_array(&b_type_lvalue) && type_is_pointer_or_array(p_a_type))
     {
-        if (type_is_void_ptr(p_b_type))
+        if (type_is_void_ptr(&b_type_lvalue))
         {
             /* void pointer can be converted to any type */
 
@@ -7208,21 +7224,39 @@ void check_assigment(struct parser_ctx* ctx,
 
         if (!type_is_compatible(&b_type_lvalue, &a_type_lvalue))
         {
-            type_print(&b_type_lvalue, ctx->options.target);
-            type_print(&a_type_lvalue, ctx->options.target);
+            struct osstream ss_a = { 0 };
+            struct osstream ss_b = { 0 };
+            print_type_no_names(&ss_a, &a_type_lvalue, ctx->options.target);
+            print_type_no_names(&ss_b, &b_type_lvalue, ctx->options.target);
 
             diagnostic(W_ERROR_INCOMPATIBLE_TYPES, ctx,
                 p_b_expression->first_token, NULL,
-                " incompatible types");
+                "incompatible types: '%s' from '%s'", ss_a.c_str, ss_b.c_str);
+
+            ss_close(&ss_a);
+            ss_close(&ss_b);
         }
 
         /*
          * Walk all pointer levels and check that no const qualifier is
-         * dropped at any level.
+         * dropped or, past the first level, added -- doing either breaks
+         * const-safety:
          *
          *   int *        <- const int *      level 1: drop!
          *   int **       <- const int **     level 1: ok, level 2: drop!
-         *   const int ** <- int **           ok (adding const is always fine)
+         *   const int ** <- int **           level 1: ok, level 2: add - not
+         *                                     allowed (C23 6.7.6.1p2: nested
+         *                                     pointer levels must be
+         *                                     identically qualified, so a
+         *                                     const int** could otherwise be
+         *                                     used to write a const int
+         *                                     through the non-const int**
+         *                                     alias)
+         *
+         * Only the outermost pointee (level 1, the object directly assigned
+         * through) gets the C11 6.5.16.1p1 case-2 relaxation of allowing
+         * const to be added; every deeper level requires an exact qualifier
+         * match.
          *
          * We use the already-computed lvalue types so array decay is applied.
          */
@@ -7230,13 +7264,20 @@ void check_assigment(struct parser_ctx* ctx,
         {
             struct type b_cur = type_dup(&b_type_lvalue);
             struct type a_cur = type_dup(&a_type_lvalue);
+            int level = 0;
 
             while (type_is_pointer(&b_cur) && type_is_pointer(&a_cur))
             {
                 struct type b_next = type_remove_pointer(&b_cur);
                 struct type a_next = type_remove_pointer(&a_cur);
 
-                if (type_is_const(&b_next) && !type_is_const(&a_next))
+                const bool b_const = type_is_const(&b_next);
+                const bool a_const = type_is_const(&a_next);
+
+                const bool mismatch =
+                    level == 0 ? (b_const && !a_const) : (b_const != a_const);
+
+                if (mismatch)
                 {
                     diagnostic(W_DISCARDED_QUALIFIERS, ctx,
                         p_b_expression->first_token, NULL,
@@ -7252,6 +7293,7 @@ void check_assigment(struct parser_ctx* ctx,
                 type_destroy(&a_cur);
                 b_cur = b_next;
                 a_cur = a_next;
+                level++;
             }
 
             type_destroy(&b_cur);

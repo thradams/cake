@@ -3,8 +3,6 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
-
 /*
 
    1 - The initial input is a string.
@@ -217,6 +215,17 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
     bool is_warning = options_diagnostic_is_warning(&ctx->options, w);
     bool is_note = options_diagnostic_is_note(&ctx->options, w);
 
+    if (!is_error && !is_warning && !is_note && w != W_LOCATION)
+    {
+        return false;
+    }
+
+    if (w != W_LOCATION && !is_error && included_file_location)
+    {
+        //notes and warnings inside included files are neither counted nor printed
+        return false;
+    }
+
     if (is_error)
     {
         ctx->n_errors++;
@@ -224,24 +233,6 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
     else if (is_warning)
     {
         ctx->n_warnings++;
-    }
-    else if (is_note)
-    {
-
-    }
-    else if (w == W_LOCATION)
-    {
-        //location is always printed
-    }
-    else
-    {
-        return false;
-    }
-
-    if (w != W_LOCATION && !is_error && included_file_location)
-    {
-        //notes are warning are not printed in included files
-        return false;
     }
 
     const bool color_enabled = !ctx->options.color_disabled;
@@ -1213,6 +1204,37 @@ struct token* _Owner _Opt identifier(struct stream* stream)
     return p_new_token;
 }
 
+static bool is_valid_scape_sequence(char c)
+{
+    switch (c)
+    {
+    case '\'':
+    case '"':
+    case '?':
+    case '\\':
+    case 'a':
+    case 'b':
+    case 'f':
+    case 'n':
+    case 'r':
+    case 't':
+    case 'v':
+    case 'x':
+    case 'u':
+    case 'U':
+    case '\n':
+    case '\r':
+    case '\0': /*unterminated - already reported by the caller*/
+        return true;
+    default:
+        if (c >= '0' && c <= '7')
+            return true;
+        break;
+    }
+
+    return false;
+}
+
 static bool first_of_character_constant(struct stream* stream)
 {
     return stream->current[0] == '\'' ||
@@ -1248,6 +1270,11 @@ struct token* _Owner _Opt character_constant(struct tokenizer_ctx* ctx, struct s
     {
         if (stream->current[0] == '\\')
         {
+            if (!is_valid_scape_sequence(stream->current[1]))
+            {
+                tokenizer_diagnostic(W_UNKNOWN_ESCAPE_SEQUENCE, ctx, stream,
+                    "unrecognized character escape sequence '\\%c'", stream->current[1]);
+            }
             stream_match(stream);
             stream_match(stream);
         }
@@ -1319,6 +1346,11 @@ struct token* _Owner _Opt string_literal(struct tokenizer_ctx* ctx, struct strea
 
             if (stream->current[0] == '\\')
             {
+                if (!is_valid_scape_sequence(stream->current[1]))
+                {
+                    tokenizer_diagnostic(W_UNKNOWN_ESCAPE_SEQUENCE, ctx, stream,
+                        "unrecognized character escape sequence '\\%c'", stream->current[1]);
+                }
                 stream_match(stream);
                 stream_match(stream);
             }
@@ -8321,7 +8353,10 @@ static int preprocessor_error_count(const char* input)
     ctx.options.color_disabled = true;
 
     struct token_list r = preprocessor(&ctx, &list, 0);
+    token_list_clear(&r);
+    token_list_clear(&list);
 
+    preprocessor_ctx_destroy(&ctx);
     return ctx.n_errors;
 }
 

@@ -4920,7 +4920,7 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
                     else
                     {
                         /* unnamed bitfields are allowed */
-                        char* name =
+                        const char* name =
                             member_declarator->declarator->name_opt ?
                             member_declarator->declarator->name_opt->lexeme : "";
 

@@ -1,3 +1,5 @@
+#pragma safety enable
+
 #include "ownership.h"
 #include "target.h"
 #include <limits.h>

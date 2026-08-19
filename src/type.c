@@ -924,6 +924,80 @@ bool type_is_const(const struct type* p_type)
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST;
 }
 
+static bool struct_or_union_has_const_member(struct struct_or_union_specifier* p_complete)
+{
+    /*
+        struct X { const int i; };
+        int main() {
+          struct X a = {};
+          struct X b = {};
+          a = b; //a is const because a.i is const
+        }
+    */
+    struct member_declaration* _Opt d = p_complete->member_declaration_list.head;
+    while (d)
+    {
+        if (d->member_declarator_list_opt)
+        {
+            struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
+            while (md)
+            {
+                if (md->declarator && type_is_const_recursive(&md->declarator->type))
+                    return true;
+
+                md = md->next;
+            }
+        }
+        else if (d->specifier_qualifier_list &&
+                 d->specifier_qualifier_list->struct_or_union_specifier)
+        {
+            /*anonymous struct/union member*/
+            struct struct_or_union_specifier* _Opt p_anonymous =
+                get_complete_struct_or_union_specifier(d->specifier_qualifier_list->struct_or_union_specifier);
+
+            if (p_anonymous && struct_or_union_has_const_member(p_anonymous))
+                return true;
+        }
+
+        d = d->next;
+    }
+    return false;
+}
+
+/*
+  Returns true if the type is const or if it is a structure/union (or array of)
+  that has, at any level, a const qualified member. Such objects are not
+  modifiable lvalues.
+
+    struct X { const int i; };
+    struct X a, b;
+    a = b; //error
+*/
+bool type_is_const_recursive(const struct type* p_type)
+{
+    if (type_is_const(p_type))
+        return true;
+
+    if (type_is_array(p_type))
+    {
+        struct type item_type = get_array_item_type(p_type);
+        const bool b = type_is_const_recursive(&item_type);
+        type_destroy(&item_type);
+        return b;
+    }
+
+    if (type_is_struct_or_union(p_type) && p_type->struct_or_union_specifier)
+    {
+        struct struct_or_union_specifier* _Opt p_complete =
+            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+        if (p_complete)
+            return struct_or_union_has_const_member(p_complete);
+    }
+
+    return false;
+}
+
 bool type_is_constexpr(const struct type* p_type)
 {
     return (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR);
@@ -3425,7 +3499,29 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
                 struct param* _Opt p_param_b = pb->params.head;
                 while (p_param_a && p_param_b)
                 {
-                    if (!type_is_same(&p_param_a->type, &p_param_b->type, compare_qualifiers))
+                    /*
+                      Two function types are compatible only if corresponding
+                      parameter types are compatible. A parameter's top-level
+                      qualifier ('void f(int)' vs 'void f(const int)', or
+                      'int*' vs 'int *const') never affects the function
+                      type - it only matters inside the function body - so it
+                      is dropped here regardless of the caller's
+                      compare_qualifiers. Qualifiers of what a parameter
+                      points to are significant at every deeper level, e.g.
+                      'int*' vs 'const int*' are not compatible parameter
+                      types, so those are always compared strictly.
+                    */
+                    struct type a_param = type_dup(&p_param_a->type);
+                    struct type b_param = type_dup(&p_param_b->type);
+                    type_remove_all_qualifiers(&a_param);
+                    type_remove_all_qualifiers(&b_param);
+
+                    const bool same = type_is_same(&a_param, &b_param, true);
+
+                    type_destroy(&a_param);
+                    type_destroy(&b_param);
+
+                    if (!same)
                     {
                         return false;
                     }
@@ -3582,7 +3678,33 @@ bool type_is_compatible(const struct type* a, const struct type* b)
                 struct param* _Opt p_param_b = pb->params.head;
                 while (p_param_a && p_param_b)
                 {
-                    if (!type_is_compatible(&p_param_a->type, &p_param_b->type))
+                    /*
+                      C23 6.7.6.3p15 / 6.7.6.1p2: for two function types to be
+                      compatible, corresponding parameter types must be
+                      compatible, ignoring the *top-level* qualifiers of each
+                      parameter's declared type (those only matter inside the
+                      function body: 'void f(int)' and 'void f(const int)'
+                      declare the same function, likewise 'int*' and
+                      'int *const'). But qualifiers of what a parameter
+                      *points to* are significant at every level beyond the
+                      top: two pointer types are compatible only if identically
+                      qualified and pointing to compatible types, so
+                      'int*' vs 'const int*' (and 'int**' vs 'const int**')
+                      are NOT compatible parameter types.
+                      Issue #226: void(*)(int*) and void(*)(const int*) are
+                      not compatible function pointer types.
+                    */
+                    struct type a_param = type_dup(&p_param_a->type);
+                    struct type b_param = type_dup(&p_param_b->type);
+                    type_remove_all_qualifiers(&a_param);
+                    type_remove_all_qualifiers(&b_param);
+
+                    const bool same = type_is_same(&a_param, &b_param, true);
+
+                    type_destroy(&a_param);
+                    type_destroy(&b_param);
+
+                    if (!same)
                     {
                         return false;
                     }

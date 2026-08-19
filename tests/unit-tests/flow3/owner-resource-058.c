@@ -9,7 +9,7 @@ struct X
  void free(void* _Owner _Opt p);
 
  int main() {
-     const char* _Owner _Opt p0 = strdup("a");
+     char* _Owner _Opt p0 = strdup("a");
      struct X x = {
          .p = p0                // moves p0 into the owner member x.p
      };

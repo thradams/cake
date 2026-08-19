@@ -16,7 +16,8 @@ char file_scope_buf[200];
 void use_file_scope(void)
 {
     parse1(file_scope_buf); /* ok */
-    parse2(file_scope_buf); /* ok */ //lint 35 passing a possible null pointer 'file_scope_buf' to non-nullable pointer parameter (see
+    
+    parse2(file_scope_buf); /* ok */
 }
 
 void use_local(void)
