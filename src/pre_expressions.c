@@ -994,11 +994,18 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_
         if (ctx->current && ctx->current->type == '?')
         {
             pre_match(ctx);
+
+            //elvis operator: expr1 ? : expr3  (expr2 omitted, assumed to be expr1)
+            const int elvis = ctx->current && ctx->current->type == ':';
+
             if (ectx->value)
             {
-                pre_expression(ctx, ectx);
-                if (ctx->n_errors > 0)
-                    throw;
+                if (!elvis)
+                {
+                    pre_expression(ctx, ectx);
+                    if (ctx->n_errors > 0)
+                        throw;
+                }
 
                 pre_match(ctx); //:
                 struct pre_expression_ctx temp = { 0 };
@@ -1008,10 +1015,13 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_
             }
             else
             {
-                struct pre_expression_ctx temp = { 0 };
-                pre_expression(ctx, &temp);
-                if (ctx->n_errors > 0)
-                    throw;
+                if (!elvis)
+                {
+                    struct pre_expression_ctx temp = { 0 };
+                    pre_expression(ctx, &temp);
+                    if (ctx->n_errors > 0)
+                        throw;
+                }
 
                 pre_match(ctx); //:
                 pre_conditional_expression(ctx, ectx);
