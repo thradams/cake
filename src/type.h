@@ -446,6 +446,8 @@ enum sizeof_result
 enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum target target);
 enum sizeof_result type_get_offsetof(const struct type* p_type, const char* member, size_t* size, enum target target);
 
+void type_get_integer_range(const struct type* p_type, enum target target, long long* min, unsigned long long* max);
+
 size_t type_get_alignof(const struct type* p_type, enum target target);
 
 struct type type_add_pointer(const struct type* p_type, bool null_checks_enabled);

@@ -291,6 +291,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-keep-inactive-tokens") == 0)
+        {
+            options->keep_inactive_tokens = true;
+            continue;
+        }
+
         if (strcmp(argv[i], "-o") == 0)
         {
             if (i + 1 < argc)
@@ -670,6 +676,7 @@ void print_help()
     print_option("-dump-pp-tokens", "Output tokens after preprocessor");    
     print_option("-const-literal", "literal string becomes const");
     print_option("-dont-generate-time-stamp", "Do not include the timestamp comment in the generated file");
+    print_option("-keep-inactive-tokens", "Keep tokens from inactive preprocessor blocks (e.g. #if 0) in memory instead of discarding them");
     print_option("-preprocess-def-macro", "preprocess def macros after expansion");
     print_option("-style=name", "Set the style used in w011 style warnings. Options are `-style=cake`, `-style=gnu`, `-style=microsoft`");
     print_option("-selftest", "Runs Cake's internal tests. The code must be compiled with -DTEST.");

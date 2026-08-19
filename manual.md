@@ -1478,6 +1478,16 @@ int r = a ?: b ?: c;   /* 7 */
 
 Reference: https://www.open-std.org/JTC1/SC22/WG14/www/docs/n3804.txt
 
+**In preprocessor expressions:** the Elvis operator is also accepted in `#if`/`#elif` constant expressions:
+
+```c
+#define VALUE 0
+
+#if VALUE ?: 42
+/* VALUE is falsy, so this branch is taken with value 42 */
+#endif
+```
+
 ### 10.13 `static_assert` as an Expression
 
 In C2Y, `static_assert` is extended to work not only as a declaration 

@@ -633,9 +633,9 @@ enum diagnostic_id {
     W_FLOW_CTOR_NOT_INITIALIZED_AT_EXIT = 71,
     W_FLOW_PARAM_OWNER_CONSUMED_AT_EXIT = 72,
     W_UNKNOWN_ESCAPE_SEQUENCE = 73,
-    W_UNUSED_WARNING_74 = 74,
-    W_UNUSED_WARNING_75 = 75,
-    W_UNUSED_WARNING_76 = 76,
+    W_CONSTANT_VALUE_NOT_REPRESENTABLE = 74,
+    W_POINTER_TO_INT = 75,
+    W_STRING_LITERAL_COMPARISON = 76,
     W_UNUSED_WARNING_77 = 77,
     W_UNUSED_WARNING_78 = 78,
     W_UNUSED_WARNING_79 = 79,
@@ -803,6 +803,7 @@ enum diagnostic_id {
     C_ERROR_PATH_TOO_LONG = 1920,
     C_ERROR_FLOW_WRITE_QUALIFIER_CANNOT_BE_CONST = 1930,
     C_ERROR_FLOW_WRITE_QUALIFIER_MUST_QUALIFY_POINTEE = 1940,
+    C_ERROR_CONSTANT_VALUE_NOT_REPRESENTABLE = 1950,
 };
 
 
@@ -1071,6 +1072,14 @@ struct options
       at the top (useful for reproducible builds / diffing).
     */
     bool dont_generate_time_stamp;
+
+    /*
+      -keep-inactive-tokens
+      When set, tokens from inactive preprocessor blocks (e.g. #if 0 ... #endif)
+      are kept in memory (needed for tools that recreate source code, like the IDE).
+      By default they are discarded to reduce memory usage.
+    */
+    bool keep_inactive_tokens;
 };
 
 int fill_options(struct options* options,
@@ -6147,7 +6156,7 @@ static void skip_blanks_including_newline(struct preprocessor_ctx* ctx, struct t
     }
 }
 
-void prematch_level(struct token_list* dest, struct token_list* input_list, int level, bool is_active)
+void prematch_level(struct preprocessor_ctx* ctx, struct token_list* dest, struct token_list* input_list, int level, bool is_active)
 {
     if (CAKE_INCLUDE_EXTRA_TOKENS || level == 0)
     {
@@ -6156,21 +6165,29 @@ void prematch_level(struct token_list* dest, struct token_list* input_list, int 
         {
             if (is_active)
                 p->flags |= TK_FLAG_ACTIVE;
-            token_list_add(dest, p);
+
+            if (!is_active && !ctx->options.keep_inactive_tokens)
+                token_delete(p);
+            else
+                token_list_add(dest, p);
         }
     }
     else
         token_list_pop_front(input_list);
 }
 
-static void prematch(struct token_list* dest, struct token_list* input_list, bool is_active)
+static void prematch(struct preprocessor_ctx* ctx, struct token_list* dest, struct token_list* input_list, bool is_active)
 {
     struct token* _Owner _Opt p = token_list_pop_front_get(input_list);
     if (p)
     {
         if (is_active)
             p->flags |= TK_FLAG_ACTIVE;
-        token_list_add(dest, p);
+
+        if (!is_active && !ctx->options.keep_inactive_tokens)
+            token_delete(p);
+        else
+            token_list_add(dest, p);
     }
 }
 
@@ -7381,7 +7398,7 @@ struct token_list replacement_group(struct preprocessor_ctx* ctx, struct token_l
             {
                 break;
             }
-            prematch_level(&r, input_list, level, is_active);
+            prematch_level(ctx, &r, input_list, level, is_active);
         }
     }
     catch
@@ -7690,7 +7707,7 @@ struct token_list pp_tokens_opt(struct preprocessor_ctx* ctx, struct token_list*
     struct token_list r = { 0 };
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
-        prematch_level(&r, input_list, level, is_active);
+        prematch_level(ctx, &r, input_list, level, is_active);
     }
     return r;
 }
@@ -7803,7 +7820,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                 while (input_list->head != NULL && input_list->head->type != TK_NEWLINE)
                 {
-                    prematch_level(&pptokens, input_list, level, is_active);
+                    prematch_level(ctx, &pptokens, input_list, level, is_active);
 
                     if (input_list->head == NULL)
                     {
@@ -7837,7 +7854,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "include path is too long (limit is %d characters)", (int)sizeof(path) - 1);
                     throw;
                 }
-                prematch_level(&r, input_list, level, is_active);
+                prematch_level(ctx, &r, input_list, level, is_active);
             }
             else if (input_list->head->type == '<')
             {
@@ -7849,7 +7866,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "include path is too long (limit is %d characters)", (int)sizeof(path) - 1);
                         throw;
                     }
-                    prematch_level(&r, input_list, level, is_active);
+                    prematch_level(ctx, &r, input_list, level, is_active);
 
                     if (input_list->head == NULL)
                     {
@@ -7862,7 +7879,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "include path is too long (limit is %d characters)", (int)sizeof(path) - 1);
                     throw;
                 }
-                prematch_level(&r, input_list, level, is_active);
+                prematch_level(ctx, &r, input_list, level, is_active);
             }
             else
             {
@@ -7872,7 +7889,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             while (input_list->head->type != TK_NEWLINE)
             {
-                prematch_level(&r, input_list, level, is_active);
+                prematch_level(ctx, &r, input_list, level, is_active);
                 if (input_list->head == NULL)
                 {
                     pre_unexpected_end_of_file(r.tail, ctx);
@@ -7991,7 +8008,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                 while (input_list->head != NULL && input_list->head->type != TK_NEWLINE)
                 {
-                    prematch_level(&pptokens, input_list, level, is_active);
+                    prematch_level(ctx, &pptokens, input_list, level, is_active);
 
                     if (input_list->head == NULL)
                     {
@@ -8024,7 +8041,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "embed path is too long (limit is %d characters)", (int)sizeof(path) - 1);
                     throw;
                 }
-                prematch_level(p_list, input_list, level, is_active);
+                prematch_level(ctx, p_list, input_list, level, is_active);
             }
             else if (input_list->head->type == '<')
             {
@@ -8035,7 +8052,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "embed path is too long (limit is %d characters)", (int)sizeof(path) - 1);
                         throw;
                     }
-                    prematch_level(p_list, input_list, level, is_active);
+                    prematch_level(ctx, p_list, input_list, level, is_active);
 
                     if (input_list->head == NULL)
                     {
@@ -8047,7 +8064,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "embed path is too long (limit is %d characters)", (int)sizeof(path) - 1);
                     throw;
                 }
-                prematch_level(p_list, input_list, level, is_active);
+                prematch_level(ctx, p_list, input_list, level, is_active);
             }
             else
             {
@@ -8059,7 +8076,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 while (input_list->head->type != TK_NEWLINE)
                 {
-                    prematch_level(p_list, input_list, level, is_active);
+                    prematch_level(ctx, p_list, input_list, level, is_active);
                     if (input_list->head == NULL)
                     {
                         pre_unexpected_end_of_file(p_list->tail, ctx);
@@ -8654,7 +8671,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
             else
             {
                 token_list_clone_and_add(&p_argument->tokens, input_list->head);
-                prematch_level(&macro_argument_list.tokens, input_list, level, 1);
+                prematch_level(ctx, &macro_argument_list.tokens, input_list, level, 1);
             }
         }
 
@@ -8789,7 +8806,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
             }
             else
             {
-                prematch(&r, input_list, true);
+                prematch(ctx, &r, input_list, true);
             }
         }
     }
@@ -8975,7 +8992,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                     }
                     token_list_append_list(&r, &argumentlist);
                     // ja passa o ## tambem
-                    prematch(&r, input_list, true);
+                    prematch(ctx, &r, input_list, true);
                     token_list_destroy(&argumentlist);
                 }
                 else
@@ -9023,7 +9040,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
             }
             else
             {
-                prematch(&r, input_list, true);
+                prematch(ctx, &r, input_list, true);
             }
         }
     }
@@ -9130,7 +9147,7 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
             throw; //internal error
         }
 
-        prematch(&r, input_list, is_active);
+        prematch(ctx, &r, input_list, is_active);
         r.tail->type = TK_PRAGMA;
         r.tail->flags |= TK_FLAG_FINAL;
 
@@ -9182,7 +9199,7 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
             throw; //internal error
         }
 
-        prematch(&r, input_list, is_active); //)
+        prematch(ctx, &r, input_list, is_active); //)
         r.tail->type = TK_PRAGMA_END;
         r.tail->flags |= TK_FLAG_FINAL;
     }
@@ -9302,7 +9319,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
 
                 //OBS: #def macro have newlinew
                 //_Assert(!(new_list.head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
-                prematch(&r, &new_list, true); //it wasn't macro
+                prematch(ctx, &r, &new_list, true); //it wasn't macro
             }
         }
     }
@@ -9842,7 +9859,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 {
                     if (is_final)
                     {
-                        prematch(&r, input_list, is_active);
+                        prematch(ctx, &r, input_list, is_active);
                         _Assert(r.tail != NULL);
                         r.tail->flags |= TK_FLAG_FINAL;
                     }
@@ -9857,7 +9874,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     {
                         if (level == 0 || CAKE_INCLUDE_EXTRA_TOKENS)
                         {
-                            prematch(&r, input_list, is_active);
+                            prematch(ctx, &r, input_list, is_active);
                         }
                         else
                             token_list_pop_front(input_list); /* TODO: delete */
@@ -9866,7 +9883,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     {
                         if (level == 0 || CAKE_INCLUDE_EXTRA_TOKENS)
                         {
-                            prematch(&r, input_list, is_active);
+                            prematch(ctx, &r, input_list, is_active);
                             if (is_final)
                             {
                                 _Assert(r.tail != NULL);
@@ -9877,7 +9894,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                         {
                             if (is_final)
                             {
-                                prematch(&r, input_list, is_active);
+                                prematch(ctx, &r, input_list, is_active);
                                 _Assert(r.tail != NULL);
                                 r.tail->flags |= TK_FLAG_FINAL;
                             }
@@ -9968,7 +9985,7 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
 
     if (input_list->head->type == TK_BEGIN_OF_FILE)
     {
-        prematch_level(&r, input_list, 1, true); //sempre coloca
+        prematch_level(ctx, &r, input_list, 1, true); //sempre coloca
     }
 
     struct token_list g = group_opt(ctx, input_list, true /*active*/, level);
@@ -15480,6 +15497,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-keep-inactive-tokens") == 0)
+        {
+            options->keep_inactive_tokens = true;
+            continue;
+        }
+
         if (strcmp(argv[i], "-o") == 0)
         {
             if (i + 1 < argc)
@@ -15859,6 +15882,7 @@ void print_help()
     print_option("-dump-pp-tokens", "Output tokens after preprocessor");    
     print_option("-const-literal", "literal string becomes const");
     print_option("-dont-generate-time-stamp", "Do not include the timestamp comment in the generated file");
+    print_option("-keep-inactive-tokens", "Keep tokens from inactive preprocessor blocks (e.g. #if 0) in memory instead of discarding them");
     print_option("-preprocess-def-macro", "preprocess def macros after expansion");
     print_option("-style=name", "Set the style used in w011 style warnings. Options are `-style=cake`, `-style=gnu`, `-style=microsoft`");
     print_option("-selftest", "Runs Cake's internal tests. The code must be compiled with -DTEST.");
@@ -16509,6 +16533,8 @@ enum sizeof_result
 
 enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum target target);
 enum sizeof_result type_get_offsetof(const struct type* p_type, const char* member, size_t* size, enum target target);
+
+void type_get_integer_range(const struct type* p_type, enum target target, long long* min, unsigned long long* max);
 
 size_t type_get_alignof(const struct type* p_type, enum target target);
 
@@ -20237,6 +20263,62 @@ int object_set(
                 struct object temp = object_cast(ctx->options.target, to->value_type, from);
                 to->value = temp.value;
                 object_destroy(&temp);
+            }
+
+            if (from->state == CONSTANT_VALUE_STATE_CONSTANT &&
+                (object_type_is_signed_integer(from->value_type) || object_type_is_unsigned_integer(from->value_type)) &&
+                (object_type_is_signed_integer(to->value_type) || object_type_is_unsigned_integer(to->value_type)))
+            {
+                bool representable = true;
+
+                /*
+                  compare the source's mathematical value against the exact
+                  range of the destination type (rather than round-tripping
+                  through a wrapping cast, which is not reliable: e.g. a
+                  same-width signed<->unsigned cast is a bijection, so a
+                  wrapped-around value can cast back to the original bit
+                  pattern even though the value was not representable)
+                */
+                const int dest_n_bits = target_get_num_of_bits(ctx->options.target, to->value_type);
+                const bool dest_is_signed = object_type_is_signed_integer(to->value_type);
+
+                const long long dest_min =
+                    !dest_is_signed ? 0 :
+                    dest_n_bits >= 64 ? LLONG_MIN : -(1LL << (dest_n_bits - 1));
+
+                const unsigned long long dest_max =
+                    dest_n_bits >= 64 ?
+                        (dest_is_signed ? (unsigned long long)LLONG_MAX : ~0ULL) :
+                        (dest_is_signed ? (1ULL << (dest_n_bits - 1)) - 1 : (1ULL << dest_n_bits) - 1);
+
+                if (object_type_is_signed_integer(from->value_type))
+                {
+                    const signed long long v = object_to_signed_long_long(from);
+
+                    if (v < dest_min || (v > 0 && (unsigned long long)v > dest_max))
+                        representable = false;
+                }
+                else
+                {
+                    const unsigned long long v = object_to_unsigned_long_long(from);
+
+                    if (v > dest_max)
+                        representable = false;
+                }
+
+                if (!representable && p_init_expression)
+                {
+                    const enum diagnostic_id id =
+                        to->type.storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR ?
+                        C_ERROR_CONSTANT_VALUE_NOT_REPRESENTABLE :
+                        W_CONSTANT_VALUE_NOT_REPRESENTABLE;
+
+                    diagnostic(id,
+                        ctx,
+                        p_init_expression->first_token,
+                        NULL,
+                        "constant expression is not exactly representable in type");
+                }
             }
 
             if (requires_constant_initialization &&
@@ -27619,6 +27701,16 @@ static void check_comparison(struct parser_ctx* ctx,
         }
     }
 
+    if (equal_not_equal &&
+        (p_a_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL ||
+         p_b_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL))
+    {
+        diagnostic(W_STRING_LITERAL_COMPARISON,
+            ctx,
+            op_token, NULL,
+            "logical operation on address of string constant");
+    }
+
     check_diferent_enuns(ctx,
         op_token,
         p_a_expression,
@@ -29495,6 +29587,18 @@ void check_assigment(struct parser_ctx* ctx,
         return;
     }
 
+    if (type_is_arithmetic(p_a_type) && 
+        type_is_pointer_or_array(p_b_type) 
+        /* && !type_is_nullptr_t(p_b_type)*/)
+    {
+        diagnostic(W_POINTER_TO_INT, ctx,
+            p_b_expression->first_token, NULL,
+            "pointer to integer conversion");
+
+        type_destroy(&b_type_lvalue);
+        return;
+    }
+
     if (is_null_pointer_constant && type_is_pointer(p_a_type))
     {
         //TODO void F(int * [[_Opt]] p)
@@ -29508,7 +29612,7 @@ void check_assigment(struct parser_ctx* ctx,
         return;
     }
 
-    if (is_null_pointer_constant && type_is_array(p_a_type))
+    if (is_null_pointer_constant && type_is_array(p_a_type) && assignment_type == ASSIGMENT_TYPE_PARAMETER)
     {
         diagnostic(W_PASSING_NULL_AS_ARRAY,
             ctx,
@@ -30741,11 +30845,18 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_
         if (ctx->current && ctx->current->type == '?')
         {
             pre_match(ctx);
+
+            //elvis operator: expr1 ? : expr3  (expr2 omitted, assumed to be expr1)
+            const int elvis = ctx->current && ctx->current->type == ':';
+
             if (ectx->value)
             {
-                pre_expression(ctx, ectx);
-                if (ctx->n_errors > 0)
-                    throw;
+                if (!elvis)
+                {
+                    pre_expression(ctx, ectx);
+                    if (ctx->n_errors > 0)
+                        throw;
+                }
 
                 pre_match(ctx); //:
                 struct pre_expression_ctx temp = { 0 };
@@ -30755,10 +30866,13 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_
             }
             else
             {
-                struct pre_expression_ctx temp = { 0 };
-                pre_expression(ctx, &temp);
-                if (ctx->n_errors > 0)
-                    throw;
+                if (!elvis)
+                {
+                    struct pre_expression_ctx temp = { 0 };
+                    pre_expression(ctx, &temp);
+                    if (ctx->n_errors > 0)
+                        throw;
+                }
 
                 pre_match(ctx); //:
                 pre_conditional_expression(ctx, ectx);
@@ -30958,7 +31072,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 */
 
 //#pragma once
-#define CAKE_VERSION "0.14.28"
+#define CAKE_VERSION "0.14.29"
 
 
 
@@ -37823,6 +37937,19 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
             object_destroy(&newvalue);
 
             is_negative = object_type_is_signed_integer(p_enumerator->value.value_type) && (p_enumerator->value.value.host_long_long < 0);
+
+            if (p_enum_specifier->has_underlying)
+            {
+                bool underlying_signed = type_is_signed_integer(&p_enum_specifier->integer_type);
+                bool under_range = underlying_signed && (p_enumerator->value.value.host_long_long < lo_limit);
+                bool over_range = (underlying_signed && (!is_negative && (unsigned long long)p_enumerator->value.value.host_long_long > hi_limit)) || (!underlying_signed && (p_enumerator->value.value.host_u_long_long > hi_limit));
+
+                if (under_range || over_range)
+                {
+                    diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->token, NULL, "enumerator value outside of underlying type range");
+                    throw;
+                }
+            }
         }
 
         update_enumerator_list_range(p_enumerator, min_value, max_value);
@@ -41645,6 +41772,39 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
 
                     }
                 }
+                else if (p_label->constant_expression && object_has_constant_value(&p_label->constant_expression->object))
+                {
+                    long long range_min = 0;
+                    unsigned long long range_max = 0;
+
+                    type_get_integer_range(&ctx->p_current_switch_statement->condition->expression->type,
+                        ctx->options.target,
+                        &range_min,
+                        &range_max);
+
+                    const struct object* p_case_object = &p_label->constant_expression->object;
+
+                    const bool is_negative =
+                        object_type_is_signed_integer(p_case_object->value_type) &&
+                        object_to_signed_long_long(p_case_object) < 0;
+
+                    const bool out_of_range =
+                        is_negative ?
+                            (object_to_signed_long_long(p_case_object) < range_min) :
+                            (object_to_unsigned_long_long(p_case_object) > range_max);
+
+                    if (out_of_range)
+                    {
+                        char str[200] = { 0 };
+                        object_to_str(p_case_object, sizeof str, str);
+
+                        diagnostic(W_INTEGER_OVERFLOW,
+                            ctx,
+                            p_label->constant_expression->first_token, NULL,
+                            "case constant '%s' too big for the type of the switch expression",
+                            str);
+                    }
+                }
             }
 
         }
@@ -44925,12 +45085,16 @@ static int braced_initializer_new(struct parser_ctx* ctx,
             {
                 bool entire_object_initialized = false;
 
-                if (type_is_array_of_char(&subobject_type) &&
+                if (type_is_array(&subobject_type) &&
                     p_initializer_list_item->initializer->assignment_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL)
                 {
                     /*
                     struct X { int i; char text[4]; };
                     constexpr struct X x = {1, "abc"};
+
+                    Also covers wide/UTF string literals (L"", u8"", u"", U"")
+                    assigned to an array of the matching element type, e.g.
+                    wchar_t str[5][64] = { L"a", L"b", ... };
                     */
                     entire_object_initialized = true;
                 }
@@ -71291,6 +71455,42 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
 
 
     return SIZEOF_RESULT_INCOMPLETE;
+}
+
+void type_get_integer_range(const struct type* p_type, enum target target, long long* min, unsigned long long* max)
+{
+    const struct type* p_effective_type = p_type;
+    bool is_signed = true;
+    int n_bits = target_get_num_of_bits(target, TYPE_SIGNED_INT); /*fallback: int*/
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
+    {
+        const struct enum_specifier* _Opt p_complete_enum = NULL;
+
+        if (p_type->enum_specifier)
+        {
+            p_complete_enum = get_complete_enum_specifier(p_type->enum_specifier);
+        }
+
+        if (p_complete_enum != NULL)
+        {
+            p_effective_type = &p_complete_enum->integer_type;
+        }
+    }
+
+    size_t sz = 0;
+    if (type_get_sizeof(p_effective_type, &sz, target) == SIZEOF_RESULT_OK && sz > 0)
+    {
+        n_bits = (int)(sz * 8);
+        is_signed = type_is_signed_integer(p_effective_type);
+    }
+
+    if (n_bits > 64)
+        n_bits = 64;
+
+
+    *min = is_signed ? (n_bits >= 64 ? LLONG_MIN : -(long long)(1ULL << (n_bits - 1))) : 0;
+    *max = n_bits >= 64 ? ULLONG_MAX : (1ULL << n_bits) - 1;
 }
 
 void type_set_attributes(struct type* p_type, struct declarator* pdeclarator)

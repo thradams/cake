@@ -1852,6 +1852,15 @@ int r = a ?: b ?: c;   /* 7 */
 
 <p>Reference: <a href="https://www.open-std.org/JTC1/SC22/WG14/www/docs/n3804.txt">https://www.open-std.org/JTC1/SC22/WG14/www/docs/n3804.txt</a></p>
 
+<p><strong>In preprocessor expressions:</strong> the Elvis operator is also accepted in <code>#if</code>/<code>#elif</code> constant expressions:</p>
+
+<pre><code class="language-c">#define VALUE 0
+
+#if VALUE ?: 42
+/* VALUE is falsy, so this branch is taken with value 42 */
+#endif
+</code></pre>
+
 <h3 id="toc_87">10.13 <code>static_assert</code> as an Expression</h3>
 
 <p>In C2Y, <code>static_assert</code> is extended to work not only as a declaration 

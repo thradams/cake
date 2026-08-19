@@ -891,7 +891,21 @@ void set(struct person* p, char* name)
 }
 ```
 
-### 73–127 Reserved / unused warnings
+### 76 Logical operation on address of string constant
+<!-- runnable -->
+
+```c
+int main()
+{
+    char* pc;
+    pc = "Hello";
+    if (pc == "Hello") //warning C0076: logical operation on address of string constant
+    {
+    }
+}
+```
+
+### 73–75, 77–127 Reserved / unused warnings
 
 ## Errors 
 

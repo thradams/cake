@@ -3128,6 +3128,42 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
     return SIZEOF_RESULT_INCOMPLETE;
 }
 
+void type_get_integer_range(const struct type* p_type, enum target target, long long* min, unsigned long long* max)
+{
+    const struct type* p_effective_type = p_type;
+    bool is_signed = true;
+    int n_bits = target_get_num_of_bits(target, TYPE_SIGNED_INT); /*fallback: int*/
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
+    {
+        const struct enum_specifier* _Opt p_complete_enum = NULL;
+
+        if (p_type->enum_specifier)
+        {
+            p_complete_enum = get_complete_enum_specifier(p_type->enum_specifier);
+        }
+
+        if (p_complete_enum != NULL)
+        {
+            p_effective_type = &p_complete_enum->integer_type;
+        }
+    }
+
+    size_t sz = 0;
+    if (type_get_sizeof(p_effective_type, &sz, target) == SIZEOF_RESULT_OK && sz > 0)
+    {
+        n_bits = (int)(sz * 8);
+        is_signed = type_is_signed_integer(p_effective_type);
+    }
+
+    if (n_bits > 64)
+        n_bits = 64;
+
+
+    *min = is_signed ? (n_bits >= 64 ? LLONG_MIN : -(long long)(1ULL << (n_bits - 1))) : 0;
+    *max = n_bits >= 64 ? ULLONG_MAX : (1ULL << n_bits) - 1;
+}
+
 void type_set_attributes(struct type* p_type, struct declarator* pdeclarator)
 {
     if (pdeclarator->declaration_specifiers)

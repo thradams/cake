@@ -5249,6 +5249,16 @@ static void check_comparison(struct parser_ctx* ctx,
         }
     }
 
+    if (equal_not_equal &&
+        (p_a_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL ||
+         p_b_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL))
+    {
+        diagnostic(W_STRING_LITERAL_COMPARISON,
+            ctx,
+            op_token, NULL,
+            "logical operation on address of string constant");
+    }
+
     check_diferent_enuns(ctx,
         op_token,
         p_a_expression,
@@ -7125,6 +7135,18 @@ void check_assigment(struct parser_ctx* ctx,
         return;
     }
 
+    if (type_is_arithmetic(p_a_type) && 
+        type_is_pointer_or_array(p_b_type) 
+        /* && !type_is_nullptr_t(p_b_type)*/)
+    {
+        diagnostic(W_POINTER_TO_INT, ctx,
+            p_b_expression->first_token, NULL,
+            "pointer to integer conversion");
+
+        type_destroy(&b_type_lvalue);
+        return;
+    }
+
     if (is_null_pointer_constant && type_is_pointer(p_a_type))
     {
         //TODO void F(int * [[_Opt]] p)
@@ -7138,7 +7160,7 @@ void check_assigment(struct parser_ctx* ctx,
         return;
     }
 
-    if (is_null_pointer_constant && type_is_array(p_a_type))
+    if (is_null_pointer_constant && type_is_array(p_a_type) && assignment_type == ASSIGMENT_TYPE_PARAMETER)
     {
         diagnostic(W_PASSING_NULL_AS_ARRAY,
             ctx,

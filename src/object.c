@@ -1354,6 +1354,62 @@ int object_set(
                 object_destroy(&temp);
             }
 
+            if (from->state == CONSTANT_VALUE_STATE_CONSTANT &&
+                (object_type_is_signed_integer(from->value_type) || object_type_is_unsigned_integer(from->value_type)) &&
+                (object_type_is_signed_integer(to->value_type) || object_type_is_unsigned_integer(to->value_type)))
+            {
+                bool representable = true;
+
+                /*
+                  compare the source's mathematical value against the exact
+                  range of the destination type (rather than round-tripping
+                  through a wrapping cast, which is not reliable: e.g. a
+                  same-width signed<->unsigned cast is a bijection, so a
+                  wrapped-around value can cast back to the original bit
+                  pattern even though the value was not representable)
+                */
+                const int dest_n_bits = target_get_num_of_bits(ctx->options.target, to->value_type);
+                const bool dest_is_signed = object_type_is_signed_integer(to->value_type);
+
+                const long long dest_min =
+                    !dest_is_signed ? 0 :
+                    dest_n_bits >= 64 ? LLONG_MIN : -(1LL << (dest_n_bits - 1));
+
+                const unsigned long long dest_max =
+                    dest_n_bits >= 64 ?
+                        (dest_is_signed ? (unsigned long long)LLONG_MAX : ~0ULL) :
+                        (dest_is_signed ? (1ULL << (dest_n_bits - 1)) - 1 : (1ULL << dest_n_bits) - 1);
+
+                if (object_type_is_signed_integer(from->value_type))
+                {
+                    const signed long long v = object_to_signed_long_long(from);
+
+                    if (v < dest_min || (v > 0 && (unsigned long long)v > dest_max))
+                        representable = false;
+                }
+                else
+                {
+                    const unsigned long long v = object_to_unsigned_long_long(from);
+
+                    if (v > dest_max)
+                        representable = false;
+                }
+
+                if (!representable && p_init_expression)
+                {
+                    const enum diagnostic_id id =
+                        to->type.storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR ?
+                        C_ERROR_CONSTANT_VALUE_NOT_REPRESENTABLE :
+                        W_CONSTANT_VALUE_NOT_REPRESENTABLE;
+
+                    diagnostic(id,
+                        ctx,
+                        p_init_expression->first_token,
+                        NULL,
+                        "constant expression is not exactly representable in type");
+                }
+            }
+
             if (requires_constant_initialization &&
                 !object_has_constant_value(from))
             {

@@ -120,9 +120,9 @@ enum diagnostic_id {
     W_FLOW_CTOR_NOT_INITIALIZED_AT_EXIT = 71,
     W_FLOW_PARAM_OWNER_CONSUMED_AT_EXIT = 72,
     W_UNKNOWN_ESCAPE_SEQUENCE = 73,
-    W_UNUSED_WARNING_74 = 74,
-    W_UNUSED_WARNING_75 = 75,
-    W_UNUSED_WARNING_76 = 76,
+    W_CONSTANT_VALUE_NOT_REPRESENTABLE = 74,
+    W_POINTER_TO_INT = 75,
+    W_STRING_LITERAL_COMPARISON = 76,
     W_UNUSED_WARNING_77 = 77,
     W_UNUSED_WARNING_78 = 78,
     W_UNUSED_WARNING_79 = 79,
@@ -290,6 +290,7 @@ enum diagnostic_id {
     C_ERROR_PATH_TOO_LONG = 1920,
     C_ERROR_FLOW_WRITE_QUALIFIER_CANNOT_BE_CONST = 1930,
     C_ERROR_FLOW_WRITE_QUALIFIER_MUST_QUALIFY_POINTEE = 1940,
+    C_ERROR_CONSTANT_VALUE_NOT_REPRESENTABLE = 1950,
 };
 
 
@@ -558,6 +559,14 @@ struct options
       at the top (useful for reproducible builds / diffing).
     */
     bool dont_generate_time_stamp;
+
+    /*
+      -keep-inactive-tokens
+      When set, tokens from inactive preprocessor blocks (e.g. #if 0 ... #endif)
+      are kept in memory (needed for tools that recreate source code, like the IDE).
+      By default they are discarded to reduce memory usage.
+    */
+    bool keep_inactive_tokens;
 };
 
 int fill_options(struct options* options,

@@ -6801,6 +6801,19 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
             object_destroy(&newvalue);
 
             is_negative = object_type_is_signed_integer(p_enumerator->value.value_type) && (p_enumerator->value.value.host_long_long < 0);
+
+            if (p_enum_specifier->has_underlying)
+            {
+                bool underlying_signed = type_is_signed_integer(&p_enum_specifier->integer_type);
+                bool under_range = underlying_signed && (p_enumerator->value.value.host_long_long < lo_limit);
+                bool over_range = (underlying_signed && (!is_negative && (unsigned long long)p_enumerator->value.value.host_long_long > hi_limit)) || (!underlying_signed && (p_enumerator->value.value.host_u_long_long > hi_limit));
+
+                if (under_range || over_range)
+                {
+                    diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->token, NULL, "enumerator value outside of underlying type range");
+                    throw;
+                }
+            }
         }
 
         update_enumerator_list_range(p_enumerator, min_value, max_value);
@@ -10623,6 +10636,39 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
 
                     }
                 }
+                else if (p_label->constant_expression && object_has_constant_value(&p_label->constant_expression->object))
+                {
+                    long long range_min = 0;
+                    unsigned long long range_max = 0;
+
+                    type_get_integer_range(&ctx->p_current_switch_statement->condition->expression->type,
+                        ctx->options.target,
+                        &range_min,
+                        &range_max);
+
+                    const struct object* p_case_object = &p_label->constant_expression->object;
+
+                    const bool is_negative =
+                        object_type_is_signed_integer(p_case_object->value_type) &&
+                        object_to_signed_long_long(p_case_object) < 0;
+
+                    const bool out_of_range =
+                        is_negative ?
+                            (object_to_signed_long_long(p_case_object) < range_min) :
+                            (object_to_unsigned_long_long(p_case_object) > range_max);
+
+                    if (out_of_range)
+                    {
+                        char str[200] = { 0 };
+                        object_to_str(p_case_object, sizeof str, str);
+
+                        diagnostic(W_INTEGER_OVERFLOW,
+                            ctx,
+                            p_label->constant_expression->first_token, NULL,
+                            "case constant '%s' too big for the type of the switch expression",
+                            str);
+                    }
+                }
             }
 
         }
@@ -13903,12 +13949,16 @@ static int braced_initializer_new(struct parser_ctx* ctx,
             {
                 bool entire_object_initialized = false;
 
-                if (type_is_array_of_char(&subobject_type) &&
+                if (type_is_array(&subobject_type) &&
                     p_initializer_list_item->initializer->assignment_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL)
                 {
                     /*
                     struct X { int i; char text[4]; };
                     constexpr struct X x = {1, "abc"};
+
+                    Also covers wide/UTF string literals (L"", u8"", u"", U"")
+                    assigned to an array of the matching element type, e.g.
+                    wchar_t str[5][64] = { L"a", L"b", ... };
                     */
                     entire_object_initialized = true;
                 }

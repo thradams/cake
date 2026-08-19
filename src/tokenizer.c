@@ -2171,7 +2171,7 @@ static void skip_blanks_including_newline(struct preprocessor_ctx* ctx, struct t
     }
 }
 
-void prematch_level(struct token_list* dest, struct token_list* input_list, int level, bool is_active)
+void prematch_level(struct preprocessor_ctx* ctx, struct token_list* dest, struct token_list* input_list, int level, bool is_active)
 {
     if (CAKE_INCLUDE_EXTRA_TOKENS || level == 0)
     {
@@ -2180,21 +2180,29 @@ void prematch_level(struct token_list* dest, struct token_list* input_list, int 
         {
             if (is_active)
                 p->flags |= TK_FLAG_ACTIVE;
-            token_list_add(dest, p);
+
+            if (!is_active && !ctx->options.keep_inactive_tokens)
+                token_delete(p);
+            else
+                token_list_add(dest, p);
         }
     }
     else
         token_list_pop_front(input_list);
 }
 
-static void prematch(struct token_list* dest, struct token_list* input_list, bool is_active)
+static void prematch(struct preprocessor_ctx* ctx, struct token_list* dest, struct token_list* input_list, bool is_active)
 {
     struct token* _Owner _Opt p = token_list_pop_front_get(input_list);
     if (p)
     {
         if (is_active)
             p->flags |= TK_FLAG_ACTIVE;
-        token_list_add(dest, p);
+
+        if (!is_active && !ctx->options.keep_inactive_tokens)
+            token_delete(p);
+        else
+            token_list_add(dest, p);
     }
 }
 
@@ -3405,7 +3413,7 @@ struct token_list replacement_group(struct preprocessor_ctx* ctx, struct token_l
             {
                 break;
             }
-            prematch_level(&r, input_list, level, is_active);
+            prematch_level(ctx, &r, input_list, level, is_active);
         }
     }
     catch
@@ -3714,7 +3722,7 @@ struct token_list pp_tokens_opt(struct preprocessor_ctx* ctx, struct token_list*
     struct token_list r = { 0 };
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
-        prematch_level(&r, input_list, level, is_active);
+        prematch_level(ctx, &r, input_list, level, is_active);
     }
     return r;
 }
@@ -3827,7 +3835,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                 while (input_list->head != NULL && input_list->head->type != TK_NEWLINE)
                 {
-                    prematch_level(&pptokens, input_list, level, is_active);
+                    prematch_level(ctx, &pptokens, input_list, level, is_active);
 
                     if (input_list->head == NULL)
                     {
@@ -3861,7 +3869,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "include path is too long (limit is %d characters)", (int)sizeof(path) - 1);
                     throw;
                 }
-                prematch_level(&r, input_list, level, is_active);
+                prematch_level(ctx, &r, input_list, level, is_active);
             }
             else if (input_list->head->type == '<')
             {
@@ -3873,7 +3881,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "include path is too long (limit is %d characters)", (int)sizeof(path) - 1);
                         throw;
                     }
-                    prematch_level(&r, input_list, level, is_active);
+                    prematch_level(ctx, &r, input_list, level, is_active);
 
                     if (input_list->head == NULL)
                     {
@@ -3886,7 +3894,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "include path is too long (limit is %d characters)", (int)sizeof(path) - 1);
                     throw;
                 }
-                prematch_level(&r, input_list, level, is_active);
+                prematch_level(ctx, &r, input_list, level, is_active);
             }
             else
             {
@@ -3896,7 +3904,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             while (input_list->head->type != TK_NEWLINE)
             {
-                prematch_level(&r, input_list, level, is_active);
+                prematch_level(ctx, &r, input_list, level, is_active);
                 if (input_list->head == NULL)
                 {
                     pre_unexpected_end_of_file(r.tail, ctx);
@@ -4015,7 +4023,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                 while (input_list->head != NULL && input_list->head->type != TK_NEWLINE)
                 {
-                    prematch_level(&pptokens, input_list, level, is_active);
+                    prematch_level(ctx, &pptokens, input_list, level, is_active);
 
                     if (input_list->head == NULL)
                     {
@@ -4048,7 +4056,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "embed path is too long (limit is %d characters)", (int)sizeof(path) - 1);
                     throw;
                 }
-                prematch_level(p_list, input_list, level, is_active);
+                prematch_level(ctx, p_list, input_list, level, is_active);
             }
             else if (input_list->head->type == '<')
             {
@@ -4059,7 +4067,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "embed path is too long (limit is %d characters)", (int)sizeof(path) - 1);
                         throw;
                     }
-                    prematch_level(p_list, input_list, level, is_active);
+                    prematch_level(ctx, p_list, input_list, level, is_active);
 
                     if (input_list->head == NULL)
                     {
@@ -4071,7 +4079,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "embed path is too long (limit is %d characters)", (int)sizeof(path) - 1);
                     throw;
                 }
-                prematch_level(p_list, input_list, level, is_active);
+                prematch_level(ctx, p_list, input_list, level, is_active);
             }
             else
             {
@@ -4083,7 +4091,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 while (input_list->head->type != TK_NEWLINE)
                 {
-                    prematch_level(p_list, input_list, level, is_active);
+                    prematch_level(ctx, p_list, input_list, level, is_active);
                     if (input_list->head == NULL)
                     {
                         pre_unexpected_end_of_file(p_list->tail, ctx);
@@ -4678,7 +4686,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
             else
             {
                 token_list_clone_and_add(&p_argument->tokens, input_list->head);
-                prematch_level(&macro_argument_list.tokens, input_list, level, 1);
+                prematch_level(ctx, &macro_argument_list.tokens, input_list, level, 1);
             }
         }
 
@@ -4813,7 +4821,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
             }
             else
             {
-                prematch(&r, input_list, true);
+                prematch(ctx, &r, input_list, true);
             }
         }
     }
@@ -4999,7 +5007,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                     }
                     token_list_append_list(&r, &argumentlist);
                     // ja passa o ## tambem
-                    prematch(&r, input_list, true);
+                    prematch(ctx, &r, input_list, true);
                     token_list_destroy(&argumentlist);
                 }
                 else
@@ -5047,7 +5055,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
             }
             else
             {
-                prematch(&r, input_list, true);
+                prematch(ctx, &r, input_list, true);
             }
         }
     }
@@ -5154,7 +5162,7 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
             throw; //internal error
         }
 
-        prematch(&r, input_list, is_active);
+        prematch(ctx, &r, input_list, is_active);
         r.tail->type = TK_PRAGMA;
         r.tail->flags |= TK_FLAG_FINAL;
 
@@ -5206,7 +5214,7 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
             throw; //internal error
         }
 
-        prematch(&r, input_list, is_active); //)
+        prematch(ctx, &r, input_list, is_active); //)
         r.tail->type = TK_PRAGMA_END;
         r.tail->flags |= TK_FLAG_FINAL;
     }
@@ -5326,7 +5334,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
 
                 //OBS: #def macro have newlinew
                 //_Assert(!(new_list.head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
-                prematch(&r, &new_list, true); //it wasn't macro
+                prematch(ctx, &r, &new_list, true); //it wasn't macro
             }
         }
     }
@@ -5866,7 +5874,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 {
                     if (is_final)
                     {
-                        prematch(&r, input_list, is_active);
+                        prematch(ctx, &r, input_list, is_active);
                         _Assert(r.tail != NULL);
                         r.tail->flags |= TK_FLAG_FINAL;
                     }
@@ -5881,7 +5889,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     {
                         if (level == 0 || CAKE_INCLUDE_EXTRA_TOKENS)
                         {
-                            prematch(&r, input_list, is_active);
+                            prematch(ctx, &r, input_list, is_active);
                         }
                         else
                             token_list_pop_front(input_list); /* TODO: delete */
@@ -5890,7 +5898,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     {
                         if (level == 0 || CAKE_INCLUDE_EXTRA_TOKENS)
                         {
-                            prematch(&r, input_list, is_active);
+                            prematch(ctx, &r, input_list, is_active);
                             if (is_final)
                             {
                                 _Assert(r.tail != NULL);
@@ -5901,7 +5909,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                         {
                             if (is_final)
                             {
-                                prematch(&r, input_list, is_active);
+                                prematch(ctx, &r, input_list, is_active);
                                 _Assert(r.tail != NULL);
                                 r.tail->flags |= TK_FLAG_FINAL;
                             }
@@ -5992,7 +6000,7 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
 
     if (input_list->head->type == TK_BEGIN_OF_FILE)
     {
-        prematch_level(&r, input_list, 1, true); //sempre coloca
+        prematch_level(ctx, &r, input_list, 1, true); //sempre coloca
     }
 
     struct token_list g = group_opt(ctx, input_list, true /*active*/, level);
