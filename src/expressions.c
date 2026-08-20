@@ -822,14 +822,15 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
             }
 
-            p_expression_node->object = object_make_wchar_t(ctx->options.target, c);
+
+            p_expression_node->object = object_make_uint16(ctx->options.target, (uint16_t)c);
         }
         else if (p[0] == 'U')
         {
             p++;
             p++;
 
-            // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
+            // A UTF-32 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
 
             unsigned int c = 0;
@@ -857,7 +858,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
             }
 
-            p_expression_node->object = object_make_wchar_t(ctx->options.target, c);
+            p_expression_node->object = object_make_uint32(ctx->options.target, c);
         }
         else if (p[0] == 'L')
         {
@@ -5576,6 +5577,15 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, bool 
             }
 
             check_comparison(ctx, new_expression->left, new_expression->right, p_token_operator);
+
+            if (type_is_struct_or_union(&new_expression->left->type) ||
+                type_is_struct_or_union(&new_expression->right->type))
+            {
+                diagnostic(C_ERROR_STRUCT_UNION_COMPARISON_ILLEGAL,
+                    ctx,
+                    p_token_operator, NULL,
+                    "struct/union comparison illegal");
+            }
 
             new_expression->last_token = new_expression->right->last_token;
             /* first_token is already the left operand's (set above); it must

@@ -3500,7 +3500,8 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         {
             const bool requires_constant_initialization =
                 (ctx->p_current_function_opt == NULL) ||
-                (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC);
+                (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) ||
+                (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR);
 
             parser_match(ctx);
 
@@ -8145,6 +8146,20 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
         // assert ctx->current_scope->variables parametrosd
         if (p_parameter_declaration->declarator->name_opt)
         {
+            struct map_entry* _Opt p_previous_entry =
+                hashmap_find(&ctx->scopes.tail->variables, p_parameter_declaration->declarator->name_opt->lexeme);
+
+            if (p_previous_entry != NULL &&
+                p_previous_entry->type == TAG_TYPE_DECLARATOR &&
+                p_previous_entry->data.p_declarator != NULL)
+            {
+                diagnostic(C_ERROR_REDECLARATION,
+                    ctx,
+                    p_parameter_declaration->declarator->name_opt,
+                    NULL,
+                    "redefinition of parameter '%s'", p_parameter_declaration->declarator->name_opt->lexeme);
+            }
+
             struct hash_item_set item = { 0 };
             item.p_declarator = declarator_add_ref(p_parameter_declaration->declarator);
 

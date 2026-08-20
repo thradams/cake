@@ -692,6 +692,7 @@ enum diagnostic_id {
     C_ERROR_TOKENIZER_MISSING_TERMINATING = 630,
     C_ERROR_TOKENIZER_MISSING_TERMINATING_QUOTE = 631,
     C_ERROR_TOKENIZER_MISSING_END_OF_COMMENT = 632,
+    C_ERROR_TOKENIZER_EMPTY_CHARACTER_CONSTANT = 633,
 
     C_ERROR_INVALID_QUALIFIER_FOR_POINTER = 640,
     C_ERROR_UNEXPECTED = 650,
@@ -804,6 +805,7 @@ enum diagnostic_id {
     C_ERROR_FLOW_WRITE_QUALIFIER_CANNOT_BE_CONST = 1930,
     C_ERROR_FLOW_WRITE_QUALIFIER_MUST_QUALIFY_POINTEE = 1940,
     C_ERROR_CONSTANT_VALUE_NOT_REPRESENTABLE = 1950,
+    C_ERROR_STRUCT_UNION_COMPARISON_ILLEGAL = 1960,
 };
 
 
@@ -5251,6 +5253,11 @@ struct token* _Owner _Opt character_constant(struct tokenizer_ctx* ctx, struct s
 
     stream_match(stream); //"
 
+    if (stream->current[0] == '\'')
+    {
+        tokenizer_diagnostic(C_ERROR_TOKENIZER_EMPTY_CHARACTER_CONSTANT, ctx, stream, "empty character constant");
+    }
+
     while (stream->current[0] != '\'')
     {
         if (stream->current[0] == '\\')
@@ -5986,10 +5993,11 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
 struct token_list group_opt(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
     /*
-  group:
-   group-part
-   group group-part
-*/
+      group:
+       group-part
+       group group-part
+    */
+
     struct token_list r = { 0 };
     try
     {
@@ -7487,9 +7495,9 @@ struct token_list def_section(struct preprocessor_ctx* ctx, struct token_list* i
 struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
     /*
- if-section:
-   if-group elif-groups_opt else-group_opt endif-line
-*/
+     if-section:
+       if-group elif-groups_opt else-group_opt endif-line
+    */
     _Assert(input_list->head != NULL);
 
     struct token_list r = { 0 };
@@ -7506,7 +7514,8 @@ struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* in
 
         if (input_list->head == NULL)
         {
-            token_list_destroy(&r2);
+            preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, r2.tail, "missing #endif");
+            token_list_destroy(&r2);         
             throw;
         }
 
@@ -7524,8 +7533,8 @@ struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* in
 
         if (input_list->head == NULL)
         {
-            token_list_destroy(&r2);
-            pre_unexpected_end_of_file(r.tail, ctx);
+            preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, r.tail, "missing #endif");
+            token_list_destroy(&r2);            
             throw;
         }
 
@@ -7540,6 +7549,13 @@ struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* in
         if (ctx->n_errors > 0)
         {
             token_list_destroy(&r2);
+            throw;
+        }
+
+        if (input_list->head == NULL)
+        {
+            token_list_destroy(&r2);
+            preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, r.tail, "missing #endif");
             throw;
         }
 
@@ -9919,12 +9935,12 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
 struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
     /*
-group-part:
- if-section
- control-line
- text-line
- # non-directive
-*/
+        group-part:
+         if-section
+         control-line
+         text-line
+         # non-directive
+    */
 
     _Assert(input_list->head != NULL);
 
@@ -9991,6 +10007,28 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
     struct token_list g = group_opt(ctx, input_list, true /*active*/, level);
     token_list_append_list(&r, &g);
     token_list_destroy(&g);
+
+    if (input_list->head != NULL &&
+        input_list->head->type == TK_PREPROCESSOR_LINE &&
+        (preprocessor_token_ahead_is_identifier(input_list->head, "endif") ||
+            preprocessor_token_ahead_is_identifier(input_list->head, "else") ||
+            preprocessor_token_ahead_is_identifier(input_list->head, "elif") ||
+            preprocessor_token_ahead_is_identifier(input_list->head, "elifdef") ||
+            preprocessor_token_ahead_is_identifier(input_list->head, "elifndef")))
+    {
+         /*
+           endif etc, are all consumed after group->group-part->if-section.
+           Findind any of then here means it was not inside if-section.
+         */
+
+        struct token* _Opt p_token = preprocessor_look_ahead_core(input_list->head);
+        const char* directive_name = p_token ? p_token->lexeme : "";
+        preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
+            ctx,
+            input_list->head,
+            "#%s without #if\n", directive_name);
+    }
+
     return r;
 }
 
@@ -23274,14 +23312,15 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
             }
 
-            p_expression_node->object = object_make_wchar_t(ctx->options.target, c);
+
+            p_expression_node->object = object_make_uint16(ctx->options.target, c);
         }
         else if (p[0] == 'U')
         {
             p++;
             p++;
 
-            // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
+            // A UTF-32 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
 
             unsigned int c = 0;
@@ -23309,7 +23348,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
             }
 
-            p_expression_node->object = object_make_wchar_t(ctx->options.target, c);
+            p_expression_node->object = object_make_uint32(ctx->options.target, c);
         }
         else if (p[0] == 'L')
         {
@@ -28029,6 +28068,15 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, bool 
 
             check_comparison(ctx, new_expression->left, new_expression->right, p_token_operator);
 
+            if (type_is_struct_or_union(&new_expression->left->type) ||
+                type_is_struct_or_union(&new_expression->right->type))
+            {
+                diagnostic(C_ERROR_STRUCT_UNION_COMPARISON_ILLEGAL,
+                    ctx,
+                    p_token_operator, NULL,
+                    "struct/union comparison illegal");
+            }
+
             new_expression->last_token = new_expression->right->last_token;
             /* first_token is already the left operand's (set above); it must
                NOT be re-pointed at the operator here -- that is what made
@@ -31072,7 +31120,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 */
 
 //#pragma once
-#define CAKE_VERSION "0.14.29"
+#define CAKE_VERSION "0.14.30"
 
 
 
@@ -34636,7 +34684,8 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         {
             const bool requires_constant_initialization =
                 (ctx->p_current_function_opt == NULL) ||
-                (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC);
+                (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) ||
+                (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR);
 
             parser_match(ctx);
 
@@ -39281,6 +39330,20 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
         // assert ctx->current_scope->variables parametrosd
         if (p_parameter_declaration->declarator->name_opt)
         {
+            struct map_entry* _Opt p_previous_entry =
+                hashmap_find(&ctx->scopes.tail->variables, p_parameter_declaration->declarator->name_opt->lexeme);
+
+            if (p_previous_entry != NULL &&
+                p_previous_entry->type == TAG_TYPE_DECLARATOR &&
+                p_previous_entry->data.p_declarator != NULL)
+            {
+                diagnostic(C_ERROR_REDECLARATION,
+                    ctx,
+                    p_parameter_declaration->declarator->name_opt,
+                    NULL,
+                    "redefinition of parameter '%s'", p_parameter_declaration->declarator->name_opt->lexeme);
+            }
+
             struct hash_item_set item = { 0 };
             item.p_declarator = declarator_add_ref(p_parameter_declaration->declarator);
 
@@ -46945,13 +47008,14 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
             defer_start_visit_declaration(&label_ctx, ctx->p_declaration);
 
-            if (label_ctx.tail_block == NULL || ctx->tail_block == NULL)
-            {
-                throw;
-            }
+            
 
-            struct defer_scope* _Opt p_common =
-                find_common_defer_scope(label_ctx.tail_block /*label*/, ctx->tail_block /*goto*/); 
+            struct defer_scope* _Opt p_common = NULL;
+
+            if (label_ctx.tail_block != NULL || ctx->tail_block != NULL)
+            {
+                p_common = find_common_defer_scope(label_ctx.tail_block /*label*/, ctx->tail_block /*goto*/);
+            }
 
             if (p_common == NULL)
             {

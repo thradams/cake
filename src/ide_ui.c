@@ -604,6 +604,12 @@ struct ui_node {
                             * Shift+mouse-wheel; see editor_clamp_hscroll */
     int dirty;            /* EDITOR only: 1 if edited since the last
                             * ui_set_dirty(n, 0) (e.g. a "Save"), else 0 */
+    int crlf;             /* EDITOR only: 1 if the file this document was
+                            * loaded from used CRLF line endings, else 0 -
+                            * set once via ui_set_crlf when the file is read
+                            * (the buffer itself always stays LF-only) and
+                            * reused on every Save so the file's original
+                            * line-ending style round-trips unchanged */
     int selected;         /* SELECT/LISTBOX/GROUP: index of the chosen <item>
                             * child (GROUP single-select mode); GROUP items
                             * also reuse this as their own 0/1 checked flag in

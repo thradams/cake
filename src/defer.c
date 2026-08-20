@@ -591,13 +591,14 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
             defer_start_visit_declaration(&label_ctx, ctx->p_declaration);
 
-            if (label_ctx.tail_block == NULL || ctx->tail_block == NULL)
-            {
-                throw;
-            }
+            
 
-            struct defer_scope* _Opt p_common =
-                find_common_defer_scope(label_ctx.tail_block /*label*/, ctx->tail_block /*goto*/); 
+            struct defer_scope* _Opt p_common = NULL;
+
+            if (label_ctx.tail_block != NULL && ctx->tail_block != NULL)
+            {
+                p_common = find_common_defer_scope(label_ctx.tail_block /*label*/, ctx->tail_block /*goto*/);
+            }
 
             if (p_common == NULL)
             {

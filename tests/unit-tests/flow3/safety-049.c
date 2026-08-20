@@ -6,7 +6,7 @@ struct X {
 
 struct X * make();
 
-void f(struct X *p,  int * p);
+void f(struct X *p,  int * p2);
 
 int main()
 {

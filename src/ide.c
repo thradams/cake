@@ -4251,6 +4251,63 @@ static ui_node* find_open_window(const char* path)
  * compile what's on screen, not stale content already on disk. No-op if
  * there's no active window or it has no path (shouldn't happen - every
  * editor window gets one, real or a NONAMEnn.C placeholder). */
+/* Writes `content` to `f`, optionally expanding '\n' to "\r\n" so saved
+ * files keep whichever line ending is asked for; written verbatim otherwise. */
+static void fwrite_text(const char* content, size_t len, FILE* f, int crlf)
+{
+    if (crlf)
+    {
+        for (size_t i = 0; i < len; i++)
+        {
+            if (content[i] == '\n')
+                fputc('\r', f);
+            fputc(content[i], f);
+        }
+    }
+    else
+    {
+        fwrite(content, 1, len, f);
+    }
+}
+
+/* Whether `path`'s existing content (if any) uses CRLF line endings, checked
+ * by peeking at the bytes before the first '\n'. Used so Save keeps a file's
+ * original line-ending style instead of silently converting it - important
+ * when the same file is edited from both Windows and Linux (see
+ * normalize_newlines): always forcing the platform's native ending here would
+ * flip every line of a Linux-authored file to CRLF the first time it's saved
+ * from Windows, and vice versa. No existing file (a brand-new save) falls
+ * back to the platform's native ending. */
+static int file_uses_crlf(const char* path)
+{
+    FILE* f = fopen(path, "rb");
+    if (!f)
+#ifdef _WIN32
+        return 1;
+#else
+        return 0;
+#endif
+    int prev = 0, c, saw_nl = 0, crlf = 0;
+    while ((c = fgetc(f)) != EOF)
+    {
+        if (c == '\n')
+        {
+            saw_nl = 1;
+            crlf = (prev == '\r');
+            break;
+        }
+        prev = c;
+    }
+    fclose(f);
+    if (!saw_nl)
+#ifdef _WIN32
+        return 1;
+#else
+        return 0;
+#endif
+    return crlf;
+}
+
 static void save_active_file(ui_node* active)
 {
     ui_node* editor = editor_in_window(active);
@@ -4258,11 +4315,13 @@ static void save_active_file(ui_node* active)
     if (!editor || !path[0])
         return;
 
+    int crlf = file_uses_crlf(path);
+
     FILE* f = fopen(path, "wb");
     if (!f)
         return;
     const char* content = ui_get_value(editor);
-    fwrite(content, 1, strlen(content), f);
+    fwrite_text(content, strlen(content), f, crlf);
     fclose(f);
     ui_set_dirty(editor, 0);
 }
@@ -7196,7 +7255,7 @@ static void on_ui_event(void* ctx, int id, void* param)
                 FILE* f = fopen(path, "wb");
                 if (f)
                 {
-                    fwrite(g_md_codeblock_text, 1, strlen(g_md_codeblock_text), f);
+                    fwrite_text(g_md_codeblock_text, strlen(g_md_codeblock_text), f, file_uses_crlf(path));
                     fclose(f);
                 }
 
@@ -8010,7 +8069,7 @@ static void open_playground(void)
         FILE* pf = fopen(path, "wb");
         if (pf)
         {
-            fwrite(playground_default, 1, sizeof playground_default - 1, pf);
+            fwrite_text(playground_default, sizeof playground_default - 1, pf, file_uses_crlf(path));
             fclose(pf);
         }
     }

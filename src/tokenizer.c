@@ -1266,6 +1266,11 @@ struct token* _Owner _Opt character_constant(struct tokenizer_ctx* ctx, struct s
 
     stream_match(stream); //"
 
+    if (stream->current[0] == '\'')
+    {
+        tokenizer_diagnostic(C_ERROR_TOKENIZER_EMPTY_CHARACTER_CONSTANT, ctx, stream, "empty character constant");
+    }
+
     while (stream->current[0] != '\'')
     {
         if (stream->current[0] == '\\')
@@ -2001,10 +2006,11 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
 struct token_list group_opt(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
     /*
-  group:
-   group-part
-   group group-part
-*/
+      group:
+       group-part
+       group group-part
+    */
+
     struct token_list r = { 0 };
     try
     {
@@ -3502,9 +3508,9 @@ struct token_list def_section(struct preprocessor_ctx* ctx, struct token_list* i
 struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
     /*
- if-section:
-   if-group elif-groups_opt else-group_opt endif-line
-*/
+     if-section:
+       if-group elif-groups_opt else-group_opt endif-line
+    */
     _Assert(input_list->head != NULL);
 
     struct token_list r = { 0 };
@@ -3521,7 +3527,8 @@ struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* in
 
         if (input_list->head == NULL)
         {
-            token_list_destroy(&r2);
+            preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, r2.tail, "missing #endif");
+            token_list_destroy(&r2);         
             throw;
         }
 
@@ -3539,8 +3546,8 @@ struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* in
 
         if (input_list->head == NULL)
         {
-            token_list_destroy(&r2);
-            pre_unexpected_end_of_file(r.tail, ctx);
+            preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, r.tail, "missing #endif");
+            token_list_destroy(&r2);            
             throw;
         }
 
@@ -3555,6 +3562,13 @@ struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* in
         if (ctx->n_errors > 0)
         {
             token_list_destroy(&r2);
+            throw;
+        }
+
+        if (input_list->head == NULL)
+        {
+            token_list_destroy(&r2);
+            preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, r.tail, "missing #endif");
             throw;
         }
 
@@ -5934,12 +5948,12 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
 struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
     /*
-group-part:
- if-section
- control-line
- text-line
- # non-directive
-*/
+        group-part:
+         if-section
+         control-line
+         text-line
+         # non-directive
+    */
 
     _Assert(input_list->head != NULL);
 
@@ -6006,6 +6020,28 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
     struct token_list g = group_opt(ctx, input_list, true /*active*/, level);
     token_list_append_list(&r, &g);
     token_list_destroy(&g);
+
+    if (input_list->head != NULL &&
+        input_list->head->type == TK_PREPROCESSOR_LINE &&
+        (preprocessor_token_ahead_is_identifier(input_list->head, "endif") ||
+            preprocessor_token_ahead_is_identifier(input_list->head, "else") ||
+            preprocessor_token_ahead_is_identifier(input_list->head, "elif") ||
+            preprocessor_token_ahead_is_identifier(input_list->head, "elifdef") ||
+            preprocessor_token_ahead_is_identifier(input_list->head, "elifndef")))
+    {
+         /*
+           endif etc, are all consumed after group->group-part->if-section.
+           Findind any of then here means it was not inside if-section.
+         */
+
+        struct token* _Opt p_token = preprocessor_look_ahead_core(input_list->head);
+        const char* directive_name = p_token ? p_token->lexeme : "";
+        preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
+            ctx,
+            input_list->head,
+            "#%s without #if\n", directive_name);
+    }
+
     return r;
 }
 
