@@ -843,6 +843,9 @@ struct declarator
 
     int num_uses; /*used to show not used warnings*/
 
+    /* Set when `&name` is taken anywhere*/
+    bool address_taken;
+
     struct object object;
 
     /*user by flow analysis*/
@@ -864,6 +867,12 @@ struct declarator
       used in code generation to indicate when the declarator was renamed
     */
     bool declarator_renamed;
+
+    /*
+      true once this declarator has been given an initializer,
+      used to detect redefinition of file-scope objects
+    */
+    bool initialized;
 };
 
 struct function_declarator* _Opt declarator_find_function_declarator(const struct declarator* p_declarator);

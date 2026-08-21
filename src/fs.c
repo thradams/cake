@@ -369,6 +369,14 @@ int get_self_path(char* buffer, int maxsize) {
     buffer[maxsize - 1] = '\0';
     return 0;
 }
+#else
+
+int get_self_path(char* buffer, int maxsize)
+{
+    if (maxsize > 0)
+        buffer[0] = 0;
+    return 1;
+}
 #endif
 
 

@@ -636,6 +636,7 @@ enum diagnostic_id {
     W_CONSTANT_VALUE_NOT_REPRESENTABLE = 74,
     W_POINTER_TO_INT = 75,
     W_STRING_LITERAL_COMPARISON = 76,
+    W_STATIC_FUNCTION_NOT_DEFINED = 77,
     W_UNUSED_WARNING_77 = 77,
     W_UNUSED_WARNING_78 = 78,
     W_UNUSED_WARNING_79 = 79,
@@ -806,6 +807,9 @@ enum diagnostic_id {
     C_ERROR_FLOW_WRITE_QUALIFIER_MUST_QUALIFY_POINTEE = 1940,
     C_ERROR_CONSTANT_VALUE_NOT_REPRESENTABLE = 1950,
     C_ERROR_STRUCT_UNION_COMPARISON_ILLEGAL = 1960,
+    C_ERROR_ILLEGAL_USE_OF_TYPE_VOID = 1970,
+    C_ERROR_EXTERN_WITH_INITIALIZER_AT_BLOCK_SCOPE = 1980,
+    C_ERROR_VOID_PARAMETER_NOT_ALONE = 1990,
 };
 
 
@@ -1532,7 +1536,7 @@ struct preprocessor_ctx
     struct hash_map macros;
     struct include_dir_list include_dir;
         
-    char cake_config_path[200]; /*we store the final path to the config file, helps when a header is not found*/
+    bool cake_config_found; /*whether cakeconf.h (next to the executable) was found and used*/
 
     /*map of pragma once already included files*/
     struct hash_map pragma_once_map;
@@ -1604,7 +1608,8 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk);
 void print_all_macros(const struct preprocessor_ctx* prectx);
 
 
-int include_config_header(struct preprocessor_ctx* ctx, const char* file_name);
+int include_config_header(struct preprocessor_ctx* ctx);
+void get_cake_config_path(char* out, size_t out_size);
 int stringify(const char* input, int n, char output[]);
 void print_path(const char* path, bool fullpath);
 int preprocessor_copy_included_headers(const struct preprocessor_ctx* ctx, const char* dest_dir);
@@ -3390,11 +3395,13 @@ void map_entry_delete(struct map_entry* _Owner _Opt p)
 
         switch (p->type)
         {
-        case TAG_TYPE_NUMBER:break;
+        case TAG_TYPE_NUMBER:
+            break;
 
         case TAG_TYPE_ENUM_SPECIFIER:
             enum_specifier_delete(p->data.p_enum_specifier);
             break;
+            
         case TAG_TYPE_STRUCT_OR_UNION_SPECIFIER:
             struct_or_union_specifier_delete(p->data.p_struct_or_union_specifier);
             break;
@@ -3402,12 +3409,15 @@ void map_entry_delete(struct map_entry* _Owner _Opt p)
         case TAG_TYPE_ENUMERATOR:
             enumerator_delete(p->data.p_enumerator);
             break;
+
         case TAG_TYPE_DECLARATOR:
             declarator_delete(p->data.p_declarator);
             break;
+
         case TAG_TYPE_INIT_DECLARATOR:
             init_declarator_delete(p->data.p_init_declarator);
             break;
+
         case TAG_TYPE_MACRO:
             macro_delete(p->data.p_macro);
             break;
@@ -3430,7 +3440,6 @@ void map_entry_delete(struct map_entry* _Owner _Opt p)
 
 void hashmap_remove_all(struct hash_map* map)
 {
-
     if (map->table != NULL)
     {
         for (int i = 0; i < map->capacity; i++)
@@ -3661,6 +3670,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
                 _Assert(pentry->data.p_enum_specifier != NULL);
                 item->p_enum_specifier = pentry->data.p_enum_specifier;
                 break;
+                
             case TAG_TYPE_STRUCT_OR_UNION_SPECIFIER:
                 _Assert(pentry->data.p_struct_or_union_specifier != NULL);
                 item->p_struct_or_union_specifier = pentry->data.p_struct_or_union_specifier;
@@ -3670,22 +3680,27 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
                 _Assert(pentry->data.p_enumerator != NULL);
                 item->p_enumerator = pentry->data.p_enumerator;
                 break;
+                
             case TAG_TYPE_DECLARATOR:
                 _Assert(pentry->data.p_declarator != NULL);
                 item->p_declarator = pentry->data.p_declarator;
                 break;
+                
             case TAG_TYPE_INIT_DECLARATOR:
                 _Assert(pentry->data.p_init_declarator != NULL);
                 item->p_init_declarator = pentry->data.p_init_declarator;
                 break;
+                
             case TAG_TYPE_MACRO:
                 _Assert(pentry->data.p_macro != NULL);
                 item->p_macro = pentry->data.p_macro;
                 break;
+                
             case TAG_TYPE_STRUCT_ENTRY:
                 _Assert(pentry->data.p_struct_entry != NULL);
                 item->p_struct_entry = pentry->data.p_struct_entry;
                 break;
+                
             case TAG_TYPE_TEXT:
                 _Assert(pentry->data.p_struct_entry != NULL);
                 item->text = pentry->data.p_text;
@@ -6391,6 +6406,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 {
                     if (input_list->head == NULL)
                     {
+                        pre_unexpected_end_of_file(r.tail, ctx);
                         throw;
                     }
 
@@ -7627,6 +7643,16 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
                 break;
             }
 
+            for (struct macro_parameter* _Opt p_existing = macro->parameters; p_existing; p_existing = p_existing->next)
+            {
+                if (strcmp(p_existing->name, input_list->head->lexeme) == 0)
+                {
+                    preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, input_list->head,
+                        "cannot reuse macro parameter name '%s'", input_list->head->lexeme);
+                    throw;
+                }
+            }
+
             struct macro_parameter* _Owner _Opt p_new_macro_parameter = calloc(1, sizeof * p_new_macro_parameter);
             if (p_new_macro_parameter == NULL)
                 throw;
@@ -7965,13 +7991,16 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 {
                     preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, r.tail, "file %s not found", path + 1);
 
-                    if (ctx->cake_config_path[0] == '\0')
+                    char cake_config_path[FS_MAX_PATH] = { 0 };
+                    get_cake_config_path(cake_config_path, sizeof cake_config_path);
+
+                    if (!ctx->cake_config_found)
                     {
-                        printf("cakeconf.h (config file) not used or not found\n");
+                        printf("cakeconf.h (config file) not found\n%s\n", cake_config_path);
                     }
                     else
                     {
-                        printf("Using cakeconf.h\n%s\n", ctx->cake_config_path);
+                        printf("Using cakeconf.h\n%s\n", cake_config_path);
                     }
                     printf("\n");
 
@@ -8376,7 +8405,79 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
            # line pp-tokens new-line
         */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //line
+
+            /*
+              #line's pp-tokens undergo macro replacement before the result
+              is checked against digit-sequence [ "s-char-sequence" ] --
+              e.g. #define FNAME "test.c" / #line 777 FNAME. Expand first,
+              the same way #include does for a non-header-name form.
+            */
+            {
+                struct token_list pptokens = { 0 };
+                while (input_list->head != NULL && input_list->head->type != TK_NEWLINE)
+                {
+                    prematch_level(ctx, &pptokens, input_list, level, is_active);
+
+                    if (input_list->head == NULL)
+                    {
+                        pre_unexpected_end_of_file(pptokens.tail, ctx);
+                        token_list_destroy(&pptokens);
+                        throw;
+                    }
+                }
+
+                struct token_list expanded = replacement_list_reexamination(ctx, NULL, &pptokens, level, pptokens.head);
+
+                if (ctx->n_errors > 0)
+                {
+                    token_list_destroy(&pptokens);
+                    token_list_destroy(&expanded);
+                    throw;
+                }
+
+                token_list_append_list_at_beginning(input_list, &expanded);
+                token_list_destroy(&expanded);
+                token_list_destroy(&pptokens);
+            }
+
             struct token_list r5 = pp_tokens_opt(ctx, input_list, level, is_active);
+
+            if (is_active)
+            {
+                struct token* _Opt p_line_number = NULL;
+                struct token* _Opt p_filename = NULL;
+                for (struct token* _Opt p = r5.head; p; p = p->next)
+                {
+                    if (p->type == TK_BLANKS)
+                    {
+                        continue;
+                    }
+                    if (p_line_number == NULL)
+                    {
+                        p_line_number = p;
+                    }
+                    else if (p_filename == NULL)
+                    {
+                        p_filename = p;
+                    }
+                }
+
+                if (p_line_number == NULL || p_line_number->type != TK_PPNUMBER)
+                {
+                    preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx,
+                        p_line_number != NULL ? p_line_number : r.tail,
+                        "#line requires a number as its first argument");
+                }
+                else if (p_filename != NULL)
+                {
+                    if (!(p_filename->type == TK_STRING_LITERAL && p_filename->lexeme[0] == '"')) //lint  68 33 33 bug flow
+                    {
+                        preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, p_filename,
+                            "#line filename must be a plain string literal, without prefix or suffix");
+                    }
+                }
+            }
+
             token_list_append_list(&r, &r5);
             token_list_destroy(&r5);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
@@ -10083,85 +10184,38 @@ void check_unused_macros(const struct hash_map* map)
     }
 }
 
-int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
+// cakeconf.h always lives next to the cake executable
+void get_cake_config_path(char* out, size_t out_size)
 {
-    char local_cakeconfig_path[FS_MAX_PATH] = { 0 };
-    char dir_path[FS_MAX_PATH] = { 0 };
+    char executable_path[FS_MAX_PATH - sizeof(CAKE_CONFIG_FILE_NAME)] = { 0 };
+    get_self_path(executable_path, sizeof(executable_path));
+    dirname(executable_path);
+    snprintf(out, out_size, "%s/" CAKE_CONFIG_FILE_NAME, executable_path);
+}
 
+int include_config_header(struct preprocessor_ctx* ctx)
+{
+    ctx->cake_config_found = false;
 
-    ctx->cake_config_path[0] = '\0';
+    char cake_config_path[FS_MAX_PATH] = { 0 };
+    get_cake_config_path(cake_config_path, sizeof cake_config_path);
 
-    // Copy file_name to dir_path and get its directory
-    snprintf(dir_path, sizeof dir_path, "%s", file_name);
-    dirname(dir_path);
+    char* _Owner _Opt str = read_file(cake_config_path, true);
 
-    // Build the full path using the separate directory buffer
-    snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s/" CAKE_CONFIG_FILE_NAME, dir_path);
-
-    char* _Owner _Opt str = read_file(local_cakeconfig_path, true);
-
-    if (str && ctx->options.show_includes)
-    {
-        printf(".%s\n", local_cakeconfig_path);
-    }
-
-    // Store the path if found
     if (str)
     {
-        snprintf(ctx->cake_config_path, sizeof ctx->cake_config_path, "%s", local_cakeconfig_path);
-    }
-
-    while (str == NULL)
-    {
-        // Use dir_path as the working buffer for directory traversal
-        dirname(dir_path);
-
-        if (dir_path[0] == '\0')
-            break;
-
-        // Build path using dir_path
-        snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s/" CAKE_CONFIG_FILE_NAME, dir_path);
-        str = read_file(local_cakeconfig_path, true);
-        if (str && ctx->options.show_includes)
+        ctx->cake_config_found = true;
+        if (ctx->options.show_includes)
         {
-            printf(".%s\n", local_cakeconfig_path);
-        }
-
-        // Store the path if found
-        if (str)
-        {
-            snprintf(ctx->cake_config_path, sizeof ctx->cake_config_path, "%s", local_cakeconfig_path);
+            printf(".%s\n", cake_config_path);
         }
     }
-
-    if (str == NULL)
-    {
-        // Search cakeconfig at cake executable dir
-        char executable_path[FS_MAX_PATH - sizeof(CAKE_CONFIG_FILE_NAME)] = { 0 };
-        get_self_path(executable_path, sizeof(executable_path));
-        dirname(executable_path);
-        char root_cakeconfig_path[FS_MAX_PATH] = { 0 };
-        snprintf(root_cakeconfig_path, sizeof root_cakeconfig_path, "%s/" CAKE_CONFIG_FILE_NAME, executable_path);
-        str = read_file(root_cakeconfig_path, true);
-        if (str && ctx->options.show_includes)
-        {
-            printf(".%s\n", root_cakeconfig_path);
-        }
-
-        // Store the path if found
-        if (str)
-        {
-            snprintf(ctx->cake_config_path, sizeof ctx->cake_config_path, "%s", root_cakeconfig_path);
-        }
-    }
-
-    if (str == NULL)
+    else
     {
         if (ctx->options.show_includes)
         {
             printf(".(" CAKE_CONFIG_FILE_NAME " not found)\n");
         }
-        // final_path remains empty string (already set at start)
         return ENOENT;
     }
 
@@ -12921,6 +12975,14 @@ int get_self_path(char* buffer, int maxsize) {
     strncpy(buffer, resolved, maxsize - 1);
     buffer[maxsize - 1] = '\0';
     return 0;
+}
+#else
+
+int get_self_path(char* buffer, int maxsize)
+{
+    if (maxsize > 0)
+        buffer[0] = 0;
+    return 1;
 }
 #endif
 
@@ -17982,6 +18044,9 @@ struct declarator
 
     int num_uses; /*used to show not used warnings*/
 
+    /* Set when `&name` is taken anywhere*/
+    bool address_taken;
+
     struct object object;
 
     /*user by flow analysis*/
@@ -18003,6 +18068,12 @@ struct declarator
       used in code generation to indicate when the declarator was renamed
     */
     bool declarator_renamed;
+
+    /*
+      true once this declarator has been given an initializer,
+      used to detect redefinition of file-scope objects
+    */
+    bool initialized;
 };
 
 struct function_declarator* _Opt declarator_find_function_declarator(const struct declarator* p_declarator);
@@ -23313,7 +23384,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             }
 
 
-            p_expression_node->object = object_make_uint16(ctx->options.target, c);
+            p_expression_node->object = object_make_uint16(ctx->options.target, (uint16_t)c);
         }
         else if (p[0] == 'U')
         {
@@ -25899,6 +25970,11 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
 
                 new_expression->type = type_add_pointer(&new_expression->right->type, ctx->options.null_checks_enabled);
                 new_expression->type.address_of = true;
+
+                if (new_expression->right->declarator)
+                {
+                    new_expression->right->declarator->address_taken = true;
+                }
             }
             else
             {
@@ -26924,6 +27000,17 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
 
                 p_expression_node->type = type_dup(&p_expression_node->type_name->type);
 
+                if (type_is_function(&p_expression_node->type))
+                {
+                    diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->first_token, NULL,
+                        "cast to function type is illegal");
+                }
+                else if (type_is_array(&p_expression_node->type))
+                {
+                    diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->first_token, NULL,
+                        "cast to array type is illegal");
+                }
+
                 if (!is_first_of_unary_expression(ctx))
                 {
                     diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "expected expression");
@@ -26939,7 +27026,16 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                     throw;
                 }
 
-                if (type_is_floating_point(&p_expression_node->type) &&
+                if (type_is_void(&p_expression_node->left->type) &&
+                    !type_is_void(&p_expression_node->type))
+                {
+                    diagnostic(C_ERROR_UNEXPECTED,
+                        ctx,
+                        p_expression_node->first_token,
+                        NULL,
+                        "cast of 'void' term to non-'void' is illegal");
+                }
+                else if (type_is_floating_point(&p_expression_node->type) &&
                     type_is_pointer(&p_expression_node->left->type))
                 {
                     diagnostic(C_ERROR_POINTER_TO_FLOATING_TYPE,
@@ -27687,20 +27783,64 @@ static void check_comparison(struct parser_ctx* ctx,
     struct type* p_a_type = &p_a_expression->type;
     struct type* p_b_type = &p_b_expression->type;
 
-    if (type_is_pointer(p_a_type) && type_is_integer(p_b_type))
+    /*
+      Equality operators (6.5.10)
+      One of the following shall hold:
+      — both operands have arithmetic type;
+      — both operands are pointers to qualified or unqualified versions of compatible types;
+      — one operand is a pointer to an object type and the other is a pointer to a qualified or unqualified
+        version of void; or
+      — one operand is a pointer and the other is a null pointer constant.
+
+      Relational operators (6.5.9)
+      One of the following shall hold:
+      — both operands have real type;
+      — both operands are pointers to qualified or unqualified versions of compatible object types.
+    */
+    if (type_is_arithmetic(p_a_type) && type_is_arithmetic(p_b_type))
     {
-        if (expression_is_zero(p_b_expression))
+        /* both operands have arithmetic type - ok */
+    }
+    else if (type_is_pointer(p_a_type) && type_is_pointer(p_b_type))
+    {
+        if (type_is_void_ptr(p_a_type) || type_is_void_ptr(p_b_type))
         {
-            // p == 0
-            //style warning
+            /* one operand is a pointer to void - ok (only valid for == / !=, but accepted here) */
+        }
+        else if (!type_is_same(p_a_type, p_b_type, false))
+        {
+            diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
+                ctx,
+                op_token, NULL,
+                "comparison of distinct pointer types");
+        }
+    }
+    else if (type_is_pointer(p_a_type) && !type_is_pointer(p_b_type))
+    {
+        if (equal_not_equal && expression_is_null_pointer_constant(p_b_expression))
+        {
+            /* p == 0 - ok */
         }
         else
         {
-            /* array functions */
             diagnostic(W_ENUN_CONVERSION,
                 ctx,
                 op_token, NULL,
-                "comparison between pointer and integer");
+                "operands differ in levels of indirection");
+        }
+    }
+    else if (!type_is_pointer(p_a_type) && type_is_pointer(p_b_type))
+    {
+        if (equal_not_equal && expression_is_null_pointer_constant(p_a_expression))
+        {
+            /* 0 == p - ok */
+        }
+        else
+        {
+            diagnostic(W_ENUN_CONVERSION,
+                ctx,
+                op_token, NULL,
+                "operands differ in levels of indirection");
         }
     }
 
@@ -31120,8 +31260,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 */
 
 //#pragma once
-#define CAKE_VERSION "0.14.30"
-
+#define CAKE_VERSION "0.14.31"
 
 
 
@@ -33925,6 +34064,16 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                         throw;
                 }
             }
+            else if (ctx->current->type == '{' &&
+                !(default_storage_class_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE))
+            {
+                diagnostic(C_ERROR_UNEXPECTED_TOKEN,
+                    ctx,
+                    ctx->current,
+                    NULL,
+                    "found '{' at file scope (missing function header?)");
+                throw;
+            }
             else
             {
                 if (ctx->current->type == TK_IDENTIFIER)
@@ -34543,6 +34692,16 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
         _Assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
 
+        if (type_is_void(&p_init_declarator->p_declarator->type) &&
+            !(p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF))
+        {
+            diagnostic(C_ERROR_ILLEGAL_USE_OF_TYPE_VOID,
+                ctx,
+                tkname,
+                NULL,
+                "this use of 'void' is not valid");
+        }
+
         _Assert(ctx->scopes.tail != NULL);
 
         /*
@@ -34682,6 +34841,25 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
         if (ctx->current->type == '=')
         {
+            if (type_is_function(&p_init_declarator->p_declarator->type))
+            {
+                diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL,
+                    "'%s' function initialization is not allowed", declarator_name);
+            }
+
+            if (p_previous_declarator &&
+                p_previous_declarator->initialized &&
+                out_scope->scope_level == 0 &&
+                ctx->scopes.tail->scope_level == 0)
+            {
+                if (diagnostic(C_ERROR_REDECLARATION, ctx, ctx->current, NULL,
+                    "redefinition of '%s'", declarator_name))
+                {
+                    diagnostic(W_LOCATION, ctx, p_previous_declarator->name_opt, NULL,
+                        "previous definition");
+                }
+            }
+
             const bool requires_constant_initialization =
                 (ctx->p_current_function_opt == NULL) ||
                 (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) ||
@@ -34695,6 +34873,28 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             if (p_init_declarator->initializer == NULL)
             {
                 throw;
+            }
+
+            p_init_declarator->p_declarator->initialized = true;
+
+            if ((p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN) &&
+                ctx->scopes.tail->scope_level != 0)
+            {
+                diagnostic(C_ERROR_EXTERN_WITH_INITIALIZER_AT_BLOCK_SCOPE,
+                    ctx,
+                    p_init_declarator->p_declarator->first_token_opt,
+                    NULL,
+                    "'%s': cannot initialize extern variables with block scope", declarator_name);
+            }
+
+            if (p_init_declarator->initializer->assignment_expression != NULL &&
+                type_is_struct_or_union(&p_init_declarator->p_declarator->type) &&
+                !type_is_same(&p_init_declarator->p_declarator->type,
+                    &p_init_declarator->initializer->assignment_expression->type,
+                    false))
+            {
+                diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL,
+                    "'%s': initialization requires a brace-enclosed initializer list", declarator_name);
             }
 
             if (p_init_declarator->initializer->braced_initializer)
@@ -39181,8 +39381,27 @@ struct parameter_list* _Owner _Opt parameter_list(struct parser_ctx* ctx)
         if (p_parameter_declaration == NULL)
             throw;
 
+        struct parameter_declaration* p_first_parameter_declaration = p_parameter_declaration;
+
         parameter_list_add(p_parameter_list, p_parameter_declaration);
         p_parameter_declaration = NULL; /*MOVED*/
+
+        if (ctx->current != NULL &&
+            ctx->current->type == ',' &&
+            p_first_parameter_declaration->declarator != NULL &&
+            type_is_void(&p_first_parameter_declaration->declarator->type)) //lint 31 31 31 still alive
+        {
+            /* void followed by more parameters: int f(void, int); */
+            struct token* _Opt p_token = p_first_parameter_declaration->declarator->first_token_opt;
+            if (p_token == NULL)
+                p_token = ctx->current;
+
+            diagnostic(C_ERROR_VOID_PARAMETER_NOT_ALONE,
+                ctx,
+                p_token,
+                NULL,
+                "'void' must be the first and only parameter if specified");
+        }
 
         while (ctx->current != NULL && ctx->current->type == ',')
         {
@@ -39205,6 +39424,21 @@ struct parameter_list* _Owner _Opt parameter_list(struct parser_ctx* ctx)
             p_parameter_declaration = parameter_declaration(ctx);
             if (p_parameter_declaration == NULL)
                 throw;
+
+            if (p_parameter_declaration->declarator != NULL &&
+                type_is_void(&p_parameter_declaration->declarator->type))
+            {
+                /* void as a later parameter: int f(int, void); */
+                struct token* _Opt p_token = p_parameter_declaration->declarator->first_token_opt;
+                if (p_token == NULL)
+                    p_token = ctx->current;
+
+                diagnostic(C_ERROR_VOID_PARAMETER_NOT_ALONE,
+                    ctx,
+                    p_token,
+                    NULL,
+                    "'void' must be the first and only parameter if specified");
+            }
 
             parameter_list_add(p_parameter_list, p_parameter_declaration);
             p_parameter_declaration = NULL; /*MOVED*/
@@ -43971,6 +44205,17 @@ static void check_unused_static_declarators(const struct parser_ctx* ctx, struct
 
                     _Assert(p_declarator_local);
 
+                    if (type_is_function(&p->init_declarator_list.head->p_declarator->type) &&
+                        declarator_get_function_definition(p_declarator_local) == NULL)
+                    {
+                        diagnostic(W_STATIC_FUNCTION_NOT_DEFINED,
+                            ctx,
+                            p->init_declarator_list.head->p_declarator->name_opt,
+                            NULL,
+                            "static function '%s' declared but not defined",
+                            p->init_declarator_list.head->p_declarator->name_opt->lexeme);
+                    }
+
                     int num_uses = p_declarator_local->num_uses;
                     if (num_uses == 0)
                     {
@@ -45655,7 +45900,7 @@ int compile_one_file(const char* file_name,
 
     add_standard_macros(&prectx, options->target);
     
-    if (include_config_header(&prectx, file_name) != 0)
+    if (include_config_header(&prectx) != 0)
     {
         //cakeconf.h is optional               
     }
@@ -46574,21 +46819,29 @@ static void defer_visit_secondary_block(struct defer_visit_ctx* ctx, struct seco
 
 static void defer_visit_defer_statement(struct defer_visit_ctx* ctx, struct defer_statement* p_defer_statement)
 {
-    struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
-    if (p_defer == NULL)
-        return;
-
-    p_defer->p_defer_statement = p_defer_statement;
-
-    struct defer_scope* _Opt p_defer_block = defer_visit_ctx_push_child(ctx);
-    if (p_defer_block == NULL)
-        return;
-
-    p_defer_block->p_defer_block = p_defer_statement;
-    if (p_defer_statement->unlabeled_statement)
-        defer_visit_unlabeled_statement(ctx, p_defer_statement->unlabeled_statement);
-
-    defer_visit_ctx_pop_until(ctx, p_defer_block, NULL);
+    try 
+    {
+        struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
+        if (p_defer == NULL)
+            throw;
+    
+        p_defer->p_defer_statement = p_defer_statement;
+    
+        struct defer_scope* _Opt p_defer_block = defer_visit_ctx_push_child(ctx);
+        if (p_defer_block == NULL)
+            throw;
+    
+        p_defer_block->p_defer_block = p_defer_statement;
+        
+        if (p_defer_statement->unlabeled_statement)
+            defer_visit_unlabeled_statement(ctx, p_defer_statement->unlabeled_statement);
+    
+        defer_visit_ctx_pop_until(ctx, p_defer_block, NULL);        
+    }
+    catch
+    {
+        
+    }
 }
 
 static void defer_visit_init_declarator(struct defer_visit_ctx* ctx, struct init_declarator* p_init_declarator)
@@ -47012,7 +47265,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
             struct defer_scope* _Opt p_common = NULL;
 
-            if (label_ctx.tail_block != NULL || ctx->tail_block != NULL)
+            if (label_ctx.tail_block != NULL && ctx->tail_block != NULL)
             {
                 p_common = find_common_defer_scope(label_ctx.tail_block /*label*/, ctx->tail_block /*goto*/);
             }
@@ -47895,6 +48148,9 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx, stru
     bool all,
     bool initialize_objects_that_does_not_have_initializer);
 
+static void codegen_emit_member_assignments_from_constexpr(struct codegen_ctx* ctx, struct osstream* oss,
+    const char* dest_prefix, const struct object* dest, const struct object* source, bool* first);
+
 static void d_print_type_core(struct codegen_ctx* ctx, struct osstream* ss, const struct type* p_type0, const char* _Opt name_opt);
 static void d_print_type(struct codegen_ctx* ctx,
     struct osstream* ss,
@@ -48350,6 +48606,125 @@ static void vm_emit_sizeof_expr(struct codegen_ctx* ctx,
         ss_fprintf(oss, " * %s)", local.c_str);
 
     ss_close(&local);
+}
+
+static void codegen_vm_ptr_advance(struct codegen_ctx* ctx, struct osstream* oss,
+    struct expression* p_ptr_expr, const char* op, struct expression* _Opt p_count_expr)
+{
+    ss_fprintf(oss, "(");
+    d_print_type(ctx, oss, &p_ptr_expr->type, NULL, false);
+    ss_fprintf(oss, ")((char*)");
+    codegen_visit_expression(ctx, oss, p_ptr_expr);
+    ss_fprintf(oss, " %s ", op);
+
+    if (p_count_expr != NULL)
+    {
+        ss_fprintf(oss, "(");
+        codegen_visit_expression(ctx, oss, p_count_expr);
+        ss_fprintf(oss, ") * ");
+    }
+
+    struct type pointee = type_remove_pointer(&p_ptr_expr->type);
+    vm_emit_sizeof_expr(ctx, oss, &pointee);
+    type_destroy(&pointee);
+
+    ss_fprintf(oss, ")");
+}
+
+/* Prefix ++p/--p: the expression's value IS the new pointer, so no temp is
+   needed -- the assignment expression itself yields it. */
+static void codegen_vm_ptr_prefix_step(struct codegen_ctx* ctx, struct osstream* oss,
+    struct expression* p_ptr_expr, const char* op)
+{
+    ss_fprintf(oss, "(");
+    codegen_visit_expression(ctx, oss, p_ptr_expr);
+    ss_fprintf(oss, " = ");
+    codegen_vm_ptr_advance(ctx, oss, p_ptr_expr, op, NULL);
+    ss_fprintf(oss, ")");
+}
+
+/* Postfix p++/p--: the expression's value is the OLD pointer, which is no
+   longer readable once p has been advanced. Hoist a hidden temp (same
+   pattern as EXPR_CHECKED above) to hold it, hand the temp back as the
+   expression's value, and move the read+advance statements into
+   ctx->add_this_before so they run before the enclosing statement. */
+static void codegen_vm_ptr_postfix_step(struct codegen_ctx* ctx, struct osstream* oss,
+    struct expression* p_ptr_expr, const char* op)
+{
+    char name[100] = { 0 };
+    generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
+
+    struct osstream decl = { 0 };
+    print_identation_core(&decl, ctx->indentation);
+    d_print_type(ctx, &decl, &p_ptr_expr->type, name, false);
+    ss_fprintf(&decl, ";\n");
+    ss_fprintf(&ctx->block_scope_declarators, "%s", decl.c_str);
+    ss_close(&decl);
+
+    struct osstream add_this_before = { 0 };
+
+    print_identation_core(&add_this_before, ctx->indentation);
+    ss_fprintf(&add_this_before, "%s = ", name);
+    codegen_visit_expression(ctx, &add_this_before, p_ptr_expr);
+    ss_fprintf(&add_this_before, ";\n");
+
+    print_identation_core(&add_this_before, ctx->indentation);
+    codegen_visit_expression(ctx, &add_this_before, p_ptr_expr);
+    ss_fprintf(&add_this_before, " = ");
+    codegen_vm_ptr_advance(ctx, &add_this_before, p_ptr_expr, op, NULL);
+    ss_fprintf(&add_this_before, ";\n");
+
+    ss_fprintf(&ctx->add_this_before, "%s", add_this_before.c_str);
+    ss_close(&add_this_before);
+
+    ss_fprintf(oss, "%s", name);
+}
+
+/* True when p_type is a pointer whose pointee's size is only known at
+   runtime -- e.g. `int (*)[n]`. type_is_vm walks through the POINTER
+   category into ->next on its own, so this only adds the "is a pointer at
+   all" guard (a plain VM array object, not a pointer to one, must not take
+   this path -- ++/--/+ on an array isn't valid C to begin with). */
+static bool codegen_is_vm_pointer(const struct type* p_type)
+{
+    return type_is_pointer(p_type) && type_is_vm(p_type);
+}
+
+/*
+   Emit `((ELEM*)expr)` where ELEM is expr's pointee type with every array
+   level stripped down to the innermost scalar/struct type.
+
+   A VM ARRAY OBJECT (`int a[n][m]`) is already emitted as a flat `int *a`
+   by its own declaration codegen (see the `a = _alloca(...)` codegen for
+   VM declarators), so `a[flat_offset]` in the EXPR_POSTFIX_ARRAY flattening
+   below just works. A VM POINTER (`int (*p)[m]`) is NOT flattened the same
+   way -- it keeps its `int (*p)[]` shape (pointer to an INCOMPLETE array
+   type, dimension erased) -- so emitting `p[flat_offset]` directly is
+   indexing through an incomplete array type, which isn't legal C and
+   silently miscompiles. Cast to the flat element pointer first, the same
+   way codegen_vm_ptr_advance already does for p++/p+1.
+   See github.com/thradams/cake/issues/423.
+*/
+static void codegen_emit_flattened_vm_pointer(struct codegen_ctx* ctx, struct osstream* oss,
+    struct expression* p_expr)
+{
+    struct type t1 = type_remove_pointer(&p_expr->type);
+    while (type_is_array(&t1))
+    {
+        struct type t0 = get_array_item_type(&t1);
+        type_swap(&t0, &t1);
+        type_destroy(&t0);
+    }
+    struct type t2 = type_add_pointer(&t1, ctx->options.null_checks_enabled);
+
+    ss_fprintf(oss, "((");
+    d_print_type(ctx, oss, &t2, NULL, false);
+    ss_fprintf(oss, ")");
+    codegen_visit_expression(ctx, oss, p_expr);
+    ss_fprintf(oss, ")");
+
+    type_destroy(&t1);
+    type_destroy(&t2);
 }
 
 static void vm_emit_countof_expr(struct codegen_ctx* ctx,
@@ -48914,15 +49289,29 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         case EXPR_POSTFIX_INCREMENT:
             _Assert(p_expression->left != NULL);
 
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, "++");
+            if (codegen_is_vm_pointer(&p_expression->left->type))
+            {
+                codegen_vm_ptr_postfix_step(ctx, oss, p_expression->left, "+");
+            }
+            else
+            {
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, "++");
+            }
             break;
 
         case EXPR_POSTFIX_DECREMENT:
             _Assert(p_expression->left != NULL);
 
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, "--");
+            if (codegen_is_vm_pointer(&p_expression->left->type))
+            {
+                codegen_vm_ptr_postfix_step(ctx, oss, p_expression->left, "-");
+            }
+            else
+            {
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, "--");
+            }
             break;
 
         case EXPR_POSTFIX_ARRAY:
@@ -49001,7 +49390,14 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                     throw;
                 }
 
-                codegen_visit_expression(ctx, oss, expr);
+                if (type_is_pointer(&expr->type))
+                {
+                    codegen_emit_flattened_vm_pointer(ctx, oss, expr);
+                }
+                else
+                {
+                    codegen_visit_expression(ctx, oss, expr);
+                }
                 ss_fprintf(oss, "[");
                 ss_fprintf(oss, "%s", offset_flat.c_str);
                 ss_fprintf(oss, "]");
@@ -49037,8 +49433,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
                 if (param &&
                     type_is_vm(&param->type) &&
-                    !type_is_vm(&arg->expression->type) &&
-                    !type_is_void_ptr(&arg->expression->type) &&
+                    !type_is_pointer(&arg->expression->type) &&
                     !expression_is_null_pointer_constant(arg->expression))
                 {
                     print_cast_array_to_vm(ctx, oss, &param->type);
@@ -49248,14 +49643,28 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         case EXPR_UNARY_INCREMENT:
             _Assert(p_expression->right != NULL);
-            ss_fprintf(oss, "++");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            if (codegen_is_vm_pointer(&p_expression->right->type))
+            {
+                codegen_vm_ptr_prefix_step(ctx, oss, p_expression->right, "+");
+            }
+            else
+            {
+                ss_fprintf(oss, "++");
+                codegen_visit_expression(ctx, oss, p_expression->right);
+            }
             break;
 
         case EXPR_UNARY_DECREMENT:
             _Assert(p_expression->right != NULL);
-            ss_fprintf(oss, "--");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            if (codegen_is_vm_pointer(&p_expression->right->type))
+            {
+                codegen_vm_ptr_prefix_step(ctx, oss, p_expression->right, "-");
+            }
+            else
+            {
+                ss_fprintf(oss, "--");
+                codegen_visit_expression(ctx, oss, p_expression->right);
+            }
             break;
 
         case EXPR_UNARY_NOT:
@@ -49295,17 +49704,42 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         case EXPR_ADDITIVE_MINUS:
             _Assert(p_expression->left != NULL);
             _Assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " - ");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            if (codegen_is_vm_pointer(&p_expression->left->type) &&
+                !type_is_pointer(&p_expression->right->type))
+            {
+                /* pointer - integer. Pointer - pointer (difference) on two VM
+                   pointers falls through to the plain path below, unhandled
+                   -- out of scope for issue #430, which only covers ++/--/+1. */
+                codegen_vm_ptr_advance(ctx, oss, p_expression->left, "-", p_expression->right);
+            }
+            else
+            {
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " - ");
+                codegen_visit_expression(ctx, oss, p_expression->right);
+            }
             break;
 
         case EXPR_ADDITIVE_PLUS:
             _Assert(p_expression->left != NULL);
             _Assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " + ");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            if (codegen_is_vm_pointer(&p_expression->left->type) &&
+                !type_is_pointer(&p_expression->right->type))
+            {
+                codegen_vm_ptr_advance(ctx, oss, p_expression->left, "+", p_expression->right);
+            }
+            else if (codegen_is_vm_pointer(&p_expression->right->type) &&
+                     !type_is_pointer(&p_expression->left->type))
+            {
+                /* `1 + p` (commutative form). */
+                codegen_vm_ptr_advance(ctx, oss, p_expression->right, "+", p_expression->left);
+            }
+            else
+            {
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " + ");
+                codegen_visit_expression(ctx, oss, p_expression->right);
+            }
             break;
 
         case EXPR_MULTIPLICATIVE_MULT:
@@ -49348,12 +49782,28 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
             _Assert(p_expression->left != NULL);
             _Assert(p_expression->right != NULL);
 
+            if (type_is_struct_or_union(&p_expression->left->type) &&
+                object_has_all_members_constants(&p_expression->right->object))
+            {
+                struct osstream dest_prefix = { 0 };
+                codegen_visit_expression(ctx, &dest_prefix, p_expression->left);
+                if (dest_prefix.c_str == NULL) throw;
+               
+                ss_fprintf(oss, "(");
+                bool first = true;
+                codegen_emit_member_assignments_from_constexpr(ctx, oss,
+                    dest_prefix.c_str, &p_expression->left->object, &p_expression->right->object, &first);
+                ss_fprintf(oss, ")");
+
+                ss_close(&dest_prefix);
+                break;
+            }
+
             codegen_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " %s ", get_op_by_expression_type(p_expression->expression_type));
 
             if (type_is_vm(&p_expression->left->type) &&
-                !type_is_vm(&p_expression->right->type) &&
-                !type_is_void_ptr(&p_expression->right->type) &&
+                !type_is_pointer(&p_expression->right->type) &&
                 !expression_is_null_pointer_constant(p_expression)
                 )
             {
@@ -49737,8 +50187,7 @@ static void codegen_visit_jump_statement(struct codegen_ctx* ctx, struct osstrea
                 if (p_jump_statement->expression_opt)
                 {
                     if (type_is_vm(&return_type) &&
-                        !type_is_vm(&p_jump_statement->expression_opt->type) &&
-                        !type_is_void_ptr(&p_jump_statement->expression_opt->type) &&
+                        !type_is_pointer(&p_jump_statement->expression_opt->type) &&
                         !expression_is_null_pointer_constant(p_jump_statement->expression_opt))
                     {
                         print_cast_array_to_vm(ctx, oss, &return_type);
@@ -50693,6 +51142,7 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
         return;
     }
 
+    int saved_cake_local_declarator_number = ctx->cake_local_declarator_number;
     ctx->cake_local_declarator_number = 0; /* reset */
 
     int indentation = ctx->indentation;
@@ -50740,6 +51190,7 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
     ctx->p_current_function_opt = previous_func; //restore
     ctx->is__func__predefined_identifier_added = previous_is__func__predefined_identifier_added; //restore
     ctx->indentation = indentation; //restore
+    ctx->cake_local_declarator_number = saved_cake_local_declarator_number; //restore
 }
 
 static void register_struct_types_and_functions(struct codegen_ctx* ctx,
@@ -51333,6 +51784,29 @@ static bool is_all_zero(const struct object* object)
     return true;
 }
 
+static size_t count_zero_fill_leaves(const struct object* object, size_t* p_total_out)
+{
+    if (object_is_reference(object))
+    {
+        object = object_get_referenced(object);
+    }
+
+    if (object->members.head != NULL)
+    {
+        size_t zero_count = 0;
+        struct object* _Opt member = object->members.head;
+        while (member)
+        {
+            zero_count += count_zero_fill_leaves(member, p_total_out);
+            member = member->next;
+        }
+        return zero_count;
+    }
+
+    (*p_total_out)++;
+    return object->p_init_expression == NULL ? 1 : 0;
+}
+
 static void object_print_source_object_non_constant_initialization(
     struct codegen_ctx* ctx,
     struct osstream* ss,
@@ -51469,6 +51943,72 @@ static void assign_each_member_from_constexpr(
         /* No value at all: fall back to zero */
         ss_fprintf(ss, "0");
     }
+}
+
+static void codegen_emit_member_assignments_from_constexpr(struct codegen_ctx* ctx, struct osstream* oss,
+    const char* dest_prefix, const struct object* dest, const struct object* source, bool* first)
+{
+    try 
+    {
+      if (object_is_reference(dest))
+            dest = object_get_referenced(dest);
+    
+        if (object_is_reference(source))
+            source = object_get_referenced(source);
+    
+        if (dest->members.head != NULL)
+        {
+            const char* parent_designator = dest->member_designator ? dest->member_designator : "";
+            const size_t parent_len = strlen(parent_designator);
+    
+            struct object* _Opt dest_member = dest->members.head;
+            struct object* _Opt source_member = source->members.head;
+    
+            while (dest_member && source_member)
+            {
+                const char* full = dest_member->member_designator ? dest_member->member_designator : "";
+                const char* own_suffix = full;
+                if (parent_len > 0 && strncmp(full, parent_designator, parent_len) == 0)
+                {
+                    own_suffix = full + parent_len; //lint 35
+                }
+    
+                struct osstream member_prefix = { 0 };
+                ss_fprintf(&member_prefix, "%s%s", dest_prefix, own_suffix);
+               if (member_prefix.c_str == NULL) throw;
+    
+                codegen_emit_member_assignments_from_constexpr(ctx, oss, member_prefix.c_str, dest_member, source_member, first);
+    
+                ss_close(&member_prefix);
+    
+                dest_member = dest_member->next;
+                source_member = source_member->next;
+            }
+            return;
+        }
+    
+        if (!(*first))
+            ss_fprintf(oss, ", ");
+        *first = false;
+    
+        /* Leaf: dest_prefix was already built up to the full correct path by
+           the recursion above. */
+        ss_fprintf(oss, "%s = ", dest_prefix);
+    
+        if (object_has_constant_value(source))
+        {
+            object_print_value(oss, source, ctx->options.target);
+        }
+        else
+        {
+            _Assert(false); /* caller only takes this path when object_has_all_members_constants(source) */
+            ss_fprintf(oss, "0");
+        }
+    }
+    catch
+    {
+        
+    }  
 }
 
 static void emmit_clear_declarator(struct codegen_ctx* ctx, struct osstream* ss, const char* name, struct type* type)
@@ -51735,7 +52275,8 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                     struct object* _Opt member = object->members.head;
                     while (member)
                     {
-                        assign_each_member_from_initialization(ctx, ss, member, declarator_name, all, true);
+                        assign_each_member_from_initialization(ctx, ss, member, declarator_name, all,
+                            initialize_objects_that_does_not_have_initializer);
                         member = member->next;
                     }
                 }
@@ -51940,8 +52481,7 @@ static void print_initializer(struct codegen_ctx* ctx,
                         ss_fprintf(oss, "%s%s = ", p_init_declarator->p_declarator->name_opt->lexeme, "");
 
                         if (type_is_vm(&p_init_declarator->p_declarator->type) &&
-                            !type_is_vm(&p_init_declarator->initializer->assignment_expression->type) &&
-                            !type_is_void_ptr(&p_init_declarator->initializer->assignment_expression->type) &&
+                            !type_is_pointer(&p_init_declarator->initializer->assignment_expression->type) &&
                             !expression_is_null_pointer_constant(p_init_declarator->initializer->assignment_expression))
                         {
                             print_cast_array_to_vm(ctx, oss, &p_init_declarator->p_declarator->type);
@@ -52044,7 +52584,23 @@ static void print_initializer(struct codegen_ctx* ctx,
                                 p_init_declarator->p_declarator->name_opt ?
                                 p_init_declarator->p_declarator->name_opt->lexeme : "";
 
-                            assign_each_member_from_initialization(ctx, oss, &p_init_declarator->p_declarator->object, name, true, true);
+                            size_t total_leaves = 0;
+                            const size_t zero_leaves = count_zero_fill_leaves(
+                                &p_init_declarator->p_declarator->object, &total_leaves);
+
+                            if (total_leaves >= 4 && zero_leaves * 2 > total_leaves)
+                            {
+                                emmit_clear_declarator(ctx,
+                                    oss,
+                                    name,
+                                    &p_init_declarator->p_declarator->type
+                                );
+                                assign_each_member_from_initialization(ctx, oss, &p_init_declarator->p_declarator->object, name, true, false);
+                            }
+                            else
+                            {
+                                assign_each_member_from_initialization(ctx, oss, &p_init_declarator->p_declarator->object, name, true, true);
+                            }
                         }
                     }
                 }
@@ -52220,6 +52776,14 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
             p_init_declarator->p_declarator->name_opt->lexeme : "";
 
         const struct type* decl_type = &p_init_declarator->p_declarator->type;
+
+        if (!is_typedef &&
+            type_is_constexpr(decl_type) &&
+            type_is_scalar(decl_type) &&
+            !p_init_declarator->p_declarator->address_taken)
+        {
+            return;
+        }
 
         if (type_is_vm(decl_type))
         {
@@ -58260,20 +58824,26 @@ static bool flow_object_under_view(const struct object* obj)
    leak check walks them, the same way it would already exist had the code
    happened to read that member first.
 
-   Restricted to _Opt pointer members. flow_seed_member_default seeds a
-   non-_Opt pointer member as a flat, unconditional "definitely non-null"
-   fact (NOT_EQUAL null, imaginary NONE) -- sound for an ordinary READ,
-   where reaching the member at all already implies the struct was validly
-   constructed, but not sound here: we are not reading it, we are asking
-   "was this ever given a value on THIS path", and a branch that never
-   touched the member (e.g. the impossible-in-practice but still-modeled
-   `if (p)` false arm on a non-_Opt owner `p`) has no such guarantee. Forcing
-   "definitely non-null, unmoved" onto it manufactured a leak that was never
-   real: owner-resource-059.c's `if (p) { p->name = ...; free(p->name); }
-   free(p);` reported ".name not moved" on the branch that provably never ran
-   `p->name = ...` at all. An _Opt member's seeding is honest uncertainty
-   (a correlated null/non-null pair, only the latter arm flagged) rather
-   than a manufactured certainty, so it stays safe to force. */
+   Used to be restricted to _Opt pointer members only, out of concern that
+   flow_seed_member_default's flat, unconditional "definitely non-null"
+   fact (NOT_EQUAL null, imaginary NONE) for a non-_Opt member is sound for
+   an ordinary READ -- reaching the member at all already implies the
+   struct was validly constructed -- but not here, where a branch that
+   never touched the member (e.g. the impossible-in-practice but
+   still-modeled `if (p)` false arm on a non-_Opt owner `p`) has no such
+   guarantee. That restriction was fixing owner-resource-059.c: `if (p) {
+   p->name = ...; free(p->name); } free(p);` used to report ".name not
+   moved" on the branch that provably never ran `p->name = ...` at all.
+   That false positive no longer reproduces (owner-resource-059.c stays
+   clean without the restriction), and the restriction had a real cost:
+   it also silently swallowed the ordinary, non-_Opt case --
+   `free(p)` erasing a `struct X* _Owner _Opt p` whose non-_Opt
+   `.text` member was never read anywhere -- because a member the
+   restriction skips gets no flow-map entry at all, and
+   flow_check_object_at_exit treats "no state" as "nothing to report"
+   (github.com/thradams/cake/issues/459). Seed every leaf member
+   unconditionally now that the case the restriction was protecting no
+   longer occurs. */
 static void flow_seed_all_members_default(struct flow_visit_ctx* ctx, struct object* p_obj, const struct token* _Opt p_token)
 {
     if (p_obj->members.head)
@@ -58282,11 +58852,6 @@ static void flow_seed_all_members_default(struct flow_visit_ctx* ctx, struct obj
         {
             flow_seed_all_members_default(ctx, member, p_token);
         }
-        return;
-    }
-    if (type_is_pointer(&p_obj->type) &&
-            !type_is_nullable(&p_obj->type, ctx->ctx->options.null_checks_enabled))
-    {
         return;
     }
     flow_seed_member_default(ctx, p_obj, p_token);
@@ -71356,6 +71921,20 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
             if (unsigned_long_long_mul(&result, sz, arraysize))
             {
                 if (result > SIZE_MAX)
+                {
+                    return SIZEOF_RESULT_OVERLOW;
+                }
+
+                /*
+                  MSVC caps a single object at 0x7FFFFFFF (~2GB) bytes even
+                  when targeting x64, independent of the 64-bit size_t range
+                  (C2089 'identifier': type too large -- e.g.
+                  char huge_array[0x7fffffffU][0x7fffffffU]; whose total size
+                  is well within SIZE_MAX but still rejected). GCC/clang
+                  targets do not share this limit, so only enforce it there.
+                */
+                if ((target == TARGET_X86_MSVC || target == TARGET_X64_MSVC) &&
+                    result > 0x7FFFFFFFULL)
                 {
                     return SIZEOF_RESULT_OVERLOW;
                 }

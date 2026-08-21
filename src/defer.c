@@ -157,21 +157,29 @@ static void defer_visit_secondary_block(struct defer_visit_ctx* ctx, struct seco
 
 static void defer_visit_defer_statement(struct defer_visit_ctx* ctx, struct defer_statement* p_defer_statement)
 {
-    struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
-    if (p_defer == NULL)
-        return;
-
-    p_defer->p_defer_statement = p_defer_statement;
-
-    struct defer_scope* _Opt p_defer_block = defer_visit_ctx_push_child(ctx);
-    if (p_defer_block == NULL)
-        return;
-
-    p_defer_block->p_defer_block = p_defer_statement;
-    if (p_defer_statement->unlabeled_statement)
-        defer_visit_unlabeled_statement(ctx, p_defer_statement->unlabeled_statement);
-
-    defer_visit_ctx_pop_until(ctx, p_defer_block, NULL);
+    try 
+    {
+        struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
+        if (p_defer == NULL)
+            throw;
+    
+        p_defer->p_defer_statement = p_defer_statement;
+    
+        struct defer_scope* _Opt p_defer_block = defer_visit_ctx_push_child(ctx);
+        if (p_defer_block == NULL)
+            throw;
+    
+        p_defer_block->p_defer_block = p_defer_statement;
+        
+        if (p_defer_statement->unlabeled_statement)
+            defer_visit_unlabeled_statement(ctx, p_defer_statement->unlabeled_statement);
+    
+        defer_visit_ctx_pop_until(ctx, p_defer_block, NULL);        
+    }
+    catch
+    {
+        
+    }
 }
 
 static void defer_visit_init_declarator(struct defer_visit_ctx* ctx, struct init_declarator* p_init_declarator)

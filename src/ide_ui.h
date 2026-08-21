@@ -346,13 +346,11 @@ typedef struct {
      * struct, const, ...); editor_keyword2_fg colors control-flow keywords
      * (is_c_keyword2 - if, for, return, ...). */
 
-    uint32_t editor_caret_fg, editor_caret_bg;  /* the <editor>'s block caret
-                                                 * cell - its own pair rather
-                                                 * than reusing editor_sel_*,
-                                                 * so a theme can make the
-                                                 * caret an accent color
-                                                 * without touching how a
-                                                 * selection looks. */
+    uint32_t editor_lint_fg;  /* a "//lint" line comment - same idea as
+                               * editor_comment_fg but its own color so a
+                               * lint directive stands out from an ordinary
+                               * comment (see render_editor_line in
+                               * ide_ui.c) */
 
     uint32_t editor_linenum_fg;  /* the line-number gutter's digits (see
                                   * ui_set_show_line_numbers/render_editor in
@@ -874,14 +872,6 @@ void ui_node_free(ui_node* n);
  * `root` (inclusive) - like getElementById(). Returns NULL if not found. */
 ui_node* ui_find_by_id(ui_node* root, int id);
 
-/* The screen's cursor: a visible marker (not a DOM node, since it's a single
- * screen-wide concept, like the browser's caret rather than an element).
- * Drawn as the final overlay step of a render pass by inverting whatever's
- * underneath (see UI_BOX_INVERT) - a true XOR cursor needs no color of
- * its own, since inverting is automatically legible over anything: green
- * inverts to pink, gray inverts to near-black, white to black, etc. */
-void ui_screen_set_cursor(ui_screen* s, int x, int y, int on);
-
 /* The desktop backdrop - a solid fill covering the whole screen, behind
  * everything else. Off by default (the screen just shows whatever the
  * backend clears to); once set, it stays on and repaints every frame as the
@@ -903,6 +893,29 @@ typedef void (*ui_event_fn)(void* ctx, int id, void* param);
  * Replaces any previously registered handler. Pass fn=NULL to stop receiving
  * events (they're then silently dropped, same as an unset handler). */
 void ui_screen_set_on_event(ui_screen* s, ui_event_fn fn, void* ctx);
+
+/* Tab-triggered line completion (e.g. an AI/snippet autocomplete). When Tab
+ * is pressed in an <editor>, the caret has no selection, and the caret sits
+ * at the end of its line, ui_screen_update() calls this with that line's
+ * text (up to the caret, NUL-terminated, not including the '\n') instead of
+ * inserting a soft tab.
+ *
+ * Returning nonzero accepts the completion: *out_text must then be a
+ * malloc'd, NUL-terminated string, which is inserted at the caret and freed
+ * by the caller. *out_cursor_offset (a byte offset into *out_text, clamped
+ * to [0, strlen(*out_text)]) says where the caret should end up afterward -
+ * e.g. inside "switch (var)"'s "var" rather than at the very end of the
+ * inserted block, so the placeholder is ready to type over. Returning 0
+ * (regardless of the out params) declines - the editor falls back to its
+ * normal soft-tab insert, same as if no handler were registered at all. */
+typedef int (*ui_completion_callback)(void* ctx, const char* line, char** out_text,
+                                       int* out_cursor_offset);
+
+/* Register the handler ui_screen_update() calls for Tab-at-end-of-line (see
+ * ui_completion_callback above). Replaces any previously registered handler.
+ * Pass fn=NULL to stop receiving these (Tab then always inserts a soft tab,
+ * same as an unset handler). */
+void ui_screen_set_completion_callback(ui_screen* s, ui_completion_callback fn, void* ctx);
 
 /* Reserved id fired through the same on_event handler (see ui_screen_set_
  * on_event) instead of an ordinary close, when a transient window's (see
@@ -1172,9 +1185,10 @@ void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg);
  * with ui_draw_char's signature and is unused by every backend today.
  *
  * `flags` selects the fill's flavor - normal (0, fills with `bg`),
- * UI_BOX_INVERT (bg ignored - invert the rect in place, dest = NOT dest,
- * e.g. Win32's PatBlt DSTINVERT - the XOR-style screen cursor's overlay), or
- * UI_BOX_SHADOW (bg ignored - darken the rect via alpha blending, a shadow
+ * UI_BOX_CURSOR (bg ignored - invert only the left 1/5 of the rect's width,
+ * dest = NOT dest, e.g. Win32's PatBlt DSTINVERT - a thin XOR-style screen
+ * cursor rather than a full-cell block, so it stays legible over any glyph),
+ * or UI_BOX_SHADOW (bg ignored - darken the rect via alpha blending, a shadow
  * hint; backends without true alpha blending may just no-op it). A node
  * needing a shadow (button, open dropdown) calls ui_draw_box with
  * UI_BOX_SHADOW right after its own face, so the shadow composites over
@@ -1190,7 +1204,7 @@ void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg);
  * row where a side strip tapers into the corner), and SHRINK_W together with
  * either H flag for the single corner cell where two strips meet (it needs
  * shrinking on both axes at once - it's not just "part of" either strip). */
-#define UI_BOX_INVERT 0x1
+#define UI_BOX_CURSOR 0x1
 #define UI_BOX_SHADOW 0x2
 #define UI_BOX_SHADOW_SHRINK_W 0x4
 #define UI_BOX_SHADOW_SHRINK_H 0x8

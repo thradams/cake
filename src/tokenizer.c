@@ -2404,6 +2404,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 {
                     if (input_list->head == NULL)
                     {
+                        pre_unexpected_end_of_file(r.tail, ctx);
                         throw;
                     }
 
@@ -3640,6 +3641,16 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
                 break;
             }
 
+            for (struct macro_parameter* _Opt p_existing = macro->parameters; p_existing; p_existing = p_existing->next)
+            {
+                if (strcmp(p_existing->name, input_list->head->lexeme) == 0)
+                {
+                    preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, input_list->head,
+                        "cannot reuse macro parameter name '%s'", input_list->head->lexeme);
+                    throw;
+                }
+            }
+
             struct macro_parameter* _Owner _Opt p_new_macro_parameter = calloc(1, sizeof * p_new_macro_parameter);
             if (p_new_macro_parameter == NULL)
                 throw;
@@ -3978,13 +3989,16 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 {
                     preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, r.tail, "file %s not found", path + 1);
 
-                    if (ctx->cake_config_path[0] == '\0')
+                    char cake_config_path[FS_MAX_PATH] = { 0 };
+                    get_cake_config_path(cake_config_path, sizeof cake_config_path);
+
+                    if (!ctx->cake_config_found)
                     {
-                        printf("cakeconf.h (config file) not used or not found\n");
+                        printf("cakeconf.h (config file) not found\n%s\n", cake_config_path);
                     }
                     else
                     {
-                        printf("Using cakeconf.h\n%s\n", ctx->cake_config_path);
+                        printf("Using cakeconf.h\n%s\n", cake_config_path);
                     }
                     printf("\n");
 
@@ -4389,7 +4403,79 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
            # line pp-tokens new-line
         */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //line
+
+            /*
+              #line's pp-tokens undergo macro replacement before the result
+              is checked against digit-sequence [ "s-char-sequence" ] --
+              e.g. #define FNAME "test.c" / #line 777 FNAME. Expand first,
+              the same way #include does for a non-header-name form.
+            */
+            {
+                struct token_list pptokens = { 0 };
+                while (input_list->head != NULL && input_list->head->type != TK_NEWLINE)
+                {
+                    prematch_level(ctx, &pptokens, input_list, level, is_active);
+
+                    if (input_list->head == NULL)
+                    {
+                        pre_unexpected_end_of_file(pptokens.tail, ctx);
+                        token_list_destroy(&pptokens);
+                        throw;
+                    }
+                }
+
+                struct token_list expanded = replacement_list_reexamination(ctx, NULL, &pptokens, level, pptokens.head);
+
+                if (ctx->n_errors > 0)
+                {
+                    token_list_destroy(&pptokens);
+                    token_list_destroy(&expanded);
+                    throw;
+                }
+
+                token_list_append_list_at_beginning(input_list, &expanded);
+                token_list_destroy(&expanded);
+                token_list_destroy(&pptokens);
+            }
+
             struct token_list r5 = pp_tokens_opt(ctx, input_list, level, is_active);
+
+            if (is_active)
+            {
+                struct token* _Opt p_line_number = NULL;
+                struct token* _Opt p_filename = NULL;
+                for (struct token* _Opt p = r5.head; p; p = p->next)
+                {
+                    if (p->type == TK_BLANKS)
+                    {
+                        continue;
+                    }
+                    if (p_line_number == NULL)
+                    {
+                        p_line_number = p;
+                    }
+                    else if (p_filename == NULL)
+                    {
+                        p_filename = p;
+                    }
+                }
+
+                if (p_line_number == NULL || p_line_number->type != TK_PPNUMBER)
+                {
+                    preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx,
+                        p_line_number != NULL ? p_line_number : r.tail,
+                        "#line requires a number as its first argument");
+                }
+                else if (p_filename != NULL)
+                {
+                    if (!(p_filename->type == TK_STRING_LITERAL && p_filename->lexeme[0] == '"')) //lint  68 33 33 bug flow
+                    {
+                        preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, p_filename,
+                            "#line filename must be a plain string literal, without prefix or suffix");
+                    }
+                }
+            }
+
             token_list_append_list(&r, &r5);
             token_list_destroy(&r5);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
@@ -6096,85 +6182,38 @@ void check_unused_macros(const struct hash_map* map)
     }
 }
 
-int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
+// cakeconf.h always lives next to the cake executable
+void get_cake_config_path(char* out, size_t out_size)
 {
-    char local_cakeconfig_path[FS_MAX_PATH] = { 0 };
-    char dir_path[FS_MAX_PATH] = { 0 };
+    char executable_path[FS_MAX_PATH - sizeof(CAKE_CONFIG_FILE_NAME)] = { 0 };
+    get_self_path(executable_path, sizeof(executable_path));
+    dirname(executable_path);
+    snprintf(out, out_size, "%s/" CAKE_CONFIG_FILE_NAME, executable_path);
+}
 
+int include_config_header(struct preprocessor_ctx* ctx)
+{
+    ctx->cake_config_found = false;
 
-    ctx->cake_config_path[0] = '\0';
+    char cake_config_path[FS_MAX_PATH] = { 0 };
+    get_cake_config_path(cake_config_path, sizeof cake_config_path);
 
-    // Copy file_name to dir_path and get its directory
-    snprintf(dir_path, sizeof dir_path, "%s", file_name);
-    dirname(dir_path);
+    char* _Owner _Opt str = read_file(cake_config_path, true);
 
-    // Build the full path using the separate directory buffer
-    snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s/" CAKE_CONFIG_FILE_NAME, dir_path);
-
-    char* _Owner _Opt str = read_file(local_cakeconfig_path, true);
-
-    if (str && ctx->options.show_includes)
-    {
-        printf(".%s\n", local_cakeconfig_path);
-    }
-
-    // Store the path if found
     if (str)
     {
-        snprintf(ctx->cake_config_path, sizeof ctx->cake_config_path, "%s", local_cakeconfig_path);
-    }
-
-    while (str == NULL)
-    {
-        // Use dir_path as the working buffer for directory traversal
-        dirname(dir_path);
-
-        if (dir_path[0] == '\0')
-            break;
-
-        // Build path using dir_path
-        snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s/" CAKE_CONFIG_FILE_NAME, dir_path);
-        str = read_file(local_cakeconfig_path, true);
-        if (str && ctx->options.show_includes)
+        ctx->cake_config_found = true;
+        if (ctx->options.show_includes)
         {
-            printf(".%s\n", local_cakeconfig_path);
-        }
-
-        // Store the path if found
-        if (str)
-        {
-            snprintf(ctx->cake_config_path, sizeof ctx->cake_config_path, "%s", local_cakeconfig_path);
+            printf(".%s\n", cake_config_path);
         }
     }
-
-    if (str == NULL)
-    {
-        // Search cakeconfig at cake executable dir
-        char executable_path[FS_MAX_PATH - sizeof(CAKE_CONFIG_FILE_NAME)] = { 0 };
-        get_self_path(executable_path, sizeof(executable_path));
-        dirname(executable_path);
-        char root_cakeconfig_path[FS_MAX_PATH] = { 0 };
-        snprintf(root_cakeconfig_path, sizeof root_cakeconfig_path, "%s/" CAKE_CONFIG_FILE_NAME, executable_path);
-        str = read_file(root_cakeconfig_path, true);
-        if (str && ctx->options.show_includes)
-        {
-            printf(".%s\n", root_cakeconfig_path);
-        }
-
-        // Store the path if found
-        if (str)
-        {
-            snprintf(ctx->cake_config_path, sizeof ctx->cake_config_path, "%s", root_cakeconfig_path);
-        }
-    }
-
-    if (str == NULL)
+    else
     {
         if (ctx->options.show_includes)
         {
             printf(".(" CAKE_CONFIG_FILE_NAME " not found)\n");
         }
-        // final_path remains empty string (already set at start)
         return ENOENT;
     }
 

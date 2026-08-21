@@ -326,7 +326,7 @@ int compile_one_file(const char* file_name,
 
     add_standard_macros(&prectx, options->target);
     
-    if (include_config_header(&prectx, file_name) != 0)
+    if (include_config_header(&prectx) != 0)
     {
         //cakeconf.h is optional               
     }

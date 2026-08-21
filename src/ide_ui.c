@@ -16,9 +16,9 @@
 
 #define UI_ENV_EVENT_QUEUE_SIZE 256
 
-/* Text-caret blink half-period, ms (~classic Windows caret rate) - the caret
- * is solid for this long, then hidden for this long, repeating. */
-#define UI_CARET_BLINK_MS 530
+/* Text-caret blink half-period, ms (~Visual Studio's editor caret rate) -
+ * the caret is solid for this long, then hidden for this long, repeating. */
+#define UI_CARET_BLINK_MS 500
 
 /* Lines (or listbox rows, or columns when panning) the view moves per mouse-
  * wheel notch. wheel_delta is +-1 per notch (see ui.h), so the pace lives
@@ -333,6 +333,8 @@ static ui_theme g_theme = {
     .editor_keyword2_fg = TB_RGB(0xFF, 0xFF, 0xFF),  /* control flow: bright white */
     .editor_string_fg = TB_RGB(0x55, 0xFF, 0x55),
     .editor_comment_fg = TB_RGB(0x55, 0xFF, 0xFF),
+    .editor_lint_fg = TB_RGB(0xFF, 0xAA, 0x00),  /* orange - stands out from
+                                                  * the cyan editor_comment_fg */
     .editor_linenum_fg = TB_RGB(0x80, 0x80, 0xC0),  /* muted blue-gray -
                                                      * readable against this
                                                      * theme's dark blue
@@ -342,10 +344,6 @@ static ui_theme g_theme = {
     .editor_preproc_fg = TB_RGB(0xFF, 0x55, 0xFF),
     .editor_sel_bg = TB_RGB(0x80, 0x80, 0x80),
     .editor_sel_fg = TB_RGB(0x00, 0x00, 0x00),
-    /* Caret cell - same gray/black as the selection, the way it has always
-     * looked in this theme. */
-    .editor_caret_bg = TB_RGB(0x80, 0x80, 0x80),
-    .editor_caret_fg = TB_RGB(0x00, 0x00, 0x00),
     .editor_word_match_bg = TB_RGB(0x28, 0x28, 0xA0),
     .editor_current_line_bg = TB_RGB(0x18, 0x18, 0xCE),  /* one step lighter
                                                           * than editor_bg -
@@ -865,16 +863,14 @@ struct ui_screen {
     ui_event_fn on_event;
     void* on_event_ctx;
 
-    /* Screen-wide cursor overlay - not a DOM node, like a browser caret.
-     * Drawn by inverting whatever's underneath (see UI_BOX_INVERT), so
-     * no color field is needed here. */
-    int cursor_x, cursor_y, cursor_on;
+    ui_completion_callback completion_callback;
+    void* completion_callback_ctx;
 
-    /* Text-caret blink (the <input>/<editor> block cursor, distinct from the
-     * screen-wide overlay above). caret_visible is recomputed each update()
-     * from the env's wall-clock ms; caret_blink_base is reset to "now" on any
-     * keyboard/mouse activity so the caret shows solid the instant it moves
-     * (like a real editor) and only starts blinking once idle. */
+    /* Text-caret blink (the <input>/<editor> caret bar). caret_visible is
+     * recomputed each update() from the env's wall-clock ms; caret_blink_base
+     * is reset to "now" on any keyboard/mouse activity so the caret shows
+     * solid the instant it moves (like a real editor) instead of possibly
+     * landing on its "off" blink phase, and only starts blinking once idle. */
     int caret_visible;
     unsigned caret_blink_base;
 
@@ -1797,13 +1793,6 @@ ui_node* ui_find_by_id(ui_node* root, int id)
     return NULL;
 }
 
-void ui_screen_set_cursor(ui_screen* s, int x, int y, int on)
-{
-    s->cursor_x = x;
-    s->cursor_y = y;
-    s->cursor_on = on;
-}
-
 void ui_screen_set_desktop(ui_screen* s, uint32_t bg)
 {
     s->desktop_on = 1;
@@ -1824,6 +1813,12 @@ void ui_screen_set_on_event(ui_screen* s, ui_event_fn fn, void* ctx)
 {
     s->on_event = fn;
     s->on_event_ctx = ctx;
+}
+
+void ui_screen_set_completion_callback(ui_screen* s, ui_completion_callback fn, void* ctx)
+{
+    s->completion_callback = fn;
+    s->completion_callback_ctx = ctx;
 }
 
 void ui_screen_focus(ui_screen* s, ui_node* n)
@@ -2940,6 +2935,14 @@ static void editor_cursor_line(ui_node* n, int* out_line, int* out_line_start)
     *out_line_start = line_start;
 }
 
+/* True if n->cursor sits right before the line's '\n' (or the document's
+ * final '\0') - i.e. nothing but the line break follows the caret. */
+static int editor_cursor_at_line_end(ui_node* n)
+{
+    char c = n->label[n->cursor];
+    return c == '\n' || c == 0;
+}
+
 /* Count of '\n'-separated lines in `text` (a text with no '\n' is 1 line). */
 static int editor_line_count(const char* text)
 {
@@ -2965,19 +2968,28 @@ int ui_get_show_line_numbers(void)
     return g_show_line_numbers;
 }
 
-/* Width in columns of `n`'s line-number gutter, 0 when the feature is off
+/* Width in columns of `n`'s left gutter. 0 when the feature is off
  * (ui_set_show_line_numbers) or `n` isn't a plain C source editor -
- * UI_SYNTAX_VT100 (compiler/terminal output) and UI_SYNTAX_MARKDOWN (README/
- * help viewer - prose, not source lines worth numbering) both stay gutter-
- * less, same as View > "Line Numbers" itself only being enabled while the
- * frontmost document is code (see g_view_linenumbers_item's own doc comment
- * in ide.c). Wide enough for the document's last line number plus a one-
- * column gap, with a 3-digit (+ gap) floor so a short document doesn't get
- * a cramped 2-wide gutter - every render_editor() row, plus every hscroll/
- * click/scrollbar computation below that has to agree on where the actual
- * text starts, calls this so they can never drift apart. */
+ * UI_SYNTAX_VT100 (compiler/terminal output) stays gutterless, same as
+ * View > "Line Numbers" itself only being enabled while the frontmost
+ * document is code (see g_view_linenumbers_item's own doc comment in
+ * ide.c). For a C editor, wide enough for the document's last line number
+ * plus a one-column gap, with a 3-digit (+ gap) floor so a short document
+ * doesn't get a cramped 2-wide gutter. UI_SYNTAX_MARKDOWN (README/help
+ * viewer - prose, not source lines worth numbering) gets a bare 1-column
+ * margin instead, unconditionally. Either way, every render_editor() row,
+ * plus every hscroll/click/scrollbar computation below that has to agree
+ * on where the actual text starts, calls this so they can never drift
+ * apart. */
 static int editor_gutter_width(const ui_node* n)
 {
+    /* Markdown gets a bare 1-column margin - not a number gutter (prose
+     * isn't line-numbered, see the comment above), just breathing room so
+     * text doesn't start flush against the editor's left edge. Independent
+     * of g_show_line_numbers/View > "Line Numbers", which only ever applies
+     * to numbered C source. */
+    if (n->syntax == UI_SYNTAX_MARKDOWN)
+        return 1;
     if (!g_show_line_numbers || n->syntax != UI_SYNTAX_C)
         return 0;
     int total = editor_line_count(n->label);
@@ -5659,7 +5671,36 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                 else if (shift)
                     editor_outdent_current_line(ed);
                 else
-                    editor_insert_soft_tab(ed);
+                {
+                    int completed = 0;
+                    if (s->completion_callback && !ed->read_only && editor_cursor_at_line_end(ed))
+                    {
+                        int line, line_start;
+                        editor_cursor_line(ed, &line, &line_start);
+                        char* line_text = str_dup_range(ed->label, line_start, ed->cursor);
+                        char* out_text = NULL;
+                        int out_cursor_offset = 0;
+                        if (s->completion_callback(s->completion_callback_ctx, line_text,
+                                                    &out_text, &out_cursor_offset) && out_text)
+                        {
+                            int insert_pos = ed->cursor;
+                            int text_len = (int)strlen(out_text);
+                            if (out_cursor_offset < 0)
+                                out_cursor_offset = 0;
+                            else if (out_cursor_offset > text_len)
+                                out_cursor_offset = text_len;
+                            editor_insert_text(ed, out_text);
+                            free(out_text);
+                            ui_editor_set_selection(ed, insert_pos + out_cursor_offset,
+                                                     insert_pos + out_cursor_offset);
+                            editor_ensure_cursor_visible(ed);
+                            completed = 1;
+                        }
+                        free(line_text);
+                    }
+                    if (!completed)
+                        editor_insert_soft_tab(ed);
+                }
             }
             else
             {
@@ -6015,10 +6056,11 @@ void ui_screen_update(ui_screen* s, ui_env* env)
     }
 
     /* Text-caret blink phase: any keyboard/mouse activity this frame resets it
-     * to solid (so the caret is always visible the instant it moves), and once
-     * idle it toggles every UI_CARET_BLINK_MS of the backend's wall clock. If
-     * the backend never feeds time (time_ms stays 0), elapsed is always 0 and
-     * the caret just stays solid. */
+     * to solid (so the caret is always visible the instant it moves, rather
+     * than possibly landing on its "off" phase), and once idle it toggles
+     * every UI_CARET_BLINK_MS of the backend's wall clock. If the backend
+     * never feeds time (time_ms stays 0), elapsed is always 0 and the caret
+     * just stays solid. */
     {
         unsigned now = env->time_ms;
         if (s->key_event_count > 0 || s->mouse_pressed || s->mouse_moved)
@@ -6425,7 +6467,7 @@ static void record_overlay(ui_screen* s, int x, int y, int w, int h, int flags)
 }
 
 /* Record a solid rect (flags==0) into `next`, or queue a destructive overlay
- * (UI_BOX_SHADOW / UI_BOX_INVERT) for post-diff replay. A plain fill just
+ * (UI_BOX_SHADOW / UI_BOX_CURSOR) for post-diff replay. A plain fill just
  * writes blank cells with this bg into `next` - no backend call, no diffing
  * here. */
 static void emit_box(int x, int y, int w, int h, uint32_t fg, uint32_t bg, int flags)
@@ -6433,7 +6475,7 @@ static void emit_box(int x, int y, int w, int h, uint32_t fg, uint32_t bg, int f
     ui_screen* s = g_render_screen;
     (void)fg;
 
-    if (flags & (UI_BOX_SHADOW | UI_BOX_INVERT))
+    if (flags & (UI_BOX_SHADOW | UI_BOX_CURSOR))
     {
         if (s && s->next)
             record_overlay(s, x, y, w, h, flags);
@@ -7034,20 +7076,21 @@ static void render_input(ui_screen* s, ui_node* n)
         if (idx >= offset)
         {
             int selected = has_sel && idx >= sel_lo_col && idx < sel_hi_col;
-            int is_caret = caret && !has_sel && idx == cursor_col;
-            int inv = selected || is_caret;
             emit_char(n->x + col, n->y, cp,
-                      inv ? g_theme.input_sel_fg : fg,
-                      inv ? g_theme.input_sel_bg : bg);
+                      selected ? g_theme.input_sel_fg : fg,
+                      selected ? g_theme.input_sel_bg : bg);
+            if (caret && !has_sel && idx == cursor_col)
+                emit_box(n->x + col, n->y, 1, 1, 0, 0, UI_BOX_CURSOR);
             col++;
         }
         p += clen;
         idx++;
     }
     /* Caret sits past the last character (cursor at end of the value): the
-     * loop above only paints existing chars, so draw the caret block blank. */
+     * loop above only paints existing chars, and draw_fill already left this
+     * cell blank at the widget's own bg, so just overlay the caret bar. */
     if (caret && !has_sel && cursor_col >= idx && col < n->w)
-        emit_char(n->x + col, n->y, ' ', g_theme.input_sel_fg, g_theme.input_sel_bg);
+        emit_box(n->x + col, n->y, 1, 1, 0, 0, UI_BOX_CURSOR);
 }
 
 /* A <select>'s closed box: the chosen option's label (styled like an
@@ -7744,7 +7787,7 @@ static void render_editor_line(int x, int y, int w, int scroll_x,
                                 int* in_block, uint32_t bg, int* depth)
 {
     int col = 0, i = 0;
-    int in_string = 0, in_comment = 0;
+    int in_string = 0, in_comment = 0, in_lint_comment = 0;
 
     /* Set right after a bare "struct"/"union"/"enum" keyword, cleared by
      * anything other than the whitespace between it and its tag name (see
@@ -7818,7 +7861,7 @@ static void render_editor_line(int x, int y, int w, int scroll_x,
         }
         else if (in_comment)
         {
-            fg = g_theme.editor_comment_fg;
+            fg = in_lint_comment ? g_theme.editor_lint_fg : g_theme.editor_comment_fg;
         }
         else if (in_string)
         {
@@ -7909,7 +7952,13 @@ static void render_editor_line(int x, int y, int w, int scroll_x,
         else if (cp == '/' && i + 1 < line_len && line[i + 1] == '/')
         {
             in_comment = 1;
-            fg = g_theme.editor_comment_fg;
+            /* "//lint..." (e.g. "//lint" or "//lint:ignore") gets its own
+             * color so a lint directive stands out from an ordinary "//"
+             * comment - only recognized right at the comment's start, not
+             * anywhere a later "//lint" might appear mid-comment. */
+            in_lint_comment = i + 6 <= line_len &&
+                memcmp(line + i + 2, "lint", 4) == 0;
+            fg = in_lint_comment ? g_theme.editor_lint_fg : g_theme.editor_comment_fg;
         }
         else if (cp == '/' && i + 1 < line_len && line[i + 1] == '*')
         {
@@ -8942,13 +8991,6 @@ static void render_editor(ui_screen* s, ui_node* n)
         else
             line_bg = base_bg;
 
-        /* Captured before render_editor_line_markdown() below mutates
-         * `in_block` for this line, so the caret "under" char lookup further
-         * down (which runs after the switch) can still map cursor_col back
-         * to a byte offset using the state this line actually started
-         * from. */
-        int line_entry_block = in_block;
-
         /* The gutter cell for this row - drawn before the text so a wide
          * line's leftmost (hscrolled-off) glyphs never bleed into it. Right-
          * aligned within [n->x, text_x), same convention as line_bg above:
@@ -9039,33 +9081,10 @@ static void render_editor(ui_screen* s, ui_node* n)
         if (caret && !has_sel && n->syntax != UI_SYNTAX_VT100 && !md_readonly && line_idx == cursor_line &&
             cursor_col >= n->hscroll && cursor_col < n->hscroll + text_w)
         {
-            uint32_t under = ' ';
-            int caret_off;
-            if (n->syntax == UI_SYNTAX_MARKDOWN && n->read_only)
-            {
-                /* Reverse the same collapsed column mapping used for
-                 * cursor_col/sel_col_* above, from the state this line
-                 * entered with (line_entry_block), not the post-toggle
-                 * `in_block` left behind by render_editor_line_markdown()
-                 * a few lines up. */
-                int tmp_block = line_entry_block;
-                caret_off = ls + md_scan_line(n->label + ls, le - ls, &tmp_block, -1, cursor_col);
-            }
-            else
-            {
-                int col = 0;
-                caret_off = ls;
-                while (col < cursor_col && caret_off < le)
-                {
-                    uint32_t cp;
-                    caret_off += utf8_decode(n->label + caret_off, &cp);
-                    col++;
-                }
-            }
-            if (caret_off < le)
-                utf8_decode(n->label + caret_off, &under);
-            emit_char(text_x + cursor_col - n->hscroll, n->y + row, under,
-                      g_theme.editor_caret_fg, g_theme.editor_caret_bg);
+            /* The glyph under the caret was already painted normally by the
+             * per-character draw above - just overlay the thin caret bar on
+             * top of it rather than swapping the whole cell's colors. */
+            emit_box(text_x + cursor_col - n->hscroll, n->y + row, 1, 1, 0, 0, UI_BOX_CURSOR);
         }
 
         line_idx++;  /* this row's document line is now fully processed */
@@ -9296,9 +9315,6 @@ int ui_screen_render(ui_screen* s, int* out_x, int* out_y, int* out_w, int* out_
         render_menubar(s, menubar);
     if (statusbar)
         render_statusbar(s, statusbar);
-
-    if (s->cursor_on)
-        emit_box(s->cursor_x, s->cursor_y, 1, 1, 0, 0, UI_BOX_INVERT);
 
     /* --- Diff `next` (this frame's intent) against `cache` (what the backend
      * shows) and emit a backend draw only for cells that actually differ.

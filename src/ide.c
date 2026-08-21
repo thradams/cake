@@ -99,7 +99,10 @@ enum {
     EVT_EDIT_FORMAT = 19,     /* Edit > "Format C Source" - see do_edit_format() */
     EVT_COMPILE = 40,
     EVT_COMPILE_OPTIONS = 45,  /* Compile > Options... - opens the dialog below */
-    EVT_TOGGLE_AUTOCOMPILE = 44,
+    EVT_COMPILE_CONFIG_FILE = 46,  /* Compile > "Config File" - opens cakeconf.h
+                                    * (next to the executable), creating an
+                                    * empty one first if it doesn't exist yet -
+                                    * see do_compile_open_config_file() */
     EVT_WINDOW_OUTPUT = 83,  /* the View > "Show Output" menu item's id -
                               * re-raises the diagnostics Output window
                               * (moved here from Window - see build_screen()) */
@@ -392,13 +395,6 @@ static ui_node* g_editor_popup_format;
  * there's nothing to show without a compiled .c to show it for. */
 static ui_node* g_compile_show_output_item;
 
-/* Compile > Auto-compile's status bar mirror (see EVT_TOGGLE_AUTOCOMPILE in
- * on_ui_event) - a second clickable node with the same id as the menu item,
- * so the mode is visible/toggleable without opening the Compile menu. Kept
- * as its own pointer rather than relying on ui_find_by_id(EVT_TOGGLE_AUTOCOMPILE)
- * because that only ever returns the first match in the tree (the menu item),
- * so the status bar copy needs its label updated separately. */
-static ui_node* g_statusbar_autocompile_item;
 static ui_node* g_statusbar_compile_item;  /* "Compiling..." while a build
                                             * runs - see compile_status_set */
 
@@ -500,7 +496,7 @@ static void build_screen(ui_node* root)
        // { 43, "Build all", NULL, 1 },
         SEP,
         { EVT_EDITOR_SHOW_OUTPUT, "Show Generated Code", NULL, 1 },
-        { 44, "Auto-compile: Off", NULL, 1 },
+        { EVT_COMPILE_CONFIG_FILE, "Config File", NULL, 1 },
         { 45, "Options...", NULL, 1 },
     };
     ui_node* compile_menu = add_menu(menubar, "Compile", compile_items, sizeof compile_items / sizeof compile_items[0]);
@@ -603,17 +599,6 @@ static void build_screen(ui_node* root)
             ui_set_shortcut(hk, hotkeys[i].shortcut);
         ui_append_child(statusbar, hk);
     }
-
-    /* Auto-compile on/off, mirrored from the Compile menu (id 44 /
-     * EVT_TOGGLE_AUTOCOMPILE - both nodes share the id, so clicking either
-     * one fires the same handler; see on_ui_event). Starts "Off" to match
-     * g_auto_compile_enabled's default and the menu item's own initial
-     * label - both are kept in sync from then on by the toggle handler. */
-    ui_node* auto_item = ui_create_element(UI_TAG_HOTKEY);
-    ui_set_id(auto_item, EVT_TOGGLE_AUTOCOMPILE);
-    ui_set_label(auto_item, "Auto:Off");
-    ui_append_child(statusbar, auto_item);
-    g_statusbar_autocompile_item = auto_item;
 
     /* Compile state - blank when idle, "Compiling..." while a build is in
      * flight (see compile_status_set). Now that the compile streams on a
@@ -1095,12 +1080,7 @@ static int g_pending_delete_is_dir;  /* set alongside g_pending_delete_path -
                                       * rmdir() vs remove() at confirm time,
                                       * see EVT_FOLDER_DELETE_CONFIRM */
 
-/* Options > Compile > Auto-compile toggle. Declared up here (not with the
- * rest of the auto-compile state further down) so open_dialog_activate can
- * see it - opening a file while it's on compiles that file immediately. */
-static int g_auto_compile_enabled = 0;
-static void do_compile(void);  /* defined below; called on auto-compile-open */
-static char* dupstr(const char* s);  /* defined below; used by auto_compile_tick() */
+static void do_compile(void);  /* defined below */
 static void open_playground(void);  /* defined below; called on View > "Show Playground" */
 static int get_playground_file_path(char* buf, size_t cap);  /* defined below;
                                                                * used by
@@ -1220,19 +1200,15 @@ static const ui_theme g_theme_ambar = {
     .editor_keyword2_fg = TB_RGB(0xD3, 0x86, 0x9B),  /* control flow: VS purple */
     .editor_string_fg = TB_RGB(0xB8, 0xBB, 0x6B),
     .editor_comment_fg = TB_RGB(0x7C, 0x7C, 0x74),
+    .editor_lint_fg = TB_RGB(0xF5, 0xC2, 0x42),  /* same gold as
+                                                  * editor_keyword_fg - stands
+                                                  * out from the dim gray
+                                                  * editor_comment_fg */
     .editor_linenum_fg = TB_RGB(0x85, 0x85, 0x85),  /* VS Code Dark's actual
                                                      * gutter gray */
     .editor_preproc_fg = TB_RGB(0xD3, 0x86, 0x9B),
     .editor_sel_bg = TB_RGB(0x5A, 0x48, 0x1C),  /* #264F78 - VS Dark's actual selection color */
     .editor_sel_fg = TB_RGB(0xFF, 0xFF, 0xFF),
-    .editor_caret_bg = TB_RGB(0xFF, 0xD1, 0x66),  /* yellow block caret - the
-                                                   * blue selection color is too
-                                                   * close to this theme's dark
-                                                   * background to spot the
-                                                   * caret against it */
-    .editor_caret_fg = TB_RGB(0x1E, 0x1E, 0x20),  /* editor_bg, so the glyph
-                                                   * under the caret reads as
-                                                   * knocked out of the block */
     .editor_word_match_bg = TB_RGB(0x3A, 0x33, 0x22),  /* a warm step up from
                                                         * editor_bg, matching
                                                         * the amber accent */
@@ -1385,19 +1361,15 @@ static const ui_theme g_theme_dark = {
     .editor_keyword2_fg = TB_RGB(0xC5, 0x86, 0xC0),  /* control flow: VS purple */
     .editor_string_fg = TB_RGB(0xCE, 0x91, 0x78),
     .editor_comment_fg = TB_RGB(0x6A, 0x99, 0x55),
+    .editor_lint_fg = TB_RGB(0x56, 0x9C, 0xD6),  /* same blue as
+                                                  * editor_keyword_fg - stands
+                                                  * out from the green
+                                                  * editor_comment_fg */
     .editor_linenum_fg = TB_RGB(0x85, 0x85, 0x85),  /* VS Code Dark's actual
                                                      * gutter gray */
     .editor_preproc_fg = TB_RGB(0xC5, 0x86, 0xC0),
     .editor_sel_bg = TB_RGB(0x26, 0x4F, 0x78),  /* #264F78 - VS Dark's actual selection color */
     .editor_sel_fg = TB_RGB(0xFF, 0xFF, 0xFF),
-    .editor_caret_bg = TB_RGB(0xFF, 0xD7, 0x00),  /* yellow block caret - the
-                                                   * blue selection color is too
-                                                   * close to this theme's dark
-                                                   * background to spot the
-                                                   * caret against it */
-    .editor_caret_fg = TB_RGB(0x1E, 0x1E, 0x1E),  /* editor_bg, so the glyph
-                                                   * under the caret reads as
-                                                   * knocked out of the block */
     .editor_word_match_bg = TB_RGB(0x33, 0x3A, 0x40),
     .editor_current_line_bg = TB_RGB(0x2A, 0x2A, 0x2A),  /* subtle - close to
                                                           * VS Code Dark's own
@@ -1568,6 +1540,10 @@ static const ui_theme g_theme_white = {
     .editor_keyword2_fg = TB_RGB(0xAF, 0x00, 0xDB),  /* control flow: purple */
     .editor_string_fg = TB_RGB(0xA3, 0x15, 0x15),
     .editor_comment_fg = TB_RGB(0x00, 0x80, 0x00),
+    .editor_lint_fg = TB_RGB(0x00, 0x00, 0xFF),  /* same blue as
+                                                  * editor_keyword_fg - stands
+                                                  * out from the green
+                                                  * editor_comment_fg */
     .editor_linenum_fg = TB_RGB(0x23, 0x78, 0x93),  /* teal-blue - VS Code
                                                      * Light+'s actual line-
                                                      * number color (matches the
@@ -1575,10 +1551,6 @@ static const ui_theme g_theme_white = {
     .editor_preproc_fg = TB_RGB(0x80, 0x00, 0x80),
     .editor_sel_bg = TB_RGB(0xAD, 0xD6, 0xFF),  /* #ADD6FF - VS Light's actual selection color */
     .editor_sel_fg = TB_RGB(0x00, 0x00, 0x00),
-    /* Caret cell - a solid dark block against this theme's white page, which
-     * is what a light editor needs (the reverse of the dark theme's yellow). */
-    .editor_caret_bg = TB_RGB(0x00, 0x00, 0x00),
-    .editor_caret_fg = TB_RGB(0xFF, 0xFF, 0xFF),
     .editor_word_match_bg = TB_RGB(0xE0, 0xE8, 0xF0),  /* pale blue-gray -
                                                         * reads against the
                                                         * white page without
@@ -2334,11 +2306,21 @@ static void normalize_newlines(char* s)
     if (!s)
         return;
     char* w = s;
-    for (char* r = s; *r; r++)
+    char* r = s;
+    while (*r)
     {
-        if (r[0] == '\r' && r[1] == '\n')
-            continue;  /* drop the CR, the LF is copied next iteration */
-        *w++ = *r;
+        if (*r == '\r')
+        {
+            char* p = r;
+            while (*p == '\r')
+                p++;
+            if (*p == '\n')
+            {
+                r = p;  /* drop the whole run of CRs; the LF is copied below */
+                continue;
+            }
+        }
+        *w++ = *r++;
     }
     *w = '\0';
 }
@@ -2795,8 +2777,7 @@ static int dir_row_navigate(char* dir_buf, size_t dir_buf_size, const char* labe
  * editor window - already open? just re-raises it instead of duplicating.
  * Shared by open_dialog_activate (which also closes the Open dialog
  * afterward - not this function's concern) and folder_window_activate
- * (which has no modal to close, the folder window isn't one). Also fires an
- * auto-compile if that's enabled, same as opening a file always has. */
+ * (which has no modal to close, the folder window isn't one). */
 static void open_file_path_into_editor(const char* path, const char* label)
 {
     ui_node* existing = find_open_window(path);
@@ -2836,12 +2817,6 @@ static void open_file_path_into_editor(const char* path, const char* label)
     ui_screen_show_window(g_screen,
         make_editor_window(g_root, g_new_count++, title, content ? content : "", path));
     free(content);
-
-    /* Compile the freshly opened file right away (it's now the active/
-     * frontmost window) - opening it counts as wanting to see its
-     * diagnostics, even though nothing was typed. */
-    if (g_auto_compile_enabled)
-        do_compile();
 }
 
 /* Navigate Back/Forward (status bar): a browser-style history of the
@@ -3229,6 +3204,10 @@ static int word_at_cursor(const char* text, int len, int cursor, char* out, int 
  * reports on (see get_session_file_path) - forward declared so on_ui_event
  * (far above that point in the file) can reach it. */
 static void do_help_check(void);
+
+/* Defined later, next to do_help_check (which reports on this same file) -
+ * forward declared so on_ui_event can reach it. */
+static void do_compile_open_config_file(void);
 
 static void do_help_contextual(void)
 {
@@ -4257,8 +4236,14 @@ static void fwrite_text(const char* content, size_t len, FILE* f, int crlf)
 {
     if (crlf)
     {
+        /* content is expected to be LF-only already, but a stray leftover
+         * '\r' (e.g. from a normalization gap upstream) must never survive
+         * here - writing it verbatim next to the '\r' this loop adds for
+         * '\n' is exactly how a single CRLF turns into "\r\r\n" on disk. */
         for (size_t i = 0; i < len; i++)
         {
+            if (content[i] == '\r')
+                continue;
             if (content[i] == '\n')
                 fputc('\r', f);
             fputc(content[i], f);
@@ -4266,7 +4251,11 @@ static void fwrite_text(const char* content, size_t len, FILE* f, int crlf)
     }
     else
     {
-        fwrite(content, 1, len, f);
+        for (size_t i = 0; i < len; i++)
+        {
+            if (content[i] != '\r')
+                fputc(content[i], f);
+        }
     }
 }
 
@@ -4934,10 +4923,10 @@ static void refresh_open_windows(void)
  * Compile just never had it applied. */
 static void do_compile(void)
 {
-    /* One compile at a time. Without this, a second F7 (or an auto-compile
-     * tick landing mid-build) would redirect stdout again underneath the
-     * running worker and race it for g_job. Silently ignored: the status
-     * bar already reads "Compiling...", which is answer enough. */
+    /* One compile at a time. Without this, a second F7 landing mid-build
+     * would redirect stdout again underneath the running worker and race it
+     * for g_job. Silently ignored: the status bar already reads
+     * "Compiling...", which is answer enough. */
     if (g_job.running)
         return;
 
@@ -5232,83 +5221,6 @@ static void tile_side_by_side(ui_node* left, ui_node* right)
     if (right_w < 1) right_w = 1;
     ui_window_set_rect(left, dx, dy, left_w, dh);
     ui_window_set_rect(right, dx + left_w, dy, right_w, dh);
-}
-
-static char* dupstr(const char* s)
-{
-    size_t len = strlen(s) + 1;
-    char* out = malloc(len);
-    if (out)
-        memcpy(out, s, len);
-    return out;
-}
-
-/* Options > Compile > "Auto-compile" toggle. A plain time(NULL) (1-second
- * resolution, standard C, no per-backend clock needed) is precise enough
- * for "wait a bit after the last keystroke, then compile" - no multi-
- * platform timer required. */
-#define AUTO_COMPILE_DELAY_SEC 1
-
-static ui_node* g_auto_compile_window;
-static char* g_auto_compile_snapshot;
-static time_t g_auto_compile_last_change;
-
-/* Called every frame from app_frame(). Debounces on content actually
- * changing (dirty alone can't tell us *when* the last edit happened - it
- * stays set from the first keystroke until the next save) and only fires
- * once per burst of edits, since do_compile() -> save_active_file() clears
- * dirty and the content stops changing, so the guard condition goes false
- * right after and stays false until the next edit sets dirty again. */
-static void auto_compile_tick(void)
-{
-    if (!g_auto_compile_enabled)
-        return;
-
-    /* g_active_editor_window, not ui_screen_top_window() - same reasoning as
-     * do_compile() above: a docked Folder/Output panel can be frontmost
-     * instead, and neither has a real path or a document <editor> to check
-     * dirty on. */
-    ui_node* active = g_active_editor_window;
-    ui_node* editor = editor_in_window(active);
-
-    /* Still untitled (see ui_get_untitled) - the idle auto-compile timer
-     * must never pop the Save As dialog on its own just because the user
-     * paused typing in a brand new, never-saved file; that only happens for
-     * an explicit Run > Compile (see do_compile). Treated the same as "no
-     * editor" below - stop tracking it until it either becomes a real file
-     * (Save/Save As) or the user switches away. */
-    if (!editor || ui_get_untitled(active))
-    {
-        free(g_auto_compile_snapshot);
-        g_auto_compile_snapshot = NULL;
-        g_auto_compile_window = NULL;
-        return;
-    }
-
-    const char* content = ui_get_value(editor);
-
-    /* Switched to a different window - start tracking it fresh rather than
-     * comparing its content against whatever the previously active window
-     * last held, which would misfire as "changed". */
-    if (active != g_auto_compile_window)
-    {
-        free(g_auto_compile_snapshot);
-        g_auto_compile_snapshot = dupstr(content);
-        g_auto_compile_window = active;
-        g_auto_compile_last_change = time(NULL);
-        return;
-    }
-
-    if (!g_auto_compile_snapshot || strcmp(g_auto_compile_snapshot, content) != 0)
-    {
-        free(g_auto_compile_snapshot);
-        g_auto_compile_snapshot = dupstr(content);
-        g_auto_compile_last_change = time(NULL);
-        return;
-    }
-
-    if (ui_get_dirty(editor) && time(NULL) - g_auto_compile_last_change >= AUTO_COMPILE_DELAY_SEC)
-        do_compile();
 }
 
 /* --- Search > Replace (find/replace) --------------------------------------
@@ -6824,6 +6736,317 @@ static void do_edit_format(void)
     }
 }
 
+static const char* skip_spaces(const char* p)
+{
+    while (*p == ' ' || *p == '\t')
+        p++;
+    return p;
+}
+
+/* Every reserved word worth completing this way: the standard C keywords,
+ * plus cake's own ownership qualifiers (_Owner, _Opt, _Out, _View, _Clear,
+ * _Assert - see is_c_keyword2 in ide_ui.c). */
+static const char* const g_keyword_list[] = {
+    "auto", "break", "case", "char", "const", "continue", "default", "do",
+    "double", "else", "enum", "extern", "float", "for", "goto", "if",
+    "inline", "int", "long", "register", "restrict", "return", "short",
+    "signed", "sizeof", "static", "struct", "switch", "typedef", "union",
+    "unsigned", "void", "volatile", "while", "static_assert",
+    "try", "catch", "throw",
+    "_Bool", "_Complex", "_Imaginary", "_Alignas", "_Alignof", "_Atomic",
+    "_Generic", "_Noreturn", "_Static_assert", "_Thread_local",
+    "_Owner", "_Opt", "_Out", "_View", "_Clear", "_Assert",
+};
+
+/* Plain prefix completion against g_keyword_list: `word` (wlen bytes, no
+ * NUL) is a strict prefix of exactly one keyword -> *out_text gets that
+ * keyword's remaining suffix (malloc'd) and we return 1. Zero matches, or
+ * more than one keyword sharing the prefix (ambiguous - e.g. "s" fits
+ * short/signed/sizeof/static/struct/switch), does nothing and returns 0. */
+static int keyword_prefix_complete(const char* word, int wlen, char** out_text)
+{
+    const char* match = NULL;
+
+    for (size_t i = 0; i < sizeof g_keyword_list / sizeof g_keyword_list[0]; i++)
+    {
+        const char* kw = g_keyword_list[i];
+        size_t klen = strlen(kw);
+        if (klen > (size_t)wlen && memcmp(kw, word, (size_t)wlen) == 0)
+        {
+            if (match)
+                return 0;  /* ambiguous */
+            match = kw;
+        }
+    }
+    if (!match)
+        return 0;
+
+    const char* suffix = match + wlen;
+    char* buf = malloc(strlen(suffix) + 1);
+    if (!buf)
+        return 0;
+    strcpy(buf, suffix);
+    *out_text = buf;
+    return 1;
+}
+
+/* Keywords that are already a complete statement/label on their own -
+ * word-for-word (not a prefix, see keyword_prefix_complete above) - just
+ * need their closing punctuation appended. */
+static int keyword_punct_complete(const char* word, int wlen, char** out_text)
+{
+    static const struct { const char* kw; char punct; } table[] = {
+        { "break", ';' }, { "continue", ';' }, { "throw", ';' }, { "default", ':' },
+    };
+    for (size_t i = 0; i < sizeof table / sizeof table[0]; i++)
+    {
+        size_t klen = strlen(table[i].kw);
+        if (klen == (size_t)wlen && memcmp(table[i].kw, word, klen) == 0)
+        {
+            char* buf = malloc(2);
+            if (!buf)
+                return 0;
+            buf[0] = table[i].punct;
+            buf[1] = 0;
+            *out_text = buf;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* Fired synchronously by ui_screen_update() (see ide_ui.c's Tab handling)
+ * when Tab is pressed in an <editor> with the caret at the end of its line
+ * and nothing selected. `line` is that line's text up to the caret; on a
+ * match, *out_text gets a malloc'd string appended right after it (the
+ * caller frees it), *out_cursor_offset is a byte offset into *out_text
+ * saying where the caret should land afterward, and we return 1. Anything
+ * unrecognized returns 0, which falls back to the normal soft-tab insert.
+ *
+ * Just a first pattern to prove the hook out: a bare "switch" (whatever its
+ * own indentation) completes to a template block, reusing that same
+ * indentation for the brace/case lines so it reads as part of the
+ * surrounding code rather than a fixed-column snippet - and leaves the caret
+ * right at "var" instead of past the whole block, since that placeholder is
+ * what the user actually needs to edit next. */
+static int on_line_complete(void* ctx, const char* line, char** out_text, int* out_cursor_offset)
+{
+    (void)ctx;
+
+    const char* p = skip_spaces(line);
+    int indent_len = (int)(p - line);
+    int w = ui_indent_width();
+
+    if (strncmp(p, "switch", sizeof "switch" - 1) == 0 && p[sizeof "switch" - 1] == 0)
+    {
+        char* buf = malloc((size_t)indent_len * 2 + w + 64);
+        if (!buf)
+            return 0;
+        sprintf(buf, " (var)\n%.*s{\n%.*s%*scase 0: break;\n%.*s}",
+                indent_len, line, indent_len, line, w, "", indent_len, line);
+        *out_text = buf;
+        *out_cursor_offset = 2;  /* right after " (", at the start of "var" */
+        return 1;
+    }
+
+    if (strncmp(p, "struct", sizeof "struct" - 1) == 0 &&
+        (p[sizeof "struct" - 1] == ' ' || p[sizeof "struct" - 1] == '\t'))
+    {
+        /* "struct name" (a tag, nothing else on the line) - the name is
+         * whatever's left after skipping the space(s) that follow "struct",
+         * and must run all the way to the end of the line to count (so
+         * "struct foo bar" or a half-typed "struct foo (" don't match). */
+        const char* name = skip_spaces(p + sizeof "struct" - 1);
+        const char* q = name;
+        while (is_word_char((unsigned char)*q))
+            q++;
+        if (q != name && *q == 0)
+        {
+            char* buf = malloc((size_t)indent_len * 4 + w + 64);
+            if (!buf)
+                return 0;
+            int off = sprintf(buf, "\n%.*s{\n%.*s%*s",
+                               indent_len, line, indent_len, line, w, "");
+            int cursor_off = off;
+            sprintf(buf + off, "\n%.*s};", indent_len, line);
+            *out_text = buf;
+            *out_cursor_offset = cursor_off;
+            return 1;
+        }
+    }
+
+    if (strncmp(p, "int", sizeof "int" - 1) == 0 &&
+        (p[sizeof "int" - 1] == ' ' || p[sizeof "int" - 1] == '\t'))
+    {
+        /* "int main", "int main(", or "int main()" - however far the user
+         * got typing the signature by hand, each completes to the same
+         * "int main(void) { ... }" body, filling in only whatever's still
+         * missing rather than duplicating what's already on the line. */
+        const char* q = skip_spaces(p + sizeof "int" - 1);
+        if (strncmp(q, "main", sizeof "main" - 1) == 0)
+        {
+            const char* r = skip_spaces(q + sizeof "main" - 1);
+            int variant = -1;  /* 0: "int main"  1: "int main("  2: "int main()" */
+            if (*r == 0)
+                variant = 0;
+            else if (*r == '(')
+            {
+                r = skip_spaces(r + 1);
+                if (*r == 0)
+                    variant = 1;
+                else if (*r == ')' && *skip_spaces(r + 1) == 0)
+                    variant = 2;
+            }
+
+            if (variant >= 0)
+            {
+                char* buf = malloc((size_t)indent_len * 4 + w + 64);
+                if (!buf)
+                    return 0;
+                int off;
+                if (variant == 0)
+                    off = sprintf(buf, "(void)\n%.*s{\n%.*s%*s",
+                                  indent_len, line, indent_len, line, w, "");
+                else if (variant == 1)
+                    off = sprintf(buf, "void)\n%.*s{\n%.*s%*s",
+                                  indent_len, line, indent_len, line, w, "");
+                else
+                    off = sprintf(buf, "\n%.*s{\n%.*s%*s",
+                                  indent_len, line, indent_len, line, w, "");
+                int cursor_off = off;
+                sprintf(buf + off, "\n%.*s}", indent_len, line);
+                *out_text = buf;
+                *out_cursor_offset = cursor_off;
+                return 1;
+            }
+        }
+    }
+
+    if (strncmp(p, "static_assert", sizeof "static_assert" - 1) == 0 &&
+        p[sizeof "static_assert" - 1] == 0)
+    {
+        /* Single-line, no brace block to reindent - just the call's own
+         * text, caret dropped at "condition" same as switch's "var". */
+        char* buf = malloc(64);
+        if (!buf)
+            return 0;
+        sprintf(buf, "(condition, \"message\");");
+        *out_text = buf;
+        *out_cursor_offset = 1;  /* right after "(", at the start of "condition" */
+        return 1;
+    }
+
+    if (strncmp(p, "if", sizeof "if" - 1) == 0 && p[sizeof "if" - 1] == 0)
+    {
+        char* buf = malloc((size_t)indent_len * 2 + w + 64);
+        if (!buf)
+            return 0;
+        sprintf(buf, " (condition)\n%.*s{\n%.*s%*s\n%.*s}",
+                indent_len, line, indent_len, line, w, "", indent_len, line);
+        *out_text = buf;
+        *out_cursor_offset = 2;  /* right after " (", at the start of "condition" */
+        return 1;
+    }
+
+    if (strncmp(p, "for", sizeof "for" - 1) == 0 && p[sizeof "for" - 1] == 0)
+    {
+        /* The common counting-loop shape, pre-filled rather than left as
+         * bare placeholders - only the bound is actually missing, so that's
+         * where the caret goes ("i < |; i++)"). */
+        char* buf = malloc((size_t)indent_len * 2 + w + 96);
+        if (!buf)
+            return 0;
+        int off = sprintf(buf, " (int i = 0; i < ");
+        int cursor_off = off;
+        sprintf(buf + off, "; i++)\n%.*s{\n%.*s%*s\n%.*s}",
+                indent_len, line, indent_len, line, w, "", indent_len, line);
+        *out_text = buf;
+        *out_cursor_offset = cursor_off;
+        return 1;
+    }
+
+    if (strncmp(p, "while", sizeof "while" - 1) == 0 && p[sizeof "while" - 1] == 0)
+    {
+        char* buf = malloc((size_t)indent_len * 2 + w + 64);
+        if (!buf)
+            return 0;
+        sprintf(buf, " (condition)\n%.*s{\n%.*s%*s\n%.*s}",
+                indent_len, line, indent_len, line, w, "", indent_len, line);
+        *out_text = buf;
+        *out_cursor_offset = 2;  /* right after " (", at the start of "condition" */
+        return 1;
+    }
+
+    if (strncmp(p, "do", sizeof "do" - 1) == 0 && p[sizeof "do" - 1] == 0)
+    {
+        char* buf = malloc((size_t)indent_len * 4 + w + 64);
+        if (!buf)
+            return 0;
+        /* Body left blank, caret parked on its own indented line - same as
+         * try's body above. */
+        int off = sprintf(buf, "\n%.*s{\n%.*s%*s",
+                           indent_len, line, indent_len, line, w, "");
+        int cursor_off = off;
+        sprintf(buf + off, "\n%.*s} while (condition);", indent_len, line);
+        *out_text = buf;
+        *out_cursor_offset = cursor_off;
+        return 1;
+    }
+
+    if (strncmp(p, "else", sizeof "else" - 1) == 0 && p[sizeof "else" - 1] == 0)
+    {
+        char* buf = malloc((size_t)indent_len * 4 + w + 64);
+        if (!buf)
+            return 0;
+        int off = sprintf(buf, "\n%.*s{\n%.*s%*s",
+                           indent_len, line, indent_len, line, w, "");
+        int cursor_off = off;
+        sprintf(buf + off, "\n%.*s}", indent_len, line);
+        *out_text = buf;
+        *out_cursor_offset = cursor_off;
+        return 1;
+    }
+
+    if (strncmp(p, "try", sizeof "try" - 1) == 0 && p[sizeof "try" - 1] == 0)
+    {
+        char* buf = malloc((size_t)indent_len * 6 + w * 2 + 64);
+        if (!buf)
+            return 0;
+        /* Body left blank, caret parked on its own indented line - the same
+         * "put the caret where the user needs to type next" idea as
+         * switch's "var" above, just with nothing to overwrite here. */
+        int off = sprintf(buf, " \n%.*s{\n%.*s%*s",
+                           indent_len, line, indent_len, line, w, "");
+        int cursor_off = off;
+        sprintf(buf + off, "\n%.*s}\n%.*scatch\n%.*s{\n%.*s%*s\n%.*s}",
+                indent_len, line, indent_len, line, indent_len, line,
+                indent_len, line, w, "", indent_len, line);
+        *out_text = buf;
+        *out_cursor_offset = cursor_off;
+        return 1;
+    }
+
+    /* No full-line snippet matched - fall back to plain prefix completion
+     * on the word right before the caret (e.g. "bre" -> "break"), wherever
+     * it sits in the line (unlike the snippets above, which only fire on a
+     * bare reserved word filling the whole line). */
+    {
+        const char* wend = line + strlen(line);
+        const char* wstart = wend;
+        while (wstart > line && is_word_char((unsigned char)wstart[-1]))
+            wstart--;
+        int wlen = (int)(wend - wstart);
+        if (wlen > 0 && (keyword_prefix_complete(wstart, wlen, out_text) ||
+                          keyword_punct_complete(wstart, wlen, out_text)))
+        {
+            *out_cursor_offset = (int)strlen(*out_text);
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 /* Fired synchronously by ui_screen_update() for whatever widget was
  * activated this frame - pushed straight to us, not pulled via polling.
  * `param` is NULL for most ids (see ui_fire_event's call sites in ui.c) but
@@ -6840,6 +7063,10 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_COMPILE)
     {
         do_compile();
+    }
+    else if (id == EVT_COMPILE_CONFIG_FILE)
+    {
+        do_compile_open_config_file();
     }
     else if (id == EVT_COMPILE_OPTIONS)
     {
@@ -6890,15 +7117,6 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_COPTS_HELP)
     {
         do_help_cmdline();
-    }
-    else if (id == EVT_TOGGLE_AUTOCOMPILE)
-    {
-        g_auto_compile_enabled = !g_auto_compile_enabled;
-        ui_node* item = ui_find_by_id(g_root, EVT_TOGGLE_AUTOCOMPILE);
-        if (item)
-            ui_set_label(item, g_auto_compile_enabled ? "Auto-compile: On" : "Auto-compile: Off");
-        if (g_statusbar_autocompile_item)
-            ui_set_label(g_statusbar_autocompile_item, g_auto_compile_enabled ? "Auto:On" : "Auto:Off");
     }
     else if (id == EVT_HELP_INDEX)
     {
@@ -6961,12 +7179,19 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_WORDWRAP_OK || id == EVT_WORDWRAP_INPUT)
     {
         int columns = atoi(ui_get_value(g_wordwrap_input));
+        ui_node* editor = NULL;
         if (columns > 0)
         {
             g_wordwrap_columns = columns;
+            editor = editor_in_window(g_active_editor_window);
             do_edit_wordwrap(columns);
         }
         ui_screen_close_modal(g_screen, g_wordwrap_modal);
+        g_goto_pending_focus = editor;  /* focus after this update finishes -
+                                         * see app_frame - otherwise the
+                                         * input's fire-then-blur leaves the
+                                         * editor unfocused and the cursor
+                                         * scrolled into view but not shown */
     }
     else if (id == EVT_WORDWRAP_CANCEL)
     {
@@ -7266,8 +7491,6 @@ static void on_ui_event(void* ctx, int id, void* param)
                     ui_set_label(existing_ed, g_md_codeblock_text);
                     ui_editor_set_selection(existing_ed, 0, 0);
                     ui_screen_show_window(g_screen, existing);
-                    if (g_auto_compile_enabled)
-                        do_compile();
                 }
                 else
                 {
@@ -8092,6 +8315,45 @@ static const char* label_for_path(const char* path)
     return basename_of(path);
 }
 
+/* Compile > "Config File": opens cakeconf.h, the same file/location the
+ * compiler itself looks for (see CAKE_CONFIG_FILE_NAME, include_config_header()
+ * in tokenizer.c/lib.c, and generate_config_file() in compile.c/lib.c) - it
+ * lives next to the executable and, when present, supplies the default
+ * #include search directories used when none are passed explicitly on the
+ * command line. Unlike Playground (open_playground(), just above), an empty
+ * file is created here rather than one seeded with sample content - an empty
+ * cakeconf.h is simply "no default include dirs configured", a valid,
+ * meaningful state, whereas a real config's contents (the actual dirs found
+ * by -autoconfig) aren't something this menu item can fabricate. */
+static void do_compile_open_config_file(void)
+{
+    char exe_path[FS_MAX_PATH] = { 0 };
+    get_self_path(exe_path, sizeof exe_path);
+
+    char path[FS_MAX_PATH] = "cakeconf.h";
+    if (exe_path[0])
+    {
+        char exe_dir[FS_MAX_PATH];
+        snprintf(exe_dir, sizeof exe_dir, "%s", exe_path);
+        dirname(exe_dir);
+        snprintf(path, sizeof path, "%s/cakeconf.h", exe_dir);
+    }
+
+    FILE* probe = fopen(path, "rb");
+    if (probe)
+    {
+        fclose(probe);
+    }
+    else
+    {
+        FILE* cf = fopen(path, "wb");
+        if (cf)
+            fclose(cf);
+    }
+
+    open_file_path_into_editor(path, "cakeconf.h");
+}
+
 /* Help > Check (EVT_HELP_CHECK): prints a couple of paths worth knowing when
  * troubleshooting - where the session config file lives (see
  * get_session_file_path) and where the running executable itself lives (see
@@ -8792,6 +9054,22 @@ void app_init(ui_env* env)
     /* --- Editor context menu popup --- */
     ui_node* popup = ui_create_element(UI_TAG_MENU);
     ui_append_child(root, popup);
+
+    /* First item in the popup, ahead of everything else below. Same id as
+     * Run > Compile and the F7 status-bar hotkey - all three share one
+     * handler (see on_ui_event), so this is purely a second way to reach it,
+     * not a second implementation. Enabled only for .c files, refreshed each
+     * frame next to the menu's own copy (see g_editor_popup_compile). */
+    ui_node* popup_compile = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(popup_compile, EVT_COMPILE);
+    ui_set_label(popup_compile, "Compile");
+    ui_set_shortcut(popup_compile, "F7");
+    ui_append_child(popup, popup_compile);
+    g_editor_popup_compile = popup_compile;
+    ui_node* popup_sep0 = ui_create_element(UI_TAG_ITEM);
+    ui_set_separator(popup_sep0, 1);
+    ui_append_child(popup, popup_sep0);
+
     struct { int id; const char* label; const char* shortcut; } popup_items[] = {
         { EVT_SEARCH_FIND,       "Find...",          NULL },
         { EVT_SEARCH_REPLACE,    "Replace...",       "Ctrl+R" },
@@ -8854,21 +9132,6 @@ void app_init(ui_env* env)
     ui_set_shortcut(popup_format, "Ctrl+Shift+F");
     ui_append_child(popup, popup_format);
     g_editor_popup_format = popup_format;
-
-    /* Last item in the popup, after its own separator. Same id as Run >
-     * Compile and the F7 status-bar hotkey - all three share one handler
-     * (see on_ui_event), so this is purely a second way to reach it, not a
-     * second implementation. Enabled only for .c files, refreshed each
-     * frame next to the menu's own copy (see g_editor_popup_compile). */
-    ui_node* popup_sep4 = ui_create_element(UI_TAG_ITEM);
-    ui_set_separator(popup_sep4, 1);
-    ui_append_child(popup, popup_sep4);
-    ui_node* popup_compile = ui_create_element(UI_TAG_ITEM);
-    ui_set_id(popup_compile, EVT_COMPILE);
-    ui_set_label(popup_compile, "Compile");
-    ui_set_shortcut(popup_compile, "F7");
-    ui_append_child(popup, popup_compile);
-    g_editor_popup_compile = popup_compile;
 
     g_editor_popup_codeblock_playground = popup_codeblock_playground;
     g_editor_popup = popup;
@@ -9304,6 +9567,7 @@ void app_init(ui_env* env)
     }
 
     ui_screen_set_on_event(g_screen, on_ui_event, NULL);
+    ui_screen_set_completion_callback(g_screen, on_line_complete, NULL);
 }
 
 /* Command-line entry point - see ide_ui.h's own doc comment for the call
@@ -9557,8 +9821,6 @@ int app_frame(ui_env* env)
      * at the end of the frame, so the Output window it writes into is
      * updated before the next render rather than a frame later. */
     compile_stream_poll();
-
-    auto_compile_tick();
 
     return 0;
 }

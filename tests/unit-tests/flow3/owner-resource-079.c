@@ -1,7 +1,5 @@
 #pragma safety enable
 
-
-
 void free(void* _Owner _Opt p);
 
 struct X {
@@ -12,9 +10,7 @@ void x_delete(struct X* _Owner _Opt p)
 {
     if (p)
     {
-
         //object 'name' may not be empty
-
-        free(p);
+        free(p); //lint 29
     }
 }

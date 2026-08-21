@@ -3409,6 +3409,11 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
 
                 new_expression->type = type_add_pointer(&new_expression->right->type, ctx->options.null_checks_enabled);
                 new_expression->type.address_of = true;
+
+                if (new_expression->right->declarator)
+                {
+                    new_expression->right->declarator->address_taken = true;
+                }
             }
             else
             {
@@ -4434,6 +4439,17 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
 
                 p_expression_node->type = type_dup(&p_expression_node->type_name->type);
 
+                if (type_is_function(&p_expression_node->type))
+                {
+                    diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->first_token, NULL,
+                        "cast to function type is illegal");
+                }
+                else if (type_is_array(&p_expression_node->type))
+                {
+                    diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->first_token, NULL,
+                        "cast to array type is illegal");
+                }
+
                 if (!is_first_of_unary_expression(ctx))
                 {
                     diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "expected expression");
@@ -4449,7 +4465,16 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                     throw;
                 }
 
-                if (type_is_floating_point(&p_expression_node->type) &&
+                if (type_is_void(&p_expression_node->left->type) &&
+                    !type_is_void(&p_expression_node->type))
+                {
+                    diagnostic(C_ERROR_UNEXPECTED,
+                        ctx,
+                        p_expression_node->first_token,
+                        NULL,
+                        "cast of 'void' term to non-'void' is illegal");
+                }
+                else if (type_is_floating_point(&p_expression_node->type) &&
                     type_is_pointer(&p_expression_node->left->type))
                 {
                     diagnostic(C_ERROR_POINTER_TO_FLOATING_TYPE,
@@ -5197,20 +5222,64 @@ static void check_comparison(struct parser_ctx* ctx,
     struct type* p_a_type = &p_a_expression->type;
     struct type* p_b_type = &p_b_expression->type;
 
-    if (type_is_pointer(p_a_type) && type_is_integer(p_b_type))
+    /*
+      Equality operators (6.5.10)
+      One of the following shall hold:
+      — both operands have arithmetic type;
+      — both operands are pointers to qualified or unqualified versions of compatible types;
+      — one operand is a pointer to an object type and the other is a pointer to a qualified or unqualified
+        version of void; or
+      — one operand is a pointer and the other is a null pointer constant.
+
+      Relational operators (6.5.9)
+      One of the following shall hold:
+      — both operands have real type;
+      — both operands are pointers to qualified or unqualified versions of compatible object types.
+    */
+    if (type_is_arithmetic(p_a_type) && type_is_arithmetic(p_b_type))
     {
-        if (expression_is_zero(p_b_expression))
+        /* both operands have arithmetic type - ok */
+    }
+    else if (type_is_pointer(p_a_type) && type_is_pointer(p_b_type))
+    {
+        if (type_is_void_ptr(p_a_type) || type_is_void_ptr(p_b_type))
         {
-            // p == 0
-            //style warning
+            /* one operand is a pointer to void - ok (only valid for == / !=, but accepted here) */
+        }
+        else if (!type_is_same(p_a_type, p_b_type, false))
+        {
+            diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
+                ctx,
+                op_token, NULL,
+                "comparison of distinct pointer types");
+        }
+    }
+    else if (type_is_pointer(p_a_type) && !type_is_pointer(p_b_type))
+    {
+        if (equal_not_equal && expression_is_null_pointer_constant(p_b_expression))
+        {
+            /* p == 0 - ok */
         }
         else
         {
-            /* array functions */
             diagnostic(W_ENUN_CONVERSION,
                 ctx,
                 op_token, NULL,
-                "comparison between pointer and integer");
+                "operands differ in levels of indirection");
+        }
+    }
+    else if (!type_is_pointer(p_a_type) && type_is_pointer(p_b_type))
+    {
+        if (equal_not_equal && expression_is_null_pointer_constant(p_a_expression))
+        {
+            /* 0 == p - ok */
+        }
+        else
+        {
+            diagnostic(W_ENUN_CONVERSION,
+                ctx,
+                op_token, NULL,
+                "operands differ in levels of indirection");
         }
     }
 

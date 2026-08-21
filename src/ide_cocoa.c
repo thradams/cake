@@ -555,11 +555,12 @@ void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
  * CGContextFillRect over the whole rect, no font/text machinery involved;
  * `fg` is unused.
  *
- * UI_BOX_INVERT: true XOR-style invert. Filling with white under the
+ * UI_BOX_CURSOR: true XOR-style invert. Filling with white under the
  * "difference" blend mode computes dst' = |1 - dst| per channel, i.e. an
  * exact per-channel invert - CoreGraphics' equivalent of Win32's
  * PatBlt(DSTINVERT) or X11's GXinvert, needing no color of its own to be
- * legible over anything.
+ * legible over anything. Only the left 1/5 of the cell's width is inverted,
+ * giving a thin caret-style bar instead of a full-cell block.
  *
  * UI_BOX_SHADOW: darken the rect via true alpha blending - unlike
  * win32.c/x11.c, no special API needed for this: CGContextFillRect with an
@@ -569,11 +570,13 @@ void ui_draw_box(int x, int y, int w, int h, uint32_t fg, uint32_t bg, int flags
     CGContextRef c = g_bitmap_ctx;
     (void)fg;
 
-    if (flags & UI_BOX_INVERT) {
+    if (flags & UI_BOX_CURSOR) {
+        int cw = g_cell_w / 5;
+        if (cw < 1) cw = 1;
         CGContextSaveGState(c);
         CGContextSetBlendMode(c, kCGBlendModeDifference);
         CGContextSetRGBFillColor(c, 1, 1, 1, 1);
-        CGContextFillRect(c, CGRectMake(x * g_cell_w, y * g_cell_h, w * g_cell_w, h * g_cell_h));
+        CGContextFillRect(c, CGRectMake(x * g_cell_w, y * g_cell_h, cw, h * g_cell_h));
         CGContextRestoreGState(c);
         return;
     }

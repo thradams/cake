@@ -5314,20 +5314,26 @@ static bool flow_object_under_view(const struct object* obj)
    leak check walks them, the same way it would already exist had the code
    happened to read that member first.
 
-   Restricted to _Opt pointer members. flow_seed_member_default seeds a
-   non-_Opt pointer member as a flat, unconditional "definitely non-null"
-   fact (NOT_EQUAL null, imaginary NONE) -- sound for an ordinary READ,
-   where reaching the member at all already implies the struct was validly
-   constructed, but not sound here: we are not reading it, we are asking
-   "was this ever given a value on THIS path", and a branch that never
-   touched the member (e.g. the impossible-in-practice but still-modeled
-   `if (p)` false arm on a non-_Opt owner `p`) has no such guarantee. Forcing
-   "definitely non-null, unmoved" onto it manufactured a leak that was never
-   real: owner-resource-059.c's `if (p) { p->name = ...; free(p->name); }
-   free(p);` reported ".name not moved" on the branch that provably never ran
-   `p->name = ...` at all. An _Opt member's seeding is honest uncertainty
-   (a correlated null/non-null pair, only the latter arm flagged) rather
-   than a manufactured certainty, so it stays safe to force. */
+   Used to be restricted to _Opt pointer members only, out of concern that
+   flow_seed_member_default's flat, unconditional "definitely non-null"
+   fact (NOT_EQUAL null, imaginary NONE) for a non-_Opt member is sound for
+   an ordinary READ -- reaching the member at all already implies the
+   struct was validly constructed -- but not here, where a branch that
+   never touched the member (e.g. the impossible-in-practice but
+   still-modeled `if (p)` false arm on a non-_Opt owner `p`) has no such
+   guarantee. That restriction was fixing owner-resource-059.c: `if (p) {
+   p->name = ...; free(p->name); } free(p);` used to report ".name not
+   moved" on the branch that provably never ran `p->name = ...` at all.
+   That false positive no longer reproduces (owner-resource-059.c stays
+   clean without the restriction), and the restriction had a real cost:
+   it also silently swallowed the ordinary, non-_Opt case --
+   `free(p)` erasing a `struct X* _Owner _Opt p` whose non-_Opt
+   `.text` member was never read anywhere -- because a member the
+   restriction skips gets no flow-map entry at all, and
+   flow_check_object_at_exit treats "no state" as "nothing to report"
+   (github.com/thradams/cake/issues/459). Seed every leaf member
+   unconditionally now that the case the restriction was protecting no
+   longer occurs. */
 static void flow_seed_all_members_default(struct flow_visit_ctx* ctx, struct object* p_obj, const struct token* _Opt p_token)
 {
     if (p_obj->members.head)
@@ -5336,11 +5342,6 @@ static void flow_seed_all_members_default(struct flow_visit_ctx* ctx, struct obj
         {
             flow_seed_all_members_default(ctx, member, p_token);
         }
-        return;
-    }
-    if (type_is_pointer(&p_obj->type) &&
-            !type_is_nullable(&p_obj->type, ctx->ctx->options.null_checks_enabled))
-    {
         return;
     }
     flow_seed_member_default(ctx, p_obj, p_token);

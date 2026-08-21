@@ -254,9 +254,11 @@ void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
  * XFillRectangle over the whole rect, no font/text machinery involved;
  * `fg` is unused.
  *
- * UI_BOX_INVERT: true XOR cursor. X11's GXinvert GC function flips every
+ * UI_BOX_CURSOR: true XOR cursor. X11's GXinvert GC function flips every
  * destination bit regardless of the source pixel, exactly like Win32's
  * PatBlt(DSTINVERT) - automatically legible over anything already painted.
+ * Only the left 1/5 of the cell's width is inverted, giving a thin
+ * caret-style bar instead of a full-cell block.
  *
  * UI_BOX_SHADOW: darken the rect via true alpha blending, like win32.c's
  * AlphaBlend - here via XRender's PictOpOver onto the pixmap's Picture. A
@@ -267,10 +269,12 @@ void ui_draw_box(int x, int y, int w, int h, uint32_t fg, uint32_t bg, int flags
 {
     (void)fg;
 
-    if (flags & UI_BOX_INVERT) {
+    if (flags & UI_BOX_CURSOR) {
+        int cw = g_cell_w / 5;
+        if (cw < 1) cw = 1;
         XSetFunction(g_dpy, g_gc, GXinvert);
         XFillRectangle(g_dpy, g_pixmap, g_gc, x * g_cell_w, y * g_cell_h,
-                        (unsigned)(w * g_cell_w), (unsigned)(h * g_cell_h));
+                        (unsigned)cw, (unsigned)(h * g_cell_h));
         XSetFunction(g_dpy, g_gc, GXcopy);
         return;
     }
@@ -548,7 +552,7 @@ static void render_frame(void)
 
 /* Explicitly give the window a normal arrow pointer - matches win32.c's
  * wc.hCursor = LoadCursor(NULL, IDC_ARROW): the app draws its own block
- * cursor for the text caret (see ui_draw_box's UI_BOX_INVERT branch), but
+ * cursor for the text caret (see ui_draw_box's UI_BOX_CURSOR branch), but
  * the OS pointer tracking the mouse is still the standard arrow, same as
  * every other native app. Set explicitly (rather than relying on whatever
  * default the window manager/X server hands out) so it's consistent across

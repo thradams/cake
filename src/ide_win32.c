@@ -229,9 +229,11 @@ void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
  * (flags == 0) is just one FillRect over the whole rect, no text/font
  * machinery involved; `fg` is unused.
  *
- * UI_BOX_INVERT: true XOR cursor - DSTINVERT flips every bit of whatever's
+ * UI_BOX_CURSOR: true XOR cursor - DSTINVERT flips every bit of whatever's
  * already there (dest = ~dest), so it needs no color of its own and is
- * automatically legible over anything already painted.
+ * automatically legible over anything already painted. Only the left 1/5 of
+ * the cell's width is inverted, giving a thin caret-style bar instead of a
+ * full-cell block.
  *
  * UI_BOX_SHADOW: darken the rect via true alpha blending. ui.c passes
  * shadow pieces in whole cells, but the classic Turbo Vision shadow is only
@@ -244,8 +246,10 @@ void ui_draw_box(int x, int y, int w, int h, uint32_t fg, uint32_t bg, int flags
     HDC mem = g_mem;
     (void)fg;
 
-    if (flags & UI_BOX_INVERT) {
-        PatBlt(mem, x * g_cell_w, y * g_cell_h, w * g_cell_w, h * g_cell_h, DSTINVERT);
+    if (flags & UI_BOX_CURSOR) {
+        int cw = g_cell_w / 5;
+        if (cw < 1) cw = 1;
+        PatBlt(mem, x * g_cell_w, y * g_cell_h, cw, h * g_cell_h, DSTINVERT);
         return;
     }
     if (flags & UI_BOX_SHADOW) {

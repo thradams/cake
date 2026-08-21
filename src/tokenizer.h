@@ -39,7 +39,7 @@ struct preprocessor_ctx
     struct hash_map macros;
     struct include_dir_list include_dir;
         
-    char cake_config_path[200]; /*we store the final path to the config file, helps when a header is not found*/
+    bool cake_config_found; /*whether cakeconf.h (next to the executable) was found and used*/
 
     /*map of pragma once already included files*/
     struct hash_map pragma_once_map;
@@ -111,7 +111,8 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk);
 void print_all_macros(const struct preprocessor_ctx* prectx);
 
 
-int include_config_header(struct preprocessor_ctx* ctx, const char* file_name);
+int include_config_header(struct preprocessor_ctx* ctx);
+void get_cake_config_path(char* out, size_t out_size);
 int stringify(const char* input, int n, char output[]);
 void print_path(const char* path, bool fullpath);
 int preprocessor_copy_included_headers(const struct preprocessor_ctx* ctx, const char* dest_dir);

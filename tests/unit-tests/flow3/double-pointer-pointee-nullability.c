@@ -20,7 +20,7 @@
 struct token { int x; };
 
 /* callee: the T** itself is _Opt (may be null); its pointee is non-_Opt. */
-static void core(struct token** _Opt pp);
+extern void core(struct token** _Opt pp);
 
 /* Non-_Opt pointee: *pp is non-null -> forwarding pp is clean (was a false
    positive on '(*pp)'). */

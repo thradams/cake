@@ -2,23 +2,23 @@
 
 *Last Updated: August 2026*
 
-A hands-on guide to Cake's ownership and nullable pointer annotations - with working examples, 
-enforced rules, and an incremental migration strategy for existing codebases.
+A hands-on guide to Cake's ownership and nullable pointer annotations - with
+working examples, enforced rules, and an incremental migration strategy for
+existing codebases.
 
 
 
 ## Introduction
 
-Cake provides a set of contract annotations recognized 
-by its static analyzer. With ownership annotations, you can achieve the 
-same guarantees as C++ RAII and often stronger ones. 
-Cake also introduces nullable pointer annotations, making it explicit 
-when a pointer may be null and preventing mistakes like accidentally 
+Cake provides a set of contract annotations recognized by its static analyzer.
+With ownership annotations, you can achieve the same guarantees as C++ RAII and
+often stronger ones. Cake also introduces nullable pointer annotations, making
+it explicit when a pointer may be null and preventing mistakes like accidentally
 dereferencing a null pointer.
 
-This manual walks you through each concept with working code examples, 
-explains the rules enforced by the analyzer, and shows you how to adopt 
-these features incrementally in an existing codebase.
+This manual walks you through each concept with working code examples, explains
+the rules enforced by the analyzer, and shows you how to adopt these features
+incrementally in an existing codebase.
 
 
 
@@ -30,7 +30,8 @@ The `_Opt` pointer annotation explicitly marks a pointer as nullable.
 The absence of `_Opt` means the pointer is non-nullable. 
 The annotation is placed after the `*`.
 
-For example, the following declaration says that `strdup()` accepts a non-nullable pointer and returns a nullable one:
+For example, the following declaration says that `strdup()` accepts a
+non-nullable pointer and returns a nullable one:
 
 ```c
 char * _Opt strdup(const char * src);
@@ -42,7 +43,8 @@ A pointer without `_Opt` is always assumed to be non-nullable.
 
 ### Enabling Nullable Rules: `#pragma nullable`
 
-Because existing C code was not written with nullability in mind, Cake provides a pragma to control when the new rules apply:
+Because existing C code was not written with nullability in mind, Cake provides
+a pragma to control when the new rules apply:
 
 ```c
 // new rules apply: absence of _Opt = non-nullable
@@ -52,14 +54,16 @@ Because existing C code was not written with nullability in mind, Cake provides 
 #pragma nullable disable  
 ```
 
-This lets you migrate code incrementally enabling the rules file-by-file or region-by-region. 
-Only static analysis behavior changes; the runtime behavior of your program is unaffected.
+This lets you migrate code incrementally enabling the rules file-by-file or
+region-by-region. Only static analysis behavior changes; the runtime behavior of
+your program is unaffected.
 
 
 
 ### Example 1: Assigning Nullable to a Non-Nullable Pointer
 
-Once nullable rules are enabled, assigning `nullptr` to an unqualified pointer generates a warning:
+Once nullable rules are enabled, assigning `nullptr` to an unqualified pointer
+generates a warning:
 
 <!-- runnable -->
 
@@ -72,10 +76,10 @@ int main() {
 ```
 
 
-
 ### Example 2: Converting Non-Nullable to Nullable
 
-Assigning a non-nullable pointer to a nullable variable is always safe and explicitly allowed:
+Assigning a non-nullable pointer to a nullable variable is always safe and
+explicitly allowed:
 
 <!-- runnable -->
 
@@ -129,17 +133,18 @@ int main() {
 
 ```
 
-Cake uses flow analysis to track possible nullability through branches.
-Once you check a pointer, the analyzer knows it is non-null inside the guarded block.
+Cake uses flow analysis to track possible nullability through branches. Once you
+check a pointer, the analyzer knows it is non-null inside the guarded block.
 
 
 
-### Helping the Analyzer with `assert()`
+### //lint
 
-Because Cake's analysis is not inter-procedural, 
-it cannot infer postconditions from called functions. 
+Because Cake's analysis is not inter-procedural, it cannot infer postconditions
+from called functions.
 
-When the analyzer cannot determine a pointer's state on its own, you can hint with `assert()`:
+When the analyzer cannot determine a pointer's state on its own, you can use
+`//lint warning-number`:
 
 <!-- runnable -->
 
@@ -154,26 +159,18 @@ bool is_empty(struct X * p) {
 
 void f(struct X * p) {
    if (!is_empty(p)) {
-      assert(p->data != nullptr);  // hint to the analyzer
-      *p->data = 1;               // ok
+      *p->data = 1; //lint 33 (guaranteed by is_empty)
    }
 }
 ```
 
 
-From a flow analysis perspective, `assert(expr)` is equivalent to `if (!(expr)) exit(1);`.
-
-> **Note:** Be cautious: the problem with this approach is the separation between where the postcondition is established and where the assert is placed. If `is_empty` changes, it may invalidate the caller's assert.
-
-> **Note:** A contract-based approach (postconditions declared alongside the function) is under development and will eventually replace the need for remote `assert()` hints.
-
-
 
 ### Non-Nullable Initialization
 
-Non-nullable pointers can be initialized with `{}`, meaning they are set to zero; however, 
-they are still in an invalid state despite having a value. 
-This is very similar to being uninitialized. For instance:
+Non-nullable pointers can be initialized with `{}`, meaning they are set to
+zero; however, they are still in an invalid state despite having a value. This
+is very similar to being uninitialized. For instance:
 
 <!-- runnable -->
 
@@ -206,8 +203,10 @@ struct X f() {
 ```
 
 
-In both cases, the object is in an invalid state. In the first case, `x.text` is uninitialized (it has no defined value). 
-In the second case, `x.text` is initialized to zero (null), which is a defined value but still invalid for a non-nullable pointer.
+In both cases, the object is in an invalid state. In the first case, `x.text` is
+uninitialized (it has no defined value). In the second case, `x.text` is
+initialized to zero (null), which is a defined value but still invalid for a
+non-nullable pointer.
 
 <!-- runnable -->
 
@@ -292,46 +291,11 @@ void f() {
 ```
 
 
-
-### Comparison with C# and TypeScript
-
-C#'s nullable reference types and TypeScript's `strictNullChecks` solve the same basic problem as
-`_Opt`: absence of an explicit nullable annotation means non-nullable, and the compiler narrows a
-variable's nullability after a check. The core mechanics are close enough that migrating mental
-models between them is straightforward.
-
-The two ecosystems diverge on power in different directions.
-
-Cake's flow analysis tracks correlated facts *within* a function that C#/TS's narrowing does not
-attempt — for example, proving `a + b == 3 || a + b == 7` (never `5`) after
-`if (c) { a = 1; b = 2; } else { a = 3; b = 4; }`, by tracking which branch each value's alternative
-originated from. C#/TS narrow nullability per variable; they don't correlate arithmetic or
-relational facts across variables through a branch join at all.
-
-What C#/TS have that Cake's *nullability* analysis does not yet have is **interprocedural**
-reasoning. `[NotNullWhen]`, `[MaybeNullWhen]`, and TypeScript's type predicates and assertion
-functions let a callee declare a postcondition that the caller's analysis picks up automatically.
-Cake's nullability analysis is not inter-procedural today — it cannot infer what a called function
-does to a pointer's nullability, so the same effect currently requires a manual `assert()` hint at
-the call site (see *Helping the Analyzer with `assert()`*, above), with the attendant risk that the
-hint goes stale if the callee's behavior changes. A `[NotNullWhen]`-equivalent for nullability is
-planned; see the contract-based approach mentioned under *Helping the Analyzer with `assert()`*.
-
-Cake's *ownership* analysis, however, already has a working precedent for exactly this shape of
-contract: `_Out` and `_Dtor` are postconditions declared on the function signature itself
-(`_Out` — "every member will be initialized before I return"; `_Dtor` — "every `_Owner` member
-will be released before I return"), checked against the callee's actual implementation, and
-consumed automatically by every caller without a manual hint — the same shape as C#'s `out`
-definite assignment (see *Comparison with C#'s `out` parameters*, Chapter 3). So the interprocedural
-gap above is specific to nullability, not a limitation of Cake's flow analysis in general.
-
-
-
 ## Chapter 2: Object Lifetime and Ownership
 
-Object lifetime as the portion of program execution during which storage 
-is reserved for that object. Cake's ownership system gives you compile-time enforcement 
-of these rules.
+Object lifetime as the portion of program execution during which storage is
+reserved for that object. Cake's ownership system gives you many compile-time
+enforcement of these rules.
 
 ### Enabling Ownership Checks
 
@@ -349,7 +313,9 @@ of these rules.
 
 ### Owner References and the `_Owner` annotation
 
-An **owner reference** is an object that manages the lifetime of the thing it references. The most common form is an **owner pointer** — a pointer to a heap-allocated object that is responsible for freeing it.
+An **owner reference** is an object that manages the lifetime of the thing it
+references. The most common form is an **owner pointer** — a pointer to a
+heap-allocated object that is responsible for freeing it.
 
 Declare an owner pointer by adding `_Owner` after the `*`:
 
@@ -371,7 +337,8 @@ int main() {
 ```
 
 
-If you comment out `fclose()`, the analyzer warns that `f` leaves scope without its ownership being transferred:
+If you comment out `fclose()`, the analyzer warns that `f` leaves scope without
+its ownership being transferred:
 
 ```c
 } // warning: 'f' leaves scope with an owned resource
@@ -424,9 +391,9 @@ close(server_socket);
 
 ### View References
 
-A **view reference** accesses an object without managing its lifetime. Regular (non-`_Owner`) 
-pointers are view references by default. The `_View` annotation is used on struct types, 
-not on pointer declarations.
+A **view reference** accesses an object without managing its lifetime. Regular
+(non-`_Owner`) pointers are view references by default. The `_View` annotation
+is used on struct types, not on pointer declarations.
 
 > **Rule:** The lifetime of the referenced object must exceed the lifetime of the view reference.
 
@@ -481,10 +448,6 @@ int main() {
 ```
 
 
-
-
-
-
 ### Deleting Owner Pointers
 
 Owner pointers take responsibility for both the pointed-to object and its storage. 
@@ -517,32 +480,37 @@ void x_delete(struct X * _Owner _Opt p) {
 ### Comparison with C++ RAII
 
 
-RAII is a pattern, not a static check: a constructor/destructor pair runs automatically at 
-scope exit, but nothing verifies that a raw resource outside such a wrapper was released. 
-`T* p = new T;` with no matching delete compiles without complaint in C++. The guarantee only 
-exists for types that actually implement it.
+RAII is a pattern, not a static check: a constructor/destructor pair runs
+automatically at scope exit, but nothing verifies that a raw resource outside
+such a wrapper was released. `T* p = new T;` with no matching delete compiles
+without complaint in C++. The guarantee only exists for types that actually
+implement it.
 
-Cake's `_Owner` takes the opposite approach: it enforces the same discipline directly on ordinary
-pointers and values, without requiring a wrapper type. Leaving scope with an unmoved `_Owner` 
-is a compile-time warning, not a convention you have to trust. The fopen/fclose example earlier 
-in this chapter is exactly the RAII pattern, but checked by the analyzer instead of relying 
-on a class to run the cleanup.
+Cake's `_Owner` takes the opposite approach: it enforces the same discipline
+directly on ordinary pointers and values, without requiring a wrapper type.
+Leaving scope with an unmoved `_Owner` is a compile-time warning, not a
+convention you have to trust. The fopen/fclose example earlier in this chapter
+is exactly the RAII pattern, but checked by the analyzer instead of relying on a
+class to run the cleanup.
 
-The two approaches provide different guarantees. RAII executes the destructor automatically 
-at scope exit. Cake's _Out/_Dtor are contracts that the analyzer verifies were fulfilled, 
-but no code is generated to call them automatically. As a result, there are code paths that 
-RAII would still clean up automatically, whereas Cake relies on the analyzer being able to 
-verify that the required cleanup was written.
+The two approaches provide different guarantees. RAII executes the destructor
+automatically at scope exit. Cake's _Out/_Dtor are contracts that the analyzer
+verifies were fulfilled, but no code is generated to call them automatically. As
+a result, there are code paths that RAII would still clean up automatically,
+whereas Cake relies on the analyzer being able to verify that the required
+cleanup was written.
 
-Cake also proves the ownership rules statically, with no runtime overhead. `std::unique_ptr`,
-which is the closest analog to `_Owner` (single, move-only ownership), still performs a runtime
-check in its destructor. After a move, its internal pointer is set to null so that `delete ptr;`
-becomes a no-op. 
-Every destructor therefore executes a null check, whether or not the object was ever moved from.
-Cake proves the equivalent fact "this owner still holds something to release" ahead of time by tracking
-ownership and moved/null state through flow analysis, so no unconditional runtime check needs to be emitted.
-When the analyzer cannot prove that an owner is null, an explicit `if (ptr)` provides the missing proof,
-allowing the cleanup to be verified while keeping the common case free of unnecessary runtime checks.
+Cake also proves the ownership rules statically, with no runtime overhead.
+`std::unique_ptr`, which is the closest analog to `_Owner` (single, move-only
+ownership), still performs a runtime check in its destructor. After a move, its
+internal pointer is set to null so that `delete ptr;` becomes a no-op. Every
+destructor therefore executes a null check, whether or not the object was ever
+moved from. Cake proves the equivalent fact "this owner still holds something to
+release" ahead of time by tracking ownership and moved/null state through flow
+analysis, so no unconditional runtime check needs to be emitted. When the
+analyzer cannot prove that an owner is null, an explicit `if (ptr)` provides the
+missing proof, allowing the cleanup to be verified while keeping the common case
+free of unnecessary runtime checks.
 
 
 
@@ -550,9 +518,9 @@ allowing the cleanup to be verified while keeping the common case free of unnece
 
 ### The `_Dtor` parameter annotation
 
-`_Dtor` tells the analyzer that the function will move out all owner contents of 
-the pointed-to struct, leaving it uninitialized. The compiler also verifies that the 
-implementation fulfills this contract.
+`_Dtor` tells the analyzer that the function will move out all owner contents of
+the pointed-to struct, leaving it uninitialized. The compiler also verifies that
+the implementation fulfills this contract.
 
 <!-- runnable -->
 
@@ -598,9 +566,10 @@ void x_delete(_Opt struct X * _Owner _Opt p) {
 
 ### The `_Clear` parameter annotation
 
-`_Clear` tells the analyzer that the function will zero out every member of the pointed-to
-struct before returning. The compiler verifies that the implementation fulfills this contract —
-each member must be provably zero at every exit point:
+`_Clear` tells the analyzer that the function will zero out every member of the
+pointed-to struct before returning. The compiler verifies that the
+implementation fulfills this contract — each member must be provably zero at
+every exit point:
 
 <!-- runnable -->
 
@@ -675,10 +644,11 @@ int set(struct X *p, const char * text) {
 
 #### Comparison with C#'s `out` parameters
 
-`_Out` looks like C#'s `out`: both let the callee receive storage the caller has not initialized,
-on the understanding that the callee will initialize it. C#'s `out` is backed by **definite
-assignment** — the compiler rejects any code path in the callee that returns without assigning the
-`out` parameter — and `_Out` is checked the same way, against the implementation, not just assumed:
+`_Out` looks like C#'s `out`: both let the callee receive storage the caller has
+not initialized, on the understanding that the callee will initialize it. C#'s
+`out` is backed by **definite assignment** — the compiler rejects any code
+path in the callee that returns without assigning the `out` parameter — and
+`_Out` is checked the same way, against the implementation, not just assumed:
 
 <!-- runnable -->
 
@@ -694,10 +664,11 @@ void x_init_forgot(_Out struct X* p) {
 } // warning: _Out parameter 'p' pointee (.text) is possibly not initialized at exit
 ```
 
-Unlike `_Dtor` — which only obligates `_Owner` members, since a plain scalar has no lifetime to end
-— `_Out` covers every member of the pointee, the same breadth as `out`. Leaving a non-`_Owner`
-field untouched is just as much a violation as leaving an `_Owner` one uninitialized, because the
-caller is trusting that the whole object is now well-formed, not only its owned resources:
+Unlike `_Dtor` — which only obligates `_Owner` members, since a plain scalar
+has no lifetime to end — `_Out` covers every member of the pointee, the same
+breadth as `out`. Leaving a non-`_Owner` field untouched is just as much a
+violation as leaving an `_Owner` one uninitialized, because the caller is
+trusting that the whole object is now well-formed, not only its owned resources:
 
 ```c
 #pragma safety enable

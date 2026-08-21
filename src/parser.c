@@ -2741,6 +2741,16 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                         throw;
                 }
             }
+            else if (ctx->current->type == '{' &&
+                !(default_storage_class_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE))
+            {
+                diagnostic(C_ERROR_UNEXPECTED_TOKEN,
+                    ctx,
+                    ctx->current,
+                    NULL,
+                    "found '{' at file scope (missing function header?)");
+                throw;
+            }
             else
             {
                 if (ctx->current->type == TK_IDENTIFIER)
@@ -3359,6 +3369,16 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
         _Assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
 
+        if (type_is_void(&p_init_declarator->p_declarator->type) &&
+            !(p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF))
+        {
+            diagnostic(C_ERROR_ILLEGAL_USE_OF_TYPE_VOID,
+                ctx,
+                tkname,
+                NULL,
+                "this use of 'void' is not valid");
+        }
+
         _Assert(ctx->scopes.tail != NULL);
 
         /*
@@ -3498,6 +3518,25 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
         if (ctx->current->type == '=')
         {
+            if (type_is_function(&p_init_declarator->p_declarator->type))
+            {
+                diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL,
+                    "'%s' function initialization is not allowed", declarator_name);
+            }
+
+            if (p_previous_declarator &&
+                p_previous_declarator->initialized &&
+                out_scope->scope_level == 0 &&
+                ctx->scopes.tail->scope_level == 0)
+            {
+                if (diagnostic(C_ERROR_REDECLARATION, ctx, ctx->current, NULL,
+                    "redefinition of '%s'", declarator_name))
+                {
+                    diagnostic(W_LOCATION, ctx, p_previous_declarator->name_opt, NULL,
+                        "previous definition");
+                }
+            }
+
             const bool requires_constant_initialization =
                 (ctx->p_current_function_opt == NULL) ||
                 (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) ||
@@ -3511,6 +3550,28 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             if (p_init_declarator->initializer == NULL)
             {
                 throw;
+            }
+
+            p_init_declarator->p_declarator->initialized = true;
+
+            if ((p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN) &&
+                ctx->scopes.tail->scope_level != 0)
+            {
+                diagnostic(C_ERROR_EXTERN_WITH_INITIALIZER_AT_BLOCK_SCOPE,
+                    ctx,
+                    p_init_declarator->p_declarator->first_token_opt,
+                    NULL,
+                    "'%s': cannot initialize extern variables with block scope", declarator_name);
+            }
+
+            if (p_init_declarator->initializer->assignment_expression != NULL &&
+                type_is_struct_or_union(&p_init_declarator->p_declarator->type) &&
+                !type_is_same(&p_init_declarator->p_declarator->type,
+                    &p_init_declarator->initializer->assignment_expression->type,
+                    false))
+            {
+                diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL,
+                    "'%s': initialization requires a brace-enclosed initializer list", declarator_name);
             }
 
             if (p_init_declarator->initializer->braced_initializer)
@@ -7997,8 +8058,27 @@ struct parameter_list* _Owner _Opt parameter_list(struct parser_ctx* ctx)
         if (p_parameter_declaration == NULL)
             throw;
 
+        struct parameter_declaration* p_first_parameter_declaration = p_parameter_declaration;
+
         parameter_list_add(p_parameter_list, p_parameter_declaration);
         p_parameter_declaration = NULL; /*MOVED*/
+
+        if (ctx->current != NULL &&
+            ctx->current->type == ',' &&
+            p_first_parameter_declaration->declarator != NULL &&
+            type_is_void(&p_first_parameter_declaration->declarator->type)) //lint 31 31 31 still alive
+        {
+            /* void followed by more parameters: int f(void, int); */
+            struct token* _Opt p_token = p_first_parameter_declaration->declarator->first_token_opt;
+            if (p_token == NULL)
+                p_token = ctx->current;
+
+            diagnostic(C_ERROR_VOID_PARAMETER_NOT_ALONE,
+                ctx,
+                p_token,
+                NULL,
+                "'void' must be the first and only parameter if specified");
+        }
 
         while (ctx->current != NULL && ctx->current->type == ',')
         {
@@ -8021,6 +8101,21 @@ struct parameter_list* _Owner _Opt parameter_list(struct parser_ctx* ctx)
             p_parameter_declaration = parameter_declaration(ctx);
             if (p_parameter_declaration == NULL)
                 throw;
+
+            if (p_parameter_declaration->declarator != NULL &&
+                type_is_void(&p_parameter_declaration->declarator->type))
+            {
+                /* void as a later parameter: int f(int, void); */
+                struct token* _Opt p_token = p_parameter_declaration->declarator->first_token_opt;
+                if (p_token == NULL)
+                    p_token = ctx->current;
+
+                diagnostic(C_ERROR_VOID_PARAMETER_NOT_ALONE,
+                    ctx,
+                    p_token,
+                    NULL,
+                    "'void' must be the first and only parameter if specified");
+            }
 
             parameter_list_add(p_parameter_list, p_parameter_declaration);
             p_parameter_declaration = NULL; /*MOVED*/
@@ -12786,6 +12881,17 @@ static void check_unused_static_declarators(const struct parser_ctx* ctx, struct
                     }
 
                     _Assert(p_declarator_local);
+
+                    if (type_is_function(&p->init_declarator_list.head->p_declarator->type) &&
+                        declarator_get_function_definition(p_declarator_local) == NULL)
+                    {
+                        diagnostic(W_STATIC_FUNCTION_NOT_DEFINED,
+                            ctx,
+                            p->init_declarator_list.head->p_declarator->name_opt,
+                            NULL,
+                            "static function '%s' declared but not defined",
+                            p->init_declarator_list.head->p_declarator->name_opt->lexeme);
+                    }
 
                     int num_uses = p_declarator_local->num_uses;
                     if (num_uses == 0)

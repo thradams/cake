@@ -2967,6 +2967,20 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
                     return SIZEOF_RESULT_OVERLOW;
                 }
 
+                /*
+                  MSVC caps a single object at 0x7FFFFFFF (~2GB) bytes even
+                  when targeting x64, independent of the 64-bit size_t range
+                  (C2089 'identifier': type too large -- e.g.
+                  char huge_array[0x7fffffffU][0x7fffffffU]; whose total size
+                  is well within SIZE_MAX but still rejected). GCC/clang
+                  targets do not share this limit, so only enforce it there.
+                */
+                if ((target == TARGET_X86_MSVC || target == TARGET_X64_MSVC) &&
+                    result > 0x7FFFFFFFULL)
+                {
+                    return SIZEOF_RESULT_OVERLOW;
+                }
+
                 *size = (size_t)result;
             }
             else
