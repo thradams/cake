@@ -300,6 +300,8 @@ static void object_static_debug(struct flow_visit_ctx* ctx, const struct object*
 
 static void flow_check_object_at_exit(struct flow_visit_ctx* ctx, const struct type* p_type, const struct object* p_obj, const struct marker* marker, const struct token* p_exit_token, bool in_view, const char* _Opt p_root_name_opt);
 static void flow_check_arena_objects_at_function_exit(struct flow_visit_ctx* ctx);
+static void flow_check_write_qualified_params_at_exit(struct flow_visit_ctx* ctx, const struct marker* marker, const struct token* p_exit_token);
+static bool flow_is_last_item_return(struct compound_statement* p_compound_statement);
 static void flow_seed_member_default(struct flow_visit_ctx* ctx, struct object* _Opt member_obj, const struct token* _Opt p_token);
 
 enum init_type
@@ -323,10 +325,6 @@ static void flow_widen_loop_variant_objects(struct flow_visit_ctx* ctx,
         struct flow_map* _Opt* arms,
         int num_arms,
         const struct token* _Opt p_token);
-
-static void flow_check_static_ownership_assignment(struct flow_visit_ctx* ctx,
-        const struct type* _Opt p_dest_type,
-        const struct expression* _Opt p_src_expression);
 
 static void flow_apply_alloc_contract_to_dest(struct flow_visit_ctx* ctx,
         const struct type* _Opt p_dest_type,
@@ -675,7 +673,7 @@ struct flow_map* _Opt flow_map_arena_new(struct flow_map_arena* a, struct flow_m
             int new_capacity = a->capacity == 0 ? 4
                                : a->capacity < FLOW_MAP_ARENA_GROW_DOUBLE_LIMIT ? a->capacity * 2
                                : a->capacity + a->capacity / 2;
-            struct flow_map** _Owner _Opt new_data = realloc(a->data, new_capacity * sizeof(struct flow_map*));
+            struct flow_map* _Owner _Opt* _Owner _Opt new_data = realloc(a->data, new_capacity * sizeof(struct flow_map*));
             if (new_data == NULL) throw;
             a->data = new_data; //lint 26
             a->capacity = new_capacity;
@@ -747,7 +745,7 @@ struct object* _Opt flow_allocated_object_arena_new(struct flow_allocated_object
         if (a->size == a->capacity)
         {
             int new_capacity = a->capacity == 0 ? 4 : a->capacity * 2;
-            struct object** _Owner _Opt new_data = realloc(a->data, new_capacity * sizeof(struct object*));
+            struct object* _Owner _Opt* _Owner _Opt new_data = realloc(a->data, new_capacity * sizeof(struct object*));
             if (new_data == NULL)
             {
                 throw;
@@ -838,7 +836,11 @@ static struct flow_alternative* _Opt _Owner flow_alt_pool_alloc(struct flow_alt_
        explicitly (e.g. value_kind/value), so zero the node every time it is
        handed out, not just on first carve from a fresh block. */
     memset(&node->alt, 0, sizeof(node->alt));
-    return &node->alt;
+    /* Not actually heap-owned -- recycled from the pool above and returned
+       to it by flow_alt_pool_release, never freed individually. The _Owner
+       cast is the established idiom (see free-opt-owner-cast.c) for opting
+       a pointer into the ownership contract at the use site. */
+    return (struct flow_alternative* _Opt _Owner)&node->alt;
 }
 
 static void flow_alt_pool_free_all(_Clear struct flow_alt_pool* pool)
@@ -4033,8 +4035,6 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
         {
             struct expression* p_init_expr = p_init_declarator->initializer->assignment_expression;
             flow_visit_full_expression(ctx, p_init_expr);
-            flow_check_static_ownership_assignment(ctx,
-                                                   &p_init_declarator->p_declarator->type, p_init_expr);
             flow_check_object_init_assigment(ctx,
                                              p_init_declarator->initializer->assignment_expression,
                                              &p_init_declarator->p_declarator->object,
@@ -4444,6 +4444,7 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
 }
 
 static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct compound_statement* p_compound_statement);
+static void flow_visit_compound_statement_core(struct flow_visit_ctx* ctx, struct compound_statement* p_compound_statement);
 
 static void flow_visit_initializer_list(struct flow_visit_ctx* ctx, struct initializer_list* p_initializer_list);
 
@@ -6341,55 +6342,6 @@ static void flow_check_discarding_owner_before_overwrite(struct flow_visit_ctx* 
 }
 
 /*
-   STATIC (type-level) ownership rules for an assignment / initialization /
-   argument / return. These are pure type checks -- they consult no flow state.
-
-   Moved out of expressions.c's check_assigment so that every diagnostic that
-   mentions _Owner lives in flow3: the core language parses the ownership
-   annotations as ordinary qualifiers and attaches no meaning to them, and
-   flow3 is a self-contained type-system addition on top.
-
-   Call this once per assignment SITE (from the top-level callers of
-   flow_check_object_init_assigment), never from its member recursion --
-   otherwise an aggregate would report the same type error once per member.
-*/
-static void flow_check_static_ownership_assignment(struct flow_visit_ctx* ctx,
-        const struct type* _Opt p_dest_type,
-        const struct expression* _Opt p_src_expression)
-{
-    if (p_dest_type == NULL || p_src_expression == NULL)
-        return;
-
-    const struct type* const p_src_type = &p_src_expression->type;
-
-    if (type_is_owner(p_dest_type) && !type_is_owner(p_src_type))
-    {
-        /* A null pointer constant is always assignable to an owner. */
-        if (!expression_is_null_pointer_constant(p_src_expression))
-        {
-            diagnostic(W_FLOW_NON_OWNER_TO_OWNER_ASSIGN,
-                       ctx->ctx,
-                       p_src_expression->first_token, NULL,
-                       "cannot assign a non-owner to owner");
-            return;
-        }
-    }
-
-    if (!type_is_owner(p_dest_type) && type_is_owner_or_pointer_to_dtor(p_src_type))
-    {
-        /* The source is a temporary owner (a function return value): storing it
-           in a non-owner would leak it, since nothing takes ownership. */
-        if (p_src_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
-        {
-            diagnostic(W_FLOW_USING_TEMPORARY_OWNER,
-                       ctx->ctx,
-                       p_src_expression->first_token, NULL,
-                       "cannot assign a temporary owner to non-owner object.");
-        }
-    }
-}
-
-/*
    Apply a `_Clear` / `_Uninitialized` allocation contract to the DESTINATION.
 
    calloc/malloc return `void*`, so a contract applied at the call site lands on
@@ -6458,9 +6410,6 @@ static void flow_check_assigment(struct flow_visit_ctx* ctx,
                                  struct expression* p_expression_dest,
                                  struct expression* p_expression_src)
 {
-    /* Static type rules once per assignment, before the per-alternative loop. */
-    flow_check_static_ownership_assignment(ctx, &p_expression_dest->type, p_expression_src);
-
     const struct flow_key_alternatives* _Opt p_expression_dest_key_alternatives =
         flow_map_search_up(ctx->p_current_flow_map, &p_expression_dest->object);
 
@@ -6587,7 +6536,6 @@ static void flow_visit_function_arguments(struct flow_visit_ctx* ctx,
             make_object(p_param_type, &param_object, MAKE_STATE_UNITIALIZED, ctx->ctx->options.target);
 
             flow_visit_full_expression(ctx, p_arg_expr);
-            flow_check_static_ownership_assignment(ctx, p_param_type, p_arg_expr);
             flow_check_object_init_assigment(ctx, p_arg_expr, &param_object, &p_arg_expr->object, INIT_PARAMETER, false, false);
 
             p_current_argument = p_current_argument->next;
@@ -9684,9 +9632,73 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
         break;
 
         case EXPR_POSTFIX_FUNCTION_LITERAL:
+        {
             _Assert(p_expression->compound_statement != NULL);
-            flow_visit_compound_statement(ctx, p_expression->compound_statement);
+
+            /* A function literal's body is never reached through
+               flow_visit_declaration (it has no enclosing struct declaration --
+               its compound_statement hangs off this expression instead), so
+               none of the per-function setup/teardown that macro normally
+               provides happens for it automatically. Without this, a literal's
+               _Owner parameters are never seeded by flow_parameter_object_init,
+               so passing/leaking a resource through them goes uncaught -- same
+               root cause as the defer-not-generated bug in defer.c fixed for
+               issue #269, just in the ownership checker instead of codegen. */
+            const struct direct_declarator* _Opt p_innermost_direct_declarator =
+                p_expression->type_name && p_expression->type_name->abstract_declarator ?
+                get_innermost_direct_declarator(p_expression->type_name->abstract_declarator->direct_declarator) :
+                NULL;
+
+            struct parameter_list* _Opt p_parameter_list =
+                p_innermost_direct_declarator &&
+                p_innermost_direct_declarator->function_declarator &&
+                p_innermost_direct_declarator->function_declarator->parameter_type_list_opt ?
+                p_innermost_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list :
+                NULL;
+
+            for (struct parameter_declaration* _Opt p_parameter = p_parameter_list ? p_parameter_list->head : NULL;
+                 p_parameter;
+                 p_parameter = p_parameter->next)
+            {
+                if (p_parameter->declarator)
+                {
+                    flow_parameter_object_init(ctx,
+                        &p_parameter->declarator->object,
+                        &p_parameter->declarator->type,
+                        p_parameter->declaration_specifiers->first_token);
+                }
+            }
+
+            struct type* _Opt p_previous_return_type = ctx->p_return_type;
+            struct type return_type = get_function_return_type(&p_expression->type);
+            ctx->p_return_type = &return_type;
+
+            flow_visit_compound_statement_core(ctx, p_expression->compound_statement);
+
+            if (!flow_is_last_item_return(p_expression->compound_statement))
+            {
+                flow_exit_block_visit_defer_list(ctx, &p_expression->compound_statement->defer_list, p_expression->compound_statement->last_token);
+                flow_check_arena_objects_at_function_exit(ctx);
+                const struct marker marker =
+                {
+                    .p_token_begin = p_expression->compound_statement->last_token,
+                    .p_token_end = p_expression->compound_statement->last_token
+                };
+                flow_check_file_scope_objects_at_function_exit(ctx, &marker);
+                flow_check_write_qualified_params_at_exit(ctx, &marker, p_expression->compound_statement->last_token);
+                flow_defer_list_set_end_of_lifetime(ctx, &p_expression->compound_statement->defer_list, p_expression->compound_statement->last_token);
+            }
+
+            type_destroy(&return_type);
+            ctx->p_return_type = p_previous_return_type;
+
+            if (p_expression->compound_statement->lint_token)
+            {
+                flow_check_dianostic_suppression(ctx, p_expression->compound_statement->lint_token);
+            }
+
             break;
+        }
 
         case EXPR_POSTFIX_COMPOUND_LITERAL:
         {
@@ -9845,7 +9857,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     struct flow_alternative* _Opt* _Opt list;
                     if (p_vals != NULL)
                     {
-                        list = p_vals->alternatives.data;
+                        list = p_vals->alternatives.data; //lint 81
                     }
                     else
                     {

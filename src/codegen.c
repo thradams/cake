@@ -1142,7 +1142,31 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                 (!is_static && !is_extern) &&
                 p_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE;
 
-            if (is_function)
+            if (!is_function &&
+                p_expression->lvalue_disabled &&
+                (type_is_struct_or_union(&p_expression->type) || type_is_array(&p_expression->type)))
+            {
+                /*
+                 This names a const/constexpr object from an enclosing
+                 function. Its storage isn't reachable from here, so
+                 materialize a copy of its compile-time value instead of
+                 referencing it by name.
+                */
+                char name[100] = { 0 };
+                generate_file_scope_new_name(ctx, COMPOUND_LITERAL_BASE_NAME, sizeof(name), name);
+
+                struct osstream local = { 0 };
+                ss_fprintf(&local, "static ");
+                d_print_type(ctx, &local, &p_expression->type, name, false);
+                bool first = true;
+                ss_fprintf(&local, " = {");
+                object_print_initialization_list(ctx, &local, &p_expression->object, &first);
+                ss_fprintf(&local, "};\n");
+                ss_fprintf(&ctx->add_this_before_external_decl, "%s", local.c_str);
+                ss_close(&local);
+                ss_fprintf(oss, "%s", name);
+            }
+            else if (is_function)
             {
                 ss_fprintf(oss, "%s", p_expression->declarator->name_opt->lexeme);
 
@@ -1632,6 +1656,22 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         {
             //bool address_of_argument = ctx->address_of_argument;
             _Assert(p_expression->right != NULL);
+
+            if (type_is_array(&p_expression->right->type) &&
+                type_is_vm(&p_expression->right->type))
+            {
+                /* A VLA object (e.g. `int a[n]`) is already lowered to a
+                   plain pointer holding its base address, so `&a` is just
+                   that pointer value -- not the address of the pointer
+                   variable -- cast to the pointer-to-array type expected
+                   here. */
+                ss_fprintf(oss, "(");
+                d_print_type(ctx, oss, &p_expression->type, NULL, false);
+                ss_fprintf(oss, ")");
+                codegen_visit_expression(ctx, oss, p_expression->right);
+                break;
+            }
+
             ss_fprintf(oss, "&");
             ctx->address_of_argument = true;
             codegen_visit_expression(ctx, oss, p_expression->right);
@@ -1876,10 +1916,23 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
             if (codegen_is_vm_pointer(&p_expression->left->type) &&
                 !type_is_pointer(&p_expression->right->type))
             {
-                /* pointer - integer. Pointer - pointer (difference) on two VM
-                   pointers falls through to the plain path below, unhandled
-                   -- out of scope for issue #430, which only covers ++/--/+1. */
+                /* pointer - integer */
                 codegen_vm_ptr_advance(ctx, oss, p_expression->left, "-", p_expression->right);
+            }
+            else if (codegen_is_vm_pointer(&p_expression->left->type) &&
+                codegen_is_vm_pointer(&p_expression->right->type))
+            {
+                /* pointer - pointer: byte distance divided by the
+                   (runtime-known) pointee size. */
+                ss_fprintf(oss, "(((char*)");
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " - (char*)");
+                codegen_visit_expression(ctx, oss, p_expression->right);
+                ss_fprintf(oss, ") / ");
+                struct type pointee = type_remove_pointer(&p_expression->left->type);
+                vm_emit_sizeof_expr(ctx, oss, &pointee);
+                type_destroy(&pointee);
+                ss_fprintf(oss, ")");
             }
             else
             {
@@ -1992,6 +2045,26 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         case EXPR_ASSIGNMENT_PLUS_ASSIGN:
         case EXPR_ASSIGNMENT_MINUS_ASSIGN:
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
+            if (codegen_is_vm_pointer(&p_expression->left->type) &&
+                !type_is_pointer(&p_expression->right->type))
+            {
+                /* `p += n` / `p -= n` on a pointer to a VM array must scale
+                   by the (runtime-known) pointee size, same as p+n/p++. */
+                const char* op = p_expression->expression_type == EXPR_ASSIGNMENT_PLUS_ASSIGN ? "+" : "-";
+                ss_fprintf(oss, "(");
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " = ");
+                codegen_vm_ptr_advance(ctx, oss, p_expression->left, op, p_expression->right);
+                ss_fprintf(oss, ")");
+                break;
+            }
+            codegen_visit_expression(ctx, oss, p_expression->left);
+            ss_fprintf(oss, " %s ", get_op_by_expression_type(p_expression->expression_type));
+            codegen_visit_expression(ctx, oss, p_expression->right);
+            break;
+
         case EXPR_ASSIGNMENT_MULTI_ASSIGN:
         case EXPR_ASSIGNMENT_DIV_ASSIGN:
         case EXPR_ASSIGNMENT_MOD_ASSIGN:
@@ -2267,10 +2340,24 @@ static void codegen_visit_expression_statement(struct codegen_ctx* ctx, struct o
     print_identation(ctx, &local);
     if (p_expression_statement->expression_opt)
     {
-        if (p_expression_statement->expression_opt->expression_type != EXPR_UNARY_STATIC_ASSERTION ||
-            codegen_expr_is_emitted_runtime_assert(ctx, p_expression_statement->expression_opt))
+        struct expression* p_expr = p_expression_statement->expression_opt;
+
+        if ((p_expr->expression_type == EXPR_POSTFIX_INCREMENT ||
+             p_expr->expression_type == EXPR_POSTFIX_DECREMENT) &&
+            p_expr->left != NULL &&
+            codegen_is_vm_pointer(&p_expr->left->type))
         {
-            codegen_visit_expression(ctx, &local, p_expression_statement->expression_opt);
+            /* The old-value temp that codegen_vm_ptr_postfix_step hoists is
+               unused here (the statement discards the expression's value),
+               so emit the equivalent prefix-style advance directly instead
+               of leaving a dead "temp;" statement behind. */
+            codegen_vm_ptr_prefix_step(ctx, &local, p_expr->left,
+                p_expr->expression_type == EXPR_POSTFIX_INCREMENT ? "+" : "-");
+        }
+        else if (p_expr->expression_type != EXPR_UNARY_STATIC_ASSERTION ||
+            codegen_expr_is_emitted_runtime_assert(ctx, p_expr))
+        {
+            codegen_visit_expression(ctx, &local, p_expr);
         }
     }
 

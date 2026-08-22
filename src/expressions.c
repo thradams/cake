@@ -14,6 +14,7 @@
 #include <string.h>
 #include "parser.h"
 #include "type.h"
+#include "defer.h"
 #include <math.h>
 #include <float.h>
 
@@ -1506,6 +1507,12 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                         if (type_is_constexpr(&p_declarator->type))
                         {
                             /*
+                            Scalars are inlined as literals; struct/array
+                            objects are copied from their compile-time value
+                            (see EXPR_PRIMARY_DECLARATOR in codegen.c), so no
+                            reference to the enclosing function's object
+                            remains in the generated code either way.
+
                             int main()
                             {
                                 constexpr int i = 2;
@@ -2730,6 +2737,18 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
             ctx->p_current_function_scope_opt = ctx->scopes.tail;
 
             p_expression_node->compound_statement = function_body(ctx);
+
+            if (p_expression_node->compound_statement && ctx->p_report->error_count == 0)
+            {
+                struct parameter_list* _Opt p_parameter_list =
+                    p_innermost_direct_declarator->function_declarator->parameter_type_list_opt ?
+                    p_innermost_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list :
+                    NULL;
+
+                struct defer_visit_ctx defer_ctx = { .ctx = ctx };
+                defer_start_visit_compound_statement(&defer_ctx, p_expression_node->compound_statement, p_parameter_list);
+                defer_visit_ctx_destroy(&defer_ctx);
+            }
 
             scope_list_pop(&ctx->scopes);
             ctx->p_current_function_opt = p_current_function_opt; //restore
@@ -7073,11 +7092,144 @@ bool expression_is_subjected_to_lvalue_conversion(const struct expression* expre
     return true;
 }
 
+/*
+   Checks that only apply to cake's non-standard extensions (_Owner, _Opt,
+   etc) rather than plain C semantics -- kept in their own function (with an
+   `extended_` prefix, next to check_assigment/check_type and friends) so
+   every diagnostic that mentions _Owner is easy to find in one place.
+
+   Called at the very TOP of check_assigment, before any of its early
+   returns (arithmetic-to-arithmetic, null-to-pointer, pointer-to-int,
+   etc.) -- those returns are frequent, and this check only needs
+   p_a_type/p_b_expression directly, so there is no reason to risk it being
+   skipped by standard-C logic that has nothing to do with ownership.
+
+   Call this once per assignment SITE (assignment / initialization /
+   argument / return), never from aggregate member recursion -- otherwise a
+   struct assignment would report the same _Owner mismatch once per member.
+*/
+static void extended_check_assigment(struct parser_ctx* ctx,
+    const struct type* p_a_type, /*dest*/
+    const struct expression* p_b_expression, /*src*/
+    enum assigment_type assignment_type)
+{
+    if (!ctx->options.ownership_enabled)
+        return;
+
+    const struct type* const p_b_type = &p_b_expression->type;
+
+    if (type_is_owner(p_a_type) && !type_is_owner(p_b_type))
+    {
+        /* A null pointer constant is always assignable to an owner. */
+        if (!expression_is_null_pointer_constant(p_b_expression))
+        {
+            diagnostic(W_NON_OWNER_TO_OWNER_ASSIGN,
+                       ctx,
+                       p_b_expression->first_token, NULL,
+                       "cannot assign a non-owner to owner");
+            return;
+        }
+    }
+
+    if (!type_is_owner(p_a_type) && type_is_owner_or_pointer_to_dtor(p_b_type))
+    {
+        /* The source is a temporary owner (a function return value): storing it
+           in a non-owner would leak it, since nothing takes ownership. */
+        if (p_b_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
+        {
+            diagnostic(W_USING_TEMPORARY_OWNER,
+                       ctx,
+                       p_b_expression->first_token, NULL,
+                       "cannot assign a temporary owner to non-owner object.");
+        }
+    }
+
+    /*
+       One level deeper: does the DEST pointee require ownership (e.g.
+       `char * _Owner * p`) while the SRC pointee does not (e.g. `char **`)?
+       If so, the callee can write an owner value through *p into storage
+       that was never declared _Owner:
+
+         void f(char * _Owner * p) { *p = strdup("a"); }
+         char * s = 0;
+         f(&s); // s is not _Owner -- *p = ... leaks/aliases silently
+
+       This intentionally checks only the CAKE_OWNER qualifier bit directly
+       (not the general type_is_owner, which also treats pointers to a
+       struct type whose members are owners as "owner" -- that heuristic is
+       meant for owning struct VALUES, not incidental pointer nodes one
+       level down a pointer-to-pointer chain, and using it here produced
+       false positives on plain `struct S ** _Owner p = other_owner_pp;`).
+
+       Three cases are exempt:
+        - a null pointer constant (`table = NULL;`) has no real pointee to
+          compare against;
+        - a void* source (`table = calloc(...);`) is the standard
+          allocator/generic-pointer idiom throughout this codebase -- the
+          memory is freshly (zero-)allocated, not an alias of some existing
+          non-owner variable, so there is no owner/non-owner storage
+          confusion to catch;
+        - a void* DEST (`free(a->data);`, `realloc(pool->blocks, ...)`) is
+          the standard single-level `void*` parameter that free/realloc
+          take -- passing a `T* _Owner * _Owner` array to it is not
+          "aliasing an owner through a shallower pointer", it is the
+          ordinary one-shot release/resize of the whole array, and DEST
+          being void* means there is no further pointee level to compare
+          against in the first place.
+    */
+    if (type_is_pointer(p_a_type) && type_is_pointer(p_b_type) &&
+        p_a_type->next && p_b_type->next &&
+        !type_is_void(p_a_type->next) &&
+        !type_is_void(p_b_type->next) &&
+        !expression_is_null_pointer_constant(p_b_expression))
+    {
+        const bool dest_pointee_owner = p_a_type->next->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OWNER;
+        const bool src_pointee_owner = p_b_type->next->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OWNER;
+
+        if (dest_pointee_owner && !src_pointee_owner)
+        {
+            diagnostic(W_POINTER_TO_OWNER_EXPECTED,
+                       ctx,
+                       p_b_expression->first_token, NULL,
+                       assignment_type == ASSIGMENT_TYPE_PARAMETER
+                       ? "pointer to owner expected at argument"
+                       : "pointer to owner expected");
+        }
+
+        /*
+           The mirror image: SRC's pointee is _Owner but DEST's is not, e.g.
+
+             int * _Owner _Opt p = 0;
+             int ** q = &p;   // q's type says nothing about owning *q
+             *q = p2;         // silently overwrites p's owner value --
+                               // check_assigment never sees this write,
+                               // since q's plain `int**` type carries no
+                               // trace that it aliases an owner slot
+
+           This is the same hazard as above from the other side: taking the
+           address of an _Owner variable into a plain (non-_Owner) pointer
+           erases, at the type level, the fact that writes through it can
+           discard an owner -- so catch it at the point the alias is
+           created, not later when flow analysis notices the aliased
+           object's value was clobbered.
+        */
+        if (!dest_pointee_owner && src_pointee_owner)
+        {
+            diagnostic(W_OWNER_ALIASED_BY_NON_OWNER_POINTER,
+                       ctx,
+                       p_b_expression->first_token, NULL,
+                       "owner aliased through a non-owner pointer");
+        }
+    }
+}
+
 void check_assigment(struct parser_ctx* ctx,
     const struct type* p_a_type, /*this is not expression because function parameters*/
     const struct expression* p_b_expression,
     enum assigment_type assignment_type)
 {
+    extended_check_assigment(ctx, p_a_type, p_b_expression, assignment_type);
+
     const struct type* const p_b_type = &p_b_expression->type;
 
     const bool is_null_pointer_constant = expression_is_null_pointer_constant(p_b_expression);
@@ -7409,13 +7561,12 @@ void check_assigment(struct parser_ctx* ctx,
     {
         // diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
         //     ctx,
-        //       p_b_expression->first_token, 
+        //       p_b_expression->first_token,
         //       NULL,
         //       " incompatible types ");
     }
 
     type_destroy(&b_type_lvalue);
-
 }
 
 /*

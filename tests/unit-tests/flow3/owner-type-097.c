@@ -10,6 +10,6 @@ int main()
 
     //warning: cannot assign a non-owner to owner
 
-    destroy(v); //lint 25 cannot assign a non-owner to owner
+    destroy(v); //lint 78 cannot assign a non-owner to owner
 
 }

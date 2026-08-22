@@ -1118,6 +1118,46 @@ void defer_visit_declaration(struct defer_visit_ctx* ctx, struct declaration* p_
     }
 }
 
+void defer_start_visit_compound_statement(struct defer_visit_ctx* ctx,
+                                           struct compound_statement* p_compound_statement,
+                                           struct parameter_list* _Opt p_parameter_list)
+{
+    try
+    {
+        _Assert(ctx->tail_block == NULL);
+        struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
+        if (p_defer == NULL)
+        {
+            return;
+        }
+        p_defer->p_function_body = p_compound_statement;
+
+        /* Register each parameter declarator in the current scope, the same
+           way defer_visit_direct_declarator does for a regular function's
+           declarator -- otherwise an _Owner parameter never lands in the
+           defer list, so leaking it goes unreported (see the parameter case
+           of issue #269). */
+        for (struct parameter_declaration* _Opt p_parameter = p_parameter_list ? p_parameter_list->head : NULL;
+             p_parameter;
+             p_parameter = p_parameter->next)
+        {
+            if (p_parameter->declarator)
+            {
+                struct defer_scope* _Opt p_param_scope = defer_visit_ctx_push_child(ctx);
+                if (p_param_scope == NULL) throw;
+                p_param_scope->p_declarator = p_parameter->declarator;
+            }
+        }
+
+        defer_visit_compound_statement(ctx, p_compound_statement);
+        defer_visit_ctx_pop_until(ctx, p_defer, &p_compound_statement->defer_list);
+    }
+    catch
+    {
+        diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
+    }
+}
+
 void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declaration* p_declaration)
 {
     ctx->p_declaration = p_declaration;

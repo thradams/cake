@@ -78,6 +78,8 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
 
 static void check_knr_brace_space_style(const struct parser_ctx* ctx, struct token* token);
 static bool trying_to_use_vm_type_from_enclosing_function(const struct type* p_type, struct declarator* p_function);
+static void type_set_current_function_for_own_params(struct type* p_type, struct declarator* p_new_owner);
+static void scope_set_current_function_for_own_params(struct scope* p_parameters_scope, struct declarator* p_new_owner);
 
 static void check_open_brace_style(const struct parser_ctx* ctx, struct token* token)
 {
@@ -665,7 +667,7 @@ bool diagnostic_queue_remove(struct diagnostic_queue* q, int line, enum diagnost
                 q->tail = prev;
 
             it->next = NULL;
-            diagnostic_free(it); //lint 25
+            diagnostic_free(it); //lint 78
             q->count--;
             return true;
         }
@@ -3041,6 +3043,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             }
             struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
             ctx->p_current_function_opt = p_declarator;
+            type_set_current_function_for_own_params(&p_declarator->type, p_declarator);
 
             if (p_declarator->name_opt == NULL)
             {
@@ -3058,6 +3061,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             if (pfuncdecl == NULL) throw;
 
             struct scope* parameters_scope = &pfuncdecl->parameters_scope;
+            scope_set_current_function_for_own_params(parameters_scope, p_declarator);
             scope_list_push(&ctx->scopes, parameters_scope);
 
             struct scope* _Opt p_current_function_scope_opt = ctx->p_current_function_scope_opt;
@@ -3249,6 +3253,61 @@ void init_declarator_delete(struct init_declarator* _Owner _Opt p)
 }
 
 static bool declarator_has_vm_type(const struct declarator* p_declarator);
+
+static void type_set_current_function_for_own_params(struct type* p_type, struct declarator* p_new_owner)
+{
+    struct type* _Opt p = p_type;
+
+    while (p)
+    {
+        switch (p->category)
+        {
+        case TYPE_CATEGORY_ARRAY:
+            if (p->p_current_function_opt)
+            {
+                p->p_current_function_opt = p_new_owner;
+            }
+            break;
+
+        case TYPE_CATEGORY_FUNCTION:
+        {
+            struct param* _Opt p_param_entry = p->params.head;
+
+            while (p_param_entry)
+            {
+                type_set_current_function_for_own_params(&p_param_entry->type, p_new_owner);
+                p_param_entry = p_param_entry->next;
+            }
+        }
+        break;
+
+        case TYPE_CATEGORY_ITSELF:
+        case TYPE_CATEGORY_POINTER:
+            break;
+        }
+
+        p = p->next;
+    }
+}
+
+
+static void scope_set_current_function_for_own_params(struct scope* p_parameters_scope, struct declarator* p_new_owner)
+{
+    for (int i = 0; i < p_parameters_scope->variables.capacity; i++)
+    {
+        struct map_entry* _Opt p_entry = p_parameters_scope->variables.table ? p_parameters_scope->variables.table[i] : NULL;
+
+        while (p_entry)
+        {
+            if (p_entry->type == TAG_TYPE_DECLARATOR && p_entry->data.p_declarator)
+            {
+                type_set_current_function_for_own_params(&p_entry->data.p_declarator->type, p_new_owner);
+            }
+
+            p_entry = p_entry->next;
+        }
+    }
+}
 
 static bool trying_to_use_vm_type_from_enclosing_function(const struct type* p_type, struct declarator* p_function)
 {

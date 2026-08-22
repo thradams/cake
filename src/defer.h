@@ -32,3 +32,6 @@ struct defer_visit_ctx
 
 void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p);
 void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declaration* p_declaration);
+void defer_start_visit_compound_statement(struct defer_visit_ctx* ctx,
+                                           struct compound_statement* p_compound_statement,
+                                           struct parameter_list* _Opt p_parameter_list);

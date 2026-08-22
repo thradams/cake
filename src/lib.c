@@ -638,10 +638,19 @@ enum diagnostic_id {
     W_STRING_LITERAL_COMPARISON = 76,
     W_STATIC_FUNCTION_NOT_DEFINED = 77,
     W_UNUSED_WARNING_77 = 77,
-    W_UNUSED_WARNING_78 = 78,
-    W_UNUSED_WARNING_79 = 79,
-    W_UNUSED_WARNING_80 = 80,
-    W_UNUSED_WARNING_81 = 81,
+
+    /* Parse-time (phase 0) counterparts of W_FLOW_NON_OWNER_TO_OWNER_ASSIGN /
+       W_FLOW_USING_TEMPORARY_OWNER, emitted by expressions.c's
+       extended_check_assigment. Distinct ids are needed because those two
+       are hard-registered as phase 2 (flow analysis) below in
+       diagnostic_get_phase -- a `//lint` comment checked during parsing
+       would look for them in the wrong phase and report "not recognized"
+       even though the (correct) warning fired. See samples/flow3/array-bounds.c
+       for the same phase-split precedent (W_OUT_OF_BOUNDS / W_FLOW_OUT_OF_BOUNDS). */
+    W_NON_OWNER_TO_OWNER_ASSIGN = 78,
+    W_USING_TEMPORARY_OWNER = 79,
+    W_POINTER_TO_OWNER_EXPECTED = 80,
+    W_OWNER_ALIASED_BY_NON_OWNER_POINTER = 81,
     W_UNUSED_WARNING_82 = 82,
     W_UNUSED_WARNING_83 = 83,
     W_UNUSED_WARNING_84 = 84,
@@ -22579,6 +22588,44 @@ struct object object_shift_right(enum target target,
 
 
 
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake 
+ *
+ *  The objective of this visit is to build the "defer list" on AST
+ *  The defer list is the list of items that will go out of scope.
+ *  Each item can point to a declarator or defer.
+ *  It is complicated algorithm we make it ready to use on AST
+*/
+
+//#pragma once
+
+struct defer_visit_ctx
+{
+    struct secondary_block* _Opt catch_secondary_block_opt;
+    struct parser_ctx * const  ctx;
+    _View struct ast ast;    
+    struct defer_scope* _Owner _Opt tail_block;
+    int parameter_list;
+
+        
+    /* special visit to find labels-- */
+    bool searching_label_mode;    
+    const char* _Opt label_name;
+    struct label* _Opt p_label;
+    /*-------------------------------*/
+
+    struct declaration* _Opt p_declaration;
+};
+
+void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p);
+void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declaration* p_declaration);
+void defer_start_visit_compound_statement(struct defer_visit_ctx* ctx,
+                                           struct compound_statement* p_compound_statement,
+                                           struct parameter_list* _Opt p_parameter_list);
+
+
+
 #include <float.h>
 
 #ifdef _WIN32
@@ -24067,6 +24114,12 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                         if (type_is_constexpr(&p_declarator->type))
                         {
                             /*
+                            Scalars are inlined as literals; struct/array
+                            objects are copied from their compile-time value
+                            (see EXPR_PRIMARY_DECLARATOR in codegen.c), so no
+                            reference to the enclosing function's object
+                            remains in the generated code either way.
+
                             int main()
                             {
                                 constexpr int i = 2;
@@ -25291,6 +25344,18 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
             ctx->p_current_function_scope_opt = ctx->scopes.tail;
 
             p_expression_node->compound_statement = function_body(ctx);
+
+            if (p_expression_node->compound_statement && ctx->p_report->error_count == 0)
+            {
+                struct parameter_list* _Opt p_parameter_list =
+                    p_innermost_direct_declarator->function_declarator->parameter_type_list_opt ?
+                    p_innermost_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list :
+                    NULL;
+
+                struct defer_visit_ctx defer_ctx = { .ctx = ctx };
+                defer_start_visit_compound_statement(&defer_ctx, p_expression_node->compound_statement, p_parameter_list);
+                defer_visit_ctx_destroy(&defer_ctx);
+            }
 
             scope_list_pop(&ctx->scopes);
             ctx->p_current_function_opt = p_current_function_opt; //restore
@@ -29634,11 +29699,144 @@ bool expression_is_subjected_to_lvalue_conversion(const struct expression* expre
     return true;
 }
 
+/*
+   Checks that only apply to cake's non-standard extensions (_Owner, _Opt,
+   etc) rather than plain C semantics -- kept in their own function (with an
+   `extended_` prefix, next to check_assigment/check_type and friends) so
+   every diagnostic that mentions _Owner is easy to find in one place.
+
+   Called at the very TOP of check_assigment, before any of its early
+   returns (arithmetic-to-arithmetic, null-to-pointer, pointer-to-int,
+   etc.) -- those returns are frequent, and this check only needs
+   p_a_type/p_b_expression directly, so there is no reason to risk it being
+   skipped by standard-C logic that has nothing to do with ownership.
+
+   Call this once per assignment SITE (assignment / initialization /
+   argument / return), never from aggregate member recursion -- otherwise a
+   struct assignment would report the same _Owner mismatch once per member.
+*/
+static void extended_check_assigment(struct parser_ctx* ctx,
+    const struct type* p_a_type, /*dest*/
+    const struct expression* p_b_expression, /*src*/
+    enum assigment_type assignment_type)
+{
+    if (!ctx->options.ownership_enabled)
+        return;
+
+    const struct type* const p_b_type = &p_b_expression->type;
+
+    if (type_is_owner(p_a_type) && !type_is_owner(p_b_type))
+    {
+        /* A null pointer constant is always assignable to an owner. */
+        if (!expression_is_null_pointer_constant(p_b_expression))
+        {
+            diagnostic(W_NON_OWNER_TO_OWNER_ASSIGN,
+                       ctx,
+                       p_b_expression->first_token, NULL,
+                       "cannot assign a non-owner to owner");
+            return;
+        }
+    }
+
+    if (!type_is_owner(p_a_type) && type_is_owner_or_pointer_to_dtor(p_b_type))
+    {
+        /* The source is a temporary owner (a function return value): storing it
+           in a non-owner would leak it, since nothing takes ownership. */
+        if (p_b_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
+        {
+            diagnostic(W_USING_TEMPORARY_OWNER,
+                       ctx,
+                       p_b_expression->first_token, NULL,
+                       "cannot assign a temporary owner to non-owner object.");
+        }
+    }
+
+    /*
+       One level deeper: does the DEST pointee require ownership (e.g.
+       `char * _Owner * p`) while the SRC pointee does not (e.g. `char **`)?
+       If so, the callee can write an owner value through *p into storage
+       that was never declared _Owner:
+
+         void f(char * _Owner * p) { *p = strdup("a"); }
+         char * s = 0;
+         f(&s); // s is not _Owner -- *p = ... leaks/aliases silently
+
+       This intentionally checks only the CAKE_OWNER qualifier bit directly
+       (not the general type_is_owner, which also treats pointers to a
+       struct type whose members are owners as "owner" -- that heuristic is
+       meant for owning struct VALUES, not incidental pointer nodes one
+       level down a pointer-to-pointer chain, and using it here produced
+       false positives on plain `struct S ** _Owner p = other_owner_pp;`).
+
+       Three cases are exempt:
+        - a null pointer constant (`table = NULL;`) has no real pointee to
+          compare against;
+        - a void* source (`table = calloc(...);`) is the standard
+          allocator/generic-pointer idiom throughout this codebase -- the
+          memory is freshly (zero-)allocated, not an alias of some existing
+          non-owner variable, so there is no owner/non-owner storage
+          confusion to catch;
+        - a void* DEST (`free(a->data);`, `realloc(pool->blocks, ...)`) is
+          the standard single-level `void*` parameter that free/realloc
+          take -- passing a `T* _Owner * _Owner` array to it is not
+          "aliasing an owner through a shallower pointer", it is the
+          ordinary one-shot release/resize of the whole array, and DEST
+          being void* means there is no further pointee level to compare
+          against in the first place.
+    */
+    if (type_is_pointer(p_a_type) && type_is_pointer(p_b_type) &&
+        p_a_type->next && p_b_type->next &&
+        !type_is_void(p_a_type->next) &&
+        !type_is_void(p_b_type->next) &&
+        !expression_is_null_pointer_constant(p_b_expression))
+    {
+        const bool dest_pointee_owner = p_a_type->next->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OWNER;
+        const bool src_pointee_owner = p_b_type->next->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OWNER;
+
+        if (dest_pointee_owner && !src_pointee_owner)
+        {
+            diagnostic(W_POINTER_TO_OWNER_EXPECTED,
+                       ctx,
+                       p_b_expression->first_token, NULL,
+                       assignment_type == ASSIGMENT_TYPE_PARAMETER
+                       ? "pointer to owner expected at argument"
+                       : "pointer to owner expected");
+        }
+
+        /*
+           The mirror image: SRC's pointee is _Owner but DEST's is not, e.g.
+
+             int * _Owner _Opt p = 0;
+             int ** q = &p;   // q's type says nothing about owning *q
+             *q = p2;         // silently overwrites p's owner value --
+                               // check_assigment never sees this write,
+                               // since q's plain `int**` type carries no
+                               // trace that it aliases an owner slot
+
+           This is the same hazard as above from the other side: taking the
+           address of an _Owner variable into a plain (non-_Owner) pointer
+           erases, at the type level, the fact that writes through it can
+           discard an owner -- so catch it at the point the alias is
+           created, not later when flow analysis notices the aliased
+           object's value was clobbered.
+        */
+        if (!dest_pointee_owner && src_pointee_owner)
+        {
+            diagnostic(W_OWNER_ALIASED_BY_NON_OWNER_POINTER,
+                       ctx,
+                       p_b_expression->first_token, NULL,
+                       "owner aliased through a non-owner pointer");
+        }
+    }
+}
+
 void check_assigment(struct parser_ctx* ctx,
     const struct type* p_a_type, /*this is not expression because function parameters*/
     const struct expression* p_b_expression,
     enum assigment_type assignment_type)
 {
+    extended_check_assigment(ctx, p_a_type, p_b_expression, assignment_type);
+
     const struct type* const p_b_type = &p_b_expression->type;
 
     const bool is_null_pointer_constant = expression_is_null_pointer_constant(p_b_expression);
@@ -29970,13 +30168,12 @@ void check_assigment(struct parser_ctx* ctx,
     {
         // diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
         //     ctx,
-        //       p_b_expression->first_token, 
+        //       p_b_expression->first_token,
         //       NULL,
         //       " incompatible types ");
     }
 
     type_destroy(&b_type_lvalue);
-
 }
 
 /*
@@ -31216,41 +31413,6 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 
 
 
-
-/*
- *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
- *
- *  The objective of this visit is to build the "defer list" on AST
- *  The defer list is the list of items that will go out of scope.
- *  Each item can point to a declarator or defer.
- *  It is complicated algorithm we make it ready to use on AST
-*/
-
-//#pragma once
-
-struct defer_visit_ctx
-{
-    struct secondary_block* _Opt catch_secondary_block_opt;
-    struct parser_ctx * const  ctx;
-    _View struct ast ast;    
-    struct defer_scope* _Owner _Opt tail_block;
-    int parameter_list;
-
-        
-    /* special visit to find labels-- */
-    bool searching_label_mode;    
-    const char* _Opt label_name;
-    struct label* _Opt p_label;
-    /*-------------------------------*/
-
-    struct declaration* _Opt p_declaration;
-};
-
-void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p);
-void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declaration* p_declaration);
-
-
 #ifdef _WIN32
 #endif
 
@@ -31260,7 +31422,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 */
 
 //#pragma once
-#define CAKE_VERSION "0.14.31"
+#define CAKE_VERSION "0.14.32"
 
 
 
@@ -31401,6 +31563,8 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
 
 static void check_knr_brace_space_style(const struct parser_ctx* ctx, struct token* token);
 static bool trying_to_use_vm_type_from_enclosing_function(const struct type* p_type, struct declarator* p_function);
+static void type_set_current_function_for_own_params(struct type* p_type, struct declarator* p_new_owner);
+static void scope_set_current_function_for_own_params(struct scope* p_parameters_scope, struct declarator* p_new_owner);
 
 static void check_open_brace_style(const struct parser_ctx* ctx, struct token* token)
 {
@@ -31988,7 +32152,7 @@ bool diagnostic_queue_remove(struct diagnostic_queue* q, int line, enum diagnost
                 q->tail = prev;
 
             it->next = NULL;
-            diagnostic_free(it); //lint 25
+            diagnostic_free(it); //lint 78
             q->count--;
             return true;
         }
@@ -34364,6 +34528,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             }
             struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
             ctx->p_current_function_opt = p_declarator;
+            type_set_current_function_for_own_params(&p_declarator->type, p_declarator);
 
             if (p_declarator->name_opt == NULL)
             {
@@ -34381,6 +34546,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             if (pfuncdecl == NULL) throw;
 
             struct scope* parameters_scope = &pfuncdecl->parameters_scope;
+            scope_set_current_function_for_own_params(parameters_scope, p_declarator);
             scope_list_push(&ctx->scopes, parameters_scope);
 
             struct scope* _Opt p_current_function_scope_opt = ctx->p_current_function_scope_opt;
@@ -34572,6 +34738,61 @@ void init_declarator_delete(struct init_declarator* _Owner _Opt p)
 }
 
 static bool declarator_has_vm_type(const struct declarator* p_declarator);
+
+static void type_set_current_function_for_own_params(struct type* p_type, struct declarator* p_new_owner)
+{
+    struct type* _Opt p = p_type;
+
+    while (p)
+    {
+        switch (p->category)
+        {
+        case TYPE_CATEGORY_ARRAY:
+            if (p->p_current_function_opt)
+            {
+                p->p_current_function_opt = p_new_owner;
+            }
+            break;
+
+        case TYPE_CATEGORY_FUNCTION:
+        {
+            struct param* _Opt p_param_entry = p->params.head;
+
+            while (p_param_entry)
+            {
+                type_set_current_function_for_own_params(&p_param_entry->type, p_new_owner);
+                p_param_entry = p_param_entry->next;
+            }
+        }
+        break;
+
+        case TYPE_CATEGORY_ITSELF:
+        case TYPE_CATEGORY_POINTER:
+            break;
+        }
+
+        p = p->next;
+    }
+}
+
+
+static void scope_set_current_function_for_own_params(struct scope* p_parameters_scope, struct declarator* p_new_owner)
+{
+    for (int i = 0; i < p_parameters_scope->variables.capacity; i++)
+    {
+        struct map_entry* _Opt p_entry = p_parameters_scope->variables.table ? p_parameters_scope->variables.table[i] : NULL;
+
+        while (p_entry)
+        {
+            if (p_entry->type == TAG_TYPE_DECLARATOR && p_entry->data.p_declarator)
+            {
+                type_set_current_function_for_own_params(&p_entry->data.p_declarator->type, p_new_owner);
+            }
+
+            p_entry = p_entry->next;
+        }
+    }
+}
 
 static bool trying_to_use_vm_type_from_enclosing_function(const struct type* p_type, struct declarator* p_function)
 {
@@ -47780,6 +48001,46 @@ void defer_visit_declaration(struct defer_visit_ctx* ctx, struct declaration* p_
     }
 }
 
+void defer_start_visit_compound_statement(struct defer_visit_ctx* ctx,
+                                           struct compound_statement* p_compound_statement,
+                                           struct parameter_list* _Opt p_parameter_list)
+{
+    try
+    {
+        _Assert(ctx->tail_block == NULL);
+        struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
+        if (p_defer == NULL)
+        {
+            return;
+        }
+        p_defer->p_function_body = p_compound_statement;
+
+        /* Register each parameter declarator in the current scope, the same
+           way defer_visit_direct_declarator does for a regular function's
+           declarator -- otherwise an _Owner parameter never lands in the
+           defer list, so leaking it goes unreported (see the parameter case
+           of issue #269). */
+        for (struct parameter_declaration* _Opt p_parameter = p_parameter_list ? p_parameter_list->head : NULL;
+             p_parameter;
+             p_parameter = p_parameter->next)
+        {
+            if (p_parameter->declarator)
+            {
+                struct defer_scope* _Opt p_param_scope = defer_visit_ctx_push_child(ctx);
+                if (p_param_scope == NULL) throw;
+                p_param_scope->p_declarator = p_parameter->declarator;
+            }
+        }
+
+        defer_visit_compound_statement(ctx, p_compound_statement);
+        defer_visit_ctx_pop_until(ctx, p_defer, &p_compound_statement->defer_list);
+    }
+    catch
+    {
+        diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
+    }
+}
+
 void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declaration* p_declaration)
 {
     ctx->p_declaration = p_declaration;
@@ -48973,7 +49234,31 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                 (!is_static && !is_extern) &&
                 p_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE;
 
-            if (is_function)
+            if (!is_function &&
+                p_expression->lvalue_disabled &&
+                (type_is_struct_or_union(&p_expression->type) || type_is_array(&p_expression->type)))
+            {
+                /*
+                 This names a const/constexpr object from an enclosing
+                 function. Its storage isn't reachable from here, so
+                 materialize a copy of its compile-time value instead of
+                 referencing it by name.
+                */
+                char name[100] = { 0 };
+                generate_file_scope_new_name(ctx, COMPOUND_LITERAL_BASE_NAME, sizeof(name), name);
+
+                struct osstream local = { 0 };
+                ss_fprintf(&local, "static ");
+                d_print_type(ctx, &local, &p_expression->type, name, false);
+                bool first = true;
+                ss_fprintf(&local, " = {");
+                object_print_initialization_list(ctx, &local, &p_expression->object, &first);
+                ss_fprintf(&local, "};\n");
+                ss_fprintf(&ctx->add_this_before_external_decl, "%s", local.c_str);
+                ss_close(&local);
+                ss_fprintf(oss, "%s", name);
+            }
+            else if (is_function)
             {
                 ss_fprintf(oss, "%s", p_expression->declarator->name_opt->lexeme);
 
@@ -49463,6 +49748,22 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         {
             //bool address_of_argument = ctx->address_of_argument;
             _Assert(p_expression->right != NULL);
+
+            if (type_is_array(&p_expression->right->type) &&
+                type_is_vm(&p_expression->right->type))
+            {
+                /* A VLA object (e.g. `int a[n]`) is already lowered to a
+                   plain pointer holding its base address, so `&a` is just
+                   that pointer value -- not the address of the pointer
+                   variable -- cast to the pointer-to-array type expected
+                   here. */
+                ss_fprintf(oss, "(");
+                d_print_type(ctx, oss, &p_expression->type, NULL, false);
+                ss_fprintf(oss, ")");
+                codegen_visit_expression(ctx, oss, p_expression->right);
+                break;
+            }
+
             ss_fprintf(oss, "&");
             ctx->address_of_argument = true;
             codegen_visit_expression(ctx, oss, p_expression->right);
@@ -49707,10 +50008,23 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
             if (codegen_is_vm_pointer(&p_expression->left->type) &&
                 !type_is_pointer(&p_expression->right->type))
             {
-                /* pointer - integer. Pointer - pointer (difference) on two VM
-                   pointers falls through to the plain path below, unhandled
-                   -- out of scope for issue #430, which only covers ++/--/+1. */
+                /* pointer - integer */
                 codegen_vm_ptr_advance(ctx, oss, p_expression->left, "-", p_expression->right);
+            }
+            else if (codegen_is_vm_pointer(&p_expression->left->type) &&
+                codegen_is_vm_pointer(&p_expression->right->type))
+            {
+                /* pointer - pointer: byte distance divided by the
+                   (runtime-known) pointee size. */
+                ss_fprintf(oss, "(((char*)");
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " - (char*)");
+                codegen_visit_expression(ctx, oss, p_expression->right);
+                ss_fprintf(oss, ") / ");
+                struct type pointee = type_remove_pointer(&p_expression->left->type);
+                vm_emit_sizeof_expr(ctx, oss, &pointee);
+                type_destroy(&pointee);
+                ss_fprintf(oss, ")");
             }
             else
             {
@@ -49823,6 +50137,26 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         case EXPR_ASSIGNMENT_PLUS_ASSIGN:
         case EXPR_ASSIGNMENT_MINUS_ASSIGN:
+            _Assert(p_expression->left != NULL);
+            _Assert(p_expression->right != NULL);
+            if (codegen_is_vm_pointer(&p_expression->left->type) &&
+                !type_is_pointer(&p_expression->right->type))
+            {
+                /* `p += n` / `p -= n` on a pointer to a VM array must scale
+                   by the (runtime-known) pointee size, same as p+n/p++. */
+                const char* op = p_expression->expression_type == EXPR_ASSIGNMENT_PLUS_ASSIGN ? "+" : "-";
+                ss_fprintf(oss, "(");
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " = ");
+                codegen_vm_ptr_advance(ctx, oss, p_expression->left, op, p_expression->right);
+                ss_fprintf(oss, ")");
+                break;
+            }
+            codegen_visit_expression(ctx, oss, p_expression->left);
+            ss_fprintf(oss, " %s ", get_op_by_expression_type(p_expression->expression_type));
+            codegen_visit_expression(ctx, oss, p_expression->right);
+            break;
+
         case EXPR_ASSIGNMENT_MULTI_ASSIGN:
         case EXPR_ASSIGNMENT_DIV_ASSIGN:
         case EXPR_ASSIGNMENT_MOD_ASSIGN:
@@ -50098,10 +50432,24 @@ static void codegen_visit_expression_statement(struct codegen_ctx* ctx, struct o
     print_identation(ctx, &local);
     if (p_expression_statement->expression_opt)
     {
-        if (p_expression_statement->expression_opt->expression_type != EXPR_UNARY_STATIC_ASSERTION ||
-            codegen_expr_is_emitted_runtime_assert(ctx, p_expression_statement->expression_opt))
+        struct expression* p_expr = p_expression_statement->expression_opt;
+
+        if ((p_expr->expression_type == EXPR_POSTFIX_INCREMENT ||
+             p_expr->expression_type == EXPR_POSTFIX_DECREMENT) &&
+            p_expr->left != NULL &&
+            codegen_is_vm_pointer(&p_expr->left->type))
         {
-            codegen_visit_expression(ctx, &local, p_expression_statement->expression_opt);
+            /* The old-value temp that codegen_vm_ptr_postfix_step hoists is
+               unused here (the statement discards the expression's value),
+               so emit the equivalent prefix-style advance directly instead
+               of leaving a dead "temp;" statement behind. */
+            codegen_vm_ptr_prefix_step(ctx, &local, p_expr->left,
+                p_expr->expression_type == EXPR_POSTFIX_INCREMENT ? "+" : "-");
+        }
+        else if (p_expr->expression_type != EXPR_UNARY_STATIC_ASSERTION ||
+            codegen_expr_is_emitted_runtime_assert(ctx, p_expr))
+        {
+            codegen_visit_expression(ctx, &local, p_expr);
         }
     }
 
@@ -53810,6 +54158,8 @@ static void object_static_debug(struct flow_visit_ctx* ctx, const struct object*
 
 static void flow_check_object_at_exit(struct flow_visit_ctx* ctx, const struct type* p_type, const struct object* p_obj, const struct marker* marker, const struct token* p_exit_token, bool in_view, const char* _Opt p_root_name_opt);
 static void flow_check_arena_objects_at_function_exit(struct flow_visit_ctx* ctx);
+static void flow_check_write_qualified_params_at_exit(struct flow_visit_ctx* ctx, const struct marker* marker, const struct token* p_exit_token);
+static bool flow_is_last_item_return(struct compound_statement* p_compound_statement);
 static void flow_seed_member_default(struct flow_visit_ctx* ctx, struct object* _Opt member_obj, const struct token* _Opt p_token);
 
 enum init_type
@@ -53833,10 +54183,6 @@ static void flow_widen_loop_variant_objects(struct flow_visit_ctx* ctx,
         struct flow_map* _Opt* arms,
         int num_arms,
         const struct token* _Opt p_token);
-
-static void flow_check_static_ownership_assignment(struct flow_visit_ctx* ctx,
-        const struct type* _Opt p_dest_type,
-        const struct expression* _Opt p_src_expression);
 
 static void flow_apply_alloc_contract_to_dest(struct flow_visit_ctx* ctx,
         const struct type* _Opt p_dest_type,
@@ -54185,7 +54531,7 @@ struct flow_map* _Opt flow_map_arena_new(struct flow_map_arena* a, struct flow_m
             int new_capacity = a->capacity == 0 ? 4
                                : a->capacity < FLOW_MAP_ARENA_GROW_DOUBLE_LIMIT ? a->capacity * 2
                                : a->capacity + a->capacity / 2;
-            struct flow_map** _Owner _Opt new_data = realloc(a->data, new_capacity * sizeof(struct flow_map*));
+            struct flow_map* _Owner _Opt* _Owner _Opt new_data = realloc(a->data, new_capacity * sizeof(struct flow_map*));
             if (new_data == NULL) throw;
             a->data = new_data; //lint 26
             a->capacity = new_capacity;
@@ -54257,7 +54603,7 @@ struct object* _Opt flow_allocated_object_arena_new(struct flow_allocated_object
         if (a->size == a->capacity)
         {
             int new_capacity = a->capacity == 0 ? 4 : a->capacity * 2;
-            struct object** _Owner _Opt new_data = realloc(a->data, new_capacity * sizeof(struct object*));
+            struct object* _Owner _Opt* _Owner _Opt new_data = realloc(a->data, new_capacity * sizeof(struct object*));
             if (new_data == NULL)
             {
                 throw;
@@ -54348,7 +54694,11 @@ static struct flow_alternative* _Opt _Owner flow_alt_pool_alloc(struct flow_alt_
        explicitly (e.g. value_kind/value), so zero the node every time it is
        handed out, not just on first carve from a fresh block. */
     memset(&node->alt, 0, sizeof(node->alt));
-    return &node->alt;
+    /* Not actually heap-owned -- recycled from the pool above and returned
+       to it by flow_alt_pool_release, never freed individually. The _Owner
+       cast is the established idiom (see free-opt-owner-cast.c) for opting
+       a pointer into the ownership contract at the use site. */
+    return (struct flow_alternative* _Opt _Owner)&node->alt;
 }
 
 static void flow_alt_pool_free_all(_Clear struct flow_alt_pool* pool)
@@ -57543,8 +57893,6 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
         {
             struct expression* p_init_expr = p_init_declarator->initializer->assignment_expression;
             flow_visit_full_expression(ctx, p_init_expr);
-            flow_check_static_ownership_assignment(ctx,
-                                                   &p_init_declarator->p_declarator->type, p_init_expr);
             flow_check_object_init_assigment(ctx,
                                              p_init_declarator->initializer->assignment_expression,
                                              &p_init_declarator->p_declarator->object,
@@ -57954,6 +58302,7 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
 }
 
 static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct compound_statement* p_compound_statement);
+static void flow_visit_compound_statement_core(struct flow_visit_ctx* ctx, struct compound_statement* p_compound_statement);
 
 static void flow_visit_initializer_list(struct flow_visit_ctx* ctx, struct initializer_list* p_initializer_list);
 
@@ -59851,55 +60200,6 @@ static void flow_check_discarding_owner_before_overwrite(struct flow_visit_ctx* 
 }
 
 /*
-   STATIC (type-level) ownership rules for an assignment / initialization /
-   argument / return. These are pure type checks -- they consult no flow state.
-
-   Moved out of expressions.c's check_assigment so that every diagnostic that
-   mentions _Owner lives in flow3: the core language parses the ownership
-   annotations as ordinary qualifiers and attaches no meaning to them, and
-   flow3 is a self-contained type-system addition on top.
-
-   Call this once per assignment SITE (from the top-level callers of
-   flow_check_object_init_assigment), never from its member recursion --
-   otherwise an aggregate would report the same type error once per member.
-*/
-static void flow_check_static_ownership_assignment(struct flow_visit_ctx* ctx,
-        const struct type* _Opt p_dest_type,
-        const struct expression* _Opt p_src_expression)
-{
-    if (p_dest_type == NULL || p_src_expression == NULL)
-        return;
-
-    const struct type* const p_src_type = &p_src_expression->type;
-
-    if (type_is_owner(p_dest_type) && !type_is_owner(p_src_type))
-    {
-        /* A null pointer constant is always assignable to an owner. */
-        if (!expression_is_null_pointer_constant(p_src_expression))
-        {
-            diagnostic(W_FLOW_NON_OWNER_TO_OWNER_ASSIGN,
-                       ctx->ctx,
-                       p_src_expression->first_token, NULL,
-                       "cannot assign a non-owner to owner");
-            return;
-        }
-    }
-
-    if (!type_is_owner(p_dest_type) && type_is_owner_or_pointer_to_dtor(p_src_type))
-    {
-        /* The source is a temporary owner (a function return value): storing it
-           in a non-owner would leak it, since nothing takes ownership. */
-        if (p_src_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
-        {
-            diagnostic(W_FLOW_USING_TEMPORARY_OWNER,
-                       ctx->ctx,
-                       p_src_expression->first_token, NULL,
-                       "cannot assign a temporary owner to non-owner object.");
-        }
-    }
-}
-
-/*
    Apply a `_Clear` / `_Uninitialized` allocation contract to the DESTINATION.
 
    calloc/malloc return `void*`, so a contract applied at the call site lands on
@@ -59968,9 +60268,6 @@ static void flow_check_assigment(struct flow_visit_ctx* ctx,
                                  struct expression* p_expression_dest,
                                  struct expression* p_expression_src)
 {
-    /* Static type rules once per assignment, before the per-alternative loop. */
-    flow_check_static_ownership_assignment(ctx, &p_expression_dest->type, p_expression_src);
-
     const struct flow_key_alternatives* _Opt p_expression_dest_key_alternatives =
         flow_map_search_up(ctx->p_current_flow_map, &p_expression_dest->object);
 
@@ -60097,7 +60394,6 @@ static void flow_visit_function_arguments(struct flow_visit_ctx* ctx,
             make_object(p_param_type, &param_object, MAKE_STATE_UNITIALIZED, ctx->ctx->options.target);
 
             flow_visit_full_expression(ctx, p_arg_expr);
-            flow_check_static_ownership_assignment(ctx, p_param_type, p_arg_expr);
             flow_check_object_init_assigment(ctx, p_arg_expr, &param_object, &p_arg_expr->object, INIT_PARAMETER, false, false);
 
             p_current_argument = p_current_argument->next;
@@ -63194,9 +63490,73 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
         break;
 
         case EXPR_POSTFIX_FUNCTION_LITERAL:
+        {
             _Assert(p_expression->compound_statement != NULL);
-            flow_visit_compound_statement(ctx, p_expression->compound_statement);
+
+            /* A function literal's body is never reached through
+               flow_visit_declaration (it has no enclosing struct declaration --
+               its compound_statement hangs off this expression instead), so
+               none of the per-function setup/teardown that macro normally
+               provides happens for it automatically. Without this, a literal's
+               _Owner parameters are never seeded by flow_parameter_object_init,
+               so passing/leaking a resource through them goes uncaught -- same
+               root cause as the defer-not-generated bug in defer.c fixed for
+               issue #269, just in the ownership checker instead of codegen. */
+            const struct direct_declarator* _Opt p_innermost_direct_declarator =
+                p_expression->type_name && p_expression->type_name->abstract_declarator ?
+                get_innermost_direct_declarator(p_expression->type_name->abstract_declarator->direct_declarator) :
+                NULL;
+
+            struct parameter_list* _Opt p_parameter_list =
+                p_innermost_direct_declarator &&
+                p_innermost_direct_declarator->function_declarator &&
+                p_innermost_direct_declarator->function_declarator->parameter_type_list_opt ?
+                p_innermost_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list :
+                NULL;
+
+            for (struct parameter_declaration* _Opt p_parameter = p_parameter_list ? p_parameter_list->head : NULL;
+                 p_parameter;
+                 p_parameter = p_parameter->next)
+            {
+                if (p_parameter->declarator)
+                {
+                    flow_parameter_object_init(ctx,
+                        &p_parameter->declarator->object,
+                        &p_parameter->declarator->type,
+                        p_parameter->declaration_specifiers->first_token);
+                }
+            }
+
+            struct type* _Opt p_previous_return_type = ctx->p_return_type;
+            struct type return_type = get_function_return_type(&p_expression->type);
+            ctx->p_return_type = &return_type;
+
+            flow_visit_compound_statement_core(ctx, p_expression->compound_statement);
+
+            if (!flow_is_last_item_return(p_expression->compound_statement))
+            {
+                flow_exit_block_visit_defer_list(ctx, &p_expression->compound_statement->defer_list, p_expression->compound_statement->last_token);
+                flow_check_arena_objects_at_function_exit(ctx);
+                const struct marker marker =
+                {
+                    .p_token_begin = p_expression->compound_statement->last_token,
+                    .p_token_end = p_expression->compound_statement->last_token
+                };
+                flow_check_file_scope_objects_at_function_exit(ctx, &marker);
+                flow_check_write_qualified_params_at_exit(ctx, &marker, p_expression->compound_statement->last_token);
+                flow_defer_list_set_end_of_lifetime(ctx, &p_expression->compound_statement->defer_list, p_expression->compound_statement->last_token);
+            }
+
+            type_destroy(&return_type);
+            ctx->p_return_type = p_previous_return_type;
+
+            if (p_expression->compound_statement->lint_token)
+            {
+                flow_check_dianostic_suppression(ctx, p_expression->compound_statement->lint_token);
+            }
+
             break;
+        }
 
         case EXPR_POSTFIX_COMPOUND_LITERAL:
         {
@@ -63355,7 +63715,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     struct flow_alternative* _Opt* _Opt list;
                     if (p_vals != NULL)
                     {
-                        list = p_vals->alternatives.data;
+                        list = p_vals->alternatives.data; //lint 81
                     }
                     else
                     {
@@ -71920,10 +72280,19 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
             unsigned long long result = 0;
             if (unsigned_long_long_mul(&result, sz, arraysize))
             {
+#if SIZE_MAX < 0xFFFFFFFFFFFFFFFFULL
+                /* Only meaningful when size_t is narrower than unsigned long
+                   long -- on a 64-bit host SIZE_MAX == ULLONG_MAX, so
+                   `result` (itself an unsigned long long) can never exceed
+                   it and this branch is unreachable by construction. Left
+                   compiled in for a 64-bit `result` it confused the flow
+                   analyzer into also mis-marking the unrelated MSVC cap
+                   check below as unreachable. */
                 if (result > SIZE_MAX)
                 {
                     return SIZEOF_RESULT_OVERLOW;
                 }
+#endif
 
                 /*
                   MSVC caps a single object at 0x7FFFFFFF (~2GB) bytes even
@@ -73197,6 +73566,12 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
                 if (pointers.head)
                 {
                     pointers.head->storage_class_specifier_flags |= STORAGE_SPECIFIER_FUNCTION_RETURN;
+
+                    if (pdeclarator->declaration_specifiers &&
+                        pdeclarator->declaration_specifiers->attributes_flags & STD_ATTRIBUTE_NODISCARD)
+                    {
+                        pointers.head->attributes_flags |= STD_ATTRIBUTE_NODISCARD;
+                    }
                 }
             }
         }
@@ -73312,7 +73687,7 @@ static bool is_valid_type(struct parser_ctx* ctx, struct token* _Opt p_token, co
                 const struct type* _Opt p2 = p->next;
                 while (p2)
                 {
-                    if (p2->category == TYPE_CATEGORY_ARRAY && !p2->has_static_array_size)
+                    if (p2->category == TYPE_CATEGORY_ARRAY && type_is_vm(p2))
                     {
                         diagnostic(C_ERROR_FUNCTION_RETURNS_ARRAY,
                                             ctx,

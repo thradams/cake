@@ -2962,10 +2962,19 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
             unsigned long long result = 0;
             if (unsigned_long_long_mul(&result, sz, arraysize))
             {
+#if SIZE_MAX < 0xFFFFFFFFFFFFFFFFULL
+                /* Only meaningful when size_t is narrower than unsigned long
+                   long -- on a 64-bit host SIZE_MAX == ULLONG_MAX, so
+                   `result` (itself an unsigned long long) can never exceed
+                   it and this branch is unreachable by construction. Left
+                   compiled in for a 64-bit `result` it confused the flow
+                   analyzer into also mis-marking the unrelated MSVC cap
+                   check below as unreachable. */
                 if (result > SIZE_MAX)
                 {
                     return SIZEOF_RESULT_OVERLOW;
                 }
+#endif
 
                 /*
                   MSVC caps a single object at 0x7FFFFFFF (~2GB) bytes even
@@ -4239,6 +4248,12 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
                 if (pointers.head)
                 {
                     pointers.head->storage_class_specifier_flags |= STORAGE_SPECIFIER_FUNCTION_RETURN;
+
+                    if (pdeclarator->declaration_specifiers &&
+                        pdeclarator->declaration_specifiers->attributes_flags & STD_ATTRIBUTE_NODISCARD)
+                    {
+                        pointers.head->attributes_flags |= STD_ATTRIBUTE_NODISCARD;
+                    }
                 }
             }
         }
@@ -4354,7 +4369,7 @@ static bool is_valid_type(struct parser_ctx* ctx, struct token* _Opt p_token, co
                 const struct type* _Opt p2 = p->next;
                 while (p2)
                 {
-                    if (p2->category == TYPE_CATEGORY_ARRAY && !p2->has_static_array_size)
+                    if (p2->category == TYPE_CATEGORY_ARRAY && type_is_vm(p2))
                     {
                         diagnostic(C_ERROR_FUNCTION_RETURNS_ARRAY,
                                             ctx,

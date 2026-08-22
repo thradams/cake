@@ -125,10 +125,19 @@ enum diagnostic_id {
     W_STRING_LITERAL_COMPARISON = 76,
     W_STATIC_FUNCTION_NOT_DEFINED = 77,
     W_UNUSED_WARNING_77 = 77,
-    W_UNUSED_WARNING_78 = 78,
-    W_UNUSED_WARNING_79 = 79,
-    W_UNUSED_WARNING_80 = 80,
-    W_UNUSED_WARNING_81 = 81,
+
+    /* Parse-time (phase 0) counterparts of W_FLOW_NON_OWNER_TO_OWNER_ASSIGN /
+       W_FLOW_USING_TEMPORARY_OWNER, emitted by expressions.c's
+       extended_check_assigment. Distinct ids are needed because those two
+       are hard-registered as phase 2 (flow analysis) below in
+       diagnostic_get_phase -- a `//lint` comment checked during parsing
+       would look for them in the wrong phase and report "not recognized"
+       even though the (correct) warning fired. See samples/flow3/array-bounds.c
+       for the same phase-split precedent (W_OUT_OF_BOUNDS / W_FLOW_OUT_OF_BOUNDS). */
+    W_NON_OWNER_TO_OWNER_ASSIGN = 78,
+    W_USING_TEMPORARY_OWNER = 79,
+    W_POINTER_TO_OWNER_EXPECTED = 80,
+    W_OWNER_ALIASED_BY_NON_OWNER_POINTER = 81,
     W_UNUSED_WARNING_82 = 82,
     W_UNUSED_WARNING_83 = 83,
     W_UNUSED_WARNING_84 = 84,

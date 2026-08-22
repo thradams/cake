@@ -217,7 +217,7 @@ int* f2();
 void test_free_nonowner(void)
 {
     int* p = f2();
-    free(p); //lint 25 cannot assign a non-owner to owner
+    free(p); //lint 78 cannot assign a non-owner to owner
 }
 int* _Owner test_return_moved_bad(void)
 {
