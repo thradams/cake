@@ -721,7 +721,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     if (test)
     {
         print_header("Run cake on its own source");
-        execute_cmd(EXE(CKC_NAME) " -DTEST  " CAKE_SOURCE_FILES);
+        execute_cmd(EXE(CKC_NAME) " -DTEST -w06 -w082 -w083 -w084 " CAKE_SOURCE_FILES);
     }
 
 #endif /* PLATFORM_WINDOWS && COMPILER_CLANG */
@@ -810,7 +810,21 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     if (!fastbuild && test)
     {
         print_header("Running Cake on its own source");
-        execute_cmd("./" EXE(CKC_NAME) " -fanalyzer " CAKE_SOURCE_FILES);
+        /*
+           Warnings that are off by default but that cake's own source is kept
+           clean of, so dogfooding catches a regression the moment it lands:
+
+             06  unreferenced formal parameter -- remove it, or (when it is
+                 used only under some #ifdef) mark it used in the other branch;
+                 a //lint cannot work here because it is per-configuration.
+             82  parameter could point to const
+             83  parameter set but not used
+             84  variable set but not used
+
+           Named explicitly rather than relying on the defaults, so this stays
+           enforced whichever way fill_options is configured.
+        */
+        execute_cmd("./" EXE(CKC_NAME) " -fanalyzer -w06 -w082 -w083 -w084 " CAKE_SOURCE_FILES);
 
         print_header("Build cake89");
 
@@ -896,7 +910,7 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     if (!fastbuild && test)
     {
         print_header("Run cake on its own source");
-        execute_cmd("./" CKC_NAME " -DTEST  " CAKE_SOURCE_FILES);
+        execute_cmd("./" CKC_NAME " -DTEST -w06 -w082 -w083 -w084 " CAKE_SOURCE_FILES);
 
 
         print_header("Build cake89");
@@ -922,7 +936,8 @@ static void run_tests(void)
 
     execute_cmd(RUN EXE(CKC_NAME) " -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -wd74 -test-mode");
     execute_cmd(RUN EXE(CKC_NAME) "  -fdiagnostics-color=never -wd20 ../tests/unit-tests/*.c -test-mode");
-    execute_cmd(RUN EXE(CKC_NAME) "  -fdiagnostics-color=never -wd20 ../tests/unit-tests/flow3/*.c -test-mode");
+    
+    execute_cmd(RUN EXE(CKC_NAME) "  -fdiagnostics-color=never -wd20 -wd82 ../tests/unit-tests/flow3/*.c -test-mode");
     execute_cmd(RUN EXE(CKC_NAME) "  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode-in-out");
     execute_cmd(RUN EXE(CKC_NAME) "  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
 
@@ -932,7 +947,7 @@ static void run_tests(void)
     execute_cmd(RUN EXE(CKC89_NAME) " -selftest");
     execute_cmd(RUN EXE(CKC89_NAME) " -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -wd74 -test-mode");
     execute_cmd(RUN EXE(CKC89_NAME) "  -fdiagnostics-color=never -wd20 ../tests/unit-tests/*.c -test-mode");
-    execute_cmd(RUN EXE(CKC89_NAME) "  -fdiagnostics-color=never -wd20 ../tests/unit-tests/flow3/*.c -test-mode");
+    execute_cmd(RUN EXE(CKC89_NAME) "  -fdiagnostics-color=never -wd20 -wd82 ../tests/unit-tests/flow3/*.c -test-mode");
     execute_cmd(RUN EXE(CKC89_NAME) "  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode-in-out");
     execute_cmd(RUN EXE(CKC89_NAME) "  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
 

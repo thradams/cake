@@ -254,6 +254,9 @@ struct type
     struct struct_or_union_specifier* _Opt struct_or_union_specifier;
     const struct enum_specifier* _Opt enum_specifier;
 
+    /*to find the complete array size*/  
+    struct declarator* _Opt p_declarator_opt;
+
     //Expression used as array size. Can be constant or not constant (VLA)
     const struct expression* _Opt p_array_num_elements_expression;
     /*
@@ -314,6 +317,9 @@ bool type_is_essential_char(const struct type* p_type);
 bool type_is_enum(const struct type* p_type);
 bool type_is_enumerator(const struct type* p_type);
 bool type_is_array(const struct type* p_type);
+bool type_is_array_of_unknown_size(const struct type* p_type);
+bool type_has_different_array_parameter_size(const struct type* a, const struct type* b);
+const struct type* _Opt type_get_complete_array(const struct type* p_type);
 
 bool type_is_out(const struct type* p_type);
 bool type_is_dtor(const struct type* p_type);
@@ -395,7 +401,7 @@ struct argument_expression;
 
 
 struct type type_convert_to(const struct type* p_type, enum standard_version target);
-struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_enabled);
+struct type type_lvalue_conversion(const struct type* p_type);
 void type_remove_all_qualifiers(struct type* p_type);
 void type_remove_non_cake_qualifiers(struct type* p_type);
 void type_add_const(struct type* p_type);
@@ -407,9 +413,9 @@ void type_integer_promotion(struct type* a);
 struct type type_remove_pointer(const struct type* p_type);
 struct type get_array_item_type(const struct type* p_type);
 
-struct type type_param_array_to_pointer(const struct type* p_type, bool null_checks_enabled);
+struct type type_param_array_to_pointer(const struct type* p_type);
 
-struct type type_make_literal_string(int size, enum type_specifier_flags chartype, enum type_qualifier_flags qualifiers, enum target target);
+struct type type_make_literal_string(int size, enum type_specifier_flags chartype, enum type_qualifier_flags qualifiers);
 struct type type_make_int();
 struct type type_make_int_bool_like();
 struct type type_make_size_t(enum target target);
@@ -450,18 +456,18 @@ void type_get_integer_range(const struct type* p_type, enum target target, long 
 
 size_t type_get_alignof(const struct type* p_type, enum target target);
 
-struct type type_add_pointer(const struct type* p_type, bool null_checks_enabled);
+struct type type_add_pointer(const struct type* p_type);
 void type_print(const struct type* a, enum target target);
 void type_println(const struct type* a, enum target target);
 
 enum type_category type_get_category(const struct type* p_type);
 void print_type_qualifier_specifiers(struct osstream* ss, const struct type* type, enum target target);
 
-void type_visit_to_mark_anonymous(struct type* p_type);
+void type_visit_to_mark_anonymous(const struct type* p_type);
 
-void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
-void type_set_storage_specifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
-void type_merge_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
+void type_set_qualifiers_using_declarator(struct type* p_type, const struct declarator* pdeclarator);
+void type_set_storage_specifiers_using_declarator(struct type* p_type, const struct declarator* pdeclarator);
+void type_merge_qualifiers_using_declarator(struct type* p_type, const struct declarator* pdeclarator);
 
 void print_type_declarator(struct osstream* ss, const struct type* p_type, enum target target);
 void type_remove_names(struct type* p_type);

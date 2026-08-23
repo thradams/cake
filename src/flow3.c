@@ -274,10 +274,10 @@ struct object_set
 static void object_set_add(struct object_set* l, const struct object* obj);
 static void object_set_destroy(_Dtor struct object_set* l);
 
-static void flow_check_dianostic_suppression(struct flow_visit_ctx* ctx, struct token* p_token);
+static void flow_check_dianostic_suppression(struct flow_visit_ctx* ctx, const struct token* p_token);
 
 static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement);
-static void flow_visit_static_assertion(struct flow_visit_ctx* ctx, struct static_assertion* p_static_assertion);
+static void flow_visit_static_assertion(struct flow_visit_ctx* ctx, const struct static_assertion* p_static_assertion);
 static void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration);
 static void flow_visit_secondary_block(struct flow_visit_ctx* ctx, struct secondary_block* _Opt p_secondary_block);
 static void flow_visit_struct_or_union_specifier(struct flow_visit_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier);
@@ -285,24 +285,24 @@ static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p
 static void flow_visit_enum_specifier(struct flow_visit_ctx* ctx, struct enum_specifier* p_enum_specifier);
 static void flow_visit_type_specifier(struct flow_visit_ctx* ctx, struct type_specifier* p_type_specifier);
 static void flow_visit_bracket_initializer_list(struct flow_visit_ctx* ctx, struct braced_initializer* p_bracket_initializer_list);
-static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement);
+static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, const struct expression_statement* p_expression_statement);
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item);
 static void flow_visit_initializer(struct flow_visit_ctx* ctx, struct initializer* p_initializer);
-static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator* p_declarator);
-static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label);
+static void flow_visit_declarator(struct flow_visit_ctx* ctx, const struct declarator* p_declarator);
+static void flow_visit_label(struct flow_visit_ctx* ctx, const struct label* p_label);
 
-static struct flow_branch_pair flow_visit_full_expression(struct flow_visit_ctx* ctx, struct expression* p_expression);
+static struct flow_branch_pair flow_visit_full_expression(struct flow_visit_ctx* ctx, const struct expression* p_expression);
 
-static void flow_check_file_scope_objects_at_function_exit(struct flow_visit_ctx* ctx, const struct marker* marker);
+static void flow_check_file_scope_objects_at_function_exit(const struct flow_visit_ctx* ctx);
 
 static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx, const struct expression* _Opt p_expression);
 static void object_static_debug(struct flow_visit_ctx* ctx, const struct object* p_object, struct token* first_token, struct token* last_token);
 
 static void flow_check_object_at_exit(struct flow_visit_ctx* ctx, const struct type* p_type, const struct object* p_obj, const struct marker* marker, const struct token* p_exit_token, bool in_view, const char* _Opt p_root_name_opt);
-static void flow_check_arena_objects_at_function_exit(struct flow_visit_ctx* ctx);
+static void flow_check_arena_objects_at_function_exit(const struct flow_visit_ctx* ctx);
 static void flow_check_write_qualified_params_at_exit(struct flow_visit_ctx* ctx, const struct marker* marker, const struct token* p_exit_token);
-static bool flow_is_last_item_return(struct compound_statement* p_compound_statement);
-static void flow_seed_member_default(struct flow_visit_ctx* ctx, struct object* _Opt member_obj, const struct token* _Opt p_token);
+static bool flow_is_last_item_return(const struct compound_statement* p_compound_statement);
+static void flow_seed_member_default(struct flow_visit_ctx* ctx, const struct object* _Opt member_obj, const struct token* _Opt p_token);
 
 enum init_type
 {
@@ -319,7 +319,7 @@ static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
         bool dest_is_dtor,
         bool dest_is_view);
 
-static void flow_widen_loop_variant_objects(struct flow_visit_ctx* ctx,
+static void flow_widen_loop_variant_objects(
         struct flow_map* _Opt p_pass1_exit,
         struct flow_map* _Opt p_pass2_exit,
         struct flow_map* _Opt* arms,
@@ -432,7 +432,7 @@ static bool object_is_file_scope(const struct object* p_object)
     return false;
 }
 
-static long long flow_cast_integer_value(struct flow_visit_ctx* ctx, long long value, const struct type* _Opt target_type)
+static long long flow_cast_integer_value(const struct flow_visit_ctx* ctx, long long value, const struct type* _Opt target_type)
 {
     try
     {
@@ -1463,7 +1463,7 @@ static void flow_map_free_entries(struct flow_map* m)
     m->num_of_entries = 0;
 }
 
-static void flow_map_move_entries(struct flow_map* dest, struct flow_map* src)
+static void flow_map_move_entries(struct flow_map* dest, const struct flow_map* src)
 {
     if (src->buckets == NULL)
         return;
@@ -3047,7 +3047,7 @@ static struct osstream flow_explain_origin(const struct flow_map* _Opt map)
    joins, cases) and root/merge-temp are skipped for the same reason
    flow_explain_origin leaves them out.
 */
-static void flow_diagnose_map_path(struct flow_visit_ctx* ctx, const struct flow_map* _Opt map)
+static void flow_diagnose_map_path(const struct flow_visit_ctx* ctx, const struct flow_map* _Opt map)
 {
     if (map == NULL)
         return;
@@ -3167,7 +3167,7 @@ static void flow_diagnose_map_path(struct flow_visit_ctx* ctx, const struct flow
    warned about (`p = NULL;` warned at the assignment itself): the note
    would restate the line the reader is already looking at.
 */
-static void flow_diagnose_state_origin(struct flow_visit_ctx* ctx,
+static void flow_diagnose_state_origin(const struct flow_visit_ctx* ctx,
                                        const struct flow_alternative* p_alternative,
                                        const struct marker* p_fallback_marker)
 {
@@ -3230,7 +3230,7 @@ static void flow_diagnose_state_origin(struct flow_visit_ctx* ctx,
    warning was suppressed (-Wno-, //lint) and these notes would appear with
    nothing above them.
 */
-static void flow_explain_alternative(struct flow_visit_ctx* ctx,
+static void flow_explain_alternative(const struct flow_visit_ctx* ctx,
                                      const struct flow_alternative* p_alternative,
                                      const struct flow_map* _Opt p_alternative_map,
                                      const struct marker* p_marker)
@@ -3364,7 +3364,7 @@ static void flow_exit_block_visit_defer_list(struct flow_visit_ctx* ctx,
     }
 }
 
-static void flow_defer_item_set_end_of_lifetime(struct flow_visit_ctx* ctx, struct defer_list_item* p_item, struct token* position_token)
+static void flow_defer_item_set_end_of_lifetime(struct flow_visit_ctx* ctx, struct defer_list_item* p_item, const struct token* position_token)
 {
     if (ctx->p_current_flow_map == NULL)
     {
@@ -3398,7 +3398,7 @@ static void flow_defer_item_set_end_of_lifetime(struct flow_visit_ctx* ctx, stru
 
 static void flow_defer_list_set_end_of_lifetime(struct flow_visit_ctx* ctx,
         const struct defer_list* p_defer_list,
-        struct token* position_token)
+        const struct token* position_token)
 {
     struct defer_list_item* _Opt p_item = p_defer_list->head;
     while (p_item)
@@ -3419,7 +3419,7 @@ static void flow_visit_secondary_block(struct flow_visit_ctx* ctx, struct second
     flow_visit_statement(ctx, p_secondary_block->statement);
 }
 
-static void flow_visit_defer_statement(struct flow_visit_ctx* ctx, struct defer_statement* p_defer_statement)
+static void flow_visit_defer_statement()
 {
     /*
       We are not going to visit the secondary block here because
@@ -3427,7 +3427,7 @@ static void flow_visit_defer_statement(struct flow_visit_ctx* ctx, struct defer_
     */
 }
 
-static void flow_object_init(struct flow_visit_ctx* ctx, struct object* p_object, const struct type* p_type, const struct token* _Opt p_token)
+static void flow_object_init(struct flow_visit_ctx* ctx, struct object* p_object, const struct token* _Opt p_token)
 {
     if (ctx->p_current_flow_map == NULL)
     {
@@ -3454,7 +3454,7 @@ static void flow_object_init(struct flow_visit_ctx* ctx, struct object* p_object
         struct object* _Opt  p_object_it = p_object->members.head;
         for (; p_object_it; p_object_it = p_object_it->next)
         {
-            flow_object_init(ctx, p_object_it, &p_object_it->type, p_token);
+            flow_object_init(ctx, p_object_it, p_token);
         }
 
         return;
@@ -4017,16 +4017,20 @@ static void flow_seed_aggregate_from_init_exprs(struct flow_visit_ctx* ctx, stru
     }
 }
 
-static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_declarator* p_init_declarator)
+static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, const struct init_declarator* p_init_declarator)
 {
     flow_visit_declarator(ctx, p_init_declarator->p_declarator);
 
     if (!type_is_function(&p_init_declarator->p_declarator->type))
     {
+        const struct declaration_specifiers* _Opt p_specifiers =
+            p_init_declarator->p_declarator->declaration_specifiers;
+
         flow_object_init(ctx,
                          &p_init_declarator->p_declarator->object,
-                         &p_init_declarator->p_declarator->type,
-                         p_init_declarator->p_declarator->declaration_specifiers->first_token);
+                         p_specifiers != NULL ?
+                         p_specifiers->first_token :
+                         p_init_declarator->p_declarator->first_token_opt);
     }
 
     if (p_init_declarator->initializer)
@@ -4073,13 +4077,13 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list);
 
-static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx, struct declaration_specifiers* p_declaration_specifiers, struct type* _Opt p_type);
+static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx, struct declaration_specifiers* p_declaration_specifiers);
 
 static void flow_visit_simple_declaration(struct flow_visit_ctx* ctx, struct simple_declaration* p_simple_declaration)
 {
     if (p_simple_declaration->p_declaration_specifiers)
     {
-        flow_visit_declaration_specifiers(ctx, p_simple_declaration->p_declaration_specifiers, NULL);
+        flow_visit_declaration_specifiers(ctx, p_simple_declaration->p_declaration_specifiers);
     }
     flow_visit_init_declarator_list(ctx, &p_simple_declaration->init_declarator_list);
 }
@@ -4487,7 +4491,7 @@ static void flow_visit_initializer_list(struct flow_visit_ctx* ctx, struct initi
     }
 }
 
-static void flow_visit_generic_selection(struct flow_visit_ctx* ctx, struct generic_selection* p_generic_selection)
+static void flow_visit_generic_selection(struct flow_visit_ctx* ctx, const struct generic_selection* p_generic_selection)
 {
     if (p_generic_selection->expression)
     {
@@ -5151,8 +5155,7 @@ static void flow_check_object_access(struct flow_visit_ctx* ctx,
                    - p_dest_governing_type == NULL: p_null_type falls back to
                      &p_object_src->type, i.e. bare_name/%s's OWN declared
                      type is what's being checked -- this is the recursive
-                     struct-member case (e.g. `attribute_list(ctx,
-                     p_attribute_specifier)` where p_attribute_specifier->
+                     struct-member case (e.g. `attribute_list(ctx)` where p_attribute_specifier->
                      last_token, itself declared non-_Opt, is still NULL right
                      after calloc). Here %s genuinely IS declared non-nullable.
                    User-reported: the single unconditional wording tried here
@@ -6407,7 +6410,7 @@ static void flow_apply_alloc_contract_to_dest(struct flow_visit_ctx* ctx,
 }
 
 static void flow_check_assigment(struct flow_visit_ctx* ctx,
-                                 struct expression* p_expression_dest,
+                                 const struct expression* p_expression_dest,
                                  struct expression* p_expression_src)
 {
     const struct flow_key_alternatives* _Opt p_expression_dest_key_alternatives =
@@ -6591,7 +6594,7 @@ static void flow_visit_function_arguments(struct flow_visit_ctx* ctx,
     }
 }
 
-static void flow_check_dianostic_suppression(struct flow_visit_ctx* ctx, struct token* p_token)
+static void flow_check_dianostic_suppression(struct flow_visit_ctx* ctx, const struct token* p_token)
 {
     check_dianostic_suppression_phase(ctx->ctx, p_token, 2);
 }
@@ -6617,7 +6620,7 @@ static void flow_expression_static_debug(struct flow_visit_ctx* ctx, const struc
     object_static_debug(ctx, &p_expression->object, first_token, last_token);
 }
 
-static struct flow_branch_pair flow_visit_full_expression(struct flow_visit_ctx* ctx, struct expression* p_expression)
+static struct flow_branch_pair flow_visit_full_expression(struct flow_visit_ctx* ctx, const struct expression* p_expression)
 {
     return flow_visit_expression(ctx, p_expression);
 }
@@ -8213,7 +8216,7 @@ static void flow_seed_constant_result(struct flow_visit_ctx* ctx, const struct e
    is non-null by contract. Without this, reading such a member came back
    possibly-null and a later dereference falsely warned. Only touches unseeded
    non-_Opt pointer members. */
-static void flow_seed_member_default(struct flow_visit_ctx* ctx, struct object* _Opt member_obj, const struct token* _Opt p_token)
+static void flow_seed_member_default(struct flow_visit_ctx* ctx, const struct object* _Opt member_obj, const struct token* _Opt p_token)
 {
     try
     {
@@ -9511,7 +9514,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
 
                     struct flow_map* old = ctx->p_current_flow_map;
                     ctx->p_current_flow_map = p_nonnull_map;
-                    flow_object_init(ctx, p_pointed, &pointed_type, p_call_token);
+                    flow_object_init(ctx, p_pointed, p_call_token);
                     ctx->p_current_flow_map = old;
                     /* Return-type contract on the pointee: `_Clear` (e.g. calloc)
                     means the returned region is all-zero -- seed each member
@@ -9684,7 +9687,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     .p_token_begin = p_expression->compound_statement->last_token,
                     .p_token_end = p_expression->compound_statement->last_token
                 };
-                flow_check_file_scope_objects_at_function_exit(ctx, &marker);
+                flow_check_file_scope_objects_at_function_exit(ctx);
                 flow_check_write_qualified_params_at_exit(ctx, &marker, p_expression->compound_statement->last_token);
                 flow_defer_list_set_end_of_lifetime(ctx, &p_expression->compound_statement->defer_list, p_expression->compound_statement->last_token);
             }
@@ -9737,7 +9740,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
             like `x = (struct X){};` or `x = (struct X){0};`.
             User-reported.
             */
-            flow_object_init(ctx, (struct object*)&p_expression->object, &p_expression->type, p_token);
+            flow_object_init(ctx, (struct object*)&p_expression->object, p_token);
             flow_seed_aggregate_from_init_exprs(ctx, (struct object*)&p_expression->object);
             break;
         }
@@ -11812,7 +11815,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
     return identity_pair;
 }
 
-static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
+static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, const struct expression_statement* p_expression_statement)
 {
     /* Only meant to bridge a report from THIS statement's own expression
        visit into a check running right after it (see the field comment in
@@ -11964,7 +11967,7 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
             /* Pre-filled with p_before so no element is ever indeterminate;
                only the first num_arms entries are read. */
             struct flow_map* _Opt exit_arms[2] = { p_false_branch_dw, p_break_join };
-            flow_widen_loop_variant_objects(ctx, p_pass1_exit, ctx->p_current_flow_map,
+            flow_widen_loop_variant_objects( p_pass1_exit, ctx->p_current_flow_map,
                                             exit_arms, 2, p_iteration_statement->first_token);
 
             const struct flow_map* arms[2] = { p_before, p_before };
@@ -12059,7 +12062,7 @@ static bool flow_entry_single_numeric_value(const struct flow_key_alternatives* 
    the condition, not by the body, and must survive -- widening pointers here
    would throw that away.
 */
-static void flow_widen_loop_variant_objects(struct flow_visit_ctx* ctx,
+static void flow_widen_loop_variant_objects(
         struct flow_map* _Opt p_pass1_exit,
         struct flow_map* _Opt p_pass2_exit,
         struct flow_map* _Opt* arms,
@@ -12246,7 +12249,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
         /* Pre-filled with p_before so no element is ever indeterminate; only
            the first num_arms entries are read. */
         struct flow_map* _Opt exit_arms[3] = { w_pair1.p_false, w_pair2.p_false, p_break_join };
-        flow_widen_loop_variant_objects(ctx, p_pass1_exit, ctx->p_current_flow_map,
+        flow_widen_loop_variant_objects( p_pass1_exit, ctx->p_current_flow_map,
                                         exit_arms, 3, p_iteration_statement->first_token);
 
         const struct flow_map* arms[3] = { p_before, p_before, p_before };
@@ -12405,7 +12408,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
               the FIRST iteration reaches as unreachable.
         */
         struct flow_map* _Opt widen_arms[1] = { p_pass1_exit };
-        flow_widen_loop_variant_objects(ctx, p_pass1_body_entry, p_pass1_exit,
+        flow_widen_loop_variant_objects( p_pass1_body_entry, p_pass1_exit,
                                         widen_arms, 1, p_iteration_statement->first_token);
 
         /* "Zero iterations" arm: an empty child of the body-entry state, so it
@@ -12466,7 +12469,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
         /* Pre-filled with p_before so no element is ever indeterminate; only
            the first num_arms entries are read. */
         struct flow_map* _Opt exit_arms[3] = { for_pair1.p_false, for_pair2.p_false, p_break_join };
-        flow_widen_loop_variant_objects(ctx, p_pass1_exit, ctx->p_current_flow_map,
+        flow_widen_loop_variant_objects( p_pass1_exit, ctx->p_current_flow_map,
                                         exit_arms, 3, p_iteration_statement->first_token);
 
         const struct flow_map* arms[3] = { p_before, p_before, p_before };
@@ -12532,7 +12535,7 @@ static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct it
     }
 }
 
-static void flow_check_arena_objects_at_function_exit(struct flow_visit_ctx* ctx)
+static void flow_check_arena_objects_at_function_exit(const struct flow_visit_ctx* ctx)
 {
     for (int i = 0; i < ctx->allocated_object_arena.size; i++)
     {
@@ -12549,7 +12552,7 @@ static void flow_check_arena_objects_at_function_exit(struct flow_visit_ctx* ctx
          */
     }
 }
-static void flow_check_file_scope_objects_at_function_exit(struct flow_visit_ctx* ctx, const struct marker* marker)
+static void flow_check_file_scope_objects_at_function_exit(const struct flow_visit_ctx* ctx)
 {
     /* Build a fast-lookup set of arena object pointers so we can skip them. */
     struct object_set arena_set = { 0 };
@@ -13074,7 +13077,7 @@ static void flow_check_write_qualified_params_at_exit(struct flow_visit_ctx* ctx
     }
 }
 
-static void flow_check_function_exit(struct flow_visit_ctx* ctx, struct jump_statement* p_jump_statement)
+static void flow_check_function_exit(struct flow_visit_ctx* ctx, const struct jump_statement* p_jump_statement)
 {
     flow_exit_block_visit_defer_list(ctx,
                                      &p_jump_statement->defer_list,
@@ -13087,7 +13090,7 @@ static void flow_check_function_exit(struct flow_visit_ctx* ctx, struct jump_sta
         .p_token_begin = p_jump_statement->first_token,
         .p_token_end = p_jump_statement->first_token
     };
-    flow_check_file_scope_objects_at_function_exit(ctx, &marker);
+    flow_check_file_scope_objects_at_function_exit(ctx);
 
     /*
        Must run BEFORE flow_defer_list_set_end_of_lifetime, not after.
@@ -13331,7 +13334,7 @@ static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct un
     }
     else if (p_unlabeled_statement->defer_statement)
     {
-        flow_visit_defer_statement(ctx, p_unlabeled_statement->defer_statement);
+        flow_visit_defer_statement();
     }
     else if (p_unlabeled_statement->jump_statement)
     {
@@ -13355,7 +13358,7 @@ static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p
     }
 }
 
-static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label)
+static void flow_visit_label(struct flow_visit_ctx* ctx, const struct label* p_label)
 {
     try
     {
@@ -13520,7 +13523,7 @@ static void flow_visit_block_item_list(struct flow_visit_ctx* ctx, struct block_
 
 static void flow_visit_pragma_declaration(struct flow_visit_ctx* ctx, struct pragma_declaration* p_pragma_declaration)
 {
-    execute_pragma_declaration(ctx->ctx, p_pragma_declaration, true);
+    execute_pragma_declaration(ctx->ctx, p_pragma_declaration);
 }
 
 static void object_static_debug(struct flow_visit_ctx* ctx, const struct object* p_object, struct token* first_token, struct token* last_token)
@@ -13691,14 +13694,14 @@ static void check_object_true(struct flow_visit_ctx* ctx, const struct object* p
     }
 }
 
-static void flow_visit_compile_assert(struct flow_visit_ctx* ctx, struct static_assertion* p_static_assertion)
+static void flow_visit_compile_assert(struct flow_visit_ctx* ctx, const struct static_assertion* p_static_assertion)
 {
     check_object_true(ctx,
                       &p_static_assertion->constant_expression->object,
                       p_static_assertion->first_token);
 }
 
-static void flow_visit_static_assertion(struct flow_visit_ctx* ctx, struct static_assertion* p_static_assertion)
+static void flow_visit_static_assertion(struct flow_visit_ctx* ctx, const struct static_assertion* p_static_assertion)
 {
     if (p_static_assertion->first_token->type == TK_KEYWORD_RUNTIME_ASSERT)
     {
@@ -13771,7 +13774,7 @@ static void flow_visit_static_assertion(struct flow_visit_ctx* ctx, struct stati
     }
 }
 
-static void flow_visit_direct_declarator(struct flow_visit_ctx* ctx, struct direct_declarator* p_direct_declarator)
+static void flow_visit_direct_declarator(struct flow_visit_ctx* ctx, const struct direct_declarator* p_direct_declarator)
 {
     if (p_direct_declarator->function_declarator)
     {
@@ -13789,7 +13792,7 @@ static void flow_visit_direct_declarator(struct flow_visit_ctx* ctx, struct dire
         {
             if (parameter->declarator)
             {
-                flow_visit_declaration_specifiers(ctx, parameter->declaration_specifiers, &parameter->declarator->type);
+                flow_visit_declaration_specifiers(ctx, parameter->declaration_specifiers);
                 flow_visit_declarator(ctx, parameter->declarator);
                 flow_parameter_object_init(ctx, &parameter->declarator->object, &parameter->declarator->type, parameter->declaration_specifiers->first_token);
             }
@@ -13807,7 +13810,7 @@ static void flow_visit_direct_declarator(struct flow_visit_ctx* ctx, struct dire
     }
 }
 
-static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator* p_declarator)
+static void flow_visit_declarator(struct flow_visit_ctx* ctx, const struct declarator* p_declarator)
 {
     if (p_declarator->type.category != TYPE_CATEGORY_FUNCTION)
     {
@@ -13840,7 +13843,7 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
     }
 }
 
-static void flow_visit_member_declarator(struct flow_visit_ctx* ctx, struct member_declarator* p_member_declarator)
+static void flow_visit_member_declarator(struct flow_visit_ctx* ctx, const struct member_declarator* p_member_declarator)
 {
     if (p_member_declarator->declarator)
     {
@@ -13881,7 +13884,7 @@ static void flow_visit_struct_or_union_specifier(struct flow_visit_ctx* ctx, str
     flow_visit_member_declaration_list(ctx, &p_struct_or_union_specifier->member_declaration_list);
 }
 
-static void flow_visit_enumerator(struct flow_visit_ctx* ctx, struct enumerator* p_enumerator)
+static void flow_visit_enumerator(struct flow_visit_ctx* ctx, const struct enumerator* p_enumerator)
 {
     if (p_enumerator->constant_expression_opt)
     {
@@ -13933,7 +13936,7 @@ static void flow_visit_declaration_specifier(struct flow_visit_ctx* ctx, struct 
     }
 }
 
-static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx, struct declaration_specifiers* p_declaration_specifiers, struct type* _Opt p_type_opt)
+static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx, struct declaration_specifiers* p_declaration_specifiers)
 {
     struct declaration_specifier* _Opt p_declaration_specifier = p_declaration_specifiers->head;
     while (p_declaration_specifier)
@@ -14142,7 +14145,7 @@ static void flow_check_object_at_exit(struct flow_visit_ctx* ctx,
     }
 }
 
-static bool flow_is_last_item_return(struct compound_statement* p_compound_statement)
+static bool flow_is_last_item_return(const struct compound_statement* p_compound_statement)
 {
     if (p_compound_statement &&
             p_compound_statement->block_item_list.tail &&
@@ -14186,9 +14189,9 @@ static bool flow_is_last_item_return(struct compound_statement* p_compound_state
    `void f(_Uninitialized int x)` both slipped through. Sharing the helper closes
    both gaps and keeps every _Owner-family diagnostic inside flow3.
 */
-static void flow_check_write_qualifier_placement(struct flow_visit_ctx* ctx,
+static void flow_check_write_qualifier_placement(const struct flow_visit_ctx* ctx,
         const struct type* _Opt p_type,
-        struct token* _Opt p_token)
+        const struct token* _Opt p_token)
 {
     if (p_type == NULL || p_token == NULL)
         return;
@@ -14248,7 +14251,7 @@ static void flow_check_write_qualifier_placement(struct flow_visit_ctx* ctx,
     }
 }
 
-static void flow_check_write_qualifier_parameters(struct flow_visit_ctx* ctx, struct declarator* p_declarator)
+static void flow_check_write_qualifier_parameters(const struct flow_visit_ctx* ctx, struct declarator* p_declarator)
 {
     const struct param_list* _Opt p_param_list = type_get_func_or_func_ptr_params(&p_declarator->type);
     if (p_param_list == NULL)
@@ -14268,7 +14271,7 @@ static void flow_check_write_qualifier_parameters(struct flow_visit_ctx* ctx, st
 
 /* Same rule for a plain variable declarator (moved out of parser.c's
    init_declarator, where it only covered _Dtor/_Uninitialized/_Clear). */
-static void flow_check_write_qualifier_declarator(struct flow_visit_ctx* ctx, struct declarator* p_declarator)
+static void flow_check_write_qualifier_declarator(const struct flow_visit_ctx* ctx, struct declarator* p_declarator)
 {
     struct token* _Opt p_token = p_declarator->first_token_opt ? p_declarator->first_token_opt : p_declarator->name_opt;
     flow_check_write_qualifier_placement(ctx, &p_declarator->type, p_token);
@@ -14292,12 +14295,11 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
         {
             if (p_declaration->init_declarator_list.head)
             {
-                flow_visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers,
-                                                  &p_declaration->init_declarator_list.head->p_declarator->type);
+                flow_visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers);
             }
             else
             {
-                flow_visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers, NULL);
+                flow_visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers);
 
             }
         }
@@ -14345,7 +14347,7 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
                     .p_token_begin = p_declaration->function_body->last_token,
                     .p_token_end = p_declaration->function_body->last_token
                 };
-                flow_check_file_scope_objects_at_function_exit(ctx, &marker);
+                flow_check_file_scope_objects_at_function_exit(ctx);
                 /* Falling off the end of the function is an exit point too --
                 a _Clear/_Dtor parameter's contract must hold here just as
                 much as at an explicit return

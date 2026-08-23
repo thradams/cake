@@ -77,7 +77,7 @@ struct hash_map
 
 void hashmap_remove_all(struct hash_map* map);
 void hashmap_destroy(_Dtor struct hash_map* map);
-struct map_entry* _Opt hashmap_find(struct hash_map* map, const char* key);
+struct map_entry* _Opt hashmap_find(const struct hash_map* map, const char* key);
 void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt p_type_opt);
 
 /*

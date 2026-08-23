@@ -100,7 +100,7 @@ struct object        object_make_signed_long(enum target target, signed long lon
 struct object      object_make_unsigned_long(enum target target, unsigned long long value);
 
 struct object   object_make_signed_long_long(enum target target, signed long long value);
-struct object object_make_unsigned_long_long(enum target target, unsigned long long value);
+struct object object_make_unsigned_long_long( unsigned long long value);
 struct object              object_make_float(enum target target, long double value);
 struct object             object_make_double(enum target target, long double value);
 struct object        object_make_long_double(enum target target, long double value);
@@ -193,7 +193,7 @@ struct object* _Opt object_extend_array_to_index(const struct type* p_type, stru
 struct object* object_get_non_const_referenced(struct object* p_object);
 
 
-void object_print_value(struct osstream* ss, const struct object* a, enum target target);
+void object_print_value(struct osstream* ss, const struct object* a);
 
 struct object object_add(enum target target,
     const struct object* a,

@@ -113,7 +113,7 @@ void hashmap_destroy(_Dtor struct hash_map* map)
     _Assert(map->table == NULL);
 }
 
-struct map_entry* _Opt hashmap_find(struct hash_map* map, const char* key)
+struct map_entry* _Opt hashmap_find(const struct hash_map* map, const char* key)
 {
     if (map->table == NULL)
         return NULL;

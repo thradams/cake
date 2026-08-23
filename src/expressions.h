@@ -260,6 +260,7 @@ bool expression_is_subjected_to_lvalue_conversion(const struct expression*);
 
 
 bool expression_is_lvalue(const struct expression* expr);
+void expression_mark_discarded_write(const struct expression* _Opt p_expression);
 
 bool expression_has_side_effects(const struct expression* expr);
 
@@ -267,13 +268,13 @@ bool expression_is_one(const struct expression* expression);
 bool expression_is_zero(const struct expression* expression);
 bool expression_is_null_pointer_constant(const struct expression* expression);
 
-void check_diferent_enuns(struct parser_ctx* ctx,
+void check_diferent_enuns(const struct parser_ctx* ctx,
                           const struct token* operator_token,
                           const struct expression* left,
                           const struct expression* right,
                           const char* message);
 
-void check_assigment(struct parser_ctx* ctx,
+void check_assigment(const struct parser_ctx* ctx,
     const struct type* left_type,
     const struct expression* right,
     enum assigment_type assigment_type);

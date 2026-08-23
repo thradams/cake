@@ -53,7 +53,7 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_
 static void pre_expression(struct preprocessor_ctx* ctx, struct pre_expression_ctx* ectx);
 static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_expression_ctx* ectx);
 
-static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* token, long long* result, enum target target)
+static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, const struct token* token, long long* result)
 {
     /*copy removing the separators*/
     // 0xb1'1'1....
@@ -379,7 +379,7 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expr
         }
         else if (ctx->current->type == TK_PPNUMBER)
         {
-            ppnumber_to_longlong(ctx, ctx->current, &ectx->value, ctx->options.target);
+            ppnumber_to_longlong(ctx, ctx->current, &ectx->value);
             pre_match(ctx);
         }
         else if (ctx->current->type == '(')

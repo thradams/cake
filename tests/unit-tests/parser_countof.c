@@ -92,7 +92,7 @@ static void test_vm_pointer(int n)
  *    so only the inner fixed dimension is valid for _Countof here.
  * ------------------------------------------------------------------------- */
 
-static void check_param_countof(int arr[][4])
+static void check_param_countof(const int arr[][4])
 {
     check("VM param inner dim", _Countof(arr[0]) == 4);
 }

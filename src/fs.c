@@ -62,6 +62,14 @@ bool path_is_normalized(const char* path)
     }
     return true;
 #else
+    /*
+       `path` is only read by the _WINDOWS_ branch above. Marking it used here
+       rather than suppressing the warning: a //lint is per-configuration, so
+       one that silences "unreferenced formal parameter" off Windows turns into
+       "diagnostic '6' not recognized" (warning 59) on Windows, where the
+       parameter IS read. This costs nothing and is right in both.
+    */
+    (void)path;
     return true;
 #endif
 }
@@ -78,7 +86,9 @@ void path_normalize(char* path)
         }
     }
 #else
-
+    /*See the note in path_is_normalized: used on Windows only, marked used
+      here so neither configuration warns.*/
+    (void)path;
 #endif
 }
 

@@ -55,7 +55,7 @@ static char* _Opt strrchr2(const char* s, int c)
     return (char*)last;
 }
 
-int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_ctx* prectx)
+int fill_preprocessor_options(int argc, const char* const* argv, struct preprocessor_ctx* prectx)
 {
     /*first loop used to collect options*/
     for (int i = 1; i < argc; i++)
@@ -307,7 +307,7 @@ int compile_one_file(const char* file_name,
     struct options* options,
     const char* out_file_name,
     int argc,
-    const char** argv,
+    const char* const* argv,
     struct report* report)
 {
     #ifdef _CRTDBG_MAP_ALLOC
@@ -636,7 +636,7 @@ static int compile_many_files(const char* file_name,
     struct options* options,
     const char* out_file_name,
     int argc,
-    const char** argv,
+    const char* const* argv,
     struct report* report)
 {
     const char* const file_name_name = basename(file_name);
@@ -717,7 +717,7 @@ static int compile_many_files(const char* file_name,
     return num_files;
 }
 
-static void longest_common_path(int argc, const char** argv, char root_dir[FS_MAX_PATH])
+static void longest_common_path(int argc, const char* const* argv, char root_dir[FS_MAX_PATH])
 {
     /*
      find the longest common path
@@ -805,7 +805,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
     #endif
 }
 
-void print_report(struct report* report)
+void print_report(const struct report* report)
 {
     if (report->ignore_this_report)
     return;

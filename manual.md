@@ -206,6 +206,12 @@ Disable warning number `<number>`.
 **`-Wall`**  
 Enable all warnings.
 
+**Disabled by default**  
+Most warnings are on unless `-Wno-<number>` turns them off, but a few are off
+until asked for: `2` (unused variable), `6` (unused function parameter), `11`
+(style), `83` (parameter set but not used), `84` (variable set but not used),
+and the two nullable-pointer flow checks `33` and `35`.
+
 **`-Werror`**  
 Report every enabled warning as an error. Notes are not affected, and warnings that are disabled stay disabled. Because they become errors, warnings coming from included headers are no longer suppressed, and any occurrence makes the compilation fail.
 

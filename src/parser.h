@@ -107,7 +107,7 @@ struct diagnostic_item
 
 void diagnostic_queue_add(struct diagnostic_queue* q, struct diagnostic_item* _Owner e);
 void diagnostic_queue_flush(struct diagnostic_queue* q, const struct parser_ctx* ctx);
-bool diagnostic_queue_remove(struct diagnostic_queue* q, int line, enum diagnostic_id id);
+bool diagnostic_queue_remove(struct diagnostic_queue* q, enum diagnostic_id id);
 void diagnostic_queue_destroy(_Dtor struct diagnostic_queue* q);
 
 
@@ -173,6 +173,18 @@ struct parser_ctx
 
     bool inside_generic_association;
 
+    /*
+      Depth of enclosing UNEVALUATED operands -- sizeof, _Countof, _Alignof and
+      traits. Their operand is analysed for its type only and never runs, so
+      `sizeof(*p)` is not a use of what p points at (W_PARAM_COULD_BE_CONST).
+
+      A dedicated counter rather than the parser's is_discarded flag, which is
+      overloaded: for a non-constant condition it marks the TRUE arm of `?:` as
+      discarded (see conditional_expression), so `n > 0 ? a[0] : 0` would have
+      stopped counting as a use of a.
+    */
+    int unevaluated_operand_depth;
+
     int label_id; /*generates unique ids for labels*/
 
     /*
@@ -203,14 +215,14 @@ void parser_ctx_destroy(_Opt _Dtor struct parser_ctx* ctx);
 
 
 struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx);
-void unexpected_end_of_file(struct parser_ctx* ctx);
+void unexpected_end_of_file(const struct parser_ctx* ctx);
 void parser_match(struct parser_ctx* ctx);
 _Attr(nodiscard)
 int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
 int parser_match_tk_lint(struct parser_ctx* ctx, enum token_type type, struct token* _Opt* pp_token_lint);
 
 struct token* _Opt previous_parser_token(const struct token* token);
-struct token* _Opt parser_get_previous_token(struct parser_ctx* ctx);
+struct token* _Opt parser_get_previous_token(const struct parser_ctx* ctx);
 struct declarator* _Opt find_declarator(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Opt* _Opt ppscope_opt);
 struct enumerator* _Opt find_enumerator(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Opt* _Opt ppscope_opt);
 struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Opt* _Opt ppscope_opt);
@@ -292,7 +304,7 @@ struct declaration_specifiers
     struct declaration_specifier* _Opt tail;
 };
 
-void print_declaration_specifiers(struct osstream* ss, struct declaration_specifiers* p);
+void print_declaration_specifiers(struct osstream* ss, const struct declaration_specifiers* p_declaration_specifiers);
 struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_ctx* ctx, enum storage_class_specifier_flags default_storage_flag);
 void declaration_specifiers_delete(_Dtor struct declaration_specifiers* _Owner _Opt p);
 void declaration_specifiers_add(struct declaration_specifiers* p, struct declaration_specifier* _Owner item);
@@ -342,7 +354,7 @@ struct pragma_declaration {
 struct pragma_declaration* _Owner pragma_declaration(struct parser_ctx* ctx);
 void pragma_declaration_delete(_Dtor struct pragma_declaration* _Owner _Opt p);
 
-void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaration* p_pragma, bool on_flow_analysis);
+void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaration* p_pragma);
 
 struct attribute_specifier_sequence
 {
@@ -377,7 +389,7 @@ struct attribute_specifier
 struct attribute_specifier* _Owner _Opt attribute_specifier(struct parser_ctx* ctx);
 void attribute_specifier_delete(_Dtor struct attribute_specifier* _Owner _Opt p);
 
-struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx, struct attribute_specifier* p_attribute_specifier);
+struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx);
 
 
 struct storage_class_specifier
@@ -694,7 +706,7 @@ const struct enum_specifier* _Opt get_complete_enum_specifier(const struct enum_
 const struct enum_specifier* _Opt get_enum_specifier_definition(const struct enum_specifier* p_enum_specifier);
 enum type_specifier_flags get_enum_type_specifier_flags(const struct enum_specifier* p_enum_specifier);
 
-const struct enumerator* _Opt find_enumerator_by_value(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, const struct object* object);
+const struct enumerator* _Opt find_enumerator_by_value(const struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, const struct object* object);
 
 struct member_declaration_list
 {
@@ -763,7 +775,7 @@ struct struct_or_union_specifier* _Owner struct_or_union_specifier_add_ref(struc
 bool struct_or_union_specifier_is_union(const struct struct_or_union_specifier* p);
 void struct_or_union_specifier_delete(_Dtor struct struct_or_union_specifier* _Owner _Opt  p);
 
-bool struct_or_union_specifier_is_complete(struct struct_or_union_specifier* p_struct_or_union_specifier);
+bool struct_or_union_specifier_is_complete(const struct struct_or_union_specifier* p_struct_or_union_specifier);
 struct struct_or_union_specifier* _Opt get_complete_struct_or_union_specifier(const struct struct_or_union_specifier* p_struct_or_union_specifier);
 
 struct init_declarator
@@ -842,9 +854,11 @@ struct declarator
     struct declarator* _Opt p_complete_declarator;
 
     int num_uses; /*used to show not used warnings*/
-
-    /* Set when `&name` is taken anywhere*/
+    int num_writes;
     bool address_taken;
+    bool pointee_written;
+    bool pointee_escaped;
+    bool pointee_used;
 
     struct object object;
 
@@ -1130,7 +1144,7 @@ struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct par
 void specifier_qualifier_list_delete(_Dtor struct specifier_qualifier_list* _Owner _Opt p);
 void specifier_qualifier_list_add(struct specifier_qualifier_list* list, struct type_specifier_qualifier* _Owner p_item);
 
-void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct specifier_qualifier_list* p_specifier_qualifier_list);
+void print_specifier_qualifier_list(struct osstream* ss, bool* first, const struct specifier_qualifier_list* p_specifier_qualifier_list);
 
 struct alignment_specifier
 {
@@ -1249,7 +1263,12 @@ struct compound_statement
 
     struct defer_list defer_list;
 };
-struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx);
+/*
+  is_function_body: the outermost compound statement of a function definition.
+  Its trailing `//lint N` must NOT be consumed here -- declaration_core consumes
+  it after the parameter checks have run. See compound_statement's body.
+*/
+struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx, bool is_function_body);
 void compound_statement_delete(_Dtor struct compound_statement* _Owner _Opt p);
 
 struct defer_statement
@@ -1330,9 +1349,9 @@ struct case_label_list
 };
 
 void case_label_list_push(struct case_label_list* list, struct label* pnew);
-struct label* _Opt case_label_list_find(struct parser_ctx* ctx, const struct case_label_list* list, const struct object* object);
-struct label* _Opt case_label_list_find_default(struct parser_ctx* ctx, const struct case_label_list* list);
-struct label* _Opt case_label_list_find_range(struct parser_ctx* ctx, const struct case_label_list* list, const struct object* begin, const struct object* end);
+struct label* _Opt case_label_list_find(const struct parser_ctx* ctx, const struct case_label_list* list, const struct object* object);
+struct label* _Opt case_label_list_find_default( const struct case_label_list* list);
+struct label* _Opt case_label_list_find_range(const struct parser_ctx* ctx, const struct case_label_list* list, const struct object* begin, const struct object* end);
 
 struct selection_statement
 {
@@ -1561,7 +1580,7 @@ struct secondary_block
 };
 
 void secondary_block_delete(_Dtor struct secondary_block* _Owner _Opt p);
-bool secondary_block_ends_with_jump(struct secondary_block* _Opt p_secondary_block);
+bool secondary_block_ends_with_jump(const struct secondary_block* _Opt p_secondary_block);
 
 struct unlabeled_statement
 {
@@ -1691,7 +1710,7 @@ struct attribute_list
     struct attribute* _Opt tail;
 };
 
-struct attribute_list* _Owner _Opt attribute_list(struct parser_ctx* ctx, struct attribute_specifier* p_attribute_specifier);
+struct attribute_list* _Owner _Opt attribute_list(struct parser_ctx* ctx);
 void attribute_list_destroy(_Dtor struct attribute_list* p);
 void attribute_list_delete(_Dtor struct attribute_list* _Owner _Opt p);
 
@@ -1763,7 +1782,7 @@ struct balanced_token_sequence
 struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct parser_ctx* ctx);
 void balanced_token_sequence_delete(_Dtor struct balanced_token_sequence* _Owner _Opt  p);
 
-bool is_first_of_conditional_expression(struct parser_ctx* ctx);
+bool is_first_of_conditional_expression(const struct parser_ctx* ctx);
 bool first_of_type_name(const struct parser_ctx* ctx);
 bool first_of_type_name_ahead(const struct parser_ctx* ctx);
 bool first_of_type_name_token(const struct parser_ctx* ctx /*only to typedef*/, struct token* p_token);
@@ -1811,7 +1830,10 @@ struct ast
 };
 
 
-struct ast get_ast(struct options* options, const char* filename, const char* source, struct report* report);
+struct ast get_ast(const struct options* options,
+    const char* filename,
+    const char* source,
+    struct report* report);
 struct ast get_ast_with_flags(int argc, const char** argv, const char* filename, const char* source, struct report* report);
 void ast_destroy(_Dtor struct ast* ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
@@ -1827,7 +1849,7 @@ int initializer_init_new(struct parser_ctx* ctx,
                          bool is_constant,
                          bool requires_constant_initialization);
 
-struct object* _Opt find_object_declarator_by_index(struct object* p_object, struct member_declaration_list* list, int member_index);
+struct object* _Opt find_object_declarator_by_index(const struct object* p_object, struct member_declaration_list* list, int member_index);
 
-void check_dianostic_suppression_phase(struct parser_ctx* ctx, struct token* pToken, int phase);
+void check_dianostic_suppression_phase(struct parser_ctx* ctx, const struct token* p_token, int phase);
 const struct direct_declarator* _Opt get_innermost_direct_declarator(const struct direct_declarator* _Opt p);

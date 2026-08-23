@@ -354,7 +354,7 @@ void type_remove_all_qualifiers(struct type* p_type)
     p_type->type_qualifier_flags = 0;
 }
 
-struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_enabled)
+struct type type_lvalue_conversion(const struct type* p_type)
 {
 
     enum type_category category = type_get_category(p_type);
@@ -366,7 +366,7 @@ struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_en
            "function returning type" is converted to an expression that has type
            "pointer to function returning type".
         */
-        struct type t = type_add_pointer(p_type, nullchecks_enabled);
+        struct type t = type_add_pointer(p_type);
         t.type_qualifier_flags &= ~TYPE_QUALIFIER_CAKE_OPT;
         t.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_PARAMETER;
         t.category = t.category;
@@ -382,7 +382,7 @@ struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_en
           If the array object has register storage class, the behavior is undefined.
         */
         struct type t = get_array_item_type(p_type);
-        struct type t2 = type_add_pointer(&t, nullchecks_enabled);
+        struct type t2 = type_add_pointer(&t);
 
 
         type_remove_non_cake_qualifiers(&t2);
@@ -780,6 +780,108 @@ bool type_is_nodiscard(const struct type* p_type)
 bool type_is_array(const struct type* p_type)
 {
     return type_get_category(p_type) == TYPE_CATEGORY_ARRAY;
+}
+
+/*
+  6.2.5: "An array type of unknown size is an incomplete type." That is an
+  array declared without a size expression, e.g. 'int a[]' - not 'int a[0]'
+  (which has a constant size expression) nor a VLA (which has a non-constant
+  one). Note array_num_elements doubles as the bit-field width, hence the
+  category check.
+*/
+bool type_is_array_of_unknown_size(const struct type* p_type)
+{
+    return p_type->category == TYPE_CATEGORY_ARRAY &&
+        p_type->array_num_elements == 0 &&
+        p_type->p_array_num_elements_expression == NULL;
+}
+
+const struct type* _Opt type_get_complete_array(const struct type* p_type)
+{
+    /*
+      The array equivalent of get_complete_struct_or_union_specifier.
+
+      An array of unknown size is completed by a later declaration of the same
+      object, the way an incomplete tag is completed by a later definition. The
+      type reaches its declarator - which is what the symbol table holds, like
+      the first tag seen - and that declarator points to the complete one.
+    */
+
+    if (!type_is_array_of_unknown_size(p_type))
+    {
+        /*p_type is complete*/
+        return p_type;
+    }
+
+    const struct declarator* _Opt p = p_type->p_declarator_opt;
+    if (p == NULL)
+        return NULL;
+
+    if (p->p_complete_declarator &&
+        !type_is_array_of_unknown_size(&p->p_complete_declarator->type))
+    {
+        /*p is the first declarator seen, it points directly to the complete*/
+        return &p->p_complete_declarator->type;
+    }
+
+    if (p->p_complete_declarator &&
+        p->p_complete_declarator->p_complete_declarator &&
+        !type_is_array_of_unknown_size(&p->p_complete_declarator->p_complete_declarator->type))
+    {
+        /*all others point to the first seen that points to the complete*/
+        return &p->p_complete_declarator->p_complete_declarator->type;
+    }
+
+    return NULL;
+}
+
+bool type_has_different_array_parameter_size(const struct type* a, const struct type* b)
+{
+    /*
+      'void f(int a[2]);' and 'void f(int a[3]);' declare the same function -
+      an array parameter is adjusted to a pointer - so this is not an error.
+      Same for 'void f(int a[]);' against 'void f(int a[2]);'. Cake still
+      reports it, because the sizes were probably meant to agree; it is only a
+      warning and can be turned off.
+    */
+    const struct type* _Opt pa = a;
+    const struct type* _Opt pb = b;
+
+    while (pa && pb)
+    {
+        if (pa->category == TYPE_CATEGORY_FUNCTION &&
+            pb->category == TYPE_CATEGORY_FUNCTION)
+        {
+            const struct param* _Opt p_param_a = pa->params.head;
+            const struct param* _Opt p_param_b = pb->params.head;
+
+            while (p_param_a && p_param_b)
+            {
+                if (type_is_array(&p_param_a->type) &&
+                    type_is_array(&p_param_b->type))
+                {
+                    const bool a_unknown = type_is_array_of_unknown_size(&p_param_a->type);
+                    const bool b_unknown = type_is_array_of_unknown_size(&p_param_b->type);
+
+                    /* 'int a[]' against 'int a[2]', or two different sizes */
+                    if (a_unknown != b_unknown ||
+                        (!a_unknown && !b_unknown &&
+                         p_param_a->type.array_num_elements != p_param_b->type.array_num_elements))
+                    {
+                        return true;
+                    }
+                }
+
+                p_param_a = p_param_a->next;
+                p_param_b = p_param_b->next;
+            }
+        }
+
+        pa = pa->next;
+        pb = pb->next;
+    }
+
+    return false;
 }
 
 bool type_is_owner_or_pointer_to_dtor(const struct type* p_type)
@@ -1520,7 +1622,7 @@ bool type_is_empty(const struct type* p_type)
         p_type->type_specifier_flags == TYPE_SPECIFIER_NONE;
 }
 
-struct type type_add_pointer(const struct type* p_type, bool null_checks_enabled)
+struct type type_add_pointer(const struct type* p_type)
 {
     try
     {
@@ -1582,6 +1684,19 @@ struct type get_array_item_type(const struct type* p_type)
     {
         struct type r2 = *r.next;
 
+        /*
+           C11 6.7.3p9: "If the specification of an array type includes any
+           type qualifiers, the element type is so-qualified, not the array
+           type." A direct declaration (`const int a[3]`) already lands the
+           qualifier on the element, but a const propagated ONTO an array type
+           afterwards did not -- fix_arrow_member_type puts it on the array
+           node, so `const struct X* p; p->arr[0] = 1;` produced an element
+           type of plain `int` and the modifiable-lvalue check passed.
+           Carrying const/volatile down here fixes every consumer at once.
+        */
+        r2.type_qualifier_flags |=
+            (r.type_qualifier_flags & (TYPE_QUALIFIER_CONST | TYPE_QUALIFIER_VOLATILE));
+
         free(r.next); //lint 29 29 29 
         free((void* _Owner) r.name_opt);
         param_list_destroy(&r.params);
@@ -1591,11 +1706,11 @@ struct type get_array_item_type(const struct type* p_type)
     return r;
 }
 
-struct type type_param_array_to_pointer(const struct type* p_type, bool null_checks_enabled)
+struct type type_param_array_to_pointer(const struct type* p_type)
 {
     _Assert(type_is_array(p_type));
     struct type t = get_array_item_type(p_type);
-    struct type t2 = type_add_pointer(&t, null_checks_enabled);
+    struct type t2 = type_add_pointer(&t);
 
     if (p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST)
     {
@@ -2928,6 +3043,17 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
             {
                 if (p_type->p_array_num_elements_expression == NULL)
                 {
+                    /*
+                      'int a[];' may be completed by a later declaration
+                      ('int a[2];'), just like an incomplete tag is completed
+                      by a later definition. Issue #333.
+                    */
+                    const struct type* _Opt p_complete = type_get_complete_array(p_type);
+                    if (p_complete != NULL)
+                    {
+                        return type_get_sizeof(p_complete, size, target);
+                    }
+
                     /* int [] */
                     return SIZEOF_RESULT_INCOMPLETE;
                 }
@@ -3187,7 +3313,7 @@ void type_get_integer_range(const struct type* p_type, enum target target, long 
     *max = n_bits >= 64 ? ULLONG_MAX : (1ULL << n_bits) - 1;
 }
 
-void type_set_attributes(struct type* p_type, struct declarator* pdeclarator)
+void type_set_attributes(struct type* p_type, const struct declarator* pdeclarator)
 {
     if (pdeclarator->declaration_specifiers)
     {
@@ -3383,8 +3509,7 @@ struct type type_make_int()
 
 struct type type_make_literal_string(int number_of_chars_including_zero,
     enum type_specifier_flags chartype,
-    enum type_qualifier_flags qualifiers,
-    enum target target)
+    enum type_qualifier_flags qualifiers)
 {
     struct type t = { 0 };
 
@@ -3408,7 +3533,7 @@ struct type type_make_literal_string(int number_of_chars_including_zero,
     return t;
 }
 
-bool struct_or_union_specifier_is_same(struct struct_or_union_specifier* _Opt a, struct struct_or_union_specifier* _Opt b)
+bool struct_or_union_specifier_is_same(const struct struct_or_union_specifier* _Opt a, const struct struct_or_union_specifier* _Opt b)
 {
     if (a && b)
     {
@@ -3437,7 +3562,7 @@ bool struct_or_union_specifier_is_same(struct struct_or_union_specifier* _Opt a,
     return a == NULL && b == NULL;
 }
 
-bool enum_specifier_is_same(struct enum_specifier* _Opt a, struct enum_specifier* _Opt b)
+bool enum_specifier_is_same(const struct enum_specifier* _Opt a, const struct enum_specifier* _Opt b)
 {
     if (a && b)
     {
@@ -3462,7 +3587,22 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
 
     while (pa && pb)
     {
-        if (pa->array_num_elements != pb->array_num_elements)
+        /*
+          6.2.7: an array of unknown size is compatible with an array of
+          known size (the composite type is the one with the known size), so
+          only a mismatch between two *known* sizes makes them different.
+
+          A parameter of array type is adjusted to a pointer (6.7.6.3), so its
+          size is not part of the type either - 'f(int a[2])' and 'f(int a[3])'
+          declare the same function. It is still worth reporting, see
+          type_has_different_array_parameter_size.
+          issue #164
+        */
+        if (pa->array_num_elements != pb->array_num_elements &&
+            !type_is_array_of_unknown_size(pa) &&
+            !type_is_array_of_unknown_size(pb) &&
+            !((pa->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER) &&
+              (pb->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)))
         {
             return false;
         }
@@ -3849,7 +3989,7 @@ void type_swap(struct type* a, struct type* b)
 }
 
 
-void type_visit_to_mark_anonymous(struct type* p_type)
+void type_visit_to_mark_anonymous(const struct type* p_type)
 {
     //TODO better visit?
     if (p_type->struct_or_union_specifier != NULL &&
@@ -3865,7 +4005,7 @@ void type_visit_to_mark_anonymous(struct type* p_type)
 }
 
 
-void type_merge_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator)
+void type_merge_qualifiers_using_declarator(struct type* p_type, const struct declarator* pdeclarator)
 {
 
     enum type_qualifier_flags type_qualifier_flags = 0;
@@ -3893,7 +4033,7 @@ void type_merge_qualifiers_using_declarator(struct type* p_type, struct declarat
 }
 
 
-void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator)
+void type_set_qualifiers_using_declarator(struct type* p_type, const struct declarator* pdeclarator)
 {
 
     enum type_qualifier_flags type_qualifier_flags = 0;
@@ -3912,7 +4052,7 @@ void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator
 
 
 }
-void type_set_alignment_specifier_flags_using_declarator(struct type* p_type, struct declarator* pdeclarator)
+void type_set_alignment_specifier_flags_using_declarator(struct type* p_type, const struct declarator* pdeclarator)
 {
     if (pdeclarator->declaration_specifiers)
     {
@@ -3926,7 +4066,7 @@ void type_set_alignment_specifier_flags_using_declarator(struct type* p_type, st
     }
 }
 
-void type_set_msvc_declspec_using_declarator(struct type* p_type, struct declarator* pdeclarator)
+void type_set_msvc_declspec_using_declarator(struct type* p_type, const struct declarator* pdeclarator)
 {
     if (pdeclarator->declaration_specifiers)
     {
@@ -3935,7 +4075,7 @@ void type_set_msvc_declspec_using_declarator(struct type* p_type, struct declara
     }
 }
 
-void type_set_storage_specifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator)
+void type_set_storage_specifiers_using_declarator(struct type* p_type, const struct declarator* pdeclarator)
 {
     if (pdeclarator->declaration_specifiers)
     {
@@ -3954,7 +4094,7 @@ void type_set_storage_specifiers_using_declarator(struct type* p_type, struct de
 }
 
 
-void type_set_specifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator)
+void type_set_specifiers_using_declarator(struct type* p_type, const struct declarator* pdeclarator)
 {
     if (pdeclarator->declaration_specifiers)
     {
@@ -3977,7 +4117,7 @@ void type_set_specifiers_using_declarator(struct type* p_type, struct declarator
 
 }
 
-void type_set_attributes_using_declarator(struct type* p_type, struct declarator* pdeclarator)
+void type_set_attributes_using_declarator(struct type* p_type, const struct declarator* pdeclarator)
 {
     if (pdeclarator->declaration_specifiers)
     {
@@ -4242,6 +4382,22 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
         if (pdeclarator->direct_declarator)
         {
             make_type_using_direct_declarator(ctx, pdeclarator->direct_declarator, ppname, list);
+
+            if (list->head &&
+                list->head->category == TYPE_CATEGORY_ARRAY)
+            {
+                /*
+                  This array type was built from this declarator's own '[...]',
+                  so it links back to it - the declarator is what the symbol
+                  table holds, and where a later declaration completing an
+                  array of unknown size is recorded. A type that instead comes
+                  from the declaration specifiers ('typeof(a) b') is not built
+                  here and keeps the declarator it already carried, which is
+                  the one that gets completed. Issue #333.
+                */
+                list->head->p_declarator_opt = pdeclarator;
+            }
+
             if (list->head &&
                 list->head->category == TYPE_CATEGORY_FUNCTION)
             {
@@ -4271,7 +4427,7 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
     }
 }
 
-struct enum_specifier* _Opt declarator_get_enum_specifier(struct declarator* pdeclarator)
+struct enum_specifier* _Opt declarator_get_enum_specifier(const struct declarator* pdeclarator)
 {
     if (pdeclarator->declaration_specifiers &&
         pdeclarator->declaration_specifiers->enum_specifier)
@@ -4287,7 +4443,7 @@ struct enum_specifier* _Opt declarator_get_enum_specifier(struct declarator* pde
 }
 
 
-struct struct_or_union_specifier* _Opt declarator_get_struct_or_union_specifier(struct declarator* pdeclarator)
+struct struct_or_union_specifier* _Opt declarator_get_struct_or_union_specifier(const struct declarator* pdeclarator)
 {
     if (pdeclarator->declaration_specifiers &&
         pdeclarator->declaration_specifiers->struct_or_union_specifier)
@@ -4302,7 +4458,7 @@ struct struct_or_union_specifier* _Opt declarator_get_struct_or_union_specifier(
     return NULL;
 }
 
-struct typeof_specifier* _Opt declarator_get_typeof_specifier(struct declarator* pdeclarator)
+struct typeof_specifier* _Opt declarator_get_typeof_specifier(const struct declarator* pdeclarator)
 {
     if (pdeclarator->declaration_specifiers)
     {
@@ -4315,7 +4471,7 @@ struct typeof_specifier* _Opt declarator_get_typeof_specifier(struct declarator*
     return NULL;
 }
 
-struct declarator* _Opt declarator_get_typedef_declarator(struct declarator* pdeclarator)
+struct declarator* _Opt declarator_get_typedef_declarator(const struct declarator* pdeclarator)
 {
     if (pdeclarator->declaration_specifiers)
     {
@@ -4329,7 +4485,7 @@ struct declarator* _Opt declarator_get_typedef_declarator(struct declarator* pde
     return NULL;
 }
 
-static bool is_valid_type(struct parser_ctx* ctx, struct token* _Opt p_token, const struct type* p_type)
+static bool is_valid_type(const struct parser_ctx* ctx, const struct token* _Opt p_token, const struct type* p_type)
 {
     if (p_token == NULL)
         p_token = ctx->current;

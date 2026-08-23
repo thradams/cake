@@ -189,6 +189,28 @@ char* f(){
 }
 ```
 
+Both operands of `?:` contribute: per C11 6.5.15p6 the result of a pointer
+conditional is qualified with the qualifiers of *both* referenced types, so a
+const operand makes the whole result const.
+
+**Not reported:** an explicit cast that removes the qualifier
+(`g((struct X*)p)`). That is legal C -- the cast is the author taking
+responsibility -- so no diagnostic is possible, and none of the const checks
+can see through it.
+
+<!-- runnable -->
+
+```c
+struct X { int i; };
+struct X* g_ptr;
+
+void f(const struct X* p, int c)
+{
+    struct X* q = c ? p : g_ptr; //warning C0015: discarding const qualifier
+    (void)q;
+}
+```
+
 
 ### 16 (unused)
 
@@ -905,7 +927,106 @@ int main()
 }
 ```
 
-### 73–75, 77–127 Reserved / unused warnings
+### 82 Parameter could point to const
+
+The pointed object is never written through, and no pointer into it escapes
+somewhere that could write it later, so the parameter can promise more. The
+suggestion applies to every pointer spelling -- `const int* p`,
+`const int a[]`, `const int (*a)[10]`.
+Passing it on to a `const`-qualified parameter keeps the promise; passing it
+to a non-`const` one does not.
+
+Assigning to the *pointer* (`p = 0`) does not count -- that is about
+`T* const p`, not about the pointee. Neither does writing through a pointer
+*member* (`p->buf[0] = 'x'`), which does not modify `*p` and stays legal under
+`const struct X*`. Writing an *array* member (`p->arr[0] = 1`) does count.
+
+**Not reported.** The check answers "does anything write through this
+parameter", not "would `const` compile", so it stays quiet whenever it loses
+track of the pointer:
+
+- the pointer is copied to another variable (`struct X* q = p;`) -- writes
+  through `q` are not attributed back to `p`;
+- the pointer goes through an explicit cast (`g((struct X*)p)`), or is passed
+  to a `...` parameter, or to any destination whose pointee is not `const`;
+- the parameter is `_Out`, `_Dtor`, `_Clear` or `_Owner`, all of which write
+  the pointee by contract;
+- the parameter is never dereferenced at all -- a bare `(void)p` is
+  [6 Unused function parameter](#6-unused-function-parameter-disabled-by-default)'s
+  subject, not this one;
+- the only dereference is inside an unevaluated operand -- `sizeof(*p)`,
+  `_Countof`, `_Alignof`, or the unselected arm of a `_Generic` -- which names
+  the pointee's type without touching the object.
+
+The one case that can still produce a *wrong* suggestion is a pointer stored
+somewhere the assignment checks never visit, such as inside a compound
+literal.
+
+<!-- runnable -->
+
+```c
+// -w082
+struct X { int i; };
+
+int get_i(struct X* p)
+{
+    return p->i;
+}
+```
+
+### 83 Parameter set but not used (disabled by default)
+
+The caller already supplied a value, so assigning to the parameter and never
+reading it back makes the assignment dead. `x++` and `x += 1` count as a set
+only when their result is discarded -- `while (x--)` reads it.
+
+**Not reported:** the same cases as
+[84](#84-variable-set-but-not-used-disabled-by-default) below.
+
+<!-- runnable -->
+
+```c
+// -w083
+int side(void);
+
+void f(int x)
+{
+    x = side();
+}
+```
+
+### 84 Variable set but not used (disabled by default)
+
+Assigned at least once and never read. A variable that is only *initialized*
+and never read is reported as [2 Unused variable](#2-unused-variable)
+instead. Taking the address of the variable, or declaring it `volatile`,
+suppresses the warning.
+
+**Not reported.** Only the declarator an lvalue *names* is treated as set, so
+writing through a part of it is a use of the whole:
+
+- `a[0] = 1` is a use of `a`, and `s.f = 1` a use of `s`, so neither array nor
+  struct is reported even when nothing ever reads it back;
+- `*p = 1` is a use of `p` (it reads the pointer), never a set of it;
+- `sizeof(n)` counts as a read, so it suppresses the warning;
+- `&n` anywhere suppresses it -- the address escaping means a read can happen
+  out of sight;
+- `volatile` suppresses it: writing a volatile object is the point.
+
+<!-- runnable -->
+
+```c
+// -w084
+int side(void);
+
+void f(void)
+{
+    int n = 0;
+    n = side();
+}
+```
+
+### 73–75, 77–81, 85–127 Reserved / unused warnings
 
 ## Errors 
 
@@ -1203,6 +1324,13 @@ int main()
 ```
 
 ### 920 Assignment of read-only object
+
+Reported for any attempt to modify a const-qualified lvalue: assignment,
+compound assignment, and `++`/`--` (C11 6.5.2.4p1 and 6.5.3.1p1 both require a
+*modifiable* lvalue). Reaching the object through a const pointer or a const
+aggregate counts -- per C11 6.7.3p9 a qualifier on an array type qualifies the
+element type, so `p->arr[0]` is const when `p` is.
+
 <!-- runnable -->
 
 ```c
@@ -1212,6 +1340,23 @@ int main()
     i = 2; 
 }
 
+```
+
+<!-- runnable -->
+
+```c
+struct X { int arr[4]; };
+
+void f(const struct X* p)
+{
+    p->arr[0] = 1; //error C0920: assignment of read-only object
+}
+
+void g(void)
+{
+    const int i = 1;
+    i++;           //error C0920: increment of read-only object
+}
 ```
 
 ### 930 lvalue required as left operand of assignment

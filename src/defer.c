@@ -1029,7 +1029,7 @@ static void defer_visit_block_item(struct defer_visit_ctx* ctx, struct block_ite
     }
 }
 
-static void defer_visit_direct_declarator(struct defer_visit_ctx* ctx, struct direct_declarator* p_direct_declarator)
+static void defer_visit_direct_declarator(struct defer_visit_ctx* ctx, const struct direct_declarator* p_direct_declarator)
 {
     if (p_direct_declarator->function_declarator)
     {

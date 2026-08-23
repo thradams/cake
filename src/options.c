@@ -137,7 +137,7 @@ void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w)
     bitset_set(&d->notes, w, false);
 }
 
-int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
+int get_diagnostic_type(const struct diagnostic* d, enum diagnostic_id w)
 {
     if (w == W_LOCATION)
         return 1; /*note*/
@@ -253,6 +253,9 @@ int fill_options(struct options* options,
     options_set_warning(options, W_FLOW_NULL_DEREFERENCE, false);
     options_set_warning(options, W_FLOW_NULLABLE_TO_NON_NULLABLE, false);
     options_set_warning(options, W_UNUSED_PARAMETER, false);
+    //options_set_warning(options, W_PARAM_COULD_BE_CONST, false);
+    options_set_warning(options, W_PARAM_SET_BUT_NOT_USED, false);
+    options_set_warning(options, W_SET_BUT_NOT_USED, false);
     options_set_warning(options, W_UNUSED_VARIABLE, false);
 
     options_set_warning(options, W_STYLE, false);

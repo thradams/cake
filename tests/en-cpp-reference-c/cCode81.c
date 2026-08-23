@@ -1,13 +1,13 @@
 //en.cppreference.com/w/c/language/array.html
 #include <stdio.h>
  
-void f(int a[], int sz) // actually declares void f(int* a, int sz)
+void f(const int a[], int sz) // actually declares void f(const int* a, int sz)
 {
     for (int i = 0; i < sz; ++i)
         printf("%d\n", a[i]);
 }
  
-void g(int (*a)[10]) // pointer to array parameter is not transformed
+void g(const int (*a)[10]) // pointer to array parameter is not transformed
 {
     for (int i = 0; i < 10; ++i)
         printf("%d\n", (*a)[i]);

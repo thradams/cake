@@ -67,21 +67,21 @@ void defer_statement_delete(struct defer_statement* _Owner _Opt p)
 
 static struct asm_statement* _Owner _Opt gcc_asm(struct parser_ctx* ctx, bool statement);
 
-void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token);
-void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token);
-void naming_convention_function(struct parser_ctx* ctx, struct token* token);
-void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token);
-void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token, struct type* type);
-void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, struct type* type);
-void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage);
-void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, struct type* type);
+void naming_convention_struct_tag(const struct parser_ctx* ctx, const struct token* token);
+void naming_convention_enum_tag(const struct parser_ctx* ctx, const struct token* token);
+void naming_convention_function(const struct parser_ctx* ctx, const struct token* token);
+void naming_convention_enumerator(const struct parser_ctx* ctx, const struct token* token);
+void naming_convention_struct_member(const struct parser_ctx* ctx, const struct token* token);
+void naming_convention_parameter(const struct parser_ctx* ctx, const struct token* token);
+void naming_convention_global_var(const struct parser_ctx* ctx, const struct token* token);
+void naming_convention_local_var(const struct parser_ctx* ctx, const struct token* token);
 
-static void check_knr_brace_space_style(const struct parser_ctx* ctx, struct token* token);
+static void check_knr_brace_space_style(const struct parser_ctx* ctx, const struct token* token);
 static bool trying_to_use_vm_type_from_enclosing_function(const struct type* p_type, struct declarator* p_function);
 static void type_set_current_function_for_own_params(struct type* p_type, struct declarator* p_new_owner);
-static void scope_set_current_function_for_own_params(struct scope* p_parameters_scope, struct declarator* p_new_owner);
+static void scope_set_current_function_for_own_params(const struct scope* p_parameters_scope, struct declarator* p_new_owner);
 
-static void check_open_brace_style(const struct parser_ctx* ctx, struct token* token)
+static void check_open_brace_style(const struct parser_ctx* ctx, const struct token* token)
 {
     /* token points to { */
 
@@ -131,7 +131,7 @@ static void check_open_brace_style(const struct parser_ctx* ctx, struct token* t
     }
 }
 
-static void check_close_brace_style(const struct parser_ctx* ctx, struct token* token)
+static void check_close_brace_style(const struct parser_ctx* ctx, const struct token* token)
 {
     /* token points to } */
 
@@ -159,7 +159,7 @@ static void check_close_brace_style(const struct parser_ctx* ctx, struct token* 
     }
 }
 
-static void check_func_open_brace_style(const struct parser_ctx* ctx, struct token* token)
+static void check_func_open_brace_style(const struct parser_ctx* ctx, const struct token* token)
 {
     /* token points to { */
 
@@ -204,7 +204,7 @@ static void check_func_open_brace_style(const struct parser_ctx* ctx, struct tok
     }
 }
 
-static void check_keyword_space_style(const struct parser_ctx* ctx, struct token* token)
+static void check_keyword_space_style(const struct parser_ctx* ctx, const struct token* token)
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
         return;
@@ -222,7 +222,7 @@ static void check_keyword_space_style(const struct parser_ctx* ctx, struct token
     }
 }
 
-static void check_indentation_style(const struct parser_ctx* ctx, struct token* token)
+static void check_indentation_style(const struct parser_ctx* ctx, const struct token* token)
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
         return;
@@ -284,7 +284,7 @@ static void check_indentation_style(const struct parser_ctx* ctx, struct token* 
         }
     }
 }
-static void check_space_after_comma_style(const struct parser_ctx* ctx, struct token* token)
+static void check_space_after_comma_style(const struct parser_ctx* ctx, const struct token* token)
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
         return;
@@ -313,7 +313,7 @@ static void check_space_after_comma_style(const struct parser_ctx* ctx, struct t
     }
 }
 
-static void check_no_space_before_semicolon_style(const struct parser_ctx* ctx, struct token* token)
+static void check_no_space_before_semicolon_style(const struct parser_ctx* ctx, const struct token* token)
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
         return;
@@ -331,7 +331,7 @@ static void check_no_space_before_semicolon_style(const struct parser_ctx* ctx, 
     }
 }
 
-static void check_knr_brace_space_style(const struct parser_ctx* ctx, struct token* token)
+static void check_knr_brace_space_style(const struct parser_ctx* ctx, const struct token* token)
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
         return;
@@ -361,7 +361,7 @@ void scope_swap(struct scope* a, struct scope* b)
     *b = temp;
 }
 
-static void check_pointer_style(const struct parser_ctx* ctx, struct token* token)
+static void check_pointer_style(const struct parser_ctx* ctx, const struct token* token)
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
         return;
@@ -403,7 +403,7 @@ static void check_pointer_style(const struct parser_ctx* ctx, struct token* toke
     }
 }
 
-static void check_else_placement_style(const struct parser_ctx* ctx, struct token* token)
+static void check_else_placement_style(const struct parser_ctx* ctx, const struct token* token)
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
         return;
@@ -437,7 +437,7 @@ static void check_else_placement_style(const struct parser_ctx* ctx, struct toke
     }
 }
 
-static void check_return_space_style(const struct parser_ctx* ctx, struct token* token)
+static void check_return_space_style(const struct parser_ctx* ctx, const struct token* token)
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
         return;
@@ -465,7 +465,7 @@ static void check_return_space_style(const struct parser_ctx* ctx, struct token*
     }
 }
 
-static void check_no_space_before_paren_style(const struct parser_ctx* ctx, struct token* token)
+static void check_no_space_before_paren_style(const struct parser_ctx* ctx, const struct token* token)
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
         return;
@@ -646,7 +646,7 @@ void diagnostic_queue_flush(struct diagnostic_queue* db, const struct parser_ctx
     db->count = 0;
 }
 
-bool diagnostic_queue_remove(struct diagnostic_queue* q, int line, enum diagnostic_id id)
+bool diagnostic_queue_remove(struct diagnostic_queue* q, enum diagnostic_id id)
 {
     struct diagnostic_item* _Opt prev = NULL;
     struct diagnostic_item* _Opt it = q->head;
@@ -1681,7 +1681,7 @@ struct token* _Opt previous_parser_token(const struct token* token)
    just before ctx->current in the final-token stream), or NULL if there
    isn't one (start of file) or ctx->current itself is NULL (end of file).
 */
-struct token* _Opt parser_get_previous_token(struct parser_ctx* ctx)
+struct token* _Opt parser_get_previous_token(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return NULL;
@@ -2109,7 +2109,7 @@ static struct token* _Opt pragma_declaration_match(const struct token* p_current
     return p_token;
 }
 
-void check_dianostic_suppression_phase(struct parser_ctx* ctx, struct token* p_token, int phase)
+void check_dianostic_suppression_phase(struct parser_ctx* ctx, const struct token* p_token, int phase)
 {
     if (p_token->type == TK_LINE_COMMENT || p_token->type == TK_COMMENT)
     {
@@ -2120,7 +2120,7 @@ void check_dianostic_suppression_phase(struct parser_ctx* ctx, struct token* p_t
         {
             if (get_diagnostic_phase(ids[i]) == phase)
             {
-                if (!diagnostic_queue_remove(&ctx->diagnostic_queue, p_token->line, (enum diagnostic_id)ids[i]))
+                if (!diagnostic_queue_remove(&ctx->diagnostic_queue, (enum diagnostic_id)ids[i]))
                 {
                     ids[i] = -ids[i];
                 }
@@ -2142,12 +2142,12 @@ void check_dianostic_suppression_phase(struct parser_ctx* ctx, struct token* p_t
     }
 }
 
-void check_compiler_dianostic_suppression(struct parser_ctx* ctx, struct token* p_token)
+void check_compiler_dianostic_suppression(struct parser_ctx* ctx, const struct token* p_token)
 {
     check_dianostic_suppression_phase(ctx, p_token, 0);
 }
 
-static void check_dianostic_suppression_after(struct parser_ctx* ctx, struct token* p_token)
+static void check_dianostic_suppression_after(struct parser_ctx* ctx, const struct token* p_token)
 {
     check_dianostic_suppression_phase(ctx, p_token, 1);
 }
@@ -2202,7 +2202,7 @@ void parser_match(struct parser_ctx* ctx)
     parser_skip_blanks(ctx, NULL);
 }
 
-void unexpected_end_of_file(struct parser_ctx* ctx)
+void unexpected_end_of_file(const struct parser_ctx* ctx)
 {
     diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->p_input_list->tail, NULL, "unexpected end of file");
 }
@@ -2250,7 +2250,7 @@ int parser_match_tk_lint(struct parser_ctx* ctx, enum token_type type, struct to
     return parser_match_tk_core(ctx, type, pp_token_lint);
 }
 
-void print_declaration_specifiers(struct osstream* ss, struct declaration_specifiers* p_declaration_specifiers)
+void print_declaration_specifiers(struct osstream* ss, const struct declaration_specifiers* p_declaration_specifiers)
 {
     bool first = true;
     print_type_qualifier_flags(ss, &first, p_declaration_specifiers->type_qualifier_flags);
@@ -2296,7 +2296,7 @@ bool type_specifier_is_integer(enum type_specifier_flags flags)
     return false;
 }
 
-int final_specifier(const struct parser_ctx* ctx, enum type_specifier_flags* flags)
+int final_specifier( enum type_specifier_flags* flags)
 {
     if (((*flags) & TYPE_SPECIFIER_UNSIGNED) ||
         ((*flags) & TYPE_SPECIFIER_SIGNED))
@@ -2312,7 +2312,7 @@ int final_specifier(const struct parser_ctx* ctx, enum type_specifier_flags* fla
     return 0;
 }
 
-int add_specifier(struct parser_ctx* ctx,
+int add_specifier(const struct parser_ctx* ctx,
     enum type_specifier_flags* flags,
     enum type_specifier_flags new_flag)
 {
@@ -2590,7 +2590,7 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
         p_declaration_specifiers->last_token = prev;
 
         /* int main() { static int i; } -- i is not automatic */
-        final_specifier(ctx, &p_declaration_specifiers->type_specifier_flags);
+        final_specifier( &p_declaration_specifiers->type_specifier_flags);
 
         p_declaration_specifiers->storage_class_specifier_flags |= default_storage_flag;
 
@@ -2902,6 +2902,98 @@ struct simple_declaration* _Owner _Opt simple_declaration(struct parser_ctx* ctx
     return p_simple_declaration;
 }
 
+static bool declarator_is_set_but_not_used(const struct declarator* p_declarator)
+{
+    return p_declarator->num_writes > 0 &&
+        p_declarator->num_uses == p_declarator->num_writes &&
+        !p_declarator->address_taken &&
+        !type_is_maybe_unused(&p_declarator->type) &&
+        !(p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_VOLATILE);
+}
+
+static bool param_pointee_is_const(const struct type* p_type)
+{
+    struct type pointee = type_is_array(p_type)
+        ? get_array_item_type(p_type)
+        : type_remove_pointer(p_type);
+
+    bool is_const = type_is_const(&pointee);
+
+    while (!is_const && type_is_array(&pointee))
+    {
+        struct type item = get_array_item_type(&pointee);
+        type_destroy(&pointee);
+        pointee = item;
+        is_const = type_is_const(&pointee);
+    }
+
+    type_destroy(&pointee);
+    return is_const;
+}
+
+static void check_const_candidate_parameters(const struct parser_ctx* ctx, struct parameter_list* parameter_list)
+{
+    struct parameter_declaration* _Opt parameter = parameter_list->head;
+
+    while (parameter)
+    {
+        const struct declarator* _Opt p_declarator = parameter->declarator;
+
+        if (p_declarator == NULL ||
+            p_declarator->name_opt == NULL ||
+            p_declarator->name_opt->level != 0 /*direct source*/)
+        {
+            parameter = parameter->next;
+            continue;
+        }
+
+        const struct type* const p_type = &p_declarator->type;
+
+        const bool is_candidate =
+            (type_is_pointer(p_type) || type_is_array(p_type)) &&
+
+            /*already const, nothing to suggest*/
+            !param_pointee_is_const(p_type) &&
+
+            /*pointer to function: `const` on the pointee means nothing*/
+            !type_is_function_or_function_pointer(p_type) &&
+
+            /*
+              _Out/_Dtor/_Clear all write the pointee BY CONTRACT, and an
+              _Owner pointer hands the whole object over -- suggesting const
+              for any of them would contradict the annotation.
+            */
+            !type_is_pointed_out(p_type) &&
+            !type_is_pointed_dtor(p_type) &&
+            !type_is_pointed_clear(p_type) &&
+            !type_is_owner(p_type) &&
+
+            /*
+              An unreferenced parameter is W_UNUSED_PARAMETER's business;
+              suggesting const for one is noise on top of noise.
+            */
+            p_declarator->num_uses != 0 &&
+
+            p_declarator->pointee_used &&
+            !p_declarator->pointee_written &&
+            !p_declarator->pointee_escaped;
+
+        if (is_candidate)
+        {
+            diagnostic(W_PARAM_COULD_BE_CONST,
+                ctx,
+                p_declarator->name_opt, NULL,
+                /*Not "pointer to const": the parameter may be written as an
+                  array (`const int a[]`) or as a pointer to an array
+                  (`const int (*a)[10]`), where that phrasing does not fit.*/
+                "'%s' is never written through; the pointed object could be const",
+                p_declarator->name_opt->lexeme);
+        }
+
+        parameter = parameter->next;
+    }
+}
+
 static void check_unused_parameters(const struct parser_ctx* ctx, struct parameter_list* parameter_list)
 {
     struct parameter_declaration* _Opt parameter = NULL;
@@ -2923,6 +3015,21 @@ static void check_unused_parameters(const struct parser_ctx* ctx, struct paramet
                     "'%s': unreferenced formal parameter",
                     parameter->declarator->name_opt->lexeme);
             }
+        }
+        else if (parameter->declarator &&
+            parameter->declarator->name_opt &&
+            parameter->declarator->name_opt->level == 0 /*direct source*/ &&
+            declarator_is_set_but_not_used(parameter->declarator))
+        {
+            /*
+              The caller already gave this parameter a value, so assigning to
+              it and never reading it back means the assignment is dead.
+            */
+            diagnostic(W_PARAM_SET_BUT_NOT_USED,
+                ctx,
+                parameter->declarator->name_opt, NULL,
+                "'%s': parameter set but not used",
+                parameter->declarator->name_opt->lexeme);
         }
         parameter = parameter->next;
     }
@@ -3034,13 +3141,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             {
                 naming_convention_function(ctx, p_declarator->name_opt);
             }
-
-            if (ctx->current == NULL)
-            {
-                unexpected_end_of_file(ctx);
-                throw;
-
-            }
+            
             struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
             ctx->p_current_function_opt = p_declarator;
             type_set_current_function_for_own_params(&p_declarator->type, p_declarator);
@@ -3098,6 +3199,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 if (p_parameter_list)
                 {
                     check_unused_parameters(ctx, p_parameter_list);
+                    check_const_candidate_parameters(ctx, p_parameter_list);
                 }
             }
 
@@ -3291,7 +3393,7 @@ static void type_set_current_function_for_own_params(struct type* p_type, struct
 }
 
 
-static void scope_set_current_function_for_own_params(struct scope* p_parameters_scope, struct declarator* p_new_owner)
+static void scope_set_current_function_for_own_params(const struct scope* p_parameters_scope, struct declarator* p_new_owner)
 {
     for (int i = 0; i < p_parameters_scope->variables.capacity; i++)
     {
@@ -3446,9 +3548,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         if (ctx->scopes.tail->scope_level == 0)
         {
             naming_convention_global_var(ctx,
-                tkname,
-                &p_init_declarator->p_declarator->type,
-                p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags);
+                tkname);
         }
 
         /////////////////////////////////////////////////////////////////////////////
@@ -3511,6 +3611,31 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     }
                 }
 
+                /*
+                  An array parameter is adjusted to a pointer (6.7.6.3), so a
+                  different size does not make the types different - but the
+                  sizes were probably meant to agree. A function can be
+                  redeclared in any scope, so this is checked outside the
+                  file-scope branch above.
+                */
+                if (type_has_different_array_parameter_size(&p_previous_declarator->type,
+                    &p_init_declarator->p_declarator->type) &&
+                    type_is_same(&p_previous_declarator->type, &p_init_declarator->p_declarator->type, false))
+                {
+                    if (diagnostic(W_ARRAY_SIZE,
+                        ctx,
+                        ctx->current,
+                        NULL,
+                        "'%s' declared with array parameter of different size", declarator_name))
+                    {
+                        diagnostic(W_LOCATION,
+                            ctx,
+                            p_previous_declarator->name_opt,
+                            NULL,
+                            "previous declaration");
+                    }
+                }
+
                 if (type_is_function(&p_init_declarator->p_declarator->type))
                 {
                     if (type_is_function(&p_previous_declarator->type))
@@ -3549,7 +3674,9 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 hash_item_set_destroy(&item);
 
                 /* no warning at global scope */
-                if (out_scope->scope_level != 0)
+                if (out_scope->scope_level != 0 &&
+                    !(type_is_function(&p_init_declarator->p_declarator->type) &&
+                      type_is_function(&p_previous_declarator->type)))
                 {
                     /* but show warning for redeclaration at function scope */
                     if (diagnostic(W_DECLARATOR_HIDE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "declaration of '%s' hides previous declaration", declarator_name))
@@ -3763,7 +3890,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        struct type t2 = type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type, ctx->options.null_checks_enabled);
+                        struct type t2 = type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type);
                         type_swap(&t2, &t);
                         type_destroy(&t2);
                     }
@@ -4053,6 +4180,30 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             }
         }
 
+        /*
+          Same idea as an incomplete struct/enum tag completed later: the first
+          declaration is the one registered in the symbol table, and it points
+          to the declaration that completes it, so any use of the name can
+          reach the composite type (6.2.7). This runs here, at the end,
+          because 'char s[] = {"123"}' only gets its size once the initializer
+          above has been parsed.
+
+          Only at file scope: an array of unknown size can be completed by a
+          later declaration only through a tentative definition, and block
+          scope has none - there a second declaration of the same name is a
+          redeclaration error.
+          See get_complete_struct_or_union_specifier / issue #333.
+        */
+        if (p_previous_declarator &&
+            out_scope != NULL &&
+            out_scope->scope_level == 0 &&
+            ctx->scopes.tail != NULL &&
+            ctx->scopes.tail->scope_level == 0 &&
+            type_is_array_of_unknown_size(&p_previous_declarator->type) &&
+            !type_is_array_of_unknown_size(&p_init_declarator->p_declarator->type))
+        {
+            p_previous_declarator->p_complete_declarator = p_init_declarator->p_declarator;
+        }
     }
     catch
     {
@@ -4393,7 +4544,7 @@ struct typeof_specifier* _Owner _Opt typeof_specifier(struct parser_ctx* ctx)
 
             if (type_is_array(&p_typeof_specifier->type))
             {
-                struct type t = type_param_array_to_pointer(&p_typeof_specifier->type, ctx->options.null_checks_enabled);
+                struct type t = type_param_array_to_pointer(&p_typeof_specifier->type);
                 type_swap(&t, &p_typeof_specifier->type);
                 type_destroy(&t);
             }
@@ -5185,7 +5336,7 @@ struct struct_or_union_specifier* _Opt get_complete_struct_or_union_specifier(co
     return NULL;
 }
 
-bool struct_or_union_specifier_is_complete(struct struct_or_union_specifier* p_struct_or_union_specifier)
+bool struct_or_union_specifier_is_complete(const struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     return get_complete_struct_or_union_specifier(p_struct_or_union_specifier) != NULL;
 }
@@ -5391,11 +5542,6 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             if (p_struct_or_union_specifier->tagtoken)
                 naming_convention_struct_tag(ctx, p_struct_or_union_specifier->tagtoken);
 
-            if (ctx->current == NULL)
-            {
-                unexpected_end_of_file(ctx);
-                throw;
-            }
 
             struct token* firsttoken = ctx->current;
             parser_match(ctx);
@@ -5613,7 +5759,7 @@ struct member_declarator* _Owner _Opt member_declarator(
         }
 
         if (p_member_declarator->declarator->name_opt)
-            naming_convention_struct_member(ctx, p_member_declarator->declarator->name_opt, &p_member_declarator->declarator->type);
+            naming_convention_struct_member(ctx, p_member_declarator->declarator->name_opt);
 
         if (ctx->current == NULL)
         {
@@ -6027,7 +6173,7 @@ struct member_declarator* _Opt find_member_declarator_by_index(struct member_dec
     return find_member_declarator_by_index_core(list, member_index, &count);
 }
 
-static struct object* _Opt find_object_declarator_by_index_core(struct object* p_object0, struct member_declaration_list* list, int member_index, int* p_count)
+static struct object* _Opt find_object_declarator_by_index_core(const struct object* p_object0, struct member_declaration_list* list, int member_index, int* p_count)
 {
     const struct object* p_object = object_is_reference(p_object0) ? object_get_referenced(p_object0) : p_object0;
 
@@ -6095,13 +6241,13 @@ static struct object* _Opt find_object_declarator_by_index_core(struct object* p
     return NULL;
 }
 
-struct object* _Opt find_object_declarator_by_index(struct object* p_object, struct member_declaration_list* list, int member_index)
+struct object* _Opt find_object_declarator_by_index(const struct object* p_object, struct member_declaration_list* list, int member_index)
 {
     int count = 0;
     return find_object_declarator_by_index_core(p_object, list, member_index, &count);
 }
 
-void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct specifier_qualifier_list* p_specifier_qualifier_list)
+void print_specifier_qualifier_list(struct osstream* ss, bool* first, const struct specifier_qualifier_list* p_specifier_qualifier_list)
 {
 
     print_type_qualifier_flags(ss, first, p_specifier_qualifier_list->type_qualifier_flags);
@@ -6262,7 +6408,7 @@ struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct par
             throw;
         }
 
-        final_specifier(ctx, &p_specifier_qualifier_list->type_specifier_flags);
+        final_specifier( &p_specifier_qualifier_list->type_specifier_flags);
         struct token* _Opt p_previous_parser_token = parser_get_previous_token(ctx);
         if (p_previous_parser_token == NULL) throw;
 
@@ -6346,7 +6492,7 @@ struct type_specifier_qualifier* _Owner _Opt type_specifier_qualifier(struct par
     return type_specifier_qualifier;
 }
 
-const struct enumerator* _Opt find_enumerator_by_value(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, const struct object* object)
+const struct enumerator* _Opt find_enumerator_by_value(const struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, const struct object* object)
 {
     if (p_enum_specifier->enumerator_list.head == NULL)
     {
@@ -6645,7 +6791,7 @@ void enumerator_list_destroy(_Dtor struct enumerator_list* p)
     }
 }
 
-static void update_enumerator_list_range(struct enumerator* p_enumerator, long long* min_value, unsigned long long* max_value)
+static void update_enumerator_list_range(const struct enumerator* p_enumerator, long long* min_value, unsigned long long* max_value)
 {
     bool is_signed = object_type_is_signed_integer(p_enumerator->value.value_type);
     bool is_negative = is_signed && p_enumerator->value.value.host_long_long < 0;
@@ -7358,7 +7504,7 @@ struct function_declarator* _Opt declarator_find_function_declarator(const struc
     return NULL;
 }
 
-struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* _Owner p_direct_declarator, struct parser_ctx* ctx, bool is_discarded);
+struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* _Owner p_direct_declarator, struct parser_ctx* ctx);
 struct function_declarator* _Owner _Opt function_declarator(struct direct_declarator* _Owner p_direct_declarator, struct parser_ctx* ctx);
 
 void function_declarator_delete(struct function_declarator* _Owner _Opt p)
@@ -7491,7 +7637,7 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
 
             if (ctx->current->type == '[')
             {
-                p_direct_declarator2->array_declarator = array_declarator(p_direct_declarator, ctx, false);
+                p_direct_declarator2->array_declarator = array_declarator(p_direct_declarator, ctx);
                 p_direct_declarator = NULL; //MOVED
                 if (p_direct_declarator2->array_declarator == NULL)
                 {
@@ -7587,7 +7733,7 @@ static bool declarator_has_vm_type(const struct declarator* p_declarator)
     return false;
 }
 
-struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* _Owner p_direct_declarator_non_null, struct parser_ctx* ctx, bool is_discarded)
+struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* _Owner p_direct_declarator_non_null, struct parser_ctx* ctx)
 {
     // direct_declarator '['          type_qualifier_list_opt           assignment_expression_opt ']'
     // direct_declarator '[' 'static' type_qualifier_list_opt           assignment_expression     ']'
@@ -8292,7 +8438,7 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
         p_parameter_declaration->declarator->type.storage_class_specifier_flags |= STORAGE_SPECIFIER_PARAMETER;
 
         if (p_parameter_declaration->declarator->name_opt)
-            naming_convention_parameter(ctx, p_parameter_declaration->declarator->name_opt, &p_parameter_declaration->declarator->type);
+            naming_convention_parameter(ctx, p_parameter_declaration->declarator->name_opt);
 
         // coloca o pametro no escpo atual que deve apontar para escopo paramtros
         //  da funcao .
@@ -9138,7 +9284,7 @@ void pragma_declaration_delete(struct pragma_declaration* _Owner _Opt p)
     }
 }
 
-void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaration* p_pragma, bool on_flow_analysis)
+void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaration* p_pragma)
 {
     struct token* _Opt p_pragma_token = p_pragma->first_token;
 
@@ -9466,7 +9612,7 @@ struct pragma_declaration* _Owner _Opt pragma_declaration(struct parser_ctx* ctx
         p_pragma_declaration->last_token = ctx->current;
         parser_match(ctx);
 
-        execute_pragma_declaration(ctx, p_pragma_declaration, false);
+        execute_pragma_declaration(ctx, p_pragma_declaration);
     }
     catch
     {
@@ -9776,7 +9922,7 @@ struct attribute_specifier* _Owner _Opt attribute_specifier(struct parser_ctx* c
         if (parser_match_tk(ctx, '[') != 0)
             throw;
 
-        struct attribute_list* _Owner _Opt p_attribute_list = attribute_list(ctx, p_attribute_specifier);
+        struct attribute_list* _Owner _Opt p_attribute_list = attribute_list(ctx);
 
         if (p_attribute_list == NULL)
             throw;
@@ -9851,7 +9997,7 @@ void attribute_list_delete(struct attribute_list* _Owner _Opt p)
     }
 }
 
-struct attribute_list* _Owner _Opt attribute_list(struct parser_ctx* ctx, struct attribute_specifier* p_attribute_specifier)
+struct attribute_list* _Owner _Opt attribute_list(struct parser_ctx* ctx)
 {
     struct attribute_list* _Owner _Opt p_attribute_list = NULL;
     try
@@ -9867,7 +10013,7 @@ struct attribute_list* _Owner _Opt attribute_list(struct parser_ctx* ctx, struct
         {
             if (first_of_attribute(ctx))
             {
-                struct attribute* _Owner _Opt p_attribute = attribute(ctx, p_attribute_specifier);
+                struct attribute* _Owner _Opt p_attribute = attribute(ctx);
                 if (p_attribute == NULL) throw;
 
                 p_attribute_list->attributes_flags |= p_attribute->attributes_flags;
@@ -9908,7 +10054,7 @@ bool first_of_attribute(const struct parser_ctx* ctx)
 
     return false;
 }
-enum attribute_flags attribute_token(struct parser_ctx* ctx, struct attribute* p_attribute, struct attribute_specifier* p_attribute_specifier)
+enum attribute_flags attribute_token(struct parser_ctx* ctx, struct attribute* p_attribute)
 {
     enum attribute_flags attribute_flags = 0;
 
@@ -10051,7 +10197,7 @@ enum attribute_flags attribute_token(struct parser_ctx* ctx, struct attribute* p
     return attribute_flags;
 }
 
-struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx, struct attribute_specifier* p_attribute_specifier)
+struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx)
 {
     struct attribute* _Owner _Opt p_attribute = NULL;
     try
@@ -10060,7 +10206,7 @@ struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx, struct attribute
         if (p_attribute == NULL)
             throw;
 
-        enum attribute_flags attribute_flags = attribute_token(ctx, p_attribute, p_attribute_specifier);
+        enum attribute_flags attribute_flags = attribute_token(ctx, p_attribute);
 
         if (ctx->current == NULL)
         {
@@ -10260,7 +10406,7 @@ struct primary_block* _Owner _Opt primary_block(struct parser_ctx* ctx)
 
         if (first_of_compound_statement(ctx))
         {
-            p_primary_block->compound_statement = compound_statement(ctx);
+            p_primary_block->compound_statement = compound_statement(ctx, false);
             if (p_primary_block->compound_statement == NULL)
                 throw;
         }
@@ -10348,7 +10494,7 @@ struct secondary_block* _Owner _Opt secondary_block(struct parser_ctx* ctx)
     return p_secondary_block;
 }
 
-bool unlabeled_statement_ends_with_jump(struct unlabeled_statement* p_unlabeled_statement)
+bool unlabeled_statement_ends_with_jump(const struct unlabeled_statement* p_unlabeled_statement)
 {
     struct expression* _Opt p_expression = NULL;
 
@@ -10386,7 +10532,7 @@ bool unlabeled_statement_ends_with_jump(struct unlabeled_statement* p_unlabeled_
     return false;
 }
 
-bool secondary_block_ends_with_jump(struct secondary_block* _Opt p_secondary_block)
+bool secondary_block_ends_with_jump(const struct secondary_block* _Opt p_secondary_block)
 {
     if (p_secondary_block &&
         p_secondary_block->statement->unlabeled_statement)
@@ -10770,11 +10916,6 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                     }
                 }
 
-                if (ctx->p_current_switch_statement == NULL)
-                {
-                    //unexpected because we have case inside switch
-                    throw;
-                }
 
                 const struct enum_specifier* _Opt p_enum_specifier = NULL;
 
@@ -10855,7 +10996,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                 throw;
             }
 
-            struct label* _Opt p_existing_default_label = case_label_list_find_default(ctx, &ctx->p_current_switch_statement->label_list);
+            struct label* _Opt p_existing_default_label = case_label_list_find_default( &ctx->p_current_switch_statement->label_list);
 
             if (p_existing_default_label)
             {
@@ -10896,7 +11037,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
     return p_label;
 }
 
-struct label* _Opt case_label_list_find_default(struct parser_ctx* ctx, const struct case_label_list* list)
+struct label* _Opt case_label_list_find_default( const struct case_label_list* list)
 {
     struct label* _Opt p = list->head;
     while (p)
@@ -10908,7 +11049,7 @@ struct label* _Opt case_label_list_find_default(struct parser_ctx* ctx, const st
     return NULL;
 }
 
-struct label* _Opt case_label_list_find_range(struct parser_ctx* ctx, const struct case_label_list* list, const struct object* begin, const struct object* end)
+struct label* _Opt case_label_list_find_range(const struct parser_ctx* ctx, const struct case_label_list* list, const struct object* begin, const struct object* end)
 {
     struct label* _Opt p = list->head;
     while (p)
@@ -10937,7 +11078,7 @@ struct label* _Opt case_label_list_find_range(struct parser_ctx* ctx, const stru
     return NULL;
 }
 
-struct label* _Opt case_label_list_find(struct parser_ctx* ctx, const struct case_label_list* list, const struct object* object)
+struct label* _Opt case_label_list_find(const struct parser_ctx* ctx, const struct case_label_list* list, const struct object* object)
 {
     struct label* _Opt p = list->head;
     while (p)
@@ -11035,7 +11176,7 @@ void compound_statement_delete(struct compound_statement* _Owner _Opt p)
     }
 }
 
-struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx)
+struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx, bool is_function_body)
 {
 
     struct scope block_scope = { .variables.capacity = 10 };
@@ -11133,6 +11274,17 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
                                 p_declarator->name_opt->lexeme);
                         }
                     }
+                    else if (declarator_is_set_but_not_used(p_declarator))
+                    {
+                        if (p_declarator->name_opt && p_declarator->name_opt->token_origin && p_declarator->name_opt->token_origin->level == 0)
+                        {
+                            diagnostic(W_SET_BUT_NOT_USED,
+                                ctx,
+                                p_declarator->name_opt, NULL,
+                                "'%s': variable set but not used",
+                                p_declarator->name_opt->lexeme);
+                        }
+                    }
                 }
 
                 entry = entry->next;
@@ -11149,8 +11301,18 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
 
     scope_destroy(&block_scope);
 
-    if (p_compound_statement && p_compound_statement->lint_token)
+    if (p_compound_statement && p_compound_statement->lint_token && !is_function_body)
     {
+        /*
+           A FUNCTION BODY's trailing `//lint N` is deliberately left alone
+           here. The parameter checks (check_unused_parameters and
+           check_const_candidate_parameters) run in declaration_core AFTER this
+           function returns, so consuming the token now looked for diagnostics
+           that had not been queued yet: the suppression failed, reported
+           "diagnostic 'N' not recognized", and then declaration_core consumed
+           the same token a second time and succeeded. `//lint 6` had produced
+           that spurious warning 59 for as long as the check existed.
+        */
         check_compiler_dianostic_suppression(ctx, p_compound_statement->lint_token);
     }
     return p_compound_statement;
@@ -11301,7 +11463,7 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
             {
                 if (p->p_declarator->name_opt)
                 {
-                    naming_convention_local_var(ctx, p->p_declarator->name_opt, &p->p_declarator->type);
+                    naming_convention_local_var(ctx, p->p_declarator->name_opt);
                 }
                 p = p->next;
             }
@@ -11752,7 +11914,7 @@ void selection_statement_delete(struct selection_statement* _Owner _Opt p)
   C23 6.8.4.1, 6.8.5.1 the controlling expression of an if, while, do or
   for statement shall have scalar type.
 */
-static void check_controlling_expression(struct parser_ctx* ctx, const struct expression* p_expression)
+static void check_controlling_expression(const struct parser_ctx* ctx, const struct expression* p_expression)
 {
     if (!type_is_scalar_decay(&p_expression->type))
     {
@@ -12046,7 +12208,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
         if (p_selection_statement->first_token->type == TK_KEYWORD_SWITCH)
         {
             //switch of enum without default, then we check if all items were used
-            if (case_label_list_find_default(ctx, &p_selection_statement->label_list) == NULL)
+            if (case_label_list_find_default( &p_selection_statement->label_list) == NULL)
             {
                 const struct enum_specifier* _Opt p_enum_specifier = NULL;
 
@@ -12332,7 +12494,12 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                 }
 
                 if (ctx->current->type != ')')
+                {
                     p_iteration_statement->expression2 = expression(ctx, false);
+
+                    /*`for (...; ...; i++)` -- the third clause is discarded too.*/
+                    expression_mark_discarded_write(p_iteration_statement->expression2);
+                }
 
                 if (parser_match_tk(ctx, ')') != 0)
                 {
@@ -12398,7 +12565,12 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                 }
 
                 if (ctx->current->type != ')')
+                {
                     p_iteration_statement->expression2 = expression(ctx, false);
+
+                    /*`for (...; ...; i++)` -- the third clause is discarded too.*/
+                    expression_mark_discarded_write(p_iteration_statement->expression2);
+                }
 
                 if (parser_match_tk(ctx, ')') != 0)
                     throw;
@@ -12677,6 +12849,9 @@ struct expression_statement* _Owner _Opt expression_statement(struct parser_ctx*
 
             if (p_expression_statement->expression_opt == NULL)
                 throw;
+
+            /*Discarded value: `n++;` here is a pure set (W_SET_BUT_NOT_USED).*/
+            expression_mark_discarded_write(p_expression_statement->expression_opt);
         }
 
         if (!ignore_semicolon)
@@ -13165,7 +13340,7 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
     struct label_list label_list = { 0 };
     label_list_swap(&label_list, &ctx->label_list);
 
-    struct compound_statement* _Owner _Opt p_compound_statement = compound_statement(ctx);
+    struct compound_statement* _Owner _Opt p_compound_statement = compound_statement(ctx, true);
     if (p_compound_statement)
     {
         check_labels(ctx);
@@ -13221,7 +13396,7 @@ struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, s
     return l;
 }
 
-struct ast get_ast(struct options* options,
+struct ast get_ast(const struct options* options,
     const char* filename,
     const char* source,
     struct report* report)
@@ -13269,7 +13444,7 @@ struct ast get_ast(struct options* options,
     return ast;
 }
 
-int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_ctx* prectx);
+int fill_preprocessor_options(int argc, const char* const* argv, struct preprocessor_ctx* prectx);
 
 struct ast get_ast_with_flags(int argc,
     const char** argv,
@@ -13416,7 +13591,7 @@ static bool is_pascal_case(const char* text)
     return true;
 }
 
-static void check_case_style(const struct parser_ctx* ctx, enum case_style s, struct token* token, const char* thing)
+static void check_case_style(const struct parser_ctx* ctx, enum case_style s, const struct token* token, const char* thing)
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
@@ -13457,7 +13632,7 @@ static void check_case_style(const struct parser_ctx* ctx, enum case_style s, st
  * This naming conventions are not ready yet...
  * but not dificult to implement.maybe options to choose style
  */
-void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
+void naming_convention_struct_tag(const struct parser_ctx* ctx, const struct token* token)
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
@@ -13467,7 +13642,7 @@ void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
     check_case_style(ctx, ctx->options.style.struct_name_case, token, "struct/union");
 }
 
-void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
+void naming_convention_enum_tag(const struct parser_ctx* ctx, const struct token* token)
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
@@ -13477,7 +13652,7 @@ void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
     check_case_style(ctx, ctx->options.style.enum_name_case, token, "enum");
 }
 
-void naming_convention_function(struct parser_ctx* ctx, struct token* token)
+void naming_convention_function(const struct parser_ctx* ctx, const struct token* token)
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
@@ -13489,7 +13664,7 @@ void naming_convention_function(struct parser_ctx* ctx, struct token* token)
     check_case_style(ctx, ctx->options.style.function_name_case, token, "function");
 }
 
-void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage)
+void naming_convention_global_var(const struct parser_ctx* ctx, const struct token* token)
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
@@ -13498,7 +13673,7 @@ void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, s
     check_case_style(ctx, ctx->options.style.global_name_case, token, "global variable");
 }
 
-void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, struct type* type)
+void naming_convention_local_var(const struct parser_ctx* ctx, const struct token* token)
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
@@ -13508,7 +13683,7 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
     check_case_style(ctx, ctx->options.style.local_name_case, token, "local");
 }
 
-void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
+void naming_convention_enumerator(const struct parser_ctx* ctx, const struct token* token)
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
@@ -13518,7 +13693,7 @@ void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
     check_case_style(ctx, ctx->options.style.enumerator_name_case, token, "enumerator");
 }
 
-void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token, struct type* type)
+void naming_convention_struct_member(const struct parser_ctx* ctx, const struct token* token)
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
@@ -13528,7 +13703,7 @@ void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token
     check_case_style(ctx, ctx->options.style.member_name_case, token, "member");
 }
 
-void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, struct type* type)
+void naming_convention_parameter(const struct parser_ctx* ctx, const struct token* token)
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
@@ -13538,7 +13713,7 @@ void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, st
     check_case_style(ctx, ctx->options.style.parameter_name_case, token, "parameter");
 }
 
-static struct object* _Opt find_first_subobject_old(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out, bool* sub_object_of_union)
+static struct object* _Opt find_first_subobject_old( struct object* p_object, struct type* p_type_out, bool* sub_object_of_union)
 {
     p_object = (struct object* _Opt) object_get_referenced(p_object);
 
@@ -13561,9 +13736,9 @@ static struct object* _Opt find_first_subobject_old(struct type* p_type_not_used
     return p_object->members.head; //tODO
 }
 
-static struct object* _Opt find_first_subobject(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out, bool* sub_object_of_union)
+static struct object* _Opt find_first_subobject( struct object* p_object, struct type* p_type_out, bool* sub_object_of_union)
 {
-    return find_first_subobject_old(p_type_not_used, p_object, p_type_out, sub_object_of_union);
+    return find_first_subobject_old( p_object, p_type_out, sub_object_of_union);
 }
 
 static struct object* _Opt find_last_suboject_of_suboject_old(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out)
@@ -13600,8 +13775,7 @@ static struct object* _Opt find_last_suboject_of_suboject(struct type* p_type_no
     return find_last_suboject_of_suboject_old(p_type_not_used, p_object, p_type_out);
 }
 
-static struct object* _Opt find_next_subobject_old(struct type* p_top_object_not_used,
-    struct object* current_object,
+static struct object* _Opt find_next_subobject_old(
     struct object* _Opt it,
     struct type* p_type_out,
     bool* sub_object_of_union)
@@ -13652,14 +13826,12 @@ static struct object* _Opt find_next_subobject_old(struct type* p_top_object_not
     return it;
 }
 
-static struct object* _Opt find_next_subobject(struct type* p_top_object_not_used,
-    struct object* current_object,
+static struct object* _Opt find_next_subobject(
     struct object* _Opt it,
     struct type* p_type_out,
     bool* sub_object_of_union)
 {
-    return find_next_subobject_old(p_top_object_not_used,
-        current_object,
+    return find_next_subobject_old(
         it,
         p_type_out,
         sub_object_of_union);
@@ -13672,7 +13844,7 @@ struct find_object_result
 };
 
 static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
-    struct type* p_current_object_type,
+    const struct type* p_current_object_type,
     struct object* current_object,
     struct designator* p_designator,
     bool is_constant,
@@ -13875,7 +14047,7 @@ int initializer_init_new(struct parser_ctx* ctx,
     bool is_constant,
     bool requires_constant_initialization);
 
-static struct initializer_list_item* _Opt find_innner_initializer_list_item(struct braced_initializer* braced_initializer)
+static struct initializer_list_item* _Opt find_innner_initializer_list_item(const struct braced_initializer* braced_initializer)
 {
     _Assert(braced_initializer->initializer_list);
 
@@ -13906,7 +14078,7 @@ _Attr(nodiscard)
 static int braced_initializer_new(struct parser_ctx* ctx,
     struct type* p_current_object_type,
     struct object* current_object,
-    struct braced_initializer* braced_initializer,
+    const struct braced_initializer* braced_initializer,
     bool is_constant,
     bool requires_constant_initialization)
 {
@@ -14076,7 +14248,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                 if (compute_array_size)
                 {
 
-                    struct object* _Opt po = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
+                    struct object* _Opt po = find_next_subobject( p_subobject, &subobject_type, &is_subobject_of_union);
                     if (po == NULL)
                     {
                         array_to_expand_index++;
@@ -14090,11 +14262,11 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                 if (p_subobject == NULL)
                 {
 
-                    p_subobject = find_first_subobject(p_current_object_type, current_object, &subobject_type, &is_subobject_of_union);
+                    p_subobject = find_first_subobject( current_object, &subobject_type, &is_subobject_of_union);
                 }
                 else
                 {
-                    p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
+                    p_subobject = find_next_subobject( p_subobject, &subobject_type, &is_subobject_of_union);
                 }
             }
 
@@ -14152,7 +14324,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                           struct  X b = { a };    //error
                         */
                         //sub_object_of_union = false;
-                        p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
+                        p_subobject = find_next_subobject( p_subobject, &subobject_type, &is_subobject_of_union);
                     }
                 }
                 else if (type_is_struct_or_union(&subobject_type))
@@ -14164,7 +14336,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
+                        p_subobject = find_next_subobject( p_subobject, &subobject_type, &is_subobject_of_union);
                     }
                 }
 

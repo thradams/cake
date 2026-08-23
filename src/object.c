@@ -818,7 +818,7 @@ signed long long object_to_signed_long_long(const struct object* a)
     _Assert(0);
     return 0;
 }
-struct object object_make_unsigned_long_long(enum target target, unsigned long long value)
+struct object object_make_unsigned_long_long( unsigned long long value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
@@ -2175,7 +2175,7 @@ enum object_type object_common(enum target target, const struct object* a, const
 
 }
 
-void object_print_value(struct osstream* ss, const struct object* a, enum target target)
+void object_print_value(struct osstream* ss, const struct object* a)
 {
     a = object_get_referenced(a);
 

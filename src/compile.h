@@ -19,4 +19,4 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
    This function is called by the web version
 */   
 char* _Owner _Opt CompileText(const char* pszoptions, const char* content);
-void print_report(struct report* report);
+void print_report(const struct report* report);

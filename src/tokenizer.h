@@ -57,7 +57,7 @@ struct preprocessor_ctx
 
 void preprocessor_ctx_destroy( _Dtor struct preprocessor_ctx* p);
 
-void pre_unexpected_end_of_file(struct token* _Opt p_token, struct preprocessor_ctx* ctx);
+void pre_unexpected_end_of_file(const struct token* _Opt p_token, struct preprocessor_ctx* ctx);
 bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx, const struct token* _Opt p_token, const char* fmt, ...);
 
 
@@ -73,7 +73,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target);
 struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const char* path);
 
 struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);
-struct token_list copy_replacement_list(struct preprocessor_ctx* ctx, const struct token_list* list);
+struct token_list copy_replacement_list(const struct preprocessor_ctx* ctx, const struct token_list* list);
 
 void token_list_append_list(struct token_list* dest, _Clear struct token_list* source);
 void print_list(bool color_enabled, struct token_list* list);
@@ -83,7 +83,7 @@ void token_list_pop_back(struct token_list* list);
 void token_list_pop_front(struct token_list* list);
 struct token* _Owner _Opt token_list_pop_front_get(struct token_list* list);
 void remove_line_continuation(char* s);
-struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew);
+struct token* token_list_clone_and_add(struct token_list* list, const struct token* pnew);
 bool token_list_is_equal(const struct token_list* list_a, const struct token_list* list_b);
 void token_list_insert_after(struct token_list* list, struct token* _Opt after, struct token_list* append);
 void token_list_insert_before(struct token_list* token_list, struct token* after, struct token_list* append_list);

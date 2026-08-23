@@ -138,9 +138,9 @@ enum diagnostic_id {
     W_USING_TEMPORARY_OWNER = 79,
     W_POINTER_TO_OWNER_EXPECTED = 80,
     W_OWNER_ALIASED_BY_NON_OWNER_POINTER = 81,
-    W_UNUSED_WARNING_82 = 82,
-    W_UNUSED_WARNING_83 = 83,
-    W_UNUSED_WARNING_84 = 84,
+    W_PARAM_COULD_BE_CONST = 82,
+    W_PARAM_SET_BUT_NOT_USED = 83,
+    W_SET_BUT_NOT_USED = 84,
     W_UNUSED_WARNING_85 = 85,
     W_UNUSED_WARNING_86 = 86,
     W_UNUSED_WARNING_87 = 87,
@@ -417,7 +417,7 @@ struct diagnostic
     struct bitset notes;
 };
 
-int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w);
+int get_diagnostic_type(const struct diagnostic* d, enum diagnostic_id w);
 extern struct diagnostic default_diagnostic;
 
 void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w);

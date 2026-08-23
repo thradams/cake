@@ -294,7 +294,7 @@ struct token_list
 };
 
 void token_list_set_file(struct token_list* list, const struct token* _Opt filetoken, int line, int col);
-bool token_list_is_empty(struct token_list* p);
+bool token_list_is_empty(const struct token_list* p);
 void token_list_swap(struct token_list* a, struct token_list* b);
 
 struct token* _Owner _Opt clone_token(const struct token* p);
@@ -303,7 +303,7 @@ void token_list_remove(struct token_list* list, struct token* first, struct toke
 struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last);
 void token_list_append_list(struct token_list* dest, _Clear struct token_list* source);
 void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* source);
-struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew);
+struct token* token_list_clone_and_add(struct token_list* list, const struct token* pnew);
 char* _Owner _Opt token_list_join_tokens(struct token_list* list, bool bliteral);
 void token_list_clear(_Clear struct token_list* list);
 
@@ -314,9 +314,9 @@ bool token_is_newline(const struct token* _Opt token);
 bool token_is_blank(const struct token* _Opt p);
 bool token_is_final(const struct token* _Opt p);
 bool token_is_identifier_or_keyword(enum token_type t);
-void token_range_add_flag(struct token* first, struct token* last, enum token_flags flag);
-void token_range_remove_flag(struct token* first, struct token* last, enum token_flags flag);
-void token_range_add_show(struct token* first, struct token* last);
+void token_range_add_flag(struct token* first, const struct token* last, enum token_flags flag);
+void token_range_remove_flag(struct token* first,const struct token* last, enum token_flags flag);
+void token_range_add_show(struct token* first, const struct token* last);
 
 void print_tokens_html(struct token* p_token);
 
