@@ -1,3 +1,6 @@
+#pragma cake diagnostic push
+#pragma cake diagnostic ignored 11 /*style checks don't apply to builtins*/
+
 
 typedef typeof(sizeof(1)) size_t;
 
@@ -173,3 +176,5 @@ unsigned int __builtin_stdc_leading_zeros(/*type arg*/);
 unsigned int __builtin_stdc_trailing_ones(/*type arg*/);
 unsigned int __builtin_stdc_trailing_zeros(/*type arg*/);
 
+
+#pragma cake diagnostic pop

@@ -3203,44 +3203,42 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 }
             }
 
-            if (p_declaration->function_body)
+            /* function_body was just assigned non-null above, after a throw on NULL. */
+            /*
+               Now we have the function body, let's see if we had a previous
+               function body.
+            */
+            const char* func_name = p_declaration->init_declarator_list.head->p_declarator->name_opt ?
+                p_declaration->init_declarator_list.head->p_declarator->name_opt->lexeme : "";
+
+            struct scope* _Opt p_previous_scope = NULL;
+            struct declarator* _Opt p_previous_declarator = find_declarator(ctx, func_name, &p_previous_scope);
+            if (p_previous_declarator && p_previous_declarator != p_declaration->init_declarator_list.head->p_declarator)
             {
-                /*
-                   Now we have the function body, let's see if we had a previous
-                   function body.
-                */
-                const char* func_name = p_declaration->init_declarator_list.head->p_declarator->name_opt ?
-                    p_declaration->init_declarator_list.head->p_declarator->name_opt->lexeme : "";
+                p_previous_declarator->p_complete_declarator = p_declaration->init_declarator_list.head->p_declarator;
 
-                struct scope* _Opt p_previous_scope = NULL;
-                struct declarator* _Opt p_previous_declarator = find_declarator(ctx, func_name, &p_previous_scope);
-                if (p_previous_declarator && p_previous_declarator != p_declaration->init_declarator_list.head->p_declarator)
+                struct scope* _Opt p_current_scope = ctx->scopes.tail;
+                if (p_current_scope == p_previous_scope) //same function
                 {
-                    p_previous_declarator->p_complete_declarator = p_declaration->init_declarator_list.head->p_declarator;
-
-                    struct scope* _Opt p_current_scope = ctx->scopes.tail;
-                    if (p_current_scope == p_previous_scope) //same function
+                    if (p_previous_declarator->function_body)
                     {
-                        if (p_previous_declarator->function_body)
-                        {
-                            diagnostic(
-                                C_ERROR_REDECLARATION,
-                                ctx,
-                                p_declaration->init_declarator_list.head->p_declarator->name_opt,
-                                NULL,
-                                "function redefinition");
+                        diagnostic(
+                            C_ERROR_REDECLARATION,
+                            ctx,
+                            p_declaration->init_declarator_list.head->p_declarator->name_opt,
+                            NULL,
+                            "function redefinition");
 
-                            diagnostic(W_LOCATION,
-                                ctx,
-                                p_previous_declarator->name_opt,
-                                NULL,
-                                "previous definition");
-                        }
-                        else
-                        {
-                            //If we want to point the the declarator that has the function body
-                            //previous->p_declarator_with_function_body = p_declaration->init_declarator_list.head->p_declarator;
-                        }
+                        diagnostic(W_LOCATION,
+                            ctx,
+                            p_previous_declarator->name_opt,
+                            NULL,
+                            "previous definition");
+                    }
+                    else
+                    {
+                        //If we want to point the the declarator that has the function body
+                        //previous->p_declarator_with_function_body = p_declaration->init_declarator_list.head->p_declarator;
                     }
                 }
             }
@@ -3982,18 +3980,16 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                                 p_first_token = ctx->current;
                             }
 
-                            if (p_first_token != NULL)
+                            struct block_item* _Owner _Opt new_block_item = calloc(1, sizeof * new_block_item);
+                            if (new_block_item == NULL)
                             {
-                                struct block_item* _Owner _Opt new_block_item = calloc(1, sizeof * new_block_item);
-                                if (new_block_item == NULL)
-                                {
-                                    throw;
-                                }
-
-                                new_block_item->first_token = p_first_token;
-                                new_block_item->declarator = p_init_declarator->p_declarator;
-                                block_item_list_add(&ctx->used_incomplete_enums, new_block_item);
+                                throw;
                             }
+
+                            new_block_item->first_token = p_first_token;
+                            new_block_item->declarator = p_init_declarator->p_declarator;
+                            block_item_list_add(&ctx->used_incomplete_enums, new_block_item);
+                            
                         }
                         else
                         {
@@ -4023,29 +4019,28 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         /*
            checking usage of [static ] other than in function arguments
         */
-        if (p_init_declarator->p_declarator) /* pointer always non null */
-        {
-            if (type_is_array(&p_init_declarator->p_declarator->type))
-                if (p_init_declarator->p_declarator->type.type_qualifier_flags != 0 ||
-                    p_init_declarator->p_declarator->type.has_static_array_size)
+        /* p_declarator is not _Opt, so it is never null here -- the comment
+           that used to sit on this `if` said as much. */
+        if (type_is_array(&p_init_declarator->p_declarator->type))
+            if (p_init_declarator->p_declarator->type.type_qualifier_flags != 0 ||
+                p_init_declarator->p_declarator->type.has_static_array_size)
+            {
+                if (p_init_declarator->p_declarator->first_token_opt)
                 {
-                    if (p_init_declarator->p_declarator->first_token_opt)
-                    {
-                        diagnostic(C_ERROR_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
-                            ctx,
-                            p_init_declarator->p_declarator->first_token_opt, NULL,
-                            "static or type qualifiers are not allowed in non-parameter array declarator");
-                    }
-                    else if (p_init_declarator->initializer)
-                    {
-                        diagnostic(C_ERROR_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
-                            ctx,
-                            p_init_declarator->initializer->first_token, NULL,
-                            "static or type qualifiers are not allowed in non-parameter array declarator");
-                    }
+                    diagnostic(C_ERROR_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
+                        ctx,
+                        p_init_declarator->p_declarator->first_token_opt, NULL,
+                        "static or type qualifiers are not allowed in non-parameter array declarator");
                 }
+                else if (p_init_declarator->initializer)
+                {
+                    diagnostic(C_ERROR_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
+                        ctx,
+                        p_init_declarator->initializer->first_token, NULL,
+                        "static or type qualifiers are not allowed in non-parameter array declarator");
+                }
+            }
 
-        }
 
         if (ctx->scopes.tail->scope_level == 0 &&
             type_is_vm(&p_init_declarator->p_declarator->type))
@@ -4211,7 +4206,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         p_init_declarator = NULL;
     }
 
-    return p_init_declarator; //lint 35 bug flow 
+    return p_init_declarator;
 }
 
 void init_declarator_list_add(struct init_declarator_list* list, struct init_declarator* _Owner p_item)
@@ -7373,7 +7368,7 @@ struct function_specifier* _Owner _Opt function_specifier(struct parser_ctx* ctx
         p_function_specifier = NULL;
     }
 
-    return p_function_specifier; //lint 35  bug flow analysis
+    return p_function_specifier;
 }
 
 struct declarator* _Owner declarator_add_ref(struct declarator* p)
@@ -7706,9 +7701,8 @@ size_t array_declarator_is_vla(const struct array_declarator* p_array_declarator
  */
 static bool declarator_has_vm_type(const struct declarator* p_declarator)
 {
-    if (p_declarator == NULL)
-        return false;
-
+    /* Every caller guards before recursing (`if (dd->declarator) ...`), and the
+       parameter is not _Opt, so a null check here is dead. */
     const struct direct_declarator* _Opt dd = p_declarator->direct_declarator;
     if (dd == NULL)
         return false;
@@ -10907,7 +10901,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                                 p_label->constant_expression->first_token,
                                 p_label->constant_expression,
                                 ctx->p_current_switch_statement->condition->expression,
-                                "mismatch in enumeration types"); //lint 35 flow bug
+                                "mismatch in enumeration types"); //lint 35 BUG in flow
                         }
                     }
                     else
@@ -14053,7 +14047,8 @@ static struct initializer_list_item* _Opt find_innner_initializer_list_item(cons
 
     struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head;
 
-    while (p_initializer_list_item->initializer->braced_initializer)
+    while ( p_initializer_list_item &&
+            p_initializer_list_item->initializer->braced_initializer)
     {
         //int i = {{1}};
         p_initializer_list_item = p_initializer_list_item->initializer->braced_initializer->initializer_list ?

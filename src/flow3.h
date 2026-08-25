@@ -71,8 +71,17 @@ struct flow_visit_ctx
 
     bool expression_is_not_evaluated; //true when is expression for sizeof, missing state_set, typeof
 
-    /*avoid messages like always something, because in loop the same expression is visited in diferent states*/
-    bool inside_loop;
+    /*
+       Which pass over the innermost enclosing loop body is running:
+       0 outside any loop (so a zero-initialized context starts out correct),
+       1 while visiting it the first time, 2 the second, and so on. Restored
+       to the enclosing loop's value when a nested loop finishes.
+
+       Diagnostics that claim a value is settled ("condition is always true")
+       must stay quiet whenever this is not 0: the same expression is visited
+       in one iteration's state, and the next iteration can contradict it.
+    */
+    int iteration_pass;
 
     struct flow_map* _Opt p_throw_join_map;  /*map where throws are joined*/
     struct flow_map* _Opt p_break_join_map;  /*map where breaks are joined*/

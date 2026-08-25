@@ -448,6 +448,983 @@ bool is_primary_expression(enum expression_type t)
     return false;
 }
 
+/*
+  primary_expression() already decoded the string literal (concatenation,
+  prefix, and escape sequences included) into a char-per-object list
+  terminated by an appended '\0' -- see EXPR_PRIMARY_STRING_LITERAL in
+  primary_expression(). Reuse that instead of re-parsing token text.
+  Caller must ss_close the result.
+*/
+static struct osstream build_printf_format_text(const struct expression* p_fmt_expression)
+{
+    struct osstream ss = { 0 };
+
+    struct object* _Opt it = p_fmt_expression->object.members.head;
+    while (it != NULL)
+    {
+        const unsigned char c = (unsigned char)it->value.host_long_long;
+        if (c == '\0')
+            break; //the appended terminator, not part of the format text
+
+        ss_putc((char)c, &ss);
+        it = it->next;
+    }
+
+    return ss;
+}
+
+/*
+  The typedef the argument was written with, or NULL.
+
+  struct type carries no typedef: types are fully expanded, so by the time a
+  format check runs, size_t is indistinguishable from the unsigned long it
+  resolves to. The name survives only in the declaration the expression came
+  from -- declaration_specifiers/specifier_qualifier_list keep a shortcut to
+  the declarator of the typedef that was named. Recovering it is what lets
+  the suggestion say "%zu" instead of the equally valid but less portable
+  "%lu".
+*/
+/* The typedef one step further in: `typedef size_t my_size;` declares
+   my_size THROUGH size_t, so a my_size argument still deserves "%zu" even
+   though the name the declaration mentions is my_size. */
+static const struct declarator* _Opt printf_next_typedef_declarator(const struct declarator* p_declarator)
+{
+    if (p_declarator->declaration_specifiers != NULL)
+    {
+        return p_declarator->declaration_specifiers->typedef_declarator;
+    }
+
+    if (p_declarator->specifier_qualifier_list != NULL)
+    {
+        return p_declarator->specifier_qualifier_list->typedef_declarator;
+    }
+
+    return NULL;
+}
+
+static const struct declarator* _Opt printf_typedef_declarator(const struct expression* p_expression)
+{
+    const struct declarator* _Opt p_typedef_declarator = NULL;
+
+    /* A member access carries no declarator of its own; the member's own
+       declaration is where its typedef was written (`struct s { size_t n; }`
+       printed as `p->n`). */
+    if (p_expression->expression_type == EXPR_POSTFIX_DOT ||
+        p_expression->expression_type == EXPR_POSTFIX_ARROW)
+    {
+        if (p_expression->left != NULL)
+        {
+            struct type owner_type = type_dup(&p_expression->left->type);
+
+            if (p_expression->expression_type == EXPR_POSTFIX_ARROW &&
+                type_is_pointer(&owner_type))
+            {
+                struct type pointee = type_remove_pointer(&owner_type);
+                type_swap(&owner_type, &pointee);
+                type_destroy(&pointee);
+            }
+
+            if (owner_type.struct_or_union_specifier != NULL)
+            {
+                struct struct_or_union_specifier* _Opt p_complete =
+                    get_complete_struct_or_union_specifier(owner_type.struct_or_union_specifier);
+
+                if (p_complete != NULL)
+                {
+                    const struct member_declarator* _Opt p_member_declarator =
+                        find_member_declarator_by_index(&p_complete->member_declaration_list,
+                            p_expression->member_index);
+
+                    if (p_member_declarator != NULL && p_member_declarator->declarator != NULL)
+                    {
+                        p_typedef_declarator =
+                            printf_next_typedef_declarator(p_member_declarator->declarator);
+                    }
+                }
+            }
+
+            type_destroy(&owner_type);
+        }
+
+        return p_typedef_declarator;
+    }
+
+    /* A cast or compound literal names its type right there. */
+    if (p_expression->type_name != NULL &&
+        p_expression->type_name->specifier_qualifier_list != NULL)
+    {
+        p_typedef_declarator = p_expression->type_name->specifier_qualifier_list->typedef_declarator;
+    }
+
+    /* An identifier: go back to how it was declared. */
+    if (p_typedef_declarator == NULL && p_expression->declarator != NULL)
+    {
+        if (p_expression->declarator->declaration_specifiers != NULL)
+        {
+            p_typedef_declarator = p_expression->declarator->declaration_specifiers->typedef_declarator;
+        }
+        else if (p_expression->declarator->specifier_qualifier_list != NULL)
+        {
+            p_typedef_declarator = p_expression->declarator->specifier_qualifier_list->typedef_declarator;
+        }
+    }
+
+    return p_typedef_declarator;
+}
+
+/*
+  What a standard typedef should be printed with, when the argument was
+  written with one.
+
+  Two shapes, because the standard provides two: the typedefs with a length
+  modifier of their own (size_t -> "%zu", ptrdiff_t -> "%td", intmax_t ->
+  "%jd") are written inline, while the fixed-width ones have no modifier and
+  are printed through the <inttypes.h> macros (int32_t -> PRId32). For those
+  the macro name is returned on its own and the caller words the message
+  differently -- writing "%d" for an int32_t is right on this target and
+  wrong on the next one, which is the whole point of the macro.
+
+  The conversion letter the user reached for is kept where it is meaningful:
+  an unsigned fixed-width type printed with %x is pointed at PRIx32, not
+  PRIu32. Returns NULL for a typedef with no single right answer
+  (max_align_t) or one this does not know.
+*/
+struct printf_typedef_entry
+{
+    const char* name;
+    const char* suffix;  /* the PRI macro's tail: "32", "LEAST8", "MAX" */
+    bool is_unsigned;
+};
+
+static const char* _Opt printf_specifier_for_typedef(const char* name,
+    char conv,
+    char* buffer,
+    size_t buffer_size,
+    bool* p_is_macro)
+{
+    *p_is_macro = false;
+
+    /* Typedefs that have a length modifier of their own. */
+    if (strcmp(name, "size_t") == 0)
+    {
+        return "%zu"; /* unsigned whatever conversion was reached for */
+    }
+    if (strcmp(name, "ssize_t") == 0)
+    {
+        return "%zd";
+    }
+    if (strcmp(name, "ptrdiff_t") == 0)
+    {
+        return "%td";
+    }
+    if (strcmp(name, "nullptr_t") == 0)
+    {
+        return "%p";
+    }
+    static const struct printf_typedef_entry known[] = {
+        {"int8_t", "8", false},
+        {"int16_t", "16", false},
+        {"int32_t", "32", false},
+        {"int64_t", "64", false},
+        {"uint8_t", "8", true},
+        {"uint16_t", "16", true},
+        {"uint32_t", "32", true},
+        {"uint64_t", "64", true},
+        {"int_least8_t", "LEAST8", false},
+        {"int_least16_t", "LEAST16", false},
+        {"int_least32_t", "LEAST32", false},
+        {"int_least64_t", "LEAST64", false},
+        {"uint_least8_t", "LEAST8", true},
+        {"uint_least16_t", "LEAST16", true},
+        {"uint_least32_t", "LEAST32", true},
+        {"uint_least64_t", "LEAST64", true},
+        {"int_fast8_t", "FAST8", false},
+        {"int_fast16_t", "FAST16", false},
+        {"int_fast32_t", "FAST32", false},
+        {"int_fast64_t", "FAST64", false},
+        {"uint_fast8_t", "FAST8", true},
+        {"uint_fast16_t", "FAST16", true},
+        {"uint_fast32_t", "FAST32", true},
+        {"uint_fast64_t", "FAST64", true},
+        {"intmax_t", "MAX", false},
+        {"uintmax_t", "MAX", true},
+        {"intptr_t", "PTR", false},
+        {"uintptr_t", "PTR", true},
+    };
+
+    for (int i = 0; i < (int)(sizeof(known) / sizeof(known[0])); i++)
+    {
+        if (strcmp(name, known[i].name) != 0)
+        {
+            continue;
+        }
+
+        char letter = known[i].is_unsigned ? 'u' : 'd';
+
+        if (known[i].is_unsigned &&
+            (conv == 'o' || conv == 'x' || conv == 'X' || conv == 'u'))
+        {
+            letter = conv; /* PRIx32 rather than PRIu32 */
+        }
+
+        snprintf(buffer, buffer_size, "PRI%c%s", letter, known[i].suffix);
+        *p_is_macro = true;
+        return buffer;
+    }
+
+    return NULL;
+}
+
+/*
+  The conversion this argument's type actually calls for, written out as it
+  would appear in the format string. Reported as a suggestion next to a
+  mismatch, so the message says what to write instead of only what is wrong.
+
+  The default argument promotions a variadic call applies are already folded
+  in: char and short arrive as int, float arrives as double, so those get the
+  specifier for what actually reaches printf. Returns NULL when the type has
+  no single obvious answer (a struct, a bitfield, void).
+*/
+static const char* _Opt printf_specifier_for_type(const struct type* p_type, enum target target)
+{
+    if (type_is_array(p_type) || type_is_pointer(p_type))
+    {
+        struct type item = type_is_array(p_type) ? get_array_item_type(p_type) : type_remove_pointer(p_type);
+        const char* _Opt r = "%p";
+        if (type_is_char(&item))
+        {
+            r = "%s";
+        }
+        else if (type_is_wchar(&item, target))
+        {
+            r = "%ls";
+        }
+        type_destroy(&item);
+        return r;
+    }
+
+    if (type_is_bool(p_type) || type_is_enum(p_type) || type_is_enumerator(p_type))
+    {
+        return "%d";
+    }
+
+    if (type_is_long_double(p_type))
+    {
+        return "%Lf";
+    }
+
+    if (type_is_floating_point(p_type))
+    {
+        return "%f"; /* float is promoted to double */
+    }
+
+    if (!type_is_integer(p_type))
+    {
+        return NULL;
+    }
+
+    switch (type_to_object_type(p_type, target))
+    {
+    case TYPE_SIGNED_CHAR:
+    case TYPE_UNSIGNED_CHAR:
+        return "%c";
+
+    case TYPE_SIGNED_SHORT:
+    case TYPE_SIGNED_INT:
+        return "%d";
+
+    case TYPE_UNSIGNED_SHORT:
+    case TYPE_UNSIGNED_INT:
+        return "%u";
+
+    case TYPE_SIGNED_LONG:
+        return "%ld";
+
+    case TYPE_UNSIGNED_LONG:
+        return "%lu";
+
+    case TYPE_SIGNED_LONG_LONG:
+        return "%lld";
+
+    case TYPE_UNSIGNED_LONG_LONG:
+        return "%llu";
+
+    default:
+        break;
+    }
+
+    return NULL;
+}
+
+/* Name of the type a conversion reads off the va_list, for the message. */
+static const char* object_type_to_name(enum object_type t)
+{
+    switch (t)
+    {
+    case TYPE_SIGNED_CHAR: return "signed char";
+    case TYPE_UNSIGNED_CHAR: return "unsigned char";
+    case TYPE_SIGNED_SHORT: return "short";
+    case TYPE_UNSIGNED_SHORT: return "unsigned short";
+    case TYPE_SIGNED_INT: return "int";
+    case TYPE_UNSIGNED_INT: return "unsigned int";
+    case TYPE_SIGNED_LONG: return "long";
+    case TYPE_UNSIGNED_LONG: return "unsigned long";
+    case TYPE_SIGNED_LONG_LONG: return "long long";
+    case TYPE_UNSIGNED_LONG_LONG: return "unsigned long long";
+    case TYPE_FLOAT: return "float";
+    case TYPE_DOUBLE: return "double";
+    case TYPE_LONG_DOUBLE: return "long double";
+    default: break;
+    }
+    return "";
+}
+
+/* "an int", "a long long" -- the name with the article the message needs. */
+static void object_type_to_phrase(enum object_type t, char* buffer, size_t buffer_size)
+{
+    const char* name = object_type_to_name(t);
+    const char* article = (name[0] == 'i' || name[0] == 'u') ? "an" : "a";
+    snprintf(buffer, buffer_size, "%s %s", article, name);
+}
+
+/*
+  Both sides being integers is not enough: printf reads a fixed number of
+  bytes off the va_list, chosen by the length modifier alone, so the length
+  modifier has to name the type that is actually passed.
+
+  What is compared is the TYPE, not the width it happens to have on this
+  target: `%d` with a long is right on x86_msvc and wrong on macos_arm64, and
+  a check that only compared widths would report it on one target and stay
+  silent on the other. The type the ARGUMENT arrives with is the promoted
+  one: a char or short is passed as an int, so `%d` is right for both.
+  Signedness is not compared -- `%x` with an int is idiomatic and would
+  drown the useful reports. Returns the object type the conversion expects,
+  or -1 when this conversion is not type-checked ('w'/'wf', which are
+  bit-precise, and the non-integer conversions).
+*/
+static int printf_expected_object_type(char conv, const char* length_text, enum target target)
+{
+    const bool is_signed_conv = (conv == 'd' || conv == 'i');
+
+    switch (conv)
+    {
+    case 'd':
+    case 'i':
+    case 'u':
+    case 'o':
+    case 'x':
+    case 'X':
+        break;
+
+    default:
+        return -1;
+    }
+
+    /* 'hh' and 'h' tell printf to narrow the value it prints; the argument
+       still arrives promoted to int, so int is what is expected here. */
+    if (length_text[0] == '\0' ||
+        strcmp(length_text, "hh") == 0 ||
+        strcmp(length_text, "h") == 0)
+    {
+        return is_signed_conv ? TYPE_SIGNED_INT : TYPE_UNSIGNED_INT;
+    }
+
+    if (strcmp(length_text, "l") == 0)
+    {
+        return is_signed_conv ? TYPE_SIGNED_LONG : TYPE_UNSIGNED_LONG;
+    }
+
+    /* intmax_t is the widest integer the target has: long long on the Windows
+       targets, but the LP64 ones make long just as wide and typedef intmax_t
+       to it. Either spelling is the widest integer there, so 'j' names long
+       long here and the comparison lets long stand in for it when the two
+       have the same width -- see printf_object_type_matches. */
+    if (strcmp(length_text, "ll") == 0 || strcmp(length_text, "j") == 0)
+    {
+        return is_signed_conv ? TYPE_SIGNED_LONG_LONG : TYPE_UNSIGNED_LONG_LONG;
+    }
+
+    const struct platform* p_platform = get_platform(target);
+
+    if (strcmp(length_text, "z") == 0)
+    {
+        return p_platform->size_t_type; /* %zd is the signed counterpart, same width */
+    }
+
+    if (strcmp(length_text, "t") == 0)
+    {
+        return p_platform->ptrdiff_type;
+    }
+
+    return -1;
+}
+
+/*
+  Does the argument's type match the one the conversion names? The signed and
+  unsigned members of each pair are adjacent in enum object_type, the signed
+  one first, so clearing the low bit compares the two types while leaving
+  signedness out of it ("%x" with an int is idiomatic).
+*/
+static bool printf_object_type_matches(enum target target,
+    enum object_type actual,
+    enum object_type expected,
+    const char* length_text)
+{
+    if ((actual & ~1) == (expected & ~1))
+        return true;
+
+    /* 'j' asked for the widest integer, spelled long long above. On a target
+       where long is just as wide it is the same type, and that is the one
+       intmax_t is a typedef for there. */
+    if (strcmp(length_text, "j") == 0 &&
+        (actual & ~1) == TYPE_SIGNED_LONG &&
+        target_get_num_of_bits(target, TYPE_SIGNED_LONG) ==
+        target_get_num_of_bits(target, TYPE_SIGNED_LONG_LONG))
+    {
+        return true;
+    }
+
+    return false;
+}
+
+/*
+  The length modifier a typedef brings with it: size_t is printed with "%zu"
+  whatever it resolves to, so writing "%d" for one is wrong even on a target
+  where the two happen to be the same type. Returns NULL for a typedef that
+  has no modifier of its own -- the fixed-width types are printed through
+  their PRI macro, whose expansion is checked as an ordinary type.
+*/
+static const char* _Opt printf_length_modifier_for_typedef(const char* name)
+{
+    if (strcmp(name, "size_t") == 0 || strcmp(name, "ssize_t") == 0)
+        return "z";
+
+    if (strcmp(name, "ptrdiff_t") == 0)
+        return "t";
+
+    return NULL;
+}
+
+/*
+  Checks one printf conversion (the part after '%', flags/width/precision
+  already skipped) against the type of the matching argument. `length_text`
+  is the length modifier that preceded the conversion as written ("l", "hh",
+  "w32", ... or "" when there was none); only a lone 'l' changes what a
+  conversion expects ("%ls" takes a wchar_t * rather than a char *). The rest
+  is carried for the diagnostic alone, so it echoes the specifier the source
+  actually wrote.
+*/
+static void check_printf_conversion(const struct parser_ctx* ctx,
+    char conv,
+    const char* length_text,
+    const struct argument_expression* p_arg)
+{
+    const struct type* p_type = &p_arg->expression->type;
+
+    bool ok = true;
+    const char* _Opt expected = NULL;
+    char expected_phrase[64] = { 0 };
+
+    switch (conv)
+    {
+    case 'd':
+    case 'i':
+    case 'u':
+    case 'o':
+    case 'x':
+    case 'X':
+        ok = type_is_integer(p_type);
+        expected = "an integer";
+        break;
+
+    case 'c':
+        ok = type_is_integer(p_type) || type_is_char(p_type);
+        expected = "an int";
+        break;
+
+    case 'f':
+    case 'F':
+    case 'e':
+    case 'E':
+    case 'g':
+    case 'G':
+    case 'a':
+    case 'A':
+        ok = type_is_floating_point(p_type);
+        expected = (strcmp(length_text, "L") == 0) ? "a long double" : "a double";
+        break;
+
+    case 's':
+    {
+        const bool wide = (strcmp(length_text, "l") == 0);
+
+        if (type_is_array(p_type))
+        {
+            struct type item = get_array_item_type(p_type);
+            ok = wide ? type_is_wchar(&item, ctx->options.target) : type_is_char(&item);
+            type_destroy(&item);
+        }
+        else if (type_is_pointer(p_type))
+        {
+            struct type item = type_remove_pointer(p_type);
+            ok = wide ? type_is_wchar(&item, ctx->options.target) : type_is_char(&item);
+            type_destroy(&item);
+        }
+        else
+        {
+            ok = false;
+        }
+        expected = wide ? "a wchar_t *" : "a char *";
+    }
+    break;
+
+    case 'p':
+        /* An array argument decays to a pointer, exactly as it does for '%s'
+           just above -- checking type_is_pointer alone reported
+           `printf("%p", buffer)` for `char buffer[10]` as a type mismatch.
+           A function designator decays too, but to a function pointer, which
+           %p is not defined for; that one is still reported. */
+        ok = type_is_pointer_or_array(p_type);
+        expected = "a pointer";
+        break;
+
+    case 'n':
+        ok = type_is_pointer(p_type);
+        expected = "an int *";
+        break;
+
+    default:
+        //unknown/unsupported conversion, nothing to check
+        return;
+    }
+
+    if (ok)
+    {
+        /* Right kind of argument, but possibly not the type the length
+           modifier names -- see printf_expected_object_type. Reported with
+           the same wording, since for the caller it is the same mistake. */
+        const int expected_object_type =
+            printf_expected_object_type(conv, length_text, ctx->options.target);
+
+        if (expected_object_type != -1)
+        {
+            struct type promoted = type_dup(p_type);
+            type_integer_promotion(&promoted);
+            const enum object_type actual_object_type =
+                type_to_object_type(&promoted, ctx->options.target);
+            type_destroy(&promoted);
+
+            /* A bitfield arrives promoted to int like everything narrower;
+               its own declared width says nothing about the va_list. */
+            if (actual_object_type < TYPE_UNSIGNED_BITFIELD_1 &&
+                !printf_object_type_matches(ctx->options.target,
+                    actual_object_type,
+                    (enum object_type)expected_object_type,
+                    length_text))
+            {
+                ok = false;
+                object_type_to_phrase((enum object_type)expected_object_type,
+                    expected_phrase, sizeof expected_phrase);
+                expected = expected_phrase;
+            }
+
+            /* A typedef that owns a length modifier has to be printed with
+               it. This is what the type comparison above cannot see: on a
+               target where size_t is unsigned int, "%d" names the very type
+               the argument has and is still the wrong way to print it. */
+            if (ok && !type_is_pointer(p_type) && !type_is_array(p_type))
+            {
+                const struct declarator* _Opt p_typedef =
+                    printf_typedef_declarator(p_arg->expression);
+
+                for (int level = 0; p_typedef != NULL && level < 8; level++)
+                {
+                    if (p_typedef->name_opt != NULL)
+                    {
+                        const char* _Opt required =
+                            printf_length_modifier_for_typedef(p_typedef->name_opt->lexeme);
+
+                        if (required != NULL)
+                        {
+                            if (strcmp(length_text, required) != 0)
+                            {
+                                ok = false;
+                            }
+                            break;
+                        }
+                    }
+
+                    p_typedef = printf_next_typedef_declarator(p_typedef);
+                }
+            }
+        }
+        else if (type_is_floating_point(p_type))
+        {
+            /* Only 'L' selects long double; passing one to '%f' (or a double
+               to '%Lf') reads the wrong number of bytes just the same. */
+            const bool expects_long_double = (strcmp(length_text, "L") == 0);
+
+            if (expects_long_double != type_is_long_double(p_type))
+            {
+                ok = false;
+                expected = expects_long_double ? "a long double" : "a double";
+            }
+        }
+    }
+
+    if (!ok)
+    {
+        struct osstream ss = { 0 };
+        print_type_no_names(&ss, p_type, ctx->options.target);
+
+        /* print_type_no_names spells a type in flag order ("unsigned int long
+           long"), which reads badly right next to the typedef it explains.
+           For an arithmetic type the object type has the ordinary name. */
+        const char* _Opt resolved_name = NULL;
+
+        if (type_is_integer(p_type) || type_is_floating_point(p_type))
+        {
+            const enum object_type resolved_object_type = type_to_object_type(p_type, ctx->options.target);
+
+            if (resolved_object_type < TYPE_UNSIGNED_BITFIELD_1)
+            {
+                resolved_name = object_type_to_name(resolved_object_type);
+            }
+        }
+
+        if (resolved_name == NULL || resolved_name[0] == '\0')
+        {
+            resolved_name = ss.c_str;
+        }
+
+        const char* _Opt suggestion = NULL;
+
+        /* Prefer the typedef's own conversion when the argument was written
+           with one -- "%zu" says size_t, "%lu" only says "as wide as this
+           target's size_t happens to be". */
+        char macro_buffer[32] = { 0 };
+        bool suggestion_is_macro = false;
+        bool no_direct_format = false;
+
+        /* Follow the typedef chain the argument was declared through, and take
+           the first name the standard gives a conversion for. A pointer or an
+           array is left out of this: the typedef found there names the base
+           type, not what is being passed. */
+        const char* _Opt written_typedef_name = NULL;
+        const char* _Opt matched_typedef_name = NULL;
+
+        if (!type_is_pointer(p_type) && !type_is_array(p_type) && !type_is_function(p_type))
+        {
+            const struct declarator* _Opt p_typedef = printf_typedef_declarator(p_arg->expression);
+
+            for (int level = 0; p_typedef != NULL && level < 8; level++)
+            {
+                if (p_typedef->name_opt != NULL)
+                {
+                    if (written_typedef_name == NULL)
+                    {
+                        written_typedef_name = p_typedef->name_opt->lexeme;
+                    }
+
+                    if (strcmp(p_typedef->name_opt->lexeme, "max_align_t") == 0)
+                    {
+                        no_direct_format = true;
+                        break;
+                    }
+
+                    suggestion = printf_specifier_for_typedef(p_typedef->name_opt->lexeme, conv,
+                        macro_buffer, sizeof macro_buffer, &suggestion_is_macro);
+
+                    if (suggestion != NULL)
+                    {
+                        matched_typedef_name = p_typedef->name_opt->lexeme;
+                        break;
+                    }
+                }
+
+                p_typedef = printf_next_typedef_declarator(p_typedef);
+            }
+        }
+
+        if (suggestion == NULL && !no_direct_format)
+        {
+            suggestion = printf_specifier_for_type(p_type, ctx->options.target);
+        }
+
+        /* Name the type the way the call site writes it. A typedef that is
+           only reported by what it resolves to ("unsigned long") tells the
+           reader nothing about why %zu is the answer, so the typedef is named
+           and then explained: 'size_t' (unsigned long). When the conversion
+           was found further down a chain of typedefs, the link that carries
+           it is named too: 'my_size' (size_t = unsigned long). */
+        struct osstream type_ss = { 0 };
+
+        if (written_typedef_name != NULL &&
+                matched_typedef_name != NULL &&
+                strcmp(written_typedef_name, matched_typedef_name) != 0)
+        {
+            ss_fprintf(&type_ss, "'%s' (%s = %s)", written_typedef_name, matched_typedef_name, resolved_name);
+        }
+        else if (written_typedef_name != NULL)
+        {
+            ss_fprintf(&type_ss, "'%s' (%s)", written_typedef_name, resolved_name);
+        }
+        else
+        {
+            ss_fprintf(&type_ss, "'%s'", ss.c_str);
+        }
+
+        const char* type_text = type_ss.c_str ? type_ss.c_str : "";
+
+        if (suggestion != NULL && suggestion_is_macro)
+        {
+            /* The fixed-width types have no portable conversion of their own,
+               so the answer is the macro, not a specifier. */
+            diagnostic(W_FORMAT, ctx, p_arg->expression->first_token, NULL,
+                "format for %s is \"%%\" %s, not '%%%s%c'",
+                type_text, suggestion, length_text, conv);
+        }
+        else if (suggestion != NULL)
+        {
+            diagnostic(W_FORMAT, ctx, p_arg->expression->first_token, NULL,
+                "format for %s is '%s', not '%%%s%c'",
+                type_text, suggestion, length_text, conv);
+        }
+        else
+        {
+            diagnostic(W_FORMAT, ctx, p_arg->expression->first_token, NULL,
+                "'%%%s%c' expects %s, not %s",
+                length_text, conv, expected, type_text);
+        }
+
+        ss_close(&type_ss);
+        ss_close(&ss);
+    }
+}
+
+/*
+  Walks fmt looking for '%' conversions and matches each one against the
+  corresponding argument in p_first_var_arg's list, reporting a type
+  mismatch or an argument count mismatch through the diagnostic system.
+*/
+static void check_fmt(const struct parser_ctx* ctx,
+    const struct token* p_fmt_token,
+    const char* fmt,
+    struct argument_expression* _Opt p_first_var_arg)
+{
+    struct argument_expression* _Opt p_arg = p_first_var_arg;
+    int n_specifiers = 0;
+
+    const char* p = fmt;
+    while (*p != '\0')
+    {
+        if (*p != '%')
+        {
+            p++;
+            continue;
+        }
+
+        p++; //skip '%'
+
+        if (*p == '%')
+        {
+            //literal '%%', no argument consumed
+            p++;
+            continue;
+        }
+
+        //flags
+        while (*p == '-' || *p == '+' || *p == ' ' || *p == '0' || *p == '#')
+            p++;
+
+        //width
+        if (*p == '*')
+        {
+            /* A '*' takes an argument of its own, so it counts for the
+               numbering the "missing argument N" message uses -- and running
+               out of arguments here is the same error as running out at the
+               conversion, not something to pass over in silence. */
+            n_specifiers++;
+            if (p_arg == NULL)
+            {
+                diagnostic(W_FORMAT, ctx, p_fmt_token, NULL,
+                    "too few arguments for format string (missing argument %d)", n_specifiers);
+                return;
+            }
+            if (!type_is_integer(&p_arg->expression->type))
+            {
+                diagnostic(W_FORMAT, ctx, p_arg->expression->first_token, NULL,
+                    "field width should have type int");
+            }
+            p_arg = p_arg->next;
+            p++;
+        }
+        else
+        {
+            while (*p >= '0' && *p <= '9')
+                p++;
+        }
+
+        //precision
+        if (*p == '.')
+        {
+            p++;
+            if (*p == '*')
+            {
+                n_specifiers++;
+                if (p_arg == NULL)
+                {
+                    diagnostic(W_FORMAT, ctx, p_fmt_token, NULL,
+                        "too few arguments for format string (missing argument %d)", n_specifiers);
+                    return;
+                }
+                if (!type_is_integer(&p_arg->expression->type))
+                {
+                    diagnostic(W_FORMAT, ctx, p_arg->expression->first_token, NULL,
+                        "field precision should have type int");
+                }
+                p_arg = p_arg->next;
+                p++;
+            }
+            else
+            {
+                while (*p >= '0' && *p <= '9')
+                    p++;
+            }
+        }
+
+        /* Length modifier. Only a lone 'l' changes what the conversion expects
+           ("%ls" takes a wchar_t *); the others are kept as text so the
+           diagnostic echoes what was written -- "%lld" used to be reported as
+           "%d". C23's wN / wfN (%w32d, %wf16d) are consumed here as well:
+           left unparsed, 'w' was taken for the conversion itself and the
+           argument went unchecked. */
+        char length_text[8] = { 0 };
+        int length_len = 0;
+
+        if (*p == 'w')
+        {
+            length_text[length_len++] = *p;
+            p++;
+            if (*p == 'f')
+            {
+                length_text[length_len++] = *p;
+                p++;
+            }
+            while (*p >= '0' && *p <= '9')
+            {
+                if (length_len < (int)sizeof(length_text) - 1)
+                {
+                    length_text[length_len++] = *p;
+                }
+                p++;
+            }
+        }
+        else if ((*p == 'h' && *(p + 1) == 'h') || (*p == 'l' && *(p + 1) == 'l'))
+        {
+            length_text[length_len++] = *p;
+            p++;
+            length_text[length_len++] = *p;
+            p++;
+        }
+        else if (*p == 'h' || *p == 'l' || *p == 'j' || *p == 'z' || *p == 't' || *p == 'L')
+        {
+            length_text[length_len++] = *p;
+            p++;
+        }
+
+        if (*p == '\0')
+        {
+            diagnostic(W_FORMAT, ctx, p_fmt_token, NULL, "incomplete format specifier");
+            break;
+        }
+
+        const char conv = *p;
+        p++;
+
+        n_specifiers++;
+
+        if (p_arg == NULL)
+        {
+            diagnostic(W_FORMAT, ctx, p_fmt_token, NULL,
+                "too few arguments for format string (missing argument %d)", n_specifiers);
+            return;
+        }
+
+        check_printf_conversion(ctx, conv, length_text, p_arg);
+        p_arg = p_arg->next;
+    }
+
+    if (p_arg != NULL)
+    {
+        diagnostic(W_FORMAT, ctx, p_arg->expression->first_token, NULL,
+            "too many arguments for format string");
+    }
+}
+
+struct printf_like_function
+{
+    const char* name;
+    int fmt_arg_index; //0-based index of the format string parameter
+};
+
+/*
+  If p_type names a known printf-like function and its format argument is a
+  string literal, validates the format specifiers against the variadic
+  arguments passed after it.
+*/
+static void check_printf_like_call(const struct parser_ctx* ctx,
+    const struct type* p_type,
+    struct argument_expression_list* p_argument_expression_list)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_FORMAT))
+        return;
+
+    if (p_type->name_opt == NULL)
+        return;
+
+    static const struct printf_like_function printf_like_functions[] = {
+        {"printf", 0},
+        {"fprintf", 1},
+        {"sprintf", 1},
+        {"snprintf", 2},
+    };
+
+    const struct printf_like_function* _Opt p_info = NULL;
+    for (int i = 0; i < (int)(sizeof(printf_like_functions) / sizeof(printf_like_functions[0])); i++)
+    {
+        if (strcmp(p_type->name_opt, printf_like_functions[i].name) == 0)
+        {
+            p_info = &printf_like_functions[i];
+            break;
+        }
+    }
+
+    if (p_info == NULL)
+        return;
+
+    struct argument_expression* _Opt p_fmt_arg = p_argument_expression_list->head;
+    for (int i = 0; i < p_info->fmt_arg_index && p_fmt_arg != NULL; i++)
+        p_fmt_arg = p_fmt_arg->next;
+
+    if (p_fmt_arg == NULL)
+        return;
+
+    if (p_fmt_arg->expression->expression_type != EXPR_PRIMARY_STRING_LITERAL)
+        return; //not a literal, cannot be checked statically
+
+    if (!type_is_array_of_char(&p_fmt_arg->expression->type))
+        return; //wide/L,u,u16,u32 string, decoded objects are not single bytes
+
+    struct argument_expression* _Opt p_first_var_arg = p_fmt_arg->next;
+
+    struct osstream ss = build_printf_format_text(p_fmt_arg->expression);
+
+    check_fmt(ctx, p_fmt_arg->expression->first_token, ss.c_str != NULL ? ss.c_str : "", p_first_var_arg);
+
+    ss_close(&ss);
+}
+
 static int compare_function_arguments(const struct parser_ctx* ctx,
     const struct type* p_type,
     struct argument_expression_list* p_argument_expression_list)
@@ -483,11 +1460,16 @@ static int compare_function_arguments(const struct parser_ctx* ctx,
             mark_pointee_escaped(NULL, p_va_argument->expression);
         }
 
+        if (p_param_list->is_var_args)
+        {
+            check_printf_like_call(ctx, p_type, p_argument_expression_list);
+        }
+
         if (p_current_parameter_type == NULL &&
             p_type->name_opt &&
             strncmp(p_type->name_opt, "__builtin", sizeof("__builtin") - 1) == 0)
         {
-            //some builtin function are like templates 
+            //some builtin function are like templates
             //For instance :
             // bool __builtin_add_overflow(type1 a, type2 b, type3 * res)
             // Then we declare as bool __builtin_add_overflow()
@@ -635,10 +1617,10 @@ bool is_first_of_primary_expression(const struct parser_ctx* ctx)
         return false;
 
     return ctx->current->type == TK_IDENTIFIER ||
-        is_first_of_constant(ctx) ||
-        ctx->current->type == TK_STRING_LITERAL ||
-        ctx->current->type == '(' ||
-        ctx->current->type == TK_KEYWORD__GENERIC;
+           is_first_of_constant(ctx) ||
+           ctx->current->type == TK_STRING_LITERAL ||
+           ctx->current->type == '(' ||
+           ctx->current->type == TK_KEYWORD__GENERIC;
 }
 
 struct generic_association* _Owner _Opt generic_association(struct parser_ctx* ctx, const struct type* p_selection_type, bool is_discarded, bool* p_selected)
@@ -849,7 +1831,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struc
                 }
                 else
                 {
-                    p_default_generic_association_first_token = p_generic_association2->first_token; //lint 68 not sure if flow bug
+                    p_default_generic_association_first_token = p_generic_association2->first_token; //lint 68 BUG in flow (not sure)
                     p_default_generic_association_expression = p_generic_association2->expression;
                 }
             }
@@ -1301,7 +2283,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
     struct token* token = ctx->current;
 
     /*copy removing separators*/
-    // one of the largest buffers needed would be 128 bits binary... 
+    // one of the largest buffers needed would be 128 bits binary...
     // 0xb1'1'1....
     int c = 0;
     char buffer[128 * 2 + 4] = { 0 };
@@ -1547,7 +2529,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
     {
         if (suffix[0] == 'F')
         {
-            const double value = strtod(buffer, NULL); //lint 68 flow bug in suffex
+            const double value = strtod(buffer, NULL);
             if (errno == ERANGE)
             {
                 if (isinf(value))
@@ -1591,7 +2573,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         }
         else if (suffix[0] == 'L')
         {
-            const long double value = strtod(buffer, NULL); //lint 68 flow bug in suffix
+            const long double value = strtod(buffer, NULL);
 
             if (errno == ERANGE)
             {
@@ -1843,7 +2825,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
             {
                 const char* func_name = ctx->p_current_function_opt->name_opt ?
                     ctx->p_current_function_opt->name_opt->lexeme :
-                    "unnamed";
+                "unnamed";
 
                 p_expression_node->expression_type = EXPR_PRIMARY__FUNC__;
                 p_expression_node->first_token = ctx->current;
@@ -1935,7 +2917,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
 
                 const unsigned char* _Opt it = (unsigned char*)ctx->current->lexeme;
 
-                //skip string literal prefix u8, L etc 
+                //skip string literal prefix u8, L etc
                 while (*it != '"')
                     it++;
 
@@ -1957,7 +2939,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                     }
                     else
                     {
-                        c = *it;                        
+                        c = *it;
                         it++;
                     }
 
@@ -3014,7 +3996,7 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
         const struct direct_declarator* _Opt p_innermost_direct_declarator =
             p_expression_node->type_name->abstract_declarator ?
             get_innermost_direct_declarator(p_expression_node->type_name->abstract_declarator->direct_declarator) :
-            NULL;
+        NULL;
 
         //this keep the typedef out (by design)
         if (p_innermost_direct_declarator && p_innermost_direct_declarator->function_declarator)
@@ -3055,7 +4037,7 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
                 struct parameter_list* _Opt p_parameter_list =
                     p_innermost_direct_declarator->function_declarator->parameter_type_list_opt ?
                     p_innermost_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list :
-                    NULL;
+                NULL;
 
                 struct defer_visit_ctx defer_ctx = { .ctx = ctx };
                 defer_start_visit_compound_statement(&defer_ctx, p_expression_node->compound_statement, p_parameter_list);
@@ -3118,7 +4100,7 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
     }
     catch
     {
-        expression_delete(p_expression_node); //lint 31 31  flow anlysis bug
+        expression_delete(p_expression_node);
         p_expression_node = NULL;
     }
 
@@ -3208,7 +4190,7 @@ struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx, bool i
     }
     catch
     {
-        expression_delete(p_expression_node); //lint 31 flow anlysis bug
+        expression_delete(p_expression_node);
         p_expression_node = NULL;
     }
     return p_expression_node;
@@ -3656,8 +4638,9 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                         new_expression->object =
                             object_unary_minus(ctx->options.target, &new_expression->right->object, warning_message);
                     }
-                    else if (op == '+')
+                    else
                     {
+                        /* the enclosing `else if` already restricted op to '-' or '+' */
                         new_expression->object = object_unary_plus(ctx->options.target, &new_expression->right->object, warning_message);
                     }
                 }
@@ -4239,7 +5222,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             new_expression->type = type_make_size_t(ctx->options.target);
             p_expression_node = new_expression;
             new_expression = NULL; //MOVED
-        } //not leak        
+        } //not leak
         else if (ctx->current->type == TK_KEYWORD__COUNTOF) //C2Y
         {
             /* a defer statement would be useful here */
@@ -4687,14 +5670,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             p_expression_node = postfix_expression(ctx, is_discarded);
             if (p_expression_node == NULL)
                 throw;
-        }
-
-        if (p_expression_node != NULL &&
-            (p_expression_node->first_token == NULL ||
-             p_expression_node->last_token == NULL))
-        {
-            throw;
-        }
+        }        
     }
     catch
     {
@@ -4781,7 +5757,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                 /*
                     ( storage-class-specifier opt type-name ) { ... }
                 */
-                // Thinking it was a cast expression was a mistake... 
+                // Thinking it was a cast expression was a mistake...
                 // because the { appeared then it is a compound literal which is a postfix.
                 p_expression_node = postfix_expression_compound_func_literal(ctx,
                     p_type_name /*MOVED*/,
@@ -4825,122 +5801,122 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                 else
                 {
 
-                p_expression_node->left = cast_expression(ctx, is_discarded);
-                if (p_expression_node->left == NULL)
-                {
-                    expression_delete(p_expression_node);
-                    p_expression_node = NULL;
-                    throw;
-                }
-
-                if (type_is_void(&p_expression_node->left->type) &&
-                    !type_is_void(&p_expression_node->type))
-                {
-                    diagnostic(C_ERROR_UNEXPECTED,
-                        ctx,
-                        p_expression_node->first_token,
-                        NULL,
-                        "cast of 'void' term to non-'void' is illegal");
-                }
-                else if (type_is_floating_point(&p_expression_node->type) &&
-                    type_is_pointer(&p_expression_node->left->type))
-                {
-                    diagnostic(C_ERROR_POINTER_TO_FLOATING_TYPE,
-                        ctx,
-                        p_expression_node->first_token,
-                        NULL,
-                        "pointer type cannot be converted to any floating type");
-                }
-                else if (type_is_pointer(&p_expression_node->type) &&
-                    type_is_floating_point(&p_expression_node->left->type))
-                {
-                    diagnostic(C_ERROR_FLOATING_TYPE_TO_POINTER,
-                        ctx,
-                        p_expression_node->first_token,
-                        NULL,
-                        "A floating type cannot be converted to any pointer type");
-                }
-                else if (type_is_nullptr_t(&p_expression_node->left->type))
-                {
-                    if (type_is_void(&p_expression_node->type) ||
-                        type_is_bool(&p_expression_node->type) ||
-                        type_is_pointer(&p_expression_node->type))
+                    p_expression_node->left = cast_expression(ctx, is_discarded);
+                    if (p_expression_node->left == NULL)
                     {
-                        /*
-                          The type nullptr_t shall not be converted to any type other than
-                          void, bool or a pointer type
-                        */
+                        expression_delete(p_expression_node);
+                        p_expression_node = NULL;
+                        throw;
                     }
-                    else
+
+                    if (type_is_void(&p_expression_node->left->type) &&
+                        !type_is_void(&p_expression_node->type))
                     {
-                        diagnostic(C_ERROR_NULLPTR_CAST_ERROR,
+                        diagnostic(C_ERROR_UNEXPECTED,
                             ctx,
                             p_expression_node->first_token,
                             NULL,
-                            "cannot cast nullptr_t to this type");
+                            "cast of 'void' term to non-'void' is illegal");
                     }
-                }
-                else if (type_is_nullptr_t(&p_expression_node->type))
-                {
-                    /*
-                      If the target type is nullptr_t, the cast expression shall
-                      be a null pointer constant or have type nullptr_t.
-                    */
-
-                    if (expression_is_null_pointer_constant(p_expression_node->left) ||
-                        type_is_nullptr_t(&p_expression_node->left->type))
+                    else if (type_is_floating_point(&p_expression_node->type) &&
+                        type_is_pointer(&p_expression_node->left->type))
                     {
-                        //ok
-                    }
-                    else
-                    {
-                        diagnostic(C_ERROR_NULLPTR_CAST_ERROR,
+                        diagnostic(C_ERROR_POINTER_TO_FLOATING_TYPE,
                             ctx,
-                            p_expression_node->left->first_token,
+                            p_expression_node->first_token,
                             NULL,
-                            "cannot cast this expression to nullptr_t");
+                            "pointer type cannot be converted to any floating type");
                     }
-                }
-
-                type_destroy(&p_expression_node->type);
-                p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->abstract_declarator);
-
-                if (type_is_same(&p_expression_node->type, &p_expression_node->left->type, true))
-                {
-                    if (p_expression_node->first_token->flags & TK_FLAG_MACRO_EXPANDED)
+                    else if (type_is_pointer(&p_expression_node->type) &&
+                        type_is_floating_point(&p_expression_node->left->type))
                     {
-                        /*
-                             not a warning when used inside macros
-                        */
+                        diagnostic(C_ERROR_FLOATING_TYPE_TO_POINTER,
+                            ctx,
+                            p_expression_node->first_token,
+                            NULL,
+                            "A floating type cannot be converted to any pointer type");
                     }
-                    else
+                    else if (type_is_nullptr_t(&p_expression_node->left->type))
                     {
-                        if (
-                            (p_expression_node->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF) ||
-                            (p_expression_node->left->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
-                            )
+                        if (type_is_void(&p_expression_node->type) ||
+                            type_is_bool(&p_expression_node->type) ||
+                            type_is_pointer(&p_expression_node->type))
                         {
                             /*
-                            if any of them are typedef, no warning
+                              The type nullptr_t shall not be converted to any type other than
+                              void, bool or a pointer type
                             */
                         }
                         else
                         {
-                            //diagnostic(W_CAST_TO_SAME_TYPE,
-                            //                  ctx,
-                            //                p_expression_node->first_token,
-                            //              NULL,
-                            //            "casting to the same type");
+                            diagnostic(C_ERROR_NULLPTR_CAST_ERROR,
+                                ctx,
+                                p_expression_node->first_token,
+                                NULL,
+                                "cannot cast nullptr_t to this type");
                         }
                     }
-                }
+                    else if (type_is_nullptr_t(&p_expression_node->type))
+                    {
+                        /*
+                          If the target type is nullptr_t, the cast expression shall
+                          be a null pointer constant or have type nullptr_t.
+                        */
 
-                if (!is_discarded &&
-                    object_has_constant_value(&p_expression_node->left->object))
-                {
-                    enum object_type vt = type_to_object_type(&p_expression_node->type, ctx->options.target);
-                    p_expression_node->object = object_cast(ctx->options.target, vt, &p_expression_node->left->object);
-                }
+                        if (expression_is_null_pointer_constant(p_expression_node->left) ||
+                            type_is_nullptr_t(&p_expression_node->left->type))
+                        {
+                            //ok
+                        }
+                        else
+                        {
+                            diagnostic(C_ERROR_NULLPTR_CAST_ERROR,
+                                ctx,
+                                p_expression_node->left->first_token,
+                                NULL,
+                                "cannot cast this expression to nullptr_t");
+                        }
+                    }
+
+                    type_destroy(&p_expression_node->type);
+                    p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->abstract_declarator);
+
+                    if (type_is_same(&p_expression_node->type, &p_expression_node->left->type, true))
+                    {
+                        if (p_expression_node->first_token->flags & TK_FLAG_MACRO_EXPANDED)
+                        {
+                            /*
+                                 not a warning when used inside macros
+                            */
+                        }
+                        else
+                        {
+                            if (
+                                (p_expression_node->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF) ||
+                                (p_expression_node->left->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
+                                )
+                            {
+                                /*
+                                if any of them are typedef, no warning
+                                */
+                            }
+                            else
+                            {
+                                //diagnostic(W_CAST_TO_SAME_TYPE,
+                                //                  ctx,
+                                //                p_expression_node->first_token,
+                                //              NULL,
+                                //            "casting to the same type");
+                            }
+                        }
+                    }
+
+                    if (!is_discarded &&
+                        object_has_constant_value(&p_expression_node->left->object))
+                    {
+                        enum object_type vt = type_to_object_type(&p_expression_node->type, ctx->options.target);
+                        p_expression_node->object = object_cast(ctx->options.target, vt, &p_expression_node->left->object);
+                    }
 
                     p_expression_node->type.storage_class_specifier_flags =
                         p_expression_node->left->type.storage_class_specifier_flags;
@@ -6549,13 +7525,13 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
        conditional-expression
        unary-expression assignment-operator assignment-expression
        */
-       /*
-                assignment-operator: one of
-                = *= /= %= += -= <<= >>= &= ^= |=
-             */
-             // aqui eh duvidoso mas conditional faz a unary tb.
-             // a diferenca q nao eh qualquer expressao
-             // que pode ser de atribuicao
+    /*
+             assignment-operator: one of
+             = *= /= %= += -= <<= >>= &= ^= |=
+          */
+    // aqui eh duvidoso mas conditional faz a unary tb.
+    // a diferenca q nao eh qualquer expressao
+    // que pode ser de atribuicao
     struct expression* _Owner _Opt p_expression_node = NULL;
     try
     {
@@ -6789,13 +7765,7 @@ struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, bool i
             p_expression_node_new->left = p_expression_node;
             p_expression_node = p_expression_node_new;
         }
-
-        if (p_expression_node != NULL &&
-            (p_expression_node->first_token == NULL ||
-             p_expression_node->last_token == NULL))
-        {
-            throw;
-        }
+        
     }
     catch
     {
@@ -7341,13 +8311,6 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
             }
             p_expression_node = p_conditional_expression;
         }
-
-        if (p_expression_node != NULL &&
-            (p_expression_node->first_token == NULL ||
-             p_expression_node->last_token == NULL))
-        {
-            throw;
-        }
     }
     catch
     {
@@ -7750,8 +8713,8 @@ void check_assigment(const struct parser_ctx* ctx,
         return;
     }
 
-    if (type_is_arithmetic(p_a_type) && 
-        type_is_pointer_or_array(p_b_type) 
+    if (type_is_arithmetic(p_a_type) &&
+        type_is_pointer_or_array(p_b_type)
         /* && !type_is_nullptr_t(p_b_type)*/)
     {
         diagnostic(W_POINTER_TO_INT, ctx,
@@ -7968,54 +8931,47 @@ void check_assigment(const struct parser_ctx* ctx,
 void flow_expression_to_string(const struct expression* p_expression, struct osstream* ss)
 {
     ss_clear(ss);
-
-    /*
-       Must never leave ss->c_str NULL: callers pass it straight to a "%s" in a
-       diagnostic, so an empty result printed literally as "(null)" -- e.g.
-       "object '(null)' lifetime has ended". The two fallbacks below make that
-       impossible.
-    */
-    if (p_expression->first_token != NULL && p_expression->last_token != NULL)
+ 
+    const struct token* _Opt current = p_expression->first_token;
+    while (current && current != p_expression->last_token->next)
     {
-        const struct token* _Opt current = p_expression->first_token;
+        if (!(current->flags & TK_C_BACKEND_FLAG_HIDE) &&
+            current->type != TK_BEGIN_OF_FILE &&
+            (current->flags & TK_FLAG_FINAL))
+        {
+            if (current->type == TK_LINE_COMMENT ||
+                current->type == TK_COMMENT)
+            {
+                /* skip comments entirely */
+            }
+            else
+            {
+                ss_fprintf(ss, "%s", current->lexeme);
+            }
+        }
+        current = current->next;
+    }
+
+    /* Nothing was FINAL -- a macro-expanded or synthesized expression, and
+        the case that produced the "(null)" names. The text is still the best
+        description available, so take it without the FINAL requirement. */
+    if (ss->c_str == NULL)
+    {
+        current = p_expression->first_token;
         while (current && current != p_expression->last_token->next)
         {
-            if (!(current->flags & TK_C_BACKEND_FLAG_HIDE) &&
-                current->type != TK_BEGIN_OF_FILE &&
-                (current->flags & TK_FLAG_FINAL))
+            if (current->type != TK_BEGIN_OF_FILE &&
+                current->type != TK_LINE_COMMENT &&
+                current->type != TK_COMMENT)
             {
-                if (current->type == TK_LINE_COMMENT ||
-                    current->type == TK_COMMENT)
-                {
-                    /* skip comments entirely */
-                }
-                else
-                {
-                    ss_fprintf(ss, "%s", current->lexeme);
-                }
+                ss_fprintf(ss, "%s", current->lexeme);
             }
             current = current->next;
         }
-
-        /* Nothing was FINAL -- a macro-expanded or synthesized expression, and
-           the case that produced the "(null)" names. The text is still the best
-           description available, so take it without the FINAL requirement. */
-        if (ss->c_str == NULL)
-        {
-            current = p_expression->first_token;
-            while (current && current != p_expression->last_token->next)
-            {
-                if (current->type != TK_BEGIN_OF_FILE &&
-                    current->type != TK_LINE_COMMENT &&
-                    current->type != TK_COMMENT)
-                {
-                    ss_fprintf(ss, "%s", current->lexeme);
-                }
-                current = current->next;
-            }
-        }
     }
+    
 
     if (ss->c_str == NULL)
         ss_fprintf(ss, "%s", "?");
+
 }

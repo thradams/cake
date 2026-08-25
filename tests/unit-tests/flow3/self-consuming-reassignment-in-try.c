@@ -73,7 +73,7 @@ struct E* _Owner _Opt consume_in_try(void)
            call's result, and that result is NULL precisely when this arm threw,
            so this is a no-op. On every other arm p is live and this is the
            intended release. */
-        del(p); //lint 31 object '(*p)' lifetime has ended -- consumed object reaches the catch merge
+        del(p);
         p = NULL;
     }
     return p;

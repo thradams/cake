@@ -6,7 +6,7 @@ enum { SIZE = 5 };
 int main(void)
 {
     const double a[SIZE] = {1.0, 2.0, 3.0, 4.0, 5.0};
-    printf("Array has size %ld bytes, element size: %ld\n", sizeof a, sizeof *a);
+    printf("Array has size %zu bytes, element size: %zu\n", sizeof a, sizeof *a);
     FILE *fp = fopen("test.bin", "wb"); // must use binary mode
     fwrite(a, sizeof *a, SIZE, fp); // writes an array of doubles
     fclose(fp);

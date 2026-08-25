@@ -2976,19 +2976,20 @@ int ui_get_show_line_numbers(void)
  * ide.c). For a C editor, wide enough for the document's last line number
  * plus a one-column gap, with a 3-digit (+ gap) floor so a short document
  * doesn't get a cramped 2-wide gutter. UI_SYNTAX_MARKDOWN (README/help
- * viewer - prose, not source lines worth numbering) gets a bare 1-column
- * margin instead, unconditionally. Either way, every render_editor() row,
- * plus every hscroll/click/scrollbar computation below that has to agree
- * on where the actual text starts, calls this so they can never drift
- * apart. */
+ * viewer - prose, not source lines worth numbering) and UI_SYNTAX_NONE
+ * (plain text, e.g. .txt - see syntax_for_path()'s doc comment in ide.c)
+ * get a bare 1-column margin instead, unconditionally. Either way, every
+ * render_editor() row, plus every hscroll/click/scrollbar computation below
+ * that has to agree on where the actual text starts, calls this so they can
+ * never drift apart. */
 static int editor_gutter_width(const ui_node* n)
 {
-    /* Markdown gets a bare 1-column margin - not a number gutter (prose
-     * isn't line-numbered, see the comment above), just breathing room so
-     * text doesn't start flush against the editor's left edge. Independent
-     * of g_show_line_numbers/View > "Line Numbers", which only ever applies
-     * to numbered C source. */
-    if (n->syntax == UI_SYNTAX_MARKDOWN)
+    /* Markdown/plain text get a bare 1-column margin - not a number gutter
+     * (prose isn't line-numbered, see the comment above), just breathing
+     * room so text doesn't start flush against the editor's left edge.
+     * Independent of g_show_line_numbers/View > "Line Numbers", which only
+     * ever applies to numbered C source. */
+    if (n->syntax == UI_SYNTAX_MARKDOWN || n->syntax == UI_SYNTAX_NONE)
         return 1;
     if (!g_show_line_numbers || n->syntax != UI_SYNTAX_C)
         return 0;

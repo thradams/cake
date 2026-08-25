@@ -1794,6 +1794,11 @@ enum object_type type_specifier_to_object_type(const enum type_specifier_flags t
         return TYPE_DOUBLE;
     }
 
+    /* Widest specifier first. `long long int` carries TYPE_SPECIFIER_INT as
+       well as TYPE_SPECIFIER_LONG_LONG, so testing INT before LONG_LONG made
+       every explicitly-spelled `long long int` (uint64_t among them) an int:
+       `long long int a = 5000000000;` was reported as not representable, and
+       "%lld" was reported as the wrong conversion for it. */
     if (type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
     {
         if (type_specifier_flags & TYPE_SPECIFIER_CHAR)
@@ -1801,13 +1806,13 @@ enum object_type type_specifier_to_object_type(const enum type_specifier_flags t
         if (type_specifier_flags & TYPE_SPECIFIER_SHORT)
             return TYPE_UNSIGNED_SHORT;
 
+        if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
+            return TYPE_UNSIGNED_LONG_LONG;
         if (type_specifier_flags & TYPE_SPECIFIER_LONG)
             return TYPE_UNSIGNED_LONG;
 
         if (type_specifier_flags & TYPE_SPECIFIER_INT)
             return TYPE_UNSIGNED_INT;
-        if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
-            return TYPE_UNSIGNED_LONG_LONG;
     }
     else
     {
@@ -1815,12 +1820,14 @@ enum object_type type_specifier_to_object_type(const enum type_specifier_flags t
             return TYPE_SIGNED_CHAR;
         if (type_specifier_flags & TYPE_SPECIFIER_SHORT)
             return TYPE_SIGNED_SHORT;
-        if (type_specifier_flags & TYPE_SPECIFIER_LONG)
-            return TYPE_SIGNED_LONG;
-        if (type_specifier_flags & TYPE_SPECIFIER_INT)
-            return TYPE_SIGNED_INT;
+
         if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
             return TYPE_SIGNED_LONG_LONG;
+        if (type_specifier_flags & TYPE_SPECIFIER_LONG)
+            return TYPE_SIGNED_LONG;
+
+        if (type_specifier_flags & TYPE_SPECIFIER_INT)
+            return TYPE_SIGNED_INT;
     }
     return TYPE_SIGNED_INT;
 }

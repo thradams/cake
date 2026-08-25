@@ -1277,13 +1277,14 @@ static bool microsoft_integer_suffix_opt(struct stream* stream, char suffix[4], 
     }
 
     /*
-      __int8 and __int16 are promoted to int, so no suffix is required
+      __int8 and __int16 are promoted to int, so no suffix is required, and
+      __int32 is a synonym for int -- normalizing it to 'L' made 0xffffffffui32
+      (which is how the ucrt headers spell UINT32_MAX) an unsigned long, so
+      `printf("%" PRIu32, UINT32_MAX)` was reported as a format mismatch.
+      On a target whose int is narrower than the constant, the type is picked
+      from the value, which reaches long on its own.
     */
-    if (size == 32)
-    {
-        suffix[i++] = 'L';
-    }
-    else if (size == 64)
+    if (size == 64)
     {
         suffix[i++] = 'L';
         suffix[i++] = 'L';
@@ -1822,6 +1823,7 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
 }
 
 #ifdef TEST
+#include "unit_test.h"
 
 void token_list_remove_get_test()
 {
@@ -1932,7 +1934,7 @@ void parse_number_test()
     /*microsoft suffixes i8 i16 i32 i64 normalized to the standard ones*/
     assert(parse_number_suffix_test_helper("1i8", ""));
     assert(parse_number_suffix_test_helper("1i16", ""));
-    assert(parse_number_suffix_test_helper("1i32", "L"));
+    assert(parse_number_suffix_test_helper("1i32", ""));
     assert(parse_number_suffix_test_helper("1i64", "LL"));
     assert(parse_number_suffix_test_helper("1I64", "LL"));
 
@@ -1942,7 +1944,7 @@ void parse_number_test()
     assert(parse_number_suffix_test_helper("1UI64", "ULL"));
     assert(parse_number_suffix_test_helper("1ui8", "U"));
     assert(parse_number_suffix_test_helper("1ui16", "U"));
-    assert(parse_number_suffix_test_helper("1ui32", "UL"));
+    assert(parse_number_suffix_test_helper("1ui32", "U"));
 
     assert(parse_number_suffix_test_helper("0x1ui64", "ULL"));
     assert(parse_number_suffix_test_helper("0b1ui64", "ULL"));

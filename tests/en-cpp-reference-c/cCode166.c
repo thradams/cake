@@ -7,7 +7,7 @@
 void print_storage_info(const int* next, const int* prev, int ints)
 {
     if (next)
-        printf("%s location: %p. Size: %d ints (%ld bytes).\n",
+        printf("%s location: %p. Size: %d ints (%zu bytes).\n",
                (next != prev ? "New" : "Old"), (void*)next, ints, ints * sizeof(int));
     else
         printf("Allocation failed.\n");

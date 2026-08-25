@@ -78,7 +78,7 @@
   If a message needs to print location on includes is this necessary? TODO
   TODO create a variable do remove tokens from disabled blocks
 */
-static const int CAKE_INCLUDE_EXTRA_TOKENS = 1;
+static int CAKE_INCLUDE_EXTRA_TOKENS = 1;
 
 ///////////////////////////////////////////////////////////////////////////////
 void naming_convention_macro(struct preprocessor_ctx* ctx, const struct token* token);
@@ -1529,7 +1529,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
                 if (count > 0 && count % 25 == 0)
                 {
                     /*new line*/
-                    char newline[] = "\n"; //lint 68 flow bug 
+                    char newline[] = "\n";
                     struct token* _Owner _Opt p_new3 = new_token(newline, &newline[1], TK_NEWLINE);
                     if (p_new3 == NULL)
                     {
@@ -3663,7 +3663,7 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
             p_new_macro_parameter->name = temp2;
 
             _Assert(p_last_parameter->next == NULL);
-            p_last_parameter->next = p_new_macro_parameter;
+            p_last_parameter->next = p_new_macro_parameter; //lint 32 bug ?
             p_last_parameter = p_last_parameter->next;
 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
@@ -4438,39 +4438,38 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             struct token_list r5 = pp_tokens_opt(ctx, input_list, level, is_active);
 
-            if (is_active)
+            /* is_active is necessarily true here: the function returns early when it
+               is false (see the `if (!is_active)` at the top of control_line). */
+            struct token* _Opt p_line_number = NULL;
+            struct token* _Opt p_filename = NULL;
+            for (struct token* _Opt p = r5.head; p; p = p->next)
             {
-                struct token* _Opt p_line_number = NULL;
-                struct token* _Opt p_filename = NULL;
-                for (struct token* _Opt p = r5.head; p; p = p->next)
+                if (p->type == TK_BLANKS)
                 {
-                    if (p->type == TK_BLANKS)
-                    {
-                        continue;
-                    }
-                    if (p_line_number == NULL)
-                    {
-                        p_line_number = p;
-                    }
-                    else if (p_filename == NULL)
-                    {
-                        p_filename = p;
-                    }
+                    continue;
                 }
+                if (p_line_number == NULL)
+                {
+                    p_line_number = p;
+                }
+                else if (p_filename == NULL)
+                {
+                    p_filename = p;
+                }
+            }
 
-                if (p_line_number == NULL || p_line_number->type != TK_PPNUMBER)
+            if (p_line_number == NULL || p_line_number->type != TK_PPNUMBER)
+            {
+                preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx,
+                    p_line_number != NULL ? p_line_number : r.tail,
+                    "#line requires a number as its first argument");
+            }
+            else if (p_filename != NULL)
+            {
+                if (!(p_filename->type == TK_STRING_LITERAL && p_filename->lexeme[0] == '"'))
                 {
-                    preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx,
-                        p_line_number != NULL ? p_line_number : r.tail,
-                        "#line requires a number as its first argument");
-                }
-                else if (p_filename != NULL)
-                {
-                    if (!(p_filename->type == TK_STRING_LITERAL && p_filename->lexeme[0] == '"')) //lint  68 33 33 bug flow
-                    {
-                        preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, p_filename,
-                            "#line filename must be a plain string literal, without prefix or suffix");
-                    }
+                    preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, p_filename,
+                        "#line filename must be a plain string literal, without prefix or suffix");
                 }
             }
 
@@ -5261,8 +5260,16 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
         }
 
         prematch(ctx, &r, input_list, is_active);
-        r.tail->type = TK_PRAGMA;
-        r.tail->flags |= TK_FLAG_FINAL;
+
+        /* Inside an inactive block prematch DELETES the token instead of
+           appending it (unless -keep-inactive-tokens), so there may be
+           nothing here to mark. `#if 0 / _Pragma("once") / #endif` used to
+           dereference a null r.tail and crash. */
+        if (r.tail != NULL)
+        {
+            r.tail->type = TK_PRAGMA;
+            r.tail->flags |= TK_FLAG_FINAL;
+        }
 
         skip_blanks_level( &r, input_list, level);
 
@@ -5299,7 +5306,20 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
         free(line);
 
         token_list_pop_front(&r0); // (
-        token_list_append_list(&r, &r0); //)    
+
+        if (is_active)
+        {
+            token_list_append_list(&r, &r0); //)
+        }
+        else
+        {
+            /* An inactive block produces nothing. Letting the pragma's own
+               tokens through left them in the stream for the parser to trip
+               over ("expected declaration not 'once'"), and printing that
+               diagnostic read the token_origin popped just above -- a
+               use-after-free. See `#if 0 / _Pragma("once") / #endif`. */
+            token_list_destroy(&r0);
+        }
 
         skip_blanks_level( &r, input_list, level);
 
@@ -5313,8 +5333,14 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
         }
 
         prematch(ctx, &r, input_list, is_active); //)
-        r.tail->type = TK_PRAGMA_END;
-        r.tail->flags |= TK_FLAG_FINAL;
+
+        /* Same as the opening token above: nothing was appended when the
+           block is inactive. */
+        if (r.tail != NULL)
+        {
+            r.tail->type = TK_PRAGMA_END;
+            r.tail->flags |= TK_FLAG_FINAL;
+        }
     }
     catch
     {
@@ -5737,7 +5763,6 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
             token_list_destroy(&r3);
         }
 
-        if (ctx->n_errors > 0) throw;
 
         if (ctx->options.preprocess_def_macro && macro->def_macro)
         {

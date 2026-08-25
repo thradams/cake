@@ -127,6 +127,7 @@ enum {
     EVT_ENV_THEME_AMBAR = 610,
     EVT_ENV_THEME_DARK = 611,
     EVT_ENV_THEME_WHITE = 612,
+    EVT_ENV_THEME_NEBULA = 613,
     EVT_ENV_FONT_BASE = 620,  /* base id for the "Font" <select>'s options -
                                * EVT_ENV_FONT_BASE + index, reserving 620..63x
                                * (the backend's shortlist is a handful of
@@ -975,13 +976,16 @@ static ui_node* g_goto_modal;
 static ui_node* g_goto_input;
 static ui_node* g_goto_pending_focus;
 
-/* Edit > Word Wrap...'s dialog: a single "Columns" <input>, prefilled with
- * the last value used (COLUMNS_DEFAULT the first time). OK reflows the
- * active editor's selection to that width - see do_edit_wordwrap(). */
+/* Edit > Word Wrap...'s dialog: a "Columns" <input> and a "Justify"
+ * checkbox, both prefilled with the last values used (COLUMNS_DEFAULT/off
+ * the first time). OK reflows the active editor's selection to that width -
+ * see do_edit_wordwrap(). */
 #define WORDWRAP_COLUMNS_DEFAULT 80
 static ui_node* g_wordwrap_modal;
 static ui_node* g_wordwrap_input;
+static ui_node* g_wordwrap_justify;
 static int g_wordwrap_columns = WORDWRAP_COLUMNS_DEFAULT;
+static int g_wordwrap_justify_on = 0;
 
 /* Search > Replace...'s dialog. The widget handles are kept so the OK/Change
  * All handlers can read what the user typed/checked; g_replace.target is the
@@ -1102,8 +1106,9 @@ static const char* label_for_path(const char* path);  /* defined below; used whe
 #define CAKE_FOLDER_FILTER_NAME ".cakefilter"
 
 /* Options > Environment...'s Theme select offers "Ambar" (see
- * g_theme_ambar below), plus "Dark" and "White", which mirror Visual
- * Studio's own Dark and Light (Blue-accented) palettes - together they
+ * g_theme_ambar below), "Dark" and "White", which mirror Visual
+ * Studio's own Dark and Light (Blue-accented) palettes, and "Nebula"
+ * (see g_theme_nebula below) - together they
  * prove ui_set_theme() really does re-theme the whole running app, not
  * just newly-created widgets. */
 
@@ -1265,7 +1270,11 @@ static const ui_theme g_theme_ambar = {
     /* <listbox> - same body colors as <editor>/<input> rather than the
      * classic theme's cyan, selection reuses the same #007ACC accent as
      * every other "selected" state in this theme. */
-    .listbox_fg = TB_RGB(0xD8, 0xD6, 0xD0),
+    .listbox_fg = TB_RGB(0x96, 0x94, 0x8E),  /* deliberately dimmer than
+                                              * editor_fg: the Folder panel
+                                              * is the biggest list on
+                                              * screen and shouldn't pull
+                                              * attention off the code */
     .listbox_bg = TB_RGB(0x1E, 0x1E, 0x20),
     .listbox_sel_fg = TB_RGB(0x1E, 0x1E, 0x20),
     .listbox_sel_bg = TB_RGB(0xF5, 0xC2, 0x42),
@@ -1424,7 +1433,8 @@ static const ui_theme g_theme_dark = {
     /* <listbox> - same body colors as <editor>/<input> rather than the
      * classic theme's cyan, selection reuses the same #007ACC accent as
      * every other "selected" state in this theme. */
-    .listbox_fg = TB_RGB(0xD4, 0xD4, 0xD4),
+    .listbox_fg = TB_RGB(0x93, 0x93, 0x93),  /* dimmer than editor_fg - see
+                                              * the Ambar theme's own note */
     .listbox_bg = TB_RGB(0x1E, 0x1E, 0x1E),
     .listbox_sel_fg = TB_RGB(0xFF, 0xFF, 0xFF),
     .listbox_sel_bg = TB_RGB(0x00, 0x7A, 0xCC),
@@ -1611,8 +1621,17 @@ static const ui_theme g_theme_white = {
     /* <listbox> - same body colors as <editor>/<input> rather than the
      * classic theme's cyan, selection reuses the same #CCE8FF accent as
      * every other "selected" state in this theme. */
-    .listbox_fg = TB_RGB(0x1E, 0x1E, 0x1E),
-    .listbox_bg = TB_RGB(0xFF, 0xFF, 0xFF),
+    .listbox_fg = TB_RGB(0x60, 0x60, 0x60),  /* dimmer than the editor's own
+                                              * #1E1E1E body text - the
+                                              * Folder panel is the biggest
+                                              * listbox on screen and
+                                              * shouldn't pull attention off
+                                              * the code */
+    .listbox_bg = TB_RGB(0xF3, 0xF3, 0xF3),  /* VS Code Light's actual side
+                                              * bar gray rather than the
+                                              * editor's plain white, so the
+                                              * panel recedes next to the
+                                              * <editor> it sits beside */
     .listbox_sel_fg = TB_RGB(0x00, 0x00, 0x00),
     .listbox_sel_bg = TB_RGB(0xCC, 0xE8, 0xFF),
     .listbox_sel_inactive_fg = TB_RGB(0x1E, 0x1E, 0x1E),
@@ -1626,9 +1645,147 @@ static const ui_theme g_theme_white = {
     .diag_info_fg = TB_RGB(0x1A, 0x85, 0xFF),
 };
 
-/* Index into the Theme <select> (Ambar=0/Dark=1/White=2 - matches the
+/* "Nebula" - a deep indigo night palette (editor #1A1B26, text #C0CAF5,
+ * accent #7AA2F7): violet keywords, blue function names, green strings and
+ * orange literals, with the whole chrome tinted the same indigo instead of
+ * a neutral gray. */
+static const ui_theme g_theme_nebula = {
+    /* NOTE: anything drawn ON the #7AA2F7 accent uses the dark #1A1B26 ink,
+     * not white - white scores 2.4:1 against this blue, the dark ink 8.7:1. */
+    .desktop_bg = TB_RGB(0x16, 0x16, 0x1E),
+
+    .btn_bg = TB_RGB(0x2A, 0x2E, 0x40),
+    .btn_bg_hot = TB_RGB(0x3B, 0x42, 0x61),
+    .btn_bg_active = TB_RGB(0x7A, 0xA2, 0xF7),
+    .btn_fg = TB_RGB(0xC0, 0xCA, 0xF5),
+
+    .hotkey_fg = TB_RGB(0x1A, 0x1B, 0x26),
+    .hotkey_key_fg = TB_RGB(0x8C, 0x2E, 0x2E),
+    .hotkey_bg = TB_RGB(0x7A, 0xA2, 0xF7),
+    .hotkey_fg_hot = TB_RGB(0x1A, 0x1B, 0x26),
+    .hotkey_bg_hot = TB_RGB(0x9E, 0xBC, 0xFF),
+
+    .menu_fg = TB_RGB(0xC0, 0xCA, 0xF5),
+    .menu_bg = TB_RGB(0x1F, 0x22, 0x33),
+    .menu_fg_sel = TB_RGB(0x1A, 0x1B, 0x26),
+    .menu_bg_sel = TB_RGB(0x7A, 0xA2, 0xF7),
+    .menu_item_fg = TB_RGB(0xC0, 0xCA, 0xF5),
+    .menu_item_bg = TB_RGB(0x1F, 0x22, 0x33),
+    .menu_item_fg_hot = TB_RGB(0x1A, 0x1B, 0x26),
+    .menu_item_bg_hot = TB_RGB(0x7A, 0xA2, 0xF7),
+    .menu_item_shortcut_fg = TB_RGB(0x7D, 0x86, 0xA8),
+    .menu_item_fg_disabled = TB_RGB(0x56, 0x5F, 0x89),
+    .menu_border_fg = TB_RGB(0x3B, 0x42, 0x61),
+    .menu_border_bg = TB_RGB(0x1F, 0x22, 0x33),
+    .menu_border_style = UI_BORDER_SINGLE,
+
+    .box_fg = TB_RGB(0xC0, 0xCA, 0xF5),
+    .box_bg = TB_RGB(0x1F, 0x22, 0x33),
+    .box_border_style = UI_BORDER_DOUBLE,
+
+    .window_border_fg = TB_RGB(0xC0, 0xCA, 0xF5),
+    .window_border_bg = TB_RGB(0x1F, 0x22, 0x33),
+    .window_border_fg_dragging = TB_RGB(0x7A, 0xA2, 0xF7),
+    .window_border_fg_unfocused = TB_RGB(0x56, 0x5F, 0x89),
+    .window_border_style = UI_BORDER_DOUBLE,
+    .window_border_style_unfocused = UI_BORDER_SINGLE,
+    .window_border_style_docked = UI_BORDER_SINGLE,
+    .window_border_style_docked_unfocused = UI_BORDER_SINGLE,
+    .window_close_bg = TB_RGB(0xF7, 0x76, 0x8E),
+    .window_fg = TB_RGB(0xC0, 0xCA, 0xF5),
+    .window_bg = TB_RGB(0x1F, 0x22, 0x33),
+    .modal_border_fg = TB_RGB(0xC0, 0xCA, 0xF5),
+    .modal_border_bg = TB_RGB(0x1F, 0x22, 0x33),
+    .modal_border_style = UI_BORDER_DOUBLE,
+    .modal_fg = TB_RGB(0xC0, 0xCA, 0xF5),
+    .modal_bg = TB_RGB(0x1F, 0x22, 0x33),
+    .label_fg = TB_RGB(0x7A, 0xA2, 0xF7),  /* the theme's blue accent */
+    .scrollbar_bg = TB_RGB(0x1F, 0x22, 0x33),
+    .scrollbar_thumb_bg = TB_RGB(0x3B, 0x42, 0x61),
+
+    .input_bg = TB_RGB(0x2A, 0x2E, 0x40),
+    .input_bg_focus = TB_RGB(0x16, 0x16, 0x1E),  /* darker than input_bg so
+                                                  * focus reads without a blue
+                                                  * tint, which would collide
+                                                  * with input_sel_bg below */
+    .input_fg = TB_RGB(0xC0, 0xCA, 0xF5),
+    .input_fg_focus = TB_RGB(0xFF, 0xFF, 0xFF),
+    .input_sel_bg = TB_RGB(0x2E, 0x3C, 0x64),
+    .input_sel_fg = TB_RGB(0xFF, 0xFF, 0xFF),
+
+    .editor_bg = TB_RGB(0x1A, 0x1B, 0x26),
+    .editor_fg = TB_RGB(0xC0, 0xCA, 0xF5),
+    .editor_keyword_fg = TB_RGB(0xF7, 0x76, 0x8E),   /* types/storage: rose -
+                                                      * the same color the
+                                                      * screenshot gives
+                                                      * `return`/`const` */
+    .editor_keyword2_fg = TB_RGB(0xBB, 0x9A, 0xF7),  /* control flow: violet */
+    .editor_string_fg = TB_RGB(0x9E, 0xCE, 0x6A),
+    .editor_comment_fg = TB_RGB(0x56, 0x5F, 0x89),
+    .editor_lint_fg = TB_RGB(0xE0, 0xAF, 0x68),  /* amber - stands out from the
+                                                  * dim indigo comment gray */
+    .editor_linenum_fg = TB_RGB(0x3B, 0x42, 0x61),
+    .editor_preproc_fg = TB_RGB(0xBB, 0x9A, 0xF7),
+    .editor_sel_bg = TB_RGB(0x2E, 0x3C, 0x64),
+    .editor_sel_fg = TB_RGB(0xFF, 0xFF, 0xFF),
+    .editor_word_match_bg = TB_RGB(0x28, 0x2D, 0x43),
+    .editor_current_line_bg = TB_RGB(0x21, 0x23, 0x33),  /* one subtle step up
+                                                          * from editor_bg */
+    .editor_bracket_fg = {
+        TB_RGB(0xE0, 0xAF, 0x68),  /* amber */
+        TB_RGB(0xF7, 0x76, 0x8E),  /* rose */
+        TB_RGB(0x73, 0xDA, 0xCA),  /* teal */
+        TB_RGB(0x7A, 0xA2, 0xF7),  /* blue */
+    },
+    .editor_tag_fg = TB_RGB(0x73, 0xDA, 0xCA),  /* teal - deliberately NOT the
+                                                 * cyan editor_keyword_fg, so a
+                                                 * tag name reads apart from
+                                                 * the `struct` before it */
+    .editor_number_fg = TB_RGB(0xFF, 0x9E, 0x64),  /* orange - numeric and
+                                                     * NULL-style literals */
+    .editor_char_fg = TB_RGB(0xFF, 0xC7, 0x77),    /* warm gold - distinct from
+                                                     * the green string_fg and
+                                                     * from the rose now used
+                                                     * by editor_keyword_fg */
+    .editor_function_fg = TB_RGB(0x7A, 0xA2, 0xF7),  /* blue - the same accent
+                                                       * the chrome uses */
+    .editor_output_bg = TB_RGB(0x16, 0x16, 0x1E),  /* one step darker than
+                                                    * editor_bg, so Output
+                                                    * reads as recessed */
+    .editor_output_fg = TB_RGB(0xC0, 0xCA, 0xF5),
+
+    /* UI_SYNTAX_MARKDOWN - mirrors this theme's own C-highlighting accents
+     * rather than reusing them directly, so Markdown reads as part of the
+     * same indigo palette. */
+    .md_heading_fg = TB_RGB(0x7A, 0xA2, 0xF7),
+    .md_blockquote_fg = TB_RGB(0x56, 0x5F, 0x89),
+    .md_code_fg = TB_RGB(0x9E, 0xCE, 0x6A),
+    .md_bold_fg = TB_RGB(0xC0, 0xCA, 0xF5),
+    .md_link_fg = TB_RGB(0x73, 0xDA, 0xCA),
+    .md_code_bg = TB_RGB(0x1F, 0x22, 0x33),
+
+    /* <listbox> - same body colors as <editor>/<input>, selection reuses the
+     * same #7AA2F7 accent as every other "selected" state in this theme. */
+    .listbox_fg = TB_RGB(0x9A, 0xA5, 0xCE),  /* dimmer than editor_fg: the
+                                              * Folder panel is the biggest
+                                              * list on screen and shouldn't
+                                              * pull attention off the code */
+    .listbox_bg = TB_RGB(0x1A, 0x1B, 0x26),
+    .listbox_sel_fg = TB_RGB(0x1A, 0x1B, 0x26),
+    .listbox_sel_bg = TB_RGB(0x7A, 0xA2, 0xF7),
+    .listbox_sel_inactive_fg = TB_RGB(0xC0, 0xCA, 0xF5),
+    .listbox_sel_inactive_bg = TB_RGB(0x2A, 0x2E, 0x40),
+
+    /* <editor> inline diagnostics - the palette's own red/amber/blue, so the
+     * squiggles read as part of this theme. */
+    .diag_error_fg = TB_RGB(0xDB, 0x4B, 0x4B),
+    .diag_warning_fg = TB_RGB(0xE0, 0xAF, 0x68),
+    .diag_info_fg = TB_RGB(0x0D, 0xB9, 0xD7),
+};
+
+/* Index into the Theme <select> (Ambar=0/Dark=1/White=2/Nebula=3 - matches the
  * add_select_item() order in app_init()) of whichever theme is currently
- * applied. Kept in sync by apply_theme()'s three callers below and read
+ * applied. Kept in sync by apply_theme()'s callers below and read
  * back by EVT_OPTIONS_ENV to select the right row each time the dialog
  * opens, instead of always defaulting to the first. */
 
@@ -1786,7 +1943,7 @@ static ui_node* make_new_editor_window(ui_node* root, int seq)
  * next frame just from ui_set_theme() - the desktop backdrop doesn't,
  * since it's a per-screen value the app set explicitly (ui_screen_set_
  * desktop()), so it needs this one extra call to track the theme too. */
-/* Theme <select> row order - Ambar=0/Dark=1/White=2, matching the
+/* Theme <select> row order - Ambar=0/Dark=1/White=2/Nebula=3, matching the
  * add_select_item() calls in app_init(). Out-of-range (a hand-edited or
  * future session file) falls back to the startup default rather than
  * indexing off the end. */
@@ -1796,6 +1953,7 @@ static const ui_theme* theme_by_index(int index)
     {
     case 0:  return &g_theme_ambar;
     case 2:  return &g_theme_white;
+    case 3:  return &g_theme_nebula;
     default: return &g_theme_dark;
     }
 }
@@ -3015,7 +3173,7 @@ static void open_dialog_activate(int index)
  * off and see everything unfiltered instead. */
 static void folder_window_refresh(void)
 {
-    populate_listbox_from_dir(g_folder.listbox, g_folder.dir, "*.h;*.c;*.md", 0,
+    populate_listbox_from_dir(g_folder.listbox, g_folder.dir, "*.h;*.c;*.md;*.txt", 0,
                                g_folder.filter_enabled);
 
     /* Just the folder's own name, not the full path - there's no room for
@@ -6541,10 +6699,14 @@ static int wordwrap_is_blank_line(const char* s, int len)
  * whitespace into words, then repacked greedily into new lines no wider
  * than `columns` (a single word longer than that still gets its own line
  * rather than being split mid-word) - all reindented to match the
- * paragraph's first line's own leading whitespace. Returns a malloc'd,
- * NUL-terminated buffer (or NULL if out of memory); *out_len is the
- * reflowed text's length (excluding the NUL). */
-static char* wordwrap_text(const char* sel, int sel_len, int columns, int* out_len)
+ * paragraph's first line's own leading whitespace. When `justify` is set,
+ * every line but a paragraph's last is padded with extra inter-word spaces
+ * (distributed as evenly as possible, leftmost gaps getting the remainder)
+ * so it reaches exactly `columns` wide - single-word lines are left alone
+ * since there's no gap to pad. Returns a malloc'd, NUL-terminated buffer (or
+ * NULL if out of memory); *out_len is the reflowed text's length (excluding
+ * the NUL). */
+static char* wordwrap_text(const char* sel, int sel_len, int columns, int justify, int* out_len)
 {
     if (columns < 1)
         columns = 1;
@@ -6644,35 +6806,72 @@ static char* wordwrap_text(const char* sel, int sel_len, int columns, int* out_l
                 wwbuf_append(&out, "\n", 1);
             have_output = 1;
 
-            int cur_len = 0;  /* bytes on the output line being built, incl. indent */
-            for (int w = 0; w < word_count; w++)
+            /* First pass: same greedy packing as before, but recorded as
+             * word-index spans rather than emitted right away - justify
+             * (below) needs to know a line's word count and whether it's
+             * the paragraph's last line before writing any of its words. */
+            typedef struct { int start, count; } line_span;
+            int line_cap = 8, line_count = 0;
+            line_span* lines = malloc(sizeof(line_span) * (size_t)line_cap);
+            int w = 0;
+            while (lines && w < word_count)
             {
-                int wlen = words[w].len;
-                const char* wtext = sel + words[w].start;
-                int is_first_on_line = (cur_len == 0);
-                int needed = is_first_on_line ? indent_len + wlen : cur_len + 1 + wlen;
-
-                if (!is_first_on_line && needed > columns)
+                int line_start = w;
+                int cur_len = indent_len + words[w].len;
+                w++;
+                while (w < word_count && cur_len + 1 + words[w].len <= columns)
                 {
-                    wwbuf_append(&out, "\n", 1);
-                    cur_len = 0;
-                    is_first_on_line = 1;
+                    cur_len += 1 + words[w].len;
+                    w++;
                 }
-                if (is_first_on_line)
+                if (line_count >= line_cap)
                 {
-                    for (int k = 0; k < indent_len; k++)
-                        wwbuf_append(&out, " ", 1);
-                    cur_len = indent_len;
+                    line_cap *= 2;
+                    line_span* nl = realloc(lines, sizeof(line_span) * (size_t)line_cap);
+                    if (!nl) { free(lines); lines = NULL; break; }
+                    lines = nl;
                 }
-                else
+                if (lines)
                 {
-                    wwbuf_append(&out, " ", 1);
-                    cur_len++;
+                    lines[line_count].start = line_start;
+                    lines[line_count].count = w - line_start;
+                    line_count++;
                 }
-                wwbuf_append(&out, wtext, (size_t)wlen);
-                cur_len += wlen;
             }
 
+            for (int li = 0; lines && li < line_count; li++)
+            {
+                if (li > 0)
+                    wwbuf_append(&out, "\n", 1);
+                int wstart = lines[li].start;
+                int wcount = lines[li].count;
+                int is_last_line = (li == line_count - 1);
+
+                for (int k = 0; k < indent_len; k++)
+                    wwbuf_append(&out, " ", 1);
+
+                int word_chars = 0;
+                for (int k = 0; k < wcount; k++)
+                    word_chars += words[wstart + k].len;
+                int gaps = wcount - 1;
+                int space_budget = columns - indent_len - word_chars;
+                int use_justify = justify && !is_last_line && gaps > 0 && space_budget >= gaps;
+                int base = use_justify ? space_budget / gaps : 1;
+                int extra = use_justify ? space_budget % gaps : 0;
+
+                for (int k = 0; k < wcount; k++)
+                {
+                    wwbuf_append(&out, sel + words[wstart + k].start, (size_t)words[wstart + k].len);
+                    if (k < wcount - 1)
+                    {
+                        int spaces = base + (k < extra ? 1 : 0);
+                        for (int s = 0; s < spaces; s++)
+                            wwbuf_append(&out, " ", 1);
+                    }
+                }
+            }
+
+            free(lines);
             free(words);
         }
 
@@ -6687,7 +6886,7 @@ static char* wordwrap_text(const char* sel, int sel_len, int columns, int* out_l
     return out.buf;
 }
 
-static void do_edit_wordwrap(int columns)
+static void do_edit_wordwrap(int columns, int justify)
 {
     int lo, hi;
     ui_node* ed = edit_selection_target(&lo, &hi);
@@ -6695,7 +6894,7 @@ static void do_edit_wordwrap(int columns)
         return;
     const char* text = ui_get_value(ed);
     int out_len;
-    char* out = wordwrap_text(text + lo, hi - lo, columns, &out_len);
+    char* out = wordwrap_text(text + lo, hi - lo, columns, justify, &out_len);
     if (out)
         edit_replace_selection(ed, lo, hi, out, out_len);
 }
@@ -7173,6 +7372,7 @@ static void on_ui_event(void* ctx, int id, void* param)
         char buf[16];
         snprintf(buf, sizeof buf, "%d", g_wordwrap_columns);
         ui_set_value(g_wordwrap_input, buf);
+        ui_group_set_checked(g_wordwrap_justify, 0, g_wordwrap_justify_on);
         ui_screen_show_modal(g_screen, g_wordwrap_modal);
         ui_screen_focus(g_screen, g_wordwrap_input);
     }
@@ -7183,8 +7383,9 @@ static void on_ui_event(void* ctx, int id, void* param)
         if (columns > 0)
         {
             g_wordwrap_columns = columns;
+            g_wordwrap_justify_on = ui_group_get_checked(g_wordwrap_justify, 0);
             editor = editor_in_window(g_active_editor_window);
-            do_edit_wordwrap(columns);
+            do_edit_wordwrap(columns, g_wordwrap_justify_on);
         }
         ui_screen_close_modal(g_screen, g_wordwrap_modal);
         g_goto_pending_focus = editor;  /* focus after this update finishes -
@@ -7688,6 +7889,11 @@ static void on_ui_event(void* ctx, int id, void* param)
     {
         apply_theme(&g_theme_white);
         g_envdlg.theme_index = 2;
+    }
+    else if (id == EVT_ENV_THEME_NEBULA)
+    {
+        apply_theme(&g_theme_nebula);
+        g_envdlg.theme_index = 3;
     }
     else if (id >= EVT_ENV_FONT_BASE &&
              id < EVT_ENV_FONT_BASE + ui_env_font_family_count(g_env))
@@ -8929,22 +9135,24 @@ void app_init(ui_env* env)
     ui_node* wordwrap_modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, wordwrap_modal);
     ui_node* wordwrap_window = ui_create_element(UI_TAG_WINDOW);
-    ui_set_rect(wordwrap_window, 20, 7, 40, 8);
+    ui_set_rect(wordwrap_window, 20, 7, 40, 9);
     ui_set_label(wordwrap_window, " Word Wrap ");
     ui_set_color(wordwrap_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(wordwrap_modal, wordwrap_window);
     add_text(wordwrap_window, 23, 9, "Columns", theme->label_fg, theme->modal_bg);
-    g_wordwrap_input = add_input(wordwrap_window, 46, 9, 11, "80");
+    g_wordwrap_input = add_input(wordwrap_window, 31, 9, 11, "80");
     ui_set_id(g_wordwrap_input, EVT_WORDWRAP_INPUT);
     ui_set_numeric(g_wordwrap_input, 1);
+    g_wordwrap_justify = add_group(wordwrap_window, 23, 11, 20, 1, 1);
+    add_group_item(g_wordwrap_justify, "Justify");
     ui_node* wordwrap_ok = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(wordwrap_ok, EVT_WORDWRAP_OK);
-    ui_set_rect(wordwrap_ok, 29, 12, 10, 1);
+    ui_set_rect(wordwrap_ok, 29, 13, 10, 1);
     ui_set_label(wordwrap_ok, "  OK  ");
     ui_append_child(wordwrap_window, wordwrap_ok);
     ui_node* wordwrap_cancel = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(wordwrap_cancel, EVT_WORDWRAP_CANCEL);
-    ui_set_rect(wordwrap_cancel, 41, 12, 10, 1);
+    ui_set_rect(wordwrap_cancel, 41, 13, 10, 1);
     ui_set_label(wordwrap_cancel, "Cancel");
     ui_append_child(wordwrap_window, wordwrap_cancel);
     g_wordwrap_modal = wordwrap_modal;
@@ -9235,6 +9443,7 @@ void app_init(ui_env* env)
     add_select_item(theme_select, EVT_ENV_THEME_AMBAR, "Ambar");
     add_select_item(theme_select, EVT_ENV_THEME_DARK, "Dark");
     add_select_item(theme_select, EVT_ENV_THEME_WHITE, "White");
+    add_select_item(theme_select, EVT_ENV_THEME_NEBULA, "Nebula");
     ui_select_set_selected(theme_select, g_envdlg.theme_index);
     g_envdlg.theme_select = theme_select;
 

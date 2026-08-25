@@ -1026,7 +1026,33 @@ void f(void)
 }
 ```
 
-### 73–75, 77–81, 85–127 Reserved / unused warnings
+### 85 Condition is always true or false (flow) (disabled by default)
+
+The `if` condition is already decided by what flow analysis knows at that
+point, on every path reaching it -- so one of the two branches can never
+run. A condition whose value differs between paths is not reported.
+
+Off by default: plenty of deliberate code has a decided condition (a guard
+kept for clarity, a test on a build-time macro), and inside a `while`/`do`
+body the analysis reasons from the state after one iteration, so a condition
+on a variable that body itself assigns can read as decided when the first
+iteration says otherwise. Enable it with `-w085` when auditing.
+
+<!-- runnable -->
+
+```c
+// -w085
+#pragma safety enable
+
+int main() {
+    int i = 1;
+    if (i) //warning C0085: condition is always true
+    {
+    }
+}
+```
+
+### 73–75, 77–81, 86–127 Reserved / unused warnings
 
 ## Errors 
 

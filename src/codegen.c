@@ -739,10 +739,6 @@ static enum sizeof_result vm_emit_sizeof_expr_core(struct codegen_ctx* ctx,
             }
 
             //
-            if (result > /*SIZEMAX*/ 4294967295)
-            {
-                return SIZEOF_RESULT_OVERLOW; //lint 68 rechable in x64
-            }
             *size = (size_t)result;
         }
         else

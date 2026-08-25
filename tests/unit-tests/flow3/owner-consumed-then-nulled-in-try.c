@@ -70,14 +70,15 @@ struct E* _Owner _Opt consume_then_throw(void)
     catch
     {
         /*
-           KNOWN FALSE POSITIVE. p is either the untouched object or null,
-           never the consumed one, so this must not warn. The //lint marker
-           records today's wrong answer so the suite stays green; an
-           unmatched marker fails the suite, so fixing the analyser will
-           fail this test and prompt deleting the marker -- and the control
-           case below guards against "fixing" it by going silent everywhere.
+           p is either the untouched object or null, never the consumed one,
+           so this must not warn -- and no longer does. Each throw now
+           contributes its state to the catch under its own snapshot origin,
+           so the "consumed at line N" fact stays paired with the arm that
+           ran the call instead of applying to every arm. The control case
+           below is what guards against "fixing" this by going silent
+           everywhere.
         */
-        del(p); //lint 31 object lifetime has ended
+        del(p);
         p = NULL;
     }
 

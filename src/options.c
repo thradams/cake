@@ -186,6 +186,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_OUT_OF_BOUNDS:
     case W_FLOW_CTOR_NOT_INITIALIZED_AT_EXIT:
     case W_FLOW_PARAM_OWNER_CONSUMED_AT_EXIT:
+    case W_FLOW_CONDITION_KNOWN_AT_COMPILE_TIME:
     case W_COMPILE_ASSERT_UNPROVEM:
 
         /* The former W_OWNERSHIP_* group (22-26). These are now reported by
@@ -257,6 +258,10 @@ int fill_options(struct options* options,
     options_set_warning(options, W_PARAM_SET_BUT_NOT_USED, false);
     options_set_warning(options, W_SET_BUT_NOT_USED, false);
     options_set_warning(options, W_UNUSED_VARIABLE, false);
+    /* Off by default: it fires on plenty of deliberate code (a condition
+       decided by a build-time macro, a redundant null guard kept for
+       clarity), so it is opt-in with -w085. */
+    options_set_warning(options, W_FLOW_CONDITION_KNOWN_AT_COMPILE_TIME, false);
 
     options_set_warning(options, W_STYLE, false);
     options_set_note(options, W_INFO, true);

@@ -19,7 +19,7 @@ void multi_break_while(int x)
     {
         if (x == 1)
         {
-            a = 1; //lint 68 unreachable code
+            a = 1;
             break;
         }
         if (x == 2)

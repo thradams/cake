@@ -351,6 +351,7 @@ bool type_is_nullptr_t(const struct type* p_type);
 bool type_is_void_ptr(const struct type* p_type);
 bool type_is_integer(const struct type* p_type);
 bool type_is_char(const struct type* p_type);
+bool type_is_wchar(const struct type* p_type, enum target target);
 bool type_is_array_of_char(const struct type* p_type);
 bool type_is_unsigned_integer(const struct type* p_type);
 bool type_is_signed_integer(const struct type* p_type);

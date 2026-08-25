@@ -1482,6 +1482,19 @@ bool type_is_char(const struct type* p_type)
 }
 
 /*
+  True for wchar_t, whichever integer type the target maps it to
+  (unsigned short on msvc, int elsewhere). Used to tell "%ls" apart
+  from "%s" when checking printf format strings.
+*/
+bool type_is_wchar(const struct type* p_type, enum target target)
+{
+    if (!type_is_integer(p_type))
+        return false;
+
+    return type_to_object_type(p_type, target) == get_platform(target)->wchar_t_type;
+}
+
+/*
   The type char, the signed and unsigned integer types,
   and the enumerated types
   are collectively  called integer types.
@@ -2068,18 +2081,18 @@ struct type type_dup(const struct type* p_type)
             *p_new = *p;
 
             //actually I was not the _Owner of p_new->next
-            p_new->next = NULL;
+            p_new->next = NULL; //lint 26 not following rules
 
             if (p->name_opt)
             {
                 //actually p_new->name_opt was not mine..
-                p_new->name_opt = strdup(p->name_opt); //lint 35 flow bug
+                p_new->name_opt = strdup(p->name_opt); //lint 26 not following rules 
             }
 
             if (p->category == TYPE_CATEGORY_FUNCTION)
             {
                 //actually p_new->params.head  p_new->params.tail and was not mine..
-                p_new->params.head = NULL;
+                p_new->params.head = NULL;//lint 26 not following rules
                 p_new->params.tail = NULL;
 
                 struct param* _Opt p_param = p->params.head;
@@ -2120,14 +2133,14 @@ struct type type_dup(const struct type* p_type)
            name_opt re-strdup'd, params rebuilt) -- see the "actually I was not
            the _Owner of ..." notes above. p is const and is never consumed,
            but each copied owner member reads as a move. */
-        return r; //lint 72
+        return r; 
     }
     catch
     {
     }
 
     struct type empty = { 0 };
-    return empty; //lint 72 72 72
+    return empty; //lint 72 72 72 72 not following rules
 }
 
 static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier,
@@ -2661,7 +2674,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                 }
             }
 
-            d = d->next; //lint 33 flow bug
+            d = d->next; 
         }
 
         /* Flush any trailing open bitfield storage unit */

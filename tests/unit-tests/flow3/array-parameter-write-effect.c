@@ -11,11 +11,11 @@
    of the if as unreachable code even though the callee may well have
    stored 'F' there.
 
-   The equivalent POINTER parameter (fill_ptr below) already applies the
-   effect and is correct; only the array-parameter spelling is affected,
-   for both a declared-only and a defined callee. Since `char s[4]` and
-   `char *s` name the same parameter after C's adjustment rule, the three
-   must analyse identically.
+   The equivalent POINTER parameter (fill_ptr below) always applied the
+   effect; the array-parameter spelling used to be copied element by
+   element instead, for both a declared-only and a defined callee. Since
+   `char s[4]` and `char *s` name the same parameter after C's adjustment
+   rule, the three must analyse identically.
 
    Found in cake's own source: expressions.c reads a numeric suffix via
 
@@ -35,10 +35,7 @@
    See also array_out.c, which covers this shape but leaves its `return 1;`
    commented out and so never asserts it.
 
-   The //lint markers on A and B record today's wrong answer so the suite
-   stays green. An unmatched marker fails the suite, so fixing the analyser
-   will fail this test and prompt deleting them -- and C and D guard against
-   "fixing" it by going silent, or noisy, everywhere.
+   C and D guard against "fixing" it by going silent, or noisy, everywhere.
 */
 
 /* A: callee only declared */
@@ -50,7 +47,7 @@ int declared_callee(void)
     fill_decl(s);
     if (s[0] == 'F')
     {
-        return 1; //lint 68 KNOWN FALSE POSITIVE: reachable, fill_decl can have written s[0]
+        return 1; /* ok: reachable, and correctly not reported */
     }
     return 0;
 }
@@ -68,7 +65,7 @@ int defined_callee(void)
     fill_def(s);
     if (s[0] == 'F')
     {
-        return 1; //lint 68 KNOWN FALSE POSITIVE: reachable, fill_def can have written s[0]
+        return 1; /* ok: reachable, and correctly not reported */
     }
     return 0;
 }
