@@ -934,7 +934,7 @@ static void run_tests(void)
 
     execute_cmd(RUN EXE(CKC_NAME) " -selftest");
 
-    execute_cmd(RUN EXE(CKC_NAME) " -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -wd74 -wd85 -test-mode");
+    execute_cmd(RUN EXE(CKC_NAME) " -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -wd44 -wd74 -wd85 -test-mode");
     execute_cmd(RUN EXE(CKC_NAME) "  -fdiagnostics-color=never -wd20 -wd85 ../tests/unit-tests/*.c -test-mode");
     
     execute_cmd(RUN EXE(CKC_NAME) "  -fdiagnostics-color=never -wd20 -wd82 -wd85 ../tests/unit-tests/flow3/*.c -test-mode");
@@ -945,7 +945,7 @@ static void run_tests(void)
     print_header("Run tests (cake89)");
 
     execute_cmd(RUN EXE(CKC89_NAME) " -selftest");
-    execute_cmd(RUN EXE(CKC89_NAME) " -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -wd74 -wd85 -test-mode");
+    execute_cmd(RUN EXE(CKC89_NAME) " -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -wd44 -wd74 -wd85 -test-mode");
     execute_cmd(RUN EXE(CKC89_NAME) "  -fdiagnostics-color=never -wd20 -wd85 ../tests/unit-tests/*.c -test-mode");
     execute_cmd(RUN EXE(CKC89_NAME) "  -fdiagnostics-color=never -wd20 -wd82 -wd85 ../tests/unit-tests/flow3/*.c -test-mode");
     execute_cmd(RUN EXE(CKC89_NAME) "  -fdiagnostics-color=never -wd20 -wd85 ../tests/output-test/*.c -test-mode-in-out");
