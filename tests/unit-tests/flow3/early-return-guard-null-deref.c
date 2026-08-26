@@ -45,7 +45,7 @@ struct ctx
     struct X* _Opt p;
 };
 
-void backwards_guard_member(struct ctx* c)
+void backwards_guard_member(const struct ctx* c)
 {
     if (c->p != NULL)
         return;
@@ -64,7 +64,7 @@ void backwards_guard_in_for(struct X* _Opt p, int n)
 
 void backwards_guard_in_while(struct X* _Opt p)
 {
-    while (1)
+    while (1)//lint 44
     {
         if (p != NULL)
             return;

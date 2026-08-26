@@ -1368,11 +1368,68 @@ struct printf_like_function
     int fmt_arg_index; //0-based index of the format string parameter
 };
 
-/*
-  If p_type names a known printf-like function and its format argument is a
-  string literal, validates the format specifiers against the variadic
-  arguments passed after it.
-*/
+static const struct expression* _Opt find_resolved_string_literal(const struct expression* p_expression)
+{
+    for (;;)
+    {
+        if (p_expression->expression_type == EXPR_PRIMARY_GENERIC)
+        {
+            if (p_expression->generic_selection == NULL ||
+                p_expression->generic_selection->p_view_selected_expression == NULL)
+            {
+                return NULL;
+            }
+            p_expression = p_expression->generic_selection->p_view_selected_expression;
+            continue;
+        }
+
+        if (p_expression->expression_type == EXPR_CONDITIONAL)
+        {
+            if (!object_has_constant_value(&p_expression->condition_expr->object)) //lint 33 not null
+                return NULL; //condition not a constant expression
+
+            const struct expression* _Opt p_selected =
+                object_is_true(&p_expression->condition_expr->object) ? 
+                    (p_expression->left ? p_expression->left : p_expression->condition_expr) :
+                    p_expression->right; //lint 33 not null
+
+            if (p_selected == NULL)
+                return NULL;
+
+            p_expression = p_selected;
+            continue;
+        }
+
+        if (p_expression->expression_type == EXPR_PRIMARY_DECLARATOR)
+        {
+            /*
+              accepts constexpr/const variables initialized with a literal
+              (e.g. constexpr char *fmt = "..."; constexpr char fmt[] = "...";
+              const char *fmt = "...";)
+            */
+            if (p_expression->declarator == NULL ||
+                !(type_is_const_or_constexpr(&p_expression->declarator->type) ||
+                  type_is_pointer_to_const(&p_expression->declarator->type)) ||
+                p_expression->p_init_declarator == NULL ||
+                p_expression->p_init_declarator->initializer == NULL ||
+                p_expression->p_init_declarator->initializer->assignment_expression == NULL)
+            {
+                return NULL; //not a const/constexpr variable initialized with a literal
+            }
+
+            p_expression = p_expression->p_init_declarator->initializer->assignment_expression;
+            continue;
+        }
+
+        break;
+    }
+
+    if (p_expression->expression_type != EXPR_PRIMARY_STRING_LITERAL)
+        return NULL;
+
+    return p_expression;
+}
+
 static void check_printf_like_call(const struct parser_ctx* ctx,
     const struct type* p_type,
     struct argument_expression_list* p_argument_expression_list)
@@ -1410,15 +1467,16 @@ static void check_printf_like_call(const struct parser_ctx* ctx,
     if (p_fmt_arg == NULL)
         return;
 
-    if (p_fmt_arg->expression->expression_type != EXPR_PRIMARY_STRING_LITERAL)
-        return; //not a literal, cannot be checked statically
+    const struct expression* _Opt p_resolved_fmt = find_resolved_string_literal(p_fmt_arg->expression);
+    if (p_resolved_fmt == NULL)
+        return; //not a literal (or a statically resolvable _Generic/?: selecting one)
 
-    if (!type_is_array_of_char(&p_fmt_arg->expression->type))
+    if (!type_is_array_of_char(&p_resolved_fmt->type))
         return; //wide/L,u,u16,u32 string, decoded objects are not single bytes
 
     struct argument_expression* _Opt p_first_var_arg = p_fmt_arg->next;
 
-    struct osstream ss = build_printf_format_text(p_fmt_arg->expression);
+    struct osstream ss = build_printf_format_text(p_resolved_fmt);
 
     check_fmt(ctx, p_fmt_arg->expression->first_token, ss.c_str != NULL ? ss.c_str : "", p_first_var_arg);
 
@@ -4625,6 +4683,27 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                     new_expression->expression_type = EXPR_UNARY_NEG;
                 else
                     new_expression->expression_type = EXPR_UNARY_PLUS;
+
+                if (!type_is_arithmetic(&new_expression->right->type))
+                {
+                    diagnostic(C_ERROR_OPERATOR_CANNOT_BE_APPLIED,
+                        ctx,
+                        op_position,
+                        NULL,
+                        "operator cannot be applied to an operand of the given type");
+
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                if (op == '-' && type_is_unsigned_integer(&new_expression->right->type))
+                {
+                    diagnostic(W_UNARY_MINUS_ON_UNSIGNED,
+                        ctx,
+                        op_position,
+                        NULL,
+                        "unary minus operator applied to unsigned type, result still unsigned");
+                }
 
                 /* promote */
                 new_expression->type = type_common(&new_expression->right->type, &new_expression->right->type, ctx->options.target);

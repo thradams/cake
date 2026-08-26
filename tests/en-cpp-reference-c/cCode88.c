@@ -6,6 +6,7 @@ void h(void) {}
 void i(void) {}
  
 void f(int n) {
+  int f = 0;
   switch (n) {
     case 1:
     case 2:
@@ -22,7 +23,7 @@ void f(int n) {
           return;
       }
     case 5:
-      while (false) {
+      while (f) {
         [[fallthrough]]; // ill-formed: no subsequent case or default label
       }
     case 6:

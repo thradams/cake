@@ -696,7 +696,7 @@ enum diagnostic_id {
     W_UNUSED_WARNING_124 = 124,
     W_UNUSED_WARNING_125 = 125,
     W_UNUSED_WARNING_126 = 126,
-    W_UNUSED_WARNING_127 = 127,
+    W_UNARY_MINUS_ON_UNSIGNED = 127,
 
 
     C_ERROR_TOKENIZER_MISSING_TERMINATING = 630,
@@ -819,6 +819,11 @@ enum diagnostic_id {
     C_ERROR_ILLEGAL_USE_OF_TYPE_VOID = 1970,
     C_ERROR_EXTERN_WITH_INITIALIZER_AT_BLOCK_SCOPE = 1980,
     C_ERROR_VOID_PARAMETER_NOT_ALONE = 1990,
+    C_ERROR_OPERATOR_CANNOT_BE_APPLIED = 2000,
+    C_ERROR_TYPEDEF_CANNOT_BE_USED_FOR_FUNCTION_DEFINITION = 2010,
+    C_ERROR_DUPLICATE_TYPE_QUALIFIER = 2020,
+    C_ERROR_TYPEDEF_MISSING_TAG_NAME = 2030,
+    C_ERROR_REDEFINITION_CANNOT_BE_OVERLOADED_WITH_TYPEDEF = 2040,
 };
 
 
@@ -5916,7 +5921,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
         //struct token* current = pFirst;
         bool new_line = true;
         bool has_space = false;
-        while (1)
+        for (;;)
         {
             const int line = stream.line;
             const int col = stream.col;
@@ -16112,6 +16117,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-Wall") == 0)
+        {
+            options_set_all_warnings(options);
+            continue;
+        }
+
         //warnings
         if (argv[i][1] == 'w')
         {
@@ -24266,11 +24277,68 @@ struct printf_like_function
     int fmt_arg_index; //0-based index of the format string parameter
 };
 
-/*
-  If p_type names a known printf-like function and its format argument is a
-  string literal, validates the format specifiers against the variadic
-  arguments passed after it.
-*/
+static const struct expression* _Opt find_resolved_string_literal(const struct expression* p_expression)
+{
+    for (;;)
+    {
+        if (p_expression->expression_type == EXPR_PRIMARY_GENERIC)
+        {
+            if (p_expression->generic_selection == NULL ||
+                p_expression->generic_selection->p_view_selected_expression == NULL)
+            {
+                return NULL;
+            }
+            p_expression = p_expression->generic_selection->p_view_selected_expression;
+            continue;
+        }
+
+        if (p_expression->expression_type == EXPR_CONDITIONAL)
+        {
+            if (!object_has_constant_value(&p_expression->condition_expr->object)) //lint 33 not null
+                return NULL; //condition not a constant expression
+
+            const struct expression* _Opt p_selected =
+                object_is_true(&p_expression->condition_expr->object) ? 
+                    (p_expression->left ? p_expression->left : p_expression->condition_expr) :
+                    p_expression->right; //lint 33 not null
+
+            if (p_selected == NULL)
+                return NULL;
+
+            p_expression = p_selected;
+            continue;
+        }
+
+        if (p_expression->expression_type == EXPR_PRIMARY_DECLARATOR)
+        {
+            /*
+              accepts constexpr/const variables initialized with a literal
+              (e.g. constexpr char *fmt = "..."; constexpr char fmt[] = "...";
+              const char *fmt = "...";)
+            */
+            if (p_expression->declarator == NULL ||
+                !(type_is_const_or_constexpr(&p_expression->declarator->type) ||
+                  type_is_pointer_to_const(&p_expression->declarator->type)) ||
+                p_expression->p_init_declarator == NULL ||
+                p_expression->p_init_declarator->initializer == NULL ||
+                p_expression->p_init_declarator->initializer->assignment_expression == NULL)
+            {
+                return NULL; //not a const/constexpr variable initialized with a literal
+            }
+
+            p_expression = p_expression->p_init_declarator->initializer->assignment_expression;
+            continue;
+        }
+
+        break;
+    }
+
+    if (p_expression->expression_type != EXPR_PRIMARY_STRING_LITERAL)
+        return NULL;
+
+    return p_expression;
+}
+
 static void check_printf_like_call(const struct parser_ctx* ctx,
     const struct type* p_type,
     struct argument_expression_list* p_argument_expression_list)
@@ -24308,15 +24376,16 @@ static void check_printf_like_call(const struct parser_ctx* ctx,
     if (p_fmt_arg == NULL)
         return;
 
-    if (p_fmt_arg->expression->expression_type != EXPR_PRIMARY_STRING_LITERAL)
-        return; //not a literal, cannot be checked statically
+    const struct expression* _Opt p_resolved_fmt = find_resolved_string_literal(p_fmt_arg->expression);
+    if (p_resolved_fmt == NULL)
+        return; //not a literal (or a statically resolvable _Generic/?: selecting one)
 
-    if (!type_is_array_of_char(&p_fmt_arg->expression->type))
+    if (!type_is_array_of_char(&p_resolved_fmt->type))
         return; //wide/L,u,u16,u32 string, decoded objects are not single bytes
 
     struct argument_expression* _Opt p_first_var_arg = p_fmt_arg->next;
 
-    struct osstream ss = build_printf_format_text(p_fmt_arg->expression);
+    struct osstream ss = build_printf_format_text(p_resolved_fmt);
 
     check_fmt(ctx, p_fmt_arg->expression->first_token, ss.c_str != NULL ? ss.c_str : "", p_first_var_arg);
 
@@ -27523,6 +27592,27 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                     new_expression->expression_type = EXPR_UNARY_NEG;
                 else
                     new_expression->expression_type = EXPR_UNARY_PLUS;
+
+                if (!type_is_arithmetic(&new_expression->right->type))
+                {
+                    diagnostic(C_ERROR_OPERATOR_CANNOT_BE_APPLIED,
+                        ctx,
+                        op_position,
+                        NULL,
+                        "operator cannot be applied to an operand of the given type");
+
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                if (op == '-' && type_is_unsigned_integer(&new_expression->right->type))
+                {
+                    diagnostic(W_UNARY_MINUS_ON_UNSIGNED,
+                        ctx,
+                        op_position,
+                        NULL,
+                        "unary minus operator applied to unsigned type, result still unsigned");
+                }
 
                 /* promote */
                 new_expression->type = type_common(&new_expression->right->type, &new_expression->right->type, ctx->options.target);
@@ -33062,7 +33152,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 */
 
 //#pragma once
-#define CAKE_VERSION "0.14.34"
+#define CAKE_VERSION "0.14.36"
 
 
 
@@ -35645,6 +35735,16 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
                 }
                 else if (p_declaration_specifier->type_specifier_qualifier->type_qualifier)
                 {
+                    if (p_declaration_specifiers->type_qualifier_flags &
+                        p_declaration_specifier->type_specifier_qualifier->type_qualifier->flags)
+                    {
+                        diagnostic(C_ERROR_DUPLICATE_TYPE_QUALIFIER,
+                            ctx,
+                            p_declaration_specifier->type_specifier_qualifier->type_qualifier->token,
+                            NULL,
+                            "same type qualifier used more than once");
+                    }
+
                     p_declaration_specifiers->type_qualifier_flags |= p_declaration_specifier->type_specifier_qualifier->type_qualifier->flags;
                 }
             }
@@ -35838,6 +35938,16 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                     if (p_declaration->init_declarator_list.head == NULL)
                         throw;
                 }
+                else if (p_declaration->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
+                {
+                    diagnostic(C_ERROR_TYPEDEF_MISSING_TAG_NAME,
+                        ctx,
+                        p_declaration->declaration_specifiers->first_token ?
+                            p_declaration->declaration_specifiers->first_token :
+                            ctx->current,
+                        NULL,
+                        "'typedef': missing tag name");
+                }
 
                 if (ctx->current == NULL)
                 {
@@ -35851,6 +35961,17 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                 {
                     if (can_be_function_definition)
                         *is_function_definition = true;
+
+                    if (p_declaration->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
+                    {
+                        diagnostic(C_ERROR_TYPEDEF_CANNOT_BE_USED_FOR_FUNCTION_DEFINITION,
+                            ctx,
+                            p_declaration->init_declarator_list.head ?
+                                p_declaration->init_declarator_list.head->p_declarator->first_token_opt :
+                                ctx->current,
+                            NULL,
+                            "typedef cannot be used for function definition");
+                    }
                 }
 #if EXPERIMENTAL_CONTRACTS
                 else if (ctx->current->type == TK_KEYWORD_TRUE ||
@@ -36694,8 +36815,30 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     */
                     if (strcmp(declarator_name, "__C_ASSERT__") != 0)
                     {
+                        const bool previous_is_typedef =
+                            p_previous_declarator->declaration_specifiers != NULL &&
+                            (p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF) != 0;
+                        const bool current_is_typedef =
+                            p_init_declarator->p_declarator->declaration_specifiers != NULL &&
+                            (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF) != 0;
+
+                        if (previous_is_typedef != current_is_typedef)
+                        {
+                            diagnostic(
+                                C_ERROR_REDEFINITION_CANNOT_BE_OVERLOADED_WITH_TYPEDEF,
+                                ctx,
+                                ctx->current,
+                                NULL,
+                                "'%s': redefinition; symbol cannot be overloaded with a typedef", declarator_name);
+
+                            diagnostic(W_LOCATION,
+                                ctx,
+                                p_previous_declarator->name_opt,
+                                NULL,
+                                "previous declaration");
+                        }
                         /* TODO: type_is_same needs changes, see issue #164 */
-                        if (!type_is_same(&p_previous_declarator->type, &p_init_declarator->p_declarator->type, false))
+                        else if (!type_is_same(&p_previous_declarator->type, &p_init_declarator->p_declarator->type, false))
                         {
                             struct osstream ss = { 0 };
                             print_type_no_names(&ss, &p_previous_declarator->type, ctx->options.target);
@@ -38928,6 +39071,15 @@ struct member_declarator* _Owner _Opt member_declarator(
                     p_member_declarator->constant_expression->first_token,
                     NULL,
                     "with of bitfield (%zu) exceess type size (%zu)", bit_field_width, sz);
+            }
+
+            if (bit_field_width == 0 && p_member_declarator->declarator->name_opt)
+            {
+                diagnostic(C_ERROR_STORAGE_SIZE,
+                    ctx,
+                    p_member_declarator->constant_expression->first_token,
+                    NULL,
+                    "named bit field cannot have zero width");
             }
 
             /* adjust the type to be bitfield */
@@ -45033,6 +45185,18 @@ void selection_statement_delete(struct selection_statement* _Owner _Opt p)
   C23 6.8.4.1, 6.8.5.1 the controlling expression of an if, while, do or
   for statement shall have scalar type.
 */
+static void check_constant_condition(const struct parser_ctx* ctx, const struct expression* p_expression)
+{
+    if (object_has_constant_value(&p_expression->object))
+    {
+        diagnostic(W_CONDITIONAL_IS_CONSTANT,
+            ctx,
+            p_expression->first_token,
+            NULL,
+            "conditional expression is constant");
+    }
+}
+
 static void check_controlling_expression(const struct parser_ctx* ctx, const struct expression* p_expression)
 {
     if (!type_is_scalar_decay(&p_expression->type))
@@ -45043,6 +45207,8 @@ static void check_controlling_expression(const struct parser_ctx* ctx, const str
             NULL,
             "controlling expression must have scalar type");
     }
+
+    check_constant_condition(ctx, p_expression);
 }
 
 struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* ctx)
@@ -45156,6 +45322,12 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
             parser_match(ctx);
             p_selection_statement->condition = condition(ctx);
+            if (is_if &&
+                p_selection_statement->condition &&
+                p_selection_statement->condition->expression)
+            {
+                check_constant_condition(ctx, p_selection_statement->condition->expression);
+            }
         }
         else if (ctx->current->type == ')')
         {
@@ -45530,14 +45702,17 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                 throw;
 
             p_iteration_statement->expression1 = expression(ctx, false);
-            if (p_iteration_statement->expression1 != NULL &&
-                !type_is_scalar_decay(&p_iteration_statement->expression1->type))
+            if (p_iteration_statement->expression1 != NULL)
             {
-                diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
-                    ctx,
-                    p_iteration_statement->expression1->first_token,
-                    NULL,
-                    "controlling expression must have scalar type");
+                if (!type_is_scalar_decay(&p_iteration_statement->expression1->type))
+                {
+                    diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
+                        ctx,
+                        p_iteration_statement->expression1->first_token,
+                        NULL,
+                        "controlling expression must have scalar type");
+                }
+                check_constant_condition(ctx, p_iteration_statement->expression1);
             }
             if (parser_match_tk_lint(ctx, ')', &p_iteration_statement->p_lint_token) != 0)
                 throw;

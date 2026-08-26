@@ -17,8 +17,8 @@
    compile error (an unaddressed variable's dropped declaration leaving a
    dangling reference) rather than a silently wrong value, so this doubles
    as confirming the deleted declaration doesn't break any real use.
-*/
-
+*/ 
+ #pragma CAKE diagnostic ignored 44 68
 int printf(const char* fmt, ...);
 
 static int failures = 0;

@@ -551,6 +551,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-Wall") == 0)
+        {
+            options_set_all_warnings(options);
+            continue;
+        }
+
         //warnings
         if (argv[i][1] == 'w')
         {

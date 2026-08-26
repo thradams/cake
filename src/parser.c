@@ -2520,6 +2520,16 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
                 }
                 else if (p_declaration_specifier->type_specifier_qualifier->type_qualifier)
                 {
+                    if (p_declaration_specifiers->type_qualifier_flags &
+                        p_declaration_specifier->type_specifier_qualifier->type_qualifier->flags)
+                    {
+                        diagnostic(C_ERROR_DUPLICATE_TYPE_QUALIFIER,
+                            ctx,
+                            p_declaration_specifier->type_specifier_qualifier->type_qualifier->token,
+                            NULL,
+                            "same type qualifier used more than once");
+                    }
+
                     p_declaration_specifiers->type_qualifier_flags |= p_declaration_specifier->type_specifier_qualifier->type_qualifier->flags;
                 }
             }
@@ -2713,6 +2723,16 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                     if (p_declaration->init_declarator_list.head == NULL)
                         throw;
                 }
+                else if (p_declaration->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
+                {
+                    diagnostic(C_ERROR_TYPEDEF_MISSING_TAG_NAME,
+                        ctx,
+                        p_declaration->declaration_specifiers->first_token ?
+                            p_declaration->declaration_specifiers->first_token :
+                            ctx->current,
+                        NULL,
+                        "'typedef': missing tag name");
+                }
 
                 if (ctx->current == NULL)
                 {
@@ -2726,6 +2746,17 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                 {
                     if (can_be_function_definition)
                         *is_function_definition = true;
+
+                    if (p_declaration->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
+                    {
+                        diagnostic(C_ERROR_TYPEDEF_CANNOT_BE_USED_FOR_FUNCTION_DEFINITION,
+                            ctx,
+                            p_declaration->init_declarator_list.head ?
+                                p_declaration->init_declarator_list.head->p_declarator->first_token_opt :
+                                ctx->current,
+                            NULL,
+                            "typedef cannot be used for function definition");
+                    }
                 }
 #if EXPERIMENTAL_CONTRACTS
                 else if (ctx->current->type == TK_KEYWORD_TRUE ||
@@ -3569,8 +3600,30 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     */
                     if (strcmp(declarator_name, "__C_ASSERT__") != 0)
                     {
+                        const bool previous_is_typedef =
+                            p_previous_declarator->declaration_specifiers != NULL &&
+                            (p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF) != 0;
+                        const bool current_is_typedef =
+                            p_init_declarator->p_declarator->declaration_specifiers != NULL &&
+                            (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF) != 0;
+
+                        if (previous_is_typedef != current_is_typedef)
+                        {
+                            diagnostic(
+                                C_ERROR_REDEFINITION_CANNOT_BE_OVERLOADED_WITH_TYPEDEF,
+                                ctx,
+                                ctx->current,
+                                NULL,
+                                "'%s': redefinition; symbol cannot be overloaded with a typedef", declarator_name);
+
+                            diagnostic(W_LOCATION,
+                                ctx,
+                                p_previous_declarator->name_opt,
+                                NULL,
+                                "previous declaration");
+                        }
                         /* TODO: type_is_same needs changes, see issue #164 */
-                        if (!type_is_same(&p_previous_declarator->type, &p_init_declarator->p_declarator->type, false))
+                        else if (!type_is_same(&p_previous_declarator->type, &p_init_declarator->p_declarator->type, false))
                         {
                             struct osstream ss = { 0 };
                             print_type_no_names(&ss, &p_previous_declarator->type, ctx->options.target);
@@ -5803,6 +5856,15 @@ struct member_declarator* _Owner _Opt member_declarator(
                     p_member_declarator->constant_expression->first_token,
                     NULL,
                     "with of bitfield (%zu) exceess type size (%zu)", bit_field_width, sz);
+            }
+
+            if (bit_field_width == 0 && p_member_declarator->declarator->name_opt)
+            {
+                diagnostic(C_ERROR_STORAGE_SIZE,
+                    ctx,
+                    p_member_declarator->constant_expression->first_token,
+                    NULL,
+                    "named bit field cannot have zero width");
             }
 
             /* adjust the type to be bitfield */
@@ -11908,6 +11970,18 @@ void selection_statement_delete(struct selection_statement* _Owner _Opt p)
   C23 6.8.4.1, 6.8.5.1 the controlling expression of an if, while, do or
   for statement shall have scalar type.
 */
+static void check_constant_condition(const struct parser_ctx* ctx, const struct expression* p_expression)
+{
+    if (object_has_constant_value(&p_expression->object))
+    {
+        diagnostic(W_CONDITIONAL_IS_CONSTANT,
+            ctx,
+            p_expression->first_token,
+            NULL,
+            "conditional expression is constant");
+    }
+}
+
 static void check_controlling_expression(const struct parser_ctx* ctx, const struct expression* p_expression)
 {
     if (!type_is_scalar_decay(&p_expression->type))
@@ -11918,6 +11992,8 @@ static void check_controlling_expression(const struct parser_ctx* ctx, const str
             NULL,
             "controlling expression must have scalar type");
     }
+
+    check_constant_condition(ctx, p_expression);
 }
 
 struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* ctx)
@@ -12031,6 +12107,12 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
             parser_match(ctx);
             p_selection_statement->condition = condition(ctx);
+            if (is_if &&
+                p_selection_statement->condition &&
+                p_selection_statement->condition->expression)
+            {
+                check_constant_condition(ctx, p_selection_statement->condition->expression);
+            }
         }
         else if (ctx->current->type == ')')
         {
@@ -12405,14 +12487,17 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                 throw;
 
             p_iteration_statement->expression1 = expression(ctx, false);
-            if (p_iteration_statement->expression1 != NULL &&
-                !type_is_scalar_decay(&p_iteration_statement->expression1->type))
+            if (p_iteration_statement->expression1 != NULL)
             {
-                diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
-                    ctx,
-                    p_iteration_statement->expression1->first_token,
-                    NULL,
-                    "controlling expression must have scalar type");
+                if (!type_is_scalar_decay(&p_iteration_statement->expression1->type))
+                {
+                    diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
+                        ctx,
+                        p_iteration_statement->expression1->first_token,
+                        NULL,
+                        "controlling expression must have scalar type");
+                }
+                check_constant_condition(ctx, p_iteration_statement->expression1);
             }
             if (parser_match_tk_lint(ctx, ')', &p_iteration_statement->p_lint_token) != 0)
                 throw;

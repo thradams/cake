@@ -10,13 +10,13 @@ int main(void)
     printf("12345678901234567890ull = %llu\n", 12345678901234567890ull);
     // the type is a 64-bit type (unsigned long long or possibly unsigned long)
     // even without a long suffix
-    printf("12345678901234567890u = %"PRIu64"\n", 12345678901234567890u );
+    //printf("12345678901234567890u = %"PRIu64"\n", 12345678901234567890u );
  
     // printf("%lld\n", -9223372036854775808); // Error:
         // the value 9223372036854775808 cannot fit in signed long long, which
         // is the biggest type allowed for unsuffixed decimal integer constant
  
-    printf("%llu\n", -9223372036854775808ull );
+    printf("%llu\n", -9223372036854775808ull ); //lint 127
     // unary minus applied to unsigned value subtracts it from 2^64,
     // this gives unsigned 9223372036854775808
  

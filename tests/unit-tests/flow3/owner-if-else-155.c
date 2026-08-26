@@ -17,7 +17,8 @@ struct X* _Owner _Opt F(int i)
         if (i == 1)
         {
             p1 = malloc(sizeof * p1); // sizeof operand unevaluated: no null deref
-            while (0) {}
+            while (0) //lint 44
+            {}
         }
         else if (i == 3)
         {

@@ -114,7 +114,7 @@ void consume_then_break_ok(void)
     if (p == NULL)
         return;
 
-    while (1)
+    while (1) //lint 44
     {
         if (maybe())
             break;

@@ -1650,7 +1650,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
         //struct token* current = pFirst;
         bool new_line = true;
         bool has_space = false;
-        while (1)
+        for (;;)
         {
             const int line = stream.line;
             const int col = stream.col;
