@@ -4,7 +4,7 @@
  *
  *  struct object is used to compute the compile time expressions (including constexpr)
  *
-*/
+ */
 
 #pragma safety enable
 #include "ownership.h"
@@ -57,15 +57,22 @@ static char* _Opt strrchr2(const char* s, int c)
 
 int fill_preprocessor_options(int argc, const char* const* argv, struct preprocessor_ctx* prectx)
 {
-    /*first loop used to collect options*/
+    /* first loop used to collect options */
     for (int i = 1; i < argc; i++)
     {
         if (argv[i][0] != '-')
-        continue;
+            continue;
 
         if (argv[i][1] == 'I')
         {
-            include_dir_add(&prectx->include_dir, argv[i] + 2);
+            const char* dir = argv[i] + 2;
+            if (*dir == '\0' && i + 1 < argc)
+            {
+                /* `-I dir` (space-separated), same as `-Idir` */
+                i++;
+                dir = argv[i];
+            }
+            include_dir_add(&prectx->include_dir, dir);
             continue;
         }
         if (argv[i][1] == 'D')
@@ -73,7 +80,7 @@ int fill_preprocessor_options(int argc, const char* const* argv, struct preproce
             char buffer[200] = { 0 };
             snprintf(buffer, sizeof buffer, "#define %s \n", argv[i] + 2);
 
-            /*TODO make it more precise*/
+            /* TODO make it more precise */
             char* p = &buffer[7];
             while (*p)
             {
@@ -264,7 +271,7 @@ int generate_config_file(const char* configpath)
                 while (*pch)
                 {
                     if (*pch == '\\')
-                    *pch = '/';
+                        *pch = '/';
                     pch++;
                 }
 
@@ -282,7 +289,7 @@ int generate_config_file(const char* configpath)
     {
     }
     if (outfile)
-    fclose(outfile);
+        fclose(outfile);
 
     if (error == 0)
     {
@@ -328,7 +335,7 @@ int compile_one_file(const char* file_name,
     
     if (include_config_header(&prectx) != 0)
     {
-        //cakeconf.h is optional               
+        // cakeconf.h is optional               
     }
     // print_all_macros(&prectx);
 
@@ -348,7 +355,7 @@ int compile_one_file(const char* file_name,
 
     try
     {
-        //-D , -I etc..
+        // -D , -I etc..
         if (fill_preprocessor_options(argc, argv, &prectx) != 0)
         {
             throw;
@@ -356,7 +363,7 @@ int compile_one_file(const char* file_name,
 
         prectx.options = *options;
 
-        content = read_file(file_name, true /*append new line*/ );
+        content = read_file(file_name, true /* append new line */ );
         if (content == NULL)
         {
             report->error_count++;
@@ -377,13 +384,13 @@ int compile_one_file(const char* file_name,
                 snprintf(sarif_file_name, sizeof sarif_file_name, "%s.cake.sarif", file_name);
             }
 
-            ctx.sarif_file = (FILE * _Owner _Opt) fopen(sarif_file_name, "w");
+            ctx.sarif_file = (FILE* _Owner _Opt) fopen(sarif_file_name, "w");
             if (ctx.sarif_file)
             {
                 const char* begin_sarif =
                 "{\n"
                 "  \"version\": \"2.1.0\",\n"
-                "  \"$schema\": \"https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0-rtm.5.json\",\n"
+                "  \"$schema\": \"https://json.schemastore.org/sarif-2.1.0.json\",\n"
                 "  \"runs\": [\n"
                 "    {\n"
                 "      \"results\": [\n"
@@ -402,7 +409,7 @@ int compile_one_file(const char* file_name,
         tokens = tokenizer(&tctx, content, file_name, 0, TK_FLAG_NONE);
 
         if (tctx.n_errors > 0)
-        throw;
+            throw;
 
         const char* builtin = target_get_builtins(ctx.options.target);
         if (builtin[0] != '\0')
@@ -430,7 +437,7 @@ int compile_one_file(const char* file_name,
         if (options->dump_pptokens)
         {
             if (ast.token_list.head != NULL)
-            print_tokens(color_enabled, ast.token_list.head);
+                print_tokens(color_enabled, ast.token_list.head);
         }
 
         if (options->preprocess_only || options->copy_headers[0] != 0)
@@ -443,13 +450,13 @@ int compile_one_file(const char* file_name,
             {
                 p_output_string = print_preprocessed_to_string2(ast.token_list.head);
                 if (p_output_string)
-                printf("%s", p_output_string);
+                    printf("%s", p_output_string);
 
                 FILE* _Owner _Opt outfile = fopen(out_file_name, "w");
                 if (outfile)
                 {
                     if (p_output_string)
-                    fprintf(outfile, "%s", p_output_string);
+                        fprintf(outfile, "%s", p_output_string);
 
                     fclose(outfile);
                 }
@@ -466,9 +473,15 @@ int compile_one_file(const char* file_name,
             bool berror = false;
             ast.declaration_list = parse(&ctx, &ast.token_list, &ast.file_scope, &berror);
             if (berror || report->error_count > 0)
-            throw;
+                throw;
 
-            if (!options->no_output && !report->has_errors)
+            if (options->format)
+            {
+                p_output_string = get_code_as_we_see(&ast.token_list, false);
+                if (p_output_string)
+                    printf("%s", p_output_string);
+            }
+            else if (!options->no_output && !report->has_errors)
             {
 
                 struct osstream ss = { 0 };
@@ -477,7 +490,7 @@ int compile_one_file(const char* file_name,
                 ctx2.p_ast = &ast;
                 ctx2.options = ctx.options;
                 const int codegen_error = codegen_visit(&ctx2, &ss);
-                p_output_string = ss.c_str; //MOVE
+                p_output_string = ss.c_str; // MOVE
                 codegen_visit_ctx_destroy(&ctx2);
 
                 if (codegen_error != 0)
@@ -491,7 +504,7 @@ int compile_one_file(const char* file_name,
                 if (outfile)
                 {
                     if (p_output_string)
-                    fprintf(outfile, "%s", p_output_string);
+                        fprintf(outfile, "%s", p_output_string);
 
                     fclose(outfile);
                 }
@@ -504,31 +517,31 @@ int compile_one_file(const char* file_name,
             }
         }
 
-        if (ctx.sarif_file)
-        {
+    }
+    catch
+    {
+        // printf("Error %s\n", error->message);
+    }
 
-            #define SARIF_FOOTER                                                             \
+    if (ctx.sarif_file)
+    {
+#define SARIF_FOOTER                                                    \
     "      ],\n"                                                        \
     "      \"tool\": {\n"                                               \
     "        \"driver\": {\n"                                           \
     "          \"name\": \"cake\",\n"                                   \
     "          \"fullName\": \"cake code analysis\",\n"                 \
     "          \"version\": \"" CAKE_VERSION  "\",\n"                   \
-    "          \"informationUri\": \"https://https://github.com/thradams/cake\"\n" \
+    "          \"informationUri\": \"https://github.com/thradams/cake\"\n" \
     "        }\n"                                                       \
     "      }\n"                                                         \
     "    }\n"                                                           \
     "  ]\n"                                                             \
-    "}\n"                                                               \
-    "\n"
-            fprintf(ctx.sarif_file, "%s", SARIF_FOOTER);
-            fclose(ctx.sarif_file);
-            ctx.sarif_file = NULL;
-        }
-    }
-    catch
-    {
-        // printf("Error %s\n", error->message);
+    "}\n"
+
+        fprintf(ctx.sarif_file, "%s", SARIF_FOOTER);
+        fclose(ctx.sarif_file);
+        ctx.sarif_file = NULL;
     }
 
     if (ctx.options.test_mode_inout)
@@ -537,19 +550,19 @@ int compile_one_file(const char* file_name,
         snprintf(dir_name, sizeof dir_name, "%s", file_name);
         dirname(dir_name);
 
-        //lets check if the generated file is the expected
-        //char just_file_name[FS_MAX_PATH] = { 0 };
-        //snprintf(just_file_name, sizeof just_file_name, "%s", file_name);
+        // lets check if the generated file is the expected
+        // char just_file_name[FS_MAX_PATH] = { 0 };
+        // snprintf(just_file_name, sizeof just_file_name, "%s", file_name);
         char* p_just_file_name = basename(file_name);
-        //remove_file_extension(file_name, sizeof(file_name_no_ext), file_name_no_ext);
+        // remove_file_extension(file_name, sizeof(file_name_no_ext), file_name_no_ext);
 
         char buf[FS_MAX_PATH] = { 0 };
         snprintf(buf, sizeof buf, "%s/expected_%s/%s", dir_name, get_platform(ctx.options.target)->name, p_just_file_name);
 
-        char* _Owner _Opt content_expected = read_file(buf, false /*append new line*/ );
+        char* _Owner _Opt content_expected = read_file(buf, false /* append new line */ );
         if (content_expected)
         {
-            //We don't compare the fist line because it has the version that changes.
+            // We don't compare the fist line because it has the version that changes.
             int s_first_line_len = 0;
             int content_expected_first_line_len = 0;
 
@@ -677,11 +690,11 @@ static int compile_many_files(const char* file_name,
             const char* const file_name_iter = basename(dp->d_name);
             const char* _Opt const file_extension = strrchr2((char*)file_name_iter, '.');
 
-            if (file_name_extension &&
-                file_extension &&
+            if (file_name_extension && 
+                file_extension && 
                 strcmp(file_name_extension, file_extension) == 0)
             {
-                //Fixes the output file name replacing the current name
+                // Fixes the output file name replacing the current name
                 char out_file_name_final[FS_MAX_PATH] = { 0 };
                 strcpy(out_file_name_final, out_file_name);
                 dirname(out_file_name_final);
@@ -696,11 +709,11 @@ static int compile_many_files(const char* file_name,
 
                 struct report report_local = { 0 };
                 report_local.test_mode = report->test_mode;
-                compile_one_file(in_file_name_final,
-                    options,
-                    out_file_name_final,
-                    argc,
-                    argv,
+                compile_one_file(in_file_name_final, 
+                    options, 
+                    out_file_name_final, 
+                    argc, 
+                    argv, 
                     &report_local);
 
                 report->error_count += report_local.error_count;
@@ -720,20 +733,21 @@ static int compile_many_files(const char* file_name,
 static void longest_common_path(int argc, const char* const* argv, char root_dir[FS_MAX_PATH])
 {
     /*
-     find the longest common path
-    */
+     * find the longest common path
+     */
     for (int i = 1; i < argc; i++)
     {
-        if (argv[i][0] == '-')
-        continue;
-
         if (strcmp(argv[i], "-o") == 0 ||
-            strcmp(argv[i], "-sarif-path") == 0)
+            strcmp(argv[i], "-sarif-path") == 0 ||
+            strcmp(argv[i], "-I") == 0)
         {
-            //ignore these files and consume next.
+            // ignore these files and consume next.
             i++;
             continue;
         }
+
+        if (argv[i][0] == '-')
+            continue;
 
         char fullpath_i[FS_MAX_PATH] = { 0 };
         realpath(argv[i], fullpath_i);
@@ -746,7 +760,7 @@ static void longest_common_path(int argc, const char* const* argv, char root_dir
             for (int j = 2; j < argc; j++)
             {
                 if (argv[j][0] == '-')
-                continue;
+                    continue;
 
                 char fullpath_j[FS_MAX_PATH] = { 0 };
                 realpath(argv[j], fullpath_j);
@@ -759,19 +773,19 @@ static void longest_common_path(int argc, const char* const* argv, char root_dir
                 }
             }
             if (ch == '\0')
-            break;
+                break;
         }
     }
-exit:;
+    exit:;
 }
 
 static int create_multiple_paths(const char* root, const char* outdir)
 {
     /*
-       This function creates all dirs (folder1, forder2 ..) after root
-       root   : C:/folder
-       outdir : C:/folder/folder1/folder2 ...
-    */
+     * This function creates all dirs (folder1, forder2 ..) after root
+     * root   : C:/folder
+     * outdir : C:/folder/folder1/folder2 ...
+     */
     #if !defined __EMSCRIPTEN__
     const char* p = outdir + strlen(root) + 1;
     for (;;)
@@ -796,7 +810,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
             }
         }
         if (*p == '\0')
-        break;
+            break;
         p++;
     }
     return 0;
@@ -808,11 +822,11 @@ static int create_multiple_paths(const char* root, const char* outdir)
 void print_report(const struct report* report)
 {
     if (report->ignore_this_report)
-    return;
+        return;
 
-    if (report->test_mode ||
-        report->error_count != 0 ||
-        report->warnings_count != 0 ||
+    if (report->test_mode || 
+        report->error_count != 0 || 
+        report->warnings_count != 0 || 
         report->info_count != 0)
     {
 
@@ -826,9 +840,9 @@ void print_report(const struct report* report)
         if (report->test_mode)
         {
             if (report->error_count > 0 || report->warnings_count > 0)
-            printf(RED " - TEST FAILED" COLOR_RESET);
+                printf(RED " - TEST FAILED" COLOR_RESET);
             else
-            printf(GREEN " - TEST SUCCEEDED" COLOR_RESET);
+                printf(GREEN " - TEST SUCCEEDED" COLOR_RESET);
 
         }
         printf("\n");
@@ -857,7 +871,7 @@ int compile(int argc, const char** argv, struct report* report)
     char cakeconfig_path[FS_MAX_PATH] = { 0 };
     snprintf(cakeconfig_path, sizeof cakeconfig_path, "%s/" CAKE_CONFIG_FILE_NAME, executable_path);
 
-    if (options.auto_config) //-autoconfig
+    if (options.auto_config) // -autoconfig
     {
         report->ignore_this_report = true;
         return generate_config_file(cakeconfig_path);
@@ -877,19 +891,20 @@ int compile(int argc, const char** argv, struct report* report)
 
     const size_t root_dir_len = strlen(root_dir);
 
-    /*second loop to compile each file*/
+    /* second loop to compile each file */
     for (int i = 1; i < argc; i++)
     {
         if (strcmp(argv[i], "-o") == 0 ||
-            strcmp(argv[i], "-sarif-path") == 0)
+            strcmp(argv[i], "-sarif-path") == 0 ||
+            strcmp(argv[i], "-I") == 0)
         {
-            //consumes next
+            // consumes next
             i++;
             continue;
         }
 
         if (argv[i][0] == '-')
-        continue;
+            continue;
 
         no_files++;
         char output_file[FS_MAX_PATH] = { 0 };
@@ -899,9 +914,9 @@ int compile(int argc, const char** argv, struct report* report)
             if (no_files == 1 && options.output[0] != '\0')
             {
                 /*
-                   -o outputname
-                   works when we compile just one file
-                */
+                 * -o outputname
+                 * works when we compile just one file
+                 */
                 strcat(output_file, options.output);
             }
             else
@@ -933,7 +948,7 @@ int compile(int argc, const char** argv, struct report* report)
 
         if (file_extension[0] == '*')
         {
-            no_files--; //does not count *.c 
+            no_files--; // does not count *.c 
             no_files += compile_many_files(fullpath, &options, output_file, argc, argv, report);
         }
         else
@@ -970,29 +985,29 @@ int compile(int argc, const char** argv, struct report* report)
 }
 
 /*
-* given a string s, produce argv by modifying the input string
-* return argc
-*/
-static int strtoargv(char* s, int n, const char* _Opt  argv[ /*n*/ ])
+ * given a string s, produce argv by modifying the input string
+ * return argc
+ */
+static int strtoargv(char* s, int n, const char* _Opt  argv[ /* n */ ])
 {
     int argvc = 0;
     char* p = s;
     while (*p)
     {
         while (*p == ' ')
-        p++;
+            p++;
         if (*p == 0)
-        break;
+            break;
         argv[argvc] = p;
         argvc++;
         while (*p != ' ' && *p != '\0')
-        p++;
+            p++;
         if (*p == 0)
-        break;
+            break;
         *p = 0;
         p++;
         if (argvc >= n)
-        break; /*nao tem mais lugares*/
+            break; /* nao tem mais lugares */
     }
     return argvc;
 }
@@ -1046,14 +1061,14 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
         {
             ast = get_ast(&options, "c:/main.c", content, report);
             if (report->error_count > 0)
-            throw;
+                throw;
 
             struct osstream ss = { 0 };
             struct codegen_ctx ctx2 = { 0 };
             ctx2.p_ast = &ast;
             ctx2.options = options;
             const int codegen_error = codegen_visit(&ctx2, &ss);
-            s = ss.c_str; //MOVED
+            s = ss.c_str; // MOVED
             codegen_visit_ctx_destroy(&ctx2);
 
             if (codegen_error != 0)
@@ -1076,11 +1091,86 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
     return s;
 }
 
+const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt path, const char* content, struct report* report)
+{
+    const char* real_filename = (path != NULL && path[0] != '\0') ? path : "c:/main.c";
+
+    /*
+     * Not get_ast(): that function assigns ast.token_list from the
+     * preprocessor *before* checking prectx.n_errors, but never adds
+     * prectx.n_errors/n_warnings into *report - so a preprocessor error
+     * (e.g. a missing #include) leaves report->error_count at 0 while
+     * ast.token_list holds only the tokens up to the failure. A caller
+     * that trusts report->error_count == 0, like this one used to, would
+     * then print that truncated token list instead of bailing out.
+     */
+    const char* argv[100] = { 0 };
+    char string[200] = { 0 };
+    snprintf(string, sizeof string, "exepath %s", pszoptions);
+    const int argc = strtoargv(string, 10, argv);
+
+    struct options options = { .input = STD_EXT };
+    if (fill_options(&options, argc, argv) != 0)
+    {
+        return NULL;
+    }
+
+    struct ast ast = { 0 };
+    struct tokenizer_ctx tctx = { 0 };
+    tctx.options = options;
+    struct preprocessor_ctx prectx = { 0 };
+    struct token_list list = { 0 };
+    const char* _Owner _Opt s = NULL;
+
+    try
+    {
+        list = tokenizer(&tctx, content, real_filename, 0, TK_FLAG_NONE);
+        if (tctx.n_errors > 0)
+            throw;
+
+        prectx.options = options;
+        prectx.macros.capacity = 5000;
+        add_standard_macros(&prectx, options.target);
+
+        if (include_config_header(&prectx) != 0)
+        {
+            // cakeconf.h is optional
+        }
+
+        ast.token_list = preprocessor(&prectx, &list, 0);
+        report->warnings_count += prectx.n_warnings;
+        report->error_count += prectx.n_errors;
+        if (prectx.n_errors > 0)
+            throw;
+
+        _Opt struct parser_ctx ctx = { .p_input_list = &ast.token_list };
+        ctx.options = options;
+        ctx.p_report = report;
+
+        bool berror = false;
+        ast.declaration_list = parse(&ctx, &ast.token_list, &ast.file_scope, &berror);
+        parser_ctx_destroy(&ctx);
+        if (berror || report->error_count > 0)
+            throw;
+
+        s = get_code_as_we_see(&ast.token_list, false);
+    }
+    catch
+    {
+    }
+
+    token_list_destroy(&list);
+    preprocessor_ctx_destroy(&prectx);
+    ast_destroy(&ast);
+
+    return s;
+}
+
 char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
 {
     /*
-      This function is called by the web playground
-    */
+     * This function is called by the web playground
+     */
     printf(WHITE "cake %s main.c\n", pszoptions);
 
     printf(WHITE "Cake " CAKE_VERSION COLOR_RESET "\n");

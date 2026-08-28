@@ -191,9 +191,9 @@ static void tokenizer_diagnostic(enum diagnostic_id w, struct tokenizer_ctx* ctx
 void pre_unexpected_end_of_file(const struct token* _Opt p_token, struct preprocessor_ctx* ctx)
 {
     preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
-        ctx,
-        p_token,
-        "unexpected end of file");
+                            ctx,
+                            p_token,
+                            "unexpected end of file");
 }
 
 bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx, const struct token* _Opt p_token_opt, const char* fmt, ...)
@@ -4134,7 +4134,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             int nlevel = level;
 
-            enum token_flags f = 0;
+            enum token_flags f = TK_FLAG_NONE;
 
             f = TK_FLAG_FINAL;
             //we cannot see it just like include

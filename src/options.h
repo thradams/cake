@@ -143,8 +143,8 @@ enum diagnostic_id {
     W_SET_BUT_NOT_USED = 84,
     W_FLOW_CONDITION_KNOWN_AT_COMPILE_TIME = 85,
     W_FORMAT = 86,
-    W_UNUSED_WARNING_87 = 87,
-    W_UNUSED_WARNING_88 = 88,
+    W_INT_TO_ENUM_CONVERSION = 87,
+    W_FLOW_FALLTHROUGH = 88,
     W_UNUSED_WARNING_89 = 89,
     W_UNUSED_WARNING_90 = 90,
     W_UNUSED_WARNING_91 = 91,
@@ -357,7 +357,6 @@ enum indent_style
     INDENT_STYLE_TABS,
 };
 
-
 struct style_options
 {
 
@@ -393,6 +392,7 @@ struct style_options
     bool space_after_return;            /* one space between 'return' and expr */
     bool no_space_before_call_paren;    /* no space between callee and '('     */
     bool space_around_binary_operators; /* one space on each side of binary op */
+    bool single_declarator_per_declaration; /* no "int i, j;" - one declarator per declaration */
 };
 
 
@@ -466,6 +466,22 @@ struct options
        -copy-headers
     */
     char copy_headers[200];
+
+    /*
+      -format
+      Applies the spacing/brace-placement rules from `style` directly to the
+      token stream instead of just diagnosing them, then prints the result
+      (print_code_as_we_see) in place of compiling.
+    */
+    bool format;
+
+    /*
+      -format-lines=first:last
+      Restricts -format's token changes to this inclusive line range.
+      0:0 (the default) means the whole file.
+    */
+    int format_first_line;
+    int format_last_line;
 
     /*
       -line-directives

@@ -657,9 +657,9 @@ static struct
     ui_node* target;
     ui_node* style;   /* -style=<name> <select> */
     ui_node* diagformat; /* -fdiagnostics-format=<name> <select> */
-    ui_node* flags;   /* "-no-output"/"-line-directives"/"-fanalyzer"/"-flow3"
+    ui_node* flags;   /* "-no-output"/"-line-directives"/"-fanalyzer"/"-const-literal"/"-Wall"
                        * check-box GROUP - same control as Find's "Options" */
-} g_copts;  /* "-no-output"/"-line-directives"/"-fanalyzer" -
+} g_copts;  /* "-no-output"/"-line-directives"/"-fanalyzer"/"-const-literal"/"-Wall" -
                                  * a check-box GROUP (multi=1),
                                  * same control as Find's "Options"
                                  * (g_find.opts). Read/written via
@@ -673,11 +673,13 @@ typedef struct
 {
     char options[512];    /* free-text tokens, split on whitespace at compile time */
     const char* target;   /* slug for the chosen Target, or "" for none */
-    const char* style;    /* slug for -style=<name>, or "" for "Do not check" */
+    const char* style;    /* slug for -style=<name>, or "" for "disabled" */
     const char* diagnostic_format; /* slug for -fdiagnostics-format=<name> */
     int no_output;         /* -no-output */
     int line_directives;   /* -line-directives */
     int fanalyzer;          /* -fanalyzer */
+    int const_literal;      /* -const-literal */
+    int wall;                /* -Wall */
 } compile_settings;
 
 static const char* g_target_slugs[] = {
@@ -709,7 +711,7 @@ static int target_slug_to_index(const char* slug)
  * wired into the compiler yet (no style_options_llvm() etc.), and passing
  * -style=llvm today just gets rejected with "Invalid style" at compile
  * time - left out until the compiler itself grows them. Index 0 is the
- * empty slug, i.e. no -style flag at all ("Do not check" in the dialog). */
+ * empty slug, i.e. no -style flag at all ("disabled" in the dialog). */
 static const char* g_style_slugs[] = {
     "",
     "cake",
@@ -779,6 +781,8 @@ static compile_settings g_compile =
     .no_output = 0,
     .line_directives = 0,
     .fanalyzer = 0,
+    .const_literal = 0,
+    .wall = 0,
 };
 
 static ui_node* g_output_window;
@@ -5144,6 +5148,10 @@ static void do_compile(void)
         argv[argc++] = "-line-directives";
     if (g_compile.fanalyzer)
         argv[argc++] = "-fanalyzer";
+    if (g_compile.const_literal)
+        argv[argc++] = "-const-literal";
+    if (g_compile.wall)
+        argv[argc++] = "-Wall";
 
     char optbuf[sizeof g_compile.options];
     snprintf(optbuf, sizeof optbuf, "%s", g_compile.options);
@@ -6816,7 +6824,7 @@ static char* wordwrap_text(const char* sel, int sel_len, int columns, int justif
             int w = 0;
             while (lines && w < word_count)
             {
-                int line_start = w;
+                int span_start = w;
                 int cur_len = indent_len + words[w].len;
                 w++;
                 while (w < word_count && cur_len + 1 + words[w].len <= columns)
@@ -6833,8 +6841,8 @@ static char* wordwrap_text(const char* sel, int sel_len, int columns, int justif
                 }
                 if (lines)
                 {
-                    lines[line_count].start = line_start;
-                    lines[line_count].count = w - line_start;
+                    lines[line_count].start = span_start;
+                    lines[line_count].count = w - span_start;
                     line_count++;
                 }
             }
@@ -6916,12 +6924,59 @@ static void do_edit_format(void)
     const char* text = ui_get_value(ed);
     size_t len = strlen(text);
 
-    /* Width 0 = auto: match whatever the document already indents by, so
-     * reformatting a 2-space or tab-indented file doesn't convert it to
-     * this project's 4-space style. Falls back to 4 when unmeasurable. */
-    Options opt = { 0, 0 };
+    /* Same -style=<name> as Compile > Options... (g_compile.style), not a
+     * hardcoded style - so Format matches whatever the user picked there.
+     * cake_format() itself defaults to -style=cake when none is set. */
+    char options[96] = "-format";
+    if (g_compile.style[0])
+    {
+        char stylearg[24];
+        snprintf(stylearg, sizeof stylearg, " -style=%s", g_compile.style);
+        strncat(options, stylearg, sizeof(options) - strlen(options) - 1);
+    }
+
+    /* A non-empty selection restricts Format to just those lines
+     * (-format-lines=first:last, same flag the CLI takes - see options.c),
+     * fed from the editor's selection instead of a command-line argument.
+     * No selection (or just a caret) formats the whole file, same as
+     * before. */
+    int sel_lo = 0, sel_hi = 0;
+    if (ui_editor_get_selection(ed, &sel_lo, &sel_hi) && sel_lo != sel_hi)
+    {
+        if (sel_lo > sel_hi)
+        {
+            int tmp = sel_lo;
+            sel_lo = sel_hi;
+            sel_hi = tmp;
+        }
+
+        int line_lo = 1;
+        for (const char* p = text; p < text + sel_lo && *p; p++)
+        {
+            if (*p == '\n')
+                line_lo++;
+        }
+        int line_hi = line_lo;
+        for (const char* p = text + sel_lo; p < text + sel_hi && *p; p++)
+        {
+            if (*p == '\n')
+                line_hi++;
+        }
+
+        char rangearg[32];
+        snprintf(rangearg, sizeof rangearg, " -format-lines=%d:%d", line_lo, line_hi);
+        strncat(options, rangearg, sizeof(options) - strlen(options) - 1);
+    }
+
+    /* Needed so #include "quoted.h" siblings of this file resolve - see
+     * format_c_source()'s `path` doc comment. path/untitled live on the
+     * WINDOW node (see ui_set_path/ui_set_untitled call sites), not on the
+     * editor child `ed` returned by editor_in_window() - same node
+     * do_compile() reads (g_active_editor_window), not `ed`. */
+    const char* path = ui_get_untitled(g_active_editor_window) ? NULL : ui_get_path(g_active_editor_window);
+
     size_t out_len;
-    char* formatted = format_c_source(text, len, &opt, &out_len);
+    char* formatted = format_c_source(options, path, text, len, &out_len);
     if (formatted)
     {
         int cur = ui_editor_get_cursor(ed);      /* keep the caret put */
@@ -6932,6 +6987,10 @@ static void do_edit_format(void)
         ui_editor_set_scroll(ed, scroll);
         ui_set_dirty(ed, 1);
         free(formatted);
+    }
+    else
+    {
+        compile_status_set("Format failed");
     }
 }
 
@@ -7279,7 +7338,9 @@ static void on_ui_event(void* ctx, int id, void* param)
         ui_group_set_checked(g_copts.flags, 0, g_compile.no_output);
         ui_group_set_checked(g_copts.flags, 1, g_compile.line_directives);
         ui_group_set_checked(g_copts.flags, 2, g_compile.fanalyzer);
-        ui_screen_show_modal(g_screen, g_copts.modal);
+        ui_group_set_checked(g_copts.flags, 3, g_compile.const_literal);
+        ui_group_set_checked(g_copts.flags, 4, g_compile.wall);
+    ui_screen_show_modal(g_screen, g_copts.modal);
     }
     else if (id == EVT_COPTS_OK)
     {
@@ -7300,6 +7361,8 @@ static void on_ui_event(void* ctx, int id, void* param)
         g_compile.no_output = ui_group_get_checked(g_copts.flags, 0);
         g_compile.line_directives = ui_group_get_checked(g_copts.flags, 1);
         g_compile.fanalyzer = ui_group_get_checked(g_copts.flags, 2);
+        g_compile.const_literal = ui_group_get_checked(g_copts.flags, 3);
+        g_compile.wall = ui_group_get_checked(g_copts.flags, 4);
         ui_screen_close_modal(g_screen, g_copts.modal);
     }
     else if (id == EVT_DOCK_LEFT || id == EVT_DOCK_RIGHT || id == EVT_DOCK_BOTTOM)
@@ -8733,6 +8796,8 @@ static void save_session(void)
     fprintf(f, "compile_opt_no_output=%d\n", g_compile.no_output);
     fprintf(f, "compile_opt_line_directives=%d\n", g_compile.line_directives);
     fprintf(f, "compile_opt_fanalyzer=%d\n", g_compile.fanalyzer);
+    fprintf(f, "compile_opt_const_literal=%d\n", g_compile.const_literal);
+    fprintf(f, "compile_opt_wall=%d\n", g_compile.wall);
     fprintf(f, "folder_dir=%s\n", g_folder.dir);
     fprintf(f, "theme_index=%d\n", g_envdlg.theme_index);
     fprintf(f, "font_index=%d\n", g_envdlg.font_index);
@@ -8910,6 +8975,10 @@ static int load_session(void)
             g_compile.line_directives = atoi(val);
         else if (strcmp(key, "compile_opt_fanalyzer") == 0)
             g_compile.fanalyzer = atoi(val);
+        else if (strcmp(key, "compile_opt_const_literal") == 0)
+            g_compile.const_literal = atoi(val);
+        else if (strcmp(key, "compile_opt_wall") == 0)
+            g_compile.wall = atoi(val);
         else if (strcmp(key, "theme_index") == 0)
             g_envdlg.theme_index = atoi(val);
         else if (strcmp(key, "font_index") == 0)
@@ -9564,7 +9633,7 @@ void app_init(ui_env* env)
     ui_node* copts_modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, copts_modal);
     ui_node* copts_window = ui_create_element(UI_TAG_WINDOW);
-    ui_set_rect(copts_window, 15, 5, 62, 17);
+    ui_set_rect(copts_window, 15, 5, 62, 18);
     ui_set_label(copts_window, " Compiler Options ");
     ui_set_color(copts_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(copts_modal, copts_window);
@@ -9580,7 +9649,7 @@ void app_init(ui_env* env)
      * these four are offered. */
     add_text(copts_window, 18, 9, "Style", theme->label_fg, theme->modal_bg);
     g_copts.style = add_select(copts_window, 29, 9, 20);
-    add_select_item(g_copts.style, EVT_COPTS_STYLE + 0, "Do not check");
+    add_select_item(g_copts.style, EVT_COPTS_STYLE + 0, "disabled");
     add_select_item(g_copts.style, EVT_COPTS_STYLE + 1, "cake");
     add_select_item(g_copts.style, EVT_COPTS_STYLE + 2, "gnu");
     add_select_item(g_copts.style, EVT_COPTS_STYLE + 3, "microsoft");
@@ -9597,32 +9666,36 @@ void app_init(ui_env* env)
     /* Flags - a check-box GROUP, same control as Find's "Options"
      * (g_find.opts) above (add_group/add_group_item). */
     add_text(copts_window, 18, 13, "Flags", theme->label_fg, theme->modal_bg);
-    g_copts.flags = add_group(copts_window, 29, 13, 45, 3, 1);
+    g_copts.flags = add_group(copts_window, 29, 13, 45, 5, 1);
     add_group_item(g_copts.flags, "-no-output");
     add_group_item(g_copts.flags, "-line-directives");
     add_group_item(g_copts.flags, "-fanalyzer");
+    add_group_item(g_copts.flags, "-const-literal");
+    add_group_item(g_copts.flags, "-Wall");
     ui_group_set_checked(g_copts.flags, 0, g_compile.no_output);
     ui_group_set_checked(g_copts.flags, 1, g_compile.line_directives);
     ui_group_set_checked(g_copts.flags, 2, g_compile.fanalyzer);
+    ui_group_set_checked(g_copts.flags, 3, g_compile.const_literal);
+    ui_group_set_checked(g_copts.flags, 4, g_compile.wall);
 
     /* Free-text options last - anything the rows above don't cover. */
-    add_text(copts_window, 18, 17, "Options", theme->label_fg, theme->modal_bg);
-    g_copts.input = add_input(copts_window, 29, 17, 45, "");
+    add_text(copts_window, 18, 18, "Options", theme->label_fg, theme->modal_bg);
+    g_copts.input = add_input(copts_window, 29, 18, 45, "");
     ui_set_id(g_copts.input, EVT_COPTS_OK);
 
     ui_node* copts_ok = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(copts_ok, EVT_COPTS_OK);
-    ui_set_rect(copts_ok, 27, 19, 10, 1);
+    ui_set_rect(copts_ok, 27, 20, 10, 1);
     ui_set_label(copts_ok, "  OK  ");
     ui_append_child(copts_window, copts_ok);
     ui_node* copts_cancel = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(copts_cancel, EVT_COPTS_CANCEL);
-    ui_set_rect(copts_cancel, 41, 19, 10, 1);
+    ui_set_rect(copts_cancel, 41, 20, 10, 1);
     ui_set_label(copts_cancel, "Cancel");
     ui_append_child(copts_window, copts_cancel);
     ui_node* copts_help = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(copts_help, EVT_COPTS_HELP);
-    ui_set_rect(copts_help, 55, 19, 10, 1);
+    ui_set_rect(copts_help, 55, 20, 10, 1);
     ui_set_label(copts_help, " Help ");
     ui_append_child(copts_window, copts_help);
     g_copts.modal = copts_modal;

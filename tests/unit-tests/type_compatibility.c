@@ -107,5 +107,11 @@ void t(void)
     void (*fq5)(int **) = func_ptr_ptr;
     fq5 = func_const_ptr_ptr; //lint 54 incompatible types
 
-    (void)pui; (void)pb; (void)fp3; (void)fp4; (void)fq3; (void)fq4; (void)fq5;
+    /* pointer-to-array vs pointer-to-pointer: same nesting depth and same
+       element specifier, but the second level is an array in one type and
+       a pointer in the other, so they are not compatible types */
+    int **pp3;
+    int (*parr)[5] = pp3; //lint 54 incompatible types
+
+    (void)pui; (void)pb; (void)fp3; (void)fp4; (void)fq3; (void)fq4; (void)fq5; (void)parr;
 }

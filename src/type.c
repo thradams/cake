@@ -351,7 +351,7 @@ void type_remove_non_cake_qualifiers(struct type* p_type)
 
 void type_remove_all_qualifiers(struct type* p_type)
 {
-    p_type->type_qualifier_flags = 0;
+    p_type->type_qualifier_flags = TYPE_QUALIFIER_NONE;
 }
 
 struct type type_lvalue_conversion(const struct type* p_type)
@@ -3384,7 +3384,7 @@ struct type get_function_return_type(const struct type* p_type)
 void type_set_int(struct type* p_type)
 {
     p_type->type_specifier_flags = TYPE_SPECIFIER_INT;
-    p_type->type_qualifier_flags = 0;
+    p_type->type_qualifier_flags = TYPE_QUALIFIER_NONE;
     p_type->category = TYPE_CATEGORY_ITSELF;
 }
 
@@ -3840,8 +3840,14 @@ bool type_is_compatible(const struct type* a, const struct type* b)
 
         if (pa->category != pb->category)
         {
-            //array pointer are compatible
-//            return false;
+            /*
+              C23 6.7.6.1p2: compatible types require the same type
+              category at every level (both pointers, both arrays, etc).
+              Callers are expected to apply lvalue/array-to-pointer
+              conversion before calling this function, as expressions.c
+              does for the top-level assignment check.
+            */
+            return false;
         }
 
         if (pa->enum_specifier &&
@@ -3852,20 +3858,14 @@ bool type_is_compatible(const struct type* a, const struct type* b)
             return false;
         }
 
-
-        if (pa->enum_specifier && !pb->enum_specifier)
-        {
-            //TODO enum with types
-            //enum  x int
-           //return false;
-        }
-
-        if (!pa->enum_specifier && pb->enum_specifier)
-        {
-            //TODO enum with types
-            //int x enum
-            //return false;
-        }
+        /*
+          enum x non-enum (e.g. 'enum E *' vs 'int *'): an enumerated type
+          is a distinct type from its implementation-chosen underlying
+          integer type (C23 6.7.3.2), so these are not compatible. This
+          falls out below already, since TYPE_SPECIFIER_ENUM is not
+          stripped from a_flags/b_flags before the specifier comparison
+          (unlike type_is_same, which ignores it intentionally).
+        */
 
         //if (pa->name_opt != pb->name_opt) return false;
         if (pa->has_static_array_size != pb->has_static_array_size)
@@ -4038,11 +4038,6 @@ void type_merge_qualifiers_using_declarator(struct type* p_type, const struct de
     }
 
     p_type->type_qualifier_flags |= type_qualifier_flags;
-
-
-
-
-
 }
 
 

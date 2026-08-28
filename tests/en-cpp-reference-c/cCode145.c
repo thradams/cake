@@ -10,7 +10,7 @@ int main(void)
     printf("&A = %p\n", (void*)&A);
  
     // automatic storage duration
-    int A = 1;   // hides global A
+    int A = 1;   //lint 7 // hides global A
     printf("&A = %p\n", (void*)&A);
  
     // allocated storage duration

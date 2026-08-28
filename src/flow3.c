@@ -2366,7 +2366,7 @@ static bool flow_alt_negate(const struct flow_alternative* in,
     if (v == LLONG_MIN) /* -LLONG_MIN is not representable */
         return false;
 
-    enum flow_relation r = 0;
+    enum flow_relation r = FLOW_RELATION_UNINITIALIZED;
     switch (in->value_relation)
     {
     /* Deliberately NOT mapping FLOW_RELATION_EQUAL. A genuinely constant
@@ -3012,7 +3012,7 @@ static bool flow_predicate_key(const struct expression* _Opt p_cond,
    just keep their fresh id. */
 static int flow_predicate_shared_id(struct flow_visit_ctx* ctx, const struct expression* p_cond, int fresh_id)
 {
-    enum expression_type op = 0;
+    enum expression_type op = EXPR_INVALID;
     const struct object* _Opt lo = NULL;
     const struct object* _Opt ro = NULL;
     long long rc = 0;
@@ -10106,7 +10106,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 }
 
             }
-            else if (type_is_pointer(p_ret_type))
+            else if (nullable_enabled && type_is_pointer(p_ret_type))
             {
                 /* Non-_Opt pointer return: non-null. For a `_Clear`/`_Uninitialized`
                 pointee contract, build a concrete pointee so members can be
@@ -10145,15 +10145,27 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
             else if (!type_is_void(p_ret_type))
             {
                 /*
-                Non-pointer return type (scalar, or struct/union returned
-                by value): nothing above seeded p_expression->object at
-                all, so it -- and every member, for a struct/union --
-                silently stayed whatever pre-existing UNINITIALIZED state
-                happened to be in the map (there usually isn't one for a
-                fresh temporary, but the DESTINATION of an assignment or
-                initialization from this call falls back to ITS OWN
-                pre-existing declared state when this source has no
-                entry to copy from -- see flow_check_object_init_assigment).
+                Either a non-pointer return type (scalar, or struct/union
+                returned by value), or a pointer return type with nullable
+                checks disabled (nullable_enabled == false): nothing above
+                seeded p_expression->object at all, so it -- and every
+                member, for a struct/union -- silently stayed whatever
+                pre-existing UNINITIALIZED state happened to be in the map
+                (there usually isn't one for a fresh temporary, but the
+                DESTINATION of an assignment or initialization from this
+                call falls back to ITS OWN pre-existing declared state when
+                this source has no entry to copy from -- see
+                flow_check_object_init_assigment).
+
+                For the pointer-with-nullable-disabled case, deferring to
+                flow_parameter_object_init below is deliberate, not an
+                oversight: with nullable checks off, a return value must NOT
+                be assumed non-null the way it is above when nullable_enabled
+                is true -- see the "nullable disabled => ANY (conservative;
+                no null-check enforcement)" spec in
+                flow_parameter_object_init_r's own doc comment. Reusing it
+                here keeps call-return values and parameters consistent.
+
                 Concretely this was reported as two real false positives:
 
                 int errcode = mkdir(to, 0700);

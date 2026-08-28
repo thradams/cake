@@ -207,11 +207,32 @@ struct parser_ctx
 
     struct diagnostic_queue diagnostic_queue;
 
+    /*
+       -format only: brace nesting depth, incremented/decremented around
+       compound_statement()'s '{'/'}' (so it counts every block - function
+       bodies, if/while/for/switch bodies, plain nested blocks - the same
+       way, with no special case for switch: its body is one block like any
+       other, so `case` lands one level deeper than `switch`).
+
+       check_indentation_style() (parser.c) multiplies this by the style's
+       indent_width to fix a block-item's leading whitespace.
+    */
+    int format_indent_level;
+
 };
 
 ///////////////////////////////////////////////////////
 
 void parser_ctx_destroy(_Opt _Dtor struct parser_ctx* ctx);
+
+/*
+   -format token surgery, shared with expressions.c - see parser.c for the
+   rest of the brace/indentation fixers.
+*/
+bool format_active_for(const struct parser_ctx* ctx, const struct token* token);
+struct token* _Opt format_next_real(struct token* token);
+void format_ensure_one_space_before(struct token* token);
+void format_ensure_no_space_before(struct token* token);
 
 
 struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx);

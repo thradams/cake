@@ -169,6 +169,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
         /*later after function is completed*/
     case W_UNUSED_LABEL:
     case W_SWITCH:
+    case W_FLOW_FALLTHROUGH:
     case C_ERROR_LABEL_NOT_DEFINED:
         return 1;
 
@@ -264,6 +265,11 @@ int fill_options(struct options* options,
     options_set_warning(options, W_FLOW_CONDITION_KNOWN_AT_COMPILE_TIME, false);
 
     options_set_warning(options, W_STYLE, false);
+
+    /* Off by default: implicit int/bool to enum assignment fires on plenty
+       of existing code (flags, raw constants), so it is opt-in. */
+    options_set_warning(options, W_INT_TO_ENUM_CONVERSION, false);
+
     options_set_note(options, W_INFO, true);
 
     /*first loop used to collect options*/
@@ -490,6 +496,31 @@ int fill_options(struct options* options,
             options_set_note(options, W_STYLE, false);
         }
 
+        if (has_prefix(argv[i], "-format-lines="))
+        {
+            int first = 0, last = 0;
+            if (sscanf(argv[i] + strlen("-format-lines="), "%d:%d", &first, &last) == 2)
+            {
+                options->format_first_line = first;
+                options->format_last_line = last;
+            }
+            continue;
+        }
+
+        if (strcmp(argv[i], "-format") == 0)
+        {
+            options->format = true;
+            options->keep_inactive_tokens = true;
+
+            const struct style_options none = { 0 };
+            if (memcmp(&options->style, &none, sizeof none) == 0)
+            {
+                options->style = style_options_cake();
+            }
+            options_set_note(options, W_STYLE, true);
+            continue;
+        }
+
 
         if (has_prefix(argv[i], "-nullable="))
         {
@@ -693,6 +724,8 @@ void print_help()
     print_option("-keep-inactive-tokens", "Keep tokens from inactive preprocessor blocks (e.g. #if 0) in memory instead of discarding them");
     print_option("-preprocess-def-macro", "preprocess def macros after expansion");
     print_option("-style=name", "Set the style used in w011 style warnings. Options are `-style=cake`, `-style=gnu`, `-style=microsoft`");
+    print_option("-format", "Reformats the file spacing/braces per -style (defaults to `cake`) and prints the result instead of compiling");
+    print_option("-format-lines=first:last", "Restricts -format's changes to this inclusive line range");
     print_option("-selftest", "Runs Cake's internal tests. The code must be compiled with -DTEST.");
     
     print_option("-const-literal", "Makes the compiler handle string literals as const char[] rather than char[].");
@@ -720,7 +753,17 @@ void options_set_warning(struct options* options, enum diagnostic_id w, bool val
 
 void options_set_all_warnings(struct options* options)
 {
-    bitset_setall(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings);
+    struct bitset* p_warnings = &options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings;
+
+    /* -Wall must not interfere with W_INFO or W_STYLE in any way -- preserve
+       whatever they were already configured as. */
+    const int info_was_warning = bitset_get(p_warnings, W_INFO);
+    const int style_was_warning = bitset_get(p_warnings, W_STYLE);
+
+    bitset_setall(p_warnings);
+
+    bitset_set(p_warnings, W_INFO, info_was_warning);
+    bitset_set(p_warnings, W_STYLE, style_was_warning);
 }
 
 void options_set_clear_all_warnings(struct options* options)
@@ -806,6 +849,7 @@ struct style_options style_options_cake(void)
     s.space_after_return = true;            /* one space between 'return' and expr */
     s.no_space_before_call_paren = true;    /* no space between callee and '('     */
     s.space_around_binary_operators = true; /* one space on each side of binary op */
+    s.single_declarator_per_declaration = true; /* no "int i, j;" */
 
     s.struct_name_case = CASE_SNAKE;
     s.enum_name_case = CASE_SNAKE;

@@ -11,8 +11,8 @@ struct point {double x,y;};
  
 int main(void)
 {
-    int n = 2, *p = &n;
-    p = (int [2]){*p}; // creates an unnamed automatic array of type int[2]
+    int n = 2, *p2 = &n;
+    p2 = (int [2]){*p2}; // creates an unnamed automatic array of type int[2]
                        // initializes the first element to the value formerly
                        // held in *p
                        // initializes the second element to zero

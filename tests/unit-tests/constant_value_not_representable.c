@@ -15,4 +15,9 @@ int main() {
 
     const unsigned int j = -1;                    //lint 74 warning: constant expression is not exactly representable in type
     unsigned int k = -1;                          //lint 74 warning: constant expression is not exactly representable in type
+
+    // https://github.com/thradams/cake/issues/464
+    constexpr bool l = 0;
+    constexpr bool m = 1;
+    constexpr bool n = 2;                         //lint 1950 error: constant expression is not exactly representable in type
 }

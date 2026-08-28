@@ -64,7 +64,7 @@ void backwards_guard_in_for(struct X* _Opt p, int n)
 
 void backwards_guard_in_while(struct X* _Opt p)
 {
-    while (1)//lint 44
+    while (1)
     {
         if (p != NULL)
             return;

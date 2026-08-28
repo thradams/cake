@@ -198,7 +198,7 @@ Disable ANSI color codes in diagnostic output. Same as GCC.
 ### 4.3 Diagnostic Options
 
 **`-W<number>`**  
-Enable warning number `<number>`. See the [Warnings Reference](warnings.html).
+Enable warning number `<number>`. See the [Warnings Reference](diagnostics.html).
 
 **`-Wno-<number>`**  
 Disable warning number `<number>`.
@@ -493,7 +493,62 @@ int main() {
 double d = 0x1p+1;
 ```
 
-Cake converts hexadecimal floating-point literals to decimal representation using `strtod` followed by `snprintf`. This conversion may introduce minor precision loss.
+Cake has no way to emit a hexadecimal floating constant in C89 output, so it
+converts the literal to a decimal one:
+
+```c
+double a = 0x1p+1;                    /* becomes  a = 2.0;    */
+double b = 0x1.5555555555555p-2;      /* becomes  b = 0.33333333333333331; */
+double c = 0x1p-1074;                 /* becomes  c = 4.9406564584124654e-324; */
+```
+
+For `float` and `double` the conversion is **lossless**: the decimal Cake writes
+is guaranteed to read back as the exact same value, bit for bit. The same holds
+for ordinary decimal constants, which are re-emitted in normalized form - and
+because the form chosen is the *shortest* one that round-trips, the output stays
+readable:
+
+```c
+double g = 0.1;      /* stays   g = 0.1;    not 0.10000000000000001 */
+float  f = 0.1f;     /* stays   f = 0.1f;   not 0.100000001490116119384765625 */
+double h = 1.0/3.0;  /* becomes h = 0.3333333333333333; */
+```
+
+The printer is an implementation of **Grisu2**:
+
+> Florian Loitsch, *Printing Floating-Point Numbers Quickly and Accurately with
+> Integers*, PLDI 2010. <https://doi.org/10.1145/1806596.1806623>
+> - [paper (PDF)](https://www.cs.tufts.edu/~nr/cs257/archive/florian-loitsch/printf.pdf)
+
+Useful cross-references when reading `cake_dtoa_shortest` in `src/object.c`:
+
+- RapidJSON, the same variant, well commented:
+  <https://github.com/Tencent/rapidjson/blob/master/include/rapidjson/internal/dtoa.h>
+- The author's reference implementation, Grisu2 and Grisu3:
+  <https://github.com/google/double-conversion>
+
+Grisu2 guarantees the round-trip but not minimality: for roughly one value in a
+thousand it emits one digit more than strictly necessary. It never emits a wrong
+one. Guaranteed-shortest output needs Grisu3 or Ryu, which both require a bignum
+fallback path.
+
+The one case where precision *can* be lost is `long double` on targets where it
+is wider than 64 bits (the 80-bit x87 format gcc and clang use on x86). There
+Cake falls back to the host's `snprintf`, and the value has in any case already
+passed through the host's own `long double`. Do not rely on the exact value of a
+`long double` constant beyond `double` precision.
+
+
+#### Infinity and NaN
+
+Infinity and NaN have no literal form in C. When a constant expression folds to
+one of them, Cake emits the same construct the standard headers use - an
+overflowing product, cast to the wanted type:
+
+```c
+double d = INFINITY;    /* becomes  d = ((float)(1e+300 * 1e+300)); */
+double n = NAN;         /* becomes  n = ((float)((1e+300 * 1e+300) * 0.0)); */
+```
 
 ### 7.6 Compound Literals
 
@@ -997,8 +1052,33 @@ int main () {}
 
 Cake supports the C23 double-bracket attribute syntax. Recognized standard attributes:
 
-**`[[fallthrough]]`** *(Partial — parsed; enforcement pending)*  
-Suppresses the fallthrough diagnostic on a switch case.
+**`[[fallthrough]]`** *(Supported)*  
+Warns (`-w88`) about a `case`/`default` label reached by falling through a statement that doesn't end with `break`/`return`/`continue`/`goto`. Write `[[fallthrough]];` as the last statement before the label to mark it intentional; grouped empty labels (`case 1: case 2:`) never warn. The attribute itself must be immediately followed by a `case`/`default` label, or it is flagged as misplaced.
+
+<!-- runnable -->
+
+```c
+void g(void);
+void h(void);
+
+void f(int n) {
+    switch (n) {
+    case 1:
+    case 2:          /* grouped labels, no warning */
+        g();
+        [[fallthrough]];
+    case 3:
+        h();
+        break;
+    case 4:
+        g();          /* warning: unannotated fall-through */
+    case 5:
+        break;
+    }
+}
+
+int main(void) {}
+```
 
 **`[[deprecated]]`** *(Supported)*  
 Emits a warning when the annotated entity is used. Compile with `-w03`.

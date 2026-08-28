@@ -684,7 +684,7 @@ Disable ANSI color codes in diagnostic output. Same as GCC.</p>
 <h3 id="toc_12">4.3 Diagnostic Options</h3>
 
 <p><strong><code>-W&lt;number&gt;</code></strong><br>
-Enable warning number <code>&lt;number&gt;</code>. See the <a href="warnings.html">Warnings Reference</a>.</p>
+Enable warning number <code>&lt;number&gt;</code>. See the <a href="diagnostics.html">Warnings Reference</a>.</p>
 
 <p><strong><code>-Wno-&lt;number&gt;</code></strong><br>
 Disable warning number <code>&lt;number&gt;</code>.</p>
@@ -971,7 +971,62 @@ int main() {
 <pre><code class="language-c">double d = 0x1p+1;
 </code></pre>
 
-<p>Cake converts hexadecimal floating-point literals to decimal representation using <code>strtod</code> followed by <code>snprintf</code>. This conversion may introduce minor precision loss.</p>
+<p>Cake has no way to emit a hexadecimal floating constant in C89 output, so it
+converts the literal to a decimal one:</p>
+
+<pre><code class="language-c">double a = 0x1p+1;                    /* becomes  a = 2.0;    */
+double b = 0x1.5555555555555p-2;      /* becomes  b = 0.33333333333333331; */
+double c = 0x1p-1074;                 /* becomes  c = 4.9406564584124654e-324; */
+</code></pre>
+
+<p>For <code>float</code> and <code>double</code> the conversion is <strong>lossless</strong>: the decimal Cake writes
+is guaranteed to read back as the exact same value, bit for bit. The same holds
+for ordinary decimal constants, which are re-emitted in normalized form - and
+because the form chosen is the <em>shortest</em> one that round-trips, the output stays
+readable:</p>
+
+<pre><code class="language-c">double g = 0.1;      /* stays   g = 0.1;    not 0.10000000000000001 */
+float  f = 0.1f;     /* stays   f = 0.1f;   not 0.100000001490116119384765625 */
+double h = 1.0/3.0;  /* becomes h = 0.3333333333333333; */
+</code></pre>
+
+<p>The printer is an implementation of <strong>Grisu2</strong>:</p>
+
+<blockquote>
+<p>Florian Loitsch, <em>Printing Floating-Point Numbers Quickly and Accurately with
+Integers</em>, PLDI 2010. <a href="https://doi.org/10.1145/1806596.1806623">https://doi.org/10.1145/1806596.1806623</a>
+- <a href="https://www.cs.tufts.edu/%7Enr/cs257/archive/florian-loitsch/printf.pdf">paper (PDF)</a></p>
+</blockquote>
+
+<p>Useful cross-references when reading <code>cake_dtoa_shortest</code> in <code>src/object.c</code>:</p>
+
+<ul>
+<li>RapidJSON, the same variant, well commented:
+<a href="https://github.com/Tencent/rapidjson/blob/master/include/rapidjson/internal/dtoa.h">https://github.com/Tencent/rapidjson/blob/master/include/rapidjson/internal/dtoa.h</a></li>
+<li>The author&#39;s reference implementation, Grisu2 and Grisu3:
+<a href="https://github.com/google/double-conversion">https://github.com/google/double-conversion</a></li>
+</ul>
+
+<p>Grisu2 guarantees the round-trip but not minimality: for roughly one value in a
+thousand it emits one digit more than strictly necessary. It never emits a wrong
+one. Guaranteed-shortest output needs Grisu3 or Ryu, which both require a bignum
+fallback path.</p>
+
+<p>The one case where precision <em>can</em> be lost is <code>long double</code> on targets where it
+is wider than 64 bits (the 80-bit x87 format gcc and clang use on x86). There
+Cake falls back to the host&#39;s <code>snprintf</code>, and the value has in any case already
+passed through the host&#39;s own <code>long double</code>. Do not rely on the exact value of a
+<code>long double</code> constant beyond <code>double</code> precision.</p>
+
+<h4>Infinity and NaN</h4>
+
+<p>Infinity and NaN have no literal form in C. When a constant expression folds to
+one of them, Cake emits the same construct the standard headers use - an
+overflowing product, cast to the wanted type:</p>
+
+<pre><code class="language-c">double d = INFINITY;    /* becomes  d = ((float)(1e+300 * 1e+300)); */
+double n = NAN;         /* becomes  n = ((float)((1e+300 * 1e+300) * 0.0)); */
+</code></pre>
 
 <h3 id="toc_28">7.6 Compound Literals</h3>
 
@@ -1423,8 +1478,32 @@ int main () {}
 
 <p>Cake supports the C23 double-bracket attribute syntax. Recognized standard attributes:</p>
 
-<p><strong><code>[[fallthrough]]</code></strong> <em>(Partial — parsed; enforcement pending)</em><br>
-Suppresses the fallthrough diagnostic on a switch case.</p>
+<p><strong><code>[[fallthrough]]</code></strong> <em>(Supported)</em><br>
+Warns (<code>-w88</code>) about a <code>case</code>/<code>default</code> label reached by falling through a statement that doesn&#39;t end with <code>break</code>/<code>return</code>/<code>continue</code>/<code>goto</code>. Write <code>[[fallthrough]];</code> as the last statement before the label to mark it intentional; grouped empty labels (<code>case 1: case 2:</code>) never warn. The attribute itself must be immediately followed by a <code>case</code>/<code>default</code> label, or it is flagged as misplaced.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">void g(void);
+void h(void);
+
+void f(int n) {
+    switch (n) {
+    case 1:
+    case 2:          /* grouped labels, no warning */
+        g();
+        [[fallthrough]];
+    case 3:
+        h();
+        break;
+    case 4:
+        g();          /* warning: unannotated fall-through */
+    case 5:
+        break;
+    }
+}
+
+int main(void) {}
+</code></pre>
 
 <p><strong><code>[[deprecated]]</code></strong> <em>(Supported)</em><br>
 Emits a warning when the annotated entity is used. Compile with <code>-w03</code>.</p>

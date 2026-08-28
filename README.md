@@ -35,7 +35,7 @@ existing or old compilers to produce executables.
 
 
 Cake aims to enhance C's safety by providing high-quality [warning
-messages](warnings.md) and advanced flow analysis, including [object
+messages](diagnostics.md) and advanced flow analysis, including [object
 lifetime](ownership.md) checks.
 
 
@@ -77,7 +77,7 @@ automatic documentation and more.
 * C89 backend
 * Style checker
 * AST 
-* Lots of [diagnostics](warnings.md)
+* Lots of [diagnostics](diagnostics.md)
 
 
 # Build

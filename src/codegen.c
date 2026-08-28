@@ -12,14 +12,14 @@
 #include "expressions.h"
 #include <ctype.h>
 
-#define LITERAL_FUNCTION_BASE_NAME "_fn"
-#define COMPOUND_LITERAL_BASE_NAME "_obj"
-#define IDENTATION_STR "    "
-
 /*
 *  Prefix used to create file scope declarators
 */
 #define CAKE_FILE_SCOPE_PREFIX "__c" 
+
+#define LITERAL_FUNCTION_BASE_NAME CAKE_FILE_SCOPE_PREFIX "fn"
+#define COMPOUND_LITERAL_BASE_NAME CAKE_FILE_SCOPE_PREFIX "obj"
+#define IDENTATION_STR "    "
 
 /*
   Prefix used to create labels
@@ -132,17 +132,20 @@ int rename_file_scope_declarator_if_necessary(const struct codegen_ctx* ctx, str
     {
         if (p_init_declarator->p_declarator->name_opt == NULL) throw;
 
-        char new_name[200] = { 0 };
         const char* current_name = p_init_declarator->p_declarator->name_opt->lexeme;
+        char qualified_name[200] = { 0 };
+        snprintf(qualified_name, sizeof(qualified_name), CAKE_FILE_SCOPE_PREFIX "%s", current_name);
+
+        char new_name[200] = { 0 };
         struct map_entry* _Opt it =
-            hashmap_find(&ctx->p_ast->file_scope.variables, current_name);
+            hashmap_find(&ctx->p_ast->file_scope.variables, qualified_name);
         while (it)
         {
-            if (strcmp(current_name, it->key) == 0)
+            if (strcmp(qualified_name, it->key) == 0)
             {
                 for (int i = 2; i < 1000000; )
                 {
-                    snprintf(new_name, sizeof(new_name), "%s%d", current_name, i);
+                    snprintf(new_name, sizeof(new_name), "%s%d", qualified_name, i);
                     struct map_entry* _Opt it2 = hashmap_find(&ctx->p_ast->file_scope.variables, new_name);
                     if (it2 == NULL)
                     {
@@ -178,10 +181,17 @@ int rename_file_scope_declarator_if_necessary(const struct codegen_ctx* ctx, str
 
         struct hash_item_set item = { 0 };
         item.p_init_declarator = init_declarator_add_ref(p_init_declarator);
-        hashmap_set(&ctx->p_ast->file_scope.variables, current_name, &item);
+        hashmap_set(&ctx->p_ast->file_scope.variables, qualified_name, &item);
         hash_item_set_destroy(&item);
 
         p_init_declarator->p_declarator->declarator_renamed = true;
+        if (p_init_declarator->p_declarator->name_opt)
+        {
+            free(p_init_declarator->p_declarator->name_opt->lexeme);
+            char* _Opt _Owner temp = strdup(qualified_name);
+            if (temp == NULL) throw;
+            p_init_declarator->p_declarator->name_opt->lexeme = temp;
+        }
     }
     catch
     {
@@ -452,36 +462,36 @@ static void expression_to_bool_value(struct codegen_ctx* ctx, struct osstream* o
         {
             switch (p_expression->expression_type)
             {
-            case EXPR_EQUALITY_EQUAL:
-            case EXPR_EQUALITY_NOT_EQUAL:
-            case EXPR_AND:
-            case EXPR_EXCLUSIVE_OR:
-            case EXPR_INCLUSIVE_OR:
-            case EXPR_LOGICAL_OR:
-            case EXPR_LOGICAL_AND:
-            case EXPR_ASSIGNMENT_ASSIGN:
-            case EXPR_ASSIGNMENT_PLUS_ASSIGN:
-            case EXPR_ASSIGNMENT_MINUS_ASSIGN:
-            case EXPR_ASSIGNMENT_MULTI_ASSIGN:
-            case EXPR_ASSIGNMENT_DIV_ASSIGN:
-            case EXPR_ASSIGNMENT_MOD_ASSIGN:
-            case EXPR_ASSIGNMENT_SHIFT_LEFT_ASSIGN:
-            case EXPR_ASSIGNMENT_SHIFT_RIGHT_ASSIGN:
-            case EXPR_ASSIGNMENT_AND_ASSIGN:
-            case EXPR_ASSIGNMENT_OR_ASSIGN:
-            case EXPR_ASSIGNMENT_NOT_ASSIGN:
-            case EXPR_EXPRESSION:
-            case EXPR_CONDITIONAL:
-                ss_fprintf(oss, "((");
-                codegen_visit_expression(ctx, oss, p_expression);
-                ss_fprintf(oss, ") != 0)");
+                case EXPR_EQUALITY_EQUAL:
+                case EXPR_EQUALITY_NOT_EQUAL:
+                case EXPR_AND:
+                case EXPR_EXCLUSIVE_OR:
+                case EXPR_INCLUSIVE_OR:
+                case EXPR_LOGICAL_OR:
+                case EXPR_LOGICAL_AND:
+                case EXPR_ASSIGNMENT_ASSIGN:
+                case EXPR_ASSIGNMENT_PLUS_ASSIGN:
+                case EXPR_ASSIGNMENT_MINUS_ASSIGN:
+                case EXPR_ASSIGNMENT_MULTI_ASSIGN:
+                case EXPR_ASSIGNMENT_DIV_ASSIGN:
+                case EXPR_ASSIGNMENT_MOD_ASSIGN:
+                case EXPR_ASSIGNMENT_SHIFT_LEFT_ASSIGN:
+                case EXPR_ASSIGNMENT_SHIFT_RIGHT_ASSIGN:
+                case EXPR_ASSIGNMENT_AND_ASSIGN:
+                case EXPR_ASSIGNMENT_OR_ASSIGN:
+                case EXPR_ASSIGNMENT_NOT_ASSIGN:
+                case EXPR_EXPRESSION:
+                case EXPR_CONDITIONAL:
+                    ss_fprintf(oss, "((");
+                    codegen_visit_expression(ctx, oss, p_expression);
+                    ss_fprintf(oss, ") != 0)");
                 break;
-            default:
-                //we are taking some risks eliminating () to make it easier to read.
-                //external ()  are optional, but I think it makes it clear.
-                ss_fprintf(oss, "(");
-                codegen_visit_expression(ctx, oss, p_expression);
-                ss_fprintf(oss, " != 0)");
+                default:
+                    //we are taking some risks eliminating () to make it easier to read.
+                    //external ()  are optional, but I think it makes it clear.
+                    ss_fprintf(oss, "(");
+                    codegen_visit_expression(ctx, oss, p_expression);
+                    ss_fprintf(oss, " != 0)");
                 break;
             }
 
@@ -659,30 +669,30 @@ static const char* get_op_by_expression_type(enum expression_type type)
 {
     switch (type)
     {
-    case EXPR_ASSIGNMENT_ASSIGN:
-        return "=";
-    case EXPR_ASSIGNMENT_PLUS_ASSIGN:
-        return "+=";
-    case EXPR_ASSIGNMENT_MINUS_ASSIGN:
-        return "-=";
-    case EXPR_ASSIGNMENT_MULTI_ASSIGN:
-        return "*=";
-    case EXPR_ASSIGNMENT_DIV_ASSIGN:
-        return "/=";
-    case EXPR_ASSIGNMENT_MOD_ASSIGN:
-        return "%=";
-    case EXPR_ASSIGNMENT_SHIFT_LEFT_ASSIGN:
-        return "<<=";
-    case EXPR_ASSIGNMENT_SHIFT_RIGHT_ASSIGN:
-        return ">>=";
-    case EXPR_ASSIGNMENT_AND_ASSIGN:
-        return "&=";
-    case EXPR_ASSIGNMENT_OR_ASSIGN:
-        return "|=";
-    case EXPR_ASSIGNMENT_NOT_ASSIGN:
-        return "^=";
+        case EXPR_ASSIGNMENT_ASSIGN:
+            return "=";
+        case EXPR_ASSIGNMENT_PLUS_ASSIGN:
+            return "+=";
+        case EXPR_ASSIGNMENT_MINUS_ASSIGN:
+            return "-=";
+        case EXPR_ASSIGNMENT_MULTI_ASSIGN:
+            return "*=";
+        case EXPR_ASSIGNMENT_DIV_ASSIGN:
+            return "/=";
+        case EXPR_ASSIGNMENT_MOD_ASSIGN:
+            return "%=";
+        case EXPR_ASSIGNMENT_SHIFT_LEFT_ASSIGN:
+            return "<<=";
+        case EXPR_ASSIGNMENT_SHIFT_RIGHT_ASSIGN:
+            return ">>=";
+        case EXPR_ASSIGNMENT_AND_ASSIGN:
+            return "&=";
+        case EXPR_ASSIGNMENT_OR_ASSIGN:
+            return "|=";
+        case EXPR_ASSIGNMENT_NOT_ASSIGN:
+            return "^=";
 
-    default:
+        default:
         break;
     }
     _Assert(false);
@@ -907,16 +917,7 @@ static void vm_emit_countof_expr(
     }
 }
 
-/* Emit the _Assert check as an EXPRESSION (_Assert has the same
-   grammar as compile_assert and, like it, can appear in expression position):
 
-       (condition) ? (void)0 : <handler>("file", line, "message")
-
-   The handler is emitted once, like the memcpy helper. */
-   /* True when this expression is a _Assert that will emit code (i.e. the
-         -runtime-asserts flag is set). Other static assertions -- and _Assert
-         without the flag -- are dropped by the callers below (comma operator,
-         expression statement), so those must NOT drop an emitted _Assert. */
 static bool codegen_expr_is_emitted_runtime_assert(const struct codegen_ctx* ctx, const struct expression* p_expr)
 {
     return p_expr->expression_type == EXPR_UNARY_STATIC_ASSERTION &&
@@ -971,7 +972,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
             codegen_visit_expression(ctx, &add_this_before, p_expression->left);
             ss_fprintf(&add_this_before, ";\n");
 
-            //ctx->break_reference.p_iteration_statement->
+            
             if (ctx->p_current_try_statement)
             {
                 print_identation_core(&add_this_before, ctx->indentation);
@@ -1024,14 +1025,14 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                     else
                     {
                         ss_fprintf(oss, "0");
-                        //object_print_value(oss, &p_expression->object);
+                        //object_print_value(ctx->options.target, oss, &p_expression->object);
                     }
                     return;
                 }
             }
             else if (type_is_arithmetic(&p_expression->type))
             {
-                object_print_value(oss, &p_expression->object);
+                object_print_value(ctx->options.target, oss, &p_expression->object);
                 return;
             }
         }
@@ -1039,69 +1040,69 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
         switch (p_expression->expression_type)
         {
-        case EXPR_INVALID:
-            _Assert(false);
+            case EXPR_INVALID:
+                _Assert(false);
             break;
 
-        case EXPR_PRIMARY__FUNC__:
-        {
-            _Assert(ctx->p_current_function_opt);
-
-            char func_name[200] = { 0 };
-            char name[100] = { 0 };
-            if (ctx->p_current_function_opt->name_opt)
-            {
-                snprintf(func_name, sizeof func_name, "%s", ctx->p_current_function_opt->name_opt->lexeme);
-                snprintf(name, sizeof(name), "__cake_func_%s", func_name);
-            }
-            else
-            {
-                snprintf(func_name, sizeof func_name, "unnamed");
-                snprintf(name, sizeof(name), "__cake_func_%p", ctx->p_current_function_opt);
-            }
-
-            if (!ctx->is__func__predefined_identifier_added)
+            case EXPR_PRIMARY__FUNC__:
             {
                 _Assert(ctx->p_current_function_opt);
 
-                ctx->is__func__predefined_identifier_added = true;
-                ss_fprintf(&ctx->add_this_before_external_decl, "static char %s[] = \"%s\";\n", name, func_name);
+                char func_name[200] = { 0 };
+                char name[100] = { 0 };
+                if (ctx->p_current_function_opt->name_opt)
+                {
+                    snprintf(func_name, sizeof func_name, "%s", ctx->p_current_function_opt->name_opt->lexeme);
+                    snprintf(name, sizeof(name), "__cake_func_%s", func_name);
+                }
+                else
+                {
+                    snprintf(func_name, sizeof func_name, "unnamed");
+                    snprintf(name, sizeof(name), "__cake_func_%p", ctx->p_current_function_opt);
+                }
+
+                if (!ctx->is__func__predefined_identifier_added)
+                {
+                    _Assert(ctx->p_current_function_opt);
+
+                    ctx->is__func__predefined_identifier_added = true;
+                    ss_fprintf(&ctx->add_this_before_external_decl, "static char %s[] = \"%s\";\n", name, func_name);
+                }
+                ss_fprintf(oss, "%s", name);
+
             }
-            ss_fprintf(oss, "%s", name);
+            break;
 
-        }
-        break;
+            case EXPR_PRIMARY_DECLARATOR:
+            {
+                _Assert(p_expression->declarator != NULL);
+                _Assert(p_expression->declarator->declaration_specifiers != NULL);
 
-        case EXPR_PRIMARY_DECLARATOR:
-        {
-            _Assert(p_expression->declarator != NULL);
-            _Assert(p_expression->declarator->declaration_specifiers != NULL);
+                const char* declarator_name = "";
+                if (p_expression->declarator->name_opt)
+                    declarator_name = p_expression->declarator->name_opt->lexeme;
 
-            const char* declarator_name = "";
-            if (p_expression->declarator->name_opt)
-                declarator_name = p_expression->declarator->name_opt->lexeme;
+                bool is_function = type_is_function(&p_expression->declarator->type);
 
-            bool is_function = type_is_function(&p_expression->declarator->type);
-
-            if (is_function &&
+                if (is_function &&
                 p_expression->declarator->function_body == NULL &&
                 strcmp(declarator_name, "__assert_fail") == 0)
-            {
-                ctx->assert_fail_used = true;
-            }
+                {
+                    ctx->assert_fail_used = true;
+                }
 
-            if (is_function &&
+                if (is_function &&
                 p_expression->declarator->function_body == NULL &&
                 strcmp(declarator_name, "__assert_rtn") == 0)
-            {
-                ctx->assert_rtn_used = true;
-            }
+                {
+                    ctx->assert_rtn_used = true;
+                }
 
-            if (is_function &&
+                if (is_function &&
                 (p_expression->declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER))
-            {
+                {
 
-                /*
+                    /*
               Function parameters are pointers.
               Example:
 
@@ -1110,202 +1111,214 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
               }
 
             */
-                is_function = false;
-            }
+                    is_function = false;
+                }
 
-            if (p_expression->declarator->name_opt == NULL) throw;
+                if (p_expression->declarator->name_opt == NULL) throw;
 
-            bool is_local_function_definition = false;
-            if (is_function)
-            {
-                is_local_function_definition =
+                bool is_local_function_definition = false;
+                if (is_function)
+                {
+                    is_local_function_definition =
                     p_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE &&
                     p_expression->declarator->function_body != NULL;
-            }
+                }
 
-            const bool is_static =
+                const bool is_static =
                 p_expression->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC;
 
-            const bool is_auto =
+                const bool is_auto =
                 p_expression->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO;
 
-            const bool is_inline =
+                const bool is_inline =
                 p_expression->declarator->declaration_specifiers->function_specifier_flags & FUNCTION_SPECIFIER_INLINE;
 
-            const bool is_extern = p_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN;
+                const bool is_extern = p_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN;
 
-            const bool is_local =
+                const bool is_local =
                 (!is_static && !is_extern) &&
                 p_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE;
 
-            if (!is_function &&
+                if (!is_function &&
                 p_expression->lvalue_disabled &&
                 (type_is_struct_or_union(&p_expression->type) || type_is_array(&p_expression->type)))
-            {
-                /*
+                {
+                    /*
                  This names a const/constexpr object from an enclosing
                  function. Its storage isn't reachable from here, so
                  materialize a copy of its compile-time value instead of
                  referencing it by name.
                 */
-                char name[100] = { 0 };
-                generate_file_scope_new_name(ctx, COMPOUND_LITERAL_BASE_NAME, sizeof(name), name);
+                    char name[100] = { 0 };
+                    generate_file_scope_new_name(ctx, COMPOUND_LITERAL_BASE_NAME, sizeof(name), name);
 
-                struct osstream local = { 0 };
-                ss_fprintf(&local, "static ");
-                d_print_type(ctx, &local, &p_expression->type, name, false);
-                bool first = true;
-                ss_fprintf(&local, " = {");
-                object_print_initialization_list(ctx, &local, &p_expression->object, &first);
-                ss_fprintf(&local, "};\n");
-                ss_fprintf(&ctx->add_this_before_external_decl, "%s", local.c_str);
-                ss_close(&local);
-                ss_fprintf(oss, "%s", name);
-            }
-            else if (is_function)
-            {
-                ss_fprintf(oss, "%s", p_expression->declarator->name_opt->lexeme);
-
-                struct map_entry* _Opt p = hashmap_find(&ctx->file_scope_declarator_map, declarator_name);
-                if (p == NULL)
+                    struct osstream local = { 0 };
+                    ss_fprintf(&local, "static ");
+                    d_print_type(ctx, &local, &p_expression->type, name, false);
+                    bool first = true;
+                    ss_fprintf(&local, " = {");
+                    object_print_initialization_list(ctx, &local, &p_expression->object, &first);
+                    ss_fprintf(&local, "};\n");
+                    ss_fprintf(&ctx->add_this_before_external_decl, "%s", local.c_str);
+                    ss_close(&local);
+                    ss_fprintf(oss, "%s", name);
+                }
+                else if (is_function)
                 {
-                    /*first time we see it*/
+                    ss_fprintf(oss, "%s", p_expression->declarator->name_opt->lexeme);
 
-                    struct hash_item_set i = { 0 };
-                    i.number = 1;
-                    hashmap_set(&ctx->file_scope_declarator_map, declarator_name, &i);
-                    hash_item_set_destroy(&i);
+                    struct map_entry* _Opt p = hashmap_find(&ctx->file_scope_declarator_map, declarator_name);
+                    const bool needs_declaration =
+                    (p == NULL) ||
+                    (!is_static && p->type == TAG_TYPE_NUMBER && p->data.number == 1);
 
-                    struct osstream ss = { 0 };
-
-                    if ((is_inline || is_local_function_definition || is_auto) && !is_static)
+                    if (needs_declaration)
                     {
-                        ss_fprintf(&ss, "static ");
-                    }
-                    d_print_type(ctx, &ss, &p_expression->type, declarator_name, true);
-                    ss_fprintf(&ctx->add_this_before_external_decl, "%s", ss.c_str);
-                    ss_fprintf(&ctx->add_this_before_external_decl, ";\n");
+                        struct hash_item_set i = { 0 };
+                        i.number = 2;
+                        hashmap_set(&ctx->file_scope_declarator_map, declarator_name, &i);
+                        hash_item_set_destroy(&i);
 
-                    _Assert(p_expression->declarator != NULL);
+                        if (p != NULL && p->type == TAG_TYPE_NUMBER)
+                        {
+                            /*
+                          hashmap_set does not overwrite an existing NUMBER
+                          entry's value (see hashmap.c), so upgrade it here
+                          directly through the entry we already found.
+                        */
+                            p->data.number = 2;
+                        }
 
-                    const struct declarator* _Opt p_function_defined
+                        struct osstream ss = { 0 };
+
+                        if ((is_inline || is_local_function_definition || is_auto) && !is_static)
+                        {
+                            ss_fprintf(&ss, "static ");
+                        }
+                        d_print_type(ctx, &ss, &p_expression->type, declarator_name, true);
+                        ss_fprintf(&ctx->add_this_before_external_decl, "%s", ss.c_str);
+                        ss_fprintf(&ctx->add_this_before_external_decl, ";\n");
+
+                        _Assert(p_expression->declarator != NULL);
+
+                        const struct declarator* _Opt p_function_defined
                         = declarator_get_function_definition(p_expression->declarator);
 
-                    if (p_function_defined && (is_static || is_inline || is_auto || is_local_function_definition))
-                    {
-                        //We need to find the function..
+                        if (p_function_defined && (is_static || is_inline || is_auto || is_local_function_definition))
+                        {
+                            //We need to find the function..
 
-                        struct osstream local3 = { 0 };
-                        struct osstream local4 = { 0 };
-                        d_print_type(ctx, &local4, &p_function_defined->type, declarator_name, false);
+                            struct osstream local3 = { 0 };
+                            struct osstream local4 = { 0 };
+                            d_print_type(ctx, &local4, &p_function_defined->type, declarator_name, false);
 
-                        emit_line_directive(ctx, &local3, p_function_defined->first_token_opt);
-                        ss_fprintf(&local3, "static %s\n", local4.c_str);
+                            emit_line_directive(ctx, &local3, p_function_defined->first_token_opt);
+                            ss_fprintf(&local3, "static %s\n", local4.c_str);
 
-                        codegen_visit_function_body(ctx, &local3, p_function_defined);
+                            codegen_visit_function_body(ctx, &local3, p_function_defined);
 
-                        _Assert(ss.c_str);
-                        _Assert(oss->c_str);
+                            _Assert(ss.c_str);
+                            _Assert(oss->c_str);
 
-                        ss_fprintf(&ctx->add_this_after_external_decl, "\n");
-                        ss_fprintf(&ctx->add_this_after_external_decl, "%s", local3.c_str);
+                            ss_fprintf(&ctx->add_this_after_external_decl, "\n");
+                            ss_fprintf(&ctx->add_this_after_external_decl, "%s", local3.c_str);
 
-                        ss_close(&local3);
-                        ss_close(&local4);
+                            ss_close(&local3);
+                            ss_close(&local4);
+                        }
+
+                        ss_close(&ss);
                     }
-
-                    ss_close(&ss);
                 }
-            }
-            else if (is_local)
-            {
-                ss_fprintf(oss, "%s", p_expression->declarator->name_opt->lexeme);
-            }
-            else
-            {
-                /*
+                else if (is_local)
+                {
+                    ss_fprintf(oss, "%s", p_expression->declarator->name_opt->lexeme);
+                }
+                else
+                {
+                    /*
                local static declarators are generated on-demand.
             */
 
-                void* _Opt p = hashmap_find(&ctx->file_scope_declarator_map, declarator_name);
-                if (p == NULL)
-                {
-                    /*
+                    void* _Opt p = hashmap_find(&ctx->file_scope_declarator_map, declarator_name);
+                    if (p == NULL)
+                    {
+                        /*
                   first time, let´s generate it
                 */
 
-                /*
+                        /*
                insert in a map to avoid generating it again
             */
-                    struct hash_item_set i = { 0 };
-                    i.number = 1;
-                    hashmap_set(&ctx->file_scope_declarator_map, declarator_name, &i);
+                        struct hash_item_set i = { 0 };
+                        i.number = 1;
+                        hashmap_set(&ctx->file_scope_declarator_map, declarator_name, &i);
 
-                    _Assert(p_expression->declarator);
-                    _Assert(p_expression->declarator->name_opt);
+                        _Assert(p_expression->declarator);
+                        _Assert(p_expression->declarator->name_opt);
 
-                    struct osstream ss = { 0 };
+                        struct osstream ss = { 0 };
 
-                    d_print_type(ctx, &ss, &p_expression->type, declarator_name, true);
+                        d_print_type(ctx, &ss, &p_expression->type, declarator_name, true);
 
-                    if (p_expression->p_init_declarator &&
+                        if (p_expression->p_init_declarator &&
                         p_expression->p_init_declarator->initializer)
-                    {
-                        print_initializer(ctx, &ss, p_expression->p_init_declarator, true);
-                        _Assert(ss.c_str);
-                        ss_fprintf(&ctx->add_this_before_external_decl, "%s\n", ss.c_str);
-                    }
-                    else
-                    {
-                        _Assert(ss.c_str);
-                        ss_fprintf(&ctx->add_this_before_external_decl, "%s;\n", ss.c_str);
+                        {
+                            print_initializer(ctx, &ss, p_expression->p_init_declarator, true);
+                            _Assert(ss.c_str);
+                            ss_fprintf(&ctx->add_this_before_external_decl, "%s\n", ss.c_str);
+                        }
+                        else
+                        {
+                            _Assert(ss.c_str);
+                            ss_fprintf(&ctx->add_this_before_external_decl, "%s;\n", ss.c_str);
+                        }
+
+                        ss_close(&ss);
+                        hash_item_set_destroy(&i);
                     }
 
-                    ss_close(&ss);
-                    hash_item_set_destroy(&i);
+                    ss_fprintf(oss, "%s", p_expression->declarator->name_opt->lexeme);
                 }
 
-                ss_fprintf(oss, "%s", p_expression->declarator->name_opt->lexeme);
             }
-
-        }
-        break;
-
-        case EXPR_PRIMARY_STRING_LITERAL:
-            il_print_string(p_expression->first_token, p_expression->last_token, oss);
             break;
 
-        case EXPR_PRIMARY_ENUMERATOR:
-        case EXPR_PRIMARY_CHAR_LITERAL:
-        case EXPR_PRIMARY_NUMBER:
-        case EXPR_PRIMARY_PREDEFINED_CONSTANT:
-            object_print_value(oss, &p_expression->object);
+            case EXPR_PRIMARY_STRING_LITERAL:
+                il_print_string(p_expression->first_token, p_expression->last_token, oss);
             break;
 
-        case EXPR_PRIMARY_PARENTHESIS:
+            case EXPR_PRIMARY_ENUMERATOR:
+            case EXPR_PRIMARY_CHAR_LITERAL:
+            case EXPR_PRIMARY_NUMBER:
+            case EXPR_PRIMARY_PREDEFINED_CONSTANT:
+                object_print_value(ctx->options.target, oss, &p_expression->object);
+            break;
 
-            _Assert(p_expression->right != NULL);
-            if (p_expression->right->expression_type == EXPR_PRIMARY_PARENTHESIS)
-            {
-                /* remove extra (()) — could also be removed from other cases */
-                codegen_visit_expression(ctx, oss, p_expression->right);
-            }
-            else
-            {
-                ss_fprintf(oss, "(");
-                codegen_visit_expression(ctx, oss, p_expression->right);
-                ss_fprintf(oss, ")");
-            }
+            case EXPR_PRIMARY_PARENTHESIS:
+
+                _Assert(p_expression->right != NULL);
+                if (p_expression->right->expression_type == EXPR_PRIMARY_PARENTHESIS)
+                {
+                    /* remove extra (()) — could also be removed from other cases */
+                    codegen_visit_expression(ctx, oss, p_expression->right);
+                }
+                else
+                {
+                    ss_fprintf(oss, "(");
+                    codegen_visit_expression(ctx, oss, p_expression->right);
+                    ss_fprintf(oss, ")");
+                }
 
             break;
 
-        case EXPR_PRIMARY_STATEMENT_EXPRESSION:
-        {
-            _Assert(p_expression->compound_statement);
-
-            if (type_is_void(&p_expression->type))
+            case EXPR_PRIMARY_STATEMENT_EXPRESSION:
             {
-                /* A void statement-expression (e.g. `({ ... });` with no
+                _Assert(p_expression->compound_statement);
+
+                if (type_is_void(&p_expression->type))
+                {
+                    /* A void statement-expression (e.g. `({ ... });` with no
                    trailing value, or ending in a void expression) has no
                    result to hoist into a temporary. Declaring `void name;`
                    is not valid C, so just emit the compound statement's
@@ -1313,215 +1326,215 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                    as a subexpression (e.g. the right side of a comma
                    operator), so `oss` still needs a syntactically valid
                    void placeholder value instead of nothing. */
-                struct osstream local = { 0 };
+                    struct osstream local = { 0 };
 
-                codegen_visit_compound_statement_2(NULL, ctx, &local, p_expression->compound_statement);
+                    codegen_visit_compound_statement_2(NULL, ctx, &local, p_expression->compound_statement);
 
-                ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
-                ss_close(&local);
+                    ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
+                    ss_close(&local);
 
-                ss_fprintf(oss, "(void)0");
-            }
-            else
-            {
-                char name[100] = { 0 };
-                generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
+                    ss_fprintf(oss, "(void)0");
+                }
+                else
+                {
+                    char name[100] = { 0 };
+                    generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
 
-                struct osstream local = { 0 };
+                    struct osstream local = { 0 };
 
-                ss_swap(&ctx->block_scope_declarators, &local);
-                print_identation_core(&local, ctx->indentation);
-                d_print_type(ctx, &local, &p_expression->type, name, false);
-                ss_fprintf(&local, ";\n", name);
-                ss_fprintf(&ctx->block_scope_declarators, "%s", local.c_str);
+                    ss_swap(&ctx->block_scope_declarators, &local);
+                    print_identation_core(&local, ctx->indentation);
+                    d_print_type(ctx, &local, &p_expression->type, name, false);
+                    ss_fprintf(&local, ";\n", name);
+                    ss_fprintf(&ctx->block_scope_declarators, "%s", local.c_str);
 
-                ss_clear(&local);
+                    ss_clear(&local);
 
-                //we need to change the last statment
-                codegen_visit_compound_statement_2(name, ctx, &local, p_expression->compound_statement);
+                    //we need to change the last statment
+                    codegen_visit_compound_statement_2(name, ctx, &local, p_expression->compound_statement);
 
-                ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
-                ss_close(&local);
-                ss_fprintf(oss, "%s", name);
-            }
-        }
-        break;
-
-        case EXPR_PRIMARY_GENERIC:
-            _Assert(p_expression->generic_selection != NULL);
-
-            if (p_expression->generic_selection->p_view_selected_expression)
-            {
-                codegen_visit_expression(ctx, oss, p_expression->generic_selection->p_view_selected_expression);
+                    ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
+                    ss_close(&local);
+                    ss_fprintf(oss, "%s", name);
+                }
             }
             break;
 
-        case EXPR_UNARY_STATIC_ASSERTION:
-            if (p_expression->static_assertion &&
+            case EXPR_PRIMARY_GENERIC:
+                _Assert(p_expression->generic_selection != NULL);
+
+                if (p_expression->generic_selection->p_view_selected_expression)
+                {
+                    codegen_visit_expression(ctx, oss, p_expression->generic_selection->p_view_selected_expression);
+                }
+            break;
+
+            case EXPR_UNARY_STATIC_ASSERTION:
+                if (p_expression->static_assertion &&
                 p_expression->static_assertion->first_token->type == TK_KEYWORD_RUNTIME_ASSERT &&
                 ctx->options.runtime_asserts)
-            {
-                codegen_emit_runtime_assert_expr(ctx, oss, p_expression->static_assertion);
-            }
-            else
-            {
-                /* compile_assert / static_assert (and _Assert without the
+                {
+                    codegen_emit_runtime_assert_expr(ctx, oss, p_expression->static_assertion);
+                }
+                else
+                {
+                    /* compile_assert / static_assert (and _Assert without the
                    -runtime-asserts flag) are compile-time only: a void no-op. */
-                ss_fprintf(oss, "(void)0");
-            }
+                    ss_fprintf(oss, "(void)0");
+                }
             break;
 
-        case EXPR_UNARY_GCC__BUILTIN_OFFSETOF:
+            case EXPR_UNARY_GCC__BUILTIN_OFFSETOF:
 
-            if (p_expression->offsetof_member_designator == NULL) throw;
+                if (p_expression->offsetof_member_designator == NULL) throw;
 
-            ss_fprintf(oss, "__builtin_offsetof(");
+                ss_fprintf(oss, "__builtin_offsetof(");
 
-            if (p_expression->type_name)
-            {
-                d_print_type(ctx, oss, &p_expression->type_name->type, NULL, false);
-            }
-            ss_fprintf(oss, ", ");
-            ss_fprintf(oss, "%s", p_expression->offsetof_member_designator->lexeme);
-            ss_fprintf(oss, ")");
+                if (p_expression->type_name)
+                {
+                    d_print_type(ctx, oss, &p_expression->type_name->type, NULL, false);
+                }
+                ss_fprintf(oss, ", ");
+                ss_fprintf(oss, "%s", p_expression->offsetof_member_designator->lexeme);
+                ss_fprintf(oss, ")");
             break;
 
-        case EXPR_UNARY_GCC__BUILTIN_VA_START:
-            _Assert(p_expression->left != NULL);
+            case EXPR_UNARY_GCC__BUILTIN_VA_START:
+                _Assert(p_expression->left != NULL);
 
-            if (p_expression->right != NULL)
-            {
-                ss_fprintf(oss, "__builtin_va_start(");
+                if (p_expression->right != NULL)
+                {
+                    ss_fprintf(oss, "__builtin_va_start(");
+                    codegen_visit_expression(ctx, oss, p_expression->left);
+                    ss_fprintf(oss, ", ");
+                    codegen_visit_expression(ctx, oss, p_expression->right);
+                    ss_fprintf(oss, ")");
+                }
+                else
+                {
+                    //first argument is optional in C23
+                    ss_fprintf(oss, "__builtin_c23_va_start(");
+                    codegen_visit_expression(ctx, oss, p_expression->left);
+                    ss_fprintf(oss, ")");
+                    //TODO to convert to C89 we need to insert the first parameter
+                    //at the caller and at the implementation
+                    /* ss_fprintf(oss, ", __first_va_arg"); */
+                }
+            break;
+
+            case EXPR_UNARY_GCC__BUILTIN_VA_END:
+                _Assert(p_expression->left != NULL);
+                ss_fprintf(oss, "__builtin_va_end(");
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, ")");
+            break;
+
+            case EXPR_UNARY_GCC__BUILTIN_VA_COPY:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+
+                ss_fprintf(oss, "__builtin_va_copy(");
                 codegen_visit_expression(ctx, oss, p_expression->left);
                 ss_fprintf(oss, ", ");
                 codegen_visit_expression(ctx, oss, p_expression->right);
                 ss_fprintf(oss, ")");
-            }
-            else
-            {
-                //first argument is optional in C23
-                ss_fprintf(oss, "__builtin_c23_va_start(");
+            break;
+
+            case EXPR_UNARY_GCC__BUILTIN_VA_ARG:
+                _Assert(p_expression->left != NULL);
+
+                ss_fprintf(oss, "__builtin_va_arg(");
                 codegen_visit_expression(ctx, oss, p_expression->left);
+
+                if (p_expression->type_name)
+                {
+                    ss_fprintf(oss, ", ");
+                    d_print_type(ctx, oss, &p_expression->type_name->type, NULL, false);
+                }
                 ss_fprintf(oss, ")");
-                //TODO to convert to C89 we need to insert the first parameter
-                //at the caller and at the implementation
-                /* ss_fprintf(oss, ", __first_va_arg"); */
-            }
             break;
 
-        case EXPR_UNARY_GCC__BUILTIN_VA_END:
-            _Assert(p_expression->left != NULL);
-            ss_fprintf(oss, "__builtin_va_end(");
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, ")");
-            break;
-
-        case EXPR_UNARY_GCC__BUILTIN_VA_COPY:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-
-            ss_fprintf(oss, "__builtin_va_copy(");
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, ", ");
-            codegen_visit_expression(ctx, oss, p_expression->right);
-            ss_fprintf(oss, ")");
-            break;
-
-        case EXPR_UNARY_GCC__BUILTIN_VA_ARG:
-            _Assert(p_expression->left != NULL);
-
-            ss_fprintf(oss, "__builtin_va_arg(");
-            codegen_visit_expression(ctx, oss, p_expression->left);
-
-            if (p_expression->type_name)
+            case EXPR_POSTFIX_DOT:
             {
-                ss_fprintf(oss, ", ");
-                d_print_type(ctx, oss, &p_expression->type_name->type, NULL, false);
-            }
-            ss_fprintf(oss, ")");
-            break;
+                _Assert(p_expression->left != NULL);
 
-        case EXPR_POSTFIX_DOT:
-        {
-            _Assert(p_expression->left != NULL);
-
-            codegen_visit_expression(ctx, oss, p_expression->left);
-
-            char name[100] = { 0 };
-            int r = find_member_name(&p_expression->left->type, p_expression->member_index, name);
-            if (r == 0)
-            {
-                ss_fprintf(oss, ".%s", name);
-            }
-        }
-        break;
-
-        case EXPR_POSTFIX_ARROW:
-        {
-            _Assert(p_expression->left != NULL);
-
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            {
-                struct type t = type_remove_pointer(&p_expression->left->type);
+                codegen_visit_expression(ctx, oss, p_expression->left);
 
                 char name[100] = { 0 };
-                int r = find_member_name(&t, p_expression->member_index, name);
+                int r = find_member_name(&p_expression->left->type, p_expression->member_index, name);
                 if (r == 0)
                 {
-                    ss_fprintf(oss, "->%s", name);
+                    ss_fprintf(oss, ".%s", name);
                 }
-                type_destroy(&t);
-            }
-        }
-        break;
-
-        case EXPR_POSTFIX_INCREMENT:
-            _Assert(p_expression->left != NULL);
-
-            if (codegen_is_vm_pointer(&p_expression->left->type))
-            {
-                codegen_vm_ptr_postfix_step(ctx, oss, p_expression->left, "+");
-            }
-            else
-            {
-                codegen_visit_expression(ctx, oss, p_expression->left);
-                ss_fprintf(oss, "++");
             }
             break;
 
-        case EXPR_POSTFIX_DECREMENT:
-            _Assert(p_expression->left != NULL);
+            case EXPR_POSTFIX_ARROW:
+            {
+                _Assert(p_expression->left != NULL);
 
-            if (codegen_is_vm_pointer(&p_expression->left->type))
-            {
-                codegen_vm_ptr_postfix_step(ctx, oss, p_expression->left, "-");
-            }
-            else
-            {
                 codegen_visit_expression(ctx, oss, p_expression->left);
-                ss_fprintf(oss, "--");
+                {
+                    struct type t = type_remove_pointer(&p_expression->left->type);
+
+                    char name[100] = { 0 };
+                    int r = find_member_name(&t, p_expression->member_index, name);
+                    if (r == 0)
+                    {
+                        ss_fprintf(oss, "->%s", name);
+                    }
+                    type_destroy(&t);
+                }
             }
             break;
 
-        case EXPR_POSTFIX_ARRAY:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
+            case EXPR_POSTFIX_INCREMENT:
+                _Assert(p_expression->left != NULL);
 
-            /*
+                if (codegen_is_vm_pointer(&p_expression->left->type))
+                {
+                    codegen_vm_ptr_postfix_step(ctx, oss, p_expression->left, "+");
+                }
+                else
+                {
+                    codegen_visit_expression(ctx, oss, p_expression->left);
+                    ss_fprintf(oss, "++");
+                }
+            break;
+
+            case EXPR_POSTFIX_DECREMENT:
+                _Assert(p_expression->left != NULL);
+
+                if (codegen_is_vm_pointer(&p_expression->left->type))
+                {
+                    codegen_vm_ptr_postfix_step(ctx, oss, p_expression->left, "-");
+                }
+                else
+                {
+                    codegen_visit_expression(ctx, oss, p_expression->left);
+                    ss_fprintf(oss, "--");
+                }
+            break;
+
+            case EXPR_POSTFIX_ARRAY:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+
+                /*
                We need to check if A is VM,
                   A[i0][i1][i2]...[ik]
                if it is we have a [flat_index]
             */
 
-            struct expression* _Opt expr0 = p_expression;
-            while (expr0 && expr0->expression_type == EXPR_POSTFIX_ARRAY)
-            {
-                expr0 = expr0->left;
-            }
+                struct expression* _Opt expr0 = p_expression;
+                while (expr0 && expr0->expression_type == EXPR_POSTFIX_ARRAY)
+                {
+                    expr0 = expr0->left;
+                }
 
-            if (expr0 && type_is_vm(&expr0->type))
-            {
-                /*
+                if (expr0 && type_is_vm(&expr0->type))
+                {
+                    /*
                    A[i0][i1][i2]...[ik]
 
                    Lower to:
@@ -1535,786 +1548,785 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                    A[offset]
                 */
 
-                struct osstream offset_flat = { 0 };
+                    struct osstream offset_flat = { 0 };
 
-                struct expression* _Opt expr = p_expression;
-                while (expr && expr->expression_type == EXPR_POSTFIX_ARRAY)
-                {
-                    _Assert(expr->right != NULL);
-                    if (offset_flat.size > 0)
-                        ss_fprintf(&offset_flat, " + ");
+                    struct expression* _Opt expr = p_expression;
+                    while (expr && expr->expression_type == EXPR_POSTFIX_ARRAY)
+                    {
+                        _Assert(expr->right != NULL);
+                        if (offset_flat.size > 0)
+                            ss_fprintf(&offset_flat, " + ");
 
-                    if (is_primary_expression(expr->right->expression_type))
-                    {
-                        codegen_visit_expression(ctx, &offset_flat, expr->right);
-                    }
-                    else
-                    {
-                        ss_fprintf(&offset_flat, "(");
-                        codegen_visit_expression(ctx, &offset_flat, expr->right);
-                        ss_fprintf(&offset_flat, ")");
-                    }
-
-                    _Assert(expr->left);
-                    struct type* _Opt p_type = expr->left->type.next;
-                    while (p_type && type_is_array(p_type))
-                    {
-                        if (p_type->array_num_elements > 0)
+                        if (is_primary_expression(expr->right->expression_type))
                         {
-                            ss_fprintf(&offset_flat, " * %zu", p_type->array_num_elements);
+                            codegen_visit_expression(ctx, &offset_flat, expr->right);
                         }
                         else
                         {
-                            ss_fprintf(&offset_flat, " * __vm%d", p_type->vm_dim_id);
+                            ss_fprintf(&offset_flat, "(");
+                            codegen_visit_expression(ctx, &offset_flat, expr->right);
+                            ss_fprintf(&offset_flat, ")");
                         }
-                        p_type = p_type->next;
+
+                        _Assert(expr->left);
+                        struct type* _Opt p_type = expr->left->type.next;
+                        while (p_type && type_is_array(p_type))
+                        {
+                            if (p_type->array_num_elements > 0)
+                            {
+                                ss_fprintf(&offset_flat, " * %zu", p_type->array_num_elements);
+                            }
+                            else
+                            {
+                                ss_fprintf(&offset_flat, " * __vm%d", p_type->vm_dim_id);
+                            }
+                            p_type = p_type->next;
+                        }
+
+                        expr = expr->left;
                     }
 
-                    expr = expr->left;
-                }
+                    if (expr == NULL)
+                    {
+                        ss_close(&offset_flat);
+                        throw;
+                    }
 
-                if (expr == NULL)
-                {
+                    if (type_is_pointer(&expr->type))
+                    {
+                        codegen_emit_flattened_vm_pointer(ctx, oss, expr);
+                    }
+                    else
+                    {
+                        codegen_visit_expression(ctx, oss, expr);
+                    }
+                    ss_fprintf(oss, "[");
+                    ss_fprintf(oss, "%s", offset_flat.c_str);
+                    ss_fprintf(oss, "]");
                     ss_close(&offset_flat);
-                    throw;
-                }
-
-                if (type_is_pointer(&expr->type))
-                {
-                    codegen_emit_flattened_vm_pointer(ctx, oss, expr);
                 }
                 else
                 {
-                    codegen_visit_expression(ctx, oss, expr);
+                    codegen_visit_expression(ctx, oss, p_expression->left);
+                    ss_fprintf(oss, "[");
+                    codegen_visit_expression(ctx, oss, p_expression->right);
+                    ss_fprintf(oss, "]");
                 }
-                ss_fprintf(oss, "[");
-                ss_fprintf(oss, "%s", offset_flat.c_str);
-                ss_fprintf(oss, "]");
-                ss_close(&offset_flat);
-            }
-            else
-            {
-                codegen_visit_expression(ctx, oss, p_expression->left);
-                ss_fprintf(oss, "[");
-                codegen_visit_expression(ctx, oss, p_expression->right);
-                ss_fprintf(oss, "]");
-            }
 
             break;
 
-        case EXPR_POSTFIX_FUNCTION_CALL:
-        {
-            _Assert(p_expression->left != NULL);
-
-            codegen_visit_expression(ctx, oss, p_expression->left);
-
-            struct param* _Opt param = p_expression->left->type.params.head;
-
-            ss_fprintf(oss, "(");
-            struct argument_expression* _Opt arg = p_expression->argument_expression_list.head;
-            while (arg)
+            case EXPR_POSTFIX_FUNCTION_CALL:
             {
-                bool to_bool =
-                    param &&
-                    type_is_bool(&param->type) &&
-                    !(type_is_bool(&arg->expression->type) ||
-                        type_is_essential_bool(&arg->expression->type));
+                _Assert(p_expression->left != NULL);
 
-                if (param &&
-                    type_is_vm(&param->type) &&
-                    !type_is_pointer(&arg->expression->type) &&
-                    !expression_is_null_pointer_constant(arg->expression))
+                codegen_visit_expression(ctx, oss, p_expression->left);
+
+                struct param* _Opt param = p_expression->left->type.params.head;
+
+                ss_fprintf(oss, "(");
+                struct argument_expression* _Opt arg = p_expression->argument_expression_list.head;
+                while (arg)
                 {
-                    print_cast_array_to_vm(ctx, oss, &param->type);
-                }
+                    bool to_bool = param &&
+                                   type_is_bool(&param->type) &&
+                                   !(type_is_bool(&arg->expression->type) ||
+                                       type_is_essential_bool(&arg->expression->type));
 
-                if (to_bool)
-                {
-                    expression_to_bool_value(ctx, oss, arg->expression);
-                }
-                else
-                {
-                    codegen_visit_expression(ctx, oss, arg->expression);
-                }
+                    if (param &&
+                        type_is_vm(&param->type) &&
+                        !type_is_pointer(&arg->expression->type) &&
+                        !expression_is_null_pointer_constant(arg->expression))
+                    {
+                        print_cast_array_to_vm(ctx, oss, &param->type);
+                    }
 
-                if (param)
-                    param = param->next;
+                    if (to_bool)
+                    {
+                        expression_to_bool_value(ctx, oss, arg->expression);
+                    }
+                    else
+                    {
+                        codegen_visit_expression(ctx, oss, arg->expression);
+                    }
 
-                if (arg->next)
-                    ss_fprintf(oss, ", ");
-                arg = arg->next;
+                    if (param)
+                        param = param->next;
+
+                    if (arg->next)
+                        ss_fprintf(oss, ", ");
+                    arg = arg->next;
+                }
+                ss_fprintf(oss, ")");
             }
-            ss_fprintf(oss, ")");
-        }
-        break;
+            break;
 
-        case EXPR_UNARY_ADDRESSOF:
-        {
-            //bool address_of_argument = ctx->address_of_argument;
-            _Assert(p_expression->right != NULL);
-
-            if (type_is_array(&p_expression->right->type) &&
-                type_is_vm(&p_expression->right->type))
+            case EXPR_UNARY_ADDRESSOF:
             {
-                /* A VLA object (e.g. `int a[n]`) is already lowered to a
+                //bool address_of_argument = ctx->address_of_argument;
+                _Assert(p_expression->right != NULL);
+
+                if (type_is_array(&p_expression->right->type) &&
+                type_is_vm(&p_expression->right->type))
+                {
+                    /* A VLA object (e.g. `int a[n]`) is already lowered to a
                    plain pointer holding its base address, so `&a` is just
                    that pointer value -- not the address of the pointer
                    variable -- cast to the pointer-to-array type expected
                    here. */
-                ss_fprintf(oss, "(");
-                d_print_type(ctx, oss, &p_expression->type, NULL, false);
-                ss_fprintf(oss, ")");
+                    ss_fprintf(oss, "(");
+                    d_print_type(ctx, oss, &p_expression->type, NULL, false);
+                    ss_fprintf(oss, ")");
+                    codegen_visit_expression(ctx, oss, p_expression->right);
+                    break;
+                }
+
+                ss_fprintf(oss, "&");
+                ctx->address_of_argument = true;
                 codegen_visit_expression(ctx, oss, p_expression->right);
-                break;
+                ctx->address_of_argument = false;
             }
+            break;
 
-            ss_fprintf(oss, "&");
-            ctx->address_of_argument = true;
-            codegen_visit_expression(ctx, oss, p_expression->right);
-            ctx->address_of_argument = false;
-        }
-        break;
-
-        case EXPR_POSTFIX_FUNCTION_LITERAL:
-        {
-            _Assert(p_expression->type_name != NULL);
-
-            char new_name[200] = { 0 };
-
-            print_identation_core(&ctx->add_this_before, ctx->indentation);
-
-            struct osstream function_literal_nameless = { 0 };
-            d_print_type(ctx, &function_literal_nameless, &p_expression->type, NULL, false);
-
-            _Assert(p_expression->compound_statement != NULL);
-
-            const struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
-            ctx->p_current_function_opt = p_expression->type_name->abstract_declarator;
-            const int current_indentation = ctx->indentation;
-            ctx->indentation = 0;
-            struct osstream function_literal_body = { 0 };
-            codegen_visit_compound_statement(ctx, &function_literal_body, p_expression->compound_statement, NULL, NULL);
-            ctx->p_current_function_opt = p_current_function_opt;
-            ctx->indentation = current_indentation;
-
-            struct osstream function_literal = { 0 };
-            ss_fprintf(&function_literal, "%s%s", function_literal_nameless.c_str, function_literal_body.c_str);
-
-            _Assert(function_literal_nameless.c_str);
-
-            if (function_literal.c_str == NULL)
+            case EXPR_POSTFIX_FUNCTION_LITERAL:
             {
-                ss_close(&function_literal_nameless);
-                ss_close(&function_literal_body);
-                ss_close(&function_literal);
-                throw;
-            }
+                _Assert(p_expression->type_name != NULL);
 
-            struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_function_literals, function_literal.c_str);
-            if (l != NULL)
-            {
-                snprintf(new_name, sizeof(new_name), "%s", l->data.p_text);
-            }
-            else
-            {
-                generate_file_scope_new_name(ctx, LITERAL_FUNCTION_BASE_NAME, _Countof(new_name), new_name);
-                struct hash_item_set i = { 0 };
-                i.text = strdup(new_name);
-                hashmap_set(&ctx->instantiated_function_literals, function_literal.c_str, &i);
-                hash_item_set_destroy(&i);
-                struct osstream lambda_sig = { 0 };
-                d_print_type(ctx, &lambda_sig, &p_expression->type, new_name, false);
+                char new_name[200] = { 0 };
 
-                ss_fprintf(&ctx->add_this_before_external_decl, "static %s;\n", lambda_sig.c_str);
+                print_identation_core(&ctx->add_this_before, ctx->indentation);
 
-                ss_fprintf(&ctx->add_this_after_external_decl, "\n");
-                emit_line_directive(ctx, &ctx->add_this_after_external_decl, p_expression->first_token);
-                ss_fprintf(&ctx->add_this_after_external_decl, "static %s\n%s", lambda_sig.c_str, function_literal_body.c_str);
-                ss_close(&lambda_sig);
-            }
+                struct osstream function_literal_nameless = { 0 };
+                d_print_type(ctx, &function_literal_nameless, &p_expression->type, NULL, false);
 
-            ss_fprintf(oss, "%s", new_name);
-            ss_close(&function_literal_nameless);
-            ss_close(&function_literal);
-            ss_close(&function_literal_body);
-        }
-        break;
+                _Assert(p_expression->compound_statement != NULL);
 
-        case EXPR_POSTFIX_COMPOUND_LITERAL:
-        {
-            char name[100] = { 0 };
+                const struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
+                ctx->p_current_function_opt = p_expression->type_name->abstract_declarator;
+                const int current_indentation = ctx->indentation;
+                ctx->indentation = 0;
+                struct osstream function_literal_body = { 0 };
+                codegen_visit_compound_statement(ctx, &function_literal_body, p_expression->compound_statement, NULL, NULL);
+                ctx->p_current_function_opt = p_current_function_opt;
+                ctx->indentation = current_indentation;
 
-            const bool is_static = (p_expression->p_storage_class_specifiers != NULL);
+                struct osstream function_literal = { 0 };
+                ss_fprintf(&function_literal, "%s%s", function_literal_nameless.c_str, function_literal_body.c_str);
 
-            if (is_static || !ctx->is_local)
-            {
-                generate_file_scope_new_name(ctx, COMPOUND_LITERAL_BASE_NAME, sizeof(name), name);
+                _Assert(function_literal_nameless.c_str);
 
-                struct osstream local = { 0 };
-                ss_fprintf(&local, "static ");
-                d_print_type(ctx, &local, &p_expression->type, name, false);
-                bool first = true;
-                ss_fprintf(&local, " = {");
-                object_print_initialization_list(ctx, &local, &p_expression->object, &first);
-                ss_fprintf(&local, "};\n");
-                ss_fprintf(&ctx->add_this_before_external_decl, "%s", local.c_str);
-                ss_close(&local);
-                ss_fprintf(oss, "%s", name);
-            }
-            else
-            {
-                generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
-
-                /* block-scope compound literal — automatic storage duration */
-                struct osstream local = { 0 };
-                ss_swap(&ctx->block_scope_declarators, &local);
-                print_identation_core(&local, ctx->indentation);
-                d_print_type(ctx, &local, &p_expression->type, name, false);
-                ss_fprintf(&local, ";\n", name);
-                ss_fprintf(&ctx->block_scope_declarators, "%s", local.c_str);
-
-                ss_clear(&local);
-
-                if (is_all_zero(&p_expression->object))
+                if (function_literal.c_str == NULL)
                 {
-                    emmit_clear_declarator(ctx, &local, name, &p_expression->type);
+                    ss_close(&function_literal_nameless);
+                    ss_close(&function_literal_body);
+                    ss_close(&function_literal);
+                    throw;
+                }
+
+                struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_function_literals, function_literal.c_str);
+                if (l != NULL)
+                {
+                    snprintf(new_name, sizeof(new_name), "%s", l->data.p_text);
                 }
                 else
                 {
-                    assign_each_member_from_initialization(ctx, &local, &p_expression->object, name, true, true);
+                    generate_file_scope_new_name(ctx, LITERAL_FUNCTION_BASE_NAME, _Countof(new_name), new_name);
+                    struct hash_item_set i = { 0 };
+                    i.text = strdup(new_name);
+                    hashmap_set(&ctx->instantiated_function_literals, function_literal.c_str, &i);
+                    hash_item_set_destroy(&i);
+                    struct osstream lambda_sig = { 0 };
+                    d_print_type(ctx, &lambda_sig, &p_expression->type, new_name, false);
+
+                    ss_fprintf(&ctx->add_this_before_external_decl, "static %s;\n", lambda_sig.c_str);
+
+                    ss_fprintf(&ctx->add_this_after_external_decl, "\n");
+                    emit_line_directive(ctx, &ctx->add_this_after_external_decl, p_expression->first_token);
+                    ss_fprintf(&ctx->add_this_after_external_decl, "static %s\n%s", lambda_sig.c_str, function_literal_body.c_str);
+                    ss_close(&lambda_sig);
                 }
-                _Assert(local.c_str);
-                ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
-                ss_close(&local);
-                ss_fprintf(oss, "%s", name);
-            }
-        }
-        break;
 
-        case EXPR_UNARY_SIZEOF_EXPRESSION:
-            if (p_expression->right != NULL &&
+                ss_fprintf(oss, "%s", new_name);
+                ss_close(&function_literal_nameless);
+                ss_close(&function_literal);
+                ss_close(&function_literal_body);
+            }
+            break;
+
+            case EXPR_POSTFIX_COMPOUND_LITERAL:
+            {
+                char name[100] = { 0 };
+
+                const bool is_static = (p_expression->p_storage_class_specifiers != NULL);
+
+                if (is_static || !ctx->is_local)
+                {
+                    generate_file_scope_new_name(ctx, COMPOUND_LITERAL_BASE_NAME, sizeof(name), name);
+
+                    struct osstream local = { 0 };
+                    ss_fprintf(&local, "static ");
+                    d_print_type(ctx, &local, &p_expression->type, name, false);
+                    bool first = true;
+                    ss_fprintf(&local, " = {");
+                    object_print_initialization_list(ctx, &local, &p_expression->object, &first);
+                    ss_fprintf(&local, "};\n");
+                    ss_fprintf(&ctx->add_this_before_external_decl, "%s", local.c_str);
+                    ss_close(&local);
+                    ss_fprintf(oss, "%s", name);
+                }
+                else
+                {
+                    generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
+
+                    /* block-scope compound literal — automatic storage duration */
+                    struct osstream local = { 0 };
+                    ss_swap(&ctx->block_scope_declarators, &local);
+                    print_identation_core(&local, ctx->indentation);
+                    d_print_type(ctx, &local, &p_expression->type, name, false);
+                    ss_fprintf(&local, ";\n", name);
+                    ss_fprintf(&ctx->block_scope_declarators, "%s", local.c_str);
+
+                    ss_clear(&local);
+
+                    if (is_all_zero(&p_expression->object))
+                    {
+                        emmit_clear_declarator(ctx, &local, name, &p_expression->type);
+                    }
+                    else
+                    {
+                        assign_each_member_from_initialization(ctx, &local, &p_expression->object, name, true, true);
+                    }
+                    _Assert(local.c_str);
+                    ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
+                    ss_close(&local);
+                    ss_fprintf(oss, "%s", name);
+                }
+            }
+            break;
+
+            case EXPR_UNARY_SIZEOF_EXPRESSION:
+                if (p_expression->right != NULL &&
                 type_is_vm(&p_expression->right->type))
-            {
-                vm_emit_sizeof_expr(ctx, oss, &p_expression->right->type);
-            }
-            else
-            {
-                object_print_value(oss, &p_expression->object);
-            }
+                {
+                    vm_emit_sizeof_expr(ctx, oss, &p_expression->right->type);
+                }
+                else
+                {
+                    object_print_value(ctx->options.target, oss, &p_expression->object);
+                }
             break;
 
-        case EXPR_UNARY_SIZEOF_TYPE:
-            if (p_expression->type_name != NULL &&
+            case EXPR_UNARY_SIZEOF_TYPE:
+                if (p_expression->type_name != NULL &&
                 type_is_vm(&p_expression->type_name->type))
-            {
-                vm_emit_snapshot_decls(ctx, &ctx->add_this_before, &p_expression->type_name->type);
-                ss_fprintf(oss, "(");
-                vm_emit_sizeof_expr(ctx, oss, &p_expression->type_name->type);
-                ss_fprintf(oss, ")");
-            }
-            else
-            {
-                object_print_value(oss, &p_expression->object);
-            }
+                {
+                    vm_emit_snapshot_decls(ctx, &ctx->add_this_before, &p_expression->type_name->type);
+                    ss_fprintf(oss, "(");
+                    vm_emit_sizeof_expr(ctx, oss, &p_expression->type_name->type);
+                    ss_fprintf(oss, ")");
+                }
+                else
+                {
+                    object_print_value(ctx->options.target, oss, &p_expression->object);
+                }
             break;
 
-        case EXPR_UNARY_ALIGNOF_EXPRESSION:
-        case EXPR_UNARY_ALIGNOF_TYPE:
-            object_print_value(oss, &p_expression->object);
+            case EXPR_UNARY_ALIGNOF_EXPRESSION:
+            case EXPR_UNARY_ALIGNOF_TYPE:
+                object_print_value(ctx->options.target, oss, &p_expression->object);
             break;
 
-        case EXPR_UNARY_COUNTOF:
-            if (p_expression->right != NULL &&
+            case EXPR_UNARY_COUNTOF:
+                if (p_expression->right != NULL &&
                 type_is_vm(&p_expression->right->type))
-            {
-                vm_emit_countof_expr( oss, &p_expression->right->type);
-            }
-            else if (p_expression->type_name != NULL &&
+                {
+                    vm_emit_countof_expr( oss, &p_expression->right->type);
+                }
+                else if (p_expression->type_name != NULL &&
                 type_is_vm(&p_expression->type_name->type))
-            {
-                vm_emit_snapshot_decls(ctx, &ctx->add_this_before, &p_expression->type_name->type);
-                vm_emit_countof_expr( oss, &p_expression->type_name->type);
-            }
-            else
-            {
-                object_print_value(oss, &p_expression->object);
-            }
+                {
+                    vm_emit_snapshot_decls(ctx, &ctx->add_this_before, &p_expression->type_name->type);
+                    vm_emit_countof_expr( oss, &p_expression->type_name->type);
+                }
+                else
+                {
+                    object_print_value(ctx->options.target, oss, &p_expression->object);
+                }
             break;
 
-        case EXPR_UNARY_CONSTEVAL:
-            _Assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->right);
-            break;
-
-        case EXPR_UNARY_INCREMENT:
-            _Assert(p_expression->right != NULL);
-            if (codegen_is_vm_pointer(&p_expression->right->type))
-            {
-                codegen_vm_ptr_prefix_step(ctx, oss, p_expression->right, "+");
-            }
-            else
-            {
-                ss_fprintf(oss, "++");
+            case EXPR_UNARY_CONSTEVAL:
+                _Assert(p_expression->right != NULL);
                 codegen_visit_expression(ctx, oss, p_expression->right);
-            }
             break;
 
-        case EXPR_UNARY_DECREMENT:
-            _Assert(p_expression->right != NULL);
-            if (codegen_is_vm_pointer(&p_expression->right->type))
-            {
-                codegen_vm_ptr_prefix_step(ctx, oss, p_expression->right, "-");
-            }
-            else
-            {
-                ss_fprintf(oss, "--");
+            case EXPR_UNARY_INCREMENT:
+                _Assert(p_expression->right != NULL);
+                if (codegen_is_vm_pointer(&p_expression->right->type))
+                {
+                    codegen_vm_ptr_prefix_step(ctx, oss, p_expression->right, "+");
+                }
+                else
+                {
+                    ss_fprintf(oss, "++");
+                    codegen_visit_expression(ctx, oss, p_expression->right);
+                }
+            break;
+
+            case EXPR_UNARY_DECREMENT:
+                _Assert(p_expression->right != NULL);
+                if (codegen_is_vm_pointer(&p_expression->right->type))
+                {
+                    codegen_vm_ptr_prefix_step(ctx, oss, p_expression->right, "-");
+                }
+                else
+                {
+                    ss_fprintf(oss, "--");
+                    codegen_visit_expression(ctx, oss, p_expression->right);
+                }
+            break;
+
+            case EXPR_UNARY_NOT:
+                _Assert(p_expression->right != NULL);
+                ss_fprintf(oss, "!");
                 codegen_visit_expression(ctx, oss, p_expression->right);
-            }
             break;
 
-        case EXPR_UNARY_NOT:
-            _Assert(p_expression->right != NULL);
-            ss_fprintf(oss, "!");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            case EXPR_UNARY_BITNOT:
+                _Assert(p_expression->right != NULL);
+                ss_fprintf(oss, "~");
+                codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
-        case EXPR_UNARY_BITNOT:
-            _Assert(p_expression->right != NULL);
-            ss_fprintf(oss, "~");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            case EXPR_UNARY_NEG:
+
+                _Assert(p_expression->right != NULL);
+                ss_fprintf(oss, "-");
+                codegen_visit_expression(ctx, oss, p_expression->right);
+            break;
+            case EXPR_UNARY_PLUS:
+
+                _Assert(p_expression->right != NULL);
+                ss_fprintf(oss, "+");
+                codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
-        case EXPR_UNARY_NEG:
-
-            _Assert(p_expression->right != NULL);
-            ss_fprintf(oss, "-");
-            codegen_visit_expression(ctx, oss, p_expression->right);
-            break;
-        case EXPR_UNARY_PLUS:
-
-            _Assert(p_expression->right != NULL);
-            ss_fprintf(oss, "+");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            case EXPR_UNARY_CONTENT:
+                _Assert(p_expression->right != NULL);
+                ss_fprintf(oss, "*");
+                codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
-        case EXPR_UNARY_CONTENT:
-            _Assert(p_expression->right != NULL);
-            ss_fprintf(oss, "*");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            case EXPR_UNARY_ASSERT:
             break;
 
-        case EXPR_UNARY_ASSERT:
-            break;
-
-        case EXPR_ADDITIVE_MINUS:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            if (codegen_is_vm_pointer(&p_expression->left->type) &&
+            case EXPR_ADDITIVE_MINUS:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+                if (codegen_is_vm_pointer(&p_expression->left->type) &&
                 !type_is_pointer(&p_expression->right->type))
-            {
-                /* pointer - integer */
-                codegen_vm_ptr_advance(ctx, oss, p_expression->left, "-", p_expression->right);
-            }
-            else if (codegen_is_vm_pointer(&p_expression->left->type) &&
+                {
+                    /* pointer - integer */
+                    codegen_vm_ptr_advance(ctx, oss, p_expression->left, "-", p_expression->right);
+                }
+                else if (codegen_is_vm_pointer(&p_expression->left->type) &&
                 codegen_is_vm_pointer(&p_expression->right->type))
-            {
-                /* pointer - pointer: byte distance divided by the
+                {
+                    /* pointer - pointer: byte distance divided by the
                    (runtime-known) pointee size. */
-                ss_fprintf(oss, "(((char*)");
-                codegen_visit_expression(ctx, oss, p_expression->left);
-                ss_fprintf(oss, " - (char*)");
-                codegen_visit_expression(ctx, oss, p_expression->right);
-                ss_fprintf(oss, ") / ");
-                struct type pointee = type_remove_pointer(&p_expression->left->type);
-                vm_emit_sizeof_expr(ctx, oss, &pointee);
-                type_destroy(&pointee);
-                ss_fprintf(oss, ")");
-            }
-            else
-            {
-                codegen_visit_expression(ctx, oss, p_expression->left);
-                ss_fprintf(oss, " - ");
-                codegen_visit_expression(ctx, oss, p_expression->right);
-            }
+                    ss_fprintf(oss, "(((char*)");
+                    codegen_visit_expression(ctx, oss, p_expression->left);
+                    ss_fprintf(oss, " - (char*)");
+                    codegen_visit_expression(ctx, oss, p_expression->right);
+                    ss_fprintf(oss, ") / ");
+                    struct type pointee = type_remove_pointer(&p_expression->left->type);
+                    vm_emit_sizeof_expr(ctx, oss, &pointee);
+                    type_destroy(&pointee);
+                    ss_fprintf(oss, ")");
+                }
+                else
+                {
+                    codegen_visit_expression(ctx, oss, p_expression->left);
+                    ss_fprintf(oss, " - ");
+                    codegen_visit_expression(ctx, oss, p_expression->right);
+                }
             break;
 
-        case EXPR_ADDITIVE_PLUS:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            if (codegen_is_vm_pointer(&p_expression->left->type) &&
-                !type_is_pointer(&p_expression->right->type))
-            {
-                codegen_vm_ptr_advance(ctx, oss, p_expression->left, "+", p_expression->right);
-            }
-            else if (codegen_is_vm_pointer(&p_expression->right->type) &&
+            case EXPR_ADDITIVE_PLUS:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+                if (codegen_is_vm_pointer(&p_expression->left->type) &&
+                   !type_is_pointer(&p_expression->right->type))
+                {
+                    codegen_vm_ptr_advance(ctx, oss, p_expression->left, "+", p_expression->right);
+                }
+                else if (codegen_is_vm_pointer(&p_expression->right->type) &&
                      !type_is_pointer(&p_expression->left->type))
-            {
-                /* `1 + p` (commutative form). */
-                codegen_vm_ptr_advance(ctx, oss, p_expression->right, "+", p_expression->left);
-            }
-            else
-            {
+                {
+                    /* `1 + p` (commutative form). */
+                    codegen_vm_ptr_advance(ctx, oss, p_expression->right, "+", p_expression->left);
+                }
+                else
+                {
+                    codegen_visit_expression(ctx, oss, p_expression->left);
+                    ss_fprintf(oss, " + ");
+                    codegen_visit_expression(ctx, oss, p_expression->right);
+                }
+            break;
+
+            case EXPR_MULTIPLICATIVE_MULT:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
                 codegen_visit_expression(ctx, oss, p_expression->left);
-                ss_fprintf(oss, " + ");
+                ss_fprintf(oss, " * ");
                 codegen_visit_expression(ctx, oss, p_expression->right);
-            }
+            break;
+            case EXPR_MULTIPLICATIVE_DIV:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " / ");
+                codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
-        case EXPR_MULTIPLICATIVE_MULT:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " * ");
-            codegen_visit_expression(ctx, oss, p_expression->right);
-            break;
-        case EXPR_MULTIPLICATIVE_DIV:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " / ");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            case EXPR_MULTIPLICATIVE_MOD:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, "%s", " % ");
+                codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
-        case EXPR_MULTIPLICATIVE_MOD:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, "%s", " % ");
-            codegen_visit_expression(ctx, oss, p_expression->right);
-            break;
-
-        case EXPR_EXPRESSION:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            if (p_expression->left->expression_type != EXPR_UNARY_STATIC_ASSERTION ||
+            case EXPR_EXPRESSION:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+                if (p_expression->left->expression_type != EXPR_UNARY_STATIC_ASSERTION ||
                 codegen_expr_is_emitted_runtime_assert(ctx, p_expression->left))
-            {
-                codegen_visit_expression(ctx, oss, p_expression->left);
-                ss_fprintf(oss, ", ");
-            }
-            codegen_visit_expression(ctx, oss, p_expression->right);
-            break;
-
-        case EXPR_ASSIGNMENT_ASSIGN:
-
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-
-            if (type_is_struct_or_union(&p_expression->left->type) &&
-                object_has_all_members_constants(&p_expression->right->object))
-            {
-                struct osstream dest_prefix = { 0 };
-                codegen_visit_expression(ctx, &dest_prefix, p_expression->left);
-                if (dest_prefix.c_str == NULL) throw;
-               
-                ss_fprintf(oss, "(");
-                bool first = true;
-                codegen_emit_member_assignments_from_constexpr(ctx, oss,
-                    dest_prefix.c_str, &p_expression->left->object, &p_expression->right->object, &first);
-                ss_fprintf(oss, ")");
-
-                ss_close(&dest_prefix);
-                break;
-            }
-
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " %s ", get_op_by_expression_type(p_expression->expression_type));
-
-            if (type_is_vm(&p_expression->left->type) &&
-                !type_is_pointer(&p_expression->right->type) &&
-                !expression_is_null_pointer_constant(p_expression)
-                )
-            {
-                print_cast_array_to_vm(ctx, oss, &p_expression->left->type);
-            }
-
-            if (type_is_bool(&p_expression->left->type))
-            {
-                expression_to_bool_value(ctx, oss, p_expression->right);
-            }
-            else
-            {
+                {
+                    codegen_visit_expression(ctx, oss, p_expression->left);
+                    ss_fprintf(oss, ", ");
+                }
                 codegen_visit_expression(ctx, oss, p_expression->right);
-            }
-
             break;
 
-        case EXPR_ASSIGNMENT_PLUS_ASSIGN:
-        case EXPR_ASSIGNMENT_MINUS_ASSIGN:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            if (codegen_is_vm_pointer(&p_expression->left->type) &&
-                !type_is_pointer(&p_expression->right->type))
-            {
-                /* `p += n` / `p -= n` on a pointer to a VM array must scale
-                   by the (runtime-known) pointee size, same as p+n/p++. */
-                const char* op = p_expression->expression_type == EXPR_ASSIGNMENT_PLUS_ASSIGN ? "+" : "-";
-                ss_fprintf(oss, "(");
+            case EXPR_ASSIGNMENT_ASSIGN:
+
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+
+                if (type_is_struct_or_union(&p_expression->left->type) &&
+                object_has_all_members_constants(&p_expression->right->object))
+                {
+                    struct osstream dest_prefix = { 0 };
+                    codegen_visit_expression(ctx, &dest_prefix, p_expression->left);
+                    if (dest_prefix.c_str == NULL) throw;
+               
+                    ss_fprintf(oss, "(");
+                    bool first = true;
+                    codegen_emit_member_assignments_from_constexpr(ctx, oss,
+                    dest_prefix.c_str, &p_expression->left->object, &p_expression->right->object, &first);
+                    ss_fprintf(oss, ")");
+
+                    ss_close(&dest_prefix);
+                    break;
+                }
+
                 codegen_visit_expression(ctx, oss, p_expression->left);
-                ss_fprintf(oss, " = ");
-                codegen_vm_ptr_advance(ctx, oss, p_expression->left, op, p_expression->right);
-                ss_fprintf(oss, ")");
-                break;
-            }
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " %s ", get_op_by_expression_type(p_expression->expression_type));
-            codegen_visit_expression(ctx, oss, p_expression->right);
+                ss_fprintf(oss, " %s ", get_op_by_expression_type(p_expression->expression_type));
+
+                if (type_is_vm(&p_expression->left->type) &&
+                               !type_is_pointer(&p_expression->right->type) &&
+                               !expression_is_null_pointer_constant(p_expression)
+                )
+                {
+                    print_cast_array_to_vm(ctx, oss, &p_expression->left->type);
+                }
+
+                if (type_is_bool(&p_expression->left->type))
+                {
+                    expression_to_bool_value(ctx, oss, p_expression->right);
+                }
+                else
+                {
+                    codegen_visit_expression(ctx, oss, p_expression->right);
+                }
+
             break;
 
-        case EXPR_ASSIGNMENT_MULTI_ASSIGN:
-        case EXPR_ASSIGNMENT_DIV_ASSIGN:
-        case EXPR_ASSIGNMENT_MOD_ASSIGN:
-        case EXPR_ASSIGNMENT_SHIFT_LEFT_ASSIGN:
-        case EXPR_ASSIGNMENT_SHIFT_RIGHT_ASSIGN:
-        case EXPR_ASSIGNMENT_AND_ASSIGN:
-        case EXPR_ASSIGNMENT_OR_ASSIGN:
-        case EXPR_ASSIGNMENT_NOT_ASSIGN:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " %s ", get_op_by_expression_type(p_expression->expression_type));
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            case EXPR_ASSIGNMENT_PLUS_ASSIGN:
+            case EXPR_ASSIGNMENT_MINUS_ASSIGN:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+                if (codegen_is_vm_pointer(&p_expression->left->type) &&
+                !type_is_pointer(&p_expression->right->type))
+                {
+                    /* `p += n` / `p -= n` on a pointer to a VM array must scale
+                   by the (runtime-known) pointee size, same as p+n/p++. */
+                    const char* op = p_expression->expression_type == EXPR_ASSIGNMENT_PLUS_ASSIGN ? "+" : "-";
+                    ss_fprintf(oss, "(");
+                    codegen_visit_expression(ctx, oss, p_expression->left);
+                    ss_fprintf(oss, " = ");
+                    codegen_vm_ptr_advance(ctx, oss, p_expression->left, op, p_expression->right);
+                    ss_fprintf(oss, ")");
+                    break;
+                }
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " %s ", get_op_by_expression_type(p_expression->expression_type));
+                codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
-        case EXPR_CAST:
-        {
-            _Assert(p_expression->left != NULL);
+            case EXPR_ASSIGNMENT_MULTI_ASSIGN:
+            case EXPR_ASSIGNMENT_DIV_ASSIGN:
+            case EXPR_ASSIGNMENT_MOD_ASSIGN:
+            case EXPR_ASSIGNMENT_SHIFT_LEFT_ASSIGN:
+            case EXPR_ASSIGNMENT_SHIFT_RIGHT_ASSIGN:
+            case EXPR_ASSIGNMENT_AND_ASSIGN:
+            case EXPR_ASSIGNMENT_OR_ASSIGN:
+            case EXPR_ASSIGNMENT_NOT_ASSIGN:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " %s ", get_op_by_expression_type(p_expression->expression_type));
+                codegen_visit_expression(ctx, oss, p_expression->right);
+            break;
 
-            struct osstream local2 = { 0 };
-
-            if (type_is_vm(&p_expression->type))
+            case EXPR_CAST:
             {
-                vm_emit_snapshot_decls(ctx, &ctx->add_this_before, &p_expression->type);
+                _Assert(p_expression->left != NULL);
+
+                struct osstream local2 = { 0 };
+
+                if (type_is_vm(&p_expression->type))
+                {
+                    vm_emit_snapshot_decls(ctx, &ctx->add_this_before, &p_expression->type);
+                }
+
+                d_print_type(ctx, &local2, &p_expression->type, NULL, false);
+                ss_fprintf(oss, "(%s)", local2.c_str);
+                ss_close(&local2);
+                codegen_visit_expression(ctx, oss, p_expression->left);
             }
-
-            d_print_type(ctx, &local2, &p_expression->type, NULL, false);
-            ss_fprintf(oss, "(%s)", local2.c_str);
-            ss_close(&local2);
-            codegen_visit_expression(ctx, oss, p_expression->left);
-        }
-        break;
-
-        case EXPR_SHIFT_RIGHT:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " >> ");
-            codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
-        case EXPR_SHIFT_LEFT:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " << ");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            case EXPR_SHIFT_RIGHT:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " >> ");
+                codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
-        case EXPR_RELATIONAL_BIGGER_THAN:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " > ");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            case EXPR_SHIFT_LEFT:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " << ");
+                codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
-        case EXPR_RELATIONAL_LESS_THAN:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " < ");
-            codegen_visit_expression(ctx, oss, p_expression->right);
-
-            break;
-        case EXPR_EQUALITY_EQUAL:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " == ");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            case EXPR_RELATIONAL_BIGGER_THAN:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " > ");
+                codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
-        case EXPR_EQUALITY_NOT_EQUAL:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " != ");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            case EXPR_RELATIONAL_LESS_THAN:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " < ");
+                codegen_visit_expression(ctx, oss, p_expression->right);
+
+            break;
+            case EXPR_EQUALITY_EQUAL:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " == ");
+                codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
-        case EXPR_AND:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " & ");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            case EXPR_EQUALITY_NOT_EQUAL:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " != ");
+                codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
-        case EXPR_EXCLUSIVE_OR:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " ^ ");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            case EXPR_AND:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " & ");
+                codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
-        case EXPR_INCLUSIVE_OR:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " | ");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            case EXPR_EXCLUSIVE_OR:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " ^ ");
+                codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
-        case EXPR_RELATIONAL_LESS_OR_EQUAL_THAN:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " <= ");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            case EXPR_INCLUSIVE_OR:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " | ");
+                codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
-        case EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " >= ");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            case EXPR_RELATIONAL_LESS_OR_EQUAL_THAN:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " <= ");
+                codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
-        case EXPR_LOGICAL_AND:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " && ");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            case EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " >= ");
+                codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
-        case EXPR_LOGICAL_OR:
-            _Assert(p_expression->left != NULL);
-            _Assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->left);
-            ss_fprintf(oss, " || ");
-            codegen_visit_expression(ctx, oss, p_expression->right);
+            case EXPR_LOGICAL_AND:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " && ");
+                codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
-        case EXPR_UNARY_TRAITS:
-        case EXPR_UNARY_IS_SAME:
-        case EXPR_UNARY_DECLARATOR_ATTRIBUTE:
+            case EXPR_LOGICAL_OR:
+                _Assert(p_expression->left != NULL);
+                _Assert(p_expression->right != NULL);
+                codegen_visit_expression(ctx, oss, p_expression->left);
+                ss_fprintf(oss, " || ");
+                codegen_visit_expression(ctx, oss, p_expression->right);
             break;
 
-        case EXPR_CONDITIONAL:
-            _Assert(p_expression->condition_expr != NULL);
-            _Assert(p_expression->right != NULL);
+            case EXPR_UNARY_TRAITS:
+            case EXPR_UNARY_IS_SAME:
+            case EXPR_UNARY_DECLARATOR_ATTRIBUTE:
+            break;
 
-            if (p_expression->left == NULL)
-            {
-                const bool cond_is_stmtexpr =
+            case EXPR_CONDITIONAL:
+                _Assert(p_expression->condition_expr != NULL);
+                _Assert(p_expression->right != NULL);
+
+                if (p_expression->left == NULL)
+                {
+                    const bool cond_is_stmtexpr =
                     p_expression->condition_expr->expression_type ==
                     EXPR_PRIMARY_STATEMENT_EXPRESSION;
-                const bool right_is_stmtexpr =
+                    const bool right_is_stmtexpr =
                     p_expression->right->expression_type ==
                     EXPR_PRIMARY_STATEMENT_EXPRESSION;
 
-                if (cond_is_stmtexpr || right_is_stmtexpr)
-                {
-                    struct osstream add_this_before = { 0 };
-
-                    char name[100] = { 0 };
-                    generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
-
-                    struct osstream decl = { 0 };
-                    print_identation_core(&decl, ctx->indentation);
-                    d_print_type(ctx, &decl,
-                        &p_expression->condition_expr->type, name, false);
-                    ss_fprintf(&decl, ";\n");
-                    ss_fprintf(&ctx->block_scope_declarators, "%s", decl.c_str);
-                    ss_close(&decl);
-
-                    if (cond_is_stmtexpr)
+                    if (cond_is_stmtexpr || right_is_stmtexpr)
                     {
-                        _Assert(p_expression->condition_expr->compound_statement != NULL);
-                        struct osstream stmtexpr_body = { 0 };
-                        codegen_visit_compound_statement_2(name, ctx, &stmtexpr_body,
+                        struct osstream add_this_before = { 0 };
+
+                        char name[100] = { 0 };
+                        generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
+
+                        struct osstream decl = { 0 };
+                        print_identation_core(&decl, ctx->indentation);
+                        d_print_type(ctx, &decl,
+                        &p_expression->condition_expr->type, name, false);
+                        ss_fprintf(&decl, ";\n");
+                        ss_fprintf(&ctx->block_scope_declarators, "%s", decl.c_str);
+                        ss_close(&decl);
+
+                        if (cond_is_stmtexpr)
+                        {
+                            _Assert(p_expression->condition_expr->compound_statement != NULL);
+                            struct osstream stmtexpr_body = { 0 };
+                            codegen_visit_compound_statement_2(name, ctx, &stmtexpr_body,
                             p_expression->condition_expr->compound_statement);
-                        ss_fprintf(&ctx->add_this_before, "%s", stmtexpr_body.c_str);
-                        ss_close(&stmtexpr_body);
+                            ss_fprintf(&ctx->add_this_before, "%s", stmtexpr_body.c_str);
+                            ss_close(&stmtexpr_body);
+                        }
+                        else
+                        {
+                            print_identation_core(&add_this_before, ctx->indentation);
+                            ss_fprintf(&add_this_before, "%s = ", name);
+                            codegen_visit_expression(ctx, &add_this_before, p_expression->condition_expr);
+                            ss_fprintf(&add_this_before, ";\n");
+                        }
+
+                        if (right_is_stmtexpr)
+                        {
+                            print_identation_core(&add_this_before, ctx->indentation);
+                            ss_fprintf(&add_this_before, "if (!%s)\n", name);
+
+                            _Assert(p_expression->right->compound_statement != NULL);
+                            struct osstream right_body = { 0 };
+                            codegen_visit_compound_statement_2(name, ctx, &right_body, p_expression->right->compound_statement);
+                            ss_fprintf(&add_this_before, "%s", right_body.c_str);
+                            ss_close(&right_body);
+                        }
+                        else
+                        {
+                            print_identation_core(&add_this_before, ctx->indentation);
+                            ss_fprintf(&add_this_before, "if (!%s) %s = ", name, name);
+                            codegen_visit_expression(ctx, &add_this_before, p_expression->right);
+                            ss_fprintf(&add_this_before, ";\n");
+                        }
+
+                        ss_fprintf(&ctx->add_this_before, "%s", add_this_before.c_str);
+                        ss_fprintf(oss, "%s", name);
+                        ss_close(&add_this_before);
                     }
-                    else
+                    else if (expression_has_side_effects(p_expression->condition_expr))
                     {
-                        print_identation_core(&add_this_before, ctx->indentation);
-                        ss_fprintf(&add_this_before, "%s = ", name);
-                        codegen_visit_expression(ctx, &add_this_before, p_expression->condition_expr);
-                        ss_fprintf(&add_this_before, ";\n");
-                    }
+                        char name[100] = { 0 };
+                        generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
 
-                    if (right_is_stmtexpr)
-                    {
-                        print_identation_core(&add_this_before, ctx->indentation);
-                        ss_fprintf(&add_this_before, "if (!%s)\n", name);
-
-                        _Assert(p_expression->right->compound_statement != NULL);
-                        struct osstream right_body = { 0 };
-                        codegen_visit_compound_statement_2(name, ctx, &right_body, p_expression->right->compound_statement);
-                        ss_fprintf(&add_this_before, "%s", right_body.c_str);
-                        ss_close(&right_body);
-                    }
-                    else
-                    {
-                        print_identation_core(&add_this_before, ctx->indentation);
-                        ss_fprintf(&add_this_before, "if (!%s) %s = ", name, name);
-                        codegen_visit_expression(ctx, &add_this_before, p_expression->right);
-                        ss_fprintf(&add_this_before, ";\n");
-                    }
-
-                    ss_fprintf(&ctx->add_this_before, "%s", add_this_before.c_str);
-                    ss_fprintf(oss, "%s", name);
-                    ss_close(&add_this_before);
-                }
-                else if (expression_has_side_effects(p_expression->condition_expr))
-                {
-                    char name[100] = { 0 };
-                    generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
-
-                    struct osstream decl = { 0 };
-                    print_identation_core(&decl, ctx->indentation);
-                    d_print_type(ctx, &decl,
+                        struct osstream decl = { 0 };
+                        print_identation_core(&decl, ctx->indentation);
+                        d_print_type(ctx, &decl,
                         &p_expression->condition_expr->type, name, false);
-                    ss_fprintf(&decl, ";\n");
-                    ss_fprintf(&ctx->block_scope_declarators, "%s", decl.c_str);
-                    ss_close(&decl);
+                        ss_fprintf(&decl, ";\n");
+                        ss_fprintf(&ctx->block_scope_declarators, "%s", decl.c_str);
+                        ss_close(&decl);
 
-                    print_identation_core(&ctx->add_this_before, ctx->indentation);
-                    ss_fprintf(&ctx->add_this_before, "%s = ", name);
-                    codegen_visit_expression(ctx, &ctx->add_this_before,
+                        print_identation_core(&ctx->add_this_before, ctx->indentation);
+                        ss_fprintf(&ctx->add_this_before, "%s = ", name);
+                        codegen_visit_expression(ctx, &ctx->add_this_before,
                         p_expression->condition_expr);
-                    ss_fprintf(&ctx->add_this_before, ";\n");
+                        ss_fprintf(&ctx->add_this_before, ";\n");
 
-                    ss_fprintf(oss, "%s ? %s : ", name, name);
-                    codegen_visit_expression(ctx, oss, p_expression->right);
+                        ss_fprintf(oss, "%s ? %s : ", name, name);
+                        codegen_visit_expression(ctx, oss, p_expression->right);
+                    }
+                    else
+                    {
+                        /* No side effects — safe to repeat the condition */
+                        codegen_visit_expression(ctx, oss, p_expression->condition_expr);
+                        ss_fprintf(oss, " ? ");
+                        codegen_visit_expression(ctx, oss, p_expression->condition_expr);
+                        ss_fprintf(oss, " : ");
+                        codegen_visit_expression(ctx, oss, p_expression->right);
+                    }
                 }
                 else
                 {
-                    /* No side effects — safe to repeat the condition */
                     codegen_visit_expression(ctx, oss, p_expression->condition_expr);
                     ss_fprintf(oss, " ? ");
-                    codegen_visit_expression(ctx, oss, p_expression->condition_expr);
+                    codegen_visit_expression(ctx, oss, p_expression->left);
                     ss_fprintf(oss, " : ");
                     codegen_visit_expression(ctx, oss, p_expression->right);
                 }
-            }
-            else
-            {
-                codegen_visit_expression(ctx, oss, p_expression->condition_expr);
-                ss_fprintf(oss, " ? ");
-                codegen_visit_expression(ctx, oss, p_expression->left);
-                ss_fprintf(oss, " : ");
-                codegen_visit_expression(ctx, oss, p_expression->right);
-            }
 
             break;
-        case EXPR_CHECKED:
+            case EXPR_CHECKED:
             /*handled before*/
             break;
         }
@@ -2700,7 +2712,7 @@ static void codegen_visit_simple_declaration(struct codegen_ctx* ctx, struct oss
         enum storage_class_specifier_flags storage_class_specifier_flags =
             p_simple_declaration->p_declaration_specifiers->storage_class_specifier_flags;
 
-        codegen_visit_init_declarator_list(ctx, oss, &p_simple_declaration->init_declarator_list, 0, storage_class_specifier_flags);
+        codegen_visit_init_declarator_list(ctx, oss, &p_simple_declaration->init_declarator_list, FUNCTION_SPECIFIER_NONE, storage_class_specifier_flags);
     }
 }
 
@@ -2720,7 +2732,7 @@ static void codegen_visit_condition(struct codegen_ctx* ctx, struct osstream* os
         enum storage_class_specifier_flags storage_class_specifier_flags =
             p_condition->p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags;
 
-        codegen_visit_init_declarator(ctx, oss, p_condition->p_init_declarator, 0, storage_class_specifier_flags);
+        codegen_visit_init_declarator(ctx, oss, p_condition->p_init_declarator, FUNCTION_SPECIFIER_NONE, storage_class_specifier_flags);
     }
 
     if (p_condition->expression)
@@ -2889,7 +2901,7 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
                     enum storage_class_specifier_flags storage_class_specifier_flags =
                         p_selection_statement->condition->p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags;
 
-                    codegen_visit_init_declarator(ctx, &local2, p_selection_statement->condition->p_init_declarator, 0, storage_class_specifier_flags);
+                    codegen_visit_init_declarator(ctx, &local2, p_selection_statement->condition->p_init_declarator, FUNCTION_SPECIFIER_NONE, storage_class_specifier_flags);
 
                     if (ctx->block_scope_declarators.c_str)
                     {
@@ -3457,95 +3469,159 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
         {
             switch (p_type->category)
             {
-            case TYPE_CATEGORY_ITSELF:
-            {
-                if (p_type->struct_or_union_specifier)
+                case TYPE_CATEGORY_ITSELF:
                 {
-                    struct struct_or_union_specifier* _Opt p_complete =
+                    if (p_type->struct_or_union_specifier)
+                    {
+                        struct struct_or_union_specifier* _Opt p_complete =
                         get_complete_struct_or_union_specifier2(p_type->struct_or_union_specifier);
 
-                    if (p_complete == NULL)
-                    {
-                        p_complete = p_type->struct_or_union_specifier;
-                    }
-
-                    if (p_complete)
-                    {
-                        char unique_id[100] = { 0 };
-                        snprintf(unique_id, sizeof unique_id, "%d", p_complete->unique_id);
-
-                        struct map_entry* _Opt p = hashmap_find(&ctx->structs_map, unique_id);
-                        if (p == NULL)
+                        if (p_complete == NULL)
                         {
-                            struct map_entry* _Opt p_name = hashmap_find(&ctx->tag_names, p_complete->tag_name);
-                            if (p_name != NULL)
+                            p_complete = p_type->struct_or_union_specifier;
+                        }
+
+                        if (p_complete)
+                        {
+                            char unique_id[100] = { 0 };
+                            snprintf(unique_id, sizeof unique_id, "%d", p_complete->unique_id);
+
+                            struct map_entry* _Opt p = hashmap_find(&ctx->structs_map, unique_id);
+                            if (p == NULL)
                             {
-                                /*
+                                struct map_entry* _Opt p_name = hashmap_find(&ctx->tag_names, p_complete->tag_name);
+                                if (p_name != NULL)
+                                {
+                                    /*
                             *   We already have a file scope tag with the same name
                             */
-                                char new_name[100] = { 0 };
-                                snprintf(new_name, sizeof unique_id, CAKE_FILE_SCOPE_PREFIX "%s%d", p_complete->tag_name, p_complete->unique_id);
-                                snprintf(p_complete->tag_name, sizeof p_complete->tag_name, "%s", new_name);
+                                    char new_name[100] = { 0 };
+                                    snprintf(new_name, sizeof unique_id, CAKE_FILE_SCOPE_PREFIX "%s%d", p_complete->tag_name, p_complete->unique_id);
+                                    snprintf(p_complete->tag_name, sizeof p_complete->tag_name, "%s", new_name);
 
-                                struct hash_item_set i = { 0 };
-                                i.number = 1;
-                                hashmap_set(&ctx->tag_names, new_name, &i);
-                                hash_item_set_destroy(&i);
-                            }
-                            else
-                            {
-                                struct hash_item_set i = { 0 };
-                                i.number = 1;
-                                hashmap_set(&ctx->tag_names, p_complete->tag_name, &i);
-                                hash_item_set_destroy(&i);
-                            }
+                                    struct hash_item_set i = { 0 };
+                                    i.number = 1;
+                                    hashmap_set(&ctx->tag_names, new_name, &i);
+                                    hash_item_set_destroy(&i);
+                                }
+                                else
+                                {
+                                    struct hash_item_set i = { 0 };
+                                    i.number = 1;
+                                    hashmap_set(&ctx->tag_names, p_complete->tag_name, &i);
+                                    hash_item_set_destroy(&i);
+                                }
 
-                            _Opt struct struct_entry* _Opt _Owner p_struct_entry = calloc(1, sizeof * p_struct_entry);
-                            if (p_struct_entry == NULL)
-                                throw;
+                                _Opt struct struct_entry* _Opt _Owner p_struct_entry = calloc(1, sizeof * p_struct_entry);
+                                if (p_struct_entry == NULL)
+                                    throw;
 
-                            p_struct_entry->p_struct_or_union_specifier = p_complete;
+                                p_struct_entry->p_struct_or_union_specifier = p_complete;
 
-                            {
-                                struct hash_item_set i = { 0 };
-                                i.p_struct_entry = p_struct_entry;
-                                hashmap_set(&ctx->structs_map, unique_id, &i);
-                                hash_item_set_destroy(&i);
-                            }
+                                {
+                                    struct hash_item_set i = { 0 };
+                                    i.p_struct_entry = p_struct_entry;
+                                    hashmap_set(&ctx->structs_map, unique_id, &i);
+                                    hash_item_set_destroy(&i);
+                                }
 
-                            if (p_struct_entry0 && p_struct_entry0 != p_struct_entry)
-                            {
-                                struct_entry_list_push_back(&p_struct_entry0->soft_dependencies, p_struct_entry);
-                            }
+                                if (p_struct_entry0 && p_struct_entry0 != p_struct_entry)
+                                {
+                                    struct_entry_list_push_back(&p_struct_entry0->soft_dependencies, p_struct_entry);
+                                }
 
-                            struct member_declaration* _Opt member_declaration =
+                                struct member_declaration* _Opt member_declaration =
                                 p_complete->member_declaration_list.head;
 
-                            while (member_declaration)
-                            {
-                                struct member_declarator* _Opt member_declarator = NULL;
-
-                                if (member_declaration->member_declarator_list_opt)
+                                while (member_declaration)
                                 {
-                                    member_declarator = member_declaration->member_declarator_list_opt->head;
-                                    while (member_declarator)
-                                    {
-                                        if (member_declarator->declarator)
-                                        {
-                                            if (type_is_struct_or_union(&member_declarator->declarator->type))
-                                            {
-                                                _Assert(member_declarator->declarator->type.struct_or_union_specifier != NULL);
+                                    struct member_declarator* _Opt member_declarator = NULL;
 
-                                                struct struct_or_union_specifier* _Opt p_complete_member =
+                                    if (member_declaration->member_declarator_list_opt)
+                                    {
+                                        member_declarator = member_declaration->member_declarator_list_opt->head;
+                                        while (member_declarator)
+                                        {
+                                            if (member_declarator->declarator)
+                                            {
+                                                if (type_is_struct_or_union(&member_declarator->declarator->type))
+                                                {
+                                                    _Assert(member_declarator->declarator->type.struct_or_union_specifier != NULL);
+
+                                                    struct struct_or_union_specifier* _Opt p_complete_member =
                                                     get_complete_struct_or_union_specifier(member_declarator->declarator->type.struct_or_union_specifier);
 
-                                                if (p_complete_member == NULL)
-                                                    throw;
+                                                    if (p_complete_member == NULL)
+                                                        throw;
+
+                                                    char name2[100] = { 0 };
+                                                    snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
+
+                                                    register_struct_types_and_functions(ctx, &member_declarator->declarator->type, NULL);
+                                                    struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
+                                                    if (p2 != NULL)
+                                                    {
+                                                        _Assert(p2->data.p_struct_entry != NULL);
+                                                        struct_entry_list_push_back(&p_struct_entry->hard_dependencies, p2->data.p_struct_entry);
+                                                    }
+                                                }
+                                                if (type_is_array(&member_declarator->declarator->type))
+                                                {
+                                                    struct type t = get_array_item_type(&member_declarator->declarator->type);
+                                                    if (type_is_struct_or_union(&t))
+                                                    {
+                                                        _Assert(t.struct_or_union_specifier != NULL);
+
+                                                        struct struct_or_union_specifier* _Opt p_complete_member =
+                                                        p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+
+                                                        char name2[100] = { 0 };
+                                                        snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
+
+                                                        register_struct_types_and_functions(ctx, &t, NULL);
+                                                        struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
+                                                        if (p2 != NULL)
+                                                        {
+                                                            _Assert(p2->data.p_struct_entry != NULL);
+                                                            struct_entry_list_push_back(&p_struct_entry->hard_dependencies, p2->data.p_struct_entry);
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        register_struct_types_and_functions(ctx, &member_declarator->declarator->type, p_struct_entry);
+                                                    }
+                                                    type_destroy(&t);
+                                                }
+                                                else
+                                                {
+                                                    register_struct_types_and_functions(ctx, &member_declarator->declarator->type, p_struct_entry);
+                                                }
+                                            }
+                                            member_declarator = member_declarator->next;
+                                        }
+                                    }
+                                    else if (member_declaration->specifier_qualifier_list != NULL)
+                                    {
+                                        if (member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+                                        {
+                                            struct type t = { 0 };
+                                            t.category = TYPE_CATEGORY_ITSELF;
+                                            t.struct_or_union_specifier = member_declaration->specifier_qualifier_list->struct_or_union_specifier;
+                                            t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+
+                                            //char buffer[200] = { 0 };
+                                            //snprintf(buffer, sizeof buffer, ".%s", name);
+
+                                            if (type_is_struct_or_union(&t))
+                                            {
+                                                _Assert(t.struct_or_union_specifier != NULL);
+                                                struct struct_or_union_specifier* _Opt p_complete_member =
+                                                p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
 
                                                 char name2[100] = { 0 };
                                                 snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
-                                                register_struct_types_and_functions(ctx, &member_declarator->declarator->type, NULL);
+                                                register_struct_types_and_functions(ctx, &t, p_struct_entry);
                                                 struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
                                                 if (p2 != NULL)
                                                 {
@@ -3553,20 +3629,25 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                                     struct_entry_list_push_back(&p_struct_entry->hard_dependencies, p2->data.p_struct_entry);
                                                 }
                                             }
-                                            if (type_is_array(&member_declarator->declarator->type))
+                                            if (type_is_array(&t))
                                             {
-                                                struct type t = get_array_item_type(&member_declarator->declarator->type);
-                                                if (type_is_struct_or_union(&t))
+                                                struct type t2 = get_array_item_type(&t);
+                                                if (type_is_struct_or_union(&t2))
                                                 {
-                                                    _Assert(t.struct_or_union_specifier != NULL);
-
+                                                    _Assert(t.struct_or_union_specifier);
                                                     struct struct_or_union_specifier* _Opt p_complete_member =
-                                                        p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+                                                    p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+
+                                                    if (p_complete_member == NULL)
+                                                    {
+                                                        type_destroy(&t2);
+                                                        throw;
+                                                    }
 
                                                     char name2[100] = { 0 };
                                                     snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
-                                                    register_struct_types_and_functions(ctx, &t, NULL);
+                                                    register_struct_types_and_functions(ctx, &t, p_struct_entry);
                                                     struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
                                                     if (p2 != NULL)
                                                     {
@@ -3576,119 +3657,50 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                                 }
                                                 else
                                                 {
-                                                    register_struct_types_and_functions(ctx, &member_declarator->declarator->type, p_struct_entry);
+                                                    register_struct_types_and_functions(ctx, &t, p_struct_entry);
                                                 }
-                                                type_destroy(&t);
-                                            }
-                                            else
-                                            {
-                                                register_struct_types_and_functions(ctx, &member_declarator->declarator->type, p_struct_entry);
-                                            }
-                                        }
-                                        member_declarator = member_declarator->next;
-                                    }
-                                }
-                                else if (member_declaration->specifier_qualifier_list != NULL)
-                                {
-                                    if (member_declaration->specifier_qualifier_list->struct_or_union_specifier)
-                                    {
-                                        struct type t = { 0 };
-                                        t.category = TYPE_CATEGORY_ITSELF;
-                                        t.struct_or_union_specifier = member_declaration->specifier_qualifier_list->struct_or_union_specifier;
-                                        t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
-
-                                        //char buffer[200] = { 0 };
-                                        //snprintf(buffer, sizeof buffer, ".%s", name);
-
-                                        if (type_is_struct_or_union(&t))
-                                        {
-                                            _Assert(t.struct_or_union_specifier != NULL);
-                                            struct struct_or_union_specifier* _Opt p_complete_member =
-                                                p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
-
-                                            char name2[100] = { 0 };
-                                            snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
-
-                                            register_struct_types_and_functions(ctx, &t, p_struct_entry);
-                                            struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
-                                            if (p2 != NULL)
-                                            {
-                                                _Assert(p2->data.p_struct_entry != NULL);
-                                                struct_entry_list_push_back(&p_struct_entry->hard_dependencies, p2->data.p_struct_entry);
-                                            }
-                                        }
-                                        if (type_is_array(&t))
-                                        {
-                                            struct type t2 = get_array_item_type(&t);
-                                            if (type_is_struct_or_union(&t2))
-                                            {
-                                                _Assert(t.struct_or_union_specifier);
-                                                struct struct_or_union_specifier* _Opt p_complete_member =
-                                                    p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
-
-                                                if (p_complete_member == NULL)
-                                                {
-                                                    type_destroy(&t2);
-                                                    throw;
-                                                }
-
-                                                char name2[100] = { 0 };
-                                                snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
-
-                                                register_struct_types_and_functions(ctx, &t, p_struct_entry);
-                                                struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
-                                                if (p2 != NULL)
-                                                {
-                                                    _Assert(p2->data.p_struct_entry != NULL);
-                                                    struct_entry_list_push_back(&p_struct_entry->hard_dependencies, p2->data.p_struct_entry);
-                                                }
+                                                type_destroy(&t2);
                                             }
                                             else
                                             {
                                                 register_struct_types_and_functions(ctx, &t, p_struct_entry);
                                             }
-                                            type_destroy(&t2);
-                                        }
-                                        else
-                                        {
-                                            register_struct_types_and_functions(ctx, &t, p_struct_entry);
-                                        }
 
-                                        type_destroy(&t);
+                                            type_destroy(&t);
+                                        }
                                     }
-                                }
 
-                                member_declaration = member_declaration->next;
+                                    member_declaration = member_declaration->next;
+                                }
                             }
-                        }
-                        else
-                        {
-                            if (p_struct_entry0 && p->data.p_struct_entry && p_struct_entry0 != p->data.p_struct_entry)
+                            else
                             {
-                                struct_entry_list_push_back(&p_struct_entry0->soft_dependencies, p->data.p_struct_entry);
+                                if (p_struct_entry0 && p->data.p_struct_entry && p_struct_entry0 != p->data.p_struct_entry)
+                                {
+                                    struct_entry_list_push_back(&p_struct_entry0->soft_dependencies, p->data.p_struct_entry);
+                                }
                             }
                         }
                     }
+                    else
+                    {
+                    }
                 }
-                else
-                {
-                }
-            }
-            break;
+                break;
 
-            case TYPE_CATEGORY_FUNCTION:
-            {
-                struct param* _Opt pa = p_type->params.head;
-                while (pa)
+                case TYPE_CATEGORY_FUNCTION:
                 {
-                    register_struct_types_and_functions(ctx, &pa->type, p_struct_entry0);
-                    pa = pa->next;
+                    struct param* _Opt pa = p_type->params.head;
+                    while (pa)
+                    {
+                        register_struct_types_and_functions(ctx, &pa->type, p_struct_entry0);
+                        pa = pa->next;
+                    }
                 }
-            }
-            break;
+                break;
 
-            case TYPE_CATEGORY_ARRAY:
-            case TYPE_CATEGORY_POINTER:
+                case TYPE_CATEGORY_ARRAY:
+                case TYPE_CATEGORY_POINTER:
 
                 break;
             }
@@ -3724,245 +3736,245 @@ static void d_print_type_core(struct codegen_ctx* ctx,
     {
         switch (p_type->category)
         {
-        case TYPE_CATEGORY_ITSELF:
-        {
-            struct osstream local = { 0 };
-            bool first = true;
-
-            if (ctx->print_qualifiers)
-                d_print_type_qualifier_flags(&local, &first, p_type->type_qualifier_flags);
-
-            if (!first)
-                ss_fprintf(&local, " ");
-
-            if (p_type->struct_or_union_specifier)
+            case TYPE_CATEGORY_ITSELF:
             {
-                struct struct_or_union_specifier* _Opt p_complete =
-                    get_complete_struct_or_union_specifier2(p_type->struct_or_union_specifier);
-                if (p_complete)
+                struct osstream local = { 0 };
+                bool first = true;
+
+                if (ctx->print_qualifiers)
+                    d_print_type_qualifier_flags(&local, &first, p_type->type_qualifier_flags);
+
+                if (!first)
+                    ss_fprintf(&local, " ");
+
+                if (p_type->struct_or_union_specifier)
                 {
-                    if (struct_or_union_specifier_is_union(p_type->struct_or_union_specifier))
-                        ss_fprintf(&local, "union %s", p_complete->tag_name);
+                    struct struct_or_union_specifier* _Opt p_complete =
+                    get_complete_struct_or_union_specifier2(p_type->struct_or_union_specifier);
+                    if (p_complete)
+                    {
+                        if (struct_or_union_specifier_is_union(p_type->struct_or_union_specifier))
+                            ss_fprintf(&local, "union %s", p_complete->tag_name);
+                        else
+                            ss_fprintf(&local, "struct %s", p_complete->tag_name);
+                        first = false;
+                    }
                     else
-                        ss_fprintf(&local, "struct %s", p_complete->tag_name);
-                    first = false;
+                    {
+                        if (struct_or_union_specifier_is_union(p_type->struct_or_union_specifier))
+                            ss_fprintf(&local, "union %s", p_type->struct_or_union_specifier->tag_name);
+                        else
+                            ss_fprintf(&local, "struct %s", p_type->struct_or_union_specifier->tag_name);
+                        first = false;
+                    }
+
+                }
+                else if (p_type->enum_specifier && !type_is_enumerator(p_type))
+                {
+                    enum type_specifier_flags enum_type_specifier_flags =
+                    get_enum_type_specifier_flags(p_type->enum_specifier);
+
+                    print_type_specifier_flags(&local, &first, enum_type_specifier_flags);
+                }
+                else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
+                {
+                    bool first0 = true;
+                    print_type_specifier_flags(&local, &first0, object_type_to_type_specifier(get_platform(ctx->options.target)->bool_type));
                 }
                 else
                 {
-                    if (struct_or_union_specifier_is_union(p_type->struct_or_union_specifier))
-                        ss_fprintf(&local, "union %s", p_type->struct_or_union_specifier->tag_name);
-                    else
-                        ss_fprintf(&local, "struct %s", p_type->struct_or_union_specifier->tag_name);
-                    first = false;
+                    print_type_alignment_flags(&local, &first, p_type->alignment_specifier_flags, ctx->options.target);
+                    print_msvc_declspec(&local, &first, p_type->msvc_declspec_flags);
+
+                    /*we dont print const, only volatile*/
+                    if (p_type->type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
+                    {
+                        print_item(&local, &first, "volatile");
+                    }
+
+                    print_type_specifier_flags(&local, &first, p_type->type_specifier_flags);
                 }
 
-            }
-            else if (p_type->enum_specifier && !type_is_enumerator(p_type))
-            {
-                enum type_specifier_flags enum_type_specifier_flags =
-                    get_enum_type_specifier_flags(p_type->enum_specifier);
-
-                print_type_specifier_flags(&local, &first, enum_type_specifier_flags);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
-            {
-                bool first0 = true;
-                print_type_specifier_flags(&local, &first0, object_type_to_type_specifier(get_platform(ctx->options.target)->bool_type));
-            }
-            else
-            {
-                print_type_alignment_flags(&local, &first, p_type->alignment_specifier_flags, ctx->options.target);
-                print_msvc_declspec(&local, &first, p_type->msvc_declspec_flags);
-
-                /*we dont print const, only volatile*/
-                if (p_type->type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
+                if (name_opt)
                 {
-                    print_item(&local, &first, "volatile");
+                    ss_fprintf(ss, "%s", name_opt);
+                    name_opt = NULL;
                 }
 
-                print_type_specifier_flags(&local, &first, p_type->type_specifier_flags);
-            }
-
-            if (name_opt)
-            {
-                ss_fprintf(ss, "%s", name_opt);
-                name_opt = NULL;
-            }
-
-            struct osstream local2 = { 0 };
-            if (ss->c_str)
-                ss_fprintf(&local2, "%s %s", local.c_str, ss->c_str);
-            else
-                ss_fprintf(&local2, "%s", local.c_str);
-
-            ss_swap(ss, &local2);
-            ss_close(&local2);
-            ss_close(&local);
-        }
-
-        break;
-        case TYPE_CATEGORY_ARRAY:
-        {
-            const struct type* _Opt it = p_type;
-            bool vm = false;
-            while (it && it->category == TYPE_CATEGORY_ARRAY)
-            {
-                if (it->array_num_elements <= 0)
-                {
-                    vm = true;
-                }
-
-                it = it->next;
-            }
-
-            if (name_opt)
-            {
-                ss_fprintf(ss, "%s", name_opt);
-                name_opt = NULL;
-            }
-            ss_fprintf(ss, "[");
-
-            bool b = true;
-
-            if (ctx->print_qualifiers)
-                d_print_type_qualifier_flags(ss, &b, p_type->type_qualifier_flags);
-
-            if (vm)
-            {
-                ss_fprintf(ss, "");
-            }
-            else
-            {
-                if (p_type->array_num_elements > 0)
-                {
-                    /* constant-size array dimension */
-                    if (!b)
-                        ss_fprintf(ss, " ");
-
-                    ss_fprintf(ss, "%zu", p_type->array_num_elements);
-                }
-
-            }
-
-            ss_fprintf(ss, "]");
-            if (vm)
-            {
-                p_type = it;
-                continue;
-            }
-        }
-        break;
-
-        case TYPE_CATEGORY_FUNCTION:
-
-            if (name_opt)
-            {
-                //if (first)
-                //{
-                //  ss_fprintf(ss, " ");
-                //first = false;
-                //}
-                if (p_type->attributes_flags & CAKE_ATTRIBUTE_STDCALL)
-                {
-                    ss_fprintf(ss, "__stdcall ");
-                }
-                else if (p_type->attributes_flags & CAKE_ATTRIBUTE_FASTCALL)
-                {
-                    ss_fprintf(ss, "__fastcall ");
-                }
-                else if (p_type->attributes_flags & CAKE_ATTRIBUTE_CDECL)
-                {
-                    ss_fprintf(ss, "__cdecl ");
-                }
-                ss_fprintf(ss, "%s", name_opt);
-                name_opt = NULL;
-            }
-            ss_fprintf(ss, "(");
-
-            struct param* _Opt pa = p_type->params.head;
-
-            while (pa)
-            {
-                struct osstream sslocal = { 0 };
                 struct osstream local2 = { 0 };
+                if (ss->c_str)
+                    ss_fprintf(&local2, "%s %s", local.c_str, ss->c_str);
+                else
+                    ss_fprintf(&local2, "%s", local.c_str);
 
-                d_print_type_core(ctx, &local2, &pa->type, pa->type.name_opt);
-
-                ss_fprintf(&sslocal, "%s", local2.c_str);
-                ss_fprintf(ss, "%s", sslocal.c_str);
-                if (pa->next)
-                    ss_fprintf(ss, ", ");
-                ss_close(&sslocal);
-                pa = pa->next;
+                ss_swap(ss, &local2);
                 ss_close(&local2);
+                ss_close(&local);
             }
 
-            if (p_type->params.is_var_args)
+            break;
+            case TYPE_CATEGORY_ARRAY:
             {
-                if (p_type->params.head)
-                    ss_fprintf(ss, ", ");
-                ss_fprintf(ss, "...");
-            }
+                const struct type* _Opt it = p_type;
+                bool vm = false;
+                while (it && it->category == TYPE_CATEGORY_ARRAY)
+                {
+                    if (it->array_num_elements <= 0)
+                    {
+                        vm = true;
+                    }
 
-            ss_fprintf(ss, ")");
+                    it = it->next;
+                }
+
+                if (name_opt)
+                {
+                    ss_fprintf(ss, "%s", name_opt);
+                    name_opt = NULL;
+                }
+                ss_fprintf(ss, "[");
+
+                bool b = true;
+
+                if (ctx->print_qualifiers)
+                    d_print_type_qualifier_flags(ss, &b, p_type->type_qualifier_flags);
+
+                if (vm)
+                {
+                    ss_fprintf(ss, "");
+                }
+                else
+                {
+                    if (p_type->array_num_elements > 0)
+                    {
+                        /* constant-size array dimension */
+                        if (!b)
+                            ss_fprintf(ss, " ");
+
+                        ss_fprintf(ss, "%zu", p_type->array_num_elements);
+                    }
+
+                }
+
+                ss_fprintf(ss, "]");
+                if (vm)
+                {
+                    p_type = it;
+                    continue;
+                }
+            }
+            break;
+
+            case TYPE_CATEGORY_FUNCTION:
+
+                if (name_opt)
+                {
+                    //if (first)
+                    //{
+                    //  ss_fprintf(ss, " ");
+                    //first = false;
+                    //}
+                    if (p_type->attributes_flags & CAKE_ATTRIBUTE_STDCALL)
+                    {
+                        ss_fprintf(ss, "__stdcall ");
+                    }
+                    else if (p_type->attributes_flags & CAKE_ATTRIBUTE_FASTCALL)
+                    {
+                        ss_fprintf(ss, "__fastcall ");
+                    }
+                    else if (p_type->attributes_flags & CAKE_ATTRIBUTE_CDECL)
+                    {
+                        ss_fprintf(ss, "__cdecl ");
+                    }
+                    ss_fprintf(ss, "%s", name_opt);
+                    name_opt = NULL;
+                }
+                ss_fprintf(ss, "(");
+
+                struct param* _Opt pa = p_type->params.head;
+
+                while (pa)
+                {
+                    struct osstream sslocal = { 0 };
+                    struct osstream local2 = { 0 };
+
+                    d_print_type_core(ctx, &local2, &pa->type, pa->type.name_opt);
+
+                    ss_fprintf(&sslocal, "%s", local2.c_str);
+                    ss_fprintf(ss, "%s", sslocal.c_str);
+                    if (pa->next)
+                        ss_fprintf(ss, ", ");
+                    ss_close(&sslocal);
+                    pa = pa->next;
+                    ss_close(&local2);
+                }
+
+                if (p_type->params.is_var_args)
+                {
+                    if (p_type->params.head)
+                        ss_fprintf(ss, ", ");
+                    ss_fprintf(ss, "...");
+                }
+
+                ss_fprintf(ss, ")");
 
             break;
 
-        case TYPE_CATEGORY_POINTER:
-        {
-            struct osstream local = { 0 };
-            if (p_type->next && (
+            case TYPE_CATEGORY_POINTER:
+            {
+                struct osstream local = { 0 };
+                if (p_type->next && (
                 (p_type->next->category == TYPE_CATEGORY_FUNCTION ||
                     (p_type->next->category == TYPE_CATEGORY_ARRAY))))
-            {
-                ss_fprintf(&local, "(");
-            }
-
-            if (p_type->attributes_flags & CAKE_ATTRIBUTE_STDCALL)
-            {
-                ss_fprintf(&local, "__stdcall ");
-            }
-            else if (p_type->attributes_flags & CAKE_ATTRIBUTE_FASTCALL)
-            {
-                ss_fprintf(&local, "__fastcall ");
-            }
-            else if (p_type->attributes_flags & CAKE_ATTRIBUTE_CDECL)
-            {
-                ss_fprintf(&local, "__cdecl ");
-            }
-
-            ss_fprintf(&local, "*");
-
-            bool first = false;
-            if (ctx->print_qualifiers)
-                d_print_type_qualifier_flags(ss, &first, p_type->type_qualifier_flags);
-
-            if (name_opt)
-            {
-                if (!first)
                 {
-                    ss_fprintf(ss, " ");
+                    ss_fprintf(&local, "(");
                 }
-                ss_fprintf(ss, "%s", name_opt);
-                name_opt = NULL;
-                first = false;
-            }
 
-            if (ss->c_str)
-                ss_fprintf(&local, "%s", ss->c_str);
+                if (p_type->attributes_flags & CAKE_ATTRIBUTE_STDCALL)
+                {
+                    ss_fprintf(&local, "__stdcall ");
+                }
+                else if (p_type->attributes_flags & CAKE_ATTRIBUTE_FASTCALL)
+                {
+                    ss_fprintf(&local, "__fastcall ");
+                }
+                else if (p_type->attributes_flags & CAKE_ATTRIBUTE_CDECL)
+                {
+                    ss_fprintf(&local, "__cdecl ");
+                }
 
-            if (p_type->next &&
+                ss_fprintf(&local, "*");
+
+                bool first = false;
+                if (ctx->print_qualifiers)
+                    d_print_type_qualifier_flags(ss, &first, p_type->type_qualifier_flags);
+
+                if (name_opt)
+                {
+                    if (!first)
+                    {
+                        ss_fprintf(ss, " ");
+                    }
+                    ss_fprintf(ss, "%s", name_opt);
+                    name_opt = NULL;
+                    first = false;
+                }
+
+                if (ss->c_str)
+                    ss_fprintf(&local, "%s", ss->c_str);
+
+                if (p_type->next &&
                 (p_type->next->category == TYPE_CATEGORY_FUNCTION ||
                     (p_type->next->category == TYPE_CATEGORY_ARRAY)))
-            {
-                ss_fprintf(&local, ")", ss->c_str);
+                {
+                    ss_fprintf(&local, ")", ss->c_str);
+                }
+
+                ss_swap(ss, &local);
+                ss_close(&local);
+
             }
-
-            ss_swap(ss, &local);
-            ss_close(&local);
-
-        }
-        break;
+            break;
         }
 
         p_type = p_type->next;
@@ -3985,7 +3997,9 @@ static void d_print_type(struct codegen_ctx* ctx,
     if (print_storage_qualifiers && p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN)
         ss_fprintf(ss, "extern ");
 
-    if (print_storage_qualifiers && p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
+    if (print_storage_qualifiers &&
+        (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC ||
+         p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR_STATIC))
     {
         ss_fprintf(ss, "static ");
     }
@@ -4116,7 +4130,7 @@ static void object_print_source_object_non_constant_initialization(
 
     if (object_has_constant_value(source))
     {
-        object_print_value(ss, source);
+        object_print_value(ctx->options.target, ss, source);
     }
     else
     {
@@ -4186,7 +4200,7 @@ static void assign_each_member_from_constexpr(
     if (object_has_constant_value(source))
     {
         /* Source holds a compile-time constant: print it directly */
-        object_print_value(ss, source);
+        object_print_value(ctx->options.target, ss, source);
     }
     else
     {
@@ -4202,7 +4216,7 @@ static void codegen_emit_member_assignments_from_constexpr(struct codegen_ctx* c
 {
     try 
     {
-      if (object_is_reference(dest))
+        if (object_is_reference(dest))
             dest = object_get_referenced(dest);
     
         if (object_is_reference(source))
@@ -4227,7 +4241,7 @@ static void codegen_emit_member_assignments_from_constexpr(struct codegen_ctx* c
     
                 struct osstream member_prefix = { 0 };
                 ss_fprintf(&member_prefix, "%s%s", dest_prefix, own_suffix);
-               if (member_prefix.c_str == NULL) throw;
+                if (member_prefix.c_str == NULL) throw;
     
                 codegen_emit_member_assignments_from_constexpr(ctx, oss, member_prefix.c_str, dest_member, source_member, first);
     
@@ -4249,7 +4263,7 @@ static void codegen_emit_member_assignments_from_constexpr(struct codegen_ctx* c
     
         if (object_has_constant_value(source))
         {
-            object_print_value(oss, source);
+            object_print_value(ctx->options.target, oss, source);
         }
         else
         {
@@ -4335,7 +4349,7 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
         {
             if (object_has_constant_value(&object->p_init_expression->object))
             {
-                object_print_value(ss, &object->p_init_expression->object);
+                object_print_value(ctx->options.target, ss, &object->p_init_expression->object);
             }
             else if (object->p_init_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL)
             {
@@ -4481,7 +4495,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                         {
                             size_t sz2 = 0;
                             enum sizeof_result r = type_get_sizeof(&object->p_init_expression->type, &sz2, ctx->options.target);
-                            if (r != SIZEOF_RESULT_OK) r = 0; //throw;
+                            if (r != SIZEOF_RESULT_OK) r = SIZEOF_RESULT_OK; //throw;
 
                             if (object->p_init_expression->declarator->name_opt == NULL)
                             {
@@ -4995,7 +5009,9 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
      {extern void f() {}} |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  error
     */
 
-    if (!is_extern && !is_block_scope && !is_inline && !is_static && !is_function && !is_function_body)
+    const bool is_constexpr = type_is_constexpr(&p_init_declarator->p_declarator->type);
+
+    if (!is_extern && !is_block_scope && !is_inline && !is_static && !is_constexpr && !is_function && !is_function_body)
     {
         const char* name = p_init_declarator->p_declarator->name_opt ?
             p_init_declarator->p_declarator->name_opt->lexeme : "";
@@ -5328,7 +5344,7 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
                     if (member_declarator->constant_expression)
                     {
                         ss_fprintf(ss, " : ");
-                        object_print_value(ss, &member_declarator->constant_expression->object);
+                        object_print_value(ctx->options.target, ss, &member_declarator->constant_expression->object);
                     }
 
                     ss_fprintf(ss, ";\n");
@@ -5556,9 +5572,9 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 
         ctx->indentation = 0;
 
-        generate_file_scope_new_name(ctx, "memcpy", sizeof ctx->memcpy_function_name, ctx->memcpy_function_name);
-        generate_file_scope_new_name(ctx, "memset", sizeof ctx->memset_function_name, ctx->memset_function_name);
-        generate_file_scope_new_name(ctx, "runtime_assert_failed", sizeof ctx->runtime_assert_function_name, ctx->runtime_assert_function_name);
+        generate_file_scope_new_name(ctx, CAKE_FILE_SCOPE_PREFIX "memcpy", sizeof ctx->memcpy_function_name, ctx->memcpy_function_name);
+        generate_file_scope_new_name(ctx, CAKE_FILE_SCOPE_PREFIX "memset", sizeof ctx->memset_function_name, ctx->memset_function_name);
+        generate_file_scope_new_name(ctx, CAKE_FILE_SCOPE_PREFIX "runtime_assert_failed", sizeof ctx->runtime_assert_function_name, ctx->runtime_assert_function_name);
 
         {
             struct osstream local = { 0 };

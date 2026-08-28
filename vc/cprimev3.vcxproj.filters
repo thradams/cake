@@ -67,6 +67,9 @@
     <ClCompile Include="..\src\file.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\fp_to_string.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\console.h">
@@ -124,6 +127,9 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\flow3.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\fp_to_string.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

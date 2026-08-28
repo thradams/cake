@@ -424,10 +424,11 @@ static void pre_postfix_expression(struct preprocessor_ctx* ctx, struct pre_expr
         ( type-name ) { initializer-ctx }
         ( type-name ) { initializer-ctx , }
 
-        //My extension : if type-name is function then follow is compound-statement
+        //C2Y
         ( type-name ) compound-statement
 
-        */
+    */
+    
     try
     {
         pre_primary_expression(ctx, ectx);
@@ -515,10 +516,10 @@ static void pre_multiplicative_expression(struct preprocessor_ctx* ctx, struct p
 {
     /*
      multiplicative-expression:
-    cast-expression
-    multiplicative-expression * cast-expression
-    multiplicative-expression / cast-expression
-    multiplicative-expression % cast-expression
+        cast-expression
+        multiplicative-expression * cast-expression
+        multiplicative-expression / cast-expression
+        multiplicative-expression % cast-expression
     */
     try
     {

@@ -193,7 +193,7 @@ struct object* _Opt object_extend_array_to_index(const struct type* p_type, stru
 struct object* object_get_non_const_referenced(struct object* p_object);
 
 
-void object_print_value(struct osstream* ss, const struct object* a);
+void object_print_value(enum target target, struct osstream* ss, const struct object* a);
 
 struct object object_add(enum target target,
     const struct object* a,

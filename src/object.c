@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include "fp_to_string.h"
 
 #define STATIC_ASSERT(cond) do { typedef char static_assert_error[(cond) ? 1 : -1]; } while (0)
 
@@ -1376,6 +1377,7 @@ int object_set(
                     dest_n_bits >= 64 ? LLONG_MIN : -(1LL << (dest_n_bits - 1));
 
                 const unsigned long long dest_max =
+                    type_is_bool(&to->type) ? 1 :
                     dest_n_bits >= 64 ?
                         (dest_is_signed ? (unsigned long long)LLONG_MAX : ~0ULL) :
                         (dest_is_signed ? (1ULL << (dest_n_bits - 1)) - 1 : (1ULL << dest_n_bits) - 1);
@@ -1407,6 +1409,44 @@ int object_set(
                         p_init_expression->first_token,
                         NULL,
                         "constant expression is not exactly representable in type");
+                }
+            }
+            else if (from->state == CONSTANT_VALUE_STATE_CONSTANT &&
+                (from->value_type == TYPE_FLOAT || from->value_type == TYPE_DOUBLE || from->value_type == TYPE_LONG_DOUBLE) &&
+                (to->value_type == TYPE_FLOAT || to->value_type == TYPE_DOUBLE || to->value_type == TYPE_LONG_DOUBLE))
+            {
+                const int dest_n_bits = target_get_num_of_bits(ctx->options.target, to->value_type);
+                const long double narrowed = resize_floating_point(from->value.host_long_double, dest_n_bits);
+
+                if (narrowed != from->value.host_long_double && p_init_expression)
+                {
+                    const enum diagnostic_id id =
+                        to->type.storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR ?
+                        C_ERROR_CONSTANT_VALUE_NOT_REPRESENTABLE :
+                        W_CONSTANT_VALUE_NOT_REPRESENTABLE;
+
+                    char exact_buf[64] = { 0 };
+                    char rounded_buf[64] = { 0 };
+                    const char* dest_type_name =
+                        to->value_type == TYPE_FLOAT ? "float" :
+                        to->value_type == TYPE_DOUBLE ? "double" : "long double";
+
+                    snprintf(exact_buf, sizeof exact_buf, "%.17g", (double)from->value.host_long_double);
+
+                    if (to->value_type == TYPE_FLOAT)
+                        snprintf(rounded_buf, sizeof rounded_buf, "%.9g", (double)(float)narrowed);
+                    else
+                        snprintf(rounded_buf, sizeof rounded_buf, "%.17g", (double)narrowed);
+
+                    diagnostic(id,
+                        ctx,
+                        p_init_expression->first_token,
+                        NULL,
+                        "constant expression %s is not exactly representable in '%s'; nearest '%s' value is %s",
+                        exact_buf,
+                        dest_type_name,
+                        dest_type_name,
+                        rounded_buf);
                 }
             }
 
@@ -1773,7 +1813,7 @@ enum type_specifier_flags object_type_to_type_specifier(enum object_type type)
         break;
     }
 
-    return 0;
+    return TYPE_SPECIFIER_NONE;
 }
 
 enum object_type type_specifier_to_object_type(const enum type_specifier_flags type_specifier_flags, enum target target)
@@ -2182,7 +2222,7 @@ enum object_type object_common(enum target target, const struct object* a, const
 
 }
 
-void object_print_value(struct osstream* ss, const struct object* a)
+void object_print_value(enum target target, struct osstream* ss, const struct object* a)
 {
     a = object_get_referenced(a);
 
@@ -2242,42 +2282,76 @@ void object_print_value(struct osstream* ss, const struct object* a)
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
-        if (isinf(a->value.host_long_double))
+        if (isinf(a->value.host_long_double) || isnan(a->value.host_long_double))
         {
-            //TODO decide
-            ss_fprintf(ss, ".7976931348623157E+308");
+            /*
+              There is no literal for infinity/nan, so we build one the same way
+              MSVC's <math.h> does: an overflowing product, cast to the wanted
+              type. The cast (rather than a f/L suffix) matters because 1e+300f
+              does not fit in a float and would be rejected on its own.
+
+              This form is portable - it compiles and folds correctly on msvc,
+              gcc, clang and tcc - so it is what we emit for every target.
+
+              TODO decide whether to use the per-target alternatives instead.
+              For the gcc/clang targets we could emit the builtins:
+
+                  __builtin_inff() / __builtin_inf()  / __builtin_infl()
+                  __builtin_nanf("") / __builtin_nan("") / __builtin_nanl("")
+
+              They are constant expressions, keep the sign and payload explicit,
+              and avoid the -Woverflow warning that gcc may emit for the
+              overflowing product. The cost is that the generated code stops
+              being compiler neutral, which is why we have `target` here.
+            */
+            const char* cast = "";
+            if (a->value_type == TYPE_FLOAT)
+                cast = "(float)";
+            else if (a->value_type == TYPE_LONG_DOUBLE)
+                cast = "(long double)";
+
+            if (isinf(a->value.host_long_double))
+            {
+                ss_fprintf(ss, "%s(%s(1e+300 * 1e+300))",
+                    a->value.host_long_double < 0 ? "-" : "",
+                    cast);
+            }
+            else
+            {
+                ss_fprintf(ss, "(%s((1e+300 * 1e+300) * 0.0))", cast);
+            }
+            break;
         }
         else
         {
-            char temp[64] = { 0 };
-            snprintf(temp, sizeof temp, "%.17Lg", a->value.host_long_double);
-
             /*
-              This format is good but not adding . in some cases
+              Shortest round-trip decimal: the text we emit reads back as the
+              exact same value, and 0.1 stays "0.1" instead of turning into
+              0.10000000000000001. See fp_to_string.h.
             */
-            char* p = temp;
-            bool dot_found = false;
+            char temp[64] = { 0 };
 
-            while (*p)
+            if (a->value_type == TYPE_FLOAT)
+                float_to_string((float)a->value.host_long_double, temp, sizeof temp);
+            else if (a->value_type == TYPE_DOUBLE)
+                double_to_string((double)a->value.host_long_double, temp, sizeof temp);
+            else if (get_platform(target)->long_double_n_bits == 64)
             {
-                if (*p == 'e' || *p == 'E')
-                {
-                    dot_found = true;
-                }
-
-                if (*p == '.')
-                {
-                    dot_found = true;
-                    break;
-                }
-                p++;
+                /*
+                  On this target long double is just a double (every msvc
+                  target, and gcc/clang on arm64), so the exact printer applies.
+                */
+                double_to_string((double)a->value.host_long_double, temp, sizeof temp);
             }
-
-            if (!dot_found)
+            else
             {
-                *p = '.'; p++;
-                *p = '0'; p++;
-                *p = '\0';
+                /*
+                  Target long double is wider than a double - the 80-bit x87
+                  format on gcc/clang x86, or 128-bit. Its significand does not
+                  fit the printer above, so fall back to the host library and
+                  accept the loss. Documented in manual.md, section 7.5.
+                */
+                snprintf(temp, sizeof temp, "%.21Lg", a->value.host_long_double);
             }
 
             ss_fprintf(ss, "%s", temp);
@@ -2286,7 +2360,7 @@ void object_print_value(struct osstream* ss, const struct object* a)
         if (a->value_type == TYPE_FLOAT)
             ss_fprintf(ss, "f");
         else if (a->value_type == TYPE_LONG_DOUBLE)
-            ss_fprintf(ss, "Lf");
+            ss_fprintf(ss, "L");
         break;
 
     default:
@@ -2700,6 +2774,7 @@ struct object object_add(enum target target,
     case TYPE_LONG_DOUBLE:
         r.value.host_long_double = a0.value.host_long_double + b0.value.host_long_double;
         r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
+       break;
 
     default:
         break;
@@ -2788,6 +2863,7 @@ struct object object_sub(enum target target,
     case TYPE_LONG_DOUBLE:
         r.value.host_long_double = a0.value.host_long_double - b0.value.host_long_double;
         r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
+       break;
 
     default:
         break;
@@ -2877,6 +2953,7 @@ struct object object_mul(enum target target,
     case TYPE_LONG_DOUBLE:
         r.value.host_long_double = a0.value.host_long_double * b0.value.host_long_double;
         r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
+       break;
 
     default:
         break;
@@ -2958,6 +3035,7 @@ struct object object_div(enum target target,
     case TYPE_LONG_DOUBLE:
         r.value.host_long_double = a0.value.host_long_double / b0.value.host_long_double; //lint 36 div by zero, we want it here
         r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
+       break;
 
     default:
         break;
