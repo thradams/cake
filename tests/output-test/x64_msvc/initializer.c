@@ -1,4 +1,4 @@
-/* Cake x64_msvc */
+/* Cake 0.14.37 x64_msvc 2026-08-28 15:10:27 */
 
 struct A {
     int x;
@@ -9,7 +9,7 @@ struct B {
     struct A a;
 };
 
-static void memcpy(void * dest, const void * src, unsigned long long n);
+static void* __cmemcpy(void * dest, const void * src, unsigned long long n);
 
 int main(void)
 {
@@ -18,11 +18,11 @@ int main(void)
 
     ia.x = 1;
     ia.y = 2;
-    memcpy(b, ia, 8);
+    __cmemcpy(&b.a, &ia, 8);
     b.a.y = 42;
 }
 
-static void memcpy(void * dest, const void * src, unsigned long long n)
+static void* __cmemcpy(void * dest, const void * src, unsigned long long n)
 {
     char *csrc;
     char *cdest;
@@ -34,5 +34,6 @@ static void memcpy(void * dest, const void * src, unsigned long long n)
     {
        cdest[i] = csrc[i]; 
     }
+    return dest;
 }
 
