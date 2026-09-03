@@ -50,11 +50,12 @@
 
 #define CAKE_IDE_SOURCE_FILES \
     CAKE_LIB_SOURCE_FILES \
-    " ide_format.c " \
+    " ide_lsp.c " \
     " ide_ui.c " \
+    " ide_debug.c " \
     " ide.c " \
     " tinycthread.c " \
-    
+
 
 #define HOEDOWN_SOURCE_FILES \
     " autolink.c "           \

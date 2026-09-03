@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <stdio.h>   /* snprintf - see win32_last_error/ui_process_start */
 #include <wchar.h>   /* swprintf - building the shell command line */
+#include <stdbool.h>
 
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "gdi32.lib")
@@ -674,6 +675,31 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         pump_frame(hwnd, 1);  /* process + repaint now, don't wait for the timer */
         return 0;
     }
+    case WM_SYSKEYDOWN: {
+        /* A bare F10 press arrives here, not via WM_KEYDOWN above - Windows
+         * treats plain F10 as a "system key" the same way Alt is, normally
+         * meant to activate a native menu bar via DefWindowProc. This app
+         * draws its own menu bar (there is no native one for F10 to
+         * activate), so with no case for this message the keystroke was
+         * simply swallowed - Debug > Step Over's own "F10" shortcut (see
+         * ide.c's EVT_DEBUG_STEP_OVER) never reached the app at all,
+         * indistinguishable from the app doing nothing. Reroute only F10
+         * through the same key-posting path WM_KEYDOWN uses above; every
+         * other system key (Alt+F4, Alt+Tab, ...) falls through to
+         * DefWindowProc unchanged. */
+        if (wp == VK_F10) {
+            ui_event ev = {0};
+            ev.type = UI_EVENT_KEY;
+            ev.data.key.code = UI_KEY_F10;
+            ev.data.key.mods = (GetKeyState(VK_SHIFT) < 0 ? UI_MOD_SHIFT : 0) |
+                               (GetKeyState(VK_CONTROL) < 0 ? UI_MOD_CTRL : 0) |
+                               (GetKeyState(VK_MENU) < 0 ? UI_MOD_ALT : 0);
+            ui_env_post_event(g_env, &ev);
+            pump_frame(hwnd, 1);
+            return 0;
+        }
+        return DefWindowProcW(hwnd, msg, wp, lp);
+    }
     case WM_CHAR: {
         /* Printable characters and a few control chars (backspace, enter).
          * Just post the event - the app owns all state. */
@@ -1101,6 +1127,7 @@ void ui_open_terminal(const char *dir)
 struct ui_process
 {
     HANDLE hread;
+    HANDLE hwrite_in;  /* our end of the child's stdin pipe, or NULL if none */
     HANDLE hproc;
     int ended;   /* child exited AND pipe drained - latched, see _read */
 };
@@ -1126,12 +1153,13 @@ static void win32_last_error(char *err, int errcap, const char *what)
               what, (unsigned long)code, msg[0] ? msg : "unknown error");
 }
 
-ui_process *ui_process_start(const char *command, const char *dir,
-                              char *err, int errcap)
+/* Shared CreatePipe/CreateProcessW plumbing, given an already-built wide
+ * command line (`ui_process_start` builds one that runs through cmd.exe;
+ * `ui_process_start_direct` builds one that names the child program
+ * directly, no shell in between - see its own doc comment in ide_ui.h). */
+static ui_process *start_common(WCHAR *wcmd, const char *dir,
+                                 char *err, int errcap)
 {
-    if (err && errcap > 0)
-        err[0] = 0;
-
     SECURITY_ATTRIBUTES sa = { sizeof sa, NULL, TRUE };
     HANDLE hread = NULL, hwrite = NULL;
     if (!CreatePipe(&hread, &hwrite, &sa, 1 << 20)) {
@@ -1139,6 +1167,70 @@ ui_process *ui_process_start(const char *command, const char *dir,
         return NULL;
     }
     SetHandleInformation(hread, HANDLE_FLAG_INHERIT, 0);
+
+    HANDLE hread_in = NULL, hwrite_in = NULL;
+    if (!CreatePipe(&hread_in, &hwrite_in, &sa, 1 << 16)) {
+        win32_last_error(err, errcap, "CreatePipe");
+        CloseHandle(hread);
+        CloseHandle(hwrite);
+        return NULL;
+    }
+    /* Our end (the write side) must NOT be inherited, or the child holds
+     * a handle to it and the pipe never looks closed from its own point
+     * of view; the read side (the child's stdin) must be inherited. */
+    SetHandleInformation(hwrite_in, HANDLE_FLAG_INHERIT, 0);
+
+    WCHAR wdir[MAX_PATH] = { 0 };
+    if (dir && dir[0])
+        MultiByteToWideChar(CP_UTF8, 0, dir, -1, wdir, MAX_PATH);
+
+    STARTUPINFOW si;
+    ZeroMemory(&si, sizeof si);
+    si.cb = sizeof si;
+    si.dwFlags = STARTF_USESTDHANDLES;
+    si.hStdOutput = hwrite;
+    si.hStdError = hwrite;   /* both streams into the one pipe, interleaved
+                              * the way a terminal would show them */
+    si.hStdInput = hread_in;
+
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&pi, sizeof pi);
+
+    BOOL ok = CreateProcessW(NULL, wcmd, NULL, NULL, TRUE, CREATE_NO_WINDOW,
+                              NULL, wdir[0] ? wdir : NULL, &si, &pi);
+    if (!ok)
+        win32_last_error(err, errcap, "CreateProcess");
+
+    CloseHandle(hwrite);    /* our copy - the child has its own; keeping this
+                             * open would stop the pipe ever reaching EOF */
+    CloseHandle(hread_in);  /* our copy - the child has its own */
+    if (!ok) {
+        CloseHandle(hread);
+        CloseHandle(hwrite_in);
+        return NULL;
+    }
+    CloseHandle(pi.hThread);
+
+    ui_process *p = calloc(1, sizeof *p);
+    if (!p) {
+        if (err && errcap > 0)
+            snprintf(err, (size_t)errcap, "out of memory");
+        CloseHandle(hread);
+        CloseHandle(hwrite_in);
+        CloseHandle(pi.hProcess);
+        return NULL;
+    }
+    p->hread = hread;
+    p->hwrite_in = hwrite_in;
+    p->hproc = pi.hProcess;
+    return p;
+}
+
+ui_process *ui_process_start(const char *command, const char *dir,
+                              char *err, int errcap)
+{
+    if (err && errcap > 0)
+        err[0] = 0;
 
     /* Run through the command processor rather than exec'ing `command`
      * directly: it makes shell syntax work, and it means a program that
@@ -1157,46 +1249,59 @@ ui_process *ui_process_start(const char *command, const char *dir,
     swprintf(wcmd, 4096, L"%s /c %s", shell, wcommand);
     wcmd[4095] = 0;
 
-    WCHAR wdir[MAX_PATH] = { 0 };
-    if (dir && dir[0])
-        MultiByteToWideChar(CP_UTF8, 0, dir, -1, wdir, MAX_PATH);
+    return start_common(wcmd, dir, err, errcap);
+}
 
-    STARTUPINFOW si;
-    ZeroMemory(&si, sizeof si);
-    si.cb = sizeof si;
-    si.dwFlags = STARTF_USESTDHANDLES;
-    si.hStdOutput = hwrite;
-    si.hStdError = hwrite;   /* both streams into the one pipe, interleaved
-                              * the way a terminal would show them */
-    si.hStdInput = NULL;
+/* Quotes `arg` into `out` (Win32 CommandLineToArgvW convention: wrap in
+ * quotes if it contains a space/tab/quote, doubling any embedded quotes)
+ * and appends it to `wcmd`, space-separated. Good enough for the argv this
+ * is used for today (a debugger path and its own straightforward args) -
+ * not a general-purpose shell-quoting routine. */
+static void append_quoted_arg(WCHAR *wcmd, size_t wcmd_cap, const char *arg)
+{
+    WCHAR warg[2048] = { 0 };
+    MultiByteToWideChar(CP_UTF8, 0, arg, -1, warg, 2048);
 
-    PROCESS_INFORMATION pi;
-    ZeroMemory(&pi, sizeof pi);
-
-    BOOL ok = CreateProcessW(NULL, wcmd, NULL, NULL, TRUE, CREATE_NO_WINDOW,
-                              NULL, wdir[0] ? wdir : NULL, &si, &pi);
-    if (!ok)
-        win32_last_error(err, errcap, "CreateProcess");
-
-    CloseHandle(hwrite);  /* our copy - the child has its own; keeping this
-                           * open would stop the pipe ever reaching EOF */
-    if (!ok) {
-        CloseHandle(hread);
-        return NULL;
+    bool needs_quotes = warg[0] == 0;
+    for (WCHAR *q = warg; *q && !needs_quotes; q++) {
+        if (*q == L' ' || *q == L'\t' || *q == L'"')
+            needs_quotes = true;
     }
-    CloseHandle(pi.hThread);
 
-    ui_process *p = calloc(1, sizeof *p);
-    if (!p) {
-        if (err && errcap > 0)
-            snprintf(err, (size_t)errcap, "out of memory");
-        CloseHandle(hread);
-        CloseHandle(pi.hProcess);
-        return NULL;
+    size_t len = wcslen(wcmd);
+    if (len > 0 && len < wcmd_cap - 1) {
+        wcmd[len++] = L' ';
+        wcmd[len] = 0;
     }
-    p->hread = hread;
-    p->hproc = pi.hProcess;
-    return p;
+
+    if (!needs_quotes) {
+        wcsncat(wcmd, warg, wcmd_cap - wcslen(wcmd) - 1);
+        return;
+    }
+
+    wcsncat(wcmd, L"\"", wcmd_cap - wcslen(wcmd) - 1);
+    for (WCHAR *q = warg; *q; q++) {
+        if (*q == L'"') {
+            wcsncat(wcmd, L"\\\"", wcmd_cap - wcslen(wcmd) - 1);
+        } else {
+            WCHAR one[2] = { *q, 0 };
+            wcsncat(wcmd, one, wcmd_cap - wcslen(wcmd) - 1);
+        }
+    }
+    wcsncat(wcmd, L"\"", wcmd_cap - wcslen(wcmd) - 1);
+}
+
+ui_process *ui_process_start_direct(const char *const argv[], const char *dir,
+                                     char *err, int errcap)
+{
+    if (err && errcap > 0)
+        err[0] = 0;
+
+    WCHAR wcmd[4096] = { 0 };
+    for (int i = 0; argv[i]; i++)
+        append_quoted_arg(wcmd, 4096, argv[i]);
+
+    return start_common(wcmd, dir, err, errcap);
 }
 
 int ui_process_read(ui_process *p, char *buf, int cap)
@@ -1225,6 +1330,20 @@ int ui_process_read(ui_process *p, char *buf, int cap)
     return 0;
 }
 
+int ui_process_write(ui_process *p, const char *data, int len)
+{
+    if (!p || !p->hwrite_in)
+        return -1;
+
+    DWORD written = 0;
+    if (WriteFile(p->hwrite_in, data, (DWORD)len, &written, NULL))
+        return (int)written;
+    /* A full pipe on Windows blocks rather than failing with a
+     * would-block style error, so in practice this is a real failure
+     * (e.g. the child already exited and closed its stdin). */
+    return -1;
+}
+
 int ui_process_close(ui_process *p)
 {
     if (!p)
@@ -1235,6 +1354,8 @@ int ui_process_close(ui_process *p)
         code = (DWORD)-1;
     CloseHandle(p->hproc);
     CloseHandle(p->hread);
+    if (p->hwrite_in)
+        CloseHandle(p->hwrite_in);
     free(p);
     return (int)code;
 }

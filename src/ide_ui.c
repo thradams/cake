@@ -350,6 +350,11 @@ static ui_theme g_theme = {
                                                           * visible without
                                                           * looking like a
                                                           * selection */
+    .editor_breakpoint_fg = TB_RGB(0xFF, 0x55, 0x55),  /* same bright red as
+                                                        * editor_bracket_fg[0] */
+    .editor_exec_line_bg = TB_RGB(0x00, 0x64, 0x00),   /* dark green - reads
+                                                        * clearly against this
+                                                        * theme's blue editor_bg */
     .editor_bracket_fg = {
         TB_RGB(0xFF, 0x55, 0x55),  /* light red */
         TB_RGB(0xAA, 0x55, 0x00),  /* brown */
@@ -680,6 +685,17 @@ struct ui_node {
                       * sorted ascending by line - see
                       * ui_editor_add_diagnostic and render_editor(). */
 
+    struct ui_breakpoint* breakpoints;  /* EDITOR only: singly linked, kept
+                      * sorted ascending by line, same shape/merge-walk as
+                      * diagnostics above but NOT cleared on edit (a
+                      * breakpoint is a standing user choice, not a stale
+                      * compiler result - see ui_editor_toggle_breakpoint
+                      * and render_editor()). */
+
+    int exec_line;    /* EDITOR only: 1-based line the debugger is currently
+                      * stopped on, or 0 for none - see ui_set_exec_line and
+                      * render_editor()'s line_bg computation. */
+
                       /* EDITOR only: undo/redo history - see ui_editor_undo/redo below. Each
                        * entry is a DELTA (see struct ui_undo_entry), so memory scales with how
                        * much was edited rather than with the document's size.
@@ -718,6 +734,17 @@ struct ui_diagnostic {
     struct ui_diagnostic* next;
 };
 typedef struct ui_diagnostic ui_diagnostic;
+
+/* One entry in an <editor>'s breakpoint list (see ui_editor_toggle_
+ * breakpoint in ide_ui.h) - a singly linked list kept sorted ascending by
+ * `line`, same merge-walk shape as ui_diagnostic above, but its own
+ * (simpler - no type/code/message) struct since a breakpoint carries no
+ * per-entry data beyond which line it is on. */
+struct ui_breakpoint {
+    int line;   /* 1-based source line, same convention as ui_diagnostic::line */
+    struct ui_breakpoint* next;
+};
+typedef struct ui_breakpoint ui_breakpoint;
 
 #define UI_MAX_KEY_EVENTS 8
 #define UI_MODAL_STACK_MAX 8
@@ -994,6 +1021,16 @@ static void free_diagnostics(ui_diagnostic* d)
     }
 }
 
+static void free_breakpoints(ui_breakpoint* b)
+{
+    while (b)
+    {
+        ui_breakpoint* next = b->next;
+        free(b);
+        b = next;
+    }
+}
+
 static void node_free(ui_node* n)
 {
     if (!n)
@@ -1005,6 +1042,7 @@ static void node_free(ui_node* n)
     free(n->shortcut);
     free(n->path);
     free_diagnostics(n->diagnostics);
+    free_breakpoints(n->breakpoints);
     for (int i = 0; i < n->undo_count; i++)
     {
         free(n->undo_stack[i].del);
@@ -1601,6 +1639,72 @@ void ui_editor_clear_diagnostics(ui_node* n)
 {
     free_diagnostics(n->diagnostics);
     n->diagnostics = NULL;
+}
+
+/* Toggles a breakpoint on `line` (1-based): adds it (kept sorted ascending,
+ * same convention as ui_editor_add_diagnostic) if absent, removes it if
+ * already there. Returns the new state (1 = now set, 0 = now cleared). */
+int ui_editor_toggle_breakpoint(ui_node* n, int line)
+{
+    ui_breakpoint** link = &n->breakpoints;
+    while (*link && (*link)->line < line)
+        link = &(*link)->next;
+
+    if (*link && (*link)->line == line)
+    {
+        ui_breakpoint* dead = *link;
+        *link = dead->next;
+        free(dead);
+        return 0;
+    }
+
+    ui_breakpoint* b = malloc(sizeof *b);
+    if (!b)
+        ui_fatal_oom("ui_editor_toggle_breakpoint");
+    b->line = line;
+    b->next = *link;
+    *link = b;
+    return 1;
+}
+
+int ui_editor_has_breakpoint(const ui_node* n, int line)
+{
+    for (ui_breakpoint* b = n->breakpoints; b && b->line <= line; b = b->next)
+    {
+        if (b->line == line)
+            return 1;
+    }
+    return 0;
+}
+
+void ui_editor_clear_breakpoints(ui_node* n)
+{
+    free_breakpoints(n->breakpoints);
+    n->breakpoints = NULL;
+}
+
+/* Copies up to `max` breakpoint line numbers (ascending, same order as the
+ * list itself) into `out`. Returns how many were copied - a caller after
+ * only the count can pass max = 0 (out is never read in that case). */
+int ui_editor_get_breakpoints(const ui_node* n, int* out, int max)
+{
+    int count = 0;
+    for (ui_breakpoint* b = n->breakpoints; b && count < max; b = b->next)
+        out[count++] = b->line;
+    return count;
+}
+
+/* The line the debugger is currently stopped on (1-based), or 0 for none -
+ * see render_editor()'s line_bg computation and the gutter marker drawn
+ * alongside ui_editor_toggle_breakpoint's markers. */
+void ui_set_exec_line(ui_node* n, int line)
+{
+    n->exec_line = line;
+}
+
+int ui_get_exec_line(const ui_node* n)
+{
+    return n->exec_line;
 }
 
 void ui_set_dirty(ui_node* n, int dirty)
@@ -3136,7 +3240,23 @@ static int ansi_col_of(const char* s, int len, int byte_pos);
  * character would. */
 static void editor_click_set_cursor(ui_node* n, int click_row, int click_col)
 {
-    click_col -= editor_gutter_width(n);
+    int gutter_w = editor_gutter_width(n);
+
+    /* A click inside the numbered gutter of a C source file toggles a
+     * breakpoint on that row's line instead of moving the cursor - the
+     * plain 1-column margin Markdown/plain-text editors get (see
+     * editor_gutter_width's own comment) is deliberately excluded, since
+     * there is no line number there for a breakpoint to attach to. */
+    if (n->syntax == UI_SYNTAX_C && gutter_w > 0 && click_col < gutter_w)
+    {
+        int target = editor_row_to_line(n, click_row);
+        int ls, le;
+        if (editor_line_range(n->label, target, &ls, &le))
+            ui_editor_toggle_breakpoint(n, target + 1);
+        return;
+    }
+
+    click_col -= gutter_w;
     if (click_col < 0)
         click_col = 0;
 
@@ -3451,6 +3571,31 @@ void ui_editor_goto_line(ui_node* n, int line)
             off = i + 1;
         }
     }
+
+    n->cursor = off;
+    n->sel_anchor = -1;
+    editor_ensure_cursor_visible(n);
+}
+
+/* Same as ui_editor_goto_line(), but also advances the caret col-1 bytes
+ * into the line (col is 1-based, matching struct token::col in tokenizer.c -
+ * used to land on the exact symbol a "go to definition" lookup resolved to,
+ * not just its line). Stops at the line's end (or the '\0') if col overshoots
+ * it, same "clamp rather than misplace the caret" behavior ui_editor_goto_
+ * line() has for an out-of-range line. */
+void ui_editor_goto_line_col(ui_node* n, int line, int col)
+{
+    if (!n || n->type != UI_TAG_EDITOR)
+        return;
+
+    ui_editor_goto_line(n, line);
+
+    if (col < 1)
+        return;
+
+    int off = n->cursor;
+    for (int i = 1; i < col && n->label[off] && n->label[off] != '\n'; i++)
+        off++;
 
     n->cursor = off;
     n->sel_anchor = -1;
@@ -7145,9 +7290,24 @@ static void render_listbox(ui_screen* s, ui_node* n)
             continue;
         }
 
-        const char* label = n->children[index]->label;
+        ui_node* item = n->children[index];
+        const char* label = item->label;
+        /* An item with a non-zero `fg` (unused by plain ITEM otherwise - see
+         * its own doc comment) tints just its leading glyph - a per-file-type
+         * icon character an app prepends to the label, e.g. the Project
+         * panel's "C"/"H"/"M" markers (see project_window_refresh()) -
+         * instead of the whole row. Kept even while selected - it's a
+         * deliberate color code, not decoration that should defer to the
+         * selection highlight. */
         const char* p = label;
         int col = 0;
+        if (item->fg && *p)
+        {
+            uint32_t cp;
+            p += utf8_decode(p, &cp);
+            emit_char(n->x + col, n->y + row, cp, item->fg, bg);
+            col++;
+        }
         while (*p && col < n->w)
         {
             uint32_t cp;
@@ -8735,6 +8895,13 @@ static void render_editor(ui_screen* s, ui_node* n)
      * VT100 mode (compiler output, not source). */
     ui_diagnostic* diag = n->syntax == UI_SYNTAX_VT100 ? NULL : n->diagnostics;
 
+    /* Same merge-walk shape as `diag` just above, for the (also line-sorted)
+     * breakpoint list - see ui_editor_toggle_breakpoint. Consumed in the
+     * gutter draw below rather than diag's own consumption site further
+     * down, since a breakpoint only ever affects the gutter's own cell, not
+     * inline text. */
+    ui_breakpoint* bp = n->syntax == UI_SYNTAX_VT100 ? NULL : n->breakpoints;
+
     /* ONE forward walk over the buffer for everything below: skip the lines
      * above the viewport (priming whatever multi-line highlighter state the
      * syntax mode tracks on the way - see scan_multiline_state()), then peel
@@ -8983,9 +9150,24 @@ static void render_editor(ui_screen* s, ui_node* n)
         uint32_t base_bg = n->syntax == UI_SYNTAX_VT100
                                ? g_theme.editor_output_bg
                                : g_theme.editor_bg;
+        /* 1-based line number for this row, to compare against exec_line/
+         * breakpoints (both stored 1-based - see ui_set_exec_line/
+         * ui_editor_toggle_breakpoint) without an off-by-one at every use. */
+        int line_no = line_idx + 1;
+
+        while (bp && bp->line < line_no)
+            bp = bp->next;
+        int has_bp = bp && bp->line == line_no;
+
         uint32_t line_bg;
         int md_readonly = n->syntax == UI_SYNTAX_MARKDOWN && n->read_only;
-        if (!has_sel && n->syntax == UI_SYNTAX_MARKDOWN && (in_block || line_is_fence))
+        if (!has_sel && n->exec_line == line_no)
+            /* Where the debugger is stopped right now - the strongest cue
+             * on the row short of an actual selection, so it wins over the
+             * Markdown code-block tint and the plain current-line tint
+             * below (both of which could otherwise coincide with it). */
+            line_bg = g_theme.editor_exec_line_bg;
+        else if (!has_sel && n->syntax == UI_SYNTAX_MARKDOWN && (in_block || line_is_fence))
             line_bg = g_theme.md_code_bg;
         else if (!has_sel && !md_readonly && line_idx == cursor_line)
             line_bg = g_theme.editor_current_line_bg;
@@ -8997,15 +9179,21 @@ static void render_editor(ui_screen* s, ui_node* n)
          * aligned within [n->x, text_x), same convention as line_bg above:
          * it picks up whatever tint this row got (current line/code block),
          * so it reads as part of the same row rather than a separate strip.
-         * Skipped entirely when gutter_w is 0 (feature off, or VT100). */
+         * Skipped entirely when gutter_w is 0 (feature off, or VT100). A
+         * line with a breakpoint set draws its number in editor_breakpoint_
+         * fg instead of the neutral editor_linenum_fg, in place of a
+         * separate marker glyph - simpler than fitting a second symbol into
+         * an already-narrow column, and just as unambiguous since ordinary
+         * line numbers are never that color. */
         if (gutter_w > 0)
         {
             char num[16];
-            int len = snprintf(num, sizeof num, "%d", line_idx + 1);
-            draw_fill(n->x, n->y + row, gutter_w, 1, g_theme.editor_linenum_fg, line_bg);
+            int len = snprintf(num, sizeof num, "%d", line_no);
+            uint32_t num_fg = has_bp ? g_theme.editor_breakpoint_fg : g_theme.editor_linenum_fg;
+            draw_fill(n->x, n->y + row, gutter_w, 1, num_fg, line_bg);
             if (len > 0 && len < gutter_w)
                 draw_text(n->x + (gutter_w - 1 - len), n->y + row, num,
-                          g_theme.editor_linenum_fg, line_bg);
+                          num_fg, line_bg);
         }
 
         switch (n->syntax)

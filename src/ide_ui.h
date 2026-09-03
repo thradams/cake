@@ -380,6 +380,20 @@ typedef struct {
                                        * Only shown when there's no real
                                        * selection (see render_editor). */
 
+    uint32_t editor_breakpoint_fg;  /* the gutter marker for a line with a
+                                     * breakpoint set (see ui_editor_toggle_
+                                     * breakpoint) - a bullet drawn in place
+                                     * of that row's line number, so it wants
+                                     * to read as "stop sign", distinct from
+                                     * editor_linenum_fg's neutral gray. */
+
+    uint32_t editor_exec_line_bg;  /* the row the debugger is currently
+                                    * stopped on (see ui_set_exec_line) -
+                                    * takes priority over editor_current_
+                                    * line_bg so a breakpoint hit is
+                                    * unambiguous even when the caret
+                                    * happens to sit on the same line. */
+
     uint32_t editor_bracket_fg[UI_EDITOR_BRACKET_COLORS];  /* UI_SYNTAX_C
                                        * only: ( [ { ) ] } "rainbow bracket"
                                        * coloring - cycles by nesting depth
@@ -457,6 +471,16 @@ typedef struct {
      * without competing with whichever widget is actually focused (the
      * convention every desktop toolkit follows). */
     uint32_t listbox_sel_inactive_fg, listbox_sel_inactive_bg;
+
+    /* Project panel only: the leading file-type marker prepended to each
+     * row's label (see project_window_refresh() in ide.c) - one color per
+     * extension it recognizes, so a theme can keep them legible against its
+     * own listbox_bg. A file type not listed here gets no marker (just
+     * reserved blank space, no color needed). */
+    uint32_t project_icon_c_fg;   /* ".c" rows */
+    uint32_t project_icon_h_fg;   /* ".h" rows */
+    uint32_t project_icon_md_fg;  /* ".md" rows */
+
     uint32_t diag_error_fg;
     uint32_t diag_error_bg;
     uint32_t diag_warning_fg;
@@ -734,6 +758,10 @@ int ui_editor_can_redo(const ui_node* n);
  * (clamped to [1, line count]), clear any selection, and scroll to bring it
  * into view - what a "Go to line" dialog needs. No-op on other tags. */
 void ui_editor_goto_line(ui_node* n, int line);
+
+/* Same as ui_editor_goto_line(), but also moves the caret col-1 bytes into
+ * the line (col is 1-based, matching struct token::col in tokenizer.c). */
+void ui_editor_goto_line_col(ui_node* n, int line, int col);
 
 /* EDITOR-only: the 1-based line the caret is currently on (0 on other tags).
  * A mouse click positions the caret, so a double-click handler (an <editor>
@@ -1042,11 +1070,42 @@ typedef struct ui_process ui_process;
 ui_process* ui_process_start(const char* command, const char* dir,
                               char* err, int errcap);
 
+/* Like ui_process_start, but for a long-lived, interactive child (e.g. a
+ * debugger driven over its machine interface) rather than a one-shot build/
+ * run tool. Two differences:
+ *
+ *  - `argv` names the program and its arguments directly (NULL-terminated,
+ *    argv[0] is the program) and is exec'd as-is - no shell in between. A
+ *    persistent child that will be sent commands throughout its life should
+ *    not run under a shell wrapper: depending on the platform/shell, the
+ *    shell can stay resident as an intermediary process, which muddies
+ *    signal delivery (e.g. interrupting a running debuggee) and PID
+ *    tracking. The trade-off is the one ui_process_start avoids: a missing
+ *    program fails via the OS (ENOENT/CreateProcess error), not as ordinary
+ *    text on the output pipe.
+ *  - the child's stdin is also connected, to a pipe whose write end the
+ *    caller can feed with ui_process_write() - the plain ui_process_start
+ *    leaves stdin unconnected (POSIX: inherited from this process; Windows:
+ *    NULL) because a one-shot build/run tool is never sent input. */
+ui_process* ui_process_start_direct(const char* const argv[], const char* dir,
+                                     char* err, int errcap);
+
 /* Reads whatever is available right now, without blocking.
  * Returns: >0 = that many bytes written to `buf`
  *           0 = nothing available yet, process still running
  *          -1 = process finished and pipe drained (nothing more will come) */
 int ui_process_read(ui_process* p, char* buf, int cap);
+
+/* Writes to the child's stdin - only meaningful for a process started with
+ * ui_process_start_direct(); a plain ui_process_start() child has no stdin
+ * pipe to write into. Non-blocking: a short return (less than `len`, or 0)
+ * means the pipe is momentarily full and the caller should retry the
+ * remainder on a later tick, the same polling discipline as ui_process_read.
+ * Returns: >0 = that many bytes accepted
+ *           0 = nothing accepted right now (pipe full), try again later
+ *          -1 = no stdin pipe, or the write failed outright (e.g. the child
+ *               has already exited and closed its end) */
+int ui_process_write(ui_process* p, const char* data, int len);
 
 /* Waits for the child to exit (it has already, in normal use), releases
  * everything, and returns its exit code - or -1 if unavailable. */
@@ -1307,3 +1366,16 @@ typedef enum {
  * the diagnostic has no number (notes/info never do). */
 void ui_editor_add_diagnostic(ui_node* n, ui_diag_type type, int line, int code, const char* message);
 void ui_editor_clear_diagnostics(ui_node* n);
+
+/* Breakpoints (see ide_debug.h for the debugger session that drives these) -
+ * same per-line list shape as the diagnostics above, but a standing user
+ * choice rather than a stale compiler result: NOT cleared by an edit. */
+int ui_editor_toggle_breakpoint(ui_node* n, int line);  /* returns 1 = now set, 0 = now cleared */
+int ui_editor_has_breakpoint(const ui_node* n, int line);
+void ui_editor_clear_breakpoints(ui_node* n);
+int ui_editor_get_breakpoints(const ui_node* n, int* out, int max);
+
+/* The line (1-based) the debugger is currently stopped on, or 0 for none -
+ * drives the current-execution-line highlight in render_editor(). */
+void ui_set_exec_line(ui_node* n, int line);
+int ui_get_exec_line(const ui_node* n);

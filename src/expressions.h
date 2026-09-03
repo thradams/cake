@@ -247,6 +247,9 @@ struct expression
 //built-in semantics
 bool expression_is_malloc(const struct expression* p);
 bool expression_is_calloc(const struct expression* p);
+void check_malloc_size_multiple_of_sizeof(const struct parser_ctx* ctx,
+    const struct type* p_pointer_type,
+    const struct expression* p_right_expression);
 
 void expression_delete(_Dtor struct expression* _Owner _Opt p);
 

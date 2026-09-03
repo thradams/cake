@@ -10,7 +10,12 @@
 #include "ide_ui.h"
 #include "fs.h"
 #include "version.h"
-#include "ide_format.h"
+#include "ide_lsp.h"
+#include "ide_debug.h"
+#include "target.h"  /* parse_target/get_platform - see the $(CakeOutput)
+                      * External Tools macro (exttool_expand()), which has to
+                      * predict cake's own "<root>/<platform name>/..."
+                      * output layout to hand a real compiler its files */
 
 #include <ctype.h>
 #include <stdbool.h>
@@ -66,7 +71,6 @@ enum {
     EVT_WINDOW_TILE = 80,
     EVT_WINDOW_CASCADE = 81,
     EVT_WINDOW_CLOSEALL = 82,
-    EVT_WINDOW_REFRESH = 84,
     EVT_WINDOW_FOLDER = 87,  /* the View > "Show Folder" menu item's id -
                               * re-raises the persistent folder browser
                               * window (moved here from Window, its ids kept
@@ -97,6 +101,30 @@ enum {
     EVT_EDIT_WORDWRAP = 18,   /* Edit > "Word Wrap..." - opens the Columns
                                * dialog, see do_edit_wordwrap() */
     EVT_EDIT_FORMAT = 19,     /* Edit > "Format C Source" - see do_edit_format() */
+    /* Debug menu (scripted lldb integration - see ide_debug.h). Start launches lldb
+     * on the active document's already-built executable (same directory,
+     * same base name, no extension - e.g. foo.c -> foo) and inserts a
+     * breakpoint for every line toggled in that document's gutter (see
+     * ui_editor_toggle_breakpoint in ide_ui.h); building that executable
+     * (with debug info) is on the user for now, same as any external build
+     * step Compile itself doesn't do either - see do_debug_start()'s own
+     * doc comment. */
+    EVT_DEBUG_START = 30,
+    EVT_DEBUG_STOP = 31,
+    EVT_DEBUG_STEP_INTO = 34,
+    EVT_DEBUG_STEP_OVER = 35,
+    EVT_DEBUG_CONTINUE = 36,
+    EVT_DEBUG_TOGGLE_BREAKPOINT = 37,  /* Debug > "Toggle Breakpoint" (F9) -
+                                        * toggles a breakpoint on the active
+                                        * editor's cursor line, the keyboard
+                                        * equivalent of a gutter click (see
+                                        * editor_click_set_cursor in
+                                        * ide_ui.c) */
+    EVT_WINDOW_DEBUGINFO = 38,  /* the View > "Debug Info" menu item's id -
+                                 * re-raises the docked Locals/Call Stack
+                                 * panel (see debug_info_panel_refresh()),
+                                 * same singleton-window convention as
+                                 * EVT_WINDOW_OUTPUT/EVT_WINDOW_FOLDER */
     EVT_COMPILE = 40,
     EVT_COMPILE_OPTIONS = 45,  /* Compile > Options... - opens the dialog below */
     EVT_COMPILE_CONFIG_FILE = 46,  /* Compile > "Config File" - opens cakeconf.h
@@ -178,12 +206,16 @@ enum {
     EVT_SEARCH_FIND = 20,      /* the Search > "Find..." menu item's id */
     EVT_SEARCH_REPLACE = 21,   /* the Search > "Replace..." menu item's id */
     EVT_SEARCH_NEXT = 23,      /* Search > "Search Next" (F3) */
+    EVT_SEARCH_GOTO_DEFINITION = 24,  /* Search > "Go to Definition" (F12) -
+                                       * see do_goto_definition() */
     EVT_REPLACE_OK = 820,
     EVT_REPLACE_CHANGEALL = 821,
     EVT_REPLACE_CANCEL = 822,
     EVT_FIND_OK = 830,
     EVT_FIND_CANCEL = 831,
     EVT_SAVEAS_OVERWRITE = 840,  /* "Yes" in the overwrite-confirm message box */
+    EVT_PROJECT_NEW_OVERWRITE = 842,  /* same, for Project > "New Project..."
+                                       * (see project_new_save_activate()) */
     EVT_CLOSE_DISCARD = 841,  /* "Discard" in the unsaved-changes-on-close
                                * confirm message box - see UI_CLOSE_REQUEST_ID
                                * and g_pending_close_window */
@@ -283,6 +315,59 @@ enum {
                                        * Cancel just closes it, id 0, same
                                        * convention as EVT_CLOSE_DISCARD's own
                                        * confirm box */
+    EVT_FOLDER_ADD_TO_PROJECT = 981,  /* same popup's "Add to Project" item -
+                                       * adds the listbox's currently selected
+                                       * row to the open project (see
+                                       * project_add_file()), same "acts on
+                                       * the selection, not the row the popup
+                                       * happened to open over" caveat as
+                                       * EVT_FOLDER_DELETE. Only meaningful
+                                       * with a project open - disabled
+                                       * otherwise (see the popup's own
+                                       * open-time refresh). Distinct from the
+                                       * Project panel's own popup (EVT_
+                                       * PROJECT_POPUP_OPEN/REMOVE) - that one
+                                       * removes a file already IN the
+                                       * project; this one adds one from the
+                                       * Folder panel's browse view. */
+
+    /* Project > ... - see g_project's own doc comment. New/Open reuse the
+     * Open dialog (g_open) in two new dialog_modes rather than each getting
+     * a bespoke picker of their own - see OPEN_DLG_PROJECT_NEW/OPEN_DLG_
+     * PROJECT_OPEN below. */
+    EVT_PROJECT_NEW = 1300,
+    EVT_PROJECT_NEW_BROWSE = 1300 + 50,  /* Browse button in New Project dialog */
+    EVT_PROJECT_NEW_OK = 1300 + 51,      /* OK button */
+    EVT_PROJECT_NEW_CANCEL = 1300 + 52,  /* Cancel button */
+    EVT_PROJECT_NEW_FOLDER = 1300 + 53,  /* Folder path input */
+    EVT_PROJECT_NEW_NAME = 1300 + 54,    /* Project name input */
+    EVT_PROJECT_NEW_HELLOWORLD = 1300 + 55, /* Hello World checkbox */
+    EVT_PROJECT_OPEN = 1301,
+    EVT_PROJECT_ADD_FILE = 1302,
+    EVT_PROJECT_SAVE = 1304,
+    EVT_PROJECT_CLOSE = 1305,
+    EVT_WINDOW_PROJECT = 1306,  /* the View > "Show Project" menu item's id -
+                                 * same toggle convention as EVT_WINDOW_FOLDER */
+    EVT_PROJECT_LISTBOX = 1307,  /* the Project panel's own <listbox> */
+    EVT_PROJECT_POPUP_OPEN = 1308,  /* the panel's right-click popup's "Open" */
+    EVT_PROJECT_POPUP_REMOVE = 1309,  /* same popup's "Remove from Project" -
+                                       * only removes the entry, never touches
+                                       * the file on disk */
+    EVT_PROJECT_BUILD = 1310,  /* Project > "Build" - see do_project_build() */
+    EVT_PROJECT_INCLUDES = 1311,  /* Project > "Include Directories..." - opens
+                                   * the list dialog below (replaces the old
+                                   * one-shot "Add Include Directory..." item) */
+    EVT_PROJECT_INCLUDES_LISTBOX = 1312,
+    EVT_PROJECT_INCLUDES_ADD = 1313,     /* opens the folder-picker (reuses
+                                          * OPEN_DLG_PROJECT_ADDINCLUDE) on top
+                                          * of this dialog */
+    EVT_PROJECT_INCLUDES_REMOVE = 1314,  /* drops the selected row */
+    EVT_PROJECT_INCLUDES_CLOSE = 1315,
+    EVT_PROJECT_OPTIONS = 1318,  /* Project > "Options..." - same dialog as
+                                  * Compile > "Options..." (EVT_COMPILE_OPTIONS)
+                                  * but always against g_project.compile,
+                                  * never whichever file happens to be active -
+                                  * see open_compiler_options_dialog() */
 };
 
 /* One row of a <menu>'s dropdown: an id/label/shortcut triple, "---" for a
@@ -359,6 +444,98 @@ static ui_node* g_view_output_item;
 static ui_node* g_view_folder_item;
 static ui_node* g_view_playground_item;
 
+/* Compile > Options...' settings, gathered into one struct - see g_compile's
+ * own doc comment further below for the full rationale. Declared up here
+ * (ahead of its only other use) purely so g_project below can embed one of
+ * its own (per-project compiler options - see g_project.compile's own doc
+ * comment). */
+typedef struct
+{
+    char options[512];    /* free-text tokens, split on whitespace at compile time */
+    char output[256];     /* Compiler Options' "Output" field: the built
+                           * executable's file name, "" meaning "derive it"
+                           * - see out_exe_name(), which resolves that
+                           * default and is the single place $(OutExe) and
+                           * the debugger's own launch path both read. */
+    const char* target;   /* slug for the chosen Target, or "" for none */
+    const char* style;    /* slug for -style=<name>, or "" for "disabled" */
+    const char* diagnostic_format; /* slug for -fdiagnostics-format=<name> */
+    int no_output;         /* -no-output */
+    int line_directives;   /* -line-directives */
+    int fanalyzer;          /* -fanalyzer */
+    int const_literal;      /* -const-literal */
+    int wall;                /* -Wall */
+} compile_settings;
+
+#define CAKE_PROJECT_EXT ".cakeproj"
+#define CAKE_PROJECT_MAX_FILES 512
+#define CAKE_PROJECT_MAX_INCLUDES 64
+
+/* The open Project, if any - Project > New/Open Project (project_new_create/
+ * project_open_file) load one; Project > Close Project (EVT_PROJECT_CLOSE)
+ * clears it back to empty. Persisted as a small JSON-like ".cakeproj" file
+ * (see project_save/project_load_from_file) sitting in g_project.dir -
+ * files[]/include_dirs[] are always stored relative to that directory (not
+ * absolute), so a project still resolves correctly after the whole tree is
+ * moved or checked out somewhere else.
+ *
+ * Deliberately narrow: the IDE only tracks which files belong to the project
+ * and where its include directories are - it doesn't know how to build one.
+ * That's the compiler's job, not the IDE's, so there's no per-project build
+ * step here (see do_compile, which still just compiles whichever document is
+ * active, project or not). */
+static struct
+{
+    char file_path[1024];  /* absolute path to the .cakeproj file, "" if none open */
+    char dir[1024];        /* file_path's own directory - every files[]/
+                             * include_dirs[] entry is relative to this */
+    char name[256];
+
+    char files[CAKE_PROJECT_MAX_FILES][512];
+    int file_count;
+
+    char include_dirs[CAKE_PROJECT_MAX_INCLUDES][512];
+    int include_count;
+
+    /* Compile > Options...' settings, but scoped to this project instead of
+     * the IDE-wide default (g_compile) - persisted in the ".cakeproj" file
+     * (see project_save/project_load_from_file) so a project remembers its
+     * own target/style/flags/options independent of whatever else the IDE
+     * is set to. Initialized from g_compile's current values when a project
+     * is first created (project_new_create) - "start from what's already
+     * set" rather than some separate hardcoded default. See
+     * active_compile_settings(), which is what actually picks between this
+     * and g_compile at compile/build time. */
+    compile_settings compile;
+
+    ui_node* window;
+    ui_node* listbox;
+
+    /* Its right-click popup - "Open" and "Remove from Project", opened over
+     * `listbox` the same way g_folder.popup opens over g_folder.listbox. */
+    ui_node* popup;
+
+    /* The View menu's "Show Project" item - relabeled "[x]"/"[ ]" each frame,
+     * same convention as g_view_output_item/g_view_folder_item. */
+    ui_node* view_item;
+
+    /* Project > "Include Directories..." - a small list dialog over
+     * include_dirs[] (listbox + Add.../Remove/Close), same shape as the
+     * External Tools dialog's own list editor. "Add..." reopens the Open
+     * dialog in OPEN_DLG_PROJECT_ADDINCLUDE mode on top of this one - see
+     * EVT_PROJECT_INCLUDES_ADD/project_add_include(). */
+    ui_node* includes_modal;
+    ui_node* includes_listbox;
+
+    /* Project menu items that need an open project to do anything (Add
+     * Existing File.../Include Directories.../Build/Save Project/Close
+     * Project - everything except New/Open Project) - disabled each frame
+     * when none is open, same "[x] Label" idiom's sibling for enabled state
+     * as refresh_view_item elsewhere. Filled in build_screen(), read in
+     * app_frame(). */
+    ui_node* menu_items_requiring_project[4];
+} g_project;
+
 /* View > "Line Numbers" (EVT_VIEW_LINENUMBERS) - same forward-declared/kept-
  * current-every-frame pattern as the three above, but mirrors a plain
  * boolean (ui_get_show_line_numbers()) instead of "is this window open" -
@@ -380,8 +557,8 @@ static ui_node* g_compile_item;
 
 /* The Edit menu's "Format" item (EVT_EDIT_FORMAT, "Ctrl+Shift+F") - same
  * forward-declared/kept-current-every-frame pattern as g_compile_item above,
- * and the same path_is_c_source() condition, since format_c_source() only
- * makes sense for a real .c file. The editor popup's own copy of this item
+ * and the same path_is_c_source() condition, since Format only makes sense
+ * for a real .c file. The editor popup's own copy of this item
  * (g_editor_popup_format) is a separate node and refreshes alongside it. */
 static ui_node* g_edit_format_item;
 static ui_node* g_editor_popup_format;
@@ -395,6 +572,27 @@ static ui_node* g_editor_popup_format;
  * alongside g_compile_item and with the same path_is_c_source() condition -
  * there's nothing to show without a compiled .c to show it for. */
 static ui_node* g_compile_show_output_item;
+
+/* Debug menu items (see build_screen()'s debug_items[]) and the live
+ * session driving them - see ide_debug.h. Continue/Step/Stop start
+ * disabled and are kept current every frame by debug_menu_refresh(), same
+ * pattern as g_compile_item above, gated on g_dbg.state instead of
+ * path_is_c_source(). */
+static ui_node* g_debug_start_item;
+static ui_node* g_debug_stop_item;
+static ui_node* g_debug_continue_item;
+static ui_node* g_debug_step_over_item;
+static ui_node* g_debug_step_into_item;
+static struct debug_session g_dbg;
+
+/* Docked Locals/Call Stack panel (see build_screen()'s "--- Debug Info
+ * window ---" block, next to Output/Folder) - one combined listbox, not
+ * two separate docked panels, since dock_layout() (ide_ui.c) only tracks
+ * one window per side. Repainted by debug_info_panel_refresh() whenever
+ * g_dbg.info_dirty is set (see debug_stream_poll()). */
+static ui_node* g_debuginfo_window;
+static ui_node* g_debuginfo_listbox;
+static ui_node* g_view_debuginfo_item;
 
 static ui_node* g_statusbar_compile_item;  /* "Compiling..." while a build
                                             * runs - see compile_status_set */
@@ -411,6 +609,9 @@ static void build_screen(ui_node* root)
         { 3, "Save", "Ctrl+S", 1 },
         { 4, "Save As...", NULL, 1 },
         { 6, "Save all", "Ctrl+Shift+S", 1 },
+        SEP,
+        { EVT_PROJECT_NEW, "New Project...", NULL, 1 },
+        { EVT_PROJECT_OPEN, "Open Project...", NULL, 1 },
         SEP,
         { 5, "Exit", NULL, 1 },
     };
@@ -449,9 +650,11 @@ static void build_screen(ui_node* root)
      * belong with "raise this panel" commands - moved next to Edit into
      * their own menu instead. ids are unchanged, only where they're shown. */
     static const menu_item_spec view_items[] = {
-        { EVT_WINDOW_OUTPUT, "Show Output", NULL, 1 },
-        { EVT_WINDOW_FOLDER, "Show Folder", NULL, 1 },
-        { EVT_WINDOW_PLAYGROUND, "Show Playground", NULL, 1 },
+        { EVT_WINDOW_OUTPUT, "Output", NULL, 1 },
+        { EVT_WINDOW_FOLDER, "Folder", NULL, 1 },
+        { EVT_WINDOW_PROJECT, "Project", NULL, 1 },
+        { EVT_WINDOW_PLAYGROUND, "Playground", NULL, 1 },
+        { EVT_WINDOW_DEBUGINFO, "Debug Info", NULL, 1 },
         SEP,
         { EVT_VIEW_LINENUMBERS, "Line Numbers", NULL, 1 },
     };
@@ -463,7 +666,9 @@ static void build_screen(ui_node* root)
      * doc comment. */
     g_view_output_item = ui_find_by_id(view_menu, EVT_WINDOW_OUTPUT);
     g_view_folder_item = ui_find_by_id(view_menu, EVT_WINDOW_FOLDER);
+    g_project.view_item = ui_find_by_id(view_menu, EVT_WINDOW_PROJECT);
     g_view_playground_item = ui_find_by_id(view_menu, EVT_WINDOW_PLAYGROUND);
+    g_view_debuginfo_item = ui_find_by_id(view_menu, EVT_WINDOW_DEBUGINFO);
     g_view_linenumbers_item = ui_find_by_id(view_menu, EVT_VIEW_LINENUMBERS);
 
     static const menu_item_spec search_items[] = {
@@ -471,27 +676,43 @@ static void build_screen(ui_node* root)
         { 21, "Replace...", "Ctrl+R", 1 },
         { 23, "Search Next", "F3", 1 },
         { 22, "Go to line...", "Ctrl+G", 1 },
+        { EVT_SEARCH_GOTO_DEFINITION, "Go to Definition", "F12", 1 },
         SEP,
         { EVT_TOOLS_FINDREPLACE, "Find in Files...", "Ctrl+F", 1 }
-       
-      
     };
     add_menu(menubar, "Search", search_items, sizeof search_items / sizeof search_items[0]);
 
-    /*
-    static const menu_item_spec run_items[] = {
-        { 30, "Run", "Ctrl+F9", 1 },
-        { 31, "Program reset", "Ctrl+F2", 0 },
-        { 33, "Go to cursor", "F4", 1 },
-        { 34, "Trace into", NULL, 1 },
-        { 35, "Step over", "F8", 1 },
-        { 32, "Parameters...", NULL, 1 },
+    /* Project > ... - see g_project's own doc comment for what a project is
+     * (a file list + include dirs, persisted as a ".cakeproj" file). "Build"
+     * only gathers the project's own .c files and hands them to the compiler
+     * in one invocation (see do_project_build()) - multi-file building itself
+     * (linking, etc.) is entirely the compiler's own job, not reimplemented
+     * here. */
+    static const menu_item_spec project_items[] = {
+        { EVT_PROJECT_ADD_FILE, "Add Existing File...", NULL, 1 },
+        { EVT_PROJECT_INCLUDES, "Include Directories...", NULL, 1 },
+        { EVT_PROJECT_OPTIONS, "Options...", NULL, 1 },
+        SEP,
+        { EVT_PROJECT_CLOSE, "Close Project", NULL, 1 },
     };
-    add_menu(menubar, "Run", run_items, sizeof run_items / sizeof run_items[0]);
-    */
+    ui_node* project_menu = add_menu(menubar, "Project", project_items, sizeof project_items / sizeof project_items[0]);
+    /* Every Project item except New/Open Project needs an open project to do
+     * anything - grabbed back out by id (same reason/pattern as the View
+     * menu's items in build_screen() - add_menu() never hands back per-item
+     * pointers) so app_frame() can enable/disable them each frame off of
+     * project_is_open() (see g_project.menu_items_requiring_project's own
+     * doc comment). */
+    static const int project_menu_ids_requiring_project[] = {
+        EVT_PROJECT_ADD_FILE, EVT_PROJECT_INCLUDES, EVT_PROJECT_OPTIONS,
+        EVT_PROJECT_CLOSE,
+    };
+    for (int i = 0; i < (int)(sizeof project_menu_ids_requiring_project /
+                              sizeof project_menu_ids_requiring_project[0]); i++)
+        g_project.menu_items_requiring_project[i] =
+            ui_find_by_id(project_menu, project_menu_ids_requiring_project[i]);
 
     static const menu_item_spec compile_items[] = {
-        { 40, "Compile", "F7", 1 },
+        { 40, "Build", "F7", 1 },
         //{ 41, "Make", NULL, 1 },
        // { 42, "Link", NULL, 1 },
        // { 43, "Build all", NULL, 1 },
@@ -500,13 +721,42 @@ static void build_screen(ui_node* root)
         { EVT_COMPILE_CONFIG_FILE, "Config File", NULL, 1 },
         { 45, "Options...", NULL, 1 },
     };
-    ui_node* compile_menu = add_menu(menubar, "Compile", compile_items, sizeof compile_items / sizeof compile_items[0]);
+    ui_node* compile_menu = add_menu(menubar, "Build", compile_items, sizeof compile_items / sizeof compile_items[0]);
     /* Grabbed back out by id, same reason/pattern as the View menu's items
      * just above - app_frame() needs the actual item node to disable (see
      * g_compile_item's own doc comment for why the menu container itself
      * wouldn't work). */
     g_compile_item = ui_find_by_id(compile_menu, EVT_COMPILE);
     g_compile_show_output_item = ui_find_by_id(compile_menu, EVT_EDITOR_SHOW_OUTPUT);
+
+    /* Shortcuts match Visual Studio's own debugger keys exactly - F5 does
+     * double duty as Start Debugging and Continue, the same key VS uses for
+     * both, which works here because the two items are never enabled at
+     * the same time (see debug_menu_refresh() below): activate_menu_
+     * shortcut() only ever fires an enabled item, so F5 starts a session
+     * when idle and continues one that's already stopped, with no separate
+     * handling needed for "which one did the user mean". F5 previously
+     * belonged to Window > Refresh (removed) to make room for this. */
+    static const menu_item_spec debug_items[] = {
+        { EVT_DEBUG_START, "Start Debugging", "F5", 1 },
+        { EVT_DEBUG_STOP, "Stop Debugging", "Shift+F5", 0 },
+        SEP,
+        { EVT_DEBUG_CONTINUE, "Continue", "F5", 0 },
+        { EVT_DEBUG_STEP_OVER, "Step Over", "F10", 0 },
+        { EVT_DEBUG_STEP_INTO, "Step Into", "F11", 0 },
+        SEP,
+        { EVT_DEBUG_TOGGLE_BREAKPOINT, "Toggle Breakpoint", "F9", 1 },
+    };
+    ui_node* debug_menu = add_menu(menubar, "Debug", debug_items, sizeof debug_items / sizeof debug_items[0]);
+    /* Continue/Step/Stop start disabled (see the `0` enabled flags above) -
+     * only meaningful once a debug session is actually stopped/running; see
+     * debug_menu_refresh(), called every frame the same way g_compile_item
+     * is kept in sync. */
+    g_debug_start_item = ui_find_by_id(debug_menu, EVT_DEBUG_START);
+    g_debug_stop_item = ui_find_by_id(debug_menu, EVT_DEBUG_STOP);
+    g_debug_continue_item = ui_find_by_id(debug_menu, EVT_DEBUG_CONTINUE);
+    g_debug_step_over_item = ui_find_by_id(debug_menu, EVT_DEBUG_STEP_OVER);
+    g_debug_step_into_item = ui_find_by_id(debug_menu, EVT_DEBUG_STEP_INTO);
 
     /* Debug > Watches is a submenu (an <item> with its own <item> children),
      * not a plain leaf - built by hand rather than through add_menu(). */
@@ -544,23 +794,15 @@ static void build_screen(ui_node* root)
      * whenever the list changes. */
     rebuild_tools_menu();
 
-    static const menu_item_spec options_items[] = {
-        //   { 70, "Compiler...", NULL, 1 },
-       //    { 71, "Linker...", NULL, 1 },
-           { 72, "Environment...", NULL, 1 },
-           //  { 73, "Directories...", NULL, 1 },
-    };
-    add_menu(menubar, "Options", options_items, sizeof options_items / sizeof options_items[0]);
-
     static const menu_item_spec window_items[] = {
         { 80, "Tile", NULL, 1 },
         { 81, "Cascade", NULL, 1 },
         { 82, "Close all", NULL, 1 },
         SEP,
-        { 84, "Refresh", "F5", 1 },
+        { 72, "Environment...", NULL, 1 },
         SEP,
-        { 85, "Font", "Ctrl +", 1 },
-        { 86, "Font", "Ctrl -", 1 },
+        { 85, "Font", "Ctrl++", 1 },
+        { 86, "Font", "Ctrl+-", 1 },
     };
     add_menu(menubar, "Window", window_items, sizeof window_items / sizeof window_items[0]);
 
@@ -653,12 +895,26 @@ static struct
 static struct
 {
     ui_node* modal;
+    ui_node* window;  /* retitled " Compiler Options "/" Compiler Options (Project) "
+                       * each time it opens (EVT_COMPILE_OPTIONS) so it's
+                       * obvious which settings - g_project.compile or
+                       * g_compile - are actually being edited, see
+                       * active_compile_settings() */
     ui_node* input;
+    ui_node* output;  /* "Output" - the executable name, see
+                       * compile_settings.output */
     ui_node* target;
     ui_node* style;   /* -style=<name> <select> */
     ui_node* diagformat; /* -fdiagnostics-format=<name> <select> */
     ui_node* flags;   /* "-no-output"/"-line-directives"/"-fanalyzer"/"-const-literal"/"-Wall"
                        * check-box GROUP - same control as Find's "Options" */
+    compile_settings* editing;  /* which settings struct this open dialog is
+                                 * against - g_project.compile or g_compile -
+                                 * set by open_compiler_options_dialog(), read
+                                 * back by EVT_COPTS_OK so it writes to the
+                                 * same one it opened, no matter what happens
+                                 * to project_is_open()/the active document
+                                 * while the modal is up. */
 } g_copts;  /* "-no-output"/"-line-directives"/"-fanalyzer"/"-const-literal"/"-Wall" -
                                  * a check-box GROUP (multi=1),
                                  * same control as Find's "Options"
@@ -668,19 +924,6 @@ static struct
                                  * EVT_COMPILE_OPTIONS/EVT_COPTS_OK - same as the
                                  * Target <select> above, so Cancel discards
                                  * whatever got clicked. */
-
-typedef struct
-{
-    char options[512];    /* free-text tokens, split on whitespace at compile time */
-    const char* target;   /* slug for the chosen Target, or "" for none */
-    const char* style;    /* slug for -style=<name>, or "" for "disabled" */
-    const char* diagnostic_format; /* slug for -fdiagnostics-format=<name> */
-    int no_output;         /* -no-output */
-    int line_directives;   /* -line-directives */
-    int fanalyzer;          /* -fanalyzer */
-    int const_literal;      /* -const-literal */
-    int wall;                /* -Wall */
-} compile_settings;
 
 static const char* g_target_slugs[] = {
     "x86_msvc",
@@ -783,6 +1026,7 @@ static compile_settings g_compile =
     .fanalyzer = 0,
     .const_literal = 0,
     .wall = 0,
+    .output = "",
 };
 
 static ui_node* g_output_window;
@@ -806,6 +1050,10 @@ static struct
     ui_node* popup;
     ui_node* popup_filter;
     ui_node* popup_show;
+    ui_node* popup_add_to_project;  /* "Add to Project" - enabled/disabled
+                                     * each time the popup opens, off with no
+                                     * project open (see EVT_FOLDER_ADD_TO_
+                                     * PROJECT's own doc comment) */
 
     int filter_enabled;   /* apply the directory's own index.txt? default on */
 } g_folder = { .filter_enabled = 1 };
@@ -915,7 +1163,27 @@ static int g_new_count = 0;
 /* Options > File > Open...'s dialog state - the directory currently being
  * browsed and the wildcard mask filtering its file rows (directories always
  * show regardless of the mask, same as a classic DOS-era file dialog). */
-typedef enum { OPEN_DLG_FILE, OPEN_DLG_SAVE, OPEN_DLG_FOLDER } open_dialog_mode;
+typedef enum { OPEN_DLG_FILE, OPEN_DLG_SAVE, OPEN_DLG_FOLDER,
+               OPEN_DLG_PROJECT_NEW,     /* Save-As-style: the Name field's
+                                          * dir+filename together become the
+                                          * new project - see
+                                          * project_new_save_activate() */
+               OPEN_DLG_PROJECT_OPEN,    /* file-picker, mask "*.cakeproj" -
+                                          * OK loads that project instead of
+                                          * opening it as a text document */
+               OPEN_DLG_PROJECT_ADDFILE, /* file-picker, mask "*.c;*.h" - OK
+                                          * adds the chosen file to the open
+                                          * project instead of opening it */
+               OPEN_DLG_PROJECT_ADDINCLUDE, /* folder-picker, like OPEN_DLG_
+                                             * FOLDER - OK adds the chosen
+                                             * directory to the open project's
+                                             * include_dirs instead */
+               OPEN_DLG_NEWPROJECT_FOLDER  /* folder-picker, like OPEN_DLG_
+                                            * FOLDER - OK drops the chosen
+                                            * directory into the New Project
+                                            * dialog's Folder field and
+                                            * reopens that dialog */
+} open_dialog_mode;
 
 /* The Open/Save As dialog - one dialog serving several modes (see
  * open_dialog_mode / g_open.dialog_mode), so its title, OK label and
@@ -948,9 +1216,12 @@ static const open_filter_entry g_open_filters[] = {
     { "Header Files (*.h)",      "*.h" },
     { "C/C++ Sources (*.c;*.h)", "*.c;*.h" },
     { "Markdown Files (*.md)",   "*.md" },
+    { "Cake Project Files (*.cakeproj)", "*.cakeproj" },
     { "All Files (*.*)",         "*" },
 };
 #define OPEN_FILTER_COUNT ((int)(sizeof g_open_filters / sizeof g_open_filters[0]))
+#define CAKE_PROJECT_FILTER_INDEX 4  /* g_open_filters' own "*.cakeproj" row -
+                                      * see the EVT_PROJECT_OPEN handler */
 
 /* File > Save As... and File > Open Folder... both reuse the Open dialog
  * (see save_as_activate/folder_select_confirm) - g_open.dialog_mode picks
@@ -963,6 +1234,10 @@ static const open_filter_entry g_open_filters[] = {
 static ui_node* g_save_window;
 static char g_save_name[300];
 static char g_saveas_path[1024];  /* target path, pending the overwrite prompt */
+static char g_project_new_path[1024];  /* Project > "New Project..."'s own
+                                        * target path, pending the overwrite
+                                        * prompt - see project_new_save_
+                                        * activate()/project_new_create() */
 
 /* Set right before opening the Save As dialog on behalf of a Compile (see
  * do_compile()'s untitled-file check): resumes the compile from
@@ -1089,6 +1364,8 @@ static int g_pending_delete_is_dir;  /* set alongside g_pending_delete_path -
                                       * see EVT_FOLDER_DELETE_CONFIRM */
 
 static void do_compile(void);  /* defined below */
+static void do_project_build(void);  /* defined below */
+static void do_goto_definition(void);  /* defined below */
 static void open_playground(void);  /* defined below; called on View > "Show Playground" */
 static int get_playground_file_path(char* buf, size_t cap);  /* defined below;
                                                                * used by
@@ -1224,6 +1501,10 @@ static const ui_theme g_theme_ambar = {
     .editor_current_line_bg = TB_RGB(0x2A, 0x2A, 0x2A),  /* subtle - close to
                                                           * VS Code Dark's own
                                                           * current-line tint */
+    .editor_breakpoint_fg = TB_RGB(0xF4, 0x47, 0x47),  /* VS Code's own
+                                                        * breakpoint red */
+    .editor_exec_line_bg = TB_RGB(0x1F, 0x3A, 0x1F),   /* subtle green step up
+                                                        * from editor_bg */
     .editor_bracket_fg = {
         TB_RGB(0xFF, 0xD1, 0x66),  /* gold */
         TB_RGB(0xFF, 0xB4, 0x5A),  /* pink */
@@ -1284,6 +1565,12 @@ static const ui_theme g_theme_ambar = {
     .listbox_sel_bg = TB_RGB(0xF5, 0xC2, 0x42),
     .listbox_sel_inactive_fg = TB_RGB(0xD8, 0xD6, 0xD0),
     .listbox_sel_inactive_bg = TB_RGB(0x3A, 0x3A, 0x3F),  /* VS's own muted gray */
+
+    /* Project panel file-type markers - see ui_theme's own doc comment. */
+    .project_icon_c_fg = TB_RGB(0x56, 0x9C, 0xD6),   /* VS blue */
+    .project_icon_h_fg = TB_RGB(0xB5, 0xCE, 0xA8),   /* muted green */
+    .project_icon_md_fg = TB_RGB(0xE9, 0xB4, 0x6A),  /* matches this theme's
+                                                       * own md_link_fg */
 
     /* <editor> inline diagnostics - VS Code Dark's actual error/warning/info
      * squiggle colors, so they read as authentically part of this theme. */
@@ -1387,6 +1674,10 @@ static const ui_theme g_theme_dark = {
     .editor_current_line_bg = TB_RGB(0x2A, 0x2A, 0x2A),  /* subtle - close to
                                                           * VS Code Dark's own
                                                           * current-line tint */
+    .editor_breakpoint_fg = TB_RGB(0xF4, 0x47, 0x47),  /* VS Code's own
+                                                        * breakpoint red */
+    .editor_exec_line_bg = TB_RGB(0x1F, 0x3A, 0x1F),   /* subtle green step up
+                                                        * from editor_bg */
     .editor_bracket_fg = {
         TB_RGB(0xFF, 0xD7, 0x00),  /* gold */
         TB_RGB(0xFF, 0x6A, 0xC1),  /* pink */
@@ -1444,6 +1735,14 @@ static const ui_theme g_theme_dark = {
     .listbox_sel_bg = TB_RGB(0x00, 0x7A, 0xCC),
     .listbox_sel_inactive_fg = TB_RGB(0xD4, 0xD4, 0xD4),
     .listbox_sel_inactive_bg = TB_RGB(0x3F, 0x3F, 0x46),  /* VS's own muted gray */
+
+    /* Project panel file-type markers - see ui_theme's own doc comment. */
+    .project_icon_c_fg = TB_RGB(0x56, 0x9C, 0xD6),   /* VS blue, matches this
+                                                       * theme's own
+                                                       * editor_keyword_fg */
+    .project_icon_h_fg = TB_RGB(0xB5, 0xCE, 0xA8),   /* muted green */
+    .project_icon_md_fg = TB_RGB(0x3D, 0xA8, 0xF5),  /* matches this theme's
+                                                       * own md_link_fg */
 
     /* <editor> inline diagnostics - VS Code Dark's actual error/warning/info
      * squiggle colors, so they read as authentically part of this theme. */
@@ -1573,6 +1872,12 @@ static const ui_theme g_theme_white = {
     .editor_current_line_bg = TB_RGB(0xF0, 0xF0, 0xF0),  /* subtle - close to
                                                           * VS Code Light's own
                                                           * current-line tint */
+    .editor_breakpoint_fg = TB_RGB(0xE5, 0x14, 0x00),  /* VS Code's own
+                                                        * breakpoint red */
+    .editor_exec_line_bg = TB_RGB(0xDD, 0xF4, 0xDD),   /* pale green - reads
+                                                        * against the white
+                                                        * page like word_match_bg
+                                                        * reads against blue */
     .editor_bracket_fg = {
         TB_RGB(0x79, 0x5E, 0x26),  /* gold/brown */
         TB_RGB(0x26, 0x7F, 0x99),  /* teal */
@@ -1640,6 +1945,14 @@ static const ui_theme g_theme_white = {
     .listbox_sel_bg = TB_RGB(0xCC, 0xE8, 0xFF),
     .listbox_sel_inactive_fg = TB_RGB(0x1E, 0x1E, 0x1E),
     .listbox_sel_inactive_bg = TB_RGB(0xE0, 0xE0, 0xE0),
+
+    /* Project panel file-type markers - see ui_theme's own doc comment. */
+    .project_icon_c_fg = TB_RGB(0x00, 0x00, 0xFF),   /* matches this theme's
+                                                       * own editor_keyword_fg */
+    .project_icon_h_fg = TB_RGB(0x00, 0x80, 0x00),   /* dark green, legible
+                                                       * against a light bg */
+    .project_icon_md_fg = TB_RGB(0x00, 0x66, 0xCC),  /* matches this theme's
+                                                       * own md_link_fg */
 
     /* <editor> inline diagnostics - VS Code Light's actual error/warning/
      * info squiggle colors, so they read as authentically part of this
@@ -1735,6 +2048,11 @@ static const ui_theme g_theme_nebula = {
     .editor_word_match_bg = TB_RGB(0x28, 0x2D, 0x43),
     .editor_current_line_bg = TB_RGB(0x21, 0x23, 0x33),  /* one subtle step up
                                                           * from editor_bg */
+    .editor_breakpoint_fg = TB_RGB(0xE0, 0x5A, 0x5A),  /* red, distinct from
+                                                        * the rose editor_keyword_fg */
+    .editor_exec_line_bg = TB_RGB(0x1F, 0x33, 0x2A),   /* green step up from
+                                                        * editor_bg, same idea
+                                                        * as editor_current_line_bg */
     .editor_bracket_fg = {
         TB_RGB(0xE0, 0xAF, 0x68),  /* amber */
         TB_RGB(0xF7, 0x76, 0x8E),  /* rose */
@@ -1779,6 +2097,12 @@ static const ui_theme g_theme_nebula = {
     .listbox_sel_bg = TB_RGB(0x7A, 0xA2, 0xF7),
     .listbox_sel_inactive_fg = TB_RGB(0xC0, 0xCA, 0xF5),
     .listbox_sel_inactive_bg = TB_RGB(0x2A, 0x2E, 0x40),
+
+    /* Project panel file-type markers - see ui_theme's own doc comment. */
+    .project_icon_c_fg = TB_RGB(0x7A, 0xA2, 0xF7),   /* this theme's own accent */
+    .project_icon_h_fg = TB_RGB(0x9E, 0xCE, 0x6A),   /* matches md_code_fg's green */
+    .project_icon_md_fg = TB_RGB(0x73, 0xDA, 0xCA),  /* matches this theme's
+                                                       * own md_link_fg */
 
     /* <editor> inline diagnostics - the palette's own red/amber/blue, so the
      * squiggles read as part of this theme. */
@@ -2827,7 +3151,9 @@ static void create_default_filter_file(const char* dir)
  * subdirectory, or a typed Name field). */
 static void open_dialog_refresh(void)
 {
-    int folder_mode = g_open.dialog_mode == OPEN_DLG_FOLDER;
+    int folder_mode = g_open.dialog_mode == OPEN_DLG_FOLDER ||
+        g_open.dialog_mode == OPEN_DLG_PROJECT_ADDINCLUDE ||
+        g_open.dialog_mode == OPEN_DLG_NEWPROJECT_FOLDER;
     /* use_index_order is always 0 here - the Open/Save-As/folder-picker
      * dialog is about opening/saving one file, never reordered by
      * index.txt even in folder-picker mode. See populate_listbox_from_dir. */
@@ -2843,7 +3169,8 @@ static void open_dialog_refresh(void)
         snprintf(display, sizeof display, "%s", g_open.dir);
     else
         snprintf(display, sizeof display, "%s/%s", g_open.dir,
-                  g_open.dialog_mode == OPEN_DLG_SAVE ? g_save_name : g_open.mask);
+                  (g_open.dialog_mode == OPEN_DLG_SAVE ||
+                   g_open.dialog_mode == OPEN_DLG_PROJECT_NEW) ? g_save_name : g_open.mask);
     for (char* p = display; *p; p++)
         if (*p == '/')
             *p = '\\';
@@ -2865,13 +3192,52 @@ static void open_dialog_refresh(void)
  * the control - which would still sit there looking live - it's detached
  * from the dialog entirely. Always detaches first, which is a no-op if it
  * isn't currently attached (see ui_remove_child), so this is safe to call
- * regardless of the dialog's previous mode. */
+ * regardless of the dialog's previous mode.
+ *
+ * Every node stores absolute screen coordinates, not parent-relative ones
+ * (see shift_subtree's own doc comment in ide_ui.c) - dragging g_open.window
+ * shifts every node currently attached to it, but a detached filter_label/
+ * filter sits outside that subtree and is left behind wherever it last was.
+ * Re-deriving their rect from g_open.window's *current* position here, every
+ * time they're reattached, is what keeps them lined up with the dialog even
+ * after it's been dragged while they were detached - relying on whatever
+ * rect they were originally created with would otherwise leave them stranded
+ * at their old position, disconnected from a since-moved dialog. */
 static void open_dialog_set_filter_visible(int visible)
 {
     ui_remove_child(g_open.window, g_open.filter_label);
     ui_remove_child(g_open.window, g_open.filter);
+
+    /* The window itself grows/shrinks to match - without the Type row there's
+     * nothing below the file list, and leaving the window at its full height
+     * anyway just wastes the bottom few rows as dead space (see OPEN_DLG_
+     * PROJECT_ADDFILE/OPEN_DLG_PROJECT_ADDINCLUDE, neither of which ever show
+     * this row). Width and position are left untouched - only the height
+     * changes, and only when it's actually different, so this is a no-op on
+     * repeated calls with the same `visible` (no accumulating drift). */
+    int wx, wy, ww, wh;
+    ui_get_rect(g_open.window, &wx, &wy, &ww, &wh);
+    int full_h = 21, short_h = 18;  /* full_h matches this window's own
+                                     * original build_screen() height;
+                                     * short_h ends one row past the file
+                                     * list (which runs oy+6..oy+15), same
+                                     * one-row-margin-then-border convention
+                                     * the Type row's own oy+18/oy+20 gap
+                                     * follows in the full-height case. */
+    int want_h = visible ? full_h : short_h;
+    if (wh != want_h)
+        ui_set_rect(g_open.window, wx, wy, ww, want_h);
+
     if (visible)
     {
+        ui_set_rect(g_open.filter_label, wx + 3, wy + 17, 0, 0);  /* <text> is
+                                                                   * always
+                                                                   * auto-sized
+                                                                   * to its
+                                                                   * label, same
+                                                                   * as add_text() */
+        ui_set_rect(g_open.filter, wx + 3, wy + 18, 41, 1);
+
         ui_append_child(g_open.window, g_open.filter_label);
         ui_append_child(g_open.window, g_open.filter);
         ui_set_enabled(g_open.filter, 1);
@@ -2891,6 +3257,15 @@ static ui_node* editor_in_window(ui_node* wrapper);
  * of the persistent folder browser window, forward-declared so the main
  * event dispatcher (which comes first) can call it from EVT_OPEN_OK. */
 static void folder_select_confirm(void);
+
+/* Project > New/Open Project/Add Existing File/Add Include Directory's own
+ * confirmations - defined with the rest of the Project panel, forward-
+ * declared for the same reason as folder_select_confirm() just above:
+ * open_dialog_activate()/the main event dispatcher come first and need to
+ * call them from EVT_OPEN_LISTBOX/EVT_OPEN_OK. */
+static void project_open_file(const char* path);
+static void project_add_file(const char* path);
+static void project_add_include(const char* path);
 
 /* The filename part of a path (after the last '/' or '\') - defined further
  * below, forward-declared so folder_window_refresh() above it can title the
@@ -3150,13 +3525,30 @@ static void open_dialog_activate(int index)
         return;
     }
 
-    /* Save mode: picking a file row doesn't open it - it drops that name into
-     * the Name field to overwrite (the user still confirms via Save). */
-    if (g_open.dialog_mode == OPEN_DLG_SAVE)
+    /* Save mode (and New Project, the same Save-As shape): picking a file row
+     * doesn't open it - it drops that name into the Name field to overwrite
+     * (the user still confirms via Save). */
+    if (g_open.dialog_mode == OPEN_DLG_SAVE || g_open.dialog_mode == OPEN_DLG_PROJECT_NEW)
     {
         strncpy(g_save_name, label, sizeof g_save_name - 1);
         g_save_name[sizeof g_save_name - 1] = 0;
         open_dialog_refresh();
+        return;
+    }
+
+    /* Project Open/Add File modes: picking a file row acts on the project
+     * instead of opening the file as a text document - see
+     * project_open_file()/project_add_file(). */
+    if (g_open.dialog_mode == OPEN_DLG_PROJECT_OPEN || g_open.dialog_mode == OPEN_DLG_PROJECT_ADDFILE)
+    {
+        char path[1024];
+        snprintf(path, sizeof path, "%s/%s", g_open.dir, label);
+        if (g_open.dialog_mode == OPEN_DLG_PROJECT_OPEN)
+            project_open_file(path);
+        else
+            project_add_file(path);
+        ui_screen_close_modal(g_screen, g_open.modal);
+        g_open.dialog_mode = OPEN_DLG_FILE;
         return;
     }
 
@@ -3219,6 +3611,24 @@ static void folder_window_activate(int index)
     open_file_path_into_editor(path, entry);
 }
 
+/* Raises the Folder panel - the exact mirror of project_show_panel() further
+ * below (defined there, not here, since it needs g_project's helpers) -
+ * closes the Project panel first if both still sit on their original LEFT
+ * default (see project_show_panel's own doc comment for why: dock_layout()
+ * only lays out one window per side, and this app's two file-browsing panels
+ * showing at once would just be visual clutter over the same job even where
+ * they geometrically fit). A no-op for Project if it isn't shown or has been
+ * redocked elsewhere via g_dockmenu's "Dock Left/Right/Bottom" popup. */
+static void folder_show_panel(void)
+{
+    if (window_is_shown(g_project.window) &&
+        ui_get_dock(ui_child_at(g_project.window, 0)) == UI_DOCK_LEFT &&
+        ui_get_dock(ui_child_at(g_folder.window, 0)) == UI_DOCK_LEFT)
+        ui_screen_close_modal(g_screen, g_project.window);
+
+    ui_screen_show_window(g_screen, g_folder.window);
+}
+
 /* File > Open Folder...'s OK/"Select" confirmation (EVT_OPEN_OK while
  * g_open.dialog_mode == OPEN_DLG_FOLDER): point the singleton folder browser
  * window at whichever directory the picker had navigated to, close the
@@ -3231,7 +3641,7 @@ static void folder_select_confirm(void)
 
     ui_screen_close_modal(g_screen, g_open.modal);
     g_open.dialog_mode = OPEN_DLG_FILE;
-    ui_screen_show_window(g_screen, g_folder.window);
+    folder_show_panel();
 }
 
 /* Points the persistent Folder panel at `dir` and raises it - shared by the
@@ -3248,7 +3658,683 @@ static void folder_reveal_directory(const char* dir)
     strncpy(g_folder.dir, dir, sizeof g_folder.dir - 1);
     g_folder.dir[sizeof g_folder.dir - 1] = 0;
     folder_window_refresh();
-    ui_screen_show_window(g_screen, g_folder.window);
+    folder_show_panel();
+}
+
+/* True if a project is currently open - g_project.file_path is only ever
+ * non-empty between a successful project_new_create()/project_open_file()
+ * and the matching EVT_PROJECT_CLOSE (project_close()). */
+static int project_is_open(void)
+{
+    return g_project.file_path[0] != 0;
+}
+
+/* Normalizes backslashes to '/' in place - every path stored in g_project is
+ * kept in this form, same convention open_dialog_refresh notes for the Open
+ * dialog's own display text. */
+static void project_normalize_slashes(char* text)
+{
+    for (char* p = text; *p; p++)
+        if (*p == '\\')
+            *p = '/';
+}
+
+/* Rewrites `abs_path` relative to `base_dir` when it actually sits inside
+ * base_dir (the common case - a project's files normally live under its own
+ * directory tree); anything else is kept as an absolute path unchanged rather
+ * than forced into a nonsensical "../../.." chain. */
+static void project_make_relative(const char* base_dir, const char* abs_path,
+                                   char* out, size_t out_size)
+{
+    /* Compare on normalized slashes: base_dir is always stored '/'-only
+     * (see project_load_from_file), while abs_path arrives straight from
+     * the platform Open dialog, which on Windows hands back backslashes -
+     * a raw strncmp between the two never matches, so every added file
+     * fell through to the absolute-path branch below even when it sat
+     * right inside the project directory. */
+    char norm[1024];
+    snprintf(norm, sizeof norm, "%s", abs_path);
+    project_normalize_slashes(norm);
+
+    size_t base_len = strlen(base_dir);
+    if (base_len > 0 && strncmp(norm, base_dir, base_len) == 0 &&
+        norm[base_len] == '/')
+        snprintf(out, out_size, "%s", norm + base_len + 1);
+    else
+        snprintf(out, out_size, "%s", norm);
+    project_normalize_slashes(out);
+}
+
+/* Resolves a files[]/include_dirs[] entry back to an absolute path - the
+ * inverse of project_make_relative(). An entry that was stored absolute
+ * (project_make_relative's own fallback) is returned as-is. */
+static void project_abs_path(const char* relative_path, char* out, size_t out_size)
+{
+    int is_absolute = relative_path[0] == '/' || relative_path[0] == '\\' ||
+        (isalpha((unsigned char)relative_path[0]) && relative_path[1] == ':');
+    if (is_absolute)
+        snprintf(out, out_size, "%s", relative_path);
+    else
+        snprintf(out, out_size, "%s/%s", g_project.dir, relative_path);
+}
+
+/* Clears every data field of g_project back to "no project open" - never
+ * touches window/listbox/popup/view_item, which are built once at startup
+ * and outlive any particular project being open or closed. Shared by
+ * project_close() and project_load_from_file() (which resets before loading
+ * the file it was just handed, so a failed/partial load can't leave the
+ * previous project's entries mixed in with the new one's). */
+static void project_reset_data(void)
+{
+    g_project.file_path[0] = 0;
+    g_project.dir[0] = 0;
+    g_project.name[0] = 0;
+    g_project.file_count = 0;
+    g_project.include_count = 0;
+    g_project.compile = g_compile;  /* start from whatever the IDE is
+                                     * currently set to - see g_project.
+                                     * compile's own doc comment */
+}
+
+/* Whether `abs_path` is one of the open project's own g_project.files[] -
+ * same case-insensitive, '/'-or-'\\'-alike comparison find_open_window()
+ * uses to match an editor window to a path, since files[] entries and an
+ * open document's own path can each spell separators either way. No project
+ * open is trivially "no". */
+static int project_contains_file(const char* abs_path)
+{
+    if (!project_is_open() || !abs_path)
+        return 0;
+    for (int i = 0; i < g_project.file_count; i++)
+    {
+        char entry_abs[1024];
+        project_abs_path(g_project.files[i], entry_abs, sizeof entry_abs);
+        const char* a = entry_abs;
+        const char* b = abs_path;
+        while (*a && *b)
+        {
+            char ca = *a == '\\' ? '/' : (char)tolower((unsigned char)*a);
+            char cb = *b == '\\' ? '/' : (char)tolower((unsigned char)*b);
+            if (ca != cb)
+                break;
+            a++;
+            b++;
+        }
+        if (!*a && !*b)
+            return 1;
+    }
+    return 0;
+}
+
+/* Which compile_settings a compile/build should actually use right now -
+ * the open project's own (g_project.compile) when `file` is actually one of
+ * that project's files, else the IDE-wide default (g_compile). Being part of
+ * an open project isn't enough on its own (see project_contains_file()) - a
+ * Playground/scratch file compiled while some unrelated project happens to
+ * be open still gets the IDE-wide settings, not that project's. `file` may
+ * be NULL/"" (no active document, or a caller with nothing file-specific to
+ * check, e.g. Project > "Options..." on the panel itself) - treated as "not
+ * in the project", same as any other non-member path. do_project_build()
+ * doesn't go through this at all: it always means the project's own
+ * settings, unconditionally. */
+static compile_settings* active_compile_settings(const char* file)
+{
+    return project_contains_file(file) ? &g_project.compile : &g_compile;
+}
+
+/* Rebuilds the Project panel's listbox from g_project.files[] (empty when no
+ * project is open) and retitles the window - same shape as
+ * folder_window_refresh(). */
+/* The Project panel's own per-row file-type marker: one letter plus a
+ * trailing space, colored from the current theme (see ui_theme's
+ * project_icon_*_fg fields) - "C" for .c, "H" for .h, "M" for .md. Any other
+ * extension still gets the same two reserved columns (so names stay
+ * column-aligned regardless of type), just as a blank, uncolored marker -
+ * see render_listbox's own "fg 0 means no tint" rule. */
+static void project_file_marker(const char* filename, char* out_marker, uint32_t* out_fg)
+{
+    const ui_theme* theme = ui_get_theme();
+    const char* dot = strrchr(filename, '.');
+    if (dot && strcmp(dot, ".c") == 0)
+    {
+        strcpy(out_marker, "C ");
+        *out_fg = theme->project_icon_c_fg;
+    }
+    else if (dot && strcmp(dot, ".h") == 0)
+    {
+        strcpy(out_marker, "H ");
+        *out_fg = theme->project_icon_h_fg;
+    }
+    else if (dot && strcmp(dot, ".md") == 0)
+    {
+        strcpy(out_marker, "M ");
+        *out_fg = theme->project_icon_md_fg;
+    }
+    else
+    {
+        strcpy(out_marker, "  ");
+        *out_fg = 0;
+    }
+}
+
+static void project_window_refresh(void)
+{
+    if (!g_project.listbox)
+        return;
+
+    while (ui_child_count(g_project.listbox) > 0)
+    {
+        ui_node* child = ui_child_at(g_project.listbox, 0);
+        ui_remove_child(g_project.listbox, child);
+        ui_node_free(child);
+    }
+
+    for (int i = 0; i < g_project.file_count; i++)
+    {
+        ui_node* item = ui_create_element(UI_TAG_ITEM);
+        char marker[8], label[520];
+        uint32_t marker_fg;
+        project_file_marker(g_project.files[i], marker, &marker_fg);
+        snprintf(label, sizeof label, "%s%s", marker, g_project.files[i]);
+        ui_set_label(item, label);
+        ui_set_color(item, marker_fg, 0);
+        ui_set_path(item, g_project.files[i]);
+        ui_append_child(g_project.listbox, item);
+    }
+    ui_select_set_selected(g_project.listbox, 0);
+
+    ui_node* window = ui_child_at(g_project.window, 0);
+    if (window)
+    {
+        char title[320];
+        snprintf(title, sizeof title, " %s ", g_project.name[0] ? g_project.name : "Project");
+        ui_set_label(window, title);
+    }
+}
+
+/* Rebuilds the Include Directories dialog's own listbox from
+ * g_project.include_dirs[] - same clear-then-repopulate shape as
+ * project_window_refresh(), just for the dialog opened separately via
+ * Project > "Include Directories..." (EVT_PROJECT_INCLUDES) rather than the
+ * always-visible panel. A no-op before app_init builds the dialog. */
+static void project_includes_dialog_refresh(void)
+{
+    if (!g_project.includes_listbox)
+        return;
+
+    while (ui_child_count(g_project.includes_listbox) > 0)
+    {
+        ui_node* child = ui_child_at(g_project.includes_listbox, 0);
+        ui_remove_child(g_project.includes_listbox, child);
+        ui_node_free(child);
+    }
+
+    for (int i = 0; i < g_project.include_count; i++)
+    {
+        ui_node* item = ui_create_element(UI_TAG_ITEM);
+        ui_set_label(item, g_project.include_dirs[i]);
+        ui_append_child(g_project.includes_listbox, item);
+    }
+    ui_select_set_selected(g_project.includes_listbox, 0);
+}
+
+/* Writes the open project back out to g_project.file_path as a small
+ * JSON-like file - hand-written rather than a general JSON serializer since
+ * this is the only writer for the format (see project_line_extract_string
+ * for the matching reader). No-op if no project is open. */
+static void project_save(void)
+{
+    if (!project_is_open())
+        return;
+
+    FILE* f = fopen(g_project.file_path, "w");
+    if (!f)
+        return;
+
+    fprintf(f, "{\n");
+    fprintf(f, "  \"name\": \"%s\",\n", g_project.name);
+
+    /* Compiler options, scoped to this project - see g_project.compile's own
+     * doc comment. Same fields/shapes do_compile()'s own argv-building reads
+     * off of g_compile. */
+    fprintf(f, "  \"target\": \"%s\",\n", g_project.compile.target ? g_project.compile.target : "");
+    fprintf(f, "  \"style\": \"%s\",\n", g_project.compile.style ? g_project.compile.style : "");
+    fprintf(f, "  \"diagnostic_format\": \"%s\",\n",
+            g_project.compile.diagnostic_format ? g_project.compile.diagnostic_format : "");
+    fprintf(f, "  \"options\": \"%s\",\n", g_project.compile.options);
+    fprintf(f, "  \"output\": \"%s\",\n", g_project.compile.output);
+    fprintf(f, "  \"no_output\": %d,\n", g_project.compile.no_output);
+    fprintf(f, "  \"line_directives\": %d,\n", g_project.compile.line_directives);
+    fprintf(f, "  \"fanalyzer\": %d,\n", g_project.compile.fanalyzer);
+    fprintf(f, "  \"const_literal\": %d,\n", g_project.compile.const_literal);
+    fprintf(f, "  \"wall\": %d,\n", g_project.compile.wall);
+
+    fprintf(f, "  \"include_dirs\": [\n");
+    for (int i = 0; i < g_project.include_count; i++)
+        fprintf(f, "    \"%s\"%s\n", g_project.include_dirs[i],
+                i + 1 < g_project.include_count ? "," : "");
+    fprintf(f, "  ],\n");
+
+    fprintf(f, "  \"files\": [\n");
+    for (int i = 0; i < g_project.file_count; i++)
+        fprintf(f, "    \"%s\"%s\n", g_project.files[i],
+                i + 1 < g_project.file_count ? "," : "");
+    fprintf(f, "  ]\n");
+
+    fprintf(f, "}\n");
+    fclose(f);
+}
+
+/* Pulls the quoted string value out of one line of project_save()'s own
+ * output - either a `"key": "value"` line or a bare array-element line like
+ * `    "value",`. Tolerant of trailing commas/whitespace, but only ever has
+ * to read back exactly what project_save() wrote, so it doesn't need to be a
+ * general JSON parser. Returns 1 and fills `out` on success, 0 if `line`
+ * carries no quoted value (e.g. a `{`/`}`/`],` structural line). */
+static int project_line_extract_string(const char* line, char* out, size_t out_size)
+{
+    const char* first = strchr(line, '"');
+    if (!first)
+        return 0;
+    const char* second = strchr(first + 1, '"');
+    if (!second)
+        return 0;
+
+    /* A `"key": "value"` line has a colon right after the key's closing
+     * quote (only whitespace in between) - in that case the first quoted
+     * string found above is the KEY, and the value is the next quoted
+     * string after the colon. A bare array-element line (`    "value",`)
+     * has no colon there, so the first quoted string already is the value -
+     * found this way instead of just splitting on the first ':' in the line
+     * so a value that itself contains a colon (e.g. a Windows "C:/..." path)
+     * doesn't get misread. */
+    const char* after_key = second + 1;
+    while (*after_key == ' ' || *after_key == '\t')
+        after_key++;
+    if (*after_key == ':')
+    {
+        const char* third = strchr(after_key, '"');
+        const char* fourth = third ? strchr(third + 1, '"') : NULL;
+        if (!third || !fourth)
+            return 0;
+        size_t len = (size_t)(fourth - (third + 1));
+        if (len >= out_size)
+            len = out_size - 1;
+        memcpy(out, third + 1, len);
+        out[len] = 0;
+        return 1;
+    }
+
+    size_t len = (size_t)(second - (first + 1));
+    if (len >= out_size)
+        len = out_size - 1;
+    memcpy(out, first + 1, len);
+    out[len] = 0;
+    return 1;
+}
+
+/* Pulls the integer value out of one `"key": N,` line - the counterpart to
+ * project_line_extract_string() for the compile-settings boolean flags
+ * (project_save() always writes them as plain 0/1, never quoted). Returns 0
+ * (leaving *out untouched) if `line` doesn't mention `key` at all. */
+static int project_line_extract_int(const char* line, const char* key, int* out)
+{
+    const char* found = strstr(line, key);
+    if (!found)
+        return 0;
+    const char* colon = strchr(found, ':');
+    if (!colon)
+        return 0;
+    *out = atoi(colon + 1);
+    return 1;
+}
+
+/* Loads a ".cakeproj" file written by project_save() into g_project, fully
+ * replacing whatever project was open before (see project_reset_data()).
+ * Returns 0 (leaving g_project untouched) if `path` can't be opened. */
+static int project_load_from_file(const char* path)
+{
+    FILE* f = fopen(path, "r");
+    if (!f)
+        return 0;
+
+    char loaded_name[256] = "";
+    char loaded_files[CAKE_PROJECT_MAX_FILES][512];
+    int loaded_file_count = 0;
+    char loaded_includes[CAKE_PROJECT_MAX_INCLUDES][512];
+    int loaded_include_count = 0;
+
+    /* Compile settings default to whatever the IDE is currently set to
+     * (same as project_reset_data()) - a ".cakeproj" written before these
+     * fields existed, or one missing a particular key, just falls back to
+     * that instead of some separate hardcoded default. */
+    compile_settings loaded_compile = g_compile;
+    char loaded_target[20], loaded_style[24], loaded_diagformat[32];
+    snprintf(loaded_target, sizeof loaded_target, "%s", g_compile.target ? g_compile.target : "");
+    snprintf(loaded_style, sizeof loaded_style, "%s", g_compile.style ? g_compile.style : "");
+    snprintf(loaded_diagformat, sizeof loaded_diagformat, "%s", g_compile.diagnostic_format ? g_compile.diagnostic_format : "");
+
+    int in_files = 0, in_includes = 0;
+    char line[1024];
+    while (fgets(line, sizeof line, f))
+    {
+        if (strstr(line, "\"files\""))
+        {
+            in_files = 1;
+            in_includes = 0;
+            continue;
+        }
+        if (strstr(line, "\"include_dirs\""))
+        {
+            in_includes = 1;
+            in_files = 0;
+            continue;
+        }
+        if (strchr(line, ']'))
+        {
+            in_files = 0;
+            in_includes = 0;
+            continue;
+        }
+
+        if (!in_files && !in_includes)
+        {
+            if (project_line_extract_int(line, "\"no_output\"", &loaded_compile.no_output)) continue;
+            if (project_line_extract_int(line, "\"line_directives\"", &loaded_compile.line_directives)) continue;
+            if (project_line_extract_int(line, "\"fanalyzer\"", &loaded_compile.fanalyzer)) continue;
+            if (project_line_extract_int(line, "\"const_literal\"", &loaded_compile.const_literal)) continue;
+            if (project_line_extract_int(line, "\"wall\"", &loaded_compile.wall)) continue;
+        }
+
+        char value[512];
+        if (!project_line_extract_string(line, value, sizeof value))
+            continue;
+
+        if (in_files)
+        {
+            if (loaded_file_count < CAKE_PROJECT_MAX_FILES)
+                snprintf(loaded_files[loaded_file_count++], sizeof loaded_files[0], "%s", value);
+        }
+        else if (in_includes)
+        {
+            if (loaded_include_count < CAKE_PROJECT_MAX_INCLUDES)
+                snprintf(loaded_includes[loaded_include_count++], sizeof loaded_includes[0], "%s", value);
+        }
+        else if (strstr(line, "\"name\""))
+            snprintf(loaded_name, sizeof loaded_name, "%s", value);
+        else if (strstr(line, "\"output\""))
+            snprintf(loaded_compile.output, sizeof loaded_compile.output, "%s", value);
+        else if (strstr(line, "\"target\""))
+            snprintf(loaded_target, sizeof loaded_target, "%s", value);
+        else if (strstr(line, "\"style\""))
+            snprintf(loaded_style, sizeof loaded_style, "%s", value);
+        else if (strstr(line, "\"diagnostic_format\""))
+            snprintf(loaded_diagformat, sizeof loaded_diagformat, "%s", value);
+        else if (strstr(line, "\"options\""))
+            snprintf(loaded_compile.options, sizeof loaded_compile.options, "%s", value);
+    }
+    fclose(f);
+
+    /* target/style/diagnostic_format are slugs, always one of a fixed set
+     * (see g_target_slugs/g_style_slugs/g_diagformat_slugs) - resolve
+     * whatever string was actually in the file back to the matching interned
+     * slug pointer (falling back to index 0 for anything unrecognized, same
+     * as the Compiler Options dialog itself does), rather than storing a
+     * pointer into a stack buffer that's about to go out of scope. */
+    loaded_compile.target = g_target_slugs[target_slug_to_index(loaded_target)];
+    loaded_compile.style = g_style_slugs[style_slug_to_index(loaded_style)];
+    loaded_compile.diagnostic_format = g_diagformat_slugs[diagformat_slug_to_index(loaded_diagformat)];
+
+    project_reset_data();
+
+    snprintf(g_project.file_path, sizeof g_project.file_path, "%s", path);
+    project_normalize_slashes(g_project.file_path);
+
+    snprintf(g_project.dir, sizeof g_project.dir, "%s", g_project.file_path);
+    char* last_slash = strrchr(g_project.dir, '/');
+    if (last_slash)
+        *last_slash = 0;
+    else
+        strcpy(g_project.dir, ".");
+
+    snprintf(g_project.name, sizeof g_project.name,
+             "%s", loaded_name[0] ? loaded_name : basename_of(path));
+
+    g_project.compile = loaded_compile;
+
+    g_project.file_count = loaded_file_count;
+    for (int i = 0; i < loaded_file_count; i++)
+        snprintf(g_project.files[i], sizeof g_project.files[0], "%s", loaded_files[i]);
+
+    g_project.include_count = loaded_include_count;
+    for (int i = 0; i < loaded_include_count; i++)
+        snprintf(g_project.include_dirs[i], sizeof g_project.include_dirs[0], "%s", loaded_includes[i]);
+
+    return 1;
+}
+
+/* Raises the Project panel - shared by every path that opens/creates a
+ * project (project_new_create/project_open_file) and by View > "Show
+ * Project" (EVT_WINDOW_PROJECT). dock_layout() (ide_ui.c) only lays out one
+ * window per side, so showing this while the Folder panel is also sitting on
+ * LEFT would just overlap it rather than actually dock - close Folder first
+ * in that specific case (only ever fires when both still sit on their
+ * original default side; either one redocked elsewhere via g_dockmenu's
+ * "Dock Left/Right/Bottom" popup coexists fine, so this is a no-op then). */
+static void project_show_panel(void)
+{
+    if (window_is_shown(g_folder.window) &&
+        ui_get_dock(ui_child_at(g_folder.window, 0)) == UI_DOCK_LEFT &&
+        ui_get_dock(ui_child_at(g_project.window, 0)) == UI_DOCK_LEFT)
+        ui_screen_close_modal(g_screen, g_folder.window);
+
+    ui_screen_show_window(g_screen, g_project.window);
+}
+
+/* Defined below (with Save As) - project_new_save_activate() needs it to
+ * default the ".cakeproj" extension the same way save_as_activate() does. */
+static const char* current_filter_extension(void);
+
+/* Project > "New Project..." - creates <path> (a ".cakeproj" file, empty)
+ * and opens it as the current project. `path`'s directory and filename
+ * together are the project: its own name (independent of the folder's,
+ * so two projects can share one folder) comes straight from what was typed
+ * into the Save-As-style dialog (see project_new_save_activate()), same as
+ * any other Save As - there's no separate name prompt. */
+static void project_new_create(const char* path)
+{
+    char dir[1024];
+    snprintf(dir, sizeof dir, "%s", path);
+    project_normalize_slashes(dir);
+    char* last_slash = strrchr(dir, '/');
+    if (last_slash)
+        *last_slash = 0;
+    else
+        strcpy(dir, ".");
+    mkdir(dir, 0755);  /* fine if it already exists - return value ignored,
+                        * same as create_default_filter_file's own mkdir() */
+
+    char name[256];
+    snprintf(name, sizeof name, "%s", basename_of(path));
+    char* dot = strrchr(name, '.');
+    if (dot && strcmp(dot, CAKE_PROJECT_EXT) == 0)
+        *dot = 0;
+
+    project_reset_data();
+    snprintf(g_project.dir, sizeof g_project.dir, "%s", dir);
+    snprintf(g_project.name, sizeof g_project.name, "%s", name);
+    snprintf(g_project.file_path, sizeof g_project.file_path, "%s", path);
+    project_normalize_slashes(g_project.file_path);
+
+    project_save();
+    project_window_refresh();
+
+    ui_screen_close_modal(g_screen, g_open.modal);
+    g_open.dialog_mode = OPEN_DLG_FILE;
+    project_show_panel();
+}
+
+/* Project > "New Project..."'s own Save-As-style confirmation (EVT_OPEN_NAME/
+ * EVT_OPEN_OK while g_open.dialog_mode == OPEN_DLG_PROJECT_NEW) - same
+ * "split Name field into dir+filename, default the extension from the
+ * current filter, confirm before overwriting" shape as save_as_activate(),
+ * just creating a project instead of writing a document's content. */
+static void project_new_save_activate(void)
+{
+    char buf[1024];
+    strncpy(buf, ui_get_value(g_open.name_input), sizeof buf - 1);
+    buf[sizeof buf - 1] = 0;
+    for (char* p = buf; *p; p++)
+        if (*p == '\\')
+            *p = '/';
+
+    char* sep = NULL;
+    for (char* p = buf; *p; p++)
+        if (*p == '/')
+            sep = p;
+
+    const char* name = buf;
+    if (sep)
+    {
+        *sep = 0;
+        name = sep + 1;
+        if (buf[0])
+        {
+            strncpy(g_open.dir, buf, sizeof g_open.dir - 1);
+            g_open.dir[sizeof g_open.dir - 1] = 0;
+        }
+    }
+    if (!name[0])
+        return;  /* no name typed - leave the dialog open */
+
+    char name_buf[300];
+    strncpy(name_buf, name, sizeof name_buf - 1);
+    name_buf[sizeof name_buf - 1] = 0;
+    if (!strchr(name_buf, '.'))
+    {
+        const char* ext = current_filter_extension();
+        if (ext && strlen(name_buf) + strlen(ext) < sizeof name_buf)
+            strcat(name_buf, ext);
+    }
+
+    snprintf(g_project_new_path, sizeof g_project_new_path, "%s/%s", g_open.dir, name_buf);
+
+    FILE* exists = fopen(g_project_new_path, "rb");
+    if (exists)
+    {
+        fclose(exists);
+        char msg[400];
+        snprintf(msg, sizeof msg, "%s already exists.\nOverwrite?", name_buf);
+        ui_msgbox_button btns[] = {
+            { "  Yes  ", EVT_PROJECT_NEW_OVERWRITE },
+            { "  No  ", 0 },
+        };
+        ui_message_box(g_screen, "New Project", msg, btns, 2);
+        return;
+    }
+
+    project_new_create(g_project_new_path);
+}
+
+/* Project > "Open Project..." - loads `path` (a ".cakeproj" file picked from
+ * the Open dialog in OPEN_DLG_PROJECT_OPEN mode) and raises the panel. Does
+ * nothing if the file can't be read (e.g. picked, then deleted out from under
+ * the dialog). */
+static void project_open_file(const char* path)
+{
+    if (!project_load_from_file(path))
+        return;
+    project_window_refresh();
+    project_show_panel();
+}
+
+/* Project > "Add Existing File..." - adds `path` (absolute, from the Open
+ * dialog in OPEN_DLG_PROJECT_ADDFILE mode) to the open project, stored
+ * relative to g_project.dir. Silently ignored if no project is open, the
+ * project is already full, or the file is already listed. */
+static void project_add_file(const char* path)
+{
+    if (!project_is_open() || g_project.file_count >= CAKE_PROJECT_MAX_FILES)
+        return;
+
+    char relative_path[512];
+    project_make_relative(g_project.dir, path, relative_path, sizeof relative_path);
+
+    for (int i = 0; i < g_project.file_count; i++)
+        if (strcmp(g_project.files[i], relative_path) == 0)
+            return;
+
+    snprintf(g_project.files[g_project.file_count++], sizeof g_project.files[0], "%s", relative_path);
+    project_save();
+    project_window_refresh();
+}
+
+/* Project > "Add Include Directory..." - same shape as project_add_file(),
+ * for a directory (from OPEN_DLG_PROJECT_ADDINCLUDE) instead of a file. */
+static void project_add_include(const char* path)
+{
+    if (!project_is_open() || g_project.include_count >= CAKE_PROJECT_MAX_INCLUDES)
+        return;
+
+    char relative_path[512];
+    project_make_relative(g_project.dir, path, relative_path, sizeof relative_path);
+
+    for (int i = 0; i < g_project.include_count; i++)
+        if (strcmp(g_project.include_dirs[i], relative_path) == 0)
+            return;
+
+    snprintf(g_project.include_dirs[g_project.include_count++], sizeof g_project.include_dirs[0],
+             "%s", relative_path);
+    project_save();
+    project_includes_dialog_refresh();  /* no-op if the dialog isn't built/open */
+}
+
+/* Opens the project's file at `index` (a row in g_project.listbox) into an
+ * editor - shared by the panel's double-click/Enter (project_window_activate)
+ * and its right-click popup's "Open" (EVT_PROJECT_POPUP_OPEN). */
+static void project_open_at(int index)
+{
+    if (index < 0 || index >= g_project.file_count)
+        return;
+    char abs_path[1024];
+    project_abs_path(g_project.files[index], abs_path, sizeof abs_path);
+    nav_record_jump();
+    open_file_path_into_editor(abs_path, basename_of(abs_path));
+}
+
+/* A row in the Project panel was activated (double-click/Enter). Unlike the
+ * Folder panel's equivalent (folder_window_activate), every row here is a
+ * file - a project's own file list has no directories to navigate into. */
+static void project_window_activate(int index)
+{
+    project_open_at(index);
+}
+
+/* The panel's right-click popup's "Remove from Project" - drops the entry at
+ * `index` from files[] and re-saves. Never touches the file on disk, only
+ * the project's own list of it. */
+static void project_remove_at(int index)
+{
+    if (index < 0 || index >= g_project.file_count)
+        return;
+    for (int i = index; i + 1 < g_project.file_count; i++)
+        snprintf(g_project.files[i], sizeof g_project.files[0], "%s", g_project.files[i + 1]);
+    g_project.file_count--;
+    project_save();
+    project_window_refresh();
+}
+
+/* Project > "Close Project" - clears g_project back to empty and hides the
+ * panel. Files stay on disk untouched; only the ".cakeproj" bookkeeping is
+ * forgotten (already saved, so nothing here is lost). */
+static void project_close(void)
+{
+    if (!project_is_open())
+        return;
+    project_reset_data();
+    project_window_refresh();
+    if (window_is_shown(g_project.window))
+        ui_screen_close_modal(g_screen, g_project.window);
 }
 
 /* Opens a specific help/<filename> topic (e.g. "index.md", "cmdline.md") into
@@ -3762,6 +4848,44 @@ static void do_editor_ctrlclick(void)
  * active document (see exttool_expand):
  *     $(FilePath)  full path            $(FileDir)   containing directory
  *     $(FileName)  name without ext     $(FileExt)   extension, with the dot
+ * Plus three cake-specific macros:
+ *     $(CakeOutput) - see exttool_append_cake_output()'s own doc comment:
+ *                      cake's own predicted generated-output file(s), quoted
+ *                      and space-separated - e.g. an External Tool "gcc"
+ *                      with arguments "$(CakeOutput) -o myapp" builds
+ *                      whatever cake's own Build just produced. With a
+ *                      project open, one entry per .c file in it; without
+ *                      one, just the single active document (empty if
+ *                      there's no active .c document).
+ *     $(Target)      - that target platform's name on its own, e.g. for a
+ *                      cross-compiler flag - the open project's own
+ *                      (project_target_platform_name()) if there is one,
+ *                      else this build's own compile-time default, same
+ *                      fallback $(CakeOutput) uses without a project.
+ *     $(ProjectDir) - the open project's own directory, for a tool that
+ *                      should follow the project rather than whichever
+ *                      document has focus; the active document's own
+ *                      directory when no project is open.
+ * which Visual Studio itself spells $(ItemPath)/$(ItemDir)/$(ItemFilename)/
+ * $(ItemExt) - both spellings work. The binary being built has its own
+ * Visual Studio family too, all rooted at the open project or, with none,
+ * the active document's own directory:
+ *     $(TargetDir)      the folder the compiler writes it to, i.e.
+ *                        "<root>/<platform>" - see target_dir_path()
+ *     $(TargetFileName) its file name, e.g. main.exe - Compiler Options'
+ *                        own "Output" field when set, else the project's
+ *                        name (the document's own with no project open),
+ *                        plus ".exe" on the msvc targets - see
+ *                        target_file_name()
+ *     $(TargetName)     that with the extension stripped; $(TargetExt)
+ *                        just the extension itself
+ *     $(TargetPath)     $(TargetDir)/$(TargetFileName) - exactly the path
+ *                        Debug (F5) launches (do_debug_start() goes through
+ *                        the same two helpers), so a tool that builds to it
+ *                        and the debugger cannot point at different files
+ *     $(ProjectName)    the open project's name; $(Platform) the target
+ *                        platform slug, e.g. x64_msvc (the older $(Target)
+ *                        spelling of it still works)
  * A literal "$$" produces a single "$".
  */
 #define EXT_TOOL_MAX 12
@@ -3797,6 +4921,14 @@ static struct
     int count;
     int sel;
 } g_exttool;
+
+static struct
+{
+    ui_node* modal;
+    ui_node* folder_input;
+    ui_node* name_input;
+    ui_node* helloworld_check;
+} g_newproject;
 
 /* --- External Tools dialog helpers ---
  * The dialog edits g_exttool.edit (a working copy) and only writes it back
@@ -3903,6 +5035,147 @@ static void exttool_append(char* buf, size_t cap, size_t* len, const char* text)
     buf[*len] = 0;
 }
 
+/* The open project's own target platform name (e.g. "x64", "x86") - the same
+ * subdirectory name component cake's own output uses (compile.c's
+ * longest_common_path/get_platform use in compile()), and what $(Target)
+ * expands to on its own. Falls back to this build's own compile-time target,
+ * same default compile() itself uses, when the project has none set. Only
+ * meaningful with a project open - callers check project_is_open() first. */
+static const char* project_target_platform_name(void)
+{
+    enum target target_enum = CAKE_COMPILE_TIME_SELECTED_TARGET;
+    if (g_project.compile.target[0])
+        parse_target(g_project.compile.target, &target_enum);
+    return get_platform(target_enum)->name;
+}
+
+/* The platform slug every $(Target...) macro and the debugger's own launch
+ * path are built from: the open project's, else whatever the user picked
+ * in Compiler Options, else this build's compile-time default. The same
+ * three-way fallback exttool_append_cake_output() and do_debug_start()
+ * each spell out inline - new code shares this one instead. */
+static const char* active_platform_name(void)
+{
+    if (project_is_open())
+        return project_target_platform_name();
+    return g_compile.target[0] ? g_compile.target
+                               : get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->name;
+}
+
+/* $(TargetDir) - the directory cake writes its generated output into, and
+ * where an external compiler is expected to leave the executable:
+ * "<root>/<platform>", root being the open project's directory or, with no
+ * project, the active document's own (`doc_dir`). No trailing separator, so
+ * it composes as "$(TargetDir)/$(TargetFileName)". */
+static void target_dir_path(const char* doc_dir, char* out, size_t cap)
+{
+    const char* root = project_is_open() ? g_project.dir : doc_dir;
+    snprintf(out, cap, "%s/%s", root, active_platform_name());
+}
+
+/* $(TargetFileName) - the executable's file NAME (with extension), not a
+ * path. Compiler Options' own "Output" field when the user set one, taken
+ * verbatim; otherwise the project's name, or the active document's base
+ * name (`doc_base`) with no project open. MSVC targets link to "<name>.exe"
+ * (cl.exe's own default output name), the gcc/clang ones to a bare name -
+ * same split do_debug_start() has always made for its own launch path,
+ * which now goes through here so the two can't disagree. */
+static void target_file_name(const char* doc_base, char* out, size_t cap)
+{
+    const compile_settings* cs = project_is_open() ? &g_project.compile : &g_compile;
+    if (cs->output[0])
+    {
+        snprintf(out, cap, "%s", cs->output);
+        return;
+    }
+    const char* platform_name = active_platform_name();
+    snprintf(out, cap, "%s%s", project_is_open() ? g_project.name : doc_base,
+             strstr(platform_name, "msvc") ? ".exe" : "");
+}
+
+/* $(CakeOutput) - see exttool_expand()'s own doc comment: cake's own
+ * predicted OUTPUT paths (not the sources), quoted and space-separated,
+ * ready to hand straight to a real compiler as its input file list. Cake
+ * writes generated output to "<root>/<platform name>/<relative path>".
+ *
+ * With a project open, root is g_project.dir and every .c file in the
+ * project contributes one entry (true whenever the project's files don't
+ * all live deeper in some shared subdirectory of it).
+ *
+ * Without one, there is no file list to walk - root becomes the active
+ * document's own directory instead, and the macro expands to just that
+ * one file's predicted output path (empty if there's no active .c
+ * document, same as a file macro with no active document elsewhere). This
+ * is the same "<its own dir>/<platform>/<name><ext>" prediction
+ * do_debug_start() computes by hand for exactly this no-project case (see
+ * its own doc comment) - kept in sync with it rather than duplicating a
+ * third slightly different guess at cake's output layout. */
+static void exttool_append_cake_output(char* out, size_t cap, size_t* len,
+                                        const char* path, const char* dir,
+                                        const char* name, const char* ext)
+{
+    /* No project open: use whatever target the user picked in Compiler
+     * Options (g_compile.target - see do_debug_start()'s own matching fix),
+     * not this build's own compile-time default. */
+    const char* platform_name = project_is_open()
+        ? project_target_platform_name()
+        : (g_compile.target[0] ? g_compile.target
+                                : get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->name);
+
+    if (project_is_open())
+    {
+        int first = 1;
+        for (int i = 0; i < g_project.file_count; i++)
+        {
+            const char* entry = g_project.files[i];
+            size_t elen = strlen(entry);
+            if (elen < 2 || entry[elen - 2] != '.' || entry[elen - 1] != 'c')
+                continue;
+
+            /* Entries are normally stored relative to g_project.dir, but
+             * an absolute one is legal (project_make_relative's own
+             * fallback, and project files written before it normalized
+             * slashes hold them): gluing that onto "<dir>/<platform>/"
+             * builds a doubled path the compiler cannot open. Relativize
+             * first, and for a file genuinely outside the project predict
+             * against its own directory, the way the no-project branch
+             * below does. */
+            char rel[512];
+            project_make_relative(g_project.dir, entry, rel, sizeof rel);
+
+            char piece[1040];
+            if (rel[0] == '/' ||
+                (isalpha((unsigned char)rel[0]) && rel[1] == ':'))
+            {
+                char edir[1024];
+                snprintf(edir, sizeof edir, "%s", rel);
+                char* slash = strrchr(edir, '/');
+                const char* base = slash ? slash + 1 : edir;
+                if (slash)
+                    *slash = 0;
+                else
+                    edir[0] = 0;
+                snprintf(piece, sizeof piece, "%s\"%s%s%s/%s\"", first ? "" : " ",
+                         edir, edir[0] ? "/" : "", platform_name, base);
+            }
+            else
+                snprintf(piece, sizeof piece, "%s\"%s/%s/%s\"", first ? "" : " ",
+                         g_project.dir, platform_name, rel);
+            exttool_append(out, cap, len, piece);
+            first = 0;
+        }
+        return;
+    }
+
+    if (!path || !path[0] || strcmp(ext, ".c") != 0)
+        return;   /* no active document, or it isn't a .c file */
+
+    char piece[1040];
+    snprintf(piece, sizeof piece, "\"%s%s%s/%s%s\"",
+             dir, dir[0] ? "/" : "", platform_name, name, ext);
+    exttool_append(out, cap, len, piece);
+}
+
 /* Expands the $(...) macros above in `in`, writing to `out`. `path` is the
  * active document's full path ("" when there is none, which simply makes
  * every file macro expand to nothing rather than failing). */
@@ -3958,10 +5231,95 @@ static void exttool_expand(const char* in, const char* path, char* out, size_t c
             memcpy(macro, p + 2, n);
             macro[n] = 0;
 
-            if (strcmp(macro, "FilePath") == 0)      exttool_append(out, cap, &len, path ? path : "");
-            else if (strcmp(macro, "FileDir") == 0)  exttool_append(out, cap, &len, dir);
-            else if (strcmp(macro, "FileName") == 0) exttool_append(out, cap, &len, name);
-            else if (strcmp(macro, "FileExt") == 0)  exttool_append(out, cap, &len, ext);
+            /* Visual Studio names these Item*; both spellings work, the
+             * File* ones being what this IDE shipped with. */
+            if (strcmp(macro, "FilePath") == 0 ||
+                strcmp(macro, "ItemPath") == 0)      exttool_append(out, cap, &len, path ? path : "");
+            else if (strcmp(macro, "FileDir") == 0 ||
+                     strcmp(macro, "ItemDir") == 0)  exttool_append(out, cap, &len, dir);
+            else if (strcmp(macro, "FileName") == 0 ||
+                     strcmp(macro, "ItemFilename") == 0) exttool_append(out, cap, &len, name);
+            else if (strcmp(macro, "FileExt") == 0 ||
+                     strcmp(macro, "ItemExt") == 0)  exttool_append(out, cap, &len, ext);
+            else if (strcmp(macro, "CakeOutput") == 0)
+                exttool_append_cake_output(out, cap, &len, path, dir, name, ext);
+            /* Visual Studio's own External Tools vocabulary for the built
+             * binary (see its Macros menu): $(TargetDir) the folder it
+             * lands in, $(TargetName)/$(TargetExt)/$(TargetFileName) its
+             * name split three ways, $(TargetPath) the whole thing - which
+             * is exactly what Debug launches, so a tool that writes to
+             * $(TargetPath) and F5 can never disagree. */
+            else if (strcmp(macro, "TargetDir") == 0)
+            {
+                char buf[1024];
+                target_dir_path(dir, buf, sizeof buf);
+                exttool_append(out, cap, &len, buf);
+            }
+            else if (strcmp(macro, "TargetFileName") == 0)
+            {
+                char buf[512];
+                target_file_name(name, buf, sizeof buf);
+                exttool_append(out, cap, &len, buf);
+            }
+            else if (strcmp(macro, "TargetName") == 0 ||
+                     strcmp(macro, "TargetExt") == 0)
+            {
+                /* The same resolved file name, split at its last dot:
+                 * "main.exe" -> "main" + ".exe". A gcc/clang target has
+                 * no extension at all, so $(TargetExt) is empty there. */
+                char buf[512];
+                target_file_name(name, buf, sizeof buf);
+                char* dot = strrchr(buf, '.');
+                if (macro[6] == 'N')          /* TargetName */
+                {
+                    if (dot)
+                        *dot = 0;
+                    exttool_append(out, cap, &len, buf);
+                }
+                else                          /* TargetExt */
+                    exttool_append(out, cap, &len, dot ? dot : "");
+            }
+            else if (strcmp(macro, "TargetPath") == 0)
+            {
+                char d[1024], f[512], buf[1600];
+                target_dir_path(dir, d, sizeof d);
+                target_file_name(name, f, sizeof f);
+                snprintf(buf, sizeof buf, "%s/%s", d, f);
+                exttool_append(out, cap, &len, buf);
+            }
+            else if (strcmp(macro, "Platform") == 0)
+                /* Visual Studio's own name for the architecture (its
+                 * $(Platform) is "x64"); $(Target) below predates this
+                 * and means the same thing here, kept so tools already
+                 * configured with it keep working. */
+                exttool_append(out, cap, &len, active_platform_name());
+            else if (strcmp(macro, "ProjectName") == 0)
+                exttool_append(out, cap, &len,
+                    project_is_open() ? g_project.name : name);
+            else if (strcmp(macro, "ProjectDir") == 0)
+                /* The open project's own directory - what a tool that
+                 * builds or outputs "for this project" wants, rather than
+                 * the active document's $(FileDir), which points at
+                 * whatever happens to be focused (the playground is a
+                 * scratch file, never part of a project, so a tool string
+                 * using $(FileDir) silently retargets to %APPDATA% the
+                 * moment it has focus). Falls back to the active
+                 * document's directory with no project open, so the same
+                 * tool string still works on a standalone file - the same
+                 * no-project fallback $(CakeOutput) and $(Target) make. */
+                exttool_append(out, cap, &len,
+                    project_is_open() ? g_project.dir : dir);
+            else if (strcmp(macro, "Target") == 0)
+                /* Same no-project fallback as exttool_append_cake_output's
+                 * own - kept consistent since "$(CakeOutput) $(Target)" is
+                 * the actual default args string (see copts_window's
+                 * build_screen() block), and leaving just this one still
+                 * gated on project_is_open() would silently drop half of
+                 * that pair for a standalone file. */
+                exttool_append(out, cap, &len, project_is_open()
+                    ? project_target_platform_name()
+                    : (g_compile.target[0] ? g_compile.target
+                                            : get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->name));
             /* An unknown macro expands to nothing, rather than being left in
              * the command line where it would confuse the program. */
             p = close + 1;
@@ -4748,9 +6106,12 @@ static int file_readable(const char* path)
 
 /* Resolves a bare `filename` (or relative path) with no reliable directory
  * of its own - e.g. a #include target or a filename typed in a comment/doc
- * (do_editor_ctrlclick), or a Tools > Find and Replace "Current Dir" result,
- * which only ever prints bare names (see fr_search_text) - against the
- * directories it most plausibly came from: the active document's own
+ * (do_editor_ctrlclick), a Tools > Find and Replace "Current Dir" result,
+ * which only ever prints bare names (see fr_search_text), or a "Project"/
+ * F12 result (fr_search_project/do_goto_definition), which prints paths
+ * relative to the open project's own directory (g_project.files[] - see
+ * g_project's own doc comment) - against the directories it most plausibly
+ * came from: the open project's directory, the active document's own
  * folder, then the persistent Folder panel's browsed directory, before
  * falling back to `filename` as-is (already a real openable path for e.g. a
  * compiler diagnostic, which carries a real path). Writes the resolved path
@@ -4760,7 +6121,13 @@ static void resolve_referenced_path(const char* filename, char* out, size_t out_
     char candidate[1024];
     const char* open_path = NULL;
 
-    if (g_active_editor_window)
+    if (project_is_open())
+    {
+        snprintf(candidate, sizeof candidate, "%s/%s", g_project.dir, filename);
+        if (file_readable(candidate))
+            open_path = candidate;
+    }
+    if (!open_path && g_active_editor_window)
     {
         char dir[1024];
         strncpy(dir, ui_get_path(g_active_editor_window), sizeof dir - 1);
@@ -5083,6 +6450,28 @@ static void refresh_open_windows(void)
  * usually doesn't hit it, since typing right before pressing F7 naturally
  * keeps the real document on top. Save/Save As already got this same fix -
  * Compile just never had it applied. */
+
+/* Unified Build action: if active file is part of open project, build the
+ * entire project; otherwise compile just the active file using its settings.
+ * External tools' $(CakeOutput) and $(Target) macros expand correctly in both
+ * cases: project context uses all files and project target, standalone context
+ * uses just the active file and IDE-wide target settings. */
+static void do_build(void)
+{
+    ui_node* active = g_active_editor_window;
+    const char* file = active ? ui_get_path(active) : "";
+
+    /* If project is open and active file is part of it, build the whole project */
+    if (project_is_open() && project_contains_file(file))
+    {
+        do_project_build();
+    }
+    else
+    {
+        do_compile();
+    }
+}
+
 static void do_compile(void)
 {
     /* One compile at a time. Without this, a second F7 landing mid-build
@@ -5113,54 +6502,75 @@ static void do_compile(void)
     struct report report;
     memset(&report, 0, sizeof report);
 
-    /* Build argv from the Compile > Options... settings: "tcc", the target
-     * flag (when one is picked), the option tokens (split on whitespace), then
-     * the file. argv[] and optbuf are sized well past any realistic option
-     * count/length; excess tokens are simply dropped. */
+    /* Build argv from the Compile > Options... settings - the open project's
+     * own if `file` is actually one of its files, else the IDE-wide default
+     * (see active_compile_settings()/project_contains_file()): "tcc", the
+     * target flag (when one is picked), the option tokens (split on
+     * whitespace), then the file. argv[] and optbuf are sized well past any
+     * realistic option count/length; excess tokens are simply dropped. */
+    compile_settings* cs = active_compile_settings(file);
+    int use_project_settings = (cs == &g_project.compile);
     const char* argv[64];
     int argc = 0;
     argv[argc++] = "tcc";
     /* Compile > Options...' "Output Format" row - see g_diagformat_slugs. */
     char diagformat[32] = { 0 };
-    if (g_compile.diagnostic_format && g_compile.diagnostic_format[0])
+    if (cs->diagnostic_format && cs->diagnostic_format[0])
     {
         snprintf(diagformat, sizeof diagformat, "-fdiagnostics-format=%s",
-                 g_compile.diagnostic_format);
+                 cs->diagnostic_format);
         argv[argc++] = diagformat;
     }
     char target[20] = { 0 };
-    if (g_compile.target[0])
+    if (cs->target[0])
     {
-        snprintf(target, sizeof target, "-target=%s", g_compile.target);
+        snprintf(target, sizeof target, "-target=%s", cs->target);
         argv[argc++] = target;
     }
     char style[24] = { 0 };
-    if (g_compile.style[0])
+    if (cs->style[0])
     {
-        snprintf(style, sizeof style, "-style=%s", g_compile.style);
+        snprintf(style, sizeof style, "-style=%s", cs->style);
         argv[argc++] = style;
     }
     /* The Compiler Options dialog's "[x] -flag" toggles - each one just adds
      * its literal flag when on, same as the free-text tokens below. */
-    if (g_compile.no_output)
+    if (cs->no_output)
         argv[argc++] = "-no-output";
-    if (g_compile.line_directives)
+    if (cs->line_directives)
         argv[argc++] = "-line-directives";
-    if (g_compile.fanalyzer)
+    if (cs->fanalyzer)
         argv[argc++] = "-fanalyzer";
-    if (g_compile.const_literal)
+    if (cs->const_literal)
         argv[argc++] = "-const-literal";
-    if (g_compile.wall)
+    if (cs->wall)
         argv[argc++] = "-Wall";
 
-    char optbuf[sizeof g_compile.options];
-    snprintf(optbuf, sizeof optbuf, "%s", g_compile.options);
+    char optbuf[sizeof cs->options];
+    snprintf(optbuf, sizeof optbuf, "%s", cs->options);
 
     for (char* tok = strtok(optbuf, " \t"); tok && argc < 63;
          tok = strtok(NULL, " \t"))
     {
         argv[argc++] = tok;
     }
+
+    /* g_project.include_dirs[], resolved to absolute paths and turned into
+     * -I flags - only when `file` is actually part of that project (same
+     * use_project_settings check cs came from above); a Playground/scratch
+     * file gets none of them, even while an unrelated project is open. */
+    char include_flags[CAKE_PROJECT_MAX_INCLUDES][1024];
+    if (use_project_settings)
+    {
+        for (int i = 0; i < g_project.include_count && argc < 63; i++)
+        {
+            char abs_dir[1024 - 2];
+            project_abs_path(g_project.include_dirs[i], abs_dir, sizeof abs_dir);
+            snprintf(include_flags[i], sizeof include_flags[0], "-I%s", abs_dir);
+            argv[argc++] = include_flags[i];
+        }
+    }
+
     argv[argc++] = file;
 
     /* Hand argv to the worker through storage that outlives this frame -
@@ -5195,6 +6605,134 @@ static void do_compile(void)
     /* Returns immediately now - compile_stream_poll(), called once per frame
      * from app_frame(), streams the output and calls compile_finish() when
      * the worker is done. */
+}
+
+/* Project > "Build" - same argv shape do_compile() builds from Compile >
+ * Options... (g_compile: target/style/diagnostic format/flags/free-text
+ * options), just with every ".c" file in the open project appended instead
+ * of only the active document's own path. Handing the compiler more than one
+ * translation unit at once - and whatever that takes from there (linking,
+ * etc.) - is entirely its own job; the IDE's part ends at gathering the file
+ * list and invoking it, same division of labor g_project's own doc comment
+ * describes. No-op without an open project, or while a compile/build/
+ * external tool is already running (shares g_job, same one-at-a-time rule as
+ * do_compile()). */
+static void do_project_build(void)
+{
+    if (g_job.running || !project_is_open())
+        return;
+
+    /* Save every project file that's currently open in an editor first - the
+     * compiler reads from disk, so a stale copy would silently build the
+     * last-saved version instead of what's on screen (do_compile()'s own
+     * save_active_file() call, just for every project file instead of only
+     * the active one). */
+    for (int i = 0; i < g_project.file_count; i++)
+    {
+        char abs_path[1024];
+        project_abs_path(g_project.files[i], abs_path, sizeof abs_path);
+        ui_node* open_win = find_open_window(abs_path);
+        if (open_win)
+            save_active_file(open_win);
+    }
+
+    /* Always this project's own settings, never the IDE-wide g_compile -
+     * do_project_build() only ever runs while a project is open (checked
+     * above), so g_project.compile already is what active_compile_settings()
+     * would return; read it directly rather than through that indirection. */
+    compile_settings* cs = &g_project.compile;
+    const char* argv[64];
+    int argc = 0;
+    argv[argc++] = "tcc";
+    char diagformat[32] = { 0 };
+    if (cs->diagnostic_format && cs->diagnostic_format[0])
+    {
+        snprintf(diagformat, sizeof diagformat, "-fdiagnostics-format=%s",
+                 cs->diagnostic_format);
+        argv[argc++] = diagformat;
+    }
+    char target[20] = { 0 };
+    if (cs->target[0])
+    {
+        snprintf(target, sizeof target, "-target=%s", cs->target);
+        argv[argc++] = target;
+    }
+    char style[24] = { 0 };
+    if (cs->style[0])
+    {
+        snprintf(style, sizeof style, "-style=%s", cs->style);
+        argv[argc++] = style;
+    }
+    if (cs->no_output)
+        argv[argc++] = "-no-output";
+    if (cs->line_directives)
+        argv[argc++] = "-line-directives";
+    if (cs->fanalyzer)
+        argv[argc++] = "-fanalyzer";
+    if (cs->const_literal)
+        argv[argc++] = "-const-literal";
+    if (cs->wall)
+        argv[argc++] = "-Wall";
+
+    char optbuf[sizeof cs->options];
+    snprintf(optbuf, sizeof optbuf, "%s", cs->options);
+    for (char* tok = strtok(optbuf, " \t"); tok && argc < 63;
+         tok = strtok(NULL, " \t"))
+        argv[argc++] = tok;
+
+    /* g_project.include_dirs[], resolved to absolute paths and turned into
+     * -I flags - same "-Iabsdir" shape do_compile() below now uses. */
+    static char project_build_include_flags[CAKE_PROJECT_MAX_INCLUDES][1024];
+    for (int i = 0; i < g_project.include_count && argc < 63; i++)
+    {
+        char abs_dir[1024 - 2];
+        project_abs_path(g_project.include_dirs[i], abs_dir, sizeof abs_dir);
+        snprintf(project_build_include_flags[i], sizeof project_build_include_flags[0], "-I%s", abs_dir);
+        argv[argc++] = project_build_include_flags[i];
+    }
+
+    /* Every ".c" file in the project, resolved to an absolute path - headers
+     * are never handed to the compiler directly, same as a normal single-
+     * file Compile never would be pointed at a .h. */
+    static char project_build_abs_paths[CAKE_PROJECT_MAX_FILES][1024];
+    int file_argc = 0;
+    for (int i = 0; i < g_project.file_count && argc < 63; i++)
+    {
+        const char* entry = g_project.files[i];
+        size_t len = strlen(entry);
+        if (len < 2 || entry[len - 2] != '.' || entry[len - 1] != 'c')
+            continue;
+        project_abs_path(entry, project_build_abs_paths[file_argc], sizeof project_build_abs_paths[0]);
+        argv[argc++] = project_build_abs_paths[file_argc];
+        file_argc++;
+    }
+
+    if (file_argc == 0)
+    {
+        ui_set_value(g_output_editor, "The open project has no .c files to build.\n");
+        ui_screen_show_window(g_screen, g_output_window);
+        return;
+    }
+
+    g_job.argc = 0;
+    for (int i = 0; i < argc && i < 64; i++)
+    {
+        snprintf(g_job.storage[i], sizeof g_job.storage[i], "%s", argv[i]);
+        g_job.argv[i] = g_job.storage[i];
+        g_job.argc++;
+    }
+    g_job.active = g_active_editor_window;
+
+    ui_set_value(g_output_editor, "");
+    ui_screen_show_window(g_screen, g_output_window);
+
+    if (!compile_stream_start())
+    {
+        compile_status_set("");
+        ui_set_value(g_output_editor, "Could not start the build (pipe/thread creation failed).\n");
+        return;
+    }
+    compile_status_set("Building...");
 }
 
 /* Launches External Tool `index`. Returns quietly if one is already
@@ -5273,6 +6811,528 @@ static void do_run_external_tool(int index)
     }
     g_job.running = 1;
     compile_status_set(g_job.proc_title[0] ? g_job.proc_title : "Running...");
+}
+
+/* --- Debug menu (scripted lldb - see ide_debug.h) --------------------------- */
+
+/* Routes lldb's raw session log (every line debug_poll() sees, prompts
+ * and all) into the same Output window Compile/External Tools already
+ * share (compile_text_append/g_job.text) - one place to look regardless of
+ * what produced the text, same reasoning as do_run_external_tool above. */
+static void debug_append_output(void* ctx, const char* line, size_t len)
+{
+    (void)ctx;
+    compile_text_append(line, len);
+    compile_text_append("\n", 1);
+    ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
+    ui_editor_goto_line(g_output_editor, g_job.lines + 1);
+}
+
+/* Finds the open document window whose path matches `file` - lldb's
+ * reported source file from its "frame #0: ... at FILE:LINE:COL" stop
+ * report (see lldb_parse_frame0_location in ide_debug.c) - so the exec-
+ * line highlight/auto-scroll (see debug_sync_exec_line below) lands on the
+ * right editor. Exact match first, then a basename fallback, since lldb
+ * and the IDE do not always agree on absolute vs relative form for the
+ * same file. */
+/* Returns the WRAPPER (not the editor child) so the caller can raise the
+ * window (ui_screen_show_window) as well as edit its content - a stop that
+ * only updates exec_line/scroll without also bringing the window to front
+ * is invisible whenever something else (e.g. the Output window, likely
+ * still frontmost from being read right after the previous stop) is on
+ * top of it. */
+static ui_node* find_editor_window_for_path(const char* file)
+{
+    if (!file || !file[0])
+        return NULL;
+
+    /* `file` comes straight from the backend's own stop-location report -
+     * lldb always uses '/', but cdb (see cdb_parse_stop_location() in
+     * ide_debug.c) reports whatever separator the PDB's source path used,
+     * which for a Windows build is '\' (e.g. "c:\...\playground.c") - so
+     * the basename split has to recognize either, the same fix already
+     * applied to do_debug_start()'s own path splitting. Without it, the
+     * whole backslash path is compared as a "basename" and never matches
+     * the editor's forward-slash path, silently leaving the exec-line
+     * highlight unapplied even though the debugger really did stop there
+     * (confirmed - the Output window showed the right file@line, only the
+     * editor highlight was missing). */
+    const char* file_base = strrchr(file, '/');
+    const char* file_base_bs = strrchr(file, '\\');
+    if (file_base_bs && (!file_base || file_base_bs > file_base))
+        file_base = file_base_bs;
+    file_base = file_base ? file_base + 1 : file;
+
+    for (int i = 0; i < ui_screen_window_count(g_screen); i++)
+    {
+        ui_node* wrapper = ui_screen_window_at(g_screen, i);
+        ui_node* ed = editor_in_window(wrapper);
+        if (!ed)
+            continue;
+        const char* path = ui_get_path(wrapper);
+        if (!path[0])
+            continue;
+        if (strcmp(path, file) == 0)
+            return wrapper;
+
+        const char* path_base = strrchr(path, '/');
+        const char* path_base_bs = strrchr(path, '\\');
+        if (path_base_bs && (!path_base || path_base_bs > path_base))
+            path_base = path_base_bs;
+        path_base = path_base ? path_base + 1 : path;
+        /* Case-insensitive: cdb lower-cases the drive letter and whole
+         * path in its own reports ("c:\users\..."), which will never
+         * byte-for-byte match the editor's path as opened (whatever case
+         * the user's filesystem/dialog produced) even after the separator
+         * fix above - Windows paths are case-insensitive anyway, so this
+         * is the correct comparison there, not just a workaround. */
+        if (ci_strcmp(path_base, file_base) == 0)
+            return wrapper;
+    }
+    return NULL;
+}
+
+/* Clears the exec-line highlight from every open editor - called whenever
+ * the debuggee stops being "stopped at a specific line" (running again,
+ * exited, or the session ending), so a stale highlight never lingers on a
+ * window the debugger has moved on from. */
+static void debug_clear_exec_line_everywhere(void)
+{
+    for (int i = 0; i < ui_screen_window_count(g_screen); i++)
+    {
+        ui_node* wrapper = ui_screen_window_at(g_screen, i);
+        ui_node* ed = editor_in_window(wrapper);
+        if (ed)
+            ui_set_exec_line(ed, 0);
+    }
+}
+
+/* Which stop debug_sync_exec_line() last actually synced onto an editor -
+ * so a stop already reflected isn't re-applied on every single poll tick
+ * while the debuggee just sits there stopped. Cleared (line back to -1)
+ * whenever state leaves DBG_STOPPED, so the NEXT stop - even one landing on
+ * this exact same file/line again (a breakpoint inside a loop) - is always
+ * treated as new. */
+static char g_debug_synced_file[DEBUG_MAX_PATH] = { 0 };
+static int g_debug_synced_line = -1;
+
+/* Reflects g_dbg's current stop location onto the editor it belongs to -
+ * called once per tick from app_frame(), right after draining whatever the
+ * backend debugger printed (see debug_stream_poll below). */
+static void debug_sync_exec_line(void)
+{
+    if (g_dbg.state == DBG_STOPPED && g_dbg.cur_line > 0)
+    {
+        /* Only do the actual sync - including ui_screen_show_window()
+         * below - on a NEW stop, not every poll tick spent sitting at an
+         * already-synced one. ui_screen_show_window() unconditionally
+         * clears s->open_menu (see its own doc comment - reusing a window
+         * slot resets menu/select/focus state right along with it), so
+         * calling it every frame while stopped was force-closing any menu
+         * the user tried to open the instant they clicked it - Step
+         * Into/Over included, and indistinguishable from the whole menu
+         * bar being frozen. Confirmed: reported as "can't press menu Step
+         * Into... but only when stopped at the breakpoint line." */
+        if (g_debug_synced_line == g_dbg.cur_line &&
+            strcmp(g_debug_synced_file, g_dbg.cur_file) == 0)
+            return;
+
+        debug_clear_exec_line_everywhere();
+        ui_node* wrapper = find_editor_window_for_path(g_dbg.cur_file);
+        if (wrapper)
+        {
+            ui_node* ed = editor_in_window(wrapper);
+            ui_set_exec_line(ed, g_dbg.cur_line);
+            ui_editor_goto_line(ed, g_dbg.cur_line);
+            /* Raise the window on every NEW stop, not just the session's
+             * first (see find_editor_window_for_path's own comment) -
+             * without this, a stop reached after the user has clicked into
+             * the Output window (to read the very log proving the
+             * debugger IS stopped in the right place) applies the
+             * highlight to a window that's silently behind another one,
+             * and looks from the outside exactly like "it didn't stop". */
+            ui_screen_show_window(g_screen, wrapper);
+        }
+
+        snprintf(g_debug_synced_file, sizeof g_debug_synced_file, "%s", g_dbg.cur_file);
+        g_debug_synced_line = g_dbg.cur_line;
+    }
+    else if (g_dbg.state != DBG_STOPPED)
+    {
+        debug_clear_exec_line_everywhere();
+        g_debug_synced_file[0] = 0;
+        g_debug_synced_line = -1;
+    }
+}
+
+/* Keeps the Debug menu's items enabled/disabled for whatever g_dbg.state
+ * currently is - same forward-declared/kept-current-every-frame pattern as
+ * g_compile_item (see its own doc comment). */
+static void debug_menu_refresh(void)
+{
+    if (g_debug_start_item)
+        ui_set_enabled(g_debug_start_item, g_dbg.state == DBG_IDLE);
+    if (g_debug_stop_item)
+        ui_set_enabled(g_debug_stop_item, g_dbg.state != DBG_IDLE);
+    int stopped = g_dbg.state == DBG_STOPPED;
+    if (g_debug_continue_item)
+        ui_set_enabled(g_debug_continue_item, stopped);
+    if (g_debug_step_over_item)
+        ui_set_enabled(g_debug_step_over_item, stopped);
+    if (g_debug_step_into_item)
+        ui_set_enabled(g_debug_step_into_item, stopped);
+}
+
+/* Debug > "Toggle Breakpoint" (EVT_DEBUG_TOGGLE_BREAKPOINT) / F9 - the
+ * keyboard equivalent of clicking the active editor's gutter (see
+ * editor_click_set_cursor in ide_ui.c), toggling a breakpoint on whichever
+ * line the caret is currently on. */
+static void do_debug_toggle_breakpoint(void)
+{
+    ui_node* active = g_active_editor_window;
+    ui_node* ed = editor_in_window(active);
+    if (!ed || ui_get_syntax(ed) != UI_SYNTAX_C)
+        return;   /* same restriction as the gutter click - see
+                   * editor_click_set_cursor's own comment */
+
+    const char* text = ui_get_value(ed);
+    int cursor = ui_editor_get_cursor(ed);
+    int line = 1;
+    for (int i = 0; i < cursor && text[i]; i++)
+    {
+        if (text[i] == '\n')
+            line++;
+    }
+    ui_editor_toggle_breakpoint(ed, line);
+}
+
+/* Debug > "Start Debugging" (EVT_DEBUG_START) / F5.
+ *
+ * Launches lldb on the active document's executable and inserts a
+ * breakpoint for every line toggled in that document's gutter (see
+ * ui_editor_toggle_breakpoint in ide_ui.h). The executable itself is NOT
+ * built here - this assumes one already exists at cake's own predicted
+ * OUTPUT location, same "<root>/<platform name>/<relative path>" layout
+ * $(CakeOutput) itself predicts (see exttool_append_cake_output's own doc
+ * comment) - e.g. "foo.c" next to no project gets root = its own
+ * directory, so the expected binary is "<that dir>/<platform>/foo" (no
+ * extension), the way `cc -g "<that dir>/<platform>/foo.c" -o
+ * "<that dir>/<platform>/foo"` run on cake's own generated C would leave
+ * it. Automatically running cake + that compile step first (threading a -g
+ * flag through the External Tools' $(CakeOutput)-style expansion - see
+ * exttool_expand) is a natural follow-up, deliberately left out of this
+ * first pass rather than guessing at a toolchain command that fits every
+ * user's setup. */
+static void do_debug_start(void)
+{
+    if (g_dbg.state != DBG_IDLE)
+        return;   /* one session at a time */
+
+    ui_node* active = g_active_editor_window;
+    ui_node* ed = editor_in_window(active);
+    const char* path = active ? ui_get_path(active) : "";
+    if (!ed || !path[0])
+        return;
+
+    save_active_file(active);
+
+    /* Split `path` into its directory, bare file name (with extension -
+     * src_base, "playground.c"), and base name (no extension - base,
+     * "playground") - same split exttool_expand() does for its own
+     * $(Dir)/$(Name) macros, just inlined here since this needs only the
+     * pieces, not the full macro table. src_base (not the full `path`) is
+     * what breakpoint file arguments below are matched against: lldb
+     * resolves "breakpoint set --file" against whatever filename form is
+     * actually embedded in the debug info, which for cake's own generated
+     * C is the #line directive's own filename (codegen.c) - a bare
+     * relative name, same convention cake itself was invoked with, not an
+     * IDE-side absolute path. Passing the full absolute `path` there
+     * instead left every breakpoint "pending" (never resolved, so the
+     * program just ran straight through) - a real symptom seen while
+     * testing this. */
+    char src_dir[DEBUG_MAX_PATH] = { 0 };
+    char src_base[512];
+    char base[512];
+    {
+        char tmp[DEBUG_MAX_PATH];
+        snprintf(tmp, sizeof tmp, "%s", path);
+        char* slash = strrchr(tmp, '/');
+        char* backslash = strrchr(tmp, '\\');
+        if (backslash && (!slash || backslash > slash))
+            slash = backslash;
+        snprintf(src_base, sizeof src_base, "%s", slash ? slash + 1 : tmp);
+        if (slash)
+        {
+            *slash = 0;
+            snprintf(src_dir, sizeof src_dir, "%s", tmp);
+        }
+        snprintf(base, sizeof base, "%s", src_base);
+        char* dot = strrchr(base, '.');
+        if (dot)
+            *dot = 0;   /* playground.c -> playground */
+    }
+
+    /* The same two helpers $(TargetDir)/$(TargetFileName) expand through,
+     * so an External Tool that writes its binary to $(TargetPath) and this
+     * launch cannot drift apart - with a project open both root at the
+     * PROJECT's directory, not the active document's (the playground is a
+     * scratch file that is never part of a project, so deriving the path
+     * from whatever has focus pointed Debug at %APPDATA% instead of the
+     * project the user was actually building). They also carry the
+     * platform/extension fallbacks this function used to spell out inline
+     * (msvc links "<name>.exe", gcc/clang a bare name). */
+    char dir[DEBUG_MAX_PATH];
+    target_dir_path(src_dir, dir, sizeof dir);
+
+    char exe_name[512];
+    target_file_name(base, exe_name, sizeof exe_name);
+    char exe_path[DEBUG_MAX_PATH];
+    snprintf(exe_path, sizeof exe_path, "%s/%s", dir, exe_name);
+
+    g_job.len = 0;
+    g_job.lines = 0;
+    if (g_job.text)
+        g_job.text[0] = 0;
+    ui_set_value(g_output_editor, "");
+    ui_screen_show_window(g_screen, g_output_window);
+    ui_screen_show_window(g_screen, active);
+
+    char header[DEBUG_MAX_PATH + 64];
+    /* Cosmetic only - quoted so a path containing spaces (e.g. under
+     * "Application Support") reads unambiguously as one argument. The
+     * actual launch never goes through a shell (see debug_start() in
+     * ide_debug.c - argv is exec'd directly), so this quoting has no
+     * bearing on whether the real command works, only on how it echoes.
+     * Must match debug_start()'s own choice of backend per platform (cdb
+     * on Windows, lldb elsewhere - see its doc comment in ide_debug.h) or
+     * this just prints a lie. */
+#if defined(_WIN32)
+    snprintf(header, sizeof header, "> cdb -lines \"%s\"\n", exe_path);
+#else
+    snprintf(header, sizeof header, "> lldb --no-use-colors -x -- \"%s\"\n", exe_path);
+#endif
+    compile_text_append(header, strlen(header));
+    ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
+
+    debug_init(&g_dbg);
+    g_dbg.on_output = debug_append_output;
+
+    /* debug_start()'s failure could mean either of two very different
+     * things - the target wasn't built yet, or the backend debugger itself
+     * (cdb on Windows, lldb elsewhere - see debug_start()'s own doc
+     * comment) isn't installed/on PATH - and CreateProcess's own error text
+     * ("The system cannot find the file specified") doesn't say which file
+     * it means, so a single generic message blaming exe_path (the old
+     * wording here) was actively misleading whenever the real problem was
+     * a missing backend. Telling these apart doesn't need CreateProcess at
+     * all - exe_path is just a plain argument to the backend, never looked
+     * up by CreateProcess itself, so whether it exists on disk is
+     * orthogonal to whether the backend launched; checking it directly
+     * (fopen, same pattern this file already uses elsewhere) picks the
+     * right explanation instead of guessing. */
+    bool exe_exists = false;
+    {
+        FILE* f = fopen(exe_path, "rb");
+        if (f)
+        {
+            exe_exists = true;
+            fclose(f);
+        }
+    }
+
+    char err[256] = { 0 };
+    if (!debug_start(&g_dbg, exe_path, NULL, dir[0] ? dir : NULL, err, sizeof err))
+    {
+        char msg[DEBUG_MAX_PATH + 384];
+        if (!exe_exists)
+        {
+            snprintf(msg, sizeof msg,
+                      "Could not start debugging: no built executable at '%s'.\n"
+                      "Build the project for this target first, then try Debug again.\n",
+                      exe_path);
+        }
+        else
+        {
+#if defined(_WIN32)
+            snprintf(msg, sizeof msg,
+                      "Could not start debugging: %s\n"
+                      "'%s' exists, so this is cdb itself failing to launch - "
+                      "make sure cdb (part of the Windows SDK's \"Debugging Tools "
+                      "for Windows\", or WinDbg) is installed and its directory is "
+                      "on your PATH.\n"
+                      "winget install Microsoft.WinDbg\n",
+                      err, exe_path);
+#else
+            snprintf(msg, sizeof msg,
+                      "Could not start debugging: %s\n"
+                      "'%s' exists, so this is lldb itself failing to launch - "
+                      "make sure lldb (LLVM) is installed and its directory is on your PATH.\n",
+                      err, exe_path);
+#endif
+        }
+        compile_text_append(msg, strlen(msg));
+        ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
+        debug_menu_refresh();
+        return;
+    }
+
+    int bp_lines[256];
+    int bp_count = ui_editor_get_breakpoints(ed, bp_lines, 256);
+    for (int i = 0; i < bp_count; i++)
+        debug_break_insert(&g_dbg, src_base, bp_lines[i]);
+
+    debug_run(&g_dbg);
+    debug_menu_refresh();
+}
+
+static void do_debug_stop(void)
+{
+    if (g_dbg.state == DBG_IDLE)
+        return;
+    debug_shutdown(&g_dbg);
+    debug_clear_exec_line_everywhere();
+    debug_menu_refresh();
+}
+
+static void do_debug_continue(void)
+{
+    if (g_dbg.state != DBG_STOPPED)
+        return;
+    debug_continue(&g_dbg);
+}
+
+static void do_debug_step_over(void)
+{
+    if (g_dbg.state != DBG_STOPPED)
+        return;
+    debug_step_over(&g_dbg);
+}
+
+static void do_debug_step_into(void)
+{
+    if (g_dbg.state != DBG_STOPPED)
+        return;
+    debug_step_into(&g_dbg);
+}
+
+/* Rebuilds the Debug Info panel's listbox from g_dbg.locals/g_dbg.frames -
+ * a "Locals" header row, one row per local (name = value), a "Call Stack"
+ * header row, one row per frame - same clear-then-rebuild pattern as
+ * populate_listbox_from_dir() (ide.c:2987 area): drop every existing
+ * child, then append fresh UI_TAG_ITEM rows. Header rows carry no id/path
+ * (nothing to select them into, they're just section labels); the listbox
+ * itself is read-only for this pass - see Stage 4's own non-goals (no
+ * click-to-select-frame yet). Called only when g_dbg.info_dirty is set
+ * (see debug_stream_poll below), not every frame. */
+static void debug_info_panel_refresh(void)
+{
+    if (!g_debuginfo_listbox)
+        return;
+
+    while (ui_child_count(g_debuginfo_listbox) > 0)
+    {
+        ui_node* c = ui_child_at(g_debuginfo_listbox, 0);
+        ui_remove_child(g_debuginfo_listbox, c);
+        ui_node_free(c);
+    }
+
+    ui_node* locals_header = ui_create_element(UI_TAG_ITEM);
+    ui_set_label(locals_header, "-- Locals --");
+    ui_append_child(g_debuginfo_listbox, locals_header);
+
+    if (g_dbg.locals_count == 0)
+    {
+        ui_node* empty = ui_create_element(UI_TAG_ITEM);
+        ui_set_label(empty, "  (none)");
+        ui_append_child(g_debuginfo_listbox, empty);
+    }
+    for (int i = 0; i < g_dbg.locals_count; i++)
+    {
+        char label[400];
+        snprintf(label, sizeof label, "  %s = %s", g_dbg.locals[i].name, g_dbg.locals[i].value);
+        ui_node* item = ui_create_element(UI_TAG_ITEM);
+        ui_set_label(item, label);
+        ui_append_child(g_debuginfo_listbox, item);
+    }
+
+    ui_node* frames_header = ui_create_element(UI_TAG_ITEM);
+    ui_set_label(frames_header, "-- Call Stack --");
+    ui_append_child(g_debuginfo_listbox, frames_header);
+
+    if (g_dbg.frames_count == 0)
+    {
+        ui_node* empty = ui_create_element(UI_TAG_ITEM);
+        ui_set_label(empty, "  (none)");
+        ui_append_child(g_debuginfo_listbox, empty);
+    }
+    for (int i = 0; i < g_dbg.frames_count; i++)
+    {
+        char label[300];
+        snprintf(label, sizeof label, "  #%d %s", g_dbg.frames[i].index, g_dbg.frames[i].text);
+        ui_node* item = ui_create_element(UI_TAG_ITEM);
+        ui_set_label(item, label);
+        ui_append_child(g_debuginfo_listbox, item);
+    }
+}
+
+/* Whether g_dbg was DBG_STOPPED as of the end of the previous
+ * debug_stream_poll() call - a persistent flag rather than a `prev_state`
+ * local re-read from g_dbg.state at each call's entry, because a Continue/
+ * Step menu command flips g_dbg.state to DBG_RUNNING synchronously from
+ * on_ui_event(), a separate call entirely from debug_stream_poll() - by
+ * the time the next poll runs, g_dbg.state already reads DBG_RUNNING, so
+ * a same-call `prev_state` would never see the DBG_STOPPED it was
+ * actually transitioning away from, and debug_clear_info() would never
+ * fire (the Locals/Call Stack panel would keep showing the stop just
+ * left, arbitrarily stale, until the next real stop overwrote it). */
+static bool g_debug_was_stopped = false;
+
+/* Called once per frame from app_frame(), same "cheap no-op when idle"
+ * contract as compile_stream_poll() - debug_poll() itself already no-ops
+ * with no live session. */
+static void debug_stream_poll(void)
+{
+    debug_poll(&g_dbg);
+    debug_sync_exec_line();
+    if (debug_backend_exited(&g_dbg))
+        debug_clear_exec_line_everywhere();
+    debug_menu_refresh();
+
+    /* Locals/Call Stack refresh, triggered exactly once per fresh stop
+     * (not every frame the debuggee happens to still be stopped) - see
+     * debug_refresh_info()'s own doc comment in ide_debug.h. Leaving
+     * DBG_STOPPED for any reason (running again, exited, session torn
+     * down) clears the panel instead, so it never shows a stale stop's
+     * data once the debuggee has moved on. */
+    bool now_stopped = g_dbg.state == DBG_STOPPED;
+    if (now_stopped && !g_debug_was_stopped)
+        debug_refresh_info(&g_dbg);
+    else if (!now_stopped && g_debug_was_stopped)
+        debug_clear_info(&g_dbg);
+    g_debug_was_stopped = now_stopped;
+
+    if (g_dbg.info_dirty)
+    {
+        debug_info_panel_refresh();
+        g_dbg.info_dirty = false;
+    }
+
+    /* Auto-end the session the instant the debuggee exits, rather than
+     * leaving DBG_EXITED sitting there until the user manually hits Stop
+     * (Shift+F5) - every other IDE returns straight to "ready to run"
+     * once the program under it finishes, and the Debug menu otherwise
+     * keeps showing Stop as the live action with Start disabled even
+     * though nothing is actually running any more. The debuggee's own
+     * final output (and the "exited with status = N" line itself) has
+     * already reached the Output window via on_output before this runs,
+     * in the same debug_poll() call that set DBG_EXITED - nothing is lost
+     * by tearing the session down immediately. */
+    if (g_dbg.state == DBG_EXITED)
+    {
+        debug_shutdown(&g_dbg);
+        debug_menu_refresh();
+        g_debug_was_stopped = false;
+    }
 }
 
 /* External Tool counterpart of compile_finish(): reap the child, note its
@@ -5832,6 +7892,8 @@ typedef enum {
     FR_LOOKIN_CURRENT_FILE = 0,
     FR_LOOKIN_CURRENT_DIR,
     FR_LOOKIN_INCLUDE_DIR,
+    FR_LOOKIN_PROJECT,  /* every file in the open project (g_project.files) -
+                         * see fr_search_project/fr_replace_project */
 } fr_look_in;
 
 typedef enum {
@@ -5859,6 +7921,7 @@ static const char* fr_look_in_label(fr_look_in v)
         case FR_LOOKIN_CURRENT_FILE: return "Current File";
         case FR_LOOKIN_CURRENT_DIR:  return "Current Dir";
         case FR_LOOKIN_INCLUDE_DIR:  return "Include Dir";
+        case FR_LOOKIN_PROJECT:      return "Project";
     }
     return "?";
 }
@@ -6320,9 +8383,160 @@ static int fr_replace_dir(const find_replace_options* opts, char* out, size_t ou
     return total;
 }
 
+/* Look in: Project - fr_search_text() over every file in the open project
+ * (g_project.files, resolved through project_abs_path()) that matches the
+ * File Types filter, instead of scanning a single directory - same
+ * prefer-the-live-editor-over-disk rule as fr_search_dir. */
+static int fr_search_project(const find_replace_options* opts, char* out, size_t out_size)
+{
+    if (!project_is_open())
+    {
+        snprintf(out, out_size, "No project is open, so there's nothing to search.\n");
+        return 0;
+    }
+    if (opts->find_text[0] == '\0')
+    {
+        snprintf(out, out_size, "Nothing to find - the Find field is empty.\n");
+        return 0;
+    }
+
+    const char* mask = fr_file_type_mask(opts->file_type);
+    size_t used = 0;
+    int total = 0, files_searched = 0;
+    for (int i = 0; i < g_project.file_count; i++)
+    {
+        const char* entry = g_project.files[i];
+        if (!mask_matches(mask, basename_of(entry)))
+            continue;
+
+        char abs_path[1024];
+        project_abs_path(entry, abs_path, sizeof abs_path);
+
+        ui_node* existing = find_open_window(abs_path);
+        char* loaded = NULL;
+        const char* content;
+        if (existing)
+            content = ui_get_value(editor_in_window(existing));
+        else
+            content = loaded = read_file_to_string(abs_path);
+        if (!content)
+            continue;
+
+        files_searched++;
+        total += fr_search_text(entry, content, opts, out, out_size, &used);
+        free(loaded);
+    }
+
+    if (used < out_size)
+    {
+        if (total == 0)
+            snprintf(out + used, out_size - used,
+                "\"%s\" not found in %d file(s) in project \"%s\".\n",
+                opts->find_text, files_searched, g_project.name);
+        else
+            snprintf(out + used, out_size - used,
+                "\n%d occurrence(s) of \"%s\" in %d file(s) in project \"%s\".\n",
+                total, opts->find_text, files_searched, g_project.name);
+    }
+    return total;
+}
+
+/* Look in: Project, Replace mode - fr_replace_text() over the same file list
+ * as fr_search_project() above, same never-touch-disk-directly rule as
+ * fr_replace_dir: an already-open window's editor is updated in place and
+ * marked dirty; a file that wasn't open gets a brand new editor window with
+ * the replacement already applied, also marked dirty rather than written
+ * straight to disk - File > Save all is the natural next step. */
+static int fr_replace_project(const find_replace_options* opts, char* out, size_t out_size)
+{
+    if (!project_is_open())
+    {
+        snprintf(out, out_size, "No project is open, so there's nothing to replace in.\n");
+        return 0;
+    }
+    if (opts->find_text[0] == '\0')
+    {
+        snprintf(out, out_size, "Nothing to find - the Find field is empty.\n");
+        return 0;
+    }
+
+    const char* mask = fr_file_type_mask(opts->file_type);
+    size_t used = 0;
+    int total = 0, files_changed = 0, files_searched = 0;
+    for (int i = 0; i < g_project.file_count; i++)
+    {
+        const char* entry = g_project.files[i];
+        if (!mask_matches(mask, basename_of(entry)))
+            continue;
+
+        char abs_path[1024];
+        project_abs_path(entry, abs_path, sizeof abs_path);
+
+        ui_node* existing = find_open_window(abs_path);
+        char* loaded = NULL;
+        const char* content;
+        if (existing)
+            content = ui_get_value(editor_in_window(existing));
+        else
+            content = loaded = read_file_to_string(abs_path);
+        if (!content)
+            continue;
+
+        files_searched++;
+        char* new_text = NULL;
+        int count = fr_replace_text(content, opts, &new_text);
+        if (count > 0)
+        {
+            files_changed++;
+            total += count;
+            if (used < out_size)
+            {
+                int n = snprintf(out + used, out_size - used,
+                    "%s: %d replacement(s)\n", entry, count);
+                if (n > 0)
+                    used += (size_t)n;
+            }
+
+            if (existing)
+            {
+                ui_node* ed = editor_in_window(existing);
+                ui_set_value(ed, new_text);
+                ui_set_dirty(ed, 1);
+            }
+            else
+            {
+                char title[320];
+                snprintf(title, sizeof title, " %s ", basename_of(entry));
+                ui_node* w = make_editor_window(g_root, g_new_count++, title, new_text, abs_path);
+                ui_node* ed = editor_in_window(w);
+                if (ed)
+                    ui_set_dirty(ed, 1);
+                ui_screen_show_window(g_screen, w);
+            }
+            free(new_text);
+        }
+        free(loaded);
+    }
+
+    if (used < out_size)
+    {
+        if (total == 0)
+            snprintf(out + used, out_size - used,
+                "\"%s\" not found in %d file(s) in project \"%s\" - nothing replaced.\n",
+                opts->find_text, files_searched, g_project.name);
+        else
+            snprintf(out + used, out_size - used,
+                "\n%d replacement(s) of \"%s\" with \"%s\" in %d file(s) (%d changed) in project \"%s\".\n"
+                "(Not saved - use File > Save all to write them to disk.)\n",
+                total, opts->find_text, opts->replace_text, files_searched, files_changed, g_project.name);
+    }
+    return total;
+}
+
 /* Search or Replace (per opts->mode) is implemented for Look in: Current
- * File and Current Dir - see fr_search_current_file/fr_replace_current_file
- * and fr_search_dir/fr_replace_dir above; Include Dir still just says so
+ * File, Current Dir, and Project - see fr_search_current_file/
+ * fr_replace_current_file, fr_search_dir/fr_replace_dir, and
+ * fr_search_project/fr_replace_project above; Include Dir still just says so
  * rather than doing anything (there's no configured include-directories
  * list to search/replace in yet). Reports every field of `opts` first (the
  * exact options the panel handed off), then the search/replace results, to
@@ -6345,6 +8559,13 @@ static void do_find_replace(const find_replace_options* opts)
         else
             fr_search_dir(opts, msg, sizeof msg);
     }
+    else if (opts->look_in == FR_LOOKIN_PROJECT)
+    {
+        if (opts->mode)
+            fr_replace_project(opts, msg, sizeof msg);
+        else
+            fr_search_project(opts, msg, sizeof msg);
+    }
     else
     {
         snprintf(msg, sizeof msg,
@@ -6354,6 +8575,44 @@ static void do_find_replace(const find_replace_options* opts)
 
     ui_set_value(g_output_editor, msg);
     ui_screen_show_window(g_screen, g_output_window);
+}
+
+/* Search > "Go to Definition" (F12): not a real semantic lookup yet (see
+ * ide_lsp.h's lsp_text_document_definition() - still a //TODO stub) - so in
+ * the meantime this finds the word under the caret the plain-text way,
+ * through the same machinery Tools > Find and Replace uses (fr_search_dir()/
+ * fr_search_project() above), with Match case/Match whole word both forced
+ * on (a bare substring search for a short identifier would drown in
+ * unrelated hits) and the scope fixed to *.c;*.h files - across the whole
+ * open project when there is one (so a definition in another project file
+ * is actually found), else just the active file's own directory, same as
+ * before projects existed. No panel is shown - like do_find_replace() itself,
+ * this just writes straight to the Output window and raises it. */
+static void do_goto_definition(void)
+{
+    ui_node* win = g_active_editor_window;
+    ui_node* ed = win ? editor_in_window(win) : NULL;
+    if (!ed)
+        return;
+
+    const char* text = ui_get_value(ed);
+    int cursor = ui_editor_get_cursor(ed);
+
+    find_replace_options opts = { 0 };
+    if (!word_at_cursor(text, (int)strlen(text), cursor, opts.find_text, (int)sizeof opts.find_text))
+    {
+        ui_msgbox_button ok = { "   OK   ", 0 };
+        ui_message_box(g_screen, "Go to Definition", "No identifier under the caret.", &ok, 1);
+        return;
+    }
+
+    opts.mode = 0;  /* Find, not Replace */
+    opts.match_case = 1;
+    opts.match_whole_word = 1;
+    opts.look_in = project_is_open() ? FR_LOOKIN_PROJECT : FR_LOOKIN_CURRENT_DIR;
+    opts.file_type = FR_FILETYPE_C_H;
+
+    do_find_replace(&opts);
 }
 
 /* Copies whatever's currently sitting in the panel's live widgets back into
@@ -6440,12 +8699,13 @@ static void fr_rebuild_content(void)
 
     add_text(g_fr.panel, cx, cy, "Look in:", theme->label_fg, theme->window_bg);
     cy += 1;
-    g_fr.lookin = add_group(g_fr.panel, cx, cy, cw, 3, 0);
+    g_fr.lookin = add_group(g_fr.panel, cx, cy, cw, 4, 0);
     add_group_item(g_fr.lookin, "Current File");
     add_group_item(g_fr.lookin, "Current Dir");
     add_group_item(g_fr.lookin, "Include Dir");
+    add_group_item(g_fr.lookin, "Project");
     ui_select_set_selected(g_fr.lookin, g_fr.look_in);
-    cy += 4;
+    cy += 5;
 
     add_text(g_fr.panel, cx, cy, "File Types:", theme->label_fg, theme->window_bg);
     cy += 1;
@@ -6907,14 +9167,19 @@ static void do_edit_wordwrap(int columns, int justify)
         edit_replace_selection(ed, lo, hi, out, out_len);
 }
 
-/* Edit > Format C Source: reformats the *entire* active document by handing
- * it to format_c_source() (ide_format.c) - purely in memory, no temp files.
- * Unlike Stringify/To Upper/Word Wrap, this always acts on the whole buffer
- * rather than the current selection (indentation depth depends on brace
- * nesting from the start of the file, so formatting an arbitrary sub-range
- * in isolation wouldn't make sense), so it goes through editor_in_window()
- * + ui_set_value() (the same whole-buffer-rebuild path do_replace_all()
- * uses) instead of edit_selection_target()/edit_replace_selection(). */
+/* Edit > Format C Source: reformats the *entire* active document via
+ * lsp_text_document_formatting()/lsp_text_document_range_formatting()
+ * (ide_lsp.c) - textDocument/formatting or textDocument/rangeFormatting,
+ * depending on whether there's a selection, the same way a real LSP client
+ * would pick between the two methods. Purely in memory, no temp files.
+ *
+ * Unlike Stringify/To Upper/Word Wrap, a selection restricts Format to just
+ * those *lines* rather than reformatting only the selected text in
+ * isolation (indentation depth depends on brace nesting from the start of
+ * the file, so that wouldn't make sense) - so this goes through
+ * editor_in_window() + ui_set_value() (the same whole-buffer-rebuild path
+ * do_replace_all() uses) instead of edit_selection_target()/
+ * edit_replace_selection(). */
 static void do_edit_format(void)
 {
     ui_node* ed = editor_in_window(g_active_editor_window);
@@ -6922,24 +9187,27 @@ static void do_edit_format(void)
         return;
 
     const char* text = ui_get_value(ed);
-    size_t len = strlen(text);
+
+    /* Needed so #include "quoted.h" siblings of this file resolve. path/
+     * untitled live on the WINDOW node (see ui_set_path/ui_set_untitled call
+     * sites), not on the editor child `ed` returned by editor_in_window() -
+     * same node do_compile() reads (g_active_editor_window), not `ed`. */
+    const char* path = ui_get_untitled(g_active_editor_window) ? NULL : ui_get_path(g_active_editor_window);
+    char* uri = lsp_path_to_uri(path);
 
     /* Same -style=<name> as Compile > Options... (g_compile.style), not a
      * hardcoded style - so Format matches whatever the user picked there.
      * cake_format() itself defaults to -style=cake when none is set. */
-    char options[96] = "-format";
-    if (g_compile.style[0])
-    {
-        char stylearg[24];
-        snprintf(stylearg, sizeof stylearg, " -style=%s", g_compile.style);
-        strncat(options, stylearg, sizeof(options) - strlen(options) - 1);
-    }
+    const char* style = g_compile.style[0] ? g_compile.style : NULL;
 
-    /* A non-empty selection restricts Format to just those lines
-     * (-format-lines=first:last, same flag the CLI takes - see options.c),
-     * fed from the editor's selection instead of a command-line argument.
-     * No selection (or just a caret) formats the whole file, same as
-     * before. */
+    struct lsp_text_edit_list edits = { 0 };
+    bool ok;
+
+    /* A non-empty selection restricts Format to just those lines, fed from
+     * the editor's selection instead of a command-line argument. No
+     * selection (or just a caret) formats the whole file, same as before -
+     * just via the two different LSP methods now instead of one function
+     * with an optional flag. */
     int sel_lo = 0, sel_hi = 0;
     if (ui_editor_get_selection(ed, &sel_lo, &sel_hi) && sel_lo != sel_hi)
     {
@@ -6950,7 +9218,12 @@ static void do_edit_format(void)
             sel_hi = tmp;
         }
 
-        int line_lo = 1;
+        struct lsp_document_range_formatting_params params = { 0 };
+        params.text_document.uri = uri;
+        params.options.style = style;
+
+        /* 0-based, per lsp_position's own convention (see lsp_types.h). */
+        int line_lo = 0;
         for (const char* p = text; p < text + sel_lo && *p; p++)
         {
             if (*p == '\n')
@@ -6962,36 +9235,39 @@ static void do_edit_format(void)
             if (*p == '\n')
                 line_hi++;
         }
+        params.range.start.line = line_lo;
+        params.range.end.line = line_hi;
 
-        char rangearg[32];
-        snprintf(rangearg, sizeof rangearg, " -format-lines=%d:%d", line_lo, line_hi);
-        strncat(options, rangearg, sizeof(options) - strlen(options) - 1);
+        ok = lsp_text_document_range_formatting(text, &params, &edits);
+    }
+    else
+    {
+        struct lsp_document_formatting_params params = { 0 };
+        params.text_document.uri = uri;
+        params.options.style = style;
+
+        ok = lsp_text_document_formatting(text, &params, &edits);
     }
 
-    /* Needed so #include "quoted.h" siblings of this file resolve - see
-     * format_c_source()'s `path` doc comment. path/untitled live on the
-     * WINDOW node (see ui_set_path/ui_set_untitled call sites), not on the
-     * editor child `ed` returned by editor_in_window() - same node
-     * do_compile() reads (g_active_editor_window), not `ed`. */
-    const char* path = ui_get_untitled(g_active_editor_window) ? NULL : ui_get_path(g_active_editor_window);
+    free(uri);
 
-    size_t out_len;
-    char* formatted = format_c_source(options, path, text, len, &out_len);
-    if (formatted)
+    if (ok && edits.count > 0)
     {
         int cur = ui_editor_get_cursor(ed);      /* keep the caret put */
         int scroll = ui_editor_get_scroll(ed);   /* and the scroll position */
-        ui_set_value(ed, formatted);  /* (ui_set_value moves the caret to the
-                                        * end and resets scroll to the top) */
+        ui_set_value(ed, edits.items[0].new_text);  /* (ui_set_value moves the
+                                        * caret to the end and resets scroll
+                                        * to the top) */
         ui_editor_set_selection(ed, cur, cur);
         ui_editor_set_scroll(ed, scroll);
         ui_set_dirty(ed, 1);
-        free(formatted);
     }
     else
     {
         compile_status_set("Format failed");
     }
+
+    lsp_text_edit_list_destroy(&edits);
 }
 
 static const char* skip_spaces(const char* p)
@@ -7305,6 +9581,33 @@ static int on_line_complete(void* ctx, const char* line, char** out_text, int* o
     return 0;
 }
 
+/* Shared by EVT_COMPILE_OPTIONS and EVT_PROJECT_OPTIONS: populates every
+ * g_copts widget from `cs` and shows the modal. `cs` is remembered in
+ * g_copts.editing so EVT_COPTS_OK writes back to the very same struct this
+ * open chose, regardless of what project_is_open()/the active document do
+ * while the dialog is up. Retitled so it's obvious which one is being
+ * edited. */
+static void open_compiler_options_dialog(compile_settings* cs, int is_project)
+{
+    g_copts.editing = cs;
+    ui_set_label(g_copts.window, is_project ? " Compiler Options (Project) " : " Compiler Options ");
+    ui_set_value(g_copts.input, cs->options);
+    ui_set_value(g_copts.output, cs->output);
+    ui_select_set_selected(g_copts.target, target_slug_to_index(cs->target));
+    ui_select_set_selected(g_copts.style, style_slug_to_index(cs->style));
+    ui_select_set_selected(g_copts.diagformat, diagformat_slug_to_index(cs->diagnostic_format));
+    /* Re-sync the check-box group from the committed state every time the
+     * dialog opens, same reasoning as the Target/Style <select>s above - so
+     * a Cancel below discards whatever gets clicked this time (same pattern
+     * as Find's g_find.opts). */
+    ui_group_set_checked(g_copts.flags, 0, cs->no_output);
+    ui_group_set_checked(g_copts.flags, 1, cs->line_directives);
+    ui_group_set_checked(g_copts.flags, 2, cs->fanalyzer);
+    ui_group_set_checked(g_copts.flags, 3, cs->const_literal);
+    ui_group_set_checked(g_copts.flags, 4, cs->wall);
+    ui_screen_show_modal(g_screen, g_copts.modal);
+}
+
 /* Fired synchronously by ui_screen_update() for whatever widget was
  * activated this frame - pushed straight to us, not pulled via polling.
  * `param` is NULL for most ids (see ui_fire_event's call sites in ui.c) but
@@ -7320,7 +9623,31 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_COMPILE)
     {
-        do_compile();
+        do_build();
+    }
+    else if (id == EVT_DEBUG_START)
+    {
+        do_debug_start();
+    }
+    else if (id == EVT_DEBUG_STOP)
+    {
+        do_debug_stop();
+    }
+    else if (id == EVT_DEBUG_CONTINUE)
+    {
+        do_debug_continue();
+    }
+    else if (id == EVT_DEBUG_STEP_OVER)
+    {
+        do_debug_step_over();
+    }
+    else if (id == EVT_DEBUG_STEP_INTO)
+    {
+        do_debug_step_into();
+    }
+    else if (id == EVT_DEBUG_TOGGLE_BREAKPOINT)
+    {
+        do_debug_toggle_breakpoint();
     }
     else if (id == EVT_COMPILE_CONFIG_FILE)
     {
@@ -7328,41 +9655,54 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_COMPILE_OPTIONS)
     {
-        ui_select_set_selected(g_copts.target, target_slug_to_index(g_compile.target));
-        ui_select_set_selected(g_copts.style, style_slug_to_index(g_compile.style));
-        ui_select_set_selected(g_copts.diagformat, diagformat_slug_to_index(g_compile.diagnostic_format));
-        /* Re-sync the check-box group from the committed state every time
-         * the dialog opens, same reasoning as the Target/Style <select>s
-         * above - so a Cancel below discards whatever gets clicked this
-         * time (same pattern as Find's g_find.opts). */
-        ui_group_set_checked(g_copts.flags, 0, g_compile.no_output);
-        ui_group_set_checked(g_copts.flags, 1, g_compile.line_directives);
-        ui_group_set_checked(g_copts.flags, 2, g_compile.fanalyzer);
-        ui_group_set_checked(g_copts.flags, 3, g_compile.const_literal);
-        ui_group_set_checked(g_copts.flags, 4, g_compile.wall);
-    ui_screen_show_modal(g_screen, g_copts.modal);
+        /* Edits whichever settings the *active document* would actually
+         * compile with - the open project's own only when that document is
+         * one of its files (see active_compile_settings()/
+         * project_contains_file()), else the IDE-wide default (e.g. a
+         * Playground/scratch file, even while an unrelated project happens
+         * to be open). */
+        const char* file = g_active_editor_window ? ui_get_path(g_active_editor_window) : "";
+        compile_settings* cs = active_compile_settings(file);
+        open_compiler_options_dialog(cs, cs == &g_project.compile);
+    }
+    else if (id == EVT_PROJECT_OPTIONS)
+    {
+        /* Project > "Options..." always means the project's own settings,
+         * unconditionally - unlike Compile > "Options..." above, it isn't
+         * about whatever's active right now. Menu item is disabled without
+         * an open project (see app_frame()'s menu_items_requiring_project
+         * loop), so this is only ever reachable with one. */
+        open_compiler_options_dialog(&g_project.compile, 1);
     }
     else if (id == EVT_COPTS_OK)
     {
-        /* Persist what was typed/picked so the next compile uses it. Target/
-         * Style indices map to the compiler's slugs; the last option ("")
-         * -> "". */
-        snprintf(g_compile.options, sizeof g_compile.options, "%s",
+        /* Persist what was typed/picked so the next compile uses it, into
+         * whichever settings this dialog was opened against (g_copts.editing,
+         * set by open_compiler_options_dialog() - so this always matches even
+         * if project_is_open()/the active document changed while the modal
+         * was up). Target/Style indices map to the compiler's slugs; the
+         * last option ("") -> "". */
+        compile_settings* cs = g_copts.editing;
+        snprintf(cs->options, sizeof cs->options, "%s",
                  ui_get_value(g_copts.input));
+        snprintf(cs->output, sizeof cs->output, "%s",
+                 ui_get_value(g_copts.output));
         int sel = ui_select_get_selected(g_copts.target);
         int slug_count = (int)(sizeof g_target_slugs / sizeof g_target_slugs[0]);
-        g_compile.target = (sel >= 0 && sel < slug_count) ? g_target_slugs[sel] : "";
+        cs->target = (sel >= 0 && sel < slug_count) ? g_target_slugs[sel] : "";
         int style_sel = ui_select_get_selected(g_copts.style);
         int style_count = (int)(sizeof g_style_slugs / sizeof g_style_slugs[0]);
-        g_compile.style = (style_sel >= 0 && style_sel < style_count) ? g_style_slugs[style_sel] : "";
+        cs->style = (style_sel >= 0 && style_sel < style_count) ? g_style_slugs[style_sel] : "";
         int diag_sel = ui_select_get_selected(g_copts.diagformat);
         int diag_count = (int)(sizeof g_diagformat_slugs / sizeof g_diagformat_slugs[0]);
-        g_compile.diagnostic_format = (diag_sel >= 0 && diag_sel < diag_count) ? g_diagformat_slugs[diag_sel] : "";
-        g_compile.no_output = ui_group_get_checked(g_copts.flags, 0);
-        g_compile.line_directives = ui_group_get_checked(g_copts.flags, 1);
-        g_compile.fanalyzer = ui_group_get_checked(g_copts.flags, 2);
-        g_compile.const_literal = ui_group_get_checked(g_copts.flags, 3);
-        g_compile.wall = ui_group_get_checked(g_copts.flags, 4);
+        cs->diagnostic_format = (diag_sel >= 0 && diag_sel < diag_count) ? g_diagformat_slugs[diag_sel] : "";
+        cs->no_output = ui_group_get_checked(g_copts.flags, 0);
+        cs->line_directives = ui_group_get_checked(g_copts.flags, 1);
+        cs->fanalyzer = ui_group_get_checked(g_copts.flags, 2);
+        cs->const_literal = ui_group_get_checked(g_copts.flags, 3);
+        cs->wall = ui_group_get_checked(g_copts.flags, 4);
+        if (cs == &g_project.compile)
+            project_save();
         ui_screen_close_modal(g_screen, g_copts.modal);
     }
     else if (id == EVT_DOCK_LEFT || id == EVT_DOCK_RIGHT || id == EVT_DOCK_BOTTOM)
@@ -7413,6 +9753,10 @@ static void on_ui_event(void* ctx, int id, void* param)
         ui_set_value(g_goto_input, "");
         ui_screen_show_modal(g_screen, g_goto_modal);
         ui_screen_focus(g_screen, g_goto_input);
+    }
+    else if (id == EVT_SEARCH_GOTO_DEFINITION)
+    {
+        do_goto_definition();
     }
     else if (id == EVT_GOTO_OK || id == EVT_GOTO_INPUT)
     {
@@ -7612,6 +9956,30 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_FOLDERNEW_CANCEL)
     {
         ui_screen_close_modal(g_screen, g_foldernew.modal);
+    }
+    else if (id == EVT_FOLDER_ADD_TO_PROJECT)
+    {
+        /* Same "acts on the listbox's currently selected row" caveat as
+         * EVT_FOLDER_DELETE just below - the popup isn't opened per-row.
+         * Silently does nothing for no selection, "..", or a subdirectory
+         * (project_add_file()/g_project.files[] are for individual files,
+         * same restriction Add Existing File... itself has via its own
+         * "*.c;*.h" mask). Menu item is already disabled without an open
+         * project (see the popup's own open-time refresh), so this is only
+         * ever reachable with one. */
+        int index = ui_select_get_selected(g_folder.listbox);
+        if (index >= 0 && index < ui_child_count(g_folder.listbox))
+        {
+            const char* entry = ui_get_path(ui_child_at(g_folder.listbox, index));
+            size_t elen = strlen(entry);
+            int is_dir = elen > 0 && entry[elen - 1] == '\\';
+            if (!is_dir && entry[0] && strcmp(entry, "..") != 0)
+            {
+                char path[1024];
+                snprintf(path, sizeof path, "%s/%s", g_folder.dir, entry);
+                project_add_file(path);
+            }
+        }
     }
     else if (id == EVT_FOLDER_DELETE)
     {
@@ -7873,6 +10241,10 @@ static void on_ui_event(void* ctx, int id, void* param)
     {
         save_as_commit();  /* user confirmed overwrite; the prompt auto-closed */
     }
+    else if (id == EVT_PROJECT_NEW_OVERWRITE)
+    {
+        project_new_create(g_project_new_path);  /* user confirmed overwrite */
+    }
     else if (id == UI_CLOSE_REQUEST_ID)
     {
         /* The framework deferred to us instead of just closing (see
@@ -8015,13 +10387,262 @@ static void on_ui_event(void* ctx, int id, void* param)
          * the two apart); does nothing if there isn't one. */
         open_saveas_dialog_for(g_active_editor_window);
     }
+    else if (id == EVT_PROJECT_NEW)
+    {
+        /* Show New Project dialog - user selects folder and enters project name */
+        char cwd[1024] = { 0 };
+        if (ui_get_cwd(cwd, sizeof cwd))
+            ui_set_value(g_newproject.folder_input, cwd);
+        else
+            ui_set_value(g_newproject.folder_input, ".");
+        ui_set_value(g_newproject.name_input, "");
+        ui_screen_show_modal(g_screen, g_newproject.modal);
+    }
+    else if (id == EVT_PROJECT_NEW_BROWSE)
+    {
+        /* Same folder-picker dialog as File > Open Folder, retargeted so OK
+         * drops the chosen directory back into the New Project dialog's
+         * Folder field instead (see OPEN_DLG_NEWPROJECT_FOLDER above). */
+        ui_screen_close_modal(g_screen, g_newproject.modal);
+        g_open.dialog_mode = OPEN_DLG_NEWPROJECT_FOLDER;
+        ui_set_label(g_open.window, " Select Folder ");
+        ui_set_label(g_open.ok, " Select ");
+        const char* cur = ui_get_value(g_newproject.folder_input);
+        if (cur && cur[0])
+            strncpy(g_open.dir, cur, sizeof g_open.dir - 1);
+        else if (!ui_get_cwd(g_open.dir, sizeof g_open.dir))
+            strcpy(g_open.dir, ".");
+        g_open.dir[sizeof g_open.dir - 1] = 0;
+        open_dialog_set_filter_visible(0);
+        open_dialog_refresh();
+        ui_screen_show_modal(g_screen, g_open.modal);
+    }
+    else if (id == EVT_PROJECT_NEW_OK)
+    {
+        const char* folder = ui_get_value(g_newproject.folder_input);
+        const char* name = ui_get_value(g_newproject.name_input);
+        int create_folder = ui_group_get_checked(g_newproject.helloworld_check, 0);
+        int create_helloworld = ui_group_get_checked(g_newproject.helloworld_check, 1);
+
+        if (!folder || !folder[0] || !name || !name[0])
+        {
+            /* Show error: both fields required */
+            ui_msgbox_button ok = { "   OK   ", 0 };
+            ui_message_box(g_screen, "New Project", "Please fill in both folder and project name.", &ok, 1);
+            return;
+        }
+
+        int folder_has_sep = folder[0] && (folder[strlen(folder) - 1] == '/' ||
+                                            folder[strlen(folder) - 1] == '\\');
+
+        /* "Create Folder" checked: the project lives in a new <name>
+         * subdirectory of the selected folder - create it now (fs.h's own
+         * mkdir(path, mode) shim reports "already exists" the same way it
+         * reports any other failure, which is exactly what's wanted here:
+         * either way the user needs to know before anything gets written
+         * into it). Unchecked: the project is written straight into the
+         * folder the user picked, same as before. */
+        char project_dir[1024];
+        if (create_folder)
+        {
+            snprintf(project_dir, sizeof project_dir, "%s%s%s",
+                     folder, folder_has_sep ? "" : "/", name);
+            if (mkdir(project_dir, 0755) != 0)
+            {
+                ui_msgbox_button ok = { "   OK   ", 0 };
+                char message[1200];
+                snprintf(message, sizeof message,
+                         "Could not create folder:\n%s\nIt may already exist.", project_dir);
+                ui_message_box(g_screen, "New Project", message, &ok, 1);
+                return;
+            }
+        }
+        else
+        {
+            snprintf(project_dir, sizeof project_dir, "%s", folder);
+        }
+
+        int dir_has_sep = project_dir[0] && (project_dir[strlen(project_dir) - 1] == '/' ||
+                                              project_dir[strlen(project_dir) - 1] == '\\');
+        char proj_path[1024], main_path[1024];
+        snprintf(proj_path, sizeof proj_path, "%s%s%s" CAKE_PROJECT_EXT,
+                 project_dir, dir_has_sep ? "" : "/", name);
+        snprintf(main_path, sizeof main_path, "%s%smain.c",
+                 project_dir, dir_has_sep ? "" : "/");
+
+        /* Check if project file already exists */
+        FILE* test = fopen(proj_path, "r");
+        if (test)
+        {
+            fclose(test);
+            ui_msgbox_button ok = { "   OK   ", 0 };
+            ui_message_box(g_screen, "New Project", "Project already exists at that location.", &ok, 1);
+            return;
+        }
+
+        ui_screen_close_modal(g_screen, g_newproject.modal);
+
+        /* Writes the real ".cakeproj" JSON (project_save()'s own format,
+         * not a hand-rolled placeholder) and loads it into g_project - same
+         * helper the old Save-As-style New Project dialog used. */
+        project_new_create(proj_path);
+
+        /* Rebuilt off g_project.dir (project_new_create's own normalized
+         * slashes), not the locally-built `main_path` above - project_add_
+         * file()'s relative-path check (project_make_relative) is a literal
+         * strncmp against g_project.dir, so a mismatched separator style
+         * there is exactly what stores this as an absolute path instead of
+         * plain "main.c". */
+        snprintf(main_path, sizeof main_path, "%s/main.c", g_project.dir);
+
+        /* Hello World checked: write main.c unless one is already sitting
+         * there (never overwrite existing source), then register it with
+         * the project either way - project_add_file() itself no-ops if
+         * it's already listed. */
+        if (create_helloworld)
+        {
+            FILE* test_main = fopen(main_path, "r");
+            if (test_main)
+            {
+                fclose(test_main);
+            }
+            else
+            {
+                FILE* mf = fopen(main_path, "w");
+                if (mf)
+                {
+                    fprintf(mf, "#include <stdio.h>\n\n");
+                    fprintf(mf, "int main(void)\n");
+                    fprintf(mf, "{\n");
+                    fprintf(mf, "    printf(\"Hello, world!\\n\");\n");
+                    fprintf(mf, "    return 0;\n");
+                    fprintf(mf, "}\n");
+                    fclose(mf);
+                }
+            }
+            project_add_file(main_path);
+        }
+    }
+    else if (id == EVT_PROJECT_NEW_CANCEL)
+    {
+        ui_screen_close_modal(g_screen, g_newproject.modal);
+    }
+    else if (id == EVT_PROJECT_OPEN)
+    {
+        /* File-picker mode, filtered to ".cakeproj" - OK loads that project
+         * instead of opening it as a text document (see project_open_file()). */
+        g_open.dialog_mode = OPEN_DLG_PROJECT_OPEN;
+        ui_set_label(g_open.window, " Open Project ");
+        ui_set_label(g_open.ok, "  Open  ");
+        if (!ui_get_cwd(g_open.dir, sizeof g_open.dir))
+            strcpy(g_open.dir, ".");
+        strncpy(g_open.mask, "*" CAKE_PROJECT_EXT, sizeof g_open.mask - 1);
+        g_open.mask[sizeof g_open.mask - 1] = 0;
+        /* Same "Files of type" dropdown as File > Open..., just defaulted to
+         * the Cake Project entry (see g_open_filters) instead of C Source. */
+        ui_select_set_selected(g_open.filter, CAKE_PROJECT_FILTER_INDEX);
+        open_dialog_set_filter_visible(1);
+        open_dialog_refresh();
+        ui_screen_show_modal(g_screen, g_open.modal);
+    }
+    else if (id == EVT_PROJECT_ADD_FILE)
+    {
+        /* Menu item is disabled without an open project (see app_frame()'s
+         * own g_project.menu_items_requiring_project loop), so this is only
+         * ever reachable with one already open. */
+        g_open.dialog_mode = OPEN_DLG_PROJECT_ADDFILE;
+        ui_set_label(g_open.window, " Add Existing File ");
+        ui_set_label(g_open.ok, "  Add  ");
+        strncpy(g_open.dir, g_project.dir, sizeof g_open.dir - 1);
+        g_open.dir[sizeof g_open.dir - 1] = 0;
+        strncpy(g_open.mask, "*.c;*.h", sizeof g_open.mask - 1);
+        g_open.mask[sizeof g_open.mask - 1] = 0;
+        open_dialog_set_filter_visible(0);
+        open_dialog_refresh();
+        ui_screen_show_modal(g_screen, g_open.modal);
+    }
+    else if (id == EVT_PROJECT_INCLUDES)
+    {
+        /* Same "menu item already enforces this" reasoning as
+         * EVT_PROJECT_ADD_FILE just above. */
+        project_includes_dialog_refresh();
+        ui_screen_show_modal(g_screen, g_project.includes_modal);
+    }
+    else if (id == EVT_PROJECT_INCLUDES_ADD)
+    {
+        /* Same Open dialog, folder-picker mode as Project > "Add Existing
+         * File..." - opens on top of the Include Directories dialog (which
+         * stays open underneath); project_add_include()'s own EVT_OPEN_OK
+         * handler refreshes this dialog's listbox too, see
+         * project_includes_dialog_refresh()'s call site there. */
+        g_open.dialog_mode = OPEN_DLG_PROJECT_ADDINCLUDE;
+        ui_set_label(g_open.window, " Add Include Directory ");
+        ui_set_label(g_open.ok, " Select ");
+        strncpy(g_open.dir, g_project.dir, sizeof g_open.dir - 1);
+        g_open.dir[sizeof g_open.dir - 1] = 0;
+        open_dialog_set_filter_visible(0);
+        open_dialog_refresh();
+        ui_screen_show_modal(g_screen, g_open.modal);
+    }
+    else if (id == EVT_PROJECT_INCLUDES_LISTBOX)
+    {
+        /* No per-row action - a directory listing has nothing to "activate"
+         * into, unlike the Project panel's own files (see
+         * project_window_activate()). Selecting a row is enough on its own
+         * for "Remove" to act on it. */
+    }
+    else if (id == EVT_PROJECT_INCLUDES_REMOVE)
+    {
+        int sel = ui_select_get_selected(g_project.includes_listbox);
+        if (sel >= 0 && sel < g_project.include_count)
+        {
+            for (int i = sel; i + 1 < g_project.include_count; i++)
+                snprintf(g_project.include_dirs[i], sizeof g_project.include_dirs[0],
+                         "%s", g_project.include_dirs[i + 1]);
+            g_project.include_count--;
+            project_save();
+            project_includes_dialog_refresh();
+        }
+    }
+    else if (id == EVT_PROJECT_INCLUDES_CLOSE)
+    {
+        ui_screen_close_modal(g_screen, g_project.includes_modal);
+    }
+    else if (id == EVT_PROJECT_CLOSE)
+    {
+        project_close();
+    }
+    else if (id == EVT_WINDOW_PROJECT)
+    {
+        /* Always raises the panel, never closes it - see EVT_WINDOW_OUTPUT's
+         * own doc comment for why these View items stopped toggling. */
+        project_show_panel();
+    }
+    else if (id == EVT_PROJECT_LISTBOX)
+    {
+        project_window_activate(ui_select_get_selected(g_project.listbox));
+    }
+    else if (id == EVT_PROJECT_POPUP_OPEN)
+    {
+        project_open_at(ui_select_get_selected(g_project.listbox));
+    }
+    else if (id == EVT_PROJECT_POPUP_REMOVE)
+    {
+        project_remove_at(ui_select_get_selected(g_project.listbox));
+    }
     else if (id == EVT_OPEN_NAME)
     {
         if (g_open.dialog_mode == OPEN_DLG_SAVE)
         {
             save_as_activate();
         }
-        else if (g_open.dialog_mode == OPEN_DLG_FOLDER)
+        else if (g_open.dialog_mode == OPEN_DLG_PROJECT_NEW)
+        {
+            project_new_save_activate();
+        }
+        else if (g_open.dialog_mode == OPEN_DLG_FOLDER ||
+                 g_open.dialog_mode == OPEN_DLG_PROJECT_ADDINCLUDE ||
+                 g_open.dialog_mode == OPEN_DLG_NEWPROJECT_FOLDER)
         {
             /* The whole field is the target directory in folder mode -
              * there's no mask to split off. Normalize back to '/' first -
@@ -8120,6 +10741,45 @@ static void on_ui_event(void* ctx, int id, void* param)
             save_as_activate();
         else if (g_open.dialog_mode == OPEN_DLG_FOLDER)
             folder_select_confirm();
+        else if (g_open.dialog_mode == OPEN_DLG_PROJECT_NEW)
+            project_new_save_activate();
+        else if (g_open.dialog_mode == OPEN_DLG_PROJECT_ADDINCLUDE)
+        {
+            project_add_include(g_open.dir);
+            ui_screen_close_modal(g_screen, g_open.modal);
+            g_open.dialog_mode = OPEN_DLG_FILE;
+        }
+        else if (g_open.dialog_mode == OPEN_DLG_NEWPROJECT_FOLDER)
+        {
+            ui_set_value(g_newproject.folder_input, g_open.dir);
+            ui_screen_close_modal(g_screen, g_open.modal);
+            g_open.dialog_mode = OPEN_DLG_FILE;
+            ui_screen_show_modal(g_screen, g_newproject.modal);
+        }
+        else if (g_open.dialog_mode == OPEN_DLG_PROJECT_OPEN || g_open.dialog_mode == OPEN_DLG_PROJECT_ADDFILE)
+        {
+            /* Same "pasted a full path" shortcut as the generic branch below:
+             * if the Name field itself already names an existing file, OK
+             * acts on it directly rather than on whatever row happens to be
+             * selected in the listbox. */
+            char buf[1024];
+            strncpy(buf, ui_get_value(g_open.name_input), sizeof buf - 1);
+            buf[sizeof buf - 1] = 0;
+            for (char* p = buf; *p; p++)
+                if (*p == '\\')
+                    *p = '/';
+            if (path_is_regular_file(buf))
+            {
+                if (g_open.dialog_mode == OPEN_DLG_PROJECT_OPEN)
+                    project_open_file(buf);
+                else
+                    project_add_file(buf);
+                ui_screen_close_modal(g_screen, g_open.modal);
+                g_open.dialog_mode = OPEN_DLG_FILE;
+            }
+            else
+                open_dialog_activate(ui_select_get_selected(g_open.listbox));
+        }
         else
         {
             /* Same "pasted a full path" shortcut as EVT_OPEN_NAME: if the
@@ -8145,6 +10805,7 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_OPEN_CANCEL)
     {
+        int was_newproject_browse = (g_open.dialog_mode == OPEN_DLG_NEWPROJECT_FOLDER);
         ui_screen_close_modal(g_screen, g_open.modal);
         g_open.dialog_mode = OPEN_DLG_FILE;
 
@@ -8153,6 +10814,12 @@ static void on_ui_event(void* ctx, int id, void* param)
          * ahead and compiling a placeholder path - there's nothing sensible
          * to compile until the file actually has a real name. */
         g_pending_compile_after_saveas = 0;
+
+        /* Canceling the New Project dialog's own folder browse returns to
+         * that dialog instead of dropping the user back at the editor - the
+         * browse was launched from inside it (see EVT_PROJECT_NEW_BROWSE). */
+        if (was_newproject_browse)
+            ui_screen_show_modal(g_screen, g_newproject.modal);
     }
     else if (id == EVT_FILE_SAVE)
     {
@@ -8201,10 +10868,6 @@ static void on_ui_event(void* ctx, int id, void* param)
                 ui_screen_close_modal(g_screen, w);
         }
     }
-    else if (id == EVT_WINDOW_REFRESH)
-    {
-        refresh_open_windows();
-    }
     else if (id == EVT_WINDOW_FONT_INC)
     {
         ui_env_adjust_font_size(g_env, 1);
@@ -8215,37 +10878,30 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_WINDOW_OUTPUT)
     {
-        /* Toggle, matching the "[x]"/"[ ]" the View menu now shows for this
-         * item (see refresh_view_item) - already open closes it instead of
-         * just re-raising it. No unsaved-changes prompt to worry about
-         * either way (Output is never dirty), same as EVT_WINDOW_CLOSEALL's
-         * own unconditional ui_screen_close_modal below. */
-        if (window_is_shown(g_output_window))
-            ui_screen_close_modal(g_screen, g_output_window);
-        else
-            ui_screen_show_window(g_screen, g_output_window);
+        /* Always raises the panel, never closes it - these View items are
+         * plain "show" commands now, not open/close toggles (no [x]/[ ] on
+         * them any more either - see the View menu's own build_screen()
+         * comment). */
+        ui_screen_show_window(g_screen, g_output_window);
+    }
+    else if (id == EVT_WINDOW_DEBUGINFO)
+    {
+        ui_screen_show_window(g_screen, g_debuginfo_window);
     }
     else if (id == EVT_WINDOW_FOLDER)
     {
-        if (window_is_shown(g_folder.window))
-            ui_screen_close_modal(g_screen, g_folder.window);
-        else
-            ui_screen_show_window(g_screen, g_folder.window);
+        folder_show_panel();
     }
     else if (id == EVT_WINDOW_PLAYGROUND)
     {
-        /* Same toggle, but Playground has no singleton wrapper to check
-         * (see open_playground()'s own doc comment) - look it up by path,
-         * same as open_file_path_into_editor() does before deciding whether
-         * to reuse it. Closing it here skips the unsaved-changes prompt just
-         * like EVT_WINDOW_CLOSEALL - if that turns out to matter in
-         * practice, route through UI_CLOSE_REQUEST_ID's confirm flow
-         * instead. */
+        /* Reuses the already-open Playground if there is one (same lookup
+         * open_file_path_into_editor() itself does), else creates it - never
+         * closes an existing one. */
         char playground_path[FS_MAX_PATH];
         ui_node* existing = get_playground_file_path(playground_path, sizeof playground_path)
             ? find_open_window(playground_path) : NULL;
         if (existing)
-            ui_screen_close_modal(g_screen, existing);
+            ui_screen_show_window(g_screen, existing);
         else
             open_playground();
     }
@@ -8790,6 +11446,7 @@ static void save_session(void)
         return;
 
     fprintf(f, "compile_options=%s\n", g_compile.options);
+    fprintf(f, "compile_output=%s\n", g_compile.output);
     fprintf(f, "compile_target=%s\n", g_compile.target);
     fprintf(f, "compile_style=%s\n", g_compile.style);
     fprintf(f, "compile_diagnostic_format=%s\n", g_compile.diagnostic_format);
@@ -8799,6 +11456,11 @@ static void save_session(void)
     fprintf(f, "compile_opt_const_literal=%d\n", g_compile.const_literal);
     fprintf(f, "compile_opt_wall=%d\n", g_compile.wall);
     fprintf(f, "folder_dir=%s\n", g_folder.dir);
+    /* Project > New/Open Project's own ".cakeproj" file, so it reopens
+     * automatically on the next launch (see load_session()'s matching key -
+     * project_open_file() there does the actual reloading). Written even
+     * when empty so closing a project actually clears it back out. */
+    fprintf(f, "project_path=%s\n", g_project.file_path);
     fprintf(f, "theme_index=%d\n", g_envdlg.theme_index);
     fprintf(f, "font_index=%d\n", g_envdlg.font_index);
     {
@@ -8948,6 +11610,7 @@ static int load_session(void)
     }
 
     char current_file[1024] = "";
+    char project_path[1024] = "";
     int have_cursor = 0, have_scroll = 0, cursor = 0, scroll = 0;
     int have_main_rect = 0, main_x = 0, main_y = 0, main_w = 0, main_h = 0, main_maximized = 0;
     int have_folder_w = 0, folder_w = 0;
@@ -8963,6 +11626,8 @@ static int load_session(void)
     {
         if (strcmp(key, "compile_options") == 0)
             snprintf(g_compile.options, sizeof g_compile.options, "%s", val);
+        else if (strcmp(key, "compile_output") == 0)
+            snprintf(g_compile.output, sizeof g_compile.output, "%s", val);
         else if (strcmp(key, "compile_target") == 0)
             g_compile.target = g_target_slugs[target_slug_to_index(val)];
         else if (strcmp(key, "compile_style") == 0)
@@ -9018,6 +11683,8 @@ static int load_session(void)
         }
         else if (strcmp(key, "current_file") == 0)
             snprintf(current_file, sizeof current_file, "%s", val);
+        else if (strcmp(key, "project_path") == 0)
+            snprintf(project_path, sizeof project_path, "%s", val);
         else if (strcmp(key, "current_cursor") == 0)
             { cursor = atoi(val); have_cursor = 1; }
         else if (strcmp(key, "current_scroll") == 0)
@@ -9062,6 +11729,13 @@ static int load_session(void)
         if (win)
             ui_set_dock(win, output_side, output_h);
     }
+
+    /* Project > New/Open Project: reopen whatever was open last session -
+     * project_open_file() already no-ops if the file's since been moved or
+     * deleted, same "just leave it at the normal startup default" tolerance
+     * as the Folder panel's own restore just above. */
+    if (project_path[0])
+        project_open_file(project_path);
 
     /* Compiler Options dialog: g_compile.options/g_compile.target above
      * already drive do_compile() directly; only the "Options" text field
@@ -9352,9 +12026,10 @@ void app_init(ui_env* env)
         { EVT_SEARCH_REPLACE,    "Replace...",       "Ctrl+R" },
         { EVT_SEARCH_NEXT,       "Search Next",      "F3" },
         { EVT_SEARCH_GOTO,       "Go to line...",    "Ctrl+G" },
+        { EVT_SEARCH_GOTO_DEFINITION, "Go to Definition", "F12" },
         { EVT_TOOLS_FINDREPLACE, "Find in Files...", "Ctrl+F" },
     };
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < 6; i++)
     {
         ui_node* it = ui_create_element(UI_TAG_ITEM);
         ui_set_id(it, popup_items[i].id);
@@ -9446,6 +12121,14 @@ void app_init(ui_env* env)
     ui_set_id(folder_popup_newfolder, EVT_FOLDER_NEWFOLDER);
     ui_set_label(folder_popup_newfolder, "New Folder...");
     ui_append_child(folder_popup, folder_popup_newfolder);
+    ui_node* folder_popup_sep5 = ui_create_element(UI_TAG_ITEM);
+    ui_set_separator(folder_popup_sep5, 1);
+    ui_append_child(folder_popup, folder_popup_sep5);
+    ui_node* folder_popup_add_to_project = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(folder_popup_add_to_project, EVT_FOLDER_ADD_TO_PROJECT);
+    ui_set_label(folder_popup_add_to_project, "Add to Project");
+    ui_append_child(folder_popup, folder_popup_add_to_project);
+    g_folder.popup_add_to_project = folder_popup_add_to_project;
     ui_node* folder_popup_sep4 = ui_create_element(UI_TAG_ITEM);
     ui_set_separator(folder_popup_sep4, 1);
     ui_append_child(folder_popup, folder_popup_sep4);
@@ -9540,6 +12223,57 @@ void app_init(ui_env* env)
     ui_append_child(env_window, env_ok);
     g_envdlg.modal = env_modal;
 
+    /* --- New Project modal (Project > New Project...) --- */
+    ui_node* newproj_modal = ui_create_element(UI_TAG_MODAL);
+    ui_append_child(root, newproj_modal);
+    ui_node* newproj_window = ui_create_element(UI_TAG_WINDOW);
+    ui_set_rect(newproj_window, 12, 6, 54, 12);
+    ui_set_label(newproj_window, " New Project ");
+    ui_set_color(newproj_window, theme->modal_fg, theme->modal_bg);
+    ui_append_child(newproj_modal, newproj_window);
+    g_newproject.modal = newproj_modal;
+
+    /* Both inputs (and the checkbox below) share the same left column at
+     * x=29 - two units clear of "Project Name" (the longer of the two
+     * labels, ending at x=27) so every row gets a visible gap, not just
+     * "Folder"'s own short label. */
+    add_text(newproj_window, 15, 8, "Folder", theme->label_fg, theme->modal_bg);
+    g_newproject.folder_input = add_input(newproj_window, 29, 8, 27, "");
+    ui_set_id(g_newproject.folder_input, EVT_PROJECT_NEW_FOLDER);
+    ui_node* newproj_browse = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(newproj_browse, EVT_PROJECT_NEW_BROWSE);
+    ui_set_rect(newproj_browse, 57, 8, 5, 1);
+    ui_set_label(newproj_browse, "...");
+    ui_append_child(newproj_window, newproj_browse);
+
+    add_text(newproj_window, 15, 10, "Project Name", theme->label_fg, theme->modal_bg);
+    /* Right edge lines up with the Browse ("...") button's own right edge
+     * (57 + 5 == 62). */
+    g_newproject.name_input = add_input(newproj_window, 29, 10, 33, "");
+    ui_set_id(g_newproject.name_input, EVT_PROJECT_NEW_NAME);
+
+    /* Two independent checkboxes (not mutually exclusive, hence multi=1) -
+     * index 0 is "Create Folder", index 1 is "Hello World" (see
+     * EVT_PROJECT_NEW_OK's own use of ui_group_get_checked). */
+    g_newproject.helloworld_check = add_group(newproj_window, 29, 12, 20, 2, 1);
+    add_group_item(g_newproject.helloworld_check, "Create Folder");
+    add_group_item(g_newproject.helloworld_check, "Hello World");
+
+    /* 10-wide, same as every other dialog's OK/Cancel pair (Compiler
+     * Options, Environment, Word Wrap, ...) - centered in the 54-wide
+     * window: 12 + (54 - (10+2+10)) / 2 == 28. */
+    ui_node* newproj_ok = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(newproj_ok, EVT_PROJECT_NEW_OK);
+    ui_set_rect(newproj_ok, 28, 15, 10, 1);
+    ui_set_label(newproj_ok, "  OK  ");
+    ui_append_child(newproj_window, newproj_ok);
+
+    ui_node* newproj_cancel = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(newproj_cancel, EVT_PROJECT_NEW_CANCEL);
+    ui_set_rect(newproj_cancel, 40, 15, 10, 1);
+    ui_set_label(newproj_cancel, "Cancel");
+    ui_append_child(newproj_window, newproj_cancel);
+
     /* --- External Tools modal (Tools > External Tools...) --- */
     ui_node* ext_modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, ext_modal);
@@ -9547,7 +12281,7 @@ void app_init(ui_env* env)
      * are chosen so the list and the field inputs share the same right
      * edge (ex + 2 + LIST_W == ex + 12 + FIELD_W), with the Add/Delete
      * column parked to the right of the list. */
-    int ex = 10, ey = 2, ew = 66, eh = 24;
+    int ex = 10, ey = 2, ew = 66, eh = 25;
     const int list_w = 46, list_h = 10;      /* rows visible; the list scrolls
                                               * past that up to EXT_TOOL_MAX */
     const int btn_x = ex + 2 + list_w + 2;   /* right of the list */
@@ -9615,16 +12349,19 @@ void app_init(ui_env* env)
     add_text(ext_window, field_x, ext_fy + 5,
              "$(FilePath) $(FileDir) $(FileName) $(FileExt)",
              COLOR_CYAN, theme->modal_bg);
+    add_text(ext_window, field_x, ext_fy + 6,
+             "$(CakeOutput) $(TargetPath) $(TargetDir) $(ProjectDir)",
+             COLOR_CYAN, theme->modal_bg);
 
     /* OK/Cancel bottom-right, sharing the button column's right edge. */
     ui_node* ext_ok = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(ext_ok, EVT_EXTTOOL_OK);
-    ui_set_rect(ext_ok, btn_x - btn_w - 2, ext_fy + 7, btn_w, 1);
+    ui_set_rect(ext_ok, btn_x - btn_w - 2, ext_fy + 8, btn_w, 1);
     ui_set_label(ext_ok, "  OK  ");
     ui_append_child(ext_window, ext_ok);
     ui_node* ext_cancel = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(ext_cancel, EVT_EXTTOOL_CANCEL);
-    ui_set_rect(ext_cancel, btn_x, ext_fy + 7, btn_w, 1);
+    ui_set_rect(ext_cancel, btn_x, ext_fy + 8, btn_w, 1);
     ui_set_label(ext_cancel, "Cancel");
     ui_append_child(ext_window, ext_cancel);
     g_exttool.modal = ext_modal;
@@ -9633,10 +12370,11 @@ void app_init(ui_env* env)
     ui_node* copts_modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, copts_modal);
     ui_node* copts_window = ui_create_element(UI_TAG_WINDOW);
-    ui_set_rect(copts_window, 15, 5, 62, 18);
+    ui_set_rect(copts_window, 15, 5, 62, 21);
     ui_set_label(copts_window, " Compiler Options ");
     ui_set_color(copts_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(copts_modal, copts_window);
+    g_copts.window = copts_window;
     add_text(copts_window, 18, 7, "Target", theme->label_fg, theme->modal_bg);
     g_copts.target = add_select(copts_window, 29, 7, 20);
     add_select_item(g_copts.target, EVT_COPTS_TARGET + 0, "X86 MSVC");
@@ -9678,24 +12416,30 @@ void app_init(ui_env* env)
     ui_group_set_checked(g_copts.flags, 3, g_compile.const_literal);
     ui_group_set_checked(g_copts.flags, 4, g_compile.wall);
 
+    /* The built executable's name - what $(TargetFileName) expands to and
+     * what Debug launches; empty means "derive it" (see target_file_name). */
+    add_text(copts_window, 18, 19, "Output", theme->label_fg, theme->modal_bg);
+    g_copts.output = add_input(copts_window, 29, 19, 45, "");
+    ui_set_id(g_copts.output, EVT_COPTS_OK);
+
     /* Free-text options last - anything the rows above don't cover. */
-    add_text(copts_window, 18, 18, "Options", theme->label_fg, theme->modal_bg);
-    g_copts.input = add_input(copts_window, 29, 18, 45, "");
+    add_text(copts_window, 18, 21, "Options", theme->label_fg, theme->modal_bg);
+    g_copts.input = add_input(copts_window, 29, 21, 45, "");
     ui_set_id(g_copts.input, EVT_COPTS_OK);
 
     ui_node* copts_ok = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(copts_ok, EVT_COPTS_OK);
-    ui_set_rect(copts_ok, 27, 20, 10, 1);
+    ui_set_rect(copts_ok, 27, 23, 10, 1);
     ui_set_label(copts_ok, "  OK  ");
     ui_append_child(copts_window, copts_ok);
     ui_node* copts_cancel = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(copts_cancel, EVT_COPTS_CANCEL);
-    ui_set_rect(copts_cancel, 41, 20, 10, 1);
+    ui_set_rect(copts_cancel, 41, 23, 10, 1);
     ui_set_label(copts_cancel, "Cancel");
     ui_append_child(copts_window, copts_cancel);
     ui_node* copts_help = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(copts_help, EVT_COPTS_HELP);
-    ui_set_rect(copts_help, 55, 20, 10, 1);
+    ui_set_rect(copts_help, 55, 23, 10, 1);
     ui_set_label(copts_help, " Help ");
     ui_append_child(copts_window, copts_help);
     g_copts.modal = copts_modal;
@@ -9703,7 +12447,7 @@ void app_init(ui_env* env)
     /* --- Open File modal --- */
     ui_node* open_modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, open_modal);
-    int ox = 10, oy = 2, ow2 = 60, oh2 = 21;  /* the dialog's own convention is
+    int ox = 10, oy = 2, ow2 = 61, oh2 = 21;  /* the dialog's own convention is
                                                 * a blank row before each new
                                                 * labeled section (see the gap
                                                 * before "Files" below) - the
@@ -9716,16 +12460,16 @@ void app_init(ui_env* env)
     ui_set_color(open_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(open_modal, open_window);
     g_open.window = open_window;
-    add_text(open_window, ox + 2, oy + 2, "Name", theme->label_fg, theme->modal_bg);
-    g_open.name_input = add_input(open_window, ox + 2, oy + 3, 42, "");
+    add_text(open_window, ox + 3, oy + 2, "Name", theme->label_fg, theme->modal_bg);
+    g_open.name_input = add_input(open_window, ox + 3, oy + 3, 41, "");
     ui_set_id(g_open.name_input, EVT_OPEN_NAME);
-    add_text(open_window, ox + 2, oy + 5, "Files", theme->label_fg, theme->modal_bg);
+    add_text(open_window, ox + 3, oy + 5, "Files", theme->label_fg, theme->modal_bg);
     g_open.listbox = ui_create_element(UI_TAG_LISTBOX);
-    ui_set_rect(g_open.listbox, ox + 2, oy + 6, 42, 10);
+    ui_set_rect(g_open.listbox, ox + 3, oy + 6, 41, 10);
     ui_set_id(g_open.listbox, EVT_OPEN_LISTBOX);
     ui_append_child(open_window, g_open.listbox);
-    g_open.filter_label = add_text(open_window, ox + 2, oy + 17, "Type", theme->label_fg, theme->modal_bg);
-    g_open.filter = add_select(open_window, ox + 2, oy + 18, 42);
+    g_open.filter_label = add_text(open_window, ox + 3, oy + 17, "Type", theme->label_fg, theme->modal_bg);
+    g_open.filter = add_select(open_window, ox + 3, oy + 18, 41);
     for (int i = 0; i < OPEN_FILTER_COUNT; i++)
         add_select_item(g_open.filter, EVT_OPEN_FILTER + i, g_open_filters[i].label);
     ui_select_set_selected(g_open.filter, 0);
@@ -9785,6 +12529,122 @@ void app_init(ui_env* env)
     if (!ui_get_cwd(g_folder.dir, sizeof g_folder.dir))
         strcpy(g_folder.dir, ".");
     folder_window_refresh();
+
+    /* --- Debug Info window (Locals + Call Stack, see debug_info_panel_
+     * refresh()) --- Docked RIGHT, the one dock side Output (BOTTOM) and
+     * Folder/Project (LEFT) leave free - dock_layout() (ide_ui.c) only
+     * ever lays out one window per side, so this is a single combined
+     * panel rather than two separate ones (see Stage 4's own plan notes). */
+    ui_node* debuginfo_wrapper = ui_create_element(UI_TAG_MODAL);
+    ui_append_child(root, debuginfo_wrapper);
+    int dw_x = 10, dw_y = 3, dw_w = 30, dw_h = 16;
+    ui_node* debuginfo_window = ui_create_element(UI_TAG_WINDOW);
+    ui_set_rect(debuginfo_window, dw_x, dw_y, dw_w, dw_h);
+    ui_set_label(debuginfo_window, " Debug Info ");
+    ui_set_color(debuginfo_window, theme->window_fg, theme->window_bg);
+    ui_set_resizable(debuginfo_window, 1);
+    ui_set_shadow(debuginfo_window, 0);
+    ui_set_dock(debuginfo_window, UI_DOCK_RIGHT, dw_w);
+    ui_append_child(debuginfo_wrapper, debuginfo_window);
+
+    g_debuginfo_listbox = ui_create_element(UI_TAG_LISTBOX);
+    ui_set_rect(g_debuginfo_listbox, dw_x + 1, dw_y + 1, dw_w - 2, dw_h - 2);
+    ui_append_child(debuginfo_window, g_debuginfo_listbox);
+    g_debuginfo_window = debuginfo_wrapper;
+
+    /* --- Project panel (Project > New/Open Project, View > "Show Project") ---
+     * Docked LEFT by default, same as the Folder panel just above (same
+     * ui_set_dock() mechanism Output/Folder/Find and Replace already share -
+     * see g_dockmenu, whose right-click "Dock Left/Right/Bottom" popup works
+     * on any docked panel generically via docked_panel_frame_at(), this one
+     * included, no extra wiring needed). dock_layout() in ide_ui.c only lays
+     * out one window per side, so showing this at the same time as another
+     * LEFT-docked panel is the same known limitation as redocking, say, Find
+     * and Replace onto LEFT while Folder is there too - move one of them to
+     * Right or Bottom via that popup instead. */
+    ui_node* project_wrapper = ui_create_element(UI_TAG_MODAL);
+    ui_append_child(root, project_wrapper);
+    int pw_x = 10, pw_y = 3, pw_w = 20, pw_h = 16;
+    ui_node* project_window = ui_create_element(UI_TAG_WINDOW);
+    ui_set_rect(project_window, pw_x, pw_y, pw_w, pw_h);
+    ui_set_color(project_window, theme->window_fg, theme->window_bg);
+    ui_set_resizable(project_window, 1);
+    ui_set_shadow(project_window, 0);
+    ui_set_dock(project_window, UI_DOCK_LEFT, pw_w);
+    ui_append_child(project_wrapper, project_window);
+
+    g_project.listbox = ui_create_element(UI_TAG_LISTBOX);
+    ui_set_id(g_project.listbox, EVT_PROJECT_LISTBOX);
+    ui_set_rect(g_project.listbox, pw_x + 1, pw_y + 1, pw_w - 2, pw_h - 2);
+    ui_append_child(project_window, g_project.listbox);
+    g_project.window = project_wrapper;
+    project_window_refresh();
+
+    /* --- Project panel context menu popup --- */
+    ui_node* project_popup = ui_create_element(UI_TAG_MENU);
+    ui_append_child(root, project_popup);
+    ui_node* project_popup_open = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(project_popup_open, EVT_PROJECT_POPUP_OPEN);
+    ui_set_label(project_popup_open, "Open");
+    ui_append_child(project_popup, project_popup_open);
+    ui_node* project_popup_sep = ui_create_element(UI_TAG_ITEM);
+    ui_set_separator(project_popup_sep, 1);
+    ui_append_child(project_popup, project_popup_sep);
+    ui_node* project_popup_remove = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(project_popup_remove, EVT_PROJECT_POPUP_REMOVE);
+    ui_set_label(project_popup_remove, "Remove from Project");
+    ui_append_child(project_popup, project_popup_remove);
+    g_project.popup = project_popup;
+
+    /* --- Project > "Include Directories..." dialog --- a small list editor
+     * over g_project.include_dirs[], same "listbox + Add/Remove/Close"
+     * shape the rest of this app uses for a plain list of strings (see
+     * EVT_PROJECT_INCLUDES/project_includes_dialog_refresh()). "Add..."
+     * reopens the Open dialog (g_open) in folder-picker mode on top of this
+     * one instead of duplicating that picker here. */
+    ui_node* includes_modal = ui_create_element(UI_TAG_MODAL);
+    ui_append_child(root, includes_modal);
+    int inc_x = 15, inc_y = 5, inc_w = 60, inc_h = 16;
+    ui_node* includes_window = ui_create_element(UI_TAG_WINDOW);
+    ui_set_rect(includes_window, inc_x, inc_y, inc_w, inc_h);
+    ui_set_label(includes_window, " Include Directories ");
+    ui_set_color(includes_window, theme->modal_fg, theme->modal_bg);
+    ui_append_child(includes_modal, includes_window);
+
+    /* A blank row below the title bar before "Directories", same convention
+     * as the Open dialog's own "Name"/"Files" labels (see ox/oy above). */
+    add_text(includes_window, inc_x + 2, inc_y + 2, "Directories", theme->label_fg, theme->modal_bg);
+
+    g_project.includes_listbox = ui_create_element(UI_TAG_LISTBOX);
+    ui_set_id(g_project.includes_listbox, EVT_PROJECT_INCLUDES_LISTBOX);
+    ui_set_rect(g_project.includes_listbox, inc_x + 2, inc_y + 3, inc_w - 18, inc_h - 5);
+    ui_append_child(includes_window, g_project.includes_listbox);
+
+    int inc_bx = inc_x + inc_w - 14;  /* leaves a margin after the buttons,
+                                       * before the window's own right
+                                       * border */
+    ui_node* includes_add = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(includes_add, EVT_PROJECT_INCLUDES_ADD);
+    ui_set_rect(includes_add, inc_bx, inc_y + 3, 11, 1);  /* aligned with the
+                                                           * listbox's own top
+                                                           * edge, below the
+                                                           * "Directories" label */
+    ui_set_label(includes_add, " Add... ");
+    ui_append_child(includes_window, includes_add);
+    ui_node* includes_remove = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(includes_remove, EVT_PROJECT_INCLUDES_REMOVE);
+    ui_set_rect(includes_remove, inc_bx, inc_y + 5, 11, 1);  /* 2-row gaps
+                                                              * between buttons -
+                                                              * keeps them close
+                                                              * to each other */
+    ui_set_label(includes_remove, " Remove ");
+    ui_append_child(includes_window, includes_remove);
+    ui_node* includes_close = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(includes_close, EVT_PROJECT_INCLUDES_CLOSE);
+    ui_set_rect(includes_close, inc_bx, inc_y + 7, 11, 1);
+    ui_set_label(includes_close, " Close ");
+    ui_append_child(includes_window, includes_close);
+    g_project.includes_modal = includes_modal;
 
     /* --- Find and Replace panel (Tools > "Find and Replace...") --- */
     ui_node* fr_wrapper = ui_create_element(UI_TAG_MODAL);
@@ -9946,14 +12806,26 @@ int app_frame(ui_env* env)
      * by its fixed path instead, the same way open_file_path_into_editor()
      * itself checks for an already-open Playground before creating a new
      * one. */
-    refresh_view_item(g_view_output_item, "Show Output", window_is_shown(g_output_window));
-    refresh_view_item(g_view_folder_item, "Show Folder", window_is_shown(g_folder.window));
+    ui_set_label(g_view_output_item, "Output");
+    ui_set_label(g_view_folder_item, "Folder");
+    ui_set_label(g_view_debuginfo_item, "Debug Info");
+    ui_set_label(g_project.view_item, "Project");
+    /* Same "needs an open project" rule as the Project menu's own items just
+     * below - there's nothing to show/hide without one. */
+    ui_set_enabled(g_project.view_item, project_is_open());
+    /* Project > Add Existing File.../Include Directories.../Build/Save
+     * Project/Close Project - disabled while no project is open, same as
+     * every other "only meaningful in state X" menu item in this app (e.g.
+     * g_compile_item/g_edit_readonly_item). New/Open Project are left out of
+     * menu_items_requiring_project entirely - those are always enabled since
+     * they're how a project gets opened in the first place. */
     {
-        char playground_path[FS_MAX_PATH];
-        int have_path = get_playground_file_path(playground_path, sizeof playground_path);
-        refresh_view_item(g_view_playground_item, "Show Playground",
-                           have_path && find_open_window(playground_path) != NULL);
+        int open = project_is_open();
+        for (int i = 0; i < (int)(sizeof g_project.menu_items_requiring_project /
+                                   sizeof g_project.menu_items_requiring_project[0]); i++)
+            ui_set_enabled(g_project.menu_items_requiring_project[i], open);
     }
+    ui_set_label(g_view_playground_item, "Playground");
     refresh_view_item(g_view_linenumbers_item, "Line Numbers", ui_get_show_line_numbers());
     /* Line numbers only ever apply to a plain C source editor (see
      * editor_gutter_width() in ide_ui.c) - Markdown/VT100/no document at all
@@ -9984,7 +12856,7 @@ int app_frame(ui_env* env)
 
     /* "Format" (Edit menu and the editor popup's copy) only makes sense for
      * a real .c file - same path_is_c_source() condition as Compile just
-     * above, since format_c_source() assumes C syntax. */
+     * above, since cake_format() assumes C syntax. */
     ui_set_enabled(g_edit_format_item, compile_targets_c);
     ui_set_enabled(g_editor_popup_format, compile_targets_c);
 
@@ -10044,12 +12916,31 @@ int app_frame(ui_env* env)
     if (ui_screen_mouse_right_pressed(g_screen) && !ui_screen_active_modal(g_screen))
     {
         int mx = ui_screen_mouse_x(g_screen), my = ui_screen_mouse_y(g_screen);
-        if (ui_node_contains(g_folder.listbox, mx, my))
+        /* window_is_shown() guards against g_folder.listbox's stale rect
+         * still overlapping the Project panel's current spot when Folder
+         * itself isn't actually the one docked/visible there right now -
+         * without it, a right-click meant for the Project panel could hit
+         * this block too (both only ever occupy the same LEFT dock slot one
+         * at a time - see g_project.window's own doc comment) and its popup
+         * would open only to be immediately clobbered by the Project block
+         * below opening its own right after. */
+        if (window_is_shown(g_folder.window) && ui_node_contains(g_folder.listbox, mx, my))
         {
             refresh_folder_filter_item(g_folder.popup_filter);
             refresh_folder_show_filter_item(g_folder.popup_show);
+            ui_set_enabled(g_folder.popup_add_to_project, project_is_open());
             ui_screen_open_popup(g_screen, g_folder.popup, mx, my, NULL);
         }
+    }
+
+    /* Right-click over the Project panel's listbox opens its own popup
+     * ("Open" / "Remove from Project") - same shape as the Folder panel's
+     * block just above, including the same window_is_shown() guard. */
+    if (ui_screen_mouse_right_pressed(g_screen) && !ui_screen_active_modal(g_screen))
+    {
+        int mx = ui_screen_mouse_x(g_screen), my = ui_screen_mouse_y(g_screen);
+        if (window_is_shown(g_project.window) && ui_node_contains(g_project.listbox, mx, my))
+            ui_screen_open_popup(g_screen, g_project.popup, mx, my, NULL);
     }
 
     /* Right-click on a docked panel's frame opens the "Dock Left/Right/
@@ -10103,6 +12994,11 @@ int app_frame(ui_env* env)
      * at the end of the frame, so the Output window it writes into is
      * updated before the next render rather than a frame later. */
     compile_stream_poll();
+
+    /* Same reasoning, for a live debug session (see ide_debug.h) - drains
+     * lldb's output, updates the exec-line highlight, and keeps the Debug
+     * menu's enabled state current. */
+    debug_stream_poll();
 
     return 0;
 }

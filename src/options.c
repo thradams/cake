@@ -21,6 +21,7 @@ static void bitset_clear(struct bitset* b)
     for (int i = 0; i < BITSET_WORDS; ++i)
         b->bits[i] = 0;
 }
+
 static void bitset_setall(struct bitset* b)
 {
     unsigned long mask = ~0UL;

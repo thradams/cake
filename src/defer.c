@@ -62,22 +62,25 @@ static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expressio
 
 static struct defer_scope* _Opt defer_visit_ctx_push_child(struct defer_visit_ctx* ctx)
 {
-    if (ctx->searching_label_mode && ctx->p_label)
+    struct defer_scope* _Owner _Opt child = NULL;
+    try 
     {
-        _Assert(false);
-    }
-
-    struct defer_scope* _Owner _Opt child = calloc(1, sizeof * child);
-    if (child)
-    {
+        if (ctx->searching_label_mode && ctx->p_label)
+        {
+            _Assert(false);
+        }
+    
+        child = calloc(1, sizeof * child);
+        if (child == NULL) throw;
+        
         child->previous = ctx->tail_block;
         ctx->tail_block = child;
     }
-    else
-    {
-        // ops
+    catch
+    {        
     }
-    return (struct defer_scope* _Opt) child;
+
+    return child;
 }
 
 
@@ -413,15 +416,18 @@ static void defer_visit_iteration_statement(struct defer_visit_ctx* ctx, struct 
 {
     switch (p_iteration_statement->first_token->type)
     {
-        case  TK_KEYWORD_WHILE:
+        case TK_KEYWORD_WHILE:
             defer_visit_while_statement(ctx, p_iteration_statement);
         break;
+        
         case TK_KEYWORD_DO:
             defer_visit_do_while_statement(ctx, p_iteration_statement);
         break;
+        
         case TK_KEYWORD_FOR:
             defer_visit_for_statement(ctx, p_iteration_statement);
         break;
+        
         default:
             _Assert(false);
         break;
@@ -609,13 +615,6 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                 p_common = find_common_defer_scope(label_ctx.tail_block /* label */, ctx->tail_block /* goto */);
             }
 
-            if (p_common == NULL)
-            {
-                // should be not null. However, test-mode code 
-                // "eats" errors and we can be in this situation.
-                // when the label is not found (test that checks for the error label is not found)
-            }
-
             struct defer_scope* _Opt p1 = label_ctx.tail_block;
             while (p1)
             {
@@ -678,7 +677,6 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                     {
                         diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "jumping into defer. from here");
                         diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here"); 
-                        // diagnostic(W_LOCATION, ctx->ctx, p1->p_defer_block->first_token, NULL, "defer");
                     }
                 }
                 p1 = p1->previous;
@@ -1166,7 +1164,6 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
     try
     {
-
         if (p_declaration->function_body)
         {
             _Assert(ctx->tail_block == NULL);

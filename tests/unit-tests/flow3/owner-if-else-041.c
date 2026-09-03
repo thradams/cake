@@ -9,6 +9,6 @@ void f(int i)
     }
     else
     {
-        int* _Owner _Opt p3 = malloc(1); // owner object (p3) not moved (call-opt-nonnull see line 12)
+        int* _Owner _Opt p3 = malloc(sizeof * p3); // owner object (p3) not moved (call-opt-nonnull see line 12)
     } //lint 29 owner object (p3) not moved (call-opt-nonnull see line 12)
 }

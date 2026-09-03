@@ -4711,6 +4711,21 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         type_set_storage_specifiers_using_declarator(&r, pdeclarator);
         type_set_msvc_declspec_using_declarator(&r, pdeclarator);
         type_set_alignment_specifier_flags_using_declarator(&r, pdeclarator);
+
+        if (r.storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR)
+        {
+            /*
+              constexpr implies const. For an array, the const applies to the
+              (possibly nested) element type, not to the array type itself.
+            */
+            struct type* p_item_type = &r;
+            while (type_is_array(p_item_type) && p_item_type->next)
+            {
+                p_item_type = p_item_type->next;
+            }
+            p_item_type->type_qualifier_flags |= TYPE_QUALIFIER_CONST;
+        }
+
         if (!is_valid_type(ctx, pdeclarator->first_token_opt, &r))
         {
             type_destroy(&r);

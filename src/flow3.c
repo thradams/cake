@@ -548,6 +548,7 @@ static unsigned int flow_hash_key(const struct object* obj, int num_of_buckets)
     uintptr_t p = (uintptr_t)obj;
     return (unsigned int)((p ^ (p >> 5)) % buckets);
 }
+
 static void flow_map_rehash(struct flow_map* m, int new_num_of_buckets)
 {
     _Assert(new_num_of_buckets > 0);
@@ -583,13 +584,7 @@ static void flow_map_rehash(struct flow_map* m, int new_num_of_buckets)
     m->num_of_buckets = new_num_of_buckets;
 }
 
-/*
-   Doubling keeps the amortized cost of growth O(1) per insert regardless of
-   how large the map gets, which matters here: some maps (flow_evaluate_
-   binary_arithmetic's worst objects) accumulate hundreds of keys, so this
-   function alone is called by every one of the tens of millions of inserts
-   flow3 does analysing cake's own sources.
-*/
+
 static void flow_map_maybe_grow(struct flow_map* m)
 {
     if (m->num_of_entries * 100 > m->num_of_buckets * FLOW_MAP_LOAD_FACTOR_PERCENT)

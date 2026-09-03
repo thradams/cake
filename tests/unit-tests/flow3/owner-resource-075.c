@@ -11,7 +11,7 @@ void free(void *_Owner _Opt p);
 
 int main()
 {
-    struct X *_Owner _Opt p = malloc(1, 1);
+    struct X *_Owner _Opt p = malloc(1, sizeof * p);
       if (p)
     {
     }

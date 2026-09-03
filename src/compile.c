@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
  *
  *  struct object is used to compute the compile time expressions (including constexpr)
- *
+ *  
  */
 
 #pragma safety enable
@@ -413,8 +413,8 @@ int compile_one_file(const char* file_name,
 
         const char* builtin = target_get_builtins(ctx.options.target);
         if (builtin[0] != '\0')
-        {
-            struct token_list builtin_tokens = tokenizer(&tctx, builtin, "builtins", 0, TK_FLAG_NONE);
+        {            
+            struct token_list builtin_tokens = tokenizer(&tctx, builtin, "builtins", 1, TK_FLAG_NONE);
             token_list_append_list_at_beginning(&tokens, &builtin_tokens);
             token_list_destroy(&builtin_tokens);
         }
@@ -1127,6 +1127,15 @@ const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt pat
         list = tokenizer(&tctx, content, real_filename, 0, TK_FLAG_NONE);
         if (tctx.n_errors > 0)
             throw;
+
+        const char* builtin = target_get_builtins(options.target);
+        if (builtin[0] != '\0')
+        {
+            /* level 1 - see the identical comment in compile_one_file() above. */
+            struct token_list builtin_tokens = tokenizer(&tctx, builtin, "builtins", 1, TK_FLAG_NONE);
+            token_list_append_list_at_beginning(&list, &builtin_tokens);
+            token_list_destroy(&builtin_tokens);
+        }
 
         prectx.options = options;
         prectx.macros.capacity = 5000;

@@ -233,6 +233,8 @@ bool format_active_for(const struct parser_ctx* ctx, const struct token* token);
 struct token* _Opt format_next_real(struct token* token);
 void format_ensure_one_space_before(struct token* token);
 void format_ensure_no_space_before(struct token* token);
+void format_align_if_already_wrapped(struct token* token, const char* indent);
+void format_align_to_column_if_already_wrapped(struct token* token, int column);
 
 
 struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx);

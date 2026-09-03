@@ -33,6 +33,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <sys/select.h>
 #include <sys/stat.h>
@@ -792,13 +793,21 @@ void ui_open_terminal(const char *dir)
  * from the per-frame tick, where blocking would freeze the UI. */
 struct ui_process
 {
-    int fd;       /* read end of the pipe */
+    int fd;       /* read end of the output pipe */
+    int in_fd;    /* write end of the child's stdin pipe, or -1 if none */
     pid_t pid;
     int ended;    /* EOF seen - latched, see ui_process_read */
 };
 
-ui_process *ui_process_start(const char *command, const char *dir,
-                              char *err, int errcap)
+/* Shared fork/pipe/exec plumbing for ui_process_start (through a shell,
+ * `command` is a full command line) and ui_process_start_direct (execvp's
+ * `argv` straight, no shell in between - see the doc comment on
+ * ui_process_start_direct in ide_ui.h for why a long-lived interactive
+ * child like gdb wants this instead of the sh -c wrapper). Exactly one of
+ * `command`/`argv` is non-NULL. */
+static ui_process *start_common(bool via_shell, const char *command,
+                                 const char *const argv[], const char *dir,
+                                 char *err, int errcap)
 {
     if (err && errcap > 0)
         err[0] = 0;
@@ -810,22 +819,39 @@ ui_process *ui_process_start(const char *command, const char *dir,
         return NULL;
     }
 
+    int infds[2];
+    if (pipe(infds) != 0) {
+        if (err && errcap > 0)
+            snprintf(err, (size_t)errcap, "pipe failed: %s", strerror(errno));
+        close(fds[0]);
+        close(fds[1]);
+        return NULL;
+    }
+
     pid_t pid = fork();
     if (pid < 0) {
         if (err && errcap > 0)
             snprintf(err, (size_t)errcap, "fork failed: %s", strerror(errno));
         close(fds[0]);
         close(fds[1]);
+        close(infds[0]);
+        close(infds[1]);
         return NULL;
     }
 
     if (pid == 0) {
-        /* Child: wire both output streams to the pipe, drop the read end
-         * (holding it open here would stop the parent ever seeing EOF). */
+        /* Child: wire both output streams to the output pipe, and the
+         * input pipe's read end to stdin. Drop whichever end of each pipe
+         * we do not use (holding it open here would stop the parent ever
+         * seeing EOF on the output pipe, or ever seeing its writes reach
+         * us on the input pipe). */
         close(fds[0]);
         dup2(fds[1], STDOUT_FILENO);
         dup2(fds[1], STDERR_FILENO);
         close(fds[1]);
+        dup2(infds[0], STDIN_FILENO);
+        close(infds[0]);
+        close(infds[1]);
         if (dir && dir[0]) {
             if (chdir(dir) != 0) {
                 /* Goes down the pipe like any other output, so the user
@@ -837,25 +863,46 @@ ui_process *ui_process_start(const char *command, const char *dir,
                 _exit(127);
             }
         }
-        execl("/bin/sh", "sh", "-c", command, (char *)NULL);
-        fprintf(stderr, "cannot run /bin/sh: %s\n", strerror(errno));
+        if (via_shell) {
+            execl("/bin/sh", "sh", "-c", command, (char *)NULL);
+            fprintf(stderr, "cannot run /bin/sh: %s\n", strerror(errno));
+        } else {
+            execvp(argv[0], (char *const *)argv);
+            fprintf(stderr, "cannot run '%s': %s\n", argv[0], strerror(errno));
+        }
         fflush(stderr);
         _exit(127);  /* exec failed - same code a shell reports */
     }
 
-    close(fds[1]);  /* parent keeps only the read end */
+    close(fds[1]);    /* parent keeps only the read end of the output pipe */
+    close(infds[0]);  /* parent keeps only the write end of the input pipe */
     fcntl(fds[0], F_SETFL, O_NONBLOCK);
+    fcntl(infds[1], F_SETFL, O_NONBLOCK);
 
     ui_process *p = calloc(1, sizeof *p);
     if (!p) {
         if (err && errcap > 0)
             snprintf(err, (size_t)errcap, "out of memory");
         close(fds[0]);
+        close(infds[1]);
         return NULL;
     }
     p->fd = fds[0];
+    p->in_fd = infds[1];
     p->pid = pid;
     return p;
+}
+
+ui_process *ui_process_start(const char *command, const char *dir,
+                              char *err, int errcap)
+{
+    return start_common(true, command, NULL, dir, err, errcap);
+}
+
+ui_process *ui_process_start_direct(const char *const argv[], const char *dir,
+                                     char *err, int errcap)
+{
+    return start_common(false, NULL, argv, dir, err, errcap);
 }
 
 int ui_process_read(ui_process *p, char *buf, int cap)
@@ -879,12 +926,27 @@ int ui_process_read(ui_process *p, char *buf, int cap)
     return -1;
 }
 
+int ui_process_write(ui_process *p, const char *data, int len)
+{
+    if (!p || p->in_fd < 0)
+        return -1;
+
+    ssize_t n = write(p->in_fd, data, (size_t)len);
+    if (n >= 0)
+        return (int)n;
+    if (errno == EAGAIN || errno == EWOULDBLOCK)
+        return 0;   /* pipe full for now, caller can retry next tick */
+    return -1;
+}
+
 int ui_process_close(ui_process *p)
 {
     if (!p)
         return -1;
     int status = 0;
     close(p->fd);
+    if (p->in_fd >= 0)
+        close(p->in_fd);
     if (waitpid(p->pid, &status, 0) < 0)
         status = -1;
     free(p);

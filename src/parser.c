@@ -227,6 +227,39 @@ static void format_ensure_brace_own_line_indented(struct token* t, const char* i
     }
 }
 
+void format_align_if_already_wrapped(struct token* t, const char* indent)
+{
+    /* Unlike format_ensure_brace_own_line_indented(), this never forces a
+    * token onto its own line - it only re-indents a token that source
+    * already put on a new line. A plain space (TK_BLANKS whose previous
+    * token is not a newline) means the token is a same-line continuation,
+    * which must be left untouched. */
+    if (t->prev && t->prev->type == TK_BLANKS &&
+        t->prev->prev && t->prev->prev->type == TK_NEWLINE)
+    {
+        format_set_blanks_lexeme(t->prev, indent);
+    }
+    else if (t->prev && t->prev->type == TK_NEWLINE)
+    {
+        char combined[300];
+        snprintf(combined, sizeof combined, "\n%s", indent);
+        format_set_blanks_lexeme(t->prev, combined);
+    }
+}
+
+void format_align_to_column_if_already_wrapped(struct token* t, int column)
+{
+    /* column is 1-based (struct token::col convention) - the number of
+    * leading spaces to reproduce is one less. */
+    char indent[256] = { 0 };
+    int spaces = column > 0 ? column - 1 : 0;
+    if (spaces > (int)sizeof(indent) - 1)
+        spaces = (int)sizeof(indent) - 1;
+    memset(indent, ' ', (size_t)spaces);
+    indent[spaces] = '\0';
+    format_align_if_already_wrapped(t, indent);
+}
+
 static void format_ensure_brace_own_line(struct token* t)
 {
     format_ensure_brace_own_line_indented(t, format_line_indent_before(t));
@@ -4472,6 +4505,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
 
                 check_assigment(ctx, &p_init_declarator->p_declarator->type, p_init_declarator->initializer->assignment_expression, ASSIGMENT_TYPE_INIT);
+                check_malloc_size_multiple_of_sizeof(ctx, &p_init_declarator->p_declarator->type, p_init_declarator->initializer->assignment_expression);
 
                 const char* name2 = p_init_declarator->p_declarator->name_opt ?
                     p_init_declarator->p_declarator->name_opt->lexeme : "";
@@ -8848,6 +8882,7 @@ struct parameter_list* _Owner _Opt parameter_list(struct parser_ctx* ctx)
         if (p_parameter_list == NULL)
             throw;
 
+        const struct token* _Opt p_first_param_token = ctx->current;
         p_parameter_declaration = parameter_declaration(ctx);
         if (p_parameter_declaration == NULL)
             throw;
@@ -8890,6 +8925,11 @@ struct parameter_list* _Owner _Opt parameter_list(struct parser_ctx* ctx)
             {
                 // follow
                 break;
+            }
+
+            if (p_first_param_token != NULL && format_active_for(ctx, ctx->current))
+            {
+                format_align_to_column_if_already_wrapped(ctx->current, p_first_param_token->col);
             }
 
             p_parameter_declaration = parameter_declaration(ctx);
@@ -11304,13 +11344,16 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
                     p_unlabeled_statement->expression_statement->expression_opt)
                 {
                     if (p_unlabeled_statement->expression_statement->expression_opt->expression_type == EXPR_PRIMARY_DECLARATOR ||
-                        p_unlabeled_statement->expression_statement->expression_opt->expression_type == EXPR_PRIMARY_NUMBER)
+                        p_unlabeled_statement->expression_statement->expression_opt->expression_type == EXPR_PRIMARY_NUMBER ||
+                        p_unlabeled_statement->expression_statement->expression_opt->expression_type == EXPR_RELATIONAL_BIGGER_THAN ||
+                        p_unlabeled_statement->expression_statement->expression_opt->expression_type == EXPR_RELATIONAL_LESS_THAN ||
+                        p_unlabeled_statement->expression_statement->expression_opt->expression_type == EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN ||
+                        p_unlabeled_statement->expression_statement->expression_opt->expression_type == EXPR_RELATIONAL_LESS_OR_EQUAL_THAN ||
+                        p_unlabeled_statement->expression_statement->expression_opt->expression_type == EXPR_EQUALITY_EQUAL ||
+                        p_unlabeled_statement->expression_statement->expression_opt->expression_type == EXPR_EQUALITY_NOT_EQUAL)
                     {
-                        if (ctx->current &&
-                            ctx->current->level == 0)
+                        if (ctx->current && ctx->current->level == 0)
                         {
-                            // too many false..alerts.
-                            // make list of for sure ...
                             diagnostic(W_EXPRESSION_RESULT_NOT_USED,
                                 ctx,
                                 p_unlabeled_statement->expression_statement->expression_opt->first_token,
@@ -11320,6 +11363,11 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
                         }
                     }
                 }
+            }
+
+            if (p_unlabeled_statement->expression_statement->p_lint_token)
+            {
+                check_compiler_dianostic_suppression(ctx, p_unlabeled_statement->expression_statement->p_lint_token);
             }
         }
     }
@@ -13668,11 +13716,6 @@ struct expression_statement* _Owner _Opt expression_statement(struct parser_ctx*
             if (parser_match_tk_lint(ctx, ';', &p_expression_statement->p_lint_token) != 0)
                 throw;
         }
-        if (p_expression_statement &&
-            p_expression_statement->p_lint_token)
-        {
-            check_compiler_dianostic_suppression(ctx, p_expression_statement->p_lint_token);
-        }
     }
     catch
     {
@@ -13840,6 +13883,11 @@ struct init_statement* _Owner _Opt init_statement(struct parser_ctx* ctx, bool i
             p_init_statement->p_expression_statement = expression_statement(ctx, ignore_semicolon, p_attribute_specifier_sequence);
             p_attribute_specifier_sequence = NULL; // MOVED
 
+            if (p_init_statement->p_expression_statement &&
+                p_init_statement->p_expression_statement->p_lint_token)
+            {
+                check_compiler_dianostic_suppression(ctx, p_init_statement->p_expression_statement->p_lint_token);
+            }
         }
     }
     catch

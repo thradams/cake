@@ -27,8 +27,8 @@
 #define CAKE_PREFIX_LABEL "__L"
 
 static void emit_line_directive(const struct codegen_ctx* ctx,
-    struct osstream* oss,
-    const struct token* _Opt tk)
+                                struct osstream* oss,
+                                const struct token* _Opt tk)
 {
     if (!ctx->options.line_directives)
         return;
@@ -40,13 +40,13 @@ static void emit_line_directive(const struct codegen_ctx* ctx,
 }
 
 static void vm_emit_snapshot_decls(struct codegen_ctx* ctx,
-    struct osstream* oss_body,
-    const struct type* p_type);
+                                   struct osstream* oss_body,
+                                   const struct type* p_type);
 
 static void print_initializer(struct codegen_ctx* ctx,
-    struct osstream* oss,
-    const struct init_declarator* p_init_declarator,
-    bool bstatic);
+                              struct osstream* oss,
+                              const struct init_declarator* p_init_declarator,
+                              bool bstatic);
 
 static bool is_all_zero(const struct object* object);
 static void emmit_clear_declarator(struct codegen_ctx* ctx, struct osstream* ss, const char* name, const struct type* type);
@@ -312,8 +312,8 @@ int struct_entry_list_push_back(struct struct_entry_list* p, struct struct_entry
 }
 
 static void codegen_visit_function_body(struct codegen_ctx* ctx,
-    struct osstream* oss,
-    const struct declarator* function_definition);
+                                        struct osstream* oss,
+                                        const struct declarator* function_definition);
 
 static void object_print_initialization_list(struct codegen_ctx* ctx, struct osstream* ss, const struct object* object, bool* first);
 static void codegen_visit_secondary_block(struct codegen_ctx* ctx, struct osstream* oss, struct secondary_block* p_secondary_block);
@@ -323,19 +323,19 @@ static void codegen_visit_compound_statement(struct codegen_ctx* ctx, struct oss
 static void codegen_visit_statement(struct codegen_ctx* ctx, struct osstream* oss, struct statement* p_statement);
 static void codegen_visit_unlabeled_statement(struct codegen_ctx* ctx, struct osstream* oss, struct unlabeled_statement* p_unlabeled_statement);
 static void assign_each_member_from_initialization(struct codegen_ctx* ctx, struct osstream* ss, const struct object* object,
-    const char* declarator_name,
-    bool all,
-    bool initialize_objects_that_does_not_have_initializer);
+                                                   const char* declarator_name,
+                                                   bool all,
+                                                   bool initialize_objects_that_does_not_have_initializer);
 
 static void codegen_emit_member_assignments_from_constexpr(struct codegen_ctx* ctx, struct osstream* oss,
-    const char* dest_prefix, const struct object* dest, const struct object* source, bool* first);
+                                                           const char* dest_prefix, const struct object* dest, const struct object* source, bool* first);
 
 static void d_print_type_core(struct codegen_ctx* ctx, struct osstream* ss, const struct type* p_type0, const char* _Opt name_opt);
 static void d_print_type(struct codegen_ctx* ctx,
-    struct osstream* ss,
-    const struct type* p_type,
-    const char* _Opt name_opt,
-    bool print_storage_qualifier);
+                         struct osstream* ss,
+                         const struct type* p_type,
+                         const char* _Opt name_opt,
+                         bool print_storage_qualifier);
 
 static void print_cast_array_to_vm(struct codegen_ctx* ctx, struct osstream* oss, const struct type* p_type)
 {
@@ -500,9 +500,9 @@ static void expression_to_bool_value(struct codegen_ctx* ctx, struct osstream* o
 }
 
 static struct member_declarator* _Opt find_member_declarator_name_by_index(struct member_declaration_list* list,
-    int member_index,
-    char name[100],
-    int* p_count)
+                                                                           int member_index,
+                                                                           char name[100],
+                                                                           int* p_count)
 {
     try
     {
@@ -702,9 +702,9 @@ static const char* get_op_by_expression_type(enum expression_type type)
 static void codegen_visit_compound_statement_2(const char* _Opt var_name, struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
 
 static enum sizeof_result vm_emit_sizeof_expr_core(struct codegen_ctx* ctx,
-    struct osstream* oss,
-    const struct type* p_type,
-    size_t* size)
+                                                   struct osstream* oss,
+                                                   const struct type* p_type,
+                                                   size_t* size)
 {
     *size = 0; //out
     const enum target target = ctx->options.target;
@@ -730,9 +730,9 @@ static enum sizeof_result vm_emit_sizeof_expr_core(struct codegen_ctx* ctx,
         struct type type = get_array_item_type(p_type);
         size_t sz = 0;
         const enum sizeof_result er = vm_emit_sizeof_expr_core(ctx,
-            oss,
-            &type,
-            &sz);
+                                                               oss,
+                                                               &type,
+                                                               &sz);
 
         if (er != SIZEOF_RESULT_OK)
         {
@@ -766,15 +766,15 @@ static enum sizeof_result vm_emit_sizeof_expr_core(struct codegen_ctx* ctx,
 }
 
 static void vm_emit_sizeof_expr(struct codegen_ctx* ctx,
-    struct osstream* oss,
-    const struct type* p_type)
+                                struct osstream* oss,
+                                const struct type* p_type)
 {
     struct osstream local = { 0 };
     size_t sz = 0;
     vm_emit_sizeof_expr_core(ctx,
-        &local,
-        p_type,
-        &sz);
+                             &local,
+                             p_type,
+                             &sz);
     ss_fprintf(oss, "(%zu", sz);
 
     if (local.size > 0)
@@ -784,7 +784,7 @@ static void vm_emit_sizeof_expr(struct codegen_ctx* ctx,
 }
 
 static void codegen_vm_ptr_advance(struct codegen_ctx* ctx, struct osstream* oss,
-    struct expression* p_ptr_expr, const char* op, struct expression* _Opt p_count_expr)
+                                   struct expression* p_ptr_expr, const char* op, struct expression* _Opt p_count_expr)
 {
     ss_fprintf(oss, "(");
     d_print_type(ctx, oss, &p_ptr_expr->type, NULL, false);
@@ -809,7 +809,7 @@ static void codegen_vm_ptr_advance(struct codegen_ctx* ctx, struct osstream* oss
 /* Prefix ++p/--p: the expression's value IS the new pointer, so no temp is
    needed -- the assignment expression itself yields it. */
 static void codegen_vm_ptr_prefix_step(struct codegen_ctx* ctx, struct osstream* oss,
-    struct expression* p_ptr_expr, const char* op)
+                                       struct expression* p_ptr_expr, const char* op)
 {
     ss_fprintf(oss, "(");
     codegen_visit_expression(ctx, oss, p_ptr_expr);
@@ -824,7 +824,7 @@ static void codegen_vm_ptr_prefix_step(struct codegen_ctx* ctx, struct osstream*
    expression's value, and move the read+advance statements into
    ctx->add_this_before so they run before the enclosing statement. */
 static void codegen_vm_ptr_postfix_step(struct codegen_ctx* ctx, struct osstream* oss,
-    struct expression* p_ptr_expr, const char* op)
+                                        struct expression* p_ptr_expr, const char* op)
 {
     char name[100] = { 0 };
     generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
@@ -881,7 +881,7 @@ static bool codegen_is_vm_pointer(const struct type* p_type)
    See github.com/thradams/cake/issues/423.
 */
 static void codegen_emit_flattened_vm_pointer(struct codegen_ctx* ctx, struct osstream* oss,
-    struct expression* p_expr)
+                                              struct expression* p_expr)
 {
     struct type t1 = type_remove_pointer(&p_expr->type);
     while (type_is_array(&t1))
@@ -940,7 +940,7 @@ static void codegen_emit_runtime_assert_expr(struct codegen_ctx* ctx, struct oss
     ss_fprintf(oss, "((");
     codegen_visit_expression(ctx, oss, p_sa->constant_expression);
     ss_fprintf(oss, ") ? (void)0 : %s(\"%s\", %d, %s))",
-        ctx->runtime_assert_function_name, file_name, line, text);
+               ctx->runtime_assert_function_name, file_name, line, text);
     ctx->runtime_assert_used = true;
 }
 
@@ -962,7 +962,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
             struct osstream decl = { 0 };
             print_identation_core(&decl, ctx->indentation);
             d_print_type(ctx, &decl,
-                &p_expression->type, name, false);
+                         &p_expression->type, name, false);
             ss_fprintf(&decl, ";\n");
             ss_fprintf(&ctx->block_scope_declarators, "%s", decl.c_str);
             ss_close(&decl);
@@ -2022,7 +2022,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                     ss_fprintf(oss, "(");
                     bool first = true;
                     codegen_emit_member_assignments_from_constexpr(ctx, oss,
-                    dest_prefix.c_str, &p_expression->left->object, &p_expression->right->object, &first);
+                                                                   dest_prefix.c_str, &p_expression->left->object, &p_expression->right->object, &first);
                     ss_fprintf(oss, ")");
 
                     ss_close(&dest_prefix);
@@ -2239,7 +2239,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                         struct osstream decl = { 0 };
                         print_identation_core(&decl, ctx->indentation);
                         d_print_type(ctx, &decl,
-                        &p_expression->condition_expr->type, name, false);
+                                     &p_expression->condition_expr->type, name, false);
                         ss_fprintf(&decl, ";\n");
                         ss_fprintf(&ctx->block_scope_declarators, "%s", decl.c_str);
                         ss_close(&decl);
@@ -2249,7 +2249,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                             _Assert(p_expression->condition_expr->compound_statement != NULL);
                             struct osstream stmtexpr_body = { 0 };
                             codegen_visit_compound_statement_2(name, ctx, &stmtexpr_body,
-                            p_expression->condition_expr->compound_statement);
+                                                               p_expression->condition_expr->compound_statement);
                             ss_fprintf(&ctx->add_this_before, "%s", stmtexpr_body.c_str);
                             ss_close(&stmtexpr_body);
                         }
@@ -2292,7 +2292,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                         struct osstream decl = { 0 };
                         print_identation_core(&decl, ctx->indentation);
                         d_print_type(ctx, &decl,
-                        &p_expression->condition_expr->type, name, false);
+                                     &p_expression->condition_expr->type, name, false);
                         ss_fprintf(&decl, ";\n");
                         ss_fprintf(&ctx->block_scope_declarators, "%s", decl.c_str);
                         ss_close(&decl);
@@ -2300,7 +2300,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                         print_identation_core(&ctx->add_this_before, ctx->indentation);
                         ss_fprintf(&ctx->add_this_before, "%s = ", name);
                         codegen_visit_expression(ctx, &ctx->add_this_before,
-                        p_expression->condition_expr);
+                                                 p_expression->condition_expr);
                         ss_fprintf(&ctx->add_this_before, ";\n");
 
                         ss_fprintf(oss, "%s ? %s : ", name, name);
@@ -2327,7 +2327,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
             break;
             case EXPR_CHECKED:
-            /*handled before*/
+                /*handled before*/
             break;
         }
     }
@@ -2360,7 +2360,7 @@ static void codegen_visit_expression_statement(struct codegen_ctx* ctx, struct o
                so emit the equivalent prefix-style advance directly instead
                of leaving a dead "temp;" statement behind. */
             codegen_vm_ptr_prefix_step(ctx, &local, p_expr->left,
-                p_expr->expression_type == EXPR_POSTFIX_INCREMENT ? "+" : "-");
+                                       p_expr->expression_type == EXPR_POSTFIX_INCREMENT ? "+" : "-");
         }
         else if (p_expr->expression_type != EXPR_UNARY_STATIC_ASSERTION ||
             codegen_expr_is_emitted_runtime_assert(ctx, p_expr))
@@ -3251,10 +3251,10 @@ static void codegen_visit_block_item_list(struct codegen_ctx* ctx, struct osstre
 }
 
 static void codegen_visit_compound_statement(struct codegen_ctx* ctx,
-    struct osstream* oss,
-    struct compound_statement* p_compound_statement,
-    struct osstream* _Opt parameters_vars,
-    struct osstream* _Opt parameters_init
+                                             struct osstream* oss,
+                                             struct compound_statement* p_compound_statement,
+                                             struct osstream* _Opt parameters_vars,
+                                             struct osstream* _Opt parameters_init
 )
 {
     bool is_local = ctx->is_local;
@@ -3396,8 +3396,8 @@ static void codegen_visit_compound_statement_2(const char* _Opt var_name, struct
     ss_close(&local);
 }
 static void codegen_visit_function_body(struct codegen_ctx* ctx,
-    struct osstream* oss,
-    const struct declarator* function_definition)
+                                        struct osstream* oss,
+                                        const struct declarator* function_definition)
 {
 
     if (function_definition->function_body == NULL)
@@ -3458,8 +3458,8 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
 }
 
 static void register_struct_types_and_functions(struct codegen_ctx* ctx,
-    const struct type* p_type0,
-    struct struct_entry* _Opt p_struct_entry0)
+                                                const struct type* p_type0,
+                                                struct struct_entry* _Opt p_struct_entry0)
 {
     try
     {
@@ -3726,9 +3726,9 @@ static void d_print_type_qualifier_flags(struct osstream* ss, bool* first, enum 
 }
 
 static void d_print_type_core(struct codegen_ctx* ctx,
-    struct osstream* ss,
-    const struct type* p_type0,
-    const char* _Opt name_opt)
+                              struct osstream* ss,
+                              const struct type* p_type0,
+                              const char* _Opt name_opt)
 {
     const struct type* _Opt p_type = p_type0;
 
@@ -3983,10 +3983,10 @@ static void d_print_type_core(struct codegen_ctx* ctx,
 }
 
 static void d_print_type(struct codegen_ctx* ctx,
-    struct osstream* ss,
-    const struct type* p_type,
-    const char* _Opt name_opt,
-    bool print_storage_qualifiers)
+                         struct osstream* ss,
+                         const struct type* p_type,
+                         const char* _Opt name_opt,
+                         bool print_storage_qualifiers)
 {
     register_struct_types_and_functions(ctx, p_type, NULL);
 
@@ -4212,7 +4212,7 @@ static void assign_each_member_from_constexpr(
 }
 
 static void codegen_emit_member_assignments_from_constexpr(struct codegen_ctx* ctx, struct osstream* oss,
-    const char* dest_prefix, const struct object* dest, const struct object* source, bool* first)
+                                                           const char* dest_prefix, const struct object* dest, const struct object* source, bool* first)
 {
     try 
     {
@@ -4288,9 +4288,9 @@ static void emmit_clear_declarator(struct codegen_ctx* ctx, struct osstream* ss,
         }
         print_identation_core(ss, ctx->indentation);
         ss_fprintf(ss, "%s(&%s, 0, %zu);\n",
-            ctx->memset_function_name,
-            name,
-            sz);
+                   ctx->memset_function_name,
+                   name,
+                   sz);
         ctx->memset_used = true;
     }
     catch
@@ -4372,11 +4372,11 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
 }
 
 static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
-    struct osstream* ss,
-    const struct object* object,
-    const char* declarator_name,
-    bool all,
-    bool initialize_objects_that_does_not_have_initializer)
+                                                   struct osstream* ss,
+                                                   const struct object* object,
+                                                   const char* declarator_name,
+                                                   bool all,
+                                                   bool initialize_objects_that_does_not_have_initializer)
 {
     try
     {
@@ -4485,11 +4485,11 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                                 object->p_init_expression->declarator->name_opt->lexeme : "";
 
                             object_print_source_object_non_constant_initialization(ctx,
-                                ss,
-                                object,
-                                &object->p_init_expression->declarator->object,
-                                declarator_name,
-                                name);
+                                                                                   ss,
+                                                                                   object,
+                                                                                   &object->p_init_expression->declarator->object,
+                                                                                   declarator_name,
+                                                                                   name);
                         }
                         else
                         {
@@ -4505,11 +4505,11 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                             emit_line_directive(ctx, ss, object->p_init_expression->first_token);
                             print_identation_core(ss, ctx->indentation);
                             ss_fprintf(ss, "%s(&%s%s, &%s, %zu);\n",
-                                ctx->memcpy_function_name,
-                                declarator_name,
-                                object->member_designator,
-                                object->p_init_expression->declarator->name_opt->lexeme,
-                                sz2);
+                                       ctx->memcpy_function_name,
+                                       declarator_name,
+                                       object->member_designator,
+                                       object->p_init_expression->declarator->name_opt->lexeme,
+                                       sz2);
 
                             ctx->memcpy_used = true;
                         }
@@ -4542,7 +4542,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                     while (member)
                     {
                         assign_each_member_from_initialization(ctx, ss, member, declarator_name, all,
-                            initialize_objects_that_does_not_have_initializer);
+                                                               initialize_objects_that_does_not_have_initializer);
                         member = member->next;
                     }
                 }
@@ -4599,9 +4599,9 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
 }
 
 static void print_initializer(struct codegen_ctx* ctx,
-    struct osstream* oss,
-    const struct init_declarator* p_init_declarator,
-    bool bstatic)
+                              struct osstream* oss,
+                              const struct init_declarator* p_init_declarator,
+                              bool bstatic)
 {
     _Assert(p_init_declarator->initializer != NULL);
 
@@ -4671,11 +4671,11 @@ static void print_initializer(struct codegen_ctx* ctx,
                                 throw;
 
                             object_print_source_object_non_constant_initialization(ctx,
-                                oss,
-                                &p_init_declarator->p_declarator->object, /* destination - drives structure traversal */
-                                &p_init_declarator->initializer->assignment_expression->declarator->object,
-                                "",
-                                source_name);
+                                                                                   oss,
+                                                                                   &p_init_declarator->p_declarator->object, /* destination - drives structure traversal */
+                                                                                   &p_init_declarator->initializer->assignment_expression->declarator->object,
+                                                                                   "",
+                                                                                   source_name);
                             done = true;
                         }
                     }
@@ -4730,10 +4730,10 @@ static void print_initializer(struct codegen_ctx* ctx,
                             emit_line_directive(ctx, oss, p_init_declarator->initializer->assignment_expression->first_token);
                             print_identation_core(oss, ctx->indentation);
                             ss_fprintf(oss, "%s(%s, %s, %zu);\n",
-                                ctx->memcpy_function_name,
-                                p_init_declarator->p_declarator->name_opt->lexeme,
-                                source_name,
-                                sz2);
+                                       ctx->memcpy_function_name,
+                                       p_init_declarator->p_declarator->name_opt->lexeme,
+                                       source_name,
+                                       sz2);
 
                             ctx->memcpy_used = true;
                             done = true;
@@ -4812,9 +4812,9 @@ static void print_initializer(struct codegen_ctx* ctx,
                                 p_init_declarator->p_declarator->name_opt->lexeme : "";
 
                             emmit_clear_declarator(ctx,
-                                oss,
-                                name,
-                                &p_init_declarator->p_declarator->type
+                                                   oss,
+                                                   name,
+                                                   &p_init_declarator->p_declarator->type
                             );
 
                             /*better for small objects?*/
@@ -4857,9 +4857,9 @@ static void print_initializer(struct codegen_ctx* ctx,
                             if (total_leaves >= 4 && zero_leaves * 2 > total_leaves)
                             {
                                 emmit_clear_declarator(ctx,
-                                    oss,
-                                    name,
-                                    &p_init_declarator->p_declarator->type
+                                                       oss,
+                                                       name,
+                                                       &p_init_declarator->p_declarator->type
                                 );
                                 assign_each_member_from_initialization(ctx, oss, &p_init_declarator->p_declarator->object, name, true, false);
                             }
@@ -4880,9 +4880,9 @@ static void print_initializer(struct codegen_ctx* ctx,
                             p_init_declarator->p_declarator->name_opt->lexeme : "";
 
                         emmit_clear_declarator(ctx,
-                            oss,
-                            name,
-                            &p_init_declarator->p_declarator->type
+                                               oss,
+                                               name,
+                                               &p_init_declarator->p_declarator->type
                         );
                         //assign_each_member_to_zero(ctx,
                         //      oss,
@@ -4907,8 +4907,8 @@ static void print_initializer(struct codegen_ctx* ctx,
 }
 
 static void vm_emit_snapshot_decls(struct codegen_ctx* ctx,
-    struct osstream* oss_body,
-    const struct type* p_type)
+                                   struct osstream* oss_body,
+                                   const struct type* p_type)
 {
     const struct type* _Opt it = p_type;
     while (it)
@@ -4961,10 +4961,10 @@ static void vm_emit_snapshot_decls(struct codegen_ctx* ctx,
 }
 
 static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
-    struct osstream* oss0,
-    struct init_declarator* p_init_declarator,
-    enum function_specifier_flags function_specifier_flags,
-    enum storage_class_specifier_flags storage_class_specifier_flags)
+                                          struct osstream* oss0,
+                                          struct init_declarator* p_init_declarator,
+                                          enum function_specifier_flags function_specifier_flags,
+                                          enum storage_class_specifier_flags storage_class_specifier_flags)
 {
 
     const bool is_function = type_is_function(&p_init_declarator->p_declarator->type);
@@ -5091,13 +5091,13 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
                     {
                         struct osstream sizeof_expression = { 0 };
                         vm_emit_sizeof_expr(ctx,
-                            &sizeof_expression,
-                            &p_init_declarator->p_declarator->type);
+                                            &sizeof_expression,
+                                            &p_init_declarator->p_declarator->type);
                         print_identation_core(oss0, ctx->indentation);
                         ss_fprintf(oss0, "%s(%s, 0, %s);\n",
-                            ctx->memset_function_name,
-                            var_name,
-                            sizeof_expression.c_str);
+                                   ctx->memset_function_name,
+                                   var_name,
+                                   sizeof_expression.c_str);
                         ctx->memset_used = true;
                         ss_close(&sizeof_expression);
                     }
@@ -5199,10 +5199,10 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
 }
 
 static void codegen_visit_init_declarator_list(struct codegen_ctx* ctx,
-    struct osstream* oss,
-    struct init_declarator_list* p_init_declarator_list,
-    enum function_specifier_flags function_specifier_flags,
-    enum storage_class_specifier_flags storage_class_specifier_flags)
+                                               struct osstream* oss,
+                                               struct init_declarator_list* p_init_declarator_list,
+                                               enum function_specifier_flags function_specifier_flags,
+                                               enum storage_class_specifier_flags storage_class_specifier_flags)
 {
     struct init_declarator* _Opt p_init_declarator = p_init_declarator_list->head;
 
@@ -5335,10 +5335,10 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
                             member_declarator->declarator->name_opt->lexeme : "";
 
                         d_print_type(ctx,
-                            ss,
-                            &member_declarator->declarator->type,
-                            name,
-                            false);
+                                     ss,
+                                     &member_declarator->declarator->type,
+                                     name,
+                                     false);
                     }
 
                     if (member_declarator->constant_expression)
@@ -5427,9 +5427,9 @@ void d_print_structs(struct codegen_ctx* ctx, struct osstream* ss, struct struct
 //////////
 
 static int parse_line_directive(const char* src,
-    int* line_num,
-    const char* _Opt* filename,
-    size_t* fname_len)
+                                int* line_num,
+                                const char* _Opt* filename,
+                                size_t* fname_len)
 {
     const char* p = src;
 
@@ -5514,13 +5514,13 @@ size_t clean_line_directives(char* buf)
                 if (file_needed)
                 {
                     dlen = snprintf(directive, sizeof(directive),
-                        "#line %d \"%s\"\n", dir_line_num, new_file);
+                                    "#line %d \"%s\"\n", dir_line_num, new_file);
                     strncpy(current_file, new_file, sizeof(current_file) - 1);
                 }
                 else
                 {
                     dlen = snprintf(directive, sizeof(directive),
-                        "#line %d\n", dir_line_num);
+                                    "#line %d\n", dir_line_num);
                 }
                 memmove(w, directive, dlen);
                 w += dlen;
@@ -5553,7 +5553,7 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
         if (ctx->options.dont_generate_time_stamp)
         {
             ss_fprintf(oss, "/* Cake " CAKE_VERSION " %s */\n",
-                get_platform(ctx->options.target)->name);
+                       get_platform(ctx->options.target)->name);
         }
         else
         {
@@ -5566,8 +5566,8 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
             }
 
             ss_fprintf(oss, "/* Cake " CAKE_VERSION " %s %s */\n",
-                get_platform(ctx->options.target)->name,
-                timestamp);
+                       get_platform(ctx->options.target)->name,
+                       timestamp);
         }
 
         ctx->indentation = 0;
@@ -5580,8 +5580,8 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
             struct osstream local = { 0 };
             bool first = true;
             print_type_specifier_flags(&local,
-                &first,
-                object_type_to_type_specifier(get_platform(ctx->options.target)->size_t_type));
+                                       &first,
+                                       object_type_to_type_specifier(get_platform(ctx->options.target)->size_t_type));
             snprintf(ctx->size_t_type_name, sizeof ctx->size_t_type_name, "%s", local.c_str);
 
             ss_close(&local);
@@ -5653,32 +5653,32 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
         if (ctx->memcpy_used)
         {
             ss_fprintf(oss,
-                "static void* %s(void * dest, const void * src, %s n);\n", ctx->memcpy_function_name, ctx->size_t_type_name);
+                       "static void* %s(void * dest, const void * src, %s n);\n", ctx->memcpy_function_name, ctx->size_t_type_name);
         }
 
         if (ctx->memset_used)
         {
             ss_fprintf(oss,
-                "static void * %s(void *dest, int ch, %s count);\n", ctx->memset_function_name, ctx->size_t_type_name);
+                       "static void * %s(void *dest, int ch, %s count);\n", ctx->memset_function_name, ctx->size_t_type_name);
         }
 
         if (ctx->runtime_assert_used)
         {
             ss_fprintf(oss,
-                "static void %s(char * file, int line, char * text);\n",
-                ctx->runtime_assert_function_name);
+                       "static void %s(char * file, int line, char * text);\n",
+                       ctx->runtime_assert_function_name);
         }
 
         if (ctx->assert_fail_used)
         {
             ss_fprintf(oss,
-                "static void __assert_fail(char * assertion, char * file, unsigned int line, char * function);\n");
+                       "static void __assert_fail(char * assertion, char * file, unsigned int line, char * function);\n");
         }
 
         if (ctx->assert_rtn_used)
         {
             ss_fprintf(oss,
-                "static void __assert_rtn(char * function, char * file, int line, char * message);\n");
+                       "static void __assert_rtn(char * function, char * file, int line, char * message);\n");
         }
 
         if (declarations.c_str)
@@ -5690,7 +5690,7 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
         {
             ss_fprintf(oss, "\n");
             ss_fprintf(oss,
-                "static void * %s(void *ptr, int value, %s count)\n"
+                       "static void * %s(void *ptr, int value, %s count)\n"
                 "{\n"
                 "    unsigned char *p;\n"
                 "    unsigned char v;\n"
@@ -5704,15 +5704,15 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
                 "\n"
                 "    return ptr;\n"
                 "}\n",
-                ctx->memset_function_name,
-                ctx->size_t_type_name);
+                       ctx->memset_function_name,
+                       ctx->size_t_type_name);
         }
 
         if (ctx->memcpy_used)
         {
             ss_fprintf(oss, "\n");
             ss_fprintf(oss,
-                "static void* %s(void * dest, const void * src, %s n)\n"
+                       "static void* %s(void * dest, const void * src, %s n)\n"
                 "{\n"
                 "    char *csrc;\n"
                 "    char *cdest;\n"
@@ -5726,9 +5726,9 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
                 "    }\n"
                 "    return dest;\n"
                 "}\n\n",
-                ctx->memcpy_function_name,
-                ctx->size_t_type_name,
-                ctx->size_t_type_name);
+                       ctx->memcpy_function_name,
+                       ctx->size_t_type_name,
+                       ctx->size_t_type_name);
         }
 
         if (ctx->runtime_assert_used)
@@ -5739,10 +5739,10 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
                abort / trap) is compiler/platform specific and filled in later. */
             ss_fprintf(oss, "\n");
             ss_fprintf(oss,
-                "static void %s(char * file, int line, char * text)\n"
+                       "static void %s(char * file, int line, char * text)\n"
                 "{\n"
                 "}\n\n",
-                ctx->runtime_assert_function_name);
+                       ctx->runtime_assert_function_name);
         }
 
         if (ctx->assert_fail_used)
@@ -5752,7 +5752,7 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
                now, filled in later with the real report/abort behaviour. */
             ss_fprintf(oss, "\n");
             ss_fprintf(oss,
-                "static void __assert_fail(char * assertion, char * file, unsigned int line, char * function)\n"
+                       "static void __assert_fail(char * assertion, char * file, unsigned int line, char * function)\n"
                 "{\n"
                 "}\n\n");
         }
@@ -5763,7 +5763,7 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
                Same idea as __assert_fail above. */
             ss_fprintf(oss, "\n");
             ss_fprintf(oss,
-                "static void __assert_rtn(char * function, char * file, int line, char * message)\n"
+                       "static void __assert_rtn(char * function, char * file, int line, char * message)\n"
                 "{\n"
                 "}\n\n");
         }
