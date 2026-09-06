@@ -9131,10 +9131,14 @@ void check_assigment(const struct parser_ctx* ctx,
         return;
     }
 
+    const bool a_is_adjusted_function_parameter =
+        assignment_type == ASSIGMENT_TYPE_PARAMETER && type_is_function(p_a_type);
+
     /*
     * We have two pointers or pointer/array combination
     */
-    if (type_is_pointer_or_array(&b_type_lvalue) && type_is_pointer_or_array(p_a_type))
+    if (type_is_pointer_or_array(&b_type_lvalue) &&
+        (type_is_pointer_or_array(p_a_type) || a_is_adjusted_function_parameter))
     {
         if (type_is_void_ptr(&b_type_lvalue))
         {
@@ -9196,6 +9200,11 @@ void check_assigment(const struct parser_ctx* ctx,
                                " passing null as array");
                 }
             }
+            a_type_lvalue = type_lvalue_conversion(p_a_type);
+        }
+        else if (a_is_adjusted_function_parameter)
+        {
+            /* function parameter -> pointer to function */
             a_type_lvalue = type_lvalue_conversion(p_a_type);
         }
         else
@@ -9357,3 +9366,4 @@ void flow_expression_to_string(const struct expression* p_expression, struct oss
         ss_fprintf(ss, "%s", "?");
 
 }
+    

@@ -89,7 +89,26 @@ static struct
     int avail[FONT_CANDIDATE_COUNT];
     int avail_count; /* -1 = not probed yet */
     int selected;    /* index into avail; -1 = follow the preference order */
+
+    /* The SMALL font (see ui_set_small_font) - the same family and the same
+     * antialiased/non-antialiased pair as the main one, at a smaller point
+     * size. Derived from the main font, so it is dropped whenever that
+     * changes (see apply_font) and a Ctrl+/Ctrl- keeps the two proportional.
+     * Built lazily, on the first pane that actually asks for it (see
+     * ensure_small_font).
+     *
+     * small_cell_w/h are MEASURED, not computed from the ratio: point sizes
+     * are integers, so the font actually produced is only approximately the
+     * fraction asked for, and laying out against the measurement is what
+     * keeps a pane's columns aligned with its own glyphs. */
+    XftFont *small_main;
+    XftFont *small_box;
+    int small_cell_w, small_cell_h;
 } g_fonts = { .pt = 11, .avail_count = -1, .selected = -1 };
+
+/* What "small" means, as a percentage of the main font's point size. The one
+ * place this is decided - the framework above only ever says "small". */
+#define FONT_SMALL_PERCENT 85
 
 
 static ui_env *g_env;
@@ -220,19 +239,63 @@ static int is_box_drawing(uint32_t ch)
            (ch >= 0x25A0 && ch <= 0x25FF);
 }
 
-void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
-{
-    int px = x * g_cell_w;
-    int py = y * g_cell_h;
+/* --- Scaled text (see ui.h) --- */
 
+static int ensure_small_font(void);
+static void draw_glyph_px(int px, int py, int cell_w, int cell_h,
+                          uint32_t ch, uint32_t fg, uint32_t bg,
+                          XftFont *font_main, XftFont *font_box);
+
+/* ui_font_cell_size (see ui.h): the measured cell of the requested font. */
+void ui_font_cell_size(int small_font, int* cell_w, int* cell_h)
+{
+    int cw = g_cell_w, chh = g_cell_h;
+    if (small_font && ensure_small_font()) {
+        cw = g_fonts.small_cell_w;
+        chh = g_fonts.small_cell_h;
+    }
+    if (cell_w) *cell_w = cw;
+    if (cell_h) *cell_h = chh;
+}
+
+/* ui_draw_char_px (see ui.h): one glyph at an absolute device-pixel position,
+ * in the font `small_font` asks for. */
+void ui_draw_char_px(int px, int py, int cell_w, int cell_h,
+                     uint32_t ch, uint32_t fg, uint32_t bg, int small_font)
+{
+    if (small_font && ensure_small_font())
+        draw_glyph_px(px, py, cell_w, cell_h, ch, fg, bg,
+                      g_fonts.small_main, g_fonts.small_box);
+    else
+        draw_glyph_px(px, py, cell_w, cell_h, ch, fg, bg,
+                      g_fonts.main, g_fonts.box);
+}
+
+void ui_fill_rect_px(int px, int py, int pw, int ph, uint32_t bg)
+{
+    ui_draw_box(px / g_cell_w, py / g_cell_h,
+                pw / g_cell_w, ph / g_cell_h, bg, bg, 0);
+}
+
+/* One glyph in the given font pair, filling and clipping to the cell rect at
+ * an absolute pixel position. The body of ui_draw_char, with the fonts and
+ * the cell geometry as parameters so the small-font path (ui_draw_char_px)
+ * shares it instead of duplicating the clip discipline below. */
+static void draw_glyph_px(int px, int py, int cell_w, int cell_h,
+                          uint32_t ch, uint32_t fg, uint32_t bg,
+                          XftFont *font_main, XftFont *font_box)
+{
     XSetForeground(g_dpy, g_gc, rgb_to_pixel(bg));
-    XFillRectangle(g_dpy, g_pixmap, g_gc, px, py, (unsigned)g_cell_w, (unsigned)g_cell_h);
+    XFillRectangle(g_dpy, g_pixmap, g_gc, px, py, (unsigned)cell_w, (unsigned)cell_h);
+
+    if (!font_main)
+        return;
 
     uint32_t cp = ch ? ch : ' ';
     unsigned char utf8[4];
     int len = utf8_encode_cp(cp, utf8);
 
-    XftFont *font = (is_box_drawing(cp) && g_fonts.box) ? g_fonts.box : g_fonts.main;
+    XftFont *font = (is_box_drawing(cp) && font_box) ? font_box : font_main;
     XftColor color;
     xft_color_from_rgb(fg, &color);
     /* Clip the glyph to its own cell: an overhang (antialiased fringe, or a
@@ -241,11 +304,17 @@ void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
      * repaint, that spill is never cleaned when the neighbour doesn't itself
      * repaint - e.g. editor text bleeding into the static blank scrollbar
      * column, leaving stale fringe along the track as the view scrolls. */
-    XRectangle clip = { (short)px, (short)py, (unsigned short)g_cell_w, (unsigned short)g_cell_h };
+    XRectangle clip = { (short)px, (short)py, (unsigned short)cell_w, (unsigned short)cell_h };
     XftDrawSetClipRectangles(g_xft_draw, 0, 0, &clip, 1);
-    XftDrawStringUtf8(g_xft_draw, &color, font, px, py + g_fonts.main->ascent, utf8, len);
+    XftDrawStringUtf8(g_xft_draw, &color, font, px, py + font_main->ascent, utf8, len);
     XftDrawSetClip(g_xft_draw, None);
     XftColorFree(g_dpy, g_visual, g_cmap, &color);
+}
+
+void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
+{
+    draw_glyph_px(x * g_cell_w, y * g_cell_h, g_cell_w, g_cell_h,
+                  ch, fg, bg, g_fonts.main, g_fonts.box);
 }
 
 /* ui_draw_box (see ui.h): a solid w x h rect - ui.c's replacement for
@@ -352,6 +421,54 @@ static XftFont *pick_and_open_font(int pt, const char *extra)
     return NULL;
 }
 
+/* Drop the small font, so the next pane that needs one rebuilds it from the
+ * new main font. Safe to call when it was never created. */
+static void release_small_font(void)
+{
+    if (g_fonts.small_main)
+        XftFontClose(g_dpy, g_fonts.small_main);
+    if (g_fonts.small_box)
+        XftFontClose(g_dpy, g_fonts.small_box);
+    g_fonts.small_main = NULL;
+    g_fonts.small_box = NULL;
+    g_fonts.small_cell_w = 0;
+    g_fonts.small_cell_h = 0;
+}
+
+/* Build the small font if it doesn't exist yet. Returns 0 if it can't be
+ * opened at all, which callers treat as "use the main font" rather than
+ * drawing nothing. */
+static int ensure_small_font(void)
+{
+    if (g_fonts.small_main)
+        return 1;
+
+    /* Round rather than truncate, and never below 1pt: a deep zoom-out would
+     * otherwise ask fontconfig for a 0pt font. */
+    int pt = (g_fonts.pt * FONT_SMALL_PERCENT + 50) / 100;
+    if (pt < 1)
+        pt = 1;
+
+    XftFont *f = pick_and_open_font(pt, "");
+    if (!f)
+        return 0;
+    /* Same antialiased/non-antialiased pair as the main font, and for the
+     * same reason - see is_box_drawing. */
+    XftFont *fb = pick_and_open_font(pt, ":antialias=false:hinting=false");
+
+    /* Measured, not computed - see g_fonts.small_main's comment for why. */
+    XGlyphInfo extents;
+    XftTextExtentsUtf8(g_dpy, f, (const FcChar8 *)"M", 1, &extents);
+    int cw = extents.xOff > 0 ? extents.xOff : (int)f->max_advance_width;
+    int chh = f->ascent + f->descent;
+
+    g_fonts.small_main = f;
+    g_fonts.small_box = fb;
+    g_fonts.small_cell_w = cw > 0 ? cw : 1;
+    g_fonts.small_cell_h = chh > 0 ? chh : 1;
+    return 1;
+}
+
 /* (Re)load g_fonts.main/g_fonts.box at g_fonts.pt and derive g_cell_w/h from the
  * main font's metrics. Called at startup and again from Ctrl+/Ctrl- to
  * change size. Two variants at the same size/family: antialiased for
@@ -375,6 +492,9 @@ static void apply_font(void)
         XftFontClose(g_dpy, g_fonts.box);
     g_fonts.main = new_font;
     g_fonts.box = new_font_box;
+    /* The small font is derived from this one - drop it so the next pane
+     * that needs it rebuilds it at the new size/family. */
+    release_small_font();
 
     /* Every cell's pixel size just changed, so the render shadow no longer
      * matches the pixmap - repaint fully next frame. (Usually followed by a
@@ -1048,8 +1168,11 @@ static void handle_key_press(XKeyEvent *xkey)
 
 static void handle_button_press(XButtonEvent *xb)
 {
-    int x = xb->x / g_cell_w;
-    int y = xb->y / g_cell_h;
+    /* Device pixels, undivided: a pane drawn in a smaller font has rows
+     * shorter than one cell, so a cell-resolution pointer could not address
+     * them. The framework derives the cell position itself. */
+    int x = xb->x;
+    int y = xb->y;
     int mods = mods_from_state(xb->state);
 
     /* X11 reports the wheel as button presses (each immediately followed by a
@@ -1084,15 +1207,18 @@ static void handle_button_press(XButtonEvent *xb)
     ev.data.mouse.mods = mods;
     ev.data.mouse.button = button;
 
-    if (button == UI_MOUSE_BUTTON_LEFT && x == g_last_click_x && y == g_last_click_y &&
+    /* Whole-cell tolerance for "same place": a real double-click drifts a
+     * pixel or two, and comparing exact pixels would reject it. */
+    int click_cx = x / g_cell_w, click_cy = y / g_cell_h;
+    if (button == UI_MOUSE_BUTTON_LEFT && click_cx == g_last_click_x && click_cy == g_last_click_y &&
         xb->time - g_last_click_time < DOUBLE_CLICK_MS) {
         ev.data.mouse.action = UI_MOUSE_DBLCLICK;
         g_last_click_time = 0;  /* a third click starts fresh, not a triple */
     } else {
         ev.data.mouse.action = UI_MOUSE_PRESSED;
         g_last_click_time = xb->time;
-        g_last_click_x = x;
-        g_last_click_y = y;
+        g_last_click_x = click_cx;
+        g_last_click_y = click_cy;
     }
     ui_env_post_event(g_env, &ev);
 }
@@ -1104,8 +1230,8 @@ static void handle_button_release(XButtonEvent *xb)
 
     ui_event ev = {0};
     ev.type = UI_EVENT_MOUSE;
-    ev.data.mouse.x = xb->x / g_cell_w;
-    ev.data.mouse.y = xb->y / g_cell_h;
+    ev.data.mouse.x = xb->x;   /* device pixels */
+    ev.data.mouse.y = xb->y;
     ev.data.mouse.action = UI_MOUSE_RELEASED;
     ev.data.mouse.button = (xb->button == 1 ? UI_MOUSE_BUTTON_LEFT :
                              xb->button == 3 ? UI_MOUSE_BUTTON_RIGHT :
@@ -1129,8 +1255,8 @@ static void handle_event(XEvent *event)
     case MotionNotify: {
         ui_event ev = {0};
         ev.type = UI_EVENT_MOUSE;
-        ev.data.mouse.x = event->xmotion.x / g_cell_w;
-        ev.data.mouse.y = event->xmotion.y / g_cell_h;
+        ev.data.mouse.x = event->xmotion.x;   /* device pixels */
+        ev.data.mouse.y = event->xmotion.y;
         ev.data.mouse.action = UI_MOUSE_MOVED;
         ev.data.mouse.mods = mods_from_state(event->xmotion.state);
         ui_env_post_event(g_env, &ev);

@@ -320,7 +320,41 @@ static struct
     int avail[FONT_CANDIDATE_COUNT];
     int avail_count;   /* -1 = not probed yet */
     int selected;      /* index into avail; -1 = follow the preference order */
+
+    /* The SMALL font (see ui_set_small_font) - the same family as the main
+     * one, at a smaller point size. Derived from the main font, so it is
+     * dropped whenever that changes (see apply_font) and a Ctrl+/Ctrl-
+     * keeps the two proportional. Built lazily, on the first pane that
+     * actually asks for it (see ensure_small_font).
+     *
+     * There is no separate non-antialiased variant as on win32/x11: here
+     * the antialiasing is a context setting, not a property of the font
+     * object, so the one CTFontRef covers box-drawing too (see
+     * draw_glyph_px).
+     *
+     * small_cell_w/h are MEASURED, not computed from the ratio: what the
+     * font actually produces at a fractional point size is only
+     * approximately the fraction asked for, and laying out against the
+     * measurement is what keeps a pane's columns aligned with its own
+     * glyphs. */
+    CTFontRef small_main;
+    int small_cell_w, small_cell_h;
 } g_fonts = { .pt = 14, .avail_count = -1, .selected = -1 };
+
+/* What "small" means, as a percentage of the main font's point size. The one
+ * place this is decided - the framework above only ever says "small". */
+#define FONT_SMALL_PERCENT 90
+
+/* Drop the small font, so the next pane that needs one rebuilds it from the
+ * new main font. Safe to call when it was never created. */
+static void release_small_font(void)
+{
+    if (g_fonts.small_main)
+        CFRelease(g_fonts.small_main);
+    g_fonts.small_main = NULL;
+    g_fonts.small_cell_w = 0;
+    g_fonts.small_cell_h = 0;
+}
 
 static CTFontRef open_font_named(const char *family, CGFloat pt)
 {
@@ -380,6 +414,49 @@ static CTFontRef pick_and_open_font(CGFloat pt)
     return font;
 }
 
+/* Monospace cell size of `font`: 'M's advance for width, the font's own
+ * vertical metrics for height (ascent+descent+leading, like a terminal line).
+ * `pt` is only used for the width fallback, when the font has no 'M'. */
+static void measure_cell(CTFontRef font, CGFloat pt, int *cell_w, int *cell_h)
+{
+    UniChar ch = 'M';
+    CGGlyph glyph = 0;
+    CTFontGetGlyphsForCharacters(font, &ch, &glyph, 1);
+    CGSize advance = { 0, 0 };
+    if (glyph)
+        CTFontGetAdvancesForGlyphs(font, kCTFontOrientationDefault, &glyph, &advance, 1);
+    *cell_w = advance.width > 0 ? (int)(advance.width + 0.5) : (int)(pt * 0.6 + 0.5);
+    *cell_h = (int)(CTFontGetAscent(font) + CTFontGetDescent(font) +
+                    CTFontGetLeading(font) + 0.5);
+    if (*cell_w < 1) *cell_w = 1;
+    if (*cell_h < 1) *cell_h = 1;
+}
+
+/* Build the small font if it doesn't exist yet. Returns 0 if it can't be
+ * created at all, which callers treat as "use the main font" rather than
+ * drawing nothing. */
+static int ensure_small_font(void)
+{
+    if (g_fonts.small_main)
+        return 1;
+
+    /* CoreText takes a fractional point size, so no rounding is needed here -
+     * but never go below 1pt: a deep zoom-out would otherwise ask for a 0pt
+     * font. */
+    CGFloat pt = g_fonts.pt * FONT_SMALL_PERCENT / 100.0;
+    if (pt < 1)
+        pt = 1;
+
+    CTFontRef f = pick_and_open_font(pt);
+    if (!f)
+        return 0;
+
+    g_fonts.small_main = f;
+    /* Measured, not computed - see g_fonts.small_main's comment for why. */
+    measure_cell(f, pt, &g_fonts.small_cell_w, &g_fonts.small_cell_h);
+    return 1;
+}
+
 /* (Re)load g_fonts.main at g_fonts.pt and derive g_cell_w/h from its metrics.
  * Called at startup and again from Ctrl+/Ctrl- to change size. */
 static void apply_font(void)
@@ -391,18 +468,11 @@ static void apply_font(void)
     if (g_fonts.main)
         CFRelease(g_fonts.main);
     g_fonts.main = new_font;
+    /* The small font is derived from this one - drop it so the next pane
+     * that needs it rebuilds it at the new size/family. */
+    release_small_font();
 
-    /* Monospace cell size: 'M's advance for width, the font's own vertical
-     * metrics for height (ascent+descent+leading, like a terminal line). */
-    UniChar ch = 'M';
-    CGGlyph glyph = 0;
-    CTFontGetGlyphsForCharacters(g_fonts.main, &ch, &glyph, 1);
-    CGSize advance = { 0, 0 };
-    if (glyph)
-        CTFontGetAdvancesForGlyphs(g_fonts.main, kCTFontOrientationDefault, &glyph, &advance, 1);
-    g_cell_w = advance.width > 0 ? (int)(advance.width + 0.5) : (int)(g_fonts.pt * 0.6 + 0.5);
-    g_cell_h = (int)(CTFontGetAscent(g_fonts.main) + CTFontGetDescent(g_fonts.main) +
-                      CTFontGetLeading(g_fonts.main) + 0.5);
+    measure_cell(g_fonts.main, g_fonts.pt, &g_cell_w, &g_cell_h);
 
     /* Every cell's pixel size just changed, so the render shadow no longer
      * matches the bitmap - clear it and repaint fully next frame. (Usually
@@ -477,24 +547,63 @@ static void ensure_bitmap(int w, int h)
 
 /* --- ui_draw_char/ui_draw_box (see ui.h) --- */
 
-void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
+/* --- Scaled text (see ui.h) --- */
+
+static void draw_glyph_px(int px, int py, int cell_w, int cell_h,
+                          uint32_t ch, uint32_t fg, uint32_t bg, CTFontRef font);
+
+/* ui_font_cell_size (see ui.h): the measured cell of the requested font. */
+void ui_font_cell_size(int small_font, int* cell_w, int* cell_h)
+{
+    int cw = g_cell_w, chh = g_cell_h;
+    if (small_font && ensure_small_font()) {
+        cw = g_fonts.small_cell_w;
+        chh = g_fonts.small_cell_h;
+    }
+    if (cell_w) *cell_w = cw;
+    if (cell_h) *cell_h = chh;
+}
+
+/* ui_draw_char_px (see ui.h): one glyph at an absolute device-pixel position,
+ * in the font `small_font` asks for. */
+void ui_draw_char_px(int px, int py, int cell_w, int cell_h,
+                     uint32_t ch, uint32_t fg, uint32_t bg, int small_font)
+{
+    CTFontRef font = (small_font && ensure_small_font()) ? g_fonts.small_main
+                                                         : g_fonts.main;
+    draw_glyph_px(px, py, cell_w, cell_h, ch, fg, bg, font);
+}
+
+void ui_fill_rect_px(int px, int py, int pw, int ph, uint32_t bg)
+{
+    ui_draw_box(px / g_cell_w, py / g_cell_h,
+                pw / g_cell_w, ph / g_cell_h, bg, bg, 0);
+}
+
+/* One glyph in `font`, filling and clipping to the cell rect at an absolute
+ * pixel position. The body of ui_draw_char, with the font and the cell
+ * geometry as parameters so the small-font path (ui_draw_char_px) shares it
+ * instead of duplicating the whole smoothing/flip discipline below. */
+static void draw_glyph_px(int px, int py, int cell_w, int cell_h,
+                          uint32_t ch, uint32_t fg, uint32_t bg, CTFontRef font)
 {
     CGContextRef c = g_bitmap_ctx;
-    int px = x * g_cell_w;
-    int py = y * g_cell_h;
 
     CGContextSetRGBFillColor(c, ((bg >> 16) & 0xFF) / 255.0, ((bg >> 8) & 0xFF) / 255.0,
                               (bg & 0xFF) / 255.0, 1.0);
-    CGContextFillRect(c, CGRectMake(px, py, g_cell_w, g_cell_h));
+    CGContextFillRect(c, CGRectMake(px, py, cell_w, cell_h));
+
+    if (!font)
+        return;
 
     uint32_t cp = ch ? ch : ' ';
     UniChar units[2];
     int n = cp_to_utf16(cp, units);
     CGGlyph glyphs[2] = {0, 0};
-    if (!CTFontGetGlyphsForCharacters(g_fonts.main, units, glyphs, n) || glyphs[0] == 0)
+    if (!CTFontGetGlyphsForCharacters(font, units, glyphs, n) || glyphs[0] == 0)
         return;  /* no glyph for this char in the font - skip rather than draw a tofu box */
 
-    CGFloat ascent = CTFontGetAscent(g_fonts.main);
+    CGFloat ascent = CTFontGetAscent(font);
     int box = is_box_drawing(cp);
 
     CGContextSaveGState(c);
@@ -504,7 +613,7 @@ void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
      * repaint, that spill is never cleaned when the neighbour doesn't itself
      * repaint - e.g. editor text bleeding into the static blank scrollbar
      * column, leaving stale fringe along the track as the view scrolls. */
-    CGContextClipToRect(c, CGRectMake(px, py, g_cell_w, g_cell_h));
+    CGContextClipToRect(c, CGRectMake(px, py, cell_w, cell_h));
     CGContextSetShouldAntialias(c, !box);
     CGContextSetShouldSmoothFonts(c, !box);
     /* Font smoothing blends glyph edges against an assumed background;
@@ -544,9 +653,15 @@ void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
     CGContextTranslateCTM(c, (CGFloat)px, (CGFloat)py + ascent);
     CGContextScaleCTM(c, 1, -1);
     CGPoint pos = { 0, 0 };
-    CTFontDrawGlyphs(g_fonts.main, glyphs, &pos, 1, c);
+    CTFontDrawGlyphs(font, glyphs, &pos, 1, c);
 
     CGContextRestoreGState(c);
+}
+
+void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
+{
+    draw_glyph_px(x * g_cell_w, y * g_cell_h, g_cell_w, g_cell_h,
+                  ch, fg, bg, g_fonts.main);
 }
 
 /* ui_draw_box (see ui.h): a solid w x h rect - ui.c's replacement for
@@ -824,6 +939,8 @@ static void view_drawRect(id self, SEL _cmd, CGRect dirty)
 static BOOL view_isFlipped(id self, SEL _cmd) { (void)self; (void)_cmd; return YES; }
 static BOOL view_yes(id self, SEL _cmd) { (void)self; (void)_cmd; return YES; }
 
+/* x/y are DEVICE PIXELS - see ui_event.mouse.x in ui.h: a cell-resolution
+ * pointer cannot address the rows of a smaller-font pane. */
 static void post_mouse(int x, int y, int button, int action, int mods,
                        int wheel_delta, int wheel_hdelta)
 {
@@ -843,8 +960,8 @@ static void post_mouse(int x, int y, int button, int action, int mods,
 static void view_mouse_button(id self, id event, int button, int is_down)
 {
     CGPoint pt = view_local_point(self, event);
-    int x = (int)(pt.x / g_cell_w);
-    int y = (int)(pt.y / g_cell_h);
+    int x = (int)pt.x;   /* device pixels - see post_mouse */
+    int y = (int)pt.y;
     int mods = mac_mods(event);
 
     int action;
@@ -874,7 +991,7 @@ static void view_otherMouseUp(id self, SEL _cmd, id event)
 static void view_mouse_move(id self, id event)
 {
     CGPoint pt = view_local_point(self, event);
-    post_mouse((int)(pt.x / g_cell_w), (int)(pt.y / g_cell_h), 0, UI_MOUSE_MOVED, mac_mods(event), 0, 0);
+    post_mouse((int)pt.x, (int)pt.y, 0, UI_MOUSE_MOVED, mac_mods(event), 0, 0);
 }
 
 static void view_mouseMoved(id self, SEL _cmd, id event) { (void)_cmd; view_mouse_move(self, event); }
@@ -916,7 +1033,7 @@ static void view_scrollWheel(id self, SEL _cmd, id event)
      * negate deltaX into the event's "+1 = scroll view right" convention to
      * match: a swipe that scrolls content left shows later columns. */
     CGPoint pt = view_local_point(self, event);
-    post_mouse((int)(pt.x / g_cell_w), (int)(pt.y / g_cell_h), 0, UI_MOUSE_WHEEL,
+    post_mouse((int)pt.x, (int)pt.y, 0, UI_MOUSE_WHEEL,
                mac_mods(event), lines, -cols);
 }
 

@@ -125,7 +125,11 @@ enum {
                                  * panel (see debug_info_panel_refresh()),
                                  * same singleton-window convention as
                                  * EVT_WINDOW_OUTPUT/EVT_WINDOW_FOLDER */
-    EVT_COMPILE = 40,
+    EVT_COMPILE = 40,  /* Build - the whole project when the active file
+                        * belongs to the open one, otherwise just that file
+                        * (see do_build()) */
+    EVT_COMPILE_FILE = 41,  /* Compile - always just the active file, never
+                             * the project (see do_compile()) */
     EVT_COMPILE_OPTIONS = 45,  /* Compile > Options... - opens the dialog below */
     EVT_COMPILE_CONFIG_FILE = 46,  /* Compile > "Config File" - opens cakeconf.h
                                     * (next to the executable), creating an
@@ -248,6 +252,16 @@ enum {
     EVT_EXTTOOL_DIR = 1238,
     EVT_EXTTOOL_MOVEUP = 1239,    /* reorder - the list order IS the menu order */
     EVT_EXTTOOL_MOVEDOWN = 1240,
+    EVT_EXTTOOL_MACRO_BTN = 1241,  /* base id for the ">" button on each of the
+                                    * Arguments/Directory rows, which opens the
+                                    * macro popup for that field -
+                                    * EVT_EXTTOOL_MACRO_BTN + index into
+                                    * g_exttool.macro_fields, reserving 1241..1242 */
+    EVT_EXTTOOL_BROWSE = 1244,     /* the Command row's "..." button - the Open
+                                    * dialog in OPEN_DLG_EXTTOOL_CMD mode */
+    EVT_EXTTOOL_MACRO_BASE = 1250,  /* base id for the macro popup's own items -
+                                     * EVT_EXTTOOL_MACRO_BASE + index into
+                                     * ext_macros[], reserving 1250..126x */
     EVT_FR_MODE = 950,        /* the panel's own Find/Replace mode-toggle button */
     EVT_FR_FIND_BTN = 951,
     EVT_FR_REPLACE_BTN = 952,
@@ -555,6 +569,12 @@ static ui_node* g_view_linenumbers_item;
  * See path_is_c_source() and this pointer's app_frame() call site. */
 static ui_node* g_compile_item;
 
+/* The Build menu's "Compile" item (EVT_COMPILE_FILE) - compiles just the
+ * active file, never the project. Same forward-declared/kept-current-every-
+ * frame pattern and the same path_is_c_source() condition as g_compile_item
+ * above. */
+static ui_node* g_compile_file_item;
+
 /* The Edit menu's "Format" item (EVT_EDIT_FORMAT, "Ctrl+Shift+F") - same
  * forward-declared/kept-current-every-frame pattern as g_compile_item above,
  * and the same path_is_c_source() condition, since Format only makes sense
@@ -712,7 +732,8 @@ static void build_screen(ui_node* root)
             ui_find_by_id(project_menu, project_menu_ids_requiring_project[i]);
 
     static const menu_item_spec compile_items[] = {
-        { 40, "Build", "F7", 1 },
+        { EVT_COMPILE, "Build", "F7", 1 },
+        { EVT_COMPILE_FILE, "Compile", NULL, 1 },
         //{ 41, "Make", NULL, 1 },
        // { 42, "Link", NULL, 1 },
        // { 43, "Build all", NULL, 1 },
@@ -727,6 +748,7 @@ static void build_screen(ui_node* root)
      * g_compile_item's own doc comment for why the menu container itself
      * wouldn't work). */
     g_compile_item = ui_find_by_id(compile_menu, EVT_COMPILE);
+    g_compile_file_item = ui_find_by_id(compile_menu, EVT_COMPILE_FILE);
     g_compile_show_output_item = ui_find_by_id(compile_menu, EVT_EDITOR_SHOW_OUTPUT);
 
     /* Shortcuts match Visual Studio's own debugger keys exactly - F5 does
@@ -1178,11 +1200,17 @@ typedef enum { OPEN_DLG_FILE, OPEN_DLG_SAVE, OPEN_DLG_FOLDER,
                                              * FOLDER - OK adds the chosen
                                              * directory to the open project's
                                              * include_dirs instead */
-               OPEN_DLG_NEWPROJECT_FOLDER  /* folder-picker, like OPEN_DLG_
+               OPEN_DLG_NEWPROJECT_FOLDER, /* folder-picker, like OPEN_DLG_
                                             * FOLDER - OK drops the chosen
                                             * directory into the New Project
                                             * dialog's Folder field and
                                             * reopens that dialog */
+               OPEN_DLG_EXTTOOL_CMD        /* file-picker, defaulted to the
+                                            * "Programs" filter - OK drops the
+                                            * chosen path into the External
+                                            * Tools dialog's Command field
+                                            * (which stays open underneath)
+                                            * instead of opening the file */
 } open_dialog_mode;
 
 /* The Open/Save As dialog - one dialog serving several modes (see
@@ -1202,6 +1230,13 @@ static struct
     open_dialog_mode dialog_mode;
     char dir[1024];         /* directory being browsed */
     char mask[64];          /* active filename mask, e.g. "*.c" */
+    int allow_multi;        /* 1 = the listbox picks several files at once
+                             * (Ctrl/Shift click, see ui_set_multi) instead
+                             * of one. Only Project > "Add Existing File..."
+                             * wants that - every other mode opens/saves
+                             * exactly one path - so it's derived from
+                             * dialog_mode in open_dialog_refresh() and read
+                             * back by the EVT_OPEN_OK handler. */
 } g_open = { .dir = ".", .mask = "*.c" };
 
 /* The Open/Save dialog's "Files of type" options, Windows-Explorer style -
@@ -1217,11 +1252,14 @@ static const open_filter_entry g_open_filters[] = {
     { "C/C++ Sources (*.c;*.h)", "*.c;*.h" },
     { "Markdown Files (*.md)",   "*.md" },
     { "Cake Project Files (*.cakeproj)", "*.cakeproj" },
+    { "Programs (*.exe;*.bat;*.cmd)", "*.exe;*.bat;*.cmd" },
     { "All Files (*.*)",         "*" },
 };
 #define OPEN_FILTER_COUNT ((int)(sizeof g_open_filters / sizeof g_open_filters[0]))
 #define CAKE_PROJECT_FILTER_INDEX 4  /* g_open_filters' own "*.cakeproj" row -
                                       * see the EVT_PROJECT_OPEN handler */
+#define PROGRAM_FILTER_INDEX 5  /* its "*.exe;*.bat;*.cmd" row - see the
+                                 * EVT_EXTTOOL_BROWSE handler */
 
 /* File > Save As... and File > Open Folder... both reuse the Open dialog
  * (see save_as_activate/folder_select_confirm) - g_open.dialog_mode picks
@@ -1305,7 +1343,8 @@ static ui_node* g_editor_popup;
 static ui_node* g_editor_popup_readonly;
 static ui_node* g_editor_popup_hdrsrc;  /* "Toggle Header/Source" item */
 static ui_node* g_editor_popup_compile;  /* "Compile" item - .c files only,
-                                          * same EVT_COMPILE id as the menu */
+                                          * EVT_COMPILE_FILE: this one always
+                                          * compiles just the active file */
 static ui_node* g_editor_popup_show_output;  /* "Show Generated Code" item -
                                               * disabled for a .md file, see
                                               * app_frame() */
@@ -3160,17 +3199,29 @@ static void open_dialog_refresh(void)
     populate_listbox_from_dir(g_open.listbox, g_open.dir,
                                folder_mode ? NULL : g_open.mask, folder_mode, 0);
 
+    /* Multi-select is a per-mode property of the dialog (see
+     * g_open.allow_multi) - set here, right after the rows were rebuilt, so
+     * every fresh listing starts with nothing checked whichever mode is
+     * active. */
+    g_open.allow_multi = (g_open.dialog_mode == OPEN_DLG_PROJECT_ADDFILE);
+    ui_set_multi(g_open.listbox, g_open.allow_multi);
+
     /* Cosmetic display only (backslashes regardless of platform, matching
      * this whole app's DOS/Windows IDE look) - never parsed back except
      * through EVT_OPEN_NAME, which accepts either separator style. Folder
-     * mode shows just the directory - there's no mask/filename to append. */
+     * mode shows just the directory - there's no mask/filename to append.
+     * File-Open mode leaves the name portion empty: the mask that filters
+     * the listing belongs to the "Type" combo alone (see g_open_filters /
+     * EVT_OPEN_FILTER), same as the real Windows dialog, so it is never
+     * echoed back into the Name field. Typing a wildcard there by hand
+     * still works (EVT_OPEN_NAME), it just isn't the default content. */
     char display[1024];
     if (folder_mode)
         snprintf(display, sizeof display, "%s", g_open.dir);
     else
         snprintf(display, sizeof display, "%s/%s", g_open.dir,
                   (g_open.dialog_mode == OPEN_DLG_SAVE ||
-                   g_open.dialog_mode == OPEN_DLG_PROJECT_NEW) ? g_save_name : g_open.mask);
+                   g_open.dialog_mode == OPEN_DLG_PROJECT_NEW) ? g_save_name : "");
     for (char* p = display; *p; p++)
         if (*p == '/')
             *p = '\\';
@@ -3266,6 +3317,11 @@ static void folder_select_confirm(void);
 static void project_open_file(const char* path);
 static void project_add_file(const char* path);
 static void project_add_include(const char* path);
+
+/* The External Tools dialog's "..." Command browse (OPEN_DLG_EXTTOOL_CMD) -
+ * defined with the rest of that dialog, forward-declared for the same
+ * reason. */
+static void exttool_browse_pick(const char* path);
 
 /* The filename part of a path (after the last '/' or '\') - defined further
  * below, forward-declared so folder_window_refresh() above it can title the
@@ -3511,6 +3567,33 @@ static int path_is_regular_file(const char* path)
     return (st.st_mode & S_IFMT) == S_IFREG ? 1 : 0;
 }
 
+/* Adds every checked row of the Open dialog's listbox to the open project -
+ * the multi-select half of Project > "Add Existing File..." (see
+ * g_open.allow_multi). Directory rows (marked with a trailing "\", see
+ * populate_listbox_from_dir) are skipped: a checked directory has no
+ * meaning here, and the user navigates with a double-click anyway. Returns
+ * how many files were actually added, so a listing with nothing checked
+ * reads as 0 and the caller can fall back to the single-row behavior. */
+static int open_dialog_add_checked_files(void)
+{
+    int added = 0;
+    int count = ui_child_count(g_open.listbox);
+    for (int i = 0; i < count; i++)
+    {
+        if (!ui_group_get_checked(g_open.listbox, i))
+            continue;
+        const char* label = ui_get_label(ui_child_at(g_open.listbox, i));
+        size_t len = label ? strlen(label) : 0;
+        if (len == 0 || label[len - 1] == '\\')
+            continue;
+        char path[1024];
+        snprintf(path, sizeof path, "%s/%s", g_open.dir, label);
+        project_add_file(path);
+        added++;
+    }
+    return added;
+}
+
 static void open_dialog_activate(int index)
 {
     if (index < 0 || index >= ui_child_count(g_open.listbox))
@@ -3533,6 +3616,18 @@ static void open_dialog_activate(int index)
         strncpy(g_save_name, label, sizeof g_save_name - 1);
         g_save_name[sizeof g_save_name - 1] = 0;
         open_dialog_refresh();
+        return;
+    }
+
+    /* External Tools' Command browse: picking a file row just fills that
+     * field in - see exttool_browse_pick(). */
+    if (g_open.dialog_mode == OPEN_DLG_EXTTOOL_CMD)
+    {
+        char path[1024];
+        snprintf(path, sizeof path, "%s/%s", g_open.dir, label);
+        exttool_browse_pick(path);
+        ui_screen_close_modal(g_screen, g_open.modal);
+        g_open.dialog_mode = OPEN_DLG_FILE;
         return;
     }
 
@@ -4917,6 +5012,14 @@ static struct
     ui_node* args_input;
     ui_node* dir_input;
 
+    /* The macro popup (see ext_macros) and the two fields its ">" buttons
+     * open it for, indexed the same way EVT_EXTTOOL_MACRO_BTN is. `macro_target`
+     * is whichever of them the open popup belongs to - only read while it is
+     * up, so a picked item knows where to insert. */
+    ui_node* macro_popup;
+    ui_node* macro_fields[2];
+    ui_node* macro_target;
+
     ext_tool edit[EXT_TOOL_MAX];
     int count;
     int sel;
@@ -4984,6 +5087,71 @@ static void exttool_store_fields(void)
     snprintf(t->dir, sizeof t->dir, "%s", ui_get_value(g_exttool.dir_input));
 }
 
+/* The macros offered by the dialog's ">" popup, in menu order - the same
+ * names exttool_expand() understands (its Visual Studio $(Item*) aliases are
+ * deliberately left out: they expand identically to the $(File*) ones above
+ * them, so listing both would just be two ways to pick the same thing). The
+ * label is what the menu shows AND what gets inserted, which is why it is
+ * spelled out in full rather than assembled from the bare name. */
+static const char* const ext_macros[] = {
+    "$(FilePath)",
+    "$(FileDir)",
+    "$(FileName)",
+    "$(FileExt)",
+    "$(CakeOutput)",
+    "$(TargetPath)",
+    "$(TargetDir)",
+    "$(TargetFileName)",
+    "$(TargetName)",
+    "$(TargetExt)",
+    "$(ProjectDir)",
+    "$(ProjectName)",
+    "$(Platform)",
+};
+#define EXT_MACRO_COUNT ((int)(sizeof ext_macros / sizeof ext_macros[0]))
+
+/* Insert `text` into `field` at its caret, replacing whatever is selected,
+ * and leave the caret just past what was inserted - what picking a macro
+ * from the ">" popup does. The caret/selection an <input> holds survives it
+ * losing focus to the button, so this lands where the user last was in the
+ * field rather than always at the end (ui_set_value() alone would do the
+ * latter, hence the set_selection afterwards). */
+static void exttool_insert_macro(ui_node* field, const char* text)
+{
+    if (!field || !text)
+        return;
+    const char* cur = ui_get_value(field);
+    int len = (int)strlen(cur);
+    int lo = ui_editor_get_cursor(field), hi = lo;
+    ui_editor_get_selection(field, &lo, &hi);   /* leaves lo/hi alone if none */
+    if (lo < 0 || lo > len) lo = len;
+    if (hi < lo || hi > len) hi = lo;
+
+    char buf[1024];
+    int n = snprintf(buf, sizeof buf, "%.*s%s%s", lo, cur, text, cur + hi);
+    if (n < 0 || n >= (int)sizeof buf)
+        return;                                  /* would truncate - leave as-is */
+    ui_set_value(field, buf);
+    int caret = lo + (int)strlen(text);
+    ui_editor_set_selection(field, caret, caret);
+}
+
+/* The Command "..." browse landing back here with a picked program: drop it
+ * into the Command field and commit the row, so the change survives the very
+ * next selection change like any typed edit would. Backslashes, since this
+ * is a command line the user will read and (on Windows) a path the shell
+ * takes either way. */
+static void exttool_browse_pick(const char* path)
+{
+    char buf[1024];
+    snprintf(buf, sizeof buf, "%s", path);
+    for (char* p = buf; *p; p++)
+        if (*p == '/')
+            *p = '\\';
+    ui_set_value(g_exttool.cmd_input, buf);
+    exttool_store_fields();
+}
+
 /* Rebuilds everything in the Tools menu below its one fixed item
  * ("Terminal", built in build_screen()): the configured tools, then
  * "External Tools..." pinned LAST so the configuration entry stays at the
@@ -5027,12 +5195,68 @@ static void rebuild_tools_menu(void)
     ui_append_child(g_tools_menu, cfg);
 }
 
-/* Appends `text` to buf (capacity `cap`), never overflowing. */
-static void exttool_append(char* buf, size_t cap, size_t* len, const char* text)
+/* A growable text buffer for building an External Tool's command line.
+ *
+ * $(CakeOutput) expands to one quoted path PER .c FILE in the project, so
+ * the result has no useful upper bound - a fixed buffer here silently cut
+ * the command in half (mid-path, so the compiler saw a garbage file name)
+ * on any project past a couple of dozen files. `data` is NULL until the
+ * first append; `oom` latches on allocation failure, after which every
+ * append is a no-op and callers report the failure once, rather than each
+ * append having to be checked. */
+struct exttool_buf
 {
-    while (*text && *len + 1 < cap)
-        buf[(*len)++] = *text++;
-    buf[*len] = 0;
+    char* data;
+    size_t len;
+    size_t cap;
+    bool oom;
+};
+
+static void exttool_buf_free(struct exttool_buf* b)
+{
+    free(b->data);
+    b->data = NULL;
+    b->len = b->cap = 0;
+    b->oom = false;
+}
+
+/* The buffer's text, never NULL - an untouched (or failed) buffer reads as
+ * the empty string, so callers can use it without a null check. */
+static const char* exttool_buf_text(const struct exttool_buf* b)
+{
+    return b->data ? b->data : "";
+}
+
+/* Appends `n` bytes of `text` to `b`, growing it as needed. */
+static void exttool_append_n(struct exttool_buf* b, const char* text, size_t n)
+{
+    if (b->oom || n == 0)
+        return;
+
+    if (b->len + n + 1 > b->cap)
+    {
+        size_t newcap = b->cap ? b->cap * 2 : 256;
+        while (newcap < b->len + n + 1)
+            newcap *= 2;
+        char* p = realloc(b->data, newcap);
+        if (!p)
+        {
+            b->oom = true;
+            return;
+        }
+        b->data = p;
+        b->cap = newcap;
+    }
+
+    memcpy(b->data + b->len, text, n);
+    b->len += n;
+    b->data[b->len] = 0;
+}
+
+/* Appends `text` to `b`, growing it as needed. */
+static void exttool_append(struct exttool_buf* b, const char* text)
+{
+    exttool_append_n(b, text, strlen(text));
 }
 
 /* The open project's own target platform name (e.g. "x64", "x86") - the same
@@ -5110,7 +5334,7 @@ static void target_file_name(const char* doc_base, char* out, size_t cap)
  * do_debug_start() computes by hand for exactly this no-project case (see
  * its own doc comment) - kept in sync with it rather than duplicating a
  * third slightly different guess at cake's output layout. */
-static void exttool_append_cake_output(char* out, size_t cap, size_t* len,
+static void exttool_append_cake_output(struct exttool_buf* out,
                                         const char* path, const char* dir,
                                         const char* name, const char* ext)
 {
@@ -5143,11 +5367,17 @@ static void exttool_append_cake_output(char* out, size_t cap, size_t* len,
             char rel[512];
             project_make_relative(g_project.dir, entry, rel, sizeof rel);
 
-            char piece[1040];
+            /* Appended a component at a time rather than through one
+             * snprintf'd scratch buffer: an absolute g_project.dir plus a
+             * long entry already overflows any fixed size worth writing
+             * down here, and a path cut short is worse than a long one. */
+            if (!first)
+                exttool_append(out, " ");
+            exttool_append(out, "\"");
             if (rel[0] == '/' ||
                 (isalpha((unsigned char)rel[0]) && rel[1] == ':'))
             {
-                char edir[1024];
+                char edir[512];
                 snprintf(edir, sizeof edir, "%s", rel);
                 char* slash = strrchr(edir, '/');
                 const char* base = slash ? slash + 1 : edir;
@@ -5155,13 +5385,22 @@ static void exttool_append_cake_output(char* out, size_t cap, size_t* len,
                     *slash = 0;
                 else
                     edir[0] = 0;
-                snprintf(piece, sizeof piece, "%s\"%s%s%s/%s\"", first ? "" : " ",
-                         edir, edir[0] ? "/" : "", platform_name, base);
+                exttool_append(out, edir);
+                if (edir[0])
+                    exttool_append(out, "/");
+                exttool_append(out, platform_name);
+                exttool_append(out, "/");
+                exttool_append(out, base);
             }
             else
-                snprintf(piece, sizeof piece, "%s\"%s/%s/%s\"", first ? "" : " ",
-                         g_project.dir, platform_name, rel);
-            exttool_append(out, cap, len, piece);
+            {
+                exttool_append(out, g_project.dir);
+                exttool_append(out, "/");
+                exttool_append(out, platform_name);
+                exttool_append(out, "/");
+                exttool_append(out, rel);
+            }
+            exttool_append(out, "\"");
             first = 0;
         }
         return;
@@ -5170,20 +5409,22 @@ static void exttool_append_cake_output(char* out, size_t cap, size_t* len,
     if (!path || !path[0] || strcmp(ext, ".c") != 0)
         return;   /* no active document, or it isn't a .c file */
 
-    char piece[1040];
-    snprintf(piece, sizeof piece, "\"%s%s%s/%s%s\"",
-             dir, dir[0] ? "/" : "", platform_name, name, ext);
-    exttool_append(out, cap, len, piece);
+    exttool_append(out, "\"");
+    exttool_append(out, dir);
+    if (dir[0])
+        exttool_append(out, "/");
+    exttool_append(out, platform_name);
+    exttool_append(out, "/");
+    exttool_append(out, name);
+    exttool_append(out, ext);
+    exttool_append(out, "\"");
 }
 
 /* Expands the $(...) macros above in `in`, writing to `out`. `path` is the
  * active document's full path ("" when there is none, which simply makes
  * every file macro expand to nothing rather than failing). */
-static void exttool_expand(const char* in, const char* path, char* out, size_t cap)
+static void exttool_expand(const char* in, const char* path, struct exttool_buf* out)
 {
-    size_t len = 0;
-    out[0] = 0;
-
     char dir[1024] = { 0 }, name[512] = { 0 }, ext[64] = { 0 };
     if (path && path[0])
     {
@@ -5207,12 +5448,11 @@ static void exttool_expand(const char* in, const char* path, char* out, size_t c
         }
     }
 
-    for (const char* p = in; *p && len + 1 < cap; )
+    for (const char* p = in; *p; )
     {
         if (p[0] == '$' && p[1] == '$')          /* "$$" -> literal '$' */
         {
-            out[len++] = '$';
-            out[len] = 0;
+            exttool_append(out, "$");
             p += 2;
         }
         else if (p[0] == '$' && p[1] == '(')
@@ -5220,8 +5460,8 @@ static void exttool_expand(const char* in, const char* path, char* out, size_t c
             const char* close = strchr(p + 2, ')');
             if (!close)                          /* unterminated - copy as-is */
             {
-                out[len++] = *p++;
-                out[len] = 0;
+                exttool_append_n(out, p, 1);
+                p++;
                 continue;
             }
             size_t n = (size_t)(close - (p + 2));
@@ -5234,15 +5474,15 @@ static void exttool_expand(const char* in, const char* path, char* out, size_t c
             /* Visual Studio names these Item*; both spellings work, the
              * File* ones being what this IDE shipped with. */
             if (strcmp(macro, "FilePath") == 0 ||
-                strcmp(macro, "ItemPath") == 0)      exttool_append(out, cap, &len, path ? path : "");
+                strcmp(macro, "ItemPath") == 0)      exttool_append(out, path ? path : "");
             else if (strcmp(macro, "FileDir") == 0 ||
-                     strcmp(macro, "ItemDir") == 0)  exttool_append(out, cap, &len, dir);
+                     strcmp(macro, "ItemDir") == 0)  exttool_append(out, dir);
             else if (strcmp(macro, "FileName") == 0 ||
-                     strcmp(macro, "ItemFilename") == 0) exttool_append(out, cap, &len, name);
+                     strcmp(macro, "ItemFilename") == 0) exttool_append(out, name);
             else if (strcmp(macro, "FileExt") == 0 ||
-                     strcmp(macro, "ItemExt") == 0)  exttool_append(out, cap, &len, ext);
+                     strcmp(macro, "ItemExt") == 0)  exttool_append(out, ext);
             else if (strcmp(macro, "CakeOutput") == 0)
-                exttool_append_cake_output(out, cap, &len, path, dir, name, ext);
+                exttool_append_cake_output(out, path, dir, name, ext);
             /* Visual Studio's own External Tools vocabulary for the built
              * binary (see its Macros menu): $(TargetDir) the folder it
              * lands in, $(TargetName)/$(TargetExt)/$(TargetFileName) its
@@ -5253,13 +5493,13 @@ static void exttool_expand(const char* in, const char* path, char* out, size_t c
             {
                 char buf[1024];
                 target_dir_path(dir, buf, sizeof buf);
-                exttool_append(out, cap, &len, buf);
+                exttool_append(out, buf);
             }
             else if (strcmp(macro, "TargetFileName") == 0)
             {
                 char buf[512];
                 target_file_name(name, buf, sizeof buf);
-                exttool_append(out, cap, &len, buf);
+                exttool_append(out, buf);
             }
             else if (strcmp(macro, "TargetName") == 0 ||
                      strcmp(macro, "TargetExt") == 0)
@@ -5274,10 +5514,10 @@ static void exttool_expand(const char* in, const char* path, char* out, size_t c
                 {
                     if (dot)
                         *dot = 0;
-                    exttool_append(out, cap, &len, buf);
+                    exttool_append(out, buf);
                 }
                 else                          /* TargetExt */
-                    exttool_append(out, cap, &len, dot ? dot : "");
+                    exttool_append(out, dot ? dot : "");
             }
             else if (strcmp(macro, "TargetPath") == 0)
             {
@@ -5285,16 +5525,16 @@ static void exttool_expand(const char* in, const char* path, char* out, size_t c
                 target_dir_path(dir, d, sizeof d);
                 target_file_name(name, f, sizeof f);
                 snprintf(buf, sizeof buf, "%s/%s", d, f);
-                exttool_append(out, cap, &len, buf);
+                exttool_append(out, buf);
             }
             else if (strcmp(macro, "Platform") == 0)
                 /* Visual Studio's own name for the architecture (its
                  * $(Platform) is "x64"); $(Target) below predates this
                  * and means the same thing here, kept so tools already
                  * configured with it keep working. */
-                exttool_append(out, cap, &len, active_platform_name());
+                exttool_append(out, active_platform_name());
             else if (strcmp(macro, "ProjectName") == 0)
-                exttool_append(out, cap, &len,
+                exttool_append(out,
                     project_is_open() ? g_project.name : name);
             else if (strcmp(macro, "ProjectDir") == 0)
                 /* The open project's own directory - what a tool that
@@ -5307,7 +5547,7 @@ static void exttool_expand(const char* in, const char* path, char* out, size_t c
                  * document's directory with no project open, so the same
                  * tool string still works on a standalone file - the same
                  * no-project fallback $(CakeOutput) and $(Target) make. */
-                exttool_append(out, cap, &len,
+                exttool_append(out,
                     project_is_open() ? g_project.dir : dir);
             else if (strcmp(macro, "Target") == 0)
                 /* Same no-project fallback as exttool_append_cake_output's
@@ -5316,7 +5556,7 @@ static void exttool_expand(const char* in, const char* path, char* out, size_t c
                  * build_screen() block), and leaving just this one still
                  * gated on project_is_open() would silently drop half of
                  * that pair for a standalone file. */
-                exttool_append(out, cap, &len, project_is_open()
+                exttool_append(out, project_is_open()
                     ? project_target_platform_name()
                     : (g_compile.target[0] ? g_compile.target
                                             : get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->name));
@@ -5326,8 +5566,12 @@ static void exttool_expand(const char* in, const char* path, char* out, size_t c
         }
         else
         {
-            out[len++] = *p++;
-            out[len] = 0;
+            /* Copy the whole run of ordinary text up to the next '$' in
+             * one go rather than a byte at a time. */
+            const char* start = p;
+            while (*p && *p != '$')
+                p++;
+            exttool_append_n(out, start, (size_t)(p - start));
         }
     }
 }
@@ -5419,6 +5663,12 @@ static struct compile_job
      * back (see compile_stream_poll / exttool_finish). */
     ui_process* proc;
     char proc_title[64];   /* tool name, for the status bar and Output header */
+
+    /* The response file this tool's arguments were moved into, "" when the
+     * command line was short enough to pass directly (see
+     * exttool_write_response_file). Deleted by exttool_finish once the
+     * child that reads it has exited. */
+    char rsp_path[FS_MAX_PATH];
 
     /* The pipe itself still has to be platform-specific: Win32 needs the
      * HANDLE for PeekNamedPipe (the only way to check "is there anything to
@@ -6735,6 +6985,69 @@ static void do_project_build(void)
     compile_status_set("Building...");
 }
 
+static int get_config_dir(char* buf, size_t cap);   /* defined further down */
+
+/* Longest command line handed to the shell before the arguments are moved
+ * into a response file instead (see exttool_write_response_file).
+ *
+ * cmd.exe refuses anything past 8191 characters outright, so the Windows
+ * figure leaves room for the "cmd.exe /c " prefix and the tool's own name.
+ * POSIX shells have no such limit - execve's ARG_MAX is megabytes - so the
+ * threshold there is high enough that ordinary command lines never take
+ * the response-file path at all, and it exists only as a backstop. */
+#ifdef _WIN32
+#define EXTTOOL_CMDLINE_MAX 7000
+#else
+#define EXTTOOL_CMDLINE_MAX 100000
+#endif
+
+/* Writes `args` to a response file and stores its path in `path`, so the
+ * tool can be invoked as `tool @file` instead of with the arguments spelled
+ * out on a command line the shell would reject.
+ *
+ * "@file" is a compiler convention, not a shell one - cl, link, gcc and
+ * clang all understand it, an arbitrary program may not - so this is only
+ * ever reached once the command line is genuinely too long to run as-is:
+ * a tool that doesn't support it then fails with its own message about the
+ * "@..." argument, which beats the shell's flat refusal to run anything.
+ *
+ * Returns 1 on success. On failure `path` is set to "" and the caller runs
+ * the long command line anyway, letting the shell report the problem. */
+static int exttool_write_response_file(const char* args, char* path, size_t cap)
+{
+    char dir[FS_MAX_PATH];
+    if (!get_config_dir(dir, sizeof dir))
+    {
+        path[0] = 0;
+        return 0;
+    }
+
+#ifdef _WIN32
+    snprintf(path, cap, "%s\\exttool.rsp", dir);
+#else
+    snprintf(path, cap, "%s/exttool.rsp", dir);
+#endif
+
+    FILE* f = fopen(path, "wb");
+    if (!f)
+    {
+        path[0] = 0;
+        return 0;
+    }
+
+    size_t n = strlen(args);
+    int ok = fwrite(args, 1, n, f) == n;
+    if (fclose(f) != 0)
+        ok = 0;
+    if (!ok)
+    {
+        remove(path);
+        path[0] = 0;
+        return 0;
+    }
+    return 1;
+}
+
 /* Launches External Tool `index`. Returns quietly if one is already
  * running (same one-at-a-time rule as Compile - they share g_job) or the
  * tool has no command configured. */
@@ -6753,10 +7066,43 @@ static void do_run_external_tool(int index)
     save_active_file(active);
     const char* path = active ? ui_get_path(active) : "";
 
-    char args[1024], dir[1024], cmd[2048];
-    exttool_expand(t->args, path, args, sizeof args);
-    exttool_expand(t->dir, path, dir, sizeof dir);
-    snprintf(cmd, sizeof cmd, "%s%s%s", t->command, args[0] ? " " : "", args);
+    /* Growable, not fixed: $(CakeOutput) contributes one path per project
+     * file, so a project of any size runs past whatever limit we'd pick -
+     * and a command line cut short doesn't fail cleanly, it hands the
+     * compiler a half-written path as its last file name. */
+    struct exttool_buf argsb = { 0 }, dirb = { 0 }, cmdb = { 0 };
+    exttool_expand(t->args, path, &argsb);
+    exttool_expand(t->dir, path, &dirb);
+
+    const char* args = exttool_buf_text(&argsb);
+    const char* dir = exttool_buf_text(&dirb);
+
+    exttool_append(&cmdb, t->command);
+    if (args[0])
+    {
+        exttool_append(&cmdb, " ");
+        exttool_append(&cmdb, args);
+    }
+    const char* cmd = exttool_buf_text(&cmdb);
+
+    /* A leftover from a previous run only survives if that run couldn't
+     * clean up; drop it before claiming the name again. */
+    if (g_job.rsp_path[0])
+    {
+        remove(g_job.rsp_path);
+        g_job.rsp_path[0] = 0;
+    }
+
+    if (cmdb.len > EXTTOOL_CMDLINE_MAX && args[0] &&
+        exttool_write_response_file(args, g_job.rsp_path, sizeof g_job.rsp_path))
+    {
+        exttool_buf_free(&cmdb);
+        exttool_append(&cmdb, t->command);
+        exttool_append(&cmdb, " @\"");
+        exttool_append(&cmdb, g_job.rsp_path);
+        exttool_append(&cmdb, "\"");
+        cmd = exttool_buf_text(&cmdb);
+    }
 
     g_job.len = 0;
     g_job.lines = 0;
@@ -6765,15 +7111,45 @@ static void do_run_external_tool(int index)
     g_job.active = active;
     snprintf(g_job.proc_title, sizeof g_job.proc_title, "%s", t->title);
 
+    if (argsb.oom || dirb.oom || cmdb.oom)
+    {
+        const char* oom = "Out of memory building the command line.\n";
+        compile_text_append(oom, strlen(oom));
+        ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
+        ui_screen_show_window(g_screen, g_output_window);
+        exttool_buf_free(&argsb);
+        exttool_buf_free(&dirb);
+        exttool_buf_free(&cmdb);
+        return;
+    }
+
     /* Echo exactly what is about to run - the fully expanded command and
      * the directory it runs in - the way Visual Studio's Output window
      * does. Without it a tool that prints nothing looks like nothing
      * happened, and a macro that expanded to something unexpected is
      * invisible. */
-    char header[3400];
-    snprintf(header, sizeof header, "> %s\n  (in %s)\n",
-              cmd, dir[0] ? dir : "the IDE's own directory");
-    compile_text_append(header, strlen(header));
+    compile_text_append("> ", 2);
+    compile_text_append(cmd, strlen(cmd));
+    compile_text_append("\n  (in ", 7);
+    {
+        const char* where = dir[0] ? dir : "the IDE's own directory";
+        compile_text_append(where, strlen(where));
+    }
+    compile_text_append(")\n", 2);
+
+    /* The echoed command above now says only "@<file>", so spell out what
+     * went into it - otherwise the one case where the arguments matter
+     * most is the one case they're invisible. */
+    if (g_job.rsp_path[0])
+    {
+        static const char pre[] = "  (arguments passed in ";
+        static const char post[] = ", too long for one command line)\n    ";
+        compile_text_append(pre, sizeof pre - 1);
+        compile_text_append(g_job.rsp_path, strlen(g_job.rsp_path));
+        compile_text_append(post, sizeof post - 1);
+        compile_text_append(args, strlen(args));
+        compile_text_append("\n", 1);
+    }
     ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
 
     ui_screen_show_window(g_screen, g_output_window);
@@ -6795,22 +7171,35 @@ static void do_run_external_tool(int index)
          * useful here, and the common "program not found" case never
          * reaches this path anyway - the command runs through a shell, so
          * that arrives as ordinary captured output instead. */
-        char msg[4096];
-        snprintf(msg, sizeof msg,
-                  "Failed to start.\n"
-                  "  Command  : %s\n"
-                  "  Arguments: %s\n"
-                  "  Directory: %s\n",
-                  t->command,
-                  args[0] ? args : "(none)",
-                  dir[0] ? dir : "(inherited from the IDE)");
-        compile_text_append(msg, strlen(msg));
+        struct exttool_buf msg = { 0 };
+        exttool_append(&msg, "Failed to start.\n  Command  : ");
+        exttool_append(&msg, t->command);
+        exttool_append(&msg, "\n  Arguments: ");
+        exttool_append(&msg, args[0] ? args : "(none)");
+        exttool_append(&msg, "\n  Directory: ");
+        exttool_append(&msg, dir[0] ? dir : "(inherited from the IDE)");
+        exttool_append(&msg, "\n");
+        const char* text = exttool_buf_text(&msg);
+        compile_text_append(text, strlen(text));
+        exttool_buf_free(&msg);
         ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
         compile_status_set("");
+        if (g_job.rsp_path[0])   /* nothing ever read it - the child never ran */
+        {
+            remove(g_job.rsp_path);
+            g_job.rsp_path[0] = 0;
+        }
+        exttool_buf_free(&argsb);
+        exttool_buf_free(&dirb);
+        exttool_buf_free(&cmdb);
         return;
     }
     g_job.running = 1;
     compile_status_set(g_job.proc_title[0] ? g_job.proc_title : "Running...");
+
+    exttool_buf_free(&argsb);
+    exttool_buf_free(&dirb);
+    exttool_buf_free(&cmdb);
 }
 
 /* --- Debug menu (scripted lldb - see ide_debug.h) --------------------------- */
@@ -7344,6 +7733,13 @@ static void exttool_finish(void)
     int code = ui_process_close(g_job.proc);
     g_job.proc = NULL;
     g_job.running = 0;
+
+    /* Safe only now: the child has exited, so nothing is still reading it. */
+    if (g_job.rsp_path[0])
+    {
+        remove(g_job.rsp_path);
+        g_job.rsp_path[0] = 0;
+    }
 
     char footer[128];
     snprintf(footer, sizeof footer, "\nExit code %d\n", code);
@@ -9625,6 +10021,10 @@ static void on_ui_event(void* ctx, int id, void* param)
     {
         do_build();
     }
+    else if (id == EVT_COMPILE_FILE)
+    {
+        do_compile();
+    }
     else if (id == EVT_DEBUG_START)
     {
         do_debug_start();
@@ -10756,6 +11156,25 @@ static void on_ui_event(void* ctx, int id, void* param)
             g_open.dialog_mode = OPEN_DLG_FILE;
             ui_screen_show_modal(g_screen, g_newproject.modal);
         }
+        else if (g_open.dialog_mode == OPEN_DLG_EXTTOOL_CMD)
+        {
+            /* Same "typed/pasted a full path" shortcut as the other modes;
+             * otherwise act on the selected row. */
+            char buf[1024];
+            strncpy(buf, ui_get_value(g_open.name_input), sizeof buf - 1);
+            buf[sizeof buf - 1] = 0;
+            for (char* p = buf; *p; p++)
+                if (*p == '\\')
+                    *p = '/';
+            if (path_is_regular_file(buf))
+            {
+                exttool_browse_pick(buf);
+                ui_screen_close_modal(g_screen, g_open.modal);
+                g_open.dialog_mode = OPEN_DLG_FILE;
+            }
+            else
+                open_dialog_activate(ui_select_get_selected(g_open.listbox));
+        }
         else if (g_open.dialog_mode == OPEN_DLG_PROJECT_OPEN || g_open.dialog_mode == OPEN_DLG_PROJECT_ADDFILE)
         {
             /* Same "pasted a full path" shortcut as the generic branch below:
@@ -10774,6 +11193,16 @@ static void on_ui_event(void* ctx, int id, void* param)
                     project_open_file(buf);
                 else
                     project_add_file(buf);
+                ui_screen_close_modal(g_screen, g_open.modal);
+                g_open.dialog_mode = OPEN_DLG_FILE;
+            }
+            else if (g_open.allow_multi && open_dialog_add_checked_files())
+            {
+                /* Add Existing File... in its multi-select shape: every
+                 * checked row is added in one go (see
+                 * open_dialog_add_checked_files, which returns 0 when
+                 * nothing is checked so a plain single pick still falls
+                 * through to open_dialog_activate below). */
                 ui_screen_close_modal(g_screen, g_open.modal);
                 g_open.dialog_mode = OPEN_DLG_FILE;
             }
@@ -11010,6 +11439,44 @@ static void on_ui_event(void* ctx, int id, void* param)
             exttool_refresh_list();
             exttool_load_fields();
         }
+    }
+    else if (id == EVT_EXTTOOL_BROWSE)
+    {
+        /* Opens on top of the External Tools dialog, which stays up
+         * underneath - same stacked-modal shape Project > "Include
+         * Directories..."'s own "Add..." uses. OK drops the picked path into
+         * the Command field, see exttool_browse_pick(). */
+        g_open.dialog_mode = OPEN_DLG_EXTTOOL_CMD;
+        ui_set_label(g_open.window, " Select Program ");
+        ui_set_label(g_open.ok, "  Open  ");
+        if (!ui_get_cwd(g_open.dir, sizeof g_open.dir))
+            strcpy(g_open.dir, ".");
+        strncpy(g_open.mask, g_open_filters[PROGRAM_FILTER_INDEX].mask,
+                sizeof g_open.mask - 1);
+        g_open.mask[sizeof g_open.mask - 1] = 0;
+        ui_select_set_selected(g_open.filter, PROGRAM_FILTER_INDEX);
+        open_dialog_set_filter_visible(1);
+        open_dialog_refresh();
+        ui_screen_show_modal(g_screen, g_open.modal);
+    }
+    else if (id >= EVT_EXTTOOL_MACRO_BTN && id < EVT_EXTTOOL_MACRO_BTN + 2)
+    {
+        /* Open the macro list just under the ">" that was clicked, aligned
+         * with its own field so the two read as one control. */
+        ui_node* field = g_exttool.macro_fields[id - EVT_EXTTOOL_MACRO_BTN];
+        int fx, fy, fw, fh;
+        ui_get_rect(field, &fx, &fy, &fw, &fh);
+        g_exttool.macro_target = field;
+        ui_screen_open_popup(g_screen, g_exttool.macro_popup, fx + fw, fy + 1, NULL);
+    }
+    else if (id >= EVT_EXTTOOL_MACRO_BASE && id < EVT_EXTTOOL_MACRO_BASE + EXT_MACRO_COUNT)
+    {
+        exttool_insert_macro(g_exttool.macro_target,
+                             ext_macros[id - EVT_EXTTOOL_MACRO_BASE]);
+        /* The field is the natural place to be afterwards - the caret is
+         * already sitting past what was just inserted. */
+        ui_screen_focus(g_screen, g_exttool.macro_target);
+        g_exttool.macro_target = NULL;
     }
     else if (id == EVT_EXTTOOL_OK)
     {
@@ -12006,15 +12473,16 @@ void app_init(ui_env* env)
     ui_node* popup = ui_create_element(UI_TAG_MENU);
     ui_append_child(root, popup);
 
-    /* First item in the popup, ahead of everything else below. Same id as
-     * Run > Compile and the F7 status-bar hotkey - all three share one
-     * handler (see on_ui_event), so this is purely a second way to reach it,
-     * not a second implementation. Enabled only for .c files, refreshed each
-     * frame next to the menu's own copy (see g_editor_popup_compile). */
+    /* First item in the popup, ahead of everything else below. This is
+     * "Compile" in the narrow sense - always just the file under the cursor
+     * (EVT_COMPILE_FILE -> do_compile()), never the project. Build > "Build"
+     * / F7 is the other one (EVT_COMPILE -> do_build()), which builds the
+     * whole project when the active file is a member of it. Enabled only for
+     * .c files, refreshed each frame next to the menu's own copy (see
+     * g_editor_popup_compile). */
     ui_node* popup_compile = ui_create_element(UI_TAG_ITEM);
-    ui_set_id(popup_compile, EVT_COMPILE);
+    ui_set_id(popup_compile, EVT_COMPILE_FILE);
     ui_set_label(popup_compile, "Compile");
-    ui_set_shortcut(popup_compile, "F7");
     ui_append_child(popup, popup_compile);
     g_editor_popup_compile = popup_compile;
     ui_node* popup_sep0 = ui_create_element(UI_TAG_ITEM);
@@ -12278,11 +12746,11 @@ void app_init(ui_env* env)
     ui_node* ext_modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, ext_modal);
     /* Laid out against ex/ey so the whole dialog moves as a unit. Widths
-     * are chosen so the list and the field inputs share the same right
-     * edge (ex + 2 + LIST_W == ex + 12 + FIELD_W), with the Add/Delete
-     * column parked to the right of the list. */
-    int ex = 10, ey = 2, ew = 66, eh = 25;
-    const int list_w = 46, list_h = 10;      /* rows visible; the list scrolls
+     * are chosen so the list sits left with the Add/Delete column parked to
+     * its right, and the field rows below run out to the window's own inner
+     * right edge - input, a blank column, then that row's small button. */
+    int ex = 10, ey = 2, ew = 66, eh = 22;
+    const int list_w = 47, list_h = 7;       /* rows visible; the list scrolls
                                               * past that up to EXT_TOOL_MAX */
     const int btn_x = ex + 2 + list_w + 2;   /* right of the list */
     const int btn_w = 12;
@@ -12325,7 +12793,15 @@ void app_init(ui_env* env)
      * full paths and command lines, which are the longest things in the
      * dialog and the most painful to edit through a short window. */
     const int field_x = ex + 2 + 12;
-    const int field_w = (ex + ew - 2) - field_x - 1;  /* one column of margin */
+    /* Short of the inner right edge by a button plus one blank column, so
+     * every row can end in its own small button - "..." on Command, ">" on
+     * Arguments/Directory - without it touching the input. Title gets the
+     * same width even though it has no button, so the four inputs still
+     * share one right edge. */
+    const int row_btn_w = 5;
+    const int row_btn_gap = 1;
+    const int field_w = (ex + ew - 2) - field_x - 1 - row_btn_gap - row_btn_w;
+    const int row_btn_x = field_x + field_w + row_btn_gap;
 
     static const struct { int id; const char* label; } ext_fields[] = {
         { EVT_EXTTOOL_TITLE, "Title:"     },
@@ -12333,35 +12809,75 @@ void app_init(ui_env* env)
         { EVT_EXTTOOL_ARGS,  "Arguments:" },
         { EVT_EXTTOOL_DIR,   "Directory:" },
     };
+    /* One blank row between fields - four inputs stacked without a gap read
+     * as a single block; spaced out, each label sits with its own input.
+     * Title has no trailing button, so it takes the blank column the other
+     * rows keep between their input and it, running right up to where that
+     * button column starts. */
+    const int field_row_step = 2;
+    /* Each row is built whole - label, input, then that row's own button -
+     * because Tab walks the window's children in creation order (see
+     * focus_next), so building all four inputs first and the buttons after
+     * would tab through the fields and only then back up to the buttons.
+     * Command's button browses for a program (the Open dialog defaulted to
+     * the "Programs" filter); Arguments' and Directory's open the macro
+     * popup - the whole vocabulary, picked from a list and inserted at the
+     * caret, instead of the two lines of crib-sheet text that used to sit
+     * under the fields and only ever fit half of it. Title takes no button,
+     * so nothing follows its input - it takes that blank column plus five
+     * more, running out past where the other rows stop. */
     ui_node* ext_inputs[4];
     for (int i = 0; i < 4; i++)
     {
-        add_text(ext_window, ex + 2, ext_fy + i, ext_fields[i].label,
+        int y = ext_fy + i * field_row_step;
+        add_text(ext_window, ex + 2, y, ext_fields[i].label,
                  theme->label_fg, theme->modal_bg);
-        ext_inputs[i] = add_input(ext_window, field_x, ext_fy + i, field_w, "");
+        ext_inputs[i] = add_input(ext_window, field_x, y,
+                                  i == 0 ? field_w + row_btn_gap + 5 : field_w, "");
         ui_set_id(ext_inputs[i], ext_fields[i].id);
+
+        if (i == 0)
+            continue;
+        ui_node* b = ui_create_element(UI_TAG_BUTTON);
+        ui_set_id(b, i == 1 ? EVT_EXTTOOL_BROWSE : EVT_EXTTOOL_MACRO_BTN + (i - 2));
+        ui_set_rect(b, row_btn_x, y, row_btn_w, 1);
+        ui_set_label(b, i == 1 ? " ... " : "  >  ");
+        ui_append_child(ext_window, b);
     }
     g_exttool.title_input = ext_inputs[0];
     g_exttool.cmd_input   = ext_inputs[1];
     g_exttool.args_input  = ext_inputs[2];
     g_exttool.dir_input   = ext_inputs[3];
+    g_exttool.macro_fields[0] = ext_inputs[2];   /* EVT_EXTTOOL_MACRO_BTN + 0 */
+    g_exttool.macro_fields[1] = ext_inputs[3];   /* ...+ 1 */
 
-    add_text(ext_window, field_x, ext_fy + 5,
-             "$(FilePath) $(FileDir) $(FileName) $(FileExt)",
-             COLOR_CYAN, theme->modal_bg);
-    add_text(ext_window, field_x, ext_fy + 6,
-             "$(CakeOutput) $(TargetPath) $(TargetDir) $(ProjectDir)",
-             COLOR_CYAN, theme->modal_bg);
+    /* The popup itself - one <menu> shared by both ">" buttons, since only
+     * one can be open at a time and the field it belongs to is remembered in
+     * g_exttool.macro_target. Lives on the root, like every other popup. */
+    g_exttool.macro_popup = ui_create_element(UI_TAG_MENU);
+    ui_append_child(root, g_exttool.macro_popup);
+    for (int i = 0; i < EXT_MACRO_COUNT; i++)
+    {
+        ui_node* it = ui_create_element(UI_TAG_ITEM);
+        ui_set_id(it, EVT_EXTTOOL_MACRO_BASE + i);
+        ui_set_label(it, ext_macros[i]);
+        ui_append_child(g_exttool.macro_popup, it);
+    }
 
-    /* OK/Cancel bottom-right, sharing the button column's right edge. */
+    /* OK/Cancel as a pair centered across the dialog's whole width - they
+     * close the dialog itself, so they belong to it rather than to the list
+     * or the field column either edge would tie them to. */
+    const int ok_gap = 2;
+    const int ok_row_w = btn_w * 2 + ok_gap;
+    const int ok_x = ex + (ew - ok_row_w) / 2;
     ui_node* ext_ok = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(ext_ok, EVT_EXTTOOL_OK);
-    ui_set_rect(ext_ok, btn_x - btn_w - 2, ext_fy + 8, btn_w, 1);
+    ui_set_rect(ext_ok, ok_x, ext_fy + 8, btn_w, 1);
     ui_set_label(ext_ok, "  OK  ");
     ui_append_child(ext_window, ext_ok);
     ui_node* ext_cancel = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(ext_cancel, EVT_EXTTOOL_CANCEL);
-    ui_set_rect(ext_cancel, btn_x, ext_fy + 8, btn_w, 1);
+    ui_set_rect(ext_cancel, ok_x + btn_w + ok_gap, ext_fy + 8, btn_w, 1);
     ui_set_label(ext_cancel, "Cancel");
     ui_append_child(ext_window, ext_cancel);
     g_exttool.modal = ext_modal;
@@ -12504,6 +13020,7 @@ void app_init(ui_env* env)
     ui_set_id(output, EVT_OUTPUT_DBLCLICK);
     ui_set_rect(output, ow_x + 1, ow_y + 1, ow_w - 2, ow_h - 2);
     ui_set_syntax(output, UI_SYNTAX_VT100);
+    ui_set_small_font(output, 1);
     ui_set_value(output, "");
     ui_append_child(output_window, output);
     g_output_window = output_wrapper;
@@ -12524,6 +13041,7 @@ void app_init(ui_env* env)
     g_folder.listbox = ui_create_element(UI_TAG_LISTBOX);
     ui_set_id(g_folder.listbox, EVT_FOLDER_LISTBOX);
     ui_set_rect(g_folder.listbox, fw_x + 1, fw_y + 1, fw_w - 2, fw_h - 2);
+    ui_set_small_font(g_folder.listbox, 1);
     ui_append_child(folder_window, g_folder.listbox);
     g_folder.window = folder_wrapper;
     if (!ui_get_cwd(g_folder.dir, sizeof g_folder.dir))
@@ -12576,6 +13094,7 @@ void app_init(ui_env* env)
     g_project.listbox = ui_create_element(UI_TAG_LISTBOX);
     ui_set_id(g_project.listbox, EVT_PROJECT_LISTBOX);
     ui_set_rect(g_project.listbox, pw_x + 1, pw_y + 1, pw_w - 2, pw_h - 2);
+    ui_set_small_font(g_project.listbox, 1);
     ui_append_child(project_window, g_project.listbox);
     g_project.window = project_wrapper;
     project_window_refresh();
@@ -12849,6 +13368,7 @@ int app_frame(ui_env* env)
     int compile_targets_c = g_active_editor_window != NULL &&
         path_is_c_source(ui_get_path(g_active_editor_window));
     ui_set_enabled(g_compile_item, compile_targets_c);
+    ui_set_enabled(g_compile_file_item, compile_targets_c);
     /* Same condition - the Compile menu's own "Show Generated Code" (not
      * the popup's copy, which refreshes itself separately - see
      * g_compile_show_output_item's own doc comment). */

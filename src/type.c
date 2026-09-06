@@ -969,6 +969,15 @@ bool type_is_pointed_clear(const struct type* p_type)
     return type_is_clear(p_type->next);
 }
 
+bool type_is_pointed_void(const struct type* p_type)
+{
+    if (!type_is_pointer(p_type))
+        return false;
+
+    _Assert(p_type->next != NULL);
+
+    return type_is_void(p_type->next);
+}
 
 bool type_is_owner(const struct type* p_type)
 {

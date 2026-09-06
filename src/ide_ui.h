@@ -124,7 +124,11 @@ typedef struct {
             int mods;            /* UI_MOD_* flags */
         } key;
         struct {
-            int x, y;            /* screen grid coordinates */
+            int x, y;            /* screen position in DEVICE PIXELS - a
+                                   * small-font node (ui_set_small_font) has
+                                   * rows shorter than one cell, so a
+                                   * cell-resolution pointer cannot address
+                                   * them. The framework converts to cells. */
             int button;          /* UI_MOUSE_BUTTON_* */
             int action;          /* UI_MOUSE_PRESSED, etc. */
             int mods;            /* UI_MOD_* flags */
@@ -553,9 +557,9 @@ void ui_set_rect(ui_node* n, int x, int y, int w, int h);
  * call with n == NULL (writes 0/0/0/0). */
 void ui_get_rect(const ui_node* n, int* x, int* y, int* w, int* h);
 
-/* Whether screen cell (x, y) falls inside node `n`'s rect - a hit-test helper
- * for app code, since ui_node is opaque (its x/y/w/h aren't directly
- * reachable). Safe with n == NULL (returns 0). */
+/* Whether the point (x, y), in font units, falls inside node `n`'s rect - a
+ * hit-test helper for app code, since ui_node is opaque (its rect isn't
+ * directly reachable). Safe with n == NULL (returns 0). */
 int ui_node_contains(const ui_node* n, int x, int y);
 void ui_set_color(ui_node* n, uint32_t fg, uint32_t bg);
 
@@ -716,6 +720,21 @@ typedef enum {
 void ui_set_syntax(ui_node* n, ui_syntax syntax);
 ui_syntax ui_get_syntax(const ui_node* n);
 
+/* --- Small font ---------------------------------------------------------
+ * Draw this node's text in the small font instead of the main one. Only
+ * EDITOR and LISTBOX honour it; it exists so panels that are read rather
+ * than edited (Output, Folder, Project) fit more lines in the same dock.
+ *
+ * A flag, not a size: there are exactly two fonts, and what "small" means
+ * is the backend's business - it derives the small font from the main one,
+ * so a font zoom keeps the two proportional.
+ *
+ * The node's RECT stays in main-font cells; only its CONTENTS change size.
+ * Such a node is painted directly rather than through the character grid
+ * - see the scaled-pane handling in ui_screen_render. */
+void ui_set_small_font(ui_node* n, int on);
+int  ui_get_small_font(const ui_node* n);
+
 /* Global (not per-editor) ON/OFF switch for the line-number gutter drawn
  * along the left edge of every EDITOR that isn't UI_SYNTAX_VT100 (compiler/
  * terminal output has no source lines worth numbering) - see render_editor()
@@ -778,8 +797,12 @@ int ui_editor_caret_line(const ui_node* n);
  * decides what a line past the end means for its own purposes. */
 int ui_editor_line_at_point(const ui_node* n, int x, int y);
 
-/* EDITOR-only cursor/selection access by byte offset into the value - the
- * hooks a find/replace feature needs to locate matches and highlight them.
+/* Cursor/selection access by byte offset into the value - the hooks a
+ * find/replace feature needs to locate matches and highlight them. All three
+ * work on an <editor> and on an <input>, so a dialog can also insert text at
+ * a field's caret rather than only appending to it (the caret survives the
+ * field losing focus, which is what makes an "insert this" button next to a
+ * field work at all).
  * ui_editor_get_cursor() returns the caret's byte offset; ui_editor_get_
  * selection() writes the selected [lo,hi) byte range and returns 1, or
  * returns 0 if nothing is selected; ui_editor_set_selection() selects
@@ -862,7 +885,15 @@ int ui_select_get_selected(const ui_node* select);
  * (fires the <listbox>'s own id - the app reads back which row via
  * ui_select_get_selected), move the selection, or scroll the view - like a
  * native single-select list box. Needs explicit x/y/w/h; h is how many rows
- * show at once, independent of how many <item> children there are. */
+ * show at once, independent of how many <item> children there are.
+ *
+ * ui_set_multi() (below) also applies to a <listbox>, turning it into a
+ * multi-select list: Ctrl+click/Space toggles one row, Shift+click and
+ * Shift+arrow extend a range, a plain click/arrow picks one row alone, and
+ * every checked row is drawn highlighted. Per-row state is read/written
+ * with ui_group_get/set_checked() (they take either tag), while
+ * ui_select_get_selected() still reports the cursor row - so a double-click
+ * or Enter still fires the listbox's id with a meaningful current row. */
 
 /* GROUP - a vertical cluster of <item> choices, drawn one per row with a
  * marker before each label. One element serves two modes, chosen with
@@ -1233,6 +1264,28 @@ void ui_screen_update(ui_screen* s, ui_env* env);
  * into a given build, so there's no need to pass them in as parameters:
  * ui_draw_char paints one glyph cell; ui_draw_box (below) fills a rect. */
 void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg);
+
+/* --- Small-font drawing, in DEVICE PIXELS ------------------------------
+ * Backend-implemented like ui_draw_char/ui_draw_box above, and used only
+ * for nodes with the small font set. They exist because ui_draw_char
+ * positions its glyph on the one global character grid (px = x * cell_w),
+ * which can only ever show one glyph size.
+ *
+ * `small_font` picks which of the two fonts to use. ui_draw_char_px is
+ * passed the cell size the caller got from ui_font_cell_size for the same
+ * font, so both agree on clipping and background fill.
+ *
+ * ui_font_cell_size reports the font's MEASURED cell, which is what callers
+ * lay out with - never a fraction of the main cell, which would assume a
+ * precision font rasterisers don't offer. It is called during layout and
+ * hit-testing, so it must be cheap and safe outside a render pass.
+ *
+ * A backend with no second font implements these against its main font:
+ * the pane then renders at normal size, which looks wrong but links. */
+void ui_draw_char_px(int px, int py, int cell_w, int cell_h,
+                     uint32_t ch, uint32_t fg, uint32_t bg, int small_font);
+void ui_fill_rect_px(int px, int py, int pw, int ph, uint32_t bg);
+void ui_font_cell_size(int small_font, int* cell_w, int* cell_h);
 
 /* A solid w x h rect, drawn in a single call instead of a per-cell
  * ui_draw_char loop - one plain rect fill (Win32's FillRect, X11's

@@ -188,7 +188,7 @@ int generate_config_file(const char* configpath)
         fprintf(outfile, "\n");
 
         char path[400] = { 0 };
-        char* command = "echo | clang -v -E - 2>&1";
+        const char* command = "echo | clang -v -E - 2>&1";
         int in_include_section = 0;
 
         // Open the command for reading

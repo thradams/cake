@@ -248,8 +248,8 @@ struct expression
 bool expression_is_malloc(const struct expression* p);
 bool expression_is_calloc(const struct expression* p);
 void check_malloc_size_multiple_of_sizeof(const struct parser_ctx* ctx,
-    const struct type* p_pointer_type,
-    const struct expression* p_right_expression);
+                                          const struct type* p_pointer_type,
+                                          const struct expression* p_right_expression);
 
 void expression_delete(_Dtor struct expression* _Owner _Opt p);
 
@@ -278,9 +278,9 @@ void check_diferent_enuns(const struct parser_ctx* ctx,
                           const char* message);
 
 void check_assigment(const struct parser_ctx* ctx,
-    const struct type* left_type,
-    const struct expression* right,
-    enum assigment_type assigment_type);
+                     const struct type* left_type,
+                     const struct expression* right,
+                     enum assigment_type assigment_type);
 
 struct marker expression_to_marker(const struct expression* p_expression);
 

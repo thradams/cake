@@ -327,6 +327,7 @@ bool type_is_clear(const struct type* p_type);
 bool type_is_uninit(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
 bool type_is_const_recursive(const struct type* p_type);
+bool type_is_pointed_void(const struct type* p_type);
 bool type_is_constexpr(const struct type* p_type);
 bool type_is_const_or_constexpr(const struct type* p_type);
 bool type_is_nullable(const struct type* p_type, bool nullable_enabled);

@@ -372,18 +372,12 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set * it
 //#pragma once
 
 
-#include <stdbool.h>
-
-
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
 
 //#pragma once
-
-
-#include <stdbool.h>
 
 
 //#pragma once
@@ -1666,9 +1660,6 @@ int preprocessor_copy_included_headers(const struct preprocessor_ctx* ctx, const
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
 
 
 #include <debugapi.h>
@@ -3689,9 +3680,6 @@ int float_to_string(float value, char* buffer, int size);
 
 #include <stdint.h>
 
-
-#include <string.h>
-
 /*
  *  The standard-library alternative, in case we ever want it back. Build
  *  with -DSTANDARD_ALTERNATIVE to use it instead of the Grisu2 code below;
@@ -3714,9 +3702,6 @@ int float_to_string(float value, char* buffer, int size);
  */
 #ifdef STANDARD_ALTERNATIVE
 
-
-
-#include <stdio.h>
 
 int double_to_string(double value, char* buffer, int size)
 {
@@ -4395,31 +4380,10 @@ int float_to_string(float value, char* buffer, int size)
 #pragma safety enable
 
 
-
-#include <stdlib.h>
-
-
-#include <string.h>
-
-
-#include <stdbool.h>
-
-
-#include <assert.h>
-
-
-
-#include <assert.h>
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 #if defined _MSC_VER
-
-
-#include <crtdbg.h>
 #endif
 
 static unsigned int string_hash(const char* key)
@@ -4783,14 +4747,8 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 #ifdef _WIN32
 
 
-#include <Windows.h>
-
-
 #include <conio.h>
 #else
-
-
-#include <stdlib.h>
 
 
 #include <termios.h>
@@ -4803,16 +4761,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 
 
 #include <sys/ioctl.h>
-
-
-#include <stdio.h>
 #endif
-
-
-#include <stdbool.h>
-
-
-#include <stdio.h>
 
 #ifndef WIN32
 
@@ -4959,40 +4908,10 @@ void c_gotoxy(int x, int y)
 #include <ctype.h>
 
 
-#include <stdlib.h>
-
-
-#include <string.h>
-
-
-#include <stdio.h>
-
-
-#include <stdlib.h>
-
-
 #include <sys/stat.h>
 
 
 #include <errno.h>
-
-
-#include <string.h>
-
-
-#include <stdbool.h>
-
-
-#include <assert.h>
-
-
-#include <stdlib.h>
-
-
-#include <stddef.h>
-
-
-#include <assert.h>
 
 
 #include <time.h>
@@ -5004,9 +4923,6 @@ void c_gotoxy(int x, int y)
 */
 
 //#pragma once
-
-
-#include <stdbool.h>
 
 
 #if defined(PATH_MAX)
@@ -5024,9 +4940,6 @@ void c_gotoxy(int x, int y)
 
 
 #include <sys/types.h>
-
-
-#include <sys/stat.h>
 
 #ifdef __CAKE__
 #pragma cake diagnostic push
@@ -5090,15 +5003,6 @@ struct dirent* _Opt readdir(DIR* dirp);
 #else
 
 //https://man7.org/linux/man-pages/man2/mkdir.2.html
-
-
-#include <sys/types.h>
-
-
-#include <unistd.h>
-
-
-#include <sys/stat.h>
 
 #ifdef __CAKE__
 /*
@@ -5179,18 +5083,9 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue);
 
 
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
-
-
-#include <debugapi.h>
 #endif
 
 #define STRINGIFY(x) #x
@@ -13614,21 +13509,6 @@ void hash_hash_at_ends_of_replacement_list()
 #pragma safety enable
 
 
-
-#include <stdbool.h>
-
-
-#include <errno.h>
-
-
-#include <stdio.h>
-
-
-#include <stdlib.h>
-
-
-#include <assert.h>
-
 void ss_swap(struct osstream* a, struct osstream* b)
 {
     struct osstream r = *a;
@@ -13747,32 +13627,11 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 #include <wchar.h>
 
 
-
-#include <sys/types.h>
-
-
-#include <stdio.h>
-
-
-#include <sys/stat.h>
-
-
-#include <stdlib.h>
-
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
-
-
-#include <debugapi.h>
 #endif
 
 
@@ -13784,27 +13643,9 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 #pragma comment (lib, "Rpcrt4.lib")
 
 #else
-
-
-#include <stdlib.h>
-
-
-#include <unistd.h>
 #endif
 
 
-
-#include <assert.h>
-
-
-
-#include <string.h>
-
-
-#include <stdbool.h>
-
-
-#include <errno.h>
 
 bool path_is_normalized(const char* path)
 {
@@ -16485,18 +16326,6 @@ char* _Owner read_file(const char* path, bool append_newline)
 
 #pragma safety enable
 
-
-#include <string.h>
-
-
-#include <stdio.h>
-
-
-#include <assert.h>
-
-
-#include <stdlib.h>
-
 #ifndef _Countof
 #define _Countof(X) (sizeof(X)/sizeof(X[0]))
 #endif
@@ -17316,9 +17145,6 @@ bool options_diagnostic_is_note(const struct options* options, enum diagnostic_i
 */
 
 
-
-#include <string.h>
-
 struct style_options style_options_cake(void)
 {
     struct style_options s  = {0};
@@ -17432,24 +17258,12 @@ struct style_options style_options_microsoft(void)
 
 
 
-#include <stdbool.h>
-
-
-#include <wchar.h>
-
-
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
 
 //#pragma once
-
-
-#include <stdbool.h>
-
-
-#include <stddef.h>
 
 
 struct parser_ctx;
@@ -17768,6 +17582,7 @@ bool type_is_clear(const struct type* p_type);
 bool type_is_uninit(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
 bool type_is_const_recursive(const struct type* p_type);
+bool type_is_pointed_void(const struct type* p_type);
 bool type_is_constexpr(const struct type* p_type);
 bool type_is_const_or_constexpr(const struct type* p_type);
 bool type_is_nullable(const struct type* p_type, bool nullable_enabled);
@@ -18187,15 +18002,6 @@ struct object object_shift_right(enum target target,
 
 
 
-#include <limits.h>
-
-
-#include <stdio.h>
-
-
-#include <assert.h>
-
-
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -18203,12 +18009,6 @@ struct object object_shift_right(enum target target,
 
 //#pragma once
 
-
-
-#include <stdio.h>
-
-
-#include <errno.h>
 
 
 /*
@@ -18457,8 +18257,8 @@ struct expression
 bool expression_is_malloc(const struct expression* p);
 bool expression_is_calloc(const struct expression* p);
 void check_malloc_size_multiple_of_sizeof(const struct parser_ctx* ctx,
-    const struct type* p_pointer_type,
-    const struct expression* p_right_expression);
+                                          const struct type* p_pointer_type,
+                                          const struct expression* p_right_expression);
 
 void expression_delete(_Dtor struct expression* _Owner _Opt p);
 
@@ -18487,17 +18287,14 @@ void check_diferent_enuns(const struct parser_ctx* ctx,
                           const char* message);
 
 void check_assigment(const struct parser_ctx* ctx,
-    const struct type* left_type,
-    const struct expression* right,
-    enum assigment_type assigment_type);
+                     const struct type* left_type,
+                     const struct expression* right,
+                     enum assigment_type assigment_type);
 
 struct marker expression_to_marker(const struct expression* p_expression);
 
 void flow_expression_to_string(const struct expression* p_expression, struct osstream* oss);
 
-
-
-#include <stdbool.h>
 
 
 struct scope
@@ -20360,12 +20157,6 @@ struct object* _Opt find_object_declarator_by_index(const struct object* p_objec
 void check_dianostic_suppression_phase(struct parser_ctx* ctx, const struct token* p_token, int phase);
 const struct direct_declarator* _Opt get_innermost_direct_declarator(const struct direct_declarator* _Opt p);
 
-
-
-#include <stdlib.h>
-
-
-#include <string.h>
 
 
 #include <math.h>
@@ -23996,21 +23787,6 @@ struct object object_shift_right(enum target target,
 
 
 
-#include <limits.h>
-
-
-#include <stdlib.h>
-
-
-#include <stdio.h>
-
-
-#include <assert.h>
-
-
-#include <string.h>
-
-
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake 
@@ -24049,24 +23825,12 @@ void defer_start_visit_compound_statement(struct defer_visit_ctx* ctx,
 
 
 
-#include <math.h>
-
-
 #include <float.h>
 
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
-
-
-#include <debugapi.h>
 #endif
 
 // TODO i am doing this to same stack on expressoins TODO
@@ -33173,10 +32937,14 @@ void check_assigment(const struct parser_ctx* ctx,
         return;
     }
 
+    const bool a_is_adjusted_function_parameter =
+        assignment_type == ASSIGMENT_TYPE_PARAMETER && type_is_function(p_a_type);
+
     /*
     * We have two pointers or pointer/array combination
     */
-    if (type_is_pointer_or_array(&b_type_lvalue) && type_is_pointer_or_array(p_a_type))
+    if (type_is_pointer_or_array(&b_type_lvalue) &&
+        (type_is_pointer_or_array(p_a_type) || a_is_adjusted_function_parameter))
     {
         if (type_is_void_ptr(&b_type_lvalue))
         {
@@ -33238,6 +33006,11 @@ void check_assigment(const struct parser_ctx* ctx,
                                " passing null as array");
                 }
             }
+            a_type_lvalue = type_lvalue_conversion(p_a_type);
+        }
+        else if (a_is_adjusted_function_parameter)
+        {
+            /* function parameter -> pointer to function */
             a_type_lvalue = type_lvalue_conversion(p_a_type);
         }
         else
@@ -33399,7 +33172,7 @@ void flow_expression_to_string(const struct expression* p_expression, struct oss
         ss_fprintf(ss, "%s", "?");
 
 }
-
+    
 
 /*
  *  This file is part of cake compiler
@@ -33414,36 +33187,12 @@ void flow_expression_to_string(const struct expression* p_expression, struct oss
 
 
 
-#include <stdlib.h>
-
-
 #include <locale.h>
 
-
-#include <assert.h>
-
-
-#include <limits.h>
-
-
-#include <errno.h>
-
-
-#include <stdio.h>
-
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
-
-
-#include <debugapi.h>
 #endif
 
 /*context expressions preprocessor*/
@@ -34471,24 +34220,6 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue)
 
 
 
-#include <stdlib.h>
-
-
-#include <stdio.h>
-
-
-#include <assert.h>
-
-
-#include <string.h>
-
-
-#include <stddef.h>
-
-
-#include <ctype.h>
-
-
 
 /*
  *  This file is part of cake compiler
@@ -34622,13 +34353,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 
 
 
-
-#include <errno.h>
-
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 
@@ -34637,18 +34362,12 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 */
 
 //#pragma once
-#define CAKE_VERSION "0.14.38"
+#define CAKE_VERSION "0.14.40"
 
 
 
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
-
-
-#include <debugapi.h>
 #endif
 
 
@@ -34746,12 +34465,6 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss);
 void codegen_visit_ctx_destroy(_Dtor struct codegen_ctx* ctx);
 
 
-
-#include <time.h>
-
-
-
-#include <stddef.h>  // for NULL
 
 /* 
 * Anonymous structs/unions receive a name
@@ -38187,26 +37900,27 @@ static void check_const_candidate_parameters(const struct parser_ctx* ctx, struc
         const bool is_candidate =
             (type_is_pointer(p_type) || type_is_array(p_type)) &&
 
-        /* already const, nothing to suggest */
+            /* already const, nothing to suggest */
             !param_pointee_is_const(p_type) &&
 
-        /* pointer to function: `const` on the pointee means nothing */
+            /* pointer to function: `const` on the pointee means nothing */
             !type_is_function_or_function_pointer(p_type) &&
 
-        /* 
-        * _Out/_Dtor/_Clear all write the pointee BY CONTRACT, and an
-        * _Owner pointer hands the whole object over -- suggesting const
-        * for any of them would contradict the annotation.
-        */
+            /* 
+            * _Out/_Dtor/_Clear all write the pointee BY CONTRACT, and an
+            * _Owner pointer hands the whole object over -- suggesting const
+            * for any of them would contradict the annotation.
+            */
+            !type_is_pointed_void(p_type) &&
             !type_is_pointed_out(p_type) &&
             !type_is_pointed_dtor(p_type) &&
             !type_is_pointed_clear(p_type) &&
             !type_is_owner(p_type) &&
 
-        /* 
-        * An unreferenced parameter is W_UNUSED_PARAMETER's business;
-        * suggesting const for one is noise on top of noise.
-        */
+            /* 
+            * An unreferenced parameter is W_UNUSED_PARAMETER's business;
+            * suggesting const for one is noise on top of noise.
+            */
             p_declarator->num_uses != 0 &&
 
             p_declarator->pointee_used &&
@@ -38217,11 +37931,7 @@ static void check_const_candidate_parameters(const struct parser_ctx* ctx, struc
         {
             diagnostic(W_PARAM_COULD_BE_CONST,
                 ctx,
-                p_declarator->name_opt, NULL,
-            /* Not "pointer to const": the parameter may be written as an
-            * array (`const int a[]`) or as a pointer to an array
-            * (`const int (*a)[10]`), where that phrasing does not fit.
-            */
+                p_declarator->name_opt, NULL,            
                 "'%s' is never written through; the pointed object could be const",
                 p_declarator->name_opt->lexeme);
         }
@@ -50091,9 +49801,6 @@ int initializer_init_new(struct parser_ctx* ctx,
 //#pragma once
 
 
-#include <stdbool.h>
-
-
 struct report;
 int compile(int argc, const char** argv, struct report* report);
 const char* _Owner _Opt compile_source(const char* pszoptions, const char* content, struct report* report);
@@ -50116,36 +49823,12 @@ const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt pat
 char* _Owner _Opt CompileText(const char* pszoptions, const char* content);
 void print_report(const struct report* report);
 
-
-#include <stdlib.h>
-
-
-#include <stdio.h>
-
-
-#include <assert.h>
-
-
-#include <string.h>
-
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
-
-
-#include <debugapi.h>
 #endif
 
-
-
-#include <time.h>
 
 static char* _Opt strrchr2(const char* s, int c)
 {
@@ -50303,7 +49986,7 @@ int generate_config_file(const char* configpath)
         fprintf(outfile, "\n");
 
         char path[400] = { 0 };
-        char* command = "echo | clang -v -E - 2>&1";
+        const char* command = "echo | clang -v -E - 2>&1";
         int in_include_section = 0;
 
         // Open the command for reading
@@ -51314,24 +50997,6 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
 #pragma safety enable
 
 
-
-
-#include <assert.h>
-
-
-#include <string.h>
-
-
-#include <ctype.h> 
-
-
-#include <stdlib.h>
-
-
-#include <stdint.h>
-
-
-#include <limits.h>
 
 
 /*
@@ -52536,30 +52201,6 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 
 
 #pragma safety enable
-
-
-#include <stdlib.h>
-
-
-#include <string.h>
-
-
-#include <stdio.h>
-
-
-#include <assert.h>
-
-
-#include <limits.h>
-
-
-#include <stdint.h>
-
-
-#include <time.h>
-
-
-#include <ctype.h>
 
 /*
 *  Prefix used to create file scope declarators
@@ -56122,8 +55763,14 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                                         _Assert(t.struct_or_union_specifier != NULL);
 
                                                         struct struct_or_union_specifier* _Opt p_complete_member =
-                                                        p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+                                                            get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
 
+                                                        if (p_complete_member == NULL)
+                                                        {
+                                                            type_destroy(&t);
+                                                            throw;
+                                                        }
+                                                            
                                                         char name2[100] = { 0 };
                                                         snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
@@ -56165,8 +55812,13 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                             {
                                                 _Assert(t.struct_or_union_specifier != NULL);
                                                 struct struct_or_union_specifier* _Opt p_complete_member =
-                                                p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+                                                  get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
 
+                                                if (p_complete_member == NULL)
+                                                {
+                                                    type_destroy(&t);
+                                                    throw;
+                                                }
                                                 char name2[100] = { 0 };
                                                 snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
@@ -56185,7 +55837,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                                 {
                                                     _Assert(t.struct_or_union_specifier);
                                                     struct struct_or_union_specifier* _Opt p_complete_member =
-                                                    p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+                                                      get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
 
                                                     if (p_complete_member == NULL)
                                                     {
@@ -58339,27 +57991,6 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 
 #pragma safety enable
 
-
-
-#include <assert.h>
-
-
-#include <string.h>
-
-
-#include <ctype.h>
-
-
-#include <stdlib.h>
-
-
-#include <stdint.h>
-
-
-#include <limits.h>
-
-
-#include <stdio.h>
 
 /* Caps how many levels of synthetic "pointee arena" flow3 will manufacture
    for a non-optional pointer parameter (see the recursive call below). A
@@ -73771,18 +73402,6 @@ void flow_visit_ctx_destroy(_Dtor struct flow_visit_ctx* ctx)
 #pragma safety enable
 
 
-
-#include <stdio.h>
-
-
-#include <stdarg.h>
-
-
-#include <assert.h>
-
-
-#include <errno.h>
-
 #ifdef _WIN32
 
 
@@ -74242,27 +73861,6 @@ int GetWindowsOrLinuxSocketLastErrorAsPosix(void)
 
 #pragma safety enable
 
-
-
-#include <limits.h>
-
-
-#include <assert.h>
-
-
-#include <stdbool.h>
-
-
-#include <stdio.h>
-
-
-#include <string.h>
-
-
-#include <inttypes.h>
-
-
-#include <assert.h>
 
 static char gcc_builtins_include[] =
 {
@@ -74848,21 +74446,6 @@ void target_self_test()
 
 #pragma safety enable
 
-
-
-#include <assert.h>
-
-
-#include <stdbool.h>
-
-
-#include <stdio.h>
-
-
-#include <string.h>
-
-
-#include <stdlib.h>
 
 
 #define TYPE_QUALIFIER_CAKE_MASK \
@@ -75817,6 +75400,15 @@ bool type_is_pointed_clear(const struct type* p_type)
     return type_is_clear(p_type->next);
 }
 
+bool type_is_pointed_void(const struct type* p_type)
+{
+    if (!type_is_pointer(p_type))
+        return false;
+
+    _Assert(p_type->next != NULL);
+
+    return type_is_void(p_type->next);
+}
 
 bool type_is_owner(const struct type* p_type)
 {

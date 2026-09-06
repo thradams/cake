@@ -3475,26 +3475,27 @@ static void check_const_candidate_parameters(const struct parser_ctx* ctx, struc
         const bool is_candidate =
             (type_is_pointer(p_type) || type_is_array(p_type)) &&
 
-        /* already const, nothing to suggest */
+            /* already const, nothing to suggest */
             !param_pointee_is_const(p_type) &&
 
-        /* pointer to function: `const` on the pointee means nothing */
+            /* pointer to function: `const` on the pointee means nothing */
             !type_is_function_or_function_pointer(p_type) &&
 
-        /* 
-        * _Out/_Dtor/_Clear all write the pointee BY CONTRACT, and an
-        * _Owner pointer hands the whole object over -- suggesting const
-        * for any of them would contradict the annotation.
-        */
+            /* 
+            * _Out/_Dtor/_Clear all write the pointee BY CONTRACT, and an
+            * _Owner pointer hands the whole object over -- suggesting const
+            * for any of them would contradict the annotation.
+            */
+            !type_is_pointed_void(p_type) &&
             !type_is_pointed_out(p_type) &&
             !type_is_pointed_dtor(p_type) &&
             !type_is_pointed_clear(p_type) &&
             !type_is_owner(p_type) &&
 
-        /* 
-        * An unreferenced parameter is W_UNUSED_PARAMETER's business;
-        * suggesting const for one is noise on top of noise.
-        */
+            /* 
+            * An unreferenced parameter is W_UNUSED_PARAMETER's business;
+            * suggesting const for one is noise on top of noise.
+            */
             p_declarator->num_uses != 0 &&
 
             p_declarator->pointee_used &&
@@ -3505,11 +3506,7 @@ static void check_const_candidate_parameters(const struct parser_ctx* ctx, struc
         {
             diagnostic(W_PARAM_COULD_BE_CONST,
                 ctx,
-                p_declarator->name_opt, NULL,
-            /* Not "pointer to const": the parameter may be written as an
-            * array (`const int a[]`) or as a pointer to an array
-            * (`const int (*a)[10]`), where that phrasing does not fit.
-            */
+                p_declarator->name_opt, NULL,            
                 "'%s' is never written through; the pointed object could be const",
                 p_declarator->name_opt->lexeme);
         }

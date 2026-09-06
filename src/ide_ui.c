@@ -65,7 +65,7 @@ static int word_mod(void) { return g_mac_shortcuts ? UI_MOD_ALT : UI_MOD_CTRL; }
 static int mac_nav_mod_active(int mods) { return g_mac_shortcuts && (mods & UI_MOD_CMD); }
 
 struct ui_env {
-    int width, height;
+    int width, height;   /* whole character cells */
     ui_event queue[UI_ENV_EVENT_QUEUE_SIZE];
     int head;  /* next slot to write */
     int tail;  /* next slot to read */
@@ -596,12 +596,22 @@ struct ui_node {
     int separator;        /* ITEM only: a plain unselectable dividing line
                             * instead of a normal label - see ui_set_separator */
     int x, y, w, h;        /* explicit (button/box/text/input) or computed by layout_*() */
+    /* Draw this node's contents in the small font - see ui_set_small_font.
+     * 1.0 for every node unless set; a node with anything else is
+     * painted outside the shared character grid (see scaled panes in
+     * ui_screen_render). */
+    int small_font;   /* draw contents in the small font - see ui_set_small_font */
     uint32_t fg, bg;      /* used by TEXT/BOX; other tags use hardcoded palettes */
     int cursor;           /* INPUT/EDITOR only: caret position, a byte offset into label */
     int sel_anchor;       /* INPUT/EDITOR only: the selection's other end (a
                             * byte offset), or -1 for no selection - the
                             * selection spans [min, max) of this and cursor */
     int scroll;           /* EDITOR only: index of the first visible line */
+    /* While this node's vertical scrollbar is being dragged, the thumb row
+     * the drag put it at; -1 when it isn't. See pinned_thumb_start. Lives
+     * on the node (not ui_screen) because the thumb functions are handed
+     * only the node, and only one drag can be live at a time. */
+    int thumb_pin;
     int hscroll;          /* EDITOR only: first visible column (horizontal
                             * scroll offset) - follows the caret, or panned by
                             * Shift+mouse-wheel; see editor_clamp_hscroll */
@@ -774,6 +784,31 @@ typedef struct {
     int x, y, w, h;
 } ui_rect;
 
+/* One node painted outside the shared character grid, at its own font size -
+ * see ui_set_small_font and the scaled-pane pass in ui_screen_render.
+ *
+ * A named type (rather than an anonymous struct inline in ui_screen) so the
+ * render context that points at one of these has a type the compiler can
+ * actually match. Two identical anonymous structs are DISTINCT types in C:
+ * assigning between them only warns, and would keep on working right up
+ * until one of the two copies drifted from the other. */
+struct ui_scaled_pane {
+    ui_node* node;
+    int origin_px, origin_py;     /* pane's top-left, device pixels */
+    int origin_cx, origin_cy;     /* the same point in the global cell grid */
+    int cell_w, cell_h;           /* the pane font's measured cell */
+    int main_cell_w, main_cell_h; /* the main font's, as of this frame */
+    int small_font;   /* which font the pane draws in */
+    uint32_t back;                /* the pane's background colour */
+    /* z-order stamp of this pane's backdrop fill. Content written to the
+     * cell buffer AFTER this (a higher seq) is layered above the pane - a
+     * dialog opened over the Output dock, say - and the pane must not paint
+     * there. Without this the pane, which paints last of all and outside the
+     * cell buffer entirely, would draw straight over anything on top of
+     * it. */
+    unsigned seq;
+};
+
 /* A destructive overlay (shadow/cursor) recorded during the tree walk and
  * replayed onto the backend after the content diff - see ui_screen_render.
  * `seq` is s->emit_seq at record time: content written after it (higher seq)
@@ -786,7 +821,16 @@ typedef struct {
 struct ui_screen {
     ui_node* root;
 
+    /* Pointer position in whole CHARACTER CELLS - what every hit test in
+     * this file compares against, since every rect is in cells. */
     int mouse_x, mouse_y;
+    /* The same position in DEVICE PIXELS. A cell of the main font is taller
+     * than a row of a smaller one, so a cell-resolution pointer cannot
+     * address the rows of a node drawn in a different font at all - every
+     * click in it would land on the same row. Only the code that maps a
+     * point into such a node's own grid (node_row_at/node_col_at) uses
+     * this; everything else stays in cells. */
+    int mouse_px, mouse_py;
     int mouse_down, mouse_pressed, mouse_released, mouse_moved, mouse_dblclick;
     int mouse_mods;     /* UI_MOD_* flags from the last mouse event - e.g. lets
                          * the EDITOR click handler tell a plain click from a
@@ -864,6 +908,16 @@ struct ui_screen {
      * cursor instead of tracking it. See editor_hscrollbar_drag_to(). */
     int hbar_drag_offset;
 
+    /* The same, for whichever vertical scrollbar is being dragged. */
+    int vbar_drag_offset;
+
+    /* Where inside the thumb a vertical drag grabbed it. Without this a drag
+     * maps the cursor row straight onto the thumb position, snapping the
+     * thumb's TOP to the cursor - so grabbing anywhere but its top edge makes
+     * the content lurch on the first move. The horizontal bar has always had
+     * this; the vertical ones did not. One field serves the editor's bar and a
+     * listbox's, since only one drag can be live. */
+
     /* Dragging a <listbox>'s own scrollbar thumb (see listbox_has_scrollbar)
      * - stateless like the two above, holding the <listbox> itself for the
      * same reason (see process_window's UI_TAG_LISTBOX branch). */
@@ -907,7 +961,7 @@ struct ui_screen {
      * render() only gets draw callbacks, not the env itself. */
     int desktop_on;
     uint32_t desktop_bg;
-    int screen_w, screen_h;
+    int screen_w, screen_h;   /* whole character cells */
     /* Previous frame's screen size, to detect an OS window resize and reflow
      * edge-anchored windows to the new bounds (see reflow_on_screen_resize).
      * 0 until the first update, so the first frame never counts as a resize. */
@@ -925,6 +979,17 @@ struct ui_screen {
     ui_cell* cache;
     ui_cell* next;
     int cache_w, cache_h;
+
+    /* Nodes drawn in the small font (ui_set_small_font). They cannot go through
+     * `next` at all - it holds one glyph per cell, so only one glyph size -
+     * and are painted directly after the diff instead. The walk still fills
+     * their cells with the pane's background, so the cell layer paints a
+     * backdrop and the diff's bookkeeping stays right.
+     *
+     * Fixed size: the number of such panes is a property of the UI's design.
+     * Overflow drops the extra pane rather than growing mid-render. */
+    struct ui_scaled_pane scaled_panes[8];
+    int scaled_pane_count;
     /* Monotonic z-order counter for the frame in progress: bumped on each
      * content write and stamped into that cell's `seq`, so overlay replay can
      * tell which cells a higher-z node later covered (see ui_cell.seq). */
@@ -997,6 +1062,8 @@ static ui_node* alloc_node(int type)
     n->enabled = 1;
     n->sel_anchor = -1;
     n->shadow = 1;
+    n->small_font = 0;      /* main UI font - see ui_set_small_font */
+    n->thumb_pin = -1;      /* no scrollbar drag in progress */
     return n;
 }
 
@@ -1262,8 +1329,11 @@ static void layout_submenu(ui_screen* s, ui_node* item, int box_left, int* out_d
  * - directly below the control, same shape as layout_dropdown() above (a
  * combo box's popup and a menu's dropdown are the same kind of overlay).
  * At least as wide as the control itself, wider if an option's label needs
- * more room. */
-static void layout_select_popup(ui_node* select, int* out_dx, int* out_dy,
+ * more room. Clamped to stay on screen exactly like layout_dropdown() and
+ * layout_submenu() - a <select> low down or near the right edge (a long
+ * option list, or a dialog pushed against an edge) would otherwise draw its
+ * popup partly off screen, since nothing else bounds it. */
+static void layout_select_popup(ui_screen* s, ui_node* select, int* out_dx, int* out_dy,
                                  int* out_box_w, int* out_box_h)
 {
     int maxw = select->w - 2;
@@ -1278,6 +1348,11 @@ static void layout_select_popup(ui_node* select, int* out_dx, int* out_dy,
     int box_h = select->child_count + 2;
     int dx = select->x;
     int dy = select->y + 1;
+
+    int max_h = s->screen_h;
+    if (find_child_by_type(s->root, UI_TAG_STATUSBAR))
+        max_h -= 1;  /* leave the statusbar's row clear */
+    clamp_box_to_screen(&dx, &dy, box_w, box_h, s->screen_w, max_h);
 
     for (int i = 0; i < select->child_count; i++)
     {
@@ -1600,6 +1675,17 @@ int ui_get_shadow(const ui_node* n)
 int ui_get_maximized(const ui_node* n)
 {
     return n->maximized;
+}
+
+void ui_set_small_font(ui_node* n, int on)
+{
+    if (n)
+        n->small_font = on ? 1 : 0;
+}
+
+int ui_get_small_font(const ui_node* n)
+{
+    return n ? n->small_font : 0;
 }
 
 void ui_set_syntax(ui_node* n, ui_syntax syntax)
@@ -1937,6 +2023,8 @@ ui_node* ui_screen_focused(ui_screen* s)
 
 /* Defined later (with the rest of <window> geometry handling) - forward
  * declared so ui_screen_show_modal() below can center a dialog on open. */
+
+
 static void set_window_rect(ui_node* window, int new_x, int new_y, int new_w, int new_h);
 
 /* Defined later (with dock_layout, right after set_window_rect) - forward
@@ -1957,6 +2045,10 @@ static void center_modal_window(ui_screen* s, ui_node* modal)
     ui_node* window = find_child_by_type(modal, UI_TAG_WINDOW);
     if (!window)
         return;
+    /* Integer division, so the dialog always lands on a whole cell. Every
+     * hit test in this file compares against whole cells (the title-bar
+     * drag, the close button), so a rect that started on a half cell would
+     * leave those controls unresponsive. */
     int cx = (s->screen_w - window->w) / 2;
     int cy = (s->screen_h - window->h) / 2;
     if (cx < 0) cx = 0;
@@ -3086,6 +3178,105 @@ int ui_get_show_line_numbers(void)
  * render_editor() row, plus every hscroll/click/scrollbar computation below
  * that has to agree on where the actual text starts, calls this so they can
  * never drift apart. */
+/* A node's size in ITS OWN cells: the rect for a normal node, more rows and
+ * columns for a small-font one. Anything counting rows or columns (scroll
+ * clamping, thumb size, mouse -> line) must use these rather than the rect,
+ * or a small-font pane behaves as if it held the main font's line count. */
+static void node_cell_size(const ui_node* n, int* out_cw, int* out_ch)
+{
+    ui_font_cell_size(n ? n->small_font : 0, out_cw, out_ch);
+}
+
+static int node_cols(const ui_node* n)
+{
+    if (!n)
+        return 0;
+    if (!n->small_font)
+        return n->w;
+    int mcw = 0, ncw = 0;
+    ui_font_cell_size(0, &mcw, NULL);
+    node_cell_size(n, &ncw, NULL);
+    if (mcw <= 0 || ncw <= 0)
+        return n->w;
+    int c = n->w * mcw / ncw;
+    return c > 0 ? c : 1;
+}
+
+static int node_rows(const ui_node* n)
+{
+    if (!n)
+        return 0;
+    if (!n->small_font)
+        return n->h;
+    int mch = 0, nch = 0;
+    ui_font_cell_size(0, NULL, &mch);
+    node_cell_size(n, NULL, &nch);
+    if (mch <= 0 || nch <= 0)
+        return n->h;
+    int r = n->h * mch / nch;
+    return r > 0 ? r : 1;
+}
+
+/* A point in font units -> a (row, col) within `n`'s own character grid.
+ * The counterpart of editor_cols/editor_rows for input: a click lands at a
+ * position measured in main-font units, but the row it picks depends on how
+ * tall THIS node's lines are. Without this a click in a 0.75-scale pane
+ * selects a line roughly a third of the way up from the one under the
+ * pointer. Deltas are relative to the node's own origin. */
+/* Floor division - integer division truncates toward zero, which would map a
+ * point just ABOVE a node to its row 0 instead of a negative row, so an
+ * out-of-bounds click would read as a hit on the first row. */
+static int floor_div(int a, int b)
+{
+    return a >= 0 ? a / b : -(((-a) + b - 1) / b);
+}
+
+/* A point in DEVICE PIXELS -> a (row, col) within `n`'s own character grid.
+ * The counterpart of node_cols/node_rows for input.
+ *
+ * Pixels rather than cells because that is the whole point: a node drawn in
+ * a smaller font has rows shorter than one main-font cell, so a pointer
+ * quantised to cells cannot address them - every click in such a pane lands
+ * on the same row. The node's origin is converted out to pixels here, and
+ * the offset divided by the node's OWN cell size. */
+static int node_row_at(const ui_node* n, int py)
+{
+    int mch = 1, nch = 1;
+    ui_font_cell_size(0, NULL, &mch);
+    node_cell_size(n, NULL, &nch);
+    if (mch < 1) mch = 1;
+    if (nch < 1) nch = 1;
+    return floor_div(py - n->y * mch, nch);
+}
+
+static int node_col_at(const ui_node* n, int px)
+{
+    int mcw = 1, ncw = 1;
+    ui_font_cell_size(0, &mcw, NULL);
+    node_cell_size(n, &ncw, NULL);
+    if (mcw < 1) mcw = 1;
+    if (ncw < 1) ncw = 1;
+    return floor_div(px - n->x * mcw, ncw);
+}
+
+/* Is the mouse on the LAST column / row of `n`'s own character grid?
+ *
+ * Scrollbars are drawn into that last column/row (see render_listbox and
+ * render_editor, which work in the node's own cells), so the hit test has to
+ * be expressed in the same grid. Testing the rect's last MAIN cell instead -
+ * which is what an `mouse_x == n->x + n->w - 1` test does - picks a
+ * different column entirely on a node drawn in a smaller font, so the bar
+ * renders in one place and responds in another. */
+static int on_node_last_col(const ui_node* n, int mx)
+{
+    return node_col_at(n, mx) == node_cols(n) - 1;
+}
+
+static int on_node_last_row(const ui_node* n, int my)
+{
+    return node_row_at(n, my) == node_rows(n) - 1;
+}
+
 static int editor_gutter_width(const ui_node* n)
 {
     /* Markdown/plain text get a bare 1-column margin - not a number gutter
@@ -3113,7 +3304,7 @@ static int editor_gutter_width(const ui_node* n)
  * follow scrolling) uses this instead once a gutter can be in the way. */
 static int editor_text_w(const ui_node* n)
 {
-    int w = n->w - editor_gutter_width(n);
+    int w = node_cols(n) - editor_gutter_width(n);
     return w > 0 ? w : 0;
 }
 
@@ -3446,7 +3637,7 @@ static int editor_visible_line_count(ui_node* n)
  * scrolling, which moves it without touching the cursor at all. */
 static void editor_clamp_scroll(ui_node* n)
 {
-    int max_scroll = editor_visible_line_count(n) - n->h;
+    int max_scroll = editor_visible_line_count(n) - node_rows(n);
     if (max_scroll < 0)
         max_scroll = 0;
     if (n->scroll > max_scroll)
@@ -3467,49 +3658,98 @@ static void editor_clamp_scroll(ui_node* n)
 
 static int editor_has_vscrollbar(ui_node* n)
 {
-    return n->w > 0 && n->h > 0 && editor_visible_line_count(n) > n->h;
+    return node_cols(n) > 0 && node_rows(n) > 0 && editor_visible_line_count(n) > node_rows(n);
 }
 
 /* Same shape as listbox_scrollbar_thumb, just over line count instead of
  * child count - the track is the editor's own full height, no corners to
  * carve out of it (unlike the old window-border version). */
+/* The thumb row to DRAW: the row a live drag pinned, or `fallback` (derived
+ * from n->scroll) when no drag is running.
+ *
+ * Recomputing from n->scroll during a drag round-trips through two integer
+ * divisions - mouse row -> scroll -> thumb row - and both floor, so the
+ * thumb drifts off the pointer. Harmless on a short document; in a 15k-line
+ * file one thumb row is ~1200 lines, so the thumb visibly lags and jumps.
+ * Only the drawn row comes from here; n->scroll stays exact. */
+static int pinned_thumb_start(const ui_node* n, int fallback)
+{
+    return n->thumb_pin >= 0 ? n->thumb_pin : fallback;
+}
+
+/* Rows in the editor's vertical scrollbar track - one short of the editor
+ * when a horizontal bar exists, since that last row is the horizontal bar's.
+ * The thumb math, the click/drag mapping and the painting must all agree on
+ * this. Keyed off editor_has_hscrollbar() and not on whether the bar is
+ * currently visible, which also depends on hover - the track must not resize
+ * as the pointer enters. */
+static int editor_vscrollbar_track_rows(ui_node* n)
+{
+    int rows = node_rows(n);
+    if (editor_has_hscrollbar(n))
+        rows -= 1;
+    return rows > 0 ? rows : 0;
+}
+
 static void editor_vscrollbar_thumb(ui_node* n, int* out_start, int* out_len)
 {
+    /* Two different row counts, deliberately:
+     *   visible - text rows in the editor, which is what decides how far the
+     *             DOCUMENT can scroll;
+     *   track   - rows of the scrollbar itself, one shorter when a
+     *             horizontal bar owns the bottom row.
+     * The thumb is geometry, so its length and travel are measured against
+     * the track; max_scroll is document state, so it uses `visible`. Mixing
+     * the two is what left the thumb's bottom disagreeing with the track's
+     * bottom. */
     int total = editor_visible_line_count(n);
-    int max_scroll = total - n->h;
-    if (max_scroll <= 0 || n->h <= 0)
+    int visible = node_rows(n);
+    int track = editor_vscrollbar_track_rows(n);
+    int max_scroll = total - visible;
+    if (max_scroll <= 0 || track <= 0)
     {
         *out_start = 0;
-        *out_len = n->h;
+        *out_len = track > 0 ? track : 0;
         return;
     }
-    int len = n->h * n->h / total;
+    int len = track * visible / total;
     if (len < 1) len = 1;
-    if (len > n->h) len = n->h;
-    int start = (n->scroll * (n->h - len)) / max_scroll;
+    if (len > track) len = track;
+    int start = (n->scroll * (track - len)) / max_scroll;
     if (start < 0) start = 0;
-    if (start > n->h - len) start = n->h - len;
+    if (start > track - len) start = track - len;
+    start = pinned_thumb_start(n, start);
+    if (start < 0) start = 0;
+    if (start > track - len) start = track - len;
     *out_start = start;
     *out_len = len;
 }
 
 /* Sets n->scroll from a click/drag at screen row `mouse_y` within the
  * editor's own column - the inverse of editor_vscrollbar_thumb(). */
-static void editor_vscrollbar_set_from_mouse(ui_node* n, int mouse_y)
+static void editor_vscrollbar_set_from_mouse(ui_node* n, int mouse_py)
 {
-    if (n->h <= 1)
+    /* The thumb's own scale - see the same fix in
+     * listbox_scrollbar_set_from_mouse for why rows - 1 is the wrong
+     * denominator here. */
+    int max_scroll = editor_visible_line_count(n) - node_rows(n);
+    if (max_scroll < 0)
+        max_scroll = 0;
+
+    int thumb_start, thumb_len;
+    editor_vscrollbar_thumb(n, &thumb_start, &thumb_len);
+    int denom = editor_vscrollbar_track_rows(n) - thumb_len;
+
+    if (denom <= 0 || max_scroll <= 0)
     {
         n->scroll = 0;
     }
     else
     {
-        int max_scroll = editor_visible_line_count(n) - n->h;
-        if (max_scroll < 0)
-            max_scroll = 0;
-        int row = mouse_y - n->y;
+        int row = node_row_at(n, mouse_py);
         if (row < 0) row = 0;
-        if (row > n->h - 1) row = n->h - 1;
-        n->scroll = (row * max_scroll + (n->h - 1) / 2) / (n->h - 1);
+        if (row > denom) row = denom;
+        n->scroll = (row * max_scroll + denom / 2) / denom;
     }
     editor_clamp_scroll(n);
 }
@@ -3528,12 +3768,12 @@ static void editor_ensure_cursor_visible(ui_node* n)
     if (line < n->scroll) {
         // Cursor moved above the viewport
         n->scroll = line;
-    } else if (line >= n->scroll + n->h - 1) {
+    } else if (line >= n->scroll + node_rows(n) - 1) {
         // Cursor is on or beyond the last visible line.
         // Scroll so that the cursor lands on the *second‑last* visible row.
-        int new_scroll = line - n->h + 2;
+        int new_scroll = line - node_rows(n) + 2;
         if (new_scroll < 0) new_scroll = 0;
-        int max_scroll = editor_visible_line_count(n) - n->h;
+        int max_scroll = editor_visible_line_count(n) - node_rows(n);
         if (max_scroll < 0) max_scroll = 0;
         if (new_scroll > max_scroll) new_scroll = max_scroll;
         n->scroll = new_scroll;
@@ -3615,9 +3855,12 @@ int ui_editor_line_at_point(const ui_node* n, int x, int y)
 {
     if (!n || n->type != UI_TAG_EDITOR)
         return -1;
+    /* Bounds are the RECT (font units); the row inside it is counted in
+     * this node's own cells. Mixing the two - adding a cell count to a
+     * unit origin - would size the hit area wrongly for a scaled pane. */
     if (x < n->x || x >= n->x + n->w || y < n->y || y >= n->y + n->h)
         return -1;
-    return n->scroll + (y - n->y);
+    return n->scroll + node_row_at(n, y);
 }
 
 static int has_selection(const ui_node* n);
@@ -3625,14 +3868,14 @@ static void selection_range(const ui_node* n, int* lo, int* hi);
 
 int ui_editor_get_cursor(const ui_node* n)
 {
-    if (!n || n->type != UI_TAG_EDITOR)
+    if (!n || (n->type != UI_TAG_EDITOR && n->type != UI_TAG_INPUT))
         return 0;
     return n->cursor;
 }
 
 int ui_editor_get_selection(const ui_node* n, int* lo, int* hi)
 {
-    if (!n || n->type != UI_TAG_EDITOR || !has_selection(n))
+    if (!n || (n->type != UI_TAG_EDITOR && n->type != UI_TAG_INPUT) || !has_selection(n))
         return 0;
     selection_range(n, lo, hi);
     return 1;
@@ -3675,7 +3918,7 @@ void ui_editor_set_scroll(ui_node* n, int scroll)
 
 static void listbox_clamp_scroll(ui_node* n)
 {
-    int max_scroll = n->child_count - n->h;
+    int max_scroll = n->child_count - node_rows(n);
     if (max_scroll < 0)
         max_scroll = 0;
     if (n->scroll > max_scroll)
@@ -3688,9 +3931,50 @@ static void listbox_ensure_visible(ui_node* n)
 {
     if (n->selected < n->scroll)
         n->scroll = n->selected;
-    else if (n->selected >= n->scroll + n->h)
-        n->scroll = n->selected - n->h + 1;
+    else if (n->selected >= n->scroll + node_rows(n))
+        n->scroll = n->selected - node_rows(n) + 1;
     listbox_clamp_scroll(n);
+}
+
+/* --- multi-select <listbox> helpers (ui_set_multi, see ide_ui.h). The
+ * per-row checked state lives in each <item> child's own `selected` flag,
+ * exactly like a multi-select GROUP's check boxes (see ui_group_get/
+ * set_checked, which read/write either tag). n->selected stays the cursor
+ * row, and n->cursor_row - unused by a single-select listbox - is the
+ * anchor a Shift+click/Shift+arrow range extends from, the same shape a
+ * native multi-select list has. Only ever reached from the n->multi
+ * branches, so a single-select listbox behaves exactly as before. --- */
+
+/* Checks `index` alone, clearing every other row - a plain (unmodified)
+ * click or arrow keypress. */
+static void listbox_select_only(ui_node* n, int index)
+{
+    for (int i = 0; i < n->child_count; i++)
+        n->children[i]->selected = (i == index) ? 1 : 0;
+    n->selected = index;
+    n->cursor_row = index;
+}
+
+/* Checks the inclusive range between the anchor (n->cursor_row) and
+ * `index`, clearing everything outside it - Shift+click/Shift+arrow. The
+ * anchor deliberately stays put, so extending the range back and forth
+ * keeps pivoting on the row the user first picked. */
+static void listbox_select_range(ui_node* n, int index)
+{
+    int a = n->cursor_row, b = index;
+    if (a > b) { int t = a; a = b; b = t; }
+    for (int i = 0; i < n->child_count; i++)
+        n->children[i]->selected = (i >= a && i <= b) ? 1 : 0;
+    n->selected = index;
+}
+
+/* Flips just `index`, leaving every other row alone - Ctrl+click/Space. The
+ * anchor follows it, so a Shift+click afterwards extends from here. */
+static void listbox_select_toggle(ui_node* n, int index)
+{
+    n->children[index]->selected = !n->children[index]->selected;
+    n->selected = index;
+    n->cursor_row = index;
 }
 
 /* --- <listbox> scrollbar: self-contained like <editor>'s own (see
@@ -3709,7 +3993,7 @@ static void listbox_ensure_visible(ui_node* n)
  * overlay and reacting to clicks/drags on its column. */
 static int listbox_has_scrollbar(ui_node* n)
 {
-    return n->w > 0 && n->h > 0 && n->child_count > n->h;
+    return node_cols(n) > 0 && node_rows(n) > 0 && n->child_count > node_rows(n);
 }
 
 /* The thumb's extent within the box's full height (n->h is the track here -
@@ -3717,19 +4001,22 @@ static int listbox_has_scrollbar(ui_node* n)
  * scrollbar) - same shape as scrollbar_thumb, just over child count. */
 static void listbox_scrollbar_thumb(ui_node* n, int* out_start, int* out_len)
 {
-    int max_scroll = n->child_count - n->h;
-    if (max_scroll <= 0 || n->h <= 0)
+    int max_scroll = n->child_count - node_rows(n);
+    if (max_scroll <= 0 || node_rows(n) <= 0)
     {
         *out_start = 0;
-        *out_len = n->h;
+        *out_len = node_rows(n);
         return;
     }
-    int len = n->h * n->h / n->child_count;
+    int len = node_rows(n) * node_rows(n) / n->child_count;
     if (len < 1) len = 1;
-    if (len > n->h) len = n->h;
-    int start = (n->scroll * (n->h - len)) / max_scroll;
+    if (len > node_rows(n)) len = node_rows(n);
+    int start = (n->scroll * (node_rows(n) - len)) / max_scroll;
     if (start < 0) start = 0;
-    if (start > n->h - len) start = n->h - len;
+    if (start > node_rows(n) - len) start = node_rows(n) - len;
+    start = pinned_thumb_start(n, start);
+    if (start < 0) start = 0;
+    if (start > node_rows(n) - len) start = node_rows(n) - len;
     *out_start = start;
     *out_len = len;
 }
@@ -3737,22 +4024,82 @@ static void listbox_scrollbar_thumb(ui_node* n, int* out_start, int* out_len)
 /* Sets n->scroll from a click/drag at screen row `mouse_y` within the box's
  * own column - the inverse of listbox_scrollbar_thumb(), same shape as
  * scrollbar_set_from_mouse. */
-static void listbox_scrollbar_set_from_mouse(ui_node* n, int mouse_y)
+static void listbox_scrollbar_set_from_mouse(ui_node* n, int mouse_py)
 {
-    if (n->h <= 1)
+    /* The thumb's own scale - the range its top can occupy, rows - thumb_len,
+     * not rows - 1. The thumb is drawn at scroll * (rows - len) / max_scroll,
+     * so computing scroll from a different scale leaves the thumb lagging the
+     * cursor and running past the ends. */
+    int max_scroll = n->child_count - node_rows(n);
+    if (max_scroll < 0)
+        max_scroll = 0;
+
+    int thumb_start, thumb_len;
+    listbox_scrollbar_thumb(n, &thumb_start, &thumb_len);
+    int denom = node_rows(n) - thumb_len;
+
+    if (denom <= 0 || max_scroll <= 0)
     {
         n->scroll = 0;
     }
     else
     {
-        int max_scroll = n->child_count - n->h;
-        if (max_scroll < 0)
-            max_scroll = 0;
-        int row = mouse_y - n->y;
+        int row = node_row_at(n, mouse_py);
         if (row < 0) row = 0;
-        if (row > n->h - 1) row = n->h - 1;
-        n->scroll = (row * max_scroll + (n->h - 1) / 2) / (n->h - 1);
+        if (row > denom) row = denom;
+        n->scroll = (row * max_scroll + denom / 2) / denom;
     }
+    listbox_clamp_scroll(n);
+}
+
+/* Drag a vertical thumb so it tracks the cursor, given where inside the
+ * thumb the grab landed. The counterpart of editor_hscrollbar_drag_to.
+ *
+ * Distinct from *_set_from_mouse, which is the absolute "jump to about here"
+ * mapping for a click on the empty track: using that for a drag snaps the
+ * thumb's top to the cursor, so the thumb leaps out from under the pointer
+ * unless it was grabbed by its very top row. */
+static void vscrollbar_drag_to(ui_screen* s, ui_node* n, int mouse_py, int grab_offset,
+                               int max_scroll, int thumb_len, int track_rows,
+                               int* out_scroll)
+{
+    int denom = track_rows - thumb_len;
+    if (denom <= 0 || max_scroll <= 0)
+    {
+        *out_scroll = 0;
+        return;
+    }
+    int target_start = node_row_at(n, mouse_py) - grab_offset;
+    if (target_start < 0) target_start = 0;
+    if (target_start > denom) target_start = denom;
+    *out_scroll = (target_start * max_scroll + denom / 2) / denom;
+
+    /* Pin the drawn thumb where the drag actually put it - see
+     * pinned_thumb_start for why it must not be recomputed from the
+     * scroll value derived just above. */
+    (void)s;
+    n->thumb_pin = target_start;
+}
+
+static void editor_vscrollbar_drag_to(ui_screen* s, ui_node* n, int mouse_py, int grab_offset)
+{
+    int max_scroll = editor_visible_line_count(n) - node_rows(n);
+    if (max_scroll < 0) max_scroll = 0;
+    int thumb_start, thumb_len;
+    editor_vscrollbar_thumb(n, &thumb_start, &thumb_len);
+    vscrollbar_drag_to(s, n, mouse_py, grab_offset, max_scroll, thumb_len,
+                       editor_vscrollbar_track_rows(n), &n->scroll);
+    editor_clamp_scroll(n);
+}
+
+static void listbox_scrollbar_drag_to(ui_screen* s, ui_node* n, int mouse_py, int grab_offset)
+{
+    int max_scroll = n->child_count - node_rows(n);
+    if (max_scroll < 0) max_scroll = 0;
+    int thumb_start, thumb_len;
+    listbox_scrollbar_thumb(n, &thumb_start, &thumb_len);
+    vscrollbar_drag_to(s, n, mouse_py, grab_offset, max_scroll, thumb_len,
+                       node_rows(n), &n->scroll);   /* no horizontal bar */
     listbox_clamp_scroll(n);
 }
 
@@ -4642,6 +4989,9 @@ static void set_window_rect(ui_node* window, int new_x, int new_y, int new_w, in
         }
         else
         {
+            /* floorf for the same reason as center_modal_window: this was
+             * integer division, and the midpoint must not introduce a half
+             * cell into anything derived from it. */
             int anchored_right = (c->x - old_x) > old_w / 2;
             int anchored_bottom = (c->y - old_y) > old_h / 2;
             shift_subtree(c, dx + (anchored_right ? dw : 0), dy + (anchored_bottom ? dh : 0));
@@ -5196,14 +5546,14 @@ static int process_window(ui_screen* s, ui_node* container, ui_node* window,
              * before the plain click-to-position-caret handling so a click
              * there drives the scrollbar instead of moving the caret. */
             int has_hbar = editor_has_hscrollbar(c);
-            int on_bottom_row = s->mouse_y == c->y + c->h - 1;
+            int on_bottom_row = on_node_last_row(c, s->mouse_py);
             /* The vertical bar backs off the bottom row whenever the
              * horizontal one exists - that corner cell is the horizontal
              * bar's to claim, matching render_editor's own carve-out so a
              * click there always drives whichever bar is actually drawn on
              * top of it. */
             int on_vbar = inside && editor_has_vscrollbar(c) &&
-                s->mouse_x == c->x + c->w - 1 &&
+                on_node_last_col(c, s->mouse_px) &&
                 !(has_hbar && on_bottom_row);
             int on_hbar = 0;
             if (inside && has_hbar && on_bottom_row)
@@ -5214,7 +5564,10 @@ static int process_window(ui_screen* s, ui_node* container, ui_node* window,
             }
 
             if (s->dragging_editor_vscrollbar == c && !s->mouse_down)
+            {
                 s->dragging_editor_vscrollbar = NULL;
+                c->thumb_pin = -1;   /* drag over: thumb follows scroll again */
+            }
             if (s->dragging_editor_hscrollbar == c && !s->mouse_down)
                 s->dragging_editor_hscrollbar = NULL;
 
@@ -5223,15 +5576,25 @@ static int process_window(ui_screen* s, ui_node* container, ui_node* window,
                 s->dragging_editor_vscrollbar = c;
                 int thumb_start, thumb_len;
                 editor_vscrollbar_thumb(c, &thumb_start, &thumb_len);
-                int row = s->mouse_y - c->y;
+                int row = node_row_at(c, s->mouse_py);
                 int on_thumb = row >= thumb_start && row < thumb_start + thumb_len;
                 if (!on_thumb)
-                    editor_vscrollbar_set_from_mouse(c, s->mouse_y);
+                {
+                    /* Empty track: jump to about here, then re-read where
+                     * the thumb landed so a drag continuing from this same
+                     * press tracks the cursor instead of jumping again. */
+                    editor_vscrollbar_set_from_mouse(c, s->mouse_py);
+                    editor_vscrollbar_thumb(c, &thumb_start, &thumb_len);
+                }
+                /* Where in the thumb the grab landed - see vbar_drag_offset. */
+                s->vbar_drag_offset = row - thumb_start;
+                if (s->vbar_drag_offset < 0) s->vbar_drag_offset = 0;
+                if (s->vbar_drag_offset > thumb_len - 1) s->vbar_drag_offset = thumb_len - 1;
                 *click_consumed = 1;
             }
             else if (s->dragging_editor_vscrollbar == c && s->mouse_down && s->mouse_moved)
             {
-                editor_vscrollbar_set_from_mouse(c, s->mouse_y);
+                editor_vscrollbar_drag_to(s, c, s->mouse_py, s->vbar_drag_offset);
             }
             else if (on_hbar && s->mouse_pressed && !*click_consumed)
             {
@@ -5281,7 +5644,7 @@ static int process_window(ui_screen* s, ui_node* container, ui_node* window,
                  * selection", so no separate click-vs-drag bookkeeping is
                  * needed. */
                 s->focused = c;
-                editor_click_set_cursor(c, s->mouse_y - c->y, s->mouse_x - c->x);
+                editor_click_set_cursor(c, node_row_at(c, s->mouse_py), node_col_at(c, s->mouse_px));
                 c->sel_anchor = c->cursor;
                 s->selecting = c;
             }
@@ -5289,7 +5652,7 @@ static int process_window(ui_screen* s, ui_node* container, ui_node* window,
             {
                 /* Dragging with the button still held extends the selection
                  * from wherever the press started. */
-                editor_click_set_cursor(c, s->mouse_y - c->y, s->mouse_x - c->x);
+                editor_click_set_cursor(c, node_row_at(c, s->mouse_py), node_col_at(c, s->mouse_px));
             }
             /* Double-click always selects the word under the cursor. For a
              * VT100/Output editor specifically, it also fires the editor's
@@ -5307,7 +5670,7 @@ static int process_window(ui_screen* s, ui_node* container, ui_node* window,
              * whatever word happens to sit underneath the overlay. */
             if (inside && s->mouse_dblclick && !on_vbar && !on_hbar)
             {
-                editor_click_set_cursor(c, s->mouse_y - c->y, s->mouse_x - c->x);
+                editor_click_set_cursor(c, node_row_at(c, s->mouse_py), node_col_at(c, s->mouse_px));
                 editor_select_word(c);
                 s->selecting = NULL;  /* a double-click isn't a drag */
                 if (c->id && c->syntax == UI_SYNTAX_VT100)
@@ -5374,33 +5737,61 @@ static int process_window(ui_screen* s, ui_node* container, ui_node* window,
              * branch above), just vertical-only and without the horizontal
              * counterpart an editor's lines can need. */
             int has_bar = listbox_has_scrollbar(c);
-            int on_bar = has_bar && s->mouse_x == c->x + c->w - 1;
+            int on_bar = has_bar && on_node_last_col(c, s->mouse_px);
 
             if (s->dragging_listbox_scrollbar == c && !s->mouse_down)
+            {
                 s->dragging_listbox_scrollbar = NULL;
+                c->thumb_pin = -1;   /* drag over: thumb follows scroll again */
+            }
 
             if (inside && on_bar && s->mouse_pressed && !*click_consumed)
             {
                 s->dragging_listbox_scrollbar = c;
                 int thumb_start, thumb_len;
                 listbox_scrollbar_thumb(c, &thumb_start, &thumb_len);
-                int row = s->mouse_y - c->y;
+                int row = node_row_at(c, s->mouse_py);
                 int on_thumb = row >= thumb_start && row < thumb_start + thumb_len;
                 if (!on_thumb)
-                    listbox_scrollbar_set_from_mouse(c, s->mouse_y);
+                {
+                    /* Empty track: jump, then re-read the thumb so a drag
+                     * continuing from this press tracks the cursor. */
+                    listbox_scrollbar_set_from_mouse(c, s->mouse_py);
+                    listbox_scrollbar_thumb(c, &thumb_start, &thumb_len);
+                }
+                s->vbar_drag_offset = row - thumb_start;
+                if (s->vbar_drag_offset < 0) s->vbar_drag_offset = 0;
+                if (s->vbar_drag_offset > thumb_len - 1) s->vbar_drag_offset = thumb_len - 1;
                 *click_consumed = 1;
             }
             else if (s->dragging_listbox_scrollbar == c && s->mouse_down && s->mouse_moved)
             {
-                listbox_scrollbar_set_from_mouse(c, s->mouse_y);
+                listbox_scrollbar_drag_to(s, c, s->mouse_py, s->vbar_drag_offset);
             }
             else if (inside && s->mouse_pressed && !*click_consumed)
             {
-                int index = c->scroll + (s->mouse_y - c->y);
+                /* node_row_at, not a raw unit delta: a scaled panel (the
+                 * Folder/Project lists) has more, shorter rows in the same
+                 * rect, so the delta is not the row number. */
+                int index = c->scroll + node_row_at(c, s->mouse_py);
                 if (index >= 0 && index < c->child_count)
                 {
                     s->focused = c;
-                    c->selected = index;
+                    /* Multi-select (ui_set_multi): Ctrl+click toggles one
+                     * row, Shift+click extends the range from the anchor,
+                     * a plain click picks that row alone - the usual native
+                     * list-box modifiers (see listbox_select_* above). */
+                    if (c->multi)
+                    {
+                        if (s->mouse_mods & UI_MOD_CTRL)
+                            listbox_select_toggle(c, index);
+                        else if (s->mouse_mods & UI_MOD_SHIFT)
+                            listbox_select_range(c, index);
+                        else
+                            listbox_select_only(c, index);
+                    }
+                    else
+                        c->selected = index;
                     *click_consumed = 1;
                     if (s->mouse_dblclick)
                         ui_fire_event(s, c->id, NULL);
@@ -5656,10 +6047,22 @@ void ui_screen_update(ui_screen* s, ui_env* env)
     {
         if (ev.type == UI_EVENT_MOUSE)
         {
-            if (ev.data.mouse.x != s->mouse_x || ev.data.mouse.y != s->mouse_y)
+            /* The event carries device pixels; the cell position every hit
+             * test uses is derived here, once. Compare pixels with pixels -
+             * against the cell position this would report movement on almost
+             * every event. */
+            if (ev.data.mouse.x != s->mouse_px || ev.data.mouse.y != s->mouse_py)
                 s->mouse_moved = 1;
-            s->mouse_x = ev.data.mouse.x;
-            s->mouse_y = ev.data.mouse.y;
+            s->mouse_px = ev.data.mouse.x;
+            s->mouse_py = ev.data.mouse.y;
+            {
+                int mcw = 1, mch = 1;
+                ui_font_cell_size(0, &mcw, &mch);
+                if (mcw < 1) mcw = 1;
+                if (mch < 1) mch = 1;
+                s->mouse_x = s->mouse_px / mcw;
+                s->mouse_y = s->mouse_py / mch;
+            }
             s->mouse_mods = ev.data.mouse.mods;
             if (ev.data.mouse.action == UI_MOUSE_PRESSED &&
                 ev.data.mouse.button == UI_MOUSE_BUTTON_LEFT)
@@ -5709,7 +6112,7 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                     ui_node* window = find_child_by_type(
                         s->modal_stack[s->modal_stack_count - 1], UI_TAG_WINDOW);
                     if (window)
-                        hit = find_editor_at(window, ev.data.mouse.x, ev.data.mouse.y);
+                        hit = find_editor_at(window, s->mouse_x, s->mouse_y);
                 }
                 else
                 {
@@ -5717,7 +6120,7 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                     {
                         ui_node* window = find_child_by_type(s->windows[i], UI_TAG_WINDOW);
                         if (window)
-                            hit = find_editor_at(window, ev.data.mouse.x, ev.data.mouse.y);
+                            hit = find_editor_at(window, s->mouse_x, s->mouse_y);
                     }
                 }
                 if (hit && hit->type == UI_TAG_LISTBOX)
@@ -5949,17 +6352,28 @@ void ui_screen_update(ui_screen* s, ui_env* env)
          * this loop body is about. */
         if (in->type == UI_TAG_LISTBOX)
         {
-            if (ev2->data.key.code == UI_KEY_UP)
+            if (ev2->data.key.code == UI_KEY_UP ||
+                ev2->data.key.code == UI_KEY_DOWN)
             {
-                if (in->selected > 0)
-                    in->selected--;
+                int next = in->selected + (ev2->data.key.code == UI_KEY_DOWN ? 1 : -1);
+                if (next >= 0 && next < in->child_count)
+                    in->selected = next;
+                /* Multi-select (ui_set_multi): a bare arrow moves the
+                 * selection to the new row alone, Shift+arrow grows the
+                 * range from the anchor - same as plain vs. Shift click. */
+                if (in->multi)
+                {
+                    if (ev2->data.key.mods & UI_MOD_SHIFT)
+                        listbox_select_range(in, in->selected);
+                    else
+                        listbox_select_only(in, in->selected);
+                }
                 listbox_ensure_visible(in);
             }
-            else if (ev2->data.key.code == UI_KEY_DOWN)
+            else if (in->multi && ev2->data.key.codepoint == ' ' &&
+                     in->selected >= 0 && in->selected < in->child_count)
             {
-                if (in->selected < in->child_count - 1)
-                    in->selected++;
-                listbox_ensure_visible(in);
+                listbox_select_toggle(in, in->selected);  /* Ctrl+click's key twin */
             }
             else if (ev2->data.key.codepoint == '\r' || ev2->data.key.codepoint == '\n')
             {
@@ -6365,7 +6779,7 @@ void ui_screen_update(ui_screen* s, ui_env* env)
     {
         ui_node* select = s->open_select;
         int dx, dy, box_w, box_h;
-        layout_select_popup(select, &dx, &dy, &box_w, &box_h);
+        layout_select_popup(s, select, &dx, &dy, &box_w, &box_h);
         if (s->mouse_x >= dx && s->mouse_x < dx + box_w &&
             s->mouse_y >= dy && s->mouse_y < dy + box_h)
             over_menu = 1;
@@ -6552,6 +6966,62 @@ static void union_dirty(ui_screen* s, int x, int y, int w, int h)
     s->dirty_x = x0; s->dirty_y = y0; s->dirty_w = x1 - x0; s->dirty_h = y1 - y0;
 }
 
+
+/* The small-font pane currently being painted, or NULL. When set,
+ * emit_char/emit_box draw straight to the backend in device pixels instead
+ * of writing cells - which is what lets render_editor/render_listbox paint
+ * at a different size without changing their (col, row) arithmetic. */
+static struct ui_scaled_pane* g_scaled_pane;
+
+/* Editor-cell (x, y) -> device pixels, for the pane currently painting. */
+static int pane_px(int x) { return g_scaled_pane->origin_px + (x - g_scaled_pane->origin_cx) * g_scaled_pane->cell_w; }
+static int pane_py(int y) { return g_scaled_pane->origin_py + (y - g_scaled_pane->origin_cy) * g_scaled_pane->cell_h; }
+
+/* Is the device-pixel rect covered by content layered above the pane being
+ * painted? The pane paints last and outside the cell buffer, so it has no
+ * z-order of its own; this restores one by asking the cells it touches
+ * whether anything was written there after the pane's backdrop (the same
+ * `seq` test the overlay replay uses).
+ *
+ * Every touched cell, not just the corner: a small glyph straddles two main
+ * rows, so a one-corner test lets its lower half paint over whatever is on
+ * top of the pane. Occluded if ANY is - conservative on purpose. */
+static int pane_rect_occluded(int px, int py, int pw, int ph)
+{
+    ui_screen* s = g_render_screen;
+    if (!s || !s->next || !g_scaled_pane)
+        return 0;
+    int mcw = g_scaled_pane->main_cell_w, mch = g_scaled_pane->main_cell_h;
+    if (mcw <= 0 || mch <= 0)
+        return 0;
+    if (pw < 1) pw = 1;
+    if (ph < 1) ph = 1;
+
+    /* EVERY main cell the rect touches, not just the one its top-left corner
+     * lands in. A scaled pane's cells don't line up with the main grid - a
+     * small glyph routinely straddles two main rows - so testing one corner
+     * lets a glyph whose top-left is clear paint its lower half into an
+     * occluded cell, which shows up as pane text bleeding past the border of
+     * whatever is on top of it.
+     *
+     * Occluded if ANY touched cell is: conservative on purpose. Hiding a
+     * glyph that was half-covered anyway is invisible; letting one through
+     * draws over the window in front. */
+    int cx0 = px / mcw, cy0 = py / mch;
+    int cx1 = (px + pw - 1) / mcw, cy1 = (py + ph - 1) / mch;
+    for (int cy = cy0; cy <= cy1; cy++)
+    {
+        for (int cx = cx0; cx <= cx1; cx++)
+        {
+            if (cx < 0 || cy < 0 || cx >= s->cache_w || cy >= s->cache_h)
+                return 1;   /* off-grid: nothing to paint into */
+            if (s->next[cy * s->cache_w + cx].seq > g_scaled_pane->seq)
+                return 1;
+        }
+    }
+    return 0;
+}
+
 /* Record one glyph cell into the frame's `next` buffer - no backend call
  * here; the diff pass in ui_screen_render decides what actually gets drawn. A
  * blank glyph has no visible foreground, so fg is normalized to 0 so two
@@ -6561,6 +7031,21 @@ static void emit_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
     ui_screen* s = g_render_screen;
     if (ch == 0)
         ch = ' ';
+    if (g_scaled_pane)
+    {
+        /* Painting a scaled pane: straight to the backend in device pixels,
+         * bypassing the cell buffer entirely (see g_scaled_pane). No diff
+         * and no z-order stamp - the pane is repainted whole. */
+        if (ch == ' ')
+            fg = 0;
+        int dx = pane_px(x), dy = pane_py(y);
+        if (pane_rect_occluded(dx, dy, g_scaled_pane->cell_w, g_scaled_pane->cell_h))
+            return;   /* something is layered over the pane here */
+        ui_draw_char_px(dx, dy,
+                        g_scaled_pane->cell_w, g_scaled_pane->cell_h,
+                        ch, fg, bg, g_scaled_pane->small_font);
+        return;
+    }
     if (!s || !s->next || x < 0 || y < 0 || x >= s->cache_w || y >= s->cache_h)
     {
         if (!s || !s->next)
@@ -6587,6 +7072,12 @@ static void emit_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
 static void tint_cells_bg(int x, int y, int w, uint32_t bg)
 {
     ui_screen* s = g_render_screen;
+    /* A scaled pane has no cells in `next` to recolor - it painted its text
+     * straight to the backend, so there is nothing left here to tint behind.
+     * (The only caller is the editor's word-match highlight, which the
+     * Output pane - the one scaled pane today - never triggers.) */
+    if (g_scaled_pane)
+        return;
     if (!s || !s->next || y < 0 || y >= s->cache_h)
         return;
     if (x < 0) { w += x; x = 0; }
@@ -6620,6 +7111,41 @@ static void emit_box(int x, int y, int w, int h, uint32_t fg, uint32_t bg, int f
 {
     ui_screen* s = g_render_screen;
     (void)fg;
+
+    if (g_scaled_pane)
+    {
+        /* See emit_char: inside a scaled pane everything goes straight to
+         * the backend in device pixels. Shadow/cursor overlays are the one
+         * thing not translated - they are destructive effects defined on the
+         * character grid (half-cell shadows, the XOR caret) and a pane's
+         * interior has no business casting them. The caret is drawn by the
+         * pane's own text instead. */
+        if (flags & (UI_BOX_SHADOW | UI_BOX_CURSOR))
+            return;
+        /* Row by row, so a fill crossing under something layered above the
+         * pane is clipped by the same occlusion test the glyphs use. */
+        for (int j = 0; j < h; j++)
+        {
+            int dy = pane_py(y + j);
+            int run_x0 = -1;
+            for (int i = 0; i <= w; i++)
+            {
+                int dx = pane_px(x + i);
+                int blocked = (i == w) ||
+                    pane_rect_occluded(dx, dy, g_scaled_pane->cell_w,
+                                       g_scaled_pane->cell_h);
+                if (!blocked && run_x0 < 0)
+                    run_x0 = dx;
+                else if (blocked && run_x0 >= 0)
+                {
+                    ui_fill_rect_px(run_x0, dy, dx - run_x0,
+                                    g_scaled_pane->cell_h, bg);
+                    run_x0 = -1;
+                }
+            }
+        }
+        return;
+    }
 
     if (flags & (UI_BOX_SHADOW | UI_BOX_CURSOR))
     {
@@ -6739,7 +7265,7 @@ static void render_button(ui_screen* s, ui_node* b)
     uint32_t bg = is_active ? g_theme.btn_bg_active :
         ((s->hot == b || s->focused == b) ? g_theme.btn_bg_hot : g_theme.btn_bg);
 
-    /* Pressed: the face shifts right by one cell, into the space the shadow
+    /* Pressed: the face shifts right b->y one cell, into the space the shadow
      * otherwise occupies - like the button being pushed in flush with the
      * surface, so the shadow itself doesn't draw while active. */
     int ox = is_active ? 1 : 0;
@@ -6936,7 +7462,7 @@ static void render_open_select(ui_screen* s)
 
     ui_node* select = s->open_select;
     int dx, dy, box_w, box_h;
-    layout_select_popup(select, &dx, &dy, &box_w, &box_h);
+    layout_select_popup(s, select, &dx, &dy, &box_w, &box_h);
 
     /* See render_button() for why this is four pieces. */
     draw_shadow(dx + box_w, dy, 1, 1, UI_BOX_SHADOW_SHRINK_H_BOTTOM);
@@ -7269,10 +7795,41 @@ static void render_select(ui_screen* s, ui_node* n)
  * since (unlike <input>/<editor>) there's no caret/typing concept here. */
 static void render_listbox(ui_screen* s, ui_node* n)
 {
-    for (int row = 0; row < n->h; row++)
+    /* --- This listbox's own cell grid -----------------------------------
+     * Same edge conversion as render_editor: font units -> whole cells once,
+     * here, and the body below stays the plain (col, row) arithmetic it has
+     * always been. A scaled pane keeps the origin layout gave it and counts
+     * its size in its own smaller cells, so a smaller font shows MORE rows
+     * rather than the same rows drawn small in a half-empty box. */
+    int lx, ly, lw, lh;
+    if (g_scaled_pane)
+    {
+        lx = g_scaled_pane->origin_cx;
+        ly = g_scaled_pane->origin_cy;
+        lw = n->w * g_scaled_pane->main_cell_w / g_scaled_pane->cell_w;
+        lh = n->h * g_scaled_pane->main_cell_h / g_scaled_pane->cell_h;
+        if (lw < 1) lw = 1;
+        if (lh < 1) lh = 1;
+    }
+    else
+    {
+        lx = n->x;
+        ly = n->y;
+        lw = n->w;
+        lh = n->h;
+    }
+    for (int row = 0; row < lh; row++)
     {
         int index = n->scroll + row;
-        int is_sel = (index == n->selected);
+        /* Single-select: the current row is the only highlighted one. In
+         * multi-select mode (ui_set_multi, see the <listbox> notes in
+         * ide_ui.h) every checked row is highlighted, and n->selected is
+         * just the cursor row - which is also drawn highlighted so the
+         * keyboard focus stays visible while walking the list with the
+         * arrows before checking anything. */
+        int is_sel = (index >= 0 && index < n->child_count && n->multi)
+            ? (n->children[index]->selected || index == n->selected)
+            : (index == n->selected);
         /* Unfocused lists show their selection muted - see
          * listbox_sel_inactive_* - so the highlight doesn't read as "this
          * is where your keystrokes are going" when it isn't. */
@@ -7286,7 +7843,7 @@ static void render_listbox(ui_screen* s, ui_node* n)
 
         if (index < 0 || index >= n->child_count)
         {
-            draw_fill(n->x, n->y + row, n->w, 1, g_theme.listbox_fg, g_theme.listbox_bg);
+            draw_fill(lx, ly + row, lw, 1, g_theme.listbox_fg, g_theme.listbox_bg);
             continue;
         }
 
@@ -7305,18 +7862,18 @@ static void render_listbox(ui_screen* s, ui_node* n)
         {
             uint32_t cp;
             p += utf8_decode(p, &cp);
-            emit_char(n->x + col, n->y + row, cp, item->fg, bg);
+            emit_char(lx + col, ly + row, cp, item->fg, bg);
             col++;
         }
-        while (*p && col < n->w)
+        while (*p && col < lw)
         {
             uint32_t cp;
             p += utf8_decode(p, &cp);
-            emit_char(n->x + col, n->y + row, cp, fg, bg);
+            emit_char(lx + col, ly + row, cp, fg, bg);
             col++;
         }
-        for (; col < n->w; col++)
-            emit_char(n->x + col, n->y + row, ' ', fg, bg);
+        for (; col < lw; col++)
+            emit_char(lx + col, ly + row, ' ', fg, bg);
     }
 
     /* The scrollbar overlay (see listbox_has_scrollbar) - painted over the
@@ -7330,11 +7887,11 @@ static void render_listbox(ui_screen* s, ui_node* n)
     {
         int thumb_start, thumb_len;
         listbox_scrollbar_thumb(n, &thumb_start, &thumb_len);
-        int sx = n->x + n->w - 1;
-        for (int row = 0; row < n->h; row++)
+        int sx = lx + lw - 1;
+        for (int row = 0; row < lh; row++)
         {
             int is_thumb = row >= thumb_start && row < thumb_start + thumb_len;
-            emit_char(sx, n->y + row, ' ', g_theme.scrollbar_bg,
+            emit_char(sx, ly + row, ' ', g_theme.scrollbar_bg,
                       is_thumb ? g_theme.scrollbar_thumb_bg : g_theme.scrollbar_bg);
         }
     }
@@ -8641,7 +9198,7 @@ static void editor_clamp_hscroll(ui_node* n)
  * instead of a narrower track. */
 static int editor_has_hscrollbar(ui_node* n)
 {
-    if (!(n->w > 0 && n->h > 0))
+    if (!(node_cols(n) > 0 && node_rows(n) > 0))
         return 0;
     return editor_content_cols(n) > editor_text_w(n);
 }
@@ -8654,7 +9211,7 @@ static void editor_hscrollbar_layout(ui_node* n, int* out_track_x0, int* out_tra
 {
     int gutter_w = editor_gutter_width(n);
     *out_track_x0 = n->x + gutter_w;
-    *out_track_w = n->w - gutter_w;
+    *out_track_w = node_cols(n) - gutter_w;
 }
 
 static void editor_hscrollbar_thumb(ui_node* n, int* out_start, int* out_len)
@@ -8837,19 +9394,46 @@ static void highlight_word_matches(ui_node* n, int row, int text_x, int text_w,
 
 static void render_editor(ui_screen* s, ui_node* n)
 {
+    /* --- This editor's own cell grid ------------------------------------
+     * Font units -> whole cells, once, here at the edge; everything below is
+     * the same (col, row) arithmetic it has always been.
+     *
+     * For a scaled pane the ORIGIN still comes from the global grid (that is
+     * where layout put the node), but the SIZE is measured in the pane's own
+     * smaller cells - which is exactly what makes a smaller font show more
+     * text rather than the same text drawn smaller in a half-empty box. */
+    int ex, ey, ew, eh;
+    if (g_scaled_pane)
+    {
+        ex = g_scaled_pane->origin_cx;
+        ey = g_scaled_pane->origin_cy;
+        /* Rect in device pixels, divided by this pane's cell - not by the
+         * requested scale, which the real font only approximates. */
+        ew = n->w * g_scaled_pane->main_cell_w / g_scaled_pane->cell_w;
+        eh = n->h * g_scaled_pane->main_cell_h / g_scaled_pane->cell_h;
+        if (ew < 1) ew = 1;
+        if (eh < 1) eh = 1;
+    }
+    else
+    {
+        ex = n->x;
+        ey = n->y;
+        ew = n->w;
+        eh = n->h;
+    }
     int focused = (s->focused == n);
     int caret = focused && s->caret_visible;  /* blink phase - see ui_screen_update */
 
     /* Line-number gutter (see editor_gutter_width/ui_set_show_line_numbers) -
-     * text_x/text_w stand in for n->x/n->w everywhere below that actually
+     * text_x/text_w stand in for ex/ew everywhere below that actually
      * draws or measures the document's text, so the gutter (when present)
      * simply isn't overwritten by it. The gutter's own numbers are drawn
      * per-row further down, alongside each row's line_bg, so a gutter cell
      * picks up the same current-line/code-block tint as the text next to
      * it. */
     int gutter_w = editor_gutter_width(n);
-    int text_x = n->x + gutter_w;
-    int text_w = n->w - gutter_w;
+    int text_x = ex + gutter_w;
+    int text_w = ew - gutter_w;
 
     int cursor_line, cursor_line_start;
     editor_cursor_line(n, &cursor_line, &cursor_line_start);
@@ -8982,9 +9566,9 @@ static void render_editor(ui_screen* s, ui_node* n)
      * are. */
     int line_idx = n->scroll;
 
-    for (int row = 0; row < n->h; row++)
+    for (int row = 0; row < eh; row++)
     {
-        int sy = n->y + row;
+        int sy = ey + row;
         if (sy >= s->screen_h)
             break;  /* this row and every one below it are off the bottom */
 
@@ -9020,7 +9604,7 @@ static void render_editor(ui_screen* s, ui_node* n)
                 uint32_t blank_bg = n->syntax == UI_SYNTAX_VT100
                                         ? g_theme.editor_output_bg
                                         : g_theme.editor_bg;
-                draw_fill(n->x, n->y + row, n->w, 1, g_theme.editor_fg, blank_bg);
+                draw_fill(ex, ey + row, ew, 1, g_theme.editor_fg, blank_bg);
             }
             continue;
         }
@@ -9090,7 +9674,7 @@ static void render_editor(ui_screen* s, ui_node* n)
                     int tmp_block = in_block;
                     sel_col_lo = md_scan_line(n->label + ls, le - ls, &tmp_block, lo - ls, -1);
                     tmp_block = in_block;
-                    sel_col_hi = hi > le ? n->hscroll + n->w
+                    sel_col_hi = hi > le ? n->hscroll + ew
                                          : md_scan_line(n->label + ls, le - ls, &tmp_block, hi - ls, -1);
                 }
                 else if (n->syntax == UI_SYNTAX_VT100)
@@ -9100,7 +9684,7 @@ static void render_editor(ui_screen* s, ui_node* n)
                      * ansi_byte_of_col()'s comment on editor_click_set_cursor
                      * for why plain utf8_col_of() is wrong here too. */
                     sel_col_lo = ansi_col_of(n->label + ls, le - ls, lo - ls);
-                    sel_col_hi = hi > le ? n->hscroll + n->w
+                    sel_col_hi = hi > le ? n->hscroll + ew
                                          : ansi_col_of(n->label + ls, le - ls, hi - ls);
                 }
                 else
@@ -9110,7 +9694,7 @@ static void render_editor(ui_screen* s, ui_node* n)
                      * right edge (hscroll + w), not just column w, so the
                      * cue still spans the viewport when scrolled
                      * horizontally. */
-                    sel_col_hi = hi > le ? n->hscroll + n->w : utf8_col_of(n->label + ls, hi - ls);
+                    sel_col_hi = hi > le ? n->hscroll + ew : utf8_col_of(n->label + ls, hi - ls);
                 }
             }
         }
@@ -9176,7 +9760,7 @@ static void render_editor(ui_screen* s, ui_node* n)
 
         /* The gutter cell for this row - drawn before the text so a wide
          * line's leftmost (hscrolled-off) glyphs never bleed into it. Right-
-         * aligned within [n->x, text_x), same convention as line_bg above:
+         * aligned within [ex, text_x), same convention as line_bg above:
          * it picks up whatever tint this row got (current line/code block),
          * so it reads as part of the same row rather than a separate strip.
          * Skipped entirely when gutter_w is 0 (feature off, or VT100). A
@@ -9190,16 +9774,16 @@ static void render_editor(ui_screen* s, ui_node* n)
             char num[16];
             int len = snprintf(num, sizeof num, "%d", line_no);
             uint32_t num_fg = has_bp ? g_theme.editor_breakpoint_fg : g_theme.editor_linenum_fg;
-            draw_fill(n->x, n->y + row, gutter_w, 1, num_fg, line_bg);
+            draw_fill(ex, ey + row, gutter_w, 1, num_fg, line_bg);
             if (len > 0 && len < gutter_w)
-                draw_text(n->x + (gutter_w - 1 - len), n->y + row, num,
+                draw_text(ex + (gutter_w - 1 - len), ey + row, num,
                           num_fg, line_bg);
         }
 
         switch (n->syntax)
         {
         case UI_SYNTAX_VT100:
-            render_editor_line_ansi(text_x, n->y + row, text_w, n->hscroll, n->label + ls, le - ls,
+            render_editor_line_ansi(text_x, ey + row, text_w, n->hscroll, n->label + ls, le - ls,
                                      sel_col_lo, sel_col_hi, line_bg);
             break;
         case UI_SYNTAX_MARKDOWN:
@@ -9214,18 +9798,18 @@ static void render_editor(ui_screen* s, ui_node* n)
              * per-codepoint columns, the same thing utf8_col_of() would've
              * produced - see the `!in_code_block` gate in its block comment. */
             if (!line_is_fence && in_c_block)
-                render_editor_line(text_x, n->y + row, text_w, n->hscroll, n->label + ls, le - ls,
+                render_editor_line(text_x, ey + row, text_w, n->hscroll, n->label + ls, le - ls,
                                     sel_col_lo, sel_col_hi, &c_comment_block, line_bg, &c_bracket_depth);
             else
-                render_editor_line_markdown(text_x, n->y + row, text_w, n->hscroll, n->label + ls, le - ls,
+                render_editor_line_markdown(text_x, ey + row, text_w, n->hscroll, n->label + ls, le - ls,
                                              sel_col_lo, sel_col_hi, &in_block, n->read_only, line_bg);
             break;
         case UI_SYNTAX_C:
-            render_editor_line(text_x, n->y + row, text_w, n->hscroll, n->label + ls, le - ls,
+            render_editor_line(text_x, ey + row, text_w, n->hscroll, n->label + ls, le - ls,
                                 sel_col_lo, sel_col_hi, &in_block, line_bg, &bracket_depth);
             break;
         default:
-            render_editor_line_plain(text_x, n->y + row, text_w, n->hscroll, n->label + ls, le - ls,
+            render_editor_line_plain(text_x, ey + row, text_w, n->hscroll, n->label + ls, le - ls,
                                       sel_col_lo, sel_col_hi, line_bg);
             break;
         }
@@ -9255,7 +9839,7 @@ static void render_editor(ui_screen* s, ui_node* n)
                 p = p->next;
             }
             int diag_text_cols = utf8_col_of(n->label + ls, le - ls);
-            render_diagnostic(text_x, n->y + row, text_w, n->hscroll, diag_text_cols, best, count - 1);
+            render_diagnostic(text_x, ey + row, text_w, n->hscroll, diag_text_cols, best, count - 1);
             diag = p;  /* past this whole line's group - never revisited */
         }
 
@@ -9273,7 +9857,7 @@ static void render_editor(ui_screen* s, ui_node* n)
             /* The glyph under the caret was already painted normally by the
              * per-character draw above - just overlay the thin caret bar on
              * top of it rather than swapping the whole cell's colors. */
-            emit_box(text_x + cursor_col - n->hscroll, n->y + row, 1, 1, 0, 0, UI_BOX_CURSOR);
+            emit_box(text_x + cursor_col - n->hscroll, ey + row, 1, 1, 0, 0, UI_BOX_CURSOR);
         }
 
         line_idx++;  /* this row's document line is now fully processed */
@@ -9300,11 +9884,16 @@ static void render_editor(ui_screen* s, ui_node* n)
     {
         int thumb_start, thumb_len;
         editor_vscrollbar_thumb(n, &thumb_start, &thumb_len);
-        int sx = n->x + n->w - 1;
-        int rows = show_h ? n->h - 1 : n->h;
+        int sx = ex + ew - 1;
+        /* Same track height the thumb math uses (see
+         * editor_vscrollbar_track_rows) - it stops above the horizontal
+         * bar's row so the two never fight over the corner cell. Note this
+         * is NOT `show_h`: the track's height must not change with hover,
+         * only with whether a horizontal bar exists. */
+        int rows = editor_vscrollbar_track_rows(n);
         for (int row = 0; row < rows; row++)
         {
-            int sy = n->y + row;
+            int sy = ey + row;
             if (sy < 0 || sy >= s->screen_h)
                 continue;
             int is_thumb = row >= thumb_start && row < thumb_start + thumb_len;
@@ -9318,7 +9907,7 @@ static void render_editor(ui_screen* s, ui_node* n)
         editor_hscrollbar_layout(n, &track_x0, &track_w);
         int thumb_start, thumb_len;
         editor_hscrollbar_thumb(n, &thumb_start, &thumb_len);
-        int sy = n->y + n->h - 1;
+        int sy = ey + eh - 1;
         if (sy >= 0 && sy < s->screen_h)
         {
             /* Full width, like the vertical bar's full height - but drawn
@@ -9342,6 +9931,62 @@ static void render_editor(ui_screen* s, ui_node* n)
 /* Dispatches one node to its type's render function - shared by the
  * top-level document walk and render_window() (a window's children are
  * ordinary nodes too, just nested one level deeper). */
+/* Note a scaled editor for the post-diff paint pass, and fill its cells with
+ * its own background so the cell layer paints a clean backdrop under it.
+ *
+ * The pane's ORIGIN is pinned to the character grid - it is positioned by
+ * normal layout like any other node - while its interior advances by its own
+ * font's metrics. That split is the whole trick: the pane sits exactly where
+ * layout put it, and is free to hold a different text size inside. */
+static void record_scaled_pane(ui_screen* s, ui_node* n)
+{
+    int cx = n->x, cy = n->y;
+    int cw = n->w, chh = n->h;
+
+    /* Backdrop first, through the normal cell path, so the diff keeps
+     * correct bookkeeping for this area and anything that scrolls out from
+     * under the pane is repainted properly. */
+    uint32_t back = (n->type == UI_TAG_LISTBOX) ? g_theme.listbox_bg
+                                                : g_theme.editor_output_bg;
+    emit_box(cx, cy, cw, chh, back, back, 0);
+
+    if (s->scaled_pane_count >= (int)(sizeof s->scaled_panes / sizeof s->scaled_panes[0]))
+        return;   /* see the struct comment: drop it rather than grow mid-render */
+
+    int pane_cw = 0, pane_ch = 0;
+    ui_font_cell_size(n->small_font, &pane_cw, &pane_ch);
+    if (pane_cw <= 0 || pane_ch <= 0)
+        return;   /* backend couldn't produce the font - leave the backdrop */
+
+    /* The MAIN font's cell, asked of the backend right now rather than read
+     * from s->cell_w/h: those are refreshed in ui_screen_update(), and a
+     * repaint can land between a font change and the next update. One frame
+     * painted against a stale cell size would put the pane at the wrong
+     * position and size - and because nothing inside a scaled pane is
+     * tracked by the cell diff, that wrong paint would never be cleaned up.
+     * (Seen as two overlapping copies of the pane after a Ctrl+/Ctrl-.) */
+    int main_cw = 0, main_ch = 0;
+    ui_font_cell_size(0, &main_cw, &main_ch);
+    if (main_cw <= 0 || main_ch <= 0)
+        return;
+
+    int i = s->scaled_pane_count++;
+    s->scaled_panes[i].node      = n;
+    s->scaled_panes[i].origin_cx = cx;
+    s->scaled_panes[i].origin_cy = cy;
+    s->scaled_panes[i].origin_px = cx * main_cw;
+    s->scaled_panes[i].origin_py = cy * main_ch;
+    s->scaled_panes[i].main_cell_w = main_cw;
+    s->scaled_panes[i].main_cell_h = main_ch;
+    s->scaled_panes[i].cell_w    = pane_cw;
+    s->scaled_panes[i].cell_h    = pane_ch;
+    s->scaled_panes[i].small_font = n->small_font;
+    s->scaled_panes[i].back      = back;
+    /* The backdrop emitted just above is the pane's own z-level; anything
+     * written after it is above the pane. */
+    s->scaled_panes[i].seq       = s->emit_seq;
+}
+
 static void render_node(ui_screen* s, ui_node* n)
 {
     switch (n->type)
@@ -9366,13 +10011,25 @@ static void render_node(ui_screen* s, ui_node* n)
         render_input(s, n);
         break;
     case UI_TAG_EDITOR:
-        render_editor(s, n);
+        /* A scaled editor can't paint into the cell buffer at all (see
+         * ui_screen's scaled_panes). Record it and fill its area with its
+         * own background so the cell layer still paints a clean backdrop;
+         * the text itself is drawn after the diff, in device pixels. */
+        if (n->small_font)
+            record_scaled_pane(s, n);
+        else
+            render_editor(s, n);
         break;
     case UI_TAG_SELECT:
         render_select(s, n);
         break;
     case UI_TAG_LISTBOX:
-        render_listbox(s, n);
+        /* Same as EDITOR above: a scaled listbox can't go through the cell
+         * buffer, so it is recorded and painted afterwards. */
+        if (n->small_font)
+            record_scaled_pane(s, n);
+        else
+            render_listbox(s, n);
         break;
     case UI_TAG_GROUP:
         render_group(s, n);
@@ -9402,15 +10059,19 @@ int ui_screen_render(ui_screen* s, int* out_x, int* out_y, int* out_w, int* out_
      * frame's intent buffer (`next`) to the current grid. A size change (or
      * the first render) makes the old shadow meaningless, so force a full
      * repaint. */
-    if (!s->cache || s->cache_w != s->screen_w || s->cache_h != s->screen_h)
+    /* The screen size is a whole number of cells (the backend floors it -
+     * see resize_buffer), so the grid is simply that size. */
+    int want_w = s->screen_w;
+    int want_h = s->screen_h;
+    if (!s->cache || s->cache_w != want_w || s->cache_h != want_h)
     {
         free(s->cache);
         free(s->next);
-        int n = s->screen_w * s->screen_h;
+        int n = want_w * want_h;
         s->cache = n > 0 ? calloc((size_t)n, sizeof(ui_cell)) : NULL;
         s->next = n > 0 ? calloc((size_t)n, sizeof(ui_cell)) : NULL;
-        s->cache_w = s->screen_w;
-        s->cache_h = s->screen_h;
+        s->cache_w = want_w;
+        s->cache_h = want_h;
         s->force_full = 1;
         s->prev_overlay_count = 0;
     }
@@ -9419,6 +10080,7 @@ int ui_screen_render(ui_screen* s, int* out_x, int* out_y, int* out_w, int* out_
     s->overlay_count = 0;
     s->overlay_overflow = 0;
     s->emit_seq = 0;
+    s->scaled_pane_count = 0;
     g_render_screen = s;
 
     int was_full = s->force_full;
@@ -9459,7 +10121,9 @@ int ui_screen_render(ui_screen* s, int* out_x, int* out_y, int* out_w, int* out_
      * anything else so every node still paints over it normally - one
      * draw_box call instead of a screen_w * screen_h draw_char loop. */
     if (s->desktop_on)
-        emit_box(0, 0, s->screen_w, s->screen_h, s->desktop_bg, s->desktop_bg, 0);
+        /* cache_w/h, not screen_w/h: the ceiled grid, so a partly visible
+         * edge column/row gets a backdrop like every other cell. */
+        emit_box(0, 0, s->cache_w, s->cache_h, s->desktop_bg, s->desktop_bg, 0);
 
     /* Base layer: every node paints in document order (later siblings over
      * earlier ones), same as normal HTML flow content. */
@@ -9530,6 +10194,75 @@ int ui_screen_render(ui_screen* s, int* out_x, int* out_y, int* out_w, int* out_
         }
     }
 
+    /* --- Scaled panes ---------------------------------------------------
+     * Painted here, after the diff: their glyphs never entered `next`, so
+     * doing this any earlier would just have the diff paint normal-size
+     * cells straight back over them.
+     *
+     * Repainted whole every frame rather than diffed. A scaled pane has no
+     * per-cell shadow to compare against (that is the entire reason it is
+     * out here), so there is nothing to skip; the pane is small and this
+     * keeps the two paths from needing to agree about damage. Its area is
+     * unioned into the dirty rect so the backend actually blits it. */
+    for (int i = 0; i < s->scaled_pane_count; i++)
+    {
+        ui_node* n = s->scaled_panes[i].node;
+        g_scaled_pane = &s->scaled_panes[i];
+        /* Clear the pane's whole area in device pixels first. The cell diff
+         * tracks nothing inside a scaled pane (that is the point of it), so
+         * it will never repaint a cell here on its own: any pixel the pane
+         * painted last frame and doesn't repaint this frame would otherwise
+         * stay on screen forever. Most visible right after a font zoom,
+         * where the pane's rows land at different heights and the previous
+         * frame's text shows through between the new ones. */
+        int pane_cols = n->w, pane_rows = n->h;
+        for (int ry = 0; ry < pane_rows; ry++)
+        {
+            for (int rx = 0; rx < pane_cols; rx++)
+            {
+                int dx = s->scaled_panes[i].origin_px + rx * s->scaled_panes[i].main_cell_w;
+                int dy = s->scaled_panes[i].origin_py + ry * s->scaled_panes[i].main_cell_h;
+                if (pane_rect_occluded(dx, dy, s->scaled_panes[i].main_cell_w,
+                                      s->scaled_panes[i].main_cell_h))
+                    continue;   /* covered by something above the pane */
+                ui_fill_rect_px(dx, dy,
+                                s->scaled_panes[i].main_cell_w,
+                                s->scaled_panes[i].main_cell_h,
+                                s->scaled_panes[i].back);
+            }
+        }
+        if (n->type == UI_TAG_LISTBOX)
+            render_listbox(s, n);
+        else
+            render_editor(s, n);
+        g_scaled_pane = NULL;
+        union_dirty(s, s->scaled_panes[i].origin_cx, s->scaled_panes[i].origin_cy,
+                    n->w, n->h);
+
+        /* The pane just clobbered pixels the shadow doesn't model - it holds
+         * the backdrop these cells were diffed against, not what is now on
+         * screen. Sentinel them, so whatever occupies this footprint next
+         * frame is repainted rather than skipped as unchanged: without it,
+         * a pane that shrinks or moves leaves its old text behind wherever
+         * the freed cells happen to diff equal (the usual case - same
+         * backdrop color on both sides). The rect is the pane's MAIN-font
+         * footprint: that is the area it occupies in the layout, whatever
+         * size the text inside it is drawn at. */
+        for (int cy = s->scaled_panes[i].origin_cy;
+             s->cache && cy < s->scaled_panes[i].origin_cy + n->h; cy++)
+        {
+            if (cy < 0 || cy >= s->cache_h)
+                continue;
+            for (int cx = s->scaled_panes[i].origin_cx;
+                 cx < s->scaled_panes[i].origin_cx + n->w; cx++)
+            {
+                if (cx < 0 || cx >= s->cache_w)
+                    continue;
+                s->cache[cy * s->cache_w + cx].ch = 0xFFFFFFFFu;
+            }
+        }
+    }
+
     /* Replay destructive overlays on top of the freshly-diffed content, in the
      * document order they were recorded. Their cells are erased next frame via
      * prev_overlays (see the top of this function).
@@ -9588,7 +10321,7 @@ int ui_screen_render(ui_screen* s, int* out_x, int* out_y, int* out_w, int* out_
     if (was_full)
     {
         s->dirty_x = 0; s->dirty_y = 0;
-        s->dirty_w = s->screen_w; s->dirty_h = s->screen_h;
+        s->dirty_w = s->cache_w; s->dirty_h = s->cache_h;
     }
 
     if (out_x) *out_x = s->dirty_x;

@@ -20,7 +20,22 @@ The **Playground** (View > Playground) is a standing scratch file — always the
 
 ### 2.3 Building
 
-**Build > Build** (F7) compiles the active file (or, with a project open, the whole project) with Cake. **Build > Show Generated Code** shows the C89-compatible output Cake produced. **Build > Config File** and **Build > Options...** control compiler flags and the active `cakeconf.h`.
+Cake IDE separates *compiling* one file from *building*:
+
+- **Build > Compile** always runs Cake on the active file alone, whether or not that file belongs to the open project.
+- **Build > Build** (F7) builds the open project — every `.c` file in it, in one Cake invocation — when the active file is a member of that project. If no project is open, or the active file is not part of it, Build falls back to compiling just that file, so F7 always does the useful thing.
+
+The editor's right-click menu also carries **Compile** (the file-only action). Both items are enabled only while a real `.c` file is active; `.h` and `.md` files do not count.
+
+Cake only translates C to C89-compatible C — it does not link. Linking is left to a real compiler, driven from **Tools > External Tools**: a tool such as
+
+```
+gcc -Wno-builtin-requires-header -g -Wno-incompatible-library-redeclaration -fdiagnostics-color=always $(CakeOutput) -o "$(TargetPath)"
+```
+
+run in `$(ProjectDir)` picks up `$(CakeOutput)`, which expands to Cake's predicted output paths — one per `.c` file with a project open, or just the active file's output without one.
+
+**Build > Show Generated Code** shows the C89-compatible output Cake produced. **Build > Config File** and **Build > Options...** control compiler flags and the active `cakeconf.h`.
 
 ---
 
@@ -76,7 +91,7 @@ The Debug menu's Continue/Step Over/Step Into items (and their shortcuts) are on
 | **View** | Output, Folder, Project, Playground, Debug Info, Line Numbers |
 | **Search** | Find..., Replace..., Search Next, Go to line..., Go to Definition, Find in Files... |
 | **Project** | Add Existing File..., Include Directories..., Options..., Build, Close Project |
-| **Build** | Build, Show Generated Code, Config File, Options... |
+| **Build** | Build (project or active file), Compile (active file only), Show Generated Code, Config File, Options... |
 | **Debug** | Start Debugging, Stop Debugging, Continue, Step Over, Step Into, Toggle Breakpoint |
 | **Tools** | Terminal, plus any configured External Tools |
 | **Window** | Tile, Cascade, Close all, Environment..., Font size |

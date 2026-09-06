@@ -8,6 +8,7 @@
  * anything about its DOM/ui_screen.
  */
 #include "ide_ui.h"
+#include <math.h>   /* floorf() - whole-cell layout from any window size */
 
 #include <windows.h>
 #include <shellapi.h>
@@ -129,7 +130,38 @@ static struct
     int avail[FONT_CANDIDATE_COUNT];
     int avail_count; /* -1 = not probed yet */
     int selected;    /* index into avail; -1 = follow the preference order */
+
+    /* The SMALL font (see ui_set_small_font) - the same family and the same
+     * ClearType/non-antialiased pair as the main one, at a smaller point
+     * size. Derived from the main font, so it is rebuilt whenever that
+     * changes (see apply_font) and a Ctrl+/Ctrl- keeps the two proportional.
+     *
+     * cell_w/cell_h are MEASURED, not computed from the ratio: point sizes
+     * are integers, so the font actually produced is only approximately the
+     * fraction asked for, and laying out against the measurement is what
+     * keeps a pane's columns aligned with its own glyphs. */
+    /* NB: not named `small` - <rpcndr.h> defines that as a macro for
+     * `char`, so a field of that name silently fails to compile. */
+    HFONT small_main;
+    HFONT small_box;
+    int   small_cell_w, small_cell_h;
 } g_fonts = { .pt = 11, .avail_count = -1, .selected = -1 };
+
+/* What "small" means, as a percentage of the main font's point size. The one
+ * place this is decided - the framework above only ever says "small". */
+#define FONT_SMALL_PERCENT 85
+
+/* Destroy the small font, so apply_font can rebuild it from the new main
+ * font. Safe to call when it was never created. */
+static void release_small_font(void)
+{
+    if (g_fonts.small_main) DeleteObject(g_fonts.small_main);
+    if (g_fonts.small_box)  DeleteObject(g_fonts.small_box);
+    g_fonts.small_main = NULL;
+    g_fonts.small_box = NULL;
+    g_fonts.small_cell_w = 0;
+    g_fonts.small_cell_h = 0;
+}
 
 static void probe_available_fonts(HDC dc)
 {
@@ -205,6 +237,111 @@ static int is_box_drawing(uint32_t ch)
  * itself repaint: e.g. editor text bleeding right into the (static, blank)
  * scrollbar column leaves stale fringe along the track as the view scrolls.
  * Clipping keeps every cell self-contained. */
+/* Build the small font if it doesn't exist yet. Returns 0 if it can't be
+ * created at all, which callers treat as "use the main font" rather than
+ * drawing nothing. */
+static int ensure_small_font(void)
+{
+    if (g_fonts.small_main)
+        return 1;
+
+    HDC dc = GetDC(NULL);
+    if (!dc)
+        return 0;
+
+    int dpi = GetDeviceCaps(dc, LOGPIXELSY);
+    /* Round rather than truncate, and never below 1pt: a deep zoom-out would
+     * otherwise ask GDI for a 0pt font. */
+    int pt = (g_fonts.pt * FONT_SMALL_PERCENT + 50) / 100;
+    if (pt < 1)
+        pt = 1;
+    int height = -MulDiv(pt, dpi, 72);
+
+    const wchar_t* name = pick_font(dc);
+    /* Same ClearType/non-antialiased pair as the main font, and for the same
+     * reason - see ui_draw_char and is_box_drawing. */
+    HFONT f = CreateFontW(height, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                          DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                          CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                          FIXED_PITCH | FF_MODERN, name);
+    HFONT fb = CreateFontW(height, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                           DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                           CLIP_DEFAULT_PRECIS, NONANTIALIASED_QUALITY,
+                           FIXED_PITCH | FF_MODERN, name);
+    if (!f || !fb)
+    {
+        if (f)  DeleteObject(f);
+        if (fb) DeleteObject(fb);
+        ReleaseDC(NULL, dc);
+        return 0;
+    }
+
+    /* Measure what we actually got - see g_fonts.small_main's comment for why
+     * this is measured rather than computed from the percentage. */
+    HFONT old = SelectObject(dc, f);
+    TEXTMETRICW tm;
+    GetTextMetricsW(dc, &tm);
+    SIZE sz;
+    GetTextExtentPoint32W(dc, L"M", 1, &sz);
+    SelectObject(dc, old);
+    ReleaseDC(NULL, dc);
+
+    g_fonts.small_main   = f;
+    g_fonts.small_box    = fb;
+    g_fonts.small_cell_w = sz.cx > 0 ? sz.cx : 1;
+    g_fonts.small_cell_h = tm.tmHeight > 0 ? tm.tmHeight : 1;
+    return 1;
+}
+
+/* ui_font_cell_size (see ui.h): the measured cell of the font at `scale`. */
+void ui_font_cell_size(int small_font, int* cell_w, int* cell_h)
+{
+    int cw = g_cell_w, chh = g_cell_h;
+    if (small_font && ensure_small_font())
+    {
+        cw = g_fonts.small_cell_w;
+        chh = g_fonts.small_cell_h;
+    }
+    if (cell_w) *cell_w = cw;
+    if (cell_h) *cell_h = chh;
+}
+
+/* ui_draw_char_px (see ui.h): one glyph at an absolute device-pixel position,
+ * in the font for `scale`. Same ETO_OPAQUE|ETO_CLIPPED discipline as
+ * ui_draw_char - see the comment there for why the clip matters. */
+void ui_draw_char_px(int px, int py, int cell_w, int cell_h,
+                     uint32_t ch, uint32_t fg, uint32_t bg, int small_font)
+{
+    HDC mem = g_mem;
+    HFONT f;
+    if (small_font && ensure_small_font())
+        f = is_box_drawing(ch) ? g_fonts.small_box : g_fonts.small_main;
+    else
+        f = is_box_drawing(ch) ? g_fonts.box : g_fonts.main;
+
+    RECT cellrc = { px, py, px + cell_w, py + cell_h };
+    SelectObject(mem, f);
+    SetBkColor(mem, to_colorref(bg));
+    SetTextColor(mem, to_colorref(fg));
+    WCHAR w[2];
+    int n = cp_to_utf16(ch ? ch : ' ', w);
+    ExtTextOutW(mem, px, py, ETO_OPAQUE | ETO_CLIPPED, &cellrc, w, n, NULL);
+}
+
+/* ui_fill_rect_px (see ui.h): a solid device-pixel rect. Used to clear a
+ * scaled pane's background, whose edges don't land on the character grid. */
+void ui_fill_rect_px(int px, int py, int pw, int ph, uint32_t bg)
+{
+    if (pw <= 0 || ph <= 0)
+        return;
+    RECT r = { px, py, px + pw, py + ph };
+    HBRUSH brush = CreateSolidBrush(to_colorref(bg));
+    if (!brush)
+        return;
+    FillRect(g_mem, &r, brush);
+    DeleteObject(brush);
+}
+
 void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
 {
     HDC mem = g_mem;
@@ -376,6 +513,15 @@ static void resize_buffer(HWND hwnd)
 {
     RECT rc;
     GetClientRect(hwnd, &rc);
+    /* The WINDOW is free to be any pixel size - nothing snaps the drag (see
+     * the note where WM_SIZING used to be). The LAYOUT is a whole number of
+     * cells, and the few leftover pixels down the right/bottom edge stay
+     * background (clear_backbuffer paints them).
+     *
+     * Whole cells because that is the framework's coordinate system - see
+     * the Coordinates comment in ui.h. A pane drawn in the small font gets
+     * its finer grid inside its own rect, not by making this one
+     * fractional. */
     int cols = rc.right / g_cell_w;
     int rows = rc.bottom / g_cell_h;
     if (cols < 1) cols = 1;
@@ -449,6 +595,11 @@ static void apply_font(HWND hwnd)
         DeleteObject(g_fonts.box);
     g_fonts.main = new_font;
     g_fonts.box = new_font_box;
+
+    /* Derived from the font that just changed, so they are all stale. They
+     * are recreated lazily the next time a scaled pane paints. */
+    release_small_font();
+
 
     /* Every cell's pixel size/position just changed, so the render shadow no
      * longer matches the screen - repaint fully next frame. (On a font-zoom
@@ -588,41 +739,13 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_SIZE:
         resize_buffer(hwnd);
         return 0;
-    case WM_SIZING: {
-        /* Snap the drag rectangle to a whole number of cells live, so the
-         * window never settles on a partial row/column. */
-        RECT *r = (RECT *)lp;
-        int bw, bh;
-        get_border_size(hwnd, &bw, &bh);
-
-        int client_w = (r->right - r->left) - bw;
-        int client_h = (r->bottom - r->top) - bh;
-        int cols = (client_w + g_cell_w / 2) / g_cell_w;
-        int rows = (client_h + g_cell_h / 2) / g_cell_h;
-        if (cols < 1) cols = 1;
-        if (rows < 1) rows = 1;
-        int new_w = cols * g_cell_w + bw;
-        int new_h = rows * g_cell_h + bh;
-
-        /* Keep the edge opposite the one being dragged fixed. */
-        switch (wp) {
-        case WMSZ_LEFT: case WMSZ_TOPLEFT: case WMSZ_BOTTOMLEFT:
-            r->left = r->right - new_w;
-            break;
-        default:
-            r->right = r->left + new_w;
-            break;
-        }
-        switch (wp) {
-        case WMSZ_TOP: case WMSZ_TOPLEFT: case WMSZ_TOPRIGHT:
-            r->top = r->bottom - new_h;
-            break;
-        default:
-            r->bottom = r->top + new_h;
-            break;
-        }
-        return TRUE;
-    }
+    /* No WM_SIZING handler: the window is free to be any pixel size, so
+     * dragging an edge no longer jumps in font-sized steps.
+     *
+     * This used to snap the drag rectangle to whole cells. It doesn't need
+     * to: resize_buffer floors the client area to whole cells for the
+     * layout, and the leftover strip along the right/bottom edge is simply
+     * painted as background. */
     case WM_TIMER:
         /* Throttled tick - repaints only on the baseline or a pending change
          * (idle windows stay cheap). Keystrokes force an immediate repaint
@@ -723,8 +846,12 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_MBUTTONDOWN:
     case WM_MBUTTONUP: {
         /* Post mouse events to the environment's queue. */
-        int x = GET_X_LPARAM(lp) / g_cell_w;
-        int y = GET_Y_LPARAM(lp) / g_cell_h;
+        /* Device pixels, undivided: a pane drawn in a smaller font has rows
+         * shorter than one cell, so a cell-resolution pointer could not
+         * address them - every click in it would land on the same row. The
+         * framework derives the cell position itself. */
+        int x = GET_X_LPARAM(lp);
+        int y = GET_Y_LPARAM(lp);
         ui_event ev = {0};
         ev.type = UI_EVENT_MOUSE;
         ev.data.mouse.x = x;
@@ -780,8 +907,8 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 
         ui_event ev = {0};
         ev.type = UI_EVENT_MOUSE;
-        ev.data.mouse.x = pt.x / g_cell_w;
-        ev.data.mouse.y = pt.y / g_cell_h;
+        ev.data.mouse.x = pt.x;   /* device pixels - see WM_MOUSEMOVE */
+        ev.data.mouse.y = pt.y;
         ev.data.mouse.action = UI_MOUSE_WHEEL;
         ev.data.mouse.wheel_delta = notches;
         ev.data.mouse.mods = (GetKeyState(VK_SHIFT) < 0 ? UI_MOD_SHIFT : 0) |
@@ -808,8 +935,8 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 
         ui_event ev = {0};
         ev.type = UI_EVENT_MOUSE;
-        ev.data.mouse.x = pt.x / g_cell_w;
-        ev.data.mouse.y = pt.y / g_cell_h;
+        ev.data.mouse.x = pt.x;   /* device pixels - see WM_MOUSEMOVE */
+        ev.data.mouse.y = pt.y;
         ev.data.mouse.action = UI_MOUSE_WHEEL;
         ev.data.mouse.wheel_hdelta = notches;
         ev.data.mouse.mods = (GetKeyState(VK_SHIFT) < 0 ? UI_MOD_SHIFT : 0) |
@@ -1180,9 +1307,27 @@ static ui_process *start_common(WCHAR *wcmd, const char *dir,
      * of view; the read side (the child's stdin) must be inherited. */
     SetHandleInformation(hwrite_in, HANDLE_FLAG_INHERIT, 0);
 
-    WCHAR wdir[MAX_PATH] = { 0 };
-    if (dir && dir[0])
-        MultiByteToWideChar(CP_UTF8, 0, dir, -1, wdir, MAX_PATH);
+    /* Heap rather than a MAX_PATH array: the working directory of an
+     * External Tool comes from an expanded macro and can be longer than
+     * 260 characters, and a truncated path would silently run the child
+     * somewhere else. */
+    WCHAR *wdir = NULL;
+    if (dir && dir[0]) {
+        int n = MultiByteToWideChar(CP_UTF8, 0, dir, -1, NULL, 0);
+        if (n > 0) {
+            wdir = calloc((size_t)n, sizeof *wdir);
+            if (!wdir) {
+                if (err && errcap > 0)
+                    snprintf(err, (size_t)errcap, "out of memory");
+                CloseHandle(hread);
+                CloseHandle(hwrite);
+                CloseHandle(hread_in);
+                CloseHandle(hwrite_in);
+                return NULL;
+            }
+            MultiByteToWideChar(CP_UTF8, 0, dir, -1, wdir, n);
+        }
+    }
 
     STARTUPINFOW si;
     ZeroMemory(&si, sizeof si);
@@ -1197,13 +1342,14 @@ static ui_process *start_common(WCHAR *wcmd, const char *dir,
     ZeroMemory(&pi, sizeof pi);
 
     BOOL ok = CreateProcessW(NULL, wcmd, NULL, NULL, TRUE, CREATE_NO_WINDOW,
-                              NULL, wdir[0] ? wdir : NULL, &si, &pi);
+                              NULL, wdir, &si, &pi);
     if (!ok)
         win32_last_error(err, errcap, "CreateProcess");
 
     CloseHandle(hwrite);    /* our copy - the child has its own; keeping this
                              * open would stop the pipe ever reaching EOF */
     CloseHandle(hread_in);  /* our copy - the child has its own */
+    free(wdir);             /* CreateProcessW has copied it by now */
     if (!ok) {
         CloseHandle(hread);
         CloseHandle(hwrite_in);
@@ -1243,13 +1389,35 @@ ui_process *ui_process_start(const char *command, const char *dir,
     if (n == 0 || n >= MAX_PATH)
         wcscpy(shell, L"cmd.exe");
 
-    WCHAR wcmd[4096] = { 0 };
-    WCHAR wcommand[3500] = { 0 };
-    MultiByteToWideChar(CP_UTF8, 0, command, -1, wcommand, 3500);
-    swprintf(wcmd, 4096, L"%s /c %s", shell, wcommand);
-    wcmd[4095] = 0;
+    /* Sized to the command actually given rather than a fixed buffer: an
+     * External Tool's expanded arguments have no useful upper bound (see
+     * do_run_external_tool), and truncating here would hand cmd.exe a line
+     * ending in half a path. cmd.exe has its own 8191-character limit, but
+     * that produces its own diagnostic on the pipe, which is far easier to
+     * understand than a command silently cut in two. */
+    int wlen = MultiByteToWideChar(CP_UTF8, 0, command, -1, NULL, 0);
+    if (wlen <= 0) {
+        if (err && errcap > 0)
+            snprintf(err, (size_t)errcap, "invalid command text");
+        return NULL;
+    }
 
-    return start_common(wcmd, dir, err, errcap);
+    size_t cap = wcslen(shell) + 4 + (size_t)wlen + 1;   /* `shell` + " /c " */
+    WCHAR *wcmd = calloc(cap, sizeof *wcmd);
+    if (!wcmd) {
+        if (err && errcap > 0)
+            snprintf(err, (size_t)errcap, "out of memory");
+        return NULL;
+    }
+
+    wcscpy(wcmd, shell);
+    wcscat(wcmd, L" /c ");
+    MultiByteToWideChar(CP_UTF8, 0, command, -1,
+                        wcmd + wcslen(wcmd), wlen);
+
+    ui_process *p = start_common(wcmd, dir, err, errcap);
+    free(wcmd);
+    return p;
 }
 
 /* Quotes `arg` into `out` (Win32 CommandLineToArgvW convention: wrap in
@@ -1417,4 +1585,4 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE prev, PWSTR cmd, int show)
         DispatchMessageW(&msg);
     }
     return 0;
-}
+}

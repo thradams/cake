@@ -3573,8 +3573,14 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                                         _Assert(t.struct_or_union_specifier != NULL);
 
                                                         struct struct_or_union_specifier* _Opt p_complete_member =
-                                                        p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+                                                            get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
 
+                                                        if (p_complete_member == NULL)
+                                                        {
+                                                            type_destroy(&t);
+                                                            throw;
+                                                        }
+                                                            
                                                         char name2[100] = { 0 };
                                                         snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
@@ -3616,8 +3622,13 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                             {
                                                 _Assert(t.struct_or_union_specifier != NULL);
                                                 struct struct_or_union_specifier* _Opt p_complete_member =
-                                                p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+                                                  get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
 
+                                                if (p_complete_member == NULL)
+                                                {
+                                                    type_destroy(&t);
+                                                    throw;
+                                                }
                                                 char name2[100] = { 0 };
                                                 snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
@@ -3636,7 +3647,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                                 {
                                                     _Assert(t.struct_or_union_specifier);
                                                     struct struct_or_union_specifier* _Opt p_complete_member =
-                                                    p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+                                                      get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
 
                                                     if (p_complete_member == NULL)
                                                     {
