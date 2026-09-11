@@ -97,3 +97,6 @@ src/cake
 /vc/cake/x64/DebugTest
 /vc/ide/Debug
 /vc/ide/x64/Debug
+/vc/ide/obj/Win32/Debug/ide.Build.CppClean.log
+/vc/ide/obj/Win32/Debug/ide.vcxproj.FileListAbsolute.txt
+/vc/ide/obj/Win32/Debug/version.h.obj.dt.d.json
