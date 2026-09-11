@@ -4030,7 +4030,7 @@ void type_visit_to_mark_anonymous(const struct type* p_type)
 void type_merge_qualifiers_using_declarator(struct type* p_type, const struct declarator* pdeclarator)
 {
 
-    enum type_qualifier_flags type_qualifier_flags = 0;
+    enum type_qualifier_flags type_qualifier_flags = TYPE_QUALIFIER_NONE;
 
 
     if (pdeclarator->declaration_specifiers)
@@ -4053,7 +4053,7 @@ void type_merge_qualifiers_using_declarator(struct type* p_type, const struct de
 void type_set_qualifiers_using_declarator(struct type* p_type, const struct declarator* pdeclarator)
 {
 
-    enum type_qualifier_flags type_qualifier_flags = 0;
+    enum type_qualifier_flags type_qualifier_flags = TYPE_QUALIFIER_NONE;
     if (pdeclarator->declaration_specifiers)
     {
         type_qualifier_flags = pdeclarator->declaration_specifiers->type_qualifier_flags;

@@ -1857,13 +1857,13 @@ struct ast get_ast(const struct options* options,
     const char* filename,
     const char* source,
     struct report* report);
+    
 struct ast get_ast_with_flags(int argc, const char** argv, const char* filename, const char* source, struct report* report);
 void ast_destroy(_Dtor struct ast* ast);
+
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
-
 struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, struct scope* _Opt p_file_scope_out, bool* berror);
-
 
 int initializer_init_new(struct parser_ctx* ctx,
                          struct type* p_current_object_type,
@@ -1876,3 +1876,4 @@ struct object* _Opt find_object_declarator_by_index(const struct object* p_objec
 
 void check_dianostic_suppression_phase(struct parser_ctx* ctx, const struct token* p_token, int phase);
 const struct direct_declarator* _Opt get_innermost_direct_declarator(const struct direct_declarator* _Opt p);
+

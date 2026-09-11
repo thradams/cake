@@ -1,6 +1,6 @@
 # Cake Static Analysis — Ownership & Nullable Contracts
 
-*Last Updated: August 2026*
+*Last Updated: September 2026*
 
 A hands-on guide to Cake's ownership and nullable pointer annotations - with
 working examples, enforced rules, and an incremental migration strategy for
@@ -19,6 +19,52 @@ dereferencing a null pointer.
 This manual walks you through each concept with working code examples, explains
 the rules enforced by the analyzer, and shows you how to adopt these features
 incrementally in an existing codebase.
+
+### Contracts in the age of AI
+
+It is always too early to predict the future, even when the future is already
+happening. We try to extrapolate what will happen, but reality pushes with
+forces from all sides. Some of them we can see: everyone wants local AI,
+everyone wants to pay less, everyone wants to be more productive. But the
+direction those forces take, how they interfere with each other, and the ones
+we cannot imagine yet, are hard to predict. What can be said today is
+narrower, and it is enough: more and more C is now written, or at least
+drafted, by AI tools. With AI code, readability and understanding become the
+bottleneck. Cake's annotations add a few more words to read, but I believe
+they improve understanding: a signature that says `_Owner` or `_Opt` gives a
+precise contract, where plain C leaves the reader to guess, or to read long
+generated comments instead. 
+
+The annotations described here turn those unspoken assumptions into contracts
+the compiler can check. `_Owner`, `_Opt`, `_Out` and `_Dtor` state, in the
+signature, who releases what and what may be null - and the analyzer verifies
+that every caller and every implementation honors it. The contract is part of
+the source, so it is read by the same tools that write the code. In practice,
+AI assistants understand Cake's annotations without being taught them: given a
+file that already uses `_Owner` and `_Opt`, they pick up the pattern and apply
+it to the code they add - releasing what is returned as `_Owner`, checking what
+is declared `_Opt`, annotating new functions the same way.
+
+An AI assistant and Cake also work well as a loop: the AI writes, Cake judges,
+the warnings go back to the AI. It scales to a large batch of warnings -
+Cake's diagnostics are precise enough (one line, one message, one fix) that an
+assistant can read a long list of them and apply the fixes one by one,
+re-running the analyzer between rounds until the list is empty. A concrete example is
+warning 82, *parameter could point to const*: Cake proves that a parameter is
+never written through and could be `const`. Driving that warning through the
+AI loop on Cake's own sources produced hundreds of `const` refactorings, each
+one verified by the analyzer rather than by hand.
+
+Cake's annotations on their own cannot interfere with code generation: they
+are checked, not compiled, and the generated code is the same with or without
+them. What they do demand is the migration. Taking an unannotated codebase to
+an annotated one is a very demanding task - every owner, every nullable
+pointer, every out parameter has to be found and written down. The Cake + AI
+loop is what makes it possible: hundreds of warnings removed and the
+annotations added, file by file, with the analyzer checking each step. The
+feeling after that job is that the code is in a much safer state than it was
+before - and it is not only a feeling. The rules are now checked mechanically,
+on every build, and they will stay checked.
 
 
 
@@ -728,28 +774,24 @@ It tracks the possible states of every variable at every point in your program.
 
 The analyzer tracks the following states for each variable:
 
-`uninitialized` — the variable has been declared but not yet assigned a value.
+| State | Meaning | Kind |
+|---|---|---|
+| `uninitialized` | the variable has been declared but not yet assigned a value | imaginary |
+| `moved` | ownership was transferred to another variable or passed into a function call | imaginary |
+| `null` | the pointer is null, or the owner holds no resource | stored value |
+| `not-null` | the pointer is known to reference a live object | stored value |
+| `zero` | the value of a non-pointer object is zero. Distinct from `null`: for non-pointer owners like sockets, zero does not necessarily mean "no resource" | stored value |
+| `not-zero` | the value of a non-pointer object is non-zero | stored value |
+| `lifetime-ended` | the object the pointer was referencing has gone out of scope | imaginary |
 
-`moved` — ownership was transferred to another variable or passed into a function call.
-
-`null` — the pointer is null, or the owner holds no resource.
-
-`not-null` — the pointer is known to reference a live object.
-
-`zero` — the value of a non-pointer object is zero. This is distinct from `null` because, for non-pointer owners like sockets, zero does not necessarily mean "no resource".
-
-`not-zero` — the value of a non-pointer object is non-zero.
-
-`lifetime-ended` — the object the pointer was referencing has gone out of scope.
-
-> **Note:** `uninitialized`, `moved`, and `lifetime-ended` are imaginary states: they exist in flow
-> analysis but not at runtime, and have no corresponding value in memory. The other states (`null`,
-> `not-null`, `zero`, `not-zero`) describe something actually stored in the variable. But nothing
-> at runtime is "uninitialized," "moved," or "lifetime-ended" — the bits sitting in memory are just
-> bits (a moved-from or lifetime-ended pointer can still hold a perfectly valid-looking address).
-> These states exist only so the analyzer can track *what it knows*: that no meaningful value has
-> been given yet, that the variable is no longer accountable for the value it held, or that the
-> object it once pointed to is no longer around.
+> **Note:** the *imaginary* states (`uninitialized`, `moved`, `lifetime-ended`) exist in flow
+> analysis but not at runtime, and have no corresponding value in memory. The *stored value* states
+> (`null`, `not-null`, `zero`, `not-zero`) describe something actually stored in the variable. But
+> nothing at runtime is "uninitialized," "moved," or "lifetime-ended" — the bits sitting in memory
+> are just bits (a moved-from or lifetime-ended pointer can still hold a perfectly valid-looking
+> address). These states exist only so the analyzer can track *what it knows*: that no meaningful
+> value has been given yet, that the variable is no longer accountable for the value it held, or
+> that the object it once pointed to is no longer around.
 
 
 
@@ -920,45 +962,42 @@ Adopting Cake's static analysis in an existing codebase does not require a big-b
 
 4. **Annotate signatures progressively** — add `_Owner`, `_Opt`, `_Out`, and `_Dtor` annotations as you work through each file. The pragma-controlled rollout ensures you always have a compiling codebase.
 
+Steps 2 to 4 are mechanical enough to delegate to an AI assistant: give it the
+file and the analyzer's warnings, ask it to add the annotations or the missing
+`if (p)` / `free(p)`, and re-run Cake. The analyzer is the reviewer - the
+migration is done when it reports nothing, not when the diff looks plausible.
+
 
 
 ## Quick Reference
 
 ### Type Annotations
 
-`_Opt` — the pointer may be null (nullable). Without this type annotation, a pointer is treated as non-nullable when nullable rules are enabled.
-
-`_Owner` — the reference manages the lifetime of the object it references. Ownership is transferred on assignment or when passed to a function.
-
-`_View` on struct — strips `_Owner` from all members for the duration of that variable's scope. Used to pass an owner struct without transferring ownership.
-
-`_Out` — the parameter must be uninitialized on entry; the function is responsible for initializing it before returning.
-
-`_Dtor` — the parameter must be fully initialized on entry; the function is responsible for moving out all owner contents before returning.
-
-`_Clear` — the function is responsible for setting every member of the pointee to zero before returning. Also used on a function's return type (e.g. `calloc()`) to describe an already zero-initialized pointee.
-
-`_Uninitialized` — marks the pointee as uninitialized. Used on a function's return type (e.g. `malloc()`) to describe a freshly allocated, uninitialized pointee.
-
-
+| Annotation | Meaning |
+|---|---|
+| `_Opt` | the pointer may be null (nullable). Without this type annotation, a pointer is treated as non-nullable when nullable rules are enabled |
+| `_Owner` | the reference manages the lifetime of the object it references. Ownership is transferred on assignment or when passed to a function |
+| `_View` (on struct) | strips `_Owner` from all members for the duration of that variable's scope. Used to pass an owner struct without transferring ownership |
+| `_Out` | the parameter must be uninitialized on entry; the function is responsible for initializing it before returning |
+| `_Dtor` | the parameter must be fully initialized on entry; the function is responsible for moving out all owner contents before returning |
+| `_Clear` | the function is responsible for setting every member of the pointee to zero before returning. Also used on a function's return type (e.g. `calloc()`) to describe an already zero-initialized pointee |
+| `_Uninitialized` | marks the pointee as uninitialized. Used on a function's return type (e.g. `malloc()`) to describe a freshly allocated, uninitialized pointee |
 
 ### Pragmas
 
-`#pragma nullable enable` / `#pragma nullable disable` — toggles non-nullable enforcement. When enabled, any pointer without `_Opt` is treated as non-nullable.
-
-`#pragma ownership enable` — enables owner reference lifetime checks.
-
-`#pragma safety enable` — enables both nullable and ownership checks at once. Equivalent to combining both pragmas above.
-
-`#pragma flow enable` — enables flow analysis without enabling nullable or ownership rules.
-
-
+| Pragma | Effect |
+|---|---|
+| `#pragma nullable enable` / `disable` | toggles non-nullable enforcement. When enabled, any pointer without `_Opt` is treated as non-nullable |
+| `#pragma ownership enable` | enables owner reference lifetime checks |
+| `#pragma safety enable` | enables both nullable and ownership checks at once. Equivalent to combining both pragmas above |
+| `#pragma flow enable` | enables flow analysis without enabling nullable or ownership rules |
 
 ### Built-in Intrinsics
 
-`compile_assert(expr)` — asks the analyzer to prove `expr` from what it currently knows; warns if it can't. Purely compile-time — no runtime effect, and it does not narrow later state.
-
-`static_debug(var)` — prints `var`'s current state to the compiler output. Use this to explore what the analyzer knows about a variable.
+| Intrinsic | Meaning |
+|---|---|
+| `compile_assert(expr)` | asks the analyzer to prove `expr` from what it currently knows; warns if it can't. Purely compile-time — no runtime effect, and it does not narrow later state |
+| `static_debug(var)` | prints `var`'s current state to the compiler output. Use this to explore what the analyzer knows about a variable |
 
 
 ## References

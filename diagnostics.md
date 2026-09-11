@@ -1,7 +1,7 @@
 ## Warnings
 
-Warnings can be enabled with `-w0123` where `123` is the warning number,
-or disabled with `-wd0123`.
+Warnings can be enabled with `-w<number>` (e.g. `-w2`) and disabled with
+`-wd<number>` (e.g. `-wd2`). `-wall` enables all of them.
 
 All warning are configurable. Cake has errors, warnings and notes.
 We can make a warning to be a note or error using pragma.
@@ -56,18 +56,18 @@ int main(void)
 
 
 ### 4 Enum conversion issue
-
 <!-- runnable -->
 
 ```c
-enum E1 {A};
-enum E2 {B};
-int main()
-{    
-   enum E1 = B;
+enum E1 { A };
+enum E2 { B };
+
+int main(void)
+{
+    enum E1 e = A;
+    return e == B; //warning 4: comparing different enums (enum E1, enum E2)
 }
 ```
-
 
 ### 5 token sliced
 
@@ -133,16 +133,14 @@ int main()
 
 
 ### 11 Style issue (disabled by default)
-
 <!-- runnable -->
 
 ```c
-//-w011
-int main() { //  warning C0011: not following correct brace style
+// -w11
+int main(void) { //warning 11: not following correct brace style {
+    return 0;
 }
-
 ```
-
 
 ### 12  multi-line comment
 
@@ -167,16 +165,8 @@ int a \
 ```
 
 
-### 14 String was sliced
-<!-- runnable -->
-
-```c
-int main()
-{  
-//TODO
-}
-```
-
+### 14 String was sliced (not emitted)
+Reserved (`W_STRING_SLICED`). Not emitted by the current compiler.
 
 ### 15 Discarded qualifiers
 
@@ -215,39 +205,14 @@ void f(const struct X* p, int c)
 ### 16 (unused)
 
 
-### 17 Uninitialized variable
-<!-- runnable -->
+### 17 Uninitialized variable (not emitted)
+Reserved (`W_UNINITIALZED`). Not emitted by the current compiler.
 
-```c
-int main()
-{  
- int i;
- int j = i;
-}
-```
+### 18 Returning address of local variable (not emitted)
+Reserved (`W_RETURN_LOCAL_ADDR`). Not emitted by the current compiler.
 
-
-### 18 Returning address of local variable (TODO)
-<!-- runnable -->
-
-```c
-int * f()
-{  
-    int i;
-    return &i;
-}
-```
-
-
-### 19 Missing address-of operator
-<!-- runnable -->
-
-```c
-int main()
-{  
-//TODO
-}
-```
+### 19 Missing address-of operator (not emitted)
+Reserved (`W_MUST_USE_ADDRESSOF`). Not emitted by the current compiler.
 
 ### 20 Array indirection issue
 <!-- runnable -->
@@ -262,52 +227,17 @@ void f(int a[])
 
 ### 21 (unused)
 
-### 22 Using object without being owner
-<!-- runnable -->
+### 22 Using object without being owner (not emitted)
+Reserved (`W_FLOW_NOT_OWNER`). Not emitted by the current compiler.
 
-```c
-int main()
-{  
-//TODO
-}
-```
+### 23 Using temporary owner incorrectly (flow) (not emitted)
+Reserved (`W_FLOW_USING_TEMPORARY_OWNER`). Not emitted by the current compiler.
 
+### 24 Move-assignment to non-owner (not emitted)
+Reserved (`W_FLOW_MOVE_ASSIGNMENT_OF_NON_OWNER`). Not emitted by the current compiler.
 
-### 23 Using temporary owner incorrectly (flow)
-<!-- runnable -->
-
-```c
-int main()
-{  
-//TODO
-}
-```
-
-
-### 24 Move-assignment to non-owner
-<!-- runnable -->
-
-```c
-int main()
-{  
-//TODO
-}
-```
-
-### 25 Assigning non-owner to owner (flow)
-<!-- runnable -->
-
-```c
-#pragma safety enable
-
-void  f(int * _Owner);
-int main()
-{
-  int * _Opt p = 0;
-  f(p); // warning C0025: cannot assign a non-owner to owner
-}
-```
-
+### 25 Assigning non-owner to owner (flow) (not emitted)
+Reserved (`W_FLOW_NON_OWNER_TO_OWNER_ASSIGN`). Not emitted by the current compiler. The parse-time check for this case is warning 78.
 
 ### 26 Discarding an owner (flow)
 <!-- runnable -->
@@ -327,35 +257,8 @@ int main() {
 
 ### 27 (unused)
 
-### 28 Non-null flow violation
-
-<!-- runnable -->
-
-```c
-#pragma nullable enable
-
-void f(int *p)
-{
-  if (p) //warning C0028: pointer is always not-null
-  {   
-  }
-}
-int main() {}
-```
-
-<!-- runnable -->
-
-```c
-#pragma nullable enable
-
-int main() {
-  int * _Opt p = 0;
-  if (p) //warning C0028: pointer is always null
-  {   
-  }
-}
-```
-See [object lifetime](ownership.md)
+### 28 Non-null flow violation (not emitted)
+Reserved (`W_FLOW_NON_NULL`). Not emitted by the current compiler.
 
 ### 29 pointed object was not released (flow)
 <!-- runnable -->
@@ -559,9 +462,10 @@ int main()
 <!-- runnable -->
 
 ```c
-int main()
-{  
-  int i = 'abc';
+int main(void)
+{
+    int i = u'ab'; //warning 41: Unicode character literals may not contain multiple characters.
+    (void)i;
 }
 ```
 
@@ -761,28 +665,11 @@ int main()
 }
 ```
 
-### 60 Null pointer constant to non-nullable pointer
+### 60 Null pointer constant to non-nullable pointer (not emitted)
+Reserved (`W_NULLABLE_TO_NON_NULLABLE`). Not emitted by the current compiler.
 
-<!-- runnable -->
-
-```c
-#pragma safety enable
-
-int main() {  
-  int * p2 = nullptr; //warning C0060: cannot convert a null pointer constant to non-nullable pointer
-}
-```
-
-### 61 Cast to same type (inactive)
-<!-- runnable -->
-
-```c
-int main()
-{  
-  int i = (int) 0;
-}
-```
-
+### 61 Cast to same type (not emitted)
+Reserved (`W_CAST_TO_SAME_TYPE`). Not emitted by the current compiler.
 
 ### 62 Too many initializers
 
@@ -804,23 +691,24 @@ int main() {
 }
 ```
 
-### 63 Signed to unsigned
+### 64 Mixed string literal prefixes
 <!-- runnable -->
 
 ```c
-void f(unsigned i) { (void)i; }
-
-int main(void) {
-    int x = -5;
-    f(-1);
-    f(x);
-    unsigned u = -2;
-    return 0;
+int main(void)
+{
+    const char* s = "abc" L"def"; //warning 64: concatenation of string literals with different encoding prefixes
+    (void)s;
 }
 ```
 
+### 65 Signed to unsigned (not implemented)
 
-### 64–66 Reserved / unused warnings
+Reserved. The check is not emitted yet.
+
+### 66 Information note (reserved)
+
+Reserved for informational notes attached to another diagnostic. Not emitted yet.
 
 ### 67 compile_assert could not be proven (flow)
 <!-- runnable -->
@@ -1052,7 +940,183 @@ int main() {
 }
 ```
 
-### 73–75, 77–81, 86–127 Reserved / unused warnings
+### 73 Unknown escape sequence
+<!-- runnable -->
+
+```c
+int main(void)
+{
+    char c = '\q'; //warning 73: unrecognized character escape sequence '\q'
+    (void)c;
+}
+```
+
+### 74 Constant not exactly representable
+<!-- runnable -->
+
+```c
+int main(void)
+{
+    float f = 0.1; //warning 74: constant expression is not exactly representable in type 'float'
+    (void)f;
+}
+```
+
+### 75 Pointer to integer conversion
+<!-- runnable -->
+
+```c
+int main(void)
+{
+    int i;
+    int* p = &i;
+    int n = p; //warning 75: pointer to integer conversion
+    (void)n;
+}
+```
+
+### 77 Static function declared but not defined
+<!-- runnable -->
+
+```c
+static void f(void); //warning 77: static function 'f' declared but not defined
+
+int main(void)
+{
+    f();
+}
+```
+
+### 78 Assigning non-owner to owner
+<!-- runnable -->
+
+```c
+#pragma ownership enable
+void free(void* _Owner _Opt p);
+
+int main(void)
+{
+    int i = 0;
+    int* _Owner _Opt p = &i; //warning 78: cannot assign a non-owner to owner
+    free(p);
+}
+```
+
+### 79 Temporary owner assigned to non-owner
+<!-- runnable -->
+
+```c
+#pragma ownership enable
+void* _Owner _Opt malloc(unsigned long size);
+
+int main(void)
+{
+    void* _Opt p = malloc(1); //warning 79: cannot assign a temporary owner to non-owner object
+    (void)p;
+}
+```
+
+### 80 Pointer to owner expected
+<!-- runnable -->
+
+```c
+#pragma ownership enable
+
+void take(int* _Owner _Opt* pp);
+
+int main(void)
+{
+    int* _Opt p = 0;
+    take(&p); //warning 80: pointer to owner expected at argument
+}
+```
+
+### 81 Owner aliased through a non-owner pointer
+<!-- runnable -->
+
+```c
+#pragma ownership enable
+void free(void* _Owner _Opt p);
+void* _Owner _Opt malloc(unsigned long size);
+
+int main(void)
+{
+    void* _Owner _Opt p = malloc(1);
+    void* _Opt* q = &p; //warning 81: owner aliased through a non-owner pointer
+    (void)q;
+    free(p);
+}
+```
+
+### 86 Format specifier mismatch
+<!-- runnable -->
+
+```c
+int printf(const char* fmt, ...);
+
+int main(void)
+{
+    long n = 1;
+    printf("%d", n); //warning 86: format for 'long' is '%ld', not '%d'
+}
+```
+
+### 87 Implicit conversion to enum
+<!-- runnable -->
+
+```c
+enum color { RED, GREEN };
+
+int main(void)
+{
+    enum color c = 1; //warning 87: implicit conversion from 'int' to 'enum color': did you mean 'GREEN'?
+    (void)c;
+}
+```
+
+### 88 Unannotated switch fall-through
+<!-- runnable -->
+
+```c
+int main(void)
+{
+    int i = 0;
+    switch (i)
+    {
+    case 0:
+        i++; //warning 88: unannotated fall-through between switch labels; add a 'break' or '[[fallthrough]];'
+    case 1:
+        break;
+    }
+}
+```
+
+### 89 malloc size is not a multiple of the pointee size
+<!-- runnable -->
+
+```c
+void* _Opt malloc(unsigned long size);
+
+int main(void)
+{
+    int* _Opt p = malloc(10); //warning 89: argument to 'malloc' is not a multiple of the pointee size (4)
+    (void)p;
+}
+```
+
+### 90–126 Reserved / unused warnings
+
+### 127 Unary minus on unsigned
+<!-- runnable -->
+
+```c
+int main(void)
+{
+    unsigned u = 1;
+    unsigned v = -u; //warning 127: unary minus operator applied to unsigned type, result still unsigned
+    (void)v;
+}
+```
 
 ## Errors 
 
@@ -1061,6 +1125,16 @@ int main() {
 ### 631 Missing terminating "
 
 ### 632 Missing end of comment 
+
+### 633 Empty character constant
+<!-- runnable -->
+
+```c
+int main(void)
+{
+    char c = ''; //error 633: empty character constant
+}
+```
 
 ### 640 \_View is the default qualifier
 <!-- runnable -->
@@ -1221,39 +1295,24 @@ int main() {
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
-}
+#define F(a) ## a //error 790: '##' cannot appear at the beginning of a replacement list
 ```
 
-### 800 Expected struct type
-<!-- runnable -->
+### 800 Expected struct type (not emitted)
+Reserved (`C_ERROR_EXPECTED_STRUCT_TYPE`). Not emitted by the current compiler.
 
-```c
-int main()
-{  
-//TODO
-}
-```
-
-### 810 Expected type name
-<!-- runnable -->
-
-```c
-int main()
-{  
-//TODO
-}
-```
+### 810 Expected type name (not emitted)
+Reserved (`C_ERROR_EXPECTED_TYPE_NAME`). Not emitted by the current compiler.
 
 ### 820 Left operand is not arithmetic
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
+struct s { int i; };
+int main(void)
+{
+    struct s a = {0};
+    return a * 2; //error 820: left is not an arithmetic type
 }
 ```
 
@@ -1261,9 +1320,11 @@ int main()
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
+struct s { int i; };
+int main(void)
+{
+    struct s a = {0};
+    return 2 * a; //error 830: right is not an arithmetic type
 }
 ```
 
@@ -1271,9 +1332,10 @@ int main()
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
+int main(void)
+{
+    double d = 1.0;
+    return d % 2; //error 840: left is not an integer type
 }
 ```
 
@@ -1281,9 +1343,10 @@ int main()
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
+int main(void)
+{
+    double d = 1.0;
+    return 2 % d; //error 850: right is not an integer type
 }
 ```
 
@@ -1291,19 +1354,18 @@ int main()
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
-}
+enum E { A = 1.5 }; //error 860: enumerator initializer must be integer
 ```
 
 ### 870 Left operand is not scalar
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
+struct s { int i; };
+int main(void)
+{
+    struct s a = {0};
+    return a && 1; //error 870: left operator is not scalar
 }
 ```
 
@@ -1311,9 +1373,11 @@ int main()
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
+struct s { int i; };
+int main(void)
+{
+    struct s a = {0};
+    return 1 && a; //error 880: right operator is not scalar
 }
 ```
 
@@ -1321,9 +1385,13 @@ int main()
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
+int main(void)
+{
+    int i = 0;
+    double d = 0;
+    int* p = &i;
+    double* q = &d;
+    return p == q; //error 890: incompatible pointer types
 }
 ```
 
@@ -1385,15 +1453,8 @@ void g(void)
 }
 ```
 
-### 930 lvalue required as left operand of assignment
-<!-- runnable -->
-
-```c
-int main()
-{  
-  1 = 2; //error C1230: lvalue required as left operand of assignment
-}
-```
+### 930 lvalue required as left operand of assignment (not emitted)
+Reserved (`C_ERROR_LVALUE_ASSIGNMENT`). Not emitted by the current compiler. Assignment to a non-lvalue is now reported as error 1230.
 
 ### 940 Condition must have scalar type
 
@@ -1411,9 +1472,12 @@ int main(){
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
+struct a { int i; };
+struct b { int i; };
+int main(void)
+{
+    struct a x = {0};
+    struct b y = x; //error 950: incompatible types
 }
 ```
 
@@ -1443,41 +1507,32 @@ int main)
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
-}
+long long long i; //error 980: cannot combine with previous 'long long' declaration specifier
 ```
 
 ### 990 Expected declaration
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
+int main(void)
+{
+    return 0;
 }
+} //error 990: expected declaration not '}'
 ```
 
 ### 1000 Static/type qualifiers not allowed here
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
+int main(void)
+{
+    int a[static 3]; //error 1000: static or type qualifiers are not allowed in non-parameter array declarator
 }
 ```
 
-### 1010 Owner qualifier can only be used with pointers
-<!-- runnable -->
-
-```c
-int main()
-{  
-//TODO
-}
-```
+### 1010 Owner qualifier can only be used with pointers (not emitted)
+Reserved (`C_ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER`). Not emitted by the current compiler.
 
 ### 1020 Redeclaration error
 <!-- runnable -->
@@ -1493,10 +1548,8 @@ double a; //error C1020: conflicting types for 'a' (int)
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
-}
+struct s { int i; };
+union s u; //error 1030: use of 's' with tag type that does not match previous declaration.
 ```
 
 ### 1040 type specifier or qualifier expected
@@ -1510,15 +1563,8 @@ struct X7
 
 ```
 
-### 1050 Multiple enum definitions
-<!-- runnable -->
-
-```c
-int main()
-{  
-//TODO
-}
-```
+### 1050 Multiple enum definitions (not emitted)
+Reserved (`C_ERROR_MULTIPLE_DEFINITION_ENUM`). Not emitted by the current compiler.
 
 ### 1060 static_assert failed
 <!-- runnable -->
@@ -1530,51 +1576,21 @@ int main()
 }
 ```
 
-### 1070 override_state error
-<!-- runnable -->
+### 1070 override_state error (not emitted)
+Reserved (`C_ERROR_STATIC_SET`). Not emitted by the current compiler.
 
-```c
-int main()
-{  
-//TODO
-}
-```
-
-### 1080 Static-state analysis failed
-
-<!-- runnable -->
-
-```c
-#pragma safety enable
-
-int f();
-
-int main() {   
-    int i = f();
-    assert_state(i, "not-zero"); //error C1080: assert_state failed
-} 
-```
-
+### 1080 Static-state analysis failed (not emitted)
+Reserved (`C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED`). Not emitted by the current compiler.
 
 ### 1090 Unbalanced attribute
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
-}
+[[deprecated(]] void f(void); //error 1090: expected ']' before ')'
 ```
 
-### 1100 Unexpected end of file
-
-<!-- runnable -->
-
-```c
-int main()
-{  //error C0970: unexpected end of file
-
-```
+### 1100 Unexpected end of file (not emitted)
+Reserved (`C_ERROR_UNEXPECTED_END_OF_FILE`). Not emitted by the current compiler. Unexpected end of file is now reported as error 970.
 
 ### 1110 throw used outside try block
 <!-- runnable -->
@@ -1608,9 +1624,11 @@ int f(){
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
+void f(int a[10]);
+int main(void)
+{
+    int b[5];
+    f(b); //error 1130: argument of size [5] is smaller than parameter of size [10]
 }
 ```
 
@@ -1633,10 +1651,8 @@ int main()
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
-}
+#define F(a) a
+int i = F((1); //error 1160: missing )
 ```
 
 ### 1170 Expression error
@@ -1699,19 +1715,20 @@ target:
 
 
 ### 1201 jump over defer
-
 <!-- runnable -->
 
 ```c
-void f(int n)
+int main(void)
 {
-    goto  target;
-    _Defer {};    
-    target:
+    int i = 0;
+    switch (i)
+    {
+        _Defer { i++; } //error 1201: switch is jumping over or into defer
+    case 0:
+        break;
+    }
 }
 ```
-
-
 
 ### 1202 jump over VLA
 
@@ -1746,9 +1763,9 @@ int main()
 <!-- runnable -->
 
 ```c
-int main()
-{  
- 1 == 2;
+int main(void)
+{
+    1 = 2; //error 1230: lvalue required as left operand of assignment
 }
 ```
 
@@ -1759,16 +1776,8 @@ int main()
 //TODO
 }
 ```
-### 1250 Pragma error
-<!-- runnable -->
-
-```c
-int main()
-{  
-//TODO
-}
-```
-
+### 1250 Pragma error (not emitted)
+Reserved (`C_ERROR_PRAGMA_ERROR`). Not emitted by the current compiler.
 
 ### 1260 Out of memory
 Internal compiler error
@@ -1788,18 +1797,8 @@ int main() {
 }
 ```
 
-### 1280 Returning owner to non-owner
-<!-- runnable -->
-
-```c
-#pragma safety enable
-
-int * g();
-
-int * _Owner f(){
-  return g(); //warning C0025: cannot assign a non-owner to owner
-}
-```
+### 1280 Returning owner to non-owner (not emitted)
+Reserved (`C_ERROR_RETURN_LOCAL_OWNER_TO_NON_OWNER`). Not emitted by the current compiler. This case is now reported as warning 78.
 
 ### 1290 auto requires a single declarator
 <!-- runnable -->
@@ -1870,13 +1869,12 @@ int main() {
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
+int main(void)
+{
+    unsigned long long i = 99999999999999999999; //error 1350: integer literal is too large to be represented in any integer type
+    (void)i;
 }
 ```
-
-
 
 ### 1360 Character not encodable in one code unit
 <!-- runnable -->
@@ -1894,23 +1892,23 @@ int main()
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
+int main(void)
+{
+    int i = u8'ab'; //error 1370: Unicode character literals may not contain multiple characters.
+    (void)i;
 }
 ```
-
 
 ### 1380 Invalid token
 <!-- runnable -->
 
 ```c
-int main()
-{  
-//TODO
+int main(void)
+{
+    int i = 0x; //error 1380: invalid number
+    (void)i;
 }
 ```
-
 
 ### 1390 Invalid argument to \_Countof
 <!-- runnable -->
@@ -2050,14 +2048,8 @@ int main()
 }
 ```
 
-### 1820 Macro redefinition
-
-<!-- runnable -->
-
-```c
-#define A 1
-#define A 2 //error C1820: macro redefinition
-```
+### 1820 Macro redefinition (not emitted)
+Reserved (`C_ERROR_MACRO_REDEFINITION`). Not emitted by the current compiler. Macro redefinition is now reported as warning 16.
 
 ### 1830 Invalid preprocessing directive
 
@@ -2115,3 +2107,160 @@ int main()
 
 ```
 
+### 1880 Variably modified member
+<!-- runnable -->
+
+```c
+void f(int n)
+{
+    struct s { int a[n]; }; //error 1880: Variably modified types cannot be used as members of a structure or union.
+}
+```
+
+### 1890 Variably modified type with static storage
+<!-- runnable -->
+
+```c
+void f(int n)
+{
+    static int a[n]; //error 1890: variably modified type with static storage
+}
+```
+
+### 1900 typeof on a bit-field
+<!-- runnable -->
+
+```c
+struct s { int b : 3; };
+
+int main(void)
+{
+    struct s x = {0};
+    typeof(x.b) y; //error 1900: typeof used in bit-field
+}
+```
+
+### 1910 Initialized variable-sized object
+<!-- runnable -->
+
+```c
+void f(int n)
+{
+    int a[n] = {1}; //error 1910: variable-sized object may not be initialized except with an empty initializer
+}
+```
+
+### 1920 Include path too long
+
+`#include` path exceeds the maximum path length.
+
+### 1930 Write qualifier on a const pointee
+<!-- runnable -->
+
+```c
+#pragma safety enable
+struct s { int i; };
+void clear(_Clear const struct s* p) //error 1930: _Clear pointee cannot also be const
+{
+}
+```
+
+### 1940 Write qualifier must qualify the pointee
+<!-- runnable -->
+
+```c
+#pragma safety enable
+struct s { int i; };
+void clear(struct s _Clear p); //error 1940: _Clear must be used only at the pointed object
+```
+
+### 1950 constexpr value not representable
+<!-- runnable -->
+
+```c
+int main(void)
+{
+    constexpr unsigned char c = 300; //error 1950: constant expression is not exactly representable in type
+}
+```
+
+### 1960 struct/union comparison
+<!-- runnable -->
+
+```c
+struct s { int i; };
+int main(void)
+{
+    struct s a = {0}, b = {0};
+    return a == b; //error 1960: struct/union comparison illegal
+}
+```
+
+### 1970 Invalid use of void
+<!-- runnable -->
+
+```c
+int main(void)
+{
+    void v; //error 1970: this use of 'void' is not valid
+}
+```
+
+### 1980 extern with initializer at block scope
+<!-- runnable -->
+
+```c
+int main(void)
+{
+    extern int i = 1; //error 1980: 'i': cannot initialize extern variables with block scope
+}
+```
+
+### 1990 void parameter not alone
+<!-- runnable -->
+
+```c
+void f(void, int i); //error 1990: 'void' must be the first and only parameter if specified
+```
+
+### 2000 Operator cannot be applied
+<!-- runnable -->
+
+```c
+struct s { int i; };
+int main(void)
+{
+    struct s a = {0};
+    a = -a; //error 2000: operator cannot be applied to an operand of the given type
+}
+```
+
+### 2010 typedef used for function definition
+<!-- runnable -->
+
+```c
+typedef int F(void);
+F f { return 0; } //error 2010: typedef cannot be used for function definition
+```
+
+### 2020 Duplicate type qualifier
+<!-- runnable -->
+
+```c
+const const int i = 0; //error 2020: same type qualifier used more than once
+```
+
+### 2030 typedef missing tag name
+<!-- runnable -->
+
+```c
+typedef struct; //error 2030: 'typedef': missing tag name
+```
+
+### 2040 Redefinition as typedef
+<!-- runnable -->
+
+```c
+int x;
+typedef int x; //error 2040: 'x': redefinition; symbol cannot be overloaded with a typedef
+```

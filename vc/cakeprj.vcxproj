@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="DebugTest|Win32">
@@ -47,6 +47,7 @@
     <ClCompile Include="..\src\expressions.c" />
     <ClCompile Include="..\src\fs.c" />
     <ClCompile Include="..\src\hashmap.c" />
+    <ClCompile Include="..\src\json.c" />
     <ClCompile Include="..\src\main.c" />
     <ClCompile Include="..\src\options.c" />
     <ClCompile Include="..\src\osstream.c" />
@@ -82,7 +83,7 @@
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{c78ac64f-7b65-4225-a9f0-e5ef060d138a}</ProjectGuid>
-    <RootNamespace>cprimev3</RootNamespace>
+    <RootNamespace>cakeprj</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>cake</ProjectName>
   </PropertyGroup>

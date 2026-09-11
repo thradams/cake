@@ -297,6 +297,117 @@ static int is_box_drawing(uint32_t ch)
     return ch >= 0x2500 && ch <= 0x259F;
 }
 
+/* Glyphs the UI draws itself instead of asking the font for them. Menlo's
+ * box-drawing glyphs are shorter than its own line height (ascent+descent+
+ * leading, which measure_cell uses for the cell), so every window border
+ * showed a seam between rows, and its corners sit off-center so a plain
+ * cell grid can't line them up. Drawing these as rects/paths on the cell
+ * grid makes borders continuous in any font, at any size; the arrows,
+ * square and bullet are drawn too so the chrome's symbols share one weight
+ * instead of whatever the font (or its fallback) happens to ship. Returns 0
+ * for anything else, and the caller falls through to the font. */
+static int draw_native_glyph(CGContextRef c, int px, int py, int cell_w, int cell_h,
+                             uint32_t cp, uint32_t fg)
+{
+    int handled = 1;
+    int t = cell_w / 7;              /* line weight: 1pt at the default size */
+    if (t < 1) { t = 1; }
+    int d = t + 1;                   /* half the gap between double lines */
+    int cx = px + cell_w / 2;        /* left edge of the vertical stroke */
+    int cy = py + cell_h / 2;        /* top edge of the horizontal stroke */
+    int x_right = px + cell_w;
+    int y_bottom = py + cell_h;
+
+    CGContextSaveGState(c);
+    CGContextSetShouldAntialias(c, false);
+    CGContextSetRGBFillColor(c, ((fg >> 16) & 0xFF) / 255.0, ((fg >> 8) & 0xFF) / 255.0,
+                              (fg & 0xFF) / 255.0, 1.0);
+
+    /* hline(x0..x1 at y) / vline(y0..y1 at x) as plain rects, `t` thick */
+    #define HLINE(x0, x1, y) CGContextFillRect(c, CGRectMake((x0), (y), (x1) - (x0), t))
+    #define VLINE(x, y0, y1) CGContextFillRect(c, CGRectMake((x), (y0), t, (y1) - (y0)))
+
+    switch (cp) {
+    /* single box */
+    case 0x2500: HLINE(px, x_right, cy); break;                                 /* ─ */
+    case 0x2502: VLINE(cx, py, y_bottom); break;                                /* │ */
+    case 0x250C: HLINE(cx, x_right, cy); VLINE(cx, cy, y_bottom); break;        /* ┌ */
+    case 0x2510: HLINE(px, cx + t, cy); VLINE(cx, cy, y_bottom); break;         /* ┐ */
+    case 0x2514: HLINE(cx, x_right, cy); VLINE(cx, py, cy + t); break;          /* └ */
+    case 0x2518: HLINE(px, cx + t, cy); VLINE(cx, py, cy + t); break;           /* ┘ */
+    /* double box: outer line at -d, inner line at +d from the single line */
+    case 0x2550: HLINE(px, x_right, cy - d); HLINE(px, x_right, cy + d); break; /* ═ */
+    case 0x2551: VLINE(cx - d, py, y_bottom); VLINE(cx + d, py, y_bottom); break; /* ║ */
+    case 0x2554:                                                                /* ╔ */
+        HLINE(cx - d, x_right, cy - d); VLINE(cx - d, cy - d, y_bottom);
+        HLINE(cx + d, x_right, cy + d); VLINE(cx + d, cy + d, y_bottom);
+        break;
+    case 0x2557:                                                                /* ╗ */
+        HLINE(px, cx + d + t, cy - d); VLINE(cx + d, cy - d, y_bottom);
+        HLINE(px, cx - d + t, cy + d); VLINE(cx - d, cy + d, y_bottom);
+        break;
+    case 0x255A:                                                                /* ╚ */
+        VLINE(cx - d, py, cy + d + t); HLINE(cx - d, x_right, cy + d);
+        VLINE(cx + d, py, cy - d + t); HLINE(cx + d, x_right, cy - d);
+        break;
+    case 0x255D:                                                                /* ╝ */
+        VLINE(cx + d, py, cy + d + t); HLINE(px, cx + d + t, cy + d);
+        VLINE(cx - d, py, cy - d + t); HLINE(px, cx - d + t, cy - d);
+        break;
+    /* block elements */
+    case 0x2580: CGContextFillRect(c, CGRectMake(px, py, cell_w, cell_h / 2)); break;              /* ▀ */
+    case 0x2584: CGContextFillRect(c, CGRectMake(px, cy, cell_w, y_bottom - cy)); break;           /* ▄ */
+    case 0x2588: CGContextFillRect(c, CGRectMake(px, py, cell_w, cell_h)); break;                  /* █ */
+    /* symbols: sized off cell_w so they stay square-ish and clear of the
+     * neighbours, antialiased since they have slanted/curved edges */
+    case 0x25A0: {                                                              /* ■ */
+        int side = cell_w - 2;
+        CGContextFillRect(c, CGRectMake(px + 1, cy - side / 2, side, side));
+        break;
+    }
+    case 0x2022: {                                                              /* • */
+        int diam = cell_w / 2 + 1;
+        CGContextSetShouldAntialias(c, true);
+        CGContextFillEllipseInRect(c, CGRectMake(px + (cell_w - diam) / 2.0,
+                                                 cy + t / 2.0 - diam / 2.0, diam, diam));
+        break;
+    }
+    case 0x25BA: case 0x2190: case 0x2191: case 0x2193: {                       /* ► ← ↑ ↓ */
+        CGFloat half = (cell_w - 2) / 2.0;    /* triangle half-extent */
+        CGFloat mx = px + cell_w / 2.0;       /* cell centre */
+        CGFloat my = cy + t / 2.0;
+        CGPoint tri[3];
+        if (cp == 0x25BA) {
+            tri[0] = CGPointMake(mx - half, my - half); tri[1] = CGPointMake(mx + half, my);
+            tri[2] = CGPointMake(mx - half, my + half);
+        } else if (cp == 0x2190) {
+            tri[0] = CGPointMake(mx + half, my - half); tri[1] = CGPointMake(mx - half, my);
+            tri[2] = CGPointMake(mx + half, my + half);
+        } else if (cp == 0x2191) {
+            tri[0] = CGPointMake(mx - half, my + half); tri[1] = CGPointMake(mx, my - half);
+            tri[2] = CGPointMake(mx + half, my + half);
+        } else {
+            tri[0] = CGPointMake(mx - half, my - half); tri[1] = CGPointMake(mx, my + half);
+            tri[2] = CGPointMake(mx + half, my - half);
+        }
+        CGContextSetShouldAntialias(c, true);
+        CGContextBeginPath(c);
+        CGContextAddLines(c, tri, 3);
+        CGContextClosePath(c);
+        CGContextFillPath(c);
+        break;
+    }
+    default:
+        handled = 0;
+        break;
+    }
+    #undef HLINE
+    #undef VLINE
+
+    CGContextRestoreGState(c);
+    return handled;
+}
+
 /* Preference order: Menlo (Apple's own metrics-compatible successor to
  * Monaco, ships on every Mac since 10.7, excellent Unicode/box-drawing
  * coverage) > Monaco (older Macs) > Courier New (always present, final
@@ -597,6 +708,9 @@ static void draw_glyph_px(int px, int py, int cell_w, int cell_h,
         return;
 
     uint32_t cp = ch ? ch : ' ';
+    if (draw_native_glyph(c, px, py, cell_w, cell_h, cp, fg))
+        return;
+
     UniChar units[2];
     int n = cp_to_utf16(cp, units);
     CGGlyph glyphs[2] = {0, 0};

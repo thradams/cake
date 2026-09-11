@@ -1,12 +1,10 @@
-
-
-The C Programming language 1978
+Kernighan & Ritchie, *The C Programming Language*, 1978:
 
 > _"C is a general-purpose programming language which features economy of expression, modern control flow and data structures, and a rich set of operators. C is not a "very high level" language, nor a "big" one, and is not specialized to any particular area of application. But its absence of restrictions and its generality make it more convenient and effective for many tasks than supposedly more powerful languages."_
 
 > _"In our experience, C has proven to be a pleasant, expressive, and versatile language for a wide variety of programs. It is easy to learn, and it wears well as one's experience with it grows"_
 
-The C Programming language Second Edition 1988
+Kernighan & Ritchie, *The C Programming Language*, Second Edition, 1988:
 
 > _"As we said in the preface to the first edition, C "wears well as one's experience with it grows." With a decade more experience, we still feel that way."_
 
@@ -16,6 +14,11 @@ The C Programming language Second Edition 1988
 _C is everywhere. From operating systems to embedded devices, from
 high-performance apps to essential technology, C powers the technology we rely
 on every day. Timeless, efficient, and universal._
+
+_The code that AI now writes runs best where it can be read, verified
+and trusted. A small language with no hidden machinery. C gives the machine
+speed, and the human control and platform independence.
+Cake adds the checks that make that code safer._
 
 
 # About
@@ -31,7 +34,7 @@ functions and defer statements.
 The current backend generates C89-compatible code, which can be pipelined with
 existing or old compilers to produce executables.
 
-![Alt text](pipeline.svg)
+![Cake pipeline: C23 source to C89 output to an existing compiler](pipeline.svg)
 
 
 Cake aims to enhance C's safety by providing high-quality [warning
@@ -42,9 +45,9 @@ lifetime](ownership.md) checks.
 
 # Web Playground
 
-This is the best way to try.
+This is the best way to try it.
 
-http://cakecc.org/playground.html
+https://cakecc.org/playground.html
 
 # Use cases
 
@@ -72,7 +75,7 @@ automatic documentation and more.
 * C23 syntax analysis
 * C23 semantic analysis
 * Static [object lifetime](ownership.md) checks (Extension)
-* Sarif output
+* SARIF output
 * Cross compiling
 * C89 backend
 * Style checker
@@ -96,14 +99,14 @@ This will build `cake.exe`, then run cake on its own source code.
 
 
 ## GCC on Linux build instructions
-Got to the *src* directory and type:
+Go to the *src* directory and type:
 
 ```
 gcc build.c -o build && ./build
 ```
 
-## Clang on Linux/Windows/MacOS build instructions
-Got to the *src* directory and type:
+## Clang on Linux/Windows/macOS build instructions
+Go to the *src* directory and type:
 
 ```
 clang build.c -o build && ./build
@@ -122,29 +125,37 @@ openSUSE:`sudo zypper install libX11-devel libXft-devel`
 
 These headers are used by the IDE.
 
-## Running tests
+## Build options
 
-Passing `test` argument on any platform will run a large set of tests.
+`build` accepts one optional argument, on any platform:
+
+| Argument | Effect |
+|---|---|
+| *(none)* | full build: tools, docs, amalgamated `lib.c`, `cake` and the IDE |
+| `fast` | incremental build of `cake` and the IDE only — skips tools, docs, inner tests and the amalgamation |
+| `full` | build everything with `-DTEST`, but do not run the test suite |
+| `test` | same as `full`, then run the test suite |
+| `debug` | build without optimizations and without `-DNDEBUG` |
+
+For example, to run the tests:
 
 ```
-gcc  build.c -o build && ./build test
+gcc build.c -o build && ./build test
 ```
 
 ## Emscripten build instructions (web)
 
-Emscripten https://emscripten.org/  is required. 
+[Emscripten](https://emscripten.org/) is required.
 
-First do the normal build. 
+First do the normal build: besides `cake`, it generates `lib.c`, the amalgamated version of the core library, which is what the web build compiles.
 
-The normal build also generates a file `lib.c` that is the amalgamated  version of the "core lib".
-
-Then at `./src` dir type:
+Then, in the `src` directory, type:
 
 ```
-call emcc -sSTACK_SIZE=8388608 -DMOCKFILES -Wno-multichar "lib.c" -o "Web\cakejs.js" -s WASM=0 -s EXPORTED_FUNCTIONS="['_CompileText']" -s EXTRA_EXPORTED_RUNTIME_METHODS="['ccall', 'cwrap']"
+emcc -sSTACK_SIZE=8388608 -DMOCKFILES -Wno-multichar lib.c -o web/cakejs.js -s WASM=0 -s EXPORTED_FUNCTIONS="['_CompileText']" -s EXTRA_EXPORTED_RUNTIME_METHODS="['ccall', 'cwrap']"
 ```
 
-This will generate the *\src\Web\cake.js*
+This generates `src/web/cakejs.js`, used by `src/web/playground.html`.
 
 # Installation (optional)
 
@@ -185,15 +196,11 @@ Changes become available in new login sessions.
 
 # Running cake
 
-Samples
-
 ```
 cake source.c
 ```
 
-this will output *./platform short name/source.c*
-
-See [Manual](manual.md)
+This writes the C89 output to `./<target>/source.c`, where `<target>` is the platform Cake was built for — for example `./macos_arm64/source.c` or `./x64_msvc/source.c`. `-target=<name>` selects another platform; see the [Manual](manual.md) for the full option list.
 
 
 # IDE
@@ -203,17 +210,29 @@ part of the Cake project and will be maintained alongside the rest of the
 codebase. Over time, the IDE code will be reviewed, refined, and gradually
 humanized as the project evolves.
 
-The IDE works in macOS, Windows and Linux and it is very useful to visualize and
-remove warnings.
+The IDE works in macOS, Windows and Linux. Its purpose is to make Cake easier
+to use: open a file or a project, press Build, and the whole pipeline — Cake's
+C89 output, the external compiler, the debugger — is set up and driven from one
+place, with no command lines to remember. It is very useful to visualize and
+remove warnings: Cake's diagnostics show up in the Output window and jump
+straight to the offending line.
+
+It is also how Cake itself is developed and debugged. The `src/cakeprj.cakeproj`
+project builds the compiler with the same process any other project uses: Cake
+translates the sources to C89, an External Tool (gcc, clang or cl) links the
+generated code, and the built-in debugger (lldb / cdb) runs the result. Opening
+that project is the quickest way to step through the compiler while it compiles
+a sample.
+
+See [IDE Manual](idemanual.md)
 
 
-![Alt text](cakeide.png)
+![Cake IDE](cakeide.png)
 
 # Road map
 
-* function literal and local functions implementation
-* Making it usable as C89 backend and fixes
-* Flow3 is landing!
+* Making it usable as a C89 backend, and fixes
+* Reaching a stable release
 
 
 # Participating
@@ -242,13 +261,5 @@ evolution.
 
 
 # License
-Cake uses the same license of GCC. GPLv3
 
-
- 
- 
-  
- 
-
-
-
+Cake uses the same license as GCC: [GPLv3](LICENSE).

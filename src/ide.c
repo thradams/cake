@@ -16,12 +16,14 @@
                       * External Tools macro (exttool_expand()), which has to
                       * predict cake's own "<root>/<platform name>/..."
                       * output layout to hand a real compiler its files */
+#include "json.h"     /* the ".cakeproj" reader/writer - see project_save() */
 
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <time.h>
 
  /* The real compiler, linked in separately for this integration test - not
@@ -120,7 +122,7 @@ enum {
                                         * equivalent of a gutter click (see
                                         * editor_click_set_cursor in
                                         * ide_ui.c) */
-    EVT_WINDOW_DEBUGINFO = 38,  /* the View > "Debug Info" menu item's id -
+    EVT_WINDOW_DEBUGINFO = 38,  /* the Debug > "Debug Info" menu item's id -
                                  * re-raises the docked Locals/Call Stack
                                  * panel (see debug_info_panel_refresh()),
                                  * same singleton-window convention as
@@ -130,11 +132,12 @@ enum {
                         * (see do_build()) */
     EVT_COMPILE_FILE = 41,  /* Compile - always just the active file, never
                              * the project (see do_compile()) */
-    EVT_COMPILE_OPTIONS = 45,  /* Compile > Options... - opens the dialog below */
-    EVT_COMPILE_CONFIG_FILE = 46,  /* Compile > "Config File" - opens cakeconf.h
-                                    * (next to the executable), creating an
-                                    * empty one first if it doesn't exist yet -
-                                    * see do_compile_open_config_file() */
+    EVT_COMPILE_OPTIONS = 45,  /* File > Options... - the global compiler
+                                 * settings (cake.json); opens the dialog below */
+    EVT_GLOBAL_INCLUDES = 47,      /* File > "Directories..." - the same
+                                    * Include Directories dialog as
+                                    * EVT_PROJECT_INCLUDES, but bound to the
+                                    * global list in cake.json */
     EVT_WINDOW_OUTPUT = 83,  /* the View > "Show Output" menu item's id -
                               * re-raises the diagnostics Output window
                               * (moved here from Window - see build_screen()) */
@@ -160,6 +163,7 @@ enum {
     EVT_ENV_THEME_DARK = 611,
     EVT_ENV_THEME_WHITE = 612,
     EVT_ENV_THEME_NEBULA = 613,
+    EVT_ENV_THEME_XCODE_DARK = 614,
     EVT_ENV_FONT_BASE = 620,  /* base id for the "Font" <select>'s options -
                                * EVT_ENV_FONT_BASE + index, reserving 620..63x
                                * (the backend's shortlist is a handful of
@@ -377,6 +381,10 @@ enum {
                                           * of this dialog */
     EVT_PROJECT_INCLUDES_REMOVE = 1314,  /* drops the selected row */
     EVT_PROJECT_INCLUDES_CLOSE = 1315,
+    EVT_PROJECT_INCLUDES_UP = 1316,      /* moves the selected row earlier -
+                                          * include directories are searched in
+                                          * order, so the order is meaningful */
+    EVT_PROJECT_INCLUDES_DOWN = 1317,    /* ... and later */
     EVT_PROJECT_OPTIONS = 1318,  /* Project > "Options..." - same dialog as
                                   * Compile > "Options..." (EVT_COMPILE_OPTIONS)
                                   * but always against g_project.compile,
@@ -539,6 +547,7 @@ static struct
      * dialog in OPEN_DLG_PROJECT_ADDINCLUDE mode on top of this one - see
      * EVT_PROJECT_INCLUDES_ADD/project_add_include(). */
     ui_node* includes_modal;
+    ui_node* includes_window;   /* title says which list is being edited */
     ui_node* includes_listbox;
 
     /* Project menu items that need an open project to do anything (Add
@@ -630,8 +639,8 @@ static void build_screen(ui_node* root)
         { 4, "Save As...", NULL, 1 },
         { 6, "Save all", "Ctrl+Shift+S", 1 },
         SEP,
-        { EVT_PROJECT_NEW, "New Project...", NULL, 1 },
-        { EVT_PROJECT_OPEN, "Open Project...", NULL, 1 },
+        { EVT_GLOBAL_INCLUDES, "Directories...", NULL, 1 },
+        { EVT_COMPILE_OPTIONS, "Options...", NULL, 1 },
         SEP,
         { 5, "Exit", NULL, 1 },
     };
@@ -674,7 +683,6 @@ static void build_screen(ui_node* root)
         { EVT_WINDOW_FOLDER, "Folder", NULL, 1 },
         { EVT_WINDOW_PROJECT, "Project", NULL, 1 },
         { EVT_WINDOW_PLAYGROUND, "Playground", NULL, 1 },
-        { EVT_WINDOW_DEBUGINFO, "Debug Info", NULL, 1 },
         SEP,
         { EVT_VIEW_LINENUMBERS, "Line Numbers", NULL, 1 },
     };
@@ -688,7 +696,6 @@ static void build_screen(ui_node* root)
     g_view_folder_item = ui_find_by_id(view_menu, EVT_WINDOW_FOLDER);
     g_project.view_item = ui_find_by_id(view_menu, EVT_WINDOW_PROJECT);
     g_view_playground_item = ui_find_by_id(view_menu, EVT_WINDOW_PLAYGROUND);
-    g_view_debuginfo_item = ui_find_by_id(view_menu, EVT_WINDOW_DEBUGINFO);
     g_view_linenumbers_item = ui_find_by_id(view_menu, EVT_VIEW_LINENUMBERS);
 
     static const menu_item_spec search_items[] = {
@@ -709,6 +716,9 @@ static void build_screen(ui_node* root)
      * (linking, etc.) is entirely the compiler's own job, not reimplemented
      * here. */
     static const menu_item_spec project_items[] = {
+        { EVT_PROJECT_NEW, "New Project...", NULL, 1 },
+        { EVT_PROJECT_OPEN, "Open Project...", NULL, 1 },
+        SEP,
         { EVT_PROJECT_ADD_FILE, "Add Existing File...", NULL, 1 },
         { EVT_PROJECT_INCLUDES, "Include Directories...", NULL, 1 },
         { EVT_PROJECT_OPTIONS, "Options...", NULL, 1 },
@@ -739,8 +749,6 @@ static void build_screen(ui_node* root)
        // { 43, "Build all", NULL, 1 },
         SEP,
         { EVT_EDITOR_SHOW_OUTPUT, "Show Generated Code", NULL, 1 },
-        { EVT_COMPILE_CONFIG_FILE, "Config File", NULL, 1 },
-        { 45, "Options...", NULL, 1 },
     };
     ui_node* compile_menu = add_menu(menubar, "Build", compile_items, sizeof compile_items / sizeof compile_items[0]);
     /* Grabbed back out by id, same reason/pattern as the View menu's items
@@ -768,6 +776,8 @@ static void build_screen(ui_node* root)
         { EVT_DEBUG_STEP_INTO, "Step Into", "F11", 0 },
         SEP,
         { EVT_DEBUG_TOGGLE_BREAKPOINT, "Toggle Breakpoint", "F9", 1 },
+        SEP,
+        { EVT_WINDOW_DEBUGINFO, "Debug Info", NULL, 1 },
     };
     ui_node* debug_menu = add_menu(menubar, "Debug", debug_items, sizeof debug_items / sizeof debug_items[0]);
     /* Continue/Step/Stop start disabled (see the `0` enabled flags above) -
@@ -779,6 +789,10 @@ static void build_screen(ui_node* root)
     g_debug_continue_item = ui_find_by_id(debug_menu, EVT_DEBUG_CONTINUE);
     g_debug_step_over_item = ui_find_by_id(debug_menu, EVT_DEBUG_STEP_OVER);
     g_debug_step_into_item = ui_find_by_id(debug_menu, EVT_DEBUG_STEP_INTO);
+    /* "Debug Info" lives here rather than on View with the other panels
+     * (it's only useful mid-session) but is relabeled "[x]"/"[ ]" each
+     * frame exactly like them - see refresh_view_item(). */
+    g_view_debuginfo_item = ui_find_by_id(debug_menu, EVT_WINDOW_DEBUGINFO);
 
     /* Debug > Watches is a submenu (an <item> with its own <item> children),
      * not a plain leaf - built by hand rather than through add_menu(). */
@@ -948,6 +962,7 @@ static struct
                                  * whatever got clicked. */
 
 static const char* g_target_slugs[] = {
+    "default",
     "x86_msvc",
     "x64_msvc",
     "x86_x64_gcc",
@@ -1031,16 +1046,30 @@ static int diagformat_slug_to_index(const char* slug)
     return 0;
 }
 
+/* The global include directories - the "include_dirs" half of cake.json,
+ * used for any file that isn't part of the open project (see
+ * active_compile_settings()). Stored as absolute paths: unlike a project's
+ * own list, which is relative to the project directory, this one has no
+ * directory to be relative to. */
+static char g_include_dirs[CAKE_PROJECT_MAX_INCLUDES][512];
+static int g_include_count;
+
+/* Which list the one Include Directories dialog is editing right now - a
+ * project's own, or the global one above. Bound when the dialog is opened
+ * (EVT_PROJECT_INCLUDES / EVT_GLOBAL_INCLUDES), same idea as g_copts.editing
+ * for the Compiler Options dialog, so one dialog serves both and a change
+ * always lands in the file that owns the list. */
+static struct
+{
+    char (*dirs)[512];   /* the array being edited */
+    int* count;
+    int is_project;      /* 1 -> project_save(), 0 -> global_settings_save() */
+} g_includes_editing = { NULL, NULL, 0 };
+
 static compile_settings g_compile =
 {
     .options = "",
-#if defined(__APPLE__)
-    .target = "macos_arm64",
-#elif defined(_WIN32)
-    .target = "x86_msvc",
-#else
-    .target = "x86_x64_gcc",
-#endif
+    .target = "default",
     .style = "",
     .diagnostic_format = "ide",
     .no_output = 0,
@@ -1428,7 +1457,8 @@ static const char* label_for_path(const char* path);  /* defined below; used whe
 /* Options > Environment...'s Theme select offers "Ambar" (see
  * g_theme_ambar below), "Dark" and "White", which mirror Visual
  * Studio's own Dark and Light (Blue-accented) palettes, and "Nebula"
- * (see g_theme_nebula below) - together they
+ * (see g_theme_nebula below) and "Xcode Dark" (see g_theme_xcode_dark
+ * below) - together they
  * prove ui_set_theme() really does re-theme the whole running app, not
  * just newly-created widgets. */
 
@@ -2150,7 +2180,143 @@ static const ui_theme g_theme_nebula = {
     .diag_info_fg = TB_RGB(0x0D, 0xB9, 0xD7),
 };
 
-/* Index into the Theme <select> (Ambar=0/Dark=1/White=2/Nebula=3 - matches the
+/* "Xcode Dark" - Xcode's own Default (Dark) editor palette (editor #292A30,
+ * text #FFFFFF, current line #2F3239, selection #646F83): pink keywords,
+ * salmon strings, khaki numbers/chars, orange preprocessor, gray-blue
+ * comments, mint type names and teal function names. Chrome is Xcode's
+ * dark navigator/inspector graphite with macOS's system blue as accent. */
+static const ui_theme g_theme_xcode_dark = {
+    .desktop_bg = TB_RGB(0x1F, 0x1F, 0x24),
+
+    .btn_bg = TB_RGB(0x3D, 0x3E, 0x45),
+    .btn_bg_hot = TB_RGB(0x0A, 0x84, 0xFF),
+    .btn_bg_active = TB_RGB(0x00, 0x58, 0xD0),
+    .btn_fg = TB_RGB(0xE5, 0xE5, 0xEA),
+
+    .hotkey_fg = TB_RGB(0xFF, 0xFF, 0xFF),
+    .hotkey_key_fg = TB_RGB(0xD0, 0xBF, 0x69),  /* the editor's khaki literal color */
+    .hotkey_bg = TB_RGB(0x00, 0x58, 0xD0),
+    .hotkey_fg_hot = TB_RGB(0xFF, 0xFF, 0xFF),
+    .hotkey_bg_hot = TB_RGB(0x0A, 0x84, 0xFF),
+
+    .menu_fg = TB_RGB(0xE5, 0xE5, 0xEA),
+    .menu_bg = TB_RGB(0x2D, 0x2E, 0x33),
+    .menu_fg_sel = TB_RGB(0xFF, 0xFF, 0xFF),
+    .menu_bg_sel = TB_RGB(0x00, 0x58, 0xD0),
+    .menu_item_fg = TB_RGB(0xE5, 0xE5, 0xEA),
+    .menu_item_bg = TB_RGB(0x2D, 0x2E, 0x33),
+    .menu_item_fg_hot = TB_RGB(0xFF, 0xFF, 0xFF),
+    .menu_item_bg_hot = TB_RGB(0x00, 0x58, 0xD0),
+    .menu_item_shortcut_fg = TB_RGB(0x8E, 0x8E, 0x93),
+    .menu_item_fg_disabled = TB_RGB(0x63, 0x63, 0x66),
+    .menu_border_fg = TB_RGB(0x4A, 0x4A, 0x4F),
+    .menu_border_bg = TB_RGB(0x2D, 0x2E, 0x33),
+    .menu_border_style = UI_BORDER_SINGLE,
+
+    .box_fg = TB_RGB(0xE5, 0xE5, 0xEA),
+    .box_bg = TB_RGB(0x2D, 0x2E, 0x33),
+    .box_border_style = UI_BORDER_DOUBLE,
+
+    .window_border_fg = TB_RGB(0xC7, 0xC7, 0xCC),
+    .window_border_bg = TB_RGB(0x2D, 0x2E, 0x33),
+    .window_border_fg_dragging = TB_RGB(0x0A, 0x84, 0xFF),
+    .window_border_fg_unfocused = TB_RGB(0x63, 0x63, 0x66),
+    .window_border_style = UI_BORDER_DOUBLE,
+    .window_border_style_unfocused = UI_BORDER_SINGLE,
+    .window_border_style_docked = UI_BORDER_SINGLE,
+    .window_border_style_docked_unfocused = UI_BORDER_SINGLE,
+    .window_close_bg = TB_RGB(0xFF, 0x5F, 0x57),  /* macOS's own red traffic light */
+    .window_fg = TB_RGB(0xE5, 0xE5, 0xEA),
+    .window_bg = TB_RGB(0x2D, 0x2E, 0x33),
+    .modal_border_fg = TB_RGB(0xC7, 0xC7, 0xCC),
+    .modal_border_bg = TB_RGB(0x2D, 0x2E, 0x33),
+    .modal_border_style = UI_BORDER_DOUBLE,
+    .modal_fg = TB_RGB(0xE5, 0xE5, 0xEA),
+    .modal_bg = TB_RGB(0x2D, 0x2E, 0x33),
+    .label_fg = TB_RGB(0x5A, 0xC8, 0xFA),  /* macOS system teal-blue */
+    .scrollbar_bg = TB_RGB(0x2D, 0x2E, 0x33),
+    .scrollbar_thumb_bg = TB_RGB(0x5A, 0x5A, 0x5F),
+
+    .input_bg = TB_RGB(0x3D, 0x3E, 0x45),
+    .input_bg_focus = TB_RGB(0x1F, 0x1F, 0x24),  /* darker than input_bg, not
+                                                  * a blue tint, so the blue
+                                                  * input_sel_bg stays visible */
+    .input_fg = TB_RGB(0xE5, 0xE5, 0xEA),
+    .input_fg_focus = TB_RGB(0xFF, 0xFF, 0xFF),
+    .input_sel_bg = TB_RGB(0x64, 0x6F, 0x83),
+    .input_sel_fg = TB_RGB(0xFF, 0xFF, 0xFF),
+
+    .editor_bg = TB_RGB(0x29, 0x2A, 0x30),
+    .editor_fg = TB_RGB(0xFF, 0xFF, 0xFF),
+    .editor_keyword_fg = TB_RGB(0xFC, 0x5F, 0xA3),   /* Xcode uses one pink for
+                                                      * every keyword... */
+    .editor_keyword2_fg = TB_RGB(0xFC, 0x5F, 0xA3),  /* ...control flow too */
+    .editor_string_fg = TB_RGB(0xFC, 0x6A, 0x5D),
+    .editor_comment_fg = TB_RGB(0x6C, 0x79, 0x86),
+    .editor_lint_fg = TB_RGB(0x5A, 0xC8, 0xFA),  /* stands out from the
+                                                  * gray-blue comment color */
+    .editor_linenum_fg = TB_RGB(0x5C, 0x5F, 0x66),
+    .editor_preproc_fg = TB_RGB(0xFD, 0x8F, 0x3F),
+    .editor_sel_bg = TB_RGB(0x64, 0x6F, 0x83),  /* Xcode Dark's actual selection */
+    .editor_sel_fg = TB_RGB(0xFF, 0xFF, 0xFF),
+    .editor_word_match_bg = TB_RGB(0x3C, 0x40, 0x48),
+    .editor_current_line_bg = TB_RGB(0x2F, 0x32, 0x39),  /* Xcode Dark's actual
+                                                          * current-line tint */
+    .editor_breakpoint_fg = TB_RGB(0x3F, 0x80, 0xF5),  /* Xcode's breakpoints
+                                                        * are blue chips */
+    .editor_exec_line_bg = TB_RGB(0x2E, 0x4A, 0x3C),   /* green step up from
+                                                        * editor_bg */
+    .editor_bracket_fg = {
+        TB_RGB(0xFD, 0x8F, 0x3F),  /* orange */
+        TB_RGB(0xD0, 0xBF, 0x69),  /* khaki */
+        TB_RGB(0x9E, 0xF1, 0xDD),  /* mint */
+        TB_RGB(0xDA, 0xBA, 0xFF),  /* lavender */
+    },
+    .editor_tag_fg = TB_RGB(0x9E, 0xF1, 0xDD),  /* mint - Xcode's project
+                                                 * type-name color */
+    .editor_number_fg = TB_RGB(0xD0, 0xBF, 0x69),
+    .editor_char_fg = TB_RGB(0xD0, 0xBF, 0x69),  /* Xcode colors chars like
+                                                  * numbers, not like strings */
+    .editor_function_fg = TB_RGB(0x67, 0xB7, 0xA4),  /* teal - Xcode's project
+                                                       * function-name color */
+    .editor_output_bg = TB_RGB(0x1F, 0x1F, 0x24),  /* one step darker than
+                                                    * editor_bg, like Xcode's
+                                                    * console */
+    .editor_output_fg = TB_RGB(0xE5, 0xE5, 0xEA),
+
+    /* UI_SYNTAX_MARKDOWN - mirrors this theme's own C-highlighting accents
+     * so Markdown reads as part of the same palette. */
+    .md_heading_fg = TB_RGB(0xFC, 0x5F, 0xA3),
+    .md_blockquote_fg = TB_RGB(0x6C, 0x79, 0x86),
+    .md_code_fg = TB_RGB(0xD0, 0xBF, 0x69),
+    .md_bold_fg = TB_RGB(0xFF, 0xFF, 0xFF),
+    .md_link_fg = TB_RGB(0x5A, 0xC8, 0xFA),
+    .md_code_bg = TB_RGB(0x2D, 0x2E, 0x33),
+
+    /* <listbox> - Xcode's navigator: a shade darker than the editor, with
+     * the same system blue as every other "selected" state in this theme. */
+    .listbox_fg = TB_RGB(0xD1, 0xD1, 0xD6),  /* dimmer than editor_fg so the
+                                              * Folder panel doesn't pull
+                                              * attention off the code */
+    .listbox_bg = TB_RGB(0x26, 0x26, 0x2B),
+    .listbox_sel_fg = TB_RGB(0xFF, 0xFF, 0xFF),
+    .listbox_sel_bg = TB_RGB(0x00, 0x58, 0xD0),
+    .listbox_sel_inactive_fg = TB_RGB(0xE5, 0xE5, 0xEA),
+    .listbox_sel_inactive_bg = TB_RGB(0x3D, 0x3E, 0x45),
+
+    /* Project panel file-type markers - see ui_theme's own doc comment. */
+    .project_icon_c_fg = TB_RGB(0x9E, 0xF1, 0xDD),   /* matches editor_tag_fg */
+    .project_icon_h_fg = TB_RGB(0xDA, 0xBA, 0xFF),   /* lavender bracket color */
+    .project_icon_md_fg = TB_RGB(0xFD, 0x8F, 0x3F),  /* matches editor_preproc_fg */
+
+    /* <editor> inline diagnostics - Xcode's own issue-navigator red/yellow
+     * and the system teal-blue for notes. */
+    .diag_error_fg = TB_RGB(0xFF, 0x4B, 0x4B),
+    .diag_warning_fg = TB_RGB(0xFF, 0xC6, 0x27),
+    .diag_info_fg = TB_RGB(0x5A, 0xC8, 0xFA),
+};
+
+/* Index into the Theme <select> (Ambar=0/Dark=1/White=2/Nebula=3/Xcode Dark=4 - matches the
  * add_select_item() order in app_init()) of whichever theme is currently
  * applied. Kept in sync by apply_theme()'s callers below and read
  * back by EVT_OPTIONS_ENV to select the right row each time the dialog
@@ -2310,7 +2476,7 @@ static ui_node* make_new_editor_window(ui_node* root, int seq)
  * next frame just from ui_set_theme() - the desktop backdrop doesn't,
  * since it's a per-screen value the app set explicitly (ui_screen_set_
  * desktop()), so it needs this one extra call to track the theme too. */
-/* Theme <select> row order - Ambar=0/Dark=1/White=2/Nebula=3, matching the
+/* Theme <select> row order - Ambar=0/Dark=1/White=2/Nebula=3/Xcode Dark=4, matching the
  * add_select_item() calls in app_init(). Out-of-range (a hand-edited or
  * future session file) falls back to the startup default rather than
  * indexing off the end. */
@@ -2321,18 +2487,70 @@ static const ui_theme* theme_by_index(int index)
     case 0:  return &g_theme_ambar;
     case 2:  return &g_theme_white;
     case 3:  return &g_theme_nebula;
+    case 4:  return &g_theme_xcode_dark;
     default: return &g_theme_dark;
     }
 }
 
-/* Both defined further down with the rest of the session plumbing -
- * forward declared so the peek below (which app_init needs early) can use
- * them. */
+/* All defined further down (with the rest of the session plumbing, and with
+ * the ".cakeproj" JSON helpers) - forward declared so the peek below, which
+ * app_init needs early, can use them. */
 static int get_session_file_path(char* buf, size_t cap);
-static int session_read_line(FILE* f, char* key, size_t key_cap, char* val, size_t val_cap);
+static char* read_file_to_string(const char* path);
+static int project_json_get_int(const struct json_value* object, const char* key, int fallback);
 
-/* Reads a single integer key straight out of the session file, before the
- * real load_session() runs.
+
+/* The parsed session.json, read exactly once per run by session_json() and
+ * released by session_json_close() at the end of load_session(). NULL both
+ * before the first read and whenever there is no usable session file. */
+static struct json_value* g_session_json;
+static int g_session_json_read;    /* the parse has been attempted */
+static int g_session_file_found;   /* a session file existed and was read */
+
+/* The session document, parsed on first use and shared from then on: both
+ * the early theme peek below and load_session() at the end of app_init read
+ * this same tree, so session.json is read and parsed once, not once per
+ * caller. Returns NULL on a first run (no file yet) or an unparseable file -
+ * every caller then just keeps its own default. */
+static struct json_value* session_json(void)
+{
+    if (g_session_json_read)
+        return g_session_json;
+    g_session_json_read = 1;
+
+    char path[FS_MAX_PATH];
+    if (!get_session_file_path(path, sizeof path))
+        return NULL;
+
+    char* text = read_file_to_string(path);
+    if (!text)
+        return NULL;
+
+    g_session_file_found = 1;
+
+    struct json_value* root = json_parse(text, NULL);
+    free(text);
+
+    if (root && root->type != JSON_OBJECT)
+    {
+        json_delete(root);
+        root = NULL;
+    }
+
+    g_session_json = root;
+    return g_session_json;
+}
+
+/* Releases the parsed session - called once load_session() is done with it,
+ * since nothing reads the session document after startup. */
+static void session_json_close(void)
+{
+    json_delete(g_session_json);
+    g_session_json = NULL;
+}
+
+/* Reads a single integer key out of the session document, before the real
+ * load_session() runs.
  *
  * Needed because the theme has to be known BEFORE app_init() builds its
  * windows: 14 of them bake theme colors into ui_set_color() at construction
@@ -2342,26 +2560,7 @@ static int session_read_line(FILE* f, char* key, size_t key_cap, char* val, size
  * windows wearing the startup theme's colors. */
 static int session_peek_int(const char* key, int fallback)
 {
-    char path[FS_MAX_PATH];
-    if (!get_session_file_path(path, sizeof path))
-        return fallback;
-
-    FILE* f = fopen(path, "rb");
-    if (!f)
-        return fallback;
-
-    int value = fallback;
-    char k[256], v[1024];
-    while (session_read_line(f, k, sizeof k, v, sizeof v))
-    {
-        if (strcmp(k, key) == 0)
-        {
-            value = atoi(v);
-            break;
-        }
-    }
-    fclose(f);
-    return value;
+    return project_json_get_int(session_json(), key, fallback);
 }
 
 static void apply_theme(const ui_theme* theme)
@@ -3954,7 +4153,7 @@ static void project_window_refresh(void)
  * always-visible panel. A no-op before app_init builds the dialog. */
 static void project_includes_dialog_refresh(void)
 {
-    if (!g_project.includes_listbox)
+    if (!g_project.includes_listbox || !g_includes_editing.dirs)
         return;
 
     while (ui_child_count(g_project.includes_listbox) > 0)
@@ -3964,124 +4163,259 @@ static void project_includes_dialog_refresh(void)
         ui_node_free(child);
     }
 
-    for (int i = 0; i < g_project.include_count; i++)
+    for (int i = 0; i < *g_includes_editing.count; i++)
     {
         ui_node* item = ui_create_element(UI_TAG_ITEM);
-        ui_set_label(item, g_project.include_dirs[i]);
+        ui_set_label(item, g_includes_editing.dirs[i]);
         ui_append_child(g_project.includes_listbox, item);
     }
     ui_select_set_selected(g_project.includes_listbox, 0);
 }
 
-/* Writes the open project back out to g_project.file_path as a small
- * JSON-like file - hand-written rather than a general JSON serializer since
- * this is the only writer for the format (see project_line_extract_string
- * for the matching reader). No-op if no project is open. */
+/* Points the Include Directories dialog at one of the two lists and saves
+ * whichever file owns it - see g_includes_editing. */
+static void includes_edit_project(void)
+{
+    g_includes_editing.dirs = g_project.include_dirs;
+    g_includes_editing.count = &g_project.include_count;
+    g_includes_editing.is_project = 1;
+}
+
+static void includes_edit_global(void)
+{
+    g_includes_editing.dirs = g_include_dirs;
+    g_includes_editing.count = &g_include_count;
+    g_includes_editing.is_project = 0;
+}
+
+/* Defined below with the rest of the ".cakeproj" JSON helpers - the shared
+ * shape for compiler options, used by both a project and the session file. */
+static void compile_settings_to_json(struct json_value* object, const compile_settings* c);
+static void compile_settings_from_json(const struct json_value* object, compile_settings* c);
+
+/* Writes the open project back out to g_project.file_path as a ".cakeproj"
+ * file - real JSON, built as a json_value tree and serialized by json.c, so
+ * a name or path containing a quote or backslash comes back out intact (see
+ * project_load_from_file for the matching reader). No-op if no project is
+ * open, and silent if the write fails, same as the fopen() it replaced. */
 static void project_save(void)
 {
     if (!project_is_open())
         return;
 
-    FILE* f = fopen(g_project.file_path, "w");
-    if (!f)
+    struct json_value* _Opt _Owner root = calloc(1, sizeof *root);
+    if (!root)
         return;
+    root->type = JSON_OBJECT;
 
-    fprintf(f, "{\n");
-    fprintf(f, "  \"name\": \"%s\",\n", g_project.name);
+    json_set_string(root, "name", g_project.name);
 
     /* Compiler options, scoped to this project - see g_project.compile's own
-     * doc comment. Same fields/shapes do_compile()'s own argv-building reads
-     * off of g_compile. */
-    fprintf(f, "  \"target\": \"%s\",\n", g_project.compile.target ? g_project.compile.target : "");
-    fprintf(f, "  \"style\": \"%s\",\n", g_project.compile.style ? g_project.compile.style : "");
-    fprintf(f, "  \"diagnostic_format\": \"%s\",\n",
-            g_project.compile.diagnostic_format ? g_project.compile.diagnostic_format : "");
-    fprintf(f, "  \"options\": \"%s\",\n", g_project.compile.options);
-    fprintf(f, "  \"output\": \"%s\",\n", g_project.compile.output);
-    fprintf(f, "  \"no_output\": %d,\n", g_project.compile.no_output);
-    fprintf(f, "  \"line_directives\": %d,\n", g_project.compile.line_directives);
-    fprintf(f, "  \"fanalyzer\": %d,\n", g_project.compile.fanalyzer);
-    fprintf(f, "  \"const_literal\": %d,\n", g_project.compile.const_literal);
-    fprintf(f, "  \"wall\": %d,\n", g_project.compile.wall);
+     * doc comment. Nested under "compile" in the same shape the session file
+     * uses (compile_settings_to_json), so both are read back by the same
+     * code. */
+    compile_settings_to_json(json_set_object(root, "compile"), &g_project.compile);
 
-    fprintf(f, "  \"include_dirs\": [\n");
+    struct json_value* includes = json_set_array(root, "include_dirs");
     for (int i = 0; i < g_project.include_count; i++)
-        fprintf(f, "    \"%s\"%s\n", g_project.include_dirs[i],
-                i + 1 < g_project.include_count ? "," : "");
-    fprintf(f, "  ],\n");
+        json_add_string(includes, g_project.include_dirs[i]);
 
-    fprintf(f, "  \"files\": [\n");
+    struct json_value* files = json_set_array(root, "files");
     for (int i = 0; i < g_project.file_count; i++)
-        fprintf(f, "    \"%s\"%s\n", g_project.files[i],
-                i + 1 < g_project.file_count ? "," : "");
-    fprintf(f, "  ]\n");
+        json_add_string(files, g_project.files[i]);
 
-    fprintf(f, "}\n");
-    fclose(f);
+    json_write_file(g_project.file_path, root);
+    json_delete(root);
 }
 
-/* Pulls the quoted string value out of one line of project_save()'s own
- * output - either a `"key": "value"` line or a bare array-element line like
- * `    "value",`. Tolerant of trailing commas/whitespace, but only ever has
- * to read back exactly what project_save() wrote, so it doesn't need to be a
- * general JSON parser. Returns 1 and fills `out` on success, 0 if `line`
- * carries no quoted value (e.g. a `{`/`}`/`],` structural line). */
-static int project_line_extract_string(const char* line, char* out, size_t out_size)
+/* Copies the string member `key` into `out`, leaving `out` untouched if the
+ * member is missing or isn't a string - so a ".cakeproj" written before a
+ * field existed keeps whatever default the caller preloaded. */
+static void project_json_get_string(const struct json_value* object, const char* key,
+                                    char* out, size_t out_size)
 {
-    const char* first = strchr(line, '"');
-    if (!first)
-        return 0;
-    const char* second = strchr(first + 1, '"');
-    if (!second)
+    const struct json_value* member = json_find_member(object, key);
+    if (member && member->type == JSON_STRING)
+        snprintf(out, out_size, "%s", member->string);
+}
+
+/* Reads a compile-settings flag, written by project_save() as true/false.
+ * Returns `fallback` when the member is missing or isn't a boolean - so a
+ * ".cakeproj" saved before a flag existed keeps the caller's default. */
+static int project_json_get_bool(const struct json_value* object, const char* key, int fallback)
+{
+    const struct json_value* member = json_find_member(object, key);
+    if (!member)
+        return fallback;
+
+    if (member->type == JSON_TRUE)
+        return 1;
+    if (member->type == JSON_FALSE)
         return 0;
 
-    /* A `"key": "value"` line has a colon right after the key's closing
-     * quote (only whitespace in between) - in that case the first quoted
-     * string found above is the KEY, and the value is the next quoted
-     * string after the colon. A bare array-element line (`    "value",`)
-     * has no colon there, so the first quoted string already is the value -
-     * found this way instead of just splitting on the first ':' in the line
-     * so a value that itself contains a colon (e.g. a Windows "C:/..." path)
-     * doesn't get misread. */
-    const char* after_key = second + 1;
-    while (*after_key == ' ' || *after_key == '\t')
-        after_key++;
-    if (*after_key == ':')
+    return fallback;
+}
+
+/* Reads a numeric member. Returns `fallback` when it is missing or isn't a
+ * number - so a file written before a field existed keeps the default. */
+static int project_json_get_int(const struct json_value* object, const char* key, int fallback)
+{
+    const struct json_value* member = json_find_member(object, key);
+    if (member && member->type == JSON_NUMBER)
+        return (int)member->number;
+
+    return fallback;
+}
+
+/* Copies the string elements of the array member `key` into `out`, stopping
+ * at `max` entries. Non-string elements are skipped. Returns how many were
+ * copied. */
+static int project_json_get_string_array(const struct json_value* object, const char* key,
+                                         char out[][512], int max, size_t entry_size)
+{
+    const struct json_value* array = json_find_member(object, key);
+    if (!array || array->type != JSON_ARRAY)
+        return 0;
+
+    int count = 0;
+    for (const struct json_value* item = array->first_child;
+         item != NULL && count < max;
+         item = item->next)
     {
-        const char* third = strchr(after_key, '"');
-        const char* fourth = third ? strchr(third + 1, '"') : NULL;
-        if (!third || !fourth)
-            return 0;
-        size_t len = (size_t)(fourth - (third + 1));
-        if (len >= out_size)
-            len = out_size - 1;
-        memcpy(out, third + 1, len);
-        out[len] = 0;
+        if (item->type != JSON_STRING)
+            continue;
+        snprintf(out[count], entry_size, "%s", item->string);
+        count++;
+    }
+
+    return count;
+}
+
+/* Writes `c` as the members of `object` - the shared shape for compiler
+ * options, used both by a project's own "compile" object (project_save) and
+ * by the IDE's session file (save_session), so the two never drift apart. */
+static void compile_settings_to_json(struct json_value* object, const compile_settings* c)
+{
+    json_set_string(object, "options", c->options);
+    json_set_string(object, "output", c->output);
+    json_set_string(object, "target", c->target ? c->target : "");
+    json_set_string(object, "style", c->style ? c->style : "");
+    json_set_string(object, "diagnostic_format", c->diagnostic_format ? c->diagnostic_format : "");
+    json_set_bool(object, "no_output", c->no_output);
+    json_set_bool(object, "line_directives", c->line_directives);
+    json_set_bool(object, "fanalyzer", c->fanalyzer);
+    json_set_bool(object, "const_literal", c->const_literal);
+    json_set_bool(object, "wall", c->wall);
+}
+
+/* Reads a "compile" object back into `c`, leaving any field the object
+ * doesn't carry at whatever the caller preloaded - so a file written before
+ * a setting existed just keeps the caller's default.
+ *
+ * target/style/diagnostic_format are slugs, always one of a fixed set (see
+ * g_target_slugs/g_style_slugs/g_diagformat_slugs): each resolves back to
+ * the matching interned slug pointer (index 0 for anything unrecognized,
+ * same as the Compiler Options dialog itself does), so `c` never ends up
+ * pointing into the parsed tree, which is freed by the caller. */
+static void compile_settings_from_json(const struct json_value* object, compile_settings* c)
+{
+    if (!object || object->type != JSON_OBJECT)
+        return;
+
+    project_json_get_string(object, "options", c->options, sizeof c->options);
+    project_json_get_string(object, "output", c->output, sizeof c->output);
+
+    const struct json_value* member = json_find_member(object, "target");
+    if (member && member->type == JSON_STRING)
+        c->target = g_target_slugs[target_slug_to_index(member->string)];
+
+    member = json_find_member(object, "style");
+    if (member && member->type == JSON_STRING)
+        c->style = g_style_slugs[style_slug_to_index(member->string)];
+
+    member = json_find_member(object, "diagnostic_format");
+    if (member && member->type == JSON_STRING)
+        c->diagnostic_format = g_diagformat_slugs[diagformat_slug_to_index(member->string)];
+
+    c->no_output = project_json_get_bool(object, "no_output", c->no_output);
+    c->line_directives = project_json_get_bool(object, "line_directives", c->line_directives);
+    c->fanalyzer = project_json_get_bool(object, "fanalyzer", c->fanalyzer);
+    c->const_literal = project_json_get_bool(object, "const_literal", c->const_literal);
+    c->wall = project_json_get_bool(object, "wall", c->wall);
+}
+
+/* "cake.json" - the global compiler settings, kept beside the executable
+ * itself (same place as cakeconf.h), not in
+ * the per-user config directory session.json lives in: these belong to the
+ * install, not to one window layout.
+ *
+ * Falls back to a bare "cake.json" in the current directory when the
+ * executable's own path can't be determined, same as cakeconf.h does. */
+static int get_global_settings_path(char* buf, size_t cap)
+{
+    char exe_path[FS_MAX_PATH] = { 0 };
+    if (!get_self_path(exe_path, sizeof exe_path) || !exe_path[0])
+    {
+        snprintf(buf, cap, "%s", "cake.json");
         return 1;
     }
 
-    size_t len = (size_t)(second - (first + 1));
-    if (len >= out_size)
-        len = out_size - 1;
-    memcpy(out, first + 1, len);
-    out[len] = 0;
+    char exe_dir[FS_MAX_PATH];
+    snprintf(exe_dir, sizeof exe_dir, "%s", exe_path);
+    dirname(exe_dir);
+    snprintf(buf, cap, "%s/cake.json", exe_dir);
     return 1;
 }
 
-/* Pulls the integer value out of one `"key": N,` line - the counterpart to
- * project_line_extract_string() for the compile-settings boolean flags
- * (project_save() always writes them as plain 0/1, never quoted). Returns 0
- * (leaving *out untouched) if `line` doesn't mention `key` at all. */
-static int project_line_extract_int(const char* line, const char* key, int* out)
+/* Writes g_compile out to cake.json. These are the settings used whenever
+ * the file being compiled isn't part of the open project - Playground, a
+ * scratch file, anything opened on its own (see active_compile_settings()) -
+ * so a project's own ".cakeproj" always overrides them.
+ *
+ * Same "compile" node a ".cakeproj" carries, written by the same helper: a
+ * project file is this plus a name and its own file list. */
+static void global_settings_save(void)
 {
-    const char* found = strstr(line, key);
-    if (!found)
-        return 0;
-    const char* colon = strchr(found, ':');
-    if (!colon)
-        return 0;
-    *out = atoi(colon + 1);
-    return 1;
+    char path[FS_MAX_PATH];
+    if (!get_global_settings_path(path, sizeof path))
+        return;
+
+    struct json_value* _Opt _Owner root = calloc(1, sizeof *root);
+    if (!root)
+        return;
+    root->type = JSON_OBJECT;
+
+    compile_settings_to_json(json_set_object(root, "compile"), &g_compile);
+
+    struct json_value* includes = json_set_array(root, "include_dirs");
+    for (int i = 0; i < g_include_count; i++)
+        json_add_string(includes, g_include_dirs[i]);
+
+    json_write_file(path, root);
+    json_delete(root);
+}
+
+/* Reads cake.json back into g_compile, called once at startup. Anything
+ * missing - no file yet, an unparseable one, or a setting added since it was
+ * written - just leaves that field at its built-in default. */
+static void global_settings_load(void)
+{
+    char path[FS_MAX_PATH];
+    if (!get_global_settings_path(path, sizeof path))
+        return;
+
+    char* text = read_file_to_string(path);
+    if (!text)
+        return;
+
+    struct json_value* root = json_parse(text, NULL);
+    free(text);
+
+    compile_settings_from_json(json_find_member(root, "compile"), &g_compile);
+    g_include_count = project_json_get_string_array(root, "include_dirs", g_include_dirs,
+                                                    CAKE_PROJECT_MAX_INCLUDES,
+                                                    sizeof g_include_dirs[0]);
+    json_delete(root);
 }
 
 /* Loads a ".cakeproj" file written by project_save() into g_project, fully
@@ -4089,9 +4423,24 @@ static int project_line_extract_int(const char* line, const char* key, int* out)
  * Returns 0 (leaving g_project untouched) if `path` can't be opened. */
 static int project_load_from_file(const char* path)
 {
-    FILE* f = fopen(path, "r");
-    if (!f)
+    char* text = read_file_to_string(path);
+    if (!text)
         return 0;
+
+    struct json_error json_error;
+    struct json_value* root = json_parse(text, &json_error);
+    free(text);
+
+    /* Malformed JSON now fails the load outright, where the old line-scanner
+     * would silently keep whatever fields it happened to recognize. */
+    if (!root)
+        return 0;
+
+    if (root->type != JSON_OBJECT)
+    {
+        json_delete(root);
+        return 0;
+    }
 
     char loaded_name[256] = "";
     char loaded_files[CAKE_PROJECT_MAX_FILES][512];
@@ -4104,81 +4453,16 @@ static int project_load_from_file(const char* path)
      * fields existed, or one missing a particular key, just falls back to
      * that instead of some separate hardcoded default. */
     compile_settings loaded_compile = g_compile;
-    char loaded_target[20], loaded_style[24], loaded_diagformat[32];
-    snprintf(loaded_target, sizeof loaded_target, "%s", g_compile.target ? g_compile.target : "");
-    snprintf(loaded_style, sizeof loaded_style, "%s", g_compile.style ? g_compile.style : "");
-    snprintf(loaded_diagformat, sizeof loaded_diagformat, "%s", g_compile.diagnostic_format ? g_compile.diagnostic_format : "");
+    compile_settings_from_json(json_find_member(root, "compile"), &loaded_compile);
 
-    int in_files = 0, in_includes = 0;
-    char line[1024];
-    while (fgets(line, sizeof line, f))
-    {
-        if (strstr(line, "\"files\""))
-        {
-            in_files = 1;
-            in_includes = 0;
-            continue;
-        }
-        if (strstr(line, "\"include_dirs\""))
-        {
-            in_includes = 1;
-            in_files = 0;
-            continue;
-        }
-        if (strchr(line, ']'))
-        {
-            in_files = 0;
-            in_includes = 0;
-            continue;
-        }
+    project_json_get_string(root, "name", loaded_name, sizeof loaded_name);
 
-        if (!in_files && !in_includes)
-        {
-            if (project_line_extract_int(line, "\"no_output\"", &loaded_compile.no_output)) continue;
-            if (project_line_extract_int(line, "\"line_directives\"", &loaded_compile.line_directives)) continue;
-            if (project_line_extract_int(line, "\"fanalyzer\"", &loaded_compile.fanalyzer)) continue;
-            if (project_line_extract_int(line, "\"const_literal\"", &loaded_compile.const_literal)) continue;
-            if (project_line_extract_int(line, "\"wall\"", &loaded_compile.wall)) continue;
-        }
+    loaded_file_count = project_json_get_string_array(root, "files", loaded_files,
+                                                      CAKE_PROJECT_MAX_FILES, sizeof loaded_files[0]);
+    loaded_include_count = project_json_get_string_array(root, "include_dirs", loaded_includes,
+                                                         CAKE_PROJECT_MAX_INCLUDES, sizeof loaded_includes[0]);
 
-        char value[512];
-        if (!project_line_extract_string(line, value, sizeof value))
-            continue;
-
-        if (in_files)
-        {
-            if (loaded_file_count < CAKE_PROJECT_MAX_FILES)
-                snprintf(loaded_files[loaded_file_count++], sizeof loaded_files[0], "%s", value);
-        }
-        else if (in_includes)
-        {
-            if (loaded_include_count < CAKE_PROJECT_MAX_INCLUDES)
-                snprintf(loaded_includes[loaded_include_count++], sizeof loaded_includes[0], "%s", value);
-        }
-        else if (strstr(line, "\"name\""))
-            snprintf(loaded_name, sizeof loaded_name, "%s", value);
-        else if (strstr(line, "\"output\""))
-            snprintf(loaded_compile.output, sizeof loaded_compile.output, "%s", value);
-        else if (strstr(line, "\"target\""))
-            snprintf(loaded_target, sizeof loaded_target, "%s", value);
-        else if (strstr(line, "\"style\""))
-            snprintf(loaded_style, sizeof loaded_style, "%s", value);
-        else if (strstr(line, "\"diagnostic_format\""))
-            snprintf(loaded_diagformat, sizeof loaded_diagformat, "%s", value);
-        else if (strstr(line, "\"options\""))
-            snprintf(loaded_compile.options, sizeof loaded_compile.options, "%s", value);
-    }
-    fclose(f);
-
-    /* target/style/diagnostic_format are slugs, always one of a fixed set
-     * (see g_target_slugs/g_style_slugs/g_diagformat_slugs) - resolve
-     * whatever string was actually in the file back to the matching interned
-     * slug pointer (falling back to index 0 for anything unrecognized, same
-     * as the Compiler Options dialog itself does), rather than storing a
-     * pointer into a stack buffer that's about to go out of scope. */
-    loaded_compile.target = g_target_slugs[target_slug_to_index(loaded_target)];
-    loaded_compile.style = g_style_slugs[style_slug_to_index(loaded_style)];
-    loaded_compile.diagnostic_format = g_diagformat_slugs[diagformat_slug_to_index(loaded_diagformat)];
+    json_delete(root);
 
     project_reset_data();
 
@@ -4368,19 +4652,35 @@ static void project_add_file(const char* path)
  * for a directory (from OPEN_DLG_PROJECT_ADDINCLUDE) instead of a file. */
 static void project_add_include(const char* path)
 {
-    if (!project_is_open() || g_project.include_count >= CAKE_PROJECT_MAX_INCLUDES)
+    if (!g_includes_editing.dirs || *g_includes_editing.count >= CAKE_PROJECT_MAX_INCLUDES)
         return;
 
-    char relative_path[512];
-    project_make_relative(g_project.dir, path, relative_path, sizeof relative_path);
+    /* A project's entries are stored relative to the project directory (see
+     * project_abs_path); the global list has no such directory, so it keeps
+     * the absolute path exactly as picked. */
+    char entry[512];
+    if (g_includes_editing.is_project)
+    {
+        if (!project_is_open())
+            return;
+        project_make_relative(g_project.dir, path, entry, sizeof entry);
+    }
+    else
+    {
+        snprintf(entry, sizeof entry, "%s", path);
+    }
 
-    for (int i = 0; i < g_project.include_count; i++)
-        if (strcmp(g_project.include_dirs[i], relative_path) == 0)
+    for (int i = 0; i < *g_includes_editing.count; i++)
+        if (strcmp(g_includes_editing.dirs[i], entry) == 0)
             return;
 
-    snprintf(g_project.include_dirs[g_project.include_count++], sizeof g_project.include_dirs[0],
-             "%s", relative_path);
-    project_save();
+    snprintf(g_includes_editing.dirs[(*g_includes_editing.count)++], 512, "%s", entry);
+
+    if (g_includes_editing.is_project)
+        project_save();
+    else
+        global_settings_save();
+
     project_includes_dialog_refresh();  /* no-op if the dialog isn't built/open */
 }
 
@@ -4547,10 +4847,6 @@ static int word_at_cursor(const char* text, int len, int cursor, char* out, int 
  * reports on (see get_session_file_path) - forward declared so on_ui_event
  * (far above that point in the file) can reach it. */
 static void do_help_check(void);
-
-/* Defined later, next to do_help_check (which reports on this same file) -
- * forward declared so on_ui_event can reach it. */
-static void do_compile_open_config_file(void);
 
 static void do_help_contextual(void)
 {
@@ -5267,7 +5563,7 @@ static void exttool_append(struct exttool_buf* b, const char* text)
  * meaningful with a project open - callers check project_is_open() first. */
 static const char* project_target_platform_name(void)
 {
-    enum target target_enum = CAKE_COMPILE_TIME_SELECTED_TARGET;
+    enum target target_enum = TARGET_DEFAULT;
     if (g_project.compile.target[0])
         parse_target(g_project.compile.target, &target_enum);
     return get_platform(target_enum)->name;
@@ -5282,8 +5578,10 @@ static const char* active_platform_name(void)
 {
     if (project_is_open())
         return project_target_platform_name();
-    return g_compile.target[0] ? g_compile.target
-                               : get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->name;
+    enum target target_enum = TARGET_DEFAULT;
+    if (g_compile.target[0])
+        parse_target(g_compile.target, &target_enum);
+    return get_platform(target_enum)->name;
 }
 
 /* $(TargetDir) - the directory cake writes its generated output into, and
@@ -5341,10 +5639,7 @@ static void exttool_append_cake_output(struct exttool_buf* out,
     /* No project open: use whatever target the user picked in Compiler
      * Options (g_compile.target - see do_debug_start()'s own matching fix),
      * not this build's own compile-time default. */
-    const char* platform_name = project_is_open()
-        ? project_target_platform_name()
-        : (g_compile.target[0] ? g_compile.target
-                                : get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->name);
+    const char* platform_name = active_platform_name();
 
     if (project_is_open())
     {
@@ -5556,10 +5851,7 @@ static void exttool_expand(const char* in, const char* path, struct exttool_buf*
                  * build_screen() block), and leaving just this one still
                  * gated on project_is_open() would silently drop half of
                  * that pair for a standalone file. */
-                exttool_append(out, project_is_open()
-                    ? project_target_platform_name()
-                    : (g_compile.target[0] ? g_compile.target
-                                            : get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->name));
+                exttool_append(out, active_platform_name());
             /* An unknown macro expands to nothing, rather than being left in
              * the command line where it would confuse the program. */
             p = close + 1;
@@ -6078,10 +6370,33 @@ static void save_active_file(ui_node* active)
 
     FILE* f = fopen(path, "wb");
     if (!f)
+    {
+        /* e.g. a read-only file or a folder the user can't write to - say
+         * so instead of silently leaving the window dirty and the file
+         * untouched. */
+        ui_msgbox_button ok = { "   OK   ", 0 };
+        char message[200];
+        snprintf(message, sizeof message, "Cannot save file:\n%s\n\n%s",
+                 path, strerror(errno));
+        ui_message_box(g_screen, " Error ", message, &ok, 1);
         return;
+    }
     const char* content = ui_get_value(editor);
     fwrite_text(content, strlen(content), f, crlf);
-    fclose(f);
+    int write_failed = ferror(f);
+    if (fclose(f) != 0)
+        write_failed = 1;
+    if (write_failed)
+    {
+        /* Opened fine but the write didn't land (disk full, device gone) -
+         * keep the window dirty so the content isn't mistaken for saved. */
+        ui_msgbox_button ok = { "   OK   ", 0 };
+        char message[200];
+        snprintf(message, sizeof message, "Error writing file:\n%s\n\n%s",
+                 path, strerror(errno));
+        ui_message_box(g_screen, " Error ", message, &ok, 1);
+        return;
+    }
     ui_set_dirty(editor, 0);
 }
 
@@ -6805,10 +7120,13 @@ static void do_compile(void)
         argv[argc++] = tok;
     }
 
-    /* g_project.include_dirs[], resolved to absolute paths and turned into
-     * -I flags - only when `file` is actually part of that project (same
-     * use_project_settings check cs came from above); a Playground/scratch
-     * file gets none of them, even while an unrelated project is open. */
+    /* Include directories as -I flags, from whichever list owns this file -
+     * the project's own (resolved to absolute paths, since those entries are
+     * stored relative to the project directory) when `file` is part of that
+     * project, else the global cake.json list, which is already absolute.
+     * Same use_project_settings check cs came from above, so a Playground or
+     * scratch file gets the global dirs even while an unrelated project
+     * happens to be open. */
     char include_flags[CAKE_PROJECT_MAX_INCLUDES][1024];
     if (use_project_settings)
     {
@@ -6817,6 +7135,14 @@ static void do_compile(void)
             char abs_dir[1024 - 2];
             project_abs_path(g_project.include_dirs[i], abs_dir, sizeof abs_dir);
             snprintf(include_flags[i], sizeof include_flags[0], "-I%s", abs_dir);
+            argv[argc++] = include_flags[i];
+        }
+    }
+    else
+    {
+        for (int i = 0; i < g_include_count && argc < 63; i++)
+        {
+            snprintf(include_flags[i], sizeof include_flags[0], "-I%s", g_include_dirs[i]);
             argv[argc++] = include_flags[i];
         }
     }
@@ -10049,21 +10375,15 @@ static void on_ui_event(void* ctx, int id, void* param)
     {
         do_debug_toggle_breakpoint();
     }
-    else if (id == EVT_COMPILE_CONFIG_FILE)
-    {
-        do_compile_open_config_file();
-    }
     else if (id == EVT_COMPILE_OPTIONS)
     {
-        /* Edits whichever settings the *active document* would actually
-         * compile with - the open project's own only when that document is
-         * one of its files (see active_compile_settings()/
-         * project_contains_file()), else the IDE-wide default (e.g. a
-         * Playground/scratch file, even while an unrelated project happens
-         * to be open). */
-        const char* file = g_active_editor_window ? ui_get_path(g_active_editor_window) : "";
-        compile_settings* cs = active_compile_settings(file);
-        open_compiler_options_dialog(cs, cs == &g_project.compile);
+        /* File > "Options..." always means the global settings (cake.json,
+         * beside the executable) - the ones used for Playground and for any
+         * file that isn't part of the open project (see
+         * active_compile_settings()). A project's own settings are edited
+         * from Project > "Options..." instead, so which file a given dialog
+         * writes never depends on what happens to be the active document. */
+        open_compiler_options_dialog(&g_compile, 0);
     }
     else if (id == EVT_PROJECT_OPTIONS)
     {
@@ -10101,8 +10421,17 @@ static void on_ui_event(void* ctx, int id, void* param)
         cs->fanalyzer = ui_group_get_checked(g_copts.flags, 2);
         cs->const_literal = ui_group_get_checked(g_copts.flags, 3);
         cs->wall = ui_group_get_checked(g_copts.flags, 4);
+        /* Persist immediately, to whichever file owns these settings: a
+         * project's own ".cakeproj", or - for Playground and any file that
+         * isn't part of the project (see active_compile_settings()) - the
+         * session's own "compile" node. Without the second case the IDE-wide
+         * options only reached disk at shutdown, so a change made here was
+         * invisible in session.json until the IDE was closed, and lost
+         * outright if it never closed cleanly. */
         if (cs == &g_project.compile)
             project_save();
+        else
+            global_settings_save();
         ui_screen_close_modal(g_screen, g_copts.modal);
     }
     else if (id == EVT_DOCK_LEFT || id == EVT_DOCK_RIGHT || id == EVT_DOCK_BOTTOM)
@@ -10579,10 +10908,7 @@ static void on_ui_event(void* ctx, int id, void* param)
 
             // Build new path: dir/target/basename (or original if target empty)
             char new_path[1024];
-            if (g_compile.target[0] != '\0')
-                snprintf(new_path, sizeof(new_path), "%s/%s/%s", dir, g_compile.target, base);
-            else
-                snprintf(new_path, sizeof(new_path), "%s", path);   // fallback
+            snprintf(new_path, sizeof(new_path), "%s/%s/%s", dir, active_platform_name(), base);
 
             // Load the file, or report the error if it's not found
             char* content = read_file_to_string(new_path);
@@ -10597,8 +10923,7 @@ static void on_ui_event(void* ctx, int id, void* param)
 
             // Title with target info
             char title[300];
-            snprintf(title, sizeof(title), " %s [%s] ", base,
-                     g_compile.target[0] ? g_compile.target : "default");
+            snprintf(title, sizeof(title), " %s [%s] ", base, active_platform_name());
 
             ui_node* new_wrapper = make_editor_window(g_root, g_new_count++, title, content, new_path);
             ui_node* new_editor = editor_in_window(new_wrapper);
@@ -10729,6 +11054,11 @@ static void on_ui_event(void* ctx, int id, void* param)
     {
         apply_theme(&g_theme_nebula);
         g_envdlg.theme_index = 3;
+    }
+    else if (id == EVT_ENV_THEME_XCODE_DARK)
+    {
+        apply_theme(&g_theme_xcode_dark);
+        g_envdlg.theme_index = 4;
     }
     else if (id >= EVT_ENV_FONT_BASE &&
              id < EVT_ENV_FONT_BASE + ui_env_font_family_count(g_env))
@@ -10961,10 +11291,22 @@ static void on_ui_event(void* ctx, int id, void* param)
         open_dialog_refresh();
         ui_screen_show_modal(g_screen, g_open.modal);
     }
+    else if (id == EVT_GLOBAL_INCLUDES)
+    {
+        /* File > "Directories..." - the same dialog as Project > "Include
+         * Directories...", bound to the global list instead (cake.json), so
+         * it is available with or without a project open. */
+        includes_edit_global();
+        ui_set_label(g_project.includes_window, " Directories ");
+        project_includes_dialog_refresh();
+        ui_screen_show_modal(g_screen, g_project.includes_modal);
+    }
     else if (id == EVT_PROJECT_INCLUDES)
     {
         /* Same "menu item already enforces this" reasoning as
          * EVT_PROJECT_ADD_FILE just above. */
+        includes_edit_project();
+        ui_set_label(g_project.includes_window, " Include Directories ");
         project_includes_dialog_refresh();
         ui_screen_show_modal(g_screen, g_project.includes_modal);
     }
@@ -10978,8 +11320,18 @@ static void on_ui_event(void* ctx, int id, void* param)
         g_open.dialog_mode = OPEN_DLG_PROJECT_ADDINCLUDE;
         ui_set_label(g_open.window, " Add Include Directory ");
         ui_set_label(g_open.ok, " Select ");
-        strncpy(g_open.dir, g_project.dir, sizeof g_open.dir - 1);
-        g_open.dir[sizeof g_open.dir - 1] = 0;
+        /* Start browsing where the list itself lives: the project directory,
+         * or - for the global list - wherever the IDE was launched from,
+         * since that list has no directory of its own. */
+        if (g_includes_editing.is_project)
+        {
+            strncpy(g_open.dir, g_project.dir, sizeof g_open.dir - 1);
+            g_open.dir[sizeof g_open.dir - 1] = 0;
+        }
+        else if (!ui_get_cwd(g_open.dir, sizeof g_open.dir))
+        {
+            strcpy(g_open.dir, ".");
+        }
         open_dialog_set_filter_visible(0);
         open_dialog_refresh();
         ui_screen_show_modal(g_screen, g_open.modal);
@@ -10994,14 +11346,45 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_PROJECT_INCLUDES_REMOVE)
     {
         int sel = ui_select_get_selected(g_project.includes_listbox);
-        if (sel >= 0 && sel < g_project.include_count)
+        if (g_includes_editing.dirs && sel >= 0 && sel < *g_includes_editing.count)
         {
-            for (int i = sel; i + 1 < g_project.include_count; i++)
-                snprintf(g_project.include_dirs[i], sizeof g_project.include_dirs[0],
-                         "%s", g_project.include_dirs[i + 1]);
-            g_project.include_count--;
-            project_save();
+            for (int i = sel; i + 1 < *g_includes_editing.count; i++)
+                snprintf(g_includes_editing.dirs[i], 512, "%s", g_includes_editing.dirs[i + 1]);
+            (*g_includes_editing.count)--;
+
+            if (g_includes_editing.is_project)
+                project_save();
+            else
+                global_settings_save();
+
             project_includes_dialog_refresh();
+        }
+    }
+    else if (id == EVT_PROJECT_INCLUDES_UP || id == EVT_PROJECT_INCLUDES_DOWN)
+    {
+        /* Include directories are searched in the order they are listed, so
+         * moving one is a real edit - saved to the same file the list came
+         * from, exactly like Add/Remove. The selection follows the row that
+         * moved, so repeated clicks keep walking it along. */
+        int sel = ui_select_get_selected(g_project.includes_listbox);
+        int other = sel + (id == EVT_PROJECT_INCLUDES_DOWN ? 1 : -1);
+
+        if (g_includes_editing.dirs &&
+            sel >= 0 && sel < *g_includes_editing.count &&
+            other >= 0 && other < *g_includes_editing.count)
+        {
+            char swap[512];
+            snprintf(swap, sizeof swap, "%s", g_includes_editing.dirs[sel]);
+            snprintf(g_includes_editing.dirs[sel], 512, "%s", g_includes_editing.dirs[other]);
+            snprintf(g_includes_editing.dirs[other], 512, "%s", swap);
+
+            if (g_includes_editing.is_project)
+                project_save();
+            else
+                global_settings_save();
+
+            project_includes_dialog_refresh();
+            ui_select_set_selected(g_project.includes_listbox, other);
         }
     }
     else if (id == EVT_PROJECT_INCLUDES_CLOSE)
@@ -11089,6 +11472,34 @@ static void on_ui_event(void* ctx, int id, void* param)
                 open_file_path_into_editor(buf, basename_of(buf));
                 ui_screen_close_modal(g_screen, g_open.modal);
                 return;
+            }
+
+            /* A plain directory path is navigation, not a new mask: keep
+             * the mask the "Files of type" dropdown is showing so the
+             * listing stays filtered. Without this the split below would
+             * take the last component ("src" in /home/me/src) - or the empty
+             * text after a trailing separator - as the mask and show
+             * everything. */
+            {
+                char dir_only[1024];
+                strncpy(dir_only, buf, sizeof dir_only - 1);
+                dir_only[sizeof dir_only - 1] = 0;
+                size_t len = strlen(dir_only);
+                /* Tolerate a trailing separator, except on a bare root. */
+                while (len > 1 && dir_only[len - 1] == '/')
+                {
+                    dir_only[--len] = 0;
+                }
+                struct stat st;
+                /* No POSIX S_ISDIR under MSVC, same as path_is_regular_file. */
+                if (dir_only[0] && stat(dir_only, &st) == 0 &&
+                    (st.st_mode & S_IFMT) == S_IFDIR)
+                {
+                    strncpy(g_open.dir, dir_only, sizeof g_open.dir - 1);
+                    g_open.dir[sizeof g_open.dir - 1] = 0;
+                    open_dialog_refresh();
+                    return;
+                }
             }
 
             char* last_sep = NULL;
@@ -11573,7 +11984,7 @@ static void on_ui_event(void* ctx, int id, void* param)
 
 /* %APPDATA%\cake_ide on Windows, ~/Library/Application Support/cake_ide on
  * macOS, $XDG_CONFIG_HOME/cake_ide (or ~/.config/cake_ide if that's unset)
- * elsewhere - the one config directory session.txt (get_session_file_path)
+ * elsewhere - the one config directory session.json (get_session_file_path)
  * and playground.c (get_playground_file_path) both live in. Creates it if it
  * doesn't exist yet. Returns 0 if the relevant environment variable isn't
  * set at all (e.g. a stripped-down container) - callers each fail the same
@@ -11625,16 +12036,16 @@ static int get_session_file_path(char* buf, size_t cap)
         return 0;
 
 #ifdef _WIN32
-    snprintf(buf, cap, "%s\\session.txt", dir);
+    snprintf(buf, cap, "%s\\session.json", dir);
 #else
-    snprintf(buf, cap, "%s/session.txt", dir);
+    snprintf(buf, cap, "%s/session.json", dir);
 #endif
     return 1;
 }
 
 /* Playground's own fixed file - unlike every other document window, it
  * always opens this exact path, never anything File > Open picked. Kept
- * next to session.txt (same config directory, see get_config_dir) rather
+ * next to session.json (same config directory, see get_config_dir) rather
  * than under the project/cwd the IDE happens to be launched from, since
  * Playground is meant as a standing scratch pad independent of whatever
  * project's open at the time. See open_playground() below. */
@@ -11707,45 +12118,6 @@ static const char* label_for_path(const char* path)
     return basename_of(path);
 }
 
-/* Compile > "Config File": opens cakeconf.h, the same file/location the
- * compiler itself looks for (see CAKE_CONFIG_FILE_NAME, include_config_header()
- * in tokenizer.c/lib.c, and generate_config_file() in compile.c/lib.c) - it
- * lives next to the executable and, when present, supplies the default
- * #include search directories used when none are passed explicitly on the
- * command line. Unlike Playground (open_playground(), just above), an empty
- * file is created here rather than one seeded with sample content - an empty
- * cakeconf.h is simply "no default include dirs configured", a valid,
- * meaningful state, whereas a real config's contents (the actual dirs found
- * by -autoconfig) aren't something this menu item can fabricate. */
-static void do_compile_open_config_file(void)
-{
-    char exe_path[FS_MAX_PATH] = { 0 };
-    get_self_path(exe_path, sizeof exe_path);
-
-    char path[FS_MAX_PATH] = "cakeconf.h";
-    if (exe_path[0])
-    {
-        char exe_dir[FS_MAX_PATH];
-        snprintf(exe_dir, sizeof exe_dir, "%s", exe_path);
-        dirname(exe_dir);
-        snprintf(path, sizeof path, "%s/cakeconf.h", exe_dir);
-    }
-
-    FILE* probe = fopen(path, "rb");
-    if (probe)
-    {
-        fclose(probe);
-    }
-    else
-    {
-        FILE* cf = fopen(path, "wb");
-        if (cf)
-            fclose(cf);
-    }
-
-    open_file_path_into_editor(path, "cakeconf.h");
-}
-
 /* Help > Check (EVT_HELP_CHECK): prints a couple of paths worth knowing when
  * troubleshooting - where the session config file lives (see
  * get_session_file_path) and where the running executable itself lives (see
@@ -11774,7 +12146,7 @@ static void do_help_check(void)
     if (get_session_file_path(session_path, sizeof session_path))
     {
         snprintf(session_dir, sizeof session_dir, "%s", session_path);
-        dirname(session_dir);  /* strips "session.txt", leaving just the dir */
+        dirname(session_dir);  /* strips "session.json", leaving just the dir */
     }
 
     /* cakeconf.h: same file/location the compiler itself looks for (see
@@ -11877,11 +12249,11 @@ static void do_help_check(void)
                  "  Folder containing this program - the other files below are\n"
                  "  found (or looked for) relative to it.\n\n"
                  "%s\n"
-                 "Config directory (session.txt)\n"
+                 "Config directory (session.json)\n"
                  "  %s\n"
                  "  Remembers your last session: open file, window size/position,\n"
                  "  and panel layout - kept separately from the app itself.\n"
-                 "  Tip: if the IDE opens looking wrong, delete session.txt here\n"
+                 "  Tip: if the IDE opens looking wrong, delete session.json here\n"
                  "  to reset it.\n\n"
                  "%s",
                  exe_dir, cakeconfig_section, session_dir, playground_section);
@@ -11908,51 +12280,49 @@ static void save_session(void)
     char path[FS_MAX_PATH];
     if (!get_session_file_path(path, sizeof path))
         return;
-    FILE* f = fopen(path, "wb");
-    if (!f)
+    struct json_value* _Opt _Owner root = calloc(1, sizeof *root);
+    if (!root)
         return;
+    root->type = JSON_OBJECT;
 
-    fprintf(f, "compile_options=%s\n", g_compile.options);
-    fprintf(f, "compile_output=%s\n", g_compile.output);
-    fprintf(f, "compile_target=%s\n", g_compile.target);
-    fprintf(f, "compile_style=%s\n", g_compile.style);
-    fprintf(f, "compile_diagnostic_format=%s\n", g_compile.diagnostic_format);
-    fprintf(f, "compile_opt_no_output=%d\n", g_compile.no_output);
-    fprintf(f, "compile_opt_line_directives=%d\n", g_compile.line_directives);
-    fprintf(f, "compile_opt_fanalyzer=%d\n", g_compile.fanalyzer);
-    fprintf(f, "compile_opt_const_literal=%d\n", g_compile.const_literal);
-    fprintf(f, "compile_opt_wall=%d\n", g_compile.wall);
-    fprintf(f, "folder_dir=%s\n", g_folder.dir);
+    json_set_string(root, "folder_dir", g_folder.dir);
+
     /* Project > New/Open Project's own ".cakeproj" file, so it reopens
      * automatically on the next launch (see load_session()'s matching key -
      * project_open_file() there does the actual reloading). Written even
      * when empty so closing a project actually clears it back out. */
-    fprintf(f, "project_path=%s\n", g_project.file_path);
-    fprintf(f, "theme_index=%d\n", g_envdlg.theme_index);
-    fprintf(f, "font_index=%d\n", g_envdlg.font_index);
+    json_set_string(root, "project_path", g_project.file_path);
+
+    json_set_number(root, "theme_index", g_envdlg.theme_index);
+    json_set_number(root, "font_index", g_envdlg.font_index);
     {
         int fs = ui_env_get_font_size(g_env);
         if (fs > 0)
-            fprintf(f, "font_size=%d\n", fs);
+            json_set_number(root, "font_size", fs);
     }
-    /* External Tools, one numbered key per field - see load_session's
-     * matching parse. Written even when empty so removing every tool
-     * actually persists. */
-    fprintf(f, "tool_count=%d\n", g_tools.count);
-    for (int i = 0; i < g_tools.count; i++)
+
+    /* External Tools, one object per tool - see load_session's matching
+     * parse. Written even when empty so removing every tool actually
+     * persists. */
     {
-        fprintf(f, "tool%d_title=%s\n", i, g_tools.items[i].title);
-        fprintf(f, "tool%d_command=%s\n", i, g_tools.items[i].command);
-        fprintf(f, "tool%d_args=%s\n", i, g_tools.items[i].args);
-        fprintf(f, "tool%d_dir=%s\n", i, g_tools.items[i].dir);
+        struct json_value* tools = json_set_array(root, "tools");
+        for (int i = 0; i < g_tools.count; i++)
+        {
+            struct json_value* tool = json_add_object(tools);
+            json_set_string(tool, "title", g_tools.items[i].title);
+            json_set_string(tool, "command", g_tools.items[i].command);
+            json_set_string(tool, "args", g_tools.items[i].args);
+            json_set_string(tool, "dir", g_tools.items[i].dir);
+        }
     }
 
     nav_pos cur;
     if (nav_capture(&cur))
     {
-        fprintf(f, "current_file=%s\n", cur.path);
-        fprintf(f, "current_cursor=%d\n", cur.cursor);
-        fprintf(f, "current_scroll=%d\n", cur.scroll);
+        struct json_value* current = json_set_object(root, "current");
+        json_set_string(current, "file", cur.path);
+        json_set_number(current, "cursor", cur.cursor);
+        json_set_number(current, "scroll", cur.scroll);
     }
 
     if (g_active_editor_window)
@@ -11962,19 +12332,20 @@ static void save_session(void)
         {
             int x, y, w, h;
             ui_get_rect(win, &x, &y, &w, &h);
-            fprintf(f, "main_x=%d\n", x);
-            fprintf(f, "main_y=%d\n", y);
-            fprintf(f, "main_w=%d\n", w);
-            fprintf(f, "main_h=%d\n", h);
-            fprintf(f, "main_maximized=%d\n", ui_get_maximized(win));
+
+            struct json_value* main_window = json_set_object(root, "main_window");
+            json_set_number(main_window, "x", x);
+            json_set_number(main_window, "y", y);
+            json_set_number(main_window, "w", w);
+            json_set_number(main_window, "h", h);
+            json_set_bool(main_window, "maximized", ui_get_maximized(win));
         }
     }
 
     /* Both panels can be moved between sides at runtime (see g_dockmenu), so
      * the side is saved alongside the size - and the size read back is the
      * extent of whichever axis that side owns, since a left/right dock
-     * controls its width and a bottom dock its height. The keys keep their
-     * original names so an older session file still restores. */
+     * controls its width and a bottom dock its height. */
     if (g_folder.window)
     {
         ui_node* win = ui_child_at(g_folder.window, 0);
@@ -11983,8 +12354,10 @@ static void save_session(void)
             int w, h;
             ui_dock_side side = ui_get_dock(win);
             ui_get_rect(win, NULL, NULL, &w, &h);
-            fprintf(f, "folder_dock_side=%d\n", (int)side);
-            fprintf(f, "folder_dock_w=%d\n", side == UI_DOCK_BOTTOM ? h : w);
+
+            struct json_value* dock = json_set_object(root, "folder_dock");
+            json_set_number(dock, "side", (int)side);
+            json_set_number(dock, "size", side == UI_DOCK_BOTTOM ? h : w);
         }
     }
     if (g_output_window)
@@ -11995,12 +12368,15 @@ static void save_session(void)
             int w, h;
             ui_dock_side side = ui_get_dock(win);
             ui_get_rect(win, NULL, NULL, &w, &h);
-            fprintf(f, "output_dock_side=%d\n", (int)side);
-            fprintf(f, "output_dock_h=%d\n", side == UI_DOCK_BOTTOM ? h : w);
+
+            struct json_value* dock = json_set_object(root, "output_dock");
+            json_set_number(dock, "side", (int)side);
+            json_set_number(dock, "size", side == UI_DOCK_BOTTOM ? h : w);
         }
     }
 
-    fclose(f);
+    json_write_file(path, root);
+    json_delete(root);
 }
 
 /* Public shutdown hook (see ide_ui.h) - just save_session() under a name a
@@ -12014,35 +12390,8 @@ void app_shutdown(void)
     save_session();
 }
 
-/* One "key=value" line from `f` into `key`/`val` (each NUL-terminated,
- * trailing \r\n stripped) - 0 at EOF, 1 otherwise. A line with no '=' (or a
- * blank one) yields an empty key/value rather than failing - tolerant of a
- * hand-edited or partially-written file. */
-static int session_read_line(FILE* f, char* key, size_t key_cap, char* val, size_t val_cap)
-{
-    char line[2048];
-    if (!fgets(line, sizeof line, f))
-        return 0;
-
-    size_t len = strlen(line);
-    while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r'))
-        line[--len] = 0;
-
-    char* eq = strchr(line, '=');
-    if (!eq)
-    {
-        if (key_cap) key[0] = 0;
-        if (val_cap) val[0] = 0;
-        return 1;
-    }
-    *eq = 0;
-    snprintf(key, key_cap, "%s", line);
-    snprintf(val, val_cap, "%s", eq + 1);
-    return 1;
-}
-
 /* However load_session() finds there's no session to restore (no config
- * directory to even look in, or a config directory but no session.txt in
+ * directory to even look in, or a config directory but no session.json in
  * it yet) - the one-time "you've never run this before" case, as opposed
  * to every other frame this same run where there's simply nothing new to
  * report. A plain OK box, same shape as the "File not found" one above. */
@@ -12063,16 +12412,17 @@ static void show_first_run_welcome(void)
  * is just left at its normal startup default. */
 static int load_session(void)
 {
-    char path[FS_MAX_PATH];
-    if (!get_session_file_path(path, sizeof path))
+    /* Already parsed: the early theme peek (session_peek_int) read the file
+     * during app_init and this is that same tree. A corrupt session restores
+     * nothing rather than half a layout - everything below then just stays
+     * at its startup default. */
+    struct json_value* root = session_json();
+    if (!root)
     {
-        show_first_run_welcome();
-        return 0;
-    }
-    FILE* f = fopen(path, "rb");
-    if (!f)
-    {
-        show_first_run_welcome();
+        /* Only a genuine first run gets the welcome - an unreadable file is
+         * a failure, not an introduction. */
+        if (!g_session_file_found)
+            show_first_run_welcome();
         return 0;
     }
 
@@ -12088,94 +12438,90 @@ static int load_session(void)
     ui_dock_side folder_side = UI_DOCK_LEFT;
     ui_dock_side output_side = UI_DOCK_BOTTOM;
 
-    char key[64], val[1024];
-    while (session_read_line(f, key, sizeof key, val, sizeof val))
+    g_envdlg.theme_index = project_json_get_int(root, "theme_index", g_envdlg.theme_index);
+    g_envdlg.font_index = project_json_get_int(root, "font_index", g_envdlg.font_index);
     {
-        if (strcmp(key, "compile_options") == 0)
-            snprintf(g_compile.options, sizeof g_compile.options, "%s", val);
-        else if (strcmp(key, "compile_output") == 0)
-            snprintf(g_compile.output, sizeof g_compile.output, "%s", val);
-        else if (strcmp(key, "compile_target") == 0)
-            g_compile.target = g_target_slugs[target_slug_to_index(val)];
-        else if (strcmp(key, "compile_style") == 0)
-            g_compile.style = g_style_slugs[style_slug_to_index(val)];
-        else if (strcmp(key, "compile_diagnostic_format") == 0)
-            g_compile.diagnostic_format = g_diagformat_slugs[diagformat_slug_to_index(val)];
-        else if (strcmp(key, "compile_opt_no_output") == 0)
-            g_compile.no_output = atoi(val);
-        else if (strcmp(key, "compile_opt_line_directives") == 0)
-            g_compile.line_directives = atoi(val);
-        else if (strcmp(key, "compile_opt_fanalyzer") == 0)
-            g_compile.fanalyzer = atoi(val);
-        else if (strcmp(key, "compile_opt_const_literal") == 0)
-            g_compile.const_literal = atoi(val);
-        else if (strcmp(key, "compile_opt_wall") == 0)
-            g_compile.wall = atoi(val);
-        else if (strcmp(key, "theme_index") == 0)
-            g_envdlg.theme_index = atoi(val);
-        else if (strcmp(key, "font_index") == 0)
-            g_envdlg.font_index = atoi(val);
-        else if (strcmp(key, "font_size") == 0)
-            ui_env_set_font_size(g_env, atoi(val));
-        else if (strcmp(key, "tool_count") == 0)
+        int font_size = project_json_get_int(root, "font_size", 0);
+        if (font_size > 0)
+            ui_env_set_font_size(g_env, font_size);
+    }
+
+    project_json_get_string(root, "folder_dir", g_folder.dir, sizeof g_folder.dir);
+    project_json_get_string(root, "project_path", project_path, sizeof project_path);
+
+    /* External Tools - the array is capped at EXT_TOOL_MAX rather than
+     * trusted, since this is a file on disk. */
+    {
+        const struct json_value* tools = json_find_member(root, "tools");
+        if (tools && tools->type == JSON_ARRAY)
         {
-            g_tools.count = atoi(val);
-            if (g_tools.count < 0) g_tools.count = 0;
-            if (g_tools.count > EXT_TOOL_MAX) g_tools.count = EXT_TOOL_MAX;
-        }
-        else if (strncmp(key, "tool", 4) == 0 && isdigit((unsigned char)key[4]))
-        {
-            /* "tool<N>_<field>" - N is bounds-checked against EXT_TOOL_MAX
-             * rather than trusted, since this is a file on disk. */
-            int idx = atoi(key + 4);
-            const char* field = strchr(key, '_');
-            if (field && idx >= 0 && idx < EXT_TOOL_MAX)
+            g_tools.count = 0;
+            for (const struct json_value* tool = tools->first_child;
+                 tool != NULL && g_tools.count < EXT_TOOL_MAX;
+                 tool = tool->next)
             {
-                field++;
-                ext_tool* t = &g_tools.items[idx];
-                if (strcmp(field, "title") == 0)
-                    snprintf(t->title, sizeof t->title, "%s", val);
-                else if (strcmp(field, "command") == 0)
-                    snprintf(t->command, sizeof t->command, "%s", val);
-                else if (strcmp(field, "args") == 0)
-                    snprintf(t->args, sizeof t->args, "%s", val);
-                else if (strcmp(field, "dir") == 0)
-                    snprintf(t->dir, sizeof t->dir, "%s", val);
+                if (tool->type != JSON_OBJECT)
+                    continue;
+
+                ext_tool* t = &g_tools.items[g_tools.count++];
+                project_json_get_string(tool, "title", t->title, sizeof t->title);
+                project_json_get_string(tool, "command", t->command, sizeof t->command);
+                project_json_get_string(tool, "args", t->args, sizeof t->args);
+                project_json_get_string(tool, "dir", t->dir, sizeof t->dir);
             }
         }
-        else if (strcmp(key, "folder_dir") == 0)
-        {
-            strncpy(g_folder.dir, val, sizeof g_folder.dir - 1);
-            g_folder.dir[sizeof g_folder.dir - 1] = 0;
-        }
-        else if (strcmp(key, "current_file") == 0)
-            snprintf(current_file, sizeof current_file, "%s", val);
-        else if (strcmp(key, "project_path") == 0)
-            snprintf(project_path, sizeof project_path, "%s", val);
-        else if (strcmp(key, "current_cursor") == 0)
-            { cursor = atoi(val); have_cursor = 1; }
-        else if (strcmp(key, "current_scroll") == 0)
-            { scroll = atoi(val); have_scroll = 1; }
-        else if (strcmp(key, "main_x") == 0)
-            { main_x = atoi(val); have_main_rect = 1; }
-        else if (strcmp(key, "main_y") == 0)
-            main_y = atoi(val);
-        else if (strcmp(key, "main_w") == 0)
-            main_w = atoi(val);
-        else if (strcmp(key, "main_h") == 0)
-            main_h = atoi(val);
-        else if (strcmp(key, "main_maximized") == 0)
-            main_maximized = atoi(val);
-        else if (strcmp(key, "folder_dock_w") == 0)
-            { folder_w = atoi(val); have_folder_w = 1; }
-        else if (strcmp(key, "folder_dock_side") == 0)
-            folder_side = (ui_dock_side)atoi(val);
-        else if (strcmp(key, "output_dock_side") == 0)
-            output_side = (ui_dock_side)atoi(val);
-        else if (strcmp(key, "output_dock_h") == 0)
-            { output_h = atoi(val); have_output_h = 1; }
     }
-    fclose(f);
+
+    {
+        const struct json_value* current = json_find_member(root, "current");
+        if (current && current->type == JSON_OBJECT)
+        {
+            project_json_get_string(current, "file", current_file, sizeof current_file);
+            if (json_find_member(current, "cursor"))
+                { cursor = project_json_get_int(current, "cursor", 0); have_cursor = 1; }
+            if (json_find_member(current, "scroll"))
+                { scroll = project_json_get_int(current, "scroll", 0); have_scroll = 1; }
+        }
+    }
+
+    {
+        const struct json_value* main_window = json_find_member(root, "main_window");
+        if (main_window && main_window->type == JSON_OBJECT)
+        {
+            main_x = project_json_get_int(main_window, "x", 0);
+            main_y = project_json_get_int(main_window, "y", 0);
+            main_w = project_json_get_int(main_window, "w", 0);
+            main_h = project_json_get_int(main_window, "h", 0);
+            main_maximized = project_json_get_bool(main_window, "maximized", 0);
+            have_main_rect = 1;
+        }
+    }
+
+    {
+        /* "size" has to actually be there before the panel is resized - a
+         * hand-edited file missing it would otherwise dock the panel at a
+         * width of zero, hiding it with no way back short of deleting the
+         * session file. */
+        const struct json_value* dock = json_find_member(root, "folder_dock");
+        if (dock && dock->type == JSON_OBJECT && json_find_member(dock, "size"))
+        {
+            folder_side = (ui_dock_side)project_json_get_int(dock, "side", (int)folder_side);
+            folder_w = project_json_get_int(dock, "size", 0);
+            have_folder_w = 1;
+        }
+
+        dock = json_find_member(root, "output_dock");
+        if (dock && dock->type == JSON_OBJECT && json_find_member(dock, "size"))
+        {
+            output_side = (ui_dock_side)project_json_get_int(dock, "side", (int)output_side);
+            output_h = project_json_get_int(dock, "size", 0);
+            have_output_h = 1;
+        }
+    }
+
+    /* Everything above is copied out into globals or locals, so the document
+     * itself is done with - nothing reads it after startup. */
+    session_json_close();
 
     /* Folder panel: re-point it at the saved directory - folder_window_
      * refresh()'s populate_listbox_from_dir silently no-ops on a bad path,
@@ -12203,15 +12549,6 @@ static int load_session(void)
      * as the Folder panel's own restore just above. */
     if (project_path[0])
         project_open_file(project_path);
-
-    /* Compiler Options dialog: g_compile.options/g_compile.target above
-     * already drive do_compile() directly; only the "Options" text field
-     * needs an explicit push here, since (unlike the Target <select>) it
-     * isn't re-synced every time the dialog opens (see EVT_COMPILE_OPTIONS)
-     * - it just keeps whatever was last typed into it for the rest of the
-     * run, so it has to be seeded once, here, at startup. */
-    if (g_copts.input)
-        ui_set_value(g_copts.input, g_compile.options);
 
     if (!current_file[0])
         return 0;
@@ -12664,6 +13001,7 @@ void app_init(ui_env* env)
     add_select_item(theme_select, EVT_ENV_THEME_DARK, "Dark");
     add_select_item(theme_select, EVT_ENV_THEME_WHITE, "White");
     add_select_item(theme_select, EVT_ENV_THEME_NEBULA, "Nebula");
+    add_select_item(theme_select, EVT_ENV_THEME_XCODE_DARK, "Xcode Dark");
     ui_select_set_selected(theme_select, g_envdlg.theme_index);
     g_envdlg.theme_select = theme_select;
 
@@ -12892,17 +13230,20 @@ void app_init(ui_env* env)
     ui_append_child(copts_modal, copts_window);
     g_copts.window = copts_window;
     add_text(copts_window, 18, 7, "Target", theme->label_fg, theme->modal_bg);
-    g_copts.target = add_select(copts_window, 29, 7, 20);
-    add_select_item(g_copts.target, EVT_COPTS_TARGET + 0, "X86 MSVC");
-    add_select_item(g_copts.target, EVT_COPTS_TARGET + 1, "X64 MSVC");
-    add_select_item(g_copts.target, EVT_COPTS_TARGET + 2, "X64 GCC");
-    add_select_item(g_copts.target, EVT_COPTS_TARGET + 3, "macOS ARM64");
+    g_copts.target = add_select(copts_window, 29, 7, 25);
+    char default_label[64];
+    snprintf(default_label, sizeof default_label, "Default (%s)", get_platform(TARGET_DEFAULT)->name);
+    add_select_item(g_copts.target, EVT_COPTS_TARGET + 0, default_label);
+    add_select_item(g_copts.target, EVT_COPTS_TARGET + 1, "X86 MSVC");
+    add_select_item(g_copts.target, EVT_COPTS_TARGET + 2, "X64 MSVC");
+    add_select_item(g_copts.target, EVT_COPTS_TARGET + 3, "X64 GCC");
+    add_select_item(g_copts.target, EVT_COPTS_TARGET + 4, "macOS ARM64");
     ui_select_set_selected(g_copts.target, target_slug_to_index(g_compile.target));
 
     /* Style (-style=<name>) - see g_style_slugs' own comment for why only
      * these four are offered. */
     add_text(copts_window, 18, 9, "Style", theme->label_fg, theme->modal_bg);
-    g_copts.style = add_select(copts_window, 29, 9, 20);
+    g_copts.style = add_select(copts_window, 29, 9, 25);
     add_select_item(g_copts.style, EVT_COPTS_STYLE + 0, "disabled");
     add_select_item(g_copts.style, EVT_COPTS_STYLE + 1, "cake");
     add_select_item(g_copts.style, EVT_COPTS_STYLE + 2, "gnu");
@@ -12911,7 +13252,7 @@ void app_init(ui_env* env)
 
     /* Output Format (-fdiagnostics-format=<name>) - see g_diagformat_slugs. */
     add_text(copts_window, 18, 11, "Diagnostic", theme->label_fg, theme->modal_bg);
-    g_copts.diagformat = add_select(copts_window, 29, 11, 20);
+    g_copts.diagformat = add_select(copts_window, 29, 11, 25);
     add_select_item(g_copts.diagformat, EVT_COPTS_DIAGFORMAT + 0, "cake ide");
     add_select_item(g_copts.diagformat, EVT_COPTS_DIAGFORMAT + 1, "gcc");
     add_select_item(g_copts.diagformat, EVT_COPTS_DIAGFORMAT + 2, "msvc");
@@ -13123,7 +13464,7 @@ void app_init(ui_env* env)
      * one instead of duplicating that picker here. */
     ui_node* includes_modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, includes_modal);
-    int inc_x = 15, inc_y = 5, inc_w = 60, inc_h = 16;
+    int inc_x = 12, inc_y = 5, inc_w = 66, inc_h = 16;
     ui_node* includes_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(includes_window, inc_x, inc_y, inc_w, inc_h);
     ui_set_label(includes_window, " Include Directories ");
@@ -13136,15 +13477,16 @@ void app_init(ui_env* env)
 
     g_project.includes_listbox = ui_create_element(UI_TAG_LISTBOX);
     ui_set_id(g_project.includes_listbox, EVT_PROJECT_INCLUDES_LISTBOX);
-    ui_set_rect(g_project.includes_listbox, inc_x + 2, inc_y + 3, inc_w - 18, inc_h - 5);
+    ui_set_rect(g_project.includes_listbox, inc_x + 2, inc_y + 3, inc_w - 20, inc_h - 5);
     ui_append_child(includes_window, g_project.includes_listbox);
 
-    int inc_bx = inc_x + inc_w - 14;  /* leaves a margin after the buttons,
-                                       * before the window's own right
-                                       * border */
+    const int inc_bw = 13;            /* fits the widest label, " Move Down " */
+    int inc_bx = inc_x + inc_w - inc_bw - 3;  /* leaves a margin after the
+                                               * buttons, before the window's
+                                               * own right border */
     ui_node* includes_add = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(includes_add, EVT_PROJECT_INCLUDES_ADD);
-    ui_set_rect(includes_add, inc_bx, inc_y + 3, 11, 1);  /* aligned with the
+    ui_set_rect(includes_add, inc_bx, inc_y + 3, inc_bw, 1);  /* aligned with the
                                                            * listbox's own top
                                                            * edge, below the
                                                            * "Directories" label */
@@ -13152,18 +13494,32 @@ void app_init(ui_env* env)
     ui_append_child(includes_window, includes_add);
     ui_node* includes_remove = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(includes_remove, EVT_PROJECT_INCLUDES_REMOVE);
-    ui_set_rect(includes_remove, inc_bx, inc_y + 5, 11, 1);  /* 2-row gaps
+    ui_set_rect(includes_remove, inc_bx, inc_y + 5, inc_bw, 1);  /* 2-row gaps
                                                               * between buttons -
                                                               * keeps them close
                                                               * to each other */
     ui_set_label(includes_remove, " Remove ");
     ui_append_child(includes_window, includes_remove);
+    /* Include directories are searched in order, so the list is ordered
+     * rather than a set - these two reorder the selected row. */
+    ui_node* includes_up = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(includes_up, EVT_PROJECT_INCLUDES_UP);
+    ui_set_rect(includes_up, inc_bx, inc_y + 7, inc_bw, 1);
+    ui_set_label(includes_up, " Move Up ");
+    ui_append_child(includes_window, includes_up);
+    ui_node* includes_down = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(includes_down, EVT_PROJECT_INCLUDES_DOWN);
+    ui_set_rect(includes_down, inc_bx, inc_y + 9, inc_bw, 1);
+    ui_set_label(includes_down, " Move Down ");
+    ui_append_child(includes_window, includes_down);
+
     ui_node* includes_close = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(includes_close, EVT_PROJECT_INCLUDES_CLOSE);
-    ui_set_rect(includes_close, inc_bx, inc_y + 7, 11, 1);
+    ui_set_rect(includes_close, inc_bx, inc_y + 11, inc_bw, 1);
     ui_set_label(includes_close, " Close ");
     ui_append_child(includes_window, includes_close);
     g_project.includes_modal = includes_modal;
+    g_project.includes_window = includes_window;
 
     /* --- Find and Replace panel (Tools > "Find and Replace...") --- */
     ui_node* fr_wrapper = ui_create_element(UI_TAG_MODAL);
@@ -13199,7 +13555,24 @@ void app_init(ui_env* env)
     ui_screen_show_window(g_screen, g_folder.window);
     ui_screen_show_window(g_screen, g_output_window);
 
-    /* Restore last session's compiler options/target, Folder panel
+    /* Global compiler settings (cake.json, beside the executable) - loaded
+     * before the session so that a project reopened by load_session() below
+     * starts from these, exactly as project_reset_data() intends. */
+    global_settings_load();
+
+    /* Compiler Options dialog: g_compile.options/g_compile.target loaded
+     * just above already drive do_compile() directly; only the "Options"
+     * text field needs an explicit push, since (unlike the Target <select>)
+     * it isn't re-synced every time the dialog opens (see
+     * EVT_COMPILE_OPTIONS) - it just keeps whatever was last typed into it
+     * for the rest of the run, so it has to be seeded once, at startup.
+     * Seeded here rather than in load_session(), which returns early when
+     * there is no session file - cake.json can carry options with no session
+     * alongside it. */
+    if (g_copts.input)
+        ui_set_value(g_copts.input, g_compile.options);
+
+    /* Restore last session's Folder panel
      * directory, dock sizes, and active document (path/caret/scroll/
      * layout) - see load_session(). When it successfully reopens a real
      * file, the fallback demo window below is skipped entirely; a first

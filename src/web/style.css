@@ -87,3 +87,19 @@ article {
     max-width: 40em;
     margin: auto;
 }
+
+table {
+    border-collapse: collapse;
+    margin: 1em 0;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 4px 8px;
+    text-align: left;
+    vertical-align: top;
+}
+
+th {
+    background: #f6f8fa;
+}

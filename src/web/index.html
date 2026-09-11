@@ -189,10 +189,10 @@
 <a href="#toc_6">GCC on Linux build instructions</a>
 </li>
 <li>
-<a href="#toc_7">Clang on Linux/Windows/MacOS build instructions</a>
+<a href="#toc_7">Clang on Linux/Windows/macOS build instructions</a>
 </li>
 <li>
-<a href="#toc_8">Running tests</a>
+<a href="#toc_8">Build options</a>
 </li>
 <li>
 <a href="#toc_9">Emscripten build instructions (web)</a>
@@ -229,7 +229,7 @@
 <a href="#toc_18">License</a>
 </li>
 </ul>
-<p>The C Programming language 1978</p>
+<p>Kernighan &amp; Ritchie, <em>The C Programming Language</em>, 1978:</p>
 
 <blockquote>
 <p><em>&quot;C is a general-purpose programming language which features economy of expression, modern control flow and data structures, and a rich set of operators. C is not a &quot;very high level&quot; language, nor a &quot;big&quot; one, and is not specialized to any particular area of application. But its absence of restrictions and its generality make it more convenient and effective for many tasks than supposedly more powerful languages.&quot;</em></p>
@@ -237,7 +237,7 @@
 <p><em>&quot;In our experience, C has proven to be a pleasant, expressive, and versatile language for a wide variety of programs. It is easy to learn, and it wears well as one&#39;s experience with it grows&quot;</em></p>
 </blockquote>
 
-<p>The C Programming language Second Edition 1988</p>
+<p>Kernighan &amp; Ritchie, <em>The C Programming Language</em>, Second Edition, 1988:</p>
 
 <blockquote>
 <p><em>&quot;As we said in the preface to the first edition, C &quot;wears well as one&#39;s experience with it grows.&quot; With a decade more experience, we still feel that way.&quot;</em></p>
@@ -246,6 +246,11 @@
 <p><em>C is everywhere. From operating systems to embedded devices, from
 high-performance apps to essential technology, C powers the technology we rely
 on every day. Timeless, efficient, and universal.</em></p>
+
+<p><em>The code that AI now writes runs best where it can be read, verified
+and trusted. A small language with no hidden machinery. C gives the machine
+speed, and the human control and platform independence.
+Cake adds the checks that make that code safer.</em></p>
 
 <h1 id="toc_0">About</h1>
 
@@ -259,7 +264,7 @@ functions and defer statements.</p>
 <p>The current backend generates C89-compatible code, which can be pipelined with
 existing or old compilers to produce executables.</p>
 
-<p><img src="pipeline.svg" alt="Alt text"></p>
+<p><img src="pipeline.svg" alt="Cake pipeline: C23 source to C89 output to an existing compiler"></p>
 
 <p>Cake aims to enhance C&#39;s safety by providing high-quality <a href="diagnostics.html">warning
 messages</a> and advanced flow analysis, including <a href="ownership.html">object
@@ -267,9 +272,9 @@ lifetime</a> checks.</p>
 
 <h1 id="toc_1">Web Playground</h1>
 
-<p>This is the best way to try.</p>
+<p>This is the best way to try it.</p>
 
-<p><a href="http://cakecc.org/playground.html">http://cakecc.org/playground.html</a></p>
+<p><a href="https://cakecc.org/playground.html">https://cakecc.org/playground.html</a></p>
 
 <h1 id="toc_2">Use cases</h1>
 
@@ -298,7 +303,7 @@ automatic documentation and more.</p>
 <li>C23 syntax analysis</li>
 <li>C23 semantic analysis</li>
 <li>Static <a href="ownership.html">object lifetime</a> checks (Extension)</li>
-<li>Sarif output</li>
+<li>SARIF output</li>
 <li>Cross compiling</li>
 <li>C89 backend</li>
 <li>Style checker</li>
@@ -322,14 +327,14 @@ automatic documentation and more.</p>
 
 <h2 id="toc_6">GCC on Linux build instructions</h2>
 
-<p>Got to the <em>src</em> directory and type:</p>
+<p>Go to the <em>src</em> directory and type:</p>
 
 <pre><code>gcc build.c -o build &amp;&amp; ./build
 </code></pre>
 
-<h2 id="toc_7">Clang on Linux/Windows/MacOS build instructions</h2>
+<h2 id="toc_7">Clang on Linux/Windows/macOS build instructions</h2>
 
-<p>Got to the <em>src</em> directory and type:</p>
+<p>Go to the <em>src</em> directory and type:</p>
 
 <pre><code>clang build.c -o build &amp;&amp; ./build
 </code></pre>
@@ -347,27 +352,59 @@ fatal error: X11/Xft/Xft.h: No such file or directory</p>
 
 <p>These headers are used by the IDE.</p>
 
-<h2 id="toc_8">Running tests</h2>
+<h2 id="toc_8">Build options</h2>
 
-<p>Passing <code>test</code> argument on any platform will run a large set of tests.</p>
+<p><code>build</code> accepts one optional argument, on any platform:</p>
 
-<pre><code>gcc  build.c -o build &amp;&amp; ./build test
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Effect</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td><em>(none)</em></td>
+<td>full build: tools, docs, amalgamated <code>lib.c</code>, <code>cake</code> and the IDE</td>
+</tr>
+<tr>
+<td><code>fast</code></td>
+<td>incremental build of <code>cake</code> and the IDE only — skips tools, docs, inner tests and the amalgamation</td>
+</tr>
+<tr>
+<td><code>full</code></td>
+<td>build everything with <code>-DTEST</code>, but do not run the test suite</td>
+</tr>
+<tr>
+<td><code>test</code></td>
+<td>same as <code>full</code>, then run the test suite</td>
+</tr>
+<tr>
+<td><code>debug</code></td>
+<td>build without optimizations and without <code>-DNDEBUG</code></td>
+</tr>
+</tbody>
+</table>
+
+<p>For example, to run the tests:</p>
+
+<pre><code>gcc build.c -o build &amp;&amp; ./build test
 </code></pre>
 
 <h2 id="toc_9">Emscripten build instructions (web)</h2>
 
-<p>Emscripten <a href="https://emscripten.org/">https://emscripten.org/</a>  is required. </p>
+<p><a href="https://emscripten.org/">Emscripten</a> is required.</p>
 
-<p>First do the normal build. </p>
+<p>First do the normal build: besides <code>cake</code>, it generates <code>lib.c</code>, the amalgamated version of the core library, which is what the web build compiles.</p>
 
-<p>The normal build also generates a file <code>lib.c</code> that is the amalgamated  version of the &quot;core lib&quot;.</p>
+<p>Then, in the <code>src</code> directory, type:</p>
 
-<p>Then at <code>./src</code> dir type:</p>
-
-<pre><code>call emcc -sSTACK_SIZE=8388608 -DMOCKFILES -Wno-multichar &quot;lib.c&quot; -o &quot;Web\cakejs.js&quot; -s WASM=0 -s EXPORTED_FUNCTIONS=&quot;[&#39;_CompileText&#39;]&quot; -s EXTRA_EXPORTED_RUNTIME_METHODS=&quot;[&#39;ccall&#39;, &#39;cwrap&#39;]&quot;
+<pre><code>emcc -sSTACK_SIZE=8388608 -DMOCKFILES -Wno-multichar lib.c -o web/cakejs.js -s WASM=0 -s EXPORTED_FUNCTIONS=&quot;[&#39;_CompileText&#39;]&quot; -s EXTRA_EXPORTED_RUNTIME_METHODS=&quot;[&#39;ccall&#39;, &#39;cwrap&#39;]&quot;
 </code></pre>
 
-<p>This will generate the <em>\src\Web\cake.js</em></p>
+<p>This generates <code>src/web/cakejs.js</code>, used by <code>src/web/playground.html</code>.</p>
 
 <h1 id="toc_10">Installation (optional)</h1>
 
@@ -410,14 +447,10 @@ the system <code>PATH</code> so the <code>cake</code> command can be executed fr
 
 <h1 id="toc_13">Running cake</h1>
 
-<p>Samples</p>
-
 <pre><code>cake source.c
 </code></pre>
 
-<p>this will output <em>./platform short name/source.c</em></p>
-
-<p>See <a href="manual.html">Manual</a></p>
+<p>This writes the C89 output to <code>./&lt;target&gt;/source.c</code>, where <code>&lt;target&gt;</code> is the platform Cake was built for — for example <code>./macos_arm64/source.c</code> or <code>./x64_msvc/source.c</code>. <code>-target=&lt;name&gt;</code> selects another platform; see the <a href="manual.html">Manual</a> for the full option list.</p>
 
 <h1 id="toc_14">IDE</h1>
 
@@ -426,17 +459,29 @@ part of the Cake project and will be maintained alongside the rest of the
 codebase. Over time, the IDE code will be reviewed, refined, and gradually
 humanized as the project evolves.</p>
 
-<p>The IDE works in macOS, Windows and Linux and it is very useful to visualize and
-remove warnings.</p>
+<p>The IDE works in macOS, Windows and Linux. Its purpose is to make Cake easier
+to use: open a file or a project, press Build, and the whole pipeline — Cake&#39;s
+C89 output, the external compiler, the debugger — is set up and driven from one
+place, with no command lines to remember. It is very useful to visualize and
+remove warnings: Cake&#39;s diagnostics show up in the Output window and jump
+straight to the offending line.</p>
 
-<p><img src="cakeide.png" alt="Alt text"></p>
+<p>It is also how Cake itself is developed and debugged. The <code>src/cakeprj.cakeproj</code>
+project builds the compiler with the same process any other project uses: Cake
+translates the sources to C89, an External Tool (gcc, clang or cl) links the
+generated code, and the built-in debugger (lldb / cdb) runs the result. Opening
+that project is the quickest way to step through the compiler while it compiles
+a sample.</p>
+
+<p>See <a href="idemanual.html">IDE Manual</a></p>
+
+<p><img src="cakeide.png" alt="Cake IDE"></p>
 
 <h1 id="toc_15">Road map</h1>
 
 <ul>
-<li>function literal and local functions implementation</li>
-<li>Making it usable as C89 backend and fixes</li>
-<li>Flow3 is landing!</li>
+<li>Making it usable as a C89 backend, and fixes</li>
+<li>Reaching a stable release</li>
 </ul>
 
 <h1 id="toc_16">Participating</h1>
@@ -464,5 +509,5 @@ evolution.</p>
 
 <h1 id="toc_18">License</h1>
 
-<p>Cake uses the same license of GCC. GPLv3</p>
+<p>Cake uses the same license as GCC: <a href="LICENSE">GPLv3</a>.</p>
 </article></body></html>

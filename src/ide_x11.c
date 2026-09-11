@@ -277,6 +277,111 @@ void ui_fill_rect_px(int px, int py, int pw, int ph, uint32_t bg)
                 pw / g_cell_w, ph / g_cell_h, bg, bg, 0);
 }
 
+/* Glyphs the UI draws itself instead of asking the font for them - same as
+ * ide_cocoa.c's draw_native_glyph, for the same reason: DejaVu Sans Mono
+ * (the first choice above, and Menlo's ancestor) has box-drawing glyphs
+ * shorter than ascent+descent, so every border showed a seam between rows,
+ * and its corners sit off-center. Drawing these as core-X rects/polygons on
+ * the cell grid makes borders continuous in any font, at any size; the
+ * arrows, close square and bullet are drawn too so the chrome's symbols
+ * share one weight. Returns 0 for anything else, and the caller falls
+ * through to the font. g_gc's foreground must already be `fg`. */
+static int draw_native_glyph(int px, int py, int cell_w, int cell_h, uint32_t cp)
+{
+    int handled = 1;
+    int t = cell_w / 7;              /* line weight: 1px per ~7px of cell width */
+    if (t < 1) { t = 1; }
+    int d = t + 1;                   /* half the gap between double lines */
+    int cx = px + cell_w / 2;        /* left edge of the vertical stroke */
+    int cy = py + cell_h / 2;        /* top edge of the horizontal stroke */
+    int x_right = px + cell_w;
+    int y_bottom = py + cell_h;
+
+    #define FILL(x0, y0, x1, y1) XFillRectangle(g_dpy, g_pixmap, g_gc, (x0), (y0), \
+                                                (unsigned)((x1) - (x0)), (unsigned)((y1) - (y0)))
+    #define HLINE(x0, x1, y) FILL((x0), (y), (x1), (y) + t)
+    #define VLINE(x, y0, y1) FILL((x), (y0), (x) + t, (y1))
+
+    switch (cp) {
+    /* single box */
+    case 0x2500: HLINE(px, x_right, cy); break;                                 /* ─ */
+    case 0x2502: VLINE(cx, py, y_bottom); break;                                /* │ */
+    case 0x250C: HLINE(cx, x_right, cy); VLINE(cx, cy, y_bottom); break;        /* ┌ */
+    case 0x2510: HLINE(px, cx + t, cy); VLINE(cx, cy, y_bottom); break;         /* ┐ */
+    case 0x2514: HLINE(cx, x_right, cy); VLINE(cx, py, cy + t); break;          /* └ */
+    case 0x2518: HLINE(px, cx + t, cy); VLINE(cx, py, cy + t); break;           /* ┘ */
+    /* double box: outer line at -d, inner line at +d from the single line */
+    case 0x2550: HLINE(px, x_right, cy - d); HLINE(px, x_right, cy + d); break; /* ═ */
+    case 0x2551: VLINE(cx - d, py, y_bottom); VLINE(cx + d, py, y_bottom); break; /* ║ */
+    case 0x2554:                                                                /* ╔ */
+        HLINE(cx - d, x_right, cy - d); VLINE(cx - d, cy - d, y_bottom);
+        HLINE(cx + d, x_right, cy + d); VLINE(cx + d, cy + d, y_bottom);
+        break;
+    case 0x2557:                                                                /* ╗ */
+        HLINE(px, cx + d + t, cy - d); VLINE(cx + d, cy - d, y_bottom);
+        HLINE(px, cx - d + t, cy + d); VLINE(cx - d, cy + d, y_bottom);
+        break;
+    case 0x255A:                                                                /* ╚ */
+        VLINE(cx - d, py, cy + d + t); HLINE(cx - d, x_right, cy + d);
+        VLINE(cx + d, py, cy - d + t); HLINE(cx + d, x_right, cy - d);
+        break;
+    case 0x255D:                                                                /* ╝ */
+        VLINE(cx + d, py, cy + d + t); HLINE(px, cx + d + t, cy + d);
+        VLINE(cx - d, py, cy - d + t); HLINE(px, cx - d + t, cy - d);
+        break;
+    /* block elements */
+    case 0x2580: FILL(px, py, x_right, py + cell_h / 2); break;                 /* ▀ */
+    case 0x2584: FILL(px, cy, x_right, y_bottom); break;                        /* ▄ */
+    case 0x2588: FILL(px, py, x_right, y_bottom); break;                        /* █ */
+    /* symbols: sized off cell_w so they stay square-ish and clear of the
+     * neighbours */
+    case 0x25A0: {                                                              /* ■ */
+        int side = cell_w - 2;
+        FILL(px + 1, cy - side / 2, px + 1 + side, cy - side / 2 + side);
+        break;
+    }
+    case 0x2022: {                                                              /* • */
+        int diam = cell_w / 2 + 1;
+        XFillArc(g_dpy, g_pixmap, g_gc, px + (cell_w - diam) / 2, cy + t / 2 - diam / 2,
+                 (unsigned)diam, (unsigned)diam, 0, 360 * 64);
+        break;
+    }
+    case 0x25BA: case 0x2190: case 0x2191: case 0x2193: {                       /* ► ← ↑ ↓ */
+        int half = (cell_w - 2) / 2;          /* triangle half-extent */
+        int mx = px + cell_w / 2;             /* cell centre */
+        int my = cy + t / 2;
+        XPoint tri[3];
+        if (cp == 0x25BA) {
+            tri[0].x = (short)(mx - half); tri[0].y = (short)(my - half);
+            tri[1].x = (short)(mx + half); tri[1].y = (short)my;
+            tri[2].x = (short)(mx - half); tri[2].y = (short)(my + half);
+        } else if (cp == 0x2190) {
+            tri[0].x = (short)(mx + half); tri[0].y = (short)(my - half);
+            tri[1].x = (short)(mx - half); tri[1].y = (short)my;
+            tri[2].x = (short)(mx + half); tri[2].y = (short)(my + half);
+        } else if (cp == 0x2191) {
+            tri[0].x = (short)(mx - half); tri[0].y = (short)(my + half);
+            tri[1].x = (short)mx; tri[1].y = (short)(my - half);
+            tri[2].x = (short)(mx + half); tri[2].y = (short)(my + half);
+        } else {
+            tri[0].x = (short)(mx - half); tri[0].y = (short)(my - half);
+            tri[1].x = (short)mx; tri[1].y = (short)(my + half);
+            tri[2].x = (short)(mx + half); tri[2].y = (short)(my - half);
+        }
+        XFillPolygon(g_dpy, g_pixmap, g_gc, tri, 3, Convex, CoordModeOrigin);
+        break;
+    }
+    default:
+        handled = 0;
+        break;
+    }
+    #undef FILL
+    #undef HLINE
+    #undef VLINE
+
+    return handled;
+}
+
 /* One glyph in the given font pair, filling and clipping to the cell rect at
  * an absolute pixel position. The body of ui_draw_char, with the fonts and
  * the cell geometry as parameters so the small-font path (ui_draw_char_px)
@@ -292,6 +397,10 @@ static void draw_glyph_px(int px, int py, int cell_w, int cell_h,
         return;
 
     uint32_t cp = ch ? ch : ' ';
+    XSetForeground(g_dpy, g_gc, rgb_to_pixel(fg));
+    if (draw_native_glyph(px, py, cell_w, cell_h, cp))
+        return;
+
     unsigned char utf8[4];
     int len = utf8_encode_cp(cp, utf8);
 

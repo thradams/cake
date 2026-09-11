@@ -2255,24 +2255,50 @@ void object_print_value(enum target target, struct osstream* ss, const struct ob
         ss_fprintf(ss, "%llu", a->value.host_u_long_long);
         break;
 
+    /*
+      The minimum of a signed type has no literal of its own: -2147483648 is
+      -(2147483648), and the positive part overflows the type. Emit it the way
+      <limits.h> does, (-MAX - 1), so the literal keeps the intended type.
+    */
     case TYPE_SIGNED_INT:
-        ss_fprintf(ss, "%lld", a->value.host_long_long);
+        if (a->value.host_long_long == target_signed_min(target, TYPE_SIGNED_INT))
+        {
+            ss_fprintf(ss, "(-%lld - 1)", target_signed_max(target, TYPE_SIGNED_INT));
+        }
+        else
+        {
+            ss_fprintf(ss, "%lld", a->value.host_long_long);
+        }
         break;
 
     case TYPE_SIGNED_LONG:
-        ss_fprintf(ss, "%lldL", a->value.host_long_long);
+        if (a->value.host_long_long == target_signed_min(target, TYPE_SIGNED_LONG))
+        {
+            ss_fprintf(ss, "(-%lldL - 1)", target_signed_max(target, TYPE_SIGNED_LONG));
+        }
+        else
+        {
+            ss_fprintf(ss, "%lldL", a->value.host_long_long);
+        }
         break;
 
     case TYPE_UNSIGNED_LONG:
-        ss_fprintf(ss, "%lluL", a->value.host_u_long_long);
+        ss_fprintf(ss, "%lluUL", a->value.host_u_long_long);
         break;
 
     case TYPE_UNSIGNED_INT:
-        ss_fprintf(ss, "%llu", a->value.host_u_long_long);
+        ss_fprintf(ss, "%lluU", a->value.host_u_long_long);
         break;
 
     case TYPE_SIGNED_LONG_LONG:
-        ss_fprintf(ss, "%lldLL", a->value.host_long_long);
+        if (a->value.host_long_long == target_signed_min(target, TYPE_SIGNED_LONG_LONG))
+        {
+            ss_fprintf(ss, "(-%lldLL - 1)", target_signed_max(target, TYPE_SIGNED_LONG_LONG));
+        }
+        else
+        {
+            ss_fprintf(ss, "%lldLL", a->value.host_long_long);
+        }
         break;
 
     case TYPE_UNSIGNED_LONG_LONG:

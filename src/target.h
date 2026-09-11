@@ -42,6 +42,19 @@ enum target
     TARGET_LCCU16,
     TARGET_CATALINA,
     TARGET_APPLE_ARM64,
+
+    /* alias: the platform cake itself was built for */
+#if defined(_WIN32) && defined(_WIN64)
+    TARGET_DEFAULT = TARGET_X64_MSVC
+#elif defined(_WIN32) && !defined(_WIN64)
+    TARGET_DEFAULT = TARGET_X86_MSVC
+#elif !defined(_WIN32) && (defined(__x86_64__) || defined(_M_X64) || defined(__EMSCRIPTEN__))
+    TARGET_DEFAULT = TARGET_X86_X64_GCC
+#elif defined(__APPLE__) && (defined(__aarch64__) || defined(__arm64__))
+    TARGET_DEFAULT = TARGET_APPLE_ARM64
+#else
+#error "unknown host platform"
+#endif
 };
 
 #define NUMBER_OF_TARGETS  7
@@ -112,25 +125,3 @@ long long target_signed_max(enum  target target, enum object_type type);
 long long target_signed_min(enum  target target, enum object_type type);
 
 unsigned long long target_unsigned_max(enum  target target, enum object_type type);
-
-
-#if defined(_WIN32) && defined(_WIN64)
-#define CAKE_COMPILE_TIME_SELECTED_TARGET TARGET_X64_MSVC
-#endif
-
-#if defined(_WIN32) && !defined(_WIN64)
-#define CAKE_COMPILE_TIME_SELECTED_TARGET TARGET_X86_MSVC
-#endif
-
-#if !defined(_WIN32) && (defined(__x86_64__) || defined(_M_X64))
-#define CAKE_COMPILE_TIME_SELECTED_TARGET TARGET_X86_X64_GCC
-#endif
-
-#ifdef __EMSCRIPTEN__
-#define CAKE_COMPILE_TIME_SELECTED_TARGET TARGET_X86_X64_GCC
-#endif
-
-#if defined(__APPLE__) && (defined(__aarch64__) || defined(__arm64__))
-#define CAKE_COMPILE_TIME_SELECTED_TARGET TARGET_APPLE_ARM64
-#endif
-

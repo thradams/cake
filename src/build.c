@@ -24,6 +24,7 @@
   *---------------------------------------------------------------------------*/
 
 #define CAKE_LIB_SOURCE_FILES \
+    " json.c "                \
     " token.c "               \
     " fp_to_string.c "        \
     " hashmap.c "             \
@@ -392,12 +393,12 @@ static void generate_doc(const char* mdfilename, const char* outfile)
     fclose(f);
 
     snprintf(cmd, sizeof cmd,
-             RUN EXE("hoedown") " --html-toc --toc-level 3 --autolink --fenced-code %s >> %s",
+             RUN EXE("hoedown") " --html-toc --toc-level 3 --tables --autolink --fenced-code %s >> %s",
              mdfilename, outfile);
     execute_cmd(cmd);
 
     snprintf(cmd, sizeof cmd,
-             RUN EXE("hoedown") " --toc-level 3 --autolink --fenced-code %s >> %s",
+             RUN EXE("hoedown") " --toc-level 3 --tables --autolink --fenced-code %s >> %s",
              mdfilename, outfile);
     execute_cmd(cmd);
 
@@ -437,6 +438,7 @@ static void build_docs(void)
     print_header("Build docs");
 
     generate_doc("../manual.md", "./web/manual.html");
+    generate_doc("../idemanual.md", "./web/idemanual.html");
     generate_doc("../README.md", "./web/index.html");
     generate_doc("../diagnostics.md", "./web/diagnostics.html");
     generate_doc("../flow3.md", "./web/flow3.html");

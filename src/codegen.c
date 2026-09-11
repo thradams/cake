@@ -329,6 +329,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx, stru
 
 static void codegen_emit_member_assignments_from_constexpr(struct codegen_ctx* ctx, struct osstream* oss,
                                                            const char* dest_prefix, const struct object* dest, const struct object* source, bool* first);
+static bool codegen_expr_takes_postfix_suffix(const struct expression* p_expression);
 
 static void d_print_type_core(struct codegen_ctx* ctx, struct osstream* ss, const struct type* p_type0, const char* _Opt name_opt);
 static void d_print_type(struct codegen_ctx* ctx,
@@ -2015,10 +2016,26 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                 if (type_is_struct_or_union(&p_expression->left->type) &&
                 object_has_all_members_constants(&p_expression->right->object))
                 {
+                    /* The destination is turned into text here and each
+                       ".member"/"[i]" is appended to it below, so it has to be
+                       parenthesized unless it can already take such a suffix -
+                       otherwise `*p = c` emits "*p.m", which reparses as
+                       "*(p.m)". See codegen_expr_takes_postfix_suffix(). */
                     struct osstream dest_prefix = { 0 };
+                    const bool needs_parenthesis =
+                        !codegen_expr_takes_postfix_suffix(p_expression->left);
+
+                    if (needs_parenthesis)
+                        ss_fprintf(&dest_prefix, "(");
+
                     codegen_visit_expression(ctx, &dest_prefix, p_expression->left);
+
+                    if (needs_parenthesis)
+                        ss_fprintf(&dest_prefix, ")");
+
                     if (dest_prefix.c_str == NULL) throw;
-               
+
+
                     ss_fprintf(oss, "(");
                     bool first = true;
                     codegen_emit_member_assignments_from_constexpr(ctx, oss,
@@ -4222,10 +4239,38 @@ static void assign_each_member_from_constexpr(
     }
 }
 
+/* Whether the emitted text of `p_expression` can carry a ".member" or
+   "[index]" suffix appended directly to it.
+
+   codegen_emit_member_assignments_from_constexpr() builds each destination by
+   string concatenation, and postfix `.`/`[]` bind tighter than every prefix
+   operator - so "*p" + ".m" reparses as "*(p.m)". Anything that is not
+   already a primary or postfix expression has to be parenthesized first. */
+static bool codegen_expr_takes_postfix_suffix(const struct expression* p_expression)
+{
+    switch (p_expression->expression_type)
+    {
+        case EXPR_PRIMARY_DECLARATOR:
+        case EXPR_PRIMARY_ENUMERATOR:
+        case EXPR_PRIMARY_PARENTHESIS:
+        case EXPR_PRIMARY_GENERIC:
+        case EXPR_PRIMARY_STATEMENT_EXPRESSION:
+        case EXPR_POSTFIX_FUNCTION_CALL:
+        case EXPR_POSTFIX_ARRAY:
+        case EXPR_POSTFIX_DOT:
+        case EXPR_POSTFIX_ARROW:
+        case EXPR_POSTFIX_COMPOUND_LITERAL:
+            return true;
+        default:
+            break;
+    }
+    return false;
+}
+
 static void codegen_emit_member_assignments_from_constexpr(struct codegen_ctx* ctx, struct osstream* oss,
                                                            const char* dest_prefix, const struct object* dest, const struct object* source, bool* first)
 {
-    try 
+    try
     {
         if (object_is_reference(dest))
             dest = object_get_referenced(dest);

@@ -4,13 +4,13 @@
 */
 
 #pragma once
+
 #include <stdbool.h>
 #include "ownership.h"
 #include "options.h" /*enum diagnostic_ouput_format*/
 
 enum token_type
-{
-    /*When changing here we need also change in tokenizer.c::get_token_name*/
+{ 
     TK_NONE = 0,
     TK_NEWLINE = '\n',
     TK_WHITE_SPACE = ' ',
@@ -232,7 +232,6 @@ enum token_type
     TK_KEYWORD_IS_FLOATING_POINT,
     TK_KEYWORD_IS_INTEGRAL,
     
-
 };
 
 enum token_flags
@@ -275,10 +274,6 @@ struct token
     enum token_flags flags;
 
     /*points to the token with file name or macro*/
-    /* _Opt: a TK_PLACEMARKER built from a zeroed allocation (tokenizer.c, two
-       sites) has no origin token. codegen.c already guarded this deref, which
-       is the evidence null occurs in practice; the other readers did not, so a
-       placemarker reaching a diagnostic would have crashed. */
     const struct token* _Opt token_origin;
 
     struct token* _Owner _Opt next;

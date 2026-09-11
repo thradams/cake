@@ -121,7 +121,7 @@ static const InstallEntry INSTALL_ENTRIES[] = {
     { CKC_NAME,             "",        0 , 1},
     { CAKE_NAME,            "",        0 , 1},
 #endif
-    { "cakeconf.h",        "",        0 , 0},
+    { "cake.json",         "",        0 , 0},
     { "help",              "help",    1 , 0},
     { "samples",           "samples", 1 , 0}
 
@@ -1123,10 +1123,24 @@ int main(void)
         }
     }
 
-    /* ---- 4. Check / update system PATH ---------------------------- */
+    /* ---- 4. Create includes/ directory ---------------------------- */
+    {
+        char includes_dir[PATH_MAX_LEN * 2];
+
+        snprintf(includes_dir, sizeof includes_dir,
+                 "%s%cincludes", target_dir, PATH_SEP);
+
+        if (!ensure_directory_exists(includes_dir))
+        {
+            fprintf(stderr, "  Error: could not create directory: %s\n", includes_dir);
+            return 1;
+        }
+    }
+
+    /* ---- 5. Check / update system PATH ---------------------------- */
     add_to_system_path(target_dir);
 
-    /* ---- 5. Done -------------------------------------------------- */
+    /* ---- 6. Done -------------------------------------------------- */
     printf("  Installation complete!\n\n");
     printf("  Press any key to exit...\n");
     fflush(stdout);

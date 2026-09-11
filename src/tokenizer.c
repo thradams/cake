@@ -58,6 +58,7 @@
 
 #include "error.h"
 #include "pre_expressions.h"
+#include "json.h"
 #include "tokenizer.h"
 
 #ifdef _WIN32
@@ -392,12 +393,12 @@ static bool pragma_once_already_included(const struct preprocessor_ctx* ctx, con
 }
 
 const char* _Owner _Opt find_and_read_include_file(struct preprocessor_ctx* ctx,
-    const char* path, /*as in include*/
-    const char* current_file_dir, /*this is the dir of the file that includes*/
+                                                   const char* path, /*as in include*/
+                                                   const char* current_file_dir, /*this is the dir of the file that includes*/
     bool is_angle_bracket_form,
     bool* p_already_included, /*out file already included pragma once*/
-    char full_path_out[], /*this is the final full path of the file*/
-    int full_path_out_size,
+                                                   char full_path_out[], /*this is the final full path of the file*/
+                                                   int full_path_out_size,
     bool include_next)
 {
     char newpath[200] = { 0 };
@@ -585,7 +586,7 @@ struct token_list copy_argument_list_tokens(struct token_list* list)
         }
 
         if (current == NULL) 
-           break;
+            break;
 
         struct token* token = token_list_clone_and_add(&r, current);
         if (token->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
@@ -760,7 +761,7 @@ bool macro_is_same(const struct macro* macro_a, const struct macro* macro_b)
     if (strcmp(macro_a->name, macro_b->name) != 0)
         return false;
 
-    if (!token_list_is_equal(&macro_a->replacement_list, &macro_b->replacement_list) != 0)
+    if (!token_list_is_equal(&macro_a->replacement_list, &macro_b->replacement_list))
         return false;
 
     const struct macro_parameter* _Opt p_a = macro_a->parameters;
@@ -928,227 +929,227 @@ enum token_type is_punctuator(struct stream* stream)
     */
     switch (stream->current[0])
     {
-    case '[':
-        type = '[';
-        stream_match(stream);
-        break;
-    case ']':
-        type = ']';
-        stream_match(stream);
-        break;
-    case '(':
-        type = '(';
-        stream_match(stream);
-        break;
-    case ')':
-        type = ')';
-        stream_match(stream);
-        break;
-    case '{':
-        type = '{';
-        stream_match(stream);
-        break;
-    case '}':
-        type = '}';
-        stream_match(stream);
-        break;
-    case ';':
-        type = ';';
-        stream_match(stream);
-        break;
-    case ',':
-        type = ',';
-        stream_match(stream);
-        break;
-    case '!':
-        type = '!';
-        stream_match(stream);
-        if (stream->current[0] == '=')
-        {
-            type = '!=';
+        case '[':
+            type = '[';
             stream_match(stream);
-        }
         break;
-    case ':':
-        type = ':';
-        stream_match(stream);
-        if (stream->current[0] == ':')
-        {
-            type = '::';
+        case ']':
+            type = ']';
             stream_match(stream);
-        }
         break;
-    case '~':
-        type = '~';
-        stream_match(stream);
+        case '(':
+            type = '(';
+            stream_match(stream);
         break;
-    case '?':
-        type = '?';
-        stream_match(stream);
+        case ')':
+            type = ')';
+            stream_match(stream);
         break;
-    case '/':
-        type = '/';
-        stream_match(stream);
-        if (stream->current[0] == '=')
-        {
-            type = '/=';
+        case '{':
+            type = '{';
             stream_match(stream);
-        }
         break;
-    case '*':
-        type = '*';
-        stream_match(stream);
-        if (stream->current[0] == '=')
-        {
-            type = '*=';
+        case '}':
+            type = '}';
             stream_match(stream);
-        }
         break;
-    case '%':
-        type = '%';
-        stream_match(stream);
-        if (stream->current[0] == '=')
-        {
-            type = '%=';
+        case ';':
+            type = ';';
             stream_match(stream);
-        }
         break;
-    case '-':
-        type = '-';
-        stream_match(stream);
-        if (stream->current[0] == '>')
-        {
-            type = '->';
+        case ',':
+            type = ',';
             stream_match(stream);
-        }
-        else if (stream->current[0] == '-')
-        {
-            type = '--';
-            stream_match(stream);
-        }
-        else if (stream->current[0] == '=')
-        {
-            type = '-=';
-            stream_match(stream);
-        }
         break;
-    case '|':
-        type = '|';
-        stream_match(stream);
-        if (stream->current[0] == '|')
-        {
-            type = '||';
-            stream_match(stream);
-        }
-        else if (stream->current[0] == '=')
-        {
-            type = '|=';
-            stream_match(stream);
-        }
-        break;
-    case '+':
-        type = '+';
-        stream_match(stream);
-        if (stream->current[0] == '+')
-        {
-            type = '++';
-            stream_match(stream);
-        }
-        else if (stream->current[0] == '=')
-        {
-            type = '+=';
-            stream_match(stream);
-        }
-        break;
-    case '=':
-        type = '=';
-        stream_match(stream);
-        if (stream->current[0] == '=')
-        {
-            type = '==';
-            stream_match(stream);
-        }
-        break;
-    case '^':
-        type = '^';
-        stream_match(stream);
-        if (stream->current[0] == '=')
-        {
-            type = '^=';
-            stream_match(stream);
-        }
-        break;
-    case '&':
-        type = '&';
-        stream_match(stream);
-        if (stream->current[0] == '&')
-        {
-            type = '&&';
-            stream_match(stream);
-        }
-        else if (stream->current[0] == '=')
-        {
-            type = '&=';
-            stream_match(stream);
-        }
-        break;
-    case '>':
-        type = '>';
-        stream_match(stream);
-        if (stream->current[0] == '>')
-        {
-            type = '>>';
+        case '!':
+            type = '!';
             stream_match(stream);
             if (stream->current[0] == '=')
             {
-                type = '>>=';
+                type = '!=';
                 stream_match(stream);
             }
-        }
-        else if (stream->current[0] == '=')
-        {
-            type = '>=';
+        break;
+        case ':':
+            type = ':';
             stream_match(stream);
-        }
+            if (stream->current[0] == ':')
+            {
+                type = '::';
+                stream_match(stream);
+            }
+        break;
+        case '~':
+            type = '~';
+            stream_match(stream);
+        break;
+        case '?':
+            type = '?';
+            stream_match(stream);
+        break;
+        case '/':
+            type = '/';
+            stream_match(stream);
+            if (stream->current[0] == '=')
+            {
+                type = '/=';
+                stream_match(stream);
+            }
+        break;
+        case '*':
+            type = '*';
+            stream_match(stream);
+            if (stream->current[0] == '=')
+            {
+                type = '*=';
+                stream_match(stream);
+            }
+        break;
+        case '%':
+            type = '%';
+            stream_match(stream);
+            if (stream->current[0] == '=')
+            {
+                type = '%=';
+                stream_match(stream);
+            }
+        break;
+        case '-':
+            type = '-';
+            stream_match(stream);
+            if (stream->current[0] == '>')
+            {
+                type = '->';
+                stream_match(stream);
+            }
+            else if (stream->current[0] == '-')
+            {
+                type = '--';
+                stream_match(stream);
+            }
+            else if (stream->current[0] == '=')
+            {
+                type = '-=';
+                stream_match(stream);
+            }
+        break;
+        case '|':
+            type = '|';
+            stream_match(stream);
+            if (stream->current[0] == '|')
+            {
+                type = '||';
+                stream_match(stream);
+            }
+            else if (stream->current[0] == '=')
+            {
+                type = '|=';
+                stream_match(stream);
+            }
+        break;
+        case '+':
+            type = '+';
+            stream_match(stream);
+            if (stream->current[0] == '+')
+            {
+                type = '++';
+                stream_match(stream);
+            }
+            else if (stream->current[0] == '=')
+            {
+                type = '+=';
+                stream_match(stream);
+            }
+        break;
+        case '=':
+            type = '=';
+            stream_match(stream);
+            if (stream->current[0] == '=')
+            {
+                type = '==';
+                stream_match(stream);
+            }
+        break;
+        case '^':
+            type = '^';
+            stream_match(stream);
+            if (stream->current[0] == '=')
+            {
+                type = '^=';
+                stream_match(stream);
+            }
+        break;
+        case '&':
+            type = '&';
+            stream_match(stream);
+            if (stream->current[0] == '&')
+            {
+                type = '&&';
+                stream_match(stream);
+            }
+            else if (stream->current[0] == '=')
+            {
+                type = '&=';
+                stream_match(stream);
+            }
+        break;
+        case '>':
+            type = '>';
+            stream_match(stream);
+            if (stream->current[0] == '>')
+            {
+                type = '>>';
+                stream_match(stream);
+                if (stream->current[0] == '=')
+                {
+                    type = '>>=';
+                    stream_match(stream);
+                }
+            }
+            else if (stream->current[0] == '=')
+            {
+                type = '>=';
+                stream_match(stream);
+            }
 
         break;
-    case '<':
-        type = '<';
-        stream_match(stream);
-        if (stream->current[0] == '<')
-        {
-            type = '<<';
+        case '<':
+            type = '<';
             stream_match(stream);
-            if (stream->current[0] == '=')
+            if (stream->current[0] == '<')
             {
-                type = '<<=';
+                type = '<<';
+                stream_match(stream);
+                if (stream->current[0] == '=')
+                {
+                    type = '<<=';
+                    stream_match(stream);
+                }
+            }
+            else if (stream->current[0] == '=')
+            {
+                type = '<=';
                 stream_match(stream);
             }
-        }
-        else if (stream->current[0] == '=')
-        {
-            type = '<=';
-            stream_match(stream);
-        }
         break;
-    case '#':
-        type = '#';
-        stream_match(stream);
-        if (stream->current[0] == '#')
-        {
-            type = '##';
+        case '#':
+            type = '#';
             stream_match(stream);
-        }
+            if (stream->current[0] == '#')
+            {
+                type = '##';
+                stream_match(stream);
+            }
         break;
-    case '.':
-        type = '.';
-        stream_match(stream);
-        if (stream->current[0] == '.' && stream->current[1] == '.')
-        {
-            type = '...';
+        case '.':
+            type = '.';
             stream_match(stream);
-            stream_match(stream);
-        }
+            if (stream->current[0] == '.' && stream->current[1] == '.')
+            {
+                type = '...';
+                stream_match(stream);
+                stream_match(stream);
+            }
         break;
     }
     return type;
@@ -1208,27 +1209,27 @@ static bool is_valid_scape_sequence(char c)
 {
     switch (c)
     {
-    case '\'':
-    case '"':
-    case '?':
-    case '\\':
-    case 'a':
-    case 'b':
-    case 'f':
-    case 'n':
-    case 'r':
-    case 't':
-    case 'v':
-    case 'x':
-    case 'u':
-    case 'U':
-    case '\n':
-    case '\r':
-    case '\0': /*unterminated - already reported by the caller*/
-        return true;
-    default:
-        if (c >= '0' && c <= '7')
+        case '\'':
+        case '"':
+        case '?':
+        case '\\':
+        case 'a':
+        case 'b':
+        case 'f':
+        case 'n':
+        case 'r':
+        case 't':
+        case 'v':
+        case 'x':
+        case 'u':
+        case 'U':
+        case '\n':
+        case '\r':
+        case '\0': /*unterminated - already reported by the caller*/
             return true;
+        default:
+            if (c >= '0' && c <= '7')
+                return true;
         break;
     }
 
@@ -1278,7 +1279,7 @@ struct token* _Owner _Opt character_constant(struct tokenizer_ctx* ctx, struct s
             if (!is_valid_scape_sequence(stream->current[1]))
             {
                 tokenizer_diagnostic(W_UNKNOWN_ESCAPE_SEQUENCE, ctx, stream,
-                    "unrecognized character escape sequence '\\%c'", stream->current[1]);
+                                     "unrecognized character escape sequence '\\%c'", stream->current[1]);
             }
             stream_match(stream);
             stream_match(stream);
@@ -1354,7 +1355,7 @@ struct token* _Owner _Opt string_literal(struct tokenizer_ctx* ctx, struct strea
                 if (!is_valid_scape_sequence(stream->current[1]))
                 {
                     tokenizer_diagnostic(W_UNKNOWN_ESCAPE_SEQUENCE, ctx, stream,
-                        "unrecognized character escape sequence '\\%c'", stream->current[1]);
+                                         "unrecognized character escape sequence '\\%c'", stream->current[1]);
                 }
                 stream_match(stream);
                 stream_match(stream);
@@ -1461,9 +1462,9 @@ static struct token* _Owner _Opt ppnumber(struct stream* stream)
 }
 
 struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
-    const struct token* position,
-    const char* filename_opt,
-    int level, enum token_flags addflags)
+                                  const struct token* position,
+                                  const char* filename_opt,
+                                  int level, enum token_flags addflags)
 {
     struct token_list list = { 0 };
 
@@ -2479,12 +2480,12 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 char full_path_result[200] = { 0 };
                 bool already_included = false;
                 const char* _Owner _Opt s = find_and_read_include_file(ctx,
-                    path,
-                    fullpath,
-                    is_angle_bracket_form,
-                    &already_included,
-                    full_path_result,
-                    sizeof full_path_result,
+                                                                       path,
+                                                                       fullpath,
+                                                                       is_angle_bracket_form,
+                                                                       &already_included,
+                                                                       full_path_result,
+                                                                       sizeof full_path_result,
                     false);
 
                 bool has_include = s != NULL;
@@ -2771,8 +2772,8 @@ struct token_list ignore_preprocessor_line(struct token_list* input_list)
 
 /* TODO: pass list as return value */
 long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
-    struct token_list* output_list,
-    struct token_list* input_list)
+                                           struct token_list* output_list,
+                                           struct token_list* input_list)
 {
     _Assert(input_list->head != NULL);
 
@@ -2869,7 +2870,7 @@ void match_level(struct token_list* dest, struct token_list* input_list, int lev
 }
 
 int match_token_level(struct token_list* dest, struct token_list* input_list, enum token_type type, int level,
-    struct preprocessor_ctx* ctx)
+                      struct preprocessor_ctx* ctx)
 {
     try
     {
@@ -3245,9 +3246,9 @@ def-line:
         if (is_builtin_macro(macro_name_token->lexeme))
         {
             preprocessor_diagnostic(W_REDEFINING_BUITIN_MACRO,
-                ctx,
-                input_list->head,
-                "redefining built-in macro");
+                                    ctx,
+                                    input_list->head,
+                                    "redefining built-in macro");
         }
 
         if (hashmap_find(&ctx->macros, input_list->head->lexeme) != NULL)
@@ -3644,7 +3645,7 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
                 if (strcmp(p_existing->name, input_list->head->lexeme) == 0)
                 {
                     preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, input_list->head,
-                        "cannot reuse macro parameter name '%s'", input_list->head->lexeme);
+                                            "cannot reuse macro parameter name '%s'", input_list->head->lexeme);
                     throw;
                 }
             }
@@ -3726,12 +3727,12 @@ struct token_list replacement_list(struct preprocessor_ctx* ctx, struct macro* m
         if (p_first != NULL && p_first->type == '##')
         {
             preprocessor_diagnostic(C_ERROR_INVALID_TOKEN, ctx, p_first,
-                "'##' cannot appear at the beginning of a replacement list");
+                                    "'##' cannot appear at the beginning of a replacement list");
         }
         else if (p_last != NULL && p_last->type == '##')
         {
             preprocessor_diagnostic(C_ERROR_INVALID_TOKEN, ctx, p_last,
-                "'##' cannot appear at the end of a replacement list");
+                                    "'##' cannot appear at the end of a replacement list");
         }
     }
     catch
@@ -3782,10 +3783,10 @@ void print_path(const char* path, bool fullpath)
 }
 
 struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
-    struct macro_expanded* _Opt p_list,
-    struct token_list* oldlist,
-    int level,
-    const struct token* _Opt origin);
+                                                 struct macro_expanded* _Opt p_list,
+                                                 struct token_list* oldlist,
+                                                 int level,
+                                                 const struct token* _Opt origin);
 
 struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
@@ -3947,13 +3948,13 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             char full_path_result[200] = { 0 };
             bool already_included = false;
             const char* _Owner _Opt content = find_and_read_include_file(ctx,
-                path + 1,
-                current_file_dir,
-                is_angle_bracket_form,
-                &already_included,
-                full_path_result,
-                sizeof full_path_result,
-                include_next);
+                                                                         path + 1,
+                                                                         current_file_dir,
+                                                                         is_angle_bracket_form,
+                                                                         &already_included,
+                                                                         full_path_result,
+                                                                         sizeof full_path_result,
+                                                                         include_next);
 
             if (content != NULL)
             {
@@ -3992,11 +3993,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                     if (!ctx->cake_config_found)
                     {
-                        printf("cakeconf.h (config file) not found\n%s\n", cake_config_path);
+                        printf("cake.json (config file) not found\n%s\n", cake_config_path);
                     }
                     else
                     {
-                        printf("Using cakeconf.h\n%s\n", cake_config_path);
+                        printf("Using cake.json\n%s\n", cake_config_path);
                     }
                     printf("\n");
 
@@ -4009,10 +4010,10 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                     printf("\n");
                     printf("Possible solutions:\n");
-                    printf("   1. Run 'cake -auto-config' to generate/update cakeconf.h with correct paths\n");
+                    printf("   1. Run 'cake -auto-config' to generate/update cake.json with correct paths\n");
                     printf("   2. Check if the file name is spelled correctly\n");
                     printf("   3. Verify that the required SDK or library is installed\n");
-                    printf("   4. Manually add the directory to cakeconf.h\n");
+                    printf("   4. Manually add the directory to cake.json\n");
 
                 }
                 else
@@ -4191,9 +4192,9 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             if (is_builtin_macro(macro_name_token->lexeme))
             {
                 preprocessor_diagnostic(W_REDEFINING_BUITIN_MACRO,
-                    ctx,
-                    input_list->head,
-                    "redefining built-in macro");
+                                        ctx,
+                                        input_list->head,
+                                        "redefining built-in macro");
             }
 
             macro->p_name_token = macro_name_token;
@@ -4345,14 +4346,14 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     if (!in_included_file)
                     {
                         if (preprocessor_diagnostic(W_MACRO_REDEFINITION,
-                            ctx,
-                            macro->p_name_token,
-                            "macro redefinition"))
+                                                    ctx,
+                                                    macro->p_name_token,
+                                                    "macro redefinition"))
                         {
                             preprocessor_diagnostic(W_LOCATION,
-                                ctx,
-                                existing_macro->p_name_token,
-                                "previous definition");
+                                                    ctx,
+                                                    existing_macro->p_name_token,
+                                                    "previous definition");
                         }
                     }
                 }
@@ -4461,15 +4462,15 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             if (p_line_number == NULL || p_line_number->type != TK_PPNUMBER)
             {
                 preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx,
-                    p_line_number != NULL ? p_line_number : r.tail,
-                    "#line requires a number as its first argument");
+                                        p_line_number != NULL ? p_line_number : r.tail,
+                                        "#line requires a number as its first argument");
             }
             else if (p_filename != NULL)
             {
                 if (!(p_filename->type == TK_STRING_LITERAL && p_filename->lexeme[0] == '"'))
                 {
                     preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, p_filename,
-                        "#line filename must be a plain string literal, without prefix or suffix");
+                                            "#line filename must be a plain string literal, without prefix or suffix");
                 }
             }
 
@@ -4587,9 +4588,9 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
         {
             //handled by the caller
             preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
-                ctx,
-                input_list->head,
-                "unexpected\n");
+                                    ctx,
+                                    input_list->head,
+                                    "unexpected\n");
             throw;
         }
     }
@@ -4613,8 +4614,8 @@ static struct token_list non_directive(struct preprocessor_ctx* ctx, struct toke
 }
 
 static struct macro_argument_list collect_macro_arguments(struct preprocessor_ctx* ctx,
-    struct macro* macro,
-    struct token_list* input_list, int level)
+                                                          struct macro* macro,
+                                                          struct token_list* input_list, int level)
 {
 
     struct macro_argument_list macro_argument_list = { 0 };
@@ -4680,8 +4681,8 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
         {
             //we have a non empty argument list, calling a macro without parameters
             preprocessor_diagnostic(C_ERROR_TOO_MANY_ARGUMENTS_TO_FUNCTION_LIKE_MACRO,
-                ctx,
-                macro_name_token, "too many arguments provided to function-like macro invocation\n");
+                                    ctx,
+                                    macro_name_token, "too many arguments provided to function-like macro invocation\n");
             throw;
         }
 
@@ -4730,9 +4731,9 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                         else
                         {
                             preprocessor_diagnostic(C_ERROR_TOO_FEW_ARGUMENTS_TO_FUNCTION_LIKE_MACRO,
-                                ctx,
-                                macro_name_token,
-                                "too few arguments provided to function-like macro invocation\n");
+                                                    ctx,
+                                                    macro_name_token,
+                                                    "too few arguments provided to function-like macro invocation\n");
                             throw;
                         }
                     }
@@ -4767,9 +4768,9 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                     if (p_current_parameter->next == NULL)
                     {
                         preprocessor_diagnostic(C_ERROR_TOO_MANY_ARGUMENTS_TO_FUNCTION_LIKE_MACRO,
-                            ctx,
-                            macro_argument_list.tokens.tail,
-                            "too many arguments provided to function-like macro invocation\n");
+                                                ctx,
+                                                macro_argument_list.tokens.tail,
+                                                "too many arguments provided to function-like macro invocation\n");
                         macro_argument_delete(p_argument);
                         p_argument = NULL; //DELETED
                         throw;
@@ -4837,8 +4838,8 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
                 if (r.tail == NULL)
                 {
                     preprocessor_diagnostic(C_ERROR_PREPROCESSOR_MISSING_MACRO_ARGUMENT,
-                        ctx,
-                        input_list->head, "missing macro argument (should be checked before)");
+                                            ctx,
+                                            input_list->head, "missing macro argument (should be checked before)");
                     break;
                 }
                 /*
@@ -4934,9 +4935,9 @@ check if the argument list that corresponds to a trailing ...
 of the parameter list is present and has a non-empty substitution.
 */
 static bool has_argument_list_empty_substitution(struct preprocessor_ctx* ctx,
-    struct macro_expanded* _Opt p_list_opt,
-    struct macro_argument_list* p_macro_argument_list,
-    const struct token* _Opt origin)
+                                                 struct macro_expanded* _Opt p_list_opt,
+                                                 struct macro_argument_list* p_macro_argument_list,
+                                                 const struct token* _Opt origin)
 {
     if (p_macro_argument_list->head == NULL)
         return true;
@@ -5062,8 +5063,8 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                     {
                         token_list_destroy(&argumentlist);
                         preprocessor_diagnostic(C_ERROR_UNEXPECTED,
-                            ctx,
-                            input_list->head, "unexpected");
+                                                ctx,
+                                                input_list->head, "unexpected");
                         throw;
                     }
                     struct token* _Owner _Opt p_new_token = calloc(1, sizeof * p_new_token);
@@ -5206,12 +5207,12 @@ static char* _Opt _Owner decode_pragma_string(const char* literal)
             p++;
             switch (*p)
             {
-            case '"':
-            case '\\':
+                case '"':
+                case '\\':
                 break;
 
-            default:
-                len++;
+                default:
+                    len++;
             }
         }
 
@@ -5231,12 +5232,12 @@ static char* _Opt _Owner decode_pragma_string(const char* literal)
             p++;
             switch (*p)
             {
-            case '"':
-            case '\\':
+                case '"':
+                case '\\':
                 break;
 
-            default:
-                *out++ = '\\';
+                default:
+                    *out++ = '\\';
                 break;
             }
         }
@@ -5276,9 +5277,9 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
         if (input_list->head->type != '(')
         {
             preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
-                ctx,
-                input_list->head,
-                "expected (");
+                                    ctx,
+                                    input_list->head,
+                                    "expected (");
             throw; //internal error
         }
 
@@ -5289,9 +5290,9 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
         if (input_list->head->type != TK_STRING_LITERAL)
         {
             preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
-                ctx,
-                input_list->head,
-                "expected string");
+                                    ctx,
+                                    input_list->head,
+                                    "expected string");
             throw; //internal error
         }
 
@@ -5326,9 +5327,9 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
         if (input_list->head->type != ')')
         {
             preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
-                ctx,
-                input_list->head,
-                "expected (");
+                                    ctx,
+                                    input_list->head,
+                                    "expected (");
             throw; //internal error
         }
 
@@ -5350,10 +5351,10 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
 }
 
 struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
-    struct macro_expanded* _Opt p_list_opt,
-    struct token_list* oldlist,
-    int level,
-    const struct token* _Opt origin)
+                                                 struct macro_expanded* _Opt p_list_opt,
+                                                 struct token_list* oldlist,
+                                                 int level,
+                                                 const struct token* _Opt origin)
 {
     struct token_list r = { 0 };
     try
@@ -5548,15 +5549,15 @@ void remove_line_continuation(char* s)
 }
 
 struct token_list copy_replacement_list_core(const struct preprocessor_ctx* ctx,
-    const struct token_list* list,
+                                             const struct token_list* list,
     bool new_line_is_space)
 {
     //Makes a copy of the tokens by trimming the beginning and end 
     //any space in comments etc. becomes a single space
-     struct token_list r = { 0 };
+    struct token_list r = { 0 };
      
-     try 
-     {
+    try 
+    {
         struct token* _Opt current = list->head;
     
         /* remove all leading whitespace */
@@ -5643,7 +5644,7 @@ struct token_list copy_replacement_list_core(const struct preprocessor_ctx* ctx,
 }
 
 struct token_list copy_replacement_list(const struct preprocessor_ctx* ctx,
-    const struct token_list* list)
+                                        const struct token_list* list)
 {
     return copy_replacement_list_core(ctx, list, !ctx->options.preprocess_def_macro);
 }
@@ -5665,7 +5666,7 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, cons
 
         if (r.head != NULL)
         {
-            r.head->flags = 0;
+            r.head->flags = TK_FLAG_NONE;
         }
         return r;
     }
@@ -5683,7 +5684,7 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, cons
         token_list_pop_front(&r);
         if (r.head)
         {
-            r.head->flags = 0;
+            r.head->flags = TK_FLAG_NONE;
         }
         return r;
     }
@@ -5699,7 +5700,7 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, cons
 
         if (r.head != NULL)
         {
-            r.head->flags = 0;
+            r.head->flags = TK_FLAG_NONE;
         }
         return r;
     }
@@ -5710,11 +5711,11 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, cons
 void print_literal2(const char* s);
 
 struct token_list expand_macro(struct preprocessor_ctx* ctx,
-    struct macro_expanded* _Opt p_list_of_macro_expanded_opt,
-    struct macro* macro,
-    struct macro_argument_list* arguments,
-    int level,
-    const struct token* _Opt origin)
+                               struct macro_expanded* _Opt p_list_of_macro_expanded_opt,
+                               struct macro* macro,
+                               struct macro_argument_list* arguments,
+                               int level,
+                               const struct token* _Opt origin)
 {
     macro->usage++;
 
@@ -6102,9 +6103,9 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
                13 The execution of a non-directive preprocessing directive results in undefined behavior.
             */
                 preprocessor_diagnostic(C_ERROR_INVALID_PREPROCESSING_DIRECTIVE,
-                    ctx,
-                    input_list->head,
-                    "invalid preprocessor directive '#%s'\n", directive_name);
+                                        ctx,
+                                        input_list->head,
+                                        "invalid preprocessor directive '#%s'\n", directive_name);
             }
             /* consume the # to keep it symmetrical */
             return non_directive(ctx, input_list, level, is_active);
@@ -6138,7 +6139,7 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
             preprocessor_token_ahead_is_identifier(input_list->head, "elifdef") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "elifndef")))
     {
-         /*
+        /*
            endif etc, are all consumed after group->group-part->if-section.
            Findind any of then here means it was not inside if-section.
          */
@@ -6146,9 +6147,9 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
         struct token* _Opt p_token = preprocessor_look_ahead_core(input_list->head);
         const char* directive_name = p_token ? p_token->lexeme : "";
         preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
-            ctx,
-            input_list->head,
-            "#%s without #if\n", directive_name);
+                                ctx,
+                                input_list->head,
+                                "#%s without #if\n", directive_name);
     }
 
     return r;
@@ -6239,22 +6240,30 @@ int include_config_header(struct preprocessor_ctx* ctx)
         }
         return ENOENT;
     }
-
-    const struct bitset w =
-        ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings;
-
-    options_set_clear_all_warnings(&ctx->options);
-
-    struct tokenizer_ctx tctx = { 0 };
-    struct token_list l = tokenizer(&tctx, str, "include_config_header", 0, TK_FLAG_NONE);
-    struct token_list l10 = preprocessor(ctx, &l, 0);
-    mark_macros_as_used(&ctx->macros);
-    token_list_destroy(&l);
+    
+    struct json_value* _Opt _Owner root = json_parse(str, NULL);
     free(str);
-    token_list_destroy(&l10);
 
-    /*restore*/
-    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings = w;
+    if (root == NULL)
+    {
+        return 0;
+    }
+
+    const struct json_value* _Opt dirs = json_find_member(root, "include_dirs");
+    if (dirs && dirs->type == JSON_ARRAY)
+    {
+        for (const struct json_value* _Opt item = dirs->first_child;
+             item != NULL;
+             item = item->next)
+        {
+            if (item->type == JSON_STRING && item->string != NULL)
+            {
+                include_dir_add(&ctx->include_dir, item->string);
+            }
+        }
+    }
+
+    json_delete(root);
 
     return 0;
 }
@@ -6329,218 +6338,218 @@ const char* get_token_name(enum token_type tk)
 {
     switch (tk)
     {
-    case TK_NONE: return "TK_NONE";
-    case TK_NEWLINE: return "TK_NEWLINE";
-    case TK_WHITE_SPACE: return "TK_WHITE_SPACE";
-    case TK_EXCLAMATION_MARK: return "TK_EXCLAMATION_MARK";
-    case TK_QUOTATION_MARK: return "TK_QUOTATION_MARK";
-    case TK_NUMBER_SIGN: return "TK_NUMBER_SIGN";
-    case TK_DOLLAR_SIGN: return "TK_DOLLAR_SIGN";
-    case TK_PERCENT_SIGN: return "TK_PERCENT_SIGN";
-    case TK_AMPERSAND: return "TK_AMPERSAND";
-    case TK_APOSTROPHE: return "TK_APOSTROPHE";
-    case TK_LEFT_PARENTHESIS: return "TK_LEFT_PARENTHESIS";
-    case TK_RIGHT_PARENTHESIS: return "TK_RIGHT_PARENTHESIS";
-    case TK_ASTERISK: return "TK_ASTERISK";
-    case TK_PLUS_SIGN: return "TK_PLUS_SIGN";
-    case TK_COMMA: return "TK_COMMA";
-    case TK_HYPHEN_MINUS: return "TK_HYPHEN_MINUS";
-    case TK_FULL_STOP: return "TK_FULL_STOP";
-    case TK_SOLIDUS: return "TK_SOLIDUS";
-    case TK_COLON: return "TK_COLON";
-    case TK_SEMICOLON: return "TK_SEMICOLON";
-    case TK_LESS_THAN_SIGN: return "TK_LESS_THAN_SIGN";
-    case TK_EQUALS_SIGN: return "TK_EQUALS_SIGN";
-    case TK_GREATER_THAN_SIGN: return "TK_GREATER_THAN_SIGN";
-    case TK_LESS_EQUAL: return "TK_LESS_EQUAL";
-    case TK_GREATER_EQUAL: return "TK_GREATER_EQUAL";
-    case TK_EQUAL_EQUAL: return "TK_EQUAL_EQUAL";
-    case TK_NOT_EQUAL: return "TK_NOT_EQUAL";
-    case TK_QUESTION_MARK: return "TK_QUESTION_MARK";
-    case TK_COMMERCIAL_AT: return "TK_COMMERCIAL_AT";
-    case TK_LEFT_SQUARE_BRACKET: return "TK_LEFT_SQUARE_BRACKET";
-    case TK_REVERSE_SOLIDUS: return "TK_REVERSE_SOLIDUS";
-    case TK_RIGHT_SQUARE_BRACKET: return "TK_RIGHT_SQUARE_BRACKET";
-    case TK_CIRCUMFLEX_ACCENT: return "TK_CIRCUMFLEX_ACCENT";
-    case TK_FLOW_LINE: return "TK_FLOW_LINE";
-    case TK_GRAVE_ACCENT: return "TK_GRAVE_ACCENT";
-    case TK_LEFT_CURLY_BRACKET: return "TK_LEFT_CURLY_BRACKET";
-    case TK_VERTICAL_LINE: return "TK_VERTICAL_LINE";
-    case TK_RIGHT_CURLY_BRACKET: return "TK_RIGHT_CURLY_BRACKET";
-    case TK_TILDE: return "TK_TILDE";
-    case TK_PREPROCESSOR_LINE: return "TK_PREPROCESSOR_LINE";
-    case TK_PRAGMA: return "TK_PRAGMA";
-    case TK_STRING_LITERAL: return "TK_STRING_LITERAL";
-    case TK_CHAR_CONSTANT: return "TK_CHAR_CONSTANT";
-    case TK_LINE_COMMENT: return "TK_LINE_COMMENT";
-    case TK_COMMENT: return "TK_COMMENT";
-    case TK_PPNUMBER: return "TK_PPNUMBER";
+        case TK_NONE: return "TK_NONE";
+        case TK_NEWLINE: return "TK_NEWLINE";
+        case TK_WHITE_SPACE: return "TK_WHITE_SPACE";
+        case TK_EXCLAMATION_MARK: return "TK_EXCLAMATION_MARK";
+        case TK_QUOTATION_MARK: return "TK_QUOTATION_MARK";
+        case TK_NUMBER_SIGN: return "TK_NUMBER_SIGN";
+        case TK_DOLLAR_SIGN: return "TK_DOLLAR_SIGN";
+        case TK_PERCENT_SIGN: return "TK_PERCENT_SIGN";
+        case TK_AMPERSAND: return "TK_AMPERSAND";
+        case TK_APOSTROPHE: return "TK_APOSTROPHE";
+        case TK_LEFT_PARENTHESIS: return "TK_LEFT_PARENTHESIS";
+        case TK_RIGHT_PARENTHESIS: return "TK_RIGHT_PARENTHESIS";
+        case TK_ASTERISK: return "TK_ASTERISK";
+        case TK_PLUS_SIGN: return "TK_PLUS_SIGN";
+        case TK_COMMA: return "TK_COMMA";
+        case TK_HYPHEN_MINUS: return "TK_HYPHEN_MINUS";
+        case TK_FULL_STOP: return "TK_FULL_STOP";
+        case TK_SOLIDUS: return "TK_SOLIDUS";
+        case TK_COLON: return "TK_COLON";
+        case TK_SEMICOLON: return "TK_SEMICOLON";
+        case TK_LESS_THAN_SIGN: return "TK_LESS_THAN_SIGN";
+        case TK_EQUALS_SIGN: return "TK_EQUALS_SIGN";
+        case TK_GREATER_THAN_SIGN: return "TK_GREATER_THAN_SIGN";
+        case TK_LESS_EQUAL: return "TK_LESS_EQUAL";
+        case TK_GREATER_EQUAL: return "TK_GREATER_EQUAL";
+        case TK_EQUAL_EQUAL: return "TK_EQUAL_EQUAL";
+        case TK_NOT_EQUAL: return "TK_NOT_EQUAL";
+        case TK_QUESTION_MARK: return "TK_QUESTION_MARK";
+        case TK_COMMERCIAL_AT: return "TK_COMMERCIAL_AT";
+        case TK_LEFT_SQUARE_BRACKET: return "TK_LEFT_SQUARE_BRACKET";
+        case TK_REVERSE_SOLIDUS: return "TK_REVERSE_SOLIDUS";
+        case TK_RIGHT_SQUARE_BRACKET: return "TK_RIGHT_SQUARE_BRACKET";
+        case TK_CIRCUMFLEX_ACCENT: return "TK_CIRCUMFLEX_ACCENT";
+        case TK_FLOW_LINE: return "TK_FLOW_LINE";
+        case TK_GRAVE_ACCENT: return "TK_GRAVE_ACCENT";
+        case TK_LEFT_CURLY_BRACKET: return "TK_LEFT_CURLY_BRACKET";
+        case TK_VERTICAL_LINE: return "TK_VERTICAL_LINE";
+        case TK_RIGHT_CURLY_BRACKET: return "TK_RIGHT_CURLY_BRACKET";
+        case TK_TILDE: return "TK_TILDE";
+        case TK_PREPROCESSOR_LINE: return "TK_PREPROCESSOR_LINE";
+        case TK_PRAGMA: return "TK_PRAGMA";
+        case TK_STRING_LITERAL: return "TK_STRING_LITERAL";
+        case TK_CHAR_CONSTANT: return "TK_CHAR_CONSTANT";
+        case TK_LINE_COMMENT: return "TK_LINE_COMMENT";
+        case TK_COMMENT: return "TK_COMMENT";
+        case TK_PPNUMBER: return "TK_PPNUMBER";
 
-    case TK_KEYWORD_GCC__ATTRIBUTE:return "TK_KEYWORD_GCC__ATTRIBUTE";
-    case TK_KEYWORD_GCC__BUILTIN_VA_LIST:return "TK_KEYWORD_GCC__BUILTIN_VA_LIST";
-    case TK_KEYWORD_MSVC__PTR32:return "TK_KEYWORD_MSVC__PTR32";
-    case TK_KEYWORD_MSVC__PTR64:return "TK_KEYWORD_MSVC__PTR64";
+        case TK_KEYWORD_GCC__ATTRIBUTE:return "TK_KEYWORD_GCC__ATTRIBUTE";
+        case TK_KEYWORD_GCC__BUILTIN_VA_LIST:return "TK_KEYWORD_GCC__BUILTIN_VA_LIST";
+        case TK_KEYWORD_MSVC__PTR32:return "TK_KEYWORD_MSVC__PTR32";
+        case TK_KEYWORD_MSVC__PTR64:return "TK_KEYWORD_MSVC__PTR64";
 
-    case ANY_OTHER_PP_TOKEN: return "ANY_OTHER_PP_TOKEN"; //@ por ex
+        case ANY_OTHER_PP_TOKEN: return "ANY_OTHER_PP_TOKEN"; //@ por ex
 
-        /*PPNUMBER sao convertidos para constantes antes do parse*/
-    case TK_COMPILER_DECIMAL_CONSTANT: return "TK_COMPILER_DECIMAL_CONSTANT";
-    case TK_COMPILER_OCTAL_CONSTANT: return "TK_COMPILER_OCTAL_CONSTANT";
-    case TK_COMPILER_HEXADECIMAL_CONSTANT: return "TK_COMPILER_HEXADECIMAL_CONSTANT";
-    case TK_COMPILER_BINARY_CONSTANT: return "TK_COMPILER_BINARY_CONSTANT";
-    case TK_COMPILER_DECIMAL_FLOATING_CONSTANT: return "TK_COMPILER_DECIMAL_FLOATING_CONSTANT";
-    case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT: return "TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT";
+            /*PPNUMBER sao convertidos para constantes antes do parse*/
+        case TK_COMPILER_DECIMAL_CONSTANT: return "TK_COMPILER_DECIMAL_CONSTANT";
+        case TK_COMPILER_OCTAL_CONSTANT: return "TK_COMPILER_OCTAL_CONSTANT";
+        case TK_COMPILER_HEXADECIMAL_CONSTANT: return "TK_COMPILER_HEXADECIMAL_CONSTANT";
+        case TK_COMPILER_BINARY_CONSTANT: return "TK_COMPILER_BINARY_CONSTANT";
+        case TK_COMPILER_DECIMAL_FLOATING_CONSTANT: return "TK_COMPILER_DECIMAL_FLOATING_CONSTANT";
+        case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT: return "TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT";
 
-    case TK_PLACEMARKER: return "TK_PLACEMARKER";
+        case TK_PLACEMARKER: return "TK_PLACEMARKER";
 
-    case TK_BLANKS: return "TK_BLANKS";
-    case TK_PLUSPLUS: return "TK_PLUSPLUS";
-    case TK_MINUSMINUS: return "TK_MINUSMINUS";
-    case TK_ARROW: return "TK_ARROW";
-    case TK_SHIFTLEFT: return "TK_SHIFTLEFT";
-    case TK_SHIFTRIGHT: return "TK_SHIFTRIGHT";
-    case TK_LOGICAL_OPERATOR_OR: return "TK_LOGICAL_OPERATOR_OR";
-    case TK_LOGICAL_OPERATOR_AND: return "TK_LOGICAL_OPERATOR_AND";
+        case TK_BLANKS: return "TK_BLANKS";
+        case TK_PLUSPLUS: return "TK_PLUSPLUS";
+        case TK_MINUSMINUS: return "TK_MINUSMINUS";
+        case TK_ARROW: return "TK_ARROW";
+        case TK_SHIFTLEFT: return "TK_SHIFTLEFT";
+        case TK_SHIFTRIGHT: return "TK_SHIFTRIGHT";
+        case TK_LOGICAL_OPERATOR_OR: return "TK_LOGICAL_OPERATOR_OR";
+        case TK_LOGICAL_OPERATOR_AND: return "TK_LOGICAL_OPERATOR_AND";
 
-    case TK_MACRO_CONCATENATE_OPERATOR: return "TK_MACRO_CONCATENATE_OPERATOR";
+        case TK_MACRO_CONCATENATE_OPERATOR: return "TK_MACRO_CONCATENATE_OPERATOR";
 
-    case TK_IDENTIFIER: return "TK_IDENTIFIER";
-    case TK_IDENTIFIER_RECURSIVE_MACRO: return "TK_IDENTIFIER_RECURSIVE_MACRO"; /*usado para evitar recursao expansao macro*/
+        case TK_IDENTIFIER: return "TK_IDENTIFIER";
+        case TK_IDENTIFIER_RECURSIVE_MACRO: return "TK_IDENTIFIER_RECURSIVE_MACRO"; /*usado para evitar recursao expansao macro*/
 
-    case TK_BEGIN_OF_FILE: return "TK_BEGIN_OF_FILE";
+        case TK_BEGIN_OF_FILE: return "TK_BEGIN_OF_FILE";
 
-        //C23 keywords
-    case TK_KEYWORD_AUTO: return "TK_KEYWORD_AUTO";
-    case TK_KEYWORD_BREAK: return "TK_KEYWORD_BREAK";
-    case TK_KEYWORD_CASE: return "TK_KEYWORD_CASE";
-    case TK_KEYWORD_CONSTEXPR: return "TK_KEYWORD_CONSTEXPR";
-    case TK_KEYWORD_CHAR: return "TK_KEYWORD_CHAR";
-    case TK_KEYWORD_CONST: return "TK_KEYWORD_CONST";
-    case TK_KEYWORD_CONTINUE: return "TK_KEYWORD_CONTINUE";
-    case TK_KEYWORD_CAKE_CATCH: return "TK_KEYWORD_CAKE_CATCH"; /*extension*/
-    case TK_KEYWORD_DEFAULT: return "TK_KEYWORD_DEFAULT";
-    case TK_KEYWORD_DO: return "TK_KEYWORD_DO";
-    case TK_KEYWORD_DEFER: return "TK_KEYWORD_DEFER"; /*extension*/
-    case TK_KEYWORD_DOUBLE: return "TK_KEYWORD_DOUBLE";
-    case TK_KEYWORD_ELSE: return "TK_KEYWORD_ELSE";
-    case TK_KEYWORD_ENUM: return "TK_KEYWORD_ENUM";
-    case TK_KEYWORD_EXTERN: return "TK_KEYWORD_EXTERN";
-    case TK_KEYWORD_FLOAT: return "TK_KEYWORD_FLOAT";
-    case TK_KEYWORD_FOR: return "TK_KEYWORD_FOR";
-    case TK_KEYWORD_GOTO: return "TK_KEYWORD_GOTO";
-    case TK_KEYWORD_IF: return "TK_KEYWORD_IF";
-    case TK_KEYWORD_INLINE: return "TK_KEYWORD_INLINE";
-    case TK_KEYWORD_INT: return "TK_KEYWORD_INT";
-    case TK_KEYWORD_LONG: return "TK_KEYWORD_LONG";
-    case TK_KEYWORD_MSVC__INT8: return "TK_KEYWORD_MSVC__INT8";
-    case TK_KEYWORD_MSVC__INT16: return "TK_KEYWORD_MSVC__INT16";
-    case TK_KEYWORD_MSVC__INT32: return "TK_KEYWORD_MSVC__INT32";
-    case TK_KEYWORD_MSVC__INT64: return "TK_KEYWORD_MSVC__INT64";
+            //C23 keywords
+        case TK_KEYWORD_AUTO: return "TK_KEYWORD_AUTO";
+        case TK_KEYWORD_BREAK: return "TK_KEYWORD_BREAK";
+        case TK_KEYWORD_CASE: return "TK_KEYWORD_CASE";
+        case TK_KEYWORD_CONSTEXPR: return "TK_KEYWORD_CONSTEXPR";
+        case TK_KEYWORD_CHAR: return "TK_KEYWORD_CHAR";
+        case TK_KEYWORD_CONST: return "TK_KEYWORD_CONST";
+        case TK_KEYWORD_CONTINUE: return "TK_KEYWORD_CONTINUE";
+        case TK_KEYWORD_CAKE_CATCH: return "TK_KEYWORD_CAKE_CATCH"; /*extension*/
+        case TK_KEYWORD_DEFAULT: return "TK_KEYWORD_DEFAULT";
+        case TK_KEYWORD_DO: return "TK_KEYWORD_DO";
+        case TK_KEYWORD_DEFER: return "TK_KEYWORD_DEFER"; /*extension*/
+        case TK_KEYWORD_DOUBLE: return "TK_KEYWORD_DOUBLE";
+        case TK_KEYWORD_ELSE: return "TK_KEYWORD_ELSE";
+        case TK_KEYWORD_ENUM: return "TK_KEYWORD_ENUM";
+        case TK_KEYWORD_EXTERN: return "TK_KEYWORD_EXTERN";
+        case TK_KEYWORD_FLOAT: return "TK_KEYWORD_FLOAT";
+        case TK_KEYWORD_FOR: return "TK_KEYWORD_FOR";
+        case TK_KEYWORD_GOTO: return "TK_KEYWORD_GOTO";
+        case TK_KEYWORD_IF: return "TK_KEYWORD_IF";
+        case TK_KEYWORD_INLINE: return "TK_KEYWORD_INLINE";
+        case TK_KEYWORD_INT: return "TK_KEYWORD_INT";
+        case TK_KEYWORD_LONG: return "TK_KEYWORD_LONG";
+        case TK_KEYWORD_MSVC__INT8: return "TK_KEYWORD_MSVC__INT8";
+        case TK_KEYWORD_MSVC__INT16: return "TK_KEYWORD_MSVC__INT16";
+        case TK_KEYWORD_MSVC__INT32: return "TK_KEYWORD_MSVC__INT32";
+        case TK_KEYWORD_MSVC__INT64: return "TK_KEYWORD_MSVC__INT64";
 
-    case TK_KEYWORD_REGISTER: return "TK_KEYWORD_REGISTER";
-    case TK_KEYWORD_RESTRICT: return "TK_KEYWORD_RESTRICT";
-    case TK_KEYWORD_RETURN: return "TK_KEYWORD_RETURN";
-    case TK_KEYWORD_SHORT: return "TK_KEYWORD_SHORT";
-    case TK_KEYWORD_SIGNED: return "TK_KEYWORD_SIGNED";
-    case TK_KEYWORD_SIZEOF: return "TK_KEYWORD_SIZEOF";
+        case TK_KEYWORD_REGISTER: return "TK_KEYWORD_REGISTER";
+        case TK_KEYWORD_RESTRICT: return "TK_KEYWORD_RESTRICT";
+        case TK_KEYWORD_RETURN: return "TK_KEYWORD_RETURN";
+        case TK_KEYWORD_SHORT: return "TK_KEYWORD_SHORT";
+        case TK_KEYWORD_SIGNED: return "TK_KEYWORD_SIGNED";
+        case TK_KEYWORD_SIZEOF: return "TK_KEYWORD_SIZEOF";
 
-    case TK_KEYWORD_STATIC: return "TK_KEYWORD_STATIC";
-    case TK_KEYWORD_STRUCT: return "TK_KEYWORD_STRUCT";
-    case TK_KEYWORD_SWITCH: return "TK_KEYWORD_SWITCH";
-    case TK_KEYWORD_TYPEDEF: return "TK_KEYWORD_TYPEDEF";
-    case TK_KEYWORD_CAKE_TRY: return "TK_KEYWORD_CAKE_TRY"; /*extension*/
-    case TK_KEYWORD_CAKE_THROW: return "TK_KEYWORD_CAKE_THROW"; /*extension*/
-    case TK_KEYWORD_UNION: return "TK_KEYWORD_UNION";
-    case TK_KEYWORD_UNSIGNED: return "TK_KEYWORD_UNSIGNED";
-    case TK_KEYWORD_VOID: return "TK_KEYWORD_VOID";
-    case TK_KEYWORD_VOLATILE: return "TK_KEYWORD_VOLATILE";
-    case TK_KEYWORD_WHILE: return "TK_KEYWORD_WHILE";
+        case TK_KEYWORD_STATIC: return "TK_KEYWORD_STATIC";
+        case TK_KEYWORD_STRUCT: return "TK_KEYWORD_STRUCT";
+        case TK_KEYWORD_SWITCH: return "TK_KEYWORD_SWITCH";
+        case TK_KEYWORD_TYPEDEF: return "TK_KEYWORD_TYPEDEF";
+        case TK_KEYWORD_CAKE_TRY: return "TK_KEYWORD_CAKE_TRY"; /*extension*/
+        case TK_KEYWORD_CAKE_THROW: return "TK_KEYWORD_CAKE_THROW"; /*extension*/
+        case TK_KEYWORD_UNION: return "TK_KEYWORD_UNION";
+        case TK_KEYWORD_UNSIGNED: return "TK_KEYWORD_UNSIGNED";
+        case TK_KEYWORD_VOID: return "TK_KEYWORD_VOID";
+        case TK_KEYWORD_VOLATILE: return "TK_KEYWORD_VOLATILE";
+        case TK_KEYWORD_WHILE: return "TK_KEYWORD_WHILE";
 
-    case TK_KEYWORD__ALIGNAS: return "TK_KEYWORD__ALIGNAS";
-    case TK_KEYWORD__ALIGNOF: return "TK_KEYWORD__ALIGNOF";
-    case TK_KEYWORD__ATOMIC: return "TK_KEYWORD__ATOMIC";
+        case TK_KEYWORD__ALIGNAS: return "TK_KEYWORD__ALIGNAS";
+        case TK_KEYWORD__ALIGNOF: return "TK_KEYWORD__ALIGNOF";
+        case TK_KEYWORD__ATOMIC: return "TK_KEYWORD__ATOMIC";
 
-        //#ifdef _WIN32
-    case TK_KEYWORD_MSVC__FASTCALL: return "TK_KEYWORD_MSVC__FASTCALL";
-    case TK_KEYWORD_MSVC__STDCALL:return "TK_KEYWORD_MSVC__STDCALL";
-    case TK_KEYWORD_MSVC__CDECL:return "TK_KEYWORD_MSVC__CDECL";
-    case TK_KEYWORD_MSVC__DECLSPEC:return "TK_KEYWORD_MSVC__DECLSPEC";
-        //#endif
-    case TK_KEYWORD__ASM: return "TK_KEYWORD__ASM";
-        //end microsoft
-    case TK_KEYWORD__BOOL: return "TK_KEYWORD__BOOL";
-    case TK_KEYWORD__COMPLEX: return "TK_KEYWORD__COMPLEX";
-    case TK_KEYWORD__DECIMAL128: return "TK_KEYWORD__DECIMAL128";
-    case TK_KEYWORD__DECIMAL32: return "TK_KEYWORD__DECIMAL32";
-    case TK_KEYWORD__DECIMAL64: return "TK_KEYWORD__DECIMAL64";
-    case TK_KEYWORD__GENERIC: return "TK_KEYWORD__GENERIC";
-    case TK_KEYWORD__IMAGINARY: return "TK_KEYWORD__IMAGINARY";
-    case TK_KEYWORD__NORETURN: return "TK_KEYWORD__NORETURN";
-    case TK_KEYWORD__STATIC_ASSERT: return "TK_KEYWORD__STATIC_ASSERT";
-    case TK_KEYWORD__COMPILE_ASSERT: return "TK_KEYWORD__COMPILE_ASSERT";
-    case TK_KEYWORD_RUNTIME_ASSERT: return "TK_KEYWORD_RUNTIME_ASSERT";
+            //#ifdef _WIN32
+        case TK_KEYWORD_MSVC__FASTCALL: return "TK_KEYWORD_MSVC__FASTCALL";
+        case TK_KEYWORD_MSVC__STDCALL:return "TK_KEYWORD_MSVC__STDCALL";
+        case TK_KEYWORD_MSVC__CDECL:return "TK_KEYWORD_MSVC__CDECL";
+        case TK_KEYWORD_MSVC__DECLSPEC:return "TK_KEYWORD_MSVC__DECLSPEC";
+            //#endif
+        case TK_KEYWORD__ASM: return "TK_KEYWORD__ASM";
+            //end microsoft
+        case TK_KEYWORD__BOOL: return "TK_KEYWORD__BOOL";
+        case TK_KEYWORD__COMPLEX: return "TK_KEYWORD__COMPLEX";
+        case TK_KEYWORD__DECIMAL128: return "TK_KEYWORD__DECIMAL128";
+        case TK_KEYWORD__DECIMAL32: return "TK_KEYWORD__DECIMAL32";
+        case TK_KEYWORD__DECIMAL64: return "TK_KEYWORD__DECIMAL64";
+        case TK_KEYWORD__GENERIC: return "TK_KEYWORD__GENERIC";
+        case TK_KEYWORD__IMAGINARY: return "TK_KEYWORD__IMAGINARY";
+        case TK_KEYWORD__NORETURN: return "TK_KEYWORD__NORETURN";
+        case TK_KEYWORD__STATIC_ASSERT: return "TK_KEYWORD__STATIC_ASSERT";
+        case TK_KEYWORD__COMPILE_ASSERT: return "TK_KEYWORD__COMPILE_ASSERT";
+        case TK_KEYWORD_RUNTIME_ASSERT: return "TK_KEYWORD_RUNTIME_ASSERT";
 
-    case TK_KEYWORD__THREAD_LOCAL: return "TK_KEYWORD__THREAD_LOCAL";
+        case TK_KEYWORD__THREAD_LOCAL: return "TK_KEYWORD__THREAD_LOCAL";
 
-    case TK_KEYWORD_TYPEOF: return "TK_KEYWORD_TYPEOF"; /*C23*/
+        case TK_KEYWORD_TYPEOF: return "TK_KEYWORD_TYPEOF"; /*C23*/
 
-    case TK_KEYWORD_TRUE: return "TK_KEYWORD_TRUE"; /*C23*/
-    case TK_KEYWORD_FALSE: return "TK_KEYWORD_FALSE"; /*C23*/
-    case TK_KEYWORD_NULLPTR: return "TK_KEYWORD_NULLPTR"; /*C23*/
-    case TK_KEYWORD_TYPEOF_UNQUAL: return "TK_KEYWORD_TYPEOF_UNQUAL"; /*C23*/
-    case TK_KEYWORD__BITINT: return "TK_KEYWORD__BITINT"; /*C23*/
+        case TK_KEYWORD_TRUE: return "TK_KEYWORD_TRUE"; /*C23*/
+        case TK_KEYWORD_FALSE: return "TK_KEYWORD_FALSE"; /*C23*/
+        case TK_KEYWORD_NULLPTR: return "TK_KEYWORD_NULLPTR"; /*C23*/
+        case TK_KEYWORD_TYPEOF_UNQUAL: return "TK_KEYWORD_TYPEOF_UNQUAL"; /*C23*/
+        case TK_KEYWORD__BITINT: return "TK_KEYWORD__BITINT"; /*C23*/
 
-        /*cake extension*/
-    case TK_KEYWORD_CAKE_OWNER: return "TK_KEYWORD_CAKE_OWNER";
-    case TK_KEYWORD_CAKE_OUT: return "TK_KEYWORD__OUT";
-    case TK_KEYWORD_CAKE_DTOR: return "TK_KEYWORD__OBJ_OWNER";
-    case TK_KEYWORD_CAKE_VIEW: return "TK_KEYWORD_CAKE_VIEW";
-    case TK_KEYWORD_CAKE_OPT: return "TK_KEYWORD_CAKE_OPT";
-    case TK_KEYWORD_CAKE_UNINITIALIZED: return "TK_KEYWORD_CAKE_UNINITIALIZED";
-    case TK_KEYWORD_CAKE_CLEAR: return "TK_KEYWORD_CAKE_CLEAR";
+            /*cake extension*/
+        case TK_KEYWORD_CAKE_OWNER: return "TK_KEYWORD_CAKE_OWNER";
+        case TK_KEYWORD_CAKE_OUT: return "TK_KEYWORD__OUT";
+        case TK_KEYWORD_CAKE_DTOR: return "TK_KEYWORD__OBJ_OWNER";
+        case TK_KEYWORD_CAKE_VIEW: return "TK_KEYWORD_CAKE_VIEW";
+        case TK_KEYWORD_CAKE_OPT: return "TK_KEYWORD_CAKE_OPT";
+        case TK_KEYWORD_CAKE_UNINITIALIZED: return "TK_KEYWORD_CAKE_UNINITIALIZED";
+        case TK_KEYWORD_CAKE_CLEAR: return "TK_KEYWORD_CAKE_CLEAR";
 
-        /*extension compile time functions*/
-    case TK_KEYWORD_CAKE_STATIC_DEBUG: return "TK_KEYWORD_CAKE_STATIC_DEBUG"; /*extension*/
-    case TK_KEYWORD_CAKE_STATIC_DEBUG_EX: return "TK_KEYWORD_CAKE_STATIC_DEBUG_EX"; /*extension*/
-    case TK_KEYWORD_STATIC_STATE: return "TK_KEYWORD_STATIC_STATE"; /*extension*/
+            /*extension compile time functions*/
+        case TK_KEYWORD_CAKE_STATIC_DEBUG: return "TK_KEYWORD_CAKE_STATIC_DEBUG"; /*extension*/
+        case TK_KEYWORD_CAKE_STATIC_DEBUG_EX: return "TK_KEYWORD_CAKE_STATIC_DEBUG_EX"; /*extension*/
+        case TK_KEYWORD_STATIC_STATE: return "TK_KEYWORD_STATIC_STATE"; /*extension*/
 
 
-        /*https://en.cppreference.com/w/cpp/header/type_traits*/
+            /*https://en.cppreference.com/w/cpp/header/type_traits*/
 
-    case TK_KEYWORD_IS_POINTER: return "TK_KEYWORD_IS_POINTER";
-    case TK_KEYWORD_IS_LVALUE: return "TK_KEYWORD_IS_LVALUE";
-    case TK_KEYWORD_IS_CONST: return "TK_KEYWORD_IS_CONST";
-    case TK_KEYWORD_IS_OWNER: return "TK_KEYWORD_IS_OWNER";
-    case TK_KEYWORD_IS_ARRAY: return "TK_KEYWORD_IS_ARRAY";
-    case TK_KEYWORD_IS_FUNCTION: return "TK_KEYWORD_IS_FUNCTION";
-    case TK_KEYWORD_IS_SCALAR: return "TK_KEYWORD_IS_SCALAR";
-    case TK_KEYWORD_IS_ARITHMETIC: return "TK_KEYWORD_IS_ARITHMETIC";
-    case TK_KEYWORD_IS_FLOATING_POINT: return "TK_KEYWORD_IS_FLOATING_POINT";
-    case TK_KEYWORD_IS_INTEGRAL: return "TK_KEYWORD_IS_INTEGRAL";
-    case TK_PRAGMA_END: return "TK_PRAGMA_END";
-    case TK_KEYWORD__COUNTOF: return "TK_KEYWORD__COUNTOF";
-    case TK_PLUS_ASSIGN: return "TK_PLUS_ASSIGN";
-    case TK_MINUS_ASSIGN: return "TK_MINUS_ASSIGN";
-    case TK_MULTI_ASSIGN: return "TK_MULTI_ASSIGN";
-    case TK_DIV_ASSIGN: return "TK_DIV_ASSIGN";
-    case TK_MOD_ASSIGN: return "TK_MOD_ASSIGN";
-    case TK_SHIFT_LEFT_ASSIGN: return "TK_SHIFT_LEFT_ASSIGN";
-    case TK_SHIFT_RIGHT_ASSIGN: return "TK_SHIFT_RIGHT_ASSIGN";
-    case TK_AND_ASSIGN: return "TK_AND_ASSIGN";
-    case TK_OR_ASSIGN: return "TK_OR_ASSIGN";
-    case TK_NOT_ASSIGN: return "TK_NOT_ASSIGN";
+        case TK_KEYWORD_IS_POINTER: return "TK_KEYWORD_IS_POINTER";
+        case TK_KEYWORD_IS_LVALUE: return "TK_KEYWORD_IS_LVALUE";
+        case TK_KEYWORD_IS_CONST: return "TK_KEYWORD_IS_CONST";
+        case TK_KEYWORD_IS_OWNER: return "TK_KEYWORD_IS_OWNER";
+        case TK_KEYWORD_IS_ARRAY: return "TK_KEYWORD_IS_ARRAY";
+        case TK_KEYWORD_IS_FUNCTION: return "TK_KEYWORD_IS_FUNCTION";
+        case TK_KEYWORD_IS_SCALAR: return "TK_KEYWORD_IS_SCALAR";
+        case TK_KEYWORD_IS_ARITHMETIC: return "TK_KEYWORD_IS_ARITHMETIC";
+        case TK_KEYWORD_IS_FLOATING_POINT: return "TK_KEYWORD_IS_FLOATING_POINT";
+        case TK_KEYWORD_IS_INTEGRAL: return "TK_KEYWORD_IS_INTEGRAL";
+        case TK_PRAGMA_END: return "TK_PRAGMA_END";
+        case TK_KEYWORD__COUNTOF: return "TK_KEYWORD__COUNTOF";
+        case TK_PLUS_ASSIGN: return "TK_PLUS_ASSIGN";
+        case TK_MINUS_ASSIGN: return "TK_MINUS_ASSIGN";
+        case TK_MULTI_ASSIGN: return "TK_MULTI_ASSIGN";
+        case TK_DIV_ASSIGN: return "TK_DIV_ASSIGN";
+        case TK_MOD_ASSIGN: return "TK_MOD_ASSIGN";
+        case TK_SHIFT_LEFT_ASSIGN: return "TK_SHIFT_LEFT_ASSIGN";
+        case TK_SHIFT_RIGHT_ASSIGN: return "TK_SHIFT_RIGHT_ASSIGN";
+        case TK_AND_ASSIGN: return "TK_AND_ASSIGN";
+        case TK_OR_ASSIGN: return "TK_OR_ASSIGN";
+        case TK_NOT_ASSIGN: return "TK_NOT_ASSIGN";
 
-    case TK_KEYWORD_GCC__BUILTIN_VA_END: return "TK_KEYWORD_GCC__BUILTIN_VA_END";
-    case TK_KEYWORD_GCC__BUILTIN_VA_ARG: return "TK_KEYWORD_GCC__BUILTIN_VA_ARG";
-    case TK_KEYWORD_GCC__BUILTIN_C23_VA_START: return "TK_KEYWORD_GCC__BUILTIN_C23_VA_START";
-    case TK_KEYWORD_GCC__BUILTIN_VA_COPY: return "TK_KEYWORD_GCC__BUILTIN_VA_COPY";
-    case TK_KEYWORD_GCC__BUILTIN_OFFSETOF: return "TK_KEYWORD_GCC__BUILTIN_OFFSETOF";
+        case TK_KEYWORD_GCC__BUILTIN_VA_END: return "TK_KEYWORD_GCC__BUILTIN_VA_END";
+        case TK_KEYWORD_GCC__BUILTIN_VA_ARG: return "TK_KEYWORD_GCC__BUILTIN_VA_ARG";
+        case TK_KEYWORD_GCC__BUILTIN_C23_VA_START: return "TK_KEYWORD_GCC__BUILTIN_C23_VA_START";
+        case TK_KEYWORD_GCC__BUILTIN_VA_COPY: return "TK_KEYWORD_GCC__BUILTIN_VA_COPY";
+        case TK_KEYWORD_GCC__BUILTIN_OFFSETOF: return "TK_KEYWORD_GCC__BUILTIN_OFFSETOF";
 
-    case TK_KEYWORD_MSVC__UNALIGNED: return "TK_KEYWORD_MSVC__UNALIGNED";
-    case TK_KEYWORD_MSVC__TRY: return "TK_KEYWORD_MSVC__TRY";
-    case TK_KEYWORD_MSVC__EXCEPT: return "TK_KEYWORD_MSVC__EXCEPT";
-    case TK_KEYWORD_MSVC__FINALLY: return "TK_KEYWORD_MSVC__FINALLY";
-    case TK_KEYWORD_MSVC__LEAVE: return "TK_KEYWORD_MSVC__LEAVE";
+        case TK_KEYWORD_MSVC__UNALIGNED: return "TK_KEYWORD_MSVC__UNALIGNED";
+        case TK_KEYWORD_MSVC__TRY: return "TK_KEYWORD_MSVC__TRY";
+        case TK_KEYWORD_MSVC__EXCEPT: return "TK_KEYWORD_MSVC__EXCEPT";
+        case TK_KEYWORD_MSVC__FINALLY: return "TK_KEYWORD_MSVC__FINALLY";
+        case TK_KEYWORD_MSVC__LEAVE: return "TK_KEYWORD_MSVC__LEAVE";
     }
     return "TK_X_MISSING_NAME";
 };
@@ -6549,210 +6558,210 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
 {
     switch (tk)
     {
-    case TK_NONE: return "?";
-    case TK_NEWLINE: return "new line";
-    case TK_WHITE_SPACE: return "white space";
-    case TK_EXCLAMATION_MARK: return "!";
-    case TK_QUOTATION_MARK: return "\"";
-    case TK_NUMBER_SIGN: return "#";
-    case TK_DOLLAR_SIGN: return "$";
-    case TK_PERCENT_SIGN: return "%";
-    case TK_AMPERSAND: return "&";
-    case TK_APOSTROPHE: return "\'";
-    case TK_LEFT_PARENTHESIS: return "(";
-    case TK_RIGHT_PARENTHESIS: return ")";
-    case TK_ASTERISK: return "*";
-    case TK_PLUS_SIGN: return "+";
-    case TK_COMMA: return ",";
-    case TK_HYPHEN_MINUS: return "-";
-    case TK_FULL_STOP: return ",";
-    case TK_SOLIDUS: return "/";
-    case TK_COLON: return ":";
-    case TK_SEMICOLON: return ";";
-    case TK_LESS_THAN_SIGN: return "<";
-    case TK_EQUALS_SIGN: return "=";
-    case TK_GREATER_THAN_SIGN: return ">";
-    case TK_LESS_EQUAL: return "<=";
-    case TK_GREATER_EQUAL: return ">=";
-    case TK_EQUAL_EQUAL: return "==";
-    case TK_NOT_EQUAL: return "!=";
-    case TK_QUESTION_MARK: return "?";
-    case TK_COMMERCIAL_AT: return "@";
-    case TK_LEFT_SQUARE_BRACKET: return "[";
-    case TK_REVERSE_SOLIDUS: return "//";
-    case TK_RIGHT_SQUARE_BRACKET: return "]";
-    case TK_CIRCUMFLEX_ACCENT: return "^";
-    case TK_FLOW_LINE: return "_";
-    case TK_GRAVE_ACCENT: return "`";
-    case TK_LEFT_CURLY_BRACKET: return "{";
-    case TK_VERTICAL_LINE: return "|";
-    case TK_RIGHT_CURLY_BRACKET: return "}";
-    case TK_TILDE: return "~";
-    case TK_PREPROCESSOR_LINE: return "# preprocessor line";
-    case TK_PRAGMA: return "pragma";
-    case TK_STRING_LITERAL: return "\"literal-string\"";
-    case TK_CHAR_CONSTANT: return "'char-constant'";
-    case TK_LINE_COMMENT: return "//comment";
-    case TK_COMMENT: return "/*comment*/";
-    case TK_PPNUMBER: return "pp-number";
+        case TK_NONE: return "?";
+        case TK_NEWLINE: return "new line";
+        case TK_WHITE_SPACE: return "white space";
+        case TK_EXCLAMATION_MARK: return "!";
+        case TK_QUOTATION_MARK: return "\"";
+        case TK_NUMBER_SIGN: return "#";
+        case TK_DOLLAR_SIGN: return "$";
+        case TK_PERCENT_SIGN: return "%";
+        case TK_AMPERSAND: return "&";
+        case TK_APOSTROPHE: return "\'";
+        case TK_LEFT_PARENTHESIS: return "(";
+        case TK_RIGHT_PARENTHESIS: return ")";
+        case TK_ASTERISK: return "*";
+        case TK_PLUS_SIGN: return "+";
+        case TK_COMMA: return ",";
+        case TK_HYPHEN_MINUS: return "-";
+        case TK_FULL_STOP: return ",";
+        case TK_SOLIDUS: return "/";
+        case TK_COLON: return ":";
+        case TK_SEMICOLON: return ";";
+        case TK_LESS_THAN_SIGN: return "<";
+        case TK_EQUALS_SIGN: return "=";
+        case TK_GREATER_THAN_SIGN: return ">";
+        case TK_LESS_EQUAL: return "<=";
+        case TK_GREATER_EQUAL: return ">=";
+        case TK_EQUAL_EQUAL: return "==";
+        case TK_NOT_EQUAL: return "!=";
+        case TK_QUESTION_MARK: return "?";
+        case TK_COMMERCIAL_AT: return "@";
+        case TK_LEFT_SQUARE_BRACKET: return "[";
+        case TK_REVERSE_SOLIDUS: return "//";
+        case TK_RIGHT_SQUARE_BRACKET: return "]";
+        case TK_CIRCUMFLEX_ACCENT: return "^";
+        case TK_FLOW_LINE: return "_";
+        case TK_GRAVE_ACCENT: return "`";
+        case TK_LEFT_CURLY_BRACKET: return "{";
+        case TK_VERTICAL_LINE: return "|";
+        case TK_RIGHT_CURLY_BRACKET: return "}";
+        case TK_TILDE: return "~";
+        case TK_PREPROCESSOR_LINE: return "# preprocessor line";
+        case TK_PRAGMA: return "pragma";
+        case TK_STRING_LITERAL: return "\"literal-string\"";
+        case TK_CHAR_CONSTANT: return "'char-constant'";
+        case TK_LINE_COMMENT: return "//comment";
+        case TK_COMMENT: return "/*comment*/";
+        case TK_PPNUMBER: return "pp-number";
 
-    case TK_KEYWORD_GCC__ATTRIBUTE:return "__attribute__";
-    case TK_KEYWORD_GCC__BUILTIN_VA_LIST:return "__builtin_va_list";
-    case TK_KEYWORD_MSVC__PTR32:return "__ptr32";
-    case TK_KEYWORD_MSVC__PTR64:return "__ptr64";
+        case TK_KEYWORD_GCC__ATTRIBUTE:return "__attribute__";
+        case TK_KEYWORD_GCC__BUILTIN_VA_LIST:return "__builtin_va_list";
+        case TK_KEYWORD_MSVC__PTR32:return "__ptr32";
+        case TK_KEYWORD_MSVC__PTR64:return "__ptr64";
 
-    case ANY_OTHER_PP_TOKEN: return "any_other_pp_token"; //@ por ex
+        case ANY_OTHER_PP_TOKEN: return "any_other_pp_token"; //@ por ex
 
-        /*PPNUMBER sao convertidos para constantes antes do parse*/
-    case TK_COMPILER_DECIMAL_CONSTANT: return "decimal_constant";
-    case TK_COMPILER_OCTAL_CONSTANT: return "octal_constant";
-    case TK_COMPILER_HEXADECIMAL_CONSTANT: return "hexadecimal_constant";
-    case TK_COMPILER_BINARY_CONSTANT: return "binary_constant";
-    case TK_COMPILER_DECIMAL_FLOATING_CONSTANT: return "decimal_floating_constant";
-    case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT: return "hexadecimal_floating_constant";
+            /*PPNUMBER sao convertidos para constantes antes do parse*/
+        case TK_COMPILER_DECIMAL_CONSTANT: return "decimal_constant";
+        case TK_COMPILER_OCTAL_CONSTANT: return "octal_constant";
+        case TK_COMPILER_HEXADECIMAL_CONSTANT: return "hexadecimal_constant";
+        case TK_COMPILER_BINARY_CONSTANT: return "binary_constant";
+        case TK_COMPILER_DECIMAL_FLOATING_CONSTANT: return "decimal_floating_constant";
+        case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT: return "hexadecimal_floating_constant";
 
-    case TK_PLACEMARKER: return "place-marker";
+        case TK_PLACEMARKER: return "place-marker";
 
-    case TK_BLANKS: return "blanks";
-    case TK_PLUSPLUS: return "++";
-    case TK_MINUSMINUS: return "--";
-    case TK_ARROW: return "->";
-    case TK_SHIFTLEFT: return "<<";
-    case TK_SHIFTRIGHT: return ">>";
-    case TK_LOGICAL_OPERATOR_OR: return "||";
-    case TK_LOGICAL_OPERATOR_AND: return "&&";
+        case TK_BLANKS: return "blanks";
+        case TK_PLUSPLUS: return "++";
+        case TK_MINUSMINUS: return "--";
+        case TK_ARROW: return "->";
+        case TK_SHIFTLEFT: return "<<";
+        case TK_SHIFTRIGHT: return ">>";
+        case TK_LOGICAL_OPERATOR_OR: return "||";
+        case TK_LOGICAL_OPERATOR_AND: return "&&";
 
-    case TK_MACRO_CONCATENATE_OPERATOR: return "TK_MACRO_CONCATENATE_OPERATOR";
+        case TK_MACRO_CONCATENATE_OPERATOR: return "TK_MACRO_CONCATENATE_OPERATOR";
 
-    case TK_IDENTIFIER: return "identifier";
-    case TK_IDENTIFIER_RECURSIVE_MACRO: return "recursive-macro"; /*usado para evitar recursao expansao macro*/
+        case TK_IDENTIFIER: return "identifier";
+        case TK_IDENTIFIER_RECURSIVE_MACRO: return "recursive-macro"; /*usado para evitar recursao expansao macro*/
 
-    case TK_BEGIN_OF_FILE: return "begin-of-file";
+        case TK_BEGIN_OF_FILE: return "begin-of-file";
 
-        //C23 keywords
-    case TK_KEYWORD_AUTO: return "auto";
-    case TK_KEYWORD_BREAK: return "break";
-    case TK_KEYWORD_CASE: return "case";
-    case TK_KEYWORD_CONSTEXPR: return "constexpr";
-    case TK_KEYWORD_CHAR: return "char";
-    case TK_KEYWORD_CONST: return "const";
-    case TK_KEYWORD_CONTINUE: return "continue";
-    case TK_KEYWORD_CAKE_CATCH: return "catch"; /*extension*/
-    case TK_KEYWORD_DEFAULT: return "default";
-    case TK_KEYWORD_DO: return "do";
-    case TK_KEYWORD_DEFER: return "defer"; /*extension*/
-    case TK_KEYWORD_DOUBLE: return "double";
-    case TK_KEYWORD_ELSE: return "else";
-    case TK_KEYWORD_ENUM: return "enum";
-    case TK_KEYWORD_EXTERN: return "extern";
-    case TK_KEYWORD_FLOAT: return "float";
-    case TK_KEYWORD_FOR: return "for";
-    case TK_KEYWORD_GOTO: return "goto";
-    case TK_KEYWORD_IF: return "if";
-    case TK_KEYWORD_INLINE: return "inline";
-    case TK_KEYWORD_INT: return "int";
-    case TK_KEYWORD_LONG: return "long";
-    case TK_KEYWORD_MSVC__INT8: return "__int8";
-    case TK_KEYWORD_MSVC__INT16: return "__int16";
-    case TK_KEYWORD_MSVC__INT32: return "__int32";
-    case TK_KEYWORD_MSVC__INT64: return "__int64";
+            //C23 keywords
+        case TK_KEYWORD_AUTO: return "auto";
+        case TK_KEYWORD_BREAK: return "break";
+        case TK_KEYWORD_CASE: return "case";
+        case TK_KEYWORD_CONSTEXPR: return "constexpr";
+        case TK_KEYWORD_CHAR: return "char";
+        case TK_KEYWORD_CONST: return "const";
+        case TK_KEYWORD_CONTINUE: return "continue";
+        case TK_KEYWORD_CAKE_CATCH: return "catch"; /*extension*/
+        case TK_KEYWORD_DEFAULT: return "default";
+        case TK_KEYWORD_DO: return "do";
+        case TK_KEYWORD_DEFER: return "defer"; /*extension*/
+        case TK_KEYWORD_DOUBLE: return "double";
+        case TK_KEYWORD_ELSE: return "else";
+        case TK_KEYWORD_ENUM: return "enum";
+        case TK_KEYWORD_EXTERN: return "extern";
+        case TK_KEYWORD_FLOAT: return "float";
+        case TK_KEYWORD_FOR: return "for";
+        case TK_KEYWORD_GOTO: return "goto";
+        case TK_KEYWORD_IF: return "if";
+        case TK_KEYWORD_INLINE: return "inline";
+        case TK_KEYWORD_INT: return "int";
+        case TK_KEYWORD_LONG: return "long";
+        case TK_KEYWORD_MSVC__INT8: return "__int8";
+        case TK_KEYWORD_MSVC__INT16: return "__int16";
+        case TK_KEYWORD_MSVC__INT32: return "__int32";
+        case TK_KEYWORD_MSVC__INT64: return "__int64";
 
-    case TK_KEYWORD_REGISTER: return "register";
-    case TK_KEYWORD_RESTRICT: return "restrict";
-    case TK_KEYWORD_RETURN: return "return";
-    case TK_KEYWORD_SHORT: return "short";
-    case TK_KEYWORD_SIGNED: return "signed";
-    case TK_KEYWORD_SIZEOF: return "sizeof";
+        case TK_KEYWORD_REGISTER: return "register";
+        case TK_KEYWORD_RESTRICT: return "restrict";
+        case TK_KEYWORD_RETURN: return "return";
+        case TK_KEYWORD_SHORT: return "short";
+        case TK_KEYWORD_SIGNED: return "signed";
+        case TK_KEYWORD_SIZEOF: return "sizeof";
 
-    case TK_KEYWORD_STATIC: return "static";
-    case TK_KEYWORD_STRUCT: return "struct";
-    case TK_KEYWORD_SWITCH: return "switch";
-    case TK_KEYWORD_TYPEDEF: return "typedef";
-    case TK_KEYWORD_CAKE_TRY: return "try"; /*extension*/
-    case TK_KEYWORD_CAKE_THROW: return "throw"; /*extension*/
-    case TK_KEYWORD_UNION: return "union";
-    case TK_KEYWORD_UNSIGNED: return "unsigned";
-    case TK_KEYWORD_VOID: return "void";
-    case TK_KEYWORD_VOLATILE: return "volatile";
-    case TK_KEYWORD_WHILE: return "while";
+        case TK_KEYWORD_STATIC: return "static";
+        case TK_KEYWORD_STRUCT: return "struct";
+        case TK_KEYWORD_SWITCH: return "switch";
+        case TK_KEYWORD_TYPEDEF: return "typedef";
+        case TK_KEYWORD_CAKE_TRY: return "try"; /*extension*/
+        case TK_KEYWORD_CAKE_THROW: return "throw"; /*extension*/
+        case TK_KEYWORD_UNION: return "union";
+        case TK_KEYWORD_UNSIGNED: return "unsigned";
+        case TK_KEYWORD_VOID: return "void";
+        case TK_KEYWORD_VOLATILE: return "volatile";
+        case TK_KEYWORD_WHILE: return "while";
 
-    case TK_KEYWORD__ALIGNAS: return "alignas";
-    case TK_KEYWORD__ALIGNOF: return "alingof";
-    case TK_KEYWORD__ATOMIC: return "atomic";
+        case TK_KEYWORD__ALIGNAS: return "alignas";
+        case TK_KEYWORD__ALIGNOF: return "alingof";
+        case TK_KEYWORD__ATOMIC: return "atomic";
 
-        //#ifdef _WIN32
-    case TK_KEYWORD_MSVC__FASTCALL: return "fastcall";
-    case TK_KEYWORD_MSVC__STDCALL:return "stdcall";
-    case TK_KEYWORD_MSVC__CDECL:return "__cdecl";
-    case TK_KEYWORD_MSVC__DECLSPEC:return "__declspec";
-        //#endif
-    case TK_KEYWORD__ASM: return "__ASM";
-        //end microsoft
-    case TK_KEYWORD__BOOL: return "bool";
-    case TK_KEYWORD__COMPLEX: return "__COMPLEX";
-    case TK_KEYWORD__DECIMAL128: return "_DECIMAL128";
-    case TK_KEYWORD__DECIMAL32: return "_DECIMAL32";
-    case TK_KEYWORD__DECIMAL64: return "_DECIMAL64";
-    case TK_KEYWORD__GENERIC: return "_Generic";
-    case TK_KEYWORD__IMAGINARY: return "_IMAGINARY";
-    case TK_KEYWORD__NORETURN: return "_Noreturn";
-    case TK_KEYWORD__STATIC_ASSERT: return "static_assert";
-    case TK_KEYWORD__COMPILE_ASSERT: return "compile_assert";
-    case TK_KEYWORD__THREAD_LOCAL: return "_THREAD_LOCAL";
+            //#ifdef _WIN32
+        case TK_KEYWORD_MSVC__FASTCALL: return "fastcall";
+        case TK_KEYWORD_MSVC__STDCALL:return "stdcall";
+        case TK_KEYWORD_MSVC__CDECL:return "__cdecl";
+        case TK_KEYWORD_MSVC__DECLSPEC:return "__declspec";
+            //#endif
+        case TK_KEYWORD__ASM: return "__ASM";
+            //end microsoft
+        case TK_KEYWORD__BOOL: return "bool";
+        case TK_KEYWORD__COMPLEX: return "__COMPLEX";
+        case TK_KEYWORD__DECIMAL128: return "_DECIMAL128";
+        case TK_KEYWORD__DECIMAL32: return "_DECIMAL32";
+        case TK_KEYWORD__DECIMAL64: return "_DECIMAL64";
+        case TK_KEYWORD__GENERIC: return "_Generic";
+        case TK_KEYWORD__IMAGINARY: return "_IMAGINARY";
+        case TK_KEYWORD__NORETURN: return "_Noreturn";
+        case TK_KEYWORD__STATIC_ASSERT: return "static_assert";
+        case TK_KEYWORD__COMPILE_ASSERT: return "compile_assert";
+        case TK_KEYWORD__THREAD_LOCAL: return "_THREAD_LOCAL";
 
-    case TK_KEYWORD_TYPEOF: return "typeof"; /*C23*/
+        case TK_KEYWORD_TYPEOF: return "typeof"; /*C23*/
 
-    case TK_KEYWORD_TRUE: return "true"; /*C23*/
-    case TK_KEYWORD_FALSE: return "false"; /*C23*/
-    case TK_KEYWORD_NULLPTR: return "nullptr"; /*C23*/
-    case TK_KEYWORD_TYPEOF_UNQUAL: return "typeof_unqual"; /*C23*/
-    case TK_KEYWORD__BITINT: return "_BitInt"; /*C23*/
+        case TK_KEYWORD_TRUE: return "true"; /*C23*/
+        case TK_KEYWORD_FALSE: return "false"; /*C23*/
+        case TK_KEYWORD_NULLPTR: return "nullptr"; /*C23*/
+        case TK_KEYWORD_TYPEOF_UNQUAL: return "typeof_unqual"; /*C23*/
+        case TK_KEYWORD__BITINT: return "_BitInt"; /*C23*/
 
-        /*cake extension*/
-    case TK_KEYWORD_CAKE_OWNER: return "_Owner";
-    case TK_KEYWORD_CAKE_OUT: return "Out";
-    case TK_KEYWORD_CAKE_DTOR: return "_OBJ_OWNER";
-    case TK_KEYWORD_CAKE_VIEW: return "_view";
-    case TK_KEYWORD_CAKE_OPT: return "_Opt";
+            /*cake extension*/
+        case TK_KEYWORD_CAKE_OWNER: return "_Owner";
+        case TK_KEYWORD_CAKE_OUT: return "Out";
+        case TK_KEYWORD_CAKE_DTOR: return "_OBJ_OWNER";
+        case TK_KEYWORD_CAKE_VIEW: return "_view";
+        case TK_KEYWORD_CAKE_OPT: return "_Opt";
 
-        /*extension compile time functions*/
-    case TK_KEYWORD_CAKE_STATIC_DEBUG: return "static_debugex"; /*extension*/
-    case TK_KEYWORD_CAKE_STATIC_DEBUG_EX: return "static_debug_ex"; /*extension*/
-    case TK_KEYWORD_STATIC_STATE: return "assert_state"; /*extension*/
+            /*extension compile time functions*/
+        case TK_KEYWORD_CAKE_STATIC_DEBUG: return "static_debugex"; /*extension*/
+        case TK_KEYWORD_CAKE_STATIC_DEBUG_EX: return "static_debug_ex"; /*extension*/
+        case TK_KEYWORD_STATIC_STATE: return "assert_state"; /*extension*/
 
 
-        /*https://en.cppreference.com/w/cpp/header/type_traits*/
+            /*https://en.cppreference.com/w/cpp/header/type_traits*/
 
-    case TK_KEYWORD_IS_POINTER: return "IS_POINTER";
-    case TK_KEYWORD_IS_LVALUE: return "IS_LVALUE";
-    case TK_KEYWORD_IS_CONST: return "IS_CONST";
-    case TK_KEYWORD_IS_OWNER: return "IS_OWNER";
-    case TK_KEYWORD_IS_ARRAY: return "_is_array";
-    case TK_KEYWORD_IS_FUNCTION: return "_is_function";
-    case TK_KEYWORD_IS_SCALAR: return "_is_scalar";
-    case TK_KEYWORD_IS_ARITHMETIC: return "_is_arithmetic";
-    case TK_KEYWORD_IS_FLOATING_POINT: return "is_floating_point";
-    case TK_KEYWORD_IS_INTEGRAL: return "_is_integral";
-    case TK_PRAGMA_END: return "pragma-end";
-    case TK_KEYWORD__COUNTOF: return "_Countof";
-    case TK_PLUS_ASSIGN: return "+=";
-    case TK_MINUS_ASSIGN: return "-=";
-    case TK_MULTI_ASSIGN: return "*=";
-    case TK_DIV_ASSIGN: return "/=";
-    case TK_MOD_ASSIGN: return "%=";
-    case TK_SHIFT_LEFT_ASSIGN: return "<<=";
-    case TK_SHIFT_RIGHT_ASSIGN: return ">>=";
-    case TK_AND_ASSIGN: return "&=";
-    case TK_OR_ASSIGN: return "|=";
-    case TK_NOT_ASSIGN: return "^=";
+        case TK_KEYWORD_IS_POINTER: return "IS_POINTER";
+        case TK_KEYWORD_IS_LVALUE: return "IS_LVALUE";
+        case TK_KEYWORD_IS_CONST: return "IS_CONST";
+        case TK_KEYWORD_IS_OWNER: return "IS_OWNER";
+        case TK_KEYWORD_IS_ARRAY: return "_is_array";
+        case TK_KEYWORD_IS_FUNCTION: return "_is_function";
+        case TK_KEYWORD_IS_SCALAR: return "_is_scalar";
+        case TK_KEYWORD_IS_ARITHMETIC: return "_is_arithmetic";
+        case TK_KEYWORD_IS_FLOATING_POINT: return "is_floating_point";
+        case TK_KEYWORD_IS_INTEGRAL: return "_is_integral";
+        case TK_PRAGMA_END: return "pragma-end";
+        case TK_KEYWORD__COUNTOF: return "_Countof";
+        case TK_PLUS_ASSIGN: return "+=";
+        case TK_MINUS_ASSIGN: return "-=";
+        case TK_MULTI_ASSIGN: return "*=";
+        case TK_DIV_ASSIGN: return "/=";
+        case TK_MOD_ASSIGN: return "%=";
+        case TK_SHIFT_LEFT_ASSIGN: return "<<=";
+        case TK_SHIFT_RIGHT_ASSIGN: return ">>=";
+        case TK_AND_ASSIGN: return "&=";
+        case TK_OR_ASSIGN: return "|=";
+        case TK_NOT_ASSIGN: return "^=";
 
-    case TK_KEYWORD_GCC__BUILTIN_VA_END: return "__builtin_va_end";
-    case TK_KEYWORD_GCC__BUILTIN_VA_ARG: return "__builtin_va_arg";
-    case TK_KEYWORD_GCC__BUILTIN_C23_VA_START: return "__builtin_c23_va_start";
-    case TK_KEYWORD_GCC__BUILTIN_VA_COPY: return "__builtin_va_copy";
-    case TK_KEYWORD_GCC__BUILTIN_OFFSETOF: return "__builtin_offsetof";
+        case TK_KEYWORD_GCC__BUILTIN_VA_END: return "__builtin_va_end";
+        case TK_KEYWORD_GCC__BUILTIN_VA_ARG: return "__builtin_va_arg";
+        case TK_KEYWORD_GCC__BUILTIN_C23_VA_START: return "__builtin_c23_va_start";
+        case TK_KEYWORD_GCC__BUILTIN_VA_COPY: return "__builtin_va_copy";
+        case TK_KEYWORD_GCC__BUILTIN_OFFSETOF: return "__builtin_offsetof";
 
-    default:
+        default:
         break;
 
     }
@@ -6811,11 +6820,11 @@ void print_literal(const char* _Opt s)
     {
         switch (*s)
         {
-        case '\n':
-            printf("\\n");
+            case '\n':
+                printf("\\n");
             break;
-        default:
-            printf("%c", *s);
+            default:
+                printf("%c", *s);
         }
         s++;
     }
@@ -7185,14 +7194,18 @@ static bool copy_file_bytes(const char* src, const char* dst)
     if (!in) return false;
 
     FILE* _Owner  _Opt out = fopen(dst, "wb");
-    if (!out) { fclose(in); return false; }
+    if (!out)
+    { fclose(in); return false;
+    }
 
     char buf[8192];
     size_t n;
     bool ok = true;
     while ((n = fread(buf, 1, sizeof buf, in)) > 0)
     {
-        if (fwrite(buf, 1, n, out) != n) { ok = false; break; }
+        if (fwrite(buf, 1, n, out) != n)
+        { ok = false; break;
+        }
     }
     fclose(in);
     fclose(out);
@@ -7216,7 +7229,7 @@ static char* _Opt strrchr_ex(const char* s, int c1)
 }
 
 int preprocessor_copy_included_headers(const struct preprocessor_ctx* ctx,
-    const char* dest_dir)
+                                       const char* dest_dir)
 {
     if (dest_dir == NULL || dest_dir[0] == '\0' ||
         ctx->copy_headers.table == NULL)
@@ -7251,16 +7264,16 @@ int preprocessor_copy_included_headers(const struct preprocessor_ctx* ctx,
             {
                 fclose(fp);
                 fprintf(stderr,
-                    "error: destination file already exists: %s\n",
-                    dest_path);
+                        "error: destination file already exists: %s\n",
+                        dest_path);
                 return -1;
             }
 
             if (!copy_file_bytes(full, dest_path))
             {
                 fprintf(stderr,
-                    "error: failed to copy %s -> %s\n",
-                    full, dest_path);
+                        "error: failed to copy %s -> %s\n",
+                        full, dest_path);
                 return -1;
             }
 
@@ -8285,7 +8298,7 @@ int test_predefined_macros()
 
     struct preprocessor_ctx prectx = { 0 };
     prectx.macros.capacity = 5000;
-    add_standard_macros(&prectx, CAKE_COMPILE_TIME_SELECTED_TARGET);
+    add_standard_macros(&prectx, TARGET_DEFAULT);
     struct token_list list2 = preprocessor(&prectx, &list, 0);
 
     const char* _Opt _Owner result = print_preprocessed_to_string(list2.head);

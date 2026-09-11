@@ -124,7 +124,6 @@ enum diagnostic_id {
     W_POINTER_TO_INT = 75,
     W_STRING_LITERAL_COMPARISON = 76,
     W_STATIC_FUNCTION_NOT_DEFINED = 77,
-    W_UNUSED_WARNING_77 = 77,
 
     /* Parse-time (phase 0) counterparts of W_FLOW_NON_OWNER_TO_OWNER_ASSIGN /
        W_FLOW_USING_TEMPORARY_OWNER, emitted by expressions.c's

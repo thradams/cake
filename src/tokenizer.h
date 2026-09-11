@@ -11,7 +11,7 @@
 #include "ownership.h"
 
 
-#define CAKE_CONFIG_FILE_NAME "cakeconf.h"
+#define CAKE_CONFIG_FILE_NAME "cake.json"
 
 
 struct include_dir

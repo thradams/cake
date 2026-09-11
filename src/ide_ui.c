@@ -922,6 +922,7 @@ struct ui_screen {
      * - stateless like the two above, holding the <listbox> itself for the
      * same reason (see process_window's UI_TAG_LISTBOX branch). */
     ui_node* dragging_listbox_scrollbar;
+    ui_node* dragging_listbox_hscrollbar;  /* horizontal counterpart (bottom row) */
 
     /* A ui_message_box modal to close+free once the current ui_screen_update()
      * finishes (set when one of its buttons fires, or on Escape) - deferred so
@@ -1946,6 +1947,12 @@ void ui_remove_child(ui_node* parent, ui_node* child)
             for (int j = i; j < parent->child_count - 1; j++)
                 parent->children[j] = parent->children[j + 1];
             parent->child_count--;
+            /* A listbox emptied to be repopulated (the clear-then-refill
+             * idiom every list refresh uses) starts unscrolled again, so a
+             * pan left over from the previous contents can't leave the new,
+             * shorter rows scrolled off to the right and looking blank. */
+            if (parent->type == UI_TAG_LISTBOX && parent->child_count == 0)
+                parent->hscroll = 0;
             return;
         }
     }
@@ -2093,6 +2100,7 @@ void ui_screen_show_modal(ui_screen* s, ui_node* modal)
     s->dragging_editor_vscrollbar = NULL;
     s->dragging_editor_hscrollbar = NULL;
     s->dragging_listbox_scrollbar = NULL;
+    s->dragging_listbox_hscrollbar = NULL;
 }
 
 void ui_message_box(ui_screen* s, const char* caption, const char* text,
@@ -2237,6 +2245,7 @@ void ui_screen_show_window(ui_screen* s, ui_node* modal)
     s->dragging_editor_vscrollbar = NULL;
     s->dragging_editor_hscrollbar = NULL;
     s->dragging_listbox_scrollbar = NULL;
+    s->dragging_listbox_hscrollbar = NULL;
 
     /* If `modal` wraps a docked Folder/Output-style window, showing it
      * changes how much desktop space every other dock and every maximized
@@ -2280,6 +2289,7 @@ void ui_screen_close_modal(ui_screen* s, ui_node* modal)
     s->dragging_editor_vscrollbar = NULL;
     s->dragging_editor_hscrollbar = NULL;
     s->dragging_listbox_scrollbar = NULL;
+    s->dragging_listbox_hscrollbar = NULL;
     s->selecting = NULL;
     s->open_select = NULL;
     s->focused = NULL;  /* an input inside the closing window can't stay focused */
@@ -3925,6 +3935,139 @@ static void listbox_clamp_scroll(ui_node* n)
         n->scroll = max_scroll;
     if (n->scroll < 0)
         n->scroll = 0;
+}
+
+/* Clamps a listbox's horizontal pan (n->hscroll, honoured by render_listbox)
+   to the longest label it holds, so it can never scroll past the last row's
+   text into empty space. Rows narrower than the box never scroll at all. */
+static int listbox_longest_label(const ui_node* n)
+{
+    int longest = 0;
+    for (int i = 0; i < n->child_count; i++)
+    {
+        const char* label = n->children[i]->label;
+        int len = 0;
+        for (const char* q = label ? label : ""; *q; )
+        {
+            uint32_t cp;
+            q += utf8_decode(q, &cp);
+            len++;
+        }
+        if (len > longest)
+            longest = len;
+    }
+    return longest;
+}
+
+/* How far right the rows can be panned before the longest one ends at the
+   box's right edge; 0 when everything already fits. */
+static int listbox_max_hscroll(const ui_node* n)
+{
+    int max_hscroll = listbox_longest_label(n) - node_cols(n);
+    return max_hscroll > 0 ? max_hscroll : 0;
+}
+
+static void listbox_clamp_hscroll(ui_node* n)
+{
+    int max_hscroll = listbox_max_hscroll(n);
+    if (n->hscroll > max_hscroll)
+        n->hscroll = max_hscroll;
+    if (n->hscroll < 0)
+        n->hscroll = 0;
+}
+
+/* The horizontal thumb's extent within the box's full width - the shape of
+   listbox_scrollbar_thumb, over columns of the longest label instead of rows
+   of the child count. */
+static void listbox_hscrollbar_thumb(const ui_node* n, int* out_start, int* out_len)
+{
+    const int cols = node_cols(n);
+    const int max_hscroll = listbox_max_hscroll(n);
+    const int longest = listbox_longest_label(n);
+
+    if (max_hscroll <= 0 || cols <= 0 || longest <= 0)
+    {
+        *out_start = 0;
+        *out_len = cols > 0 ? cols : 0;
+        return;
+    }
+
+    int len = cols * cols / longest;
+    if (len < 1) len = 1;
+    if (len > cols) len = cols;
+
+    int start = (n->hscroll * (cols - len)) / max_hscroll;
+    if (start < 0) start = 0;
+    if (start > cols - len) start = cols - len;
+
+    *out_start = start;
+    *out_len = len;
+}
+
+/* Sets n->hscroll from a click at screen column `mouse_px` - the inverse of
+   listbox_hscrollbar_thumb, same shape as listbox_scrollbar_set_from_mouse. */
+static void listbox_hscrollbar_set_from_mouse(ui_node* n, int mouse_px)
+{
+    int thumb_start, thumb_len;
+    listbox_hscrollbar_thumb(n, &thumb_start, &thumb_len);
+
+    const int cols = node_cols(n);
+    const int span = cols - thumb_len;
+    if (span <= 0)
+        return;
+
+    int col = node_col_at(n, mouse_px) - thumb_len / 2;
+    if (col < 0) col = 0;
+    if (col > span) col = span;
+
+    n->hscroll = (col * listbox_max_hscroll(n)) / span;
+    listbox_clamp_hscroll(n);
+}
+
+/* Continues a drag: keeps the grab point under the cursor rather than
+   re-centring the thumb on it. */
+static void listbox_hscrollbar_drag_to(ui_node* n, int mouse_px, int grab_offset)
+{
+    int thumb_start, thumb_len;
+    listbox_hscrollbar_thumb(n, &thumb_start, &thumb_len);
+
+    const int cols = node_cols(n);
+    const int span = cols - thumb_len;
+    if (span <= 0)
+        return;
+
+    int col = node_col_at(n, mouse_px) - grab_offset;
+    if (col < 0) col = 0;
+    if (col > span) col = span;
+
+    n->hscroll = (col * listbox_max_hscroll(n)) / span;
+    listbox_clamp_hscroll(n);
+}
+
+/* Where an item's own text starts, past any leading marker.
+
+   An <item> with a non-zero `fg` carries a per-file-type icon glyph at the
+   front of its label (see render_listbox, which tints exactly that glyph) -
+   the Project panel's "C "/"H "/"M " prefixes, for instance. Type-ahead has
+   to look past it, or every row in such a list appears to start with the
+   marker rather than with the file's own name. Leading blanks go too: a
+   marker column padded with spaces (the untyped-file case) is the same
+   prefix, just invisible. */
+static const char* item_text(const ui_node* item)
+{
+    const char* p = item->label;
+    if (!p)
+        return "";
+
+    if (item->fg && *p)
+    {
+        uint32_t cp;
+        p += utf8_decode(p, &cp);
+    }
+    while (*p == ' ' || *p == '\t')
+        p++;
+
+    return p;
 }
 
 static void listbox_ensure_visible(ui_node* n)
@@ -5739,10 +5882,43 @@ static int process_window(ui_screen* s, ui_node* container, ui_node* window,
             int has_bar = listbox_has_scrollbar(c);
             int on_bar = has_bar && on_node_last_col(c, s->mouse_px);
 
+            /* The horizontal bar owns the bottom row (see render_listbox);
+               the vertical one still wins the shared corner cell, the same
+               precedence an <editor>'s two bars use. */
+            int has_hbar = listbox_max_hscroll(c) > 0;
+            int on_hbar = has_hbar && !on_bar && on_node_last_row(c, s->mouse_py);
+
             if (s->dragging_listbox_scrollbar == c && !s->mouse_down)
             {
                 s->dragging_listbox_scrollbar = NULL;
                 c->thumb_pin = -1;   /* drag over: thumb follows scroll again */
+            }
+            if (s->dragging_listbox_hscrollbar == c && !s->mouse_down)
+                s->dragging_listbox_hscrollbar = NULL;
+
+            if (inside && on_hbar && s->mouse_pressed && !*click_consumed)
+            {
+                s->dragging_listbox_hscrollbar = c;
+
+                int thumb_start, thumb_len;
+                listbox_hscrollbar_thumb(c, &thumb_start, &thumb_len);
+                int col = node_col_at(c, s->mouse_px);
+                int on_thumb = col >= thumb_start && col < thumb_start + thumb_len;
+                if (!on_thumb)
+                {
+                    /* Empty track: jump, then re-read the thumb so a drag
+                       continuing from this press tracks the cursor. */
+                    listbox_hscrollbar_set_from_mouse(c, s->mouse_px);
+                    listbox_hscrollbar_thumb(c, &thumb_start, &thumb_len);
+                }
+                s->hbar_drag_offset = col - thumb_start;
+                if (s->hbar_drag_offset < 0) s->hbar_drag_offset = 0;
+                if (s->hbar_drag_offset > thumb_len - 1) s->hbar_drag_offset = thumb_len - 1;
+                *click_consumed = 1;
+            }
+            else if (s->dragging_listbox_hscrollbar == c && s->mouse_down && s->mouse_moved)
+            {
+                listbox_hscrollbar_drag_to(c, s->mouse_px, s->hbar_drag_offset);
             }
 
             if (inside && on_bar && s->mouse_pressed && !*click_consumed)
@@ -6125,8 +6301,24 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                 }
                 if (hit && hit->type == UI_TAG_LISTBOX)
                 {
-                    hit->scroll -= ev.data.mouse.wheel_delta * UI_WHEEL_LINES;
-                    listbox_clamp_scroll(hit);
+                    /* Same two axes an editor gets below: a horizontal wheel
+                     * (or trackpad swipe) pans, and Shift+vertical-wheel does
+                     * it for mice with no horizontal axis - a directory list
+                     * is mostly long paths that need reading to their end. */
+                    int hdelta = ev.data.mouse.wheel_hdelta;
+                    if (ev.data.mouse.mods & UI_MOD_SHIFT)
+                        hdelta -= ev.data.mouse.wheel_delta;
+                    if (hdelta)
+                    {
+                        hit->hscroll += hdelta * UI_WHEEL_LINES;
+                        listbox_clamp_hscroll(hit);
+                    }
+                    if (ev.data.mouse.wheel_delta &&
+                        !(ev.data.mouse.mods & UI_MOD_SHIFT))
+                    {
+                        hit->scroll -= ev.data.mouse.wheel_delta * UI_WHEEL_LINES;
+                        listbox_clamp_scroll(hit);
+                    }
                 }
                 else if (hit)
                 {
@@ -6195,6 +6387,7 @@ void ui_screen_update(ui_screen* s, ui_env* env)
             s->dragging_editor_vscrollbar = NULL;
             s->dragging_editor_hscrollbar = NULL;
             s->dragging_listbox_scrollbar = NULL;
+            s->dragging_listbox_hscrollbar = NULL;
             s->selecting = NULL;
             continue;
         }
@@ -6370,6 +6563,15 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                 }
                 listbox_ensure_visible(in);
             }
+            else if (ev2->data.key.code == UI_KEY_LEFT ||
+                     ev2->data.key.code == UI_KEY_RIGHT)
+            {
+                /* Pan the rows sideways (see render_listbox's own hscroll
+                 * use) so a label wider than the box can be read to its end -
+                 * a directory list is mostly long paths. */
+                in->hscroll += (ev2->data.key.code == UI_KEY_RIGHT ? 1 : -1);
+                listbox_clamp_hscroll(in);
+            }
             else if (in->multi && ev2->data.key.codepoint == ' ' &&
                      in->selected >= 0 && in->selected < in->child_count)
             {
@@ -6395,9 +6597,10 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                 for (int attempt = 0; attempt < in->child_count; attempt++)
                 {
                     int idx = (start_search + attempt) % in->child_count;
-                    if (in->children[idx]->label && in->children[idx]->label[0])
+                    const char* text = item_text(in->children[idx]);
+                    if (*text)
                     {
-                        char first_char = in->children[idx]->label[0];
+                        char first_char = *text;
                         /* Case-insensitive comparison */
                         if (first_char >= 'a' && first_char <= 'z')
                             first_char = first_char - 'a' + 'A';
@@ -6836,7 +7039,8 @@ void ui_screen_update(ui_screen* s, ui_env* env)
          * what claimed it instead. */
         int active_idx = -1;
         if (s->dragging_window || s->resizing_window || s->dragging_editor_vscrollbar ||
-            s->dragging_editor_hscrollbar || s->dragging_listbox_scrollbar)
+            s->dragging_editor_hscrollbar || s->dragging_listbox_scrollbar ||
+            s->dragging_listbox_hscrollbar)
         {
             for (int i = 0; i < s->window_count; i++)
             {
@@ -6844,7 +7048,8 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                 if (w == s->dragging_window || w == s->resizing_window ||
                     is_direct_child(w, s->dragging_editor_vscrollbar) ||
                     is_direct_child(w, s->dragging_editor_hscrollbar) ||
-                    is_direct_child(w, s->dragging_listbox_scrollbar))
+                    is_direct_child(w, s->dragging_listbox_scrollbar) ||
+                    is_direct_child(w, s->dragging_listbox_hscrollbar))
                 {
                     active_idx = i;
                     break;
@@ -7865,6 +8070,16 @@ static void render_listbox(ui_screen* s, ui_node* n)
             emit_char(lx + col, ly + row, cp, item->fg, bg);
             col++;
         }
+        /* Horizontal scroll (n->hscroll, panned with Left/Right - see the
+         * UI_TAG_LISTBOX key branch): the label is drawn from that column on,
+         * so rows wider than the box - long paths, typically - can be read
+         * all the way to their end. Column 0 is whatever the icon glyph
+         * above already consumed, so the offset applies to the text only. */
+        for (int skip = 0; skip < n->hscroll && *p; skip++)
+        {
+            uint32_t cp;
+            p += utf8_decode(p, &cp);
+        }
         while (*p && col < lw)
         {
             uint32_t cp;
@@ -7893,6 +8108,35 @@ static void render_listbox(ui_screen* s, ui_node* n)
             int is_thumb = row >= thumb_start && row < thumb_start + thumb_len;
             emit_char(sx, ly + row, ' ', g_theme.scrollbar_bg,
                       is_thumb ? g_theme.scrollbar_thumb_bg : g_theme.scrollbar_bg);
+        }
+    }
+
+    /* The horizontal bar, along the bottom row - the counterpart of the
+       vertical one just above, shown when a row is wider than the box so that
+       truncated text reads as pannable rather than merely cut off. Same
+       "only while the mouse is over this listbox" rule as the vertical bar:
+       it is painted over the bottom row rather than reserving one, so leaving
+       it up permanently would hide that row's own text. */
+    if (s->hot == n || s->dragging_listbox_scrollbar == n ||
+        s->dragging_listbox_hscrollbar == n)
+    {
+        if (listbox_max_hscroll(n) > 0 && lw > 0 && lh > 0)
+        {
+            int thumb_start, thumb_len;
+            listbox_hscrollbar_thumb(n, &thumb_start, &thumb_len);
+
+            /* U+2584 (lower half block), same as an <editor>'s horizontal
+               bar: only the bottom half of each cell takes the scrollbar
+               color, so it reads as a slim bar hugging the bottom edge
+               rather than a solid row covering one of the list's own. */
+            int by = ly + lh - 1;
+            for (int col = 0; col < lw; col++)
+            {
+                int is_thumb = col >= thumb_start && col < thumb_start + thumb_len;
+                emit_char(lx + col, by, 0x2584 /* lower half block */,
+                          is_thumb ? g_theme.scrollbar_thumb_bg : g_theme.scrollbar_bg,
+                          g_theme.listbox_bg);
+            }
         }
     }
 }

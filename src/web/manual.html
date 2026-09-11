@@ -521,9 +521,8 @@ Cake can also perform cross-compilation, as long as you provide the headers from
 
 <h3 id="toc_4">2.2 Include Directories</h3>
 
-<p>Include directories are specified in a <code>cakeconf.h</code> configuration header.
-Cake first searches for this file relative to the source file being compiled. 
-If no local <code>cakeconf.h</code> is found, the root <code>cakeconf.h</code> from the installation directory is used.</p>
+<p>Include directories are specified in <code>cake.json</code>, a configuration file kept
+next to the cake executable. It replaces the former <code>cakeconf.h</code> header.</p>
 
 <p><strong>Discovering system include paths manually:</strong></p>
 
@@ -542,59 +541,69 @@ If no local <code>cakeconf.h</code> is found, the root <code>cakeconf.h</code> f
 <pre><code>echo | clang -v -E -
 </code></pre>
 
-<p><strong>Sample <code>cakeconf.h</code> for Linux:</strong></p>
+<p><strong>Sample <code>cake.json</code> for Linux:</strong></p>
 
-<pre><code class="language-c">#ifdef __linux__
-#pragma dir &quot;/usr/lib/gcc/x86_64-linux-gnu/11/include&quot;
-#pragma dir &quot;/usr/local/include&quot;
-#pragma dir &quot;/usr/include/x86_64-linux-gnu&quot;
-#pragma dir &quot;/usr/include&quot;
-#endif
+<pre><code class="language-json">{
+  &quot;include_dirs&quot;: [
+    &quot;/usr/lib/gcc/x86_64-linux-gnu/11/include&quot;,
+    &quot;/usr/local/include&quot;,
+    &quot;/usr/include/x86_64-linux-gnu&quot;,
+    &quot;/usr/include&quot;
+  ]
+}
 </code></pre>
 
-<p><strong>Sample <code>cakeconf.h</code> for Windows:</strong></p>
+<p><strong>Sample <code>cake.json</code> for Windows:</strong></p>
 
-<pre><code class="language-c">#ifdef _WIN32
-#pragma dir &quot;C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.38.33130/include&quot;
-#pragma dir &quot;C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.38.33130/ATLMFC/include&quot;
-#pragma dir &quot;C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Auxiliary/VS/include&quot;
-#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/ucrt&quot;
-#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/um&quot;
-#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/shared&quot;
-#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/winrt&quot;
-#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/cppwinrt&quot;
-#pragma dir &quot;C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um&quot;
-#endif
+<pre><code class="language-json">{
+  &quot;include_dirs&quot;: [
+    &quot;C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.38.33130/include&quot;,
+    &quot;C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.38.33130/ATLMFC/include&quot;,
+    &quot;C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Auxiliary/VS/include&quot;,
+    &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/ucrt&quot;,
+    &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/um&quot;,
+    &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/shared&quot;,
+    &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/winrt&quot;,
+    &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/cppwinrt&quot;,
+    &quot;C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um&quot;
+  ]
+}
 </code></pre>
 
-<p><strong>Sample <code>cakeconf.h</code> for macOS:</strong></p>
+<p><strong>Sample <code>cake.json</code> for macOS:</strong></p>
 
-<pre><code class="language-c">#ifdef __APPLE__
-#pragma dir &quot;/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include&quot;
-#pragma dir &quot;/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include&quot;
-#pragma dir &quot;/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include&quot;
-#endif
+<pre><code class="language-json">{
+  &quot;include_dirs&quot;: [
+    &quot;/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include&quot;,
+    &quot;/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include&quot;,
+    &quot;/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include&quot;
+  ]
+}
 </code></pre>
 
-<p><strong>Per-project configuration:</strong></p>
+<p>Unlike the <code>cakeconf.h</code> it replaces, <code>cake.json</code> is data rather than a
+preprocessed header: it cannot use <code>#ifdef</code> to hold several platforms in one
+file, and it cannot <code>#include</code> another config. Each installation has its own
+<code>cake.json</code>, describing the machine it runs on. To add include directories for
+one project rather than the whole installation, use <code>-I</code> on the command line,
+or <code>#pragma dir</code> in the source itself.</p>
 
-<p>Projects can have their own local <code>cakeconf.h</code> that includes a shared system-level configuration and adds project-specific paths:</p>
-
-<p><code>yourproject\cakeconf.h</code>:</p>
-
-<pre><code class="language-c">// System includes
-#include &quot;C:\Program Files (x86)\cake\cakeconf.h&quot;
-
-// Project-specific includes
-#pragma dir &quot;.\openssl\include&quot;
-</code></pre>
+<p>The cake IDE reads and writes this same file, keeping its own global compiler
+options in it under a <code>&quot;compile&quot;</code> object. Both tools share one format, and
+<code>-auto-config</code> rewrites only <code>&quot;include_dirs&quot;</code>, leaving anything else in the
+file untouched.</p>
 
 <h3 id="toc_5">2.3 System include paths auto-configuration</h3>
 
-<p>The <code>-auto-config</code> option generates a root <code>cakeconf.h</code> automatically by querying the active compiler environment:</p>
+<p>The <code>-auto-config</code> option fills in <code>cake.json</code>&#39;s <code>&quot;include_dirs&quot;</code> automatically
+by querying the active compiler environment:</p>
 
 <pre><code>cake -auto-config
 </code></pre>
+
+<p>On Windows this reads the <code>INCLUDE</code> variable, so it must be run from a Visual
+Studio Developer Command Prompt. On Linux and macOS it reads the search list
+reported by <code>gcc -v -E</code> / <code>clang -v -E</code>.</p>
 
 <hr>
 
@@ -610,12 +619,12 @@ If no local <code>cakeconf.h</code> is found, the root <code>cakeconf.h</code> f
 <pre><code>cake source.c
 </code></pre>
 
-<p>Compiles <code>source.c</code> and writes the C89 output to <code>/[default-target]/source.c</code>.</p>
+<p>Compiles <code>source.c</code> and writes the C89 output to <code>./&lt;target&gt;/source.c</code>, where <code>&lt;target&gt;</code> is the platform Cake was built for (e.g. <code>./macos_arm64/source.c</code>).</p>
 
-<pre><code>cake -target=X86_msvc source.c
+<pre><code>cake -target=x86_msvc source.c
 </code></pre>
 
-<p>Compiles <code>source.c</code> targeting MSVC x86 and writes output to <code>/X86_msvc/source.c</code>.</p>
+<p>Compiles <code>source.c</code> targeting MSVC x86 and writes output to <code>./x86_msvc/source.c</code>.</p>
 
 <pre><code>cake file.c -o file.cc &amp;&amp; cl file.cc
 </code></pre>
@@ -662,7 +671,7 @@ Generate SARIF diagnostic output files. Compatible with the <a href="https://mar
 
 <p><strong><code>-sarif-path &lt;dir&gt;</code></strong><br>
 Specify the directory for SARIF output. Typical Visual Studio External Tools invocation:<br>
-<code>-Wstyle -msvc-output -no-output -sarif -sarif-path &quot;$(SolutionDir).sarif&quot; $(ItemPath)</code></p>
+<code>-w11 -msvc-output -no-output -sarif -sarif-path &quot;$(SolutionDir).sarif&quot; $(ItemPath)</code></p>
 
 <p><strong><code>-msvc-output</code></strong><br>
 Format diagnostic output to be compatible with the Visual Studio IDE error parser. Same as <code>-fdiagnostics-format=msvc</code> plus <code>-fdiagnostics-color=never</code>.</p>
@@ -670,11 +679,29 @@ Format diagnostic output to be compatible with the Visual Studio IDE error parse
 <p><strong><code>-fdiagnostics-format=&lt;format&gt;</code></strong><br>
 Select how the position of each diagnostic is printed. Valid formats:</p>
 
-<p><code>gcc</code> (default)  <code>file.c:1:2: warning 10: message</code> </p>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Output</th>
+</tr>
+</thead>
 
-<p><code>msvc</code>  <code>file.c(1,2): warning 10: message</code> </p>
-
-<p><code>ide</code>   <code>file.c:1:2: warning 10: message</code> </p>
+<tbody>
+<tr>
+<td><code>gcc</code> (default)</td>
+<td><code>file.c:1:2: warning 10: message</code></td>
+</tr>
+<tr>
+<td><code>msvc</code></td>
+<td><code>file.c(1,2): warning 10: message</code></td>
+</tr>
+<tr>
+<td><code>ide</code></td>
+<td><code>file.c:1:2: warning 10: message</code></td>
+</tr>
+</tbody>
+</table>
 
 <p>Both shapes are understood by Visual Studio and by Visual Studio Code. The file being compiled is printed by name only; files reached through <code>#include</code> are printed with their full path.</p>
 
@@ -683,20 +710,73 @@ Disable ANSI color codes in diagnostic output. Same as GCC.</p>
 
 <h3 id="toc_12">4.3 Diagnostic Options</h3>
 
-<p><strong><code>-W&lt;number&gt;</code></strong><br>
-Enable warning number <code>&lt;number&gt;</code>. See the <a href="diagnostics.html">Warnings Reference</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Effect</th>
+</tr>
+</thead>
 
-<p><strong><code>-Wno-&lt;number&gt;</code></strong><br>
-Disable warning number <code>&lt;number&gt;</code>.</p>
-
-<p><strong><code>-Wall</code></strong><br>
-Enable all warnings.</p>
+<tbody>
+<tr>
+<td><code>-w&lt;number&gt;</code></td>
+<td>enable warning number <code>&lt;number&gt;</code>, e.g. <code>-w2</code>. See the <a href="diagnostics.html">Warnings Reference</a></td>
+</tr>
+<tr>
+<td><code>-wd&lt;number&gt;</code></td>
+<td>disable warning number <code>&lt;number&gt;</code>, e.g. <code>-wd2</code></td>
+</tr>
+<tr>
+<td><code>-wall</code> / <code>-Wall</code></td>
+<td>enable all warnings</td>
+</tr>
+</tbody>
+</table>
 
 <p><strong>Disabled by default</strong><br>
-Most warnings are on unless <code>-Wno-&lt;number&gt;</code> turns them off, but a few are off
-until asked for: <code>2</code> (unused variable), <code>6</code> (unused function parameter), <code>11</code>
-(style), <code>83</code> (parameter set but not used), <code>84</code> (variable set but not used),
-and the two nullable-pointer flow checks <code>33</code> and <code>35</code>.</p>
+Most warnings are on unless <code>-wd&lt;number&gt;</code> turns them off, but a few are off
+until asked for:</p>
+
+<table>
+<thead>
+<tr>
+<th>Number</th>
+<th>Warning</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td><code>2</code></td>
+<td>unused variable</td>
+</tr>
+<tr>
+<td><code>6</code></td>
+<td>unused function parameter</td>
+</tr>
+<tr>
+<td><code>11</code></td>
+<td>style</td>
+</tr>
+<tr>
+<td><code>33</code></td>
+<td>nullable pointer flow check</td>
+</tr>
+<tr>
+<td><code>35</code></td>
+<td>nullable pointer flow check</td>
+</tr>
+<tr>
+<td><code>83</code></td>
+<td>parameter set but not used</td>
+</tr>
+<tr>
+<td><code>84</code></td>
+<td>variable set but not used</td>
+</tr>
+</tbody>
+</table>
 
 <p><strong><code>-Werror</code></strong><br>
 Report every enabled warning as an error. Notes are not affected, and warnings that are disabled stay disabled. Because they become errors, warnings coming from included headers are no longer suppressed, and any occurrence makes the compilation fail.</p>
@@ -708,17 +788,56 @@ Set the compilation target. Controls integer sizes, alignment, and the style of 
 
 <p>Available targets:</p>
 
-<ul>
-<li><code>x86_x64_gcc</code> — Linux x86-64, GCC output</li>
-<li><code>x86_msvc</code> — Windows x86, MSVC output</li>
-<li><code>x64_msvc</code> — Windows x64, MSVC output</li>
-<li><code>macos_arm64</code> — macOS arm64 (Apple Silicon), Clang output</li>
-<li><code>catalina</code> — Catalina C compiler</li>
-<li><code>ccu8</code> — Embedded / custom target</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Platform</th>
+<th>Output compiler</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td><code>default</code></td>
+<td>the platform Cake itself was built for (same as omitting <code>-target</code>)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>x86_x64_gcc</code></td>
+<td>Linux x86-64</td>
+<td>GCC</td>
+</tr>
+<tr>
+<td><code>x86_msvc</code></td>
+<td>Windows x86</td>
+<td>MSVC</td>
+</tr>
+<tr>
+<td><code>x64_msvc</code></td>
+<td>Windows x64</td>
+<td>MSVC</td>
+</tr>
+<tr>
+<td><code>macos_arm64</code></td>
+<td>macOS arm64 (Apple Silicon)</td>
+<td>Clang</td>
+</tr>
+<tr>
+<td><code>catalina</code></td>
+<td>Catalina</td>
+<td>Catalina C compiler</td>
+</tr>
+<tr>
+<td><code>ccu8</code></td>
+<td>Embedded / custom</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
 
 <p><strong><code>-auto-config</code></strong><br>
-Generate a <code>cakeconf.h</code> header file configured for the current system.</p>
+Generate <code>cake.json</code> with the include directories of the current system.</p>
 
 <h3 id="toc_14">4.5 Analysis Options</h3>
 
@@ -731,28 +850,129 @@ Treat string literals as <code>const char[]</code> rather than <code>char[]</cod
 <h3 id="toc_15">4.6 Style and Formatting Options</h3>
 
 <p><strong><code>-style=&lt;name&gt;</code></strong><br>
-Set the naming and formatting convention enforced by style warnings (<code>-Wstyle</code> / <code>-w011</code>).
-When enabled, Cake checks identifier casing, brace placement, and spacing against the chosen guide.</p>
+Select the coding style checked by diagnostic 11 (style). Passing <code>-style</code> turns diagnostic 11 on as a note; <code>-style=none</code> turns it off. Valid names: <code>none</code>, <code>cake</code>, <code>gnu</code>, <code>microsoft</code>.</p>
 
-<p>Available styles:</p>
+<p><strong><code>-format</code></strong><br>
+Reformat the file&#39;s spacing, braces, <code>else</code> placement and indentation to match <code>-style</code> (defaults to <code>cake</code>) and print the result instead of compiling.</p>
 
-<p><strong><code>cake</code></strong> — The Cake default style. Snake_case identifiers. Allman brace placement: both function-body and control-flow <code>{</code> appear on their own line, indented. <code>}</code> always on its own line.</p>
+<p><strong><code>-format-lines=&lt;first&gt;:&lt;last&gt;</code></strong><br>
+Restrict <code>-format</code> to the given line range.</p>
 
-<p><strong><code>gnu</code></strong> — GNU coding standards. Snake_case identifiers. Allman brace placement, same as <code>cake</code>.</p>
+<p>The built-in styles:</p>
 
-<p><strong><code>microsoft</code></strong> — Microsoft style guide. PascalCase for types and functions. Allman brace placement: <code>{</code> on its own line for both function bodies and control-flow blocks.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><code>cake</code></th>
+<th><code>gnu</code></th>
+<th><code>microsoft</code></th>
+</tr>
+</thead>
 
-<p><strong><code>llvm</code></strong> — LLVM coding standards. PascalCase for types and functions, camelCase for variables. K&amp;R brace placement: <code>{</code> on the same line as the controlling statement or function signature, preceded by a space.</p>
+<tbody>
+<tr>
+<td>Function-body <code>{</code></td>
+<td>own line (Allman)</td>
+<td>own line (Allman)</td>
+<td>own line (Allman)</td>
+</tr>
+<tr>
+<td>Control-flow <code>{</code></td>
+<td>own line (Allman)</td>
+<td>own line (Allman)</td>
+<td>own line (Allman)</td>
+</tr>
+<tr>
+<td><code>else</code></td>
+<td>new line</td>
+<td>new line</td>
+<td>new line</td>
+</tr>
+<tr>
+<td>Pointer <code>*</code></td>
+<td>next to the type: <code>int* p</code></td>
+<td>next to the name: <code>int *p</code></td>
+<td>next to the name: <code>int *p</code></td>
+</tr>
+<tr>
+<td>Indentation</td>
+<td>4 spaces</td>
+<td>tabs</td>
+<td>4 spaces</td>
+</tr>
+<tr>
+<td>struct / enum names</td>
+<td>snake_case</td>
+<td>camelCase</td>
+<td>PascalCase</td>
+</tr>
+<tr>
+<td>Function names</td>
+<td>snake_case</td>
+<td>camelCase</td>
+<td>PascalCase</td>
+</tr>
+<tr>
+<td>Globals, locals, parameters, members</td>
+<td>snake_case</td>
+<td>snake_case</td>
+<td>PascalCase</td>
+</tr>
+<tr>
+<td>Enumerators</td>
+<td>UPPERCASE</td>
+<td>UPPERCASE</td>
+<td>UPPERCASE</td>
+</tr>
+<tr>
+<td>Spacing rules (below)</td>
+<td>on</td>
+<td>off</td>
+<td>off</td>
+</tr>
+</tbody>
+</table>
 
-<p><strong><code>google</code></strong> — Google C++ style guide (C-compatible subset). PascalCase for types and functions. K&amp;R brace placement: <code>{</code> on the same line.</p>
+<p>In every style <code>}</code> must be on its own line. Indentation must be tabs only or spaces only, and with spaces a multiple of the indent width.</p>
 
-<p><strong><code>chromium</code></strong> — Chromium style guide (derives from Google). PascalCase for types and functions. K&amp;R brace placement: <code>{</code> on the same line.</p>
+<p>Spacing rules, checked when the style enables them:</p>
 
-<p><strong><code>mozilla</code></strong> — Mozilla coding style. PascalCase for types, camelCase for functions and variables. Mixed brace placement: function-body <code>{</code> on its own line (Allman); control-flow <code>{</code> on the same line (K&amp;R).</p>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Example</th>
+</tr>
+</thead>
 
-<p><strong><code>webkit</code></strong> — WebKit code style guidelines. PascalCase for types, camelCase for functions and variables. Mixed brace placement: function-body <code>{</code> on its own line (Allman); control-flow <code>{</code> on the same line (K&amp;R).</p>
-
-<p>In all styles, <code>}</code> must appear on its own line.</p>
+<tbody>
+<tr>
+<td>one space after <code>,</code></td>
+<td><code>f(a, b)</code></td>
+</tr>
+<tr>
+<td>no space before <code>;</code></td>
+<td><code>return x;</code></td>
+</tr>
+<tr>
+<td>one space between a keyword and <code>(</code></td>
+<td><code>if (x)</code></td>
+</tr>
+<tr>
+<td>no space between a callee and <code>(</code></td>
+<td><code>f(x)</code></td>
+</tr>
+<tr>
+<td>one space on each side of a binary operator</td>
+<td><code>a + b</code></td>
+</tr>
+<tr>
+<td>one declarator per declaration</td>
+<td><code>int i; int j;</code> rather than <code>int i, j;</code></td>
+</tr>
+</tbody>
+</table>
 
 <h3 id="toc_16">4.7 Using cake inside Visual Studio</h3>
 
@@ -2137,7 +2357,9 @@ int main() {
 <h3 id="toc_92">11.4 <code>#pragma dir</code></h3>
 
 <p>Adds a path to the list of directories searched for include files. 
-This is the pragma used in <code>cakeconf.h</code> to declare system and project include directories.</p>
+This pragma declares an include directory from inside a source file.
+System include directories come from <code>cake.json</code> instead (see 2.2), but
+<code>#pragma dir</code> remains available for project-specific paths.</p>
 
 <pre><code class="language-c">#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/cppwinrt&quot;
 #pragma dir &quot;./openssl/include&quot;

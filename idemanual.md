@@ -37,6 +37,57 @@ run in `$(ProjectDir)` picks up `$(CakeOutput)`, which expands to Cake's predict
 
 **Build > Show Generated Code** shows the C89-compatible output Cake produced. **Build > Config File** and **Build > Options...** control compiler flags and the active `cakeconf.h`.
 
+### 2.4 Global settings vs. project settings
+
+The **File** menu and the **Project** menu each carry a **Directories...** / **Options...** pair. They open the same two dialogs, but edit different lists, stored in different files:
+
+- **File > Directories...** and **File > Options...** edit the *global* settings — the include directories and compiler options in `cake.json`, which lives next to the IDE executable. These are the settings used for any file that is not part of the open project: the Playground, a file opened on its own, or a scratch file compiled while some unrelated project happens to be open. Include directories here are stored as absolute paths.
+- **Project > Include Directories...** and **Project > Options...** edit the *open project's* settings, stored in its `.cakeproj` file. Include directories here are stored relative to the project directory, so the project can be moved or shared. **Build** (F7) always uses these, and so does **Compile** when the active file is a member of the project.
+
+The two lists are not merged: a file gets either the project's include directories and options (when it belongs to the project) or the global ones (otherwise), never both. Include directories are searched in the order listed — the **Up** / **Down** buttons in the dialog change that order.
+
+Both **Options...** dialogs offer the same fields — target, style, diagnostic format, output name, flags — and both accept the `default` target, which resolves to the platform the IDE itself was built for. With `default` in the `.cakeproj`, the same project file works unchanged on Windows, Linux and macOS.
+
+### 2.5 Compiling the generated code with an external compiler
+
+A typical setup is one External Tool per compiler. Open **Tools > External Tools**, add a tool and fill the fields like this:
+
+**GCC / Clang** (Linux, macOS)
+
+| Field | Value |
+|---|---|
+| Title | `GCC` |
+| Command | `gcc` |
+| Arguments | `-g -Wno-incompatible-library-redeclaration -Wno-builtin-requires-header $(CakeOutput) -o "$(TargetPath)"` |
+| Directory | `$(ProjectDir)` |
+
+**MSVC** (Windows, from a Developer Command Prompt)
+
+| Field | Value |
+|---|---|
+| Title | `MSVC` |
+| Command | `cl` |
+| Arguments | `/Zi /nologo $(CakeOutput) /Fe"$(TargetPath)"` |
+| Directory | `$(ProjectDir)` |
+
+The tool then appears in the **Tools** menu; running it after **Build** (F7) links Cake's output into `$(TargetPath)`, which is exactly the file **Debug** (F5) launches — so build, external compile and debug all agree on one binary.
+
+Cake's output is self-contained: it declares the library functions the file uses instead of keeping the original `#include`s. Clang flags those declarations with `-Wbuiltin-requires-header` and `-Wincompatible-library-redeclaration`; both are expected for Cake output, which is why the GCC/Clang example silences them.
+
+Macros available in the Command, Arguments and Directory fields:
+
+| Macro | Expands to |
+|---|---|
+| `$(CakeOutput)` | Cake's output file(s): one per `.c` in the open project, or the active file's output without one |
+| `$(TargetDir)` | the output folder, `<root>/<platform>` |
+| `$(TargetFileName)` | the binary's file name (Compiler Options' *Output* field if set, else the project/document name, plus `.exe` on the MSVC targets) |
+| `$(TargetName)`, `$(TargetExt)` | that name split into base and extension |
+| `$(TargetPath)` | `$(TargetDir)/$(TargetFileName)` — the path Debug (F5) launches |
+| `$(ProjectDir)`, `$(ProjectName)` | the open project's directory and name (the active document's when no project is open) |
+| `$(Platform)` | the target platform slug, e.g. `x64_msvc` |
+| `$(ItemPath)`, `$(ItemDir)`, `$(ItemFilename)`, `$(ItemExt)` | the active document's path, split the same way |
+| `$$` | a literal `$` |
+
 ---
 
 ## 3. Editor

@@ -306,6 +306,144 @@ void ui_font_cell_size(int small_font, int* cell_w, int* cell_h)
     if (cell_h) *cell_h = chh;
 }
 
+/* Glyphs the UI draws itself instead of asking the font for them - same as
+ * ide_cocoa.c's draw_native_glyph, for the same reason: fonts whose
+ * box-drawing glyphs don't span the full cell (DejaVu Sans Mono, Courier
+ * New - both on the fallback list below Cascadia/Consolas) leave a seam
+ * between rows in every border, and their corners sit off-center. Drawing
+ * these as GDI rects/polygons on the cell grid makes borders continuous in
+ * any font, at any size; the arrows, close square and bullet are drawn too
+ * so the chrome's symbols share one weight. Returns 0 for anything else,
+ * and the caller falls through to the font. `mem` must already hold the
+ * cell's background. */
+static int draw_native_glyph(HDC mem, int px, int py, int cell_w, int cell_h,
+                             uint32_t cp, uint32_t fg)
+{
+    int handled = 1;
+    int t = cell_w / 7;              /* line weight: 1px per ~7px of cell width */
+    if (t < 1) { t = 1; }
+    int d = t + 1;                   /* half the gap between double lines */
+    int cx = px + cell_w / 2;        /* left edge of the vertical stroke */
+    int cy = py + cell_h / 2;        /* top edge of the horizontal stroke */
+    int x_right = px + cell_w;
+    int y_bottom = py + cell_h;
+
+    HBRUSH brush = CreateSolidBrush(to_colorref(fg));
+    if (!brush) { return 0; }
+
+    #define FILL(x0, y0, x1, y1) do { RECT r_ = { (x0), (y0), (x1), (y1) }; FillRect(mem, &r_, brush); } while (0)
+    #define HLINE(x0, x1, y) FILL((x0), (y), (x1), (y) + t)
+    #define VLINE(x, y0, y1) FILL((x), (y0), (x) + t, (y1))
+
+    switch (cp) {
+    /* single box */
+    case 0x2500: HLINE(px, x_right, cy); break;                                 /* ─ */
+    case 0x2502: VLINE(cx, py, y_bottom); break;                                /* │ */
+    case 0x250C: HLINE(cx, x_right, cy); VLINE(cx, cy, y_bottom); break;        /* ┌ */
+    case 0x2510: HLINE(px, cx + t, cy); VLINE(cx, cy, y_bottom); break;         /* ┐ */
+    case 0x2514: HLINE(cx, x_right, cy); VLINE(cx, py, cy + t); break;          /* └ */
+    case 0x2518: HLINE(px, cx + t, cy); VLINE(cx, py, cy + t); break;           /* ┘ */
+    /* double box: outer line at -d, inner line at +d from the single line */
+    case 0x2550: HLINE(px, x_right, cy - d); HLINE(px, x_right, cy + d); break; /* ═ */
+    case 0x2551: VLINE(cx - d, py, y_bottom); VLINE(cx + d, py, y_bottom); break; /* ║ */
+    case 0x2554:                                                                /* ╔ */
+        HLINE(cx - d, x_right, cy - d); VLINE(cx - d, cy - d, y_bottom);
+        HLINE(cx + d, x_right, cy + d); VLINE(cx + d, cy + d, y_bottom);
+        break;
+    case 0x2557:                                                                /* ╗ */
+        HLINE(px, cx + d + t, cy - d); VLINE(cx + d, cy - d, y_bottom);
+        HLINE(px, cx - d + t, cy + d); VLINE(cx - d, cy + d, y_bottom);
+        break;
+    case 0x255A:                                                                /* ╚ */
+        VLINE(cx - d, py, cy + d + t); HLINE(cx - d, x_right, cy + d);
+        VLINE(cx + d, py, cy - d + t); HLINE(cx + d, x_right, cy - d);
+        break;
+    case 0x255D:                                                                /* ╝ */
+        VLINE(cx + d, py, cy + d + t); HLINE(px, cx + d + t, cy + d);
+        VLINE(cx - d, py, cy - d + t); HLINE(px, cx - d + t, cy - d);
+        break;
+    /* block elements */
+    case 0x2580: FILL(px, py, x_right, py + cell_h / 2); break;                 /* ▀ */
+    case 0x2584: FILL(px, cy, x_right, y_bottom); break;                        /* ▄ */
+    case 0x2588: FILL(px, py, x_right, y_bottom); break;                        /* █ */
+    /* symbols: sized off cell_w so they stay square-ish and clear of the
+     * neighbours */
+    case 0x25A0: {                                                              /* ■ */
+        int side = cell_w - 2;
+        FILL(px + 1, cy - side / 2, px + 1 + side, cy - side / 2 + side);
+        break;
+    }
+    case 0x2022: {                                                              /* • */
+        int diam = cell_w / 2 + 1;
+        int ex = px + (cell_w - diam) / 2;
+        int ey = cy + t / 2 - diam / 2;
+        HGDIOBJ old_brush = SelectObject(mem, brush);
+        HGDIOBJ old_pen = SelectObject(mem, GetStockObject(NULL_PEN));
+        Ellipse(mem, ex, ey, ex + diam + 1, ey + diam + 1);  /* +1: NULL_PEN
+                                                              * drops the
+                                                              * right/bottom
+                                                              * edge */
+        SelectObject(mem, old_pen);
+        SelectObject(mem, old_brush);
+        break;
+    }
+    case 0x25BA: case 0x2190: case 0x2191: case 0x2193: {                       /* ► ← ↑ ↓ */
+        int half = (cell_w - 2) / 2;          /* triangle half-extent */
+        int mx = px + cell_w / 2;             /* cell centre */
+        int my = cy + t / 2;
+        POINT tri[3];
+        if (cp == 0x25BA) {
+            tri[0].x = mx - half; tri[0].y = my - half;
+            tri[1].x = mx + half + 1; tri[1].y = my;
+            tri[2].x = mx - half; tri[2].y = my + half + 1;
+        } else if (cp == 0x2190) {
+            tri[0].x = mx + half + 1; tri[0].y = my - half;
+            tri[1].x = mx - half; tri[1].y = my;
+            tri[2].x = mx + half + 1; tri[2].y = my + half + 1;
+        } else if (cp == 0x2191) {
+            tri[0].x = mx - half; tri[0].y = my + half + 1;
+            tri[1].x = mx; tri[1].y = my - half;
+            tri[2].x = mx + half + 1; tri[2].y = my + half + 1;
+        } else {
+            tri[0].x = mx - half; tri[0].y = my - half;
+            tri[1].x = mx; tri[1].y = my + half + 1;
+            tri[2].x = mx + half + 1; tri[2].y = my - half;
+        }
+        HGDIOBJ old_brush = SelectObject(mem, brush);
+        HGDIOBJ old_pen = SelectObject(mem, GetStockObject(NULL_PEN));
+        Polygon(mem, tri, 3);
+        SelectObject(mem, old_pen);
+        SelectObject(mem, old_brush);
+        break;
+    }
+    default:
+        handled = 0;
+        break;
+    }
+    #undef FILL
+    #undef HLINE
+    #undef VLINE
+
+    DeleteObject(brush);
+    return handled;
+}
+
+/* The code points draw_native_glyph handles - checked up front so the
+ * font path below keeps its single ETO_OPAQUE fill instead of painting the
+ * background twice. */
+static int is_native_glyph(uint32_t cp)
+{
+    switch (cp) {
+    case 0x2500: case 0x2502: case 0x250C: case 0x2510: case 0x2514: case 0x2518:
+    case 0x2550: case 0x2551: case 0x2554: case 0x2557: case 0x255A: case 0x255D:
+    case 0x2580: case 0x2584: case 0x2588:
+    case 0x25A0: case 0x2022: case 0x25BA: case 0x2190: case 0x2191: case 0x2193:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
 /* ui_draw_char_px (see ui.h): one glyph at an absolute device-pixel position,
  * in the font for `scale`. Same ETO_OPAQUE|ETO_CLIPPED discipline as
  * ui_draw_char - see the comment there for why the clip matters. */
@@ -320,6 +458,18 @@ void ui_draw_char_px(int px, int py, int cell_w, int cell_h,
         f = is_box_drawing(ch) ? g_fonts.box : g_fonts.main;
 
     RECT cellrc = { px, py, px + cell_w, py + cell_h };
+    if (is_native_glyph(ch))
+    {
+        HBRUSH bgbrush = CreateSolidBrush(to_colorref(bg));
+        if (bgbrush)
+        {
+            FillRect(mem, &cellrc, bgbrush);
+            DeleteObject(bgbrush);
+        }
+        draw_native_glyph(mem, px, py, cell_w, cell_h, ch, fg);
+        return;
+    }
+
     SelectObject(mem, f);
     SetBkColor(mem, to_colorref(bg));
     SetTextColor(mem, to_colorref(fg));
@@ -351,6 +501,18 @@ void ui_draw_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
     COLORREF fgc = to_colorref(fg);
 
     RECT cellrc = { px, py, px + g_cell_w, py + g_cell_h };
+
+    if (is_native_glyph(ch))
+    {
+        HBRUSH bgbrush = CreateSolidBrush(bgc);
+        if (bgbrush)
+        {
+            FillRect(mem, &cellrc, bgbrush);
+            DeleteObject(bgbrush);
+        }
+        draw_native_glyph(mem, px, py, g_cell_w, g_cell_h, ch, fg);
+        return;
+    }
 
     SelectObject(mem, is_box_drawing(ch) ? g_fonts.box : g_fonts.main);
     SetBkColor(mem, bgc);
@@ -1585,4 +1747,4 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE prev, PWSTR cmd, int show)
         DispatchMessageW(&msg);
     }
     return 0;
-}
+}

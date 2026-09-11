@@ -41,7 +41,7 @@ int main(int argc, char** argv)
     return;
 #endif
 
-    printf("Cake " CAKE_VERSION " (%s)\n", get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->name);
+    printf("Cake " CAKE_VERSION " (%s)\n", get_platform(TARGET_DEFAULT)->name);
 
     if (argc < 2)
     {
