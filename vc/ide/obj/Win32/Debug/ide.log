@@ -10,6 +10,9 @@
   ide.c
   ide_format.c
   ide_ui.c
+\src\ide_format.c(1,1): error C1083: Cannot open source file: '..\..\src\ide_format.c': No such file or directory
+  (compiling source file '/src/ide_format.c')
+  
   ide_win32.c
   object.c
   options.c
@@ -24,4 +27,3 @@
   tokenizer.c
   type.c
   Generating Code...
-  ide.vcxproj -> C:\Users\thiag\source\repos\cake\vc\ide\bin\Win32\Debug\ide.exe
