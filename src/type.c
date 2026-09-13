@@ -52,20 +52,40 @@ void print_item(struct osstream* ss, bool* first, const char* item)
 
 }
 
+enum alignment_specifier_flags alignment_value_to_flags(long long alignment)
+{
+    switch (alignment)
+    {
+    case 1: return ALIGNMENT_SPECIFIER_1_FLAGS;
+    case 2: return ALIGNMENT_SPECIFIER_2_FLAGS;
+    case 4: return ALIGNMENT_SPECIFIER_4_FLAGS;
+    case 8: return ALIGNMENT_SPECIFIER_8_FLAGS;
+    case 16: return ALIGNMENT_SPECIFIER_16_FLAGS;
+    case 32: return ALIGNMENT_SPECIFIER_32_FLAGS;
+    case 64: return ALIGNMENT_SPECIFIER_64_FLAGS;
+    case 128: return ALIGNMENT_SPECIFIER_128_FLAGS;
+    default: break;
+    }
+    return ALIGNMENT_SPECIFIER_NONE;
+}
+
+static int alignment_flags_to_value(enum alignment_specifier_flags flags)
+{
+    /* the largest one wins when several were written */
+    if (flags & ALIGNMENT_SPECIFIER_128_FLAGS) return 128;
+    if (flags & ALIGNMENT_SPECIFIER_64_FLAGS) return 64;
+    if (flags & ALIGNMENT_SPECIFIER_32_FLAGS) return 32;
+    if (flags & ALIGNMENT_SPECIFIER_16_FLAGS) return 16;
+    if (flags & ALIGNMENT_SPECIFIER_8_FLAGS) return 8;
+    if (flags & ALIGNMENT_SPECIFIER_4_FLAGS) return 4;
+    if (flags & ALIGNMENT_SPECIFIER_2_FLAGS) return 2;
+    if (flags & ALIGNMENT_SPECIFIER_1_FLAGS) return 1;
+    return 0;
+}
+
 bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment_specifier_flags flags, enum target target)
 {
-    int align = 0;
-
-    if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
-        align = 8;
-    else if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
-        align = 16;
-    else if (flags & ALIGNMENT_SPECIFIER_32_FLAGS)
-        align = 32;
-    else if (flags & ALIGNMENT_SPECIFIER_64_FLAGS)
-        align = 64;
-    else if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
-        align = 128;
+    int align = alignment_flags_to_value(flags);
 
     if (align != 0)
     {
@@ -78,7 +98,7 @@ bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment
     return *first;
 }
 
-bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags)
+bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags, int bitint_width)
 {
     if (e_type_specifier_flags & TYPE_SPECIFIER_VOID)
         print_item(ss, first, "void");
@@ -88,6 +108,13 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
         print_item(ss, first, "unsigned");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_BITINT)
+    {
+        char buffer[40] = { 0 };
+        snprintf(buffer, sizeof buffer, "_BitInt(%d)", bitint_width);
+        print_item(ss, first, buffer);
+    }
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_INT)
         print_item(ss, first, "int");
@@ -322,7 +349,7 @@ void print_type_qualifier_specifiers(struct osstream* ss, const struct type* typ
     {
         print_type_alignment_flags(ss, &first, type->alignment_specifier_flags, target);
         print_msvc_declspec(ss, &first, type->msvc_declspec_flags);
-        print_type_specifier_flags(ss, &first, type->type_specifier_flags);
+        print_type_specifier_flags(ss, &first, type->type_specifier_flags, type->bitint_width);
     }
 }
 
@@ -485,7 +512,7 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
             {
                 print_type_alignment_flags(&local, &first, p->alignment_specifier_flags, target);
                 print_msvc_declspec(&local, &first, p->msvc_declspec_flags);
-                print_type_specifier_flags(&local, &first, p->type_specifier_flags);
+                print_type_specifier_flags(&local, &first, p->type_specifier_flags, p->bitint_width);
             }
 
 
@@ -1318,6 +1345,40 @@ int type_get_bitfield_width(const struct type* p_type)
     return (int)p_type->array_num_elements;
 }
 
+bool type_is_bitint(const struct type* p_type)
+{
+    return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
+        (p_type->type_specifier_flags & TYPE_SPECIFIER_BITINT);
+}
+
+enum type_specifier_flags bitint_lowered_type_specifier_flags(int width, bool is_unsigned, enum target target)
+{
+    enum type_specifier_flags flags = TYPE_SPECIFIER_NONE;
+
+    if (width <= get_platform(target)->char_n_bits)
+    {
+        flags = TYPE_SPECIFIER_CHAR | (is_unsigned ? TYPE_SPECIFIER_UNSIGNED : TYPE_SPECIFIER_SIGNED);
+    }
+    else if (width <= get_platform(target)->short_n_bits)
+    {
+        flags = TYPE_SPECIFIER_SHORT | (is_unsigned ? TYPE_SPECIFIER_UNSIGNED : TYPE_SPECIFIER_NONE);
+    }
+    else if (width <= get_platform(target)->int_n_bits)
+    {
+        flags = TYPE_SPECIFIER_INT | (is_unsigned ? TYPE_SPECIFIER_UNSIGNED : TYPE_SPECIFIER_NONE);
+    }
+    else if (width <= get_platform(target)->long_n_bits)
+    {
+        flags = TYPE_SPECIFIER_LONG | (is_unsigned ? TYPE_SPECIFIER_UNSIGNED : TYPE_SPECIFIER_NONE);
+    }
+    else
+    {
+        flags = TYPE_SPECIFIER_LONG_LONG | (is_unsigned ? TYPE_SPECIFIER_UNSIGNED : TYPE_SPECIFIER_NONE);
+    }
+
+    return flags;
+}
+
 /*
  * An unnamed bitfield is one with is_bitfield true and no name (name_opt == NULL).
  * The special case int : 0; uses bitfield_width == 0 (zero-width padding);
@@ -1534,6 +1595,7 @@ bool type_is_integer(const struct type* p_type)
             TYPE_SPECIFIER_SIGNED |
             TYPE_SPECIFIER_UNSIGNED |
             TYPE_SPECIFIER_LONG_LONG |
+            TYPE_SPECIFIER_BITINT |
             TYPE_SPECIFIER_BOOL);
 }
 
@@ -1771,12 +1833,45 @@ bool type_is_pointer_or_array(const struct type* p_type)
 
 
 //See 6.3.1.1
-int type_get_integer_rank(const struct type* p_type1)
+int type_get_integer_rank(const struct type* p_type1, enum target target)
 {
     if (type_is_pointer_or_array(p_type1))
     {
         _Assert(false);
         return 40;
+    }
+
+    if (p_type1->type_specifier_flags & TYPE_SPECIFIER_BITINT)
+    {
+        /*
+          6.3.1.1: the rank of a bit-precise integer is greater than the rank
+          of any standard type with less width and less than the rank of any
+          standard type with at least the same width; between two bit-precise
+          types the wider one ranks higher. Standard ranks are spaced by 10,
+          so 'rank of the first standard type that fits - 10 + width / 16'
+          orders them (width / 16 stays below 10 for width <= 128).
+        */
+        const int width = p_type1->bitint_width;
+        int standard_rank = 80; /* long long */
+
+        if (width <= get_platform(target)->char_n_bits)
+        {
+            standard_rank = 20;
+        }
+        else if (width <= get_platform(target)->short_n_bits)
+        {
+            standard_rank = 30;
+        }
+        else if (width <= get_platform(target)->int_n_bits)
+        {
+            standard_rank = 40;
+        }
+        else if (width <= get_platform(target)->long_n_bits)
+        {
+            standard_rank = 50;
+        }
+
+        return standard_rank - 10 + width / 16;
     }
 
     if (p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
@@ -1994,7 +2089,7 @@ struct type type_common(const struct type* p_type1, const struct type* p_type2, 
 
     if (type_is_signed_integer(&promoted_a) == type_is_signed_integer(&promoted_b))
     {
-        if (type_get_integer_rank(&promoted_a) > type_get_integer_rank(&promoted_b))
+        if (type_get_integer_rank(&promoted_a, target) > type_get_integer_rank(&promoted_b, target))
         {
             type_destroy(&promoted_b);
             return promoted_a;
@@ -2016,7 +2111,7 @@ struct type type_common(const struct type* p_type1, const struct type* p_type2, 
 
     _Assert(p_signed_promoted != p_unsigned_promoted);
 
-    if (type_get_integer_rank(p_unsigned_promoted) >= type_get_integer_rank(p_signed_promoted))
+    if (type_get_integer_rank(p_unsigned_promoted, target) >= type_get_integer_rank(p_signed_promoted, target))
     {
         struct type r = { 0 };
         type_swap(&r, p_unsigned_promoted);
@@ -2043,7 +2138,23 @@ struct type type_common(const struct type* p_type1, const struct type* p_type2, 
         _Assert(false);
     }
 
-    if (signed_promoted_sizeof > unsigned_promoted_sizeof)
+    /*
+      The comparison is on value bits: a _BitInt(40) occupies 8 bytes but only
+      holds 40 bits, so a signed _BitInt(48) does hold every unsigned _BitInt(40).
+    */
+    size_t signed_promoted_bits = signed_promoted_sizeof * 8;
+    if (type_is_bitint(p_signed_promoted))
+    {
+        signed_promoted_bits = (size_t)p_signed_promoted->bitint_width;
+    }
+
+    size_t unsigned_promoted_bits = unsigned_promoted_sizeof * 8;
+    if (type_is_bitint(p_unsigned_promoted))
+    {
+        unsigned_promoted_bits = (size_t)p_unsigned_promoted->bitint_width;
+    }
+
+    if (signed_promoted_bits > unsigned_promoted_bits)
     {
         struct type r = { 0 };
         type_swap(&r, p_signed_promoted);
@@ -2153,9 +2264,12 @@ struct type type_dup(const struct type* p_type)
 }
 
 static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier,
-    const char* member, size_t* sz, enum target target)
+    const char* member, size_t* sz, struct type* _Opt p_member_type_out, enum target target)
 {
     enum sizeof_result sizeof_result = SIZEOF_RESULT_OK;
+
+    /* #pragma pack(n) caps every member's alignment at n */
+    const size_t pack_alignment = complete_struct_or_union_specifier->pack_alignment;
 
     const bool is_union =
         (complete_struct_or_union_specifier->first_token->type == TK_KEYWORD_UNION);
@@ -2211,10 +2325,78 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
                         size_t field_align = field_type_size;
                         size_t storage_bits = field_type_size * 8;
 
-                        if (field_align > maxalign)
+                        if (pack_alignment > 0 && field_align > pack_alignment)
+                            field_align = pack_alignment;
+
+                        /* GCC: an unnamed bit-field never affects alignment */
+                        const bool named_bitfield = md->declarator != NULL && md->declarator->name_opt != NULL;
+                        if ((msvc_target || named_bitfield) && field_align > maxalign)
                             maxalign = field_align;
 
-                        if (bit_width == 0)
+                        if (!msvc_target)
+                        {
+                            /*
+                             * GCC/Clang: a bit-field goes at the next free bit; it is
+                             * only moved up (to its type's alignment) when it would
+                             * straddle a storage unit of its type. Under #pragma pack
+                             * that straddle rule is dropped altogether. So
+                             *   struct { char a; int b:20; char c; }
+                             * has b at bits 8..27 of the first int unit and c at
+                             * byte 4 (size 8), and
+                             *   struct { unsigned char a:3; unsigned int b:9; }
+                             * has b at bits 3..11 (size 4).
+                             * State is kept as whole bytes in `size` plus 0-7 bits in
+                             * bf_bits_used, with bf_storage_bits = 8 while a partial
+                             * byte is open so the flushes elsewhere close it as
+                             * exactly one byte. A zero-width bit-field aligns to its
+                             * type's natural alignment even when packed.
+                             */
+                            if (bit_width == 0)
+                            {
+                                if (bf_bits_used > 0)
+                                {
+                                    if (!is_union)
+                                        size += 1;
+                                    bf_bits_used = 0;
+                                    bf_storage_bits = 0;
+                                }
+                                if (!is_union && field_type_size > 0 && size % field_type_size != 0)
+                                    size += field_type_size - (size % field_type_size);
+                            }
+                            else if (is_union)
+                            {
+                                size_t unit_bytes = pack_alignment > 0 ?
+                                    ((size_t)bit_width + 7) / 8 : field_type_size;
+                                if (unit_bytes > size)
+                                    size = unit_bytes;
+                            }
+                            else
+                            {
+                                size_t bit = size * 8 + bf_bits_used;
+                                size_t unit_bits = field_type_size * 8;
+                                if (pack_alignment == 0 && unit_bits > 0 &&
+                                    bit / unit_bits != (bit + (size_t)bit_width - 1) / unit_bits)
+                                {
+                                    bit += unit_bits - (bit % unit_bits);
+                                }
+                                if (md->declarator && md->declarator->name_opt &&
+                                    strcmp(md->declarator->name_opt->lexeme, member) == 0)
+                                {
+                                    *sz = bit / 8;
+                                    if (p_member_type_out)
+                                    {
+                                        *p_member_type_out = type_dup(&md->declarator->type);
+                                    }
+                                    return SIZEOF_RESULT_BITFIELD;
+                                }
+
+                                bit += (size_t)bit_width;
+                                size = bit / 8;
+                                bf_bits_used = bit % 8;
+                                bf_storage_bits = bf_bits_used > 0 ? 8 : 0;
+                            }
+                        }
+                        else if (bit_width == 0)
                         {
                             /* zero-width: flush current storage unit */
                             if (bf_bits_used > 0)
@@ -2257,12 +2439,20 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
                                 }
                             }
 
-                            /* Named bitfield: report byte offset of its storage unit */
+                            /*
+                             * Named bitfield: report byte offset of its storage unit
+                             * but tell the caller it is a bit-field (n3958 constraint:
+                             * the member-designator shall not designate a bit-field)
+                             */
                             if (md->declarator && md->declarator->name_opt &&
                                 strcmp(md->declarator->name_opt->lexeme, member) == 0)
                             {
-                                *sz = size;
-                                return SIZEOF_RESULT_OK;
+                                *sz = is_union ? 0 : size; /* every union member starts at offset 0 */
+                                if (p_member_type_out)
+                                {
+                                    *p_member_type_out = type_dup(&md->declarator->type);
+                                }
+                                return SIZEOF_RESULT_BITFIELD;
                             }
 
                             bf_bits_used += (size_t)bit_width;
@@ -2282,6 +2472,10 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
                         _Assert(md->declarator->name_opt != NULL);
 
                         size_t align = type_get_alignof(&md->declarator->type, target);
+                        if (pack_alignment > 0 && align > pack_alignment)
+                            align = pack_alignment;
+                        if (md->declarator->gcc_packed)
+                            align = 1;
 
                         if (align == 0)
                           throw;
@@ -2294,7 +2488,11 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
 
                         if (strcmp(md->declarator->name_opt->lexeme, member) == 0)
                         {
-                            *sz = size;
+                            *sz = is_union ? 0 : size; /* every union member starts at offset 0 */
+                            if (p_member_type_out)
+                            {
+                                *p_member_type_out = type_dup(&md->declarator->type);
+                            }
                             return SIZEOF_RESULT_OK;
                         }
 
@@ -2341,6 +2539,8 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
                     t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
 
                     size_t align = type_get_alignof(&t, target);
+                    if (pack_alignment > 0 && align > pack_alignment)
+                        align = pack_alignment;
 
                     if (align == 0) throw;
                     if (align > maxalign)
@@ -2348,6 +2548,22 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
 
                     if (!is_union && size % align != 0)
                         size += align - (size % align);
+
+                    /* the member may live inside this anonymous struct/union */
+                    struct struct_or_union_specifier* _Opt p_inner_complete =
+                        get_complete_struct_or_union_specifier(d->specifier_qualifier_list->struct_or_union_specifier);
+                    if (p_inner_complete)
+                    {
+                        size_t inner_offset = 0;
+                        enum sizeof_result inner_result =
+                            get_offsetof_struct(p_inner_complete, member, &inner_offset, p_member_type_out, target);
+                        if (inner_result == SIZEOF_RESULT_OK || inner_result == SIZEOF_RESULT_BITFIELD)
+                        {
+                            *sz = (is_union ? 0 : size) + inner_offset;
+                            type_destroy(&t);
+                            return inner_result;
+                        }
+                    }
 
                     size_t item_size = 0;
 
@@ -2394,6 +2610,10 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
 enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, size_t* sz, enum target target)
 {
     enum sizeof_result sizeof_result = SIZEOF_RESULT_OK;
+    const bool msvc_target = (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC);
+
+    /* #pragma pack(n) caps every member's alignment at n */
+    const size_t pack_alignment = complete_struct_or_union_specifier->pack_alignment;
 
     const bool is_union =
         (complete_struct_or_union_specifier->first_token->type == TK_KEYWORD_UNION);
@@ -2453,10 +2673,67 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                         size_t field_align = field_type_size;
                         size_t storage_bits = field_type_size * 8;
 
-                        if (field_align > maxalign)
+                        if (pack_alignment > 0 && field_align > pack_alignment)
+                            field_align = pack_alignment;
+
+                        /* GCC: an unnamed bit-field never affects alignment */
+                        const bool named_bitfield = md->declarator != NULL && md->declarator->name_opt != NULL;
+                        if ((msvc_target || named_bitfield) && field_align > maxalign)
                             maxalign = field_align;
 
-                        if (bit_width == 0)
+                        if (!msvc_target)
+                        {
+                            /*
+                             * GCC/Clang: a bit-field goes at the next free bit; it is
+                             * only moved up (to its type's alignment) when it would
+                             * straddle a storage unit of its type. Under #pragma pack
+                             * that straddle rule is dropped altogether. So
+                             *   struct { char a; int b:20; char c; }
+                             * has b at bits 8..27 of the first int unit and c at
+                             * byte 4 (size 8), and
+                             *   struct { unsigned char a:3; unsigned int b:9; }
+                             * has b at bits 3..11 (size 4).
+                             * State is kept as whole bytes in `size` plus 0-7 bits in
+                             * bf_bits_used, with bf_storage_bits = 8 while a partial
+                             * byte is open so the flushes elsewhere close it as
+                             * exactly one byte. A zero-width bit-field aligns to its
+                             * type's natural alignment even when packed.
+                             */
+                            if (bit_width == 0)
+                            {
+                                if (bf_bits_used > 0)
+                                {
+                                    if (!is_union)
+                                        size += 1;
+                                    bf_bits_used = 0;
+                                    bf_storage_bits = 0;
+                                }
+                                if (!is_union && field_type_size > 0 && size % field_type_size != 0)
+                                    size += field_type_size - (size % field_type_size);
+                            }
+                            else if (is_union)
+                            {
+                                size_t unit_bytes = pack_alignment > 0 ?
+                                    ((size_t)bit_width + 7) / 8 : field_type_size;
+                                if (unit_bytes > size)
+                                    size = unit_bytes;
+                            }
+                            else
+                            {
+                                size_t bit = size * 8 + bf_bits_used;
+                                size_t unit_bits = field_type_size * 8;
+                                if (pack_alignment == 0 && unit_bits > 0 &&
+                                    bit / unit_bits != (bit + (size_t)bit_width - 1) / unit_bits)
+                                {
+                                    bit += unit_bits - (bit % unit_bits);
+                                }
+                                bit += (size_t)bit_width;
+                                size = bit / 8;
+                                bf_bits_used = bit % 8;
+                                bf_storage_bits = bf_bits_used > 0 ? 8 : 0;
+                            }
+                        }
+                        else if (bit_width == 0)
                         {
                             /*
                              * Zero-width unnamed bitfield (e.g. "int : 0;"):
@@ -2499,9 +2776,6 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                              *   which GCC lays out as a single int unit (size 4),
                              *   while MSVC uses a char unit + int unit (size 8).
                              */
-                            const bool msvc_target =
-                                (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC);
-
                             const bool need_new_unit =
                                 bf_storage_bits == 0 ||
                                 bf_bits_used + bit_width > bf_storage_bits ||
@@ -2562,6 +2836,10 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                         }
 
                         size_t align = type_get_alignof(&md->declarator->type, target);
+                        if (pack_alignment > 0 && align > pack_alignment)
+                            align = pack_alignment;
+                        if (md->declarator->gcc_packed)
+                            align = 1;
 
                         if (align == 0) 
                           throw;
@@ -2644,6 +2922,8 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                     t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
 
                     size_t align = type_get_alignof(&t, target);
+                    if (pack_alignment > 0 && align > pack_alignment)
+                        align = pack_alignment;
 
                     if (align == 0)
                       throw;
@@ -2702,6 +2982,10 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
             }
         }
 
+        /* __attribute__((aligned(n))) on the struct only ever raises it */
+        if ((size_t)complete_struct_or_union_specifier->aligned_attribute > maxalign)
+            maxalign = complete_struct_or_union_specifier->aligned_attribute;
+
         if (maxalign != 0)
         {
             if (size % maxalign != 0)
@@ -2742,13 +3026,14 @@ size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_u
                 {
                     /*
                      * Normal (non-bitfield) member: always contributes to alignment
-                     * on both GCC and MSVC.
+                     * on both GCC and MSVC. __attribute__((packed)) on it: 1.
                      */
-                    size_t temp_align = type_get_alignof(&md->declarator->type, target);
+                    size_t temp_align = md->declarator->gcc_packed ? 1 :
+                        type_get_alignof(&md->declarator->type, target);
                     if (temp_align > align)
                         align = temp_align;
                 }
-                else if (md->declarator && md->constant_expression)
+                else if (md->declarator && md->declarator->name_opt && md->constant_expression)
                 {
                     /*
                      * Named bitfield member.
@@ -2780,15 +3065,9 @@ size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_u
                 {
                     /*
                      * Unnamed bitfield (e.g. "int : 3;" or "int : 0;").
-                     * GCC counts the storage-unit type toward alignment.
-                     * MSVC ignores unnamed bitfields for alignment purposes.
+                     * Neither GCC (SysV ABI: unnamed bit-fields' types do not
+                     * affect the alignment of a structure) nor MSVC counts it.
                      */
-                    if (!msvc_target)
-                    {
-                        size_t storage_align = get_platform(target)->int_n_bits / 8;
-                        if (storage_align > align)
-                            align = storage_align;
-                    }
                 }
                 /* else: truly empty slot — nothing to contribute */
                 md = md->next;
@@ -2814,6 +3093,7 @@ size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_u
             struct type type = { 0 };
 
             type.type_specifier_flags = d->specifier_qualifier_list->type_specifier_flags;
+            type.bitint_width = d->specifier_qualifier_list->bitint_width;
 
             type.enum_specifier = d->specifier_qualifier_list->enum_specifier;
             type.struct_or_union_specifier = d->specifier_qualifier_list->struct_or_union_specifier;
@@ -2842,6 +3122,15 @@ size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_u
     if (align == 0)
         align = 1;
 
+    /* #pragma pack(n) caps every member's alignment at n, so the struct's too */
+    const size_t pack_alignment = complete_struct_or_union_specifier->pack_alignment;
+    if (pack_alignment > 0 && align > pack_alignment)
+        align = pack_alignment;
+
+    /* __attribute__((aligned(n))) on the struct only ever raises it */
+    if ((size_t)complete_struct_or_union_specifier->aligned_attribute > align)
+        align = complete_struct_or_union_specifier->aligned_attribute;
+
     return align;
 }
 
@@ -2863,27 +3152,7 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
     }
     else if (category == TYPE_CATEGORY_ITSELF)
     {
-        if (p_type->alignment_specifier_flags & ALIGNMENT_SPECIFIER_8_FLAGS)
-        {
-            align = 8;
-        }
-        else if (p_type->alignment_specifier_flags & ALIGNMENT_SPECIFIER_16_FLAGS)
-        {
-            align = 16;
-        }
-        else if (p_type->alignment_specifier_flags & ALIGNMENT_SPECIFIER_32_FLAGS)
-        {
-            align = 32;
-        }
-        else if (p_type->alignment_specifier_flags & ALIGNMENT_SPECIFIER_64_FLAGS)
-        {
-            align = 64;
-        }
-        else if (p_type->alignment_specifier_flags & ALIGNMENT_SPECIFIER_128_FLAGS)
-        {
-            align = 128;
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
+        if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
         {
             align = get_platform(target)->char_alignment;
         }
@@ -2894,6 +3163,14 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
         {
             align = get_platform(target)->short_alignment;
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BITINT)
+        {
+            /* implementation-defined: the alignment of the standard type it is lowered to */
+            struct type lowered = { 0 };
+            lowered.category = TYPE_CATEGORY_ITSELF;
+            lowered.type_specifier_flags = bitint_lowered_type_specifier_flags(p_type->bitint_width, false, target);
+            align = type_get_alignof(&lowered, target);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
         {
@@ -2994,11 +3271,22 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
         align = type_get_alignof(&type, target);
         type_destroy(&type);
     }
+
+    /* _Alignas(n) / __attribute__((aligned(n))) only ever raise the
+       alignment: _Alignas below the natural one is a constraint violation,
+       and GCC ignores a smaller aligned(n). */
+    if (category == TYPE_CATEGORY_ITSELF || category == TYPE_CATEGORY_ARRAY)
+    {
+        size_t requested = alignment_flags_to_value(p_type->alignment_specifier_flags);
+        if (requested > align)
+            align = requested;
+    }
+
     _Assert(align > 0);
     return align;
 }
 
-enum sizeof_result type_get_offsetof(const struct type* p_type, const char* member, size_t* size, enum target target)
+enum sizeof_result type_get_offsetof(const struct type* p_type, const char* member, size_t* size, struct type* _Opt p_member_type_out, enum target target)
 {
     *size = 0; //out
 
@@ -3026,7 +3314,7 @@ enum sizeof_result type_get_offsetof(const struct type* p_type, const char* memb
     if (p_complete == NULL)
         return SIZEOF_RESULT_INCOMPLETE;
 
-    return get_offsetof_struct(p_complete, member, size, target);
+    return get_offsetof_struct(p_complete, member, size, p_member_type_out, target);
 }
 
 enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum target target)
@@ -3171,6 +3459,15 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
     {
         *size = get_platform(target)->short_n_bits / 8;
         return SIZEOF_RESULT_OK;
+    }
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_BITINT)
+    {
+        /* implementation-defined: the size of the standard type it is lowered to */
+        struct type lowered = { 0 };
+        lowered.category = TYPE_CATEGORY_ITSELF;
+        lowered.type_specifier_flags = bitint_lowered_type_specifier_flags(p_type->bitint_width, false, target);
+        return type_get_sizeof(&lowered, size, target);
     }
 
     else if (p_type->type_specifier_flags & TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST)
@@ -3634,6 +3931,11 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
             return false;
         }
 
+        if (pa->bitint_width != pb->bitint_width)
+        {
+            return false;
+        }
+
         bool underlying_matched = false;
         if (pa->type_specifier_flags == TYPE_SPECIFIER_ENUM)
         {
@@ -4081,6 +4383,12 @@ void type_set_alignment_specifier_flags_using_declarator(struct type* p_type, co
         p_type->alignment_specifier_flags =
             pdeclarator->specifier_qualifier_list->alignment_specifier_flags;
     }
+
+    /* __attribute__((aligned(n))) on the declarator behaves as _Alignas(n) */
+    if (pdeclarator->gcc_aligned > 0)
+    {
+        p_type->alignment_specifier_flags |= alignment_value_to_flags(pdeclarator->gcc_aligned);
+    }
 }
 
 void type_set_msvc_declspec_using_declarator(struct type* p_type, const struct declarator* pdeclarator)
@@ -4117,6 +4425,7 @@ void type_set_specifiers_using_declarator(struct type* p_type, const struct decl
     {
         p_type->type_specifier_flags =
             pdeclarator->declaration_specifiers->type_specifier_flags;
+        p_type->bitint_width = pdeclarator->declaration_specifiers->bitint_width;
 
         p_type->enum_specifier = pdeclarator->declaration_specifiers->enum_specifier;
         p_type->struct_or_union_specifier = pdeclarator->declaration_specifiers->struct_or_union_specifier;
@@ -4126,6 +4435,7 @@ void type_set_specifiers_using_declarator(struct type* p_type, const struct decl
     {
         p_type->type_specifier_flags =
             pdeclarator->specifier_qualifier_list->type_specifier_flags;
+        p_type->bitint_width = pdeclarator->specifier_qualifier_list->bitint_width;
         p_type->enum_specifier = pdeclarator->specifier_qualifier_list->enum_specifier;
         p_type->struct_or_union_specifier = pdeclarator->specifier_qualifier_list->struct_or_union_specifier;
 

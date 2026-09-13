@@ -6,7 +6,21 @@
  * #pragma pack(1), and emitted that way. packed on a member gives that one
  * member alignment 1. aligned(n) is a minimum: it raises the alignment of a
  * struct (and pads its size) or of a member, never lowers it.
+ *
+ * MSVC does not understand GNU __attribute__ syntax and has no equivalent
+ * for per-member packed/aligned, so under MSVC we neutralize the attribute
+ * (so the code at least parses) and skip the layout-dependent checks below,
+ * which assume GCC/Clang semantics.
  */
+
+#if defined(_MSC_VER) && !defined(__clang__)
+  #define __attribute__(x)
+#endif
+
+#include <stddef.h>
+#include <assert.h>
+
+#ifndef _MSC_VER
 
 /* struct-level packed, every spelling */
 struct __attribute__((packed)) A1 { char c; int i; };
@@ -62,12 +76,12 @@ static_assert(sizeof(struct A18) == 8, ""); static_assert(_Alignof(struct A18) =
 struct __attribute__((packed)) A14 { char a; int b : 20; char c; };
 struct A15 { char c; struct A1 in; int i; };
 
-#ifndef _MSC_VER
 static_assert(sizeof(struct A14) == 5, "b at bits 8..27, c at 4");
-#endif
 static_assert(sizeof(struct A15) == 12, ""); static_assert(_Alignof(struct A15) == 4, "");
 static_assert(offsetof(struct A15, in) == 1, "");
 static_assert(offsetof(struct A15, i) == 8, "");
+
+#endif /* !_MSC_VER */
 
 int main(void)
 {
