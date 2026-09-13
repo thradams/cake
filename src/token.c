@@ -1326,10 +1326,40 @@ static void integer_suffix_opt(struct stream* stream, char suffix[4])
                 stream_match(stream);
             }
         }
+        else if ((stream->current[0] == 'w' || stream->current[0] == 'W') &&
+                 (stream->current[1] == 'b' || stream->current[1] == 'B'))
+        {
+            /*bit-precise-int-suffix, sample 1uwb*/
+            suffix[1] = 'W';
+            suffix[2] = 'B';
+            stream_match(stream);
+            stream_match(stream);
+        }
         else
         {
             /*microsoft extension, sample 1ui64*/
             microsoft_integer_suffix_opt(stream, suffix, true);
+        }
+    }
+    else if ((stream->current[0] == 'w' || stream->current[0] == 'W') &&
+             (stream->current[1] == 'b' || stream->current[1] == 'B'))
+    {
+        /*bit-precise-int-suffix unsigned-suffixopt, sample 1wb 1wbu*/
+        stream_match(stream);
+        stream_match(stream);
+
+        if (stream->current[0] == 'U' || stream->current[0] == 'u')
+        {
+            //normalize the output to UWB
+            suffix[0] = 'U';
+            suffix[1] = 'W';
+            suffix[2] = 'B';
+            stream_match(stream);
+        }
+        else
+        {
+            suffix[0] = 'W';
+            suffix[1] = 'B';
         }
     }
     else if ((stream->current[0] == 'l' || stream->current[0] == 'L'))

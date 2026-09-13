@@ -193,6 +193,14 @@ struct parser_ctx
     unsigned int unique_tag_id;
 
     /*
+      #pragma pack state. pack_alignment is the current maximum member
+      alignment in bytes (0 = no packing); push/pop keep the history.
+    */
+    int pack_alignment;
+    int pack_stack[32];
+    int pack_stack_top;
+
+    /*
       Used to generated id to vm dimension variables
     */
     unsigned int vm_dim_id;
@@ -269,7 +277,8 @@ int compile(int argc, const char** argv, struct report* error);
 
 void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags);
 bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment_specifier_flags flags, enum target target);
-bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags);
+enum alignment_specifier_flags alignment_value_to_flags(long long alignment);
+bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags, int bitint_width);
 
 
 struct expression_ctx;
@@ -310,6 +319,9 @@ struct declaration_specifiers
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
     enum function_specifier_flags function_specifier_flags;
+
+    /* N of _BitInt(N) when type_specifier_flags has TYPE_SPECIFIER_BITINT */
+    int bitint_width;
 
     enum alignment_specifier_flags alignment_specifier_flags;
     struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
@@ -390,6 +402,13 @@ struct attribute_specifier_sequence
     struct token* last_token;
     enum msvc_declspec_flags msvc_declspec_flags;
     enum attribute_flags  attributes_flags;
+
+    /* GCC __attribute__((packed)) / __attribute__((aligned(n))) - n in
+       bytes, 0 when absent. Applied to a struct or to one of its members
+       (see struct_or_union_specifier and declarator). */
+    bool gcc_packed;
+    int gcc_aligned;
+
     struct attribute_specifier* _Owner _Opt head;
     struct attribute_specifier* _Opt tail;
 };
@@ -532,6 +551,10 @@ struct type_specifier
     struct enum_specifier* _Owner _Opt enum_specifier;
     struct declarator* _Opt typedef_declarator;
     struct atomic_type_specifier* _Owner _Opt  atomic_type_specifier;
+
+    /* _BitInt ( constant-expression ) */
+    struct expression* _Owner _Opt bitint_constant_expression;
+    int bitint_width;
 };
 
 struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx);
@@ -785,6 +808,15 @@ struct struct_or_union_specifier
     int scope_level; /*nivel escopo 0 global*/
     int visit_moved; /*nivel escopo 0 global*/
 
+    /* #pragma pack in effect when the members were parsed, or 1 for
+       __attribute__((packed)): caps every member's alignment (0 = none).
+       See get_sizeof_struct. */
+    int pack_alignment;
+
+    /* __attribute__((aligned(n))) on the struct itself: raises its
+       alignment to at least n bytes (0 = none). */
+    int aligned_attribute;
+
     /*
     * This points to the first struct_or_union_specifier that will have it´s
     * complete_struct_or_union_specifier_indirection pointing to the complete
@@ -867,6 +899,13 @@ struct declarator
     const struct specifier_qualifier_list* _Opt specifier_qualifier_list;
 
     struct token* _Opt name_opt; //shortcut , null for abstract declarator
+
+    /* GCC attributes written on this declarator or on its declaration:
+       packed gives a struct member alignment 1; aligned(n) is folded into
+       the type's alignment_specifier_flags (see
+       type_set_alignment_specifier_flags_using_declarator). */
+    bool gcc_packed;
+    int gcc_aligned;
 
     struct compound_statement* _Opt function_body;
 
@@ -1147,6 +1186,8 @@ struct specifier_qualifier_list
     enum type_qualifier_flags type_qualifier_flags;
     enum alignment_specifier_flags alignment_specifier_flags;
 
+    /* N of _BitInt(N) when type_specifier_flags has TYPE_SPECIFIER_BITINT */
+    int bitint_width;
 
     /*shortcuts*/
     struct struct_or_union_specifier* _Opt struct_or_union_specifier;

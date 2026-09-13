@@ -84,6 +84,9 @@ enum type_specifier_flags
     TYPE_SPECIFIER_ENUM = 1 << 16,
     TYPE_SPECIFIER_TYPEDEF = 1 << 17,
 
+    /* C23 _BitInt(N). The width N lives in type::bitint_width */
+    TYPE_SPECIFIER_BITINT = 1 << 18,
+
 
     TYPE_SPECIFIER_LONG_LONG = 1 << 22,
 
@@ -164,6 +167,9 @@ enum alignment_specifier_flags
     ALIGNMENT_SPECIFIER_32_FLAGS = 1 << 2,
     ALIGNMENT_SPECIFIER_64_FLAGS = 1 << 3,
     ALIGNMENT_SPECIFIER_128_FLAGS = 1 << 4,
+    ALIGNMENT_SPECIFIER_1_FLAGS = 1 << 5,
+    ALIGNMENT_SPECIFIER_2_FLAGS = 1 << 6,
+    ALIGNMENT_SPECIFIER_4_FLAGS = 1 << 7,
 };
 
 enum msvc_declspec_flags
@@ -276,6 +282,9 @@ struct type
     */
     size_t array_num_elements;
 
+    /* N of _BitInt(N), valid when type_specifier_flags has TYPE_SPECIFIER_BITINT */
+    int bitint_width;
+
     bool has_static_array_size;
 
 
@@ -358,7 +367,7 @@ bool type_is_unsigned_integer(const struct type* p_type);
 bool type_is_signed_integer(const struct type* p_type);
 bool type_is_signed(const struct type* p_type);
 bool type_is_floating_point(const struct type* p_type);
-int type_get_integer_rank(const struct type* p_type1);
+int type_get_integer_rank(const struct type* p_type1, enum target target);
 
 bool type_is_arithmetic(const struct type* p_type);
 
@@ -395,6 +404,10 @@ bool type_is_vm(const struct type* p_type);
 /* bitfield queries */
 bool type_is_bitfield(const struct type* p_type);
 int  type_get_bitfield_width(const struct type* p_type);
+
+bool type_is_bitint(const struct type* p_type);
+/* the smallest standard integer type that holds N bits, used to lower _BitInt(N) */
+enum type_specifier_flags bitint_lowered_type_specifier_flags(int width, bool is_unsigned, enum target target);
 bool type_is_unnamed_bitfield(const struct type* p_type);
 
 struct type type_get_enum_type(const struct type* p_type);
@@ -452,7 +465,8 @@ enum sizeof_result
 };
 
 enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum target target);
-enum sizeof_result type_get_offsetof(const struct type* p_type, const char* member, size_t* size, enum target target);
+
+enum sizeof_result type_get_offsetof(const struct type* p_type, const char* member, size_t* size, struct type* _Opt p_member_type_out, enum target target);
 
 void type_get_integer_range(const struct type* p_type, enum target target, long long* min, unsigned long long* max);
 

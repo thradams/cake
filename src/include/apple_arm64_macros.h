@@ -25,6 +25,11 @@
 #define __STDC__             1
 #define __aarch64__          1
 #define __arm64__            1
+#define __LITTLE_ENDIAN__    1
+#define __ORDER_LITTLE_ENDIAN__ 1234
+#define __ORDER_BIG_ENDIAN__ 4321
+#define __ORDER_PDP_ENDIAN__ 3412
+#define __BYTE_ORDER__       __ORDER_LITTLE_ENDIAN__
 #define __CHAR_BIT__         8
 #define __SIZE_TYPE__        unsigned long
 #define __PTRDIFF_TYPE__     long int
@@ -185,6 +190,9 @@
 #define __SIZEOF_LONG_LONG__ 8
 #define __SIZEOF_SHORT__ 2
 #define __SIZEOF_POINTER__ 8
+#define __POINTER_WIDTH__ 64
+#define __LP64__ 1
+#define _LP64 1
 #define __SIZEOF_FLOAT__ 4
 #define __SIZEOF_DOUBLE__ 8
 #define __SIZEOF_LONG_DOUBLE__ 8

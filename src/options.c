@@ -408,13 +408,6 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-test-mode-in-out") == 0)
-        {
-            options->test_mode = true;
-            options->test_mode_inout = true;
-            continue;
-        }
-        
 
         if (strcmp(argv[i], "-runtime-asserts") == 0)
         {

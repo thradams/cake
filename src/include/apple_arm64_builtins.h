@@ -14,6 +14,7 @@ typedef struct { unsigned long long __a, __b; } __int128_t;
 
 
 long __builtin_expect(long exp, long c);
+int __builtin_constant_p(/*any expression*/...);
 
 /*
   https://gcc.gnu.org/onlinedocs/gcc/Integer-Overflow-Builtins.html

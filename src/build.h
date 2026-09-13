@@ -191,6 +191,7 @@ static int system_like(const char* command)
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <dirent.h>
 
 /* On POSIX, local executables require ./ prefix */
 #define RUN " ./"

@@ -932,6 +932,105 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
 #endif /* COMPILER_GCC && !COMPILER_TINYC */
 }
 
+/*
+ * run_generated_tests() - behavior tests of the generated C.
+ *
+ * Each ../tests/run-tests/*.c is transpiled with `cake_exe`, the output is
+ * compiled with the host compiler (CC) and executed. A test passes when cake
+ * reports nothing and the program exits with 0 (tests end with
+ * `return failures;`), so these check what the generated code DOES and need
+ * no expected-output file per platform.
+ */
+static void run_generated_tests(const char* cake_exe)
+{
+    const char* dir = "../tests/run-tests";
+    const char* out_dir = "../tests/run-tests/out";
+
+    mkdir(out_dir, 0777);
+
+    int count = 0;
+
+#ifdef PLATFORM_WINDOWS
+    WIN32_FIND_DATAA data;
+    HANDLE h = FindFirstFileA("..\\tests\\run-tests\\*.c", &data);
+    if (h == INVALID_HANDLE_VALUE)
+    {
+        printf("no tests found in %s\n", dir);
+        exit(1);
+    }
+    do
+    {
+        const char* name = data.cFileName;
+#else
+    DIR* d = opendir(dir);
+    if (d == NULL)
+    {
+        printf("cannot open %s\n", dir);
+        exit(1);
+    }
+    struct dirent* entry;
+    while ((entry = readdir(d)) != NULL)
+    {
+        const char* name = entry->d_name;
+        const size_t len = strlen(name);
+        if (len < 3 || strcmp(name + len - 2, ".c") != 0)
+        {
+            continue;
+        }
+#endif
+        char base[512] = { 0 };
+        snprintf(base, sizeof base, "%s", name);
+        base[strlen(base) - 2] = '\0'; /* drop .c */
+
+        char cmd[4096] = { 0 };
+
+        /* 1. cake: source -> generated C */
+        snprintf(cmd, sizeof cmd,
+                 RUN "%s -fdiagnostics-color=never -wd20 -wd85 -test-mode -o %s/%s.c %s/%s",
+                 cake_exe, out_dir, base, dir, name);
+        execute_cmd(cmd);
+
+        /* 2. host compiler: generated C -> executable */
+#ifdef COMPILER_MSVC
+        snprintf(cmd, sizeof cmd, CC " /nologo /w %s/%s.c /Fe:%s/%s.exe", out_dir, base, out_dir, base);
+#else
+        snprintf(cmd, sizeof cmd, CC " -w %s/%s.c -o %s/%s", out_dir, base, out_dir, base);
+#endif
+        execute_cmd(cmd);
+
+        /* 3. run it; non-zero exit is the test's failure count */
+        snprintf(cmd, sizeof cmd, "%s/%s" EXE(""), out_dir, base);
+#ifdef PLATFORM_WINDOWS
+        for (char* p = cmd; *p; p++)
+        {
+            if (*p == '/')
+            {
+                *p = '\\';
+            }
+        }
+#endif
+        printf("%s\n", cmd);
+        fflush(stdout);
+        const int result = system_like(cmd);
+        if (result != 0)
+        {
+            printf("TEST FAILED: %s/%s exited with %d\n", dir, name, result);
+            printf("generated file: %s/%s.c\n", out_dir, base);
+            exit(1);
+        }
+        count++;
+#ifdef PLATFORM_WINDOWS
+    }
+    while (FindNextFileA(h, &data));
+    FindClose(h);
+#else
+    }
+    closedir(d);
+#endif
+
+    printf("%d generated-code tests passed\n", count);
+}
+
 static void run_tests(void)
 {
     print_header("Run tests");
@@ -942,8 +1041,9 @@ static void run_tests(void)
     execute_cmd(RUN EXE(CKC_NAME) "  -fdiagnostics-color=never -wd20 -wd85 ../tests/unit-tests/*.c -test-mode");
     
     execute_cmd(RUN EXE(CKC_NAME) "  -fdiagnostics-color=never -wd20 -wd82 -wd85 ../tests/unit-tests/flow3/*.c -test-mode");
-    execute_cmd(RUN EXE(CKC_NAME) "  -fdiagnostics-color=never -wd20 -wd85 ../tests/output-test/*.c -test-mode-in-out");
-    execute_cmd(RUN EXE(CKC_NAME) "  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
+
+    print_header("Run generated-code tests");
+    run_generated_tests(EXE(CKC_NAME));
 
 
     print_header("Run tests (cake89)");
@@ -952,8 +1052,9 @@ static void run_tests(void)
     execute_cmd(RUN EXE(CKC89_NAME) " -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -wd44 -wd74 -wd85 -wd88 -test-mode");
     execute_cmd(RUN EXE(CKC89_NAME) "  -fdiagnostics-color=never -wd20 -wd85 ../tests/unit-tests/*.c -test-mode");
     execute_cmd(RUN EXE(CKC89_NAME) "  -fdiagnostics-color=never -wd20 -wd82 -wd85 ../tests/unit-tests/flow3/*.c -test-mode");
-    execute_cmd(RUN EXE(CKC89_NAME) "  -fdiagnostics-color=never -wd20 -wd85 ../tests/output-test/*.c -test-mode-in-out");
-    execute_cmd(RUN EXE(CKC89_NAME) "  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
+
+    print_header("Run generated-code tests (cake89)");
+    run_generated_tests(EXE(CKC89_NAME));
 
 
     printf("Other test cases:\n");

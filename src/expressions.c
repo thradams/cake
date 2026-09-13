@@ -2484,10 +2484,59 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
 
             const bool suffix_ull = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == 'L' && suffix[3] == '\0');
 
+            const bool suffix_wb = (suffix[0] == 'W' && suffix[1] == 'B' && suffix[2] == '\0');
+            const bool suffix_uwb = (suffix[0] == 'U' && suffix[1] == 'W' && suffix[2] == 'B' && suffix[3] == '\0');
+
             object_destroy(&p_expression_node->object);
             p_expression_node->object = (struct object){ 0 };
 
-            if (suffix_none)
+            if (suffix_wb || suffix_uwb)
+            {
+                /*
+                  6.4.4.1: the type is the bit-precise integer with the
+                  smallest width that holds the value; the signed one keeps
+                  one extra bit for the sign.
+                */
+                int width = 0;
+                unsigned long long v = value;
+                while (v != 0)
+                {
+                    width++;
+                    v >>= 1;
+                }
+
+                if (suffix_uwb)
+                {
+                    if (width < 1)
+                    {
+                        width = 1;
+                    }
+                    p_expression_node->object = object_make_unsigned_bitint(width, value);
+                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_BITINT;
+                }
+                else
+                {
+                    width++; /* sign bit */
+                    if (width < 2)
+                    {
+                        width = 2;
+                    }
+
+                    if (width > 64)
+                    {
+                        diagnostic(C_ERROR_LITERAL_OVERFLOW,
+                                   ctx,
+                                   token,
+                                   NULL,
+                                   "integer literal is too large to be represented in a signed _BitInt of the supported width");
+                        width = 64;
+                    }
+                    p_expression_node->object = object_make_signed_bitint(width, (long long)value);
+                    p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_BITINT;
+                }
+                p_expression_node->type.bitint_width = width;
+            }
+            else if (suffix_none)
             {
                 if (value <= signed_int_max_value)
                 {
@@ -4526,6 +4575,7 @@ static int is_offsetof_pattern(const struct parser_ctx* ctx, struct expression* 
     enum sizeof_result e = type_get_offsetof(&struct_type,
                                              right->last_token->lexeme /* member identifier */,
                                              &offset_of,
+                                             NULL,
                                              ctx->options.target);
     if (e != SIZEOF_RESULT_OK)
     {
@@ -5171,19 +5221,81 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 throw;
             }
 
+            /*
+              n3958 member-designator:
+                 identifier designator-list_opt
+              designator:
+                 [ expression ]
+                 . identifier
+            */
             if (ctx->current->type != TK_IDENTIFIER)
             {
-                // GCC extension: __builtin_offsetof supports designators like
-                // s.field or arr[0].field, but only simple identifier is currently
-                // implemented. https://gcc.gnu.org/onlinedocs/gcc/Offsetof.html
                 diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->current, NULL,
-                           "__builtin_offsetof: only a simple member name is supported");
+                           "offsetof: expected member name");
                 expression_delete(new_expression);
                 throw;
             }
-            new_expression->offsetof_member_designator = ctx->current;
 
+            struct offsetof_designator* _Owner _Opt p_first = calloc(1, sizeof * p_first);
+            if (p_first == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+            p_first->first_token = ctx->current;
+            p_first->identifier = ctx->current;
+            new_expression->offsetof_member_designator = p_first;
+            struct offsetof_designator* p_last = p_first;
             parser_match(ctx);
+
+            while (ctx->current != NULL &&
+                   (ctx->current->type == '.' || ctx->current->type == '['))
+            {
+                struct offsetof_designator* _Owner _Opt p_node = calloc(1, sizeof * p_node);
+                if (p_node == NULL)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+                p_node->first_token = ctx->current;
+                p_last->next = p_node;
+                p_last = p_node;
+
+                if (ctx->current->type == '.')
+                {
+                    parser_match(ctx);
+                    if (ctx->current == NULL)
+                    {
+                        unexpected_end_of_file(ctx);
+                        expression_delete(new_expression);
+                        throw;
+                    }
+                    if (ctx->current->type != TK_IDENTIFIER)
+                    {
+                        diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->current, NULL,
+                                   "offsetof: expected member name after '.'");
+                        expression_delete(new_expression);
+                        throw;
+                    }
+                    p_node->identifier = ctx->current;
+                    parser_match(ctx);
+                }
+                else
+                {
+                    parser_match(ctx); /* [ */
+                    p_node->index = expression(ctx, false);
+                    if (p_node->index == NULL)
+                    {
+                        expression_delete(new_expression);
+                        throw;
+                    }
+                    if (parser_match_tk(ctx, ']') != 0)
+                    {
+                        expression_delete(new_expression);
+                        throw;
+                    }
+                }
+            }
 
             if (parser_match_tk(ctx, ')') != 0)
             {
@@ -5193,35 +5305,174 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
 
             new_expression->type = make_size_t_type(ctx->options.target);
 
+            /*
+              Walk the designator list computing the offset. The result is an
+              integer constant expression unless some array index is not.
+              Errors do not throw: the diagnostic is emitted, the walk stops
+              and the expression is still returned.
+            */
             size_t offset_of = 0;
+            bool is_constant = true;
+            bool has_error = false;
+            struct type current_type = type_dup(&new_expression->type_name->type);
 
-            enum sizeof_result e =
-                type_get_offsetof(&new_expression->type_name->type, new_expression->offsetof_member_designator->lexeme, &offset_of, ctx->options.target);
-
-            switch (e)
+            struct offsetof_designator* _Opt p_designator = new_expression->offsetof_member_designator;
+            while (p_designator != NULL && !has_error)
             {
-                case SIZEOF_RESULT_OK:
-                break;
-                case SIZEOF_RESULT_OVERLOW:
-                case SIZEOF_RESULT_RUNTIME:
-                case SIZEOF_RESULT_INCOMPLETE:
-                case SIZEOF_RESULT_FUNCTION:
-                    diagnostic(W_SIZEOF_FUNCTION,
-                               ctx,
-                               new_expression->first_token,
-                    NULL,
-                               "size of function");
-                break;
-                case SIZEOF_RESULT_BITFIELD:
-                    diagnostic(C_ERROR_INVALID_TYPE,
-                               ctx,
-                               new_expression->first_token,
-                    NULL,
-                               "offsetof applied to a bit-field member is not supported");
-                break;
-            }
+                if (p_designator->identifier != NULL)
+                {
+                    if (!type_is_struct_or_union(&current_type))
+                    {
+                        diagnostic(C_ERROR_STRUCTURE_OR_UNION_REQUIRED,
+                                   ctx,
+                                   p_designator->identifier,
+                                   NULL,
+                                   "offsetof: member '%s' requested in something not a structure or union",
+                                   p_designator->identifier->lexeme);
+                        has_error = true;
+                        break;
+                    }
 
-            new_expression->object = object_make_size_t(ctx->options.target, offset_of);
+                    size_t member_offset = 0;
+                    struct type member_type = { 0 };
+                    enum sizeof_result e = type_get_offsetof(&current_type,
+                                                             p_designator->identifier->lexeme,
+                                                             &member_offset,
+                                                             &member_type,
+                                                             ctx->options.target);
+                    switch (e)
+                    {
+                        case SIZEOF_RESULT_OK:
+                        break;
+
+                        case SIZEOF_RESULT_BITFIELD:
+                            diagnostic(C_ERROR_INVALID_TYPE,
+                                       ctx,
+                                       p_designator->identifier,
+                                       NULL,
+                                       "offsetof: member-designator shall not designate a bit-field");
+                            has_error = true;
+                        break;
+
+                        case SIZEOF_RESULT_INCOMPLETE:
+                            if (current_type.struct_or_union_specifier != NULL &&
+                                get_complete_struct_or_union_specifier(current_type.struct_or_union_specifier) == NULL)
+                            {
+                                diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE,
+                                           ctx,
+                                           p_designator->identifier,
+                                           NULL,
+                                           "offsetof: incomplete struct/union type");
+                            }
+                            else
+                            {
+                                diagnostic(C_ERROR_STRUCT_MEMBER_NOT_FOUND,
+                                           ctx,
+                                           p_designator->identifier,
+                                           NULL,
+                                           "offsetof: member '%s' not found",
+                                           p_designator->identifier->lexeme);
+                            }
+                            has_error = true;
+                        break;
+
+                        case SIZEOF_RESULT_OVERLOW:
+                        case SIZEOF_RESULT_RUNTIME:
+                        case SIZEOF_RESULT_FUNCTION:
+                            diagnostic(C_ERROR_INVALID_TYPE,
+                                       ctx,
+                                       p_designator->identifier,
+                                       NULL,
+                                       "offsetof: invalid type");
+                            has_error = true;
+                        break;
+                    }
+
+                    if (!has_error)
+                    {
+                        p_designator->member_offset = member_offset;
+                        offset_of += member_offset;
+                        type_destroy(&current_type);
+                        current_type = member_type;
+                    }
+                    else
+                    {
+                        type_destroy(&member_type);
+                    }
+                }
+                else
+                {
+                    _Assert(p_designator->index != NULL);
+
+                    if (!type_is_array(&current_type))
+                    {
+                        diagnostic(C_ERROR_SUBSCRIPTED_VALUE_IS_NEITHER_ARRAY_NOR_POINTER,
+                                   ctx,
+                                   p_designator->first_token,
+                                   NULL,
+                                   "offsetof: subscripted value is not an array");
+                        has_error = true;
+                        break;
+                    }
+
+                    struct type element_type = get_array_item_type(&current_type);
+                    size_t element_size = 0;
+                    if (type_get_sizeof(&element_type, &element_size, ctx->options.target) != SIZEOF_RESULT_OK)
+                    {
+                        diagnostic(C_ERROR_INVALID_TYPE,
+                                   ctx,
+                                   p_designator->first_token,
+                                   NULL,
+                                   "offsetof: array element has incomplete type");
+                        type_destroy(&element_type);
+                        has_error = true;
+                        break;
+                    }
+                    p_designator->element_size = element_size;
+
+                    if (object_has_constant_value(&p_designator->index->object))
+                    {
+                        unsigned long long index = object_to_unsigned_long_long(&p_designator->index->object);
+
+                        /*
+                          n3958: out of range subscription is undefined behavior.
+                          A flexible array member (unknown size) is assumed to have
+                          SIZE_MAX elements.
+                        */
+                        if (current_type.array_num_elements > 0 &&
+                            index >= (unsigned long long)current_type.array_num_elements)
+                        {
+                            diagnostic(W_OUT_OF_BOUNDS,
+                                       ctx,
+                                       p_designator->first_token,
+                                       NULL,
+                                       "offsetof: index %llu is past the end of the array",
+                                       index);
+                        }
+                        offset_of += (size_t)(index * element_size);
+                    }
+                    else
+                    {
+                        is_constant = false;
+                    }
+
+                    type_destroy(&current_type);
+                    current_type = element_type;
+                }
+
+                p_designator = p_designator->next;
+            }
+            type_destroy(&current_type);
+
+            /*
+              On a constraint violation the diagnostic was already emitted;
+              keep the expression (with the partial offset) so parsing can
+              continue instead of aborting the translation unit.
+            */
+            if (is_constant || has_error)
+            {
+                new_expression->object = object_make_size_t(ctx->options.target, offset_of);
+            }
 
             struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
             if (p_previous_token == NULL)
@@ -6613,7 +6864,20 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, bool is_
                 new_expression->expression_type = EXPR_SHIFT_LEFT;
             }
 
-            new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
+            /*
+              6.5.7: the integer promotions are performed on each of the
+              operands and the type of the result is that of the promoted
+              left operand. Enumerations are converted to their underlying type first.
+            */
+            if (type_is_enum(&new_expression->left->type) && !type_is_enumerator(&new_expression->left->type))
+            {
+                new_expression->type = type_common(&new_expression->left->type, &new_expression->left->type, ctx->options.target);
+            }
+            else
+            {
+                new_expression->type = type_dup(&new_expression->left->type);
+                type_integer_promotion(&new_expression->type);
+            }
 
             /* Each of the operands shall have integer type */
             if (!type_is_integer(&new_expression->left->type))
@@ -8157,10 +8421,24 @@ void check_malloc_size_multiple_of_sizeof(const struct parser_ctx* ctx,
     type_destroy(&pointee_type);
 }
 
+void offsetof_designator_delete(struct offsetof_designator* _Owner _Opt p)
+{
+    struct offsetof_designator* _Owner _Opt p_item = p;
+    while (p_item)
+    {
+        struct offsetof_designator* _Owner _Opt p_next = p_item->next;
+        p_item->next = NULL;
+        expression_delete(p_item->index);
+        free(p_item);
+        p_item = p_next;
+    }
+}
+
 void expression_delete(struct expression* _Owner _Opt p)
 {
     if (p)
     {
+        offsetof_designator_delete(p->offsetof_member_designator);
         static_assertion_delete(p->static_assertion);
         storage_class_specifiers_delete(p->p_storage_class_specifiers);
         expression_delete(p->condition_expr);

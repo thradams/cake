@@ -310,6 +310,8 @@ enum diagnostic_id {
     C_ERROR_DUPLICATE_TYPE_QUALIFIER = 2020,
     C_ERROR_TYPEDEF_MISSING_TAG_NAME = 2030,
     C_ERROR_REDEFINITION_CANNOT_BE_OVERLOADED_WITH_TYPEDEF = 2040,
+    C_ERROR_INVALID_DECLARATION_CONDITION = 2050,
+    C_ERROR_INVALID_BITINT_WIDTH = 2060,
 };
 
 
@@ -496,11 +498,6 @@ struct options
     * -testmode
     */
     bool test_mode;
-
-    /*
-      -test-in-out
-    */
-    bool test_mode_inout;
 
 
     /*

@@ -203,6 +203,35 @@ struct generic_selection
 
 void generic_selection_delete(_Dtor struct generic_selection* _Owner _Opt p);
 
+/*
+  offsetof member-designator (n3958):
+
+  member-designator:
+     identifier designator-list_opt
+
+  designator:
+     [ expression ]
+     . identifier
+
+  Each node is either an identifier (identifier != NULL) or an
+  array subscript (index != NULL).
+*/
+struct offsetof_designator
+{
+    struct token* first_token;
+    struct token* _Opt identifier;
+    struct expression* _Owner _Opt index;
+
+    /* identifier node: byte offset of the member inside its struct/union
+       index node: size in bytes of one array element */
+    size_t member_offset;
+    size_t element_size;
+
+    struct offsetof_designator* _Owner _Opt next;
+};
+
+void offsetof_designator_delete(_Dtor struct offsetof_designator* _Owner _Opt p);
+
 struct expression
 {
     enum expression_type expression_type;
@@ -220,8 +249,8 @@ struct expression
     struct token* first_token;
     struct token* last_token;
     
-    //TODO https://gcc.gnu.org/onlinedocs/gcc/Offsetof.html#Offsetof
-    struct token* _Opt offsetof_member_designator;
+    /* EXPR_UNARY_GCC__BUILTIN_OFFSETOF */
+    struct offsetof_designator* _Owner _Opt offsetof_member_designator;
 
     /*if expression is an identifier it points to its declaration*/
     struct declarator* _Opt declarator;

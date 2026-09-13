@@ -40,6 +40,19 @@ struct codegen_ctx
 
 
     struct osstream block_scope_declarators;
+
+    /*
+       vm_dim_id of every `__vmN` dimension snapshot declared in the C blocks
+       currently open (innermost last). Block-opening code saves
+       vm_snapshot_count and restores it when the block closes, so snapshots
+       of enclosing blocks stay visible (a VM typedef used in a nested block
+       must reuse the typedef's snapshot, not re-evaluate the dimension)
+       while those of already-closed sibling blocks drop out.
+    */
+    int* _Owner _Opt vm_snapshot_ids;
+    int vm_snapshot_count;
+    int vm_snapshot_capacity;
+
     struct osstream add_this_before;
     struct osstream add_this_before_external_decl;
     struct osstream add_this_after_external_decl;

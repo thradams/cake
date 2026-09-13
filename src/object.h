@@ -119,6 +119,16 @@ bool object_type_is_signed_bitfield(enum object_type t);
 bool object_type_is_unsigned_bitfield(enum object_type t);
 int  object_type_bitfield_width(enum object_type t);
 
+/* Bit-precise integer constructors: width is 1..64 (2..64 when signed) */
+struct object   object_make_signed_bitint(int width, long long value);
+struct object object_make_unsigned_bitint(int width, unsigned long long value);
+
+/* Bit-precise integer type queries */
+bool object_type_is_bitint(enum object_type t);
+bool object_type_is_signed_bitint(enum object_type t);
+bool object_type_is_unsigned_bitint(enum object_type t);
+int  object_type_bitint_width(enum object_type t);
+
 
 struct object     object_make_uint8(enum target target, uint8_t value);
 struct object     object_make_uint16(enum target target, uint16_t value);

@@ -2769,7 +2769,7 @@ void print_declaration_specifiers(struct osstream* ss, const struct declaration_
     }
     else
     {
-        print_type_specifier_flags(ss, &first, p_declaration_specifiers->type_specifier_flags);
+        print_type_specifier_flags(ss, &first, p_declaration_specifiers->type_specifier_flags, p_declaration_specifiers->bitint_width);
     }
 }
 
@@ -2780,6 +2780,7 @@ bool type_specifier_is_integer(enum type_specifier_flags flags)
         (flags & TYPE_SPECIFIER_INT) ||
         (flags & TYPE_SPECIFIER_LONG) ||
         (flags & TYPE_SPECIFIER_INT) ||
+        (flags & TYPE_SPECIFIER_BITINT) ||
         (flags & TYPE_SPECIFIER_LONG_LONG))
     {
         return true;
@@ -2867,8 +2868,9 @@ int add_specifier(const struct parser_ctx* ctx,
         case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT: // signed long long
         case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG: // unsigned long long
         case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT: // unsigned long long int
-        // _BitInt constant-expression, or signed _BitInt constant-expression
-        // unsigned _BitInt constant-expression
+        case TYPE_SPECIFIER_BITINT: // _BitInt(N)
+        case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_BITINT: // signed _BitInt(N)
+        case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_BITINT: // unsigned _BitInt(N)
         case TYPE_SPECIFIER_FLOAT: // float
         case TYPE_SPECIFIER_DOUBLE: // double
         case TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE: // long double
@@ -2926,6 +2928,9 @@ void declaration_specifiers_add(struct declaration_specifiers* list, struct decl
     list->tail = p_item;
 }
 
+static void apply_gcc_struct_attributes(struct struct_or_union_specifier* p_struct,
+                                        const struct attribute_specifier_sequence* _Opt p_attributes);
+
 struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_ctx* ctx,
     enum storage_class_specifier_flags default_storage_flag)
 {
@@ -2979,6 +2984,12 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
                         p_declaration_specifier->type_specifier_qualifier->type_specifier->flags) != 0)
                     {
                         /* not a fatal error */
+                    }
+
+                    if (p_declaration_specifier->type_specifier_qualifier->type_specifier->flags & TYPE_SPECIFIER_BITINT)
+                    {
+                        p_declaration_specifiers->bitint_width =
+                            p_declaration_specifier->type_specifier_qualifier->type_specifier->bitint_width;
                     }
 
                     if (p_declaration_specifier->type_specifier_qualifier->type_specifier->struct_or_union_specifier)
@@ -3064,6 +3075,16 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
             attribute_specifier_sequence_delete(p_declaration_specifiers->p_attribute_specifier_sequence);
             p_declaration_specifiers->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
 
+            /* struct X {...} __attribute__((packed)) */
+            if (p_declaration_specifier->type_specifier_qualifier &&
+                p_declaration_specifier->type_specifier_qualifier->type_specifier &&
+                p_declaration_specifier->type_specifier_qualifier->type_specifier->struct_or_union_specifier)
+            {
+                apply_gcc_struct_attributes(
+                    p_declaration_specifier->type_specifier_qualifier->type_specifier->struct_or_union_specifier,
+                    p_declaration_specifiers->p_attribute_specifier_sequence);
+            }
+
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
@@ -3092,6 +3113,14 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
 
         /* int main() { static int i; } -- i is not automatic */
         final_specifier( &p_declaration_specifiers->type_specifier_flags);
+
+        /* 6.7.2: signed _BitInt needs a sign bit and a value bit */
+        if ((p_declaration_specifiers->type_specifier_flags & TYPE_SPECIFIER_BITINT) &&
+            !(p_declaration_specifiers->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED) &&
+            p_declaration_specifiers->bitint_width == 1)
+        {
+            diagnostic(C_ERROR_INVALID_BITINT_WIDTH, ctx, p_declaration_specifiers->first_token, NULL, "signed _BitInt must have a width of at least 2");
+        }
 
         p_declaration_specifiers->storage_class_specifier_flags |= default_storage_flag;
 
@@ -5187,6 +5216,7 @@ void type_specifier_delete(struct type_specifier* _Owner _Opt p)
         typeof_specifier_delete(p->typeof_specifier);
         enum_specifier_delete(p->enum_specifier);
         atomic_type_specifier_delete(p->atomic_type_specifier);
+        expression_delete(p->bitint_constant_expression);
         free(p);
     }
 }
@@ -5445,7 +5475,7 @@ enum msvc_declspec_flags msvc_declspec_sequence_opt(struct parser_ctx* ctx)
     return msvc_declspec_flags;
 }
 
-static void gcc_attribute(struct parser_ctx* ctx)
+static void gcc_attribute(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Opt p_out)
 {
     /* 
     * attribute :
@@ -5472,12 +5502,31 @@ static void gcc_attribute(struct parser_ctx* ctx)
             throw;
         }
 
+        /* the ones that change layout: packed, aligned, aligned(n) */
+        const char* attribute_name = ctx->current->lexeme;
+        const bool is_packed =
+            strcmp(attribute_name, "packed") == 0 || strcmp(attribute_name, "__packed__") == 0;
+        const bool is_aligned =
+            strcmp(attribute_name, "aligned") == 0 || strcmp(attribute_name, "__aligned__") == 0;
+
         parser_match(ctx); // identifier
 
         if (ctx->current == NULL)
         {
             unexpected_end_of_file(ctx);
             throw;
+        }
+
+        if (p_out != NULL && is_packed)
+        {
+            p_out->gcc_packed = true;
+        }
+
+        if (p_out != NULL && is_aligned)
+        {
+            /* aligned with no argument means the biggest alignment of the
+               target - 16 on every target cake has */
+            p_out->gcc_aligned = 16;
         }
 
         if (ctx->current->type == '(')
@@ -5487,6 +5536,13 @@ static void gcc_attribute(struct parser_ctx* ctx)
             {
                 unexpected_end_of_file(ctx);
                 throw;
+            }
+
+            if (p_out != NULL && is_aligned &&
+                (ctx->current->type == TK_PPNUMBER ||
+                 ctx->current->type == TK_COMPILER_DECIMAL_CONSTANT))
+            {
+                p_out->gcc_aligned = atoi(ctx->current->lexeme);
             }
 
             int count = 1;
@@ -5523,7 +5579,7 @@ static void gcc_attribute(struct parser_ctx* ctx)
     }
 }
 
-static void gcc_attribute_list(struct parser_ctx* ctx)
+static void gcc_attribute_list(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Opt p_out)
 {
     /* 
     * attribute-list:
@@ -5543,7 +5599,7 @@ static void gcc_attribute_list(struct parser_ctx* ctx)
 
     for (;;)
     {
-        gcc_attribute(ctx);
+        gcc_attribute(ctx, p_out);
 
         if (ctx->current == NULL)
         {
@@ -5558,7 +5614,7 @@ static void gcc_attribute_list(struct parser_ctx* ctx)
     }
 }
 
-void gcc_attribute_specifier_opt(struct parser_ctx* ctx)
+void gcc_attribute_specifier_opt(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Opt p_out)
 {
     /* 
     * attribute-specifier:
@@ -5573,7 +5629,7 @@ void gcc_attribute_specifier_opt(struct parser_ctx* ctx)
         parser_match(ctx);
         if (parser_match_tk(ctx, '(') != 0) throw;
         if (parser_match_tk(ctx, '(') != 0) throw;
-        gcc_attribute_list(ctx);
+        gcc_attribute_list(ctx, p_out);
         if (parser_match_tk(ctx, ')') != 0) throw;
         if (parser_match_tk(ctx, ')') != 0) throw;
     }
@@ -5791,9 +5847,44 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD__BITINT)
         {
-            // TODO
-            type_specifier_delete(p_type_specifier);
-            return NULL;
+            /* _BitInt ( constant-expression ) */
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_BITINT;
+            parser_match(ctx);
+
+            if (parser_match_tk(ctx, '(') != 0)
+                throw;
+
+            p_type_specifier->bitint_constant_expression = constant_expression(ctx, true, false);
+            if (p_type_specifier->bitint_constant_expression == NULL)
+                throw;
+
+            if (object_has_constant_value(&p_type_specifier->bitint_constant_expression->object))
+            {
+                const long long width = object_to_signed_long_long(&p_type_specifier->bitint_constant_expression->object);
+
+                /*
+                  6.7.2: N is greater than zero. The signed form needs at least
+                  two bits (checked in add_specifier, when we know the sign),
+                  and the upper limit is our BITINT_MAXWIDTH.
+                */
+                if (width < 1)
+                {
+                    diagnostic(C_ERROR_INVALID_BITINT_WIDTH, ctx, p_type_specifier->token, NULL, "_BitInt width must be greater than zero");
+                }
+                else if (width > 64)
+                {
+                    diagnostic(C_ERROR_INVALID_BITINT_WIDTH, ctx, p_type_specifier->token, NULL, "_BitInt width %lld exceeds the maximum supported width 64", width);
+                }
+                else
+                {
+                    p_type_specifier->bitint_width = (int)width;
+                }
+            }
+            /* a non constant width was already reported by constant_expression */
+
+            if (parser_match_tk(ctx, ')') != 0)
+                throw;
         }
         else if (ctx->current->type == TK_IDENTIFIER)
         {
@@ -5946,6 +6037,27 @@ void struct_or_union_specifier_delete(struct struct_or_union_specifier* _Owner _
         member_declaration_list_destroy(&p->member_declaration_list);
         attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
         free(p);
+    }
+}
+
+/* struct __attribute__((packed)) X {...};  struct X {...} __attribute__((aligned(16)));
+   Both spellings apply to the struct definition. Only a definition (with a
+   body) takes them: on a bare "struct X" the attribute belongs to the
+   declaration, not to the type. */
+static void apply_gcc_struct_attributes(struct struct_or_union_specifier* p_struct,
+                                        const struct attribute_specifier_sequence* _Opt p_attributes)
+{
+    if (p_attributes == NULL || p_struct->member_declaration_list.head == NULL)
+        return;
+
+    if (p_attributes->gcc_packed)
+    {
+        p_struct->pack_alignment = 1;
+    }
+
+    if (p_attributes->gcc_aligned > p_struct->aligned_attribute)
+    {
+        p_struct->aligned_attribute = p_attributes->gcc_aligned;
     }
 }
 
@@ -6138,6 +6250,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
 
             if (ctx->current->type != '}') /* not official extensions yet..missing sizeof etc */
             {
+                p_struct_or_union_specifier->pack_alignment = ctx->pack_alignment;
                 struct member_declaration_list list = member_declaration_list(ctx, p_struct_or_union_specifier);
                 member_declaration_list_swap(&p_struct_or_union_specifier->member_declaration_list, &list);
                 member_declaration_list_destroy(&list);
@@ -6155,6 +6268,9 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             p_struct_or_union_specifier->member_declaration_list.first_token = firsttoken;
             p_struct_or_union_specifier->last_token = ctx->current;
             p_struct_or_union_specifier->member_declaration_list.last_token = ctx->current;
+
+            apply_gcc_struct_attributes(p_struct_or_union_specifier,
+                                        p_struct_or_union_specifier->attribute_specifier_sequence_opt);
 
             ctx->format_indent_level--;
             format_align_own_line_brace_if_present(ctx, p_struct_or_union_specifier->last_token);
@@ -6648,6 +6764,40 @@ struct member_declaration* _Owner _Opt member_declaration(struct parser_ctx* ctx
                     p_struct_or_union_specifier,
                     p_member_declaration->specifier_qualifier_list);
                 if (p_member_declaration->member_declarator_list_opt == NULL) throw;
+
+                /* __attribute__((packed)) int a, b;  and  int __attribute__((packed)) a, b;
+                   apply to every declarator of the member declaration */
+                const struct attribute_specifier_sequence* _Opt p_leading =
+                    p_member_declaration->p_attribute_specifier_sequence;
+                const struct attribute_specifier_sequence* _Opt p_after_type =
+                    p_member_declaration->specifier_qualifier_list->p_attribute_specifier_sequence;
+
+                for (struct member_declarator* _Opt md = p_member_declaration->member_declarator_list_opt->head;
+                     md != NULL;
+                     md = md->next)
+                {
+                    if (md->declarator == NULL)
+                        continue;
+
+                    if ((p_leading && p_leading->gcc_packed) || (p_after_type && p_after_type->gcc_packed))
+                        md->declarator->gcc_packed = true;
+
+                    /* MSVC has no per-member packed: the generated code cannot
+                       reproduce this layout there (see codegen). */
+                    if (md->declarator->gcc_packed &&
+                        (ctx->options.target == TARGET_X86_MSVC || ctx->options.target == TARGET_X64_MSVC))
+                    {
+                        diagnostic(W_ATTRIBUTES, ctx,
+                            md->declarator->name_opt ? md->declarator->name_opt : md->declarator->first_token_opt,
+                            NULL,
+                            "__attribute__((packed)) on a member has no MSVC equivalent; use #pragma pack or pack the whole struct");
+                    }
+
+                    if (p_leading && p_leading->gcc_aligned > md->declarator->gcc_aligned)
+                        md->declarator->gcc_aligned = p_leading->gcc_aligned;
+                    if (p_after_type && p_after_type->gcc_aligned > md->declarator->gcc_aligned)
+                        md->declarator->gcc_aligned = p_after_type->gcc_aligned;
+                }
             }
 
             if (ctx->current == NULL)
@@ -6870,7 +7020,7 @@ void print_specifier_qualifier_list(struct osstream* ss, bool* first, const stru
     }
     else
     {
-        print_type_specifier_flags(ss, first, p_specifier_qualifier_list->type_specifier_flags);
+        print_type_specifier_flags(ss, first, p_specifier_qualifier_list->type_specifier_flags, p_specifier_qualifier_list->bitint_width);
     }
 }
 
@@ -6968,6 +7118,12 @@ struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct par
                     throw;
                 }
 
+                if (p_type_specifier_qualifier->type_specifier->flags & TYPE_SPECIFIER_BITINT)
+                {
+                    p_specifier_qualifier_list->bitint_width =
+                        p_type_specifier_qualifier->type_specifier->bitint_width;
+                }
+
                 if (p_type_specifier_qualifier->type_specifier->struct_or_union_specifier)
                 {
                     p_specifier_qualifier_list->struct_or_union_specifier = p_type_specifier_qualifier->type_specifier->struct_or_union_specifier;
@@ -7000,6 +7156,15 @@ struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct par
             _Assert(p_specifier_qualifier_list->p_attribute_specifier_sequence == NULL);
             p_specifier_qualifier_list->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
 
+            /* struct X {...} __attribute__((packed)) */
+            if (p_type_specifier_qualifier->type_specifier &&
+                p_type_specifier_qualifier->type_specifier->struct_or_union_specifier)
+            {
+                apply_gcc_struct_attributes(
+                    p_type_specifier_qualifier->type_specifier->struct_or_union_specifier,
+                    p_specifier_qualifier_list->p_attribute_specifier_sequence);
+            }
+
             specifier_qualifier_list_add(p_specifier_qualifier_list, p_type_specifier_qualifier);
         }
 
@@ -7010,6 +7175,14 @@ struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct par
         }
 
         final_specifier( &p_specifier_qualifier_list->type_specifier_flags);
+
+        /* 6.7.2: signed _BitInt needs a sign bit and a value bit */
+        if ((p_specifier_qualifier_list->type_specifier_flags & TYPE_SPECIFIER_BITINT) &&
+            !(p_specifier_qualifier_list->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED) &&
+            p_specifier_qualifier_list->bitint_width == 1)
+        {
+            diagnostic(C_ERROR_INVALID_BITINT_WIDTH, ctx, p_specifier_qualifier_list->first_token, NULL, "signed _BitInt must have a width of at least 2");
+        }
         struct token* _Opt p_previous_parser_token = parser_get_previous_token(ctx);
         if (p_previous_parser_token == NULL) throw;
 
@@ -7767,16 +7940,7 @@ struct alignment_specifier* _Owner _Opt alignment_specifier(struct parser_ctx* c
             if (object_has_constant_value(&alignment_specifier->constant_expression->object))
             {
                 long long a = object_to_signed_long_long(&alignment_specifier->constant_expression->object);
-                if (a == 8)
-                    alignment_specifier->flags |= ALIGNMENT_SPECIFIER_8_FLAGS;
-                else if (a == 16)
-                    alignment_specifier->flags |= ALIGNMENT_SPECIFIER_16_FLAGS;
-                else if (a == 32)
-                    alignment_specifier->flags |= ALIGNMENT_SPECIFIER_32_FLAGS;
-                else if (a == 64)
-                    alignment_specifier->flags |= ALIGNMENT_SPECIFIER_64_FLAGS;
-                else if (a == 128)
-                    alignment_specifier->flags |= ALIGNMENT_SPECIFIER_128_FLAGS;
+                alignment_specifier->flags |= alignment_value_to_flags(a);
 
             }
         }
@@ -8085,6 +8249,32 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
 
     struct attribute_specifier_sequence* _Owner _Opt p = attribute_specifier_sequence_opt(ctx);
     attribute_specifier_sequence_delete(p);
+
+    if (p_declarator != NULL)
+    {
+        /* int i __attribute__((packed));  char buf[8] __attribute__((aligned(16)));
+           direct_declarator keeps the attributes that follow the name, each
+           array/function suffix its own - walk the chain and gather them. */
+        const struct direct_declarator* _Opt p_dd = p_declarator->direct_declarator;
+        while (p_dd != NULL)
+        {
+            const struct attribute_specifier_sequence* _Opt p_attributes = p_dd->p_attribute_specifier_sequence;
+            if (p_attributes != NULL)
+            {
+                if (p_attributes->gcc_packed)
+                    p_declarator->gcc_packed = true;
+                if (p_attributes->gcc_aligned > p_declarator->gcc_aligned)
+                    p_declarator->gcc_aligned = p_attributes->gcc_aligned;
+            }
+
+            if (p_dd->array_declarator)
+                p_dd = p_dd->array_declarator->direct_declarator;
+            else if (p_dd->function_declarator)
+                p_dd = p_dd->function_declarator->direct_declarator;
+            else
+                p_dd = NULL;
+        }
+    }
 
     if (ctx->current && ctx->current->type == TK_KEYWORD__ASM)
     {
@@ -8641,7 +8831,10 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
             }
         }
 
-        if (ctx->current != NULL && ctx->current->type == '*')
+        /* '^' is a clang block pointer (typedef void (^cb)(int);) - Apple
+           SDK headers declare them unconditionally; treated as a plain
+           pointer to the function type. */
+        if (ctx->current != NULL && (ctx->current->type == '*' || ctx->current->type == '^'))
         {
             p_pointer = calloc(1, sizeof(struct pointer));
             if (p_pointer == NULL)
@@ -9120,6 +9313,7 @@ struct specifier_qualifier_list* _Owner _Opt copy(struct declaration_specifiers*
 
         p_specifier_qualifier_list->type_qualifier_flags = p_declaration_specifiers->type_qualifier_flags;
         p_specifier_qualifier_list->type_specifier_flags = p_declaration_specifiers->type_specifier_flags;
+        p_specifier_qualifier_list->bitint_width = p_declaration_specifiers->bitint_width;
 
         struct declaration_specifier* _Opt p_declaration_specifier = p_declaration_specifiers->head;
 
@@ -10132,6 +10326,64 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 ctx->options.flow_analysis = false;
             }
         }
+        else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "pack") == 0)
+        {
+            /*
+              #pragma pack(push, n)  #pragma pack(push)  #pragma pack(pop)
+              #pragma pack(n)        #pragma pack()
+            */
+            p_pragma_token = pragma_declaration_match(p_pragma_token);
+            if (p_pragma_token == NULL || p_pragma_token->type != '(')
+                throw;
+
+            p_pragma_token = pragma_declaration_match(p_pragma_token);
+            if (p_pragma_token == NULL)
+                throw;
+
+            if (p_pragma_token->type == ')')
+            {
+                ctx->pack_alignment = 0;
+            }
+            else if (strcmp(p_pragma_token->lexeme, "pop") == 0)
+            {
+                if (ctx->pack_stack_top > 0)
+                {
+                    ctx->pack_stack_top--;
+                    ctx->pack_alignment = ctx->pack_stack[ctx->pack_stack_top];
+                }
+                else
+                {
+                    ctx->pack_alignment = 0;
+                }
+            }
+            else
+            {
+                if (strcmp(p_pragma_token->lexeme, "push") == 0)
+                {
+                    if (ctx->pack_stack_top < _Countof(ctx->pack_stack))
+                    {
+                        ctx->pack_stack[ctx->pack_stack_top] = ctx->pack_alignment;
+                        ctx->pack_stack_top++;
+                    }
+
+                    p_pragma_token = pragma_declaration_match(p_pragma_token);
+                    if (p_pragma_token == NULL)
+                        throw;
+
+                    if (p_pragma_token->type == ',')
+                    {
+                        p_pragma_token = pragma_declaration_match(p_pragma_token);
+                        if (p_pragma_token == NULL)
+                            throw;
+                    }
+                }
+
+                if (p_pragma_token->type == TK_PPNUMBER)
+                {
+                    ctx->pack_alignment = atoi(p_pragma_token->lexeme);
+                }
+            }
+        }
         else if (is_standard_pragma && p_pragma_token &&
             (strcmp(p_pragma_token->lexeme, "FP_CONTRACT") == 0 ||
                 strcmp(p_pragma_token->lexeme, "FENV_ACCESS") == 0 ||
@@ -10447,7 +10699,7 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
 
                 if (ctx->current->type == TK_KEYWORD_GCC__ATTRIBUTE)
                 {
-                    gcc_attribute_specifier_opt(ctx);
+                    gcc_attribute_specifier_opt(ctx, p_attribute_specifier_sequence);
                 }
                 else if (ctx->current->type == TK_KEYWORD_MSVC__DECLSPEC)
                 {
@@ -12901,18 +13153,89 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
                 p_selection_statement->condition->first_token = p_selection_statement->p_init_statement->p_simple_declaration->first_token;
                 p_selection_statement->condition->last_token = p_selection_statement->p_init_statement->p_simple_declaration->last_token;
 
-                if (p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head !=
-                    p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.tail)
-                {
-                    // tODO only 1
-                    _Assert(false);
-                    throw;
-                }
-                p_selection_statement->condition->p_init_declarator =
+                struct init_declarator* _Opt p_first_init_declarator =
                     p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head;
 
-                p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head = NULL;
-                p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.tail = NULL;
+                if (p_first_init_declarator == NULL)
+                {
+                    throw;
+                }
+
+                /*
+                * Constraint: storage-class specifiers other than auto, constexpr or register
+                * shall not appear in the declaration specifiers of a declaration-condition.
+                */
+                const enum storage_class_specifier_flags storage_flags =
+                    p_selection_statement->p_init_statement->p_simple_declaration->p_declaration_specifiers ?
+                    p_selection_statement->p_init_statement->p_simple_declaration->p_declaration_specifiers->storage_class_specifier_flags :
+                    STORAGE_SPECIFIER_NONE;
+
+                if (storage_flags & (STORAGE_SPECIFIER_TYPEDEF |
+                                     STORAGE_SPECIFIER_EXTERN |
+                                     STORAGE_SPECIFIER_STATIC |
+                                     STORAGE_SPECIFIER_THREAD_LOCAL))
+                {
+                    diagnostic(C_ERROR_INVALID_DECLARATION_CONDITION,
+                        ctx,
+                        p_selection_statement->condition->first_token,
+                        NULL,
+                        "storage-class specifiers other than 'auto', 'constexpr' or 'register' are not allowed in the controlling clause of '%s'",
+                        is_if ? "if" : "switch");
+                }
+
+                /*
+                * C2Y 6.8.5.1 (N3580) declaration-condition:
+                *   attribute-specifier-sequence opt declaration-specifiers declarator = initializer
+                * It declares exactly one object and the initializer is mandatory.
+                */
+                if (p_first_init_declarator->next != NULL)
+                {
+                    diagnostic(C_ERROR_INVALID_DECLARATION_CONDITION,
+                        ctx,
+                        p_first_init_declarator->next->p_declarator->first_token_opt,
+                        NULL,
+                        "a declaration in the controlling clause of '%s' shall declare exactly one object",
+                        is_if ? "if" : "switch");
+                }
+
+                if (p_first_init_declarator->initializer == NULL)
+                {
+                    diagnostic(C_ERROR_INVALID_DECLARATION_CONDITION,
+                        ctx,
+                        p_first_init_declarator->p_declarator->first_token_opt,
+                        NULL,
+                        "a declaration in the controlling clause of '%s' must have an initializer",
+                        is_if ? "if" : "switch");
+                }
+
+                /*
+                * The third form  T D = X  is treated as  T D = X; D  so the
+                * declared object is the controlling expression and shall have scalar type.
+                */
+                if (!type_is_scalar_decay(&p_first_init_declarator->p_declarator->type))
+                {
+                    diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
+                        ctx,
+                        p_first_init_declarator->p_declarator->first_token_opt,
+                        NULL,
+                        "controlling expression must have scalar type");
+                }
+
+                /*
+                * Only the first declarator is moved to the condition. Any extra
+                * ones (already diagnosed) stay in the list and are freed with
+                * the init-statement below.
+                */
+                p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head =
+                    p_first_init_declarator->next;
+
+                if (p_first_init_declarator->next == NULL)
+                {
+                    p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.tail = NULL;
+                }
+
+                p_first_init_declarator->next = NULL;
+                p_selection_statement->condition->p_init_declarator = p_first_init_declarator;
 
                 p_selection_statement->condition->p_declaration_specifiers =
                     p_selection_statement->p_init_statement->p_simple_declaration->p_declaration_specifiers; /* MOVED */
@@ -13788,6 +14111,19 @@ struct condition* _Owner _Opt condition(struct parser_ctx* ctx)
         p_condition->first_token = ctx->current;
         if (first_of_declaration_specifier(ctx))
         {
+            /*
+            * C2Y 6.8.5.1 (N3580): the clause after the init-statement is an
+            * expression only. The C++ "condition" form, that allows a second
+            * declaration here (if (int x = 0; int y = x + 1)), was intentionally
+            * left out of C2Y.
+            */
+            diagnostic(C_ERROR_INVALID_DECLARATION_CONDITION,
+                ctx,
+                ctx->current,
+                NULL,
+                "expected an expression; a declaration is not allowed after the init-statement");
+
+            /* error recovery: parse the declaration anyway to keep going */
             p_condition->p_attribute_specifier_sequence = attribute_specifier_sequence(ctx);
 
             p_condition->p_declaration_specifiers = declaration_specifiers(ctx, STORAGE_SPECIFIER_BLOCK_SCOPE);

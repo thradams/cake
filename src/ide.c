@@ -127,9 +127,8 @@ enum {
                                  * panel (see debug_info_panel_refresh()),
                                  * same singleton-window convention as
                                  * EVT_WINDOW_OUTPUT/EVT_WINDOW_FOLDER */
-    EVT_COMPILE = 40,  /* Build - the whole project when the active file
-                        * belongs to the open one, otherwise just that file
-                        * (see do_build()) */
+    EVT_COMPILE = 40,  /* Build - the whole project whenever one is open,
+                        * otherwise just the active file (see do_build()) */
     EVT_COMPILE_FILE = 41,  /* Compile - always just the active file, never
                              * the project (see do_compile()) */
     EVT_COMPILE_OPTIONS = 45,  /* File > Options... - the global compiler
@@ -371,6 +370,12 @@ enum {
     EVT_PROJECT_POPUP_REMOVE = 1309,  /* same popup's "Remove from Project" -
                                        * only removes the entry, never touches
                                        * the file on disk */
+    EVT_PROJECT_POPUP_NEWFILE = 1319,  /* same popup's "New File..." - opens
+                                        * the Folder panel's name dialog
+                                        * (g_foldernew) in project mode: the
+                                        * file is created in g_project.dir
+                                        * and added to the project - see
+                                        * g_foldernew.in_project */
     EVT_PROJECT_BUILD = 1310,  /* Project > "Build" - see do_project_build() */
     EVT_PROJECT_INCLUDES = 1311,  /* Project > "Include Directories..." - opens
                                    * the list dialog below (replaces the old
@@ -1131,6 +1136,11 @@ static struct
     ui_node* window;    /* retitled " New File "/" New Folder " */
     ui_node* input;
     int is_folder;      /* which of the two items opened it */
+    int in_project;     /* opened by the Project panel's "New File..."
+                         * (EVT_PROJECT_POPUP_NEWFILE) instead of the Folder
+                         * panel's: the file goes into g_project.dir rather
+                         * than g_folder.dir, and is added to the project
+                         * (project_add_file) once created */
 } g_foldernew;
 
 /* The "Dock Left/Right/Bottom" popup, shared by every dockable panel
@@ -7016,18 +7026,16 @@ static void refresh_open_windows(void)
  * keeps the real document on top. Save/Save As already got this same fix -
  * Compile just never had it applied. */
 
-/* Unified Build action: if active file is part of open project, build the
- * entire project; otherwise compile just the active file using its settings.
- * External tools' $(CakeOutput) and $(Target) macros expand correctly in both
- * cases: project context uses all files and project target, standalone context
- * uses just the active file and IDE-wide target settings. */
+/* Unified Build action: with a project open, build the entire project
+ * (whatever file happens to be frontmost - or none at all); without one,
+ * Build and Compile mean the same thing and just compile the active file
+ * using the IDE-wide settings. External tools' $(CakeOutput) and $(Target)
+ * macros expand correctly in both cases: project context uses all files and
+ * project target, standalone context uses just the active file and IDE-wide
+ * target settings. The per-frame enable in app_frame() mirrors this split. */
 static void do_build(void)
 {
-    ui_node* active = g_active_editor_window;
-    const char* file = active ? ui_get_path(active) : "";
-
-    /* If project is open and active file is part of it, build the whole project */
-    if (project_is_open() && project_contains_file(file))
+    if (project_is_open())
     {
         do_project_build();
     }
@@ -10594,11 +10602,26 @@ static void on_ui_event(void* ctx, int id, void* param)
         if (g_folder.dir[0])
             ui_clipboard_set_text(g_folder.dir);
     }
+    else if (id == EVT_PROJECT_POPUP_NEWFILE)
+    {
+        /* Same dialog the Folder panel's "New File..." opens, just rooted at
+         * the project directory - see g_foldernew.in_project. */
+        if (project_is_open())
+        {
+            g_foldernew.is_folder = 0;
+            g_foldernew.in_project = 1;
+            ui_set_label(g_foldernew.window, " New File ");
+            ui_set_value(g_foldernew.input, "");
+            ui_screen_show_modal(g_screen, g_foldernew.modal);
+            ui_screen_focus(g_screen, g_foldernew.input);
+        }
+    }
     else if (id == EVT_FOLDER_NEWFILE || id == EVT_FOLDER_NEWFOLDER)
     {
         if (g_folder.dir[0])
         {
             g_foldernew.is_folder = (id == EVT_FOLDER_NEWFOLDER);
+            g_foldernew.in_project = 0;
             ui_set_label(g_foldernew.window, g_foldernew.is_folder ? " New Folder " : " New File ");
             ui_set_value(g_foldernew.input, "");
             ui_screen_show_modal(g_screen, g_foldernew.modal);
@@ -10624,7 +10647,8 @@ static void on_ui_event(void* ctx, int id, void* param)
         else
         {
             char path[1024];
-            snprintf(path, sizeof path, "%s/%s", g_folder.dir, name);
+            snprintf(path, sizeof path, "%s/%s",
+                     g_foldernew.in_project ? g_project.dir : g_folder.dir, name);
             int created = 0;
 
             if (g_foldernew.is_folder)
@@ -10676,6 +10700,14 @@ static void on_ui_event(void* ctx, int id, void* param)
                 folder_window_refresh();
                 if (!g_foldernew.is_folder)
                 {
+                    /* Opened from the Project panel: the point is that the
+                     * new file becomes part of the project, not just of
+                     * the directory (project_add_file saves and refreshes
+                     * the Project listing). */
+                    if (g_foldernew.in_project)
+                    {
+                        project_add_file(path);
+                    }
                     nav_record_jump();
                     open_file_path_into_editor(path, name);
                 }
@@ -13447,6 +13479,10 @@ void app_init(ui_env* env)
     ui_set_id(project_popup_open, EVT_PROJECT_POPUP_OPEN);
     ui_set_label(project_popup_open, "Open");
     ui_append_child(project_popup, project_popup_open);
+    ui_node* project_popup_newfile = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(project_popup_newfile, EVT_PROJECT_POPUP_NEWFILE);
+    ui_set_label(project_popup_newfile, "New File...");
+    ui_append_child(project_popup, project_popup_newfile);
     ui_node* project_popup_sep = ui_create_element(UI_TAG_ITEM);
     ui_set_separator(project_popup_sep, 1);
     ui_append_child(project_popup, project_popup_sep);
@@ -13740,7 +13776,10 @@ int app_frame(ui_env* env)
      * disabled the same as for a .md. */
     int compile_targets_c = g_active_editor_window != NULL &&
         path_is_c_source(ui_get_path(g_active_editor_window));
-    ui_set_enabled(g_compile_item, compile_targets_c);
+    /* "Build" is the project build whenever a project is open (see
+     * do_build()), so it needs no frontmost .c then - only without a
+     * project does it fall back to "Compile" and share its condition. */
+    ui_set_enabled(g_compile_item, project_is_open() || compile_targets_c);
     ui_set_enabled(g_compile_file_item, compile_targets_c);
     /* Same condition - the Compile menu's own "Show Generated Code" (not
      * the popup's copy, which refreshes itself separately - see
@@ -13827,7 +13866,7 @@ int app_frame(ui_env* env)
     }
 
     /* Right-click over the Project panel's listbox opens its own popup
-     * ("Open" / "Remove from Project") - same shape as the Folder panel's
+     * ("Open" / "New File..." / "Remove from Project") - same shape as the Folder panel's
      * block just above, including the same window_is_shown() guard. */
     if (ui_screen_mouse_right_pressed(g_screen) && !ui_screen_active_modal(g_screen))
     {

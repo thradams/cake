@@ -151,6 +151,12 @@ static int collect_system_include_dirs(struct json_value* dirs)
             if (len > 0 && path[len - 1] == '\n')
                 path[len - 1] = '\0';
 
+            /* clang labels macOS framework search paths with a trailing
+               " (framework directory)" - it is not part of the path. */
+            char* _Opt framework_tag = strstr(p, " (framework directory)");
+            if (framework_tag != NULL)
+                *framework_tag = '\0';
+
             json_add_string(dirs, p);
         }
     }
@@ -276,17 +282,6 @@ int generate_config_file(const char* configpath)
     printf("file '%s'\n", configpath);
     printf("successfully generated\n");
     return 0;
-}
-
-static int get_first_line_len(const char* s)
-{
-    int n = 0;
-    while (*s && (*s != '\r' && *s != '\n'))
-    {
-        s++;
-        n++;
-    }
-    return n;
 }
 
 int compile_one_file(const char* file_name,
@@ -535,81 +530,6 @@ int compile_one_file(const char* file_name,
             printf("error writing Sarif output file - %s\n", get_posix_error_message(errno));
         }
         ctx.sarif_file = NULL;
-    }
-
-    if (ctx.options.test_mode_inout)
-    {
-        char dir_name[FS_MAX_PATH] = { 0 };
-        snprintf(dir_name, sizeof dir_name, "%s", file_name);
-        dirname(dir_name);
-
-        // lets check if the generated file is the expected
-        // char just_file_name[FS_MAX_PATH] = { 0 };
-        // snprintf(just_file_name, sizeof just_file_name, "%s", file_name);
-        char* p_just_file_name = basename(file_name);
-        // remove_file_extension(file_name, sizeof(file_name_no_ext), file_name_no_ext);
-
-        char buf[FS_MAX_PATH] = { 0 };
-        snprintf(buf, sizeof buf, "%s/expected_%s/%s", dir_name, get_platform(ctx.options.target)->name, p_just_file_name);
-
-        char* _Owner _Opt content_expected = read_file(buf, false /* append new line */);
-        if (content_expected)
-        {
-            // We don't compare the fist line because it has the version that changes.
-            int s_first_line_len = 0;
-            int content_expected_first_line_len = 0;
-
-            if (ctx.options.preprocess_only)
-            {
-            }
-            else if (p_output_string)
-            {
-                s_first_line_len = get_first_line_len(p_output_string);
-                content_expected_first_line_len = get_first_line_len(content_expected);
-            }
-
-            if (p_output_string && strcmp(content_expected + content_expected_first_line_len, p_output_string + s_first_line_len) != 0)
-            {
-                printf("Output file:\n");
-                print_path(out_file_name, true);
-                printf("\n");
-                printf("is different from expected file:\n");
-                print_path(buf, true);
-                printf("\n");
-                report->error_count++;
-            }
-            free(content_expected);
-        }
-        else
-        {
-            printf("Missing comparison file: (-test-mode-in-out)\n");
-            print_path(buf, true);
-            printf("\n");
-
-            report->test_failed++;
-        }
-
-        if (report->error_count > 0 || report->warnings_count > 0)
-        {
-
-            printf("-------------------------------------------\n");
-            printf("%s", content);
-            printf("\n-------------------------------------------\n");
-            if (color_enabled)
-            {
-                printf(LIGHTRED "TEST FAILED" COLOR_RESET " : error=%d, warnings=%d\n", report->error_count, report->warnings_count);
-            }
-            else
-            {
-                printf("TEST FAILED" " : error=%d, warnings=%d\n", report->error_count, report->warnings_count);
-            }
-            printf("\n\n");
-            report->test_failed++;
-        }
-        else
-        {
-            report->test_succeeded++;
-        }
     }
 
     token_list_destroy(&tokens);

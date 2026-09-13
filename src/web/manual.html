@@ -234,262 +234,324 @@
 <a href="#toc_19">5.1 C89 Backend</a>
 </li>
 <li>
-<a href="#toc_20">5.2 Output</a>
+<a href="#toc_20">5.2 Output Files</a>
+</li>
+<li>
+<a href="#toc_21">5.3 Structure of a Generated File</a>
+</li>
+<li>
+<a href="#toc_22">5.4 Lowering Reference</a>
+</li>
+<li>
+<a href="#toc_23">5.5 Generated Names</a>
+</li>
+<li>
+<a href="#toc_24">5.6 Runtime Helpers</a>
+</li>
+<li>
+<a href="#toc_25">5.7 Compiling the Output</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_21">6. Language Standard Support</a>
+<a href="#toc_26">6. Language Standard Support</a>
 </li>
 <li>
-<a href="#toc_22">7. C99 Features</a>
+<a href="#toc_27">7. C99 Features</a>
 <ul>
 <li>
-<a href="#toc_23">7.1 <code>restrict</code> Pointers</a>
+<a href="#toc_28">7.1 <code>restrict</code> Pointers</a>
 </li>
 <li>
-<a href="#toc_24">7.2 Variably-Modified (VM) Types and Variable-Length Arrays</a>
+<a href="#toc_29">7.2 Variably-Modified (VM) Types and Variable-Length Arrays</a>
 </li>
 <li>
-<a href="#toc_25">7.3 Flexible Array Members</a>
+<a href="#toc_30">7.3 Flexible Array Members</a>
 </li>
 <li>
-<a href="#toc_26">7.4 <code>static</code> and Type Qualifiers in Array Declarators</a>
+<a href="#toc_31">7.4 <code>static</code> and Type Qualifiers in Array Declarators</a>
 </li>
 <li>
-<a href="#toc_27">7.5 Hexadecimal Floating Constants</a>
+<a href="#toc_32">7.5 Hexadecimal Floating Constants</a>
 </li>
 <li>
-<a href="#toc_28">7.6 Compound Literals</a>
+<a href="#toc_33">7.6 Compound Literals</a>
 </li>
 <li>
-<a href="#toc_29">7.7 Designated Initializers</a>
+<a href="#toc_34">7.7 Designated Initializers</a>
 </li>
 <li>
-<a href="#toc_30">7.8 Declarations in <code>for</code> Loop Initializers</a>
+<a href="#toc_35">7.8 Declarations in <code>for</code> Loop Initializers</a>
 </li>
 <li>
-<a href="#toc_31">7.9 <code>inline</code> Functions</a>
+<a href="#toc_36">7.9 <code>inline</code> Functions</a>
 </li>
 <li>
-<a href="#toc_32">7.10 <code>_Pragma</code> Preprocessing Operator</a>
+<a href="#toc_37">7.10 <code>_Pragma</code> Preprocessing Operator</a>
 </li>
 <li>
-<a href="#toc_33">7.11 <code>__func__</code> Predefined Identifier</a>
+<a href="#toc_38">7.11 <code>__func__</code> Predefined Identifier</a>
 </li>
 <li>
-<a href="#toc_34">7.12 Variadic Macros</a>
+<a href="#toc_39">7.12 Variadic Macros</a>
 </li>
 <li>
-<a href="#toc_35">7.13 <code>_Bool</code></a>
+<a href="#toc_40">7.13 <code>_Bool</code></a>
 </li>
 <li>
-<a href="#toc_36">7.14 Line Comments</a>
+<a href="#toc_41">7.14 Line Comments</a>
 </li>
 <li>
-<a href="#toc_37">7.15 Complex and Imaginary Types</a>
+<a href="#toc_42">7.15 Complex and Imaginary Types</a>
 </li>
 <li>
-<a href="#toc_38">7.16 Universal Character Names (<code>\u</code>, <code>\U</code>)</a>
+<a href="#toc_43">7.16 Universal Character Names (<code>\u</code>, <code>\U</code>)</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_39">8. C11 Features</a>
+<a href="#toc_44">8. C11 Features</a>
 <ul>
 <li>
-<a href="#toc_40">8.1 <code>_Static_assert</code> / <code>static_assert</code></a>
+<a href="#toc_45">8.1 <code>_Static_assert</code> / <code>static_assert</code></a>
 </li>
 <li>
-<a href="#toc_41">8.2 Anonymous Structures and Unions</a>
+<a href="#toc_46">8.2 Anonymous Structures and Unions</a>
 </li>
 <li>
-<a href="#toc_42">8.3 <code>_Noreturn</code></a>
+<a href="#toc_47">8.3 <code>_Noreturn</code></a>
 </li>
 <li>
-<a href="#toc_43">8.4 <code>_Thread_local</code> / <code>_Atomic</code></a>
+<a href="#toc_48">8.4 <code>_Thread_local</code> / <code>_Atomic</code></a>
 </li>
 <li>
-<a href="#toc_44">8.5 <code>_Generic</code> Type-Generic Expressions</a>
+<a href="#toc_49">8.5 <code>_Generic</code> Type-Generic Expressions</a>
 </li>
 <li>
-<a href="#toc_45">8.6 Unicode Character Constants (<code>u&#39;&#39;</code>, <code>U&#39;&#39;</code>)</a>
+<a href="#toc_50">8.6 Unicode Character Constants (<code>u&#39;&#39;</code>, <code>U&#39;&#39;</code>)</a>
 </li>
 <li>
-<a href="#toc_46">8.7 UTF-8 String Literals (<code>u8&quot;...&quot;</code>)</a>
+<a href="#toc_51">8.7 UTF-8 String Literals (<code>u8&quot;...&quot;</code>)</a>
 </li>
 <li>
-<a href="#toc_47">8.8 <code>_Alignof</code> / <code>alignof</code></a>
+<a href="#toc_52">8.8 <code>_Alignof</code> / <code>alignof</code></a>
 </li>
 <li>
-<a href="#toc_48">8.9 <code>_Alignas</code> / <code>alignas</code></a>
+<a href="#toc_53">8.9 <code>_Alignas</code> / <code>alignas</code></a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_49">9. C23 Features</a>
+<a href="#toc_54">9. C23 Features</a>
 <ul>
 <li>
-<a href="#toc_50">9.1 Variably-Modified (VM) Types — Mandatory</a>
+<a href="#toc_55">9.1 Variably-Modified (VM) Types — Mandatory</a>
 </li>
 <li>
-<a href="#toc_51">9.2 <code>static_assert</code> — Single-Argument Form</a>
+<a href="#toc_56">9.2 <code>static_assert</code> — Single-Argument Form</a>
 </li>
 <li>
-<a href="#toc_52">9.3 <code>u8</code> Character Prefix</a>
+<a href="#toc_57">9.3 <code>u8</code> Character Prefix</a>
 </li>
 <li>
-<a href="#toc_53">9.4 No Function Declarations Without Prototypes</a>
+<a href="#toc_58">9.4 No Function Declarations Without Prototypes</a>
 </li>
 <li>
-<a href="#toc_54">9.5 Unnamed Parameters in Function Definitions</a>
+<a href="#toc_59">9.5 Unnamed Parameters in Function Definitions</a>
 </li>
 <li>
-<a href="#toc_55">9.6 Digit Separators</a>
+<a href="#toc_60">9.6 Digit Separators</a>
 </li>
 <li>
-<a href="#toc_56">9.7 Binary Literals</a>
+<a href="#toc_61">9.7 Binary Literals</a>
 </li>
 <li>
-<a href="#toc_57">9.8 <code>nullptr</code> Constant</a>
+<a href="#toc_62">9.8 <code>nullptr</code> Constant</a>
 </li>
 <li>
-<a href="#toc_58">9.9 <code>true</code> and <code>false</code> as First-Class Keywords</a>
+<a href="#toc_63">9.9 <code>true</code> and <code>false</code> as First-Class Keywords</a>
 </li>
 <li>
-<a href="#toc_59">9.10 Empty Initializer <code>{}</code></a>
+<a href="#toc_64">9.10 Empty Initializer <code>{}</code></a>
 </li>
 <li>
-<a href="#toc_60">9.11 <code>auto</code> Type Deduction</a>
+<a href="#toc_65">9.11 <code>auto</code> Type Deduction</a>
 </li>
 <li>
-<a href="#toc_61">9.12 <code>typeof</code> / <code>typeof_unqual</code></a>
+<a href="#toc_66">9.12 <code>typeof</code> / <code>typeof_unqual</code></a>
 </li>
 <li>
-<a href="#toc_62">9.13 <code>constexpr</code></a>
+<a href="#toc_67">9.13 <code>constexpr</code></a>
 </li>
 <li>
-<a href="#toc_63">9.14 Improved and enhancements to Enumerations (Typed Enums)</a>
+<a href="#toc_68">9.14 Improved and enhancements to Enumerations (Typed Enums)</a>
 </li>
 <li>
-<a href="#toc_64">9.15 Attributes (<code>[[...]]</code>)</a>
+<a href="#toc_69">9.15 Attributes (<code>[[...]]</code>)</a>
 </li>
 <li>
-<a href="#toc_65">9.16 <code>__has_attribute</code> / <code>__has_include</code></a>
+<a href="#toc_70">9.16 <code>__has_attribute</code> / <code>__has_include</code></a>
 </li>
 <li>
-<a href="#toc_66">9.17 <code>#warning</code> Directive</a>
+<a href="#toc_71">9.17 <code>#warning</code> Directive</a>
 </li>
 <li>
-<a href="#toc_67">9.18 <code>#embed</code> Directive</a>
+<a href="#toc_72">9.18 <code>#embed</code> Directive</a>
 </li>
 <li>
-<a href="#toc_68">9.19 <code>#elifdef</code> / <code>#elifndef</code></a>
+<a href="#toc_73">9.19 <code>#elifdef</code> / <code>#elifndef</code></a>
 </li>
 <li>
-<a href="#toc_69">9.20 <code>__VA_OPT__</code></a>
+<a href="#toc_74">9.20 <code>__VA_OPT__</code></a>
 </li>
 <li>
-<a href="#toc_70">9.21 <code>_BitInt(N)</code> — Bit-Precise Integers</a>
+<a href="#toc_75">9.21 <code>_BitInt(N)</code> — Bit-Precise Integers</a>
 </li>
 <li>
-<a href="#toc_71">9.22 Decimal Floating Types</a>
+<a href="#toc_76">9.22 Decimal Floating Types</a>
 </li>
 <li>
-<a href="#toc_72">9.23 Improved Tag Compatibility</a>
+<a href="#toc_77">9.23 Improved Tag Compatibility</a>
 </li>
 <li>
-<a href="#toc_73">9.24 Compound Literals with Storage Specifier</a>
+<a href="#toc_78">9.24 Compound Literals with Storage Specifier</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_74">10. C2Y Features</a>
+<a href="#toc_79">10. C2Y Features</a>
 <ul>
 <li>
-<a href="#toc_75">10.1 Octal Literals with <code>0o</code> / <code>0O</code> Prefix</a>
+<a href="#toc_80">10.1 Octal Literals with <code>0o</code> / <code>0O</code> Prefix</a>
 </li>
 <li>
-<a href="#toc_76">10.2 Case Range Expressions</a>
+<a href="#toc_81">10.2 Case Range Expressions</a>
 </li>
 <li>
-<a href="#toc_77">10.3 <code>#def</code> / <code>#enddef</code> Multi-Line Macro Blocks</a>
+<a href="#toc_82">10.3 <code>#def</code> / <code>#enddef</code> Multi-Line Macro Blocks</a>
 </li>
 <li>
-<a href="#toc_78">10.4 <code>_Countof</code> Operator</a>
+<a href="#toc_83">10.4 <code>_Countof</code> Operator</a>
 </li>
 <li>
-<a href="#toc_79">10.5 <code>_Defer</code> Statement</a>
+<a href="#toc_84">10.5 <code>_Defer</code> Statement</a>
 </li>
 <li>
-<a href="#toc_80">10.6 <code>if</code> Declarations</a>
+<a href="#toc_85">10.6 <code>if</code> and <code>switch</code> Declarations</a>
 </li>
 <li>
-<a href="#toc_81">10.7 <code>typename</code> in <code>_Generic</code></a>
+<a href="#toc_86">10.7 <code>typename</code> in <code>_Generic</code></a>
 </li>
 <li>
-<a href="#toc_82">10.8 <code>__COUNTER__</code> Predefined Macro</a>
+<a href="#toc_87">10.8 <code>__COUNTER__</code> Predefined Macro</a>
 </li>
 <li>
-<a href="#toc_83">10.9 Local Functions</a>
+<a href="#toc_88">10.9 Local Functions</a>
 </li>
 <li>
-<a href="#toc_84">10.10 Function Literals</a>
+<a href="#toc_89">10.10 Function Literals</a>
 </li>
 </ul>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_85">include &lt;stdio.h&gt;</a>
+<a href="#toc_90">include &lt;stdio.h&gt;</a>
 <ul>
 <li>
 <ul>
 <li>
-<a href="#toc_86">10.11 Statement Expressions</a>
+<a href="#toc_91">10.11 Statement Expressions</a>
 </li>
 <li>
-<a href="#toc_87">10.12 Elvis Operator (<code>?:</code>)</a>
+<a href="#toc_92">10.12 Elvis Operator (<code>?:</code>)</a>
 </li>
 <li>
-<a href="#toc_88">10.13 <code>static_assert</code> as an Expression</a>
+<a href="#toc_93">10.13 <code>static_assert</code> as an Expression</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_89">11. Cake Language Extensions</a>
+<a href="#toc_94">11. Cake Language Extensions</a>
 <ul>
 <li>
-<a href="#toc_90">11.1 Built-in <code>_Assert</code></a>
+<a href="#toc_95">11.1 Built-in <code>_Assert</code></a>
 </li>
 <li>
-<a href="#toc_91">11.2 <code>try</code> / <code>throw</code> / <code>catch</code></a>
+<a href="#toc_96">11.2 <code>try</code> / <code>throw</code> / <code>catch</code></a>
 </li>
 <li>
-<a href="#toc_92">11.3 Checked Expressions (<code>!</code> operator)</a>
+<a href="#toc_97">11.3 Checked Expressions (<code>!</code> operator)</a>
 </li>
 <li>
-<a href="#toc_93">11.4 <code>#pragma dir</code></a>
+<a href="#toc_98">11.4 <code>#pragma dir</code></a>
 </li>
 <li>
-<a href="#toc_94">11.5 <code>offsetof</code> Operator</a>
+<a href="#toc_99">11.5 <code>#pragma pack</code></a>
 </li>
-<li>
-<a href="#toc_95">11.6 Type Traits</a>
-</li>
-<li>
-<a href="#toc_96">11.7 Object Lifetime Checks (Ownership)</a>
-</li>
-<li>
-<a href="#toc_97">11.8 Pre-defined Macros</a>
+</ul>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_98">12. GCC Compatibility</a>
+<a href="#toc_100">pragma pack(push, 1)</a>
 </li>
 <li>
-<a href="#toc_99">13. MSVC Compatibility</a>
+<a href="#toc_101">pragma pack(pop)</a>
+<ul>
+<li>
+<ul>
+<li>
+<a href="#toc_102">11.6 <code>__attribute__((packed))</code> and <code>__attribute__((aligned(n)))</code></a>
+</li>
+<li>
+<a href="#toc_103">11.7 <code>offsetof</code> Operator</a>
+</li>
+<li>
+<a href="#toc_104">11.8 Type Traits</a>
+</li>
+<li>
+<a href="#toc_105">11.9 Object Lifetime Checks (Ownership)</a>
+</li>
+<li>
+<a href="#toc_106">11.10 Pre-defined Macros</a>
+</li>
+</ul>
+</li>
+<li>
+<a href="#toc_107">12. GCC Compatibility</a>
+</li>
+<li>
+<a href="#toc_108">13. MSVC Compatibility</a>
+</li>
+<li>
+<a href="#toc_109">Appendix A. Grammar of the Generated Code</a>
+<ul>
+<li>
+<a href="#toc_110">A.1 Translation unit</a>
+</li>
+<li>
+<a href="#toc_111">A.2 Types</a>
+</li>
+<li>
+<a href="#toc_112">A.3 Declarators</a>
+</li>
+<li>
+<a href="#toc_113">A.4 Declarations and definitions</a>
+</li>
+<li>
+<a href="#toc_114">A.5 Statements</a>
+</li>
+<li>
+<a href="#toc_115">A.6 Expressions</a>
+</li>
+<li>
+<a href="#toc_116">A.7 Lexical elements</a>
+</li>
+<li>
+<a href="#toc_117">A.8 Target-dependent spellings</a>
+</li>
+</ul>
 </li>
 </ul>
 </li>
@@ -1012,22 +1074,28 @@ This output can be passed directly to any C89 compiler (MSVC, GCC, Clang, etc.) 
 replaced with equivalent C89 idioms. Specifically, the output contains:</p>
 
 <ul>
-<li>No preprocessor directives</li>
+<li>No preprocessor directives (except <code>#pragma pack</code>, see 5.4.13)</li>
 <li>No <code>typedef</code> declarations (expanded inline)</li>
 <li>No <code>enum</code> declarations (replaced with integer constants)</li>
-<li>No <code>const</code> qualifiers</li>
+<li>No <code>const</code>, <code>restrict</code> or <code>register</code> (<code>volatile</code> is preserved)</li>
 <li>No constant expressions (evaluated at translation time)</li>
-<li>No <code>switch</code> statements (lowered to equivalent constructs)</li>
-<li>No nested <code>struct</code>/<code>union</code> definitions</li>
+<li>No <code>switch</code> statements (lowered to <code>if</code>/<code>goto</code>)</li>
+<li>No nested <code>struct</code>/<code>union</code> definitions (hoisted to file scope)</li>
 <li>No <code>sizeof</code> expressions (evaluated at translation time)</li>
 <li>No local <code>static</code> variables (hoisted to file scope)</li>
+<li>No local declarations with initializers (initialization becomes assignment)</li>
+<li>No character constants (replaced with integer constants)</li>
 <li>Array sizes are always explicit integer constants</li>
 <li>Function prototypes are generated automatically</li>
+<li>Unused <code>static</code> objects, unused functions with internal linkage, and unused type definitions are not emitted</li>
 </ul>
 
 <p>It currently requires bit-fields, but they are planned for removal.</p>
 
-<h3 id="toc_20">5.2 Output</h3>
+<p>The exact subset of C accepted in the output is given as a grammar in Appendix A.
+Anyone writing a new backend (or a tool that consumes Cake output) only needs to handle that subset.</p>
+
+<h3 id="toc_20">5.2 Output Files</h3>
 
 <p>For a single input file:</p>
 
@@ -1036,11 +1104,14 @@ replaced with equivalent C89 idioms. Specifically, the output contains:</p>
 
 <pre><code>c:\project\
 ├── file1.c
-└── target\
+└── x64_msvc\
     └── file1.c
 </code></pre>
 
-<p>or using <code>-o</code> option:</p>
+<p>The output directory is named after the compilation target (see <code>-target</code>, section 4.4): <code>x64_msvc</code>, 
+<code>x86_x64_gcc</code>, <code>macos_arm64</code>, etc. The examples below use <code>x64_msvc</code>.</p>
+
+<p>Using the <code>-o</code> option (single input file only):</p>
 
 <pre><code>cake c:\project\file1.c -o file89.c
 </code></pre>
@@ -1056,21 +1127,591 @@ replaced with equivalent C89 idioms. Specifically, the output contains:</p>
 </code></pre>
 
 <p>Cake determines the common root path, in this case <code>c:\project\</code>,
-then recreates the directory structure under <code>target</code> within this common path.</p>
+then recreates the directory structure under <code>&lt;target&gt;</code> within this common path.</p>
 
 <pre><code>c:\project\
 ├── file1.c
 ├── other\
 │   └── file2.c
-└── target\
+└── x64_msvc\
     ├── file1.c
     └── other\
         └── file2.c
 </code></pre>
 
+<h3 id="toc_21">5.3 Structure of a Generated File</h3>
+
+<p>Every generated file follows the same layout:</p>
+
+<pre><code class="language-c">/* Cake 0.14.41 macos_arm64 2026-09-13 08:38:33 */      /* 1. header comment */
+
+struct point {                                           /* 2. struct/union definitions */
+    int x;
+    int y;
+};
+
+static void * __cmemset(void *dest, int ch, unsigned long count);  /* 3. helper prototypes */
+
+static int __ccalls = 0;                                 /* 4. hoisted local statics */
+
+int sum(int n)                                           /* 5. declarations and definitions, */
+{                                                        /*    in source order              */
+    ...
+}
+
+int printf(char *, ...);                                 /*    prototypes for functions used */
+int sum(int n);                                          /*    by the next definition        */
+
+int main(void)
+{
+    ...
+}
+
+static void * __cmemset(void *ptr, int value, unsigned long count)  /* 6. helper definitions */
+{
+    ...
+}
+</code></pre>
+
+<ol>
+<li><strong>Header comment</strong> — Cake version, target name and generation timestamp.</li>
+<li><strong>Type definitions</strong> — every <code>struct</code>/<code>union</code> that is used, hoisted to file scope and emitted in dependency 
+order (a member&#39;s type is always defined before the aggregate that contains it). Definitions of packed or 
+aligned types carry the target-specific spelling (5.4.13).</li>
+<li><strong>Helper prototypes</strong> — declarations of the runtime helpers the file needs (5.6). Only helpers actually used are emitted.</li>
+<li><strong>Hoisted statics</strong> — local <code>static</code> objects, local functions, function literals and <code>__func__</code> strings, renamed to file scope.</li>
+<li><strong>Declarations and definitions</strong> — file-scope objects and functions in source order. Before each function 
+definition Cake emits prototypes for every function that definition calls and every file-scope object it 
+uses that has not been declared yet, so the output never depends on a header.</li>
+<li><strong>Helper definitions</strong> — the bodies of the helpers declared in step 3.</li>
+</ol>
+
+<p>Inside every function, all local declarations appear at the top of their block (without initializers), 
+followed by a blank line, followed by the statements. Initialization is turned into assignments.</p>
+
+<h3 id="toc_22">5.4 Lowering Reference</h3>
+
+<p>This section shows how each input construct appears in the output.</p>
+
+<h4>5.4.1 Preprocessor, constants and constant expressions</h4>
+
+<p>Macros are expanded, <code>#include</code> is resolved, and every constant expression is evaluated by Cake. 
+<code>sizeof</code>, <code>_Countof</code>, <code>_Alignof</code>, enumeration constants, <code>constexpr</code> objects, <code>const</code> objects with a known 
+value, character constants and arithmetic on constants all become plain integer or floating literals.</p>
+
+<pre><code class="language-c">enum color { RED, GREEN = 5 };
+const double pi = 3.14;
+#define SIZE 4
+int x = GREEN + sizeof(int) * SIZE + &#39;a&#39; + (int)pi + 0x10 + 0b11;
+</code></pre>
+
+<pre><code class="language-c">int x = 5 + 4UL * 4 + 97 + 3 + 16 + 3;   /* the whole expression is folded when it is constant */
+</code></pre>
+
+<p>Integer literals are printed in decimal with the suffix of their type (<code>U</code>, <code>L</code>, <code>UL</code>, <code>LL</code>, <code>ULL</code>). 
+<code>sizeof</code> produces a <code>size_t</code> literal (<code>8UL</code> on LP64 targets, <code>8ULL</code> on Windows x64). Floating literals are 
+printed in decimal with <code>f</code> or <code>L</code> suffix when needed (<code>0x1.8p1</code> → <code>3.0</code>). <code>nullptr</code> becomes <code>0</code>. 
+<code>true</code>/<code>false</code> become <code>1</code>/<code>0</code>. <code>u8&quot;...&quot;</code> becomes a plain string; <code>L&quot;...&quot;</code> is preserved.</p>
+
+<p><code>static_assert</code>, <code>_Static_assert</code> and <code>_Assert</code> are checked by Cake and produce no output.</p>
+
+<h4>5.4.2 typedef, bool, auto, typeof, _BitInt</h4>
+
+<p><code>typedef</code> names are replaced by the type they denote. <code>bool</code> is <code>unsigned char</code>. <code>auto</code> and <code>typeof</code> are 
+resolved to the deduced type. <code>_BitInt(N)</code> is lowered to the smallest standard integer that holds <code>N</code> bits, 
+and every store wraps the value to <code>N</code> bits.</p>
+
+<pre><code class="language-c">typedef struct point { int x, y; } point_t;
+point_t p = {.x = 1, .y = 2};
+bool ok = true;
+auto k = 2;
+_BitInt(12) b = 100wb;
+</code></pre>
+
+<pre><code class="language-c">struct point p;
+unsigned char ok;
+int k;
+short b;
+
+p.x = 1;
+p.y = 2;
+ok = 1;
+k = 2;
+b = ((short)(((long long)((unsigned long long)(100) &amp; 0xfffULL) ^ 0x800LL) - 0x800LL));
+</code></pre>
+
+<h4>5.4.3 Local declarations and initializers</h4>
+
+<p>Local declarations are moved to the top of their block and lose their initializer. Scalars are 
+assigned; aggregates are assigned member by member; <code>{}</code>, <code>{0}</code> and partially initialized aggregates are 
+zeroed with <code>__cmemset</code>; <code>char</code> arrays initialized from a string literal use <code>__cmemcpy</code>.</p>
+
+<pre><code class="language-c">int arr[4] = {};
+int a[2][2] = {{1}, {2}};
+char s[10] = &quot;abc&quot;;
+struct point c = {.y = 5};
+</code></pre>
+
+<pre><code class="language-c">int arr[4];
+int a[2][2];
+char s[10];
+struct point c;
+
+__cmemset(&amp;arr, 0, 16);
+a[0][0] = 1;
+a[0][1] = 0;
+a[1][0] = 2;
+a[1][1] = 0;
+__cmemcpy(s, &quot;abc&quot;, 10);
+c.x = 0;
+c.y = 5;
+</code></pre>
+
+<p>File-scope initializers are preserved but flattened: designators are resolved and nested braces removed, 
+so each initializer is a single flat, brace-enclosed list of constants.</p>
+
+<pre><code class="language-c">static struct s table[2] = { {1, 2, &quot;one&quot;}, {3, 4, &quot;two&quot;} };
+int arr2[2][3] = { {1, 2, 3}, {4, 5, 6} };
+char greeting[] = &quot;hi\n&quot;;
+</code></pre>
+
+<pre><code class="language-c">static struct s table[2] = {1,2,&quot;one&quot;,3,4,&quot;two&quot;};
+int arr2[2][3] = {1,2,3,4,5,6};
+char greeting[4] = &quot;hi\n&quot;;
+</code></pre>
+
+<h4>5.4.4 Local static objects</h4>
+
+<p>Local <code>static</code> objects are hoisted to file scope and renamed with the <code>__c</code> prefix.</p>
+
+<pre><code class="language-c">int sum(int n) { static int calls = 0; return ++calls; }
+</code></pre>
+
+<pre><code class="language-c">static int __ccalls = 0;
+
+int sum(int n)
+{
+    return ++__ccalls;
+}
+</code></pre>
+
+<h4>5.4.5 Declarations in <code>for</code> and <code>if</code>/<code>switch</code></h4>
+
+<p>A <code>for</code> with a declaration, and <code>if</code>/<code>switch</code> with an init-statement, are wrapped in a block that holds the declaration.</p>
+
+<pre><code class="language-c">for (int i = 0; i &lt; 4; i++) { total += i; }
+if (int v = f(); v &gt; 5) { m += v; }
+</code></pre>
+
+<pre><code class="language-c">{
+    int i;
+
+    i = 0;
+    for (; i &lt; 4; i++)
+    {
+        total += i;
+    }
+}
+{
+    int v;
+
+    v = f();
+    if (v &gt; 5)
+    {
+        m += v;
+    }
+}
+</code></pre>
+
+<h4>5.4.6 <code>switch</code></h4>
+
+<p><code>switch</code> is lowered to a block containing a temporary, a chain of <code>if</code>/<code>goto</code> dispatches, the labeled body 
+and an exit label. <code>break</code> inside the switch becomes <code>goto</code> to the exit label. Case ranges become range tests. 
+<code>[[fallthrough]]</code> needs no output.</p>
+
+<pre><code class="language-c">switch (n) {
+    case 1: total += 8; break;
+    case 2 ... 5: total += 12; [[fallthrough]];
+    default: total += 1;
+}
+</code></pre>
+
+<pre><code class="language-c">/*switch*/
+{
+    int __a = n;
+    if (__a == 1) goto __L1; /*case 1*/
+    if (__a &gt;= 2 &amp;&amp; __a &lt;= 5) goto __L2; /*case 2 ... 5*/
+    goto __L3; /* default */
+
+    {
+        __L1: /*case 1*/ 
+        total += 8;
+        goto __L0; /* break */
+
+        __L2: /*case 2 ... 5*/ 
+        total += 12;
+        __L3: /* default */ 
+        total += 1;
+    }
+    __L0:;
+}
+</code></pre>
+
+<p><code>break</code> and <code>continue</code> inside loops are preserved as-is.</p>
+
+<h4>5.4.7 Nested and anonymous <code>struct</code>/<code>union</code></h4>
+
+<p>Nested definitions are hoisted to file scope. Anonymous structs and unions receive a generated tag 
+(<code>__tagN</code>) and the anonymous member a generated name (<code>__mN</code>); accesses are rewritten accordingly.</p>
+
+<pre><code class="language-c">struct outer {
+    struct inner { int a; } in;
+    union { int u; float f; };
+};
+o.u = 1;
+</code></pre>
+
+<pre><code class="language-c">struct inner {
+    int a;
+};
+
+union __tag10 {
+    int u;
+    float f;
+};
+
+struct outer {
+    struct inner in;
+    union __tag10 __m0;
+};
+
+o.__m0.u = 1;
+</code></pre>
+
+<h4>5.4.8 Variable-length arrays</h4>
+
+<p>Each variably-modified size is captured in a <code>__vmN</code> variable at the point of declaration and the storage is 
+obtained with the target&#39;s <code>alloca</code> (<code>__builtin_alloca</code> for GCC/Clang targets, <code>_alloca</code> for MSVC targets). 
+<code>sizeof</code>/<code>_Countof</code> on a VLA read the <code>__vmN</code> variable.</p>
+
+<pre><code class="language-c">int vla[n];
+vla[0] = 1;
+o.u = _Countof(vla);
+</code></pre>
+
+<pre><code class="language-c">unsigned long __vm0;
+int * vla;
+
+__vm0 = n;
+vla = __builtin_alloca(4 * __vm0);
+vla[0] = 1;
+o.u = __vm0;
+</code></pre>
+
+<h4>5.4.9 <code>_Defer</code>, <code>try</code>/<code>catch</code>/<code>throw</code></h4>
+
+<p>The body of <code>_Defer</code> is copied, as a block, before every exit from the enclosing scope (<code>return</code>, <code>break</code>, 
+<code>continue</code>, <code>goto</code>, falling off the end). When the exit is a <code>return</code> with an expression, the expression is 
+first stored in a temporary (<code>__b</code>). <code>try</code> becomes <code>if (1)</code>, <code>catch</code> becomes <code>else</code> with a label, and 
+<code>throw</code> becomes <code>goto</code> to that label.</p>
+
+<pre><code class="language-c">int *p = malloc(n);
+_Defer { free(p); }
+if (p == NULL) return -1;
+try {
+    if (n &gt; 10) throw;
+    p[0] = 2;
+}
+catch {
+    return -2;
+}
+return p[0];
+</code></pre>
+
+<pre><code class="language-c">p = malloc(n);
+if (p == 0)
+{
+    {
+        free(p);
+    }
+    return -1;
+}
+if (1) /*try*/
+{
+    if (n &gt; 10)
+    {
+        goto __L1; /* throw */
+    }
+    p[0] = 2;
+}
+else __L1: /*catch*/ 
+{
+    {
+        free(p);
+    }
+    return -2;
+}
+__b = p[0];
+{
+    free(p);
+}
+return __b;
+</code></pre>
+
+<h4>5.4.10 <code>_Generic</code>, compound literals, statement expressions, Elvis operator</h4>
+
+<p><code>_Generic</code> is resolved at translation time and only the selected expression is emitted. A compound literal 
+becomes a temporary (<code>__a</code>) declared at the top of the block and initialized by assignment. A statement 
+expression becomes a block whose last expression is stored in a temporary. <code>a ?: b</code> is rewritten to the 
+equivalent conditional (or folded when <code>a</code> is constant).</p>
+
+<pre><code class="language-c">int r = _Generic(x, int: 1, default: 2);
+int *cl = (int[]){1, 2, 3};
+int m = ({ int t = add(1, 2); t * 2; });
+int e = 0 ?: 7;
+</code></pre>
+
+<pre><code class="language-c">int r;
+int * cl;
+int __a[3];
+int m;
+int __a;
+int e;
+
+r = 1;
+__a[0] = 1;
+__a[1] = 2;
+__a[2] = 3;
+cl = __a;
+{
+    int t;
+
+    t = add(1, 2);
+    __a = t * 2;
+}
+m = __a;
+e = 7;
+</code></pre>
+
+<h4>5.4.11 Local functions, function literals and <code>__func__</code></h4>
+
+<p>Local functions and function literals become file-scope <code>static</code> functions with a <code>__c</code> prefix (<code>__cfn</code> 
+for literals). <code>__func__</code> becomes a file-scope <code>static char</code> array named <code>__cake_func_&lt;function&gt;</code>.</p>
+
+<pre><code class="language-c">double g(void)
+{
+    int (*sq)(int) = (static int (int x)) { return x * x; };
+    static int add(int a, int b) { return a + b; }
+    puts(__func__);
+    return sq(3) + add(1, 2);
+}
+</code></pre>
+
+<pre><code class="language-c">static int __cfn(int x);
+static int __cadd(int a, int b);
+static char __cake_func_g[] = &quot;g&quot;;
+
+double g(void)
+{
+    int (* sq)(int);
+
+    sq = __cfn;
+    puts(__cake_func_g);
+    return sq(3) + __cadd(1, 2);
+}
+
+static int __cfn(int x)
+{
+    return x * x;
+}
+
+static int __cadd(int a, int b)
+{
+    return a + b;
+}
+</code></pre>
+
+<h4>5.4.12 Qualifiers, storage classes, parameters</h4>
+
+<p><code>const</code>, <code>restrict</code>, <code>register</code>, <code>inline</code>, <code>_Noreturn</code>, <code>constexpr</code> and attributes are dropped. <code>volatile</code> on 
+an object&#39;s type is preserved (<code>volatile int v;</code>), but qualifiers on pointers (<code>int * volatile p</code>) are dropped. 
+<code>static</code> and <code>extern</code> are preserved. Unnamed parameters in definitions receive no name in prototypes 
+(<code>int printf(char *, ...);</code>). Old-style and prototype-less declarations never appear: every function 
+declarator has a full parameter list, and <code>(void)</code> is used for functions without parameters.</p>
+
+<h4>5.4.13 Packed and aligned structures</h4>
+
+<p>Alignment information is the only thing that cannot be expressed in plain C89, so it is emitted in the 
+dialect of the target compiler:</p>
+
+<table>
+<thead>
+<tr>
+<th>Input</th>
+<th>GCC / Clang targets</th>
+<th>MSVC targets</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td><code>#pragma pack(push, n)</code> ... <code>#pragma pack(pop)</code> around a struct</td>
+<td><code>#pragma pack(push, n)</code> / <code>#pragma pack(pop)</code> around the definition</td>
+<td>same</td>
+</tr>
+<tr>
+<td><code>struct __attribute__((packed)) S</code></td>
+<td><code>#pragma pack(push, 1)</code> / <code>#pragma pack(pop)</code> around the definition</td>
+<td>same</td>
+</tr>
+<tr>
+<td><code>__attribute__((packed))</code> on a single member</td>
+<td><code>__attribute__((packed))</code> after the member</td>
+<td>dropped (MSVC has no per-member spelling)</td>
+</tr>
+<tr>
+<td><code>struct __attribute__((aligned(n))) S</code> / <code>_Alignas(n)</code></td>
+<td><code>struct __attribute__((aligned(n))) S {</code></td>
+<td><code>__declspec(align(n)) struct S {</code></td>
+</tr>
+<tr>
+<td><code>__cdecl</code>, <code>__stdcall</code>, <code>__fastcall</code></td>
+<td>dropped</td>
+<td>preserved on the declarator</td>
+</tr>
+</tbody>
+</table>
+
+<pre><code class="language-c">#pragma pack(push, 1)
+struct packed { char c; int i; };
+#pragma pack(pop)
+struct __attribute__((aligned(16))) al { char c; };
+</code></pre>
+
+<pre><code class="language-c">#pragma pack(push, 1)
+struct packed {
+    char c;
+    int i;
+};
+#pragma pack(pop)
+
+struct __attribute__((aligned(16))) al {       /* __declspec(align(16)) struct al { on MSVC targets */
+    char c;
+};
+</code></pre>
+
+<p>Because the <code>#pragma pack</code> pair always encloses exactly one type definition, a consumer of the output can 
+treat it as a prefix/suffix of that definition rather than as general preprocessor state.</p>
+
+<h3 id="toc_23">5.5 Generated Names</h3>
+
+<p>All generated identifiers start with a double underscore. A backend or a consumer of the output should 
+never rely on their exact numbering, only on the prefixes.</p>
+
+<table>
+<thead>
+<tr>
+<th>Prefix</th>
+<th>Meaning</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td><code>__c&lt;name&gt;</code></td>
+<td>hoisted local <code>static</code> object or local function (<code>__ccalls</code>, <code>__cadd</code>)</td>
+</tr>
+<tr>
+<td><code>__cfn</code></td>
+<td>hoisted function literal</td>
+</tr>
+<tr>
+<td><code>__cake_func_&lt;function&gt;</code></td>
+<td><code>__func__</code> string of <code>&lt;function&gt;</code></td>
+</tr>
+<tr>
+<td><code>__L&lt;n&gt;</code></td>
+<td>label generated for <code>switch</code>, <code>throw</code>, <code>catch</code></td>
+</tr>
+<tr>
+<td><code>__a</code></td>
+<td>temporary for a <code>switch</code> controlling expression, a compound literal or a statement expression</td>
+</tr>
+<tr>
+<td><code>__b</code></td>
+<td>temporary holding a <code>return</code> value while <code>_Defer</code> blocks run</td>
+</tr>
+<tr>
+<td><code>__vm&lt;n&gt;</code></td>
+<td>captured size of a variably-modified type</td>
+</tr>
+<tr>
+<td><code>__tag&lt;n&gt;</code></td>
+<td>tag given to an anonymous <code>struct</code>/<code>union</code></td>
+</tr>
+<tr>
+<td><code>__m&lt;n&gt;</code></td>
+<td>name given to an anonymous member</td>
+</tr>
+<tr>
+<td><code>__cmemset</code>, <code>__cmemcpy</code></td>
+<td>runtime helpers (5.6)</td>
+</tr>
+</tbody>
+</table>
+
+<p>Cake also emits comments (<code>/*switch*/</code>, <code>/*case 1*/</code>, <code>/* break */</code>, <code>/*try*/</code>, <code>/*catch*/</code>, 
+<code>/* throw */</code>, <code>/* default */</code>) to make the lowered control flow readable. They carry no meaning.</p>
+
+<h3 id="toc_24">5.6 Runtime Helpers</h3>
+
+<p>The output is self-contained: it never includes a header. When a construct needs library support, Cake 
+emits a <code>static</code> helper with a prototype at the top of the file and a definition at the end.</p>
+
+<table>
+<thead>
+<tr>
+<th>Helper</th>
+<th>Emitted when</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td><code>static void * __cmemset(void *dest, int ch, size_t count)</code></td>
+<td>an aggregate is zero-initialized (<code>{}</code>, <code>{0}</code>, partial initializers)</td>
+</tr>
+<tr>
+<td><code>static void * __cmemcpy(void *dest, const void *src, size_t n)</code></td>
+<td>a <code>char</code> array is initialized from a string literal</td>
+</tr>
+<tr>
+<td><code>static void __assert_fail(...)</code> / <code>static void __assert_rtn(...)</code></td>
+<td><code>assert()</code> from the system header is used and the target&#39;s libc declares that symbol</td>
+</tr>
+</tbody>
+</table>
+
+<p><code>size_t</code> is spelled with the target&#39;s underlying type (<code>unsigned long</code> on LP64, <code>unsigned long long</code> on 
+Windows x64, <code>unsigned int</code> on 32-bit targets).</p>
+
+<p>Functions from the standard library that the program calls (<code>printf</code>, <code>malloc</code>, <code>free</code>, <code>strlen</code>, ...) are 
+not helpers: Cake emits their prototypes, with <code>const</code> removed, and the C89 compiler links them from libc.</p>
+
+<h3 id="toc_25">5.7 Compiling the Output</h3>
+
+<p>The generated file is a complete translation unit. It can be compiled with the target compiler with no 
+extra flags:</p>
+
+<pre><code class="language-bash">gcc -w x86_x64_gcc/file1.c -o file1
+</code></pre>
+
+<p>Warnings are disabled here only because prototypes for libc functions are emitted without <code>const</code> 
+(<code>int puts(char *)</code>), which some compilers flag when they also see the system header.</p>
+
 <hr>
 
-<h2 id="toc_21">6. Language Standard Support</h2>
+<h2 id="toc_26">6. Language Standard Support</h2>
 
 <p>Standard reference documents:</p>
 
@@ -1084,9 +1725,9 @@ then recreates the directory structure under <code>target</code> within this com
 
 <hr>
 
-<h2 id="toc_22">7. C99 Features</h2>
+<h2 id="toc_27">7. C99 Features</h2>
 
-<h3 id="toc_23">7.1 <code>restrict</code> Pointers</h3>
+<h3 id="toc_28">7.1 <code>restrict</code> Pointers</h3>
 
 <p><code>restrict</code> is parsed and type-checked but stripped from the generated C89 output.</p>
 
@@ -1096,7 +1737,7 @@ then recreates the directory structure under <code>target</code> within this com
 int main() { f(&quot;&quot;); }
 </code></pre>
 
-<h3 id="toc_24">7.2 Variably-Modified (VM) Types and Variable-Length Arrays</h3>
+<h3 id="toc_29">7.2 Variably-Modified (VM) Types and Variable-Length Arrays</h3>
 
 <p><strong>VM type pointer:</strong></p>
 
@@ -1139,7 +1780,7 @@ int main(void) {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n683.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n683.htm</a></p>
 
-<h3 id="toc_25">7.3 Flexible Array Members</h3>
+<h3 id="toc_30">7.3 Flexible Array Members</h3>
 
 <!-- runnable -->
 
@@ -1166,7 +1807,7 @@ int main() {
 
 <p>The size of a structure with a flexible array member is computed as if the member were omitted, except that additional trailing padding may be present.</p>
 
-<h3 id="toc_26">7.4 <code>static</code> and Type Qualifiers in Array Declarators</h3>
+<h3 id="toc_31">7.4 <code>static</code> and Type Qualifiers in Array Declarators</h3>
 
 <p>The <code>static</code> keyword in array declarators is parsed and checked. Passing <code>NULL</code>, <code>nullptr</code>, or an array smaller than the declared minimum is a diagnostic.</p>
 
@@ -1186,7 +1827,7 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_27">7.5 Hexadecimal Floating Constants</h3>
+<h3 id="toc_32">7.5 Hexadecimal Floating Constants</h3>
 
 <pre><code class="language-c">double d = 0x1p+1;
 </code></pre>
@@ -1248,7 +1889,7 @@ overflowing product, cast to the wanted type:</p>
 double n = NAN;         /* becomes  n = ((float)((1e+300 * 1e+300) * 0.0)); */
 </code></pre>
 
-<h3 id="toc_28">7.6 Compound Literals</h3>
+<h3 id="toc_33">7.6 Compound Literals</h3>
 
 <!-- runnable -->
 
@@ -1266,7 +1907,7 @@ int f(void) {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n716.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n716.htm</a></p>
 
-<h3 id="toc_29">7.7 Designated Initializers</h3>
+<h3 id="toc_34">7.7 Designated Initializers</h3>
 
 <!-- runnable -->
 
@@ -1279,7 +1920,7 @@ int f(void) {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n494.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n494.pdf</a></p>
 
-<h3 id="toc_30">7.8 Declarations in <code>for</code> Loop Initializers</h3>
+<h3 id="toc_35">7.8 Declarations in <code>for</code> Loop Initializers</h3>
 
 <!-- runnable -->
 
@@ -1291,7 +1932,7 @@ int f(void) {
 }
 </code></pre>
 
-<h3 id="toc_31">7.9 <code>inline</code> Functions</h3>
+<h3 id="toc_36">7.9 <code>inline</code> Functions</h3>
 
 <!-- runnable -->
 
@@ -1302,19 +1943,37 @@ int main(void) {
 }
 </code></pre>
 
-<p>Inline functions in Cake are equivalent to static, since Cake does 
-not currently perform function inlining.</p>
+<p>Cake does not perform function inlining itself; what it does with <code>inline</code>
+depends on whether the translation unit defines the function:</p>
+
+<ul>
+<li>An <code>inline</code> function <strong>defined</strong> in the unit is emitted as <code>static</code>, both
+its prototype and its body, so every unit that includes the header gets
+its own copy and nothing is exported. The example above generates
+<code>static int sum(int a, int b)</code>.</li>
+<li>An <code>inline</code> <strong>prototype with no definition</strong> in the unit is a reference to
+a function defined somewhere else, so it is emitted as an ordinary
+external prototype. Library headers use this form - Cake&#39;s own
+<code>ownership.h</code> declares <code>inline char* strrchr(...)</code> to attach its
+annotations to the C library function - and emitting it as <code>static</code> would
+leave the host compiler with a static function that is declared but never
+defined.</li>
+</ul>
+
+<p>This rule is the same for every target; on MSVC an inline function with a
+body in the unit (the <code>snprintf</code> family in its <code>stdio.h</code>, for instance) is a
+definition and takes the first form.</p>
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n709.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n709.htm</a></p>
 
-<h3 id="toc_32">7.10 <code>_Pragma</code> Preprocessing Operator</h3>
+<h3 id="toc_37">7.10 <code>_Pragma</code> Preprocessing Operator</h3>
 
 <pre><code class="language-c">#define LISTING(x) PRAGMA(listing on #x)
 #define PRAGMA(x) _Pragma(#x)
 LISTING(..listing.dir)
 </code></pre>
 
-<h3 id="toc_33">7.11 <code>__func__</code> Predefined Identifier</h3>
+<h3 id="toc_38">7.11 <code>__func__</code> Predefined Identifier</h3>
 
 <!-- runnable -->
 
@@ -1324,7 +1983,7 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_34">7.12 Variadic Macros</h3>
+<h3 id="toc_39">7.12 Variadic Macros</h3>
 
 <!-- runnable -->
 
@@ -1338,7 +1997,7 @@ int main() {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n707.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n707.htm</a></p>
 
-<h3 id="toc_35">7.13 <code>_Bool</code></h3>
+<h3 id="toc_40">7.13 <code>_Bool</code></h3>
 
 <!-- runnable -->
 
@@ -1347,23 +2006,23 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_36">7.14 Line Comments</h3>
+<h3 id="toc_41">7.14 Line Comments</h3>
 
 <p>C99 <code>//</code> line comments are implemented. </p>
 
-<h3 id="toc_37">7.15 Complex and Imaginary Types</h3>
+<h3 id="toc_42">7.15 Complex and Imaginary Types</h3>
 
 <p><strong>Not implemented.</strong></p>
 
-<h3 id="toc_38">7.16 Universal Character Names (<code>\u</code>, <code>\U</code>)</h3>
+<h3 id="toc_43">7.16 Universal Character Names (<code>\u</code>, <code>\U</code>)</h3>
 
 <p><strong>Not implemented.</strong></p>
 
 <hr>
 
-<h2 id="toc_39">8. C11 Features</h2>
+<h2 id="toc_44">8. C11 Features</h2>
 
-<h3 id="toc_40">8.1 <code>_Static_assert</code> / <code>static_assert</code></h3>
+<h3 id="toc_45">8.1 <code>_Static_assert</code> / <code>static_assert</code></h3>
 
 <!-- runnable -->
 
@@ -1376,7 +2035,7 @@ int main() {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf</a></p>
 
-<h3 id="toc_41">8.2 Anonymous Structures and Unions</h3>
+<h3 id="toc_46">8.2 Anonymous Structures and Unions</h3>
 
 <!-- runnable -->
 
@@ -1396,7 +2055,7 @@ int main() {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1406.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1406.pdf</a></p>
 
-<h3 id="toc_42">8.3 <code>_Noreturn</code></h3>
+<h3 id="toc_47">8.3 <code>_Noreturn</code></h3>
 
 <pre><code class="language-c">_Noreturn void f(void) {
     abort();
@@ -1407,13 +2066,13 @@ int main() {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1478.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1478.htm</a></p>
 
-<h3 id="toc_43">8.4 <code>_Thread_local</code> / <code>_Atomic</code></h3>
+<h3 id="toc_48">8.4 <code>_Thread_local</code> / <code>_Atomic</code></h3>
 
 <p><code>_Thread_local</code> is supported and maps to <code>__declspec(thread)</code> in MSVC output and <code>__thread</code> in GCC output.</p>
 
 <p><code>_Atomic</code> is <strong>not implemented</strong>.</p>
 
-<h3 id="toc_44">8.5 <code>_Generic</code> Type-Generic Expressions</h3>
+<h3 id="toc_49">8.5 <code>_Generic</code> Type-Generic Expressions</h3>
 
 <!-- runnable -->
 
@@ -1430,7 +2089,7 @@ int main(void) { cbrt(1.0); }
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1441.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1441.htm</a></p>
 
-<h3 id="toc_45">8.6 Unicode Character Constants (<code>u&#39;&#39;</code>, <code>U&#39;&#39;</code>)</h3>
+<h3 id="toc_50">8.6 Unicode Character Constants (<code>u&#39;&#39;</code>, <code>U&#39;&#39;</code>)</h3>
 
 <!-- runnable -->
 
@@ -1442,7 +2101,7 @@ int i2 = u&#39;ç&#39;;
 <p><strong>Note:</strong> Cake assumes source files are UTF-8 encoded.</p>
 </blockquote>
 
-<h3 id="toc_46">8.7 UTF-8 String Literals (<code>u8&quot;...&quot;</code>)</h3>
+<h3 id="toc_51">8.7 UTF-8 String Literals (<code>u8&quot;...&quot;</code>)</h3>
 
 <!-- runnable -->
 
@@ -1456,7 +2115,7 @@ char* s2 = u8&quot;maca&quot;;
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1488.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1488.htm</a></p>
 
-<h3 id="toc_47">8.8 <code>_Alignof</code> / <code>alignof</code></h3>
+<h3 id="toc_52">8.8 <code>_Alignof</code> / <code>alignof</code></h3>
 
 <!-- runnable -->
 
@@ -1469,15 +2128,15 @@ char* s2 = u8&quot;maca&quot;;
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1397.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1397.htm</a></p>
 
-<h3 id="toc_48">8.9 <code>_Alignas</code> / <code>alignas</code></h3>
+<h3 id="toc_53">8.9 <code>_Alignas</code> / <code>alignas</code></h3>
 
 <p>Uses <code>__declspec(align(n))</code> in MSVC output and <code>__attribute__((aligned(n)))</code> in GCC output.</p>
 
 <hr>
 
-<h2 id="toc_49">9. C23 Features</h2>
+<h2 id="toc_54">9. C23 Features</h2>
 
-<h3 id="toc_50">9.1 Variably-Modified (VM) Types — Mandatory</h3>
+<h3 id="toc_55">9.1 Variably-Modified (VM) Types — Mandatory</h3>
 
 <p>C23 formally separates two concepts previously bundled in C99:</p>
 
@@ -1500,7 +2159,7 @@ void foo(int n, double (*x)[n]) {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf</a></p>
 
-<h3 id="toc_51">9.2 <code>static_assert</code> — Single-Argument Form</h3>
+<h3 id="toc_56">9.2 <code>static_assert</code> — Single-Argument Form</h3>
 
 <!-- runnable -->
 
@@ -1509,7 +2168,7 @@ void foo(int n, double (*x)[n]) {
 }
 </code></pre>
 
-<h3 id="toc_52">9.3 <code>u8</code> Character Prefix</h3>
+<h3 id="toc_57">9.3 <code>u8</code> Character Prefix</h3>
 
 <!-- runnable -->
 
@@ -1520,7 +2179,7 @@ void foo(int n, double (*x)[n]) {
 
 <p>Reference: <a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf</a></p>
 
-<h3 id="toc_53">9.4 No Function Declarations Without Prototypes</h3>
+<h3 id="toc_58">9.4 No Function Declarations Without Prototypes</h3>
 
 <p>In C23, calling an undeclared function is a constraint violation:</p>
 
@@ -1533,7 +2192,7 @@ void foo(int n, double (*x)[n]) {
 
 <p>Reference: <a href="https://www.open-std.org/JTC1/SC22/WG14/www/docs/n2841.htm">https://www.open-std.org/JTC1/SC22/WG14/www/docs/n2841.htm</a></p>
 
-<h3 id="toc_54">9.5 Unnamed Parameters in Function Definitions</h3>
+<h3 id="toc_59">9.5 Unnamed Parameters in Function Definitions</h3>
 
 <!-- runnable -->
 
@@ -1550,7 +2209,7 @@ int f(int) {   /* unnamed parameter is valid */
 
 <p>Reference: <a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2480.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2480.pdf</a></p>
 
-<h3 id="toc_55">9.6 Digit Separators</h3>
+<h3 id="toc_60">9.6 Digit Separators</h3>
 
 <!-- runnable -->
 
@@ -1561,7 +2220,7 @@ int f(int) {   /* unnamed parameter is valid */
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf</a></p>
 
-<h3 id="toc_56">9.7 Binary Literals</h3>
+<h3 id="toc_61">9.7 Binary Literals</h3>
 
 <!-- runnable -->
 
@@ -1573,7 +2232,7 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_57">9.8 <code>nullptr</code> Constant</h3>
+<h3 id="toc_62">9.8 <code>nullptr</code> Constant</h3>
 
 <!-- runnable -->
 
@@ -1586,7 +2245,7 @@ int main() {
 
 <p>Reference: <a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm">https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm</a></p>
 
-<h3 id="toc_58">9.9 <code>true</code> and <code>false</code> as First-Class Keywords</h3>
+<h3 id="toc_63">9.9 <code>true</code> and <code>false</code> as First-Class Keywords</h3>
 
 <!-- runnable -->
 
@@ -1597,7 +2256,7 @@ int main() {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2935.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2935.pdf</a></p>
 
-<h3 id="toc_59">9.10 Empty Initializer <code>{}</code></h3>
+<h3 id="toc_64">9.10 Empty Initializer <code>{}</code></h3>
 
 <!-- runnable -->
 
@@ -1613,7 +2272,7 @@ int main() {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2900.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2900.htm</a></p>
 
-<h3 id="toc_60">9.11 <code>auto</code> Type Deduction</h3>
+<h3 id="toc_65">9.11 <code>auto</code> Type Deduction</h3>
 
 <!-- runnable -->
 
@@ -1627,7 +2286,7 @@ auto qA = &amp;A;
 
 <p>Reference: <a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n3007.htm">https://open-std.org/JTC1/SC22/WG14/www/docs/n3007.htm</a></p>
 
-<h3 id="toc_61">9.12 <code>typeof</code> / <code>typeof_unqual</code></h3>
+<h3 id="toc_66">9.12 <code>typeof</code> / <code>typeof_unqual</code></h3>
 
 <!-- runnable -->
 
@@ -1644,7 +2303,7 @@ int main() {
 
 <p>Reference: <a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2927.htm">https://open-std.org/JTC1/SC22/WG14/www/docs/n2927.htm</a></p>
 
-<h3 id="toc_62">9.13 <code>constexpr</code></h3>
+<h3 id="toc_67">9.13 <code>constexpr</code></h3>
 
 <!-- runnable -->
 
@@ -1665,7 +2324,7 @@ int main() {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm</a></p>
 
-<h3 id="toc_63">9.14 Improved and enhancements to Enumerations (Typed Enums)</h3>
+<h3 id="toc_68">9.14 Improved and enhancements to Enumerations (Typed Enums)</h3>
 
 <!-- runnable -->
 
@@ -1694,7 +2353,7 @@ enum a {
 int main () {}
 </code></pre>
 
-<h3 id="toc_64">9.15 Attributes (<code>[[...]]</code>)</h3>
+<h3 id="toc_69">9.15 Attributes (<code>[[...]]</code>)</h3>
 
 <p>Cake supports the C23 double-bracket attribute syntax. Recognized standard attributes:</p>
 
@@ -1765,7 +2424,7 @@ Replaces C11 <code>_Noreturn</code>.</p>
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf</a></p>
 
-<h3 id="toc_65">9.16 <code>__has_attribute</code> / <code>__has_include</code></h3>
+<h3 id="toc_70">9.16 <code>__has_attribute</code> / <code>__has_include</code></h3>
 
 <!-- runnable -->
 
@@ -1778,7 +2437,7 @@ Replaces C11 <code>_Noreturn</code>.</p>
 #endif
 </code></pre>
 
-<h3 id="toc_66">9.17 <code>#warning</code> Directive</h3>
+<h3 id="toc_71">9.17 <code>#warning</code> Directive</h3>
 
 <!-- runnable -->
 
@@ -1789,7 +2448,7 @@ Replaces C11 <code>_Noreturn</code>.</p>
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf</a></p>
 
-<h3 id="toc_67">9.18 <code>#embed</code> Directive</h3>
+<h3 id="toc_72">9.18 <code>#embed</code> Directive</h3>
 
 <!-- runnable -->
 
@@ -1808,7 +2467,7 @@ int main() {
 <p><strong>Note</strong> Some details are not implemented yet.</p>
 </blockquote>
 
-<h3 id="toc_68">9.19 <code>#elifdef</code> / <code>#elifndef</code></h3>
+<h3 id="toc_73">9.19 <code>#elifdef</code> / <code>#elifndef</code></h3>
 
 <!-- runnable -->
 
@@ -1823,7 +2482,7 @@ int main() {
 #endif
 </code></pre>
 
-<h3 id="toc_69">9.20 <code>__VA_OPT__</code></h3>
+<h3 id="toc_74">9.20 <code>__VA_OPT__</code></h3>
 
 <!-- runnable -->
 
@@ -1843,29 +2502,82 @@ int main() {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3033.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3033.htm</a></p>
 
-<h3 id="toc_70">9.21 <code>_BitInt(N)</code> — Bit-Precise Integers</h3>
+<h3 id="toc_75">9.21 <code>_BitInt(N)</code> — Bit-Precise Integers</h3>
 
-<p><strong>Not implemented yet</strong></p>
+<p>Supported for widths up to 64 bits (<code>BITINT_MAXWIDTH</code> is 64). Wider types are
+reported as an error.</p>
 
-<pre><code class="language-c">int main() {
-    _BitInt(2)  a2  = 1;
-    _BitInt(33) a33 = 1;
+<!-- runnable -->
+
+<pre><code class="language-c">typedef unsigned _BitInt(24) u24;
+
+struct S {
+    _BitInt(12) m;
+    unsigned _BitInt(3) n : 2;
+};
+
+int main() {
+    _BitInt(12) a = 100;
+    unsigned _BitInt(12) b = 4095uwb;
+    signed _BitInt(40) c = -1;
+    u24 d = 0xFFFFFF;
+
+    static_assert(sizeof(_BitInt(12)) == 2);
+    static_assert(_Generic(a + a, _BitInt(12): 1, default: 2) == 1);
+
+    constexpr unsigned _BitInt(12) w = (unsigned _BitInt(12)) 4096;
+    static_assert(w == 0);
 }
 </code></pre>
 
+<p>The front end follows C23:</p>
+
+<ul>
+<li>the width is part of the type (<code>_BitInt(12)</code> and <code>_BitInt(13)</code> are different types, <code>_Generic</code> tells them apart);</li>
+<li>bit-precise types are not subjected to integer promotion, so <code>a + a</code> keeps the type <code>_BitInt(12)</code>;</li>
+<li>the conversion rank is just below the first standard type that holds <code>N</code> bits, and grows with the width, so <code>_BitInt(12) + 1</code> is <code>int</code> while <code>_BitInt(40) + 1</code> is <code>_BitInt(40)</code>;</li>
+<li>the <code>wb</code> / <code>uwb</code> suffixes give literals the narrowest bit-precise type that holds the value (<code>255uwb</code> is <code>unsigned _BitInt(8)</code>, <code>1wb</code> is <code>_BitInt(2)</code>);</li>
+<li>constant expressions wrap at <code>N</code> bits, so <code>(unsigned _BitInt(12)) 4096</code> is <code>0</code>;</li>
+<li><code>signed _BitInt(1)</code>, <code>_BitInt(0)</code> and widths above 64 are errors.</li>
+</ul>
+
+<p>In the output <code>_BitInt(N)</code> is lowered to the smallest standard integer type
+that holds <code>N</code> bits, which is also what <code>sizeof</code> and <code>alignof</code> report:</p>
+
+<pre><code class="language-c">short a;
+unsigned short b;
+long c;
+unsigned int d;
+</code></pre>
+
+<p>Since the lowered type is wider than <code>N</code> bits, the generated code wraps values
+to <code>N</code> bits itself, so runtime results match the C23 semantics: arithmetic
+that produces a <code>_BitInt(N)</code> value (<code>+ - * &lt;&lt; ~</code> and unary <code>-</code>) and every
+conversion into a <code>_BitInt(N)</code> (assignment, initialization, cast, argument
+passing, <code>return</code>, compound assignment, <code>++</code>/<code>--</code>) is masked - and sign
+extended for the signed types:</p>
+
+<pre><code class="language-c">unsigned _BitInt(12) a = x;   /* a = ((unsigned short)((unsigned long long)(x) &amp; 0xfffULL)); */
+_BitInt(12) b = x;            /* b = ((short)(((long long)((unsigned long long)(x) &amp; 0xfffULL) ^ 0x800LL) - 0x800LL)); */
+</code></pre>
+
+<p>Widths that match the lowered type exactly (<code>_BitInt(32)</code>, <code>_BitInt(64)</code>) need
+no mask, and a value that already has the target <code>_BitInt</code> type is not masked
+again.</p>
+
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2763.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2763.pdf</a></p>
 
-<h3 id="toc_71">9.22 Decimal Floating Types</h3>
+<h3 id="toc_76">9.22 Decimal Floating Types</h3>
 
 <p><strong>Not implemented.</strong> (<code>_Decimal32</code>, <code>_Decimal64</code>, <code>_Decimal128</code>)</p>
 
-<h3 id="toc_72">9.23 Improved Tag Compatibility</h3>
+<h3 id="toc_77">9.23 Improved Tag Compatibility</h3>
 
 <p><strong>Not implemented yet.</strong></p>
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3037.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3037.pdf</a></p>
 
-<h3 id="toc_73">9.24 Compound Literals with Storage Specifier</h3>
+<h3 id="toc_78">9.24 Compound Literals with Storage Specifier</h3>
 
 <!-- runnable -->
 
@@ -1880,11 +2592,11 @@ int main() {
 
 <hr>
 
-<h2 id="toc_74">10. C2Y Features</h2>
+<h2 id="toc_79">10. C2Y Features</h2>
 
 <p>These features are from the current C2Y working draft. Support status is noted for each.</p>
 
-<h3 id="toc_75">10.1 Octal Literals with <code>0o</code> / <code>0O</code> Prefix</h3>
+<h3 id="toc_80">10.1 Octal Literals with <code>0o</code> / <code>0O</code> Prefix</h3>
 
 <!-- runnable -->
 
@@ -1898,7 +2610,7 @@ int main() {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm</a></p>
 
-<h3 id="toc_76">10.2 Case Range Expressions</h3>
+<h3 id="toc_81">10.2 Case Range Expressions</h3>
 
 <!-- runnable -->
 
@@ -1917,7 +2629,7 @@ void f(int n) {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3370.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3370.htm</a></p>
 
-<h3 id="toc_77">10.3 <code>#def</code> / <code>#enddef</code> Multi-Line Macro Blocks</h3>
+<h3 id="toc_82">10.3 <code>#def</code> / <code>#enddef</code> Multi-Line Macro Blocks</h3>
 
 <p>This feature is implemented in Cake as an experimental extension while its inclusion in C2Y is evaluated.</p>
 
@@ -1937,7 +2649,7 @@ foo(2)
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt</a></p>
 
-<h3 id="toc_78">10.4 <code>_Countof</code> Operator</h3>
+<h3 id="toc_83">10.4 <code>_Countof</code> Operator</h3>
 
 <p>Returns the number of elements in the outermost dimension of an array type.</p>
 
@@ -1960,7 +2672,7 @@ static_assert(_Countof(enum E) == 6);
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf</a></p>
 
-<h3 id="toc_79">10.5 <code>_Defer</code> Statement</h3>
+<h3 id="toc_84">10.5 <code>_Defer</code> Statement</h3>
 
 <p><code>_Defer</code> executes a statement or block when the enclosing scope exits, in reverse order of appearance. It is designed for deterministic resource cleanup.</p>
 
@@ -2005,9 +2717,22 @@ int main() {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3734.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3734.pdf</a></p>
 
-<h3 id="toc_80">10.6 <code>if</code> Declarations</h3>
+<h3 id="toc_85">10.6 <code>if</code> and <code>switch</code> Declarations</h3>
 
-<p>A declaration can appear in the initializer clause of an <code>if</code> statement, scoping the declared variable to the entire <code>if</code>/<code>else</code> chain.</p>
+<p>The controlling clause of <code>if</code> and <code>switch</code> (the <em>selection-header</em>) accepts three forms:</p>
+
+<pre><code>selection-header:
+    expression
+    declaration expression
+    declaration-condition
+
+declaration-condition:
+    attribute-specifier-sequence(opt) declaration-specifiers declarator = initializer
+</code></pre>
+
+<p>The third form <code>if (T D = X)</code> is treated exactly as <code>if (T D = X; D)</code>: the declared
+object is the controlling expression. The declared identifier is in scope in the
+secondary block and in the <code>else</code> branch, and goes out of scope after the statement.</p>
 
 <!-- runnable -->
 
@@ -2034,12 +2759,31 @@ int main()
      /*...*/
      fclose(f);
    }
+
+   switch (int c = getchar())
+   {
+     case EOF: break;
+     default: putchar(c); break;
+   }
 }
 </code></pre>
 
-<p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3388.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3388.htm</a></p>
+<p>Constraints (diagnosed as errors):</p>
 
-<h3 id="toc_81">10.7 <code>typename</code> in <code>_Generic</code></h3>
+<ul>
+<li>A <em>declaration-condition</em> declares exactly one object and must have an initializer:
+<code>if (int x)</code> and <code>if (int x = 1, y = 2)</code> are errors.</li>
+<li>Storage-class specifiers other than <code>auto</code>, <code>constexpr</code> or <code>register</code> are not allowed
+in a <em>declaration-condition</em>: <code>if (static int once = 1)</code> is an error.</li>
+<li>Since the declared object is the controlling expression, it must have scalar type:
+<code>if (struct S s = {0})</code> is an error.</li>
+<li>The clause after the init-statement is an expression, not a declaration:
+<code>if (int x = 0; int y = x + 1)</code> (allowed in C++) is an error.</li>
+</ul>
+
+<p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3580.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3580.htm</a></p>
+
+<h3 id="toc_86">10.7 <code>typename</code> in <code>_Generic</code></h3>
 
 <p>Allows type names as the controlling expression in <code>_Generic</code>.</p>
 
@@ -2055,7 +2799,7 @@ int main()
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3260.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3260.pdf</a></p>
 
-<h3 id="toc_82">10.8 <code>__COUNTER__</code> Predefined Macro</h3>
+<h3 id="toc_87">10.8 <code>__COUNTER__</code> Predefined Macro</h3>
 
 <!-- runnable -->
 
@@ -2067,7 +2811,7 @@ X(__COUNTER__)   /* 1 1 */
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3457.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3457.htm</a></p>
 
-<h3 id="toc_83">10.9 Local Functions</h3>
+<h3 id="toc_88">10.9 Local Functions</h3>
 
 <!-- runnable -->
 
@@ -2079,7 +2823,7 @@ X(__COUNTER__)   /* 1 1 */
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3678.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3678.pdf</a></p>
 
-<h3 id="toc_84">10.10 Function Literals</h3>
+<h3 id="toc_89">10.10 Function Literals</h3>
 
 <!-- runnable -->
 
@@ -2092,7 +2836,7 @@ int main() {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3679.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3679.pdf</a></p>
 
-<h3 id="toc_85">10.11 Statement Expressions</h3>
+<h3 id="toc_90">10.11 Statement Expressions</h3>
 
 <!-- runnable -->
 
@@ -2108,7 +2852,7 @@ int main() {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3643.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3643.htm</a></p>
 
-<h3 id="toc_86">10.12 Elvis Operator (<code>?:</code>)</h3>
+<h3 id="toc_91">10.12 Elvis Operator (<code>?:</code>)</h3>
 
 <p>The Elvis operator is a shorthand for the ternary operator where the middle 
 operand is omitted. When the condition is truthy, it is returned; 
@@ -2166,7 +2910,7 @@ int r = a ?: b ?: c;   /* 7 */
 #endif
 </code></pre>
 
-<h3 id="toc_87">10.13 <code>static_assert</code> as an Expression</h3>
+<h3 id="toc_92">10.13 <code>static_assert</code> as an Expression</h3>
 
 <p>In C2Y, <code>static_assert</code> is extended to work not only as a declaration 
 but also as an <strong>expression operator</strong> with type <code>void</code>. 
@@ -2244,9 +2988,9 @@ void func() {
 }
 </code></pre>
 
-<h2 id="toc_88">11. Cake Language Extensions</h2>
+<h2 id="toc_93">11. Cake Language Extensions</h2>
 
-<h3 id="toc_89">11.1 Built-in <code>_Assert</code></h3>
+<h3 id="toc_94">11.1 Built-in <code>_Assert</code></h3>
 
 <p>In Cake, <code>assert</code> is a built-in statement rather than a macro because flow analysis need it even in release builds.
 The effect of <code>assert(expression)</code> is equivalent of <code>if (!(expression)) exit(1);</code>.</p>
@@ -2264,7 +3008,7 @@ The effect of <code>assert(expression)</code> is equivalent of <code>if (!(expre
 }
 </code></pre>
 
-<h3 id="toc_90">11.2 <code>try</code> / <code>throw</code> / <code>catch</code></h3>
+<h3 id="toc_95">11.2 <code>try</code> / <code>throw</code> / <code>catch</code></h3>
 
 <p>Cake provides a structured local-jump mechanism for error handling. <code>try</code>/<code>catch</code> is explicitly a <strong>local</strong> 
 jump - it cannot propagate across function boundaries. This is by design.</p>
@@ -2302,7 +3046,7 @@ int main() {
 
 </code></pre>
 
-<h3 id="toc_91">11.3 Checked Expressions (<code>!</code> operator)</h3>
+<h3 id="toc_96">11.3 Checked Expressions (<code>!</code> operator)</h3>
 
 <pre><code>checked-expression:
     assignment-expression
@@ -2354,7 +3098,7 @@ int main() {
 <p><strong>Note</strong> this is a very experimental feature</p>
 </blockquote>
 
-<h3 id="toc_92">11.4 <code>#pragma dir</code></h3>
+<h3 id="toc_97">11.4 <code>#pragma dir</code></h3>
 
 <p>Adds a path to the list of directories searched for include files. 
 This pragma declares an include directory from inside a source file.
@@ -2365,11 +3109,284 @@ System include directories come from <code>cake.json</code> instead (see 2.2), b
 #pragma dir &quot;./openssl/include&quot;
 </code></pre>
 
-<h3 id="toc_93">11.5 <code>offsetof</code> Operator</h3>
+<h3 id="toc_98">11.5 <code>#pragma pack</code></h3>
 
-<p>In Cake, <code>offsetof</code> is a built-in operator rather than a macro.  Similar of GCC <code>__builtin_offsetof</code>.
-This allows its use in constant expressions and avoids the undefined 
+<p>By default the compiler inserts padding bytes between struct members so that
+each member starts at an address that is a multiple of its natural alignment
+(4 for <code>int</code>, 8 for <code>double</code>, and so on), and pads the end of the struct so
+that arrays of it keep every element aligned. <code>#pragma pack(n)</code> limits that
+alignment to at most <code>n</code> bytes for every member of the structs declared while
+it is in effect. With <code>pack(1)</code> no padding is inserted at all, so the struct
+occupies exactly the sum of its members&#39; sizes.</p>
+
+<p>It is used to match a layout that is fixed by something other than the
+compiler: a file format, a network protocol, a hardware register block, or a
+struct shared with code compiled under different settings. The macOS SDK, for
+instance, wraps the Mach message structures in <code>#pragma pack(push, 4)</code>.
+Accessing a misaligned member costs extra instructions on some CPUs and
+faults on others, so packing is for data interchange, not a general-purpose
+space saver.</p>
+
+<p>The pragma is not part of the C standard, but GCC, Clang and MSVC all
+implement it with the same syntax, and Cake follows them: the pack value is
+honored when computing <code>sizeof</code>, <code>_Alignof</code> and <code>offsetof</code> of structs and
+unions, and a struct declared while a pack value is in effect keeps that
+value for its whole lifetime.</p>
+
+<pre><code class="language-c">#pragma pack(push, n)  // save the current value, then set it to n
+#pragma pack(push)     // save the current value
+#pragma pack(pop)      // restore the last saved value
+#pragma pack(n)        // set it to n
+#pragma pack()         // reset to the default (no packing)
+</code></pre>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma pack(push, 1)
+struct packed { char c; int i; };
+#pragma pack(pop)
+
+struct normal { char c; int i; };
+
+static_assert(sizeof(struct packed) == 5);
+static_assert(offsetof(struct packed, i) == 1);
+static_assert(_Alignof(struct packed) == 1);
+static_assert(sizeof(struct normal) == 8);
+</code></pre>
+
+<p>In the generated code every struct declared under a pack value is wrapped in
+its own <code>#pragma pack(push, n)</code> / <code>#pragma pack(pop)</code>, so the host compiler
+lays it out exactly as Cake did. The wrapper travels with the struct rather
+than with the original directive, because Cake emits only the structs a file
+uses, in dependency order rather than source order. Given</p>
+
+<pre><code class="language-c">#pragma pack(push, 1)
+typedef struct { char c; int i; } packed_t;
+struct named { char c; int i; };
+#pragma pack(pop)
+struct outer { char c; struct named n; packed_t p; };
+
+int main(void) { struct outer o = {0}; return o.c; }
+</code></pre>
+
+<p>Cake generates</p>
+
+<pre><code class="language-c">#pragma pack(push, 1)
+struct named {
+    char c;
+    int i;
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+struct __tag2 {
+    char c;
+    int i;
+};
+#pragma pack(pop)
+
+struct outer {
+    char c;
+    struct named n;
+    struct __tag2 p;
+};
+
+int main(void)
+{
+    struct outer o;
+    __cmemset(&amp;o, 0, 11);
+    return o.c;
+}
+</code></pre>
+
+<p>Reading the output:</p>
+
+<ul>
+<li><code>struct named</code> and <code>struct __tag2</code> each get their own <code>push, 1</code> / <code>pop</code>
+because both were declared while <code>pack(1)</code> was in effect. <code>__tag2</code> is the
+name Cake gives the anonymous struct behind <code>packed_t</code>; the typedef itself
+is gone from the output, replaced by the struct tag wherever it was used.</li>
+<li>They are printed before <code>struct outer</code> because <code>outer</code> contains them by
+value - Cake orders definitions by dependency, not by their position in
+the source, which is why the pragma is attached to each struct instead of
+being copied through from the original file.</li>
+<li><code>struct outer</code> was declared after <code>#pragma pack(pop)</code>, so it gets no
+wrapper. Its two packed members still occupy 5 bytes each inside it
+(alignment 1), so <code>sizeof(struct outer)</code> is 1 + 5 + 5 = 11.</li>
+<li><code>struct outer o = {0}</code> becomes a declaration plus <code>__cmemset(&amp;o, 0, 11)</code>:
+Cake folded <code>sizeof(struct outer)</code> to 11 using the packed layout. The host
+compiler, seeing the same pragmas, allocates <code>o</code> as 11 bytes too - without
+the wrappers it would allocate 16 and the two sides would disagree.</li>
+</ul>
+
+<p>Bit-fields follow the packed layout of the target compiler too. For GCC and
+Clang a bit-field goes at the next free bit and, while a pack value is in
+effect, may straddle a storage unit of its type; a zero-width bit-field still
+aligns to the natural alignment of its type. MSVC keeps its storage-unit
+model with the unit&#39;s alignment capped at <code>n</code>.</p>
+
+<h3 id="toc_99">11.6 <code>__attribute__((packed))</code> and <code>__attribute__((aligned(n)))</code></h3>
+
+<p>The GCC/Clang attributes that change struct layout are honored the same way
+<code>#pragma pack</code> is: they take part in <code>sizeof</code>, <code>_Alignof</code> and <code>offsetof</code>,
+and they are carried into the generated code so the host compiler lays the
+struct out identically.</p>
+
+<ul>
+<li><code>packed</code> on a struct or union caps every member at alignment 1 - the same
+layout as <code>#pragma pack(1)</code>. All three spellings are accepted:
+<code>struct __attribute__((packed)) X {...};</code>, <code>struct X {...} __attribute__((packed));</code>
+and <code>typedef struct {...} __attribute__((packed)) X;</code>.</li>
+<li><code>packed</code> on a single member gives that member alignment 1 and leaves the
+others alone: <code>int i __attribute__((packed));</code> (also before the type, or
+between the type and the name).</li>
+<li><code>aligned(n)</code> on a struct raises its alignment to at least <code>n</code> and pads its
+size to a multiple of <code>n</code>. <code>aligned</code> with no argument means 16.</li>
+<li><code>aligned(n)</code> on a member behaves as <code>_Alignas(n)</code>. Like <code>_Alignas</code>, it
+only ever raises the alignment; <code>aligned(2)</code> on an <code>int</code> stays 4.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">struct __attribute__((packed)) header { char tag; int length; };
+struct record { char c; int i __attribute__((packed)); short s; };
+struct __attribute__((aligned(16))) block { char c; };
+
+static_assert(sizeof(struct header) == 5);
+static_assert(_Alignof(struct header) == 1);
+static_assert(offsetof(struct record, s) == 6);
+static_assert(sizeof(struct record) == 8);
+static_assert(sizeof(struct block) == 16);
+</code></pre>
+
+<p>In the output a <code>packed</code> struct is wrapped in <code>#pragma pack(push, 1)</code> /
+<code>#pragma pack(pop)</code>, which every host compiler understands, including MSVC;
+<code>aligned(n)</code> on a struct is written as <code>__attribute__((aligned(n)))</code>, or
+<code>__declspec(align(n))</code> for the MSVC targets; <code>packed</code> on a member is written
+back as <code>__attribute__((packed))</code>. MSVC has no per-member equivalent, so for
+the MSVC targets Cake omits it and warns (warning 9) that the generated
+struct will not have the packed layout - use <code>#pragma pack</code> or pack the whole
+struct instead. The example above generates</p>
+
+<pre><code class="language-c">#pragma pack(push, 1)
+struct header {
+    char tag;
+    int length;
+};
+#pragma pack(pop)
+
+struct record {
+    char c;
+    int i __attribute__((packed));
+    short s;
+};
+
+struct __attribute__((aligned(16))) block {
+    char c;
+};
+</code></pre>
+
+<h3 id="toc_100">11.7 <code>offsetof</code> Operator</h3>
+
+<p>In Cake, <code>offsetof</code> is a built-in operator rather than a macro, following
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3958.pdf">N3958</a>
+&quot;Making offsetof a core language feature&quot; (and GCC&#39;s <code>__builtin_offsetof</code>).
+This allows its use in constant expressions and avoids the undefined
 behavior associated with traditional macro implementations.</p>
+
+<pre><code>offsetof ( type-name , member-designator )
+
+member-designator:
+    identifier designator-list_opt
+
+designator:
+    [ expression ]
+    . identifier
+</code></pre>
+
+<ul>
+<li>The type-name is real syntax, so a comma inside it (<code>struct { int x, y; }</code>) is fine.</li>
+<li>The member-designator may be a path such as <code>a.b[2].c</code>, including members of
+anonymous structs/unions.</li>
+<li>An array index that is an integer constant expression keeps the result an
+integer constant expression; an index past the end of a known-size array is
+diagnosed (<code>-W42</code>). A flexible array member accepts any index.</li>
+<li>An array index that is <em>not</em> constant is allowed; the result is then not a
+constant expression and is emitted as plain arithmetic
+(<code>constant + (index) * element_size</code>), never as <code>__builtin_offsetof</code>.</li>
+<li>Designating a bit-field, a member that does not exist, subscripting a
+non-array or selecting a member of a non-struct is a constraint violation.</li>
+</ul>
+
+<p><strong><code>offsetof</code> vs <code>__builtin_offsetof</code></strong></p>
+
+<p>Cake recognizes two spellings of the operator, and they are the same thing:</p>
+
+<table>
+<thead>
+<tr>
+<th>Spelling</th>
+<th>Why it exists</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td><code>offsetof</code></td>
+<td>The N3958 keyword. Works with no header included.</td>
+</tr>
+<tr>
+<td><code>__builtin_offsetof</code></td>
+<td>GCC/Clang compatibility.</td>
+</tr>
+</tbody>
+</table>
+
+<p>Both map to one token in the parser, so they share the same grammar,
+evaluation and diagnostics; everything described above applies to either.</p>
+
+<p>This matters because of how system headers define the macro:</p>
+
+<pre><code class="language-c">/* GCC / Clang &lt;stddef.h&gt; */
+#define offsetof(TYPE, MEMBER) __builtin_offsetof (TYPE, MEMBER)
+
+/* MSVC &lt;stddef.h&gt; */
+#define offsetof(s, m) ((size_t)&amp;(((s*)0)-&gt;m))
+</code></pre>
+
+<p>With <code>&lt;stddef.h&gt;</code> included, <code>offsetof(T, m)</code> is first expanded by the
+preprocessor and then parsed by Cake:</p>
+
+<ul>
+<li>GCC/Clang headers expand it to <code>__builtin_offsetof(...)</code>, which Cake parses
+as the operator, so the result is an integer constant expression exactly as
+if the keyword had been used directly.</li>
+<li>MSVC headers expand it to a null-pointer cast. Cake handles this by treating
+<code>&amp;(((T*)0)-&gt;m)</code> as a special case that folds to a constant (see the macro
+note below), so the result is still usable in <code>static_assert</code> and other
+constant contexts.</li>
+</ul>
+
+<p>Without <code>&lt;stddef.h&gt;</code>, <code>offsetof</code> is simply the keyword. In every case the
+generated C89 code contains the computed byte offset (or, for a non-constant
+index, plain arithmetic), never a call to <code>__builtin_offsetof</code>, so the output
+does not depend on the target compiler providing a builtin.</p>
+
+<p>Because <code>offsetof</code> is a keyword in every <code>-std</code> mode (C89 through C2Y), a
+program that declares its own identifier named <code>offsetof</code> is rejected. This
+is stricter than N3958, which reserves the name only in the new standard, but
+the name has been reserved by <code>&lt;stddef.h&gt;</code> since C89 so conforming code is
+never affected.</p>
+
+<pre><code class="language-c">struct foo { int N; struct { int a; int b[4]; } in; char buf[]; };
+
+static_assert(offsetof(struct foo, in.b[2]) == 16);
+
+size_t buf_offsetof(int i)
+{
+    return offsetof(struct foo, buf[i]); /* not a constant expression */
+}
+</code></pre>
 
 <!-- runnable -->
 
@@ -2390,13 +3407,15 @@ int main() {
 }
 </code></pre>
 
-<p>Cake also supports compile time macro based <code>offsetof</code> by creating exceptions for constant 
-expressions involving addresses.</p>
+<p>Cake also supports the traditional macro-based <code>offsetof</code> (as found in MSVC&#39;s
+<code>&lt;stddef.h&gt;</code> or in user code) by making an exception in the constant-expression
+rules: <code>&amp;(((T*)0)-&gt;member)</code> is folded to the member offset at compile time
+instead of being rejected as a non-constant address.</p>
 
 <pre><code class="language-c">#define offsetof(type, member) ((size_t)&amp;(((type *)0)-&gt;member))
 </code></pre>
 
-<h3 id="toc_94">11.6 Type Traits</h3>
+<h3 id="toc_101">11.8 Type Traits</h3>
 
 <p>Cake provides compile-time type introspection functions that return boolean integer constant expressions:</p>
 
@@ -2418,7 +3437,7 @@ expressions involving addresses.</p>
 }
 </code></pre>
 
-<h3 id="toc_95">11.7 Object Lifetime Checks (Ownership)</h3>
+<h3 id="toc_102">11.9 Object Lifetime Checks (Ownership)</h3>
 
 <p>Cake includes a static analysis system for tracking object ownership and lifetime, activated with <code>#pragma safety enable</code> or <code>-fanalyzer</code>.</p>
 
@@ -2430,7 +3449,7 @@ expressions involving addresses.</p>
 
 <p>Full documentation: <a href="ownership.html">ownership.html</a></p>
 
-<h3 id="toc_96">11.8 Pre-defined Macros</h3>
+<h3 id="toc_103">11.10 Pre-defined Macros</h3>
 
 <p>Cake defines the following macros:</p>
 
@@ -2440,7 +3459,7 @@ expressions involving addresses.</p>
 
 <hr>
 
-<h2 id="toc_97">12. GCC Compatibility</h2>
+<h2 id="toc_104">12. GCC Compatibility</h2>
 
 <p>Cake recognizes the following GCC built-ins and extensions:</p>
 
@@ -2452,7 +3471,7 @@ expressions involving addresses.</p>
 <li><code>__builtin_va_arg</code></li>
 <li><code>__builtin_va_copy</code></li>
 <li><code>__builtin_offsetof</code> — same as Cake&#39;s built-in <code>offsetof</code></li>
-<li><code>__attribute__</code></li>
+<li><code>__attribute__</code> — <code>packed</code> and <code>aligned(n)</code> affect layout (see 11.6); the others are accepted and ignored</li>
 <li><code>__typeof__</code> — alias for <code>typeof</code></li>
 </ul>
 
@@ -2462,7 +3481,7 @@ expressions involving addresses.</p>
 
 <hr>
 
-<h2 id="toc_98">13. MSVC Compatibility</h2>
+<h2 id="toc_105">13. MSVC Compatibility</h2>
 
 <p>Cake recognizes the following MSVC extensions:</p>
 
@@ -2480,6 +3499,366 @@ expressions involving addresses.</p>
 <p>Pre-defined MSVC compatibility macros: <a href="https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros">https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros</a></p>
 
 <p>See also: <code>src/include/x86_msvc_macros.h</code>, <code>src/include/x64_msvc_macros.h</code></p>
+
+<hr>
+
+<h2 id="toc_106">Appendix A. Grammar of the Generated Code</h2>
+
+<p>This appendix defines the subset of C that the Cake backend emits (section 5). It is intended for anyone who 
+wants to write a new backend, or a tool that consumes Cake output: a consumer that handles exactly this 
+grammar handles every file Cake can generate. It is deliberately much smaller than the C89 grammar — 
+there are no typedefs, enums, <code>switch</code>, <code>sizeof</code>, <code>const</code>, character constants, nested types, initializers 
+on local objects, or declarations with more than one declarator.</p>
+
+<p>Notation: <code>A ::= B | C</code> defines <code>A</code>; <code>X?</code> means optional; <code>X*</code> means zero or more; <code>X+</code> means one or more; 
+terminals are quoted. Names in <em>italics</em> are lexical (A.6). Rules marked <strong>[gcc]</strong> or <strong>[msvc]</strong> are 
+emitted only for targets of that family.</p>
+
+<h3 id="toc_107">A.1 Translation unit</h3>
+
+<pre><code>translation-unit ::=
+      header-comment external-declaration*
+
+header-comment ::=
+      &quot;/* Cake &quot; version &quot; &quot; target-name &quot; &quot; date &quot; &quot; time &quot; */&quot;
+
+external-declaration ::=
+      struct-or-union-definition
+    | pragma-pack-block
+    | object-declaration
+    | function-declaration
+    | function-definition
+</code></pre>
+
+<p>Order inside the file is: all <code>struct-or-union-definition</code>s (in dependency order), then helper 
+<code>function-declaration</code>s, then hoisted statics, then the remaining declarations and definitions in source 
+order, then helper <code>function-definition</code>s (5.3).</p>
+
+<h3 id="toc_108">A.2 Types</h3>
+
+<pre><code>struct-or-union-definition ::=
+      alignment-prefix? struct-or-union identifier &#39;{&#39; member-declaration+ &#39;}&#39; &#39;;&#39;
+
+pragma-pack-block ::=
+      &quot;#pragma pack(push, &quot; integer-constant &quot;)&quot; newline
+      struct-or-union-definition
+      &quot;#pragma pack(pop)&quot; newline
+
+alignment-prefix ::=
+      &quot;struct __attribute__((aligned(&quot; integer-constant &quot;)))&quot;      [gcc]  — replaces the &quot;struct&quot; keyword
+    | &quot;__declspec(align(&quot; integer-constant &quot;))&quot;                    [msvc] — precedes the &quot;struct&quot; keyword
+
+struct-or-union ::=
+      &quot;struct&quot; | &quot;union&quot;
+
+member-declaration ::=
+      type-specifier declarator member-suffix? &#39;;&#39;
+
+member-suffix ::=
+      &#39;:&#39; integer-constant                       — bit-field
+    | &quot;__attribute__((packed))&quot;                  [gcc]
+
+type-specifier ::=
+      &quot;volatile&quot;? base-type
+
+base-type ::=
+      &quot;void&quot;
+    | &quot;char&quot; | &quot;signed char&quot; | &quot;unsigned char&quot;
+    | &quot;short&quot; | &quot;unsigned short&quot;
+    | &quot;int&quot; | &quot;unsigned int&quot;
+    | &quot;long&quot; | &quot;unsigned long&quot;
+    | &quot;long long&quot; | &quot;unsigned long long&quot;
+    | &quot;float&quot; | &quot;double&quot; | &quot;long double&quot;
+    | struct-or-union identifier
+</code></pre>
+
+<p>There is no <code>typedef</code>, <code>enum</code>, <code>const</code>, <code>restrict</code>, <code>_Bool</code>, <code>_Complex</code>, <code>_BitInt</code> or <code>_Atomic</code> in the 
+output. <code>bool</code> has already become <code>unsigned char</code>; enumerations have become <code>int</code> and their constants 
+integer literals. Every <code>struct</code>/<code>union</code> is referred to by tag; there are no anonymous or nested definitions.</p>
+
+<h3 id="toc_109">A.3 Declarators</h3>
+
+<pre><code>declarator ::=
+      pointer? direct-declarator
+
+pointer ::=
+      &#39;*&#39;+                                         — qualifiers on pointers are dropped
+
+direct-declarator ::=
+      identifier
+    | &#39;(&#39; calling-convention? &#39;*&#39; identifier &#39;)&#39; parameter-clause      — pointer to function
+    | direct-declarator &#39;[&#39; integer-constant &#39;]&#39;                       — array (size always constant)
+    | calling-convention? identifier parameter-clause                  — function
+
+calling-convention ::=
+      &quot;__cdecl&quot; | &quot;__stdcall&quot; | &quot;__fastcall&quot;                           [msvc]
+
+parameter-clause ::=
+      &#39;(&#39; &quot;void&quot; &#39;)&#39;
+    | &#39;(&#39; parameter-declaration (&#39;,&#39; parameter-declaration)* (&#39;,&#39; &quot;...&quot;)? &#39;)&#39;
+
+parameter-declaration ::=
+      type-specifier abstract-or-named-declarator
+
+abstract-or-named-declarator ::=
+      pointer? identifier?                                              — identifier omitted in prototypes
+    | pointer? identifier? &#39;[&#39; integer-constant &#39;]&#39;
+    | pointer? &#39;(&#39; &#39;*&#39; identifier? &#39;)&#39; parameter-clause
+</code></pre>
+
+<p>Every function declarator has a prototype. Array parameters and VLA parameters have already been 
+rewritten as pointers. Array dimensions are always integer literals: variably-modified types have been 
+lowered to pointers plus <code>alloca</code> (5.4.8).</p>
+
+<h3 id="toc_110">A.4 Declarations and definitions</h3>
+
+<pre><code>object-declaration ::=
+      storage-class? type-specifier declarator (&#39;=&#39; initializer)? &#39;;&#39;
+
+storage-class ::=
+      &quot;static&quot; | &quot;extern&quot;
+
+initializer ::=
+      constant-expression
+    | string-literal
+    | identifier                                  — address of a function (e.g. &quot;= printf&quot;)
+    | &#39;{&#39; initializer-item (&#39;,&#39; initializer-item)* &#39;}&#39;
+
+initializer-item ::=
+      constant-expression
+    | string-literal
+    | identifier
+
+function-declaration ::=
+      storage-class? type-specifier declarator &#39;;&#39;
+
+function-definition ::=
+      storage-class? type-specifier declarator compound-statement
+</code></pre>
+
+<p>Each declaration declares exactly one identifier. Initializers appear only on file-scope objects and are 
+always flat: designators and nested braces have been removed (5.4.3). Local objects are never initialized 
+in their declaration, with one exception: the temporary that holds a <code>switch</code> controlling expression 
+(<code>int __a = n;</code>, 5.4.6).</p>
+
+<h3 id="toc_111">A.5 Statements</h3>
+
+<pre><code>compound-statement ::=
+      &#39;{&#39; local-declaration* statement* &#39;}&#39;
+
+local-declaration ::=
+      type-specifier declarator (&#39;=&#39; expression)? &#39;;&#39;   — initializer only on the switch temporary &quot;__a&quot; (5.4.6)
+
+statement ::=
+      compound-statement
+    | expression-statement
+    | if-statement
+    | while-statement
+    | do-statement
+    | for-statement
+    | labeled-statement
+    | jump-statement
+    | &#39;;&#39;
+
+expression-statement ::=
+      expression &#39;;&#39;
+
+if-statement ::=
+      &quot;if&quot; &#39;(&#39; expression &#39;)&#39; statement
+    | &quot;if&quot; &#39;(&#39; expression &#39;)&#39; statement &quot;else&quot; statement
+    | &quot;if&quot; &#39;(&#39; expression &#39;)&#39; statement &quot;else&quot; identifier &#39;:&#39; statement     — catch label (5.4.9)
+
+while-statement ::=
+      &quot;while&quot; &#39;(&#39; expression &#39;)&#39; statement
+
+do-statement ::=
+      &quot;do&quot; statement &quot;while&quot; &#39;(&#39; expression &#39;)&#39; &#39;;&#39;
+
+for-statement ::=
+      &quot;for&quot; &#39;(&#39; expression? &#39;;&#39; expression? &#39;;&#39; expression? &#39;)&#39; statement
+
+labeled-statement ::=
+      identifier &#39;:&#39; statement
+
+jump-statement ::=
+      &quot;goto&quot; identifier &#39;;&#39;
+    | &quot;continue&quot; &#39;;&#39;
+    | &quot;break&quot; &#39;;&#39;                                   — only inside loops
+    | &quot;return&quot; expression? &#39;;&#39;
+</code></pre>
+
+<p>All local declarations precede all statements in a block (C89 rule). There is no <code>switch</code>, <code>case</code> or 
+<code>default</code>; <code>break</code> never targets a <code>switch</code>. There are no declarations in the <code>for</code> clause. 
+Comments may appear anywhere and carry no meaning.</p>
+
+<h3 id="toc_112">A.6 Expressions</h3>
+
+<p>The expression grammar is the C89 expression grammar without <code>sizeof</code>. All C operators and precedence 
+levels are used.</p>
+
+<pre><code>expression ::=
+      assignment-expression (&#39;,&#39; assignment-expression)*
+
+assignment-expression ::=
+      conditional-expression
+    | unary-expression assignment-operator assignment-expression
+
+assignment-operator ::=
+      &#39;=&#39; | &quot;*=&quot; | &quot;/=&quot; | &quot;%=&quot; | &quot;+=&quot; | &quot;-=&quot; | &quot;&lt;&lt;=&quot; | &quot;&gt;&gt;=&quot; | &quot;&amp;=&quot; | &quot;^=&quot; | &quot;|=&quot;
+
+conditional-expression ::=
+      logical-or-expression (&#39;?&#39; expression &#39;:&#39; conditional-expression)?
+
+logical-or-expression ::=
+      logical-and-expression (&quot;||&quot; logical-and-expression)*
+
+logical-and-expression ::=
+      inclusive-or-expression (&quot;&amp;&amp;&quot; inclusive-or-expression)*
+
+inclusive-or-expression ::=
+      exclusive-or-expression (&#39;|&#39; exclusive-or-expression)*
+
+exclusive-or-expression ::=
+      and-expression (&#39;^&#39; and-expression)*
+
+and-expression ::=
+      equality-expression (&#39;&amp;&#39; equality-expression)*
+
+equality-expression ::=
+      relational-expression ((&quot;==&quot; | &quot;!=&quot;) relational-expression)*
+
+relational-expression ::=
+      shift-expression ((&#39;&lt;&#39; | &#39;&gt;&#39; | &quot;&lt;=&quot; | &quot;&gt;=&quot;) shift-expression)*
+
+shift-expression ::=
+      additive-expression ((&quot;&lt;&lt;&quot; | &quot;&gt;&gt;&quot;) additive-expression)*
+
+additive-expression ::=
+      multiplicative-expression ((&#39;+&#39; | &#39;-&#39;) multiplicative-expression)*
+
+multiplicative-expression ::=
+      cast-expression ((&#39;*&#39; | &#39;/&#39; | &#39;%&#39;) cast-expression)*
+
+cast-expression ::=
+      unary-expression
+    | &#39;(&#39; type-name &#39;)&#39; cast-expression
+
+unary-expression ::=
+      postfix-expression
+    | &quot;++&quot; unary-expression
+    | &quot;--&quot; unary-expression
+    | (&#39;&amp;&#39; | &#39;*&#39; | &#39;+&#39; | &#39;-&#39; | &#39;~&#39; | &#39;!&#39;) cast-expression
+
+postfix-expression ::=
+      primary-expression
+    | postfix-expression &#39;[&#39; expression &#39;]&#39;
+    | postfix-expression &#39;(&#39; (assignment-expression (&#39;,&#39; assignment-expression)*)? &#39;)&#39;
+    | postfix-expression &#39;.&#39; identifier
+    | postfix-expression &quot;-&gt;&quot; identifier
+    | postfix-expression &quot;++&quot;
+    | postfix-expression &quot;--&quot;
+
+primary-expression ::=
+      identifier
+    | integer-constant
+    | floating-constant
+    | string-literal
+    | &#39;(&#39; expression &#39;)&#39;
+
+type-name ::=
+      type-specifier abstract-declarator?
+
+abstract-declarator ::=
+      pointer
+    | pointer? &#39;(&#39; &#39;*&#39; &#39;)&#39; parameter-clause
+    | pointer? &#39;[&#39; integer-constant &#39;]&#39;
+
+constant-expression ::=
+      conditional-expression                       — composed only of literals and unary/binary operators
+</code></pre>
+
+<p>Absent from the output: <code>sizeof</code>, <code>_Alignof</code>, <code>_Countof</code>, <code>_Generic</code>, <code>typeof</code>, compound literals, 
+statement expressions, the Elvis operator, character constants, enumeration constants, <code>nullptr</code>, 
+<code>true</code>/<code>false</code>. The only identifiers that appear in expressions are objects, functions, members, labels and 
+the generated names of section 5.5. Calls to <code>__builtin_alloca</code> / <code>_alloca</code> (5.4.8) and to the helpers of 
+section 5.6 are ordinary function calls.</p>
+
+<h3 id="toc_113">A.7 Lexical elements</h3>
+
+<pre><code>identifier ::=
+      nondigit (nondigit | digit)*                 — includes generated names: &quot;__c…&quot;, &quot;__L…&quot;, &quot;__a&quot;, &quot;__b&quot;,
+                                                     &quot;__vm…&quot;, &quot;__tag…&quot;, &quot;__m…&quot;, &quot;__cake_func_…&quot;
+
+integer-constant ::=
+      &#39;-&#39;? decimal-digits integer-suffix?
+
+integer-suffix ::=
+      &quot;U&quot; | &quot;L&quot; | &quot;UL&quot; | &quot;LL&quot; | &quot;ULL&quot;
+
+floating-constant ::=
+      &#39;-&#39;? decimal-digits &#39;.&#39; decimal-digits exponent? floating-suffix?
+    | &#39;-&#39;? decimal-digits exponent floating-suffix?
+
+exponent ::=
+      (&#39;e&#39; | &#39;E&#39;) (&#39;+&#39; | &#39;-&#39;)? decimal-digits
+
+floating-suffix ::=
+      &#39;f&#39; | &#39;L&#39;
+
+string-literal ::=
+      &#39;L&#39;? &#39;&quot;&#39; s-char* &#39;&quot;&#39;                         — C89 escape sequences; no u8/u/U prefixes
+
+comment ::=
+      &quot;/*&quot; any-text &quot;*/&quot;
+</code></pre>
+
+<p>Integer constants are always decimal (hexadecimal, octal and binary literals are folded). Negative values 
+appear as a <code>-</code> sign followed by the magnitude. Adjacent string literals are concatenated by Cake, so a 
+string literal is always a single token.</p>
+
+<h3 id="toc_114">A.8 Target-dependent spellings</h3>
+
+<p>The grammar above is the same for every target; only a few terminals change:</p>
+
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>GCC / Clang / Catalina targets</th>
+<th>MSVC targets</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td><code>alloca</code></td>
+<td><code>__builtin_alloca</code></td>
+<td><code>_alloca</code></td>
+</tr>
+<tr>
+<td>aligned type</td>
+<td><code>struct __attribute__((aligned(n))) T</code></td>
+<td><code>__declspec(align(n)) struct T</code></td>
+</tr>
+<tr>
+<td>per-member packed</td>
+<td><code>__attribute__((packed))</code></td>
+<td>not emitted</td>
+</tr>
+<tr>
+<td>calling conventions</td>
+<td>not emitted</td>
+<td><code>__cdecl</code>, <code>__stdcall</code>, <code>__fastcall</code></td>
+</tr>
+<tr>
+<td><code>size_t</code> in helper prototypes and <code>sizeof</code> suffix</td>
+<td><code>unsigned long</code> / <code>UL</code> (LP64)</td>
+<td><code>unsigned long long</code> / <code>ULL</code> (x64), <code>unsigned int</code> / <code>U</code> (x86)</td>
+</tr>
+</tbody>
+</table>
+
+<p><code>#pragma pack(push, n)</code> / <code>#pragma pack(pop)</code> is emitted identically for all targets.</p>
 
 <hr>
 

@@ -58,6 +58,7 @@ void codegen_visit_ctx_destroy(_Dtor struct codegen_ctx* ctx)
     hashmap_destroy(&ctx->file_scope_declarator_map);
     hashmap_destroy(&ctx->instantiated_function_literals);
     ss_close(&ctx->block_scope_declarators);
+    free(ctx->vm_snapshot_ids);
     ss_close(&ctx->add_this_before);
     ss_close(&ctx->add_this_before_external_decl);
     ss_close(&ctx->add_this_after_external_decl);
@@ -702,6 +703,45 @@ static const char* get_op_by_expression_type(enum expression_type type)
 
 static void codegen_visit_compound_statement_2(const char* _Opt var_name, struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
 
+/*
+   Emits the runtime value of one VM array dimension.
+
+   A dimension that belongs to a DECLARED type (VLA object, VM pointer, VM
+   parameter, VM typedef) was snapshotted into `__vmN` at its declaration,
+   which is in an enclosing block, so the id is in ctx->vm_snapshot_ids and
+   the snapshot is what C semantics require (`int a[n]; n = 9; sizeof(a)`
+   keeps the old n).
+
+   A dimension of a TYPE-NAME (`sizeof(int[n])`, `_Countof(int[n])`) has no
+   declaration: C evaluates it every time the enclosing expression is, so it
+   is emitted inline. This also keeps it correct inside loop conditions,
+   where a hoisted snapshot would run only once.
+*/
+static void vm_emit_dim(struct codegen_ctx* ctx, struct osstream* oss, const struct type* p_type)
+{
+    bool snapshotted = false;
+    for (int i = 0; i < ctx->vm_snapshot_count; i++)
+    {
+        if (ctx->vm_snapshot_ids[i] == p_type->vm_dim_id)
+        {
+            snapshotted = true;
+            break;
+        }
+    }
+
+    if (snapshotted)
+    {
+        ss_fprintf(oss, "__vm%d", p_type->vm_dim_id);
+    }
+    else
+    {
+        _Assert(p_type->p_array_num_elements_expression != NULL);
+        ss_fprintf(oss, "(%s)(", ctx->size_t_type_name);
+        codegen_visit_expression(ctx, oss, (struct expression*)p_type->p_array_num_elements_expression);
+        ss_fprintf(oss, ")");
+    }
+}
+
 static enum sizeof_result vm_emit_sizeof_expr_core(struct codegen_ctx* ctx,
                                                    struct osstream* oss,
                                                    const struct type* p_type,
@@ -720,7 +760,7 @@ static enum sizeof_result vm_emit_sizeof_expr_core(struct codegen_ctx* ctx,
         {
             if (oss->size > 0)
                 ss_fprintf(oss, " * ");
-            ss_fprintf(oss, "__vm%d", p_type->vm_dim_id);
+            vm_emit_dim(ctx, oss, p_type);
             arraysize = 1;
         }
         else
@@ -903,14 +943,14 @@ static void codegen_emit_flattened_vm_pointer(struct codegen_ctx* ctx, struct os
     type_destroy(&t2);
 }
 
-static void vm_emit_countof_expr(
+static void vm_emit_countof_expr(struct codegen_ctx* ctx,
     struct osstream* oss,
     const struct type* p_type)
 {
     if (p_type->p_array_num_elements_expression != NULL &&
         p_type->array_num_elements <= 0)
     {
-        ss_fprintf(oss, "__vm%d", p_type->vm_dim_id);
+        vm_emit_dim(ctx, oss, p_type);
     }
     else if (p_type->array_num_elements > 0)
     {
@@ -945,7 +985,225 @@ static void codegen_emit_runtime_assert_expr(struct codegen_ctx* ctx, struct oss
     ctx->runtime_assert_used = true;
 }
 
+
+/*
+  _BitInt(N) is lowered to a standard integer with at least N bits, so the
+  generated code has to wrap values to N bits itself.
+
+  "exact" widths (N is the width of the lowered type, e.g. _BitInt(32)) need
+  no wrap on conversions because the standard conversion already does it.
+  Arithmetic results still need it when the lowered type is narrower than
+  int, since the operation is computed in int after promotion.
+*/
+static bool codegen_bitint_is_exact(struct codegen_ctx* ctx, const struct type* p_type)
+{
+    size_t lowered_size = 0;
+    type_get_sizeof(p_type, &lowered_size, ctx->options.target);
+    return (size_t)p_type->bitint_width == lowered_size * 8;
+}
+
+static bool codegen_bitint_conversion_needs_wrap(struct codegen_ctx* ctx, const struct type* p_type)
+{
+    return type_is_bitint(p_type) && !codegen_bitint_is_exact(ctx, p_type);
+}
+
+static bool codegen_bitint_result_needs_wrap(struct codegen_ctx* ctx, const struct type* p_type)
+{
+    if (!type_is_bitint(p_type))
+    {
+        return false;
+    }
+    return !codegen_bitint_is_exact(ctx, p_type) ||
+        p_type->bitint_width < get_platform(ctx->options.target)->int_n_bits;
+}
+
+/*
+  Emits 'text' wrapped to the N bits of p_type and converted to the lowered type.
+
+  unsigned: (T)((unsigned long long)(text) & MASK)
+  signed:   (T)(((long long)((unsigned long long)(text) & MASK) ^ SIGN) - SIGN)
+
+  The signed form is two's complement sign extension written with in-range
+  values only: after the mask the value is below 2^63, the xor flips the sign
+  bit and the subtraction moves the upper half of the range to the negatives.
+  A floating source goes through long long first, the conversion of a negative
+  double to an unsigned type is undefined.
+*/
+static void codegen_emit_bitint_wrap_text(struct codegen_ctx* ctx,
+                                          struct osstream* oss,
+                                          const struct type* p_type,
+                                          const char* text,
+                                          bool source_is_floating)
+{
+    const int width = p_type->bitint_width;
+    const unsigned long long mask = (width >= 64) ? ~0ULL : ((1ULL << width) - 1);
+    const unsigned long long sign = 1ULL << (width - 1);
+
+    struct osstream lowered = { 0 };
+    d_print_type(ctx, &lowered, p_type, NULL, false);
+
+    const char* to_integer = source_is_floating ? "(unsigned long long)(long long)" : "(unsigned long long)";
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
+    {
+        ss_fprintf(oss, "((%s)(%s(%s) & 0x%llxULL))", lowered.c_str, to_integer, text, mask);
+    }
+    else
+    {
+        ss_fprintf(oss, "((%s)(((long long)(%s(%s) & 0x%llxULL) ^ 0x%llxLL) - 0x%llxLL))",
+                   lowered.c_str, to_integer, text, mask, sign, sign);
+    }
+
+    ss_close(&lowered);
+}
+
+/*
+  Emits 'text', an expression already lowered to C, converted to p_target_type.
+  The lowered types cannot do every conversion by themselves: bool is an
+  unsigned char (256 must become 1) and _BitInt(N) is a wider integer (the
+  value must be wrapped to N bits).
+*/
+static void codegen_emit_converted_text(struct codegen_ctx* ctx,
+                                        struct osstream* oss,
+                                        const struct type* p_target_type,
+                                        const char* text,
+                                        bool source_is_floating)
+{
+    if (type_is_bool(p_target_type))
+    {
+        ss_fprintf(oss, "((%s) != 0)", text);
+    }
+    else if (codegen_bitint_conversion_needs_wrap(ctx, p_target_type))
+    {
+        codegen_emit_bitint_wrap_text(ctx, oss, p_target_type, text, source_is_floating);
+    }
+    else
+    {
+        ss_fprintf(oss, "%s", text);
+    }
+}
+
+/*
+  Emits p_expression converted to p_target_type (assignment, initialization,
+  argument passing, return and cast). See codegen_emit_converted_text.
+*/
+static void codegen_emit_converted_expression(struct codegen_ctx* ctx,
+                                              struct osstream* oss,
+                                              const struct type* p_target_type,
+                                              struct expression* p_expression)
+{
+    if (type_is_bool(p_target_type))
+    {
+        expression_to_bool_value(ctx, oss, p_expression);
+    }
+    else if (codegen_bitint_conversion_needs_wrap(ctx, p_target_type) &&
+             !(type_is_bitint(&p_expression->type) &&
+               p_expression->type.bitint_width == p_target_type->bitint_width &&
+               (p_expression->type.type_specifier_flags & TYPE_SPECIFIER_UNSIGNED) == (p_target_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)))
+    {
+        /* a value that already has this _BitInt type is in range, no wrap */
+        struct osstream text = { 0 };
+        codegen_visit_expression(ctx, &text, p_expression);
+        if (text.c_str != NULL)
+        {
+            codegen_emit_bitint_wrap_text(ctx, oss, p_target_type, text.c_str, type_is_floating_point(&p_expression->type));
+        }
+        ss_close(&text);
+    }
+    else
+    {
+        codegen_visit_expression(ctx, oss, p_expression);
+    }
+}
+
+/*
+  'a op= b' and '++a' on a bool or a non exact _BitInt(N): the lowered type
+  cannot convert the result of the operation, so it is emitted as
+  '(a = convert(a op b))'. The left operand is emitted twice, an lvalue with
+  side effects would be evaluated twice.
+*/
+static void codegen_emit_converted_compound_assignment(struct codegen_ctx* ctx,
+                                                       struct osstream* oss,
+                                                       struct expression* p_left,
+                                                       const char* op,
+                                                       struct expression* _Opt p_right,
+                                                       struct type* p_operation_type)
+{
+    struct osstream left = { 0 };
+    struct osstream operation = { 0 };
+
+    codegen_visit_expression(ctx, &left, p_left);
+
+    if (left.c_str != NULL)
+    {
+        ss_fprintf(&operation, "%s %s ", left.c_str, op);
+        if (p_right)
+        {
+            codegen_visit_expression(ctx, &operation, p_right);
+        }
+        else
+        {
+            ss_fprintf(&operation, "1");
+        }
+    }
+
+    if (left.c_str != NULL && operation.c_str != NULL)
+    {
+        ss_fprintf(oss, "(%s = ", left.c_str);
+        codegen_emit_converted_text(ctx, oss, &p_left->type, operation.c_str, type_is_floating_point(p_operation_type));
+        ss_fprintf(oss, ")");
+    }
+
+    ss_close(&left);
+    ss_close(&operation);
+}
+
+static bool codegen_compound_assignment_needs_conversion(struct codegen_ctx* ctx, const struct type* p_left_type)
+{
+    return type_is_bool(p_left_type) || codegen_bitint_conversion_needs_wrap(ctx, p_left_type);
+}
+
+static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstream* oss, struct expression* p_expression);
+
 static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* oss, struct expression* p_expression)
+{
+    /*
+      Arithmetic that produces a _BitInt(N) value is computed in the lowered
+      type and wrapped to N bits here, so every expression of a _BitInt type
+      holds an in-range value.
+    */
+    bool wrap = false;
+    switch (p_expression->expression_type)
+    {
+        case EXPR_ADDITIVE_PLUS:
+        case EXPR_ADDITIVE_MINUS:
+        case EXPR_MULTIPLICATIVE_MULT:
+        case EXPR_SHIFT_LEFT:
+        case EXPR_UNARY_NEG:
+        case EXPR_UNARY_BITNOT:
+            wrap = codegen_bitint_result_needs_wrap(ctx, &p_expression->type);
+        break;
+        default:
+        break;
+    }
+
+    if (wrap)
+    {
+        struct osstream text = { 0 };
+        codegen_visit_expression_core(ctx, &text, p_expression);
+        if (text.c_str != NULL)
+        {
+            codegen_emit_bitint_wrap_text(ctx, oss, &p_expression->type, text.c_str, false);
+        }
+        ss_close(&text);
+    }
+    else
+    {
+        codegen_visit_expression_core(ctx, oss, p_expression);
+    }
+}
+
+static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstream* oss, struct expression* p_expression)
 {
 
     try
@@ -1192,18 +1450,24 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
                         struct osstream ss = { 0 };
 
-                        if ((is_inline || is_local_function_definition || is_auto) && !is_static)
+                        _Assert(p_expression->declarator != NULL);
+
+                        const struct declarator* _Opt p_function_defined
+                        = declarator_get_function_definition(p_expression->declarator);
+
+                        /* An inline function is emitted as static only when
+                           this unit defines it. A bare inline prototype
+                           (ownership.h: inline char* strrchr(...)) names
+                           the external one and must stay external. */
+                        const bool inline_defined_here = is_inline && p_function_defined != NULL;
+
+                        if ((inline_defined_here || is_local_function_definition || is_auto) && !is_static)
                         {
                             ss_fprintf(&ss, "static ");
                         }
                         d_print_type(ctx, &ss, &p_expression->type, declarator_name, true);
                         ss_fprintf(&ctx->add_this_before_external_decl, "%s", ss.c_str);
                         ss_fprintf(&ctx->add_this_before_external_decl, ";\n");
-
-                        _Assert(p_expression->declarator != NULL);
-
-                        const struct declarator* _Opt p_function_defined
-                        = declarator_get_function_definition(p_expression->declarator);
 
                         if (p_function_defined && (is_static || is_inline || is_auto || is_local_function_definition))
                         {
@@ -1389,15 +1653,54 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
 
                 if (p_expression->offsetof_member_designator == NULL) throw;
 
-                ss_fprintf(oss, "__builtin_offsetof(");
-
-                if (p_expression->type_name)
+                if (object_has_constant_value(&p_expression->object))
                 {
-                    d_print_type(ctx, oss, &p_expression->type_name->type, NULL, false);
+                    /* offset computed at compile time */
+                    object_print_value(ctx->options.target, oss, &p_expression->object);
                 }
-                ss_fprintf(oss, ", ");
-                ss_fprintf(oss, "%s", p_expression->offsetof_member_designator->lexeme);
-                ss_fprintf(oss, ")");
+                else
+                {
+                    /*
+                      n3958: some array index is not a constant expression.
+                      Emit  (constant_part + (index1) * elem_size1 + ...)
+                      folding every constant designator into constant_part.
+                    */
+                    unsigned long long constant_part = 0;
+                    struct offsetof_designator* _Opt p_designator = p_expression->offsetof_member_designator;
+                    while (p_designator)
+                    {
+                        if (p_designator->identifier != NULL)
+                        {
+                            constant_part += p_designator->member_offset;
+                        }
+                        else if (p_designator->index != NULL &&
+                                 object_has_constant_value(&p_designator->index->object))
+                        {
+                            constant_part += object_to_unsigned_long_long(&p_designator->index->object) * p_designator->element_size;
+                        }
+                        p_designator = p_designator->next;
+                    }
+
+                    ss_fprintf(oss, "((");
+                    d_print_type(ctx, oss, &p_expression->type, NULL, false);
+                    ss_fprintf(oss, ")%llu", constant_part);
+
+                    p_designator = p_expression->offsetof_member_designator;
+                    while (p_designator)
+                    {
+                        if (p_designator->index != NULL &&
+                            !object_has_constant_value(&p_designator->index->object))
+                        {
+                            ss_fprintf(oss, " + (");
+                            d_print_type(ctx, oss, &p_expression->type, NULL, false);
+                            ss_fprintf(oss, ")(");
+                            codegen_visit_expression(ctx, oss, p_designator->index);
+                            ss_fprintf(oss, ") * %zu", p_designator->element_size);
+                        }
+                        p_designator = p_designator->next;
+                    }
+                    ss_fprintf(oss, ")");
+                }
             break;
 
             case EXPR_UNARY_GCC__BUILTIN_VA_START:
@@ -1496,6 +1799,23 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                 {
                     codegen_vm_ptr_postfix_step(ctx, oss, p_expression->left, "+");
                 }
+                else if (codegen_bitint_conversion_needs_wrap(ctx, &p_expression->left->type))
+                {
+                    /* a++ yields the old value: (a = wrap(a + 1), wrap(a - 1)) */
+                    ss_fprintf(oss, "(");
+                    codegen_emit_converted_compound_assignment(ctx, oss, p_expression->left, "+", NULL, &p_expression->type);
+                    ss_fprintf(oss, ", ");
+
+                    struct osstream old_value = { 0 };
+                    codegen_visit_expression(ctx, &old_value, p_expression->left);
+                    if (old_value.c_str != NULL)
+                    {
+                        ss_fprintf(&old_value, " - 1");
+                        codegen_emit_bitint_wrap_text(ctx, oss, &p_expression->left->type, old_value.c_str, false);
+                    }
+                    ss_close(&old_value);
+                    ss_fprintf(oss, ")");
+                }
                 else
                 {
                     codegen_visit_expression(ctx, oss, p_expression->left);
@@ -1509,6 +1829,23 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                 if (codegen_is_vm_pointer(&p_expression->left->type))
                 {
                     codegen_vm_ptr_postfix_step(ctx, oss, p_expression->left, "-");
+                }
+                else if (codegen_bitint_conversion_needs_wrap(ctx, &p_expression->left->type))
+                {
+                    /* a-- yields the old value: (a = wrap(a - 1), wrap(a + 1)) */
+                    ss_fprintf(oss, "(");
+                    codegen_emit_converted_compound_assignment(ctx, oss, p_expression->left, "-", NULL, &p_expression->type);
+                    ss_fprintf(oss, ", ");
+
+                    struct osstream old_value = { 0 };
+                    codegen_visit_expression(ctx, &old_value, p_expression->left);
+                    if (old_value.c_str != NULL)
+                    {
+                        ss_fprintf(&old_value, " + 1");
+                        codegen_emit_bitint_wrap_text(ctx, oss, &p_expression->left->type, old_value.c_str, false);
+                    }
+                    ss_close(&old_value);
+                    ss_fprintf(oss, ")");
                 }
                 else
                 {
@@ -1579,7 +1916,8 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                             }
                             else
                             {
-                                ss_fprintf(&offset_flat, " * __vm%d", p_type->vm_dim_id);
+                                ss_fprintf(&offset_flat, " * ");
+                                vm_emit_dim(ctx, &offset_flat, p_type);
                             }
                             p_type = p_type->next;
                         }
@@ -1591,6 +1929,22 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                     {
                         ss_close(&offset_flat);
                         throw;
+                    }
+
+                    /*
+                       When the chain stops short of the innermost dimension
+                       (`a[1]` on `int a[n][m]`) the C expression is a
+                       sub-array that decays to a pointer to its first
+                       element. The flattened `A[offset]` is that first
+                       ELEMENT, so take its address -- `&A[offset]` -- to get
+                       what the decay would have produced. Every consumer is
+                       then correct: `int* r = a[1]`, `*a[1]`, `a[1] + k`,
+                       `f(a[1])`, and `&a[1]` (EXPR_UNARY_ADDRESSOF casts
+                       this same pointer to the pointer-to-array type).
+                    */
+                    if (type_is_array(&p_expression->type))
+                    {
+                        ss_fprintf(oss, "&");
                     }
 
                     if (type_is_pointer(&expr->type))
@@ -1645,6 +1999,10 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                     {
                         expression_to_bool_value(ctx, oss, arg->expression);
                     }
+                    else if (param)
+                    {
+                        codegen_emit_converted_expression(ctx, oss, &param->type, arg->expression);
+                    }
                     else
                     {
                         codegen_visit_expression(ctx, oss, arg->expression);
@@ -1673,7 +2031,11 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                    plain pointer holding its base address, so `&a` is just
                    that pointer value -- not the address of the pointer
                    variable -- cast to the pointer-to-array type expected
-                   here. */
+                   here. The same holds for every other VM array-typed
+                   operand: a sub-array `a[1]` / `p[1]` is emitted as
+                   `&A[offset]` (see EXPR_POSTFIX_ARRAY) and `*p` on
+                   `int (*p)[]` decays, so all of them already denote the
+                   element pointer and only need the cast. */
                     ss_fprintf(oss, "(");
                     d_print_type(ctx, oss, &p_expression->type, NULL, false);
                     ss_fprintf(oss, ")");
@@ -1820,7 +2182,8 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                 if (p_expression->type_name != NULL &&
                 type_is_vm(&p_expression->type_name->type))
                 {
-                    vm_emit_snapshot_decls(ctx, &ctx->add_this_before, &p_expression->type_name->type);
+                    /* no snapshot: a type-name's dimensions are evaluated
+                       right here, every time (see vm_emit_dim) */
                     ss_fprintf(oss, "(");
                     vm_emit_sizeof_expr(ctx, oss, &p_expression->type_name->type);
                     ss_fprintf(oss, ")");
@@ -1840,13 +2203,12 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                 if (p_expression->right != NULL &&
                 type_is_vm(&p_expression->right->type))
                 {
-                    vm_emit_countof_expr( oss, &p_expression->right->type);
+                    vm_emit_countof_expr(ctx, oss, &p_expression->right->type);
                 }
                 else if (p_expression->type_name != NULL &&
                 type_is_vm(&p_expression->type_name->type))
                 {
-                    vm_emit_snapshot_decls(ctx, &ctx->add_this_before, &p_expression->type_name->type);
-                    vm_emit_countof_expr( oss, &p_expression->type_name->type);
+                    vm_emit_countof_expr(ctx, oss, &p_expression->type_name->type);
                 }
                 else
                 {
@@ -1865,6 +2227,10 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                 {
                     codegen_vm_ptr_prefix_step(ctx, oss, p_expression->right, "+");
                 }
+                else if (codegen_compound_assignment_needs_conversion(ctx, &p_expression->right->type))
+                {
+                    codegen_emit_converted_compound_assignment(ctx, oss, p_expression->right, "+", NULL, &p_expression->type);
+                }
                 else
                 {
                     ss_fprintf(oss, "++");
@@ -1877,6 +2243,10 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                 if (codegen_is_vm_pointer(&p_expression->right->type))
                 {
                     codegen_vm_ptr_prefix_step(ctx, oss, p_expression->right, "-");
+                }
+                else if (codegen_compound_assignment_needs_conversion(ctx, &p_expression->right->type))
+                {
+                    codegen_emit_converted_compound_assignment(ctx, oss, p_expression->right, "-", NULL, &p_expression->type);
                 }
                 else
                 {
@@ -2057,14 +2427,7 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                     print_cast_array_to_vm(ctx, oss, &p_expression->left->type);
                 }
 
-                if (type_is_bool(&p_expression->left->type))
-                {
-                    expression_to_bool_value(ctx, oss, p_expression->right);
-                }
-                else
-                {
-                    codegen_visit_expression(ctx, oss, p_expression->right);
-                }
+                codegen_emit_converted_expression(ctx, oss, &p_expression->left->type, p_expression->right);
 
             break;
 
@@ -2072,6 +2435,13 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
             case EXPR_ASSIGNMENT_MINUS_ASSIGN:
                 _Assert(p_expression->left != NULL);
                 _Assert(p_expression->right != NULL);
+                if (codegen_compound_assignment_needs_conversion(ctx, &p_expression->left->type))
+                {
+                    const char* op = p_expression->expression_type == EXPR_ASSIGNMENT_PLUS_ASSIGN ? "+" : "-";
+                    codegen_emit_converted_compound_assignment(ctx, oss, p_expression->left, op, p_expression->right, &p_expression->type);
+                    break;
+                }
+
                 if (codegen_is_vm_pointer(&p_expression->left->type) &&
                 !type_is_pointer(&p_expression->right->type))
                 {
@@ -2100,9 +2470,20 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
             case EXPR_ASSIGNMENT_NOT_ASSIGN:
                 _Assert(p_expression->left != NULL);
                 _Assert(p_expression->right != NULL);
-                codegen_visit_expression(ctx, oss, p_expression->left);
-                ss_fprintf(oss, " %s ", get_op_by_expression_type(p_expression->expression_type));
-                codegen_visit_expression(ctx, oss, p_expression->right);
+                if (codegen_compound_assignment_needs_conversion(ctx, &p_expression->left->type))
+                {
+                    /* "*=" -> "*" */
+                    char op[4] = { 0 };
+                    snprintf(op, sizeof op, "%s", get_op_by_expression_type(p_expression->expression_type));
+                    op[strlen(op) - 1] = '\0';
+                    codegen_emit_converted_compound_assignment(ctx, oss, p_expression->left, op, p_expression->right, &p_expression->type);
+                }
+                else
+                {
+                    codegen_visit_expression(ctx, oss, p_expression->left);
+                    ss_fprintf(oss, " %s ", get_op_by_expression_type(p_expression->expression_type));
+                    codegen_visit_expression(ctx, oss, p_expression->right);
+                }
             break;
 
             case EXPR_CAST:
@@ -2117,9 +2498,19 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
                 }
 
                 d_print_type(ctx, &local2, &p_expression->type, NULL, false);
-                ss_fprintf(oss, "(%s)", local2.c_str);
+                if (type_is_bool(&p_expression->type) ||
+                    codegen_bitint_conversion_needs_wrap(ctx, &p_expression->type))
+                {
+                    /* (bool)256 is 1 and (_BitInt(12))4096 is 0, the lowered cast alone gives the wrong value */
+                    ss_fprintf(oss, "(%s)", local2.c_str);
+                    codegen_emit_converted_expression(ctx, oss, &p_expression->type, p_expression->left);
+                }
+                else
+                {
+                    ss_fprintf(oss, "(%s)", local2.c_str);
+                    codegen_visit_expression(ctx, oss, p_expression->left);
+                }
                 ss_close(&local2);
-                codegen_visit_expression(ctx, oss, p_expression->left);
             }
             break;
 
@@ -2430,14 +2821,7 @@ static void codegen_visit_jump_statement(struct codegen_ctx* ctx, struct osstrea
                 {
                     ss_fprintf(oss, " ");
 
-                    if (type_is_bool(&return_type))
-                    {
-                        expression_to_bool_value(ctx, oss, p_jump_statement->expression_opt);
-                    }
-                    else
-                    {
-                        codegen_visit_expression(ctx, oss, p_jump_statement->expression_opt);
-                    }
+                    codegen_emit_converted_expression(ctx, oss, &return_type, p_jump_statement->expression_opt);
                 }
                 ss_fprintf(oss, ";\n");
             }
@@ -2474,14 +2858,7 @@ static void codegen_visit_jump_statement(struct codegen_ctx* ctx, struct osstrea
                         print_cast_array_to_vm(ctx, oss, &return_type);
                     }
 
-                    if (type_is_bool(&return_type))
-                    {
-                        expression_to_bool_value(ctx, oss, p_jump_statement->expression_opt);
-                    }
-                    else
-                    {
-                        codegen_visit_expression(ctx, oss, p_jump_statement->expression_opt);
-                    }
+                    codegen_emit_converted_expression(ctx, oss, &return_type, p_jump_statement->expression_opt);
                 }
                 ss_fprintf(oss, ";\n");
 
@@ -2590,6 +2967,9 @@ static void codegen_visit_iteration_statement(struct codegen_ctx* ctx, struct os
     ctx->break_reference.p_iteration_statement = p_iteration_statement;
     ctx->break_reference.p_selection_statement = NULL;
 
+    /* snapshot ids visible before the `for` declaration block opens */
+    int vm_snapshot_count = ctx->vm_snapshot_count;
+
     try
     {
         print_identation(ctx, oss);
@@ -2629,6 +3009,7 @@ static void codegen_visit_iteration_statement(struct codegen_ctx* ctx, struct os
 
                 struct osstream block_scope_declarators = { 0 };
                 ss_swap(&block_scope_declarators, &ctx->block_scope_declarators);
+                vm_snapshot_count = ctx->vm_snapshot_count;
 
                 struct osstream local = { 0 };
                 emit_line_directive(ctx, &local, p_iteration_statement->declaration->first_token);
@@ -2710,6 +3091,7 @@ static void codegen_visit_iteration_statement(struct codegen_ctx* ctx, struct os
                 ctx->indentation--;
                 print_identation(ctx, oss);
                 ss_fprintf(oss, "}\n");
+                ctx->vm_snapshot_count = vm_snapshot_count;
             }
         }
 
@@ -2741,21 +3123,6 @@ static void codegen_visit_init_statement(struct codegen_ctx* ctx, struct osstrea
         codegen_visit_simple_declaration(ctx, oss, p_init_statement->p_simple_declaration);
 }
 
-static void codegen_visit_condition(struct codegen_ctx* ctx, struct osstream* oss, struct condition* p_condition)
-{
-    if (p_condition->p_init_declarator)
-    {
-        _Assert(p_condition->p_init_declarator->p_declarator->declaration_specifiers);
-        enum storage_class_specifier_flags storage_class_specifier_flags =
-            p_condition->p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags;
-
-        codegen_visit_init_declarator(ctx, oss, p_condition->p_init_declarator, FUNCTION_SPECIFIER_NONE, storage_class_specifier_flags);
-    }
-
-    if (p_condition->expression)
-        codegen_visit_expression(ctx, oss, p_condition->expression);
-}
-
 static bool is_compound_statement(const struct secondary_block* p_secondary_block)
 {
     _Assert(p_secondary_block->statement != NULL);
@@ -2773,15 +3140,153 @@ static bool is_compound_statement(const struct secondary_block* p_secondary_bloc
 static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct osstream* oss, struct selection_statement* p_selection_statement)
 {
     struct osstream ss = { 0 };
+    struct osstream controlling_expression = { 0 };
     try
     {
-        if (p_selection_statement->first_token->type == TK_KEYWORD_SWITCH)
+        _Assert(p_selection_statement->condition != NULL);
+
+        const bool is_switch = p_selection_statement->first_token->type == TK_KEYWORD_SWITCH;
+
+        /*
+        * C2Y 6.8.5.1 selection-header (N3580):
+        *
+        *   expression
+        *   declaration expression
+        *   declaration-condition
+        *
+        * The prologue below is shared by if and switch. Each declaration gets its
+        * own block so the declared object is visible in the secondary block (and in
+        * the else) but not after the statement.
+        */
+        int opened_blocks = 0;
+
+        /* snapshot ids visible before any of those blocks opens */
+        const int vm_snapshot_count = ctx->vm_snapshot_count;
+
+        if (p_selection_statement->p_init_statement)
+        {
+            print_identation(ctx, oss);
+            ss_fprintf(oss, "{\n");
+            ctx->indentation++;
+            opened_blocks++;
+
+            struct osstream block_scope_declarators = { 0 };
+            ss_swap(&block_scope_declarators, &ctx->block_scope_declarators);
+
+            struct osstream local2 = { 0 };
+
+            codegen_visit_init_statement(ctx, &local2, p_selection_statement->p_init_statement);
+
+            if (ctx->block_scope_declarators.c_str)
+            {
+                ss_fprintf(oss, "%s", ctx->block_scope_declarators.c_str);
+                ss_fprintf(oss, "\n");
+            }
+
+            if (local2.c_str)
+            {
+                ss_fprintf(oss, "%s", local2.c_str);
+            }
+            ss_close(&local2);
+
+            ss_swap(&block_scope_declarators, &ctx->block_scope_declarators);
+            ss_close(&block_scope_declarators);
+        }
+
+        if (p_selection_statement->condition->p_init_declarator)
+        {
+            /*
+            * declaration-condition  T D = X  is treated as  T D = X; D
+            */
+            struct init_declarator* p_init_declarator = p_selection_statement->condition->p_init_declarator;
+
+            print_identation(ctx, oss);
+            ss_fprintf(oss, "{\n");
+            ctx->indentation++;
+            opened_blocks++;
+
+            struct osstream block_scope_declarators = { 0 };
+            ss_swap(&block_scope_declarators, &ctx->block_scope_declarators);
+
+            struct osstream local2 = { 0 };
+
+            _Assert(p_init_declarator->p_declarator->declaration_specifiers);
+            enum storage_class_specifier_flags storage_class_specifier_flags =
+                p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags;
+
+            codegen_visit_init_declarator(ctx, &local2, p_init_declarator, FUNCTION_SPECIFIER_NONE, storage_class_specifier_flags);
+
+            if (ctx->block_scope_declarators.c_str)
+            {
+                ss_fprintf(oss, "%s", ctx->block_scope_declarators.c_str);
+                ss_fprintf(oss, "\n");
+            }
+
+            if (local2.c_str)
+            {
+                ss_fprintf(oss, "%s", local2.c_str);
+            }
+            ss_close(&local2);
+
+            ss_swap(&block_scope_declarators, &ctx->block_scope_declarators);
+            ss_close(&block_scope_declarators);
+
+            emit_line_directive(ctx, oss, p_selection_statement->condition->first_token);
+
+            const struct type* decl_type = &p_init_declarator->p_declarator->type;
+
+            if (type_is_constexpr(decl_type) &&
+                type_is_scalar(decl_type) &&
+                !p_init_declarator->p_declarator->address_taken &&
+                object_has_constant_value(&p_init_declarator->p_declarator->object))
+            {
+                /*
+                * codegen_visit_init_declarator does not emit scalar constexpr locals
+                * (uses are folded), so the implicit controlling expression D is
+                * folded here too.
+                */
+                char str[50] = { 0 };
+                object_to_str(&p_init_declarator->p_declarator->object, sizeof str, str);
+                ss_fprintf(&controlling_expression, "%s", str);
+            }
+            else
+            {
+                const char* name = p_init_declarator->p_declarator->name_opt ?
+                    p_init_declarator->p_declarator->name_opt->lexeme : "";
+                ss_fprintf(&controlling_expression, "%s", name);
+            }
+        }
+        else if (p_selection_statement->condition->expression)
+        {
+            emit_line_directive(ctx, oss, p_selection_statement->condition->expression->first_token);
+            codegen_visit_expression(ctx, &controlling_expression, p_selection_statement->condition->expression);
+
+            /*
+               Statements the condition hoisted (VM dimension snapshots for
+               `sizeof(int[n])`, the old-value temp of a VM `p++`, the
+               EXPR_CHECKED temp, ...) go to ctx->add_this_before and are
+               normally flushed by the enclosing block item. They must be
+               written out HERE, ahead of the `if`/`switch` header: the
+               secondary block's own block items start by clearing
+               ctx->add_this_before, which would silently drop them.
+            */
+            if (ctx->add_this_before.size > 0)
+            {
+                ss_fprintf(oss, "%s", ctx->add_this_before.c_str);
+                ss_clear(&ctx->add_this_before);
+            }
+        }
+        else
+        {
+            throw;
+        }
+
+        if (is_switch)
         {
             print_identation(ctx, oss);
             struct break_reference old = ctx->break_reference;
             ctx->break_reference.p_iteration_statement = NULL;
             ctx->break_reference.p_selection_statement = p_selection_statement;
-            _Assert(p_selection_statement->condition != NULL);
 
             ss_fprintf(&ss, "/*switch*/\n");
             print_identation(ctx, &ss);
@@ -2793,18 +3298,15 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
 
             print_identation(ctx, &ss);
 
-            /* a switch always has a controlling expression */
-            if (p_selection_statement->condition->expression == NULL)
-            {
-                throw;
-            }
+            const struct type* controlling_type =
+                p_selection_statement->condition->p_init_declarator ?
+                &p_selection_statement->condition->p_init_declarator->p_declarator->type :
+                &p_selection_statement->condition->expression->type;
 
-            d_print_type(ctx, &ss, &p_selection_statement->condition->expression->type, name, false);
+            d_print_type(ctx, &ss, controlling_type, name, false);
 
             ss_fprintf(&ss, " = ");
-
-            _Assert(p_selection_statement->condition != NULL);
-            codegen_visit_condition(ctx, &ss, p_selection_statement->condition);
+            ss_fprintf(&ss, "%s", controlling_expression.c_str ? controlling_expression.c_str : "");
             ss_fprintf(&ss, ";\n");
 
             struct label* _Opt p_label = p_selection_statement->label_list.head;
@@ -2871,86 +3373,12 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
             //restore
             ctx->break_reference = old;
         }
-        else if (p_selection_statement->first_token->type == TK_KEYWORD_IF)
+        else
         {
-            bool addclose = false;
-            if (p_selection_statement->p_init_statement)
-            {
-                print_identation(ctx, oss);
-                ss_fprintf(oss, "{\n");
-                addclose = true;
-                ctx->indentation++;
-
-                struct osstream block_scope_declarators = { 0 };
-                ss_swap(&block_scope_declarators, &ctx->block_scope_declarators);
-
-                struct osstream local2 = { 0 };
-
-                codegen_visit_init_statement(ctx, &local2, p_selection_statement->p_init_statement);
-
-                if (ctx->block_scope_declarators.c_str)
-                {
-                    ss_fprintf(oss, "%s", ctx->block_scope_declarators.c_str);
-                    ss_fprintf(oss, "\n");
-                }
-
-                ss_fprintf(oss, "%s", local2.c_str);
-                ss_close(&local2);
-
-                ss_swap(&block_scope_declarators, &ctx->block_scope_declarators);
-                ss_close(&block_scope_declarators);
-            }
-
-            if (p_selection_statement->condition)
-            {
-                if (p_selection_statement->condition->p_init_declarator)
-                {
-                    print_identation(ctx, oss);
-                    ss_fprintf(oss, "{\n");
-                    ctx->indentation++;
-                    addclose = true;
-                    struct osstream block_scope_declarators = { 0 };
-                    ss_swap(&block_scope_declarators, &ctx->block_scope_declarators);
-
-                    struct osstream local2 = { 0 };
-
-                    _Assert(p_selection_statement->condition->p_init_declarator->p_declarator->declaration_specifiers);
-                    enum storage_class_specifier_flags storage_class_specifier_flags =
-                        p_selection_statement->condition->p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags;
-
-                    codegen_visit_init_declarator(ctx, &local2, p_selection_statement->condition->p_init_declarator, FUNCTION_SPECIFIER_NONE, storage_class_specifier_flags);
-
-                    if (ctx->block_scope_declarators.c_str)
-                    {
-                        ss_fprintf(oss, "%s", ctx->block_scope_declarators.c_str);
-                        ss_fprintf(oss, "\n");
-                    }
-
-                    ss_fprintf(oss, "%s", local2.c_str);
-                    ss_close(&local2);
-                    ss_swap(&block_scope_declarators, &ctx->block_scope_declarators);
-
-                    emit_line_directive(ctx, oss, p_selection_statement->condition->first_token);
-
-                    const char* name = p_selection_statement->condition->p_init_declarator->p_declarator->name_opt ?
-                        p_selection_statement->condition->p_init_declarator->p_declarator->name_opt->lexeme : "";
-
-                    print_identation(ctx, oss);
-                    ss_fprintf(oss, "if (");
-                    ss_fprintf(oss, "%s", name);
-                    ss_fprintf(oss, ")\n");
-                    ss_close(&block_scope_declarators);
-                }
-                else if (p_selection_statement->condition->expression)
-                {
-                    emit_line_directive(ctx, oss, p_selection_statement->condition->expression->first_token);
-                    print_identation(ctx, oss);
-                    ss_fprintf(oss, "if (");
-                    codegen_visit_expression(ctx, oss, p_selection_statement->condition->expression);
-                    ss_fprintf(oss, ")\n");
-                }
-
-            }
+            print_identation(ctx, oss);
+            ss_fprintf(oss, "if (");
+            ss_fprintf(oss, "%s", controlling_expression.c_str ? controlling_expression.c_str : "");
+            ss_fprintf(oss, ")\n");
 
             if (p_selection_statement->secondary_block == NULL)
                 throw;
@@ -2990,21 +3418,23 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
                     ss_fprintf(oss, "}\n");
                 }
             }
-
-            if (addclose)
-            {
-                ctx->indentation--;
-                print_identation(ctx, oss);
-                ss_fprintf(oss, "}\n");
-
-            }
         }
+
+        while (opened_blocks > 0)
+        {
+            ctx->indentation--;
+            print_identation(ctx, oss);
+            ss_fprintf(oss, "}\n");
+            opened_blocks--;
+        }
+        ctx->vm_snapshot_count = vm_snapshot_count;
     }
     catch
     {
         ctx->error = true;
     }
     ss_close(&ss);
+    ss_close(&controlling_expression);
 }
 
 static void codegen_visit_try_statement(struct codegen_ctx* ctx, struct osstream* oss, struct try_statement* p_try_statement)
@@ -3279,6 +3709,7 @@ static void codegen_visit_compound_statement(struct codegen_ctx* ctx,
 
     struct osstream block_scope_declarators = { 0 };
     ss_swap(&ctx->block_scope_declarators, &block_scope_declarators);
+    const int vm_snapshot_count = ctx->vm_snapshot_count;
 
     struct osstream local = { 0 };
 
@@ -3327,6 +3758,7 @@ static void codegen_visit_compound_statement(struct codegen_ctx* ctx,
     ss_fprintf(oss, "}\n");
     ctx->is_local = is_local; //restore
     ss_swap(&ctx->block_scope_declarators, &block_scope_declarators);
+    ctx->vm_snapshot_count = vm_snapshot_count;
     ss_close(&block_scope_declarators);
     ss_close(&local);
 }
@@ -3338,6 +3770,7 @@ static void codegen_visit_compound_statement_2(const char* _Opt var_name, struct
 
     struct osstream block_scope_declarators = { 0 };
     ss_swap(&ctx->block_scope_declarators, &block_scope_declarators);
+    const int vm_snapshot_count = ctx->vm_snapshot_count;
 
     struct osstream local = { 0 };
 
@@ -3409,6 +3842,7 @@ static void codegen_visit_compound_statement_2(const char* _Opt var_name, struct
     ss_fprintf(oss, "}\n");
     ctx->is_local = is_local; //restore
     ss_swap(&ctx->block_scope_declarators, &block_scope_declarators);
+    ctx->vm_snapshot_count = vm_snapshot_count;
     ss_close(&block_scope_declarators);
     ss_close(&local);
 }
@@ -3425,6 +3859,13 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
 
     int saved_cake_local_declarator_number = ctx->cake_local_declarator_number;
     ctx->cake_local_declarator_number = 0; /* reset */
+
+    /* vm_dim_id restarts at 0 in every function (see parser), and a
+       function body can be emitted on demand from inside another function's
+       visit (static functions), so it must start with no visible snapshots
+       and leave none behind. */
+    const int saved_vm_snapshot_count = ctx->vm_snapshot_count;
+    ctx->vm_snapshot_count = 0; /* reset */
 
     int indentation = ctx->indentation;
     ctx->indentation = 0;
@@ -3472,6 +3913,7 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
     ctx->is__func__predefined_identifier_added = previous_is__func__predefined_identifier_added; //restore
     ctx->indentation = indentation; //restore
     ctx->cake_local_declarator_number = saved_cake_local_declarator_number; //restore
+    ctx->vm_snapshot_count = saved_vm_snapshot_count; //restore
 }
 
 static void register_struct_types_and_functions(struct codegen_ctx* ctx,
@@ -3802,12 +4244,12 @@ static void d_print_type_core(struct codegen_ctx* ctx,
                     enum type_specifier_flags enum_type_specifier_flags =
                     get_enum_type_specifier_flags(p_type->enum_specifier);
 
-                    print_type_specifier_flags(&local, &first, enum_type_specifier_flags);
+                    print_type_specifier_flags(&local, &first, enum_type_specifier_flags, 0);
                 }
                 else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
                 {
                     bool first0 = true;
-                    print_type_specifier_flags(&local, &first0, object_type_to_type_specifier(get_platform(ctx->options.target)->bool_type));
+                    print_type_specifier_flags(&local, &first0, object_type_to_type_specifier(get_platform(ctx->options.target)->bool_type), 0);
                 }
                 else
                 {
@@ -3820,7 +4262,23 @@ static void d_print_type_core(struct codegen_ctx* ctx,
                         print_item(&local, &first, "volatile");
                     }
 
-                    print_type_specifier_flags(&local, &first, p_type->type_specifier_flags);
+                    if (p_type->type_specifier_flags & TYPE_SPECIFIER_BITINT)
+                    {
+                        /*
+                          _BitInt(N) is lowered to the smallest standard integer
+                          that holds N bits. Same size and alignment as
+                          type_get_sizeof/type_get_alignof report.
+                        */
+                        const bool is_unsigned = p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED;
+                        print_type_specifier_flags(&local,
+                                                   &first,
+                                                   bitint_lowered_type_specifier_flags(p_type->bitint_width, is_unsigned, ctx->options.target),
+                                                   0);
+                    }
+                    else
+                    {
+                        print_type_specifier_flags(&local, &first, p_type->type_specifier_flags, 0);
+                    }
                 }
 
                 if (name_opt)
@@ -3843,11 +4301,16 @@ static void d_print_type_core(struct codegen_ctx* ctx,
             break;
             case TYPE_CATEGORY_ARRAY:
             {
+                /* A variably modified array (any dimension a non-constant
+                   expression) is flattened to []. An unspecified size (char
+                   names[][300]) is not VM: it prints [] and the inner
+                   dimensions are kept. */
                 const struct type* _Opt it = p_type;
                 bool vm = false;
                 while (it && it->category == TYPE_CATEGORY_ARRAY)
                 {
-                    if (it->array_num_elements <= 0)
+                    if (it->p_array_num_elements_expression != NULL &&
+                        !object_has_constant_value(&it->p_array_num_elements_expression->object))
                     {
                         vm = true;
                     }
@@ -4809,14 +5272,7 @@ static void print_initializer(struct codegen_ctx* ctx,
                             print_cast_array_to_vm(ctx, oss, &p_init_declarator->p_declarator->type);
                         }
 
-                        if (type_is_bool(&p_init_declarator->p_declarator->type))
-                        {
-                            expression_to_bool_value(ctx, oss, p_init_declarator->initializer->assignment_expression);
-                        }
-                        else
-                        {
-                            codegen_visit_expression(ctx, oss, p_init_declarator->initializer->assignment_expression);
-                        }
+                        codegen_emit_converted_expression(ctx, oss, &p_init_declarator->p_declarator->type, p_init_declarator->initializer->assignment_expression);
                         ss_fprintf(oss, ";\n");
                     }
                 }
@@ -4966,53 +5422,76 @@ static void vm_emit_snapshot_decls(struct codegen_ctx* ctx,
                                    struct osstream* oss_body,
                                    const struct type* p_type)
 {
-    const struct type* _Opt it = p_type;
-    while (it)
+    try
     {
-        if (it->category == TYPE_CATEGORY_ARRAY &&
-            it->p_array_num_elements_expression != NULL &&
-            !object_has_constant_value(&it->p_array_num_elements_expression->object))
+        const struct type* _Opt it = p_type;
+        while (it)
         {
-            char name[100] = { 0 };
-            snprintf(name, sizeof name, "__vm%d;", it->vm_dim_id);
-
-            if (ctx->block_scope_declarators.c_str == NULL ||
-                strstr(ctx->block_scope_declarators.c_str, name) == 0)
+            if (it->category == TYPE_CATEGORY_ARRAY &&
+                it->p_array_num_elements_expression != NULL &&
+                !object_has_constant_value(&it->p_array_num_elements_expression->object))
             {
-                /*
-                 TODO
-                 we could use something else to track this, instead of text search
-                 maybe a list, also if not used we could not emmit the variable
-                */
-                snprintf(name, sizeof name, "__vm%d", it->vm_dim_id);
-
-                /* declaration hoisted to block top */
-                print_identation(ctx, &ctx->block_scope_declarators);
-
-                ss_fprintf(&ctx->block_scope_declarators, "%s %s;\n", ctx->size_t_type_name, name);
-
-                emit_line_directive(ctx, oss_body, it->p_array_num_elements_expression->first_token);
-                /* assignment emitted as a statement in the body */
-                print_identation(ctx, oss_body);
-                ss_fprintf(oss_body, "%s = ", name);
-                codegen_visit_expression(ctx, oss_body, (struct expression*)it->p_array_num_elements_expression);
-                ss_fprintf(oss_body, ";\n");
-            }
-            else
-            {
-                /*Already there, happens with vm typedef*/
-                /*
-                int main(){
-                    int n = 1;
-                    typedef int (*T)[n];
-                    n = 2;
-                    T b;
-                    T c;
+                bool already_declared = false;
+                for (int i = 0; i < ctx->vm_snapshot_count; i++)
+                {
+                    if (ctx->vm_snapshot_ids[i] == it->vm_dim_id)
+                    {
+                        already_declared = true;
+                        break;
+                    }
                 }
-                */
+
+                if (!already_declared)
+                {
+                    if (ctx->vm_snapshot_count == ctx->vm_snapshot_capacity)
+                    {
+                        int new_capacity = ctx->vm_snapshot_capacity == 0 ? 16 : ctx->vm_snapshot_capacity * 2;
+                        int* _Owner _Opt new_ids = realloc(ctx->vm_snapshot_ids, sizeof(int) * new_capacity);
+                        if (new_ids == NULL)
+                        {
+                            throw;
+                        }
+                        ctx->vm_snapshot_ids = new_ids;
+                        ctx->vm_snapshot_capacity = new_capacity;
+                    }
+                    ctx->vm_snapshot_ids[ctx->vm_snapshot_count] = it->vm_dim_id;
+                    ctx->vm_snapshot_count++;
+
+                    char name[100] = { 0 };
+                    snprintf(name, sizeof name, "__vm%d", it->vm_dim_id);
+
+                    /* declaration hoisted to block top */
+                    print_identation(ctx, &ctx->block_scope_declarators);
+
+                    ss_fprintf(&ctx->block_scope_declarators, "%s %s;\n", ctx->size_t_type_name, name);
+
+                    emit_line_directive(ctx, oss_body, it->p_array_num_elements_expression->first_token);
+                    /* assignment emitted as a statement in the body */
+                    print_identation(ctx, oss_body);
+                    ss_fprintf(oss_body, "%s = ", name);
+                    codegen_visit_expression(ctx, oss_body, (struct expression*)it->p_array_num_elements_expression);
+                    ss_fprintf(oss_body, ";\n");
+                }
+                else
+                {
+                    /*Already there, happens with vm typedef*/
+                    /*
+                    int main(){
+                        int n = 1;
+                        typedef int (*T)[n];
+                        n = 2;
+                        T b;
+                        T c;
+                    }
+                    */
+                }
             }
+            it = it->next;
         }
-        it = it->next;
+    }
+    catch
+    {
+        ctx->error = true;
     }
 }
 
@@ -5169,8 +5648,13 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
                 ss_close(&ss);
             }
 
-            /* 3. Initializer (e.g. = malloc(sizeof *p) — sizeof rewritten) */
-            if (p_init_declarator->initializer)
+            /* 3. Initializer (e.g. = malloc(sizeof *p) — sizeof rewritten).
+               A VLA's only legal braced initializer is the empty one, and
+               the alloca path above already emitted its memset; running
+               print_initializer on it would try a compile-time sizeof of
+               the VLA and fail. */
+            if (p_init_declarator->initializer &&
+                !(type_is_vla(decl_type) && p_init_declarator->initializer->braced_initializer))
             {
                 print_initializer(ctx, oss0, p_init_declarator, false);
             }
@@ -5334,16 +5818,33 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
     struct member_declaration* _Opt member_declaration =
         p_complete->member_declaration_list.head;
 
-    if (struct_or_union_specifier_is_union(p_complete))
+    ss_fprintf(ss, "\n");
+
+    /* The layout cake computed assumed this pack value (see get_sizeof_struct);
+       the host compiler must see the same one. */
+    if (p_complete->pack_alignment > 0)
     {
-        ss_fprintf(ss, "\n");
-        ss_fprintf(ss, "union %s", p_complete->tag_name);
+        ss_fprintf(ss, "#pragma pack(push, %d)\n", p_complete->pack_alignment);
     }
-    else
+
+    const bool msvc_target =
+        (ctx->options.target == TARGET_X86_MSVC || ctx->options.target == TARGET_X64_MSVC);
+
+    /* __attribute__((aligned(n))) on the struct: MSVC spells it
+       __declspec(align(n)) and wants it before the keyword. */
+    if (p_complete->aligned_attribute > 0 && msvc_target)
     {
-        ss_fprintf(ss, "\n");
-        ss_fprintf(ss, "struct %s", p_complete->tag_name);
+        ss_fprintf(ss, "__declspec(align(%d)) ", p_complete->aligned_attribute);
     }
+
+    ss_fprintf(ss, struct_or_union_specifier_is_union(p_complete) ? "union " : "struct ");
+
+    if (p_complete->aligned_attribute > 0 && !msvc_target)
+    {
+        ss_fprintf(ss, "__attribute__((aligned(%d))) ", p_complete->aligned_attribute);
+    }
+
+    ss_fprintf(ss, "%s", p_complete->tag_name);
 
     if (p_complete->member_declaration_list.head)
     {
@@ -5395,6 +5896,14 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
                                      &member_declarator->declarator->type,
                                      name,
                                      false);
+
+                        /* __attribute__((packed)) on one member: alignment 1 for
+                           it alone. MSVC has no per-member spelling; there the
+                           whole struct would need #pragma pack. */
+                        if (member_declarator->declarator->gcc_packed && !msvc_target)
+                        {
+                            ss_fprintf(ss, " __attribute__((packed))");
+                        }
                     }
 
                     if (member_declarator->constant_expression)
@@ -5432,6 +5941,11 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
         ss_fprintf(ss, "};\n");
     else
         ss_fprintf(ss, ";\n");
+
+    if (p_complete->pack_alignment > 0)
+    {
+        ss_fprintf(ss, "#pragma pack(pop)\n");
+    }
 }
 
 void d_print_structs(struct codegen_ctx* ctx, struct osstream* ss, struct struct_entry* p_struct_entry)
@@ -5637,7 +6151,8 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
             bool first = true;
             print_type_specifier_flags(&local,
                                        &first,
-                                       object_type_to_type_specifier(get_platform(ctx->options.target)->size_t_type));
+                                       object_type_to_type_specifier(get_platform(ctx->options.target)->size_t_type),
+                                       0);
             snprintf(ctx->size_t_type_name, sizeof ctx->size_t_type_name, "%s", local.c_str);
 
             ss_close(&local);

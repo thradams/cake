@@ -468,22 +468,29 @@ const char* _Owner _Opt find_and_read_include_file(struct preprocessor_ctx* ctx,
     while (current)
     {
         size_t len = strlen(current->path);
-        if (current->path[len - 1] == '/')
-        {
-            snprintf(newpath, full_path_out_size, "%s%s", current->path, path);
-        }
-        else
-        {
-            snprintf(newpath, full_path_out_size, "%s/%s", current->path, path);
-        }
+        const char* separator = current->path[len - 1] == '/' ? "" : "/";
+        snprintf(newpath, sizeof newpath, "%s%s%s", current->path, separator, path);
 
 #ifdef __EMSCRIPTEN__
         /*realpath returns empty on emscriptem*/
         snprintf(full_path_out, full_path_out_size, "%s", newpath);
 #else
         if (!realpath(newpath, full_path_out))
+        {
             full_path_out[0] = '\0';
 
+            /* macOS framework layout: <CoreFoundation/CFBase.h> lives at
+               dir/CoreFoundation.framework/Headers/CFBase.h - the first
+               path component names the framework. */
+            const char* _Opt slash = strchr(path, '/');
+            if (slash != NULL)
+            {
+                snprintf(newpath, sizeof newpath, "%s%s%.*s.framework/Headers/%s",
+                         current->path, separator, (int)(slash - path), path, slash + 1);
+                if (!realpath(newpath, full_path_out))
+                    full_path_out[0] = '\0';
+            }
+        }
 #endif
 
         path_normalize(full_path_out);
@@ -2253,6 +2260,23 @@ static bool is_clang_query_operator(const char* name)
 }
 
 /*
+Is 'name' defined as far as #ifdef / #ifndef / defined(name) are concerned?
+True for a macro, and for the preprocessor operators implemented natively
+above - clang reports those as defined, and SDK headers rely on it
+(sys/cdefs.h does "#ifndef __has_include / #define __has_include(x) 0",
+which would otherwise turn every later __has_include into 0).
+*/
+static bool preprocessor_name_is_defined(const struct preprocessor_ctx* ctx, const char* name)
+{
+    return find_macro(ctx, name) != NULL ||
+        is_clang_query_operator(name) ||
+        strcmp(name, "__has_include") == 0 ||
+        strcmp(name, "__has_include_next") == 0 ||
+        strcmp(name, "__has_embed") == 0 ||
+        strcmp(name, "__has_c_attribute") == 0;
+}
+
+/*
 Evaluate a clang query operator to "0" or "1" for the given target.
 'op' is the operator name, 'arg' the (single) argument text.
 */
@@ -2356,7 +2380,6 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
                 token_delete(p_defined_token);
 
-                struct macro* _Opt macro = find_macro(ctx, input_list->head->lexeme);
                 struct token* _Owner _Opt p_new_token = token_list_pop_front_get(input_list);
                 if (p_new_token == NULL)
                 {
@@ -2373,15 +2396,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
               using them. These operators are implemented natively (not
               as macros), so recognize them here too.
             */
-                const char* const defname = p_new_token->lexeme;
-                const bool is_native_operator =
-                    is_clang_query_operator(defname) ||
-                    strcmp(defname, "__has_include") == 0 ||
-                    strcmp(defname, "__has_include_next") == 0 ||
-                    strcmp(defname, "__has_embed") == 0 ||
-                    strcmp(defname, "__has_c_attribute") == 0;
-
-                if (macro || is_native_operator)
+                if (preprocessor_name_is_defined(ctx, p_new_token->lexeme))
                 {
                     temp = strdup("1");
                 }
@@ -2943,8 +2958,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
 
             if (is_active)
             {
-                struct macro* _Opt macro = find_macro(ctx, input_list->head->lexeme);
-                *p_result = (macro != NULL) ? 1 : 0;
+                *p_result = preprocessor_name_is_defined(ctx, input_list->head->lexeme) ? 1 : 0;
                 //printf("#ifdef %s (%s)\n", input_list->head->lexeme, *p_result ? "true" : "false");
             }
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
@@ -2964,8 +2978,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
 
             if (is_active)
             {
-                struct macro* _Opt macro = find_macro(ctx, input_list->head->lexeme);
-                *p_result = (macro == NULL) ? 1 : 0;
+                *p_result = preprocessor_name_is_defined(ctx, input_list->head->lexeme) ? 0 : 1;
             }
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
             skip_blanks_level( &r, input_list, level);
@@ -6307,6 +6320,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
     add_builtin_define(ctx, "#define __LINE__  0 \n");
     add_builtin_define(ctx, "#define __COUNTER__  0 \n");
     add_builtin_define(ctx, "#define __STDC_VERSION__  202311L \n");
+    add_builtin_define(ctx, "#define __BITINT_MAXWIDTH__  64 \n");
 
     char datastr[100] = { 0 };
     snprintf(datastr, sizeof datastr, "#define __DATE__ \"%s %2d %d\"\n", mon[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);

@@ -385,3 +385,44 @@ static_assert(flags.visible == 1);
 static_assert(flags.locked == 0);
 
 int main() {}
+
+
+/*
+ * 13. BIT-FIELD AFTER A NORMAL MEMBER, SHARING ITS STORAGE UNIT (GCC/Clang)
+ *
+ * GCC places a bit-field at the next free bit as long as it does not
+ * straddle a storage unit of its own type. After "char a" the cursor is at
+ * bit 8; "int b:20" spans bits 8..27, inside the first int unit, so it does
+ * NOT open a new unit at offset 4 - c lands at byte 4 and the size is 8.
+ * When it would straddle (int b:25 -> bits 8..32) it moves to the next
+ * int boundary instead.
+ * Unnamed bit-fields, zero-width or not, never affect the alignment.
+ * (Measured with clang; GCC agrees. MSVC differs and is not asserted.)
+ */
+struct AfterNormal { char a; int b : 20; char c; };
+struct AfterNormalStraddle { char a; int b : 25; };
+struct AfterShort { short a; int b : 20; };
+struct CharBitThenInt { char a; char b : 3; int c : 29; };
+struct UnnamedZero { char a : 3; int : 0; char b; };
+struct UnnamedNonZero { char a : 3; int : 4; char b; };
+struct LongLongInt { long long a : 33; int b : 31; };
+struct IntLongLong { int a : 31; long long b : 33; };
+union CharIntBits { char a; int b : 20; };
+
+#ifndef _MSC_VER
+static_assert(sizeof(struct AfterNormal) == 8, "b shares the first int unit, c at 4");
+static_assert(alignof(struct AfterNormal) == 4, "");
+static_assert(offsetof(struct AfterNormal, c) == 4, "");
+static_assert(sizeof(struct AfterNormalStraddle) == 8, "bits 8..32 would straddle: b moves to 4");
+static_assert(sizeof(struct AfterShort) == 8, "bits 16..35 would straddle: b moves to 4");
+static_assert(sizeof(struct CharBitThenInt) == 8, "bits 11..39 would straddle: c moves to 4");
+static_assert(sizeof(struct UnnamedZero) == 5, ":0 aligns b to 4");
+static_assert(alignof(struct UnnamedZero) == 1, "unnamed bit-field: no alignment");
+static_assert(offsetof(struct UnnamedZero, b) == 4, "");
+static_assert(sizeof(struct UnnamedNonZero) == 2, "7 bits, then b at byte 1");
+static_assert(alignof(struct UnnamedNonZero) == 1, "unnamed bit-field: no alignment");
+static_assert(sizeof(struct LongLongInt) == 8, "b at bits 33..63 inside its int unit");
+static_assert(sizeof(struct IntLongLong) == 8, "b at bits 31..63 inside its long long unit");
+static_assert(sizeof(union CharIntBits) == 4, "");
+static_assert(alignof(union CharIntBits) == 4, "");
+#endif

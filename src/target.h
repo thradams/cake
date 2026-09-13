@@ -30,6 +30,18 @@ enum object_type
     /* signed bitfield = TYPE_SIGNED_BITFIELD_1(141) ... TYPE_SIGNED_BITFIELD_128 (268)*/    
     TYPE_SIGNED_BITFIELD_1,
     TYPE_SIGNED_BITFIELD_128 = (TYPE_SIGNED_BITFIELD_1 + 127),
+
+    /*
+      C23 bit-precise integers, unsigned _BitInt(N) / _BitInt(N).
+      Same value representation as bitfields (N-bit value held in a host
+      long long) but they are not subjected to integer promotion and have
+      their own conversion rank, so they need a range of their own.
+    */
+    TYPE_UNSIGNED_BITINT_1,
+    TYPE_UNSIGNED_BITINT_128 = (TYPE_UNSIGNED_BITINT_1 + 127),
+
+    TYPE_SIGNED_BITINT_1,
+    TYPE_SIGNED_BITINT_128 = (TYPE_SIGNED_BITINT_1 + 127),
 };
 
 

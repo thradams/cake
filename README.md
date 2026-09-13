@@ -17,8 +17,7 @@ on every day. Timeless, efficient, and universal._
 
 _The code that AI now writes runs best where it can be read, verified
 and trusted. A small language with no hidden machinery. C gives the machine
-speed, and the human control and platform independence.
-Cake adds the checks that make that code safer._
+speed, and the human control and platform independence._
 
 
 # About
