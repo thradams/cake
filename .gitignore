@@ -98,3 +98,4 @@ src/cake
 /vc/ide/Debug
 /vc/ide/x64/Debug
 /vc/ide/obj/Win32/Debug/
+/tests/run-tests/out
