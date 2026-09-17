@@ -93,11 +93,8 @@ Because existing C code was not written with nullability in mind, Cake provides
 a pragma to control when the new rules apply:
 
 ```c
-#pragma nullable enable   
-/* absence of _Opt = non-nullable */
-
-#pragma nullable disable  
-/* all pointers are nullable */
+#pragma nullable enable      /* absence of _Opt = non-nullable */
+#pragma nullable disable     /* all pointers are nullable      */
 ```
 
 This lets you migrate code incrementally enabling the rules file-by-file or
@@ -358,11 +355,10 @@ enforcement of these rules.
 ### Enabling Ownership Checks
 
 ```c
-// enables lifetime checks
-#pragma ownership enable  
 
-// equivalent to: nullable enable + ownership enable
-#pragma safety enable      
+#pragma ownership enable  /* checks onwership        */
+#pragma ownership disable  /* ignore onwership checks */
+
 ```
 
 > **Note:** `_Owner` annotations are parsed even when ownership is disabled, but have no effect. Use `#pragma safety enable` as a shorthand for both features.
@@ -435,7 +431,8 @@ fopen("file.txt", "r");  // warning: discarding owner return value
 
 ### Non-Pointer Owner References
 
-Ownership is not limited to pointers. Berkeley sockets, for example, use an integer file descriptor. You can mark any type as an owner:
+Ownership is not limited to pointers.
+Berkeley sockets, for example, use an integer file descriptor. You can mark any type as an owner:
 
 ```c
 _Owner int server_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -618,10 +615,6 @@ void x_delete(_Opt struct X * _Owner _Opt p) {
 }
 ```
 
-
-
-
-
 ### The `_Clear` parameter annotation
 
 `_Clear` tells the analyzer that the function will zero out every member of the
@@ -753,6 +746,8 @@ In C, array types in arguments are pointers. This characteristics is preserved.
 
 To use the owner annotation in an array we do. (Just like const)
 
+<!-- runnable -->
+
 ```c
 #pragma safety enable
 
@@ -779,8 +774,6 @@ It tracks the possible states of every variable at every point in your program.
 #pragma safety enable  // enables flow automatically
 // or compile with: -fanalyzer
 ```
-
-
 
 ### The State Model
 
@@ -811,6 +804,8 @@ The analyzer tracks the following states for each variable:
 
 Use this built-in declaration to inspect a variable's tracked state during development:
 
+<!-- runnable -->
+
 ```c
 #pragma safety enable
 
@@ -827,6 +822,8 @@ int main() {
 `compile_assert(expr)` asks the analyzer to prove `expr` using only what it already knows at that
 point — across every value alternative the flow tracker has recorded, not just one possible path.
 If it can't prove `expr` on every alternative, it warns:
+
+<!-- runnable -->
 
 ```c
 #pragma safety enable
@@ -849,6 +846,9 @@ Unlike `assert()` and `_Assert()`, `compile_assert` is purely a compile-time che
   not — it only reports whether the fact is *already* provable, and leaves the tracked state
   untouched either way:
 
+
+<!-- runnable -->
+
 ```c
 #pragma safety enable
 
@@ -867,14 +867,18 @@ you actually want to establish a fact for the analysis (and the runtime) going f
 
 ### Uninitialized State
 
-Reading an uninitialized variable triggers a warning. This also applies after a move:
+Reading an uninitialized variable triggers a warning.
+
+<!-- runnable -->
 
 ```c
-int * _Owner p = f();
-free(p);   // p is now uninitialized (moved into free)
-free(p);   // warning: p is uninitialized
+#pragma safety enable
+int main()
+{
+  int i;
+  int j = i;
+}
 ```
-
 
 
 ### Moved State
@@ -882,13 +886,21 @@ free(p);   // warning: p is uninitialized
 When you assign an owner to another owner in local scope, the source enters the moved state. The analyzer knows the pointed-to object is still valid but the source no longer owns it:
 
 ```c
-int * _Owner p = f();
-int * _Owner _Opt p2 = 0;
-p2 = p;       // p is now 'moved'
-free(p);      // warning: p was moved
-free(p2);     // ok
-```
+#pragma safety enable
+#include <stdlib.h>
 
+int * _Owner f();
+
+int main()
+{
+    int * _Owner p = f();
+    int * _Owner _Opt p2 = 0;
+
+    p2 = p;   /* p was moved to p2             */
+    free(p);  /* trying to move a moved object */    
+    free(p2); /* ok, moving p2                 */
+}
+```
 
 
 ### Null and Not-Null States
@@ -904,7 +916,6 @@ free(p);
 ```
 
 
-
 ## Chapter 5: Known Limitations
 
 ### Backward `goto` Is Not Analyzed as a Loop
@@ -912,6 +923,7 @@ free(p);
 Unlike `while`/`for`, which run a two-pass analysis to approximate repeated execution, a label is
 visited only once, in top-to-bottom order. A backward `goto` (jumping to a label above it) does not
 re-trigger analysis of the label's body, so the analyzer under-approximates what the jump can do:
+
 
 ```c
 #pragma safety enable

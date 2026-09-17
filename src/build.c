@@ -378,7 +378,7 @@ static void generate_doc(const char* mdfilename, const char* outfile)
         "  <article style=\"max-width: 40em; margin:auto\">\n"
         "    <p><a href=\"index.html\">Home</a>"
         " | <a href=\"manual.html\">Manual</a>"
-        " | <a href=\"ownership.html\">Static Analysis</a>"
+        " | <a href=\"flow.html\">Static Analysis</a>"
         " | <a href=\"playground.html\">Playground</a></p>\n"
         "    <article>\n"
         "    <h1>Cake - C23 and Beyond</h1>\n";
@@ -442,7 +442,7 @@ static void build_docs(void)
     generate_doc("../README.md", "./web/index.html");
     generate_doc("../diagnostics.md", "./web/diagnostics.html");
     generate_doc("../flow3.md", "./web/flow3.html");
-    generate_doc("../ownership.md", "./web/ownership.html");
+    generate_doc("../flow.md", "./web/flow.html");
 
     remove(EXE("hoedown"));
 }
@@ -457,7 +457,7 @@ static void build_inner_tests(void)
 static void build_embedded_files(void)
 {
     print_header("Build embedded files");
-    execute_cmd(RUN EXE("embed") " ./include/" );
+    execute_cmd(RUN EXE("embed") " ./include/builtins" );
 }
 
 static void build_amalgamation(void)

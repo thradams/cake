@@ -77,7 +77,7 @@ enum flow_value_kind
     FLOW_VALUE_KIND_SIGNED = 0, /* .i */
     FLOW_VALUE_KIND_UNSIGNED,   /* .u  */
     FLOW_VALUE_KIND_PTR,        /* .p  means pointer */
-    FLOW_VALUE_KIND_REF,        /* .p  means reference always non null*/
+    FLOW_VALUE_KIND_REF,        /* .p  means reference - non null */
 };
 
 enum flow_imaginary
@@ -7623,47 +7623,46 @@ static int flow_evaluate_alternative_against_constant(const struct flow_alternat
                                                       long long c,
                                                       bool is_equal)
 {
+    bool result = false, known = false;
 
-
+    if (alt->value_kind == FLOW_VALUE_KIND_PTR)
     {
-        bool result = false, known = false;
-        if (alt->value_kind == FLOW_VALUE_KIND_PTR)
+        if (c == 0)
         {
-            if (c == 0)
-            {
-                if (alt->value_relation == FLOW_RELATION_EQUAL)
-                {
-                    result = is_equal ? (alt->value.p == NULL) : (alt->value.p != NULL);
-                    known = true;
-                }
-                else if (alt->value_relation == FLOW_RELATION_NOT_EQUAL)
-                {
-                    /* A NOT_EQUAL pointer alternative is non-null (whether it
-                       records `!= null` directly or a concrete non-null target,
-                       e.g. the result of array-decay pointer arithmetic) --
-                       consistent with flow_alternative_can_be_zero. */
-                    result = is_equal ? false : true;
-                    known = true;
-                }
-            }
-        }
-        else if (alt->value_kind == FLOW_VALUE_KIND_SIGNED || alt->value_kind == FLOW_VALUE_KIND_UNSIGNED)
-        {
-            long long val = (alt->value_kind == FLOW_VALUE_KIND_SIGNED) ? alt->value.i : (long long)alt->value.u;
             if (alt->value_relation == FLOW_RELATION_EQUAL)
             {
-                result = is_equal ? (val == c) : (val != c);
+                result = is_equal ? (alt->value.p == NULL) : (alt->value.p != NULL);
                 known = true;
             }
-            else if (alt->value_relation == FLOW_RELATION_NOT_EQUAL && val == c)
+            else if (alt->value_relation == FLOW_RELATION_NOT_EQUAL)
             {
+                /* A NOT_EQUAL pointer alternative is non-null (whether it
+                    records `!= null` directly or a concrete non-null target,
+                    e.g. the result of array-decay pointer arithmetic) --
+                    consistent with flow_alternative_can_be_zero. */
                 result = is_equal ? false : true;
                 known = true;
             }
         }
-        if (!known) return -1;
-        return result ? 1 : 0;
     }
+    else if (alt->value_kind == FLOW_VALUE_KIND_SIGNED || alt->value_kind == FLOW_VALUE_KIND_UNSIGNED)
+    {
+        long long val = (alt->value_kind == FLOW_VALUE_KIND_SIGNED) ? alt->value.i : (long long)alt->value.u;
+        if (alt->value_relation == FLOW_RELATION_EQUAL)
+        {
+            result = is_equal ? (val == c) : (val != c);
+            known = true;
+        }
+        else if (alt->value_relation == FLOW_RELATION_NOT_EQUAL && val == c)
+        {
+            result = is_equal ? false : true;
+            known = true;
+        }
+    }
+    
+    if (!known) return -1;
+
+    return result ? 1 : 0;
 }
 
 /* Is `anc` on the parent chain of `m` (i.e. an ancestor-or-equal map)? */

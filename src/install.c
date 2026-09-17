@@ -123,7 +123,8 @@ static const InstallEntry INSTALL_ENTRIES[] = {
 #endif
     { "cake.json",         "",        0 , 0},
     { "help",              "help",    1 , 0},
-    { "samples",           "samples", 1 , 0}
+    { "samples",           "samples", 1 , 0},
+    { "include/*.h",       "include", 0 , 0},
 
 };
 #define INSTALL_ENTRIES_COUNT  (sizeof(INSTALL_ENTRIES) / sizeof(INSTALL_ENTRIES[0]))
@@ -235,6 +236,109 @@ static int ensure_directory_exists(const char* path)
         return 0;
     }
 #endif
+    return 1;
+}
+
+/* ------------------------------------------------------------------ */
+/*  fix_cake_json_include_dir()  –  rewrites the first entry of the     */
+/*  "include_dirs" array inside the installed cake.json so that it      */
+/*  points at "<target_dir>/include" (the cake headers we just copied)  */
+/*  instead of the developer's hard-coded path baked into the source    */
+/*  cake.json.                                                          */
+/* ------------------------------------------------------------------ */
+
+static void write_json_escaped_path(FILE* fp, const char* path)
+{
+    const char* p;
+    for (p = path; *p; p++)
+    {
+        if (*p == '\\')
+        {
+            fputc('\\', fp);
+            fputc('\\', fp);
+        }
+        else
+        {
+            fputc(*p, fp);
+        }
+    }
+}
+
+static int fix_cake_json_include_dir(const char* target_dir)
+{
+    char   json_path[PATH_MAX_LEN * 2];
+    char   new_include_dir[PATH_MAX_LEN * 2];
+    FILE* fp;
+    long   size;
+    char* buf;
+    char* bracket;
+    char* q1;
+    char* q2;
+
+    snprintf(json_path, sizeof json_path, "%s%c%s", target_dir, PATH_SEP, "cake.json");
+
+    fp = fopen(json_path, "rb");
+    if (!fp)
+    {
+        fprintf(stderr, "  Warning: could not open \"%s\" to patch include_dirs.\n", json_path);
+        return 0;
+    }
+    fseek(fp, 0, SEEK_END);
+    size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    buf = (char*)malloc((size_t)size + 1);
+    if (!buf)
+    {
+        fclose(fp);
+        return 0;
+    }
+    fread(buf, 1, (size_t)size, fp);
+    buf[size] = '\0';
+    fclose(fp);
+
+    bracket = strstr(buf, "\"include_dirs\"");
+    if (bracket) bracket = strchr(bracket, '[');
+    q1 = bracket ? strchr(bracket, '"') : NULL;
+
+    if (!q1)
+    {
+        fprintf(stderr, "  Warning: \"include_dirs\" not found in \"%s\"; skipping patch.\n", json_path);
+        free(buf);
+        return 0;
+    }
+
+    /* find the matching closing quote of the first array entry */
+    q2 = q1 + 1;
+    while (*q2)
+    {
+        if (*q2 == '\\') { q2 += 2; continue; }
+        if (*q2 == '"') break;
+        q2++;
+    }
+    if (*q2 != '"')
+    {
+        fprintf(stderr, "  Warning: malformed include_dirs entry in \"%s\"; skipping patch.\n", json_path);
+        free(buf);
+        return 0;
+    }
+
+    snprintf(new_include_dir, sizeof new_include_dir, "%s%cinclude", target_dir, PATH_SEP);
+
+    fp = fopen(json_path, "wb");
+    if (!fp)
+    {
+        fprintf(stderr, "  Warning: could not write \"%s\" to patch include_dirs.\n", json_path);
+        free(buf);
+        return 0;
+    }
+    fwrite(buf, 1, (size_t)((q1 + 1) - buf), fp);   /* up to & including opening quote */
+    write_json_escaped_path(fp, new_include_dir);
+    fwrite(q2, 1, strlen(q2), fp);                  /* closing quote through EOF */
+    fclose(fp);
+    free(buf);
+
+    printf("  Updated cake.json include_dirs -> %s\n", new_include_dir);
     return 1;
 }
 
@@ -752,9 +856,9 @@ static void add_to_system_path(const char* target_dir)
     const char* REG_ENV =
         "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment";
 
-    
+
     printf("  Checking system PATH...\n");
-    
+
 
     if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, REG_ENV, 0, KEY_READ, &hkey) != ERROR_SUCCESS)
     {
@@ -860,7 +964,7 @@ static int is_app_path_entry_linux(const char* token)
  */
 static int write_path_to_file(const char* path_file,
                                const char* target_dir,
-                               int*        already_current)
+                               int* already_current)
 {
     FILE* fp;
     int   stale_found = 0;
@@ -917,7 +1021,7 @@ static int write_path_to_file(const char* path_file,
 
 static void add_to_system_path(const char* target_dir)
 {
-    int stale_found    = 0;
+    int stale_found = 0;
     int already_current = 0;
 
     printf("  Checking system PATH...\n");
@@ -1123,19 +1227,9 @@ int main(void)
         }
     }
 
-    /* ---- 4. Create includes/ directory ---------------------------- */
-    {
-        char includes_dir[PATH_MAX_LEN * 2];
 
-        snprintf(includes_dir, sizeof includes_dir,
-                 "%s%cincludes", target_dir, PATH_SEP);
-
-        if (!ensure_directory_exists(includes_dir))
-        {
-            fprintf(stderr, "  Error: could not create directory: %s\n", includes_dir);
-            return 1;
-        }
-    }
+    /* ---- 4. Patch cake.json's include_dirs with the real install dir */
+    fix_cake_json_include_dir(target_dir);
 
     /* ---- 5. Check / update system PATH ---------------------------- */
     add_to_system_path(target_dir);
