@@ -5,7 +5,7 @@
 
 #pragma safety enable
 
-#include "ownership.h"
+#include "cake_compat.h"
 #include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -9203,7 +9203,7 @@ void check_assigment(const struct parser_ctx* ctx,
         diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
                    ctx,
                    p_b_expression->first_token,
-            NULL,
+                   NULL,
                    "void value is not ignored as it ought to be");
         return;
     }
@@ -9224,7 +9224,7 @@ void check_assigment(const struct parser_ctx* ctx,
                 diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
                            ctx,
                            p_b_expression->first_token,
-                    NULL,
+                           NULL,
                            "trying to access to object address");
             }
         }
@@ -9266,7 +9266,7 @@ void check_assigment(const struct parser_ctx* ctx,
 
         diagnostic(W_NULL_CONVERTION,
                    ctx,
-            NULL,
+                   NULL,
                    &marker,
                    "implicit conversion of nullptr constant to 'bool'");
     }
@@ -9368,7 +9368,7 @@ void check_assigment(const struct parser_ctx* ctx,
         }
 
         type_destroy(&b_type_lvalue);
-        // type_destroy(&t2);
+        
         return;
     }
 
@@ -9405,7 +9405,7 @@ void check_assigment(const struct parser_ctx* ctx,
                    " passing null as array");
 
         type_destroy(&b_type_lvalue);
-        // type_destroy(&t2);
+        
         return;
     }
 
@@ -9550,8 +9550,9 @@ void check_assigment(const struct parser_ctx* ctx,
                     diagnostic(W_DISCARDED_QUALIFIERS, ctx,
                                p_b_expression->first_token, NULL,
                                assignment_type == ASSIGMENT_TYPE_PARAMETER
-                        ? "discarding const qualifier at argument"
-                        : "discarding const qualifier");
+                                ? "discarding const qualifier at argument"
+                                : "discarding const qualifier");
+                                
                     type_destroy(&b_next);
                     type_destroy(&a_next);
                     break; /* one diagnostic per assignment is enough */

@@ -1,6 +1,6 @@
 #pragma safety enable
 #include "version.h"
-#include "ownership.h"
+#include "cake_compat.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -995,19 +995,19 @@ static void codegen_emit_runtime_assert_expr(struct codegen_ctx* ctx, struct oss
   Arithmetic results still need it when the lowered type is narrower than
   int, since the operation is computed in int after promotion.
 */
-static bool codegen_bitint_is_exact(struct codegen_ctx* ctx, const struct type* p_type)
+static bool codegen_bitint_is_exact(const struct codegen_ctx* ctx, const struct type* p_type)
 {
     size_t lowered_size = 0;
     type_get_sizeof(p_type, &lowered_size, ctx->options.target);
     return (size_t)p_type->bitint_width == lowered_size * 8;
 }
 
-static bool codegen_bitint_conversion_needs_wrap(struct codegen_ctx* ctx, const struct type* p_type)
+static bool codegen_bitint_conversion_needs_wrap(const struct codegen_ctx* ctx, const struct type* p_type)
 {
     return type_is_bitint(p_type) && !codegen_bitint_is_exact(ctx, p_type);
 }
 
-static bool codegen_bitint_result_needs_wrap(struct codegen_ctx* ctx, const struct type* p_type)
+static bool codegen_bitint_result_needs_wrap(const struct codegen_ctx* ctx, const struct type* p_type)
 {
     if (!type_is_bitint(p_type))
     {
@@ -1127,7 +1127,7 @@ static void codegen_emit_converted_compound_assignment(struct codegen_ctx* ctx,
                                                        struct expression* p_left,
                                                        const char* op,
                                                        struct expression* _Opt p_right,
-                                                       struct type* p_operation_type)
+                                                       const struct type* p_operation_type)
 {
     struct osstream left = { 0 };
     struct osstream operation = { 0 };
@@ -1158,7 +1158,7 @@ static void codegen_emit_converted_compound_assignment(struct codegen_ctx* ctx,
     ss_close(&operation);
 }
 
-static bool codegen_compound_assignment_needs_conversion(struct codegen_ctx* ctx, const struct type* p_left_type)
+static bool codegen_compound_assignment_needs_conversion(const struct codegen_ctx* ctx, const struct type* p_left_type)
 {
     return type_is_bool(p_left_type) || codegen_bitint_conversion_needs_wrap(ctx, p_left_type);
 }
@@ -1811,6 +1811,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     if (old_value.c_str != NULL)
                     {
                         ss_fprintf(&old_value, " - 1");
+                        _Assert(old_value.c_str != NULL);
                         codegen_emit_bitint_wrap_text(ctx, oss, &p_expression->left->type, old_value.c_str, false);
                     }
                     ss_close(&old_value);
@@ -1842,6 +1843,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     if (old_value.c_str != NULL)
                     {
                         ss_fprintf(&old_value, " + 1");
+                         _Assert(old_value.c_str != NULL);
                         codegen_emit_bitint_wrap_text(ctx, oss, &p_expression->left->type, old_value.c_str, false);
                     }
                     ss_close(&old_value);
@@ -5451,7 +5453,7 @@ static void vm_emit_snapshot_decls(struct codegen_ctx* ctx,
                         {
                             throw;
                         }
-                        ctx->vm_snapshot_ids = new_ids;
+                        ctx->vm_snapshot_ids = new_ids; //lint 26 (realloc)
                         ctx->vm_snapshot_capacity = new_capacity;
                     }
                     ctx->vm_snapshot_ids[ctx->vm_snapshot_count] = it->vm_dim_id;

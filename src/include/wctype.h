@@ -1,3 +1,5 @@
+#ifdef CAKE_HEADERS
+
 #ifndef WCTYPE_H
 #define WCTYPE_H
 
@@ -22,3 +24,6 @@ int towlower(int wc);
 int towupper(int wc);
 
 #endif /* WCTYPE_H */
+#else
+#include_next <wctype.h>
+#endif

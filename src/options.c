@@ -4,7 +4,7 @@
 */
 
 #pragma safety enable
-#include "ownership.h"
+#include "cake_compat.h"
 #include "options.h"
 #include <string.h>
 #include "console.h"
@@ -249,6 +249,10 @@ int fill_options(struct options* options,
     int argc,
     const char** argv)
 {
+    
+#ifdef __EMSCRIPTEN__
+    options->use_cake_headers = true;
+#endif
 
     options->target = TARGET_DEFAULT;
 
@@ -285,6 +289,12 @@ int fill_options(struct options* options,
             /*
               Valid, but handled with preprocessor
             */
+            continue;
+        }
+
+        if (strcmp(argv[i], "-cake-headers") == 0)
+        {
+            options->use_cake_headers = true;
             continue;
         }
 

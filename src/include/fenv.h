@@ -1,3 +1,4 @@
+#ifdef CAKE_HEADERS
 
 
 #define   __STDC_VERSION_FENV_H__ 
@@ -69,3 +70,7 @@ int fegetenv(fenv_t* envp);
 int feholdexcept(fenv_t* envp);
 int fesetenv(const fenv_t* envp);
 int feupdateenv(const fenv_t* envp);
+#else
+
+#include_next <fenv.h>
+#endif

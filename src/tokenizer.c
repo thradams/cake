@@ -36,7 +36,7 @@
 */
 #pragma safety enable
 
-#include "ownership.h"
+#include "cake_compat.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
@@ -80,6 +80,9 @@
   TODO create a variable do remove tokens from disabled blocks
 */
 static int CAKE_INCLUDE_EXTRA_TOKENS = 1;
+
+
+#define CAKE_MAX_INCLUDE_DEPTH 200
 
 ///////////////////////////////////////////////////////////////////////////////
 void naming_convention_macro(struct preprocessor_ctx* ctx, const struct token* token);
@@ -301,11 +304,22 @@ struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const ch
         if (p_new_include_dir == NULL)
             throw;
 
-        size_t len = strlen(path);
-        if (path[len - 1] == '\\')
+        
+        char normalized[FS_MAX_PATH] = { 0 };
+        snprintf(normalized, sizeof normalized, "%s", path);
+        path_normalize(normalized);
+
+        size_t len = strlen(normalized);
+        if (len == 0)
+        {
+            free(p_new_include_dir);
+            throw;
+        }
+
+        if (normalized[len - 1] == '\\')
         {
             //windows path format ending with \ .
-            const char* _Owner _Opt temp = strdup(path);
+            const char* _Owner _Opt temp = strdup(normalized);
             if (temp == NULL)
             {
                 free(p_new_include_dir);
@@ -313,7 +327,7 @@ struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const ch
             }
             p_new_include_dir->path = temp;
         }
-        else if (path[len - 1] != '/')
+        else if (normalized[len - 1] != '/')
         {
             /*
               not ending with \, we add it
@@ -326,11 +340,11 @@ struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const ch
             }
 
             p_new_include_dir->path = temp;
-            snprintf((char*)p_new_include_dir->path, len + 2, "%s/", path);
+            snprintf((char*)p_new_include_dir->path, len + 2, "%s/", normalized);
         }
         else
         {
-            const char* _Owner _Opt temp = strdup(path);
+            const char* _Owner _Opt temp = strdup(normalized);
             if (temp == NULL)
             {
                 free(p_new_include_dir);
@@ -395,6 +409,7 @@ static bool pragma_once_already_included(const struct preprocessor_ctx* ctx, con
 const char* _Owner _Opt find_and_read_include_file(struct preprocessor_ctx* ctx,
                                                    const char* path, /*as in include*/
                                                    const char* current_file_dir, /*this is the dir of the file that includes*/
+                                                   const char* current_file_full_path, /*full path of the file containing the #include/#include_next - used to resolve #include_next's starting point; may be empty when include_next is false*/
     bool is_angle_bracket_form,
     bool* p_already_included, /*out file already included pragma once*/
                                                    char full_path_out[], /*this is the final full path of the file*/
@@ -464,7 +479,44 @@ const char* _Owner _Opt find_and_read_include_file(struct preprocessor_ctx* ctx,
     /*
        Searching on include directories
     */
-    struct include_dir* _Opt current = ctx->include_dir.head;
+    struct include_dir* _Opt search_start = ctx->include_dir.head;
+
+    if (include_next)
+    {
+        struct include_dir* _Opt best_match = NULL;
+        size_t best_match_len = 0;
+
+        if (current_file_full_path != NULL && current_file_full_path[0] != '\0')
+        {
+            for (struct include_dir* _Opt p = ctx->include_dir.head; p; p = p->next)
+            {
+                size_t plen = strlen(p->path);
+                if (plen > 0 &&
+                    plen > best_match_len &&
+                    strncmp(current_file_full_path, p->path, plen) == 0)
+                {
+                    best_match = p;
+                    best_match_len = plen;
+                }
+            }
+        }
+
+        if (best_match != NULL)
+        {
+            /* resume right after the directory the current file came from */
+            search_start = best_match->next;
+        }
+        else
+        {
+            /*
+              Could not determine which include directory produced the
+              current file
+            */
+            search_start = ctx->include_dir.head;
+        }
+    }
+
+    struct include_dir* _Opt current = search_start;
     while (current)
     {
         size_t len = strlen(current->path);
@@ -503,14 +555,7 @@ const char* _Owner _Opt find_and_read_include_file(struct preprocessor_ctx* ctx,
         content = read_file(full_path_out, true);
         if (content != NULL)
         {
-            if (include_next)
-            {
-                free(content);
-                content = NULL;
-                include_next = false;
-            }
-            else
-                return content;
+            return content;
         }
         current = current->next;
     }
@@ -2497,6 +2542,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 const char* _Owner _Opt s = find_and_read_include_file(ctx,
                                                                        path,
                                                                        fullpath,
+                                                                       "", /*current_file_full_path - unused, include_next is always false here*/
                                                                        is_angle_bracket_form,
                                                                        &already_included,
                                                                        full_path_result,
@@ -3897,7 +3943,15 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 token_list_destroy(&pptokens);
             }
 
-            char path[100] = { 0 };
+            if (level + 1 > CAKE_MAX_INCLUDE_DEPTH)
+            {
+                preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, input_list->head,
+                    "#include nested too deeply (possible include cycle, limit is %d)",
+                    CAKE_MAX_INCLUDE_DEPTH);
+                throw;
+            }
+
+            char path[FS_MAX_PATH] = { 0 };
             bool is_angle_bracket_form = false;
             if (input_list->head->type == TK_STRING_LITERAL)
             {
@@ -3952,10 +4006,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
 
             path[strlen(path) - 1] = '\0';
+            char current_file_full_path[FS_MAX_PATH] = { 0 };
+            snprintf(current_file_full_path, sizeof current_file_full_path, "%s", r.tail->token_origin ? r.tail->token_origin->lexeme : "");
 
             /*this is the dir of the current file*/
-            char current_file_dir[300] = { 0 };
-            snprintf(current_file_dir, sizeof current_file_dir, "%s", r.tail->token_origin ? r.tail->token_origin->lexeme : "");
+            char current_file_dir[FS_MAX_PATH] = { 0 };
+            snprintf(current_file_dir, sizeof current_file_dir, "%s", current_file_full_path);
             dirname(current_file_dir);
 
             char full_path_result[200] = { 0 };
@@ -3963,6 +4019,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             const char* _Owner _Opt content = find_and_read_include_file(ctx,
                                                                          path + 1,
                                                                          current_file_dir,
+                                                                         current_file_full_path,
                                                                          is_angle_bracket_form,
                                                                          &already_included,
                                                                          full_path_result,
@@ -6219,7 +6276,7 @@ void check_unused_macros(const struct hash_map* map)
     }
 }
 
-// cakeconf.h always lives next to the cake executable
+// cake.json always lives next to the cake executable
 void get_cake_config_path(char* out, size_t out_size)
 {
     char executable_path[FS_MAX_PATH - sizeof(CAKE_CONFIG_FILE_NAME)] = { 0 };
@@ -6228,7 +6285,7 @@ void get_cake_config_path(char* out, size_t out_size)
     snprintf(out, out_size, "%s/" CAKE_CONFIG_FILE_NAME, executable_path);
 }
 
-int include_config_header(struct preprocessor_ctx* ctx)
+int preprocessor_load_config(struct preprocessor_ctx* ctx)
 {
     ctx->cake_config_found = false;
 
@@ -6291,6 +6348,7 @@ static bool is_builtin_macro(const char* name)
 
     return false;
 }
+
 static void add_builtin_define(struct preprocessor_ctx* ctx, const char* text)
 {
     struct tokenizer_ctx tctx = { 0 };
@@ -6325,14 +6383,21 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
     char datastr[100] = { 0 };
     snprintf(datastr, sizeof datastr, "#define __DATE__ \"%s %2d %d\"\n", mon[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);
     add_builtin_define(ctx, datastr);
+
     char timestr[100] = { 0 };
     snprintf(timestr, sizeof timestr, "#define __TIME__ \"%02d:%02d:%02d\"\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
-    add_builtin_define(ctx, datastr);
+    add_builtin_define(ctx, timestr);
+
+
+    if (ctx->options.use_cake_headers)
+    {
+        add_builtin_define(ctx, "#define CAKE_HEADERS\n");
+    }
 
     /*
-  Some macros are dynamic like __LINE__ they are replaced  at
-  macro_copy_replacement_list but they need to be registered here.
-*/
+     Some macros are dynamic like __LINE__ they are replaced  at
+     macro_copy_replacement_list but they need to be registered here.
+   */
 
     const char* pre_defined_macros_text = target_get_predefined_macros(target);
 

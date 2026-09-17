@@ -7,7 +7,7 @@
 
 #include "type.h"
 #include  "tokenizer.h"
-#include "ownership.h"
+#include "cake_compat.h"
 #include "object.h"
 
 struct parser_ctx;

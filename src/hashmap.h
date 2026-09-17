@@ -5,7 +5,7 @@
 
 #pragma once
 #include <stddef.h>
-#include "ownership.h"
+#include "cake_compat.h"
 
 struct declarator;
 struct enumerator;

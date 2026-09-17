@@ -5,7 +5,8 @@
 
 #pragma safety enable
 
-#include "ownership.h"
+#include "cake_compat.h"
+#include <stdlib.h>
 #include "fs.h"
 #include <wchar.h>
 
@@ -13,7 +14,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include "error.h"
-#include <stdlib.h>
+
 
 #ifdef _WIN32
 #include <Windows.h>

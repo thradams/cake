@@ -2,6 +2,7 @@
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
+#ifdef CAKE_HEADERS
 
 #pragma once
 typedef int wchar_t;
@@ -55,3 +56,6 @@ char* setlocale(
 );
 
 struct lconv* localeconv(void);
+#else
+#include_next <locale.h>
+#endif

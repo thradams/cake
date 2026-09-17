@@ -1,3 +1,5 @@
+#ifdef CAKE_HEADERS
+
 #pragma once
 
 #ifdef _WIN32
@@ -218,3 +220,8 @@
 #if __GNUC__
 #warning TODO
 #endif
+
+#else
+#include_next <inttypes.h>
+#endif
+

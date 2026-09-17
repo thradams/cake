@@ -3,6 +3,9 @@
  *  https://github.com/thradams/cake
 */
 
+#ifdef CAKE_HEADERS
+
+
 #define unreachable() do {} while(0) 
 typedef long int ptrdiff_t;
 typedef unsigned long size_t;
@@ -14,3 +17,6 @@ typedef struct {
 
 typedef typeof(nullptr) nullptr_t;
 
+#else
+#include_next <stddef.h>
+#endif

@@ -1,3 +1,6 @@
+
+#ifdef CAKE_HEADERS
+
 #ifndef CTYPE_H
 #define CTYPE_H
 
@@ -20,3 +23,8 @@ int tolower(int c);
 int toupper(int c);
 
 #endif /* CTYPE_H */
+
+#else
+#include_next <ctype.h>
+#endif
+

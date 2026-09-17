@@ -6,7 +6,7 @@
 
 #pragma once
 #include "parser.h"
-#include "ownership.h"
+#include "cake_compat.h"
 #include "osstream.h"
 #include "hashmap.h"
 
@@ -106,3 +106,5 @@ struct codegen_ctx
 /* Returns 0 on success, non-zero if code generation failed (ctx->error). */
 int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss);
 void codegen_visit_ctx_destroy(_Dtor struct codegen_ctx* ctx);
+
+

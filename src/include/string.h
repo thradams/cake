@@ -1,4 +1,5 @@
- 
+#ifdef CAKE_HEADERS
+
 typedef int errno_t;
 typedef unsigned long size_t;
 typedef unsigned long rsize_t;
@@ -76,3 +77,10 @@ int strnicmp(char const* _String1, char const* _String2, size_t _MaxCount);
 char* strnset(char* _String, int _Value, size_t _MaxCount);
 char* strrev(char* _String);
 char* strset(char* _String, int _Value); char* strupr(char* _String);
+#else
+
+char* _Owner _Opt strdup(const char* src);
+
+#include_next <string.h>
+#endif
+

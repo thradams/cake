@@ -1,6 +1,6 @@
 #pragma safety enable
 
-#include "ownership.h"
+#include "cake_compat.h"
 #include "target.h"
 #include <limits.h>
 #include <assert.h>

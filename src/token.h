@@ -6,7 +6,7 @@
 #pragma once
 
 #include <stdbool.h>
-#include "ownership.h"
+#include "cake_compat.h"
 #include "options.h" /*enum diagnostic_ouput_format*/
 
 enum token_type

@@ -1,3 +1,5 @@
+#ifdef CAKE_HEADERS
+
 #pragma once
 #define __STDC_VERSION_UCHAR_H__ 202311L
  
@@ -13,4 +15,7 @@
 #endif
 
 
+#else
+#include_next <uchar.h>
 
+#endif

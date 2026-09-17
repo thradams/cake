@@ -3,6 +3,8 @@
  *  https://github.com/thradams/cake
 */
 
+#ifdef CAKE_HEADERS
+
 #pragma once
 
 double acos(double __x);
@@ -212,3 +214,7 @@ long double fmaxl(long double __x, long double __y);
 long double fminl(long double __x, long double __y);
 long double fmal(long double __x, long double __y, long double __z);
 long double scalbl(long double __x, long double __n);
+#else
+#include_next <math.h>
+#endif
+

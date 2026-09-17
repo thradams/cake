@@ -22,49 +22,49 @@ incrementally in an existing codebase.
 
 ### Contracts in the age of AI
 
-It is always too early to predict the future, even when the future is already
-happening. We try to extrapolate what will happen, but reality pushes with
-forces from all sides. Some of them we can see: everyone wants local AI,
-everyone wants to pay less, everyone wants to be more productive. But the
-direction those forces take, how they interfere with each other, and the ones
-we cannot imagine yet, are hard to predict. What can be said today is
-narrower, and it is enough: more and more C is now written, or at least
-drafted, by AI tools. With AI code, readability and understanding become the
-bottleneck. Cake's annotations add a few more words to read, but I believe
-they improve understanding: a signature that says `_Owner` or `_Opt` gives a
-precise contract, where plain C leaves the reader to guess, or to read long
-generated comments instead. 
+It  is  always  too early to predict the future, even when the future is already
+happening.  We  try  to  extrapolate  what  will happen, but reality pushes with
+forces  from  all  sides.  Some  of  them  we  can see: everyone wants local AI,
+everyone  wants  to  pay  less,  everyone  wants  to be more productive. But the
+direction those forces take, how they interfere with each other, and the ones we
+cannot imagine yet, are hard to predict. What can be said today is narrower, and
+it  is enough: more and more C is now written, or at least drafted, by AI tools.
+With  AI  code,  readability  and  understanding  become  the bottleneck. Cake's
+annotations  add  a  few  more  words  to  read,  but  I  believe  they  improve
+understanding:  a  signature  that  says  `_Owner`  or  `_Opt`  gives  a precise
+contract,  where  plain  C leaves the reader to guess, or to read long generated
+comments instead.
 
-The annotations described here turn those unspoken assumptions into contracts
-the compiler can check. `_Owner`, `_Opt`, `_Out` and `_Dtor` state, in the
-signature, who releases what and what may be null - and the analyzer verifies
-that every caller and every implementation honors it. The contract is part of
-the source, so it is read by the same tools that write the code. In practice,
-AI assistants understand Cake's annotations without being taught them: given a
-file that already uses `_Owner` and `_Opt`, they pick up the pattern and apply
-it to the code they add - releasing what is returned as `_Owner`, checking what
-is declared `_Opt`, annotating new functions the same way.
+The  annotations  described  here turn those unspoken assumptions into contracts
+the  compiler  can  check.  `_Owner`,  `_Opt`,  `_Out` and `_Dtor` state, in the
+signature,  who  releases  what and what may be null - and the analyzer verifies
+that  every  caller  and every implementation honors it. The contract is part of
+the source, so it is read by the same tools that write the code. In practice, AI
+assistants understand Cake's annotations without being taught them: given a file
+that  already uses `_Owner` and `_Opt`, they pick up the pattern and apply it to
+the  code  they  add  - releasing what is returned as `_Owner`, checking what is
+declared `_Opt`, annotating new functions the same way.
 
-An AI assistant and Cake also work well as a loop: the AI writes, Cake judges,
-the warnings go back to the AI. It scales to a large batch of warnings -
-Cake's diagnostics are precise enough (one line, one message, one fix) that an
-assistant can read a long list of them and apply the fixes one by one,
-re-running the analyzer between rounds until the list is empty. A concrete example is
-warning 82, *parameter could point to const*: Cake proves that a parameter is
-never written through and could be `const`. Driving that warning through the
-AI loop on Cake's own sources produced hundreds of `const` refactorings, each
-one verified by the analyzer rather than by hand.
+An  AI  assistant and Cake also work well as a loop: the AI writes, Cake judges,
+the  warnings go back to the AI. It scales to a large batch of warnings - Cake's
+diagnostics  are  precise  enough  (one  line,  one  message,  one  fix) that an
+assistant  can  read  a  long  list  of  them  and  apply  the fixes one by one,
+re-running  the  analyzer  between  rounds  until  the list is empty. A concrete
+example  is  warning  82,  *parameter  could point to const*: Cake proves that a
+parameter  is  never  written through and could be `const`. Driving that warning
+through  the  AI  loop  on  Cake's  own  sources  produced  hundreds  of `const`
+refactorings, each one verified by the analyzer rather than by hand.
 
-Cake's annotations on their own cannot interfere with code generation: they
-are checked, not compiled, and the generated code is the same with or without
-them. What they do demand is the migration. Taking an unannotated codebase to
-an annotated one is a very demanding task - every owner, every nullable
-pointer, every out parameter has to be found and written down. The Cake + AI
-loop is what makes it possible: hundreds of warnings removed and the
-annotations added, file by file, with the analyzer checking each step. The
-feeling after that job is that the code is in a much safer state than it was
-before - and it is not only a feeling. The rules are now checked mechanically,
-on every build, and they will stay checked.
+Cake's  annotations on their own cannot interfere with code generation: they are
+checked,  not compiled, and the generated code is the same with or without them.
+What  they  do  demand  is  the  migration. Taking an unannotated codebase to an
+annotated  one  is  a very demanding task - every owner, every nullable pointer,
+every out parameter has to be found and written down. The Cake + AI loop is what
+makes  it possible: hundreds of warnings removed and the annotations added, file
+by  file,  with  the  analyzer checking each step. The feeling after that job is
+that the code is in a much safer state than it was before - and it is not only a
+feeling.  The  rules are now checked mechanically, on every build, and they will
+stay checked.
 
 
 
@@ -93,11 +93,11 @@ Because existing C code was not written with nullability in mind, Cake provides
 a pragma to control when the new rules apply:
 
 ```c
-// new rules apply: absence of _Opt = non-nullable
 #pragma nullable enable   
+/* absence of _Opt = non-nullable */
 
-// Unannotated source: all unannotated pointers are nullable
 #pragma nullable disable  
+/* all pointers are nullable */
 ```
 
 This lets you migrate code incrementally enabling the rules file-by-file or
@@ -132,10 +132,10 @@ explicitly allowed:
 ```c
 #pragma nullable enable
 
-char * get_name();   // returns non-nullable
+char * get_name();   /* returns non-nullable */
 
 int main() {
-  char * _Opt s = get_name();  // ok: widening to nullable
+  char * _Opt s = get_name();  /* ok: widening to nullable */
 }
 ```
 
@@ -184,13 +184,10 @@ check a pointer, the analyzer knows it is non-null inside the guarded block.
 
 
 
-### //lint
+### Acknowledging a warning with `//lint`
 
-Because Cake's analysis is not inter-procedural, it cannot infer postconditions
-from called functions.
-
-When the analyzer cannot determine a pointer's state on its own, you can use
-`//lint warning-number`:
+There are some situations where the user must acknowledge a warning. 
+For instance, consider this example:
 
 <!-- runnable -->
 
@@ -209,6 +206,21 @@ void f(struct X * p) {
    }
 }
 ```
+
+Because  the  static analysis is not interprocedural, and because, so far, we do
+not  have  a  way to express the contract of is_empty, we need a way to suppress
+the  warning  about p begin null. In this case, the `//lint` comment can be used
+to  explicitly  acknowledge  the  warning  and  indicate that the programmer has
+verified that the condition is guaranteed.
+
+The use of `//lint` is much safer than disabling the warning because:
+
+ - It applies only to the specific line where the warning is acknowledged.
+ - It makes it explicit that the programmer has reviewed and acknowledged the warning.
+ - The warning must actually be present. Otherwise, a different warning is generated 
+   indicating that the warning being acknowledged does not exist.
+ - It does not interfere with the flow analysis. It does not tell the flow analyzer to 
+   assume anything; it only acknowledges the warning.
 
 
 
@@ -954,7 +966,41 @@ These are implementation constraints, not flaws in the ownership model itself.
 
 Adopting Cake's static analysis in an existing codebase does not require a big-bang migration. The recommended approach is incremental:
 
-1. **Create `safe.h`** — define all Cake extensions (`_Owner`, `_Opt`, `_View`, `_Dtor`, `_Out`, `compile_assert`, `static_debug`) as empty macros. This lets your code compile cleanly with a standard C compiler before you begin annotating.
+1. **Include `cake_compat.h`** — this header defines all of Cake's extensions
+   (`_Owner`, `_Opt`, `_View`, `_Dtor`, `_Out`, `_Clear`, `_Uninitialized`,
+   `static_debug`, `override_state`, `_Assert`) as empty macros, guarded by
+   `#ifndef __CAKE__` (11.10) so Cake itself still sees the real annotations
+   and only a non-Cake compiler gets the empty ones. This lets the exact same
+   source compile cleanly with a standard C compiler before you begin
+   annotating:
+
+   ```c
+   /*
+    * Cake compatibility header. https://github.com/thradams/cake
+    *
+    * This header provides empty definitions for Cake-specific annotations
+    * and analysis directives when the source is compiled by a C compiler
+    * other than Cake. This allows the same source code to be compiled
+    * without requiring those compilers to understand Cake extensions.
+    */
+
+   #pragma once
+
+   #ifndef __CAKE__
+
+       #define _Out
+       #define _Opt
+       #define _Owner
+       #define _Dtor
+       #define _View
+       #define _Clear
+       #define _Uninitialized
+       #define static_debug(x)
+       #define override_state(x, s)
+       #define _Assert(x) ((void)0)
+
+   #endif
+   ```
 
 2. **Enable nullable rules one file at a time** — add `#pragma nullable enable` to one translation unit, fix its warnings, then move to the next.
 
@@ -966,6 +1012,67 @@ Steps 2 to 4 are mechanical enough to delegate to an AI assistant: give it the
 file and the analyzer's warnings, ask it to add the annotations or the missing
 `if (p)` / `free(p)`, and re-run Cake. The analyzer is the reviewer - the
 migration is done when it reports nothing, not when the diff looks plausible.
+
+
+
+### Annotating the Standard Library: Cake's Headers and `#include_next`
+
+You don't need to edit a system header to bring it under Cake's checks - Cake
+already ships its own annotated versions of the standard headers (`stdlib.h`,
+`string.h`, `stdio.h`, and the rest). When your source writes `#include
+<stdlib.h>`, Cake's copy is found first on the include search path. That
+header declares `malloc`, `free`, and the others with `_Owner`/`_Opt`, then
+hands off to the real header with `#include_next <stdlib.h>` - the same
+directive GCC and Clang use - which continues the search from the directory
+*after* Cake's own and pulls in everything else (types, platform-specific
+declarations) from the system's actual header.
+
+This is why **Cake's header directory has to come first** on the search
+path: if a system directory is searched before it, `#include <stdlib.h>`
+resolves straight to the real header, Cake's annotated one is never reached,
+and `#include_next` never runs - so none of the standard library gets
+annotated for that file.
+
+<!-- runnable -->
+
+```c
+#pragma safety enable
+#include <stdlib.h>   /* resolves to Cake's annotated stdlib.h, which
+                          #include_next's the real one */
+
+int main() {
+    void* _Owner p = malloc(1)!;
+    free(p);
+}
+```
+
+### Annotating a Function Cake's Headers Don't Cover
+
+For a library Cake doesn't ship annotated headers for, the same idea applies
+by hand: declare the function yourself, with annotations, before the real
+header is included.
+
+<!-- runnable -->
+
+```c
+#pragma safety enable
+
+void* _Owner _Opt some_lib_alloc(unsigned long size);  /* your annotated declaration */
+void some_lib_free(void* _Owner _Opt ptr);
+
+#include <some_lib.h>   /* the library's plain declaration follows */
+
+int main() {
+    void* _Owner p = some_lib_alloc(1)!;
+    some_lib_free(p);
+}
+```
+
+Order matters here too: the annotated declaration has to come first. C
+allows a function to be declared more than once, so long as each declaration
+is compatible with the ones before it - the plain declaration the header
+brings in afterward is just a compatible redeclaration of the same
+signature, and it doesn't erase the contract Cake already recorded.
 
 
 

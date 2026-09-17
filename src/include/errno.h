@@ -3,6 +3,11 @@
  *  https://github.com/thradams/cake
 */
 
+
+
+
+#ifdef CAKE_HEADERS
+
 #pragma once
 
 int* _errno(void);
@@ -91,3 +96,6 @@ int* _errno(void);
 #define ETXTBSY         139
 #define EWOULDBLOCK     140
 
+#else
+#include_next <errno.h>
+#endif

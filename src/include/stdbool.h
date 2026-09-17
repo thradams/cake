@@ -2,8 +2,10 @@
    Cake header file
 */
 
-#ifndef _STDBOOL
-#define _STDBOOL
+
+#pragma once
+
+#ifdef CAKE_HEADERS
 
 #define __bool_true_false_are_defined 1
 
@@ -15,6 +17,9 @@
 
 #endif /* __cplusplus */
 
-#endif /* _STDBOOL */
+
+#else
+#include_next <stdbool.h>
+#endif
 
 

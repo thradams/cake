@@ -1405,7 +1405,7 @@ static ui_node* g_editor_popup_codeblock_playground;  /* "Copy to Playground" it
 static char* g_md_codeblock_text;
 
 /* Forward declaration: the <editor> inside a document window's wrapper. */
-static ui_node* editor_in_window(ui_node* wrapper);
+static ui_node* editor_in_window(const ui_node* wrapper);
 
 /* The frontmost *document* window - i.e. the last one of our real editor
  * windows (see make_editor_window) that was on top, as opposed to whatever
@@ -3511,7 +3511,7 @@ static ui_node* find_open_window(const char* path);
 /* The <editor> inside a document window's <modal> wrapper - see
  * editor_in_window() (defined further below; forward-declared so
  * open_link_in_window()/do_editor_ctrlclick() above it can call it too). */
-static ui_node* editor_in_window(ui_node* wrapper);
+static ui_node* editor_in_window(const ui_node* wrapper);
 
 /* File > Open Folder...'s OK/"Select" confirmation - defined with the rest
  * of the persistent folder browser window, forward-declared so the main
@@ -4355,12 +4355,12 @@ static void compile_settings_from_json(const struct json_value* object, compile_
 }
 
 /* "cake.json" - the global compiler settings, kept beside the executable
- * itself (same place as cakeconf.h), not in
+ * itself (same place as cake.json), not in
  * the per-user config directory session.json lives in: these belong to the
  * install, not to one window layout.
  *
  * Falls back to a bare "cake.json" in the current directory when the
- * executable's own path can't be determined, same as cakeconf.h does. */
+ * executable's own path can't be determined, same as cake.json does. */
 static int get_global_settings_path(char* buf, size_t cap)
 {
     char exe_path[FS_MAX_PATH] = { 0 };
@@ -6247,7 +6247,7 @@ static void compile_stream_poll(void)
 /* An editor window's only child is its <window>, whose only child is its
  * <editor> - see make_editor_window(). Direct indexing rather than a
  * type-searching walk since we control that exact shape. */
-static ui_node* editor_in_window(ui_node* wrapper)
+static ui_node* editor_in_window(const ui_node* wrapper)
 {
     if (!wrapper || ui_child_count(wrapper) == 0)
         return NULL;
@@ -6263,7 +6263,7 @@ static ui_node* editor_in_window(ui_node* wrapper)
  * tell them apart (see g_active_editor_window above). Only document windows
  * carry a non-empty path (find_open_window relies on the same fact), so
  * that's the check. */
-static int is_editor_window(ui_node* wrapper)
+static int is_editor_window(const ui_node* wrapper)
 {
     return wrapper && ui_get_path(wrapper)[0] != '\0';
 }
@@ -12181,7 +12181,7 @@ static void do_help_check(void)
         dirname(session_dir);  /* strips "session.json", leaving just the dir */
     }
 
-    /* cakeconf.h: same file/location the compiler itself looks for (see
+    /* cake.json: same file/location the compiler itself looks for (see
      * CAKE_CONFIG_FILE_NAME, include_config_header() in tokenizer.c/lib.c,
      * and generate_config_file() in compile.c/lib.c) - it lives next to the
      * executable and, when present, supplies the default #include search
@@ -12192,7 +12192,7 @@ static void do_help_check(void)
     int cakeconfig_found = 0;
     if (exe_path[0])
     {
-        snprintf(cakeconfig_path, sizeof cakeconfig_path, "%s/cakeconf.h", exe_dir);
+        snprintf(cakeconfig_path, sizeof cakeconfig_path, "%s/cake.json", exe_dir);
         FILE* cf = fopen(cakeconfig_path, "rb");
         if (cf)
         {
@@ -12216,7 +12216,7 @@ static void do_help_check(void)
     if (cakeconfig_found)
     {
         snprintf(cakeconfig_section, sizeof cakeconfig_section,
-                 "cakeconf.h: found\n"
+                 "cake.json: found\n"
                  "  %s\n"
                  "  Tells the compiler where to find system headers (like stdio.h).\n",
                  cakeconfig_path);
@@ -12224,7 +12224,7 @@ static void do_help_check(void)
     else
     {
         snprintf(cakeconfig_section, sizeof cakeconfig_section,
-                 "cakeconf.h: NOT FOUND\n"
+                 "cake.json: NOT FOUND\n"
                  "  looked in: %s\n"
                  "  Tells the compiler where to find system headers (like stdio.h).\n"
                  "  Tip: run the compiler with -autoconfig to generate one.\n",

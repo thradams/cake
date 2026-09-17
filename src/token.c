@@ -6,7 +6,7 @@
 #pragma safety enable
 
 
-#include "ownership.h"
+#include "cake_compat.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

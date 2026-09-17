@@ -1,8 +1,7 @@
 
 #pragma safety enable
 
-void* _Owner _Opt _Uninitialized malloc(unsigned long size);
-void free(void* _Owner ptr);
+#include <stdlib.h>
 
 int main() {
    void * _Owner  _Opt p = malloc(1);

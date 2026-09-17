@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "ownership.h"
+#include "cake_compat.h"
 
 void ss_swap(struct osstream* a, struct osstream* b)
 {

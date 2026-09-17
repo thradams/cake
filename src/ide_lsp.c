@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
  */
 
-#include "ownership.h"
+#include "cake_compat.h"
 #include "ide_lsp.h"
 #include "compile.h" /* cake_format() */
 #include "parser.h"  /* struct report */

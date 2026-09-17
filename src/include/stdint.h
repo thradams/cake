@@ -1,4 +1,7 @@
 
+
+#ifdef CAKE_HEADERS
+
 #pragma once
 
 #include <limits.h>
@@ -209,6 +212,8 @@ typedef unsigned long      uintmax_t;
 #define UINT64_C(v)  v##UL
 
 
-
+#endif
+#else
+#include_next <stdint.h>
 #endif
 

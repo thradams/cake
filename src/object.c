@@ -4,8 +4,8 @@
 */
 
 #pragma safety enable
-
-#include "ownership.h"
+#include "cake_compat.h"
+#include <stdlib.h>
 #include "object.h"
 #include <limits.h>
 #include <stdio.h>
@@ -13,7 +13,7 @@
 #include "type.h"
 #include "error.h"
 #include "parser.h"
-#include <stdlib.h>
+
 #include <string.h>
 #include <math.h>
 #include "fp_to_string.h"

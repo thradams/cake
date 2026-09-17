@@ -8,135 +8,31 @@
 
 
 
-#ifndef __OWNERSHIP_H__
-#define __OWNERSHIP_H__
-
-#ifdef __CAKE__
-
-
-#ifdef _WIN64
-    typedef struct _iobuf FILE;
-    typedef unsigned __int64 size_t;    
-#elif defined _WIN32
-    typedef struct _iobuf FILE;
-    typedef unsigned int     size_t;
-#endif
-
-#ifdef __linux__
-
-    typedef struct _IO_FILE FILE;
-    typedef __SIZE_TYPE__ size_t; // valid since C23
-
-#endif
-
-#ifdef __APPLE__
-
-    typedef struct __sFILE FILE;
-    typedef __SIZE_TYPE__ size_t;
-
-#endif
-
 /*
-  ownership is suported
-*/
-void* _Owner _Opt _Clear calloc(size_t nmemb, size_t size);
-void free(void* _Owner _Opt ptr);
-void* _Owner _Opt _Uninitialized malloc(size_t size);
-void* _Owner _Opt realloc(void* _Opt ptr, size_t size);
-char* _Owner _Opt strdup(const char* src);
-char* _Opt strstr(const char* str, const char* substr);
+ * Cake compatibility header. https://github.com/thradams/cake
+ *
+ * This header provides empty definitions for Cake-specific annotations
+ * and analysis directives when the source is compiled by a C compiler
+ * other than Cake. This allows the same source code to be compiled
+ * without requiring those compilers to understand Cake extensions.
+ */
 
-inline char* _Opt strrchr(char const *  _String, int _Ch);
+//#pragma once
 
-#ifdef _WIN32
-__inline int __cdecl snprintf(_Out char* const _Buffer, size_t  const _BufferCount, char const* const _Format, ...);
+#ifndef __CAKE__
 
-char* _Opt _fullpath(
-   char* _Opt absPath,
-   const char* relPath,
-   size_t maxLength
-);
-
-#else
-
-int snprintf(
-        _Out char*       const _Buffer,
-        size_t      const _BufferCount,
-        char const* const _Format,
-        ...);
-#endif
-
-long strtol(
-    char const* _String,
-    char**     _Opt _EndPtr,
-    int         _Radix
-    );
-
-
-FILE* _Owner _Opt fopen(char const* _FileName, char const* _Mode);
-int fclose(FILE* _Owner _Stream);
-
-#if defined __linux__ || defined __APPLE__
-FILE* _Owner _Opt popen(const char* _Command, const char* _Mode);
-int pclose(FILE* _Owner _Stream);
-#endif
-
-size_t fread(
-        _Out void*  _Buffer,
-        size_t _ElementSize,
-        size_t _ElementCount,
-        FILE*  _Stream
-        );
-
-long long strtoll(
-    char const* _String,
-    char** _Opt _EndPtr,
-    int         _Radix
-    );
-
-double strtod(
-    char const* _String,
-    char**      _Opt _EndPtr
-    );
-
-long double strtold(char const* _String,char** _Opt _EndPtr);
-
-
-unsigned long long strtoull(
-    char const* _String,
-    char**      _Opt _EndPtr,
-    int         _Radix
-    );
-
-float strtof(char const* _String, char** _Opt _EndPtr);
-
-//typedef unsigned long long time_t;
-//static time_t time(time_t* const _Opt _Time);
-
-#else
-/*
-  ownership not suported
-*/
-
-#define _Out
-#define _Opt
-#define _Owner
-#define _Dtor
-#define _View
-#define _Clear
-#define _Uninitialized
-#define static_debug(x)
-#define override_state(x, s)
-#define _Assert(x) ((void)0)
-#endif
+    #define _Out
+    #define _Opt
+    #define _Owner
+    #define _Dtor
+    #define _View
+    #define _Clear
+    #define _Uninitialized
+    #define static_debug(x)
+    #define override_state(x, s)
+    #define _Assert(x) ((void)0)
 
 #endif
-
-#ifdef _CRTDBG_MAP_ALLOC
-//#include <stdlib.h>
-//#include <crtdbg.h>
-#endif
-
 
 
 
@@ -1821,6 +1717,8 @@ void c_clrscr();
 void c_gotoxy(int x, int y);
 
 
+
+
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake 
@@ -2473,40 +2371,31 @@ enum indent_style
 
 struct style_options
 {
-
-    enum case_style struct_name_case;
-    enum case_style enum_name_case;
-    enum case_style function_name_case;
-    enum case_style global_name_case;
-    enum case_style local_name_case;
+    enum case_style struct_name_case;    
+    enum case_style enum_name_case;      
+    enum case_style function_name_case;  
+    enum case_style global_name_case;    
+    enum case_style local_name_case;     
     enum case_style enumerator_name_case;
     enum case_style member_name_case;
     enum case_style parameter_name_case;
 
-    /* --- brace placement --- */
     enum brace_style      open_brace_style;       /* control-flow blocks  */
     enum func_brace_style func_open_brace_style;  /* function bodies      */
+    enum else_style else_style;                   /* new line, same line  */
+    enum pointer_style pointer_style;             /*west, east            */
 
-    /* --- else placement --- */
-    enum else_style else_style;
+    enum indent_style indent_style;               /* tabs or spaces       */
+    int               indent_width;               /* number of spaces     */
 
-    /* --- pointer * placement --- */
-    enum pointer_style pointer_style;
-
-    /* --- indentation --- */
-    enum indent_style indent_style;
-    int               indent_width; /* spaces per level; ignored for TABS */
-
-    /* --- spacing rules ---
-     * All built-in presets set every flag to true.  Exposed individually so
-     * a single rule can be disabled without defining a whole new preset.   */
-    bool space_after_comma;             /* one space after ','                 */
-    bool no_space_before_semicolon;     /* no space before ';'                 */
-    bool space_after_keyword;           /* one space between keyword and '('   */
-    bool space_after_return;            /* one space between 'return' and expr */
-    bool no_space_before_call_paren;    /* no space between callee and '('     */
-    bool space_around_binary_operators; /* one space on each side of binary op */
-    bool single_declarator_per_declaration; /* no "int i, j;" - one declarator per declaration */
+    
+    bool space_after_comma;                       /* one space after ','                 */
+    bool no_space_before_semicolon;               /* no space before ';'                 */
+    bool space_after_keyword;                     /* one space between keyword and '('   */
+    bool space_after_return;                      /* one space between 'return' and expr */
+    bool no_space_before_call_paren;              /* no space between callee and '('     */
+    bool space_around_binary_operators;           /* one space on each side of binary op */
+    bool single_declarator_per_declaration;       /* no "int i, j;" - one declarator per declaration */
 };
 
 
@@ -2523,17 +2412,11 @@ struct bitset
     unsigned long bits[BITSET_WORDS];
 };
 
-
 struct diagnostic
 {
-    /*set of warnings reported as errors*/
-    struct bitset errors;
-
-    /*set of warnings reported as warnings*/
-    struct bitset warnings;
-
-    /*set of warnings reported as notes*/
-    struct bitset notes;
+    struct bitset errors;   /* set of warnings reported as errors */
+    struct bitset warnings; /* set of warnings reported as warnings */
+    struct bitset notes;    /* set of warnings reported as notes */
 };
 
 int get_diagnostic_type(const struct diagnostic* d, enum diagnostic_id w);
@@ -2553,8 +2436,8 @@ void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack);
 
 struct options
 {
-    enum standard_version input;
-    enum target target;
+    enum standard_version input; /* check code againt this standard */
+    enum target target;          /* output target (gcc, msvc...)    */
 
     /*
       #pragma CAKE diagnostic push
@@ -2562,106 +2445,36 @@ struct options
     */
     struct diagnostic_stack diagnostic_stack;
 
-    /*
-     * Formatting style rules.  Filled by style_options_<name>() or left
-     * as style_options_none() when no -style flag is supplied.
-     */
-    struct style_options style;
+    struct style_options style; /* format and check style settings */
 
-    /*
-       Causes the compiler to output a list of the include files.
-       The option also displays nested include files, that is,
-       the files included by the files that you include.
-    */
-    bool show_includes;
+    bool show_includes;         /* -show-includes:  ouput the include file path       */
+    char copy_headers[200];     /* -copy-headers: mode that can copy included headers */
+    bool format;                /* -format: format code                               */
+    int format_first_line;      /* -format-lines=first:last                           */
+    int format_last_line;       /* -format-lines=first:last                           */
 
-
-    /*
-       -copy-headers
-    */
-    char copy_headers[200];
-
-    /*
-      -format
-      Applies the spacing/brace-placement rules from `style` directly to the
-      token stream instead of just diagnosing them, then prints the result
-      (print_code_as_we_see) in place of compiling.
-    */
-    bool format;
-
-    /*
-      -format-lines=first:last
-      Restricts -format's token changes to this inclusive line range.
-      0:0 (the default) means the whole file.
-    */
-    int format_first_line;
-    int format_last_line;
-
-    /*
-      -line-directives
-    */
-    bool line_directives;
-
-    /*
-       -flow-analysis
-    */
-    bool flow_analysis;
-
-    /*
-    * -testmode
-    */
-    bool test_mode;
+    /* output */
+    bool line_directives;       /* emmit #line directorives */
+    bool runtime_asserts;       /* -runtime-asserts: generate runtime code for _Assert */
 
 
-    /*
-      -runtime-asserts
-      When set, `_Assert(cond)` generates a runtime check (a small
-      emitted helper function); otherwise it produces no runtime code and only
-      the compile-time flow3 narrowing applies.
-    */
-    bool runtime_asserts;
+    bool flow_analysis;         /* run flow analysis */
+    bool test_mode;             /* -testmode : reports success with 0 errors/warnings */
+    bool clear_error_at_end;    /* used by tests*/
 
-    /*
-    * -nullchecks
-    */
-    bool null_checks_enabled;
+    bool null_checks_enabled;   /* -nullchecks: check nullable pointer */
 
-    bool ownership_enabled;
+    bool ownership_enabled;     /* check ownerhip rules */
+    bool preprocess_only;       /* -E: preprocess only */
 
-    /*
-      -E
-    */
-    bool preprocess_only;
+    bool preprocess_def_macro;  /* -preprocess-def-macro : preprocess #def */
 
-    /*
-      -preprocess-def-macro
-    */
-    bool preprocess_def_macro;
+    bool warnings_as_errors;    /* -Werror: Reports every enabled warning as an error.    */    
 
-    bool clear_error_at_end; /*used by tests*/
+    bool sarif_output;          /* -sarif: generates SARIF output file */    
+    bool no_output;             /* -no-output:  if true cake does not generate output */
 
-    /*
-      -Werror
-      Reports every enabled warning as an error.
-    */
-    bool warnings_as_errors;
-
-    /*
-      -sarif
-    */
-    bool sarif_output;
-
-    /*
-      -no-output
-      if true cake does not generate output
-    */
-    bool no_output;
-
-    /*
-     -const-literal
-     makes literal strings const
-    */
-    bool const_literal;
+    bool const_literal;         /* -const-literal: makes literal strings const */
 
     /*
       -fdiagnostics-format=msvc
@@ -2712,6 +2525,8 @@ struct options
       By default they are discarded to reduce memory usage.
     */
     bool keep_inactive_tokens;
+
+    bool use_cake_headers; /*-cake-headers: use cake own headers */
 };
 
 int fill_options(struct options* options,
@@ -3121,7 +2936,7 @@ struct preprocessor_ctx
     struct hash_map macros;
     struct include_dir_list include_dir;
         
-    bool cake_config_found; /*whether cakeconf.h (next to the executable) was found and used*/
+    bool cake_config_found; /*whether cake.json (next to the executable) was found and used*/
 
     /*map of pragma once already included files*/
     struct hash_map pragma_once_map;
@@ -3193,7 +3008,7 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk);
 void print_all_macros(const struct preprocessor_ctx* prectx);
 
 
-int include_config_header(struct preprocessor_ctx* ctx);
+int preprocessor_load_config(struct preprocessor_ctx* ctx);
 void get_cake_config_path(char* out, size_t out_size);
 int stringify(const char* input, int n, char output[]);
 void print_path(const char* path, bool fullpath);
@@ -6684,6 +6499,9 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue);
 */
 static int CAKE_INCLUDE_EXTRA_TOKENS = 1;
 
+
+#define CAKE_MAX_INCLUDE_DEPTH 200
+
 ///////////////////////////////////////////////////////////////////////////////
 void naming_convention_macro(struct preprocessor_ctx* ctx, const struct token* token);
 ///////////////////////////////////////////////////////////////////////////////
@@ -6904,11 +6722,22 @@ struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const ch
         if (p_new_include_dir == NULL)
             throw;
 
-        size_t len = strlen(path);
-        if (path[len - 1] == '\\')
+        
+        char normalized[FS_MAX_PATH] = { 0 };
+        snprintf(normalized, sizeof normalized, "%s", path);
+        path_normalize(normalized);
+
+        size_t len = strlen(normalized);
+        if (len == 0)
+        {
+            free(p_new_include_dir);
+            throw;
+        }
+
+        if (normalized[len - 1] == '\\')
         {
             //windows path format ending with \ .
-            const char* _Owner _Opt temp = strdup(path);
+            const char* _Owner _Opt temp = strdup(normalized);
             if (temp == NULL)
             {
                 free(p_new_include_dir);
@@ -6916,7 +6745,7 @@ struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const ch
             }
             p_new_include_dir->path = temp;
         }
-        else if (path[len - 1] != '/')
+        else if (normalized[len - 1] != '/')
         {
             /*
               not ending with \, we add it
@@ -6929,11 +6758,11 @@ struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const ch
             }
 
             p_new_include_dir->path = temp;
-            snprintf((char*)p_new_include_dir->path, len + 2, "%s/", path);
+            snprintf((char*)p_new_include_dir->path, len + 2, "%s/", normalized);
         }
         else
         {
-            const char* _Owner _Opt temp = strdup(path);
+            const char* _Owner _Opt temp = strdup(normalized);
             if (temp == NULL)
             {
                 free(p_new_include_dir);
@@ -6998,6 +6827,7 @@ static bool pragma_once_already_included(const struct preprocessor_ctx* ctx, con
 const char* _Owner _Opt find_and_read_include_file(struct preprocessor_ctx* ctx,
                                                    const char* path, /*as in include*/
                                                    const char* current_file_dir, /*this is the dir of the file that includes*/
+                                                   const char* current_file_full_path, /*full path of the file containing the #include/#include_next - used to resolve #include_next's starting point; may be empty when include_next is false*/
     bool is_angle_bracket_form,
     bool* p_already_included, /*out file already included pragma once*/
                                                    char full_path_out[], /*this is the final full path of the file*/
@@ -7067,7 +6897,44 @@ const char* _Owner _Opt find_and_read_include_file(struct preprocessor_ctx* ctx,
     /*
        Searching on include directories
     */
-    struct include_dir* _Opt current = ctx->include_dir.head;
+    struct include_dir* _Opt search_start = ctx->include_dir.head;
+
+    if (include_next)
+    {
+        struct include_dir* _Opt best_match = NULL;
+        size_t best_match_len = 0;
+
+        if (current_file_full_path != NULL && current_file_full_path[0] != '\0')
+        {
+            for (struct include_dir* _Opt p = ctx->include_dir.head; p; p = p->next)
+            {
+                size_t plen = strlen(p->path);
+                if (plen > 0 &&
+                    plen > best_match_len &&
+                    strncmp(current_file_full_path, p->path, plen) == 0)
+                {
+                    best_match = p;
+                    best_match_len = plen;
+                }
+            }
+        }
+
+        if (best_match != NULL)
+        {
+            /* resume right after the directory the current file came from */
+            search_start = best_match->next;
+        }
+        else
+        {
+            /*
+              Could not determine which include directory produced the
+              current file
+            */
+            search_start = ctx->include_dir.head;
+        }
+    }
+
+    struct include_dir* _Opt current = search_start;
     while (current)
     {
         size_t len = strlen(current->path);
@@ -7106,14 +6973,7 @@ const char* _Owner _Opt find_and_read_include_file(struct preprocessor_ctx* ctx,
         content = read_file(full_path_out, true);
         if (content != NULL)
         {
-            if (include_next)
-            {
-                free(content);
-                content = NULL;
-                include_next = false;
-            }
-            else
-                return content;
+            return content;
         }
         current = current->next;
     }
@@ -9100,6 +8960,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 const char* _Owner _Opt s = find_and_read_include_file(ctx,
                                                                        path,
                                                                        fullpath,
+                                                                       "", /*current_file_full_path - unused, include_next is always false here*/
                                                                        is_angle_bracket_form,
                                                                        &already_included,
                                                                        full_path_result,
@@ -10500,7 +10361,15 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 token_list_destroy(&pptokens);
             }
 
-            char path[100] = { 0 };
+            if (level + 1 > CAKE_MAX_INCLUDE_DEPTH)
+            {
+                preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, input_list->head,
+                    "#include nested too deeply (possible include cycle, limit is %d)",
+                    CAKE_MAX_INCLUDE_DEPTH);
+                throw;
+            }
+
+            char path[FS_MAX_PATH] = { 0 };
             bool is_angle_bracket_form = false;
             if (input_list->head->type == TK_STRING_LITERAL)
             {
@@ -10555,10 +10424,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
 
             path[strlen(path) - 1] = '\0';
+            char current_file_full_path[FS_MAX_PATH] = { 0 };
+            snprintf(current_file_full_path, sizeof current_file_full_path, "%s", r.tail->token_origin ? r.tail->token_origin->lexeme : "");
 
             /*this is the dir of the current file*/
-            char current_file_dir[300] = { 0 };
-            snprintf(current_file_dir, sizeof current_file_dir, "%s", r.tail->token_origin ? r.tail->token_origin->lexeme : "");
+            char current_file_dir[FS_MAX_PATH] = { 0 };
+            snprintf(current_file_dir, sizeof current_file_dir, "%s", current_file_full_path);
             dirname(current_file_dir);
 
             char full_path_result[200] = { 0 };
@@ -10566,6 +10437,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             const char* _Owner _Opt content = find_and_read_include_file(ctx,
                                                                          path + 1,
                                                                          current_file_dir,
+                                                                         current_file_full_path,
                                                                          is_angle_bracket_form,
                                                                          &already_included,
                                                                          full_path_result,
@@ -12822,7 +12694,7 @@ void check_unused_macros(const struct hash_map* map)
     }
 }
 
-// cakeconf.h always lives next to the cake executable
+// cake.json always lives next to the cake executable
 void get_cake_config_path(char* out, size_t out_size)
 {
     char executable_path[FS_MAX_PATH - sizeof(CAKE_CONFIG_FILE_NAME)] = { 0 };
@@ -12831,7 +12703,7 @@ void get_cake_config_path(char* out, size_t out_size)
     snprintf(out, out_size, "%s/" CAKE_CONFIG_FILE_NAME, executable_path);
 }
 
-int include_config_header(struct preprocessor_ctx* ctx)
+int preprocessor_load_config(struct preprocessor_ctx* ctx)
 {
     ctx->cake_config_found = false;
 
@@ -12894,6 +12766,7 @@ static bool is_builtin_macro(const char* name)
 
     return false;
 }
+
 static void add_builtin_define(struct preprocessor_ctx* ctx, const char* text)
 {
     struct tokenizer_ctx tctx = { 0 };
@@ -12928,14 +12801,21 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
     char datastr[100] = { 0 };
     snprintf(datastr, sizeof datastr, "#define __DATE__ \"%s %2d %d\"\n", mon[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);
     add_builtin_define(ctx, datastr);
+
     char timestr[100] = { 0 };
     snprintf(timestr, sizeof timestr, "#define __TIME__ \"%02d:%02d:%02d\"\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
-    add_builtin_define(ctx, datastr);
+    add_builtin_define(ctx, timestr);
+
+
+    if (ctx->options.use_cake_headers)
+    {
+        add_builtin_define(ctx, "#define CAKE_HEADERS\n");
+    }
 
     /*
-  Some macros are dynamic like __LINE__ they are replaced  at
-  macro_copy_replacement_list but they need to be registered here.
-*/
+     Some macros are dynamic like __LINE__ they are replaced  at
+     macro_copy_replacement_list but they need to be registered here.
+   */
 
     const char* pre_defined_macros_text = target_get_predefined_macros(target);
 
@@ -15238,6 +15118,7 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 #include <wchar.h>
 
 
+
 #ifdef _WIN32
 #endif
 
@@ -15778,40 +15659,47 @@ char* _Owner _Opt read_file(const char* const path, bool append_newline)
 47,42,10,32,42,32,32,84,104,105,115,32,102,105,108,101,32,105,115,32,112,97,114,116,32
 ,111,102,32,99,97,107,101,32,99,111,109,112,105,108,101,114,10,32,42,32,32,104,116,116,112
 ,115,58,47,47,103,105,116,104,117,98,46,99,111,109,47,116,104,114,97,100,97,109,115,47,99
-,97,107,101,10,42,47,32,10,10,35,105,102,100,101,102,32,78,68,69,66,85,71,10,35,100
-,101,102,105,110,101,32,97,115,115,101,114,116,40,46,46,46,41,32,40,40,118,111,105,100,41
-,48,41,10,35,101,108,115,101,10,35,100,101,102,105,110,101,32,97,115,115,101,114,116,40,46
-,46,46,41,32,97,115,115,101,114,116,40,95,95,86,65,95,65,82,71,83,95,95,41,10,35
-,101,110,100,105,102,10
+,97,107,101,10,42,47,32,10,35,112,114,97,103,109,97,32,111,110,99,101,10,10,35,105,102
+,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,10,35,105,102,100,101,102,32
+,78,68,69,66,85,71,10,35,100,101,102,105,110,101,32,97,115,115,101,114,116,40,46,46,46
+,41,32,40,40,118,111,105,100,41,48,41,10,35,101,108,115,101,10,35,100,101,102,105,110,101
+,32,97,115,115,101,114,116,40,46,46,46,41,32,97,115,115,101,114,116,40,95,95,86,65,95
+,65,82,71,83,95,95,41,10,35,101,110,100,105,102,10,10,35,101,108,115,101,10,35,105,110
+,99,108,117,100,101,95,110,101,120,116,32,60,97,115,115,101,114,116,46,104,62,10,35,101,110
+,100,105,102,10,10
 , 0 };
 static const char file_complex_h[] = {
 
 
 
-10,35,101,114,114,111,114,32,110,111,116,32,105,109,112,108,101,109,101,110,116,101,100,32,121
-,101,116,10
+35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,35,101,114,114,111
+,114,32,110,111,116,32,105,109,112,108,101,109,101,110,116,101,100,32,121,101,116,10,35,101,108
+,115,101,10,35,105,110,99,108,117,100,101,32,60,99,111,109,112,108,101,120,46,104,62,10,35
+,101,110,100,105,102,10,10
 , 0 };
 static const char file_ctype_h[] = {
 
 
 
-35,105,102,110,100,101,102,32,67,84,89,80,69,95,72,10,35,100,101,102,105,110,101,32,67
-,84,89,80,69,95,72,10,10,47,42,32,67,104,97,114,97,99,116,101,114,32,99,108,97,115
-,115,105,102,105,99,97,116,105,111,110,32,109,97,99,114,111,115,32,42,47,10,105,110,116,32
-,105,115,97,108,110,117,109,40,105,110,116,32,99,41,59,10,105,110,116,32,105,115,97,108,112
-,104,97,40,105,110,116,32,99,41,59,10,105,110,116,32,105,115,98,108,97,110,107,40,105,110
-,116,32,99,41,59,10,105,110,116,32,105,115,99,110,116,114,108,40,105,110,116,32,99,41,59
-,10,105,110,116,32,105,115,100,105,103,105,116,40,105,110,116,32,99,41,59,10,105,110,116,32
-,105,115,103,114,97,112,104,40,105,110,116,32,99,41,59,10,105,110,116,32,105,115,108,111,119
-,101,114,40,105,110,116,32,99,41,59,10,105,110,116,32,105,115,112,114,105,110,116,40,105,110
-,116,32,99,41,59,10,105,110,116,32,105,115,112,117,110,99,116,40,105,110,116,32,99,41,59
-,10,105,110,116,32,105,115,115,112,97,99,101,40,105,110,116,32,99,41,59,10,105,110,116,32
-,105,115,117,112,112,101,114,40,105,110,116,32,99,41,59,10,105,110,116,32,105,115,120,100,105
-,103,105,116,40,105,110,116,32,99,41,59,10,10,47,42,32,67,104,97,114,97,99,116,101,114
-,32,99,111,110,118,101,114,115,105,111,110,32,42,47,10,105,110,116,32,116,111,108,111,119,101
-,114,40,105,110,116,32,99,41,59,10,105,110,116,32,116,111,117,112,112,101,114,40,105,110,116
-,32,99,41,59,10,10,35,101,110,100,105,102,32,47,42,32,67,84,89,80,69,95,72,32,42
-,47,10
+10,35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,10,35,105,102
+,110,100,101,102,32,67,84,89,80,69,95,72,10,35,100,101,102,105,110,101,32,67,84,89,80
+,69,95,72,10,10,47,42,32,67,104,97,114,97,99,116,101,114,32,99,108,97,115,115,105,102
+,105,99,97,116,105,111,110,32,109,97,99,114,111,115,32,42,47,10,105,110,116,32,105,115,97
+,108,110,117,109,40,105,110,116,32,99,41,59,10,105,110,116,32,105,115,97,108,112,104,97,40
+,105,110,116,32,99,41,59,10,105,110,116,32,105,115,98,108,97,110,107,40,105,110,116,32,99
+,41,59,10,105,110,116,32,105,115,99,110,116,114,108,40,105,110,116,32,99,41,59,10,105,110
+,116,32,105,115,100,105,103,105,116,40,105,110,116,32,99,41,59,10,105,110,116,32,105,115,103
+,114,97,112,104,40,105,110,116,32,99,41,59,10,105,110,116,32,105,115,108,111,119,101,114,40
+,105,110,116,32,99,41,59,10,105,110,116,32,105,115,112,114,105,110,116,40,105,110,116,32,99
+,41,59,10,105,110,116,32,105,115,112,117,110,99,116,40,105,110,116,32,99,41,59,10,105,110
+,116,32,105,115,115,112,97,99,101,40,105,110,116,32,99,41,59,10,105,110,116,32,105,115,117
+,112,112,101,114,40,105,110,116,32,99,41,59,10,105,110,116,32,105,115,120,100,105,103,105,116
+,40,105,110,116,32,99,41,59,10,10,47,42,32,67,104,97,114,97,99,116,101,114,32,99,111
+,110,118,101,114,115,105,111,110,32,42,47,10,105,110,116,32,116,111,108,111,119,101,114,40,105
+,110,116,32,99,41,59,10,105,110,116,32,116,111,117,112,112,101,114,40,105,110,116,32,99,41
+,59,10,10,35,101,110,100,105,102,32,47,42,32,67,84,89,80,69,95,72,32,42,47,10,10
+,35,101,108,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,99,116,121,112
+,101,46,104,62,10,35,101,110,100,105,102,10,10
 , 0 };
 static const char file_errno_h[] = {
 
@@ -15820,443 +15708,453 @@ static const char file_errno_h[] = {
 47,42,10,32,42,32,32,84,104,105,115,32,102,105,108,101,32,105,115,32,112,97,114,116,32
 ,111,102,32,99,97,107,101,32,99,111,109,112,105,108,101,114,10,32,42,32,32,104,116,116,112
 ,115,58,47,47,103,105,116,104,117,98,46,99,111,109,47,116,104,114,97,100,97,109,115,47,99
-,97,107,101,10,42,47,10,10,35,112,114,97,103,109,97,32,111,110,99,101,10,10,105,110,116
-,42,32,95,101,114,114,110,111,40,118,111,105,100,41,59,10,35,100,101,102,105,110,101,32,101
-,114,114,110,111,32,40,42,95,101,114,114,110,111,40,41,41,10,32,10,10,35,100,101,102,105
-,110,101,32,69,80,69,82,77,32,32,32,32,32,32,32,32,32,32,32,49,10,35,100,101,102
-,105,110,101,32,69,78,79,69,78,84,32,32,32,32,32,32,32,32,32,32,50,10,35,100,101
-,102,105,110,101,32,69,83,82,67,72,32,32,32,32,32,32,32,32,32,32,32,51,10,35,100
-,101,102,105,110,101,32,69,73,78,84,82,32,32,32,32,32,32,32,32,32,32,32,52,10,35
-,100,101,102,105,110,101,32,69,73,79,32,32,32,32,32,32,32,32,32,32,32,32,32,53,10
-,35,100,101,102,105,110,101,32,69,78,88,73,79,32,32,32,32,32,32,32,32,32,32,32,54
-,10,35,100,101,102,105,110,101,32,69,50,66,73,71,32,32,32,32,32,32,32,32,32,32,32
-,55,10,35,100,101,102,105,110,101,32,69,78,79,69,88,69,67,32,32,32,32,32,32,32,32
-,32,56,10,35,100,101,102,105,110,101,32,69,66,65,68,70,32,32,32,32,32,32,32,32,32
-,32,32,57,10,35,100,101,102,105,110,101,32,69,67,72,73,76,68,32,32,32,32,32,32,32
-,32,32,32,49,48,10,35,100,101,102,105,110,101,32,69,65,71,65,73,78,32,32,32,32,32
-,32,32,32,32,32,49,49,10,35,100,101,102,105,110,101,32,69,78,79,77,69,77,32,32,32
-,32,32,32,32,32,32,32,49,50,10,35,100,101,102,105,110,101,32,69,65,67,67,69,83,32
-,32,32,32,32,32,32,32,32,32,49,51,10,35,100,101,102,105,110,101,32,69,70,65,85,76
-,84,32,32,32,32,32,32,32,32,32,32,49,52,10,35,100,101,102,105,110,101,32,69,66,85
-,83,89,32,32,32,32,32,32,32,32,32,32,32,49,54,10,35,100,101,102,105,110,101,32,69
-,69,88,73,83,84,32,32,32,32,32,32,32,32,32,32,49,55,10,35,100,101,102,105,110,101
-,32,69,88,68,69,86,32,32,32,32,32,32,32,32,32,32,32,49,56,10,35,100,101,102,105
-,110,101,32,69,78,79,68,69,86,32,32,32,32,32,32,32,32,32,32,49,57,10,35,100,101
-,102,105,110,101,32,69,78,79,84,68,73,82,32,32,32,32,32,32,32,32,32,50,48,10,35
-,100,101,102,105,110,101,32,69,73,83,68,73,82,32,32,32,32,32,32,32,32,32,32,50,49
-,10,35,100,101,102,105,110,101,32,69,78,70,73,76,69,32,32,32,32,32,32,32,32,32,32
-,50,51,10,35,100,101,102,105,110,101,32,69,77,70,73,76,69,32,32,32,32,32,32,32,32
-,32,32,50,52,10,35,100,101,102,105,110,101,32,69,78,79,84,84,89,32,32,32,32,32,32
-,32,32,32,32,50,53,10,35,100,101,102,105,110,101,32,69,70,66,73,71,32,32,32,32,32
-,32,32,32,32,32,32,50,55,10,35,100,101,102,105,110,101,32,69,78,79,83,80,67,32,32
-,32,32,32,32,32,32,32,32,50,56,10,35,100,101,102,105,110,101,32,69,83,80,73,80,69
-,32,32,32,32,32,32,32,32,32,32,50,57,10,35,100,101,102,105,110,101,32,69,82,79,70
-,83,32,32,32,32,32,32,32,32,32,32,32,51,48,10,35,100,101,102,105,110,101,32,69,77
-,76,73,78,75,32,32,32,32,32,32,32,32,32,32,51,49,10,35,100,101,102,105,110,101,32
-,69,80,73,80,69,32,32,32,32,32,32,32,32,32,32,32,51,50,10,35,100,101,102,105,110
-,101,32,69,68,79,77,32,32,32,32,32,32,32,32,32,32,32,32,51,51,10,35,100,101,102
-,105,110,101,32,69,68,69,65,68,76,75,32,32,32,32,32,32,32,32,32,51,54,10,35,100
-,101,102,105,110,101,32,69,78,65,77,69,84,79,79,76,79,78,71,32,32,32,32,51,56,10
-,35,100,101,102,105,110,101,32,69,78,79,76,67,75,32,32,32,32,32,32,32,32,32,32,51
-,57,10,35,100,101,102,105,110,101,32,69,78,79,83,89,83,32,32,32,32,32,32,32,32,32
-,32,52,48,10,35,100,101,102,105,110,101,32,69,78,79,84,69,77,80,84,89,32,32,32,32
-,32,32,32,52,49,10,10,10,47,47,32,83,117,112,112,111,114,116,32,69,68,69,65,68,76
-,79,67,75,32,102,111,114,32,99,111,109,112,97,116,105,98,105,108,105,116,121,32,119,105,116
-,104,32,111,108,100,101,114,32,77,105,99,114,111,115,111,102,116,32,67,32,118,101,114,115,105
-,111,110,115,10,35,100,101,102,105,110,101,32,69,68,69,65,68,76,79,67,75,32,32,32,32
-,32,32,32,69,68,69,65,68,76,75,10,10,35,100,101,102,105,110,101,32,69,65,68,68,82
-,73,78,85,83,69,32,32,32,32,32,32,49,48,48,10,35,100,101,102,105,110,101,32,69,65
-,68,68,82,78,79,84,65,86,65,73,76,32,32,32,49,48,49,10,35,100,101,102,105,110,101
-,32,69,65,70,78,79,83,85,80,80,79,82,84,32,32,32,32,49,48,50,10,35,100,101,102
-,105,110,101,32,69,65,76,82,69,65,68,89,32,32,32,32,32,32,32,32,49,48,51,10,35
-,100,101,102,105,110,101,32,69,66,65,68,77,83,71,32,32,32,32,32,32,32,32,32,49,48
-,52,10,35,100,101,102,105,110,101,32,69,67,65,78,67,69,76,69,68,32,32,32,32,32,32
-,32,49,48,53,10,35,100,101,102,105,110,101,32,69,67,79,78,78,65,66,79,82,84,69,68
-,32,32,32,32,49,48,54,10,35,100,101,102,105,110,101,32,69,67,79,78,78,82,69,70,85
-,83,69,68,32,32,32,32,49,48,55,10,35,100,101,102,105,110,101,32,69,67,79,78,78,82
-,69,83,69,84,32,32,32,32,32,32,49,48,56,10,35,100,101,102,105,110,101,32,69,68,69
-,83,84,65,68,68,82,82,69,81,32,32,32,32,49,48,57,10,35,100,101,102,105,110,101,32
-,69,72,79,83,84,85,78,82,69,65,67,72,32,32,32,32,49,49,48,10,35,100,101,102,105
-,110,101,32,69,73,68,82,77,32,32,32,32,32,32,32,32,32,32,32,49,49,49,10,35,100
-,101,102,105,110,101,32,69,73,78,80,82,79,71,82,69,83,83,32,32,32,32,32,49,49,50
-,10,35,100,101,102,105,110,101,32,69,73,83,67,79,78,78,32,32,32,32,32,32,32,32,32
-,49,49,51,10,35,100,101,102,105,110,101,32,69,76,79,79,80,32,32,32,32,32,32,32,32
-,32,32,32,49,49,52,10,35,100,101,102,105,110,101,32,69,77,83,71,83,73,90,69,32,32
-,32,32,32,32,32,32,49,49,53,10,35,100,101,102,105,110,101,32,69,78,69,84,68,79,87
-,78,32,32,32,32,32,32,32,32,49,49,54,10,35,100,101,102,105,110,101,32,69,78,69,84
-,82,69,83,69,84,32,32,32,32,32,32,32,49,49,55,10,35,100,101,102,105,110,101,32,69
-,78,69,84,85,78,82,69,65,67,72,32,32,32,32,32,49,49,56,10,35,100,101,102,105,110
-,101,32,69,78,79,66,85,70,83,32,32,32,32,32,32,32,32,32,49,49,57,10,35,100,101
-,102,105,110,101,32,69,78,79,68,65,84,65,32,32,32,32,32,32,32,32,32,49,50,48,10
-,35,100,101,102,105,110,101,32,69,78,79,76,73,78,75,32,32,32,32,32,32,32,32,32,49
-,50,49,10,35,100,101,102,105,110,101,32,69,78,79,77,83,71,32,32,32,32,32,32,32,32
-,32,32,49,50,50,10,35,100,101,102,105,110,101,32,69,78,79,80,82,79,84,79,79,80,84
-,32,32,32,32,32,49,50,51,10,35,100,101,102,105,110,101,32,69,78,79,83,82,32,32,32
-,32,32,32,32,32,32,32,32,49,50,52,10,35,100,101,102,105,110,101,32,69,78,79,83,84
-,82,32,32,32,32,32,32,32,32,32,32,49,50,53,10,35,100,101,102,105,110,101,32,69,78
-,79,84,67,79,78,78,32,32,32,32,32,32,32,32,49,50,54,10,35,100,101,102,105,110,101
-,32,69,78,79,84,82,69,67,79,86,69,82,65,66,76,69,32,49,50,55,10,35,100,101,102
-,105,110,101,32,69,78,79,84,83,79,67,75,32,32,32,32,32,32,32,32,49,50,56,10,35
-,100,101,102,105,110,101,32,69,78,79,84,83,85,80,32,32,32,32,32,32,32,32,32,49,50
-,57,10,35,100,101,102,105,110,101,32,69,79,80,78,79,84,83,85,80,80,32,32,32,32,32
-,32,49,51,48,10,35,100,101,102,105,110,101,32,69,79,84,72,69,82,32,32,32,32,32,32
-,32,32,32,32,49,51,49,10,35,100,101,102,105,110,101,32,69,79,86,69,82,70,76,79,87
-,32,32,32,32,32,32,32,49,51,50,10,35,100,101,102,105,110,101,32,69,79,87,78,69,82
-,68,69,65,68,32,32,32,32,32,32,49,51,51,10,35,100,101,102,105,110,101,32,69,80,82
-,79,84,79,32,32,32,32,32,32,32,32,32,32,49,51,52,10,35,100,101,102,105,110,101,32
-,69,80,82,79,84,79,78,79,83,85,80,80,79,82,84,32,49,51,53,10,35,100,101,102,105
-,110,101,32,69,80,82,79,84,79,84,89,80,69,32,32,32,32,32,32,49,51,54,10,35,100
-,101,102,105,110,101,32,69,84,73,77,69,32,32,32,32,32,32,32,32,32,32,32,49,51,55
-,10,35,100,101,102,105,110,101,32,69,84,73,77,69,68,79,85,84,32,32,32,32,32,32,32
-,49,51,56,10,35,100,101,102,105,110,101,32,69,84,88,84,66,83,89,32,32,32,32,32,32
-,32,32,32,49,51,57,10,35,100,101,102,105,110,101,32,69,87,79,85,76,68,66,76,79,67
-,75,32,32,32,32,32,49,52,48,10,10
+,97,107,101,10,42,47,10,10,10,10,10,35,105,102,100,101,102,32,67,65,75,69,95,72,69
+,65,68,69,82,83,10,10,35,112,114,97,103,109,97,32,111,110,99,101,10,10,105,110,116,42
+,32,95,101,114,114,110,111,40,118,111,105,100,41,59,10,35,100,101,102,105,110,101,32,101,114
+,114,110,111,32,40,42,95,101,114,114,110,111,40,41,41,10,32,10,10,35,100,101,102,105,110
+,101,32,69,80,69,82,77,32,32,32,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105
+,110,101,32,69,78,79,69,78,84,32,32,32,32,32,32,32,32,32,32,50,10,35,100,101,102
+,105,110,101,32,69,83,82,67,72,32,32,32,32,32,32,32,32,32,32,32,51,10,35,100,101
+,102,105,110,101,32,69,73,78,84,82,32,32,32,32,32,32,32,32,32,32,32,52,10,35,100
+,101,102,105,110,101,32,69,73,79,32,32,32,32,32,32,32,32,32,32,32,32,32,53,10,35
+,100,101,102,105,110,101,32,69,78,88,73,79,32,32,32,32,32,32,32,32,32,32,32,54,10
+,35,100,101,102,105,110,101,32,69,50,66,73,71,32,32,32,32,32,32,32,32,32,32,32,55
+,10,35,100,101,102,105,110,101,32,69,78,79,69,88,69,67,32,32,32,32,32,32,32,32,32
+,56,10,35,100,101,102,105,110,101,32,69,66,65,68,70,32,32,32,32,32,32,32,32,32,32
+,32,57,10,35,100,101,102,105,110,101,32,69,67,72,73,76,68,32,32,32,32,32,32,32,32
+,32,32,49,48,10,35,100,101,102,105,110,101,32,69,65,71,65,73,78,32,32,32,32,32,32
+,32,32,32,32,49,49,10,35,100,101,102,105,110,101,32,69,78,79,77,69,77,32,32,32,32
+,32,32,32,32,32,32,49,50,10,35,100,101,102,105,110,101,32,69,65,67,67,69,83,32,32
+,32,32,32,32,32,32,32,32,49,51,10,35,100,101,102,105,110,101,32,69,70,65,85,76,84
+,32,32,32,32,32,32,32,32,32,32,49,52,10,35,100,101,102,105,110,101,32,69,66,85,83
+,89,32,32,32,32,32,32,32,32,32,32,32,49,54,10,35,100,101,102,105,110,101,32,69,69
+,88,73,83,84,32,32,32,32,32,32,32,32,32,32,49,55,10,35,100,101,102,105,110,101,32
+,69,88,68,69,86,32,32,32,32,32,32,32,32,32,32,32,49,56,10,35,100,101,102,105,110
+,101,32,69,78,79,68,69,86,32,32,32,32,32,32,32,32,32,32,49,57,10,35,100,101,102
+,105,110,101,32,69,78,79,84,68,73,82,32,32,32,32,32,32,32,32,32,50,48,10,35,100
+,101,102,105,110,101,32,69,73,83,68,73,82,32,32,32,32,32,32,32,32,32,32,50,49,10
+,35,100,101,102,105,110,101,32,69,78,70,73,76,69,32,32,32,32,32,32,32,32,32,32,50
+,51,10,35,100,101,102,105,110,101,32,69,77,70,73,76,69,32,32,32,32,32,32,32,32,32
+,32,50,52,10,35,100,101,102,105,110,101,32,69,78,79,84,84,89,32,32,32,32,32,32,32
+,32,32,32,50,53,10,35,100,101,102,105,110,101,32,69,70,66,73,71,32,32,32,32,32,32
+,32,32,32,32,32,50,55,10,35,100,101,102,105,110,101,32,69,78,79,83,80,67,32,32,32
+,32,32,32,32,32,32,32,50,56,10,35,100,101,102,105,110,101,32,69,83,80,73,80,69,32
+,32,32,32,32,32,32,32,32,32,50,57,10,35,100,101,102,105,110,101,32,69,82,79,70,83
+,32,32,32,32,32,32,32,32,32,32,32,51,48,10,35,100,101,102,105,110,101,32,69,77,76
+,73,78,75,32,32,32,32,32,32,32,32,32,32,51,49,10,35,100,101,102,105,110,101,32,69
+,80,73,80,69,32,32,32,32,32,32,32,32,32,32,32,51,50,10,35,100,101,102,105,110,101
+,32,69,68,79,77,32,32,32,32,32,32,32,32,32,32,32,32,51,51,10,35,100,101,102,105
+,110,101,32,69,68,69,65,68,76,75,32,32,32,32,32,32,32,32,32,51,54,10,35,100,101
+,102,105,110,101,32,69,78,65,77,69,84,79,79,76,79,78,71,32,32,32,32,51,56,10,35
+,100,101,102,105,110,101,32,69,78,79,76,67,75,32,32,32,32,32,32,32,32,32,32,51,57
+,10,35,100,101,102,105,110,101,32,69,78,79,83,89,83,32,32,32,32,32,32,32,32,32,32
+,52,48,10,35,100,101,102,105,110,101,32,69,78,79,84,69,77,80,84,89,32,32,32,32,32
+,32,32,52,49,10,10,10,47,47,32,83,117,112,112,111,114,116,32,69,68,69,65,68,76,79
+,67,75,32,102,111,114,32,99,111,109,112,97,116,105,98,105,108,105,116,121,32,119,105,116,104
+,32,111,108,100,101,114,32,77,105,99,114,111,115,111,102,116,32,67,32,118,101,114,115,105,111
+,110,115,10,35,100,101,102,105,110,101,32,69,68,69,65,68,76,79,67,75,32,32,32,32,32
+,32,32,69,68,69,65,68,76,75,10,10,35,100,101,102,105,110,101,32,69,65,68,68,82,73
+,78,85,83,69,32,32,32,32,32,32,49,48,48,10,35,100,101,102,105,110,101,32,69,65,68
+,68,82,78,79,84,65,86,65,73,76,32,32,32,49,48,49,10,35,100,101,102,105,110,101,32
+,69,65,70,78,79,83,85,80,80,79,82,84,32,32,32,32,49,48,50,10,35,100,101,102,105
+,110,101,32,69,65,76,82,69,65,68,89,32,32,32,32,32,32,32,32,49,48,51,10,35,100
+,101,102,105,110,101,32,69,66,65,68,77,83,71,32,32,32,32,32,32,32,32,32,49,48,52
+,10,35,100,101,102,105,110,101,32,69,67,65,78,67,69,76,69,68,32,32,32,32,32,32,32
+,49,48,53,10,35,100,101,102,105,110,101,32,69,67,79,78,78,65,66,79,82,84,69,68,32
+,32,32,32,49,48,54,10,35,100,101,102,105,110,101,32,69,67,79,78,78,82,69,70,85,83
+,69,68,32,32,32,32,49,48,55,10,35,100,101,102,105,110,101,32,69,67,79,78,78,82,69
+,83,69,84,32,32,32,32,32,32,49,48,56,10,35,100,101,102,105,110,101,32,69,68,69,83
+,84,65,68,68,82,82,69,81,32,32,32,32,49,48,57,10,35,100,101,102,105,110,101,32,69
+,72,79,83,84,85,78,82,69,65,67,72,32,32,32,32,49,49,48,10,35,100,101,102,105,110
+,101,32,69,73,68,82,77,32,32,32,32,32,32,32,32,32,32,32,49,49,49,10,35,100,101
+,102,105,110,101,32,69,73,78,80,82,79,71,82,69,83,83,32,32,32,32,32,49,49,50,10
+,35,100,101,102,105,110,101,32,69,73,83,67,79,78,78,32,32,32,32,32,32,32,32,32,49
+,49,51,10,35,100,101,102,105,110,101,32,69,76,79,79,80,32,32,32,32,32,32,32,32,32
+,32,32,49,49,52,10,35,100,101,102,105,110,101,32,69,77,83,71,83,73,90,69,32,32,32
+,32,32,32,32,32,49,49,53,10,35,100,101,102,105,110,101,32,69,78,69,84,68,79,87,78
+,32,32,32,32,32,32,32,32,49,49,54,10,35,100,101,102,105,110,101,32,69,78,69,84,82
+,69,83,69,84,32,32,32,32,32,32,32,49,49,55,10,35,100,101,102,105,110,101,32,69,78
+,69,84,85,78,82,69,65,67,72,32,32,32,32,32,49,49,56,10,35,100,101,102,105,110,101
+,32,69,78,79,66,85,70,83,32,32,32,32,32,32,32,32,32,49,49,57,10,35,100,101,102
+,105,110,101,32,69,78,79,68,65,84,65,32,32,32,32,32,32,32,32,32,49,50,48,10,35
+,100,101,102,105,110,101,32,69,78,79,76,73,78,75,32,32,32,32,32,32,32,32,32,49,50
+,49,10,35,100,101,102,105,110,101,32,69,78,79,77,83,71,32,32,32,32,32,32,32,32,32
+,32,49,50,50,10,35,100,101,102,105,110,101,32,69,78,79,80,82,79,84,79,79,80,84,32
+,32,32,32,32,49,50,51,10,35,100,101,102,105,110,101,32,69,78,79,83,82,32,32,32,32
+,32,32,32,32,32,32,32,49,50,52,10,35,100,101,102,105,110,101,32,69,78,79,83,84,82
+,32,32,32,32,32,32,32,32,32,32,49,50,53,10,35,100,101,102,105,110,101,32,69,78,79
+,84,67,79,78,78,32,32,32,32,32,32,32,32,49,50,54,10,35,100,101,102,105,110,101,32
+,69,78,79,84,82,69,67,79,86,69,82,65,66,76,69,32,49,50,55,10,35,100,101,102,105
+,110,101,32,69,78,79,84,83,79,67,75,32,32,32,32,32,32,32,32,49,50,56,10,35,100
+,101,102,105,110,101,32,69,78,79,84,83,85,80,32,32,32,32,32,32,32,32,32,49,50,57
+,10,35,100,101,102,105,110,101,32,69,79,80,78,79,84,83,85,80,80,32,32,32,32,32,32
+,49,51,48,10,35,100,101,102,105,110,101,32,69,79,84,72,69,82,32,32,32,32,32,32,32
+,32,32,32,49,51,49,10,35,100,101,102,105,110,101,32,69,79,86,69,82,70,76,79,87,32
+,32,32,32,32,32,32,49,51,50,10,35,100,101,102,105,110,101,32,69,79,87,78,69,82,68
+,69,65,68,32,32,32,32,32,32,49,51,51,10,35,100,101,102,105,110,101,32,69,80,82,79
+,84,79,32,32,32,32,32,32,32,32,32,32,49,51,52,10,35,100,101,102,105,110,101,32,69
+,80,82,79,84,79,78,79,83,85,80,80,79,82,84,32,49,51,53,10,35,100,101,102,105,110
+,101,32,69,80,82,79,84,79,84,89,80,69,32,32,32,32,32,32,49,51,54,10,35,100,101
+,102,105,110,101,32,69,84,73,77,69,32,32,32,32,32,32,32,32,32,32,32,49,51,55,10
+,35,100,101,102,105,110,101,32,69,84,73,77,69,68,79,85,84,32,32,32,32,32,32,32,49
+,51,56,10,35,100,101,102,105,110,101,32,69,84,88,84,66,83,89,32,32,32,32,32,32,32
+,32,32,49,51,57,10,35,100,101,102,105,110,101,32,69,87,79,85,76,68,66,76,79,67,75
+,32,32,32,32,32,49,52,48,10,10,35,101,108,115,101,10,35,105,110,99,108,117,100,101,95
+,110,101,120,116,32,60,101,114,114,110,111,46,104,62,10,35,101,110,100,105,102,10
 , 0 };
 static const char file_fenv_h[] = {
 
 
 
-10,10,35,100,101,102,105,110,101,32,32,32,95,95,83,84,68,67,95,86,69,82,83,73,79
-,78,95,70,69,78,86,95,72,95,95,32,10,10,35,100,101,102,105,110,101,32,32,32,70,69
-,95,65,76,76,95,69,88,67,69,80,84,32,40,48,120,50,48,32,124,32,48,120,48,52,32
-,124,32,48,120,49,48,32,124,32,48,120,48,56,32,124,32,48,120,48,49,41,10,35,100,101
-,102,105,110,101,32,32,32,70,69,95,68,73,86,66,89,90,69,82,79,32,48,120,48,52,10
-,35,100,101,102,105,110,101,32,32,32,70,69,95,73,78,69,88,65,67,84,32,48,120,50,48
-,10,35,100,101,102,105,110,101,32,32,32,70,69,95,73,78,86,65,76,73,68,32,48,120,48
-,49,10,35,100,101,102,105,110,101,32,32,32,70,69,95,79,86,69,82,70,76,79,87,32,48
-,120,48,56,10,35,100,101,102,105,110,101,32,32,32,70,69,95,85,78,68,69,82,70,76,79
-,87,32,48,120,49,48,10,35,100,101,102,105,110,101,32,32,32,70,69,95,68,79,87,78,87
-,65,82,68,32,48,120,52,48,48,10,47,47,35,100,101,102,105,110,101,32,32,32,70,69,95
-,84,79,78,69,65,82,69,83,84,70,82,79,77,90,69,82,79,32,70,69,95,84,79,78,69
-,65,82,69,83,84,70,82,79,77,90,69,82,79,10,35,100,101,102,105,110,101,32,32,32,70
-,69,95,84,79,78,69,65,82,69,83,84,32,48,10,35,100,101,102,105,110,101,32,32,32,70
-,69,95,84,79,87,65,82,68,90,69,82,79,32,48,120,99,48,48,10,35,100,101,102,105,110
-,101,32,32,32,70,69,95,85,80,87,65,82,68,32,48,120,56,48,48,10,35,100,101,102,105
-,110,101,32,32,32,70,69,95,68,70,76,95,69,78,86,32,40,40,99,111,110,115,116,32,102
-,101,110,118,95,116,32,42,41,32,45,49,41,10,35,100,101,102,105,110,101,32,32,32,70,69
-,95,68,70,76,95,77,79,68,69,32,40,40,99,111,110,115,116,32,102,101,109,111,100,101,95
-,116,32,42,41,32,45,49,76,41,10,47,47,35,100,101,102,105,110,101,32,32,32,70,69,95
-,68,69,67,95,68,79,87,78,87,65,82,68,32,70,69,95,68,69,67,95,68,79,87,78,87
-,65,82,68,10,47,47,35,100,101,102,105,110,101,32,32,32,70,69,95,68,69,67,95,84,79
-,78,69,65,82,69,83,84,70,82,79,77,90,69,82,79,32,70,69,95,68,69,67,95,84,79
-,78,69,65,82,69,83,84,70,82,79,77,90,69,82,79,10,47,47,35,100,101,102,105,110,101
-,32,32,32,70,69,95,68,69,67,95,84,79,78,69,65,82,69,83,84,32,70,69,95,68,69
-,67,95,84,79,78,69,65,82,69,83,84,10,47,47,35,100,101,102,105,110,101,32,32,32,70
-,69,95,68,69,67,95,84,79,87,65,82,68,90,69,82,79,32,70,69,95,68,69,67,95,84
-,79,87,65,82,68,90,69,82,79,10,47,47,35,100,101,102,105,110,101,32,32,32,70,69,95
-,68,69,67,95,85,80,87,65,82,68,32,70,69,95,68,69,67,95,85,80,87,65,82,68,10
-,47,47,35,100,101,102,105,110,101,32,32,32,70,69,95,83,78,65,78,83,95,65,76,87,65
-,89,83,95,83,73,71,78,65,76,32,70,69,95,83,78,65,78,83,95,65,76,87,65,89,83
-,95,83,73,71,78,65,76,10,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100
-,32,115,104,111,114,116,32,105,110,116,32,102,101,120,99,101,112,116,95,116,59,10,10,116,121
-,112,101,100,101,102,32,115,116,114,117,99,116,10,123,10,32,32,32,32,117,110,115,105,103,110
-,101,100,32,115,104,111,114,116,32,105,110,116,32,95,95,99,111,110,116,114,111,108,95,119,111
+35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,10,10,35,100,101
+,102,105,110,101,32,32,32,95,95,83,84,68,67,95,86,69,82,83,73,79,78,95,70,69,78
+,86,95,72,95,95,32,10,10,35,100,101,102,105,110,101,32,32,32,70,69,95,65,76,76,95
+,69,88,67,69,80,84,32,40,48,120,50,48,32,124,32,48,120,48,52,32,124,32,48,120,49
+,48,32,124,32,48,120,48,56,32,124,32,48,120,48,49,41,10,35,100,101,102,105,110,101,32
+,32,32,70,69,95,68,73,86,66,89,90,69,82,79,32,48,120,48,52,10,35,100,101,102,105
+,110,101,32,32,32,70,69,95,73,78,69,88,65,67,84,32,48,120,50,48,10,35,100,101,102
+,105,110,101,32,32,32,70,69,95,73,78,86,65,76,73,68,32,48,120,48,49,10,35,100,101
+,102,105,110,101,32,32,32,70,69,95,79,86,69,82,70,76,79,87,32,48,120,48,56,10,35
+,100,101,102,105,110,101,32,32,32,70,69,95,85,78,68,69,82,70,76,79,87,32,48,120,49
+,48,10,35,100,101,102,105,110,101,32,32,32,70,69,95,68,79,87,78,87,65,82,68,32,48
+,120,52,48,48,10,47,47,35,100,101,102,105,110,101,32,32,32,70,69,95,84,79,78,69,65
+,82,69,83,84,70,82,79,77,90,69,82,79,32,70,69,95,84,79,78,69,65,82,69,83,84
+,70,82,79,77,90,69,82,79,10,35,100,101,102,105,110,101,32,32,32,70,69,95,84,79,78
+,69,65,82,69,83,84,32,48,10,35,100,101,102,105,110,101,32,32,32,70,69,95,84,79,87
+,65,82,68,90,69,82,79,32,48,120,99,48,48,10,35,100,101,102,105,110,101,32,32,32,70
+,69,95,85,80,87,65,82,68,32,48,120,56,48,48,10,35,100,101,102,105,110,101,32,32,32
+,70,69,95,68,70,76,95,69,78,86,32,40,40,99,111,110,115,116,32,102,101,110,118,95,116
+,32,42,41,32,45,49,41,10,35,100,101,102,105,110,101,32,32,32,70,69,95,68,70,76,95
+,77,79,68,69,32,40,40,99,111,110,115,116,32,102,101,109,111,100,101,95,116,32,42,41,32
+,45,49,76,41,10,47,47,35,100,101,102,105,110,101,32,32,32,70,69,95,68,69,67,95,68
+,79,87,78,87,65,82,68,32,70,69,95,68,69,67,95,68,79,87,78,87,65,82,68,10,47
+,47,35,100,101,102,105,110,101,32,32,32,70,69,95,68,69,67,95,84,79,78,69,65,82,69
+,83,84,70,82,79,77,90,69,82,79,32,70,69,95,68,69,67,95,84,79,78,69,65,82,69
+,83,84,70,82,79,77,90,69,82,79,10,47,47,35,100,101,102,105,110,101,32,32,32,70,69
+,95,68,69,67,95,84,79,78,69,65,82,69,83,84,32,70,69,95,68,69,67,95,84,79,78
+,69,65,82,69,83,84,10,47,47,35,100,101,102,105,110,101,32,32,32,70,69,95,68,69,67
+,95,84,79,87,65,82,68,90,69,82,79,32,70,69,95,68,69,67,95,84,79,87,65,82,68
+,90,69,82,79,10,47,47,35,100,101,102,105,110,101,32,32,32,70,69,95,68,69,67,95,85
+,80,87,65,82,68,32,70,69,95,68,69,67,95,85,80,87,65,82,68,10,47,47,35,100,101
+,102,105,110,101,32,32,32,70,69,95,83,78,65,78,83,95,65,76,87,65,89,83,95,83,73
+,71,78,65,76,32,70,69,95,83,78,65,78,83,95,65,76,87,65,89,83,95,83,73,71,78
+,65,76,10,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,115,104,111,114
+,116,32,105,110,116,32,102,101,120,99,101,112,116,95,116,59,10,10,116,121,112,101,100,101,102
+,32,115,116,114,117,99,116,10,123,10,32,32,32,32,117,110,115,105,103,110,101,100,32,115,104
+,111,114,116,32,105,110,116,32,95,95,99,111,110,116,114,111,108,95,119,111,114,100,59,10,32
+,32,32,32,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,105,110,116,32,95,95,103
+,108,105,98,99,95,114,101,115,101,114,118,101,100,49,59,10,32,32,32,32,117,110,115,105,103
+,110,101,100,32,115,104,111,114,116,32,105,110,116,32,95,95,115,116,97,116,117,115,95,119,111
 ,114,100,59,10,32,32,32,32,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,105,110
-,116,32,95,95,103,108,105,98,99,95,114,101,115,101,114,118,101,100,49,59,10,32,32,32,32
-,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,105,110,116,32,95,95,115,116,97,116
-,117,115,95,119,111,114,100,59,10,32,32,32,32,117,110,115,105,103,110,101,100,32,115,104,111
-,114,116,32,105,110,116,32,95,95,103,108,105,98,99,95,114,101,115,101,114,118,101,100,50,59
-,10,32,32,32,32,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,105,110,116,32,95
-,95,116,97,103,115,59,10,32,32,32,32,117,110,115,105,103,110,101,100,32,115,104,111,114,116
-,32,105,110,116,32,95,95,103,108,105,98,99,95,114,101,115,101,114,118,101,100,51,59,10,32
-,32,32,32,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,101,105,112,59,10,32,32
-,32,32,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,105,110,116,32,95,95,99,115
-,95,115,101,108,101,99,116,111,114,59,10,32,32,32,32,117,110,115,105,103,110,101,100,32,105
-,110,116,32,95,95,111,112,99,111,100,101,32,58,32,49,49,59,10,32,32,32,32,117,110,115
-,105,103,110,101,100,32,105,110,116,32,95,95,103,108,105,98,99,95,114,101,115,101,114,118,101
-,100,52,32,58,32,53,59,10,32,32,32,32,117,110,115,105,103,110,101,100,32,105,110,116,32
-,95,95,100,97,116,97,95,111,102,102,115,101,116,59,10,32,32,32,32,117,110,115,105,103,110
-,101,100,32,115,104,111,114,116,32,105,110,116,32,95,95,100,97,116,97,95,115,101,108,101,99
-,116,111,114,59,10,32,32,32,32,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,105
-,110,116,32,95,95,103,108,105,98,99,95,114,101,115,101,114,118,101,100,53,59,10,10,32,32
-,32,32,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,109,120,99,115,114,59,10,10
-,125,10,102,101,110,118,95,116,59,10,10,116,121,112,101,100,101,102,32,115,116,114,117,99,116
-,10,123,10,32,32,32,32,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,105,110,116
-,32,95,95,99,111,110,116,114,111,108,95,119,111,114,100,59,10,32,32,32,32,117,110,115,105
-,103,110,101,100,32,115,104,111,114,116,32,105,110,116,32,95,95,103,108,105,98,99,95,114,101
-,115,101,114,118,101,100,59,10,32,32,32,32,117,110,115,105,103,110,101,100,32,105,110,116,32
-,95,95,109,120,99,115,114,59,10,125,10,102,101,109,111,100,101,95,116,59,10,10,47,47,32
-,102,117,110,99,116,105,111,110,115,10,105,110,116,32,102,101,99,108,101,97,114,101,120,99,101
-,112,116,40,105,110,116,32,101,120,99,101,112,116,115,41,59,10,105,110,116,32,102,101,103,101
-,116,101,120,99,101,112,116,102,108,97,103,40,102,101,120,99,101,112,116,95,116,42,32,102,108
-,97,103,112,44,32,105,110,116,32,101,120,99,101,112,116,115,41,59,10,105,110,116,32,102,101
-,114,97,105,115,101,101,120,99,101,112,116,40,105,110,116,32,101,120,99,101,112,116,115,41,59
-,10,105,110,116,32,102,101,115,101,116,101,120,99,101,112,116,40,105,110,116,32,101,120,99,101
-,112,116,115,41,59,10,105,110,116,32,102,101,115,101,116,101,120,99,101,112,116,102,108,97,103
-,40,99,111,110,115,116,32,102,101,120,99,101,112,116,95,116,42,32,102,108,97,103,112,44,32
-,105,110,116,32,101,120,99,101,112,116,115,41,59,10,105,110,116,32,102,101,116,101,115,116,101
-,120,99,101,112,116,102,108,97,103,40,99,111,110,115,116,32,102,101,120,99,101,112,116,95,116
-,42,32,102,108,97,103,112,44,32,105,110,116,32,101,120,99,101,112,116,115,41,59,10,105,110
-,116,32,102,101,116,101,115,116,101,120,99,101,112,116,40,105,110,116,32,101,120,99,101,112,116
-,115,41,59,10,105,110,116,32,102,101,103,101,116,109,111,100,101,40,102,101,109,111,100,101,95
-,116,42,32,109,111,100,101,112,41,59,10,105,110,116,32,102,101,103,101,116,114,111,117,110,100
-,40,118,111,105,100,41,59,10,105,110,116,32,102,101,115,101,116,109,111,100,101,40,99,111,110
-,115,116,32,102,101,109,111,100,101,95,116,42,32,109,111,100,101,112,41,59,10,105,110,116,32
-,102,101,115,101,116,114,111,117,110,100,40,105,110,116,32,114,110,100,41,59,10,105,110,116,32
-,102,101,103,101,116,101,110,118,40,102,101,110,118,95,116,42,32,101,110,118,112,41,59,10,105
-,110,116,32,102,101,104,111,108,100,101,120,99,101,112,116,40,102,101,110,118,95,116,42,32,101
-,110,118,112,41,59,10,105,110,116,32,102,101,115,101,116,101,110,118,40,99,111,110,115,116,32
-,102,101,110,118,95,116,42,32,101,110,118,112,41,59,10,105,110,116,32,102,101,117,112,100,97
-,116,101,101,110,118,40,99,111,110,115,116,32,102,101,110,118,95,116,42,32,101,110,118,112,41
-,59,10
+,116,32,95,95,103,108,105,98,99,95,114,101,115,101,114,118,101,100,50,59,10,32,32,32,32
+,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,105,110,116,32,95,95,116,97,103,115
+,59,10,32,32,32,32,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,105,110,116,32
+,95,95,103,108,105,98,99,95,114,101,115,101,114,118,101,100,51,59,10,32,32,32,32,117,110
+,115,105,103,110,101,100,32,105,110,116,32,95,95,101,105,112,59,10,32,32,32,32,117,110,115
+,105,103,110,101,100,32,115,104,111,114,116,32,105,110,116,32,95,95,99,115,95,115,101,108,101
+,99,116,111,114,59,10,32,32,32,32,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95
+,111,112,99,111,100,101,32,58,32,49,49,59,10,32,32,32,32,117,110,115,105,103,110,101,100
+,32,105,110,116,32,95,95,103,108,105,98,99,95,114,101,115,101,114,118,101,100,52,32,58,32
+,53,59,10,32,32,32,32,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,100,97,116
+,97,95,111,102,102,115,101,116,59,10,32,32,32,32,117,110,115,105,103,110,101,100,32,115,104
+,111,114,116,32,105,110,116,32,95,95,100,97,116,97,95,115,101,108,101,99,116,111,114,59,10
+,32,32,32,32,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,105,110,116,32,95,95
+,103,108,105,98,99,95,114,101,115,101,114,118,101,100,53,59,10,10,32,32,32,32,117,110,115
+,105,103,110,101,100,32,105,110,116,32,95,95,109,120,99,115,114,59,10,10,125,10,102,101,110
+,118,95,116,59,10,10,116,121,112,101,100,101,102,32,115,116,114,117,99,116,10,123,10,32,32
+,32,32,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,105,110,116,32,95,95,99,111
+,110,116,114,111,108,95,119,111,114,100,59,10,32,32,32,32,117,110,115,105,103,110,101,100,32
+,115,104,111,114,116,32,105,110,116,32,95,95,103,108,105,98,99,95,114,101,115,101,114,118,101
+,100,59,10,32,32,32,32,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,109,120,99
+,115,114,59,10,125,10,102,101,109,111,100,101,95,116,59,10,10,47,47,32,102,117,110,99,116
+,105,111,110,115,10,105,110,116,32,102,101,99,108,101,97,114,101,120,99,101,112,116,40,105,110
+,116,32,101,120,99,101,112,116,115,41,59,10,105,110,116,32,102,101,103,101,116,101,120,99,101
+,112,116,102,108,97,103,40,102,101,120,99,101,112,116,95,116,42,32,102,108,97,103,112,44,32
+,105,110,116,32,101,120,99,101,112,116,115,41,59,10,105,110,116,32,102,101,114,97,105,115,101
+,101,120,99,101,112,116,40,105,110,116,32,101,120,99,101,112,116,115,41,59,10,105,110,116,32
+,102,101,115,101,116,101,120,99,101,112,116,40,105,110,116,32,101,120,99,101,112,116,115,41,59
+,10,105,110,116,32,102,101,115,101,116,101,120,99,101,112,116,102,108,97,103,40,99,111,110,115
+,116,32,102,101,120,99,101,112,116,95,116,42,32,102,108,97,103,112,44,32,105,110,116,32,101
+,120,99,101,112,116,115,41,59,10,105,110,116,32,102,101,116,101,115,116,101,120,99,101,112,116
+,102,108,97,103,40,99,111,110,115,116,32,102,101,120,99,101,112,116,95,116,42,32,102,108,97
+,103,112,44,32,105,110,116,32,101,120,99,101,112,116,115,41,59,10,105,110,116,32,102,101,116
+,101,115,116,101,120,99,101,112,116,40,105,110,116,32,101,120,99,101,112,116,115,41,59,10,105
+,110,116,32,102,101,103,101,116,109,111,100,101,40,102,101,109,111,100,101,95,116,42,32,109,111
+,100,101,112,41,59,10,105,110,116,32,102,101,103,101,116,114,111,117,110,100,40,118,111,105,100
+,41,59,10,105,110,116,32,102,101,115,101,116,109,111,100,101,40,99,111,110,115,116,32,102,101
+,109,111,100,101,95,116,42,32,109,111,100,101,112,41,59,10,105,110,116,32,102,101,115,101,116
+,114,111,117,110,100,40,105,110,116,32,114,110,100,41,59,10,105,110,116,32,102,101,103,101,116
+,101,110,118,40,102,101,110,118,95,116,42,32,101,110,118,112,41,59,10,105,110,116,32,102,101
+,104,111,108,100,101,120,99,101,112,116,40,102,101,110,118,95,116,42,32,101,110,118,112,41,59
+,10,105,110,116,32,102,101,115,101,116,101,110,118,40,99,111,110,115,116,32,102,101,110,118,95
+,116,42,32,101,110,118,112,41,59,10,105,110,116,32,102,101,117,112,100,97,116,101,101,110,118
+,40,99,111,110,115,116,32,102,101,110,118,95,116,42,32,101,110,118,112,41,59,10,35,101,108
+,115,101,10,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,102,101,110,118,46,104
+,62,10,35,101,110,100,105,102,10
 , 0 };
 static const char file_float_h[] = {
 
 
 
-35,112,114,97,103,109,97,32,111,110,99,101,10,10,35,100,101,102,105,110,101,32,32,70,76
-,84,95,82,79,85,78,68,83,32,49,10,35,100,101,102,105,110,101,32,32,70,76,84,95,69
-,86,65,76,95,77,69,84,72,79,68,32,48,10,35,100,101,102,105,110,101,32,32,70,76,84
-,95,72,65,83,95,83,85,66,78,79,82,77,32,49,10,35,100,101,102,105,110,101,32,32,68
-,66,76,95,72,65,83,95,83,85,66,78,79,82,77,32,49,10,35,100,101,102,105,110,101,32
-,32,76,68,66,76,95,72,65,83,95,83,85,66,78,79,82,77,32,49,10,35,100,101,102,105
-,110,101,32,32,70,76,84,95,82,65,68,73,88,32,50,10,35,100,101,102,105,110,101,32,32
-,70,76,84,95,77,65,78,84,95,68,73,71,32,50,52,10,35,100,101,102,105,110,101,32,32
-,68,66,76,95,77,65,78,84,95,68,73,71,32,53,51,10,35,100,101,102,105,110,101,32,32
-,76,68,66,76,95,77,65,78,84,95,68,73,71,32,54,52,10,35,100,101,102,105,110,101,32
-,32,70,76,84,95,68,69,67,73,77,65,76,95,68,73,71,32,57,10,35,100,101,102,105,110
-,101,32,32,68,66,76,95,68,69,67,73,77,65,76,95,68,73,71,32,49,55,10,35,100,101
-,102,105,110,101,32,32,76,68,66,76,95,68,69,67,73,77,65,76,95,68,73,71,32,50,49
-,10,35,100,101,102,105,110,101,32,32,68,69,67,73,77,65,76,95,68,73,71,32,50,49,10
-,35,100,101,102,105,110,101,32,32,70,76,84,95,68,73,71,32,54,10,35,100,101,102,105,110
-,101,32,32,68,66,76,95,68,73,71,32,49,53,10,35,100,101,102,105,110,101,32,32,76,68
-,66,76,95,68,73,71,32,49,56,10,35,100,101,102,105,110,101,32,32,70,76,84,95,77,73
-,78,95,69,88,80,32,40,45,49,50,53,41,10,35,100,101,102,105,110,101,32,32,68,66,76
-,95,77,73,78,95,69,88,80,32,40,45,49,48,50,49,41,10,35,100,101,102,105,110,101,32
-,32,76,68,66,76,95,77,73,78,95,69,88,80,32,40,45,49,54,51,56,49,41,10,35,100
-,101,102,105,110,101,32,32,70,76,84,95,77,73,78,95,49,48,95,69,88,80,32,40,45,51
-,55,41,10,35,100,101,102,105,110,101,32,32,68,66,76,95,77,73,78,95,49,48,95,69,88
-,80,32,40,45,51,48,55,41,10,35,100,101,102,105,110,101,32,32,76,68,66,76,95,77,73
-,78,95,49,48,95,69,88,80,32,40,45,52,57,51,49,41,10,35,100,101,102,105,110,101,32
-,32,70,76,84,95,77,65,88,95,69,88,80,32,49,50,56,10,35,100,101,102,105,110,101,32
-,32,68,66,76,95,77,65,88,95,69,88,80,32,49,48,50,52,10,35,100,101,102,105,110,101
-,32,32,76,68,66,76,95,77,65,88,95,69,88,80,32,49,54,51,56,52,10,35,100,101,102
-,105,110,101,32,32,70,76,84,95,77,65,88,95,49,48,95,69,88,80,32,51,56,10,35,100
-,101,102,105,110,101,32,32,68,66,76,95,77,65,88,95,49,48,95,69,88,80,32,51,48,56
-,10,35,100,101,102,105,110,101,32,32,76,68,66,76,95,77,65,88,95,49,48,95,69,88,80
-,32,52,57,51,50,10,35,100,101,102,105,110,101,32,32,70,76,84,95,77,65,88,32,51,46
-,52,48,50,56,50,51,52,54,54,51,56,53,50,56,56,53,57,56,49,49,55,48,52,49,56
-,51,52,56,52,53,49,54,57,50,53,101,43,51,56,70,10,35,100,101,102,105,110,101,32,32
-,68,66,76,95,77,65,88,32,40,40,100,111,117,98,108,101,41,49,46,55,57,55,54,57,51
-,49,51,52,56,54,50,51,49,53,55,48,56,49,52,53,50,55,52,50,51,55,51,49,55,48
-,52,51,53,55,101,43,51,48,56,76,41,10,35,100,101,102,105,110,101,32,32,76,68,66,76
-,95,77,65,88,32,49,46,49,56,57,55,51,49,52,57,53,51,53,55,50,51,49,55,54,53
-,48,50,49,50,54,51,56,53,51,48,51,48,57,55,48,50,49,101,43,52,57,51,50,76,10
-,35,100,101,102,105,110,101,32,32,70,76,84,95,69,80,83,73,76,79,78,32,49,46,49,57
-,50,48,57,50,56,57,53,53,48,55,56,49,50,53,48,48,48,48,48,48,48,48,48,48,48
-,48,48,48,48,48,48,48,48,101,45,55,70,10,35,100,101,102,105,110,101,32,32,68,66,76
-,95,69,80,83,73,76,79,78,32,40,40,100,111,117,98,108,101,41,50,46,50,50,48,52,52
-,54,48,52,57,50,53,48,51,49,51,48,56,48,56,52,55,50,54,51,51,51,54,49,56,49
-,54,52,48,54,50,101,45,49,54,76,41,10,35,100,101,102,105,110,101,32,32,76,68,66,76
-,95,69,80,83,73,76,79,78,32,49,46,48,56,52,50,48,50,49,55,50,52,56,53,53,48
-,52,52,51,52,48,48,55,52,53,50,56,48,48,56,54,57,57,52,49,55,49,101,45,49,57
-,76,10,35,100,101,102,105,110,101,32,32,70,76,84,95,77,73,78,32,49,46,49,55,53,52
-,57,52,51,53,48,56,50,50,50,56,55,53,48,55,57,54,56,55,51,54,53,51,55,50,50
-,50,50,52,53,54,56,101,45,51,56,70,10,35,100,101,102,105,110,101,32,32,68,66,76,95
-,77,73,78,32,40,40,100,111,117,98,108,101,41,50,46,50,50,53,48,55,51,56,53,56,53
-,48,55,50,48,49,51,56,51,48,57,48,50,51,50,55,49,55,51,51,50,52,48,52,48,54
-,101,45,51,48,56,76,41,10,35,100,101,102,105,110,101,32,32,76,68,66,76,95,77,73,78
-,32,51,46,51,54,50,49,48,51,49,52,51,49,49,50,48,57,51,53,48,54,50,54,50,54
-,55,55,56,49,55,51,50,49,55,53,50,54,48,101,45,52,57,51,50,76,10,35,100,101,102
-,105,110,101,32,32,70,76,84,95,84,82,85,69,95,77,73,78,32,49,46,52,48,49,50,57
-,56,52,54,52,51,50,52,56,49,55,48,55,48,57,50,51,55,50,57,53,56,51,50,56,57
-,57,49,54,49,51,101,45,52,53,70,10,35,100,101,102,105,110,101,32,32,68,66,76,95,84
-,82,85,69,95,77,73,78,32,40,40,100,111,117,98,108,101,41,52,46,57,52,48,54,53,54
-,52,53,56,52,49,50,52,54,53,52,52,49,55,54,53,54,56,55,57,50,56,54,56,50,50
-,49,51,55,50,101,45,51,50,52,76,41,10,35,100,101,102,105,110,101,32,32,76,68,66,76
-,95,84,82,85,69,95,77,73,78,32,51,46,54,52,53,49,57,57,53,51,49,56,56,50,52
-,55,52,54,48,50,53,50,56,52,48,53,57,51,51,54,49,57,52,49,57,56,50,101,45,52
-,57,53,49,76,10
+35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,10,35,112,114,97
+,103,109,97,32,111,110,99,101,10,10,35,100,101,102,105,110,101,32,32,70,76,84,95,82,79
+,85,78,68,83,32,49,10,35,100,101,102,105,110,101,32,32,70,76,84,95,69,86,65,76,95
+,77,69,84,72,79,68,32,48,10,35,100,101,102,105,110,101,32,32,70,76,84,95,72,65,83
+,95,83,85,66,78,79,82,77,32,49,10,35,100,101,102,105,110,101,32,32,68,66,76,95,72
+,65,83,95,83,85,66,78,79,82,77,32,49,10,35,100,101,102,105,110,101,32,32,76,68,66
+,76,95,72,65,83,95,83,85,66,78,79,82,77,32,49,10,35,100,101,102,105,110,101,32,32
+,70,76,84,95,82,65,68,73,88,32,50,10,35,100,101,102,105,110,101,32,32,70,76,84,95
+,77,65,78,84,95,68,73,71,32,50,52,10,35,100,101,102,105,110,101,32,32,68,66,76,95
+,77,65,78,84,95,68,73,71,32,53,51,10,35,100,101,102,105,110,101,32,32,76,68,66,76
+,95,77,65,78,84,95,68,73,71,32,54,52,10,35,100,101,102,105,110,101,32,32,70,76,84
+,95,68,69,67,73,77,65,76,95,68,73,71,32,57,10,35,100,101,102,105,110,101,32,32,68
+,66,76,95,68,69,67,73,77,65,76,95,68,73,71,32,49,55,10,35,100,101,102,105,110,101
+,32,32,76,68,66,76,95,68,69,67,73,77,65,76,95,68,73,71,32,50,49,10,35,100,101
+,102,105,110,101,32,32,68,69,67,73,77,65,76,95,68,73,71,32,50,49,10,35,100,101,102
+,105,110,101,32,32,70,76,84,95,68,73,71,32,54,10,35,100,101,102,105,110,101,32,32,68
+,66,76,95,68,73,71,32,49,53,10,35,100,101,102,105,110,101,32,32,76,68,66,76,95,68
+,73,71,32,49,56,10,35,100,101,102,105,110,101,32,32,70,76,84,95,77,73,78,95,69,88
+,80,32,40,45,49,50,53,41,10,35,100,101,102,105,110,101,32,32,68,66,76,95,77,73,78
+,95,69,88,80,32,40,45,49,48,50,49,41,10,35,100,101,102,105,110,101,32,32,76,68,66
+,76,95,77,73,78,95,69,88,80,32,40,45,49,54,51,56,49,41,10,35,100,101,102,105,110
+,101,32,32,70,76,84,95,77,73,78,95,49,48,95,69,88,80,32,40,45,51,55,41,10,35
+,100,101,102,105,110,101,32,32,68,66,76,95,77,73,78,95,49,48,95,69,88,80,32,40,45
+,51,48,55,41,10,35,100,101,102,105,110,101,32,32,76,68,66,76,95,77,73,78,95,49,48
+,95,69,88,80,32,40,45,52,57,51,49,41,10,35,100,101,102,105,110,101,32,32,70,76,84
+,95,77,65,88,95,69,88,80,32,49,50,56,10,35,100,101,102,105,110,101,32,32,68,66,76
+,95,77,65,88,95,69,88,80,32,49,48,50,52,10,35,100,101,102,105,110,101,32,32,76,68
+,66,76,95,77,65,88,95,69,88,80,32,49,54,51,56,52,10,35,100,101,102,105,110,101,32
+,32,70,76,84,95,77,65,88,95,49,48,95,69,88,80,32,51,56,10,35,100,101,102,105,110
+,101,32,32,68,66,76,95,77,65,88,95,49,48,95,69,88,80,32,51,48,56,10,35,100,101
+,102,105,110,101,32,32,76,68,66,76,95,77,65,88,95,49,48,95,69,88,80,32,52,57,51
+,50,10,35,100,101,102,105,110,101,32,32,70,76,84,95,77,65,88,32,51,46,52,48,50,56
+,50,51,52,54,54,51,56,53,50,56,56,53,57,56,49,49,55,48,52,49,56,51,52,56,52
+,53,49,54,57,50,53,101,43,51,56,70,10,35,100,101,102,105,110,101,32,32,68,66,76,95
+,77,65,88,32,40,40,100,111,117,98,108,101,41,49,46,55,57,55,54,57,51,49,51,52,56
+,54,50,51,49,53,55,48,56,49,52,53,50,55,52,50,51,55,51,49,55,48,52,51,53,55
+,101,43,51,48,56,76,41,10,35,100,101,102,105,110,101,32,32,76,68,66,76,95,77,65,88
+,32,49,46,49,56,57,55,51,49,52,57,53,51,53,55,50,51,49,55,54,53,48,50,49,50
+,54,51,56,53,51,48,51,48,57,55,48,50,49,101,43,52,57,51,50,76,10,35,100,101,102
+,105,110,101,32,32,70,76,84,95,69,80,83,73,76,79,78,32,49,46,49,57,50,48,57,50
+,56,57,53,53,48,55,56,49,50,53,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48
+,48,48,48,48,101,45,55,70,10,35,100,101,102,105,110,101,32,32,68,66,76,95,69,80,83
+,73,76,79,78,32,40,40,100,111,117,98,108,101,41,50,46,50,50,48,52,52,54,48,52,57
+,50,53,48,51,49,51,48,56,48,56,52,55,50,54,51,51,51,54,49,56,49,54,52,48,54
+,50,101,45,49,54,76,41,10,35,100,101,102,105,110,101,32,32,76,68,66,76,95,69,80,83
+,73,76,79,78,32,49,46,48,56,52,50,48,50,49,55,50,52,56,53,53,48,52,52,51,52
+,48,48,55,52,53,50,56,48,48,56,54,57,57,52,49,55,49,101,45,49,57,76,10,35,100
+,101,102,105,110,101,32,32,70,76,84,95,77,73,78,32,49,46,49,55,53,52,57,52,51,53
+,48,56,50,50,50,56,55,53,48,55,57,54,56,55,51,54,53,51,55,50,50,50,50,52,53
+,54,56,101,45,51,56,70,10,35,100,101,102,105,110,101,32,32,68,66,76,95,77,73,78,32
+,40,40,100,111,117,98,108,101,41,50,46,50,50,53,48,55,51,56,53,56,53,48,55,50,48
+,49,51,56,51,48,57,48,50,51,50,55,49,55,51,51,50,52,48,52,48,54,101,45,51,48
+,56,76,41,10,35,100,101,102,105,110,101,32,32,76,68,66,76,95,77,73,78,32,51,46,51
+,54,50,49,48,51,49,52,51,49,49,50,48,57,51,53,48,54,50,54,50,54,55,55,56,49
+,55,51,50,49,55,53,50,54,48,101,45,52,57,51,50,76,10,35,100,101,102,105,110,101,32
+,32,70,76,84,95,84,82,85,69,95,77,73,78,32,49,46,52,48,49,50,57,56,52,54,52
+,51,50,52,56,49,55,48,55,48,57,50,51,55,50,57,53,56,51,50,56,57,57,49,54,49
+,51,101,45,52,53,70,10,35,100,101,102,105,110,101,32,32,68,66,76,95,84,82,85,69,95
+,77,73,78,32,40,40,100,111,117,98,108,101,41,52,46,57,52,48,54,53,54,52,53,56,52
+,49,50,52,54,53,52,52,49,55,54,53,54,56,55,57,50,56,54,56,50,50,49,51,55,50
+,101,45,51,50,52,76,41,10,35,100,101,102,105,110,101,32,32,76,68,66,76,95,84,82,85
+,69,95,77,73,78,32,51,46,54,52,53,49,57,57,53,51,49,56,56,50,52,55,52,54,48
+,50,53,50,56,52,48,53,57,51,51,54,49,57,52,49,57,56,50,101,45,52,57,53,49,76
+,10,35,101,108,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,102,108,111
+,97,116,46,104,62,10,35,101,110,100,105,102,10
 , 0 };
 static const char file_inttypes_h[] = {
 
 
 
-35,112,114,97,103,109,97,32,111,110,99,101,10,10,35,105,102,100,101,102,32,95,87,73,78
-,51,50,10,10,35,100,101,102,105,110,101,32,80,82,73,100,56,32,32,34,104,104,100,34,10
-,35,100,101,102,105,110,101,32,80,82,73,100,49,54,32,32,34,104,100,34,10,35,100,101,102
-,105,110,101,32,80,82,73,100,51,50,32,32,34,100,34,10,35,100,101,102,105,110,101,32,80
-,82,73,100,54,52,32,32,34,108,108,100,34,10,35,100,101,102,105,110,101,32,80,82,73,100
-,76,69,65,83,84,56,32,80,82,73,100,56,10,35,100,101,102,105,110,101,32,80,82,73,100
-,76,69,65,83,84,49,54,32,32,80,82,73,100,49,54,10,35,100,101,102,105,110,101,32,80
-,82,73,100,76,69,65,83,84,51,50,32,32,80,82,73,100,51,50,10,35,100,101,102,105,110
-,101,32,80,82,73,100,76,69,65,83,84,54,52,32,32,80,82,73,100,54,52,10,35,100,101
-,102,105,110,101,32,80,82,73,100,70,65,83,84,56,32,80,82,73,100,56,10,35,100,101,102
-,105,110,101,32,80,82,73,100,70,65,83,84,49,54,32,80,82,73,100,51,50,10,35,100,101
-,102,105,110,101,32,80,82,73,100,70,65,83,84,51,50,32,80,82,73,100,51,50,10,35,100
-,101,102,105,110,101,32,80,82,73,100,70,65,83,84,54,52,32,80,82,73,100,54,52,10,35
-,100,101,102,105,110,101,32,80,82,73,100,77,65,88,32,80,82,73,100,54,52,10,35,105,102
-,100,101,102,32,95,87,73,78,54,52,10,32,35,100,101,102,105,110,101,32,80,82,73,100,80
-,84,82,32,32,80,82,73,100,54,52,10,35,101,108,115,101,10,32,35,100,101,102,105,110,101
-,32,80,82,73,100,80,84,82,32,32,80,82,73,100,51,50,10,35,101,110,100,105,102,10,10
-,35,100,101,102,105,110,101,32,80,82,73,105,56,32,32,34,104,104,105,34,10,35,100,101,102
-,105,110,101,32,80,82,73,105,49,54,32,32,34,104,105,34,10,35,100,101,102,105,110,101,32
-,80,82,73,105,51,50,32,32,34,105,34,10,35,100,101,102,105,110,101,32,80,82,73,105,54
-,52,32,32,34,108,108,105,34,10,35,100,101,102,105,110,101,32,80,82,73,105,76,69,65,83
-,84,56,32,80,82,73,105,56,10,35,100,101,102,105,110,101,32,80,82,73,105,76,69,65,83
-,84,49,54,32,32,80,82,73,105,49,54,10,35,100,101,102,105,110,101,32,80,82,73,105,76
-,69,65,83,84,51,50,32,32,80,82,73,105,51,50,10,35,100,101,102,105,110,101,32,80,82
-,73,105,76,69,65,83,84,54,52,32,32,80,82,73,105,54,52,10,35,100,101,102,105,110,101
-,32,80,82,73,105,70,65,83,84,56,32,80,82,73,105,56,10,35,100,101,102,105,110,101,32
-,80,82,73,105,70,65,83,84,49,54,32,80,82,73,105,51,50,10,35,100,101,102,105,110,101
-,32,80,82,73,105,70,65,83,84,51,50,32,80,82,73,105,51,50,10,35,100,101,102,105,110
-,101,32,80,82,73,105,70,65,83,84,54,52,32,80,82,73,105,54,52,10,35,100,101,102,105
-,110,101,32,80,82,73,105,77,65,88,32,80,82,73,105,54,52,10,35,105,102,100,101,102,32
-,95,87,73,78,54,52,10,32,35,100,101,102,105,110,101,32,80,82,73,105,80,84,82,32,32
-,80,82,73,105,54,52,10,35,101,108,115,101,10,32,35,100,101,102,105,110,101,32,80,82,73
-,105,80,84,82,32,32,80,82,73,105,51,50,10,35,101,110,100,105,102,10,10,35,100,101,102
-,105,110,101,32,80,82,73,111,56,32,32,34,104,104,111,34,10,35,100,101,102,105,110,101,32
-,80,82,73,111,49,54,32,32,34,104,111,34,10,35,100,101,102,105,110,101,32,80,82,73,111
-,51,50,32,32,34,111,34,10,35,100,101,102,105,110,101,32,80,82,73,111,54,52,32,32,34
-,108,108,111,34,10,35,100,101,102,105,110,101,32,80,82,73,111,76,69,65,83,84,56,32,80
-,82,73,111,56,10,35,100,101,102,105,110,101,32,80,82,73,111,76,69,65,83,84,49,54,32
-,32,80,82,73,111,49,54,10,35,100,101,102,105,110,101,32,80,82,73,111,76,69,65,83,84
-,51,50,32,32,80,82,73,111,51,50,10,35,100,101,102,105,110,101,32,80,82,73,111,76,69
-,65,83,84,54,52,32,32,80,82,73,111,54,52,10,35,100,101,102,105,110,101,32,80,82,73
-,111,70,65,83,84,56,32,80,82,73,111,56,10,35,100,101,102,105,110,101,32,80,82,73,111
-,70,65,83,84,49,54,32,80,82,73,111,51,50,10,35,100,101,102,105,110,101,32,80,82,73
-,111,70,65,83,84,51,50,32,80,82,73,111,51,50,10,35,100,101,102,105,110,101,32,80,82
-,73,111,70,65,83,84,54,52,32,80,82,73,111,54,52,10,35,100,101,102,105,110,101,32,80
-,82,73,111,77,65,88,32,80,82,73,111,54,52,10,35,105,102,100,101,102,32,95,87,73,78
-,54,52,10,32,35,100,101,102,105,110,101,32,80,82,73,111,80,84,82,32,32,80,82,73,111
-,54,52,10,35,101,108,115,101,10,32,35,100,101,102,105,110,101,32,80,82,73,111,80,84,82
-,32,32,80,82,73,111,51,50,10,35,101,110,100,105,102,10,10,35,100,101,102,105,110,101,32
-,80,82,73,117,56,32,32,34,104,104,117,34,10,35,100,101,102,105,110,101,32,80,82,73,117
-,49,54,32,32,34,104,117,34,10,35,100,101,102,105,110,101,32,80,82,73,117,51,50,32,32
-,34,117,34,10,35,100,101,102,105,110,101,32,80,82,73,117,54,52,32,32,34,108,108,117,34
-,10,35,100,101,102,105,110,101,32,80,82,73,117,76,69,65,83,84,56,32,80,82,73,117,56
-,10,35,100,101,102,105,110,101,32,80,82,73,117,76,69,65,83,84,49,54,32,32,80,82,73
-,117,49,54,10,35,100,101,102,105,110,101,32,80,82,73,117,76,69,65,83,84,51,50,32,32
-,80,82,73,117,51,50,10,35,100,101,102,105,110,101,32,80,82,73,117,76,69,65,83,84,54
-,52,32,32,80,82,73,117,54,52,10,35,100,101,102,105,110,101,32,80,82,73,117,70,65,83
-,84,56,32,80,82,73,117,56,10,35,100,101,102,105,110,101,32,80,82,73,117,70,65,83,84
-,49,54,32,80,82,73,117,51,50,10,35,100,101,102,105,110,101,32,80,82,73,117,70,65,83
-,84,51,50,32,80,82,73,117,51,50,10,35,100,101,102,105,110,101,32,80,82,73,117,70,65
-,83,84,54,52,32,80,82,73,117,54,52,10,35,100,101,102,105,110,101,32,80,82,73,117,77
-,65,88,32,80,82,73,117,54,52,10,35,105,102,100,101,102,32,95,87,73,78,54,52,10,32
-,35,100,101,102,105,110,101,32,80,82,73,117,80,84,82,32,32,80,82,73,117,54,52,10,35
-,101,108,115,101,10,32,35,100,101,102,105,110,101,32,80,82,73,117,80,84,82,32,32,80,82
-,73,117,51,50,10,35,101,110,100,105,102,10,10,35,100,101,102,105,110,101,32,80,82,73,120
-,56,32,32,34,104,104,120,34,10,35,100,101,102,105,110,101,32,80,82,73,120,49,54,32,32
-,34,104,120,34,10,35,100,101,102,105,110,101,32,80,82,73,120,51,50,32,32,34,120,34,10
-,35,100,101,102,105,110,101,32,80,82,73,120,54,52,32,32,34,108,108,120,34,10,35,100,101
-,102,105,110,101,32,80,82,73,120,76,69,65,83,84,56,32,80,82,73,120,56,10,35,100,101
-,102,105,110,101,32,80,82,73,120,76,69,65,83,84,49,54,32,32,80,82,73,120,49,54,10
-,35,100,101,102,105,110,101,32,80,82,73,120,76,69,65,83,84,51,50,32,32,80,82,73,120
-,51,50,10,35,100,101,102,105,110,101,32,80,82,73,120,76,69,65,83,84,54,52,32,32,80
-,82,73,120,54,52,10,35,100,101,102,105,110,101,32,80,82,73,120,70,65,83,84,56,32,80
-,82,73,120,56,10,35,100,101,102,105,110,101,32,80,82,73,120,70,65,83,84,49,54,32,80
-,82,73,120,51,50,10,35,100,101,102,105,110,101,32,80,82,73,120,70,65,83,84,51,50,32
-,80,82,73,120,51,50,10,35,100,101,102,105,110,101,32,80,82,73,120,70,65,83,84,54,52
-,32,80,82,73,120,54,52,10,35,100,101,102,105,110,101,32,80,82,73,120,77,65,88,32,80
-,82,73,120,54,52,10,35,105,102,100,101,102,32,95,87,73,78,54,52,10,32,35,100,101,102
-,105,110,101,32,80,82,73,120,80,84,82,32,32,80,82,73,120,54,52,10,35,101,108,115,101
-,10,32,35,100,101,102,105,110,101,32,80,82,73,120,80,84,82,32,32,80,82,73,120,51,50
-,10,35,101,110,100,105,102,10,10,35,100,101,102,105,110,101,32,80,82,73,88,56,32,32,34
-,104,104,88,34,10,35,100,101,102,105,110,101,32,80,82,73,88,49,54,32,32,34,104,88,34
-,10,35,100,101,102,105,110,101,32,80,82,73,88,51,50,32,32,34,88,34,10,35,100,101,102
-,105,110,101,32,80,82,73,88,54,52,32,32,34,108,108,88,34,10,35,100,101,102,105,110,101
-,32,80,82,73,88,76,69,65,83,84,56,32,80,82,73,88,56,10,35,100,101,102,105,110,101
-,32,80,82,73,88,76,69,65,83,84,49,54,32,32,80,82,73,88,49,54,10,35,100,101,102
-,105,110,101,32,80,82,73,88,76,69,65,83,84,51,50,32,32,80,82,73,88,51,50,10,35
-,100,101,102,105,110,101,32,80,82,73,88,76,69,65,83,84,54,52,32,32,80,82,73,88,54
-,52,10,35,100,101,102,105,110,101,32,80,82,73,88,70,65,83,84,56,32,80,82,73,88,56
-,10,35,100,101,102,105,110,101,32,80,82,73,88,70,65,83,84,49,54,32,80,82,73,88,51
-,50,10,35,100,101,102,105,110,101,32,80,82,73,88,70,65,83,84,51,50,32,80,82,73,88
-,51,50,10,35,100,101,102,105,110,101,32,80,82,73,88,70,65,83,84,54,52,32,80,82,73
-,88,54,52,10,35,100,101,102,105,110,101,32,80,82,73,88,77,65,88,32,80,82,73,88,54
+35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,10,35,112,114,97
+,103,109,97,32,111,110,99,101,10,10,35,105,102,100,101,102,32,95,87,73,78,51,50,10,10
+,35,100,101,102,105,110,101,32,80,82,73,100,56,32,32,34,104,104,100,34,10,35,100,101,102
+,105,110,101,32,80,82,73,100,49,54,32,32,34,104,100,34,10,35,100,101,102,105,110,101,32
+,80,82,73,100,51,50,32,32,34,100,34,10,35,100,101,102,105,110,101,32,80,82,73,100,54
+,52,32,32,34,108,108,100,34,10,35,100,101,102,105,110,101,32,80,82,73,100,76,69,65,83
+,84,56,32,80,82,73,100,56,10,35,100,101,102,105,110,101,32,80,82,73,100,76,69,65,83
+,84,49,54,32,32,80,82,73,100,49,54,10,35,100,101,102,105,110,101,32,80,82,73,100,76
+,69,65,83,84,51,50,32,32,80,82,73,100,51,50,10,35,100,101,102,105,110,101,32,80,82
+,73,100,76,69,65,83,84,54,52,32,32,80,82,73,100,54,52,10,35,100,101,102,105,110,101
+,32,80,82,73,100,70,65,83,84,56,32,80,82,73,100,56,10,35,100,101,102,105,110,101,32
+,80,82,73,100,70,65,83,84,49,54,32,80,82,73,100,51,50,10,35,100,101,102,105,110,101
+,32,80,82,73,100,70,65,83,84,51,50,32,80,82,73,100,51,50,10,35,100,101,102,105,110
+,101,32,80,82,73,100,70,65,83,84,54,52,32,80,82,73,100,54,52,10,35,100,101,102,105
+,110,101,32,80,82,73,100,77,65,88,32,80,82,73,100,54,52,10,35,105,102,100,101,102,32
+,95,87,73,78,54,52,10,32,35,100,101,102,105,110,101,32,80,82,73,100,80,84,82,32,32
+,80,82,73,100,54,52,10,35,101,108,115,101,10,32,35,100,101,102,105,110,101,32,80,82,73
+,100,80,84,82,32,32,80,82,73,100,51,50,10,35,101,110,100,105,102,10,10,35,100,101,102
+,105,110,101,32,80,82,73,105,56,32,32,34,104,104,105,34,10,35,100,101,102,105,110,101,32
+,80,82,73,105,49,54,32,32,34,104,105,34,10,35,100,101,102,105,110,101,32,80,82,73,105
+,51,50,32,32,34,105,34,10,35,100,101,102,105,110,101,32,80,82,73,105,54,52,32,32,34
+,108,108,105,34,10,35,100,101,102,105,110,101,32,80,82,73,105,76,69,65,83,84,56,32,80
+,82,73,105,56,10,35,100,101,102,105,110,101,32,80,82,73,105,76,69,65,83,84,49,54,32
+,32,80,82,73,105,49,54,10,35,100,101,102,105,110,101,32,80,82,73,105,76,69,65,83,84
+,51,50,32,32,80,82,73,105,51,50,10,35,100,101,102,105,110,101,32,80,82,73,105,76,69
+,65,83,84,54,52,32,32,80,82,73,105,54,52,10,35,100,101,102,105,110,101,32,80,82,73
+,105,70,65,83,84,56,32,80,82,73,105,56,10,35,100,101,102,105,110,101,32,80,82,73,105
+,70,65,83,84,49,54,32,80,82,73,105,51,50,10,35,100,101,102,105,110,101,32,80,82,73
+,105,70,65,83,84,51,50,32,80,82,73,105,51,50,10,35,100,101,102,105,110,101,32,80,82
+,73,105,70,65,83,84,54,52,32,80,82,73,105,54,52,10,35,100,101,102,105,110,101,32,80
+,82,73,105,77,65,88,32,80,82,73,105,54,52,10,35,105,102,100,101,102,32,95,87,73,78
+,54,52,10,32,35,100,101,102,105,110,101,32,80,82,73,105,80,84,82,32,32,80,82,73,105
+,54,52,10,35,101,108,115,101,10,32,35,100,101,102,105,110,101,32,80,82,73,105,80,84,82
+,32,32,80,82,73,105,51,50,10,35,101,110,100,105,102,10,10,35,100,101,102,105,110,101,32
+,80,82,73,111,56,32,32,34,104,104,111,34,10,35,100,101,102,105,110,101,32,80,82,73,111
+,49,54,32,32,34,104,111,34,10,35,100,101,102,105,110,101,32,80,82,73,111,51,50,32,32
+,34,111,34,10,35,100,101,102,105,110,101,32,80,82,73,111,54,52,32,32,34,108,108,111,34
+,10,35,100,101,102,105,110,101,32,80,82,73,111,76,69,65,83,84,56,32,80,82,73,111,56
+,10,35,100,101,102,105,110,101,32,80,82,73,111,76,69,65,83,84,49,54,32,32,80,82,73
+,111,49,54,10,35,100,101,102,105,110,101,32,80,82,73,111,76,69,65,83,84,51,50,32,32
+,80,82,73,111,51,50,10,35,100,101,102,105,110,101,32,80,82,73,111,76,69,65,83,84,54
+,52,32,32,80,82,73,111,54,52,10,35,100,101,102,105,110,101,32,80,82,73,111,70,65,83
+,84,56,32,80,82,73,111,56,10,35,100,101,102,105,110,101,32,80,82,73,111,70,65,83,84
+,49,54,32,80,82,73,111,51,50,10,35,100,101,102,105,110,101,32,80,82,73,111,70,65,83
+,84,51,50,32,80,82,73,111,51,50,10,35,100,101,102,105,110,101,32,80,82,73,111,70,65
+,83,84,54,52,32,80,82,73,111,54,52,10,35,100,101,102,105,110,101,32,80,82,73,111,77
+,65,88,32,80,82,73,111,54,52,10,35,105,102,100,101,102,32,95,87,73,78,54,52,10,32
+,35,100,101,102,105,110,101,32,80,82,73,111,80,84,82,32,32,80,82,73,111,54,52,10,35
+,101,108,115,101,10,32,35,100,101,102,105,110,101,32,80,82,73,111,80,84,82,32,32,80,82
+,73,111,51,50,10,35,101,110,100,105,102,10,10,35,100,101,102,105,110,101,32,80,82,73,117
+,56,32,32,34,104,104,117,34,10,35,100,101,102,105,110,101,32,80,82,73,117,49,54,32,32
+,34,104,117,34,10,35,100,101,102,105,110,101,32,80,82,73,117,51,50,32,32,34,117,34,10
+,35,100,101,102,105,110,101,32,80,82,73,117,54,52,32,32,34,108,108,117,34,10,35,100,101
+,102,105,110,101,32,80,82,73,117,76,69,65,83,84,56,32,80,82,73,117,56,10,35,100,101
+,102,105,110,101,32,80,82,73,117,76,69,65,83,84,49,54,32,32,80,82,73,117,49,54,10
+,35,100,101,102,105,110,101,32,80,82,73,117,76,69,65,83,84,51,50,32,32,80,82,73,117
+,51,50,10,35,100,101,102,105,110,101,32,80,82,73,117,76,69,65,83,84,54,52,32,32,80
+,82,73,117,54,52,10,35,100,101,102,105,110,101,32,80,82,73,117,70,65,83,84,56,32,80
+,82,73,117,56,10,35,100,101,102,105,110,101,32,80,82,73,117,70,65,83,84,49,54,32,80
+,82,73,117,51,50,10,35,100,101,102,105,110,101,32,80,82,73,117,70,65,83,84,51,50,32
+,80,82,73,117,51,50,10,35,100,101,102,105,110,101,32,80,82,73,117,70,65,83,84,54,52
+,32,80,82,73,117,54,52,10,35,100,101,102,105,110,101,32,80,82,73,117,77,65,88,32,80
+,82,73,117,54,52,10,35,105,102,100,101,102,32,95,87,73,78,54,52,10,32,35,100,101,102
+,105,110,101,32,80,82,73,117,80,84,82,32,32,80,82,73,117,54,52,10,35,101,108,115,101
+,10,32,35,100,101,102,105,110,101,32,80,82,73,117,80,84,82,32,32,80,82,73,117,51,50
+,10,35,101,110,100,105,102,10,10,35,100,101,102,105,110,101,32,80,82,73,120,56,32,32,34
+,104,104,120,34,10,35,100,101,102,105,110,101,32,80,82,73,120,49,54,32,32,34,104,120,34
+,10,35,100,101,102,105,110,101,32,80,82,73,120,51,50,32,32,34,120,34,10,35,100,101,102
+,105,110,101,32,80,82,73,120,54,52,32,32,34,108,108,120,34,10,35,100,101,102,105,110,101
+,32,80,82,73,120,76,69,65,83,84,56,32,80,82,73,120,56,10,35,100,101,102,105,110,101
+,32,80,82,73,120,76,69,65,83,84,49,54,32,32,80,82,73,120,49,54,10,35,100,101,102
+,105,110,101,32,80,82,73,120,76,69,65,83,84,51,50,32,32,80,82,73,120,51,50,10,35
+,100,101,102,105,110,101,32,80,82,73,120,76,69,65,83,84,54,52,32,32,80,82,73,120,54
+,52,10,35,100,101,102,105,110,101,32,80,82,73,120,70,65,83,84,56,32,80,82,73,120,56
+,10,35,100,101,102,105,110,101,32,80,82,73,120,70,65,83,84,49,54,32,80,82,73,120,51
+,50,10,35,100,101,102,105,110,101,32,80,82,73,120,70,65,83,84,51,50,32,80,82,73,120
+,51,50,10,35,100,101,102,105,110,101,32,80,82,73,120,70,65,83,84,54,52,32,80,82,73
+,120,54,52,10,35,100,101,102,105,110,101,32,80,82,73,120,77,65,88,32,80,82,73,120,54
 ,52,10,35,105,102,100,101,102,32,95,87,73,78,54,52,10,32,35,100,101,102,105,110,101,32
-,80,82,73,88,80,84,82,32,32,80,82,73,88,54,52,10,35,101,108,115,101,10,32,35,100
-,101,102,105,110,101,32,80,82,73,88,80,84,82,32,32,80,82,73,88,51,50,10,35,101,110
-,100,105,102,10,10,10,35,100,101,102,105,110,101,32,83,67,78,100,56,32,32,34,104,104,100
-,34,10,35,100,101,102,105,110,101,32,83,67,78,100,49,54,32,32,34,104,100,34,10,35,100
-,101,102,105,110,101,32,83,67,78,100,51,50,32,32,34,100,34,10,35,100,101,102,105,110,101
-,32,83,67,78,100,54,52,32,32,34,108,108,100,34,10,35,100,101,102,105,110,101,32,83,67
-,78,100,76,69,65,83,84,56,32,83,67,78,100,56,10,35,100,101,102,105,110,101,32,83,67
-,78,100,76,69,65,83,84,49,54,32,32,83,67,78,100,49,54,10,35,100,101,102,105,110,101
-,32,83,67,78,100,76,69,65,83,84,51,50,32,32,83,67,78,100,51,50,10,35,100,101,102
-,105,110,101,32,83,67,78,100,76,69,65,83,84,54,52,32,32,83,67,78,100,54,52,10,35
-,100,101,102,105,110,101,32,83,67,78,100,70,65,83,84,56,32,83,67,78,100,56,10,35,100
-,101,102,105,110,101,32,83,67,78,100,70,65,83,84,49,54,32,83,67,78,100,51,50,10,35
-,100,101,102,105,110,101,32,83,67,78,100,70,65,83,84,51,50,32,83,67,78,100,51,50,10
-,35,100,101,102,105,110,101,32,83,67,78,100,70,65,83,84,54,52,32,83,67,78,100,54,52
-,10,35,100,101,102,105,110,101,32,83,67,78,100,77,65,88,32,83,67,78,100,54,52,10,35
-,105,102,100,101,102,32,95,87,73,78,54,52,10,32,35,100,101,102,105,110,101,32,83,67,78
-,100,80,84,82,32,32,83,67,78,100,54,52,10,35,101,108,115,101,10,32,35,100,101,102,105
-,110,101,32,83,67,78,100,80,84,82,32,32,83,67,78,100,51,50,10,35,101,110,100,105,102
-,10,10,35,100,101,102,105,110,101,32,83,67,78,105,56,32,32,34,104,104,105,34,10,35,100
-,101,102,105,110,101,32,83,67,78,105,49,54,32,32,34,104,105,34,10,35,100,101,102,105,110
-,101,32,83,67,78,105,51,50,32,32,34,105,34,10,35,100,101,102,105,110,101,32,83,67,78
-,105,54,52,32,32,34,108,108,105,34,10,35,100,101,102,105,110,101,32,83,67,78,105,76,69
-,65,83,84,56,32,83,67,78,105,56,10,35,100,101,102,105,110,101,32,83,67,78,105,76,69
-,65,83,84,49,54,32,32,83,67,78,105,49,54,10,35,100,101,102,105,110,101,32,83,67,78
-,105,76,69,65,83,84,51,50,32,32,83,67,78,105,51,50,10,35,100,101,102,105,110,101,32
-,83,67,78,105,76,69,65,83,84,54,52,32,32,83,67,78,105,54,52,10,35,100,101,102,105
-,110,101,32,83,67,78,105,70,65,83,84,56,32,83,67,78,105,56,10,35,100,101,102,105,110
-,101,32,83,67,78,105,70,65,83,84,49,54,32,83,67,78,105,51,50,10,35,100,101,102,105
-,110,101,32,83,67,78,105,70,65,83,84,51,50,32,83,67,78,105,51,50,10,35,100,101,102
-,105,110,101,32,83,67,78,105,70,65,83,84,54,52,32,83,67,78,105,54,52,10,35,100,101
-,102,105,110,101,32,83,67,78,105,77,65,88,32,83,67,78,105,54,52,10,35,105,102,100,101
-,102,32,95,87,73,78,54,52,10,32,35,100,101,102,105,110,101,32,83,67,78,105,80,84,82
-,32,32,83,67,78,105,54,52,10,35,101,108,115,101,10,32,35,100,101,102,105,110,101,32,83
-,67,78,105,80,84,82,32,32,83,67,78,105,51,50,10,35,101,110,100,105,102,10,10,35,100
-,101,102,105,110,101,32,83,67,78,111,56,32,32,34,104,104,111,34,10,35,100,101,102,105,110
-,101,32,83,67,78,111,49,54,32,32,34,104,111,34,10,35,100,101,102,105,110,101,32,83,67
-,78,111,51,50,32,32,34,111,34,10,35,100,101,102,105,110,101,32,83,67,78,111,54,52,32
-,32,34,108,108,111,34,10,35,100,101,102,105,110,101,32,83,67,78,111,76,69,65,83,84,56
-,32,83,67,78,111,56,10,35,100,101,102,105,110,101,32,83,67,78,111,76,69,65,83,84,49
-,54,32,32,83,67,78,111,49,54,10,35,100,101,102,105,110,101,32,83,67,78,111,76,69,65
-,83,84,51,50,32,32,83,67,78,111,51,50,10,35,100,101,102,105,110,101,32,83,67,78,111
-,76,69,65,83,84,54,52,32,32,83,67,78,111,54,52,10,35,100,101,102,105,110,101,32,83
-,67,78,111,70,65,83,84,56,32,83,67,78,111,56,10,35,100,101,102,105,110,101,32,83,67
-,78,111,70,65,83,84,49,54,32,83,67,78,111,51,50,10,35,100,101,102,105,110,101,32,83
-,67,78,111,70,65,83,84,51,50,32,83,67,78,111,51,50,10,35,100,101,102,105,110,101,32
-,83,67,78,111,70,65,83,84,54,52,32,83,67,78,111,54,52,10,35,100,101,102,105,110,101
-,32,83,67,78,111,77,65,88,32,83,67,78,111,54,52,10,35,105,102,100,101,102,32,95,87
-,73,78,54,52,10,32,35,100,101,102,105,110,101,32,83,67,78,111,80,84,82,32,32,83,67
-,78,111,54,52,10,35,101,108,115,101,10,32,35,100,101,102,105,110,101,32,83,67,78,111,80
-,84,82,32,32,83,67,78,111,51,50,10,35,101,110,100,105,102,10,10,35,100,101,102,105,110
-,101,32,83,67,78,117,56,32,32,34,104,104,117,34,10,35,100,101,102,105,110,101,32,83,67
-,78,117,49,54,32,32,34,104,117,34,10,35,100,101,102,105,110,101,32,83,67,78,117,51,50
-,32,32,34,117,34,10,35,100,101,102,105,110,101,32,83,67,78,117,54,52,32,32,34,108,108
-,117,34,10,35,100,101,102,105,110,101,32,83,67,78,117,76,69,65,83,84,56,32,83,67,78
-,117,56,10,35,100,101,102,105,110,101,32,83,67,78,117,76,69,65,83,84,49,54,32,32,83
-,67,78,117,49,54,10,35,100,101,102,105,110,101,32,83,67,78,117,76,69,65,83,84,51,50
-,32,32,83,67,78,117,51,50,10,35,100,101,102,105,110,101,32,83,67,78,117,76,69,65,83
-,84,54,52,32,32,83,67,78,117,54,52,10,35,100,101,102,105,110,101,32,83,67,78,117,70
-,65,83,84,56,32,83,67,78,117,56,10,35,100,101,102,105,110,101,32,83,67,78,117,70,65
-,83,84,49,54,32,83,67,78,117,51,50,10,35,100,101,102,105,110,101,32,83,67,78,117,70
-,65,83,84,51,50,32,83,67,78,117,51,50,10,35,100,101,102,105,110,101,32,83,67,78,117
-,70,65,83,84,54,52,32,83,67,78,117,54,52,10,35,100,101,102,105,110,101,32,83,67,78
-,117,77,65,88,32,83,67,78,117,54,52,10,35,105,102,100,101,102,32,95,87,73,78,54,52
-,10,32,35,100,101,102,105,110,101,32,83,67,78,117,80,84,82,32,32,83,67,78,117,54,52
-,10,35,101,108,115,101,10,32,35,100,101,102,105,110,101,32,83,67,78,117,80,84,82,32,32
-,83,67,78,117,51,50,10,35,101,110,100,105,102,10,10,35,100,101,102,105,110,101,32,83,67
-,78,120,56,32,32,34,104,104,120,34,10,35,100,101,102,105,110,101,32,83,67,78,120,49,54
-,32,32,34,104,120,34,10,35,100,101,102,105,110,101,32,83,67,78,120,51,50,32,32,34,120
-,34,10,35,100,101,102,105,110,101,32,83,67,78,120,54,52,32,32,34,108,108,120,34,10,35
-,100,101,102,105,110,101,32,83,67,78,120,76,69,65,83,84,56,32,83,67,78,120,56,10,35
-,100,101,102,105,110,101,32,83,67,78,120,76,69,65,83,84,49,54,32,32,83,67,78,120,49
-,54,10,35,100,101,102,105,110,101,32,83,67,78,120,76,69,65,83,84,51,50,32,32,83,67
-,78,120,51,50,10,35,100,101,102,105,110,101,32,83,67,78,120,76,69,65,83,84,54,52,32
-,32,83,67,78,120,54,52,10,35,100,101,102,105,110,101,32,83,67,78,120,70,65,83,84,56
-,32,83,67,78,120,56,10,35,100,101,102,105,110,101,32,83,67,78,120,70,65,83,84,49,54
-,32,83,67,78,120,51,50,10,35,100,101,102,105,110,101,32,83,67,78,120,70,65,83,84,51
-,50,32,83,67,78,120,51,50,10,35,100,101,102,105,110,101,32,83,67,78,120,70,65,83,84
-,54,52,32,83,67,78,120,54,52,10,35,100,101,102,105,110,101,32,83,67,78,120,77,65,88
-,32,83,67,78,120,54,52,10,35,105,102,100,101,102,32,95,87,73,78,54,52,10,32,35,100
-,101,102,105,110,101,32,83,67,78,120,80,84,82,32,32,83,67,78,120,54,52,10,35,101,108
-,115,101,10,32,35,100,101,102,105,110,101,32,83,67,78,120,80,84,82,32,32,83,67,78,120
-,51,50,10,35,101,110,100,105,102,10,10,10,35,101,110,100,105,102,10,10,35,105,102,32,95
-,95,71,78,85,67,95,95,10,35,119,97,114,110,105,110,103,32,84,79,68,79,10,35,101,110
-,100,105,102,10
+,80,82,73,120,80,84,82,32,32,80,82,73,120,54,52,10,35,101,108,115,101,10,32,35,100
+,101,102,105,110,101,32,80,82,73,120,80,84,82,32,32,80,82,73,120,51,50,10,35,101,110
+,100,105,102,10,10,35,100,101,102,105,110,101,32,80,82,73,88,56,32,32,34,104,104,88,34
+,10,35,100,101,102,105,110,101,32,80,82,73,88,49,54,32,32,34,104,88,34,10,35,100,101
+,102,105,110,101,32,80,82,73,88,51,50,32,32,34,88,34,10,35,100,101,102,105,110,101,32
+,80,82,73,88,54,52,32,32,34,108,108,88,34,10,35,100,101,102,105,110,101,32,80,82,73
+,88,76,69,65,83,84,56,32,80,82,73,88,56,10,35,100,101,102,105,110,101,32,80,82,73
+,88,76,69,65,83,84,49,54,32,32,80,82,73,88,49,54,10,35,100,101,102,105,110,101,32
+,80,82,73,88,76,69,65,83,84,51,50,32,32,80,82,73,88,51,50,10,35,100,101,102,105
+,110,101,32,80,82,73,88,76,69,65,83,84,54,52,32,32,80,82,73,88,54,52,10,35,100
+,101,102,105,110,101,32,80,82,73,88,70,65,83,84,56,32,80,82,73,88,56,10,35,100,101
+,102,105,110,101,32,80,82,73,88,70,65,83,84,49,54,32,80,82,73,88,51,50,10,35,100
+,101,102,105,110,101,32,80,82,73,88,70,65,83,84,51,50,32,80,82,73,88,51,50,10,35
+,100,101,102,105,110,101,32,80,82,73,88,70,65,83,84,54,52,32,80,82,73,88,54,52,10
+,35,100,101,102,105,110,101,32,80,82,73,88,77,65,88,32,80,82,73,88,54,52,10,35,105
+,102,100,101,102,32,95,87,73,78,54,52,10,32,35,100,101,102,105,110,101,32,80,82,73,88
+,80,84,82,32,32,80,82,73,88,54,52,10,35,101,108,115,101,10,32,35,100,101,102,105,110
+,101,32,80,82,73,88,80,84,82,32,32,80,82,73,88,51,50,10,35,101,110,100,105,102,10
+,10,10,35,100,101,102,105,110,101,32,83,67,78,100,56,32,32,34,104,104,100,34,10,35,100
+,101,102,105,110,101,32,83,67,78,100,49,54,32,32,34,104,100,34,10,35,100,101,102,105,110
+,101,32,83,67,78,100,51,50,32,32,34,100,34,10,35,100,101,102,105,110,101,32,83,67,78
+,100,54,52,32,32,34,108,108,100,34,10,35,100,101,102,105,110,101,32,83,67,78,100,76,69
+,65,83,84,56,32,83,67,78,100,56,10,35,100,101,102,105,110,101,32,83,67,78,100,76,69
+,65,83,84,49,54,32,32,83,67,78,100,49,54,10,35,100,101,102,105,110,101,32,83,67,78
+,100,76,69,65,83,84,51,50,32,32,83,67,78,100,51,50,10,35,100,101,102,105,110,101,32
+,83,67,78,100,76,69,65,83,84,54,52,32,32,83,67,78,100,54,52,10,35,100,101,102,105
+,110,101,32,83,67,78,100,70,65,83,84,56,32,83,67,78,100,56,10,35,100,101,102,105,110
+,101,32,83,67,78,100,70,65,83,84,49,54,32,83,67,78,100,51,50,10,35,100,101,102,105
+,110,101,32,83,67,78,100,70,65,83,84,51,50,32,83,67,78,100,51,50,10,35,100,101,102
+,105,110,101,32,83,67,78,100,70,65,83,84,54,52,32,83,67,78,100,54,52,10,35,100,101
+,102,105,110,101,32,83,67,78,100,77,65,88,32,83,67,78,100,54,52,10,35,105,102,100,101
+,102,32,95,87,73,78,54,52,10,32,35,100,101,102,105,110,101,32,83,67,78,100,80,84,82
+,32,32,83,67,78,100,54,52,10,35,101,108,115,101,10,32,35,100,101,102,105,110,101,32,83
+,67,78,100,80,84,82,32,32,83,67,78,100,51,50,10,35,101,110,100,105,102,10,10,35,100
+,101,102,105,110,101,32,83,67,78,105,56,32,32,34,104,104,105,34,10,35,100,101,102,105,110
+,101,32,83,67,78,105,49,54,32,32,34,104,105,34,10,35,100,101,102,105,110,101,32,83,67
+,78,105,51,50,32,32,34,105,34,10,35,100,101,102,105,110,101,32,83,67,78,105,54,52,32
+,32,34,108,108,105,34,10,35,100,101,102,105,110,101,32,83,67,78,105,76,69,65,83,84,56
+,32,83,67,78,105,56,10,35,100,101,102,105,110,101,32,83,67,78,105,76,69,65,83,84,49
+,54,32,32,83,67,78,105,49,54,10,35,100,101,102,105,110,101,32,83,67,78,105,76,69,65
+,83,84,51,50,32,32,83,67,78,105,51,50,10,35,100,101,102,105,110,101,32,83,67,78,105
+,76,69,65,83,84,54,52,32,32,83,67,78,105,54,52,10,35,100,101,102,105,110,101,32,83
+,67,78,105,70,65,83,84,56,32,83,67,78,105,56,10,35,100,101,102,105,110,101,32,83,67
+,78,105,70,65,83,84,49,54,32,83,67,78,105,51,50,10,35,100,101,102,105,110,101,32,83
+,67,78,105,70,65,83,84,51,50,32,83,67,78,105,51,50,10,35,100,101,102,105,110,101,32
+,83,67,78,105,70,65,83,84,54,52,32,83,67,78,105,54,52,10,35,100,101,102,105,110,101
+,32,83,67,78,105,77,65,88,32,83,67,78,105,54,52,10,35,105,102,100,101,102,32,95,87
+,73,78,54,52,10,32,35,100,101,102,105,110,101,32,83,67,78,105,80,84,82,32,32,83,67
+,78,105,54,52,10,35,101,108,115,101,10,32,35,100,101,102,105,110,101,32,83,67,78,105,80
+,84,82,32,32,83,67,78,105,51,50,10,35,101,110,100,105,102,10,10,35,100,101,102,105,110
+,101,32,83,67,78,111,56,32,32,34,104,104,111,34,10,35,100,101,102,105,110,101,32,83,67
+,78,111,49,54,32,32,34,104,111,34,10,35,100,101,102,105,110,101,32,83,67,78,111,51,50
+,32,32,34,111,34,10,35,100,101,102,105,110,101,32,83,67,78,111,54,52,32,32,34,108,108
+,111,34,10,35,100,101,102,105,110,101,32,83,67,78,111,76,69,65,83,84,56,32,83,67,78
+,111,56,10,35,100,101,102,105,110,101,32,83,67,78,111,76,69,65,83,84,49,54,32,32,83
+,67,78,111,49,54,10,35,100,101,102,105,110,101,32,83,67,78,111,76,69,65,83,84,51,50
+,32,32,83,67,78,111,51,50,10,35,100,101,102,105,110,101,32,83,67,78,111,76,69,65,83
+,84,54,52,32,32,83,67,78,111,54,52,10,35,100,101,102,105,110,101,32,83,67,78,111,70
+,65,83,84,56,32,83,67,78,111,56,10,35,100,101,102,105,110,101,32,83,67,78,111,70,65
+,83,84,49,54,32,83,67,78,111,51,50,10,35,100,101,102,105,110,101,32,83,67,78,111,70
+,65,83,84,51,50,32,83,67,78,111,51,50,10,35,100,101,102,105,110,101,32,83,67,78,111
+,70,65,83,84,54,52,32,83,67,78,111,54,52,10,35,100,101,102,105,110,101,32,83,67,78
+,111,77,65,88,32,83,67,78,111,54,52,10,35,105,102,100,101,102,32,95,87,73,78,54,52
+,10,32,35,100,101,102,105,110,101,32,83,67,78,111,80,84,82,32,32,83,67,78,111,54,52
+,10,35,101,108,115,101,10,32,35,100,101,102,105,110,101,32,83,67,78,111,80,84,82,32,32
+,83,67,78,111,51,50,10,35,101,110,100,105,102,10,10,35,100,101,102,105,110,101,32,83,67
+,78,117,56,32,32,34,104,104,117,34,10,35,100,101,102,105,110,101,32,83,67,78,117,49,54
+,32,32,34,104,117,34,10,35,100,101,102,105,110,101,32,83,67,78,117,51,50,32,32,34,117
+,34,10,35,100,101,102,105,110,101,32,83,67,78,117,54,52,32,32,34,108,108,117,34,10,35
+,100,101,102,105,110,101,32,83,67,78,117,76,69,65,83,84,56,32,83,67,78,117,56,10,35
+,100,101,102,105,110,101,32,83,67,78,117,76,69,65,83,84,49,54,32,32,83,67,78,117,49
+,54,10,35,100,101,102,105,110,101,32,83,67,78,117,76,69,65,83,84,51,50,32,32,83,67
+,78,117,51,50,10,35,100,101,102,105,110,101,32,83,67,78,117,76,69,65,83,84,54,52,32
+,32,83,67,78,117,54,52,10,35,100,101,102,105,110,101,32,83,67,78,117,70,65,83,84,56
+,32,83,67,78,117,56,10,35,100,101,102,105,110,101,32,83,67,78,117,70,65,83,84,49,54
+,32,83,67,78,117,51,50,10,35,100,101,102,105,110,101,32,83,67,78,117,70,65,83,84,51
+,50,32,83,67,78,117,51,50,10,35,100,101,102,105,110,101,32,83,67,78,117,70,65,83,84
+,54,52,32,83,67,78,117,54,52,10,35,100,101,102,105,110,101,32,83,67,78,117,77,65,88
+,32,83,67,78,117,54,52,10,35,105,102,100,101,102,32,95,87,73,78,54,52,10,32,35,100
+,101,102,105,110,101,32,83,67,78,117,80,84,82,32,32,83,67,78,117,54,52,10,35,101,108
+,115,101,10,32,35,100,101,102,105,110,101,32,83,67,78,117,80,84,82,32,32,83,67,78,117
+,51,50,10,35,101,110,100,105,102,10,10,35,100,101,102,105,110,101,32,83,67,78,120,56,32
+,32,34,104,104,120,34,10,35,100,101,102,105,110,101,32,83,67,78,120,49,54,32,32,34,104
+,120,34,10,35,100,101,102,105,110,101,32,83,67,78,120,51,50,32,32,34,120,34,10,35,100
+,101,102,105,110,101,32,83,67,78,120,54,52,32,32,34,108,108,120,34,10,35,100,101,102,105
+,110,101,32,83,67,78,120,76,69,65,83,84,56,32,83,67,78,120,56,10,35,100,101,102,105
+,110,101,32,83,67,78,120,76,69,65,83,84,49,54,32,32,83,67,78,120,49,54,10,35,100
+,101,102,105,110,101,32,83,67,78,120,76,69,65,83,84,51,50,32,32,83,67,78,120,51,50
+,10,35,100,101,102,105,110,101,32,83,67,78,120,76,69,65,83,84,54,52,32,32,83,67,78
+,120,54,52,10,35,100,101,102,105,110,101,32,83,67,78,120,70,65,83,84,56,32,83,67,78
+,120,56,10,35,100,101,102,105,110,101,32,83,67,78,120,70,65,83,84,49,54,32,83,67,78
+,120,51,50,10,35,100,101,102,105,110,101,32,83,67,78,120,70,65,83,84,51,50,32,83,67
+,78,120,51,50,10,35,100,101,102,105,110,101,32,83,67,78,120,70,65,83,84,54,52,32,83
+,67,78,120,54,52,10,35,100,101,102,105,110,101,32,83,67,78,120,77,65,88,32,83,67,78
+,120,54,52,10,35,105,102,100,101,102,32,95,87,73,78,54,52,10,32,35,100,101,102,105,110
+,101,32,83,67,78,120,80,84,82,32,32,83,67,78,120,54,52,10,35,101,108,115,101,10,32
+,35,100,101,102,105,110,101,32,83,67,78,120,80,84,82,32,32,83,67,78,120,51,50,10,35
+,101,110,100,105,102,10,10,10,35,101,110,100,105,102,10,10,35,105,102,32,95,95,71,78,85
+,67,95,95,10,35,119,97,114,110,105,110,103,32,84,79,68,79,10,35,101,110,100,105,102,10
+,10,35,101,108,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,105,110,116
+,116,121,112,101,115,46,104,62,10,35,101,110,100,105,102,10,10
 , 0 };
 static const char file_iso646_h[] = {
 
 
 
-35,101,114,114,111,114,32,110,111,116,32,105,109,112,108,101,109,101,110,116,101,100,32,121,101
-,116,10
+35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,35,101,114,114,111
+,114,32,110,111,116,32,105,109,112,108,101,109,101,110,116,101,100,32,121,101,116,10,35,101,108
+,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,105,115,111,54,52,54,46
+,104,62,10,35,101,110,100,105,102,10,10
 , 0 };
 static const char file_limits_h[] = {
 
@@ -16265,49 +16163,51 @@ static const char file_limits_h[] = {
 47,42,10,32,42,32,32,84,104,105,115,32,102,105,108,101,32,105,115,32,112,97,114,116,32
 ,111,102,32,99,97,107,101,32,99,111,109,112,105,108,101,114,10,32,42,32,32,104,116,116,112
 ,115,58,47,47,103,105,116,104,117,98,46,99,111,109,47,116,104,114,97,100,97,109,115,47,99
-,97,107,101,10,42,47,10,10,10,35,112,114,97,103,109,97,32,111,110,99,101,10,10,35,100
-,101,102,105,110,101,32,32,95,95,83,84,68,67,95,86,69,82,83,73,79,78,95,76,73,77
-,73,84,83,95,72,95,95,32,50,48,50,51,49,49,76,10,35,100,101,102,105,110,101,32,32
-,66,73,84,73,78,84,95,77,65,88,87,73,68,84,72,32,54,52,10,35,100,101,102,105,110
-,101,32,32,66,79,79,76,95,77,65,88,32,49,10,35,100,101,102,105,110,101,32,32,66,79
-,79,76,95,87,73,68,84,72,32,49,10,35,100,101,102,105,110,101,32,32,67,72,65,82,95
-,66,73,84,32,56,10,35,100,101,102,105,110,101,32,32,67,72,65,82,95,77,65,88,32,48
-,120,55,102,10,35,100,101,102,105,110,101,32,32,67,72,65,82,95,77,73,78,32,40,45,48
-,120,55,102,32,45,32,49,41,10,35,100,101,102,105,110,101,32,32,67,72,65,82,95,87,73
-,68,84,72,32,56,10,35,100,101,102,105,110,101,32,32,73,78,84,95,77,65,88,32,48,120
-,55,102,102,102,102,102,102,102,10,35,100,101,102,105,110,101,32,32,73,78,84,95,77,73,78
-,32,40,45,48,120,55,102,102,102,102,102,102,102,32,45,32,49,41,10,35,100,101,102,105,110
-,101,32,32,73,78,84,95,87,73,68,84,72,32,51,50,10,35,100,101,102,105,110,101,32,32
-,76,76,79,78,71,95,77,65,88,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102
-,102,102,102,76,76,10,35,100,101,102,105,110,101,32,32,76,76,79,78,71,95,77,73,78,32
-,40,45,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,76,32,45,32
-,49,76,76,41,10,35,100,101,102,105,110,101,32,32,76,76,79,78,71,95,87,73,68,84,72
-,32,54,52,10,35,100,101,102,105,110,101,32,32,76,79,78,71,95,77,65,88,32,48,120,55
-,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,10,35,100,101,102,105,110,101,32
-,32,76,79,78,71,95,77,73,78,32,40,45,48,120,55,102,102,102,102,102,102,102,102,102,102
-,102,102,102,102,102,76,32,45,32,49,76,41,10,35,100,101,102,105,110,101,32,32,76,79,78
-,71,95,87,73,68,84,72,32,54,52,10,35,100,101,102,105,110,101,32,32,77,66,95,76,69
-,78,95,77,65,88,32,49,54,10,35,100,101,102,105,110,101,32,32,83,67,72,65,82,95,77
-,65,88,32,48,120,55,102,10,35,100,101,102,105,110,101,32,32,83,67,72,65,82,95,77,73
-,78,32,40,45,48,120,55,102,32,45,32,49,41,10,35,100,101,102,105,110,101,32,32,83,67
-,72,65,82,95,87,73,68,84,72,32,56,10,35,100,101,102,105,110,101,32,32,83,72,82,84
-,95,77,65,88,32,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32,32,83,72,82,84
-,95,77,73,78,32,40,45,48,120,55,102,102,102,32,45,32,49,41,10,35,100,101,102,105,110
-,101,32,32,83,72,82,84,95,87,73,68,84,72,32,49,54,10,35,100,101,102,105,110,101,32
-,32,85,67,72,65,82,95,77,65,88,32,40,48,120,55,102,32,42,32,50,32,43,32,49,41
-,10,35,100,101,102,105,110,101,32,32,85,67,72,65,82,95,87,73,68,84,72,32,56,10,35
-,100,101,102,105,110,101,32,32,85,73,78,84,95,77,65,88,32,40,48,120,55,102,102,102,102
-,102,102,102,32,42,32,50,85,32,43,32,49,85,41,10,35,100,101,102,105,110,101,32,32,85
-,73,78,84,95,87,73,68,84,72,32,51,50,10,35,100,101,102,105,110,101,32,32,85,76,76
-,79,78,71,95,77,65,88,32,40,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102
-,102,102,76,76,32,42,32,50,85,76,76,32,43,32,49,85,76,76,41,10,35,100,101,102,105
-,110,101,32,32,85,76,76,79,78,71,95,87,73,68,84,72,32,54,52,10,35,100,101,102,105
-,110,101,32,32,85,76,79,78,71,95,77,65,88,32,40,48,120,55,102,102,102,102,102,102,102
-,102,102,102,102,102,102,102,102,76,32,42,32,50,85,76,32,43,32,49,85,76,41,10,35,100
-,101,102,105,110,101,32,32,85,76,79,78,71,95,87,73,68,84,72,32,54,52,10,35,100,101
-,102,105,110,101,32,32,85,83,72,82,84,95,77,65,88,32,40,48,120,55,102,102,102,32,42
-,32,50,32,43,32,49,41,10,35,100,101,102,105,110,101,32,32,85,83,72,82,84,95,87,73
-,68,84,72,32,49,54,10
+,97,107,101,10,42,47,10,10,35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69
+,82,83,10,10,35,112,114,97,103,109,97,32,111,110,99,101,10,10,35,100,101,102,105,110,101
+,32,32,95,95,83,84,68,67,95,86,69,82,83,73,79,78,95,76,73,77,73,84,83,95,72
+,95,95,32,50,48,50,51,49,49,76,10,35,100,101,102,105,110,101,32,32,66,73,84,73,78
+,84,95,77,65,88,87,73,68,84,72,32,54,52,10,35,100,101,102,105,110,101,32,32,66,79
+,79,76,95,77,65,88,32,49,10,35,100,101,102,105,110,101,32,32,66,79,79,76,95,87,73
+,68,84,72,32,49,10,35,100,101,102,105,110,101,32,32,67,72,65,82,95,66,73,84,32,56
+,10,35,100,101,102,105,110,101,32,32,67,72,65,82,95,77,65,88,32,48,120,55,102,10,35
+,100,101,102,105,110,101,32,32,67,72,65,82,95,77,73,78,32,40,45,48,120,55,102,32,45
+,32,49,41,10,35,100,101,102,105,110,101,32,32,67,72,65,82,95,87,73,68,84,72,32,56
+,10,35,100,101,102,105,110,101,32,32,73,78,84,95,77,65,88,32,48,120,55,102,102,102,102
+,102,102,102,10,35,100,101,102,105,110,101,32,32,73,78,84,95,77,73,78,32,40,45,48,120
+,55,102,102,102,102,102,102,102,32,45,32,49,41,10,35,100,101,102,105,110,101,32,32,73,78
+,84,95,87,73,68,84,72,32,51,50,10,35,100,101,102,105,110,101,32,32,76,76,79,78,71
+,95,77,65,88,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,76
+,10,35,100,101,102,105,110,101,32,32,76,76,79,78,71,95,77,73,78,32,40,45,48,120,55
+,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,76,32,45,32,49,76,76,41,10
+,35,100,101,102,105,110,101,32,32,76,76,79,78,71,95,87,73,68,84,72,32,54,52,10,35
+,100,101,102,105,110,101,32,32,76,79,78,71,95,77,65,88,32,48,120,55,102,102,102,102,102
+,102,102,102,102,102,102,102,102,102,102,76,10,35,100,101,102,105,110,101,32,32,76,79,78,71
+,95,77,73,78,32,40,45,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102
+,76,32,45,32,49,76,41,10,35,100,101,102,105,110,101,32,32,76,79,78,71,95,87,73,68
+,84,72,32,54,52,10,35,100,101,102,105,110,101,32,32,77,66,95,76,69,78,95,77,65,88
+,32,49,54,10,35,100,101,102,105,110,101,32,32,83,67,72,65,82,95,77,65,88,32,48,120
+,55,102,10,35,100,101,102,105,110,101,32,32,83,67,72,65,82,95,77,73,78,32,40,45,48
+,120,55,102,32,45,32,49,41,10,35,100,101,102,105,110,101,32,32,83,67,72,65,82,95,87
+,73,68,84,72,32,56,10,35,100,101,102,105,110,101,32,32,83,72,82,84,95,77,65,88,32
+,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32,32,83,72,82,84,95,77,73,78,32
+,40,45,48,120,55,102,102,102,32,45,32,49,41,10,35,100,101,102,105,110,101,32,32,83,72
+,82,84,95,87,73,68,84,72,32,49,54,10,35,100,101,102,105,110,101,32,32,85,67,72,65
+,82,95,77,65,88,32,40,48,120,55,102,32,42,32,50,32,43,32,49,41,10,35,100,101,102
+,105,110,101,32,32,85,67,72,65,82,95,87,73,68,84,72,32,56,10,35,100,101,102,105,110
+,101,32,32,85,73,78,84,95,77,65,88,32,40,48,120,55,102,102,102,102,102,102,102,32,42
+,32,50,85,32,43,32,49,85,41,10,35,100,101,102,105,110,101,32,32,85,73,78,84,95,87
+,73,68,84,72,32,51,50,10,35,100,101,102,105,110,101,32,32,85,76,76,79,78,71,95,77
+,65,88,32,40,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,76,32
+,42,32,50,85,76,76,32,43,32,49,85,76,76,41,10,35,100,101,102,105,110,101,32,32,85
+,76,76,79,78,71,95,87,73,68,84,72,32,54,52,10,35,100,101,102,105,110,101,32,32,85
+,76,79,78,71,95,77,65,88,32,40,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102
+,102,102,102,76,32,42,32,50,85,76,32,43,32,49,85,76,41,10,35,100,101,102,105,110,101
+,32,32,85,76,79,78,71,95,87,73,68,84,72,32,54,52,10,35,100,101,102,105,110,101,32
+,32,85,83,72,82,84,95,77,65,88,32,40,48,120,55,102,102,102,32,42,32,50,32,43,32
+,49,41,10,35,100,101,102,105,110,101,32,32,85,83,72,82,84,95,87,73,68,84,72,32,49
+,54,10,35,101,108,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,108,105
+,109,105,116,115,46,104,62,10,35,101,110,100,105,102,10,10
 , 0 };
 static const char file_locale_h[] = {
 
@@ -16316,54 +16216,56 @@ static const char file_locale_h[] = {
 47,42,10,32,42,32,32,84,104,105,115,32,102,105,108,101,32,105,115,32,112,97,114,116,32
 ,111,102,32,99,97,107,101,32,99,111,109,112,105,108,101,114,10,32,42,32,32,104,116,116,112
 ,115,58,47,47,103,105,116,104,117,98,46,99,111,109,47,116,104,114,97,100,97,109,115,47,99
-,97,107,101,10,42,47,10,10,35,112,114,97,103,109,97,32,111,110,99,101,10,116,121,112,101
-,100,101,102,32,105,110,116,32,119,99,104,97,114,95,116,59,10,47,47,32,76,111,99,97,108
-,101,32,99,97,116,101,103,111,114,105,101,115,10,35,100,101,102,105,110,101,32,76,67,95,65
-,76,76,32,32,32,32,32,32,32,32,32,32,48,10,35,100,101,102,105,110,101,32,76,67,95
-,67,79,76,76,65,84,69,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,76,67
-,95,67,84,89,80,69,32,32,32,32,32,32,32,32,50,10,35,100,101,102,105,110,101,32,76
-,67,95,77,79,78,69,84,65,82,89,32,32,32,32,32,51,10,35,100,101,102,105,110,101,32
-,76,67,95,78,85,77,69,82,73,67,32,32,32,32,32,32,52,10,35,100,101,102,105,110,101
-,32,76,67,95,84,73,77,69,32,32,32,32,32,32,32,32,32,53,10,10,35,100,101,102,105
-,110,101,32,76,67,95,77,73,78,32,32,32,32,32,32,32,32,32,32,76,67,95,65,76,76
-,10,35,100,101,102,105,110,101,32,76,67,95,77,65,88,32,32,32,32,32,32,32,32,32,32
-,76,67,95,84,73,77,69,10,10,47,47,32,76,111,99,97,108,101,32,99,111,110,118,101,110
-,116,105,111,110,32,115,116,114,117,99,116,117,114,101,10,115,116,114,117,99,116,32,108,99,111
-,110,118,10,123,10,32,32,32,32,99,104,97,114,42,32,100,101,99,105,109,97,108,95,112,111
-,105,110,116,59,10,32,32,32,32,99,104,97,114,42,32,116,104,111,117,115,97,110,100,115,95
-,115,101,112,59,10,32,32,32,32,99,104,97,114,42,32,103,114,111,117,112,105,110,103,59,10
-,32,32,32,32,99,104,97,114,42,32,105,110,116,95,99,117,114,114,95,115,121,109,98,111,108
-,59,10,32,32,32,32,99,104,97,114,42,32,99,117,114,114,101,110,99,121,95,115,121,109,98
-,111,108,59,10,32,32,32,32,99,104,97,114,42,32,109,111,110,95,100,101,99,105,109,97,108
-,95,112,111,105,110,116,59,10,32,32,32,32,99,104,97,114,42,32,109,111,110,95,116,104,111
-,117,115,97,110,100,115,95,115,101,112,59,10,32,32,32,32,99,104,97,114,42,32,109,111,110
-,95,103,114,111,117,112,105,110,103,59,10,32,32,32,32,99,104,97,114,42,32,112,111,115,105
-,116,105,118,101,95,115,105,103,110,59,10,32,32,32,32,99,104,97,114,42,32,110,101,103,97
-,116,105,118,101,95,115,105,103,110,59,10,32,32,32,32,99,104,97,114,32,32,32,32,32,105
-,110,116,95,102,114,97,99,95,100,105,103,105,116,115,59,10,32,32,32,32,99,104,97,114,32
-,32,32,32,32,102,114,97,99,95,100,105,103,105,116,115,59,10,32,32,32,32,99,104,97,114
-,32,32,32,32,32,112,95,99,115,95,112,114,101,99,101,100,101,115,59,10,32,32,32,32,99
-,104,97,114,32,32,32,32,32,112,95,115,101,112,95,98,121,95,115,112,97,99,101,59,10,32
-,32,32,32,99,104,97,114,32,32,32,32,32,110,95,99,115,95,112,114,101,99,101,100,101,115
-,59,10,32,32,32,32,99,104,97,114,32,32,32,32,32,110,95,115,101,112,95,98,121,95,115
-,112,97,99,101,59,10,32,32,32,32,99,104,97,114,32,32,32,32,32,112,95,115,105,103,110
-,95,112,111,115,110,59,10,32,32,32,32,99,104,97,114,32,32,32,32,32,110,95,115,105,103
-,110,95,112,111,115,110,59,10,32,32,32,32,119,99,104,97,114,95,116,42,32,95,87,95,100
-,101,99,105,109,97,108,95,112,111,105,110,116,59,10,32,32,32,32,119,99,104,97,114,95,116
-,42,32,95,87,95,116,104,111,117,115,97,110,100,115,95,115,101,112,59,10,32,32,32,32,119
-,99,104,97,114,95,116,42,32,95,87,95,105,110,116,95,99,117,114,114,95,115,121,109,98,111
-,108,59,10,32,32,32,32,119,99,104,97,114,95,116,42,32,95,87,95,99,117,114,114,101,110
-,99,121,95,115,121,109,98,111,108,59,10,32,32,32,32,119,99,104,97,114,95,116,42,32,95
-,87,95,109,111,110,95,100,101,99,105,109,97,108,95,112,111,105,110,116,59,10,32,32,32,32
-,119,99,104,97,114,95,116,42,32,95,87,95,109,111,110,95,116,104,111,117,115,97,110,100,115
-,95,115,101,112,59,10,32,32,32,32,119,99,104,97,114,95,116,42,32,95,87,95,112,111,115
-,105,116,105,118,101,95,115,105,103,110,59,10,32,32,32,32,119,99,104,97,114,95,116,42,32
-,95,87,95,110,101,103,97,116,105,118,101,95,115,105,103,110,59,10,125,59,10,10,115,116,114
-,117,99,116,32,116,109,59,10,10,99,104,97,114,42,32,115,101,116,108,111,99,97,108,101,40
-,10,32,32,32,32,105,110,116,32,32,32,32,32,32,32,32,32,95,67,97,116,101,103,111,114
-,121,44,10,32,32,32,32,99,104,97,114,32,99,111,110,115,116,42,32,95,76,111,99,97,108
-,101,10,41,59,10,10,115,116,114,117,99,116,32,108,99,111,110,118,42,32,108,111,99,97,108
-,101,99,111,110,118,40,118,111,105,100,41,59,10
+,97,107,101,10,42,47,10,35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82
+,83,10,10,35,112,114,97,103,109,97,32,111,110,99,101,10,116,121,112,101,100,101,102,32,105
+,110,116,32,119,99,104,97,114,95,116,59,10,47,47,32,76,111,99,97,108,101,32,99,97,116
+,101,103,111,114,105,101,115,10,35,100,101,102,105,110,101,32,76,67,95,65,76,76,32,32,32
+,32,32,32,32,32,32,32,48,10,35,100,101,102,105,110,101,32,76,67,95,67,79,76,76,65
+,84,69,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,76,67,95,67,84,89,80
+,69,32,32,32,32,32,32,32,32,50,10,35,100,101,102,105,110,101,32,76,67,95,77,79,78
+,69,84,65,82,89,32,32,32,32,32,51,10,35,100,101,102,105,110,101,32,76,67,95,78,85
+,77,69,82,73,67,32,32,32,32,32,32,52,10,35,100,101,102,105,110,101,32,76,67,95,84
+,73,77,69,32,32,32,32,32,32,32,32,32,53,10,10,35,100,101,102,105,110,101,32,76,67
+,95,77,73,78,32,32,32,32,32,32,32,32,32,32,76,67,95,65,76,76,10,35,100,101,102
+,105,110,101,32,76,67,95,77,65,88,32,32,32,32,32,32,32,32,32,32,76,67,95,84,73
+,77,69,10,10,47,47,32,76,111,99,97,108,101,32,99,111,110,118,101,110,116,105,111,110,32
+,115,116,114,117,99,116,117,114,101,10,115,116,114,117,99,116,32,108,99,111,110,118,10,123,10
+,32,32,32,32,99,104,97,114,42,32,100,101,99,105,109,97,108,95,112,111,105,110,116,59,10
+,32,32,32,32,99,104,97,114,42,32,116,104,111,117,115,97,110,100,115,95,115,101,112,59,10
+,32,32,32,32,99,104,97,114,42,32,103,114,111,117,112,105,110,103,59,10,32,32,32,32,99
+,104,97,114,42,32,105,110,116,95,99,117,114,114,95,115,121,109,98,111,108,59,10,32,32,32
+,32,99,104,97,114,42,32,99,117,114,114,101,110,99,121,95,115,121,109,98,111,108,59,10,32
+,32,32,32,99,104,97,114,42,32,109,111,110,95,100,101,99,105,109,97,108,95,112,111,105,110
+,116,59,10,32,32,32,32,99,104,97,114,42,32,109,111,110,95,116,104,111,117,115,97,110,100
+,115,95,115,101,112,59,10,32,32,32,32,99,104,97,114,42,32,109,111,110,95,103,114,111,117
+,112,105,110,103,59,10,32,32,32,32,99,104,97,114,42,32,112,111,115,105,116,105,118,101,95
+,115,105,103,110,59,10,32,32,32,32,99,104,97,114,42,32,110,101,103,97,116,105,118,101,95
+,115,105,103,110,59,10,32,32,32,32,99,104,97,114,32,32,32,32,32,105,110,116,95,102,114
+,97,99,95,100,105,103,105,116,115,59,10,32,32,32,32,99,104,97,114,32,32,32,32,32,102
+,114,97,99,95,100,105,103,105,116,115,59,10,32,32,32,32,99,104,97,114,32,32,32,32,32
+,112,95,99,115,95,112,114,101,99,101,100,101,115,59,10,32,32,32,32,99,104,97,114,32,32
+,32,32,32,112,95,115,101,112,95,98,121,95,115,112,97,99,101,59,10,32,32,32,32,99,104
+,97,114,32,32,32,32,32,110,95,99,115,95,112,114,101,99,101,100,101,115,59,10,32,32,32
+,32,99,104,97,114,32,32,32,32,32,110,95,115,101,112,95,98,121,95,115,112,97,99,101,59
+,10,32,32,32,32,99,104,97,114,32,32,32,32,32,112,95,115,105,103,110,95,112,111,115,110
+,59,10,32,32,32,32,99,104,97,114,32,32,32,32,32,110,95,115,105,103,110,95,112,111,115
+,110,59,10,32,32,32,32,119,99,104,97,114,95,116,42,32,95,87,95,100,101,99,105,109,97
+,108,95,112,111,105,110,116,59,10,32,32,32,32,119,99,104,97,114,95,116,42,32,95,87,95
+,116,104,111,117,115,97,110,100,115,95,115,101,112,59,10,32,32,32,32,119,99,104,97,114,95
+,116,42,32,95,87,95,105,110,116,95,99,117,114,114,95,115,121,109,98,111,108,59,10,32,32
+,32,32,119,99,104,97,114,95,116,42,32,95,87,95,99,117,114,114,101,110,99,121,95,115,121
+,109,98,111,108,59,10,32,32,32,32,119,99,104,97,114,95,116,42,32,95,87,95,109,111,110
+,95,100,101,99,105,109,97,108,95,112,111,105,110,116,59,10,32,32,32,32,119,99,104,97,114
+,95,116,42,32,95,87,95,109,111,110,95,116,104,111,117,115,97,110,100,115,95,115,101,112,59
+,10,32,32,32,32,119,99,104,97,114,95,116,42,32,95,87,95,112,111,115,105,116,105,118,101
+,95,115,105,103,110,59,10,32,32,32,32,119,99,104,97,114,95,116,42,32,95,87,95,110,101
+,103,97,116,105,118,101,95,115,105,103,110,59,10,125,59,10,10,115,116,114,117,99,116,32,116
+,109,59,10,10,99,104,97,114,42,32,115,101,116,108,111,99,97,108,101,40,10,32,32,32,32
+,105,110,116,32,32,32,32,32,32,32,32,32,95,67,97,116,101,103,111,114,121,44,10,32,32
+,32,32,99,104,97,114,32,99,111,110,115,116,42,32,95,76,111,99,97,108,101,10,41,59,10
+,10,115,116,114,117,99,116,32,108,99,111,110,118,42,32,108,111,99,97,108,101,99,111,110,118
+,40,118,111,105,100,41,59,10,35,101,108,115,101,10,35,105,110,99,108,117,100,101,95,110,101
+,120,116,32,60,108,111,99,97,108,101,46,104,62,10,35,101,110,100,105,102,10
 , 0 };
 static const char file_math_h[] = {
 
@@ -16372,433 +16274,451 @@ static const char file_math_h[] = {
 47,42,10,32,42,32,32,84,104,105,115,32,102,105,108,101,32,105,115,32,112,97,114,116,32
 ,111,102,32,99,97,107,101,32,99,111,109,112,105,108,101,114,10,32,42,32,32,104,116,116,112
 ,115,58,47,47,103,105,116,104,117,98,46,99,111,109,47,116,104,114,97,100,97,109,115,47,99
-,97,107,101,10,42,47,10,10,35,112,114,97,103,109,97,32,111,110,99,101,10,10,100,111,117
-,98,108,101,32,97,99,111,115,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117
-,98,108,101,32,97,115,105,110,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117
-,98,108,101,32,97,116,97,110,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117
-,98,108,101,32,97,116,97,110,50,40,100,111,117,98,108,101,32,95,95,121,44,32,100,111,117
-,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,99,111,115,40,100,111,117,98
-,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,115,105,110,40,100,111,117,98,108
-,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,116,97,110,40,100,111,117,98,108,101
-,32,95,95,120,41,59,10,100,111,117,98,108,101,32,99,111,115,104,40,100,111,117,98,108,101
-,32,95,95,120,41,59,10,100,111,117,98,108,101,32,115,105,110,104,40,100,111,117,98,108,101
-,32,95,95,120,41,59,10,100,111,117,98,108,101,32,116,97,110,104,40,100,111,117,98,108,101
-,32,95,95,120,41,59,10,100,111,117,98,108,101,32,97,99,111,115,104,40,100,111,117,98,108
-,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,97,115,105,110,104,40,100,111,117,98
-,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,97,116,97,110,104,40,100,111,117
-,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,101,120,112,40,100,111,117,98
-,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,102,114,101,120,112,40,100,111,117
-,98,108,101,32,95,95,120,44,32,105,110,116,42,32,95,95,101,120,112,111,110,101,110,116,41
-,59,10,100,111,117,98,108,101,32,108,100,101,120,112,40,100,111,117,98,108,101,32,95,95,120
-,44,32,105,110,116,32,95,95,101,120,112,111,110,101,110,116,41,59,10,100,111,117,98,108,101
-,32,108,111,103,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32
-,108,111,103,49,48,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101
-,32,109,111,100,102,40,100,111,117,98,108,101,32,95,95,120,44,32,100,111,117,98,108,101,42
-,32,95,95,105,112,116,114,41,59,10,100,111,117,98,108,101,32,101,120,112,109,49,40,100,111
-,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,108,111,103,49,112,40,100
-,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,108,111,103,98,40,100
-,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,101,120,112,50,40,100
-,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,108,111,103,50,40,100
-,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,112,111,119,40,100,111
-,117,98,108,101,32,95,95,120,44,32,100,111,117,98,108,101,32,95,95,121,41,59,10,100,111
-,117,98,108,101,32,115,113,114,116,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111
-,117,98,108,101,32,104,121,112,111,116,40,100,111,117,98,108,101,32,95,95,120,44,32,100,111
-,117,98,108,101,32,95,95,121,41,59,10,100,111,117,98,108,101,32,99,98,114,116,40,100,111
-,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,99,101,105,108,40,100,111
-,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,102,97,98,115,40,100,111
-,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,102,108,111,111,114,40,100
-,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,102,109,111,100,40,100
-,111,117,98,108,101,32,95,95,120,44,32,100,111,117,98,108,101,32,95,95,121,41,59,10,105
-,110,116,32,105,115,105,110,102,40,100,111,117,98,108,101,32,95,95,118,97,108,117,101,41,59
-,10,105,110,116,32,102,105,110,105,116,101,40,100,111,117,98,108,101,32,95,95,118,97,108,117
-,101,41,59,10,100,111,117,98,108,101,32,100,114,101,109,40,100,111,117,98,108,101,32,95,95
-,120,44,32,100,111,117,98,108,101,32,95,95,121,41,59,10,100,111,117,98,108,101,32,115,105
-,103,110,105,102,105,99,97,110,100,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111
-,117,98,108,101,32,99,111,112,121,115,105,103,110,40,100,111,117,98,108,101,32,95,95,120,44
-,32,100,111,117,98,108,101,32,95,95,121,41,59,10,100,111,117,98,108,101,32,110,97,110,40
-,99,111,110,115,116,32,99,104,97,114,42,32,95,95,116,97,103,98,41,59,10,105,110,116,32
-,105,115,110,97,110,40,100,111,117,98,108,101,32,95,95,118,97,108,117,101,41,59,10,100,111
-,117,98,108,101,32,106,48,40,100,111,117,98,108,101,41,59,10,100,111,117,98,108,101,32,106
-,49,40,100,111,117,98,108,101,41,59,10,100,111,117,98,108,101,32,106,110,40,105,110,116,44
-,32,100,111,117,98,108,101,41,59,10,100,111,117,98,108,101,32,121,48,40,100,111,117,98,108
-,101,41,59,10,100,111,117,98,108,101,32,121,49,40,100,111,117,98,108,101,41,59,10,100,111
-,117,98,108,101,32,121,110,40,105,110,116,44,32,100,111,117,98,108,101,41,59,10,100,111,117
-,98,108,101,32,101,114,102,40,100,111,117,98,108,101,41,59,10,100,111,117,98,108,101,32,101
-,114,102,99,40,100,111,117,98,108,101,41,59,10,100,111,117,98,108,101,32,108,103,97,109,109
-,97,40,100,111,117,98,108,101,41,59,10,100,111,117,98,108,101,32,116,103,97,109,109,97,40
-,100,111,117,98,108,101,41,59,10,100,111,117,98,108,101,32,103,97,109,109,97,40,100,111,117
-,98,108,101,41,59,10,100,111,117,98,108,101,32,108,103,97,109,109,97,95,114,40,100,111,117
-,98,108,101,44,32,105,110,116,42,32,95,95,115,105,103,110,103,97,109,112,41,59,10,100,111
-,117,98,108,101,32,114,105,110,116,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111
-,117,98,108,101,32,110,101,120,116,97,102,116,101,114,40,100,111,117,98,108,101,32,95,95,120
-,44,32,100,111,117,98,108,101,32,95,95,121,41,59,10,100,111,117,98,108,101,32,110,101,120
-,116,116,111,119,97,114,100,40,100,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32
-,100,111,117,98,108,101,32,95,95,121,41,59,10,100,111,117,98,108,101,32,114,101,109,97,105
-,110,100,101,114,40,100,111,117,98,108,101,32,95,95,120,44,32,100,111,117,98,108,101,32,95
-,95,121,41,59,10,100,111,117,98,108,101,32,115,99,97,108,98,110,40,100,111,117,98,108,101
-,32,95,95,120,44,32,105,110,116,32,95,95,110,41,59,10,105,110,116,32,105,108,111,103,98
-,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,115,99,97,108
-,98,108,110,40,100,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,105,110,116,32
-,95,95,110,41,59,10,100,111,117,98,108,101,32,110,101,97,114,98,121,105,110,116,40,100,111
-,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,114,111,117,110,100,40,100
-,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,116,114,117,110,99,40
-,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,114,101,109,113,117
-,111,40,100,111,117,98,108,101,32,95,95,120,44,32,100,111,117,98,108,101,32,95,95,121,44
-,32,105,110,116,42,32,95,95,113,117,111,41,59,10,108,111,110,103,32,105,110,116,32,108,114
-,105,110,116,40,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,108,111,110
-,103,32,105,110,116,32,108,108,114,111,117,110,100,40,100,111,117,98,108,101,32,95,95,120,41
-,59,10,100,111,117,98,108,101,32,102,100,105,109,40,100,111,117,98,108,101,32,95,95,120,44
-,32,100,111,117,98,108,101,32,95,95,121,41,59,10,100,111,117,98,108,101,32,102,109,97,120
+,97,107,101,10,42,47,10,10,35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69
+,82,83,10,10,35,112,114,97,103,109,97,32,111,110,99,101,10,10,100,111,117,98,108,101,32
+,97,99,111,115,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32
+,97,115,105,110,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32
+,97,116,97,110,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32
+,97,116,97,110,50,40,100,111,117,98,108,101,32,95,95,121,44,32,100,111,117,98,108,101,32
+,95,95,120,41,59,10,100,111,117,98,108,101,32,99,111,115,40,100,111,117,98,108,101,32,95
+,95,120,41,59,10,100,111,117,98,108,101,32,115,105,110,40,100,111,117,98,108,101,32,95,95
+,120,41,59,10,100,111,117,98,108,101,32,116,97,110,40,100,111,117,98,108,101,32,95,95,120
+,41,59,10,100,111,117,98,108,101,32,99,111,115,104,40,100,111,117,98,108,101,32,95,95,120
+,41,59,10,100,111,117,98,108,101,32,115,105,110,104,40,100,111,117,98,108,101,32,95,95,120
+,41,59,10,100,111,117,98,108,101,32,116,97,110,104,40,100,111,117,98,108,101,32,95,95,120
+,41,59,10,100,111,117,98,108,101,32,97,99,111,115,104,40,100,111,117,98,108,101,32,95,95
+,120,41,59,10,100,111,117,98,108,101,32,97,115,105,110,104,40,100,111,117,98,108,101,32,95
+,95,120,41,59,10,100,111,117,98,108,101,32,97,116,97,110,104,40,100,111,117,98,108,101,32
+,95,95,120,41,59,10,100,111,117,98,108,101,32,101,120,112,40,100,111,117,98,108,101,32,95
+,95,120,41,59,10,100,111,117,98,108,101,32,102,114,101,120,112,40,100,111,117,98,108,101,32
+,95,95,120,44,32,105,110,116,42,32,95,95,101,120,112,111,110,101,110,116,41,59,10,100,111
+,117,98,108,101,32,108,100,101,120,112,40,100,111,117,98,108,101,32,95,95,120,44,32,105,110
+,116,32,95,95,101,120,112,111,110,101,110,116,41,59,10,100,111,117,98,108,101,32,108,111,103
+,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,108,111,103,49
+,48,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,109,111,100
+,102,40,100,111,117,98,108,101,32,95,95,120,44,32,100,111,117,98,108,101,42,32,95,95,105
+,112,116,114,41,59,10,100,111,117,98,108,101,32,101,120,112,109,49,40,100,111,117,98,108,101
+,32,95,95,120,41,59,10,100,111,117,98,108,101,32,108,111,103,49,112,40,100,111,117,98,108
+,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,108,111,103,98,40,100,111,117,98,108
+,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,101,120,112,50,40,100,111,117,98,108
+,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,108,111,103,50,40,100,111,117,98,108
+,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,112,111,119,40,100,111,117,98,108,101
+,32,95,95,120,44,32,100,111,117,98,108,101,32,95,95,121,41,59,10,100,111,117,98,108,101
+,32,115,113,114,116,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101
+,32,104,121,112,111,116,40,100,111,117,98,108,101,32,95,95,120,44,32,100,111,117,98,108,101
+,32,95,95,121,41,59,10,100,111,117,98,108,101,32,99,98,114,116,40,100,111,117,98,108,101
+,32,95,95,120,41,59,10,100,111,117,98,108,101,32,99,101,105,108,40,100,111,117,98,108,101
+,32,95,95,120,41,59,10,100,111,117,98,108,101,32,102,97,98,115,40,100,111,117,98,108,101
+,32,95,95,120,41,59,10,100,111,117,98,108,101,32,102,108,111,111,114,40,100,111,117,98,108
+,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,102,109,111,100,40,100,111,117,98,108
+,101,32,95,95,120,44,32,100,111,117,98,108,101,32,95,95,121,41,59,10,105,110,116,32,105
+,115,105,110,102,40,100,111,117,98,108,101,32,95,95,118,97,108,117,101,41,59,10,105,110,116
+,32,102,105,110,105,116,101,40,100,111,117,98,108,101,32,95,95,118,97,108,117,101,41,59,10
+,100,111,117,98,108,101,32,100,114,101,109,40,100,111,117,98,108,101,32,95,95,120,44,32,100
+,111,117,98,108,101,32,95,95,121,41,59,10,100,111,117,98,108,101,32,115,105,103,110,105,102
+,105,99,97,110,100,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101
+,32,99,111,112,121,115,105,103,110,40,100,111,117,98,108,101,32,95,95,120,44,32,100,111,117
+,98,108,101,32,95,95,121,41,59,10,100,111,117,98,108,101,32,110,97,110,40,99,111,110,115
+,116,32,99,104,97,114,42,32,95,95,116,97,103,98,41,59,10,105,110,116,32,105,115,110,97
+,110,40,100,111,117,98,108,101,32,95,95,118,97,108,117,101,41,59,10,100,111,117,98,108,101
+,32,106,48,40,100,111,117,98,108,101,41,59,10,100,111,117,98,108,101,32,106,49,40,100,111
+,117,98,108,101,41,59,10,100,111,117,98,108,101,32,106,110,40,105,110,116,44,32,100,111,117
+,98,108,101,41,59,10,100,111,117,98,108,101,32,121,48,40,100,111,117,98,108,101,41,59,10
+,100,111,117,98,108,101,32,121,49,40,100,111,117,98,108,101,41,59,10,100,111,117,98,108,101
+,32,121,110,40,105,110,116,44,32,100,111,117,98,108,101,41,59,10,100,111,117,98,108,101,32
+,101,114,102,40,100,111,117,98,108,101,41,59,10,100,111,117,98,108,101,32,101,114,102,99,40
+,100,111,117,98,108,101,41,59,10,100,111,117,98,108,101,32,108,103,97,109,109,97,40,100,111
+,117,98,108,101,41,59,10,100,111,117,98,108,101,32,116,103,97,109,109,97,40,100,111,117,98
+,108,101,41,59,10,100,111,117,98,108,101,32,103,97,109,109,97,40,100,111,117,98,108,101,41
+,59,10,100,111,117,98,108,101,32,108,103,97,109,109,97,95,114,40,100,111,117,98,108,101,44
+,32,105,110,116,42,32,95,95,115,105,103,110,103,97,109,112,41,59,10,100,111,117,98,108,101
+,32,114,105,110,116,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101
+,32,110,101,120,116,97,102,116,101,114,40,100,111,117,98,108,101,32,95,95,120,44,32,100,111
+,117,98,108,101,32,95,95,121,41,59,10,100,111,117,98,108,101,32,110,101,120,116,116,111,119
+,97,114,100,40,100,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98
+,108,101,32,95,95,121,41,59,10,100,111,117,98,108,101,32,114,101,109,97,105,110,100,101,114
 ,40,100,111,117,98,108,101,32,95,95,120,44,32,100,111,117,98,108,101,32,95,95,121,41,59
-,10,100,111,117,98,108,101,32,102,109,105,110,40,100,111,117,98,108,101,32,95,95,120,44,32
-,100,111,117,98,108,101,32,95,95,121,41,59,10,100,111,117,98,108,101,32,102,109,97,40,100
-,111,117,98,108,101,32,95,95,120,44,32,100,111,117,98,108,101,32,95,95,121,44,32,100,111
-,117,98,108,101,32,95,95,122,41,59,10,100,111,117,98,108,101,32,115,99,97,108,98,40,100
-,111,117,98,108,101,32,95,95,120,44,32,100,111,117,98,108,101,32,95,95,110,41,59,10,102
-,108,111,97,116,32,97,99,111,115,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108
-,111,97,116,32,97,115,105,110,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111
-,97,116,32,97,116,97,110,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97
-,116,32,97,116,97,110,50,102,40,102,108,111,97,116,32,95,95,121,44,32,102,108,111,97,116
-,32,95,95,120,41,59,10,102,108,111,97,116,32,99,111,115,102,40,102,108,111,97,116,32,95
-,95,120,41,59,10,102,108,111,97,116,32,115,105,110,102,40,102,108,111,97,116,32,95,95,120
-,41,59,10,102,108,111,97,116,32,116,97,110,102,40,102,108,111,97,116,32,95,95,120,41,59
-,10,102,108,111,97,116,32,99,111,115,104,102,40,102,108,111,97,116,32,95,95,120,41,59,10
-,102,108,111,97,116,32,115,105,110,104,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102
-,108,111,97,116,32,116,97,110,104,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108
-,111,97,116,32,97,99,111,115,104,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108
-,111,97,116,32,97,115,105,110,104,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108
-,111,97,116,32,97,116,97,110,104,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108
-,111,97,116,32,101,120,112,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97
-,116,32,102,114,101,120,112,102,40,102,108,111,97,116,32,95,95,120,44,32,105,110,116,42,32
-,95,95,101,120,112,111,110,101,110,116,41,59,10,102,108,111,97,116,32,108,100,101,120,112,102
-,40,102,108,111,97,116,32,95,95,120,44,32,105,110,116,32,95,95,101,120,112,111,110,101,110
-,116,41,59,10,102,108,111,97,116,32,108,111,103,102,40,102,108,111,97,116,32,95,95,120,41
-,59,10,102,108,111,97,116,32,108,111,103,49,48,102,40,102,108,111,97,116,32,95,95,120,41
-,59,32,102,108,111,97,116,32,95,95,108,111,103,49,48,102,40,102,108,111,97,116,32,95,95
-,120,41,59,10,102,108,111,97,116,32,109,111,100,102,102,40,102,108,111,97,116,32,95,95,120
-,44,32,102,108,111,97,116,42,32,95,95,105,112,116,114,41,59,10,102,108,111,97,116,32,101
-,120,112,109,49,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,108
-,111,103,49,112,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,108
-,111,103,98,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,101,120
-,112,50,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,108,111,103
-,50,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,112,111,119,102
-,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,121,41,59,10,102
-,108,111,97,116,32,115,113,114,116,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108
-,111,97,116,32,104,121,112,111,116,102,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111
-,97,116,32,95,95,121,41,59,10,102,108,111,97,116,32,99,98,114,116,102,40,102,108,111,97
-,116,32,95,95,120,41,59,10,102,108,111,97,116,32,99,101,105,108,102,40,102,108,111,97,116
-,32,95,95,120,41,59,10,102,108,111,97,116,32,102,97,98,115,102,40,102,108,111,97,116,32
-,95,95,120,41,59,10,102,108,111,97,116,32,102,108,111,111,114,102,40,102,108,111,97,116,32
-,95,95,120,41,59,10,102,108,111,97,116,32,102,109,111,100,102,40,102,108,111,97,116,32,95
-,95,120,44,32,102,108,111,97,116,32,95,95,121,41,59,10,105,110,116,32,105,115,105,110,102
-,102,40,102,108,111,97,116,32,95,95,118,97,108,117,101,41,59,10,105,110,116,32,102,105,110
-,105,116,101,102,40,102,108,111,97,116,32,95,95,118,97,108,117,101,41,59,10,102,108,111,97
-,116,32,100,114,101,109,102,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32
-,95,95,121,41,59,10,102,108,111,97,116,32,115,105,103,110,105,102,105,99,97,110,100,102,40
-,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,99,111,112,121,115,105,103
-,110,102,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,121,41,59
-,10,102,108,111,97,116,32,110,97,110,102,40,99,111,110,115,116,32,99,104,97,114,42,32,95
-,95,116,97,103,98,41,59,10,105,110,116,32,105,115,110,97,110,102,40,102,108,111,97,116,32
-,95,95,118,97,108,117,101,41,59,10,102,108,111,97,116,32,106,48,102,40,102,108,111,97,116
-,41,59,10,102,108,111,97,116,32,106,49,102,40,102,108,111,97,116,41,59,10,102,108,111,97
-,116,32,106,110,102,40,105,110,116,44,32,102,108,111,97,116,41,59,10,102,108,111,97,116,32
-,121,48,102,40,102,108,111,97,116,41,59,10,102,108,111,97,116,32,121,49,102,40,102,108,111
-,97,116,41,59,10,102,108,111,97,116,32,121,110,102,40,105,110,116,44,32,102,108,111,97,116
-,41,59,10,102,108,111,97,116,32,101,114,102,102,40,102,108,111,97,116,41,59,10,102,108,111
-,97,116,32,101,114,102,99,102,40,102,108,111,97,116,41,59,10,102,108,111,97,116,32,108,103
-,97,109,109,97,102,40,102,108,111,97,116,41,59,10,102,108,111,97,116,32,116,103,97,109,109
-,97,102,40,102,108,111,97,116,41,59,10,102,108,111,97,116,32,103,97,109,109,97,102,40,102
-,108,111,97,116,41,59,10,102,108,111,97,116,32,108,103,97,109,109,97,102,95,114,40,102,108
-,111,97,116,44,32,105,110,116,42,32,95,95,115,105,103,110,103,97,109,112,41,59,10,102,108
-,111,97,116,32,114,105,110,116,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111
-,97,116,32,110,101,120,116,97,102,116,101,114,102,40,102,108,111,97,116,32,95,95,120,44,32
-,102,108,111,97,116,32,95,95,121,41,59,10,102,108,111,97,116,32,110,101,120,116,116,111,119
-,97,114,100,102,40,102,108,111,97,116,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98
-,108,101,32,95,95,121,41,59,10,102,108,111,97,116,32,114,101,109,97,105,110,100,101,114,102
-,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,121,41,59,10,102
-,108,111,97,116,32,115,99,97,108,98,110,102,40,102,108,111,97,116,32,95,95,120,44,32,105
-,110,116,32,95,95,110,41,59,10,105,110,116,32,105,108,111,103,98,102,40,102,108,111,97,116
-,32,95,95,120,41,59,10,102,108,111,97,116,32,115,99,97,108,98,108,110,102,40,102,108,111
-,97,116,32,95,95,120,44,32,108,111,110,103,32,105,110,116,32,95,95,110,41,59,10,102,108
-,111,97,116,32,110,101,97,114,98,121,105,110,116,102,40,102,108,111,97,116,32,95,95,120,41
-,59,10,102,108,111,97,116,32,114,111,117,110,100,102,40,102,108,111,97,116,32,95,95,120,41
-,59,10,102,108,111,97,116,32,116,114,117,110,99,102,40,102,108,111,97,116,32,95,95,120,41
-,59,10,102,108,111,97,116,32,114,101,109,113,117,111,102,40,102,108,111,97,116,32,95,95,120
-,44,32,102,108,111,97,116,32,95,95,121,44,32,105,110,116,42,32,95,95,113,117,111,41,59
-,10,108,111,110,103,32,105,110,116,32,108,114,105,110,116,102,40,102,108,111,97,116,32,95,95
-,120,41,59,10,108,111,110,103,32,108,111,110,103,32,105,110,116,32,108,108,114,111,117,110,100
-,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,102,100,105,109,102
-,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,121,41,59,10,102
-,108,111,97,116,32,102,109,97,120,102,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111
-,97,116,32,95,95,121,41,59,10,102,108,111,97,116,32,102,109,105,110,102,40,102,108,111,97
-,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,121,41,59,10,102,108,111,97,116,32
-,102,109,97,102,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,121
-,44,32,102,108,111,97,116,32,95,95,122,41,59,10,102,108,111,97,116,32,115,99,97,108,98
-,102,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,110,41,59,10
-,108,111,110,103,32,100,111,117,98,108,101,32,97,99,111,115,108,40,108,111,110,103,32,100,111
-,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,97,115
-,105,110,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110
-,103,32,100,111,117,98,108,101,32,97,116,97,110,108,40,108,111,110,103,32,100,111,117,98,108
-,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,97,116,97,110,50
-,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121,44,32,108,111,110,103,32,100
-,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,99
-,111,115,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110
-,103,32,100,111,117,98,108,101,32,115,105,110,108,40,108,111,110,103,32,100,111,117,98,108,101
-,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,116,97,110,108,40,108
-,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117
-,98,108,101,32,99,111,115,104,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120
-,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,115,105,110,104,108,40,108,111,110,103
-,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101
-,32,116,97,110,104,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10
-,108,111,110,103,32,100,111,117,98,108,101,32,97,99,111,115,104,108,40,108,111,110,103,32,100
-,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,97
-,115,105,110,104,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108
-,111,110,103,32,100,111,117,98,108,101,32,97,116,97,110,104,108,40,108,111,110,103,32,100,111
-,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,101,120
-,112,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103
-,32,100,111,117,98,108,101,32,102,114,101,120,112,108,40,108,111,110,103,32,100,111,117,98,108
-,101,32,95,95,120,44,32,105,110,116,42,32,95,95,101,120,112,111,110,101,110,116,41,59,10
-,108,111,110,103,32,100,111,117,98,108,101,32,108,100,101,120,112,108,40,108,111,110,103,32,100
-,111,117,98,108,101,32,95,95,120,44,32,105,110,116,32,95,95,101,120,112,111,110,101,110,116
-,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,108,111,103,108,40,108,111,110,103,32
+,10,100,111,117,98,108,101,32,115,99,97,108,98,110,40,100,111,117,98,108,101,32,95,95,120
+,44,32,105,110,116,32,95,95,110,41,59,10,105,110,116,32,105,108,111,103,98,40,100,111,117
+,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,115,99,97,108,98,108,110,40
+,100,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,105,110,116,32,95,95,110,41
+,59,10,100,111,117,98,108,101,32,110,101,97,114,98,121,105,110,116,40,100,111,117,98,108,101
+,32,95,95,120,41,59,10,100,111,117,98,108,101,32,114,111,117,110,100,40,100,111,117,98,108
+,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,116,114,117,110,99,40,100,111,117,98
+,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,114,101,109,113,117,111,40,100,111
+,117,98,108,101,32,95,95,120,44,32,100,111,117,98,108,101,32,95,95,121,44,32,105,110,116
+,42,32,95,95,113,117,111,41,59,10,108,111,110,103,32,105,110,116,32,108,114,105,110,116,40
+,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,108,111,110,103,32,105,110
+,116,32,108,108,114,111,117,110,100,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111
+,117,98,108,101,32,102,100,105,109,40,100,111,117,98,108,101,32,95,95,120,44,32,100,111,117
+,98,108,101,32,95,95,121,41,59,10,100,111,117,98,108,101,32,102,109,97,120,40,100,111,117
+,98,108,101,32,95,95,120,44,32,100,111,117,98,108,101,32,95,95,121,41,59,10,100,111,117
+,98,108,101,32,102,109,105,110,40,100,111,117,98,108,101,32,95,95,120,44,32,100,111,117,98
+,108,101,32,95,95,121,41,59,10,100,111,117,98,108,101,32,102,109,97,40,100,111,117,98,108
+,101,32,95,95,120,44,32,100,111,117,98,108,101,32,95,95,121,44,32,100,111,117,98,108,101
+,32,95,95,122,41,59,10,100,111,117,98,108,101,32,115,99,97,108,98,40,100,111,117,98,108
+,101,32,95,95,120,44,32,100,111,117,98,108,101,32,95,95,110,41,59,10,102,108,111,97,116
+,32,97,99,111,115,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32
+,97,115,105,110,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,97
+,116,97,110,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,97,116
+,97,110,50,102,40,102,108,111,97,116,32,95,95,121,44,32,102,108,111,97,116,32,95,95,120
+,41,59,10,102,108,111,97,116,32,99,111,115,102,40,102,108,111,97,116,32,95,95,120,41,59
+,10,102,108,111,97,116,32,115,105,110,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102
+,108,111,97,116,32,116,97,110,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111
+,97,116,32,99,111,115,104,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97
+,116,32,115,105,110,104,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116
+,32,116,97,110,104,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32
+,97,99,111,115,104,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32
+,97,115,105,110,104,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32
+,97,116,97,110,104,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32
+,101,120,112,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,102,114
+,101,120,112,102,40,102,108,111,97,116,32,95,95,120,44,32,105,110,116,42,32,95,95,101,120
+,112,111,110,101,110,116,41,59,10,102,108,111,97,116,32,108,100,101,120,112,102,40,102,108,111
+,97,116,32,95,95,120,44,32,105,110,116,32,95,95,101,120,112,111,110,101,110,116,41,59,10
+,102,108,111,97,116,32,108,111,103,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108
+,111,97,116,32,108,111,103,49,48,102,40,102,108,111,97,116,32,95,95,120,41,59,32,102,108
+,111,97,116,32,95,95,108,111,103,49,48,102,40,102,108,111,97,116,32,95,95,120,41,59,10
+,102,108,111,97,116,32,109,111,100,102,102,40,102,108,111,97,116,32,95,95,120,44,32,102,108
+,111,97,116,42,32,95,95,105,112,116,114,41,59,10,102,108,111,97,116,32,101,120,112,109,49
+,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,108,111,103,49,112
+,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,108,111,103,98,102
+,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,101,120,112,50,102,40
+,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,108,111,103,50,102,40,102
+,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,112,111,119,102,40,102,108,111
+,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,121,41,59,10,102,108,111,97,116
+,32,115,113,114,116,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32
+,104,121,112,111,116,102,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95
+,95,121,41,59,10,102,108,111,97,116,32,99,98,114,116,102,40,102,108,111,97,116,32,95,95
+,120,41,59,10,102,108,111,97,116,32,99,101,105,108,102,40,102,108,111,97,116,32,95,95,120
+,41,59,10,102,108,111,97,116,32,102,97,98,115,102,40,102,108,111,97,116,32,95,95,120,41
+,59,10,102,108,111,97,116,32,102,108,111,111,114,102,40,102,108,111,97,116,32,95,95,120,41
+,59,10,102,108,111,97,116,32,102,109,111,100,102,40,102,108,111,97,116,32,95,95,120,44,32
+,102,108,111,97,116,32,95,95,121,41,59,10,105,110,116,32,105,115,105,110,102,102,40,102,108
+,111,97,116,32,95,95,118,97,108,117,101,41,59,10,105,110,116,32,102,105,110,105,116,101,102
+,40,102,108,111,97,116,32,95,95,118,97,108,117,101,41,59,10,102,108,111,97,116,32,100,114
+,101,109,102,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,121,41
+,59,10,102,108,111,97,116,32,115,105,103,110,105,102,105,99,97,110,100,102,40,102,108,111,97
+,116,32,95,95,120,41,59,10,102,108,111,97,116,32,99,111,112,121,115,105,103,110,102,40,102
+,108,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,121,41,59,10,102,108,111
+,97,116,32,110,97,110,102,40,99,111,110,115,116,32,99,104,97,114,42,32,95,95,116,97,103
+,98,41,59,10,105,110,116,32,105,115,110,97,110,102,40,102,108,111,97,116,32,95,95,118,97
+,108,117,101,41,59,10,102,108,111,97,116,32,106,48,102,40,102,108,111,97,116,41,59,10,102
+,108,111,97,116,32,106,49,102,40,102,108,111,97,116,41,59,10,102,108,111,97,116,32,106,110
+,102,40,105,110,116,44,32,102,108,111,97,116,41,59,10,102,108,111,97,116,32,121,48,102,40
+,102,108,111,97,116,41,59,10,102,108,111,97,116,32,121,49,102,40,102,108,111,97,116,41,59
+,10,102,108,111,97,116,32,121,110,102,40,105,110,116,44,32,102,108,111,97,116,41,59,10,102
+,108,111,97,116,32,101,114,102,102,40,102,108,111,97,116,41,59,10,102,108,111,97,116,32,101
+,114,102,99,102,40,102,108,111,97,116,41,59,10,102,108,111,97,116,32,108,103,97,109,109,97
+,102,40,102,108,111,97,116,41,59,10,102,108,111,97,116,32,116,103,97,109,109,97,102,40,102
+,108,111,97,116,41,59,10,102,108,111,97,116,32,103,97,109,109,97,102,40,102,108,111,97,116
+,41,59,10,102,108,111,97,116,32,108,103,97,109,109,97,102,95,114,40,102,108,111,97,116,44
+,32,105,110,116,42,32,95,95,115,105,103,110,103,97,109,112,41,59,10,102,108,111,97,116,32
+,114,105,110,116,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,110
+,101,120,116,97,102,116,101,114,102,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111,97
+,116,32,95,95,121,41,59,10,102,108,111,97,116,32,110,101,120,116,116,111,119,97,114,100,102
+,40,102,108,111,97,116,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95
+,95,121,41,59,10,102,108,111,97,116,32,114,101,109,97,105,110,100,101,114,102,40,102,108,111
+,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,121,41,59,10,102,108,111,97,116
+,32,115,99,97,108,98,110,102,40,102,108,111,97,116,32,95,95,120,44,32,105,110,116,32,95
+,95,110,41,59,10,105,110,116,32,105,108,111,103,98,102,40,102,108,111,97,116,32,95,95,120
+,41,59,10,102,108,111,97,116,32,115,99,97,108,98,108,110,102,40,102,108,111,97,116,32,95
+,95,120,44,32,108,111,110,103,32,105,110,116,32,95,95,110,41,59,10,102,108,111,97,116,32
+,110,101,97,114,98,121,105,110,116,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108
+,111,97,116,32,114,111,117,110,100,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108
+,111,97,116,32,116,114,117,110,99,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108
+,111,97,116,32,114,101,109,113,117,111,102,40,102,108,111,97,116,32,95,95,120,44,32,102,108
+,111,97,116,32,95,95,121,44,32,105,110,116,42,32,95,95,113,117,111,41,59,10,108,111,110
+,103,32,105,110,116,32,108,114,105,110,116,102,40,102,108,111,97,116,32,95,95,120,41,59,10
+,108,111,110,103,32,108,111,110,103,32,105,110,116,32,108,108,114,111,117,110,100,102,40,102,108
+,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,102,100,105,109,102,40,102,108,111
+,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,121,41,59,10,102,108,111,97,116
+,32,102,109,97,120,102,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95
+,95,121,41,59,10,102,108,111,97,116,32,102,109,105,110,102,40,102,108,111,97,116,32,95,95
+,120,44,32,102,108,111,97,116,32,95,95,121,41,59,10,102,108,111,97,116,32,102,109,97,102
+,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,121,44,32,102,108
+,111,97,116,32,95,95,122,41,59,10,102,108,111,97,116,32,115,99,97,108,98,102,40,102,108
+,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,110,41,59,10,108,111,110,103
+,32,100,111,117,98,108,101,32,97,99,111,115,108,40,108,111,110,103,32,100,111,117,98,108,101
+,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,97,115,105,110,108,40
+,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111
+,117,98,108,101,32,97,116,97,110,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95
+,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,97,116,97,110,50,108,40,108,111
+,110,103,32,100,111,117,98,108,101,32,95,95,121,44,32,108,111,110,103,32,100,111,117,98,108
+,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,99,111,115,108,40
+,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111
+,117,98,108,101,32,115,105,110,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120
+,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,116,97,110,108,40,108,111,110,103,32
 ,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32
-,108,111,103,49,48,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10
-,108,111,110,103,32,100,111,117,98,108,101,32,109,111,100,102,108,40,108,111,110,103,32,100,111
-,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,42,32,95,95
-,105,112,116,114,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,101,120,112,109,49,108
-,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100
-,111,117,98,108,101,32,108,111,103,49,112,108,40,108,111,110,103,32,100,111,117,98,108,101,32
-,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,108,111,103,98,108,40,108
-,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117
-,98,108,101,32,101,120,112,50,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120
-,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,108,111,103,50,108,40,108,111,110,103
-,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101
-,32,112,111,119,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,44,32,108,111
-,110,103,32,100,111,117,98,108,101,32,95,95,121,41,59,10,108,111,110,103,32,100,111,117,98
-,108,101,32,115,113,114,116,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41
-,59,10,108,111,110,103,32,100,111,117,98,108,101,32,104,121,112,111,116,108,40,108,111,110,103
-,32,100,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32
-,95,95,121,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,99,98,114,116,108,40,108
-,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117
-,98,108,101,32,99,101,105,108,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120
-,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,102,97,98,115,108,40,108,111,110,103
-,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101
-,32,102,108,111,111,114,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59
-,10,108,111,110,103,32,100,111,117,98,108,101,32,102,109,111,100,108,40,108,111,110,103,32,100
-,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95
-,121,41,59,10,105,110,116,32,105,115,105,110,102,108,40,108,111,110,103,32,100,111,117,98,108
-,101,32,95,95,118,97,108,117,101,41,59,10,105,110,116,32,102,105,110,105,116,101,108,40,108
-,111,110,103,32,100,111,117,98,108,101,32,95,95,118,97,108,117,101,41,59,10,108,111,110,103
-,32,100,111,117,98,108,101,32,100,114,101,109,108,40,108,111,110,103,32,100,111,117,98,108,101
-,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121,41,59,10,108
-,111,110,103,32,100,111,117,98,108,101,32,115,105,103,110,105,102,105,99,97,110,100,108,40,108
-,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117
-,98,108,101,32,99,111,112,121,115,105,103,110,108,40,108,111,110,103,32,100,111,117,98,108,101
-,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121,41,59,10,108
-,111,110,103,32,100,111,117,98,108,101,32,110,97,110,108,40,99,111,110,115,116,32,99,104,97
-,114,42,32,95,95,116,97,103,98,41,59,10,105,110,116,32,105,115,110,97,110,108,40,108,111
-,110,103,32,100,111,117,98,108,101,32,95,95,118,97,108,117,101,41,59,10,108,111,110,103,32
-,100,111,117,98,108,101,32,106,48,108,40,108,111,110,103,32,100,111,117,98,108,101,41,59,10
-,108,111,110,103,32,100,111,117,98,108,101,32,106,49,108,40,108,111,110,103,32,100,111,117,98
-,108,101,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,106,110,108,40,105,110,116,44
-,32,108,111,110,103,32,100,111,117,98,108,101,41,59,10,108,111,110,103,32,100,111,117,98,108
-,101,32,121,48,108,40,108,111,110,103,32,100,111,117,98,108,101,41,59,10,108,111,110,103,32
-,100,111,117,98,108,101,32,121,49,108,40,108,111,110,103,32,100,111,117,98,108,101,41,59,10
-,108,111,110,103,32,100,111,117,98,108,101,32,121,110,108,40,105,110,116,44,32,108,111,110,103
-,32,100,111,117,98,108,101,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,101,114,102
-,108,40,108,111,110,103,32,100,111,117,98,108,101,41,59,10,108,111,110,103,32,100,111,117,98
-,108,101,32,101,114,102,99,108,40,108,111,110,103,32,100,111,117,98,108,101,41,59,10,108,111
-,110,103,32,100,111,117,98,108,101,32,108,103,97,109,109,97,108,40,108,111,110,103,32,100,111
-,117,98,108,101,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,116,103,97,109,109,97
-,108,40,108,111,110,103,32,100,111,117,98,108,101,41,59,10,108,111,110,103,32,100,111,117,98
-,108,101,32,103,97,109,109,97,108,40,108,111,110,103,32,100,111,117,98,108,101,41,59,10,108
-,111,110,103,32,100,111,117,98,108,101,32,108,103,97,109,109,97,108,95,114,40,108,111,110,103
-,32,100,111,117,98,108,101,44,32,105,110,116,42,32,95,95,115,105,103,110,103,97,109,112,41
-,59,10,108,111,110,103,32,100,111,117,98,108,101,32,114,105,110,116,108,40,108,111,110,103,32
-,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32
-,110,101,120,116,97,102,116,101,114,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95
-,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121,41,59,10,108,111,110,103
-,32,100,111,117,98,108,101,32,110,101,120,116,116,111,119,97,114,100,108,40,108,111,110,103,32
-,100,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95
-,95,121,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,114,101,109,97,105,110,100,101
-,114,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32
-,100,111,117,98,108,101,32,95,95,121,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32
-,115,99,97,108,98,110,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,44,32
-,105,110,116,32,95,95,110,41,59,10,105,110,116,32,105,108,111,103,98,108,40,108,111,110,103
-,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101
-,32,115,99,97,108,98,108,110,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120
-,44,32,108,111,110,103,32,105,110,116,32,95,95,110,41,59,10,108,111,110,103,32,100,111,117
-,98,108,101,32,110,101,97,114,98,121,105,110,116,108,40,108,111,110,103,32,100,111,117,98,108
-,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,114,111,117,110,100
+,99,111,115,104,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108
+,111,110,103,32,100,111,117,98,108,101,32,115,105,110,104,108,40,108,111,110,103,32,100,111,117
+,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,116,97,110
+,104,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103
+,32,100,111,117,98,108,101,32,97,99,111,115,104,108,40,108,111,110,103,32,100,111,117,98,108
+,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,97,115,105,110,104
 ,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32
-,100,111,117,98,108,101,32,116,114,117,110,99,108,40,108,111,110,103,32,100,111,117,98,108,101
-,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,114,101,109,113,117,111
+,100,111,117,98,108,101,32,97,116,97,110,104,108,40,108,111,110,103,32,100,111,117,98,108,101
+,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,101,120,112,108,40,108
+,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117
+,98,108,101,32,102,114,101,120,112,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95
+,120,44,32,105,110,116,42,32,95,95,101,120,112,111,110,101,110,116,41,59,10,108,111,110,103
+,32,100,111,117,98,108,101,32,108,100,101,120,112,108,40,108,111,110,103,32,100,111,117,98,108
+,101,32,95,95,120,44,32,105,110,116,32,95,95,101,120,112,111,110,101,110,116,41,59,10,108
+,111,110,103,32,100,111,117,98,108,101,32,108,111,103,108,40,108,111,110,103,32,100,111,117,98
+,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,108,111,103,49
+,48,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103
+,32,100,111,117,98,108,101,32,109,111,100,102,108,40,108,111,110,103,32,100,111,117,98,108,101
+,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,42,32,95,95,105,112,116,114
+,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,101,120,112,109,49,108,40,108,111,110
+,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108
+,101,32,108,111,103,49,112,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41
+,59,10,108,111,110,103,32,100,111,117,98,108,101,32,108,111,103,98,108,40,108,111,110,103,32
+,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32
+,101,120,112,50,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108
+,111,110,103,32,100,111,117,98,108,101,32,108,111,103,50,108,40,108,111,110,103,32,100,111,117
+,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,112,111,119
 ,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100
-,111,117,98,108,101,32,95,95,121,44,32,105,110,116,42,32,95,95,113,117,111,41,59,10,108
-,111,110,103,32,105,110,116,32,108,114,105,110,116,108,40,108,111,110,103,32,100,111,117,98,108
-,101,32,95,95,120,41,59,10,108,111,110,103,32,108,111,110,103,32,105,110,116,32,108,108,114
-,111,117,110,100,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108
-,111,110,103,32,100,111,117,98,108,101,32,102,100,105,109,108,40,108,111,110,103,32,100,111,117
+,111,117,98,108,101,32,95,95,121,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,115
+,113,114,116,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111
+,110,103,32,100,111,117,98,108,101,32,104,121,112,111,116,108,40,108,111,110,103,32,100,111,117
 ,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121,41
-,59,10,108,111,110,103,32,100,111,117,98,108,101,32,102,109,97,120,108,40,108,111,110,103,32
-,100,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95
-,95,121,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,102,109,105,110,108,40,108,111
+,59,10,108,111,110,103,32,100,111,117,98,108,101,32,99,98,114,116,108,40,108,111,110,103,32
+,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32
+,99,101,105,108,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108
+,111,110,103,32,100,111,117,98,108,101,32,102,97,98,115,108,40,108,111,110,103,32,100,111,117
+,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,102,108,111
+,111,114,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110
+,103,32,100,111,117,98,108,101,32,102,109,111,100,108,40,108,111,110,103,32,100,111,117,98,108
+,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121,41,59,10
+,105,110,116,32,105,115,105,110,102,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95
+,118,97,108,117,101,41,59,10,105,110,116,32,102,105,110,105,116,101,108,40,108,111,110,103,32
+,100,111,117,98,108,101,32,95,95,118,97,108,117,101,41,59,10,108,111,110,103,32,100,111,117
+,98,108,101,32,100,114,101,109,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120
+,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121,41,59,10,108,111,110,103,32
+,100,111,117,98,108,101,32,115,105,103,110,105,102,105,99,97,110,100,108,40,108,111,110,103,32
+,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32
+,99,111,112,121,115,105,103,110,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120
+,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121,41,59,10,108,111,110,103,32
+,100,111,117,98,108,101,32,110,97,110,108,40,99,111,110,115,116,32,99,104,97,114,42,32,95
+,95,116,97,103,98,41,59,10,105,110,116,32,105,115,110,97,110,108,40,108,111,110,103,32,100
+,111,117,98,108,101,32,95,95,118,97,108,117,101,41,59,10,108,111,110,103,32,100,111,117,98
+,108,101,32,106,48,108,40,108,111,110,103,32,100,111,117,98,108,101,41,59,10,108,111,110,103
+,32,100,111,117,98,108,101,32,106,49,108,40,108,111,110,103,32,100,111,117,98,108,101,41,59
+,10,108,111,110,103,32,100,111,117,98,108,101,32,106,110,108,40,105,110,116,44,32,108,111,110
+,103,32,100,111,117,98,108,101,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,121,48
+,108,40,108,111,110,103,32,100,111,117,98,108,101,41,59,10,108,111,110,103,32,100,111,117,98
+,108,101,32,121,49,108,40,108,111,110,103,32,100,111,117,98,108,101,41,59,10,108,111,110,103
+,32,100,111,117,98,108,101,32,121,110,108,40,105,110,116,44,32,108,111,110,103,32,100,111,117
+,98,108,101,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,101,114,102,108,40,108,111
+,110,103,32,100,111,117,98,108,101,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,101
+,114,102,99,108,40,108,111,110,103,32,100,111,117,98,108,101,41,59,10,108,111,110,103,32,100
+,111,117,98,108,101,32,108,103,97,109,109,97,108,40,108,111,110,103,32,100,111,117,98,108,101
+,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,116,103,97,109,109,97,108,40,108,111
+,110,103,32,100,111,117,98,108,101,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,103
+,97,109,109,97,108,40,108,111,110,103,32,100,111,117,98,108,101,41,59,10,108,111,110,103,32
+,100,111,117,98,108,101,32,108,103,97,109,109,97,108,95,114,40,108,111,110,103,32,100,111,117
+,98,108,101,44,32,105,110,116,42,32,95,95,115,105,103,110,103,97,109,112,41,59,10,108,111
+,110,103,32,100,111,117,98,108,101,32,114,105,110,116,108,40,108,111,110,103,32,100,111,117,98
+,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,110,101,120,116
+,97,102,116,101,114,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,44,32,108
+,111,110,103,32,100,111,117,98,108,101,32,95,95,121,41,59,10,108,111,110,103,32,100,111,117
+,98,108,101,32,110,101,120,116,116,111,119,97,114,100,108,40,108,111,110,103,32,100,111,117,98
+,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121,41,59
+,10,108,111,110,103,32,100,111,117,98,108,101,32,114,101,109,97,105,110,100,101,114,108,40,108
+,111,110,103,32,100,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98
+,108,101,32,95,95,121,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,115,99,97,108
+,98,110,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,44,32,105,110,116,32
+,95,95,110,41,59,10,105,110,116,32,105,108,111,103,98,108,40,108,111,110,103,32,100,111,117
+,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,115,99,97
+,108,98,108,110,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,44,32,108,111
+,110,103,32,105,110,116,32,95,95,110,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32
+,110,101,97,114,98,121,105,110,116,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95
+,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,114,111,117,110,100,108,40,108,111
+,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98
+,108,101,32,116,114,117,110,99,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120
+,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,114,101,109,113,117,111,108,40,108,111
 ,110,103,32,100,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108
-,101,32,95,95,121,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,102,109,97,108,40
-,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117
-,98,108,101,32,95,95,121,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,122,41
-,59,10,108,111,110,103,32,100,111,117,98,108,101,32,115,99,97,108,98,108,40,108,111,110,103
+,101,32,95,95,121,44,32,105,110,116,42,32,95,95,113,117,111,41,59,10,108,111,110,103,32
+,105,110,116,32,108,114,105,110,116,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95
+,120,41,59,10,108,111,110,103,32,108,111,110,103,32,105,110,116,32,108,108,114,111,117,110,100
+,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32
+,100,111,117,98,108,101,32,102,100,105,109,108,40,108,111,110,103,32,100,111,117,98,108,101,32
+,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121,41,59,10,108,111
+,110,103,32,100,111,117,98,108,101,32,102,109,97,120,108,40,108,111,110,103,32,100,111,117,98
+,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121,41,59
+,10,108,111,110,103,32,100,111,117,98,108,101,32,102,109,105,110,108,40,108,111,110,103,32,100
+,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95
+,121,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,102,109,97,108,40,108,111,110,103
 ,32,100,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32
-,95,95,110,41,59,10
+,95,95,121,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,122,41,59,10,108,111
+,110,103,32,100,111,117,98,108,101,32,115,99,97,108,98,108,40,108,111,110,103,32,100,111,117
+,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,110,41
+,59,10,35,101,108,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,109,97
+,116,104,46,104,62,10,35,101,110,100,105,102,10,10
 , 0 };
 static const char file_setjmp_h[] = {
 
 
 
-35,101,114,114,111,114,32,110,111,116,32,105,109,112,108,101,109,101,110,116,101,100,32,121,101
-,116,10
+35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,35,101,114,114,111
+,114,32,110,111,116,32,105,109,112,108,101,109,101,110,116,101,100,32,121,101,116,10,35,101,108
+,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,101,116,106,109,112,46
+,104,62,10,35,101,110,100,105,102,10,10,10
 , 0 };
 static const char file_signal_h[] = {
 
 
 
-35,105,102,110,100,101,102,32,83,73,71,78,65,76,95,72,10,35,100,101,102,105,110,101,32
-,83,73,71,78,65,76,95,72,10,10,116,121,112,101,100,101,102,32,118,111,105,100,32,40,42
-,115,105,103,104,97,110,100,108,101,114,95,116,41,40,105,110,116,41,59,10,10,47,42,32,83
-,116,97,110,100,97,114,100,32,115,105,103,110,97,108,115,32,42,47,10,35,100,101,102,105,110
-,101,32,83,73,71,65,66,82,84,32,54,10,35,100,101,102,105,110,101,32,83,73,71,70,80
-,69,32,56,10,35,100,101,102,105,110,101,32,83,73,71,73,76,76,32,52,10,35,100,101,102
-,105,110,101,32,83,73,71,73,78,84,32,50,10,35,100,101,102,105,110,101,32,83,73,71,83
-,69,71,86,32,49,49,10,35,100,101,102,105,110,101,32,83,73,71,84,69,82,77,32,49,53
-,10,35,100,101,102,105,110,101,32,83,73,71,95,68,70,76,32,40,40,115,105,103,104,97,110
-,100,108,101,114,95,116,41,48,41,10,35,100,101,102,105,110,101,32,83,73,71,95,73,71,78
-,32,40,40,115,105,103,104,97,110,100,108,101,114,95,116,41,49,41,10,10,47,42,32,70,117
-,110,99,116,105,111,110,32,100,101,99,108,97,114,97,116,105,111,110,115,32,42,47,10,115,105
-,103,104,97,110,100,108,101,114,95,116,32,115,105,103,110,97,108,40,105,110,116,32,115,105,103
-,44,32,115,105,103,104,97,110,100,108,101,114,95,116,32,104,97,110,100,108,101,114,41,59,10
-,105,110,116,32,114,97,105,115,101,40,105,110,116,32,115,105,103,41,59,10,10,35,101,110,100
-,105,102,32,47,42,32,83,73,71,78,65,76,95,72,32,42,47,10
+35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,10,35,105,102,110
+,100,101,102,32,83,73,71,78,65,76,95,72,10,35,100,101,102,105,110,101,32,83,73,71,78
+,65,76,95,72,10,10,116,121,112,101,100,101,102,32,118,111,105,100,32,40,42,115,105,103,104
+,97,110,100,108,101,114,95,116,41,40,105,110,116,41,59,10,10,47,42,32,83,116,97,110,100
+,97,114,100,32,115,105,103,110,97,108,115,32,42,47,10,35,100,101,102,105,110,101,32,83,73
+,71,65,66,82,84,32,54,10,35,100,101,102,105,110,101,32,83,73,71,70,80,69,32,56,10
+,35,100,101,102,105,110,101,32,83,73,71,73,76,76,32,52,10,35,100,101,102,105,110,101,32
+,83,73,71,73,78,84,32,50,10,35,100,101,102,105,110,101,32,83,73,71,83,69,71,86,32
+,49,49,10,35,100,101,102,105,110,101,32,83,73,71,84,69,82,77,32,49,53,10,35,100,101
+,102,105,110,101,32,83,73,71,95,68,70,76,32,40,40,115,105,103,104,97,110,100,108,101,114
+,95,116,41,48,41,10,35,100,101,102,105,110,101,32,83,73,71,95,73,71,78,32,40,40,115
+,105,103,104,97,110,100,108,101,114,95,116,41,49,41,10,10,47,42,32,70,117,110,99,116,105
+,111,110,32,100,101,99,108,97,114,97,116,105,111,110,115,32,42,47,10,115,105,103,104,97,110
+,100,108,101,114,95,116,32,115,105,103,110,97,108,40,105,110,116,32,115,105,103,44,32,115,105
+,103,104,97,110,100,108,101,114,95,116,32,104,97,110,100,108,101,114,41,59,10,105,110,116,32
+,114,97,105,115,101,40,105,110,116,32,115,105,103,41,59,10,10,35,101,110,100,105,102,32,47
+,42,32,83,73,71,78,65,76,95,72,32,42,47,10,10,35,101,108,115,101,10,35,105,110,99
+,108,117,100,101,95,110,101,120,116,32,60,115,105,103,110,97,108,46,104,62,10,35,101,110,100
+,105,102,10
 , 0 };
 static const char file_stdalign_h[] = {
 
 
 
-35,105,102,32,95,95,83,84,68,67,95,86,69,82,83,73,79,78,95,95,32,60,32,50,48
-,50,51,49,49,76,10,35,100,101,102,105,110,101,32,97,108,105,103,110,97,115,32,95,65,108
-,105,103,110,97,115,10,35,100,101,102,105,110,101,32,97,108,105,103,110,111,102,32,95,65,108
-,105,103,110,111,102,10,35,100,101,102,105,110,101,32,95,95,97,108,105,103,110,97,115,95,105
-,115,95,100,101,102,105,110,101,100,32,49,10,35,100,101,102,105,110,101,32,95,95,97,108,105
-,103,110,111,102,95,105,115,95,100,101,102,105,110,101,100,32,49,10,35,101,110,100,105,102,10
+35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,10,35,105,102,32
+,95,95,83,84,68,67,95,86,69,82,83,73,79,78,95,95,32,60,32,50,48,50,51,49,49
+,76,10,35,100,101,102,105,110,101,32,97,108,105,103,110,97,115,32,95,65,108,105,103,110,97
+,115,10,35,100,101,102,105,110,101,32,97,108,105,103,110,111,102,32,95,65,108,105,103,110,111
+,102,10,35,100,101,102,105,110,101,32,95,95,97,108,105,103,110,97,115,95,105,115,95,100,101
+,102,105,110,101,100,32,49,10,35,100,101,102,105,110,101,32,95,95,97,108,105,103,110,111,102
+,95,105,115,95,100,101,102,105,110,101,100,32,49,10,35,101,110,100,105,102,10,10,35,101,108
+,115,101,32,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,116,100,97,108,105
+,103,110,46,104,62,10,35,101,110,100,105,102,10,10
 , 0 };
 static const char file_stdarg_h[] = {
 
 
 
-35,105,102,100,101,102,32,95,87,73,78,51,50,10,10,32,32,32,32,32,32,32,32,35,100
-,101,102,105,110,101,32,95,65,68,68,82,69,83,83,79,70,40,118,41,32,40,38,40,118,41
-,41,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32,99,104,97,114,42,32,118
-,97,95,108,105,115,116,59,10,10,32,32,32,32,32,32,32,32,35,105,102,32,100,101,102,105
-,110,101,100,32,95,77,95,73,88,56,54,32,38,38,32,33,100,101,102,105,110,101,100,32,95
-,77,95,72,89,66,82,73,68,95,88,56,54,95,65,82,77,54,52,10,10,32,32,32,32,32
-,32,32,32,32,32,32,32,35,100,101,102,105,110,101,32,95,73,78,84,83,73,90,69,79,70
-,40,110,41,32,32,32,32,32,32,32,32,32,32,40,40,115,105,122,101,111,102,40,110,41,32
-,43,32,115,105,122,101,111,102,40,105,110,116,41,32,45,32,49,41,32,38,32,126,40,115,105
-,122,101,111,102,40,105,110,116,41,32,45,32,49,41,41,10,10,32,32,32,32,32,32,32,32
-,32,32,32,32,35,100,101,102,105,110,101,32,95,95,99,114,116,95,118,97,95,115,116,97,114
-,116,95,97,40,97,112,44,32,118,41,32,40,40,118,111,105,100,41,40,97,112,32,61,32,40
-,118,97,95,108,105,115,116,41,95,65,68,68,82,69,83,83,79,70,40,118,41,32,43,32,95
-,73,78,84,83,73,90,69,79,70,40,118,41,41,41,10,32,32,32,32,32,32,32,32,32,32
-,32,32,35,100,101,102,105,110,101,32,95,95,99,114,116,95,118,97,95,97,114,103,40,97,112
-,44,32,116,41,32,32,32,32,32,40,42,40,116,42,41,40,40,97,112,32,43,61,32,95,73
-,78,84,83,73,90,69,79,70,40,116,41,41,32,45,32,95,73,78,84,83,73,90,69,79,70
-,40,116,41,41,41,10,32,32,32,32,32,32,32,32,32,32,32,32,35,100,101,102,105,110,101
-,32,95,95,99,114,116,95,118,97,95,101,110,100,40,97,112,41,32,32,32,32,32,32,32,32
-,40,40,118,111,105,100,41,40,97,112,32,61,32,40,118,97,95,108,105,115,116,41,48,41,41
-,10,10,32,32,32,32,32,32,32,32,35,101,108,105,102,32,100,101,102,105,110,101,100,32,95
-,77,95,88,54,52,10,10,32,32,32,32,32,32,32,32,32,32,32,32,118,111,105,100,32,95
-,95,99,100,101,99,108,32,95,95,118,97,95,115,116,97,114,116,40,118,97,95,108,105,115,116
-,42,44,32,46,46,46,41,59,10,10,32,32,32,32,32,32,32,32,32,32,32,32,35,100,101
-,102,105,110,101,32,95,95,99,114,116,95,118,97,95,115,116,97,114,116,95,97,40,97,112,44
-,32,120,41,32,40,40,118,111,105,100,41,40,95,95,118,97,95,115,116,97,114,116,40,38,97
-,112,44,32,120,41,41,41,10,32,32,32,32,32,32,32,32,32,32,32,32,35,100,101,102,105
-,110,101,32,95,95,99,114,116,95,118,97,95,97,114,103,40,97,112,44,32,116,41,32,32,32
+35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,10,35,105,102,100
+,101,102,32,95,87,73,78,51,50,10,10,32,32,32,32,32,32,32,32,35,100,101,102,105,110
+,101,32,95,65,68,68,82,69,83,83,79,70,40,118,41,32,40,38,40,118,41,41,10,32,32
+,32,32,32,32,32,32,116,121,112,101,100,101,102,32,99,104,97,114,42,32,118,97,95,108,105
+,115,116,59,10,10,32,32,32,32,32,32,32,32,35,105,102,32,100,101,102,105,110,101,100,32
+,95,77,95,73,88,56,54,32,38,38,32,33,100,101,102,105,110,101,100,32,95,77,95,72,89
+,66,82,73,68,95,88,56,54,95,65,82,77,54,52,10,10,32,32,32,32,32,32,32,32,32
+,32,32,32,35,100,101,102,105,110,101,32,95,73,78,84,83,73,90,69,79,70,40,110,41,32
+,32,32,32,32,32,32,32,32,32,40,40,115,105,122,101,111,102,40,110,41,32,43,32,115,105
+,122,101,111,102,40,105,110,116,41,32,45,32,49,41,32,38,32,126,40,115,105,122,101,111,102
+,40,105,110,116,41,32,45,32,49,41,41,10,10,32,32,32,32,32,32,32,32,32,32,32,32
+,35,100,101,102,105,110,101,32,95,95,99,114,116,95,118,97,95,115,116,97,114,116,95,97,40
+,97,112,44,32,118,41,32,40,40,118,111,105,100,41,40,97,112,32,61,32,40,118,97,95,108
+,105,115,116,41,95,65,68,68,82,69,83,83,79,70,40,118,41,32,43,32,95,73,78,84,83
+,73,90,69,79,70,40,118,41,41,41,10,32,32,32,32,32,32,32,32,32,32,32,32,35,100
+,101,102,105,110,101,32,95,95,99,114,116,95,118,97,95,97,114,103,40,97,112,44,32,116,41
+,32,32,32,32,32,40,42,40,116,42,41,40,40,97,112,32,43,61,32,95,73,78,84,83,73
+,90,69,79,70,40,116,41,41,32,45,32,95,73,78,84,83,73,90,69,79,70,40,116,41,41
+,41,10,32,32,32,32,32,32,32,32,32,32,32,32,35,100,101,102,105,110,101,32,95,95,99
+,114,116,95,118,97,95,101,110,100,40,97,112,41,32,32,32,32,32,32,32,32,40,40,118,111
+,105,100,41,40,97,112,32,61,32,40,118,97,95,108,105,115,116,41,48,41,41,10,10,32,32
+,32,32,32,32,32,32,35,101,108,105,102,32,100,101,102,105,110,101,100,32,95,77,95,88,54
+,52,10,10,32,32,32,32,32,32,32,32,32,32,32,32,118,111,105,100,32,95,95,99,100,101
+,99,108,32,95,95,118,97,95,115,116,97,114,116,40,118,97,95,108,105,115,116,42,44,32,46
+,46,46,41,59,10,10,32,32,32,32,32,32,32,32,32,32,32,32,35,100,101,102,105,110,101
+,32,95,95,99,114,116,95,118,97,95,115,116,97,114,116,95,97,40,97,112,44,32,120,41,32
+,40,40,118,111,105,100,41,40,95,95,118,97,95,115,116,97,114,116,40,38,97,112,44,32,120
+,41,41,41,10,32,32,32,32,32,32,32,32,32,32,32,32,35,100,101,102,105,110,101,32,95
+,95,99,114,116,95,118,97,95,97,114,103,40,97,112,44,32,116,41,32,32,32,32,32,32,32
 ,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32
-,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,92,10,32,32,32,32
-,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,40,40,115,105,122,101,111,102,40
-,116,41,32,62,32,115,105,122,101,111,102,40,95,95,105,110,116,54,52,41,32,124,124,32,40
-,115,105,122,101,111,102,40,116,41,32,38,32,40,115,105,122,101,111,102,40,116,41,32,45,32
-,49,41,41,32,33,61,32,48,41,32,92,10,32,32,32,32,32,32,32,32,32,32,32,32,32
-,32,32,32,32,32,32,32,32,32,32,32,63,32,42,42,40,116,42,42,41,40,40,97,112,32
-,43,61,32,115,105,122,101,111,102,40,95,95,105,110,116,54,52,41,41,32,45,32,115,105,122
-,101,111,102,40,95,95,105,110,116,54,52,41,41,32,32,32,32,32,32,32,32,32,32,32,32
-,32,92,10,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32
-,32,32,58,32,32,42,40,116,42,32,41,40,40,97,112,32,43,61,32,115,105,122,101,111,102
-,40,95,95,105,110,116,54,52,41,41,32,45,32,115,105,122,101,111,102,40,95,95,105,110,116
-,54,52,41,41,41,10,32,32,32,32,32,32,32,32,32,32,32,32,35,100,101,102,105,110,101
-,32,95,95,99,114,116,95,118,97,95,101,110,100,40,97,112,41,32,32,32,32,32,32,32,32
-,40,40,118,111,105,100,41,40,97,112,32,61,32,40,118,97,95,108,105,115,116,41,48,41,41
-,10,10,32,32,32,32,32,32,32,32,35,101,108,115,101,10,32,32,32,32,32,32,32,32,32
-,32,32,32,32,35,101,114,114,111,114,32,112,108,97,116,102,111,114,109,32,110,111,116,32,100
-,101,102,105,110,101,100,10,32,32,32,32,32,32,32,32,35,101,110,100,105,102,10,10,10,32
-,32,32,32,32,32,32,32,35,100,101,102,105,110,101,32,95,95,99,114,116,95,118,97,95,115
-,116,97,114,116,40,97,112,44,32,120,41,32,95,95,99,114,116,95,118,97,95,115,116,97,114
-,116,95,97,40,97,112,44,32,120,41,10,10,32,32,32,32,32,32,32,32,35,100,101,102,105
-,110,101,32,118,97,95,115,116,97,114,116,32,95,95,99,114,116,95,118,97,95,115,116,97,114
-,116,10,32,32,32,32,32,32,32,32,35,100,101,102,105,110,101,32,118,97,95,97,114,103,32
-,32,32,95,95,99,114,116,95,118,97,95,97,114,103,10,32,32,32,32,32,32,32,32,35,100
-,101,102,105,110,101,32,118,97,95,101,110,100,32,32,32,95,95,99,114,116,95,118,97,95,101
-,110,100,10,32,32,32,32,32,32,32,32,35,100,101,102,105,110,101,32,118,97,95,99,111,112
-,121,40,100,101,115,116,105,110,97,116,105,111,110,44,32,115,111,117,114,99,101,41,32,40,40
-,100,101,115,116,105,110,97,116,105,111,110,41,32,61,32,40,115,111,117,114,99,101,41,41,10
-,10,10,35,101,110,100,105,102,10,10,35,105,102,100,101,102,32,95,95,71,78,85,67,95,95
-,10,10,10,116,121,112,101,100,101,102,32,95,95,98,117,105,108,116,105,110,95,118,97,95,108
-,105,115,116,32,95,95,103,110,117,99,95,118,97,95,108,105,115,116,59,10,116,121,112,101,100
-,101,102,32,95,95,103,110,117,99,95,118,97,95,108,105,115,116,32,118,97,95,108,105,115,116
-,59,10,10,35,100,101,102,105,110,101,32,118,97,95,115,116,97,114,116,40,118,44,108,41,9
-,95,95,98,117,105,108,116,105,110,95,118,97,95,115,116,97,114,116,40,118,44,108,41,10,35
-,100,101,102,105,110,101,32,118,97,95,101,110,100,40,118,41,9,32,32,32,32,95,95,98,117
-,105,108,116,105,110,95,118,97,95,101,110,100,40,118,41,10,35,100,101,102,105,110,101,32,118
-,97,95,97,114,103,40,118,44,108,41,9,32,32,32,32,95,95,98,117,105,108,116,105,110,95
-,118,97,95,97,114,103,40,118,44,108,41,10,35,100,101,102,105,110,101,32,118,97,95,99,111
-,112,121,40,100,44,115,41,32,32,32,32,95,95,98,117,105,108,116,105,110,95,118,97,95,99
-,111,112,121,40,100,44,115,41,10,10,32,32,32,32,32,32,10,35,101,110,100,105,102,10,10
-,10
+,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,92,10,32,32,32,32,32,32,32,32
+,32,32,32,32,32,32,32,32,32,32,32,32,40,40,115,105,122,101,111,102,40,116,41,32,62
+,32,115,105,122,101,111,102,40,95,95,105,110,116,54,52,41,32,124,124,32,40,115,105,122,101
+,111,102,40,116,41,32,38,32,40,115,105,122,101,111,102,40,116,41,32,45,32,49,41,41,32
+,33,61,32,48,41,32,92,10,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32
+,32,32,32,32,32,32,32,63,32,42,42,40,116,42,42,41,40,40,97,112,32,43,61,32,115
+,105,122,101,111,102,40,95,95,105,110,116,54,52,41,41,32,45,32,115,105,122,101,111,102,40
+,95,95,105,110,116,54,52,41,41,32,32,32,32,32,32,32,32,32,32,32,32,32,92,10,32
+,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,58,32
+,32,42,40,116,42,32,41,40,40,97,112,32,43,61,32,115,105,122,101,111,102,40,95,95,105
+,110,116,54,52,41,41,32,45,32,115,105,122,101,111,102,40,95,95,105,110,116,54,52,41,41
+,41,10,32,32,32,32,32,32,32,32,32,32,32,32,35,100,101,102,105,110,101,32,95,95,99
+,114,116,95,118,97,95,101,110,100,40,97,112,41,32,32,32,32,32,32,32,32,40,40,118,111
+,105,100,41,40,97,112,32,61,32,40,118,97,95,108,105,115,116,41,48,41,41,10,10,32,32
+,32,32,32,32,32,32,35,101,108,115,101,10,32,32,32,32,32,32,32,32,32,32,32,32,32
+,35,101,114,114,111,114,32,112,108,97,116,102,111,114,109,32,110,111,116,32,100,101,102,105,110
+,101,100,10,32,32,32,32,32,32,32,32,35,101,110,100,105,102,10,10,10,32,32,32,32,32
+,32,32,32,35,100,101,102,105,110,101,32,95,95,99,114,116,95,118,97,95,115,116,97,114,116
+,40,97,112,44,32,120,41,32,95,95,99,114,116,95,118,97,95,115,116,97,114,116,95,97,40
+,97,112,44,32,120,41,10,10,32,32,32,32,32,32,32,32,35,100,101,102,105,110,101,32,118
+,97,95,115,116,97,114,116,32,95,95,99,114,116,95,118,97,95,115,116,97,114,116,10,32,32
+,32,32,32,32,32,32,35,100,101,102,105,110,101,32,118,97,95,97,114,103,32,32,32,95,95
+,99,114,116,95,118,97,95,97,114,103,10,32,32,32,32,32,32,32,32,35,100,101,102,105,110
+,101,32,118,97,95,101,110,100,32,32,32,95,95,99,114,116,95,118,97,95,101,110,100,10,32
+,32,32,32,32,32,32,32,35,100,101,102,105,110,101,32,118,97,95,99,111,112,121,40,100,101
+,115,116,105,110,97,116,105,111,110,44,32,115,111,117,114,99,101,41,32,40,40,100,101,115,116
+,105,110,97,116,105,111,110,41,32,61,32,40,115,111,117,114,99,101,41,41,10,10,10,35,101
+,110,100,105,102,10,10,35,105,102,100,101,102,32,95,95,71,78,85,67,95,95,10,10,10,116
+,121,112,101,100,101,102,32,95,95,98,117,105,108,116,105,110,95,118,97,95,108,105,115,116,32
+,95,95,103,110,117,99,95,118,97,95,108,105,115,116,59,10,116,121,112,101,100,101,102,32,95
+,95,103,110,117,99,95,118,97,95,108,105,115,116,32,118,97,95,108,105,115,116,59,10,10,35
+,100,101,102,105,110,101,32,118,97,95,115,116,97,114,116,40,118,44,108,41,9,95,95,98,117
+,105,108,116,105,110,95,118,97,95,115,116,97,114,116,40,118,44,108,41,10,35,100,101,102,105
+,110,101,32,118,97,95,101,110,100,40,118,41,9,32,32,32,32,95,95,98,117,105,108,116,105
+,110,95,118,97,95,101,110,100,40,118,41,10,35,100,101,102,105,110,101,32,118,97,95,97,114
+,103,40,118,44,108,41,9,32,32,32,32,95,95,98,117,105,108,116,105,110,95,118,97,95,97
+,114,103,40,118,44,108,41,10,35,100,101,102,105,110,101,32,118,97,95,99,111,112,121,40,100
+,44,115,41,32,32,32,32,95,95,98,117,105,108,116,105,110,95,118,97,95,99,111,112,121,40
+,100,44,115,41,10,10,32,32,32,32,32,32,10,35,101,110,100,105,102,10,10,10,35,101,108
+,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,116,100,97,114,103,46
+,104,62,10,35,101,110,100,105,102,10,10
 , 0 };
 static const char file_stdatomic_h[] = {
 
 
 
-35,101,114,114,111,114,32,110,111,116,32,105,109,112,108,101,109,101,110,116,101,100,32,121,101
-,116,10
+35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,10,35,101,114,114
+,111,114,32,110,111,116,32,105,109,112,108,101,109,101,110,116,101,100,32,121,101,116,10,10,35
+,101,108,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,116,100,97,116
+,111,109,105,99,46,104,62,10,35,101,110,100,105,102,10
 , 0 };
 static const char file_stdbit_h[] = {
 
 
 
-35,101,114,114,111,114,32,110,111,116,32,105,109,112,108,101,109,101,110,116,101,100,32,121,101
-,116,10
+35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,35,101,114,114,111
+,114,32,110,111,116,32,105,109,112,108,101,109,101,110,116,101,100,32,121,101,116,10,35,101,108
+,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,116,100,98,110,105,116
+,46,104,62,10,35,101,110,100,105,102,10,10,10
 , 0 };
 static const char file_stdbool_h[] = {
 
 
 
 47,42,10,32,32,32,67,97,107,101,32,104,101,97,100,101,114,32,102,105,108,101,10,42,47
-,10,10,35,105,102,110,100,101,102,32,95,83,84,68,66,79,79,76,10,35,100,101,102,105,110
-,101,32,95,83,84,68,66,79,79,76,10,10,35,100,101,102,105,110,101,32,95,95,98,111,111
-,108,95,116,114,117,101,95,102,97,108,115,101,95,97,114,101,95,100,101,102,105,110,101,100,32
-,49,10,10,35,105,102,110,100,101,102,32,95,95,99,112,108,117,115,112,108,117,115,10,10,35
-,100,101,102,105,110,101,32,98,111,111,108,32,32,95,66,111,111,108,10,35,100,101,102,105,110
-,101,32,102,97,108,115,101,32,48,10,35,100,101,102,105,110,101,32,116,114,117,101,32,32,49
-,10,10,35,101,110,100,105,102,32,47,42,32,95,95,99,112,108,117,115,112,108,117,115,32,42
-,47,10,10,35,101,110,100,105,102,32,47,42,32,95,83,84,68,66,79,79,76,32,42,47,10
-,10,10
+,10,10,10,35,112,114,97,103,109,97,32,111,110,99,101,10,10,35,105,102,100,101,102,32,67
+,65,75,69,95,72,69,65,68,69,82,83,10,10,35,100,101,102,105,110,101,32,95,95,98,111
+,111,108,95,116,114,117,101,95,102,97,108,115,101,95,97,114,101,95,100,101,102,105,110,101,100
+,32,49,10,10,35,105,102,110,100,101,102,32,95,95,99,112,108,117,115,112,108,117,115,10,10
+,35,100,101,102,105,110,101,32,98,111,111,108,32,32,95,66,111,111,108,10,35,100,101,102,105
+,110,101,32,102,97,108,115,101,32,48,10,35,100,101,102,105,110,101,32,116,114,117,101,32,32
+,49,10,10,35,101,110,100,105,102,32,47,42,32,95,95,99,112,108,117,115,112,108,117,115,32
+,42,47,10,10,10,35,101,108,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32
+,60,115,116,100,98,111,111,108,46,104,62,10,35,101,110,100,105,102,10,10,10
 , 0 };
 static const char file_stdckdint_h[] = {
 
 
 
-35,101,114,114,111,114,32,110,111,116,32,105,109,112,108,101,109,101,110,116,101,100,32,121,101
-,116,10
+35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,35,101,114,114,111
+,114,32,110,111,116,32,105,109,112,108,101,109,101,110,116,101,100,32,121,101,116,10,35,101,108
+,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,116,100,99,107,105,110
+,116,46,104,62,10,35,101,110,100,105,102,10,10
 , 0 };
 static const char file_stddef_h[] = {
 
@@ -16807,383 +16727,424 @@ static const char file_stddef_h[] = {
 47,42,10,32,42,32,32,84,104,105,115,32,102,105,108,101,32,105,115,32,112,97,114,116,32
 ,111,102,32,99,97,107,101,32,99,111,109,112,105,108,101,114,10,32,42,32,32,104,116,116,112
 ,115,58,47,47,103,105,116,104,117,98,46,99,111,109,47,116,104,114,97,100,97,109,115,47,99
-,97,107,101,10,42,47,10,10,35,100,101,102,105,110,101,32,117,110,114,101,97,99,104,97,98
-,108,101,40,41,32,100,111,32,123,125,32,119,104,105,108,101,40,48,41,32,10,116,121,112,101
-,100,101,102,32,108,111,110,103,32,105,110,116,32,112,116,114,100,105,102,102,95,116,59,10,116
-,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,115,105,122,101
-,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,32,119,99,104,97,114,95,116,59,10
-,116,121,112,101,100,101,102,32,115,116,114,117,99,116,32,123,10,32,32,108,111,110,103,32,108
-,111,110,103,32,95,95,109,97,120,95,97,108,105,103,110,95,108,108,59,10,32,32,108,111,110
-,103,32,100,111,117,98,108,101,32,95,95,109,97,120,95,97,108,105,103,110,95,108,100,59,10
-,125,32,109,97,120,95,97,108,105,103,110,95,116,59,10,10,116,121,112,101,100,101,102,32,116
-,121,112,101,111,102,40,110,117,108,108,112,116,114,41,32,110,117,108,108,112,116,114,95,116,59
-,10,10
+,97,107,101,10,42,47,10,10,35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69
+,82,83,10,10,10,35,100,101,102,105,110,101,32,117,110,114,101,97,99,104,97,98,108,101,40
+,41,32,100,111,32,123,125,32,119,104,105,108,101,40,48,41,32,10,116,121,112,101,100,101,102
+,32,108,111,110,103,32,105,110,116,32,112,116,114,100,105,102,102,95,116,59,10,116,121,112,101
+,100,101,102,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,115,105,122,101,95,116,59
+,10,116,121,112,101,100,101,102,32,105,110,116,32,119,99,104,97,114,95,116,59,10,116,121,112
+,101,100,101,102,32,115,116,114,117,99,116,32,123,10,32,32,108,111,110,103,32,108,111,110,103
+,32,95,95,109,97,120,95,97,108,105,103,110,95,108,108,59,10,32,32,108,111,110,103,32,100
+,111,117,98,108,101,32,95,95,109,97,120,95,97,108,105,103,110,95,108,100,59,10,125,32,109
+,97,120,95,97,108,105,103,110,95,116,59,10,10,116,121,112,101,100,101,102,32,116,121,112,101
+,111,102,40,110,117,108,108,112,116,114,41,32,110,117,108,108,112,116,114,95,116,59,10,10,35
+,101,108,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,116,100,100,101
+,102,46,104,62,10,35,101,110,100,105,102,10
 , 0 };
 static const char file_stdint_h[] = {
 
 
 
-10,35,112,114,97,103,109,97,32,111,110,99,101,10,10,35,105,110,99,108,117,100,101,32,60
-,108,105,109,105,116,115,46,104,62,10,10,35,105,102,100,101,102,32,95,87,73,78,51,50,10
-,10,35,100,101,102,105,110,101,32,95,83,84,68,73,78,84,10,10,116,121,112,101,100,101,102
-,32,115,105,103,110,101,100,32,99,104,97,114,32,32,32,32,32,32,32,32,105,110,116,56,95
-,116,59,10,116,121,112,101,100,101,102,32,115,104,111,114,116,32,32,32,32,32,32,32,32,32
-,32,32,32,32,32,105,110,116,49,54,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116
-,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,105,110,116,51,50,95,116,59,10
-,116,121,112,101,100,101,102,32,108,111,110,103,32,108,111,110,103,32,32,32,32,32,32,32,32
-,32,32,105,110,116,54,52,95,116,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110
-,101,100,32,99,104,97,114,32,32,32,32,32,32,117,105,110,116,56,95,116,59,10,116,121,112
-,101,100,101,102,32,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,32,32,32,32,117
-,105,110,116,49,54,95,116,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100
-,32,105,110,116,32,32,32,32,32,32,32,117,105,110,116,51,50,95,116,59,10,116,121,112,101
-,100,101,102,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,117,105
-,110,116,54,52,95,116,59,10,10,116,121,112,101,100,101,102,32,115,105,103,110,101,100,32,99
-,104,97,114,32,32,32,32,32,32,32,32,105,110,116,95,108,101,97,115,116,56,95,116,59,10
+10,10,35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,10,35,112
+,114,97,103,109,97,32,111,110,99,101,10,10,35,105,110,99,108,117,100,101,32,60,108,105,109
+,105,116,115,46,104,62,10,10,35,105,102,100,101,102,32,95,87,73,78,51,50,10,10,35,100
+,101,102,105,110,101,32,95,83,84,68,73,78,84,10,10,116,121,112,101,100,101,102,32,115,105
+,103,110,101,100,32,99,104,97,114,32,32,32,32,32,32,32,32,105,110,116,56,95,116,59,10
 ,116,121,112,101,100,101,102,32,115,104,111,114,116,32,32,32,32,32,32,32,32,32,32,32,32
-,32,32,105,110,116,95,108,101,97,115,116,49,54,95,116,59,10,116,121,112,101,100,101,102,32
-,105,110,116,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,105,110,116,95,108,101
-,97,115,116,51,50,95,116,59,10,116,121,112,101,100,101,102,32,108,111,110,103,32,108,111,110
-,103,32,32,32,32,32,32,32,32,32,32,105,110,116,95,108,101,97,115,116,54,52,95,116,59
-,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,99,104,97,114,32,32,32
-,32,32,32,117,105,110,116,95,108,101,97,115,116,56,95,116,59,10,116,121,112,101,100,101,102
-,32,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,32,32,32,32,117,105,110,116,95
-,108,101,97,115,116,49,54,95,116,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110
-,101,100,32,105,110,116,32,32,32,32,32,32,32,117,105,110,116,95,108,101,97,115,116,51,50
-,95,116,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,108,111,110,103
-,32,108,111,110,103,32,117,105,110,116,95,108,101,97,115,116,54,52,95,116,59,10,10,116,121
-,112,101,100,101,102,32,115,105,103,110,101,100,32,99,104,97,114,32,32,32,32,32,32,32,32
-,105,110,116,95,102,97,115,116,56,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,32
-,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,105,110,116,95,102,97,115,116,49,54
-,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,32,32,32,32,32,32,32,32,32,32
-,32,32,32,32,32,32,105,110,116,95,102,97,115,116,51,50,95,116,59,10,116,121,112,101,100
-,101,102,32,108,111,110,103,32,108,111,110,103,32,32,32,32,32,32,32,32,32,32,105,110,116
-,95,102,97,115,116,54,52,95,116,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110
-,101,100,32,99,104,97,114,32,32,32,32,32,32,117,105,110,116,95,102,97,115,116,56,95,116
-,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,105,110,116,32,32,32
-,32,32,32,32,117,105,110,116,95,102,97,115,116,49,54,95,116,59,10,116,121,112,101,100,101
-,102,32,117,110,115,105,103,110,101,100,32,105,110,116,32,32,32,32,32,32,32,117,105,110,116
-,95,102,97,115,116,51,50,95,116,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110
-,101,100,32,108,111,110,103,32,108,111,110,103,32,117,105,110,116,95,102,97,115,116,54,52,95
-,116,59,10,10,116,121,112,101,100,101,102,32,108,111,110,103,32,108,111,110,103,32,32,32,32
-,32,32,32,32,32,32,105,110,116,109,97,120,95,116,59,10,116,121,112,101,100,101,102,32,117
-,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,117,105,110,116,109,97,120
-,95,116,59,10,10,47,47,32,84,104,101,115,101,32,109,97,99,114,111,115,32,109,117,115,116
-,32,101,120,97,99,116,108,121,32,109,97,116,99,104,32,116,104,111,115,101,32,105,110,32,116
-,104,101,32,87,105,110,100,111,119,115,32,83,68,75,39,115,32,105,110,116,115,97,102,101,46
-,104,46,10,35,100,101,102,105,110,101,32,73,78,84,56,95,77,73,78,32,32,32,32,32,32
-,32,32,32,40,45,49,50,55,105,56,32,45,32,49,41,10,35,100,101,102,105,110,101,32,73
-,78,84,49,54,95,77,73,78,32,32,32,32,32,32,32,32,40,45,51,50,55,54,55,105,49
-,54,32,45,32,49,41,10,35,100,101,102,105,110,101,32,73,78,84,51,50,95,77,73,78,32
-,32,32,32,32,32,32,32,40,45,50,49,52,55,52,56,51,54,52,55,105,51,50,32,45,32
-,49,41,10,35,100,101,102,105,110,101,32,73,78,84,54,52,95,77,73,78,32,32,32,32,32
-,32,32,32,40,45,57,50,50,51,51,55,50,48,51,54,56,53,52,55,55,53,56,48,55,105
-,54,52,32,45,32,49,41,10,35,100,101,102,105,110,101,32,73,78,84,56,95,77,65,88,32
-,32,32,32,32,32,32,32,32,49,50,55,105,56,10,35,100,101,102,105,110,101,32,73,78,84
-,49,54,95,77,65,88,32,32,32,32,32,32,32,32,51,50,55,54,55,105,49,54,10,35,100
-,101,102,105,110,101,32,73,78,84,51,50,95,77,65,88,32,32,32,32,32,32,32,32,50,49
-,52,55,52,56,51,54,52,55,105,51,50,10,35,100,101,102,105,110,101,32,73,78,84,54,52
-,95,77,65,88,32,32,32,32,32,32,32,32,57,50,50,51,51,55,50,48,51,54,56,53,52
-,55,55,53,56,48,55,105,54,52,10,35,100,101,102,105,110,101,32,85,73,78,84,56,95,77
-,65,88,32,32,32,32,32,32,32,32,48,120,102,102,117,105,56,10,35,100,101,102,105,110,101
-,32,85,73,78,84,49,54,95,77,65,88,32,32,32,32,32,32,32,48,120,102,102,102,102,117
-,105,49,54,10,35,100,101,102,105,110,101,32,85,73,78,84,51,50,95,77,65,88,32,32,32
-,32,32,32,32,48,120,102,102,102,102,102,102,102,102,117,105,51,50,10,35,100,101,102,105,110
-,101,32,85,73,78,84,54,52,95,77,65,88,32,32,32,32,32,32,32,48,120,102,102,102,102
-,102,102,102,102,102,102,102,102,102,102,102,102,117,105,54,52,10,10,35,100,101,102,105,110,101
-,32,73,78,84,95,76,69,65,83,84,56,95,77,73,78,32,32,32,73,78,84,56,95,77,73
-,78,10,35,100,101,102,105,110,101,32,73,78,84,95,76,69,65,83,84,49,54,95,77,73,78
-,32,32,73,78,84,49,54,95,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,95,76
-,69,65,83,84,51,50,95,77,73,78,32,32,73,78,84,51,50,95,77,73,78,10,35,100,101
-,102,105,110,101,32,73,78,84,95,76,69,65,83,84,54,52,95,77,73,78,32,32,73,78,84
-,54,52,95,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,95,76,69,65,83,84,56
-,95,77,65,88,32,32,32,73,78,84,56,95,77,65,88,10,35,100,101,102,105,110,101,32,73
-,78,84,95,76,69,65,83,84,49,54,95,77,65,88,32,32,73,78,84,49,54,95,77,65,88
-,10,35,100,101,102,105,110,101,32,73,78,84,95,76,69,65,83,84,51,50,95,77,65,88,32
-,32,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32,73,78,84,95,76,69
-,65,83,84,54,52,95,77,65,88,32,32,73,78,84,54,52,95,77,65,88,10,35,100,101,102
-,105,110,101,32,85,73,78,84,95,76,69,65,83,84,56,95,77,65,88,32,32,85,73,78,84
-,56,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84,95,76,69,65,83,84,49
-,54,95,77,65,88,32,85,73,78,84,49,54,95,77,65,88,10,35,100,101,102,105,110,101,32
-,85,73,78,84,95,76,69,65,83,84,51,50,95,77,65,88,32,85,73,78,84,51,50,95,77
-,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84,95,76,69,65,83,84,54,52,95,77
-,65,88,32,85,73,78,84,54,52,95,77,65,88,10,10,35,100,101,102,105,110,101,32,73,78
-,84,95,70,65,83,84,56,95,77,73,78,32,32,32,32,73,78,84,56,95,77,73,78,10,35
-,100,101,102,105,110,101,32,73,78,84,95,70,65,83,84,49,54,95,77,73,78,32,32,32,73
-,78,84,51,50,95,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,95,70,65,83,84
-,51,50,95,77,73,78,32,32,32,73,78,84,51,50,95,77,73,78,10,35,100,101,102,105,110
-,101,32,73,78,84,95,70,65,83,84,54,52,95,77,73,78,32,32,32,73,78,84,54,52,95
-,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,95,70,65,83,84,56,95,77,65,88
-,32,32,32,32,73,78,84,56,95,77,65,88,10,35,100,101,102,105,110,101,32,73,78,84,95
-,70,65,83,84,49,54,95,77,65,88,32,32,32,73,78,84,51,50,95,77,65,88,10,35,100
-,101,102,105,110,101,32,73,78,84,95,70,65,83,84,51,50,95,77,65,88,32,32,32,73,78
-,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32,73,78,84,95,70,65,83,84,54
-,52,95,77,65,88,32,32,32,73,78,84,54,52,95,77,65,88,10,35,100,101,102,105,110,101
-,32,85,73,78,84,95,70,65,83,84,56,95,77,65,88,32,32,32,85,73,78,84,56,95,77
-,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84,95,70,65,83,84,49,54,95,77,65
-,88,32,32,85,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73,78
-,84,95,70,65,83,84,51,50,95,77,65,88,32,32,85,73,78,84,51,50,95,77,65,88,10
-,35,100,101,102,105,110,101,32,85,73,78,84,95,70,65,83,84,54,52,95,77,65,88,32,32
-,85,73,78,84,54,52,95,77,65,88,10,10,35,105,102,100,101,102,32,95,87,73,78,54,52
-,10,35,100,101,102,105,110,101,32,73,78,84,80,84,82,95,77,73,78,32,32,32,73,78,84
-,54,52,95,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,80,84,82,95,77,65,88
-,32,32,32,73,78,84,54,52,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84
-,80,84,82,95,77,65,88,32,32,85,73,78,84,54,52,95,77,65,88,10,35,101,108,115,101
-,10,35,100,101,102,105,110,101,32,73,78,84,80,84,82,95,77,73,78,32,32,32,73,78,84
-,51,50,95,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,80,84,82,95,77,65,88
-,32,32,32,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84
-,80,84,82,95,77,65,88,32,32,85,73,78,84,51,50,95,77,65,88,10,35,101,110,100,105
-,102,10,10,35,100,101,102,105,110,101,32,73,78,84,77,65,88,95,77,73,78,32,32,32,32
-,32,32,32,73,78,84,54,52,95,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,77
-,65,88,95,77,65,88,32,32,32,32,32,32,32,73,78,84,54,52,95,77,65,88,10,35,100
-,101,102,105,110,101,32,85,73,78,84,77,65,88,95,77,65,88,32,32,32,32,32,32,85,73
-,78,84,54,52,95,77,65,88,10,10,35,100,101,102,105,110,101,32,80,84,82,68,73,70,70
-,95,77,73,78,32,32,32,32,32,32,73,78,84,80,84,82,95,77,73,78,10,35,100,101,102
-,105,110,101,32,80,84,82,68,73,70,70,95,77,65,88,32,32,32,32,32,32,73,78,84,80
-,84,82,95,77,65,88,10,10,35,105,102,110,100,101,102,32,83,73,90,69,95,77,65,88,10
-,32,32,32,32,47,47,32,83,73,90,69,95,77,65,88,32,100,101,102,105,110,105,116,105,111
-,110,32,109,117,115,116,32,109,97,116,99,104,32,101,120,97,99,116,108,121,32,119,105,116,104
-,32,108,105,109,105,116,115,46,104,32,102,111,114,32,109,111,100,117,108,101,115,32,115,117,112
-,112,111,114,116,46,10,35,105,102,100,101,102,32,95,87,73,78,54,52,10,35,100,101,102,105
-,110,101,32,83,73,90,69,95,77,65,88,32,48,120,102,102,102,102,102,102,102,102,102,102,102
-,102,102,102,102,102,117,105,54,52,10,35,101,108,115,101,10,35,100,101,102,105,110,101,32,83
-,73,90,69,95,77,65,88,32,48,120,102,102,102,102,102,102,102,102,117,105,51,50,10,35,101
-,110,100,105,102,10,35,101,110,100,105,102,10,10,35,100,101,102,105,110,101,32,83,73,71,95
-,65,84,79,77,73,67,95,77,73,78,32,32,32,73,78,84,51,50,95,77,73,78,10,35,100
-,101,102,105,110,101,32,83,73,71,95,65,84,79,77,73,67,95,77,65,88,32,32,32,73,78
-,84,51,50,95,77,65,88,10,10,35,100,101,102,105,110,101,32,87,67,72,65,82,95,77,73
-,78,32,32,32,32,32,32,32,32,48,120,48,48,48,48,10,35,100,101,102,105,110,101,32,87
-,67,72,65,82,95,77,65,88,32,32,32,32,32,32,32,32,48,120,102,102,102,102,10,10,35
-,100,101,102,105,110,101,32,87,73,78,84,95,77,73,78,32,32,32,32,32,32,32,32,32,48
-,120,48,48,48,48,10,35,100,101,102,105,110,101,32,87,73,78,84,95,77,65,88,32,32,32
-,32,32,32,32,32,32,48,120,102,102,102,102,10,10,35,100,101,102,105,110,101,32,73,78,84
-,56,95,67,40,120,41,32,32,32,32,40,120,41,10,35,100,101,102,105,110,101,32,73,78,84
-,49,54,95,67,40,120,41,32,32,32,40,120,41,10,35,100,101,102,105,110,101,32,73,78,84
-,51,50,95,67,40,120,41,32,32,32,40,120,41,10,35,100,101,102,105,110,101,32,73,78,84
-,54,52,95,67,40,120,41,32,32,32,40,120,32,35,35,32,76,76,41,10,10,35,100,101,102
-,105,110,101,32,85,73,78,84,56,95,67,40,120,41,32,32,32,40,120,41,10,35,100,101,102
-,105,110,101,32,85,73,78,84,49,54,95,67,40,120,41,32,32,40,120,41,10,35,100,101,102
-,105,110,101,32,85,73,78,84,51,50,95,67,40,120,41,32,32,40,120,32,35,35,32,85,41
-,10,35,100,101,102,105,110,101,32,85,73,78,84,54,52,95,67,40,120,41,32,32,40,120,32
-,35,35,32,85,76,76,41,10,10,35,100,101,102,105,110,101,32,73,78,84,77,65,88,95,67
-,40,120,41,32,32,73,78,84,54,52,95,67,40,120,41,10,35,100,101,102,105,110,101,32,85
-,73,78,84,77,65,88,95,67,40,120,41,32,85,73,78,84,54,52,95,67,40,120,41,10,10
-,35,101,110,100,105,102,32,47,47,119,105,110,100,111,119,115,10,10,10,35,105,102,100,101,102
-,32,95,95,71,78,85,67,95,95,10,10,35,100,101,102,105,110,101,32,83,73,90,69,95,77
-,65,88,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,76,10
-,10,47,42,32,69,120,97,99,116,45,119,105,100,116,104,32,105,110,116,101,103,101,114,32,116
-,121,112,101,115,32,42,47,10,116,121,112,101,100,101,102,32,115,105,103,110,101,100,32,99,104
-,97,114,32,32,32,32,32,32,32,32,32,105,110,116,56,95,116,59,10,116,121,112,101,100,101
-,102,32,117,110,115,105,103,110,101,100,32,99,104,97,114,32,32,32,32,32,32,32,117,105,110
-,116,56,95,116,59,10,116,121,112,101,100,101,102,32,115,104,111,114,116,32,32,32,32,32,32
-,32,32,32,32,32,32,32,32,105,110,116,49,54,95,116,59,10,116,121,112,101,100,101,102,32
-,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,32,32,32,32,117,105,110,116,49,54
-,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,32,32,32,32,32,32,32,32,32,32
-,32,32,32,32,32,32,105,110,116,51,50,95,116,59,10,116,121,112,101,100,101,102,32,117,110
-,115,105,103,110,101,100,32,105,110,116,32,32,32,32,32,32,32,117,105,110,116,51,50,95,116
-,59,10,116,121,112,101,100,101,102,32,108,111,110,103,32,32,32,32,32,32,32,32,32,32,32
-,32,32,32,32,105,110,116,54,52,95,116,59,32,32,47,42,32,108,111,110,103,32,105,115,32
-,54,52,45,98,105,116,32,111,110,32,76,80,54,52,32,42,47,10,116,121,112,101,100,101,102
-,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,32,32,32,32,32,117,105,110,116,54
-,52,95,116,59,10,10,47,42,32,77,105,110,105,109,117,109,45,119,105,100,116,104,32,116,121
-,112,101,115,32,40,97,108,105,97,115,32,115,97,109,101,32,97,115,32,101,120,97,99,116,32
-,119,104,101,110,32,97,118,97,105,108,97,98,108,101,41,32,42,47,10,116,121,112,101,100,101
-,102,32,105,110,116,56,95,116,32,32,32,105,110,116,95,108,101,97,115,116,56,95,116,59,10
-,116,121,112,101,100,101,102,32,117,105,110,116,56,95,116,32,32,117,105,110,116,95,108,101,97
-,115,116,56,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,49,54,95,116,32,32,105
-,110,116,95,108,101,97,115,116,49,54,95,116,59,10,116,121,112,101,100,101,102,32,117,105,110
-,116,49,54,95,116,32,117,105,110,116,95,108,101,97,115,116,49,54,95,116,59,10,116,121,112
-,101,100,101,102,32,105,110,116,51,50,95,116,32,32,105,110,116,95,108,101,97,115,116,51,50
-,95,116,59,10,116,121,112,101,100,101,102,32,117,105,110,116,51,50,95,116,32,117,105,110,116
-,95,108,101,97,115,116,51,50,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,54,52
-,95,116,32,32,105,110,116,95,108,101,97,115,116,54,52,95,116,59,10,116,121,112,101,100,101
-,102,32,117,105,110,116,54,52,95,116,32,117,105,110,116,95,108,101,97,115,116,54,52,95,116
-,59,10,10,47,42,32,70,97,115,116,32,116,121,112,101,115,32,40,99,104,111,111,115,101,32
-,116,121,112,101,115,32,116,104,97,116,32,97,114,101,32,116,121,112,105,99,97,108,108,121,32
-,102,97,115,116,101,115,116,32,111,110,32,116,104,105,115,32,65,66,73,41,32,42,47,10,116
-,121,112,101,100,101,102,32,105,110,116,51,50,95,116,32,32,105,110,116,95,102,97,115,116,56
-,95,116,59,10,116,121,112,101,100,101,102,32,117,105,110,116,51,50,95,116,32,117,105,110,116
-,95,102,97,115,116,56,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,51,50,95,116
-,32,32,105,110,116,95,102,97,115,116,49,54,95,116,59,10,116,121,112,101,100,101,102,32,117
-,105,110,116,51,50,95,116,32,117,105,110,116,95,102,97,115,116,49,54,95,116,59,10,116,121
-,112,101,100,101,102,32,105,110,116,51,50,95,116,32,32,105,110,116,95,102,97,115,116,51,50
-,95,116,59,10,116,121,112,101,100,101,102,32,117,105,110,116,51,50,95,116,32,117,105,110,116
-,95,102,97,115,116,51,50,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,54,52,95
-,116,32,32,105,110,116,95,102,97,115,116,54,52,95,116,59,10,116,121,112,101,100,101,102,32
-,117,105,110,116,54,52,95,116,32,117,105,110,116,95,102,97,115,116,54,52,95,116,59,10,10
-,47,42,32,73,110,116,101,103,101,114,32,116,121,112,101,115,32,99,97,112,97,98,108,101,32
-,111,102,32,104,111,108,100,105,110,103,32,111,98,106,101,99,116,32,112,111,105,110,116,101,114
-,115,32,42,47,10,116,121,112,101,100,101,102,32,108,111,110,103,32,32,32,32,32,32,32,32
-,32,32,32,32,32,32,32,105,110,116,112,116,114,95,116,59,32,32,32,47,42,32,112,111,105
-,110,116,101,114,32,105,115,32,54,52,45,98,105,116,32,45,62,32,108,111,110,103,32,42,47
-,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,32,32
-,32,32,32,117,105,110,116,112,116,114,95,116,59,10,10,47,42,32,71,114,101,97,116,101,115
-,116,45,119,105,100,116,104,32,105,110,116,101,103,101,114,32,116,121,112,101,115,32,42,47,10
-,116,121,112,101,100,101,102,32,108,111,110,103,32,32,32,32,32,32,32,32,32,32,32,32,32
-,32,32,105,110,116,109,97,120,95,116,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103
-,110,101,100,32,108,111,110,103,32,32,32,32,32,32,117,105,110,116,109,97,120,95,116,59,10
-,10,47,42,32,76,105,109,105,116,115,32,102,111,114,32,101,120,97,99,116,45,119,105,100,116
-,104,32,116,121,112,101,115,32,42,47,10,35,100,101,102,105,110,101,32,73,78,84,56,95,77
-,73,78,32,32,32,32,40,45,49,50,56,41,10,35,100,101,102,105,110,101,32,73,78,84,56
-,95,77,65,88,32,32,32,32,49,50,55,10,35,100,101,102,105,110,101,32,85,73,78,84,56
-,95,77,65,88,32,32,32,50,53,53,117,10,10,35,100,101,102,105,110,101,32,73,78,84,49
-,54,95,77,73,78,32,32,32,40,45,51,50,55,54,56,41,10,35,100,101,102,105,110,101,32
-,73,78,84,49,54,95,77,65,88,32,32,32,51,50,55,54,55,10,35,100,101,102,105,110,101
-,32,85,73,78,84,49,54,95,77,65,88,32,32,54,53,53,51,53,117,10,10,35,100,101,102
-,105,110,101,32,73,78,84,51,50,95,77,73,78,32,32,32,40,45,50,49,52,55,52,56,51
-,54,52,55,32,45,32,49,41,10,35,100,101,102,105,110,101,32,73,78,84,51,50,95,77,65
-,88,32,32,32,50,49,52,55,52,56,51,54,52,55,10,35,100,101,102,105,110,101,32,85,73
-,78,84,51,50,95,77,65,88,32,32,52,50,57,52,57,54,55,50,57,53,117,10,10,47,42
-,32,54,52,45,98,105,116,32,99,111,110,115,116,97,110,116,115,32,117,115,101,32,76,32,115
-,117,102,102,105,120,32,102,111,114,32,76,80,54,52,32,40,108,111,110,103,32,105,115,32,54
-,52,45,98,105,116,41,32,42,47,10,35,100,101,102,105,110,101,32,73,78,84,54,52,95,77
-,73,78,32,32,32,40,45,57,50,50,51,51,55,50,48,51,54,56,53,52,55,55,53,56,48
-,55,76,32,45,32,49,76,41,10,35,100,101,102,105,110,101,32,73,78,84,54,52,95,77,65
-,88,32,32,32,57,50,50,51,51,55,50,48,51,54,56,53,52,55,55,53,56,48,55,76,10
-,35,100,101,102,105,110,101,32,85,73,78,84,54,52,95,77,65,88,32,32,49,56,52,52,54
-,55,52,52,48,55,51,55,48,57,53,53,49,54,49,53,85,76,10,10,47,42,32,76,105,109
-,105,116,115,32,102,111,114,32,112,111,105,110,116,101,114,45,115,105,122,101,100,32,116,121,112
-,101,115,32,42,47,10,35,100,101,102,105,110,101,32,73,78,84,80,84,82,95,77,73,78,32
-,32,40,45,57,50,50,51,51,55,50,48,51,54,56,53,52,55,55,53,56,48,55,76,32,45
-,32,49,76,41,10,35,100,101,102,105,110,101,32,73,78,84,80,84,82,95,77,65,88,32,32
-,57,50,50,51,51,55,50,48,51,54,56,53,52,55,55,53,56,48,55,76,10,35,100,101,102
-,105,110,101,32,85,73,78,84,80,84,82,95,77,65,88,32,49,56,52,52,54,55,52,52,48
-,55,51,55,48,57,53,53,49,54,49,53,85,76,10,10,47,42,32,76,105,109,105,116,115,32
-,102,111,114,32,103,114,101,97,116,101,115,116,45,119,105,100,116,104,32,116,121,112,101,115,32
-,42,47,10,35,100,101,102,105,110,101,32,73,78,84,77,65,88,95,77,73,78,32,32,73,78
-,84,54,52,95,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,77,65,88,95,77,65
-,88,32,32,73,78,84,54,52,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84
-,77,65,88,95,77,65,88,32,85,73,78,84,54,52,95,77,65,88,10,10,47,42,32,77,97
-,99,114,111,115,32,116,111,32,100,101,102,105,110,101,32,105,110,116,101,103,101,114,32,99,111
-,110,115,116,97,110,116,115,32,42,47,10,35,100,101,102,105,110,101,32,73,78,84,56,95,67
-,40,118,41,32,32,32,32,118,10,35,100,101,102,105,110,101,32,85,73,78,84,56,95,67,40
-,118,41,32,32,32,118,35,35,117,10,35,100,101,102,105,110,101,32,73,78,84,49,54,95,67
-,40,118,41,32,32,32,118,10,35,100,101,102,105,110,101,32,85,73,78,84,49,54,95,67,40
-,118,41,32,32,118,35,35,117,10,35,100,101,102,105,110,101,32,73,78,84,51,50,95,67,40
-,118,41,32,32,32,118,10,35,100,101,102,105,110,101,32,85,73,78,84,51,50,95,67,40,118
-,41,32,32,118,35,35,117,10,35,100,101,102,105,110,101,32,73,78,84,54,52,95,67,40,118
-,41,32,32,32,118,35,35,76,10,35,100,101,102,105,110,101,32,85,73,78,84,54,52,95,67
-,40,118,41,32,32,118,35,35,85,76,10,10,10,10,35,101,110,100,105,102,10,10
+,32,32,105,110,116,49,54,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,32,32,32
+,32,32,32,32,32,32,32,32,32,32,32,32,32,105,110,116,51,50,95,116,59,10,116,121,112
+,101,100,101,102,32,108,111,110,103,32,108,111,110,103,32,32,32,32,32,32,32,32,32,32,105
+,110,116,54,52,95,116,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32
+,99,104,97,114,32,32,32,32,32,32,117,105,110,116,56,95,116,59,10,116,121,112,101,100,101
+,102,32,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,32,32,32,32,117,105,110,116
+,49,54,95,116,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,105,110
+,116,32,32,32,32,32,32,32,117,105,110,116,51,50,95,116,59,10,116,121,112,101,100,101,102
+,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,117,105,110,116,54
+,52,95,116,59,10,10,116,121,112,101,100,101,102,32,115,105,103,110,101,100,32,99,104,97,114
+,32,32,32,32,32,32,32,32,105,110,116,95,108,101,97,115,116,56,95,116,59,10,116,121,112
+,101,100,101,102,32,115,104,111,114,116,32,32,32,32,32,32,32,32,32,32,32,32,32,32,105
+,110,116,95,108,101,97,115,116,49,54,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116
+,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,105,110,116,95,108,101,97,115,116
+,51,50,95,116,59,10,116,121,112,101,100,101,102,32,108,111,110,103,32,108,111,110,103,32,32
+,32,32,32,32,32,32,32,32,105,110,116,95,108,101,97,115,116,54,52,95,116,59,10,116,121
+,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,99,104,97,114,32,32,32,32,32,32
+,117,105,110,116,95,108,101,97,115,116,56,95,116,59,10,116,121,112,101,100,101,102,32,117,110
+,115,105,103,110,101,100,32,115,104,111,114,116,32,32,32,32,32,117,105,110,116,95,108,101,97
+,115,116,49,54,95,116,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32
+,105,110,116,32,32,32,32,32,32,32,117,105,110,116,95,108,101,97,115,116,51,50,95,116,59
+,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111
+,110,103,32,117,105,110,116,95,108,101,97,115,116,54,52,95,116,59,10,10,116,121,112,101,100
+,101,102,32,115,105,103,110,101,100,32,99,104,97,114,32,32,32,32,32,32,32,32,105,110,116
+,95,102,97,115,116,56,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,32,32,32,32
+,32,32,32,32,32,32,32,32,32,32,32,32,105,110,116,95,102,97,115,116,49,54,95,116,59
+,10,116,121,112,101,100,101,102,32,105,110,116,32,32,32,32,32,32,32,32,32,32,32,32,32
+,32,32,32,105,110,116,95,102,97,115,116,51,50,95,116,59,10,116,121,112,101,100,101,102,32
+,108,111,110,103,32,108,111,110,103,32,32,32,32,32,32,32,32,32,32,105,110,116,95,102,97
+,115,116,54,52,95,116,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32
+,99,104,97,114,32,32,32,32,32,32,117,105,110,116,95,102,97,115,116,56,95,116,59,10,116
+,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,105,110,116,32,32,32,32,32,32
+,32,117,105,110,116,95,102,97,115,116,49,54,95,116,59,10,116,121,112,101,100,101,102,32,117
+,110,115,105,103,110,101,100,32,105,110,116,32,32,32,32,32,32,32,117,105,110,116,95,102,97
+,115,116,51,50,95,116,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32
+,108,111,110,103,32,108,111,110,103,32,117,105,110,116,95,102,97,115,116,54,52,95,116,59,10
+,10,116,121,112,101,100,101,102,32,108,111,110,103,32,108,111,110,103,32,32,32,32,32,32,32
+,32,32,32,105,110,116,109,97,120,95,116,59,10,116,121,112,101,100,101,102,32,117,110,115,105
+,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,117,105,110,116,109,97,120,95,116,59
+,10,10,47,47,32,84,104,101,115,101,32,109,97,99,114,111,115,32,109,117,115,116,32,101,120
+,97,99,116,108,121,32,109,97,116,99,104,32,116,104,111,115,101,32,105,110,32,116,104,101,32
+,87,105,110,100,111,119,115,32,83,68,75,39,115,32,105,110,116,115,97,102,101,46,104,46,10
+,35,100,101,102,105,110,101,32,73,78,84,56,95,77,73,78,32,32,32,32,32,32,32,32,32
+,40,45,49,50,55,105,56,32,45,32,49,41,10,35,100,101,102,105,110,101,32,73,78,84,49
+,54,95,77,73,78,32,32,32,32,32,32,32,32,40,45,51,50,55,54,55,105,49,54,32,45
+,32,49,41,10,35,100,101,102,105,110,101,32,73,78,84,51,50,95,77,73,78,32,32,32,32
+,32,32,32,32,40,45,50,49,52,55,52,56,51,54,52,55,105,51,50,32,45,32,49,41,10
+,35,100,101,102,105,110,101,32,73,78,84,54,52,95,77,73,78,32,32,32,32,32,32,32,32
+,40,45,57,50,50,51,51,55,50,48,51,54,56,53,52,55,55,53,56,48,55,105,54,52,32
+,45,32,49,41,10,35,100,101,102,105,110,101,32,73,78,84,56,95,77,65,88,32,32,32,32
+,32,32,32,32,32,49,50,55,105,56,10,35,100,101,102,105,110,101,32,73,78,84,49,54,95
+,77,65,88,32,32,32,32,32,32,32,32,51,50,55,54,55,105,49,54,10,35,100,101,102,105
+,110,101,32,73,78,84,51,50,95,77,65,88,32,32,32,32,32,32,32,32,50,49,52,55,52
+,56,51,54,52,55,105,51,50,10,35,100,101,102,105,110,101,32,73,78,84,54,52,95,77,65
+,88,32,32,32,32,32,32,32,32,57,50,50,51,51,55,50,48,51,54,56,53,52,55,55,53
+,56,48,55,105,54,52,10,35,100,101,102,105,110,101,32,85,73,78,84,56,95,77,65,88,32
+,32,32,32,32,32,32,32,48,120,102,102,117,105,56,10,35,100,101,102,105,110,101,32,85,73
+,78,84,49,54,95,77,65,88,32,32,32,32,32,32,32,48,120,102,102,102,102,117,105,49,54
+,10,35,100,101,102,105,110,101,32,85,73,78,84,51,50,95,77,65,88,32,32,32,32,32,32
+,32,48,120,102,102,102,102,102,102,102,102,117,105,51,50,10,35,100,101,102,105,110,101,32,85
+,73,78,84,54,52,95,77,65,88,32,32,32,32,32,32,32,48,120,102,102,102,102,102,102,102
+,102,102,102,102,102,102,102,102,102,117,105,54,52,10,10,35,100,101,102,105,110,101,32,73,78
+,84,95,76,69,65,83,84,56,95,77,73,78,32,32,32,73,78,84,56,95,77,73,78,10,35
+,100,101,102,105,110,101,32,73,78,84,95,76,69,65,83,84,49,54,95,77,73,78,32,32,73
+,78,84,49,54,95,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,95,76,69,65,83
+,84,51,50,95,77,73,78,32,32,73,78,84,51,50,95,77,73,78,10,35,100,101,102,105,110
+,101,32,73,78,84,95,76,69,65,83,84,54,52,95,77,73,78,32,32,73,78,84,54,52,95
+,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,95,76,69,65,83,84,56,95,77,65
+,88,32,32,32,73,78,84,56,95,77,65,88,10,35,100,101,102,105,110,101,32,73,78,84,95
+,76,69,65,83,84,49,54,95,77,65,88,32,32,73,78,84,49,54,95,77,65,88,10,35,100
+,101,102,105,110,101,32,73,78,84,95,76,69,65,83,84,51,50,95,77,65,88,32,32,73,78
+,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32,73,78,84,95,76,69,65,83,84
+,54,52,95,77,65,88,32,32,73,78,84,54,52,95,77,65,88,10,35,100,101,102,105,110,101
+,32,85,73,78,84,95,76,69,65,83,84,56,95,77,65,88,32,32,85,73,78,84,56,95,77
+,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84,95,76,69,65,83,84,49,54,95,77
+,65,88,32,85,73,78,84,49,54,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73,78
+,84,95,76,69,65,83,84,51,50,95,77,65,88,32,85,73,78,84,51,50,95,77,65,88,10
+,35,100,101,102,105,110,101,32,85,73,78,84,95,76,69,65,83,84,54,52,95,77,65,88,32
+,85,73,78,84,54,52,95,77,65,88,10,10,35,100,101,102,105,110,101,32,73,78,84,95,70
+,65,83,84,56,95,77,73,78,32,32,32,32,73,78,84,56,95,77,73,78,10,35,100,101,102
+,105,110,101,32,73,78,84,95,70,65,83,84,49,54,95,77,73,78,32,32,32,73,78,84,51
+,50,95,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,95,70,65,83,84,51,50,95
+,77,73,78,32,32,32,73,78,84,51,50,95,77,73,78,10,35,100,101,102,105,110,101,32,73
+,78,84,95,70,65,83,84,54,52,95,77,73,78,32,32,32,73,78,84,54,52,95,77,73,78
+,10,35,100,101,102,105,110,101,32,73,78,84,95,70,65,83,84,56,95,77,65,88,32,32,32
+,32,73,78,84,56,95,77,65,88,10,35,100,101,102,105,110,101,32,73,78,84,95,70,65,83
+,84,49,54,95,77,65,88,32,32,32,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105
+,110,101,32,73,78,84,95,70,65,83,84,51,50,95,77,65,88,32,32,32,73,78,84,51,50
+,95,77,65,88,10,35,100,101,102,105,110,101,32,73,78,84,95,70,65,83,84,54,52,95,77
+,65,88,32,32,32,73,78,84,54,52,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73
+,78,84,95,70,65,83,84,56,95,77,65,88,32,32,32,85,73,78,84,56,95,77,65,88,10
+,35,100,101,102,105,110,101,32,85,73,78,84,95,70,65,83,84,49,54,95,77,65,88,32,32
+,85,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84,95,70
+,65,83,84,51,50,95,77,65,88,32,32,85,73,78,84,51,50,95,77,65,88,10,35,100,101
+,102,105,110,101,32,85,73,78,84,95,70,65,83,84,54,52,95,77,65,88,32,32,85,73,78
+,84,54,52,95,77,65,88,10,10,35,105,102,100,101,102,32,95,87,73,78,54,52,10,35,100
+,101,102,105,110,101,32,73,78,84,80,84,82,95,77,73,78,32,32,32,73,78,84,54,52,95
+,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,80,84,82,95,77,65,88,32,32,32
+,73,78,84,54,52,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84,80,84,82
+,95,77,65,88,32,32,85,73,78,84,54,52,95,77,65,88,10,35,101,108,115,101,10,35,100
+,101,102,105,110,101,32,73,78,84,80,84,82,95,77,73,78,32,32,32,73,78,84,51,50,95
+,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,80,84,82,95,77,65,88,32,32,32
+,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84,80,84,82
+,95,77,65,88,32,32,85,73,78,84,51,50,95,77,65,88,10,35,101,110,100,105,102,10,10
+,35,100,101,102,105,110,101,32,73,78,84,77,65,88,95,77,73,78,32,32,32,32,32,32,32
+,73,78,84,54,52,95,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,77,65,88,95
+,77,65,88,32,32,32,32,32,32,32,73,78,84,54,52,95,77,65,88,10,35,100,101,102,105
+,110,101,32,85,73,78,84,77,65,88,95,77,65,88,32,32,32,32,32,32,85,73,78,84,54
+,52,95,77,65,88,10,10,35,100,101,102,105,110,101,32,80,84,82,68,73,70,70,95,77,73
+,78,32,32,32,32,32,32,73,78,84,80,84,82,95,77,73,78,10,35,100,101,102,105,110,101
+,32,80,84,82,68,73,70,70,95,77,65,88,32,32,32,32,32,32,73,78,84,80,84,82,95
+,77,65,88,10,10,35,105,102,110,100,101,102,32,83,73,90,69,95,77,65,88,10,32,32,32
+,32,47,47,32,83,73,90,69,95,77,65,88,32,100,101,102,105,110,105,116,105,111,110,32,109
+,117,115,116,32,109,97,116,99,104,32,101,120,97,99,116,108,121,32,119,105,116,104,32,108,105
+,109,105,116,115,46,104,32,102,111,114,32,109,111,100,117,108,101,115,32,115,117,112,112,111,114
+,116,46,10,35,105,102,100,101,102,32,95,87,73,78,54,52,10,35,100,101,102,105,110,101,32
+,83,73,90,69,95,77,65,88,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102
+,102,102,117,105,54,52,10,35,101,108,115,101,10,35,100,101,102,105,110,101,32,83,73,90,69
+,95,77,65,88,32,48,120,102,102,102,102,102,102,102,102,117,105,51,50,10,35,101,110,100,105
+,102,10,35,101,110,100,105,102,10,10,35,100,101,102,105,110,101,32,83,73,71,95,65,84,79
+,77,73,67,95,77,73,78,32,32,32,73,78,84,51,50,95,77,73,78,10,35,100,101,102,105
+,110,101,32,83,73,71,95,65,84,79,77,73,67,95,77,65,88,32,32,32,73,78,84,51,50
+,95,77,65,88,10,10,35,100,101,102,105,110,101,32,87,67,72,65,82,95,77,73,78,32,32
+,32,32,32,32,32,32,48,120,48,48,48,48,10,35,100,101,102,105,110,101,32,87,67,72,65
+,82,95,77,65,88,32,32,32,32,32,32,32,32,48,120,102,102,102,102,10,10,35,100,101,102
+,105,110,101,32,87,73,78,84,95,77,73,78,32,32,32,32,32,32,32,32,32,48,120,48,48
+,48,48,10,35,100,101,102,105,110,101,32,87,73,78,84,95,77,65,88,32,32,32,32,32,32
+,32,32,32,48,120,102,102,102,102,10,10,35,100,101,102,105,110,101,32,73,78,84,56,95,67
+,40,120,41,32,32,32,32,40,120,41,10,35,100,101,102,105,110,101,32,73,78,84,49,54,95
+,67,40,120,41,32,32,32,40,120,41,10,35,100,101,102,105,110,101,32,73,78,84,51,50,95
+,67,40,120,41,32,32,32,40,120,41,10,35,100,101,102,105,110,101,32,73,78,84,54,52,95
+,67,40,120,41,32,32,32,40,120,32,35,35,32,76,76,41,10,10,35,100,101,102,105,110,101
+,32,85,73,78,84,56,95,67,40,120,41,32,32,32,40,120,41,10,35,100,101,102,105,110,101
+,32,85,73,78,84,49,54,95,67,40,120,41,32,32,40,120,41,10,35,100,101,102,105,110,101
+,32,85,73,78,84,51,50,95,67,40,120,41,32,32,40,120,32,35,35,32,85,41,10,35,100
+,101,102,105,110,101,32,85,73,78,84,54,52,95,67,40,120,41,32,32,40,120,32,35,35,32
+,85,76,76,41,10,10,35,100,101,102,105,110,101,32,73,78,84,77,65,88,95,67,40,120,41
+,32,32,73,78,84,54,52,95,67,40,120,41,10,35,100,101,102,105,110,101,32,85,73,78,84
+,77,65,88,95,67,40,120,41,32,85,73,78,84,54,52,95,67,40,120,41,10,10,35,101,110
+,100,105,102,32,47,47,119,105,110,100,111,119,115,10,10,10,35,105,102,100,101,102,32,95,95
+,71,78,85,67,95,95,10,10,35,100,101,102,105,110,101,32,83,73,90,69,95,77,65,88,32
+,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,76,10,10,47,42
+,32,69,120,97,99,116,45,119,105,100,116,104,32,105,110,116,101,103,101,114,32,116,121,112,101
+,115,32,42,47,10,116,121,112,101,100,101,102,32,115,105,103,110,101,100,32,99,104,97,114,32
+,32,32,32,32,32,32,32,32,105,110,116,56,95,116,59,10,116,121,112,101,100,101,102,32,117
+,110,115,105,103,110,101,100,32,99,104,97,114,32,32,32,32,32,32,32,117,105,110,116,56,95
+,116,59,10,116,121,112,101,100,101,102,32,115,104,111,114,116,32,32,32,32,32,32,32,32,32
+,32,32,32,32,32,105,110,116,49,54,95,116,59,10,116,121,112,101,100,101,102,32,117,110,115
+,105,103,110,101,100,32,115,104,111,114,116,32,32,32,32,32,117,105,110,116,49,54,95,116,59
+,10,116,121,112,101,100,101,102,32,105,110,116,32,32,32,32,32,32,32,32,32,32,32,32,32
+,32,32,32,105,110,116,51,50,95,116,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103
+,110,101,100,32,105,110,116,32,32,32,32,32,32,32,117,105,110,116,51,50,95,116,59,10,116
+,121,112,101,100,101,102,32,108,111,110,103,32,32,32,32,32,32,32,32,32,32,32,32,32,32
+,32,105,110,116,54,52,95,116,59,32,32,47,42,32,108,111,110,103,32,105,115,32,54,52,45
+,98,105,116,32,111,110,32,76,80,54,52,32,42,47,10,116,121,112,101,100,101,102,32,117,110
+,115,105,103,110,101,100,32,108,111,110,103,32,32,32,32,32,32,117,105,110,116,54,52,95,116
+,59,10,10,47,42,32,77,105,110,105,109,117,109,45,119,105,100,116,104,32,116,121,112,101,115
+,32,40,97,108,105,97,115,32,115,97,109,101,32,97,115,32,101,120,97,99,116,32,119,104,101
+,110,32,97,118,97,105,108,97,98,108,101,41,32,42,47,10,116,121,112,101,100,101,102,32,105
+,110,116,56,95,116,32,32,32,105,110,116,95,108,101,97,115,116,56,95,116,59,10,116,121,112
+,101,100,101,102,32,117,105,110,116,56,95,116,32,32,117,105,110,116,95,108,101,97,115,116,56
+,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,49,54,95,116,32,32,105,110,116,95
+,108,101,97,115,116,49,54,95,116,59,10,116,121,112,101,100,101,102,32,117,105,110,116,49,54
+,95,116,32,117,105,110,116,95,108,101,97,115,116,49,54,95,116,59,10,116,121,112,101,100,101
+,102,32,105,110,116,51,50,95,116,32,32,105,110,116,95,108,101,97,115,116,51,50,95,116,59
+,10,116,121,112,101,100,101,102,32,117,105,110,116,51,50,95,116,32,117,105,110,116,95,108,101
+,97,115,116,51,50,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,54,52,95,116,32
+,32,105,110,116,95,108,101,97,115,116,54,52,95,116,59,10,116,121,112,101,100,101,102,32,117
+,105,110,116,54,52,95,116,32,117,105,110,116,95,108,101,97,115,116,54,52,95,116,59,10,10
+,47,42,32,70,97,115,116,32,116,121,112,101,115,32,40,99,104,111,111,115,101,32,116,121,112
+,101,115,32,116,104,97,116,32,97,114,101,32,116,121,112,105,99,97,108,108,121,32,102,97,115
+,116,101,115,116,32,111,110,32,116,104,105,115,32,65,66,73,41,32,42,47,10,116,121,112,101
+,100,101,102,32,105,110,116,51,50,95,116,32,32,105,110,116,95,102,97,115,116,56,95,116,59
+,10,116,121,112,101,100,101,102,32,117,105,110,116,51,50,95,116,32,117,105,110,116,95,102,97
+,115,116,56,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,51,50,95,116,32,32,105
+,110,116,95,102,97,115,116,49,54,95,116,59,10,116,121,112,101,100,101,102,32,117,105,110,116
+,51,50,95,116,32,117,105,110,116,95,102,97,115,116,49,54,95,116,59,10,116,121,112,101,100
+,101,102,32,105,110,116,51,50,95,116,32,32,105,110,116,95,102,97,115,116,51,50,95,116,59
+,10,116,121,112,101,100,101,102,32,117,105,110,116,51,50,95,116,32,117,105,110,116,95,102,97
+,115,116,51,50,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,54,52,95,116,32,32
+,105,110,116,95,102,97,115,116,54,52,95,116,59,10,116,121,112,101,100,101,102,32,117,105,110
+,116,54,52,95,116,32,117,105,110,116,95,102,97,115,116,54,52,95,116,59,10,10,47,42,32
+,73,110,116,101,103,101,114,32,116,121,112,101,115,32,99,97,112,97,98,108,101,32,111,102,32
+,104,111,108,100,105,110,103,32,111,98,106,101,99,116,32,112,111,105,110,116,101,114,115,32,42
+,47,10,116,121,112,101,100,101,102,32,108,111,110,103,32,32,32,32,32,32,32,32,32,32,32
+,32,32,32,32,105,110,116,112,116,114,95,116,59,32,32,32,47,42,32,112,111,105,110,116,101
+,114,32,105,115,32,54,52,45,98,105,116,32,45,62,32,108,111,110,103,32,42,47,10,116,121
+,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,32,32,32,32,32
+,117,105,110,116,112,116,114,95,116,59,10,10,47,42,32,71,114,101,97,116,101,115,116,45,119
+,105,100,116,104,32,105,110,116,101,103,101,114,32,116,121,112,101,115,32,42,47,10,116,121,112
+,101,100,101,102,32,108,111,110,103,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,105
+,110,116,109,97,120,95,116,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100
+,32,108,111,110,103,32,32,32,32,32,32,117,105,110,116,109,97,120,95,116,59,10,10,47,42
+,32,76,105,109,105,116,115,32,102,111,114,32,101,120,97,99,116,45,119,105,100,116,104,32,116
+,121,112,101,115,32,42,47,10,35,100,101,102,105,110,101,32,73,78,84,56,95,77,73,78,32
+,32,32,32,40,45,49,50,56,41,10,35,100,101,102,105,110,101,32,73,78,84,56,95,77,65
+,88,32,32,32,32,49,50,55,10,35,100,101,102,105,110,101,32,85,73,78,84,56,95,77,65
+,88,32,32,32,50,53,53,117,10,10,35,100,101,102,105,110,101,32,73,78,84,49,54,95,77
+,73,78,32,32,32,40,45,51,50,55,54,56,41,10,35,100,101,102,105,110,101,32,73,78,84
+,49,54,95,77,65,88,32,32,32,51,50,55,54,55,10,35,100,101,102,105,110,101,32,85,73
+,78,84,49,54,95,77,65,88,32,32,54,53,53,51,53,117,10,10,35,100,101,102,105,110,101
+,32,73,78,84,51,50,95,77,73,78,32,32,32,40,45,50,49,52,55,52,56,51,54,52,55
+,32,45,32,49,41,10,35,100,101,102,105,110,101,32,73,78,84,51,50,95,77,65,88,32,32
+,32,50,49,52,55,52,56,51,54,52,55,10,35,100,101,102,105,110,101,32,85,73,78,84,51
+,50,95,77,65,88,32,32,52,50,57,52,57,54,55,50,57,53,117,10,10,47,42,32,54,52
+,45,98,105,116,32,99,111,110,115,116,97,110,116,115,32,117,115,101,32,76,32,115,117,102,102
+,105,120,32,102,111,114,32,76,80,54,52,32,40,108,111,110,103,32,105,115,32,54,52,45,98
+,105,116,41,32,42,47,10,35,100,101,102,105,110,101,32,73,78,84,54,52,95,77,73,78,32
+,32,32,40,45,57,50,50,51,51,55,50,48,51,54,56,53,52,55,55,53,56,48,55,76,32
+,45,32,49,76,41,10,35,100,101,102,105,110,101,32,73,78,84,54,52,95,77,65,88,32,32
+,32,57,50,50,51,51,55,50,48,51,54,56,53,52,55,55,53,56,48,55,76,10,35,100,101
+,102,105,110,101,32,85,73,78,84,54,52,95,77,65,88,32,32,49,56,52,52,54,55,52,52
+,48,55,51,55,48,57,53,53,49,54,49,53,85,76,10,10,47,42,32,76,105,109,105,116,115
+,32,102,111,114,32,112,111,105,110,116,101,114,45,115,105,122,101,100,32,116,121,112,101,115,32
+,42,47,10,35,100,101,102,105,110,101,32,73,78,84,80,84,82,95,77,73,78,32,32,40,45
+,57,50,50,51,51,55,50,48,51,54,56,53,52,55,55,53,56,48,55,76,32,45,32,49,76
+,41,10,35,100,101,102,105,110,101,32,73,78,84,80,84,82,95,77,65,88,32,32,57,50,50
+,51,51,55,50,48,51,54,56,53,52,55,55,53,56,48,55,76,10,35,100,101,102,105,110,101
+,32,85,73,78,84,80,84,82,95,77,65,88,32,49,56,52,52,54,55,52,52,48,55,51,55
+,48,57,53,53,49,54,49,53,85,76,10,10,47,42,32,76,105,109,105,116,115,32,102,111,114
+,32,103,114,101,97,116,101,115,116,45,119,105,100,116,104,32,116,121,112,101,115,32,42,47,10
+,35,100,101,102,105,110,101,32,73,78,84,77,65,88,95,77,73,78,32,32,73,78,84,54,52
+,95,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,77,65,88,95,77,65,88,32,32
+,73,78,84,54,52,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84,77,65,88
+,95,77,65,88,32,85,73,78,84,54,52,95,77,65,88,10,10,47,42,32,77,97,99,114,111
+,115,32,116,111,32,100,101,102,105,110,101,32,105,110,116,101,103,101,114,32,99,111,110,115,116
+,97,110,116,115,32,42,47,10,35,100,101,102,105,110,101,32,73,78,84,56,95,67,40,118,41
+,32,32,32,32,118,10,35,100,101,102,105,110,101,32,85,73,78,84,56,95,67,40,118,41,32
+,32,32,118,35,35,117,10,35,100,101,102,105,110,101,32,73,78,84,49,54,95,67,40,118,41
+,32,32,32,118,10,35,100,101,102,105,110,101,32,85,73,78,84,49,54,95,67,40,118,41,32
+,32,118,35,35,117,10,35,100,101,102,105,110,101,32,73,78,84,51,50,95,67,40,118,41,32
+,32,32,118,10,35,100,101,102,105,110,101,32,85,73,78,84,51,50,95,67,40,118,41,32,32
+,118,35,35,117,10,35,100,101,102,105,110,101,32,73,78,84,54,52,95,67,40,118,41,32,32
+,32,118,35,35,76,10,35,100,101,102,105,110,101,32,85,73,78,84,54,52,95,67,40,118,41
+,32,32,118,35,35,85,76,10,10,10,35,101,110,100,105,102,10,35,101,108,115,101,10,35,105
+,110,99,108,117,100,101,95,110,101,120,116,32,60,115,116,100,105,110,116,46,104,62,10,35,101
+,110,100,105,102,10,10
 , 0 };
 static const char file_stdio_h[] = {
 
 
 
-47,42,10,32,42,32,32,84,104,105,115,32,102,105,108,101,32,105,115,32,112,97,114,116,32
-,111,102,32,99,97,107,101,32,99,111,109,112,105,108,101,114,10,32,42,32,32,104,116,116,112
-,115,58,47,47,103,105,116,104,117,98,46,99,111,109,47,116,104,114,97,100,97,109,115,47,99
-,97,107,101,10,42,47,10,10,35,112,114,97,103,109,97,32,111,110,99,101,10,35,100,101,102
-,105,110,101,32,95,73,79,70,66,70,32,48,120,48,48,48,48,10,35,100,101,102,105,110,101
-,32,95,73,79,76,66,70,32,48,120,48,48,52,48,10,35,100,101,102,105,110,101,32,95,73
-,79,78,66,70,32,48,120,48,48,48,52,10,10,35,100,101,102,105,110,101,32,66,85,70,83
-,73,90,32,32,53,49,50,10,10,35,100,101,102,105,110,101,32,69,79,70,32,32,32,32,40
-,45,49,41,10,10,35,100,101,102,105,110,101,32,70,73,76,69,78,65,77,69,95,77,65,88
-,32,32,32,32,50,54,48,10,35,100,101,102,105,110,101,32,70,79,80,69,78,95,77,65,88
-,32,32,32,32,32,32,32,50,48,10,10,35,100,101,102,105,110,101,32,76,95,116,109,112,110
-,97,109,32,32,32,50,54,48,32,47,47,32,95,77,65,88,95,80,65,84,72,10,10,47,42
-,32,83,101,101,107,32,109,101,116,104,111,100,32,99,111,110,115,116,97,110,116,115,32,42,47
-,10,10,35,100,101,102,105,110,101,32,83,69,69,75,95,67,85,82,32,32,32,32,49,10,35
-,100,101,102,105,110,101,32,83,69,69,75,95,69,78,68,32,32,32,32,50,10,35,100,101,102
-,105,110,101,32,83,69,69,75,95,83,69,84,32,32,32,32,48,10,10,10,35,100,101,102,105
-,110,101,32,84,77,80,95,77,65,88,32,32,32,32,32,32,32,32,32,50,49,52,55,52,56
-,51,54,52,55,10,10,10,10,116,121,112,101,100,101,102,32,108,111,110,103,32,108,111,110,103
-,32,102,112,111,115,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,32,70,73,76,69
-,59,10,10,101,120,116,101,114,110,32,70,73,76,69,42,32,115,116,100,105,110,59,10,101,120
-,116,101,114,110,32,70,73,76,69,42,32,115,116,100,111,117,116,59,10,101,120,116,101,114,110
-,32,70,73,76,69,42,32,115,116,100,101,114,114,59,10,10,116,121,112,101,100,101,102,32,117
-,110,115,105,103,110,101,100,32,108,111,110,103,32,115,105,122,101,95,116,59,10,116,121,112,101
-,100,101,102,32,99,104,97,114,42,32,118,97,95,108,105,115,116,59,10,10,105,110,116,32,114
-,101,109,111,118,101,40,99,111,110,115,116,32,99,104,97,114,42,32,102,105,108,101,110,97,109
-,101,41,59,10,105,110,116,32,114,101,110,97,109,101,40,99,111,110,115,116,32,99,104,97,114
-,42,32,111,108,100,44,32,99,111,110,115,116,32,99,104,97,114,42,32,110,101,119,115,41,59
-,10,70,73,76,69,42,32,95,79,112,116,32,116,109,112,102,105,108,101,40,118,111,105,100,41
-,59,10,99,104,97,114,42,32,116,109,112,110,97,109,40,99,104,97,114,42,32,115,41,59,10
-,35,105,102,32,100,101,102,105,110,101,100,40,95,95,67,65,75,69,95,95,41,10,105,110,116
-,32,102,99,108,111,115,101,40,70,73,76,69,42,32,95,79,119,110,101,114,32,115,116,114,101
-,97,109,41,59,10,35,101,108,115,101,10,105,110,116,32,102,99,108,111,115,101,40,70,73,76
-,69,42,32,115,116,114,101,97,109,41,59,10,35,101,110,100,105,102,10,105,110,116,32,102,102
-,108,117,115,104,40,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10,35,105,102,32,100
-,101,102,105,110,101,100,40,95,95,67,65,75,69,95,95,41,10,70,73,76,69,42,32,95,79
-,119,110,101,114,32,95,79,112,116,32,102,111,112,101,110,40,99,111,110,115,116,32,99,104,97
-,114,42,32,114,101,115,116,114,105,99,116,32,102,105,108,101,110,97,109,101,44,32,99,111,110
-,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,109,111,100,101,41,59,10
-,70,73,76,69,42,32,95,79,119,110,101,114,32,95,79,112,116,32,102,114,101,111,112,101,110
-,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,105,108
-,101,110,97,109,101,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105
-,99,116,32,109,111,100,101,44,32,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115
-,116,114,101,97,109,41,59,10,35,101,108,115,101,10,70,73,76,69,42,32,102,111,112,101,110
-,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,105,108
-,101,110,97,109,101,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105
-,99,116,32,109,111,100,101,41,59,10,70,73,76,69,42,32,102,114,101,111,112,101,110,40,99
-,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,105,108,101,110
-,97,109,101,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116
-,32,109,111,100,101,44,32,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114
-,101,97,109,41,59,10,35,101,110,100,105,102,10,118,111,105,100,32,115,101,116,98,117,102,40
-,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32,99,104
-,97,114,42,32,114,101,115,116,114,105,99,116,32,98,117,102,41,59,10,105,110,116,32,115,101
-,116,118,98,117,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101
-,97,109,44,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,98,117,102,44,32,105
-,110,116,32,109,111,100,101,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,10,105,110
-,116,32,102,112,114,105,110,116,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32
-,115,116,114,101,97,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114
-,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46,41,59,10,105,110,116,32,102,115,99
-,97,110,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109
-,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111
-,114,109,97,116,44,32,46,46,46,41,59,10,105,110,116,32,112,114,105,110,116,102,40,99,111
-,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116
-,44,32,46,46,46,41,59,10,105,110,116,32,115,99,97,110,102,40,99,111,110,115,116,32,99
-,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46
-,41,59,10,105,110,116,32,115,110,112,114,105,110,116,102,40,99,104,97,114,42,32,114,101,115
-,116,114,105,99,116,32,115,44,32,115,105,122,101,95,116,32,110,44,32,99,111,110,115,116,32
-,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46
-,46,41,59,10,105,110,116,32,115,112,114,105,110,116,102,40,99,104,97,114,42,32,114,101,115
-,116,114,105,99,116,32,115,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116
-,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46,41,59,10,105,110,116,32,115,115
-,99,97,110,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116
-,32,115,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32
-,102,111,114,109,97,116,44,32,46,46,46,41,59,10,105,110,116,32,118,102,112,114,105,110,116
+10,47,42,10,32,42,32,32,84,104,105,115,32,102,105,108,101,32,105,115,32,112,97,114,116
+,32,111,102,32,99,97,107,101,32,99,111,109,112,105,108,101,114,10,32,42,32,32,104,116,116
+,112,115,58,47,47,103,105,116,104,117,98,46,99,111,109,47,116,104,114,97,100,97,109,115,47
+,99,97,107,101,10,42,47,10,10,35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68
+,69,82,83,10,10,35,112,114,97,103,109,97,32,111,110,99,101,10,35,100,101,102,105,110,101
+,32,95,73,79,70,66,70,32,48,120,48,48,48,48,10,35,100,101,102,105,110,101,32,95,73
+,79,76,66,70,32,48,120,48,48,52,48,10,35,100,101,102,105,110,101,32,95,73,79,78,66
+,70,32,48,120,48,48,48,52,10,10,35,100,101,102,105,110,101,32,66,85,70,83,73,90,32
+,32,53,49,50,10,10,35,100,101,102,105,110,101,32,69,79,70,32,32,32,32,40,45,49,41
+,10,10,35,100,101,102,105,110,101,32,70,73,76,69,78,65,77,69,95,77,65,88,32,32,32
+,32,50,54,48,10,35,100,101,102,105,110,101,32,70,79,80,69,78,95,77,65,88,32,32,32
+,32,32,32,32,50,48,10,10,35,100,101,102,105,110,101,32,76,95,116,109,112,110,97,109,32
+,32,32,50,54,48,32,47,47,32,95,77,65,88,95,80,65,84,72,10,10,47,42,32,83,101
+,101,107,32,109,101,116,104,111,100,32,99,111,110,115,116,97,110,116,115,32,42,47,10,10,35
+,100,101,102,105,110,101,32,83,69,69,75,95,67,85,82,32,32,32,32,49,10,35,100,101,102
+,105,110,101,32,83,69,69,75,95,69,78,68,32,32,32,32,50,10,35,100,101,102,105,110,101
+,32,83,69,69,75,95,83,69,84,32,32,32,32,48,10,10,10,35,100,101,102,105,110,101,32
+,84,77,80,95,77,65,88,32,32,32,32,32,32,32,32,32,50,49,52,55,52,56,51,54,52
+,55,10,10,10,10,116,121,112,101,100,101,102,32,108,111,110,103,32,108,111,110,103,32,102,112
+,111,115,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,32,70,73,76,69,59,10,10
+,101,120,116,101,114,110,32,70,73,76,69,42,32,115,116,100,105,110,59,10,101,120,116,101,114
+,110,32,70,73,76,69,42,32,115,116,100,111,117,116,59,10,101,120,116,101,114,110,32,70,73
+,76,69,42,32,115,116,100,101,114,114,59,10,10,116,121,112,101,100,101,102,32,117,110,115,105
+,103,110,101,100,32,108,111,110,103,32,115,105,122,101,95,116,59,10,116,121,112,101,100,101,102
+,32,99,104,97,114,42,32,118,97,95,108,105,115,116,59,10,10,105,110,116,32,114,101,109,111
+,118,101,40,99,111,110,115,116,32,99,104,97,114,42,32,102,105,108,101,110,97,109,101,41,59
+,10,105,110,116,32,114,101,110,97,109,101,40,99,111,110,115,116,32,99,104,97,114,42,32,111
+,108,100,44,32,99,111,110,115,116,32,99,104,97,114,42,32,110,101,119,115,41,59,10,70,73
+,76,69,42,32,95,79,112,116,32,116,109,112,102,105,108,101,40,118,111,105,100,41,59,10,99
+,104,97,114,42,32,116,109,112,110,97,109,40,99,104,97,114,42,32,115,41,59,10,35,105,102
+,32,100,101,102,105,110,101,100,40,95,95,67,65,75,69,95,95,41,10,105,110,116,32,102,99
+,108,111,115,101,40,70,73,76,69,42,32,95,79,119,110,101,114,32,115,116,114,101,97,109,41
+,59,10,35,101,108,115,101,10,105,110,116,32,102,99,108,111,115,101,40,70,73,76,69,42,32
+,115,116,114,101,97,109,41,59,10,35,101,110,100,105,102,10,105,110,116,32,102,102,108,117,115
+,104,40,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10,35,105,102,32,100,101,102,105
+,110,101,100,40,95,95,67,65,75,69,95,95,41,10,70,73,76,69,42,32,95,79,119,110,101
+,114,32,95,79,112,116,32,102,111,112,101,110,40,99,111,110,115,116,32,99,104,97,114,42,32
+,114,101,115,116,114,105,99,116,32,102,105,108,101,110,97,109,101,44,32,99,111,110,115,116,32
+,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,109,111,100,101,41,59,10,70,73,76
+,69,42,32,95,79,119,110,101,114,32,95,79,112,116,32,102,114,101,111,112,101,110,40,99,111
+,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,105,108,101,110,97
+,109,101,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32
+,109,111,100,101,44,32,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101
+,97,109,41,59,10,35,101,108,115,101,10,70,73,76,69,42,32,102,111,112,101,110,40,99,111
+,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,105,108,101,110,97
+,109,101,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32
+,109,111,100,101,41,59,10,70,73,76,69,42,32,102,114,101,111,112,101,110,40,99,111,110,115
+,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,105,108,101,110,97,109,101
+,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,109,111
+,100,101,44,32,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109
+,41,59,10,35,101,110,100,105,102,10,118,111,105,100,32,115,101,116,98,117,102,40,70,73,76
+,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32,99,104,97,114,42
+,32,114,101,115,116,114,105,99,116,32,98,117,102,41,59,10,105,110,116,32,115,101,116,118,98
+,117,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44
+,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,98,117,102,44,32,105,110,116,32
+,109,111,100,101,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,10,105,110,116,32,102
+,112,114,105,110,116,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114
+,101,97,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116
+,32,102,111,114,109,97,116,44,32,46,46,46,41,59,10,105,110,116,32,102,115,99,97,110,102
+,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32,99
+,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97
+,116,44,32,46,46,46,41,59,10,105,110,116,32,112,114,105,110,116,102,40,99,111,110,115,116
+,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46
+,46,46,41,59,10,105,110,116,32,115,99,97,110,102,40,99,111,110,115,116,32,99,104,97,114
+,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46,41,59,10
+,105,110,116,32,115,110,112,114,105,110,116,102,40,99,104,97,114,42,32,114,101,115,116,114,105
+,99,116,32,115,44,32,115,105,122,101,95,116,32,110,44,32,99,111,110,115,116,32,99,104,97
+,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46,41,59
+,10,105,110,116,32,115,112,114,105,110,116,102,40,99,104,97,114,42,32,114,101,115,116,114,105
+,99,116,32,115,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99
+,116,32,102,111,114,109,97,116,44,32,46,46,46,41,59,10,105,110,116,32,115,115,99,97,110
+,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,44
+,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114
+,109,97,116,44,32,46,46,46,41,59,10,105,110,116,32,118,102,112,114,105,110,116,102,40,70
+,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32,99,111,110
+,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44
+,32,118,97,95,108,105,115,116,32,97,114,103,41,59,10,105,110,116,32,118,102,115,99,97,110
 ,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32
 ,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109
-,97,116,44,32,118,97,95,108,105,115,116,32,97,114,103,41,59,10,105,110,116,32,118,102,115
-,99,97,110,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97
-,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102
-,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97,114,103,41,59,10,105,110,116,32
-,118,112,114,105,110,116,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114
-,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97,114,103,41,59
-,10,105,110,116,32,118,115,99,97,110,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114
-,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97
-,114,103,41,59,10,105,110,116,32,112,117,116,115,40,99,111,110,115,116,32,99,104,97,114,42
-,32,115,116,114,41,59,10,105,110,116,32,102,112,117,116,115,40,99,111,110,115,116,32,99,104
-,97,114,42,32,114,101,115,116,114,105,99,116,32,115,44,32,70,73,76,69,42,32,114,101,115
-,116,114,105,99,116,32,115,116,114,101,97,109,41,59,10,105,110,116,32,103,101,116,99,40,70
-,73,76,69,42,32,115,116,114,101,97,109,41,59,10,105,110,116,32,103,101,116,99,104,97,114
-,40,118,111,105,100,41,59,10,105,110,116,32,112,117,116,99,40,105,110,116,32,99,44,32,70
-,73,76,69,42,32,115,116,114,101,97,109,41,59,10,105,110,116,32,112,117,116,99,104,97,114
-,40,105,110,116,32,99,41,59,10,105,110,116,32,112,117,116,115,40,99,111,110,115,116,32,99
-,104,97,114,42,32,115,41,59,10,105,110,116,32,117,110,103,101,116,99,40,105,110,116,32,99
-,44,32,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10,105,110,116,32,102,103,101,116
-,99,40,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10,115,105,122,101,95,116,32,102
-,114,101,97,100,40,118,111,105,100,42,32,114,101,115,116,114,105,99,116,32,112,116,114,44,32
-,115,105,122,101,95,116,32,115,105,122,101,44,32,115,105,122,101,95,116,32,110,109,101,109,98
-,44,32,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,41,59
-,10,115,105,122,101,95,116,32,102,119,114,105,116,101,40,99,111,110,115,116,32,118,111,105,100
-,42,32,114,101,115,116,114,105,99,116,32,112,116,114,44,32,115,105,122,101,95,116,32,115,105
-,122,101,44,32,115,105,122,101,95,116,32,110,109,101,109,98,44,32,70,73,76,69,42,32,114
-,101,115,116,114,105,99,116,32,115,116,114,101,97,109,41,59,10,105,110,116,32,102,103,101,116
-,112,111,115,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109
-,44,32,102,112,111,115,95,116,42,32,114,101,115,116,114,105,99,116,32,112,111,115,41,59,10
-,105,110,116,32,102,115,101,101,107,40,70,73,76,69,42,32,115,116,114,101,97,109,44,32,108
-,111,110,103,32,105,110,116,32,111,102,102,115,101,116,44,32,105,110,116,32,119,104,101,110,99
-,101,41,59,10,105,110,116,32,102,115,101,116,112,111,115,40,70,73,76,69,42,32,115,116,114
-,101,97,109,44,32,99,111,110,115,116,32,102,112,111,115,95,116,42,32,112,111,115,41,59,10
-,108,111,110,103,32,105,110,116,32,102,116,101,108,108,40,70,73,76,69,42,32,115,116,114,101
-,97,109,41,59,10,118,111,105,100,32,114,101,119,105,110,100,40,70,73,76,69,42,32,115,116
-,114,101,97,109,41,59,10,118,111,105,100,32,99,108,101,97,114,101,114,114,40,70,73,76,69
-,42,32,115,116,114,101,97,109,41,59,10,105,110,116,32,102,101,111,102,40,70,73,76,69,42
-,32,115,116,114,101,97,109,41,59,10,105,110,116,32,102,101,114,114,111,114,40,70,73,76,69
-,42,32,115,116,114,101,97,109,41,59,10,118,111,105,100,32,112,101,114,114,111,114,40,99,111
-,110,115,116,32,99,104,97,114,42,32,115,41,59,10,10,10,10,35,105,102,110,100,101,102,32
-,78,85,76,76,10,35,100,101,102,105,110,101,32,78,85,76,76,32,40,40,118,111,105,100,42
-,41,48,41,10,35,101,110,100,105,102,10
+,97,116,44,32,118,97,95,108,105,115,116,32,97,114,103,41,59,10,105,110,116,32,118,112,114
+,105,110,116,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116
+,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97,114,103,41,59,10,105,110
+,116,32,118,115,99,97,110,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116
+,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97,114,103,41
+,59,10,105,110,116,32,112,117,116,115,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116
+,114,41,59,10,105,110,116,32,102,112,117,116,115,40,99,111,110,115,116,32,99,104,97,114,42
+,32,114,101,115,116,114,105,99,116,32,115,44,32,70,73,76,69,42,32,114,101,115,116,114,105
+,99,116,32,115,116,114,101,97,109,41,59,10,105,110,116,32,103,101,116,99,40,70,73,76,69
+,42,32,115,116,114,101,97,109,41,59,10,105,110,116,32,103,101,116,99,104,97,114,40,118,111
+,105,100,41,59,10,105,110,116,32,112,117,116,99,40,105,110,116,32,99,44,32,70,73,76,69
+,42,32,115,116,114,101,97,109,41,59,10,105,110,116,32,112,117,116,99,104,97,114,40,105,110
+,116,32,99,41,59,10,105,110,116,32,112,117,116,115,40,99,111,110,115,116,32,99,104,97,114
+,42,32,115,41,59,10,105,110,116,32,117,110,103,101,116,99,40,105,110,116,32,99,44,32,70
+,73,76,69,42,32,115,116,114,101,97,109,41,59,10,105,110,116,32,102,103,101,116,99,40,70
+,73,76,69,42,32,115,116,114,101,97,109,41,59,10,115,105,122,101,95,116,32,102,114,101,97
+,100,40,118,111,105,100,42,32,114,101,115,116,114,105,99,116,32,112,116,114,44,32,115,105,122
+,101,95,116,32,115,105,122,101,44,32,115,105,122,101,95,116,32,110,109,101,109,98,44,32,70
+,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,41,59,10,115,105
+,122,101,95,116,32,102,119,114,105,116,101,40,99,111,110,115,116,32,118,111,105,100,42,32,114
+,101,115,116,114,105,99,116,32,112,116,114,44,32,115,105,122,101,95,116,32,115,105,122,101,44
+,32,115,105,122,101,95,116,32,110,109,101,109,98,44,32,70,73,76,69,42,32,114,101,115,116
+,114,105,99,116,32,115,116,114,101,97,109,41,59,10,105,110,116,32,102,103,101,116,112,111,115
+,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32,102
+,112,111,115,95,116,42,32,114,101,115,116,114,105,99,116,32,112,111,115,41,59,10,105,110,116
+,32,102,115,101,101,107,40,70,73,76,69,42,32,115,116,114,101,97,109,44,32,108,111,110,103
+,32,105,110,116,32,111,102,102,115,101,116,44,32,105,110,116,32,119,104,101,110,99,101,41,59
+,10,105,110,116,32,102,115,101,116,112,111,115,40,70,73,76,69,42,32,115,116,114,101,97,109
+,44,32,99,111,110,115,116,32,102,112,111,115,95,116,42,32,112,111,115,41,59,10,108,111,110
+,103,32,105,110,116,32,102,116,101,108,108,40,70,73,76,69,42,32,115,116,114,101,97,109,41
+,59,10,118,111,105,100,32,114,101,119,105,110,100,40,70,73,76,69,42,32,115,116,114,101,97
+,109,41,59,10,118,111,105,100,32,99,108,101,97,114,101,114,114,40,70,73,76,69,42,32,115
+,116,114,101,97,109,41,59,10,105,110,116,32,102,101,111,102,40,70,73,76,69,42,32,115,116
+,114,101,97,109,41,59,10,105,110,116,32,102,101,114,114,111,114,40,70,73,76,69,42,32,115
+,116,114,101,97,109,41,59,10,118,111,105,100,32,112,101,114,114,111,114,40,99,111,110,115,116
+,32,99,104,97,114,42,32,115,41,59,10,10,10,10,35,105,102,110,100,101,102,32,78,85,76
+,76,10,35,100,101,102,105,110,101,32,78,85,76,76,32,40,40,118,111,105,100,42,41,48,41
+,10,35,101,110,100,105,102,10,10,35,101,108,115,101,10,10,10,35,105,102,100,101,102,32,95
+,87,73,78,54,52,10,116,121,112,101,100,101,102,32,115,116,114,117,99,116,32,95,105,111,98
+,117,102,32,70,73,76,69,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100
+,32,95,95,105,110,116,54,52,32,115,105,122,101,95,116,59,10,35,101,108,105,102,32,100,101
+,102,105,110,101,100,32,95,87,73,78,51,50,10,116,121,112,101,100,101,102,32,115,116,114,117
+,99,116,32,95,105,111,98,117,102,32,70,73,76,69,59,10,116,121,112,101,100,101,102,32,117
+,110,115,105,103,110,101,100,32,105,110,116,32,32,32,32,32,115,105,122,101,95,116,59,10,35
+,101,110,100,105,102,10,10,35,105,102,100,101,102,32,95,95,108,105,110,117,120,95,95,10,10
+,116,121,112,101,100,101,102,32,115,116,114,117,99,116,32,95,73,79,95,70,73,76,69,32,70
+,73,76,69,59,10,116,121,112,101,100,101,102,32,95,95,83,73,90,69,95,84,89,80,69,95
+,95,32,115,105,122,101,95,116,59,32,47,47,32,118,97,108,105,100,32,115,105,110,99,101,32
+,67,50,51,10,10,35,101,110,100,105,102,10,10,35,105,102,100,101,102,32,95,95,65,80,80
+,76,69,95,95,10,10,116,121,112,101,100,101,102,32,115,116,114,117,99,116,32,95,95,115,70
+,73,76,69,32,70,73,76,69,59,10,116,121,112,101,100,101,102,32,95,95,83,73,90,69,95
+,84,89,80,69,95,95,32,115,105,122,101,95,116,59,10,10,35,101,110,100,105,102,10,10,105
+,110,116,32,115,110,112,114,105,110,116,102,40,95,79,117,116,32,99,104,97,114,42,32,99,111
+,110,115,116,32,95,66,117,102,102,101,114,44,32,115,105,122,101,95,116,32,99,111,110,115,116
+,32,95,66,117,102,102,101,114,67,111,117,110,116,44,32,99,104,97,114,32,99,111,110,115,116
+,42,32,99,111,110,115,116,32,95,70,111,114,109,97,116,44,32,46,46,46,41,59,10,10,70
+,73,76,69,42,32,95,79,119,110,101,114,32,95,79,112,116,32,102,111,112,101,110,40,99,104
+,97,114,32,99,111,110,115,116,42,32,95,70,105,108,101,78,97,109,101,44,32,99,104,97,114
+,32,99,111,110,115,116,42,32,95,77,111,100,101,41,59,10,105,110,116,32,102,99,108,111,115
+,101,40,70,73,76,69,42,32,95,79,119,110,101,114,32,95,83,116,114,101,97,109,41,59,10
+,10,35,105,102,32,100,101,102,105,110,101,100,32,95,95,108,105,110,117,120,95,95,32,124,124
+,32,100,101,102,105,110,101,100,32,95,95,65,80,80,76,69,95,95,10,70,73,76,69,42,32
+,95,79,119,110,101,114,32,95,79,112,116,32,112,111,112,101,110,40,99,111,110,115,116,32,99
+,104,97,114,42,32,95,67,111,109,109,97,110,100,44,32,99,111,110,115,116,32,99,104,97,114
+,42,32,95,77,111,100,101,41,59,10,105,110,116,32,112,99,108,111,115,101,40,70,73,76,69
+,42,32,95,79,119,110,101,114,32,95,83,116,114,101,97,109,41,59,10,35,101,110,100,105,102
+,10,10,115,105,122,101,95,116,32,102,114,101,97,100,40,10,32,32,32,32,32,32,32,32,95
+,79,117,116,32,118,111,105,100,42,32,95,66,117,102,102,101,114,44,10,32,32,32,32,32,32
+,32,32,115,105,122,101,95,116,32,95,69,108,101,109,101,110,116,83,105,122,101,44,10,32,32
+,32,32,32,32,32,32,115,105,122,101,95,116,32,95,69,108,101,109,101,110,116,67,111,117,110
+,116,44,10,32,32,32,32,32,32,32,32,70,73,76,69,42,32,95,83,116,114,101,97,109,10
+,41,59,10,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,116,100,105,111,46
+,104,62,10,35,101,110,100,105,102,10
 , 0 };
 static const char file_stdlib_h[] = {
 
@@ -17192,356 +17153,415 @@ static const char file_stdlib_h[] = {
 47,42,10,32,42,32,32,84,104,105,115,32,102,105,108,101,32,105,115,32,112,97,114,116,32
 ,111,102,32,99,97,107,101,32,99,111,109,112,105,108,101,114,10,32,42,32,32,104,116,116,112
 ,115,58,47,47,103,105,116,104,117,98,46,99,111,109,47,116,104,114,97,100,97,109,115,47,99
-,97,107,101,10,42,47,10,10,116,121,112,101,100,101,102,32,108,111,110,103,32,108,111,110,103
-,32,102,112,111,115,95,116,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100
-,32,108,111,110,103,32,115,105,122,101,95,116,59,10,10,35,100,101,102,105,110,101,32,69,88
-,73,84,95,83,85,67,67,69,83,83,32,48,10,35,100,101,102,105,110,101,32,69,88,73,84
-,95,70,65,73,76,85,82,69,32,49,10,35,100,101,102,105,110,101,32,78,85,76,76,32,40
-,40,118,111,105,100,42,41,48,41,10,10,116,121,112,101,100,101,102,32,105,110,116,32,119,99
-,104,97,114,95,116,59,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,100,111,117,98
-,108,101,32,97,116,111,102,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41
-,59,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,105,110,116,32,97,116,111,105,40
-,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41,59,10,91,91,110,111,100,105
-,115,99,97,114,100,93,93,32,108,111,110,103,32,105,110,116,32,97,116,111,108,40,99,111,110
-,115,116,32,99,104,97,114,42,32,110,112,116,114,41,59,10,91,91,110,111,100,105,115,99,97
-,114,100,93,93,32,108,111,110,103,32,108,111,110,103,32,105,110,116,32,97,116,111,108,108,40
-,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41,59,10,100,111,117,98,108,101
-,32,115,116,114,116,111,100,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114
+,97,107,101,10,42,47,10,10,10,35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68
+,69,82,83,10,32,32,32,32,10,32,32,32,32,116,121,112,101,100,101,102,32,108,111,110,103
+,32,108,111,110,103,32,102,112,111,115,95,116,59,10,32,32,32,32,116,121,112,101,100,101,102
+,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,115,105,122,101,95,116,59,10,32,32
+,32,32,10,32,32,32,32,35,100,101,102,105,110,101,32,69,88,73,84,95,83,85,67,67,69
+,83,83,32,48,10,32,32,32,32,35,100,101,102,105,110,101,32,69,88,73,84,95,70,65,73
+,76,85,82,69,32,49,10,32,32,32,32,35,100,101,102,105,110,101,32,78,85,76,76,32,40
+,40,118,111,105,100,42,41,48,41,10,32,32,32,32,10,32,32,32,32,116,121,112,101,100,101
+,102,32,105,110,116,32,119,99,104,97,114,95,116,59,10,32,32,32,32,91,91,110,111,100,105
+,115,99,97,114,100,93,93,32,100,111,117,98,108,101,32,97,116,111,102,40,99,111,110,115,116
+,32,99,104,97,114,42,32,110,112,116,114,41,59,10,32,32,32,32,91,91,110,111,100,105,115
+,99,97,114,100,93,93,32,105,110,116,32,97,116,111,105,40,99,111,110,115,116,32,99,104,97
+,114,42,32,110,112,116,114,41,59,10,32,32,32,32,91,91,110,111,100,105,115,99,97,114,100
+,93,93,32,108,111,110,103,32,105,110,116,32,97,116,111,108,40,99,111,110,115,116,32,99,104
+,97,114,42,32,110,112,116,114,41,59,10,32,32,32,32,91,91,110,111,100,105,115,99,97,114
+,100,93,93,32,108,111,110,103,32,108,111,110,103,32,105,110,116,32,97,116,111,108,108,40,99
+,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41,59,10,32,32,32,32,100,111,117
+,98,108,101,32,115,116,114,116,111,100,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101
+,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114
+,105,99,116,32,101,110,100,112,116,114,41,59,10,32,32,32,32,102,108,111,97,116,32,115,116
+,114,116,111,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116
+,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110
+,100,112,116,114,41,59,10,32,32,32,32,108,111,110,103,32,100,111,117,98,108,101,32,115,116
+,114,116,111,108,100,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99
+,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101
+,110,100,112,116,114,41,59,10,32,32,32,32,108,111,110,103,32,105,110,116,32,115,116,114,116
+,111,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110
+,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112
+,116,114,44,32,105,110,116,32,98,97,115,101,41,59,10,32,32,32,32,108,111,110,103,32,108
+,111,110,103,32,105,110,116,32,115,116,114,116,111,108,108,40,99,111,110,115,116,32,99,104,97
+,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32
+,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101
+,41,59,10,32,32,32,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,105,110,116,32
+,115,116,114,116,111,117,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114
 ,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116
-,32,101,110,100,112,116,114,41,59,10,102,108,111,97,116,32,115,116,114,116,111,102,40,99,111
-,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32
-,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,41,59,10
-,108,111,110,103,32,100,111,117,98,108,101,32,115,116,114,116,111,108,100,40,99,111,110,115,116
-,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97
-,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,41,59,10,108,111,110
-,103,32,105,110,116,32,115,116,114,116,111,108,40,99,111,110,115,116,32,99,104,97,114,42,32
-,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115
-,116,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,10
-,108,111,110,103,32,108,111,110,103,32,105,110,116,32,115,116,114,116,111,108,108,40,99,111,110
-,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99
-,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110
-,116,32,98,97,115,101,41,59,10,117,110,115,105,103,110,101,100,32,108,111,110,103,32,105,110
-,116,32,115,116,114,116,111,117,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115
-,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105
-,99,116,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,10,117,110,115
-,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,105,110,116,32,115,116,114,116,111
-,117,108,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32
-,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100
-,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,10,105,110,116,32,114,97,110,100,40
-,118,111,105,100,41,59,10,118,111,105,100,32,115,114,97,110,100,40,117,110,115,105,103,110,101
-,100,32,105,110,116,32,115,101,101,100,41,59,10,118,111,105,100,42,32,97,108,105,103,110,101
-,100,95,97,108,108,111,99,40,115,105,122,101,95,116,32,97,108,105,103,110,109,101,110,116,44
-,32,115,105,122,101,95,116,32,115,105,122,101,41,59,10,10,35,105,102,32,100,101,102,105,110
-,101,100,40,95,95,67,65,75,69,95,95,41,10,91,91,110,111,100,105,115,99,97,114,100,93
-,93,32,118,111,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32,95,67,108,101,97
-,114,32,99,97,108,108,111,99,40,115,105,122,101,95,116,32,110,109,101,109,98,44,32,115,105
-,122,101,95,116,32,115,105,122,101,41,59,10,118,111,105,100,32,102,114,101,101,40,118,111,105
-,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32,112,116,114,41,59,10,91,91,110,111
-,100,105,115,99,97,114,100,93,93,32,118,111,105,100,42,32,95,79,119,110,101,114,32,95,79
-,112,116,32,95,85,110,105,110,105,116,105,97,108,105,122,101,100,32,109,97,108,108,111,99,40
-,115,105,122,101,95,116,32,115,105,122,101,41,59,10,91,91,110,111,100,105,115,99,97,114,100
-,93,93,32,118,111,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32,114,101,97,108
-,108,111,99,40,118,111,105,100,42,32,95,79,112,116,32,112,116,114,44,32,115,105,122,101,95
-,116,32,115,105,122,101,41,59,10,35,101,108,115,101,10,91,91,110,111,100,105,115,99,97,114
-,100,93,93,32,118,111,105,100,42,32,99,97,108,108,111,99,40,115,105,122,101,95,116,32,110
-,109,101,109,98,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,10,118,111,105,100,32
-,102,114,101,101,40,118,111,105,100,42,32,112,116,114,41,59,10,91,91,110,111,100,105,115,99
-,97,114,100,93,93,32,118,111,105,100,42,32,109,97,108,108,111,99,40,115,105,122,101,95,116
-,32,115,105,122,101,41,59,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,118,111,105
-,100,42,32,114,101,97,108,108,111,99,40,118,111,105,100,42,32,112,116,114,44,32,115,105,122
-,101,95,116,32,115,105,122,101,41,59,10,35,101,110,100,105,102,10,10,91,91,110,111,114,101
-,116,117,114,110,93,93,32,118,111,105,100,32,97,98,111,114,116,40,118,111,105,100,41,59,10
-,105,110,116,32,97,116,101,120,105,116,40,118,111,105,100,32,40,42,102,117,110,99,41,40,118
-,111,105,100,41,41,59,10,105,110,116,32,97,116,95,113,117,105,99,107,95,101,120,105,116,40
-,118,111,105,100,32,40,42,102,117,110,99,41,40,118,111,105,100,41,41,59,10,91,91,110,111
-,114,101,116,117,114,110,93,93,32,118,111,105,100,32,101,120,105,116,40,105,110,116,32,115,116
-,97,116,117,115,41,59,10,91,91,110,111,114,101,116,117,114,110,93,93,32,118,111,105,100,32
-,95,69,120,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,10,99,104,97,114,42,32
-,103,101,116,101,110,118,40,99,111,110,115,116,32,99,104,97,114,42,32,110,97,109,101,41,59
-,10,91,91,110,111,114,101,116,117,114,110,93,93,32,118,111,105,100,32,113,117,105,99,107,95
-,101,120,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,10,105,110,116,32,115,121,115
-,116,101,109,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,105,110,103,41,59,10
+,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,10,32,32,32,32,117
+,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,105,110,116,32,115,116,114
+,116,111,117,108,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99
+,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101
+,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,10,32,32,32,32,105,110,116
+,32,114,97,110,100,40,118,111,105,100,41,59,10,32,32,32,32,118,111,105,100,32,115,114,97
+,110,100,40,117,110,115,105,103,110,101,100,32,105,110,116,32,115,101,101,100,41,59,10,32,32
+,32,32,118,111,105,100,42,32,97,108,105,103,110,101,100,95,97,108,108,111,99,40,115,105,122
+,101,95,116,32,97,108,105,103,110,109,101,110,116,44,32,115,105,122,101,95,116,32,115,105,122
+,101,41,59,10,32,32,32,32,10,32,32,32,32,10,32,32,32,32,91,91,110,111,100,105,115
+,99,97,114,100,93,93,32,118,111,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32
+,95,67,108,101,97,114,32,99,97,108,108,111,99,40,115,105,122,101,95,116,32,110,109,101,109
+,98,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,10,32,32,32,32,118,111,105,100
+,32,102,114,101,101,40,118,111,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32,112
+,116,114,41,59,10,32,32,32,32,91,91,110,111,100,105,115,99,97,114,100,93,93,32,118,111
+,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32,95,85,110,105,110,105,116,105,97
+,108,105,122,101,100,32,109,97,108,108,111,99,40,115,105,122,101,95,116,32,115,105,122,101,41
+,59,10,32,32,32,32,91,91,110,111,100,105,115,99,97,114,100,93,93,32,118,111,105,100,42
+,32,95,79,119,110,101,114,32,95,79,112,116,32,114,101,97,108,108,111,99,40,118,111,105,100
+,42,32,95,79,112,116,32,112,116,114,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59
+,32,32,32,32,10,32,32,32,32,10,32,32,32,32,91,91,110,111,114,101,116,117,114,110,93
+,93,32,118,111,105,100,32,97,98,111,114,116,40,118,111,105,100,41,59,10,32,32,32,32,105
+,110,116,32,97,116,101,120,105,116,40,118,111,105,100,32,40,42,102,117,110,99,41,40,118,111
+,105,100,41,41,59,10,32,32,32,32,105,110,116,32,97,116,95,113,117,105,99,107,95,101,120
+,105,116,40,118,111,105,100,32,40,42,102,117,110,99,41,40,118,111,105,100,41,41,59,10,32
+,32,32,32,91,91,110,111,114,101,116,117,114,110,93,93,32,118,111,105,100,32,101,120,105,116
+,40,105,110,116,32,115,116,97,116,117,115,41,59,10,32,32,32,32,91,91,110,111,114,101,116
+,117,114,110,93,93,32,118,111,105,100,32,95,69,120,105,116,40,105,110,116,32,115,116,97,116
+,117,115,41,59,10,32,32,32,32,99,104,97,114,42,32,103,101,116,101,110,118,40,99,111,110
+,115,116,32,99,104,97,114,42,32,110,97,109,101,41,59,10,32,32,32,32,91,91,110,111,114
+,101,116,117,114,110,93,93,32,118,111,105,100,32,113,117,105,99,107,95,101,120,105,116,40,105
+,110,116,32,115,116,97,116,117,115,41,59,10,32,32,32,32,105,110,116,32,115,121,115,116,101
+,109,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,105,110,103,41,59,10,32,32
+,32,32,10,10,35,101,108,115,101,10,10,10,32,32,32,32,35,105,102,100,101,102,32,95,87
+,73,78,54,52,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32,117,110,115,105
+,103,110,101,100,32,95,95,105,110,116,54,52,32,115,105,122,101,95,116,59,32,32,32,32,10
+,32,32,32,32,35,101,108,105,102,32,100,101,102,105,110,101,100,32,95,87,73,78,51,50,10
+,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32
+,105,110,116,32,32,32,32,32,115,105,122,101,95,116,59,10,32,32,32,32,35,101,110,100,105
+,102,10,32,32,32,32,10,32,32,32,32,35,105,102,100,101,102,32,95,95,108,105,110,117,120
+,95,95,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32,95,95,83,73,90,69
+,95,84,89,80,69,95,95,32,115,105,122,101,95,116,59,10,32,32,32,32,35,101,110,100,105
+,102,10,32,32,32,32,10,32,32,32,32,35,105,102,100,101,102,32,95,95,65,80,80,76,69
+,95,95,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32,95,95,83,73,90,69
+,95,84,89,80,69,95,95,32,115,105,122,101,95,116,59,10,32,32,32,32,35,101,110,100,105
+,102,10,32,32,32,32,10,10,32,32,32,32,118,111,105,100,42,32,95,79,119,110,101,114,32
+,95,79,112,116,32,95,67,108,101,97,114,32,99,97,108,108,111,99,40,115,105,122,101,95,116
+,32,110,109,101,109,98,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,10,32,32,32
+,32,118,111,105,100,32,102,114,101,101,40,118,111,105,100,42,32,95,79,119,110,101,114,32,95
+,79,112,116,32,112,116,114,41,59,10,32,32,32,32,118,111,105,100,42,32,95,79,119,110,101
+,114,32,95,79,112,116,32,95,85,110,105,110,105,116,105,97,108,105,122,101,100,32,109,97,108
+,108,111,99,40,115,105,122,101,95,116,32,115,105,122,101,41,59,10,32,32,32,32,118,111,105
+,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32,114,101,97,108,108,111,99,40,118,111
+,105,100,42,32,95,79,112,116,32,112,116,114,44,32,115,105,122,101,95,116,32,115,105,122,101
+,41,59,10,10,10,32,32,32,32,108,111,110,103,32,115,116,114,116,111,108,40,99,104,97,114
+,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,44,32,99,104,97,114,42,42,32,95
+,79,112,116,32,95,69,110,100,80,116,114,44,32,105,110,116,32,95,82,97,100,105,120,41,59
+,10,32,32,32,32,108,111,110,103,32,108,111,110,103,32,115,116,114,116,111,108,108,40,99,104
+,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,44,32,99,104,97,114,42,42
+,32,95,79,112,116,32,95,69,110,100,80,116,114,44,32,105,110,116,32,95,82,97,100,105,120
+,41,59,10,32,32,32,32,100,111,117,98,108,101,32,115,116,114,116,111,100,40,99,104,97,114
+,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,44,32,99,104,97,114,42,42,32,95
+,79,112,116,32,95,69,110,100,80,116,114,41,59,10,32,32,32,32,108,111,110,103,32,100,111
+,117,98,108,101,32,115,116,114,116,111,108,100,40,99,104,97,114,32,99,111,110,115,116,42,32
+,95,83,116,114,105,110,103,44,32,99,104,97,114,42,42,32,95,79,112,116,32,95,69,110,100
+,80,116,114,41,59,10,32,32,32,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108
+,111,110,103,32,115,116,114,116,111,117,108,108,40,99,104,97,114,32,99,111,110,115,116,42,32
+,95,83,116,114,105,110,103,44,32,99,104,97,114,42,42,32,95,79,112,116,32,95,69,110,100
+,80,116,114,44,32,105,110,116,32,95,82,97,100,105,120,41,59,10,32,32,32,32,102,108,111
+,97,116,32,115,116,114,116,111,102,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116
+,114,105,110,103,44,32,99,104,97,114,42,42,32,95,79,112,116,32,95,69,110,100,80,116,114
+,41,59,10,10,32,32,32,32,99,104,97,114,42,32,95,79,112,116,32,95,102,117,108,108,112
+,97,116,104,40,99,104,97,114,42,32,95,79,112,116,32,97,98,115,80,97,116,104,44,32,99
+,111,110,115,116,32,99,104,97,114,42,32,114,101,108,80,97,116,104,44,32,115,105,122,101,95
+,116,32,109,97,120,76,101,110,103,116,104,41,59,10,10,32,32,32,32,47,42,32,46,46,116
+,104,101,110,32,108,101,116,115,32,105,110,99,108,117,100,101,32,116,104,101,32,115,121,115,116
+,101,109,32,104,101,97,100,101,114,115,32,46,46,46,32,42,47,10,32,32,32,32,35,105,110
+,99,108,117,100,101,95,110,101,120,116,32,60,115,116,100,108,105,98,46,104,62,10,10,35,101
+,110,100,105,102,10
 , 0 };
 static const char file_stdnoreturn_h[] = {
 
 
 
-10,35,100,101,102,105,110,101,32,110,111,114,101,116,117,114,110,32,95,78,111,114,101,116,117
-,114,110,10
+35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,10,35,100,101,102
+,105,110,101,32,110,111,114,101,116,117,114,110,32,95,78,111,114,101,116,117,114,110,10,10,35
+,101,108,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,116,100,110,111
+,114,101,116,117,114,110,46,104,62,10,35,101,110,100,105,102,10,10
 , 0 };
 static const char file_string_h[] = {
 
 
 
-32,10,116,121,112,101,100,101,102,32,105,110,116,32,101,114,114,110,111,95,116,59,10,116,121
-,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,115,105,122,101,95
-,116,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32
-,114,115,105,122,101,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,32,119,99,104,97
-,114,95,116,59,10,118,111,105,100,42,32,109,101,109,99,104,114,40,118,111,105,100,32,99,111
-,110,115,116,42,32,95,66,117,102,44,32,105,110,116,32,95,86,97,108,44,32,115,105,122,101
-,95,116,32,95,77,97,120,67,111,117,110,116,41,59,10,105,110,116,32,109,101,109,99,109,112
-,40,118,111,105,100,32,99,111,110,115,116,42,32,95,66,117,102,49,44,32,118,111,105,100,32
-,99,111,110,115,116,42,32,95,66,117,102,50,44,32,115,105,122,101,95,116,32,95,83,105,122
-,101,41,59,10,118,111,105,100,42,32,109,101,109,99,112,121,40,118,111,105,100,42,32,95,68
-,115,116,44,32,118,111,105,100,32,99,111,110,115,116,42,32,95,83,114,99,44,32,115,105,122
-,101,95,116,32,95,83,105,122,101,41,59,10,118,111,105,100,42,32,109,101,109,109,111,118,101
-,40,118,111,105,100,42,32,95,68,115,116,44,32,118,111,105,100,32,99,111,110,115,116,42,32
-,95,83,114,99,44,32,115,105,122,101,95,116,32,95,83,105,122,101,41,59,10,118,111,105,100
-,42,32,109,101,109,115,101,116,40,118,111,105,100,42,32,95,68,115,116,44,32,105,110,116,32
-,95,86,97,108,44,32,115,105,122,101,95,116,32,95,83,105,122,101,41,59,10,99,104,97,114
-,42,32,115,116,114,99,104,114,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114
-,44,32,105,110,116,32,95,86,97,108,41,59,10,99,104,97,114,32,42,115,116,114,99,112,121
-,40,95,79,117,116,32,99,104,97,114,32,42,114,101,115,116,114,105,99,116,32,100,101,115,116
-,44,32,99,111,110,115,116,32,99,104,97,114,32,42,114,101,115,116,114,105,99,116,32,115,114
-,99,32,41,59,10,99,104,97,114,42,32,115,116,114,114,99,104,114,40,99,104,97,114,32,99
-,111,110,115,116,42,32,95,83,116,114,44,32,105,110,116,32,95,67,104,41,59,10,99,104,97
-,114,42,32,115,116,114,115,116,114,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116
-,114,44,32,99,104,97,114,32,99,111,110,115,116,42,32,95,83,117,98,83,116,114,41,59,10
-,119,99,104,97,114,95,116,42,32,119,99,115,99,104,114,40,119,99,104,97,114,95,116,32,99
-,111,110,115,116,42,32,95,83,116,114,44,32,119,99,104,97,114,95,116,32,95,67,104,41,59
-,10,119,99,104,97,114,95,116,42,32,119,99,115,114,99,104,114,40,119,99,104,97,114,95,116
-,32,99,111,110,115,116,42,32,95,83,116,114,44,32,119,99,104,97,114,95,116,32,95,67,104
-,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115,115,116,114,40,119,99,104,97,114,95
-,116,32,99,111,110,115,116,42,32,95,83,116,114,44,32,119,99,104,97,114,95,116,32,99,111
-,110,115,116,42,32,95,83,117,98,83,116,114,41,59,10,115,116,97,116,105,99,32,105,110,108
-,105,110,101,32,101,114,114,110,111,95,116,32,109,101,109,99,112,121,95,115,40,118,111,105,100
-,42,32,99,111,110,115,116,32,95,68,101,115,116,105,110,97,116,105,111,110,44,32,114,115,105
-,122,101,95,116,32,99,111,110,115,116,32,95,68,101,115,116,105,110,97,116,105,111,110,83,105
-,122,101,44,32,118,111,105,100,32,99,111,110,115,116,42,32,99,111,110,115,116,32,95,83,111
-,117,114,99,101,44,32,114,115,105,122,101,95,116,32,99,111,110,115,116,32,95,83,111,117,114
-,99,101,83,105,122,101,41,59,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32,101,114
-,114,110,111,95,116,32,109,101,109,109,111,118,101,95,115,40,118,111,105,100,42,32,99,111,110
-,115,116,32,95,68,101,115,116,105,110,97,116,105,111,110,44,32,114,115,105,122,101,95,116,32
-,99,111,110,115,116,32,95,68,101,115,116,105,110,97,116,105,111,110,83,105,122,101,44,32,118
-,111,105,100,32,99,111,110,115,116,42,32,99,111,110,115,116,32,95,83,111,117,114,99,101,44
-,32,114,115,105,122,101,95,116,32,99,111,110,115,116,32,95,83,111,117,114,99,101,83,105,122
-,101,41,59,10,105,110,116,32,95,109,101,109,105,99,109,112,40,118,111,105,100,32,99,111,110
-,115,116,42,32,95,66,117,102,49,44,32,118,111,105,100,32,99,111,110,115,116,42,32,95,66
-,117,102,50,44,32,115,105,122,101,95,116,32,95,83,105,122,101,41,59,10,118,111,105,100,42
-,32,109,101,109,99,99,112,121,40,118,111,105,100,42,32,95,68,115,116,44,32,118,111,105,100
-,32,99,111,110,115,116,42,32,95,83,114,99,44,32,105,110,116,32,95,86,97,108,44,32,115
-,105,122,101,95,116,32,95,83,105,122,101,41,59,10,105,110,116,32,109,101,109,105,99,109,112
-,40,118,111,105,100,32,99,111,110,115,116,42,32,95,66,117,102,49,44,32,118,111,105,100,32
-,99,111,110,115,116,42,32,95,66,117,102,50,44,32,115,105,122,101,95,116,32,95,83,105,122
-,101,41,59,10,101,114,114,110,111,95,116,32,119,99,115,99,97,116,95,115,40,119,99,104,97
-,114,95,116,42,32,95,68,101,115,116,105,110,97,116,105,111,110,44,32,114,115,105,122,101,95
-,116,32,95,83,105,122,101,73,110,87,111,114,100,115,44,32,119,99,104,97,114,95,116,32,99
-,111,110,115,116,42,32,95,83,111,117,114,99,101,41,59,10,101,114,114,110,111,95,116,32,119
-,99,115,99,112,121,95,115,40,119,99,104,97,114,95,116,42,32,95,68,101,115,116,105,110,97
-,116,105,111,110,44,32,114,115,105,122,101,95,116,32,95,83,105,122,101,73,110,87,111,114,100
-,115,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,111,117,114,99,101
-,41,59,10,101,114,114,110,111,95,116,32,119,99,115,110,99,97,116,95,115,40,119,99,104,97
-,114,95,116,42,32,95,68,101,115,116,105,110,97,116,105,111,110,44,32,114,115,105,122,101,95
-,116,32,95,83,105,122,101,73,110,87,111,114,100,115,44,32,119,99,104,97,114,95,116,32,99
-,111,110,115,116,42,32,95,83,111,117,114,99,101,44,32,114,115,105,122,101,95,116,32,95,77
-,97,120,67,111,117,110,116,41,59,10,101,114,114,110,111,95,116,32,119,99,115,110,99,112,121
-,95,115,40,119,99,104,97,114,95,116,42,32,95,68,101,115,116,105,110,97,116,105,111,110,44
-,32,114,115,105,122,101,95,116,32,95,83,105,122,101,73,110,87,111,114,100,115,44,32,119,99
-,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,111,117,114,99,101,44,32,114,115,105
-,122,101,95,116,32,95,77,97,120,67,111,117,110,116,41,59,10,119,99,104,97,114,95,116,42
-,32,119,99,115,116,111,107,95,115,40,119,99,104,97,114,95,116,42,32,95,83,116,114,105,110
-,103,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,68,101,108,105,109,105
-,116,101,114,44,32,119,99,104,97,114,95,116,42,42,32,95,67,111,110,116,101,120,116,41,59
-,10,119,99,104,97,114,95,116,42,32,95,119,99,115,100,117,112,40,119,99,104,97,114,95,116
-,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,41,59,10,119,99,104,97,114,95,116
-,42,32,119,99,115,99,97,116,40,119,99,104,97,114,95,116,42,32,95,68,101,115,116,105,110
-,97,116,105,111,110,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,111
-,117,114,99,101,41,59,32,105,110,116,32,119,99,115,99,109,112,40,119,99,104,97,114,95,116
-,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,49,44,32,119,99,104,97,114,95,116
-,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,50,41,59,10,119,99,104,97,114,95
-,116,42,32,119,99,115,99,112,121,40,119,99,104,97,114,95,116,42,32,95,68,101,115,116,105
-,110,97,116,105,111,110,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83
-,111,117,114,99,101,41,59,32,115,105,122,101,95,116,32,119,99,115,99,115,112,110,40,119,99
-,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,44,32,119,99,104
-,97,114,95,116,32,99,111,110,115,116,42,32,95,67,111,110,116,114,111,108,41,59,10,115,105
-,122,101,95,116,32,119,99,115,108,101,110,40,119,99,104,97,114,95,116,32,99,111,110,115,116
-,42,32,95,83,116,114,105,110,103,41,59,10,115,105,122,101,95,116,32,119,99,115,110,108,101
-,110,40,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,111,117,114,99,101,44
-,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110,116,41,59,10,115,116,97,116,105
-,99,32,105,110,108,105,110,101,32,115,105,122,101,95,116,32,119,99,115,110,108,101,110,95,115
-,40,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,111,117,114,99,101,44,32
-,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110,116,41,59,10,119,99,104,97,114,95
-,116,42,32,119,99,115,110,99,97,116,40,119,99,104,97,114,95,116,42,32,95,68,101,115,116
-,105,110,97,116,105,111,110,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95
-,83,111,117,114,99,101,44,32,115,105,122,101,95,116,32,95,67,111,117,110,116,41,59,10,105
-,110,116,32,119,99,115,110,99,109,112,40,119,99,104,97,114,95,116,32,99,111,110,115,116,42
-,32,95,83,116,114,105,110,103,49,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42
-,32,95,83,116,114,105,110,103,50,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117
-,110,116,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115,110,99,112,121,40,119,99,104
-,97,114,95,116,42,32,95,68,101,115,116,105,110,97,116,105,111,110,44,32,119,99,104,97,114
+35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,10,116,121,112,101
+,100,101,102,32,105,110,116,32,101,114,114,110,111,95,116,59,10,116,121,112,101,100,101,102,32
+,117,110,115,105,103,110,101,100,32,108,111,110,103,32,115,105,122,101,95,116,59,10,116,121,112
+,101,100,101,102,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,114,115,105,122,101,95
+,116,59,10,116,121,112,101,100,101,102,32,105,110,116,32,119,99,104,97,114,95,116,59,10,118
+,111,105,100,42,32,109,101,109,99,104,114,40,118,111,105,100,32,99,111,110,115,116,42,32,95
+,66,117,102,44,32,105,110,116,32,95,86,97,108,44,32,115,105,122,101,95,116,32,95,77,97
+,120,67,111,117,110,116,41,59,10,105,110,116,32,109,101,109,99,109,112,40,118,111,105,100,32
+,99,111,110,115,116,42,32,95,66,117,102,49,44,32,118,111,105,100,32,99,111,110,115,116,42
+,32,95,66,117,102,50,44,32,115,105,122,101,95,116,32,95,83,105,122,101,41,59,10,118,111
+,105,100,42,32,109,101,109,99,112,121,40,118,111,105,100,42,32,95,68,115,116,44,32,118,111
+,105,100,32,99,111,110,115,116,42,32,95,83,114,99,44,32,115,105,122,101,95,116,32,95,83
+,105,122,101,41,59,10,118,111,105,100,42,32,109,101,109,109,111,118,101,40,118,111,105,100,42
+,32,95,68,115,116,44,32,118,111,105,100,32,99,111,110,115,116,42,32,95,83,114,99,44,32
+,115,105,122,101,95,116,32,95,83,105,122,101,41,59,10,118,111,105,100,42,32,109,101,109,115
+,101,116,40,118,111,105,100,42,32,95,68,115,116,44,32,105,110,116,32,95,86,97,108,44,32
+,115,105,122,101,95,116,32,95,83,105,122,101,41,59,10,99,104,97,114,42,32,115,116,114,99
+,104,114,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,44,32,105,110,116,32
+,95,86,97,108,41,59,10,99,104,97,114,32,42,115,116,114,99,112,121,40,95,79,117,116,32
+,99,104,97,114,32,42,114,101,115,116,114,105,99,116,32,100,101,115,116,44,32,99,111,110,115
+,116,32,99,104,97,114,32,42,114,101,115,116,114,105,99,116,32,115,114,99,32,41,59,10,99
+,104,97,114,42,32,115,116,114,114,99,104,114,40,99,104,97,114,32,99,111,110,115,116,42,32
+,95,83,116,114,44,32,105,110,116,32,95,67,104,41,59,10,99,104,97,114,42,32,115,116,114
+,115,116,114,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,44,32,99,104,97
+,114,32,99,111,110,115,116,42,32,95,83,117,98,83,116,114,41,59,10,119,99,104,97,114,95
+,116,42,32,119,99,115,99,104,114,40,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32
+,95,83,116,114,44,32,119,99,104,97,114,95,116,32,95,67,104,41,59,10,119,99,104,97,114
+,95,116,42,32,119,99,115,114,99,104,114,40,119,99,104,97,114,95,116,32,99,111,110,115,116
+,42,32,95,83,116,114,44,32,119,99,104,97,114,95,116,32,95,67,104,41,59,10,119,99,104
+,97,114,95,116,42,32,119,99,115,115,116,114,40,119,99,104,97,114,95,116,32,99,111,110,115
+,116,42,32,95,83,116,114,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95
+,83,117,98,83,116,114,41,59,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32,101,114
+,114,110,111,95,116,32,109,101,109,99,112,121,95,115,40,118,111,105,100,42,32,99,111,110,115
+,116,32,95,68,101,115,116,105,110,97,116,105,111,110,44,32,114,115,105,122,101,95,116,32,99
+,111,110,115,116,32,95,68,101,115,116,105,110,97,116,105,111,110,83,105,122,101,44,32,118,111
+,105,100,32,99,111,110,115,116,42,32,99,111,110,115,116,32,95,83,111,117,114,99,101,44,32
+,114,115,105,122,101,95,116,32,99,111,110,115,116,32,95,83,111,117,114,99,101,83,105,122,101
+,41,59,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32,101,114,114,110,111,95,116,32
+,109,101,109,109,111,118,101,95,115,40,118,111,105,100,42,32,99,111,110,115,116,32,95,68,101
+,115,116,105,110,97,116,105,111,110,44,32,114,115,105,122,101,95,116,32,99,111,110,115,116,32
+,95,68,101,115,116,105,110,97,116,105,111,110,83,105,122,101,44,32,118,111,105,100,32,99,111
+,110,115,116,42,32,99,111,110,115,116,32,95,83,111,117,114,99,101,44,32,114,115,105,122,101
+,95,116,32,99,111,110,115,116,32,95,83,111,117,114,99,101,83,105,122,101,41,59,10,105,110
+,116,32,95,109,101,109,105,99,109,112,40,118,111,105,100,32,99,111,110,115,116,42,32,95,66
+,117,102,49,44,32,118,111,105,100,32,99,111,110,115,116,42,32,95,66,117,102,50,44,32,115
+,105,122,101,95,116,32,95,83,105,122,101,41,59,10,118,111,105,100,42,32,109,101,109,99,99
+,112,121,40,118,111,105,100,42,32,95,68,115,116,44,32,118,111,105,100,32,99,111,110,115,116
+,42,32,95,83,114,99,44,32,105,110,116,32,95,86,97,108,44,32,115,105,122,101,95,116,32
+,95,83,105,122,101,41,59,10,105,110,116,32,109,101,109,105,99,109,112,40,118,111,105,100,32
+,99,111,110,115,116,42,32,95,66,117,102,49,44,32,118,111,105,100,32,99,111,110,115,116,42
+,32,95,66,117,102,50,44,32,115,105,122,101,95,116,32,95,83,105,122,101,41,59,10,101,114
+,114,110,111,95,116,32,119,99,115,99,97,116,95,115,40,119,99,104,97,114,95,116,42,32,95
+,68,101,115,116,105,110,97,116,105,111,110,44,32,114,115,105,122,101,95,116,32,95,83,105,122
+,101,73,110,87,111,114,100,115,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32
+,95,83,111,117,114,99,101,41,59,10,101,114,114,110,111,95,116,32,119,99,115,99,112,121,95
+,115,40,119,99,104,97,114,95,116,42,32,95,68,101,115,116,105,110,97,116,105,111,110,44,32
+,114,115,105,122,101,95,116,32,95,83,105,122,101,73,110,87,111,114,100,115,44,32,119,99,104
+,97,114,95,116,32,99,111,110,115,116,42,32,95,83,111,117,114,99,101,41,59,10,101,114,114
+,110,111,95,116,32,119,99,115,110,99,97,116,95,115,40,119,99,104,97,114,95,116,42,32,95
+,68,101,115,116,105,110,97,116,105,111,110,44,32,114,115,105,122,101,95,116,32,95,83,105,122
+,101,73,110,87,111,114,100,115,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32
+,95,83,111,117,114,99,101,44,32,114,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110
+,116,41,59,10,101,114,114,110,111,95,116,32,119,99,115,110,99,112,121,95,115,40,119,99,104
+,97,114,95,116,42,32,95,68,101,115,116,105,110,97,116,105,111,110,44,32,114,115,105,122,101
+,95,116,32,95,83,105,122,101,73,110,87,111,114,100,115,44,32,119,99,104,97,114,95,116,32
+,99,111,110,115,116,42,32,95,83,111,117,114,99,101,44,32,114,115,105,122,101,95,116,32,95
+,77,97,120,67,111,117,110,116,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115,116,111
+,107,95,115,40,119,99,104,97,114,95,116,42,32,95,83,116,114,105,110,103,44,32,119,99,104
+,97,114,95,116,32,99,111,110,115,116,42,32,95,68,101,108,105,109,105,116,101,114,44,32,119
+,99,104,97,114,95,116,42,42,32,95,67,111,110,116,101,120,116,41,59,10,119,99,104,97,114
+,95,116,42,32,95,119,99,115,100,117,112,40,119,99,104,97,114,95,116,32,99,111,110,115,116
+,42,32,95,83,116,114,105,110,103,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115,99
+,97,116,40,119,99,104,97,114,95,116,42,32,95,68,101,115,116,105,110,97,116,105,111,110,44
+,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,111,117,114,99,101,41,59
+,32,105,110,116,32,119,99,115,99,109,112,40,119,99,104,97,114,95,116,32,99,111,110,115,116
+,42,32,95,83,116,114,105,110,103,49,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116
+,42,32,95,83,116,114,105,110,103,50,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115
+,99,112,121,40,119,99,104,97,114,95,116,42,32,95,68,101,115,116,105,110,97,116,105,111,110
+,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,111,117,114,99,101,41
+,59,32,115,105,122,101,95,116,32,119,99,115,99,115,112,110,40,119,99,104,97,114,95,116,32
+,99,111,110,115,116,42,32,95,83,116,114,105,110,103,44,32,119,99,104,97,114,95,116,32,99
+,111,110,115,116,42,32,95,67,111,110,116,114,111,108,41,59,10,115,105,122,101,95,116,32,119
+,99,115,108,101,110,40,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,116,114
+,105,110,103,41,59,10,115,105,122,101,95,116,32,119,99,115,110,108,101,110,40,119,99,104,97
+,114,95,116,32,99,111,110,115,116,42,32,95,83,111,117,114,99,101,44,32,115,105,122,101,95
+,116,32,95,77,97,120,67,111,117,110,116,41,59,10,115,116,97,116,105,99,32,105,110,108,105
+,110,101,32,115,105,122,101,95,116,32,119,99,115,110,108,101,110,95,115,40,119,99,104,97,114
 ,95,116,32,99,111,110,115,116,42,32,95,83,111,117,114,99,101,44,32,115,105,122,101,95,116
-,32,95,67,111,117,110,116,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115,112,98,114
-,107,40,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,44
-,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,67,111,110,116,114,111,108,41
-,59,10,115,105,122,101,95,116,32,119,99,115,115,112,110,40,119,99,104,97,114,95,116,32,99
-,111,110,115,116,42,32,95,83,116,114,105,110,103,44,32,119,99,104,97,114,95,116,32,99,111
-,110,115,116,42,32,95,67,111,110,116,114,111,108,41,59,10,119,99,104,97,114,95,116,42,32
-,119,99,115,116,111,107,40,119,99,104,97,114,95,116,42,32,95,83,116,114,105,110,103,44,32
-,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,68,101,108,105,109,105,116,101,114
-,44,32,119,99,104,97,114,95,116,42,42,32,95,67,111,110,116,101,120,116,41,59,10,115,105
-,122,101,95,116,32,119,99,115,120,102,114,109,40,119,99,104,97,114,95,116,42,32,95,68,101
-,115,116,105,110,97,116,105,111,110,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42
-,32,95,83,111,117,114,99,101,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110
-,116,41,59,10,105,110,116,32,119,99,115,99,111,108,108,40,119,99,104,97,114,95,116,32,99
-,111,110,115,116,42,32,95,83,116,114,105,110,103,49,44,32,119,99,104,97,114,95,116,32,99
-,111,110,115,116,42,32,95,83,116,114,105,110,103,50,41,59,10,119,99,104,97,114,95,116,42
-,32,119,99,115,100,117,112,40,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83
-,116,114,105,110,103,41,59,10,105,110,116,32,119,99,115,105,99,109,112,40,119,99,104,97,114
-,95,116,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,49,44,32,119,99,104,97,114
-,95,116,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,50,41,59,10,105,110,116,32
-,119,99,115,110,105,99,109,112,40,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95
-,83,116,114,105,110,103,49,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95
-,83,116,114,105,110,103,50,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110,116
-,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115,110,115,101,116,40,119,99,104,97,114
-,95,116,42,32,95,83,116,114,105,110,103,44,32,119,99,104,97,114,95,116,32,95,86,97,108
-,117,101,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110,116,41,59,10,119,99
-,104,97,114,95,116,42,32,119,99,115,114,101,118,40,119,99,104,97,114,95,116,42,32,95,83
-,116,114,105,110,103,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115,115,101,116,40,119
-,99,104,97,114,95,116,42,32,95,83,116,114,105,110,103,44,32,119,99,104,97,114,95,116,32
-,95,86,97,108,117,101,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115,108,119,114,40
-,119,99,104,97,114,95,116,42,32,95,83,116,114,105,110,103,41,59,32,119,99,104,97,114,95
-,116,42,32,119,99,115,117,112,114,40,119,99,104,97,114,95,116,42,32,95,83,116,114,105,110
-,103,41,59,10,105,110,116,32,119,99,115,105,99,111,108,108,40,119,99,104,97,114,95,116,32
-,99,111,110,115,116,42,32,95,83,116,114,105,110,103,49,44,32,119,99,104,97,114,95,116,32
-,99,111,110,115,116,42,32,95,83,116,114,105,110,103,50,41,59,10,99,104,97,114,42,32,115
-,116,114,116,111,107,95,115,40,99,104,97,114,42,32,95,83,116,114,105,110,103,44,32,99,104
-,97,114,32,99,111,110,115,116,42,32,95,68,101,108,105,109,105,116,101,114,44,32,99,104,97
-,114,42,42,32,95,67,111,110,116,101,120,116,41,59,10,118,111,105,100,42,32,95,109,101,109
-,99,99,112,121,40,118,111,105,100,42,32,95,68,115,116,44,32,118,111,105,100,32,99,111,110
-,115,116,42,32,95,83,114,99,44,32,105,110,116,32,95,86,97,108,44,32,115,105,122,101,95
-,116,32,95,77,97,120,67,111,117,110,116,41,59,10,99,104,97,114,42,32,115,116,114,99,97
-,116,40,99,104,97,114,42,32,95,68,101,115,116,105,110,97,116,105,111,110,44,32,99,104,97
-,114,32,99,111,110,115,116,42,32,95,83,111,117,114,99,101,41,59,10,105,110,116,32,115,116
-,114,99,109,112,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,49,44,32,99
-,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,50,41,59,10,105,110,116,32,115,116
-,114,99,111,108,108,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103
-,49,44,32,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,50,41,59
-,10,99,104,97,114,42,32,115,116,114,101,114,114,111,114,40,105,110,116,32,95,69,114,114,111
-,114,77,101,115,115,97,103,101,41,59,10,115,105,122,101,95,116,32,115,116,114,108,101,110,40
-,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,41,59,10,99,104,97,114,42,32
-,115,116,114,110,99,97,116,40,99,104,97,114,42,32,95,68,101,115,116,105,110,97,116,105,111
-,110,44,32,99,104,97,114,32,99,111,110,115,116,42,32,95,83,111,117,114,99,101,44,32,115
-,105,122,101,95,116,32,95,67,111,117,110,116,41,59,10,105,110,116,32,115,116,114,110,99,109
-,112,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,49,44,32,99,104,97,114
-,32,99,111,110,115,116,42,32,95,83,116,114,50,44,32,115,105,122,101,95,116,32,95,77,97
-,120,67,111,117,110,116,41,59,10,99,104,97,114,42,32,115,116,114,110,99,112,121,40,99,104
-,97,114,42,32,95,68,101,115,116,105,110,97,116,105,111,110,44,32,99,104,97,114,32,99,111
-,110,115,116,42,32,95,83,111,117,114,99,101,44,32,115,105,122,101,95,116,32,95,67,111,117
-,110,116,41,59,10,115,105,122,101,95,116,32,115,116,114,110,108,101,110,40,99,104,97,114,32
-,99,111,110,115,116,42,32,95,83,116,114,105,110,103,44,32,115,105,122,101,95,116,32,95,77
-,97,120,67,111,117,110,116,41,59,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32,115
-,105,122,101,95,116,32,115,116,114,110,108,101,110,95,115,40,99,104,97,114,32,99,111,110,115
-,116,42,32,95,83,116,114,105,110,103,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111
-,117,110,116,41,59,10,99,104,97,114,42,32,115,116,114,112,98,114,107,40,99,104,97,114,32
-,99,111,110,115,116,42,32,95,83,116,114,44,32,99,104,97,114,32,99,111,110,115,116,42,32
-,95,67,111,110,116,114,111,108,41,59,10,115,105,122,101,95,116,32,115,116,114,115,112,110,40
-,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,44,32,99,104,97,114,32,99,111
-,110,115,116,42,32,95,67,111,110,116,114,111,108,41,59,10,99,104,97,114,42,32,115,116,114
-,116,111,107,40,99,104,97,114,42,32,95,83,116,114,105,110,103,44,32,99,104,97,114,32,99
-,111,110,115,116,42,32,95,68,101,108,105,109,105,116,101,114,41,59,10,10,35,105,102,32,100
-,101,102,105,110,101,100,40,95,95,67,65,75,69,95,95,41,10,99,104,97,114,42,32,95,79
-,119,110,101,114,32,95,79,112,116,32,115,116,114,100,117,112,40,99,104,97,114,32,99,111,110
-,115,116,42,32,95,83,116,114,105,110,103,41,59,10,35,101,108,115,101,10,99,104,97,114,42
-,32,115,116,114,100,117,112,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105
-,110,103,41,59,10,35,101,110,100,105,102,10,10,105,110,116,32,115,116,114,99,109,112,105,40
+,32,95,77,97,120,67,111,117,110,116,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115
+,110,99,97,116,40,119,99,104,97,114,95,116,42,32,95,68,101,115,116,105,110,97,116,105,111
+,110,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,111,117,114,99,101
+,44,32,115,105,122,101,95,116,32,95,67,111,117,110,116,41,59,10,105,110,116,32,119,99,115
+,110,99,109,112,40,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,116,114,105
+,110,103,49,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,116,114,105
+,110,103,50,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110,116,41,59,10,119
+,99,104,97,114,95,116,42,32,119,99,115,110,99,112,121,40,119,99,104,97,114,95,116,42,32
+,95,68,101,115,116,105,110,97,116,105,111,110,44,32,119,99,104,97,114,95,116,32,99,111,110
+,115,116,42,32,95,83,111,117,114,99,101,44,32,115,105,122,101,95,116,32,95,67,111,117,110
+,116,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115,112,98,114,107,40,119,99,104,97
+,114,95,116,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,44,32,119,99,104,97,114
+,95,116,32,99,111,110,115,116,42,32,95,67,111,110,116,114,111,108,41,59,10,115,105,122,101
+,95,116,32,119,99,115,115,112,110,40,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32
+,95,83,116,114,105,110,103,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95
+,67,111,110,116,114,111,108,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115,116,111,107
+,40,119,99,104,97,114,95,116,42,32,95,83,116,114,105,110,103,44,32,119,99,104,97,114,95
+,116,32,99,111,110,115,116,42,32,95,68,101,108,105,109,105,116,101,114,44,32,119,99,104,97
+,114,95,116,42,42,32,95,67,111,110,116,101,120,116,41,59,10,115,105,122,101,95,116,32,119
+,99,115,120,102,114,109,40,119,99,104,97,114,95,116,42,32,95,68,101,115,116,105,110,97,116
+,105,111,110,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,111,117,114
+,99,101,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110,116,41,59,10,105,110
+,116,32,119,99,115,99,111,108,108,40,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32
+,95,83,116,114,105,110,103,49,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32
+,95,83,116,114,105,110,103,50,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115,100,117
+,112,40,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,41
+,59,10,105,110,116,32,119,99,115,105,99,109,112,40,119,99,104,97,114,95,116,32,99,111,110
+,115,116,42,32,95,83,116,114,105,110,103,49,44,32,119,99,104,97,114,95,116,32,99,111,110
+,115,116,42,32,95,83,116,114,105,110,103,50,41,59,10,105,110,116,32,119,99,115,110,105,99
+,109,112,40,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103
+,49,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103
+,50,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110,116,41,59,10,119,99,104
+,97,114,95,116,42,32,119,99,115,110,115,101,116,40,119,99,104,97,114,95,116,42,32,95,83
+,116,114,105,110,103,44,32,119,99,104,97,114,95,116,32,95,86,97,108,117,101,44,32,115,105
+,122,101,95,116,32,95,77,97,120,67,111,117,110,116,41,59,10,119,99,104,97,114,95,116,42
+,32,119,99,115,114,101,118,40,119,99,104,97,114,95,116,42,32,95,83,116,114,105,110,103,41
+,59,10,119,99,104,97,114,95,116,42,32,119,99,115,115,101,116,40,119,99,104,97,114,95,116
+,42,32,95,83,116,114,105,110,103,44,32,119,99,104,97,114,95,116,32,95,86,97,108,117,101
+,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115,108,119,114,40,119,99,104,97,114,95
+,116,42,32,95,83,116,114,105,110,103,41,59,32,119,99,104,97,114,95,116,42,32,119,99,115
+,117,112,114,40,119,99,104,97,114,95,116,42,32,95,83,116,114,105,110,103,41,59,10,105,110
+,116,32,119,99,115,105,99,111,108,108,40,119,99,104,97,114,95,116,32,99,111,110,115,116,42
+,32,95,83,116,114,105,110,103,49,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42
+,32,95,83,116,114,105,110,103,50,41,59,10,99,104,97,114,42,32,115,116,114,116,111,107,95
+,115,40,99,104,97,114,42,32,95,83,116,114,105,110,103,44,32,99,104,97,114,32,99,111,110
+,115,116,42,32,95,68,101,108,105,109,105,116,101,114,44,32,99,104,97,114,42,42,32,95,67
+,111,110,116,101,120,116,41,59,10,118,111,105,100,42,32,95,109,101,109,99,99,112,121,40,118
+,111,105,100,42,32,95,68,115,116,44,32,118,111,105,100,32,99,111,110,115,116,42,32,95,83
+,114,99,44,32,105,110,116,32,95,86,97,108,44,32,115,105,122,101,95,116,32,95,77,97,120
+,67,111,117,110,116,41,59,10,99,104,97,114,42,32,115,116,114,99,97,116,40,99,104,97,114
+,42,32,95,68,101,115,116,105,110,97,116,105,111,110,44,32,99,104,97,114,32,99,111,110,115
+,116,42,32,95,83,111,117,114,99,101,41,59,10,105,110,116,32,115,116,114,99,109,112,40,99
+,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,49,44,32,99,104,97,114,32,99,111
+,110,115,116,42,32,95,83,116,114,50,41,59,10,105,110,116,32,115,116,114,99,111,108,108,40
 ,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,49,44,32,99,104,97
-,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,50,41,59,10,105,110,116,32,115
-,116,114,105,99,109,112,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110
-,103,49,44,32,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,50,41
-,59,10,99,104,97,114,42,32,115,116,114,108,119,114,40,99,104,97,114,42,32,95,83,116,114
-,105,110,103,41,59,10,105,110,116,32,115,116,114,110,105,99,109,112,40,99,104,97,114,32,99
+,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,50,41,59,10,99,104,97,114,42
+,32,115,116,114,101,114,114,111,114,40,105,110,116,32,95,69,114,114,111,114,77,101,115,115,97
+,103,101,41,59,10,115,105,122,101,95,116,32,115,116,114,108,101,110,40,99,104,97,114,32,99
+,111,110,115,116,42,32,95,83,116,114,41,59,10,99,104,97,114,42,32,115,116,114,110,99,97
+,116,40,99,104,97,114,42,32,95,68,101,115,116,105,110,97,116,105,111,110,44,32,99,104,97
+,114,32,99,111,110,115,116,42,32,95,83,111,117,114,99,101,44,32,115,105,122,101,95,116,32
+,95,67,111,117,110,116,41,59,10,105,110,116,32,115,116,114,110,99,109,112,40,99,104,97,114
+,32,99,111,110,115,116,42,32,95,83,116,114,49,44,32,99,104,97,114,32,99,111,110,115,116
+,42,32,95,83,116,114,50,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110,116
+,41,59,10,99,104,97,114,42,32,115,116,114,110,99,112,121,40,99,104,97,114,42,32,95,68
+,101,115,116,105,110,97,116,105,111,110,44,32,99,104,97,114,32,99,111,110,115,116,42,32,95
+,83,111,117,114,99,101,44,32,115,105,122,101,95,116,32,95,67,111,117,110,116,41,59,10,115
+,105,122,101,95,116,32,115,116,114,110,108,101,110,40,99,104,97,114,32,99,111,110,115,116,42
+,32,95,83,116,114,105,110,103,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110
+,116,41,59,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32,115,105,122,101,95,116,32
+,115,116,114,110,108,101,110,95,115,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116
+,114,105,110,103,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110,116,41,59,10
+,99,104,97,114,42,32,115,116,114,112,98,114,107,40,99,104,97,114,32,99,111,110,115,116,42
+,32,95,83,116,114,44,32,99,104,97,114,32,99,111,110,115,116,42,32,95,67,111,110,116,114
+,111,108,41,59,10,115,105,122,101,95,116,32,115,116,114,115,112,110,40,99,104,97,114,32,99
+,111,110,115,116,42,32,95,83,116,114,44,32,99,104,97,114,32,99,111,110,115,116,42,32,95
+,67,111,110,116,114,111,108,41,59,10,99,104,97,114,42,32,115,116,114,116,111,107,40,99,104
+,97,114,42,32,95,83,116,114,105,110,103,44,32,99,104,97,114,32,99,111,110,115,116,42,32
+,95,68,101,108,105,109,105,116,101,114,41,59,10,10,35,105,102,32,100,101,102,105,110,101,100
+,40,95,95,67,65,75,69,95,95,41,10,99,104,97,114,42,32,95,79,119,110,101,114,32,95
+,79,112,116,32,115,116,114,100,117,112,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83
+,116,114,105,110,103,41,59,10,35,101,108,115,101,10,99,104,97,114,42,32,115,116,114,100,117
+,112,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,41,59,10,35
+,101,110,100,105,102,10,10,105,110,116,32,115,116,114,99,109,112,105,40,99,104,97,114,32,99
 ,111,110,115,116,42,32,95,83,116,114,105,110,103,49,44,32,99,104,97,114,32,99,111,110,115
-,116,42,32,95,83,116,114,105,110,103,50,44,32,115,105,122,101,95,116,32,95,77,97,120,67
-,111,117,110,116,41,59,10,99,104,97,114,42,32,115,116,114,110,115,101,116,40,99,104,97,114
-,42,32,95,83,116,114,105,110,103,44,32,105,110,116,32,95,86,97,108,117,101,44,32,115,105
-,122,101,95,116,32,95,77,97,120,67,111,117,110,116,41,59,10,99,104,97,114,42,32,115,116
-,114,114,101,118,40,99,104,97,114,42,32,95,83,116,114,105,110,103,41,59,10,99,104,97,114
-,42,32,115,116,114,115,101,116,40,99,104,97,114,42,32,95,83,116,114,105,110,103,44,32,105
-,110,116,32,95,86,97,108,117,101,41,59,32,99,104,97,114,42,32,115,116,114,117,112,114,40
-,99,104,97,114,42,32,95,83,116,114,105,110,103,41,59
+,116,42,32,95,83,116,114,105,110,103,50,41,59,10,105,110,116,32,115,116,114,105,99,109,112
+,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,49,44,32,99,104
+,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,50,41,59,10,99,104,97,114
+,42,32,115,116,114,108,119,114,40,99,104,97,114,42,32,95,83,116,114,105,110,103,41,59,10
+,105,110,116,32,115,116,114,110,105,99,109,112,40,99,104,97,114,32,99,111,110,115,116,42,32
+,95,83,116,114,105,110,103,49,44,32,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116
+,114,105,110,103,50,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110,116,41,59
+,10,99,104,97,114,42,32,115,116,114,110,115,101,116,40,99,104,97,114,42,32,95,83,116,114
+,105,110,103,44,32,105,110,116,32,95,86,97,108,117,101,44,32,115,105,122,101,95,116,32,95
+,77,97,120,67,111,117,110,116,41,59,10,99,104,97,114,42,32,115,116,114,114,101,118,40,99
+,104,97,114,42,32,95,83,116,114,105,110,103,41,59,10,99,104,97,114,42,32,115,116,114,115
+,101,116,40,99,104,97,114,42,32,95,83,116,114,105,110,103,44,32,105,110,116,32,95,86,97
+,108,117,101,41,59,32,99,104,97,114,42,32,115,116,114,117,112,114,40,99,104,97,114,42,32
+,95,83,116,114,105,110,103,41,59,10,35,101,108,115,101,10,10,99,104,97,114,42,32,95,79
+,119,110,101,114,32,95,79,112,116,32,115,116,114,100,117,112,40,99,111,110,115,116,32,99,104
+,97,114,42,32,115,114,99,41,59,10,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32
+,60,115,116,114,105,110,103,46,104,62,10,35,101,110,100,105,102,10,10
 , 0 };
 static const char file_tgmath_h[] = {
 
 
 
-35,101,114,114,111,114,10
+35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,35,101,114,114,111
+,114,10,35,101,108,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,116,103
+,109,97,116,104,46,104,62,10,35,101,110,100,105,102,10,10,10
 , 0 };
 static const char file_threads_h[] = {
 
 
 
-35,101,114,114,111,114,32,110,111,116,32,105,109,112,108,101,109,101,110,116,101,100,32,121,101
-,116,10
+35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,10,35,101,114,114
+,111,114,32,110,111,116,32,105,109,112,108,101,109,101,110,116,101,100,32,121,101,116,10,35,101
+,108,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,116,104,114,101,97,100
+,115,46,104,62,10,35,101,110,100,105,102,10,10
 , 0 };
 static const char file_time_h[] = {
 
 
 
-35,105,102,110,100,101,102,32,84,73,77,69,95,72,10,35,100,101,102,105,110,101,32,84,73
-,77,69,95,72,10,10,35,105,110,99,108,117,100,101,32,60,115,116,100,100,101,102,46,104,62
-,10,10,116,121,112,101,100,101,102,32,108,111,110,103,32,116,105,109,101,95,116,59,10,116,121
-,112,101,100,101,102,32,108,111,110,103,32,99,108,111,99,107,95,116,59,10,116,121,112,101,100
-,101,102,32,115,116,114,117,99,116,32,116,109,32,123,10,32,32,32,32,105,110,116,32,116,109
-,95,115,101,99,59,32,32,32,47,42,32,115,101,99,111,110,100,115,32,48,45,54,48,32,42
-,47,10,32,32,32,32,105,110,116,32,116,109,95,109,105,110,59,32,32,32,47,42,32,109,105
-,110,117,116,101,115,32,48,45,53,57,32,42,47,10,32,32,32,32,105,110,116,32,116,109,95
-,104,111,117,114,59,32,32,47,42,32,104,111,117,114,115,32,48,45,50,51,32,42,47,10,32
-,32,32,32,105,110,116,32,116,109,95,109,100,97,121,59,32,32,47,42,32,100,97,121,32,49
-,45,51,49,32,42,47,10,32,32,32,32,105,110,116,32,116,109,95,109,111,110,59,32,32,32
-,47,42,32,109,111,110,116,104,32,48,45,49,49,32,42,47,10,32,32,32,32,105,110,116,32
-,116,109,95,121,101,97,114,59,32,32,47,42,32,121,101,97,114,115,32,115,105,110,99,101,32
-,49,57,48,48,32,42,47,10,32,32,32,32,105,110,116,32,116,109,95,119,100,97,121,59,32
-,32,47,42,32,100,97,121,32,111,102,32,119,101,101,107,32,48,45,54,32,42,47,10,32,32
-,32,32,105,110,116,32,116,109,95,121,100,97,121,59,32,32,47,42,32,100,97,121,32,111,102
-,32,121,101,97,114,32,48,45,51,54,53,32,42,47,10,32,32,32,32,105,110,116,32,116,109
-,95,105,115,100,115,116,59,32,47,42,32,100,97,121,108,105,103,104,116,32,115,97,118,105,110
-,103,32,116,105,109,101,32,102,108,97,103,32,42,47,10,125,32,116,109,59,10,10,35,100,101
-,102,105,110,101,32,67,76,79,67,75,83,95,80,69,82,95,83,69,67,32,49,48,48,48,48
-,48,48,10,10,99,108,111,99,107,95,116,32,99,108,111,99,107,40,118,111,105,100,41,59,10
-,100,111,117,98,108,101,32,100,105,102,102,116,105,109,101,40,116,105,109,101,95,116,32,116,105
-,109,101,49,44,32,116,105,109,101,95,116,32,116,105,109,101,48,41,59,10,116,105,109,101,95
-,116,32,109,107,116,105,109,101,40,116,109,32,42,116,105,109,101,112,116,114,41,59,10,116,105
-,109,101,95,116,32,116,105,109,101,40,116,105,109,101,95,116,32,42,116,105,109,101,114,41,59
-,10,99,104,97,114,32,42,97,115,99,116,105,109,101,40,99,111,110,115,116,32,116,109,32,42
-,116,105,109,101,112,116,114,41,59,10,99,104,97,114,32,42,99,116,105,109,101,40,99,111,110
-,115,116,32,116,105,109,101,95,116,32,42,116,105,109,101,114,41,59,10,116,109,32,42,103,109
-,116,105,109,101,40,99,111,110,115,116,32,116,105,109,101,95,116,32,42,116,105,109,101,114,41
-,59,10,116,109,32,42,108,111,99,97,108,116,105,109,101,40,99,111,110,115,116,32,116,105,109
-,101,95,116,32,42,116,105,109,101,114,41,59,10,99,104,97,114,32,42,97,115,99,116,105,109
-,101,95,114,40,99,111,110,115,116,32,116,109,32,42,116,105,109,101,112,116,114,44,32,99,104
-,97,114,32,42,98,117,102,41,59,10,99,104,97,114,32,42,99,116,105,109,101,95,114,40,99
-,111,110,115,116,32,116,105,109,101,95,116,32,42,116,105,109,101,114,44,32,99,104,97,114,32
-,42,98,117,102,41,59,10,116,109,32,42,103,109,116,105,109,101,95,114,40,99,111,110,115,116
-,32,116,105,109,101,95,116,32,42,116,105,109,101,114,44,32,116,109,32,42,114,101,115,41,59
-,10,116,109,32,42,108,111,99,97,108,116,105,109,101,95,114,40,99,111,110,115,116,32,116,105
-,109,101,95,116,32,42,116,105,109,101,114,44,32,116,109,32,42,114,101,115,41,59,10,115,105
-,122,101,95,116,32,115,116,114,102,116,105,109,101,40,99,104,97,114,32,42,114,101,115,116,114
-,105,99,116,32,115,44,32,115,105,122,101,95,116,32,109,97,120,44,32,99,111,110,115,116,32
-,99,104,97,114,32,42,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,99,111
-,110,115,116,32,116,109,32,42,114,101,115,116,114,105,99,116,32,116,105,109,101,112,116,114,41
-,59,10,10,47,42,32,67,50,51,32,97,100,100,105,116,105,111,110,58,32,116,105,109,101,115
-,112,101,99,95,103,101,116,32,42,47,10,115,116,114,117,99,116,32,116,105,109,101,115,112,101
-,99,32,123,10,32,32,32,32,116,105,109,101,95,116,32,116,118,95,115,101,99,59,10,32,32
-,32,32,108,111,110,103,32,116,118,95,110,115,101,99,59,10,125,59,10,105,110,116,32,116,105
-,109,101,115,112,101,99,95,103,101,116,40,115,116,114,117,99,116,32,116,105,109,101,115,112,101
-,99,32,42,116,115,44,32,105,110,116,32,98,97,115,101,41,59,10,10,35,101,110,100,105,102
-,32,47,42,32,84,73,77,69,95,72,32,42,47,10
+35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,10,35,105,102,110
+,100,101,102,32,84,73,77,69,95,72,10,35,100,101,102,105,110,101,32,84,73,77,69,95,72
+,10,10,35,105,110,99,108,117,100,101,32,60,115,116,100,100,101,102,46,104,62,10,10,116,121
+,112,101,100,101,102,32,108,111,110,103,32,116,105,109,101,95,116,59,10,116,121,112,101,100,101
+,102,32,108,111,110,103,32,99,108,111,99,107,95,116,59,10,116,121,112,101,100,101,102,32,115
+,116,114,117,99,116,32,116,109,32,123,10,32,32,32,32,105,110,116,32,116,109,95,115,101,99
+,59,32,32,32,47,42,32,115,101,99,111,110,100,115,32,48,45,54,48,32,42,47,10,32,32
+,32,32,105,110,116,32,116,109,95,109,105,110,59,32,32,32,47,42,32,109,105,110,117,116,101
+,115,32,48,45,53,57,32,42,47,10,32,32,32,32,105,110,116,32,116,109,95,104,111,117,114
+,59,32,32,47,42,32,104,111,117,114,115,32,48,45,50,51,32,42,47,10,32,32,32,32,105
+,110,116,32,116,109,95,109,100,97,121,59,32,32,47,42,32,100,97,121,32,49,45,51,49,32
+,42,47,10,32,32,32,32,105,110,116,32,116,109,95,109,111,110,59,32,32,32,47,42,32,109
+,111,110,116,104,32,48,45,49,49,32,42,47,10,32,32,32,32,105,110,116,32,116,109,95,121
+,101,97,114,59,32,32,47,42,32,121,101,97,114,115,32,115,105,110,99,101,32,49,57,48,48
+,32,42,47,10,32,32,32,32,105,110,116,32,116,109,95,119,100,97,121,59,32,32,47,42,32
+,100,97,121,32,111,102,32,119,101,101,107,32,48,45,54,32,42,47,10,32,32,32,32,105,110
+,116,32,116,109,95,121,100,97,121,59,32,32,47,42,32,100,97,121,32,111,102,32,121,101,97
+,114,32,48,45,51,54,53,32,42,47,10,32,32,32,32,105,110,116,32,116,109,95,105,115,100
+,115,116,59,32,47,42,32,100,97,121,108,105,103,104,116,32,115,97,118,105,110,103,32,116,105
+,109,101,32,102,108,97,103,32,42,47,10,125,32,116,109,59,10,10,35,100,101,102,105,110,101
+,32,67,76,79,67,75,83,95,80,69,82,95,83,69,67,32,49,48,48,48,48,48,48,10,10
+,99,108,111,99,107,95,116,32,99,108,111,99,107,40,118,111,105,100,41,59,10,100,111,117,98
+,108,101,32,100,105,102,102,116,105,109,101,40,116,105,109,101,95,116,32,116,105,109,101,49,44
+,32,116,105,109,101,95,116,32,116,105,109,101,48,41,59,10,116,105,109,101,95,116,32,109,107
+,116,105,109,101,40,116,109,32,42,116,105,109,101,112,116,114,41,59,10,116,105,109,101,95,116
+,32,116,105,109,101,40,116,105,109,101,95,116,32,42,116,105,109,101,114,41,59,10,99,104,97
+,114,32,42,97,115,99,116,105,109,101,40,99,111,110,115,116,32,116,109,32,42,116,105,109,101
+,112,116,114,41,59,10,99,104,97,114,32,42,99,116,105,109,101,40,99,111,110,115,116,32,116
+,105,109,101,95,116,32,42,116,105,109,101,114,41,59,10,116,109,32,42,103,109,116,105,109,101
+,40,99,111,110,115,116,32,116,105,109,101,95,116,32,42,116,105,109,101,114,41,59,10,116,109
+,32,42,108,111,99,97,108,116,105,109,101,40,99,111,110,115,116,32,116,105,109,101,95,116,32
+,42,116,105,109,101,114,41,59,10,99,104,97,114,32,42,97,115,99,116,105,109,101,95,114,40
+,99,111,110,115,116,32,116,109,32,42,116,105,109,101,112,116,114,44,32,99,104,97,114,32,42
+,98,117,102,41,59,10,99,104,97,114,32,42,99,116,105,109,101,95,114,40,99,111,110,115,116
+,32,116,105,109,101,95,116,32,42,116,105,109,101,114,44,32,99,104,97,114,32,42,98,117,102
+,41,59,10,116,109,32,42,103,109,116,105,109,101,95,114,40,99,111,110,115,116,32,116,105,109
+,101,95,116,32,42,116,105,109,101,114,44,32,116,109,32,42,114,101,115,41,59,10,116,109,32
+,42,108,111,99,97,108,116,105,109,101,95,114,40,99,111,110,115,116,32,116,105,109,101,95,116
+,32,42,116,105,109,101,114,44,32,116,109,32,42,114,101,115,41,59,10,115,105,122,101,95,116
+,32,115,116,114,102,116,105,109,101,40,99,104,97,114,32,42,114,101,115,116,114,105,99,116,32
+,115,44,32,115,105,122,101,95,116,32,109,97,120,44,32,99,111,110,115,116,32,99,104,97,114
+,32,42,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,99,111,110,115,116,32
+,116,109,32,42,114,101,115,116,114,105,99,116,32,116,105,109,101,112,116,114,41,59,10,10,47
+,42,32,67,50,51,32,97,100,100,105,116,105,111,110,58,32,116,105,109,101,115,112,101,99,95
+,103,101,116,32,42,47,10,115,116,114,117,99,116,32,116,105,109,101,115,112,101,99,32,123,10
+,32,32,32,32,116,105,109,101,95,116,32,116,118,95,115,101,99,59,10,32,32,32,32,108,111
+,110,103,32,116,118,95,110,115,101,99,59,10,125,59,10,105,110,116,32,116,105,109,101,115,112
+,101,99,95,103,101,116,40,115,116,114,117,99,116,32,116,105,109,101,115,112,101,99,32,42,116
+,115,44,32,105,110,116,32,98,97,115,101,41,59,10,10,35,101,110,100,105,102,32,47,42,32
+,84,73,77,69,95,72,32,42,47,10,35,101,108,115,101,10,35,105,110,99,108,117,100,101,95
+,110,101,120,116,32,60,116,105,109,101,46,104,62,10,35,101,110,100,105,102,10,10
 , 0 };
 static const char file_uchar_h[] = {
 
 
 
-35,112,114,97,103,109,97,32,111,110,99,101,10,35,100,101,102,105,110,101,32,95,95,83,84
-,68,67,95,86,69,82,83,73,79,78,95,85,67,72,65,82,95,72,95,95,32,50,48,50,51
-,49,49,76,10,32,10,35,105,102,100,101,102,32,95,87,73,78,51,50,10,47,47,116,121,112
-,101,100,101,102,32,117,110,115,105,103,110,101,100,32,99,104,97,114,32,99,104,97,114,56,95
-,116,59,10,47,47,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,115,104,111
-,114,116,32,99,104,97,114,49,54,95,116,59,10,47,47,116,121,112,101,100,101,102,32,117,110
-,115,105,103,110,101,100,32,105,110,116,32,99,104,97,114,51,50,95,116,59,10,35,119,97,114
-,110,105,110,103,32,110,111,116,32,105,109,112,108,101,109,101,110,116,101,100,10,35,101,110,100
-,105,102,10,10,35,105,102,100,101,102,32,95,95,71,78,85,67,95,95,10,35,119,97,114,110
-,105,110,103,32,110,111,116,32,105,109,112,108,101,109,101,110,116,101,100,10,35,101,110,100,105
-,102,10,10,10,10
+35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,10,35,112,114,97
+,103,109,97,32,111,110,99,101,10,35,100,101,102,105,110,101,32,95,95,83,84,68,67,95,86
+,69,82,83,73,79,78,95,85,67,72,65,82,95,72,95,95,32,50,48,50,51,49,49,76,10
+,32,10,35,105,102,100,101,102,32,95,87,73,78,51,50,10,47,47,116,121,112,101,100,101,102
+,32,117,110,115,105,103,110,101,100,32,99,104,97,114,32,99,104,97,114,56,95,116,59,10,47
+,47,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,99
+,104,97,114,49,54,95,116,59,10,47,47,116,121,112,101,100,101,102,32,117,110,115,105,103,110
+,101,100,32,105,110,116,32,99,104,97,114,51,50,95,116,59,10,35,119,97,114,110,105,110,103
+,32,110,111,116,32,105,109,112,108,101,109,101,110,116,101,100,10,35,101,110,100,105,102,10,10
+,35,105,102,100,101,102,32,95,95,71,78,85,67,95,95,10,35,119,97,114,110,105,110,103,32
+,110,111,116,32,105,109,112,108,101,109,101,110,116,101,100,10,35,101,110,100,105,102,10,10,10
+,35,101,108,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,117,99,104,97
+,114,46,104,62,10,10,35,101,110,100,105,102
 , 0 };
 static const char file_wchar_h[] = {
 
@@ -17550,247 +17570,252 @@ static const char file_wchar_h[] = {
 47,42,10,32,42,32,32,84,104,105,115,32,102,105,108,101,32,105,115,32,112,97,114,116,32
 ,111,102,32,99,97,107,101,32,99,111,109,112,105,108,101,114,10,32,42,32,32,104,116,116,112
 ,115,58,47,47,103,105,116,104,117,98,46,99,111,109,47,116,104,114,97,100,97,109,115,47,99
-,97,107,101,10,42,47,10,10,35,112,114,97,103,109,97,32,111,110,99,101,10,10,35,100,101
-,102,105,110,101,32,87,67,72,65,82,95,77,73,78,32,48,120,48,48,48,48,10,35,100,101
-,102,105,110,101,32,87,67,72,65,82,95,77,65,88,32,48,120,102,102,102,102,10,10,116,121
-,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,115,105,122,101,95
-,116,59,10,116,121,112,101,100,101,102,32,105,110,116,32,119,99,104,97,114,95,116,59,10,10
-,116,121,112,101,100,101,102,32,115,116,114,117,99,116,10,123,10,32,32,32,32,105,110,116,32
-,95,95,99,111,117,110,116,59,10,32,32,32,32,117,110,105,111,110,10,32,32,32,32,123,10
-,32,32,32,32,32,32,32,32,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,119,99
-,104,59,10,32,32,32,32,32,32,32,32,99,104,97,114,32,95,95,119,99,104,98,91,52,93
-,59,10,32,32,32,32,125,32,95,95,118,97,108,117,101,59,10,125,32,95,95,109,98,115,116
-,97,116,101,95,116,59,10,10,116,121,112,101,100,101,102,32,95,95,109,98,115,116,97,116,101
-,95,116,32,109,98,115,116,97,116,101,95,116,59,10,115,116,114,117,99,116,32,95,73,79,95
-,70,73,76,69,59,10,116,121,112,101,100,101,102,32,115,116,114,117,99,116,32,95,73,79,95
-,70,73,76,69,32,95,95,70,73,76,69,59,10,115,116,114,117,99,116,32,95,73,79,95,70
-,73,76,69,59,10,116,121,112,101,100,101,102,32,115,116,114,117,99,116,32,95,73,79,95,70
-,73,76,69,32,70,73,76,69,59,10,115,116,114,117,99,116,32,95,95,108,111,99,97,108,101
-,95,115,116,114,117,99,116,10,123,10,10,32,32,32,32,115,116,114,117,99,116,32,95,95,108
-,111,99,97,108,101,95,100,97,116,97,42,32,95,95,108,111,99,97,108,101,115,91,49,51,93
-,59,10,10,32,32,32,32,99,111,110,115,116,32,117,110,115,105,103,110,101,100,32,115,104,111
-,114,116,32,105,110,116,42,32,95,95,99,116,121,112,101,95,98,59,10,32,32,32,32,99,111
-,110,115,116,32,105,110,116,42,32,95,95,99,116,121,112,101,95,116,111,108,111,119,101,114,59
-,10,32,32,32,32,99,111,110,115,116,32,105,110,116,42,32,95,95,99,116,121,112,101,95,116
-,111,117,112,112,101,114,59,10,10,32,32,32,32,99,111,110,115,116,32,99,104,97,114,42,32
-,95,95,110,97,109,101,115,91,49,51,93,59,10,125,59,10,10,116,121,112,101,100,101,102,32
-,115,116,114,117,99,116,32,95,95,108,111,99,97,108,101,95,115,116,114,117,99,116,42,32,95
-,95,108,111,99,97,108,101,95,116,59,10,10,116,121,112,101,100,101,102,32,95,95,108,111,99
-,97,108,101,95,116,32,108,111,99,97,108,101,95,116,59,10,10,115,116,114,117,99,116,32,116
-,109,59,10,10,101,120,116,101,114,110,32,119,99,104,97,114,95,116,42,32,119,99,115,99,112
-,121,40,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,100
-,101,115,116,44,10,32,32,32,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95
-,114,101,115,116,114,105,99,116,32,95,95,115,114,99,41,59,10,10,101,120,116,101,114,110,32
-,119,99,104,97,114,95,116,42,32,119,99,115,110,99,112,121,40,119,99,104,97,114,95,116,42
-,32,95,95,114,101,115,116,114,105,99,116,32,95,95,100,101,115,116,44,10,32,32,32,32,99
-,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32
-,95,95,115,114,99,44,32,115,105,122,101,95,116,32,95,95,110,41,59,10,10,101,120,116,101
-,114,110,32,119,99,104,97,114,95,116,42,32,119,99,115,99,97,116,40,119,99,104,97,114,95
-,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,100,101,115,116,44,10,32,32,32
-,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116
-,32,95,95,115,114,99,41,59,10,10,101,120,116,101,114,110,32,119,99,104,97,114,95,116,42
-,32,119,99,115,110,99,97,116,40,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114
-,105,99,116,32,95,95,100,101,115,116,44,10,32,32,32,32,99,111,110,115,116,32,119,99,104
-,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,115,114,99,44,32,115
-,105,122,101,95,116,32,95,95,110,41,59,10,10,101,120,116,101,114,110,32,105,110,116,32,119
-,99,115,99,109,112,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,49
-,44,32,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,50,41,59,10,10
-,101,120,116,101,114,110,32,105,110,116,32,119,99,115,110,99,109,112,40,99,111,110,115,116,32
-,119,99,104,97,114,95,116,42,32,95,95,115,49,44,32,99,111,110,115,116,32,119,99,104,97
-,114,95,116,42,32,95,95,115,50,44,32,115,105,122,101,95,116,32,95,95,110,41,59,10,10
-,101,120,116,101,114,110,32,105,110,116,32,119,99,115,99,97,115,101,99,109,112,40,99,111,110
-,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,49,44,32,99,111,110,115,116,32,119
-,99,104,97,114,95,116,42,32,95,95,115,50,41,59,10,10,101,120,116,101,114,110,32,105,110
-,116,32,119,99,115,110,99,97,115,101,99,109,112,40,99,111,110,115,116,32,119,99,104,97,114
-,95,116,42,32,95,95,115,49,44,32,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32
-,95,95,115,50,44,10,32,32,32,115,105,122,101,95,116,32,95,95,110,41,59,10,10,101,120
-,116,101,114,110,32,105,110,116,32,119,99,115,99,97,115,101,99,109,112,95,108,40,99,111,110
-,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,49,44,32,99,111,110,115,116,32,119
-,99,104,97,114,95,116,42,32,95,95,115,50,44,10,32,32,32,32,108,111,99,97,108,101,95
-,116,32,95,95,108,111,99,41,59,10,10,101,120,116,101,114,110,32,105,110,116,32,119,99,115
-,110,99,97,115,101,99,109,112,95,108,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42
-,32,95,95,115,49,44,32,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115
-,50,44,10,32,32,32,32,32,115,105,122,101,95,116,32,95,95,110,44,32,108,111,99,97,108
-,101,95,116,32,95,95,108,111,99,41,59,10,10,101,120,116,101,114,110,32,105,110,116,32,119
-,99,115,99,111,108,108,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115
-,49,44,32,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,50,41,59,10
-,10,101,120,116,101,114,110,32,115,105,122,101,95,116,32,119,99,115,120,102,114,109,40,119,99
-,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,115,49,44,10,32
-,32,32,32,32,32,32,32,32,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95
-,114,101,115,116,114,105,99,116,32,95,95,115,50,44,32,115,105,122,101,95,116,32,95,95,110
-,41,59,10,10,101,120,116,101,114,110,32,105,110,116,32,119,99,115,99,111,108,108,95,108,40
-,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,49,44,32,99,111,110,115
-,116,32,119,99,104,97,114,95,116,42,32,95,95,115,50,44,10,32,32,32,32,32,32,32,32
-,108,111,99,97,108,101,95,116,32,95,95,108,111,99,41,59,10,10,101,120,116,101,114,110,32
-,115,105,122,101,95,116,32,119,99,115,120,102,114,109,95,108,40,119,99,104,97,114,95,116,42
-,32,95,95,115,49,44,32,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115
-,50,44,10,32,32,32,32,115,105,122,101,95,116,32,95,95,110,44,32,108,111,99,97,108,101
-,95,116,32,95,95,108,111,99,41,59,10,10,101,120,116,101,114,110,32,119,99,104,97,114,95
-,116,42,32,119,99,115,100,117,112,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32
-,95,95,115,41,59,10,101,120,116,101,114,110,32,119,99,104,97,114,95,116,42,32,119,99,115
-,99,104,114,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,119,99,115,44
-,32,119,99,104,97,114,95,116,32,95,95,119,99,41,59,10,101,120,116,101,114,110,32,119,99
-,104,97,114,95,116,42,32,119,99,115,114,99,104,114,40,99,111,110,115,116,32,119,99,104,97
-,114,95,116,42,32,95,95,119,99,115,44,32,119,99,104,97,114,95,116,32,95,95,119,99,41
-,59,10,101,120,116,101,114,110,32,115,105,122,101,95,116,32,119,99,115,99,115,112,110,40,99
-,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,119,99,115,44,32,99,111,110,115
-,116,32,119,99,104,97,114,95,116,42,32,95,95,114,101,106,101,99,116,41,59,10,10,101,120
-,116,101,114,110,32,115,105,122,101,95,116,32,119,99,115,115,112,110,40,99,111,110,115,116,32
-,119,99,104,97,114,95,116,42,32,95,95,119,99,115,44,32,99,111,110,115,116,32,119,99,104
-,97,114,95,116,42,32,95,95,97,99,99,101,112,116,41,59,10,101,120,116,101,114,110,32,119
-,99,104,97,114,95,116,42,32,119,99,115,112,98,114,107,40,99,111,110,115,116,32,119,99,104
-,97,114,95,116,42,32,95,95,119,99,115,44,32,99,111,110,115,116,32,119,99,104,97,114,95
-,116,42,32,95,95,97,99,99,101,112,116,41,59,10,101,120,116,101,114,110,32,119,99,104,97
-,114,95,116,42,32,119,99,115,115,116,114,40,99,111,110,115,116,32,119,99,104,97,114,95,116
-,42,32,95,95,104,97,121,115,116,97,99,107,44,32,99,111,110,115,116,32,119,99,104,97,114
-,95,116,42,32,95,95,110,101,101,100,108,101,41,59,10,10,101,120,116,101,114,110,32,119,99
-,104,97,114,95,116,42,32,119,99,115,116,111,107,40,119,99,104,97,114,95,116,42,32,95,95
-,114,101,115,116,114,105,99,116,32,95,95,115,44,10,32,32,32,99,111,110,115,116,32,119,99
-,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,100,101,108,105,109
-,44,10,32,32,32,119,99,104,97,114,95,116,42,42,32,95,95,114,101,115,116,114,105,99,116
-,32,95,95,112,116,114,41,59,10,10,101,120,116,101,114,110,32,115,105,122,101,95,116,32,119
-,99,115,108,101,110,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,41
-,59,10,101,120,116,101,114,110,32,115,105,122,101,95,116,32,119,99,115,110,108,101,110,40,99
-,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,44,32,115,105,122,101,95,116
-,32,95,95,109,97,120,108,101,110,41,59,10,101,120,116,101,114,110,32,119,99,104,97,114,95
-,116,42,32,119,109,101,109,99,104,114,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42
-,32,95,95,115,44,32,119,99,104,97,114,95,116,32,95,95,99,44,32,115,105,122,101,95,116
-,32,95,95,110,41,59,10,10,101,120,116,101,114,110,32,105,110,116,32,119,109,101,109,99,109
+,97,107,101,10,42,47,10,10,35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69
+,82,83,10,10,35,112,114,97,103,109,97,32,111,110,99,101,10,10,35,100,101,102,105,110,101
+,32,87,67,72,65,82,95,77,73,78,32,48,120,48,48,48,48,10,35,100,101,102,105,110,101
+,32,87,67,72,65,82,95,77,65,88,32,48,120,102,102,102,102,10,10,116,121,112,101,100,101
+,102,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,115,105,122,101,95,116,59,10,116
+,121,112,101,100,101,102,32,105,110,116,32,119,99,104,97,114,95,116,59,10,10,116,121,112,101
+,100,101,102,32,115,116,114,117,99,116,10,123,10,32,32,32,32,105,110,116,32,95,95,99,111
+,117,110,116,59,10,32,32,32,32,117,110,105,111,110,10,32,32,32,32,123,10,32,32,32,32
+,32,32,32,32,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,119,99,104,59,10,32
+,32,32,32,32,32,32,32,99,104,97,114,32,95,95,119,99,104,98,91,52,93,59,10,32,32
+,32,32,125,32,95,95,118,97,108,117,101,59,10,125,32,95,95,109,98,115,116,97,116,101,95
+,116,59,10,10,116,121,112,101,100,101,102,32,95,95,109,98,115,116,97,116,101,95,116,32,109
+,98,115,116,97,116,101,95,116,59,10,115,116,114,117,99,116,32,95,73,79,95,70,73,76,69
+,59,10,116,121,112,101,100,101,102,32,115,116,114,117,99,116,32,95,73,79,95,70,73,76,69
+,32,95,95,70,73,76,69,59,10,115,116,114,117,99,116,32,95,73,79,95,70,73,76,69,59
+,10,116,121,112,101,100,101,102,32,115,116,114,117,99,116,32,95,73,79,95,70,73,76,69,32
+,70,73,76,69,59,10,115,116,114,117,99,116,32,95,95,108,111,99,97,108,101,95,115,116,114
+,117,99,116,10,123,10,10,32,32,32,32,115,116,114,117,99,116,32,95,95,108,111,99,97,108
+,101,95,100,97,116,97,42,32,95,95,108,111,99,97,108,101,115,91,49,51,93,59,10,10,32
+,32,32,32,99,111,110,115,116,32,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,105
+,110,116,42,32,95,95,99,116,121,112,101,95,98,59,10,32,32,32,32,99,111,110,115,116,32
+,105,110,116,42,32,95,95,99,116,121,112,101,95,116,111,108,111,119,101,114,59,10,32,32,32
+,32,99,111,110,115,116,32,105,110,116,42,32,95,95,99,116,121,112,101,95,116,111,117,112,112
+,101,114,59,10,10,32,32,32,32,99,111,110,115,116,32,99,104,97,114,42,32,95,95,110,97
+,109,101,115,91,49,51,93,59,10,125,59,10,10,116,121,112,101,100,101,102,32,115,116,114,117
+,99,116,32,95,95,108,111,99,97,108,101,95,115,116,114,117,99,116,42,32,95,95,108,111,99
+,97,108,101,95,116,59,10,10,116,121,112,101,100,101,102,32,95,95,108,111,99,97,108,101,95
+,116,32,108,111,99,97,108,101,95,116,59,10,10,115,116,114,117,99,116,32,116,109,59,10,10
+,101,120,116,101,114,110,32,119,99,104,97,114,95,116,42,32,119,99,115,99,112,121,40,119,99
+,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,100,101,115,116,44
+,10,32,32,32,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116
+,114,105,99,116,32,95,95,115,114,99,41,59,10,10,101,120,116,101,114,110,32,119,99,104,97
+,114,95,116,42,32,119,99,115,110,99,112,121,40,119,99,104,97,114,95,116,42,32,95,95,114
+,101,115,116,114,105,99,116,32,95,95,100,101,115,116,44,10,32,32,32,32,99,111,110,115,116
+,32,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,115,114
+,99,44,32,115,105,122,101,95,116,32,95,95,110,41,59,10,10,101,120,116,101,114,110,32,119
+,99,104,97,114,95,116,42,32,119,99,115,99,97,116,40,119,99,104,97,114,95,116,42,32,95
+,95,114,101,115,116,114,105,99,116,32,95,95,100,101,115,116,44,10,32,32,32,99,111,110,115
+,116,32,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,115
+,114,99,41,59,10,10,101,120,116,101,114,110,32,119,99,104,97,114,95,116,42,32,119,99,115
+,110,99,97,116,40,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32
+,95,95,100,101,115,116,44,10,32,32,32,32,99,111,110,115,116,32,119,99,104,97,114,95,116
+,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,115,114,99,44,32,115,105,122,101,95
+,116,32,95,95,110,41,59,10,10,101,120,116,101,114,110,32,105,110,116,32,119,99,115,99,109
 ,112,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,49,44,32,99,111
-,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,50,44,32,115,105,122,101,95,116
-,32,95,95,110,41,59,10,10,101,120,116,101,114,110,32,119,99,104,97,114,95,116,42,32,119
-,109,101,109,99,112,121,40,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99
-,116,32,95,95,115,49,44,10,32,32,32,32,99,111,110,115,116,32,119,99,104,97,114,95,116
-,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,115,50,44,32,115,105,122,101,95,116
-,32,95,95,110,41,59,10,10,101,120,116,101,114,110,32,119,99,104,97,114,95,116,42,32,119
-,109,101,109,109,111,118,101,40,119,99,104,97,114,95,116,42,32,95,95,115,49,44,32,99,111
-,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,50,44,32,115,105,122,101,95,116
-,32,95,95,110,41,59,10,10,101,120,116,101,114,110,32,119,99,104,97,114,95,116,42,32,119
-,109,101,109,115,101,116,40,119,99,104,97,114,95,116,42,32,95,95,115,44,32,119,99,104,97
-,114,95,116,32,95,95,99,44,32,115,105,122,101,95,116,32,95,95,110,41,59,10,101,120,116
-,101,114,110,32,119,105,110,116,95,116,32,98,116,111,119,99,40,105,110,116,32,95,95,99,41
-,59,10,10,101,120,116,101,114,110,32,105,110,116,32,119,99,116,111,98,40,119,105,110,116,95
-,116,32,95,95,99,41,59,10,10,101,120,116,101,114,110,32,105,110,116,32,109,98,115,105,110
-,105,116,40,99,111,110,115,116,32,109,98,115,116,97,116,101,95,116,42,32,95,95,112,115,41
-,59,10,10,101,120,116,101,114,110,32,115,105,122,101,95,116,32,109,98,114,116,111,119,99,40
-,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,112,119,99
-,44,10,32,32,32,32,32,32,32,32,32,99,111,110,115,116,32,99,104,97,114,42,32,95,95
-,114,101,115,116,114,105,99,116,32,95,95,115,44,32,115,105,122,101,95,116,32,95,95,110,44
-,10,32,32,32,32,32,32,32,32,32,109,98,115,116,97,116,101,95,116,42,32,95,95,114,101
-,115,116,114,105,99,116,32,95,95,112,41,59,10,10,101,120,116,101,114,110,32,115,105,122,101
-,95,116,32,119,99,114,116,111,109,98,40,99,104,97,114,42,32,95,95,114,101,115,116,114,105
-,99,116,32,95,95,115,44,32,119,99,104,97,114,95,116,32,95,95,119,99,44,10,32,32,32
-,32,32,32,32,32,32,109,98,115,116,97,116,101,95,116,42,32,95,95,114,101,115,116,114,105
-,99,116,32,95,95,112,115,41,59,10,10,101,120,116,101,114,110,32,115,105,122,101,95,116,32
-,95,95,109,98,114,108,101,110,40,99,111,110,115,116,32,99,104,97,114,42,32,95,95,114,101
-,115,116,114,105,99,116,32,95,95,115,44,32,115,105,122,101,95,116,32,95,95,110,44,10,32
-,32,32,109,98,115,116,97,116,101,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95
-,95,112,115,41,59,10,101,120,116,101,114,110,32,115,105,122,101,95,116,32,109,98,114,108,101
-,110,40,99,111,110,115,116,32,99,104,97,114,42,32,95,95,114,101,115,116,114,105,99,116,32
-,95,95,115,44,32,115,105,122,101,95,116,32,95,95,110,44,10,32,32,32,32,32,32,32,32
-,109,98,115,116,97,116,101,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,112
-,115,41,59,10,101,120,116,101,114,110,32,115,105,122,101,95,116,32,109,98,115,114,116,111,119
-,99,115,40,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95
-,100,115,116,44,10,32,32,32,32,99,111,110,115,116,32,99,104,97,114,42,42,32,95,95,114
-,101,115,116,114,105,99,116,32,95,95,115,114,99,44,32,115,105,122,101,95,116,32,95,95,108
-,101,110,44,10,32,32,32,32,109,98,115,116,97,116,101,95,116,42,32,95,95,114,101,115,116
-,114,105,99,116,32,95,95,112,115,41,59,10,10,101,120,116,101,114,110,32,115,105,122,101,95
-,116,32,119,99,115,114,116,111,109,98,115,40,99,104,97,114,42,32,95,95,114,101,115,116,114
-,105,99,116,32,95,95,100,115,116,44,10,32,32,32,32,99,111,110,115,116,32,119,99,104,97
-,114,95,116,42,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,115,114,99,44,32,115
-,105,122,101,95,116,32,95,95,108,101,110,44,10,32,32,32,32,109,98,115,116,97,116,101,95
-,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,112,115,41,59,10,10,101,120,116
-,101,114,110,32,115,105,122,101,95,116,32,109,98,115,110,114,116,111,119,99,115,40,119,99,104
-,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,100,115,116,44,10,32
-,32,32,32,32,99,111,110,115,116,32,99,104,97,114,42,42,32,95,95,114,101,115,116,114,105
-,99,116,32,95,95,115,114,99,44,32,115,105,122,101,95,116,32,95,95,110,109,99,44,10,32
-,32,32,32,32,115,105,122,101,95,116,32,95,95,108,101,110,44,32,109,98,115,116,97,116,101
-,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,112,115,41,59,10,10,101,120
-,116,101,114,110,32,115,105,122,101,95,116,32,119,99,115,110,114,116,111,109,98,115,40,99,104
-,97,114,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,100,115,116,44,10,32,32,32
-,32,32,99,111,110,115,116,32,119,99,104,97,114,95,116,42,42,32,95,95,114,101,115,116,114
-,105,99,116,32,95,95,115,114,99,44,10,32,32,32,32,32,115,105,122,101,95,116,32,95,95
-,110,119,99,44,32,115,105,122,101,95,116,32,95,95,108,101,110,44,10,32,32,32,32,32,109
-,98,115,116,97,116,101,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,112,115
-,41,59,10,101,120,116,101,114,110,32,100,111,117,98,108,101,32,119,99,115,116,111,100,40,99
-,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32
-,95,95,110,112,116,114,44,10,32,32,32,32,32,32,32,32,119,99,104,97,114,95,116,42,42
-,32,95,95,114,101,115,116,114,105,99,116,32,95,95,101,110,100,112,116,114,41,59,10,10,101
-,120,116,101,114,110,32,102,108,111,97,116,32,119,99,115,116,111,102,40,99,111,110,115,116,32
-,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,110,112,116
-,114,44,10,32,32,32,32,32,32,32,119,99,104,97,114,95,116,42,42,32,95,95,114,101,115
-,116,114,105,99,116,32,95,95,101,110,100,112,116,114,41,59,10,101,120,116,101,114,110,32,108
-,111,110,103,32,100,111,117,98,108,101,32,119,99,115,116,111,108,100,40,99,111,110,115,116,32
-,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,110,112,116
-,114,44,10,32,32,32,32,32,32,32,119,99,104,97,114,95,116,42,42,32,95,95,114,101,115
-,116,114,105,99,116,32,95,95,101,110,100,112,116,114,41,59,10,101,120,116,101,114,110,32,108
-,111,110,103,32,105,110,116,32,119,99,115,116,111,108,40,99,111,110,115,116,32,119,99,104,97
-,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,110,112,116,114,44,10,32
-,32,32,119,99,104,97,114,95,116,42,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95
-,101,110,100,112,116,114,44,32,105,110,116,32,95,95,98,97,115,101,41,59,10,10,101,120,116
-,101,114,110,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,105,110,116,32,119,99,115
-,116,111,117,108,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,114,101,115
-,116,114,105,99,116,32,95,95,110,112,116,114,44,10,32,32,32,32,32,32,119,99,104,97,114
-,95,116,42,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,101,110,100,112,116,114,44
-,32,105,110,116,32,95,95,98,97,115,101,41,59,10,10,101,120,116,101,114,110,32,108,111,110
-,103,32,108,111,110,103,32,105,110,116,32,119,99,115,116,111,108,108,40,99,111,110,115,116,32
-,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,110,112,116
-,114,44,10,32,32,32,32,32,32,32,32,32,119,99,104,97,114,95,116,42,42,32,95,95,114
-,101,115,116,114,105,99,116,32,95,95,101,110,100,112,116,114,44,32,105,110,116,32,95,95,98
-,97,115,101,41,59,10,10,101,120,116,101,114,110,32,117,110,115,105,103,110,101,100,32,108,111
-,110,103,32,108,111,110,103,32,105,110,116,32,119,99,115,116,111,117,108,108,40,99,111,110,115
-,116,32,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,110
-,112,116,114,44,10,32,32,32,32,32,119,99,104,97,114,95,116,42,42,32,95,95,114,101,115
-,116,114,105,99,116,32,95,95,101,110,100,112,116,114,44,10,32,32,32,32,32,105,110,116,32
-,95,95,98,97,115,101,41,59,10,101,120,116,101,114,110,32,119,99,104,97,114,95,116,42,32
-,119,99,112,99,112,121,40,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99
-,116,32,95,95,100,101,115,116,44,10,32,32,32,99,111,110,115,116,32,119,99,104,97,114,95
-,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,115,114,99,41,59,10,10,101,120
-,116,101,114,110,32,119,99,104,97,114,95,116,42,32,119,99,112,110,99,112,121,40,119,99,104
-,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,100,101,115,116,44,10
+,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,50,41,59,10,10,101,120,116,101
+,114,110,32,105,110,116,32,119,99,115,110,99,109,112,40,99,111,110,115,116,32,119,99,104,97
+,114,95,116,42,32,95,95,115,49,44,32,99,111,110,115,116,32,119,99,104,97,114,95,116,42
+,32,95,95,115,50,44,32,115,105,122,101,95,116,32,95,95,110,41,59,10,10,101,120,116,101
+,114,110,32,105,110,116,32,119,99,115,99,97,115,101,99,109,112,40,99,111,110,115,116,32,119
+,99,104,97,114,95,116,42,32,95,95,115,49,44,32,99,111,110,115,116,32,119,99,104,97,114
+,95,116,42,32,95,95,115,50,41,59,10,10,101,120,116,101,114,110,32,105,110,116,32,119,99
+,115,110,99,97,115,101,99,109,112,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32
+,95,95,115,49,44,32,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,50
+,44,10,32,32,32,115,105,122,101,95,116,32,95,95,110,41,59,10,10,101,120,116,101,114,110
+,32,105,110,116,32,119,99,115,99,97,115,101,99,109,112,95,108,40,99,111,110,115,116,32,119
+,99,104,97,114,95,116,42,32,95,95,115,49,44,32,99,111,110,115,116,32,119,99,104,97,114
+,95,116,42,32,95,95,115,50,44,10,32,32,32,32,108,111,99,97,108,101,95,116,32,95,95
+,108,111,99,41,59,10,10,101,120,116,101,114,110,32,105,110,116,32,119,99,115,110,99,97,115
+,101,99,109,112,95,108,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115
+,49,44,32,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,50,44,10,32
+,32,32,32,32,115,105,122,101,95,116,32,95,95,110,44,32,108,111,99,97,108,101,95,116,32
+,95,95,108,111,99,41,59,10,10,101,120,116,101,114,110,32,105,110,116,32,119,99,115,99,111
+,108,108,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,49,44,32,99
+,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,50,41,59,10,10,101,120,116
+,101,114,110,32,115,105,122,101,95,116,32,119,99,115,120,102,114,109,40,119,99,104,97,114,95
+,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,115,49,44,10,32,32,32,32,32
 ,32,32,32,32,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116
-,114,105,99,116,32,95,95,115,114,99,44,32,115,105,122,101,95,116,32,95,95,110,41,59,10
-,101,120,116,101,114,110,32,95,95,70,73,76,69,42,32,111,112,101,110,95,119,109,101,109,115
-,116,114,101,97,109,40,119,99,104,97,114,95,116,42,42,32,95,95,98,117,102,108,111,99,44
-,32,115,105,122,101,95,116,42,32,95,95,115,105,122,101,108,111,99,41,59,10,10,101,120,116
-,101,114,110,32,105,110,116,32,102,119,105,100,101,40,95,95,70,73,76,69,42,32,95,95,102
-,112,44,32,105,110,116,32,95,95,109,111,100,101,41,59,10,10,101,120,116,101,114,110,32,105
-,110,116,32,102,119,112,114,105,110,116,102,40,95,95,70,73,76,69,42,32,95,95,114,101,115
-,116,114,105,99,116,32,95,95,115,116,114,101,97,109,44,10,32,32,32,32,32,32,32,99,111
-,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95
-,95,102,111,114,109,97,116,44,32,46,46,46,41,59,10,101,120,116,101,114,110,32,105,110,116
-,32,119,112,114,105,110,116,102,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95
-,95,114,101,115,116,114,105,99,116,32,95,95,102,111,114,109,97,116,44,32,46,46,46,41,59
-,10,10,101,120,116,101,114,110,32,105,110,116,32,115,119,112,114,105,110,116,102,40,119,99,104
-,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,115,44,32,115,105,122
-,101,95,116,32,95,95,110,44,10,32,32,32,32,32,32,32,99,111,110,115,116,32,119,99,104
-,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,102,111,114,109,97,116
-,44,32,46,46,46,41,59,10,10,10
+,114,105,99,116,32,95,95,115,50,44,32,115,105,122,101,95,116,32,95,95,110,41,59,10,10
+,101,120,116,101,114,110,32,105,110,116,32,119,99,115,99,111,108,108,95,108,40,99,111,110,115
+,116,32,119,99,104,97,114,95,116,42,32,95,95,115,49,44,32,99,111,110,115,116,32,119,99
+,104,97,114,95,116,42,32,95,95,115,50,44,10,32,32,32,32,32,32,32,32,108,111,99,97
+,108,101,95,116,32,95,95,108,111,99,41,59,10,10,101,120,116,101,114,110,32,115,105,122,101
+,95,116,32,119,99,115,120,102,114,109,95,108,40,119,99,104,97,114,95,116,42,32,95,95,115
+,49,44,32,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,50,44,10,32
+,32,32,32,115,105,122,101,95,116,32,95,95,110,44,32,108,111,99,97,108,101,95,116,32,95
+,95,108,111,99,41,59,10,10,101,120,116,101,114,110,32,119,99,104,97,114,95,116,42,32,119
+,99,115,100,117,112,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,41
+,59,10,101,120,116,101,114,110,32,119,99,104,97,114,95,116,42,32,119,99,115,99,104,114,40
+,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,119,99,115,44,32,119,99,104
+,97,114,95,116,32,95,95,119,99,41,59,10,101,120,116,101,114,110,32,119,99,104,97,114,95
+,116,42,32,119,99,115,114,99,104,114,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42
+,32,95,95,119,99,115,44,32,119,99,104,97,114,95,116,32,95,95,119,99,41,59,10,101,120
+,116,101,114,110,32,115,105,122,101,95,116,32,119,99,115,99,115,112,110,40,99,111,110,115,116
+,32,119,99,104,97,114,95,116,42,32,95,95,119,99,115,44,32,99,111,110,115,116,32,119,99
+,104,97,114,95,116,42,32,95,95,114,101,106,101,99,116,41,59,10,10,101,120,116,101,114,110
+,32,115,105,122,101,95,116,32,119,99,115,115,112,110,40,99,111,110,115,116,32,119,99,104,97
+,114,95,116,42,32,95,95,119,99,115,44,32,99,111,110,115,116,32,119,99,104,97,114,95,116
+,42,32,95,95,97,99,99,101,112,116,41,59,10,101,120,116,101,114,110,32,119,99,104,97,114
+,95,116,42,32,119,99,115,112,98,114,107,40,99,111,110,115,116,32,119,99,104,97,114,95,116
+,42,32,95,95,119,99,115,44,32,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95
+,95,97,99,99,101,112,116,41,59,10,101,120,116,101,114,110,32,119,99,104,97,114,95,116,42
+,32,119,99,115,115,116,114,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95
+,104,97,121,115,116,97,99,107,44,32,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32
+,95,95,110,101,101,100,108,101,41,59,10,10,101,120,116,101,114,110,32,119,99,104,97,114,95
+,116,42,32,119,99,115,116,111,107,40,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116
+,114,105,99,116,32,95,95,115,44,10,32,32,32,99,111,110,115,116,32,119,99,104,97,114,95
+,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,100,101,108,105,109,44,10,32,32
+,32,119,99,104,97,114,95,116,42,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,112
+,116,114,41,59,10,10,101,120,116,101,114,110,32,115,105,122,101,95,116,32,119,99,115,108,101
+,110,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,41,59,10,101,120
+,116,101,114,110,32,115,105,122,101,95,116,32,119,99,115,110,108,101,110,40,99,111,110,115,116
+,32,119,99,104,97,114,95,116,42,32,95,95,115,44,32,115,105,122,101,95,116,32,95,95,109
+,97,120,108,101,110,41,59,10,101,120,116,101,114,110,32,119,99,104,97,114,95,116,42,32,119
+,109,101,109,99,104,114,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115
+,44,32,119,99,104,97,114,95,116,32,95,95,99,44,32,115,105,122,101,95,116,32,95,95,110
+,41,59,10,10,101,120,116,101,114,110,32,105,110,116,32,119,109,101,109,99,109,112,40,99,111
+,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,115,49,44,32,99,111,110,115,116,32
+,119,99,104,97,114,95,116,42,32,95,95,115,50,44,32,115,105,122,101,95,116,32,95,95,110
+,41,59,10,10,101,120,116,101,114,110,32,119,99,104,97,114,95,116,42,32,119,109,101,109,99
+,112,121,40,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95
+,115,49,44,10,32,32,32,32,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95
+,114,101,115,116,114,105,99,116,32,95,95,115,50,44,32,115,105,122,101,95,116,32,95,95,110
+,41,59,10,10,101,120,116,101,114,110,32,119,99,104,97,114,95,116,42,32,119,109,101,109,109
+,111,118,101,40,119,99,104,97,114,95,116,42,32,95,95,115,49,44,32,99,111,110,115,116,32
+,119,99,104,97,114,95,116,42,32,95,95,115,50,44,32,115,105,122,101,95,116,32,95,95,110
+,41,59,10,10,101,120,116,101,114,110,32,119,99,104,97,114,95,116,42,32,119,109,101,109,115
+,101,116,40,119,99,104,97,114,95,116,42,32,95,95,115,44,32,119,99,104,97,114,95,116,32
+,95,95,99,44,32,115,105,122,101,95,116,32,95,95,110,41,59,10,101,120,116,101,114,110,32
+,119,105,110,116,95,116,32,98,116,111,119,99,40,105,110,116,32,95,95,99,41,59,10,10,101
+,120,116,101,114,110,32,105,110,116,32,119,99,116,111,98,40,119,105,110,116,95,116,32,95,95
+,99,41,59,10,10,101,120,116,101,114,110,32,105,110,116,32,109,98,115,105,110,105,116,40,99
+,111,110,115,116,32,109,98,115,116,97,116,101,95,116,42,32,95,95,112,115,41,59,10,10,101
+,120,116,101,114,110,32,115,105,122,101,95,116,32,109,98,114,116,111,119,99,40,119,99,104,97
+,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,112,119,99,44,10,32,32
+,32,32,32,32,32,32,32,99,111,110,115,116,32,99,104,97,114,42,32,95,95,114,101,115,116
+,114,105,99,116,32,95,95,115,44,32,115,105,122,101,95,116,32,95,95,110,44,10,32,32,32
+,32,32,32,32,32,32,109,98,115,116,97,116,101,95,116,42,32,95,95,114,101,115,116,114,105
+,99,116,32,95,95,112,41,59,10,10,101,120,116,101,114,110,32,115,105,122,101,95,116,32,119
+,99,114,116,111,109,98,40,99,104,97,114,42,32,95,95,114,101,115,116,114,105,99,116,32,95
+,95,115,44,32,119,99,104,97,114,95,116,32,95,95,119,99,44,10,32,32,32,32,32,32,32
+,32,32,109,98,115,116,97,116,101,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95
+,95,112,115,41,59,10,10,101,120,116,101,114,110,32,115,105,122,101,95,116,32,95,95,109,98
+,114,108,101,110,40,99,111,110,115,116,32,99,104,97,114,42,32,95,95,114,101,115,116,114,105
+,99,116,32,95,95,115,44,32,115,105,122,101,95,116,32,95,95,110,44,10,32,32,32,109,98
+,115,116,97,116,101,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,112,115,41
+,59,10,101,120,116,101,114,110,32,115,105,122,101,95,116,32,109,98,114,108,101,110,40,99,111
+,110,115,116,32,99,104,97,114,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,115,44
+,32,115,105,122,101,95,116,32,95,95,110,44,10,32,32,32,32,32,32,32,32,109,98,115,116
+,97,116,101,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,112,115,41,59,10
+,101,120,116,101,114,110,32,115,105,122,101,95,116,32,109,98,115,114,116,111,119,99,115,40,119
+,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,100,115,116,44
+,10,32,32,32,32,99,111,110,115,116,32,99,104,97,114,42,42,32,95,95,114,101,115,116,114
+,105,99,116,32,95,95,115,114,99,44,32,115,105,122,101,95,116,32,95,95,108,101,110,44,10
+,32,32,32,32,109,98,115,116,97,116,101,95,116,42,32,95,95,114,101,115,116,114,105,99,116
+,32,95,95,112,115,41,59,10,10,101,120,116,101,114,110,32,115,105,122,101,95,116,32,119,99
+,115,114,116,111,109,98,115,40,99,104,97,114,42,32,95,95,114,101,115,116,114,105,99,116,32
+,95,95,100,115,116,44,10,32,32,32,32,99,111,110,115,116,32,119,99,104,97,114,95,116,42
+,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,115,114,99,44,32,115,105,122,101,95
+,116,32,95,95,108,101,110,44,10,32,32,32,32,109,98,115,116,97,116,101,95,116,42,32,95
+,95,114,101,115,116,114,105,99,116,32,95,95,112,115,41,59,10,10,101,120,116,101,114,110,32
+,115,105,122,101,95,116,32,109,98,115,110,114,116,111,119,99,115,40,119,99,104,97,114,95,116
+,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,100,115,116,44,10,32,32,32,32,32
+,99,111,110,115,116,32,99,104,97,114,42,42,32,95,95,114,101,115,116,114,105,99,116,32,95
+,95,115,114,99,44,32,115,105,122,101,95,116,32,95,95,110,109,99,44,10,32,32,32,32,32
+,115,105,122,101,95,116,32,95,95,108,101,110,44,32,109,98,115,116,97,116,101,95,116,42,32
+,95,95,114,101,115,116,114,105,99,116,32,95,95,112,115,41,59,10,10,101,120,116,101,114,110
+,32,115,105,122,101,95,116,32,119,99,115,110,114,116,111,109,98,115,40,99,104,97,114,42,32
+,95,95,114,101,115,116,114,105,99,116,32,95,95,100,115,116,44,10,32,32,32,32,32,99,111
+,110,115,116,32,119,99,104,97,114,95,116,42,42,32,95,95,114,101,115,116,114,105,99,116,32
+,95,95,115,114,99,44,10,32,32,32,32,32,115,105,122,101,95,116,32,95,95,110,119,99,44
+,32,115,105,122,101,95,116,32,95,95,108,101,110,44,10,32,32,32,32,32,109,98,115,116,97
+,116,101,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,112,115,41,59,10,101
+,120,116,101,114,110,32,100,111,117,98,108,101,32,119,99,115,116,111,100,40,99,111,110,115,116
+,32,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,110,112
+,116,114,44,10,32,32,32,32,32,32,32,32,119,99,104,97,114,95,116,42,42,32,95,95,114
+,101,115,116,114,105,99,116,32,95,95,101,110,100,112,116,114,41,59,10,10,101,120,116,101,114
+,110,32,102,108,111,97,116,32,119,99,115,116,111,102,40,99,111,110,115,116,32,119,99,104,97
+,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,110,112,116,114,44,10,32
+,32,32,32,32,32,32,119,99,104,97,114,95,116,42,42,32,95,95,114,101,115,116,114,105,99
+,116,32,95,95,101,110,100,112,116,114,41,59,10,101,120,116,101,114,110,32,108,111,110,103,32
+,100,111,117,98,108,101,32,119,99,115,116,111,108,100,40,99,111,110,115,116,32,119,99,104,97
+,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,110,112,116,114,44,10,32
+,32,32,32,32,32,32,119,99,104,97,114,95,116,42,42,32,95,95,114,101,115,116,114,105,99
+,116,32,95,95,101,110,100,112,116,114,41,59,10,101,120,116,101,114,110,32,108,111,110,103,32
+,105,110,116,32,119,99,115,116,111,108,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42
+,32,95,95,114,101,115,116,114,105,99,116,32,95,95,110,112,116,114,44,10,32,32,32,119,99
+,104,97,114,95,116,42,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,101,110,100,112
+,116,114,44,32,105,110,116,32,95,95,98,97,115,101,41,59,10,10,101,120,116,101,114,110,32
+,117,110,115,105,103,110,101,100,32,108,111,110,103,32,105,110,116,32,119,99,115,116,111,117,108
+,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99
+,116,32,95,95,110,112,116,114,44,10,32,32,32,32,32,32,119,99,104,97,114,95,116,42,42
+,32,95,95,114,101,115,116,114,105,99,116,32,95,95,101,110,100,112,116,114,44,32,105,110,116
+,32,95,95,98,97,115,101,41,59,10,10,101,120,116,101,114,110,32,108,111,110,103,32,108,111
+,110,103,32,105,110,116,32,119,99,115,116,111,108,108,40,99,111,110,115,116,32,119,99,104,97
+,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,110,112,116,114,44,10,32
+,32,32,32,32,32,32,32,32,119,99,104,97,114,95,116,42,42,32,95,95,114,101,115,116,114
+,105,99,116,32,95,95,101,110,100,112,116,114,44,32,105,110,116,32,95,95,98,97,115,101,41
+,59,10,10,101,120,116,101,114,110,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108
+,111,110,103,32,105,110,116,32,119,99,115,116,111,117,108,108,40,99,111,110,115,116,32,119,99
+,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,110,112,116,114,44
+,10,32,32,32,32,32,119,99,104,97,114,95,116,42,42,32,95,95,114,101,115,116,114,105,99
+,116,32,95,95,101,110,100,112,116,114,44,10,32,32,32,32,32,105,110,116,32,95,95,98,97
+,115,101,41,59,10,101,120,116,101,114,110,32,119,99,104,97,114,95,116,42,32,119,99,112,99
+,112,121,40,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95
+,100,101,115,116,44,10,32,32,32,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95
+,95,114,101,115,116,114,105,99,116,32,95,95,115,114,99,41,59,10,10,101,120,116,101,114,110
+,32,119,99,104,97,114,95,116,42,32,119,99,112,110,99,112,121,40,119,99,104,97,114,95,116
+,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,100,101,115,116,44,10,32,32,32,32
+,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116
+,32,95,95,115,114,99,44,32,115,105,122,101,95,116,32,95,95,110,41,59,10,101,120,116,101
+,114,110,32,95,95,70,73,76,69,42,32,111,112,101,110,95,119,109,101,109,115,116,114,101,97
+,109,40,119,99,104,97,114,95,116,42,42,32,95,95,98,117,102,108,111,99,44,32,115,105,122
+,101,95,116,42,32,95,95,115,105,122,101,108,111,99,41,59,10,10,101,120,116,101,114,110,32
+,105,110,116,32,102,119,105,100,101,40,95,95,70,73,76,69,42,32,95,95,102,112,44,32,105
+,110,116,32,95,95,109,111,100,101,41,59,10,10,101,120,116,101,114,110,32,105,110,116,32,102
+,119,112,114,105,110,116,102,40,95,95,70,73,76,69,42,32,95,95,114,101,115,116,114,105,99
+,116,32,95,95,115,116,114,101,97,109,44,10,32,32,32,32,32,32,32,99,111,110,115,116,32
+,119,99,104,97,114,95,116,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,102,111,114
+,109,97,116,44,32,46,46,46,41,59,10,101,120,116,101,114,110,32,105,110,116,32,119,112,114
+,105,110,116,102,40,99,111,110,115,116,32,119,99,104,97,114,95,116,42,32,95,95,114,101,115
+,116,114,105,99,116,32,95,95,102,111,114,109,97,116,44,32,46,46,46,41,59,10,10,101,120
+,116,101,114,110,32,105,110,116,32,115,119,112,114,105,110,116,102,40,119,99,104,97,114,95,116
+,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,115,44,32,115,105,122,101,95,116,32
+,95,95,110,44,10,32,32,32,32,32,32,32,99,111,110,115,116,32,119,99,104,97,114,95,116
+,42,32,95,95,114,101,115,116,114,105,99,116,32,95,95,102,111,114,109,97,116,44,32,46,46
+,46,41,59,10,10,35,101,108,115,101,10,10,35,105,110,99,108,117,100,101,95,110,101,120,116
+,32,60,119,99,104,97,114,46,104,62,10,35,101,110,100,105,102,10,10
 , 0 };
 static const char file_wctype_h[] = {
 
 
 
-35,105,102,110,100,101,102,32,87,67,84,89,80,69,95,72,10,35,100,101,102,105,110,101,32
-,87,67,84,89,80,69,95,72,10,10,35,105,110,99,108,117,100,101,32,60,119,99,104,97,114
-,46,104,62,10,10,47,42,32,87,105,100,101,45,99,104,97,114,97,99,116,101,114,32,99,108
-,97,115,115,105,102,105,99,97,116,105,111,110,32,42,47,10,105,110,116,32,105,115,119,97,108
-,110,117,109,40,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,97,108
-,112,104,97,40,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,98,108
-,97,110,107,40,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,99,110
-,116,114,108,40,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,100,105
-,103,105,116,40,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,103,114
-,97,112,104,40,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,108,111
-,119,101,114,40,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,112,114
-,105,110,116,40,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,112,117
-,110,99,116,40,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,115,112
-,97,99,101,40,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,117,112
-,112,101,114,40,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,120,100
-,105,103,105,116,40,119,105,110,116,95,116,32,119,99,41,59,10,10,47,42,32,87,105,100,101
-,45,99,104,97,114,97,99,116,101,114,32,99,111,110,118,101,114,115,105,111,110,32,42,47,10
-,105,110,116,32,116,111,119,108,111,119,101,114,40,105,110,116,32,119,99,41,59,10,105,110,116
-,32,116,111,119,117,112,112,101,114,40,105,110,116,32,119,99,41,59,10,10,35,101,110,100,105
-,102,32,47,42,32,87,67,84,89,80,69,95,72,32,42,47,10
+35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,10,35,105,102,110
+,100,101,102,32,87,67,84,89,80,69,95,72,10,35,100,101,102,105,110,101,32,87,67,84,89
+,80,69,95,72,10,10,35,105,110,99,108,117,100,101,32,60,119,99,104,97,114,46,104,62,10
+,10,47,42,32,87,105,100,101,45,99,104,97,114,97,99,116,101,114,32,99,108,97,115,115,105
+,102,105,99,97,116,105,111,110,32,42,47,10,105,110,116,32,105,115,119,97,108,110,117,109,40
+,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,97,108,112,104,97,40
+,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,98,108,97,110,107,40
+,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,99,110,116,114,108,40
+,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,100,105,103,105,116,40
+,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,103,114,97,112,104,40
+,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,108,111,119,101,114,40
+,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,112,114,105,110,116,40
+,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,112,117,110,99,116,40
+,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,115,112,97,99,101,40
+,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,117,112,112,101,114,40
+,119,105,110,116,95,116,32,119,99,41,59,10,105,110,116,32,105,115,119,120,100,105,103,105,116
+,40,119,105,110,116,95,116,32,119,99,41,59,10,10,47,42,32,87,105,100,101,45,99,104,97
+,114,97,99,116,101,114,32,99,111,110,118,101,114,115,105,111,110,32,42,47,10,105,110,116,32
+,116,111,119,108,111,119,101,114,40,105,110,116,32,119,99,41,59,10,105,110,116,32,116,111,119
+,117,112,112,101,114,40,105,110,116,32,119,99,41,59,10,10,35,101,110,100,105,102,32,47,42
+,32,87,67,84,89,80,69,95,72,32,42,47,10,35,101,108,115,101,10,35,105,110,99,108,117
+,100,101,95,110,101,120,116,32,60,119,99,116,121,112,101,46,104,62,10,35,101,110,100,105,102
+,10
 , 0 };
 
 
@@ -18174,6 +18199,10 @@ int fill_options(struct options* options,
     int argc,
     const char** argv)
 {
+    
+#ifdef __EMSCRIPTEN__
+    options->use_cake_headers = true;
+#endif
 
     options->target = TARGET_DEFAULT;
 
@@ -18210,6 +18239,12 @@ int fill_options(struct options* options,
             /*
               Valid, but handled with preprocessor
             */
+            continue;
+        }
+
+        if (strcmp(argv[i], "-cake-headers") == 0)
+        {
+            options->use_cake_headers = true;
             continue;
         }
 
@@ -18840,7 +18875,6 @@ struct style_options style_options_microsoft(void)
 */
 
 #pragma safety enable
-
 
 
 /*
@@ -21854,6 +21888,7 @@ struct object* _Opt find_object_declarator_by_index(const struct object* p_objec
 
 void check_dianostic_suppression_phase(struct parser_ctx* ctx, const struct token* p_token, int phase);
 const struct direct_declarator* _Opt get_innermost_direct_declarator(const struct direct_declarator* _Opt p);
+
 
 
 
@@ -34904,7 +34939,7 @@ void check_assigment(const struct parser_ctx* ctx,
         diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
                    ctx,
                    p_b_expression->first_token,
-            NULL,
+                   NULL,
                    "void value is not ignored as it ought to be");
         return;
     }
@@ -34925,7 +34960,7 @@ void check_assigment(const struct parser_ctx* ctx,
                 diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
                            ctx,
                            p_b_expression->first_token,
-                    NULL,
+                           NULL,
                            "trying to access to object address");
             }
         }
@@ -34967,7 +35002,7 @@ void check_assigment(const struct parser_ctx* ctx,
 
         diagnostic(W_NULL_CONVERTION,
                    ctx,
-            NULL,
+                   NULL,
                    &marker,
                    "implicit conversion of nullptr constant to 'bool'");
     }
@@ -35069,7 +35104,7 @@ void check_assigment(const struct parser_ctx* ctx,
         }
 
         type_destroy(&b_type_lvalue);
-        // type_destroy(&t2);
+        
         return;
     }
 
@@ -35106,7 +35141,7 @@ void check_assigment(const struct parser_ctx* ctx,
                    " passing null as array");
 
         type_destroy(&b_type_lvalue);
-        // type_destroy(&t2);
+        
         return;
     }
 
@@ -35251,8 +35286,9 @@ void check_assigment(const struct parser_ctx* ctx,
                     diagnostic(W_DISCARDED_QUALIFIERS, ctx,
                                p_b_expression->first_token, NULL,
                                assignment_type == ASSIGMENT_TYPE_PARAMETER
-                        ? "discarding const qualifier at argument"
-                        : "discarding const qualifier");
+                                ? "discarding const qualifier at argument"
+                                : "discarding const qualifier");
+                                
                     type_destroy(&b_next);
                     type_destroy(&a_next);
                     break; /* one diagnostic per assignment is enough */
@@ -36535,7 +36571,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 */
 
 //#pragma once
-#define CAKE_VERSION "0.14.41"
+#define CAKE_VERSION "0.14.42"
 
 
 
@@ -36649,6 +36685,8 @@ struct codegen_ctx
 /* Returns 0 on success, non-zero if code generation failed (ctx->error). */
 int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss);
 void codegen_visit_ctx_destroy(_Dtor struct codegen_ctx* ctx);
+
+
 
 
 
@@ -52331,7 +52369,7 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
    `content` is formatted purely in memory, cake still needs `path` to
    resolve #include "quoted.h" headers relative to the right directory
    (angle-bracket <system.h> headers don't need it; those come from
-   cakeconf.h's #pragma dir entries instead). Pass NULL/"" when there is no
+   cake.json's #pragma dir entries instead). Pass NULL/"" when there is no
    real file (e.g. an unsaved buffer) - quoted includes just won't resolve.
 
    To restrict the fix to a line range (e.g. an editor's current selection),
@@ -52343,6 +52381,8 @@ const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt pat
    This function is called by the web version
 */   
 char* _Owner _Opt CompileText(const char* pszoptions, const char* content);
+
+
 void print_report(const struct report* report);
 
 #ifdef _WIN32
@@ -52579,6 +52619,13 @@ int generate_config_file(const char* configpath)
         printf("Out of memory generating '%s'.\n", configpath);
         return ENOMEM;
     }
+    
+    char directory[FS_MAX_PATH] = { 0 };
+    snprintf(directory, sizeof directory, "%s", configpath);
+    dirname(directory);
+    snprintf(directory, sizeof directory, "%s/include", directory);
+
+    json_add_string(dirs, directory);
 
     int error = collect_system_include_dirs(dirs);
     if (error != 0)
@@ -52626,11 +52673,10 @@ int compile_one_file(const char* file_name,
 
     add_standard_macros(&prectx, options->target);
 
-    if (include_config_header(&prectx) != 0)
+    if (preprocessor_load_config(&prectx) != 0)
     {
-        // cakeconf.h is optional               
+        /* optional */
     }
-    // print_all_macros(&prectx);
 
     struct ast ast = { 0 };
 
@@ -53375,9 +53421,9 @@ const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt pat
         prectx.macros.capacity = 5000;
         add_standard_macros(&prectx, options.target);
 
-        if (include_config_header(&prectx) != 0)
+        if (preprocessor_load_config(&prectx) != 0)
         {
-            // cakeconf.h is optional
+            // cake.json is optional
         }
 
         ast.token_list = preprocessor(&prectx, &list, 0);
@@ -55620,19 +55666,19 @@ static void codegen_emit_runtime_assert_expr(struct codegen_ctx* ctx, struct oss
   Arithmetic results still need it when the lowered type is narrower than
   int, since the operation is computed in int after promotion.
 */
-static bool codegen_bitint_is_exact(struct codegen_ctx* ctx, const struct type* p_type)
+static bool codegen_bitint_is_exact(const struct codegen_ctx* ctx, const struct type* p_type)
 {
     size_t lowered_size = 0;
     type_get_sizeof(p_type, &lowered_size, ctx->options.target);
     return (size_t)p_type->bitint_width == lowered_size * 8;
 }
 
-static bool codegen_bitint_conversion_needs_wrap(struct codegen_ctx* ctx, const struct type* p_type)
+static bool codegen_bitint_conversion_needs_wrap(const struct codegen_ctx* ctx, const struct type* p_type)
 {
     return type_is_bitint(p_type) && !codegen_bitint_is_exact(ctx, p_type);
 }
 
-static bool codegen_bitint_result_needs_wrap(struct codegen_ctx* ctx, const struct type* p_type)
+static bool codegen_bitint_result_needs_wrap(const struct codegen_ctx* ctx, const struct type* p_type)
 {
     if (!type_is_bitint(p_type))
     {
@@ -55752,7 +55798,7 @@ static void codegen_emit_converted_compound_assignment(struct codegen_ctx* ctx,
                                                        struct expression* p_left,
                                                        const char* op,
                                                        struct expression* _Opt p_right,
-                                                       struct type* p_operation_type)
+                                                       const struct type* p_operation_type)
 {
     struct osstream left = { 0 };
     struct osstream operation = { 0 };
@@ -55783,7 +55829,7 @@ static void codegen_emit_converted_compound_assignment(struct codegen_ctx* ctx,
     ss_close(&operation);
 }
 
-static bool codegen_compound_assignment_needs_conversion(struct codegen_ctx* ctx, const struct type* p_left_type)
+static bool codegen_compound_assignment_needs_conversion(const struct codegen_ctx* ctx, const struct type* p_left_type)
 {
     return type_is_bool(p_left_type) || codegen_bitint_conversion_needs_wrap(ctx, p_left_type);
 }
@@ -56436,6 +56482,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     if (old_value.c_str != NULL)
                     {
                         ss_fprintf(&old_value, " - 1");
+                        _Assert(old_value.c_str != NULL);
                         codegen_emit_bitint_wrap_text(ctx, oss, &p_expression->left->type, old_value.c_str, false);
                     }
                     ss_close(&old_value);
@@ -56467,6 +56514,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     if (old_value.c_str != NULL)
                     {
                         ss_fprintf(&old_value, " + 1");
+                         _Assert(old_value.c_str != NULL);
                         codegen_emit_bitint_wrap_text(ctx, oss, &p_expression->left->type, old_value.c_str, false);
                     }
                     ss_close(&old_value);
@@ -60076,7 +60124,7 @@ static void vm_emit_snapshot_decls(struct codegen_ctx* ctx,
                         {
                             throw;
                         }
-                        ctx->vm_snapshot_ids = new_ids;
+                        ctx->vm_snapshot_ids = new_ids; //lint 26 (realloc)
                         ctx->vm_snapshot_capacity = new_capacity;
                     }
                     ctx->vm_snapshot_ids[ctx->vm_snapshot_count] = it->vm_dim_id;
@@ -61001,28 +61049,28 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 #define FLOW_PARAMETER_OBJECT_INIT_MAX_DEPTH 6
 
 /* Hard ceiling on how many synthetic "pointee arena" objects a single
-      top-level declaration may manufacture (the arena is cleared between
-      declarations in flow_start_visit_declaration, so this budget is
-      per-declaration, not per-file).
+         top-level declaration may manufacture (the arena is cleared between
+         declarations in flow_start_visit_declaration, so this budget is
+         per-declaration, not per-file).
 
-      Found via dogfooding flow3 on cake's own sources: a single function
-      prototype whose parameter is a non-optional pointer to a struct with
-      several pointer members (each itself pointing to another such struct)
-      causes flow_parameter_object_init to manufacture a new arena object
-      per pointer member at every depth level -- branching factor ~ number
-      of pointer members, depth bounded by FLOW_PARAMETER_OBJECT_INIT_MAX_DEPTH.
-      For cake's own parser types that branching factor is high enough that
-      depth-bounding alone (which prevents the infinite-recursion crash) still
-      produces tens of thousands of arena objects for ONE declaration --
-      confirmed empirically (instrumented counter hit 40000+ per declaration,
-      repeating, hanging indefinitely on parser.h's declarations alone, no
-      function bodies involved).
+         Found via dogfooding flow3 on cake's own sources: a single function
+         prototype whose parameter is a non-optional pointer to a struct with
+         several pointer members (each itself pointing to another such struct)
+         causes flow_parameter_object_init to manufacture a new arena object
+         per pointer member at every depth level -- branching factor ~ number
+         of pointer members, depth bounded by FLOW_PARAMETER_OBJECT_INIT_MAX_DEPTH.
+         For cake's own parser types that branching factor is high enough that
+         depth-bounding alone (which prevents the infinite-recursion crash) still
+         produces tens of thousands of arena objects for ONE declaration --
+         confirmed empirically (instrumented counter hit 40000+ per declaration,
+         repeating, hanging indefinitely on parser.h's declarations alone, no
+         function bodies involved).
 
-      Once the budget is spent, flow_allocated_object_arena_new returns NULL
-      the same way it already does on real allocation failure -- every call
-      site already handles p_pointed == NULL by simply not synthesizing that
-      pointee further, so this is a safe (if less precise) degradation, not
-      a new failure mode. */
+         Once the budget is spent, flow_allocated_object_arena_new returns NULL
+         the same way it already does on real allocation failure -- every call
+         site already handles p_pointed == NULL by simply not synthesizing that
+         pointee further, so this is a safe (if less precise) degradation, not
+         a new failure mode. */
 #define FLOW_ALLOCATED_OBJECT_ARENA_MAX_SIZE 5000
 
 enum
@@ -61035,36 +61083,30 @@ enum
 
 enum flow_relation
 {
-    FLOW_RELATION_UNINITIALIZED = 0, // value == trash
-    FLOW_RELATION_EQUAL, // == value
-    FLOW_RELATION_NOT_EQUAL, // != value
-    FLOW_RELATION_ANY, // value >= TYPE_MIN and value <= TYPE_MAX
-    /* Relational (half-line) constraints against a constant. The variable
-       is known to satisfy  (variable  OP  value)  for the OP below. These
-       let a comparison such as `a > 0` narrow `a` in its true branch, so a
-       later assert/compile_assert can prove the same fact. Consumers that
-       don't understand these relations must treat them conservatively as
-       "unknown" (never as a proof), which keeps the analysis sound. */
-    FLOW_RELATION_GREATER, // >  value
-    FLOW_RELATION_GREATER_EQUAL, // >= value
-    FLOW_RELATION_LESS, // <  value
-    FLOW_RELATION_LESS_EQUAL, // <= value
+    FLOW_RELATION_UNINITIALIZED = 0, /*  indeterminate representation */
+    FLOW_RELATION_EQUAL,             /* == ref_value */
+    FLOW_RELATION_NOT_EQUAL,         /* != ref_value */
+    FLOW_RELATION_ANY,               /* unspecified (TYPE_MIN <= value <= TYPE_MAX) */
+    FLOW_RELATION_GREATER,           /* > ref_value */
+    FLOW_RELATION_GREATER_EQUAL,     /* >= ref_value */
+    FLOW_RELATION_LESS,              /* < ref_value */
+    FLOW_RELATION_LESS_EQUAL,        /* <= ref_value */
 };
 
 enum flow_value_kind
 {
-    FLOW_VALUE_KIND_SIGNED = 0, /* signed long long .i  (default, zero-init safe) */
-    FLOW_VALUE_KIND_UNSIGNED, /* unsigned long long .u                           */
-    FLOW_VALUE_KIND_PTR, /* struct object*   .p  (concrete arena pointer)  */
-    FLOW_VALUE_KIND_REF, /* struct object*   .p  (reference — always non-null) */
+    FLOW_VALUE_KIND_SIGNED = 0, /* .i */
+    FLOW_VALUE_KIND_UNSIGNED,   /* .u  */
+    FLOW_VALUE_KIND_PTR,        /* .p  means pointer */
+    FLOW_VALUE_KIND_REF,        /* .p  means reference always non null*/
 };
 
 enum flow_imaginary
 {
-    FLOW_IMAGINARY_NONE = 0, // no imaginary state (default, zero-init safe)
-    FLOW_IMAGINARY_MOVED, // target was moved elsewhere, target is alive
-    FLOW_IMAGINARY_ENDED, // this object's lifetime ended
-    FLOW_IMAGINARY_ABSENT, // no object is present
+    FLOW_IMAGINARY_NONE = 0, /* none */
+    FLOW_IMAGINARY_MOVED,    /* ownership moved */
+    FLOW_IMAGINARY_ENDED     /* object's lifetime ended */
+    /* see also FLOW_RELATION_UNINITIALIZED */
 };
 
 struct flow_alternative
@@ -61075,26 +61117,19 @@ struct flow_alternative
         signed long long i;
         const struct object* _Opt p;
     } value;
-    enum flow_value_kind value_kind;
-    enum flow_relation value_relation;
-    enum flow_imaginary imaginary; // MOVED, ENDED, or ABSENT (or NONE)
 
-    const struct flow_map* _Opt origin; /* which map arm set this value; null when the arena had no map to give */
+    enum flow_value_kind value_kind;             /* tag of the union */
+    enum flow_relation value_relation;           /* relation with the value*/
+    enum flow_imaginary imaginary;               /* imaginary part: MOVED, ENDED, ABSENT, NONE */
 
-    /* Where this state was established. A token, not a line number:
-       diagnostic() renders the source line from the token, so a note built
-       from a bare line would name one line and display another (this is why
-       branch maps had to stash branch_expr just to have something to point
-       at). Every state setter already had the token in hand and threw it
-       away keeping only ->line. _Opt because a few states are seeded with
-       no token to blame; flow_alternative_line() reads 0 for those. */
-    const struct token* _Opt p_token;
+    const struct flow_map* _Opt p_origin_map;    /* which flow map arm set this value; */
+    const struct token* _Opt p_origin_token;     /* Where this state was established. */
 };
 
 
 static inline int flow_alternative_line(const struct flow_alternative* a)
 {
-    return a->p_token ? a->p_token->line : 0;
+    return a->p_origin_token ? a->p_origin_token->line : 0;
 }
 
 struct flow_alternatives
@@ -61156,7 +61191,7 @@ enum flow_map_kind
 
 struct flow_map
 {
-    struct flow_key_alternatives* _Owner _Opt* _Owner _Opt buckets; /* NULL until first write (lazily allocated) */
+    struct flow_key_alternatives* _Owner _Opt* _Owner _Opt buckets;
     int num_of_buckets;
     int num_of_entries; /* live keys, tracked to drive rehashing -- see flow_map_maybe_grow */
     struct flow_map* _Opt p_parent_map;
@@ -61169,7 +61204,7 @@ struct flow_map
        printable expression). Set once at creation (see
        flow_map_arena_new_branch/flow_narrow_map_branch); a plain, non-owned
        pointer -- creating a branch map costs nothing beyond this one write. */
-    const struct expression* _Opt branch_expr;
+    const struct expression* _Opt p_branch_expr;
 
     bool is_unreachable; /* branch proven unreachable by constant folding */
 
@@ -61541,8 +61576,8 @@ static void flow_map_maybe_grow(struct flow_map* m)
            doubling, same reasoning as flow_alternatives_grow. */
         enum { FLOW_MAP_GROW_DOUBLE_LIMIT = 4096 };
         int new_num_of_buckets = m->num_of_buckets < FLOW_MAP_GROW_DOUBLE_LIMIT
-                                 ? m->num_of_buckets * 2
-                                 : m->num_of_buckets + m->num_of_buckets / 2;
+            ? m->num_of_buckets * 2
+            : m->num_of_buckets + m->num_of_buckets / 2;
         flow_map_rehash(m, new_num_of_buckets);
     }
 }
@@ -61613,8 +61648,8 @@ struct flow_map* _Opt flow_map_arena_new(struct flow_map_arena* a, struct flow_m
         {
             enum { FLOW_MAP_ARENA_GROW_DOUBLE_LIMIT = 4096 };
             int new_capacity = a->capacity == 0 ? 4
-                               : a->capacity < FLOW_MAP_ARENA_GROW_DOUBLE_LIMIT ? a->capacity * 2
-                               : a->capacity + a->capacity / 2;
+                : a->capacity < FLOW_MAP_ARENA_GROW_DOUBLE_LIMIT ? a->capacity * 2
+                : a->capacity + a->capacity / 2;
             struct flow_map* _Owner _Opt* _Owner _Opt new_data = realloc(a->data, new_capacity * sizeof(struct flow_map*));
             if (new_data == NULL) throw;
             a->data = new_data; //lint 26
@@ -61744,7 +61779,7 @@ static struct flow_alternative* _Opt _Owner flow_alt_pool_alloc(struct flow_alt_
     if (pool->free_list == NULL)
     {
         union flow_alt_pool_node* _Owner _Opt block =
-                calloc(FLOW_ALT_POOL_BLOCK_NODES, sizeof(union flow_alt_pool_node));
+            calloc(FLOW_ALT_POOL_BLOCK_NODES, sizeof(union flow_alt_pool_node));
         if (block == NULL)
             return NULL;
 
@@ -61752,7 +61787,7 @@ static struct flow_alternative* _Opt _Owner flow_alt_pool_alloc(struct flow_alt_
         {
             int new_capacity = pool->blocks_capacity == 0 ? 8 : pool->blocks_capacity * 2;
             union flow_alt_pool_node* _Owner _Opt* _Owner _Opt new_blocks =
-                    realloc(pool->blocks, new_capacity * sizeof(union flow_alt_pool_node*));
+                realloc(pool->blocks, new_capacity * sizeof(union flow_alt_pool_node*));
             if (new_blocks == NULL)
             {
                 free(block);
@@ -61765,7 +61800,9 @@ static struct flow_alternative* _Opt _Owner flow_alt_pool_alloc(struct flow_alt_
 
         /* Thread every node in this block onto the free list. */
         for (int i = 0; i < FLOW_ALT_POOL_BLOCK_NODES - 1; i++)
+        {
             block[i].next = &block[i + 1];
+        }
         block[FLOW_ALT_POOL_BLOCK_NODES - 1].next = pool->free_list;
         pool->free_list = block; //lint 26 (pool block, freed by flow_alt_pool_free_all)
     }
@@ -61782,7 +61819,7 @@ static struct flow_alternative* _Opt _Owner flow_alt_pool_alloc(struct flow_alt_
        to it by flow_alt_pool_release, never freed individually. The _Owner
        cast is the established idiom (see free-opt-owner-cast.c) for opting
        a pointer into the ownership contract at the use site. */
-    return (struct flow_alternative* _Opt _Owner)&node->alt;
+    return (struct flow_alternative* _Opt _Owner) & node->alt;
 }
 
 static void flow_alt_pool_free_all(_Clear struct flow_alt_pool* pool)
@@ -61793,10 +61830,7 @@ static void flow_alt_pool_free_all(_Clear struct flow_alt_pool* pool)
     }
     free(pool->blocks); //lint 29
 
-    *pool = (struct flow_alt_pool)
-    {
-        0
-    };
+    *pool = (struct flow_alt_pool){ 0 };
 }
 
 static void flow_alt_pool_free(struct flow_alt_pool* pool, struct flow_alternative* _Owner _Opt p)
@@ -61860,7 +61894,7 @@ static void flow_alternatives_add(struct flow_alternatives* vs, const struct flo
             if (flow_value_is_same(vs->data[i], p_alternative) &&
                     vs->data[i]->value_relation == p_alternative->value_relation &&
                     vs->data[i]->imaginary == p_alternative->imaginary &&
-                    vs->data[i]->origin == p_alternative->origin)
+                    vs->data[i]->p_origin_map == p_alternative->p_origin_map)
             {
                 return;
             }
@@ -61885,40 +61919,7 @@ static void flow_alternatives_add(struct flow_alternatives* vs, const struct flo
     }
 }
 
-static void flow_alternatives_add_does_not_exist(struct flow_alternatives* vs, const struct flow_map* _Opt origin, const struct token* _Opt p_token)
-{
-    try
-    {
-        for (int i = 0; i < vs->size; i++)
-        {
-            if (vs->data[i]->imaginary == FLOW_IMAGINARY_ABSENT &&
-                    vs->data[i]->origin == origin)
-            {
-                return;
-            }
-        }
 
-        if (!flow_alternatives_grow(vs))
-        {
-            throw;
-        }
-
-        struct flow_alternative* _Opt _Owner p_new = flow_alt_pool_alloc(&g_flow_alt_pool);
-        if (p_new == NULL)
-        {
-            throw;
-        }
-        p_new->imaginary = FLOW_IMAGINARY_ABSENT;
-        p_new->value_relation = FLOW_RELATION_EQUAL;
-        p_new->origin = origin;
-        p_new->p_token = p_token;
-        vs->data[vs->size] = p_new; /*MOVED*/
-        vs->size++;
-    }
-    catch
-    {
-    }
-}
 
 static void flow_alternatives_append(struct flow_alternatives* dst, const struct flow_alternatives* src)
 {
@@ -62043,8 +62044,8 @@ static void flow_map_set_object_moved(struct flow_map* _Opt m, const struct obje
             .value = {.i = ANY_VALUE},
             .value_relation = FLOW_RELATION_ANY,
             .imaginary = FLOW_IMAGINARY_MOVED,
-            .origin = m,
-            .p_token = p_token
+            .p_origin_map = m,
+            .p_origin_token = p_token
         };
         flow_alternatives_add(&e->alternatives, &a);
     }
@@ -62063,7 +62064,7 @@ static void flow_map_set_object_moved(struct flow_map* _Opt m, const struct obje
                <declaration>)" instead of "(see line <first free>)".
                User-reported. */
             e->alternatives.data[i]->imaginary = FLOW_IMAGINARY_MOVED;
-            e->alternatives.data[i]->p_token = p_token;
+            e->alternatives.data[i]->p_origin_token = p_token;
         }
     }
 }
@@ -62094,8 +62095,8 @@ static void flow_map_set_object_zero(struct flow_map* _Opt m, const struct objec
             .value = {.i = 0},
             .value_relation = FLOW_RELATION_EQUAL,
             .imaginary = FLOW_IMAGINARY_NONE,
-            .origin = m,
-            .p_token = p_token
+            .p_origin_map = m,
+            .p_origin_token = p_token
         };
         flow_alternatives_add(&p_flow_key_alternatives->alternatives, &a);
     }
@@ -62111,7 +62112,7 @@ static void flow_map_set_object_zero(struct flow_map* _Opt m, const struct objec
 static void flow_map_set_object_uninitialized(struct flow_map* _Opt m, const struct object* obj, const struct token* _Opt p_token)
 {
     if (m == NULL)
-        return; 
+        return;
 
     try
     {
@@ -62134,8 +62135,8 @@ static void flow_map_set_object_uninitialized(struct flow_map* _Opt m, const str
             .value = {.i = UNINITIALIZED_VALUE},
             .value_relation = FLOW_RELATION_UNINITIALIZED,
             .imaginary = FLOW_IMAGINARY_NONE,
-            .origin = m,
-            .p_token = p_token
+            .p_origin_map = m,
+            .p_origin_token = p_token
         };
         flow_alternatives_add(&p_flow_key_alternatives->alternatives, &a);
     }
@@ -62147,7 +62148,7 @@ static void flow_map_set_object_uninitialized(struct flow_map* _Opt m, const str
 static void flow_map_set_object_any_n(struct flow_map* _Opt m, const struct object* obj, const struct token* _Opt p_token, bool nullable_enabled)
 {
     if (m == NULL)
-        return; 
+        return;
 
     try
     {
@@ -62194,8 +62195,8 @@ static void flow_map_set_object_any_n(struct flow_map* _Opt m, const struct obje
                 .value = {.p = NULL},
                 .value_relation = FLOW_RELATION_NOT_EQUAL,
                 .imaginary = FLOW_IMAGINARY_NONE,
-                .origin = m,
-                .p_token = p_token
+                .p_origin_map = m,
+                .p_origin_token = p_token
             };
             flow_alternatives_add(&p_flow_key_alternatives->alternatives, &a);
             return;
@@ -62207,8 +62208,8 @@ static void flow_map_set_object_any_n(struct flow_map* _Opt m, const struct obje
             .value = {.i = ANY_VALUE},
             .value_relation = FLOW_RELATION_ANY,
             .imaginary = FLOW_IMAGINARY_NONE,
-            .origin = m,
-            .p_token = p_token
+            .p_origin_map = m,
+            .p_origin_token = p_token
         };
         flow_alternatives_add(&p_flow_key_alternatives->alternatives, &a);
     }
@@ -62220,7 +62221,7 @@ static void flow_map_set_object_any_n(struct flow_map* _Opt m, const struct obje
 static void flow_map_set_object_lifetime_ended(struct flow_map* _Opt m, const struct object* obj, const struct token* _Opt p_token)
 {
     if (m == NULL)
-        return; 
+        return;
 
     if (obj->members.head)
     {
@@ -62244,8 +62245,8 @@ static void flow_map_set_object_lifetime_ended(struct flow_map* _Opt m, const st
             .value = {.i = UNINITIALIZED_VALUE},
             .value_relation = FLOW_RELATION_UNINITIALIZED,
             .imaginary = FLOW_IMAGINARY_NONE,
-            .origin = m,
-            .p_token = p_token
+            .p_origin_map = m,
+            .p_origin_token = p_token
         };
         flow_alternatives_add(&e->alternatives, &a);
 
@@ -62267,7 +62268,7 @@ static void flow_map_set_object_lifetime_ended(struct flow_map* _Opt m, const st
                alternative happened to be seeded (e.g. an earlier read of
                the same member) -- otherwise it misdirects the reader to
                an unrelated line. */
-            e->alternatives.data[i]->p_token = p_token;
+            e->alternatives.data[i]->p_origin_token = p_token;
         }
     }
 }
@@ -62294,7 +62295,7 @@ static void flow_map_set_object_lifetime_ended(struct flow_map* _Opt m, const st
 static void flow_map_apply_dtor_or_clear_effect(struct flow_map* _Opt m, const struct object* obj, bool is_clear, const struct token* _Opt p_token)
 {
     if (m == NULL)
-        return; 
+        return;
 
     if (obj->members.head)
     {
@@ -62347,7 +62348,7 @@ static void flow_map_clear(_Clear struct flow_map* m)
     m->num_of_entries = 0;
     m->p_parent_map = NULL;
     m->kind = FLOW_MAP_ROOT;
-    m->branch_expr = NULL;
+    m->p_branch_expr = NULL;
     m->is_unreachable = false;
     m->branch_id = 0;
     m->child_count = 0;
@@ -62658,8 +62659,8 @@ static void flow_map_merge_arms(struct flow_map* parent, const struct flow_map* 
                     {
                         const struct flow_alternative* a2 = p_pre_entry->alternatives.data[k];
                         struct flow_alternative tagged = *a2;
-                        tagged.origin = arms[j];
-                        tagged.p_token = a2->p_token;
+                        tagged.p_origin_map = arms[j];
+                        tagged.p_origin_token = a2->p_origin_token;
                         flow_alternatives_add(&p_temp_entry->alternatives, &tagged);
                     }
                 }
@@ -62831,7 +62832,7 @@ static void flow_map_accumulate_into_join(struct flow_map* p_join, struct flow_m
                     const struct flow_alternative* b = p_join_entry->alternatives.data[m];
                     if (b->value_relation == a->value_relation &&
                             b->imaginary == a->imaginary &&
-                            b->p_token == a->p_token &&
+                            b->p_origin_token == a->p_origin_token &&
                             flow_value_is_same(b, a))
                     {
                         already_there = true;
@@ -62845,7 +62846,7 @@ static void flow_map_accumulate_into_join(struct flow_map* p_join, struct flow_m
                 }
 
                 struct flow_alternative tagged = *a;
-                tagged.origin = p_retag_origin;
+                tagged.p_origin_map = p_retag_origin;
                 flow_alternatives_add(&p_join_entry->alternatives, &tagged);
             }
         }
@@ -62862,6 +62863,7 @@ static void print_object_ptr(struct osstream* ss, const struct object* _Opt p, b
 {
     if (p == NULL)
     {
+        ss_fprintf(ss, "null");
         return;
     }
 
@@ -62871,12 +62873,6 @@ static void print_object_ptr(struct osstream* ss, const struct object* _Opt p, b
         "abcdefghijklmnopqrstuvwxyz";
 
     uint64_t value = (uint64_t)(uintptr_t)p;
-
-    if (value == 0)
-    {
-        ss_fprintf(ss, "null");
-        return;
-    }
 
     char temp[16];
     int i = 0;
@@ -62956,7 +62952,7 @@ static void flow_alternative_sprint(struct osstream* ss, const struct flow_alter
         case FLOW_VALUE_KIND_SIGNED:
         {
             if (alt->value.i == UNINITIALIZED_VALUE ||
-                alt->value.i == ANY_VALUE)
+            alt->value.i == ANY_VALUE)
             {
                 //ss_fprintf(ss, "%llx", alt->value.i);
             }
@@ -62994,17 +62990,13 @@ static void flow_alternative_sprint(struct osstream* ss, const struct flow_alter
     {
         ss_fprintf(ss, " ENDED");
     }
-    if (alt->imaginary == FLOW_IMAGINARY_ABSENT)
-    {
-        ss_fprintf(ss, "ABSENT");
-    }
 
     ss_fprintf(ss, " line %d", flow_alternative_line(alt));
 
-    if (alt->origin)
+    if (alt->p_origin_map)
     {
         struct osstream name_ss = { 0 };
-        flow_map_name_to_string(alt->origin, &name_ss);
+        flow_map_name_to_string(alt->p_origin_map, &name_ss);
         ss_fprintf(ss, " \"%s\"", name_ss.c_str ? name_ss.c_str : "");
         ss_close(&name_ss);
     }
@@ -63078,8 +63070,8 @@ static int flow_map_collect_entries(const struct flow_map* map, const struct flo
 #define FLOW_MAP_DEBUG_MAX_ENTRIES 256
 
 /* ASCII-art tree connectors (UTF-8 box-drawing characters), written as raw
-   byte escapes so this compiles the same regardless of the source file's
-   declared/assumed character encoding. */
+      byte escapes so this compiles the same regardless of the source file's
+      declared/assumed character encoding. */
 #define FLOW_TREE_BRANCH "\xE2\x94\x9C\xE2\x94\x80\xE2\x94\x80 " /* "├── " */
 #define FLOW_TREE_LAST   "\xE2\x94\x94\xE2\x94\x80\xE2\x94\x80 " /* "└── " */
 
@@ -63194,8 +63186,6 @@ static void flow_map_debug_print(const struct flow_map* _Opt map, int indent)
 */
 static bool flow_alt_to_interval(const struct flow_alternative* alt, long long* lo, long long* hi)
 {
-    if (alt->imaginary == FLOW_IMAGINARY_ABSENT)
-        return false;
     long long v = 0;
     if (alt->value_kind == FLOW_VALUE_KIND_SIGNED)
     {
@@ -63373,7 +63363,7 @@ static bool flow_alternative_is_false(const struct flow_alternative* alt)
 static bool flow_alternative_is_true(const struct flow_alternative* alt)
 {
     return (alt->value_relation == FLOW_RELATION_NOT_EQUAL && flow_value_is_false(alt)) ||
-           (alt->value_relation == FLOW_RELATION_EQUAL && !flow_alternative_is_false(alt));
+        (alt->value_relation == FLOW_RELATION_EQUAL && !flow_alternative_is_false(alt));
 }
 
 /*
@@ -63390,7 +63380,7 @@ static bool flow_alternative_is_dead(const struct flow_alternative* alt)
     /* The whole parent chain, not just the origin itself: the value is
        usually recorded in a map nested inside the dead arm (the assignment's
        own map), which is not flagged -- only the arm the fold killed is. */
-    for (const struct flow_map* _Opt m = alt->origin; m != NULL; m = m->p_parent_map)
+    for (const struct flow_map* _Opt m = alt->p_origin_map; m != NULL; m = m->p_parent_map)
     {
         if (m->is_unreachable)
         {
@@ -63572,8 +63562,8 @@ static void flow_narrow_map_into(struct flow_map* p_dest, struct flow_map* _Opt 
                 .value = {.i = 0},
                 .value_relation = true_branch ? FLOW_RELATION_NOT_EQUAL : FLOW_RELATION_EQUAL,
                 .imaginary = FLOW_IMAGINARY_NONE,
-                .origin = p_dest,
-                .p_token = NULL
+                .p_origin_map = p_dest,
+                .p_origin_token = NULL
             };
             flow_alternatives_add(&p_dest_entry0->alternatives, &a);
         }
@@ -63626,8 +63616,8 @@ static void flow_narrow_map_into(struct flow_map* p_dest, struct flow_map* _Opt 
                     .value = {.i = 0},
                     .value_relation = FLOW_RELATION_NOT_EQUAL,
                     .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = p_dest,
-                    .p_token = p_token
+                    .p_origin_map = p_dest,
+                    .p_origin_token = p_token
                 };
                 flow_alternatives_add(&p_dest_entry->alternatives, &a);
             }
@@ -63639,8 +63629,8 @@ static void flow_narrow_map_into(struct flow_map* p_dest, struct flow_map* _Opt 
                     .value = {.i = 0},
                     .value_relation = FLOW_RELATION_EQUAL,
                     .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = p_dest,
-                    .p_token = p_token
+                    .p_origin_map = p_dest,
+                    .p_origin_token = p_token
                 };
                 flow_alternatives_add(&p_dest_entry->alternatives, &a);
             }
@@ -63657,8 +63647,8 @@ static void flow_narrow_map_into(struct flow_map* p_dest, struct flow_map* _Opt 
                     .value = {.i = 0},
                     .value_relation = FLOW_RELATION_NOT_EQUAL,
                     .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = p_dest,
-                    .p_token = p_token
+                    .p_origin_map = p_dest,
+                    .p_origin_token = p_token
                 };
                 flow_alternatives_add(&p_dest_entry->alternatives, &a);
             }
@@ -63670,8 +63660,8 @@ static void flow_narrow_map_into(struct flow_map* p_dest, struct flow_map* _Opt 
                     .value = {.i = 0},
                     .value_relation = FLOW_RELATION_EQUAL,
                     .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = p_dest,
-                    .p_token = p_token
+                    .p_origin_map = p_dest,
+                    .p_origin_token = p_token
                 };
                 flow_alternatives_add(&p_dest_entry->alternatives, &a);
             }
@@ -63726,8 +63716,8 @@ static void flow_narrow_map_into(struct flow_map* p_dest, struct flow_map* _Opt 
                     .value = {.i = 0},
                     .value_relation = FLOW_RELATION_EQUAL,
                     .imaginary = alt->imaginary,
-                    .origin = p_dest,
-                    .p_token = p_token
+                    .p_origin_map = p_dest,
+                    .p_origin_token = p_token
                 };
                 flow_alternatives_add(&p_dest_entry->alternatives, &a);
                 continue;
@@ -63775,8 +63765,8 @@ static void flow_narrow_map_into(struct flow_map* p_dest, struct flow_map* _Opt 
                     .value = alt->value,
                     .value_relation = FLOW_RELATION_NOT_EQUAL,
                     .imaginary = alt->imaginary,
-                    .origin = p_dest,
-                    .p_token = p_token
+                    .p_origin_map = p_dest,
+                    .p_origin_token = p_token
                 };
                 flow_alternatives_add(&p_dest_entry->alternatives, &a);
             }
@@ -63788,8 +63778,8 @@ static void flow_narrow_map_into(struct flow_map* p_dest, struct flow_map* _Opt 
                     .value = {.i = 0},
                     .value_relation = FLOW_RELATION_EQUAL,
                     .imaginary = alt->imaginary,
-                    .origin = p_dest,
-                    .p_token = p_token
+                    .p_origin_map = p_dest,
+                    .p_origin_token = p_token
                 };
                 flow_alternatives_add(&p_dest_entry->alternatives, &a);
             }
@@ -64101,15 +64091,15 @@ static void flow_map_name_to_string(const struct flow_map* _Opt map, struct osst
         case FLOW_MAP_TRUE_BRANCH:
         case FLOW_MAP_FALSE_BRANCH:
             ss_fprintf(ss, "%s", map->kind == FLOW_MAP_TRUE_BRANCH ? "true branch" : "false branch");
-            if (map->branch_expr)
+            if (map->p_branch_expr)
             {
                 /* flow_expression_to_string() starts by ss_clear()-ing whatever
-               stream it is given -- so it must NOT be handed `ss` directly,
-               or it wipes out the "what" text already written above. Render
-               the expression into its own scratch stream instead, then
-               append. */
+           stream it is given -- so it must NOT be handed `ss` directly,
+           or it wipes out the "what" text already written above. Render
+           the expression into its own scratch stream instead, then
+           append. */
                 struct osstream expr_ss = { 0 };
-                flow_expression_to_string(map->branch_expr, &expr_ss);
+                flow_expression_to_string(map->p_branch_expr, &expr_ss);
                 ss_fprintf(ss, " (%s)", expr_ss.c_str ? expr_ss.c_str : "");
                 ss_close(&expr_ss);
             }
@@ -64133,34 +64123,34 @@ static void flow_map_name_to_string(const struct flow_map* _Opt map, struct osst
 #define FLOW_MAP_PATH_MAX_CHAIN 128
 
 /*
-   Renders the chain of decisions that led to `map`, root first, as a single
-   line:
+      Renders the chain of decisions that led to `map`, root first, as a single
+      line:
 
-       true branch (p != NULL) -> false branch (p->next) -> opt-null
+          true branch (p != NULL) -> false branch (p->next) -> opt-null
 
-   flow_map_name_to_string() names ONE map, which is all a diagnostic used
-   to report ("... set at line N in \"false branch (p->next)\""). That
-   answers "which map recorded this fact" but not the question a reader
-   actually has when staring at a null-deref warning they believe is
-   impossible: *how did control get into that map* -- which conditions were
-   assumed true, and which false, along the way. That information is
-   already present (every branch map keeps its kind and branch_expr, and
-   p_parent_map chains them back to the root) but was never rendered, so
-   answering it meant re-running with static_debug(0) and reading the full
-   tree dump by hand.
+      flow_map_name_to_string() names ONE map, which is all a diagnostic used
+      to report ("... set at line N in \"false branch (p->next)\""). That
+      answers "which map recorded this fact" but not the question a reader
+      actually has when staring at a null-deref warning they believe is
+      impossible: *how did control get into that map* -- which conditions were
+      assumed true, and which false, along the way. That information is
+      already present (every branch map keeps its kind and branch_expr, and
+      p_parent_map chains them back to the root) but was never rendered, so
+      answering it meant re-running with static_debug(0) and reading the full
+      tree dump by hand.
 
-   Only decision points are printed. FLOW_MAP_ROOT contributes nothing (it
-   is where every path starts, so naming it is pure noise on every single
-   line) and FLOW_MAP_MERGE_TEMP is the short-lived scratch map from
-   flow_map_merge_arms, which is an implementation detail of the join, not
-   a branch the source code took. A map whose entire chain is root-only
-   renders as "root" rather than an empty string, so a caller can always
-   splice the result into a sentence without checking for emptiness.
+      Only decision points are printed. FLOW_MAP_ROOT contributes nothing (it
+      is where every path starts, so naming it is pure noise on every single
+      line) and FLOW_MAP_MERGE_TEMP is the short-lived scratch map from
+      flow_map_merge_arms, which is an implementation detail of the join, not
+      a branch the source code took. A map whose entire chain is root-only
+      renders as "root" rather than an empty string, so a caller can always
+      splice the result into a sentence without checking for emptiness.
 
-   Returns the stream by value, transferring its buffer to the caller, who
-   must ss_close() it -- same shape as type_dup(). Nothing is allocated up
-   front and the text is re-rendered on every call.
-*/
+      Returns the stream by value, transferring its buffer to the caller, who
+      must ss_close() it -- same shape as type_dup(). Nothing is allocated up
+      front and the text is re-rendered on every call.
+   */
 static struct osstream flow_explain_origin(const struct flow_map* _Opt map)
 {
     struct osstream ss_storage = { 0 };
@@ -64209,10 +64199,10 @@ static struct osstream flow_explain_origin(const struct flow_map* _Opt map)
            other kinds have no single source line to name. Guarded on
            line > 0 because compiler-generated tokens carry no real
            position. */
-        if (m->branch_expr != NULL &&
-                m->branch_expr->first_token->line > 0)
+        if (m->p_branch_expr != NULL &&
+                m->p_branch_expr->first_token->line > 0)
         {
-            ss_fprintf(ss, " at line %d", m->branch_expr->first_token->line);
+            ss_fprintf(ss, " at line %d", m->p_branch_expr->first_token->line);
         }
 
         if (m->is_unreachable)
@@ -64301,13 +64291,13 @@ static void flow_diagnose_map_path(const struct flow_visit_ctx* ctx, const struc
     {
         const struct flow_map* m = chain[i];
 
-        if (m->branch_expr == NULL)
+        if (m->p_branch_expr == NULL)
             continue;
 
         bool already_reported = false;
         for (int s = 0; s < seen_count; s++)
         {
-            if (seen_expr[s] == m->branch_expr && seen_kind[s] == m->kind)
+            if (seen_expr[s] == m->p_branch_expr && seen_kind[s] == m->kind)
             {
                 already_reported = true;
                 break;
@@ -64318,7 +64308,7 @@ static void flow_diagnose_map_path(const struct flow_visit_ctx* ctx, const struc
 
         if (seen_count < FLOW_MAP_PATH_MAX_CHAIN)
         {
-            seen_expr[seen_count] = m->branch_expr;
+            seen_expr[seen_count] = m->p_branch_expr;
             seen_kind[seen_count] = m->kind;
             seen_count++;
         }
@@ -64330,8 +64320,8 @@ static void flow_diagnose_map_path(const struct flow_visit_ctx* ctx, const struc
            sub-expression that is not what the branch turned on. */
         const struct marker branch_marker =
         {
-            .p_token_begin = m->branch_expr->first_token,
-            .p_token_end = m->branch_expr->last_token,
+            .p_token_begin = m->p_branch_expr->first_token,
+            .p_token_end = m->p_branch_expr->last_token,
         };
 
         const bool is_true_branch = (m->kind == FLOW_MAP_TRUE_BRANCH);
@@ -64348,7 +64338,7 @@ static void flow_diagnose_map_path(const struct flow_visit_ctx* ctx, const struc
            warning goes on to complain about -- and the branch taken follows
            from it, so only that half is printed. */
         struct osstream cond_ss = { 0 };
-        flow_expression_to_string(m->branch_expr, &cond_ss);
+        flow_expression_to_string(m->p_branch_expr, &cond_ss);
         const char* cond = cond_ss.c_str ? cond_ss.c_str : "";
 
         /* Phrase the assumption in terms of the condition's own type. For a
@@ -64356,7 +64346,7 @@ static void flow_diagnose_map_path(const struct flow_visit_ctx* ctx, const struc
            and what the resulting warning will talk about; for anything else
            claiming nullness would be wrong, so fall back to true/false. */
         const char* assumption;
-        if (type_is_pointer(&m->branch_expr->type))
+        if (type_is_pointer(&m->p_branch_expr->type))
             assumption = is_true_branch ? "is non-null" : "is null";
         else
             assumption = is_true_branch ? "is true" : "is false";
@@ -64387,15 +64377,15 @@ static void flow_diagnose_state_origin(const struct flow_visit_ctx* ctx,
                                        const struct flow_alternative* p_alternative,
                                        const struct marker* p_fallback_marker)
 {
-    if (p_alternative->p_token == NULL)
+    if (p_alternative->p_origin_token == NULL)
     {
         return; /* state seeded with nothing to blame */
     }
 
     const struct token* _Opt p_at = p_fallback_marker->p_token_caret ?
-                                        p_fallback_marker->p_token_caret : p_fallback_marker->p_token_begin;
+        p_fallback_marker->p_token_caret : p_fallback_marker->p_token_begin;
 
-    if (p_at != NULL && p_at->line == p_alternative->p_token->line)
+    if (p_at != NULL && p_at->line == p_alternative->p_origin_token->line)
     {
         return; /* same line as the warning -- says it twice */
     }
@@ -64406,22 +64396,22 @@ static void flow_diagnose_state_origin(const struct flow_visit_ctx* ctx,
        from the tokens, so a span reaching onto another line would show a
        different line than the caret sits on. */
     const struct expression* _Opt p_state_expr =
-            p_alternative->origin ? p_alternative->origin->branch_expr : NULL;
+        p_alternative->p_origin_map ? p_alternative->p_origin_map->p_branch_expr : NULL;
 
     const bool span_condition =
-            p_state_expr != NULL &&
-            p_state_expr->first_token->line == p_alternative->p_token->line &&
-            p_state_expr->last_token->line == p_alternative->p_token->line;
+        p_state_expr != NULL &&
+        p_state_expr->first_token->line == p_alternative->p_origin_token->line &&
+        p_state_expr->last_token->line == p_alternative->p_origin_token->line;
 
     if (p_state_expr)
     {
         const struct marker state_marker =
         {
-            .p_token_caret = p_alternative->p_token,
-            .p_token_begin = span_condition ? p_state_expr->first_token : p_alternative->p_token,
-            .p_token_end = span_condition ? p_state_expr->last_token : p_alternative->p_token,
+            .p_token_caret = p_alternative->p_origin_token,
+            .p_token_begin = span_condition ? p_state_expr->first_token : p_alternative->p_origin_token,
+            .p_token_end = span_condition ? p_state_expr->last_token : p_alternative->p_origin_token,
         };
-    
+
         diagnostic(W_LOCATION, ctx->ctx, NULL, &state_marker,
                    p_state_expr != NULL ? "the state comes from here, in this branch"
                                         : "the state comes from here ");
@@ -64465,7 +64455,7 @@ static struct flow_map* _Opt flow_map_arena_new_branch(struct flow_map_arena* a,
     struct flow_map* _Opt m = flow_map_arena_new(a, parent, is_true ? FLOW_MAP_TRUE_BRANCH : FLOW_MAP_FALSE_BRANCH);
     if (m)
     {
-        m->branch_expr = p_expr;
+        m->p_branch_expr = p_expr;
     }
     return m;
 }
@@ -64662,8 +64652,8 @@ static void flow_object_init(struct flow_visit_ctx* ctx, struct object* p_object
             .value = {.p = p_object},
             .value_relation = FLOW_RELATION_EQUAL,
             .imaginary = FLOW_IMAGINARY_NONE,
-            .origin = ctx->p_current_flow_map,
-            .p_token = p_token
+            .p_origin_map = ctx->p_current_flow_map,
+            .p_origin_token = p_token
         };
         flow_alternatives_add(&e->alternatives, &a);
 
@@ -64723,8 +64713,8 @@ static void flow_object_init(struct flow_visit_ctx* ctx, struct object* p_object
             .value = value.value,
             .value_relation = relation,
             .imaginary = FLOW_IMAGINARY_NONE,
-            .origin = ctx->p_current_flow_map,
-            .p_token = p_token
+            .p_origin_map = ctx->p_current_flow_map,
+            .p_origin_token = p_token
         };
         flow_alternatives_add(&e->alternatives, &a);
     }
@@ -64768,8 +64758,8 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
                 .value = {.p = p_object},
                 .value_relation = FLOW_RELATION_EQUAL,
                 .imaginary = FLOW_IMAGINARY_NONE,
-                .origin = ctx->p_current_flow_map,
-                .p_token = p_token
+                .p_origin_map = ctx->p_current_flow_map,
+                .p_origin_token = p_token
             };
             flow_alternatives_add(&e->alternatives, &a);
 
@@ -64871,8 +64861,8 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
             if (p_pointed != NULL)
             {
                 struct type pointed_type = type_is_array(p_type)
-                                           ? get_array_item_type(p_type)
-                                           : type_remove_pointer(p_type);
+                    ? get_array_item_type(p_type)
+                    : type_remove_pointer(p_type);
                 pointee_is_opt = type_is_nullable(&pointed_type, nullable_enabled);
                 make_object(&pointed_type, p_pointed, MAKE_STATE_ANY, ctx->ctx->options.target);
                 type_destroy(&pointed_type);
@@ -64892,8 +64882,8 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
                     .value = {.p = p_pointed},
                     .value_relation = FLOW_RELATION_EQUAL,
                     .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = ctx->p_current_flow_map,
-                    .p_token = p_token
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_token
                 };
                 flow_alternatives_add(&ep->alternatives, &a);
 
@@ -64907,8 +64897,8 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
                     .value = {.p = NULL},
                     .value_relation = FLOW_RELATION_NOT_EQUAL,
                     .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = ctx->p_current_flow_map,
-                    .p_token = p_token
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_token
                 };
                 flow_alternatives_add(&ep->alternatives, &a);
 
@@ -64941,8 +64931,8 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
                                 .value = {.i = UNINITIALIZED_VALUE},
                                 .value_relation = FLOW_RELATION_UNINITIALIZED,
                                 .imaginary = FLOW_IMAGINARY_NONE,
-                                .origin = ctx->p_current_flow_map,
-                                .p_token = p_token
+                                .p_origin_map = ctx->p_current_flow_map,
+                                .p_origin_token = p_token
                             };
                             flow_alternatives_add(&e->alternatives, &a);
 
@@ -64963,8 +64953,8 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
                             .value = {.i = UNINITIALIZED_VALUE},
                             .value_relation = FLOW_RELATION_UNINITIALIZED,
                             .imaginary = FLOW_IMAGINARY_NONE,
-                            .origin = ctx->p_current_flow_map,
-                            .p_token = p_token
+                            .p_origin_map = ctx->p_current_flow_map,
+                            .p_origin_token = p_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
 
@@ -65053,8 +65043,8 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
                     .value = {.p = NULL},
                     .value_relation = FLOW_RELATION_EQUAL,
                     .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = p_null_map,
-                    .p_token = p_token
+                    .p_origin_map = p_null_map,
+                    .p_origin_token = p_token
                 };
                 flow_alternatives_add(&ep->alternatives, &a);
             }
@@ -65067,8 +65057,8 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
                     .value = {.p = p_pointed},
                     .value_relation = FLOW_RELATION_EQUAL,
                     .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = p_nonnull_map,
-                    .p_token = p_token
+                    .p_origin_map = p_nonnull_map,
+                    .p_origin_token = p_token
                 };
                 flow_alternatives_add(&ep->alternatives, &a);
             }
@@ -65080,8 +65070,8 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
                     .value = {.p = NULL},
                     .value_relation = FLOW_RELATION_NOT_EQUAL,
                     .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = p_nonnull_map,
-                    .p_token = p_token
+                    .p_origin_map = p_nonnull_map,
+                    .p_origin_token = p_token
                 };
                 flow_alternatives_add(&ep->alternatives, &a);
             }
@@ -65116,13 +65106,10 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
                     .value = {.i = ANY_VALUE},
                     .value_relation = FLOW_RELATION_ANY,
                     .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = p_nonnull_map,
-                    .p_token = p_token
+                    .p_origin_map = p_nonnull_map,
+                    .p_origin_token = p_token
                 };
                 flow_alternatives_add(&eo->alternatives, &a);
-
-                /* Null arm: object does not exist when pointer is null. */
-                flow_alternatives_add_does_not_exist(&eo->alternatives, p_null_map, p_token);
 
                 /* Deliberately NOT recursing into p_pointed's own members here
                 (tried once, reverted): `struct X* _Opt p` only says p ITSELF
@@ -65172,8 +65159,8 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
                 .value = value.value,
                 .value_relation = FLOW_RELATION_ANY,
                 .imaginary = FLOW_IMAGINARY_NONE,
-                .origin = ctx->p_current_flow_map,
-                .p_token = p_token
+                .p_origin_map = ctx->p_current_flow_map,
+                .p_origin_token = p_token
             };
             flow_alternatives_add(&e->alternatives, &a);
         }
@@ -65262,7 +65249,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, const struct 
                                              INIT_OBJ,
                                              false,
                                              false
-                                            );
+            );
 
             flow_apply_alloc_contract_to_dest(ctx,
                                               &p_init_declarator->p_declarator->type,
@@ -65446,7 +65433,7 @@ static void flow_check_condition_known_at_compile_time(struct flow_visit_ctx* ct
 
     if (reported)
     {
-        flow_explain_alternative(ctx, p_alternative, p_alternative->origin, &marker);
+        flow_explain_alternative(ctx, p_alternative, p_alternative->p_origin_map, &marker);
     }
 }
 
@@ -65688,7 +65675,7 @@ static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_stat
            looking unconditionally null afterward, when the throw path
            actually leaves it MOVED (into p2), never reset. User-reported. */
         /* Pre-filled with p_before so no element is ever indeterminate; only
-           the first num_arms entries are read. */
+              the first num_arms entries are read. */
         const struct flow_map* arms[2] = { p_before, p_before };
         int num_arms = 0;
         if (try_reached_the_end)
@@ -66098,8 +66085,8 @@ static bool flow_object_leaves_in_state_2(struct flow_visit_ctx* ctx,
            loop ends the pre-loop object, and the zero-iteration arm -- whose
            alternative still names that object, never having consumed it -- was
            reported as a use-after-end (samples/flow3/self-consuming-reassignment.c). */
-        if (!flow_map_is_ancestor_or_self(a->origin, p_origin_filter) &&
-                !(p_origin_filter2 != NULL && flow_map_is_ancestor_or_self(a->origin, p_origin_filter2)))
+        if (!flow_map_is_ancestor_or_self(a->p_origin_map, p_origin_filter) &&
+                !(p_origin_filter2 != NULL && flow_map_is_ancestor_or_self(a->p_origin_map, p_origin_filter2)))
             continue;
 
         const bool match =
@@ -66116,7 +66103,7 @@ static bool flow_object_leaves_in_state_2(struct flow_visit_ctx* ctx,
             {
                 *p_line = flow_alternative_line(a);
                 if (pp_origin != NULL)
-                    *pp_origin = a->origin;
+                    *pp_origin = a->p_origin_map;
             }
             return true;
         }
@@ -66282,7 +66269,7 @@ static void flow_check_object_access(struct flow_visit_ctx* ctx,
             if (members_check_uninit && flow_union_is_initialized(ctx, p_object_src))
                 members_check_uninit = false;
 
-            /* Whole aggregate uninitialized, or wholly moved: report it once, by
+                /* Whole aggregate uninitialized, or wholly moved: report it once, by
                the aggregate's own name, instead of once per leaf. See
                flow_object_leaves_in_state. */
             bool members_check_moved = check_moved;
@@ -66453,7 +66440,7 @@ static void flow_check_object_access(struct flow_visit_ctx* ctx,
             //flow_alternative_print(p_alternative);
             //printf("\n");
 
-            if (!flow_map_is_ancestor_or_self(p_alternative->origin, p_origin_filter))
+            if (!flow_map_is_ancestor_or_self(p_alternative->p_origin_map, p_origin_filter))
             {
                 /* This alternative was established on a branch that isn't
                    an ancestor of the branch we're checking from -- it
@@ -66470,7 +66457,7 @@ static void flow_check_object_access(struct flow_visit_ctx* ctx,
                                "object '%s' lifetime has ended",
                                bare_name))
                 {
-                    flow_explain_alternative(ctx, p_alternative, p_alternative->origin, &marker);
+                    flow_explain_alternative(ctx, p_alternative, p_alternative->p_origin_map, &marker);
                 }
 
                 continue; //no need to print other errors
@@ -66493,10 +66480,10 @@ static void flow_check_object_access(struct flow_visit_ctx* ctx,
             /* Skipped for a _Dtor destination: a destructor must accept a
                partially-created object, so a null member is allowed there. */
             /* The pointer's nullability is governed by the destination (parameter)
-                     type when one was threaded in (array-element case above); otherwise by
-                     the object's own declared type. */
+                        type when one was threaded in (array-element case above); otherwise by
+                        the object's own declared type. */
             const struct type* p_null_type =
-                    p_dest_governing_type != NULL ? p_dest_governing_type : &p_object_src->type;
+                p_dest_governing_type != NULL ? p_dest_governing_type : &p_object_src->type;
             if (!dest_is_dtor &&
                     type_is_pointer(&p_object_src->type) &&
                     !type_is_nullable(p_null_type, ctx->ctx->options.null_checks_enabled) &&
@@ -66567,7 +66554,7 @@ static void flow_check_object_access(struct flow_visit_ctx* ctx,
                                    "passing a possible uninitialized object '%s'",
                                    bare_name))
                     {
-                        flow_explain_alternative(ctx, p_alternative, p_alternative->origin, &marker);
+                        flow_explain_alternative(ctx, p_alternative, p_alternative->p_origin_map, &marker);
                     }
                 }
             }
@@ -66581,7 +66568,7 @@ static void flow_check_object_access(struct flow_visit_ctx* ctx,
                                "object '%s' is moved",
                                bare_name))
                 {
-                    flow_explain_alternative(ctx, p_alternative, p_alternative->origin, &marker);
+                    flow_explain_alternative(ctx, p_alternative, p_alternative->p_origin_map, &marker);
                 }
             }
         }
@@ -66849,7 +66836,7 @@ static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
         owner-bearing struct to a _View parameter moved the caller's owners and
         silently dropped the "owner not moved" leak (samples/flow3/ownership.c). */
         const bool view_here = dest_is_view || type_is_view(&p_object_dest->type) ||
-                               flow_object_under_view(p_object_dest);
+            flow_object_under_view(p_object_dest);
 
         /* A directly-_Out destination (e.g. an array out-parameter
         `_Out char errmsg[100]`) receives uninitialized memory on purpose:
@@ -67012,8 +66999,8 @@ static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
                 .value = {.p = NULL},
                 .value_relation = FLOW_RELATION_NOT_EQUAL,
                 .imaginary = FLOW_IMAGINARY_NONE,
-                .origin = ctx->p_current_flow_map,
-                .p_token = p_expression->first_token
+                .p_origin_map = ctx->p_current_flow_map,
+                .p_origin_token = p_expression->first_token
             };
             flow_alternatives_add(&e->alternatives, &a);
             return;
@@ -67027,7 +67014,7 @@ static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
 
         const struct flow_key_alternatives* _Opt p_src_key_alternatives =
             flow_map_search_up(ctx->p_current_flow_map, p_object_src);
-            
+
         if (p_src_key_alternatives == NULL)
         {
             /*
@@ -67081,8 +67068,8 @@ static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
                         .value = {.i = ANY_VALUE},
                         .value_relation = FLOW_RELATION_ANY,
                         .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                        .p_origin_map = ctx->p_current_flow_map,
+                        .p_origin_token = p_expression->first_token
                     };
                     flow_alternatives_add(&e_any->alternatives, &a);
                 }
@@ -67124,7 +67111,7 @@ static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
             struct flow_alternative* p_src_alternative = p_src_key_alternatives->alternatives.data[ri];
 
             if (p_src_alternative->imaginary == FLOW_IMAGINARY_ENDED &&
-                    !flow_map_is_ancestor_or_self(p_src_alternative->origin, ctx->p_current_flow_map))
+                    !flow_map_is_ancestor_or_self(p_src_alternative->p_origin_map, ctx->p_current_flow_map))
             {
                 /* This ENDED fact's origin is a sibling branch that was never
                    open at the same time as the current path (e.g. a catch arm
@@ -67162,7 +67149,7 @@ static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
                                                            ss.c_str);
                     ss_close(&ss);
                     if (reported_ended)
-                        flow_explain_alternative(ctx, p_src_alternative, p_src_alternative->origin, &marker);
+                        flow_explain_alternative(ctx, p_src_alternative, p_src_alternative->p_origin_map, &marker);
                 }
                 continue;
             }
@@ -67204,7 +67191,7 @@ static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
                                                     p_object_dest,
                                                     p_src_alternative->value.p,
                                                     dtor_here,
-                                                    p_src_alternative->origin);
+                                                    p_src_alternative->p_origin_map);
                 }
 
             }
@@ -67254,7 +67241,7 @@ static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
                         init_type != INIT_RETURN;
 
                     flow_check_object_access(ctx, ss2.c_str, p_expression, p_src_alternative->value.p,
-                                             check_unitialized, p_src_alternative->origin, dtor_here, NULL, true, false, true, true);
+                                             check_unitialized, p_src_alternative->p_origin_map, dtor_here, NULL, true, false, true, true);
                 }
 
                 /* Moving an owner pointer into a void* _Owner destination (e.g.
@@ -67307,7 +67294,7 @@ static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
                     if (p_pointed_obj != NULL)
                     {
                         flow_seed_all_members_default(ctx, p_pointed_obj,
-                                                      p_src_alternative->p_token);
+                                                      p_src_alternative->p_origin_token);
                     }
 
                     /* Render the expression being erased (e.g. "p" in
@@ -67502,7 +67489,7 @@ static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
                                                             verb, object_name);
                     ss_close(&name_ss);
                     if (reported_uninit)
-                        flow_explain_alternative(ctx, p_src_alternative, p_src_alternative->origin, &marker);
+                        flow_explain_alternative(ctx, p_src_alternative, p_src_alternative->p_origin_map, &marker);
                 }
             }
 
@@ -67521,7 +67508,7 @@ static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
                                                        ss.c_str);
                 ss_close(&ss);
                 if (reported_moved)
-                    flow_explain_alternative(ctx, p_src_alternative, p_src_alternative->origin, &marker);
+                    flow_explain_alternative(ctx, p_src_alternative, p_src_alternative->p_origin_map, &marker);
             }
         }
 
@@ -67653,8 +67640,7 @@ static void flow_scan_discarded_owners(struct flow_visit_ctx* ctx,
         const struct flow_alternative* p_alternative = e->alternatives.data[i];
 
         if (p_alternative->imaginary == FLOW_IMAGINARY_MOVED ||
-                p_alternative->imaginary == FLOW_IMAGINARY_ENDED ||
-                p_alternative->imaginary == FLOW_IMAGINARY_ABSENT)
+                p_alternative->imaginary == FLOW_IMAGINARY_ENDED)
         {
             continue;
         }
@@ -67866,7 +67852,7 @@ static void flow_check_assigment(struct flow_visit_ctx* ctx,
             i < p_expression_dest_key_alternatives->alternatives.size; i++)
     {
         const struct flow_alternative* p_expression_dest_alternative =
-                p_expression_dest_key_alternatives->alternatives.data[i];
+            p_expression_dest_key_alternatives->alternatives.data[i];
 
         if (p_expression_dest_alternative->value_kind == FLOW_VALUE_KIND_REF)
         {
@@ -68141,27 +68127,6 @@ static void narrow_by_constant(const struct flow_alternatives* src,
         if (alt->value_relation == FLOW_RELATION_UNINITIALIZED)
             continue;
 
-        /* Handle absent: treat as value 0 (null) */
-        if (alt->imaginary == FLOW_IMAGINARY_ABSENT)
-        {
-            bool result = is_equal ? (0 == c) : (0 != c);
-            if (result)
-            {
-                struct flow_alternative tagged = *alt;
-                tagged.origin = origin;
-                tagged.p_token = p_token;
-                flow_alternatives_add(true_alts, &tagged);
-            }
-            else
-            {
-                struct flow_alternative tagged = *alt;
-                tagged.origin = origin;
-                tagged.p_token = p_token;
-                flow_alternatives_add(false_alts, &tagged);
-            }
-            continue;
-        }
-
         /* Extract numeric value from the alternative if possible */
         long long val = 0;
         bool is_ptr = false;
@@ -68190,15 +68155,15 @@ static void narrow_by_constant(const struct flow_alternatives* src,
             if (result)
             {
                 struct flow_alternative tagged = *alt;
-                tagged.origin = origin;
-                tagged.p_token = p_token;
+                tagged.p_origin_map = origin;
+                tagged.p_origin_token = p_token;
                 flow_alternatives_add(true_alts, &tagged);
             }
             else
             {
                 struct flow_alternative tagged = *alt;
-                tagged.origin = origin;
-                tagged.p_token = p_token;
+                tagged.p_origin_map = origin;
+                tagged.p_origin_token = p_token;
                 flow_alternatives_add(false_alts, &tagged);
             }
         }
@@ -68211,16 +68176,16 @@ static void narrow_by_constant(const struct flow_alternatives* src,
                 {
                     /* == c is false, keep NOT_EQUAL c in false branch only */
                     struct flow_alternative tagged = *alt;
-                    tagged.origin = origin;
-                    tagged.p_token = p_token;
+                    tagged.p_origin_map = origin;
+                    tagged.p_origin_token = p_token;
                     flow_alternatives_add(false_alts, &tagged);
                 }
                 else
                 {
                     /* != c is true, keep NOT_EQUAL c in true branch only */
                     struct flow_alternative tagged = *alt;
-                    tagged.origin = origin;
-                    tagged.p_token = p_token;
+                    tagged.p_origin_map = origin;
+                    tagged.p_origin_token = p_token;
                     flow_alternatives_add(true_alts, &tagged);
                 }
             }
@@ -68247,14 +68212,14 @@ static void narrow_by_constant(const struct flow_alternatives* src,
                         .value = v.value,
                         .value_relation = FLOW_RELATION_EQUAL,
                         .imaginary = alt->imaginary,
-                        .origin = origin,
-                        .p_token = p_token
+                        .p_origin_map = origin,
+                        .p_origin_token = p_token
                     };
                     flow_alternatives_add(true_alts, &a_eq);
                     /* For false branch, keep the original NOT_EQUAL val (we lose the info x != c) */
                     struct flow_alternative tagged = *alt;
-                    tagged.origin = origin;
-                    tagged.p_token = p_token;
+                    tagged.p_origin_map = origin;
+                    tagged.p_origin_token = p_token;
                     flow_alternatives_add(false_alts, &tagged);
                 }
                 else
@@ -68263,14 +68228,14 @@ static void narrow_by_constant(const struct flow_alternatives* src,
                        so we keep NOT_EQUAL val in both branches */
                     {
                         struct flow_alternative tagged = *alt;
-                        tagged.origin = origin;
-                        tagged.p_token = p_token;
+                        tagged.p_origin_map = origin;
+                        tagged.p_origin_token = p_token;
                         flow_alternatives_add(true_alts, &tagged);
                     }
                     {
                         struct flow_alternative tagged = *alt;
-                        tagged.origin = origin;
-                        tagged.p_token = p_token;
+                        tagged.p_origin_map = origin;
+                        tagged.p_origin_token = p_token;
                         flow_alternatives_add(false_alts, &tagged);
                     }
                 }
@@ -68298,8 +68263,8 @@ static void narrow_by_constant(const struct flow_alternatives* src,
                     .value = v.value,
                     .value_relation = FLOW_RELATION_EQUAL,
                     .imaginary = alt->imaginary,
-                    .origin = origin,
-                    .p_token = p_token
+                    .p_origin_map = origin,
+                    .p_origin_token = p_token
                 };
                 struct flow_alternative a_ne =
                 {
@@ -68307,8 +68272,8 @@ static void narrow_by_constant(const struct flow_alternatives* src,
                     .value = v.value,
                     .value_relation = FLOW_RELATION_NOT_EQUAL,
                     .imaginary = alt->imaginary,
-                    .origin = origin,
-                    .p_token = p_token
+                    .p_origin_map = origin,
+                    .p_origin_token = p_token
                 };
                 flow_alternatives_add(true_alts, &a_eq);
                 flow_alternatives_add(false_alts, &a_ne);
@@ -68321,8 +68286,8 @@ static void narrow_by_constant(const struct flow_alternatives* src,
                     .value = v.value,
                     .value_relation = FLOW_RELATION_NOT_EQUAL,
                     .imaginary = alt->imaginary,
-                    .origin = origin,
-                    .p_token = p_token
+                    .p_origin_map = origin,
+                    .p_origin_token = p_token
                 };
                 struct flow_alternative a_eq =
                 {
@@ -68330,8 +68295,8 @@ static void narrow_by_constant(const struct flow_alternatives* src,
                     .value = v.value,
                     .value_relation = FLOW_RELATION_EQUAL,
                     .imaginary = alt->imaginary,
-                    .origin = origin,
-                    .p_token = p_token
+                    .p_origin_map = origin,
+                    .p_origin_token = p_token
                 };
                 flow_alternatives_add(true_alts, &a_ne);
                 flow_alternatives_add(false_alts, &a_eq);
@@ -68351,12 +68316,12 @@ static void narrow_by_constant(const struct flow_alternatives* src,
                 .value = {.i = c},
                 .value_relation = FLOW_RELATION_EQUAL,
                 .imaginary = alt->imaginary,
-                .origin = origin,
-                .p_token = p_token
+                .p_origin_map = origin,
+                .p_origin_token = p_token
             };
             struct flow_alternative a_range = *alt;
-            a_range.origin = origin;
-            a_range.p_token = p_token;
+            a_range.p_origin_map = origin;
+            a_range.p_origin_token = p_token;
             if (is_equal)
             {
                 flow_alternatives_add(true_alts, &a_eq);
@@ -68434,15 +68399,15 @@ static void narrow_by_relational(const struct flow_alternatives* src,
             /* Concrete value: route to whichever branch it satisfies. */
             bool t = flow_scalar_relation_holds(lo, op, c);
             struct flow_alternative tagged = *alt;
-            tagged.origin = origin;
-            tagged.p_token = p_token;
+            tagged.p_origin_map = origin;
+            tagged.p_origin_token = p_token;
             flow_alternatives_add(t ? true_alts : false_alts, &tagged);
             continue;
         }
 
         if (alt->value_relation == FLOW_RELATION_ANY &&
                 (alt->value_kind == FLOW_VALUE_KIND_SIGNED ||
-                 alt->value_kind == FLOW_VALUE_KIND_UNSIGNED) &&
+                    alt->value_kind == FLOW_VALUE_KIND_UNSIGNED) &&
                 alt->imaginary == FLOW_IMAGINARY_NONE)
         {
             struct flow_alternative a_true =
@@ -68451,8 +68416,8 @@ static void narrow_by_relational(const struct flow_alternatives* src,
                 .value = {.i = c},
                 .value_relation = flow_relation_for_op(op, true),
                 .imaginary = FLOW_IMAGINARY_NONE,
-                .origin = origin,
-                .p_token = p_token
+                .p_origin_map = origin,
+                .p_origin_token = p_token
             };
             struct flow_alternative a_false =
             {
@@ -68460,8 +68425,8 @@ static void narrow_by_relational(const struct flow_alternatives* src,
                 .value = {.i = c},
                 .value_relation = flow_relation_for_op(op, false),
                 .imaginary = FLOW_IMAGINARY_NONE,
-                .origin = origin,
-                .p_token = p_token
+                .p_origin_map = origin,
+                .p_origin_token = p_token
             };
             flow_alternatives_add(true_alts, &a_true);
             flow_alternatives_add(false_alts, &a_false);
@@ -68508,8 +68473,8 @@ static void narrow_by_relational(const struct flow_alternatives* src,
             if (have_t && alt_lo <= t_hi && t_lo <= alt_hi)
             {
                 struct flow_alternative tagged = *alt;
-                tagged.origin = origin;
-                tagged.p_token = p_token;
+                tagged.p_origin_map = origin;
+                tagged.p_origin_token = p_token;
                 /* Clip to the intersection -- overlapping is not enough. An
                    alternative already known `<= 0` narrowed by `< 0` must
                    become `< 0` on the true branch; keeping it at `<= 0` left
@@ -68522,8 +68487,8 @@ static void narrow_by_relational(const struct flow_alternatives* src,
             if (have_f && alt_lo <= f_hi && f_lo <= alt_hi)
             {
                 struct flow_alternative tagged = *alt;
-                tagged.origin = origin;
-                tagged.p_token = p_token;
+                tagged.p_origin_map = origin;
+                tagged.p_origin_token = p_token;
                 flow_alt_set_interval(&tagged,
                                       alt_lo > f_lo ? alt_lo : f_lo,
                                       alt_hi < f_hi ? alt_hi : f_hi);
@@ -68535,8 +68500,8 @@ static void narrow_by_relational(const struct flow_alternatives* src,
         /* NOT_EQUAL, pointers, or MOVED/ENDED state: keep unchanged in both
            branches (conservative fallback). */
         struct flow_alternative tagged = *alt;
-        tagged.origin = origin;
-        tagged.p_token = p_token;
+        tagged.p_origin_map = origin;
+        tagged.p_origin_token = p_token;
         flow_alternatives_add(true_alts, &tagged);
         flow_alternatives_add(false_alts, &tagged);
     }
@@ -68626,8 +68591,8 @@ static void flow_narrow_operand_relational(struct flow_visit_ctx* ctx,
         /* Tag each branch's alternatives with ITS OWN map so join
            correlation can tell them apart (true values belong to p_true,
            false values to p_false -- not both to p_true). */
-        for (int k = 0; k < true_alts.size; k++) true_alts.data[k]->origin = p_true;
-        for (int k = 0; k < false_alts.size; k++) false_alts.data[k]->origin = p_false;
+        for (int k = 0; k < true_alts.size; k++) true_alts.data[k]->p_origin_map = p_true;
+        for (int k = 0; k < false_alts.size; k++) false_alts.data[k]->p_origin_map = p_false;
         if (true_alts.size > 0)
         {
             struct flow_key_alternatives* _Opt e = flow_map_find_add(p_true, obj);
@@ -68679,11 +68644,7 @@ static int flow_evaluate_alternative_against_constant(const struct flow_alternat
                                                       long long c,
                                                       bool is_equal)
 {
-    if (alt->imaginary == FLOW_IMAGINARY_ABSENT)
-    {
-        const bool is_null = true;
-        return (is_equal ? is_null : !is_null) ? 1 : 0;
-    }
+
 
     {
         bool result = false, known = false;
@@ -68744,10 +68705,10 @@ static bool flow_map_is_ancestor_or_equal(const struct flow_map* anc, const stru
    An unconditional value (origin an ancestor of both branches, or NULL) is
    compatible with everything. */
 /* Two origins can coexist on one execution path unless their branch-decision
-         chains CONFLICT -- i.e. some branch id appears on both chains with opposite
-         sides (one took the `then`, the other the `else`). A value with no branch
-         decisions (a constant/constexpr, or an unconditional value) conflicts with
-         nothing, so it correlates with any path. */
+            chains CONFLICT -- i.e. some branch id appears on both chains with opposite
+            sides (one took the `then`, the other the `else`). A value with no branch
+            decisions (a constant/constexpr, or an unconditional value) conflicts with
+            nothing, so it correlates with any path. */
 static bool flow_origins_compatible(const struct flow_map* _Opt o1, const struct flow_map* _Opt o2)
 {
     if (o1 == NULL || o2 == NULL || o1 == o2)
@@ -68786,11 +68747,7 @@ static const struct flow_map* _Opt flow_origin_more_specific(const struct flow_m
    cases); if both are concrete they compare directly. Returns 1/0/-1. */
 static bool flow_alt_concrete_int(const struct flow_alternative* alt, long long* out)
 {
-    if (alt->imaginary == FLOW_IMAGINARY_ABSENT)
-    {
-        *out = 0;
-        return true;
-    }
+
     if (alt->value_relation != FLOW_RELATION_EQUAL) return false;
     switch (alt->value_kind)
     {
@@ -68917,7 +68874,7 @@ static int flow_evaluate_equality_multi(struct flow_visit_ctx* ctx,
                 for (int rvi = 0; rvi < r_count; rvi++)
                 {
                     const struct flow_alternative* rval = r_is_ref ? right_resolved->alternatives.data[rvi] : ralt;
-                    if (!flow_origins_compatible(lval->origin, rval->origin))
+                    if (!flow_origins_compatible(lval->p_origin_map, rval->p_origin_map))
                     {
                         any_skipped = true; /* correlated join: cross-branch pair */
                         continue;
@@ -68981,8 +68938,8 @@ static void flow_narrow_operand_equality(struct flow_visit_ctx* ctx,
                            &true_alts, &false_alts, p_true, p_token);
         /* Tag each branch's alternatives with its own map (see the relational
            narrow) so join correlation can distinguish them. */
-        for (int k = 0; k < true_alts.size; k++) true_alts.data[k]->origin = p_true;
-        for (int k = 0; k < false_alts.size; k++) false_alts.data[k]->origin = p_false;
+        for (int k = 0; k < true_alts.size; k++) true_alts.data[k]->p_origin_map = p_true;
+        for (int k = 0; k < false_alts.size; k++) false_alts.data[k]->p_origin_map = p_false;
         if (true_alts.size > 0)
         {
             struct flow_key_alternatives* _Opt e = flow_map_find_add(p_true, obj);
@@ -69040,11 +68997,7 @@ const char* obj_display(const struct object* _Opt obj)
 // Helper: print a single alternative’s value (ignores relation)
 void print_value(const struct flow_alternative* alt)
 {
-    if (alt->imaginary == FLOW_IMAGINARY_ABSENT)
-    {
-        printf("ABSENT");
-        return;
-    }
+
     switch (alt->value_kind)
     {
         case FLOW_VALUE_KIND_SIGNED:
@@ -69154,7 +69107,7 @@ static int flow_evaluate_relational_multi(struct flow_visit_ctx* ctx,
                 for (int rvi = 0; rvi < r_count; rvi++)
                 {
                     const struct flow_alternative* rval = r_is_ref ? right_resolved->alternatives.data[rvi] : ralt;
-                    if (!flow_origins_compatible(lval->origin, rval->origin))
+                    if (!flow_origins_compatible(lval->p_origin_map, rval->p_origin_map))
                         continue; /* correlated join: skip cross-branch pairs */
                     long long rlo = 0, rhi = 0;
                     if (!flow_alt_to_interval(rval, &rlo, &rhi))
@@ -69201,7 +69154,7 @@ static int flow_pair_boolean(const struct flow_alternative* lval,
         {
             long long llo = 0, lhi = 0, rlo = 0, rhi = 0;
             if (!flow_alt_to_interval(lval, &llo, &lhi) ||
-                !flow_alt_to_interval(rval, &rlo, &rhi))
+            !flow_alt_to_interval(rval, &rlo, &rhi))
                 return -1;
             return flow_interval_relational(llo, lhi, rlo, rhi, op);
         }
@@ -69274,7 +69227,7 @@ static bool flow_comparison_result_alts(struct flow_visit_ctx* ctx,
                 for (int rvi = 0; rvi < r_count; rvi++)
                 {
                     const struct flow_alternative* rval = r_is_ref ? right_resolved->alternatives.data[rvi] : ralt;
-                    if (!flow_origins_compatible(lval->origin, rval->origin))
+                    if (!flow_origins_compatible(lval->p_origin_map, rval->p_origin_map))
                         continue;
 
                     int b = flow_pair_boolean(lval, rval, op);
@@ -69290,8 +69243,8 @@ static bool flow_comparison_result_alts(struct flow_visit_ctx* ctx,
                         .value = {.i = b ? 1 : 0},
                         .value_relation = FLOW_RELATION_EQUAL,
                         .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = flow_origin_more_specific(lval->origin, rval->origin),
-                        .p_token = p_token
+                        .p_origin_map = flow_origin_more_specific(lval->p_origin_map, rval->p_origin_map),
+                        .p_origin_token = p_token
                     };
                     flow_alternatives_add(out, &a);
                     any = true;
@@ -69340,8 +69293,8 @@ static void flow_seed_comparison_result(struct flow_visit_ctx* ctx,
             .value = {.i = ANY_VALUE},
             .value_relation = FLOW_RELATION_ANY,
             .imaginary = FLOW_IMAGINARY_NONE,
-            .origin = ctx->p_current_flow_map,
-            .p_token = p_expression->first_token
+            .p_origin_map = ctx->p_current_flow_map,
+            .p_origin_token = p_expression->first_token
         };
         flow_alternatives_add(&e->alternatives, &a);
     }
@@ -69371,8 +69324,8 @@ static void flow_evaluate_binary_arithmetic(struct flow_visit_ctx* ctx,
             .value = {.i = ANY_VALUE},
             .value_relation = FLOW_RELATION_ANY,
             .imaginary = FLOW_IMAGINARY_NONE,
-            .origin = ctx->p_current_flow_map,
-            .p_token = p_result->first_token
+            .p_origin_map = ctx->p_current_flow_map,
+            .p_origin_token = p_result->first_token
         };
         flow_alternatives_add(&e->alternatives, &a);
         return;
@@ -69386,11 +69339,14 @@ static void flow_evaluate_binary_arithmetic(struct flow_visit_ctx* ctx,
        alternatives below. */
     bool zero_divisor_warned = false;
 
+    bool left_uninit_warned = false;
+    bool right_uninit_warned = false;
+
     // ---- Outer loop over left top‑level alternatives ----
     for (int li = 0; li < left_entry->alternatives.size; li++)
     {
         const struct flow_alternative* lalt = left_entry->alternatives.data[li];
-        if (lalt->imaginary == FLOW_IMAGINARY_ABSENT) continue;
+
 
         // Resolve left REF if present
         const struct flow_key_alternatives* _Opt left_resolved = left_entry;
@@ -69404,13 +69360,31 @@ static void flow_evaluate_binary_arithmetic(struct flow_visit_ctx* ctx,
         for (int lvi = 0; lvi < left_resolved->alternatives.size; lvi++)
         {
             const struct flow_alternative* lval = left_resolved->alternatives.data[lvi];
-            if (lval->imaginary == FLOW_IMAGINARY_ABSENT) continue;
+
+            if (!left_uninit_warned &&
+                !ctx->expression_is_not_evaluated &&
+                lval->imaginary != FLOW_IMAGINARY_ENDED &&
+                lval->value_relation == FLOW_RELATION_UNINITIALIZED &&
+                !type_is_uninit(&p_left->type))
+            {
+                struct osstream left_name_ss = { 0 };
+                flow_expression_to_string(p_left, &left_name_ss);
+                const bool reported_left_uninit = diagnostic(W_FLOW_UNINITIALIZED,
+                                                             ctx->ctx, NULL, &marker,
+                                                             "using a possible uninitialized object '%s'",
+                                                             left_name_ss.c_str ? left_name_ss.c_str : "");
+                if (reported_left_uninit)
+                    flow_explain_alternative(ctx, lval, lval->p_origin_map, &marker);
+                ss_close(&left_name_ss);
+                left_uninit_warned = true;
+            }
+
 
             // ---- Middle loop over right top‑level alternatives ----
             for (int ri = 0; ri < right_entry->alternatives.size; ri++)
             {
                 const struct flow_alternative* ralt = right_entry->alternatives.data[ri];
-                if (ralt->imaginary == FLOW_IMAGINARY_ABSENT) continue;
+
 
                 // Resolve right REF if present
                 const struct flow_key_alternatives* _Opt right_resolved = right_entry;
@@ -69424,7 +69398,25 @@ static void flow_evaluate_binary_arithmetic(struct flow_visit_ctx* ctx,
                 for (int rvi = 0; rvi < right_resolved->alternatives.size; rvi++)
                 {
                     const struct flow_alternative* rval = right_resolved->alternatives.data[rvi];
-                    if (rval->imaginary == FLOW_IMAGINARY_ABSENT) continue;
+
+                    if (!right_uninit_warned &&
+                        !ctx->expression_is_not_evaluated &&
+                        rval->imaginary != FLOW_IMAGINARY_ENDED &&
+                        rval->value_relation == FLOW_RELATION_UNINITIALIZED &&
+                        !type_is_uninit(&p_right->type))
+                    {
+                        struct osstream right_name_ss = { 0 };
+                        flow_expression_to_string(p_right, &right_name_ss);
+                        const bool reported_right_uninit = diagnostic(W_FLOW_UNINITIALIZED,
+                                                                      ctx->ctx, NULL, &marker,
+                                                                      "using a possible uninitialized object '%s'",
+                                                                      right_name_ss.c_str ? right_name_ss.c_str : "");
+                        if (reported_right_uninit)
+                            flow_explain_alternative(ctx, rval, rval->p_origin_map, &marker);
+                        ss_close(&right_name_ss);
+                        right_uninit_warned = true;
+                    }
+
 
                     enum flow_relation result_rel = FLOW_RELATION_ANY;
                     long long result_val = ANY_VALUE;
@@ -69454,7 +69446,7 @@ static void flow_evaluate_binary_arithmetic(struct flow_visit_ctx* ctx,
                        (compatible origins). The divisor-zero check above is a
                        property of the divisor alone and runs for every rval,
                        independent of this pairing. */
-                    if (!flow_origins_compatible(lval->origin, rval->origin))
+                    if (!flow_origins_compatible(lval->p_origin_map, rval->p_origin_map))
                         continue;
 
                     // Only if both are EQUAL and numeric can we compute an exact result
@@ -69485,7 +69477,7 @@ static void flow_evaluate_binary_arithmetic(struct flow_visit_ctx* ctx,
                                     if (r == 0)
                                     {
                                         /* already warned above by the
-                                       possibly-zero-divisor check */
+                                   possibly-zero-divisor check */
                                         // result remains ANY
                                     }
                                     else
@@ -69498,7 +69490,7 @@ static void flow_evaluate_binary_arithmetic(struct flow_visit_ctx* ctx,
                                     if (r == 0)
                                     {
                                         /* already warned above by the
-                                       possibly-zero-divisor check */
+                                   possibly-zero-divisor check */
                                         // result remains ANY
                                     }
                                     else
@@ -69512,7 +69504,7 @@ static void flow_evaluate_binary_arithmetic(struct flow_visit_ctx* ctx,
                                     if (r < 0 || r >= (long long)(sizeof(long long) * 8))
                                     {
                                         /* shift count out of range: result is
-                                       undefined -- leave ANY. */
+                                   undefined -- leave ANY. */
                                     }
                                     else
                                     {
@@ -69559,13 +69551,13 @@ static void flow_evaluate_binary_arithmetic(struct flow_visit_ctx* ctx,
                            the REF case, `arr + 3` was wrongly treated as
                            possibly null. */
                         /* Whether the other operand is an OFFSET is a property
-                           of its type, not of whatever value the flow analysis
-                           currently holds for it. Passing the containing struct
-                           to a function invalidates the tracked value of an
-                           integer member (`st->size` after `reserve(st, n)`),
-                           and that must not cost the pointer operand its
-                           non-null guarantee -- see
-                           tests/unit-tests/flow3/narrow-through-pointer-arithmetic.c */
+                              of its type, not of whatever value the flow analysis
+                              currently holds for it. Passing the containing struct
+                              to a function invalidates the tracked value of an
+                              integer member (`st->size` after `reserve(st, n)`),
+                              and that must not cost the pointer operand its
+                              non-null guarantee -- see
+                              tests/unit-tests/flow3/narrow-through-pointer-arithmetic.c */
                         const bool lnum2 = type_is_integer(&p_left->type);
                         const bool rnum2 = type_is_integer(&p_right->type);
                         /* A pointer whose containing object was invalidated by
@@ -69576,13 +69568,13 @@ static void flow_evaluate_binary_arithmetic(struct flow_visit_ctx* ctx,
                            which no invalidation can change -- so the guard's
                            non-nullness survives the arithmetic. */
                         const bool lbase = (lval->value_kind == FLOW_VALUE_KIND_PTR) ||
-                                           (lval->value_kind == FLOW_VALUE_KIND_REF && lval->value.p != NULL) ||
-                                           (type_is_pointer(&p_left->type) &&
-                                            lval->value_relation == FLOW_RELATION_NOT_EQUAL);
+                            (lval->value_kind == FLOW_VALUE_KIND_REF && lval->value.p != NULL) ||
+                            (type_is_pointer(&p_left->type) &&
+                             lval->value_relation == FLOW_RELATION_NOT_EQUAL);
                         const bool rbase = (rval->value_kind == FLOW_VALUE_KIND_PTR) ||
-                                           (rval->value_kind == FLOW_VALUE_KIND_REF && rval->value.p != NULL) ||
-                                           (type_is_pointer(&p_right->type) &&
-                                            rval->value_relation == FLOW_RELATION_NOT_EQUAL);
+                            (rval->value_kind == FLOW_VALUE_KIND_REF && rval->value.p != NULL) ||
+                            (type_is_pointer(&p_right->type) &&
+                             rval->value_relation == FLOW_RELATION_NOT_EQUAL);
 
                         const struct flow_alternative* _Opt base = NULL;
                         if (lbase && rnum2 && (op == '+' || op == '-'))
@@ -69616,8 +69608,8 @@ static void flow_evaluate_binary_arithmetic(struct flow_visit_ctx* ctx,
                                 },
                                     .value_relation = FLOW_RELATION_NOT_EQUAL,
                                     .imaginary = FLOW_IMAGINARY_NONE,
-                                    .origin = flow_origin_more_specific(lval->origin, rval->origin),
-                                    .p_token = p_result->first_token
+                                    .p_origin_map = flow_origin_more_specific(lval->p_origin_map, rval->p_origin_map),
+                                    .p_origin_token = p_result->first_token
                                 }; //lint 33 BUG in flow
                                 flow_alternatives_add(&result_alts, &a);
                             }
@@ -69633,8 +69625,8 @@ static void flow_evaluate_binary_arithmetic(struct flow_visit_ctx* ctx,
                         .value_kind = FLOW_VALUE_KIND_SIGNED,
                         .value_relation = result_rel,
                         .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = flow_origin_more_specific(lval->origin, rval->origin),
-                        .p_token = p_result->first_token
+                        .p_origin_map = flow_origin_more_specific(lval->p_origin_map, rval->p_origin_map),
+                        .p_origin_token = p_result->first_token
                     }; // could be refined based on type
                     if (result_rel == FLOW_RELATION_EQUAL)
                     {
@@ -69671,8 +69663,8 @@ static void flow_evaluate_binary_arithmetic(struct flow_visit_ctx* ctx,
                 .value = {.i = ANY_VALUE},
                 .value_relation = FLOW_RELATION_ANY,
                 .imaginary = FLOW_IMAGINARY_NONE,
-                .origin = ctx->p_current_flow_map,
-                .p_token = p_result->first_token
+                .p_origin_map = ctx->p_current_flow_map,
+                .p_origin_token = p_result->first_token
             };
             flow_alternatives_add(&dst->alternatives, &a);
         }
@@ -69687,8 +69679,8 @@ static void flow_evaluate_binary_arithmetic(struct flow_visit_ctx* ctx,
    result to `out` with `origin`. Returns false if the value can't be cast
    exactly (caller falls back to ANY). */
 /* Seed an expression's result as a known EQUAL constant read from its parser
-         object (used for operators the parser already folds but flow3 didn't seed,
-         e.g. sizeof / _Alignof). The result is size_t-like, so it's unsigned. */
+            object (used for operators the parser already folds but flow3 didn't seed,
+            e.g. sizeof / _Alignof). The result is size_t-like, so it's unsigned. */
 static void flow_seed_constant_result(struct flow_visit_ctx* ctx, const struct expression* p_expression)
 {
     if (!object_has_known_value(&p_expression->object))
@@ -69704,8 +69696,8 @@ static void flow_seed_constant_result(struct flow_visit_ctx* ctx, const struct e
         .value = {.u = object_to_unsigned_long_long(&p_expression->object)},
         .value_relation = FLOW_RELATION_EQUAL,
         .imaginary = FLOW_IMAGINARY_NONE,
-        .origin = ctx->p_current_flow_map,
-        .p_token = p_expression->first_token
+        .p_origin_map = ctx->p_current_flow_map,
+        .p_origin_token = p_expression->first_token
     };
     flow_alternatives_add(&e->alternatives, &a);
 }
@@ -69784,8 +69776,8 @@ static void flow_seed_member_default(struct flow_visit_ctx* ctx, const struct ob
                     .value = {.p = NULL},
                     .value_relation = FLOW_RELATION_EQUAL,
                     .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = p_null_map,
-                    .p_token = p_token
+                    .p_origin_map = p_null_map,
+                    .p_origin_token = p_token
                 };
                 flow_alternatives_add(&me->alternatives, &a_null);
 
@@ -69795,8 +69787,8 @@ static void flow_seed_member_default(struct flow_visit_ctx* ctx, const struct ob
                     .value = {.p = p_pointed},
                     .value_relation = p_pointed != NULL ? FLOW_RELATION_EQUAL : FLOW_RELATION_NOT_EQUAL,
                     .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = p_nonnull_map,
-                    .p_token = p_token
+                    .p_origin_map = p_nonnull_map,
+                    .p_origin_token = p_token
                 };
                 flow_alternatives_add(&me->alternatives, &a_nonnull);
             }
@@ -69808,8 +69800,8 @@ static void flow_seed_member_default(struct flow_visit_ctx* ctx, const struct ob
                     .value = {.p = NULL},
                     .value_relation = FLOW_RELATION_NOT_EQUAL,
                     .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = ctx->p_current_flow_map,
-                    .p_token = p_token
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_token
                 };
                 flow_alternatives_add(&me->alternatives, &a);
             }
@@ -69827,10 +69819,7 @@ static bool flow_cast_one_value(struct flow_visit_ctx* ctx,
                                 const struct flow_map* _Opt origin,
                                 const struct token* _Opt p_token)
 {
-    if (alt->imaginary == FLOW_IMAGINARY_ABSENT)
-    {
-        return false;
-    }
+
 
     if (alt->value_kind == FLOW_VALUE_KIND_PTR && type_is_pointer(p_target_type) &&
             (alt->value_relation == FLOW_RELATION_EQUAL || alt->value_relation == FLOW_RELATION_NOT_EQUAL))
@@ -69874,8 +69863,8 @@ static bool flow_cast_one_value(struct flow_visit_ctx* ctx,
             type_destroy(&target_pointee);
         }
 
-        tagged.origin = origin;
-        tagged.p_token = p_token;
+        tagged.p_origin_map = origin;
+        tagged.p_origin_token = p_token;
         flow_alternatives_add(out, &tagged);
         return true;
     }
@@ -69895,7 +69884,7 @@ static bool flow_cast_one_value(struct flow_visit_ctx* ctx,
                 .value_kind = FLOW_VALUE_KIND_SIGNED,
                 .value = {.i = flow_cast_integer_value(ctx, val, p_target_type)},
                 .value_relation = FLOW_RELATION_EQUAL,
-                .imaginary = alt->imaginary, .origin = origin, .p_token = p_token
+                .imaginary = alt->imaginary, .p_origin_map = origin, .p_origin_token = p_token
             };
             flow_alternatives_add(out, &a);
             return true;
@@ -69907,7 +69896,7 @@ static bool flow_cast_one_value(struct flow_visit_ctx* ctx,
             {
                 .value_kind = FLOW_VALUE_KIND_PTR, .value = {.p = NULL},
                 .value_relation = FLOW_RELATION_EQUAL,
-                .imaginary = alt->imaginary, .origin = origin, .p_token = p_token
+                .imaginary = alt->imaginary, .p_origin_map = origin, .p_origin_token = p_token
             };
             flow_alternatives_add(out, &a);
             return true;
@@ -69918,8 +69907,8 @@ static bool flow_cast_one_value(struct flow_visit_ctx* ctx,
     if (alt->value_kind == FLOW_VALUE_KIND_PTR && type_is_pointer(p_target_type))
     {
         struct flow_alternative tagged = *alt;
-        tagged.origin = origin;
-        tagged.p_token = p_token;
+        tagged.p_origin_map = origin;
+        tagged.p_origin_token = p_token;
         flow_alternatives_add(out, &tagged);
         return true;
     }
@@ -69953,9 +69942,9 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
 
             case EXPR_PRIMARY_ENUMERATOR:
                 /* An enumerator is a compile-time constant (the parser folded its
-            value into the expression object). Seed it so it can be used in
-            flow-checked comparisons, like a numeric literal. Enum values may be
-            negative, so seed it as signed. */
+        value into the expression object). Seed it so it can be used in
+        flow-checked comparisons, like a numeric literal. Enum values may be
+        negative, so seed it as signed. */
                 if (object_has_known_value(&p_expression->object))
                 {
                     struct flow_key_alternatives* _Opt e = flow_map_find_add(ctx->p_current_flow_map, &p_expression->object);
@@ -69963,12 +69952,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     flow_alternatives_clear(&e->alternatives);
                     struct flow_alternative a =
                     {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = object_to_signed_long_long(&p_expression->object)},
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = ctx->p_current_flow_map,
-                    .p_token = p_expression->first_token
+                .value_kind = FLOW_VALUE_KIND_SIGNED,
+                .value = {.i = object_to_signed_long_long(&p_expression->object)},
+                .value_relation = FLOW_RELATION_EQUAL,
+                .imaginary = FLOW_IMAGINARY_NONE,
+                .p_origin_map = ctx->p_current_flow_map,
+                .p_origin_token = p_expression->first_token
                     };
                     flow_alternatives_add(&e->alternatives, &a);
                 }
@@ -69979,8 +69968,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 _Assert(p_expression->declarator != NULL);
                 const struct object* p_obj = &p_expression->declarator->object;
                 if (!type_is_function(&p_expression->type) &&
-                    p_obj->state != CONSTANT_VALUE_STATE_CONSTANT &&
-                    flow_map_search_up(ctx->p_current_flow_map, p_obj) == NULL)
+                p_obj->state != CONSTANT_VALUE_STATE_CONSTANT &&
+                flow_map_search_up(ctx->p_current_flow_map, p_obj) == NULL)
                 {
                     /*file scope*/
                     //TODO create flow_set_object_any
@@ -69991,39 +69980,39 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
 
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = ANY_VALUE},
-                        .value_relation = FLOW_RELATION_ANY,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = ANY_VALUE},
+                    .value_relation = FLOW_RELATION_ANY,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
 
                         /* A pointer global respects its declared nullability, just like
-                    a parameter or member: a non-_Opt global pointer is non-null
-                    (e.g. `stdout`), an _Opt one is possibly-null. Without this a
-                    plain `FILE* stdout` read as ANY and passing it to a
-                    non-nullable parameter falsely warned. */
+                a parameter or member: a non-_Opt global pointer is non-null
+                (e.g. `stdout`), an _Opt one is possibly-null. Without this a
+                plain `FILE* stdout` read as ANY and passing it to a
+                non-nullable parameter falsely warned. */
                         if (type_is_pointer(&p_expression->type))
                         {
                             a.value_kind = FLOW_VALUE_KIND_PTR;
                             a.value.p = NULL;
                             a.value_relation = type_is_nullable(&p_expression->type, ctx->ctx->options.null_checks_enabled)
-                                           ? FLOW_RELATION_ANY
-                                           : FLOW_RELATION_NOT_EQUAL;
+                            ? FLOW_RELATION_ANY
+                            : FLOW_RELATION_NOT_EQUAL;
                         }
 
                         flow_alternatives_add(&e->alternatives, &a);
                     }
                 }
                 else if (!type_is_function(&p_expression->type) &&
-                     p_obj->state == CONSTANT_VALUE_STATE_CONSTANT &&
-                     flow_map_search_up(ctx->p_current_flow_map, p_obj) == NULL)
+                 p_obj->state == CONSTANT_VALUE_STATE_CONSTANT &&
+                 flow_map_search_up(ctx->p_current_flow_map, p_obj) == NULL)
                 {
                     /* Compile-time constant (e.g. constexpr) whose value was not
-                carried over from its own declaration analysis (each top-level
-                declaration gets a fresh flow map). Seed it with its real,
-                unchanging value instead of leaving it untracked. */
+            carried over from its own declaration analysis (each top-level
+            declaration gets a fresh flow map). Seed it with its real,
+            unchanging value instead of leaving it untracked. */
                     struct flow_alternative value = { 0 };
                     if (type_is_pointer(&p_obj->type))
                     {
@@ -70046,12 +70035,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     flow_alternatives_clear(&e->alternatives);
                     struct flow_alternative a =
                     {
-                    .value_kind = value.value_kind,
-                    .value = value.value,
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = ctx->p_current_flow_map,
-                    .p_token = p_expression->first_token
+                .value_kind = value.value_kind,
+                .value = value.value,
+                .value_relation = FLOW_RELATION_EQUAL,
+                .imaginary = FLOW_IMAGINARY_NONE,
+                .p_origin_map = ctx->p_current_flow_map,
+                .p_origin_token = p_expression->first_token
                     };
                     flow_alternatives_add(&e->alternatives, &a);
                 }
@@ -70064,12 +70053,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     flow_alternatives_clear(&e->alternatives);
                     struct flow_alternative a =
                     {
-                    .value_kind = FLOW_VALUE_KIND_REF,
-                    .value = {.p = p_obj},
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = ctx->p_current_flow_map,
-                    .p_token = p_expression->first_token
+                .value_kind = FLOW_VALUE_KIND_REF,
+                .value = {.p = p_obj},
+                .value_relation = FLOW_RELATION_EQUAL,
+                .imaginary = FLOW_IMAGINARY_NONE,
+                .p_origin_map = ctx->p_current_flow_map,
+                .p_origin_token = p_expression->first_token
                     };
                     flow_alternatives_add(&e->alternatives, &a);
                 }
@@ -70095,17 +70084,17 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 struct flow_branch_pair paren_pair = flow_visit_expression(ctx, p_inner);
 
                 /*
-            Narrowing (the branch pair) already passes through correctly,
-            but the inner expression's computed VALUE lives keyed on the
-            inner node's own &object -- a synthesized temporary (e.g. a
-            nested conditional operator's result) has nowhere else to
-            live. Any caller that looks up a value by THIS node's
-            address (e.g. EXPR_CONDITIONAL's own result-value merge,
-            when one arm of a ternary is a parenthesized sub-expression:
-            `a ? (b ? 1 : 2) : 3`) would otherwise find nothing, since
-            `(b ? 1 : 2)` and `b ? 1 : 2` are different expression nodes
-            with different &object storage. Copy the value forward.
-            */
+        Narrowing (the branch pair) already passes through correctly,
+        but the inner expression's computed VALUE lives keyed on the
+        inner node's own &object -- a synthesized temporary (e.g. a
+        nested conditional operator's result) has nowhere else to
+        live. Any caller that looks up a value by THIS node's
+        address (e.g. EXPR_CONDITIONAL's own result-value merge,
+        when one arm of a ternary is a parenthesized sub-expression:
+        `a ? (b ? 1 : 2) : 3`) would otherwise find nothing, since
+        `(b ? 1 : 2)` and `b ? 1 : 2` are different expression nodes
+        with different &object storage. Copy the value forward.
+        */
                 const struct flow_key_alternatives* _Opt p_inner_entry =
                 flow_map_search_up(ctx->p_current_flow_map, &p_inner->object);
                 if (p_inner_entry)
@@ -70127,43 +70116,43 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
             case EXPR_PRIMARY_STRING_LITERAL:
             {
                 /*
-            A string literal has static storage duration and its address
-            is never null -- unlike EXPR_PRIMARY_CHAR_LITERAL/NUMBER/
-            PREDEFINED_CONSTANT below, its ->object is an array (it has
-            per-character members), not a scalar constant, so
-            object_to_signed_long_long(&p_expression->object) has no
-            sensible integer value to return for it (falls through to the
-            `default: _Assert(0); return 0;` branch, which in an NDEBUG
-            build silently yields 0). That previously tagged every string
-            literal as value_kind SIGNED, value 0, relation EQUAL -- i.e.
-            indistinguishable from a literal `0`/NULL -- which would have
-            misfired "passing a possible null pointer" once a pointer
-            initialized from it reached a non-nullable parameter.
+        A string literal has static storage duration and its address
+        is never null -- unlike EXPR_PRIMARY_CHAR_LITERAL/NUMBER/
+        PREDEFINED_CONSTANT below, its ->object is an array (it has
+        per-character members), not a scalar constant, so
+        object_to_signed_long_long(&p_expression->object) has no
+        sensible integer value to return for it (falls through to the
+        `default: _Assert(0); return 0;` branch, which in an NDEBUG
+        build silently yields 0). That previously tagged every string
+        literal as value_kind SIGNED, value 0, relation EQUAL -- i.e.
+        indistinguishable from a literal `0`/NULL -- which would have
+        misfired "passing a possible null pointer" once a pointer
+        initialized from it reached a non-nullable parameter.
 
-            Seed a SIGNED, definitely-nonzero, definitely-initialized
-            placeholder value instead (1, not a real numeric meaning --
-            string literals are never used in an arithmetic context, only
-            null/uninitialized-checked as pointers). Deliberately NOT
-            FLOW_VALUE_KIND_PTR pointing at &p_expression->object: that
-            was tried first, but it makes flow_check_object_init_assigment
-            treat the literal as a trackable "pointee" and walk into
-            flow_check_object_access, which recurses into the literal's
-            per-character member objects and calls
-            flow_get_only_member_name on their (unset) member_designator
-            -- a NULL deref/crash, since those synthetic char members were
-            never given real struct-member names.
-            */
+        Seed a SIGNED, definitely-nonzero, definitely-initialized
+        placeholder value instead (1, not a real numeric meaning --
+        string literals are never used in an arithmetic context, only
+        null/uninitialized-checked as pointers). Deliberately NOT
+        FLOW_VALUE_KIND_PTR pointing at &p_expression->object: that
+        was tried first, but it makes flow_check_object_init_assigment
+        treat the literal as a trackable "pointee" and walk into
+        flow_check_object_access, which recurses into the literal's
+        per-character member objects and calls
+        flow_get_only_member_name on their (unset) member_designator
+        -- a NULL deref/crash, since those synthetic char members were
+        never given real struct-member names.
+        */
                 struct flow_key_alternatives* _Opt e = flow_map_find_add(ctx->p_current_flow_map, &p_expression->object);
                 if (e == NULL) throw;
                 flow_alternatives_clear(&e->alternatives);
                 struct flow_alternative a =
                 {
-                .value_kind = FLOW_VALUE_KIND_SIGNED,
-                .value = {.i = 1},
-                .value_relation = FLOW_RELATION_EQUAL,
-                .imaginary = FLOW_IMAGINARY_NONE,
-                .origin = ctx->p_current_flow_map,
-                .p_token = p_expression->first_token
+            .value_kind = FLOW_VALUE_KIND_SIGNED,
+            .value = {.i = 1},
+            .value_relation = FLOW_RELATION_EQUAL,
+            .imaginary = FLOW_IMAGINARY_NONE,
+            .p_origin_map = ctx->p_current_flow_map,
+            .p_origin_token = p_expression->first_token
                 };
                 flow_alternatives_add(&e->alternatives, &a);
             }
@@ -70173,21 +70162,19 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
             case EXPR_PRIMARY_NUMBER:
             case EXPR_PRIMARY_PREDEFINED_CONSTANT:
             {
+                struct flow_key_alternatives* _Opt e = flow_map_find_add(ctx->p_current_flow_map, &p_expression->object);
+                if (e == NULL) throw;
+                flow_alternatives_clear(&e->alternatives);
+                struct flow_alternative a =
                 {
-                    struct flow_key_alternatives* _Opt e = flow_map_find_add(ctx->p_current_flow_map, &p_expression->object);
-                    if (e == NULL) throw;
-                    flow_alternatives_clear(&e->alternatives);
-                    struct flow_alternative a =
-                    {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = object_to_signed_long_long(&p_expression->object)},
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = ctx->p_current_flow_map,
-                    .p_token = p_expression->first_token
-                    };
-                    flow_alternatives_add(&e->alternatives, &a);
-                }
+            .value_kind = FLOW_VALUE_KIND_SIGNED,
+            .value = {.i = object_to_signed_long_long(&p_expression->object)},
+            .value_relation = FLOW_RELATION_EQUAL,
+            .imaginary = FLOW_IMAGINARY_NONE,
+            .p_origin_map = ctx->p_current_flow_map,
+            .p_origin_token = p_expression->first_token
+                };
+                flow_alternatives_add(&e->alternatives, &a);
             }
             break;
 
@@ -70220,40 +70207,40 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     const struct flow_alternative* p_left_alternative = p_left_alternatives->alternatives.data[i];
 
                     if (p_left_alternative->value_relation == FLOW_RELATION_EQUAL &&
-                        p_left_alternative->value_kind == FLOW_VALUE_KIND_REF &&
-                        p_left_alternative->value.p != NULL)
+                    p_left_alternative->value_kind == FLOW_VALUE_KIND_REF &&
+                    p_left_alternative->value.p != NULL)
                     {
                         struct object* _Opt p_member = object_get_member(p_left_alternative->value.p, member_index);
 
                         /* Give an unseeded member its default flow state before
-                       anything narrows or reads it, exactly like
-                       EXPR_POSTFIX_ARROW already does for `p->member`. Without
-                       this, a member reached through `.` (as opposed to `->`)
-                       never got the "possibly null" two-alternative seed at
-                       all -- it kept whatever raw state make_object gave it
-                       (e.g. plain ANY from an on-demand-fabricated base
-                       object), which no later `!= 0` comparison can narrow.
-                       A second, independent evaluation of the SAME `a.b`
-                       expression (e.g. re-evaluating an initializer's RHS)
-                       would then resolve `b`'s object identity without ever
-                       having been through the seeding path the first
-                       evaluation's narrowing depended on, so the narrowed
-                       fact silently failed to carry over. Confirmed via
-                       `if (p) { if (p->data.p_enumerator != 0) { T* p_enumerator
-                       = p->data.p_enumerator; use(p_enumerator); } }` where
-                       `data` is reached via `->` (seeded) but `.p_enumerator`
-                       is reached via `.` (previously never seeded). */
+                   anything narrows or reads it, exactly like
+                   EXPR_POSTFIX_ARROW already does for `p->member`. Without
+                   this, a member reached through `.` (as opposed to `->`)
+                   never got the "possibly null" two-alternative seed at
+                   all -- it kept whatever raw state make_object gave it
+                   (e.g. plain ANY from an on-demand-fabricated base
+                   object), which no later `!= 0` comparison can narrow.
+                   A second, independent evaluation of the SAME `a.b`
+                   expression (e.g. re-evaluating an initializer's RHS)
+                   would then resolve `b`'s object identity without ever
+                   having been through the seeding path the first
+                   evaluation's narrowing depended on, so the narrowed
+                   fact silently failed to carry over. Confirmed via
+                   `if (p) { if (p->data.p_enumerator != 0) { T* p_enumerator
+                   = p->data.p_enumerator; use(p_enumerator); } }` where
+                   `data` is reached via `->` (seeded) but `.p_enumerator`
+                   is reached via `.` (previously never seeded). */
                         flow_seed_member_default(ctx, p_member, p_expression->first_token);
 
                         {
                             struct flow_alternative a =
                             {
-                            .value_kind = FLOW_VALUE_KIND_REF,
-                            .value = {.p = p_member},
-                            .value_relation = FLOW_RELATION_EQUAL,
-                            .imaginary = FLOW_IMAGINARY_NONE,
-                            .origin = ctx->p_current_flow_map,
-                            .p_token = p_expression->first_token
+                        .value_kind = FLOW_VALUE_KIND_REF,
+                        .value = {.p = p_member},
+                        .value_relation = FLOW_RELATION_EQUAL,
+                        .imaginary = FLOW_IMAGINARY_NONE,
+                        .p_origin_map = ctx->p_current_flow_map,
+                        .p_origin_token = p_expression->first_token
                             };
                             flow_alternatives_add(&result_entry->alternatives, &a);
                         }
@@ -70298,55 +70285,55 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 bool any_member_resolved = false;
 
                 /* A merge (e.g. a while-loop's "ran and exited null" vs "never
-            entered, started null" paths) can leave the base pointer with
-            more than one alternative that is independently null. Without
-            this guard, the loop below over alternatives reported the same
-            "operator -> applied to a possible null pointer" diagnostic once
-            per null alternative instead of once per access
-            (null-narrow-while-traverse-post-loop.c warned twice on one
-            line). */
+        entered, started null" paths) can leave the base pointer with
+        more than one alternative that is independently null. Without
+        this guard, the loop below over alternatives reported the same
+        "operator -> applied to a possible null pointer" diagnostic once
+        per null alternative instead of once per access
+        (null-narrow-while-traverse-post-loop.c warned twice on one
+        line). */
                 bool null_deref_reported = false;
 
                 /* Same one-report-per-access rule for the pointee's lifetime:
-            a merged pointer can carry many alternatives aiming at the
-            same pointee, and without this the identical "operator ->:
-            pointed object lifetime has ended" was emitted once per
-            (pointer alternative x pointee alternative) pair -- 30 times
-            on a single line of cake's own parser.c. */
+        a merged pointer can carry many alternatives aiming at the
+        same pointee, and without this the identical "operator ->:
+        pointed object lifetime has ended" was emitted once per
+        (pointer alternative x pointee alternative) pair -- 30 times
+        on a single line of cake's own parser.c. */
                 bool lifetime_ended_reported = false;
 
                 /*
-            ON-DEMAND pointee fabrication (arena-allocated).
+        ON-DEMAND pointee fabrication (arena-allocated).
 
-            A base modeled `{PTR, NOT_EQUAL, value.p == NULL}` is "non-null but
-            points at nothing we track". Every member read through it is then
-            unresolvable and -- worse -- UNNARROWABLE: there is no object for
-            `if (pX->p)` to narrow, so the guard cannot take effect and the member
-            stays possibly-null forever (safety-049).
+        A base modeled `{PTR, NOT_EQUAL, value.p == NULL}` is "non-null but
+        points at nothing we track". Every member read through it is then
+        unresolvable and -- worse -- UNNARROWABLE: there is no object for
+        `if (pX->p)` to narrow, so the guard cannot take effect and the member
+        stays possibly-null forever (safety-049).
 
-            Fabricate the pointee HERE, at the access, rather than eagerly at
-            every pointer-returning call: most such results are never
-            dereferenced, and allocating for all of them would grow the arena for
-            nothing.
+        Fabricate the pointee HERE, at the access, rather than eagerly at
+        every pointer-returning call: most such results are never
+        dereferenced, and allocating for all of them would grow the arena for
+        nothing.
 
-            make_object only -- deliberately NOT flow_object_init, which
-            pre-seeds every _Opt member as a correlated null/non-null pair, i.e.
-            asserts "possibly null" about members nothing is known about. Left
-            unseeded, flow_seed_member_default seeds each member on first read
-            from its declared nullability, and because the member is now a REAL
-            object a guard can narrow it.
-            */
+        make_object only -- deliberately NOT flow_object_init, which
+        pre-seeds every _Opt member as a correlated null/non-null pair, i.e.
+        asserts "possibly null" about members nothing is known about. Left
+        unseeded, flow_seed_member_default seeds each member on first read
+        from its declared nullability, and because the member is now a REAL
+        object a guard can narrow it.
+        */
                 if (p_left_alternatives != NULL && type_is_pointer(&p_expression->left->type))
                 {
                     /* The PTR alternatives usually live on the VARIABLE object, reached
-                through a REF from this expression's temporary. Fabricate into
-                that entry -- keying off the temporary would mint a fresh pointee
-                on every read, so a guard narrowed on one read would not be
-                visible on the next (safety-049). */
+            through a REF from this expression's temporary. Fabricate into
+            that entry -- keying off the temporary would mint a fresh pointee
+            on every read, so a guard narrowed on one read would not be
+            visible on the next (safety-049). */
                     const struct object* p_key = &p_expression->left->object;
                     if (p_left_alternatives->alternatives.size > 0 &&
-                        p_left_alternatives->alternatives.data[0]->value_kind == FLOW_VALUE_KIND_REF &&
-                        p_left_alternatives->alternatives.data[0]->value.p != NULL)
+                    p_left_alternatives->alternatives.data[0]->value_kind == FLOW_VALUE_KIND_REF &&
+                    p_left_alternatives->alternatives.data[0]->value.p != NULL)
                     {
                         const struct object* p_ref = p_left_alternatives->alternatives.data[0]->value.p;
                         const struct flow_key_alternatives* _Opt p_resolved =
@@ -70359,23 +70346,23 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     }
 
                     /*
-                A pointee can also be present but USELESS: `obj = calloc(...)`
-                is an implicit void*->T* conversion with no EXPR_CAST node, so
-                the fabricated pointee behind obj stays typed `void`.
-                object_get_member(void_obj, ...) then always returns NULL, so
-                every `obj->m` falls back to seeding an untyped ANY -- member
-                writes and narrowings on it go nowhere, and the member reads as
-                possibly-null forever. Re-fabricate with the base pointer's real
-                pointed type in that case, exactly as for a missing pointee.
-                See samples/flow3/branch-merge-loses-ref-nonnull.c.
-                */
+            A pointee can also be present but USELESS: `obj = calloc(...)`
+            is an implicit void*->T* conversion with no EXPR_CAST node, so
+            the fabricated pointee behind obj stays typed `void`.
+            object_get_member(void_obj, ...) then always returns NULL, so
+            every `obj->m` falls back to seeding an untyped ANY -- member
+            writes and narrowings on it go nowhere, and the member reads as
+            possibly-null forever. Re-fabricate with the base pointer's real
+            pointed type in that case, exactly as for a missing pointee.
+            See samples/flow3/branch-merge-loses-ref-nonnull.c.
+            */
                     bool needs_pointee = false;
                     for (int i = 0; i < p_left_alternatives->alternatives.size; i++)
                     {
                         const struct flow_alternative* a = p_left_alternatives->alternatives.data[i];
                         if (a->value_kind == FLOW_VALUE_KIND_PTR &&
-                            a->value.p == NULL &&
-                            a->value_relation == FLOW_RELATION_NOT_EQUAL)
+                        a->value.p == NULL &&
+                        a->value_relation == FLOW_RELATION_NOT_EQUAL)
                         {
                             needs_pointee = true;
                             break;
@@ -70389,41 +70376,41 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         {
                             struct flow_alternatives rebuilt = { 0 };
                             /* One pointee for the WHOLE rebuild pass, not one per
-                           matching alternative, and not cached across separate
-                           accesses either -- both used to be handled by a
-                           ctx-level fabricated_pointees[] side-cache keyed by
-                           p_key, but that cache had two real problems: (1) a
-                           base coming out of an if/else merge with no concrete
-                           identity (e.g. `p = make();` in both arms) is modeled
-                           as MULTIPLE correlated alternatives that each
-                           independently match this "known non-null, no
-                           pointee" pattern -- same variable, same access,
-                           different provenance -- so fabricating one pointee
-                           PER ALTERNATIVE split one logical `*p` into several,
-                           making a later write through one alternative (e.g.
-                           `p->text = strdup(...)`) invisible when read back
-                           through a different alternative of the SAME p at the
-                           SAME statement (owner-if-else-052.c); and (2) the
-                           cache was never invalidated on reassignment (`p =
-                           q;` left a stale {base=p, pointee=old *p} entry
-                           behind for flow_predicate_invalidate to miss). The
-                           ACTUAL fix for "same base, same pointee" is just to
-                           write the fabricated pointer straight back into
-                           p_key's own map entry below (already done) and let
-                           ordinary flow_map_search_up find it on every later
-                           access -- no separate cache needed once fabrication
-                           isn't fragmented per-alternative within a single
-                           access. Confirmed via the full flow3 suite with the
-                           cache removed entirely: one pre-existing failure
-                           (owner-if-else-052.c) is FIXED by this change, none
-                           newly broken. */
+                       matching alternative, and not cached across separate
+                       accesses either -- both used to be handled by a
+                       ctx-level fabricated_pointees[] side-cache keyed by
+                       p_key, but that cache had two real problems: (1) a
+                       base coming out of an if/else merge with no concrete
+                       identity (e.g. `p = make();` in both arms) is modeled
+                       as MULTIPLE correlated alternatives that each
+                       independently match this "known non-null, no
+                       pointee" pattern -- same variable, same access,
+                       different provenance -- so fabricating one pointee
+                       PER ALTERNATIVE split one logical `*p` into several,
+                       making a later write through one alternative (e.g.
+                       `p->text = strdup(...)`) invisible when read back
+                       through a different alternative of the SAME p at the
+                       SAME statement (owner-if-else-052.c); and (2) the
+                       cache was never invalidated on reassignment (`p =
+                       q;` left a stale {base=p, pointee=old *p} entry
+                       behind for flow_predicate_invalidate to miss). The
+                       ACTUAL fix for "same base, same pointee" is just to
+                       write the fabricated pointer straight back into
+                       p_key's own map entry below (already done) and let
+                       ordinary flow_map_search_up find it on every later
+                       access -- no separate cache needed once fabrication
+                       isn't fragmented per-alternative within a single
+                       access. Confirmed via the full flow3 suite with the
+                       cache removed entirely: one pre-existing failure
+                       (owner-if-else-052.c) is FIXED by this change, none
+                       newly broken. */
                             struct object* _Opt p_new_shared = NULL;
                             for (int i = 0; i < p_left_alternatives->alternatives.size; i++)
                             {
                                 struct flow_alternative a = *p_left_alternatives->alternatives.data[i];
                                 if (a.value_kind == FLOW_VALUE_KIND_PTR &&
-                                    a.value.p == NULL &&
-                                    a.value_relation == FLOW_RELATION_NOT_EQUAL)
+                                a.value.p == NULL &&
+                                a.value_relation == FLOW_RELATION_NOT_EQUAL)
                                 {
                                     if (p_new_shared == NULL)
                                     {
@@ -70467,14 +70454,13 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     {
                         const struct flow_alternative* ptr_alt = p_left_alternatives->alternatives.data[i];
 
-                        if (ptr_alt->imaginary == FLOW_IMAGINARY_ABSENT)
-                            continue;
+
 
                         /* Resolve LHS to concrete pointer alternatives */
                         const struct flow_key_alternatives* _Opt p_pointer_alts = NULL;
                         if (ptr_alt->value_relation == FLOW_RELATION_EQUAL &&
-                            ptr_alt->value_kind == FLOW_VALUE_KIND_REF &&
-                            ptr_alt->value.p != NULL)
+                        ptr_alt->value_kind == FLOW_VALUE_KIND_REF &&
+                        ptr_alt->value.p != NULL)
                         {
                             p_pointer_alts = flow_map_search_up(ctx->p_current_flow_map, ptr_alt->value.p);
                         }
@@ -70495,14 +70481,13 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                             {
                                 const struct flow_alternative* p_pointer_alt = p_pointer_alts->alternatives.data[k];
 
-                                if (p_pointer_alt->imaginary == FLOW_IMAGINARY_ABSENT)
-                                    continue;
+
 
                                 /* Null check (skipped in unevaluated contexts like
-                            sizeof/_Alignof: the -> is never applied at runtime). */
+                        sizeof/_Alignof: the -> is never applied at runtime). */
                                 if (p_pointer_alt->value_relation == FLOW_RELATION_EQUAL &&
-                                    p_pointer_alt->value_kind == FLOW_VALUE_KIND_PTR &&
-                                    p_pointer_alt->value.p == NULL)
+                                p_pointer_alt->value_kind == FLOW_VALUE_KIND_PTR &&
+                                p_pointer_alt->value.p == NULL)
                                 {
                                     if (!ctx->expression_is_not_evaluated && !null_deref_reported)
                                     {
@@ -70514,7 +70499,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                                                                           ss.c_str ? ss.c_str : "");
                                         ss_close(&ss);
                                         if (reported_null)
-                                            flow_explain_alternative(ctx, p_pointer_alt, p_pointer_alt->origin, &marker);
+                                            flow_explain_alternative(ctx, p_pointer_alt, p_pointer_alt->p_origin_map, &marker);
                                     }
                                     continue;
                                 }
@@ -70532,58 +70517,58 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                                 }
 
                                 /* Lifetime check for the ACCESSED MEMBER only. An
-                            aggregate's own top-level entry is never marked ended
-                            -- only its LEAF members are, by
-                            flow_map_set_object_lifetime_ended -- so walk for
-                            "any leaf ended" the same way flow_check_object_access
-                            already does. This must be scoped to member_obj (the
-                            specific member this -> access reaches), NOT the whole
-                            p_pointed_obj: a _Dtor call on one member (e.g.
-                            hashmap_destroy(&ctx->tag_names)) marks only that
-                            member's leaves ended, and accessing an unrelated
-                            sibling member (ctx->structs_map) must not be flagged.
-                            When the WHOLE object's lifetime ended (e.g. free(p)),
-                            every leaf -- including this member's -- was marked
-                            ended, so this still catches that case.
+                        aggregate's own top-level entry is never marked ended
+                        -- only its LEAF members are, by
+                        flow_map_set_object_lifetime_ended -- so walk for
+                        "any leaf ended" the same way flow_check_object_access
+                        already does. This must be scoped to member_obj (the
+                        specific member this -> access reaches), NOT the whole
+                        p_pointed_obj: a _Dtor call on one member (e.g.
+                        hashmap_destroy(&ctx->tag_names)) marks only that
+                        member's leaves ended, and accessing an unrelated
+                        sibling member (ctx->structs_map) must not be flagged.
+                        When the WHOLE object's lifetime ended (e.g. free(p)),
+                        every leaf -- including this member's -- was marked
+                        ended, so this still catches that case.
 
-                            The origin filter must be ctx->p_current_flow_map (the
-                            map at THIS access), not p_pointer_alt->origin (wherever
-                            the pointer's OWN value was last set). Those are
-                            different questions: p_pointer_alt->origin answers "is
-                            this ended fact compatible with how we got this pointer
-                            value", but member_obj can be reached through an ALIAS
-                            whose own origin (e.g. an _Opt-pointer correlation
-                            branch set at declaration time) has no ancestor
-                            relationship to the branch the free() that ended it
-                            actually ran in, even though both are simultaneously
-                            active right here. Confirmed via static_debug(0): `struct
-                            X* _Opt p = pX; free(pY); p->pY->i = 1;` (pX->pY == pY)
-                            left p_pointer_alt->origin at pY's own "opt-nonnull" seed
-                            origin while the real ENDED fact on .i carried the
-                            *current* branch's origin ("var-true") -- an unrelated
-                            sibling from p_pointer_alt->origin's point of view, so
-                            the filter silently rejected a fact that was genuinely
-                            visible from here. ctx->p_current_flow_map still
-                            correctly excludes facts from sibling/unrelated branches
-                            the same way p_pointer_alt->origin did -- see
-                            owner-reassigned-null-in-catch-false-positive.c and
-                            deref-after-catch-reset-false-positive.c, both still
-                            passing with this change -- because those facts live in
-                            a branch that is not an ancestor of the CURRENT map
-                            either (a sibling merged in, not something still open).
-                            User-reported (aliased-owner-lifetime-not-tracked). */
+                        The origin filter must be ctx->p_current_flow_map (the
+                        map at THIS access), not p_pointer_alt->origin (wherever
+                        the pointer's OWN value was last set). Those are
+                        different questions: p_pointer_alt->origin answers "is
+                        this ended fact compatible with how we got this pointer
+                        value", but member_obj can be reached through an ALIAS
+                        whose own origin (e.g. an _Opt-pointer correlation
+                        branch set at declaration time) has no ancestor
+                        relationship to the branch the free() that ended it
+                        actually ran in, even though both are simultaneously
+                        active right here. Confirmed via static_debug(0): `struct
+                        X* _Opt p = pX; free(pY); p->pY->i = 1;` (pX->pY == pY)
+                        left p_pointer_alt->origin at pY's own "opt-nonnull" seed
+                        origin while the real ENDED fact on .i carried the
+                        *current* branch's origin ("var-true") -- an unrelated
+                        sibling from p_pointer_alt->origin's point of view, so
+                        the filter silently rejected a fact that was genuinely
+                        visible from here. ctx->p_current_flow_map still
+                        correctly excludes facts from sibling/unrelated branches
+                        the same way p_pointer_alt->origin did -- see
+                        owner-reassigned-null-in-catch-false-positive.c and
+                        deref-after-catch-reset-false-positive.c, both still
+                        passing with this change -- because those facts live in
+                        a branch that is not an ancestor of the CURRENT map
+                        either (a sibling merged in, not something still open).
+                        User-reported (aliased-owner-lifetime-not-tracked). */
                                 int ended_line = 0;
                                 const struct flow_map* _Opt ended_origin = NULL;
                                 if (!lifetime_ended_reported &&
-                                    flow_object_leaves_in_state_2(ctx, member_obj, FLOW_LEAF_ENDED,
-                                                                  p_pointer_alt->origin, ctx->p_current_flow_map, false, &ended_line, &ended_origin))
+                                flow_object_leaves_in_state_2(ctx, member_obj, FLOW_LEAF_ENDED,
+                                                              p_pointer_alt->p_origin_map, ctx->p_current_flow_map, false, &ended_line, &ended_origin))
                                 {
                                     lifetime_ended_reported = true;
                                     /* Include the expression itself, matching the null-deref
-                                sites' "operator -> applied to a possible null pointer
-                                '%s'" -- without it there was no way to tell which
-                                access, in a function with more than one `->`, the
-                                diagnostic was even about. User-reported. */
+                            sites' "operator -> applied to a possible null pointer
+                            '%s'" -- without it there was no way to tell which
+                            access, in a function with more than one `->`, the
+                            diagnostic was even about. User-reported. */
                                     struct osstream ss = { 0 };
                                     flow_expression_to_string(p_expression, &ss);
                                     const bool reported_ended = diagnostic(W_FLOW_LIFETIME_ENDED, ctx->ctx, NULL, &marker,
@@ -70599,12 +70584,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                                 {
                                     struct flow_alternative a =
                                     {
-                                    .value_kind = FLOW_VALUE_KIND_REF,
-                                    .value = {.p = member_obj},
-                                    .value_relation = FLOW_RELATION_EQUAL,
-                                    .imaginary = FLOW_IMAGINARY_NONE,
-                                    .origin = ctx->p_current_flow_map,
-                                    .p_token = p_expression->first_token
+                                .value_kind = FLOW_VALUE_KIND_REF,
+                                .value = {.p = member_obj},
+                                .value_relation = FLOW_RELATION_EQUAL,
+                                .imaginary = FLOW_IMAGINARY_NONE,
+                                .p_origin_map = ctx->p_current_flow_map,
+                                .p_origin_token = p_expression->first_token
                                     };
                                     flow_alternatives_add(&result_entry->alternatives, &a);
                                 }
@@ -70619,8 +70604,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         {
                             /* Direct pointer alternative (ptr_alt is FLOW_VALUE_PTR) */
                             if (ptr_alt->value_relation == FLOW_RELATION_EQUAL &&
-                                ptr_alt->value_kind == FLOW_VALUE_KIND_PTR &&
-                                ptr_alt->value.p == NULL)
+                            ptr_alt->value_kind == FLOW_VALUE_KIND_PTR &&
+                            ptr_alt->value.p == NULL)
                             {
                                 if (!ctx->expression_is_not_evaluated && !null_deref_reported)
                                 {
@@ -70632,7 +70617,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                                                                       ss.c_str ? ss.c_str : "");
                                     ss_close(&ss);
                                     if (reported_null)
-                                        flow_explain_alternative(ctx, ptr_alt, ptr_alt->origin, &marker);
+                                        flow_explain_alternative(ctx, ptr_alt, ptr_alt->p_origin_map, &marker);
                                 }
                                 continue;
                             }
@@ -70650,18 +70635,18 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                             }
 
                             /* "Any leaf ended" walk, scoped to the ACCESSED MEMBER, checking
-                        against BOTH ptr_alt's own origin and ctx->p_current_flow_map
-                        -- see the identical fix and rationale (aliased-owner-
-                        lifetime-not-tracked) at the REF-alternative site above. */
+                    against BOTH ptr_alt's own origin and ctx->p_current_flow_map
+                    -- see the identical fix and rationale (aliased-owner-
+                    lifetime-not-tracked) at the REF-alternative site above. */
                             int ended_line = 0;
                             const struct flow_map* _Opt ended_origin = NULL;
                             if (!lifetime_ended_reported &&
-                                flow_object_leaves_in_state_2(ctx, member_obj, FLOW_LEAF_ENDED,
-                                                              ptr_alt->origin, ctx->p_current_flow_map, false, &ended_line, &ended_origin))
+                            flow_object_leaves_in_state_2(ctx, member_obj, FLOW_LEAF_ENDED,
+                                                          ptr_alt->p_origin_map, ctx->p_current_flow_map, false, &ended_line, &ended_origin))
                             {
                                 lifetime_ended_reported = true;
                                 /* Include the expression itself -- see the identical fix and
-                            rationale at the REF-alternative site above. */
+                        rationale at the REF-alternative site above. */
                                 struct osstream ss = { 0 };
                                 flow_expression_to_string(p_expression, &ss);
                                 const bool reported_ended = diagnostic(W_FLOW_LIFETIME_ENDED, ctx->ctx, NULL, &marker,
@@ -70677,12 +70662,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                             {
                                 struct flow_alternative a =
                                 {
-                                .value_kind = FLOW_VALUE_KIND_REF,
-                                .value = {.p = member_obj},
-                                .value_relation = FLOW_RELATION_EQUAL,
-                                .imaginary = FLOW_IMAGINARY_NONE,
-                                .origin = ctx->p_current_flow_map,
-                                .p_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_REF,
+                            .value = {.p = member_obj},
+                            .value_relation = FLOW_RELATION_EQUAL,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_map,
+                            .p_origin_token = p_expression->first_token
                                 };
                                 flow_alternatives_add(&result_entry->alternatives, &a);
                             }
@@ -70698,15 +70683,15 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 if (!any_member_resolved)
                 {
                     /*
-                The member has no concrete object behind it (base pointer has no
-                modeled pointee). Seed the result from the member's DECLARED type
-                rather than leaving it EMPTY -- empty now means "unknown", and an
-                unknown operand must not be mistaken for a proof.
+            The member has no concrete object behind it (base pointer has no
+            modeled pointee). Seed the result from the member's DECLARED type
+            rather than leaving it EMPTY -- empty now means "unknown", and an
+            unknown operand must not be mistaken for a proof.
 
-                non-_Opt pointer -> non-null (its type guarantees it)
-                _Opt pointer     -> possibly null
-                integer          -> ANY
-                */
+            non-_Opt pointer -> non-null (its type guarantees it)
+            _Opt pointer     -> possibly null
+            integer          -> ANY
+            */
                     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
                     struct flow_key_alternatives* _Opt e_unres = flow_map_find_add(ctx->p_current_flow_map, &p_expression->object);
                     if (e_unres == NULL) throw;
@@ -70714,22 +70699,22 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     {
                         struct flow_alternative a =
                         {
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         if (type_is_pointer(&p_expression->type))
                         {
                             a.value_kind = FLOW_VALUE_KIND_PTR;
                             a.value.p = NULL;
                             a.value_relation = type_is_nullable(&p_expression->type, nullable_enabled)
-                                           ? FLOW_RELATION_ANY : FLOW_RELATION_NOT_EQUAL;
+                            ? FLOW_RELATION_ANY : FLOW_RELATION_NOT_EQUAL;
                             flow_alternatives_add(&e_unres->alternatives, &a);
                         }
                         else if (type_is_integer(&p_expression->type))
                         {
                             a.value_kind = type_is_signed(&p_expression->type)
-                                       ? FLOW_VALUE_KIND_SIGNED : FLOW_VALUE_KIND_UNSIGNED;
+                            ? FLOW_VALUE_KIND_SIGNED : FLOW_VALUE_KIND_UNSIGNED;
                             a.value_relation = FLOW_RELATION_ANY;
                             flow_alternatives_add(&e_unres->alternatives, &a);
                         }
@@ -70757,18 +70742,18 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 flow_visit_expression(ctx, p_expression->right);
 
                 /* Bounds check for a FLOW-DERIVED index (a narrowed range or a
-            branch-constant). A literal/constant-folded index is already checked
-            by the parser (object_has_known_value is true for those), so we skip
-            it here to avoid double-warning. We warn only when the index is
-            PROVABLY out of bounds on some path -- i.e. its whole interval lies
-            past the end (lo >= N) or below zero (hi < 0) -- so an ordinary
-            unknown index (ANY, no interval) is never flagged. */
+        branch-constant). A literal/constant-folded index is already checked
+        by the parser (object_has_known_value is true for those), so we skip
+        it here to avoid double-warning. We warn only when the index is
+        PROVABLY out of bounds on some path -- i.e. its whole interval lies
+        past the end (lo >= N) or below zero (hi < 0) -- so an ordinary
+        unknown index (ANY, no interval) is never flagged. */
                 {
                     const struct type* p_arr_type = &skip_parenthesis(p_expression->left)->type;
                     if (!ctx->expression_is_not_evaluated &&
-                        type_is_array(p_arr_type) &&
-                        p_arr_type->array_num_elements > 0 &&
-                        !object_has_known_value(&p_expression->right->object))
+                    type_is_array(p_arr_type) &&
+                    p_arr_type->array_num_elements > 0 &&
+                    !object_has_known_value(&p_expression->right->object))
                     {
                         const long long array_num_elements = (long long)p_arr_type->array_num_elements;
                         const struct flow_key_alternatives* _Opt idx_alts =
@@ -70780,7 +70765,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                             const struct flow_alternative* idx = idx_alts->alternatives.data[i];
 
                             /* The index expression usually resolves to a REF to the
-                        variable object; follow it to the value alternatives. */
+                    variable object; follow it to the value alternatives. */
                             const struct flow_key_alternatives* _Opt value_alts = NULL;
                             if (idx->value_kind == FLOW_VALUE_KIND_REF && idx->value.p != NULL)
                                 value_alts = flow_map_search_up(ctx->p_current_flow_map, idx->value.p);
@@ -70788,9 +70773,9 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                             const struct flow_alternative* vlist_one = idx;
                             int vcount = 1;
                             /* data is now an array of OWNED POINTERS, not an inline
-                        array of structs -- this is itself already the
-                        element pointer type, so vlist_many[j] below needs
-                        no '&'. */
+                    array of structs -- this is itself already the
+                    element pointer type, so vlist_many[j] below needs
+                    no '&'. */
                             struct flow_alternative* _Owner _Opt* _Opt vlist_many = NULL;
                             if (value_alts != NULL)
                             {
@@ -70822,10 +70807,10 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 }
 
                 /* For a CONSTANT index, resolve v[i] to the array's element object and
-            seed this expression as a REF to it -- so element values/relations
-            (including initializers) are tracked, mirroring EXPR_POSTFIX_DOT.
-            A non-constant index can't be pinned to one element, so we fall back
-            to narrowing on this expression's own object. */
+        seed this expression as a REF to it -- so element values/relations
+        (including initializers) are tracked, mirroring EXPR_POSTFIX_DOT.
+        A non-constant index can't be pinned to one element, so we fall back
+        to narrowing on this expression's own object. */
                 if (object_has_known_value(&p_expression->right->object))
                 {
                     const signed long long index = object_to_signed_long_long(&p_expression->right->object);
@@ -70850,8 +70835,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         const struct flow_alternative* p_left_alternative = p_left_alternatives->alternatives.data[i];
 
                         if (p_left_alternative->value_relation == FLOW_RELATION_EQUAL &&
-                            p_left_alternative->value_kind == FLOW_VALUE_KIND_REF &&
-                            p_left_alternative->value.p != NULL)
+                        p_left_alternative->value_kind == FLOW_VALUE_KIND_REF &&
+                        p_left_alternative->value.p != NULL)
                         {
                             struct object* _Opt p_element = object_get_member(p_left_alternative->value.p, (size_t)index);
                             if (p_element == NULL)
@@ -70859,12 +70844,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
 
                             struct flow_alternative a =
                             {
-                            .value_kind = FLOW_VALUE_KIND_REF,
-                            .value = {.p = p_element},
-                            .value_relation = FLOW_RELATION_EQUAL,
-                            .imaginary = FLOW_IMAGINARY_NONE,
-                            .origin = flow_origin_more_specific(ctx->p_current_flow_map, p_left_alternative->origin),
-                            .p_token = p_expression->first_token
+                        .value_kind = FLOW_VALUE_KIND_REF,
+                        .value = {.p = p_element},
+                        .value_relation = FLOW_RELATION_EQUAL,
+                        .imaginary = FLOW_IMAGINARY_NONE,
+                        .p_origin_map = flow_origin_more_specific(ctx->p_current_flow_map, p_left_alternative->p_origin_map),
+                        .p_origin_token = p_expression->first_token
                             };
                             flow_alternatives_add(&result_entry->alternatives, &a);
 
@@ -70884,15 +70869,15 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         };
 
                     /* Nothing resolved (unknown array, out-of-range, etc.): fall through
-                to plain narrowing on this expression's object. */
+            to plain narrowing on this expression's object. */
                 }
 
                 /* Seed the (unresolved) subscript result as an ANY value of its
-            element type, so it is never an EMPTY operand. An empty operand
-            makes flow_evaluate_equality_multi fold `v[i] == c` to "always
-            true" (the vacuous-empty rule), which marked the else branch of
-            e.g. `if (s->current[0] == '\n')` as unreachable code. `*p`
-            (EXPR_UNARY *) already seeds ANY; subscript did not. */
+        element type, so it is never an EMPTY operand. An empty operand
+        makes flow_evaluate_equality_multi fold `v[i] == c` to "always
+        true" (the vacuous-empty rule), which marked the else branch of
+        e.g. `if (s->current[0] == '\n')` as unreachable code. `*p`
+        (EXPR_UNARY *) already seeds ANY; subscript did not. */
                 if (type_is_integer(&p_expression->type))
                 {
                     struct flow_key_alternatives* _Opt e = flow_map_find_add(ctx->p_current_flow_map, &p_expression->object);
@@ -70901,39 +70886,39 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     {
                         struct flow_alternative a =
                         {
-                        .value_kind = type_is_signed(&p_expression->type)
-                                      ? FLOW_VALUE_KIND_SIGNED : FLOW_VALUE_KIND_UNSIGNED,
-                        .value_relation = FLOW_RELATION_ANY,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = type_is_signed(&p_expression->type)
+                                  ? FLOW_VALUE_KIND_SIGNED : FLOW_VALUE_KIND_UNSIGNED,
+                    .value_relation = FLOW_RELATION_ANY,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
                 }
                 else if (type_is_pointer(&p_expression->type) &&
-                     ctx->ctx->options.null_checks_enabled &&
-                     !type_is_nullable(&p_expression->type, ctx->ctx->options.null_checks_enabled))
+                 ctx->ctx->options.null_checks_enabled &&
+                 !type_is_nullable(&p_expression->type, ctx->ctx->options.null_checks_enabled))
                 {
                     /* An unresolved element of a non-_Opt pointer array is non-null by
-                the non-_Opt => non-null rule -- e.g. `argv[i]` for
-                `char** argv` (argv[0..argc-1] are non-null per the C standard).
-                Seed NOT_EQUAL null, not ANY: seeding ANY here would (re)introduce
-                ~28 false "possible null" -- the reason pointer elements were left
-                unseeded originally. Non-null is the correct, narrower state and
-                keeps `argv[i]` (and `argv[i] + n`) off the possibly-null path. */
+            the non-_Opt => non-null rule -- e.g. `argv[i]` for
+            `char** argv` (argv[0..argc-1] are non-null per the C standard).
+            Seed NOT_EQUAL null, not ANY: seeding ANY here would (re)introduce
+            ~28 false "possible null" -- the reason pointer elements were left
+            unseeded originally. Non-null is the correct, narrower state and
+            keeps `argv[i]` (and `argv[i] + n`) off the possibly-null path. */
                     struct flow_key_alternatives* _Opt e = flow_map_find_add(ctx->p_current_flow_map, &p_expression->object);
                     if (e == NULL) throw;
                     if (e->alternatives.size == 0)
                     {
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_PTR,
-                        .value = {.p = NULL},
-                        .value_relation = FLOW_RELATION_NOT_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_PTR,
+                    .value = {.p = NULL},
+                    .value_relation = FLOW_RELATION_NOT_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -70966,12 +70951,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 const struct type* p_ret_type = &p_expression->type;
                 const struct token* p_call_token = p_expression->first_token;
                 /* `_Clear` in RETURN position means the returned pointee is all-zero
-            (calloc) -- the return-side reading of the same qualifier that, on a
-            parameter, means "the callee zeroes the pointee". */
+        (calloc) -- the return-side reading of the same qualifier that, on a
+        parameter, means "the callee zeroes the pointee". */
                 const bool ret_zero = type_is_pointer(p_ret_type) &&
-                                  (type_is_clear(p_ret_type) || type_is_pointed_clear(p_ret_type));
+                (type_is_clear(p_ret_type) || type_is_pointed_clear(p_ret_type));
                 const bool ret_uninit = type_is_pointer(p_ret_type) &&
-                                    (type_is_uninit(p_ret_type) || type_is_pointed_uninit(p_ret_type));
+                (type_is_uninit(p_ret_type) || type_is_pointed_uninit(p_ret_type));
 
                 if (nullable_enabled && type_is_pointer(p_ret_type) && type_is_nullable(p_ret_type, nullable_enabled))
                 {
@@ -70986,12 +70971,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     {
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_PTR,
-                        .value = {.p = NULL},
-                        .value_relation = FLOW_RELATION_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = p_null_map,
-                        .p_token = p_call_token
+                    .value_kind = FLOW_VALUE_KIND_PTR,
+                    .value = {.p = NULL},
+                    .value_relation = FLOW_RELATION_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = p_null_map,
+                    .p_origin_token = p_call_token
                         };
                         flow_alternatives_add(&p_result_alternatives->alternatives, &a);
                     }
@@ -71014,16 +70999,16 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_object_init(ctx, p_pointed, p_call_token);
                         ctx->p_current_flow_map = old;
                         /* Return-type contract on the pointee: `_Clear` (e.g. calloc)
-                    means the returned region is all-zero -- seed each member
-                    EQUAL 0 so `p->m == 0` is concretely true; `_Uninitialized`
-                    (e.g. malloc) means the contents are indeterminate. The
-                    qualifier may sit on the returned pointer (`T* _Opt _Clear f()`,
-                    next to _Owner/_Opt) or on the pointee (`_Clear T* f()`).
-                    Seed into the live (parent) map -- not p_nonnull_map, whose
-                    member state is a sibling branch that execution never enters
-                    after the call; p_pointed is only ever reached through the
-                    surviving non-null alternative, so the parent map is where a
-                    later `x->m` read resolves it. */
+                means the returned region is all-zero -- seed each member
+                EQUAL 0 so `p->m == 0` is concretely true; `_Uninitialized`
+                (e.g. malloc) means the contents are indeterminate. The
+                qualifier may sit on the returned pointer (`T* _Opt _Clear f()`,
+                next to _Owner/_Opt) or on the pointee (`_Clear T* f()`).
+                Seed into the live (parent) map -- not p_nonnull_map, whose
+                member state is a sibling branch that execution never enters
+                after the call; p_pointed is only ever reached through the
+                surviving non-null alternative, so the parent map is where a
+                later `x->m` read resolves it. */
                         if (ret_zero)
                             flow_map_set_object_zero(ctx->p_current_flow_map, p_pointed, p_call_token);
                         else if (ret_uninit)
@@ -71033,15 +71018,15 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
 
                     {
                         /* p_pointed == NULL (allocation failure): fall back to a plain
-                    "non-null" alternative with no concrete pointee. */
+                "non-null" alternative with no concrete pointee. */
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_PTR,
-                        .value = {.p = p_pointed},
-                        .value_relation = p_pointed != NULL ? FLOW_RELATION_EQUAL : FLOW_RELATION_NOT_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = p_nonnull_map,
-                        .p_token = p_call_token
+                    .value_kind = FLOW_VALUE_KIND_PTR,
+                    .value = {.p = p_pointed},
+                    .value_relation = p_pointed != NULL ? FLOW_RELATION_EQUAL : FLOW_RELATION_NOT_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = p_nonnull_map,
+                    .p_origin_token = p_call_token
                         };
                         flow_alternatives_add(&p_result_alternatives->alternatives, &a);
                     }
@@ -71050,8 +71035,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 else if (nullable_enabled && type_is_pointer(p_ret_type))
                 {
                     /* Non-_Opt pointer return: non-null. For a `_Clear`/`_Uninitialized`
-                pointee contract, build a concrete pointee so members can be
-                seeded zero/uninitialized (mirrors the _Opt branch above). */
+            pointee contract, build a concrete pointee so members can be
+            seeded zero/uninitialized (mirrors the _Opt branch above). */
                     struct object* _Opt p_pointed = NULL;
                     if (ret_zero || ret_uninit)
                     {
@@ -71073,12 +71058,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_PTR,
-                        .value = {.p = p_pointed},
-                        .value_relation = p_pointed != NULL ? FLOW_RELATION_EQUAL : FLOW_RELATION_NOT_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_call_token
+                    .value_kind = FLOW_VALUE_KIND_PTR,
+                    .value = {.p = p_pointed},
+                    .value_relation = p_pointed != NULL ? FLOW_RELATION_EQUAL : FLOW_RELATION_NOT_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_call_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -71086,57 +71071,57 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 else if (!type_is_void(p_ret_type))
                 {
                     /*
-                Either a non-pointer return type (scalar, or struct/union
-                returned by value), or a pointer return type with nullable
-                checks disabled (nullable_enabled == false): nothing above
-                seeded p_expression->object at all, so it -- and every
-                member, for a struct/union -- silently stayed whatever
-                pre-existing UNINITIALIZED state happened to be in the map
-                (there usually isn't one for a fresh temporary, but the
-                DESTINATION of an assignment or initialization from this
-                call falls back to ITS OWN pre-existing declared state when
-                this source has no entry to copy from -- see
-                flow_check_object_init_assigment).
+            Either a non-pointer return type (scalar, or struct/union
+            returned by value), or a pointer return type with nullable
+            checks disabled (nullable_enabled == false): nothing above
+            seeded p_expression->object at all, so it -- and every
+            member, for a struct/union -- silently stayed whatever
+            pre-existing UNINITIALIZED state happened to be in the map
+            (there usually isn't one for a fresh temporary, but the
+            DESTINATION of an assignment or initialization from this
+            call falls back to ITS OWN pre-existing declared state when
+            this source has no entry to copy from -- see
+            flow_check_object_init_assigment).
 
-                For the pointer-with-nullable-disabled case, deferring to
-                flow_parameter_object_init below is deliberate, not an
-                oversight: with nullable checks off, a return value must NOT
-                be assumed non-null the way it is above when nullable_enabled
-                is true -- see the "nullable disabled => ANY (conservative;
-                no null-check enforcement)" spec in
-                flow_parameter_object_init_r's own doc comment. Reusing it
-                here keeps call-return values and parameters consistent.
+            For the pointer-with-nullable-disabled case, deferring to
+            flow_parameter_object_init below is deliberate, not an
+            oversight: with nullable checks off, a return value must NOT
+            be assumed non-null the way it is above when nullable_enabled
+            is true -- see the "nullable disabled => ANY (conservative;
+            no null-check enforcement)" spec in
+            flow_parameter_object_init_r's own doc comment. Reusing it
+            here keeps call-return values and parameters consistent.
 
-                Concretely this was reported as two real false positives:
+            Concretely this was reported as two real false positives:
 
-                int errcode = mkdir(to, 0700);
-                if (errcode != 0) return errcode; // "errcode" possibly uninitialized
+            int errcode = mkdir(to, 0700);
+            if (errcode != 0) return errcode; // "errcode" possibly uninitialized
 
-                struct X x = f(); // or: struct X x; x = f();
-                use(x.a);          // "x.a" possibly uninitialized
+            struct X x = f(); // or: struct X x; x = f();
+            use(x.a);          // "x.a" possibly uninitialized
 
-                A function's return value is always a genuine, fully
-                initialized value by the time the call returns (the
-                callee cannot return without having constructed it) --
-                the exact same "assumed valid on entry" rule flow3 already
-                applies to non-_Opt pointer parameters and pointer return
-                values above applies here too, just for non-pointer types
-                and struct members. Reuse flow_parameter_object_init,
-                which already knows how to seed a (possibly aggregate)
-                object as ANY/non-null recursively member-by-member --
-                it works identically whether the object in hand came from
-                a parameter or, as here, a call's own result object. */
+            A function's return value is always a genuine, fully
+            initialized value by the time the call returns (the
+            callee cannot return without having constructed it) --
+            the exact same "assumed valid on entry" rule flow3 already
+            applies to non-_Opt pointer parameters and pointer return
+            values above applies here too, just for non-pointer types
+            and struct members. Reuse flow_parameter_object_init,
+            which already knows how to seed a (possibly aggregate)
+            object as ANY/non-null recursively member-by-member --
+            it works identically whether the object in hand came from
+            a parameter or, as here, a call's own result object. */
                     /* p_expression is const here (flow_visit_expression's own
-                parameter), so &p_expression->object is a const struct
-                object* -- but flow_parameter_object_init's signature
-                (shared with the parameter-seeding call site) takes a
-                non-const struct object*, matching every other call site
-                where the object being seeded belongs to a non-const
-                declarator. It only ever reads this object's own
-                .members list (to recurse) and writes into the flow map
-                keyed by its address; it never mutates the object itself.
-                Cast away const explicitly rather than relaxing the
-                shared signature for every other caller. */
+        parameter), so &p_expression->object is a const struct
+        object* -- but flow_parameter_object_init's signature
+        (shared with the parameter-seeding call site) takes a
+        non-const struct object*, matching every other call site
+        where the object being seeded belongs to a non-const
+        declarator. It only ever reads this object's own
+        .members list (to recurse) and writes into the flow map
+        keyed by its address; it never mutates the object itself.
+        Cast away const explicitly rather than relaxing the
+        shared signature for every other caller. */
                     flow_parameter_object_init(ctx, (struct object*)&p_expression->object, p_ret_type, p_call_token);
                 }
                 flow_map_remove(ctx->p_current_flow_map, &p_expression->left->object);
@@ -71148,14 +71133,14 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 _Assert(p_expression->compound_statement != NULL);
 
                 /* A function literal's body is never reached through
-               flow_visit_declaration (it has no enclosing struct declaration --
-               its compound_statement hangs off this expression instead), so
-               none of the per-function setup/teardown that macro normally
-               provides happens for it automatically. Without this, a literal's
-               _Owner parameters are never seeded by flow_parameter_object_init,
-               so passing/leaking a resource through them goes uncaught -- same
-               root cause as the defer-not-generated bug in defer.c fixed for
-               issue #269, just in the ownership checker instead of codegen. */
+           flow_visit_declaration (it has no enclosing struct declaration --
+           its compound_statement hangs off this expression instead), so
+           none of the per-function setup/teardown that macro normally
+           provides happens for it automatically. Without this, a literal's
+           _Owner parameters are never seeded by flow_parameter_object_init,
+           so passing/leaking a resource through them goes uncaught -- same
+           root cause as the defer-not-generated bug in defer.c fixed for
+           issue #269, just in the ownership checker instead of codegen. */
                 const struct direct_declarator* _Opt p_innermost_direct_declarator =
                 p_expression->type_name && p_expression->type_name->abstract_declarator ?
                 get_innermost_direct_declarator(p_expression->type_name->abstract_declarator->direct_declarator) :
@@ -71169,8 +71154,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 NULL;
 
                 for (struct parameter_declaration* _Opt p_parameter = p_parameter_list ? p_parameter_list->head : NULL;
-                 p_parameter;
-                 p_parameter = p_parameter->next)
+             p_parameter;
+             p_parameter = p_parameter->next)
                 {
                     if (p_parameter->declarator)
                     {
@@ -71193,8 +71178,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     flow_check_arena_objects_at_function_exit(ctx);
                     const struct marker marker =
                     {
-                    .p_token_begin = p_expression->compound_statement->last_token,
-                    .p_token_end = p_expression->compound_statement->last_token
+                .p_token_begin = p_expression->compound_statement->last_token,
+                .p_token_end = p_expression->compound_statement->last_token
                     };
                     flow_check_file_scope_objects_at_function_exit(ctx);
                     flow_check_write_qualified_params_at_exit(ctx, &marker, p_expression->compound_statement->last_token);
@@ -71226,29 +71211,29 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 flow_visit_bracket_initializer_list(ctx, p_expression->braced_initializer);
 
                 /*
-            2/3. Seed the compound literal's own object the SAME way
-            flow_visit_init_declarator seeds a declarator's object
-            for a braced initializer: flow_object_init picks up each
-            member's compile-time constant state (already computed by
-            the object model during semantic analysis -- the same
-            information that makes `struct X x = {0};` correctly seed
-            every member to 0/null), then
-            flow_seed_aggregate_from_init_exprs fills in members set
-            by a non-constant initializer expression.
+        2/3. Seed the compound literal's own object the SAME way
+        flow_visit_init_declarator seeds a declarator's object
+        for a braced initializer: flow_object_init picks up each
+        member's compile-time constant state (already computed by
+        the object model during semantic analysis -- the same
+        information that makes `struct X x = {0};` correctly seed
+        every member to 0/null), then
+        flow_seed_aggregate_from_init_exprs fills in members set
+        by a non-constant initializer expression.
 
-            Before this fix, the compound literal's own object was
-            unconditionally marked ANY here, discarding all per-member
-            zero/constant information: `x = (struct X){0};` left every
-            member of x showing ANY afterward (confirmed via
-            static_debug), unlike the always-correct
-            `struct X x = {0};` declaration form. Since assigning a
-            struct copies member-by-member from the SOURCE's tracked
-            state, that lost information propagated straight into the
-            destination -- silently defeating null/zero-narrowing
-            checks on every field after a compound-literal assignment
-            like `x = (struct X){};` or `x = (struct X){0};`.
-            User-reported.
-            */
+        Before this fix, the compound literal's own object was
+        unconditionally marked ANY here, discarding all per-member
+        zero/constant information: `x = (struct X){0};` left every
+        member of x showing ANY afterward (confirmed via
+        static_debug), unlike the always-correct
+        `struct X x = {0};` declaration form. Since assigning a
+        struct copies member-by-member from the SOURCE's tracked
+        state, that lost information propagated straight into the
+        destination -- silently defeating null/zero-narrowing
+        checks on every field after a compound-literal assignment
+        like `x = (struct X){};` or `x = (struct X){0};`.
+        User-reported.
+        */
                 flow_object_init(ctx, (struct object*)&p_expression->object, p_token);
                 flow_seed_aggregate_from_init_exprs(ctx, (struct object*)&p_expression->object);
                 break;
@@ -71276,19 +71261,19 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
 
             case EXPR_UNARY_ASSERT:
                 /*
-            * _Assert(expr) is equivalent to:
-            *   if (!expr) exit();   // exit does not return
-            *
-            * So after assert, only the TRUE branch of expr is reachable.
-            * We apply the true-branch refinements to the current map and
-            * discard the false branch (it is a dead end, like exit()).
-            */
+        * _Assert(expr) is equivalent to:
+        *   if (!expr) exit();   // exit does not return
+        *
+        * So after assert, only the TRUE branch of expr is reachable.
+        * We apply the true-branch refinements to the current map and
+        * discard the false branch (it is a dead end, like exit()).
+        */
                 if (p_expression->right)
                 {
                     struct flow_branch_pair assert_pair = flow_visit_expression(ctx, p_expression->right);
 
                     /* The false branch is dead (assert would have aborted).
-                Merge only the true outcome back into p_before. */
+            Merge only the true outcome back into p_before. */
                     if (assert_pair.p_true != NULL)
                     {
                         flow_map_merge_a_b(p_before, assert_pair.p_true, assert_pair.p_true);
@@ -71313,10 +71298,10 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
             case EXPR_UNARY_PLUS:
                 _Assert(p_expression->right != NULL);
                 /*
-            * Visit the child first so that any sub-expression (e.g. -(a + b))
-            * is fully evaluated and its constant value — if any — is propagated
-            * into p_expression->right->object before we inspect it.
-            */
+        * Visit the child first so that any sub-expression (e.g. -(a + b))
+        * is fully evaluated and its constant value — if any — is propagated
+        * into p_expression->right->object before we inspect it.
+        */
                 flow_visit_expression(ctx, p_expression->right);
                 if (object_has_constant_value(&p_expression->right->object))
                 {
@@ -71328,12 +71313,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = result},
-                        .value_relation = FLOW_RELATION_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = result},
+                    .value_relation = FLOW_RELATION_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -71341,9 +71326,9 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 else
                 {
                     /* Operand has no constant value, but it may still carry a RELATION
-                (e.g. `b < 0` narrowed by an enclosing if). Carry that through:
-                unary + preserves it, unary - mirrors it. Only if nothing can be
-                mapped do we fall back to a plain ANY. */
+            (e.g. `b < 0` narrowed by an enclosing if). Carry that through:
+            unary + preserves it, unary - mirrors it. Only if nothing can be
+            mapped do we fall back to a plain ANY. */
                     const bool is_neg = (p_expression->expression_type == EXPR_UNARY_NEG);
                     const struct flow_key_alternatives* _Opt p_src =
                     flow_map_search_up(ctx->p_current_flow_map, &p_expression->right->object);
@@ -71356,15 +71341,15 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         const struct flow_alternative* a0 = p_src->alternatives.data[i];
 
                         /* The operand usually resolves to a REF to the variable object;
-                    follow it to the actual value alternatives. */
+                follow it to the actual value alternatives. */
                         const struct flow_key_alternatives* _Opt p_vals = NULL;
                         if (a0->value_kind == FLOW_VALUE_KIND_REF && a0->value.p != NULL)
                             p_vals = flow_map_search_up(ctx->p_current_flow_map, a0->value.p);
 
                         /* data is an array of pointers now, so list[j] is already a
-                       struct flow_alternative* -- when there's no REF to follow,
-                       use a synthetic one-element array holding a0 itself instead
-                       of treating a0 (one alternative) as if it were the array. */
+                   struct flow_alternative* -- when there's no REF to follow,
+                   use a synthetic one-element array holding a0 itself instead
+                   of treating a0 (one alternative) as if it were the array. */
                         struct flow_alternative* _Opt single_list[1];
                         struct flow_alternative* _Opt* _Opt list;
                         if (p_vals != NULL)
@@ -71399,12 +71384,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                                 out = *list[j];
                                 if (out.value_kind != FLOW_VALUE_KIND_SIGNED)
                                 {
-                                    all_mapped = false; 
+                                    all_mapped = false;
                                     break;
                                 }
                             }
-                            out.origin = ctx->p_current_flow_map;
-                            out.p_token = p_expression->first_token;
+                            out.p_origin_map = ctx->p_current_flow_map;
+                            out.p_origin_token = p_expression->first_token;
                             flow_alternatives_add(&mapped, &out);
                         }
                     }
@@ -71430,12 +71415,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = ANY_VALUE},
-                        .value_relation = FLOW_RELATION_ANY,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = ANY_VALUE},
+                    .value_relation = FLOW_RELATION_ANY,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -71448,10 +71433,10 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 _Assert(p_expression->right != NULL);
 
                 /*
-            * Visit the child first so that any sub-expression is fully evaluated
-            * and its constant value — if any — is propagated into
-            * p_expression->right->object before we inspect it.
-            */
+        * Visit the child first so that any sub-expression is fully evaluated
+        * and its constant value — if any — is propagated into
+        * p_expression->right->object before we inspect it.
+        */
                 struct flow_branch_pair child = flow_visit_expression(ctx, p_expression->right);
 
                 if (object_has_constant_value(&p_expression->right->object))
@@ -71465,12 +71450,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = result},
-                        .value_relation = FLOW_RELATION_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = result},
+                    .value_relation = FLOW_RELATION_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -71500,20 +71485,20 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 }
 
                 /* Seed the NOT result's OWN value: `!x` yields a boolean (0 or 1) and is
-            always INITIALIZED. Without this, `bool c = !x;` (non-constant x) left
-            c with no value and c was wrongly reported "possibly uninitialized". */
+        always INITIALIZED. Without this, `bool c = !x;` (non-constant x) left
+        c with no value and c was wrongly reported "possibly uninitialized". */
                 {
                     struct flow_key_alternatives* _Opt e = flow_map_find_add(ctx->p_current_flow_map, &p_expression->object);
                     if (e == NULL) throw;
                     flow_alternatives_clear(&e->alternatives);
                     struct flow_alternative a =
                     {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = ANY_VALUE},
-                    .value_relation = FLOW_RELATION_ANY,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = ctx->p_current_flow_map,
-                    .p_token = p_expression->first_token
+                .value_kind = FLOW_VALUE_KIND_SIGNED,
+                .value = {.i = ANY_VALUE},
+                .value_relation = FLOW_RELATION_ANY,
+                .imaginary = FLOW_IMAGINARY_NONE,
+                .p_origin_map = ctx->p_current_flow_map,
+                .p_origin_token = p_expression->first_token
                     };
                     flow_alternatives_add(&e->alternatives, &a);
                 }
@@ -71538,7 +71523,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
             case EXPR_UNARY_SIZEOF_TYPE:
             case EXPR_UNARY_COUNTOF:
                 /* Constant when the parser folded it. For a VLA `sizeof` the parser
-            has no constant value, so this seeds nothing and it stays unknown. */
+        has no constant value, so this seeds nothing and it stays unknown. */
                 flow_seed_constant_result(ctx, p_expression);
             break;
 
@@ -71550,7 +71535,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 struct expression* _Opt p_operand = NULL;
 
                 if (p_expression->expression_type == EXPR_UNARY_INCREMENT ||
-                    p_expression->expression_type == EXPR_UNARY_DECREMENT)
+                p_expression->expression_type == EXPR_UNARY_DECREMENT)
                 {
                     _Assert(p_expression->right != NULL);
                     p_operand = p_expression->right;
@@ -71571,30 +71556,30 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 flow_invalidate_unknown_index_write(ctx, p_operand);
 
                 bool is_postfix = (p_expression->expression_type == EXPR_POSTFIX_INCREMENT ||
-                               p_expression->expression_type == EXPR_POSTFIX_DECREMENT);
+                           p_expression->expression_type == EXPR_POSTFIX_DECREMENT);
                 bool is_increment = (p_expression->expression_type == EXPR_UNARY_INCREMENT ||
-                                 p_expression->expression_type == EXPR_POSTFIX_INCREMENT);
+                             p_expression->expression_type == EXPR_POSTFIX_INCREMENT);
 
                 /*
-            ++ / -- are disallowed on an _Owner pointer: advancing it loses the
-            very address that has to be freed, so the allocation could never be
-            released through it.
+        ++ / -- are disallowed on an _Owner pointer: advancing it loses the
+        very address that has to be freed, so the allocation could never be
+        released through it.
 
-            Moved here from expressions.c so that every diagnostic mentioning
-            _Owner lives in flow3 -- and extended while moving: the parser only
-            checked the POSTFIX forms, so `++p` / `--p` on an owner went
-            completely unreported. All four forms land in this case.
-            */
+        Moved here from expressions.c so that every diagnostic mentioning
+        _Owner lives in flow3 -- and extended while moving: the parser only
+        checked the POSTFIX forms, so `++p` / `--p` on an owner went
+        completely unreported. All four forms land in this case.
+        */
                 if (type_is_owner(&p_operand->type))
                 {
                     diagnostic(is_increment
-                           ? C_ERROR_FLOW_OPERATOR_INCREMENT_CANNOT_BE_USED_IN_OWNER
-                           : C_ERROR_FLOW_OPERATOR_DECREMENT_CANNOT_BE_USED_IN_OWNER,
-                           ctx->ctx,
-                           p_operand->first_token, NULL,
-                           is_increment
-                           ? "operator ++ cannot be used in _Owner pointers"
-                           : "operator -- cannot be used in _Owner pointers");
+                       ? C_ERROR_FLOW_OPERATOR_INCREMENT_CANNOT_BE_USED_IN_OWNER
+                       : C_ERROR_FLOW_OPERATOR_DECREMENT_CANNOT_BE_USED_IN_OWNER,
+                       ctx->ctx,
+                       p_operand->first_token, NULL,
+                       is_increment
+                       ? "operator ++ cannot be used in _Owner pointers"
+                       : "operator -- cannot be used in _Owner pointers");
                 }
 
                 // Resolve the operand's object to its actual alternatives.
@@ -71609,12 +71594,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = ANY_VALUE},
-                        .value_relation = FLOW_RELATION_ANY,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = ANY_VALUE},
+                    .value_relation = FLOW_RELATION_ANY,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -71624,12 +71609,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = ANY_VALUE},
-                        .value_relation = FLOW_RELATION_ANY,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = ANY_VALUE},
+                    .value_relation = FLOW_RELATION_ANY,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -71637,11 +71622,11 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 }
 
                 /* Advance the object(s) the operand names. An lvalue may alias
-            several objects -- e.g. `(*p)++` where p can point to a or b -- so
-            iterate its REF alternatives the way flow_check_assigment handles
-            an assignment destination, rather than a size==1 / data[0] shortcut.
-            Each referenced object's values are advanced, tagged with the branch
-            the reference belongs to so the update stays correlated. */
+        several objects -- e.g. `(*p)++` where p can point to a or b -- so
+        iterate its REF alternatives the way flow_check_assigment handles
+        an assignment destination, rather than a size==1 / data[0] shortcut.
+        Each referenced object's values are advanced, tagged with the branch
+        the reference belongs to so the update stays correlated. */
                 struct flow_alternatives new_result_alts = { 0 };
                 bool advanced_any = false;
 
@@ -71660,7 +71645,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
 
                     if (n == 0)
                     {
-                        struct flow_alternative a = { .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = ANY_VALUE}, .value_relation = FLOW_RELATION_ANY, .imaginary = FLOW_IMAGINARY_NONE, .origin = ref->origin, .p_token = p_expression->first_token };
+                        struct flow_alternative a = { .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = ANY_VALUE}, .value_relation = FLOW_RELATION_ANY, .imaginary = FLOW_IMAGINARY_NONE, .p_origin_map = ref->p_origin_map, .p_origin_token = p_expression->first_token };
                         flow_alternatives_add(&new_var_alts, &a);
                         flow_alternatives_add(&new_result_alts, &a);
                     }
@@ -71668,42 +71653,36 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     for (int i = 0; p_resolved != NULL && i < n; i++)
                     {
                         const struct flow_alternative* alt = p_resolved->alternatives.data[i];
-                        const struct flow_map* _Opt org = flow_origin_more_specific(alt->origin, ref->origin);
+                        const struct flow_map* _Opt org = flow_origin_more_specific(alt->p_origin_map, ref->p_origin_map);
 
-                        if (alt->imaginary == FLOW_IMAGINARY_ABSENT || alt->value_relation == FLOW_RELATION_UNINITIALIZED)
-                        {
-                            struct flow_alternative a = { .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = ANY_VALUE}, .value_relation = FLOW_RELATION_ANY, .imaginary = FLOW_IMAGINARY_NONE, .origin = org, .p_token = p_expression->first_token };
-                            flow_alternatives_add(&new_var_alts, &a);
-                            flow_alternatives_add(&new_result_alts, &a);
-                        }
-                        else if (alt->value_relation == FLOW_RELATION_EQUAL &&
-                             (alt->value_kind == FLOW_VALUE_KIND_SIGNED || alt->value_kind == FLOW_VALUE_KIND_UNSIGNED))
+                        if (alt->value_relation == FLOW_RELATION_EQUAL &&
+                         (alt->value_kind == FLOW_VALUE_KIND_SIGNED || alt->value_kind == FLOW_VALUE_KIND_UNSIGNED))
                         {
                             long long old = (alt->value_kind == FLOW_VALUE_KIND_SIGNED) ? alt->value.i : (long long)alt->value.u;
                             long long new_val = is_increment ? old + 1 : old - 1;
-                            struct flow_alternative av = { .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = new_val}, .value_relation = FLOW_RELATION_EQUAL, .imaginary = FLOW_IMAGINARY_NONE, .origin = org, .p_token = p_expression->first_token };
+                            struct flow_alternative av = { .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = new_val}, .value_relation = FLOW_RELATION_EQUAL, .imaginary = FLOW_IMAGINARY_NONE, .p_origin_map = org, .p_origin_token = p_expression->first_token };
                             flow_alternatives_add(&new_var_alts, &av);
                             long long result_val = is_postfix ? old : new_val;
-                            struct flow_alternative ar = { .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = result_val}, .value_relation = FLOW_RELATION_EQUAL, .imaginary = FLOW_IMAGINARY_NONE, .origin = org, .p_token = p_expression->first_token };
+                            struct flow_alternative ar = { .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = result_val}, .value_relation = FLOW_RELATION_EQUAL, .imaginary = FLOW_IMAGINARY_NONE, .p_origin_map = org, .p_origin_token = p_expression->first_token };
                             flow_alternatives_add(&new_result_alts, &ar);
                         }
                         else if (alt->value_kind == FLOW_VALUE_KIND_PTR)
                         {
                             /* Advancing a pointer preserves its null-ness (it still
-                        points within the same object/array, so non-null stays
-                        non-null) but moves it to a DIFFERENT element -- the
-                        pointed-to VALUE is now unknown. Keeping the SAME pointee
-                        object would leave a stale fact like `*p == c` (from an
-                        earlier narrowing, e.g. a `while (*p != '"') p++;` loop
-                        exit) attached to the advanced pointer, which wrongly
-                        folded `*p != c` to false and reported dead code
-                        (tokenizer.c). Repoint to a fresh ANY pointee; a pointer
-                        copied off BEFORE the increment keeps the old pointee, so
-                        its knowledge of `*q` is correctly preserved. */
+                    points within the same object/array, so non-null stays
+                    non-null) but moves it to a DIFFERENT element -- the
+                    pointed-to VALUE is now unknown. Keeping the SAME pointee
+                    object would leave a stale fact like `*p == c` (from an
+                    earlier narrowing, e.g. a `while (*p != '"') p++;` loop
+                    exit) attached to the advanced pointer, which wrongly
+                    folded `*p != c` to false and reported dead code
+                    (tokenizer.c). Repoint to a fresh ANY pointee; a pointer
+                    copied off BEFORE the increment keeps the old pointee, so
+                    its knowledge of `*q` is correctly preserved. */
                             struct flow_alternative a = *alt;
                             if (alt->value_relation == FLOW_RELATION_EQUAL &&
-                                alt->value.p != NULL &&
-                                type_is_pointer(&p_operand->type))
+                            alt->value.p != NULL &&
+                            type_is_pointer(&p_operand->type))
                             {
                                 struct object* _Opt p_fresh = flow_allocated_object_arena_new(&ctx->allocated_object_arena);
                                 if (p_fresh != NULL)
@@ -71716,8 +71695,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                                 else
                                 {
                                     /* Can't allocate a fresh pointee: fall back to a
-                                generic non-null pointer (drops the stale value
-                                without inventing a bogus one). */
+                            generic non-null pointer (drops the stale value
+                            without inventing a bogus one). */
                                     a.value.p = NULL;
                                     a.value_relation = FLOW_RELATION_NOT_EQUAL;
                                 }
@@ -71728,29 +71707,29 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         else if (type_is_pointer(&p_operand->type))
                         {
                             /* A pointer whose tracked value is ANY (a merge, or a
-                        member seeded without a concrete target) is not PTR-kind, so
-                        it used to fall into the generic branch below and come back
-                        as a SIGNED ANY -- which "could be zero", making the very
-                        next use report "may be null". Advancing a pointer is the
-                        one case where nullness cannot be introduced: null + 1 is
-                        undefined behaviour, not a null result. Decide it from the
-                        operand's static type, the same way the binary `p + n` form
-                        does, and keep the result non-null with no known target. */
+                    member seeded without a concrete target) is not PTR-kind, so
+                    it used to fall into the generic branch below and come back
+                    as a SIGNED ANY -- which "could be zero", making the very
+                    next use report "may be null". Advancing a pointer is the
+                    one case where nullness cannot be introduced: null + 1 is
+                    undefined behaviour, not a null result. Decide it from the
+                    operand's static type, the same way the binary `p + n` form
+                    does, and keep the result non-null with no known target. */
                             struct flow_alternative a =
                             {
-                            .value_kind = FLOW_VALUE_KIND_PTR,
-                            .value = {.p = NULL},
-                            .value_relation = FLOW_RELATION_NOT_EQUAL,
-                            .imaginary = FLOW_IMAGINARY_NONE,
-                            .origin = org,
-                            .p_token = p_expression->first_token
+                        .value_kind = FLOW_VALUE_KIND_PTR,
+                        .value = {.p = NULL},
+                        .value_relation = FLOW_RELATION_NOT_EQUAL,
+                        .imaginary = FLOW_IMAGINARY_NONE,
+                        .p_origin_map = org,
+                        .p_origin_token = p_expression->first_token
                             };
                             flow_alternatives_add(&new_var_alts, &a);
                             flow_alternatives_add(&new_result_alts, &a);
                         }
                         else
                         {
-                            struct flow_alternative a = { .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = ANY_VALUE}, .value_relation = FLOW_RELATION_ANY, .imaginary = FLOW_IMAGINARY_NONE, .origin = org, .p_token = p_expression->first_token };
+                            struct flow_alternative a = { .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = ANY_VALUE}, .value_relation = FLOW_RELATION_ANY, .imaginary = FLOW_IMAGINARY_NONE, .p_origin_map = org, .p_origin_token = p_expression->first_token };
                             flow_alternatives_add(&new_var_alts, &a);
                             flow_alternatives_add(&new_result_alts, &a);
                         }
@@ -71770,7 +71749,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
 
                 if (!advanced_any)
                 {
-                    struct flow_alternative a = { .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = ANY_VALUE}, .value_relation = FLOW_RELATION_ANY, .imaginary = FLOW_IMAGINARY_NONE, .origin = ctx->p_current_flow_map, .p_token = p_expression->first_token };
+                    struct flow_alternative a = { .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = ANY_VALUE}, .value_relation = FLOW_RELATION_ANY, .imaginary = FLOW_IMAGINARY_NONE, .p_origin_map = ctx->p_current_flow_map, .p_origin_token = p_expression->first_token };
                     flow_alternatives_add(&new_result_alts, &a);
                 }
 
@@ -71794,10 +71773,10 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
             case EXPR_UNARY_BITNOT:
                 _Assert(p_expression->right != NULL);
                 /*
-            * Visit the child first so that any sub-expression is fully evaluated
-            * and its constant value — if any — is propagated into
-            * p_expression->right->object before we inspect it.
-            */
+        * Visit the child first so that any sub-expression is fully evaluated
+        * and its constant value — if any — is propagated into
+        * p_expression->right->object before we inspect it.
+        */
                 flow_visit_expression(ctx, p_expression->right);
                 if (object_has_constant_value(&p_expression->right->object))
                 {
@@ -71808,12 +71787,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = ~rv},
-                        .value_relation = FLOW_RELATION_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = ~rv},
+                    .value_relation = FLOW_RELATION_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -71827,12 +71806,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = ANY_VALUE},
-                        .value_relation = FLOW_RELATION_ANY,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = ANY_VALUE},
+                    .value_relation = FLOW_RELATION_ANY,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -71857,18 +71836,18 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     {
                         const struct flow_alternative* p_right_alternative = p_right_alternatives->alternatives.data[i];
                         if (p_right_alternative->value_relation == FLOW_RELATION_EQUAL &&
-                            p_right_alternative->value_kind == FLOW_VALUE_KIND_REF &&
-                            p_right_alternative->value.p != NULL)
+                        p_right_alternative->value_kind == FLOW_VALUE_KIND_REF &&
+                        p_right_alternative->value.p != NULL)
                         {
                             {
                                 struct flow_alternative a =
                                 {
-                                .value_kind = FLOW_VALUE_KIND_PTR,
-                                .value = {.p = p_right_alternative->value.p},
-                                .value_relation = FLOW_RELATION_EQUAL,
-                                .imaginary = FLOW_IMAGINARY_NONE,
-                                .origin = ctx->p_current_flow_map,
-                                .p_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_PTR,
+                            .value = {.p = p_right_alternative->value.p},
+                            .value_relation = FLOW_RELATION_EQUAL,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_map,
+                            .p_origin_token = p_expression->first_token
                                 };
                                 flow_alternatives_add(&result_entry->alternatives, &a);
                             }
@@ -71899,8 +71878,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 {
                     const struct flow_alternative* p_right_alt = p_right_alternatives->alternatives.data[i];
 
-                    if (p_right_alt->imaginary == FLOW_IMAGINARY_ABSENT)
-                        continue;
+
                     if (p_right_alt->value_kind == FLOW_VALUE_KIND_REF)
                     {
                         const struct flow_key_alternatives* _Opt p_right_alternatives2 = flow_map_search_up(ctx->p_current_flow_map,
@@ -71914,22 +71892,22 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                             const struct flow_alternative* p_right_alt2 = p_right_alternatives2->alternatives.data[j];
 
                             /* Lifetime check: `*p` after p's pointee was freed/moved
-                        (e.g. consumed by an _Owner parameter, or _Dtor'd)
-                        mirrors the same check EXPR_POSTFIX_ARROW does for
-                        `p->member` -- without it, `*p = 0;` after `consume(p)`
-                        (p an _Owner pointer parameter, no member access
-                        involved) went entirely unchecked. See the two-origin
-                        rationale on flow_object_leaves_in_state_2 above:
-                        same shape applies here, just checking the WHOLE
-                        pointee rather than one member (there's no member
-                        index for `*p`, only a value it derefs to). */
+                    (e.g. consumed by an _Owner parameter, or _Dtor'd)
+                    mirrors the same check EXPR_POSTFIX_ARROW does for
+                    `p->member` -- without it, `*p = 0;` after `consume(p)`
+                    (p an _Owner pointer parameter, no member access
+                    involved) went entirely unchecked. See the two-origin
+                    rationale on flow_object_leaves_in_state_2 above:
+                    same shape applies here, just checking the WHOLE
+                    pointee rather than one member (there's no member
+                    index for `*p`, only a value it derefs to). */
                             int ended_line = 0;
                             const struct flow_map* _Opt ended_origin = NULL;
                             if (p_right_alt2->value_kind == FLOW_VALUE_KIND_PTR &&
-                                p_right_alt2->value.p != NULL &&
-                                !content_lifetime_ended_reported &&
-                                flow_object_leaves_in_state_2(ctx, p_right_alt2->value.p, FLOW_LEAF_ENDED,
-                                                              p_right_alt2->origin, ctx->p_current_flow_map, false, &ended_line, &ended_origin))
+                            p_right_alt2->value.p != NULL &&
+                            !content_lifetime_ended_reported &&
+                            flow_object_leaves_in_state_2(ctx, p_right_alt2->value.p, FLOW_LEAF_ENDED,
+                                                          p_right_alt2->p_origin_map, ctx->p_current_flow_map, false, &ended_line, &ended_origin))
                             {
                                 content_lifetime_ended_reported = true;
                                 struct osstream ss = { 0 };
@@ -71942,41 +71920,41 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                                     flow_diagnose_map_path(ctx, ended_origin);
 
                                 /* If this same dereference is ALSO used as
-                            an assignment/return/argument source,
-                            flow_check_object_init_assigment runs
-                            right after and would otherwise report
-                            this identical fact a second time -- see
-                            the field comment in flow3.h. */
+                        an assignment/return/argument source,
+                        flow_check_object_init_assigment runs
+                        right after and would otherwise report
+                        this identical fact a second time -- see
+                        the field comment in flow3.h. */
                                 ctx->p_pending_ended_report_obj = p_right_alt2->value.p;
                                 ctx->pending_ended_report_line = ended_line;
                             }
 
                             if (flow_alternative_can_be_zero(p_right_alt2) &&
-                                !ctx->expression_is_not_evaluated &&
-                                flow_origins_compatible(p_right_alt2->origin, ctx->p_current_flow_map))
+                            !ctx->expression_is_not_evaluated &&
+                            flow_origins_compatible(p_right_alt2->p_origin_map, ctx->p_current_flow_map))
                             {
                                 /* The operand of sizeof/_Alignof (and other unevaluated
-                            contexts) is never dereferenced at runtime -- only its
-                            type is needed -- so a possibly-null pointer there is
-                            not an actual null dereference.
+                        contexts) is never dereferenced at runtime -- only its
+                        type is needed -- so a possibly-null pointer there is
+                        not an actual null dereference.
 
-                            The origin check drops a null value that cannot occur
-                            on the current path: if its branch decisions conflict
-                            with where we are (e.g. it is the "else" value of a
-                            condition whose "then" branch we are inside), the
-                            dereference is safe here. */
+                        The origin check drops a null value that cannot occur
+                        on the current path: if its branch decisions conflict
+                        with where we are (e.g. it is the "else" value of a
+                        condition whose "then" branch we are inside), the
+                        dereference is safe here. */
                                 /* Include the dereference expression itself (p_expression,
-                            the whole `*p`, not just the pointer operand p_expression->right)
-                            -- a bare "possible null pointer dereference" with no
-                            expression left the reader to guess which pointer, in a
-                            function with more than one, the diagnostic was even
-                            about. User-requested; user also specifically asked for
-                            '*p' rather than 'p' here, unlike the `->` sites (which
-                            print just the pointer operand, matching "operator ->
-                            applied to a possible null pointer '%s'" -- there the
-                            operator name already tells the reader what's being
-                            done to the pointer, so showing the pointer alone reads
-                            naturally; a bare "dereference 'p'" here would not). */
+                    the whole `*p`, not just the pointer operand p_expression->right)
+                    -- a bare "possible null pointer dereference" with no
+                    expression left the reader to guess which pointer, in a
+                    function with more than one, the diagnostic was even
+                    about. User-requested; user also specifically asked for
+                    '*p' rather than 'p' here, unlike the `->` sites (which
+                    print just the pointer operand, matching "operator ->
+                    applied to a possible null pointer '%s'" -- there the
+                    operator name already tells the reader what's being
+                    done to the pointer, so showing the pointer alone reads
+                    naturally; a bare "dereference 'p'" here would not). */
                                 struct osstream ss = { 0 };
                                 flow_expression_to_string(p_expression, &ss);
                                 const bool reported_null = diagnostic(W_FLOW_NULL_DEREFERENCE, ctx->ctx, NULL, &marker,
@@ -71984,29 +71962,29 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                                                                   ss.c_str ? ss.c_str : "");
                                 ss_close(&ss);
                                 if (reported_null)
-                                    flow_explain_alternative(ctx, p_right_alt2, p_right_alt2->origin, &marker);
+                                    flow_explain_alternative(ctx, p_right_alt2, p_right_alt2->p_origin_map, &marker);
                             }
 
                             /* Only a pointer alternative that names its target
-                           says what `*p` is. A "not null, target unknown"
-                           alternative (value.p == NULL) used to be turned into
-                           a REF to nothing, which counted as information here
-                           and blocked the ANY seeding below -- `e = **pp;`
-                           then left e at its previous value. */
+                       says what `*p` is. A "not null, target unknown"
+                       alternative (value.p == NULL) used to be turned into
+                       a REF to nothing, which counted as information here
+                       and blocked the ANY seeding below -- `e = **pp;`
+                       then left e at its previous value. */
                             if (p_right_alt2->value_kind == FLOW_VALUE_KIND_PTR &&
-                                p_right_alt2->value.p != NULL)
+                            p_right_alt2->value.p != NULL)
                             {
                                 struct flow_alternative a =
                                 {
-                                .value_kind = FLOW_VALUE_KIND_REF,
-                                .value = {.p = p_right_alt2->value.p},
-                                .value_relation = FLOW_RELATION_EQUAL,
-                                .imaginary = FLOW_IMAGINARY_NONE,
+                            .value_kind = FLOW_VALUE_KIND_REF,
+                            .value = {.p = p_right_alt2->value.p},
+                            .value_relation = FLOW_RELATION_EQUAL,
+                            .imaginary = FLOW_IMAGINARY_NONE,
                                 /* Carry the pointer value's branch origin so a deref
-                                stays correlated: `p = &a@then / &b@else` gives
-                                `*p = ref a@then / ref b@else`. */
-                                .origin = p_right_alt2->origin,
-                                .p_token = p_expression->first_token
+                            stays correlated: `p = &a@then / &b@else` gives
+                            `*p = ref a@then / ref b@else`. */
+                            .p_origin_map = p_right_alt2->p_origin_map,
+                            .p_origin_token = p_expression->first_token
                                 };
                                 flow_alternatives_add(&result_entry->alternatives, &a);
                             }
@@ -72020,40 +71998,40 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 }
 
                 /* Nothing resolved -- the operand is not a tracked pointer, as in
-               `*get()` or `**pp`, where no REF alternative leads anywhere with
-               state. Leaving the result with NO alternatives at all reads as
-               "no information" further up, and an assignment from it left the
-               destination sitting at its previous value: `e = 0; if (cond) e =
-               *get(); if (e == 0)` folded to always-true (compile.c:287, where
-               the source was `error = errno`). Seed the same ANY the subscript
-               path seeds for an unresolved element. */
+           `*get()` or `**pp`, where no REF alternative leads anywhere with
+           state. Leaving the result with NO alternatives at all reads as
+           "no information" further up, and an assignment from it left the
+           destination sitting at its previous value: `e = 0; if (cond) e =
+           *get(); if (e == 0)` folded to always-true (compile.c:287, where
+           the source was `error = errno`). Seed the same ANY the subscript
+           path seeds for an unresolved element. */
                 if (result_entry->alternatives.size == 0)
                 {
                     if (type_is_integer(&p_expression->type))
                     {
                         struct flow_alternative a =
                         {
-                        .value_kind = type_is_signed(&p_expression->type)
-                                      ? FLOW_VALUE_KIND_SIGNED : FLOW_VALUE_KIND_UNSIGNED,
-                        .value_relation = FLOW_RELATION_ANY,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = type_is_signed(&p_expression->type)
+                                  ? FLOW_VALUE_KIND_SIGNED : FLOW_VALUE_KIND_UNSIGNED,
+                    .value_relation = FLOW_RELATION_ANY,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&result_entry->alternatives, &a);
                     }
                     else if (type_is_pointer(&p_expression->type) &&
-                         ctx->ctx->options.null_checks_enabled &&
-                         !type_is_nullable(&p_expression->type, ctx->ctx->options.null_checks_enabled))
+                     ctx->ctx->options.null_checks_enabled &&
+                     !type_is_nullable(&p_expression->type, ctx->ctx->options.null_checks_enabled))
                     {
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_PTR,
-                        .value = {.p = NULL},
-                        .value_relation = FLOW_RELATION_NOT_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_PTR,
+                    .value = {.p = NULL},
+                    .value_relation = FLOW_RELATION_NOT_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&result_entry->alternatives, &a);
                     }
@@ -72081,37 +72059,37 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 flow_invalidate_unknown_index_write(ctx, p_expression->left);
 
                 /*
-            An assignment expression's OWN value (per C semantics: the
-            value of the left operand after the assignment) was never
-            seeded here at all -- only p_expression->left->object (the
-            destination sub-expression's own node) got updated, via
-            flow_check_assigment. That's enough for a plain assignment
-            STATEMENT (`dp = readdir(dir);` followed by a separate
-            `if (dp != NULL)`), since that reads dp itself later, not
-            this assignment expression's result. But when the assignment
-            is embedded as an OPERAND of something else -- most commonly
-            `while ((dp = readdir(dir)) != NULL)` -- the enclosing `!=`
-            looks up THIS node's own &p_expression->object and found
-            nothing there at all, so it couldn't narrow anything: dp kept
-            looking possibly-null inside the loop body even though the
-            very condition that let you in already proved it wasn't.
+        An assignment expression's OWN value (per C semantics: the
+        value of the left operand after the assignment) was never
+        seeded here at all -- only p_expression->left->object (the
+        destination sub-expression's own node) got updated, via
+        flow_check_assigment. That's enough for a plain assignment
+        STATEMENT (`dp = readdir(dir);` followed by a separate
+        `if (dp != NULL)`), since that reads dp itself later, not
+        this assignment expression's result. But when the assignment
+        is embedded as an OPERAND of something else -- most commonly
+        `while ((dp = readdir(dir)) != NULL)` -- the enclosing `!=`
+        looks up THIS node's own &p_expression->object and found
+        nothing there at all, so it couldn't narrow anything: dp kept
+        looking possibly-null inside the loop body even though the
+        very condition that let you in already proved it wasn't.
 
-            Fix: resolve p_expression->left->object down to the real,
-            persistent destination object (following one REF hop, same
-            as every other consumer of a REF alternative) and seed this
-            assignment expression's own object as a REF to THAT -- so any
-            later lookup on &p_expression->object transparently finds
-            dp's real, correctly narrowed alternatives.
-            */
+        Fix: resolve p_expression->left->object down to the real,
+        persistent destination object (following one REF hop, same
+        as every other consumer of a REF alternative) and seed this
+        assignment expression's own object as a REF to THAT -- so any
+        later lookup on &p_expression->object transparently finds
+        dp's real, correctly narrowed alternatives.
+        */
                 {
                     const struct object* p_dest_obj = &p_expression->left->object;
                     const struct flow_key_alternatives* _Opt p_dest_alts =
                     flow_map_search_up(ctx->p_current_flow_map, p_dest_obj);
                     if (p_dest_alts &&
-                        p_dest_alts->alternatives.size == 1 &&
-                        p_dest_alts->alternatives.data[0]->value_relation == FLOW_RELATION_EQUAL &&
-                        p_dest_alts->alternatives.data[0]->value_kind == FLOW_VALUE_KIND_REF &&
-                        p_dest_alts->alternatives.data[0]->value.p != NULL)
+                    p_dest_alts->alternatives.size == 1 &&
+                    p_dest_alts->alternatives.data[0]->value_relation == FLOW_RELATION_EQUAL &&
+                    p_dest_alts->alternatives.data[0]->value_kind == FLOW_VALUE_KIND_REF &&
+                    p_dest_alts->alternatives.data[0]->value.p != NULL)
                     {
                         p_dest_obj = p_dest_alts->alternatives.data[0]->value.p;
                     }
@@ -72121,12 +72099,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     flow_alternatives_clear(&e->alternatives);
                     struct flow_alternative a =
                     {
-                    .value_kind = FLOW_VALUE_KIND_REF,
-                    .value = {.p = p_dest_obj},
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = ctx->p_current_flow_map,
-                    .p_token = p_expression->first_token
+                .value_kind = FLOW_VALUE_KIND_REF,
+                .value = {.p = p_dest_obj},
+                .value_relation = FLOW_RELATION_EQUAL,
+                .imaginary = FLOW_IMAGINARY_NONE,
+                .p_origin_map = ctx->p_current_flow_map,
+                .p_origin_token = p_expression->first_token
                     };
                     flow_alternatives_add(&e->alternatives, &a);
                 }
@@ -72135,7 +72113,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 struct flow_map* _Opt p_true = flow_narrow_map_branch(&ctx->flow_map_arena,
                                                                   ctx->p_current_flow_map,
                                                                   &p_expression->left->object,
-                                                                  true,
+                                                              true,
                                                                   p_expression,
                                                                   p_expression->first_token);
                 if (p_true == NULL)
@@ -72144,7 +72122,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 struct flow_map* _Opt p_false = flow_narrow_map_branch(&ctx->flow_map_arena,
                                                                    ctx->p_current_flow_map,
                                                                    &p_expression->left->object,
-                                                                   false,
+                                                               false,
                                                                    p_expression,
                                                                    p_expression->first_token);
                 if (p_false == NULL)
@@ -72189,11 +72167,11 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 flow_invalidate_unknown_index_write(ctx, p_expression->left);
 
                 /* Compound assignment folds per LHS alternative, so a correlated
-            join survives it (e.g. `if(c)a=1;else a=3; a+=10;` -> {11,13}).
-            Iterate every alternative -- never data[0] -- keeping each value's
-            branch origin. A pointer alternative (p += n / p -= n) is kept as-is:
-            arithmetic can't turn a valid pointer into a null one. If any
-            alternative can't be folded, degrade the whole destination to ANY. */
+        join survives it (e.g. `if(c)a=1;else a=3; a+=10;` -> {11,13}).
+        Iterate every alternative -- never data[0] -- keeping each value's
+        branch origin. A pointer alternative (p += n / p -= n) is kept as-is:
+        arithmetic can't turn a valid pointer into a null one. If any
+        alternative can't be folded, degrade the whole destination to ANY. */
                 const bool rhs_known = object_has_known_value(&p_expression->right->object);
                 const signed long long rv =
                 rhs_known ? object_to_signed_long_long(&p_expression->right->object) : 0;
@@ -72211,9 +72189,9 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_add(&new_alts, &a);
                     }
                     else if (rhs_known &&
-                         la->value_relation == FLOW_RELATION_EQUAL &&
-                         (la->value_kind == FLOW_VALUE_KIND_SIGNED ||
-                          la->value_kind == FLOW_VALUE_KIND_UNSIGNED))
+                     la->value_relation == FLOW_RELATION_EQUAL &&
+                     (la->value_kind == FLOW_VALUE_KIND_SIGNED ||
+                         la->value_kind == FLOW_VALUE_KIND_UNSIGNED))
                     {
                         const signed long long lv =
                         la->value_kind == FLOW_VALUE_KIND_SIGNED
@@ -72259,31 +72237,31 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
 
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = result},
-                        .value_relation = FLOW_RELATION_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = la->origin,
-                        .p_token = p_expression->right->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = result},
+                    .value_relation = FLOW_RELATION_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = la->p_origin_map,
+                    .p_origin_token = p_expression->right->first_token
                         };
                         flow_alternatives_add(&new_alts, &a);
                     }
                     else if (p_expression->left != NULL &&
-                         type_is_pointer(&p_expression->left->type))
+                     type_is_pointer(&p_expression->left->type))
                     {
                         /* Same rule as ++/--: `p += n` cannot produce a null
-                       pointer, so a pointer whose tracked value is ANY must
-                       not degrade the destination to a plain unknown that
-                       "could be zero". Decided from the static type, since an
-                       ANY alternative is not PTR-kind. */
+                   pointer, so a pointer whose tracked value is ANY must
+                   not degrade the destination to a plain unknown that
+                   "could be zero". Decided from the static type, since an
+                   ANY alternative is not PTR-kind. */
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_PTR,
-                        .value = {.p = NULL},
-                        .value_relation = FLOW_RELATION_NOT_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = la->origin,
-                        .p_token = p_expression->right->first_token
+                    .value_kind = FLOW_VALUE_KIND_PTR,
+                    .value = {.p = NULL},
+                    .value_relation = FLOW_RELATION_NOT_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = la->p_origin_map,
+                    .p_origin_token = p_expression->right->first_token
                         };
                         flow_alternatives_add(&new_alts, &a);
                     }
@@ -72311,12 +72289,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&new_alts);
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = ANY_VALUE},
-                        .value_relation = FLOW_RELATION_ANY,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->right->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = ANY_VALUE},
+                    .value_relation = FLOW_RELATION_ANY,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->right->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -72405,48 +72383,48 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 const struct type* p_target_type = &p_expression->type;
 
                 /* Casting a TEMPORARY owner (a function return value) to a non-owner
-            throws the ownership away with nothing left holding it -- e.g.
-            `(int*) malloc(1)`. Moved here from expressions.c so that every
-            diagnostic mentioning _Owner lives in flow3. */
+        throws the ownership away with nothing left holding it -- e.g.
+        `(int*) malloc(1)`. Moved here from expressions.c so that every
+        diagnostic mentioning _Owner lives in flow3. */
                 if ((p_expression->left->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN) &&
-                    type_is_owner(&p_expression->left->type) &&
-                    !type_is_owner(p_target_type))
+                type_is_owner(&p_expression->left->type) &&
+                !type_is_owner(p_target_type))
                 {
                     diagnostic(W_FLOW_DISCARDING_OWNER,
                            ctx->ctx,
                            p_expression->first_token, NULL,
                            type_is_pointer(&p_expression->left->type)
-                           ? "discarding _Owner pointer"
-                           : "discarding _Owner");
+                       ? "discarding _Owner pointer"
+                       : "discarding _Owner");
                 }
 
                 if (type_is_owner(&p_expression->left->type) && type_is_owner(p_target_type))
                 {
                     /* Owner-to-owner cast (e.g. `(void* _Owner)p_owner_field`)
-                doesn't change identity -- it's the same object, just
-                re-typed. Model the cast's result as a REF to the left
-                operand's own object instead of manufacturing an
-                independent derived value below, so a later move of the
-                cast's result (e.g. passing it straight to free())
-                correctly marks the ORIGINAL object as moved too.
-                Without this, `free((void* _Owner)p->member); p->member
-                = x;` treated the free() as moving only the cast's own
-                throwaway temporary, leaving p->member looking
-                still-live and falsely warning "discards _Owner without
-                releasing it first" on the very next line (dogfooded on
-                cake's own object.c). See
-                samples/flow3/owner-cast-move-through-member.c. */
+            doesn't change identity -- it's the same object, just
+            re-typed. Model the cast's result as a REF to the left
+            operand's own object instead of manufacturing an
+            independent derived value below, so a later move of the
+            cast's result (e.g. passing it straight to free())
+            correctly marks the ORIGINAL object as moved too.
+            Without this, `free((void* _Owner)p->member); p->member
+            = x;` treated the free() as moving only the cast's own
+            throwaway temporary, leaving p->member looking
+            still-live and falsely warning "discards _Owner without
+            releasing it first" on the very next line (dogfooded on
+            cake's own object.c). See
+            samples/flow3/owner-cast-move-through-member.c. */
                     struct flow_key_alternatives* _Opt e = flow_map_find_add(ctx->p_current_flow_map, &p_expression->object);
                     if (e == NULL) throw;
                     flow_alternatives_clear(&e->alternatives);
                     struct flow_alternative a =
                     {
-                    .value_kind = FLOW_VALUE_KIND_REF,
-                    .value = {.p = &p_expression->left->object},
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = ctx->p_current_flow_map,
-                    .p_token = p_expression->first_token
+                .value_kind = FLOW_VALUE_KIND_REF,
+                .value = {.p = &p_expression->left->object},
+                .value_relation = FLOW_RELATION_EQUAL,
+                .imaginary = FLOW_IMAGINARY_NONE,
+                .p_origin_map = ctx->p_current_flow_map,
+                .p_origin_token = p_expression->first_token
                     };
                     flow_alternatives_add(&e->alternatives, &a);
                     break;
@@ -72464,12 +72442,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = ANY_VALUE},
-                        .value_relation = FLOW_RELATION_ANY,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = ANY_VALUE},
+                    .value_relation = FLOW_RELATION_ANY,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -72480,9 +72458,9 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 bool all_handled = true;
 
                 /* Cast every source value. Iterate REF alternatives per-alternative
-            (an operand can alias several objects) instead of a size==1 /
-            data[0] shortcut, and keep each value's branch origin so the cast
-            stays correlated. */
+        (an operand can alias several objects) instead of a size==1 /
+        data[0] shortcut, and keep each value's branch origin so the cast
+        stays correlated. */
                 for (int i = 0; all_handled && i < p_src_entry->alternatives.size; i++)
                 {
                     const struct flow_alternative* src_alt = p_src_entry->alternatives.data[i];
@@ -72500,7 +72478,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         {
                             const struct flow_alternative* v = resolved->alternatives.data[j];
                             if (!flow_cast_one_value(ctx, v, p_target_type, &new_alts,
-                                                 flow_origin_more_specific(v->origin, src_alt->origin),
+                                                 flow_origin_more_specific(v->p_origin_map, src_alt->p_origin_map),
                                                  p_expression->first_token))
                             {
                                 all_handled = false;
@@ -72511,7 +72489,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     else
                     {
                         if (!flow_cast_one_value(ctx, src_alt, p_target_type, &new_alts,
-                                             src_alt->origin, p_expression->first_token))
+                                             src_alt->p_origin_map, p_expression->first_token))
                         {
                             all_handled = false;
                             break;
@@ -72540,21 +72518,21 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = ANY_VALUE},
-                        .value_relation = FLOW_RELATION_ANY,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = ANY_VALUE},
+                    .value_relation = FLOW_RELATION_ANY,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
                 }
 
                 /* Casting an owner to an _Owner target transfers ownership: the source
-            is moved into the cast result. Without this, `free((void* _Owner)s)`
-            freed the cast temporary but left the original `s` looking un-moved,
-            producing a false "owner object 's' not moved" leak warning. */
+        is moved into the cast result. Without this, `free((void* _Owner)s)`
+        freed the cast temporary but left the original `s` looking un-moved,
+        producing a false "owner object 's' not moved" leak warning. */
                 if (type_is_owner(p_target_type) && type_is_owner(&p_expression->left->type))
                 {
                     const struct object* p_src_var = object_get_referenced(&p_expression->left->object);
@@ -72575,8 +72553,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 flow_visit_expression(ctx, p_expression->right);
 
                 /* Fold across all alternatives (per-alternative REF resolution and
-            join correlation), like the other binary arithmetic operators --
-            no size==1 / data[0] shortcut. */
+        join correlation), like the other binary arithmetic operators --
+        no size==1 / data[0] shortcut. */
                 flow_evaluate_binary_arithmetic(ctx, p_expression->left, p_expression->right,
                                             p_expression,
                                             (p_expression->expression_type == EXPR_SHIFT_LEFT) ? '<' : '>');
@@ -72614,12 +72592,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = fold_result ? 1 : 0},
-                        .value_relation = FLOW_RELATION_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = fold_result ? 1 : 0},
+                    .value_relation = FLOW_RELATION_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -72637,7 +72615,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     return (struct flow_branch_pair)
                     {
                     fold_result ? ctx->p_current_flow_map : p_dead,
-                                fold_result ? p_dead : ctx->p_current_flow_map
+                        fold_result ? p_dead : ctx->p_current_flow_map
                     };
                 }
 
@@ -72646,10 +72624,10 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 flow_seed_comparison_result(ctx, p_expression);
 
                 /* ... but if this compares a scalar variable against a constant, we
-            can still narrow the variable on each branch (true: var OP c,
-            false: var !OP c). This is what lets `if (a > 0)` -- and, via the
-            EXPR_UNARY_ASSERT true-branch merge, `_Assert(a > 0)` -- record the
-            half-line fact so a later compile_assert(a > 0) can prove it. */
+        can still narrow the variable on each branch (true: var OP c,
+        false: var !OP c). This is what lets `if (a > 0)` -- and, via the
+        EXPR_UNARY_ASSERT true-branch merge, `_Assert(a > 0)` -- record the
+        half-line fact so a later compile_assert(a > 0) can prove it. */
                 {
                     long long cst = 0;
                     const struct expression* _Opt p_var_expr = NULL;
@@ -72705,7 +72683,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 const bool is_equal_op = (p_expression->expression_type == EXPR_EQUALITY_EQUAL);
 
                 /* Fold across ALL alternatives of both operands. A constant is simply
-            an operand with a single alternative -- no special case. */
+        an operand with a single alternative -- no special case. */
                 int fold = flow_evaluate_equality_multi(ctx, p_expression->left, p_expression->right, is_equal_op);
                 if (fold != -1)
                 {
@@ -72715,12 +72693,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = fold ? 1 : 0},
-                        .value_relation = FLOW_RELATION_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = fold ? 1 : 0},
+                    .value_relation = FLOW_RELATION_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -72738,13 +72716,13 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     return (struct flow_branch_pair)
                     {
                     fold ? ctx->p_current_flow_map : p_dead,
-                         fold ? p_dead : ctx->p_current_flow_map
+                        fold ? p_dead : ctx->p_current_flow_map
                     };
                 }
 
                 /* Not foldable: if one operand is a single constant, narrow the other
-            on each branch. (A constant naturally collapses to one value across
-            its alternatives.) */
+        on each branch. (A constant naturally collapses to one value across
+        its alternatives.) */
                 long long cst = 0;
                 const struct expression* _Opt p_var_expr = NULL;
                 if (flow_operand_is_single_constant(ctx, p_expression->right, &cst))
@@ -72781,32 +72759,32 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
             case EXPR_LOGICAL_OR:
             {
                 /*
-            * L || R
-            *   true  = merge(left_true, right_true_from_left_false)
-            *           (left was true, OR left was false but right was true)
-            *   false = right_false_from_left_false
-            *           (both were false)
-            */
+        * L || R
+        *   true  = merge(left_true, right_true_from_left_false)
+        *           (left was true, OR left was false but right was true)
+        *   false = right_false_from_left_false
+        *           (both were false)
+        */
                 _Assert(p_expression->right != NULL);
                 _Assert(p_expression->left != NULL);
 
                 if (object_has_constant_value(&p_expression->left->object) &&
-                    object_has_constant_value(&p_expression->right->object))
+                object_has_constant_value(&p_expression->right->object))
                 {
                     const long long result = (object_to_signed_long_long(&p_expression->left->object) ||
-                                          object_to_signed_long_long(&p_expression->right->object)) ? 1 : 0;
+                                      object_to_signed_long_long(&p_expression->right->object)) ? 1 : 0;
                     {
                         struct flow_key_alternatives* _Opt e = flow_map_find_add(ctx->p_current_flow_map, &p_expression->object);
                         if (e == NULL) throw;
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = result},
-                        .value_relation = FLOW_RELATION_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = result},
+                    .value_relation = FLOW_RELATION_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -72842,9 +72820,9 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 ctx->p_current_flow_map = p_before;
 
                 /*
-            * true  = merge(left_true, right_true)
-            * false = right_false
-            */
+        * true  = merge(left_true, right_true)
+        * false = right_false
+        */
                 struct flow_map* _Opt p_or_true = flow_map_arena_new_branch(&ctx->flow_map_arena, p_before, true, p_expression);
                 if (p_or_true == NULL)
                     throw;
@@ -72855,11 +72833,11 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 }
 
                 /* Seed this OR's per-path boolean value. For each path (identified by
-            origin), `L || R` is true if L is true there, else R's value there.
-            L was evaluated on p_before; R on left's false map. Only applied
-            when both sides are clean per-path booleans -- otherwise the result
-            is left unseeded (previous behavior). This lets compile_assert see
-            a 0 exactly on a path where neither disjunct holds. */
+        origin), `L || R` is true if L is true there, else R's value there.
+        L was evaluated on p_before; R on left's false map. Only applied
+        when both sides are clean per-path booleans -- otherwise the result
+        is left unseeded (previous behavior). This lets compile_assert see
+        a 0 exactly on a path where neither disjunct holds. */
                 {
                     const struct flow_key_alternatives* _Opt p_left_entry =
                     flow_map_search_up(p_before, &p_expression->left->object);
@@ -72880,9 +72858,9 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         {
                             struct flow_alternative a =
                             {
-                            .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = 1},
-                            .value_relation = FLOW_RELATION_EQUAL, .imaginary = FLOW_IMAGINARY_NONE,
-                            .origin = left_alt->origin, .p_token = p_expression->first_token
+                        .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = 1},
+                        .value_relation = FLOW_RELATION_EQUAL, .imaginary = FLOW_IMAGINARY_NONE,
+                        .p_origin_map = left_alt->p_origin_map, .p_origin_token = p_expression->first_token
                             };
                             flow_alternatives_add(&out, &a);
                         }
@@ -72895,7 +72873,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                                 if (flow_alternative_is_dead(right_alt))
                                     continue;
 
-                                if (!flow_origins_compatible(left_alt->origin, right_alt->origin))
+                                if (!flow_origins_compatible(left_alt->p_origin_map, right_alt->p_origin_map))
                                     continue;
                                 const int right_truth = flow_alternative_truth(left_pair.p_false, right_alt, 0);
                                 bool r_true = (right_truth == 1);
@@ -72906,10 +72884,10 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                                 }
                                 struct flow_alternative a =
                                 {
-                                .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = r_true ? 1 : 0},
-                                .value_relation = FLOW_RELATION_EQUAL, .imaginary = FLOW_IMAGINARY_NONE,
-                                .origin = flow_origin_more_specific(left_alt->origin, right_alt->origin),
-                                .p_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = r_true ? 1 : 0},
+                            .value_relation = FLOW_RELATION_EQUAL, .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = flow_origin_more_specific(left_alt->p_origin_map, right_alt->p_origin_map),
+                            .p_origin_token = p_expression->first_token
                                 };
                                 flow_alternatives_add(&out, &a);
                                 matched = true;
@@ -72938,17 +72916,17 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&out);
 
                         /* Unseeded is not the same as unchanged: an earlier
-                       evaluation of this same expression node (the loop's
-                       suppressed first pass, say) may have left a value here,
-                       and that value described a state this pass no longer
-                       believes. Empty the entry so nothing reads the stale
-                       one -- an entry with no alternatives is how the rest of
-                       the analysis spells "no known value", and it shadows the
-                       old value in the ancestor maps too. Deliberately NOT an
-                       explicit ANY: consumers like compile_assert treat "no
-                       value" as nothing to say, and ANY as a value they can
-                       prove nothing about, which is a different (and noisier)
-                       answer. */
+                   evaluation of this same expression node (the loop's
+                   suppressed first pass, say) may have left a value here,
+                   and that value described a state this pass no longer
+                   believes. Empty the entry so nothing reads the stale
+                   one -- an entry with no alternatives is how the rest of
+                   the analysis spells "no known value", and it shadows the
+                   old value in the ancestor maps too. Deliberately NOT an
+                   explicit ANY: consumers like compile_assert treat "no
+                   value" as nothing to say, and ANY as a value they can
+                   prove nothing about, which is a different (and noisier)
+                   answer. */
                         struct flow_key_alternatives* _Opt e =
                         flow_map_find_add(ctx->p_current_flow_map, &p_expression->object);
                         if (e != NULL)
@@ -72967,32 +72945,32 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
             case EXPR_LOGICAL_AND:
             {
                 /*
-            * L && R
-            *   true  = right_true_from_left_true
-            *           (both were true)
-            *   false = merge(left_false, right_false_from_left_true)
-            *           (left was false, OR left was true but right was false)
-            */
+        * L && R
+        *   true  = right_true_from_left_true
+        *           (both were true)
+        *   false = merge(left_false, right_false_from_left_true)
+        *           (left was false, OR left was true but right was false)
+        */
                 _Assert(p_expression->right != NULL);
                 _Assert(p_expression->left != NULL);
 
                 if (object_has_constant_value(&p_expression->left->object) &&
-                    object_has_constant_value(&p_expression->right->object))
+                object_has_constant_value(&p_expression->right->object))
                 {
                     const long long result = (object_to_signed_long_long(&p_expression->left->object) &&
-                                          object_to_signed_long_long(&p_expression->right->object)) ? 1 : 0;
+                                      object_to_signed_long_long(&p_expression->right->object)) ? 1 : 0;
                     {
                         struct flow_key_alternatives* _Opt e = flow_map_find_add(ctx->p_current_flow_map, &p_expression->object);
                         if (e == NULL) throw;
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = result},
-                        .value_relation = FLOW_RELATION_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = result},
+                    .value_relation = FLOW_RELATION_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -73023,7 +73001,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 struct flow_branch_pair left_pair = flow_visit_expression(ctx, p_expression->left);
 
                 if (object_has_constant_value(&p_expression->left->object) &&
-                    object_is_true(&p_expression->left->object) == false)
+                object_is_true(&p_expression->left->object) == false)
                 {
                     /* Left is always false: short-circuit, right never evaluated. */
                     return left_pair;
@@ -73035,8 +73013,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 ctx->p_current_flow_map = p_before;
 
                 /*
-            * false = merge(left_false, right_false)
-            */
+        * false = merge(left_false, right_false)
+        */
                 struct flow_map* _Opt p_and_false = flow_map_arena_new_branch(&ctx->flow_map_arena, p_before, false, p_expression);
                 if (p_and_false == NULL)
                     throw;
@@ -73047,10 +73025,10 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 }
 
                 /* Seed this AND's per-path boolean value (dual of ||): for each path,
-            `L && R` is 0 if L is false there, else R's value there. L was
-            evaluated on p_before; R on left's true map. Only when both sides
-            are clean per-path booleans; otherwise leave unseeded (previous
-            behavior). Lets compile_assert see a 0 where either side fails. */
+        `L && R` is 0 if L is false there, else R's value there. L was
+        evaluated on p_before; R on left's true map. Only when both sides
+        are clean per-path booleans; otherwise leave unseeded (previous
+        behavior). Lets compile_assert see a 0 where either side fails. */
                 {
                     const struct flow_key_alternatives* _Opt p_left_entry =
                     flow_map_search_up(p_before, &p_expression->left->object);
@@ -73071,9 +73049,9 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         {
                             struct flow_alternative a =
                             {
-                            .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = 0},
-                            .value_relation = FLOW_RELATION_EQUAL, .imaginary = FLOW_IMAGINARY_NONE,
-                            .origin = left_alt->origin, .p_token = p_expression->first_token
+                        .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = 0},
+                        .value_relation = FLOW_RELATION_EQUAL, .imaginary = FLOW_IMAGINARY_NONE,
+                        .p_origin_map = left_alt->p_origin_map, .p_origin_token = p_expression->first_token
                             };
                             flow_alternatives_add(&out, &a);
                         }
@@ -73086,7 +73064,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                                 if (flow_alternative_is_dead(right_alt))
                                     continue;
 
-                                if (!flow_origins_compatible(left_alt->origin, right_alt->origin))
+                                if (!flow_origins_compatible(left_alt->p_origin_map, right_alt->p_origin_map))
                                     continue;
                                 const int right_truth = flow_alternative_truth(left_pair.p_true, right_alt, 0);
                                 bool r_true = (right_truth == 1);
@@ -73098,10 +73076,10 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
 
                                 struct flow_alternative a =
                                 {
-                                .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = r_true ? 1 : 0},
-                                .value_relation = FLOW_RELATION_EQUAL, .imaginary = FLOW_IMAGINARY_NONE,
-                                .origin = flow_origin_more_specific(left_alt->origin, right_alt->origin),
-                                .p_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = r_true ? 1 : 0},
+                            .value_relation = FLOW_RELATION_EQUAL, .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = flow_origin_more_specific(left_alt->p_origin_map, right_alt->p_origin_map),
+                            .p_origin_token = p_expression->first_token
                                 };
                                 flow_alternatives_add(&out, &a);
                                 matched = true;
@@ -73130,17 +73108,17 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&out);
 
                         /* Unseeded is not the same as unchanged: an earlier
-                       evaluation of this same expression node (the loop's
-                       suppressed first pass, say) may have left a value here,
-                       and that value described a state this pass no longer
-                       believes. Empty the entry so nothing reads the stale
-                       one -- an entry with no alternatives is how the rest of
-                       the analysis spells "no known value", and it shadows the
-                       old value in the ancestor maps too. Deliberately NOT an
-                       explicit ANY: consumers like compile_assert treat "no
-                       value" as nothing to say, and ANY as a value they can
-                       prove nothing about, which is a different (and noisier)
-                       answer. */
+                   evaluation of this same expression node (the loop's
+                   suppressed first pass, say) may have left a value here,
+                   and that value described a state this pass no longer
+                   believes. Empty the entry so nothing reads the stale
+                   one -- an entry with no alternatives is how the rest of
+                   the analysis spells "no known value", and it shadows the
+                   old value in the ancestor maps too. Deliberately NOT an
+                   explicit ANY: consumers like compile_assert treat "no
+                   value" as nothing to say, and ANY as a value they can
+                   prove nothing about, which is a different (and noisier)
+                   answer. */
                         struct flow_key_alternatives* _Opt e =
                         flow_map_find_add(ctx->p_current_flow_map, &p_expression->object);
                         if (e != NULL)
@@ -73160,7 +73138,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 _Assert(p_expression->right != NULL);
                 _Assert(p_expression->left != NULL);
                 if (object_has_constant_value(&p_expression->left->object) &&
-                    object_has_constant_value(&p_expression->right->object))
+                object_has_constant_value(&p_expression->right->object))
                 {
                     const long long lv = object_to_signed_long_long(&p_expression->left->object);
                     const long long rv = object_to_signed_long_long(&p_expression->right->object);
@@ -73170,12 +73148,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = lv | rv},
-                        .value_relation = FLOW_RELATION_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = lv | rv},
+                    .value_relation = FLOW_RELATION_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -73189,12 +73167,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     flow_alternatives_clear(&e->alternatives);
                     struct flow_alternative a =
                     {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = ANY_VALUE},
-                    .value_relation = FLOW_RELATION_ANY,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = ctx->p_current_flow_map,
-                    .p_token = p_expression->first_token
+                .value_kind = FLOW_VALUE_KIND_SIGNED,
+                .value = {.i = ANY_VALUE},
+                .value_relation = FLOW_RELATION_ANY,
+                .imaginary = FLOW_IMAGINARY_NONE,
+                .p_origin_map = ctx->p_current_flow_map,
+                .p_origin_token = p_expression->first_token
                     };
                     flow_alternatives_add(&e->alternatives, &a);
                 }
@@ -73205,25 +73183,25 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 _Assert(p_expression->right != NULL);
                 _Assert(p_expression->left != NULL);
                 if (object_has_constant_value(&p_expression->left->object) &&
-                    object_has_constant_value(&p_expression->right->object))
+                object_has_constant_value(&p_expression->right->object))
                 {
                     const long long lv = object_to_signed_long_long(&p_expression->left->object);
                     const long long rv = object_to_signed_long_long(&p_expression->right->object);
                     const long long result = (p_expression->expression_type == EXPR_AND)
-                                         ? (lv & rv)
-                                         : (lv ^ rv);
+                    ? (lv & rv)
+                    : (lv ^ rv);
                     {
                         struct flow_key_alternatives* _Opt e = flow_map_find_add(ctx->p_current_flow_map, &p_expression->object);
                         if (e == NULL) throw;
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = result},
-                        .value_relation = FLOW_RELATION_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = result},
+                    .value_relation = FLOW_RELATION_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -73237,12 +73215,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     flow_alternatives_clear(&e->alternatives);
                     struct flow_alternative a =
                     {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = ANY_VALUE},
-                    .value_relation = FLOW_RELATION_ANY,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .origin = ctx->p_current_flow_map,
-                    .p_token = p_expression->first_token
+                .value_kind = FLOW_VALUE_KIND_SIGNED,
+                .value = {.i = ANY_VALUE},
+                .value_relation = FLOW_RELATION_ANY,
+                .imaginary = FLOW_IMAGINARY_NONE,
+                .p_origin_map = ctx->p_current_flow_map,
+                .p_origin_token = p_expression->first_token
                     };
                     flow_alternatives_add(&e->alternatives, &a);
                 }
@@ -73266,10 +73244,10 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 struct flow_branch_pair pair = flow_visit_expression(ctx, p_expression->right);
 
                 /* Forward the right operand's value to the comma's OWN object, so a
-            consumer that reads this node (e.g. a function-argument check) sees
-            the comma's result -- otherwise `f((p = 0, p))` found no value on the
-            comma node and missed that p was just set to null. Mirrors the value
-            forwarding done for EXPR_PRIMARY_PARENTHESIS. */
+        consumer that reads this node (e.g. a function-argument check) sees
+        the comma's result -- otherwise `f((p = 0, p))` found no value on the
+        comma node and missed that p was just set to null. Mirrors the value
+        forwarding done for EXPR_PRIMARY_PARENTHESIS. */
                 const struct expression* p_inner = skip_parenthesis(p_expression->right);
                 const struct flow_key_alternatives* _Opt p_inner_entry =
                 flow_map_search_up(ctx->p_current_flow_map, &p_inner->object);
@@ -73297,7 +73275,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 /* Elvis: left==NULL means use condition_expr value on true branch */
                 flow_visit_expression(ctx,
                                   p_expression->left ? p_expression->left
-                                  : p_expression->condition_expr);
+                              : p_expression->condition_expr);
 
                 /* false branch */
                 ctx->p_current_flow_map = cond_pair.p_false;
@@ -73311,20 +73289,20 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 ctx->p_current_flow_map = p_before;
 
                 /*
-            * Propagate the result value of the conditional expression.
-            * The true arm carries the value from left (or condition_expr),
-            * the false arm from right.  Merge both sides' alternatives for
-            * this expression's object into the current map so that downstream
-            * consumers (static_debug, assert_state, etc.) can see it.
-            *
-            * We collect from cond_pair.p_true (the true-arm expression object)
-            * and cond_pair.p_false (the false-arm expression object) and append
-            * both.  If neither arm has a known value record ANY.
-            */
+        * Propagate the result value of the conditional expression.
+        * The true arm carries the value from left (or condition_expr),
+        * the false arm from right.  Merge both sides' alternatives for
+        * this expression's object into the current map so that downstream
+        * consumers (static_debug, assert_state, etc.) can see it.
+        *
+        * We collect from cond_pair.p_true (the true-arm expression object)
+        * and cond_pair.p_false (the false-arm expression object) and append
+        * both.  If neither arm has a known value record ANY.
+        */
                 {
                     struct expression* p_true_expr = p_expression->left
-                                                     ? p_expression->left
-                                                     : p_expression->condition_expr;
+                    ? p_expression->left
+                    : p_expression->condition_expr;
                     struct expression* p_false_expr = p_expression->right;
 
                     const struct flow_key_alternatives* _Opt p_true_entry = flow_map_search_up(cond_pair.p_true, &p_true_expr->object);
@@ -73334,21 +73312,21 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     if (p_result_entry == NULL) throw;
 
                     /*
-                Resolve REF alternatives inside the ARM that produced
-                them, instead of storing the REF for later.
+            Resolve REF alternatives inside the ARM that produced
+            them, instead of storing the REF for later.
 
-                `p ? p : ""` leaves the true arm holding a REF to p.
-                The arm itself is narrowed correctly -- a probe shows
-                exactly one alternative there -- but a REF is resolved
-                lazily at the point of USE, which is after the merge,
-                where p is back to both arms. The narrowing was
-                therefore discarded and the result carried a null the
-                expression cannot produce.
+            `p ? p : ""` leaves the true arm holding a REF to p.
+            The arm itself is narrowed correctly -- a probe shows
+            exactly one alternative there -- but a REF is resolved
+            lazily at the point of USE, which is after the merge,
+            where p is back to both arms. The narrowing was
+            therefore discarded and the result carried a null the
+            expression cannot produce.
 
-                Resolving here binds each arm's value to the state
-                that arm actually had. See
-                samples/flow3/conditional-operator-null-guard.c.
-                */
+            Resolving here binds each arm's value to the state
+            that arm actually had. See
+            samples/flow3/conditional-operator-null-guard.c.
+            */
                     flow_alternatives_clear(&p_result_entry->alternatives);
 
                     struct
@@ -73372,7 +73350,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                             const struct flow_alternative* a = e->alternatives.data[i];
 
                             if (a->value_kind == FLOW_VALUE_KIND_REF &&
-                                a->value.p != NULL)
+                            a->value.p != NULL)
                             {
                                 const struct flow_key_alternatives* _Opt p_target =
                                 flow_map_search_up(arms[ai].map, a->value.p);
@@ -73392,12 +73370,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     {
                         struct flow_alternative a =
                         {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = ANY_VALUE},
-                        .value_relation = FLOW_RELATION_ANY,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = ctx->p_current_flow_map,
-                        .p_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = ANY_VALUE},
+                    .value_relation = FLOW_RELATION_ANY,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_map,
+                    .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&p_result_entry->alternatives, &a);
                     }
@@ -73622,8 +73600,8 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
             /* Pre-filled with p_before so no element is ever indeterminate;
                only the first num_arms entries are read. */
             struct flow_map* _Opt exit_arms[2] = { p_false_branch_dw, p_break_join };
-            flow_widen_loop_variant_objects( p_pass1_exit, ctx->p_current_flow_map,
-                                             exit_arms, 2, p_iteration_statement->first_token,
+            flow_widen_loop_variant_objects(p_pass1_exit, ctx->p_current_flow_map,
+                                            exit_arms, 2, p_iteration_statement->first_token,
                                              false);
 
             const struct flow_map* arms[2] = { p_before, p_before };
@@ -73662,14 +73640,14 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
    Several alternatives, a non-numeric kind, or any relation other than EQUAL
    mean there is no single value to compare. */
 /*
-   One numeric VALUE, not one alternative: a counter incremented on both sides
-   of an unrelated `if` ends the iteration as two alternatives that both say
-   `== 1`, correlated to each branch. Requiring literally one alternative made
-   flow_widen_loop_variant_objects miss exactly that counter, so it stayed at
-   the first iteration's concrete value and conditions on it folded (the
-   `count > 0 && count % 25 == 0` in tokenizer.c's embed_tokenizer). Dead-path
-   alternatives do not count -- see flow_alternative_is_dead.
-*/
+      One numeric VALUE, not one alternative: a counter incremented on both sides
+      of an unrelated `if` ends the iteration as two alternatives that both say
+      `== 1`, correlated to each branch. Requiring literally one alternative made
+      flow_widen_loop_variant_objects miss exactly that counter, so it stayed at
+      the first iteration's concrete value and conditions on it folded (the
+      `count > 0 && count % 25 == 0` in tokenizer.c's embed_tokenizer). Dead-path
+      alternatives do not count -- see flow_alternative_is_dead.
+   */
 static bool flow_entry_numeric_value(const struct flow_key_alternatives* _Opt e,
                                      long long* out,
                                      bool allow_repeated_value)
@@ -73800,15 +73778,15 @@ static void flow_widen_loop_variant_objects(
                 long long pass2_value = 0;
 
                 if (!flow_entry_numeric_value(
-                            flow_map_search_up(p_pass1_exit, e->p_obj_key), &pass1_value,
-                            allow_repeated_value))
+                    flow_map_search_up(p_pass1_exit, e->p_obj_key), &pass1_value,
+                    allow_repeated_value))
                 {
                     continue;
                 }
 
                 if (!flow_entry_numeric_value(
-                            flow_map_search_up(p_pass2_exit, e->p_obj_key), &pass2_value,
-                            allow_repeated_value))
+                    flow_map_search_up(p_pass2_exit, e->p_obj_key), &pass2_value,
+                    allow_repeated_value))
                 {
                     continue;
                 }
@@ -73846,8 +73824,8 @@ static void flow_widen_loop_variant_objects(
                 .value = {.i = ANY_VALUE},
                 .value_relation = FLOW_RELATION_ANY,
                 .imaginary = FLOW_IMAGINARY_NONE,
-                .origin = arms[a],
-                .p_token = p_token
+                .p_origin_map = arms[a],
+                .p_origin_token = p_token
             };
             flow_alternatives_add(&e->alternatives, &any);
         }
@@ -73969,8 +73947,8 @@ static void flow_join_first_iteration_values(struct flow_map* _Opt p_body_entry,
             }
 
             struct flow_alternative tagged = *a;
-            tagged.origin = p_body_entry; /* the "first iteration" path */
-            tagged.p_token = p_token;
+            tagged.p_origin_map = p_body_entry; /* the "first iteration" path */
+            tagged.p_origin_token = p_token;
             flow_alternatives_add(&merged, &tagged);
         }
 
@@ -74153,10 +74131,10 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
            (w_pair1.p_false), condition false after an iteration
            (w_pair2.p_false), or break. */
         /* Pre-filled with p_before so no element is ever indeterminate; only
-           the first num_arms entries are read. */
+              the first num_arms entries are read. */
         struct flow_map* _Opt exit_arms[4] = { w_pair1.p_false, w_pair2.p_false, w_pair3.p_false, p_break_join };
-        flow_widen_loop_variant_objects( p_pass1_exit, ctx->p_current_flow_map,
-                                         exit_arms, 4, p_iteration_statement->first_token,
+        flow_widen_loop_variant_objects(p_pass1_exit, ctx->p_current_flow_map,
+                                        exit_arms, 4, p_iteration_statement->first_token,
                                          false);
 
         const struct flow_map* arms[4] = { p_before, p_before, p_before, p_before };
@@ -74319,8 +74297,8 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
               the FIRST iteration reaches as unreachable.
         */
         struct flow_map* _Opt widen_arms[1] = { p_pass1_exit };
-        flow_widen_loop_variant_objects( p_pass1_body_entry, p_pass1_exit,
-                                         widen_arms, 1, p_iteration_statement->first_token,
+        flow_widen_loop_variant_objects(p_pass1_body_entry, p_pass1_exit,
+                                        widen_arms, 1, p_iteration_statement->first_token,
                                          true);
 
         /* "Zero iterations" arm: an empty child of the body-entry state, so it
@@ -74393,10 +74371,10 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
         /* Loop exit paths: condition false before the first iteration,
            condition false after an iteration, or break. */
         /* Pre-filled with p_before so no element is ever indeterminate; only
-           the first num_arms entries are read. */
+              the first num_arms entries are read. */
         struct flow_map* _Opt exit_arms[4] = { for_pair1.p_false, for_pair2.p_false, for_pair3.p_false, p_break_join };
-        flow_widen_loop_variant_objects( p_pass1_exit, ctx->p_current_flow_map,
-                                         exit_arms, 4, p_iteration_statement->first_token,
+        flow_widen_loop_variant_objects(p_pass1_exit, ctx->p_current_flow_map,
+                                        exit_arms, 4, p_iteration_statement->first_token,
                                          false);
 
         const struct flow_map* arms[4] = { p_before, p_before, p_before, p_before };
@@ -74608,7 +74586,7 @@ static void flow_check_clear_object_is_zero_at_exit(struct flow_visit_ctx* ctx,
         flow_param_member_name_to_string(param_name, p_obj->member_designator, &name_ss);
         if (diagnostic(W_FLOW_CLEAR_NOT_ZERO_AT_EXIT,
                        ctx->ctx,
-                       NULL,
+            NULL,
                        marker,
                        "_Clear parameter '%s' is never set to zero",
                        name_ss.c_str ? name_ss.c_str : param_name))
@@ -74629,10 +74607,7 @@ static void flow_check_clear_object_is_zero_at_exit(struct flow_visit_ctx* ctx,
     {
         const struct flow_alternative* p_alternative = e->alternatives.data[i];
 
-        if (p_alternative->imaginary == FLOW_IMAGINARY_ABSENT)
-        {
-            continue;
-        }
+
 
         if (!flow_alternative_is_zero(p_alternative))
         {
@@ -74640,7 +74615,7 @@ static void flow_check_clear_object_is_zero_at_exit(struct flow_visit_ctx* ctx,
             flow_param_member_name_to_string(param_name, p_obj->member_designator, &name_ss2);
             if (diagnostic(W_FLOW_CLEAR_NOT_ZERO_AT_EXIT,
                            ctx->ctx,
-                           NULL,
+                NULL,
                            marker,
                            "_Clear parameter '%s' is not zero at exit (see line %d)",
                            name_ss2.c_str ? name_ss2.c_str : param_name,
@@ -74705,7 +74680,7 @@ static void flow_check_ctor_object_is_initialized_at_exit(struct flow_visit_ctx*
         flow_param_member_name_to_string(param_name, p_obj->member_designator, &name_ss);
         if (diagnostic(W_FLOW_CTOR_NOT_INITIALIZED_AT_EXIT,
                        ctx->ctx,
-                       NULL,
+            NULL,
                        marker,
                        "_Out parameter '%s' is never initialized",
                        name_ss.c_str ? name_ss.c_str : param_name))
@@ -74720,10 +74695,7 @@ static void flow_check_ctor_object_is_initialized_at_exit(struct flow_visit_ctx*
     {
         const struct flow_alternative* p_alternative = e->alternatives.data[i];
 
-        if (p_alternative->imaginary == FLOW_IMAGINARY_ABSENT)
-        {
-            continue;
-        }
+
 
         if (p_alternative->value_relation == FLOW_RELATION_UNINITIALIZED)
         {
@@ -74731,7 +74703,7 @@ static void flow_check_ctor_object_is_initialized_at_exit(struct flow_visit_ctx*
             flow_param_member_name_to_string(param_name, p_obj->member_designator, &name_ss2);
             if (diagnostic(W_FLOW_CTOR_NOT_INITIALIZED_AT_EXIT,
                            ctx->ctx,
-                           NULL,
+                NULL,
                            marker,
                            "_Out parameter '%s' is possibly not initialized at exit (see line %d)",
                            name_ss2.c_str ? name_ss2.c_str : param_name,
@@ -74841,21 +74813,18 @@ static void flow_check_non_dtor_param_owner_not_consumed_at_exit(struct flow_vis
     {
         const struct flow_alternative* p_alternative = e->alternatives.data[i];
 
-        if (p_alternative->imaginary == FLOW_IMAGINARY_ABSENT)
-        {
-            continue;
-        }
+
 
         if (!consumed_reported &&
                 (p_alternative->imaginary == FLOW_IMAGINARY_MOVED ||
-                 p_alternative->imaginary == FLOW_IMAGINARY_ENDED))
+                    p_alternative->imaginary == FLOW_IMAGINARY_ENDED))
         {
             consumed_reported = true;
             struct osstream name_ss = { 0 };
             flow_param_member_name_to_string(param_name, p_obj->member_designator, &name_ss);
             if (diagnostic(W_FLOW_PARAM_OWNER_CONSUMED_AT_EXIT,
                            ctx->ctx,
-                           NULL,
+                NULL,
                            marker,
                            "parameter '%s' was moved/released here (see line %d) but never reassigned -- only a _Dtor or _Owner parameter may leave the caller's object consumed",
                            name_ss.c_str ? name_ss.c_str : param_name,
@@ -75385,8 +75354,8 @@ static void flow_visit_label(struct flow_visit_ctx* ctx, const struct label* p_l
                         .value = {.i = case_value},
                         .value_relation = FLOW_RELATION_EQUAL,
                         .imaginary = FLOW_IMAGINARY_NONE,
-                        .origin = p_case_map,
-                        .p_token = p_label->constant_expression->first_token
+                        .p_origin_map = p_case_map,
+                        .p_origin_token = p_label->constant_expression->first_token
                     };
                     flow_alternatives_add(&e->alternatives, &a);
                 }
@@ -75465,7 +75434,10 @@ static void flow_visit_pragma_declaration(struct flow_visit_ctx* ctx, struct pra
     execute_pragma_declaration(ctx->ctx, p_pragma_declaration);
 }
 
-static void object_static_debug(struct flow_visit_ctx* ctx, const struct object* p_object, struct token* first_token, struct token* last_token)
+static void object_static_debug(struct flow_visit_ctx* ctx,
+                                const struct object* p_object,
+                                struct token* first_token,
+                                struct token* last_token)
 {
     const struct object* _Opt member = p_object->members.head;
     if (member)
@@ -75498,18 +75470,9 @@ static void object_static_debug(struct flow_visit_ctx* ctx, const struct object*
     {
         struct flow_alternative* p_flow_alternative = p_entry->alternatives.data[i];
 
-        if (p_flow_alternative->imaginary == FLOW_IMAGINARY_ABSENT)
-        {
-            continue;
-        }
+
         if (p_flow_alternative->value_kind == FLOW_VALUE_KIND_REF)
         {
-            /* A REF alternative is supposed to point at another tracked
-               object, but that pointer can be NULL (e.g. an assignment
-               through a pointer-to-pointer, `*pp = get();`, can leave a
-               REF alternative whose target was never resolved) --
-               recursing on NULL crashed here. Skip it instead: there is
-               nothing further to print for a REF with no target. */
             if (p_flow_alternative->value.p != NULL)
             {
                 object_static_debug(ctx, p_flow_alternative->value.p, first_token, last_token);
@@ -75573,23 +75536,21 @@ static void flow_explain_alternative_not_true(struct osstream* ss, const struct 
         case FLOW_IMAGINARY_ENDED:
             ss_fprintf(ss, " (object's lifetime has ended)");
         break;
-        case FLOW_IMAGINARY_ABSENT:
-            ss_fprintf(ss, " (object is absent)");
-        break;
+
         default:
         break;
     }
 
     ss_fprintf(ss, ", set at line %d", flow_alternative_line(alt));
 
-    if (alt->origin)
+    if (alt->p_origin_map)
     {
         /* The full decision path, not just the name of the one map that
            recorded the fact: on a warning the reader believes is
            impossible, "which conditions were assumed along the way" is the
            question they actually need answered. See
            flow_explain_origin. */
-        struct osstream path_ss = flow_explain_origin(alt->origin);
+        struct osstream path_ss = flow_explain_origin(alt->p_origin_map);
         ss_fprintf(ss, " in \"%s\"", path_ss.c_str ? path_ss.c_str : "");
         ss_close(&path_ss);
     }
@@ -75917,7 +75878,7 @@ static void flow_check_object_at_exit(struct flow_visit_ctx* ctx,
     const struct flow_key_alternatives* _Opt e = flow_map_search_up(ctx->p_current_flow_map, p_obj);
     if (e == NULL) return;
 
-    /* One report per object at this exit, not one per alternative: a leaked
+        /* One report per object at this exit, not one per alternative: a leaked
        owner is a property of the object, and repeating it once per accumulated
        alternative only pads the output -- parser.c:6295 reported each of six
        owner members ten times over. */
@@ -75942,9 +75903,6 @@ static void flow_check_object_at_exit(struct flow_visit_ctx* ctx,
                 continue;
             }
         }
-
-        if (p_alternative->imaginary == FLOW_IMAGINARY_ABSENT)
-            continue;
 
         if (is_owner &&
                 !not_moved_reported &&
@@ -76359,7 +76317,6 @@ void flow_visit_ctx_destroy(_Dtor struct flow_visit_ctx* ctx)
     flow_map_arena_clear(&ctx->flow_map_arena);
     flow_alt_pool_free_all(&g_flow_alt_pool);
 }
-
 
 /*
  *  This file is part of cake compiler

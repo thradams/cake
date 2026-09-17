@@ -102,7 +102,29 @@ options in it under a `"compile"` object. Both tools share one format, and
 `-auto-config` rewrites only `"include_dirs"`, leaving anything else in the
 file untouched.
 
-### 2.3 System include paths auto-configuration
+### 2.3 Cake's Own Headers and `#include_next`
+
+Cake ships its own directory of annotated standard headers (`stdlib.h`,
+`string.h`, `stdio.h`, and the rest), carrying `_Owner`/`_Opt` and the other
+ownership annotations described in 11.9. This directory is added to the
+search path ahead of the real system include directories, so `#include
+<stdlib.h>` resolves to Cake's annotated header first.
+
+Cake's header then pulls in the real one with `#include_next <stdlib.h>` -
+the same directive GCC and Clang use for this purpose - which continues the
+search from the *next* directory after Cake's own, i.e. the real system
+include path. This is how the annotated declarations and the platform's
+actual declarations both end up in scope: Cake's header supplies the
+contract, `#include_next` supplies everything else (types, other functions,
+platform-specific details) from the real header.
+
+Because of this, **Cake's header directory must be listed first in
+`cake.json`'s `"include_dirs"`** - it's the one carrying the annotations. If a
+system directory is searched before it, `#include <stdlib.h>` resolves
+straight to the real header, Cake's annotated version is never reached, and
+`#include_next` never runs, so nothing in that file gets annotated.
+
+### 2.4 System include paths auto-configuration
 
 The `-auto-config` option fills in `cake.json`'s `"include_dirs"` automatically
 by querying the active compiler environment:
@@ -2764,6 +2786,10 @@ Cake includes a static analysis system for tracking object ownership and lifetim
 **`_Opt`** — This pointer may be null (optional).
 
 **`_View`** — This pointer borrows the object without owning it.
+
+To annotate the standard library, Cake ships its own annotated headers ahead
+of the system ones on the include search path and chains to the real header
+with `#include_next` (2.3).
 
 Full documentation: [ownership.html](ownership.html)
 

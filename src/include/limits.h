@@ -3,6 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
+#ifdef CAKE_HEADERS
 
 #pragma once
 
@@ -40,3 +41,7 @@
 #define  ULONG_WIDTH 64
 #define  USHRT_MAX (0x7fff * 2 + 1)
 #define  USHRT_WIDTH 16
+#else
+#include_next <limits.h>
+#endif
+

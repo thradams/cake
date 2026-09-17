@@ -12,7 +12,7 @@
 
 struct parser_ctx;
 
-#include "ownership.h"
+#include "cake_compat.h"
 
 
 enum type_category

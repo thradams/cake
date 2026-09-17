@@ -1,3 +1,5 @@
+#ifdef CAKE_HEADERS
+
 #ifndef TIME_H
 #define TIME_H
 
@@ -41,3 +43,7 @@ struct timespec {
 int timespec_get(struct timespec *ts, int base);
 
 #endif /* TIME_H */
+#else
+#include_next <time.h>
+#endif
+

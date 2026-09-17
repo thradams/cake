@@ -1,3 +1,5 @@
+#ifdef CAKE_HEADERS
+
 #ifndef SIGNAL_H
 #define SIGNAL_H
 
@@ -18,3 +20,7 @@ sighandler_t signal(int sig, sighandler_t handler);
 int raise(int sig);
 
 #endif /* SIGNAL_H */
+
+#else
+#include_next <signal.h>
+#endif

@@ -360,40 +360,31 @@ enum indent_style
 
 struct style_options
 {
-
-    enum case_style struct_name_case;
-    enum case_style enum_name_case;
-    enum case_style function_name_case;
-    enum case_style global_name_case;
-    enum case_style local_name_case;
+    enum case_style struct_name_case;    
+    enum case_style enum_name_case;      
+    enum case_style function_name_case;  
+    enum case_style global_name_case;    
+    enum case_style local_name_case;     
     enum case_style enumerator_name_case;
     enum case_style member_name_case;
     enum case_style parameter_name_case;
 
-    /* --- brace placement --- */
     enum brace_style      open_brace_style;       /* control-flow blocks  */
     enum func_brace_style func_open_brace_style;  /* function bodies      */
+    enum else_style else_style;                   /* new line, same line  */
+    enum pointer_style pointer_style;             /*west, east            */
 
-    /* --- else placement --- */
-    enum else_style else_style;
+    enum indent_style indent_style;               /* tabs or spaces       */
+    int               indent_width;               /* number of spaces     */
 
-    /* --- pointer * placement --- */
-    enum pointer_style pointer_style;
-
-    /* --- indentation --- */
-    enum indent_style indent_style;
-    int               indent_width; /* spaces per level; ignored for TABS */
-
-    /* --- spacing rules ---
-     * All built-in presets set every flag to true.  Exposed individually so
-     * a single rule can be disabled without defining a whole new preset.   */
-    bool space_after_comma;             /* one space after ','                 */
-    bool no_space_before_semicolon;     /* no space before ';'                 */
-    bool space_after_keyword;           /* one space between keyword and '('   */
-    bool space_after_return;            /* one space between 'return' and expr */
-    bool no_space_before_call_paren;    /* no space between callee and '('     */
-    bool space_around_binary_operators; /* one space on each side of binary op */
-    bool single_declarator_per_declaration; /* no "int i, j;" - one declarator per declaration */
+    
+    bool space_after_comma;                       /* one space after ','                 */
+    bool no_space_before_semicolon;               /* no space before ';'                 */
+    bool space_after_keyword;                     /* one space between keyword and '('   */
+    bool space_after_return;                      /* one space between 'return' and expr */
+    bool no_space_before_call_paren;              /* no space between callee and '('     */
+    bool space_around_binary_operators;           /* one space on each side of binary op */
+    bool single_declarator_per_declaration;       /* no "int i, j;" - one declarator per declaration */
 };
 
 
@@ -410,17 +401,11 @@ struct bitset
     unsigned long bits[BITSET_WORDS];
 };
 
-
 struct diagnostic
 {
-    /*set of warnings reported as errors*/
-    struct bitset errors;
-
-    /*set of warnings reported as warnings*/
-    struct bitset warnings;
-
-    /*set of warnings reported as notes*/
-    struct bitset notes;
+    struct bitset errors;   /* set of warnings reported as errors */
+    struct bitset warnings; /* set of warnings reported as warnings */
+    struct bitset notes;    /* set of warnings reported as notes */
 };
 
 int get_diagnostic_type(const struct diagnostic* d, enum diagnostic_id w);
@@ -440,8 +425,8 @@ void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack);
 
 struct options
 {
-    enum standard_version input;
-    enum target target;
+    enum standard_version input; /* check code againt this standard */
+    enum target target;          /* output target (gcc, msvc...)    */
 
     /*
       #pragma CAKE diagnostic push
@@ -449,106 +434,36 @@ struct options
     */
     struct diagnostic_stack diagnostic_stack;
 
-    /*
-     * Formatting style rules.  Filled by style_options_<name>() or left
-     * as style_options_none() when no -style flag is supplied.
-     */
-    struct style_options style;
+    struct style_options style; /* format and check style settings */
 
-    /*
-       Causes the compiler to output a list of the include files.
-       The option also displays nested include files, that is,
-       the files included by the files that you include.
-    */
-    bool show_includes;
+    bool show_includes;         /* -show-includes:  ouput the include file path       */
+    char copy_headers[200];     /* -copy-headers: mode that can copy included headers */
+    bool format;                /* -format: format code                               */
+    int format_first_line;      /* -format-lines=first:last                           */
+    int format_last_line;       /* -format-lines=first:last                           */
 
-
-    /*
-       -copy-headers
-    */
-    char copy_headers[200];
-
-    /*
-      -format
-      Applies the spacing/brace-placement rules from `style` directly to the
-      token stream instead of just diagnosing them, then prints the result
-      (print_code_as_we_see) in place of compiling.
-    */
-    bool format;
-
-    /*
-      -format-lines=first:last
-      Restricts -format's token changes to this inclusive line range.
-      0:0 (the default) means the whole file.
-    */
-    int format_first_line;
-    int format_last_line;
-
-    /*
-      -line-directives
-    */
-    bool line_directives;
-
-    /*
-       -flow-analysis
-    */
-    bool flow_analysis;
-
-    /*
-    * -testmode
-    */
-    bool test_mode;
+    /* output */
+    bool line_directives;       /* emmit #line directorives */
+    bool runtime_asserts;       /* -runtime-asserts: generate runtime code for _Assert */
 
 
-    /*
-      -runtime-asserts
-      When set, `_Assert(cond)` generates a runtime check (a small
-      emitted helper function); otherwise it produces no runtime code and only
-      the compile-time flow3 narrowing applies.
-    */
-    bool runtime_asserts;
+    bool flow_analysis;         /* run flow analysis */
+    bool test_mode;             /* -testmode : reports success with 0 errors/warnings */
+    bool clear_error_at_end;    /* used by tests*/
 
-    /*
-    * -nullchecks
-    */
-    bool null_checks_enabled;
+    bool null_checks_enabled;   /* -nullchecks: check nullable pointer */
 
-    bool ownership_enabled;
+    bool ownership_enabled;     /* check ownerhip rules */
+    bool preprocess_only;       /* -E: preprocess only */
 
-    /*
-      -E
-    */
-    bool preprocess_only;
+    bool preprocess_def_macro;  /* -preprocess-def-macro : preprocess #def */
 
-    /*
-      -preprocess-def-macro
-    */
-    bool preprocess_def_macro;
+    bool warnings_as_errors;    /* -Werror: Reports every enabled warning as an error.    */    
 
-    bool clear_error_at_end; /*used by tests*/
+    bool sarif_output;          /* -sarif: generates SARIF output file */    
+    bool no_output;             /* -no-output:  if true cake does not generate output */
 
-    /*
-      -Werror
-      Reports every enabled warning as an error.
-    */
-    bool warnings_as_errors;
-
-    /*
-      -sarif
-    */
-    bool sarif_output;
-
-    /*
-      -no-output
-      if true cake does not generate output
-    */
-    bool no_output;
-
-    /*
-     -const-literal
-     makes literal strings const
-    */
-    bool const_literal;
+    bool const_literal;         /* -const-literal: makes literal strings const */
 
     /*
       -fdiagnostics-format=msvc
@@ -599,6 +514,8 @@ struct options
       By default they are discarded to reduce memory usage.
     */
     bool keep_inactive_tokens;
+
+    bool use_cake_headers; /*-cake-headers: use cake own headers */
 };
 
 int fill_options(struct options* options,

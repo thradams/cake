@@ -1,3 +1,5 @@
+#ifdef CAKE_HEADERS
+
 #ifdef _WIN32
 
         #define _ADDRESSOF(v) (&(v))
@@ -51,4 +53,8 @@ typedef __gnuc_va_list va_list;
       
 #endif
 
+
+#else
+#include_next <stdarg.h>
+#endif
 

@@ -3,6 +3,8 @@
  *  https://github.com/thradams/cake
 */
 
+#ifdef CAKE_HEADERS
+
 #pragma once
 
 #define WCHAR_MIN 0x0000
@@ -175,4 +177,8 @@ extern int wprintf(const wchar_t* __restrict __format, ...);
 extern int swprintf(wchar_t* __restrict __s, size_t __n,
        const wchar_t* __restrict __format, ...);
 
+#else
+
+#include_next <wchar.h>
+#endif
 

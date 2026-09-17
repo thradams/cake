@@ -7,7 +7,7 @@
  */
 
 #pragma safety enable
-#include "ownership.h"
+#include "cake_compat.h"
 #include "compile.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -260,6 +260,13 @@ int generate_config_file(const char* configpath)
         printf("Out of memory generating '%s'.\n", configpath);
         return ENOMEM;
     }
+    
+    char directory[FS_MAX_PATH] = { 0 };
+    snprintf(directory, sizeof directory, "%s", configpath);
+    dirname(directory);
+    snprintf(directory, sizeof directory, "%s/include", directory);
+
+    json_add_string(dirs, directory);
 
     int error = collect_system_include_dirs(dirs);
     if (error != 0)
@@ -307,11 +314,10 @@ int compile_one_file(const char* file_name,
 
     add_standard_macros(&prectx, options->target);
 
-    if (include_config_header(&prectx) != 0)
+    if (preprocessor_load_config(&prectx) != 0)
     {
-        // cakeconf.h is optional               
+        /* optional */
     }
-    // print_all_macros(&prectx);
 
     struct ast ast = { 0 };
 
@@ -1056,9 +1062,9 @@ const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt pat
         prectx.macros.capacity = 5000;
         add_standard_macros(&prectx, options.target);
 
-        if (include_config_header(&prectx) != 0)
+        if (preprocessor_load_config(&prectx) != 0)
         {
-            // cakeconf.h is optional
+            // cake.json is optional
         }
 
         ast.token_list = preprocessor(&prectx, &list, 0);

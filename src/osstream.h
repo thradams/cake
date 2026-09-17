@@ -6,7 +6,7 @@
 #pragma once
 
 #include <stdarg.h>
-#include "ownership.h"
+#include "cake_compat.h"
 
 struct osstream
 {

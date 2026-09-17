@@ -5,7 +5,7 @@
 
 #pragma safety enable
 
-#include "ownership.h"
+#include "cake_compat.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>

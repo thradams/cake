@@ -1,7 +1,10 @@
+
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
+
+#ifdef CAKE_HEADERS
 
 #pragma once
 #define _IOFBF 0x0000
@@ -93,4 +96,49 @@ void perror(const char* s);
 
 #ifndef NULL
 #define NULL ((void*)0)
+#endif
+
+#else
+
+
+#ifdef _WIN64
+typedef struct _iobuf FILE;
+typedef unsigned __int64 size_t;
+#elif defined _WIN32
+typedef struct _iobuf FILE;
+typedef unsigned int     size_t;
+#endif
+
+#ifdef __linux__
+
+typedef struct _IO_FILE FILE;
+typedef __SIZE_TYPE__ size_t; // valid since C23
+
+#endif
+
+#ifdef __APPLE__
+
+typedef struct __sFILE FILE;
+typedef __SIZE_TYPE__ size_t;
+
+#endif
+
+int snprintf(_Out char* const _Buffer, size_t const _BufferCount, char const* const _Format, ...);
+
+FILE* _Owner _Opt fopen(char const* _FileName, char const* _Mode);
+int fclose(FILE* _Owner _Stream);
+
+#if defined __linux__ || defined __APPLE__
+FILE* _Owner _Opt popen(const char* _Command, const char* _Mode);
+int pclose(FILE* _Owner _Stream);
+#endif
+
+size_t fread(
+        _Out void* _Buffer,
+        size_t _ElementSize,
+        size_t _ElementCount,
+        FILE* _Stream
+);
+
+#include_next <stdio.h>
 #endif

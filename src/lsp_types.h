@@ -20,7 +20,7 @@
  */
 
 #pragma once
-#include "ownership.h"
+#include "cake_compat.h"
 #include <stdbool.h>
 
 /* Position: 0-based, per the spec (`character` is a UTF-16 code unit offset;
