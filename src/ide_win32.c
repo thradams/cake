@@ -1373,6 +1373,16 @@ int ui_get_cwd(char *buf, int buf_size)
     return WideCharToMultiByte(CP_UTF8, 0, wbuf, -1, buf, buf_size, NULL, NULL) > 0;
 }
 
+/* See ui_open_url in ide_ui.h. ShellExecute with the "open" verb is what
+ * double-clicking a .url file does, so the user's chosen default browser
+ * wins. Its return is HINSTANCE-shaped by history: > 32 means success. */
+int ui_open_url(const char *url)
+{
+    if (!url || !url[0])
+        return 0;
+    return (intptr_t)ShellExecuteA(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL) > 32;
+}
+
 /* Tools > Terminal (see ide.c's do_open_terminal): spawns a new console
  * window running the user's shell (%COMSPEC%, falling back to cmd.exe if
  * that's unset) with its working directory set to `dir` - a detached

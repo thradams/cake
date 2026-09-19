@@ -122,9 +122,9 @@ static const InstallEntry INSTALL_ENTRIES[] = {
     { CAKE_NAME,            "",        0 , 1},
 #endif
     { "cake.json",         "",        0 , 0},
-    { "help",              "help",    1 , 0},
     { "samples",           "samples", 1 , 0},
     { "include/*.h",       "include", 0 , 0},
+    { "web",               "web",     1 , 0},
 
 };
 #define INSTALL_ENTRIES_COUNT  (sizeof(INSTALL_ENTRIES) / sizeof(INSTALL_ENTRIES[0]))

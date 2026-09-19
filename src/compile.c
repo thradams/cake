@@ -264,7 +264,9 @@ int generate_config_file(const char* configpath)
     char directory[FS_MAX_PATH] = { 0 };
     snprintf(directory, sizeof directory, "%s", configpath);
     dirname(directory);
-    snprintf(directory, sizeof directory, "%s/include", directory);
+    char base_dir[FS_MAX_PATH] = { 0 };
+    snprintf(base_dir, sizeof base_dir, "%s", directory);
+    snprintf(directory, sizeof directory, "%s/include", base_dir);
 
     json_add_string(dirs, directory);
 
@@ -802,6 +804,10 @@ int compile(int argc, const char** argv, struct report* report)
     clock_t begin_clock = clock();
     int no_files = 0;
 
+    struct global_unused_list unused_functions_state = { 0 };
+    if (options.report_unused_extern_functions)
+        options.p_unused_functions = &unused_functions_state;
+
     char root_dir[FS_MAX_PATH] = { 0 };
 
     if (!options.no_output)
@@ -884,6 +890,12 @@ int compile(int argc, const char** argv, struct report* report)
             report->test_failed += report_local.test_failed;
         }
     }
+
+    if (options.report_unused_extern_functions)
+    {
+        global_unused_functions_report(&unused_functions_state, &options, report);
+    }
+    global_unused_functions_clear(&unused_functions_state);
 
     clock_t end_clock = clock();
     double cpu_time_used = ((double)(end_clock - begin_clock)) / CLOCKS_PER_SEC;

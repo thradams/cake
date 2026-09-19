@@ -1,27 +1,6 @@
 #pragma safety enable
 
-/*
-   `p = f(p);` where f CONSUMES the owner and returns a new one.
-
-   This is valid and must not warn. The call transfers ownership of the old
-   value into f, f returns a (possibly different) owner, and the assignment
-   puts that back into p. At no point does anyone touch the consumed value:
-   the argument is read before the call, the result is written after it.
-
-   Real instance: expressions.c's
-
-       p_expression_node = postfix_expression_tail(ctx, p_expression_node, is_discarded);
-
-   where postfix_expression_tail takes `struct expression* _Owner` and returns
-   `struct expression* _Owner _Opt`. Restructuring the call site into two
-   variables does NOT change flow3's verdict (tried: the diagnostic just moves
-   to the new line), so the pattern is worth pinning as a sample in its own
-   right rather than being worked around in the caller.
-
-   See also owner-consumed-then-nulled-in-try.c for the harder variant, where
-   a `throw` between the call and the end of the block merges the consumed
-   state into a catch that then frees the pointer.
-*/
+/* `p = f(p)` where f consumes the owner and returns a new one is valid and must not warn (expressions.c postfix_expression_tail) */
 
 #define NULL ((void*)0)
 
@@ -57,19 +36,7 @@ void self_consume_checked_ok(void)
     del(p);
 }
 
-/*
-   Repeated application -- a parse loop shape: each round consumes what the
-   previous round produced.
-
-   This was the case that exposed the bug the other two forms hid. After the
-   loop, p carries two alternatives: the pre-loop object (the zero-iteration
-   arm, which never reached `tail`) and the object produced by the last
-   iteration. Consuming the pre-loop object inside the body marked it ENDED,
-   and the aggregate state check read that fact without asking which branch
-   recorded it -- so the arm that never ran the body was reported as a
-   use-after-end. Fixed by giving flow3_object_leaves_in_state the same
-   origin filter the per-alternative loop already used.
-*/
+/* parse-loop shape: the zero-iteration arm must not be reported as use-after-end of the object the body consumed (origin filter in flow3_object_leaves_in_state) */
 void self_consume_loop_ok(int n)
 {
     struct E* _Owner _Opt p = make();

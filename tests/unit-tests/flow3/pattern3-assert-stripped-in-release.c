@@ -1,20 +1,6 @@
 #pragma safety enable
 
-/*
-   PATTERN 3 -- warnings caused by the standard `assert` disappearing in a
-   RELEASE build, and how _Assert fixes them.
-
-   `assert` is a MACRO. With a real <assert.h> in a release build (NDEBUG) it
-   expands to `((void)0)` -- the check vanishes, flow3 has no invariant to
-   narrow on, and the following `p->member` reads possibly-null and warns.
-
-   _Assert is a cake KEYWORD, so no header macro can shadow or strip it:
-   it narrows in every build, including release. This is the fix for the
-   assert-guarded warning-33s seen when dogfooding expressions.c.
-
-   Function A (_Assert) is clean; B (stripped assert) reproduces the
-   warning.
-*/
+/* `assert` vanishes in a release build and the following p->member warns; _Assert is a keyword and narrows in every build */
 
 #define NULL ((void*)0)
 #define assert(x) ((void)0)          /* release: standard assert does nothing */

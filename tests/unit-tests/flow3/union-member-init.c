@@ -1,16 +1,6 @@
 #pragma safety enable
 
-/*
-   A union's members share storage: once any member is initialized, the whole
-   union is initialized, so the other members must not be reported as
-   "possibly uninitialized".
-
-   flow3 tracked union members like independent struct members, so after
-   `struct S s = { 0 };` (which sets the first union member) it reported every
-   OTHER union member as uninitialized -- e.g. returning/passing the object
-   warned on `s.value.u`, `s.value.d`, etc. Now, if any union member is
-   initialized, the siblings are treated as initialized too.
-*/
+/* once any union member is initialized the whole union is: `struct S s = { 0 }` must not report the other union members uninitialized */
 
 struct object
 {
@@ -35,12 +25,4 @@ void write_one(void)
     use(o);                          /* clean: value.u / value.d not flagged */
 }
 
-/*
-   A union that is NEVER initialized is still genuinely uninitialized and warns
-   (documented, not asserted):
-
-       void fully_uninit(void) {
-           struct object o;          // nothing set
-           use(o);                   // warns: o.state, o.value.* uninitialized
-       }
-*/
+/* documented: a union that is never initialized still warns when used */

@@ -1,14 +1,6 @@
 #pragma safety enable
 
-/*
-   A plain (non-owner) POINTER member set in a braced initializer takes its
-   initialized / null state from the initializer expression -- just like an
-   integer member takes its value relation. Without this, a struct built as
-   `{ .field = p->x }` had its pointer members treated as uninitialized and was
-   wrongly flagged when the aggregate was used (e.g. returned).
-
-   (Owner members are intentionally left to their own move/init tracking.)
-*/
+/* a plain pointer member set in a braced initializer takes its initialized/null state from the expression, so `{ .field = p->x }` is not uninitialized */
 
 struct token { int line; };
 
@@ -24,8 +16,7 @@ struct expression
     struct token* last_token;
 };
 
-/* The original false positive: members are initialized from member accesses,
-   so returning the aggregate must NOT report "uninitialized". */
+/* the original false positive: returning the aggregate must not report "uninitialized" */
 struct marker expression_to_marker(const struct expression* p)
 {
     struct marker m = {
@@ -42,11 +33,4 @@ void non_null_source(struct token* t)
     (void)m;
 }
 
-/*
-   ...and a possibly-null source is still caught (documented, since it warns):
-
-       void null_source(struct token* _Opt t) {
-           struct marker m = { t, t };
-           m.p_token_begin->line = 1;   // warns: -> on a possibly-null pointer
-       }
-*/
+/* documented: a possibly-null source member still warns on dereference */

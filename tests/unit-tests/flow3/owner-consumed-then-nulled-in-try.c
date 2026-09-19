@@ -1,45 +1,6 @@
 #pragma safety enable
 
-/*
-   The harder variant of self-consuming-reassignment.c: `p = f(p);` where f
-   consumes the owner, with a throw between the call and the end of the try
-   block, so the consumed state merges into a catch that then frees p.
-
-   Neither path reaching the catch has an ended object to free:
-
-     - throwing BEFORE the call (the `cond()` arm below): tail never ran, so
-       p still holds the object it was given. Releasing it is correct, and
-       is the whole reason the catch frees p at all.
-     - throwing AFTER the call: tail consumed the old value and returned
-       null, p was overwritten with that null, and the release is a no-op.
-
-   The consumed-at-line-N fact belongs only to the arm that actually ran the
-   call, and on that arm p no longer refers to the consumed object. Merging
-   it into the catch without asking which arm recorded it reports the free
-   as a use-after-end.
-
-   Real instance, cake's own postfix_expression_compound_func_literal in
-   expressions.c:
-
-       p_expression_node->last_token = p_previous_token;
-       p_expression_node = postfix_expression_tail(ctx, p_expression_node, is_discarded);
-       if (p_expression_node == NULL)
-           throw;
-     }
-     catch
-     {
-       expression_delete(p_expression_node);   // warning 31 here
-       p_expression_node = NULL;
-     }
-
-   As with the plain form, restructuring the call site into two variables
-   does not change the verdict -- the diagnostic just moves to the new line
-   -- so this is pinned as a sample rather than worked around in the caller.
-
-   self-consuming-reassignment.c notes that its own loop case was fixed by
-   giving flow3_object_leaves_in_state the origin filter the per-alternative
-   loop already used; this is the same question asked at a catch join.
-*/
+/* `p = f(p)` consuming p, with a throw before and after the call: the catch's free(p) must not report use-after-end, the consumed fact belongs only to the arm that ran the call (expressions.c compound literal) */
 
 #define NULL ((void*)0)
 
@@ -69,15 +30,7 @@ struct E* _Owner _Opt consume_then_throw(void)
     }
     catch
     {
-        /*
-           p is either the untouched object or null, never the consumed one,
-           so this must not warn -- and no longer does. Each throw now
-           contributes its state to the catch under its own snapshot origin,
-           so the "consumed at line N" fact stays paired with the arm that
-           ran the call instead of applying to every arm. The control case
-           below is what guards against "fixing" this by going silent
-           everywhere.
-        */
+        /* p is the untouched object or null, never the consumed one: must not warn */
         del(p);
         p = NULL;
     }
@@ -85,10 +38,7 @@ struct E* _Owner _Opt consume_then_throw(void)
     return p;
 }
 
-/*
-   Control: the same shape without the intervening throw already passes.
-   Kept next to the failing case so a fix can be checked against both.
-*/
+/* control: the same shape without the intervening throw */
 struct E* _Owner _Opt consume_no_intervening_throw(void)
 {
     struct E* _Owner _Opt p = NULL;

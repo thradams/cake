@@ -1,17 +1,6 @@
 #pragma safety enable
 
-/*
-   p->type starts zeroed (calloc is _Clear), so name_opt/next are fine at
-   that point. `p->type = make_type()` then overwrites the whole nested
-   struct with make_type()'s return -- an untracked value flow3 must treat
-   as unknown/ANY, since make_type has no contract describing what it
-   hands back. free(p) discards *p (including *p's nested .type) through
-   void*, without ever explicitly moving or releasing p->type.name_opt/next
-   -- so the analyser correctly flags both as still possibly owning
-   whatever make_type() produced. This is a consequence of fixing void*
-   erasure to check member state (see void-owner-erasure-leaks-member.c)
-   rather than unconditionally trusting the whole aggregate is clean.
-*/
+/* `p->type = make_type()` overwrites the zeroed nested struct with an unknown value, so free(p) through void* correctly reports name_opt/next as possibly owning */
 
 void* _Owner _Opt _Clear calloc(unsigned long n, unsigned long size);
 void free(void* _Owner _Opt p);

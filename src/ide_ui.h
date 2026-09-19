@@ -1066,6 +1066,14 @@ int ui_get_cwd(char* buf, int buf_size);
  * handful of common emulators found on Linux/X11). */
 void ui_open_terminal(const char* dir);
 
+/* Opens `url` in the user's default web browser - a plain "hand it to the
+ * OS" job, so a local page (file:///.../help/index.html) and a remote one
+ * behave the same. Like ui_open_terminal, the browser is not a child this
+ * app manages afterward; this never blocks waiting on it. Returns 1 if the
+ * launch was handed off, 0 if the OS refused (no handler registered,
+ * xdg-open not installed, ...) - the caller decides what to tell the user. */
+int ui_open_url(const char* url);
+
 /* --- Child process with captured output -----------------------------------
  *
  * Unlike ui_open_terminal above, this one IS managed: the process is a real

@@ -1,15 +1,8 @@
 #pragma safety enable
 
-/*
-   ++ / -- keep correlation, and resolve the lvalue by iterating its REF
-   alternatives (like an assignment destination) -- so they work even when the
-   operand aliases several objects, e.g. `(*p)++`.
+/* ++/-- keep correlation and iterate the lvalue's REF alternatives, so `(*p)++` works when p aliases several objects */
 
-   Use compile_assert (flow-checked), not static_assert (C11 compile-time).
-*/
-
-/* A plain `x++` advances every value alternative, keeping its branch origin,
-   so the join stays correlated. */
+/* x++ advances every alternative keeping its branch origin */
 void simple(int c)
 {
     int a, b;
@@ -19,8 +12,7 @@ void simple(int c)
     compile_assert(a + b != 6);
 }
 
-/* `(*p)++` where p can point to a or b: the deref carries p's branch origin,
-   and ++ iterates both REF targets, advancing each on its own path. */
+/* (*p)++ with p pointing to a or b advances each target on its own path */
 void through_pointer(int c)
 {
     int a = 1, b = 2, *p;
@@ -29,10 +21,7 @@ void through_pointer(int c)
     (*p)++;                           /* then: a->2 ; else: b->3 */
 
     compile_assert(*p == 2 || *p == 3);
-    /* NOT provable (each has a counter-path):
-         compile_assert(*p == 2);          // else path gives 3
-         compile_assert(*p == 5 || *p == 3);
-    */
+    /* not provable: *p == 2 (else path gives 3), *p == 5 || *p == 3 */
 }
 
 /* Prefix and decrement behave the same way. */

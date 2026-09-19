@@ -12,8 +12,7 @@ void* _Owner _Opt f1()
     struct X* _Owner _Opt p = calloc(1, sizeof(struct X));
     if (p)
     {
-        /* No discard warning: calloc is declared _Clear above, so flow3 knows
-           p->name is zero here rather than an owner of unknown state. */
+        /* no discard warning: calloc is _Clear, p->name is known zero */
         p->name = calloc(1, 2);
     }
 

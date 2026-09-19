@@ -1,18 +1,6 @@
 #pragma safety enable
 
-/*
-   Two distinct non-null pointers may ALIAS -- comparing them for equality is
-   not decidable, so neither branch of `if (p == q)` is dead.
-
-   flow3 models each non-null _Opt pointer as its own synthesized pointee, so it
-   used to treat `p == q` (different pointees) as always-false and mark the
-   then-branch unreachable. That is wrong: nothing proves the two pointers don't
-   point at the same object. e.g. `if (list->head == list->tail)` after a
-   head != NULL guard is the ordinary single-element-list test.
-
-   Only these pointer comparisons stay decidable: NULL vs non-null (not equal),
-   both NULL (equal), and a pointer compared with itself (equal).
-*/
+/* two distinct non-null pointers may alias: `if (p == q)` is not decidable, neither branch is dead (list->head == list->tail) */
 
 #define NULL ((void*)0)
 

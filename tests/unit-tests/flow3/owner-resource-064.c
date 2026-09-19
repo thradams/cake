@@ -1,11 +1,6 @@
 #pragma safety enable
 
-/*
-   Same shape as owner-resource-063.c: a forward goto skipping free(p) joins
-   with a fall-through path that does call free(p). The merged state
-   at the label must still show p as possibly-not-moved, so the leak
-   is reported.
-*/
+/* same as owner-resource-063.c: the goto path never freed p, the leak is reported */
 
 void free(void* _Owner _Opt ptr);
 void* _Owner _Opt _Uninitialized malloc(int size);

@@ -1,18 +1,6 @@
 #pragma safety enable
 
-/*
-   `throw` (like `return`) ends the current path -- code after an
-   `if (cond) { ...; throw; }` with no `else` only ever runs when the
-   condition was false, so a variable assigned right after such a guard,
-   in both arms of a later if/else, must be seen as definitely assigned
-   by the time it's used.
-
-   Modeled after a real shape in cake's own unary_expression
-   (expressions.c, around line 4086): an early-validation `if` that
-   throws on failure, followed by an if/else that unconditionally
-   assigns a pointer (via `&member`, which is always non-null) in both
-   arms.
-*/
+/* code after `if (cond) { ...; throw; }` only runs when cond was false, so a pointer assigned in both arms of a later if/else is definitely assigned (expressions.c unary_expression) */
 
 struct S { int x; };
 void g(int* p);

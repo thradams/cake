@@ -1,17 +1,6 @@
 #pragma safety enable
 
-/*
-   A _Out parameter is a constructor OUT-parameter: the callee initializes it,
-   so passing an uninitialized object to it is correct and must NOT warn.
-
-   flow3 checks this via the parameter's _Out qualifier. For a pointer-to-_Out
-   the qualifier is visible on the pointer, but for an ARRAY out-parameter
-   (`_Out char buf[100]`) the _Out lives on the array, not on each element --
-   so the per-element uninitialized check used to miss it and reported one
-   "possible uninitialized" per element (e.g. 100 warnings for buf[0..99]).
-   Now a directly-_Out destination is recognized and the whole subtree is
-   skipped.
-*/
+/* passing an uninitialized object to a _Out parameter must not warn, including an _Out array parameter (no per-element warning) */
 
 /* _Out array out-parameter: the callee fills it. */
 void fill_array(_Out char buf[8]);
@@ -19,8 +8,7 @@ void fill_array(_Out char buf[8]);
 /* _Out pointer out-parameter (already worked; kept for contrast). */
 void fill_ptr(_Out char* p);
 
-/* Non-_Out array parameter: the callee reads it, so passing uninitialized
-   content is a real hazard and still warns. */
+/* non-_Out array parameter: the callee reads it, uninitialized content still warns */
 void reads_array(char buf[8]);
 
 void ctor_array_ok(void)
@@ -35,12 +23,4 @@ void ctor_ptr_ok(void)
     fill_ptr(b);             /* clean */
 }
 
-/*
-   Still warns (real uninitialized read) -- shown in a comment so this file
-   stays clean:
-
-       void reads_uninit(void) {
-           char b[8];
-           reads_array(b);   // warns: passing possible uninitialized b[0..7]
-       }
-*/
+/* documented: passing an uninitialized array to reads_array warns per element */

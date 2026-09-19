@@ -21,15 +21,7 @@ int main() {
    struct X x;
    init(&x);
 
-   /* FIXED (this whole block used to fail): init's _Out call
-      invalidated every member of x to a generic ANY value (could be
-      zero), even though p1, pY, text etc. are all plain (non-_Opt)
-      pointer/_Owner types whose own type already guarantees they're
-      never null. That made compile_assert(x.p1 != 0) and
-      compile_assert(x.pY != 0) below fail with "could be any value,
-      including zero", and destroy(&x) at the end warn "passing a
-      possible null pointer" for text/p1/pY -- none of it provable false
-      or a real bug, just a lost non-null guarantee. */
+   /* FIXED: the _Out call keeps non-_Opt pointer/_Owner members non-null, so the compile_asserts hold and destroy(&x) does not warn */
    compile_assert(x.p1 != 0);
    //assert_state(x.i, "zero | not-zero");
    compile_assert(x.pY != 0);

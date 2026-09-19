@@ -57,7 +57,7 @@ struct object
 {
     enum object_value_state state;
     enum object_type value_type;
-    struct type type; //TODO to be removed we have 2 types in two places.
+    struct type type;
 
     const char* _Opt _Owner member_designator;
 

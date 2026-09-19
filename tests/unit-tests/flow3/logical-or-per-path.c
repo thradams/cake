@@ -1,18 +1,6 @@
 #pragma safety enable
 
-/*
-   Per-path evaluation of `||` in compile_assert.
-
-   `compile_assert(X || Y)` must hold on EVERY path, i.e. every possible value
-   must satisfy X or Y. This requires the analyzer to keep each value tagged
-   with the branch it came from (its origin) all the way through:
-
-     1. arithmetic keeps the operand-pair's branch  (a+b = {3@then, 7@else})
-     2. a comparison yields a per-path boolean       (a+b==7 = {0@then,1@else})
-     3. || combines those booleans path-by-path
-
-   After `if (c){a=1;b=2;}else{a=3;b=4;}`, a+b is {3, 7} (correlated).
-*/
+/* compile_assert(X || Y) is evaluated per path: after the if/else a+b is {3, 7} and the || combines the per-path booleans */
 
 void must_pass(int c)
 {
@@ -30,19 +18,7 @@ void must_pass(int c)
     compile_assert(x == 10 || x == 20);
 }
 
-/* These SHOULD fail -- some path satisfies neither side -- and are left
-   commented so this file compiles clean. Enabling any one produces
-   "compile_assert failed":
-
-   void must_fail_a(int c) {
-       int a,b; if(c){a=1;b=2;}else{a=3;b=4;}
-       compile_assert(a + b == 4 || a + b == 7);   // a+b==3 satisfies neither
-   }
-   void must_fail_b(int c) {
-       int a,b; if(c){a=1;b=2;}else{a=3;b=4;}
-       compile_assert(a + b < 3 || a + b > 7);      // neither covers 3 or 7
-   }
-*/
+/* these fail if enabled: `a + b == 4 || a + b == 7` (3 satisfies neither), `a + b < 3 || a + b > 7` */
 
 #pragma safety enable
 void f(int c){

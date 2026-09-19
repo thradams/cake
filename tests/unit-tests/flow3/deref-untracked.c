@@ -1,9 +1,6 @@
 #pragma safety enable
 
-/*
-   Smoke tests for the * and . / -> operators when the operand has no
-   tracked alternatives.
-*/
+/* smoke tests for *, . and -> on an operand with no tracked alternatives */
 
 struct X { int i; };
 

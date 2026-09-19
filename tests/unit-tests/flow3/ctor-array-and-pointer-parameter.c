@@ -1,12 +1,6 @@
 #pragma safety enable
 
-/*
-   Regression test confirming _Out works identically whether the
-   parameter is declared as an array (which decays to a pointer per C's
-   parameter-adjustment rule) or as a plain pointer -- no warning should
-   be emitted for either call, and the array is genuinely treated as
-   initialized afterward.
-*/
+/* _Out works the same for an array parameter and a pointer parameter */
 
 void parse1(_Out char a[]);
 void parse2(_Out char* a);

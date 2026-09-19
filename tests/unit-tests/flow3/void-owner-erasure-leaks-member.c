@@ -1,28 +1,6 @@
 #pragma safety enable
 
-/*
-   Companion to void-owner-param-skips-member-checks.c.
-
-   That fix made passing an _Owner pointer to a void* _Owner destination
-   (a parameter like free()'s, an assignment, or a return) skip checking
-   the pointee's member state, because void* can never be read back
-   into to report on members whose lifetime already legitimately ended
-   (e.g. via a prior _Dtor call). But the skip was unconditional: it
-   also swallowed members that were simply never released, silently
-   accepting a leak the same code would have flagged as "owner object
-   not moved" had the struct gone out of scope normally instead of
-   being erased to void*.
-
-   struct X has two owned members: .name is freed, .surname is not. One
-   correct free() call next to it is not enough to prove the whole
-   struct is clean -- flow analysis checks every _Owner member
-   individually before the type erasure to void* discards that
-   information for good. Note .surname is never read anywhere in these
-   functions -- that is the point: the member a caller forgot to
-   release is, by definition, the one nothing in the code happens to
-   touch, so the check must not depend on the code having read it
-   first.
-*/
+/* erasing a struct to void* (free) checks every _Owner member first: .surname was never released and must be reported even though nothing reads it */
 
 struct X
 {

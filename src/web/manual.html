@@ -720,6 +720,8 @@ reported by <code>gcc -v -E</code> / <code>clang -v -E</code>.</p>
 
 <hr>
 
+<p><a id="options"></a></p>
+
 <h2 id="toc_10">4. Command-Line Options</h2>
 
 <h3 id="toc_11">4.1 Preprocessor Options</h3>
@@ -868,6 +870,11 @@ until asked for:</p>
 <p><strong><code>-Werror</code></strong><br>
 Report every enabled warning as an error. Notes are not affected, and warnings that are disabled stay disabled. Because they become errors, warnings coming from included headers are no longer suppressed, and any occurrence makes the compilation fail.</p>
 
+<p><strong>Per-line suppression with <code>lint</code> comments</strong><br>
+Suppress a diagnostic on one line with a trailing <code>lint</code> comment listing its
+number(s): <code>//lint 35</code>, <code>// lint 35</code>, or <code>/* lint 81 */</code>. An unnecessary
+suppression is flagged with warning 59.</p>
+
 <h3 id="toc_14">4.4 Target Options</h3>
 
 <p><strong><code>-target=&lt;name&gt;</code></strong><br>
@@ -933,6 +940,30 @@ Run Cake&#39;s built-in flow analysis pass, including ownership, nullability, an
 
 <p><strong><code>-const-literal</code></strong><br>
 Treat string literals as <code>const char[]</code> rather than <code>char[]</code>.</p>
+
+<p><strong><code>-unused-extern-report</code></strong><br>
+Track every non-static (external linkage) function across all the files given
+in this invocation, and after the last one is compiled, report the ones that
+were never called in any of them.</p>
+
+<p>A <code>static</code> function&#39;s usage can already be decided by looking at its own file
+alone, so it is reported immediately as each file is compiled (see warning 57
+in the <a href="diagnostics.html">Warnings Reference</a>). A non-static function can be
+called from a different file than the one that defines it, so it needs the
+whole set of files to be checked together; this option does that check and
+prints its results once, at the end, instead of per file:</p>
+
+<pre><code>Functions never used in any of the compiled files:
+  utils.c:42: warning: function &#39;legacy_helper&#39; is not used in this build
+</code></pre>
+
+<p>This can only see the files passed to this invocation — a function only
+called from a file outside this build (or from a different <code>cake</code> invocation
+entirely) is still reported here. Functions declared in an <code>#include</code>d file
+(system headers included) are never reported, even if unused, since they are
+not part of the files given to this invocation. <code>main</code> is never reported
+either, since it is the program&#39;s entry point and is not expected to be
+called from within the program itself.</p>
 
 <h3 id="toc_16">4.6 Style and Formatting Options</h3>
 

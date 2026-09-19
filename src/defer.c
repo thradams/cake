@@ -639,7 +639,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                         diagnostic(W_LOCATION, ctx->ctx, p1->p_defer_statement->first_token, NULL, "defer");
                     }
                 }
-                else if (p1->p_declarator && type_is_vm(&p1->p_declarator->type))
+                else if (p1->p_declarator && type_is_vm(&p1->p_declarator->object.type))
                 {
                     bool found = false;
                     struct defer_scope* _Opt p0 = ctx->tail_block;
@@ -1064,7 +1064,7 @@ static void defer_visit_declarator(struct defer_visit_ctx* ctx, struct declarato
     try
     {
         if (ctx->tail_block &&
-            p_declarator->type.category != TYPE_CATEGORY_FUNCTION)
+            p_declarator->object.type.category != TYPE_CATEGORY_FUNCTION)
         {
             if (ctx->parameter_list > 1)
             {

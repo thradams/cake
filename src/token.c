@@ -67,39 +67,6 @@ void token_list_clear(_Clear struct token_list* list)
     list->tail = NULL;
 }
 
-
-void token_range_add_show(struct token* first, const struct token* last)
-{
-    for (struct token* current = first;
-         current != last->next;
-         current = current->next)
-    {
-        current->flags = current->flags & ~TK_C_BACKEND_FLAG_HIDE;
-        if (current->next == NULL)
-            break;
-    }
-}
-
-void token_range_remove_flag(struct token* first, const struct token* last, enum token_flags flag)
-{
-    for (struct token* _Opt current = first;
-        current && current != last->next;
-        current = current->next)
-    {
-        current->flags = current->flags & ~flag;
-    }
-}
-
-void token_range_add_flag(struct token* first, const struct token* last, enum token_flags flag)
-{
-    for (struct token* _Opt current = first;
-        current && current != last->next;
-        current = current->next)
-    {
-        current->flags |= flag;
-    }
-}
-
 void token_list_pop_back(struct token_list* list)
 {
     if (list->head == NULL)
@@ -269,27 +236,6 @@ char* _Owner _Opt token_list_join_tokens(struct token_list* list, bool bliteral)
     ss_close(&ss);
 
     return cstr;
-}
-
-
-void token_list_paste_string_after(struct token_list* list,
-    struct token* after,
-    const char* s)
-{
-    struct tokenizer_ctx tctx = { 0 };
-    struct token_list l = tokenizer(&tctx, s, NULL, 0, TK_FLAG_FINAL);
-    token_list_insert_after(list, after, &l);
-    token_list_destroy(&l);
-}
-
-void token_list_paste_string_before(struct token_list* list,
-    struct token* before,
-    const char* s)
-{
-    struct tokenizer_ctx tctx = { 0 };
-    struct token_list l = tokenizer(&tctx, s, NULL, 0, TK_FLAG_FINAL);
-    token_list_insert_before(list, before, &l);
-    token_list_destroy(&l);
 }
 
 
@@ -807,96 +753,6 @@ void print_tokens(bool color_enabled, const struct token* _Opt p_token)
 }
 
 
-void print_token_html(const struct token* p_token)
-{
-    printf("<span class=\"");
-
-
-    if (!(p_token->flags & TK_FLAG_FINAL))
-    {
-        printf("notfinal ");
-    }
-
-    if (p_token->flags & TK_FLAG_FINAL)
-    {
-        printf("final ");
-    }
-    if (p_token->flags & TK_C_BACKEND_FLAG_HIDE)
-    {
-        printf("hide ");
-    }
-    if (p_token->flags & TK_FLAG_MACRO_EXPANDED)
-    {
-        printf("expanded ");
-    }
-    if (p_token->flags & TK_FLAG_HAS_SPACE_BEFORE)
-    {
-        printf("space ");
-    }
-    if (p_token->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
-    {
-        printf("newline ");
-    }
-    if (p_token->flags & TK_FLAG_ACTIVE)
-    {
-        printf("active ");
-    }
-
-    printf("\">");
-
-    print_literal2(p_token->lexeme);
-
-    printf("</span>");
-
-    if (p_token->type == TK_NEWLINE || p_token->type == TK_BEGIN_OF_FILE)
-    {
-        printf("<br>\n");
-    }
-}
-
-/*
- CSS for html ouput
-
- <style>
-        .final {
-          color:blue;
-        }
-
-        .notfinal {
-          color:gray;
-        }
-
-        .hide {
-          text-decoration: line-through;
-          color:red;
-        }
-
-        .expanded {
-           background-color:yellow;
-        }
-
-        span {
-            border-style: solid;
-            border-color: gray;
-            border-width: 1px 1px;
-            padding:1px;
-            margin:2px;
-        }
-
-</style>
-
-*/
-void print_tokens_html(struct token* p_token)
-{
-    printf("<pre>\n");
-    struct token* _Opt current = p_token;
-    while (current)
-    {
-        print_token_html(current);
-        current = current->next;
-    }
-    printf("\n</pre>");
-}
 void print_position(const char* _Opt path, int line, int col, enum diagnostic_ouput_format format, bool color_enabled, bool fullpath)
 {
     struct osstream ss = { 0 };
@@ -977,6 +833,58 @@ void ss_print_position(struct osstream* ss,
         else
             ss_fprintf(ss, ":%d:%d: ", line, col);
     }
+}
+
+void ss_print_diagnostic_header(struct osstream* ss,
+                                const char* _Opt path,
+                                int line, int col,
+                                enum diagnostic_ouput_format format,
+                                bool color_enabled,
+                                bool fullpath,
+                                int id,
+                                bool is_error,
+                                bool is_warning,
+                                bool is_note,
+                                const char* text)
+{
+    /* the main source file prints only the file name, includes print the full path */
+    ss_print_position(ss, path, line, col, format, color_enabled, fullpath);
+
+    if (format == DIAGNOSTIC_OUTPUT_FORMAT_MSVC)
+    {
+        if (is_error) ss_fprintf(ss, "error %d: ", id);
+        else if (is_warning) ss_fprintf(ss, "warning %d: ", id);
+        else if (is_note) ss_fprintf(ss, "note: ");
+        else ss_fprintf(ss, ": ");
+        ss_fprintf(ss, "%s", text);
+    }
+    else
+    {
+        if (is_error)
+        {
+            if (color_enabled)
+                ss_fprintf(ss, LIGHTRED "error " WHITE "%d: %s" COLOR_RESET, id, text);
+            else
+                ss_fprintf(ss, "error %d: %s", id, text);
+        }
+        else if (is_warning)
+        {
+            if (color_enabled)
+                ss_fprintf(ss, LIGHTMAGENTA "warning " WHITE "%d: %s" COLOR_RESET, id, text);
+            else
+                ss_fprintf(ss, "warning %d: %s", id, text);
+        }
+        else
+        {
+            /* note, or a W_LOCATION annotating the diagnostic above it */
+            if (color_enabled)
+                ss_fprintf(ss, LIGHTCYAN "note: " WHITE "%s" COLOR_RESET, text);
+            else
+                ss_fprintf(ss, "note: %s", text);
+        }
+    }
+
+    ss_fprintf(ss, "\n");
 }
 
 void ss_print_line_and_token(struct osstream* ss,

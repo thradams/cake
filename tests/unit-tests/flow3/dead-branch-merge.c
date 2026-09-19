@@ -1,16 +1,6 @@
 #pragma safety enable
 
-/*
-   Regression test for is_dead maps.
-
-   When a condition folds to a known constant, one arm becomes
-   unreachable (e.g. the false arm of `if (x == 3)` when x == 3 is
-   known). Before is_dead existed, "unreachable" was inferred from an
-   arm having no map entries at all -- but writes made inside a dead
-   arm's (never executed, but still visited for constant folding)
-   body could populate it with entries anyway, tricking the merge
-   into treating it as a live, reachable arm.
-*/
+/* a constant-folded arm is dead even if visiting it left entries in its map; the merge must skip it */
 
 void known_true_branch(void)
 {

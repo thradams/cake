@@ -1,14 +1,6 @@
 #pragma safety enable
 
-/*
-   Regression test for flow3_map_accumulate_into_join.
-
-   Multiple break statements (or multiple switch cases) join into the
-   same break-join map. Before the fix, the join was implemented as a
-   merge (flow3_map_merge_a_b(join, current, join)) which treats "join"
-   itself as one of only two arms, so the second break silently
-   overwrote the state left by the first instead of accumulating both.
-*/
+/* several break sites must accumulate into the break-join map, not overwrite each other */
 
 int unknown();
 
@@ -31,8 +23,7 @@ void multi_break_while(int x)
         break;
     }
 
-    /* All three break sites, plus the zero-iteration exit (a == 0),
-       must be visible after the loop. */
+    /* all three break sites plus the zero-iteration exit must be visible after the loop */
     compile_assert(a == 0 || a == 1 || a == 2 || a == 3);
 }
 

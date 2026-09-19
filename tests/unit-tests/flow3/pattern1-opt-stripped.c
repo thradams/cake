@@ -1,14 +1,6 @@
 #pragma safety enable
 
-/*
-   _Opt on a pointer parameter is what makes a NULL argument legal. Passing
-   NULL to a NON-nullable pointer parameter is flagged (warning 60 + warning
-   35). The two functions below show both sides self-contained.
-
-   (If `_Opt` is ever #defined to empty -- e.g. an unannotated header shadowing
-   the keyword -- the parameter looks non-nullable and the identical NULL call
-   is wrongly flagged. `bad()` reproduces that by stripping _Opt locally.)
-*/
+/* NULL to a non-nullable parameter is flagged (60 + 35); if _Opt is #defined to empty the same call is wrongly flagged */
 
 #define NULL ((void*)0)
 struct marker { int z; };
@@ -20,8 +12,7 @@ void ok(void)
     diag_opt(NULL);
 }
 
-/* _Opt stripped to empty: the parameter now looks non-nullable, so the
-   identical NULL is flagged (warning 60 + warning 35). */
+/* _Opt stripped to empty: the identical NULL is flagged */
 #define _Opt
 int diag_stripped(const struct marker* _Opt m);
 void bad(void)

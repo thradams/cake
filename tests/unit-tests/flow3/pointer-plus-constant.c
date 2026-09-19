@@ -1,14 +1,6 @@
 #pragma safety enable
 
-/*
-   Pointer arithmetic can never turn a valid pointer into a null one, so
-   `pointer + constant` must stay non-null.
-
-   This holds for a plain pointer parameter (`int* p; p + 1`) AND for an
-   array-decay base (`int arr[10]; arr + 3`) -- the latter shows up as a REF to
-   the array object, and the additive evaluator now carries the non-null
-   through it, producing a non-null pointer result.
-*/
+/* `pointer + constant` stays non-null, for a pointer parameter and for an array-decay base like `arr + 3` */
 
 /* Plain pointer parameter + constant: correctly non-null. */
 void plain_pointer(int* p)

@@ -1,19 +1,6 @@
 #pragma safety enable
 
-/*
-   Checkpoint: multi-alternative values with CORRELATED joins.
-
-   A variable can hold several values after a control-flow join, each tagged
-   with the branch (a stable branch-decision "origin") it came from. Values
-   combine only across compatible origins -- no branch id appears on both
-   sides with opposite outcomes -- so a join stays correlated all the way
-   through arithmetic, comparisons, and &&/|| . A constant (or constexpr)
-   carries no branch decisions, so it correlates with every path.
-
-   Every compile_assert here holds on EVERY path, so this file is clean
-   (0 errors / 0 warnings). The cases that should fail are documented in
-   comments only.
-*/
+/* checkpoint: joined values keep their branch origin and combine only across compatible origins; every compile_assert here holds */
 
 /* ---- arithmetic keeps the branch pairing: a+b in {3,7}, not {3,5,7} ---- */
 void arithmetic(int c)

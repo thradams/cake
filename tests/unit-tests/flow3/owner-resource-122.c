@@ -17,9 +17,6 @@ void init(_Out struct X* px)
 int main() {
     struct X x;
     init(&x);
-    /* FIXED: this used to warn "passing a possible null pointer '.s'"
-       here -- init's _Out call invalidated x.s to a generic ANY value
-       (could be zero), even though x.s is a plain (non-_Opt) _Owner
-       pointer whose type already guarantees it's never null. */
+    /* FIXED: the _Out call keeps the non-_Opt _Owner member x.s non-null, no "possible null pointer" */
     free(x.s);
 }

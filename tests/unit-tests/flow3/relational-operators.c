@@ -1,19 +1,6 @@
 #pragma safety enable
 
-/*
-   Tests for flow3 narrowing of the relational operators >, >=, <, <=.
-
-   When a scalar variable is compared against a constant and the result is
-   not constant-foldable, flow3 records a half-line constraint on the
-   variable: the true branch gets `var OP const`, the false branch gets the
-   negated relation. _Assert(expr) keeps only the true branch, so after
-   `_Assert(a > 0)` the fact `a > 0` holds.
-
-   Every compile_assert below is a POSITIVE check: it only passes if flow3
-   can prove the condition from the recorded constraints, so this file must
-   compile with 0 errors and 0 warnings. Facts flow3 cannot (soundly) prove
-   are shown commented-out with the reason, to document the boundaries.
-*/
+/* narrowing on >, >=, <, <=: the true branch records `var OP const`, the false branch the negation; every compile_assert here must be provable */
 
 /* -------- assert records the exact half-line constraint -------- */
 
@@ -65,10 +52,7 @@ void implication(int a)
     compile_assert(a >= 5);  /* ...and a >= 5        */
     compile_assert(a > 4);   /* ...and a > 4         */
 
-    /* Not provable -- flow3 correctly leaves these unknown:
-         compile_assert(a > 6);    // a could be exactly 6
-         compile_assert(a > 10);   // a could be 6
-    */
+    /* not provable: a > 6 (a could be 6), a > 10 */
 }
 
 /* -------- the false branch carries the negated constraint -------- */
@@ -121,9 +105,7 @@ void boundary_inclusive(int a)
 {
     _Assert(a >= 0);
     compile_assert(a >= 0);
-    /* a > 0 is deliberately NOT provable here: a could be exactly 0.
-         compile_assert(a > 0);   // correctly rejected
-    */
+    /* a > 0 is not provable here: a could be exactly 0 */
 }
 
 /* -------- assert with the value on both sides of zero -------- */

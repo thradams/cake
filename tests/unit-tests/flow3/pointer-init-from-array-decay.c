@@ -1,20 +1,6 @@
 #pragma safety enable
 
-/*
-   Regression tests for pointer values that come into existence via
-   array-to-pointer decay (as opposed to a normal scalar assignment).
-
-   A decayed array address -- whether from a string literal or from a
-   named array object -- is a compile-time fact: it is always non-null
-   and always a fully-initialized pointer value, regardless of whether
-   the array's *contents* are initialized. flow3 used to mishandle this
-   in flow3_check_object_init_assigment: the source (the array/string
-   literal) has per-element members while the destination (a scalar
-   pointer) does not, so the member-wise copy loop did nothing and the
-   destination silently kept its declaration-time UNINITIALIZED state --
-   later misreported as "passing a possible uninitialized object" the
-   first time the pointer was read.
-*/
+/* a pointer initialized from array-to-pointer decay (string literal or named array) is initialized and non-null regardless of the array's contents */
 
 void take(char* p);
 

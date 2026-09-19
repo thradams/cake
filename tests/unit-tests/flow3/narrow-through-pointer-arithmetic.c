@@ -1,19 +1,6 @@
 #pragma safety enable
 
-/*
-   A null check on a struct member must keep narrowing that member when the
-   value is then used in POINTER ARITHMETIC -- including after the containing
-   struct has been passed to a function.
-
-   Passing `st` to reserve() invalidates the tracked state of st->c_str, which
-   is correct. The `st->c_str == 0` check afterwards re-establishes it, so the
-   `st->c_str + st->size` that follows is a non-null pointer.
-
-   The three functions below isolate the ingredients: only the last one needs
-   both the invalidating call AND the arithmetic. Regression for osstream.c
-   (ss_vafprintf / ss_vasprintf) and compile.c:565, where correct, guarded
-   code reported "may be null, but the destination does not allow null".
-*/
+/* `st->c_str == 0` after passing st to a function re-narrows the member, so `st->c_str + st->size` is non-null (osstream.c, compile.c) */
 
 struct osstream
 {
@@ -61,8 +48,7 @@ int call_then_arithmetic(struct osstream* st)
     return take(st->c_str + st->size);
 }
 
-/* The same shape guarded inside a single expression with &&, as compile.c
-   writes it. */
+/* same shape guarded with && in one expression, as compile.c writes it */
 int guarded_in_same_expression(struct osstream* st, int n)
 {
     reserve(st, 1);

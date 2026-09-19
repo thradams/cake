@@ -144,12 +144,14 @@ enum {
      * via ui_env_adjust_font_size() (see ui.h). */
     EVT_WINDOW_FONT_INC = 85,
     EVT_WINDOW_FONT_DEC = 86,
-    EVT_HELP_INDEX = 90,  /* the Help > "Index" menu item's id */
     EVT_HELP_CONTEXTUAL = 200,  /* the status bar's F1 hotkey - see
                                  * do_help_contextual() */
     EVT_HELP_ABOUT = 92,
     EVT_HELP_CHECK = 93,  /* the Help > "Check" menu item's id - see
                            * do_help_check() */
+    EVT_HELP_MANUAL = 94,  /* Help > "Manual" - web/manual.html in the browser,
+                            * see do_help_manual() */
+    EVT_HELP_WEBSITE = 95,  /* Help > "Cake Website" - https://cakecc.org/ */
     EVT_OPTIONS_ENV = 72,
     EVT_OPTIONS_DIRS = 73,
     EVT_ABOUT_MODAL = 400,
@@ -231,9 +233,9 @@ enum {
     EVT_WORDWRAP_CANCEL = 852,
     EVT_COPTS_OK = 900,
     EVT_COPTS_CANCEL = 901,
-    EVT_COPTS_HELP = 902,  /* Compiler Options' Help button - opens
-                             * help/cmdline.md, same idea as F1's contextual
-                             * help but a fixed topic - see do_help_cmdline() */
+    EVT_COPTS_HELP = 902,  /* Compiler Options' Help button - opens the
+                             * manual's Command-Line Options section in the
+                             * browser - see do_help_cmdline() */
     EVT_COPTS_TARGET = 910,  /* base id for the Target <select>'s options */
     EVT_COPTS_STYLE = 920,   /* base id for the Style <select>'s options */
     EVT_COPTS_DIAGFORMAT = 930, /* base id for the Output Format <select>'s options */
@@ -492,6 +494,8 @@ typedef struct
     int fanalyzer;          /* -fanalyzer */
     int const_literal;      /* -const-literal */
     int wall;                /* -Wall */
+    int unused_extern_report; /* -unused-extern-report */
+    int use_cake_headers;     /* -cake-headers */
 } compile_settings;
 
 #define CAKE_PROJECT_EXT ".cakeproj"
@@ -848,9 +852,11 @@ static void build_screen(ui_node* root)
     add_menu(menubar, "Window", window_items, sizeof window_items / sizeof window_items[0]);
 
     static const menu_item_spec help_items[] = {
-        { 90, "Index", NULL, 1 },
+        { EVT_HELP_MANUAL, "Manual", NULL, 1 },
         //{ 91, "Topic search", NULL, 1 },
         { EVT_HELP_CHECK, "Check", NULL, 1 },
+        SEP,
+        { EVT_HELP_WEBSITE, "Cake Website", NULL, 1 },
         SEP,
         { 92, "About...", NULL, 1 },
     };
@@ -1082,6 +1088,8 @@ static compile_settings g_compile =
     .fanalyzer = 0,
     .const_literal = 0,
     .wall = 0,
+    .unused_extern_report = 0,
+    .use_cake_headers = 0,
     .output = "",
 };
 
@@ -4316,6 +4324,8 @@ static void compile_settings_to_json(struct json_value* object, const compile_se
     json_set_bool(object, "fanalyzer", c->fanalyzer);
     json_set_bool(object, "const_literal", c->const_literal);
     json_set_bool(object, "wall", c->wall);
+    json_set_bool(object, "unused_extern_report", c->unused_extern_report);
+    json_set_bool(object, "use_cake_headers", c->use_cake_headers);
 }
 
 /* Reads a "compile" object back into `c`, leaving any field the object
@@ -4352,6 +4362,8 @@ static void compile_settings_from_json(const struct json_value* object, compile_
     c->fanalyzer = project_json_get_bool(object, "fanalyzer", c->fanalyzer);
     c->const_literal = project_json_get_bool(object, "const_literal", c->const_literal);
     c->wall = project_json_get_bool(object, "wall", c->wall);
+    c->unused_extern_report = project_json_get_bool(object, "unused_extern_report", c->unused_extern_report);
+    c->use_cake_headers = project_json_get_bool(object, "use_cake_headers", c->use_cake_headers);
 }
 
 /* "cake.json" - the global compiler settings, kept beside the executable
@@ -4745,13 +4757,12 @@ static void project_close(void)
 /* Opens a specific help/<filename> topic (e.g. "index.md", "cmdline.md") into
  * an editor window - the shared "resolve the help/ folder, reveal it in the
  * Folder panel, record the jump, open the file" job every help entry point
- * needs: Help > Index (do_help_index(), "index.md"), F1's contextual help
- * (do_help_contextual(), whichever help/<word>.md topic matches the caret),
- * and the Compiler Options dialog's Help button (do_help_cmdline(), the
- * fixed "cmdline.md" topic). `filename` is relative to the help/ folder;
+ * needs: F1's contextual help
+ * (do_help_contextual(), whichever help/<word>.md topic matches the caret).
+ * `filename` is relative to the help/ folder;
  * `label` is the new window's title, same as open_file_path_into_editor's
  * own `label` param - pass "help/<filename>" to title the window the way
- * Help > Index always has. Already open? open_file_path_into_editor's own
+ * the help index window has. Already open? open_file_path_into_editor's own
  * existing-window check just re-raises it. Missing? Its own message box
  * reports that instead of silently doing nothing. */
 static void open_help_topic(const char* filename, const char* label)
@@ -4783,20 +4794,87 @@ static void open_help_topic(const char* filename, const char* label)
     open_file_path_into_editor(path, label);
 }
 
-/* Help > Index (EVT_HELP_INDEX): opens the help index from the executable's
- * help directory, so the help content travels with the app. */
+static int open_local_file_in_browser(const char* path, const char* fragment);  /* defined further
+                                                            * down with the
+                                                            * other process
+                                                            * helpers */
+
+/* Opens web/manual.html - the generated HTML manual the installer ships
+ * next to the executable (see install.c's "web" entry and build.c's
+ * generate_doc) - in the default web browser, rather than into an editor
+ * window like the .md help topics. `fragment` is an optional "#anchor"
+ * (without the '#') to land on a section - a stable <a id="..."> written
+ * by hand in manual.md, not hoedown's positional toc_N ids, which renumber
+ * whenever a heading is added. NULL opens the top. Same "resolve the folder
+ * next to the executable" idea as open_help_topic. Used by Help > Manual
+ * (do_help_manual) and the Compiler Options dialog's Help button
+ * (do_help_cmdline). */
+static void open_manual(const char* fragment)
+{
+    char dir[1024] = { 0 };
+    char exe_path[1024] = { 0 };
+
+    if (!get_self_path(exe_path, sizeof exe_path))
+    {
+        strncpy(dir, exe_path, sizeof dir - 1);
+        dir[sizeof dir - 1] = 0;
+        dirname(dir);
+    }
+    if (!dir[0] && !ui_get_cwd(dir, sizeof dir))
+        dir[0] = 0;
+
+    char path[1024];
+    snprintf(path, sizeof path, "%s/web/manual.html", dir);
+
+    ui_msgbox_button ok = { "   OK   ", 0 };
+    FILE* f = fopen(path, "rb");
+    if (!f)
+    {
+        char msg[1200];
+        snprintf(msg, sizeof msg, "Manual not found:\n%s", path);
+        ui_message_box(g_screen, "Help", msg, &ok, 1);
+        return;
+    }
+    fclose(f);
+
+    if (!open_local_file_in_browser(path, fragment))
+        ui_message_box(g_screen, "Help", "Could not open the web browser.", &ok, 1);
+}
+
+/* Help > Manual (EVT_HELP_MANUAL): the manual from the top. */
+static void do_help_manual(void)
+{
+    open_manual(NULL);
+}
+
+/* Help > "Cake Website": ui_open_url() with a fixed URL; the message box
+ * covers the one thing that can go wrong on this side (no browser handler
+ * registered / xdg-open missing - see ui_open_url in ide_ui.h). */
+static void do_help_open_link(const char* url)
+{
+    if (!ui_open_url(url))
+    {
+        ui_msgbox_button ok = { "   OK   ", 0 };
+        char msg[512];
+        snprintf(msg, sizeof msg, "Could not open the web browser for:\n%s", url);
+        ui_message_box(g_screen, "Help", msg, &ok, 1);
+    }
+}
+
+/* Opens help/index.md - F1's fallback when no topic matches the word under
+ * the caret (see do_help_contextual). No longer on the Help menu itself;
+ * the menu's entry points are the HTML manual and the online links. */
 static void do_help_index(void)
 {
     open_help_topic("index.md", "help/index.md");
 }
 
-/* Compiler Options' Help button (EVT_COPTS_HELP): opens help/cmdline.md, the
- * command-line reference - same job as F1's contextual help
- * (do_help_contextual), just a fixed topic instead of whatever's under the
- * caret, since there's no editor caret to look at from inside this dialog. */
+/* Compiler Options' Help button (EVT_COPTS_HELP): opens the manual's
+ * "Command-Line Options" section (manual.md's <a id="options"> anchor) in
+ * the browser - the reference for exactly the switches this dialog edits. */
 static void do_help_cmdline(void)
 {
-    open_help_topic("cmdline.md", "cmdline");
+    open_manual("options");
 }
 
 static int is_word_char(int c) { return isalnum((unsigned char)c) || c == '_'; }
@@ -4851,7 +4929,7 @@ static int word_at_cursor(const char* text, int len, int cursor, char* out, int 
  * topic, falls back to the general index, still trying to land on a
  * matching "# <word>" heading in it rather than just dumping the reader at
  * the top. No document focused, or nothing under the caret? Same as
- * pressing Help > Index. */
+ * do_help_index() does. */
 
 /* Defined later, next to the rest of the session/config-path plumbing it
  * reports on (see get_session_file_path) - forward declared so on_ui_event
@@ -4921,7 +4999,7 @@ static void do_help_contextual(void)
     FILE* f = fopen(index_path, "rb");
     if (!f)
     {
-        do_help_index();  /* lets it report "not found", same as Help > Index */
+        do_help_index();  /* lets it report "not found", same as do_help_index */
         return;
     }
 
@@ -5011,7 +5089,7 @@ static void do_open_terminal(void)
 
 /* Reads `link` (resolved relative to `win`'s own directory, or the app's
  * working directory if `win` has none) and replaces `win`'s <editor> content
- * with it in place - unlike File > Open/Help > Index, this never opens a new
+ * with it in place - unlike File > Open/do_help_index, this never opens a new
  * window. Retitles the window, re-derives the syntax mode from the new
  * extension, and shows a message box instead of doing nothing if the file
  * doesn't exist. Used by do_editor_ctrlclick() below for Markdown links. */
@@ -5931,6 +6009,49 @@ static void exttool_expand(const char* in, const char* path, struct exttool_buf*
 #define ide_close  close
 #define ide_fileno fileno
 #endif
+
+/* ui_open_url() for a file on disk: turns an absolute local path
+ * into a file:// URL (backslashes to slashes, a leading "/" before a drive
+ * letter, and everything outside the unreserved/path-safe set %-escaped so a
+ * space or a '#' in the path doesn't get read as URL syntax) and hands it
+ * off. `fragment`, if non-NULL, is appended as "#fragment" (already URL-safe
+ * by contract - an id written in the .md source). Same return contract as
+ * ui_open_url(). */
+static int open_local_file_in_browser(const char* path, const char* fragment)
+{
+    if (!path || !path[0])
+        return 0;
+
+    char url[3 * FS_MAX_PATH + 16];
+    size_t n = 0;
+    memcpy(url, "file://", 7);
+    n = 7;
+    if (path[0] != '/' && path[0] != '\\')
+        url[n++] = '/';  /* "C:/..." needs the third slash: file:///C:/... */
+
+    for (const unsigned char* p = (const unsigned char*)path; *p && n + 4 < sizeof url; p++)
+    {
+        unsigned char c = *p;
+        if (c == '\\')
+            c = '/';
+        if (isalnum(c) || c == '/' || c == ':' || c == '.' || c == '-' ||
+            c == '_' || c == '~')
+        {
+            url[n++] = (char)c;
+        }
+        else
+        {
+            static const char hex[] = "0123456789ABCDEF";
+            url[n++] = '%';
+            url[n++] = hex[c >> 4];
+            url[n++] = hex[c & 15];
+        }
+    }
+    url[n] = 0;
+    if (fragment && fragment[0])
+        snprintf(url + n, sizeof url - n, "#%s", fragment);
+    return ui_open_url(url);
+}
 
 #define COMPILE_STREAM_MAX_BYTES (8 * 1024 * 1024)
 
@@ -7118,6 +7239,10 @@ static void do_compile(void)
         argv[argc++] = "-const-literal";
     if (cs->wall)
         argv[argc++] = "-Wall";
+    if (cs->unused_extern_report)
+        argv[argc++] = "-unused-extern-report";
+    if (cs->use_cake_headers)
+        argv[argc++] = "-cake-headers";
 
     char optbuf[sizeof cs->options];
     snprintf(optbuf, sizeof optbuf, "%s", cs->options);
@@ -7257,6 +7382,10 @@ static void do_project_build(void)
         argv[argc++] = "-const-literal";
     if (cs->wall)
         argv[argc++] = "-Wall";
+    if (cs->unused_extern_report)
+        argv[argc++] = "-unused-extern-report";
+    if (cs->use_cake_headers)
+        argv[argc++] = "-cake-headers";
 
     char optbuf[sizeof cs->options];
     snprintf(optbuf, sizeof optbuf, "%s", cs->options);
@@ -10335,6 +10464,8 @@ static void open_compiler_options_dialog(compile_settings* cs, int is_project)
     ui_group_set_checked(g_copts.flags, 2, cs->fanalyzer);
     ui_group_set_checked(g_copts.flags, 3, cs->const_literal);
     ui_group_set_checked(g_copts.flags, 4, cs->wall);
+    ui_group_set_checked(g_copts.flags, 5, cs->unused_extern_report);
+    ui_group_set_checked(g_copts.flags, 6, cs->use_cake_headers);
     ui_screen_show_modal(g_screen, g_copts.modal);
 }
 
@@ -10429,6 +10560,8 @@ static void on_ui_event(void* ctx, int id, void* param)
         cs->fanalyzer = ui_group_get_checked(g_copts.flags, 2);
         cs->const_literal = ui_group_get_checked(g_copts.flags, 3);
         cs->wall = ui_group_get_checked(g_copts.flags, 4);
+        cs->unused_extern_report = ui_group_get_checked(g_copts.flags, 5);
+        cs->use_cake_headers = ui_group_get_checked(g_copts.flags, 6);
         /* Persist immediately, to whichever file owns these settings: a
          * project's own ".cakeproj", or - for Playground and any file that
          * isn't part of the project (see active_compile_settings()) - the
@@ -10457,9 +10590,13 @@ static void on_ui_event(void* ctx, int id, void* param)
     {
         do_help_cmdline();
     }
-    else if (id == EVT_HELP_INDEX)
+    else if (id == EVT_HELP_MANUAL)
     {
-        do_help_index();
+        do_help_manual();
+    }
+    else if (id == EVT_HELP_WEBSITE)
+    {
+        do_help_open_link("https://cakecc.org/");
     }
     else if (id == EVT_HELP_CONTEXTUAL)
     {
@@ -13299,11 +13436,15 @@ void app_init(ui_env* env)
     add_group_item(g_copts.flags, "-fanalyzer");
     add_group_item(g_copts.flags, "-const-literal");
     add_group_item(g_copts.flags, "-Wall");
+    add_group_item(g_copts.flags, "-unused-extern-report");
+    add_group_item(g_copts.flags, "-cake-headers");
     ui_group_set_checked(g_copts.flags, 0, g_compile.no_output);
     ui_group_set_checked(g_copts.flags, 1, g_compile.line_directives);
     ui_group_set_checked(g_copts.flags, 2, g_compile.fanalyzer);
     ui_group_set_checked(g_copts.flags, 3, g_compile.const_literal);
     ui_group_set_checked(g_copts.flags, 4, g_compile.wall);
+    ui_group_set_checked(g_copts.flags, 5, g_compile.unused_extern_report);
+    ui_group_set_checked(g_copts.flags, 6, g_compile.use_cake_headers);
 
     /* The built executable's name - what $(TargetFileName) expands to and
      * what Debug launches; empty means "derive it" (see target_file_name). */

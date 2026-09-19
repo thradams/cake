@@ -1,21 +1,6 @@
 #pragma safety enable
 
-/*
-   Repro for expressions.c:743 (character_constant_expression).
-
-   `ctx->current` is declared `_Opt` in the struct. It is guarded with
-   `if (ctx->current == NULL) throw;`, which correctly narrows it for the
-   direct `ctx->current->lexeme` access right after (no warning there).
-
-   That narrowed value is cast and stored into a local `_Opt` pointer
-   `p`. After some pointer arithmetic (`p++`), `p` is passed to a
-   non-nullable parameter and reassigned from the result:
-
-       p = decode(p, &c);
-
-   `p` was derived from an already narrowed, non-owner, non-null
-   source, so no warning should be reported here.
-*/
+/* p derived from a narrowed non-null `ctx->current`, then `p++` and `p = decode(p, &c)`: no warning (expressions.c:743) */
 
 #define NULL ((void*)0)
 

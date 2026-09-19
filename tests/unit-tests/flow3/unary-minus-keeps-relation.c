@@ -1,24 +1,6 @@
 #pragma safety enable
 
-/*
-   Unary minus must carry the operand's RELATION through, mirrored:
-
-       x >  v   =>   -x <  -v
-       x >= v   =>   -x <= -v
-       x <  v   =>   -x >  -v
-       x <= v   =>   -x >= -v
-       x != v   =>   -x != -v
-
-   flow3 seeded the result of a non-constant `-x` as a plain ANY, throwing away
-   everything known about x. So inside `if (b < 0)`, the divisor `-b` -- which
-   is strictly positive and therefore never zero -- read as "could be anything,
-   including 0" and produced a false "division by zero".
-
-   (Reproduced from object.c signed_long_long_mul: `if (-a > LLONG_MAX / -b)`.)
-
-   EQUAL is deliberately not carried through: a genuine constant is already
-   folded earlier, and an EQUAL coming from flow state may be a stale seed.
-*/
+/* `-x` mirrors x's relation (x > v gives -x < -v, etc.), so inside `if (b < 0)` the divisor -b is not zero (object.c signed_long_long_mul); EQUAL is not carried */
 
 #define LLONG_MAX 9223372036854775807LL
 
@@ -38,9 +20,4 @@ long long div_by_positive(long long b)
     return 0;
 }
 
-/*
-   Documented (still warns, correctly): nothing is known about b, so -b may
-   be zero.
-
-       long long unguarded(long long b) { return LLONG_MAX / -b; }
-*/
+/* documented: with nothing known about b, `LLONG_MAX / -b` still warns */

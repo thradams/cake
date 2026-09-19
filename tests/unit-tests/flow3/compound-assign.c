@@ -1,10 +1,6 @@
 #pragma safety enable
 
-/*
-   Compound assignment folding. Also guards the lhs value_kind check:
-   the folded lhs must be a numeric alternative, not a REF/PTR whose
-   pointer bits would be reinterpreted as an integer.
-*/
+/* compound assignment folding; the lhs must be numeric, never a REF/PTR reinterpreted as an integer */
 
 void compound_fold()
 {

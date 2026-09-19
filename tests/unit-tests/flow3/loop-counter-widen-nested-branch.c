@@ -1,20 +1,6 @@
 #pragma safety enable
 
-/*
-   A counter incremented once per iteration must not keep the first
-   iteration's concrete value in the pass that reports.
-
-   Two things used to lose it, and both showed up as a folded condition
-   (`count > 0 && count % 25 == 0` reported always-false, its body reported
-   unreachable) in tokenizer.c's embed_tokenizer:
-
-   1. The && result seeded by the loop's SUPPRESSED first pass stayed in the
-      map, so the reporting pass read a value it no longer believed.
-   2. Incrementing the counter on both sides of an unrelated `if` leaves two
-      alternatives that both say the same number, and the loop widening
-      only recognized a single alternative -- so the counter was never
-      widened to ANY.
-*/
+/* a counter incremented on both sides of an unrelated if is still widened, and the suppressed first pass's && result does not survive into the reporting pass (tokenizer.c embed_tokenizer) */
 
 int next(void);
 

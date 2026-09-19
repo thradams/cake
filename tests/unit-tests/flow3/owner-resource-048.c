@@ -11,9 +11,7 @@ int main()
     free(p2);
 
     //object may be already moved
-    /* FIXED: used to ALSO warn "object '(*p)' lifetime has ended" here
-       -- free's parameter is void*, so it never accesses *p's
-       structure; only the "p is moved" warning below is real. */
+    /* FIXED: no extra "(*p) lifetime has ended", free takes void*; only "p is moved" is real */
     free(p); //lint 32 object 'p' is moved (see line 9)
 
 }

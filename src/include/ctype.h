@@ -1,10 +1,13 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 #ifdef CAKE_HEADERS
 
-#ifndef CTYPE_H
-#define CTYPE_H
+#pragma once
 
-/* Character classification macros */
+/* character classification */
 int isalnum(int c);
 int isalpha(int c);
 int isblank(int c);
@@ -18,13 +21,10 @@ int isspace(int c);
 int isupper(int c);
 int isxdigit(int c);
 
-/* Character conversion */
+/* character case mapping */
 int tolower(int c);
 int toupper(int c);
-
-#endif /* CTYPE_H */
 
 #else
 #include_next <ctype.h>
 #endif
-

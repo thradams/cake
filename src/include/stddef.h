@@ -5,17 +5,30 @@
 
 #ifdef CAKE_HEADERS
 
+#pragma once
 
-#define unreachable() do {} while(0) 
-typedef long int ptrdiff_t;
-typedef unsigned long size_t;
-typedef int wchar_t;
+#include <__cake_types.h>
+
+#define __STDC_VERSION_STDDEF_H__ 202311L
+
+typedef __cake_ptrdiff_t ptrdiff_t;
+typedef __cake_size_t size_t;
+typedef __cake_wchar_t wchar_t;
+
 typedef struct {
   long long __max_align_ll;
   long double __max_align_ld;
 } max_align_t;
 
 typedef typeof(nullptr) nullptr_t;
+
+#ifndef NULL
+#define NULL ((void*)0)
+#endif
+
+#define offsetof(type, member) __builtin_offsetof(type, member)
+
+#define unreachable() do {} while(0)
 
 #else
 #include_next <stddef.h>

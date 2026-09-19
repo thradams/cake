@@ -1,14 +1,6 @@
 #pragma safety enable
 
-/*
-   Compile-time integer constants are seeded into flow3 from the value the
-   parser folded, so they work in flow-checked comparisons (compile_assert):
-
-     - enumerators           (RED, GREEN, ...)   -- signed; may be negative
-     - character constants   ('A', '\n')         -- via the numeric-literal path
-
-   Use compile_assert (flow-checked), not static_assert (C11 compile-time).
-*/
+/* enumerators and character constants are seeded from the parser's folded value for compile_assert */
 
 enum Color { RED, GREEN = 5, BLUE };      /* 0, 5, 6 */
 enum Signed { NEG = -3, ZERO = 0, POS = 3 };

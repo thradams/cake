@@ -1,15 +1,6 @@
 #pragma safety enable
 
-/*
-   A global (file-scope) pointer respects its declared nullability, just like a
-   parameter or a member:
-     - a non-_Opt global pointer is non-null;
-     - an _Opt global pointer is possibly-null.
-
-   flow3 used to seed every global read as a generic ANY value, so a non-_Opt
-   global pointer read as possibly-null -- e.g. passing the standard `stdout`
-   (declared non-_Opt) to a non-nullable parameter falsely warned.
-*/
+/* a global pointer respects its declared nullability: non-_Opt is non-null (stdout), _Opt is possibly null */
 
 #define NULL ((void*)0)
 
@@ -32,9 +23,4 @@ void use_opt(void)
         takes_nonnull(opt_global);   /* ok: guarded */
 }
 
-/*
-   The original case -- passing the non-null standard stream is clean:
-
-       #include <stdio.h>
-       void log_line(const char* s) { fputs(s, stdout); }   // stdout is non-null
-*/
+/* original case: `fputs(s, stdout)` is clean, stdout is non-null */

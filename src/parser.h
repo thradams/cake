@@ -273,6 +273,15 @@ _Bool diagnostic(enum diagnostic_id w,
     const struct marker* _Opt p_marker,
     const char* fmt, ...);
 
+/* diagnostic() without a parser context or token: position only, printed immediately */
+bool pos_diagnostic(enum diagnostic_id w,
+    const struct options* options,
+    struct report* report,
+    const char* file,
+    int line,
+    int col,
+    const char* fmt, ...);
+
 int compile(int argc, const char** argv, struct report* error);
 
 void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags);
@@ -373,7 +382,6 @@ struct static_assertion
 struct static_assertion* _Owner _Opt static_assertion(struct parser_ctx* ctx);
 void static_assertion_delete(_Dtor struct static_assertion* _Owner _Opt p);
 
-struct static_assertion* _Owner _Opt static_assert_declaration(struct parser_ctx* ctx);
 bool first_of_static_assertion(const struct parser_ctx* ctx);
 
 /*
@@ -830,7 +838,6 @@ struct struct_or_union_specifier* _Owner struct_or_union_specifier_add_ref(struc
 bool struct_or_union_specifier_is_union(const struct struct_or_union_specifier* p);
 void struct_or_union_specifier_delete(_Dtor struct struct_or_union_specifier* _Owner _Opt  p);
 
-bool struct_or_union_specifier_is_complete(const struct struct_or_union_specifier* p_struct_or_union_specifier);
 struct struct_or_union_specifier* _Opt get_complete_struct_or_union_specifier(const struct struct_or_union_specifier* p_struct_or_union_specifier);
 
 struct init_declarator
@@ -873,7 +880,6 @@ struct initializer
 };
 
 struct initializer* _Owner _Opt initializer(struct parser_ctx* ctx, bool is_discarded);
-void initializer_destroy(_Dtor struct initializer* p);
 void initializer_delete(_Dtor struct initializer* _Owner _Opt  p);
 
 struct declarator
@@ -934,12 +940,6 @@ struct declarator
     struct expression* _Opt p_alias_of_expression;
 
     /*
-       TODO it is duplicated with object
-       final declarator type (after auto, typeof etc)
-    */
-    struct type type;
-
-    /*
       used in code generation to indicate when the declarator was renamed
     */
     bool declarator_renamed;
@@ -954,7 +954,6 @@ struct declarator
 struct function_declarator* _Opt declarator_find_function_declarator(const struct declarator* p_declarator);
 
 const struct declarator* _Opt declarator_get_function_definition(const struct declarator* p);
-enum type_specifier_flags declarator_get_type_specifier_flags(const struct declarator* p);
 
 struct declarator;
 void print_declarator(struct osstream* ss, struct declarator* declarator, bool is_abstract);
@@ -1127,7 +1126,6 @@ struct type_name
 
 struct type_name* _Owner _Opt type_name(struct parser_ctx* ctx);
 void type_name_delete(_Dtor struct type_name* _Owner _Opt p);
-void print_type_name(struct osstream* ss, struct type_name* p);
 
 struct argument_expression
 {
@@ -1246,7 +1244,6 @@ struct type_qualifier
 };
 
 struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx);
-void type_qualifier_delete(_Dtor struct type_qualifier* _Owner _Opt p);
 
 struct member_declaration
 {
@@ -1334,6 +1331,7 @@ struct compound_statement
 */
 struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx, bool is_function_body);
 void compound_statement_delete(_Dtor struct compound_statement* _Owner _Opt p);
+bool compound_statement_is_last_item_return(const struct compound_statement* p_compound_statement);
 
 struct defer_statement
 {
@@ -1364,7 +1362,6 @@ struct defer_list_item
 
 void defer_list_add(struct defer_list* list, struct defer_list_item* _Owner p_item);
 void defer_list_destroy(_Dtor struct defer_list* p);
-void defer_list_clear(struct defer_list* p);
 
 struct try_statement
 {
@@ -1846,7 +1843,6 @@ struct balanced_token_sequence
 struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct parser_ctx* ctx);
 void balanced_token_sequence_delete(_Dtor struct balanced_token_sequence* _Owner _Opt  p);
 
-bool is_first_of_conditional_expression(const struct parser_ctx* ctx);
 bool first_of_type_name(const struct parser_ctx* ctx);
 bool first_of_type_name_ahead(const struct parser_ctx* ctx);
 bool first_of_type_name_token(const struct parser_ctx* ctx /*only to typedef*/, struct token* p_token);
@@ -1861,6 +1857,27 @@ struct declaration_list
 
 struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror);
 void declaration_list_destroy(_Dtor struct declaration_list* list);
+
+struct global_unused_entry
+{
+    char* _Owner name;
+    char* _Owner file;
+    int line;
+    bool used;            /* true if num_uses > 0 in at least one file seen so far */
+    bool has_definition;  /* true if a body was seen in at least one file so far */
+};
+
+struct global_unused_list
+{
+    struct global_unused_entry* _Owner _Opt data;
+    int size;
+    int capacity;
+};
+
+void global_unused_functions_clear(_Clear struct global_unused_list* p);
+/* reports and then clears the list */
+void global_unused_functions_report(_Clear struct global_unused_list* p, const struct options* options, struct report* report);
+
 
 struct label
 {
@@ -1899,7 +1916,6 @@ struct ast get_ast(const struct options* options,
     const char* source,
     struct report* report);
     
-struct ast get_ast_with_flags(int argc, const char** argv, const char* filename, const char* source, struct report* report);
 void ast_destroy(_Dtor struct ast* ast);
 
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);

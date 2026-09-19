@@ -1,25 +1,6 @@
 #pragma safety enable
 
-/*
-   _Clear and _Uninitialized in RETURN position describe the CONTENTS of the
-   returned (allocated) region:
-
-     _Clear         the returned pointee is all-zero      (e.g. calloc)
-     _Uninitialized the returned pointee is indeterminate (e.g. malloc)
-
-   _Clear is the same qualifier used on a parameter (where it means "the callee
-   zeroes the pointee"); in return position it states the returned region comes
-   back already zeroed -- so one keyword covers both readings.
-
-   With _Clear, flow3 seeds each member of the returned pointee to a concrete 0,
-   so `p->m == 0` is provably true (rather than relying on the old "empty
-   operand is vacuously true" calloc crutch). With _Uninitialized, members are
-   modeled as uninitialized, so reading one before writing it warns -- but
-   merely holding the pointer (and writing through it) is fine.
-
-   The qualifier sits next to the other return qualifiers on the pointer
-   (`T* _Owner _Opt _Clear f()`).
-*/
+/* in return position _Clear means the returned pointee is all zero (calloc) and _Uninitialized means indeterminate (malloc) */
 
 #define NULL ((void*)0)
 
@@ -49,13 +30,4 @@ void malloced_ok(void)
     free(x);
 }
 
-/*
-   Documented (these warn, by design):
-
-     void malloced_bad(void) {
-         struct X* _Owner _Opt x = my_malloc();
-         if (x == NULL) return;
-         use(x->a);        // warns: reading an uninitialized member
-         free(x);
-     }
-*/
+/* documented: reading a member of a _Uninitialized return before writing it warns */

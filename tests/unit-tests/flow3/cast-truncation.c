@@ -1,12 +1,6 @@
 #pragma safety enable
 
-/*
-   Regression test for flow3_cast_integer_value.
-
-   The function used the result of type_get_sizeof (bytes) directly as a
-   bit width, so every truncating integer cast folded to a wrong value
-   (e.g. (signed char)300 was masked with 0x1 instead of 0xFF).
-*/
+/* flow_cast_integer_value used sizeof bytes as a bit width: (signed char)300 was masked with 0x1 instead of 0xFF */
 
 void cast_to_signed_char()
 {

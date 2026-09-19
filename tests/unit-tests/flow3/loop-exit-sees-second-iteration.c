@@ -1,34 +1,9 @@
 #pragma safety enable
 
-/* 85 is off by default and the suite passes -wd85; the folded condition is
-   most directly visible through it. */
+/* 85 is off by default and the suite passes -wd85; the folded condition is most visible through it */
 #pragma cake diagnostic warning 85
 
-/*
-   The state after a loop must account for the loop running TWO or more times,
-   not just once.
-
-       for (p = head; p; p = p->next)
-       {
-           if (a == 0) { a = p; }
-           else if (b == 0) { b = p; }   <- only ever runs from iteration 2 on
-       }
-       if (b != 0) { ... }               <- NOT always false
-
-   The loop's exit arms used to be "condition false before any iteration",
-   "condition false after one iteration" and the break-join -- all computed
-   before the second pass's body runs. Pass 1 always takes the `a == 0` arm,
-   so `b` was never assigned in any state that reached the exit, and the test
-   after the loop folded to false with its body reported unreachable.
-
-   flow_visit_while_statement and flow_visit_for_statement now take a third
-   look at the condition after the second pass's body, giving the exit a
-   "left after two or more iterations" arm.
-
-   Reduced from src/tokenizer.c control_line's `#line` handling, which walks
-   the directive's tokens picking up the line number first and the filename
-   second, then tests `p_filename != NULL`.
-*/
+/* the loop exit also gets a "left after two or more iterations" arm, so `if (b != 0)` after the loop is not always false (tokenizer.c #line) */
 
 struct token { int type; struct token* _Opt next; };
 
@@ -51,8 +26,7 @@ void with_for(struct token* _Opt head)
 
     if (b != 0)
     {
-        int reached = 1; /* reported "unreachable code" while the exit state
-                            only knew about one iteration */
+        int reached = 1; /* was reported unreachable when the exit state knew only one iteration */
         (void)reached;
     }
 }

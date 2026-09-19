@@ -1,20 +1,6 @@
 #pragma safety enable
 
-/*
-   Reading an _Opt pointer member yields a POSSIBLY-NULL value.
-
-   flow3 used to leave an _Opt member read with no value at all (empty). An
-   empty pointer was then treated as definitely non-null by a later
-   `x != NULL` test, wrongly killing the else branch. e.g.:
-
-       list->head = old_head->next;     // next is _Opt -> possibly null
-       if (list->head != NULL) { ... }
-       else { list->tail = NULL; }      // was flagged UNREACHABLE
-
-   Now an unseeded pointer member is seeded from its declared nullability:
-   non-_Opt -> non-null; _Opt -> possibly-null. So the else stays reachable,
-   and dereferencing an _Opt member without a guard correctly warns.
-*/
+/* reading an _Opt member yields possibly-null, so `if (list->head != NULL) else` keeps a reachable else and an unguarded dereference warns */
 
 #define NULL ((void*)0)
 

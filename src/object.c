@@ -1574,8 +1574,8 @@ int object_set(
                 !object_has_constant_value(from))
             {
                 if (p_init_expression &&
-                    !type_is_pointer_or_array(&p_init_expression->type) &&
-                    !type_is_function(&p_init_expression->type))
+                    !type_is_pointer_or_array(&p_init_expression->object.type) &&
+                    !type_is_function(&p_init_expression->object.type))
                 {
                     struct token* _Opt tk = p_init_expression->first_token;
 
@@ -1784,7 +1784,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
                             */
                         }
 
-                        struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&p_member_declarator->declarator->type, buffer, make_state, target);
+                        struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&p_member_declarator->declarator->object.type, buffer, make_state, target);
                         if (p_member_obj == NULL)
                             throw;
 
@@ -1847,20 +1847,45 @@ int make_object_with_member_designator(const struct type* p_type,
     enum make_state make_state,
     enum target target)
 {
+    /*
+      p_type may alias &obj->type (this is common now that a declarator's
+      or expression's own type lives inside its object). Take an
+      independent copy before destroying/resetting obj, otherwise
+      object_destroy(obj) below frees the very type p_type points to.
+    */
+    struct type type_copy = type_dup(p_type);
+
     object_destroy(obj);
     *obj = (struct object){ 0 };
 
     _Assert(obj->members.head == NULL);
     _Assert(obj->next == NULL);
 
-    struct object* _Owner _Opt p = make_object_ptr_core(p_type, name, make_state, target);
+    struct object* _Owner _Opt p = make_object_ptr_core(&type_copy, name, make_state, target);
     if (p)
     {
         *obj = *p; //not an error    
         object_fix_parent(obj, obj);
         free(p);
+
+        /*
+          make_object_ptr_core lowers an enum to its underlying integer type,
+          which is what the *value* representation needs (see value_type), but
+          it must not become the type of the declarator or expression this
+          object belongs to: that would drop the declared name and the enum
+          specifier. Keep exactly the type that was asked for.
+        */
+        type_destroy(&obj->type);
+        obj->type = type_copy; /*moved*/
         return 0;
     }
+
+    /* The build failed (an incomplete type, typically). The object stays
+       empty, but the type must still be the one that was asked for: it is
+       the declarator's or expression's own type, and dropping it would hide
+       the very incompleteness that made this fail. */
+    type_destroy(&obj->type);
+    obj->type = type_copy; /*moved*/
     return 1;
 }
 

@@ -975,6 +975,46 @@ int ui_get_cwd(char *buf, int buf_size)
     return getcwd(buf, (size_t)buf_size) != NULL;
 }
 
+/* See ui_open_url in ide_ui.h. xdg-open is the freedesktop standard "open
+ * with whatever's registered" launcher. Double-forked for the same reason
+ * as ui_open_terminal below: the browser gets reparented to init and never
+ * becomes a zombie for this app to worry about. exec'ing xdg-open with the
+ * URL as its own argv (no "sh -c") means no shell ever sees the URL - no
+ * quoting games, no '&' in a query string turning into job control. Note
+ * that only "xdg-open exists" can be reported: whether it then found a
+ * browser is decided after this has already returned. */
+int ui_open_url(const char *url)
+{
+    if (!url || !url[0])
+        return 0;
+    pid_t pid = fork();
+    if (pid < 0)
+        return 0;
+    if (pid == 0)
+    {
+        pid_t pid2 = fork();
+        if (pid2 == 0)
+        {
+            /* A chatty browser must not write over this app's terminal. */
+            int devnull = open("/dev/null", O_RDWR);
+            if (devnull >= 0)
+            {
+                dup2(devnull, 0);
+                dup2(devnull, 1);
+                dup2(devnull, 2);
+                if (devnull > 2)
+                    close(devnull);
+            }
+            execlp("xdg-open", "xdg-open", url, (char *)NULL);
+            _exit(127);  /* launcher not found on PATH */
+        }
+        _exit(pid2 < 0 ? 1 : 0);
+    }
+    int status = 0;
+    waitpid(pid, &status, 0);
+    return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
 /* Tools > Terminal (see ide.c's do_open_terminal): launches a terminal
  * emulator with its working directory set to `dir`, then leaves it running
  * on its own - not a child this app manages afterward. There's no single

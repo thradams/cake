@@ -1,15 +1,8 @@
 #pragma safety enable
 
-/*
-   Compound assignment (+=, -=, *=, ...) folds per alternative, so a correlated
-   join survives it. Each value is advanced on its own path, keeping the branch
-   origin -- never just data[0] -- so cross-branch values stay excluded.
+/* compound assignment folds per alternative, keeping each branch origin, so a correlated join survives it */
 
-   Use compile_assert (flow-checked), not static_assert (C11 compile-time).
-*/
-
-/* += on a correlated value keeps the pairing: a is {1@then, 3@else}, so after
-   a += 10 it is {11, 13}; combined with b it is {13, 17}, never 15. */
+/* a is {1@then, 3@else}: after a += 10 it is {11, 13}, with b {13, 17}, never 15 */
 void add(int c)
 {
     int a, b;
@@ -34,8 +27,7 @@ void mixed(int c)
     compile_assert(x != 40);
 }
 
-/* Pointer += is pointer arithmetic: it can never turn a valid pointer into a
-   null one, so a non-optional pointer keeps its non-null guarantee. */
+/* pointer += never makes a valid pointer null, the non-null guarantee is kept */
 void pointer(int* a)
 {
     a += 1;

@@ -1,15 +1,8 @@
 #pragma safety enable
 
-/*
-   A cast keeps correlation. Each source value alternative is cast on its own
-   path (never just data[0]), keeping the branch origin that produced it, so a
-   join survives the cast and the widths still fold.
+/* a cast is applied per alternative, keeping each one's branch origin, so joins survive it */
 
-   Use compile_assert (flow-checked), not static_assert (C11 compile-time).
-*/
-
-/* Widening cast preserves the correlated join: a is {1@then, 3@else}, so
-   (long)a is {1, 3} -- the impossible cross value 2 stays excluded. */
+/* widening keeps the join: a is {1@then, 3@else}, so (long)a is {1, 3}, never 2 */
 void widen(int c)
 {
     int a;

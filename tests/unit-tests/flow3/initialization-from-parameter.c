@@ -1,16 +1,6 @@
 #pragma safety enable
 
-/*
-   Initialization from a NON-CONSTANT source (a parameter or another local).
-
-   Here the object has no constant value, so the initial value comes from the
-   init-EXPRESSION instead: flow3 copies whatever it currently knows about the
-   source (its relation / alternatives) into the initialized variable. So the
-   copy inherits any narrowing the source has, and stays branch-correlated --
-   but a plain, unconstrained parameter carries nothing, so the copy is ANY.
-
-   Use compile_assert (flow-checked), not static_assert (C11 compile-time).
-*/
+/* initialization from a non-constant source copies what is known about the source, including its narrowing and branch origin */
 
 /* A narrowed parameter's relation carries into the copy. */
 void carries_relation(int p)
@@ -43,15 +33,4 @@ void chain_of_locals(int p)
     }
 }
 
-/*
-   An UNCONSTRAINED parameter carries no value, so the copy is unknown (ANY).
-   These are NOT provable and are documented rather than asserted:
-
-       void unknown(int p) {
-           int x = p;
-           compile_assert(x == p);   // ANY: no symbolic equality is tracked
-       }
-
-   NOTE: init copies the source's *known relations*, not a symbolic "x == p"
-   link, so an unconstrained parameter stays unknown after the copy.
-*/
+/* an unconstrained parameter carries no value, so `int x = p; compile_assert(x == p)` is not provable */

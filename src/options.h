@@ -8,6 +8,8 @@
 #include "target.h"
 #include <limits.h>
 
+struct global_unused_list;
+
 enum standard_version
 {
     STD_C23,
@@ -408,7 +410,6 @@ struct diagnostic
     struct bitset notes;    /* set of warnings reported as notes */
 };
 
-int get_diagnostic_type(const struct diagnostic* d, enum diagnostic_id w);
 extern struct diagnostic default_diagnostic;
 
 void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w);
@@ -516,6 +517,12 @@ struct options
     bool keep_inactive_tokens;
 
     bool use_cake_headers; /*-cake-headers: use cake own headers */
+
+    /*
+      -unused-extern-report
+    */
+    bool report_unused_extern_functions;
+    struct global_unused_list* _Opt p_unused_functions;
 };
 
 int fill_options(struct options* options,

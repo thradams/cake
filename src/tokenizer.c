@@ -725,19 +725,6 @@ void macro_argument_list_destroy(_Dtor struct macro_argument_list* list)
     }
 }
 
-void print_macro_arguments(bool color_enabled, struct macro_argument_list* arguments)
-{
-    struct macro_argument* _Opt p_argument = arguments->head;
-    while (p_argument)
-    {
-        if (p_argument->macro_parameter)
-            printf("%s:", p_argument->macro_parameter->name);
-
-        print_list(color_enabled, &p_argument->tokens);
-        p_argument = p_argument->next;
-    }
-}
-
 struct macro_argument* _Opt find_macro_argument_by_name(struct macro_argument_list* parameters, const char* name)
 {
     /*
@@ -772,24 +759,6 @@ void argument_list_add(struct macro_argument_list* list, struct macro_argument* 
         list->tail->next = pnew;
         list->tail = pnew;
     }
-}
-
-void print_macro(bool color_enabled, struct macro* macro)
-{
-    printf("%s", macro->name);
-    if (macro->is_function)
-        printf("(");
-    struct macro_parameter* _Opt parameter = macro->parameters;
-    while (parameter)
-    {
-        if (macro->parameters != parameter)
-            printf(",");
-        printf("%s", parameter->name);
-        parameter = parameter->next;
-    }
-    if (macro->is_function)
-        printf(") ");
-    print_list(color_enabled, &macro->replacement_list);
 }
 
 void macro_parameters_delete(_Dtor struct macro_parameter* _Owner _Opt parameters)
@@ -859,25 +828,6 @@ struct macro* _Opt find_macro(const struct preprocessor_ctx* ctx, const char* na
     return p_entry->data.p_macro;
 }
 
-void stream_print_line(const struct stream* stream)
-{
-    const char* p = stream->current;
-    while ((p - 1) >= stream->source &&
-        *(p - 1) != '\n')
-    {
-        p--;
-    }
-    while (*p && *(p + 1) != '\n')
-    {
-        printf("%c", *p);
-        p++;
-    }
-    printf("\n");
-    for (int i = 0; i < stream->col - 1; i++)
-        printf(" ");
-    printf("^\n");
-}
-
 void stream_match(struct stream* stream)
 {
     if (stream->current[0] == '\n')
@@ -924,23 +874,6 @@ void stream_match(struct stream* stream)
         stream->line_continuation_count++;
     }
 
-}
-
-void print_line(struct token* p)
-{
-    printf("%s\n", p->token_origin ? p->token_origin->lexeme : "");
-    struct token* _Opt prev = p;
-    while (prev->prev && prev->prev->type != TK_NEWLINE)
-    {
-        prev = prev->prev;
-    }
-    struct token* _Opt next = prev;
-    while (next && next->type != TK_NEWLINE)
-    {
-        printf("%s", next->lexeme);
-        next = next->next;
-    }
-    printf("\n");
 }
 
 int is_nondigit(const struct stream* p)
@@ -2033,27 +1966,6 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
     return list;
 }
 
-bool fread2(void* buffer, size_t size, size_t count, FILE * stream, size_t * sz)
-{
-    *sz = 0; //out
-    bool result = false;
-    size_t n = fread(buffer, size, count, stream);
-    if (n == count)
-    {
-        *sz = n;
-        result = true;
-    }
-    else if (n < count)
-    {
-        if (feof(stream))
-        {
-            *sz = n;
-            result = true;
-        }
-    }
-    return result;
-}
-
 bool preprocessor_token_ahead_is_identifier(const struct token* _Opt p, const char* lexeme);
 struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level);
 struct token_list group_opt(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
@@ -2102,14 +2014,6 @@ struct token_list group_opt(struct preprocessor_ctx* ctx, struct token_list* inp
     return r;
 }
 
-bool is_parser_token(const struct token* p)
-{
-    return p->type != TK_COMMENT &&
-        p->type != TK_BLANKS &&
-        p->type != TK_LINE_COMMENT &&
-        p->type != TK_NEWLINE;
-}
-
 bool is_never_final(enum token_type type)
 {
     return type == TK_BEGIN_OF_FILE ||
@@ -2143,6 +2047,58 @@ bool preprocessor_token_ahead_is(const struct token* p, enum token_type t)
     if (p_token != NULL && p_token->type == t)
         return true;
     return false;
+}
+
+/* true when nothing but blanks, newlines and comments follow p */
+static bool token_list_only_blanks_after(const struct token* p)
+{
+    const struct token* _Opt current = p->next;
+
+    while (current &&
+        (current->type == TK_BLANKS ||
+            current->type == TK_NEWLINE ||
+            current->type == TK_PLACEMARKER ||
+            current->type == TK_LINE_COMMENT ||
+            current->type == TK_COMMENT))
+    {
+        current = current->next;
+    }
+
+    return current == NULL;
+}
+
+/* true when the '(' after a function-like macro name has its matching ')' inside the same list */
+static bool macro_call_is_complete(const struct token* name)
+{
+    const struct token* _Opt current = name->next;
+    int depth = 0;
+
+    while (current &&
+        (current->type == TK_BLANKS ||
+            current->type == TK_NEWLINE ||
+            current->type == TK_PLACEMARKER ||
+            current->type == TK_LINE_COMMENT ||
+            current->type == TK_COMMENT))
+    {
+        current = current->next;
+    }
+
+    bool complete = false;
+    while (current && !complete)
+    {
+        if (current->type == '(')
+        {
+            depth++;
+        }
+        else if (current->type == ')')
+        {
+            depth--;
+            complete = (depth == 0);
+        }
+        current = current->next;
+    }
+
+    return complete;
 }
 
 static bool preprocessor_token_ahead_skiping_blanks_and_new_line(struct token* p, enum token_type t)
@@ -5451,16 +5407,32 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
             if (new_list.head->type == TK_IDENTIFIER)
             {
                 macro = find_macro(ctx, new_list.head->lexeme);
-                if (macro &&
-                    macro->is_function &&
-                    !preprocessor_token_ahead_skiping_blanks_and_new_line(new_list.head, '('))
+                if (macro && macro_already_expanded(p_list_opt, new_list.head->lexeme))
+                {
+                    /* painted blue even without a '(' after it: `t(t(g)(0) + t)(1)` keeps `t(1)` (6.10.3.4) */
+                    new_list.head->type = TK_IDENTIFIER_RECURSIVE_MACRO;
+                    macro = NULL;
+                }
+                else if (macro && (new_list.head->flags & TK_FLAG_MACRO_NOT_INVOKED))
                 {
                     macro = NULL;
                 }
-
-                if (macro && macro_already_expanded(p_list_opt, new_list.head->lexeme))
+                else if (macro &&
+                    macro->is_function &&
+                    !preprocessor_token_ahead_skiping_blanks_and_new_line(new_list.head, '('))
                 {
-                    new_list.head->type = TK_IDENTIFIER_RECURSIVE_MACRO;
+                    /* final unless the name is last in the list: a later '(' from another expansion must not invoke it (issue #20) */
+                    if (!token_list_only_blanks_after(new_list.head))
+                    {
+                        new_list.head->flags |= TK_FLAG_MACRO_NOT_INVOKED;
+                    }
+                    macro = NULL;
+                }
+                else if (macro &&
+                    macro->is_function &&
+                    !macro_call_is_complete(new_list.head))
+                {
+                    /* the ')' is beyond this list (`#define h g(~` then `h 5)`): the outer scan, which has the source tokens, invokes it */
                     macro = NULL;
                 }
 
@@ -5512,7 +5484,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
 
                 if (r3.head)
                 {
-                    r3.head->flags = flags;
+                    r3.head->flags = flags | (r3.head->flags & TK_FLAG_MACRO_NOT_INVOKED);
                 }
                 token_list_append_list_at_beginning(&new_list, &r3);
                 macro_argument_list_destroy(&arguments);
@@ -5540,11 +5512,8 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
     return r;
 }
 
-/*
-Performs the comparison ignoring the continuation of the line
-TODO do a general review where strcmp is used in lexeme
-and replace it with this one.
-*/
+
+
 int lexeme_cmp(const char* s1, const char* s2)
 {
     while (*s1 && *s2)
@@ -5902,8 +5871,9 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 origin = input_list->head;
                 macro = find_macro(ctx, input_list->head->lexeme);
                 if (macro &&
-                    macro->is_function &&
-                    !preprocessor_token_ahead_skiping_blanks_and_new_line(input_list->head, '('))
+                    ((input_list->head->flags & TK_FLAG_MACRO_NOT_INVOKED) ||
+                     (macro->is_function &&
+                      !preprocessor_token_ahead_skiping_blanks_and_new_line(input_list->head, '('))))
                 {
                     macro = NULL;
                 }
@@ -5979,8 +5949,10 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     if (input_list->head && input_list->head->type == TK_IDENTIFIER)
                     {
                         macro = find_macro(ctx, input_list->head->lexeme);
-                        if (macro && macro->is_function &&
-                            !preprocessor_token_ahead_skiping_blanks_and_new_line(input_list->head, '('))
+                        if (macro &&
+                            ((input_list->head->flags & TK_FLAG_MACRO_NOT_INVOKED) ||
+                             (macro->is_function &&
+                              !preprocessor_token_ahead_skiping_blanks_and_new_line(input_list->head, '('))))
                         {
                             macro = NULL;
                         }
@@ -6023,7 +5995,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
 
                             if (r3.head)
                             {
-                                r3.head->flags = flags2;
+                                r3.head->flags = flags2 | (r3.head->flags & TK_FLAG_MACRO_NOT_INVOKED);
                             }
                             token_list_append_list_at_beginning(input_list, &r3);
                             macro_argument_list_destroy(&arguments2);
@@ -6886,6 +6858,7 @@ int stringify(const char* input, int n, char output[])
     return count;
 }
 
+/*useful to debug visit.c*/
 void print_literal(const char* _Opt s)
 {
     if (s == NULL)
@@ -6910,7 +6883,6 @@ void print_literal(const char* _Opt s)
     printf("\"");
 }
 
-/*useful to debug visit.c*/
 void print_code_as_we_see(const struct token_list* list, bool remove_comments)
 {
     if (list->head == NULL || list->tail == NULL)
@@ -8075,8 +8047,9 @@ void tetris()
         "M(F)(C)(D)e"
         ;
 
+    /* M(F) is F(F), and the F it yields is painted blue, so (C) cannot invoke it (6.10.3.4) */
     const char* output =
-        "De"
+        "F(C)(D)e"
         ;
 
     assert(test_preprocessor_in_out_match(input, output));
@@ -8447,6 +8420,73 @@ void bug_test()
 
     const char* output =
         "a \"1\""
+        ;
+
+    assert(test_preprocessor_in_out_match(input, output));
+}
+
+void test_rescan_does_not_invoke_passed_over_macro()
+{
+    /* https://github.com/thradams/cake/issues/20 */
+    const char* input =
+        "#define CAT(a,b) a ## b\n"
+        "#define ECHO(...) __VA_ARGS__\n"
+        "#define IMPL1(prefix,value) do_thing_one( prefix, value)\n"
+        "#define DO_THING(macro_switch, b) CAT(IMPL, macro_switch) ECHO(( \"Hello\", b))\n"
+        "DO_THING(1, \"World\");\n";
+
+    /* IMPL1 was rescanned before ECHO produced the '(' */
+    const char* output =
+        "IMPL1 ( \"Hello\", \"World\");"
+        ;
+
+    assert(test_preprocessor_in_out_match(input, output));
+}
+
+void test_rescan_completes_last_token_with_source()
+{
+    /* the name is the last token of the list, the '(' from the source invokes it */
+    const char* input =
+        "#define f(a) a*2\n"
+        "#define F f\n"
+        "F(1)\n";
+
+    const char* output =
+        "1*2"
+        ;
+
+    assert(test_preprocessor_in_out_match(input, output));
+}
+
+void test_c11_6_10_3_5_example_3()
+{
+    /* https://github.com/thradams/cake/issues/320 */
+    const char* input =
+        "#define x      3\n"
+        "#define f(a)   f(x * (a))\n"
+        "#undef x\n"
+        "#define x      2\n"
+        "#define g      f\n"
+        "#define z      z[0]\n"
+        "#define h      g(~\n"
+        "#define m(a)   a(w)\n"
+        "#define w      0,1\n"
+        "#define t(a)   a\n"
+        "#define p()    int\n"
+        "#define q(x)   x\n"
+        "#define r(x,y) x ## y\n"
+        "#define str(x) # x\n"
+        "f(y+1) + f(f(z)) % t(t(g)(0) + t)(1);\n"
+        "g(x+(3,4)-w) | h 5) & m\n"
+        "      (f)^m(m);\n"
+        "p() i[q()] = { q(1), r(2,3), r(4,), r(,5), r(,) };\n"
+        "char c[2][6] = { str(hello), str() };\n";
+
+    const char* output =
+        "f(2 * (y+1)) + f(2 * (f(2 * (z[0])))) % f(2 * (0)) + t(1);\n"
+        "f(2 * (2+(3,4)-0,1)) | f(2 * (~ 5)) & f(2 * (0,1))^m(0,1);\n"
+        "int i[] = { 1, 23, 4, 5, };\n"
+        "char c[2][6] = { \"hello\", \"\" };"
         ;
 
     assert(test_preprocessor_in_out_match(input, output));

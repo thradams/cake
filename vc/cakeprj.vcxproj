@@ -37,7 +37,9 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugTest|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="..\src\flow3.c" />
+    <ClCompile Include="..\src\flow.c" />
+    <ClCompile Include="..\src\flow_alternative.c" />
+    <ClCompile Include="..\src\flow_branch.c" />
     <ClCompile Include="..\src\target.c" />
     <ClCompile Include="..\src\defer.c" />
     <ClCompile Include="..\src\codegen.c" />
@@ -60,7 +62,9 @@
   <ItemGroup>
     <ClInclude Include="..\src\compile.h" />
     <ClInclude Include="..\src\console.h" />
-    <ClInclude Include="..\src\flow3.h" />
+    <ClInclude Include="..\src\flow.h" />
+    <ClInclude Include="..\src\flow_alternative.h" />
+    <ClInclude Include="..\src\flow_branch.h" />
     <ClInclude Include="..\src\target.h" />
     <ClInclude Include="..\src\defer.h" />
     <ClInclude Include="..\src\codegen.h" />

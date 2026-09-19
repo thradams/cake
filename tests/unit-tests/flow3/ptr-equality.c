@@ -1,13 +1,6 @@
 #pragma safety enable
 
-/*
-   Two unrelated pointers may still compare equal at run time.
-
-   Known issue: flow3_alternatives_is_single_constant treats a concrete
-   (synthetic arena) pointer value as a foldable constant, so `p == q`
-   with two distinct pointees folds to always-false and the true branch
-   is analysed as dead code.
-*/
+/* known issue: `p == q` with two distinct synthetic pointees folds to always-false and the true branch is analysed as dead */
 
 void ptr_eq(int* _Opt p, int* _Opt q)
 {

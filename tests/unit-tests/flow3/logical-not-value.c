@@ -1,13 +1,6 @@
 #pragma safety enable
 
-/*
-   The logical-NOT operator `!x` yields a boolean (0 or 1) and is always
-   INITIALIZED. flow3 only seeded the result when the operand was a compile-time
-   constant; for a non-constant operand it left the result with no value, so
-   `bool c = !x;` reported c as "possibly uninitialized" when c was passed on.
-
-   (Reproduced from parser.c: `const bool color_enabled = !ctx->options.color_disabled;`)
-*/
+/* `!x` is always an initialized 0 or 1, even for a non-constant operand (parser.c color_enabled) */
 
 struct options { int color_disabled; int flag; };
 

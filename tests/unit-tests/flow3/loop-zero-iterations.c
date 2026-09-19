@@ -1,12 +1,6 @@
 #pragma safety enable
 
-/*
-   A while/for loop whose condition is false on entry must still merge
-   the zero-iteration exit path. Before the fix, only the post-body
-   condition-false map (w_pair2.p_false) was merged back into the
-   pre-loop state, so a variable set only inside the loop body
-   incorrectly looked "always set" after a loop that may never run.
-*/
+/* a loop whose condition is false on entry merges the zero-iteration exit: a variable set only in the body is not "always set" */
 
 int unknown();
 

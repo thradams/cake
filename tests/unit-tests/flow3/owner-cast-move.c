@@ -1,16 +1,6 @@
 #pragma safety enable
 
-/*
-   Casting an owner to an _Owner target transfers ownership: the source is
-   moved into the cast result. The common case is `free((void* _Owner)s)` --
-   the cast to `void* _Owner` moves s, and free consumes it.
-
-   flow3 used to cast only the VALUE and not transfer ownership, so after
-   `free((void* _Owner)s)` the original s still looked un-moved and a false
-   "owner object 's' not moved" (leak) warning was reported at function exit.
-
-   (Reproduced from tokenizer.c: `free((void* _Owner)s);`)
-*/
+/* `free((void* _Owner)s)` moves s into the cast result, no false "owner not moved" at exit (tokenizer.c) */
 
 #define NULL ((void*)0)
 
@@ -31,12 +21,4 @@ void freed_direct(void)
     free(s);
 }
 
-/*
-   Use-after-move is still caught (documented, since it warns):
-
-       void double_free(void) {
-           char* _Owner _Opt s = get();
-           free((void* _Owner)s);   // moves s
-           free(s);                 // warns: object 's' is moved
-       }
-*/
+/* documented: `free((void* _Owner)s); free(s);` warns that s is moved */

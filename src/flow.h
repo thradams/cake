@@ -5,26 +5,12 @@
 
 #pragma once
 #include "parser.h"
-
+#include "flow_branch.h"
 
 struct flow_label_state
 {
     const char* label_name;
-    struct flow_map* p_flow_map;
-};
-
-struct flow_map_arena
-{
-    struct flow_map* _Owner _Opt * _Owner _Opt  data;
-    int size;
-    int capacity;
-};
-
-struct flow_allocated_object_arena
-{
-    struct object*  _Owner _Opt * _Owner _Opt data;
-    int size;
-    int capacity;
+    struct flow_branch* p_flow_branch;
 };
 
 /* One recorded comparison predicate (see same-predicate branch correlation in
@@ -83,9 +69,9 @@ struct flow_visit_ctx
     */
     int iteration_pass;
 
-    struct flow_map* _Opt p_throw_join_map;  /*map where throws are joined*/
-    struct flow_map* _Opt p_break_join_map;  /*map where breaks are joined*/
-    struct flow_map* _Opt p_initial_map;     /*map snapshot of the original state*/
+    struct flow_branch* _Opt p_throw_join_map;  /*map where throws are joined*/
+    struct flow_branch* _Opt p_break_join_map;  /*map where breaks are joined*/
+    struct flow_branch* _Opt p_initial_map;     /*map snapshot of the original state*/
     const struct object* _Opt p_switch_obj_key;
     
 
@@ -103,8 +89,8 @@ struct flow_visit_ctx
     bool collect_deferred_effects;
 
     struct flow_allocated_object_arena allocated_object_arena;
-    struct flow_map_arena flow_map_arena;
-    struct flow_map* _Opt p_current_flow_map;
+    struct flow_branch_arena flow_branch_arena;
+    struct flow_branch* _Opt p_current_flow_branch;
 
     /*
      * Set while visiting a function body so that flow_visit_jump_statement

@@ -1,29 +1,6 @@
 #pragma safety enable
 
-/*
-   A plain pointer parameter (not _Dtor, not _Out, not itself _Owner) is a
-   BORROW: the callee may read and write through it, but every _Owner
-   member it touches must still be a real, live value at every exit --
-   exactly as if it were a local owner going out of scope. Only a _Dtor
-   parameter is allowed to consume (move/free) the pointee's owner members
-   without restoring them.
-
-   Motivating bug report:
-
-       void set(struct person* p, char* name) {
-           free(p->name);
-           char* _Opt _Owner temp = strdup(name);
-           if (temp == NULL) return;   // p->name freed but never restored!
-           p->name = temp;
-       }
-
-   If strdup(name) returns NULL, set() returns early without ever assigning
-   to p->name -- but p->name was already freed a few lines above. The
-   caller is left holding a struct whose _Owner member is a dangling
-   pointer to freed memory. Before this check existed, nothing caught this:
-   p is neither _Out (whose contract is "must end up initialized") nor
-   _Dtor (whose contract is "must end up fully released").
-*/
+/* a plain pointer parameter is a borrow: every _Owner member it frees must be restored on every exit; only _Dtor may consume */
 
 typedef unsigned long size_t;
 void* _Owner _Opt _Uninitialized malloc(size_t sz);
@@ -53,26 +30,20 @@ void set_restores_on_failure(struct person* p, char* name)
     p->name = temp;
 }
 
-/* Must NOT warn: p->name is freed and reassigned unconditionally, no early
-   exit in between. */
+/* must NOT warn: p->name freed and reassigned unconditionally */
 void set_always_reassigns(struct person* p, char* name)
 {
     free(p->name);
     p->name = strdup(name);
 }
 
-/* Must NOT warn: a _Dtor parameter is explicitly allowed to consume its
-   pointee's owner members and never give them back -- that is the whole
-   point of _Dtor. */
+/* must NOT warn: a _Dtor parameter may consume the pointee's owner members */
 void person_destroy(_Dtor struct person* p)
 {
     free(p->name);
 }
 
-/* Must NOT warn: p itself is _Owner, so this function is erasing/consuming
-   the whole object it was handed, not borrowing someone else's -- already
-   covered by the existing "owner not moved" mechanism at the point of
-   erasure, not this check. */
+/* must NOT warn: p itself is _Owner, covered by the "owner not moved" check instead */
 void person_take_and_destroy(struct person* _Owner _Opt p)
 {
     if (p)

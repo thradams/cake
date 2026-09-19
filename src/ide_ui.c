@@ -924,6 +924,13 @@ struct ui_screen {
     ui_node* dragging_listbox_scrollbar;
     ui_node* dragging_listbox_hscrollbar;  /* horizontal counterpart (bottom row) */
 
+    /* Dragging a <group>'s own scrollbar thumb (see group_has_scrollbar) -
+     * same shape as the <listbox> one above, minus a horizontal counterpart
+     * (a check-box row never needs to pan sideways). Added so a long GROUP
+     * (e.g. Compiler Options' growing "Flags" list - see ide.c) can scroll
+     * instead of being clipped to its box height. */
+    ui_node* dragging_group_scrollbar;
+
     /* A ui_message_box modal to close+free once the current ui_screen_update()
      * finishes (set when one of its buttons fires, or on Escape) - deferred so
      * the tree isn't mutated mid-walk. */
@@ -2101,6 +2108,7 @@ void ui_screen_show_modal(ui_screen* s, ui_node* modal)
     s->dragging_editor_hscrollbar = NULL;
     s->dragging_listbox_scrollbar = NULL;
     s->dragging_listbox_hscrollbar = NULL;
+    s->dragging_group_scrollbar = NULL;
 }
 
 void ui_message_box(ui_screen* s, const char* caption, const char* text,
@@ -2246,6 +2254,7 @@ void ui_screen_show_window(ui_screen* s, ui_node* modal)
     s->dragging_editor_hscrollbar = NULL;
     s->dragging_listbox_scrollbar = NULL;
     s->dragging_listbox_hscrollbar = NULL;
+    s->dragging_group_scrollbar = NULL;
 
     /* If `modal` wraps a docked Folder/Output-style window, showing it
      * changes how much desktop space every other dock and every maximized
@@ -2290,6 +2299,7 @@ void ui_screen_close_modal(ui_screen* s, ui_node* modal)
     s->dragging_editor_hscrollbar = NULL;
     s->dragging_listbox_scrollbar = NULL;
     s->dragging_listbox_hscrollbar = NULL;
+    s->dragging_group_scrollbar = NULL;
     s->selecting = NULL;
     s->open_select = NULL;
     s->focused = NULL;  /* an input inside the closing window can't stay focused */
@@ -4246,6 +4256,114 @@ static void listbox_scrollbar_drag_to(ui_screen* s, ui_node* n, int mouse_py, in
     listbox_clamp_scroll(n);
 }
 
+/* --- <group> vertical scrolling - same shape as <listbox>'s own scrollbar
+ * just above (group_scrollbar_thumb mirrors listbox_scrollbar_thumb, etc.),
+ * minus a horizontal counterpart: a check-box/radio row is always short
+ * enough to fit the box's width, unlike a long file path. A GROUP never
+ * scales with small_font (ui_set_small_font is never called on one), so
+ * this works in n->w/n->h directly rather than going through node_cols/
+ * node_rows - simpler, and matches render_group's own plain n->w/n->h use. -
+ * added because a dialog like Compiler Options' "Flags" list (see ide.c)
+ * can grow past the box's fixed height. --- */
+
+static void group_clamp_scroll(ui_node* n)
+{
+    int max_scroll = n->child_count - n->h;
+    if (max_scroll < 0)
+        max_scroll = 0;
+    if (n->scroll > max_scroll)
+        n->scroll = max_scroll;
+    if (n->scroll < 0)
+        n->scroll = 0;
+}
+
+/* Whether `n` has anything to scroll at all - the gate for both drawing the
+   overlay and reacting to clicks/drags on its column (see
+   listbox_has_scrollbar, the same idea for <listbox>). */
+static int group_has_scrollbar(ui_node* n)
+{
+    return n->w > 0 && n->h > 0 && n->child_count > n->h;
+}
+
+/* The thumb's extent within the box's full height - see listbox_scrollbar_
+ * thumb, the same shape over n->h instead of node_rows(n). */
+static void group_scrollbar_thumb(ui_node* n, int* out_start, int* out_len)
+{
+    int max_scroll = n->child_count - n->h;
+    if (max_scroll <= 0 || n->h <= 0)
+    {
+        *out_start = 0;
+        *out_len = n->h;
+        return;
+    }
+    int len = n->h * n->h / n->child_count;
+    if (len < 1) len = 1;
+    if (len > n->h) len = n->h;
+    int start = (n->scroll * (n->h - len)) / max_scroll;
+    if (start < 0) start = 0;
+    if (start > n->h - len) start = n->h - len;
+    start = pinned_thumb_start(n, start);
+    if (start < 0) start = 0;
+    if (start > n->h - len) start = n->h - len;
+    *out_start = start;
+    *out_len = len;
+}
+
+/* Sets n->scroll from a click/drag at screen row `mouse_py` within the box's
+ * own column - the inverse of group_scrollbar_thumb(), same shape as
+ * listbox_scrollbar_set_from_mouse. */
+static void group_scrollbar_set_from_mouse(ui_node* n, int mouse_py)
+{
+    int max_scroll = n->child_count - n->h;
+    if (max_scroll < 0)
+        max_scroll = 0;
+
+    int thumb_start, thumb_len;
+    group_scrollbar_thumb(n, &thumb_start, &thumb_len);
+    int denom = n->h - thumb_len;
+
+    if (denom <= 0 || max_scroll <= 0)
+    {
+        n->scroll = 0;
+    }
+    else
+    {
+        int row = node_row_at(n, mouse_py);
+        if (row < 0) row = 0;
+        if (row > denom) row = denom;
+        n->scroll = (row * max_scroll + denom / 2) / denom;
+    }
+    group_clamp_scroll(n);
+}
+
+/* Drag a vertical thumb so it tracks the cursor - see vscrollbar_drag_to,
+ * reused as-is (it already just takes a generic max_scroll/thumb_len/
+ * track_rows triple). */
+static void group_scrollbar_drag_to(ui_screen* s, ui_node* n, int mouse_py, int grab_offset)
+{
+    int max_scroll = n->child_count - n->h;
+    if (max_scroll < 0) max_scroll = 0;
+    int thumb_start, thumb_len;
+    group_scrollbar_thumb(n, &thumb_start, &thumb_len);
+    vscrollbar_drag_to(s, n, mouse_py, grab_offset, max_scroll, thumb_len,
+                       n->h, &n->scroll);   /* no horizontal bar */
+    group_clamp_scroll(n);
+}
+
+/* Keeps the keyboard-focused row (cursor_row in multi-select mode, selected
+ * in single-select/radio mode) inside the scrolled view - called after
+ * Up/Down moves it (see the UI_TAG_GROUP key branch), same shape as
+ * listbox_ensure_visible. */
+static void group_ensure_visible(ui_node* n)
+{
+    int focus = n->multi ? n->cursor_row : n->selected;
+    if (focus < n->scroll)
+        n->scroll = focus;
+    else if (focus >= n->scroll + n->h)
+        n->scroll = focus - n->h + 1;
+    group_clamp_scroll(n);
+}
+
 /* --- Selection: shared by <input> and <editor> - a byte range [lo, hi) into
  * n->label, anchored at n->sel_anchor with the live end at n->cursor. A
  * anchor equal to the cursor (or -1) means no selection, same convention a
@@ -4989,16 +5107,16 @@ static ui_node* active_container(ui_screen* s)
 /* The <editor> at (x, y) among `window`'s children, or NULL - shared by
  * mouse-wheel scrolling, which must find whichever editor is under the
  * cursor regardless of focus (see ui_screen_update()). */
- /* The <editor> or <listbox> at (x, y) among `window`'s children (the two
-  * scrollable widget types), or NULL - shared by mouse-wheel scrolling,
-  * which must find whichever one is under the cursor regardless of focus
-  * (see ui_screen_update()). */
+ /* The <editor>, <listbox> or <group> at (x, y) among `window`'s children
+  * (the three scrollable widget types), or NULL - shared by mouse-wheel
+  * scrolling, which must find whichever one is under the cursor regardless
+  * of focus (see ui_screen_update()). */
 static ui_node* find_editor_at(ui_node* window, int x, int y)
 {
     for (int i = 0; i < window->child_count; i++)
     {
         ui_node* c = window->children[i];
-        if ((c->type == UI_TAG_EDITOR || c->type == UI_TAG_LISTBOX) &&
+        if ((c->type == UI_TAG_EDITOR || c->type == UI_TAG_LISTBOX || c->type == UI_TAG_GROUP) &&
             x >= c->x && x < c->x + c->w && y >= c->y && y < c->y + c->h)
             return c;
     }
@@ -5981,17 +6099,56 @@ static int process_window(ui_screen* s, ui_node* container, ui_node* window,
                 s->mouse_y >= c->y && s->mouse_y < c->y + c->h;
             if (inside)
                 s->hot = c;
-            if (inside && s->mouse_pressed && !*click_consumed)
+
+            /* The scrollbar overlay (see group_has_scrollbar/render_group)
+             * lives in the box's own rightmost column - same click-empty-
+             * track-jumps/click-thumb-just-grabs-it/drag-to-move shape as
+             * <listbox>'s own vertical bar (see the UI_TAG_LISTBOX branch
+             * above), just without a horizontal counterpart. */
+            int has_bar = group_has_scrollbar(c);
+            int on_bar = has_bar && on_node_last_col(c, s->mouse_px);
+
+            if (s->dragging_group_scrollbar == c && !s->mouse_down)
             {
-                int row = s->mouse_y - c->y;  /* one item per row, no scroll */
-                if (row >= 0 && row < c->child_count)
+                s->dragging_group_scrollbar = NULL;
+                c->thumb_pin = -1;   /* drag over: thumb follows scroll again */
+            }
+
+            if (inside && on_bar && s->mouse_pressed && !*click_consumed)
+            {
+                s->dragging_group_scrollbar = c;
+                int thumb_start, thumb_len;
+                group_scrollbar_thumb(c, &thumb_start, &thumb_len);
+                int row = node_row_at(c, s->mouse_py);
+                int on_thumb = row >= thumb_start && row < thumb_start + thumb_len;
+                if (!on_thumb)
+                {
+                    /* Empty track: jump, then re-read the thumb so a drag
+                     * continuing from this press tracks the cursor. */
+                    group_scrollbar_set_from_mouse(c, s->mouse_py);
+                    group_scrollbar_thumb(c, &thumb_start, &thumb_len);
+                }
+                s->vbar_drag_offset = row - thumb_start;
+                if (s->vbar_drag_offset < 0) s->vbar_drag_offset = 0;
+                if (s->vbar_drag_offset > thumb_len - 1) s->vbar_drag_offset = thumb_len - 1;
+                *click_consumed = 1;
+            }
+            else if (s->dragging_group_scrollbar == c && s->mouse_down && s->mouse_moved)
+            {
+                group_scrollbar_drag_to(s, c, s->mouse_py, s->vbar_drag_offset);
+            }
+
+            if (inside && !on_bar && s->mouse_pressed && !*click_consumed)
+            {
+                int index = c->scroll + (s->mouse_y - c->y);
+                if (index >= 0 && index < c->child_count)
                 {
                     s->focused = c;
-                    c->cursor_row = row;
+                    c->cursor_row = index;
                     if (c->multi)
-                        c->children[row]->selected = !c->children[row]->selected;
+                        c->children[index]->selected = !c->children[index]->selected;
                     else
-                        c->selected = row;
+                        c->selected = index;
                     *click_consumed = 1;
                     ui_fire_event(s, c->id, NULL);
                 }
@@ -6320,6 +6477,17 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                         listbox_clamp_scroll(hit);
                     }
                 }
+                else if (hit && hit->type == UI_TAG_GROUP)
+                {
+                    /* Vertical-only, same as a <listbox> minus the
+                     * horizontal axis - a check-box row is always short
+                     * enough to fit the box's width. */
+                    if (ev.data.mouse.wheel_delta)
+                    {
+                        hit->scroll -= ev.data.mouse.wheel_delta * UI_WHEEL_LINES;
+                        group_clamp_scroll(hit);
+                    }
+                }
                 else if (hit)
                 {
                     /* A horizontal wheel/tilt (or trackpad two-finger swipe)
@@ -6388,6 +6556,7 @@ void ui_screen_update(ui_screen* s, ui_env* env)
             s->dragging_editor_hscrollbar = NULL;
             s->dragging_listbox_scrollbar = NULL;
             s->dragging_listbox_hscrollbar = NULL;
+            s->dragging_group_scrollbar = NULL;
             s->selecting = NULL;
             continue;
         }
@@ -6504,7 +6673,10 @@ void ui_screen_update(ui_screen* s, ui_env* env)
 
         /* GROUP: Up/Down move the keyboard-focused row, Space activates it
          * (toggles a check box, or picks a radio); a radio also follows the
-         * arrows directly, like a native radio cluster. */
+         * arrows directly, like a native radio cluster. group_ensure_visible
+         * scrolls the box (if it has a scrollbar at all - see
+         * group_has_scrollbar) so Up/Down can walk right past the visible
+         * rows instead of stalling at the bottom edge. */
         if (in->type == UI_TAG_GROUP)
         {
             int cnt = in->child_count;
@@ -6536,6 +6708,7 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                 in->selected = focus;  /* arrows re-pick the radio immediately */
                 ui_fire_event(s, in->id, NULL);
             }
+            group_ensure_visible(in);
             continue;
         }
 
@@ -7040,7 +7213,7 @@ void ui_screen_update(ui_screen* s, ui_env* env)
         int active_idx = -1;
         if (s->dragging_window || s->resizing_window || s->dragging_editor_vscrollbar ||
             s->dragging_editor_hscrollbar || s->dragging_listbox_scrollbar ||
-            s->dragging_listbox_hscrollbar)
+            s->dragging_listbox_hscrollbar || s->dragging_group_scrollbar)
         {
             for (int i = 0; i < s->window_count; i++)
             {
@@ -7049,7 +7222,8 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                     is_direct_child(w, s->dragging_editor_vscrollbar) ||
                     is_direct_child(w, s->dragging_editor_hscrollbar) ||
                     is_direct_child(w, s->dragging_listbox_scrollbar) ||
-                    is_direct_child(w, s->dragging_listbox_hscrollbar))
+                    is_direct_child(w, s->dragging_listbox_hscrollbar) ||
+                    is_direct_child(w, s->dragging_group_scrollbar))
                 {
                     active_idx = i;
                     break;
@@ -8145,7 +8319,12 @@ static void render_listbox(ui_screen* s, ui_node* n)
  * "( )"/"(*)" (a bullet) for a single-select radio cluster, or "[ ]"/"[X]"
  * for a multi-select check-box cluster (see ui_set_multi) - then the label
  * with its first letter accented as a hotkey cue. The keyboard-focused row is
- * drawn with the selection colors while the group holds focus. */
+ * drawn with the selection colors while the group holds focus.
+ *
+ * n->scroll offsets which child lands on row 0 - same idea as <listbox>'s
+ * own n->scroll (see render_listbox) - so a GROUP with more items than its
+ * box is tall (Compiler Options' "Flags" list, see ide.c) scrolls instead of
+ * just clipping the overflow silently. */
 static void render_group(ui_screen* s, ui_node* n)
 {
     int focused = (s->focused == n);
@@ -8153,11 +8332,15 @@ static void render_group(ui_screen* s, ui_node* n)
 
     draw_fill(n->x, n->y, n->w, n->h, g_theme.listbox_fg, g_theme.listbox_bg);
 
-    for (int row = 0; row < n->h && row < n->child_count; row++)
+    for (int row = 0; row < n->h; row++)
     {
-        ui_node* item = n->children[row];
-        int on = n->multi ? item->selected : (row == n->selected);
-        int is_focus = focused && row == focus_row;
+        int index = n->scroll + row;
+        if (index < 0 || index >= n->child_count)
+            continue;   /* past the last item - draw_fill above already blanked it */
+
+        ui_node* item = n->children[index];
+        int on = n->multi ? item->selected : (index == n->selected);
+        int is_focus = focused && index == focus_row;
         uint32_t fg = is_focus ? g_theme.listbox_sel_fg : g_theme.listbox_fg;
         uint32_t bg = is_focus ? g_theme.listbox_sel_bg : g_theme.listbox_bg;
         int y = n->y + row;
@@ -8182,6 +8365,25 @@ static void render_group(ui_screen* s, ui_node* n)
             emit_char(n->x + col, y, cp, cfg, bg);
             first = 0;
             col++;
+        }
+    }
+
+    /* The scrollbar overlay (see group_has_scrollbar) - painted over the
+     * rightmost column just drawn above, only while it's actually relevant
+     * to look at: the mouse is over this group, or its thumb is mid-drag
+     * (which can carry the mouse off the box entirely - see process_window).
+     * Same "never reserves a permanent column" behavior as <listbox>'s own
+     * (see render_listbox). */
+    if (group_has_scrollbar(n) && (s->hot == n || s->dragging_group_scrollbar == n))
+    {
+        int thumb_start, thumb_len;
+        group_scrollbar_thumb(n, &thumb_start, &thumb_len);
+        int sx = n->x + n->w - 1;
+        for (int row = 0; row < n->h; row++)
+        {
+            int is_thumb = row >= thumb_start && row < thumb_start + thumb_len;
+            emit_char(sx, n->y + row, ' ', g_theme.scrollbar_bg,
+                      is_thumb ? g_theme.scrollbar_thumb_bg : g_theme.scrollbar_bg);
         }
     }
 }

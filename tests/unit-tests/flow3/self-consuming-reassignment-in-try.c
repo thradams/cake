@@ -1,43 +1,6 @@
 #pragma safety enable
 
-/*
-   `p = f(p);` inside a try, where a later throw reaches a catch that releases p.
-
-   KNOWN GAP -- and the residue of a bug that is mostly fixed. See
-   self-consuming-reassignment.c for the plain and loop forms, both of which are
-   clean: the call consumes the old value, the result lands back in p, and
-   nothing touches the consumed object.
-
-   Real instance: expressions.c:2752/2758, cake's own unary_expression.
-
-       try
-       {
-           ...
-           p_expression_node = postfix_expression_tail(ctx, p_expression_node, is_discarded);
-           if (p_expression_node == NULL)
-               throw;
-       }
-       catch
-       {
-           expression_delete(p_expression_node);   // warning 31: lifetime has ended
-           p_expression_node = NULL;
-       }
-
-   That site reported 66 warnings before the origin filter was extended to the
-   aggregate state check (flow3_object_leaves_in_state); it reports 3 now --
-   one per throw path that reaches the catch.
-
-   Why the remaining case is harder. A catch is reached from MANY throw sites at
-   once. Some arms hold p live (the throws before the call); one arm consumed the
-   old object and holds the call's result, which is NULL exactly when that arm
-   threw -- so `del(p)` there is a no-op. The ENDED fact belongs to the consumed
-   object, which p no longer names, but the merge brings it along and the arms
-   are not separable by origin the way a loop's back-edge arms were.
-
-   Same family as the retained-alias gap in
-   owner-moved-into-container-keeps-view.c: an ENDED fact recorded against an
-   object that a name no longer refers to.
-*/
+/* KNOWN GAP: `p = f(p)` in a try whose catch releases p reports use-after-end once per throw path, the ENDED fact of the consumed object reaches the catch merge (expressions.c unary_expression) */
 
 #define NULL ((void*)0)
 
@@ -48,8 +11,7 @@ struct E* _Owner _Opt make(void);
 void del(struct E* _Owner _Opt p);
 int maybe(void);
 
-/* The expressions.c shape: several throws reach one catch, and one of them is
-   after the self-consuming reassignment. */
+/* the expressions.c shape: several throws reach one catch, one after the self-consuming reassignment */
 struct E* _Owner _Opt consume_in_try(void)
 {
     struct E* _Owner _Opt p = make();
@@ -69,21 +31,14 @@ struct E* _Owner _Opt consume_in_try(void)
     }
     catch
     {
-        /* Must not warn: on the arm that consumed the old object, p holds the
-           call's result, and that result is NULL precisely when this arm threw,
-           so this is a no-op. On every other arm p is live and this is the
-           intended release. */
+        /* must not warn: on the consuming arm p is the call's result (NULL when it threw), elsewhere p is live */
         del(p);
         p = NULL;
     }
     return p;
 }
 
-/*
-   Same bug through GOTO, which shares the mechanism: both goto and throw
-   accumulate into a join map (flow3_map_accumulate_into_join) that then BECOMES
-   the live map, so the appended union survives.
-*/
+/* same bug through goto: the accumulated join becomes the live map */
 void consume_then_goto(void)
 {
     struct E* _Owner _Opt p = make();
@@ -102,12 +57,7 @@ cleanup:
     del(p); //lint 31 object '(*p)' lifetime has ended -- same join-accumulation bug as the try above
 }
 
-/*
-   Control 1: BREAK is clean, and that is the discriminating case. break uses the
-   same accumulate_into_join, but its join is folded in later by
-   flow3_map_merge_arms at loop exit -- REPLACE semantics -- whereas goto and
-   throw let the accumulated join become the live map directly.
-*/
+/* control 1: break is clean, its join is merged with replace semantics at loop exit */
 void consume_then_break_ok(void)
 {
     struct E* _Owner _Opt p = make();
@@ -130,10 +80,7 @@ void consume_then_break_ok(void)
     del(p);
 }
 
-/*
-   Control 2: the same reassignment with no try/catch around it. Clean -- there
-   is no join at all to carry the consumed object's state anywhere.
-*/
+/* control 2: no try/catch, no join, clean */
 struct E* _Owner _Opt consume_no_try_ok(void)
 {
     struct E* _Owner _Opt p = make();

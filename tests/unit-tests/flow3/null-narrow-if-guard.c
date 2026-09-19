@@ -1,13 +1,6 @@
 #pragma safety enable
 
-/*
-   Regression test: once `if (p)` proves p is non-null, a later
-   dereference of p inside that true branch must NOT warn -- the
-   narrowing from the condition has to actually reach the dereference.
-
-   Contrast the two functions below: same shape (p = something(); then
-   a dereference of p), the only difference is the `if (p)` guard.
-*/
+/* after `if (p)` a dereference inside the true branch must not warn; the unguarded twin warns */
 
 struct X
 {

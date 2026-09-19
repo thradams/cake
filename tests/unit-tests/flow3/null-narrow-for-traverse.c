@@ -1,18 +1,6 @@
 #pragma safety enable
 
-/*
-   Regression test: the classic linked-list traversal idiom
-
-       for (struct node* p = get(); p; p = p->next) { ... }
-
-   The `p` in the condition narrows p to non-null for the rest of that
-   iteration, so both the increment's `p->next` and any `p->` access in
-   the body must be considered safe -- no null-dereference warning.
-
-   Contrast with traverse_unguarded below: same shape, but the condition
-   checks something unrelated to p (`n > 0`), so p is never narrowed and
-   `p->next` in the increment is a possible null dereference.
-*/
+/* `for (p = get(); p; p = p->next)` narrows p for the iteration, the increment and body are safe; traverse_unguarded tests something else and warns */
 
 struct node
 {

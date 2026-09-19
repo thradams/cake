@@ -1,19 +1,6 @@
 #pragma safety enable
 
-/*
-   Nullability of a pointer-to-pointer out-parameter is INVARIANT: the inner
-   pointee nullability must match between caller and callee, because the callee
-   both reads and writes through it.
-
-   find_variables writes `*pp = NULL`, so its inner pointer is _Opt (nullable).
-   A forwarder that declares the inner as NON-nullable (`struct scope**`) but
-   passes pp straight through is unsound -- the callee stores NULL into a slot
-   the forwarder's signature promises is non-null. flow3 flags it (warning 35).
-
-   Fix: declare the forwarder's inner pointer _Opt too, matching the callee
-   (`struct scope* _Opt* _Opt`). Reduced from parser.c find_declarator /
-   find_enumerator forwarding to find_variables.
-*/
+/* a `T**` out-parameter's inner nullability is invariant: forwarding pp to a callee that stores NULL through it needs `T* _Opt* _Opt` (parser.c find_declarator) */
 
 #define NULL ((void*)0)
 

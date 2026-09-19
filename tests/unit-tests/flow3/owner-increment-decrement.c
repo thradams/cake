@@ -1,35 +1,10 @@
 #pragma safety enable
 
-/*
-   ++ and -- are disallowed on _Owner pointers.
-
-   Advancing an owner loses the very address that has to be freed, so the
-   allocation could never be released through it. All four forms are rejected:
-
-       p++   p--   ++p   --p
-
-   This check used to live in expressions.c and only covered the POSTFIX forms,
-   so `++p` / `--p` on an owner went completely unreported. It now lives in
-   flow3 (where every _Owner diagnostic belongs) and catches all four.
-
-   Everything in owner_forms() below is an ERROR by design -- this file is a
-   specification, not a regression.
-*/
+/* ++ and -- on an _Owner pointer are errors in all four forms (1310/1320), including the prefix forms that used to be accepted */
 
 void free(void* _Owner _Opt p);
 
-/*
-   Documented (each line is error 1310 / 1320):
-
-       void owner_forms(char* _Owner _Opt p)
-       {
-           p++;    // error 1310: operator ++ cannot be used in _Owner pointers
-           p--;    // error 1320: operator -- cannot be used in _Owner pointers
-           ++p;    // error 1310  (was silently accepted before)
-           --p;    // error 1320  (was silently accepted before)
-           free(p);
-       }
-*/
+/* documented: p++ / ++p are error 1310, p-- / --p are error 1320 */
 
 /* A plain (non-owner) pointer is unaffected: walking it is normal C. */
 unsigned long count_chars(const char* s)

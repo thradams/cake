@@ -123,10 +123,6 @@ bool path_is_relative(const char* path)
 
 #ifdef _WIN32
 
-#ifdef __CAKE__
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored 11
-#endif
 
 struct TAGDIR
 {
@@ -134,9 +130,6 @@ struct TAGDIR
     struct dirent dirent;
 };
 
-#ifdef __CAKE__
-#pragma CAKE diagnostic pop
-#endif
 
 DIR* _Owner _Opt opendir(const char* name)
 {
@@ -396,7 +389,7 @@ int get_self_path(char* buffer, int maxsize)
 #if !defined __EMSCRIPTEN__
 
 /* Find the last occurrence of c1 or c2 in s. */
-char* _Opt strrchr_ex(const char* s, int c1, int c2)
+static char* _Opt fs_strrchr_ex(const char* s, int c1, int c2)
 {
     const char* _Opt last = NULL;
     const char* p = s;
@@ -435,7 +428,7 @@ void remove_file_extension(const char* filename, int n, char out[/*n*/])
 
 char* basename(const char* filename)
 {
-    char* _Opt p = strrchr_ex(filename, '/', '\\'); //added \ to windows path
+    char* _Opt p = fs_strrchr_ex(filename, '/', '\\'); //added \ to windows path
     return p ? p + 1 : (char*)filename;
 }
 
@@ -556,7 +549,10 @@ char* _Owner _Opt read_file(const char* const path, bool append_newline)
    embeded standard headers from .\include\
    the tool embed creates the .include version of each file
    in .\include\
-*/static const char file_assert_h[] = {
+*/static const char file___cake_types_h[] = {
+#include "include/__cake_types.h.include"
+, 0 };
+static const char file_assert_h[] = {
 #include "include/assert.h.include"
 , 0 };
 static const char file_complex_h[] = {
@@ -656,7 +652,11 @@ static const char file_wctype_h[] = {
 
 char* _Owner read_file(const char* path, bool append_newline)
 {
-    if (strcmp(path, "c:/assert.h") == 0)
+    if (strcmp(path, "c:/__cake_types.h") == 0)
+    {
+        return strdup(file___cake_types_h);
+    }
+    else if (strcmp(path, "c:/assert.h") == 0)
     {
         return strdup(file_assert_h);
     }

@@ -394,8 +394,6 @@ bool type_is_decimal32(const struct type* p_type);
 bool type_is_long_double(const struct type* p_type);
 bool type_is_double(const struct type* p_type);
 bool type_is_float(const struct type* p_type);
-bool type_is_int(const struct type* p_type);
-bool type_is_unsigned_int(const struct type* p_type);
 bool type_is_empty(const struct type* p_type);
 
 bool type_is_vla(const struct type* p_type);
@@ -410,16 +408,13 @@ bool type_is_bitint(const struct type* p_type);
 enum type_specifier_flags bitint_lowered_type_specifier_flags(int width, bool is_unsigned, enum target target);
 bool type_is_unnamed_bitfield(const struct type* p_type);
 
-struct type type_get_enum_type(const struct type* p_type);
 
 struct argument_expression;
 
 
-struct type type_convert_to(const struct type* p_type, enum standard_version target);
 struct type type_lvalue_conversion(const struct type* p_type);
 void type_remove_all_qualifiers(struct type* p_type);
 void type_remove_non_cake_qualifiers(struct type* p_type);
-void type_add_const(struct type* p_type);
 void type_swap(struct type* a, struct type* b);
 void type_clear(struct type* a);
 void type_integer_promotion(struct type* a);
@@ -431,7 +426,6 @@ struct type get_array_item_type(const struct type* p_type);
 struct type type_param_array_to_pointer(const struct type* p_type);
 
 struct type type_make_literal_string(int size, enum type_specifier_flags chartype, enum type_qualifier_flags qualifiers);
-struct type type_make_int();
 struct type type_make_int_bool_like();
 struct type type_make_size_t(enum target target);
 struct type type_make_ptrdiff_t(enum target target);
@@ -474,10 +468,8 @@ size_t type_get_alignof(const struct type* p_type, enum target target);
 
 struct type type_add_pointer(const struct type* p_type);
 void type_print(const struct type* a, enum target target);
-void type_println(const struct type* a, enum target target);
 
 enum type_category type_get_category(const struct type* p_type);
-void print_type_qualifier_specifiers(struct osstream* ss, const struct type* type, enum target target);
 
 void type_visit_to_mark_anonymous(const struct type* p_type);
 
@@ -485,7 +477,5 @@ void type_set_qualifiers_using_declarator(struct type* p_type, const struct decl
 void type_set_storage_specifiers_using_declarator(struct type* p_type, const struct declarator* pdeclarator);
 void type_merge_qualifiers_using_declarator(struct type* p_type, const struct declarator* pdeclarator);
 
-void print_type_declarator(struct osstream* ss, const struct type* p_type, enum target target);
 void type_remove_names(struct type* p_type);
-const struct type* type_get_specifer_part(const struct type* p_type);
 void print_msvc_declspec(struct osstream* ss, bool* first, enum msvc_declspec_flags  msvc_declspec_flags);

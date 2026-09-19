@@ -1,19 +1,6 @@
 #pragma safety enable
 
-/*
-   PATTERN 2 (was a flow3 false positive, now FIXED) -- reading a NON-_Opt
-   member through a pointer that was NARROWED from _Opt.
-
-   After `if (p == NULL) return;` the pointer p is non-null. The pointee of a
-   narrowed _Opt pointer was never member-seeded, so a non-_Opt (non-null)
-   member read through it came back possibly-null and a later dereference
-   warned. Fix: on a `->` member read, an unseeded member falls back to its
-   declared nullability -- a non-_Opt pointer member is non-null by contract
-   (flow3_seed_member_default). Both functions below are now clean.
-
-   Reproduced from expressions.c:1017 (`while (*s)` with `s = token->lexeme`,
-   token = ctx->current, an _Opt member guarded by an earlier NULL check).
-*/
+/* FIXED: a non-_Opt member read through a narrowed _Opt pointer is non-null by contract (expressions.c:1017) */
 
 #define NULL ((void*)0)
 

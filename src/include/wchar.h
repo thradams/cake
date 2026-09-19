@@ -7,178 +7,260 @@
 
 #pragma once
 
-#define WCHAR_MIN 0x0000
-#define WCHAR_MAX 0xffff
+#include <__cake_types.h>
 
-typedef unsigned long size_t;
-typedef int wchar_t;
+#define __STDC_VERSION_WCHAR_H__ 202311L
 
-typedef struct
-{
-    int __count;
-    union
-    {
-        unsigned int __wch;
-        char __wchb[4];
-    } __value;
-} __mbstate_t;
+typedef __cake_size_t size_t;
+typedef __cake_wchar_t wchar_t;
+typedef __cake_wint_t wint_t;
+typedef __cake_va_list va_list;
 
-typedef __mbstate_t mbstate_t;
-struct _IO_FILE;
-typedef struct _IO_FILE __FILE;
-struct _IO_FILE;
-typedef struct _IO_FILE FILE;
-struct __locale_struct
-{
+typedef struct __cake_FILE FILE;
 
-    struct __locale_data* __locales[13];
-
-    const unsigned short int* __ctype_b;
-    const int* __ctype_tolower;
-    const int* __ctype_toupper;
-
-    const char* __names[13];
-};
-
-typedef struct __locale_struct* __locale_t;
-
-typedef __locale_t locale_t;
+typedef __cake_mbstate_t mbstate_t;
 
 struct tm;
 
-extern wchar_t* wcscpy(wchar_t* __restrict __dest,
-   const wchar_t* __restrict __src);
+#ifndef NULL
+#define NULL ((void*)0)
+#endif
 
-extern wchar_t* wcsncpy(wchar_t* __restrict __dest,
-    const wchar_t* __restrict __src, size_t __n);
+#define WEOF ((wint_t)-1)
 
-extern wchar_t* wcscat(wchar_t* __restrict __dest,
-   const wchar_t* __restrict __src);
+#if defined(_WIN32) || !defined(__SIZE_TYPE__)
+#define WCHAR_MIN 0
+#define WCHAR_MAX 0xffff
+#else
+#define WCHAR_MIN (-0x7fffffff - 1)
+#define WCHAR_MAX 0x7fffffff
+#endif
 
-extern wchar_t* wcsncat(wchar_t* __restrict __dest,
-    const wchar_t* __restrict __src, size_t __n);
+/* formatted wide character input/output */
+#if defined(_WIN32)
 
-extern int wcscmp(const wchar_t* __s1, const wchar_t* __s2);
+/* like stdio.h: the msvc CRT only exports __stdio_common_v*, the family is
+   inline in its headers */
+#include <stdarg.h>
+#include <stdio.h>
 
-extern int wcsncmp(const wchar_t* __s1, const wchar_t* __s2, size_t __n);
+int __stdio_common_vfwprintf(unsigned long long options, FILE* stream, const wchar_t* format, void* _Opt locale, va_list arg);
+int __stdio_common_vswprintf(unsigned long long options, wchar_t* _Opt s, size_t n, const wchar_t* format, void* _Opt locale, va_list arg);
+int __stdio_common_vfwscanf(unsigned long long options, FILE* stream, const wchar_t* format, void* _Opt locale, va_list arg);
+int __stdio_common_vswscanf(unsigned long long options, const wchar_t* s, size_t n, const wchar_t* format, void* _Opt locale, va_list arg);
 
-extern int wcscasecmp(const wchar_t* __s1, const wchar_t* __s2);
+static inline int vfwprintf(FILE* restrict stream, const wchar_t* restrict format, va_list arg)
+{
+    return __stdio_common_vfwprintf(0, stream, format, NULL, arg);
+}
 
-extern int wcsncasecmp(const wchar_t* __s1, const wchar_t* __s2,
-   size_t __n);
+static inline int vwprintf(const wchar_t* restrict format, va_list arg)
+{
+    return __stdio_common_vfwprintf(0, stdout, format, NULL, arg);
+}
 
-extern int wcscasecmp_l(const wchar_t* __s1, const wchar_t* __s2,
-    locale_t __loc);
+static inline int vswprintf(wchar_t* restrict s, size_t n, const wchar_t* restrict format, va_list arg)
+{
+    int r = __stdio_common_vswprintf(0, s, n, format, NULL, arg);
+    return r < 0 ? -1 : r;
+}
 
-extern int wcsncasecmp_l(const wchar_t* __s1, const wchar_t* __s2,
-     size_t __n, locale_t __loc);
+static inline int vfwscanf(FILE* restrict stream, const wchar_t* restrict format, va_list arg)
+{
+    return __stdio_common_vfwscanf(0, stream, format, NULL, arg);
+}
 
-extern int wcscoll(const wchar_t* __s1, const wchar_t* __s2);
+static inline int vwscanf(const wchar_t* restrict format, va_list arg)
+{
+    return __stdio_common_vfwscanf(0, stdin, format, NULL, arg);
+}
 
-extern size_t wcsxfrm(wchar_t* __restrict __s1,
-         const wchar_t* __restrict __s2, size_t __n);
+static inline int vswscanf(const wchar_t* restrict s, const wchar_t* restrict format, va_list arg)
+{
+    return __stdio_common_vswscanf(0, s, (size_t)-1, format, NULL, arg);
+}
 
-extern int wcscoll_l(const wchar_t* __s1, const wchar_t* __s2,
-        locale_t __loc);
+static inline int fwprintf(FILE* restrict stream, const wchar_t* restrict format, ...)
+{
+    va_list arg;
+    va_start(arg, format);
+    int r = vfwprintf(stream, format, arg);
+    va_end(arg);
+    return r;
+}
 
-extern size_t wcsxfrm_l(wchar_t* __s1, const wchar_t* __s2,
-    size_t __n, locale_t __loc);
+static inline int wprintf(const wchar_t* restrict format, ...)
+{
+    va_list arg;
+    va_start(arg, format);
+    int r = vwprintf(format, arg);
+    va_end(arg);
+    return r;
+}
 
-extern wchar_t* wcsdup(const wchar_t* __s);
-extern wchar_t* wcschr(const wchar_t* __wcs, wchar_t __wc);
-extern wchar_t* wcsrchr(const wchar_t* __wcs, wchar_t __wc);
-extern size_t wcscspn(const wchar_t* __wcs, const wchar_t* __reject);
+static inline int swprintf(wchar_t* restrict s, size_t n, const wchar_t* restrict format, ...)
+{
+    va_list arg;
+    va_start(arg, format);
+    int r = vswprintf(s, n, format, arg);
+    va_end(arg);
+    return r;
+}
 
-extern size_t wcsspn(const wchar_t* __wcs, const wchar_t* __accept);
-extern wchar_t* wcspbrk(const wchar_t* __wcs, const wchar_t* __accept);
-extern wchar_t* wcsstr(const wchar_t* __haystack, const wchar_t* __needle);
+static inline int fwscanf(FILE* restrict stream, const wchar_t* restrict format, ...)
+{
+    va_list arg;
+    va_start(arg, format);
+    int r = vfwscanf(stream, format, arg);
+    va_end(arg);
+    return r;
+}
 
-extern wchar_t* wcstok(wchar_t* __restrict __s,
-   const wchar_t* __restrict __delim,
-   wchar_t** __restrict __ptr);
+static inline int wscanf(const wchar_t* restrict format, ...)
+{
+    va_list arg;
+    va_start(arg, format);
+    int r = vwscanf(format, arg);
+    va_end(arg);
+    return r;
+}
 
-extern size_t wcslen(const wchar_t* __s);
-extern size_t wcsnlen(const wchar_t* __s, size_t __maxlen);
-extern wchar_t* wmemchr(const wchar_t* __s, wchar_t __c, size_t __n);
+static inline int swscanf(const wchar_t* restrict s, const wchar_t* restrict format, ...)
+{
+    va_list arg;
+    va_start(arg, format);
+    int r = vswscanf(s, format, arg);
+    va_end(arg);
+    return r;
+}
 
-extern int wmemcmp(const wchar_t* __s1, const wchar_t* __s2, size_t __n);
+#else
 
-extern wchar_t* wmemcpy(wchar_t* __restrict __s1,
-    const wchar_t* __restrict __s2, size_t __n);
+int fwprintf(FILE* restrict stream, const wchar_t* restrict format, ...);
+int fwscanf(FILE* restrict stream, const wchar_t* restrict format, ...);
+int swprintf(wchar_t* restrict s, size_t n, const wchar_t* restrict format, ...);
+int swscanf(const wchar_t* restrict s, const wchar_t* restrict format, ...);
+int vfwprintf(FILE* restrict stream, const wchar_t* restrict format, va_list arg);
+int vfwscanf(FILE* restrict stream, const wchar_t* restrict format, va_list arg);
+int vswprintf(wchar_t* restrict s, size_t n, const wchar_t* restrict format, va_list arg);
+int vswscanf(const wchar_t* restrict s, const wchar_t* restrict format, va_list arg);
+int vwprintf(const wchar_t* restrict format, va_list arg);
+int vwscanf(const wchar_t* restrict format, va_list arg);
+int wprintf(const wchar_t* restrict format, ...);
+int wscanf(const wchar_t* restrict format, ...);
 
-extern wchar_t* wmemmove(wchar_t* __s1, const wchar_t* __s2, size_t __n);
+#endif
 
-extern wchar_t* wmemset(wchar_t* __s, wchar_t __c, size_t __n);
-extern wint_t btowc(int __c);
+/* wide character input/output */
+wint_t fgetwc(FILE* stream);
+wchar_t* _Opt fgetws(wchar_t* restrict s, int n, FILE* restrict stream);
+wint_t fputwc(wchar_t c, FILE* stream);
+int fputws(const wchar_t* restrict s, FILE* restrict stream);
+#if defined(_WIN32)
+/* msvc streams have no orientation, the CRT header just returns mode */
+static inline int fwide(FILE* stream, int mode)
+{
+    (void)stream;
+    return mode;
+}
+#else
+int fwide(FILE* stream, int mode);
+#endif
+wint_t getwc(FILE* stream);
+wint_t getwchar(void);
+wint_t putwc(wchar_t c, FILE* stream);
+wint_t putwchar(wchar_t c);
+wint_t ungetwc(wint_t c, FILE* stream);
 
-extern int wctob(wint_t __c);
+/* general wide string utilities */
+double wcstod(const wchar_t* restrict nptr, wchar_t** _Opt restrict endptr);
+float wcstof(const wchar_t* restrict nptr, wchar_t** _Opt restrict endptr);
+long double wcstold(const wchar_t* restrict nptr, wchar_t** _Opt restrict endptr);
+long int wcstol(const wchar_t* restrict nptr, wchar_t** _Opt restrict endptr, int base);
+long long int wcstoll(const wchar_t* restrict nptr, wchar_t** _Opt restrict endptr, int base);
+unsigned long int wcstoul(const wchar_t* restrict nptr, wchar_t** _Opt restrict endptr, int base);
+unsigned long long int wcstoull(const wchar_t* restrict nptr, wchar_t** _Opt restrict endptr, int base);
 
-extern int mbsinit(const mbstate_t* __ps);
+wchar_t* wcscpy(wchar_t* restrict s1, const wchar_t* restrict s2);
+wchar_t* wcsncpy(wchar_t* restrict s1, const wchar_t* restrict s2, size_t n);
+wchar_t* wmemcpy(wchar_t* restrict s1, const wchar_t* restrict s2, size_t n);
+wchar_t* wmemmove(wchar_t* s1, const wchar_t* s2, size_t n);
+wchar_t* wcscat(wchar_t* restrict s1, const wchar_t* restrict s2);
+wchar_t* wcsncat(wchar_t* restrict s1, const wchar_t* restrict s2, size_t n);
+int wcscmp(const wchar_t* s1, const wchar_t* s2);
+int wcscoll(const wchar_t* s1, const wchar_t* s2);
+int wcsncmp(const wchar_t* s1, const wchar_t* s2, size_t n);
+size_t wcsxfrm(wchar_t* _Opt restrict s1, const wchar_t* restrict s2, size_t n);
+#if defined(_WIN32)
+/* inline in the msvc CRT headers */
+static inline int wmemcmp(const wchar_t* s1, const wchar_t* s2, size_t n)
+{
+    for (size_t i = 0; i < n; i++)
+    {
+        if (s1[i] != s2[i])
+            return s1[i] < s2[i] ? -1 : 1;
+    }
+    return 0;
+}
+#else
+int wmemcmp(const wchar_t* s1, const wchar_t* s2, size_t n);
+#endif
+wchar_t* _Opt wcschr(const wchar_t* s, wchar_t c);
+size_t wcscspn(const wchar_t* s1, const wchar_t* s2);
+wchar_t* _Opt wcspbrk(const wchar_t* s1, const wchar_t* s2);
+wchar_t* _Opt wcsrchr(const wchar_t* s, wchar_t c);
+size_t wcsspn(const wchar_t* s1, const wchar_t* s2);
+wchar_t* _Opt wcsstr(const wchar_t* s1, const wchar_t* s2);
+wchar_t* _Opt wcstok(wchar_t* _Opt restrict s1, const wchar_t* restrict s2, wchar_t** restrict ptr);
+#if defined(_WIN32)
+static inline wchar_t* _Opt wmemchr(const wchar_t* s, wchar_t c, size_t n)
+{
+    for (size_t i = 0; i < n; i++)
+    {
+        if (s[i] == c)
+            return (wchar_t*)&s[i];
+    }
+    return NULL;
+}
+#else
+wchar_t* _Opt wmemchr(const wchar_t* s, wchar_t c, size_t n);
+#endif
+size_t wcslen(const wchar_t* s);
+size_t wcsnlen(const wchar_t* s, size_t maxlen);
+wchar_t* wmemset(wchar_t* s, wchar_t c, size_t n);
+wchar_t* _Owner _Opt wcsdup(const wchar_t* s);
 
-extern size_t mbrtowc(wchar_t* __restrict __pwc,
-         const char* __restrict __s, size_t __n,
-         mbstate_t* __restrict __p);
+#if defined(_WIN32)
+/* msvc extensions, declared by its string.h/wchar.h */
+wchar_t* _Owner _Opt _wcsdup(const wchar_t* s);
+int _wcsicmp(const wchar_t* s1, const wchar_t* s2);
+int _wcsnicmp(const wchar_t* s1, const wchar_t* s2, size_t n);
+wchar_t* _wcslwr(wchar_t* s);
+wchar_t* _wcsupr(wchar_t* s);
+wchar_t* _wcsrev(wchar_t* s);
+#endif
 
-extern size_t wcrtomb(char* __restrict __s, wchar_t __wc,
-         mbstate_t* __restrict __ps);
+/* wide character time conversion */
+size_t wcsftime(wchar_t* restrict s, size_t maxsize, const wchar_t* restrict format, const struct tm* restrict timeptr);
 
-extern size_t __mbrlen(const char* __restrict __s, size_t __n,
-   mbstate_t* __restrict __ps);
-extern size_t mbrlen(const char* __restrict __s, size_t __n,
-        mbstate_t* __restrict __ps);
-extern size_t mbsrtowcs(wchar_t* __restrict __dst,
-    const char** __restrict __src, size_t __len,
-    mbstate_t* __restrict __ps);
-
-extern size_t wcsrtombs(char* __restrict __dst,
-    const wchar_t** __restrict __src, size_t __len,
-    mbstate_t* __restrict __ps);
-
-extern size_t mbsnrtowcs(wchar_t* __restrict __dst,
-     const char** __restrict __src, size_t __nmc,
-     size_t __len, mbstate_t* __restrict __ps);
-
-extern size_t wcsnrtombs(char* __restrict __dst,
-     const wchar_t** __restrict __src,
-     size_t __nwc, size_t __len,
-     mbstate_t* __restrict __ps);
-extern double wcstod(const wchar_t* __restrict __nptr,
-        wchar_t** __restrict __endptr);
-
-extern float wcstof(const wchar_t* __restrict __nptr,
-       wchar_t** __restrict __endptr);
-extern long double wcstold(const wchar_t* __restrict __nptr,
-       wchar_t** __restrict __endptr);
-extern long int wcstol(const wchar_t* __restrict __nptr,
-   wchar_t** __restrict __endptr, int __base);
-
-extern unsigned long int wcstoul(const wchar_t* __restrict __nptr,
-      wchar_t** __restrict __endptr, int __base);
-
-extern long long int wcstoll(const wchar_t* __restrict __nptr,
-         wchar_t** __restrict __endptr, int __base);
-
-extern unsigned long long int wcstoull(const wchar_t* __restrict __nptr,
-     wchar_t** __restrict __endptr,
-     int __base);
-extern wchar_t* wcpcpy(wchar_t* __restrict __dest,
-   const wchar_t* __restrict __src);
-
-extern wchar_t* wcpncpy(wchar_t* __restrict __dest,
-    const wchar_t* __restrict __src, size_t __n);
-extern __FILE* open_wmemstream(wchar_t** __bufloc, size_t* __sizeloc);
-
-extern int fwide(__FILE* __fp, int __mode);
-
-extern int fwprintf(__FILE* __restrict __stream,
-       const wchar_t* __restrict __format, ...);
-extern int wprintf(const wchar_t* __restrict __format, ...);
-
-extern int swprintf(wchar_t* __restrict __s, size_t __n,
-       const wchar_t* __restrict __format, ...);
+/* extended multibyte/wide character conversion */
+wint_t btowc(int c);
+int wctob(wint_t c);
+#if defined(_WIN32)
+static inline int mbsinit(const mbstate_t* _Opt ps)
+{
+    return ps == NULL || ps->_Wchar == 0;
+}
+#else
+int mbsinit(const mbstate_t* _Opt ps);
+#endif
+size_t mbrlen(const char* _Opt restrict s, size_t n, mbstate_t* _Opt restrict ps);
+size_t mbrtowc(wchar_t* _Opt restrict pwc, const char* _Opt restrict s, size_t n, mbstate_t* _Opt restrict ps);
+size_t wcrtomb(char* _Opt restrict s, wchar_t wc, mbstate_t* _Opt restrict ps);
+size_t mbsrtowcs(wchar_t* _Opt restrict dst, const char** restrict src, size_t len, mbstate_t* _Opt restrict ps);
+size_t wcsrtombs(char* _Opt restrict dst, const wchar_t** restrict src, size_t len, mbstate_t* _Opt restrict ps);
 
 #else
 
 #include_next <wchar.h>
 #endif
-

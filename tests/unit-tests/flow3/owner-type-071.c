@@ -1,12 +1,6 @@
 #pragma safety enable
 
-/*
-   Linked-list append: `tail` is a _View (non-owner) pointer to the last node.
-   After the node is moved into the list (`head = pnew` or `tail->next = pnew`),
-   copying pnew into the view `tail` is NOT a second ownership transfer -- the
-   object is still alive, owned by the list -- so it must not warn "is moved".
-   (Assigning a moved owner to another OWNER would still warn: use-after-move.)
-*/
+/* copying a moved owner into the _View `tail` is not a second transfer, must not warn "is moved" */
 
 #define NULL ((void*)0)
 

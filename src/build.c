@@ -12,6 +12,8 @@
  *   ./build test             (same as full, and run the tests afterwards)
  *   ./build debug            (debug build: no optimization, debug runtime)
  *   ./build fast debug test  (flags combine freely)
+ *   ./build test -cake-headers (cake runs with its bundled headers: self
+ *                             analysis, cake89 bootstrap and the test suites)
  */
 
 #include "build.h"
@@ -40,7 +42,9 @@
     " compile.c "             \
     " defer.c "               \
     " codegen.c "             \
-    " flow3.c "               \
+    " flow_alternative.c "    \
+    " flow_branch.c "            \
+    " flow.c "               \
     " error.c "               \
     " target.c "              \
     " type.c "
@@ -457,6 +461,7 @@ static void build_inner_tests(void)
 static void build_embedded_files(void)
 {
     print_header("Build embedded files");
+    execute_cmd(RUN EXE("embed") " ./include" );
     execute_cmd(RUN EXE("embed") " ./include/builtins" );
 }
 
@@ -547,7 +552,7 @@ static void build_incremental(const char* compiler,
         src[i] = '\0';
         if (i == 0) continue;
 
-        /* derive .o name: "flow3.c" -> "flow3.o" */
+        /* derive .o name: "flow.c" -> "flow.o" */
         snprintf(obj, sizeof obj, "%s", src);
         char* dot = strrchr(obj, '.');
         if (dot) strcpy(dot, ".o");
@@ -586,7 +591,7 @@ static void build_incremental(const char* compiler,
     free(cmd);
 }
 
-static void build_cake(int fastbuild, int debug, const char* test_flag)
+static void build_cake(int fastbuild, int debug, const char* test_flag, const char* cake_flags)
 {
     print_header("Build cake");
 
@@ -664,7 +669,10 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
         print_header("Run cake on its own source");
 
 
-        execute_cmd(EXE(CKC_NAME) " -DTEST -const-literal  " CAKE_SOURCE_FILES);
+        char* self = calloc(2000, sizeof(char));
+        snprintf(self, 2000, EXE(CKC_NAME) " -DTEST -const-literal %s " CAKE_SOURCE_FILES, cake_flags);
+        execute_cmd(self);
+        free(self);
 
         print_header("Build cake89");
 
@@ -725,7 +733,10 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
     if (test)
     {
         print_header("Run cake on its own source");
-        execute_cmd(EXE(CKC_NAME) " -DTEST -w06 -w082 -w083 -w084 " CAKE_SOURCE_FILES);
+        char* self = calloc(2000, sizeof(char));
+        snprintf(self, 2000, EXE(CKC_NAME) " -DTEST -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
+        execute_cmd(self);
+        free(self);
     }
 
 #endif /* PLATFORM_WINDOWS && COMPILER_CLANG */
@@ -828,7 +839,10 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
            Named explicitly rather than relying on the defaults, so this stays
            enforced whichever way fill_options is configured.
         */
-        execute_cmd("./" EXE(CKC_NAME) " -fanalyzer -w06 -w082 -w083 -w084 " CAKE_SOURCE_FILES);
+        char* self = calloc(2000, sizeof(char));
+        snprintf(self, 2000, "./" EXE(CKC_NAME) " -fanalyzer -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
+        execute_cmd(self);
+        free(self);
 
         print_header("Build cake89");
 
@@ -935,13 +949,13 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
 /*
  * run_generated_tests() - behavior tests of the generated C.
  *
- * Each ../tests/run-tests/*.c is transpiled with `cake_exe`, the output is
+ * Each C file under ../tests/run-tests is transpiled with `cake_exe`, the output is
  * compiled with the host compiler (CC) and executed. A test passes when cake
  * reports nothing and the program exits with 0 (tests end with
  * `return failures;`), so these check what the generated code DOES and need
  * no expected-output file per platform.
  */
-static void run_generated_tests(const char* cake_exe)
+static void run_generated_tests(const char* cake_exe, const char* cake_flags)
 {
     const char* dir = "../tests/run-tests";
     const char* out_dir = "../tests/run-tests/out";
@@ -986,8 +1000,8 @@ static void run_generated_tests(const char* cake_exe)
 
         /* 1. cake: source -> generated C */
         snprintf(cmd, sizeof cmd,
-                 RUN "%s -fdiagnostics-color=never -wd20 -wd85 -test-mode -o %s/%s.c %s/%s",
-                 cake_exe, out_dir, base, dir, name);
+                 RUN "%s %s -fdiagnostics-color=never -wd20 -wd85 -test-mode -o %s/%s.c %s/%s",
+                 cake_exe, cake_flags, out_dir, base, dir, name);
         execute_cmd(cmd);
 
         /* 2. host compiler: generated C -> executable */
@@ -1031,31 +1045,35 @@ static void run_generated_tests(const char* cake_exe)
     printf("%d generated-code tests passed\n", count);
 }
 
-static void run_tests(void)
+static void run_tests(const char* cake_flags)
 {
     print_header("Run tests");
 
-    execute_cmd(RUN EXE(CKC_NAME) " -selftest");
+    const char* suites[] = {
+        " -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -wd44 -wd74 -wd85 -wd88 -test-mode",
+        " -fdiagnostics-color=never -wd20 -wd85 ../tests/unit-tests/*.c -test-mode",
+        " -fdiagnostics-color=never -wd20 -wd82 -wd85 ../tests/unit-tests/flow3/*.c -test-mode",
+    };
+    const char* exes[] = { EXE(CKC_NAME), EXE(CKC89_NAME) };
 
-    execute_cmd(RUN EXE(CKC_NAME) " -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -wd44 -wd74 -wd85 -wd88 -test-mode");
-    execute_cmd(RUN EXE(CKC_NAME) "  -fdiagnostics-color=never -wd20 -wd85 ../tests/unit-tests/*.c -test-mode");
-    
-    execute_cmd(RUN EXE(CKC_NAME) "  -fdiagnostics-color=never -wd20 -wd82 -wd85 ../tests/unit-tests/flow3/*.c -test-mode");
+    for (int e = 0; e < 2; e++)
+    {
+        if (e == 1)
+            print_header("Run tests (cake89)");
 
-    print_header("Run generated-code tests");
-    run_generated_tests(EXE(CKC_NAME));
+        char cmd[1024];
+        snprintf(cmd, sizeof cmd, RUN "%s -selftest", exes[e]);
+        execute_cmd(cmd);
 
+        for (int i = 0; i < 3; i++)
+        {
+            snprintf(cmd, sizeof cmd, RUN "%s %s %s", exes[e], cake_flags, suites[i]);
+            execute_cmd(cmd);
+        }
 
-    print_header("Run tests (cake89)");
-
-    execute_cmd(RUN EXE(CKC89_NAME) " -selftest");
-    execute_cmd(RUN EXE(CKC89_NAME) " -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -wd44 -wd74 -wd85 -wd88 -test-mode");
-    execute_cmd(RUN EXE(CKC89_NAME) "  -fdiagnostics-color=never -wd20 -wd85 ../tests/unit-tests/*.c -test-mode");
-    execute_cmd(RUN EXE(CKC89_NAME) "  -fdiagnostics-color=never -wd20 -wd82 -wd85 ../tests/unit-tests/flow3/*.c -test-mode");
-
-    print_header("Run generated-code tests (cake89)");
-    run_generated_tests(EXE(CKC89_NAME));
-
+        print_header(e == 0 ? "Run generated-code tests" : "Run generated-code tests (cake89)");
+        run_generated_tests(exes[e], cake_flags);
+    }
 
     printf("Other test cases:\n");
     printf("  " CKC_NAME " ../tests/unit-tests/failing/*.c -test-mode\n");
@@ -1067,6 +1085,7 @@ int main(int argc, char* argv[])
     int full = 0;
     int run_test_suite = 0;
     int debug = 0;
+    int cake_headers = 0;
     for (int i = 1; i < argc; i++)
     {
         if (strcmp(argv[i], "fast") == 0)
@@ -1087,14 +1106,21 @@ int main(int argc, char* argv[])
         {
             debug = 1;
         }
+        else if (strcmp(argv[i], "-cake-headers") == 0)
+        {
+            /* every cake run (self-analysis, cake89, test suites) uses the
+               bundled headers instead of the system ones */
+            cake_headers = 1;
+        }
         else
         {
             printf("unrecognized option: %s\n", argv[i]);
-            printf("usage: %s [fast] [full] [test] [debug]\n", argv[0]);
+            printf("usage: %s [fast] [full] [test] [debug] [-cake-headers]\n", argv[0]);
             printf("  fast  - incremental build, skips tools/docs/inner-tests/amalgamation\n");
             printf("  full  - build everything with -DTEST, but do not run the test suite\n");
             printf("  test  - same as full, and run the test suite afterwards\n");
             printf("  debug - build without optimizations/-DNDEBUG\n");
+            printf("  -cake-headers - run cake with its bundled headers (cake89 and tests)\n");
             return 1;
         }
     }
@@ -1106,6 +1132,7 @@ int main(int argc, char* argv[])
     }
 
     const char* test_flag = full ? " -DTEST " : "";
+    const char* cake_flags = cake_headers ? " -cake-headers " : "";
 
     if (!fastbuild)
     {
@@ -1116,12 +1143,12 @@ int main(int argc, char* argv[])
         build_amalgamation();
     }
 
-    build_cake(fastbuild, debug, test_flag);
+    build_cake(fastbuild, debug, test_flag, cake_flags);
 
 
     if (run_test_suite)
     {
-        run_tests();
+        run_tests(cake_flags);
     }
 
     print_header("Build succeeded");

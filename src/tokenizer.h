@@ -87,12 +87,6 @@ struct token* token_list_clone_and_add(struct token_list* list, const struct tok
 bool token_list_is_equal(const struct token_list* list_a, const struct token_list* list_b);
 void token_list_insert_after(struct token_list* list, struct token* _Opt after, struct token_list* append);
 void token_list_insert_before(struct token_list* token_list, struct token* after, struct token_list* append_list);
-void token_list_paste_string_after(struct token_list* list,
-    struct token* after,
-    const char* s);
-void token_list_paste_string_before(struct token_list* list,
-    struct token* before,
-    const char* s);
 struct token_list tokenizer(struct tokenizer_ctx* p, const char* text, const char* _Opt filename_opt, int level, enum token_flags addflags);
 
 void print_code_as_we_see(const struct token_list* list, bool remove_comments);

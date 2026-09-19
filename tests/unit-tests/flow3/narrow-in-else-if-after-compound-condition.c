@@ -1,17 +1,6 @@
 #pragma safety enable
 
-/*
-   An `else if` must narrow from its OWN condition, whatever the preceding
-   arm tested.
-
-   When the first arm's condition is compound (`a > 0 && b > 0`), the else
-   branch state was losing the refinement that the `else if` then
-   establishes, so `b < 0` no longer proved `-b` non-zero and correct code
-   reported "division by zero".
-
-   Regression for object.c's signed_long_long_mul / signed_long_long_add,
-   which are written exactly in this shape.
-*/
+/* an `else if` after a compound condition narrows from its own condition, so `b < 0` proves -b non-zero (object.c signed_long_long_mul) */
 
 /* Each ingredient on its own is fine. */
 
@@ -74,8 +63,7 @@ long long both_arms_compound(long long a, long long b)
     return 0;
 }
 
-/* A later `else` that rules the divisor out by an earlier return still
-   narrows -- object.c's third reported line. */
+/* a later else after an early return still narrows the divisor */
 long long else_after_early_return(long long a, long long b)
 {
     if (a > 0 && b > 0)

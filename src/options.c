@@ -138,25 +138,6 @@ void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w)
     bitset_set(&d->notes, w, false);
 }
 
-int get_diagnostic_type(const struct diagnostic* d, enum diagnostic_id w)
-{
-    if (w == W_LOCATION)
-        return 1; /*note*/
-
-    if (is_diagnostic_configurable(w))
-    {
-        if (bitset_get(&d->errors, w))
-            return 3;
-
-        if (bitset_get(&d->warnings, w))
-            return 2;
-
-        if (bitset_get(&d->notes, w))
-            return 1;
-    }
-
-    return 3; /*error*/
-}
 
 int get_diagnostic_phase(enum diagnostic_id w)
 {
@@ -222,7 +203,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
         /*
            NOTE: W_OUT_OF_BOUNDS (42) is deliberately NOT here -- it stays
            phase 0. It used to be emitted from BOTH phases (expressions.c for
-           a constant index, flow3.c for a flow-derived one), which no single
+           a constant index, flow.c for a flow-derived one), which no single
            per-id phase can describe: `//lint 42` worked on the parse-time
            form and reported "diagnostic '42' not recognized" on the flow one.
            Rather than make the phase per-site, the flow form was given its
@@ -389,6 +370,12 @@ int fill_options(struct options* options,
         if (strcmp(argv[i], "-line-directives") == 0)
         {
             options->line_directives = true;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-unused-extern-report") == 0)
+        {
+            options->report_unused_extern_functions = true;
             continue;
         }
 
@@ -731,6 +718,7 @@ void print_help()
     print_option("-format", "Reformats the file spacing/braces per -style (defaults to `cake`) and prints the result instead of compiling");
     print_option("-format-lines=first:last", "Restricts -format's changes to this inclusive line range");
     print_option("-selftest", "Runs Cake's internal tests. The code must be compiled with -DTEST.");
+    print_option("-unused-extern-report", "Tracks non-static functions across all files given in this invocation and reports, at the end, which ones are never called in any of them");
     
     print_option("-const-literal", "Makes the compiler handle string literals as const char[] rather than char[].");
 

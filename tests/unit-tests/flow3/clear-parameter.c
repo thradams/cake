@@ -1,49 +1,6 @@
 #pragma safety enable
 
-/*
-   Regression tests for the _Clear parameter qualifier.
-
-   `_Clear T* p` on a function parameter has two sides, both checked in
-   flow3.c now:
-
-   1. At the CALL SITE: flow3 must treat the argument's pointee
-      (recursively, for every member of a struct) as being exactly 0
-      after the call. This already worked correctly
-      (flow3_visit_function_arguments -> flow3_check_object_init_assigment
-      -> flow3_map_set_object_zero, gated on type_is_pointed_clear and
-      INIT_PARAMETER); see whole_struct_cleared below.
-
-   2. At the IMPLEMENTATION itself: flow3 now also checks, at every
-      exit point of the function that DECLARES the _Clear parameter,
-      that the pointee really was set to zero -- _Clear is similar to
-      _Dtor in this respect (both describe a contract the callee must
-      fulfill by the time it exits), except the contract is "every
-      member is exactly 0" rather than "the pointee's lifetime ended".
-      See clear_outer (correct) vs clear_outer_forgets_a_member and
-      clear_outer_does_nothing (both flagged) below.
-
-   Two other gaps were found and fixed while implementing this:
-
-   - `const _Clear T* p` was silently accepted, in both qualifier
-     orders. _Clear means the callee WRITES zero to everything *p
-     points to, which directly contradicts const's promise not to
-     modify it. Same reasoning applies to `const _Dtor T* p` and
-     `const _Out T* p`. Rejected with error 1930; see
-     clear_and_const_rejected below.
-
-   - `_Clear`/`_Dtor`/`_Out` on a NON-pointer parameter was also
-     silently accepted (e.g. `_Clear int x`), even though all three
-     only make sense as a qualifier on what a pointer points to.
-     Rejected with error 1940; see clear_on_non_pointer_rejected below.
-
-   Both new checks live in flow3_check_write_qualifier_parameters, and
-   the implementation check lives in flow3_check_clear_params_at_exit
-   (called from flow3_check_function_exit for explicit returns, and
-   from flow3_visit_declaration for falling off the end of the
-   function) plus flow3_check_clear_object_is_zero_at_exit (the
-   recursive per-member check, structurally mirroring the existing
-   _Owner "not moved" check in flow3_check_object_at_exit).
-*/
+/* _Clear parameter: the call site sees the pointee as all zero, and the implementation must leave every member 0 at every exit; const _Clear (1930) and _Clear on non-pointers (1940) are rejected */
 
 struct inner
 {
@@ -96,14 +53,4 @@ void without_the_call_values_are_unchanged(void)
     compile_assert(o.c == 3);
 }
 
-/*
-   Uncomment any line below to see the corresponding error fire. Left
-   commented out so this file itself compiles cleanly end to end.
-
-   error 1930 "_Clear pointee cannot also be const" (either order):
-   void clear_and_const_rejected_a(const _Clear struct outer* p) {}
-   void clear_and_const_rejected_b(_Clear const struct outer* p) {}
-
-   error 1940 "_Clear must be used only at the pointed object":
-   void clear_on_non_pointer_rejected(_Clear int x) {}
-*/
+/* uncomment to see error 1930 (const _Clear pointee) and error 1940 (_Clear on a non-pointer) */

@@ -13,9 +13,7 @@ int main()
     struct X* _Owner _Opt p = malloc(sizeof(struct X));
     if (p)
     {
-        /* No discard warning: malloc is declared _Uninitialized above, so
-           p->name is uninitialized storage here, not an owner holding a
-           resource that would need releasing first. */
+        /* no discard warning: malloc is _Uninitialized, p->name is uninitialized storage, not a resource */
         p->name = malloc(1);
     }
     else

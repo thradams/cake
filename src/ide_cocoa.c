@@ -1588,6 +1588,43 @@ int ui_get_cwd(char *buf, int buf_size)
     return getcwd(buf, (size_t)buf_size) != NULL;
 }
 
+/* See ui_open_url in ide_ui.h. `open <url>` hands the URL to LaunchServices,
+ * which picks the user's default browser - the same as ui_open_terminal
+ * below, just with a URL instead of "-a Terminal". Double-forked for the
+ * same reason too, and the URL goes as `open`'s own argv, never through a
+ * shell. */
+int ui_open_url(const char *url)
+{
+    if (!url || !url[0])
+        return 0;
+    pid_t pid = fork();
+    if (pid < 0)
+        return 0;
+    if (pid == 0)
+    {
+        pid_t pid2 = fork();
+        if (pid2 == 0)
+        {
+            /* A chatty browser must not write over this app's terminal. */
+            int devnull = open("/dev/null", O_RDWR);
+            if (devnull >= 0)
+            {
+                dup2(devnull, 0);
+                dup2(devnull, 1);
+                dup2(devnull, 2);
+                if (devnull > 2)
+                    close(devnull);
+            }
+            execlp("open", "open", url, (char *)NULL);
+            _exit(127);  /* launcher not found on PATH */
+        }
+        _exit(pid2 < 0 ? 1 : 0);
+    }
+    int status = 0;
+    waitpid(pid, &status, 0);
+    return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
 /* Tools > Terminal (see ide.c's do_open_terminal): opens Terminal.app at
  * `dir`, the same effect as `open -a Terminal <dir>` from a shell - `open`
  * hands the request off to launchd and returns almost immediately, so this

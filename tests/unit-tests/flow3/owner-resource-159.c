@@ -13,10 +13,7 @@ void x_delete(struct X* _Owner _Opt p)
     if (p)
     {
         free(p->name);
-        /* FIXED: this used to ALSO warn about '(*p).name' (null-pointer
-           and moved-object checks) here -- free's own parameter is
-           void*, so it never accesses *p's structure at all; passing p
-           to it is just consuming p itself. */
+        /* FIXED: no extra warnings about (*p).name, free takes void* and only consumes p */
         free(p);
     }
 }

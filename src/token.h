@@ -256,7 +256,9 @@ enum token_flags
 
     TK_C_BACKEND_FLAG_SHOW_AGAIN = 1 << 11,          /*was hidden but maybe reappears*/
 
-    TK_FLAG_ACTIVE = 1 << 12                         /* ACTIVE means it is inside a if group that is active (final is always active) */
+    TK_FLAG_ACTIVE = 1 << 12,                        /* ACTIVE means it is inside a if group that is active (final is always active) */
+
+    TK_FLAG_MACRO_NOT_INVOKED = 1 << 13               /* function-like macro name rescanned without '(' after it; stays unreplaced */
 };
 
 struct token
@@ -309,11 +311,7 @@ bool token_is_newline(const struct token* _Opt token);
 bool token_is_blank(const struct token* _Opt p);
 bool token_is_final(const struct token* _Opt p);
 bool token_is_identifier_or_keyword(enum token_type t);
-void token_range_add_flag(struct token* first, const struct token* last, enum token_flags flag);
-void token_range_remove_flag(struct token* first,const struct token* last, enum token_flags flag);
-void token_range_add_show(struct token* first, const struct token* last);
 
-void print_tokens_html(struct token* p_token);
 
 struct marker
 {    
@@ -343,6 +341,23 @@ void ss_print_position(struct osstream* ss,
                        enum diagnostic_ouput_format format,
                        bool color_enabled,
                        bool fullpath);
+
+/*
+  The first line of a diagnostic, as diagnostic() and pos_diagnostic()
+  print it: "file:line:col: warning N: text\n" (colors and msvc format
+  included). Kept in one place so both stay identical.
+*/
+void ss_print_diagnostic_header(struct osstream* ss,
+                                const char* _Opt path,
+                                int line, int col,
+                                enum diagnostic_ouput_format format,
+                                bool color_enabled,
+                                bool fullpath,
+                                int id,
+                                bool is_error,
+                                bool is_warning,
+                                bool is_note,
+                                const char* text);
 
 void ss_print_line_and_token(struct osstream* ss,
                              struct marker* p_marker,

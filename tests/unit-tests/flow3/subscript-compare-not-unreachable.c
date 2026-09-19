@@ -1,20 +1,6 @@
 #pragma safety enable
 
-/*
-   Comparing an array/pointer subscript of scalar element type against a
-   constant must NOT fold to a constant condition.
-
-   flow3 left the result object of an unresolved `v[i]` subscript EMPTY (no
-   value alternatives). The equality evaluator treats an empty operand as
-   "holds vacuously", so `s->current[0] == '\n'` folded to always-true and the
-   else branch was reported as unreachable code. `*p` (dereference) already
-   seeded an ANY value; subscript did not.
-
-   Fix: seed an unresolved integer-element subscript as an ANY value of its
-   element type, so the comparison is unknown and both branches stay live.
-
-   (Reproduced from tokenizer.c stream_match: `if (s->current[0] == '\n')`.)
-*/
+/* an unresolved `v[i]` of scalar type is seeded ANY, so `s->current[0] == '\n'` does not fold and the else branch is reachable (tokenizer.c stream_match) */
 
 struct stream { const char* current; int line; int col; };
 

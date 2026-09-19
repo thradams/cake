@@ -1,13 +1,6 @@
 #pragma safety enable
 
-/*
-   x is allocated _Uninitialized and none of its owner members (.text, .p1)
-   are ever assigned before free(x) discards the whole struct through
-   void*. An UNINITIALIZED owner owns nothing -- there was never a
-   resource assigned into it to leak -- so this stays clean, the same way
-   zero and moved already do (see the UNINITIALIZED case in
-   flow3_check_object_at_exit's "not moved" check).
-*/
+/* x is _Uninitialized and its owner members never assigned: an uninitialized owner owns nothing, free(x) is clean */
 
 void* _Owner _Uninitialized malloc(unsigned long size);
 void free(void* _Owner _Opt ptr);

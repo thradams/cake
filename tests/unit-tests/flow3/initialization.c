@@ -1,16 +1,6 @@
 #pragma safety enable
 
-/*
-   Initialization from CONSTANT values.
-
-   The parser computes and stores the initializer value inside the object
-   (p_declarator->object): its `value` and `state`. flow3_object_init reads
-   those out and seeds the variable's initial alternative -- so a declaration
-   with a constant initializer starts life with a known value, no assignment
-   statement required.
-
-   Use compile_assert (flow-checked), not static_assert (C11 compile-time).
-*/
+/* a constant initializer seeds the variable's initial value from the object the parser computed */
 
 /* Scalar: the literal's value is taken straight from the object. */
 void scalar(void)
@@ -44,8 +34,7 @@ void from_const_local(void)
     compile_assert(x == 42);
 }
 
-/* Array elements are seeded too: v[i] for a constant index resolves to the
-   element object, so its initializer value is known. */
+/* array elements are seeded too: v[i] with a constant index has its initializer value */
 void array(void)
 {
     int v[3] = { 10, 20, 30 };

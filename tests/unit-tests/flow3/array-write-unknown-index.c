@@ -1,31 +1,9 @@
 #pragma safety enable
 
-/* 85 is off by default and the folded condition is most directly visible
-   through it. */
+/* 85 is off by default and shows the folded condition most directly */
 #pragma cake diagnostic warning 85
 
-/*
-   A write through an index that is not pinned to one element invalidates the
-   WHOLE array. Before, only the subscript expression's own (temporary) state
-   was updated, so the seeds left by an initializer survived the write:
-
-       char buffer[128] = { 0 };
-       while (*s) { buffer[c] = *s; c++; s++; }
-       if (buffer[1] == 'o' || buffer[1] == 'O')   <- "always false"
-
-   Reduced from src/expressions.c (parse of an octal constant's o/O prefix),
-   user-reported.
-
-   Two shapes have to be widened, and they are not the same test:
-
-     - an index whose value is simply unknown (a parameter);
-     - an index that IS known inside the loop body, but only because the body
-       is analysed with one iteration's state -- a counter the body advances.
-       Only a genuine constant expression counts as pinned inside a loop.
-
-   The complementary "a constant index writes just that element" cases live in
-   array-elements.c; nothing here should weaken them.
-*/
+/* a write through an unpinned index invalidates the whole array; a loop counter is not pinned inside the body (expressions.c octal prefix) */
 
 /* Unknown index: every element of the array becomes unknown. */
 int unknown_index(const char* s, int c)

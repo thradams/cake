@@ -61,9 +61,6 @@
     <ClCompile Include="..\src\compile.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\flow3.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\file.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -71,6 +68,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\json.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\flow_alternative.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\flow.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\flow_branch.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -129,10 +135,16 @@
     <ClInclude Include="..\src\compile.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\flow3.h">
+    <ClInclude Include="..\src\fp_to_string.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\fp_to_string.h">
+    <ClInclude Include="..\src\flow_alternative.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\flow.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\flow_branch.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

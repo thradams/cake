@@ -1,26 +1,6 @@
 #pragma safety enable
 
-/*
-   Regression test for a false positive found in cake's own source
-   (hashmap.c), reported as:
-
-     struct hash_item_set item = { 0 };
-     hashmap_set(&ctx->p_ast->file_scope.variables, new_name, &item);
-     hash_item_set_destroy(&item);
-
-   flow3 warned "owner object (.xxx) not moved" for every _Owner member
-   of `item`, even though hash_item_set_destroy is declared
-   `_Dtor struct hash_item_set*` and is exactly the function whose job is
-   to release those members.
-
-   Root cause: passing `&item` to a _Dtor parameter correctly marks each
-   leaf member's alternative as FLOW3_IMAGINARY_ENDED
-   (flow3_map_set_object_lifetime_ended), but the scope-exit "_Owner not
-   moved" check (flow3_check_object_at_exit) only ever treated
-   FLOW3_IMAGINARY_MOVED as a resolved owner -- ENDED fell through to the
-   same branch as "still live", so it warned regardless. Fixed by
-   accepting ENDED alongside MOVED.
-*/
+/* passing &item to a _Dtor parameter ends its _Owner members, so the scope-exit check must not report "owner not moved" (hashmap.c) */
 
 struct payload { int x; };
 void payload_free(struct payload* _Owner _Opt p);
@@ -38,9 +18,7 @@ void item_set_destroy(_Dtor struct item_set* p)
 {
     payload_free(p->p1);
     payload_free(p->p2);
-    free(p->text); /* the _Dtor contract requires the callee to release
-                      every owner member: flow3_check_dtor_params_at_exit
-                      flags this function if it is missing */
+    free(p->text); /* the _Dtor contract requires the callee to release every owner member */
 }
 
 struct map { int x; };

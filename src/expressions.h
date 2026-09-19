@@ -235,7 +235,6 @@ void offsetof_designator_delete(_Dtor struct offsetof_designator* _Owner _Opt p)
 struct expression
 {
     enum expression_type expression_type;
-    struct type type;
 
     struct object object;
 
@@ -296,7 +295,6 @@ void expression_mark_discarded_write(const struct expression* _Opt p_expression)
 
 bool expression_has_side_effects(const struct expression* expr);
 
-bool expression_is_one(const struct expression* expression);
 bool expression_is_zero(const struct expression* expression);
 bool expression_is_null_pointer_constant(const struct expression* expression);
 

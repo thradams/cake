@@ -1,15 +1,6 @@
 #pragma safety enable
 
-/*
-   Unevaluated operands never run, so flow3 must not report runtime hazards
-   inside them. The operand of sizeof / _Alignof, and the expression inside a
-   static/compile assert, are analyzed for their TYPE/VALUE only -- the code is
-   never executed -- so a possibly-null dereference or a division by zero there
-   is not a real fault.
-
-   This file is clean: none of the hazards below are reported. The same
-   constructs OUTSIDE an unevaluated context (shown in comments) do warn.
-*/
+/* operands of sizeof / _Alignof and the expression of a static/compile assert never run, so no null-deref or division-by-zero is reported there */
 
 struct X { int a; };
 
@@ -33,9 +24,4 @@ void sizeof_divzero(int n)
     /* Real division DOES warn:   int x = n / 0; */
 }
 
-/*
-   The same suppression applies to the expression inside a static/compile
-   assert (also an unevaluated, compile-time flow check): a null-deref or
-   div-by-zero there is not reported as a runtime hazard -- only the assert's
-   own pass/fail result is.
-*/
+/* the same suppression inside a static/compile assert: only the assert's own result is reported */

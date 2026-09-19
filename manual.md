@@ -166,6 +166,8 @@ Compiles `file.c` to `file.cc`, then passes `file.cc` to the MSVC compiler.
 
 ---
 
+<a id="options"></a>
+
 ## 4. Command-Line Options
 
 ### 4.1 Preprocessor Options
@@ -249,6 +251,11 @@ until asked for:
 **`-Werror`**  
 Report every enabled warning as an error. Notes are not affected, and warnings that are disabled stay disabled. Because they become errors, warnings coming from included headers are no longer suppressed, and any occurrence makes the compilation fail.
 
+**Per-line suppression with `lint` comments**  
+Suppress a diagnostic on one line with a trailing `lint` comment listing its
+number(s): `//lint 35`, `// lint 35`, or `/* lint 81 */`. An unnecessary
+suppression is flagged with warning 59.
+
 
 ### 4.4 Target Options
 
@@ -277,6 +284,31 @@ Run Cake's built-in flow analysis pass, including ownership, nullability, and li
 
 **`-const-literal`**  
 Treat string literals as `const char[]` rather than `char[]`.
+
+**`-unused-extern-report`**  
+Track every non-static (external linkage) function across all the files given
+in this invocation, and after the last one is compiled, report the ones that
+were never called in any of them.
+
+A `static` function's usage can already be decided by looking at its own file
+alone, so it is reported immediately as each file is compiled (see warning 57
+in the [Warnings Reference](diagnostics.html)). A non-static function can be
+called from a different file than the one that defines it, so it needs the
+whole set of files to be checked together; this option does that check and
+prints its results once, at the end, instead of per file:
+
+```
+Functions never used in any of the compiled files:
+  utils.c:42: warning: function 'legacy_helper' is not used in this build
+```
+
+This can only see the files passed to this invocation — a function only
+called from a file outside this build (or from a different `cake` invocation
+entirely) is still reported here. Functions declared in an `#include`d file
+(system headers included) are never reported, even if unused, since they are
+not part of the files given to this invocation. `main` is never reported
+either, since it is the program's entry point and is not expected to be
+called from within the program itself.
 
 ### 4.6 Style and Formatting Options
 

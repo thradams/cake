@@ -1,42 +1,6 @@
 #pragma safety enable
 
-/*
-   Passing an array to a function whose parameter is a non-const ARRAY
-   parameter must invalidate what the caller knows about the array's
-   contents: the callee can write through it, exactly as it can through a
-   pointer parameter.
-
-   Without that write-effect the caller keeps the `= { 0 }` initializer as
-   a live fact, folds `s[0] == 'F'` to always-false, and reports the body
-   of the if as unreachable code even though the callee may well have
-   stored 'F' there.
-
-   The equivalent POINTER parameter (fill_ptr below) always applied the
-   effect; the array-parameter spelling used to be copied element by
-   element instead, for both a declared-only and a defined callee. Since
-   `char s[4]` and `char *s` name the same parameter after C's adjustment
-   rule, the three must analyse identically.
-
-   Found in cake's own source: expressions.c reads a numeric suffix via
-
-       char suffix[4] = { 0 };
-       parse_number(buffer, suffix, errormsg);   // char suffix[4] parameter
-       ...
-       if (suffix[0] == 'F') { ... }             // reported unreachable
-
-   _Out is NOT the right annotation for that parameter: floating_suffix_opt
-   and integer_suffix_opt write it only conditionally and rely on the
-   caller's zero-init for the no-suffix case, so it is a partially-written
-   out-parameter, not a constructed one.
-
-   flow3.c carries a note on the same root cause (the stale-seed comment
-   citing parser.c:2064), worked around there for the negation path only.
-
-   See also array_out.c, which covers this shape but leaves its `return 1;`
-   commented out and so never asserts it.
-
-   C and D guard against "fixing" it by going silent, or noisy, everywhere.
-*/
+/* passing an array to a non-const array parameter invalidates its contents, same as a pointer parameter (expressions.c suffix[4]) */
 
 /* A: callee only declared */
 void fill_decl(char s[4]);
@@ -88,8 +52,7 @@ int pointer_parameter(void)
     return 0;
 }
 
-/* D: a const array parameter must NOT invalidate -- the callee cannot write
-   it, so folding is right here and the body really is unreachable. */
+/* D: a const array parameter cannot write, so the fold is right and the body really is unreachable */
 static void read_only(const char s[4])
 {
     if (s[0] == 'z')

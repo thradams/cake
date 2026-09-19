@@ -1,21 +1,6 @@
 #pragma safety enable
 
-/*
-   Relational folding must consider ALL of an operand's alternatives, not
-   just assume a single one. After `if (cond) a = 5; else a = 7;` the join
-   leaves `a` with two alternatives {5, 7}. A relational comparison folds to
-   a definite result only when every (left value, right value) pair agrees:
-
-     a > 3   -> true  for both 5 and 7      (provable)
-     a < 10  -> true  for both              (provable)
-     a >= 5  -> true  for both              (provable)
-     a > 6   -> 5 fails                      (NOT provable -- left unknown)
-     a < 6   -> 7 fails                      (NOT provable)
-
-   The evaluator follows the flow3_evaluate_binary_arithmetic iteration
-   (per-alternative REF resolution, no size==1 shortcut), so this must
-   compile with 0 errors / 0 warnings.
-*/
+/* relational folding considers every alternative: with a in {5, 7}, a > 3 and a < 10 are provable, a > 6 and a < 6 are not */
 
 void provable(int cond)
 {
@@ -27,10 +12,7 @@ void provable(int cond)
     compile_assert(a >= 5);
     compile_assert(a <= 7);
 
-    /* Deliberately NOT provable (documented; would error if enabled):
-         compile_assert(a > 6);   // 5 fails
-         compile_assert(a < 6);   // 7 fails
-    */
+    /* not provable: a > 6 (5 fails), a < 6 (7 fails) */
 }
 
 /* Three-way join: a in {2, 4, 8}. */
