@@ -6,6 +6,8 @@ Warnings can be enabled with `-w<number>` (e.g. `-w2`) and disabled with
 All warning are configurable. Cake has errors, warnings and notes.
 We can make a warning to be a note or error using pragma.
 
+<!-- runnable -->
+
 ```c
 #pragma CAKE diagnostic push
 #pragma CAKE diagnostic error 4
@@ -1745,6 +1747,8 @@ void f(int n)
 
 
 ### 1210 Missing macro argument
+<!-- runnable -->
+
 ```c
 int main()
 {  
@@ -1752,6 +1756,8 @@ int main()
 }
 ```
 ### 1220 Address of register variable
+<!-- runnable -->
+
 ```c
 int main()
 {  
@@ -1770,6 +1776,8 @@ int main(void)
 ```
 
 ### 1240 Character literal too large
+<!-- runnable -->
+
 ```c
 int main()
 {  
@@ -1991,6 +1999,8 @@ int main(){
 ```
 
 ### 1570 Duplicate default generic association
+<!-- runnable -->
+
 ```c
 int main()
 {  
@@ -2263,4 +2273,397 @@ typedef struct; //error 2030: 'typedef': missing tag name
 ```c
 int x;
 typedef int x; //error 2040: 'x': redefinition; symbol cannot be overloaded with a typedef
+```
+
+### 2070 Tag redefinition with different content
+
+C23 (N3037) allows a struct, union or enum tag to be defined more than once
+in the same scope as long as every definition has the same content. A
+definition that differs is an error.
+
+<!-- runnable -->
+
+```c
+struct X { int a; };
+struct X { int a; };  // ok: same content
+struct X { long a; }; //error 2070: redefinition of 'struct X' with different content
+
+int main(void)
+{
+    return 0;
+}
+```
+
+### 2090 \_Atomic qualifier on array type
+<!-- runnable -->
+
+C11 6.7.3 does not allow `_Atomic` to qualify an array type.
+
+<!-- runnable -->
+
+```c
+_Atomic int a[5]; //error 2090: '_Atomic' qualifier cannot be applied to array types
+```
+
+### 2100 \_Atomic qualifier on function type
+<!-- runnable -->
+
+C11 6.7.3 does not allow `_Atomic` to qualify a function type.
+
+<!-- runnable -->
+
+```c
+_Atomic void f(void) {} //error 2100: '_Atomic' qualifier cannot be applied to function types
+```
+
+### 2110 Alignment specifier on bit-field
+<!-- runnable -->
+
+C11 6.7.5p2 does not allow an alignment specifier on a bit-field declaration.
+
+<!-- runnable -->
+
+```c
+struct S {
+    alignas(16) int x : 4; //error 2110: alignment specifier cannot be used in a bit-field declaration
+};
+```
+
+### 2120 Alignment specifier on function declaration
+<!-- runnable -->
+
+C11 6.7.5p2 does not allow an alignment specifier on a function declaration.
+
+<!-- runnable -->
+
+```c
+alignas(16) void f() {} //error 2120: alignment specifier cannot be used in function declaration
+```
+
+### 2130 Alignment specifier less strict than natural alignment
+<!-- runnable -->
+
+C11 6.7.5p6 requires an explicit alignment to be at least as strict as the
+type's natural alignment.
+
+<!-- runnable -->
+
+```c
+alignas(4) double d; //error 2130: requested alignment 4 is less than minimum alignment 8
+```
+
+### 2140 Alignment specifier with register
+<!-- runnable -->
+
+C11 6.7.5p2 does not allow an alignment specifier on a declaration with the
+`register` storage class.
+
+<!-- runnable -->
+
+```c
+void f() {
+    register alignas(16) int x = 0; //error 2140: alignment specifier cannot be used with 'register'
+}
+```
+
+### 2150 Alignment specifier with typedef
+<!-- runnable -->
+
+C11 6.7.5p2 does not allow an alignment specifier on a `typedef` declaration.
+
+<!-- runnable -->
+
+```c
+typedef alignas(16) int aligned_int; //error 2150: alignment specifier cannot be used with 'typedef'
+```
+
+### 2160 Alignment specifier not an integer constant expression
+<!-- runnable -->
+
+C11 6.7.5p3 requires the `alignas(expression)` operand to be an integer
+constant expression.
+
+<!-- runnable -->
+
+```c
+alignas(8.0) int y; //error 2160: alignment specifier must be an integer constant expression
+```
+
+### 2170 auto storage-class specifier at file scope
+<!-- runnable -->
+
+C11 6.9p2 does not allow the `auto` storage-class specifier in a file-scope
+declaration (this is the traditional C89 meaning of `auto`, not the C23
+type-inference form, which requires an initializer and no explicit type).
+
+<!-- runnable -->
+
+```c
+auto int x; //error 2170: 'auto' storage-class specifier cannot be used in a file-scope declaration
+```
+
+### 2180 register storage-class specifier at file scope
+<!-- runnable -->
+
+C11 6.9p2 does not allow the `register` storage-class specifier in a
+file-scope declaration.
+
+<!-- runnable -->
+
+```c
+register int x; //error 2180: 'register' storage-class specifier cannot be used in a file-scope declaration
+```
+
+### 2190 Array designator not an integer constant expression
+<!-- runnable -->
+
+C23 6.7.11p6 requires an array designator's constant expression to have
+integer type.
+
+<!-- runnable -->
+
+```c
+int a[3] = { [1.5] = 1 }; //error 2190: array designator must be an integer constant expression
+```
+
+### 2200 Enum tag without body or fixed underlying type
+<!-- runnable -->
+
+C23 6.7.3.3p3: an `enum` type-specifier naming a tag with neither an
+enumerator-list nor a fixed underlying type must refer to a previously
+completed enum with that tag.
+
+<!-- runnable -->
+
+```c
+enum MyEnum; //error 2200: enum declared without enumerator list must have a fixed underlying type or a previous complete declaration
+```
+
+### 2210 Duplicate enumeration constant in the same scope
+<!-- runnable -->
+
+C23 6.2.1p3 does not allow two enumerators in the same scope to share a
+name — whether they belong to the same `enum` or to two different ones.
+
+<!-- runnable -->
+
+```c
+enum Color {
+    RED,
+    RED //error 2210: duplicate enumeration constant 'RED' in the same scope
+};
+
+int main(void)
+{
+    enum X { A = 1 };
+    enum Y { A = 2 }; //error 2210: duplicate enumeration constant 'A' in the same scope
+    return 0;
+}
+```
+
+### 2220 Bit-precise integer type as enum underlying type
+<!-- runnable -->
+
+C23 6.7.3.3p4 restricts an enum's fixed underlying type to `char`, a signed
+or unsigned integer type, or `bool` — a `_BitInt(N)` type is not allowed.
+
+<!-- runnable -->
+
+```c
+enum E : _BitInt(16) { //error 2220: a bit-precise integer type is not allowed as an enum underlying type
+    A = 1
+};
+```
+
+### 2230 restrict qualifier on a non-pointer type
+<!-- runnable -->
+
+C23 6.7.3.1p1 only allows the `restrict` qualifier on a pointer type.
+
+<!-- runnable -->
+
+```c
+int restrict x = 10; //error 2230: 'restrict' qualifier can only be applied to a pointer type
+```
+
+### 2240 Static object in an inline function with external linkage
+<!-- runnable -->
+
+C11 6.7.4p7 does not allow an inline function with external linkage to
+contain a definition of an object with static storage duration.
+
+<!-- runnable -->
+
+```c
+inline void f() {
+    static int counter = 0; //error 2240: an inline function with external linkage shall not contain a static object
+    counter++;
+}
+```
+
+### 2250 Function specifier on a non-function declaration
+<!-- runnable -->
+
+C11 6.7.4p2 restricts `inline` and `_Noreturn` to declarations of functions.
+
+<!-- runnable -->
+
+```c
+inline int x = 5; //error 2250: a function specifier can only be used in the declaration of a function
+```
+
+### 2260 Cast to or from a non-scalar type
+<!-- runnable -->
+
+C11 6.5.4p2 requires both the cast's target type and its operand to have
+scalar type (or the target may be `void`).
+
+<!-- runnable -->
+
+```c
+struct Point { int x, y; };
+
+int main() {
+    struct Point p = {10, 20};
+    (int)p; //error 2260: operand of cast expression must have scalar type
+    return 0;
+}
+```
+
+### 2270 Comparing nullptr_t with a non-pointer type
+<!-- runnable -->
+
+C23 6.5.10p2/6.5.9p2: `nullptr_t` only compares with `nullptr_t`, a pointer
+type, or a null pointer constant.
+
+<!-- runnable -->
+
+```c
+int main() {
+    int x = 0;
+    if (nullptr == x) { //error 2270: both operands to comparison must have type 'nullptr_t' or a pointer type
+    }
+    return 0;
+}
+```
+
+### 2280 thread_local on a function
+<!-- runnable -->
+
+C23 6.7.1p3: `thread_local` shall not be used in the declaration of a function.
+
+<!-- runnable -->
+
+```c
+thread_local void f() { //error 2280: 'thread_local' cannot appear in a function declaration
+}
+```
+
+### 2290 Invalid storage-class specifier in a parameter declaration
+<!-- runnable -->
+
+C11 6.7.6.3p2 allows only `register` as a storage-class specifier in a
+parameter declaration (the array-bound `static` form, e.g. `int arr[static
+5]`, is a separate feature and is not affected by this check).
+
+<!-- runnable -->
+
+```c
+void f(static int x) { //error 2290: the only storage-class specifier allowed in a parameter declaration is 'register'
+}
+```
+
+### 2300 thread_local missing from a redeclaration
+<!-- runnable -->
+
+C23 6.7.1p4: all declarations of an object with thread storage duration
+shall include `thread_local`.
+
+<!-- runnable -->
+
+```c
+thread_local int z = 5;
+int z; //error 2300: 'z': redeclaration is missing 'thread_local'
+```
+
+### 2310 Inconsistent alignment specifier in a redeclaration
+<!-- runnable -->
+
+C23 6.7.5p8: if multiple declarations of an object specify an alignment,
+they must all specify the same alignment.
+
+<!-- runnable -->
+
+```c
+alignas(16) int var;
+int var; //error 2310: 'var': alignment specifier is not consistent with the previous declaration
+```
+
+### 2320 Function implicitly converted to an object pointer type
+<!-- runnable -->
+
+A function designator is not implicitly convertible to an object pointer
+type such as `void *` (only to a compatible function pointer type).
+
+<!-- runnable -->
+
+```c
+void f() {}
+
+int main() {
+    void *ptr = f; //error 2320: a function shall not be implicitly converted to an object pointer type
+    return 0;
+}
+```
+
+### 2330 Empty initializer for an array of unknown size
+<!-- runnable -->
+
+C23 6.7.11p4-ish: an array of unknown size takes its size from the number
+of elements in its initializer; an empty initializer provides none, which
+would make the array size zero.
+
+<!-- runnable -->
+
+```c
+int arr[] = {}; //error 2330: array of unknown size cannot be initialized with an empty initializer
+```
+
+### 2340 constexpr object with volatile or atomic type
+<!-- runnable -->
+
+C23 6.7.1p5: a `constexpr` object shall not be volatile-qualified or have
+atomic type.
+
+<!-- runnable -->
+
+```c
+constexpr volatile int b = 20; //error 2340: a constexpr object cannot be volatile-qualified
+```
+
+### 2350 Declaration that declares nothing
+<!-- runnable -->
+
+A declaration (or member declaration) with no declarator must at least
+introduce a struct, union, or enum tag — otherwise it declares nothing.
+
+<!-- runnable -->
+
+```c
+int; //error 2350: declaration does not declare anything
+```
+
+### 2360 Flexible array member in a union
+<!-- runnable -->
+
+C11 6.7.2.1p3: a flexible array member (an incomplete array as the last
+member) is only allowed in a struct, not a union.
+
+<!-- runnable -->
+
+```c
+union U {
+    int size;
+    int array[]; //error 2360: a flexible array member is not allowed in a union
+};
 ```

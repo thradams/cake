@@ -372,6 +372,12 @@ int type_get_integer_rank(const struct type* p_type1, enum target target);
 bool type_is_arithmetic(const struct type* p_type);
 
 bool type_is_struct_or_union(const struct type* p_type);
+bool struct_or_union_specifier_is_same_content(const struct struct_or_union_specifier* a,
+                                               const struct struct_or_union_specifier* b);
+bool enum_specifier_is_same_content(const struct enum_specifier* a, const struct enum_specifier* b);
+bool enum_specifier_is_same_type(const struct enum_specifier* a, const struct enum_specifier* b);
+bool struct_or_union_specifier_is_compatible(const struct struct_or_union_specifier* a,
+                                             const struct struct_or_union_specifier* b);
 bool type_is_union(const struct type* p_type);
 
 bool type_is_void(const struct type* p_type);

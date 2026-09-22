@@ -48,7 +48,7 @@ struct flow_deferred_pointee_effect
     const struct token* _Opt p_token; /* where the call is, for the state it sets */
 };
 
-struct flow_visit_ctx
+struct flow_ctx
 {
     struct parser_ctx* const ctx;
 
@@ -112,5 +112,5 @@ struct flow_visit_ctx
     int pending_ended_report_line;
 };
 
-void flow_visit_ctx_destroy(_Dtor struct flow_visit_ctx* p);
-void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration);
+void flow_visit_ctx_destroy(_Dtor struct flow_ctx* p);
+void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declaration);

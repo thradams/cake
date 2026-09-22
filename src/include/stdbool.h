@@ -3,9 +3,9 @@
  *  https://github.com/thradams/cake
 */
 
-#pragma once
-
 #ifdef CAKE_HEADERS
+
+#pragma once
 
 #define __bool_true_false_are_defined 1
 

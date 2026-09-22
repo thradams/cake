@@ -142,6 +142,9 @@ void flow_alternatives_add(struct flow_alternatives* vs, const struct flow_alter
 {
     try
     {
+        /* O(vs->size) dedup scan. Called once per element in flow_alternatives_append,
+           making that O(n^2) per merge point. Deeply nested control flow (if/while/try)
+           can make this blow up; found via fuzzing lib.c (hang, not a crash). */
         for (int i = 0; i < vs->size; i++)
         {
             if (flow_value_is_same(vs->data[i], p_alternative) &&
@@ -174,6 +177,9 @@ void flow_alternatives_add(struct flow_alternatives* vs, const struct flow_alter
 
 void flow_alternatives_append(struct flow_alternatives* dst, const struct flow_alternatives* src)
 {
+    /* O(src->size * dst->size) overall due to the linear scan inside flow_alternatives_add.
+       This runs at every flow merge point, so deeply nested control flow compounds it into
+       a polynomial blowup in compile time (found by fuzzing, no crash, just very slow). */
     for (int i = 0; i < src->size; i++)
     {
         flow_alternatives_add(dst, src->data[i]);

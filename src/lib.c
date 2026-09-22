@@ -151,6 +151,8 @@ const char* get_posix_error_message(int error);
 int windows_error_to_posix(int i);
 
 void throw_break_point();
+void bug();
+
 
 #define JSON_MAX_DEPTH 200
 
@@ -2325,6 +2327,36 @@ enum diagnostic_id {
     C_ERROR_REDEFINITION_CANNOT_BE_OVERLOADED_WITH_TYPEDEF = 2040,
     C_ERROR_INVALID_DECLARATION_CONDITION = 2050,
     C_ERROR_INVALID_BITINT_WIDTH = 2060,
+    C_ERROR_TAG_REDEFINITION = 2070,
+    C_ERROR_TOO_MANY_STORAGE_CLASS_SPECIFIERS = 2080,
+    C_ERROR_ATOMIC_QUALIFIER_ON_ARRAY = 2090,
+    C_ERROR_ATOMIC_QUALIFIER_ON_FUNCTION = 2100,
+    C_ERROR_ALIGNMENT_SPECIFIER_ON_BITFIELD = 2110,
+    C_ERROR_ALIGNMENT_SPECIFIER_ON_FUNCTION = 2120,
+    C_ERROR_ALIGNMENT_SPECIFIER_LESS_STRICT = 2130,
+    C_ERROR_ALIGNMENT_SPECIFIER_WITH_REGISTER = 2140,
+    C_ERROR_ALIGNMENT_SPECIFIER_WITH_TYPEDEF = 2150,
+    C_ERROR_ALIGNMENT_SPECIFIER_NOT_INTEGER_CONSTANT = 2160,
+    C_ERROR_AUTO_AT_FILE_SCOPE = 2170,
+    C_ERROR_REGISTER_AT_FILE_SCOPE = 2180,
+    C_ERROR_ARRAY_DESIGNATOR_NOT_INTEGER_CONSTANT = 2190,
+    C_ERROR_ENUM_TAG_WITHOUT_BODY_OR_UNDERLYING_TYPE = 2200,
+    C_ERROR_DUPLICATE_ENUMERATOR = 2210,
+    C_ERROR_BITINT_ENUM_UNDERLYING_TYPE = 2220,
+    C_ERROR_RESTRICT_ON_NON_POINTER_TYPE = 2230,
+    C_ERROR_STATIC_VARIABLE_IN_EXTERN_INLINE_FUNCTION = 2240,
+    C_ERROR_FUNCTION_SPECIFIER_ON_NON_FUNCTION = 2250,
+    C_ERROR_CAST_TO_NON_SCALAR_TYPE = 2260,
+    C_ERROR_NULLPTR_COMPARISON = 2270,
+    C_ERROR_THREAD_LOCAL_ON_FUNCTION = 2280,
+    C_ERROR_INVALID_STORAGE_CLASS_IN_PARAMETER = 2290,
+    C_ERROR_THREAD_LOCAL_MISMATCH_IN_REDECLARATION = 2300,
+    C_ERROR_INCONSISTENT_ALIGNMENT_IN_REDECLARATION = 2310,
+    C_ERROR_FUNCTION_POINTER_TO_OBJECT_POINTER = 2320,
+    C_ERROR_EMPTY_INITIALIZER_FOR_ARRAY_OF_UNKNOWN_SIZE = 2330,
+    C_ERROR_CONSTEXPR_INVALID_QUALIFIED_TYPE = 2340,
+    C_ERROR_DECLARATION_DOES_NOT_DECLARE_ANYTHING = 2350,
+    C_ERROR_FLEXIBLE_ARRAY_MEMBER_IN_UNION = 2360,
 };
 
 
@@ -7791,9 +7823,12 @@ static struct token* _Owner _Opt ppnumber(struct stream* stream)
 struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
                                   const struct token* position,
                                   const char* filename_opt,
-                                  int level, enum token_flags addflags)
+                                  int level, enum token_flags addflags,
+                                  long long limit, /* -1 no limit */
+                                  int* p_count /*out number of elements*/)
 {
     struct token_list list = { 0 };
+    *p_count = 0;
 
     FILE* _Owner _Opt file = NULL;
 
@@ -7834,6 +7869,9 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
             ch = *pch;
             pch++;
 #endif
+            if (limit >= 0 && count >= limit)
+                break;
+
             if (b_first)
             {
                 b_first = false;
@@ -7909,6 +7947,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
         token_list_add(&list, p_new_token);
 
         _Assert(list.head != NULL);
+        *p_count = count;
     }
     catch
     {
@@ -8679,9 +8718,374 @@ static const char* clang_query_operator_value(enum target target, const char* op
     return "0";
 }
 
+/*
+  C23 #embed support (6.10.3)
+*/
+
+long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
+                                           struct token_list* output_list,
+                                           struct token_list* input_list);
+
+struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct macro_expanded* _Opt p_list, struct token_list* oldlist, int level, const struct token* _Opt origin);
+
+struct embed_params
+{
+    bool has_limit;
+    struct token_list limit;
+
+    bool has_prefix;
+    struct token_list prefix;
+
+    bool has_suffix;
+    struct token_list suffix;
+
+    bool has_if_empty;
+    struct token_list if_empty;
+
+    /* unknown standard parameter name, or vendor parameter */
+    bool has_unsupported;
+};
+
+static void embed_params_destroy(_Dtor struct embed_params* p)
+{
+    token_list_destroy(&p->limit);
+    token_list_destroy(&p->prefix);
+    token_list_destroy(&p->suffix);
+    token_list_destroy(&p->if_empty);
+}
+
+static bool embed_file_exists(const char* path)
+{
+    FILE* _Owner _Opt f = fopen(path, "rb");
+    if (f == NULL)
+        return false;
+    fclose(f);
+    return true;
+}
+
+/*
+  Searches the embed resource.
+  "" form: first relative to the current file directory, then include dirs.
+  <> form: include dirs only.
+*/
+static bool embed_find_resource(struct preprocessor_ctx* ctx,
+                                const char* path,
+                                const char* current_file_dir,
+                                bool is_angle_bracket_form,
+                                char full_path_out[],
+                                int full_path_out_size)
+{
+#ifdef MOCKFILES
+    snprintf(full_path_out, full_path_out_size, "%s", path);
+    return true;
+#else
+    if (path_is_absolute(path))
+    {
+        snprintf(full_path_out, full_path_out_size, "%s", path);
+        return embed_file_exists(full_path_out);
+    }
+
+    if (!is_angle_bracket_form)
+    {
+        if (current_file_dir[0] != '\0')
+            snprintf(full_path_out, full_path_out_size, "%s/%s", current_file_dir, path);
+        else
+            snprintf(full_path_out, full_path_out_size, "%s", path);
+
+        if (embed_file_exists(full_path_out))
+            return true;
+    }
+
+    for (struct include_dir* _Opt current = ctx->include_dir.head; current; current = current->next)
+    {
+        size_t len = strlen(current->path);
+        const char* separator = (len > 0 && current->path[len - 1] == '/') ? "" : "/";
+        snprintf(full_path_out, full_path_out_size, "%s%s%s", current->path, separator, path);
+        if (embed_file_exists(full_path_out))
+            return true;
+    }
+
+    full_path_out[0] = '\0';
+    return false;
+#endif
+}
+
+/*
+  Consumes one token from input_list. Directive tokens go to dest (respecting level),
+  __has_embed tokens are just popped.
+*/
+static void embed_consume(const struct preprocessor_ctx* ctx,
+                          struct token_list* _Opt dest,
+                          struct token_list* input_list,
+                          int level,
+                          bool is_active)
+{
+    if (dest)
+        prematch_level(ctx, dest, input_list, level, is_active);
+    else
+        token_list_pop_front(input_list);
+}
+
+static void embed_skip_blanks(const struct preprocessor_ctx* ctx,
+                              struct token_list* _Opt dest,
+                              struct token_list* input_list,
+                              int level,
+                              bool is_active)
+{
+    while (input_list->head && token_is_blank(input_list->head))
+        embed_consume(ctx, dest, input_list, level, is_active);
+}
+
+/*
+  embed-parameter-sequence (6.10.3):
+    pp-parameter:  pp-parameter-name pp-parameter-clause opt
+    pp-parameter-name: pp-standard-parameter | pp-prefixed-parameter
+    pp-prefixed-parameter: identifier :: identifier
+    pp-parameter-clause: ( pp-balanced-token-seq opt )
+
+  Parses until end_type (TK_NEWLINE for #embed, ')' for __has_embed).
+  The terminator is not consumed.
+  Returns false on error (diagnostic already emitted).
+*/
+static bool embed_parse_parameters(struct preprocessor_ctx* ctx,
+                                   struct token_list* _Opt dest,
+                                   struct token_list* input_list,
+                                   int level,
+                                   bool is_active,
+                                   enum token_type end_type,
+                                   struct embed_params* params)
+{
+    for (;;)
+    {
+        embed_skip_blanks(ctx, dest, input_list, level, is_active);
+
+        if (input_list->head == NULL)
+        {
+            pre_unexpected_end_of_file(dest ? dest->tail : NULL, ctx);
+            return false;
+        }
+
+        if (input_list->head->type == end_type)
+            return true;
+
+        if (input_list->head->type != TK_IDENTIFIER)
+        {
+            preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, input_list->head, "expected embed parameter name");
+            return false;
+        }
+
+        char name[100] = { 0 };
+        snprintf(name, sizeof name, "%s", input_list->head->lexeme);
+        const struct token* p_name_token = input_list->head;
+        bool is_vendor = false;
+
+        embed_consume(ctx, dest, input_list, level, is_active);
+
+        if (input_list->head && input_list->head->type == '::')
+        {
+            is_vendor = true;
+            embed_consume(ctx, dest, input_list, level, is_active);
+            if (input_list->head == NULL || input_list->head->type != TK_IDENTIFIER)
+            {
+                preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, p_name_token, "expected identifier after '::'");
+                return false;
+            }
+            embed_consume(ctx, dest, input_list, level, is_active);
+        }
+
+        embed_skip_blanks(ctx, dest, input_list, level, is_active);
+
+        /* collect the optional ( pp-balanced-token-seq ) */
+        struct token_list clause = { 0 };
+        bool has_clause = false;
+
+        if (input_list->head && input_list->head->type == '(')
+        {
+            has_clause = true;
+            embed_consume(ctx, dest, input_list, level, is_active);
+
+            int depth = 1;
+            for (;;)
+            {
+                if (input_list->head == NULL || input_list->head->type == TK_NEWLINE)
+                {
+                    preprocessor_diagnostic(C_ERROR_MISSING_CLOSE_PARENTHESIS, ctx, p_name_token, "missing ')' in embed parameter '%s'", name);
+                    token_list_destroy(&clause);
+                    return false;
+                }
+
+                if (input_list->head->type == '(')
+                    depth++;
+                else if (input_list->head->type == ')')
+                {
+                    depth--;
+                    if (depth == 0)
+                        break;
+                }
+
+                if (!token_is_blank(input_list->head) || clause.head != NULL)
+                {
+                    struct token* _Opt t = token_list_clone_and_add(&clause, input_list->head);
+                    if (t == NULL)
+                    {
+                        token_list_destroy(&clause);
+                        return false;
+                    }
+                    t->flags = TK_FLAG_NONE;
+                }
+                embed_consume(ctx, dest, input_list, level, is_active);
+            }
+            embed_consume(ctx, dest, input_list, level, is_active); //)
+
+            /* drop trailing blanks */
+            while (clause.tail && token_is_blank(clause.tail))
+                token_list_pop_back(&clause);
+        }
+
+        if (is_vendor)
+        {
+            params->has_unsupported = true;
+            token_list_destroy(&clause);
+            continue;
+        }
+
+        bool* _Opt p_has = NULL;
+        struct token_list* _Opt p_tokens = NULL;
+
+        if (strcmp(name, "limit") == 0 || strcmp(name, "__limit__") == 0)
+        {
+            p_has = &params->has_limit;
+            p_tokens = &params->limit;
+        }
+        else if (strcmp(name, "prefix") == 0 || strcmp(name, "__prefix__") == 0)
+        {
+            p_has = &params->has_prefix;
+            p_tokens = &params->prefix;
+        }
+        else if (strcmp(name, "suffix") == 0 || strcmp(name, "__suffix__") == 0)
+        {
+            p_has = &params->has_suffix;
+            p_tokens = &params->suffix;
+        }
+        else if (strcmp(name, "if_empty") == 0 || strcmp(name, "__if_empty__") == 0)
+        {
+            p_has = &params->has_if_empty;
+            p_tokens = &params->if_empty;
+        }
+        else
+        {
+            if (end_type == TK_NEWLINE)
+            {
+                preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, p_name_token, "unknown embed parameter '%s'", name);
+                token_list_destroy(&clause);
+                return false;
+            }
+            /* __has_embed: unsupported parameter makes the result 0 */
+            params->has_unsupported = true;
+            token_list_destroy(&clause);
+            continue;
+        }
+
+        if (*p_has)
+        {
+            preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, p_name_token, "embed parameter '%s' appears more than once", name);
+            token_list_destroy(&clause);
+            return false;
+        }
+
+        if (!has_clause)
+        {
+            preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, p_name_token, "embed parameter '%s' requires a parenthesized argument", name);
+            return false;
+        }
+
+        if (p_tokens == &params->limit && clause.head == NULL)
+        {
+            preprocessor_diagnostic(C_ERROR_EXPRESSION_ERROR, ctx, p_name_token, "embed parameter 'limit' requires a constant expression");
+            return false;
+        }
+
+        *p_has = true;
+        token_list_swap(p_tokens, &clause);
+        token_list_destroy(&clause);
+    }
+}
+
+/*
+  6.10.3.2 limit: evaluated as in #if; 'defined' is not allowed;
+  must be non negative.
+  Returns -1 on error.
+*/
+static long long embed_evaluate_limit(struct preprocessor_ctx* ctx,
+                                      const struct embed_params* params,
+                                      const struct token* position)
+{
+    for (const struct token* _Opt t = params->limit.head; t; t = t->next)
+    {
+        if (t->type == TK_IDENTIFIER && strcmp(t->lexeme, "defined") == 0)
+        {
+            preprocessor_diagnostic(C_ERROR_EXPRESSION_ERROR, ctx, position, "'defined' cannot be used in embed 'limit' parameter");
+            return -1;
+        }
+    }
+
+    struct token_list input = copy_replacement_list(ctx, &params->limit);
+    if (input.head == NULL)
+    {
+        preprocessor_diagnostic(C_ERROR_EXPRESSION_ERROR, ctx, position, "embed parameter 'limit' requires a constant expression");
+        return -1;
+    }
+
+    int errors = ctx->n_errors;
+    struct token_list discard = { 0 };
+    long long value = preprocessor_constant_expression(ctx, &discard, &input);
+    token_list_destroy(&discard);
+    token_list_destroy(&input);
+
+    if (ctx->n_errors > errors)
+        return -1;
+
+    if (value < 0)
+    {
+        preprocessor_diagnostic(C_ERROR_EXPRESSION_ERROR, ctx, position, "embed parameter 'limit' cannot be negative");
+        return -1;
+    }
+
+    return value;
+}
+
+/*
+  Macro-expands a prefix/suffix/if_empty token sequence and marks it as final
+  output.
+*/
+static struct token_list embed_expand_clause(struct preprocessor_ctx* ctx,
+                                             const struct token_list* clause,
+                                             const struct token* position,
+                                             int level)
+{
+    struct token_list r = { 0 };
+    if (clause->head == NULL)
+        return r;
+
+    struct token_list copy = copy_replacement_list(ctx, clause);
+    r = replacement_list_reexamination(ctx, NULL, &copy, level, position);
+    token_list_destroy(&copy);
+
+    for (struct token* _Opt t = r.head; t; t = t->next)
+    {
+        t->flags |= TK_FLAG_FINAL;
+        t->level = level;
+        t->token_origin = position;
+        t->line = position->line;
+        t->col = position->col;
+    }
+    return r;
+}
+
 struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_list* input_list)
 {
     struct token_list r = { 0 };
+    struct token_list keep = { 0 }; /* tokens kept alive for diagnostics only */
 
     try
     {
@@ -8777,9 +9181,157 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
             }
             else if (input_list->head->type == TK_IDENTIFIER &&
-                (strcmp(input_list->head->lexeme, "__has_include") == 0 ||
-                    strcmp(input_list->head->lexeme, "__has_embed") == 0)
-                )
+                strcmp(input_list->head->lexeme, "__has_embed") == 0)
+            {
+                /*
+                  6.10.1 __has_embed ( header-name embed-parameter-sequence opt )
+                  __STDC_EMBED_NOT_FOUND__ (0), __STDC_EMBED_FOUND__ (1), __STDC_EMBED_EMPTY__ (2)
+                */
+                /* keep a copy alive for diagnostics position / current file dir */
+                const struct token* _Opt p_has_embed_token = token_list_clone_and_add(&keep, input_list->head);
+                if (p_has_embed_token == NULL)
+                {
+                    throw;
+                }
+                token_list_pop_front(input_list); //pop __has_embed
+                skip_blanks( &r, input_list);
+                token_list_pop_front(input_list); //pop (
+                skip_blanks( &r, input_list);
+
+                char path[100] = { 0 };
+                bool is_angle_bracket_form = false;
+
+                if (input_list->head == NULL)
+                {
+                    pre_unexpected_end_of_file(r.tail, ctx);
+                    throw;
+                }
+
+                if (input_list->head->type == TK_STRING_LITERAL)
+                {
+                    if (!checked_strcat(path, sizeof(path), input_list->head->lexeme))
+                    {
+                        preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "embed path is too long (limit is %d characters)", (int)sizeof(path) - 1);
+                        throw;
+                    }
+                    token_list_pop_front(input_list); //pop "file"
+                }
+                else if (input_list->head->type == '<')
+                {
+                    is_angle_bracket_form = true;
+                    checked_strcat(path, sizeof(path), "<");
+                    token_list_pop_front(input_list); //pop <
+
+                    if (input_list->head == NULL)
+                    {
+                        pre_unexpected_end_of_file(r.tail, ctx);
+                        throw;
+                    }
+
+                    while (input_list->head->type != '>')
+                    {
+                        if (!checked_strcat(path, sizeof(path), input_list->head->lexeme))
+                        {
+                            preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "embed path is too long (limit is %d characters)", (int)sizeof(path) - 1);
+                            throw;
+                        }
+                        token_list_pop_front(input_list);
+
+                        if (input_list->head == NULL)
+                        {
+                            pre_unexpected_end_of_file(r.tail, ctx);
+                            throw;
+                        }
+                    }
+                    token_list_pop_front(input_list); //pop >
+                    if (!checked_strcat(path, sizeof(path), ">"))
+                    {
+                        preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, p_has_embed_token, "embed path is too long (limit is %d characters)", (int)sizeof(path) - 1);
+                        throw;
+                    }
+                }
+                else
+                {
+                    preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, input_list->head, "expected \"filename\" or <filename>");
+                    throw;
+                }
+
+                struct embed_params params = { 0 };
+                if (!embed_parse_parameters(ctx, NULL, input_list, 0, true, ')', &params))
+                {
+                    embed_params_destroy(&params);
+                    throw;
+                }
+                token_list_pop_front(input_list); //pop )
+
+                int result = 0; /*__STDC_EMBED_NOT_FOUND__*/
+
+                if (!params.has_unsupported)
+                {
+                    long long limit = -1;
+                    if (params.has_limit)
+                    {
+                        limit = embed_evaluate_limit(ctx, &params, p_has_embed_token);
+                        if (limit < 0)
+                        {
+                            embed_params_destroy(&params);
+                            throw;
+                        }
+                    }
+
+                    /* strip the quotes or angle brackets */
+                    path[strlen(path) - 1] = '\0';
+
+                    char current_file_dir[FS_MAX_PATH] = { 0 };
+                    snprintf(current_file_dir, sizeof current_file_dir, "%s", p_has_embed_token->token_origin ? p_has_embed_token->token_origin->lexeme : "");
+                    dirname(current_file_dir);
+
+                    char fullpath[FS_MAX_PATH] = { 0 };
+                    if (embed_find_resource(ctx, path + 1, current_file_dir, is_angle_bracket_form, fullpath, sizeof fullpath))
+                    {
+                        result = 1; /*__STDC_EMBED_FOUND__*/
+                        if (limit == 0)
+                        {
+                            result = 2; /*__STDC_EMBED_EMPTY__*/
+                        }
+                        else
+                        {
+#ifndef MOCKFILES
+                            FILE* _Owner _Opt f = fopen(fullpath, "rb");
+                            if (f)
+                            {
+                                unsigned char ch = 0;
+                                if (fread(&ch, 1, 1, f) == 0)
+                                    result = 2; /*__STDC_EMBED_EMPTY__*/
+                                fclose(f);
+                            }
+#endif
+                        }
+                    }
+                }
+                embed_params_destroy(&params);
+
+                struct token* _Owner _Opt p_new_token = calloc(1, sizeof * p_new_token);
+                if (p_new_token == NULL)
+                {
+                    throw;
+                }
+
+                p_new_token->type = TK_PPNUMBER;
+
+                char* _Owner _Opt temp = strdup(result == 0 ? "0" : (result == 1 ? "1" : "2"));
+                if (temp == NULL)
+                {
+                    token_delete(p_new_token);
+                    throw;
+                }
+                p_new_token->lexeme = temp;
+                p_new_token->flags |= TK_FLAG_FINAL;
+
+                token_list_add(&r, p_new_token);
+            }
+            else if (input_list->head->type == TK_IDENTIFIER &&
+                strcmp(input_list->head->lexeme, "__has_include") == 0)
             {
                 token_list_pop_front(input_list); //pop __has_include
                 skip_blanks( &r, input_list);
@@ -8900,7 +9452,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                         throw;
                     }
                 }
-                token_list_pop_front(input_list); //pop >
+                token_list_pop_front(input_list); //pop )
 
                 const char* has_c_attribute_value = "0";
                 if (strcmp(path, "nodiscard") == 0)
@@ -8958,7 +9510,6 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 p_new_token->flags |= TK_FLAG_FINAL;
 
                 token_list_add(&r, p_new_token);
-                token_list_pop_front(input_list); //pop )
             }
             else if (input_list->head->type == TK_IDENTIFIER &&
                 is_clang_query_operator(input_list->head->lexeme))
@@ -9043,6 +9594,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
         //TODO clear?
     }
 
+    token_list_destroy(&keep);
     return r;
 }
 
@@ -10482,44 +11034,88 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 throw;
             }
 
-            if (input_list->head)
+            struct embed_params params = { 0 };
+
+            if (!embed_parse_parameters(ctx, p_list, input_list, level, is_active, TK_NEWLINE, &params))
             {
-                while (input_list->head->type != TK_NEWLINE)
-                {
-                    prematch_level(ctx, p_list, input_list, level, is_active);
-                    if (input_list->head == NULL)
-                    {
-                        pre_unexpected_end_of_file(p_list->tail, ctx);
-                        throw;
-                    }
-                }
+                embed_params_destroy(&params);
+                throw;
             }
+
             match_token_level(p_list, input_list, TK_NEWLINE, level, ctx);
 
-            char fullpath[300] = { 0 };
+            long long limit = -1;
+            if (params.has_limit)
+            {
+                limit = embed_evaluate_limit(ctx, &params, p_embed_token);
+                if (limit < 0)
+                {
+                    embed_params_destroy(&params);
+                    throw;
+                }
+            }
+
+            bool is_angle_bracket_form = path[0] == '<';
             path[strlen(path) - 1] = '\0';
 
-            snprintf(fullpath, sizeof(fullpath), "%s", path + 1);
+            /*this is the dir of the current file*/
+            char current_file_dir[FS_MAX_PATH] = { 0 };
+            snprintf(current_file_dir, sizeof current_file_dir, "%s", p_embed_token->token_origin ? p_embed_token->token_origin->lexeme : "");
+            dirname(current_file_dir);
 
-            int nlevel = level;
+            char fullpath[FS_MAX_PATH] = { 0 };
+            if (!embed_find_resource(ctx, path + 1, current_file_dir, is_angle_bracket_form, fullpath, sizeof fullpath))
+            {
+                preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, p_embed_token, "file '%s' not found", path + 1);
+                embed_params_destroy(&params);
+                throw;
+            }
 
-            enum token_flags f = TK_FLAG_NONE;
-
-            f = TK_FLAG_FINAL;
             //we cannot see it just like include
-            nlevel = nlevel + 1;
+            int nlevel = level + 1;
 
-            struct token_list list = embed_tokenizer(ctx, p_embed_token, fullpath, nlevel, f);
+            int count = 0;
+            struct token_list list = embed_tokenizer(ctx, p_embed_token, fullpath, nlevel, TK_FLAG_FINAL, limit, &count);
 
             if (ctx->n_errors > 0)
             {
                 token_list_destroy(&list);
+                embed_params_destroy(&params);
                 throw;
             }
 
-            token_list_append_list(&r, &list);
+            if (count == 0)
+            {
+                /* 6.10.3.4 empty resource: only if_empty is emitted */
+                if (params.has_if_empty)
+                {
+                    struct token_list clause = embed_expand_clause(ctx, &params.if_empty, p_embed_token, nlevel);
+                    token_list_append_list(&r, &clause);
+                    token_list_destroy(&clause);
+                }
+            }
+            else
+            {
+                if (params.has_prefix)
+                {
+                    struct token_list clause = embed_expand_clause(ctx, &params.prefix, p_embed_token, nlevel);
+                    token_list_append_list(&r, &clause);
+                    token_list_destroy(&clause);
+                }
+
+                token_list_append_list(&r, &list);
+
+                if (params.has_suffix)
+                {
+                    struct token_list clause = embed_expand_clause(ctx, &params.suffix, p_embed_token, nlevel);
+                    token_list_append_list(&r, &clause);
+                    token_list_destroy(&clause);
+                }
+            }
+
             token_list_destroy(&list);
             token_list_destroy(&discard0);
+            embed_params_destroy(&params);
         }
         else if (strcmp(input_list->head->lexeme, "define") == 0)
         {
@@ -12515,7 +13111,8 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
     token_list_append_list(&r, &g);
     token_list_destroy(&g);
 
-    if (input_list->head != NULL &&
+    if (ctx->n_errors == 0 &&
+        input_list->head != NULL &&
         input_list->head->type == TK_PREPROCESSOR_LINE &&
         (preprocessor_token_ahead_is_identifier(input_list->head, "endif") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "else") ||
@@ -12692,6 +13289,9 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
     add_builtin_define(ctx, "#define __LINE__  0 \n");
     add_builtin_define(ctx, "#define __COUNTER__  0 \n");
     add_builtin_define(ctx, "#define __STDC_VERSION__  202311L \n");
+    add_builtin_define(ctx, "#define __STDC_EMBED_NOT_FOUND__ 0 \n");
+    add_builtin_define(ctx, "#define __STDC_EMBED_FOUND__ 1 \n");
+    add_builtin_define(ctx, "#define __STDC_EMBED_EMPTY__ 2 \n");
     add_builtin_define(ctx, "#define __BITINT_MAXWIDTH__  64 \n");
 
     char datastr[100] = { 0 };
@@ -15805,7 +16405,7 @@ char* _Owner _Opt read_file(const char* const path, bool append_newline)
 ,52,41,10,32,32,35,100,101,102,105,110,101,32,95,95,99,97,107,101,95,115,105,122,101,111
 ,102,95,112,111,105,110,116,101,114,32,56,10,35,101,108,115,101,10,32,32,35,100,101,102,105
 ,110,101,32,95,95,99,97,107,101,95,115,105,122,101,111,102,95,112,111,105,110,116,101,114,32
-,52,10,35,101,110,100,105,102,10
+,52,10,35,101,110,100,105,102,10,10
 , 0 };
 static const char file_assert_h[] = {
 
@@ -15819,21 +16419,23 @@ static const char file_assert_h[] = {
 ,97,115,115,101,114,116,32,109,97,121,32,98,101,32,114,101,100,101,102,105,110,101,100,32,98
 ,121,32,105,110,99,108,117,100,105,110,103,32,105,116,32,97,103,97,105,110,32,119,105,116,104
 ,32,97,10,32,32,32,100,105,102,102,101,114,101,110,116,32,78,68,69,66,85,71,32,42,47
-,10,35,117,110,100,101,102,32,97,115,115,101,114,116,10,10,35,105,102,100,101,102,32,78,68
-,69,66,85,71,10,35,100,101,102,105,110,101,32,97,115,115,101,114,116,40,46,46,46,41,32
-,40,40,118,111,105,100,41,48,41,10,35,101,108,115,101,10,47,42,32,95,65,115,115,101,114
-,116,32,105,115,32,116,104,101,32,99,97,107,101,32,114,117,110,116,105,109,101,32,97,115,115
-,101,114,116,58,32,102,108,111,119,32,97,110,97,108,121,115,105,115,32,97,115,115,117,109,101
-,115,32,116,104,101,32,99,111,110,100,105,116,105,111,110,10,32,32,32,104,111,108,100,115,32
-,97,102,116,101,114,32,105,116,32,40,101,46,103,46,32,97,115,115,101,114,116,40,112,32,33
-,61,32,78,85,76,76,41,32,109,97,107,101,115,32,112,32,110,111,110,32,110,117,108,108,41
-,32,42,47,10,35,100,101,102,105,110,101,32,97,115,115,101,114,116,40,46,46,46,41,32,95
-,65,115,115,101,114,116,40,95,95,86,65,95,65,82,71,83,95,95,41,10,35,101,110,100,105
-,102,10,10,35,105,102,32,95,95,83,84,68,67,95,86,69,82,83,73,79,78,95,95,32,60
-,32,50,48,50,51,49,49,76,10,35,100,101,102,105,110,101,32,115,116,97,116,105,99,95,97
-,115,115,101,114,116,32,95,83,116,97,116,105,99,95,97,115,115,101,114,116,10,35,101,110,100
-,105,102,10,10,35,101,108,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60
-,97,115,115,101,114,116,46,104,62,10,35,101,110,100,105,102,10
+,10,35,117,110,100,101,102,32,97,115,115,101,114,116,10,10,35,100,101,102,105,110,101,32,95
+,95,83,84,68,67,95,86,69,82,83,73,79,78,95,65,83,83,69,82,84,95,72,95,95,32
+,50,48,50,51,49,49,76,10,10,35,105,102,100,101,102,32,78,68,69,66,85,71,10,35,100
+,101,102,105,110,101,32,97,115,115,101,114,116,40,46,46,46,41,32,40,40,118,111,105,100,41
+,48,41,10,35,101,108,115,101,10,47,42,32,95,65,115,115,101,114,116,32,105,115,32,116,104
+,101,32,99,97,107,101,32,114,117,110,116,105,109,101,32,97,115,115,101,114,116,58,32,102,108
+,111,119,32,97,110,97,108,121,115,105,115,32,97,115,115,117,109,101,115,32,116,104,101,32,99
+,111,110,100,105,116,105,111,110,10,32,32,32,104,111,108,100,115,32,97,102,116,101,114,32,105
+,116,32,40,101,46,103,46,32,97,115,115,101,114,116,40,112,32,33,61,32,78,85,76,76,41
+,32,109,97,107,101,115,32,112,32,110,111,110,32,110,117,108,108,41,32,42,47,10,35,100,101
+,102,105,110,101,32,97,115,115,101,114,116,40,46,46,46,41,32,95,65,115,115,101,114,116,40
+,95,95,86,65,95,65,82,71,83,95,95,41,10,35,101,110,100,105,102,10,10,35,105,102,32
+,95,95,83,84,68,67,95,86,69,82,83,73,79,78,95,95,32,60,32,50,48,50,51,49,49
+,76,10,35,100,101,102,105,110,101,32,115,116,97,116,105,99,95,97,115,115,101,114,116,32,95
+,83,116,97,116,105,99,95,97,115,115,101,114,116,10,35,101,110,100,105,102,10,10,35,101,108
+,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,97,115,115,101,114,116,46
+,104,62,10,35,101,110,100,105,102,10
 , 0 };
 static const char file_complex_h[] = {
 
@@ -15992,104 +16594,120 @@ static const char file_errno_h[] = {
 ,32,32,32,32,32,32,32,32,32,32,55,56,10,35,100,101,102,105,110,101,32,69,78,79,84
 ,69,77,80,84,89,32,32,32,32,32,32,32,54,54,10,35,100,101,102,105,110,101,32,69,73
 ,76,83,69,81,32,32,32,32,32,32,32,32,32,32,57,50,10,35,100,101,102,105,110,101,32
-,69,65,68,68,82,73,78,85,83,69,32,32,32,32,32,32,52,56,10,35,100,101,102,105,110
-,101,32,69,65,68,68,82,78,79,84,65,86,65,73,76,32,32,32,52,57,10,35,100,101,102
-,105,110,101,32,69,65,70,78,79,83,85,80,80,79,82,84,32,32,32,32,52,55,10,35,100
-,101,102,105,110,101,32,69,65,76,82,69,65,68,89,32,32,32,32,32,32,32,32,51,55,10
-,35,100,101,102,105,110,101,32,69,66,65,68,77,83,71,32,32,32,32,32,32,32,32,32,57
-,52,10,35,100,101,102,105,110,101,32,69,67,65,78,67,69,76,69,68,32,32,32,32,32,32
-,32,56,57,10,35,100,101,102,105,110,101,32,69,67,79,78,78,65,66,79,82,84,69,68,32
-,32,32,32,53,51,10,35,100,101,102,105,110,101,32,69,67,79,78,78,82,69,70,85,83,69
-,68,32,32,32,32,54,49,10,35,100,101,102,105,110,101,32,69,67,79,78,78,82,69,83,69
-,84,32,32,32,32,32,32,53,52,10,35,100,101,102,105,110,101,32,69,68,69,83,84,65,68
-,68,82,82,69,81,32,32,32,32,51,57,10,35,100,101,102,105,110,101,32,69,72,79,83,84
-,85,78,82,69,65,67,72,32,32,32,32,54,53,10,35,100,101,102,105,110,101,32,69,73,68
-,82,77,32,32,32,32,32,32,32,32,32,32,32,57,48,10,35,100,101,102,105,110,101,32,69
-,73,78,80,82,79,71,82,69,83,83,32,32,32,32,32,51,54,10,35,100,101,102,105,110,101
-,32,69,73,83,67,79,78,78,32,32,32,32,32,32,32,32,32,53,54,10,35,100,101,102,105
-,110,101,32,69,76,79,79,80,32,32,32,32,32,32,32,32,32,32,32,54,50,10,35,100,101
-,102,105,110,101,32,69,77,83,71,83,73,90,69,32,32,32,32,32,32,32,32,52,48,10,35
-,100,101,102,105,110,101,32,69,78,69,84,68,79,87,78,32,32,32,32,32,32,32,32,53,48
+,69,78,79,84,66,76,75,32,32,32,32,32,32,32,32,32,49,53,10,35,100,101,102,105,110
+,101,32,69,83,79,67,75,84,78,79,83,85,80,80,79,82,84,32,52,52,10,35,100,101,102
+,105,110,101,32,69,80,70,78,79,83,85,80,80,79,82,84,32,32,32,32,52,54,10,35,100
+,101,102,105,110,101,32,69,72,79,83,84,68,79,87,78,32,32,32,32,32,32,32,54,52,10
+,35,100,101,102,105,110,101,32,69,83,72,85,84,68,79,87,78,32,32,32,32,32,32,32,53
+,56,10,35,100,101,102,105,110,101,32,69,84,79,79,77,65,78,89,82,69,70,83,32,32,32
+,32,53,57,10,35,100,101,102,105,110,101,32,69,83,84,65,76,69,32,32,32,32,32,32,32
+,32,32,32,55,48,10,35,100,101,102,105,110,101,32,69,65,68,68,82,73,78,85,83,69,32
+,32,32,32,32,32,52,56,10,35,100,101,102,105,110,101,32,69,65,68,68,82,78,79,84,65
+,86,65,73,76,32,32,32,52,57,10,35,100,101,102,105,110,101,32,69,65,70,78,79,83,85
+,80,80,79,82,84,32,32,32,32,52,55,10,35,100,101,102,105,110,101,32,69,65,76,82,69
+,65,68,89,32,32,32,32,32,32,32,32,51,55,10,35,100,101,102,105,110,101,32,69,66,65
+,68,77,83,71,32,32,32,32,32,32,32,32,32,57,52,10,35,100,101,102,105,110,101,32,69
+,67,65,78,67,69,76,69,68,32,32,32,32,32,32,32,56,57,10,35,100,101,102,105,110,101
+,32,69,67,79,78,78,65,66,79,82,84,69,68,32,32,32,32,53,51,10,35,100,101,102,105
+,110,101,32,69,67,79,78,78,82,69,70,85,83,69,68,32,32,32,32,54,49,10,35,100,101
+,102,105,110,101,32,69,67,79,78,78,82,69,83,69,84,32,32,32,32,32,32,53,52,10,35
+,100,101,102,105,110,101,32,69,68,69,83,84,65,68,68,82,82,69,81,32,32,32,32,51,57
+,10,35,100,101,102,105,110,101,32,69,72,79,83,84,85,78,82,69,65,67,72,32,32,32,32
+,54,53,10,35,100,101,102,105,110,101,32,69,73,68,82,77,32,32,32,32,32,32,32,32,32
+,32,32,57,48,10,35,100,101,102,105,110,101,32,69,73,78,80,82,79,71,82,69,83,83,32
+,32,32,32,32,51,54,10,35,100,101,102,105,110,101,32,69,73,83,67,79,78,78,32,32,32
+,32,32,32,32,32,32,53,54,10,35,100,101,102,105,110,101,32,69,76,79,79,80,32,32,32
+,32,32,32,32,32,32,32,32,54,50,10,35,100,101,102,105,110,101,32,69,77,83,71,83,73
+,90,69,32,32,32,32,32,32,32,32,52,48,10,35,100,101,102,105,110,101,32,69,78,69,84
+,68,79,87,78,32,32,32,32,32,32,32,32,53,48,10,35,100,101,102,105,110,101,32,69,78
+,69,84,82,69,83,69,84,32,32,32,32,32,32,32,53,50,10,35,100,101,102,105,110,101,32
+,69,78,69,84,85,78,82,69,65,67,72,32,32,32,32,32,53,49,10,35,100,101,102,105,110
+,101,32,69,78,79,66,85,70,83,32,32,32,32,32,32,32,32,32,53,53,10,35,100,101,102
+,105,110,101,32,69,78,79,68,65,84,65,32,32,32,32,32,32,32,32,32,57,54,10,35,100
+,101,102,105,110,101,32,69,78,79,76,73,78,75,32,32,32,32,32,32,32,32,32,57,55,10
+,35,100,101,102,105,110,101,32,69,78,79,77,83,71,32,32,32,32,32,32,32,32,32,32,57
+,49,10,35,100,101,102,105,110,101,32,69,78,79,80,82,79,84,79,79,80,84,32,32,32,32
+,32,52,50,10,35,100,101,102,105,110,101,32,69,78,79,83,82,32,32,32,32,32,32,32,32
+,32,32,32,57,56,10,35,100,101,102,105,110,101,32,69,78,79,83,84,82,32,32,32,32,32
+,32,32,32,32,32,57,57,10,35,100,101,102,105,110,101,32,69,78,79,84,67,79,78,78,32
+,32,32,32,32,32,32,32,53,55,10,35,100,101,102,105,110,101,32,69,78,79,84,82,69,67
+,79,86,69,82,65,66,76,69,32,49,48,52,10,35,100,101,102,105,110,101,32,69,78,79,84
+,83,79,67,75,32,32,32,32,32,32,32,32,51,56,10,35,100,101,102,105,110,101,32,69,78
+,79,84,83,85,80,32,32,32,32,32,32,32,32,32,52,53,10,35,100,101,102,105,110,101,32
+,69,79,80,78,79,84,83,85,80,80,32,32,32,32,32,32,49,48,50,10,35,100,101,102,105
+,110,101,32,69,79,86,69,82,70,76,79,87,32,32,32,32,32,32,32,56,52,10,35,100,101
+,102,105,110,101,32,69,79,87,78,69,82,68,69,65,68,32,32,32,32,32,32,49,48,53,10
+,35,100,101,102,105,110,101,32,69,80,82,79,84,79,32,32,32,32,32,32,32,32,32,32,49
+,48,48,10,35,100,101,102,105,110,101,32,69,80,82,79,84,79,78,79,83,85,80,80,79,82
+,84,32,52,51,10,35,100,101,102,105,110,101,32,69,80,82,79,84,79,84,89,80,69,32,32
+,32,32,32,32,52,49,10,35,100,101,102,105,110,101,32,69,84,73,77,69,32,32,32,32,32
+,32,32,32,32,32,32,49,48,49,10,35,100,101,102,105,110,101,32,69,84,73,77,69,68,79
+,85,84,32,32,32,32,32,32,32,54,48,10,35,100,101,102,105,110,101,32,69,84,88,84,66
+,83,89,32,32,32,32,32,32,32,32,32,50,54,10,35,100,101,102,105,110,101,32,69,87,79
+,85,76,68,66,76,79,67,75,32,32,32,32,32,69,65,71,65,73,78,10,10,35,101,108,115
+,101,32,47,42,32,108,105,110,117,120,32,97,110,100,32,111,116,104,101,114,115,32,42,47,10
+,10,35,100,101,102,105,110,101,32,69,65,71,65,73,78,32,32,32,32,32,32,32,32,32,32
+,49,49,10,35,100,101,102,105,110,101,32,69,68,69,65,68,76,75,32,32,32,32,32,32,32
+,32,32,51,53,10,35,100,101,102,105,110,101,32,69,78,65,77,69,84,79,79,76,79,78,71
+,32,32,32,32,51,54,10,35,100,101,102,105,110,101,32,69,78,79,76,67,75,32,32,32,32
+,32,32,32,32,32,32,51,55,10,35,100,101,102,105,110,101,32,69,78,79,83,89,83,32,32
+,32,32,32,32,32,32,32,32,51,56,10,35,100,101,102,105,110,101,32,69,78,79,84,69,77
+,80,84,89,32,32,32,32,32,32,32,51,57,10,35,100,101,102,105,110,101,32,69,76,79,79
+,80,32,32,32,32,32,32,32,32,32,32,32,52,48,10,35,100,101,102,105,110,101,32,69,73
+,76,83,69,81,32,32,32,32,32,32,32,32,32,32,56,52,10,35,100,101,102,105,110,101,32
+,69,78,79,84,66,76,75,32,32,32,32,32,32,32,32,32,49,53,10,35,100,101,102,105,110
+,101,32,69,83,79,67,75,84,78,79,83,85,80,80,79,82,84,32,57,52,10,35,100,101,102
+,105,110,101,32,69,80,70,78,79,83,85,80,80,79,82,84,32,32,32,32,57,54,10,35,100
+,101,102,105,110,101,32,69,72,79,83,84,68,79,87,78,32,32,32,32,32,32,32,49,49,50
+,10,35,100,101,102,105,110,101,32,69,83,72,85,84,68,79,87,78,32,32,32,32,32,32,32
+,49,48,56,10,35,100,101,102,105,110,101,32,69,84,79,79,77,65,78,89,82,69,70,83,32
+,32,32,32,49,48,57,10,35,100,101,102,105,110,101,32,69,83,84,65,76,69,32,32,32,32
+,32,32,32,32,32,32,49,49,54,10,35,100,101,102,105,110,101,32,69,65,68,68,82,73,78
+,85,83,69,32,32,32,32,32,32,57,56,10,35,100,101,102,105,110,101,32,69,65,68,68,82
+,78,79,84,65,86,65,73,76,32,32,32,57,57,10,35,100,101,102,105,110,101,32,69,65,70
+,78,79,83,85,80,80,79,82,84,32,32,32,32,57,55,10,35,100,101,102,105,110,101,32,69
+,65,76,82,69,65,68,89,32,32,32,32,32,32,32,32,49,49,52,10,35,100,101,102,105,110
+,101,32,69,66,65,68,77,83,71,32,32,32,32,32,32,32,32,32,55,52,10,35,100,101,102
+,105,110,101,32,69,67,65,78,67,69,76,69,68,32,32,32,32,32,32,32,49,50,53,10,35
+,100,101,102,105,110,101,32,69,67,79,78,78,65,66,79,82,84,69,68,32,32,32,32,49,48
+,51,10,35,100,101,102,105,110,101,32,69,67,79,78,78,82,69,70,85,83,69,68,32,32,32
+,32,49,49,49,10,35,100,101,102,105,110,101,32,69,67,79,78,78,82,69,83,69,84,32,32
+,32,32,32,32,49,48,52,10,35,100,101,102,105,110,101,32,69,68,69,83,84,65,68,68,82
+,82,69,81,32,32,32,32,56,57,10,35,100,101,102,105,110,101,32,69,72,79,83,84,85,78
+,82,69,65,67,72,32,32,32,32,49,49,51,10,35,100,101,102,105,110,101,32,69,73,68,82
+,77,32,32,32,32,32,32,32,32,32,32,32,52,51,10,35,100,101,102,105,110,101,32,69,73
+,78,80,82,79,71,82,69,83,83,32,32,32,32,32,49,49,53,10,35,100,101,102,105,110,101
+,32,69,73,83,67,79,78,78,32,32,32,32,32,32,32,32,32,49,48,54,10,35,100,101,102
+,105,110,101,32,69,77,83,71,83,73,90,69,32,32,32,32,32,32,32,32,57,48,10,35,100
+,101,102,105,110,101,32,69,78,69,84,68,79,87,78,32,32,32,32,32,32,32,32,49,48,48
 ,10,35,100,101,102,105,110,101,32,69,78,69,84,82,69,83,69,84,32,32,32,32,32,32,32
-,53,50,10,35,100,101,102,105,110,101,32,69,78,69,84,85,78,82,69,65,67,72,32,32,32
-,32,32,53,49,10,35,100,101,102,105,110,101,32,69,78,79,66,85,70,83,32,32,32,32,32
-,32,32,32,32,53,53,10,35,100,101,102,105,110,101,32,69,78,79,68,65,84,65,32,32,32
-,32,32,32,32,32,32,57,54,10,35,100,101,102,105,110,101,32,69,78,79,76,73,78,75,32
-,32,32,32,32,32,32,32,32,57,55,10,35,100,101,102,105,110,101,32,69,78,79,77,83,71
-,32,32,32,32,32,32,32,32,32,32,57,49,10,35,100,101,102,105,110,101,32,69,78,79,80
-,82,79,84,79,79,80,84,32,32,32,32,32,52,50,10,35,100,101,102,105,110,101,32,69,78
-,79,83,82,32,32,32,32,32,32,32,32,32,32,32,57,56,10,35,100,101,102,105,110,101,32
-,69,78,79,83,84,82,32,32,32,32,32,32,32,32,32,32,57,57,10,35,100,101,102,105,110
-,101,32,69,78,79,84,67,79,78,78,32,32,32,32,32,32,32,32,53,55,10,35,100,101,102
-,105,110,101,32,69,78,79,84,82,69,67,79,86,69,82,65,66,76,69,32,49,48,52,10,35
-,100,101,102,105,110,101,32,69,78,79,84,83,79,67,75,32,32,32,32,32,32,32,32,51,56
-,10,35,100,101,102,105,110,101,32,69,78,79,84,83,85,80,32,32,32,32,32,32,32,32,32
-,52,53,10,35,100,101,102,105,110,101,32,69,79,80,78,79,84,83,85,80,80,32,32,32,32
-,32,32,49,48,50,10,35,100,101,102,105,110,101,32,69,79,86,69,82,70,76,79,87,32,32
-,32,32,32,32,32,56,52,10,35,100,101,102,105,110,101,32,69,79,87,78,69,82,68,69,65
-,68,32,32,32,32,32,32,49,48,53,10,35,100,101,102,105,110,101,32,69,80,82,79,84,79
-,32,32,32,32,32,32,32,32,32,32,49,48,48,10,35,100,101,102,105,110,101,32,69,80,82
-,79,84,79,78,79,83,85,80,80,79,82,84,32,52,51,10,35,100,101,102,105,110,101,32,69
-,80,82,79,84,79,84,89,80,69,32,32,32,32,32,32,52,49,10,35,100,101,102,105,110,101
-,32,69,84,73,77,69,32,32,32,32,32,32,32,32,32,32,32,49,48,49,10,35,100,101,102
-,105,110,101,32,69,84,73,77,69,68,79,85,84,32,32,32,32,32,32,32,54,48,10,35,100
-,101,102,105,110,101,32,69,84,88,84,66,83,89,32,32,32,32,32,32,32,32,32,50,54,10
-,35,100,101,102,105,110,101,32,69,87,79,85,76,68,66,76,79,67,75,32,32,32,32,32,69
-,65,71,65,73,78,10,10,35,101,108,115,101,32,47,42,32,108,105,110,117,120,32,97,110,100
-,32,111,116,104,101,114,115,32,42,47,10,10,35,100,101,102,105,110,101,32,69,65,71,65,73
-,78,32,32,32,32,32,32,32,32,32,32,49,49,10,35,100,101,102,105,110,101,32,69,68,69
-,65,68,76,75,32,32,32,32,32,32,32,32,32,51,53,10,35,100,101,102,105,110,101,32,69
-,78,65,77,69,84,79,79,76,79,78,71,32,32,32,32,51,54,10,35,100,101,102,105,110,101
-,32,69,78,79,76,67,75,32,32,32,32,32,32,32,32,32,32,51,55,10,35,100,101,102,105
-,110,101,32,69,78,79,83,89,83,32,32,32,32,32,32,32,32,32,32,51,56,10,35,100,101
-,102,105,110,101,32,69,78,79,84,69,77,80,84,89,32,32,32,32,32,32,32,51,57,10,35
-,100,101,102,105,110,101,32,69,76,79,79,80,32,32,32,32,32,32,32,32,32,32,32,52,48
-,10,35,100,101,102,105,110,101,32,69,73,76,83,69,81,32,32,32,32,32,32,32,32,32,32
-,56,52,10,35,100,101,102,105,110,101,32,69,65,68,68,82,73,78,85,83,69,32,32,32,32
-,32,32,57,56,10,35,100,101,102,105,110,101,32,69,65,68,68,82,78,79,84,65,86,65,73
-,76,32,32,32,57,57,10,35,100,101,102,105,110,101,32,69,65,70,78,79,83,85,80,80,79
-,82,84,32,32,32,32,57,55,10,35,100,101,102,105,110,101,32,69,65,76,82,69,65,68,89
-,32,32,32,32,32,32,32,32,49,49,52,10,35,100,101,102,105,110,101,32,69,66,65,68,77
-,83,71,32,32,32,32,32,32,32,32,32,55,52,10,35,100,101,102,105,110,101,32,69,67,65
-,78,67,69,76,69,68,32,32,32,32,32,32,32,49,50,53,10,35,100,101,102,105,110,101,32
-,69,67,79,78,78,65,66,79,82,84,69,68,32,32,32,32,49,48,51,10,35,100,101,102,105
-,110,101,32,69,67,79,78,78,82,69,70,85,83,69,68,32,32,32,32,49,49,49,10,35,100
-,101,102,105,110,101,32,69,67,79,78,78,82,69,83,69,84,32,32,32,32,32,32,49,48,52
-,10,35,100,101,102,105,110,101,32,69,68,69,83,84,65,68,68,82,82,69,81,32,32,32,32
-,56,57,10,35,100,101,102,105,110,101,32,69,72,79,83,84,85,78,82,69,65,67,72,32,32
-,32,32,49,49,51,10,35,100,101,102,105,110,101,32,69,73,68,82,77,32,32,32,32,32,32
-,32,32,32,32,32,52,51,10,35,100,101,102,105,110,101,32,69,73,78,80,82,79,71,82,69
-,83,83,32,32,32,32,32,49,49,53,10,35,100,101,102,105,110,101,32,69,73,83,67,79,78
-,78,32,32,32,32,32,32,32,32,32,49,48,54,10,35,100,101,102,105,110,101,32,69,77,83
-,71,83,73,90,69,32,32,32,32,32,32,32,32,57,48,10,35,100,101,102,105,110,101,32,69
-,78,69,84,68,79,87,78,32,32,32,32,32,32,32,32,49,48,48,10,35,100,101,102,105,110
-,101,32,69,78,69,84,82,69,83,69,84,32,32,32,32,32,32,32,49,48,50,10,35,100,101
-,102,105,110,101,32,69,78,69,84,85,78,82,69,65,67,72,32,32,32,32,32,49,48,49,10
-,35,100,101,102,105,110,101,32,69,78,79,66,85,70,83,32,32,32,32,32,32,32,32,32,49
-,48,53,10,35,100,101,102,105,110,101,32,69,78,79,68,65,84,65,32,32,32,32,32,32,32
-,32,32,54,49,10,35,100,101,102,105,110,101,32,69,78,79,76,73,78,75,32,32,32,32,32
-,32,32,32,32,54,55,10,35,100,101,102,105,110,101,32,69,78,79,77,83,71,32,32,32,32
-,32,32,32,32,32,32,52,50,10,35,100,101,102,105,110,101,32,69,78,79,80,82,79,84,79
-,79,80,84,32,32,32,32,32,57,50,10,35,100,101,102,105,110,101,32,69,78,79,83,82,32
-,32,32,32,32,32,32,32,32,32,32,54,51,10,35,100,101,102,105,110,101,32,69,78,79,83
-,84,82,32,32,32,32,32,32,32,32,32,32,54,48,10,35,100,101,102,105,110,101,32,69,78
-,79,84,67,79,78,78,32,32,32,32,32,32,32,32,49,48,55,10,35,100,101,102,105,110,101
-,32,69,78,79,84,82,69,67,79,86,69,82,65,66,76,69,32,49,51,49,10,35,100,101,102
-,105,110,101,32,69,78,79,84,83,79,67,75,32,32,32,32,32,32,32,32,56,56,10,35,100
-,101,102,105,110,101,32,69,78,79,84,83,85,80,32,32,32,32,32,32,32,32,32,57,53,10
-,35,100,101,102,105,110,101,32,69,79,80,78,79,84,83,85,80,80,32,32,32,32,32,32,57
-,53,10,35,100,101,102,105,110,101,32,69,79,86,69,82,70,76,79,87,32,32,32,32,32,32
-,32,55,53,10,35,100,101,102,105,110,101,32,69,79,87,78,69,82,68,69,65,68,32,32,32
-,32,32,32,49,51,48,10,35,100,101,102,105,110,101,32,69,80,82,79,84,79,32,32,32,32
-,32,32,32,32,32,32,55,49,10,35,100,101,102,105,110,101,32,69,80,82,79,84,79,78,79
-,83,85,80,80,79,82,84,32,57,51,10,35,100,101,102,105,110,101,32,69,80,82,79,84,79
-,84,89,80,69,32,32,32,32,32,32,57,49,10,35,100,101,102,105,110,101,32,69,84,73,77
-,69,32,32,32,32,32,32,32,32,32,32,32,54,50,10,35,100,101,102,105,110,101,32,69,84
-,73,77,69,68,79,85,84,32,32,32,32,32,32,32,49,49,48,10,35,100,101,102,105,110,101
-,32,69,84,88,84,66,83,89,32,32,32,32,32,32,32,32,32,50,54,10,35,100,101,102,105
-,110,101,32,69,87,79,85,76,68,66,76,79,67,75,32,32,32,32,32,69,65,71,65,73,78
-,10,10,35,101,110,100,105,102,10,10,35,101,108,115,101,10,35,105,110,99,108,117,100,101,95
-,110,101,120,116,32,60,101,114,114,110,111,46,104,62,10,35,101,110,100,105,102,10
+,49,48,50,10,35,100,101,102,105,110,101,32,69,78,69,84,85,78,82,69,65,67,72,32,32
+,32,32,32,49,48,49,10,35,100,101,102,105,110,101,32,69,78,79,66,85,70,83,32,32,32
+,32,32,32,32,32,32,49,48,53,10,35,100,101,102,105,110,101,32,69,78,79,68,65,84,65
+,32,32,32,32,32,32,32,32,32,54,49,10,35,100,101,102,105,110,101,32,69,78,79,76,73
+,78,75,32,32,32,32,32,32,32,32,32,54,55,10,35,100,101,102,105,110,101,32,69,78,79
+,77,83,71,32,32,32,32,32,32,32,32,32,32,52,50,10,35,100,101,102,105,110,101,32,69
+,78,79,80,82,79,84,79,79,80,84,32,32,32,32,32,57,50,10,35,100,101,102,105,110,101
+,32,69,78,79,83,82,32,32,32,32,32,32,32,32,32,32,32,54,51,10,35,100,101,102,105
+,110,101,32,69,78,79,83,84,82,32,32,32,32,32,32,32,32,32,32,54,48,10,35,100,101
+,102,105,110,101,32,69,78,79,84,67,79,78,78,32,32,32,32,32,32,32,32,49,48,55,10
+,35,100,101,102,105,110,101,32,69,78,79,84,82,69,67,79,86,69,82,65,66,76,69,32,49
+,51,49,10,35,100,101,102,105,110,101,32,69,78,79,84,83,79,67,75,32,32,32,32,32,32
+,32,32,56,56,10,35,100,101,102,105,110,101,32,69,78,79,84,83,85,80,32,32,32,32,32
+,32,32,32,32,57,53,10,35,100,101,102,105,110,101,32,69,79,80,78,79,84,83,85,80,80
+,32,32,32,32,32,32,57,53,10,35,100,101,102,105,110,101,32,69,79,86,69,82,70,76,79
+,87,32,32,32,32,32,32,32,55,53,10,35,100,101,102,105,110,101,32,69,79,87,78,69,82
+,68,69,65,68,32,32,32,32,32,32,49,51,48,10,35,100,101,102,105,110,101,32,69,80,82
+,79,84,79,32,32,32,32,32,32,32,32,32,32,55,49,10,35,100,101,102,105,110,101,32,69
+,80,82,79,84,79,78,79,83,85,80,80,79,82,84,32,57,51,10,35,100,101,102,105,110,101
+,32,69,80,82,79,84,79,84,89,80,69,32,32,32,32,32,32,57,49,10,35,100,101,102,105
+,110,101,32,69,84,73,77,69,32,32,32,32,32,32,32,32,32,32,32,54,50,10,35,100,101
+,102,105,110,101,32,69,84,73,77,69,68,79,85,84,32,32,32,32,32,32,32,49,49,48,10
+,35,100,101,102,105,110,101,32,69,84,88,84,66,83,89,32,32,32,32,32,32,32,32,32,50
+,54,10,35,100,101,102,105,110,101,32,69,87,79,85,76,68,66,76,79,67,75,32,32,32,32
+,32,69,65,71,65,73,78,10,10,35,101,110,100,105,102,10,10,35,101,108,115,101,10,35,105
+,110,99,108,117,100,101,95,110,101,120,116,32,60,101,114,114,110,111,46,104,62,10,35,101,110
+,100,105,102,10
 , 0 };
 static const char file_fenv_h[] = {
 
@@ -16636,7 +17254,7 @@ static const char file_limits_h[] = {
 ,10,35,101,108,105,102,32,100,101,102,105,110,101,100,40,95,95,65,80,80,76,69,95,95,41
 ,10,35,100,101,102,105,110,101,32,77,66,95,76,69,78,95,77,65,88,32,32,32,54,10,35
 ,101,108,115,101,10,35,100,101,102,105,110,101,32,77,66,95,76,69,78,95,77,65,88,32,32
-,32,54,54,10,35,101,110,100,105,102,10,10,35,100,101,102,105,110,101,32,83,67,72,65,82
+,32,49,54,10,35,101,110,100,105,102,10,10,35,100,101,102,105,110,101,32,83,67,72,65,82
 ,95,77,73,78,32,32,32,32,40,45,48,120,55,102,32,45,32,49,41,10,35,100,101,102,105
 ,110,101,32,83,67,72,65,82,95,77,65,88,32,32,32,32,48,120,55,102,10,35,100,101,102
 ,105,110,101,32,83,67,72,65,82,95,87,73,68,84,72,32,32,56,10,35,100,101,102,105,110
@@ -17363,51 +17981,60 @@ static const char file_stdarg_h[] = {
 ,95,95,99,97,107,101,95,65,68,68,82,69,83,83,79,70,40,118,41,32,40,38,40,118,41
 ,41,10,10,35,105,102,32,100,101,102,105,110,101,100,40,95,77,95,88,54,52,41,10,10,118
 ,111,105,100,32,95,95,99,100,101,99,108,32,95,95,118,97,95,115,116,97,114,116,40,118,97
-,95,108,105,115,116,42,44,32,46,46,46,41,59,10,10,35,100,101,102,105,110,101,32,118,97
-,95,115,116,97,114,116,40,97,112,44,32,120,41,32,40,40,118,111,105,100,41,40,95,95,118
-,97,95,115,116,97,114,116,40,38,97,112,44,32,120,41,41,41,10,35,100,101,102,105,110,101
-,32,118,97,95,97,114,103,40,97,112,44,32,116,41,32,32,32,32,32,32,32,32,32,32,32
+,95,108,105,115,116,42,44,32,46,46,46,41,59,10,10,47,42,32,67,50,51,32,97,108,108
+,111,119,115,32,118,97,95,115,116,97,114,116,40,97,112,41,32,119,105,116,104,32,110,111,32
+,115,101,99,111,110,100,32,97,114,103,117,109,101,110,116,59,32,95,95,118,97,95,115,116,97
+,114,116,32,97,99,99,101,112,116,115,32,105,116,32,42,47,10,35,100,101,102,105,110,101,32
+,118,97,95,115,116,97,114,116,40,97,112,44,32,46,46,46,41,32,40,40,118,111,105,100,41
+,40,95,95,118,97,95,115,116,97,114,116,40,38,97,112,32,95,95,86,65,95,79,80,84,95
+,95,40,44,41,32,95,95,86,65,95,65,82,71,83,95,95,41,41,41,10,35,100,101,102,105
+,110,101,32,118,97,95,97,114,103,40,97,112,44,32,116,41,32,32,32,32,32,32,32,32,32
 ,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32
-,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,92,10,32,32,32,32,40,40,115
-,105,122,101,111,102,40,116,41,32,62,32,115,105,122,101,111,102,40,95,95,105,110,116,54,52
-,41,32,124,124,32,40,115,105,122,101,111,102,40,116,41,32,38,32,40,115,105,122,101,111,102
-,40,116,41,32,45,32,49,41,41,32,33,61,32,48,41,32,92,10,32,32,32,32,32,32,32
-,32,63,32,42,42,40,116,42,42,41,40,40,97,112,32,43,61,32,115,105,122,101,111,102,40
-,95,95,105,110,116,54,52,41,41,32,45,32,115,105,122,101,111,102,40,95,95,105,110,116,54
-,52,41,41,32,32,32,32,32,32,32,32,32,32,32,32,32,92,10,32,32,32,32,32,32,32
-,32,58,32,32,42,40,116,42,32,41,40,40,97,112,32,43,61,32,115,105,122,101,111,102,40
-,95,95,105,110,116,54,52,41,41,32,45,32,115,105,122,101,111,102,40,95,95,105,110,116,54
-,52,41,41,41,10,35,100,101,102,105,110,101,32,118,97,95,101,110,100,40,97,112,41,32,40
-,40,118,111,105,100,41,40,97,112,32,61,32,40,118,97,95,108,105,115,116,41,48,41,41,10
-,10,35,101,108,115,101,32,47,42,32,120,56,54,32,42,47,10,10,35,100,101,102,105,110,101
-,32,95,95,99,97,107,101,95,73,78,84,83,73,90,69,79,70,40,110,41,32,40,40,115,105
-,122,101,111,102,40,110,41,32,43,32,115,105,122,101,111,102,40,105,110,116,41,32,45,32,49
-,41,32,38,32,126,40,115,105,122,101,111,102,40,105,110,116,41,32,45,32,49,41,41,10,10
-,35,100,101,102,105,110,101,32,118,97,95,115,116,97,114,116,40,97,112,44,32,118,41,32,40
-,40,118,111,105,100,41,40,97,112,32,61,32,40,118,97,95,108,105,115,116,41,95,95,99,97
-,107,101,95,65,68,68,82,69,83,83,79,70,40,118,41,32,43,32,95,95,99,97,107,101,95
-,73,78,84,83,73,90,69,79,70,40,118,41,41,41,10,35,100,101,102,105,110,101,32,118,97
-,95,97,114,103,40,97,112,44,32,116,41,32,32,32,40,42,40,116,42,41,40,40,97,112,32
-,43,61,32,95,95,99,97,107,101,95,73,78,84,83,73,90,69,79,70,40,116,41,41,32,45
-,32,95,95,99,97,107,101,95,73,78,84,83,73,90,69,79,70,40,116,41,41,41,10,35,100
-,101,102,105,110,101,32,118,97,95,101,110,100,40,97,112,41,32,32,32,32,32,32,40,40,118
-,111,105,100,41,40,97,112,32,61,32,40,118,97,95,108,105,115,116,41,48,41,41,10,10,35
-,101,110,100,105,102,10,10,35,100,101,102,105,110,101,32,118,97,95,99,111,112,121,40,100,101
-,115,116,105,110,97,116,105,111,110,44,32,115,111,117,114,99,101,41,32,40,40,100,101,115,116
-,105,110,97,116,105,111,110,41,32,61,32,40,115,111,117,114,99,101,41,41,10,10,35,101,108
-,115,101,10,10,47,42,32,103,99,99,47,99,108,97,110,103,32,97,110,100,32,116,104,101,32
-,115,109,97,108,108,32,116,97,114,103,101,116,115,32,42,47,10,35,100,101,102,105,110,101,32
-,118,97,95,115,116,97,114,116,40,46,46,46,41,32,32,32,32,32,95,95,98,117,105,108,116
-,105,110,95,118,97,95,115,116,97,114,116,40,95,95,86,65,95,65,82,71,83,95,95,41,10
-,35,100,101,102,105,110,101,32,118,97,95,97,114,103,40,97,112,44,32,116,121,112,101,41,32
-,32,95,95,98,117,105,108,116,105,110,95,118,97,95,97,114,103,40,97,112,44,32,116,121,112
-,101,41,10,35,100,101,102,105,110,101,32,118,97,95,101,110,100,40,97,112,41,32,32,32,32
-,32,32,32,32,95,95,98,117,105,108,116,105,110,95,118,97,95,101,110,100,40,97,112,41,10
-,35,100,101,102,105,110,101,32,118,97,95,99,111,112,121,40,100,115,116,44,32,115,114,99,41
-,32,95,95,98,117,105,108,116,105,110,95,118,97,95,99,111,112,121,40,100,115,116,44,32,115
-,114,99,41,10,10,35,101,110,100,105,102,10,10,35,101,108,115,101,10,35,105,110,99,108,117
-,100,101,95,110,101,120,116,32,60,115,116,100,97,114,103,46,104,62,10,35,101,110,100,105,102
-,10
+,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,92,10,32,32,32,32,40
+,40,115,105,122,101,111,102,40,116,41,32,62,32,115,105,122,101,111,102,40,95,95,105,110,116
+,54,52,41,32,124,124,32,40,115,105,122,101,111,102,40,116,41,32,38,32,40,115,105,122,101
+,111,102,40,116,41,32,45,32,49,41,41,32,33,61,32,48,41,32,92,10,32,32,32,32,32
+,32,32,32,63,32,42,42,40,116,42,42,41,40,40,97,112,32,43,61,32,115,105,122,101,111
+,102,40,95,95,105,110,116,54,52,41,41,32,45,32,115,105,122,101,111,102,40,95,95,105,110
+,116,54,52,41,41,32,32,32,32,32,32,32,32,32,32,32,32,32,92,10,32,32,32,32,32
+,32,32,32,58,32,32,42,40,116,42,32,41,40,40,97,112,32,43,61,32,115,105,122,101,111
+,102,40,95,95,105,110,116,54,52,41,41,32,45,32,115,105,122,101,111,102,40,95,95,105,110
+,116,54,52,41,41,41,10,35,100,101,102,105,110,101,32,118,97,95,101,110,100,40,97,112,41
+,32,40,40,118,111,105,100,41,40,97,112,32,61,32,40,118,97,95,108,105,115,116,41,48,41
+,41,10,10,35,101,108,115,101,32,47,42,32,120,56,54,32,42,47,10,10,47,42,32,120,56
+,54,32,110,101,101,100,115,32,116,104,101,32,97,100,100,114,101,115,115,32,111,102,32,116,104
+,101,32,108,97,115,116,32,110,97,109,101,100,32,112,97,114,97,109,101,116,101,114,44,32,115
+,111,32,116,104,101,32,67,50,51,32,115,105,110,103,108,101,10,32,32,32,97,114,103,117,109
+,101,110,116,32,102,111,114,109,32,118,97,95,115,116,97,114,116,40,97,112,41,32,105,115,32
+,110,111,116,32,97,118,97,105,108,97,98,108,101,32,111,110,32,116,104,105,115,32,116,97,114
+,103,101,116,32,42,47,10,10,35,100,101,102,105,110,101,32,95,95,99,97,107,101,95,73,78
+,84,83,73,90,69,79,70,40,110,41,32,40,40,115,105,122,101,111,102,40,110,41,32,43,32
+,115,105,122,101,111,102,40,105,110,116,41,32,45,32,49,41,32,38,32,126,40,115,105,122,101
+,111,102,40,105,110,116,41,32,45,32,49,41,41,10,10,35,100,101,102,105,110,101,32,118,97
+,95,115,116,97,114,116,40,97,112,44,32,118,41,32,40,40,118,111,105,100,41,40,97,112,32
+,61,32,40,118,97,95,108,105,115,116,41,95,95,99,97,107,101,95,65,68,68,82,69,83,83
+,79,70,40,118,41,32,43,32,95,95,99,97,107,101,95,73,78,84,83,73,90,69,79,70,40
+,118,41,41,41,10,35,100,101,102,105,110,101,32,118,97,95,97,114,103,40,97,112,44,32,116
+,41,32,32,32,40,42,40,116,42,41,40,40,97,112,32,43,61,32,95,95,99,97,107,101,95
+,73,78,84,83,73,90,69,79,70,40,116,41,41,32,45,32,95,95,99,97,107,101,95,73,78
+,84,83,73,90,69,79,70,40,116,41,41,41,10,35,100,101,102,105,110,101,32,118,97,95,101
+,110,100,40,97,112,41,32,32,32,32,32,32,40,40,118,111,105,100,41,40,97,112,32,61,32
+,40,118,97,95,108,105,115,116,41,48,41,41,10,10,35,101,110,100,105,102,10,10,35,100,101
+,102,105,110,101,32,118,97,95,99,111,112,121,40,100,101,115,116,105,110,97,116,105,111,110,44
+,32,115,111,117,114,99,101,41,32,40,40,100,101,115,116,105,110,97,116,105,111,110,41,32,61
+,32,40,115,111,117,114,99,101,41,41,10,10,35,101,108,115,101,10,10,47,42,32,103,99,99
+,47,99,108,97,110,103,32,97,110,100,32,116,104,101,32,115,109,97,108,108,32,116,97,114,103
+,101,116,115,32,42,47,10,35,100,101,102,105,110,101,32,118,97,95,115,116,97,114,116,40,46
+,46,46,41,32,32,32,32,32,95,95,98,117,105,108,116,105,110,95,118,97,95,115,116,97,114
+,116,40,95,95,86,65,95,65,82,71,83,95,95,41,10,35,100,101,102,105,110,101,32,118,97
+,95,97,114,103,40,97,112,44,32,116,121,112,101,41,32,32,95,95,98,117,105,108,116,105,110
+,95,118,97,95,97,114,103,40,97,112,44,32,116,121,112,101,41,10,35,100,101,102,105,110,101
+,32,118,97,95,101,110,100,40,97,112,41,32,32,32,32,32,32,32,32,95,95,98,117,105,108
+,116,105,110,95,118,97,95,101,110,100,40,97,112,41,10,35,100,101,102,105,110,101,32,118,97
+,95,99,111,112,121,40,100,115,116,44,32,115,114,99,41,32,95,95,98,117,105,108,116,105,110
+,95,118,97,95,99,111,112,121,40,100,115,116,44,32,115,114,99,41,10,10,35,101,110,100,105
+,102,10,10,35,101,108,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115
+,116,100,97,114,103,46,104,62,10,35,101,110,100,105,102,10
 , 0 };
 static const char file_stdatomic_h[] = {
 
@@ -17449,8 +18076,8 @@ static const char file_stdbool_h[] = {
 47,42,10,32,42,32,32,84,104,105,115,32,102,105,108,101,32,105,115,32,112,97,114,116,32
 ,111,102,32,99,97,107,101,32,99,111,109,112,105,108,101,114,10,32,42,32,32,104,116,116,112
 ,115,58,47,47,103,105,116,104,117,98,46,99,111,109,47,116,104,114,97,100,97,109,115,47,99
-,97,107,101,10,42,47,10,10,35,112,114,97,103,109,97,32,111,110,99,101,10,10,35,105,102
-,100,101,102,32,67,65,75,69,95,72,69,65,68,69,82,83,10,10,35,100,101,102,105,110,101
+,97,107,101,10,42,47,10,10,35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69
+,82,83,10,10,35,112,114,97,103,109,97,32,111,110,99,101,10,10,35,100,101,102,105,110,101
 ,32,95,95,98,111,111,108,95,116,114,117,101,95,102,97,108,115,101,95,97,114,101,95,100,101
 ,102,105,110,101,100,32,49,10,10,35,105,102,32,95,95,83,84,68,67,95,86,69,82,83,73
 ,79,78,95,95,32,60,32,50,48,50,51,49,49,76,10,35,100,101,102,105,110,101,32,98,111
@@ -17521,9 +18148,21 @@ static const char file_stddef_h[] = {
 ,10,35,101,110,100,105,102,10,10,35,100,101,102,105,110,101,32,111,102,102,115,101,116,111,102
 ,40,116,121,112,101,44,32,109,101,109,98,101,114,41,32,95,95,98,117,105,108,116,105,110,95
 ,111,102,102,115,101,116,111,102,40,116,121,112,101,44,32,109,101,109,98,101,114,41,10,10,35
-,100,101,102,105,110,101,32,117,110,114,101,97,99,104,97,98,108,101,40,41,32,100,111,32,123
-,125,32,119,104,105,108,101,40,48,41,10,10,35,101,108,115,101,10,35,105,110,99,108,117,100
-,101,95,110,101,120,116,32,60,115,116,100,100,101,102,46,104,62,10,35,101,110,100,105,102,10
+,105,102,32,100,101,102,105,110,101,100,40,95,95,71,78,85,67,95,95,41,10,91,91,110,111
+,114,101,116,117,114,110,93,93,32,118,111,105,100,32,95,95,98,117,105,108,116,105,110,95,117
+,110,114,101,97,99,104,97,98,108,101,40,118,111,105,100,41,59,10,35,100,101,102,105,110,101
+,32,117,110,114,101,97,99,104,97,98,108,101,40,41,32,95,95,98,117,105,108,116,105,110,95
+,117,110,114,101,97,99,104,97,98,108,101,40,41,10,35,101,108,105,102,32,100,101,102,105,110
+,101,100,40,95,87,73,78,51,50,41,10,47,42,32,99,108,32,105,110,116,114,105,110,115,105
+,99,59,32,100,101,99,108,97,114,101,100,32,115,111,32,116,104,97,116,32,99,97,107,101,32
+,115,101,101,115,32,116,104,101,32,99,97,108,108,32,97,115,32,110,111,116,32,114,101,116,117
+,114,110,105,110,103,32,42,47,10,91,91,110,111,114,101,116,117,114,110,93,93,32,118,111,105
+,100,32,95,95,97,115,115,117,109,101,40,105,110,116,41,59,10,35,100,101,102,105,110,101,32
+,117,110,114,101,97,99,104,97,98,108,101,40,41,32,95,95,97,115,115,117,109,101,40,48,41
+,10,35,101,108,115,101,10,35,100,101,102,105,110,101,32,117,110,114,101,97,99,104,97,98,108
+,101,40,41,32,100,111,32,123,125,32,119,104,105,108,101,40,48,41,10,35,101,110,100,105,102
+,10,10,35,101,108,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,116
+,100,100,101,102,46,104,62,10,35,101,110,100,105,102,10
 , 0 };
 static const char file_stdint_h[] = {
 
@@ -17560,201 +18199,205 @@ static const char file_stdint_h[] = {
 ,116,32,117,105,110,116,95,108,101,97,115,116,51,50,95,116,59,10,116,121,112,101,100,101,102
 ,32,117,105,110,116,54,52,95,116,32,117,105,110,116,95,108,101,97,115,116,54,52,95,116,59
 ,10,10,47,42,32,102,97,115,116,101,115,116,32,109,105,110,105,109,117,109,32,119,105,100,116
-,104,32,42,47,10,116,121,112,101,100,101,102,32,105,110,116,56,95,116,32,32,32,105,110,116
-,95,102,97,115,116,56,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,51,50,95,116
-,32,32,105,110,116,95,102,97,115,116,49,54,95,116,59,10,116,121,112,101,100,101,102,32,105
-,110,116,51,50,95,116,32,32,105,110,116,95,102,97,115,116,51,50,95,116,59,10,116,121,112
-,101,100,101,102,32,105,110,116,54,52,95,116,32,32,105,110,116,95,102,97,115,116,54,52,95
-,116,59,10,116,121,112,101,100,101,102,32,117,105,110,116,56,95,116,32,32,117,105,110,116,95
-,102,97,115,116,56,95,116,59,10,116,121,112,101,100,101,102,32,117,105,110,116,51,50,95,116
-,32,117,105,110,116,95,102,97,115,116,49,54,95,116,59,10,116,121,112,101,100,101,102,32,117
-,105,110,116,51,50,95,116,32,117,105,110,116,95,102,97,115,116,51,50,95,116,59,10,116,121
-,112,101,100,101,102,32,117,105,110,116,54,52,95,116,32,117,105,110,116,95,102,97,115,116,54
-,52,95,116,59,10,10,47,42,32,112,111,105,110,116,101,114,32,42,47,10,116,121,112,101,100
-,101,102,32,95,95,99,97,107,101,95,105,110,116,112,116,114,95,116,32,32,105,110,116,112,116
-,114,95,116,59,10,116,121,112,101,100,101,102,32,95,95,99,97,107,101,95,117,105,110,116,112
-,116,114,95,116,32,117,105,110,116,112,116,114,95,116,59,10,10,47,42,32,103,114,101,97,116
-,101,115,116,32,119,105,100,116,104,32,42,47,10,116,121,112,101,100,101,102,32,105,110,116,54
-,52,95,116,32,32,105,110,116,109,97,120,95,116,59,10,116,121,112,101,100,101,102,32,117,105
-,110,116,54,52,95,116,32,117,105,110,116,109,97,120,95,116,59,10,10,35,100,101,102,105,110
-,101,32,73,78,84,56,95,77,73,78,32,32,32,32,40,45,49,50,55,32,45,32,49,41,10
-,35,100,101,102,105,110,101,32,73,78,84,49,54,95,77,73,78,32,32,32,40,45,51,50,55
-,54,55,32,45,32,49,41,10,35,100,101,102,105,110,101,32,73,78,84,51,50,95,77,73,78
-,32,32,32,40,45,50,49,52,55,52,56,51,54,52,55,32,45,32,49,41,10,35,100,101,102
-,105,110,101,32,73,78,84,54,52,95,77,73,78,32,32,32,40,45,95,95,99,97,107,101,95
-,73,78,84,54,52,95,67,40,57,50,50,51,51,55,50,48,51,54,56,53,52,55,55,53,56
-,48,55,41,32,45,32,49,41,10,35,100,101,102,105,110,101,32,73,78,84,56,95,77,65,88
-,32,32,32,32,49,50,55,10,35,100,101,102,105,110,101,32,73,78,84,49,54,95,77,65,88
-,32,32,32,51,50,55,54,55,10,35,100,101,102,105,110,101,32,73,78,84,51,50,95,77,65
-,88,32,32,32,50,49,52,55,52,56,51,54,52,55,10,35,100,101,102,105,110,101,32,73,78
-,84,54,52,95,77,65,88,32,32,32,95,95,99,97,107,101,95,73,78,84,54,52,95,67,40
-,57,50,50,51,51,55,50,48,51,54,56,53,52,55,55,53,56,48,55,41,10,35,100,101,102
-,105,110,101,32,85,73,78,84,56,95,77,65,88,32,32,32,50,53,53,10,35,100,101,102,105
-,110,101,32,85,73,78,84,49,54,95,77,65,88,32,32,54,53,53,51,53,10,35,100,101,102
-,105,110,101,32,85,73,78,84,51,50,95,77,65,88,32,32,52,50,57,52,57,54,55,50,57
-,53,85,10,35,100,101,102,105,110,101,32,85,73,78,84,54,52,95,77,65,88,32,32,95,95
-,99,97,107,101,95,85,73,78,84,54,52,95,67,40,49,56,52,52,54,55,52,52,48,55,51
-,55,48,57,53,53,49,54,49,53,41,10,10,35,100,101,102,105,110,101,32,73,78,84,56,95
-,87,73,68,84,72,32,32,32,32,56,10,35,100,101,102,105,110,101,32,73,78,84,49,54,95
-,87,73,68,84,72,32,32,32,49,54,10,35,100,101,102,105,110,101,32,73,78,84,51,50,95
-,87,73,68,84,72,32,32,32,51,50,10,35,100,101,102,105,110,101,32,73,78,84,54,52,95
-,87,73,68,84,72,32,32,32,54,52,10,35,100,101,102,105,110,101,32,85,73,78,84,56,95
-,87,73,68,84,72,32,32,32,56,10,35,100,101,102,105,110,101,32,85,73,78,84,49,54,95
-,87,73,68,84,72,32,32,49,54,10,35,100,101,102,105,110,101,32,85,73,78,84,51,50,95
-,87,73,68,84,72,32,32,51,50,10,35,100,101,102,105,110,101,32,85,73,78,84,54,52,95
-,87,73,68,84,72,32,32,54,52,10,10,35,100,101,102,105,110,101,32,73,78,84,95,76,69
-,65,83,84,56,95,77,73,78,32,32,32,32,73,78,84,56,95,77,73,78,10,35,100,101,102
-,105,110,101,32,73,78,84,95,76,69,65,83,84,49,54,95,77,73,78,32,32,32,73,78,84
-,49,54,95,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,95,76,69,65,83,84,51
-,50,95,77,73,78,32,32,32,73,78,84,51,50,95,77,73,78,10,35,100,101,102,105,110,101
-,32,73,78,84,95,76,69,65,83,84,54,52,95,77,73,78,32,32,32,73,78,84,54,52,95
-,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,95,76,69,65,83,84,56,95,77,65
-,88,32,32,32,32,73,78,84,56,95,77,65,88,10,35,100,101,102,105,110,101,32,73,78,84
-,95,76,69,65,83,84,49,54,95,77,65,88,32,32,32,73,78,84,49,54,95,77,65,88,10
-,35,100,101,102,105,110,101,32,73,78,84,95,76,69,65,83,84,51,50,95,77,65,88,32,32
-,32,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32,73,78,84,95,76,69
-,65,83,84,54,52,95,77,65,88,32,32,32,73,78,84,54,52,95,77,65,88,10,35,100,101
-,102,105,110,101,32,85,73,78,84,95,76,69,65,83,84,56,95,77,65,88,32,32,32,85,73
-,78,84,56,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84,95,76,69,65,83
-,84,49,54,95,77,65,88,32,32,85,73,78,84,49,54,95,77,65,88,10,35,100,101,102,105
-,110,101,32,85,73,78,84,95,76,69,65,83,84,51,50,95,77,65,88,32,32,85,73,78,84
-,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84,95,76,69,65,83,84
-,54,52,95,77,65,88,32,32,85,73,78,84,54,52,95,77,65,88,10,10,35,100,101,102,105
-,110,101,32,73,78,84,95,76,69,65,83,84,56,95,87,73,68,84,72,32,32,32,56,10,35
-,100,101,102,105,110,101,32,73,78,84,95,76,69,65,83,84,49,54,95,87,73,68,84,72,32
-,32,49,54,10,35,100,101,102,105,110,101,32,73,78,84,95,76,69,65,83,84,51,50,95,87
-,73,68,84,72,32,32,51,50,10,35,100,101,102,105,110,101,32,73,78,84,95,76,69,65,83
-,84,54,52,95,87,73,68,84,72,32,32,54,52,10,35,100,101,102,105,110,101,32,85,73,78
-,84,95,76,69,65,83,84,56,95,87,73,68,84,72,32,32,56,10,35,100,101,102,105,110,101
-,32,85,73,78,84,95,76,69,65,83,84,49,54,95,87,73,68,84,72,32,49,54,10,35,100
-,101,102,105,110,101,32,85,73,78,84,95,76,69,65,83,84,51,50,95,87,73,68,84,72,32
-,51,50,10,35,100,101,102,105,110,101,32,85,73,78,84,95,76,69,65,83,84,54,52,95,87
-,73,68,84,72,32,54,52,10,10,35,100,101,102,105,110,101,32,73,78,84,95,70,65,83,84
-,56,95,77,73,78,32,32,32,32,32,73,78,84,56,95,77,73,78,10,35,100,101,102,105,110
-,101,32,73,78,84,95,70,65,83,84,49,54,95,77,73,78,32,32,32,32,73,78,84,51,50
-,95,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,95,70,65,83,84,51,50,95,77
-,73,78,32,32,32,32,73,78,84,51,50,95,77,73,78,10,35,100,101,102,105,110,101,32,73
-,78,84,95,70,65,83,84,54,52,95,77,73,78,32,32,32,32,73,78,84,54,52,95,77,73
-,78,10,35,100,101,102,105,110,101,32,73,78,84,95,70,65,83,84,56,95,77,65,88,32,32
-,32,32,32,73,78,84,56,95,77,65,88,10,35,100,101,102,105,110,101,32,73,78,84,95,70
-,65,83,84,49,54,95,77,65,88,32,32,32,32,73,78,84,51,50,95,77,65,88,10,35,100
-,101,102,105,110,101,32,73,78,84,95,70,65,83,84,51,50,95,77,65,88,32,32,32,32,73
-,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32,73,78,84,95,70,65,83,84
-,54,52,95,77,65,88,32,32,32,32,73,78,84,54,52,95,77,65,88,10,35,100,101,102,105
-,110,101,32,85,73,78,84,95,70,65,83,84,56,95,77,65,88,32,32,32,32,85,73,78,84
-,56,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84,95,70,65,83,84,49,54
-,95,77,65,88,32,32,32,85,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101
-,32,85,73,78,84,95,70,65,83,84,51,50,95,77,65,88,32,32,32,85,73,78,84,51,50
-,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84,95,70,65,83,84,54,52,95
-,77,65,88,32,32,32,85,73,78,84,54,52,95,77,65,88,10,10,35,100,101,102,105,110,101
-,32,73,78,84,95,70,65,83,84,56,95,87,73,68,84,72,32,32,32,56,10,35,100,101,102
-,105,110,101,32,73,78,84,95,70,65,83,84,49,54,95,87,73,68,84,72,32,32,51,50,10
-,35,100,101,102,105,110,101,32,73,78,84,95,70,65,83,84,51,50,95,87,73,68,84,72,32
-,32,51,50,10,35,100,101,102,105,110,101,32,73,78,84,95,70,65,83,84,54,52,95,87,73
-,68,84,72,32,32,54,52,10,35,100,101,102,105,110,101,32,85,73,78,84,95,70,65,83,84
-,56,95,87,73,68,84,72,32,32,56,10,35,100,101,102,105,110,101,32,85,73,78,84,95,70
-,65,83,84,49,54,95,87,73,68,84,72,32,51,50,10,35,100,101,102,105,110,101,32,85,73
-,78,84,95,70,65,83,84,51,50,95,87,73,68,84,72,32,51,50,10,35,100,101,102,105,110
-,101,32,85,73,78,84,95,70,65,83,84,54,52,95,87,73,68,84,72,32,54,52,10,10,35
-,105,102,32,95,95,99,97,107,101,95,115,105,122,101,111,102,95,112,111,105,110,116,101,114,32
-,61,61,32,56,10,47,42,32,116,104,101,32,115,117,102,102,105,120,32,109,117,115,116,32,112
-,114,111,100,117,99,101,32,116,104,101,32,116,121,112,101,32,111,102,32,105,110,116,112,116,114
-,95,116,47,112,116,114,100,105,102,102,95,116,47,115,105,122,101,95,116,44,32,119,104,105,99
-,104,32,105,115,10,32,32,32,108,111,110,103,32,111,110,32,76,80,54,52,32,40,108,105,110
-,117,120,44,32,109,97,99,79,83,41,32,97,110,100,32,108,111,110,103,32,108,111,110,103,32
-,111,110,32,119,105,110,100,111,119,115,32,42,47,10,35,105,102,32,95,95,99,97,107,101,95
-,115,105,122,101,111,102,95,108,111,110,103,32,61,61,32,56,10,35,100,101,102,105,110,101,32
-,73,78,84,80,84,82,95,77,73,78,32,32,32,32,32,40,45,57,50,50,51,51,55,50,48
-,51,54,56,53,52,55,55,53,56,48,55,76,32,45,32,49,41,10,35,100,101,102,105,110,101
-,32,73,78,84,80,84,82,95,77,65,88,32,32,32,32,32,57,50,50,51,51,55,50,48,51
-,54,56,53,52,55,55,53,56,48,55,76,10,35,100,101,102,105,110,101,32,85,73,78,84,80
-,84,82,95,77,65,88,32,32,32,32,49,56,52,52,54,55,52,52,48,55,51,55,48,57,53
-,53,49,54,49,53,85,76,10,35,101,108,115,101,10,35,100,101,102,105,110,101,32,73,78,84
-,80,84,82,95,77,73,78,32,32,32,32,32,40,45,57,50,50,51,51,55,50,48,51,54,56
-,53,52,55,55,53,56,48,55,76,76,32,45,32,49,41,10,35,100,101,102,105,110,101,32,73
-,78,84,80,84,82,95,77,65,88,32,32,32,32,32,57,50,50,51,51,55,50,48,51,54,56
-,53,52,55,55,53,56,48,55,76,76,10,35,100,101,102,105,110,101,32,85,73,78,84,80,84
-,82,95,77,65,88,32,32,32,32,49,56,52,52,54,55,52,52,48,55,51,55,48,57,53,53
-,49,54,49,53,85,76,76,10,35,101,110,100,105,102,10,35,100,101,102,105,110,101,32,73,78
-,84,80,84,82,95,87,73,68,84,72,32,32,32,54,52,10,35,100,101,102,105,110,101,32,85
-,73,78,84,80,84,82,95,87,73,68,84,72,32,32,54,52,10,35,100,101,102,105,110,101,32
-,80,84,82,68,73,70,70,95,77,73,78,32,32,32,32,73,78,84,80,84,82,95,77,73,78
-,10,35,100,101,102,105,110,101,32,80,84,82,68,73,70,70,95,77,65,88,32,32,32,32,73
-,78,84,80,84,82,95,77,65,88,10,35,100,101,102,105,110,101,32,80,84,82,68,73,70,70
-,95,87,73,68,84,72,32,32,54,52,10,35,100,101,102,105,110,101,32,83,73,90,69,95,77
-,65,88,32,32,32,32,32,32,32,85,73,78,84,80,84,82,95,77,65,88,10,35,100,101,102
-,105,110,101,32,83,73,90,69,95,87,73,68,84,72,32,32,32,32,32,54,52,10,35,101,108
-,115,101,10,35,100,101,102,105,110,101,32,73,78,84,80,84,82,95,77,73,78,32,32,32,32
-,32,73,78,84,51,50,95,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,80,84,82
-,95,77,65,88,32,32,32,32,32,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110
-,101,32,85,73,78,84,80,84,82,95,77,65,88,32,32,32,32,85,73,78,84,51,50,95,77
-,65,88,10,35,100,101,102,105,110,101,32,73,78,84,80,84,82,95,87,73,68,84,72,32,32
-,32,51,50,10,35,100,101,102,105,110,101,32,85,73,78,84,80,84,82,95,87,73,68,84,72
-,32,32,51,50,10,35,105,102,32,95,95,99,97,107,101,95,115,105,122,101,111,102,95,105,110
-,116,32,61,61,32,50,10,35,100,101,102,105,110,101,32,80,84,82,68,73,70,70,95,77,73
-,78,32,32,32,32,73,78,84,49,54,95,77,73,78,10,35,100,101,102,105,110,101,32,80,84
-,82,68,73,70,70,95,77,65,88,32,32,32,32,73,78,84,49,54,95,77,65,88,10,35,100
-,101,102,105,110,101,32,80,84,82,68,73,70,70,95,87,73,68,84,72,32,32,49,54,10,35
-,100,101,102,105,110,101,32,83,73,90,69,95,77,65,88,32,32,32,32,32,32,32,85,73,78
-,84,49,54,95,77,65,88,10,35,100,101,102,105,110,101,32,83,73,90,69,95,87,73,68,84
-,72,32,32,32,32,32,49,54,10,35,101,108,115,101,10,35,100,101,102,105,110,101,32,80,84
-,82,68,73,70,70,95,77,73,78,32,32,32,32,73,78,84,51,50,95,77,73,78,10,35,100
-,101,102,105,110,101,32,80,84,82,68,73,70,70,95,77,65,88,32,32,32,32,73,78,84,51
-,50,95,77,65,88,10,35,100,101,102,105,110,101,32,80,84,82,68,73,70,70,95,87,73,68
-,84,72,32,32,51,50,10,35,100,101,102,105,110,101,32,83,73,90,69,95,77,65,88,32,32
-,32,32,32,32,32,85,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32,83
-,73,90,69,95,87,73,68,84,72,32,32,32,32,32,51,50,10,35,101,110,100,105,102,10,35
-,101,110,100,105,102,10,10,35,100,101,102,105,110,101,32,73,78,84,77,65,88,95,77,73,78
-,32,32,32,32,32,73,78,84,54,52,95,77,73,78,10,35,100,101,102,105,110,101,32,73,78
-,84,77,65,88,95,77,65,88,32,32,32,32,32,73,78,84,54,52,95,77,65,88,10,35,100
-,101,102,105,110,101,32,85,73,78,84,77,65,88,95,77,65,88,32,32,32,32,85,73,78,84
-,54,52,95,77,65,88,10,35,100,101,102,105,110,101,32,73,78,84,77,65,88,95,87,73,68
-,84,72,32,32,32,54,52,10,35,100,101,102,105,110,101,32,85,73,78,84,77,65,88,95,87
-,73,68,84,72,32,32,54,52,10,10,35,100,101,102,105,110,101,32,83,73,71,95,65,84,79
-,77,73,67,95,77,73,78,32,32,32,73,78,84,51,50,95,77,73,78,10,35,100,101,102,105
-,110,101,32,83,73,71,95,65,84,79,77,73,67,95,77,65,88,32,32,32,73,78,84,51,50
-,95,77,65,88,10,35,100,101,102,105,110,101,32,83,73,71,95,65,84,79,77,73,67,95,87
-,73,68,84,72,32,51,50,10,10,35,105,102,32,100,101,102,105,110,101,100,40,95,87,73,78
-,51,50,41,32,124,124,32,33,100,101,102,105,110,101,100,40,95,95,83,73,90,69,95,84,89
-,80,69,95,95,41,10,47,42,32,119,99,104,97,114,95,116,32,105,115,32,117,110,115,105,103
-,110,101,100,32,115,104,111,114,116,32,42,47,10,35,100,101,102,105,110,101,32,87,67,72,65
-,82,95,77,73,78,32,32,32,48,10,35,100,101,102,105,110,101,32,87,67,72,65,82,95,77
-,65,88,32,32,32,48,120,102,102,102,102,10,35,100,101,102,105,110,101,32,87,67,72,65,82
-,95,87,73,68,84,72,32,49,54,10,35,100,101,102,105,110,101,32,87,73,78,84,95,77,73
-,78,32,32,32,32,48,10,35,100,101,102,105,110,101,32,87,73,78,84,95,77,65,88,32,32
-,32,32,48,120,102,102,102,102,10,35,100,101,102,105,110,101,32,87,73,78,84,95,87,73,68
-,84,72,32,32,49,54,10,35,101,108,105,102,32,100,101,102,105,110,101,100,40,95,95,65,80
-,80,76,69,95,95,41,10,47,42,32,119,99,104,97,114,95,116,32,97,110,100,32,119,105,110
-,116,95,116,32,97,114,101,32,105,110,116,32,42,47,10,35,100,101,102,105,110,101,32,87,67
-,72,65,82,95,77,73,78,32,32,32,73,78,84,51,50,95,77,73,78,10,35,100,101,102,105
-,110,101,32,87,67,72,65,82,95,77,65,88,32,32,32,73,78,84,51,50,95,77,65,88,10
-,35,100,101,102,105,110,101,32,87,67,72,65,82,95,87,73,68,84,72,32,51,50,10,35,100
-,101,102,105,110,101,32,87,73,78,84,95,77,73,78,32,32,32,32,73,78,84,51,50,95,77
-,73,78,10,35,100,101,102,105,110,101,32,87,73,78,84,95,77,65,88,32,32,32,32,73,78
-,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32,87,73,78,84,95,87,73,68,84
-,72,32,32,51,50,10,35,101,108,115,101,10,47,42,32,119,99,104,97,114,95,116,32,105,115
-,32,105,110,116,44,32,119,105,110,116,95,116,32,105,115,32,117,110,115,105,103,110,101,100,32
-,105,110,116,32,42,47,10,35,100,101,102,105,110,101,32,87,67,72,65,82,95,77,73,78,32
-,32,32,73,78,84,51,50,95,77,73,78,10,35,100,101,102,105,110,101,32,87,67,72,65,82
-,95,77,65,88,32,32,32,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32
-,87,67,72,65,82,95,87,73,68,84,72,32,51,50,10,35,100,101,102,105,110,101,32,87,73
-,78,84,95,77,73,78,32,32,32,32,48,85,10,35,100,101,102,105,110,101,32,87,73,78,84
-,95,77,65,88,32,32,32,32,85,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110
-,101,32,87,73,78,84,95,87,73,68,84,72,32,32,51,50,10,35,101,110,100,105,102,10,10
-,35,100,101,102,105,110,101,32,73,78,84,56,95,67,40,99,41,32,32,32,32,99,10,35,100
-,101,102,105,110,101,32,73,78,84,49,54,95,67,40,99,41,32,32,32,99,10,35,100,101,102
-,105,110,101,32,73,78,84,51,50,95,67,40,99,41,32,32,32,99,10,35,100,101,102,105,110
-,101,32,73,78,84,54,52,95,67,40,99,41,32,32,32,95,95,99,97,107,101,95,73,78,84
-,54,52,95,67,40,99,41,10,35,100,101,102,105,110,101,32,85,73,78,84,56,95,67,40,99
-,41,32,32,32,99,10,35,100,101,102,105,110,101,32,85,73,78,84,49,54,95,67,40,99,41
-,32,32,99,10,35,100,101,102,105,110,101,32,85,73,78,84,51,50,95,67,40,99,41,32,32
-,99,32,35,35,32,85,10,35,100,101,102,105,110,101,32,85,73,78,84,54,52,95,67,40,99
-,41,32,32,95,95,99,97,107,101,95,85,73,78,84,54,52,95,67,40,99,41,10,35,100,101
-,102,105,110,101,32,73,78,84,77,65,88,95,67,40,99,41,32,32,95,95,99,97,107,101,95
-,73,78,84,54,52,95,67,40,99,41,10,35,100,101,102,105,110,101,32,85,73,78,84,77,65
-,88,95,67,40,99,41,32,95,95,99,97,107,101,95,85,73,78,84,54,52,95,67,40,99,41
-,10,10,35,101,108,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,116
-,100,105,110,116,46,104,62,10,35,101,110,100,105,102,10
+,104,58,32,51,50,32,98,105,116,115,32,111,110,32,101,118,101,114,121,32,116,97,114,103,101
+,116,32,40,110,97,116,105,118,101,32,108,105,98,99,115,32,100,105,102,102,101,114,58,10,32
+,32,32,103,108,105,98,99,32,117,115,101,115,32,108,111,110,103,44,32,109,97,99,79,83,32
+,117,115,101,115,32,116,104,101,32,101,120,97,99,116,32,119,105,100,116,104,44,32,109,115,118
+,99,32,117,115,101,115,32,105,110,116,41,32,42,47,10,116,121,112,101,100,101,102,32,105,110
+,116,56,95,116,32,32,32,105,110,116,95,102,97,115,116,56,95,116,59,10,116,121,112,101,100
+,101,102,32,105,110,116,51,50,95,116,32,32,105,110,116,95,102,97,115,116,49,54,95,116,59
+,10,116,121,112,101,100,101,102,32,105,110,116,51,50,95,116,32,32,105,110,116,95,102,97,115
+,116,51,50,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,54,52,95,116,32,32,105
+,110,116,95,102,97,115,116,54,52,95,116,59,10,116,121,112,101,100,101,102,32,117,105,110,116
+,56,95,116,32,32,117,105,110,116,95,102,97,115,116,56,95,116,59,10,116,121,112,101,100,101
+,102,32,117,105,110,116,51,50,95,116,32,117,105,110,116,95,102,97,115,116,49,54,95,116,59
+,10,116,121,112,101,100,101,102,32,117,105,110,116,51,50,95,116,32,117,105,110,116,95,102,97
+,115,116,51,50,95,116,59,10,116,121,112,101,100,101,102,32,117,105,110,116,54,52,95,116,32
+,117,105,110,116,95,102,97,115,116,54,52,95,116,59,10,10,47,42,32,112,111,105,110,116,101
+,114,32,42,47,10,116,121,112,101,100,101,102,32,95,95,99,97,107,101,95,105,110,116,112,116
+,114,95,116,32,32,105,110,116,112,116,114,95,116,59,10,116,121,112,101,100,101,102,32,95,95
+,99,97,107,101,95,117,105,110,116,112,116,114,95,116,32,117,105,110,116,112,116,114,95,116,59
+,10,10,47,42,32,103,114,101,97,116,101,115,116,32,119,105,100,116,104,32,42,47,10,116,121
+,112,101,100,101,102,32,105,110,116,54,52,95,116,32,32,105,110,116,109,97,120,95,116,59,10
+,116,121,112,101,100,101,102,32,117,105,110,116,54,52,95,116,32,117,105,110,116,109,97,120,95
+,116,59,10,10,35,100,101,102,105,110,101,32,73,78,84,56,95,77,73,78,32,32,32,32,40
+,45,49,50,55,32,45,32,49,41,10,35,100,101,102,105,110,101,32,73,78,84,49,54,95,77
+,73,78,32,32,32,40,45,51,50,55,54,55,32,45,32,49,41,10,35,100,101,102,105,110,101
+,32,73,78,84,51,50,95,77,73,78,32,32,32,40,45,50,49,52,55,52,56,51,54,52,55
+,32,45,32,49,41,10,35,100,101,102,105,110,101,32,73,78,84,54,52,95,77,73,78,32,32
+,32,40,45,95,95,99,97,107,101,95,73,78,84,54,52,95,67,40,57,50,50,51,51,55,50
+,48,51,54,56,53,52,55,55,53,56,48,55,41,32,45,32,49,41,10,35,100,101,102,105,110
+,101,32,73,78,84,56,95,77,65,88,32,32,32,32,49,50,55,10,35,100,101,102,105,110,101
+,32,73,78,84,49,54,95,77,65,88,32,32,32,51,50,55,54,55,10,35,100,101,102,105,110
+,101,32,73,78,84,51,50,95,77,65,88,32,32,32,50,49,52,55,52,56,51,54,52,55,10
+,35,100,101,102,105,110,101,32,73,78,84,54,52,95,77,65,88,32,32,32,95,95,99,97,107
+,101,95,73,78,84,54,52,95,67,40,57,50,50,51,51,55,50,48,51,54,56,53,52,55,55
+,53,56,48,55,41,10,35,100,101,102,105,110,101,32,85,73,78,84,56,95,77,65,88,32,32
+,32,50,53,53,10,35,100,101,102,105,110,101,32,85,73,78,84,49,54,95,77,65,88,32,32
+,54,53,53,51,53,10,35,100,101,102,105,110,101,32,85,73,78,84,51,50,95,77,65,88,32
+,32,52,50,57,52,57,54,55,50,57,53,85,10,35,100,101,102,105,110,101,32,85,73,78,84
+,54,52,95,77,65,88,32,32,95,95,99,97,107,101,95,85,73,78,84,54,52,95,67,40,49
+,56,52,52,54,55,52,52,48,55,51,55,48,57,53,53,49,54,49,53,41,10,10,35,100,101
+,102,105,110,101,32,73,78,84,56,95,87,73,68,84,72,32,32,32,32,56,10,35,100,101,102
+,105,110,101,32,73,78,84,49,54,95,87,73,68,84,72,32,32,32,49,54,10,35,100,101,102
+,105,110,101,32,73,78,84,51,50,95,87,73,68,84,72,32,32,32,51,50,10,35,100,101,102
+,105,110,101,32,73,78,84,54,52,95,87,73,68,84,72,32,32,32,54,52,10,35,100,101,102
+,105,110,101,32,85,73,78,84,56,95,87,73,68,84,72,32,32,32,56,10,35,100,101,102,105
+,110,101,32,85,73,78,84,49,54,95,87,73,68,84,72,32,32,49,54,10,35,100,101,102,105
+,110,101,32,85,73,78,84,51,50,95,87,73,68,84,72,32,32,51,50,10,35,100,101,102,105
+,110,101,32,85,73,78,84,54,52,95,87,73,68,84,72,32,32,54,52,10,10,35,100,101,102
+,105,110,101,32,73,78,84,95,76,69,65,83,84,56,95,77,73,78,32,32,32,32,73,78,84
+,56,95,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,95,76,69,65,83,84,49,54
+,95,77,73,78,32,32,32,73,78,84,49,54,95,77,73,78,10,35,100,101,102,105,110,101,32
+,73,78,84,95,76,69,65,83,84,51,50,95,77,73,78,32,32,32,73,78,84,51,50,95,77
+,73,78,10,35,100,101,102,105,110,101,32,73,78,84,95,76,69,65,83,84,54,52,95,77,73
+,78,32,32,32,73,78,84,54,52,95,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84
+,95,76,69,65,83,84,56,95,77,65,88,32,32,32,32,73,78,84,56,95,77,65,88,10,35
+,100,101,102,105,110,101,32,73,78,84,95,76,69,65,83,84,49,54,95,77,65,88,32,32,32
+,73,78,84,49,54,95,77,65,88,10,35,100,101,102,105,110,101,32,73,78,84,95,76,69,65
+,83,84,51,50,95,77,65,88,32,32,32,73,78,84,51,50,95,77,65,88,10,35,100,101,102
+,105,110,101,32,73,78,84,95,76,69,65,83,84,54,52,95,77,65,88,32,32,32,73,78,84
+,54,52,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84,95,76,69,65,83,84
+,56,95,77,65,88,32,32,32,85,73,78,84,56,95,77,65,88,10,35,100,101,102,105,110,101
+,32,85,73,78,84,95,76,69,65,83,84,49,54,95,77,65,88,32,32,85,73,78,84,49,54
+,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84,95,76,69,65,83,84,51,50
+,95,77,65,88,32,32,85,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32
+,85,73,78,84,95,76,69,65,83,84,54,52,95,77,65,88,32,32,85,73,78,84,54,52,95
+,77,65,88,10,10,35,100,101,102,105,110,101,32,73,78,84,95,76,69,65,83,84,56,95,87
+,73,68,84,72,32,32,32,56,10,35,100,101,102,105,110,101,32,73,78,84,95,76,69,65,83
+,84,49,54,95,87,73,68,84,72,32,32,49,54,10,35,100,101,102,105,110,101,32,73,78,84
+,95,76,69,65,83,84,51,50,95,87,73,68,84,72,32,32,51,50,10,35,100,101,102,105,110
+,101,32,73,78,84,95,76,69,65,83,84,54,52,95,87,73,68,84,72,32,32,54,52,10,35
+,100,101,102,105,110,101,32,85,73,78,84,95,76,69,65,83,84,56,95,87,73,68,84,72,32
+,32,56,10,35,100,101,102,105,110,101,32,85,73,78,84,95,76,69,65,83,84,49,54,95,87
+,73,68,84,72,32,49,54,10,35,100,101,102,105,110,101,32,85,73,78,84,95,76,69,65,83
+,84,51,50,95,87,73,68,84,72,32,51,50,10,35,100,101,102,105,110,101,32,85,73,78,84
+,95,76,69,65,83,84,54,52,95,87,73,68,84,72,32,54,52,10,10,35,100,101,102,105,110
+,101,32,73,78,84,95,70,65,83,84,56,95,77,73,78,32,32,32,32,32,73,78,84,56,95
+,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,95,70,65,83,84,49,54,95,77,73
+,78,32,32,32,32,73,78,84,51,50,95,77,73,78,10,35,100,101,102,105,110,101,32,73,78
+,84,95,70,65,83,84,51,50,95,77,73,78,32,32,32,32,73,78,84,51,50,95,77,73,78
+,10,35,100,101,102,105,110,101,32,73,78,84,95,70,65,83,84,54,52,95,77,73,78,32,32
+,32,32,73,78,84,54,52,95,77,73,78,10,35,100,101,102,105,110,101,32,73,78,84,95,70
+,65,83,84,56,95,77,65,88,32,32,32,32,32,73,78,84,56,95,77,65,88,10,35,100,101
+,102,105,110,101,32,73,78,84,95,70,65,83,84,49,54,95,77,65,88,32,32,32,32,73,78
+,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32,73,78,84,95,70,65,83,84,51
+,50,95,77,65,88,32,32,32,32,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110
+,101,32,73,78,84,95,70,65,83,84,54,52,95,77,65,88,32,32,32,32,73,78,84,54,52
+,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84,95,70,65,83,84,56,95,77
+,65,88,32,32,32,32,85,73,78,84,56,95,77,65,88,10,35,100,101,102,105,110,101,32,85
+,73,78,84,95,70,65,83,84,49,54,95,77,65,88,32,32,32,85,73,78,84,51,50,95,77
+,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84,95,70,65,83,84,51,50,95,77,65
+,88,32,32,32,85,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73
+,78,84,95,70,65,83,84,54,52,95,77,65,88,32,32,32,85,73,78,84,54,52,95,77,65
+,88,10,10,35,100,101,102,105,110,101,32,73,78,84,95,70,65,83,84,56,95,87,73,68,84
+,72,32,32,32,56,10,35,100,101,102,105,110,101,32,73,78,84,95,70,65,83,84,49,54,95
+,87,73,68,84,72,32,32,51,50,10,35,100,101,102,105,110,101,32,73,78,84,95,70,65,83
+,84,51,50,95,87,73,68,84,72,32,32,51,50,10,35,100,101,102,105,110,101,32,73,78,84
+,95,70,65,83,84,54,52,95,87,73,68,84,72,32,32,54,52,10,35,100,101,102,105,110,101
+,32,85,73,78,84,95,70,65,83,84,56,95,87,73,68,84,72,32,32,56,10,35,100,101,102
+,105,110,101,32,85,73,78,84,95,70,65,83,84,49,54,95,87,73,68,84,72,32,51,50,10
+,35,100,101,102,105,110,101,32,85,73,78,84,95,70,65,83,84,51,50,95,87,73,68,84,72
+,32,51,50,10,35,100,101,102,105,110,101,32,85,73,78,84,95,70,65,83,84,54,52,95,87
+,73,68,84,72,32,54,52,10,10,35,105,102,32,95,95,99,97,107,101,95,115,105,122,101,111
+,102,95,112,111,105,110,116,101,114,32,61,61,32,56,10,47,42,32,116,104,101,32,115,117,102
+,102,105,120,32,109,117,115,116,32,112,114,111,100,117,99,101,32,116,104,101,32,116,121,112,101
+,32,111,102,32,105,110,116,112,116,114,95,116,47,112,116,114,100,105,102,102,95,116,47,115,105
+,122,101,95,116,44,32,119,104,105,99,104,32,105,115,10,32,32,32,108,111,110,103,32,111,110
+,32,76,80,54,52,32,40,108,105,110,117,120,44,32,109,97,99,79,83,41,32,97,110,100,32
+,108,111,110,103,32,108,111,110,103,32,111,110,32,119,105,110,100,111,119,115,32,42,47,10,35
+,105,102,32,95,95,99,97,107,101,95,115,105,122,101,111,102,95,108,111,110,103,32,61,61,32
+,56,10,35,100,101,102,105,110,101,32,73,78,84,80,84,82,95,77,73,78,32,32,32,32,32
+,40,45,57,50,50,51,51,55,50,48,51,54,56,53,52,55,55,53,56,48,55,76,32,45,32
+,49,41,10,35,100,101,102,105,110,101,32,73,78,84,80,84,82,95,77,65,88,32,32,32,32
+,32,57,50,50,51,51,55,50,48,51,54,56,53,52,55,55,53,56,48,55,76,10,35,100,101
+,102,105,110,101,32,85,73,78,84,80,84,82,95,77,65,88,32,32,32,32,49,56,52,52,54
+,55,52,52,48,55,51,55,48,57,53,53,49,54,49,53,85,76,10,35,101,108,115,101,10,35
+,100,101,102,105,110,101,32,73,78,84,80,84,82,95,77,73,78,32,32,32,32,32,40,45,57
+,50,50,51,51,55,50,48,51,54,56,53,52,55,55,53,56,48,55,76,76,32,45,32,49,41
+,10,35,100,101,102,105,110,101,32,73,78,84,80,84,82,95,77,65,88,32,32,32,32,32,57
+,50,50,51,51,55,50,48,51,54,56,53,52,55,55,53,56,48,55,76,76,10,35,100,101,102
+,105,110,101,32,85,73,78,84,80,84,82,95,77,65,88,32,32,32,32,49,56,52,52,54,55
+,52,52,48,55,51,55,48,57,53,53,49,54,49,53,85,76,76,10,35,101,110,100,105,102,10
+,35,100,101,102,105,110,101,32,73,78,84,80,84,82,95,87,73,68,84,72,32,32,32,54,52
+,10,35,100,101,102,105,110,101,32,85,73,78,84,80,84,82,95,87,73,68,84,72,32,32,54
+,52,10,35,100,101,102,105,110,101,32,80,84,82,68,73,70,70,95,77,73,78,32,32,32,32
+,73,78,84,80,84,82,95,77,73,78,10,35,100,101,102,105,110,101,32,80,84,82,68,73,70
+,70,95,77,65,88,32,32,32,32,73,78,84,80,84,82,95,77,65,88,10,35,100,101,102,105
+,110,101,32,80,84,82,68,73,70,70,95,87,73,68,84,72,32,32,54,52,10,35,100,101,102
+,105,110,101,32,83,73,90,69,95,77,65,88,32,32,32,32,32,32,32,85,73,78,84,80,84
+,82,95,77,65,88,10,35,100,101,102,105,110,101,32,83,73,90,69,95,87,73,68,84,72,32
+,32,32,32,32,54,52,10,35,101,108,115,101,10,35,100,101,102,105,110,101,32,73,78,84,80
+,84,82,95,77,73,78,32,32,32,32,32,73,78,84,51,50,95,77,73,78,10,35,100,101,102
+,105,110,101,32,73,78,84,80,84,82,95,77,65,88,32,32,32,32,32,73,78,84,51,50,95
+,77,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84,80,84,82,95,77,65,88,32,32
+,32,32,85,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32,73,78,84,80
+,84,82,95,87,73,68,84,72,32,32,32,51,50,10,35,100,101,102,105,110,101,32,85,73,78
+,84,80,84,82,95,87,73,68,84,72,32,32,51,50,10,35,105,102,32,95,95,99,97,107,101
+,95,115,105,122,101,111,102,95,105,110,116,32,61,61,32,50,10,35,100,101,102,105,110,101,32
+,80,84,82,68,73,70,70,95,77,73,78,32,32,32,32,73,78,84,49,54,95,77,73,78,10
+,35,100,101,102,105,110,101,32,80,84,82,68,73,70,70,95,77,65,88,32,32,32,32,73,78
+,84,49,54,95,77,65,88,10,35,100,101,102,105,110,101,32,80,84,82,68,73,70,70,95,87
+,73,68,84,72,32,32,49,54,10,35,100,101,102,105,110,101,32,83,73,90,69,95,77,65,88
+,32,32,32,32,32,32,32,85,73,78,84,49,54,95,77,65,88,10,35,100,101,102,105,110,101
+,32,83,73,90,69,95,87,73,68,84,72,32,32,32,32,32,49,54,10,35,101,108,115,101,10
+,35,100,101,102,105,110,101,32,80,84,82,68,73,70,70,95,77,73,78,32,32,32,32,73,78
+,84,51,50,95,77,73,78,10,35,100,101,102,105,110,101,32,80,84,82,68,73,70,70,95,77
+,65,88,32,32,32,32,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32,80
+,84,82,68,73,70,70,95,87,73,68,84,72,32,32,51,50,10,35,100,101,102,105,110,101,32
+,83,73,90,69,95,77,65,88,32,32,32,32,32,32,32,85,73,78,84,51,50,95,77,65,88
+,10,35,100,101,102,105,110,101,32,83,73,90,69,95,87,73,68,84,72,32,32,32,32,32,51
+,50,10,35,101,110,100,105,102,10,35,101,110,100,105,102,10,10,35,100,101,102,105,110,101,32
+,73,78,84,77,65,88,95,77,73,78,32,32,32,32,32,73,78,84,54,52,95,77,73,78,10
+,35,100,101,102,105,110,101,32,73,78,84,77,65,88,95,77,65,88,32,32,32,32,32,73,78
+,84,54,52,95,77,65,88,10,35,100,101,102,105,110,101,32,85,73,78,84,77,65,88,95,77
+,65,88,32,32,32,32,85,73,78,84,54,52,95,77,65,88,10,35,100,101,102,105,110,101,32
+,73,78,84,77,65,88,95,87,73,68,84,72,32,32,32,54,52,10,35,100,101,102,105,110,101
+,32,85,73,78,84,77,65,88,95,87,73,68,84,72,32,32,54,52,10,10,35,100,101,102,105
+,110,101,32,83,73,71,95,65,84,79,77,73,67,95,77,73,78,32,32,32,73,78,84,51,50
+,95,77,73,78,10,35,100,101,102,105,110,101,32,83,73,71,95,65,84,79,77,73,67,95,77
+,65,88,32,32,32,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32,83,73
+,71,95,65,84,79,77,73,67,95,87,73,68,84,72,32,51,50,10,10,35,105,102,32,100,101
+,102,105,110,101,100,40,95,87,73,78,51,50,41,32,124,124,32,33,100,101,102,105,110,101,100
+,40,95,95,83,73,90,69,95,84,89,80,69,95,95,41,10,47,42,32,119,99,104,97,114,95
+,116,32,105,115,32,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,42,47,10,35,100
+,101,102,105,110,101,32,87,67,72,65,82,95,77,73,78,32,32,32,48,10,35,100,101,102,105
+,110,101,32,87,67,72,65,82,95,77,65,88,32,32,32,48,120,102,102,102,102,10,35,100,101
+,102,105,110,101,32,87,67,72,65,82,95,87,73,68,84,72,32,49,54,10,35,100,101,102,105
+,110,101,32,87,73,78,84,95,77,73,78,32,32,32,32,48,10,35,100,101,102,105,110,101,32
+,87,73,78,84,95,77,65,88,32,32,32,32,48,120,102,102,102,102,10,35,100,101,102,105,110
+,101,32,87,73,78,84,95,87,73,68,84,72,32,32,49,54,10,35,101,108,105,102,32,100,101
+,102,105,110,101,100,40,95,95,65,80,80,76,69,95,95,41,10,47,42,32,119,99,104,97,114
+,95,116,32,97,110,100,32,119,105,110,116,95,116,32,97,114,101,32,105,110,116,32,42,47,10
+,35,100,101,102,105,110,101,32,87,67,72,65,82,95,77,73,78,32,32,32,73,78,84,51,50
+,95,77,73,78,10,35,100,101,102,105,110,101,32,87,67,72,65,82,95,77,65,88,32,32,32
+,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101,32,87,67,72,65,82,95,87
+,73,68,84,72,32,51,50,10,35,100,101,102,105,110,101,32,87,73,78,84,95,77,73,78,32
+,32,32,32,73,78,84,51,50,95,77,73,78,10,35,100,101,102,105,110,101,32,87,73,78,84
+,95,77,65,88,32,32,32,32,73,78,84,51,50,95,77,65,88,10,35,100,101,102,105,110,101
+,32,87,73,78,84,95,87,73,68,84,72,32,32,51,50,10,35,101,108,115,101,10,47,42,32
+,119,99,104,97,114,95,116,32,105,115,32,105,110,116,44,32,119,105,110,116,95,116,32,105,115
+,32,117,110,115,105,103,110,101,100,32,105,110,116,32,42,47,10,35,100,101,102,105,110,101,32
+,87,67,72,65,82,95,77,73,78,32,32,32,73,78,84,51,50,95,77,73,78,10,35,100,101
+,102,105,110,101,32,87,67,72,65,82,95,77,65,88,32,32,32,73,78,84,51,50,95,77,65
+,88,10,35,100,101,102,105,110,101,32,87,67,72,65,82,95,87,73,68,84,72,32,51,50,10
+,35,100,101,102,105,110,101,32,87,73,78,84,95,77,73,78,32,32,32,32,48,85,10,35,100
+,101,102,105,110,101,32,87,73,78,84,95,77,65,88,32,32,32,32,85,73,78,84,51,50,95
+,77,65,88,10,35,100,101,102,105,110,101,32,87,73,78,84,95,87,73,68,84,72,32,32,51
+,50,10,35,101,110,100,105,102,10,10,35,100,101,102,105,110,101,32,73,78,84,56,95,67,40
+,99,41,32,32,32,32,99,10,35,100,101,102,105,110,101,32,73,78,84,49,54,95,67,40,99
+,41,32,32,32,99,10,35,100,101,102,105,110,101,32,73,78,84,51,50,95,67,40,99,41,32
+,32,32,99,10,35,100,101,102,105,110,101,32,73,78,84,54,52,95,67,40,99,41,32,32,32
+,95,95,99,97,107,101,95,73,78,84,54,52,95,67,40,99,41,10,35,100,101,102,105,110,101
+,32,85,73,78,84,56,95,67,40,99,41,32,32,32,99,10,35,100,101,102,105,110,101,32,85
+,73,78,84,49,54,95,67,40,99,41,32,32,99,10,35,100,101,102,105,110,101,32,85,73,78
+,84,51,50,95,67,40,99,41,32,32,99,32,35,35,32,85,10,35,100,101,102,105,110,101,32
+,85,73,78,84,54,52,95,67,40,99,41,32,32,95,95,99,97,107,101,95,85,73,78,84,54
+,52,95,67,40,99,41,10,35,100,101,102,105,110,101,32,73,78,84,77,65,88,95,67,40,99
+,41,32,32,95,95,99,97,107,101,95,73,78,84,54,52,95,67,40,99,41,10,35,100,101,102
+,105,110,101,32,85,73,78,84,77,65,88,95,67,40,99,41,32,95,95,99,97,107,101,95,85
+,73,78,84,54,52,95,67,40,99,41,10,10,35,101,108,115,101,10,35,105,110,99,108,117,100
+,101,95,110,101,120,116,32,60,115,116,100,105,110,116,46,104,62,10,35,101,110,100,105,102,10
 , 0 };
 static const char file_stdio_h[] = {
 
@@ -17779,12 +18422,31 @@ static const char file_stdio_h[] = {
 ,32,78,85,76,76,32,40,40,118,111,105,100,42,41,48,41,10,35,101,110,100,105,102,10,10
 ,35,100,101,102,105,110,101,32,95,73,79,70,66,70,32,48,10,35,100,101,102,105,110,101,32
 ,95,73,79,76,66,70,32,49,10,35,100,101,102,105,110,101,32,95,73,79,78,66,70,32,50
-,10,10,35,100,101,102,105,110,101,32,66,85,70,83,73,90,32,53,49,50,10,35,100,101,102
-,105,110,101,32,69,79,70,32,40,45,49,41,10,10,35,100,101,102,105,110,101,32,70,79,80
-,69,78,95,77,65,88,32,32,32,32,50,48,10,35,100,101,102,105,110,101,32,70,73,76,69
-,78,65,77,69,95,77,65,88,32,50,54,48,10,35,100,101,102,105,110,101,32,76,95,116,109
-,112,110,97,109,32,32,32,32,32,50,54,48,10,35,100,101,102,105,110,101,32,84,77,80,95
-,77,65,88,32,32,32,32,32,32,50,49,52,55,52,56,51,54,52,55,10,10,35,100,101,102
+,10,10,35,100,101,102,105,110,101,32,69,79,70,32,40,45,49,41,10,10,35,105,102,32,100
+,101,102,105,110,101,100,40,95,87,73,78,51,50,41,10,35,100,101,102,105,110,101,32,66,85
+,70,83,73,90,32,32,32,32,32,32,32,53,49,50,10,35,100,101,102,105,110,101,32,70,79
+,80,69,78,95,77,65,88,32,32,32,32,50,48,10,35,100,101,102,105,110,101,32,70,73,76
+,69,78,65,77,69,95,77,65,88,32,50,54,48,10,35,100,101,102,105,110,101,32,76,95,116
+,109,112,110,97,109,32,32,32,32,32,50,54,48,10,35,100,101,102,105,110,101,32,84,77,80
+,95,77,65,88,32,32,32,32,32,32,50,49,52,55,52,56,51,54,52,55,10,35,101,108,105
+,102,32,100,101,102,105,110,101,100,40,95,95,65,80,80,76,69,95,95,41,10,35,100,101,102
+,105,110,101,32,66,85,70,83,73,90,32,32,32,32,32,32,32,49,48,50,52,10,35,100,101
+,102,105,110,101,32,70,79,80,69,78,95,77,65,88,32,32,32,32,50,48,10,35,100,101,102
+,105,110,101,32,70,73,76,69,78,65,77,69,95,77,65,88,32,49,48,50,52,10,35,100,101
+,102,105,110,101,32,76,95,116,109,112,110,97,109,32,32,32,32,32,49,48,50,52,10,35,100
+,101,102,105,110,101,32,84,77,80,95,77,65,88,32,32,32,32,32,32,51,48,56,57,49,53
+,55,55,54,10,35,101,108,105,102,32,100,101,102,105,110,101,100,40,95,95,108,105,110,117,120
+,95,95,41,10,35,100,101,102,105,110,101,32,66,85,70,83,73,90,32,32,32,32,32,32,32
+,56,49,57,50,10,35,100,101,102,105,110,101,32,70,79,80,69,78,95,77,65,88,32,32,32
+,32,49,54,10,35,100,101,102,105,110,101,32,70,73,76,69,78,65,77,69,95,77,65,88,32
+,52,48,57,54,10,35,100,101,102,105,110,101,32,76,95,116,109,112,110,97,109,32,32,32,32
+,32,50,48,10,35,100,101,102,105,110,101,32,84,77,80,95,77,65,88,32,32,32,32,32,32
+,50,51,56,51,50,56,10,35,101,108,115,101,10,35,100,101,102,105,110,101,32,66,85,70,83
+,73,90,32,32,32,32,32,32,32,53,49,50,10,35,100,101,102,105,110,101,32,70,79,80,69
+,78,95,77,65,88,32,32,32,32,56,10,35,100,101,102,105,110,101,32,70,73,76,69,78,65
+,77,69,95,77,65,88,32,50,54,48,10,35,100,101,102,105,110,101,32,76,95,116,109,112,110
+,97,109,32,32,32,32,32,50,54,48,10,35,100,101,102,105,110,101,32,84,77,80,95,77,65
+,88,32,32,32,32,32,32,51,50,55,54,55,10,35,101,110,100,105,102,10,10,35,100,101,102
 ,105,110,101,32,83,69,69,75,95,83,69,84,32,48,10,35,100,101,102,105,110,101,32,83,69
 ,69,75,95,67,85,82,32,49,10,35,100,101,102,105,110,101,32,83,69,69,75,95,69,78,68
 ,32,50,10,10,47,42,32,116,104,101,32,115,116,97,110,100,97,114,100,32,115,116,114,101,97
@@ -17810,297 +18472,298 @@ static const char file_stdio_h[] = {
 ,105,108,101,115,32,42,47,10,105,110,116,32,114,101,109,111,118,101,40,99,111,110,115,116,32
 ,99,104,97,114,42,32,102,105,108,101,110,97,109,101,41,59,10,105,110,116,32,114,101,110,97
 ,109,101,40,99,111,110,115,116,32,99,104,97,114,42,32,111,108,100,44,32,99,111,110,115,116
-,32,99,104,97,114,42,32,110,101,119,41,59,10,70,73,76,69,42,32,95,79,112,116,32,116
-,109,112,102,105,108,101,40,118,111,105,100,41,59,10,99,104,97,114,42,32,95,79,112,116,32
-,116,109,112,110,97,109,40,99,104,97,114,42,32,95,79,112,116,32,115,41,59,10,10,47,42
-,32,102,105,108,101,32,97,99,99,101,115,115,32,42,47,10,105,110,116,32,102,99,108,111,115
-,101,40,70,73,76,69,42,32,95,79,119,110,101,114,32,115,116,114,101,97,109,41,59,10,105
-,110,116,32,102,102,108,117,115,104,40,70,73,76,69,42,32,95,79,112,116,32,115,116,114,101
-,97,109,41,59,10,70,73,76,69,42,32,95,79,119,110,101,114,32,95,79,112,116,32,102,111
-,112,101,110,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32
-,102,105,108,101,110,97,109,101,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115
-,116,114,105,99,116,32,109,111,100,101,41,59,10,70,73,76,69,42,32,95,79,119,110,101,114
-,32,95,79,112,116,32,102,114,101,111,112,101,110,40,99,111,110,115,116,32,99,104,97,114,42
-,32,95,79,112,116,32,114,101,115,116,114,105,99,116,32,102,105,108,101,110,97,109,101,44,32
-,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,109,111,100,101
-,44,32,70,73,76,69,42,32,95,79,119,110,101,114,32,114,101,115,116,114,105,99,116,32,115
-,116,114,101,97,109,41,59,10,118,111,105,100,32,115,101,116,98,117,102,40,70,73,76,69,42
-,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32,99,104,97,114,42,32,95
-,79,112,116,32,114,101,115,116,114,105,99,116,32,98,117,102,41,59,10,105,110,116,32,115,101
-,116,118,98,117,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101
-,97,109,44,32,99,104,97,114,42,32,95,79,112,116,32,114,101,115,116,114,105,99,116,32,98
-,117,102,44,32,105,110,116,32,109,111,100,101,44,32,115,105,122,101,95,116,32,115,105,122,101
-,41,59,10,10,47,42,32,102,111,114,109,97,116,116,101,100,32,105,110,112,117,116,47,111,117
-,116,112,117,116,32,42,47,10,35,105,102,32,100,101,102,105,110,101,100,40,95,87,73,78,51
-,50,41,10,10,47,42,10,32,32,84,104,101,32,109,115,118,99,32,67,82,84,32,100,111,101
-,115,32,110,111,116,32,101,120,112,111,114,116,32,116,104,101,32,112,114,105,110,116,102,47,115
-,99,97,110,102,32,102,97,109,105,108,121,58,32,105,116,115,32,104,101,97,100,101,114,115,32
-,100,101,102,105,110,101,10,32,32,116,104,101,109,32,105,110,108,105,110,101,32,111,118,101,114
-,32,95,95,115,116,100,105,111,95,99,111,109,109,111,110,95,118,42,32,40,98,111,116,104,32
-,120,56,54,32,97,110,100,32,120,54,52,41,44,32,115,111,32,119,101,32,100,111,32,116,104
-,101,32,115,97,109,101,46,10,32,32,84,104,101,32,111,112,116,105,111,110,32,98,105,116,115
-,32,97,114,101,32,116,104,111,115,101,32,111,102,32,99,111,114,101,99,114,116,95,115,116,100
-,105,111,95,99,111,110,102,105,103,46,104,46,10,42,47,10,35,105,110,99,108,117,100,101,32
-,60,115,116,100,97,114,103,46,104,62,10,10,35,100,101,102,105,110,101,32,95,95,99,97,107
-,101,95,80,82,73,78,84,70,95,76,69,71,65,67,89,95,86,83,80,82,73,78,84,70,95
-,78,85,76,76,95,84,69,82,77,73,78,65,84,73,79,78,32,40,49,85,76,76,32,60,60
-,32,48,41,10,35,100,101,102,105,110,101,32,95,95,99,97,107,101,95,80,82,73,78,84,70
-,95,83,84,65,78,68,65,82,68,95,83,78,80,82,73,78,84,70,95,66,69,72,65,86,73
-,79,82,32,32,32,32,32,32,32,40,49,85,76,76,32,60,60,32,49,41,10,10,105,110,116
-,32,95,95,115,116,100,105,111,95,99,111,109,109,111,110,95,118,102,112,114,105,110,116,102,40
-,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,111,112,116,105,111,110
-,115,44,32,70,73,76,69,42,32,115,116,114,101,97,109,44,32,99,111,110,115,116,32,99,104
-,97,114,42,32,102,111,114,109,97,116,44,32,118,111,105,100,42,32,95,79,112,116,32,108,111
-,99,97,108,101,44,32,118,97,95,108,105,115,116,32,97,114,103,41,59,10,105,110,116,32,95
-,95,115,116,100,105,111,95,99,111,109,109,111,110,95,118,115,112,114,105,110,116,102,40,117,110
-,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,111,112,116,105,111,110,115,44
-,32,99,104,97,114,42,32,95,79,112,116,32,115,44,32,115,105,122,101,95,116,32,110,44,32
-,99,111,110,115,116,32,99,104,97,114,42,32,102,111,114,109,97,116,44,32,118,111,105,100,42
-,32,95,79,112,116,32,108,111,99,97,108,101,44,32,118,97,95,108,105,115,116,32,97,114,103
-,41,59,10,105,110,116,32,95,95,115,116,100,105,111,95,99,111,109,109,111,110,95,118,102,115
-,99,97,110,102,40,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,111
-,112,116,105,111,110,115,44,32,70,73,76,69,42,32,115,116,114,101,97,109,44,32,99,111,110
-,115,116,32,99,104,97,114,42,32,102,111,114,109,97,116,44,32,118,111,105,100,42,32,95,79
-,112,116,32,108,111,99,97,108,101,44,32,118,97,95,108,105,115,116,32,97,114,103,41,59,10
-,105,110,116,32,95,95,115,116,100,105,111,95,99,111,109,109,111,110,95,118,115,115,99,97,110
-,102,40,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,111,112,116,105
-,111,110,115,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,44,32,115,105,122,101,95
-,116,32,110,44,32,99,111,110,115,116,32,99,104,97,114,42,32,102,111,114,109,97,116,44,32
-,118,111,105,100,42,32,95,79,112,116,32,108,111,99,97,108,101,44,32,118,97,95,108,105,115
-,116,32,97,114,103,41,59,10,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32,105,110
-,116,32,118,102,112,114,105,110,116,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116
-,32,115,116,114,101,97,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116
-,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97,114,103,41
-,10,123,10,32,32,32,32,114,101,116,117,114,110,32,95,95,115,116,100,105,111,95,99,111,109
-,109,111,110,95,118,102,112,114,105,110,116,102,40,48,44,32,115,116,114,101,97,109,44,32,102
-,111,114,109,97,116,44,32,78,85,76,76,44,32,97,114,103,41,59,10,125,10,10,115,116,97
-,116,105,99,32,105,110,108,105,110,101,32,105,110,116,32,118,112,114,105,110,116,102,40,99,111
-,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116
-,44,32,118,97,95,108,105,115,116,32,97,114,103,41,10,123,10,32,32,32,32,114,101,116,117
-,114,110,32,95,95,115,116,100,105,111,95,99,111,109,109,111,110,95,118,102,112,114,105,110,116
-,102,40,48,44,32,115,116,100,111,117,116,44,32,102,111,114,109,97,116,44,32,78,85,76,76
-,44,32,97,114,103,41,59,10,125,10,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32
-,105,110,116,32,118,115,112,114,105,110,116,102,40,99,104,97,114,42,32,114,101,115,116,114,105
-,99,116,32,115,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99
-,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97,114,103,41,10,123,10
-,32,32,32,32,105,110,116,32,114,32,61,32,95,95,115,116,100,105,111,95,99,111,109,109,111
-,110,95,118,115,112,114,105,110,116,102,40,95,95,99,97,107,101,95,80,82,73,78,84,70,95
-,76,69,71,65,67,89,95,86,83,80,82,73,78,84,70,95,78,85,76,76,95,84,69,82,77
-,73,78,65,84,73,79,78,44,32,115,44,32,40,115,105,122,101,95,116,41,45,49,44,32,102
-,111,114,109,97,116,44,32,78,85,76,76,44,32,97,114,103,41,59,10,32,32,32,32,114,101
-,116,117,114,110,32,114,32,60,32,48,32,63,32,45,49,32,58,32,114,59,10,125,10,10,115
-,116,97,116,105,99,32,105,110,108,105,110,101,32,105,110,116,32,118,115,110,112,114,105,110,116
-,102,40,99,104,97,114,42,32,95,79,112,116,32,114,101,115,116,114,105,99,116,32,115,44,32
-,115,105,122,101,95,116,32,110,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115
-,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97,114,103
-,41,10,123,10,32,32,32,32,105,110,116,32,114,32,61,32,95,95,115,116,100,105,111,95,99
-,111,109,109,111,110,95,118,115,112,114,105,110,116,102,40,95,95,99,97,107,101,95,80,82,73
-,78,84,70,95,83,84,65,78,68,65,82,68,95,83,78,80,82,73,78,84,70,95,66,69,72
-,65,86,73,79,82,44,32,115,44,32,110,44,32,102,111,114,109,97,116,44,32,78,85,76,76
-,44,32,97,114,103,41,59,10,32,32,32,32,114,101,116,117,114,110,32,114,32,60,32,48,32
-,63,32,45,49,32,58,32,114,59,10,125,10,10,115,116,97,116,105,99,32,105,110,108,105,110
-,101,32,105,110,116,32,118,102,115,99,97,110,102,40,70,73,76,69,42,32,114,101,115,116,114
-,105,99,116,32,115,116,114,101,97,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114
-,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97
-,114,103,41,10,123,10,32,32,32,32,114,101,116,117,114,110,32,95,95,115,116,100,105,111,95
-,99,111,109,109,111,110,95,118,102,115,99,97,110,102,40,48,44,32,115,116,114,101,97,109,44
-,32,102,111,114,109,97,116,44,32,78,85,76,76,44,32,97,114,103,41,59,10,125,10,10,115
-,116,97,116,105,99,32,105,110,108,105,110,101,32,105,110,116,32,118,115,99,97,110,102,40,99
-,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97
-,116,44,32,118,97,95,108,105,115,116,32,97,114,103,41,10,123,10,32,32,32,32,114,101,116
-,117,114,110,32,95,95,115,116,100,105,111,95,99,111,109,109,111,110,95,118,102,115,99,97,110
-,102,40,48,44,32,115,116,100,105,110,44,32,102,111,114,109,97,116,44,32,78,85,76,76,44
-,32,97,114,103,41,59,10,125,10,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32,105
-,110,116,32,118,115,115,99,97,110,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101
-,115,116,114,105,99,116,32,115,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115
-,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97,114,103
-,41,10,123,10,32,32,32,32,114,101,116,117,114,110,32,95,95,115,116,100,105,111,95,99,111
-,109,109,111,110,95,118,115,115,99,97,110,102,40,48,44,32,115,44,32,40,115,105,122,101,95
+,32,99,104,97,114,42,32,110,101,119,41,59,10,70,73,76,69,42,32,95,79,119,110,101,114
+,32,95,79,112,116,32,116,109,112,102,105,108,101,40,118,111,105,100,41,59,10,99,104,97,114
+,42,32,95,79,112,116,32,116,109,112,110,97,109,40,99,104,97,114,42,32,95,79,112,116,32
+,115,41,59,10,10,47,42,32,102,105,108,101,32,97,99,99,101,115,115,32,42,47,10,105,110
+,116,32,102,99,108,111,115,101,40,70,73,76,69,42,32,95,79,119,110,101,114,32,115,116,114
+,101,97,109,41,59,10,105,110,116,32,102,102,108,117,115,104,40,70,73,76,69,42,32,95,79
+,112,116,32,115,116,114,101,97,109,41,59,10,70,73,76,69,42,32,95,79,119,110,101,114,32
+,95,79,112,116,32,102,111,112,101,110,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101
+,115,116,114,105,99,116,32,102,105,108,101,110,97,109,101,44,32,99,111,110,115,116,32,99,104
+,97,114,42,32,114,101,115,116,114,105,99,116,32,109,111,100,101,41,59,10,70,73,76,69,42
+,32,95,79,119,110,101,114,32,95,79,112,116,32,102,114,101,111,112,101,110,40,99,111,110,115
+,116,32,99,104,97,114,42,32,95,79,112,116,32,114,101,115,116,114,105,99,116,32,102,105,108
+,101,110,97,109,101,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105
+,99,116,32,109,111,100,101,44,32,70,73,76,69,42,32,95,79,119,110,101,114,32,114,101,115
+,116,114,105,99,116,32,115,116,114,101,97,109,41,59,10,118,111,105,100,32,115,101,116,98,117
+,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32
+,99,104,97,114,42,32,95,79,112,116,32,114,101,115,116,114,105,99,116,32,98,117,102,41,59
+,10,105,110,116,32,115,101,116,118,98,117,102,40,70,73,76,69,42,32,114,101,115,116,114,105
+,99,116,32,115,116,114,101,97,109,44,32,99,104,97,114,42,32,95,79,112,116,32,114,101,115
+,116,114,105,99,116,32,98,117,102,44,32,105,110,116,32,109,111,100,101,44,32,115,105,122,101
+,95,116,32,115,105,122,101,41,59,10,10,47,42,32,102,111,114,109,97,116,116,101,100,32,105
+,110,112,117,116,47,111,117,116,112,117,116,32,42,47,10,35,105,102,32,100,101,102,105,110,101
+,100,40,95,87,73,78,51,50,41,10,10,47,42,10,32,32,84,104,101,32,109,115,118,99,32
+,67,82,84,32,100,111,101,115,32,110,111,116,32,101,120,112,111,114,116,32,116,104,101,32,112
+,114,105,110,116,102,47,115,99,97,110,102,32,102,97,109,105,108,121,58,32,105,116,115,32,104
+,101,97,100,101,114,115,32,100,101,102,105,110,101,10,32,32,116,104,101,109,32,105,110,108,105
+,110,101,32,111,118,101,114,32,95,95,115,116,100,105,111,95,99,111,109,109,111,110,95,118,42
+,32,40,98,111,116,104,32,120,56,54,32,97,110,100,32,120,54,52,41,44,32,115,111,32,119
+,101,32,100,111,32,116,104,101,32,115,97,109,101,46,10,32,32,84,104,101,32,111,112,116,105
+,111,110,32,98,105,116,115,32,97,114,101,32,116,104,111,115,101,32,111,102,32,99,111,114,101
+,99,114,116,95,115,116,100,105,111,95,99,111,110,102,105,103,46,104,46,10,42,47,10,35,105
+,110,99,108,117,100,101,32,60,115,116,100,97,114,103,46,104,62,10,10,35,100,101,102,105,110
+,101,32,95,95,99,97,107,101,95,80,82,73,78,84,70,95,76,69,71,65,67,89,95,86,83
+,80,82,73,78,84,70,95,78,85,76,76,95,84,69,82,77,73,78,65,84,73,79,78,32,40
+,49,85,76,76,32,60,60,32,48,41,10,35,100,101,102,105,110,101,32,95,95,99,97,107,101
+,95,80,82,73,78,84,70,95,83,84,65,78,68,65,82,68,95,83,78,80,82,73,78,84,70
+,95,66,69,72,65,86,73,79,82,32,32,32,32,32,32,32,40,49,85,76,76,32,60,60,32
+,49,41,10,10,105,110,116,32,95,95,115,116,100,105,111,95,99,111,109,109,111,110,95,118,102
+,112,114,105,110,116,102,40,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103
+,32,111,112,116,105,111,110,115,44,32,70,73,76,69,42,32,115,116,114,101,97,109,44,32,99
+,111,110,115,116,32,99,104,97,114,42,32,102,111,114,109,97,116,44,32,118,111,105,100,42,32
+,95,79,112,116,32,108,111,99,97,108,101,44,32,118,97,95,108,105,115,116,32,97,114,103,41
+,59,10,105,110,116,32,95,95,115,116,100,105,111,95,99,111,109,109,111,110,95,118,115,112,114
+,105,110,116,102,40,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,111
+,112,116,105,111,110,115,44,32,99,104,97,114,42,32,95,79,112,116,32,115,44,32,115,105,122
+,101,95,116,32,110,44,32,99,111,110,115,116,32,99,104,97,114,42,32,102,111,114,109,97,116
+,44,32,118,111,105,100,42,32,95,79,112,116,32,108,111,99,97,108,101,44,32,118,97,95,108
+,105,115,116,32,97,114,103,41,59,10,105,110,116,32,95,95,115,116,100,105,111,95,99,111,109
+,109,111,110,95,118,102,115,99,97,110,102,40,117,110,115,105,103,110,101,100,32,108,111,110,103
+,32,108,111,110,103,32,111,112,116,105,111,110,115,44,32,70,73,76,69,42,32,115,116,114,101
+,97,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32,102,111,114,109,97,116,44,32,118
+,111,105,100,42,32,95,79,112,116,32,108,111,99,97,108,101,44,32,118,97,95,108,105,115,116
+,32,97,114,103,41,59,10,105,110,116,32,95,95,115,116,100,105,111,95,99,111,109,109,111,110
+,95,118,115,115,99,97,110,102,40,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111
+,110,103,32,111,112,116,105,111,110,115,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115
+,44,32,115,105,122,101,95,116,32,110,44,32,99,111,110,115,116,32,99,104,97,114,42,32,102
+,111,114,109,97,116,44,32,118,111,105,100,42,32,95,79,112,116,32,108,111,99,97,108,101,44
+,32,118,97,95,108,105,115,116,32,97,114,103,41,59,10,10,115,116,97,116,105,99,32,105,110
+,108,105,110,101,32,105,110,116,32,118,102,112,114,105,110,116,102,40,70,73,76,69,42,32,114
+,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32,99,111,110,115,116,32,99,104,97
+,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105
+,115,116,32,97,114,103,41,10,123,10,32,32,32,32,114,101,116,117,114,110,32,95,95,115,116
+,100,105,111,95,99,111,109,109,111,110,95,118,102,112,114,105,110,116,102,40,48,44,32,115,116
+,114,101,97,109,44,32,102,111,114,109,97,116,44,32,78,85,76,76,44,32,97,114,103,41,59
+,10,125,10,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32,105,110,116,32,118,112,114
+,105,110,116,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116
+,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97,114,103,41,10,123,10,32
+,32,32,32,114,101,116,117,114,110,32,95,95,115,116,100,105,111,95,99,111,109,109,111,110,95
+,118,102,112,114,105,110,116,102,40,48,44,32,115,116,100,111,117,116,44,32,102,111,114,109,97
+,116,44,32,78,85,76,76,44,32,97,114,103,41,59,10,125,10,10,115,116,97,116,105,99,32
+,105,110,108,105,110,101,32,105,110,116,32,118,115,112,114,105,110,116,102,40,99,104,97,114,42
+,32,114,101,115,116,114,105,99,116,32,115,44,32,99,111,110,115,116,32,99,104,97,114,42,32
+,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32
+,97,114,103,41,10,123,10,32,32,32,32,105,110,116,32,114,32,61,32,95,95,115,116,100,105
+,111,95,99,111,109,109,111,110,95,118,115,112,114,105,110,116,102,40,95,95,99,97,107,101,95
+,80,82,73,78,84,70,95,76,69,71,65,67,89,95,86,83,80,82,73,78,84,70,95,78,85
+,76,76,95,84,69,82,77,73,78,65,84,73,79,78,44,32,115,44,32,40,115,105,122,101,95
 ,116,41,45,49,44,32,102,111,114,109,97,116,44,32,78,85,76,76,44,32,97,114,103,41,59
-,10,125,10,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32,105,110,116,32,102,112,114
-,105,110,116,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97
-,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102
-,111,114,109,97,116,44,32,46,46,46,41,10,123,10,32,32,32,32,118,97,95,108,105,115,116
-,32,97,114,103,59,10,32,32,32,32,118,97,95,115,116,97,114,116,40,97,114,103,44,32,102
-,111,114,109,97,116,41,59,10,32,32,32,32,105,110,116,32,114,32,61,32,118,102,112,114,105
-,110,116,102,40,115,116,114,101,97,109,44,32,102,111,114,109,97,116,44,32,97,114,103,41,59
-,10,32,32,32,32,118,97,95,101,110,100,40,97,114,103,41,59,10,32,32,32,32,114,101,116
-,117,114,110,32,114,59,10,125,10,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32,105
-,110,116,32,112,114,105,110,116,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115
+,10,32,32,32,32,114,101,116,117,114,110,32,114,32,60,32,48,32,63,32,45,49,32,58,32
+,114,59,10,125,10,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32,105,110,116,32,118
+,115,110,112,114,105,110,116,102,40,99,104,97,114,42,32,95,79,112,116,32,114,101,115,116,114
+,105,99,116,32,115,44,32,115,105,122,101,95,116,32,110,44,32,99,111,110,115,116,32,99,104
+,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108
+,105,115,116,32,97,114,103,41,10,123,10,32,32,32,32,105,110,116,32,114,32,61,32,95,95
+,115,116,100,105,111,95,99,111,109,109,111,110,95,118,115,112,114,105,110,116,102,40,95,95,99
+,97,107,101,95,80,82,73,78,84,70,95,83,84,65,78,68,65,82,68,95,83,78,80,82,73
+,78,84,70,95,66,69,72,65,86,73,79,82,44,32,115,44,32,110,44,32,102,111,114,109,97
+,116,44,32,78,85,76,76,44,32,97,114,103,41,59,10,32,32,32,32,114,101,116,117,114,110
+,32,114,32,60,32,48,32,63,32,45,49,32,58,32,114,59,10,125,10,10,115,116,97,116,105
+,99,32,105,110,108,105,110,101,32,105,110,116,32,118,102,115,99,97,110,102,40,70,73,76,69
+,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32,99,111,110,115,116,32
+,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97
+,95,108,105,115,116,32,97,114,103,41,10,123,10,32,32,32,32,114,101,116,117,114,110,32,95
+,95,115,116,100,105,111,95,99,111,109,109,111,110,95,118,102,115,99,97,110,102,40,48,44,32
+,115,116,114,101,97,109,44,32,102,111,114,109,97,116,44,32,78,85,76,76,44,32,97,114,103
+,41,59,10,125,10,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32,105,110,116,32,118
+,115,99,97,110,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99
+,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97,114,103,41,10,123,10
+,32,32,32,32,114,101,116,117,114,110,32,95,95,115,116,100,105,111,95,99,111,109,109,111,110
+,95,118,102,115,99,97,110,102,40,48,44,32,115,116,100,105,110,44,32,102,111,114,109,97,116
+,44,32,78,85,76,76,44,32,97,114,103,41,59,10,125,10,10,115,116,97,116,105,99,32,105
+,110,108,105,110,101,32,105,110,116,32,118,115,115,99,97,110,102,40,99,111,110,115,116,32,99
+,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,44,32,99,111,110,115,116,32,99,104
+,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108
+,105,115,116,32,97,114,103,41,10,123,10,32,32,32,32,114,101,116,117,114,110,32,95,95,115
+,116,100,105,111,95,99,111,109,109,111,110,95,118,115,115,99,97,110,102,40,48,44,32,115,44
+,32,40,115,105,122,101,95,116,41,45,49,44,32,102,111,114,109,97,116,44,32,78,85,76,76
+,44,32,97,114,103,41,59,10,125,10,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32
+,105,110,116,32,102,112,114,105,110,116,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99
+,116,32,115,116,114,101,97,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115
 ,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46,41,10,123,10,32,32,32,32
 ,118,97,95,108,105,115,116,32,97,114,103,59,10,32,32,32,32,118,97,95,115,116,97,114,116
 ,40,97,114,103,44,32,102,111,114,109,97,116,41,59,10,32,32,32,32,105,110,116,32,114,32
-,61,32,118,112,114,105,110,116,102,40,102,111,114,109,97,116,44,32,97,114,103,41,59,10,32
-,32,32,32,118,97,95,101,110,100,40,97,114,103,41,59,10,32,32,32,32,114,101,116,117,114
-,110,32,114,59,10,125,10,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32,105,110,116
-,32,115,112,114,105,110,116,102,40,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115
-,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111
-,114,109,97,116,44,32,46,46,46,41,10,123,10,32,32,32,32,118,97,95,108,105,115,116,32
-,97,114,103,59,10,32,32,32,32,118,97,95,115,116,97,114,116,40,97,114,103,44,32,102,111
-,114,109,97,116,41,59,10,32,32,32,32,105,110,116,32,114,32,61,32,118,115,112,114,105,110
-,116,102,40,115,44,32,102,111,114,109,97,116,44,32,97,114,103,41,59,10,32,32,32,32,118
-,97,95,101,110,100,40,97,114,103,41,59,10,32,32,32,32,114,101,116,117,114,110,32,114,59
-,10,125,10,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32,105,110,116,32,115,110,112
-,114,105,110,116,102,40,99,104,97,114,42,32,95,79,112,116,32,114,101,115,116,114,105,99,116
-,32,115,44,32,115,105,122,101,95,116,32,110,44,32,99,111,110,115,116,32,99,104,97,114,42
-,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46,41,10,123,10
-,32,32,32,32,118,97,95,108,105,115,116,32,97,114,103,59,10,32,32,32,32,118,97,95,115
-,116,97,114,116,40,97,114,103,44,32,102,111,114,109,97,116,41,59,10,32,32,32,32,105,110
-,116,32,114,32,61,32,118,115,110,112,114,105,110,116,102,40,115,44,32,110,44,32,102,111,114
-,109,97,116,44,32,97,114,103,41,59,10,32,32,32,32,118,97,95,101,110,100,40,97,114,103
-,41,59,10,32,32,32,32,114,101,116,117,114,110,32,114,59,10,125,10,10,115,116,97,116,105
-,99,32,105,110,108,105,110,101,32,105,110,116,32,102,115,99,97,110,102,40,70,73,76,69,42
-,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32,99,111,110,115,116,32,99
-,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46
-,41,10,123,10,32,32,32,32,118,97,95,108,105,115,116,32,97,114,103,59,10,32,32,32,32
-,118,97,95,115,116,97,114,116,40,97,114,103,44,32,102,111,114,109,97,116,41,59,10,32,32
-,32,32,105,110,116,32,114,32,61,32,118,102,115,99,97,110,102,40,115,116,114,101,97,109,44
-,32,102,111,114,109,97,116,44,32,97,114,103,41,59,10,32,32,32,32,118,97,95,101,110,100
-,40,97,114,103,41,59,10,32,32,32,32,114,101,116,117,114,110,32,114,59,10,125,10,10,115
-,116,97,116,105,99,32,105,110,108,105,110,101,32,105,110,116,32,115,99,97,110,102,40,99,111
-,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116
-,44,32,46,46,46,41,10,123,10,32,32,32,32,118,97,95,108,105,115,116,32,97,114,103,59
-,10,32,32,32,32,118,97,95,115,116,97,114,116,40,97,114,103,44,32,102,111,114,109,97,116
-,41,59,10,32,32,32,32,105,110,116,32,114,32,61,32,118,115,99,97,110,102,40,102,111,114
-,109,97,116,44,32,97,114,103,41,59,10,32,32,32,32,118,97,95,101,110,100,40,97,114,103
-,41,59,10,32,32,32,32,114,101,116,117,114,110,32,114,59,10,125,10,10,115,116,97,116,105
-,99,32,105,110,108,105,110,101,32,105,110,116,32,115,115,99,97,110,102,40,99,111,110,115,116
-,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,44,32,99,111,110,115,116,32
-,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46
-,46,41,10,123,10,32,32,32,32,118,97,95,108,105,115,116,32,97,114,103,59,10,32,32,32
-,32,118,97,95,115,116,97,114,116,40,97,114,103,44,32,102,111,114,109,97,116,41,59,10,32
-,32,32,32,105,110,116,32,114,32,61,32,118,115,115,99,97,110,102,40,115,44,32,102,111,114
-,109,97,116,44,32,97,114,103,41,59,10,32,32,32,32,118,97,95,101,110,100,40,97,114,103
-,41,59,10,32,32,32,32,114,101,116,117,114,110,32,114,59,10,125,10,10,35,101,108,115,101
-,10,10,105,110,116,32,102,112,114,105,110,116,102,40,70,73,76,69,42,32,114,101,115,116,114
-,105,99,116,32,115,116,114,101,97,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114
-,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46,41,59,10,105,110,116
-,32,102,115,99,97,110,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116
-,114,101,97,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99
-,116,32,102,111,114,109,97,116,44,32,46,46,46,41,59,10,105,110,116,32,112,114,105,110,116
-,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111
-,114,109,97,116,44,32,46,46,46,41,59,10,105,110,116,32,115,99,97,110,102,40,99,111,110
-,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44
-,32,46,46,46,41,59,10,105,110,116,32,115,110,112,114,105,110,116,102,40,99,104,97,114,42
-,32,95,79,112,116,32,114,101,115,116,114,105,99,116,32,115,44,32,115,105,122,101,95,116,32
-,110,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102
-,111,114,109,97,116,44,32,46,46,46,41,59,10,105,110,116,32,115,112,114,105,110,116,102,40
-,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,44,32,99,111,110,115,116,32,99
-,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46
-,41,59,10,105,110,116,32,115,115,99,97,110,102,40,99,111,110,115,116,32,99,104,97,114,42
-,32,114,101,115,116,114,105,99,116,32,115,44,32,99,111,110,115,116,32,99,104,97,114,42,32
-,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46,41,59,10,105,110
-,116,32,118,102,112,114,105,110,116,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116
-,32,115,116,114,101,97,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116
-,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97,114,103,41
-,59,10,105,110,116,32,118,102,115,99,97,110,102,40,70,73,76,69,42,32,114,101,115,116,114
-,105,99,116,32,115,116,114,101,97,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114
-,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97
-,114,103,41,59,10,105,110,116,32,118,112,114,105,110,116,102,40,99,111,110,115,116,32,99,104
-,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108
-,105,115,116,32,97,114,103,41,59,10,105,110,116,32,118,115,99,97,110,102,40,99,111,110,115
+,61,32,118,102,112,114,105,110,116,102,40,115,116,114,101,97,109,44,32,102,111,114,109,97,116
+,44,32,97,114,103,41,59,10,32,32,32,32,118,97,95,101,110,100,40,97,114,103,41,59,10
+,32,32,32,32,114,101,116,117,114,110,32,114,59,10,125,10,10,115,116,97,116,105,99,32,105
+,110,108,105,110,101,32,105,110,116,32,112,114,105,110,116,102,40,99,111,110,115,116,32,99,104
+,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46,41
+,10,123,10,32,32,32,32,118,97,95,108,105,115,116,32,97,114,103,59,10,32,32,32,32,118
+,97,95,115,116,97,114,116,40,97,114,103,44,32,102,111,114,109,97,116,41,59,10,32,32,32
+,32,105,110,116,32,114,32,61,32,118,112,114,105,110,116,102,40,102,111,114,109,97,116,44,32
+,97,114,103,41,59,10,32,32,32,32,118,97,95,101,110,100,40,97,114,103,41,59,10,32,32
+,32,32,114,101,116,117,114,110,32,114,59,10,125,10,10,115,116,97,116,105,99,32,105,110,108
+,105,110,101,32,105,110,116,32,115,112,114,105,110,116,102,40,99,104,97,114,42,32,114,101,115
+,116,114,105,99,116,32,115,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116
+,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46,41,10,123,10,32,32,32,32,118
+,97,95,108,105,115,116,32,97,114,103,59,10,32,32,32,32,118,97,95,115,116,97,114,116,40
+,97,114,103,44,32,102,111,114,109,97,116,41,59,10,32,32,32,32,105,110,116,32,114,32,61
+,32,118,115,112,114,105,110,116,102,40,115,44,32,102,111,114,109,97,116,44,32,97,114,103,41
+,59,10,32,32,32,32,118,97,95,101,110,100,40,97,114,103,41,59,10,32,32,32,32,114,101
+,116,117,114,110,32,114,59,10,125,10,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32
+,105,110,116,32,115,110,112,114,105,110,116,102,40,99,104,97,114,42,32,95,79,112,116,32,114
+,101,115,116,114,105,99,116,32,115,44,32,115,105,122,101,95,116,32,110,44,32,99,111,110,115
 ,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32
-,118,97,95,108,105,115,116,32,97,114,103,41,59,10,105,110,116,32,118,115,110,112,114,105,110
-,116,102,40,99,104,97,114,42,32,95,79,112,116,32,114,101,115,116,114,105,99,116,32,115,44
-,32,115,105,122,101,95,116,32,110,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101
-,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97,114
-,103,41,59,10,105,110,116,32,118,115,112,114,105,110,116,102,40,99,104,97,114,42,32,114,101
-,115,116,114,105,99,116,32,115,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115
-,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97,114,103
-,41,59,10,105,110,116,32,118,115,115,99,97,110,102,40,99,111,110,115,116,32,99,104,97,114
-,42,32,114,101,115,116,114,105,99,116,32,115,44,32,99,111,110,115,116,32,99,104,97,114,42
-,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116
-,32,97,114,103,41,59,10,10,35,101,110,100,105,102,10,10,47,42,32,99,104,97,114,97,99
-,116,101,114,32,105,110,112,117,116,47,111,117,116,112,117,116,32,42,47,10,105,110,116,32,102
-,103,101,116,99,40,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10,99,104,97,114,42
-,32,95,79,112,116,32,102,103,101,116,115,40,99,104,97,114,42,32,114,101,115,116,114,105,99
-,116,32,115,44,32,105,110,116,32,110,44,32,70,73,76,69,42,32,114,101,115,116,114,105,99
-,116,32,115,116,114,101,97,109,41,59,10,105,110,116,32,102,112,117,116,99,40,105,110,116,32
-,99,44,32,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10,105,110,116,32,102,112,117
-,116,115,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115
-,44,32,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,41,59
-,10,105,110,116,32,103,101,116,99,40,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10
-,105,110,116,32,103,101,116,99,104,97,114,40,118,111,105,100,41,59,10,105,110,116,32,112,117
+,46,46,46,41,10,123,10,32,32,32,32,118,97,95,108,105,115,116,32,97,114,103,59,10,32
+,32,32,32,118,97,95,115,116,97,114,116,40,97,114,103,44,32,102,111,114,109,97,116,41,59
+,10,32,32,32,32,105,110,116,32,114,32,61,32,118,115,110,112,114,105,110,116,102,40,115,44
+,32,110,44,32,102,111,114,109,97,116,44,32,97,114,103,41,59,10,32,32,32,32,118,97,95
+,101,110,100,40,97,114,103,41,59,10,32,32,32,32,114,101,116,117,114,110,32,114,59,10,125
+,10,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32,105,110,116,32,102,115,99,97,110
+,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32
+,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109
+,97,116,44,32,46,46,46,41,10,123,10,32,32,32,32,118,97,95,108,105,115,116,32,97,114
+,103,59,10,32,32,32,32,118,97,95,115,116,97,114,116,40,97,114,103,44,32,102,111,114,109
+,97,116,41,59,10,32,32,32,32,105,110,116,32,114,32,61,32,118,102,115,99,97,110,102,40
+,115,116,114,101,97,109,44,32,102,111,114,109,97,116,44,32,97,114,103,41,59,10,32,32,32
+,32,118,97,95,101,110,100,40,97,114,103,41,59,10,32,32,32,32,114,101,116,117,114,110,32
+,114,59,10,125,10,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32,105,110,116,32,115
+,99,97,110,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116
+,32,102,111,114,109,97,116,44,32,46,46,46,41,10,123,10,32,32,32,32,118,97,95,108,105
+,115,116,32,97,114,103,59,10,32,32,32,32,118,97,95,115,116,97,114,116,40,97,114,103,44
+,32,102,111,114,109,97,116,41,59,10,32,32,32,32,105,110,116,32,114,32,61,32,118,115,99
+,97,110,102,40,102,111,114,109,97,116,44,32,97,114,103,41,59,10,32,32,32,32,118,97,95
+,101,110,100,40,97,114,103,41,59,10,32,32,32,32,114,101,116,117,114,110,32,114,59,10,125
+,10,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32,105,110,116,32,115,115,99,97,110
+,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,44
+,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114
+,109,97,116,44,32,46,46,46,41,10,123,10,32,32,32,32,118,97,95,108,105,115,116,32,97
+,114,103,59,10,32,32,32,32,118,97,95,115,116,97,114,116,40,97,114,103,44,32,102,111,114
+,109,97,116,41,59,10,32,32,32,32,105,110,116,32,114,32,61,32,118,115,115,99,97,110,102
+,40,115,44,32,102,111,114,109,97,116,44,32,97,114,103,41,59,10,32,32,32,32,118,97,95
+,101,110,100,40,97,114,103,41,59,10,32,32,32,32,114,101,116,117,114,110,32,114,59,10,125
+,10,10,35,101,108,115,101,10,10,105,110,116,32,102,112,114,105,110,116,102,40,70,73,76,69
+,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32,99,111,110,115,116,32
+,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46
+,46,41,59,10,105,110,116,32,102,115,99,97,110,102,40,70,73,76,69,42,32,114,101,115,116
+,114,105,99,116,32,115,116,114,101,97,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32
+,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46,41,59,10,105,110
+,116,32,112,114,105,110,116,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116
+,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46,41,59,10,105,110,116,32,115,99
+,97,110,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32
+,102,111,114,109,97,116,44,32,46,46,46,41,59,10,105,110,116,32,115,110,112,114,105,110,116
+,102,40,99,104,97,114,42,32,95,79,112,116,32,114,101,115,116,114,105,99,116,32,115,44,32
+,115,105,122,101,95,116,32,110,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115
+,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46,41,59,10,105,110,116,32,115
+,112,114,105,110,116,102,40,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,44,32
+,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109
+,97,116,44,32,46,46,46,41,59,10,105,110,116,32,115,115,99,97,110,102,40,99,111,110,115
+,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,44,32,99,111,110,115,116
+,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46
+,46,46,41,59,10,105,110,116,32,118,102,112,114,105,110,116,102,40,70,73,76,69,42,32,114
+,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32,99,111,110,115,116,32,99,104,97
+,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105
+,115,116,32,97,114,103,41,59,10,105,110,116,32,118,102,115,99,97,110,102,40,70,73,76,69
+,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32,99,111,110,115,116,32
+,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97
+,95,108,105,115,116,32,97,114,103,41,59,10,105,110,116,32,118,112,114,105,110,116,102,40,99
+,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97
+,116,44,32,118,97,95,108,105,115,116,32,97,114,103,41,59,10,105,110,116,32,118,115,99,97
+,110,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102
+,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97,114,103,41,59,10,105,110,116,32
+,118,115,110,112,114,105,110,116,102,40,99,104,97,114,42,32,95,79,112,116,32,114,101,115,116
+,114,105,99,116,32,115,44,32,115,105,122,101,95,116,32,110,44,32,99,111,110,115,116,32,99
+,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95
+,108,105,115,116,32,97,114,103,41,59,10,105,110,116,32,118,115,112,114,105,110,116,102,40,99
+,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,44,32,99,111,110,115,116,32,99,104
+,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108
+,105,115,116,32,97,114,103,41,59,10,105,110,116,32,118,115,115,99,97,110,102,40,99,111,110
+,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,44,32,99,111,110,115
+,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32
+,118,97,95,108,105,115,116,32,97,114,103,41,59,10,10,35,101,110,100,105,102,10,10,47,42
+,32,99,104,97,114,97,99,116,101,114,32,105,110,112,117,116,47,111,117,116,112,117,116,32,42
+,47,10,105,110,116,32,102,103,101,116,99,40,70,73,76,69,42,32,115,116,114,101,97,109,41
+,59,10,99,104,97,114,42,32,95,79,112,116,32,102,103,101,116,115,40,99,104,97,114,42,32
+,114,101,115,116,114,105,99,116,32,115,44,32,105,110,116,32,110,44,32,70,73,76,69,42,32
+,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,41,59,10,105,110,116,32,102,112,117
 ,116,99,40,105,110,116,32,99,44,32,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10
-,105,110,116,32,112,117,116,99,104,97,114,40,105,110,116,32,99,41,59,10,105,110,116,32,112
-,117,116,115,40,99,111,110,115,116,32,99,104,97,114,42,32,115,41,59,10,105,110,116,32,117
-,110,103,101,116,99,40,105,110,116,32,99,44,32,70,73,76,69,42,32,115,116,114,101,97,109
-,41,59,10,10,47,42,32,100,105,114,101,99,116,32,105,110,112,117,116,47,111,117,116,112,117
-,116,32,42,47,10,115,105,122,101,95,116,32,102,114,101,97,100,40,118,111,105,100,42,32,114
-,101,115,116,114,105,99,116,32,112,116,114,44,32,115,105,122,101,95,116,32,115,105,122,101,44
-,32,115,105,122,101,95,116,32,110,109,101,109,98,44,32,70,73,76,69,42,32,114,101,115,116
-,114,105,99,116,32,115,116,114,101,97,109,41,59,10,115,105,122,101,95,116,32,102,119,114,105
-,116,101,40,99,111,110,115,116,32,118,111,105,100,42,32,114,101,115,116,114,105,99,116,32,112
-,116,114,44,32,115,105,122,101,95,116,32,115,105,122,101,44,32,115,105,122,101,95,116,32,110
-,109,101,109,98,44,32,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101
-,97,109,41,59,10,10,47,42,32,102,105,108,101,32,112,111,115,105,116,105,111,110,105,110,103
-,32,42,47,10,105,110,116,32,102,103,101,116,112,111,115,40,70,73,76,69,42,32,114,101,115
-,116,114,105,99,116,32,115,116,114,101,97,109,44,32,102,112,111,115,95,116,42,32,114,101,115
-,116,114,105,99,116,32,112,111,115,41,59,10,105,110,116,32,102,115,101,101,107,40,70,73,76
-,69,42,32,115,116,114,101,97,109,44,32,108,111,110,103,32,105,110,116,32,111,102,102,115,101
-,116,44,32,105,110,116,32,119,104,101,110,99,101,41,59,10,105,110,116,32,102,115,101,116,112
-,111,115,40,70,73,76,69,42,32,115,116,114,101,97,109,44,32,99,111,110,115,116,32,102,112
-,111,115,95,116,42,32,112,111,115,41,59,10,108,111,110,103,32,105,110,116,32,102,116,101,108
-,108,40,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10,118,111,105,100,32,114,101,119
-,105,110,100,40,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10,10,47,42,32,101,114
-,114,111,114,32,104,97,110,100,108,105,110,103,32,42,47,10,118,111,105,100,32,99,108,101,97
-,114,101,114,114,40,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10,105,110,116,32,102
-,101,111,102,40,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10,105,110,116,32,102,101
-,114,114,111,114,40,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10,118,111,105,100,32
-,112,101,114,114,111,114,40,99,111,110,115,116,32,99,104,97,114,42,32,95,79,112,116,32,115
-,41,59,10,10,35,105,102,32,100,101,102,105,110,101,100,40,95,95,108,105,110,117,120,95,95
-,41,32,124,124,32,100,101,102,105,110,101,100,40,95,95,65,80,80,76,69,95,95,41,10,47
-,42,32,80,79,83,73,88,32,42,47,10,70,73,76,69,42,32,95,79,119,110,101,114,32,95
-,79,112,116,32,112,111,112,101,110,40,99,111,110,115,116,32,99,104,97,114,42,32,99,111,109
-,109,97,110,100,44,32,99,111,110,115,116,32,99,104,97,114,42,32,109,111,100,101,41,59,10
-,105,110,116,32,112,99,108,111,115,101,40,70,73,76,69,42,32,95,79,119,110,101,114,32,115
-,116,114,101,97,109,41,59,10,105,110,116,32,102,105,108,101,110,111,40,70,73,76,69,42,32
-,115,116,114,101,97,109,41,59,10,70,73,76,69,42,32,95,79,119,110,101,114,32,95,79,112
-,116,32,102,100,111,112,101,110,40,105,110,116,32,102,100,44,32,99,111,110,115,116,32,99,104
-,97,114,42,32,109,111,100,101,41,59,10,35,101,108,105,102,32,100,101,102,105,110,101,100,40
-,95,87,73,78,51,50,41,10,70,73,76,69,42,32,95,79,119,110,101,114,32,95,79,112,116
-,32,95,112,111,112,101,110,40,99,111,110,115,116,32,99,104,97,114,42,32,99,111,109,109,97
-,110,100,44,32,99,111,110,115,116,32,99,104,97,114,42,32,109,111,100,101,41,59,10,105,110
-,116,32,95,112,99,108,111,115,101,40,70,73,76,69,42,32,95,79,119,110,101,114,32,115,116
-,114,101,97,109,41,59,10,105,110,116,32,95,102,105,108,101,110,111,40,70,73,76,69,42,32
-,115,116,114,101,97,109,41,59,10,70,73,76,69,42,32,95,79,119,110,101,114,32,95,79,112
-,116,32,95,102,100,111,112,101,110,40,105,110,116,32,102,100,44,32,99,111,110,115,116,32,99
-,104,97,114,42,32,109,111,100,101,41,59,10,35,101,110,100,105,102,10,10,35,101,108,115,101
-,10,10,10,35,105,102,100,101,102,32,95,87,73,78,54,52,10,116,121,112,101,100,101,102,32
-,115,116,114,117,99,116,32,95,105,111,98,117,102,32,70,73,76,69,59,10,116,121,112,101,100
-,101,102,32,117,110,115,105,103,110,101,100,32,95,95,105,110,116,54,52,32,115,105,122,101,95
-,116,59,10,35,101,108,105,102,32,100,101,102,105,110,101,100,32,95,87,73,78,51,50,10,116
+,105,110,116,32,102,112,117,116,115,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115
+,116,114,105,99,116,32,115,44,32,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115
+,116,114,101,97,109,41,59,10,105,110,116,32,103,101,116,99,40,70,73,76,69,42,32,115,116
+,114,101,97,109,41,59,10,105,110,116,32,103,101,116,99,104,97,114,40,118,111,105,100,41,59
+,10,105,110,116,32,112,117,116,99,40,105,110,116,32,99,44,32,70,73,76,69,42,32,115,116
+,114,101,97,109,41,59,10,105,110,116,32,112,117,116,99,104,97,114,40,105,110,116,32,99,41
+,59,10,105,110,116,32,112,117,116,115,40,99,111,110,115,116,32,99,104,97,114,42,32,115,41
+,59,10,105,110,116,32,117,110,103,101,116,99,40,105,110,116,32,99,44,32,70,73,76,69,42
+,32,115,116,114,101,97,109,41,59,10,10,47,42,32,100,105,114,101,99,116,32,105,110,112,117
+,116,47,111,117,116,112,117,116,32,42,47,10,115,105,122,101,95,116,32,102,114,101,97,100,40
+,118,111,105,100,42,32,114,101,115,116,114,105,99,116,32,112,116,114,44,32,115,105,122,101,95
+,116,32,115,105,122,101,44,32,115,105,122,101,95,116,32,110,109,101,109,98,44,32,70,73,76
+,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,41,59,10,115,105,122,101
+,95,116,32,102,119,114,105,116,101,40,99,111,110,115,116,32,118,111,105,100,42,32,114,101,115
+,116,114,105,99,116,32,112,116,114,44,32,115,105,122,101,95,116,32,115,105,122,101,44,32,115
+,105,122,101,95,116,32,110,109,101,109,98,44,32,70,73,76,69,42,32,114,101,115,116,114,105
+,99,116,32,115,116,114,101,97,109,41,59,10,10,47,42,32,102,105,108,101,32,112,111,115,105
+,116,105,111,110,105,110,103,32,42,47,10,105,110,116,32,102,103,101,116,112,111,115,40,70,73
+,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32,102,112,111,115
+,95,116,42,32,114,101,115,116,114,105,99,116,32,112,111,115,41,59,10,105,110,116,32,102,115
+,101,101,107,40,70,73,76,69,42,32,115,116,114,101,97,109,44,32,108,111,110,103,32,105,110
+,116,32,111,102,102,115,101,116,44,32,105,110,116,32,119,104,101,110,99,101,41,59,10,105,110
+,116,32,102,115,101,116,112,111,115,40,70,73,76,69,42,32,115,116,114,101,97,109,44,32,99
+,111,110,115,116,32,102,112,111,115,95,116,42,32,112,111,115,41,59,10,108,111,110,103,32,105
+,110,116,32,102,116,101,108,108,40,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10,118
+,111,105,100,32,114,101,119,105,110,100,40,70,73,76,69,42,32,115,116,114,101,97,109,41,59
+,10,10,47,42,32,101,114,114,111,114,32,104,97,110,100,108,105,110,103,32,42,47,10,118,111
+,105,100,32,99,108,101,97,114,101,114,114,40,70,73,76,69,42,32,115,116,114,101,97,109,41
+,59,10,105,110,116,32,102,101,111,102,40,70,73,76,69,42,32,115,116,114,101,97,109,41,59
+,10,105,110,116,32,102,101,114,114,111,114,40,70,73,76,69,42,32,115,116,114,101,97,109,41
+,59,10,118,111,105,100,32,112,101,114,114,111,114,40,99,111,110,115,116,32,99,104,97,114,42
+,32,95,79,112,116,32,115,41,59,10,10,35,105,102,32,100,101,102,105,110,101,100,40,95,95
+,108,105,110,117,120,95,95,41,32,124,124,32,100,101,102,105,110,101,100,40,95,95,65,80,80
+,76,69,95,95,41,10,47,42,32,80,79,83,73,88,32,42,47,10,70,73,76,69,42,32,95
+,79,119,110,101,114,32,95,79,112,116,32,112,111,112,101,110,40,99,111,110,115,116,32,99,104
+,97,114,42,32,99,111,109,109,97,110,100,44,32,99,111,110,115,116,32,99,104,97,114,42,32
+,109,111,100,101,41,59,10,105,110,116,32,112,99,108,111,115,101,40,70,73,76,69,42,32,95
+,79,119,110,101,114,32,115,116,114,101,97,109,41,59,10,105,110,116,32,102,105,108,101,110,111
+,40,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10,70,73,76,69,42,32,95,79,119
+,110,101,114,32,95,79,112,116,32,102,100,111,112,101,110,40,105,110,116,32,102,100,44,32,99
+,111,110,115,116,32,99,104,97,114,42,32,109,111,100,101,41,59,10,35,101,108,105,102,32,100
+,101,102,105,110,101,100,40,95,87,73,78,51,50,41,10,70,73,76,69,42,32,95,79,119,110
+,101,114,32,95,79,112,116,32,95,112,111,112,101,110,40,99,111,110,115,116,32,99,104,97,114
+,42,32,99,111,109,109,97,110,100,44,32,99,111,110,115,116,32,99,104,97,114,42,32,109,111
+,100,101,41,59,10,105,110,116,32,95,112,99,108,111,115,101,40,70,73,76,69,42,32,95,79
+,119,110,101,114,32,115,116,114,101,97,109,41,59,10,105,110,116,32,95,102,105,108,101,110,111
+,40,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10,70,73,76,69,42,32,95,79,119
+,110,101,114,32,95,79,112,116,32,95,102,100,111,112,101,110,40,105,110,116,32,102,100,44,32
+,99,111,110,115,116,32,99,104,97,114,42,32,109,111,100,101,41,59,10,35,101,110,100,105,102
+,10,10,35,101,108,115,101,10,10,10,35,105,102,100,101,102,32,95,87,73,78,54,52,10,116
 ,121,112,101,100,101,102,32,115,116,114,117,99,116,32,95,105,111,98,117,102,32,70,73,76,69
-,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,105,110,116,32,32,32
-,32,32,115,105,122,101,95,116,59,10,35,101,110,100,105,102,10,10,35,105,102,100,101,102,32
-,95,95,108,105,110,117,120,95,95,10,10,116,121,112,101,100,101,102,32,115,116,114,117,99,116
-,32,95,73,79,95,70,73,76,69,32,70,73,76,69,59,10,116,121,112,101,100,101,102,32,95
-,95,83,73,90,69,95,84,89,80,69,95,95,32,115,105,122,101,95,116,59,32,47,47,32,118
-,97,108,105,100,32,115,105,110,99,101,32,67,50,51,10,10,35,101,110,100,105,102,10,10,35
-,105,102,100,101,102,32,95,95,65,80,80,76,69,95,95,10,10,116,121,112,101,100,101,102,32
-,115,116,114,117,99,116,32,95,95,115,70,73,76,69,32,70,73,76,69,59,10,116,121,112,101
-,100,101,102,32,95,95,83,73,90,69,95,84,89,80,69,95,95,32,115,105,122,101,95,116,59
-,10,10,35,101,110,100,105,102,10,10,105,110,116,32,115,110,112,114,105,110,116,102,40,95,79
-,117,116,32,99,104,97,114,42,32,99,111,110,115,116,32,95,66,117,102,102,101,114,44,32,115
-,105,122,101,95,116,32,99,111,110,115,116,32,95,66,117,102,102,101,114,67,111,117,110,116,44
-,32,99,104,97,114,32,99,111,110,115,116,42,32,99,111,110,115,116,32,95,70,111,114,109,97
-,116,44,32,46,46,46,41,59,10,10,70,73,76,69,42,32,95,79,119,110,101,114,32,95,79
-,112,116,32,102,111,112,101,110,40,99,104,97,114,32,99,111,110,115,116,42,32,95,70,105,108
-,101,78,97,109,101,44,32,99,104,97,114,32,99,111,110,115,116,42,32,95,77,111,100,101,41
-,59,10,105,110,116,32,102,99,108,111,115,101,40,70,73,76,69,42,32,95,79,119,110,101,114
-,32,95,83,116,114,101,97,109,41,59,10,10,35,105,102,32,100,101,102,105,110,101,100,32,95
-,95,108,105,110,117,120,95,95,32,124,124,32,100,101,102,105,110,101,100,32,95,95,65,80,80
-,76,69,95,95,10,70,73,76,69,42,32,95,79,119,110,101,114,32,95,79,112,116,32,112,111
-,112,101,110,40,99,111,110,115,116,32,99,104,97,114,42,32,95,67,111,109,109,97,110,100,44
-,32,99,111,110,115,116,32,99,104,97,114,42,32,95,77,111,100,101,41,59,10,105,110,116,32
-,112,99,108,111,115,101,40,70,73,76,69,42,32,95,79,119,110,101,114,32,95,83,116,114,101
-,97,109,41,59,10,35,101,110,100,105,102,10,10,115,105,122,101,95,116,32,102,114,101,97,100
-,40,10,32,32,32,32,32,32,32,32,95,79,117,116,32,118,111,105,100,42,32,95,66,117,102
-,102,101,114,44,10,32,32,32,32,32,32,32,32,115,105,122,101,95,116,32,95,69,108,101,109
-,101,110,116,83,105,122,101,44,10,32,32,32,32,32,32,32,32,115,105,122,101,95,116,32,95
-,69,108,101,109,101,110,116,67,111,117,110,116,44,10,32,32,32,32,32,32,32,32,70,73,76
-,69,42,32,95,83,116,114,101,97,109,10,41,59,10,10,35,105,110,99,108,117,100,101,95,110
-,101,120,116,32,60,115,116,100,105,111,46,104,62,10,35,101,110,100,105,102,10
+,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,95,95,105,110,116,54
+,52,32,115,105,122,101,95,116,59,10,35,101,108,105,102,32,100,101,102,105,110,101,100,32,95
+,87,73,78,51,50,10,116,121,112,101,100,101,102,32,115,116,114,117,99,116,32,95,105,111,98
+,117,102,32,70,73,76,69,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100
+,32,105,110,116,32,32,32,32,32,115,105,122,101,95,116,59,10,35,101,110,100,105,102,10,10
+,35,105,102,100,101,102,32,95,95,108,105,110,117,120,95,95,10,10,116,121,112,101,100,101,102
+,32,115,116,114,117,99,116,32,95,73,79,95,70,73,76,69,32,70,73,76,69,59,10,116,121
+,112,101,100,101,102,32,95,95,83,73,90,69,95,84,89,80,69,95,95,32,115,105,122,101,95
+,116,59,32,47,47,32,118,97,108,105,100,32,115,105,110,99,101,32,67,50,51,10,10,35,101
+,110,100,105,102,10,10,35,105,102,100,101,102,32,95,95,65,80,80,76,69,95,95,10,10,116
+,121,112,101,100,101,102,32,115,116,114,117,99,116,32,95,95,115,70,73,76,69,32,70,73,76
+,69,59,10,116,121,112,101,100,101,102,32,95,95,83,73,90,69,95,84,89,80,69,95,95,32
+,115,105,122,101,95,116,59,10,10,35,101,110,100,105,102,10,10,105,110,116,32,115,110,112,114
+,105,110,116,102,40,95,79,117,116,32,99,104,97,114,42,32,99,111,110,115,116,32,95,66,117
+,102,102,101,114,44,32,115,105,122,101,95,116,32,99,111,110,115,116,32,95,66,117,102,102,101
+,114,67,111,117,110,116,44,32,99,104,97,114,32,99,111,110,115,116,42,32,99,111,110,115,116
+,32,95,70,111,114,109,97,116,44,32,46,46,46,41,59,10,10,70,73,76,69,42,32,95,79
+,119,110,101,114,32,95,79,112,116,32,102,111,112,101,110,40,99,104,97,114,32,99,111,110,115
+,116,42,32,95,70,105,108,101,78,97,109,101,44,32,99,104,97,114,32,99,111,110,115,116,42
+,32,95,77,111,100,101,41,59,10,105,110,116,32,102,99,108,111,115,101,40,70,73,76,69,42
+,32,95,79,119,110,101,114,32,95,83,116,114,101,97,109,41,59,10,10,35,105,102,32,100,101
+,102,105,110,101,100,32,95,95,108,105,110,117,120,95,95,32,124,124,32,100,101,102,105,110,101
+,100,32,95,95,65,80,80,76,69,95,95,10,70,73,76,69,42,32,95,79,119,110,101,114,32
+,95,79,112,116,32,112,111,112,101,110,40,99,111,110,115,116,32,99,104,97,114,42,32,95,67
+,111,109,109,97,110,100,44,32,99,111,110,115,116,32,99,104,97,114,42,32,95,77,111,100,101
+,41,59,10,105,110,116,32,112,99,108,111,115,101,40,70,73,76,69,42,32,95,79,119,110,101
+,114,32,95,83,116,114,101,97,109,41,59,10,35,101,110,100,105,102,10,10,115,105,122,101,95
+,116,32,102,114,101,97,100,40,10,32,32,32,32,32,32,32,32,95,79,117,116,32,118,111,105
+,100,42,32,95,66,117,102,102,101,114,44,10,32,32,32,32,32,32,32,32,115,105,122,101,95
+,116,32,95,69,108,101,109,101,110,116,83,105,122,101,44,10,32,32,32,32,32,32,32,32,115
+,105,122,101,95,116,32,95,69,108,101,109,101,110,116,67,111,117,110,116,44,10,32,32,32,32
+,32,32,32,32,70,73,76,69,42,32,95,83,116,114,101,97,109,10,41,59,10,10,35,105,110
+,99,108,117,100,101,95,110,101,120,116,32,60,115,116,100,105,111,46,104,62,10,35,101,110,100
+,105,102,10
 , 0 };
 static const char file_stdlib_h[] = {
 
@@ -18474,88 +19137,81 @@ static const char file_threads_h[] = {
 ,111,102,32,99,97,107,101,32,99,111,109,112,105,108,101,114,10,32,42,32,32,104,116,116,112
 ,115,58,47,47,103,105,116,104,117,98,46,99,111,109,47,116,104,114,97,100,97,109,115,47,99
 ,97,107,101,10,42,47,10,10,35,105,102,100,101,102,32,67,65,75,69,95,72,69,65,68,69
-,82,83,10,10,35,112,114,97,103,109,97,32,111,110,99,101,10,10,35,105,102,32,33,100,101
-,102,105,110,101,100,40,95,95,108,105,110,117,120,95,95,41,10,47,42,32,109,97,99,79,83
-,32,108,105,98,99,32,97,110,100,32,116,104,101,32,109,115,118,99,32,67,82,84,32,100,111
-,32,110,111,116,32,112,114,111,118,105,100,101,32,116,104,101,32,67,49,49,32,116,104,114,101
-,97,100,115,32,42,47,10,35,101,114,114,111,114,32,60,116,104,114,101,97,100,115,46,104,62
-,32,105,115,32,110,111,116,32,97,118,97,105,108,97,98,108,101,32,119,105,116,104,32,45,99
-,97,107,101,45,104,101,97,100,101,114,115,32,111,110,32,116,104,105,115,32,116,97,114,103,101
-,116,10,35,101,110,100,105,102,10,10,35,105,110,99,108,117,100,101,32,60,116,105,109,101,46
-,104,62,10,10,35,100,101,102,105,110,101,32,95,95,83,84,68,67,95,86,69,82,83,73,79
-,78,95,84,72,82,69,65,68,83,95,72,95,95,32,50,48,50,51,49,49,76,10,10,35,100
-,101,102,105,110,101,32,116,104,114,101,97,100,95,108,111,99,97,108,32,95,84,104,114,101,97
-,100,95,108,111,99,97,108,10,35,100,101,102,105,110,101,32,79,78,67,69,95,70,76,65,71
-,95,73,78,73,84,32,48,10,35,100,101,102,105,110,101,32,84,83,83,95,68,84,79,82,95
-,73,84,69,82,65,84,73,79,78,83,32,52,10,10,47,42,32,115,97,109,101,32,115,105,122
-,101,115,32,97,115,32,103,108,105,98,99,32,42,47,10,116,121,112,101,100,101,102,32,117,110
-,115,105,103,110,101,100,32,108,111,110,103,32,116,104,114,100,95,116,59,10,116,121,112,101,100
-,101,102,32,117,110,105,111,110,32,123,32,99,104,97,114,32,95,95,115,105,122,101,91,52,48
-,93,59,32,108,111,110,103,32,95,95,97,108,105,103,110,59,32,125,32,109,116,120,95,116,59
-,10,116,121,112,101,100,101,102,32,117,110,105,111,110,32,123,32,99,104,97,114,32,95,95,115
-,105,122,101,91,52,56,93,59,32,108,111,110,103,32,108,111,110,103,32,95,95,97,108,105,103
-,110,59,32,125,32,99,110,100,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,32,111
-,110,99,101,95,102,108,97,103,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101
-,100,32,105,110,116,32,116,115,115,95,116,59,10,10,116,121,112,101,100,101,102,32,105,110,116
-,32,40,42,116,104,114,100,95,115,116,97,114,116,95,116,41,40,118,111,105,100,42,41,59,10
-,116,121,112,101,100,101,102,32,118,111,105,100,32,40,42,116,115,115,95,100,116,111,114,95,116
-,41,40,118,111,105,100,42,41,59,10,10,101,110,117,109,10,123,10,32,32,32,32,109,116,120
-,95,112,108,97,105,110,32,61,32,48,44,10,32,32,32,32,109,116,120,95,114,101,99,117,114
-,115,105,118,101,32,61,32,49,44,10,32,32,32,32,109,116,120,95,116,105,109,101,100,32,61
-,32,50,10,125,59,10,10,101,110,117,109,10,123,10,32,32,32,32,116,104,114,100,95,115,117
-,99,99,101,115,115,32,61,32,48,44,10,32,32,32,32,116,104,114,100,95,110,111,109,101,109
-,44,10,32,32,32,32,116,104,114,100,95,116,105,109,101,100,111,117,116,44,10,32,32,32,32
-,116,104,114,100,95,98,117,115,121,44,10,32,32,32,32,116,104,114,100,95,101,114,114,111,114
-,10,125,59,10,10,47,42,32,105,110,105,116,105,97,108,105,122,97,116,105,111,110,32,102,117
-,110,99,116,105,111,110,115,32,42,47,10,118,111,105,100,32,99,97,108,108,95,111,110,99,101
-,40,111,110,99,101,95,102,108,97,103,42,32,102,108,97,103,44,32,118,111,105,100,32,40,42
-,102,117,110,99,41,40,118,111,105,100,41,41,59,10,10,47,42,32,99,111,110,100,105,116,105
-,111,110,32,118,97,114,105,97,98,108,101,32,102,117,110,99,116,105,111,110,115,32,42,47,10
-,105,110,116,32,99,110,100,95,98,114,111,97,100,99,97,115,116,40,99,110,100,95,116,42,32
-,99,111,110,100,41,59,10,118,111,105,100,32,99,110,100,95,100,101,115,116,114,111,121,40,99
-,110,100,95,116,42,32,99,111,110,100,41,59,10,105,110,116,32,99,110,100,95,105,110,105,116
-,40,99,110,100,95,116,42,32,99,111,110,100,41,59,10,105,110,116,32,99,110,100,95,115,105
-,103,110,97,108,40,99,110,100,95,116,42,32,99,111,110,100,41,59,10,105,110,116,32,99,110
-,100,95,116,105,109,101,100,119,97,105,116,40,99,110,100,95,116,42,32,114,101,115,116,114,105
-,99,116,32,99,111,110,100,44,32,109,116,120,95,116,42,32,114,101,115,116,114,105,99,116,32
-,109,116,120,44,32,99,111,110,115,116,32,115,116,114,117,99,116,32,116,105,109,101,115,112,101
-,99,42,32,114,101,115,116,114,105,99,116,32,116,115,41,59,10,105,110,116,32,99,110,100,95
-,119,97,105,116,40,99,110,100,95,116,42,32,99,111,110,100,44,32,109,116,120,95,116,42,32
-,109,116,120,41,59,10,10,47,42,32,109,117,116,101,120,32,102,117,110,99,116,105,111,110,115
-,32,42,47,10,118,111,105,100,32,109,116,120,95,100,101,115,116,114,111,121,40,109,116,120,95
-,116,42,32,109,116,120,41,59,10,105,110,116,32,109,116,120,95,105,110,105,116,40,109,116,120
-,95,116,42,32,109,116,120,44,32,105,110,116,32,116,121,112,101,41,59,10,105,110,116,32,109
-,116,120,95,108,111,99,107,40,109,116,120,95,116,42,32,109,116,120,41,59,10,105,110,116,32
-,109,116,120,95,116,105,109,101,100,108,111,99,107,40,109,116,120,95,116,42,32,114,101,115,116
-,114,105,99,116,32,109,116,120,44,32,99,111,110,115,116,32,115,116,114,117,99,116,32,116,105
-,109,101,115,112,101,99,42,32,114,101,115,116,114,105,99,116,32,116,115,41,59,10,105,110,116
-,32,109,116,120,95,116,114,121,108,111,99,107,40,109,116,120,95,116,42,32,109,116,120,41,59
-,10,105,110,116,32,109,116,120,95,117,110,108,111,99,107,40,109,116,120,95,116,42,32,109,116
-,120,41,59,10,10,47,42,32,116,104,114,101,97,100,32,102,117,110,99,116,105,111,110,115,32
-,42,47,10,105,110,116,32,116,104,114,100,95,99,114,101,97,116,101,40,116,104,114,100,95,116
-,42,32,116,104,114,44,32,116,104,114,100,95,115,116,97,114,116,95,116,32,102,117,110,99,44
-,32,118,111,105,100,42,32,95,79,112,116,32,97,114,103,41,59,10,116,104,114,100,95,116,32
-,116,104,114,100,95,99,117,114,114,101,110,116,40,118,111,105,100,41,59,10,105,110,116,32,116
-,104,114,100,95,100,101,116,97,99,104,40,116,104,114,100,95,116,32,116,104,114,41,59,10,105
-,110,116,32,116,104,114,100,95,101,113,117,97,108,40,116,104,114,100,95,116,32,116,104,114,48
-,44,32,116,104,114,100,95,116,32,116,104,114,49,41,59,10,91,91,110,111,114,101,116,117,114
-,110,93,93,32,118,111,105,100,32,116,104,114,100,95,101,120,105,116,40,105,110,116,32,114,101
-,115,41,59,10,105,110,116,32,116,104,114,100,95,106,111,105,110,40,116,104,114,100,95,116,32
-,116,104,114,44,32,105,110,116,42,32,95,79,112,116,32,114,101,115,41,59,10,105,110,116,32
-,116,104,114,100,95,115,108,101,101,112,40,99,111,110,115,116,32,115,116,114,117,99,116,32,116
-,105,109,101,115,112,101,99,42,32,100,117,114,97,116,105,111,110,44,32,115,116,114,117,99,116
-,32,116,105,109,101,115,112,101,99,42,32,95,79,112,116,32,114,101,109,97,105,110,105,110,103
-,41,59,10,118,111,105,100,32,116,104,114,100,95,121,105,101,108,100,40,118,111,105,100,41,59
-,10,10,47,42,32,116,104,114,101,97,100,45,115,112,101,99,105,102,105,99,32,115,116,111,114
-,97,103,101,32,102,117,110,99,116,105,111,110,115,32,42,47,10,105,110,116,32,116,115,115,95
-,99,114,101,97,116,101,40,116,115,115,95,116,42,32,107,101,121,44,32,116,115,115,95,100,116
-,111,114,95,116,32,95,79,112,116,32,100,116,111,114,41,59,10,118,111,105,100,32,116,115,115
-,95,100,101,108,101,116,101,40,116,115,115,95,116,32,107,101,121,41,59,10,118,111,105,100,42
-,32,95,79,112,116,32,116,115,115,95,103,101,116,40,116,115,115,95,116,32,107,101,121,41,59
-,10,105,110,116,32,116,115,115,95,115,101,116,40,116,115,115,95,116,32,107,101,121,44,32,118
-,111,105,100,42,32,95,79,112,116,32,118,97,108,41,59,10,10,35,101,108,115,101,10,35,105
-,110,99,108,117,100,101,95,110,101,120,116,32,60,116,104,114,101,97,100,115,46,104,62,10,35
-,101,110,100,105,102,10
+,82,83,10,10,35,112,114,97,103,109,97,32,111,110,99,101,10,10,35,105,110,99,108,117,100
+,101,32,60,116,105,109,101,46,104,62,10,10,35,100,101,102,105,110,101,32,95,95,83,84,68
+,67,95,86,69,82,83,73,79,78,95,84,72,82,69,65,68,83,95,72,95,95,32,50,48,50
+,51,49,49,76,10,10,35,100,101,102,105,110,101,32,116,104,114,101,97,100,95,108,111,99,97
+,108,32,95,84,104,114,101,97,100,95,108,111,99,97,108,10,35,100,101,102,105,110,101,32,79
+,78,67,69,95,70,76,65,71,95,73,78,73,84,32,48,10,35,100,101,102,105,110,101,32,84
+,83,83,95,68,84,79,82,95,73,84,69,82,65,84,73,79,78,83,32,52,10,10,47,42,32
+,115,97,109,101,32,115,105,122,101,115,32,97,115,32,103,108,105,98,99,32,42,47,10,116,121
+,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,116,104,114,100,95
+,116,59,10,116,121,112,101,100,101,102,32,117,110,105,111,110,32,123,32,99,104,97,114,32,95
+,95,115,105,122,101,91,52,48,93,59,32,108,111,110,103,32,95,95,97,108,105,103,110,59,32
+,125,32,109,116,120,95,116,59,10,116,121,112,101,100,101,102,32,117,110,105,111,110,32,123,32
+,99,104,97,114,32,95,95,115,105,122,101,91,52,56,93,59,32,108,111,110,103,32,108,111,110
+,103,32,95,95,97,108,105,103,110,59,32,125,32,99,110,100,95,116,59,10,116,121,112,101,100
+,101,102,32,105,110,116,32,111,110,99,101,95,102,108,97,103,59,10,116,121,112,101,100,101,102
+,32,117,110,115,105,103,110,101,100,32,105,110,116,32,116,115,115,95,116,59,10,10,116,121,112
+,101,100,101,102,32,105,110,116,32,40,42,116,104,114,100,95,115,116,97,114,116,95,116,41,40
+,118,111,105,100,42,41,59,10,116,121,112,101,100,101,102,32,118,111,105,100,32,40,42,116,115
+,115,95,100,116,111,114,95,116,41,40,118,111,105,100,42,41,59,10,10,101,110,117,109,10,123
+,10,32,32,32,32,109,116,120,95,112,108,97,105,110,32,61,32,48,44,10,32,32,32,32,109
+,116,120,95,114,101,99,117,114,115,105,118,101,32,61,32,49,44,10,32,32,32,32,109,116,120
+,95,116,105,109,101,100,32,61,32,50,10,125,59,10,10,101,110,117,109,10,123,10,32,32,32
+,32,116,104,114,100,95,115,117,99,99,101,115,115,32,61,32,48,44,10,32,32,32,32,116,104
+,114,100,95,110,111,109,101,109,44,10,32,32,32,32,116,104,114,100,95,116,105,109,101,100,111
+,117,116,44,10,32,32,32,32,116,104,114,100,95,98,117,115,121,44,10,32,32,32,32,116,104
+,114,100,95,101,114,114,111,114,10,125,59,10,10,47,42,32,105,110,105,116,105,97,108,105,122
+,97,116,105,111,110,32,102,117,110,99,116,105,111,110,115,32,42,47,10,118,111,105,100,32,99
+,97,108,108,95,111,110,99,101,40,111,110,99,101,95,102,108,97,103,42,32,102,108,97,103,44
+,32,118,111,105,100,32,40,42,102,117,110,99,41,40,118,111,105,100,41,41,59,10,10,47,42
+,32,99,111,110,100,105,116,105,111,110,32,118,97,114,105,97,98,108,101,32,102,117,110,99,116
+,105,111,110,115,32,42,47,10,105,110,116,32,99,110,100,95,98,114,111,97,100,99,97,115,116
+,40,99,110,100,95,116,42,32,99,111,110,100,41,59,10,118,111,105,100,32,99,110,100,95,100
+,101,115,116,114,111,121,40,99,110,100,95,116,42,32,99,111,110,100,41,59,10,105,110,116,32
+,99,110,100,95,105,110,105,116,40,99,110,100,95,116,42,32,99,111,110,100,41,59,10,105,110
+,116,32,99,110,100,95,115,105,103,110,97,108,40,99,110,100,95,116,42,32,99,111,110,100,41
+,59,10,105,110,116,32,99,110,100,95,116,105,109,101,100,119,97,105,116,40,99,110,100,95,116
+,42,32,114,101,115,116,114,105,99,116,32,99,111,110,100,44,32,109,116,120,95,116,42,32,114
+,101,115,116,114,105,99,116,32,109,116,120,44,32,99,111,110,115,116,32,115,116,114,117,99,116
+,32,116,105,109,101,115,112,101,99,42,32,114,101,115,116,114,105,99,116,32,116,115,41,59,10
+,105,110,116,32,99,110,100,95,119,97,105,116,40,99,110,100,95,116,42,32,99,111,110,100,44
+,32,109,116,120,95,116,42,32,109,116,120,41,59,10,10,47,42,32,109,117,116,101,120,32,102
+,117,110,99,116,105,111,110,115,32,42,47,10,118,111,105,100,32,109,116,120,95,100,101,115,116
+,114,111,121,40,109,116,120,95,116,42,32,109,116,120,41,59,10,105,110,116,32,109,116,120,95
+,105,110,105,116,40,109,116,120,95,116,42,32,109,116,120,44,32,105,110,116,32,116,121,112,101
+,41,59,10,105,110,116,32,109,116,120,95,108,111,99,107,40,109,116,120,95,116,42,32,109,116
+,120,41,59,10,105,110,116,32,109,116,120,95,116,105,109,101,100,108,111,99,107,40,109,116,120
+,95,116,42,32,114,101,115,116,114,105,99,116,32,109,116,120,44,32,99,111,110,115,116,32,115
+,116,114,117,99,116,32,116,105,109,101,115,112,101,99,42,32,114,101,115,116,114,105,99,116,32
+,116,115,41,59,10,105,110,116,32,109,116,120,95,116,114,121,108,111,99,107,40,109,116,120,95
+,116,42,32,109,116,120,41,59,10,105,110,116,32,109,116,120,95,117,110,108,111,99,107,40,109
+,116,120,95,116,42,32,109,116,120,41,59,10,10,47,42,32,116,104,114,101,97,100,32,102,117
+,110,99,116,105,111,110,115,32,42,47,10,105,110,116,32,116,104,114,100,95,99,114,101,97,116
+,101,40,116,104,114,100,95,116,42,32,116,104,114,44,32,116,104,114,100,95,115,116,97,114,116
+,95,116,32,102,117,110,99,44,32,118,111,105,100,42,32,95,79,112,116,32,97,114,103,41,59
+,10,116,104,114,100,95,116,32,116,104,114,100,95,99,117,114,114,101,110,116,40,118,111,105,100
+,41,59,10,105,110,116,32,116,104,114,100,95,100,101,116,97,99,104,40,116,104,114,100,95,116
+,32,116,104,114,41,59,10,105,110,116,32,116,104,114,100,95,101,113,117,97,108,40,116,104,114
+,100,95,116,32,116,104,114,48,44,32,116,104,114,100,95,116,32,116,104,114,49,41,59,10,91
+,91,110,111,114,101,116,117,114,110,93,93,32,118,111,105,100,32,116,104,114,100,95,101,120,105
+,116,40,105,110,116,32,114,101,115,41,59,10,105,110,116,32,116,104,114,100,95,106,111,105,110
+,40,116,104,114,100,95,116,32,116,104,114,44,32,105,110,116,42,32,95,79,112,116,32,114,101
+,115,41,59,10,105,110,116,32,116,104,114,100,95,115,108,101,101,112,40,99,111,110,115,116,32
+,115,116,114,117,99,116,32,116,105,109,101,115,112,101,99,42,32,100,117,114,97,116,105,111,110
+,44,32,115,116,114,117,99,116,32,116,105,109,101,115,112,101,99,42,32,95,79,112,116,32,114
+,101,109,97,105,110,105,110,103,41,59,10,118,111,105,100,32,116,104,114,100,95,121,105,101,108
+,100,40,118,111,105,100,41,59,10,10,47,42,32,116,104,114,101,97,100,45,115,112,101,99,105
+,102,105,99,32,115,116,111,114,97,103,101,32,102,117,110,99,116,105,111,110,115,32,42,47,10
+,105,110,116,32,116,115,115,95,99,114,101,97,116,101,40,116,115,115,95,116,42,32,107,101,121
+,44,32,116,115,115,95,100,116,111,114,95,116,32,95,79,112,116,32,100,116,111,114,41,59,10
+,118,111,105,100,32,116,115,115,95,100,101,108,101,116,101,40,116,115,115,95,116,32,107,101,121
+,41,59,10,118,111,105,100,42,32,95,79,112,116,32,116,115,115,95,103,101,116,40,116,115,115
+,95,116,32,107,101,121,41,59,10,105,110,116,32,116,115,115,95,115,101,116,40,116,115,115,95
+,116,32,107,101,121,44,32,118,111,105,100,42,32,95,79,112,116,32,118,97,108,41,59,10,10
+,35,101,108,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,116,104,114,101
+,97,100,115,46,104,62,10,35,101,110,100,105,102,10
 , 0 };
 static const char file_time_h[] = {
 
@@ -18578,115 +19234,119 @@ static const char file_time_h[] = {
 ,101,32,67,76,79,67,75,83,95,80,69,82,95,83,69,67,32,49,48,48,48,10,35,101,108
 ,115,101,10,35,100,101,102,105,110,101,32,67,76,79,67,75,83,95,80,69,82,95,83,69,67
 ,32,49,48,48,48,48,48,48,10,35,101,110,100,105,102,10,10,35,100,101,102,105,110,101,32
-,84,73,77,69,95,85,84,67,32,49,10,35,100,101,102,105,110,101,32,84,73,77,69,95,77
-,79,78,79,84,79,78,73,67,32,50,10,35,100,101,102,105,110,101,32,84,73,77,69,95,65
-,67,84,73,86,69,32,51,10,35,100,101,102,105,110,101,32,84,73,77,69,95,84,72,82,69
-,65,68,95,65,67,84,73,86,69,32,52,10,10,115,116,114,117,99,116,32,116,109,10,123,10
-,32,32,32,32,105,110,116,32,116,109,95,115,101,99,59,32,32,32,47,42,32,115,101,99,111
-,110,100,115,32,97,102,116,101,114,32,116,104,101,32,109,105,110,117,116,101,32,91,48,44,32
-,54,48,93,32,42,47,10,32,32,32,32,105,110,116,32,116,109,95,109,105,110,59,32,32,32
-,47,42,32,109,105,110,117,116,101,115,32,97,102,116,101,114,32,116,104,101,32,104,111,117,114
-,32,91,48,44,32,53,57,93,32,42,47,10,32,32,32,32,105,110,116,32,116,109,95,104,111
-,117,114,59,32,32,47,42,32,104,111,117,114,115,32,115,105,110,99,101,32,109,105,100,110,105
-,103,104,116,32,91,48,44,32,50,51,93,32,42,47,10,32,32,32,32,105,110,116,32,116,109
-,95,109,100,97,121,59,32,32,47,42,32,100,97,121,32,111,102,32,116,104,101,32,109,111,110
-,116,104,32,91,49,44,32,51,49,93,32,42,47,10,32,32,32,32,105,110,116,32,116,109,95
-,109,111,110,59,32,32,32,47,42,32,109,111,110,116,104,115,32,115,105,110,99,101,32,74,97
-,110,117,97,114,121,32,91,48,44,32,49,49,93,32,42,47,10,32,32,32,32,105,110,116,32
-,116,109,95,121,101,97,114,59,32,32,47,42,32,121,101,97,114,115,32,115,105,110,99,101,32
-,49,57,48,48,32,42,47,10,32,32,32,32,105,110,116,32,116,109,95,119,100,97,121,59,32
-,32,47,42,32,100,97,121,115,32,115,105,110,99,101,32,83,117,110,100,97,121,32,91,48,44
-,32,54,93,32,42,47,10,32,32,32,32,105,110,116,32,116,109,95,121,100,97,121,59,32,32
-,47,42,32,100,97,121,115,32,115,105,110,99,101,32,74,97,110,117,97,114,121,32,49,32,91
-,48,44,32,51,54,53,93,32,42,47,10,32,32,32,32,105,110,116,32,116,109,95,105,115,100
-,115,116,59,32,47,42,32,68,97,121,108,105,103,104,116,32,83,97,118,105,110,103,32,84,105
-,109,101,32,102,108,97,103,32,42,47,10,35,105,102,32,100,101,102,105,110,101,100,40,95,95
-,108,105,110,117,120,95,95,41,32,124,124,32,100,101,102,105,110,101,100,40,95,95,65,80,80
-,76,69,95,95,41,10,32,32,32,32,108,111,110,103,32,116,109,95,103,109,116,111,102,102,59
-,10,32,32,32,32,99,111,110,115,116,32,99,104,97,114,42,32,116,109,95,122,111,110,101,59
-,10,35,101,110,100,105,102,10,125,59,10,10,115,116,114,117,99,116,32,116,105,109,101,115,112
-,101,99,10,123,10,32,32,32,32,116,105,109,101,95,116,32,116,118,95,115,101,99,59,10,32
-,32,32,32,108,111,110,103,32,116,118,95,110,115,101,99,59,10,125,59,10,10,35,105,102,32
-,100,101,102,105,110,101,100,40,95,87,73,78,51,50,41,10,10,47,42,32,116,104,101,32,109
-,115,118,99,32,67,82,84,32,101,120,112,111,114,116,115,32,111,110,108,121,32,116,104,101,32
-,54,52,32,98,105,116,115,32,118,101,114,115,105,111,110,115,44,32,116,105,109,101,40,41,32
-,101,116,99,46,32,97,114,101,32,105,110,108,105,110,101,10,32,32,32,119,114,97,112,112,101
-,114,115,32,105,110,32,105,116,115,32,104,101,97,100,101,114,115,32,42,47,10,99,108,111,99
-,107,95,116,32,99,108,111,99,107,40,118,111,105,100,41,59,10,100,111,117,98,108,101,32,95
-,100,105,102,102,116,105,109,101,54,52,40,116,105,109,101,95,116,32,116,105,109,101,49,44,32
-,116,105,109,101,95,116,32,116,105,109,101,48,41,59,10,116,105,109,101,95,116,32,95,109,107
-,116,105,109,101,54,52,40,115,116,114,117,99,116,32,116,109,42,32,116,105,109,101,112,116,114
-,41,59,10,116,105,109,101,95,116,32,95,109,107,103,109,116,105,109,101,54,52,40,115,116,114
-,117,99,116,32,116,109,42,32,116,105,109,101,112,116,114,41,59,10,116,105,109,101,95,116,32
-,95,116,105,109,101,54,52,40,116,105,109,101,95,116,42,32,95,79,112,116,32,116,105,109,101
-,114,41,59,10,105,110,116,32,95,116,105,109,101,115,112,101,99,54,52,95,103,101,116,40,115
-,116,114,117,99,116,32,116,105,109,101,115,112,101,99,42,32,116,115,44,32,105,110,116,32,98
-,97,115,101,41,59,10,99,104,97,114,42,32,95,79,112,116,32,95,99,116,105,109,101,54,52
+,84,73,77,69,95,85,84,67,32,49,10,35,105,102,32,100,101,102,105,110,101,100,40,95,95
+,108,105,110,117,120,95,95,41,10,47,42,32,116,104,101,32,111,116,104,101,114,32,67,50,51
+,32,98,97,115,101,115,32,97,114,101,32,111,110,108,121,32,104,111,110,111,117,114,101,100,32
+,98,121,32,103,108,105,98,99,32,62,61,32,50,46,51,52,32,42,47,10,35,100,101,102,105
+,110,101,32,84,73,77,69,95,77,79,78,79,84,79,78,73,67,32,50,10,35,100,101,102,105
+,110,101,32,84,73,77,69,95,65,67,84,73,86,69,32,51,10,35,100,101,102,105,110,101,32
+,84,73,77,69,95,84,72,82,69,65,68,95,65,67,84,73,86,69,32,52,10,35,101,110,100
+,105,102,10,10,115,116,114,117,99,116,32,116,109,10,123,10,32,32,32,32,105,110,116,32,116
+,109,95,115,101,99,59,32,32,32,47,42,32,115,101,99,111,110,100,115,32,97,102,116,101,114
+,32,116,104,101,32,109,105,110,117,116,101,32,91,48,44,32,54,48,93,32,42,47,10,32,32
+,32,32,105,110,116,32,116,109,95,109,105,110,59,32,32,32,47,42,32,109,105,110,117,116,101
+,115,32,97,102,116,101,114,32,116,104,101,32,104,111,117,114,32,91,48,44,32,53,57,93,32
+,42,47,10,32,32,32,32,105,110,116,32,116,109,95,104,111,117,114,59,32,32,47,42,32,104
+,111,117,114,115,32,115,105,110,99,101,32,109,105,100,110,105,103,104,116,32,91,48,44,32,50
+,51,93,32,42,47,10,32,32,32,32,105,110,116,32,116,109,95,109,100,97,121,59,32,32,47
+,42,32,100,97,121,32,111,102,32,116,104,101,32,109,111,110,116,104,32,91,49,44,32,51,49
+,93,32,42,47,10,32,32,32,32,105,110,116,32,116,109,95,109,111,110,59,32,32,32,47,42
+,32,109,111,110,116,104,115,32,115,105,110,99,101,32,74,97,110,117,97,114,121,32,91,48,44
+,32,49,49,93,32,42,47,10,32,32,32,32,105,110,116,32,116,109,95,121,101,97,114,59,32
+,32,47,42,32,121,101,97,114,115,32,115,105,110,99,101,32,49,57,48,48,32,42,47,10,32
+,32,32,32,105,110,116,32,116,109,95,119,100,97,121,59,32,32,47,42,32,100,97,121,115,32
+,115,105,110,99,101,32,83,117,110,100,97,121,32,91,48,44,32,54,93,32,42,47,10,32,32
+,32,32,105,110,116,32,116,109,95,121,100,97,121,59,32,32,47,42,32,100,97,121,115,32,115
+,105,110,99,101,32,74,97,110,117,97,114,121,32,49,32,91,48,44,32,51,54,53,93,32,42
+,47,10,32,32,32,32,105,110,116,32,116,109,95,105,115,100,115,116,59,32,47,42,32,68,97
+,121,108,105,103,104,116,32,83,97,118,105,110,103,32,84,105,109,101,32,102,108,97,103,32,42
+,47,10,35,105,102,32,100,101,102,105,110,101,100,40,95,95,108,105,110,117,120,95,95,41,32
+,124,124,32,100,101,102,105,110,101,100,40,95,95,65,80,80,76,69,95,95,41,10,32,32,32
+,32,108,111,110,103,32,116,109,95,103,109,116,111,102,102,59,10,32,32,32,32,99,111,110,115
+,116,32,99,104,97,114,42,32,116,109,95,122,111,110,101,59,10,35,101,110,100,105,102,10,125
+,59,10,10,115,116,114,117,99,116,32,116,105,109,101,115,112,101,99,10,123,10,32,32,32,32
+,116,105,109,101,95,116,32,116,118,95,115,101,99,59,10,32,32,32,32,108,111,110,103,32,116
+,118,95,110,115,101,99,59,10,125,59,10,10,35,105,102,32,100,101,102,105,110,101,100,40,95
+,87,73,78,51,50,41,10,10,47,42,32,116,104,101,32,109,115,118,99,32,67,82,84,32,101
+,120,112,111,114,116,115,32,111,110,108,121,32,116,104,101,32,54,52,32,98,105,116,115,32,118
+,101,114,115,105,111,110,115,44,32,116,105,109,101,40,41,32,101,116,99,46,32,97,114,101,32
+,105,110,108,105,110,101,10,32,32,32,119,114,97,112,112,101,114,115,32,105,110,32,105,116,115
+,32,104,101,97,100,101,114,115,32,42,47,10,99,108,111,99,107,95,116,32,99,108,111,99,107
+,40,118,111,105,100,41,59,10,100,111,117,98,108,101,32,95,100,105,102,102,116,105,109,101,54
+,52,40,116,105,109,101,95,116,32,116,105,109,101,49,44,32,116,105,109,101,95,116,32,116,105
+,109,101,48,41,59,10,116,105,109,101,95,116,32,95,109,107,116,105,109,101,54,52,40,115,116
+,114,117,99,116,32,116,109,42,32,116,105,109,101,112,116,114,41,59,10,116,105,109,101,95,116
+,32,95,109,107,103,109,116,105,109,101,54,52,40,115,116,114,117,99,116,32,116,109,42,32,116
+,105,109,101,112,116,114,41,59,10,116,105,109,101,95,116,32,95,116,105,109,101,54,52,40,116
+,105,109,101,95,116,42,32,95,79,112,116,32,116,105,109,101,114,41,59,10,105,110,116,32,95
+,116,105,109,101,115,112,101,99,54,52,95,103,101,116,40,115,116,114,117,99,116,32,116,105,109
+,101,115,112,101,99,42,32,116,115,44,32,105,110,116,32,98,97,115,101,41,59,10,99,104,97
+,114,42,32,95,79,112,116,32,95,99,116,105,109,101,54,52,40,99,111,110,115,116,32,116,105
+,109,101,95,116,42,32,116,105,109,101,114,41,59,10,115,116,114,117,99,116,32,116,109,42,32
+,95,79,112,116,32,95,103,109,116,105,109,101,54,52,40,99,111,110,115,116,32,116,105,109,101
+,95,116,42,32,116,105,109,101,114,41,59,10,115,116,114,117,99,116,32,116,109,42,32,95,79
+,112,116,32,95,108,111,99,97,108,116,105,109,101,54,52,40,99,111,110,115,116,32,116,105,109
+,101,95,116,42,32,116,105,109,101,114,41,59,10,99,104,97,114,42,32,95,79,112,116,32,97
+,115,99,116,105,109,101,40,99,111,110,115,116,32,115,116,114,117,99,116,32,116,109,42,32,116
+,105,109,101,112,116,114,41,59,10,115,105,122,101,95,116,32,115,116,114,102,116,105,109,101,40
+,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,44,32,115,105,122,101,95,116,32
+,109,97,120,115,105,122,101,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116
+,114,105,99,116,32,102,111,114,109,97,116,44,32,99,111,110,115,116,32,115,116,114,117,99,116
+,32,116,109,42,32,114,101,115,116,114,105,99,116,32,116,105,109,101,112,116,114,41,59,10,10
+,35,100,101,102,105,110,101,32,100,105,102,102,116,105,109,101,32,32,32,32,32,95,100,105,102
+,102,116,105,109,101,54,52,10,35,100,101,102,105,110,101,32,109,107,116,105,109,101,32,32,32
+,32,32,32,32,95,109,107,116,105,109,101,54,52,10,35,100,101,102,105,110,101,32,116,105,109
+,101,103,109,32,32,32,32,32,32,32,95,109,107,103,109,116,105,109,101,54,52,10,35,100,101
+,102,105,110,101,32,116,105,109,101,32,32,32,32,32,32,32,32,32,95,116,105,109,101,54,52
+,10,35,100,101,102,105,110,101,32,116,105,109,101,115,112,101,99,95,103,101,116,32,95,116,105
+,109,101,115,112,101,99,54,52,95,103,101,116,10,35,100,101,102,105,110,101,32,99,116,105,109
+,101,32,32,32,32,32,32,32,32,95,99,116,105,109,101,54,52,10,35,100,101,102,105,110,101
+,32,103,109,116,105,109,101,32,32,32,32,32,32,32,95,103,109,116,105,109,101,54,52,10,35
+,100,101,102,105,110,101,32,108,111,99,97,108,116,105,109,101,32,32,32,32,95,108,111,99,97
+,108,116,105,109,101,54,52,10,10,35,101,108,115,101,10,10,47,42,32,116,105,109,101,32,109
+,97,110,105,112,117,108,97,116,105,111,110,32,42,47,10,99,108,111,99,107,95,116,32,99,108
+,111,99,107,40,118,111,105,100,41,59,10,100,111,117,98,108,101,32,100,105,102,102,116,105,109
+,101,40,116,105,109,101,95,116,32,116,105,109,101,49,44,32,116,105,109,101,95,116,32,116,105
+,109,101,48,41,59,10,116,105,109,101,95,116,32,109,107,116,105,109,101,40,115,116,114,117,99
+,116,32,116,109,42,32,116,105,109,101,112,116,114,41,59,10,116,105,109,101,95,116,32,116,105
+,109,101,103,109,40,115,116,114,117,99,116,32,116,109,42,32,116,105,109,101,112,116,114,41,59
+,10,116,105,109,101,95,116,32,116,105,109,101,40,116,105,109,101,95,116,42,32,95,79,112,116
+,32,116,105,109,101,114,41,59,10,105,110,116,32,116,105,109,101,115,112,101,99,95,103,101,116
+,40,115,116,114,117,99,116,32,116,105,109,101,115,112,101,99,42,32,116,115,44,32,105,110,116
+,32,98,97,115,101,41,59,10,35,105,102,32,100,101,102,105,110,101,100,40,95,95,108,105,110
+,117,120,95,95,41,10,105,110,116,32,116,105,109,101,115,112,101,99,95,103,101,116,114,101,115
+,40,115,116,114,117,99,116,32,116,105,109,101,115,112,101,99,42,32,116,115,44,32,105,110,116
+,32,98,97,115,101,41,59,10,35,101,110,100,105,102,10,10,47,42,32,116,105,109,101,32,99
+,111,110,118,101,114,115,105,111,110,32,42,47,10,99,104,97,114,42,32,95,79,112,116,32,97
+,115,99,116,105,109,101,40,99,111,110,115,116,32,115,116,114,117,99,116,32,116,109,42,32,116
+,105,109,101,112,116,114,41,59,10,99,104,97,114,42,32,95,79,112,116,32,99,116,105,109,101
 ,40,99,111,110,115,116,32,116,105,109,101,95,116,42,32,116,105,109,101,114,41,59,10,115,116
-,114,117,99,116,32,116,109,42,32,95,79,112,116,32,95,103,109,116,105,109,101,54,52,40,99
-,111,110,115,116,32,116,105,109,101,95,116,42,32,116,105,109,101,114,41,59,10,115,116,114,117
-,99,116,32,116,109,42,32,95,79,112,116,32,95,108,111,99,97,108,116,105,109,101,54,52,40
-,99,111,110,115,116,32,116,105,109,101,95,116,42,32,116,105,109,101,114,41,59,10,99,104,97
-,114,42,32,95,79,112,116,32,97,115,99,116,105,109,101,40,99,111,110,115,116,32,115,116,114
-,117,99,116,32,116,109,42,32,116,105,109,101,112,116,114,41,59,10,115,105,122,101,95,116,32
-,115,116,114,102,116,105,109,101,40,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115
-,44,32,115,105,122,101,95,116,32,109,97,120,115,105,122,101,44,32,99,111,110,115,116,32,99
-,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,99,111,110
-,115,116,32,115,116,114,117,99,116,32,116,109,42,32,114,101,115,116,114,105,99,116,32,116,105
-,109,101,112,116,114,41,59,10,10,35,100,101,102,105,110,101,32,100,105,102,102,116,105,109,101
-,32,32,32,32,32,95,100,105,102,102,116,105,109,101,54,52,10,35,100,101,102,105,110,101,32
-,109,107,116,105,109,101,32,32,32,32,32,32,32,95,109,107,116,105,109,101,54,52,10,35,100
-,101,102,105,110,101,32,116,105,109,101,103,109,32,32,32,32,32,32,32,95,109,107,103,109,116
-,105,109,101,54,52,10,35,100,101,102,105,110,101,32,116,105,109,101,32,32,32,32,32,32,32
-,32,32,95,116,105,109,101,54,52,10,35,100,101,102,105,110,101,32,116,105,109,101,115,112,101
-,99,95,103,101,116,32,95,116,105,109,101,115,112,101,99,54,52,95,103,101,116,10,35,100,101
-,102,105,110,101,32,99,116,105,109,101,32,32,32,32,32,32,32,32,95,99,116,105,109,101,54
-,52,10,35,100,101,102,105,110,101,32,103,109,116,105,109,101,32,32,32,32,32,32,32,95,103
-,109,116,105,109,101,54,52,10,35,100,101,102,105,110,101,32,108,111,99,97,108,116,105,109,101
-,32,32,32,32,95,108,111,99,97,108,116,105,109,101,54,52,10,10,35,101,108,115,101,10,10
-,47,42,32,116,105,109,101,32,109,97,110,105,112,117,108,97,116,105,111,110,32,42,47,10,99
-,108,111,99,107,95,116,32,99,108,111,99,107,40,118,111,105,100,41,59,10,100,111,117,98,108
-,101,32,100,105,102,102,116,105,109,101,40,116,105,109,101,95,116,32,116,105,109,101,49,44,32
-,116,105,109,101,95,116,32,116,105,109,101,48,41,59,10,116,105,109,101,95,116,32,109,107,116
-,105,109,101,40,115,116,114,117,99,116,32,116,109,42,32,116,105,109,101,112,116,114,41,59,10
-,116,105,109,101,95,116,32,116,105,109,101,103,109,40,115,116,114,117,99,116,32,116,109,42,32
-,116,105,109,101,112,116,114,41,59,10,116,105,109,101,95,116,32,116,105,109,101,40,116,105,109
-,101,95,116,42,32,95,79,112,116,32,116,105,109,101,114,41,59,10,105,110,116,32,116,105,109
-,101,115,112,101,99,95,103,101,116,40,115,116,114,117,99,116,32,116,105,109,101,115,112,101,99
-,42,32,116,115,44,32,105,110,116,32,98,97,115,101,41,59,10,35,105,102,32,100,101,102,105
-,110,101,100,40,95,95,108,105,110,117,120,95,95,41,10,105,110,116,32,116,105,109,101,115,112
-,101,99,95,103,101,116,114,101,115,40,115,116,114,117,99,116,32,116,105,109,101,115,112,101,99
-,42,32,116,115,44,32,105,110,116,32,98,97,115,101,41,59,10,35,101,110,100,105,102,10,10
-,47,42,32,116,105,109,101,32,99,111,110,118,101,114,115,105,111,110,32,42,47,10,99,104,97
-,114,42,32,95,79,112,116,32,97,115,99,116,105,109,101,40,99,111,110,115,116,32,115,116,114
-,117,99,116,32,116,109,42,32,116,105,109,101,112,116,114,41,59,10,99,104,97,114,42,32,95
-,79,112,116,32,99,116,105,109,101,40,99,111,110,115,116,32,116,105,109,101,95,116,42,32,116
-,105,109,101,114,41,59,10,115,116,114,117,99,116,32,116,109,42,32,95,79,112,116,32,103,109
-,116,105,109,101,40,99,111,110,115,116,32,116,105,109,101,95,116,42,32,116,105,109,101,114,41
-,59,10,115,116,114,117,99,116,32,116,109,42,32,95,79,112,116,32,108,111,99,97,108,116,105
-,109,101,40,99,111,110,115,116,32,116,105,109,101,95,116,42,32,116,105,109,101,114,41,59,10
-,115,105,122,101,95,116,32,115,116,114,102,116,105,109,101,40,99,104,97,114,42,32,114,101,115
-,116,114,105,99,116,32,115,44,32,115,105,122,101,95,116,32,109,97,120,115,105,122,101,44,32
-,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109
-,97,116,44,32,99,111,110,115,116,32,115,116,114,117,99,116,32,116,109,42,32,114,101,115,116
-,114,105,99,116,32,116,105,109,101,112,116,114,41,59,10,10,35,105,102,32,100,101,102,105,110
-,101,100,40,95,95,108,105,110,117,120,95,95,41,32,124,124,32,100,101,102,105,110,101,100,40
-,95,95,65,80,80,76,69,95,95,41,10,47,42,32,80,79,83,73,88,32,42,47,10,115,116
-,114,117,99,116,32,116,109,42,32,95,79,112,116,32,103,109,116,105,109,101,95,114,40,99,111
-,110,115,116,32,116,105,109,101,95,116,42,32,116,105,109,101,114,44,32,115,116,114,117,99,116
-,32,116,109,42,32,98,117,102,41,59,10,115,116,114,117,99,116,32,116,109,42,32,95,79,112
-,116,32,108,111,99,97,108,116,105,109,101,95,114,40,99,111,110,115,116,32,116,105,109,101,95
+,114,117,99,116,32,116,109,42,32,95,79,112,116,32,103,109,116,105,109,101,40,99,111,110,115
+,116,32,116,105,109,101,95,116,42,32,116,105,109,101,114,41,59,10,115,116,114,117,99,116,32
+,116,109,42,32,95,79,112,116,32,108,111,99,97,108,116,105,109,101,40,99,111,110,115,116,32
+,116,105,109,101,95,116,42,32,116,105,109,101,114,41,59,10,115,105,122,101,95,116,32,115,116
+,114,102,116,105,109,101,40,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,44,32
+,115,105,122,101,95,116,32,109,97,120,115,105,122,101,44,32,99,111,110,115,116,32,99,104,97
+,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,99,111,110,115,116
+,32,115,116,114,117,99,116,32,116,109,42,32,114,101,115,116,114,105,99,116,32,116,105,109,101
+,112,116,114,41,59,10,10,35,105,102,32,100,101,102,105,110,101,100,40,95,95,108,105,110,117
+,120,95,95,41,32,124,124,32,100,101,102,105,110,101,100,40,95,95,65,80,80,76,69,95,95
+,41,10,47,42,32,80,79,83,73,88,32,42,47,10,115,116,114,117,99,116,32,116,109,42,32
+,95,79,112,116,32,103,109,116,105,109,101,95,114,40,99,111,110,115,116,32,116,105,109,101,95
 ,116,42,32,116,105,109,101,114,44,32,115,116,114,117,99,116,32,116,109,42,32,98,117,102,41
-,59,10,99,104,97,114,42,32,95,79,112,116,32,97,115,99,116,105,109,101,95,114,40,99,111
-,110,115,116,32,115,116,114,117,99,116,32,116,109,42,32,114,101,115,116,114,105,99,116,32,116
-,109,44,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,98,117,102,41,59,10,99
-,104,97,114,42,32,95,79,112,116,32,99,116,105,109,101,95,114,40,99,111,110,115,116,32,116
-,105,109,101,95,116,42,32,99,108,111,99,107,44,32,99,104,97,114,42,32,98,117,102,41,59
-,10,105,110,116,32,110,97,110,111,115,108,101,101,112,40,99,111,110,115,116,32,115,116,114,117
-,99,116,32,116,105,109,101,115,112,101,99,42,32,114,101,113,44,32,115,116,114,117,99,116,32
-,116,105,109,101,115,112,101,99,42,32,95,79,112,116,32,114,101,109,41,59,10,35,101,110,100
-,105,102,10,10,35,101,110,100,105,102,10,10,35,101,108,115,101,10,35,105,110,99,108,117,100
-,101,95,110,101,120,116,32,60,116,105,109,101,46,104,62,10,35,101,110,100,105,102,10
+,59,10,115,116,114,117,99,116,32,116,109,42,32,95,79,112,116,32,108,111,99,97,108,116,105
+,109,101,95,114,40,99,111,110,115,116,32,116,105,109,101,95,116,42,32,116,105,109,101,114,44
+,32,115,116,114,117,99,116,32,116,109,42,32,98,117,102,41,59,10,99,104,97,114,42,32,95
+,79,112,116,32,97,115,99,116,105,109,101,95,114,40,99,111,110,115,116,32,115,116,114,117,99
+,116,32,116,109,42,32,114,101,115,116,114,105,99,116,32,116,109,44,32,99,104,97,114,42,32
+,114,101,115,116,114,105,99,116,32,98,117,102,41,59,10,99,104,97,114,42,32,95,79,112,116
+,32,99,116,105,109,101,95,114,40,99,111,110,115,116,32,116,105,109,101,95,116,42,32,99,108
+,111,99,107,44,32,99,104,97,114,42,32,98,117,102,41,59,10,105,110,116,32,110,97,110,111
+,115,108,101,101,112,40,99,111,110,115,116,32,115,116,114,117,99,116,32,116,105,109,101,115,112
+,101,99,42,32,114,101,113,44,32,115,116,114,117,99,116,32,116,105,109,101,115,112,101,99,42
+,32,95,79,112,116,32,114,101,109,41,59,10,35,101,110,100,105,102,10,10,35,101,110,100,105
+,102,10,10,35,101,108,115,101,10,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,116
+,105,109,101,46,104,62,10,35,101,110,100,105,102,10
 , 0 };
 static const char file_uchar_h[] = {
 
@@ -19110,11 +19770,10 @@ static const char file_wctype_h[] = {
 ,101,32,60,95,95,99,97,107,101,95,116,121,112,101,115,46,104,62,10,10,35,100,101,102,105
 ,110,101,32,95,95,83,84,68,67,95,86,69,82,83,73,79,78,95,87,67,84,89,80,69,95
 ,72,95,95,32,50,48,50,51,49,49,76,10,10,116,121,112,101,100,101,102,32,95,95,99,97
-,107,101,95,119,105,110,116,95,116,32,119,105,110,116,95,116,59,10,116,121,112,101,100,101,102
-,32,95,95,99,97,107,101,95,119,99,104,97,114,95,116,32,119,99,104,97,114,95,116,59,10
-,35,105,102,32,100,101,102,105,110,101,100,40,95,87,73,78,51,50,41,10,116,121,112,101,100
-,101,102,32,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,119,99,116,121,112,101,95
-,116,59,10,116,121,112,101,100,101,102,32,119,99,104,97,114,95,116,32,119,99,116,114,97,110
+,107,101,95,119,105,110,116,95,116,32,119,105,110,116,95,116,59,10,35,105,102,32,100,101,102
+,105,110,101,100,40,95,87,73,78,51,50,41,10,116,121,112,101,100,101,102,32,117,110,115,105
+,103,110,101,100,32,115,104,111,114,116,32,119,99,116,121,112,101,95,116,59,10,116,121,112,101
+,100,101,102,32,95,95,99,97,107,101,95,119,99,104,97,114,95,116,32,119,99,116,114,97,110
 ,115,95,116,59,10,35,101,108,105,102,32,100,101,102,105,110,101,100,40,95,95,65,80,80,76
 ,69,95,95,41,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,105,110,116
 ,32,119,99,116,121,112,101,95,116,59,10,116,121,112,101,100,101,102,32,105,110,116,32,119,99
@@ -20591,6 +21250,12 @@ int type_get_integer_rank(const struct type* p_type1, enum target target);
 bool type_is_arithmetic(const struct type* p_type);
 
 bool type_is_struct_or_union(const struct type* p_type);
+bool struct_or_union_specifier_is_same_content(const struct struct_or_union_specifier* a,
+                                               const struct struct_or_union_specifier* b);
+bool enum_specifier_is_same_content(const struct enum_specifier* a, const struct enum_specifier* b);
+bool enum_specifier_is_same_type(const struct enum_specifier* a, const struct enum_specifier* b);
+bool struct_or_union_specifier_is_compatible(const struct struct_or_union_specifier* a,
+                                             const struct struct_or_union_specifier* b);
 bool type_is_union(const struct type* p_type);
 
 bool type_is_void(const struct type* p_type);
@@ -21996,7 +22661,8 @@ struct enumerator_list
 };
 
 struct enumerator_list enumerator_list(struct parser_ctx* ctx,
-    struct enum_specifier* p_enum_specifier
+    struct enum_specifier* p_enum_specifier,
+    const struct enum_specifier* _Opt prev_decl_same_scope
 );
 
 void enumerator_list_destroy(_Dtor struct enumerator_list* p_enum_specifier);
@@ -22095,6 +22761,9 @@ struct struct_or_union_specifier
     char tag_name[200];
     /*geramos um tag name para anomimas, mas colocamos banonymousTag para true*/
     bool has_anonymous_tag;
+
+    /* set when defined inside a parameter list: that scope. The tag is moved to the enclosing scope (C23 tag compatibility) */
+    struct scope* _Opt p_parameters_scope_opt;
     /*it was asked to show struct tag created for anonymous*/
     bool show_anonymous_tag;
 
@@ -23094,7 +23763,7 @@ struct enumerator
     struct object value;
 };
 
-struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, struct object* p_enumerator_value, long long lo_limit, unsigned long long hi_limit, long long *min_value, unsigned long long *max_value, bool* next_ovf);
+struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, const struct enum_specifier* _Opt prev_decl_same_scope, struct object* p_enumerator_value, long long lo_limit, unsigned long long hi_limit, long long *min_value, unsigned long long *max_value, bool* next_ovf);
 struct enumerator* _Owner enumerator_add_ref(struct enumerator* p);
 void enumerator_delete(_Dtor struct enumerator* _Owner _Opt  p);
 
@@ -31009,6 +31678,16 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                ctx,
                                ctx->current, NULL,
                                "structure or union required");
+
+                    if (ctx->current != NULL)
+                        p_expression_node_new->last_token = ctx->current;
+
+                    if (parser_match_tk(ctx, TK_IDENTIFIER) != 0)
+                    {
+                        expression_delete(p_expression_node_new);
+                        p_expression_node_new = NULL;
+                        throw;
+                    }
                 }
                 /* TODO: point to the name? */
                 p_expression_node = p_expression_node_new;
@@ -31147,6 +31826,17 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                    ctx,
                                    ctx->current, NULL,
                                    "structure or union required");
+
+                        if (ctx->current != NULL)
+                            p_expression_node_new->last_token = ctx->current;
+
+                        if (parser_match_tk(ctx, TK_IDENTIFIER) != 0)
+                        {
+                            type_destroy(&item_type);
+                            expression_delete(p_expression_node_new);
+                            p_expression_node_new = NULL;
+                            throw;
+                        }
                     }
                     type_destroy(&item_type);
                 }
@@ -31156,6 +31846,16 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                ctx,
                                ctx->current, NULL,
                                "structure or union required");
+
+                    if (ctx->current != NULL)
+                        p_expression_node_new->last_token = ctx->current;
+
+                    if (parser_match_tk(ctx, TK_IDENTIFIER) != 0)
+                    {
+                        expression_delete(p_expression_node_new);
+                        p_expression_node_new = NULL;
+                        throw;
+                    }
                 }
 
                 p_expression_node_new->lvalue_disabled = p_expression_node->lvalue_disabled;
@@ -33454,6 +34154,27 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                             NULL,
                                    "cast of 'void' term to non-'void' is illegal");
                     }
+                    else if (!type_is_void(&p_expression_node->object.type) &&
+                        !type_is_scalar(&p_expression_node->object.type))
+                    {
+                        diagnostic(C_ERROR_CAST_TO_NON_SCALAR_TYPE,
+                                   ctx,
+                                   p_expression_node->first_token,
+                            NULL,
+                                   "used type cannot be casted to because it is not a scalar type");
+                    }
+                    else if (!type_is_void(&p_expression_node->object.type) &&
+                        !type_is_void(&p_expression_node->left->object.type) &&
+                        !type_is_array(&p_expression_node->left->object.type) &&
+                        !type_is_scalar(&p_expression_node->left->object.type))
+                    {
+                        /* array operands decay to pointer, like any other unary-expression use */
+                        diagnostic(C_ERROR_CAST_TO_NON_SCALAR_TYPE,
+                                   ctx,
+                                   p_expression_node->first_token,
+                            NULL,
+                                   "operand of cast expression must have scalar type");
+                    }
                     else if (type_is_floating_point(&p_expression_node->object.type) &&
                         type_is_pointer(&p_expression_node->left->object.type))
                     {
@@ -33556,7 +34277,16 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                             struct type t = { 0 };
                             type_swap(&t, &p_expression_node->object.type);
                             object_destroy(&p_expression_node->object);
-                            p_expression_node->object = object_cast(ctx->options.target, vt, &p_expression_node->left->object);
+                            if (type_is_bool(&t))
+                            {
+                                /* 6.3.1.2: any nonzero value converts to 1, it is
+                                   not a truncation to the bool storage type */
+                                p_expression_node->object = object_make_bool(ctx->options.target, !object_is_zero(&p_expression_node->left->object));
+                            }
+                            else
+                            {
+                                p_expression_node->object = object_cast(ctx->options.target, vt, &p_expression_node->left->object);
+                            }
                             type_swap(&p_expression_node->object.type, &t);
                             type_destroy(&t);
                         }
@@ -34352,6 +35082,20 @@ static void check_comparison(const struct parser_ctx* ctx,
                        "operands differ in levels of indirection");
         }
     }
+    else if (type_is_nullptr_t(p_a_type) != type_is_nullptr_t(p_b_type))
+    {
+        /* nullptr_t only compares with nullptr_t, a pointer type, or a null pointer constant */
+        if (!equal_not_equal ||
+            !(type_is_nullptr_t(p_a_type) ?
+                expression_is_null_pointer_constant(p_b_expression) :
+                expression_is_null_pointer_constant(p_a_expression)))
+        {
+            diagnostic(C_ERROR_NULLPTR_COMPARISON,
+                       ctx,
+                       op_token, NULL,
+                       "both operands to comparison must have type 'nullptr_t' or a pointer type");
+        }
+    }
 
     if (type_is_bool(p_a_type) &&
         !(type_is_bool(p_b_type) || type_is_essential_bool(p_b_type)))
@@ -34641,8 +35385,8 @@ void check_diferent_enuns(const struct parser_ctx* ctx,
         _Assert(left->object.type.enum_specifier);
         _Assert(right->object.type.enum_specifier);
 
-        if (get_complete_enum_specifier(left->object.type.enum_specifier) !=
-            get_complete_enum_specifier(right->object.type.enum_specifier))
+        if (!enum_specifier_is_same_type(left->object.type.enum_specifier,
+                                         right->object.type.enum_specifier))
         {
             _Assert(left->object.type.enum_specifier != NULL);
             _Assert(right->object.type.enum_specifier != NULL);
@@ -36189,8 +36933,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
                     type_is_enum(&right_type) &&
                     left_type.enum_specifier &&
                     right_type.enum_specifier &&
-                    left_type.enum_specifier->p_complete_enum_specifier ==
-                    right_type.enum_specifier->p_complete_enum_specifier)
+                    enum_specifier_is_same_type(left_type.enum_specifier, right_type.enum_specifier))
                 {
                     /*
                     * Both operands are the same enum type. Keep that enum type
@@ -36606,6 +37349,16 @@ void check_assigment(const struct parser_ctx* ctx,
             }
         }
 
+        if (type_is_function(p_b_type) &&
+            !(p_a_type->next && type_is_function(p_a_type->next)))
+        {
+            diagnostic(C_ERROR_FUNCTION_POINTER_TO_OBJECT_POINTER,
+                       ctx,
+                       p_b_expression->first_token,
+                       NULL,
+                       "a function shall not be implicitly converted to an object pointer type");
+        }
+
         if (!type_is_nullptr_t(p_b_type) &&
             !type_is_pointer_or_array(p_b_type) &&
             !type_is_function(p_b_type))
@@ -36683,7 +37436,7 @@ void check_assigment(const struct parser_ctx* ctx,
         _Assert(p_a_type->enum_specifier);
         _Assert(p_b_type->enum_specifier);
 
-        if (p_b_type->enum_specifier->p_complete_enum_specifier != p_a_type->enum_specifier->p_complete_enum_specifier)
+        if (!enum_specifier_is_same_type(p_a_type->enum_specifier, p_b_type->enum_specifier))
         {
             diagnostic(W_INCOMPATIBLE_ENUN_TYPES, ctx,
                        p_b_expression->first_token, NULL,
@@ -36950,13 +37703,34 @@ void check_assigment(const struct parser_ctx* ctx,
         type_destroy(&a_type_lvalue);
     }
 
-    if (!type_is_same(p_a_type, &b_type_lvalue, false))
+    /*
+    * C23 6.5.16.1p1: a struct or union value may only be assigned to (or
+    * passed as) an object of a compatible struct or union type; there is
+    * no implicit conversion to or from anything else. (issue #367)
+    */
+    const bool a_is_struct = type_is_struct_or_union(p_a_type);
+    const bool b_is_struct = type_is_struct_or_union(&b_type_lvalue);
+
+    if (a_is_struct || b_is_struct)
     {
-        // diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
-        // ctx,
-        // p_b_expression->first_token,
-        // NULL,
-        // " incompatible types ");
+        const bool compatible =
+            a_is_struct && b_is_struct &&
+            type_is_compatible(p_a_type, &b_type_lvalue);
+
+        if (!compatible)
+        {
+            struct osstream ss_a = { 0 };
+            struct osstream ss_b = { 0 };
+            print_type_no_names(&ss_a, p_a_type, ctx->options.target);
+            print_type_no_names(&ss_b, &b_type_lvalue, ctx->options.target);
+
+            diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx,
+                       p_b_expression->first_token, NULL,
+                       "incompatible types: '%s' from '%s'", ss_a.c_str, ss_b.c_str);
+
+            ss_close(&ss_a);
+            ss_close(&ss_b);
+        }
     }
 
     type_destroy(&b_type_lvalue);
@@ -38266,7 +39040,7 @@ void flow_branch_set_object_moved(struct flow_branch* _Opt m, const struct objec
 void flow_branch_set_object_zero(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token);
 void flow_branch_set_object_uninitialized(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token);
 void flow_branch_set_object_any_n(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token, bool nullable_enabled);
-void flow_branch_set_object_lifetime_ended(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token);
+void flow_branch_set_object_lifetime_ended(struct flow_branch* m, const struct object* obj, const struct token* _Opt p_token);
 void flow_branch_apply_dtor_or_clear_effect(struct flow_branch* _Opt m, const struct object* obj, bool is_clear, const struct token* _Opt p_token);
 
 bool flow_branch_arm_has_entries(const struct flow_branch* arm, const struct flow_branch* parent);
@@ -38357,7 +39131,7 @@ struct flow_deferred_pointee_effect
     const struct token* _Opt p_token; /* where the call is, for the state it sets */
 };
 
-struct flow_visit_ctx
+struct flow_ctx
 {
     struct parser_ctx* const ctx;
 
@@ -38421,8 +39195,8 @@ struct flow_visit_ctx
     int pending_ended_report_line;
 };
 
-void flow_visit_ctx_destroy(_Dtor struct flow_visit_ctx* p);
-void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration);
+void flow_visit_ctx_destroy(_Dtor struct flow_ctx* p);
+void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declaration);
 
 
 
@@ -38435,7 +39209,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 */
 
 //#pragma once
-#define CAKE_VERSION "0.14.44"
+#define CAKE_VERSION "0.14.45"
 
 
 
@@ -38754,7 +39528,7 @@ void format_align_if_already_wrapped(struct token* t, const char* indent)
     }
     else if (t->prev && t->prev->type == TK_NEWLINE)
     {
-        char combined[300];
+        char combined[300]= {0};
         snprintf(combined, sizeof combined, "\n%s", indent);
         format_set_blanks_lexeme(t->prev, combined);
     }
@@ -39085,7 +39859,7 @@ static void check_indentation_style(const struct parser_ctx* ctx, const struct t
             */
             if (prev)
             {
-                char combined[300];
+                char combined[300] = {0};
                 snprintf(combined, sizeof combined, "\n%s", buf);
                 format_set_blanks_lexeme(prev, combined);
             }
@@ -41602,15 +42376,24 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
                 const enum storage_class_specifier_flags new_flags =
                     p_declaration_specifier->storage_class_specifier->flags;
 
-                if ((old_flags & STORAGE_SPECIFIER_TYPEDEF && new_flags & STORAGE_SPECIFIER_STATIC) ||
-                    (old_flags & STORAGE_SPECIFIER_STATIC && new_flags & STORAGE_SPECIFIER_TYPEDEF))
+                /* 6.7.1p2: at most one storage-class specifier may be given in the
+                   declaration specifiers in a declaration, except that thread_local
+                   may appear with static or extern. */
+                if (old_flags != STORAGE_SPECIFIER_NONE && old_flags != new_flags)
                 {
-                    /* typedef + static */
-                    diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG,
-                        ctx,
-                        p_declaration_specifier->storage_class_specifier->token,
-                        NULL,
-                        "typedef and static cannot be used together.");
+                    const enum storage_class_specifier_flags combined = old_flags | new_flags;
+                    const bool is_allowed_combo =
+                        combined == (enum storage_class_specifier_flags)(STORAGE_SPECIFIER_THREAD_LOCAL | STORAGE_SPECIFIER_STATIC) ||
+                        combined == (enum storage_class_specifier_flags)(STORAGE_SPECIFIER_THREAD_LOCAL | STORAGE_SPECIFIER_EXTERN);
+
+                    if (!is_allowed_combo)
+                    {
+                        diagnostic(C_ERROR_TOO_MANY_STORAGE_CLASS_SPECIFIERS,
+                            ctx,
+                            p_declaration_specifier->storage_class_specifier->token,
+                            NULL,
+                            "at most one storage-class specifier is allowed, except that 'thread_local' may appear with 'static' or 'extern'");
+                    }
                 }
                 p_declaration_specifiers->storage_class_specifier_flags |= p_declaration_specifier->storage_class_specifier->flags;
             }
@@ -41809,6 +42592,17 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                             ctx->current,
                         NULL,
                         "'typedef': missing tag name");
+                }
+                else if (p_declaration->declaration_specifiers->struct_or_union_specifier == NULL &&
+                    p_declaration->declaration_specifiers->enum_specifier == NULL)
+                {
+                    diagnostic(C_ERROR_DECLARATION_DOES_NOT_DECLARE_ANYTHING,
+                        ctx,
+                        p_declaration->declaration_specifiers->first_token ?
+                            p_declaration->declaration_specifiers->first_token :
+                            ctx->current,
+                        NULL,
+                        "declaration does not declare anything");
                 }
 
                 if (ctx->current == NULL)
@@ -42634,6 +43428,75 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             type_destroy(&t);
         }
 
+        if ((p_init_declarator->p_declarator->object.type.type_qualifier_flags & TYPE_QUALIFIER_RESTRICT) &&
+            !type_is_pointer(&p_init_declarator->p_declarator->object.type))
+        {
+            diagnostic(C_ERROR_RESTRICT_ON_NON_POINTER_TYPE,
+                ctx,
+                tkname,
+                NULL,
+                "'restrict' qualifier can only be applied to a pointer type");
+        }
+
+        if (p_init_declarator->p_declarator->declaration_specifiers->function_specifier_flags != 0 &&
+            !type_is_function(&p_init_declarator->p_declarator->object.type))
+        {
+            diagnostic(C_ERROR_FUNCTION_SPECIFIER_ON_NON_FUNCTION,
+                ctx,
+                tkname,
+                NULL,
+                "a function specifier can only be used in the declaration of a function");
+        }
+
+        if ((p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL) &&
+            type_is_function(&p_init_declarator->p_declarator->object.type))
+        {
+            diagnostic(C_ERROR_THREAD_LOCAL_ON_FUNCTION,
+                ctx,
+                tkname,
+                NULL,
+                "'thread_local' cannot appear in a function declaration");
+        }
+
+        if ((p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
+            ctx->p_current_function_opt &&
+            ctx->p_current_function_opt->declaration_specifiers &&
+            (ctx->p_current_function_opt->declaration_specifiers->function_specifier_flags & FUNCTION_SPECIFIER_INLINE) &&
+            !(ctx->p_current_function_opt->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC))
+        {
+#if 0  /* msvc and  windows headers have it*/
+            diagnostic(C_ERROR_STATIC_VARIABLE_IN_EXTERN_INLINE_FUNCTION,
+                ctx,
+                tkname,
+                NULL,
+                "an inline function with external linkage shall not contain a static object");
+#endif
+        }
+
+        if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR)
+        {
+            const struct type* p_constexpr_type = &p_init_declarator->p_declarator->object.type;
+
+            if (p_constexpr_type->type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
+            {
+                diagnostic(C_ERROR_CONSTEXPR_INVALID_QUALIFIED_TYPE,
+                    ctx,
+                    tkname,
+                    NULL,
+                    "a constexpr object cannot be volatile-qualified");
+            }
+
+            if ((p_constexpr_type->type_qualifier_flags & TYPE_QUALIFIER__ATOMIC) ||
+                (p_constexpr_type->type_specifier_flags & TYPE_SPECIFIER_ATOMIC))
+            {
+                diagnostic(C_ERROR_CONSTEXPR_INVALID_QUALIFIED_TYPE,
+                    ctx,
+                    tkname,
+                    NULL,
+                    "a constexpr object cannot have atomic type");
+            }
+        }
+
         _Assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
 
         if (type_is_void(&p_init_declarator->p_declarator->object.type) &&
@@ -42648,7 +43511,29 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
         _Assert(ctx->scopes.tail != NULL);
 
-        /* 
+        if (ctx->scopes.tail->scope_level == 0)
+        {
+            if ((p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO) &&
+                p_init_declarator->p_declarator->declaration_specifiers->type_specifier_flags != 0)
+            {
+                diagnostic(C_ERROR_AUTO_AT_FILE_SCOPE,
+                    ctx,
+                    tkname,
+                    NULL,
+                    "'auto' storage-class specifier cannot be used in a file-scope declaration");
+            }
+
+            if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_REGISTER)
+            {
+                diagnostic(C_ERROR_REGISTER_AT_FILE_SCOPE,
+                    ctx,
+                    tkname,
+                    NULL,
+                    "'register' storage-class specifier cannot be used in a file-scope declaration");
+            }
+        }
+
+        /*
         * Checking naming conventions
         */
         if (ctx->scopes.tail->scope_level == 0)
@@ -42677,6 +43562,42 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     */
                     if (strcmp(declarator_name, "__C_ASSERT__") != 0)
                     {
+                        const bool previous_is_thread_local =
+                            p_previous_declarator->declaration_specifiers != NULL &&
+                            (p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL) != 0;
+                        const bool current_is_thread_local =
+                            p_init_declarator->p_declarator->declaration_specifiers != NULL &&
+                            (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL) != 0;
+
+                        if (previous_is_thread_local != current_is_thread_local)
+                        {
+                            diagnostic(
+                                C_ERROR_THREAD_LOCAL_MISMATCH_IN_REDECLARATION,
+                                ctx,
+                                ctx->current,
+                                NULL,
+                                "'%s': redeclaration is missing 'thread_local'", declarator_name);
+                        }
+
+                        const enum alignment_specifier_flags previous_alignment =
+                            p_previous_declarator->declaration_specifiers ?
+                            p_previous_declarator->declaration_specifiers->alignment_specifier_flags :
+                            ALIGNMENT_SPECIFIER_NONE;
+                        const enum alignment_specifier_flags current_alignment =
+                            p_init_declarator->p_declarator->declaration_specifiers ?
+                            p_init_declarator->p_declarator->declaration_specifiers->alignment_specifier_flags :
+                            ALIGNMENT_SPECIFIER_NONE;
+
+                        if (previous_alignment != current_alignment)
+                        {
+                            diagnostic(
+                                C_ERROR_INCONSISTENT_ALIGNMENT_IN_REDECLARATION,
+                                ctx,
+                                ctx->current,
+                                NULL,
+                                "'%s': alignment specifier is not consistent with the previous declaration", declarator_name);
+                        }
+
                         const bool previous_is_typedef =
                             p_previous_declarator->declaration_specifiers != NULL &&
                             (p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF) != 0;
@@ -42950,7 +43871,6 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                             p_init_declarator->p_declarator->first_token_opt,
                             NULL,
                             "variable-sized object may not be initialized except with an empty initializer");
-                        throw;
                     }
                 }
                 else
@@ -42962,6 +43882,16 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         throw;
                     }
 
+                    if (type_is_array_of_unknown_size(&p_init_declarator->p_declarator->object.type) &&
+                        braced_initializer_is_empty(p_init_declarator->initializer->braced_initializer))
+                    {
+                        diagnostic(C_ERROR_EMPTY_INITIALIZER_FOR_ARRAY_OF_UNKNOWN_SIZE,
+                            ctx,
+                            p_init_declarator->p_declarator->first_token_opt,
+                            NULL,
+                            "array of unknown size cannot be initialized with an empty initializer");
+                    }
+
                     int er = make_object(&p_init_declarator->p_declarator->object.type,
                         &p_init_declarator->p_declarator->object,
                         MAKE_STATE_UNITIALIZED,
@@ -42970,29 +43900,30 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     if (er != 0)
                     {
                         diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
-                        throw;
                     }
-
-                    const bool is_constant =
-                        type_is_const_or_constexpr(&p_init_declarator->p_declarator->object.type);
-
-                    if (initializer_init_new(ctx,
-                        &p_init_declarator->p_declarator->object.type,
-                        &p_init_declarator->p_declarator->object,
-                        p_init_declarator->initializer,
-                        is_constant,
-                        requires_constant_initialization) != 0)
+                    else
                     {
-                        throw;
-                    }
+                        const bool is_constant =
+                            type_is_const_or_constexpr(&p_init_declarator->p_declarator->object.type);
 
-                    /* 
-                    * this code is requiring the num_of_element adjustment
-                    * char s[]={ "123" };
-                    * static_assert(sizeof(s) == 4);
-                    */
-                    p_init_declarator->p_declarator->object.type.array_num_elements =
-                        p_init_declarator->p_declarator->object.type.array_num_elements;
+                        if (initializer_init_new(ctx,
+                            &p_init_declarator->p_declarator->object.type,
+                            &p_init_declarator->p_declarator->object,
+                            p_init_declarator->initializer,
+                            is_constant,
+                            requires_constant_initialization) != 0)
+                        {
+                            throw;
+                        }
+
+                        /*
+                        * this code is requiring the num_of_element adjustment
+                        * char s[]={ "123" };
+                        * static_assert(sizeof(s) == 4);
+                        */
+                        p_init_declarator->p_declarator->object.type.array_num_elements =
+                            p_init_declarator->p_declarator->object.type.array_num_elements;
+                    }
                 }
             }
             else if (p_init_declarator->initializer->assignment_expression)
@@ -43101,20 +44032,21 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 if (er != 0)
                 {
                     diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "type incomplete");
-                    throw;
                 }
-
-                const bool is_constant =
-                    type_is_const_or_constexpr(&p_init_declarator->p_declarator->object.type);
-
-                if (initializer_init_new(ctx,
-                    &p_init_declarator->p_declarator->object.type,
-                    &p_init_declarator->p_declarator->object,
-                    p_init_declarator->initializer,
-                    is_constant,
-                    requires_constant_initialization) != 0)
+                else
                 {
-                    throw;
+                    const bool is_constant =
+                        type_is_const_or_constexpr(&p_init_declarator->p_declarator->object.type);
+
+                    if (initializer_init_new(ctx,
+                        &p_init_declarator->p_declarator->object.type,
+                        &p_init_declarator->p_declarator->object,
+                        p_init_declarator->initializer,
+                        is_constant,
+                        requires_constant_initialization) != 0)
+                    {
+                        throw;
+                    }
                 }
                 // object_print_to_debug(&p_init_declarator->p_declarator->object);
             }
@@ -43163,7 +44095,6 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         else
                         {
                             diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
-                            throw;
                         }
                     }
                 }
@@ -43292,7 +44223,6 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         p_init_declarator->p_declarator->name_opt, NULL,
                         "storage size of '%s' isn't known because the type is incomplete",
                         p_init_declarator->p_declarator->name_opt->lexeme);
-                        throw;
                     }
                 break;
 
@@ -44648,6 +45578,9 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
 
         struct struct_or_union_specifier* _Opt p_first_tag_in_this_scope = NULL;
 
+        /* C23 6.2.7 (N3037): a definition with the same tag and content as this one is the same type (issue #187) */
+        struct struct_or_union_specifier* _Opt p_previous_definition = NULL;
+
         if (ctx->current == NULL)
         {
             unexpected_end_of_file(ctx);
@@ -44672,7 +45605,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
 
             const bool is_struct_definition = (ctx->current->type == '{');
 
-            /* 
+            /*
             * Structure, union, and enumeration tags have scope that begins just after the
             * appearance of the tag in a type specifier that declares the tag.
             */
@@ -44689,6 +45622,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                     {
                         p_first_tag_in_this_scope = p_entry->data.p_struct_or_union_specifier;
                         p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_in_this_scope;
+                        p_previous_definition = get_complete_struct_or_union_specifier(p_first_tag_in_this_scope);
                     }
                     else
                     {
@@ -44714,6 +45648,13 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             {
                 if (is_struct_definition)
                 {
+                    /* the tag is not in this scope yet, so this finds the definition in an enclosing scope, if any */
+                    struct struct_or_union_specifier* _Opt p_outer = find_struct_or_union_specifier(ctx, p_struct_or_union_specifier->tagtoken->lexeme);
+                    if (p_outer && p_outer->first_token->type == p_struct_or_union_specifier->first_token->type)
+                    {
+                        p_previous_definition = get_complete_struct_or_union_specifier(p_outer);
+                    }
+
                     struct hash_item_set item = { 0 };
                     item.p_struct_or_union_specifier = struct_or_union_specifier_add_ref(p_struct_or_union_specifier);
                     hashmap_set(&ctx->scopes.tail->tags,
@@ -44749,6 +45690,30 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                         {
                             /* tag already exists in some scope */
                             p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_previous_scopes;
+                        }
+
+                        /* a tag defined in a parameter list is visible only inside that prototype and its function body */
+                        if (p_first_tag_previous_scopes->p_parameters_scope_opt)
+                        {
+                            bool inside_function = false;
+                            for (struct scope* _Opt p_scope = ctx->scopes.tail; p_scope; p_scope = p_scope->previous)
+                            {
+                                if (p_scope == p_first_tag_previous_scopes->p_parameters_scope_opt)
+                                {
+                                    inside_function = true;
+                                }
+                            }
+
+                            if (!inside_function)
+                            {
+                                diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE,
+                                    ctx,
+                                    p_struct_or_union_specifier->tagtoken,
+                                    NULL,
+                                    "'%s %s' was defined inside a parameter list and is not visible here",
+                                    p_struct_or_union_specifier->first_token->lexeme,
+                                    p_struct_or_union_specifier->tag_name);
+                            }
                         }
                     }
                 }
@@ -44823,6 +45788,35 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
 
             apply_gcc_struct_attributes(p_struct_or_union_specifier,
                                         p_struct_or_union_specifier->attribute_specifier_sequence_opt);
+
+            if (p_previous_definition &&
+                struct_or_union_specifier_is_same_content(p_previous_definition, p_struct_or_union_specifier))
+            {
+                /* same type: from here on this is just a reference to the previous definition, as in 'struct X b;' */
+                struct member_declaration_list empty = { 0 };
+                member_declaration_list_swap(&p_struct_or_union_specifier->member_declaration_list, &empty);
+                member_declaration_list_destroy(&empty);
+
+                p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_previous_definition;
+                if (first)
+                {
+                    first->complete_struct_or_union_specifier_indirection = p_previous_definition;
+                }
+            }
+            else
+            {
+                if (p_previous_definition && p_first_tag_in_this_scope)
+                {
+                    diagnostic(C_ERROR_TAG_REDEFINITION,
+                        ctx,
+                        p_struct_or_union_specifier->tagtoken,
+                        NULL,
+                        "redefinition of '%s %s' with different content",
+                        p_struct_or_union_specifier->first_token->lexeme,
+                        p_struct_or_union_specifier->tag_name);
+                }
+
+            }
 
             ctx->format_indent_level--;
             format_align_own_line_brace_if_present(ctx, ctx->current);
@@ -44936,8 +45930,6 @@ struct member_declarator* _Owner _Opt member_declarator(
                 p_token,
                 NULL,
                 "members having a function type are not allowed");
-
-            throw;
         }
 
         if (type_is_incomplete(&p_member_declarator->declarator->object.type))
@@ -44953,13 +45945,45 @@ struct member_declarator* _Owner _Opt member_declarator(
                 p_token,
                 NULL,
                 "member has incomplete type");
+        }
 
-            throw;
+        if ((p_member_declarator->declarator->object.type.type_qualifier_flags & TYPE_QUALIFIER_RESTRICT) &&
+            !type_is_pointer(&p_member_declarator->declarator->object.type))
+        {
+            struct token* _Opt p_token =
+                p_member_declarator->declarator->first_token_opt;
+
+            if (p_token == NULL)
+                p_token = ctx->current;
+
+            diagnostic(C_ERROR_RESTRICT_ON_NON_POINTER_TYPE,
+                ctx,
+                p_token,
+                NULL,
+                "'restrict' qualifier can only be applied to a pointer type");
+        }
+
+        if (struct_or_union_specifier_is_union(p_struct_or_union_specifier) &&
+            type_is_array_of_unknown_size(&p_member_declarator->declarator->object.type))
+        {
+#if 0  /* MSVC and windows headers have it */
+            struct token* _Opt p_token =
+                p_member_declarator->declarator->first_token_opt;
+
+            if (p_token == NULL)
+                p_token = ctx->current;
+
+            diagnostic(C_ERROR_FLEXIBLE_ARRAY_MEMBER_IN_UNION,
+                ctx,
+                p_token,
+                NULL,
+                "a flexible array member is not allowed in a union");
+#endif
         }
 
         if (type_is_vm(&p_member_declarator->declarator->object.type))
         {
-            /* 
+            /*
             * A member of a structure or union may have any complete
             * object type other than a variably modified type
             */
@@ -45044,6 +46068,15 @@ struct member_declarator* _Owner _Opt member_declarator(
             if (p_member_declarator->constant_expression == NULL)
                 throw;
 
+            if (!type_is_integer(&p_member_declarator->constant_expression->object.type))
+            {
+                diagnostic(C_ERROR_STORAGE_SIZE,
+                    ctx,
+                    p_member_declarator->constant_expression->first_token,
+                    NULL,
+                    "bit-field width must be an integer constant expression");
+            }
+
             long long bit_field_width =
                 object_to_signed_long_long(&p_member_declarator->constant_expression->object);
 
@@ -45072,6 +46105,15 @@ struct member_declarator* _Owner _Opt member_declarator(
                     p_member_declarator->constant_expression->first_token,
                     NULL,
                     "named bit field cannot have zero width");
+            }
+
+            if (p_member_declarator->declarator->object.type.alignment_specifier_flags != 0)
+            {
+                diagnostic(C_ERROR_ALIGNMENT_SPECIFIER_ON_BITFIELD,
+                    ctx,
+                    p_member_declarator->declarator->first_token_opt,
+                    NULL,
+                    "alignment specifier cannot be used in a bit-field declaration");
             }
 
             /* adjust the type to be bitfield */
@@ -45350,6 +46392,11 @@ struct member_declaration* _Owner _Opt member_declaration(struct parser_ctx* ctx
                     if (p_after_type && p_after_type->gcc_aligned > md->declarator->gcc_aligned)
                         md->declarator->gcc_aligned = p_after_type->gcc_aligned;
                 }
+            }
+            else if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier == NULL &&
+                p_member_declaration->specifier_qualifier_list->enum_specifier == NULL)
+            {
+                /* cake/MSVC extension */
             }
 
             if (ctx->current == NULL)
@@ -45966,10 +47013,17 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                         "expected an integer type");
                     throw;
                 }
+                if (type_is_bitint(&p_enum_specifier->integer_type))
+                {
+                    diagnostic(C_ERROR_BITINT_ENUM_UNDERLYING_TYPE,
+                        ctx,
+                        first_token,
+                        NULL,
+                        "a bit-precise integer type is not allowed as an enum underlying type");
+                }
                 if (prev_decl_same_scope && !type_is_same(&prev_decl_same_scope->integer_type, &p_enum_specifier->integer_type, false))
                 {
                     diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, first_token, NULL, "enum redeclared with different underlying type");
-                    throw;
                 }
             }
             else
@@ -46008,7 +47062,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, '{') != 0)
                 throw;
 
-            struct enumerator_list list = enumerator_list(ctx, p_enum_specifier);
+            struct enumerator_list list = enumerator_list(ctx, p_enum_specifier, prev_decl_same_scope);
             enumerator_list_swap(&p_enum_specifier->enumerator_list, &list);
             enumerator_list_destroy(&list);
 
@@ -46044,7 +47098,22 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             hash_item_set_destroy(&item);
 
             if (prev_decl_same_scope)
+            {
+                /* C23 6.2.7 (N3037): a redefinition in the same scope must have the same content (issue #187) */
+                const struct enum_specifier* _Opt p_previous_definition = get_enum_specifier_definition(prev_decl_same_scope);
+                if (p_previous_definition &&
+                    !enum_specifier_is_same_content(p_previous_definition, p_enum_specifier))
+                {
+                    diagnostic(C_ERROR_TAG_REDEFINITION,
+                        ctx,
+                        p_enum_specifier->tag_token,
+                        NULL,
+                        "redefinition of 'enum %s' with different content",
+                        p_enum_specifier->tag_name);
+                }
+
                 prev_decl_same_scope->p_complete_enum_specifier = p_enum_specifier;
+            }
         }
         else
         {
@@ -46065,6 +47134,15 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             else
             {
                 /* tag not found anywhere; add it */
+
+                if (!p_enum_specifier->has_underlying)
+                {
+                    diagnostic(C_ERROR_ENUM_TAG_WITHOUT_BODY_OR_UNDERLYING_TYPE,
+                        ctx,
+                        p_enum_specifier->first_token,
+                        NULL,
+                        "enum declared without enumerator list must have a fixed underlying type or a previous complete declaration");
+                }
 
                 p_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
                 struct hash_item_set item = { 0 };
@@ -46135,7 +47213,7 @@ static void update_enumerator_list_range(const struct enumerator* p_enumerator, 
     }
 }
 
-struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_specifier* p_enum_specifier)
+struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_specifier* p_enum_specifier, const struct enum_specifier* _Opt prev_decl_same_scope)
 {
 
     /* 
@@ -46182,7 +47260,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
         if (ctx->current != NULL)
             check_indentation_style(ctx, ctx->current);
 
-        p_enumerator = enumerator(ctx, p_enum_specifier, &next_enumerator_value, lo_limit, hi_limit, &min_value, &max_value, &next_ovf);
+        p_enumerator = enumerator(ctx, p_enum_specifier, prev_decl_same_scope, &next_enumerator_value, lo_limit, hi_limit, &min_value, &max_value, &next_ovf);
         if (p_enumerator == NULL)
             throw;
 
@@ -46198,7 +47276,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
             {
                 check_indentation_style(ctx, ctx->current);
 
-                p_enumerator = enumerator(ctx, p_enum_specifier, &next_enumerator_value, lo_limit, hi_limit, &min_value, &max_value, &next_ovf);
+                p_enumerator = enumerator(ctx, p_enum_specifier, prev_decl_same_scope, &next_enumerator_value, lo_limit, hi_limit, &min_value, &max_value, &next_ovf);
                 if (p_enumerator == NULL)
                     throw;
                 enumerator_list_add(&enumeratorlist, p_enumerator);
@@ -46307,6 +47385,7 @@ void enumerator_delete(struct enumerator* _Owner _Opt p)
 
 struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
     const struct enum_specifier* p_enum_specifier,
+    const struct enum_specifier* _Opt prev_decl_same_scope,
     struct object* p_next_enumerator_value,
     long long lo_limit,
     unsigned long long hi_limit,
@@ -46339,6 +47418,20 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
 
         p_enumerator->token = name;
 
+        struct map_entry* _Opt p_existing_entry =
+            hashmap_find(&ctx->scopes.tail->variables, p_enumerator->token->lexeme);
+        if (p_existing_entry &&
+            p_existing_entry->type == TAG_TYPE_ENUMERATOR &&
+            p_existing_entry->data.p_enumerator->enum_specifier != prev_decl_same_scope)
+        {
+            diagnostic(C_ERROR_DUPLICATE_ENUMERATOR,
+                ctx,
+                p_enumerator->token,
+                NULL,
+                "duplicate enumeration constant '%s' in the same scope",
+                p_enumerator->token->lexeme);
+        }
+
         struct hash_item_set item = { 0 };
         item.p_enumerator = enumerator_add_ref(p_enumerator);
         hashmap_set(&ctx->scopes.tail->variables, p_enumerator->token->lexeme, &item);
@@ -46360,32 +47453,33 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
             if (!type_is_integer(&p_enumerator->constant_expression_opt->object.type))
             {
                 diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->constant_expression_opt->first_token, NULL, "enumerator initializer must be integer");
-                throw;
+                is_negative = false;
             }
-
-            struct object newvalue = object_dup(&p_enumerator->constant_expression_opt->object);
-            object_swap(&p_enumerator->value, &newvalue);
-            object_destroy(&newvalue);
-
-            bool is_signed = object_type_is_signed_integer(p_enumerator->value.value_type);
-            is_negative = is_signed && (p_enumerator->value.value.host_long_long < 0);
-
-            if (p_enum_specifier->has_underlying)
+            else
             {
-                bool underlying_signed = type_is_signed_integer(&p_enum_specifier->integer_type);
-                bool under_range = underlying_signed && (p_enumerator->value.value.host_long_long < lo_limit);
-                bool over_range = (underlying_signed && (!is_negative && (unsigned long long)p_enumerator->value.value.host_long_long > hi_limit)) || (!underlying_signed && (p_enumerator->value.value.host_u_long_long > hi_limit));
+                struct object newvalue = object_dup(&p_enumerator->constant_expression_opt->object);
+                object_swap(&p_enumerator->value, &newvalue);
+                object_destroy(&newvalue);
 
-                if (under_range || over_range)
+                bool is_signed = object_type_is_signed_integer(p_enumerator->value.value_type);
+                is_negative = is_signed && (p_enumerator->value.value.host_long_long < 0);
+
+                if (p_enum_specifier->has_underlying)
                 {
-                    diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->token, NULL, "enumerator value outside of underlying type range");
-                    throw;
-                }
-            }
+                    bool underlying_signed = type_is_signed_integer(&p_enum_specifier->integer_type);
+                    bool under_range = underlying_signed && (p_enumerator->value.value.host_long_long < lo_limit);
+                    bool over_range = (underlying_signed && (!is_negative && (unsigned long long)p_enumerator->value.value.host_long_long > hi_limit)) || (!underlying_signed && (p_enumerator->value.value.host_u_long_long > hi_limit));
 
-            struct object newvalue2 = object_dup(object_get_referenced(&p_enumerator->value));
-            object_swap(p_next_enumerator_value, &newvalue2);
-            object_destroy(&newvalue2);            
+                    if (under_range || over_range)
+                    {
+                        diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->token, NULL, "enumerator value outside of underlying type range");
+                    }
+                }
+
+                struct object newvalue2 = object_dup(object_get_referenced(&p_enumerator->value));
+                object_swap(p_next_enumerator_value, &newvalue2);
+                object_destroy(&newvalue2);
+            }
         }
         else
         {
@@ -46410,7 +47504,6 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
                 if (under_range || over_range)
                 {
                     diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->token, NULL, "enumerator value outside of underlying type range");
-                    throw;
                 }
             }
         }
@@ -46476,7 +47569,16 @@ struct alignment_specifier* _Owner _Opt alignment_specifier(struct parser_ctx* c
             alignment_specifier->constant_expression = constant_expression(ctx, true, false);
             if (alignment_specifier->constant_expression == NULL)
                 throw;
-            if (object_has_constant_value(&alignment_specifier->constant_expression->object))
+
+            if (!type_is_integer(&alignment_specifier->constant_expression->object.type))
+            {
+                diagnostic(C_ERROR_ALIGNMENT_SPECIFIER_NOT_INTEGER_CONSTANT,
+                    ctx,
+                    alignment_specifier->constant_expression->first_token,
+                    NULL,
+                    "alignment specifier must be an integer constant expression");
+            }
+            else if (object_has_constant_value(&alignment_specifier->constant_expression->object))
             {
                 long long a = object_to_signed_long_long(&alignment_specifier->constant_expression->object);
                 alignment_specifier->flags |= alignment_value_to_flags(a);
@@ -46671,6 +47773,7 @@ struct function_specifier* _Owner _Opt function_specifier(struct parser_ctx* ctx
         if (ctx->current->type == TK_KEYWORD__NORETURN)
         {
             diagnostic(W_STYLE, ctx, ctx->current, NULL, "_Noreturn is deprecated use attributes");
+            p_function_specifier->flags |= FUNCTION_SPECIFIER_NORETURN;
         }
 
         if (ctx->current->type == TK_KEYWORD_INLINE)
@@ -47244,6 +48347,31 @@ struct function_declarator* _Owner _Opt function_declarator(struct direct_declar
             scope_list_pop(&ctx->scopes);
             if (p_function_declarator->parameter_type_list_opt == NULL)
                 throw;
+
+            /* C23 6.2.7: a struct defined in the parameter list is the same type as a later definition with the same content, so keep its tag in the enclosing scope */
+            struct hash_map* p_parameters_tags = &p_function_declarator->parameters_scope.tags;
+            for (int i = 0; i < p_parameters_tags->capacity; i++)
+            {
+                struct map_entry* _Opt p_entry = p_parameters_tags->table ? p_parameters_tags->table[i] : NULL;
+                while (p_entry)
+                {
+                    struct map_entry* _Opt p_next = p_entry->next;
+                    if (p_entry->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER &&
+                        p_entry->data.p_struct_or_union_specifier->member_declaration_list.head &&
+                        hashmap_find(&ctx->scopes.tail->tags, p_entry->key) == NULL)
+                    {
+                        struct struct_or_union_specifier* _Owner _Opt p_moved = hashmap_remove(p_parameters_tags, p_entry->key, NULL);
+                        _Assert(p_moved != NULL);
+                        p_moved->p_parameters_scope_opt = &p_function_declarator->parameters_scope;
+
+                        struct hash_item_set item = { 0 };
+                        item.p_struct_or_union_specifier = p_moved;
+                        hashmap_set(&ctx->scopes.tail->tags, p_moved->tag_name, &item);
+                        hash_item_set_destroy(&item);
+                    }
+                    p_entry = p_next;
+                }
+            }
         }
         if (parser_match_tk(ctx, ')') != 0)
             throw;
@@ -47709,6 +48837,21 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
         if (p_declaration_specifiers == NULL)
         {
             throw;
+        }
+
+        {
+            enum storage_class_specifier_flags written_flags =
+                p_declaration_specifiers->storage_class_specifier_flags &
+                ~(STORAGE_SPECIFIER_PARAMETER | STORAGE_SPECIFIER_BLOCK_SCOPE);
+
+            if (written_flags != 0 && written_flags != STORAGE_SPECIFIER_REGISTER)
+            {
+                diagnostic(C_ERROR_INVALID_STORAGE_CLASS_IN_PARAMETER,
+                    ctx,
+                    p_declaration_specifiers->first_token,
+                    NULL,
+                    "the only storage-class specifier allowed in a parameter declaration is 'register'");
+            }
         }
 
         if (p_parameter_declaration->attribute_specifier_sequence_opt)
@@ -48483,6 +49626,15 @@ struct designator* _Owner _Opt designator(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, '[') != 0)
                 throw;
             p_designator->constant_expression_opt = constant_expression(ctx, true, false);
+            if (p_designator->constant_expression_opt != NULL &&
+                !type_is_integer(&p_designator->constant_expression_opt->object.type))
+            {
+                diagnostic(C_ERROR_ARRAY_DESIGNATOR_NOT_INTEGER_CONSTANT,
+                    ctx,
+                    p_designator->constant_expression_opt->first_token,
+                    NULL,
+                    "array designator must be an integer constant expression");
+            }
             if (parser_match_tk(ctx, ']') != 0)
                 throw;
         }
@@ -48506,6 +49658,7 @@ struct designator* _Owner _Opt designator(struct parser_ctx* ctx)
         designator_delete(p_designator);
         p_designator = NULL;
     }
+    
     return p_designator;
 }
 
@@ -50302,7 +51455,8 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                         "previous default");
                 }
 
-                throw;
+                /* diagnostics continue, don't throw: mirror the duplicate-case
+                   handling above and still push the label below. */
             }
 
             parser_match(ctx);
@@ -50854,6 +52008,7 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
                 {
                     naming_convention_local_var(ctx, p->p_declarator->name_opt);
                 }
+
                 p = p->next;
             }
         }
@@ -53041,7 +54196,7 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
     
     if (ctx->p_report->error_count == 0 && ctx->options.flow_analysis && !ctx->options.format)
     {
-        struct flow_visit_ctx ctx4 = { .ctx = ctx };
+        struct flow_ctx ctx4 = { .ctx = ctx };
         struct declaration* _Opt it = declaration_list.head;
         while (it)
         {
@@ -54241,15 +55396,13 @@ int initializer_init_new(struct parser_ctx* ctx,
         if (initializer->assignment_expression != NULL)
         {
             // types must be compatible
-            if (object_set(ctx,
+            /* object_set already emitted a diagnostic on failure; continue parsing so the terminating token (and any //lint annotation on it) is still reached. */
+            object_set(ctx,
                 object,
                 initializer->assignment_expression,
                 &initializer->assignment_expression->object,
                 is_constant,
-                requires_constant_initialization) != 0)
-            {
-                throw;
-            }
+                requires_constant_initialization);
         }
         else if (initializer->braced_initializer)
         {
@@ -55244,7 +56397,7 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
     char string[200] = { 0 };
     snprintf(string, sizeof string, "exepath %s", pszoptions);
 
-    const int argc = strtoargv(string, 10, argv);
+    const int argc = strtoargv(string, 100, argv);
 
     const char* _Owner _Opt s = NULL;
 
@@ -55333,7 +56486,7 @@ const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt pat
     const char* argv[100] = { 0 };
     char string[200] = { 0 };
     snprintf(string, sizeof string, "exepath %s", pszoptions);
-    const int argc = strtoargv(string, 10, argv);
+    const int argc = strtoargv(string, 100, argv);
 
     struct options options = { .input = STD_EXT };
     if (fill_options(&options, argc, argv) != 0)
@@ -56949,12 +58102,13 @@ static void codegen_emit_member_assignments_from_constexpr(struct codegen_ctx* c
                                                            const char* dest_prefix, const struct object* dest, const struct object* source, bool* first);
 static bool codegen_expr_takes_postfix_suffix(const struct expression* p_expression);
 
-static void d_print_type_core(struct codegen_ctx* ctx, struct osstream* ss, const struct type* p_type0, const char* _Opt name_opt);
+static void d_print_type_core(struct codegen_ctx* ctx, struct osstream* ss, const struct type* p_type0, const char* _Opt name_opt, bool name_unnamed_parameters);
 static void d_print_type(struct codegen_ctx* ctx,
                          struct osstream* ss,
                          const struct type* p_type,
                          const char* _Opt name_opt,
-                         bool print_storage_qualifier);
+                         bool print_storage_qualifier,
+                         bool name_unnamed_parameters);
 
 static void print_cast_array_to_vm(struct codegen_ctx* ctx, struct osstream* oss, const struct type* p_type)
 {
@@ -56993,13 +58147,13 @@ static void print_cast_array_to_vm(struct codegen_ctx* ctx, struct osstream* oss
         }
 
         struct type t2 = type_add_pointer(&t1);
-        d_print_type(ctx, oss, &t2, NULL, false);
+        d_print_type(ctx, oss, &t2, NULL, false, false);
         type_destroy(&t1);
         type_destroy(&t2);
     }
     else
     {
-        d_print_type(ctx, oss, p_type, NULL, false);
+        d_print_type(ctx, oss, p_type, NULL, false, false);
     }
     ss_fprintf(oss, ") ");
 }
@@ -57445,7 +58599,7 @@ static void codegen_vm_ptr_advance(struct codegen_ctx* ctx, struct osstream* oss
                                    struct expression* p_ptr_expr, const char* op, struct expression* _Opt p_count_expr)
 {
     ss_fprintf(oss, "(");
-    d_print_type(ctx, oss, &p_ptr_expr->object.type, NULL, false);
+    d_print_type(ctx, oss, &p_ptr_expr->object.type, NULL, false, false);
     ss_fprintf(oss, ")((char*)");
     codegen_visit_expression(ctx, oss, p_ptr_expr);
     ss_fprintf(oss, " %s ", op);
@@ -57489,7 +58643,7 @@ static void codegen_vm_ptr_postfix_step(struct codegen_ctx* ctx, struct osstream
 
     struct osstream decl = { 0 };
     print_identation_core(&decl, ctx->indentation);
-    d_print_type(ctx, &decl, &p_ptr_expr->object.type, name, false);
+    d_print_type(ctx, &decl, &p_ptr_expr->object.type, name, false, false);
     ss_fprintf(&decl, ";\n");
     ss_fprintf(&ctx->block_scope_declarators, "%s", decl.c_str);
     ss_close(&decl);
@@ -57551,7 +58705,7 @@ static void codegen_emit_flattened_vm_pointer(struct codegen_ctx* ctx, struct os
     struct type t2 = type_add_pointer(&t1);
 
     ss_fprintf(oss, "((");
-    d_print_type(ctx, oss, &t2, NULL, false);
+    d_print_type(ctx, oss, &t2, NULL, false, false);
     ss_fprintf(oss, ")");
     codegen_visit_expression(ctx, oss, p_expr);
     ss_fprintf(oss, ")");
@@ -57657,7 +58811,7 @@ static void codegen_emit_bitint_wrap_text(struct codegen_ctx* ctx,
     const unsigned long long sign = 1ULL << (width - 1);
 
     struct osstream lowered = { 0 };
-    d_print_type(ctx, &lowered, p_type, NULL, false);
+    d_print_type(ctx, &lowered, p_type, NULL, false, false);
 
     const char* to_integer = source_is_floating ? "(unsigned long long)(long long)" : "(unsigned long long)";
 
@@ -57838,7 +58992,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             struct osstream decl = { 0 };
             print_identation_core(&decl, ctx->indentation);
             d_print_type(ctx, &decl,
-                         &p_expression->object.type, name, false);
+                         &p_expression->object.type, name, false, false);
             ss_fprintf(&decl, ";\n");
             ss_fprintf(&ctx->block_scope_declarators, "%s", decl.c_str);
             ss_close(&decl);
@@ -58030,7 +59184,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
 
                     struct osstream local = { 0 };
                     ss_fprintf(&local, "static ");
-                    d_print_type(ctx, &local, &p_expression->object.type, name, false);
+                    d_print_type(ctx, &local, &p_expression->object.type, name, false, false);
                     bool first = true;
                     ss_fprintf(&local, " = {");
                     object_print_initialization_list(ctx, &local, &p_expression->object, &first);
@@ -58091,7 +59245,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                         {
                             ss_fprintf(&ss, "static ");
                         }
-                        d_print_type(ctx, &ss, &p_expression->object.type, declarator_name, true);
+                        d_print_type(ctx, &ss, &p_expression->object.type, declarator_name, true, false);
                         ss_fprintf(&ctx->add_this_before_external_decl, "%s", ss.c_str);
                         ss_fprintf(&ctx->add_this_before_external_decl, ";\n");
 
@@ -58101,7 +59255,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
 
                             struct osstream local3 = { 0 };
                             struct osstream local4 = { 0 };
-                            d_print_type(ctx, &local4, &p_function_defined->object.type, declarator_name, false);
+                            d_print_type(ctx, &local4, &p_function_defined->object.type, declarator_name, false, true);
 
                             emit_line_directive(ctx, &local3, p_function_defined->first_token_opt);
                             ss_fprintf(&local3, "static %s\n", local4.c_str);
@@ -58150,7 +59304,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
 
                         struct osstream ss = { 0 };
 
-                        d_print_type(ctx, &ss, &p_expression->object.type, declarator_name, true);
+                        d_print_type(ctx, &ss, &p_expression->object.type, declarator_name, true, false);
 
                         if (p_expression->p_init_declarator &&
                         p_expression->p_init_declarator->initializer)
@@ -58235,7 +59389,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
 
                     ss_swap(&ctx->block_scope_declarators, &local);
                     print_identation_core(&local, ctx->indentation);
-                    d_print_type(ctx, &local, &p_expression->object.type, name, false);
+                    d_print_type(ctx, &local, &p_expression->object.type, name, false, false);
                     ss_fprintf(&local, ";\n", name);
                     ss_fprintf(&ctx->block_scope_declarators, "%s", local.c_str);
 
@@ -58308,7 +59462,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     }
 
                     ss_fprintf(oss, "((");
-                    d_print_type(ctx, oss, &p_expression->object.type, NULL, false);
+                    d_print_type(ctx, oss, &p_expression->object.type, NULL, false, false);
                     ss_fprintf(oss, ")%llu", constant_part);
 
                     p_designator = p_expression->offsetof_member_designator;
@@ -58318,7 +59472,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                             !object_has_constant_value(&p_designator->index->object))
                         {
                             ss_fprintf(oss, " + (");
-                            d_print_type(ctx, oss, &p_expression->object.type, NULL, false);
+                            d_print_type(ctx, oss, &p_expression->object.type, NULL, false, false);
                             ss_fprintf(oss, ")(");
                             codegen_visit_expression(ctx, oss, p_designator->index);
                             ss_fprintf(oss, ") * %zu", p_designator->element_size);
@@ -58379,7 +59533,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                 if (p_expression->type_name)
                 {
                     ss_fprintf(oss, ", ");
-                    d_print_type(ctx, oss, &p_expression->type_name->type, NULL, false);
+                    d_print_type(ctx, oss, &p_expression->type_name->type, NULL, false, false);
                 }
                 ss_fprintf(oss, ")");
             break;
@@ -58665,7 +59819,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                    `int (*p)[]` decays, so all of them already denote the
                    element pointer and only need the cast. */
                     ss_fprintf(oss, "(");
-                    d_print_type(ctx, oss, &p_expression->object.type, NULL, false);
+                    d_print_type(ctx, oss, &p_expression->object.type, NULL, false, false);
                     ss_fprintf(oss, ")");
                     codegen_visit_expression(ctx, oss, p_expression->right);
                     break;
@@ -58687,7 +59841,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                 print_identation_core(&ctx->add_this_before, ctx->indentation);
 
                 struct osstream function_literal_nameless = { 0 };
-                d_print_type(ctx, &function_literal_nameless, &p_expression->object.type, NULL, false);
+                d_print_type(ctx, &function_literal_nameless, &p_expression->object.type, NULL, false, false);
 
                 _Assert(p_expression->compound_statement != NULL);
 
@@ -58726,7 +59880,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     hashmap_set(&ctx->instantiated_function_literals, function_literal.c_str, &i);
                     hash_item_set_destroy(&i);
                     struct osstream lambda_sig = { 0 };
-                    d_print_type(ctx, &lambda_sig, &p_expression->object.type, new_name, false);
+                    d_print_type(ctx, &lambda_sig, &p_expression->object.type, new_name, false, false);
 
                     ss_fprintf(&ctx->add_this_before_external_decl, "static %s;\n", lambda_sig.c_str);
 
@@ -58755,7 +59909,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
 
                     struct osstream local = { 0 };
                     ss_fprintf(&local, "static ");
-                    d_print_type(ctx, &local, &p_expression->object.type, name, false);
+                    d_print_type(ctx, &local, &p_expression->object.type, name, false, false);
                     bool first = true;
                     ss_fprintf(&local, " = {");
                     object_print_initialization_list(ctx, &local, &p_expression->object, &first);
@@ -58772,7 +59926,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     struct osstream local = { 0 };
                     ss_swap(&ctx->block_scope_declarators, &local);
                     print_identation_core(&local, ctx->indentation);
-                    d_print_type(ctx, &local, &p_expression->object.type, name, false);
+                    d_print_type(ctx, &local, &p_expression->object.type, name, false, false);
                     ss_fprintf(&local, ";\n", name);
                     ss_fprintf(&ctx->block_scope_declarators, "%s", local.c_str);
 
@@ -59125,7 +60279,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     vm_emit_snapshot_decls(ctx, &ctx->add_this_before, &p_expression->object.type);
                 }
 
-                d_print_type(ctx, &local2, &p_expression->object.type, NULL, false);
+                d_print_type(ctx, &local2, &p_expression->object.type, NULL, false, false);
                 if (type_is_bool(&p_expression->object.type) ||
                     codegen_bitint_conversion_needs_wrap(ctx, &p_expression->object.type))
                 {
@@ -59275,7 +60429,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                         struct osstream decl = { 0 };
                         print_identation_core(&decl, ctx->indentation);
                         d_print_type(ctx, &decl,
-                                     &p_expression->condition_expr->object.type, name, false);
+                                     &p_expression->condition_expr->object.type, name, false, false);
                         ss_fprintf(&decl, ";\n");
                         ss_fprintf(&ctx->block_scope_declarators, "%s", decl.c_str);
                         ss_close(&decl);
@@ -59328,7 +60482,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                         struct osstream decl = { 0 };
                         print_identation_core(&decl, ctx->indentation);
                         d_print_type(ctx, &decl,
-                                     &p_expression->condition_expr->object.type, name, false);
+                                     &p_expression->condition_expr->object.type, name, false, false);
                         ss_fprintf(&decl, ";\n");
                         ss_fprintf(&ctx->block_scope_declarators, "%s", decl.c_str);
                         ss_close(&decl);
@@ -59469,7 +60623,7 @@ static void codegen_visit_jump_statement(struct codegen_ctx* ctx, struct osstrea
                 {
                     struct osstream local = { 0 };
                     print_identation(ctx, &local);
-                    d_print_type(ctx, &local, &return_type, name, false);
+                    d_print_type(ctx, &local, &return_type, name, false, false);
                     ss_fprintf(&local, ";\n", name);
                     ss_fprintf(&ctx->block_scope_declarators, "%s", local.c_str);
                     ss_close(&local);
@@ -59931,7 +61085,7 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
                 &p_selection_statement->condition->p_init_declarator->p_declarator->object.type :
                 &p_selection_statement->condition->expression->object.type;
 
-            d_print_type(ctx, &ss, controlling_type, name, false);
+            d_print_type(ctx, &ss, controlling_type, name, false, false);
 
             ss_fprintf(&ss, " = ");
             ss_fprintf(&ss, "%s", controlling_expression.c_str ? controlling_expression.c_str : "");
@@ -60823,10 +61977,16 @@ static void d_print_type_qualifier_flags(struct osstream* ss, bool* first, enum 
         print_item(ss, first, "volatile");
 }
 
+/*
+  name_unnamed_parameters: true when printing the head of a function
+  definition. C23 allows unnamed parameters there, but the generated code
+  cannot, so they get a generated name.
+*/
 static void d_print_type_core(struct codegen_ctx* ctx,
                               struct osstream* ss,
                               const struct type* p_type0,
-                              const char* _Opt name_opt)
+                              const char* _Opt name_opt,
+                              bool name_unnamed_parameters)
 {
     const struct type* _Opt p_type = p_type0;
 
@@ -61017,7 +62177,17 @@ static void d_print_type_core(struct codegen_ctx* ctx,
                     struct osstream sslocal = { 0 };
                     struct osstream local2 = { 0 };
 
-                    d_print_type_core(ctx, &local2, &pa->type, pa->type.name_opt);
+                    const char* _Opt param_name = pa->type.name_opt;
+                    char generated_name[16] = { 0 };
+                    if (param_name == NULL && name_unnamed_parameters && !type_is_void(&pa->type))
+                    {
+                        generate_name(ctx->cake_local_declarator_number++, sizeof generated_name, generated_name);
+                        param_name = generated_name;
+                    }
+
+                    /* only the parameters of the function itself are named,
+                       not those of parameters that are function pointers */
+                    d_print_type_core(ctx, &local2, &pa->type, param_name, false);
 
                     ss_fprintf(&sslocal, "%s", local2.c_str);
                     ss_fprintf(ss, "%s", sslocal.c_str);
@@ -61105,13 +62275,14 @@ static void d_print_type(struct codegen_ctx* ctx,
                          struct osstream* ss,
                          const struct type* p_type,
                          const char* _Opt name_opt,
-                         bool print_storage_qualifiers)
+                         bool print_storage_qualifiers,
+                         bool name_unnamed_parameters)
 {
     register_struct_types_and_functions(ctx, p_type, NULL);
 
     struct osstream local = { 0 };
 
-    d_print_type_core(ctx, &local, p_type, name_opt);
+    d_print_type_core(ctx, &local, p_type, name_opt, name_unnamed_parameters);
 
     if (print_storage_qualifiers && p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN)
         ss_fprintf(ss, "extern ");
@@ -62184,7 +63355,7 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
         hashmap_set(&ctx->file_scope_declarator_map, name, &i);
 
         struct osstream ss = { 0 };
-        d_print_type(ctx, &ss, &p_init_declarator->p_declarator->object.type, name, true);
+        d_print_type(ctx, &ss, &p_init_declarator->p_declarator->object.type, name, true, false);
 
         ss_fprintf(oss0, "%s", ss.c_str);
 
@@ -62238,7 +63409,7 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
                     }
 
                     struct type t2 = type_add_pointer(&t1);
-                    d_print_type(ctx, &ss, &t2, var_name, false);
+                    d_print_type(ctx, &ss, &t2, var_name, false, false);
                     type_destroy(&t1);
                     type_destroy(&t2);
                     struct osstream ssz = { 0 };
@@ -62268,7 +63439,7 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
                 }
                 else
                 {
-                    d_print_type(ctx, &ss, decl_type, var_name, false);
+                    d_print_type(ctx, &ss, decl_type, var_name, false, false);
                 }
 
                 ss_fprintf(&ss, ";\n");
@@ -62291,7 +63462,7 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
         {
             /* ordinary block-scope variable */
             struct osstream ss = { 0 };
-            d_print_type(ctx, &ss, decl_type, var_name, false);
+            d_print_type(ctx, &ss, decl_type, var_name, false, false);
             print_identation(ctx, &ctx->block_scope_declarators);
             ss_fprintf(&ctx->block_scope_declarators, "%s;\n", ss.c_str);
             ss_close(&ss);
@@ -62320,7 +63491,7 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
             p_init_declarator->p_declarator->name_opt ?
             p_init_declarator->p_declarator->name_opt->lexeme : "";
 
-        d_print_type(ctx, &ss, &p_init_declarator->p_declarator->object.type, var_name, true);
+        d_print_type(ctx, &ss, &p_init_declarator->p_declarator->object.type, var_name, true, true);
 
         struct hash_item_set i = { 0 };
         i.number = 1;
@@ -62508,7 +63679,7 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
                             member_declarator->declarator->name_opt ?
                             member_declarator->declarator->name_opt->lexeme : "";
 
-                        d_print_type(ctx, ss, &member_declarator->declarator->object.type, name, false);
+                        d_print_type(ctx, ss, &member_declarator->declarator->object.type, name, false, false);
 
                         member_declarator->declarator->object.type.array_num_elements = 0; //restore
                     }
@@ -62523,7 +63694,7 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
                                      ss,
                                      &member_declarator->declarator->object.type,
                                      name,
-                                     false);
+                                     false, false);
 
                         /* __attribute__((packed)) on one member: alignment 1 for
                            it alone. MSVC has no per-member spelling; there the
@@ -62557,7 +63728,7 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
                 char name[100] = { 0 };
                 snprintf(name, sizeof name, "__m%d", no_name_index++);
                 ss_fprintf(ss, IDENTATION_STR);
-                d_print_type(ctx, ss, &t, name, false);
+                d_print_type(ctx, ss, &t, name, false, false);
                 ss_fprintf(ss, ";\n");
                 type_destroy(&t);
             }
@@ -62756,7 +63927,7 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
         else
         {
             char timestamp[64] = "unknown";
-            time_t now = time(NULL); //lint 35
+            time_t now = time(NULL);
             struct tm* _Opt tm_info = localtime(&now);
             if (tm_info != NULL)
             {
@@ -63122,6 +64293,9 @@ void flow_alternatives_add(struct flow_alternatives* vs, const struct flow_alter
 {
     try
     {
+        /* O(vs->size) dedup scan. Called once per element in flow_alternatives_append,
+           making that O(n^2) per merge point. Deeply nested control flow (if/while/try)
+           can make this blow up; found via fuzzing lib.c (hang, not a crash). */
         for (int i = 0; i < vs->size; i++)
         {
             if (flow_value_is_same(vs->data[i], p_alternative) &&
@@ -63154,6 +64328,9 @@ void flow_alternatives_add(struct flow_alternatives* vs, const struct flow_alter
 
 void flow_alternatives_append(struct flow_alternatives* dst, const struct flow_alternatives* src)
 {
+    /* O(src->size * dst->size) overall due to the linear scan inside flow_alternatives_add.
+       This runs at every flow merge point, so deeply nested control flow compounds it into
+       a polynomial blowup in compile time (found by fuzzing, no crash, just very slow). */
     for (int i = 0; i < src->size; i++)
     {
         flow_alternatives_add(dst, src->data[i]);
@@ -64151,10 +65328,8 @@ void flow_branch_set_object_any_n(struct flow_branch* _Opt m, const struct objec
     }
 }
 
-void flow_branch_set_object_lifetime_ended(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token)
+void flow_branch_set_object_lifetime_ended(struct flow_branch* m, const struct object* obj, const struct token* _Opt p_token)
 {
-    if (m == NULL)
-        return;
 
     if (obj->members.head)
     {
@@ -65410,18 +66585,19 @@ void flow_branch_name_to_string(const struct flow_branch* _Opt map, struct osstr
 #define FLOW_PARAMETER_OBJECT_INIT_MAX_DEPTH 6
 
 
-static void flow_check_dianostic_suppression(struct flow_visit_ctx* ctx, const struct token* p_token);
+ 
+static void flow_check_dianostic_suppression(struct flow_ctx* ctx, const struct token* p_token);
 
-static void flow_check_file_scope_objects_at_function_exit(const struct flow_visit_ctx* ctx);
+static void flow_check_file_scope_objects_at_function_exit(const struct flow_ctx* ctx);
 
-static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx, const struct expression* _Opt p_expression);
-static void object_static_debug(struct flow_visit_ctx* ctx, const struct object* p_object, struct token* first_token, struct token* last_token);
+static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const struct expression* _Opt p_expression);
+static void object_static_debug(struct flow_ctx* ctx, const struct object* p_object, struct token* first_token, struct token* last_token);
 
-static void flow_check_object_at_exit(struct flow_visit_ctx* ctx, const struct type* p_type, const struct object* p_obj, const struct marker* marker, const struct token* p_exit_token, bool in_view, const char* _Opt p_root_name_opt);
-static void flow_check_arena_objects_at_function_exit(const struct flow_visit_ctx* ctx);
-static void flow_check_write_qualified_params_at_exit(struct flow_visit_ctx* ctx, const struct marker* marker, const struct token* p_exit_token);
-static void flow_check_discarding_owner_before_overwrite(struct flow_visit_ctx* ctx, const struct expression* p_expression_dest, const struct object* _Opt p_object_dest, const struct marker* marker);
-static void flow_seed_member_default(struct flow_visit_ctx* ctx, const struct object* _Opt member_obj, const struct token* _Opt p_token);
+static void flow_check_object_at_exit(struct flow_ctx* ctx, const struct type* p_type, const struct object* p_obj, const struct marker* marker, const struct token* p_exit_token, bool in_view, const char* _Opt p_root_name_opt);
+static void flow_check_arena_objects_at_function_exit(const struct flow_ctx* ctx);
+static void flow_check_write_qualified_params_at_exit(struct flow_ctx* ctx, const struct marker* marker, const struct token* p_exit_token);
+static void flow_check_discarding_owner_before_overwrite(struct flow_ctx* ctx, const struct expression* p_expression_dest, const struct object* _Opt p_object_dest, const struct marker* marker);
+static void flow_seed_member_default(struct flow_ctx* ctx, const struct object* _Opt member_obj, const struct token* _Opt p_token);
 
 enum init_type
 {
@@ -65430,7 +66606,7 @@ enum init_type
     INIT_OBJ
 };
 
-static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
+static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                                              struct expression* p_expression,
                                              const struct object* _Opt p_object_dest, /* uninitialized alawys */
                                              const struct object* _Opt p_object_src,
@@ -65445,7 +66621,7 @@ static void flow_widen_loop_variant_objects(struct flow_branch* _Opt p_pass1_exi
                                             const struct token* _Opt p_token,
                                             bool allow_repeated_value);
 
-static void flow_apply_alloc_contract_to_dest(struct flow_visit_ctx* ctx,
+static void flow_apply_alloc_contract_to_dest(struct flow_ctx* ctx,
                                               const struct type* _Opt p_dest_type,
                                               const struct object* _Opt p_object_dest,
                                               const struct expression* _Opt p_src_expression);
@@ -65468,7 +66644,7 @@ static bool object_is_file_scope(const struct object* p_object)
     return false;
 }
 
-static long long flow_cast_integer_value(const struct flow_visit_ctx* ctx, long long value, const struct type* _Opt target_type)
+static long long flow_cast_integer_value(const struct flow_ctx* ctx, long long value, const struct type* _Opt target_type)
 {
     try
     {
@@ -65584,13 +66760,13 @@ static bool flow_scalar_relation_holds(long long x, enum expression_type op, lon
     }
 }
 
-static void flow_predicate_cache_reset(struct flow_visit_ctx* ctx)
+static void flow_predicate_cache_reset(struct flow_ctx* ctx)
 {
     ctx->predicate_cache_size = 0;
 }
 
 /* Drop any cached predicate that mentions p_obj -- its truth may have changed. */
-static void flow_predicate_invalidate(struct flow_visit_ctx* ctx, const struct object* _Opt p_obj)
+static void flow_predicate_invalidate(struct flow_ctx* ctx, const struct object* _Opt p_obj)
 {
     if (p_obj == NULL)
         return;
@@ -65650,7 +66826,7 @@ static bool flow_predicate_key(const struct expression* _Opt p_cond,
     return true;
 }
 
-static int flow_predicate_shared_id(struct flow_visit_ctx* ctx, const struct expression* p_cond, int fresh_id)
+static int flow_predicate_shared_id(struct flow_ctx* ctx, const struct expression* p_cond, int fresh_id)
 {
     enum expression_type op = EXPR_INVALID;
     const struct object* _Opt lo = NULL;
@@ -65685,7 +66861,7 @@ static int flow_predicate_shared_id(struct flow_visit_ctx* ctx, const struct exp
 
 #define FLOW_BRANCH_PATH_MAX_CHAIN 128
 
-static void flow_diagnose_map_path(const struct flow_visit_ctx* ctx, const struct flow_branch* _Opt map)
+static void flow_diagnose_map_path(const struct flow_ctx* ctx, const struct flow_branch* _Opt map)
 {
     if (map == NULL)
         return;
@@ -65780,7 +66956,7 @@ static void flow_diagnose_map_path(const struct flow_visit_ctx* ctx, const struc
     }
 }
 
-static void flow_diagnose_state_origin(const struct flow_visit_ctx* ctx,
+static void flow_diagnose_state_origin(const struct flow_ctx* ctx,
                                        const struct flow_alternative* p_alternative,
                                        const struct marker* p_fallback_marker)
 {
@@ -65825,7 +67001,7 @@ static void flow_diagnose_state_origin(const struct flow_visit_ctx* ctx,
     }
 }
 
-static void flow_explain_alternative(const struct flow_visit_ctx* ctx,
+static void flow_explain_alternative(const struct flow_ctx* ctx,
                                      const struct flow_alternative* p_alternative,
                                      const struct flow_branch* _Opt p_alternative_map,
                                      const struct marker* p_marker)
@@ -65834,7 +67010,7 @@ static void flow_explain_alternative(const struct flow_visit_ctx* ctx,
     flow_diagnose_map_path(ctx, p_alternative_map);
 }
 
-static struct flow_branch_pair flow_ensure_branch_pair(struct flow_visit_ctx* ctx,
+static struct flow_branch_pair flow_ensure_branch_pair(struct flow_ctx* ctx,
                                                        struct flow_branch* _Opt p_fallback,
                                                        struct flow_branch_pair pair,
                                                        const struct expression* _Opt p_expr)
@@ -65876,25 +67052,25 @@ static struct flow_branch_pair flow_ensure_branch_pair(struct flow_visit_ctx* ct
 }
 
 
-static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement);
-static void flow_visit_static_assertion(struct flow_visit_ctx* ctx, const struct static_assertion* p_static_assertion);
-static void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration);
-static void flow_visit_secondary_block(struct flow_visit_ctx* ctx, struct secondary_block* _Opt p_secondary_block);
-static void flow_visit_struct_or_union_specifier(struct flow_visit_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier);
-static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p_statement);
-static void flow_visit_enum_specifier(struct flow_visit_ctx* ctx, struct enum_specifier* p_enum_specifier);
-static void flow_visit_type_specifier(struct flow_visit_ctx* ctx, struct type_specifier* p_type_specifier);
-static void flow_visit_bracket_initializer_list(struct flow_visit_ctx* ctx, struct braced_initializer* p_bracket_initializer_list);
-static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, const struct expression_statement* p_expression_statement);
-static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item);
-static void flow_visit_initializer(struct flow_visit_ctx* ctx, struct initializer* p_initializer);
-static void flow_visit_declarator(struct flow_visit_ctx* ctx, const struct declarator* p_declarator);
-static void flow_visit_label(struct flow_visit_ctx* ctx, const struct label* p_label);
+static void flow_visit_unlabeled_statement(struct flow_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement);
+static void flow_visit_static_assertion(struct flow_ctx* ctx, const struct static_assertion* p_static_assertion);
+static void flow_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declaration);
+static void flow_visit_secondary_block(struct flow_ctx* ctx, struct secondary_block* _Opt p_secondary_block);
+static void flow_visit_struct_or_union_specifier(struct flow_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier);
+static void flow_visit_statement(struct flow_ctx* ctx, struct statement* p_statement);
+static void flow_visit_enum_specifier(struct flow_ctx* ctx, struct enum_specifier* p_enum_specifier);
+static void flow_visit_type_specifier(struct flow_ctx* ctx, struct type_specifier* p_type_specifier);
+static void flow_visit_bracket_initializer_list(struct flow_ctx* ctx, struct braced_initializer* p_bracket_initializer_list);
+static void flow_visit_expression_statement(struct flow_ctx* ctx, const struct expression_statement* p_expression_statement);
+static void flow_visit_block_item(struct flow_ctx* ctx, struct block_item* p_block_item);
+static void flow_visit_initializer(struct flow_ctx* ctx, struct initializer* p_initializer);
+static void flow_visit_declarator(struct flow_ctx* ctx, const struct declarator* p_declarator);
+static void flow_visit_label(struct flow_ctx* ctx, const struct label* p_label);
 
-static struct flow_branch_pair flow_visit_full_expression(struct flow_visit_ctx* ctx, const struct expression* p_expression);
+static struct flow_branch_pair flow_visit_full_expression(struct flow_ctx* ctx, const struct expression* p_expression);
 
 
-static void flow_exit_block_visit_defer_item(struct flow_visit_ctx* ctx, const struct defer_list_item* p_item, const struct token* position_token)
+static void flow_exit_block_visit_defer_item(struct flow_ctx* ctx, const struct defer_list_item* p_item, const struct token* position_token)
 {
     if (p_item->defer_statement)
     {
@@ -65936,7 +67112,7 @@ static void flow_exit_block_visit_defer_item(struct flow_visit_ctx* ctx, const s
     }
 }
 
-static void flow_exit_block_visit_defer_list(struct flow_visit_ctx* ctx,
+static void flow_exit_block_visit_defer_list(struct flow_ctx* ctx,
                                              const struct defer_list* p_defer_list,
                                              const struct token* position_token)
 {
@@ -65948,39 +67124,41 @@ static void flow_exit_block_visit_defer_list(struct flow_visit_ctx* ctx,
     }
 }
 
-static void flow_defer_item_set_end_of_lifetime(struct flow_visit_ctx* ctx, struct defer_list_item* p_item, const struct token* position_token)
+static void flow_defer_item_set_end_of_lifetime(struct flow_ctx* ctx, struct defer_list_item* p_item, const struct token* position_token)
 {
-    if (ctx->p_current_flow_branch == NULL)
+    try
     {
-        return;
-    }
-
-    if (p_item->defer_statement)
-    {
-        /* defer statements are executable blocks, not objects — no lifetime to end. */
-    }
-    else if (p_item->declarator)
-    {
-        struct declarator* p_declarator = p_item->declarator;
-
-        /* A static (or extern) declarator reached via the scope chain does
-           not actually end its lifetime here -- only automatic storage
-           (locals, parameters) does. Without this check, `static int x;`
-           going out of its block's syntactic scope got marked ENDED just
-           like a true local. */
-        if (!is_automatic_variable(p_declarator->object.type.storage_class_specifier_flags))
+        if (ctx->p_current_flow_branch == NULL)
         {
-            return;
+            throw;
         }
 
-        const struct token* _Opt p_token = position_token;
-        flow_branch_set_object_lifetime_ended(ctx->p_current_flow_branch,
-                                           &p_declarator->object,
-                                           p_token);
+        if (p_item->defer_statement)
+        {
+            /* nothing */
+        }
+        else if (p_item->declarator)
+        {
+            struct declarator* p_declarator = p_item->declarator;
+
+            if (!is_automatic_variable(p_declarator->object.type.storage_class_specifier_flags))
+            {
+                /* not local */
+                return;
+            }
+
+            const struct token* _Opt p_token = position_token;
+            flow_branch_set_object_lifetime_ended(ctx->p_current_flow_branch,
+                                               &p_declarator->object,
+                                               p_token);
+        }
+    }
+    catch
+    {
     }
 }
 
-static void flow_defer_list_set_end_of_lifetime(struct flow_visit_ctx* ctx,
+static void flow_defer_list_set_end_of_lifetime(struct flow_ctx* ctx,
                                                 const struct defer_list* p_defer_list,
                                                 const struct token* position_token)
 {
@@ -65992,7 +67170,7 @@ static void flow_defer_list_set_end_of_lifetime(struct flow_visit_ctx* ctx,
     }
 }
 
-static void flow_visit_secondary_block(struct flow_visit_ctx* ctx, struct secondary_block* _Opt p_secondary_block)
+static void flow_visit_secondary_block(struct flow_ctx* ctx, struct secondary_block* _Opt p_secondary_block)
 {
     /* _Owner _Opt in the AST: an absent secondary block is an empty body,
        so there is simply nothing to visit. Guarded here rather than at each
@@ -66003,15 +67181,7 @@ static void flow_visit_secondary_block(struct flow_visit_ctx* ctx, struct second
     flow_visit_statement(ctx, p_secondary_block->statement);
 }
 
-static void flow_visit_defer_statement()
-{
-    /*
-      We are not going to visit the secondary block here because
-      this is not the place were defer is executed.
-    */
-}
-
-static void flow_object_init(struct flow_visit_ctx* ctx, struct object* p_object, const struct token* _Opt p_token)
+static void flow_object_init(struct flow_ctx* ctx, struct object* p_object, const struct token* _Opt p_token)
 {
     if (ctx->p_current_flow_branch == NULL)
     {
@@ -66098,14 +67268,14 @@ static void flow_object_init(struct flow_visit_ctx* ctx, struct object* p_object
     }
 }
 
-static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct object* p_object, const struct type* p_type, const struct token* _Opt p_token, int depth, bool force_opt);
+static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_object, const struct type* p_type, const struct token* _Opt p_token, int depth, bool force_opt);
 
-static void flow_parameter_object_init(struct flow_visit_ctx* ctx, struct object* p_object, const struct type* p_type, const struct token* _Opt p_token)
+static void flow_parameter_object_init(struct flow_ctx* ctx, struct object* p_object, const struct type* p_type, const struct token* _Opt p_token)
 {
     flow_parameter_object_init_r(ctx, p_object, p_type, p_token, 0, false);
 }
 
-static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct object* p_object, const struct type* p_type, const struct token* _Opt p_token, int depth, bool force_opt)
+static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_object, const struct type* p_type, const struct token* _Opt p_token, int depth, bool force_opt)
 {
     if (ctx->p_current_flow_branch == NULL)
         return;
@@ -66443,7 +67613,7 @@ static void flow_parameter_object_init_r(struct flow_visit_ctx* ctx, struct obje
     }
 }
 
-static void flow_seed_aggregate_from_init_exprs(struct flow_visit_ctx* ctx, struct object* p_object)
+static void flow_seed_aggregate_from_init_exprs(struct flow_ctx* ctx, struct object* p_object)
 {
     if (p_object->members.head)
     {
@@ -66472,7 +67642,7 @@ static void flow_seed_aggregate_from_init_exprs(struct flow_visit_ctx* ctx, stru
     }
 }
 
-static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, const struct init_declarator* p_init_declarator)
+static void flow_visit_init_declarator(struct flow_ctx* ctx, const struct init_declarator* p_init_declarator)
 {
     flow_visit_declarator(ctx, p_init_declarator->p_declarator);
 
@@ -66530,11 +67700,11 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, const struct 
     }
 }
 
-static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list);
+static void flow_visit_init_declarator_list(struct flow_ctx* ctx, struct init_declarator_list* p_init_declarator_list);
 
-static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx, struct declaration_specifiers* p_declaration_specifiers);
+static void flow_visit_declaration_specifiers(struct flow_ctx* ctx, struct declaration_specifiers* p_declaration_specifiers);
 
-static void flow_visit_simple_declaration(struct flow_visit_ctx* ctx, struct simple_declaration* p_simple_declaration)
+static void flow_visit_simple_declaration(struct flow_ctx* ctx, struct simple_declaration* p_simple_declaration)
 {
     if (p_simple_declaration->p_declaration_specifiers)
     {
@@ -66584,7 +67754,7 @@ static const struct flow_alternative* _Opt flow_find_truth_witness(struct flow_b
     return NULL;
 }
 
-static void flow_check_condition_known_at_compile_time(struct flow_visit_ctx* ctx,
+static void flow_check_condition_known_at_compile_time(struct flow_ctx* ctx,
                                                        const struct expression* p_cond)
 {
     if (ctx->iteration_pass != 0)
@@ -66686,7 +67856,7 @@ static void flow_check_condition_known_at_compile_time(struct flow_visit_ctx* ct
     }
 }
 
-static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection_statement* p_selection_statement)
+static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_statement* p_selection_statement)
 {
     try
     {
@@ -66843,7 +68013,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
     }
 }
 
-static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_statement* p_try_statement)
+static void flow_visit_try_statement(struct flow_ctx* ctx, struct try_statement* p_try_statement)
 {
     struct flow_branch* _Opt p_throw_join_map_old = ctx->p_throw_join_map;
 
@@ -66946,7 +68116,7 @@ static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_stat
        was visited, above. */
 }
 
-static void flow_visit_switch_statement(struct flow_visit_ctx* ctx, struct selection_statement* p_selection_statement)
+static void flow_visit_switch_statement(struct flow_ctx* ctx, struct selection_statement* p_selection_statement)
 {
     /* Saved outside the try so the catch below restores them on every exit. */
     struct flow_branch* _Opt old_p_initial_map = ctx->p_initial_map;
@@ -67014,6 +68184,7 @@ static void flow_visit_switch_statement(struct flow_visit_ctx* ctx, struct selec
         {
             flow_exit_block_visit_defer_list(ctx, &p_selection_statement->defer_list,
                                              p_selection_statement->secondary_block->last_token);
+
             flow_defer_list_set_end_of_lifetime(ctx, &p_selection_statement->defer_list,
                                                 p_selection_statement->secondary_block->last_token);
         }
@@ -67028,7 +68199,7 @@ static void flow_visit_switch_statement(struct flow_visit_ctx* ctx, struct selec
     ctx->p_switch_obj_key = old_p_switch_obj_key;
 }
 
-static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct selection_statement* p_selection_statement)
+static void flow_visit_selection_statement(struct flow_ctx* ctx, struct selection_statement* p_selection_statement)
 {
     if (p_selection_statement->first_token->type == TK_KEYWORD_IF)
     {
@@ -67050,12 +68221,12 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
 
 }
 
-static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct compound_statement* p_compound_statement);
-static void flow_visit_compound_statement_core(struct flow_visit_ctx* ctx, struct compound_statement* p_compound_statement);
+static void flow_visit_compound_statement(struct flow_ctx* ctx, struct compound_statement* p_compound_statement);
+static void flow_visit_compound_statement_core(struct flow_ctx* ctx, struct compound_statement* p_compound_statement);
 
-static void flow_visit_initializer_list(struct flow_visit_ctx* ctx, struct initializer_list* p_initializer_list);
+static void flow_visit_initializer_list(struct flow_ctx* ctx, struct initializer_list* p_initializer_list);
 
-static void flow_visit_bracket_initializer_list(struct flow_visit_ctx* ctx, struct braced_initializer* p_bracket_initializer_list)
+static void flow_visit_bracket_initializer_list(struct flow_ctx* ctx, struct braced_initializer* p_bracket_initializer_list)
 {
     if (p_bracket_initializer_list->initializer_list == NULL)
     {
@@ -67066,13 +68237,13 @@ static void flow_visit_bracket_initializer_list(struct flow_visit_ctx* ctx, stru
     }
 }
 
-static void flow_visit_initializer_list_item(struct flow_visit_ctx* ctx, struct initializer_list_item* p_initializer)
+static void flow_visit_initializer_list_item(struct flow_ctx* ctx, struct initializer_list_item* p_initializer)
 {
     _Assert(p_initializer->initializer != NULL);
     flow_visit_initializer(ctx, p_initializer->initializer);
 }
 
-static void flow_visit_initializer(struct flow_visit_ctx* ctx, struct initializer* p_initializer)
+static void flow_visit_initializer(struct flow_ctx* ctx, struct initializer* p_initializer)
 {
     if (p_initializer->assignment_expression)
     {
@@ -67084,7 +68255,7 @@ static void flow_visit_initializer(struct flow_visit_ctx* ctx, struct initialize
     }
 }
 
-static void flow_visit_initializer_list(struct flow_visit_ctx* ctx, struct initializer_list* p_initializer_list)
+static void flow_visit_initializer_list(struct flow_ctx* ctx, struct initializer_list* p_initializer_list)
 {
     struct initializer_list_item* _Opt p_initializer = p_initializer_list->head;
     while (p_initializer)
@@ -67094,7 +68265,7 @@ static void flow_visit_initializer_list(struct flow_visit_ctx* ctx, struct initi
     }
 }
 
-static void flow_visit_generic_selection(struct flow_visit_ctx* ctx, const struct generic_selection* p_generic_selection)
+static void flow_visit_generic_selection(struct flow_ctx* ctx, const struct generic_selection* p_generic_selection)
 {
     if (p_generic_selection->expression)
     {
@@ -67126,7 +68297,7 @@ static bool flow_branch_is_ancestor_or_self(const struct flow_branch* _Opt ances
     }
     return false;
 }
-static bool flow_object_has_initialized_state(struct flow_visit_ctx* ctx, const struct object* obj)
+static bool flow_object_has_initialized_state(struct flow_ctx* ctx, const struct object* obj)
 {
     const struct flow_key_alternatives* _Opt e = flow_branch_search_up(ctx->p_current_flow_branch, obj);
     for (int i = 0; e != NULL && i < e->alternatives.size; i++)
@@ -67142,7 +68313,7 @@ static bool flow_object_has_initialized_state(struct flow_visit_ctx* ctx, const 
     }
     return false;
 }
-static bool flow_union_is_initialized(struct flow_visit_ctx* ctx, const struct object* p_union)
+static bool flow_union_is_initialized(struct flow_ctx* ctx, const struct object* p_union)
 {
     if (!type_is_union(&p_union->type))
         return false;
@@ -67162,7 +68333,7 @@ enum flow_leaf_state
 };
 
 /* Collapse a per-leaf diagnostic into one aggregate report: 'all' for UNINITIALIZED/MOVED (can be partial), 'any' for ENDED (a lifetime ends the whole object at once) -- avoids unsuppressable per-member noise (e.g. 20x/21x/222x duplicate warnings for one real issue). */
-static bool flow_object_leaves_in_state_2(struct flow_visit_ctx* ctx,
+static bool flow_object_leaves_in_state_2(struct flow_ctx* ctx,
                                           const struct object* p_obj,
                                           enum flow_leaf_state state,
                                           const struct flow_branch* _Opt p_origin_filter,
@@ -67171,7 +68342,7 @@ static bool flow_object_leaves_in_state_2(struct flow_visit_ctx* ctx,
                                           int* p_line,
                                           const struct flow_branch* _Opt* _Opt pp_origin);
 
-static bool flow_object_leaves_in_state(struct flow_visit_ctx* ctx,
+static bool flow_object_leaves_in_state(struct flow_ctx* ctx,
                                         const struct object* p_obj,
                                         enum flow_leaf_state state,
                                         const struct flow_branch* _Opt p_origin_filter,
@@ -67182,7 +68353,7 @@ static bool flow_object_leaves_in_state(struct flow_visit_ctx* ctx,
     return flow_object_leaves_in_state_2(ctx, p_obj, state, p_origin_filter, NULL, require_all, p_line, pp_origin);
 }
 
-static bool flow_object_leaves_in_state_2(struct flow_visit_ctx* ctx,
+static bool flow_object_leaves_in_state_2(struct flow_ctx* ctx,
                                           const struct object* p_obj,
                                           enum flow_leaf_state state,
                                           const struct flow_branch* _Opt p_origin_filter,
@@ -67288,7 +68459,7 @@ static bool flow_finding_already_reported(const struct object* _Opt p_object, in
     return false;
 }
 
-static void flow_check_object_access(struct flow_visit_ctx* ctx,
+static void flow_check_object_access(struct flow_ctx* ctx,
                                      const char* parent_expression_str,
                                      struct expression* p_expression,
                                      const struct object* p_object_src,
@@ -67301,8 +68472,6 @@ static void flow_check_object_access(struct flow_visit_ctx* ctx,
                                      bool check_ended,
                                      bool base_is_ptr)
 {
-    /* Declared outside the try so the single close below covers every exit,
-       including a throw. */
     struct osstream bare_name_ss = { 0 };
 
     try
@@ -67738,7 +68907,7 @@ static bool flow_object_under_view(const struct object* obj)
 }
 
 /* Force every leaf member's flow state to exist (via flow_seed_member_default) before a leak check walks them, so a member the source never happens to read isn't silently skipped -- fixes github.com/thradams/cake/issues/459; the older _Opt-only restriction is gone since owner-resource-059.c no longer needs it. */
-static void flow_seed_all_members_default(struct flow_visit_ctx* ctx, struct object* p_obj, const struct token* _Opt p_token)
+static void flow_seed_all_members_default(struct flow_ctx* ctx, struct object* p_obj, const struct token* _Opt p_token)
 {
     if (p_obj->members.head)
     {
@@ -67757,7 +68926,7 @@ static void flow_seed_all_members_default(struct flow_visit_ctx* ctx, struct obj
    cannot contain themselves by value). Used only to consume
    ctx->p_pending_ended_report_obj; see the field comment in flow3.h.
 */
-static bool flow_object_is_pending_ended_report(const struct flow_visit_ctx* ctx, const struct object* p_obj)
+static bool flow_object_is_pending_ended_report(const struct flow_ctx* ctx, const struct object* p_obj)
 {
     if (ctx->p_pending_ended_report_obj == NULL)
         return false;
@@ -67781,7 +68950,7 @@ static bool flow_object_is_pending_ended_report(const struct flow_visit_ctx* ctx
    report "false" for every check here, since an array destination's
    type_is_pointer() is false).
 */
-static void flow_apply_pointee_param_effect(struct flow_visit_ctx* ctx,
+static void flow_apply_pointee_param_effect(struct flow_ctx* ctx,
                                             struct expression* p_expression,
                                             const struct object* p_object_dest,
                                             const struct object* pointee,
@@ -67863,7 +69032,7 @@ static void flow_apply_pointee_param_effect(struct flow_visit_ctx* ctx,
     ss_close(&arg_ss);
 }
 
-static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
+static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                                              struct expression* p_expression,
                                              const struct object* _Opt p_object_dest, /* uninitialized always */
                                              const struct object* _Opt p_object_src,
@@ -67871,11 +69040,11 @@ static void flow_check_object_init_assigment(struct flow_visit_ctx* ctx,
                                              bool dest_is_dtor,
                                              bool dest_is_view)
 {
-    if (ctx->p_current_flow_branch == NULL)
-        return;
-
     try
     {
+        if (ctx->p_current_flow_branch == NULL)
+            throw;
+
         if (p_object_src == NULL || p_object_dest == NULL)
             return;
 
@@ -68504,7 +69673,7 @@ struct flow_discarded_owner_scan
     int line;
 };
 
-static void flow_scan_discarded_owners(struct flow_visit_ctx* ctx,
+static void flow_scan_discarded_owners(struct flow_ctx* ctx,
                                        const struct object* _Opt p_object_dest,
                                        struct flow_discarded_owner_scan* scan)
 {
@@ -68577,7 +69746,7 @@ static void flow_scan_discarded_owners(struct flow_visit_ctx* ctx,
     }
 }
 
-static void flow_check_discarding_owner_before_overwrite(struct flow_visit_ctx* ctx,
+static void flow_check_discarding_owner_before_overwrite(struct flow_ctx* ctx,
                                                          const struct expression* p_expression_dest,
                                                          const struct object* _Opt p_object_dest,
                                                          const struct marker* marker)
@@ -68655,7 +69824,7 @@ static void flow_check_discarding_owner_before_overwrite(struct flow_visit_ctx* 
 }
 
 /* Apply a _Clear/_Uninitialized allocation contract to the destination's own pointee type (calloc/malloc return typeless void*, which loses the contract at the type conversion) -- _Clear seeds every member 0, _Uninitialized seeds every member uninitialized; using such a member before assigning it now correctly warns. */
-static void flow_apply_alloc_contract_to_dest(struct flow_visit_ctx* ctx,
+static void flow_apply_alloc_contract_to_dest(struct flow_ctx* ctx,
                                               const struct type* _Opt p_dest_type,
                                               const struct object* _Opt p_object_dest,
                                               const struct expression* _Opt p_src_expression)
@@ -68704,7 +69873,7 @@ static void flow_apply_alloc_contract_to_dest(struct flow_visit_ctx* ctx,
     type_destroy(&pointed_type);
 }
 
-static void flow_check_assigment(struct flow_visit_ctx* ctx,
+static void flow_check_assigment(struct flow_ctx* ctx,
                                  const struct expression* p_expression_dest,
                                  struct expression* p_expression_src)
 {
@@ -68776,15 +69945,15 @@ static void flow_check_assigment(struct flow_visit_ctx* ctx,
     }
 }
 
-static void flow_visit_function_arguments(struct flow_visit_ctx* ctx,
+static void flow_visit_function_arguments(struct flow_ctx* ctx,
                                           const struct type* p_type,
                                           const struct argument_expression_list* p_argument_expression_list)
 {
-    if (ctx->p_current_flow_branch == NULL)
-        return;
-
     try
     {
+        if (ctx->p_current_flow_branch == NULL)
+            throw;
+
         const struct param_list* _Opt p_param_list = type_get_func_or_func_ptr_params(p_type);
         if (p_param_list == NULL)
         {
@@ -68868,7 +70037,7 @@ static void flow_visit_function_arguments(struct flow_visit_ctx* ctx,
     }
 }
 
-static void flow_check_dianostic_suppression(struct flow_visit_ctx* ctx, const struct token* p_token)
+static void flow_check_dianostic_suppression(struct flow_ctx* ctx, const struct token* p_token)
 {
     check_dianostic_suppression_phase(ctx->ctx, p_token, 2);
 }
@@ -68892,7 +70061,7 @@ static const struct expression* skip_parenthesis(const struct expression* expr)
    Without this the seeds left by `char buffer[16] = {0};` survived the write
    and a later `buffer[1] == 'O'` folded to always-false (user-reported:
    expressions.c, parse of an octal constant's `o`/`O` prefix). */
-static void flow_invalidate_unknown_index_write(struct flow_visit_ctx* ctx,
+static void flow_invalidate_unknown_index_write(struct flow_ctx* ctx,
                                                 const struct expression* _Opt p_dest)
 {
     if (p_dest == NULL)
@@ -68940,7 +70109,7 @@ static void flow_invalidate_unknown_index_write(struct flow_visit_ctx* ctx,
                               ctx->ctx->options.null_checks_enabled);
 }
 
-static void flow_expression_static_debug(struct flow_visit_ctx* ctx, const struct expression* p_expression)
+static void flow_expression_static_debug(struct flow_ctx* ctx, const struct expression* p_expression)
 {
     struct token* first_token = p_expression->first_token;
     struct token* last_token = p_expression->last_token;
@@ -68948,7 +70117,7 @@ static void flow_expression_static_debug(struct flow_visit_ctx* ctx, const struc
     object_static_debug(ctx, &p_expression->object, first_token, last_token);
 }
 
-static struct flow_branch_pair flow_visit_full_expression(struct flow_visit_ctx* ctx, const struct expression* p_expression)
+static struct flow_branch_pair flow_visit_full_expression(struct flow_ctx* ctx, const struct expression* p_expression)
 {
     return flow_visit_expression(ctx, p_expression);
 }
@@ -69330,7 +70499,7 @@ static void narrow_by_relational(const struct flow_alternatives* src,
     }
 }
 
-static bool flow_operand_is_single_constant(struct flow_visit_ctx* ctx,
+static bool flow_operand_is_single_constant(struct flow_ctx* ctx,
                                             const struct expression* p_expr,
                                             long long* out)
 {
@@ -69375,7 +70544,7 @@ static bool flow_operand_is_single_constant(struct flow_visit_ctx* ctx,
     return true;
 }
 
-static void flow_narrow_operand_relational(struct flow_visit_ctx* ctx,
+static void flow_narrow_operand_relational(struct flow_ctx* ctx,
                                            const struct expression* p_expr,
                                            long long c,
                                            enum expression_type op,
@@ -69595,7 +70764,7 @@ static int flow_pair_equality(const struct flow_alternative* lval,
     return -1;
 }
 
-static int flow_evaluate_equality_multi(struct flow_visit_ctx* ctx,
+static int flow_evaluate_equality_multi(struct flow_ctx* ctx,
                                         const struct expression* p_left,
                                         const struct expression* p_right,
                                         bool is_equal)
@@ -69679,7 +70848,7 @@ static int flow_evaluate_equality_multi(struct flow_visit_ctx* ctx,
 /* Narrow the variable operand `p_expr` for `var == c` / `var != c`, writing
    refined alternatives into p_true/p_false. Per-alternative REF pattern: for
    every REF alternative of the operand, narrow the object it references. */
-static void flow_narrow_operand_equality(struct flow_visit_ctx* ctx,
+static void flow_narrow_operand_equality(struct flow_ctx* ctx,
                                          const struct expression* p_expr,
                                          long long c,
                                          bool is_equal,
@@ -69759,7 +70928,7 @@ const char* obj_display(const struct object* _Opt obj)
 {
     if (obj && obj->member_designator && obj->member_designator[0])
         return obj->member_designator;
-    static char buf[32];
+    static char buf[32] = { 0 };
     snprintf(buf, sizeof(buf), "0x%lx", (unsigned long)(uintptr_t)obj);
     return buf;
 }
@@ -69817,15 +70986,17 @@ static int flow_interval_relational(long long llo, long long lhi,
     return -1;
 }
 
-static int flow_evaluate_relational_multi(struct flow_visit_ctx* ctx,
+static int flow_evaluate_relational_multi(struct flow_ctx* ctx,
                                           const struct expression* p_left,
                                           const struct expression* p_right,
                                           enum expression_type op)
 {
     const struct flow_key_alternatives* _Opt left_entry =
         flow_branch_search_up(ctx->p_current_flow_branch, &p_left->object);
+
     const struct flow_key_alternatives* _Opt right_entry =
         flow_branch_search_up(ctx->p_current_flow_branch, &p_right->object);
+
     if (left_entry == NULL || right_entry == NULL)
         return -1;
 
@@ -69920,7 +71091,7 @@ static int flow_pair_boolean(const struct flow_alternative* lval,
 }
 
 
-static bool flow_comparison_result_alts(struct flow_visit_ctx* ctx,
+static bool flow_comparison_result_alts(struct flow_ctx* ctx,
                                         const struct expression* p_left,
                                         const struct expression* p_right,
                                         enum expression_type op,
@@ -69932,8 +71103,10 @@ static bool flow_comparison_result_alts(struct flow_visit_ctx* ctx,
 
     const struct flow_key_alternatives* _Opt left_entry =
         flow_branch_search_up(ctx->p_current_flow_branch, &p_left->object);
+
     const struct flow_key_alternatives* _Opt right_entry =
         flow_branch_search_up(ctx->p_current_flow_branch, &p_right->object);
+
     if (left_entry == NULL || right_entry == NULL)
         return false;
 
@@ -70012,7 +71185,7 @@ static bool flow_comparison_result_alts(struct flow_visit_ctx* ctx,
     return true;
 }
 
-static void flow_seed_comparison_result(struct flow_visit_ctx* ctx,
+static void flow_seed_comparison_result(struct flow_ctx* ctx,
                                         const struct expression* p_expression)
 {
     _Assert(p_expression->left != NULL);
@@ -70048,7 +71221,7 @@ static void flow_seed_comparison_result(struct flow_visit_ctx* ctx,
     }
 }
 
-static void flow_evaluate_binary_arithmetic(struct flow_visit_ctx* ctx,
+static void flow_evaluate_binary_arithmetic(struct flow_ctx* ctx,
                                             const struct expression* p_left,
                                             const struct expression* p_right,
                                             const struct expression* p_result,
@@ -70401,7 +71574,7 @@ static void flow_evaluate_binary_arithmetic(struct flow_visit_ctx* ctx,
     }
 }
 
-static void flow_seed_constant_result(struct flow_visit_ctx* ctx, const struct expression* p_expression)
+static void flow_seed_constant_result(struct flow_ctx* ctx, const struct expression* p_expression)
 {
     if (!object_has_known_value(&p_expression->object))
         return;
@@ -70422,7 +71595,7 @@ static void flow_seed_constant_result(struct flow_visit_ctx* ctx, const struct e
     flow_alternatives_add(&e->alternatives, &a);
 }
 
-static void flow_seed_member_default(struct flow_visit_ctx* ctx, const struct object* _Opt member_obj, const struct token* _Opt p_token)
+static void flow_seed_member_default(struct flow_ctx* ctx, const struct object* _Opt member_obj, const struct token* _Opt p_token)
 {
     try
     {
@@ -70526,7 +71699,7 @@ static void flow_seed_member_default(struct flow_visit_ctx* ctx, const struct ob
     }
 }
 
-static bool flow_cast_one_value(struct flow_visit_ctx* ctx,
+static bool flow_cast_one_value(struct flow_ctx* ctx,
                                 const struct flow_alternative* alt,
                                 const struct type* p_target_type,
                                 struct flow_alternatives* out,
@@ -70617,7 +71790,7 @@ static bool flow_cast_one_value(struct flow_visit_ctx* ctx,
     return false;
 }
 
-static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx, const struct expression* _Opt p_expression)
+static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const struct expression* _Opt p_expression)
 {
     /* left/right are _Owner _Opt in the AST, and callers hand them straight
        in; an absent operand is nothing to visit. */
@@ -70642,10 +71815,6 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
             break;
 
             case EXPR_PRIMARY_ENUMERATOR:
-                /* An enumerator is a compile-time constant (the parser folded its
-        value into the expression object). Seed it so it can be used in
-        flow-checked comparisons, like a numeric literal. Enum values may be
-        negative, so seed it as signed. */
                 if (object_has_known_value(&p_expression->object))
                 {
                     struct flow_key_alternatives* _Opt e = flow_branch_find_add(ctx->p_current_flow_branch, &p_expression->object);
@@ -70653,12 +71822,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     flow_alternatives_clear(&e->alternatives);
                     struct flow_alternative a =
                     {
-                .value_kind = FLOW_VALUE_KIND_SIGNED,
-                .value = {.i = object_to_signed_long_long(&p_expression->object)},
-                .value_relation = FLOW_RELATION_EQUAL,
-                .imaginary = FLOW_IMAGINARY_NONE,
-                .p_origin_map = ctx->p_current_flow_branch,
-                .p_origin_token = p_expression->first_token
+                        .value_kind = FLOW_VALUE_KIND_SIGNED,
+                        .value = {.i = object_to_signed_long_long(&p_expression->object)},
+                        .value_relation = FLOW_RELATION_EQUAL,
+                        .imaginary = FLOW_IMAGINARY_NONE,
+                        .p_origin_map = ctx->p_current_flow_branch,
+                        .p_origin_token = p_expression->first_token
                     };
                     flow_alternatives_add(&e->alternatives, &a);
                 }
@@ -70681,12 +71850,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
 
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = ANY_VALUE},
-                    .value_relation = FLOW_RELATION_ANY,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_SIGNED,
+                            .value = {.i = ANY_VALUE},
+                            .value_relation = FLOW_RELATION_ANY,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->first_token
                         };
 
                         /* A pointer global respects its declared nullability, just like
@@ -70711,9 +71880,9 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                  flow_branch_search_up(ctx->p_current_flow_branch, p_obj) == NULL)
                 {
                     /* Compile-time constant (e.g. constexpr) whose value was not
-            carried over from its own declaration analysis (each top-level
-            declaration gets a fresh flow map). Seed it with its real,
-            unchanging value instead of leaving it untracked. */
+                        carried over from its own declaration analysis (each top-level
+                        declaration gets a fresh flow map). Seed it with its real,
+                        unchanging value instead of leaving it untracked. */
                     struct flow_alternative value = { 0 };
                     if (type_is_pointer(&p_obj->type))
                     {
@@ -70731,38 +71900,38 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         value.value.u = p_obj->value.host_u_long_long;
                     }
 
-                    struct flow_key_alternatives* _Opt e = flow_branch_find_add(ctx->p_current_flow_branch, p_obj);
-                    if (e == NULL) throw;
-                    flow_alternatives_clear(&e->alternatives);
+                    struct flow_key_alternatives* _Opt e1 = flow_branch_find_add(ctx->p_current_flow_branch, p_obj);
+                    if (e1 == NULL) throw;
+                    flow_alternatives_clear(&e1->alternatives);
                     struct flow_alternative a =
                     {
-                .value_kind = value.value_kind,
-                .value = value.value,
-                .value_relation = FLOW_RELATION_EQUAL,
-                .imaginary = FLOW_IMAGINARY_NONE,
-                .p_origin_map = ctx->p_current_flow_branch,
-                .p_origin_token = p_expression->first_token
+                        .value_kind = value.value_kind,
+                        .value = value.value,
+                        .value_relation = FLOW_RELATION_EQUAL,
+                        .imaginary = FLOW_IMAGINARY_NONE,
+                        .p_origin_map = ctx->p_current_flow_branch,
+                        .p_origin_token = p_expression->first_token
                     };
-                    flow_alternatives_add(&e->alternatives, &a);
+                    flow_alternatives_add(&e1->alternatives, &a);
                 }
 
                 _Assert(p_expression->declarator != NULL);
 
+                
+                struct flow_key_alternatives* _Opt e2 = flow_branch_find_add(ctx->p_current_flow_branch, &p_expression->object);
+                if (e2 == NULL) throw;
+                flow_alternatives_clear(&e2->alternatives);
+                struct flow_alternative a =
                 {
-                    struct flow_key_alternatives* _Opt e = flow_branch_find_add(ctx->p_current_flow_branch, &p_expression->object);
-                    if (e == NULL) throw;
-                    flow_alternatives_clear(&e->alternatives);
-                    struct flow_alternative a =
-                    {
-                .value_kind = FLOW_VALUE_KIND_REF,
-                .value = {.p = p_obj},
-                .value_relation = FLOW_RELATION_EQUAL,
-                .imaginary = FLOW_IMAGINARY_NONE,
-                .p_origin_map = ctx->p_current_flow_branch,
-                .p_origin_token = p_expression->first_token
-                    };
-                    flow_alternatives_add(&e->alternatives, &a);
-                }
+                    .value_kind = FLOW_VALUE_KIND_REF,
+                    .value = {.p = p_obj},
+                    .value_relation = FLOW_RELATION_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_branch,
+                    .p_origin_token = p_expression->first_token
+                };
+                flow_alternatives_add(&e2->alternatives, &a);
+                
 
                 /* Build true/false branch maps narrowed on this variable. */
                 const struct object* p_obj2 = &p_expression->declarator->object;
@@ -70772,10 +71941,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     throw;
 
                 flow_tag_branch_pair(p_true, p_false);
-                return (struct flow_branch_pair)
-                {
-                p_true, p_false
-                };
+                return (struct flow_branch_pair) { p_true, p_false };
             }
 
             case EXPR_PRIMARY_PARENTHESIS:
@@ -70811,12 +71977,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 flow_alternatives_clear(&e->alternatives);
                 struct flow_alternative a =
                 {
-            .value_kind = FLOW_VALUE_KIND_SIGNED,
-            .value = {.i = 1},
-            .value_relation = FLOW_RELATION_EQUAL,
-            .imaginary = FLOW_IMAGINARY_NONE,
-            .p_origin_map = ctx->p_current_flow_branch,
-            .p_origin_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = 1},
+                    .value_relation = FLOW_RELATION_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_branch,
+                    .p_origin_token = p_expression->first_token
                 };
                 flow_alternatives_add(&e->alternatives, &a);
             }
@@ -70831,12 +71997,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 flow_alternatives_clear(&e->alternatives);
                 struct flow_alternative a =
                 {
-            .value_kind = FLOW_VALUE_KIND_SIGNED,
-            .value = {.i = object_to_signed_long_long(&p_expression->object)},
-            .value_relation = FLOW_RELATION_EQUAL,
-            .imaginary = FLOW_IMAGINARY_NONE,
-            .p_origin_map = ctx->p_current_flow_branch,
-            .p_origin_token = p_expression->first_token
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = object_to_signed_long_long(&p_expression->object)},
+                    .value_relation = FLOW_RELATION_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_branch,
+                    .p_origin_token = p_expression->first_token
                 };
                 flow_alternatives_add(&e->alternatives, &a);
             }
@@ -71221,12 +72387,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                             {
                                 struct flow_alternative a =
                                 {
-                            .value_kind = FLOW_VALUE_KIND_REF,
-                            .value = {.p = member_obj},
-                            .value_relation = FLOW_RELATION_EQUAL,
-                            .imaginary = FLOW_IMAGINARY_NONE,
-                            .p_origin_map = ctx->p_current_flow_branch,
-                            .p_origin_token = p_expression->first_token
+                                    .value_kind = FLOW_VALUE_KIND_REF,
+                                    .value = {.p = member_obj},
+                                    .value_relation = FLOW_RELATION_EQUAL,
+                                    .imaginary = FLOW_IMAGINARY_NONE,
+                                    .p_origin_map = ctx->p_current_flow_branch,
+                                    .p_origin_token = p_expression->first_token
                                 };
                                 flow_alternatives_add(&result_entry->alternatives, &a);
                             }
@@ -71403,12 +72569,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
 
                             struct flow_alternative a =
                             {
-                        .value_kind = FLOW_VALUE_KIND_REF,
-                        .value = {.p = p_element},
-                        .value_relation = FLOW_RELATION_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .p_origin_map = flow_origin_more_specific(ctx->p_current_flow_branch, p_left_alternative->p_origin_map),
-                        .p_origin_token = p_expression->first_token
+                                .value_kind = FLOW_VALUE_KIND_REF,
+                                .value = {.p = p_element},
+                                .value_relation = FLOW_RELATION_EQUAL,
+                                .imaginary = FLOW_IMAGINARY_NONE,
+                                .p_origin_map = flow_origin_more_specific(ctx->p_current_flow_branch, p_left_alternative->p_origin_map),
+                                .p_origin_token = p_expression->first_token
                             };
                             flow_alternatives_add(&result_entry->alternatives, &a);
 
@@ -71445,12 +72611,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     {
                         struct flow_alternative a =
                         {
-                    .value_kind = type_is_signed(&p_expression->object.type)
-                                  ? FLOW_VALUE_KIND_SIGNED : FLOW_VALUE_KIND_UNSIGNED,
-                    .value_relation = FLOW_RELATION_ANY,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_expression->first_token
+                            .value_kind = type_is_signed(&p_expression->object.type)
+                                          ? FLOW_VALUE_KIND_SIGNED : FLOW_VALUE_KIND_UNSIGNED,
+                            .value_relation = FLOW_RELATION_ANY,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -71472,12 +72638,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     {
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_PTR,
-                    .value = {.p = NULL},
-                    .value_relation = FLOW_RELATION_NOT_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_PTR,
+                            .value = {.p = NULL},
+                            .value_relation = FLOW_RELATION_NOT_EQUAL,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -71510,8 +72676,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 const struct type* p_ret_type = &p_expression->object.type;
                 const struct token* p_call_token = p_expression->first_token;
                 /* `_Clear` in RETURN position means the returned pointee is all-zero
-        (calloc) -- the return-side reading of the same qualifier that, on a
-        parameter, means "the callee zeroes the pointee". */
+                    (calloc) -- the return-side reading of the same qualifier that, on a
+                    parameter, means "the callee zeroes the pointee". */
                 const bool ret_zero = type_is_pointer(p_ret_type) &&
                 (type_is_clear(p_ret_type) || type_is_pointed_clear(p_ret_type));
                 const bool ret_uninit = type_is_pointer(p_ret_type) &&
@@ -71530,12 +72696,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     {
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_PTR,
-                    .value = {.p = NULL},
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = p_null_map,
-                    .p_origin_token = p_call_token
+                            .value_kind = FLOW_VALUE_KIND_PTR,
+                            .value = {.p = NULL},
+                            .value_relation = FLOW_RELATION_EQUAL,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = p_null_map,
+                            .p_origin_token = p_call_token
                         };
                         flow_alternatives_add(&p_result_alternatives->alternatives, &a);
                     }
@@ -71617,12 +72783,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_PTR,
-                    .value = {.p = p_pointed},
-                    .value_relation = p_pointed != NULL ? FLOW_RELATION_EQUAL : FLOW_RELATION_NOT_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_call_token
+                            .value_kind = FLOW_VALUE_KIND_PTR,
+                            .value = {.p = p_pointed},
+                            .value_relation = p_pointed != NULL ? FLOW_RELATION_EQUAL : FLOW_RELATION_NOT_EQUAL,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_call_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -71631,16 +72797,16 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 {
                     /* A call's return value is always fully initialized by the time it comes back, even for a non-pointer type or a pointer with nullable checks disabled -- reuse flow_parameter_object_init to seed it ANY/non-null recursively, fixing false 'possibly uninitialized' on scalar returns and their members (errcode, x.a). */
                     /* p_expression is const here (flow_visit_expression's own
-        parameter), so &p_expression->object is a const struct
-        object* -- but flow_parameter_object_init's signature
-        (shared with the parameter-seeding call site) takes a
-        non-const struct object*, matching every other call site
-        where the object being seeded belongs to a non-const
-        declarator. It only ever reads this object's own
-        .members list (to recurse) and writes into the flow map
-        keyed by its address; it never mutates the object itself.
-        Cast away const explicitly rather than relaxing the
-        shared signature for every other caller. */
+                        parameter), so &p_expression->object is a const struct
+                        object* -- but flow_parameter_object_init's signature
+                        (shared with the parameter-seeding call site) takes a
+                        non-const struct object*, matching every other call site
+                        where the object being seeded belongs to a non-const
+                        declarator. It only ever reads this object's own
+                        .members list (to recurse) and writes into the flow map
+                        keyed by its address; it never mutates the object itself.
+                        Cast away const explicitly rather than relaxing the
+                        shared signature for every other caller. */
                     flow_parameter_object_init(ctx, (struct object*)&p_expression->object, p_ret_type, p_call_token);
                 }
                 flow_branch_remove(ctx->p_current_flow_branch, &p_expression->left->object);
@@ -71652,14 +72818,14 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 _Assert(p_expression->compound_statement != NULL);
 
                 /* A function literal's body is never reached through
-           flow_visit_declaration (it has no enclosing struct declaration --
-           its compound_statement hangs off this expression instead), so
-           none of the per-function setup/teardown that macro normally
-           provides happens for it automatically. Without this, a literal's
-           _Owner parameters are never seeded by flow_parameter_object_init,
-           so passing/leaking a resource through them goes uncaught -- same
-           root cause as the defer-not-generated bug in defer.c fixed for
-           issue #269, just in the ownership checker instead of codegen. */
+                   flow_visit_declaration (it has no enclosing struct declaration --
+                   its compound_statement hangs off this expression instead), so
+                   none of the per-function setup/teardown that macro normally
+                   provides happens for it automatically. Without this, a literal's
+                   _Owner parameters are never seeded by flow_parameter_object_init,
+                   so passing/leaking a resource through them goes uncaught -- same
+                   root cause as the defer-not-generated bug in defer.c fixed for
+                   issue #269, just in the ownership checker instead of codegen. */
                 const struct direct_declarator* _Opt p_innermost_direct_declarator =
                 p_expression->type_name && p_expression->type_name->abstract_declarator ?
                 get_innermost_direct_declarator(p_expression->type_name->abstract_declarator->direct_declarator) :
@@ -71673,8 +72839,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 NULL;
 
                 for (struct parameter_declaration* _Opt p_parameter = p_parameter_list ? p_parameter_list->head : NULL;
-             p_parameter;
-             p_parameter = p_parameter->next)
+                     p_parameter;
+                     p_parameter = p_parameter->next)
                 {
                     if (p_parameter->declarator)
                     {
@@ -71697,8 +72863,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     flow_check_arena_objects_at_function_exit(ctx);
                     const struct marker marker =
                     {
-                .p_token_begin = p_expression->compound_statement->last_token,
-                .p_token_end = p_expression->compound_statement->last_token
+                        .p_token_begin = p_expression->compound_statement->last_token,
+                        .p_token_end = p_expression->compound_statement->last_token
                     };
                     flow_check_file_scope_objects_at_function_exit(ctx);
                     flow_check_write_qualified_params_at_exit(ctx, &marker, p_expression->compound_statement->last_token);
@@ -71757,13 +72923,13 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
 
             case EXPR_UNARY_ASSERT:
                 /*
-        * _Assert(expr) is equivalent to:
-        *   if (!expr) exit();   // exit does not return
-        *
-        * So after assert, only the TRUE branch of expr is reachable.
-        * We apply the true-branch refinements to the current map and
-        * discard the false branch (it is a dead end, like exit()).
-        */
+                * _Assert(expr) is equivalent to:
+                *   if (!expr) exit();   // exit does not return
+                *
+                * So after assert, only the TRUE branch of expr is reachable.
+                * We apply the true-branch refinements to the current map and
+                * discard the false branch (it is a dead end, like exit()).
+                */
                 if (p_expression->right)
                 {
                     struct flow_branch_pair assert_pair = flow_visit_expression(ctx, p_expression->right);
@@ -71794,10 +72960,10 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
             case EXPR_UNARY_PLUS:
                 _Assert(p_expression->right != NULL);
                 /*
-        * Visit the child first so that any sub-expression (e.g. -(a + b))
-        * is fully evaluated and its constant value — if any — is propagated
-        * into p_expression->right->object before we inspect it.
-        */
+                * Visit the child first so that any sub-expression (e.g. -(a + b))
+                * is fully evaluated and its constant value — if any — is propagated
+                * into p_expression->right->object before we inspect it.
+                */
                 flow_visit_expression(ctx, p_expression->right);
                 if (object_has_constant_value(&p_expression->right->object))
                 {
@@ -71809,12 +72975,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = result},
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_SIGNED,
+                            .value = {.i = result},
+                            .value_relation = FLOW_RELATION_EQUAL,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -71822,9 +72988,9 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 else
                 {
                     /* Operand has no constant value, but it may still carry a RELATION
-            (e.g. `b < 0` narrowed by an enclosing if). Carry that through:
-            unary + preserves it, unary - mirrors it. Only if nothing can be
-            mapped do we fall back to a plain ANY. */
+                        (e.g. `b < 0` narrowed by an enclosing if). Carry that through:
+                        unary + preserves it, unary - mirrors it. Only if nothing can be
+                        mapped do we fall back to a plain ANY. */
                     const bool is_neg = (p_expression->expression_type == EXPR_UNARY_NEG);
                     const struct flow_key_alternatives* _Opt p_src =
                     flow_branch_search_up(ctx->p_current_flow_branch, &p_expression->right->object);
@@ -71837,15 +73003,16 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         const struct flow_alternative* a0 = p_src->alternatives.data[i];
 
                         /* The operand usually resolves to a REF to the variable object;
-                follow it to the actual value alternatives. */
+                            follow it to the actual value alternatives. 
+                         */
                         const struct flow_key_alternatives* _Opt p_vals = NULL;
                         if (a0->value_kind == FLOW_VALUE_KIND_REF && a0->value.p != NULL)
                             p_vals = flow_branch_search_up(ctx->p_current_flow_branch, a0->value.p);
 
                         /* data is an array of pointers now, so list[j] is already a
-                   struct flow_alternative* -- when there's no REF to follow,
-                   use a synthetic one-element array holding a0 itself instead
-                   of treating a0 (one alternative) as if it were the array. */
+                           struct flow_alternative* -- when there's no REF to follow,
+                           use a synthetic one-element array holding a0 itself instead
+                           of treating a0 (one alternative) as if it were the array. */
                         struct flow_alternative* _Opt single_list[1];
                         struct flow_alternative* _Opt* _Opt list;
                         if (p_vals != NULL)
@@ -71911,12 +73078,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = ANY_VALUE},
-                    .value_relation = FLOW_RELATION_ANY,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_SIGNED,
+                            .value = {.i = ANY_VALUE},
+                            .value_relation = FLOW_RELATION_ANY,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -71929,10 +73096,10 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 _Assert(p_expression->right != NULL);
 
                 /*
-        * Visit the child first so that any sub-expression is fully evaluated
-        * and its constant value — if any — is propagated into
-        * p_expression->right->object before we inspect it.
-        */
+                * Visit the child first so that any sub-expression is fully evaluated
+                * and its constant value — if any — is propagated into
+                * p_expression->right->object before we inspect it.
+                */
                 struct flow_branch_pair child = flow_visit_expression(ctx, p_expression->right);
 
                 if (object_has_constant_value(&p_expression->right->object))
@@ -71946,12 +73113,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = result},
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_SIGNED,
+                            .value = {.i = result},
+                            .value_relation = FLOW_RELATION_EQUAL,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -71981,8 +73148,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 }
 
                 /* Seed the NOT result's OWN value: `!x` yields a boolean (0 or 1) and is
-        always INITIALIZED. Without this, `bool c = !x;` (non-constant x) left
-        c with no value and c was wrongly reported "possibly uninitialized". */
+                    always INITIALIZED. Without this, `bool c = !x;` (non-constant x) left
+                    c with no value and c was wrongly reported "possibly uninitialized". */
                 {
                     struct flow_key_alternatives* _Opt e = flow_branch_find_add(ctx->p_current_flow_branch, &p_expression->object);
                     if (e == NULL) throw;
@@ -72019,7 +73186,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
             case EXPR_UNARY_SIZEOF_TYPE:
             case EXPR_UNARY_COUNTOF:
                 /* Constant when the parser folded it. For a VLA `sizeof` the parser
-        has no constant value, so this seeds nothing and it stays unknown. */
+                    has no constant value, so this seeds nothing and it stays unknown. 
+                */
                 flow_seed_constant_result(ctx, p_expression);
             break;
 
@@ -72057,15 +73225,15 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                              p_expression->expression_type == EXPR_POSTFIX_INCREMENT);
 
                 /*
-        ++ / -- are disallowed on an _Owner pointer: advancing it loses the
-        very address that has to be freed, so the allocation could never be
-        released through it.
+                ++ / -- are disallowed on an _Owner pointer: advancing it loses the
+                very address that has to be freed, so the allocation could never be
+                released through it.
 
-        Moved here from expressions.c so that every diagnostic mentioning
-        _Owner lives in flow3 -- and extended while moving: the parser only
-        checked the POSTFIX forms, so `++p` / `--p` on an owner went
-        completely unreported. All four forms land in this case.
-        */
+                Moved here from expressions.c so that every diagnostic mentioning
+                _Owner lives in flow3 -- and extended while moving: the parser only
+                checked the POSTFIX forms, so `++p` / `--p` on an owner went
+                completely unreported. All four forms land in this case.
+                */
                 if (type_is_owner(&p_operand->object.type))
                 {
                     diagnostic(is_increment
@@ -72090,12 +73258,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = ANY_VALUE},
-                    .value_relation = FLOW_RELATION_ANY,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_SIGNED,
+                            .value = {.i = ANY_VALUE},
+                            .value_relation = FLOW_RELATION_ANY,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -72105,12 +73273,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = ANY_VALUE},
-                    .value_relation = FLOW_RELATION_ANY,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_SIGNED,
+                            .value = {.i = ANY_VALUE},
+                            .value_relation = FLOW_RELATION_ANY,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -72118,11 +73286,11 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 }
 
                 /* Advance the object(s) the operand names. An lvalue may alias
-        several objects -- e.g. `(*p)++` where p can point to a or b -- so
-        iterate its REF alternatives the way flow_check_assigment handles
-        an assignment destination, rather than a size==1 / data[0] shortcut.
-        Each referenced object's values are advanced, tagged with the branch
-        the reference belongs to so the update stays correlated. */
+                    several objects -- e.g. `(*p)++` where p can point to a or b -- so
+                    iterate its REF alternatives the way flow_check_assigment handles
+                    an assignment destination, rather than a size==1 / data[0] shortcut.
+                    Each referenced object's values are advanced, tagged with the branch
+                    the reference belongs to so the update stays correlated. */
                 struct flow_alternatives new_result_alts = { 0 };
                 bool advanced_any = false;
 
@@ -72165,16 +73333,16 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         else if (alt->value_kind == FLOW_VALUE_KIND_PTR)
                         {
                             /* Advancing a pointer preserves its null-ness (it still
-                    points within the same object/array, so non-null stays
-                    non-null) but moves it to a DIFFERENT element -- the
-                    pointed-to VALUE is now unknown. Keeping the SAME pointee
-                    object would leave a stale fact like `*p == c` (from an
-                    earlier narrowing, e.g. a `while (*p != '"') p++;` loop
-                    exit) attached to the advanced pointer, which wrongly
-                    folded `*p != c` to false and reported dead code
-                    (tokenizer.c). Repoint to a fresh ANY pointee; a pointer
-                    copied off BEFORE the increment keeps the old pointee, so
-                    its knowledge of `*q` is correctly preserved. */
+                                points within the same object/array, so non-null stays
+                                non-null) but moves it to a DIFFERENT element -- the
+                                pointed-to VALUE is now unknown. Keeping the SAME pointee
+                                object would leave a stale fact like `*p == c` (from an
+                                earlier narrowing, e.g. a `while (*p != '"') p++;` loop
+                                exit) attached to the advanced pointer, which wrongly
+                                folded `*p != c` to false and reported dead code
+                                (tokenizer.c). Repoint to a fresh ANY pointee; a pointer
+                                copied off BEFORE the increment keeps the old pointee, so
+                                its knowledge of `*q` is correctly preserved. */
                             struct flow_alternative a = *alt;
                             if (alt->value_relation == FLOW_RELATION_EQUAL &&
                             alt->value.p != NULL &&
@@ -72203,22 +73371,22 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         else if (type_is_pointer(&p_operand->object.type))
                         {
                             /* A pointer whose tracked value is ANY (a merge, or a
-                    member seeded without a concrete target) is not PTR-kind, so
-                    it used to fall into the generic branch below and come back
-                    as a SIGNED ANY -- which "could be zero", making the very
-                    next use report "may be null". Advancing a pointer is the
-                    one case where nullness cannot be introduced: null + 1 is
-                    undefined behaviour, not a null result. Decide it from the
-                    operand's static type, the same way the binary `p + n` form
-                    does, and keep the result non-null with no known target. */
+                                member seeded without a concrete target) is not PTR-kind, so
+                                it used to fall into the generic branch below and come back
+                                as a SIGNED ANY -- which "could be zero", making the very
+                                next use report "may be null". Advancing a pointer is the
+                                one case where nullness cannot be introduced: null + 1 is
+                                undefined behaviour, not a null result. Decide it from the
+                                operand's static type, the same way the binary `p + n` form
+                                does, and keep the result non-null with no known target. */
                             struct flow_alternative a =
                             {
-                        .value_kind = FLOW_VALUE_KIND_PTR,
-                        .value = {.p = NULL},
-                        .value_relation = FLOW_RELATION_NOT_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .p_origin_map = org,
-                        .p_origin_token = p_expression->first_token
+                                .value_kind = FLOW_VALUE_KIND_PTR,
+                                .value = {.p = NULL},
+                                .value_relation = FLOW_RELATION_NOT_EQUAL,
+                                .imaginary = FLOW_IMAGINARY_NONE,
+                                .p_origin_map = org,
+                                .p_origin_token = p_expression->first_token
                             };
                             flow_alternatives_add(&new_var_alts, &a);
                             flow_alternatives_add(&new_result_alts, &a);
@@ -72283,12 +73451,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = ~rv},
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_SIGNED,
+                            .value = {.i = ~rv},
+                            .value_relation = FLOW_RELATION_EQUAL,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -72302,12 +73470,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = ANY_VALUE},
-                    .value_relation = FLOW_RELATION_ANY,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_SIGNED,
+                            .value = {.i = ANY_VALUE},
+                            .value_relation = FLOW_RELATION_ANY,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -72338,12 +73506,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                             {
                                 struct flow_alternative a =
                                 {
-                            .value_kind = FLOW_VALUE_KIND_PTR,
-                            .value = {.p = p_right_alternative->value.p},
-                            .value_relation = FLOW_RELATION_EQUAL,
-                            .imaginary = FLOW_IMAGINARY_NONE,
-                            .p_origin_map = ctx->p_current_flow_branch,
-                            .p_origin_token = p_expression->first_token
+                                    .value_kind = FLOW_VALUE_KIND_PTR,
+                                    .value = {.p = p_right_alternative->value.p},
+                                    .value_relation = FLOW_RELATION_EQUAL,
+                                    .imaginary = FLOW_IMAGINARY_NONE,
+                                    .p_origin_map = ctx->p_current_flow_branch,
+                                    .p_origin_token = p_expression->first_token
                                 };
                                 flow_alternatives_add(&result_entry->alternatives, &a);
                             }
@@ -72388,15 +73556,15 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                             const struct flow_alternative* p_right_alt2 = p_right_alternatives2->alternatives.data[j];
 
                             /* Lifetime check: `*p` after p's pointee was freed/moved
-                    (e.g. consumed by an _Owner parameter, or _Dtor'd)
-                    mirrors the same check EXPR_POSTFIX_ARROW does for
-                    `p->member` -- without it, `*p = 0;` after `consume(p)`
-                    (p an _Owner pointer parameter, no member access
-                    involved) went entirely unchecked. See the two-origin
-                    rationale on flow_object_leaves_in_state_2 above:
-                    same shape applies here, just checking the WHOLE
-                    pointee rather than one member (there's no member
-                    index for `*p`, only a value it derefs to). */
+                                (e.g. consumed by an _Owner parameter, or _Dtor'd)
+                                mirrors the same check EXPR_POSTFIX_ARROW does for
+                                `p->member` -- without it, `*p = 0;` after `consume(p)`
+                                (p an _Owner pointer parameter, no member access
+                                involved) went entirely unchecked. See the two-origin
+                                rationale on flow_object_leaves_in_state_2 above:
+                                same shape applies here, just checking the WHOLE
+                                pointee rather than one member (there's no member
+                                index for `*p`, only a value it derefs to). */
                             int ended_line = 0;
                             const struct flow_branch* _Opt ended_origin = NULL;
                             if (p_right_alt2->value_kind == FLOW_VALUE_KIND_PTR &&
@@ -72416,11 +73584,11 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                                     flow_diagnose_map_path(ctx, ended_origin);
 
                                 /* If this same dereference is ALSO used as
-                        an assignment/return/argument source,
-                        flow_check_object_init_assigment runs
-                        right after and would otherwise report
-                        this identical fact a second time -- see
-                        the field comment in flow3.h. */
+                                an assignment/return/argument source,
+                                flow_check_object_init_assigment runs
+                                right after and would otherwise report
+                                this identical fact a second time -- see
+                                the field comment in flow3.h. */
                                 ctx->p_pending_ended_report_obj = p_right_alt2->value.p;
                                 ctx->pending_ended_report_line = ended_line;
                             }
@@ -72430,16 +73598,16 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                             flow_origins_compatible(p_right_alt2->p_origin_map, ctx->p_current_flow_branch))
                             {
                                 /* The operand of sizeof/_Alignof (and other unevaluated
-                        contexts) is never dereferenced at runtime -- only its
-                        type is needed -- so a possibly-null pointer there is
-                        not an actual null dereference.
+                                contexts) is never dereferenced at runtime -- only its
+                                type is needed -- so a possibly-null pointer there is
+                                not an actual null dereference.
 
-                        The origin check drops a null value that cannot occur
-                        on the current path: if its branch decisions conflict
-                        with where we are (e.g. it is the "else" value of a
-                        condition whose "then" branch we are inside), the
-                        dereference is safe here. */
-                                /* Include the whole dereference expression ('*p', not just the pointer operand) in a null-dereference diagnostic so the reader knows which pointer it's about in a function with more than one -- user-requested, and specifically '*p' here unlike `->` sites, which print just the pointer since the operator name already says what's happening. */
+                                The origin check drops a null value that cannot occur
+                                on the current path: if its branch decisions conflict
+                                with where we are (e.g. it is the "else" value of a
+                                condition whose "then" branch we are inside), the
+                                dereference is safe here. */
+                                        /* Include the whole dereference expression ('*p', not just the pointer operand) in a null-dereference diagnostic so the reader knows which pointer it's about in a function with more than one -- user-requested, and specifically '*p' here unlike `->` sites, which print just the pointer since the operator name already says what's happening. */
                                 struct osstream ss = { 0 };
                                 flow_expression_to_string(p_expression, &ss);
                                 const bool reported_null = diagnostic(W_FLOW_NULL_DEREFERENCE, ctx->ctx, NULL, &marker,
@@ -72451,11 +73619,11 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                             }
 
                             /* Only a pointer alternative that names its target
-                       says what `*p` is. A "not null, target unknown"
-                       alternative (value.p == NULL) used to be turned into
-                       a REF to nothing, which counted as information here
-                       and blocked the ANY seeding below -- `e = **pp;`
-                       then left e at its previous value. */
+                               says what `*p` is. A "not null, target unknown"
+                               alternative (value.p == NULL) used to be turned into
+                               a REF to nothing, which counted as information here
+                               and blocked the ANY seeding below -- `e = **pp;`
+                               then left e at its previous value. */
                             if (p_right_alt2->value_kind == FLOW_VALUE_KIND_PTR &&
                             p_right_alt2->value.p != NULL)
                             {
@@ -72483,13 +73651,13 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 }
 
                 /* Nothing resolved -- the operand is not a tracked pointer, as in
-           `*get()` or `**pp`, where no REF alternative leads anywhere with
-           state. Leaving the result with NO alternatives at all reads as
-           "no information" further up, and an assignment from it left the
-           destination sitting at its previous value: `e = 0; if (cond) e =
-           *get(); if (e == 0)` folded to always-true (compile.c:287, where
-           the source was `error = errno`). Seed the same ANY the subscript
-           path seeds for an unresolved element. */
+                   `*get()` or `**pp`, where no REF alternative leads anywhere with
+                   state. Leaving the result with NO alternatives at all reads as
+                   "no information" further up, and an assignment from it left the
+                   destination sitting at its previous value: `e = 0; if (cond) e =
+                   *get(); if (e == 0)` folded to always-true (compile.c:287, where
+                   the source was `error = errno`). Seed the same ANY the subscript
+                   path seeds for an unresolved element. */
                 if (result_entry->alternatives.size == 0)
                 {
                     if (type_is_integer(&p_expression->object.type))
@@ -72511,12 +73679,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     {
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_PTR,
-                    .value = {.p = NULL},
-                    .value_relation = FLOW_RELATION_NOT_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_PTR,
+                            .value = {.p = NULL},
+                            .value_relation = FLOW_RELATION_NOT_EQUAL,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&result_entry->alternatives, &a);
                     }
@@ -72562,12 +73730,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     flow_alternatives_clear(&e->alternatives);
                     struct flow_alternative a =
                     {
-                .value_kind = FLOW_VALUE_KIND_REF,
-                .value = {.p = p_dest_obj},
-                .value_relation = FLOW_RELATION_EQUAL,
-                .imaginary = FLOW_IMAGINARY_NONE,
-                .p_origin_map = ctx->p_current_flow_branch,
-                .p_origin_token = p_expression->first_token
+                        .value_kind = FLOW_VALUE_KIND_REF,
+                        .value = {.p = p_dest_obj},
+                        .value_relation = FLOW_RELATION_EQUAL,
+                        .imaginary = FLOW_IMAGINARY_NONE,
+                        .p_origin_map = ctx->p_current_flow_branch,
+                        .p_origin_token = p_expression->first_token
                     };
                     flow_alternatives_add(&e->alternatives, &a);
                 }
@@ -72630,11 +73798,11 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 flow_invalidate_unknown_index_write(ctx, p_expression->left);
 
                 /* Compound assignment folds per LHS alternative, so a correlated
-        join survives it (e.g. `if(c)a=1;else a=3; a+=10;` -> {11,13}).
-        Iterate every alternative -- never data[0] -- keeping each value's
-        branch origin. A pointer alternative (p += n / p -= n) is kept as-is:
-        arithmetic can't turn a valid pointer into a null one. If any
-        alternative can't be folded, degrade the whole destination to ANY. */
+                    join survives it (e.g. `if(c)a=1;else a=3; a+=10;` -> {11,13}).
+                    Iterate every alternative -- never data[0] -- keeping each value's
+                    branch origin. A pointer alternative (p += n / p -= n) is kept as-is:
+                    arithmetic can't turn a valid pointer into a null one. If any
+                    alternative can't be folded, degrade the whole destination to ANY. */
                 const bool rhs_known = object_has_known_value(&p_expression->right->object);
                 const signed long long rv =
                 rhs_known ? object_to_signed_long_long(&p_expression->right->object) : 0;
@@ -72700,12 +73868,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
 
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = result},
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = la->p_origin_map,
-                    .p_origin_token = p_expression->right->first_token
+                            .value_kind = FLOW_VALUE_KIND_SIGNED,
+                            .value = {.i = result},
+                            .value_relation = FLOW_RELATION_EQUAL,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = la->p_origin_map,
+                            .p_origin_token = p_expression->right->first_token
                         };
                         flow_alternatives_add(&new_alts, &a);
                     }
@@ -72719,12 +73887,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                    ANY alternative is not PTR-kind. */
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_PTR,
-                    .value = {.p = NULL},
-                    .value_relation = FLOW_RELATION_NOT_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = la->p_origin_map,
-                    .p_origin_token = p_expression->right->first_token
+                            .value_kind = FLOW_VALUE_KIND_PTR,
+                            .value = {.p = NULL},
+                            .value_relation = FLOW_RELATION_NOT_EQUAL,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = la->p_origin_map,
+                            .p_origin_token = p_expression->right->first_token
                         };
                         flow_alternatives_add(&new_alts, &a);
                     }
@@ -72752,12 +73920,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&new_alts);
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = ANY_VALUE},
-                    .value_relation = FLOW_RELATION_ANY,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_expression->right->first_token
+                            .value_kind = FLOW_VALUE_KIND_SIGNED,
+                            .value = {.i = ANY_VALUE},
+                            .value_relation = FLOW_RELATION_ANY,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->right->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -72846,9 +74014,9 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 const struct type* p_target_type = &p_expression->object.type;
 
                 /* Casting a TEMPORARY owner (a function return value) to a non-owner
-        throws the ownership away with nothing left holding it -- e.g.
-        `(int*) malloc(1)`. Moved here from expressions.c so that every
-        diagnostic mentioning _Owner lives in flow3. */
+                    throws the ownership away with nothing left holding it -- e.g.
+                    `(int*) malloc(1)`. Moved here from expressions.c so that every
+                    diagnostic mentioning _Owner lives in flow3. */
                 if ((p_expression->left->object.type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN) &&
                 type_is_owner(&p_expression->left->object.type) &&
                 !type_is_owner(p_target_type))
@@ -72869,12 +74037,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     flow_alternatives_clear(&e->alternatives);
                     struct flow_alternative a =
                     {
-                .value_kind = FLOW_VALUE_KIND_REF,
-                .value = {.p = &p_expression->left->object},
-                .value_relation = FLOW_RELATION_EQUAL,
-                .imaginary = FLOW_IMAGINARY_NONE,
-                .p_origin_map = ctx->p_current_flow_branch,
-                .p_origin_token = p_expression->first_token
+                        .value_kind = FLOW_VALUE_KIND_REF,
+                        .value = {.p = &p_expression->left->object},
+                        .value_relation = FLOW_RELATION_EQUAL,
+                        .imaginary = FLOW_IMAGINARY_NONE,
+                        .p_origin_map = ctx->p_current_flow_branch,
+                        .p_origin_token = p_expression->first_token
                     };
                     flow_alternatives_add(&e->alternatives, &a);
                     break;
@@ -72892,12 +74060,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = ANY_VALUE},
-                    .value_relation = FLOW_RELATION_ANY,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_SIGNED,
+                            .value = {.i = ANY_VALUE},
+                            .value_relation = FLOW_RELATION_ANY,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -72908,9 +74076,10 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 bool all_handled = true;
 
                 /* Cast every source value. Iterate REF alternatives per-alternative
-        (an operand can alias several objects) instead of a size==1 /
-        data[0] shortcut, and keep each value's branch origin so the cast
-        stays correlated. */
+                    (an operand can alias several objects) instead of a size==1 /
+                    data[0] shortcut, and keep each value's branch origin so the cast
+                    stays correlated. 
+                */
                 for (int i = 0; all_handled && i < p_src_entry->alternatives.size; i++)
                 {
                     const struct flow_alternative* src_alt = p_src_entry->alternatives.data[i];
@@ -72968,21 +74137,22 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = ANY_VALUE},
-                    .value_relation = FLOW_RELATION_ANY,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_SIGNED,
+                            .value = {.i = ANY_VALUE},
+                            .value_relation = FLOW_RELATION_ANY,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
                 }
 
                 /* Casting an owner to an _Owner target transfers ownership: the source
-        is moved into the cast result. Without this, `free((void* _Owner)s)`
-        freed the cast temporary but left the original `s` looking un-moved,
-        producing a false "owner object 's' not moved" leak warning. */
+                    is moved into the cast result. Without this, `free((void* _Owner)s)`
+                    freed the cast temporary but left the original `s` looking un-moved,
+                    producing a false "owner object 's' not moved" leak warning. 
+                */
                 if (type_is_owner(p_target_type) && type_is_owner(&p_expression->left->object.type))
                 {
                     const struct object* p_src_var = object_get_referenced(&p_expression->left->object);
@@ -73003,8 +74173,9 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 flow_visit_expression(ctx, p_expression->right);
 
                 /* Fold across all alternatives (per-alternative REF resolution and
-        join correlation), like the other binary arithmetic operators --
-        no size==1 / data[0] shortcut. */
+                    join correlation), like the other binary arithmetic operators --
+                    no size==1 / data[0] shortcut. 
+                */
                 flow_evaluate_binary_arithmetic(ctx, p_expression->left, p_expression->right,
                                             p_expression,
                                             (p_expression->expression_type == EXPR_SHIFT_LEFT) ? '<' : '>');
@@ -73039,15 +74210,16 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     {
                         struct flow_key_alternatives* _Opt e = flow_branch_find_add(ctx->p_current_flow_branch, &p_expression->object);
                         if (e == NULL) throw;
+
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = fold_result ? 1 : 0},
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_SIGNED,
+                            .value = {.i = fold_result ? 1 : 0},
+                            .value_relation = FLOW_RELATION_EQUAL,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -73074,10 +74246,11 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 flow_seed_comparison_result(ctx, p_expression);
 
                 /* ... but if this compares a scalar variable against a constant, we
-        can still narrow the variable on each branch (true: var OP c,
-        false: var !OP c). This is what lets `if (a > 0)` -- and, via the
-        EXPR_UNARY_ASSERT true-branch merge, `_Assert(a > 0)` -- record the
-        half-line fact so a later compile_assert(a > 0) can prove it. */
+                    can still narrow the variable on each branch (true: var OP c,
+                    false: var !OP c). This is what lets `if (a > 0)` -- and, via the
+                    EXPR_UNARY_ASSERT true-branch merge, `_Assert(a > 0)` -- record the
+                    half-line fact so a later compile_assert(a > 0) can prove it. 
+                */
                 {
                     long long cst = 0;
                     const struct expression* _Opt p_var_expr = NULL;
@@ -73105,10 +74278,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_tag_branch_pair(p_true, p_false);
                         flow_narrow_operand_relational(ctx, p_var_expr, cst, narrow_op,
                                                    p_true, p_false, p_expression->first_token);
-                        return (struct flow_branch_pair)
-                        {
-                        p_true, p_false
-                        };
+                        
+                        return (struct flow_branch_pair) { p_true, p_false };
                     }
                 }
                 return (struct flow_branch_pair)
@@ -73133,7 +74304,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 const bool is_equal_op = (p_expression->expression_type == EXPR_EQUALITY_EQUAL);
 
                 /* Fold across ALL alternatives of both operands. A constant is simply
-        an operand with a single alternative -- no special case. */
+                    an operand with a single alternative -- no special case. 
+                */
                 int fold = flow_evaluate_equality_multi(ctx, p_expression->left, p_expression->right, is_equal_op);
                 if (fold != -1)
                 {
@@ -73143,12 +74315,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = fold ? 1 : 0},
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_SIGNED,
+                            .value = {.i = fold ? 1 : 0},
+                            .value_relation = FLOW_RELATION_EQUAL,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -73171,8 +74343,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 }
 
                 /* Not foldable: if one operand is a single constant, narrow the other
-        on each branch. (A constant naturally collapses to one value across
-        its alternatives.) */
+                    on each branch. (A constant naturally collapses to one value across
+                    its alternatives.) */
                 long long cst = 0;
                 const struct expression* _Opt p_var_expr = NULL;
                 if (flow_operand_is_single_constant(ctx, p_expression->right, &cst))
@@ -73209,12 +74381,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
             case EXPR_LOGICAL_OR:
             {
                 /*
-        * L || R
-        *   true  = merge(left_true, right_true_from_left_false)
-        *           (left was true, OR left was false but right was true)
-        *   false = right_false_from_left_false
-        *           (both were false)
-        */
+                * L || R
+                *   true  = merge(left_true, right_true_from_left_false)
+                *           (left was true, OR left was false but right was true)
+                *   false = right_false_from_left_false
+                *           (both were false)
+                */
                 _Assert(p_expression->right != NULL);
                 _Assert(p_expression->left != NULL);
 
@@ -73229,12 +74401,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = result},
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_SIGNED,
+                            .value = {.i = result},
+                            .value_relation = FLOW_RELATION_EQUAL,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -73270,9 +74442,9 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 ctx->p_current_flow_branch = p_before;
 
                 /*
-        * true  = merge(left_true, right_true)
-        * false = right_false
-        */
+                * true  = merge(left_true, right_true)
+                * false = right_false
+                */
                 struct flow_branch* _Opt p_or_true = flow_branch_arena_new_branch(&ctx->flow_branch_arena, p_before, true, p_expression);
                 if (p_or_true == NULL)
                     throw;
@@ -73283,11 +74455,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 }
 
                 /* Seed this OR's per-path boolean value. For each path (identified by
-        origin), `L || R` is true if L is true there, else R's value there.
-        L was evaluated on p_before; R on left's false map. Only applied
-        when both sides are clean per-path booleans -- otherwise the result
-        is left unseeded (previous behavior). This lets compile_assert see
-        a 0 exactly on a path where neither disjunct holds. */
+                    origin), `L || R` is true if L is true there, else R's value there.
+                    L was evaluated on p_before; R on left's false map. Only applied
+                    when both sides are clean per-path booleans -- otherwise the result
+                    is left unseeded (previous behavior). This lets compile_assert see
+                    a 0 exactly on a path where neither disjunct holds.
+                */
                 {
                     const struct flow_key_alternatives* _Opt p_left_entry =
                     flow_branch_search_up(p_before, &p_expression->left->object);
@@ -73384,12 +74557,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
             case EXPR_LOGICAL_AND:
             {
                 /*
-        * L && R
-        *   true  = right_true_from_left_true
-        *           (both were true)
-        *   false = merge(left_false, right_false_from_left_true)
-        *           (left was false, OR left was true but right was false)
-        */
+                * L && R
+                *   true  = right_true_from_left_true
+                *           (both were true)
+                *   false = merge(left_false, right_false_from_left_true)
+                *           (left was false, OR left was true but right was false)
+                */
                 _Assert(p_expression->right != NULL);
                 _Assert(p_expression->left != NULL);
 
@@ -73404,12 +74577,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = result},
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_SIGNED,
+                            .value = {.i = result},
+                            .value_relation = FLOW_RELATION_EQUAL,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -73452,8 +74625,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 ctx->p_current_flow_branch = p_before;
 
                 /*
-        * false = merge(left_false, right_false)
-        */
+                * false = merge(left_false, right_false)
+                */
                 struct flow_branch* _Opt p_and_false = flow_branch_arena_new_branch(&ctx->flow_branch_arena, p_before, false, p_expression);
                 if (p_and_false == NULL)
                     throw;
@@ -73464,10 +74637,11 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 }
 
                 /* Seed this AND's per-path boolean value (dual of ||): for each path,
-        `L && R` is 0 if L is false there, else R's value there. L was
-        evaluated on p_before; R on left's true map. Only when both sides
-        are clean per-path booleans; otherwise leave unseeded (previous
-        behavior). Lets compile_assert see a 0 where either side fails. */
+                    `L && R` is 0 if L is false there, else R's value there. L was
+                    evaluated on p_before; R on left's true map. Only when both sides
+                    are clean per-path booleans; otherwise leave unseeded (previous
+                    behavior). Lets compile_assert see a 0 where either side fails. 
+                */
                 {
                     const struct flow_key_alternatives* _Opt p_left_entry =
                     flow_branch_search_up(p_before, &p_expression->left->object);
@@ -73515,10 +74689,10 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
 
                                 struct flow_alternative a =
                                 {
-                            .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = r_true ? 1 : 0},
-                            .value_relation = FLOW_RELATION_EQUAL, .imaginary = FLOW_IMAGINARY_NONE,
-                            .p_origin_map = flow_origin_more_specific(left_alt->p_origin_map, right_alt->p_origin_map),
-                            .p_origin_token = p_expression->first_token
+                                    .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = r_true ? 1 : 0},
+                                    .value_relation = FLOW_RELATION_EQUAL, .imaginary = FLOW_IMAGINARY_NONE,
+                                    .p_origin_map = flow_origin_more_specific(left_alt->p_origin_map, right_alt->p_origin_map),
+                                    .p_origin_token = p_expression->first_token
                                 };
                                 flow_alternatives_add(&out, &a);
                                 matched = true;
@@ -73556,10 +74730,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     }
                 }
 
-                return (struct flow_branch_pair)
-                {
-                right_pair.p_true, p_and_false
-                };
+                return (struct flow_branch_pair) { right_pair.p_true, p_and_false };
             }
 
             case EXPR_INCLUSIVE_OR:
@@ -73576,12 +74747,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                         flow_alternatives_clear(&e->alternatives);
                         struct flow_alternative a =
                         {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = lv | rv},
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = ctx->p_current_flow_branch,
-                    .p_origin_token = p_expression->first_token
+                            .value_kind = FLOW_VALUE_KIND_SIGNED,
+                            .value = {.i = lv | rv},
+                            .value_relation = FLOW_RELATION_EQUAL,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->first_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
                     }
@@ -73595,12 +74766,12 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                     flow_alternatives_clear(&e->alternatives);
                     struct flow_alternative a =
                     {
-                .value_kind = FLOW_VALUE_KIND_SIGNED,
-                .value = {.i = ANY_VALUE},
-                .value_relation = FLOW_RELATION_ANY,
-                .imaginary = FLOW_IMAGINARY_NONE,
-                .p_origin_map = ctx->p_current_flow_branch,
-                .p_origin_token = p_expression->first_token
+                        .value_kind = FLOW_VALUE_KIND_SIGNED,
+                        .value = {.i = ANY_VALUE},
+                        .value_relation = FLOW_RELATION_ANY,
+                        .imaginary = FLOW_IMAGINARY_NONE,
+                        .p_origin_map = ctx->p_current_flow_branch,
+                        .p_origin_token = p_expression->first_token
                     };
                     flow_alternatives_add(&e->alternatives, &a);
                 }
@@ -73672,10 +74843,11 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 struct flow_branch_pair pair = flow_visit_expression(ctx, p_expression->right);
 
                 /* Forward the right operand's value to the comma's OWN object, so a
-        consumer that reads this node (e.g. a function-argument check) sees
-        the comma's result -- otherwise `f((p = 0, p))` found no value on the
-        comma node and missed that p was just set to null. Mirrors the value
-        forwarding done for EXPR_PRIMARY_PARENTHESIS. */
+                    consumer that reads this node (e.g. a function-argument check) sees
+                    the comma's result -- otherwise `f((p = 0, p))` found no value on the
+                    comma node and missed that p was just set to null. Mirrors the value
+                    forwarding done for EXPR_PRIMARY_PARENTHESIS. 
+                */
                 const struct expression* p_inner = skip_parenthesis(p_expression->right);
                 const struct flow_key_alternatives* _Opt p_inner_entry =
                 flow_branch_search_up(ctx->p_current_flow_branch, &p_inner->object);
@@ -73711,24 +74883,24 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
                 flow_visit_expression(ctx, p_expression->right);
 
                 /*
-        * Collect the result value of the conditional expression: the
-        * true arm carries the value from left (or condition_expr), the
-        * false arm from right. Append both so downstream consumers
-        * (static_debug, assert_state, etc.) can see it.
-        *
-        * This happens BEFORE the arms are merged back into p_before.
-        * The merge frees each arm's own entries, so a later
-        * flow_branch_search_up through an arm lands on the merged copy
-        * in p_before -- and that copy also carries the "unknown on the
-        * other path" alternative flow_branch_merge_arms contributes for
-        * an object only one arm wrote (which is every arm temporary).
-        * Reading after the merge made `c ? "a" : "b"` look possibly
-        * null.
-        *
-        * A REF alternative is resolved inside the arm that produced it
-        * for the same reason: `p ? p : ""` was otherwise discarding the
-        * true arm's narrowing. See conditional-operator-null-guard.c.
-        */
+                * Collect the result value of the conditional expression: the
+                * true arm carries the value from left (or condition_expr), the
+                * false arm from right. Append both so downstream consumers
+                * (static_debug, assert_state, etc.) can see it.
+                *
+                * This happens BEFORE the arms are merged back into p_before.
+                * The merge frees each arm's own entries, so a later
+                * flow_branch_search_up through an arm lands on the merged copy
+                * in p_before -- and that copy also carries the "unknown on the
+                * other path" alternative flow_branch_merge_arms contributes for
+                * an object only one arm wrote (which is every arm temporary).
+                * Reading after the merge made `c ? "a" : "b"` look possibly
+                * null.
+                *
+                * A REF alternative is resolved inside the arm that produced it
+                * for the same reason: `p ? p : ""` was otherwise discarding the
+                * true arm's narrowing. See conditional-operator-null-guard.c.
+                */
                 struct flow_alternatives result = { 0 };
                 {
                     struct
@@ -73831,7 +75003,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_visit_ctx* ctx,
     return identity_pair;
 }
 
-static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, const struct expression_statement* p_expression_statement)
+static void flow_visit_expression_statement(struct flow_ctx* ctx, const struct expression_statement* p_expression_statement)
 {
     /* Only meant to bridge a report from THIS statement's own expression
        visit into a check running right after it (see the field comment in
@@ -73849,16 +75021,16 @@ static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, const st
     }
 }
 
-static void flow_visit_block_item_list(struct flow_visit_ctx* ctx, struct block_item_list* p_block_item_list);
+static void flow_visit_block_item_list(struct flow_ctx* ctx, struct block_item_list* p_block_item_list);
 
-static void flow_visit_compound_statement_core(struct flow_visit_ctx* ctx, struct compound_statement* p_compound_statement)
+static void flow_visit_compound_statement_core(struct flow_ctx* ctx, struct compound_statement* p_compound_statement)
 {
     flow_visit_block_item_list(ctx, &p_compound_statement->block_item_list);
     flow_exit_block_visit_defer_list(ctx, &p_compound_statement->defer_list, p_compound_statement->last_token);
     flow_defer_list_set_end_of_lifetime(ctx, &p_compound_statement->defer_list, p_compound_statement->last_token);
 }
 
-static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct compound_statement* p_compound_statement)
+static void flow_visit_compound_statement(struct flow_ctx* ctx, struct compound_statement* p_compound_statement)
 {
     flow_visit_compound_statement_core(ctx, p_compound_statement);
 
@@ -73868,7 +75040,7 @@ static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct com
     }
 }
 
-static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
+static void flow_visit_do_while_statement(struct flow_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
     _Assert(p_iteration_statement->first_token->type == TK_KEYWORD_DO);
 
@@ -74140,8 +75312,6 @@ static void flow_widen_loop_variant_objects(
         {
             for (const struct flow_key_alternatives* _Opt e = cur->buckets[i]; e; e = e->next)
             {
-
-
                 long long pass1_value = 0;
                 long long pass2_value = 0;
 
@@ -74310,7 +75480,7 @@ static void flow_join_first_iteration_values(struct flow_branch* _Opt p_body_ent
     object_set_destroy(&assigned);
 }
 
-static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
+static void flow_visit_while_statement(struct flow_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
     _Assert(p_iteration_statement->first_token->type == TK_KEYWORD_WHILE);
 
@@ -74318,8 +75488,6 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     {
         return;
     }
-
-    /* const bool nullable_enabled = ctx->ctx->options.null_checks_enabled; */
 
     struct flow_branch* _Opt old_p_initial_map = ctx->p_initial_map;
     struct flow_branch* _Opt old_p_break_join_map = ctx->p_break_join_map;
@@ -74500,10 +75668,9 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     ctx->p_break_join_map = old_p_break_join_map;
 }
 
-static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
+static void flow_visit_for_statement(struct flow_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
     _Assert(p_iteration_statement->first_token->type == TK_KEYWORD_FOR);
-    /* const bool nullable_enabled = ctx->ctx->options.null_checks_enabled; */
 
     struct expression* _Opt p_next = p_iteration_statement->expression2;
     struct expression* _Opt p_condition = p_iteration_statement->expression1;
@@ -74714,7 +75881,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
     ctx->p_break_join_map = old_p_break_join_map;
 }
 
-static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
+static void flow_visit_iteration_statement(struct flow_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
     const int outer_iteration_pass = ctx->iteration_pass;
     ctx->iteration_pass = 1; /*first pass over this loop's body*/
@@ -74742,7 +75909,7 @@ static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct it
     }
 }
 
-static void flow_check_arena_objects_at_function_exit(const struct flow_visit_ctx* ctx)
+static void flow_check_arena_objects_at_function_exit(const struct flow_ctx* ctx)
 {
     for (int i = 0; i < ctx->allocated_object_arena.size; i++)
     {
@@ -74759,7 +75926,9 @@ static void flow_check_arena_objects_at_function_exit(const struct flow_visit_ct
          */
     }
 }
-static void flow_check_file_scope_objects_at_function_exit(const struct flow_visit_ctx* ctx)
+
+
+static void flow_check_file_scope_objects_at_function_exit(const struct flow_ctx* ctx)
 {
     /* Build a fast-lookup set of arena object pointers so we can skip them. */
     struct object_set arena_set = { 0 };
@@ -74837,15 +76006,7 @@ static void flow_param_member_name_to_string(const char* param_name,
     }
 }
 
-/*
-   _Clear is similar to _Dtor -- it describes a contract the CALLEE
-   must fulfill by the time it exits, checked against the pointee that
-   flow_parameter_object_init already set up (the synthetic arena
-   object every non-_Opt pointer parameter is wired to at entry). The
-   difference from _Dtor: instead of the pointee's lifetime having
-   ended, every member of the pointee must be exactly 0.
-*/
-static void flow_check_clear_object_is_zero_at_exit(struct flow_visit_ctx* ctx,
+static void flow_check_clear_object_is_zero_at_exit(struct flow_ctx* ctx,
                                                     const struct object* p_obj,
                                                     const char* param_name,
                                                     const struct marker* marker,
@@ -74863,29 +76024,15 @@ static void flow_check_clear_object_is_zero_at_exit(struct flow_visit_ctx* ctx,
     const struct flow_key_alternatives* _Opt e = flow_branch_search_up(ctx->p_current_flow_branch, p_obj);
     if (e == NULL || e->alternatives.size == 0)
     {
-        /* Never touched at all -- the _Clear contract requires the
-           callee to actively zero every member, so no evidence of a
-           write is exactly as much a violation as a tracked non-zero
-           value would be (unlike, say, an untouched local, there is no
-           "inherits whatever it already was" story for a member the
-           analysis has no information about here). */
+        /* Never touched at all,  so no evidence of missing clear */
         struct osstream name_ss = { 0 };
         flow_param_member_name_to_string(param_name, p_obj->member_designator, &name_ss);
-        if (diagnostic(W_FLOW_CLEAR_NOT_ZERO_AT_EXIT,
-                       ctx->ctx,
-            NULL,
-                       marker,
-                       "_Clear parameter '%s' is never set to zero",
-                       name_ss.c_str ? name_ss.c_str : param_name))
-        {
-            /* W_LOCATION, not W_INFO: this note only exists to point at the
-               diagnostic above, so it is attached as that entry's child (see
-               the is_location branch in diagnostic()). Children are printed
-               with the parent and freed with it, so a `//lint N` that removes
-               the parent removes this too -- with W_INFO the note survived
-               the suppression and still counted towards the report. */
-            /* diagnostic(W_LOCATION, ctx->ctx, p_exit_token, NULL, "exit point"); */
-        }
+        diagnostic(W_FLOW_CLEAR_NOT_ZERO_AT_EXIT,
+                   ctx->ctx,
+                   NULL,
+                   marker,
+                   "_Clear parameter '%s' is never set to zero",
+                   name_ss.c_str ? name_ss.c_str : param_name);
         ss_close(&name_ss);
         return;
     }
@@ -74894,25 +76041,22 @@ static void flow_check_clear_object_is_zero_at_exit(struct flow_visit_ctx* ctx,
     {
         const struct flow_alternative* p_alternative = e->alternatives.data[i];
 
-
-
-        if (!flow_alternative_is_zero(p_alternative))
+        if (flow_alternative_is_zero(p_alternative))
         {
-            struct osstream name_ss2 = { 0 };
-            flow_param_member_name_to_string(param_name, p_obj->member_designator, &name_ss2);
-            if (diagnostic(W_FLOW_CLEAR_NOT_ZERO_AT_EXIT,
-                           ctx->ctx,
-                NULL,
-                           marker,
-                           "_Clear parameter '%s' is not zero at exit (see line %d)",
-                           name_ss2.c_str ? name_ss2.c_str : param_name,
-                           flow_alternative_line(p_alternative)))
-            {
-                /* child note -- see the W_LOCATION comment above. */
-                /* diagnostic(W_LOCATION, ctx->ctx, p_exit_token, NULL, "exit point"); */
-            }
-            ss_close(&name_ss2);
+            /* OK! */
+            continue;
         }
+        
+        struct osstream name_ss2 = { 0 };
+        flow_param_member_name_to_string(param_name, p_obj->member_designator, &name_ss2);
+        diagnostic(W_FLOW_CLEAR_NOT_ZERO_AT_EXIT,
+                    ctx->ctx,
+                    NULL,
+                    marker,
+                    "_Clear parameter '%s' is not zero at exit (see line %d)",
+                    name_ss2.c_str ? name_ss2.c_str : param_name,
+                    flow_alternative_line(p_alternative));
+        ss_close(&name_ss2);        
     }
 }
 
@@ -74927,7 +76071,7 @@ static void flow_check_clear_object_is_zero_at_exit(struct flow_visit_ctx* ctx,
    (see the _Out branch there); this is the check that verifies every one
    of them left that state behind.
 */
-static void flow_check_ctor_object_is_initialized_at_exit(struct flow_visit_ctx* ctx,
+static void flow_check_ctor_object_is_initialized_at_exit(struct flow_ctx* ctx,
                                                           const struct object* p_obj,
                                                           const char* param_name,
                                                           const struct marker* marker,
@@ -74953,15 +76097,13 @@ static void flow_check_ctor_object_is_initialized_at_exit(struct flow_visit_ctx*
            seed from function entry. */
         struct osstream name_ss = { 0 };
         flow_param_member_name_to_string(param_name, p_obj->member_designator, &name_ss);
-        if (diagnostic(W_FLOW_CTOR_NOT_INITIALIZED_AT_EXIT,
-                       ctx->ctx,
-            NULL,
-                       marker,
-                       "_Out parameter '%s' is never initialized",
-                       name_ss.c_str ? name_ss.c_str : param_name))
-        {
-            /* diagnostic(W_LOCATION, ctx->ctx, p_exit_token, NULL, "exit point"); */
-        }
+        diagnostic(W_FLOW_CTOR_NOT_INITIALIZED_AT_EXIT,
+                   ctx->ctx,
+                   NULL,
+                   marker,
+                   "_Out parameter '%s' is never initialized",
+                   name_ss.c_str ? name_ss.c_str : param_name);
+        
         ss_close(&name_ss);
         return;
     }
@@ -74970,29 +76112,25 @@ static void flow_check_ctor_object_is_initialized_at_exit(struct flow_visit_ctx*
     {
         const struct flow_alternative* p_alternative = e->alternatives.data[i];
 
-
-
         if (p_alternative->value_relation == FLOW_RELATION_UNINITIALIZED)
         {
             struct osstream name_ss2 = { 0 };
             flow_param_member_name_to_string(param_name, p_obj->member_designator, &name_ss2);
-            if (diagnostic(W_FLOW_CTOR_NOT_INITIALIZED_AT_EXIT,
-                           ctx->ctx,
-                NULL,
-                           marker,
-                           "_Out parameter '%s' is possibly not initialized at exit (see line %d)",
-                           name_ss2.c_str ? name_ss2.c_str : param_name,
-                           flow_alternative_line(p_alternative)))
-            {
-                /* diagnostic(W_LOCATION, ctx->ctx, p_exit_token, NULL, "exit point"); */
-            }
+            diagnostic(W_FLOW_CTOR_NOT_INITIALIZED_AT_EXIT,
+                       ctx->ctx,
+                        NULL,
+                        marker,
+                        "_Out parameter '%s' is possibly not initialized at exit (see line %d)",
+                        name_ss2.c_str ? name_ss2.c_str : param_name,
+                        flow_alternative_line(p_alternative));
+            
             ss_close(&name_ss2);
         }
     }
 }
 
 /* A plain (non-_Dtor/_Out/_Owner) pointer parameter is a borrow: its _Owner members must still be live at every exit -- otherwise a member freed but not restored (e.g. on an early return) leaks silently with no diagnostic. Mirror of flow_check_ctor_object_is_initialized_at_exit, but checking consumption instead of assignment. */
-static void flow_check_non_dtor_param_owner_not_consumed_at_exit(struct flow_visit_ctx* ctx,
+static void flow_check_non_dtor_param_owner_not_consumed_at_exit(struct flow_ctx* ctx,
                                                                  const struct type* p_type,
                                                                  const struct object* p_obj,
                                                                  const char* param_name,
@@ -75045,8 +76183,6 @@ static void flow_check_non_dtor_param_owner_not_consumed_at_exit(struct flow_vis
     {
         const struct flow_alternative* p_alternative = e->alternatives.data[i];
 
-
-
         if (!consumed_reported &&
                 (p_alternative->imaginary == FLOW_IMAGINARY_MOVED ||
                     p_alternative->imaginary == FLOW_IMAGINARY_ENDED))
@@ -75054,23 +76190,20 @@ static void flow_check_non_dtor_param_owner_not_consumed_at_exit(struct flow_vis
             consumed_reported = true;
             struct osstream name_ss = { 0 };
             flow_param_member_name_to_string(param_name, p_obj->member_designator, &name_ss);
-            if (diagnostic(W_FLOW_PARAM_OWNER_CONSUMED_AT_EXIT,
+            diagnostic(W_FLOW_PARAM_OWNER_CONSUMED_AT_EXIT,
                            ctx->ctx,
-                NULL,
+                           NULL,
                            marker,
                            "parameter '%s' was moved/released here (see line %d) but never reassigned -- only a _Dtor or _Owner parameter may leave the caller's object consumed",
                            name_ss.c_str ? name_ss.c_str : param_name,
-                           flow_alternative_line(p_alternative)))
-            {
-                /* diagnostic(W_LOCATION, ctx->ctx, p_exit_token, NULL, "exit point"); */
-            }
+                           flow_alternative_line(p_alternative));
             ss_close(&name_ss);
         }
     }
 }
 
 /* One shared pass over parameters at every exit for _Clear (every member == 0), _Out (every member assigned), and _Dtor (every _Owner member released -- the callee-side half of flow_check_object_init_assigment's caller-side lifetime-ending); _Dtor's obligation used to go unchecked entirely (dtor_is_opt.c). */
-static void flow_check_write_qualified_params_at_exit(struct flow_visit_ctx* ctx, const struct marker* marker, const struct token* p_exit_token)
+static void flow_check_write_qualified_params_at_exit(struct flow_ctx* ctx, const struct marker* marker, const struct token* p_exit_token)
 {
     if (ctx->p_current_function_declaration == NULL ||
             ctx->p_current_function_declaration->init_declarator_list.head == NULL)
@@ -75169,7 +76302,7 @@ static void flow_check_write_qualified_params_at_exit(struct flow_visit_ctx* ctx
     }
 }
 
-static void flow_check_function_exit(struct flow_visit_ctx* ctx, const struct jump_statement* p_jump_statement)
+static void flow_check_function_exit(struct flow_ctx* ctx, const struct jump_statement* p_jump_statement)
 {
     flow_exit_block_visit_defer_list(ctx,
                                      &p_jump_statement->defer_list,
@@ -75192,50 +76325,42 @@ static void flow_check_function_exit(struct flow_visit_ctx* ctx, const struct ju
                                         p_jump_statement->first_token);
 }
 
-static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_statement* p_jump_statement)
+static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statement* p_jump_statement)
 {
-    if (ctx->p_current_flow_branch == NULL)
-        return;
-
-    /* Only meant to bridge a report from THIS statement's own expression
-       visit into a check running right after it (see the field comment in
-       flow3.h) -- must not leak into an unrelated later statement. */
-    ctx->p_pending_ended_report_obj = NULL;
-
+    
     try
     {
+        if (ctx->p_current_flow_branch == NULL)
+        {
+            bug();
+            throw;
+        }
+
+        ctx->p_pending_ended_report_obj = NULL;
+
         if (p_jump_statement->first_token->type == TK_KEYWORD_CAKE_THROW)
         {
-
-            if (ctx->p_throw_join_map != NULL)
+            if (ctx->p_throw_join_map == NULL)
             {
-                /* One snapshot map per throw, so the facts this throw
-                   contributes stay paired with each other and apart from the
-                   next throw's. */
-                struct flow_branch* _Opt p_throw_snapshot =
-                    flow_branch_arena_new(&ctx->flow_branch_arena, ctx->p_throw_join_map,
-                                       FLOW_BRANCH_THROW_JOIN);
-
-                flow_branch_accumulate_into_join(ctx->p_throw_join_map,
-                                              ctx->p_current_flow_branch,
-                                              p_throw_snapshot);
+                bug();                
+                throw;
             }
+            
+            /* One snapshot map per throw */
+            struct flow_branch* _Opt p_throw_snapshot =
+                flow_branch_arena_new(&ctx->flow_branch_arena, ctx->p_throw_join_map,
+                                    FLOW_BRANCH_THROW_JOIN);
 
+            flow_branch_accumulate_into_join(ctx->p_throw_join_map,
+                                            ctx->p_current_flow_branch,
+                                            p_throw_snapshot);
+            
             flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list,
                                              p_jump_statement->first_token);
+
             flow_defer_list_set_end_of_lifetime(ctx, &p_jump_statement->defer_list,
                                                 p_jump_statement->first_token);
 
-            /*
-               A throw unconditionally transfers control away from this
-               point. Mark the current map dead so that any code that
-               syntactically follows in the same block (dead code -- e.g.
-               after an unconditional throw) does not leak its effects
-               into whichever merge later combines this arm: merge_arms
-               (used by if/try/while/do/for) already skips is_unreachable arms
-               regardless of the syntax-based "ends with jump" check the
-               caller used to select which arms to pass in.
-            */
             if (ctx->p_current_flow_branch != NULL)
             {
                 ctx->p_current_flow_branch->is_unreachable = true;
@@ -75243,16 +76368,13 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
         }
         else if (p_jump_statement->first_token->type == TK_KEYWORD_RETURN)
         {
-
-            /* const bool ownership_enabled = ctx->ctx->options.ownership_enabled; */
-
             if (p_jump_statement->expression_opt)
             {
                 flow_visit_full_expression(ctx, p_jump_statement->expression_opt);
 
                 if (ctx->p_return_type == NULL)
                 {
-                    /* we must be inside a function and we need this return set. */
+                    bug();
                     throw;
                 }
 
@@ -75262,15 +76384,8 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                 object_destroy(&param_object);
             }
 
-            /*
-             * On every explicit return: run deferred cleanup, verify
-             * _Out/_Dtor/_Owner parameter exit conditions, and check
-             * arena (synthetic pointed-to) objects.
-             */
             flow_check_function_exit(ctx, p_jump_statement);
 
-            /* return unconditionally transfers control (see the "throw"
-               case above for why the current map is marked dead). */
             if (ctx->p_current_flow_branch != NULL)
             {
                 ctx->p_current_flow_branch->is_unreachable = true;
@@ -75281,8 +76396,6 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
             flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
             flow_defer_list_set_end_of_lifetime(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
 
-            /* continue unconditionally transfers control (see "throw"
-               case above). */
             if (ctx->p_current_flow_branch != NULL)
             {
                 ctx->p_current_flow_branch->is_unreachable = true;
@@ -75298,8 +76411,6 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
             flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
             flow_defer_list_set_end_of_lifetime(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
 
-            /* break unconditionally transfers control (see "throw" case
-               above). */
             if (ctx->p_current_flow_branch != NULL)
             {
                 ctx->p_current_flow_branch->is_unreachable = true;
@@ -75320,27 +76431,27 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                     break;
                 }
             }
+
             if (!found &&
                     ctx->labels_size < (int)(sizeof(ctx->labels) / sizeof(ctx->labels[0])))
             {
                 struct flow_branch* _Opt p_label_map =
                     flow_branch_arena_new(&ctx->flow_branch_arena, ctx->p_current_flow_branch, FLOW_BRANCH_GOTO_LABEL);
-                if (p_label_map != NULL)
-                {
-                    /* Eagerly snapshot state at this goto into the label's own map entries, the same way later jumps to it do via flow_branch_accumulate_into_join -- otherwise the label map starts empty and falls back to its parent chain, which keeps mutating in place and no longer reflects what existed at this goto by the time it's reached. */
-                    flow_branch_accumulate_into_join(p_label_map, ctx->p_current_flow_branch, NULL);
 
-                    ctx->labels[ctx->labels_size].label_name = p_jump_statement->label->lexeme;
-                    ctx->labels[ctx->labels_size].p_flow_branch = p_label_map;
-                    ctx->labels_size++;
-                }
+                if (p_label_map == NULL) throw;
+                
+                /* Eagerly snapshot state at this goto into the label's own map entries, the same way later jumps to it do via flow_branch_accumulate_into_join -- otherwise the label map starts empty and falls back to its parent chain, which keeps mutating in place and no longer reflects what existed at this goto by the time it's reached. */
+                flow_branch_accumulate_into_join(p_label_map, ctx->p_current_flow_branch, NULL);
+
+                ctx->labels[ctx->labels_size].label_name = p_jump_statement->label->lexeme;
+                ctx->labels[ctx->labels_size].p_flow_branch = p_label_map;
+                ctx->labels_size++;
+                
             }
 
             flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
             flow_defer_list_set_end_of_lifetime(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
 
-            /* goto unconditionally transfers control (see "throw" case
-               above). */
             if (ctx->p_current_flow_branch != NULL)
             {
                 ctx->p_current_flow_branch->is_unreachable = true;
@@ -75350,23 +76461,24 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
         {
             _Assert(false);
         }
+
+        if (p_jump_statement->p_lint_token)
+        {
+            flow_check_dianostic_suppression(ctx, p_jump_statement->p_lint_token);
+        }
     }
     catch
     {
-    }
-    if (p_jump_statement->p_lint_token)
-    {
-        flow_check_dianostic_suppression(ctx, p_jump_statement->p_lint_token);
-    }
+    }    
 }
 
-static void flow_visit_labeled_statement(struct flow_visit_ctx* ctx, struct labeled_statement* p_labeled_statement)
+static void flow_visit_labeled_statement(struct flow_ctx* ctx, struct labeled_statement* p_labeled_statement)
 {
     flow_visit_label(ctx, p_labeled_statement->label);
     flow_visit_statement(ctx, p_labeled_statement->statement);
 }
 
-static void flow_visit_primary_block(struct flow_visit_ctx* ctx, struct primary_block* p_primary_block)
+static void flow_visit_primary_block(struct flow_ctx* ctx, struct primary_block* p_primary_block)
 {
     if (p_primary_block->compound_statement)
     {
@@ -75386,7 +76498,7 @@ static void flow_visit_primary_block(struct flow_visit_ctx* ctx, struct primary_
     }
 }
 
-static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement)
+static void flow_visit_unlabeled_statement(struct flow_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement)
 {
     if (p_unlabeled_statement->primary_block)
     {
@@ -75398,7 +76510,7 @@ static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct un
     }
     else if (p_unlabeled_statement->defer_statement)
     {
-        flow_visit_defer_statement();
+        /* nothing */
     }
     else if (p_unlabeled_statement->jump_statement)
     {
@@ -75410,7 +76522,7 @@ static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct un
     }
 }
 
-static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p_statement)
+static void flow_visit_statement(struct flow_ctx* ctx, struct statement* p_statement)
 {
     if (p_statement->labeled_statement)
     {
@@ -75422,7 +76534,7 @@ static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p
     }
 }
 
-static void flow_visit_label(struct flow_visit_ctx* ctx, const struct label* p_label)
+static void flow_visit_label(struct flow_ctx* ctx, const struct label* p_label)
 {
     try
     {
@@ -75511,7 +76623,7 @@ static void flow_visit_label(struct flow_visit_ctx* ctx, const struct label* p_l
     }
 }
 
-static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item)
+static void flow_visit_block_item(struct flow_ctx* ctx, struct block_item* p_block_item)
 {
     if (p_block_item->declaration)
     {
@@ -75527,7 +76639,7 @@ static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item*
     }
 }
 
-static void flow_visit_block_item_list(struct flow_visit_ctx* ctx, struct block_item_list* p_block_item_list)
+static void flow_visit_block_item_list(struct flow_ctx* ctx, struct block_item_list* p_block_item_list)
 {
     struct block_item* _Opt p_block_item = p_block_item_list->head;
 
@@ -75571,12 +76683,12 @@ static void flow_visit_block_item_list(struct flow_visit_ctx* ctx, struct block_
     }
 }
 
-static void flow_visit_pragma_declaration(struct flow_visit_ctx* ctx, struct pragma_declaration* p_pragma_declaration)
+static void flow_visit_pragma_declaration(struct flow_ctx* ctx, struct pragma_declaration* p_pragma_declaration)
 {
     execute_pragma_declaration(ctx->ctx, p_pragma_declaration);
 }
 
-static void object_static_debug(struct flow_visit_ctx* ctx,
+static void object_static_debug(struct flow_ctx* ctx,
                                 const struct object* p_object,
                                 struct token* first_token,
                                 struct token* last_token)
@@ -75646,7 +76758,7 @@ static void object_static_debug(struct flow_visit_ctx* ctx,
     }
 }
 
-static void check_object_true(struct flow_visit_ctx* ctx, const struct object* p_object, const struct token* p_position_token)
+static void check_object_true(struct flow_ctx* ctx, const struct object* p_object, const struct token* p_position_token)
 {
     struct flow_key_alternatives* _Opt p_entry = flow_branch_search_up(ctx->p_current_flow_branch, p_object);
     if (p_entry == NULL)
@@ -75673,14 +76785,14 @@ static void check_object_true(struct flow_visit_ctx* ctx, const struct object* p
     }
 }
 
-static void flow_visit_compile_assert(struct flow_visit_ctx* ctx, const struct static_assertion* p_static_assertion)
+static void flow_visit_compile_assert(struct flow_ctx* ctx, const struct static_assertion* p_static_assertion)
 {
     check_object_true(ctx,
                       &p_static_assertion->constant_expression->object,
                       p_static_assertion->first_token);
 }
 
-static void flow_visit_static_assertion(struct flow_visit_ctx* ctx, const struct static_assertion* p_static_assertion)
+static void flow_visit_static_assertion(struct flow_ctx* ctx, const struct static_assertion* p_static_assertion)
 {
     if (p_static_assertion->first_token->type == TK_KEYWORD_RUNTIME_ASSERT)
     {
@@ -75750,7 +76862,7 @@ static void flow_visit_static_assertion(struct flow_visit_ctx* ctx, const struct
     }
 }
 
-static void flow_visit_direct_declarator(struct flow_visit_ctx* ctx, const struct direct_declarator* p_direct_declarator)
+static void flow_visit_direct_declarator(struct flow_ctx* ctx, const struct direct_declarator* p_direct_declarator)
 {
     if (p_direct_declarator->function_declarator)
     {
@@ -75786,7 +76898,7 @@ static void flow_visit_direct_declarator(struct flow_visit_ctx* ctx, const struc
     }
 }
 
-static void flow_visit_declarator(struct flow_visit_ctx* ctx, const struct declarator* p_declarator)
+static void flow_visit_declarator(struct flow_ctx* ctx, const struct declarator* p_declarator)
 {
     if (p_declarator->object.type.category != TYPE_CATEGORY_FUNCTION)
     {
@@ -75809,7 +76921,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, const struct decla
     }
 }
 
-static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
+static void flow_visit_init_declarator_list(struct flow_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {
     struct init_declarator* _Opt p_init_declarator = p_init_declarator_list->head;
     while (p_init_declarator)
@@ -75819,7 +76931,7 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
     }
 }
 
-static void flow_visit_member_declarator(struct flow_visit_ctx* ctx, const struct member_declarator* p_member_declarator)
+static void flow_visit_member_declarator(struct flow_ctx* ctx, const struct member_declarator* p_member_declarator)
 {
     if (p_member_declarator->declarator)
     {
@@ -75827,7 +76939,7 @@ static void flow_visit_member_declarator(struct flow_visit_ctx* ctx, const struc
     }
 }
 
-static void flow_visit_member_declarator_list(struct flow_visit_ctx* ctx, struct member_declarator_list* p_member_declarator_list)
+static void flow_visit_member_declarator_list(struct flow_ctx* ctx, struct member_declarator_list* p_member_declarator_list)
 {
     struct member_declarator* _Opt p_member_declarator = p_member_declarator_list->head;
     while (p_member_declarator)
@@ -75837,7 +76949,7 @@ static void flow_visit_member_declarator_list(struct flow_visit_ctx* ctx, struct
     }
 }
 
-static void flow_visit_member_declaration(struct flow_visit_ctx* ctx, struct member_declaration* p_member_declaration)
+static void flow_visit_member_declaration(struct flow_ctx* ctx, struct member_declaration* p_member_declaration)
 {
     if (p_member_declaration->member_declarator_list_opt)
     {
@@ -75845,7 +76957,7 @@ static void flow_visit_member_declaration(struct flow_visit_ctx* ctx, struct mem
     }
 }
 
-static void flow_visit_member_declaration_list(struct flow_visit_ctx* ctx, struct member_declaration_list* p_member_declaration_list)
+static void flow_visit_member_declaration_list(struct flow_ctx* ctx, struct member_declaration_list* p_member_declaration_list)
 {
     struct member_declaration* _Opt p_member_declaration = p_member_declaration_list->head;
     while (p_member_declaration)
@@ -75855,12 +76967,12 @@ static void flow_visit_member_declaration_list(struct flow_visit_ctx* ctx, struc
     }
 }
 
-static void flow_visit_struct_or_union_specifier(struct flow_visit_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier)
+static void flow_visit_struct_or_union_specifier(struct flow_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     flow_visit_member_declaration_list(ctx, &p_struct_or_union_specifier->member_declaration_list);
 }
 
-static void flow_visit_enumerator(struct flow_visit_ctx* ctx, const struct enumerator* p_enumerator)
+static void flow_visit_enumerator(struct flow_ctx* ctx, const struct enumerator* p_enumerator)
 {
     if (p_enumerator->constant_expression_opt)
     {
@@ -75868,7 +76980,7 @@ static void flow_visit_enumerator(struct flow_visit_ctx* ctx, const struct enume
     }
 }
 
-static void flow_visit_enumerator_list(struct flow_visit_ctx* ctx, struct enumerator_list* p_enumerator_list)
+static void flow_visit_enumerator_list(struct flow_ctx* ctx, struct enumerator_list* p_enumerator_list)
 {
     struct enumerator* _Opt current = p_enumerator_list->head;
     while (current)
@@ -75878,12 +76990,12 @@ static void flow_visit_enumerator_list(struct flow_visit_ctx* ctx, struct enumer
     }
 }
 
-static void flow_visit_enum_specifier(struct flow_visit_ctx* ctx, struct enum_specifier* p_enum_specifier)
+static void flow_visit_enum_specifier(struct flow_ctx* ctx, struct enum_specifier* p_enum_specifier)
 {
     flow_visit_enumerator_list(ctx, &p_enum_specifier->enumerator_list);
 }
 
-static void flow_visit_type_specifier(struct flow_visit_ctx* ctx, struct type_specifier* p_type_specifier)
+static void flow_visit_type_specifier(struct flow_ctx* ctx, struct type_specifier* p_type_specifier)
 {
     if (p_type_specifier->struct_or_union_specifier)
     {
@@ -75896,7 +77008,7 @@ static void flow_visit_type_specifier(struct flow_visit_ctx* ctx, struct type_sp
     }
 }
 
-static void flow_visit_type_specifier_qualifier(struct flow_visit_ctx* ctx, struct type_specifier_qualifier* p_type_specifier_qualifier)
+static void flow_visit_type_specifier_qualifier(struct flow_ctx* ctx, struct type_specifier_qualifier* p_type_specifier_qualifier)
 {
     if (p_type_specifier_qualifier->type_specifier)
     {
@@ -75904,7 +77016,7 @@ static void flow_visit_type_specifier_qualifier(struct flow_visit_ctx* ctx, stru
     }
 }
 
-static void flow_visit_declaration_specifier(struct flow_visit_ctx* ctx, struct declaration_specifier* p_declaration_specifier)
+static void flow_visit_declaration_specifier(struct flow_ctx* ctx, struct declaration_specifier* p_declaration_specifier)
 {
     if (p_declaration_specifier->type_specifier_qualifier)
     {
@@ -75912,7 +77024,7 @@ static void flow_visit_declaration_specifier(struct flow_visit_ctx* ctx, struct 
     }
 }
 
-static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx, struct declaration_specifiers* p_declaration_specifiers)
+static void flow_visit_declaration_specifiers(struct flow_ctx* ctx, struct declaration_specifiers* p_declaration_specifiers)
 {
     struct declaration_specifier* _Opt p_declaration_specifier = p_declaration_specifiers->head;
     while (p_declaration_specifier)
@@ -75922,7 +77034,7 @@ static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx, struct
     }
 }
 
-static void flow_check_object_at_exit(struct flow_visit_ctx* ctx,
+static void flow_check_object_at_exit(struct flow_ctx* ctx,
                                       const struct type* p_type,
                                       const struct object* p_obj,
                                       const struct marker* marker,
@@ -76009,7 +77121,7 @@ static void flow_check_object_at_exit(struct flow_visit_ctx* ctx,
                 not_moved_reported = true;
                 const char* member_suffix = p_obj->member_designator ? p_obj->member_designator : "";
                 /* member_designator is attached to the object, not the expression reaching it, so it reads as bare '.member' with no leading name -- combine it with p_root_name_opt (the original declarator's name, threaded through every recursive call) so the message reads as 'p->member', matching what the user would type to fix it. */
-                char object_name_buf[256];
+                char object_name_buf[256] = { 0 } ;
                 const char* object_name;
                 if (p_root_name_opt != NULL && p_root_name_opt[0] != 0 &&
                         strcmp(p_root_name_opt, member_suffix) != 0)
@@ -76057,7 +77169,7 @@ static void flow_check_object_at_exit(struct flow_visit_ctx* ctx,
     }
 }
 
-static void flow_check_write_qualifier_placement(const struct flow_visit_ctx* ctx,
+static void flow_check_write_qualifier_placement(const struct flow_ctx* ctx,
                                                  const struct type* _Opt p_type,
                                                  const struct token* _Opt p_token)
 {
@@ -76119,7 +77231,7 @@ static void flow_check_write_qualifier_placement(const struct flow_visit_ctx* ct
     }
 }
 
-static void flow_check_write_qualifier_parameters(const struct flow_visit_ctx* ctx, struct declarator* p_declarator)
+static void flow_check_write_qualifier_parameters(const struct flow_ctx* ctx, struct declarator* p_declarator)
 {
     const struct param_list* _Opt p_param_list = type_get_func_or_func_ptr_params(&p_declarator->object.type);
     if (p_param_list == NULL)
@@ -76137,13 +77249,13 @@ static void flow_check_write_qualifier_parameters(const struct flow_visit_ctx* c
     }
 }
 
-static void flow_check_write_qualifier_declarator(const struct flow_visit_ctx* ctx, struct declarator* p_declarator)
+static void flow_check_write_qualifier_declarator(const struct flow_ctx* ctx, struct declarator* p_declarator)
 {
     struct token* _Opt p_token = p_declarator->first_token_opt ? p_declarator->first_token_opt : p_declarator->name_opt;
     flow_check_write_qualifier_placement(ctx, &p_declarator->object.type, p_token);
 }
 
-void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration)
+void flow_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declaration)
 {
     try
     {
@@ -76247,43 +77359,34 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
     }
 }
 
-void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration)
+void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declaration)
 {
-    ctx->labels_size = 0;
-    flow_predicate_cache_reset(ctx);
-    ctx->collect_deferred_effects = false;
-    ctx->deferred_effects_count = 0;
-
-    flow_allocated_object_arena_clear(&ctx->allocated_object_arena);
-    flow_branch_arena_clear(&ctx->flow_branch_arena);
-    ctx->p_current_flow_branch = flow_branch_arena_new(&ctx->flow_branch_arena, NULL, FLOW_BRANCH_ROOT);
-    if (ctx->p_current_flow_branch == NULL)
-        return; /* no map to work with */
-
-#ifdef FLOW_DEBUG_TIMING
-    clock_t _dbg_t0 = clock();
-#endif
-
-    flow_visit_declaration(ctx, p_declaration);
-
-#ifdef FLOW_DEBUG_TIMING
-    clock_t _dbg_t1 = clock();
-    double _dbg_ms = (double)(_dbg_t1 - _dbg_t0) * 1000.0 / 1000000.0;
-    if (_dbg_ms > 5.0)
+    try
     {
-        struct token* _dbg_tok = p_declaration->first_token;
-        fprintf(stderr, "[DEBUG decl %.1fms line=%d]\n",
-                _dbg_ms,
-                _dbg_tok ? _dbg_tok->line : -1);
-    }
-#endif
+        ctx->labels_size = 0;
+        flow_predicate_cache_reset(ctx);
+        ctx->collect_deferred_effects = false;
+        ctx->deferred_effects_count = 0;
 
-    flow_allocated_object_arena_clear(&ctx->allocated_object_arena);
-    flow_branch_arena_clear(&ctx->flow_branch_arena);
-    ctx->p_current_flow_branch = NULL;
+        flow_allocated_object_arena_clear(&ctx->allocated_object_arena);
+        flow_branch_arena_clear(&ctx->flow_branch_arena);
+
+        ctx->p_current_flow_branch = flow_branch_arena_new(&ctx->flow_branch_arena, NULL, FLOW_BRANCH_ROOT);
+        if (ctx->p_current_flow_branch == NULL)
+            throw;
+
+        flow_visit_declaration(ctx, p_declaration);
+
+        flow_allocated_object_arena_clear(&ctx->allocated_object_arena);
+        flow_branch_arena_clear(&ctx->flow_branch_arena);
+        ctx->p_current_flow_branch = NULL;
+    }
+    catch
+    {
+    }
 }
 
-void flow_visit_ctx_destroy(_Dtor struct flow_visit_ctx* ctx)
+void flow_visit_ctx_destroy(_Dtor struct flow_ctx* ctx)
 {
     flow_allocated_object_arena_clear(&ctx->allocated_object_arena);
     flow_branch_arena_clear(&ctx->flow_branch_arena);
@@ -76306,6 +77409,11 @@ void flow_visit_ctx_destroy(_Dtor struct flow_visit_ctx* ctx)
 #include <winerror.h>
 //#include <winsock2.h>
 #endif
+
+void bug()
+{
+    
+}
 
 void throw_break_point()
 {
@@ -78518,6 +79626,279 @@ bool type_is_enum(const struct type* p_type)
 bool type_is_enumerator(const struct type* p_type)
 {
     return p_type->enum_specifier && p_type->type_specifier_flags != TYPE_SPECIFIER_ENUM;
+}
+
+/*
+  A pair of definitions whose content comparison is in progress, one frame
+  per nesting level on the stack of the comparison. See
+  struct_or_union_specifier_is_same_content_impl.
+*/
+struct tag_compare_frame
+{
+    const struct struct_or_union_specifier* a;
+    const struct struct_or_union_specifier* b;
+    const struct tag_compare_frame* _Opt previous;
+};
+
+static bool type_is_same_impl(const struct type* a,
+                              const struct type* b,
+                              bool compare_qualifiers,
+                              const struct tag_compare_frame* _Opt p_frames);
+
+static bool struct_or_union_specifier_is_same_content_impl(const struct struct_or_union_specifier* a,
+                                                           const struct struct_or_union_specifier* b,
+                                                           const struct tag_compare_frame* _Opt p_frames);
+
+static bool struct_or_union_specifier_is_compatible_impl(const struct struct_or_union_specifier* a,
+                                                         const struct struct_or_union_specifier* b,
+                                                         const struct tag_compare_frame* _Opt p_frames);
+
+/* C23 6.2.7 (N3037): same members, names, types, bit-field widths and alignment; both must be complete */
+bool struct_or_union_specifier_is_same_content(const struct struct_or_union_specifier* a,
+                                               const struct struct_or_union_specifier* b)
+{
+    return struct_or_union_specifier_is_same_content_impl(a, b, NULL);
+}
+
+static bool struct_or_union_specifier_is_same_content_impl(const struct struct_or_union_specifier* a,
+                                                           const struct struct_or_union_specifier* b,
+                                                           const struct tag_compare_frame* _Opt p_frames)
+{
+    bool same = true;
+
+    if (a == b)
+    {
+        return true;
+    }
+
+    if (a->first_token->type != b->first_token->type ||
+        a->pack_alignment != b->pack_alignment ||
+        a->aligned_attribute != b->aligned_attribute)
+    {
+        return false;
+    }
+
+    /*
+      struct N { struct N* next; } redefined in an inner scope: comparing the
+      member 'next' compares N with N again. A pair already being compared is
+      assumed the same; the outer comparison decides.
+    */
+    for (const struct tag_compare_frame* _Opt p = p_frames; p; p = p->previous)
+    {
+        if (p->a == a && p->b == b)
+        {
+            return true;
+        }
+    }
+
+    struct tag_compare_frame frame = { .a = a, .b = b, .previous = p_frames };
+
+    const struct member_declaration* _Opt p_a_declaration = a->member_declaration_list.head;
+    const struct member_declaration* _Opt p_b_declaration = b->member_declaration_list.head;
+
+    while (same)
+    {
+        /* static_assert and pragmas inside the struct are not members */
+        while (p_a_declaration && p_a_declaration->specifier_qualifier_list == NULL)
+        {
+            p_a_declaration = p_a_declaration->next;
+        }
+        while (p_b_declaration && p_b_declaration->specifier_qualifier_list == NULL)
+        {
+            p_b_declaration = p_b_declaration->next;
+        }
+
+        if (p_a_declaration == NULL || p_b_declaration == NULL)
+        {
+            same = (p_a_declaration == NULL && p_b_declaration == NULL);
+            break;
+        }
+
+        const struct member_declarator* _Opt p_a_declarator =
+            p_a_declaration->member_declarator_list_opt ? p_a_declaration->member_declarator_list_opt->head : NULL;
+        const struct member_declarator* _Opt p_b_declarator =
+            p_b_declaration->member_declarator_list_opt ? p_b_declaration->member_declarator_list_opt->head : NULL;
+
+        if (p_a_declarator == NULL || p_b_declarator == NULL)
+        {
+            /* anonymous struct/union member: both sides must be anonymous with the same content */
+            const struct struct_or_union_specifier* _Opt p_a_anonymous =
+                p_a_declaration->specifier_qualifier_list->struct_or_union_specifier;
+            const struct struct_or_union_specifier* _Opt p_b_anonymous =
+                p_b_declaration->specifier_qualifier_list->struct_or_union_specifier;
+
+            if (p_a_declarator != NULL || p_b_declarator != NULL ||
+                p_a_anonymous == NULL || p_b_anonymous == NULL)
+            {
+                same = false;
+            }
+            else
+            {
+                const struct struct_or_union_specifier* _Opt p_a_complete =
+                    get_complete_struct_or_union_specifier(p_a_anonymous);
+                const struct struct_or_union_specifier* _Opt p_b_complete =
+                    get_complete_struct_or_union_specifier(p_b_anonymous);
+
+                same = p_a_complete && p_b_complete &&
+                       struct_or_union_specifier_is_same_content_impl(p_a_complete, p_b_complete, &frame);
+            }
+        }
+
+        while (same && p_a_declarator && p_b_declarator)
+        {
+            const struct declarator* _Opt p_a = p_a_declarator->declarator;
+            const struct declarator* _Opt p_b = p_b_declarator->declarator;
+
+            const char* a_name = (p_a && p_a->name_opt) ? p_a->name_opt->lexeme : "";
+            const char* b_name = (p_b && p_b->name_opt) ? p_b->name_opt->lexeme : "";
+
+            if (strcmp(a_name, b_name) != 0)
+            {
+                same = false;
+            }
+            else if ((p_a_declarator->constant_expression == NULL) !=
+                     (p_b_declarator->constant_expression == NULL))
+            {
+                same = false;
+            }
+            else if (p_a_declarator->constant_expression &&
+                     object_to_unsigned_long_long(&p_a_declarator->constant_expression->object) !=
+                     object_to_unsigned_long_long(&p_b_declarator->constant_expression->object))
+            {
+                same = false;
+            }
+            else if ((p_a == NULL) != (p_b == NULL))
+            {
+                same = false;
+            }
+            else if (p_a && p_b)
+            {
+                const struct struct_or_union_specifier* _Opt p_a_member_struct =
+                    p_a->object.type.category == TYPE_CATEGORY_ITSELF ? p_a->object.type.struct_or_union_specifier : NULL;
+                const struct struct_or_union_specifier* _Opt p_b_member_struct =
+                    p_b->object.type.category == TYPE_CATEGORY_ITSELF ? p_b->object.type.struct_or_union_specifier : NULL;
+
+                if (p_a_member_struct && p_b_member_struct &&
+                    p_a_member_struct->has_anonymous_tag && p_b_member_struct->has_anonymous_tag)
+                {
+                    /* struct { int i; } m; -- generated tags differ, so compare the content */
+                    const struct struct_or_union_specifier* _Opt p_a_complete =
+                        get_complete_struct_or_union_specifier(p_a_member_struct);
+                    const struct struct_or_union_specifier* _Opt p_b_complete =
+                        get_complete_struct_or_union_specifier(p_b_member_struct);
+
+                    same = p_a_complete && p_b_complete &&
+                           p_a->object.type.type_qualifier_flags == p_b->object.type.type_qualifier_flags &&
+                           struct_or_union_specifier_is_same_content_impl(p_a_complete, p_b_complete, &frame);
+                }
+                else
+                {
+                    same = type_is_same_impl(&p_a->object.type, &p_b->object.type, true, &frame);
+                }
+            }
+
+            p_a_declarator = p_a_declarator->next;
+            p_b_declarator = p_b_declarator->next;
+        }
+
+        if (same && (p_a_declarator != NULL || p_b_declarator != NULL))
+        {
+            same = false;
+        }
+
+        p_a_declaration = p_a_declaration->next;
+        p_b_declaration = p_b_declaration->next;
+    }
+
+    return same;
+}
+
+/* same kind and tag; two visible definitions are the same type when they are the same definition
+   (the parser merges them, see parser.c) or, C23 6.2.7 (N3037), when they have the same content */
+bool struct_or_union_specifier_is_compatible(const struct struct_or_union_specifier* a,
+                                             const struct struct_or_union_specifier* b)
+{
+    return struct_or_union_specifier_is_compatible_impl(a, b, NULL);
+}
+
+static bool struct_or_union_specifier_is_compatible_impl(const struct struct_or_union_specifier* a,
+                                                         const struct struct_or_union_specifier* b,
+                                                         const struct tag_compare_frame* _Opt p_frames)
+{
+    bool compatible = true;
+
+    if (a == b)
+    {
+        return true;
+    }
+
+    if (a->first_token->type != b->first_token->type ||
+        strcmp(a->tag_name, b->tag_name) != 0)
+    {
+        compatible = false;
+    }
+    else
+    {
+        const struct struct_or_union_specifier* _Opt p_a_complete =
+            get_complete_struct_or_union_specifier(a);
+        const struct struct_or_union_specifier* _Opt p_b_complete =
+            get_complete_struct_or_union_specifier(b);
+
+        if (p_a_complete && p_b_complete)
+        {
+            compatible = (p_a_complete == p_b_complete) ||
+                         struct_or_union_specifier_is_same_content_impl(p_a_complete, p_b_complete, p_frames);
+        }
+    }
+
+    return compatible;
+}
+
+/* C23 6.2.7 (N3037): same underlying type and the same enumerators, in order, with the same values; both must be complete */
+bool enum_specifier_is_same_content(const struct enum_specifier* a, const struct enum_specifier* b)
+{
+    if (a == b)
+    {
+        return true;
+    }
+
+    if (a->has_underlying != b->has_underlying ||
+        !type_is_same(&a->integer_type, &b->integer_type, false))
+    {
+        return false;
+    }
+
+    const struct enumerator* _Opt p_a = a->enumerator_list.head;
+    const struct enumerator* _Opt p_b = b->enumerator_list.head;
+
+    while (p_a && p_b)
+    {
+        if (strcmp(p_a->token->lexeme, p_b->token->lexeme) != 0 ||
+            object_to_unsigned_long_long(&p_a->value) != object_to_unsigned_long_long(&p_b->value))
+        {
+            return false;
+        }
+        p_a = p_a->next;
+        p_b = p_b->next;
+    }
+
+    return p_a == NULL && p_b == NULL;
+}
+
+/* same tag and the same definition or, C23 6.2.7 (N3037), definitions with the same content */
+bool enum_specifier_is_same_type(const struct enum_specifier* a, const struct enum_specifier* b)
+{
+    const struct enum_specifier* _Opt p_a_complete = get_complete_enum_specifier(a);
+    const struct enum_specifier* _Opt p_b_complete = get_complete_enum_specifier(b);
+
+    if (p_a_complete == p_b_complete)
+    {
+        return true;
+    }
+
+    return p_a_complete != NULL && p_b_complete != NULL &&
+           strcmp(a->tag_name, b->tag_name) == 0 &&
+           enum_specifier_is_same_content(p_a_complete, p_b_complete);
 }
 
 bool type_is_struct_or_union(const struct type* p_type)
@@ -81076,6 +82457,14 @@ struct type type_make_literal_string(int number_of_chars_including_zero,
 
 bool type_is_same(const struct type* a, const struct type* b, bool compare_qualifiers)
 {
+    return type_is_same_impl(a, b, compare_qualifiers, NULL);
+}
+
+static bool type_is_same_impl(const struct type* a,
+                              const struct type* b,
+                              bool compare_qualifiers,
+                              const struct tag_compare_frame* _Opt p_frames)
+{
     const struct type* _Opt pa = a;
     const struct type* _Opt pb = b;
 
@@ -81119,7 +82508,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
             const struct enum_specifier* _Opt p_complete_a = get_complete_enum_specifier(pa->enum_specifier);
             if (p_complete_a != NULL)
             {
-                if (!type_is_same(&p_complete_a->integer_type, pb, compare_qualifiers))
+                if (!type_is_same_impl(&p_complete_a->integer_type, pb, compare_qualifiers, p_frames))
                 {
                     return false;
                 }
@@ -81134,7 +82523,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
             const struct enum_specifier* _Opt p_complete_b = get_complete_enum_specifier(pb->enum_specifier);
             if (p_complete_b != NULL)
             {
-                if (!type_is_same(pa, &p_complete_b->integer_type, compare_qualifiers))
+                if (!type_is_same_impl(pa, &p_complete_b->integer_type, compare_qualifiers, p_frames))
                 {
                     return false;
                 }
@@ -81146,7 +82535,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
         {
             const struct enum_specifier* _Opt pa_complete_enum = get_complete_enum_specifier(pa->enum_specifier);
             const struct enum_specifier* _Opt pb_complete_enum = get_complete_enum_specifier(pb->enum_specifier);
-            if (pa_complete_enum != pb_complete_enum)
+            if (!enum_specifier_is_same_type(pa->enum_specifier, pb->enum_specifier))
             {
                 return false;
             }
@@ -81214,7 +82603,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
                     type_remove_all_qualifiers(&a_param);
                     type_remove_all_qualifiers(&b_param);
 
-                    const bool same = type_is_same(&a_param, &b_param, true);
+                    const bool same = type_is_same_impl(&a_param, &b_param, true, p_frames);
 
                     type_destroy(&a_param);
                     type_destroy(&b_param);
@@ -81236,14 +82625,8 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
         if (pa->struct_or_union_specifier &&
             pb->struct_or_union_specifier)
         {
-
-            if (pa->struct_or_union_specifier->complete_struct_or_union_specifier_indirection !=
-                pb->struct_or_union_specifier->complete_struct_or_union_specifier_indirection)
-            {
-                //this should work but it is not...
-            }
-
-            if (strcmp(pa->struct_or_union_specifier->tag_name, pb->struct_or_union_specifier->tag_name) != 0)
+            if (!struct_or_union_specifier_is_compatible_impl(pa->struct_or_union_specifier,
+                                                              pb->struct_or_union_specifier, p_frames))
             {
                 return false;
             }
@@ -81338,8 +82721,7 @@ bool type_is_compatible(const struct type* a, const struct type* b)
 
         if (pa->enum_specifier &&
             pb->enum_specifier &&
-            get_complete_enum_specifier(pa->enum_specifier) !=
-            get_complete_enum_specifier(pb->enum_specifier))
+            !enum_specifier_is_same_type(pa->enum_specifier, pb->enum_specifier))
         {
             return false;
         }
@@ -81419,14 +82801,8 @@ bool type_is_compatible(const struct type* a, const struct type* b)
         if (pa->struct_or_union_specifier &&
             pb->struct_or_union_specifier)
         {
-
-            if (pa->struct_or_union_specifier->complete_struct_or_union_specifier_indirection !=
-                pb->struct_or_union_specifier->complete_struct_or_union_specifier_indirection)
-            {
-                //this should work but it is not...
-            }
-
-            if (strcmp(pa->struct_or_union_specifier->tag_name, pb->struct_or_union_specifier->tag_name) != 0)
+            if (!struct_or_union_specifier_is_compatible(pa->struct_or_union_specifier,
+                                                         pb->struct_or_union_specifier))
             {
                 return false;
             }
@@ -81961,9 +83337,51 @@ static bool is_valid_type(const struct parser_ctx* ctx, const struct token* _Opt
     if (p_token == NULL)
         p_token = ctx->current;
 
+    bool crossed_array = false;
+    bool crossed_function = false;
+
     const struct type* _Opt p = p_type;
     while (p)
     {
+        if (p->category == TYPE_CATEGORY_POINTER)
+        {
+            /* a pointer breaks the direct array/function relation below */
+            crossed_array = false;
+            crossed_function = false;
+        }
+        else if (p->category == TYPE_CATEGORY_ARRAY)
+        {
+            crossed_array = true;
+        }
+        else if (p->category == TYPE_CATEGORY_FUNCTION)
+        {
+            crossed_function = true;
+        }
+        else if (p->category == TYPE_CATEGORY_ITSELF)
+        {
+            if (p->type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
+            {
+                if (crossed_array)
+                {
+                    diagnostic(C_ERROR_ATOMIC_QUALIFIER_ON_ARRAY,
+                                                ctx,
+                                                p_token,
+                                                NULL,
+                                                "'_Atomic' qualifier cannot be applied to array types");
+                    return false;
+                }
+                if (crossed_function)
+                {
+                    diagnostic(C_ERROR_ATOMIC_QUALIFIER_ON_FUNCTION,
+                                                ctx,
+                                                p_token,
+                                                NULL,
+                                                "'_Atomic' qualifier cannot be applied to function types");
+                    return false;
+                }
+            }
+        }
+
         if (p->category == TYPE_CATEGORY_FUNCTION)
         {
             if (p->next && p->next->category == TYPE_CATEGORY_FUNCTION)
@@ -82132,6 +83550,43 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
             type_set_specifiers_using_declarator(p, pdeclarator);
             type_set_attributes_using_declarator(p, pdeclarator);
+
+            if (pdeclarator->declaration_specifiers &&
+                pdeclarator->declaration_specifiers->alignment_specifier_flags != 0)
+            {
+                const int requested_align =
+                    alignment_flags_to_value(pdeclarator->declaration_specifiers->alignment_specifier_flags);
+                const size_t natural_align = type_get_alignof(p, ctx->options.target);
+
+                if (requested_align != 0 && (size_t)requested_align < natural_align)
+                {
+                    diagnostic(C_ERROR_ALIGNMENT_SPECIFIER_LESS_STRICT,
+                        ctx,
+                        pdeclarator->first_token_opt,
+                        NULL,
+                        "requested alignment %d is less than minimum alignment %zu",
+                        requested_align, natural_align);
+                }
+
+                if (pdeclarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_REGISTER)
+                {
+                    diagnostic(C_ERROR_ALIGNMENT_SPECIFIER_WITH_REGISTER,
+                        ctx,
+                        pdeclarator->first_token_opt,
+                        NULL,
+                        "alignment specifier cannot be used with 'register'");
+                }
+
+                if (pdeclarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
+                {
+                    diagnostic(C_ERROR_ALIGNMENT_SPECIFIER_WITH_TYPEDEF,
+                        ctx,
+                        pdeclarator->first_token_opt,
+                        NULL,
+                        "alignment specifier cannot be used with 'typedef'");
+                }
+            }
+
             type_set_alignment_specifier_flags_using_declarator(p, pdeclarator);
 
             type_set_qualifiers_using_declarator(p, pdeclarator);
@@ -82140,6 +83595,16 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
                 list.tail->category == TYPE_CATEGORY_FUNCTION)
             {
                 p->storage_class_specifier_flags |= STORAGE_SPECIFIER_FUNCTION_RETURN;
+
+                if (pdeclarator->declaration_specifiers &&
+                    pdeclarator->declaration_specifiers->alignment_specifier_flags != 0)
+                {
+                    diagnostic(C_ERROR_ALIGNMENT_SPECIFIER_ON_FUNCTION,
+                        ctx,
+                        pdeclarator->first_token_opt,
+                        NULL,
+                        "alignment specifier cannot be used in function declaration");
+                }
             }
 
             type_list_push_back(&list, p);

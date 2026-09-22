@@ -26,13 +26,33 @@ typedef struct __cake_FILE FILE;
 #define _IOLBF 1
 #define _IONBF 2
 
-#define BUFSIZ 512
 #define EOF (-1)
 
+#if defined(_WIN32)
+#define BUFSIZ       512
 #define FOPEN_MAX    20
 #define FILENAME_MAX 260
 #define L_tmpnam     260
 #define TMP_MAX      2147483647
+#elif defined(__APPLE__)
+#define BUFSIZ       1024
+#define FOPEN_MAX    20
+#define FILENAME_MAX 1024
+#define L_tmpnam     1024
+#define TMP_MAX      308915776
+#elif defined(__linux__)
+#define BUFSIZ       8192
+#define FOPEN_MAX    16
+#define FILENAME_MAX 4096
+#define L_tmpnam     20
+#define TMP_MAX      238328
+#else
+#define BUFSIZ       512
+#define FOPEN_MAX    8
+#define FILENAME_MAX 260
+#define L_tmpnam     260
+#define TMP_MAX      32767
+#endif
 
 #define SEEK_SET 0
 #define SEEK_CUR 1
@@ -60,7 +80,7 @@ extern FILE* stderr;
 /* operations on files */
 int remove(const char* filename);
 int rename(const char* old, const char* new);
-FILE* _Opt tmpfile(void);
+FILE* _Owner _Opt tmpfile(void);
 char* _Opt tmpnam(char* _Opt s);
 
 /* file access */

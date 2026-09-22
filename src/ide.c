@@ -12,6 +12,7 @@
 #include "version.h"
 #include "ide_lsp.h"
 #include "ide_debug.h"
+#include "error.h"   /* _Countof */
 #include "target.h"  /* parse_target/get_platform - see the $(CakeOutput)
                       * External Tools macro (exttool_expand()), which has to
                       * predict cake's own "<root>/<platform name>/..."
@@ -275,23 +276,11 @@ enum {
                                   * reserves 960..96x */
     EVT_NAV_BACK = 970,     /* status bar's "Back" hotkey - see nav_back() */
     EVT_NAV_FORWARD = 971,  /* status bar's "Forward" hotkey - see nav_forward() */
-    EVT_FOLDER_TOGGLE_FILTER = 972,  /* the Folder panel's own right-click
-                                      * popup's "Filter" item - see
-                                      * g_folder.popup/g_folder.filter_enabled */
-    EVT_FOLDER_SHOW_FILTER = 973,  /* same popup's "Show Filter"/"Create
-                                    * Filter" item - opens g_folder.dir's
-                                    * CAKE_FOLDER_FILTER_NAME into an editor
-                                    * window, creating it first (pre-filled
-                                    * with the current listing) if it
-                                    * doesn't exist yet - see
-                                    * refresh_folder_show_filter_item/
-                                    * create_default_filter_file */
     EVT_FOLDER_COPY_PATH = 974,  /* same popup's "Copy Full Path" item -
                                   * copies g_folder.dir itself (the directory
                                   * the panel is currently browsing), not a
                                   * particular row - the popup isn't opened
-                                  * per-row (see its own EVT_FOLDER_TOGGLE_
-                                  * FILTER doc comment), unlike the editor
+                                  * per-row, unlike the editor
                                   * popup's identically-labeled EVT_EDITOR_
                                   * COPY_PATH, which copies a document
                                   * window's own path */
@@ -397,6 +386,50 @@ enum {
                                   * but always against g_project.compile,
                                   * never whichever file happens to be active -
                                   * see open_compiler_options_dialog() */
+    EVT_WINDOW_GIT = 1320,  /* the View > "Git Changes" menu item's id -
+                             * re-raises the docked git status panel, same
+                             * singleton-window convention as EVT_WINDOW_
+                             * FOLDER - see git_show_panel() */
+    EVT_GIT_LISTBOX = 1321,  /* the Git Changes panel's own <listbox> - see
+                              * git_window_activate() */
+    EVT_GIT_COMMIT_BTN = 1323,   /* the popup's "Commit" item - opens the
+                                  * commit message dialog below (g_gitcommit),
+                                  * see git_do_commit() */
+    EVT_GIT_DISCARD_BTN = 1324,  /* "Discard" - discards the selected row's
+                                  * changes, after confirming - see
+                                  * git_do_discard()/EVT_GIT_DISCARD_CONFIRM */
+    EVT_GIT_DISCARD_CONFIRM = 1325,  /* the confirm message box's "OK" -
+                                      * same "set right before opening it,
+                                      * consume+clear it here" shape as
+                                      * EVT_FOLDER_DELETE_CONFIRM */
+    EVT_GIT_PULL_BTN = 1326,     /* "Pull" - git_do_pull() */
+    EVT_GIT_PUSH_BTN = 1327,     /* "Push" - git_do_push() */
+    EVT_GITCOMMIT_OK = 1328,  /* also the commit message dialog's own <input>
+                               * id - "Enter commits like clicking OK", same
+                               * convention as EVT_FOLDERNEW_OK */
+    EVT_GITCOMMIT_CANCEL = 1329,
+    EVT_GITDIFF_PREV = 1330,  /* the diff viewer's own "< Prev Change" button -
+                               * see git_diff_goto_change() */
+    EVT_GITDIFF_NEXT = 1331,  /* "Next Change >" */
+    EVT_GIT_CLONE_BTN = 1332,  /* popup's "Clone..." item - opens the clone
+                                * URL dialog below (g_gitclone), see
+                                * git_clone_start() */
+    EVT_GITCLONE_OK = 1333,  /* also the clone dialog's own <input> id -
+                              * "Enter clones like clicking OK", same
+                              * convention as EVT_GITCOMMIT_OK */
+    EVT_GITCLONE_CANCEL = 1334,
+    EVT_GITCLONE_BROWSE = 1337,  /* Browse button in the Clone dialog - same
+                                  * folder-picker retarget as
+                                  * EVT_PROJECT_NEW_BROWSE, see
+                                  * OPEN_DLG_GITCLONE_FOLDER */
+    EVT_GIT_COMMITPUSH_BTN = 1335,  /* popup's "Commit All && Push" item -
+                                     * same g_gitcommit dialog as
+                                     * EVT_GIT_COMMIT_BTN, just with
+                                     * g_pending_commit_push set first so
+                                     * git_commit_confirm() pushes after a
+                                     * successful commit */
+    EVT_GIT_SYNC_BTN = 1336,  /* popup's "Sync" item - git_do_sync() (pull
+                               * then push) */
 };
 
 /* One row of a <menu>'s dropdown: an id/label/shortcut triple, "---" for a
@@ -471,6 +504,7 @@ static void rebuild_tools_menu(void);
 
 static ui_node* g_view_output_item;
 static ui_node* g_view_folder_item;
+static ui_node* g_view_git_item;
 static ui_node* g_view_playground_item;
 
 /* Compile > Options...' settings, gathered into one struct - see g_compile's
@@ -575,7 +609,7 @@ static struct
  * shape. */
 static ui_node* g_view_linenumbers_item;
 
-/* The Compile menu's own "Compile" item (id 40 / EVT_COMPILE, "F7") - see
+/* The Compile menu's own "Build" item (id 40 / EVT_COMPILE, "Ctrl+F7") - see
  * build_screen() below) - same forward-declared-for-build_screen()/kept-
  * current-every-frame pattern as g_edit_readonly_item above. Disabling the
  * top-level <menu> container itself (as opposed to this leaf item) turns out
@@ -691,6 +725,7 @@ static void build_screen(ui_node* root)
         { EVT_WINDOW_OUTPUT, "Output", NULL, 1 },
         { EVT_WINDOW_FOLDER, "Folder", NULL, 1 },
         { EVT_WINDOW_PROJECT, "Project", NULL, 1 },
+        { EVT_WINDOW_GIT, "Git Changes", NULL, 1 },
         { EVT_WINDOW_PLAYGROUND, "Playground", NULL, 1 },
         SEP,
         { EVT_VIEW_LINENUMBERS, "Line Numbers", NULL, 1 },
@@ -704,6 +739,7 @@ static void build_screen(ui_node* root)
     g_view_output_item = ui_find_by_id(view_menu, EVT_WINDOW_OUTPUT);
     g_view_folder_item = ui_find_by_id(view_menu, EVT_WINDOW_FOLDER);
     g_project.view_item = ui_find_by_id(view_menu, EVT_WINDOW_PROJECT);
+    g_view_git_item = ui_find_by_id(view_menu, EVT_WINDOW_GIT);
     g_view_playground_item = ui_find_by_id(view_menu, EVT_WINDOW_PLAYGROUND);
     g_view_linenumbers_item = ui_find_by_id(view_menu, EVT_VIEW_LINENUMBERS);
 
@@ -752,7 +788,7 @@ static void build_screen(ui_node* root)
 
     static const menu_item_spec compile_items[] = {
         { EVT_COMPILE, "Build", "F7", 1 },
-        { EVT_COMPILE_FILE, "Compile", NULL, 1 },
+        { EVT_COMPILE_FILE, "Compile", "Ctrl+F7", 1 },
         //{ 41, "Make", NULL, 1 },
        // { 42, "Link", NULL, 1 },
        // { 43, "Build all", NULL, 1 },
@@ -1096,6 +1132,63 @@ static compile_settings g_compile =
 static ui_node* g_output_window;
 static ui_node* g_output_editor;
 
+/* The Git Changes docked panel - lists `git status --porcelain` for
+ * g_folder.dir (the same directory the Folder panel browses, so both stay in
+ * sync with no directory field of their own) and, on activating a row, opens
+ * that file's diff in g_gitdiff_window below. Same singleton-window pattern
+ * as g_output_window/g_folder above - see git_show_panel(). `root` is the
+ * repo's top-level directory (from `git rev-parse --show-toplevel`, cached by
+ * git_panel_refresh()) - `git status --porcelain`'s own paths are always
+ * root-relative regardless of the cwd it was run from, so every later `git
+ * diff -- <path>` (and the plain-file-read fallback) has to run against
+ * `root`, not g_folder.dir, or those paths won't resolve when the Folder
+ * panel is browsing a subdirectory of the repo. */
+static struct
+{
+    ui_node* window;
+    ui_node* listbox;
+    ui_node* popup;      /* right-click popup - Commit/Discard/Pull/Push, same
+                          * shape as g_folder.popup */
+    char root[1024];
+} g_git;
+
+/* The Git Changes popup's "Commit" item's own message dialog - same shared
+ * name-then-OK/Cancel shape as g_foldernew above, just for a commit message
+ * instead of a filename. Kept off the docked panel itself (no permanently
+ * empty <input> row sitting above the listbox) - see git_commit_start()/
+ * EVT_GITCOMMIT_OK. */
+static struct
+{
+    ui_node* modal;
+    ui_node* window;
+    ui_node* input;
+} g_gitcommit;
+
+/* Set by EVT_GIT_COMMITPUSH_BTN right before it opens g_gitcommit's dialog
+ * (same one EVT_GIT_COMMIT_BTN opens) - consumed by git_commit_confirm(),
+ * which pushes after a successful commit when this is set, same "stash a
+ * flag before the shared dialog, consume it in the shared confirm" shape as
+ * g_pending_git_discard_path/g_pending_git_untracked. */
+static int g_pending_commit_push;
+
+/* The Git Changes popup's "Clone..." item's own URL dialog - same shared
+ * name-then-OK/Cancel shape as g_gitcommit above, just for a repository URL
+ * instead of a commit message - see git_clone_start()/EVT_GITCLONE_OK. */
+static struct
+{
+    ui_node* modal;
+    ui_node* window;
+    ui_node* input;
+    ui_node* folder_input;
+    ui_node* open_folder_check;
+} g_gitclone;
+
+/* The floating diff viewer - reused for every diff the Git Changes panel
+ * opens (its content/title are replaced each time, see
+ * git_window_activate()), rather than a new window per file. */
+static ui_node* g_gitdiff_window;
+static ui_node* g_gitdiff_editor;
+
 /* The persistent folder browser window - File > Open Folder... (via the
  * picker dialog, folder_select_confirm) or Window > Folder both just
  * re-raise this one singleton, same pattern as g_output_window above.
@@ -1108,29 +1201,14 @@ static struct
     ui_node* listbox;
     char dir[1024];       /* directory currently shown */
 
-    /* Its right-click popup and the two items whose labels are refreshed
-     * each time it opens (refresh_folder_filter_item /
-     * refresh_folder_show_filter_item). */
+    /* Its right-click popup. */
     ui_node* popup;
-    ui_node* popup_filter;
-    ui_node* popup_show;
     ui_node* popup_add_to_project;  /* "Add to Project" - enabled/disabled
                                      * each time the popup opens, off with no
                                      * project open (see EVT_FOLDER_ADD_TO_
                                      * PROJECT's own doc comment) */
+} g_folder;
 
-    int filter_enabled;   /* apply the directory's own index.txt? default on */
-} g_folder = { .filter_enabled = 1 };
-
-/* The Folder panel's own right-click popup - a "Filter" toggle (see
- * EVT_FOLDER_TOGGLE_FILTER) that flips g_folder.filter_enabled, plus a
- * second item that opens g_folder.dir's own CAKE_FOLDER_FILTER_NAME (see
- * EVT_FOLDER_SHOW_FILTER); opened over g_folder.listbox the same way
- * g_editor_popup opens over an editor (see app_frame()). g_folder.popup_filter
- * and g_folder.popup_show are those two items, whose labels are refreshed
- * each time the popup opens (refresh_folder_filter_item and
- * refresh_folder_show_filter_item), same pattern as the editor popup's
- * "Read-only" (refresh_readonly_item). */
 /* Same popup's "New File..."/"New Folder..." items (EVT_FOLDER_NEWFILE/
  * EVT_FOLDER_NEWFOLDER) - one shared name-then-OK/Cancel dialog (same shape
  * as g_goto_modal/g_goto_input) that creates either an empty file or an
@@ -1170,12 +1248,6 @@ static struct
     ui_node* target;
     ui_node* items[3];  /* [UI_DOCK_LEFT-1], [UI_DOCK_RIGHT-1], [UI_DOCK_BOTTOM-1] */
 } g_dockmenu;
-
-/* Whether folder_window_refresh applies the browsed directory's own
- * index.txt (filtering the listing down to just what it lists, in that
- * order - see apply_index_order) - on by default. Unchecking "[x] Filter"
- * in the Folder panel's right-click popup turns it off, showing every entry
- * unfiltered instead, same as a folder with no index.txt always has. */
 
 /* Tools > Find and Replace - a persistent docked panel (UI_DOCK_RIGHT), same
  * singleton pattern as g_folder.window/g_output_window above: raised again
@@ -1252,12 +1324,18 @@ typedef enum { OPEN_DLG_FILE, OPEN_DLG_SAVE, OPEN_DLG_FOLDER,
                                             * directory into the New Project
                                             * dialog's Folder field and
                                             * reopens that dialog */
-               OPEN_DLG_EXTTOOL_CMD        /* file-picker, defaulted to the
+               OPEN_DLG_EXTTOOL_CMD,       /* file-picker, defaulted to the
                                             * "Programs" filter - OK drops the
                                             * chosen path into the External
                                             * Tools dialog's Command field
                                             * (which stays open underneath)
                                             * instead of opening the file */
+               OPEN_DLG_GITCLONE_FOLDER    /* folder-picker, like OPEN_DLG_
+                                            * NEWPROJECT_FOLDER - OK drops the
+                                            * chosen directory into the Clone
+                                            * dialog's Folder field and
+                                            * reopens that dialog - see
+                                            * EVT_GITCLONE_BROWSE */
 } open_dialog_mode;
 
 /* The Open/Save As dialog - one dialog serving several modes (see
@@ -1449,6 +1527,15 @@ static int g_pending_delete_is_dir;  /* set alongside g_pending_delete_path -
                                       * rmdir() vs remove() at confirm time,
                                       * see EVT_FOLDER_DELETE_CONFIRM */
 
+/* Same "stash it before the confirm prompt, consume+clear it once confirmed"
+ * shape as g_pending_delete_path above, for the Git Changes panel's
+ * "Discard" button - see EVT_GIT_DISCARD_BTN/EVT_GIT_DISCARD_CONFIRM.
+ * g_pending_git_untracked is set alongside it: an untracked ("??") row has
+ * nothing in git to restore, so discarding it deletes the file outright
+ * instead of running `git checkout --`. */
+static char g_pending_git_discard_path[1024];
+static int g_pending_git_untracked;
+
 static void do_compile(void);  /* defined below */
 static void do_project_build(void);  /* defined below */
 static void do_goto_definition(void);  /* defined below */
@@ -1463,14 +1550,6 @@ static const char* label_for_path(const char* path);  /* defined below; used whe
                                                         * through open_playground() itself */
 
 #define OPEN_MAX_ENTRIES 512
-
-/* The Folder panel's own per-folder filter file (see apply_index_order and
- * EVT_FOLDER_SHOW_FILTER) - deliberately not "index.txt": that's a plain,
- * common filename a real project folder might already use for its own
- * content, and this app would otherwise silently swallow it into the
- * filtering feature (and hide it from the listing). A dotfile-style name
- * only this feature would ever create keeps the two from colliding. */
-#define CAKE_FOLDER_FILTER_NAME ".cakefilter"
 
 /* Options > Environment...'s Theme select offers "Ambar" (see
  * g_theme_ambar below), "Dark" and "White", which mirror Visual
@@ -1632,6 +1711,8 @@ static const ui_theme g_theme_ambar = {
     .md_bold_fg = TB_RGB(0xD8, 0xD6, 0xD0),        /* same as editor_fg */
     .md_link_fg = TB_RGB(0xE9, 0xB4, 0x6A),        /* VS Code Dark's actual
                                                      * hyperlink blue */
+    .editor_diff_add_bg = TB_RGB(0x16, 0x3A, 0x2E),
+    .editor_diff_remove_bg = TB_RGB(0x3A, 0x1D, 0x1D),
     .md_code_bg = TB_RGB(0x28, 0x2C, 0x34),        /* slate - subtly lighter/
                                                      * cooler than editor_bg
                                                      * and distinct from
@@ -1805,6 +1886,8 @@ static const ui_theme g_theme_dark = {
     .md_bold_fg = TB_RGB(0xD4, 0xD4, 0xD4),        /* same as editor_fg */
     .md_link_fg = TB_RGB(0x3D, 0xA8, 0xF5),        /* VS Code Dark's actual
                                                      * hyperlink blue */
+    .editor_diff_add_bg = TB_RGB(0x16, 0x3A, 0x2E),
+    .editor_diff_remove_bg = TB_RGB(0x3A, 0x1D, 0x1D),
     .md_code_bg = TB_RGB(0x28, 0x2C, 0x34),        /* slate - subtly lighter/
                                                      * cooler than editor_bg
                                                      * and distinct from
@@ -2008,6 +2091,8 @@ static const ui_theme g_theme_white = {
     .md_bold_fg = TB_RGB(0x1E, 0x1E, 0x1E),        /* same as editor_fg */
     .md_link_fg = TB_RGB(0x00, 0x66, 0xCC),        /* VS Code Light's actual
                                                      * hyperlink blue */
+    .editor_diff_add_bg = TB_RGB(0xE6, 0xFF, 0xEC),
+    .editor_diff_remove_bg = TB_RGB(0xFF, 0xEB, 0xE9),
     .md_code_bg = TB_RGB(0xF6, 0xF8, 0xFA),        /* GitHub Light's actual
                                                      * code-block gray -
                                                      * distinct from both
@@ -2171,6 +2256,8 @@ static const ui_theme g_theme_nebula = {
     .md_code_fg = TB_RGB(0x9E, 0xCE, 0x6A),
     .md_bold_fg = TB_RGB(0xC0, 0xCA, 0xF5),
     .md_link_fg = TB_RGB(0x73, 0xDA, 0xCA),
+    .editor_diff_add_bg = TB_RGB(0x21, 0x3B, 0x2E),
+    .editor_diff_remove_bg = TB_RGB(0x3B, 0x21, 0x30),
     .md_code_bg = TB_RGB(0x1F, 0x22, 0x33),
 
     /* <listbox> - same body colors as <editor>/<input>, selection reuses the
@@ -2309,6 +2396,8 @@ static const ui_theme g_theme_xcode_dark = {
     .md_code_fg = TB_RGB(0xD0, 0xBF, 0x69),
     .md_bold_fg = TB_RGB(0xFF, 0xFF, 0xFF),
     .md_link_fg = TB_RGB(0x5A, 0xC8, 0xFA),
+    .editor_diff_add_bg = TB_RGB(0x1C, 0x33, 0x20),
+    .editor_diff_remove_bg = TB_RGB(0x3A, 0x1E, 0x1E),
     .md_code_bg = TB_RGB(0x2D, 0x2E, 0x33),
 
     /* <listbox> - Xcode's navigator: a shade darker than the editor, with
@@ -2781,17 +2870,6 @@ static void refresh_codeblock_items(ui_node* copy_item, ui_node* playground_item
     ui_set_enabled(playground_item, g_md_codeblock_text != NULL);
 }
 
-/* Update the Folder panel popup's "Filter" item's label to reflect
- * g_folder.filter_enabled - same [x]/[ ] convention as refresh_readonly_item,
- * just with nothing to disable (unlike Read-only, this toggle is always
- * available). */
-static void refresh_folder_filter_item(ui_node* item)
-{
-    if (!item)
-        return;
-    ui_set_label(item, g_folder.filter_enabled ? "[x] Filter" : "[ ] Filter");
-}
-
 /* Whether `wrapper` is one of the currently open floating windows - i.e. it
  * would actually show up on screen right now, not just that the node
  * exists somewhere in the tree (a closed-but-not-torn-down persistent
@@ -2924,31 +3002,6 @@ static void dock_panel_to(ui_node* _Opt win, ui_dock_side side)
     ui_set_dock(win, side, size);
 }
 
-/* Update the Folder panel popup's "Show Filter"/"Create Filter" item's
- * label to reflect whether g_folder.dir already has a
- * CAKE_FOLDER_FILTER_NAME on disk - "Show Filter" opens the existing one
- * (EVT_FOLDER_SHOW_FILTER's original behavior); "Create Filter" means that
- * same click will first generate one, pre-filled with the folder's current
- * contents (see create_default_filter_file), before opening it. Refreshed
- * each time the popup opens, same pattern as refresh_folder_filter_item. */
-static void refresh_folder_show_filter_item(ui_node* item)
-{
-    if (!item)
-        return;
-    char path[1024];
-    snprintf(path, sizeof path, "%s/%s", g_folder.dir, CAKE_FOLDER_FILTER_NAME);
-    FILE* f = fopen(path, "rb");
-    if (f)
-    {
-        fclose(f);
-        ui_set_label(item, "Show Filter");
-    }
-    else
-    {
-        ui_set_label(item, "Create Filter");
-    }
-}
-
 /* Classic '*'/'?' glob, case-insensitive - just enough to match a DOS-style
  * mask like "*.C" against a filename. */
 static int wildcard_match(const char* pattern, const char* name)
@@ -3025,11 +3078,6 @@ static void open_path_up(char* dir)
         dir[len - 1] = 0;
 }
 
-/* Forward-declared here (defined further below, alongside the other small
- * file-reading helpers) so apply_index_order can use it without moving it
- * up the file. */
-static char* read_file_to_string(const char* path);
-
 /* Collapse every CRLF in `s` to a bare LF, in place.
  *
  * The editor's buffer is LF-only by construction - Enter inserts '\n', and
@@ -3067,208 +3115,17 @@ static void normalize_newlines(char* s)
     *w = '\0';
 }
 
-/* ---- CAKE_FOLDER_FILTER_NAME (".cakefilter"): optional per-folder
- * filter+order for the persistent Folder browser window only
- * (folder_window_refresh, gated further by g_folder.filter_enabled - see
- * EVT_FOLDER_TOGGLE_FILTER) - never applied to the Open/Save-As/
- * folder-picker dialog (open_dialog_refresh), which is about opening/
- * saving one file, not browsing. Each line names one entry already on
- * disk - a plain file/subfolder name - and that's the only listing shown,
- * in that order (right after ".."): anything on disk this file doesn't
- * list is left out entirely, not merely sorted after. A line may also use
- * a "Title / name" form, similar in spirit to (but with a plain "/" instead
- * of " \ ", to keep the example any auto-created file leads with legible)
- * src/tools/help2md's own index.txt "Title \ name" syntax - a different,
- * unrelated file, see its own comment for why this one isn't also named
- * index.txt. When a title is present that's what the listbox displays for
- * that row (e.g. "Introduction" for "Introduction / introduction.md"), same
- * idea as help2md's own sidebar. Either way the row's
- * real disk name is preserved as its ui_set_path (see
- * populate_listbox_from_dir) so navigating into it or opening it is
- * unaffected by the display text. No filter file, or an unreadable one,
- * just means no filtering at all - every entry shows, same as before this
- * feature existed. Nothing here writes the file as a side effect of
- * filtering/browsing - unlike help2md's generator, newly-discovered entries
- * are never silently persisted back to disk. The one exception is
- * EVT_FOLDER_SHOW_FILTER itself: if the folder doesn't have one yet, the
- * popup item reads "Create Filter" instead of "Show Filter" (see
- * refresh_folder_show_filter_item), and clicking it generates one up front
- * - pre-filled with the folder's current contents via
- * create_default_filter_file - before opening it, so the user edits/prunes
- * a real starting point by hand instead of an empty file. */
-
-/* Parses one filter-file line into an optional title and a required name -
- * same "Title / diskname" idea as help2md's own parse_idx_line, just with a
- * plain "/" delimiter as the current, preferred form (see
- * CAKE_FOLDER_FILTER_NAME's own doc comment for why the two files don't
- * have to match). The older " \ " delimiter (this format's own original
- * separator, before it switched to "/") is still recognized too, purely for
- * backward compatibility with filter files already on disk (e.g.
- * help/Manual's) written before the switch - whichever of the two appears
- * first in the line wins, so a line can't accidentally match both. `title`
- * is left as an empty string when the line has neither (bare name only).
- * Returns 0 for a blank line (nothing to place). */
-static int idx_parse_line(const char* line, char* title, size_t title_size,
-                           char* name, size_t name_size)
-{
-    while (*line == ' ' || *line == '\t')
-        line++;
-    if (*line == 0 || *line == '\r' || *line == '\n')
-        return 0;
-
-    title[0] = 0;
-    const char* sep_slash = strstr(line, " / ");
-    const char* sep_bslash = strstr(line, " \\ ");
-    const char* sep;
-    if (sep_slash && sep_bslash)
-        sep = sep_slash < sep_bslash ? sep_slash : sep_bslash;
-    else
-        sep = sep_slash ? sep_slash : sep_bslash;
-    const char* nm;
-    if (sep)
-    {
-        size_t tlen = (size_t)(sep - line);
-        while (tlen > 0 && (line[tlen - 1] == ' ' || line[tlen - 1] == '\t'))
-            tlen--;
-        if (tlen >= title_size)
-            tlen = title_size - 1;
-        memcpy(title, line, tlen);
-        title[tlen] = 0;
-        nm = sep + 3;
-    }
-    else
-    {
-        nm = line;
-    }
-    while (*nm == ' ' || *nm == '\t')
-        nm++;
-
-    size_t len = strlen(nm);
-    while (len > 0 && (nm[len - 1] == '\r' || nm[len - 1] == '\n' ||
-                        nm[len - 1] == ' ' || nm[len - 1] == '\t'))
-        len--;
-    if (len == 0)
-        return 0;
-    if (len >= name_size)
-        len = name_size - 1;
-    memcpy(name, nm, len);
-    name[len] = 0;
-    return 1;
-}
-
-/* Filters+reorders `names[0..count)` (each still carrying
- * populate_listbox_from_dir's trailing "\" marker for directories - the
- * real disk identity, unaffected by any of this) down to just what
- * `dir`/CAKE_FOLDER_FILTER_NAME lists, in that file's order (matched
- * against `names` with or without the "\", so the filter file itself never
- * needs to spell that out) - entries on disk but not listed are dropped
- * from the listing entirely, not merely reordered after. Fills
- * `titles[0..newcount)` with what should be displayed for each: the line's
- * title if it gave one (plus the same trailing "\" its disk name carries,
- * so a retitled folder still reads as one), otherwise its disk name as-is.
- * Returns the new, filtered count. If `dir` has no readable filter file,
- * `names`/`titles` are left untouched and `count` is returned as-is - no
- * filter file means no filtering, every entry still shows (see
- * populate_listbox_from_dir). Caller must pre-size both arrays the same
- * (OPEN_MAX_ENTRIES x 300, as populate_listbox_from_dir does). */
-static int apply_index_order(const char* dir, char names[][300], char titles[][300], int count)
-{
-    char idx_path[1024];
-    snprintf(idx_path, sizeof idx_path, "%s/%s", dir, CAKE_FOLDER_FILTER_NAME);
-    char* text = read_file_to_string(idx_path);
-    if (!text)
-        return count;
-
-    static char oname[OPEN_MAX_ENTRIES][300];
-    static char otitle[OPEN_MAX_ENTRIES][300];
-    static int used[OPEN_MAX_ENTRIES];
-    memset(used, 0, (size_t)count * sizeof used[0]);
-    int n_ordered = 0;
-
-    char* line = text;
-    while (line && *line)
-    {
-        char* nl = strchr(line, '\n');
-        if (nl)
-            *nl = 0;
-
-        char title[300], want[300];
-        if (idx_parse_line(line, title, sizeof title, want, sizeof want))
-        {
-            for (int i = 0; i < count; i++)
-            {
-                if (used[i])
-                    continue;
-                char bare[300];
-                strncpy(bare, names[i], sizeof bare - 1);
-                bare[sizeof bare - 1] = 0;
-                size_t bl = strlen(bare);
-                int is_dir = bl > 0 && bare[bl - 1] == '\\';
-                if (is_dir)
-                    bare[bl - 1] = 0;
-                if (strcmp(bare, want) == 0)
-                {
-                    used[i] = 1;
-                    strncpy(oname[n_ordered], names[i], sizeof oname[n_ordered] - 1);
-                    oname[n_ordered][sizeof oname[n_ordered] - 1] = 0;
-                    if (title[0])
-                        snprintf(otitle[n_ordered], sizeof otitle[n_ordered], "%s%s",
-                                 title, is_dir ? "\\" : "");
-                    else
-                    {
-                        strncpy(otitle[n_ordered], names[i], sizeof otitle[n_ordered] - 1);
-                        otitle[n_ordered][sizeof otitle[n_ordered] - 1] = 0;
-                    }
-                    n_ordered++;
-                    break;
-                }
-            }
-        }
-        line = nl ? nl + 1 : NULL;
-    }
-    free(text);
-
-    /* Unlike an earlier version of this function, entries index.txt doesn't
-     * list are simply dropped here - no append-the-rest step - so the
-     * Folder panel shows exactly index.txt's list and nothing else. */
-    for (int i = 0; i < n_ordered; i++)
-    {
-        strncpy(names[i], oname[i], sizeof names[i] - 1);
-        names[i][sizeof names[i] - 1] = 0;
-        strncpy(titles[i], otitle[i], sizeof titles[i] - 1);
-        titles[i][sizeof titles[i] - 1] = 0;
-    }
-    return n_ordered;
-}
-
 /* Rebuilds `listbox`'s rows from `dir`'s contents: ".." to go up, then every
  * subdirectory (marked with a trailing "\" - see dir_row_navigate, which
  * keys off that marker) and, unless `dirs_only`, every file whose name
  * matches `mask` (NULL/empty = no filtering, show them all) - dirs-first,
- * alphabetical (case-insensitive) within each group, unless `use_index_order`
- * asks to filter that down to just the folder's own CAKE_FOLDER_FILTER_NAME
- * (and, per-entry, retitle) on top of that (see apply_index_order above) -
- * true only for the persistent Folder browser window (folder_window_refresh,
- * itself gated by g_folder.filter_enabled); the Open/Save-As/folder-picker
- * dialog (open_dialog_refresh, below) always passes 0, so opening a file is
- * never affected. When a filter file exists, anything on disk it doesn't
- * list is left out of the listing entirely - it's the whole list, not a
- * partial order merged with the rest. No filter file (or an unreadable one)
- * just means no filtering - every entry still shows, same as before this
- * parameter existed. Either way, the filter file itself is also hidden from
- * the listing, same as help2md treats its own index.txt.
+ * alphabetical (case-insensitive) within each group.
  *
- * Every row's real disk name (with the trailing "\" marker) is always kept
- * in ui_set_path, regardless of `use_index_order` - that's what
- * dir_row_navigate/folder_window_activate/open_dialog_activate key off of.
- * ui_set_label carries what's actually displayed, which is the same disk
- * name unless the filter file gave that entry a title (see
- * apply_index_order) - so a listed "Introduction \ introduction.md" shows
- * as "Introduction" in the Folder panel while still opening introduction.md
- * underneath. Shared by both callers. */
+ * Every row's real disk name (with the trailing "\" marker) is kept in
+ * ui_set_path - that's what dir_row_navigate/folder_window_activate/
+ * open_dialog_activate key off of. Shared by both callers. */
 static void populate_listbox_from_dir(ui_node* listbox, const char* dir,
-                                       const char* mask, int dirs_only,
-                                       int use_index_order)
+                                       const char* mask, int dirs_only)
 {
     static ui_dir_entry raw[OPEN_MAX_ENTRIES];
     int n = ui_list_dir(dir, raw, OPEN_MAX_ENTRIES);
@@ -3281,14 +3138,11 @@ static void populate_listbox_from_dir(ui_node* listbox, const char* dir,
     }
 
     static char names[OPEN_MAX_ENTRIES][300];
-    static char titles[OPEN_MAX_ENTRIES][300];
     int count = 0;
     for (int i = 0; i < n; i++)
     {
         if (!raw[i].is_dir)
         {
-            if (use_index_order && strcmp(raw[i].name, CAKE_FOLDER_FILTER_NAME) == 0)
-                continue;  /* the filter file itself, never a listing entry */
             if (dirs_only)
                 continue;
             if (mask && mask[0] && !mask_matches(mask, raw[i].name))
@@ -3301,17 +3155,6 @@ static void populate_listbox_from_dir(ui_node* listbox, const char* dir,
     if (count > 1)
         qsort(names, (size_t)count, sizeof names[0], open_entry_cmp);
 
-    /* Default display = the disk name, until/unless index.txt overrides it
-     * below - so a folder with no index.txt (or an entry it doesn't list)
-     * looks exactly as it always has. */
-    for (int i = 0; i < count; i++)
-    {
-        strncpy(titles[i], names[i], sizeof titles[i] - 1);
-        titles[i][sizeof titles[i] - 1] = 0;
-    }
-    if (use_index_order && count > 0)
-        count = apply_index_order(dir, names, titles, count);
-
     ui_node* up_item = ui_create_element(UI_TAG_ITEM);
     ui_set_label(up_item, "..\\");
     ui_set_path(up_item, "..\\");
@@ -3320,85 +3163,11 @@ static void populate_listbox_from_dir(ui_node* listbox, const char* dir,
     for (int i = 0; i < count; i++)
     {
         ui_node* item = ui_create_element(UI_TAG_ITEM);
-        ui_set_label(item, titles[i]);
+        ui_set_label(item, names[i]);
         ui_set_path(item, names[i]);
         ui_append_child(listbox, item);
     }
     ui_select_set_selected(listbox, 0);
-}
-
-/* Writes `name` with its extension removed (the part from the last '.'
- * onward - a leading dot, as in a dotfile with no other '.', doesn't count,
- * so ".gitignore" is left whole rather than reduced to an empty title) into
- * `out`. Used only to build the "Title" half of create_default_filter_file's
- * generated "Title / name" lines - a folder or already-extensionless file
- * just gets its own name back unchanged. */
-static void name_without_extension(const char* name, char* out, size_t out_size)
-{
-    const char* dot = strrchr(name, '.');
-    size_t len = (dot && dot != name) ? (size_t)(dot - name) : strlen(name);
-    if (len >= out_size)
-        len = out_size - 1;
-    memcpy(out, name, len);
-    out[len] = 0;
-}
-
-/* Creates `dir`'s own CAKE_FOLDER_FILTER_NAME from scratch, pre-filled with
- * every entry currently on disk there, dirs-first-then-alphabetical - the
- * same order the Folder panel itself would show before any filtering (see
- * open_entry_cmp/populate_listbox_from_dir) - so "Create Filter"
- * (EVT_FOLDER_SHOW_FILTER when the file doesn't exist yet, see
- * refresh_folder_show_filter_item) hands the user a ready-made starting
- * point to prune/reorder/retitle by hand rather than an empty file. Every
- * line is written in the full "Title / name" form (see idx_parse_line/
- * CAKE_FOLDER_FILTER_NAME's own doc comment) - name_without_extension() as
- * the title, the real disk name as-is after it - rather than a bare name,
- * so the generated file itself demonstrates that syntax on real, live
- * entries instead of needing a separate made-up example line. Silently does
- * nothing if `dir` can't be listed or the file can't be written -
- * EVT_FOLDER_SHOW_FILTER's own open_file_path_into_editor still reports a
- * missing file exactly as it always has in that case. */
-static void create_default_filter_file(const char* dir)
-{
-    static ui_dir_entry raw[OPEN_MAX_ENTRIES];
-    int n = ui_list_dir(dir, raw, OPEN_MAX_ENTRIES);
-    if (n <= 0)
-        return;
-
-    static char names[OPEN_MAX_ENTRIES][300];
-    int count = 0;
-    for (int i = 0; i < n; i++)
-    {
-        if (!raw[i].is_dir && strcmp(raw[i].name, CAKE_FOLDER_FILTER_NAME) == 0)
-            continue;  /* never list the filter file inside itself */
-        snprintf(names[count], sizeof names[count], "%s%s", raw[i].name,
-                 raw[i].is_dir ? "\\" : "");
-        count++;
-    }
-    if (count > 1)
-        qsort(names, (size_t)count, sizeof names[0], open_entry_cmp);
-
-    char path[1024];
-    snprintf(path, sizeof path, "%s/%s", dir, CAKE_FOLDER_FILTER_NAME);
-    FILE* f = fopen(path, "wb");
-    if (!f)
-        return;
-
-    for (int i = 0; i < count; i++)
-    {
-        /* The trailing "\" is populate_listbox_from_dir's own disk-identity
-         * marker (used above just to sort dirs first) - the filter file's
-         * own format is a plain name either way (see CAKE_FOLDER_FILTER_NAME's
-         * doc comment), so strip it back off before writing. */
-        size_t len = strlen(names[i]);
-        if (len > 0 && names[i][len - 1] == '\\')
-            names[i][len - 1] = 0;
-
-        char title[300];
-        name_without_extension(names[i], title, sizeof title);
-        fprintf(f, "%s / %s\n", title, names[i]);
-    }
-    fclose(f);
 }
 
 /* Rebuilds g_open.listbox's rows from g_open.dir (see
@@ -3409,12 +3178,10 @@ static void open_dialog_refresh(void)
 {
     int folder_mode = g_open.dialog_mode == OPEN_DLG_FOLDER ||
         g_open.dialog_mode == OPEN_DLG_PROJECT_ADDINCLUDE ||
-        g_open.dialog_mode == OPEN_DLG_NEWPROJECT_FOLDER;
-    /* use_index_order is always 0 here - the Open/Save-As/folder-picker
-     * dialog is about opening/saving one file, never reordered by
-     * index.txt even in folder-picker mode. See populate_listbox_from_dir. */
+        g_open.dialog_mode == OPEN_DLG_NEWPROJECT_FOLDER ||
+        g_open.dialog_mode == OPEN_DLG_GITCLONE_FOLDER;
     populate_listbox_from_dir(g_open.listbox, g_open.dir,
-                               folder_mode ? NULL : g_open.mask, folder_mode, 0);
+                               folder_mode ? NULL : g_open.mask, folder_mode);
 
     /* Multi-select is a per-mode property of the dialog (see
      * g_open.allow_multi) - set here, right after the rows were rebuilt, so
@@ -3874,15 +3641,10 @@ static void open_dialog_activate(int index)
 /* Rebuilds the persistent folder browser window's listbox from g_folder.dir
  * (only source files - see the mask - plus all subdirectories for
  * navigation, see populate_listbox_from_dir), and retitles the window to
- * show the directory it's now showing. use_index_order tracks
- * g_folder.filter_enabled - the Folder panel's own right-click "Filter"
- * toggle (see EVT_FOLDER_TOGGLE_FILTER) - rather than always being on, so
- * the user can turn g_folder.dir's own CAKE_FOLDER_FILTER_NAME filtering
- * off and see everything unfiltered instead. */
+ * show the directory it's now showing. */
 static void folder_window_refresh(void)
 {
-    populate_listbox_from_dir(g_folder.listbox, g_folder.dir, "*.h;*.c;*.md;*.txt", 0,
-                               g_folder.filter_enabled);
+    populate_listbox_from_dir(g_folder.listbox, g_folder.dir, "*.h;*.c;*.md;*.txt", 0);
 
     /* Just the folder's own name, not the full path - there's no room for
      * that in the title bar. */
@@ -3923,20 +3685,52 @@ static void folder_window_activate(int index)
     open_file_path_into_editor(path, entry);
 }
 
-/* Raises the Folder panel - the exact mirror of project_show_panel() further
- * below (defined there, not here, since it needs g_project's helpers) -
- * closes the Project panel first if both still sit on their original LEFT
- * default (see project_show_panel's own doc comment for why: dock_layout()
- * only lays out one window per side, and this app's two file-browsing panels
- * showing at once would just be visual clutter over the same job even where
- * they geometrically fit). A no-op for Project if it isn't shown or has been
- * redocked elsewhere via g_dockmenu's "Dock Left/Right/Bottom" popup. */
+/* Closes `other` (a docked-panel wrapper, e.g. g_folder.window/g_project.
+ * window/g_git.window) if it's currently shown and still sitting on the same
+ * LEFT dock as `keep` - shared by folder_show_panel()/project_show_panel()/
+ * git_show_panel() so Folder, Project and Git Changes stay mutually
+ * exclusive on LEFT (dock_layout() only lays out one window per side, and
+ * showing more than one of these file-browsing panels at once would just be
+ * visual clutter over the same job). A no-op once either side has been
+ * redocked elsewhere via g_dockmenu's "Dock Left/Right/Bottom" popup.
+ *
+ * Returns `other`'s width right before closing it (0 if nothing was closed) -
+ * each panel keeps its own dock width (set at ui_set_dock() time in
+ * app_init, and updated independently by dragging its own border), so
+ * switching from one to another without this would silently snap back to
+ * whichever default width the incoming panel happened to be built with,
+ * undoing a resize the user made on the outgoing one. Callers pass this
+ * width into their own ui_set_dock() before showing `keep`, so the LEFT
+ * dock's width carries over across the switch - see folder_show_panel()/
+ * project_show_panel()/git_show_panel(). */
+static int close_other_left_panel(ui_node* other, ui_node* keep)
+{
+    if (window_is_shown(other) &&
+        ui_get_dock(ui_child_at(other, 0)) == UI_DOCK_LEFT &&
+        ui_get_dock(ui_child_at(keep, 0)) == UI_DOCK_LEFT)
+    {
+        int w = 0;
+        ui_get_rect(ui_child_at(other, 0), NULL, NULL, &w, NULL);
+        ui_screen_close_modal(g_screen, other);
+        return w;
+    }
+    return 0;
+}
+
+/* Raises the Folder panel - the exact mirror of project_show_panel()/
+ * git_show_panel() (defined further below, since they need g_project's/
+ * g_git's helpers) - see close_other_left_panel()'s own doc comment for why
+ * Project and Git Changes are closed first, and why their width carries
+ * over. */
 static void folder_show_panel(void)
 {
-    if (window_is_shown(g_project.window) &&
-        ui_get_dock(ui_child_at(g_project.window, 0)) == UI_DOCK_LEFT &&
-        ui_get_dock(ui_child_at(g_folder.window, 0)) == UI_DOCK_LEFT)
-        ui_screen_close_modal(g_screen, g_project.window);
+    int w = close_other_left_panel(g_project.window, g_folder.window);
+    if (!w)
+        w = close_other_left_panel(g_git.window, g_folder.window);
+    else
+        close_other_left_panel(g_git.window, g_folder.window);
+    if (w)
+        ui_set_dock(ui_child_at(g_folder.window, 0), UI_DOCK_LEFT, w);
 
     ui_screen_show_window(g_screen, g_folder.window);
 }
@@ -4129,7 +3923,7 @@ static void project_file_marker(const char* filename, char* out_marker, uint32_t
     }
 }
 
-static void project_window_refresh(void)
+static void project_window_refresh(int selected_index)
 {
     if (!g_project.listbox)
         return;
@@ -4153,7 +3947,7 @@ static void project_window_refresh(void)
         ui_set_path(item, g_project.files[i]);
         ui_append_child(g_project.listbox, item);
     }
-    ui_select_set_selected(g_project.listbox, 0);
+    ui_select_set_selected(g_project.listbox, selected_index);
 
     ui_node* window = ui_child_at(g_project.window, 0);
     if (window)
@@ -4169,7 +3963,7 @@ static void project_window_refresh(void)
  * project_window_refresh(), just for the dialog opened separately via
  * Project > "Include Directories..." (EVT_PROJECT_INCLUDES) rather than the
  * always-visible panel. A no-op before app_init builds the dialog. */
-static void project_includes_dialog_refresh(void)
+static void project_includes_dialog_refresh(int selected_index)
 {
     if (!g_project.includes_listbox || !g_includes_editing.dirs)
         return;
@@ -4187,7 +3981,7 @@ static void project_includes_dialog_refresh(void)
         ui_set_label(item, g_includes_editing.dirs[i]);
         ui_append_child(g_project.includes_listbox, item);
     }
-    ui_select_set_selected(g_project.includes_listbox, 0);
+    ui_select_set_selected(g_project.includes_listbox, selected_index);
 }
 
 /* Points the Include Directories dialog at one of the two lists and saves
@@ -4278,7 +4072,7 @@ static int project_json_get_bool(const struct json_value* object, const char* ke
  * number - so a file written before a field existed keeps the default. */
 static int project_json_get_int(const struct json_value* object, const char* key, int fallback)
 {
-    const struct json_value* member = json_find_member(object, key);
+    const struct json_value* member = object ? json_find_member(object, key) : NULL;
     if (member && member->type == JSON_NUMBER)
         return (int)member->number;
 
@@ -4524,10 +4318,13 @@ static int project_load_from_file(const char* path)
  * "Dock Left/Right/Bottom" popup coexists fine, so this is a no-op then). */
 static void project_show_panel(void)
 {
-    if (window_is_shown(g_folder.window) &&
-        ui_get_dock(ui_child_at(g_folder.window, 0)) == UI_DOCK_LEFT &&
-        ui_get_dock(ui_child_at(g_project.window, 0)) == UI_DOCK_LEFT)
-        ui_screen_close_modal(g_screen, g_folder.window);
+    int w = close_other_left_panel(g_folder.window, g_project.window);
+    if (!w)
+        w = close_other_left_panel(g_git.window, g_project.window);
+    else
+        close_other_left_panel(g_git.window, g_project.window);
+    if (w)
+        ui_set_dock(ui_child_at(g_project.window, 0), UI_DOCK_LEFT, w);
 
     ui_screen_show_window(g_screen, g_project.window);
 }
@@ -4552,8 +4349,7 @@ static void project_new_create(const char* path)
         *last_slash = 0;
     else
         strcpy(dir, ".");
-    mkdir(dir, 0755);  /* fine if it already exists - return value ignored,
-                        * same as create_default_filter_file's own mkdir() */
+    mkdir(dir, 0755);  /* fine if it already exists - return value ignored */
 
     char name[256];
     snprintf(name, sizeof name, "%s", basename_of(path));
@@ -4568,7 +4364,7 @@ static void project_new_create(const char* path)
     project_normalize_slashes(g_project.file_path);
 
     project_save();
-    project_window_refresh();
+    project_window_refresh(0);
 
     ui_screen_close_modal(g_screen, g_open.modal);
     g_open.dialog_mode = OPEN_DLG_FILE;
@@ -4645,7 +4441,7 @@ static void project_open_file(const char* path)
 {
     if (!project_load_from_file(path))
         return;
-    project_window_refresh();
+    project_window_refresh(0);
     project_show_panel();
 }
 
@@ -4667,7 +4463,7 @@ static void project_add_file(const char* path)
 
     snprintf(g_project.files[g_project.file_count++], sizeof g_project.files[0], "%s", relative_path);
     project_save();
-    project_window_refresh();
+    project_window_refresh(0);
 }
 
 /* Project > "Add Include Directory..." - same shape as project_add_file(),
@@ -4703,7 +4499,7 @@ static void project_add_include(const char* path)
     else
         global_settings_save();
 
-    project_includes_dialog_refresh();  /* no-op if the dialog isn't built/open */
+    project_includes_dialog_refresh(0);  /* no-op if the dialog isn't built/open */
 }
 
 /* Opens the project's file at `index` (a row in g_project.listbox) into an
@@ -4738,7 +4534,8 @@ static void project_remove_at(int index)
         snprintf(g_project.files[i], sizeof g_project.files[0], "%s", g_project.files[i + 1]);
     g_project.file_count--;
     project_save();
-    project_window_refresh();
+    int selected_index = index < g_project.file_count ? index : g_project.file_count - 1;
+    project_window_refresh(selected_index);
 }
 
 /* Project > "Close Project" - clears g_project back to empty and hides the
@@ -4749,7 +4546,7 @@ static void project_close(void)
     if (!project_is_open())
         return;
     project_reset_data();
-    project_window_refresh();
+    project_window_refresh(0);
     if (window_is_shown(g_project.window))
         ui_screen_close_modal(g_screen, g_project.window);
 }
@@ -5641,6 +5438,611 @@ static void exttool_append_n(struct exttool_buf* b, const char* text, size_t n)
 static void exttool_append(struct exttool_buf* b, const char* text)
 {
     exttool_append_n(b, text, strlen(text));
+}
+
+/* --- Git integration: "Git Changes" docked panel + diff viewer window ---
+ * Runs `cmd` (dir defaults to the IDE's own cwd when NULL/empty, same as
+ * ui_process_start's own dir param) through to completion and appends its
+ * combined stdout+stderr into `out`, replacing whatever `out` held before.
+ * Same "run a process, capture its output" building block do_build() uses
+ * (ui_process_start), just driven to completion synchronously here instead
+ * of polled from app_frame() - git status/diff on one repo/file return in
+ * well under a frame, so there is nothing to stream. */
+static void run_process_capture(const char* cmd, const char* dir, struct exttool_buf* out)
+{
+    exttool_buf_free(out);
+    ui_process* proc = ui_process_start(cmd, dir && dir[0] ? dir : NULL, NULL, 0);
+    if (!proc)
+        return;
+    char buf[4096];
+    for (;;)
+    {
+        int n = ui_process_read(proc, buf, sizeof buf);
+        if (n > 0)
+        {
+            exttool_append_n(out, buf, (size_t)n);
+            continue;
+        }
+        if (n == 0)
+            continue;  /* still running, nothing to read yet */
+        break;  /* -1: EOF, the child is done */
+    }
+    ui_process_close(proc);
+}
+
+/* The Git Changes panel's own per-row status marker - two columns (letter +
+ * trailing space) colored from the current theme's diagnostic colors,
+ * reusing them rather than adding new theme fields just for this panel (see
+ * ui_theme's diag_error_fg/diag_warning_fg/diag_info_fg). `xy` is the two
+ * status characters `git status --porcelain` prints before each path. */
+static void git_status_marker(char x, char y, char* out_marker, uint32_t* out_fg)
+{
+    const ui_theme* theme = ui_get_theme();
+    if (x == '?' && y == '?')
+    {
+        strcpy(out_marker, "? ");
+        *out_fg = theme->diag_info_fg;
+    }
+    else if (x == 'A' || y == 'A')
+    {
+        strcpy(out_marker, "A ");
+        *out_fg = theme->editor_number_fg;
+    }
+    else if (x == 'D' || y == 'D')
+    {
+        strcpy(out_marker, "D ");
+        *out_fg = theme->diag_error_fg;
+    }
+    else if (x == 'M' || y == 'M')
+    {
+        strcpy(out_marker, "M ");
+        *out_fg = theme->diag_warning_fg;
+    }
+    else
+    {
+        strcpy(out_marker, "  ");
+        *out_fg = 0;
+    }
+}
+
+/* Rebuilds the Git Changes panel's listbox from `git status --porcelain`,
+ * run against g_folder.dir (the same directory the Folder panel browses -
+ * this panel has no directory field of its own, see g_git's own doc
+ * comment). Same clear-then-refill shape as project_window_refresh(). */
+static void git_panel_refresh(void)
+{
+    if (!g_git.listbox)
+        return;
+
+    struct exttool_buf root_out = { 0 };
+    run_process_capture("git rev-parse --show-toplevel", g_folder.dir, &root_out);
+    size_t rootlen = root_out.len;
+    while (rootlen > 0 && (root_out.data[rootlen - 1] == '\n' || root_out.data[rootlen - 1] == '\r'))
+        rootlen--;
+    if (rootlen >= sizeof g_git.root)
+        rootlen = sizeof g_git.root - 1;
+    memcpy(g_git.root, exttool_buf_text(&root_out), rootlen);
+    g_git.root[rootlen] = 0;
+    exttool_buf_free(&root_out);
+
+    struct exttool_buf out = { 0 };
+    run_process_capture("git status --porcelain", g_folder.dir, &out);
+
+    while (ui_child_count(g_git.listbox) > 0)
+    {
+        ui_node* c = ui_child_at(g_git.listbox, 0);
+        ui_remove_child(g_git.listbox, c);
+        ui_node_free(c);
+    }
+
+    const char* p = exttool_buf_text(&out);
+    while (*p)
+    {
+        const char* eol = strchr(p, '\n');
+        size_t linelen = eol ? (size_t)(eol - p) : strlen(p);
+        if (linelen >= 4)
+        {
+            char marker[8];
+            uint32_t marker_fg;
+            git_status_marker(p[0], p[1], marker, &marker_fg);
+
+            char filename[1024];
+            size_t namelen = linelen - 3;
+            if (namelen >= sizeof filename)
+                namelen = sizeof filename - 1;
+            memcpy(filename, p + 3, namelen);
+            filename[namelen] = 0;
+
+            /* Renames show as "old -> new" - only the new path is a real,
+             * openable/diffable file. */
+            char* arrow = strstr(filename, " -> ");
+            const char* real_path = arrow ? arrow + 4 : filename;
+
+            ui_node* item = ui_create_element(UI_TAG_ITEM);
+            char label[1200];
+            snprintf(label, sizeof label, "%s%s", marker, filename);
+            ui_set_label(item, label);
+            ui_set_color(item, marker_fg, 0);
+            ui_set_path(item, real_path);
+            ui_append_child(g_git.listbox, item);
+        }
+        p = eol ? eol + 1 : p + linelen;
+    }
+    ui_select_set_selected(g_git.listbox, 0);
+    exttool_buf_free(&out);
+
+    ui_node* window = ui_child_at(g_git.window, 0);
+    if (window)
+    {
+        char title[64];
+        snprintf(title, sizeof title, " Git Changes (%d) ", ui_child_count(g_git.listbox));
+        ui_set_label(window, title);
+    }
+}
+
+/* Raises the Git Changes panel - shared by View > "Git Changes"
+ * (EVT_WINDOW_GIT). Same LEFT-dock mutual exclusion as folder_show_panel()/
+ * project_show_panel(): dock_layout() only lays out one window per side, so
+ * this closes Folder/Project first if either is still sitting on LEFT (a
+ * no-op once any of the three has been redocked elsewhere). */
+static void git_show_panel(void)
+{
+    int w = close_other_left_panel(g_folder.window, g_git.window);
+    if (!w)
+        w = close_other_left_panel(g_project.window, g_git.window);
+    else
+        close_other_left_panel(g_project.window, g_git.window);
+    if (w)
+        ui_set_dock(ui_child_at(g_git.window, 0), UI_DOCK_LEFT, w);
+
+    git_panel_refresh();
+    ui_screen_show_window(g_screen, g_git.window);
+}
+
+/* Activates row `index` of the Git Changes panel's listbox: shows that
+ * file's diff in the singleton g_gitdiff_window (see its own doc comment).
+ * Tries the working-tree diff first, then the staged diff, then - for an
+ * untracked file, where git has nothing to diff against - just the file's
+ * own content, so a click always shows something. */
+static void git_window_activate(int index)
+{
+    if (index < 0 || index >= ui_child_count(g_git.listbox))
+        return;
+    const char* path = ui_get_path(ui_child_at(g_git.listbox, index));
+    if (!path || !path[0])
+        return;
+
+    const char* root = g_git.root[0] ? g_git.root : g_folder.dir;
+
+    /* No --color=always here - g_gitdiff_editor is UI_SYNTAX_DIFF, which
+     * colors this plain, uncolored diff text itself (real C token colors
+     * plus a per-row +/- background wash, see ui_syntax's own doc comment),
+     * the same way UI_SYNTAX_C colors a plain .c file's own plain text.
+     *
+     * -U100000 - an unrealistically large context count so every hunk merges
+     * into one covering the whole file: this diff view is meant to be read
+     * like the file itself (see git_window_activate's own maximize-on-open),
+     * not squinted at through git's usual handful of context lines around
+     * each change. */
+    char cmd[1200];
+    struct exttool_buf out = { 0 };
+    snprintf(cmd, sizeof cmd, "git diff -U100000 -- \"%s\"", path);
+    run_process_capture(cmd, root, &out);
+
+    if (out.len == 0)
+    {
+        snprintf(cmd, sizeof cmd, "git diff -U100000 --cached -- \"%s\"", path);
+        run_process_capture(cmd, root, &out);
+    }
+    if (out.len == 0)
+    {
+        char full[1400];
+        snprintf(full, sizeof full, "%s/%s", root, path);
+        char* content = read_file_to_string(full);
+        if (content)
+        {
+            exttool_append(&out, content);
+            free(content);
+        }
+        else
+        {
+            exttool_append(&out, "(no changes to display)\n");
+        }
+    }
+
+    /* git diff/read_file_to_string both end their output in a trailing '\n'
+     * - the editor treats whatever comes after the last '\n' as one more
+     * (empty) line, same as any text file with a final newline, so left as
+     * is that's a blank row at the bottom of every diff. Trimmed here rather
+     * than changed editor-wide since a real source file's own trailing
+     * newline is normal and expected while editing it. */
+    while (out.len > 0 && out.data[out.len - 1] == '\n')
+        out.data[--out.len] = 0;
+
+    /* Drop `git diff`'s own leading "diff --git .../index .../--- a/...
+     * /+++ b/..." header lines, and the "@@ -a,b +c,d @@" hunk header after
+     * them - the path is already in this window's own title, and with
+     * -U100000 there's only ever one hunk covering the whole file, so its
+     * own line-number range is meaningless noise too. Only for a real diff
+     * (the file's plain content/"(no changes to display)" fallbacks above
+     * never start with "diff --git", so this is a no-op for those). */
+    {
+        const char* text = exttool_buf_text(&out);
+        if (strncmp(text, "diff --git ", 11) == 0)
+        {
+            const char* at = strstr(text, "\n@@");
+            const char* eol = at ? strchr(at + 1, '\n') : NULL;
+            if (eol)
+            {
+                size_t skip = (size_t)(eol + 1 - text);
+                memmove(out.data, out.data + skip, out.len - skip + 1);
+                out.len -= skip;
+            }
+        }
+    }
+
+    char title[300];
+    snprintf(title, sizeof title, " Diff: %s ", basename_of(path));
+    ui_node* window = ui_child_at(g_gitdiff_window, 0);
+    ui_set_label(window, title);
+    ui_set_value(g_gitdiff_editor, exttool_buf_text(&out));
+    exttool_buf_free(&out);
+
+    ui_screen_show_window(g_screen, g_gitdiff_window);
+    ui_window_maximize(g_screen, window);  /* always opens filling the desktop
+                                            * space left by the docked panels,
+                                            * same as any new document window
+                                            * (make_editor_window) - a diff is
+                                            * opened to be read, not squeezed
+                                            * into whatever small rect it was
+                                            * last left at. */
+}
+
+/* A diff row that's part of a change - the same leading '+'/'-' rule
+ * render_editor() uses for the added/removed background wash (see its own
+ * line_bg computation), duplicated here rather than shared since one works
+ * on a byte range mid-buffer and the other on `n->label` directly. */
+static int git_diff_line_is_changed(const char* s, int len)
+{
+    if (len <= 0)
+        return 0;
+    if (s[0] == '+' && !(len >= 3 && s[1] == '+' && s[2] == '+'))
+        return 1;
+    if (s[0] == '-' && !(len >= 3 && s[1] == '-' && s[2] == '-'))
+        return 1;
+    return 0;
+}
+
+/* "< Prev Change"/"Next Change >": jumps the diff viewer's caret to the
+ * start of the next (dir > 0) or previous (dir < 0) contiguous run of
+ * changed lines, wrapping around at either end - see the buttons' own doc
+ * comment above for why this exists (a whole-file diff has nothing else to
+ * scroll by). A "run" is however many consecutive +/- lines a change spans,
+ * not a single line, so this doesn't stop partway through one hunk. */
+static void git_diff_goto_change(int dir)
+{
+    const char* text = ui_get_value(g_gitdiff_editor);
+    if (!text || !text[0])
+        return;
+    int cur = ui_editor_caret_line(g_gitdiff_editor);
+
+    int total_lines = 1;
+    for (const char* p = text; *p; p++)
+        if (*p == '\n')
+            total_lines++;
+
+    int* run_starts = malloc(sizeof(int) * (size_t)total_lines);
+    if (!run_starts)
+        return;
+    int run_count = 0;
+
+    int prev_changed = 0, line_no = 1;
+    const char* p = text;
+    for (;;)
+    {
+        const char* nl = strchr(p, '\n');
+        int len = nl ? (int)(nl - p) : (int)strlen(p);
+        int changed = git_diff_line_is_changed(p, len);
+        if (changed && !prev_changed)
+            run_starts[run_count++] = line_no;
+        prev_changed = changed;
+        if (!nl)
+            break;
+        p = nl + 1;
+        line_no++;
+    }
+
+    int target = -1;
+    if (dir > 0)
+    {
+        for (int i = 0; i < run_count; i++)
+            if (run_starts[i] > cur) { target = run_starts[i]; break; }
+        if (target < 0 && run_count > 0)
+            target = run_starts[0];  /* wrap to the first change */
+    }
+    else
+    {
+        for (int i = run_count - 1; i >= 0; i--)
+            if (run_starts[i] < cur) { target = run_starts[i]; break; }
+        if (target < 0 && run_count > 0)
+            target = run_starts[run_count - 1];  /* wrap to the last change */
+    }
+
+    free(run_starts);
+    if (target > 0)
+        ui_editor_goto_line(g_gitdiff_editor, target);
+}
+
+/* Escapes `in` for safe use inside a double-quoted shell argument (only "
+ * and \ need escaping there) into `out` (truncated to fit outcap) - the
+ * commit message is the one piece of free-form text a git command here
+ * embeds. */
+static void shell_escape_dq(const char* in, char* out, size_t outcap)
+{
+    size_t o = 0;
+    for (const char* p = in; *p && o + 2 < outcap; p++)
+    {
+        if (*p == '"' || *p == '\\')
+            out[o++] = '\\';
+        out[o++] = *p;
+    }
+    out[o] = 0;
+}
+
+/* Forward declaration - git_commit_confirm() below pushes via this after a
+ * successful "Commit All && Push", but it's defined further down (after
+ * git_do_pull()). */
+static void git_do_push(void);
+
+/* Git Changes popup's "Commit" item: opens g_gitcommit's message dialog
+ * (EVT_GITCOMMIT_OK does the actual work once confirmed) rather than
+ * committing straight from a field that would otherwise have to sit
+ * permanently visible - empty - above the panel's own listbox. */
+static void git_commit_start(void)
+{
+    g_pending_commit_push = 0;
+    ui_set_value(g_gitcommit.input, "");
+    ui_screen_show_modal(g_screen, g_gitcommit.modal);
+    ui_screen_focus(g_screen, g_gitcommit.input);
+}
+
+/* "Commit All && Push" - same dialog as git_commit_start(), just marks
+ * g_pending_commit_push so git_commit_confirm() pushes once the commit
+ * succeeds. */
+static void git_commitpush_start(void)
+{
+    g_pending_commit_push = 1;
+    ui_set_value(g_gitcommit.input, "");
+    ui_screen_show_modal(g_screen, g_gitcommit.modal);
+    ui_screen_focus(g_screen, g_gitcommit.input);
+}
+
+/* EVT_GITCOMMIT_OK: `git add -A` (stages everything - there's no separate
+ * staging step in this UI, it always shows/commits the whole working tree)
+ * then `git commit -m <message>`. Shows git's own output in a message box
+ * either way, so a mistake (nothing to commit, a hook rejection, ...) is
+ * visible, and always refreshes the panel after. If g_pending_commit_push
+ * was set (git_commitpush_start()), also runs git_do_push() after a
+ * successful commit. */
+static void git_commit_confirm(void)
+{
+    const char* msg = ui_get_value(g_gitcommit.input);
+    if (!msg || !msg[0])
+    {
+        ui_msgbox_button ok = { "   OK   ", 0 };
+        ui_message_box(g_screen, "Commit", "Enter a commit message first.", &ok, 1);
+        return;
+    }
+
+    const char* root = g_git.root[0] ? g_git.root : g_folder.dir;
+    char escaped[1024];
+    shell_escape_dq(msg, escaped, sizeof escaped);
+
+    struct exttool_buf out = { 0 };
+    run_process_capture("git add -A", root, &out);
+    exttool_buf_free(&out);
+
+    char cmd[1200];
+    snprintf(cmd, sizeof cmd, "git commit -m \"%s\"", escaped);
+    run_process_capture(cmd, root, &out);
+
+    ui_screen_close_modal(g_screen, g_gitcommit.modal);
+
+    ui_msgbox_button ok = { "   OK   ", 0 };
+    ui_message_box(g_screen, "Commit", out.len ? exttool_buf_text(&out) : "(no output)", &ok, 1);
+    int committed = out.len != 0 && strstr(exttool_buf_text(&out), "nothing to commit") == NULL;
+    exttool_buf_free(&out);
+
+    git_panel_refresh();
+
+    if (g_pending_commit_push && committed)
+        git_do_push();
+    g_pending_commit_push = 0;
+}
+
+/* "Pull"/"Push" - plain `git pull`/`git push` against whatever remote/branch
+ * is already configured (same as typing them by hand in this repo - no
+ * remote/branch picker here), showing git's own output either way so a
+ * failure (no upstream, conflicts, auth) is visible instead of silent. */
+static void git_do_pull(void)
+{
+    const char* root = g_git.root[0] ? g_git.root : g_folder.dir;
+    struct exttool_buf out = { 0 };
+    run_process_capture("git pull", root, &out);
+    ui_msgbox_button ok = { "   OK   ", 0 };
+    ui_message_box(g_screen, "Pull", out.len ? exttool_buf_text(&out) : "(no output)", &ok, 1);
+    exttool_buf_free(&out);
+    git_panel_refresh();
+}
+
+static void git_do_push(void)
+{
+    const char* root = g_git.root[0] ? g_git.root : g_folder.dir;
+    struct exttool_buf out = { 0 };
+    run_process_capture("git push", root, &out);
+    ui_msgbox_button ok = { "   OK   ", 0 };
+    ui_message_box(g_screen, "Push", out.len ? exttool_buf_text(&out) : "(no output)", &ok, 1);
+    exttool_buf_free(&out);
+    git_panel_refresh();
+}
+
+/* "Sync" - `git pull` followed by `git push`, with both commands' output
+ * shown together in one message box (rather than git_do_pull()'s own popup
+ * then git_do_push()'s own popup back to back) so a pull failure (conflicts,
+ * no upstream) and its unattempted push both read as one result. */
+static void git_do_sync(void)
+{
+    const char* root = g_git.root[0] ? g_git.root : g_folder.dir;
+    struct exttool_buf pull_out = { 0 }, push_out = { 0 };
+    run_process_capture("git pull", root, &pull_out);
+    run_process_capture("git push", root, &push_out);
+
+    char combined[4096];
+    snprintf(combined, sizeof combined, "$ git pull\n%s\n$ git push\n%s",
+        pull_out.len ? exttool_buf_text(&pull_out) : "(no output)",
+        push_out.len ? exttool_buf_text(&push_out) : "(no output)");
+    exttool_buf_free(&pull_out);
+    exttool_buf_free(&push_out);
+
+    ui_msgbox_button ok = { "   OK   ", 0 };
+    ui_message_box(g_screen, "Sync", combined, &ok, 1);
+    git_panel_refresh();
+}
+
+/* Git Changes popup's "Clone..." item: opens g_gitclone's URL+Folder dialog
+ * (EVT_GITCLONE_OK does the actual work once confirmed) - same shape as
+ * git_commit_start()/g_gitcommit, plus a Folder field prefilled with the
+ * currently open folder (or cwd) the same way EVT_PROJECT_NEW prefills
+ * g_newproject.folder_input. */
+static void git_clone_start(void)
+{
+    ui_set_value(g_gitclone.input, "");
+    if (g_folder.dir[0])
+        ui_set_value(g_gitclone.folder_input, g_folder.dir);
+    else
+    {
+        char cwd[1024];
+        ui_set_value(g_gitclone.folder_input, ui_get_cwd(cwd, sizeof cwd) ? cwd : ".");
+    }
+    ui_group_set_checked(g_gitclone.open_folder_check, 0, 1);
+    ui_screen_show_modal(g_screen, g_gitclone.modal);
+    ui_screen_focus(g_screen, g_gitclone.input);
+}
+
+/* EVT_GITCLONE_OK: `git clone <url>` into the Folder field's directory (see
+ * git_clone_start()/EVT_GITCLONE_BROWSE) - the repo name (URL's last path
+ * segment, ".git" stripped) becomes the new subdirectory, same as plain
+ * `git clone` on the command line. On success, opens that subdirectory as
+ * the current folder via folder_reveal_directory() (same "point the
+ * persistent Folder panel at a directory and raise it" idiom used
+ * elsewhere), so cloning behaves like an Open Folder trip to the result. */
+static void git_clone_confirm(void)
+{
+    const char* url = ui_get_value(g_gitclone.input);
+    if (!url || !url[0])
+    {
+        ui_msgbox_button ok = { "   OK   ", 0 };
+        ui_message_box(g_screen, "Clone", "Enter a repository URL first.", &ok, 1);
+        return;
+    }
+
+    const char* folder = ui_get_value(g_gitclone.folder_input);
+    char base[1024];
+    if (folder && folder[0])
+    {
+        strncpy(base, folder, sizeof base - 1);
+        base[sizeof base - 1] = 0;
+    }
+    else if (!ui_get_cwd(base, sizeof base))
+    {
+        strcpy(base, ".");
+    }
+
+    /* Derive the target directory name from the URL's last path segment,
+     * stripping a trailing "/" and ".git" - same result `git clone` picks
+     * on its own when no destination argument is given. */
+    size_t ulen = strlen(url);
+    while (ulen > 0 && (url[ulen - 1] == '/' || url[ulen - 1] == '\\'))
+        ulen--;
+    size_t start = ulen;
+    while (start > 0 && url[start - 1] != '/' && url[start - 1] != '\\')
+        start--;
+    char name[256];
+    size_t nlen = ulen - start;
+    if (nlen >= sizeof name)
+        nlen = sizeof name - 1;
+    memcpy(name, url + start, nlen);
+    name[nlen] = 0;
+    if (nlen > 4 && strcmp(name + nlen - 4, ".git") == 0)
+        name[nlen - 4] = 0;
+    if (!name[0])
+    {
+        ui_msgbox_button ok = { "   OK   ", 0 };
+        ui_message_box(g_screen, "Clone", "Could not determine a folder name from that URL.", &ok, 1);
+        return;
+    }
+
+    char escaped_url[1024];
+    shell_escape_dq(url, escaped_url, sizeof escaped_url);
+    char cmd[1200];
+    snprintf(cmd, sizeof cmd, "git clone \"%s\"", escaped_url);
+
+    struct exttool_buf out = { 0 };
+    run_process_capture(cmd, base, &out);
+
+    ui_screen_close_modal(g_screen, g_gitclone.modal);
+
+    ui_msgbox_button ok = { "   OK   ", 0 };
+    ui_message_box(g_screen, "Clone", out.len ? exttool_buf_text(&out) : "(no output)", &ok, 1);
+    exttool_buf_free(&out);
+
+    if (ui_group_get_checked(g_gitclone.open_folder_check, 0))
+    {
+        char dest[1024];
+        snprintf(dest, sizeof dest, "%s/%s", base, name);
+        struct exttool_buf check = { 0 };
+        run_process_capture("git rev-parse --show-toplevel", dest, &check);
+        if (check.len)
+            folder_reveal_directory(dest);
+        exttool_buf_free(&check);
+    }
+
+    git_panel_refresh();
+}
+
+/* "Discard" - asks for confirmation (stashing the target in g_pending_git_
+ * discard_path/g_pending_git_untracked, consumed by EVT_GIT_DISCARD_CONFIRM
+ * below - same "stash it before the prompt" shape as g_pending_delete_path),
+ * then either deletes an untracked file outright (git has nothing to restore
+ * it FROM) or runs `git checkout -- <path>` to discard a tracked file's
+ * changes back to HEAD. Acts on the listbox's current selection, same
+ * "selection, not necessarily whatever row was last clicked" caveat as
+ * EVT_FOLDER_DELETE. */
+static void git_do_discard(void)
+{
+    int index = ui_select_get_selected(g_git.listbox);
+    if (index < 0 || index >= ui_child_count(g_git.listbox))
+        return;
+    ui_node* item = ui_child_at(g_git.listbox, index);
+    const char* path = ui_get_path(item);
+    const char* label = ui_get_label(item);
+    if (!path || !path[0])
+        return;
+
+    g_pending_git_untracked = label && label[0] == '?';
+    snprintf(g_pending_git_discard_path, sizeof g_pending_git_discard_path, "%s", path);
+
+    char message[1200];
+    snprintf(message, sizeof message,
+             g_pending_git_untracked
+                 ? "Delete this untracked file?\n%s"
+                 : "Discard changes to this file?\n%s\n\nThis restores it to the last commit - not undoable.",
+             path);
+    ui_msgbox_button btns[] = {
+        { "   OK   ", EVT_GIT_DISCARD_CONFIRM },
+        { " Cancel ", 0 },
+    };
+    ui_message_box(g_screen, "Discard", message, btns, 2);
 }
 
 /* The open project's own target platform name (e.g. "x64", "x86") - the same
@@ -7166,6 +7568,108 @@ static void do_build(void)
     }
 }
 
+/* Fills g_job.argv/storage with "tcc" plus everything Compile > Options...
+ * says for `cs` - the Output Format/Target/Style rows, each "[x] -flag"
+ * toggle, the free-text tokens (split on whitespace) and, last, the include
+ * directories as -I flags - and returns how many entries that is, so the
+ * caller appends the file(s) from there. The one place a checkbox is turned
+ * into its flag, shared by do_compile() and do_project_build().
+ *
+ * The directories come from whichever list owns `cs`: a project's own,
+ * resolved to absolute paths (its entries are relative to the project
+ * directory), or the global list, already absolute. Written straight into
+ * g_job.storage, which outlives the calling frame - the compile runs on a
+ * worker thread after the caller returns, through job_push(), which drops
+ * excess tokens and always leaves one slot free for the caller's file. */
+static void job_push(int* argc, const char* token)
+{
+    /* one slot is always left free for the caller's file */
+    if (*argc + 1 < (int)_Countof(g_job.storage))
+    {
+        snprintf(g_job.storage[*argc], sizeof g_job.storage[0], "%s", token);
+        g_job.argv[*argc] = g_job.storage[*argc];
+        (*argc)++;
+    }
+}
+
+static int job_argv_from_settings(const compile_settings* cs)
+{
+    int argc = 0;
+    char flag[1024];
+
+    job_push(&argc, "tcc");
+    if (cs->diagnostic_format && cs->diagnostic_format[0])
+    {
+        snprintf(flag, sizeof flag, "-fdiagnostics-format=%s", cs->diagnostic_format);
+        job_push(&argc, flag);
+    }
+    if (cs->target[0])
+    {
+        snprintf(flag, sizeof flag, "-target=%s", cs->target);
+        job_push(&argc, flag);
+    }
+    if (cs->style[0])
+    {
+        snprintf(flag, sizeof flag, "-style=%s", cs->style);
+        job_push(&argc, flag);
+    }
+    if (cs->no_output)
+    {
+        job_push(&argc, "-no-output");
+    }
+    if (cs->line_directives)
+    {
+        job_push(&argc, "-line-directives");
+    }
+    if (cs->fanalyzer)
+    {
+        job_push(&argc, "-fanalyzer");
+    }
+    if (cs->const_literal)
+    {
+        job_push(&argc, "-const-literal");
+    }
+    if (cs->wall)
+    {
+        job_push(&argc, "-Wall");
+    }
+    if (cs->unused_extern_report)
+    {
+        job_push(&argc, "-unused-extern-report");
+    }
+    if (cs->use_cake_headers)
+    {
+        job_push(&argc, "-cake-headers");
+    }
+
+    char optbuf[sizeof cs->options];
+    snprintf(optbuf, sizeof optbuf, "%s", cs->options);
+    for (char* tok = strtok(optbuf, " \t"); tok; tok = strtok(NULL, " \t"))
+    {
+        job_push(&argc, tok);
+    }
+
+    if (cs == &g_project.compile)
+    {
+        for (int i = 0; i < g_project.include_count; i++)
+        {
+            char abs_dir[1024 - 2];
+            project_abs_path(g_project.include_dirs[i], abs_dir, sizeof abs_dir);
+            snprintf(flag, sizeof flag, "-I%s", abs_dir);
+            job_push(&argc, flag);
+        }
+    }
+    else
+    {
+        for (int i = 0; i < g_include_count; i++)
+        {
+            snprintf(flag, sizeof flag, "-I%s", g_include_dirs[i]);
+            job_push(&argc, flag);
+        }
+    }
+    return argc;
+}
+
 static void do_compile(void)
 {
     /* One compile at a time. Without this, a second F7 landing mid-build
@@ -7196,102 +7700,12 @@ static void do_compile(void)
     struct report report;
     memset(&report, 0, sizeof report);
 
-    /* Build argv from the Compile > Options... settings - the open project's
-     * own if `file` is actually one of its files, else the IDE-wide default
-     * (see active_compile_settings()/project_contains_file()): "tcc", the
-     * target flag (when one is picked), the option tokens (split on
-     * whitespace), then the file. argv[] and optbuf are sized well past any
-     * realistic option count/length; excess tokens are simply dropped. */
-    compile_settings* cs = active_compile_settings(file);
-    int use_project_settings = (cs == &g_project.compile);
-    const char* argv[64];
-    int argc = 0;
-    argv[argc++] = "tcc";
-    /* Compile > Options...' "Output Format" row - see g_diagformat_slugs. */
-    char diagformat[32] = { 0 };
-    if (cs->diagnostic_format && cs->diagnostic_format[0])
-    {
-        snprintf(diagformat, sizeof diagformat, "-fdiagnostics-format=%s",
-                 cs->diagnostic_format);
-        argv[argc++] = diagformat;
-    }
-    char target[20] = { 0 };
-    if (cs->target[0])
-    {
-        snprintf(target, sizeof target, "-target=%s", cs->target);
-        argv[argc++] = target;
-    }
-    char style[24] = { 0 };
-    if (cs->style[0])
-    {
-        snprintf(style, sizeof style, "-style=%s", cs->style);
-        argv[argc++] = style;
-    }
-    /* The Compiler Options dialog's "[x] -flag" toggles - each one just adds
-     * its literal flag when on, same as the free-text tokens below. */
-    if (cs->no_output)
-        argv[argc++] = "-no-output";
-    if (cs->line_directives)
-        argv[argc++] = "-line-directives";
-    if (cs->fanalyzer)
-        argv[argc++] = "-fanalyzer";
-    if (cs->const_literal)
-        argv[argc++] = "-const-literal";
-    if (cs->wall)
-        argv[argc++] = "-Wall";
-    if (cs->unused_extern_report)
-        argv[argc++] = "-unused-extern-report";
-    if (cs->use_cake_headers)
-        argv[argc++] = "-cake-headers";
-
-    char optbuf[sizeof cs->options];
-    snprintf(optbuf, sizeof optbuf, "%s", cs->options);
-
-    for (char* tok = strtok(optbuf, " \t"); tok && argc < 63;
-         tok = strtok(NULL, " \t"))
-    {
-        argv[argc++] = tok;
-    }
-
-    /* Include directories as -I flags, from whichever list owns this file -
-     * the project's own (resolved to absolute paths, since those entries are
-     * stored relative to the project directory) when `file` is part of that
-     * project, else the global cake.json list, which is already absolute.
-     * Same use_project_settings check cs came from above, so a Playground or
-     * scratch file gets the global dirs even while an unrelated project
-     * happens to be open. */
-    char include_flags[CAKE_PROJECT_MAX_INCLUDES][1024];
-    if (use_project_settings)
-    {
-        for (int i = 0; i < g_project.include_count && argc < 63; i++)
-        {
-            char abs_dir[1024 - 2];
-            project_abs_path(g_project.include_dirs[i], abs_dir, sizeof abs_dir);
-            snprintf(include_flags[i], sizeof include_flags[0], "-I%s", abs_dir);
-            argv[argc++] = include_flags[i];
-        }
-    }
-    else
-    {
-        for (int i = 0; i < g_include_count && argc < 63; i++)
-        {
-            snprintf(include_flags[i], sizeof include_flags[0], "-I%s", g_include_dirs[i]);
-            argv[argc++] = include_flags[i];
-        }
-    }
-
-    argv[argc++] = file;
-
-    /* Hand argv to the worker through storage that outlives this frame -
-     * `target`/`style`/`optbuf`/`file` above are all stack locals, and the
-     * compile now outlives do_compile()'s return. */
-    g_job.argc = 0;
-    for (int i = 0; i < argc && i < 64; i++)
-    {
-        snprintf(g_job.storage[i], sizeof g_job.storage[i], "%s", argv[i]);
-        g_job.argv[i] = g_job.storage[i];
-        g_job.argc++;
-    }
+    /* The open project's own settings if `file` is one of its files, else
+     * the IDE-wide default (see active_compile_settings()), then the file. */
+    int argc = job_argv_from_settings(active_compile_settings(file));
+    snprintf(g_job.storage[argc], sizeof g_job.storage[0], "%s", file);  /* job_push() always leaves this slot */
+    g_job.argv[argc] = g_job.storage[argc];
+    g_job.argc = argc + 1;
     g_job.active = active;
 
     ui_set_value(g_output_editor, "");
@@ -7347,76 +7761,22 @@ static void do_project_build(void)
 
     /* Always this project's own settings, never the IDE-wide g_compile -
      * do_project_build() only ever runs while a project is open (checked
-     * above), so g_project.compile already is what active_compile_settings()
-     * would return; read it directly rather than through that indirection. */
-    compile_settings* cs = &g_project.compile;
-    const char* argv[64];
-    int argc = 0;
-    argv[argc++] = "tcc";
-    char diagformat[32] = { 0 };
-    if (cs->diagnostic_format && cs->diagnostic_format[0])
-    {
-        snprintf(diagformat, sizeof diagformat, "-fdiagnostics-format=%s",
-                 cs->diagnostic_format);
-        argv[argc++] = diagformat;
-    }
-    char target[20] = { 0 };
-    if (cs->target[0])
-    {
-        snprintf(target, sizeof target, "-target=%s", cs->target);
-        argv[argc++] = target;
-    }
-    char style[24] = { 0 };
-    if (cs->style[0])
-    {
-        snprintf(style, sizeof style, "-style=%s", cs->style);
-        argv[argc++] = style;
-    }
-    if (cs->no_output)
-        argv[argc++] = "-no-output";
-    if (cs->line_directives)
-        argv[argc++] = "-line-directives";
-    if (cs->fanalyzer)
-        argv[argc++] = "-fanalyzer";
-    if (cs->const_literal)
-        argv[argc++] = "-const-literal";
-    if (cs->wall)
-        argv[argc++] = "-Wall";
-    if (cs->unused_extern_report)
-        argv[argc++] = "-unused-extern-report";
-    if (cs->use_cake_headers)
-        argv[argc++] = "-cake-headers";
-
-    char optbuf[sizeof cs->options];
-    snprintf(optbuf, sizeof optbuf, "%s", cs->options);
-    for (char* tok = strtok(optbuf, " \t"); tok && argc < 63;
-         tok = strtok(NULL, " \t"))
-        argv[argc++] = tok;
-
-    /* g_project.include_dirs[], resolved to absolute paths and turned into
-     * -I flags - same "-Iabsdir" shape do_compile() below now uses. */
-    static char project_build_include_flags[CAKE_PROJECT_MAX_INCLUDES][1024];
-    for (int i = 0; i < g_project.include_count && argc < 63; i++)
-    {
-        char abs_dir[1024 - 2];
-        project_abs_path(g_project.include_dirs[i], abs_dir, sizeof abs_dir);
-        snprintf(project_build_include_flags[i], sizeof project_build_include_flags[0], "-I%s", abs_dir);
-        argv[argc++] = project_build_include_flags[i];
-    }
-
-    /* Every ".c" file in the project, resolved to an absolute path - headers
-     * are never handed to the compiler directly, same as a normal single-
-     * file Compile never would be pointed at a .h. */
-    static char project_build_abs_paths[CAKE_PROJECT_MAX_FILES][1024];
+     * above). Then every ".c" file in the project, resolved to an absolute
+     * path - headers are never handed to the compiler directly, same as a
+     * normal single-file Compile never would be pointed at a .h. */
+    int argc = job_argv_from_settings(&g_project.compile);
     int file_argc = 0;
-    for (int i = 0; i < g_project.file_count && argc < 63; i++)
+    for (int i = 0; i < g_project.file_count && argc < (int)_Countof(g_job.storage); i++)
     {
         const char* entry = g_project.files[i];
         size_t len = strlen(entry);
         if (len < 2 || entry[len - 2] != '.' || entry[len - 1] != 'c')
+        {
             continue;
-        project_abs_path(entry, project_build_abs_paths[file_argc], sizeof project_build_abs_paths[0]);
-        argv[argc++] = project_build_abs_paths[file_argc];
+        }
+        project_abs_path(entry, g_job.storage[argc], sizeof g_job.storage[0]);
+        g_job.argv[argc] = g_job.storage[argc];
+        argc++;
         file_argc++;
     }
 
@@ -7426,14 +7786,7 @@ static void do_project_build(void)
         ui_screen_show_window(g_screen, g_output_window);
         return;
     }
-
-    g_job.argc = 0;
-    for (int i = 0; i < argc && i < 64; i++)
-    {
-        snprintf(g_job.storage[i], sizeof g_job.storage[i], "%s", argv[i]);
-        g_job.argv[i] = g_job.storage[i];
-        g_job.argc++;
-    }
+    g_job.argc = argc;
     g_job.active = g_active_editor_window;
 
     ui_set_value(g_output_editor, "");
@@ -10702,35 +11055,6 @@ static void on_ui_event(void* ctx, int id, void* param)
         if (ed)
             ui_set_read_only(ed, !ui_get_read_only(ed));
     }
-    else if (id == EVT_FOLDER_TOGGLE_FILTER)
-    {
-        /* Flips the Folder panel's own filtering (see
-         * g_folder.filter_enabled/apply_index_order) and re-lists
-         * g_folder.dir immediately, so the effect is visible without
-         * having to navigate away and back. */
-        g_folder.filter_enabled = !g_folder.filter_enabled;
-        folder_window_refresh();
-    }
-    else if (id == EVT_FOLDER_SHOW_FILTER)
-    {
-        /* Opens g_folder.dir's own CAKE_FOLDER_FILTER_NAME - creating it
-         * first, pre-filled with the folder's current contents, if it
-         * doesn't exist yet (the popup item itself already read "Create
-         * Filter" in that case - see refresh_folder_show_filter_item).
-         * Either way this then opens it via the same open_file_path_
-         * into_editor as any other file. */
-        char path[1024];
-        snprintf(path, sizeof path, "%s/%s", g_folder.dir, CAKE_FOLDER_FILTER_NAME);
-
-        FILE* existing = fopen(path, "rb");
-        if (existing)
-            fclose(existing);
-        else
-            create_default_filter_file(g_folder.dir);
-
-        nav_record_jump();
-        open_file_path_into_editor(path, CAKE_FOLDER_FILTER_NAME);
-    }
     else if (id == EVT_FOLDER_COPY_PATH)
     {
         /* Copies g_folder.dir itself - see this id's own doc comment for why
@@ -10830,8 +11154,7 @@ static void on_ui_event(void* ctx, int id, void* param)
             {
                 ui_screen_close_modal(g_screen, g_foldernew.modal);
 
-                /* Show it in the listing (same refresh Show Filter/creating
-                 * one triggers). A folder stops there; a file also opens
+                /* Show it in the listing. A folder stops there; a file also opens
                  * into an editor window, same as clicking any other row -
                  * see folder_window_activate. */
                 folder_window_refresh();
@@ -11467,7 +11790,7 @@ static void on_ui_event(void* ctx, int id, void* param)
          * it is available with or without a project open. */
         includes_edit_global();
         ui_set_label(g_project.includes_window, " Directories ");
-        project_includes_dialog_refresh();
+        project_includes_dialog_refresh(0);
         ui_screen_show_modal(g_screen, g_project.includes_modal);
     }
     else if (id == EVT_PROJECT_INCLUDES)
@@ -11476,7 +11799,7 @@ static void on_ui_event(void* ctx, int id, void* param)
          * EVT_PROJECT_ADD_FILE just above. */
         includes_edit_project();
         ui_set_label(g_project.includes_window, " Include Directories ");
-        project_includes_dialog_refresh();
+        project_includes_dialog_refresh(0);
         ui_screen_show_modal(g_screen, g_project.includes_modal);
     }
     else if (id == EVT_PROJECT_INCLUDES_ADD)
@@ -11526,7 +11849,8 @@ static void on_ui_event(void* ctx, int id, void* param)
             else
                 global_settings_save();
 
-            project_includes_dialog_refresh();
+            int selected_index = sel < *g_includes_editing.count ? sel : *g_includes_editing.count - 1;
+            project_includes_dialog_refresh(selected_index);
         }
     }
     else if (id == EVT_PROJECT_INCLUDES_UP || id == EVT_PROJECT_INCLUDES_DOWN)
@@ -11552,8 +11876,7 @@ static void on_ui_event(void* ctx, int id, void* param)
             else
                 global_settings_save();
 
-            project_includes_dialog_refresh();
-            ui_select_set_selected(g_project.includes_listbox, other);
+            project_includes_dialog_refresh(other);
         }
     }
     else if (id == EVT_PROJECT_INCLUDES_CLOSE)
@@ -11594,7 +11917,8 @@ static void on_ui_event(void* ctx, int id, void* param)
         }
         else if (g_open.dialog_mode == OPEN_DLG_FOLDER ||
                  g_open.dialog_mode == OPEN_DLG_PROJECT_ADDINCLUDE ||
-                 g_open.dialog_mode == OPEN_DLG_NEWPROJECT_FOLDER)
+                 g_open.dialog_mode == OPEN_DLG_NEWPROJECT_FOLDER ||
+                 g_open.dialog_mode == OPEN_DLG_GITCLONE_FOLDER)
         {
             /* The whole field is the target directory in folder mode -
              * there's no mask to split off. Normalize back to '/' first -
@@ -11608,6 +11932,16 @@ static void on_ui_event(void* ctx, int id, void* param)
             for (char* p = text; *p; p++)
                 if (*p == '\\')
                     *p = '/';
+            /* Tolerate a trailing separator, except on a bare root - same
+             * fix as the dir_only stripping just below for the non-folder
+             * branch. Left in place, a later "%s/%s" join (open_dialog_
+             * activate, folder_select_confirm's callers, ...) would double
+             * up the separator instead of just adding one. */
+            {
+                size_t len = strlen(text);
+                while (len > 1 && text[len - 1] == '/')
+                    text[--len] = 0;
+            }
             if (text[0])
             {
                 strncpy(g_open.dir, text, sizeof g_open.dir - 1);
@@ -11736,6 +12070,13 @@ static void on_ui_event(void* ctx, int id, void* param)
             g_open.dialog_mode = OPEN_DLG_FILE;
             ui_screen_show_modal(g_screen, g_newproject.modal);
         }
+        else if (g_open.dialog_mode == OPEN_DLG_GITCLONE_FOLDER)
+        {
+            ui_set_value(g_gitclone.folder_input, g_open.dir);
+            ui_screen_close_modal(g_screen, g_open.modal);
+            g_open.dialog_mode = OPEN_DLG_FILE;
+            ui_screen_show_modal(g_screen, g_gitclone.modal);
+        }
         else if (g_open.dialog_mode == OPEN_DLG_EXTTOOL_CMD)
         {
             /* Same "typed/pasted a full path" shortcut as the other modes;
@@ -11815,6 +12156,7 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_OPEN_CANCEL)
     {
         int was_newproject_browse = (g_open.dialog_mode == OPEN_DLG_NEWPROJECT_FOLDER);
+        int was_gitclone_browse = (g_open.dialog_mode == OPEN_DLG_GITCLONE_FOLDER);
         ui_screen_close_modal(g_screen, g_open.modal);
         g_open.dialog_mode = OPEN_DLG_FILE;
 
@@ -11829,6 +12171,11 @@ static void on_ui_event(void* ctx, int id, void* param)
          * browse was launched from inside it (see EVT_PROJECT_NEW_BROWSE). */
         if (was_newproject_browse)
             ui_screen_show_modal(g_screen, g_newproject.modal);
+
+        /* Same, for the Clone dialog's own folder browse (see
+         * EVT_GITCLONE_BROWSE). */
+        if (was_gitclone_browse)
+            ui_screen_show_modal(g_screen, g_gitclone.modal);
     }
     else if (id == EVT_FILE_SAVE)
     {
@@ -11900,6 +12247,10 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_WINDOW_FOLDER)
     {
         folder_show_panel();
+    }
+    else if (id == EVT_WINDOW_GIT)
+    {
+        git_show_panel();
     }
     else if (id == EVT_WINDOW_PLAYGROUND)
     {
@@ -12102,6 +12453,107 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_FOLDER_LISTBOX)
     {
         folder_window_activate(ui_select_get_selected(g_folder.listbox));
+    }
+    else if (id == EVT_GIT_LISTBOX)
+    {
+        git_window_activate(ui_select_get_selected(g_git.listbox));
+    }
+    else if (id == EVT_GIT_COMMIT_BTN)
+    {
+        git_commit_start();
+    }
+    else if (id == EVT_GITCOMMIT_OK)
+    {
+        git_commit_confirm();
+    }
+    else if (id == EVT_GITCOMMIT_CANCEL)
+    {
+        ui_screen_close_modal(g_screen, g_gitcommit.modal);
+    }
+    else if (id == EVT_GITDIFF_PREV)
+    {
+        git_diff_goto_change(-1);
+    }
+    else if (id == EVT_GITDIFF_NEXT)
+    {
+        git_diff_goto_change(1);
+    }
+    else if (id == EVT_GIT_DISCARD_BTN)
+    {
+        git_do_discard();
+    }
+    else if (id == EVT_GIT_DISCARD_CONFIRM)
+    {
+        /* g_pending_git_discard_path/g_pending_git_untracked were set right
+         * before the confirm box above - see git_do_discard()'s own doc
+         * comment. */
+        if (g_pending_git_discard_path[0])
+        {
+            const char* root = g_git.root[0] ? g_git.root : g_folder.dir;
+            if (g_pending_git_untracked)
+            {
+                char full[1400];
+                snprintf(full, sizeof full, "%s/%s", root, g_pending_git_discard_path);
+                remove(full);
+            }
+            else
+            {
+                char cmd[1200];
+                struct exttool_buf out = { 0 };
+                snprintf(cmd, sizeof cmd, "git checkout -- \"%s\"", g_pending_git_discard_path);
+                run_process_capture(cmd, root, &out);
+                exttool_buf_free(&out);
+            }
+            g_pending_git_discard_path[0] = 0;
+            git_panel_refresh();
+        }
+    }
+    else if (id == EVT_GIT_PULL_BTN)
+    {
+        git_do_pull();
+    }
+    else if (id == EVT_GIT_PUSH_BTN)
+    {
+        git_do_push();
+    }
+    else if (id == EVT_GIT_COMMITPUSH_BTN)
+    {
+        git_commitpush_start();
+    }
+    else if (id == EVT_GIT_SYNC_BTN)
+    {
+        git_do_sync();
+    }
+    else if (id == EVT_GIT_CLONE_BTN)
+    {
+        git_clone_start();
+    }
+    else if (id == EVT_GITCLONE_OK)
+    {
+        git_clone_confirm();
+    }
+    else if (id == EVT_GITCLONE_CANCEL)
+    {
+        ui_screen_close_modal(g_screen, g_gitclone.modal);
+    }
+    else if (id == EVT_GITCLONE_BROWSE)
+    {
+        /* Same folder-picker dialog as EVT_PROJECT_NEW_BROWSE, retargeted so
+         * OK drops the chosen directory back into the Clone dialog's Folder
+         * field instead (see OPEN_DLG_GITCLONE_FOLDER above). */
+        ui_screen_close_modal(g_screen, g_gitclone.modal);
+        g_open.dialog_mode = OPEN_DLG_GITCLONE_FOLDER;
+        ui_set_label(g_open.window, " Select Folder ");
+        ui_set_label(g_open.ok, " Select ");
+        const char* cur = ui_get_value(g_gitclone.folder_input);
+        if (cur && cur[0])
+            strncpy(g_open.dir, cur, sizeof g_open.dir - 1);
+        else if (!ui_get_cwd(g_open.dir, sizeof g_open.dir))
+            strcpy(g_open.dir, ".");
+        g_open.dir[sizeof g_open.dir - 1] = 0;
+        open_dialog_set_filter_visible(0);
+        open_dialog_refresh();
+        ui_screen_show_modal(g_screen, g_open.modal);
     }
     else if (id == EVT_EDIT_UNDO)
     {
@@ -13065,21 +13517,6 @@ void app_init(ui_env* env)
     /* --- Folder panel context menu popup --- */
     ui_node* folder_popup = ui_create_element(UI_TAG_MENU);
     ui_append_child(root, folder_popup);
-    ui_node* folder_popup_filter = ui_create_element(UI_TAG_ITEM);
-    ui_set_id(folder_popup_filter, EVT_FOLDER_TOGGLE_FILTER);
-    ui_append_child(folder_popup, folder_popup_filter);
-    g_folder.popup_filter = folder_popup_filter;
-    ui_node* folder_popup_sep = ui_create_element(UI_TAG_ITEM);
-    ui_set_separator(folder_popup_sep, 1);
-    ui_append_child(folder_popup, folder_popup_sep);
-    ui_node* folder_popup_show = ui_create_element(UI_TAG_ITEM);
-    ui_set_id(folder_popup_show, EVT_FOLDER_SHOW_FILTER);
-    ui_set_label(folder_popup_show, "Show Filter");
-    ui_append_child(folder_popup, folder_popup_show);
-    g_folder.popup_show = folder_popup_show;
-    ui_node* folder_popup_sep2 = ui_create_element(UI_TAG_ITEM);
-    ui_set_separator(folder_popup_sep2, 1);
-    ui_append_child(folder_popup, folder_popup_sep2);
     ui_node* folder_popup_copy_path = ui_create_element(UI_TAG_ITEM);
     ui_set_id(folder_popup_copy_path, EVT_FOLDER_COPY_PATH);
     ui_set_label(folder_popup_copy_path, "Copy Full Path");
@@ -13155,6 +13592,84 @@ void app_init(ui_env* env)
     ui_append_child(foldernew_window, foldernew_cancel);
     g_foldernew.window = foldernew_window;
     g_foldernew.modal = foldernew_modal;
+
+    /* --- Git commit message modal --- opened by the Git Changes popup's
+     * "Commit" item (EVT_GIT_COMMIT_BTN) - see git_commit_start()/
+     * EVT_GITCOMMIT_OK. Same shape as the New File/Folder modal just above. */
+    ui_node* gitcommit_modal = ui_create_element(UI_TAG_MODAL);
+    ui_append_child(root, gitcommit_modal);
+    ui_node* gitcommit_window = ui_create_element(UI_TAG_WINDOW);
+    ui_set_rect(gitcommit_window, 18, 7, 48, 8);
+    ui_set_label(gitcommit_window, " Commit ");
+    ui_set_color(gitcommit_window, theme->modal_fg, theme->modal_bg);
+    ui_append_child(gitcommit_modal, gitcommit_window);
+    add_text(gitcommit_window, 21, 9, "Message", theme->label_fg, theme->modal_bg);
+    g_gitcommit.input = add_input(gitcommit_window, 21, 10, 42, "");
+    ui_set_id(g_gitcommit.input, EVT_GITCOMMIT_OK);
+    ui_node* gitcommit_ok = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(gitcommit_ok, EVT_GITCOMMIT_OK);
+    ui_set_rect(gitcommit_ok, 34, 12, 10, 1);
+    ui_set_label(gitcommit_ok, "  OK  ");
+    ui_append_child(gitcommit_window, gitcommit_ok);
+    ui_node* gitcommit_cancel = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(gitcommit_cancel, EVT_GITCOMMIT_CANCEL);
+    ui_set_rect(gitcommit_cancel, 48, 12, 10, 1);
+    ui_set_label(gitcommit_cancel, "Cancel");
+    ui_append_child(gitcommit_window, gitcommit_cancel);
+    g_gitcommit.window = gitcommit_window;
+    g_gitcommit.modal = gitcommit_modal;
+
+    /* --- Git clone URL+Folder modal --- opened by the Git Changes popup's
+     * "Clone..." item (EVT_GIT_CLONE_BTN) - see git_clone_start()/
+     * EVT_GITCLONE_OK. Same "Folder field + '...' Browse button" shape as
+     * the New Project modal below (g_newproject.folder_input/
+     * EVT_PROJECT_NEW_BROWSE), retargeted via OPEN_DLG_GITCLONE_FOLDER. */
+    ui_node* gitclone_modal = ui_create_element(UI_TAG_MODAL);
+    ui_append_child(root, gitclone_modal);
+    ui_node* gitclone_window = ui_create_element(UI_TAG_WINDOW);
+    ui_set_rect(gitclone_window, 15, 6, 58, 13);
+    ui_set_label(gitclone_window, " Clone Repository ");
+    ui_set_color(gitclone_window, theme->modal_fg, theme->modal_bg);
+    ui_append_child(gitclone_modal, gitclone_window);
+
+    /* Label-above-input, both fields flush left at x=18, right edge held 1
+     * unit clear of the window's own border (15 + 56 - 1 == 70) - the Path
+     * field leaves room for the "..." Browse button at its own right edge,
+     * itself flush against that same 1-unit margin. */
+    add_text(gitclone_window, 18, 8, "Repository location", theme->label_fg, theme->modal_bg);
+    g_gitclone.input = add_input(gitclone_window, 18, 9, 52, "");
+    ui_set_id(g_gitclone.input, EVT_GITCLONE_OK);
+
+    add_text(gitclone_window, 18, 11, "Path", theme->label_fg, theme->modal_bg);
+    g_gitclone.folder_input = add_input(gitclone_window, 18, 12, 46, "");
+    ui_set_id(g_gitclone.folder_input, EVT_GITCLONE_OK);
+    ui_node* gitclone_browse = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(gitclone_browse, EVT_GITCLONE_BROWSE);
+    ui_set_rect(gitclone_browse, 65, 12, 5, 1);
+    ui_set_label(gitclone_browse, "...");
+    ui_append_child(gitclone_window, gitclone_browse);
+
+    /* Checked by default - unchecking it skips the folder_reveal_directory()
+     * call in git_clone_confirm(), leaving whatever folder is already open
+     * (if any) alone. */
+    g_gitclone.open_folder_check = add_group(gitclone_window, 18, 14, 20, 1, 1);
+    add_group_item(g_gitclone.open_folder_check, "Open Folder");
+    ui_group_set_checked(g_gitclone.open_folder_check, 0, 1);
+
+    /* 10-wide OK/Cancel pair, centered same as the New Project modal's own
+     * (15 + (56 - (10+2+10)) / 2 == 32). */
+    ui_node* gitclone_ok = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(gitclone_ok, EVT_GITCLONE_OK);
+    ui_set_rect(gitclone_ok, 32, 16, 10, 1);
+    ui_set_label(gitclone_ok, "  OK  ");
+    ui_append_child(gitclone_window, gitclone_ok);
+    ui_node* gitclone_cancel = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(gitclone_cancel, EVT_GITCLONE_CANCEL);
+    ui_set_rect(gitclone_cancel, 44, 16, 10, 1);
+    ui_set_label(gitclone_cancel, "Cancel");
+    ui_append_child(gitclone_window, gitclone_cancel);
+    g_gitclone.window = gitclone_window;
+    g_gitclone.modal = gitclone_modal;
 
     /* --- Environment modal --- */
     ui_node* env_modal = ui_create_element(UI_TAG_MODAL);
@@ -13562,6 +14077,115 @@ void app_init(ui_env* env)
         strcpy(g_folder.dir, ".");
     folder_window_refresh();
 
+    /* --- Git Changes window (docked panel, `git status --porcelain`
+     * listing - see g_git's own doc comment) --- */
+    ui_node* git_wrapper = ui_create_element(UI_TAG_MODAL);
+    ui_append_child(root, git_wrapper);
+    int gw_x = 10, gw_y = 3, gw_w = 24, gw_h = 18;
+    ui_node* git_window = ui_create_element(UI_TAG_WINDOW);
+    ui_set_rect(git_window, gw_x, gw_y, gw_w, gw_h);
+    ui_set_label(git_window, " Git Changes ");
+    ui_set_color(git_window, theme->window_fg, theme->window_bg);
+    ui_set_resizable(git_window, 1);
+    ui_set_shadow(git_window, 0);
+    ui_set_dock(git_window, UI_DOCK_LEFT, gw_w);
+    ui_append_child(git_wrapper, git_window);
+
+    /* Fills the whole panel, same as Folder/Project's own listbox - Commit/
+     * Discard/Pull/Push are the right-click popup below (g_git.popup), not
+     * buttons or an always-visible input row, so there's no empty control
+     * sitting above the file list - see git_commit_start()/git_do_discard()/
+     * git_do_pull()/git_do_push(). */
+    g_git.listbox = ui_create_element(UI_TAG_LISTBOX);
+    ui_set_id(g_git.listbox, EVT_GIT_LISTBOX);
+    ui_set_rect(g_git.listbox, gw_x + 1, gw_y + 1, gw_w - 2, gw_h - 2);
+    ui_set_small_font(g_git.listbox, 1);
+    ui_append_child(git_window, g_git.listbox);
+    g_git.window = git_wrapper;
+
+    /* --- Git Changes panel context menu popup - Commit/Discard/Pull/Push,
+     * same shape as g_folder.popup just above. Reuses the exact same event
+     * ids the buttons used to carry (EVT_GIT_COMMIT_BTN etc.) - the
+     * dispatcher below doesn't care whether the id came from a <button> or a
+     * popup <item>. */
+    ui_node* git_popup = ui_create_element(UI_TAG_MENU);
+    ui_append_child(root, git_popup);
+    ui_node* git_popup_commit = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(git_popup_commit, EVT_GIT_COMMIT_BTN);
+    ui_set_label(git_popup_commit, "Commit");
+    ui_append_child(git_popup, git_popup_commit);
+    ui_node* git_popup_commitpush = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(git_popup_commitpush, EVT_GIT_COMMITPUSH_BTN);
+    ui_set_label(git_popup_commitpush, "Commit All && Push");
+    ui_append_child(git_popup, git_popup_commitpush);
+    ui_node* git_popup_discard = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(git_popup_discard, EVT_GIT_DISCARD_BTN);
+    ui_set_label(git_popup_discard, "Discard");
+    ui_append_child(git_popup, git_popup_discard);
+    ui_node* git_popup_sep = ui_create_element(UI_TAG_ITEM);
+    ui_set_separator(git_popup_sep, 1);
+    ui_append_child(git_popup, git_popup_sep);
+    ui_node* git_popup_pull = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(git_popup_pull, EVT_GIT_PULL_BTN);
+    ui_set_label(git_popup_pull, "Pull");
+    ui_append_child(git_popup, git_popup_pull);
+    ui_node* git_popup_push = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(git_popup_push, EVT_GIT_PUSH_BTN);
+    ui_set_label(git_popup_push, "Push");
+    ui_append_child(git_popup, git_popup_push);
+    ui_node* git_popup_sync = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(git_popup_sync, EVT_GIT_SYNC_BTN);
+    ui_set_label(git_popup_sync, "Sync");
+    ui_append_child(git_popup, git_popup_sync);
+    ui_node* git_popup_sep2 = ui_create_element(UI_TAG_ITEM);
+    ui_set_separator(git_popup_sep2, 1);
+    ui_append_child(git_popup, git_popup_sep2);
+    ui_node* git_popup_clone = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(git_popup_clone, EVT_GIT_CLONE_BTN);
+    ui_set_label(git_popup_clone, "Clone...");
+    ui_append_child(git_popup, git_popup_clone);
+    g_git.popup = git_popup;
+
+    /* --- Git Diff window (floating, singleton - reused for every diff the
+     * Git Changes panel opens, see g_gitdiff_window's own doc comment) --- */
+    ui_node* gitdiff_wrapper = ui_create_element(UI_TAG_MODAL);
+    ui_append_child(root, gitdiff_wrapper);
+    int gd_x = 8, gd_y = 4, gd_w = 76, gd_h = 22;
+    ui_node* gitdiff_window = ui_create_element(UI_TAG_WINDOW);
+    ui_set_rect(gitdiff_window, gd_x, gd_y, gd_w, gd_h);
+    ui_set_label(gitdiff_window, " Diff ");
+    ui_set_color(gitdiff_window, theme->window_fg, theme->window_bg);
+    ui_set_resizable(gitdiff_window, 1);
+    ui_set_shadow(gitdiff_window, 0);
+    ui_append_child(gitdiff_wrapper, gitdiff_window);
+
+    /* "< Prev Change"/"Next Change >" - the diff always shows the whole file
+     * now (see git_window_activate's -U100000), so jumping straight between
+     * the actual +/- runs is the only practical way to find them in a large
+     * file - see git_diff_goto_change(). */
+    ui_node* gitdiff_prev = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(gitdiff_prev, EVT_GITDIFF_PREV);
+    ui_set_rect(gitdiff_prev, gd_x + 1, gd_y + 1, 16, 1);
+    ui_set_label(gitdiff_prev, "< Prev Change");
+    ui_append_child(gitdiff_window, gitdiff_prev);
+    ui_node* gitdiff_next = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(gitdiff_next, EVT_GITDIFF_NEXT);
+    ui_set_rect(gitdiff_next, gd_x + 18, gd_y + 1, 16, 1);
+    ui_set_label(gitdiff_next, "Next Change >");
+    ui_append_child(gitdiff_window, gitdiff_next);
+
+    /* Row gd_y + 2 is left blank - a gap between the Prev/Next buttons and
+     * the diff text below, so the buttons read as their own toolbar strip
+     * rather than sitting flush against the first line of code. */
+    ui_node* gitdiff_editor = ui_create_element(UI_TAG_EDITOR);
+    ui_set_rect(gitdiff_editor, gd_x + 1, gd_y + 3, gd_w - 2, gd_h - 4);
+    ui_set_syntax(gitdiff_editor, UI_SYNTAX_DIFF);
+    ui_set_small_font(gitdiff_editor, 1);
+    ui_set_value(gitdiff_editor, "");
+    ui_append_child(gitdiff_window, gitdiff_editor);
+    g_gitdiff_window = gitdiff_wrapper;
+    g_gitdiff_editor = gitdiff_editor;
+
     /* --- Debug Info window (Locals + Call Stack, see debug_info_panel_
      * refresh()) --- Docked RIGHT, the one dock side Output (BOTTOM) and
      * Folder/Project (LEFT) leave free - dock_layout() (ide_ui.c) only
@@ -13611,7 +14235,7 @@ void app_init(ui_env* env)
     ui_set_small_font(g_project.listbox, 1);
     ui_append_child(project_window, g_project.listbox);
     g_project.window = project_wrapper;
-    project_window_refresh();
+    project_window_refresh(0);
 
     /* --- Project panel context menu popup --- */
     ui_node* project_popup = ui_create_element(UI_TAG_MENU);
@@ -13877,6 +14501,7 @@ int app_frame(ui_env* env)
      * one. */
     ui_set_label(g_view_output_item, "Output");
     ui_set_label(g_view_folder_item, "Folder");
+    ui_set_label(g_view_git_item, "Git Changes");
     ui_set_label(g_view_debuginfo_item, "Debug Info");
     ui_set_label(g_project.view_item, "Project");
     /* Same "needs an open project" rule as the Project menu's own items just
@@ -13980,8 +14605,8 @@ int app_frame(ui_env* env)
         }
     }
 
-    /* Right-click over the Folder panel's listbox opens its own popup (the
-     * "Filter" toggle + "Show Filter"/"Create Filter") at the cursor - no
+    /* Right-click over the Folder panel's listbox opens its own popup at
+     * the cursor - no
      * modal must be blocking. Independent of the editor popup check above: when the
      * Folder panel is frontmost, ui_screen_top_window() returns it (not an
      * editor window), so `ed` there is NULL and that block's
@@ -13999,8 +14624,6 @@ int app_frame(ui_env* env)
          * below opening its own right after. */
         if (window_is_shown(g_folder.window) && ui_node_contains(g_folder.listbox, mx, my))
         {
-            refresh_folder_filter_item(g_folder.popup_filter);
-            refresh_folder_show_filter_item(g_folder.popup_show);
             ui_set_enabled(g_folder.popup_add_to_project, project_is_open());
             ui_screen_open_popup(g_screen, g_folder.popup, mx, my, NULL);
         }
@@ -14016,10 +14639,20 @@ int app_frame(ui_env* env)
             ui_screen_open_popup(g_screen, g_project.popup, mx, my, NULL);
     }
 
+    /* Right-click over the Git Changes panel's listbox opens its own popup
+     * (Commit/Discard/Pull/Push) - same shape as the Folder/Project blocks
+     * just above, including the same window_is_shown() guard. */
+    if (ui_screen_mouse_right_pressed(g_screen) && !ui_screen_active_modal(g_screen))
+    {
+        int mx = ui_screen_mouse_x(g_screen), my = ui_screen_mouse_y(g_screen);
+        if (window_is_shown(g_git.window) && ui_node_contains(g_git.listbox, mx, my))
+            ui_screen_open_popup(g_screen, g_git.popup, mx, my, NULL);
+    }
+
     /* Right-click on a docked panel's frame opens the "Dock Left/Right/
      * Bottom" popup for that panel (see g_dockmenu/docked_panel_frame_at).
      * The side it is already on is marked, same "[x] Label" convention the
-     * View menu and the Folder popup's "Filter" use. */
+     * View menu uses. */
     if (ui_screen_mouse_right_pressed(g_screen) && !ui_screen_active_modal(g_screen))
     {
         int mx = ui_screen_mouse_x(g_screen), my = ui_screen_mouse_y(g_screen);

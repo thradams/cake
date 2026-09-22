@@ -767,6 +767,49 @@ But I think this is quite uncommon.
 Flow analysis is the foundation of Cake's nullable and ownership checks. 
 It tracks the possible states of every variable at every point in your program.
 
+### How the Analysis Works
+
+
+- **One function at a time, contracts in between.** The analyzer looks at
+  each function body on its own. It never follows a call into another
+  function's body: what it knows about a call is exactly what the callee's
+  declaration says. The annotations (`_Owner`, `_Opt`, `_Out`, `_Dtor`,
+  `_Clear`) are how you express that interface contract - what the function
+  takes ownership of, what it may return as null, what it initializes, what it
+  destroys. The caller is checked against the contract, and the callee's body
+  is checked to honor it, so each side can be analyzed independently. This is
+  what keeps the analysis fast and predictable, and it is why annotating
+  headers matters.
+
+- **A state map per path.** At every point the analyzer keeps a map from each
+  tracked object (variables, struct members, pointed-to objects) to the set of
+  values it may hold there. Each entry in the set is an *alternative*: a
+  relation to a value (`== 0`, `!= 0`, `< 10`, unknown, ...) plus an optional
+  *imaginary* part (`uninitialized`, `moved`, `lifetime-ended`). A variable
+  that could be null on one path and not-null on another simply has two
+  alternatives.
+
+- **Branches fork, joins merge.** An `if`, `&&`, `||`, `?:` or `switch` forks
+  the current map into one child map per arm; the condition narrows the state
+  inside each arm (after `if (p)`, `p` is not-null in the true arm and null in
+  the false arm). When the arms meet again, their maps are merged and the
+  alternatives from every reachable arm are kept. `break`, `return`, `throw`
+  and `goto` are handled by joining into the map of the point they jump to.
+
+- **Loops are visited twice.** The body of a loop is analyzed once to reach a
+  state that includes the effect of a previous iteration, then a second time
+  with warnings enabled. This catches things like freeing an owner inside a
+  loop without resetting it, without needing a full fixed-point computation.
+
+- **Checks are queries on the map.** Every rule in this manual is just a
+  question asked of the current map: "can `p` be null here?", "is `p` still
+  owning at scope exit?", "was `x` given a value before this read?". If any
+  alternative says yes, the warning is emitted. `static_debug` prints the map
+  entry, and `compile_assert` asks the same kind of question explicitly.
+
+The rest of this chapter describes the states, and Chapter 5 lists the places
+where this model is intentionally less precise than a full program analysis.
+
 ### Enabling Flow Analysis
 
 ```c

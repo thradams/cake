@@ -26,9 +26,12 @@ typedef __cake_clock_t clock_t;
 #endif
 
 #define TIME_UTC 1
+#if defined(__linux__)
+/* the other C23 bases are only honoured by glibc >= 2.34 */
 #define TIME_MONOTONIC 2
 #define TIME_ACTIVE 3
 #define TIME_THREAD_ACTIVE 4
+#endif
 
 struct tm
 {

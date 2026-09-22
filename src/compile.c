@@ -951,7 +951,7 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
     char string[200] = { 0 };
     snprintf(string, sizeof string, "exepath %s", pszoptions);
 
-    const int argc = strtoargv(string, 10, argv);
+    const int argc = strtoargv(string, 100, argv);
 
     const char* _Owner _Opt s = NULL;
 
@@ -1040,7 +1040,7 @@ const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt pat
     const char* argv[100] = { 0 };
     char string[200] = { 0 };
     snprintf(string, sizeof string, "exepath %s", pszoptions);
-    const int argc = strtoargv(string, 10, argv);
+    const int argc = strtoargv(string, 100, argv);
 
     struct options options = { .input = STD_EXT };
     if (fill_options(&options, argc, argv) != 0)

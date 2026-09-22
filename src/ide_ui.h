@@ -459,6 +459,15 @@ typedef struct {
                                    * its [] brackets) - colored in both edit
                                    * and read-only mode; only read-only
                                    * collapses the brackets/"(dest)" away */
+    uint32_t editor_diff_add_bg;     /* UI_SYNTAX_DIFF only: background tint
+                                       * for a row whose line starts with '+'
+                                       * (added) - see render_editor()'s
+                                       * line_bg computation. Takes priority
+                                       * over editor_current_line_bg, same as
+                                       * md_code_bg below. */
+    uint32_t editor_diff_remove_bg;  /* UI_SYNTAX_DIFF only: same, for a row
+                                       * starting with '-' (removed). */
+
     uint32_t md_code_bg;         /* background tint for every row that's part
                                    * of a fenced ```code block``` - the fence
                                    * delimiter lines themselves and every
@@ -705,18 +714,25 @@ ui_dock_side ui_get_dock(const ui_node *n);
  * C highlights keywords/strings/comments/preprocessor directives; MARKDOWN
  * highlights headings/blockquotes/code spans/fenced code blocks; VT100
  * interprets embedded VT100 SGR color codes instead of coloring by syntax at
- * all (e.g. captured compiler/terminal output, not source text). */
+ * all (e.g. captured compiler/terminal output, not source text); DIFF is C's
+ * own token coloring (same render_editor_line() call, so keywords/strings/
+ * comments still read as real C) plus a per-row background tint from each
+ * line's leading '+'/'-' - a plain `git diff` (no --color) rendered like
+ * VS Code's diff view, syntax color first, added/removed as a background
+ * wash on top - see render_editor()'s line_bg computation. */
 typedef enum {
     UI_SYNTAX_NONE,
     UI_SYNTAX_C,
     UI_SYNTAX_MARKDOWN,
     UI_SYNTAX_VT100,
+    UI_SYNTAX_DIFF,
 } ui_syntax;
 
 /* Sets an EDITOR's syntax color mode (see ui_syntax above). Defaults to
- * UI_SYNTAX_NONE. Setting UI_SYNTAX_VT100 also forces the node read-only
- * (see ui_set_read_only) - captured terminal/compiler output is never
- * hand-edited, so there's no path back to plain-text editing once set. */
+ * UI_SYNTAX_NONE. Setting UI_SYNTAX_VT100 or UI_SYNTAX_DIFF also forces the
+ * node read-only (see ui_set_read_only) - captured terminal/compiler output
+ * (or a diff) is never hand-edited, so there's no path back to plain-text
+ * editing once set. */
 void ui_set_syntax(ui_node* n, ui_syntax syntax);
 ui_syntax ui_get_syntax(const ui_node* n);
 

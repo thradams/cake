@@ -400,6 +400,8 @@ static ui_theme g_theme = {
     .md_link_fg = TB_RGB(0xAA, 0xAA, 0xFF),        /* light blue/lavender -
                                                      * distinct from every
                                                      * other Markdown color */
+    .editor_diff_add_bg = TB_RGB(0x00, 0x2F, 0x00),     /* dark green wash */
+    .editor_diff_remove_bg = TB_RGB(0x3A, 0x00, 0x00),  /* dark red wash */
     .md_code_bg = TB_RGB(0x00, 0x00, 0x80),        /* navy - one step darker
                                                      * than editor_bg (the
                                                      * opposite direction from
@@ -1699,8 +1701,9 @@ int ui_get_small_font(const ui_node* n)
 void ui_set_syntax(ui_node* n, ui_syntax syntax)
 {
     n->syntax = syntax;
-    if (syntax == UI_SYNTAX_VT100)
-        n->read_only = 1;  /* captured terminal/compiler output - never hand-edited */
+    if (syntax == UI_SYNTAX_VT100 || syntax == UI_SYNTAX_DIFF)
+        n->read_only = 1;  /* captured terminal/compiler output, or a git diff -
+                            * never hand-edited */
 }
 
 ui_syntax ui_get_syntax(const ui_node* n)
@@ -8528,6 +8531,7 @@ static int is_c_keyword2(const char* word, int len)
     if (len == 4 && memcmp(word, "_Opt", 4) == 0) return 1;
     if (len == 5 && memcmp(word, "_Dtor", 5) == 0) return 1;
     if (len == 4 && memcmp(word, "_Out", 4) == 0) return 1;
+    if (len == 5 && memcmp(word, "_View", 5) == 0) return 1;
     if (len == 6 && memcmp(word, "assert", 6) == 0) return 1;
     if (len == 4 && memcmp(word, "NULL", 4) == 0) return 1;
     if (len == 6 && memcmp(word, "_Clear", 6) == 0) return 1;
@@ -8879,7 +8883,14 @@ static int scan_markdown_fence_state(const char* line, int len, int in_block)
  * other syntax. */
 static int scan_multiline_state(int syntax, const char* line, int len, int in_block, int* depth)
 {
-    if (syntax == UI_SYNTAX_C)
+    if (syntax == UI_SYNTAX_C || syntax == UI_SYNTAX_DIFF)
+        /* DIFF reuses the plain C tokenizer for its content (see render_
+         * editor()'s switch), so it has to prime the same block-comment
+         * continuation and bracket-depth state scrolling past off-screen
+         * lines - otherwise a comment or bracket spanning the scrolled-off
+         * region resyncs wrong (or not at all) once the viewport reaches it,
+         * which is exactly what made colors change with scroll before this
+         * case existed. */
         return scan_line_block_state(line, len, in_block, depth);
     if (syntax == UI_SYNTAX_MARKDOWN)
         return scan_markdown_fence_state(line, len, in_block);
@@ -10199,6 +10210,16 @@ static void render_editor(ui_screen* s, ui_node* n)
             line_bg = g_theme.editor_exec_line_bg;
         else if (!has_sel && n->syntax == UI_SYNTAX_MARKDOWN && (in_block || line_is_fence))
             line_bg = g_theme.md_code_bg;
+        else if (!has_sel && n->syntax == UI_SYNTAX_DIFF && le > ls && n->label[ls] == '+' &&
+                 !(le - ls >= 3 && n->label[ls + 1] == '+' && n->label[ls + 2] == '+'))
+            /* A "+" added-line row, VS Code diff style - but not the "+++
+             * b/path" file header git diff prints once per file, which also
+             * starts with '+'. */
+            line_bg = g_theme.editor_diff_add_bg;
+        else if (!has_sel && n->syntax == UI_SYNTAX_DIFF && le > ls && n->label[ls] == '-' &&
+                 !(le - ls >= 3 && n->label[ls + 1] == '-' && n->label[ls + 2] == '-'))
+            /* Same, for a "-" removed-line row vs. the "--- a/path" header. */
+            line_bg = g_theme.editor_diff_remove_bg;
         else if (!has_sel && !md_readonly && line_idx == cursor_line)
             line_bg = g_theme.editor_current_line_bg;
         else
@@ -10251,6 +10272,16 @@ static void render_editor(ui_screen* s, ui_node* n)
                                              sel_col_lo, sel_col_hi, &in_block, n->read_only, line_bg);
             break;
         case UI_SYNTAX_C:
+        case UI_SYNTAX_DIFF:
+            /* DIFF reuses the plain C tokenizer verbatim - real keyword/
+             * string/comment coloring for the diff's code content, with the
+             * added/removed background wash already picked above in line_bg
+             * doing the "this is a diff" part (see ui_syntax's own doc
+             * comment). A diff line's leading '+'/'-'/' ' marker column and
+             * the "diff --git"/"@@ ... @@" header lines aren't valid C, but
+             * the tokenizer degrades harmlessly on them - worst case a stray
+             * char picks up a color that doesn't mean anything, never a
+             * crash or a misrendered column. */
             render_editor_line(text_x, ey + row, text_w, n->hscroll, n->label + ls, le - ls,
                                 sel_col_lo, sel_col_hi, &in_block, line_bg, &bracket_depth);
             break;

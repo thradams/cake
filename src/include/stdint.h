@@ -31,7 +31,8 @@ typedef uint16_t uint_least16_t;
 typedef uint32_t uint_least32_t;
 typedef uint64_t uint_least64_t;
 
-/* fastest minimum width */
+/* fastest minimum width: 32 bits on every target (native libcs differ:
+   glibc uses long, macOS uses the exact width, msvc uses int) */
 typedef int8_t   int_fast8_t;
 typedef int32_t  int_fast16_t;
 typedef int32_t  int_fast32_t;

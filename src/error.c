@@ -16,6 +16,11 @@
 //#include <winsock2.h>
 #endif
 
+void bug()
+{
+    
+}
+
 void throw_break_point()
 {
     /*

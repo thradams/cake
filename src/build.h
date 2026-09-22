@@ -175,8 +175,11 @@
 #define mkdir(A,B) _mkdir(A)
 #define chdir      _chdir
 
-/* On Windows, built executables run directly (no ./ prefix needed) */
-#define RUN " "
+/* cmd.exe (used by system()) does not search the current directory for a
+ * bare executable name, so a prefix is required just like on POSIX. It
+ * does not accept a forward-slash "./" prefix either (it tries to run "."
+ * as a command), so ".\" is used here. */
+#define RUN " .\\"
 
 static int system_like(const char* command)
 {

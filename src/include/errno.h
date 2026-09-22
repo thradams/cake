@@ -114,6 +114,13 @@ extern int errno;
 #define ENOSYS          78
 #define ENOTEMPTY       66
 #define EILSEQ          92
+#define ENOTBLK         15
+#define ESOCKTNOSUPPORT 44
+#define EPFNOSUPPORT    46
+#define EHOSTDOWN       64
+#define ESHUTDOWN       58
+#define ETOOMANYREFS    59
+#define ESTALE          70
 #define EADDRINUSE      48
 #define EADDRNOTAVAIL   49
 #define EAFNOSUPPORT    47
@@ -165,6 +172,13 @@ extern int errno;
 #define ENOTEMPTY       39
 #define ELOOP           40
 #define EILSEQ          84
+#define ENOTBLK         15
+#define ESOCKTNOSUPPORT 94
+#define EPFNOSUPPORT    96
+#define EHOSTDOWN       112
+#define ESHUTDOWN       108
+#define ETOOMANYREFS    109
+#define ESTALE          116
 #define EADDRINUSE      98
 #define EADDRNOTAVAIL   99
 #define EAFNOSUPPORT    97

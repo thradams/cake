@@ -260,66 +260,69 @@
 <a href="#toc_27">Chapter 4: Flow Analysis and Object States</a>
 <ul>
 <li>
-<a href="#toc_28">Enabling Flow Analysis</a>
+<a href="#toc_28">How the Analysis Works</a>
 </li>
 <li>
-<a href="#toc_29">The State Model</a>
+<a href="#toc_29">Enabling Flow Analysis</a>
 </li>
 <li>
-<a href="#toc_30">Inspecting State with <code>static_debug</code></a>
+<a href="#toc_30">The State Model</a>
 </li>
 <li>
-<a href="#toc_31">Proving Facts with <code>compile_assert</code></a>
+<a href="#toc_31">Inspecting State with <code>static_debug</code></a>
 </li>
 <li>
-<a href="#toc_32">Uninitialized State</a>
+<a href="#toc_32">Proving Facts with <code>compile_assert</code></a>
 </li>
 <li>
-<a href="#toc_33">Moved State</a>
+<a href="#toc_33">Uninitialized State</a>
 </li>
 <li>
-<a href="#toc_34">Null and Not-Null States</a>
+<a href="#toc_34">Moved State</a>
+</li>
+<li>
+<a href="#toc_35">Null and Not-Null States</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_35">Chapter 5: Known Limitations</a>
+<a href="#toc_36">Chapter 5: Known Limitations</a>
 <ul>
 <li>
-<a href="#toc_36">Backward <code>goto</code> Is Not Analyzed as a Loop</a>
+<a href="#toc_37">Backward <code>goto</code> Is Not Analyzed as a Loop</a>
 </li>
 <li>
-<a href="#toc_37">Pointer Equality Between Distinct Pointers</a>
+<a href="#toc_38">Pointer Equality Between Distinct Pointers</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_38">Chapter 6: Code Transition Strategy</a>
+<a href="#toc_39">Chapter 6: Code Transition Strategy</a>
 <ul>
 <li>
-<a href="#toc_39">Annotating the Standard Library: Cake&#39;s Headers and <code>#include_next</code></a>
+<a href="#toc_40">Annotating the Standard Library: Cake&#39;s Headers and <code>#include_next</code></a>
 </li>
 <li>
-<a href="#toc_40">Annotating a Function Cake&#39;s Headers Don&#39;t Cover</a>
+<a href="#toc_41">Annotating a Function Cake&#39;s Headers Don&#39;t Cover</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_41">Quick Reference</a>
+<a href="#toc_42">Quick Reference</a>
 <ul>
 <li>
-<a href="#toc_42">Type Annotations</a>
+<a href="#toc_43">Type Annotations</a>
 </li>
 <li>
-<a href="#toc_43">Pragmas</a>
+<a href="#toc_44">Pragmas</a>
 </li>
 <li>
-<a href="#toc_44">Built-in Intrinsics</a>
+<a href="#toc_45">Built-in Intrinsics</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_45">References</a>
+<a href="#toc_46">References</a>
 </li>
 </ul>
 </li>
@@ -1034,14 +1037,54 @@ void f(int a[_Owner])
 <p>Flow analysis is the foundation of Cake&#39;s nullable and ownership checks. 
 It tracks the possible states of every variable at every point in your program.</p>
 
-<h3 id="toc_28">Enabling Flow Analysis</h3>
+<h3 id="toc_28">How the Analysis Works</h3>
+
+<ul>
+<li><p><strong>One function at a time, contracts in between.</strong> The analyzer looks at
+each function body on its own. It never follows a call into another
+function&#39;s body: what it knows about a call is exactly what the callee&#39;s
+declaration says. The annotations (<code>_Owner</code>, <code>_Opt</code>, <code>_Out</code>, <code>_Dtor</code>,
+<code>_Clear</code>) are how you express that interface contract - what the function
+takes ownership of, what it may return as null, what it initializes, what it
+destroys. The caller is checked against the contract, and the callee&#39;s body
+is checked to honor it, so each side can be analyzed independently. This is
+what keeps the analysis fast and predictable, and it is why annotating
+headers matters.</p></li>
+<li><p><strong>A state map per path.</strong> At every point the analyzer keeps a map from each
+tracked object (variables, struct members, pointed-to objects) to the set of
+values it may hold there. Each entry in the set is an <em>alternative</em>: a
+relation to a value (<code>== 0</code>, <code>!= 0</code>, <code>&lt; 10</code>, unknown, ...) plus an optional
+<em>imaginary</em> part (<code>uninitialized</code>, <code>moved</code>, <code>lifetime-ended</code>). A variable
+that could be null on one path and not-null on another simply has two
+alternatives.</p></li>
+<li><p><strong>Branches fork, joins merge.</strong> An <code>if</code>, <code>&amp;&amp;</code>, <code>||</code>, <code>?:</code> or <code>switch</code> forks
+the current map into one child map per arm; the condition narrows the state
+inside each arm (after <code>if (p)</code>, <code>p</code> is not-null in the true arm and null in
+the false arm). When the arms meet again, their maps are merged and the
+alternatives from every reachable arm are kept. <code>break</code>, <code>return</code>, <code>throw</code>
+and <code>goto</code> are handled by joining into the map of the point they jump to.</p></li>
+<li><p><strong>Loops are visited twice.</strong> The body of a loop is analyzed once to reach a
+state that includes the effect of a previous iteration, then a second time
+with warnings enabled. This catches things like freeing an owner inside a
+loop without resetting it, without needing a full fixed-point computation.</p></li>
+<li><p><strong>Checks are queries on the map.</strong> Every rule in this manual is just a
+question asked of the current map: &quot;can <code>p</code> be null here?&quot;, &quot;is <code>p</code> still
+owning at scope exit?&quot;, &quot;was <code>x</code> given a value before this read?&quot;. If any
+alternative says yes, the warning is emitted. <code>static_debug</code> prints the map
+entry, and <code>compile_assert</code> asks the same kind of question explicitly.</p></li>
+</ul>
+
+<p>The rest of this chapter describes the states, and Chapter 5 lists the places
+where this model is intentionally less precise than a full program analysis.</p>
+
+<h3 id="toc_29">Enabling Flow Analysis</h3>
 
 <pre><code class="language-c">#pragma flow enable    // standalone
 #pragma safety enable  // enables flow automatically
 // or compile with: -fanalyzer
 </code></pre>
 
-<h3 id="toc_29">The State Model</h3>
+<h3 id="toc_30">The State Model</h3>
 
 <p>The analyzer tracks the following states for each variable:</p>
 
@@ -1104,7 +1147,7 @@ value has been given yet, that the variable is no longer accountable for the val
 that the object it once pointed to is no longer around.</p>
 </blockquote>
 
-<h3 id="toc_30">Inspecting State with <code>static_debug</code></h3>
+<h3 id="toc_31">Inspecting State with <code>static_debug</code></h3>
 
 <p>Use this built-in declaration to inspect a variable&#39;s tracked state during development:</p>
 
@@ -1118,7 +1161,7 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_31">Proving Facts with <code>compile_assert</code></h3>
+<h3 id="toc_32">Proving Facts with <code>compile_assert</code></h3>
 
 <p><code>compile_assert(expr)</code> asks the analyzer to prove <code>expr</code> using only what it already knows at that
 point — across every value alternative the flow tracker has recorded, not just one possible path.
@@ -1163,7 +1206,7 @@ pin down exactly what the analyzer can currently prove at a given point, and to 
 regressing on a previously-provable fact. Prefer <code>assert()</code>/<code>_Assert()</code> in real code where
 you actually want to establish a fact for the analysis (and the runtime) going forward.</p>
 
-<h3 id="toc_32">Uninitialized State</h3>
+<h3 id="toc_33">Uninitialized State</h3>
 
 <p>Reading an uninitialized variable triggers a warning.</p>
 
@@ -1177,7 +1220,7 @@ int main()
 }
 </code></pre>
 
-<h3 id="toc_33">Moved State</h3>
+<h3 id="toc_34">Moved State</h3>
 
 <p>When you assign an owner to another owner in local scope, the source enters the moved state. The analyzer knows the pointed-to object is still valid but the source no longer owns it:</p>
 
@@ -1197,7 +1240,7 @@ int main()
 }
 </code></pre>
 
-<h3 id="toc_34">Null and Not-Null States</h3>
+<h3 id="toc_35">Null and Not-Null States</h3>
 
 <p>After a null check, the analyzer refines the state inside each branch:</p>
 
@@ -1208,9 +1251,9 @@ if (p) {
 free(p);
 </code></pre>
 
-<h2 id="toc_35">Chapter 5: Known Limitations</h2>
+<h2 id="toc_36">Chapter 5: Known Limitations</h2>
 
-<h3 id="toc_36">Backward <code>goto</code> Is Not Analyzed as a Loop</h3>
+<h3 id="toc_37">Backward <code>goto</code> Is Not Analyzed as a Loop</h3>
 
 <p>Unlike <code>while</code>/<code>for</code>, which run a two-pass analysis to approximate repeated execution, a label is
 visited only once, in top-to-bottom order. A backward <code>goto</code> (jumping to a label above it) does not
@@ -1239,7 +1282,7 @@ L:
 full two-pass loop analysis.</p>
 </blockquote>
 
-<h3 id="toc_37">Pointer Equality Between Distinct Pointers</h3>
+<h3 id="toc_38">Pointer Equality Between Distinct Pointers</h3>
 
 <p>Two unrelated pointers may still compare equal at runtime, but the analyzer currently treats a
 concrete (synthetic) pointer value as foldable, so <code>p == q</code> for two distinct pointees folds to
@@ -1265,7 +1308,7 @@ pointer operands trigger this.</p>
 
 <p>These are implementation constraints, not flaws in the ownership model itself.</p>
 
-<h2 id="toc_38">Chapter 6: Code Transition Strategy</h2>
+<h2 id="toc_39">Chapter 6: Code Transition Strategy</h2>
 
 <p>Adopting Cake&#39;s static analysis in an existing codebase does not require a big-bang migration. The recommended approach is incremental:</p>
 
@@ -1314,7 +1357,7 @@ file and the analyzer&#39;s warnings, ask it to add the annotations or the missi
 <code>if (p)</code> / <code>free(p)</code>, and re-run Cake. The analyzer is the reviewer - the
 migration is done when it reports nothing, not when the diff looks plausible.</p>
 
-<h3 id="toc_39">Annotating the Standard Library: Cake&#39;s Headers and <code>#include_next</code></h3>
+<h3 id="toc_40">Annotating the Standard Library: Cake&#39;s Headers and <code>#include_next</code></h3>
 
 <p>You don&#39;t need to edit a system header to bring it under Cake&#39;s checks - Cake
 already ships its own annotated versions of the standard headers (<code>stdlib.h</code>,
@@ -1344,7 +1387,7 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_40">Annotating a Function Cake&#39;s Headers Don&#39;t Cover</h3>
+<h3 id="toc_41">Annotating a Function Cake&#39;s Headers Don&#39;t Cover</h3>
 
 <p>For a library Cake doesn&#39;t ship annotated headers for, the same idea applies
 by hand: declare the function yourself, with annotations, before the real
@@ -1371,9 +1414,9 @@ is compatible with the ones before it - the plain declaration the header
 brings in afterward is just a compatible redeclaration of the same
 signature, and it doesn&#39;t erase the contract Cake already recorded.</p>
 
-<h2 id="toc_41">Quick Reference</h2>
+<h2 id="toc_42">Quick Reference</h2>
 
-<h3 id="toc_42">Type Annotations</h3>
+<h3 id="toc_43">Type Annotations</h3>
 
 <table>
 <thead>
@@ -1415,7 +1458,7 @@ signature, and it doesn&#39;t erase the contract Cake already recorded.</p>
 </tbody>
 </table>
 
-<h3 id="toc_43">Pragmas</h3>
+<h3 id="toc_44">Pragmas</h3>
 
 <table>
 <thead>
@@ -1445,7 +1488,7 @@ signature, and it doesn&#39;t erase the contract Cake already recorded.</p>
 </tbody>
 </table>
 
-<h3 id="toc_44">Built-in Intrinsics</h3>
+<h3 id="toc_45">Built-in Intrinsics</h3>
 
 <table>
 <thead>
@@ -1467,7 +1510,7 @@ signature, and it doesn&#39;t erase the contract Cake already recorded.</p>
 </tbody>
 </table>
 
-<h2 id="toc_45">References</h2>
+<h2 id="toc_46">References</h2>
 
 <ul>
 <li>C# Nullable References: <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references</a></li>

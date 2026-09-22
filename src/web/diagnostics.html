@@ -805,6 +805,93 @@
 <li>
 <a href="#toc_211">2040 Redefinition as typedef</a>
 </li>
+<li>
+<a href="#toc_212">2070 Tag redefinition with different content</a>
+</li>
+<li>
+<a href="#toc_213">2090 _Atomic qualifier on array type</a>
+</li>
+<li>
+<a href="#toc_214">2100 _Atomic qualifier on function type</a>
+</li>
+<li>
+<a href="#toc_215">2110 Alignment specifier on bit-field</a>
+</li>
+<li>
+<a href="#toc_216">2120 Alignment specifier on function declaration</a>
+</li>
+<li>
+<a href="#toc_217">2130 Alignment specifier less strict than natural alignment</a>
+</li>
+<li>
+<a href="#toc_218">2140 Alignment specifier with register</a>
+</li>
+<li>
+<a href="#toc_219">2150 Alignment specifier with typedef</a>
+</li>
+<li>
+<a href="#toc_220">2160 Alignment specifier not an integer constant expression</a>
+</li>
+<li>
+<a href="#toc_221">2170 auto storage-class specifier at file scope</a>
+</li>
+<li>
+<a href="#toc_222">2180 register storage-class specifier at file scope</a>
+</li>
+<li>
+<a href="#toc_223">2190 Array designator not an integer constant expression</a>
+</li>
+<li>
+<a href="#toc_224">2200 Enum tag without body or fixed underlying type</a>
+</li>
+<li>
+<a href="#toc_225">2210 Duplicate enumeration constant in the same scope</a>
+</li>
+<li>
+<a href="#toc_226">2220 Bit-precise integer type as enum underlying type</a>
+</li>
+<li>
+<a href="#toc_227">2230 restrict qualifier on a non-pointer type</a>
+</li>
+<li>
+<a href="#toc_228">2240 Static object in an inline function with external linkage</a>
+</li>
+<li>
+<a href="#toc_229">2250 Function specifier on a non-function declaration</a>
+</li>
+<li>
+<a href="#toc_230">2260 Cast to or from a non-scalar type</a>
+</li>
+<li>
+<a href="#toc_231">2270 Comparing nullptr_t with a non-pointer type</a>
+</li>
+<li>
+<a href="#toc_232">2280 thread_local on a function</a>
+</li>
+<li>
+<a href="#toc_233">2290 Invalid storage-class specifier in a parameter declaration</a>
+</li>
+<li>
+<a href="#toc_234">2300 thread_local missing from a redeclaration</a>
+</li>
+<li>
+<a href="#toc_235">2310 Inconsistent alignment specifier in a redeclaration</a>
+</li>
+<li>
+<a href="#toc_236">2320 Function implicitly converted to an object pointer type</a>
+</li>
+<li>
+<a href="#toc_237">2330 Empty initializer for an array of unknown size</a>
+</li>
+<li>
+<a href="#toc_238">2340 constexpr object with volatile or atomic type</a>
+</li>
+<li>
+<a href="#toc_239">2350 Declaration that declares nothing</a>
+</li>
+<li>
+<a href="#toc_240">2360 Flexible array member in a union</a>
+</li>
 </ul>
 </li>
 </ul>
@@ -815,6 +902,8 @@
 
 <p>All warning are configurable. Cake has errors, warnings and notes.
 We can make a warning to be a note or error using pragma.</p>
+
+<!-- runnable -->
 
 <pre><code class="language-c">#pragma CAKE diagnostic push
 #pragma CAKE diagnostic error 4
@@ -2514,6 +2603,8 @@ target:
 
 <h3 id="toc_158">1210 Missing macro argument</h3>
 
+<!-- runnable -->
+
 <pre><code class="language-c">int main()
 {  
 //TODO
@@ -2521,6 +2612,8 @@ target:
 </code></pre>
 
 <h3 id="toc_159">1220 Address of register variable</h3>
+
+<!-- runnable -->
 
 <pre><code class="language-c">int main()
 {  
@@ -2540,6 +2633,8 @@ target:
 </code></pre>
 
 <h3 id="toc_161">1240 Character literal too large</h3>
+
+<!-- runnable -->
 
 <pre><code class="language-c">int main()
 {  
@@ -2758,6 +2853,8 @@ int main() {
 </code></pre>
 
 <h3 id="toc_184">1570 Duplicate default generic association</h3>
+
+<!-- runnable -->
 
 <pre><code class="language-c">int main()
 {  
@@ -3021,5 +3118,397 @@ F f { return 0; } //error 2010: typedef cannot be used for function definition
 
 <pre><code class="language-c">int x;
 typedef int x; //error 2040: &#39;x&#39;: redefinition; symbol cannot be overloaded with a typedef
+</code></pre>
+
+<h3 id="toc_212">2070 Tag redefinition with different content</h3>
+
+<p>C23 (N3037) allows a struct, union or enum tag to be defined more than once
+in the same scope as long as every definition has the same content. A
+definition that differs is an error.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">struct X { int a; };
+struct X { int a; };  // ok: same content
+struct X { long a; }; //error 2070: redefinition of &#39;struct X&#39; with different content
+
+int main(void)
+{
+    return 0;
+}
+</code></pre>
+
+<h3 id="toc_213">2090 _Atomic qualifier on array type</h3>
+
+<!-- runnable -->
+
+<p>C11 6.7.3 does not allow <code>_Atomic</code> to qualify an array type.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">_Atomic int a[5]; //error 2090: &#39;_Atomic&#39; qualifier cannot be applied to array types
+</code></pre>
+
+<h3 id="toc_214">2100 _Atomic qualifier on function type</h3>
+
+<!-- runnable -->
+
+<p>C11 6.7.3 does not allow <code>_Atomic</code> to qualify a function type.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">_Atomic void f(void) {} //error 2100: &#39;_Atomic&#39; qualifier cannot be applied to function types
+</code></pre>
+
+<h3 id="toc_215">2110 Alignment specifier on bit-field</h3>
+
+<!-- runnable -->
+
+<p>C11 6.7.5p2 does not allow an alignment specifier on a bit-field declaration.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">struct S {
+    alignas(16) int x : 4; //error 2110: alignment specifier cannot be used in a bit-field declaration
+};
+</code></pre>
+
+<h3 id="toc_216">2120 Alignment specifier on function declaration</h3>
+
+<!-- runnable -->
+
+<p>C11 6.7.5p2 does not allow an alignment specifier on a function declaration.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">alignas(16) void f() {} //error 2120: alignment specifier cannot be used in function declaration
+</code></pre>
+
+<h3 id="toc_217">2130 Alignment specifier less strict than natural alignment</h3>
+
+<!-- runnable -->
+
+<p>C11 6.7.5p6 requires an explicit alignment to be at least as strict as the
+type&#39;s natural alignment.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">alignas(4) double d; //error 2130: requested alignment 4 is less than minimum alignment 8
+</code></pre>
+
+<h3 id="toc_218">2140 Alignment specifier with register</h3>
+
+<!-- runnable -->
+
+<p>C11 6.7.5p2 does not allow an alignment specifier on a declaration with the
+<code>register</code> storage class.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">void f() {
+    register alignas(16) int x = 0; //error 2140: alignment specifier cannot be used with &#39;register&#39;
+}
+</code></pre>
+
+<h3 id="toc_219">2150 Alignment specifier with typedef</h3>
+
+<!-- runnable -->
+
+<p>C11 6.7.5p2 does not allow an alignment specifier on a <code>typedef</code> declaration.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">typedef alignas(16) int aligned_int; //error 2150: alignment specifier cannot be used with &#39;typedef&#39;
+</code></pre>
+
+<h3 id="toc_220">2160 Alignment specifier not an integer constant expression</h3>
+
+<!-- runnable -->
+
+<p>C11 6.7.5p3 requires the <code>alignas(expression)</code> operand to be an integer
+constant expression.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">alignas(8.0) int y; //error 2160: alignment specifier must be an integer constant expression
+</code></pre>
+
+<h3 id="toc_221">2170 auto storage-class specifier at file scope</h3>
+
+<!-- runnable -->
+
+<p>C11 6.9p2 does not allow the <code>auto</code> storage-class specifier in a file-scope
+declaration (this is the traditional C89 meaning of <code>auto</code>, not the C23
+type-inference form, which requires an initializer and no explicit type).</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">auto int x; //error 2170: &#39;auto&#39; storage-class specifier cannot be used in a file-scope declaration
+</code></pre>
+
+<h3 id="toc_222">2180 register storage-class specifier at file scope</h3>
+
+<!-- runnable -->
+
+<p>C11 6.9p2 does not allow the <code>register</code> storage-class specifier in a
+file-scope declaration.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">register int x; //error 2180: &#39;register&#39; storage-class specifier cannot be used in a file-scope declaration
+</code></pre>
+
+<h3 id="toc_223">2190 Array designator not an integer constant expression</h3>
+
+<!-- runnable -->
+
+<p>C23 6.7.11p6 requires an array designator&#39;s constant expression to have
+integer type.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">int a[3] = { [1.5] = 1 }; //error 2190: array designator must be an integer constant expression
+</code></pre>
+
+<h3 id="toc_224">2200 Enum tag without body or fixed underlying type</h3>
+
+<!-- runnable -->
+
+<p>C23 6.7.3.3p3: an <code>enum</code> type-specifier naming a tag with neither an
+enumerator-list nor a fixed underlying type must refer to a previously
+completed enum with that tag.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">enum MyEnum; //error 2200: enum declared without enumerator list must have a fixed underlying type or a previous complete declaration
+</code></pre>
+
+<h3 id="toc_225">2210 Duplicate enumeration constant in the same scope</h3>
+
+<!-- runnable -->
+
+<p>C23 6.2.1p3 does not allow two enumerators in the same scope to share a
+name — whether they belong to the same <code>enum</code> or to two different ones.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">enum Color {
+    RED,
+    RED //error 2210: duplicate enumeration constant &#39;RED&#39; in the same scope
+};
+
+int main(void)
+{
+    enum X { A = 1 };
+    enum Y { A = 2 }; //error 2210: duplicate enumeration constant &#39;A&#39; in the same scope
+    return 0;
+}
+</code></pre>
+
+<h3 id="toc_226">2220 Bit-precise integer type as enum underlying type</h3>
+
+<!-- runnable -->
+
+<p>C23 6.7.3.3p4 restricts an enum&#39;s fixed underlying type to <code>char</code>, a signed
+or unsigned integer type, or <code>bool</code> — a <code>_BitInt(N)</code> type is not allowed.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">enum E : _BitInt(16) { //error 2220: a bit-precise integer type is not allowed as an enum underlying type
+    A = 1
+};
+</code></pre>
+
+<h3 id="toc_227">2230 restrict qualifier on a non-pointer type</h3>
+
+<!-- runnable -->
+
+<p>C23 6.7.3.1p1 only allows the <code>restrict</code> qualifier on a pointer type.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">int restrict x = 10; //error 2230: &#39;restrict&#39; qualifier can only be applied to a pointer type
+</code></pre>
+
+<h3 id="toc_228">2240 Static object in an inline function with external linkage</h3>
+
+<!-- runnable -->
+
+<p>C11 6.7.4p7 does not allow an inline function with external linkage to
+contain a definition of an object with static storage duration.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">inline void f() {
+    static int counter = 0; //error 2240: an inline function with external linkage shall not contain a static object
+    counter++;
+}
+</code></pre>
+
+<h3 id="toc_229">2250 Function specifier on a non-function declaration</h3>
+
+<!-- runnable -->
+
+<p>C11 6.7.4p2 restricts <code>inline</code> and <code>_Noreturn</code> to declarations of functions.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">inline int x = 5; //error 2250: a function specifier can only be used in the declaration of a function
+</code></pre>
+
+<h3 id="toc_230">2260 Cast to or from a non-scalar type</h3>
+
+<!-- runnable -->
+
+<p>C11 6.5.4p2 requires both the cast&#39;s target type and its operand to have
+scalar type (or the target may be <code>void</code>).</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">struct Point { int x, y; };
+
+int main() {
+    struct Point p = {10, 20};
+    (int)p; //error 2260: operand of cast expression must have scalar type
+    return 0;
+}
+</code></pre>
+
+<h3 id="toc_231">2270 Comparing nullptr_t with a non-pointer type</h3>
+
+<!-- runnable -->
+
+<p>C23 6.5.10p2/6.5.9p2: <code>nullptr_t</code> only compares with <code>nullptr_t</code>, a pointer
+type, or a null pointer constant.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">int main() {
+    int x = 0;
+    if (nullptr == x) { //error 2270: both operands to comparison must have type &#39;nullptr_t&#39; or a pointer type
+    }
+    return 0;
+}
+</code></pre>
+
+<h3 id="toc_232">2280 thread_local on a function</h3>
+
+<!-- runnable -->
+
+<p>C23 6.7.1p3: <code>thread_local</code> shall not be used in the declaration of a function.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">thread_local void f() { //error 2280: &#39;thread_local&#39; cannot appear in a function declaration
+}
+</code></pre>
+
+<h3 id="toc_233">2290 Invalid storage-class specifier in a parameter declaration</h3>
+
+<!-- runnable -->
+
+<p>C11 6.7.6.3p2 allows only <code>register</code> as a storage-class specifier in a
+parameter declaration (the array-bound <code>static</code> form, e.g. <code>int arr[static
+5]</code>, is a separate feature and is not affected by this check).</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">void f(static int x) { //error 2290: the only storage-class specifier allowed in a parameter declaration is &#39;register&#39;
+}
+</code></pre>
+
+<h3 id="toc_234">2300 thread_local missing from a redeclaration</h3>
+
+<!-- runnable -->
+
+<p>C23 6.7.1p4: all declarations of an object with thread storage duration
+shall include <code>thread_local</code>.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">thread_local int z = 5;
+int z; //error 2300: &#39;z&#39;: redeclaration is missing &#39;thread_local&#39;
+</code></pre>
+
+<h3 id="toc_235">2310 Inconsistent alignment specifier in a redeclaration</h3>
+
+<!-- runnable -->
+
+<p>C23 6.7.5p8: if multiple declarations of an object specify an alignment,
+they must all specify the same alignment.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">alignas(16) int var;
+int var; //error 2310: &#39;var&#39;: alignment specifier is not consistent with the previous declaration
+</code></pre>
+
+<h3 id="toc_236">2320 Function implicitly converted to an object pointer type</h3>
+
+<!-- runnable -->
+
+<p>A function designator is not implicitly convertible to an object pointer
+type such as <code>void *</code> (only to a compatible function pointer type).</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">void f() {}
+
+int main() {
+    void *ptr = f; //error 2320: a function shall not be implicitly converted to an object pointer type
+    return 0;
+}
+</code></pre>
+
+<h3 id="toc_237">2330 Empty initializer for an array of unknown size</h3>
+
+<!-- runnable -->
+
+<p>C23 6.7.11p4-ish: an array of unknown size takes its size from the number
+of elements in its initializer; an empty initializer provides none, which
+would make the array size zero.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">int arr[] = {}; //error 2330: array of unknown size cannot be initialized with an empty initializer
+</code></pre>
+
+<h3 id="toc_238">2340 constexpr object with volatile or atomic type</h3>
+
+<!-- runnable -->
+
+<p>C23 6.7.1p5: a <code>constexpr</code> object shall not be volatile-qualified or have
+atomic type.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">constexpr volatile int b = 20; //error 2340: a constexpr object cannot be volatile-qualified
+</code></pre>
+
+<h3 id="toc_239">2350 Declaration that declares nothing</h3>
+
+<!-- runnable -->
+
+<p>A declaration (or member declaration) with no declarator must at least
+introduce a struct, union, or enum tag — otherwise it declares nothing.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">int; //error 2350: declaration does not declare anything
+</code></pre>
+
+<h3 id="toc_240">2360 Flexible array member in a union</h3>
+
+<!-- runnable -->
+
+<p>C11 6.7.2.1p3: a flexible array member (an incomplete array as the last
+member) is only allowed in a struct, not a union.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">union U {
+    int size;
+    int array[]; //error 2360: a flexible array member is not allowed in a union
+};
 </code></pre>
 </article></body></html>

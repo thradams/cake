@@ -32,3 +32,4 @@ const char* get_posix_error_message(int error);
 int windows_error_to_posix(int i);
 
 void throw_break_point();
+void bug();

@@ -28,7 +28,16 @@ typedef typeof(nullptr) nullptr_t;
 
 #define offsetof(type, member) __builtin_offsetof(type, member)
 
+#if defined(__GNUC__)
+[[noreturn]] void __builtin_unreachable(void);
+#define unreachable() __builtin_unreachable()
+#elif defined(_WIN32)
+/* cl intrinsic; declared so that cake sees the call as not returning */
+[[noreturn]] void __assume(int);
+#define unreachable() __assume(0)
+#else
 #define unreachable() do {} while(0)
+#endif
 
 #else
 #include_next <stddef.h>

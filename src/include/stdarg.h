@@ -23,7 +23,8 @@ typedef __cake_va_list va_list;
 
 void __cdecl __va_start(va_list*, ...);
 
-#define va_start(ap, x) ((void)(__va_start(&ap, x)))
+/* C23 allows va_start(ap) with no second argument; __va_start accepts it */
+#define va_start(ap, ...) ((void)(__va_start(&ap __VA_OPT__(,) __VA_ARGS__)))
 #define va_arg(ap, t)                                                    \
     ((sizeof(t) > sizeof(__int64) || (sizeof(t) & (sizeof(t) - 1)) != 0) \
         ? **(t**)((ap += sizeof(__int64)) - sizeof(__int64))             \
@@ -31,6 +32,9 @@ void __cdecl __va_start(va_list*, ...);
 #define va_end(ap) ((void)(ap = (va_list)0))
 
 #else /* x86 */
+
+/* x86 needs the address of the last named parameter, so the C23 single
+   argument form va_start(ap) is not available on this target */
 
 #define __cake_INTSIZEOF(n) ((sizeof(n) + sizeof(int) - 1) & ~(sizeof(int) - 1))
 

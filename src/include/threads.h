@@ -7,11 +7,6 @@
 
 #pragma once
 
-#if !defined(__linux__)
-/* macOS libc and the msvc CRT do not provide the C11 threads */
-#error <threads.h> is not available with -cake-headers on this target
-#endif
-
 #include <time.h>
 
 #define __STDC_VERSION_THREADS_H__ 202311L

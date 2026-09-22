@@ -3918,6 +3918,16 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                ctx,
                                ctx->current, NULL,
                                "structure or union required");
+
+                    if (ctx->current != NULL)
+                        p_expression_node_new->last_token = ctx->current;
+
+                    if (parser_match_tk(ctx, TK_IDENTIFIER) != 0)
+                    {
+                        expression_delete(p_expression_node_new);
+                        p_expression_node_new = NULL;
+                        throw;
+                    }
                 }
                 /* TODO: point to the name? */
                 p_expression_node = p_expression_node_new;
@@ -4056,6 +4066,17 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                    ctx,
                                    ctx->current, NULL,
                                    "structure or union required");
+
+                        if (ctx->current != NULL)
+                            p_expression_node_new->last_token = ctx->current;
+
+                        if (parser_match_tk(ctx, TK_IDENTIFIER) != 0)
+                        {
+                            type_destroy(&item_type);
+                            expression_delete(p_expression_node_new);
+                            p_expression_node_new = NULL;
+                            throw;
+                        }
                     }
                     type_destroy(&item_type);
                 }
@@ -4065,6 +4086,16 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                ctx,
                                ctx->current, NULL,
                                "structure or union required");
+
+                    if (ctx->current != NULL)
+                        p_expression_node_new->last_token = ctx->current;
+
+                    if (parser_match_tk(ctx, TK_IDENTIFIER) != 0)
+                    {
+                        expression_delete(p_expression_node_new);
+                        p_expression_node_new = NULL;
+                        throw;
+                    }
                 }
 
                 p_expression_node_new->lvalue_disabled = p_expression_node->lvalue_disabled;
@@ -6363,6 +6394,27 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                             NULL,
                                    "cast of 'void' term to non-'void' is illegal");
                     }
+                    else if (!type_is_void(&p_expression_node->object.type) &&
+                        !type_is_scalar(&p_expression_node->object.type))
+                    {
+                        diagnostic(C_ERROR_CAST_TO_NON_SCALAR_TYPE,
+                                   ctx,
+                                   p_expression_node->first_token,
+                            NULL,
+                                   "used type cannot be casted to because it is not a scalar type");
+                    }
+                    else if (!type_is_void(&p_expression_node->object.type) &&
+                        !type_is_void(&p_expression_node->left->object.type) &&
+                        !type_is_array(&p_expression_node->left->object.type) &&
+                        !type_is_scalar(&p_expression_node->left->object.type))
+                    {
+                        /* array operands decay to pointer, like any other unary-expression use */
+                        diagnostic(C_ERROR_CAST_TO_NON_SCALAR_TYPE,
+                                   ctx,
+                                   p_expression_node->first_token,
+                            NULL,
+                                   "operand of cast expression must have scalar type");
+                    }
                     else if (type_is_floating_point(&p_expression_node->object.type) &&
                         type_is_pointer(&p_expression_node->left->object.type))
                     {
@@ -6465,7 +6517,16 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                             struct type t = { 0 };
                             type_swap(&t, &p_expression_node->object.type);
                             object_destroy(&p_expression_node->object);
-                            p_expression_node->object = object_cast(ctx->options.target, vt, &p_expression_node->left->object);
+                            if (type_is_bool(&t))
+                            {
+                                /* 6.3.1.2: any nonzero value converts to 1, it is
+                                   not a truncation to the bool storage type */
+                                p_expression_node->object = object_make_bool(ctx->options.target, !object_is_zero(&p_expression_node->left->object));
+                            }
+                            else
+                            {
+                                p_expression_node->object = object_cast(ctx->options.target, vt, &p_expression_node->left->object);
+                            }
                             type_swap(&p_expression_node->object.type, &t);
                             type_destroy(&t);
                         }
@@ -7261,6 +7322,20 @@ static void check_comparison(const struct parser_ctx* ctx,
                        "operands differ in levels of indirection");
         }
     }
+    else if (type_is_nullptr_t(p_a_type) != type_is_nullptr_t(p_b_type))
+    {
+        /* nullptr_t only compares with nullptr_t, a pointer type, or a null pointer constant */
+        if (!equal_not_equal ||
+            !(type_is_nullptr_t(p_a_type) ?
+                expression_is_null_pointer_constant(p_b_expression) :
+                expression_is_null_pointer_constant(p_a_expression)))
+        {
+            diagnostic(C_ERROR_NULLPTR_COMPARISON,
+                       ctx,
+                       op_token, NULL,
+                       "both operands to comparison must have type 'nullptr_t' or a pointer type");
+        }
+    }
 
     if (type_is_bool(p_a_type) &&
         !(type_is_bool(p_b_type) || type_is_essential_bool(p_b_type)))
@@ -7550,8 +7625,8 @@ void check_diferent_enuns(const struct parser_ctx* ctx,
         _Assert(left->object.type.enum_specifier);
         _Assert(right->object.type.enum_specifier);
 
-        if (get_complete_enum_specifier(left->object.type.enum_specifier) !=
-            get_complete_enum_specifier(right->object.type.enum_specifier))
+        if (!enum_specifier_is_same_type(left->object.type.enum_specifier,
+                                         right->object.type.enum_specifier))
         {
             _Assert(left->object.type.enum_specifier != NULL);
             _Assert(right->object.type.enum_specifier != NULL);
@@ -9098,8 +9173,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
                     type_is_enum(&right_type) &&
                     left_type.enum_specifier &&
                     right_type.enum_specifier &&
-                    left_type.enum_specifier->p_complete_enum_specifier ==
-                    right_type.enum_specifier->p_complete_enum_specifier)
+                    enum_specifier_is_same_type(left_type.enum_specifier, right_type.enum_specifier))
                 {
                     /*
                     * Both operands are the same enum type. Keep that enum type
@@ -9515,6 +9589,16 @@ void check_assigment(const struct parser_ctx* ctx,
             }
         }
 
+        if (type_is_function(p_b_type) &&
+            !(p_a_type->next && type_is_function(p_a_type->next)))
+        {
+            diagnostic(C_ERROR_FUNCTION_POINTER_TO_OBJECT_POINTER,
+                       ctx,
+                       p_b_expression->first_token,
+                       NULL,
+                       "a function shall not be implicitly converted to an object pointer type");
+        }
+
         if (!type_is_nullptr_t(p_b_type) &&
             !type_is_pointer_or_array(p_b_type) &&
             !type_is_function(p_b_type))
@@ -9592,7 +9676,7 @@ void check_assigment(const struct parser_ctx* ctx,
         _Assert(p_a_type->enum_specifier);
         _Assert(p_b_type->enum_specifier);
 
-        if (p_b_type->enum_specifier->p_complete_enum_specifier != p_a_type->enum_specifier->p_complete_enum_specifier)
+        if (!enum_specifier_is_same_type(p_a_type->enum_specifier, p_b_type->enum_specifier))
         {
             diagnostic(W_INCOMPATIBLE_ENUN_TYPES, ctx,
                        p_b_expression->first_token, NULL,
@@ -9859,13 +9943,34 @@ void check_assigment(const struct parser_ctx* ctx,
         type_destroy(&a_type_lvalue);
     }
 
-    if (!type_is_same(p_a_type, &b_type_lvalue, false))
+    /*
+    * C23 6.5.16.1p1: a struct or union value may only be assigned to (or
+    * passed as) an object of a compatible struct or union type; there is
+    * no implicit conversion to or from anything else. (issue #367)
+    */
+    const bool a_is_struct = type_is_struct_or_union(p_a_type);
+    const bool b_is_struct = type_is_struct_or_union(&b_type_lvalue);
+
+    if (a_is_struct || b_is_struct)
     {
-        // diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
-        // ctx,
-        // p_b_expression->first_token,
-        // NULL,
-        // " incompatible types ");
+        const bool compatible =
+            a_is_struct && b_is_struct &&
+            type_is_compatible(p_a_type, &b_type_lvalue);
+
+        if (!compatible)
+        {
+            struct osstream ss_a = { 0 };
+            struct osstream ss_b = { 0 };
+            print_type_no_names(&ss_a, p_a_type, ctx->options.target);
+            print_type_no_names(&ss_b, &b_type_lvalue, ctx->options.target);
+
+            diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx,
+                       p_b_expression->first_token, NULL,
+                       "incompatible types: '%s' from '%s'", ss_a.c_str, ss_b.c_str);
+
+            ss_close(&ss_a);
+            ss_close(&ss_b);
+        }
     }
 
     type_destroy(&b_type_lvalue);

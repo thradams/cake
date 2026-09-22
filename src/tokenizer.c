@@ -1449,9 +1449,12 @@ static struct token* _Owner _Opt ppnumber(struct stream* stream)
 struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
                                   const struct token* position,
                                   const char* filename_opt,
-                                  int level, enum token_flags addflags)
+                                  int level, enum token_flags addflags,
+                                  long long limit, /* -1 no limit */
+                                  int* p_count /*out number of elements*/)
 {
     struct token_list list = { 0 };
+    *p_count = 0;
 
     FILE* _Owner _Opt file = NULL;
 
@@ -1492,6 +1495,9 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
             ch = *pch;
             pch++;
 #endif
+            if (limit >= 0 && count >= limit)
+                break;
+
             if (b_first)
             {
                 b_first = false;
@@ -1567,6 +1573,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
         token_list_add(&list, p_new_token);
 
         _Assert(list.head != NULL);
+        *p_count = count;
     }
     catch
     {
@@ -2337,9 +2344,374 @@ static const char* clang_query_operator_value(enum target target, const char* op
     return "0";
 }
 
+/*
+  C23 #embed support (6.10.3)
+*/
+
+long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
+                                           struct token_list* output_list,
+                                           struct token_list* input_list);
+
+struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct macro_expanded* _Opt p_list, struct token_list* oldlist, int level, const struct token* _Opt origin);
+
+struct embed_params
+{
+    bool has_limit;
+    struct token_list limit;
+
+    bool has_prefix;
+    struct token_list prefix;
+
+    bool has_suffix;
+    struct token_list suffix;
+
+    bool has_if_empty;
+    struct token_list if_empty;
+
+    /* unknown standard parameter name, or vendor parameter */
+    bool has_unsupported;
+};
+
+static void embed_params_destroy(_Dtor struct embed_params* p)
+{
+    token_list_destroy(&p->limit);
+    token_list_destroy(&p->prefix);
+    token_list_destroy(&p->suffix);
+    token_list_destroy(&p->if_empty);
+}
+
+static bool embed_file_exists(const char* path)
+{
+    FILE* _Owner _Opt f = fopen(path, "rb");
+    if (f == NULL)
+        return false;
+    fclose(f);
+    return true;
+}
+
+/*
+  Searches the embed resource.
+  "" form: first relative to the current file directory, then include dirs.
+  <> form: include dirs only.
+*/
+static bool embed_find_resource(struct preprocessor_ctx* ctx,
+                                const char* path,
+                                const char* current_file_dir,
+                                bool is_angle_bracket_form,
+                                char full_path_out[],
+                                int full_path_out_size)
+{
+#ifdef MOCKFILES
+    snprintf(full_path_out, full_path_out_size, "%s", path);
+    return true;
+#else
+    if (path_is_absolute(path))
+    {
+        snprintf(full_path_out, full_path_out_size, "%s", path);
+        return embed_file_exists(full_path_out);
+    }
+
+    if (!is_angle_bracket_form)
+    {
+        if (current_file_dir[0] != '\0')
+            snprintf(full_path_out, full_path_out_size, "%s/%s", current_file_dir, path);
+        else
+            snprintf(full_path_out, full_path_out_size, "%s", path);
+
+        if (embed_file_exists(full_path_out))
+            return true;
+    }
+
+    for (struct include_dir* _Opt current = ctx->include_dir.head; current; current = current->next)
+    {
+        size_t len = strlen(current->path);
+        const char* separator = (len > 0 && current->path[len - 1] == '/') ? "" : "/";
+        snprintf(full_path_out, full_path_out_size, "%s%s%s", current->path, separator, path);
+        if (embed_file_exists(full_path_out))
+            return true;
+    }
+
+    full_path_out[0] = '\0';
+    return false;
+#endif
+}
+
+/*
+  Consumes one token from input_list. Directive tokens go to dest (respecting level),
+  __has_embed tokens are just popped.
+*/
+static void embed_consume(const struct preprocessor_ctx* ctx,
+                          struct token_list* _Opt dest,
+                          struct token_list* input_list,
+                          int level,
+                          bool is_active)
+{
+    if (dest)
+        prematch_level(ctx, dest, input_list, level, is_active);
+    else
+        token_list_pop_front(input_list);
+}
+
+static void embed_skip_blanks(const struct preprocessor_ctx* ctx,
+                              struct token_list* _Opt dest,
+                              struct token_list* input_list,
+                              int level,
+                              bool is_active)
+{
+    while (input_list->head && token_is_blank(input_list->head))
+        embed_consume(ctx, dest, input_list, level, is_active);
+}
+
+/*
+  embed-parameter-sequence (6.10.3):
+    pp-parameter:  pp-parameter-name pp-parameter-clause opt
+    pp-parameter-name: pp-standard-parameter | pp-prefixed-parameter
+    pp-prefixed-parameter: identifier :: identifier
+    pp-parameter-clause: ( pp-balanced-token-seq opt )
+
+  Parses until end_type (TK_NEWLINE for #embed, ')' for __has_embed).
+  The terminator is not consumed.
+  Returns false on error (diagnostic already emitted).
+*/
+static bool embed_parse_parameters(struct preprocessor_ctx* ctx,
+                                   struct token_list* _Opt dest,
+                                   struct token_list* input_list,
+                                   int level,
+                                   bool is_active,
+                                   enum token_type end_type,
+                                   struct embed_params* params)
+{
+    for (;;)
+    {
+        embed_skip_blanks(ctx, dest, input_list, level, is_active);
+
+        if (input_list->head == NULL)
+        {
+            pre_unexpected_end_of_file(dest ? dest->tail : NULL, ctx);
+            return false;
+        }
+
+        if (input_list->head->type == end_type)
+            return true;
+
+        if (input_list->head->type != TK_IDENTIFIER)
+        {
+            preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, input_list->head, "expected embed parameter name");
+            return false;
+        }
+
+        char name[100] = { 0 };
+        snprintf(name, sizeof name, "%s", input_list->head->lexeme);
+        const struct token* p_name_token = input_list->head;
+        bool is_vendor = false;
+
+        embed_consume(ctx, dest, input_list, level, is_active);
+
+        if (input_list->head && input_list->head->type == '::')
+        {
+            is_vendor = true;
+            embed_consume(ctx, dest, input_list, level, is_active);
+            if (input_list->head == NULL || input_list->head->type != TK_IDENTIFIER)
+            {
+                preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, p_name_token, "expected identifier after '::'");
+                return false;
+            }
+            embed_consume(ctx, dest, input_list, level, is_active);
+        }
+
+        embed_skip_blanks(ctx, dest, input_list, level, is_active);
+
+        /* collect the optional ( pp-balanced-token-seq ) */
+        struct token_list clause = { 0 };
+        bool has_clause = false;
+
+        if (input_list->head && input_list->head->type == '(')
+        {
+            has_clause = true;
+            embed_consume(ctx, dest, input_list, level, is_active);
+
+            int depth = 1;
+            for (;;)
+            {
+                if (input_list->head == NULL || input_list->head->type == TK_NEWLINE)
+                {
+                    preprocessor_diagnostic(C_ERROR_MISSING_CLOSE_PARENTHESIS, ctx, p_name_token, "missing ')' in embed parameter '%s'", name);
+                    token_list_destroy(&clause);
+                    return false;
+                }
+
+                if (input_list->head->type == '(')
+                    depth++;
+                else if (input_list->head->type == ')')
+                {
+                    depth--;
+                    if (depth == 0)
+                        break;
+                }
+
+                if (!token_is_blank(input_list->head) || clause.head != NULL)
+                {
+                    struct token* _Opt t = token_list_clone_and_add(&clause, input_list->head);
+                    if (t == NULL)
+                    {
+                        token_list_destroy(&clause);
+                        return false;
+                    }
+                    t->flags = TK_FLAG_NONE;
+                }
+                embed_consume(ctx, dest, input_list, level, is_active);
+            }
+            embed_consume(ctx, dest, input_list, level, is_active); //)
+
+            /* drop trailing blanks */
+            while (clause.tail && token_is_blank(clause.tail))
+                token_list_pop_back(&clause);
+        }
+
+        if (is_vendor)
+        {
+            params->has_unsupported = true;
+            token_list_destroy(&clause);
+            continue;
+        }
+
+        bool* _Opt p_has = NULL;
+        struct token_list* _Opt p_tokens = NULL;
+
+        if (strcmp(name, "limit") == 0 || strcmp(name, "__limit__") == 0)
+        {
+            p_has = &params->has_limit;
+            p_tokens = &params->limit;
+        }
+        else if (strcmp(name, "prefix") == 0 || strcmp(name, "__prefix__") == 0)
+        {
+            p_has = &params->has_prefix;
+            p_tokens = &params->prefix;
+        }
+        else if (strcmp(name, "suffix") == 0 || strcmp(name, "__suffix__") == 0)
+        {
+            p_has = &params->has_suffix;
+            p_tokens = &params->suffix;
+        }
+        else if (strcmp(name, "if_empty") == 0 || strcmp(name, "__if_empty__") == 0)
+        {
+            p_has = &params->has_if_empty;
+            p_tokens = &params->if_empty;
+        }
+        else
+        {
+            if (end_type == TK_NEWLINE)
+            {
+                preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, p_name_token, "unknown embed parameter '%s'", name);
+                token_list_destroy(&clause);
+                return false;
+            }
+            /* __has_embed: unsupported parameter makes the result 0 */
+            params->has_unsupported = true;
+            token_list_destroy(&clause);
+            continue;
+        }
+
+        if (*p_has)
+        {
+            preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, p_name_token, "embed parameter '%s' appears more than once", name);
+            token_list_destroy(&clause);
+            return false;
+        }
+
+        if (!has_clause)
+        {
+            preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, p_name_token, "embed parameter '%s' requires a parenthesized argument", name);
+            return false;
+        }
+
+        if (p_tokens == &params->limit && clause.head == NULL)
+        {
+            preprocessor_diagnostic(C_ERROR_EXPRESSION_ERROR, ctx, p_name_token, "embed parameter 'limit' requires a constant expression");
+            return false;
+        }
+
+        *p_has = true;
+        token_list_swap(p_tokens, &clause);
+        token_list_destroy(&clause);
+    }
+}
+
+/*
+  6.10.3.2 limit: evaluated as in #if; 'defined' is not allowed;
+  must be non negative.
+  Returns -1 on error.
+*/
+static long long embed_evaluate_limit(struct preprocessor_ctx* ctx,
+                                      const struct embed_params* params,
+                                      const struct token* position)
+{
+    for (const struct token* _Opt t = params->limit.head; t; t = t->next)
+    {
+        if (t->type == TK_IDENTIFIER && strcmp(t->lexeme, "defined") == 0)
+        {
+            preprocessor_diagnostic(C_ERROR_EXPRESSION_ERROR, ctx, position, "'defined' cannot be used in embed 'limit' parameter");
+            return -1;
+        }
+    }
+
+    struct token_list input = copy_replacement_list(ctx, &params->limit);
+    if (input.head == NULL)
+    {
+        preprocessor_diagnostic(C_ERROR_EXPRESSION_ERROR, ctx, position, "embed parameter 'limit' requires a constant expression");
+        return -1;
+    }
+
+    int errors = ctx->n_errors;
+    struct token_list discard = { 0 };
+    long long value = preprocessor_constant_expression(ctx, &discard, &input);
+    token_list_destroy(&discard);
+    token_list_destroy(&input);
+
+    if (ctx->n_errors > errors)
+        return -1;
+
+    if (value < 0)
+    {
+        preprocessor_diagnostic(C_ERROR_EXPRESSION_ERROR, ctx, position, "embed parameter 'limit' cannot be negative");
+        return -1;
+    }
+
+    return value;
+}
+
+/*
+  Macro-expands a prefix/suffix/if_empty token sequence and marks it as final
+  output.
+*/
+static struct token_list embed_expand_clause(struct preprocessor_ctx* ctx,
+                                             const struct token_list* clause,
+                                             const struct token* position,
+                                             int level)
+{
+    struct token_list r = { 0 };
+    if (clause->head == NULL)
+        return r;
+
+    struct token_list copy = copy_replacement_list(ctx, clause);
+    r = replacement_list_reexamination(ctx, NULL, &copy, level, position);
+    token_list_destroy(&copy);
+
+    for (struct token* _Opt t = r.head; t; t = t->next)
+    {
+        t->flags |= TK_FLAG_FINAL;
+        t->level = level;
+        t->token_origin = position;
+        t->line = position->line;
+        t->col = position->col;
+    }
+    return r;
+}
+
 struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_list* input_list)
 {
     struct token_list r = { 0 };
+    struct token_list keep = { 0 }; /* tokens kept alive for diagnostics only */
 
     try
     {
@@ -2435,9 +2807,157 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
             }
             else if (input_list->head->type == TK_IDENTIFIER &&
-                (strcmp(input_list->head->lexeme, "__has_include") == 0 ||
-                    strcmp(input_list->head->lexeme, "__has_embed") == 0)
-                )
+                strcmp(input_list->head->lexeme, "__has_embed") == 0)
+            {
+                /*
+                  6.10.1 __has_embed ( header-name embed-parameter-sequence opt )
+                  __STDC_EMBED_NOT_FOUND__ (0), __STDC_EMBED_FOUND__ (1), __STDC_EMBED_EMPTY__ (2)
+                */
+                /* keep a copy alive for diagnostics position / current file dir */
+                const struct token* _Opt p_has_embed_token = token_list_clone_and_add(&keep, input_list->head);
+                if (p_has_embed_token == NULL)
+                {
+                    throw;
+                }
+                token_list_pop_front(input_list); //pop __has_embed
+                skip_blanks( &r, input_list);
+                token_list_pop_front(input_list); //pop (
+                skip_blanks( &r, input_list);
+
+                char path[100] = { 0 };
+                bool is_angle_bracket_form = false;
+
+                if (input_list->head == NULL)
+                {
+                    pre_unexpected_end_of_file(r.tail, ctx);
+                    throw;
+                }
+
+                if (input_list->head->type == TK_STRING_LITERAL)
+                {
+                    if (!checked_strcat(path, sizeof(path), input_list->head->lexeme))
+                    {
+                        preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "embed path is too long (limit is %d characters)", (int)sizeof(path) - 1);
+                        throw;
+                    }
+                    token_list_pop_front(input_list); //pop "file"
+                }
+                else if (input_list->head->type == '<')
+                {
+                    is_angle_bracket_form = true;
+                    checked_strcat(path, sizeof(path), "<");
+                    token_list_pop_front(input_list); //pop <
+
+                    if (input_list->head == NULL)
+                    {
+                        pre_unexpected_end_of_file(r.tail, ctx);
+                        throw;
+                    }
+
+                    while (input_list->head->type != '>')
+                    {
+                        if (!checked_strcat(path, sizeof(path), input_list->head->lexeme))
+                        {
+                            preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, input_list->head, "embed path is too long (limit is %d characters)", (int)sizeof(path) - 1);
+                            throw;
+                        }
+                        token_list_pop_front(input_list);
+
+                        if (input_list->head == NULL)
+                        {
+                            pre_unexpected_end_of_file(r.tail, ctx);
+                            throw;
+                        }
+                    }
+                    token_list_pop_front(input_list); //pop >
+                    if (!checked_strcat(path, sizeof(path), ">"))
+                    {
+                        preprocessor_diagnostic(C_ERROR_PATH_TOO_LONG, ctx, p_has_embed_token, "embed path is too long (limit is %d characters)", (int)sizeof(path) - 1);
+                        throw;
+                    }
+                }
+                else
+                {
+                    preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, input_list->head, "expected \"filename\" or <filename>");
+                    throw;
+                }
+
+                struct embed_params params = { 0 };
+                if (!embed_parse_parameters(ctx, NULL, input_list, 0, true, ')', &params))
+                {
+                    embed_params_destroy(&params);
+                    throw;
+                }
+                token_list_pop_front(input_list); //pop )
+
+                int result = 0; /*__STDC_EMBED_NOT_FOUND__*/
+
+                if (!params.has_unsupported)
+                {
+                    long long limit = -1;
+                    if (params.has_limit)
+                    {
+                        limit = embed_evaluate_limit(ctx, &params, p_has_embed_token);
+                        if (limit < 0)
+                        {
+                            embed_params_destroy(&params);
+                            throw;
+                        }
+                    }
+
+                    /* strip the quotes or angle brackets */
+                    path[strlen(path) - 1] = '\0';
+
+                    char current_file_dir[FS_MAX_PATH] = { 0 };
+                    snprintf(current_file_dir, sizeof current_file_dir, "%s", p_has_embed_token->token_origin ? p_has_embed_token->token_origin->lexeme : "");
+                    dirname(current_file_dir);
+
+                    char fullpath[FS_MAX_PATH] = { 0 };
+                    if (embed_find_resource(ctx, path + 1, current_file_dir, is_angle_bracket_form, fullpath, sizeof fullpath))
+                    {
+                        result = 1; /*__STDC_EMBED_FOUND__*/
+                        if (limit == 0)
+                        {
+                            result = 2; /*__STDC_EMBED_EMPTY__*/
+                        }
+                        else
+                        {
+#ifndef MOCKFILES
+                            FILE* _Owner _Opt f = fopen(fullpath, "rb");
+                            if (f)
+                            {
+                                unsigned char ch = 0;
+                                if (fread(&ch, 1, 1, f) == 0)
+                                    result = 2; /*__STDC_EMBED_EMPTY__*/
+                                fclose(f);
+                            }
+#endif
+                        }
+                    }
+                }
+                embed_params_destroy(&params);
+
+                struct token* _Owner _Opt p_new_token = calloc(1, sizeof * p_new_token);
+                if (p_new_token == NULL)
+                {
+                    throw;
+                }
+
+                p_new_token->type = TK_PPNUMBER;
+
+                char* _Owner _Opt temp = strdup(result == 0 ? "0" : (result == 1 ? "1" : "2"));
+                if (temp == NULL)
+                {
+                    token_delete(p_new_token);
+                    throw;
+                }
+                p_new_token->lexeme = temp;
+                p_new_token->flags |= TK_FLAG_FINAL;
+
+                token_list_add(&r, p_new_token);
+            }
+            else if (input_list->head->type == TK_IDENTIFIER &&
+                strcmp(input_list->head->lexeme, "__has_include") == 0)
             {
                 token_list_pop_front(input_list); //pop __has_include
                 skip_blanks( &r, input_list);
@@ -2558,7 +3078,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                         throw;
                     }
                 }
-                token_list_pop_front(input_list); //pop >
+                token_list_pop_front(input_list); //pop )
 
                 const char* has_c_attribute_value = "0";
                 if (strcmp(path, "nodiscard") == 0)
@@ -2616,7 +3136,6 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 p_new_token->flags |= TK_FLAG_FINAL;
 
                 token_list_add(&r, p_new_token);
-                token_list_pop_front(input_list); //pop )
             }
             else if (input_list->head->type == TK_IDENTIFIER &&
                 is_clang_query_operator(input_list->head->lexeme))
@@ -2701,6 +3220,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
         //TODO clear?
     }
 
+    token_list_destroy(&keep);
     return r;
 }
 
@@ -4140,44 +4660,88 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 throw;
             }
 
-            if (input_list->head)
+            struct embed_params params = { 0 };
+
+            if (!embed_parse_parameters(ctx, p_list, input_list, level, is_active, TK_NEWLINE, &params))
             {
-                while (input_list->head->type != TK_NEWLINE)
-                {
-                    prematch_level(ctx, p_list, input_list, level, is_active);
-                    if (input_list->head == NULL)
-                    {
-                        pre_unexpected_end_of_file(p_list->tail, ctx);
-                        throw;
-                    }
-                }
+                embed_params_destroy(&params);
+                throw;
             }
+
             match_token_level(p_list, input_list, TK_NEWLINE, level, ctx);
 
-            char fullpath[300] = { 0 };
+            long long limit = -1;
+            if (params.has_limit)
+            {
+                limit = embed_evaluate_limit(ctx, &params, p_embed_token);
+                if (limit < 0)
+                {
+                    embed_params_destroy(&params);
+                    throw;
+                }
+            }
+
+            bool is_angle_bracket_form = path[0] == '<';
             path[strlen(path) - 1] = '\0';
 
-            snprintf(fullpath, sizeof(fullpath), "%s", path + 1);
+            /*this is the dir of the current file*/
+            char current_file_dir[FS_MAX_PATH] = { 0 };
+            snprintf(current_file_dir, sizeof current_file_dir, "%s", p_embed_token->token_origin ? p_embed_token->token_origin->lexeme : "");
+            dirname(current_file_dir);
 
-            int nlevel = level;
+            char fullpath[FS_MAX_PATH] = { 0 };
+            if (!embed_find_resource(ctx, path + 1, current_file_dir, is_angle_bracket_form, fullpath, sizeof fullpath))
+            {
+                preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, p_embed_token, "file '%s' not found", path + 1);
+                embed_params_destroy(&params);
+                throw;
+            }
 
-            enum token_flags f = TK_FLAG_NONE;
-
-            f = TK_FLAG_FINAL;
             //we cannot see it just like include
-            nlevel = nlevel + 1;
+            int nlevel = level + 1;
 
-            struct token_list list = embed_tokenizer(ctx, p_embed_token, fullpath, nlevel, f);
+            int count = 0;
+            struct token_list list = embed_tokenizer(ctx, p_embed_token, fullpath, nlevel, TK_FLAG_FINAL, limit, &count);
 
             if (ctx->n_errors > 0)
             {
                 token_list_destroy(&list);
+                embed_params_destroy(&params);
                 throw;
             }
 
-            token_list_append_list(&r, &list);
+            if (count == 0)
+            {
+                /* 6.10.3.4 empty resource: only if_empty is emitted */
+                if (params.has_if_empty)
+                {
+                    struct token_list clause = embed_expand_clause(ctx, &params.if_empty, p_embed_token, nlevel);
+                    token_list_append_list(&r, &clause);
+                    token_list_destroy(&clause);
+                }
+            }
+            else
+            {
+                if (params.has_prefix)
+                {
+                    struct token_list clause = embed_expand_clause(ctx, &params.prefix, p_embed_token, nlevel);
+                    token_list_append_list(&r, &clause);
+                    token_list_destroy(&clause);
+                }
+
+                token_list_append_list(&r, &list);
+
+                if (params.has_suffix)
+                {
+                    struct token_list clause = embed_expand_clause(ctx, &params.suffix, p_embed_token, nlevel);
+                    token_list_append_list(&r, &clause);
+                    token_list_destroy(&clause);
+                }
+            }
+
             token_list_destroy(&list);
             token_list_destroy(&discard0);
+            embed_params_destroy(&params);
         }
         else if (strcmp(input_list->head->lexeme, "define") == 0)
         {
@@ -6173,7 +6737,8 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
     token_list_append_list(&r, &g);
     token_list_destroy(&g);
 
-    if (input_list->head != NULL &&
+    if (ctx->n_errors == 0 &&
+        input_list->head != NULL &&
         input_list->head->type == TK_PREPROCESSOR_LINE &&
         (preprocessor_token_ahead_is_identifier(input_list->head, "endif") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "else") ||
@@ -6350,6 +6915,9 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
     add_builtin_define(ctx, "#define __LINE__  0 \n");
     add_builtin_define(ctx, "#define __COUNTER__  0 \n");
     add_builtin_define(ctx, "#define __STDC_VERSION__  202311L \n");
+    add_builtin_define(ctx, "#define __STDC_EMBED_NOT_FOUND__ 0 \n");
+    add_builtin_define(ctx, "#define __STDC_EMBED_FOUND__ 1 \n");
+    add_builtin_define(ctx, "#define __STDC_EMBED_EMPTY__ 2 \n");
     add_builtin_define(ctx, "#define __BITINT_MAXWIDTH__  64 \n");
 
     char datastr[100] = { 0 };

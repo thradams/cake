@@ -711,7 +711,8 @@ struct enumerator_list
 };
 
 struct enumerator_list enumerator_list(struct parser_ctx* ctx,
-    struct enum_specifier* p_enum_specifier
+    struct enum_specifier* p_enum_specifier,
+    const struct enum_specifier* _Opt prev_decl_same_scope
 );
 
 void enumerator_list_destroy(_Dtor struct enumerator_list* p_enum_specifier);
@@ -810,6 +811,9 @@ struct struct_or_union_specifier
     char tag_name[200];
     /*geramos um tag name para anomimas, mas colocamos banonymousTag para true*/
     bool has_anonymous_tag;
+
+    /* set when defined inside a parameter list: that scope. The tag is moved to the enclosing scope (C23 tag compatibility) */
+    struct scope* _Opt p_parameters_scope_opt;
     /*it was asked to show struct tag created for anonymous*/
     bool show_anonymous_tag;
 
@@ -1809,7 +1813,7 @@ struct enumerator
     struct object value;
 };
 
-struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, struct object* p_enumerator_value, long long lo_limit, unsigned long long hi_limit, long long *min_value, unsigned long long *max_value, bool* next_ovf);
+struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, const struct enum_specifier* _Opt prev_decl_same_scope, struct object* p_enumerator_value, long long lo_limit, unsigned long long hi_limit, long long *min_value, unsigned long long *max_value, bool* next_ovf);
 struct enumerator* _Owner enumerator_add_ref(struct enumerator* p);
 void enumerator_delete(_Dtor struct enumerator* _Owner _Opt  p);
 

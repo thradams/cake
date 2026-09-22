@@ -124,6 +124,17 @@ system directory is searched before it, `#include <stdlib.h>` resolves
 straight to the real header, Cake's annotated version is never reached, and
 `#include_next` never runs, so nothing in that file gets annotated.
 
+The `-cake-headers` option switches to a different mode: it defines the
+built-in macro `CAKE_HEADERS`, which each of Cake's headers checks to decide
+whether to declare everything itself - types, macros, and function
+prototypes - instead of deferring to `#include_next`. With `-cake-headers`,
+Cake's headers are entirely self-contained and the real system headers are
+never consulted at all, so compilation no longer depends on having a
+system toolchain or its include paths configured. This is how Cake compiles
+itself and runs its test suite portably; it is not meant for compiling
+ordinary programs, since a program built this way only sees the subset of
+the platform's declarations that Cake's own headers happen to provide.
+
 ### 2.4 System include paths auto-configuration
 
 The `-auto-config` option fills in `cake.json`'s `"include_dirs"` automatically
@@ -1774,6 +1785,8 @@ Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf
 
 ### 9.18 `#embed` Directive
 
+`#embed` expands to the bytes of a resource as a comma-separated list of
+integer constants.
 
 <!-- runnable -->
 
@@ -1782,16 +1795,49 @@ Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf
 
 int main() {
     static const char file_txt[] = {
-#embed "stdio.h"
+#embed "stdio.h" limit(64)
         , 0
     };
     printf("%s\n", file_txt);
 }
 ```
 
+The resource is searched like an `#include`: the `"file"` form looks in the
+directory of the current file first and then in the include directories; the
+`<file>` form looks only in the include directories.
 
+The standard parameters are supported (also with the `__limit__` spelling):
 
-> **Note** Some details are not implemented yet.
+| Parameter | Effect |
+|---|---|
+| `limit(N)` | at most `N` bytes; `N` is a constant expression evaluated as in `#if` (`defined` is not allowed, negative values are an error) |
+| `prefix(tokens)` | emitted before the bytes, only if the resource is not empty |
+| `suffix(tokens)` | emitted after the bytes, only if the resource is not empty |
+| `if_empty(tokens)` | emitted instead of the bytes when the resource is empty (or `limit(0)`) |
+
+Each standard parameter can appear at most once; an unknown parameter is an
+error. `vendor::parameter` names are accepted and ignored.
+
+```c
+static const char message[] = {
+#embed "message.txt" suffix(, '\0') if_empty('n', 'o', 'n', 'e', '\0')
+};
+```
+
+`__has_embed(resource parameters)` can be used in `#if` and evaluates to
+`__STDC_EMBED_NOT_FOUND__` (0), `__STDC_EMBED_FOUND__` (1) or
+`__STDC_EMBED_EMPTY__` (2). It also evaluates to 0 when a parameter is not
+supported.
+
+```c
+#if __has_embed("logo.png") == __STDC_EMBED_FOUND__
+static const unsigned char logo[] = {
+#embed "logo.png"
+};
+#endif
+```
+
+Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3017.htm
 
 ### 9.19 `#elifdef` / `#elifndef`
 
@@ -1904,7 +1950,78 @@ Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2763.pdf
 
 ### 9.23 Improved Tag Compatibility
 
-**Not implemented yet.**
+Two `struct`, `union` or `enum` definitions with the same tag and the same
+content are the same type, wherever they appear in the translation unit. For a
+`struct` or `union` this means the same members, in the same order, with the
+same names, types, bit-field widths and alignment; for an `enum` it means the
+same underlying type (if one is specified) and the same enumerators, in the
+same order, with the same names and values. Before C23 a second definition in
+the same scope was an error, and a definition in an inner scope was always a
+distinct type.
+
+This makes it possible to define a type at each place it is used, for example
+from a macro, instead of requiring one `typedef` per instance:
+
+<!-- runnable -->
+
+```c
+#define VEC(T) struct vec_##T { T* data; int size; int capacity; }
+
+/* struct vec_int is defined here, inside the parameter list (prototype scope) */
+void push_int(VEC(int)* v, int x)
+{
+    v->data[v->size++] = x;
+}
+
+int main()
+{
+    int storage[4];
+    VEC(int) v = { storage, 0, 4 };   /* same type as push_int's parameter */
+    push_int(&v, 1);
+}
+```
+
+This also applies to a struct defined inside a parameter list: the tag is not
+visible after the prototype, but a later definition with the same content is
+the same type (gcc 15 accepts this in C23 mode as well).
+
+A redefinition in the same scope with different content is an error (2070),
+and definitions with different content in different scopes are distinct,
+incompatible types (950 for structs and unions, 40 for enums).
+
+```c
+enum E : short { A = 1, B = 2 };
+void f(enum E);
+
+void g(void)
+{
+    enum E : short { A = 1, B = 2 };
+    f(A);                             /* same type */
+}
+
+void h(void)
+{
+    enum E : short { A = 1, B = 3 };  /* different value: a new enum E */
+    f(A);                             /* warning 40: incompatible types */
+}
+```
+
+The generated code contains a single definition of the tag: an inner-scope or
+repeated definition that has the same content reuses the one already emitted
+instead of being renamed.
+
+```c
+struct vec_int {
+    int * data;
+    int size;
+    int capacity;
+};
+
+void push_int(struct vec_int * v, int x)
+{
+    v->data[v->size++] = x;
+}
+```
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3037.pdf
 
@@ -2005,6 +2122,7 @@ int main() {
 **Cake extension:** `_Countof` is additionally defined for enum types, returning the number of enumerators. This is not part of C2Y.
 
 <!-- runnable -->
+
 ```c
 enum E { A, B, C, D, E, F };
 static_assert(_Countof(enum E) == 6);
@@ -2176,6 +2294,7 @@ Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3678.pdf
 ### 10.10 Function Literals
 
 <!-- runnable -->
+
 ```c
 #include <stdio.h>
 
@@ -2523,6 +2642,7 @@ value for its whole lifetime.
 ```
 
 <!-- runnable -->
+
 ```c
 #pragma pack(push, 1)
 struct packed { char c; int i; };
@@ -2627,6 +2747,7 @@ struct out identically.
   only ever raises the alignment; `aligned(2)` on an `int` stays 4.
 
 <!-- runnable -->
+
 ```c
 struct __attribute__((packed)) header { char tag; int length; };
 struct record { char c; int i __attribute__((packed)); short s; };

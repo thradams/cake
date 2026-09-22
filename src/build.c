@@ -445,7 +445,6 @@ static void build_docs(void)
     generate_doc("../idemanual.md", "./web/idemanual.html");
     generate_doc("../README.md", "./web/index.html");
     generate_doc("../diagnostics.md", "./web/diagnostics.html");
-    generate_doc("../flow3.md", "./web/flow3.html");
     generate_doc("../flow.md", "./web/flow.html");
 
     remove(EXE("hoedown"));
@@ -470,6 +469,23 @@ static void build_amalgamation(void)
     print_header("Build amalgamated file");
     execute_cmd(RUN EXE("amalgamator") " -olib.c " CAKE_LIB_SOURCE_FILES);
     remove(EXE("amalgamator"));
+}
+
+static void build_web_samples(void)
+{
+    /* Keep web samples in sync with the samples folder */
+    print_header("Build web samples");
+    echo_chdir("./tools");
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS makesamples.c " CC_OUTPUT("../" EXE("makesamples")));
+    echo_chdir("..");
+    execute_cmd(RUN EXE("makesamples") " ./samples");
+#ifdef _WIN32
+    execute_cmd("copy samples.js web\\samples.js");
+#else
+    execute_cmd("cp samples.js web/samples.js");
+#endif
+    remove(EXE("makesamples"));
+    remove("samples.js");
 }
 
 static time_t get_mtime(const char* path)
@@ -1138,6 +1154,7 @@ int main(int argc, char* argv[])
     {
         build_tools();
         build_docs();
+        build_web_samples();
         build_inner_tests();
         build_embedded_files();
         build_amalgamation();

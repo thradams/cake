@@ -633,10 +633,8 @@ void flow_branch_set_object_any_n(struct flow_branch* _Opt m, const struct objec
     }
 }
 
-void flow_branch_set_object_lifetime_ended(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token)
+void flow_branch_set_object_lifetime_ended(struct flow_branch* m, const struct object* obj, const struct token* _Opt p_token)
 {
-    if (m == NULL)
-        return;
 
     if (obj->members.head)
     {

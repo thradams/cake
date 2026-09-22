@@ -12,10 +12,9 @@
 #define __STDC_VERSION_WCTYPE_H__ 202311L
 
 typedef __cake_wint_t wint_t;
-typedef __cake_wchar_t wchar_t;
 #if defined(_WIN32)
 typedef unsigned short wctype_t;
-typedef wchar_t wctrans_t;
+typedef __cake_wchar_t wctrans_t;
 #elif defined(__APPLE__)
 typedef unsigned int wctype_t;
 typedef int wctrans_t;

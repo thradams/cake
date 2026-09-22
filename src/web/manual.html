@@ -454,105 +454,84 @@
 <li>
 <a href="#toc_90">10.10 Function Literals</a>
 </li>
-</ul>
+<li>
+<a href="#toc_91">10.11 Statement Expressions</a>
+</li>
+<li>
+<a href="#toc_92">10.12 Elvis Operator (<code>?:</code>)</a>
+</li>
+<li>
+<a href="#toc_93">10.13 <code>static_assert</code> as an Expression</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_91">include &lt;stdio.h&gt;</a>
+<a href="#toc_94">11. Cake Language Extensions</a>
 <ul>
 <li>
-<ul>
-<li>
-<a href="#toc_92">10.11 Statement Expressions</a>
+<a href="#toc_95">11.1 Built-in <code>_Assert</code></a>
 </li>
 <li>
-<a href="#toc_93">10.12 Elvis Operator (<code>?:</code>)</a>
+<a href="#toc_96">11.2 <code>try</code> / <code>throw</code> / <code>catch</code></a>
 </li>
 <li>
-<a href="#toc_94">10.13 <code>static_assert</code> as an Expression</a>
+<a href="#toc_97">11.3 Checked Expressions (<code>!</code> operator)</a>
+</li>
+<li>
+<a href="#toc_98">11.4 <code>#pragma dir</code></a>
+</li>
+<li>
+<a href="#toc_99">11.5 <code>#pragma pack</code></a>
+</li>
+<li>
+<a href="#toc_100">11.6 <code>__attribute__((packed))</code> and <code>__attribute__((aligned(n)))</code></a>
+</li>
+<li>
+<a href="#toc_101">11.7 <code>offsetof</code> Operator</a>
+</li>
+<li>
+<a href="#toc_102">11.8 Type Traits</a>
+</li>
+<li>
+<a href="#toc_103">11.9 Object Lifetime Checks (Ownership)</a>
+</li>
+<li>
+<a href="#toc_104">11.10 Pre-defined Macros</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_95">11. Cake Language Extensions</a>
+<a href="#toc_105">12. GCC Compatibility</a>
+</li>
+<li>
+<a href="#toc_106">13. MSVC Compatibility</a>
+</li>
+<li>
+<a href="#toc_107">Appendix A. Grammar of the Generated Code</a>
 <ul>
 <li>
-<a href="#toc_96">11.1 Built-in <code>_Assert</code></a>
+<a href="#toc_108">A.1 Translation unit</a>
 </li>
 <li>
-<a href="#toc_97">11.2 <code>try</code> / <code>throw</code> / <code>catch</code></a>
+<a href="#toc_109">A.2 Types</a>
 </li>
 <li>
-<a href="#toc_98">11.3 Checked Expressions (<code>!</code> operator)</a>
+<a href="#toc_110">A.3 Declarators</a>
 </li>
 <li>
-<a href="#toc_99">11.4 <code>#pragma dir</code></a>
+<a href="#toc_111">A.4 Declarations and definitions</a>
 </li>
 <li>
-<a href="#toc_100">11.5 <code>#pragma pack</code></a>
-</li>
-</ul>
-</li>
-</ul>
+<a href="#toc_112">A.5 Statements</a>
 </li>
 <li>
-<a href="#toc_101">pragma pack(push, 1)</a>
+<a href="#toc_113">A.6 Expressions</a>
 </li>
 <li>
-<a href="#toc_102">pragma pack(pop)</a>
-<ul>
-<li>
-<ul>
-<li>
-<a href="#toc_103">11.6 <code>__attribute__((packed))</code> and <code>__attribute__((aligned(n)))</code></a>
+<a href="#toc_114">A.7 Lexical elements</a>
 </li>
 <li>
-<a href="#toc_104">11.7 <code>offsetof</code> Operator</a>
-</li>
-<li>
-<a href="#toc_105">11.8 Type Traits</a>
-</li>
-<li>
-<a href="#toc_106">11.9 Object Lifetime Checks (Ownership)</a>
-</li>
-<li>
-<a href="#toc_107">11.10 Pre-defined Macros</a>
-</li>
-</ul>
-</li>
-<li>
-<a href="#toc_108">12. GCC Compatibility</a>
-</li>
-<li>
-<a href="#toc_109">13. MSVC Compatibility</a>
-</li>
-<li>
-<a href="#toc_110">Appendix A. Grammar of the Generated Code</a>
-<ul>
-<li>
-<a href="#toc_111">A.1 Translation unit</a>
-</li>
-<li>
-<a href="#toc_112">A.2 Types</a>
-</li>
-<li>
-<a href="#toc_113">A.3 Declarators</a>
-</li>
-<li>
-<a href="#toc_114">A.4 Declarations and definitions</a>
-</li>
-<li>
-<a href="#toc_115">A.5 Statements</a>
-</li>
-<li>
-<a href="#toc_116">A.6 Expressions</a>
-</li>
-<li>
-<a href="#toc_117">A.7 Lexical elements</a>
-</li>
-<li>
-<a href="#toc_118">A.8 Target-dependent spellings</a>
+<a href="#toc_115">A.8 Target-dependent spellings</a>
 </li>
 </ul>
 </li>
@@ -679,6 +658,17 @@ platform-specific details) from the real header.</p>
 system directory is searched before it, <code>#include &lt;stdlib.h&gt;</code> resolves
 straight to the real header, Cake&#39;s annotated version is never reached, and
 <code>#include_next</code> never runs, so nothing in that file gets annotated.</p>
+
+<p>The <code>-cake-headers</code> option switches to a different mode: it defines the
+built-in macro <code>CAKE_HEADERS</code>, which each of Cake&#39;s headers checks to decide
+whether to declare everything itself - types, macros, and function
+prototypes - instead of deferring to <code>#include_next</code>. With <code>-cake-headers</code>,
+Cake&#39;s headers are entirely self-contained and the real system headers are
+never consulted at all, so compilation no longer depends on having a
+system toolchain or its include paths configured. This is how Cake compiles
+itself and runs its test suite portably; it is not meant for compiling
+ordinary programs, since a program built this way only sees the subset of
+the platform&#39;s declarations that Cake&#39;s own headers happen to provide.</p>
 
 <h3 id="toc_6">2.4 System include paths auto-configuration</h3>
 
@@ -2506,22 +2496,77 @@ Replaces C11 <code>_Noreturn</code>.</p>
 
 <h3 id="toc_73">9.18 <code>#embed</code> Directive</h3>
 
+<p><code>#embed</code> expands to the bytes of a resource as a comma-separated list of
+integer constants.</p>
+
 <!-- runnable -->
 
 <pre><code class="language-c">#include &lt;stdio.h&gt;
 
 int main() {
     static const char file_txt[] = {
-#embed &quot;stdio.h&quot;
+#embed &quot;stdio.h&quot; limit(64)
         , 0
     };
     printf(&quot;%s\n&quot;, file_txt);
 }
 </code></pre>
 
-<blockquote>
-<p><strong>Note</strong> Some details are not implemented yet.</p>
-</blockquote>
+<p>The resource is searched like an <code>#include</code>: the <code>&quot;file&quot;</code> form looks in the
+directory of the current file first and then in the include directories; the
+<code>&lt;file&gt;</code> form looks only in the include directories.</p>
+
+<p>The standard parameters are supported (also with the <code>__limit__</code> spelling):</p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Effect</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td><code>limit(N)</code></td>
+<td>at most <code>N</code> bytes; <code>N</code> is a constant expression evaluated as in <code>#if</code> (<code>defined</code> is not allowed, negative values are an error)</td>
+</tr>
+<tr>
+<td><code>prefix(tokens)</code></td>
+<td>emitted before the bytes, only if the resource is not empty</td>
+</tr>
+<tr>
+<td><code>suffix(tokens)</code></td>
+<td>emitted after the bytes, only if the resource is not empty</td>
+</tr>
+<tr>
+<td><code>if_empty(tokens)</code></td>
+<td>emitted instead of the bytes when the resource is empty (or <code>limit(0)</code>)</td>
+</tr>
+</tbody>
+</table>
+
+<p>Each standard parameter can appear at most once; an unknown parameter is an
+error. <code>vendor::parameter</code> names are accepted and ignored.</p>
+
+<pre><code class="language-c">static const char message[] = {
+#embed &quot;message.txt&quot; suffix(, &#39;\0&#39;) if_empty(&#39;n&#39;, &#39;o&#39;, &#39;n&#39;, &#39;e&#39;, &#39;\0&#39;)
+};
+</code></pre>
+
+<p><code>__has_embed(resource parameters)</code> can be used in <code>#if</code> and evaluates to
+<code>__STDC_EMBED_NOT_FOUND__</code> (0), <code>__STDC_EMBED_FOUND__</code> (1) or
+<code>__STDC_EMBED_EMPTY__</code> (2). It also evaluates to 0 when a parameter is not
+supported.</p>
+
+<pre><code class="language-c">#if __has_embed(&quot;logo.png&quot;) == __STDC_EMBED_FOUND__
+static const unsigned char logo[] = {
+#embed &quot;logo.png&quot;
+};
+#endif
+</code></pre>
+
+<p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3017.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3017.htm</a></p>
 
 <h3 id="toc_74">9.19 <code>#elifdef</code> / <code>#elifndef</code></h3>
 
@@ -2629,7 +2674,75 @@ again.</p>
 
 <h3 id="toc_78">9.23 Improved Tag Compatibility</h3>
 
-<p><strong>Not implemented yet.</strong></p>
+<p>Two <code>struct</code>, <code>union</code> or <code>enum</code> definitions with the same tag and the same
+content are the same type, wherever they appear in the translation unit. For a
+<code>struct</code> or <code>union</code> this means the same members, in the same order, with the
+same names, types, bit-field widths and alignment; for an <code>enum</code> it means the
+same underlying type (if one is specified) and the same enumerators, in the
+same order, with the same names and values. Before C23 a second definition in
+the same scope was an error, and a definition in an inner scope was always a
+distinct type.</p>
+
+<p>This makes it possible to define a type at each place it is used, for example
+from a macro, instead of requiring one <code>typedef</code> per instance:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#define VEC(T) struct vec_##T { T* data; int size; int capacity; }
+
+/* struct vec_int is defined here, inside the parameter list (prototype scope) */
+void push_int(VEC(int)* v, int x)
+{
+    v-&gt;data[v-&gt;size++] = x;
+}
+
+int main()
+{
+    int storage[4];
+    VEC(int) v = { storage, 0, 4 };   /* same type as push_int&#39;s parameter */
+    push_int(&amp;v, 1);
+}
+</code></pre>
+
+<p>This also applies to a struct defined inside a parameter list: the tag is not
+visible after the prototype, but a later definition with the same content is
+the same type (gcc 15 accepts this in C23 mode as well).</p>
+
+<p>A redefinition in the same scope with different content is an error (2070),
+and definitions with different content in different scopes are distinct,
+incompatible types (950 for structs and unions, 40 for enums).</p>
+
+<pre><code class="language-c">enum E : short { A = 1, B = 2 };
+void f(enum E);
+
+void g(void)
+{
+    enum E : short { A = 1, B = 2 };
+    f(A);                             /* same type */
+}
+
+void h(void)
+{
+    enum E : short { A = 1, B = 3 };  /* different value: a new enum E */
+    f(A);                             /* warning 40: incompatible types */
+}
+</code></pre>
+
+<p>The generated code contains a single definition of the tag: an inner-scope or
+repeated definition that has the same content reuses the one already emitted
+instead of being renamed.</p>
+
+<pre><code class="language-c">struct vec_int {
+    int * data;
+    int size;
+    int capacity;
+};
+
+void push_int(struct vec_int * v, int x)
+{
+    v-&gt;data[v-&gt;size++] = x;
+}
+</code></pre>
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3037.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3037.pdf</a></p>
 

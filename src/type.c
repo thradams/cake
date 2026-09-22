@@ -1173,6 +1173,279 @@ bool type_is_enumerator(const struct type* p_type)
     return p_type->enum_specifier && p_type->type_specifier_flags != TYPE_SPECIFIER_ENUM;
 }
 
+/*
+  A pair of definitions whose content comparison is in progress, one frame
+  per nesting level on the stack of the comparison. See
+  struct_or_union_specifier_is_same_content_impl.
+*/
+struct tag_compare_frame
+{
+    const struct struct_or_union_specifier* a;
+    const struct struct_or_union_specifier* b;
+    const struct tag_compare_frame* _Opt previous;
+};
+
+static bool type_is_same_impl(const struct type* a,
+                              const struct type* b,
+                              bool compare_qualifiers,
+                              const struct tag_compare_frame* _Opt p_frames);
+
+static bool struct_or_union_specifier_is_same_content_impl(const struct struct_or_union_specifier* a,
+                                                           const struct struct_or_union_specifier* b,
+                                                           const struct tag_compare_frame* _Opt p_frames);
+
+static bool struct_or_union_specifier_is_compatible_impl(const struct struct_or_union_specifier* a,
+                                                         const struct struct_or_union_specifier* b,
+                                                         const struct tag_compare_frame* _Opt p_frames);
+
+/* C23 6.2.7 (N3037): same members, names, types, bit-field widths and alignment; both must be complete */
+bool struct_or_union_specifier_is_same_content(const struct struct_or_union_specifier* a,
+                                               const struct struct_or_union_specifier* b)
+{
+    return struct_or_union_specifier_is_same_content_impl(a, b, NULL);
+}
+
+static bool struct_or_union_specifier_is_same_content_impl(const struct struct_or_union_specifier* a,
+                                                           const struct struct_or_union_specifier* b,
+                                                           const struct tag_compare_frame* _Opt p_frames)
+{
+    bool same = true;
+
+    if (a == b)
+    {
+        return true;
+    }
+
+    if (a->first_token->type != b->first_token->type ||
+        a->pack_alignment != b->pack_alignment ||
+        a->aligned_attribute != b->aligned_attribute)
+    {
+        return false;
+    }
+
+    /*
+      struct N { struct N* next; } redefined in an inner scope: comparing the
+      member 'next' compares N with N again. A pair already being compared is
+      assumed the same; the outer comparison decides.
+    */
+    for (const struct tag_compare_frame* _Opt p = p_frames; p; p = p->previous)
+    {
+        if (p->a == a && p->b == b)
+        {
+            return true;
+        }
+    }
+
+    struct tag_compare_frame frame = { .a = a, .b = b, .previous = p_frames };
+
+    const struct member_declaration* _Opt p_a_declaration = a->member_declaration_list.head;
+    const struct member_declaration* _Opt p_b_declaration = b->member_declaration_list.head;
+
+    while (same)
+    {
+        /* static_assert and pragmas inside the struct are not members */
+        while (p_a_declaration && p_a_declaration->specifier_qualifier_list == NULL)
+        {
+            p_a_declaration = p_a_declaration->next;
+        }
+        while (p_b_declaration && p_b_declaration->specifier_qualifier_list == NULL)
+        {
+            p_b_declaration = p_b_declaration->next;
+        }
+
+        if (p_a_declaration == NULL || p_b_declaration == NULL)
+        {
+            same = (p_a_declaration == NULL && p_b_declaration == NULL);
+            break;
+        }
+
+        const struct member_declarator* _Opt p_a_declarator =
+            p_a_declaration->member_declarator_list_opt ? p_a_declaration->member_declarator_list_opt->head : NULL;
+        const struct member_declarator* _Opt p_b_declarator =
+            p_b_declaration->member_declarator_list_opt ? p_b_declaration->member_declarator_list_opt->head : NULL;
+
+        if (p_a_declarator == NULL || p_b_declarator == NULL)
+        {
+            /* anonymous struct/union member: both sides must be anonymous with the same content */
+            const struct struct_or_union_specifier* _Opt p_a_anonymous =
+                p_a_declaration->specifier_qualifier_list->struct_or_union_specifier;
+            const struct struct_or_union_specifier* _Opt p_b_anonymous =
+                p_b_declaration->specifier_qualifier_list->struct_or_union_specifier;
+
+            if (p_a_declarator != NULL || p_b_declarator != NULL ||
+                p_a_anonymous == NULL || p_b_anonymous == NULL)
+            {
+                same = false;
+            }
+            else
+            {
+                const struct struct_or_union_specifier* _Opt p_a_complete =
+                    get_complete_struct_or_union_specifier(p_a_anonymous);
+                const struct struct_or_union_specifier* _Opt p_b_complete =
+                    get_complete_struct_or_union_specifier(p_b_anonymous);
+
+                same = p_a_complete && p_b_complete &&
+                       struct_or_union_specifier_is_same_content_impl(p_a_complete, p_b_complete, &frame);
+            }
+        }
+
+        while (same && p_a_declarator && p_b_declarator)
+        {
+            const struct declarator* _Opt p_a = p_a_declarator->declarator;
+            const struct declarator* _Opt p_b = p_b_declarator->declarator;
+
+            const char* a_name = (p_a && p_a->name_opt) ? p_a->name_opt->lexeme : "";
+            const char* b_name = (p_b && p_b->name_opt) ? p_b->name_opt->lexeme : "";
+
+            if (strcmp(a_name, b_name) != 0)
+            {
+                same = false;
+            }
+            else if ((p_a_declarator->constant_expression == NULL) !=
+                     (p_b_declarator->constant_expression == NULL))
+            {
+                same = false;
+            }
+            else if (p_a_declarator->constant_expression &&
+                     object_to_unsigned_long_long(&p_a_declarator->constant_expression->object) !=
+                     object_to_unsigned_long_long(&p_b_declarator->constant_expression->object))
+            {
+                same = false;
+            }
+            else if ((p_a == NULL) != (p_b == NULL))
+            {
+                same = false;
+            }
+            else if (p_a && p_b)
+            {
+                const struct struct_or_union_specifier* _Opt p_a_member_struct =
+                    p_a->object.type.category == TYPE_CATEGORY_ITSELF ? p_a->object.type.struct_or_union_specifier : NULL;
+                const struct struct_or_union_specifier* _Opt p_b_member_struct =
+                    p_b->object.type.category == TYPE_CATEGORY_ITSELF ? p_b->object.type.struct_or_union_specifier : NULL;
+
+                if (p_a_member_struct && p_b_member_struct &&
+                    p_a_member_struct->has_anonymous_tag && p_b_member_struct->has_anonymous_tag)
+                {
+                    /* struct { int i; } m; -- generated tags differ, so compare the content */
+                    const struct struct_or_union_specifier* _Opt p_a_complete =
+                        get_complete_struct_or_union_specifier(p_a_member_struct);
+                    const struct struct_or_union_specifier* _Opt p_b_complete =
+                        get_complete_struct_or_union_specifier(p_b_member_struct);
+
+                    same = p_a_complete && p_b_complete &&
+                           p_a->object.type.type_qualifier_flags == p_b->object.type.type_qualifier_flags &&
+                           struct_or_union_specifier_is_same_content_impl(p_a_complete, p_b_complete, &frame);
+                }
+                else
+                {
+                    same = type_is_same_impl(&p_a->object.type, &p_b->object.type, true, &frame);
+                }
+            }
+
+            p_a_declarator = p_a_declarator->next;
+            p_b_declarator = p_b_declarator->next;
+        }
+
+        if (same && (p_a_declarator != NULL || p_b_declarator != NULL))
+        {
+            same = false;
+        }
+
+        p_a_declaration = p_a_declaration->next;
+        p_b_declaration = p_b_declaration->next;
+    }
+
+    return same;
+}
+
+/* same kind and tag; two visible definitions are the same type when they are the same definition
+   (the parser merges them, see parser.c) or, C23 6.2.7 (N3037), when they have the same content */
+bool struct_or_union_specifier_is_compatible(const struct struct_or_union_specifier* a,
+                                             const struct struct_or_union_specifier* b)
+{
+    return struct_or_union_specifier_is_compatible_impl(a, b, NULL);
+}
+
+static bool struct_or_union_specifier_is_compatible_impl(const struct struct_or_union_specifier* a,
+                                                         const struct struct_or_union_specifier* b,
+                                                         const struct tag_compare_frame* _Opt p_frames)
+{
+    bool compatible = true;
+
+    if (a == b)
+    {
+        return true;
+    }
+
+    if (a->first_token->type != b->first_token->type ||
+        strcmp(a->tag_name, b->tag_name) != 0)
+    {
+        compatible = false;
+    }
+    else
+    {
+        const struct struct_or_union_specifier* _Opt p_a_complete =
+            get_complete_struct_or_union_specifier(a);
+        const struct struct_or_union_specifier* _Opt p_b_complete =
+            get_complete_struct_or_union_specifier(b);
+
+        if (p_a_complete && p_b_complete)
+        {
+            compatible = (p_a_complete == p_b_complete) ||
+                         struct_or_union_specifier_is_same_content_impl(p_a_complete, p_b_complete, p_frames);
+        }
+    }
+
+    return compatible;
+}
+
+/* C23 6.2.7 (N3037): same underlying type and the same enumerators, in order, with the same values; both must be complete */
+bool enum_specifier_is_same_content(const struct enum_specifier* a, const struct enum_specifier* b)
+{
+    if (a == b)
+    {
+        return true;
+    }
+
+    if (a->has_underlying != b->has_underlying ||
+        !type_is_same(&a->integer_type, &b->integer_type, false))
+    {
+        return false;
+    }
+
+    const struct enumerator* _Opt p_a = a->enumerator_list.head;
+    const struct enumerator* _Opt p_b = b->enumerator_list.head;
+
+    while (p_a && p_b)
+    {
+        if (strcmp(p_a->token->lexeme, p_b->token->lexeme) != 0 ||
+            object_to_unsigned_long_long(&p_a->value) != object_to_unsigned_long_long(&p_b->value))
+        {
+            return false;
+        }
+        p_a = p_a->next;
+        p_b = p_b->next;
+    }
+
+    return p_a == NULL && p_b == NULL;
+}
+
+/* same tag and the same definition or, C23 6.2.7 (N3037), definitions with the same content */
+bool enum_specifier_is_same_type(const struct enum_specifier* a, const struct enum_specifier* b)
+{
+    const struct enum_specifier* _Opt p_a_complete = get_complete_enum_specifier(a);
+    const struct enum_specifier* _Opt p_b_complete = get_complete_enum_specifier(b);
+
+    if (p_a_complete == p_b_complete)
+    {
+        return true;
+    }
+
+    return p_a_complete != NULL && p_b_complete != NULL &&
+           strcmp(a->tag_name, b->tag_name) == 0 &&
+           enum_specifier_is_same_content(p_a_complete, p_b_complete);
+}
+
 bool type_is_struct_or_union(const struct type* p_type)
 {
     return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
@@ -3729,6 +4002,14 @@ struct type type_make_literal_string(int number_of_chars_including_zero,
 
 bool type_is_same(const struct type* a, const struct type* b, bool compare_qualifiers)
 {
+    return type_is_same_impl(a, b, compare_qualifiers, NULL);
+}
+
+static bool type_is_same_impl(const struct type* a,
+                              const struct type* b,
+                              bool compare_qualifiers,
+                              const struct tag_compare_frame* _Opt p_frames)
+{
     const struct type* _Opt pa = a;
     const struct type* _Opt pb = b;
 
@@ -3772,7 +4053,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
             const struct enum_specifier* _Opt p_complete_a = get_complete_enum_specifier(pa->enum_specifier);
             if (p_complete_a != NULL)
             {
-                if (!type_is_same(&p_complete_a->integer_type, pb, compare_qualifiers))
+                if (!type_is_same_impl(&p_complete_a->integer_type, pb, compare_qualifiers, p_frames))
                 {
                     return false;
                 }
@@ -3787,7 +4068,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
             const struct enum_specifier* _Opt p_complete_b = get_complete_enum_specifier(pb->enum_specifier);
             if (p_complete_b != NULL)
             {
-                if (!type_is_same(pa, &p_complete_b->integer_type, compare_qualifiers))
+                if (!type_is_same_impl(pa, &p_complete_b->integer_type, compare_qualifiers, p_frames))
                 {
                     return false;
                 }
@@ -3799,7 +4080,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
         {
             const struct enum_specifier* _Opt pa_complete_enum = get_complete_enum_specifier(pa->enum_specifier);
             const struct enum_specifier* _Opt pb_complete_enum = get_complete_enum_specifier(pb->enum_specifier);
-            if (pa_complete_enum != pb_complete_enum)
+            if (!enum_specifier_is_same_type(pa->enum_specifier, pb->enum_specifier))
             {
                 return false;
             }
@@ -3867,7 +4148,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
                     type_remove_all_qualifiers(&a_param);
                     type_remove_all_qualifiers(&b_param);
 
-                    const bool same = type_is_same(&a_param, &b_param, true);
+                    const bool same = type_is_same_impl(&a_param, &b_param, true, p_frames);
 
                     type_destroy(&a_param);
                     type_destroy(&b_param);
@@ -3889,14 +4170,8 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
         if (pa->struct_or_union_specifier &&
             pb->struct_or_union_specifier)
         {
-
-            if (pa->struct_or_union_specifier->complete_struct_or_union_specifier_indirection !=
-                pb->struct_or_union_specifier->complete_struct_or_union_specifier_indirection)
-            {
-                //this should work but it is not...
-            }
-
-            if (strcmp(pa->struct_or_union_specifier->tag_name, pb->struct_or_union_specifier->tag_name) != 0)
+            if (!struct_or_union_specifier_is_compatible_impl(pa->struct_or_union_specifier,
+                                                              pb->struct_or_union_specifier, p_frames))
             {
                 return false;
             }
@@ -3991,8 +4266,7 @@ bool type_is_compatible(const struct type* a, const struct type* b)
 
         if (pa->enum_specifier &&
             pb->enum_specifier &&
-            get_complete_enum_specifier(pa->enum_specifier) !=
-            get_complete_enum_specifier(pb->enum_specifier))
+            !enum_specifier_is_same_type(pa->enum_specifier, pb->enum_specifier))
         {
             return false;
         }
@@ -4072,14 +4346,8 @@ bool type_is_compatible(const struct type* a, const struct type* b)
         if (pa->struct_or_union_specifier &&
             pb->struct_or_union_specifier)
         {
-
-            if (pa->struct_or_union_specifier->complete_struct_or_union_specifier_indirection !=
-                pb->struct_or_union_specifier->complete_struct_or_union_specifier_indirection)
-            {
-                //this should work but it is not...
-            }
-
-            if (strcmp(pa->struct_or_union_specifier->tag_name, pb->struct_or_union_specifier->tag_name) != 0)
+            if (!struct_or_union_specifier_is_compatible(pa->struct_or_union_specifier,
+                                                         pb->struct_or_union_specifier))
             {
                 return false;
             }
@@ -4614,9 +4882,51 @@ static bool is_valid_type(const struct parser_ctx* ctx, const struct token* _Opt
     if (p_token == NULL)
         p_token = ctx->current;
 
+    bool crossed_array = false;
+    bool crossed_function = false;
+
     const struct type* _Opt p = p_type;
     while (p)
     {
+        if (p->category == TYPE_CATEGORY_POINTER)
+        {
+            /* a pointer breaks the direct array/function relation below */
+            crossed_array = false;
+            crossed_function = false;
+        }
+        else if (p->category == TYPE_CATEGORY_ARRAY)
+        {
+            crossed_array = true;
+        }
+        else if (p->category == TYPE_CATEGORY_FUNCTION)
+        {
+            crossed_function = true;
+        }
+        else if (p->category == TYPE_CATEGORY_ITSELF)
+        {
+            if (p->type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
+            {
+                if (crossed_array)
+                {
+                    diagnostic(C_ERROR_ATOMIC_QUALIFIER_ON_ARRAY,
+                                                ctx,
+                                                p_token,
+                                                NULL,
+                                                "'_Atomic' qualifier cannot be applied to array types");
+                    return false;
+                }
+                if (crossed_function)
+                {
+                    diagnostic(C_ERROR_ATOMIC_QUALIFIER_ON_FUNCTION,
+                                                ctx,
+                                                p_token,
+                                                NULL,
+                                                "'_Atomic' qualifier cannot be applied to function types");
+                    return false;
+                }
+            }
+        }
+
         if (p->category == TYPE_CATEGORY_FUNCTION)
         {
             if (p->next && p->next->category == TYPE_CATEGORY_FUNCTION)
@@ -4785,6 +5095,43 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
             type_set_specifiers_using_declarator(p, pdeclarator);
             type_set_attributes_using_declarator(p, pdeclarator);
+
+            if (pdeclarator->declaration_specifiers &&
+                pdeclarator->declaration_specifiers->alignment_specifier_flags != 0)
+            {
+                const int requested_align =
+                    alignment_flags_to_value(pdeclarator->declaration_specifiers->alignment_specifier_flags);
+                const size_t natural_align = type_get_alignof(p, ctx->options.target);
+
+                if (requested_align != 0 && (size_t)requested_align < natural_align)
+                {
+                    diagnostic(C_ERROR_ALIGNMENT_SPECIFIER_LESS_STRICT,
+                        ctx,
+                        pdeclarator->first_token_opt,
+                        NULL,
+                        "requested alignment %d is less than minimum alignment %zu",
+                        requested_align, natural_align);
+                }
+
+                if (pdeclarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_REGISTER)
+                {
+                    diagnostic(C_ERROR_ALIGNMENT_SPECIFIER_WITH_REGISTER,
+                        ctx,
+                        pdeclarator->first_token_opt,
+                        NULL,
+                        "alignment specifier cannot be used with 'register'");
+                }
+
+                if (pdeclarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
+                {
+                    diagnostic(C_ERROR_ALIGNMENT_SPECIFIER_WITH_TYPEDEF,
+                        ctx,
+                        pdeclarator->first_token_opt,
+                        NULL,
+                        "alignment specifier cannot be used with 'typedef'");
+                }
+            }
+
             type_set_alignment_specifier_flags_using_declarator(p, pdeclarator);
 
             type_set_qualifiers_using_declarator(p, pdeclarator);
@@ -4793,6 +5140,16 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
                 list.tail->category == TYPE_CATEGORY_FUNCTION)
             {
                 p->storage_class_specifier_flags |= STORAGE_SPECIFIER_FUNCTION_RETURN;
+
+                if (pdeclarator->declaration_specifiers &&
+                    pdeclarator->declaration_specifiers->alignment_specifier_flags != 0)
+                {
+                    diagnostic(C_ERROR_ALIGNMENT_SPECIFIER_ON_FUNCTION,
+                        ctx,
+                        pdeclarator->first_token_opt,
+                        NULL,
+                        "alignment specifier cannot be used in function declaration");
+                }
             }
 
             type_list_push_back(&list, p);

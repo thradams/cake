@@ -20,7 +20,7 @@
 #elif defined(__APPLE__)
 #define MB_LEN_MAX   6
 #else
-#define MB_LEN_MAX   66
+#define MB_LEN_MAX   16
 #endif
 
 #define SCHAR_MIN    (-0x7f - 1)
