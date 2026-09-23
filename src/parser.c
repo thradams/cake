@@ -4454,6 +4454,25 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     }
                 }
             }
+            else if (type_is_function(&p_init_declarator->p_declarator->object.type) &&
+                     type_is_function(&p_previous_declarator->object.type) &&
+                     p_init_declarator->p_declarator->declaration_specifiers != NULL &&
+                     (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags &
+                      (STORAGE_SPECIFIER_STATIC | STORAGE_SPECIFIER_TYPEDEF)) == 0 &&
+                     type_is_same(&p_previous_declarator->object.type, &p_init_declarator->p_declarator->object.type, true))
+            {
+                /*
+                * static void f() {}
+                * int main() {
+                *   void f();
+                *   f();
+                * }
+                * The inner declaration is the same as the outer one, so it is not
+                * added to the scope; uses are counted on the outer declarator.
+                * An inner static function has no linkage (N3884 local functions),
+                * it is a different function.
+                */
+            }
             else
             {
                 struct hash_item_set item = { 0 };
@@ -8952,12 +8971,6 @@ struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* 
         }
         else
         {
-            if (ctx->current == NULL)
-            {
-                unexpected_end_of_file(ctx);
-                throw;
-            }
-
             // optional
             if (ctx->current->type == '*')
             {

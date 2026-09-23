@@ -13,18 +13,6 @@ struct flow_label_state
     struct flow_branch* p_flow_branch;
 };
 
-/* One recorded comparison predicate (see same-predicate branch correlation in
-   flow3.c): a comparison of the same operands controlling more than one branch
-   reuses the branch id first assigned to it. */
-struct flow_predicate_entry
-{
-    enum expression_type op;
-    const struct object* _Opt left_obj;
-    const struct object* _Opt right_obj;   /* NULL when the right side is a constant */
-    long long right_const;
-    int branch_id;
-};
-
 /* A pointee write-effect of a function call, deferred until after all
    arguments are evaluated (C evaluates arguments first, then the callee runs). */
 enum flow_pointee_effect_kind
@@ -46,6 +34,14 @@ struct flow_deferred_pointee_effect
     const struct object* _Opt pointee;
     enum flow_pointee_effect_kind kind;
     const struct token* _Opt p_token; /* where the call is, for the state it sets */
+
+    /* The pointer value the pointee came from: its origin, the object whose
+       values it is one of, and the argument. Effects with the same object and
+       argument are alternatives (the pointer points to one of them) and are
+       applied in pointer target arms; the others all happen. */
+    const struct flow_branch* _Opt p_target_origin;
+    const struct object* _Opt p_pointer_object;
+    int argument_serial;
 };
 
 struct flow_ctx
@@ -78,15 +74,13 @@ struct flow_ctx
     struct flow_label_state labels[100]; //max 100 labels in a function (case not included)
     int labels_size;
 
-    /* Same-predicate branch correlation cache; reset per function. */
-    struct flow_predicate_entry predicate_cache[128];
-    int predicate_cache_size;
 
     /* Function-call pointee write-effects, deferred until after all arguments
        are evaluated (see flow_visit_function_arguments). */
     struct flow_deferred_pointee_effect deferred_effects[64];
     int deferred_effects_count;
     bool collect_deferred_effects;
+    int argument_serial; /* the argument being checked, see flow_deferred_pointee_effect */
 
     struct flow_allocated_object_arena allocated_object_arena;
     struct flow_branch_arena flow_branch_arena;
@@ -109,6 +103,14 @@ struct flow_ctx
      * comment above the EXPR_UNARY_CONTENT lifetime check itself.
      */
     const struct object* _Opt p_pending_ended_report_obj;
+
+    /*
+     * The subscript expression an assignment, compound assignment or ++/--
+     * is about to write, set while its left operand is visited. The subscript
+     * visit invalidates the array for an unknown index while the REF
+     * alternatives of its own operand are still in the map.
+     */
+    const struct expression* _Opt p_subscript_being_written;
     int pending_ended_report_line;
 };
 

@@ -48,7 +48,6 @@ void both_arms_side_effects(int cond)
     int x = cond ? (y = 1) : (y = 2);
     (void)x;
     /* expected: y == 1 (true arm ran) or y == 2 (false arm ran) */
-    // static_debug(y);
     compile_assert(y == 1 || y == 2);
 }
 
@@ -71,7 +70,6 @@ int nested_ternary_no_parens(int a, int b)
     /* right-associative without parens: baseline that always worked */
     int r = a ? b ? 1 : 2 : 3;
     /* expected: r == 1, 2, or 3 depending on which path was taken */
-    // static_debug(r);
     compile_assert(r == 1 || r == 2 || r == 3);
     return r;
 }
@@ -81,7 +79,6 @@ int nested_ternary_parenthesized(int a, int b)
     /* parenthesized inner ternary: this shape used to lose the inner result (only r == 3 showed up) */
     int r = a ? (b ? 1 : 2) : 3;
     /* expected: r == 1, 2, or 3 depending on which path was taken */
-    // static_debug(r);
     compile_assert(r == 1 || r == 2 || r == 3);
     return r;
 }

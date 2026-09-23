@@ -47,6 +47,20 @@ enum flow_branch_kind
     FLOW_BRANCH_AND_DEAD_TRUE,
     FLOW_BRANCH_AND_DEAD_FALSE,
     FLOW_BRANCH_MERGE_TEMP, /* short-lived local scratch map used only inside flow_branch_merge_arms; never printed */
+    FLOW_BRANCH_POINTER_TARGET, /* the paths where a pointer with several targets points to one of them */
+};
+
+/* A branch side known to hold: the map is on side `kind` of the pair tagged branch_id. */
+struct flow_branch_fact
+{
+    int branch_id;
+    enum flow_branch_kind kind;
+};
+
+struct flow_branch_implied_facts
+{
+    struct flow_branch_fact data[8];
+    int count;
 };
 
 struct flow_branch
@@ -61,6 +75,15 @@ struct flow_branch
     bool is_unreachable;
     int branch_id;
     int child_count;
+
+    /*
+      Sides of earlier branch pairs this map is known to be on without being
+      under them: a condition whose narrowing kept only values from the true
+      side of an earlier `if` can only run after that true side. Checked by
+      flow_origins_compatible like the kinds on the parent chain. Full means
+      less precision, never a wrong answer.
+    */
+    struct flow_branch_implied_facts implied_facts;
 };
 
 struct flow_branch_arena
@@ -117,6 +140,7 @@ struct osstream flow_explain_origin(const struct flow_branch* _Opt map);
 
 struct flow_branch* _Opt flow_branch_arena_new_branch(struct flow_branch_arena* a, struct flow_branch* _Opt parent, bool is_true, const struct expression* _Opt p_expr);
 struct flow_branch* _Opt flow_narrow_map_branch(struct flow_branch_arena* arena, struct flow_branch* _Opt p_before, const struct object* p_obj_key, bool true_branch, const struct expression* _Opt p_expr, const struct token* _Opt p_token);
+const struct flow_branch* _Opt flow_alternative_narrowed_provenance(const struct flow_alternative* alt, const struct flow_branch* _Opt new_origin);
 void flow_tag_branch_pair(struct flow_branch* _Opt p_true, struct flow_branch* _Opt p_false);
 
 

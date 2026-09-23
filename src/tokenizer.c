@@ -6826,6 +6826,19 @@ int preprocessor_load_config(struct preprocessor_ctx* ctx)
 {
     ctx->cake_config_found = false;
 
+    /* cake's own headers (<exe dir>/include) are always the first include
+       directory - built in, not listed in cake.json. */
+    char executable_path[FS_MAX_PATH - sizeof("/include")] = { 0 };
+    get_self_path(executable_path, sizeof(executable_path));
+    dirname(executable_path);
+    char cake_include_dir[FS_MAX_PATH] = { 0 };
+    snprintf(cake_include_dir, sizeof cake_include_dir, "%s/include", executable_path);
+    include_dir_add(&ctx->include_dir, cake_include_dir);
+    if (ctx->options.show_includes)
+    {
+        printf(".%s (built-in)\n", cake_include_dir);
+    }
+
     char cake_config_path[FS_MAX_PATH] = { 0 };
     get_cake_config_path(cake_config_path, sizeof cake_config_path);
 
@@ -6906,7 +6919,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     };
 
-    time_t now = time(NULL); //lint 35
+    time_t now = time(NULL);
     struct tm* tm = localtime(&now);
 
     struct tokenizer_ctx tctx = { 0 };

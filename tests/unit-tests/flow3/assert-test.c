@@ -66,7 +66,6 @@ void asserted_value(int a)
 void asserted_range(int a)
 {
     _Assert(a > 0);
-    // static_debug(a);
     compile_assert(a > 0); /* range refinement survives the assert */
 }
 

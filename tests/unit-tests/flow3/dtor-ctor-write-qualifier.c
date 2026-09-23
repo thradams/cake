@@ -39,7 +39,6 @@ void use_ctor_pair_ok(void)
     struct pair p;
     ctor_pair_ok(&p);
     /* the call site only knows *p is initialized with unknown content, so a specific value is not provable but reading p.a/p.b no longer warns */
-    // static_debug(p);
     // compile_assert(p.a == 1); // fails: any value, including zero
 }
 
@@ -77,7 +76,6 @@ void use_dtor_owned(void)
     struct owned o;
     o.text = strdup("hi");
     dtor_owned_ok(&o); /* ok: _Dtor call ends o.text's lifetime */
-    // static_debug(o); /* shows o.text == ENDED on both forked alternatives */
 }
 
 /* uncomment to see error 1940 (_Dtor/_Out on a non-pointer) and error 1930 (const pointee) */

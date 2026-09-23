@@ -11,5 +11,4 @@ void f(int condition) {
     struct X x2 = {};
     struct X * p = condition ? &x1 : &x2;
 
-    // static_debug(p);
 }

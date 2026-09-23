@@ -118,11 +118,9 @@ actual declarations both end up in scope: Cake's header supplies the
 contract, `#include_next` supplies everything else (types, other functions,
 platform-specific details) from the real header.
 
-Because of this, **Cake's header directory must be listed first in
-`cake.json`'s `"include_dirs"`** - it's the one carrying the annotations. If a
-system directory is searched before it, `#include <stdlib.h>` resolves
-straight to the real header, Cake's annotated version is never reached, and
-`#include_next` never runs, so nothing in that file gets annotated.
+This directory - `include` next to the cake executable - is built in: Cake
+always searches it first, before every entry of `cake.json`'s
+`"include_dirs"`, so it is not listed in `cake.json`.
 
 The `-cake-headers` option switches to a different mode: it defines the
 built-in macro `CAKE_HEADERS`, which each of Cake's headers checks to decide

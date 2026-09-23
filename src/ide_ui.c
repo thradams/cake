@@ -9505,10 +9505,8 @@ static const char* diag_tag(ui_diag_type type)
  * severity tag, the compiler's diagnostic number when it has one (d->code -
  * matching the "warning 42:" form the compiler itself prints, so a diagnostic
  * seen inline can be looked up or suppressed by number without going back to
- * the Output window), the message, and a "(+N more)" suffix when other
- * diagnostics share the line. Factored out so editor_content_cols() can
- * measure it for horizontal-scroll clamping without duplicating the format. */
-static void format_diagnostic(char* buf, size_t cap, const ui_diagnostic* d, int extra_count)
+ * the Output window) and the message. */
+static void format_diagnostic(char* buf, size_t cap, const ui_diagnostic* d)
 {
     /* Notes/info carry no number, so their tag stays bare rather than
      * printing a meaningless "0". */
@@ -9525,22 +9523,57 @@ static void format_diagnostic(char* buf, size_t cap, const ui_diagnostic* d, int
      * without its text. */
     const char* msg = d->message ? d->message : "";
 
-    if (extra_count > 0)
-        snprintf(buf, cap, " \xE2\x86\x90 %s: %s (+%d more)", tag, msg, extra_count);
-    else
-        snprintf(buf, cap, " \xE2\x86\x90 %s: %s", tag, msg);
+    snprintf(buf, cap, " \xE2\x86\x90 %s: %s", tag, msg);
 }
 
-/* Renders one line's diagnostic inline, "Error Lens"-style, right after its
- * source text (see render_editor() - only the single worst one of a group is
- * ever passed in here). Starts at column `text_cols` (the source line's own
- * width) and honors the same `scroll_x` horizontal offset as the text, so the
- * annotation pans in lockstep and can be read by scrolling right. */
-static void render_diagnostic(int x, int y, int w, int scroll_x,
-                               int text_cols, const ui_diagnostic* d, int extra_count)
+/* The worst diagnostic of the group starting at `first` (all entries that
+ * share its line); sets *next to the first diagnostic past the group. */
+static const ui_diagnostic* line_worst_diagnostic(const ui_diagnostic* first, ui_diagnostic** next)
+{
+    const ui_diagnostic* best = first;
+    const ui_diagnostic* p = first;
+    while (p && p->line == first->line)
+    {
+        if (p->type > best->type)
+            best = p;
+        p = p->next;
+    }
+    *next = (ui_diagnostic*)p;
+    return best;
+}
+
+/* Draws one diagnostic's annotation starting at *col, advancing it. Returns 0
+ * if it hit the editor's right border before the text ended. */
+static int draw_diagnostic_text(int x, int y, int w, int scroll_x, int* col,
+                                const ui_diagnostic* d, uint32_t fg, uint32_t bg)
 {
     char buf[256];
-    format_diagnostic(buf, sizeof buf, d, extra_count);
+    format_diagnostic(buf, sizeof buf, d);
+    for (const char* p = buf; *p; )
+    {
+        if (*col >= scroll_x + w)
+            return 0;
+        uint32_t cp;
+        int clen = utf8_decode(p, &cp);
+        emit_hscroll(x, y, *col, scroll_x, w, cp, fg, bg);
+        (*col)++;
+        p += clen;
+    }
+    return 1;
+}
+
+/* Renders one line's diagnostics inline, "Error Lens"-style, right after its
+ * source text: the worst one first, then the rest of the group in list order,
+ * side by side, all colored by the worst one. Starts at column `text_cols`
+ * (the source line's own width) and honors the same `scroll_x` horizontal
+ * offset as the text, so the annotation pans in lockstep. Drawing stops at
+ * the editor's right border - later diagnostics aren't even formatted - and
+ * when something was cut there the last cells become "...". Sets *next past
+ * the group. */
+static void render_diagnostic(int x, int y, int w, int scroll_x,
+                               int text_cols, const ui_diagnostic* first, ui_diagnostic** next)
+{
+    const ui_diagnostic* d = line_worst_diagnostic(first, next);
 
     // Get foreground and background from theme
     uint32_t fg, bg;
@@ -9560,14 +9593,21 @@ static void render_diagnostic(int x, int y, int w, int scroll_x,
         break;
     }
 
+    int end = scroll_x + w;
     int col = text_cols;
-    for (const char* p = buf; *p && col < scroll_x + w; )
+    int cut = !draw_diagnostic_text(x, y, w, scroll_x, &col, d, fg, bg);
+    for (const ui_diagnostic* p = first; !cut && p != *next; p = p->next)
     {
-        uint32_t cp;
-        int clen = utf8_decode(p, &cp);
-        emit_hscroll(x, y, col, scroll_x, w, cp, fg, bg);
-        col++;
-        p += clen;
+        if (p != d)
+            cut = !draw_diagnostic_text(x, y, w, scroll_x, &col, p, fg, bg);
+    }
+
+    /* Only when the annotation starts inside the view - otherwise the
+     * "..." would land on top of the source text. */
+    if (cut)
+    {
+        for (int c = end - 3 > text_cols ? end - 3 : text_cols; c < end; c++)
+            emit_hscroll(x, y, c, scroll_x, w, '.', fg, bg);
     }
 }
 
@@ -9601,19 +9641,11 @@ static int editor_content_cols(ui_node* n)
             diag = diag->next;
         if (diag && diag->line - 1 == line_idx)
         {
-            ui_diagnostic* best = diag, * p = diag;
-            int count = 0;
-            while (p && p->line - 1 == line_idx)
-            {
-                count++;
-                if (p->type > best->type)
-                    best = p;
-                p = p->next;
-            }
+            /* Only the worst one (drawn first) extends the scroll range; the
+             * rest are shown only as far as the editor's border. */
             char buf[256];
-            format_diagnostic(buf, sizeof buf, best, count - 1);
+            format_diagnostic(buf, sizeof buf, line_worst_diagnostic(diag, &diag));
             cols += utf8_col_of(buf, (int)strlen(buf));
-            diag = p;
         }
 
         if (cols > max_cols)
@@ -10306,18 +10338,9 @@ static void render_editor(ui_screen* s, ui_node* n)
             diag = diag->next;
         if (diag && diag->line - 1 == line_idx)
         {
-            ui_diagnostic* best = diag, * p = diag;
-            int count = 0;
-            while (p && p->line - 1 == line_idx)
-            {
-                count++;
-                if (p->type > best->type)
-                    best = p;
-                p = p->next;
-            }
             int diag_text_cols = utf8_col_of(n->label + ls, le - ls);
-            render_diagnostic(text_x, ey + row, text_w, n->hscroll, diag_text_cols, best, count - 1);
-            diag = p;  /* past this whole line's group - never revisited */
+            /* Leaves diag past this whole line's group - never revisited. */
+            render_diagnostic(text_x, ey + row, text_w, n->hscroll, diag_text_cols, diag, &diag);
         }
 
         /* No blinking caret block in the VT100/Output window - it's read-only

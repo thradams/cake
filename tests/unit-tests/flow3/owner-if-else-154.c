@@ -16,7 +16,6 @@ int main()
         }
         else
         {
-            //static_debug(s);
             throw;
         }
     }

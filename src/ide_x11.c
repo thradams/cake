@@ -1476,6 +1476,14 @@ int main(int argc, char** argv)
                            CWBackPixel | CWBitGravity, &attrs);
 
     XStoreName(g_dpy, g_win, "");
+
+    /* Ask for the dark variant of the window manager's title bar - the
+     * closest X11 gets to ide_win32.c/ide_cocoa.c's sync_titlebar_color.
+     * Honored by GNOME (Mutter) and other GTK-themed decorations; WMs that
+     * don't know the property just ignore it. */
+    Atom gtk_variant = XInternAtom(g_dpy, "_GTK_THEME_VARIANT", False);
+    XChangeProperty(g_dpy, g_win, gtk_variant, XInternAtom(g_dpy, "UTF8_STRING", False),
+                    8, PropModeReplace, (const unsigned char *)"dark", 4);
     set_wm_resize_hints();  /* see its own comment - live-resize cell snapping */
 
     g_wm_delete = XInternAtom(g_dpy, "WM_DELETE_WINDOW", False);

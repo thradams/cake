@@ -1,0 +1,84 @@
+name: release
+
+# Manual: Actions > release > Run workflow, type the tag (e.g. v0.14.47).
+# build.c creates the installers, they are attached to the GitHub release
+# of that tag (created if needed):
+#   cake-<version>-setup.exe        Windows (tools/win_installer.c)
+#   cake-<version>-linux.tar.gz     Linux   (tools/unix_install.sh)
+#   cake-<version>-macos.tar.gz     macOS   (tools/unix_install.sh)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.14.47)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    steps:
+    - uses: actions/checkout@v4
+    - uses: ilammy/msvc-dev-cmd@v1.13.0
+      with:
+        arch: x64
+    - name: Build
+      run: |
+        cd src
+        cl build.c
+        .\build.exe
+    - uses: actions/upload-artifact@v4
+      with:
+        name: windows
+        path: src/cake-*-setup.exe
+
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install IDE build dependencies (X11/Xft/Xrender/FreeType)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libx11-dev libxft-dev libxrender-dev libfreetype-dev
+    - name: Build
+      run: |
+        cd src
+        gcc build.c -o build
+        ./build
+    - uses: actions/upload-artifact@v4
+      with:
+        name: linux
+        path: src/cake-*.tar.gz
+
+  macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build
+      run: |
+        cd src
+        clang -o build build.c
+        ./build
+    - uses: actions/upload-artifact@v4
+      with:
+        name: macos
+        path: src/cake-*.tar.gz
+
+  release:
+    needs: [windows, linux, macos]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        merge-multiple: true
+    - name: Attach to the release
+      env:
+        GH_TOKEN: ${{ github.token }}
+        TAG: ${{ inputs.tag }}
+      run: |
+        gh release view "$TAG" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1 ||
+          gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes --target "$GITHUB_SHA"
+        gh release upload "$TAG" -R "$GITHUB_REPOSITORY" cake-* --clobber

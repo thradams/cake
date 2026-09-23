@@ -12,7 +12,6 @@ int main(void)
 
     f_const(buffer); //lint 30 passing a possible uninitialized object 'buffer' (see line 9)
 
-    //static_debug_ex(buffer);
 
     //warning: uninitialized object 'buffer' passed to non-optional parameter
 

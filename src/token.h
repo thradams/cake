@@ -300,7 +300,7 @@ void token_list_remove(struct token_list* list, struct token* first, struct toke
 struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last);
 void token_list_append_list(struct token_list* dest, _Clear struct token_list* source);
 void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* source);
-struct token* token_list_clone_and_add(struct token_list* list, const struct token* pnew);
+struct token* _Opt token_list_clone_and_add(struct token_list* list, const struct token* pnew);
 char* _Owner _Opt token_list_join_tokens(struct token_list* list, bool bliteral);
 void token_list_clear(_Clear struct token_list* list);
 

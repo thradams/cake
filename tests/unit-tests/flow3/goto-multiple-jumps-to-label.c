@@ -18,7 +18,6 @@ void f(int x, int y)
     a = 3;
 L:
     /* expected: a == 1, a == 2 (both via goto), a == 3 (via fall-through) */
-    // static_debug(a);
     compile_assert(a == 1 || a == 2 || a == 3);
     compile_assert(a != 0);
 }

@@ -7,6 +7,5 @@ void f(int* _Owner p2)
     int* _Owner p1;
     p1 = p2;
     consume(p1);
-    // static_debug(*p1); //ended
 }
 

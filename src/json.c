@@ -944,7 +944,7 @@ static void json_remove_member(struct json_value *object, const char *key)
         }
         previous = child;
     }
-}
+} //lint 31
 
 struct json_value * _Opt json_set_string(struct json_value *object, const char *key, const char *text)
 {

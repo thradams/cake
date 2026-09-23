@@ -68,7 +68,8 @@ struct object
         long double host_long_double;
     } value;
 
-    struct object* _Opt parent; //to be removed
+    /* the enclosing array or struct; set where the object is built in place (make_object), NULL in object_dup copies. flow follows it from an element pointer to the whole array */
+    struct object* _Opt parent;
     struct object* _Opt p_ref;
     struct expression* _Opt p_init_expression;
     struct object_list members;

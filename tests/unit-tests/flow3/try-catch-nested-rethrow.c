@@ -23,7 +23,6 @@ void f(int x)
     catch
     {
         /* expected: a == 3 (the inner catch's value, via re-throw) */
-        // static_debug(a);
         compile_assert(a == 3);
     }
 }

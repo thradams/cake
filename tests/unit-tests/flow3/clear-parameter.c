@@ -38,7 +38,6 @@ void whole_struct_cleared(void)
     struct outer o = { { 1, 2 }, 3 };
     clear_outer(&o);
     /* expected: every member, including the nested struct's, is 0 */
-    // static_debug(o);
     compile_assert(o.in.a == 0);
     compile_assert(o.in.b == 0);
     compile_assert(o.c == 0);

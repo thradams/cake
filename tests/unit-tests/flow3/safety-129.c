@@ -32,7 +32,6 @@ int main(struct X* _Opt pX)
     }
     else
     {
-        //static_debug(pX);
         //assert_state(pX, "not-null null");
         //assert_state(pX->pi, "not-null null");
     }

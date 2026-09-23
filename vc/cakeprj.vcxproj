@@ -159,6 +159,13 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <!-- The exe goes to src\ - same place build.c produces cake.exe - because
+       cake finds include\ and cake.json relative to its own executable.
+       IntDir stays the project-local default (vc\$(Platform)\$(Configuration)\),
+       apart from ide.vcxproj's own obj\ folder. -->
+  <PropertyGroup>
+    <OutDir>$(ProjectDir)..\src\</OutDir>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <RunCodeAnalysis>false</RunCodeAnalysis>

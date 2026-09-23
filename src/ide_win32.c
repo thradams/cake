@@ -675,10 +675,10 @@ static void resize_buffer(HWND hwnd)
 {
     RECT rc;
     GetClientRect(hwnd, &rc);
-    /* The WINDOW is free to be any pixel size - nothing snaps the drag (see
-     * the note where WM_SIZING used to be). The LAYOUT is a whole number of
-     * cells, and the few leftover pixels down the right/bottom edge stay
-     * background (clear_backbuffer paints them).
+    /* WM_SIZING snaps edge drags to whole cells; maximize/snap can still
+     * give any pixel size. The LAYOUT is a whole number of cells, and any
+     * leftover pixels down the right/bottom edge stay background
+     * (clear_backbuffer paints them).
      *
      * Whole cells because that is the framework's coordinate system - see
      * the Coordinates comment in ui.h. A pane drawn in the small font gets
@@ -901,13 +901,28 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_SIZE:
         resize_buffer(hwnd);
         return 0;
-    /* No WM_SIZING handler: the window is free to be any pixel size, so
-     * dragging an edge no longer jumps in font-sized steps.
-     *
-     * This used to snap the drag rectangle to whole cells. It doesn't need
-     * to: resize_buffer floors the client area to whole cells for the
-     * layout, and the leftover strip along the right/bottom edge is simply
-     * painted as background. */
+    case WM_SIZING: {
+        /* Snap the drag rectangle so the client area is always a whole
+         * number of cells, adjusting the edge being dragged. */
+        RECT *r = (RECT *)lp;
+        int bw, bh;
+        get_border_size(hwnd, &bw, &bh);
+        int cols = ((r->right - r->left) - bw) / g_cell_w;
+        int rows = ((r->bottom - r->top) - bh) / g_cell_h;
+        if (cols < 1) cols = 1;
+        if (rows < 1) rows = 1;
+        int w = cols * g_cell_w + bw;
+        int h = rows * g_cell_h + bh;
+        if (wp == WMSZ_LEFT || wp == WMSZ_TOPLEFT || wp == WMSZ_BOTTOMLEFT)
+            r->left = r->right - w;
+        else
+            r->right = r->left + w;
+        if (wp == WMSZ_TOP || wp == WMSZ_TOPLEFT || wp == WMSZ_TOPRIGHT)
+            r->top = r->bottom - h;
+        else
+            r->bottom = r->top + h;
+        return TRUE;
+    }
     case WM_TIMER:
         /* Throttled tick - repaints only on the baseline or a pending change
          * (idle windows stay cheap). Keystrokes force an immediate repaint

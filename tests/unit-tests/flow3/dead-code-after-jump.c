@@ -11,7 +11,6 @@ void f(int x)
         a = 99; //lint 68 unreachable code
     }
     /* expected: a == 1 only -- the dead "a = 99" must not appear */
-    // static_debug(a);
     compile_assert(a == 1);
 }
 
@@ -25,7 +24,6 @@ void g(int x)
         a = 99; //lint 68 unreachable code
     }
     /* expected: a == 0 (never entered) or a == 1 (broke out); never 99 */
-    // static_debug(a);
     compile_assert(a == 0 || a == 1);
 }
 
@@ -39,7 +37,6 @@ void h(int x)
         a = 99; //lint 68 unreachable code
     }
     /* expected a == 0 only: the first pass's dead tail must not pollute the second pass */
-    // static_debug(a);
     compile_assert(a == 0);
 }
 
@@ -54,7 +51,6 @@ void k(int x)
     }
 L:
     /* expected: a == 0 (fall-through) or a == 1 (via goto); never 99 */
-    // static_debug(a);
     compile_assert(a == 0 || a == 1);
 }
 
@@ -70,7 +66,6 @@ void m(int x)
     catch
     {
         /* expected: a == 1 only -- the dead "a = 99" must not appear */
-        // static_debug(a);
         compile_assert(a == 1);
     }
 }

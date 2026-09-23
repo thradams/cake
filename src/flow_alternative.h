@@ -56,6 +56,16 @@ struct flow_alternative
     enum flow_imaginary imaginary;               /* imaginary part: MOVED, ENDED, ABSENT, NONE */
 
     const struct flow_branch* _Opt p_origin_map;    /* which flow map arm set this value; */
+
+    /* For a value kept by narrowing a condition: the origin of the value it was
+       narrowed from (narrowing re-tags p_origin_map with the arm). Like
+       p_origin_map, the value only exists on paths through it. NULL otherwise. */
+    const struct flow_branch* _Opt p_narrowed_from;
+
+    /* The narrowing contradicted the value it came from (`!= 0` reaching the
+       false arm of a test): no path gets here with it. It is kept only so the
+       entry is not empty; code that asks which paths a value exists on skips it. */
+    bool contradicted;
     const struct token* _Opt p_origin_token;     /* Where this state was established. */
 };
 

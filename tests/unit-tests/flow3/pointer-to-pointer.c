@@ -45,7 +45,6 @@ void assign_through_pp_no_crash(struct node* _Opt* _Opt pp)
     {
         *pp = get();
         /* expected: *pp == null or *pp == <non-null object>; previously crashed here */
-        // static_debug(*pp);
     }
 }
 

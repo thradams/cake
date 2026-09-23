@@ -1,0 +1,12 @@
+{
+  "include_dirs": [
+    "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.51.36231/include/",
+    "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Auxiliary/VS/include/",
+    "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/ucrt/",
+    "C:/Program Files (x86)/Windows Kits/10//include/10.0.26100.0//um/",
+    "C:/Program Files (x86)/Windows Kits/10//include/10.0.26100.0//shared/",
+    "C:/Program Files (x86)/Windows Kits/10//include/10.0.26100.0//winrt/",
+    "C:/Program Files (x86)/Windows Kits/10//include/10.0.26100.0//cppwinrt/",
+    "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um/"
+  ]
+}

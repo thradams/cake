@@ -113,5 +113,26 @@ int nanosleep(const struct timespec* req, struct timespec* _Opt rem);
 #endif
 
 #else
+
+/* time() must be declared before the system header; the first declaration wins */
+#if defined(__APPLE__)
+#include <sys/_types.h>
+#include <sys/_types/_time_t.h>
+time_t time(time_t* _Opt timer);
+#elif defined(__linux__)
+#include <bits/types/time_t.h>
+time_t time(time_t* _Opt timer);
+#elif defined(_WIN32)
+/* the UCRT's time() is an inline wrapper over _time64 whose linkage is
+   _CRT_NONSTANDARD_STATIC (static unless _STATIC_INLINE_UCRT_FUNCTIONS is 0;
+   always static in older SDKs) - this declaration must match it */
+#include <corecrt.h>
+#ifdef _CRT_NONSTANDARD_STATIC
+_CRT_NONSTANDARD_STATIC time_t __CRTDECL time(time_t* _Opt timer);
+#else
+static time_t __CRTDECL time(time_t* _Opt timer);
+#endif
+#endif
+
 #include_next <time.h>
 #endif

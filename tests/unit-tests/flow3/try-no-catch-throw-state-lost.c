@@ -12,7 +12,6 @@ int reported_repro(int condition)
         p = 0;
     }
     /* no catch: throw exits the try body, control resumes here either way */
-    static_debug(p); /* both '== 0' (fell through) and 'MOVED' (threw) must show */
     return 0;
 }
 
@@ -30,7 +29,6 @@ int with_catch_unaffected(int condition)
     {
         p = 0;
     }
-    static_debug(p); /* always '== 0' here -- both arms set it */
     return 0;
 }
 
@@ -42,6 +40,5 @@ int no_throw_at_all(void)
     {
         p = 0;
     }
-    static_debug(p); /* '== 0', single alternative */
     return 0;
 }

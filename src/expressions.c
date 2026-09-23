@@ -1939,7 +1939,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struc
                 }
                 else
                 {
-                    p_default_generic_association_first_token = p_generic_association2->first_token; //lint 68 BUG in flow (not sure)
+                    p_default_generic_association_first_token = p_generic_association2->first_token;
                     p_default_generic_association_expression = p_generic_association2->expression;
                 }
             }

@@ -13,6 +13,5 @@ L:
         goto L;
     }
     /* expected today: a == 1 only (documented gap) */
-    // static_debug(a);
     compile_assert(a == 1);
 }

@@ -163,35 +163,63 @@ directory as shown above, without installing anything. Installing simply
 copies the compiler and supporting files into a system directory and updates 
 the system `PATH` so the `cake` command can be executed from any terminal.
 
+Download the installer for your system from the
+[GitHub releases](https://github.com/thradams/cake/releases); no source code
+or compiler is needed.
+
+Versions are installed side by side (`cake/<version>`); the last one
+installed is the one in the `PATH`.
+
 ## Windows
 
-Run the installer as Administrator.
+Run `cake-<version>-setup.exe` (it asks for Administrator).
 
-```bash
-install.exe
-```
+The setup:
 
-The installer:
+* Copies Cake files into `Program Files\cake\<version>` (the folder can be changed)
+* Adds that folder to the system `PATH`, removing other Cake versions from it
+* Registers an uninstaller in Settings > Apps
 
-* Copies Cake files into `Program Files`
-* Updates the system `PATH`
-* Removes obsolete Cake `PATH` entries from previous installations
+The installer source is `src/tools/win_installer.c`; the installed files are
+listed in `src/tools/win_installer.h`.
 
 ## Linux / macOS
 
-Run the installer using:
+The release has `cake-<version>-linux.tar.gz` and `cake-<version>-macos.tar.gz`,
+compressed archives (like a zip) with the binaries and `install.sh`.
 
 ```bash
-sudo ./install
+curl -L https://github.com/thradams/cake/releases/download/v<version>/cake-<version>-linux.tar.gz | tar xz
+cd cake-<version>-linux
+sudo ./install.sh
 ```
 
-The installer:
+(use `macos` instead of `linux` on macOS). If the archive was downloaded
+with a browser, extract it with `tar xzf cake-<version>-linux.tar.gz`
+or with a double click, then run `sudo ./install.sh` inside the folder.
 
-* Copies Cake files into the installation directory
-* Creates or updates a file in `/etc/profile.d/`
-* Adds Cake to the system `PATH`
+The installer (`src/tools/unix_install.sh`):
 
-Changes become available in new login sessions.
+* Copies Cake files into `/usr/local/cake/<version>`
+  (use `sudo INSTALL_PREFIX=/opt ./install.sh` for another prefix)
+* Adds that folder to the `PATH`: `/etc/profile.d/cake.sh` on Linux,
+  `/etc/paths.d/cake` on macOS
+* Creates `uninstall.sh` in the installation folder
+
+Changes become available in new terminals. To remove:
+
+```bash
+sudo /usr/local/cake/<version>/uninstall.sh
+```
+
+Notes:
+
+* Linux: built on Ubuntu 22.04 (needs glibc 2.35+). `cakeide` needs the
+  X11/Xft libraries (e.g. `sudo apt install libxft2`).
+* macOS: Apple Silicon (arm64) only. The binaries are not signed; if the
+  archive was downloaded with a browser, macOS blocks them. Allow with
+  `xattr -dr com.apple.quarantine cake-<version>-macos` before installing
+  (not needed when downloaded with `curl`).
 
 # Running cake
 

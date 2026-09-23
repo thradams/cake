@@ -25,7 +25,6 @@ struct E* _Owner _Opt consume_in_try(void)
 
         p = tail(p); /* consumes the old value, result back into p */
 
-        static_debug(p);
         if (p == NULL)
             throw; /* reaches the catch with p == NULL */
     }

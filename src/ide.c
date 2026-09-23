@@ -148,8 +148,6 @@ enum {
     EVT_HELP_CONTEXTUAL = 200,  /* the status bar's F1 hotkey - see
                                  * do_help_contextual() */
     EVT_HELP_ABOUT = 92,
-    EVT_HELP_CHECK = 93,  /* the Help > "Check" menu item's id - see
-                           * do_help_check() */
     EVT_HELP_MANUAL = 94,  /* Help > "Manual" - web/manual.html in the browser,
                             * see do_help_manual() */
     EVT_HELP_WEBSITE = 95,  /* Help > "Cake Website" - https://cakecc.org/ */
@@ -381,6 +379,9 @@ enum {
                                           * include directories are searched in
                                           * order, so the order is meaningful */
     EVT_PROJECT_INCLUDES_DOWN = 1317,    /* ... and later */
+    EVT_PROJECT_INCLUDES_DETECT = 1338,  /* replaces the list with
+                                          * detect_system_include_dirs() -
+                                          * only shown for the global list */
     EVT_PROJECT_OPTIONS = 1318,  /* Project > "Options..." - same dialog as
                                   * Compile > "Options..." (EVT_COMPILE_OPTIONS)
                                   * but always against g_project.compile,
@@ -592,6 +593,8 @@ static struct
     ui_node* includes_modal;
     ui_node* includes_window;   /* title says which list is being edited */
     ui_node* includes_listbox;
+    ui_node* includes_detect;   /* attached only while editing the global
+                                 * list - see includes_set_detect_visible() */
 
     /* Project menu items that need an open project to do anything (Add
      * Existing File.../Include Directories.../Build/Save Project/Close
@@ -682,7 +685,7 @@ static void build_screen(ui_node* root)
         { 4, "Save As...", NULL, 1 },
         { 6, "Save all", "Ctrl+Shift+S", 1 },
         SEP,
-        { EVT_GLOBAL_INCLUDES, "Directories...", NULL, 1 },
+        { EVT_GLOBAL_INCLUDES, "System Directories...", NULL, 1 },
         { EVT_COMPILE_OPTIONS, "Options...", NULL, 1 },
         SEP,
         { 5, "Exit", NULL, 1 },
@@ -890,7 +893,6 @@ static void build_screen(ui_node* root)
     static const menu_item_spec help_items[] = {
         { EVT_HELP_MANUAL, "Manual", NULL, 1 },
         //{ 91, "Topic search", NULL, 1 },
-        { EVT_HELP_CHECK, "Check", NULL, 1 },
         SEP,
         { EVT_HELP_WEBSITE, "Cake Website", NULL, 1 },
         SEP,
@@ -1291,7 +1293,7 @@ static struct
     int match_word;
     int look_in;            /* index into "Look in" - see fr_look_in */
     int file_type;          /* index into "File Types" - see fr_file_type */
-} g_fr = { .match_case = 1 };
+} g_fr = { .match_case = 1, .file_type = 2 /* FR_FILETYPE_C_H */ };
 #define FR_PANEL_MIN_W 26  /* dragging the dock border narrower than this
                             * would crush the Find/Replace buttons and
                             * checkboxes past usability - enforced each frame
@@ -4000,6 +4002,23 @@ static void includes_edit_global(void)
     g_includes_editing.is_project = 0;
 }
 
+/* Attaches the dialog's "Detect" button only for the global (system) list -
+ * a project's own include directories are the user's, nothing to detect.
+ * Same detach/reattach idiom as open_dialog_set_filter_visible(), and for the
+ * same reason the rect is re-derived from the window's current position. */
+static void includes_set_detect_visible(int visible)
+{
+    ui_remove_child(g_project.includes_window, g_project.includes_detect);
+    if (!visible)
+        return;
+
+    int wx, wy, ww, wh;
+    ui_get_rect(g_project.includes_window, &wx, &wy, &ww, &wh);
+    const int bw = 13;  /* same as the other buttons, see build_screen() */
+    ui_set_rect(g_project.includes_detect, wx + ww - bw - 3, wy + 11, bw, 1);
+    ui_append_child(g_project.includes_window, g_project.includes_detect);
+}
+
 /* Defined below with the rest of the ".cakeproj" JSON helpers - the shared
  * shape for compiler options, used by both a project and the session file. */
 static void compile_settings_to_json(struct json_value* object, const compile_settings* c);
@@ -4189,16 +4208,17 @@ static int get_global_settings_path(char* buf, size_t cap)
  * so a project's own ".cakeproj" always overrides them.
  *
  * Same "compile" node a ".cakeproj" carries, written by the same helper: a
- * project file is this plus a name and its own file list. */
-static void global_settings_save(void)
+ * project file is this plus a name and its own file list. Returns whether it
+ * was written. */
+static bool global_settings_save(void)
 {
     char path[FS_MAX_PATH];
     if (!get_global_settings_path(path, sizeof path))
-        return;
+        return false;
 
     struct json_value* _Opt _Owner root = calloc(1, sizeof *root);
     if (!root)
-        return;
+        return false;
     root->type = JSON_OBJECT;
 
     compile_settings_to_json(json_set_object(root, "compile"), &g_compile);
@@ -4207,8 +4227,9 @@ static void global_settings_save(void)
     for (int i = 0; i < g_include_count; i++)
         json_add_string(includes, g_include_dirs[i]);
 
-    json_write_file(path, root);
+    bool ok = json_write_file(path, root);
     json_delete(root);
+    return ok;
 }
 
 /* Reads cake.json back into g_compile, called once at startup. Anything
@@ -4597,7 +4618,7 @@ static int open_local_file_in_browser(const char* path, const char* fragment);  
                                                             * helpers */
 
 /* Opens web/manual.html - the generated HTML manual the installer ships
- * next to the executable (see install.c's "web" entry and build.c's
+ * next to the executable (see the "web" entry of the installers in tools/ and build.c's
  * generate_doc) - in the default web browser, rather than into an editor
  * window like the .md help topics. `fragment` is an optional "#anchor"
  * (without the '#') to land on a section - a stable <a id="..."> written
@@ -4727,11 +4748,6 @@ static int word_at_cursor(const char* text, int len, int cursor, char* out, int 
  * matching "# <word>" heading in it rather than just dumping the reader at
  * the top. No document focused, or nothing under the caret? Same as
  * do_help_index() does. */
-
-/* Defined later, next to the rest of the session/config-path plumbing it
- * reports on (see get_session_file_path) - forward declared so on_ui_event
- * (far above that point in the file) can reach it. */
-static void do_help_check(void);
 
 static void do_help_contextual(void)
 {
@@ -6396,6 +6412,7 @@ static void exttool_expand(const char* in, const char* path, struct exttool_buf*
 #include <windows.h>
 #include <io.h>
 #include <fcntl.h>
+#pragma comment(lib, "advapi32.lib")  /* Reg* - detect_system_include_dirs() */
 /* MSVC provides these under their POSIX names too, but deprecated (C4996).
  * Alias to the underscored spellings so the shared code below reads the
  * same on every platform without warnings. */
@@ -6411,6 +6428,217 @@ static void exttool_expand(const char* in, const char* path, struct exttool_buf*
 #define ide_close  close
 #define ide_fileno fileno
 #endif
+
+/* Fills `dirs` with this machine's system include directories - the ones the
+ * platform compiler itself searches - for the System Directories dialog's
+ * "Detect" button (EVT_PROJECT_INCLUDES_DETECT). Returns how many were found.
+ *
+ * Same idea as compile.c's collect_system_include_dirs (cake -autoconfig),
+ * except on Windows: that one reads INCLUDE, which only exists inside a
+ * Visual Studio command prompt, and the IDE is rarely launched from one - so
+ * here MSVC's headers are located with vswhere.exe and the Windows SDK's
+ * from the registry.
+ *
+ * Whatever could not be found is described in `problems` (one line each,
+ * "" when everything was), for the message box the caller shows - a
+ * partial result, e.g. an SDK but no MSVC, still returns what it found. */
+static int detect_system_include_dirs(char (*dirs)[512], int max,
+                                      char* problems, int problems_size)
+{
+    int count = 0;
+    problems[0] = 0;
+
+#ifdef _WIN32
+
+    /* MSVC: vswhere.exe is installed at this fixed place by the Visual
+     * Studio installer (2017 and later); asks for the newest install that
+     * has the C/C++ toolset. */
+    char pf86[MAX_PATH] = { 0 };
+    DWORD n = GetEnvironmentVariableA("ProgramFiles(x86)", pf86, sizeof pf86);
+    if (n > 0 && n < sizeof pf86)
+    {
+        /* The outermost quotes are for cmd.exe (ui_process_start runs
+         * "cmd /c <command>") - without them it strips the inner pair
+         * around a path containing "(x86)". */
+        char cmd[1024];
+        snprintf(cmd, sizeof cmd,
+                 "\"\"%s\\Microsoft Visual Studio\\Installer\\vswhere.exe\" -latest -products * "
+                 "-requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath\"",
+                 pf86);
+        struct exttool_buf out = { 0 };
+        run_process_capture(cmd, NULL, &out);
+        char vs_dir[512];
+        snprintf(vs_dir, sizeof vs_dir, "%s", exttool_buf_text(&out));
+        vs_dir[strcspn(vs_dir, "\r\n")] = 0;
+        exttool_buf_free(&out);
+
+        /* The toolset version the install builds with by default - the
+         * same file vcvarsall.bat reads to pick VC\Tools\MSVC\<version>.
+         * Missing (no VS, or vswhere printed an error instead of a path)
+         * just means no MSVC entry. */
+        char version_file[700];
+        snprintf(version_file, sizeof version_file,
+                 "%s\\VC\\Auxiliary\\Build\\Microsoft.VCToolsVersion.default.txt", vs_dir);
+        char* version = vs_dir[0] ? read_file_to_string(version_file) : NULL;
+        if (version)
+        {
+            version[strcspn(version, " \t\r\n")] = 0;
+            if (count < max)
+                snprintf(dirs[count++], 512, "%s\\VC\\Tools\\MSVC\\%s\\include", vs_dir, version);
+            free(version);
+        }
+        else
+        {
+            snprintf(problems + strlen(problems), problems_size - strlen(problems),
+                     "Visual Studio with the C/C++ toolset was not found (vswhere.exe).\n");
+        }
+    }
+    else
+    {
+        snprintf(problems + strlen(problems), problems_size - strlen(problems),
+                 "ProgramFiles(x86) is not set - cannot locate vswhere.exe.\n");
+    }
+
+    /* Windows SDK: the root is the KitsRoot10 value, and every installed
+     * version is a subkey of the same key (named like "10.0.22621.0") -
+     * the newest one whose headers are really on disk wins, same default
+     * as vcvarsall.bat. */
+    HKEY key;
+    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows Kits\\Installed Roots",
+                      0, KEY_READ | KEY_WOW64_32KEY, &key) == ERROR_SUCCESS)
+    {
+        char root[MAX_PATH] = { 0 };
+        DWORD size = sizeof root - 1;
+        DWORD type = 0;
+        char best[64] = { 0 };
+        unsigned best_v[4] = { 0 };
+
+        if (RegQueryValueExA(key, "KitsRoot10", NULL, &type, (BYTE*)root, &size) == ERROR_SUCCESS &&
+            type == REG_SZ && root[0])
+        {
+            size_t len = strlen(root);
+            if (root[len - 1] != '\\' && len + 1 < sizeof root)
+                strcat(root, "\\");
+
+            for (DWORD i = 0;; i++)
+            {
+                char name[64];
+                DWORD name_len = sizeof name;
+                if (RegEnumKeyExA(key, i, name, &name_len, NULL, NULL, NULL, NULL) != ERROR_SUCCESS)
+                    break;
+
+                unsigned v[4] = { 0 };
+                if (sscanf(name, "%u.%u.%u.%u", &v[0], &v[1], &v[2], &v[3]) != 4)
+                    continue;
+
+                /* The key can outlive an uninstalled SDK. */
+                char probe[MAX_PATH + 100];
+                snprintf(probe, sizeof probe, "%sInclude\\%s\\ucrt", root, name);
+                if (GetFileAttributesA(probe) == INVALID_FILE_ATTRIBUTES)
+                    continue;
+
+                int newer = 0;
+                for (int k = 0; k < 4; k++)
+                {
+                    if (v[k] != best_v[k])
+                    {
+                        newer = v[k] > best_v[k];
+                        break;
+                    }
+                }
+                if (newer)
+                {
+                    snprintf(best, sizeof best, "%s", name);
+                    memcpy(best_v, v, sizeof v);
+                }
+            }
+        }
+        RegCloseKey(key);
+
+        if (best[0])
+        {
+            /* Same subdirectories, in the same order, as the INCLUDE a
+             * Visual Studio command prompt sets. */
+            static const char* const subdirs[] = { "ucrt", "um", "shared", "winrt", "cppwinrt" };
+            for (int i = 0; i < (int)_Countof(subdirs) && count < max; i++)
+            {
+                char dir[512];
+                snprintf(dir, sizeof dir, "%sInclude\\%s\\%s", root, best, subdirs[i]);
+                if (GetFileAttributesA(dir) != INVALID_FILE_ATTRIBUTES)
+                    snprintf(dirs[count++], 512, "%s", dir);
+            }
+        }
+        else
+        {
+            snprintf(problems + strlen(problems), problems_size - strlen(problems),
+                     "No Windows 10/11 SDK headers were found (KitsRoot10 in the registry).\n");
+        }
+    }
+    else
+    {
+        snprintf(problems + strlen(problems), problems_size - strlen(problems),
+                 "The Windows SDK is not in the registry "
+                 "(HKLM\\SOFTWARE\\Microsoft\\Windows Kits\\Installed Roots).\n");
+    }
+
+#else
+
+    /* Parsed out of the platform compiler's own "-v -E" output, between
+     * "#include <...> search starts here:" and "End of search list." -
+     * same as collect_system_include_dirs. */
+#ifdef __APPLE__
+    const char* cmd = "echo | clang -v -E - 2>&1";
+#else
+    const char* cmd = "echo | gcc -v -E - 2>&1";
+#endif
+    struct exttool_buf out = { 0 };
+    run_process_capture(cmd, NULL, &out);
+
+    const char* p = exttool_buf_text(&out);
+    int in_include_section = 0;
+    while (*p && count < max)
+    {
+        const char* eol = strchr(p, '\n');
+        size_t len = eol ? (size_t)(eol - p) : strlen(p);
+        char line[512];
+        snprintf(line, sizeof line, "%.*s", (int)len, p);
+        p += len + (eol ? 1 : 0);
+        line[strcspn(line, "\r")] = 0;
+
+        if (strstr(line, "#include <...> search starts here:") != NULL)
+        {
+            in_include_section = 1;
+            continue;
+        }
+        if (!in_include_section)
+            continue;
+        if (strstr(line, "End of search list.") != NULL)
+            break;
+
+        char* dir = line;
+        while (*dir == ' ')
+            dir++;
+
+        /* clang labels macOS framework search paths with a trailing
+         * " (framework directory)" - it is not part of the path. */
+        char* framework_tag = strstr(dir, " (framework directory)");
+        if (framework_tag != NULL)
+            *framework_tag = 0;
+
+        if (dir[0])
+            snprintf(dirs[count++], 512, "%s", dir);
+    }
+
+    /* The compiler's own output says why - typically "gcc: not found". */
+    if (count == 0)
+        snprintf(problems, problems_size, "No include search list in the output of\n  %s\n\n%s",
+                 cmd, exttool_buf_text(&out));
+    exttool_buf_free(&out);
+
+#endif
+
+    return count;
+}
 
 /* ui_open_url() for a file on disk: turns an absolute local path
  * into a file:// URL (backslashes to slashes, a leading "/" before a drive
@@ -7550,15 +7778,26 @@ static void refresh_open_windows(void)
  * Compile just never had it applied. */
 
 /* Unified Build action: with a project open, build the entire project
- * (whatever file happens to be frontmost - or none at all); without one,
+ * (whatever file happens to be frontmost - or none at all) unless the
+ * Playground is the active window; without one,
  * Build and Compile mean the same thing and just compile the active file
  * using the IDE-wide settings. External tools' $(CakeOutput) and $(Target)
  * macros expand correctly in both cases: project context uses all files and
  * project target, standalone context uses just the active file and IDE-wide
  * target settings. The per-frame enable in app_frame() mirrors this split. */
+static int active_is_playground(void)
+{
+    char playground_path[FS_MAX_PATH];
+    return g_active_editor_window &&
+           get_playground_file_path(playground_path, sizeof playground_path) &&
+           strcmp(ui_get_path(g_active_editor_window), playground_path) == 0;
+}
+
 static void do_build(void)
 {
-    if (project_is_open())
+    /* The Playground is independent of any project: with it active, Build
+     * compiles just playground.c with the IDE-wide settings. */
+    if (project_is_open() && !active_is_playground())
     {
         do_project_build();
     }
@@ -9297,8 +9536,48 @@ static int fr_search_current_file(const find_replace_options* opts, char* out, s
  * opendir/readdir/closedir (the portable wrapper fs.c provides on Windows,
  * the real POSIX ones elsewhere) rather than ui_list_dir() - that one's a
  * fixed-capacity snapshot meant for a listbox, not a streaming scan, and
- * reading+searching one file at a time here needs no such cap. Returns the
- * total match count across every file searched. */
+ * reading+searching one file at a time here needs no such cap.
+ *
+ * The one-directory scan itself, shared with fr_search_include_dirs:
+ * appends to out[*used..], counts into *files_searched, and returns the
+ * match count - or -1 if `dir` can't be opened. `full_names` reports each
+ * file by its full path instead of its bare name, for directories the
+ * Output window's double-click (output_goto_source) wouldn't otherwise
+ * think of looking in. */
+static int fr_search_dir_files(const char* dir, int full_names, const find_replace_options* opts,
+                               char* out, size_t out_size, size_t* used, int* files_searched)
+{
+    DIR* d = opendir(dir);
+    if (!d)
+        return -1;
+
+    const char* mask = fr_file_type_mask(opts->file_type);
+    int total = 0;
+    struct dirent* de;
+    while ((de = readdir(d)) != NULL)
+    {
+        if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0)
+            continue;
+        if (de->d_type & DT_DIR)
+            continue;  /* one level only - see comment above */
+        if (!mask_matches(mask, de->d_name))
+            continue;
+
+        char filepath[1024];
+        snprintf(filepath, sizeof filepath, "%s/%s", dir, de->d_name);
+        char* content = read_file_to_string(filepath);
+        if (!content)
+            continue;
+
+        (*files_searched)++;
+        total += fr_search_text(full_names ? filepath : de->d_name, content, opts, out, out_size, used);
+        free(content);
+    }
+    closedir(d);
+    return total;
+}
+
+/* Returns the total match count across every file searched. */
 static int fr_search_dir(const find_replace_options* opts, char* out, size_t out_size)
 {
     ui_node* win = g_active_editor_window;
@@ -9321,37 +9600,14 @@ static int fr_search_dir(const find_replace_options* opts, char* out, size_t out
     if (!dir[0])
         strcpy(dir, ".");
 
-    DIR* d = opendir(dir);
-    if (!d)
+    size_t used = 0;
+    int files_searched = 0;
+    int total = fr_search_dir_files(dir, 0, opts, out, out_size, &used, &files_searched);
+    if (total < 0)
     {
         snprintf(out, out_size, "Could not open directory: %s\n", dir);
         return 0;
     }
-
-    const char* mask = fr_file_type_mask(opts->file_type);
-    size_t used = 0;
-    int total = 0, files_searched = 0;
-    struct dirent* de;
-    while ((de = readdir(d)) != NULL)
-    {
-        if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0)
-            continue;
-        if (de->d_type & DT_DIR)
-            continue;  /* one level only - see comment above */
-        if (!mask_matches(mask, de->d_name))
-            continue;
-
-        char filepath[1024];
-        snprintf(filepath, sizeof filepath, "%s/%s", dir, de->d_name);
-        char* content = read_file_to_string(filepath);
-        if (!content)
-            continue;
-
-        files_searched++;
-        total += fr_search_text(de->d_name, content, opts, out, out_size, &used);
-        free(content);
-    }
-    closedir(d);
 
     if (used < out_size)
     {
@@ -9362,6 +9618,67 @@ static int fr_search_dir(const find_replace_options* opts, char* out, size_t out
             snprintf(out + used, out_size - used,
                 "\n%d occurrence(s) of \"%s\" in %d file(s) in %s.\n",
                 total, opts->find_text, files_searched, dir);
+    }
+    return total;
+}
+
+/* Look in: Include Dir - fr_search_dir_files() over the same include
+ * directories the compiler searches, in the same order: cake's own
+ * built-in <exe dir>/include first (see preprocessor_load_config in
+ * tokenizer.c - never listed in cake.json), then g_include_dirs, the
+ * "include_dirs" of cake.json (File > "System Directories..."). One level
+ * each, like Current Dir. Results carry full paths: these directories are
+ * nowhere the Output window's double-click would look on its own. A
+ * directory that can't be opened is noted and skipped rather than ending
+ * the search. */
+static int fr_search_include_dirs(const find_replace_options* opts, char* out, size_t out_size)
+{
+    if (opts->find_text[0] == '\0')
+    {
+        snprintf(out, out_size, "Nothing to find - the Find field is empty.\n");
+        return 0;
+    }
+
+    /* get_self_path()'s return value means different things per platform
+     * (fs.c), so success is judged by the path itself, as tokenizer.c does. */
+    char builtin_dir[FS_MAX_PATH] = { 0 };
+    get_self_path(builtin_dir, sizeof builtin_dir - sizeof "/include");
+    if (builtin_dir[0])
+    {
+        dirname(builtin_dir);
+        strcat(builtin_dir, "/include");
+    }
+
+    size_t used = 0;
+    int total = 0, files_searched = 0, dirs_searched = 0;
+    for (int i = builtin_dir[0] ? -1 : 0; i < g_include_count; i++)
+    {
+        const char* dir = i < 0 ? builtin_dir : g_include_dirs[i];
+        int n = fr_search_dir_files(dir, 1, opts, out, out_size, &used, &files_searched);
+        if (n >= 0)
+        {
+            total += n;
+            dirs_searched++;
+        }
+        else if (used < out_size)
+        {
+            int w = snprintf(out + used, out_size - used,
+                "Could not open directory: %s\n", dir);
+            if (w > 0)
+                used += (size_t)w;
+        }
+    }
+
+    if (used < out_size)
+    {
+        if (total == 0)
+            snprintf(out + used, out_size - used,
+                "\"%s\" not found in %d file(s) in %d include directories.\n",
+                opts->find_text, files_searched, dirs_searched);
+        else
+            snprintf(out + used, out_size - used,
+                "\n%d occurrence(s) of \"%s\" in %d file(s) in %d include directories.\n",
+                total, opts->find_text, files_searched, dirs_searched);
     }
     return total;
 }
@@ -9745,12 +10062,11 @@ static int fr_replace_project(const find_replace_options* opts, char* out, size_
     return total;
 }
 
-/* Search or Replace (per opts->mode) is implemented for Look in: Current
- * File, Current Dir, and Project - see fr_search_current_file/
- * fr_replace_current_file, fr_search_dir/fr_replace_dir, and
- * fr_search_project/fr_replace_project above; Include Dir still just says so
- * rather than doing anything (there's no configured include-directories
- * list to search/replace in yet). Reports every field of `opts` first (the
+/* Search or Replace (per opts->mode) for Look in: Current File, Current
+ * Dir, and Project - see fr_search_current_file/fr_replace_current_file,
+ * fr_search_dir/fr_replace_dir, and fr_search_project/fr_replace_project
+ * above. Include Dir is search-only (fr_search_include_dirs): those are the
+ * system headers, not files to rewrite. Reports every field of `opts` first (the
  * exact options the panel handed off), then the search/replace results, to
  * the Output window - same place do_compile() reports its own results. */
 static void do_find_replace(const find_replace_options* opts)
@@ -9778,11 +10094,14 @@ static void do_find_replace(const find_replace_options* opts)
         else
             fr_search_project(opts, msg, sizeof msg);
     }
-    else
+    else if (opts->look_in == FR_LOOKIN_INCLUDE_DIR)
     {
-        snprintf(msg, sizeof msg,
-            "\"%s\" scope isn't implemented yet - only Current File/Current "
-            "Dir actually search or replace.\n", fr_look_in_label(opts->look_in));
+        if (opts->mode)
+            snprintf(msg, sizeof msg,
+                "Replace isn't available for \"%s\" - those are the system headers. "
+                "Use Find to search them.\n", fr_look_in_label(opts->look_in));
+        else
+            fr_search_include_dirs(opts, msg, sizeof msg);
     }
 
     ui_set_value(g_output_editor, msg);
@@ -10955,10 +11274,6 @@ static void on_ui_event(void* ctx, int id, void* param)
     {
         do_help_contextual();
     }
-    else if (id == EVT_HELP_CHECK)
-    {
-        do_help_check();
-    }
     else if (id == EVT_HELP_ABOUT)
     {
         ui_screen_show_modal(g_screen, g_about_modal);
@@ -11789,7 +12104,8 @@ static void on_ui_event(void* ctx, int id, void* param)
          * Directories...", bound to the global list instead (cake.json), so
          * it is available with or without a project open. */
         includes_edit_global();
-        ui_set_label(g_project.includes_window, " Directories ");
+        ui_set_label(g_project.includes_window, " System Directories ");
+        includes_set_detect_visible(!g_includes_editing.is_project);
         project_includes_dialog_refresh(0);
         ui_screen_show_modal(g_screen, g_project.includes_modal);
     }
@@ -11799,6 +12115,7 @@ static void on_ui_event(void* ctx, int id, void* param)
          * EVT_PROJECT_ADD_FILE just above. */
         includes_edit_project();
         ui_set_label(g_project.includes_window, " Include Directories ");
+        includes_set_detect_visible(!g_includes_editing.is_project);
         project_includes_dialog_refresh(0);
         ui_screen_show_modal(g_screen, g_project.includes_modal);
     }
@@ -11877,6 +12194,53 @@ static void on_ui_event(void* ctx, int id, void* param)
                 global_settings_save();
 
             project_includes_dialog_refresh(other);
+        }
+    }
+    else if (id == EVT_PROJECT_INCLUDES_DETECT)
+    {
+        /* Replaces the whole list, like cake -autoconfig. Nothing found
+         * keeps the current list rather than wiping it. The button only
+         * exists for the global list (includes_set_detect_visible), but
+         * check anyway so it can never overwrite a project's own. */
+        if (g_includes_editing.dirs && !g_includes_editing.is_project)
+        {
+            char found[CAKE_PROJECT_MAX_INCLUDES][512];
+            char problems[2048];
+            int n = detect_system_include_dirs(found, CAKE_PROJECT_MAX_INCLUDES,
+                                               problems, sizeof problems);
+
+            /* Always reports back: what was found (and anything missing
+             * alongside it), or why nothing was. */
+            struct exttool_buf msg = { 0 };
+            if (n > 0)
+            {
+                memcpy(g_includes_editing.dirs, found, sizeof found);
+                *g_includes_editing.count = n;
+                bool saved = global_settings_save();
+                project_includes_dialog_refresh(0);
+
+                char settings_path[FS_MAX_PATH];
+                if (!get_global_settings_path(settings_path, sizeof settings_path))
+                    snprintf(settings_path, sizeof settings_path, "cake.json");
+                exttool_append(&msg, saved ? "System directories detected successfully.\n\nSaved to:\n"
+                                           : "System directories were detected, but could not be saved to:\n");
+                exttool_append(&msg, settings_path);
+                exttool_append(&msg, "\n");
+                if (problems[0])
+                {
+                    exttool_append(&msg, "\nWarning:\n");
+                    exttool_append(&msg, problems);
+                }
+            }
+            else
+            {
+                exttool_append(&msg, "Detection failed - the list was not changed.\n\n");
+                exttool_append(&msg, problems);
+            }
+
+            ui_msgbox_button ok = { "   OK   ", 0 };
+            ui_message_box(g_screen, "Detect", exttool_buf_text(&msg), &ok, 1);
+            exttool_buf_free(&msg);
         }
     }
     else if (id == EVT_PROJECT_INCLUDES_CLOSE)
@@ -12737,160 +13101,6 @@ static const char* label_for_path(const char* path)
         strcmp(path, playground_path) == 0)
         return "Playground";
     return basename_of(path);
-}
-
-/* Help > Check (EVT_HELP_CHECK): prints a couple of paths worth knowing when
- * troubleshooting - where the session config file lives (see
- * get_session_file_path) and where the running executable itself lives (see
- * fs.h's get_self_path) - to the Output window, same place do_compile()/
- * do_find_replace() report their own results. dirname() (fs.c) strips the
- * last path component in place, same pattern used throughout this file
- * (see e.g. do_help_index just above) to turn a file path into its
- * containing directory. */
-/* Builds Help > Check's report: not a developer path dump but a short,
- * user-facing install check - app dir first (everything else is explained
- * relative to it), then each file it found/didn't find, each with a
- * one-line "what it's for" and, when something's missing, a one-line fix. */
-static void do_help_check(void)
-{
-    char exe_dir[FS_MAX_PATH] = "(unavailable)";
-    char exe_path[FS_MAX_PATH] = { 0 };
-    get_self_path(exe_path, sizeof exe_path);
-    if (exe_path[0])
-    {
-        snprintf(exe_dir, sizeof exe_dir, "%s", exe_path);
-        dirname(exe_dir);
-    }
-
-    char session_dir[FS_MAX_PATH] = "(unavailable)";
-    char session_path[FS_MAX_PATH];
-    if (get_session_file_path(session_path, sizeof session_path))
-    {
-        snprintf(session_dir, sizeof session_dir, "%s", session_path);
-        dirname(session_dir);  /* strips "session.json", leaving just the dir */
-    }
-
-    /* cake.json: same file/location the compiler itself looks for (see
-     * CAKE_CONFIG_FILE_NAME, include_config_header() in tokenizer.c/lib.c,
-     * and generate_config_file() in compile.c/lib.c) - it lives next to the
-     * executable and, when present, supplies the default #include search
-     * directories used when none are passed explicitly on the command line
-     * (a fresh copy can be generated with the compiler's -autoconfig flag). */
-    char cakeconfig_path[FS_MAX_PATH] = "(unavailable)";
-    char* cakeconfig_content = NULL;
-    int cakeconfig_found = 0;
-    if (exe_path[0])
-    {
-        snprintf(cakeconfig_path, sizeof cakeconfig_path, "%s/cake.json", exe_dir);
-        FILE* cf = fopen(cakeconfig_path, "rb");
-        if (cf)
-        {
-            fseek(cf, 0, SEEK_END);
-            long size = ftell(cf);
-            fseek(cf, 0, SEEK_SET);
-            if (size < 0)
-                size = 0;
-            cakeconfig_content = malloc((size_t)size + 1);
-            if (cakeconfig_content)
-            {
-                size_t got = fread(cakeconfig_content, 1, (size_t)size, cf);
-                cakeconfig_content[got] = 0;
-                cakeconfig_found = 1;
-            }
-            fclose(cf);
-        }
-    }
-
-    char cakeconfig_section[FS_MAX_PATH + 512];
-    if (cakeconfig_found)
-    {
-        snprintf(cakeconfig_section, sizeof cakeconfig_section,
-                 "cake.json: found\n"
-                 "  %s\n"
-                 "  Tells the compiler where to find system headers (like stdio.h).\n",
-                 cakeconfig_path);
-    }
-    else
-    {
-        snprintf(cakeconfig_section, sizeof cakeconfig_section,
-                 "cake.json: NOT FOUND\n"
-                 "  looked in: %s\n"
-                 "  Tells the compiler where to find system headers (like stdio.h).\n"
-                 "  Tip: run the compiler with -autoconfig to generate one.\n",
-                 cakeconfig_path);
-    }
-
-    /* playground.c: the fixed file the Playground window always edits (see
-     * get_playground_file_path/open_playground's own doc comment) - created
-     * automatically the first time Playground is opened, so "not found"
-     * here just means Playground hasn't been opened yet this install (or
-     * something deleted the file out from under a running IDE). */
-    char playground_path[FS_MAX_PATH] = "(unavailable)";
-    int playground_found = 0;
-    if (get_playground_file_path(playground_path, sizeof playground_path))
-    {
-        FILE* pf = fopen(playground_path, "rb");
-        if (pf)
-        {
-            playground_found = 1;
-            fclose(pf);
-        }
-    }
-
-    char playground_section[FS_MAX_PATH + 256];
-    if (playground_found)
-    {
-        snprintf(playground_section, sizeof playground_section,
-                 "playground.c: found\n"
-                 "  %s\n"
-                 "  The fixed scratch file the Playground window always edits.\n",
-                 playground_path);
-    }
-    else
-    {
-        snprintf(playground_section, sizeof playground_section,
-                 "playground.c: NOT FOUND\n"
-                 "  looked in: %s\n"
-                 "  The fixed scratch file the Playground window always edits -\n"
-                 "  recreated automatically next time the IDE starts.\n",
-                 playground_path);
-    }
-
-    char* msg = NULL;
-    size_t total = sizeof cakeconfig_section + sizeof playground_section +
-                    strlen(exe_dir) + strlen(session_dir) +
-                    (cakeconfig_content ? strlen(cakeconfig_content) : 0) + 768;
-    msg = malloc(total);
-    if (msg)
-    {
-        int n = snprintf(msg, total,
-                 "=== Installation Check ===\n\n"
-                 "App directory\n"
-                 "  %s\n"
-                 "  Folder containing this program - the other files below are\n"
-                 "  found (or looked for) relative to it.\n\n"
-                 "%s\n"
-                 "Config directory (session.json)\n"
-                 "  %s\n"
-                 "  Remembers your last session: open file, window size/position,\n"
-                 "  and panel layout - kept separately from the app itself.\n"
-                 "  Tip: if the IDE opens looking wrong, delete session.json here\n"
-                 "  to reset it.\n\n"
-                 "%s",
-                 exe_dir, cakeconfig_section, session_dir, playground_section);
-
-        if (cakeconfig_found && cakeconfig_content && n > 0 && (size_t)n < total)
-        {
-            snprintf(msg + n, total - (size_t)n,
-                     "\ncakeconf.h contents\n----------------------------------------\n%s\n",
-                     cakeconfig_content);
-        }
-    }
-
-    ui_set_value(g_output_editor, msg ? msg : "Check failed: out of memory.\n");
-    free(msg);
-    free(cakeconfig_content);
-    ui_screen_show_window(g_screen, g_output_window);
 }
 
 /* Persists the session snapshot described above. Silently does nothing if
@@ -14265,7 +14475,7 @@ void app_init(ui_env* env)
      * one instead of duplicating that picker here. */
     ui_node* includes_modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, includes_modal);
-    int inc_x = 12, inc_y = 5, inc_w = 66, inc_h = 16;
+    int inc_x = 12, inc_y = 5, inc_w = 66, inc_h = 17;
     ui_node* includes_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(includes_window, inc_x, inc_y, inc_w, inc_h);
     ui_set_label(includes_window, " Include Directories ");
@@ -14313,10 +14523,17 @@ void app_init(ui_env* env)
     ui_set_rect(includes_down, inc_bx, inc_y + 9, inc_bw, 1);
     ui_set_label(includes_down, " Move Down ");
     ui_append_child(includes_window, includes_down);
+    /* Not appended here - includes_set_detect_visible() attaches it only
+     * while the dialog is editing the global (system) list. */
+    ui_node* includes_detect = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(includes_detect, EVT_PROJECT_INCLUDES_DETECT);
+    ui_set_rect(includes_detect, inc_bx, inc_y + 11, inc_bw, 1);
+    ui_set_label(includes_detect, " Detect ");
+    g_project.includes_detect = includes_detect;
 
     ui_node* includes_close = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(includes_close, EVT_PROJECT_INCLUDES_CLOSE);
-    ui_set_rect(includes_close, inc_bx, inc_y + 11, inc_bw, 1);
+    ui_set_rect(includes_close, inc_bx, inc_y + 13, inc_bw, 1);
     ui_set_label(includes_close, " Close ");
     ui_append_child(includes_window, includes_close);
     g_project.includes_modal = includes_modal;

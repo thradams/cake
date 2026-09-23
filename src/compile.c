@@ -260,15 +260,6 @@ int generate_config_file(const char* configpath)
         printf("Out of memory generating '%s'.\n", configpath);
         return ENOMEM;
     }
-    
-    char directory[FS_MAX_PATH] = { 0 };
-    snprintf(directory, sizeof directory, "%s", configpath);
-    dirname(directory);
-    char base_dir[FS_MAX_PATH] = { 0 };
-    snprintf(base_dir, sizeof base_dir, "%s", directory);
-    snprintf(directory, sizeof directory, "%s/include", base_dir);
-
-    json_add_string(dirs, directory);
 
     int error = collect_system_include_dirs(dirs);
     if (error != 0)

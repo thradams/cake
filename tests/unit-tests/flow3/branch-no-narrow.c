@@ -11,7 +11,6 @@ void no_narrow_if()
     {
         a = 1;
     }
-    // static_debug(a);
     /* Both alternatives must survive the join. */
     compile_assert(a == 0 || a == 1);
 //    compile_assert(a != 2);

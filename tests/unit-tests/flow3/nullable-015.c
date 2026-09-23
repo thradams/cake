@@ -9,6 +9,5 @@ int main()
 {
     struct X x = {1, 2};
     clear(&x);
-    // static_debug(x); //should print  0
 }
 

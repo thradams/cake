@@ -158,9 +158,9 @@ int rename_file_scope_declarator_if_necessary(const struct codegen_ctx* ctx, str
                         p_init_declarator->p_declarator->declarator_renamed = true;
                         if (p_init_declarator->p_declarator->name_opt)
                         {
-                            free(p_init_declarator->p_declarator->name_opt->lexeme);
                             char* _Opt _Owner temp = strdup(new_name);
                             if (temp == NULL) throw;
+                            free(p_init_declarator->p_declarator->name_opt->lexeme);
                             p_init_declarator->p_declarator->name_opt->lexeme = temp;
                         }
                         return 1;
@@ -188,9 +188,9 @@ int rename_file_scope_declarator_if_necessary(const struct codegen_ctx* ctx, str
         p_init_declarator->p_declarator->declarator_renamed = true;
         if (p_init_declarator->p_declarator->name_opt)
         {
-            free(p_init_declarator->p_declarator->name_opt->lexeme);
             char* _Opt _Owner temp = strdup(qualified_name);
             if (temp == NULL) throw;
+            free(p_init_declarator->p_declarator->name_opt->lexeme);
             p_init_declarator->p_declarator->name_opt->lexeme = temp;
         }
     }

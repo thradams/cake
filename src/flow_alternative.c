@@ -150,7 +150,9 @@ void flow_alternatives_add(struct flow_alternatives* vs, const struct flow_alter
             if (flow_value_is_same(vs->data[i], p_alternative) &&
                     vs->data[i]->value_relation == p_alternative->value_relation &&
                     vs->data[i]->imaginary == p_alternative->imaginary &&
-                    vs->data[i]->p_origin_map == p_alternative->p_origin_map)
+                    vs->data[i]->p_origin_map == p_alternative->p_origin_map &&
+                    vs->data[i]->p_narrowed_from == p_alternative->p_narrowed_from &&
+                    vs->data[i]->contradicted == p_alternative->contradicted)
             {
                 return;
             }

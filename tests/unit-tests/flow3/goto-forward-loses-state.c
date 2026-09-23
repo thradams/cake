@@ -10,7 +10,6 @@ void f(int x)
     a = 2;
 L:
     /* expected: a == 1 (arrived via goto), a == 2 (arrived via fall-through) */
-    // static_debug(a);
     compile_assert(a == 1 || a == 2);
     compile_assert(a != 0);
 }

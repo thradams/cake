@@ -1,13 +1,14 @@
 #pragma safety enable
 
-#include "flow_branch.h"
-#include "object.h"
-#include "expressions.h"
-#include "cake_compat.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
+
+#include "flow_branch.h"
+#include "object.h"
+#include "expressions.h"
+#include "cake_compat.h"
 #include "osstream.h"
 #include "error.h"
 
@@ -746,6 +747,7 @@ static void flow_branch_clear(_Clear struct flow_branch* m)
     m->is_unreachable = false;
     m->branch_id = 0;
     m->child_count = 0;
+    m->implied_facts = (struct flow_branch_implied_facts){ 0 };
 }
 
 static void flow_branch_delete(struct flow_branch* _Owner _Opt m)
@@ -1466,6 +1468,7 @@ void flow_narrow_map_into(struct flow_branch* p_dest, struct flow_branch* _Opt p
                     .value_relation = FLOW_RELATION_NOT_EQUAL,
                     .imaginary = FLOW_IMAGINARY_NONE,
                     .p_origin_map = p_dest,
+                    .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
                     .p_origin_token = p_token
                 };
                 flow_alternatives_add(&p_dest_entry->alternatives, &a);
@@ -1479,6 +1482,7 @@ void flow_narrow_map_into(struct flow_branch* p_dest, struct flow_branch* _Opt p
                     .value_relation = FLOW_RELATION_EQUAL,
                     .imaginary = FLOW_IMAGINARY_NONE,
                     .p_origin_map = p_dest,
+                    .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
                     .p_origin_token = p_token
                 };
                 flow_alternatives_add(&p_dest_entry->alternatives, &a);
@@ -1497,12 +1501,14 @@ void flow_narrow_map_into(struct flow_branch* p_dest, struct flow_branch* _Opt p
                     .value_relation = FLOW_RELATION_NOT_EQUAL,
                     .imaginary = FLOW_IMAGINARY_NONE,
                     .p_origin_map = p_dest,
+                    .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
                     .p_origin_token = p_token
                 };
                 flow_alternatives_add(&p_dest_entry->alternatives, &a);
             }
             else
             {
+                /* "!= 0" in the false arm: no path gets here with it */
                 struct flow_alternative a =
                 {
                     .value_kind = FLOW_VALUE_KIND_SIGNED,
@@ -1510,6 +1516,8 @@ void flow_narrow_map_into(struct flow_branch* p_dest, struct flow_branch* _Opt p
                     .value_relation = FLOW_RELATION_EQUAL,
                     .imaginary = FLOW_IMAGINARY_NONE,
                     .p_origin_map = p_dest,
+                    .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
+                    .contradicted = true,
                     .p_origin_token = p_token
                 };
                 flow_alternatives_add(&p_dest_entry->alternatives, &a);
@@ -1566,6 +1574,8 @@ void flow_narrow_map_into(struct flow_branch* p_dest, struct flow_branch* _Opt p
                     .value_relation = FLOW_RELATION_EQUAL,
                     .imaginary = alt->imaginary,
                     .p_origin_map = p_dest,
+                    .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
+                    .contradicted = true,
                     .p_origin_token = p_token
                 };
                 flow_alternatives_add(&p_dest_entry->alternatives, &a);
@@ -1615,6 +1625,7 @@ void flow_narrow_map_into(struct flow_branch* p_dest, struct flow_branch* _Opt p
                     .value_relation = FLOW_RELATION_NOT_EQUAL,
                     .imaginary = alt->imaginary,
                     .p_origin_map = p_dest,
+                    .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
                     .p_origin_token = p_token
                 };
                 flow_alternatives_add(&p_dest_entry->alternatives, &a);
@@ -1628,6 +1639,7 @@ void flow_narrow_map_into(struct flow_branch* p_dest, struct flow_branch* _Opt p
                     .value_relation = FLOW_RELATION_EQUAL,
                     .imaginary = alt->imaginary,
                     .p_origin_map = p_dest,
+                    .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
                     .p_origin_token = p_token
                 };
                 flow_alternatives_add(&p_dest_entry->alternatives, &a);
@@ -1753,6 +1765,28 @@ struct flow_branch* _Opt flow_narrow_map_branch(struct flow_branch_arena* arena,
     return p_dest;
 }
 
+/* The p_narrowed_from of a value narrowed from `alt` into the map new_origin:
+   alt's own origin, unless that is on new_origin's chain already -- then
+   alt's own p_narrowed_from (a condition narrowed twice, `c > 2 && c < 9`)
+   still says where the value came from. */
+const struct flow_branch* _Opt flow_alternative_narrowed_provenance(const struct flow_alternative* alt, const struct flow_branch* _Opt new_origin)
+{
+    const struct flow_branch* _Opt provenance = alt->p_origin_map;
+    bool origin_on_chain = false;
+    for (const struct flow_branch* _Opt m = new_origin; m != NULL && !origin_on_chain; m = m->p_parent_map)
+    {
+        if (m == alt->p_origin_map)
+        {
+            origin_on_chain = true;
+        }
+    }
+    if (origin_on_chain && alt->p_narrowed_from != NULL)
+    {
+        provenance = alt->p_narrowed_from;
+    }
+    return provenance;
+}
+
 void flow_tag_branch_pair(struct flow_branch* _Opt p_true, struct flow_branch* _Opt p_false)
 {
     if (p_true == NULL || p_false == NULL || p_true == p_false)
@@ -1873,6 +1907,9 @@ void flow_branch_name_to_string(const struct flow_branch* _Opt map, struct osstr
 
         case FLOW_BRANCH_MERGE_TEMP:
             ss_fprintf(ss, "merge-temp");
+            return;
+        case FLOW_BRANCH_POINTER_TARGET:
+            ss_fprintf(ss, "pointer target");
             return;
         case FLOW_BRANCH_FOR_BODY_PASS1:
             ss_fprintf(ss, "loop body (first pass)");
