@@ -657,6 +657,28 @@ struct ui_node {
                              * buffer from byte 0. Invalidated (scan_valid=0) by ui_set_label, which
                              * every text edit funnels through. */
     int scan_valid;
+    /* EDITOR only: editor_content_cols' cached result. It walks the whole
+     * buffer, and the scrollbar checks call it on every frame tick, so an
+     * idle window re-measured an unchanged document ~60 times a second.
+     * Invalidated (content_cols_valid=0) by every setter its result depends
+     * on: ui_set_label, ui_set_syntax, ui_set_read_only and the diagnostic
+     * add/clear. */
+    int content_cols_valid;
+    int content_cols;
+    /* EDITOR only: more whole-buffer walks cached for the same reason as
+     * content_cols above. line_count is editor_label_line_count's,
+     * visible_line_count editor_visible_line_count's; both are invalidated
+     * with content_cols. cursor_line/cursor_line_start are
+     * editor_cursor_line's for the caret at byte `cursor_line_key`; a caret
+     * move changes the key, and ui_set_label clears cursor_line_valid. */
+    int line_count_valid;
+    int line_count;
+    int visible_line_count_valid;
+    int visible_line_count;
+    int cursor_line_valid;
+    int cursor_line_key;
+    int cursor_line;
+    int cursor_line_start;
     int scan_line;   /* the line index the cached offset/state belong to */
     int scan_off;    /* byte offset of that line's first character */
     int scan_block;  /* whether that line starts inside a block comment */
@@ -800,6 +822,7 @@ struct ui_scaled_pane {
     int origin_cx, origin_cy;     /* the same point in the global cell grid */
     int cell_w, cell_h;           /* the pane font's measured cell */
     int main_cell_w, main_cell_h; /* the main font's, as of this frame */
+    int cols, rows;               /* the pane's footprint, in main cells */
     int small_font;   /* which font the pane draws in */
     uint32_t back;                /* the pane's background colour */
     /* z-order stamp of this pane's backdrop fill. Content written to the
@@ -1000,6 +1023,18 @@ struct ui_screen {
      * Overflow drops the extra pane rather than growing mid-render. */
     struct ui_scaled_pane scaled_panes[8];
     int scaled_pane_count;
+    /* What each scaled pane painted last frame: its geometry and a hash of
+     * every draw it issued. A pane whose hash and geometry are unchanged, and
+     * whose footprint the cell diff did not touch, is left alone on screen
+     * instead of being cleared and repainted whole - the repaint was the
+     * bulk of an idle IDE's CPU. */
+    struct ui_scaled_pane prev_scaled_panes[8];
+    unsigned long long prev_scaled_pane_hash[8];
+    int prev_scaled_pane_count;
+    /* Set by the cell diff when it draws a cell inside a scaled pane's
+     * footprint this frame: those pixels were overwritten, so the pane must
+     * repaint. */
+    int scaled_pane_touched[8];
     /* Monotonic z-order counter for the frame in progress: bumped on each
      * content write and stamped into that cell's `seq`, so overlay replay can
      * tell which cells a higher-z node later covered (see ui_cell.seq). */
@@ -1419,18 +1454,28 @@ void ui_set_id(ui_node* n, int id)
 
 void ui_set_label(ui_node* n, const char* label)
 {
-    /* Allocate the replacement BEFORE freeing the old one: xstrdup returns
-     * NULL if the allocation fails, and the old "free then assign" order
-     * left n->label NULL in that case. Every other place in this file
-     * treats n->label as a valid string (strlen/utf8 walks/render), so a
-     * NULL there faults on the next read - an access violation reading
-     * address 0, typically nowhere near the allocation that actually
-     * failed. Keeping the previous text on failure is both safe and the
-     * more useful outcome: the edit is dropped, not the document. */
-    char* copy = xstrdup(label ? label : "");  /* fatal on OOM - see ui_fatal_oom */
-    free(n->label);
-    n->label = copy;
-    n->scan_valid = 0;  /* content changed - render_editor's scan cache is stale */
+    /* Same text: nothing to do. Some labels are refreshed unchanged on every
+     * frame tick, and the copy below plus every cache invalidation would
+     * otherwise happen 60 times a second. */
+    if (!n->label || strcmp(n->label, label ? label : "") != 0)
+    {
+        /* Allocate the replacement BEFORE freeing the old one: xstrdup returns
+         * NULL if the allocation fails, and the old "free then assign" order
+         * left n->label NULL in that case. Every other place in this file
+         * treats n->label as a valid string (strlen/utf8 walks/render), so a
+         * NULL there faults on the next read - an access violation reading
+         * address 0, typically nowhere near the allocation that actually
+         * failed. Keeping the previous text on failure is both safe and the
+         * more useful outcome: the edit is dropped, not the document. */
+        char* copy = xstrdup(label ? label : "");  /* fatal on OOM - see ui_fatal_oom */
+        free(n->label);
+        n->label = copy;
+        n->scan_valid = 0;  /* content changed - render_editor's scan cache is stale */
+        n->content_cols_valid = 0;
+        n->line_count_valid = 0;
+        n->visible_line_count_valid = 0;
+        n->cursor_line_valid = 0;
+    }
 }
 
 void ui_set_rect(ui_node* n, int x, int y, int w, int h)
@@ -1701,6 +1746,8 @@ int ui_get_small_font(const ui_node* n)
 void ui_set_syntax(ui_node* n, ui_syntax syntax)
 {
     n->syntax = syntax;
+    n->content_cols_valid = 0;
+    n->visible_line_count_valid = 0;
     if (syntax == UI_SYNTAX_VT100 || syntax == UI_SYNTAX_DIFF)
         n->read_only = 1;  /* captured terminal/compiler output, or a git diff -
                             * never hand-edited */
@@ -1730,12 +1777,14 @@ void ui_editor_add_diagnostic(ui_node* n, ui_diag_type type, int line, int code,
         link = &(*link)->next;
     d->next = *link;
     *link = d;
+    n->content_cols_valid = 0;
 }
 
 void ui_editor_clear_diagnostics(ui_node* n)
 {
     free_diagnostics(n->diagnostics);
     n->diagnostics = NULL;
+    n->content_cols_valid = 0;
 }
 
 /* Toggles a breakpoint on `line` (1-based): adds it (kept sorted ascending,
@@ -1904,6 +1953,8 @@ int ui_get_enabled(const ui_node* n)
 void ui_set_read_only(ui_node* n, int read_only)
 {
     n->read_only = read_only;
+    n->content_cols_valid = 0;
+    n->visible_line_count_valid = 0;
 }
 
 int ui_get_read_only(const ui_node* n)
@@ -3141,17 +3192,24 @@ static int editor_line_range(const char* text, int line_idx, int* out_start, int
 /* Which line n->cursor is on, and that line's starting byte offset. */
 static void editor_cursor_line(ui_node* n, int* out_line, int* out_line_start)
 {
-    int line = 0, line_start = 0;
-    for (int i = 0; i < n->cursor; i++)
+    if (!n->cursor_line_valid || n->cursor_line_key != n->cursor)
     {
-        if (n->label[i] == '\n')
+        int line = 0, line_start = 0;
+        for (int i = 0; i < n->cursor; i++)
         {
-            line++;
-            line_start = i + 1;
+            if (n->label[i] == '\n')
+            {
+                line++;
+                line_start = i + 1;
+            }
         }
+        n->cursor_line = line;
+        n->cursor_line_start = line_start;
+        n->cursor_line_key = n->cursor;
+        n->cursor_line_valid = 1;
     }
-    *out_line = line;
-    *out_line_start = line_start;
+    *out_line = n->cursor_line;
+    *out_line_start = n->cursor_line_start;
 }
 
 /* True if n->cursor sits right before the line's '\n' (or the document's
@@ -3170,6 +3228,19 @@ static int editor_line_count(const char* text)
         if (*p == '\n')
             n++;
     return n;
+}
+
+/* editor_label_line_count(n), cached on the node (see line_count). Takes a
+ * const node because its callers do; the node itself is never const. */
+static int editor_label_line_count(const ui_node* n)
+{
+    ui_node* p_node = (ui_node*)n;
+    if (!p_node->line_count_valid)
+    {
+        p_node->line_count = editor_line_count(p_node->label);
+        p_node->line_count_valid = 1;
+    }
+    return p_node->line_count;
 }
 
 /* Global ON/OFF switch for the line-number gutter (see ui_set_show_line_
@@ -3311,7 +3382,7 @@ static int editor_gutter_width(const ui_node* n)
         return 1;
     if (!g_show_line_numbers || n->syntax != UI_SYNTAX_C)
         return 0;
-    int total = editor_line_count(n->label);
+    int total = editor_label_line_count(n);
     int digits = 1;
     for (int t = total; t >= 10; t /= 10)
         digits++;
@@ -3344,7 +3415,7 @@ static void editor_move_lines(ui_node* n, int delta)
     int target = line + delta;
     if (target < 0)
         target = 0;
-    int last = editor_line_count(n->label) - 1;
+    int last = editor_label_line_count(n) - 1;
     if (target > last)
         target = last;
 
@@ -3412,7 +3483,7 @@ static int editor_row_to_line(const ui_node* n, int click_row)
     if (n->syntax != UI_SYNTAX_MARKDOWN || !n->read_only)
         return n->scroll + click_row;
 
-    int total = editor_line_count(n->label);
+    int total = editor_label_line_count(n);
     int line = n->scroll;
     int shown = 0;
     while (line < total)
@@ -3635,24 +3706,33 @@ static void editor_select_word(ui_node* n)
  * the plain per-line count. */
 static int editor_visible_line_count(ui_node* n)
 {
-    if (n->syntax != UI_SYNTAX_MARKDOWN || !n->read_only)
-        return editor_line_count(n->label);
-
-    const char* text = n->label;
-    int text_len = (int)strlen(text);
-    int off = 0, count = 0;
-    while (off <= text_len)
+    if (!n->visible_line_count_valid)
     {
-        int ls = off;
-        while (off < text_len && text[off] != '\n')
-            off++;
-        if (!md_is_foldable_line(text + ls, off - ls))
-            count++;
-        if (off >= text_len)
-            break;
-        off++;
+        if (n->syntax != UI_SYNTAX_MARKDOWN || !n->read_only)
+        {
+            n->visible_line_count = editor_label_line_count(n);
+        }
+        else
+        {
+            const char* text = n->label;
+            int text_len = (int)strlen(text);
+            int off = 0, count = 0;
+            while (off <= text_len)
+            {
+                int ls = off;
+                while (off < text_len && text[off] != '\n')
+                    off++;
+                if (!md_is_foldable_line(text + ls, off - ls))
+                    count++;
+                if (off >= text_len)
+                    break;
+                off++;
+            }
+            n->visible_line_count = count > 0 ? count : 1;  /* editor_line_count() never returns less than 1 either */
+        }
+        n->visible_line_count_valid = 1;
     }
-    return count > 0 ? count : 1;  /* editor_line_count() never returns less than 1 either */
+    return n->visible_line_count;
 }
 
 /* Keep n->scroll (the index of the topmost visible line) in range - called
@@ -7355,6 +7435,22 @@ static void union_dirty(ui_screen* s, int x, int y, int w, int h)
  * at a different size without changing their (col, row) arithmetic. */
 static struct ui_scaled_pane* g_scaled_pane;
 
+/* While set, the scaled-pane draw paths below draw nothing and only fold
+ * their arguments into g_scaled_pane_hash - a dry run of render_editor /
+ * render_listbox that tells whether the pane would paint anything different
+ * from last frame. FNV-1a. */
+static int g_scaled_pane_hash_only;
+static unsigned long long g_scaled_pane_hash;
+
+static void scaled_pane_hash_add(unsigned long long value)
+{
+    for (int byte_index = 0; byte_index < 8; byte_index++)
+    {
+        g_scaled_pane_hash ^= (value >> (byte_index * 8)) & 0xFF;
+        g_scaled_pane_hash *= 1099511628211ULL;
+    }
+}
+
 /* Editor-cell (x, y) -> device pixels, for the pane currently painting. */
 static int pane_px(int x) { return g_scaled_pane->origin_px + (x - g_scaled_pane->origin_cx) * g_scaled_pane->cell_w; }
 static int pane_py(int y) { return g_scaled_pane->origin_py + (y - g_scaled_pane->origin_cy) * g_scaled_pane->cell_h; }
@@ -7423,6 +7519,13 @@ static void emit_char(int x, int y, uint32_t ch, uint32_t fg, uint32_t bg)
         int dx = pane_px(x), dy = pane_py(y);
         if (pane_rect_occluded(dx, dy, g_scaled_pane->cell_w, g_scaled_pane->cell_h))
             return;   /* something is layered over the pane here */
+        if (g_scaled_pane_hash_only)
+        {
+            scaled_pane_hash_add(((unsigned long long)(unsigned)dx << 32) | (unsigned)dy);
+            scaled_pane_hash_add(((unsigned long long)fg << 32) | bg);
+            scaled_pane_hash_add(ch);
+            return;
+        }
         ui_draw_char_px(dx, dy,
                         g_scaled_pane->cell_w, g_scaled_pane->cell_h,
                         ch, fg, bg, g_scaled_pane->small_font);
@@ -7520,8 +7623,16 @@ static void emit_box(int x, int y, int w, int h, uint32_t fg, uint32_t bg, int f
                     run_x0 = dx;
                 else if (blocked && run_x0 >= 0)
                 {
-                    ui_fill_rect_px(run_x0, dy, dx - run_x0,
-                                    g_scaled_pane->cell_h, bg);
+                    if (g_scaled_pane_hash_only)
+                    {
+                        scaled_pane_hash_add(((unsigned long long)(unsigned)run_x0 << 32) | (unsigned)dy);
+                        scaled_pane_hash_add(((unsigned long long)(unsigned)(dx - run_x0) << 32) | bg);
+                    }
+                    else
+                    {
+                        ui_fill_rect_px(run_x0, dy, dx - run_x0,
+                                        g_scaled_pane->cell_h, bg);
+                    }
                     run_x0 = -1;
                 }
             }
@@ -9618,50 +9729,55 @@ static void render_diagnostic(int x, int y, int w, int scroll_x,
  * render_editor()'s own merge. */
 static int editor_content_cols(ui_node* n)
 {
-    int text_len = (int)strlen(n->label);
-    ui_diagnostic* diag = n->syntax == UI_SYNTAX_VT100 ? NULL : n->diagnostics;
-    int md_ro = n->syntax == UI_SYNTAX_MARKDOWN && n->read_only;
-    int in_block = 0;
-    int line_idx = 0, off = 0, max_cols = 0;
-    for (;;)
+    if (!n->content_cols_valid)
     {
-        int ls = off;
-        while (off < text_len && n->label[off] != '\n')
-            off++;
-        /* A read-only Markdown line's *visible* width, once hidden
-         * delimiters are actually collapsed (see the md_scan_line() block
-         * comment above render_editor()) - using the raw utf8_col_of() here
-         * would size the scrollbar/max-hscroll for text that's wider than
-         * what's actually drawn, letting the view scroll right past the end
-         * of the visible content into blank space. */
-        int cols = md_ro ? md_scan_line(n->label + ls, off - ls, &in_block, -1, -1)
-                          : utf8_col_of(n->label + ls, off - ls);
-
-        while (diag && diag->line - 1 < line_idx)
-            diag = diag->next;
-        if (diag && diag->line - 1 == line_idx)
+        int text_len = (int)strlen(n->label);
+        ui_diagnostic* diag = n->syntax == UI_SYNTAX_VT100 ? NULL : n->diagnostics;
+        int md_ro = n->syntax == UI_SYNTAX_MARKDOWN && n->read_only;
+        int in_block = 0;
+        int line_idx = 0, off = 0, max_cols = 0;
+        for (;;)
         {
-            /* Only the worst one (drawn first) extends the scroll range; the
-             * rest are shown only as far as the editor's border. */
-            char buf[256];
-            format_diagnostic(buf, sizeof buf, line_worst_diagnostic(diag, &diag));
-            cols += utf8_col_of(buf, (int)strlen(buf));
-        }
+            int ls = off;
+            while (off < text_len && n->label[off] != '\n')
+                off++;
+            /* A read-only Markdown line's *visible* width, once hidden
+             * delimiters are actually collapsed (see the md_scan_line() block
+             * comment above render_editor()) - using the raw utf8_col_of() here
+             * would size the scrollbar/max-hscroll for text that's wider than
+             * what's actually drawn, letting the view scroll right past the end
+             * of the visible content into blank space. */
+            int cols = md_ro ? md_scan_line(n->label + ls, off - ls, &in_block, -1, -1)
+                              : utf8_col_of(n->label + ls, off - ls);
 
-        if (cols > max_cols)
-            max_cols = cols;
+            while (diag && diag->line - 1 < line_idx)
+                diag = diag->next;
+            if (diag && diag->line - 1 == line_idx)
+            {
+                /* Only the worst one (drawn first) extends the scroll range; the
+                 * rest are shown only as far as the editor's border. */
+                char buf[256];
+                format_diagnostic(buf, sizeof buf, line_worst_diagnostic(diag, &diag));
+                cols += utf8_col_of(buf, (int)strlen(buf));
+            }
 
-        if (off < text_len)
-        {
-            off++;          /* past the '\n' onto the next line */
-            line_idx++;
+            if (cols > max_cols)
+                max_cols = cols;
+
+            if (off < text_len)
+            {
+                off++;          /* past the '\n' onto the next line */
+                line_idx++;
+            }
+            else
+            {
+                break;          /* consumed the last line */
+            }
         }
-        else
-        {
-            break;          /* consumed the last line */
-        }
+        n->content_cols = max_cols;
+        n->content_cols_valid = 1;
     }
-    return max_cols;
+    return n->content_cols;
 }
 
 /* Keep n->hscroll in [0, content_width - w] - the horizontal analogue of
@@ -10478,6 +10594,8 @@ static void record_scaled_pane(ui_screen* s, ui_node* n)
     s->scaled_panes[i].origin_py = cy * main_ch;
     s->scaled_panes[i].main_cell_w = main_cw;
     s->scaled_panes[i].main_cell_h = main_ch;
+    s->scaled_panes[i].cols      = cw;
+    s->scaled_panes[i].rows      = chh;
     s->scaled_panes[i].cell_w    = pane_cw;
     s->scaled_panes[i].cell_h    = pane_ch;
     s->scaled_panes[i].small_font = n->small_font;
@@ -10672,6 +10790,10 @@ int ui_screen_render(ui_screen* s, int* out_x, int* out_y, int* out_w, int* out_
     /* --- Diff `next` (this frame's intent) against `cache` (what the backend
      * shows) and emit a backend draw only for cells that actually differ.
      * This is where the CPU is saved: an unchanged screen emits nothing. --- */
+    for (int i = 0; i < s->scaled_pane_count; i++)
+    {
+        s->scaled_pane_touched[i] = 0;
+    }
     if (s->cache && s->next)
     {
         for (int y = 0; y < s->cache_h; y++)
@@ -10690,6 +10812,17 @@ int ui_screen_render(ui_screen* s, int* out_x, int* out_y, int* out_w, int* out_
                 ui_draw_char(x, y, nc.ch, nc.fg, nc.bg);
                 s->cache[idx] = nc;
                 union_dirty(s, x, y, 1, 1);
+                for (int i = 0; i < s->scaled_pane_count; i++)
+                {
+                    ui_node* pane_node = s->scaled_panes[i].node;
+                    if (x >= s->scaled_panes[i].origin_cx &&
+                        x < s->scaled_panes[i].origin_cx + pane_node->w &&
+                        y >= s->scaled_panes[i].origin_cy &&
+                        y < s->scaled_panes[i].origin_cy + pane_node->h)
+                    {
+                        s->scaled_pane_touched[i] = 1;
+                    }
+                }
             }
         }
     }
@@ -10699,69 +10832,155 @@ int ui_screen_render(ui_screen* s, int* out_x, int* out_y, int* out_w, int* out_
      * doing this any earlier would just have the diff paint normal-size
      * cells straight back over them.
      *
-     * Repainted whole every frame rather than diffed. A scaled pane has no
-     * per-cell shadow to compare against (that is the entire reason it is
-     * out here), so there is nothing to skip; the pane is small and this
-     * keeps the two paths from needing to agree about damage. Its area is
-     * unioned into the dirty rect so the backend actually blits it. */
+     * Not diffed per cell: a scaled pane has no per-cell shadow to compare
+     * against (that is the entire reason it is out here). Instead each pane
+     * is either left exactly as it is on screen, or cleared and repainted
+     * whole. It is left alone only when all of these hold:
+     *   - no full repaint was requested,
+     *   - it sits where it sat last frame, with the same fonts and size,
+     *   - the cell diff above drew nothing inside its footprint,
+     *   - a dry run of its render hashes the same as last frame's paint.
+     * An idle IDE meets all four, and repainting the pane regardless was most
+     * of its CPU. A repainted pane's area is unioned into the dirty rect so
+     * the backend actually blits it. */
+
+    /* A pane that was on screen last frame but moved, resized or went away
+     * left its pixels behind in cells whose shadow says backdrop, so the diff
+     * skipped them. Paint those cells back from the shadow (which holds what
+     * belongs there) and make any pane now overlapping them repaint. */
+    for (int prev_index = 0; prev_index < s->prev_scaled_pane_count; prev_index++)
+    {
+        struct ui_scaled_pane* p_prev_pane = &s->prev_scaled_panes[prev_index];
+        int still_there = 0;
+        for (int i = 0; i < s->scaled_pane_count; i++)
+        {
+            struct ui_scaled_pane* p_pane = &s->scaled_panes[i];
+            if (p_pane->origin_px == p_prev_pane->origin_px &&
+                p_pane->origin_py == p_prev_pane->origin_py &&
+                p_pane->cols == p_prev_pane->cols &&
+                p_pane->rows == p_prev_pane->rows &&
+                p_pane->cell_w == p_prev_pane->cell_w &&
+                p_pane->cell_h == p_prev_pane->cell_h &&
+                p_pane->main_cell_w == p_prev_pane->main_cell_w &&
+                p_pane->main_cell_h == p_prev_pane->main_cell_h &&
+                p_pane->small_font == p_prev_pane->small_font)
+            {
+                still_there = 1;
+            }
+        }
+        if (still_there || was_full || !s->cache)
+        {
+            continue;
+        }
+        for (int cy = p_prev_pane->origin_cy; cy < p_prev_pane->origin_cy + p_prev_pane->rows; cy++)
+        {
+            if (cy < 0 || cy >= s->cache_h)
+            {
+                continue;
+            }
+            for (int cx = p_prev_pane->origin_cx; cx < p_prev_pane->origin_cx + p_prev_pane->cols; cx++)
+            {
+                if (cx < 0 || cx >= s->cache_w)
+                {
+                    continue;
+                }
+                ui_cell cached_cell = s->cache[cy * s->cache_w + cx];
+                ui_draw_char(cx, cy, cached_cell.ch, cached_cell.fg, cached_cell.bg);
+                for (int i = 0; i < s->scaled_pane_count; i++)
+                {
+                    if (cx >= s->scaled_panes[i].origin_cx &&
+                        cx < s->scaled_panes[i].origin_cx + s->scaled_panes[i].cols &&
+                        cy >= s->scaled_panes[i].origin_cy &&
+                        cy < s->scaled_panes[i].origin_cy + s->scaled_panes[i].rows)
+                    {
+                        s->scaled_pane_touched[i] = 1;
+                    }
+                }
+            }
+        }
+        union_dirty(s, p_prev_pane->origin_cx, p_prev_pane->origin_cy,
+                    p_prev_pane->cols, p_prev_pane->rows);
+    }
+
     for (int i = 0; i < s->scaled_pane_count; i++)
     {
         ui_node* n = s->scaled_panes[i].node;
         g_scaled_pane = &s->scaled_panes[i];
-        /* Clear the pane's whole area in device pixels first. The cell diff
-         * tracks nothing inside a scaled pane (that is the point of it), so
-         * it will never repaint a cell here on its own: any pixel the pane
-         * painted last frame and doesn't repaint this frame would otherwise
-         * stay on screen forever. Most visible right after a font zoom,
-         * where the pane's rows land at different heights and the previous
-         * frame's text shows through between the new ones. */
-        int pane_cols = n->w, pane_rows = n->h;
-        for (int ry = 0; ry < pane_rows; ry++)
-        {
-            for (int rx = 0; rx < pane_cols; rx++)
-            {
-                int dx = s->scaled_panes[i].origin_px + rx * s->scaled_panes[i].main_cell_w;
-                int dy = s->scaled_panes[i].origin_py + ry * s->scaled_panes[i].main_cell_h;
-                if (pane_rect_occluded(dx, dy, s->scaled_panes[i].main_cell_w,
-                                      s->scaled_panes[i].main_cell_h))
-                    continue;   /* covered by something above the pane */
-                ui_fill_rect_px(dx, dy,
-                                s->scaled_panes[i].main_cell_w,
-                                s->scaled_panes[i].main_cell_h,
-                                s->scaled_panes[i].back);
-            }
-        }
-        if (n->type == UI_TAG_LISTBOX)
-            render_listbox(s, n);
-        else
-            render_editor(s, n);
-        g_scaled_pane = NULL;
-        union_dirty(s, s->scaled_panes[i].origin_cx, s->scaled_panes[i].origin_cy,
-                    n->w, n->h);
 
-        /* The pane just clobbered pixels the shadow doesn't model - it holds
-         * the backdrop these cells were diffed against, not what is now on
-         * screen. Sentinel them, so whatever occupies this footprint next
-         * frame is repainted rather than skipped as unchanged: without it,
-         * a pane that shrinks or moves leaves its old text behind wherever
-         * the freed cells happen to diff equal (the usual case - same
-         * backdrop color on both sides). The rect is the pane's MAIN-font
-         * footprint: that is the area it occupies in the layout, whatever
-         * size the text inside it is drawn at. */
-        for (int cy = s->scaled_panes[i].origin_cy;
-             s->cache && cy < s->scaled_panes[i].origin_cy + n->h; cy++)
+        /* Dry run: hash what the pane would draw, drawing nothing. */
+        g_scaled_pane_hash_only = 1;
+        g_scaled_pane_hash = 14695981039346656037ULL;
+        scaled_pane_hash_add(s->scaled_panes[i].back);
+        if (n->type == UI_TAG_LISTBOX)
         {
-            if (cy < 0 || cy >= s->cache_h)
-                continue;
-            for (int cx = s->scaled_panes[i].origin_cx;
-                 cx < s->scaled_panes[i].origin_cx + n->w; cx++)
-            {
-                if (cx < 0 || cx >= s->cache_w)
-                    continue;
-                s->cache[cy * s->cache_w + cx].ch = 0xFFFFFFFFu;
-            }
+            render_listbox(s, n);
         }
+        else
+        {
+            render_editor(s, n);
+        }
+        g_scaled_pane_hash_only = 0;
+        unsigned long long pane_hash = g_scaled_pane_hash;
+
+        int unchanged = 0;
+        if (!was_full && !s->scaled_pane_touched[i] && i < s->prev_scaled_pane_count)
+        {
+            struct ui_scaled_pane* p_prev_pane = &s->prev_scaled_panes[i];
+            unchanged = s->prev_scaled_pane_hash[i] == pane_hash &&
+                        p_prev_pane->origin_px == s->scaled_panes[i].origin_px &&
+                        p_prev_pane->origin_py == s->scaled_panes[i].origin_py &&
+                        p_prev_pane->cols == s->scaled_panes[i].cols &&
+                        p_prev_pane->rows == s->scaled_panes[i].rows &&
+                        p_prev_pane->cell_w == s->scaled_panes[i].cell_w &&
+                        p_prev_pane->cell_h == s->scaled_panes[i].cell_h &&
+                        p_prev_pane->main_cell_w == s->scaled_panes[i].main_cell_w &&
+                        p_prev_pane->main_cell_h == s->scaled_panes[i].main_cell_h &&
+                        p_prev_pane->small_font == s->scaled_panes[i].small_font;
+        }
+        s->prev_scaled_pane_hash[i] = pane_hash;
+
+        if (!unchanged)
+        {
+            /* Clear the pane's whole area in device pixels first. The cell
+             * diff tracks nothing inside a scaled pane, so any pixel the pane
+             * painted last frame and doesn't repaint now would otherwise stay
+             * on screen. Most visible right after a font zoom, where the
+             * pane's rows land at different heights and the previous frame's
+             * text shows through between the new ones. */
+            int pane_cols = n->w, pane_rows = n->h;
+            for (int ry = 0; ry < pane_rows; ry++)
+            {
+                for (int rx = 0; rx < pane_cols; rx++)
+                {
+                    int dx = s->scaled_panes[i].origin_px + rx * s->scaled_panes[i].main_cell_w;
+                    int dy = s->scaled_panes[i].origin_py + ry * s->scaled_panes[i].main_cell_h;
+                    if (pane_rect_occluded(dx, dy, s->scaled_panes[i].main_cell_w,
+                                          s->scaled_panes[i].main_cell_h))
+                        continue;   /* covered by something above the pane */
+                    ui_fill_rect_px(dx, dy,
+                                    s->scaled_panes[i].main_cell_w,
+                                    s->scaled_panes[i].main_cell_h,
+                                    s->scaled_panes[i].back);
+                }
+            }
+            if (n->type == UI_TAG_LISTBOX)
+            {
+                render_listbox(s, n);
+            }
+            else
+            {
+                render_editor(s, n);
+            }
+            union_dirty(s, s->scaled_panes[i].origin_cx, s->scaled_panes[i].origin_cy,
+                        n->w, n->h);
+        }
+        g_scaled_pane = NULL;
     }
+    for (int i = 0; i < s->scaled_pane_count; i++)
+    {
+        s->prev_scaled_panes[i] = s->scaled_panes[i];
+    }
+    s->prev_scaled_pane_count = s->scaled_pane_count;
 
     /* Replay destructive overlays on top of the freshly-diffed content, in the
      * document order they were recorded. Their cells are erased next frame via

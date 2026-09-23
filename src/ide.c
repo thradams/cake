@@ -480,17 +480,10 @@ static ui_node* add_menu(ui_node* menubar, const char* label,
  * startup. The "Welcome" panel is appended to the same tree programmatically
  * in app_init() below, via the same ui_create_element/ui_append_child/
  * ui_set_* calls - both routes build the identical ui_node tree. */
- /* The Edit menu's "Read-only" item (see build_screen() below) - forward
-  * declared here since build_screen() is defined ahead of the rest of the
-  * app's globals. Kept in sync with the active editor once per frame (see
-  * app_frame()), the same way the popup's own copy is refreshed on open. */
-static ui_node* g_edit_readonly_item;
-
 /* The View menu's "Show Output"/"Show Folder"/"Show Playground" items (see
  * build_screen() below) - same forward-declared-for-build_screen()/kept-
- * current-every-frame pattern as g_edit_readonly_item just above, showing
- * "[x]"/"[ ]" for whether each one's window is currently open rather than
- * the active editor's read-only state - see refresh_view_item()/
+ * current-every-frame pattern, showing
+ * "[x]"/"[ ]" for whether each one's window is currently open - see refresh_view_item()/
  * window_is_shown() and their app_frame() call sites. */
 /* The Tools <menu> itself - the configured External Tools are appended to
  * it as their own items, and re-appended whenever the list changes (see
@@ -614,7 +607,7 @@ static ui_node* g_view_linenumbers_item;
 
 /* The Compile menu's own "Build" item (id 40 / EVT_COMPILE, "Ctrl+F7") - see
  * build_screen() below) - same forward-declared-for-build_screen()/kept-
- * current-every-frame pattern as g_edit_readonly_item above. Disabling the
+ * current-every-frame pattern as the View menu items above. Disabling the
  * top-level <menu> container itself (as opposed to this leaf item) turns out
  * not to do anything in this framework - clicking a menubar header opens its
  * dropdown unconditionally (see the menubar loop in ide_ui.c's update()),
@@ -710,13 +703,6 @@ static void build_screen(ui_node* root)
     };
     ui_node* edit_menu = add_menu(menubar, "Edit", edit_items, sizeof edit_items / sizeof edit_items[0]);
     g_edit_format_item = ui_find_by_id(edit_menu, EVT_EDIT_FORMAT);
-    ui_node* edit_sep = ui_create_element(UI_TAG_ITEM);
-    ui_set_separator(edit_sep, 1);
-    ui_append_child(edit_menu, edit_sep);
-    ui_node* edit_readonly = ui_create_element(UI_TAG_ITEM);
-    ui_set_id(edit_readonly, EVT_EDITOR_TOGGLE_READONLY);
-    ui_append_child(edit_menu, edit_readonly);
-    g_edit_readonly_item = edit_readonly;
 
     /* View > "Show Output"/"Show Folder"/"Show Playground" - previously on
      * the Window menu (see EVT_WINDOW_OUTPUT/EVT_WINDOW_FOLDER/
@@ -14702,13 +14688,8 @@ int app_frame(ui_env* env)
             g_active_editor_window = top;
     }
 
-    /* The Edit menu's own "Read-only" item has no open-time hook the way the
-     * popup does (see below) - the menubar opens its dropdowns itself, with
-     * no app-level callback - so it's just kept current every frame instead,
-     * off of whichever document window is frontmost. */
-    refresh_readonly_item(g_edit_readonly_item, g_active_editor_window);
-
-    /* Same reasoning as the Read-only item just above - the View menu's
+    /* The menubar opens its dropdowns itself, with no app-level callback,
+     * so the View menu's
      * "Show ..." items get their "[x]"/"[ ]" kept current every frame too.
      * Output/Folder are persistent singletons (see window_is_shown's own
      * doc comment); Playground has no such singleton pointer (a normal
@@ -14727,7 +14708,7 @@ int app_frame(ui_env* env)
     /* Project > Add Existing File.../Include Directories.../Build/Save
      * Project/Close Project - disabled while no project is open, same as
      * every other "only meaningful in state X" menu item in this app (e.g.
-     * g_compile_item/g_edit_readonly_item). New/Open Project are left out of
+     * g_compile_item). New/Open Project are left out of
      * menu_items_requiring_project entirely - those are always enabled since
      * they're how a project gets opened in the first place. */
     {

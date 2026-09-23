@@ -39289,7 +39289,7 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 */
 
 //#pragma once
-#define CAKE_VERSION "0.14.47"
+#define CAKE_VERSION "0.14.48"
 
 
 
