@@ -1083,6 +1083,9 @@ static void run_generated_tests(const char* title, const char* cake_exe, const c
         /* 2. host compiler: generated C -> executable */
 #ifdef COMPILER_MSVC
         snprintf(cmd, sizeof cmd, CC " /nologo /w %s/%s.c /Fe:%s/%s.exe", out_dir, base, out_dir, base);
+#elif defined PLATFORM_LINUX
+        /* generic __atomic_load/__atomic_compare_exchange live in libatomic */
+        snprintf(cmd, sizeof cmd, CC " -w %s/%s.c -o %s/%s -latomic", out_dir, base, out_dir, base);
 #else
         snprintf(cmd, sizeof cmd, CC " -w %s/%s.c -o %s/%s", out_dir, base, out_dir, base);
 #endif
