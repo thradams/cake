@@ -101,3 +101,6 @@ src/cake
 /tests/run-tests/out
 /vc/ide/obj/Win32/Debug/
 *.include
+/vc/ide/bin
+/vc/ide/obj
+/vc/ide/x64_msvc
