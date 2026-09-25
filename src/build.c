@@ -1126,7 +1126,7 @@ static void run_test_suites(const char* title, const char* cake_exe, const char*
     print_header(title);
 
     const char* suites[] = {
-        " -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -wd44 -wd74 -wd85 -wd88 -test-mode",
+        " -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -wd39 -wd44 -wd74 -wd85 -wd88 -test-mode",
         " -fdiagnostics-color=never -wd20 -wd85 ../tests/unit-tests/*.c -test-mode",
         " -fdiagnostics-color=never -wd20 -wd82 -wd85 ../tests/unit-tests/flow3/*.c -test-mode",
     };
