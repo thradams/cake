@@ -83,7 +83,6 @@ void token_list_pop_back(struct token_list* list);
 void token_list_pop_front(struct token_list* list);
 struct token* _Owner _Opt token_list_pop_front_get(struct token_list* list);
 void remove_line_continuation(char* s);
-struct token* token_list_clone_and_add(struct token_list* list, const struct token* pnew);
 bool token_list_is_equal(const struct token_list* list_a, const struct token_list* list_b);
 void token_list_insert_after(struct token_list* list, struct token* _Opt after, struct token_list* append);
 void token_list_insert_before(struct token_list* token_list, struct token* after, struct token_list* append_list);
@@ -102,6 +101,7 @@ void check_unused_macros(const struct hash_map* map);
 
 const char* get_token_name(enum token_type tk);
 const char* get_diagnostic_friendly_token_name(enum token_type tk);
+const char* get_diagnostic_token_text(const struct token* _Opt p_token);
 void print_all_macros(const struct preprocessor_ctx* prectx);
 
 

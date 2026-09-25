@@ -17,6 +17,7 @@
                       * External Tools macro (exttool_expand()), which has to
                       * predict cake's own "<root>/<platform name>/..."
                       * output layout to hand a real compiler its files */
+#include "options.h"  /* fill_options - validates the Compiler Options field, see copts_find_invalid() */
 #include "json.h"     /* the ".cakeproj" reader/writer - see project_save() */
 
 #include <ctype.h>
@@ -146,7 +147,7 @@ enum {
     EVT_WINDOW_FONT_INC = 85,
     EVT_WINDOW_FONT_DEC = 86,
     EVT_HELP_CONTEXTUAL = 200,  /* the status bar's F1 hotkey - see
-                                 * do_help_contextual() */
+                                 * show_hint_window() */
     EVT_HELP_ABOUT = 92,
     EVT_HELP_MANUAL = 94,  /* Help > "Manual" - web/manual.html in the browser,
                             * see do_help_manual() */
@@ -224,7 +225,11 @@ enum {
     EVT_SAVEAS_OVERWRITE = 840,  /* "Yes" in the overwrite-confirm message box */
     EVT_PROJECT_NEW_OVERWRITE = 842,  /* same, for Project > "New Project..."
                                        * (see project_new_save_activate()) */
-    EVT_CLOSE_DISCARD = 841,  /* "Discard" in the unsaved-changes-on-close
+    EVT_FILE_RELOAD = 843,     /* "Yes" in the "changed outside the IDE"
+                                * prompt for the active file - see
+                                * file_watch_check() */
+    EVT_PROJECT_RELOAD = 844,  /* same, for the open project's .cakeproj */
+    EVT_CLOSE_DISCARD = 841, /* "Discard" in the unsaved-changes-on-close
                                * confirm message box - see UI_CLOSE_REQUEST_ID
                                * and g_pending_close_window */
     EVT_WORDWRAP_INPUT = 850,   /* Edit > Word Wrap...'s "Columns" <input> */
@@ -232,9 +237,12 @@ enum {
     EVT_WORDWRAP_CANCEL = 852,
     EVT_COPTS_OK = 900,
     EVT_COPTS_CANCEL = 901,
-    EVT_COPTS_HELP = 902,  /* Compiler Options' Help button - opens the
-                             * manual's Command-Line Options section in the
-                             * browser - see do_help_cmdline() */
+    EVT_COPTS_KEEP_INVALID = 904,  /* "Keep" in the invalid-options warning - saves them anyway, see copts_find_invalid() */
+    EVT_COPTS_HELP = 902,  /* Compiler Options' Help button - the dialog's
+                             * own overview in the help window, see
+                             * show_help_text() */
+    EVT_HINTWIN_CLOSE = 903,  /* the full-help window's Close button - see
+                               * show_hint_window() */
     EVT_COPTS_TARGET = 910,  /* base id for the Target <select>'s options */
     EVT_COPTS_STYLE = 920,   /* base id for the Style <select>'s options */
     EVT_COPTS_DIAGFORMAT = 930, /* base id for the Output Format <select>'s options */
@@ -429,8 +437,21 @@ enum {
                                      * g_pending_commit_push set first so
                                      * git_commit_confirm() pushes after a
                                      * successful commit */
+    EVT_GIT_COMMITFILE_BTN = 1339,  /* popup's "Commit File" - see git_commitfile_start() */
+    EVT_GIT_COMMITSTAGED_BTN = 1340,  /* popup's "Commit Staged" - see git_commitstaged_start() */
+    EVT_GIT_STAGE_BTN = 1341,    /* popup's "Stage" - git_do_stage() */
+    EVT_GIT_UNSTAGE_BTN = 1342,  /* popup's "Unstage" - git_do_unstage() */
+    EVT_GIT_BRANCH_BTN = 1343,   /* popup's "Branch..." - opens g_gitbranch, see git_branch_start() */
+    EVT_GITBRANCH_CHECKOUT = 1344,  /* also the branch listbox's own id - Enter/double-click checks out */
+    EVT_GITBRANCH_NEW = 1345,    /* also the new-branch <input>'s id - Enter creates */
+    EVT_GITBRANCH_CANCEL = 1346,
+    EVT_GITDIFF_COPY_PATH = 1347,    /* diff viewer popup's "Copy Full Path" - g_gitdiff_path */
+    EVT_GITDIFF_SHOW_FOLDER = 1348,  /* diff viewer popup's "Show My Folder" */
+    EVT_GITDIFF_EDIT = 1350,  /* diff viewer popup's "Edit" - git_diff_edit() */
+    EVT_GIT_COMMITSTAGEDPUSH_BTN = 1349,  /* popup's "Commit Staged && Push" - only shown while something is staged */
     EVT_GIT_SYNC_BTN = 1336,  /* popup's "Sync" item - git_do_sync() (pull
                                * then push) */
+    EVT_OUTPUT_CMDLINE = 1400,  /* the Output window's command <input> - Enter runs it, see cmdline_execute() */
 };
 
 /* One row of a <menu>'s dropdown: an id/label/shortcut triple, "---" for a
@@ -441,6 +462,8 @@ typedef struct {
     const char* label;
     const char* shortcut;  /* NULL if none */
     int enabled;
+    const char* short_help; /* status bar hint (ui_set_help), NULL if none */
+    const char* help;       /* its full text for F1 */
 } menu_item_spec;
 #define SEP { 0, "---", NULL, 1 }
 
@@ -470,6 +493,8 @@ static ui_node* add_menu(ui_node* menubar, const char* label,
                 ui_set_shortcut(item, items[i].shortcut);
             if (!items[i].enabled)
                 ui_set_enabled(item, 0);
+            if (items[i].short_help)
+                ui_set_help(item, items[i].short_help, items[i].help);
         }
         ui_append_child(menu, item);
     }
@@ -596,13 +621,16 @@ static struct
      * as refresh_view_item elsewhere. Filled in build_screen(), read in
      * app_frame(). */
     ui_node* menu_items_requiring_project[4];
+
+    /* file_path's last-modified time as of our own last load/save - see
+     * file_watch_check(). */
+    long long file_time;
 } g_project;
 
-/* View > "Line Numbers" (EVT_VIEW_LINENUMBERS) - same forward-declared/kept-
- * current-every-frame pattern as the three above, but mirrors a plain
- * boolean (ui_get_show_line_numbers()) instead of "is this window open" -
- * see refresh_view_item()'s own doc comment, which already covers either
- * shape. */
+/* The editor popup's "[x] Line Numbers" item (EVT_VIEW_LINENUMBERS) - its
+ * label/enabled state is refreshed each time the popup opens (see
+ * app_frame()): enabled only over a C source editor, the only kind that
+ * draws a line-number gutter (see editor_gutter_width() in ide_ui.c). */
 static ui_node* g_view_linenumbers_item;
 
 /* The Compile menu's own "Build" item (id 40 / EVT_COMPILE, "Ctrl+F7") - see
@@ -665,20 +693,27 @@ static ui_node* g_view_debuginfo_item;
 static ui_node* g_statusbar_compile_item;  /* "Compiling..." while a build
                                             * runs - see compile_status_set */
 
+static ui_node* g_menubar;  /* the menu bar - the command line looks menu items up in it, see cmdline_menu_find */
+
 static void build_screen(ui_node* root)
 {
     ui_node* menubar = ui_create_element(UI_TAG_MENUBAR);
+    g_menubar = menubar;
     ui_append_child(root, menubar);
 
     static const menu_item_spec file_items[] = {
         { 1, "New", NULL, 1 },
         { 2, "Open...", "Ctrl+O", 1 },
         { EVT_FILE_OPENFOLDER, "Open Folder...", NULL, 1 },
+        { EVT_GIT_CLONE_BTN, "Git Clone...", NULL, 1 },
         { 3, "Save", "Ctrl+S", 1 },
         { 4, "Save As...", NULL, 1 },
         { 6, "Save all", "Ctrl+Shift+S", 1 },
         SEP,
-        { EVT_GLOBAL_INCLUDES, "System Directories...", NULL, 1 },
+        { EVT_GLOBAL_INCLUDES, "System Directories...", NULL, 1,
+          "System Directories: the global `#include` search path, saved in `cake.json`", "# System Directories\n\nthe global `#include` search path, saved in `cake.json`\n"
+          "\n"
+          "Used for every file that is not part of the open project. Open it for the full explanation (F1 inside the dialog)." },
         { EVT_COMPILE_OPTIONS, "Options...", NULL, 1 },
         SEP,
         { 5, "Exit", NULL, 1 },
@@ -715,9 +750,19 @@ static void build_screen(ui_node* root)
         { EVT_WINDOW_FOLDER, "Folder", NULL, 1 },
         { EVT_WINDOW_PROJECT, "Project", NULL, 1 },
         { EVT_WINDOW_GIT, "Git Changes", NULL, 1 },
-        { EVT_WINDOW_PLAYGROUND, "Playground", NULL, 1 },
-        SEP,
-        { EVT_VIEW_LINENUMBERS, "Line Numbers", NULL, 1 },
+        { EVT_WINDOW_PLAYGROUND, "Playground", NULL, 1,
+          "Playground: a scratch C file to try something small - no project needed", "# Playground\n\na scratch C file to try something small - no project needed\n"
+          "\n"
+          "Always the same file, `playground.c`, kept in the IDE's own config "
+          "directory, independent of any open project. It starts as a small Hello "
+          "World the first time the IDE runs.\n"
+          "\n"
+          "Open it, edit it, **Build** (F7), **Debug** (F5). It uses the global "
+          "settings (**File > Directories...** / **File > Options...**), never the "
+          "open project's.\n"
+          "\n"
+          "Closing the window doesn't delete the file; reopening it reads the "
+          "latest saved contents from disk." },
     };
     ui_node* view_menu = add_menu(menubar, "View", view_items, sizeof view_items / sizeof view_items[0]);
     /* Grabbed back out by id (add_menu builds items from the plain spec
@@ -730,7 +775,6 @@ static void build_screen(ui_node* root)
     g_project.view_item = ui_find_by_id(view_menu, EVT_WINDOW_PROJECT);
     g_view_git_item = ui_find_by_id(view_menu, EVT_WINDOW_GIT);
     g_view_playground_item = ui_find_by_id(view_menu, EVT_WINDOW_PLAYGROUND);
-    g_view_linenumbers_item = ui_find_by_id(view_menu, EVT_VIEW_LINENUMBERS);
 
     static const menu_item_spec search_items[] = {
         { 20, "Find...", NULL, 1 },
@@ -776,13 +820,13 @@ static void build_screen(ui_node* root)
             ui_find_by_id(project_menu, project_menu_ids_requiring_project[i]);
 
     static const menu_item_spec compile_items[] = {
-        { EVT_COMPILE, "Build", "F7", 1 },
-        { EVT_COMPILE_FILE, "Compile", "Ctrl+F7", 1 },
+        { EVT_COMPILE, "Build", "F7", 1, "Compile every file of the project (or the current file) and link the executable" },
+        { EVT_COMPILE_FILE, "Compile", "Ctrl+F7", 1, "Compile only the current file" },
         //{ 41, "Make", NULL, 1 },
        // { 42, "Link", NULL, 1 },
        // { 43, "Build all", NULL, 1 },
         SEP,
-        { EVT_EDITOR_SHOW_OUTPUT, "Show Generated Code", NULL, 1 },
+        { EVT_EDITOR_SHOW_OUTPUT, "Show Generated Code", NULL, 1, "Open the C89 code Cake generated for the current file" },
     };
     ui_node* compile_menu = add_menu(menubar, "Build", compile_items, sizeof compile_items / sizeof compile_items[0]);
     /* Grabbed back out by id, same reason/pattern as the View menu's items
@@ -895,7 +939,7 @@ static void build_screen(ui_node* root)
      * Shift+ variants, not plain F2/F3 - Search > Search Next already owns
      * plain F3 (see EVT_SEARCH_NEXT), and Shift+F2 just keeps the pair
      * consistent - so the labels spell out the modifier. F1 doubles as a
-     * real global shortcut too (see do_help_contextual()), unlike the
+     * real global shortcut too (see show_hint_window()), unlike the
      * decorative F4/F5/F6/F10 hints this replaces - removed since none of
      * them were ever wired to anything real either (F5 Refresh's actual
      * shortcut lives on the Window menu, untouched by removing this hint). */
@@ -986,6 +1030,7 @@ static struct
                                  * same one it opened, no matter what happens
                                  * to project_is_open()/the active document
                                  * while the modal is up. */
+    char bad_option[256];       /* the option copts_find_invalid() rejected, for the warning */
 } g_copts;  /* "-no-output"/"-line-directives"/"-fanalyzer"/"-const-literal"/"-Wall" -
                                  * a check-box GROUP (multi=1),
                                  * same control as Find's "Options"
@@ -995,6 +1040,15 @@ static struct
                                  * EVT_COMPILE_OPTIONS/EVT_COPTS_OK - same as the
                                  * Target <select> above, so Cancel discards
                                  * whatever got clicked. */
+
+/* The full-help window: F1 (or a click on the status bar) on something
+ * with a hint shows that hint's whole Markdown text (ui_screen_get_hint_text)
+ * in a read-only Markdown <editor> - see show_hint_window(). */
+static struct
+{
+    ui_node* modal;
+    ui_node* editor;
+} g_hintwin;
 
 static const char* g_target_slugs[] = {
     "default",
@@ -1137,6 +1191,10 @@ static struct
     ui_node* listbox;
     ui_node* popup;      /* right-click popup - Commit/Discard/Pull/Push, same
                           * shape as g_folder.popup */
+    /* Commit Staged, Commit Staged && Push, Unstage - in the popup only while
+     * something is staged, each right after its anchor; see git_popup_refresh() */
+    ui_node* staged_items[3];
+    ui_node* staged_anchors[3];
     char root[1024];
 } g_git;
 
@@ -1159,6 +1217,21 @@ static struct
  * g_pending_git_discard_path/g_pending_git_untracked. */
 static int g_pending_commit_push;
 
+/* Set by EVT_GIT_COMMITFILE_BTN: the one path git_commit_confirm() commits; empty means commit all. */
+static char g_pending_commit_file[1024];
+
+/* Set by EVT_GIT_COMMITSTAGED_BTN: git_commit_confirm() commits only the index, skipping `git add -A`. */
+static int g_pending_commit_staged;
+
+/* The Git Changes popup's "Branch..." dialog - local branches list plus a new-branch name field. */
+static struct
+{
+    ui_node* modal;
+    ui_node* window;
+    ui_node* listbox;
+    ui_node* input;
+} g_gitbranch;
+
 /* The Git Changes popup's "Clone..." item's own URL dialog - same shared
  * name-then-OK/Cancel shape as g_gitcommit above, just for a repository URL
  * instead of a commit message - see git_clone_start()/EVT_GITCLONE_OK. */
@@ -1169,6 +1242,10 @@ static struct
     ui_node* input;
     ui_node* folder_input;
     ui_node* open_folder_check;
+    char last_url[1024];       /* URL the Folder field was last suggested
+                                * from - see git_clone_update_suggestion() */
+    char suggested_name[256];  /* repository name last appended to the
+                                * Folder field, swapped on the next change */
 } g_gitclone;
 
 /* The floating diff viewer - reused for every diff the Git Changes panel
@@ -1176,6 +1253,20 @@ static struct
  * git_window_activate()), rather than a new window per file. */
 static ui_node* g_gitdiff_window;
 static ui_node* g_gitdiff_editor;
+static ui_node* g_gitdiff_popup;  /* right-click popup - Copy Full Path/Show My Folder */
+
+/* Full path of the file the diff viewer shows. Kept here, not in ui_set_path() on the window, since a path there marks an editor window (is_editor_window()). */
+static char g_gitdiff_path[1400];
+
+/* 1 when the viewer holds a real diff (every row starts with ' ', '+' or '-'); 0 for an untracked file shown as-is - see git_diff_edit(). */
+static int g_gitdiff_prefixed;
+
+/* First line (1-based) of each run of changed rows in the diff viewer, found once per diff by git_diff_index_changes(). */
+static int* g_gitdiff_runs;
+static int g_gitdiff_run_count;
+static ui_node* g_gitdiff_counter;  /* "2/23" between the Previous/Next buttons - see git_diff_counter_refresh() */
+static int g_gitdiff_counter_line;  /* caret line the counter was last computed for; -1 forces a refresh */
+static void git_diff_index_changes(void);
 
 /* The persistent folder browser window - File > Open Folder... (via the
  * picker dialog, folder_select_confirm) or Window > Folder both just
@@ -1335,6 +1426,7 @@ static struct
     ui_node* window;        /* title changes per mode */
     ui_node* name_input;
     ui_node* listbox;
+    ui_node* list_label;    /* "Files" or "Folders" above the list, per mode */
     ui_node* ok;            /* label changes per mode */
     ui_node* filter;        /* "Files of type" <select> - see g_open_filters */
     ui_node* filter_label;  /* its "Type" <text> - shown/hidden together,
@@ -1526,6 +1618,8 @@ static int g_pending_git_untracked;
 
 static void do_compile(void);  /* defined below */
 static void do_project_build(void);  /* defined below */
+static void file_watch_reload_file(void);     /* defined below */
+static void file_watch_reload_project(void);  /* defined below */
 static void do_goto_definition(void);  /* defined below */
 static void open_playground(void);  /* defined below; called on View > "Show Playground" */
 static int get_playground_file_path(char* buf, size_t cap);  /* defined below;
@@ -1733,6 +1827,10 @@ static const ui_theme g_theme_ambar = {
     .diag_error_fg = TB_RGB(0xF4, 0x47, 0x47),
     .diag_warning_fg = TB_RGB(0xCC, 0xA7, 0x00),
     .diag_info_fg = TB_RGB(0x37, 0x94, 0xFF),
+    /* Each fg at 18% over editor_bg - left unset these are 0, a black bar. */
+    .diag_error_bg = TB_RGB(0x45, 0x25, 0x27),
+    .diag_warning_bg = TB_RGB(0x3D, 0x37, 0x1A),
+    .diag_info_bg = TB_RGB(0x22, 0x33, 0x48),
 };
 
 static const ui_theme g_theme_dark = {
@@ -1907,6 +2005,10 @@ static const ui_theme g_theme_dark = {
     .diag_error_fg = TB_RGB(0xF4, 0x47, 0x47),
     .diag_warning_fg = TB_RGB(0xCC, 0xA7, 0x00),
     .diag_info_fg = TB_RGB(0x37, 0x94, 0xFF),
+    /* Each fg at 18% over editor_bg - left unset these are 0, a black bar. */
+    .diag_error_bg = TB_RGB(0x45, 0x25, 0x25),
+    .diag_warning_bg = TB_RGB(0x3D, 0x37, 0x19),
+    .diag_info_bg = TB_RGB(0x22, 0x33, 0x46),
 };
 
 /* Visual Studio Light theme palette (editor #FFFFFF/#1E1E1E, chrome #F3F3F3,
@@ -2120,6 +2222,10 @@ static const ui_theme g_theme_white = {
     .diag_error_fg = TB_RGB(0xE5, 0x14, 0x00),
     .diag_warning_fg = TB_RGB(0xBF, 0x88, 0x03),
     .diag_info_fg = TB_RGB(0x1A, 0x85, 0xFF),
+    /* Pale tints of each fg - left unset these are 0, a black bar on a white editor. */
+    .diag_error_bg = TB_RGB(0xFD, 0xE7, 0xE9),
+    .diag_warning_bg = TB_RGB(0xFF, 0xF4, 0xCE),
+    .diag_info_bg = TB_RGB(0xE5, 0xF1, 0xFB),
 };
 
 /* "Nebula" - a deep indigo night palette (editor #1A1B26, text #C0CAF5,
@@ -2271,6 +2377,10 @@ static const ui_theme g_theme_nebula = {
     .diag_error_fg = TB_RGB(0xDB, 0x4B, 0x4B),
     .diag_warning_fg = TB_RGB(0xE0, 0xAF, 0x68),
     .diag_info_fg = TB_RGB(0x0D, 0xB9, 0xD7),
+    /* Each fg at 18% over editor_bg - left unset these are 0, a black bar. */
+    .diag_error_bg = TB_RGB(0x3D, 0x24, 0x2D),
+    .diag_warning_bg = TB_RGB(0x3E, 0x36, 0x32),
+    .diag_info_bg = TB_RGB(0x18, 0x37, 0x46),
 };
 
 /* "Xcode Dark" - Xcode's own Default (Dark) editor palette (editor #292A30,
@@ -2409,6 +2519,10 @@ static const ui_theme g_theme_xcode_dark = {
     .diag_error_fg = TB_RGB(0xFF, 0x4B, 0x4B),
     .diag_warning_fg = TB_RGB(0xFF, 0xC6, 0x27),
     .diag_info_fg = TB_RGB(0x5A, 0xC8, 0xFA),
+    /* Each fg at 18% over editor_bg - left unset these are 0, a black bar. */
+    .diag_error_bg = TB_RGB(0x50, 0x30, 0x35),
+    .diag_warning_bg = TB_RGB(0x50, 0x46, 0x2E),
+    .diag_info_bg = TB_RGB(0x32, 0x46, 0x54),
 };
 
 /* Index into the Theme <select> (Ambar=0/Dark=1/White=2/Nebula=3/Xcode Dark=4 - matches the
@@ -2493,11 +2607,22 @@ static ui_syntax syntax_for_path(const char* path);
  * one, simply because the node it's given is a fresh one, never previously
  * shown. Cascades each new window's position so they don't land exactly on
  * top of one another, and numbers the title NONAME00.C, NONAME01.C, ... */
+/* `path`'s last-modified time, or 0 if it can't be stat'ed (e.g. a
+ * NONAMEnn.C placeholder not saved yet) - see file_watch_check(). */
+static long long file_mtime(const char* path)
+{
+    struct stat st;
+    if (!path || !path[0] || stat(path, &st) != 0)
+        return 0;
+    return (long long)st.st_mtime;
+}
+
 static ui_node* make_editor_window(ui_node* root, int seq, const char* title,
                                     const char* content, const char* path)
 {
     ui_node* wrapper = ui_create_element(UI_TAG_MODAL);
     ui_set_path(wrapper, path);
+    ui_set_file_time(wrapper, file_mtime(path));  /* see file_watch_check() */
     ui_set_transient(wrapper, 1);  /* a one-off document window - torn down
                                     * for good when closed, not kept around
                                     * as a reusable singleton like a docked
@@ -3051,19 +3176,75 @@ static int open_entry_cmp(const void* pa, const void* pb)
     return ci_strcmp(a, b);
 }
 
-/* Strips the last path component from `dir` in place - "go up a directory".
- * Accepts either separator style, so a path the user typed with forward
- * slashes still navigates correctly. Does nothing if there's nowhere left
- * to go (already at a bare drive letter or root). */
-static void open_path_up(char* dir)
+/* Normalizes `path` in place: '\' becomes '/', repeated separators collapse
+ * to one (a leading "//" UNC prefix is kept), "." segments are dropped, ".."
+ * removes the segment before it (never climbing above the root), and a
+ * trailing '/' is removed unless it is the root itself ("/" or "C:/").
+ * E.g. "C:\Users\thiag\source\repos\/installer" -> "C:/Users/thiag/source/repos/installer". */
+static void ide_path_normalize(char* path)
 {
-    size_t len = strlen(dir);
-    while (len > 0 && (dir[len - 1] == '/' || dir[len - 1] == '\\'))
-        dir[--len] = 0;
-    while (len > 0 && dir[len - 1] != '/' && dir[len - 1] != '\\')
-        len--;
-    if (len > 0)
-        dir[len - 1] = 0;
+    char* p;
+    for (p = path; *p; p++)
+        if (*p == '\\')
+            *p = '/';
+
+    /* Root prefix that ".." must never remove: "C:/", "//" (UNC) or "/". */
+    size_t root = 0;
+    if (((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z')) &&
+        path[1] == ':')
+        root = path[2] == '/' ? 3 : 2;
+    else if (path[0] == '/' && path[1] == '/')
+        root = 2;
+    else if (path[0] == '/')
+        root = 1;
+
+    char* r = path + root;
+    char* w = path + root;
+    while (*r)
+    {
+        while (*r == '/')
+            r++;
+        if (!*r)
+            break;
+        const char* seg = r;
+        while (*r && *r != '/')
+            r++;
+        size_t seg_len = (size_t)(r - seg);
+
+        if (seg_len == 1 && seg[0] == '.')
+            continue;
+        if (seg_len == 2 && seg[0] == '.' && seg[1] == '.')
+        {
+            char* start = path + root;
+            /* Drop the previous segment, unless there is none (or it is
+             * itself an unresolved ".." of a relative path). */
+            if (w > start && !(w - start >= 2 && w[-1] == '.' && w[-2] == '.' &&
+                               (w - start == 2 || w[-3] == '/')))
+            {
+                while (w > start && w[-1] != '/')
+                    w--;
+                if (w > start)
+                    w--;  /* the '/' before it */
+                continue;
+            }
+            if (root > 0)
+                continue;  /* ".." at the root stays at the root */
+        }
+
+        if (w > path + root)
+            *w++ = '/';
+        memmove(w, seg, seg_len);
+        w += seg_len;
+    }
+    *w = 0;
+}
+
+/* `dir` + "/" + `name` into `out`, normalized (see ide_path_normalize) - the one
+ * way the Open dialog/Folder panel build a full path from a listing row. */
+static void path_join(char* out, size_t out_size, const char* dir, const char* name)
+{
+    snprintf(out, out_size, "%s/%s", dir, name);
+    ide_path_normalize(out);
 }
 
 /* Collapse every CRLF in `s` to a bare LF, in place.
@@ -3162,12 +3343,65 @@ static void populate_listbox_from_dir(ui_node* listbox, const char* dir,
  * populate_listbox_from_dir), and refreshes the Name field to match -
  * called on first opening the dialog and after every navigation (up, into a
  * subdirectory, or a typed Name field). */
+/* The Open dialog's overview (see ui_set_help on a <window>) for its current
+ * mode - it is shared by several commands, so the overview follows the mode.
+ * NULL where the dialog explains itself (plain Open/Save/folder pickers).
+ * *short_help gets its status bar line. */
+static const char* open_dialog_overview(const char** short_help)
+{
+    *short_help = NULL;
+    switch (g_open.dialog_mode)
+    {
+    case OPEN_DLG_PROJECT_OPEN:
+        *short_help = "Open a Cake project (`.cakeproj`)";
+        return
+            "# Open a Cake project (`.cakeproj`)\n"
+            "\n"
+            "Pick the project's `.cakeproj` file.\n"
+            "\n"
+            "A project is a `.cakeproj` file: a list of source files, plus the include directories and compiler options used to build them. File paths inside the project folder are stored relative to it, so the project can be moved or shared.\n"
+            "\n"
+            "## Build and Compile\n"
+            "\n"
+            "- **Build** (F7) compiles every `.c` file of the project in one Cake invocation - linking them is the output compiler's job. When the active file is not part of the open project (or no project is open), Build compiles just that file.\n"
+            "- **Compile** (Ctrl+F7) always compiles only the active file.\n"
+            "\n"
+            "## Project settings vs. global settings\n"
+            "\n"
+            "- **Project > Include Directories...** and **Project > Options...** edit the project's own settings, saved in its `.cakeproj`. Include directories are stored relative to the project folder.\n"
+            "- **File > Directories...** and **File > Options...** edit the global settings in `cake.json`, next to the IDE executable. They are used for every file that is not part of the open project - the Playground, a file opened on its own.\n"
+            "\n"
+            "The two are never merged: a file gets either the project's settings or the global ones.\n"
+            "\n"
+            "With the `default` target, the same `.cakeproj` works unchanged on Windows, Linux and macOS.";
+    case OPEN_DLG_PROJECT_ADDFILE:
+        *short_help = "Add existing source files to the open project";
+        return
+            "# Add existing source files to the open project\n"
+            "\n"
+            "Check several files to add them all at once. Files inside the project folder are stored relative to it; files elsewhere keep their full path. A file already in the project is not added twice.";
+    case OPEN_DLG_PROJECT_ADDINCLUDE:
+        *short_help = "Pick a directory to add to the include directory list";
+        return
+            "# Pick a directory to add to the include directory list\n"
+            "\n"
+            "The directory is searched for `#include` files, in list order - the **Up** / **Down** buttons of the Include Directories dialog change that order. For a project the path is stored relative to the project folder; for the global list (`cake.json`) it is stored as a full path.";
+    default:
+        return NULL;
+    }
+}
+
 static void open_dialog_refresh(void)
 {
+    ide_path_normalize(g_open.dir);
+    const char* overview_short;
+    const char* overview = open_dialog_overview(&overview_short);
+    ui_set_help(g_open.window, overview_short, overview);
     int folder_mode = g_open.dialog_mode == OPEN_DLG_FOLDER ||
         g_open.dialog_mode == OPEN_DLG_PROJECT_ADDINCLUDE ||
         g_open.dialog_mode == OPEN_DLG_NEWPROJECT_FOLDER ||
         g_open.dialog_mode == OPEN_DLG_GITCLONE_FOLDER;
+    ui_set_label(g_open.list_label, folder_mode ? "Folders" : "Files");
     populate_listbox_from_dir(g_open.listbox, g_open.dir,
                                folder_mode ? NULL : g_open.mask, folder_mode);
 
@@ -3191,9 +3425,19 @@ static void open_dialog_refresh(void)
     if (folder_mode)
         snprintf(display, sizeof display, "%s", g_open.dir);
     else
-        snprintf(display, sizeof display, "%s/%s", g_open.dir,
-                  (g_open.dialog_mode == OPEN_DLG_SAVE ||
-                   g_open.dialog_mode == OPEN_DLG_PROJECT_NEW) ? g_save_name : "");
+    {
+        const char* name = (g_open.dialog_mode == OPEN_DLG_SAVE ||
+                            g_open.dialog_mode == OPEN_DLG_PROJECT_NEW) ? g_save_name : "";
+        path_join(display, sizeof display, g_open.dir, name);
+        /* No name yet: keep a trailing separator so typing starts a new
+         * name inside the directory ("C:/" already ends in one). */
+        size_t n = strlen(display);
+        if (!name[0] && n > 0 && display[n - 1] != '/' && n + 1 < sizeof display)
+        {
+            display[n] = '/';
+            display[n + 1] = 0;
+        }
+    }
     for (char* p = display; *p; p++)
         if (*p == '/')
             *p = '\\';
@@ -3324,17 +3568,11 @@ static int dir_row_navigate(char* dir_buf, size_t dir_buf_size, const char* labe
     name[sizeof name - 1] = 0;
     name[strlen(name) - 1] = 0;  /* drop the trailing "\" marker */
 
-    if (strcmp(name, "..") == 0)
-    {
-        open_path_up(dir_buf);
-    }
-    else
-    {
-        char new_dir[1024];
-        snprintf(new_dir, sizeof new_dir, "%s/%s", dir_buf, name);
-        strncpy(dir_buf, new_dir, dir_buf_size - 1);
-        dir_buf[dir_buf_size - 1] = 0;
-    }
+    /* ".." included - ide_path_normalize resolves it (and stops at the root). */
+    char new_dir[1024];
+    path_join(new_dir, sizeof new_dir, dir_buf, name);
+    strncpy(dir_buf, new_dir, dir_buf_size - 1);
+    dir_buf[dir_buf_size - 1] = 0;
     return 1;
 }
 
@@ -3559,7 +3797,7 @@ static int open_dialog_add_checked_files(void)
         if (len == 0 || label[len - 1] == '\\')
             continue;
         char path[1024];
-        snprintf(path, sizeof path, "%s/%s", g_open.dir, label);
+        path_join(path, sizeof path, g_open.dir, label);
         project_add_file(path);
         added++;
     }
@@ -3596,7 +3834,7 @@ static void open_dialog_activate(int index)
     if (g_open.dialog_mode == OPEN_DLG_EXTTOOL_CMD)
     {
         char path[1024];
-        snprintf(path, sizeof path, "%s/%s", g_open.dir, label);
+        path_join(path, sizeof path, g_open.dir, label);
         exttool_browse_pick(path);
         ui_screen_close_modal(g_screen, g_open.modal);
         g_open.dialog_mode = OPEN_DLG_FILE;
@@ -3609,7 +3847,7 @@ static void open_dialog_activate(int index)
     if (g_open.dialog_mode == OPEN_DLG_PROJECT_OPEN || g_open.dialog_mode == OPEN_DLG_PROJECT_ADDFILE)
     {
         char path[1024];
-        snprintf(path, sizeof path, "%s/%s", g_open.dir, label);
+        path_join(path, sizeof path, g_open.dir, label);
         if (g_open.dialog_mode == OPEN_DLG_PROJECT_OPEN)
             project_open_file(path);
         else
@@ -3620,7 +3858,7 @@ static void open_dialog_activate(int index)
     }
 
     char path[1024];
-    snprintf(path, sizeof path, "%s/%s", g_open.dir, label);
+    path_join(path, sizeof path, g_open.dir, label);
     nav_record_jump();
     open_file_path_into_editor(path, label);
     ui_screen_close_modal(g_screen, g_open.modal);
@@ -3632,6 +3870,7 @@ static void open_dialog_activate(int index)
  * show the directory it's now showing. */
 static void folder_window_refresh(void)
 {
+    ide_path_normalize(g_folder.dir);
     populate_listbox_from_dir(g_folder.listbox, g_folder.dir, "*.h;*.c;*.md;*.txt", 0);
 
     /* Just the folder's own name, not the full path - there's no room for
@@ -3668,7 +3907,7 @@ static void folder_window_activate(int index)
     }
 
     char path[1024];
-    snprintf(path, sizeof path, "%s/%s", g_folder.dir, entry);
+    path_join(path, sizeof path, g_folder.dir, entry);
     nav_record_jump();
     open_file_path_into_editor(path, entry);
 }
@@ -3738,10 +3977,9 @@ static void folder_select_confirm(void)
     folder_show_panel();
 }
 
-/* Points the persistent Folder panel at `dir` and raises it - shared by the
- * editor popup's "Show My Folder" (EVT_EDITOR_SHOW_FOLDER) and F1's contextual
- * help (do_help_contextual), so both land the user on the relevant folder
- * without a separate File > Open Folder... trip. Same "write g_folder.dir
+/* Points the persistent Folder panel at `dir` and raises it - the editor
+ * popup's "Show My Folder" (EVT_EDITOR_SHOW_FOLDER), so it lands the user on
+ * the relevant folder without a separate File > Open Folder... trip. Same "write g_folder.dir
  * directly, then refresh+show" idiom folder_select_confirm uses above, just
  * without an Open dialog to close first - neither caller has one open. A
  * no-op for a NULL/empty dir (e.g. a document with no path yet). */
@@ -3763,16 +4001,6 @@ static int project_is_open(void)
     return g_project.file_path[0] != 0;
 }
 
-/* Normalizes backslashes to '/' in place - every path stored in g_project is
- * kept in this form, same convention open_dialog_refresh notes for the Open
- * dialog's own display text. */
-static void project_normalize_slashes(char* text)
-{
-    for (char* p = text; *p; p++)
-        if (*p == '\\')
-            *p = '/';
-}
-
 /* Rewrites `abs_path` relative to `base_dir` when it actually sits inside
  * base_dir (the common case - a project's files normally live under its own
  * directory tree); anything else is kept as an absolute path unchanged rather
@@ -3788,7 +4016,7 @@ static void project_make_relative(const char* base_dir, const char* abs_path,
      * right inside the project directory. */
     char norm[1024];
     snprintf(norm, sizeof norm, "%s", abs_path);
-    project_normalize_slashes(norm);
+    ide_path_normalize(norm);
 
     size_t base_len = strlen(base_dir);
     if (base_len > 0 && strncmp(norm, base_dir, base_len) == 0 &&
@@ -3796,7 +4024,7 @@ static void project_make_relative(const char* base_dir, const char* abs_path,
         snprintf(out, out_size, "%s", norm + base_len + 1);
     else
         snprintf(out, out_size, "%s", norm);
-    project_normalize_slashes(out);
+    ide_path_normalize(out);
 }
 
 /* Resolves a files[]/include_dirs[] entry back to an absolute path - the
@@ -3809,7 +4037,7 @@ static void project_abs_path(const char* relative_path, char* out, size_t out_si
     if (is_absolute)
         snprintf(out, out_size, "%s", relative_path);
     else
-        snprintf(out, out_size, "%s/%s", g_project.dir, relative_path);
+        path_join(out, out_size, g_project.dir, relative_path);
 }
 
 /* Clears every data field of g_project back to "no project open" - never
@@ -4003,6 +4231,15 @@ static void includes_set_detect_visible(int visible)
     const int bw = 13;  /* same as the other buttons, see build_screen() */
     ui_set_rect(g_project.includes_detect, wx + ww - bw - 3, wy + 11, bw, 1);
     ui_append_child(g_project.includes_window, g_project.includes_detect);
+
+    /* Tab follows child order: move Close back behind Detect, which sits
+     * above it on screen. */
+    ui_node* close = ui_find_by_id(g_project.includes_window, EVT_PROJECT_INCLUDES_CLOSE);
+    if (close)
+    {
+        ui_remove_child(g_project.includes_window, close);
+        ui_append_child(g_project.includes_window, close);
+    }
 }
 
 /* Defined below with the rest of the ".cakeproj" JSON helpers - the shared
@@ -4043,6 +4280,7 @@ static void project_save(void)
 
     json_write_file(g_project.file_path, root);
     json_delete(root);
+    g_project.file_time = file_mtime(g_project.file_path);
 }
 
 /* Copies the string member `key` into `out`, leaving `out` untouched if the
@@ -4165,6 +4403,25 @@ static void compile_settings_from_json(const struct json_value* object, compile_
     c->use_cake_headers = project_json_get_bool(object, "use_cake_headers", c->use_cake_headers);
 }
 
+/* The IDE executable's own directory in `out`, or - if that can't be
+ * determined - the current directory ("" if neither is known).
+ * get_self_path()'s return value means different things per platform
+ * (fs.c: the path length on Windows, 0 elsewhere), so success is judged by
+ * the path it fills in, as tokenizer.c does. */
+static void exe_dir(char* out, size_t cap)
+{
+    char path[FS_MAX_PATH] = { 0 };
+    get_self_path(path, sizeof path);
+    if (path[0])
+    {
+        snprintf(out, cap, "%s", path);
+        dirname(out);
+        return;
+    }
+    if (!ui_get_cwd(out, (int)cap))
+        out[0] = 0;
+}
+
 /* "cake.json" - the global compiler settings, kept beside the executable
  * itself (same place as cake.json), not in
  * the per-user config directory session.json lives in: these belong to the
@@ -4175,7 +4432,8 @@ static void compile_settings_from_json(const struct json_value* object, compile_
 static int get_global_settings_path(char* buf, size_t cap)
 {
     char exe_path[FS_MAX_PATH] = { 0 };
-    if (!get_self_path(exe_path, sizeof exe_path) || !exe_path[0])
+    get_self_path(exe_path, sizeof exe_path);
+    if (!exe_path[0])
     {
         snprintf(buf, cap, "%s", "cake.json");
         return 1;
@@ -4290,9 +4548,10 @@ static int project_load_from_file(const char* path)
     project_reset_data();
 
     snprintf(g_project.file_path, sizeof g_project.file_path, "%s", path);
-    project_normalize_slashes(g_project.file_path);
+    ide_path_normalize(g_project.file_path);
+    g_project.file_time = file_mtime(g_project.file_path);
 
-    snprintf(g_project.dir, sizeof g_project.dir, "%s", g_project.file_path);
+    snprintf(g_project.dir,sizeof g_project.dir, "%s", g_project.file_path);
     char* last_slash = strrchr(g_project.dir, '/');
     if (last_slash)
         *last_slash = 0;
@@ -4350,7 +4609,7 @@ static void project_new_create(const char* path)
 {
     char dir[1024];
     snprintf(dir, sizeof dir, "%s", path);
-    project_normalize_slashes(dir);
+    ide_path_normalize(dir);
     char* last_slash = strrchr(dir, '/');
     if (last_slash)
         *last_slash = 0;
@@ -4368,7 +4627,7 @@ static void project_new_create(const char* path)
     snprintf(g_project.dir, sizeof g_project.dir, "%s", dir);
     snprintf(g_project.name, sizeof g_project.name, "%s", name);
     snprintf(g_project.file_path, sizeof g_project.file_path, "%s", path);
-    project_normalize_slashes(g_project.file_path);
+    ide_path_normalize(g_project.file_path);
 
     project_save();
     project_window_refresh(0);
@@ -4421,7 +4680,7 @@ static void project_new_save_activate(void)
             strcat(name_buf, ext);
     }
 
-    snprintf(g_project_new_path, sizeof g_project_new_path, "%s/%s", g_open.dir, name_buf);
+    path_join(g_project_new_path, sizeof g_project_new_path, g_open.dir, name_buf);
 
     FILE* exists = fopen(g_project_new_path, "rb");
     if (exists)
@@ -4558,46 +4817,6 @@ static void project_close(void)
         ui_screen_close_modal(g_screen, g_project.window);
 }
 
-/* Opens a specific help/<filename> topic (e.g. "index.md", "cmdline.md") into
- * an editor window - the shared "resolve the help/ folder, reveal it in the
- * Folder panel, record the jump, open the file" job every help entry point
- * needs: F1's contextual help
- * (do_help_contextual(), whichever help/<word>.md topic matches the caret).
- * `filename` is relative to the help/ folder;
- * `label` is the new window's title, same as open_file_path_into_editor's
- * own `label` param - pass "help/<filename>" to title the window the way
- * the help index window has. Already open? open_file_path_into_editor's own
- * existing-window check just re-raises it. Missing? Its own message box
- * reports that instead of silently doing nothing. */
-static void open_help_topic(const char* filename, const char* label)
-{
-    char dir[1024] = { 0 };
-    char exe_path[1024] = { 0 };
-
-    if (!get_self_path(exe_path, sizeof exe_path))
-    {
-        strncpy(dir, exe_path, sizeof dir - 1);
-        dir[sizeof dir - 1] = 0;
-        dirname(dir);
-    }
-
-    if (!dir[0] && !ui_get_cwd(dir, sizeof dir))
-        dir[0] = 0;
-
-    char help_dir[1024];
-    snprintf(help_dir, sizeof help_dir, "%s/help", dir);
-    folder_reveal_directory(help_dir);
-
-    nav_record_jump();  /* opening help counts as an explicit jump too - see
-                         * nav_record_jump()'s own doc comment */
-
-    char path[1024];
-    snprintf(path, sizeof path, "%s/help/%s", dir, filename);
-    /* Already opened read-only - .md defaults to it, see syntax_for_path's
-     * own doc comment. */
-    open_file_path_into_editor(path, label);
-}
-
 static int open_local_file_in_browser(const char* path, const char* fragment);  /* defined further
                                                             * down with the
                                                             * other process
@@ -4609,23 +4828,12 @@ static int open_local_file_in_browser(const char* path, const char* fragment);  
  * window like the .md help topics. `fragment` is an optional "#anchor"
  * (without the '#') to land on a section - a stable <a id="..."> written
  * by hand in manual.md, not hoedown's positional toc_N ids, which renumber
- * whenever a heading is added. NULL opens the top. Same "resolve the folder
- * next to the executable" idea as open_help_topic. Used by Help > Manual
- * (do_help_manual) and the Compiler Options dialog's Help button
- * (do_help_cmdline). */
+ * whenever a heading is added. NULL opens the top. Used by Help > Manual
+ * (do_help_manual). */
 static void open_manual(const char* fragment)
 {
-    char dir[1024] = { 0 };
-    char exe_path[1024] = { 0 };
-
-    if (!get_self_path(exe_path, sizeof exe_path))
-    {
-        strncpy(dir, exe_path, sizeof dir - 1);
-        dir[sizeof dir - 1] = 0;
-        dirname(dir);
-    }
-    if (!dir[0] && !ui_get_cwd(dir, sizeof dir))
-        dir[0] = 0;
+    char dir[1024];
+    exe_dir(dir, sizeof dir);
 
     char path[1024];
     snprintf(path, sizeof path, "%s/web/manual.html", dir);
@@ -4665,20 +4873,453 @@ static void do_help_open_link(const char* url)
     }
 }
 
-/* Opens help/index.md - F1's fallback when no topic matches the word under
- * the caret (see do_help_contextual). No longer on the Help menu itself;
- * the menu's entry points are the HTML manual and the online links. */
-static void do_help_index(void)
+/* Display width of a Markdown table cell as the read-only Markdown editor
+ * draws it: inline `code` backticks and **bold** markers are hidden there
+ * (see render_editor_line_markdown in ide_ui.c), and a UTF-8 sequence is
+ * one column. */
+static int md_cell_width(const char* s, size_t len)
 {
-    open_help_topic("index.md", "help/index.md");
+    int w = 0;
+    for (size_t i = 0; i < len; i++)
+    {
+        unsigned char c = (unsigned char)s[i];
+        if (c == '`')
+            continue;
+        if (c == '*' && i + 1 < len && s[i + 1] == '*')
+        {
+            i++;
+            continue;
+        }
+        if ((c & 0xC0) == 0x80)
+            continue;
+        w++;
+    }
+    return w;
 }
 
-/* Compiler Options' Help button (EVT_COPTS_HELP): opens the manual's
- * "Command-Line Options" section (manual.md's <a id="options"> anchor) in
- * the browser - the reference for exactly the switches this dialog edits. */
-static void do_help_cmdline(void)
+#define MD_TABLE_MAX_ROWS 64
+#define MD_TABLE_MAX_COLS 8
+
+/* Splits one "| a | b |" row into trimmed cells (pointers into `line`).
+ * Returns the cell count. */
+static int md_table_cells(const char* line, size_t len, const char** cell, size_t* cell_len)
 {
-    open_manual("options");
+    size_t i = 0;
+    if (i < len && line[i] == '|')
+        i++;
+    int n = 0;
+    while (i < len && n < MD_TABLE_MAX_COLS)
+    {
+        size_t start = i;
+        while (i < len && line[i] != '|')
+            i++;
+        size_t a = start, b = i;
+        while (a < b && line[a] == ' ')
+            a++;
+        while (b > a && line[b - 1] == ' ')
+            b--;
+        if (i >= len && a == b)
+            break;
+        cell[n] = line + a;
+        cell_len[n] = b - a;
+        n++;
+        if (i < len)
+            i++;
+    }
+    return n;
+}
+
+static int md_is_table_rule(const char* line, size_t len)
+{
+    for (size_t i = 0; i < len; i++)
+        if (line[i] != '|' && line[i] != '-' && line[i] != ':' && line[i] != ' ')
+            return 0;
+    return len > 0;
+}
+
+/* Writes the table whose rows are `lines[0..count)` into out[*o..] with
+ * its "|" columns aligned: every cell padded to its column's widest display
+ * width (md_cell_width - the hidden backticks/bold marks don't count), and
+ * the "|---|" rule stretched to match. Still plain Markdown table syntax -
+ * the editor just shows it as text, now lined up. */
+static void md_emit_table(const char** lines, const size_t* lens, int count,
+                          char* out, size_t* o, size_t cap)
+{
+    const char* cell[MD_TABLE_MAX_ROWS][MD_TABLE_MAX_COLS];
+    size_t cell_len[MD_TABLE_MAX_ROWS][MD_TABLE_MAX_COLS];
+    int ncell[MD_TABLE_MAX_ROWS];
+    int is_rule[MD_TABLE_MAX_ROWS];
+    int width[MD_TABLE_MAX_COLS] = { 0 };
+    int cols = 0;
+
+    for (int r = 0; r < count; r++)
+    {
+        is_rule[r] = md_is_table_rule(lines[r], lens[r]);
+        ncell[r] = is_rule[r] ? 0 : md_table_cells(lines[r], lens[r], cell[r], cell_len[r]);
+        if (ncell[r] > cols)
+            cols = ncell[r];
+        for (int c = 0; c < ncell[r]; c++)
+        {
+            int w = md_cell_width(cell[r][c], cell_len[r][c]);
+            if (w > width[c])
+                width[c] = w;
+        }
+    }
+
+    for (int r = 0; r < count; r++)
+    {
+        if (*o + 1 < cap)
+            out[(*o)++] = '|';
+        for (int c = 0; c < cols; c++)
+        {
+            if (is_rule[r])
+            {
+                for (int k = 0; k < width[c] + 2 && *o + 1 < cap; k++)
+                    out[(*o)++] = '-';
+            }
+            else
+            {
+                const char* t = c < ncell[r] ? cell[r][c] : "";
+                size_t tl = c < ncell[r] ? cell_len[r][c] : 0;
+                if (*o + 1 < cap)
+                    out[(*o)++] = ' ';
+                for (size_t k = 0; k < tl && *o + 1 < cap; k++)
+                    out[(*o)++] = t[k];
+                for (int k = md_cell_width(t, tl); k < width[c] + 1 && *o + 1 < cap; k++)
+                    out[(*o)++] = ' ';
+            }
+            if (*o + 1 < cap)
+                out[(*o)++] = '|';
+        }
+        if (r < count - 1 && *o + 1 < cap)
+            out[(*o)++] = '\n';
+    }
+}
+
+/* Breaks each Markdown paragraph or list-item line of `src` longer than
+ * `width` at spaces into `out`. A list item's ("- ", "* ", "1. ")
+ * continuation lines are indented under its text, which Markdown reads as
+ * the same item. Tables ("|" rows) get their columns aligned instead
+ * (md_emit_table) - the Markdown editor draws them as plain text. Headings ("#") and
+ * fenced ``` code blocks are copied unchanged - wrapping those would break
+ * their syntax. A single word longer than `width` stays whole. */
+static void md_wrap_paragraphs(const char* src, int width, char* out, size_t cap)
+{
+    size_t o = 0;
+    int in_fence = 0;
+    const char* line = src;
+    while (*line && o + 1 < cap)
+    {
+        const char* end = strchr(line, '\n');
+        size_t len = end ? (size_t)(end - line) : strlen(line);
+
+        if (!in_fence && line[0] == '|')
+        {
+            const char* rows[MD_TABLE_MAX_ROWS];
+            size_t row_len[MD_TABLE_MAX_ROWS];
+            int count = 0;
+            const char* r = line;
+            const char* r_end = end;
+            size_t r_len = len;
+            for (;;)
+            {
+                if (count < MD_TABLE_MAX_ROWS)
+                {
+                    rows[count] = r;
+                    row_len[count] = r_len;
+                    count++;
+                }
+                if (!r_end || r_end[1] != '|')
+                    break;
+                r = r_end + 1;
+                r_end = strchr(r, '\n');
+                r_len = r_end ? (size_t)(r_end - r) : strlen(r);
+            }
+            md_emit_table(rows, row_len, count, out, &o, cap);
+            end = r_end;
+            if (!end)
+                break;
+            if (o + 1 < cap)
+                out[o++] = '\n';
+            line = end + 1;
+            continue;
+        }
+
+        int is_fence = len >= 3 && strncmp(line, "```", 3) == 0;
+        int keep = in_fence || is_fence || len <= (size_t)width || line[0] == '#';
+
+        int indent = 0;
+        if ((line[0] == '-' || line[0] == '*') && len > 1 && line[1] == ' ')
+            indent = 2;
+        else
+        {
+            size_t d = 0;
+            while (d < len && line[d] >= '0' && line[d] <= '9')
+                d++;
+            if (d > 0 && d + 1 < len && line[d] == '.' && line[d + 1] == ' ')
+                indent = (int)d + 2;
+        }
+        if (is_fence)
+            in_fence = !in_fence;
+
+        if (keep)
+        {
+            for (size_t i = 0; i < len && o + 1 < cap; i++)
+                out[o++] = line[i];
+        }
+        else
+        {
+            int col = 0;
+            size_t i = 0;
+            while (i < len && o + 1 < cap)
+            {
+                while (i < len && line[i] == ' ')
+                    i++;
+                size_t w = i;
+                while (i < len && line[i] != ' ')
+                    i++;
+                int wlen = (int)(i - w);
+                if (wlen == 0)
+                    break;
+                if (col > indent && col + 1 + wlen > width)
+                {
+                    out[o++] = '\n';
+                    for (int k = 0; k < indent && o + 1 < cap; k++)
+                        out[o++] = ' ';
+                    col = indent;
+                }
+                else if (col > 0)
+                {
+                    out[o++] = ' ';
+                    col++;
+                }
+                for (size_t k = w; k < i && o + 1 < cap; k++)
+                    out[o++] = line[k];
+                col += wlen;
+            }
+        }
+        if (!end)
+            break;
+        if (o + 1 < cap)
+            out[o++] = '\n';
+        line = end + 1;
+    }
+    out[o] = 0;
+}
+
+/* The warning/error number of a compiler diagnostic line - "warning 10:",
+ * "error 1234:" or "warning: 10", in any of the -fdiagnostics-format
+ * shapes - or 0 if the line has none (notes carry no number). ANSI color
+ * escapes, which the Output window keeps in its text, are skipped. */
+static int diagnostic_number_in_line(const char* s, int len)
+{
+    char clean[512];
+    int n = 0;
+    for (int i = 0; i < len && n + 1 < (int)sizeof clean; i++)
+    {
+        if (s[i] == '\x1b' && i + 1 < len && s[i + 1] == '[')
+        {
+            i += 2;
+            while (i < len && !isalpha((unsigned char)s[i]))
+                i++;
+            continue;
+        }
+        clean[n++] = s[i];
+    }
+    clean[n] = 0;
+
+    static const char* const words[] = { "warning", "error" };
+    for (int w = 0; w < 2; w++)
+    {
+        size_t wl = strlen(words[w]);
+        for (const char* p = strstr(clean, words[w]); p; p = strstr(p + 1, words[w]))
+        {
+            if (p > clean && isalnum((unsigned char)p[-1]))
+                continue;
+            const char* q = p + wl;
+            if (*q != ':' && *q != ' ')
+                continue;
+            if (*q == ':')
+                q++;
+            while (*q == ' ')
+                q++;
+            if (!isdigit((unsigned char)*q))
+                continue;
+            int number = atoi(q);
+            while (isdigit((unsigned char)*q))
+                q++;
+            if (*q == ':' || *q == ' ')
+                return number;
+        }
+    }
+    return 0;
+}
+
+/* diagnostics.md's "### <number> <title>" section for `number` as a
+ * malloc'd Markdown help text whose first line is "# <number> <title>" (see
+ * output_diagnostic_help_refresh, which reads the number back from it), or
+ * NULL if diagnostics.md can't be read. Looked up in the IDE's web folder,
+ * then one level up - the repository root, for an IDE run from src/. */
+static char* diagnostic_help_text(int number)
+{
+    char dir[1024];
+    exe_dir(dir, sizeof dir);
+    char path[1100];
+    snprintf(path, sizeof path, "%s/web/diagnostics.md", dir);
+    char* md = read_file_to_string(path);
+    if (!md)
+    {
+        snprintf(path, sizeof path, "%s/../diagnostics.md", dir);
+        md = read_file_to_string(path);
+    }
+    if (!md)
+        return NULL;
+
+    const char* start = NULL;
+    for (const char* p = md; p; p = strchr(p, '\n'))
+    {
+        if (*p == '\n')
+            p++;
+        if (strncmp(p, "### ", 4) == 0 && atoi(p + 4) == number && isdigit((unsigned char)p[4]))
+        {
+            start = p + 4;
+            break;
+        }
+    }
+
+    size_t cap = 256;
+    const char* end = NULL;
+    if (start)
+    {
+        for (end = strchr(start, '\n'); end; end = strchr(end + 1, '\n'))
+            if (strncmp(end + 1, "## ", 3) == 0 || strncmp(end + 1, "### ", 4) == 0)
+                break;
+        if (!end)
+            end = start + strlen(start);
+        cap += (size_t)(end - start);
+    }
+    char* out = malloc(cap);
+    if (!out)
+    {
+        free(md);
+        return NULL;
+    }
+    if (!start)
+    {
+        snprintf(out, cap, "# %d\n\nThis diagnostic has no description in `diagnostics.md`.", number);
+        free(md);
+        return out;
+    }
+
+    /* "\#" is only escaped for the Markdown-to-HTML step; "<!-- runnable -->"
+     * marks samples for the web page and means nothing here. */
+    size_t o = 0;
+    o += (size_t)snprintf(out, cap, "# ");
+    for (const char* p = start; p < end && o + 1 < cap;)
+    {
+        const char* nl = memchr(p, '\n', (size_t)(end - p));
+        const char* line_end = nl ? nl : end;
+        if (strncmp(p, "<!-- runnable -->", 17) != 0)
+        {
+            for (const char* c = p; c < line_end && o + 1 < cap; c++)
+            {
+                if (c[0] == '\\' && c + 1 < line_end && c[1] == '#')
+                    continue;
+                out[o++] = *c;
+            }
+            if (nl && o + 1 < cap)
+                out[o++] = '\n';
+        }
+        p = nl ? nl + 1 : end;
+    }
+    while (o > 0 && (out[o - 1] == '\n' || out[o - 1] == ' '))
+        o--;
+    out[o] = 0;
+    free(md);
+    return out;
+}
+
+/* Keeps the Output window's help (ui_set_help - the status bar hint, F1
+ * for the whole text) on the diagnostic under its caret: the warning/error
+ * number of that line, explained from diagnostics.md. The number currently
+ * shown is read back from the short help ("<number> <title>"), so the
+ * file is only read again when the caret moves to a different diagnostic.
+ * Called every frame. */
+static void output_diagnostic_help_refresh(void)
+{
+    ui_node* ed = g_output_editor;
+    if (!ed || ui_screen_focused(g_screen) != ed)
+        return;
+
+    const char* text = ui_get_value(ed);
+    int len = (int)strlen(text);
+    int caret = ui_editor_get_cursor(ed);
+    if (caret > len)
+        caret = len;
+    int lo = caret, hi = caret;
+    while (lo > 0 && text[lo - 1] != '\n')
+        lo--;
+    while (hi < len && text[hi] != '\n')
+        hi++;
+    int number = diagnostic_number_in_line(text + lo, hi - lo);
+
+    const char* current = ui_get_short_help(ed);
+    int shown = current ? atoi(current) : 0;
+    if (number == shown)
+        return;
+    if (!number)
+    {
+        ui_set_help(ed, NULL, NULL);
+        return;
+    }
+    char* help = diagnostic_help_text(number);
+    if (help)
+    {
+        /* The short help is the "# <number> <title>" heading, without "# ". */
+        char short_help[200];
+        snprintf(short_help, sizeof short_help, "%.*s", (int)strcspn(help + 2, "\n"), help + 2);
+        ui_set_help(ed, short_help, help);
+        free(help);
+        return;
+    }
+    char short_help[16];
+    snprintf(short_help, sizeof short_help, "%d", number);
+    char missing[160];
+    snprintf(missing, sizeof missing,
+             "# %d\n\n`diagnostics.md` was not found next to the IDE.", number);
+    ui_set_help(ed, short_help, missing);
+}
+
+static void show_help_text(const char* md);
+
+/* F1/a click on the status bar (UI_HINT_DETAILS_ID): the whole Markdown
+ * text of what the bar shows (ui_screen_get_hint_text) in g_hintwin.
+ * Returns 0, showing nothing, when the bar has no hint. */
+static int show_hint_window(void)
+{
+    char text[8192];
+    if (!ui_screen_get_hint_text(g_screen, text, sizeof text))
+        return 0;
+    show_help_text(text);
+    return 1;
+}
+
+/* `md` (Markdown) in g_hintwin - the help window F1 and the dialogs' Help
+ * buttons share. */
+static void show_help_text(const char* md)
+{
+    /* The editor has no soft wrap - break long paragraph lines to its text
+     * width: minus the Markdown editor's 1-column left margin, a matching
+     * 1-column right margin, and the scrollbar column. */
+    int ex, ey, ew, eh;
+    ui_get_rect(g_hintwin.editor, &ex, &ey, &ew, &eh);
+    char wrapped[10000];
+    md_wrap_paragraphs(md, ew - 3, wrapped, sizeof wrapped);
+    ui_set_value(g_hintwin.editor, wrapped);
+    ui_editor_set_selection(g_hintwin.editor, 0, 0);
+    ui_editor_set_scroll(g_hintwin.editor, 0);
+    ui_screen_show_modal(g_screen, g_hintwin.modal);
+    ui_screen_focus(g_screen, g_hintwin.editor);
 }
 
 static int is_word_char(int c) { return isalnum((unsigned char)c) || c == '_'; }
@@ -4727,132 +5368,6 @@ static int word_at_cursor(const char* text, int len, int cursor, char* out, int 
     return 1;
 }
 
-/* F1 - contextual help. Looks up the identifier under the caret (see
- * word_at_cursor) as its own topic file, help/<word>.md, resolved the same
- * way do_help_index() finds help/index.md; if the help set has no such
- * topic, falls back to the general index, still trying to land on a
- * matching "# <word>" heading in it rather than just dumping the reader at
- * the top. No document focused, or nothing under the caret? Same as
- * do_help_index() does. */
-
-static void do_help_contextual(void)
-{
-    char dir[1024] = { 0 };
-    char exe_path[1024] = { 0 };
-    if (!get_self_path(exe_path, sizeof exe_path))
-    {
-        strncpy(dir, exe_path, sizeof dir - 1);
-        dir[sizeof dir - 1] = 0;
-        dirname(dir);
-    }
-    if (!dir[0] && !ui_get_cwd(dir, sizeof dir))
-        dir[0] = 0;
-
-    /* Whichever help file F1 lands on below - a dedicated topic, a matched
-     * heading in the general index, or the index itself - always lives in
-     * this same help/ subfolder, so reveal it in the Folder panel right
-     * away rather than duplicating this call in all three outcomes.
-     * Shared with the editor popup's "Show My Folder" - see
-     * folder_reveal_directory(). */
-    char help_dir[1024];
-    snprintf(help_dir, sizeof help_dir, "%s/help", dir);
-    folder_reveal_directory(help_dir);
-
-    ui_node* win = g_active_editor_window;
-    ui_node* ed = win ? editor_in_window(win) : NULL;
-
-    char word[128];
-    int have_word = 0;
-    if (ed)
-    {
-        const char* text = ui_get_value(ed);
-        int cursor = ui_editor_get_cursor(ed);
-        have_word = word_at_cursor(text, (int)strlen(text), cursor, word, (int)sizeof word);
-    }
-
-    if (!have_word)
-    {
-        do_help_index();
-        return;
-    }
-
-    /* A dedicated help/<word>.md topic, if the help set has one. */
-    char topic_path[1024];
-    snprintf(topic_path, sizeof topic_path, "%s/help/%s.md", dir, word);
-    FILE* tf = fopen(topic_path, "rb");
-    if (tf)
-    {
-        fclose(tf);
-        char topic_filename[160];
-        snprintf(topic_filename, sizeof topic_filename, "%s.md", word);
-        open_help_topic(topic_filename, word);
-        return;
-    }
-
-    /* No dedicated topic - read the general index looking for a matching
-     * "# word" heading (case-insensitive, exact text after the "# ") to
-     * jump straight to, same ATX-heading shape render_editor_line_markdown
-     * recognizes for coloring. */
-    char index_path[1024];
-    snprintf(index_path, sizeof index_path, "%s/help/index.md", dir);
-    FILE* f = fopen(index_path, "rb");
-    if (!f)
-    {
-        do_help_index();  /* lets it report "not found", same as do_help_index */
-        return;
-    }
-
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    if (size < 0)
-        size = 0;
-    char* content = malloc((size_t)size + 1);
-    int match_line = 0;
-    if (content)
-    {
-        size_t got = fread(content, 1, (size_t)size, f);
-        content[got] = 0;
-
-        int line = 1;
-        for (const char* p = content; *p; )
-        {
-            const char* eol = strchr(p, '\n');
-            int llen = eol ? (int)(eol - p) : (int)strlen(p);
-            int j = 0;
-            while (j < llen && p[j] == '#')
-                j++;
-            if (j > 0 && j < llen && p[j] == ' ')
-            {
-                char heading[128];
-                int hlen = llen - j - 1;
-                if (hlen >= (int)sizeof heading)
-                    hlen = sizeof heading - 1;
-                memcpy(heading, p + j + 1, hlen);
-                heading[hlen] = 0;
-                if (ci_strcmp(heading, word) == 0)
-                {
-                    match_line = line;
-                    break;
-                }
-            }
-            p = eol ? eol + 1 : p + llen;
-            line++;
-        }
-        free(content);
-    }
-    fclose(f);
-
-    do_help_index();  /* opens/re-raises help/index.md; records the jump */
-    if (match_line > 0)
-    {
-        ui_node* idxwin = find_open_window(index_path);
-        ui_node* idxed = idxwin ? editor_in_window(idxwin) : NULL;
-        if (idxed)
-            ui_editor_goto_line(idxed, match_line);
-    }
-}
-
 /* Tools > Terminal: opens a native terminal (see ui_open_terminal(), one
  * implementation per backend) in whatever directory is most likely what the
  * user means right now - the active document's own folder if one's open, or
@@ -4888,7 +5403,7 @@ static void do_open_terminal(void)
 
 /* Reads `link` (resolved relative to `win`'s own directory, or the app's
  * working directory if `win` has none) and replaces `win`'s <editor> content
- * with it in place - unlike File > Open/do_help_index, this never opens a new
+ * with it in place - unlike File > Open, this never opens a new
  * window. Retitles the window, re-derives the syntax mode from the new
  * extension, and shows a message box instead of doing nothing if the file
  * doesn't exist. Used by do_editor_ctrlclick() below for Markdown links. */
@@ -4922,7 +5437,7 @@ static void open_link_in_window(ui_node* win, const char* link)
     }
 
     char path[1024];
-    snprintf(path, sizeof path, "%s/%s", dir, link);
+    path_join(path, sizeof path, dir, link);
 
     FILE* f = fopen(path, "rb");
     if (!f)
@@ -5276,20 +5791,86 @@ static void exttool_store_fields(void)
  * them, so listing both would just be two ways to pick the same thing). The
  * label is what the menu shows AND what gets inserted, which is why it is
  * spelled out in full rather than assembled from the bare name. */
-static const char* const ext_macros[] = {
-    "$(FilePath)",
-    "$(FileDir)",
-    "$(FileName)",
-    "$(FileExt)",
-    "$(CakeOutput)",
-    "$(TargetPath)",
-    "$(TargetDir)",
-    "$(TargetFileName)",
-    "$(TargetName)",
-    "$(TargetExt)",
-    "$(ProjectDir)",
-    "$(ProjectName)",
-    "$(Platform)",
+static const struct
+{
+    const char* name;
+    const char* short_help;  /* status bar hint of its popup item */
+    const char* help;        /* F1 text of its popup item */
+} ext_macros[] = {
+    { "$(FilePath)",
+      "`$(FilePath)`: The active document's full path", "# `$(FilePath)`\n\nThe active document's full path\n"
+      "\n"
+      "Also spelled `$(ItemPath)`.\n"
+      "\n"
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `C:/work/hello/src/main.c`." },
+    { "$(FileDir)",
+      "`$(FileDir)`: The active document's folder, without a trailing slash", "# `$(FileDir)`\n\nThe active document's folder, without a trailing slash\n"
+      "\n"
+      "Also spelled `$(ItemDir)`.\n"
+      "\n"
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `C:/work/hello/src`." },
+    { "$(FileName)",
+      "`$(FileName)`: The active document's file name, without its extension", "# `$(FileName)`\n\nThe active document's file name, without its extension\n"
+      "\n"
+      "Also spelled `$(ItemFilename)`.\n"
+      "\n"
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `main`." },
+    { "$(FileExt)",
+      "`$(FileExt)`: The active document's extension, including the dot", "# `$(FileExt)`\n\nThe active document's extension, including the dot\n"
+      "\n"
+      "Also spelled `$(ItemExt)`.\n"
+      "\n"
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `.c`." },
+    { "$(CakeOutput)",
+      "`$(CakeOutput)`: Cake's output file(s) - the C89 code Build generates", "# `$(CakeOutput)`\n\nCake's output file(s) - the C89 code Build generates\n"
+      "\n"
+      "With a project open: one path per `.c` file of the project, separated by spaces. Without one: just the active file's output. Each lands in a folder named after the target (see Build > Show Generated Code). Pass it to the compiler that links them." },
+    { "$(TargetPath)",
+      "`$(TargetPath)`: The full path of the binary - exactly what Debug (F5) launches", "# `$(TargetPath)`\n\nThe full path of the binary - exactly what Debug (F5) launches\n"
+      "\n"
+      "`$(TargetDir)/$(TargetFileName)`. Use it as the linker's output, so the external compile and Debug agree on one file.\n"
+      "\n"
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `C:/work/hello/x64_msvc/hello.exe`." },
+    { "$(TargetDir)",
+      "`$(TargetDir)`: The folder the binary goes to: `<project dir>/<platform>`", "# `$(TargetDir)`\n\nThe folder the binary goes to: `<project dir>/<platform>`\n"
+      "\n"
+      "Without a project open, the active document's folder is used instead.\n"
+      "\n"
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `C:/work/hello/x64_msvc`." },
+    { "$(TargetFileName)",
+      "`$(TargetFileName)`: The binary's file name, with its extension", "# `$(TargetFileName)`\n\nThe binary's file name, with its extension\n"
+      "\n"
+      "Compiler Options' **Output** field when set; otherwise the project's name (the document's name without a project), plus `.exe` on the MSVC targets.\n"
+      "\n"
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `hello.exe`." },
+    { "$(TargetName)",
+      "`$(TargetName)`: The binary's file name without its extension", "# `$(TargetName)`\n\nThe binary's file name without its extension\n"
+      "\n"
+      "`$(TargetFileName)` up to its last dot.\n"
+      "\n"
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `hello`." },
+    { "$(TargetExt)",
+      "`$(TargetExt)`: The binary's extension, including the dot", "# `$(TargetExt)`\n\nThe binary's extension, including the dot\n"
+      "\n"
+      "`.exe` on the MSVC targets; empty on the GCC/Clang ones, which have none.\n"
+      "\n"
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `.exe`." },
+    { "$(ProjectDir)",
+      "`$(ProjectDir)`: The open project's folder", "# `$(ProjectDir)`\n\nThe open project's folder\n"
+      "\n"
+      "Without a project open, the active document's folder - so the same tool also works on a single file.\n"
+      "\n"
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `C:/work/hello`." },
+    { "$(ProjectName)",
+      "`$(ProjectName)`: The open project's name", "# `$(ProjectName)`\n\nThe open project's name\n"
+      "\n"
+      "Without a project open, the active document's name without its extension.\n"
+      "\n"
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `hello`." },
+    { "$(Platform)",
+      "`$(Platform)`: The compilation target's name, e.g. `x64_msvc`", "# `$(Platform)`\n\nThe compilation target's name, e.g. `x64_msvc`\n"
+      "\n"
+      "The target selected in Compiler Options, with `default` resolved to the real platform. Also spelled `$(Target)`." },
 };
 #define EXT_MACRO_COUNT ((int)(sizeof ext_macros / sizeof ext_macros[0]))
 
@@ -5449,13 +6030,14 @@ static void exttool_append(struct exttool_buf* b, const char* text)
  * Same "run a process, capture its output" building block do_build() uses
  * (ui_process_start), just driven to completion synchronously here instead
  * of polled from app_frame() - git status/diff on one repo/file return in
- * well under a frame, so there is nothing to stream. */
-static void run_process_capture(const char* cmd, const char* dir, struct exttool_buf* out)
+ * well under a frame, so there is nothing to stream. Returns the exit code,
+ * or -1 if the process could not start. */
+static int run_process_capture(const char* cmd, const char* dir, struct exttool_buf* out)
 {
     exttool_buf_free(out);
     ui_process* proc = ui_process_start(cmd, dir && dir[0] ? dir : NULL, NULL, 0);
     if (!proc)
-        return;
+        return -1;
     char buf[4096];
     for (;;)
     {
@@ -5469,7 +6051,7 @@ static void run_process_capture(const char* cmd, const char* dir, struct exttool
             continue;  /* still running, nothing to read yet */
         break;  /* -1: EOF, the child is done */
     }
-    ui_process_close(proc);
+    return ui_process_close(proc);
 }
 
 /* The Git Changes panel's own per-row status marker - two columns (letter +
@@ -5562,7 +6144,11 @@ static void git_panel_refresh(void)
 
             ui_node* item = ui_create_element(UI_TAG_ITEM);
             char label[1200];
-            snprintf(label, sizeof label, "%s%s", marker, filename);
+            /* index column set = staged; both columns set = only part of the changes is staged */
+            const char* staged = "";
+            if (p[0] != ' ' && p[0] != '?')
+                staged = p[1] != ' ' ? "  [partly staged]" : "  [staged]";
+            snprintf(label, sizeof label, "%s%s%s", marker, filename, staged);
             ui_set_label(item, label);
             ui_set_color(item, marker_fg, 0);
             ui_set_path(item, real_path);
@@ -5639,7 +6225,7 @@ static void git_window_activate(int index)
     if (out.len == 0)
     {
         char full[1400];
-        snprintf(full, sizeof full, "%s/%s", root, path);
+        path_join(full, sizeof full, root, path);
         char* content = read_file_to_string(full);
         if (content)
         {
@@ -5669,9 +6255,13 @@ static void git_window_activate(int index)
      * (the file's plain content/"(no changes to display)" fallbacks above
      * never start with "diff --git", so this is a no-op for those). */
     {
+        /* stderr is captured too, so git warnings (e.g. "LF will be replaced
+         * by CRLF") can precede the header - they are dropped with it. */
         const char* text = exttool_buf_text(&out);
-        if (strncmp(text, "diff --git ", 11) == 0)
+        g_gitdiff_prefixed = 0;
+        if (strncmp(text, "diff --git ", 11) == 0 || strstr(text, "\ndiff --git "))
         {
+            g_gitdiff_prefixed = 1;
             const char* at = strstr(text, "\n@@");
             const char* eol = at ? strchr(at + 1, '\n') : NULL;
             if (eol)
@@ -5683,12 +6273,15 @@ static void git_window_activate(int index)
         }
     }
 
+    path_join(g_gitdiff_path, sizeof g_gitdiff_path, root, path);
+
     char title[300];
     snprintf(title, sizeof title, " Diff: %s ", basename_of(path));
     ui_node* window = ui_child_at(g_gitdiff_window, 0);
     ui_set_label(window, title);
     ui_set_value(g_gitdiff_editor, exttool_buf_text(&out));
     exttool_buf_free(&out);
+    git_diff_index_changes();
 
     ui_screen_show_window(g_screen, g_gitdiff_window);
     ui_window_maximize(g_screen, window);  /* always opens filling the desktop
@@ -5698,6 +6291,57 @@ static void git_window_activate(int index)
                                             * opened to be read, not squeezed
                                             * into whatever small rect it was
                                             * last left at. */
+}
+
+/* The diff viewer's "Edit": opens the file with the caret on the file line and column the diff's caret is on.
+ * The diff is one -U100000 hunk covering the whole file, so the file line is just the count of ' ' and '+'
+ * rows up to the caret; a '-' row (gone from the file) lands where it was removed. */
+static void git_diff_edit(void)
+{
+    if (!g_gitdiff_path[0])
+        return;
+
+    const char* text = ui_get_value(g_gitdiff_editor);
+    int caret_line = ui_editor_caret_line(g_gitdiff_editor);
+    int cursor = ui_editor_get_cursor(g_gitdiff_editor);
+
+    int file_line = caret_line, col = 1;
+    const char* row = text;
+    for (int line = 1; line < caret_line && *row; row++)
+        if (*row == '\n')
+            line++;
+    col = (int)(text + cursor - row) + 1;
+
+    if (g_gitdiff_prefixed)
+    {
+        file_line = 1;
+        const char* p = text;
+        for (int line = 1; line < caret_line && *p; line++)
+        {
+            if (*p != '-')
+                file_line++;
+            while (*p && *p != '\n')
+                p++;
+            if (*p)
+                p++;
+        }
+        col = *row == '-' ? 1 : (col > 1 ? col - 1 : 1);
+    }
+
+    /* The caret's row on screen, so the file opens scrolled with that line at the same height. */
+    int screen_row = (caret_line - 1) - ui_editor_get_scroll(g_gitdiff_editor);
+
+    nav_record_jump();
+    open_file_path_into_editor(g_gitdiff_path, basename_of(g_gitdiff_path));
+    ui_node* window = find_open_window(g_gitdiff_path);
+    ui_node* editor = editor_in_window(window);
+    if (!editor)
+        return;
+    ui_screen_show_window(g_screen, window);
+    ui_editor_goto_line_col(editor, file_line, col);
+    int scroll = (file_line - 1) - screen_row;
+    ui_editor_set_scroll(editor, scroll > 0 ? scroll : 0);
+    ui_screen_focus(g_screen, editor);
 }
 
 /* A diff row that's part of a change - the same leading '+'/'-' rule
@@ -5721,22 +6365,26 @@ static int git_diff_line_is_changed(const char* s, int len)
  * comment above for why this exists (a whole-file diff has nothing else to
  * scroll by). A "run" is however many consecutive +/- lines a change spans,
  * not a single line, so this doesn't stop partway through one hunk. */
-static void git_diff_goto_change(int dir)
+/* Records where each run of changed rows starts (g_gitdiff_runs), once per loaded diff - both the
+ * Previous/Next buttons and the "2/23" counter read it instead of rescanning the text. */
+static void git_diff_index_changes(void)
 {
+    free(g_gitdiff_runs);
+    g_gitdiff_runs = NULL;
+    g_gitdiff_run_count = 0;
+    g_gitdiff_counter_line = -1;
+
     const char* text = ui_get_value(g_gitdiff_editor);
-    if (!text || !text[0])
+    if (!text || !text[0] || !g_gitdiff_prefixed)
         return;
-    int cur = ui_editor_caret_line(g_gitdiff_editor);
 
     int total_lines = 1;
     for (const char* p = text; *p; p++)
         if (*p == '\n')
             total_lines++;
-
-    int* run_starts = malloc(sizeof(int) * (size_t)total_lines);
-    if (!run_starts)
+    g_gitdiff_runs = malloc(sizeof(int) * (size_t)total_lines);
+    if (!g_gitdiff_runs)
         return;
-    int run_count = 0;
 
     int prev_changed = 0, line_no = 1;
     const char* p = text;
@@ -5746,13 +6394,44 @@ static void git_diff_goto_change(int dir)
         int len = nl ? (int)(nl - p) : (int)strlen(p);
         int changed = git_diff_line_is_changed(p, len);
         if (changed && !prev_changed)
-            run_starts[run_count++] = line_no;
+            g_gitdiff_runs[g_gitdiff_run_count++] = line_no;
         prev_changed = changed;
         if (!nl)
             break;
         p = nl + 1;
         line_no++;
     }
+}
+
+/* Per frame: "n/total" for the change the caret is in (or last passed), "-/total" above the first one. Recomputed only when the caret line moves. */
+static void git_diff_counter_refresh(void)
+{
+    if (!g_gitdiff_counter)
+        return;
+    int cur = ui_editor_caret_line(g_gitdiff_editor);
+    if (cur == g_gitdiff_counter_line)
+        return;
+    g_gitdiff_counter_line = cur;
+
+    int index = 0;
+    while (index < g_gitdiff_run_count && g_gitdiff_runs[index] <= cur)
+        index++;
+
+    char label[32];
+    if (g_gitdiff_run_count == 0)
+        snprintf(label, sizeof label, " no changes");
+    else if (index == 0)
+        snprintf(label, sizeof label, "  -/%d", g_gitdiff_run_count);
+    else
+        snprintf(label, sizeof label, "%3d/%d", index, g_gitdiff_run_count);
+    ui_set_label(g_gitdiff_counter, label);
+}
+
+static void git_diff_goto_change(int dir)
+{
+    int cur = ui_editor_caret_line(g_gitdiff_editor);
+    const int* run_starts = g_gitdiff_runs;
+    int run_count = g_gitdiff_run_count;
 
     int target = -1;
     if (dir > 0)
@@ -5770,7 +6449,6 @@ static void git_diff_goto_change(int dir)
             target = run_starts[run_count - 1];  /* wrap to the last change */
     }
 
-    free(run_starts);
     if (target > 0)
         ui_editor_goto_line(g_gitdiff_editor, target);
 }
@@ -5791,10 +6469,157 @@ static void shell_escape_dq(const char* in, char* out, size_t outcap)
     out[o] = 0;
 }
 
-/* Forward declaration - git_commit_confirm() below pushes via this after a
- * successful "Commit All && Push", but it's defined further down (after
- * git_do_pull()). */
-static void git_do_push(void);
+/* --- Async git job ---
+ * git commands that touch the network or take a while (commit, pull, push,
+ * clone, branch, stage) run here instead of through run_process_capture(),
+ * so the UI keeps drawing. Same "start the process, drain it once per frame
+ * from app_frame()" shape as the compile/External Tool job (g_job), but kept
+ * separate so a git command never fights a build over the Output window.
+ * A job is a short list of commands run in order; the first failing one
+ * stops the rest (e.g. no push after a failed commit). */
+enum git_job_after
+{
+    GIT_AFTER_SHOW,         /* always show the output in a message box */
+    GIT_AFTER_SHOW_ERROR,   /* show it only when a step failed (Stage/Unstage) */
+    GIT_AFTER_CLONE,        /* show it, then open the cloned folder on success */
+};
+
+#define GIT_JOB_MAX_STEPS 4
+
+static void compile_status_set(const char* text);  /* defined below */
+
+static struct
+{
+    ui_process* proc;
+    struct exttool_buf out;
+    char steps[GIT_JOB_MAX_STEPS][2400];
+    int nsteps;
+    int step;
+    int failed;
+    char dir[1024];
+    char title[32];
+    enum git_job_after after;
+    char clone_dest[1024];  /* GIT_AFTER_CLONE: folder to open */
+    int clone_open;         /* GIT_AFTER_CLONE: the "Open folder" box was checked */
+    int reselect;           /* listbox row to reselect after the refresh, -1 for none */
+} g_gitjob;
+
+/* Refuses (with a message) while a git job is still running - only one at a time. */
+static int git_job_busy(void)
+{
+    if (g_gitjob.step >= g_gitjob.nsteps)
+        return 0;
+    ui_msgbox_button ok = { "   OK   ", 0 };
+    ui_message_box(g_screen, "Git", "A git command is still running.", &ok, 1);
+    return 1;
+}
+
+static void git_job_begin(const char* title, const char* dir, enum git_job_after after)
+{
+    exttool_buf_free(&g_gitjob.out);
+    g_gitjob.nsteps = 0;
+    g_gitjob.step = 0;
+    g_gitjob.failed = 0;
+    g_gitjob.reselect = -1;
+    g_gitjob.clone_open = 0;
+    g_gitjob.clone_dest[0] = 0;
+    g_gitjob.after = after;
+    snprintf(g_gitjob.title, sizeof g_gitjob.title, "%s", title);
+    snprintf(g_gitjob.dir, sizeof g_gitjob.dir, "%s", dir ? dir : "");
+}
+
+static void git_job_add(const char* cmd)
+{
+    if (g_gitjob.nsteps < GIT_JOB_MAX_STEPS)
+        snprintf(g_gitjob.steps[g_gitjob.nsteps++], sizeof g_gitjob.steps[0], "%s", cmd);
+}
+
+/* Starts step g_gitjob.step; a start failure marks the job failed. */
+static void git_job_start_step(void)
+{
+    const char* cmd = g_gitjob.steps[g_gitjob.step];
+    if (g_gitjob.nsteps > 1)
+    {
+        exttool_append(&g_gitjob.out, "$ ");
+        exttool_append(&g_gitjob.out, cmd);
+        exttool_append(&g_gitjob.out, "\n");
+    }
+    g_gitjob.proc = ui_process_start(cmd, g_gitjob.dir[0] ? g_gitjob.dir : NULL, NULL, 0);
+    if (!g_gitjob.proc)
+    {
+        exttool_append(&g_gitjob.out, "Failed to start git - check that it is installed and on the PATH.\n");
+        g_gitjob.failed = 1;
+    }
+}
+
+static void git_job_finish(void)
+{
+    g_gitjob.step = g_gitjob.nsteps;
+    compile_status_set("");
+
+    git_panel_refresh();
+    if (g_gitjob.reselect >= 0 && g_gitjob.reselect < ui_child_count(g_git.listbox))
+        ui_select_set_selected(g_git.listbox, g_gitjob.reselect);
+
+    if (g_gitjob.after != GIT_AFTER_SHOW_ERROR || g_gitjob.failed)
+    {
+        ui_msgbox_button ok = { "   OK   ", 0 };
+        ui_message_box(g_screen, g_gitjob.title, g_gitjob.out.len ? exttool_buf_text(&g_gitjob.out) : "(no output)", &ok, 1);
+    }
+
+    if (g_gitjob.after == GIT_AFTER_CLONE && !g_gitjob.failed && g_gitjob.clone_open)
+    {
+        folder_reveal_directory(g_gitjob.clone_dest);
+        git_panel_refresh();
+    }
+    exttool_buf_free(&g_gitjob.out);
+}
+
+static void git_job_run(void)
+{
+    if (g_gitjob.nsteps == 0)
+        return;
+    char status[64];
+    snprintf(status, sizeof status, "git %s...", g_gitjob.title);
+    compile_status_set(status);
+    git_job_start_step();
+    if (g_gitjob.failed)
+        git_job_finish();
+}
+
+/* Called once per frame from app_frame(). Cheap no-op when idle. */
+static void git_job_poll(void)
+{
+    if (!g_gitjob.proc)
+        return;
+    char buf[4096];
+    for (;;)
+    {
+        int n = ui_process_read(g_gitjob.proc, buf, sizeof buf);
+        if (n > 0)
+        {
+            exttool_append_n(&g_gitjob.out, buf, (size_t)n);
+            continue;
+        }
+        if (n == 0)
+            return;  /* still running, nothing more this frame */
+        break;
+    }
+
+    int rc = ui_process_close(g_gitjob.proc);
+    g_gitjob.proc = NULL;
+    if (rc != 0)
+        g_gitjob.failed = 1;
+    g_gitjob.step++;
+    if (!g_gitjob.failed && g_gitjob.step < g_gitjob.nsteps)
+    {
+        exttool_append(&g_gitjob.out, "\n");
+        git_job_start_step();
+        if (!g_gitjob.failed)
+            return;
+    }
+    git_job_finish();
+}
 
 /* Git Changes popup's "Commit" item: opens g_gitcommit's message dialog
  * (EVT_GITCOMMIT_OK does the actual work once confirmed) rather than
@@ -5803,6 +6628,9 @@ static void git_do_push(void);
 static void git_commit_start(void)
 {
     g_pending_commit_push = 0;
+    g_pending_commit_staged = 0;
+    g_pending_commit_file[0] = 0;
+    ui_set_label(g_gitcommit.window, " Commit All ");
     ui_set_value(g_gitcommit.input, "");
     ui_screen_show_modal(g_screen, g_gitcommit.modal);
     ui_screen_focus(g_screen, g_gitcommit.input);
@@ -5814,9 +6642,209 @@ static void git_commit_start(void)
 static void git_commitpush_start(void)
 {
     g_pending_commit_push = 1;
+    g_pending_commit_staged = 0;
+    g_pending_commit_file[0] = 0;
+    ui_set_label(g_gitcommit.window, " Commit All ");
     ui_set_value(g_gitcommit.input, "");
     ui_screen_show_modal(g_screen, g_gitcommit.modal);
     ui_screen_focus(g_screen, g_gitcommit.input);
+}
+
+/* "Commit File" - same dialog, but commits only the listbox's selected row (stashed in g_pending_commit_file). */
+static void git_commitfile_start(void)
+{
+    int index = ui_select_get_selected(g_git.listbox);
+    if (index < 0 || index >= ui_child_count(g_git.listbox))
+        return;
+    const char* path = ui_get_path(ui_child_at(g_git.listbox, index));
+    if (!path || !path[0])
+        return;
+    snprintf(g_pending_commit_file, sizeof g_pending_commit_file, "%s", path);
+    g_pending_commit_push = 0;
+    g_pending_commit_staged = 0;
+
+    char title[128];
+    snprintf(title, sizeof title, " Commit File: %.100s ", path);
+    ui_set_label(g_gitcommit.window, title);
+    ui_set_value(g_gitcommit.input, "");
+    ui_screen_show_modal(g_screen, g_gitcommit.modal);
+    ui_screen_focus(g_screen, g_gitcommit.input);
+}
+
+/* "Commit Staged" - same dialog, commits only what Stage already put in the index. */
+static void git_commitstaged_start(void)
+{
+    g_pending_commit_push = 0;
+    g_pending_commit_staged = 1;
+    g_pending_commit_file[0] = 0;
+    ui_set_label(g_gitcommit.window, " Commit Staged ");
+    ui_set_value(g_gitcommit.input, "");
+    ui_screen_show_modal(g_screen, g_gitcommit.modal);
+    ui_screen_focus(g_screen, g_gitcommit.input);
+}
+
+/* "Commit Staged && Push" - git_commitstaged_start() plus a push after the commit. */
+static void git_commitstagedpush_start(void)
+{
+    git_commitstaged_start();
+    g_pending_commit_push = 1;
+    ui_set_label(g_gitcommit.window, " Commit Staged && Push ");
+}
+
+/* Shows the staged-only items (g_git.staged_items) only when some listbox row
+ * is staged - the rows' "[staged]"/"[partly staged]" suffix is what
+ * git_panel_refresh() derived from `git status --porcelain`. */
+static void git_popup_refresh(void)
+{
+    int has_staged = 0;
+    for (int i = 0; i < ui_child_count(g_git.listbox) && !has_staged; i++)
+    {
+        const char* label = ui_get_label(ui_child_at(g_git.listbox, i));
+        has_staged = label && strstr(label, "staged]") != NULL;
+    }
+
+    int count = (int)(sizeof g_git.staged_items / sizeof g_git.staged_items[0]);
+    for (int k = 0; k < count; k++)
+        ui_remove_child(g_git.popup, g_git.staged_items[k]);
+    if (!has_staged)
+        return;
+
+    /* In order, so an item anchored on an earlier staged item finds it inserted */
+    for (int k = 0; k < count; k++)
+    {
+        for (int i = 0; i < ui_child_count(g_git.popup); i++)
+        {
+            if (ui_child_at(g_git.popup, i) == g_git.staged_anchors[k])
+            {
+                ui_insert_child(g_git.popup, g_git.staged_items[k], i + 1);
+                break;
+            }
+        }
+    }
+}
+
+/* Runs `git <verb> -- "<selected path>"` for Stage/Unstage, showing git's output only on failure. */
+static void git_run_on_selected(const char* verb, const char* title)
+{
+    int index = ui_select_get_selected(g_git.listbox);
+    if (index < 0 || index >= ui_child_count(g_git.listbox))
+        return;
+    const char* path = ui_get_path(ui_child_at(g_git.listbox, index));
+    if (!path || !path[0])
+        return;
+
+    if (git_job_busy())
+        return;
+    char cmd[1200];
+    snprintf(cmd, sizeof cmd, "git %s -- \"%s\"", verb, path);
+    git_job_begin(title, g_git.root[0] ? g_git.root : g_folder.dir, GIT_AFTER_SHOW_ERROR);
+    git_job_add(cmd);
+    g_gitjob.reselect = index;
+    git_job_run();
+}
+
+static void git_do_stage(void)
+{
+    git_run_on_selected("add -A", "Stage");
+}
+
+static void git_do_unstage(void)
+{
+    /* `reset` rather than `restore --staged`: it also works before the first commit */
+    git_run_on_selected("reset -q", "Unstage");
+}
+
+/* Refills g_gitbranch.listbox from `git branch`, selecting the current branch (the "* " row). */
+static void git_branch_refresh(void)
+{
+    while (ui_child_count(g_gitbranch.listbox) > 0)
+    {
+        ui_node* c = ui_child_at(g_gitbranch.listbox, 0);
+        ui_remove_child(g_gitbranch.listbox, c);
+        ui_node_free(c);
+    }
+
+    const char* root = g_git.root[0] ? g_git.root : g_folder.dir;
+    struct exttool_buf out = { 0 };
+    run_process_capture("git branch --no-color", root, &out);
+
+    int current = 0;
+    const char* p = exttool_buf_text(&out);
+    while (*p)
+    {
+        const char* eol = strchr(p, '\n');
+        size_t linelen = eol ? (size_t)(eol - p) : strlen(p);
+        while (linelen > 0 && p[linelen - 1] == '\r')
+            linelen--;
+        if (linelen > 2)
+        {
+            char label[512];
+            char name[512];
+            size_t n = linelen < sizeof label ? linelen : sizeof label - 1;
+            memcpy(label, p, n);
+            label[n] = 0;
+            snprintf(name, sizeof name, "%s", label + 2);
+
+            ui_node* item = ui_create_element(UI_TAG_ITEM);
+            ui_set_label(item, label);
+            ui_set_path(item, name);
+            if (p[0] == '*')
+                current = ui_child_count(g_gitbranch.listbox);
+            ui_append_child(g_gitbranch.listbox, item);
+        }
+        p = eol ? eol + 1 : p + linelen;
+    }
+    exttool_buf_free(&out);
+    ui_select_set_selected(g_gitbranch.listbox, current);
+}
+
+static void git_branch_start(void)
+{
+    git_branch_refresh();
+    ui_set_value(g_gitbranch.input, "");
+    ui_screen_show_modal(g_screen, g_gitbranch.modal);
+    ui_screen_focus(g_screen, g_gitbranch.listbox);
+}
+
+/* Shared tail of Checkout/New: closes the dialog and runs `cmd` as a git job, which shows git's output. */
+static void git_branch_run(const char* cmd)
+{
+    if (git_job_busy())
+        return;
+    ui_screen_close_modal(g_screen, g_gitbranch.modal);
+    git_job_begin("Branch", g_git.root[0] ? g_git.root : g_folder.dir, GIT_AFTER_SHOW);
+    git_job_add(cmd);
+    git_job_run();
+}
+
+static void git_branch_checkout(void)
+{
+    int index = ui_select_get_selected(g_gitbranch.listbox);
+    if (index < 0 || index >= ui_child_count(g_gitbranch.listbox))
+        return;
+    const char* name = ui_get_path(ui_child_at(g_gitbranch.listbox, index));
+    if (!name || !name[0])
+        return;
+    char cmd[700];
+    snprintf(cmd, sizeof cmd, "git checkout \"%s\"", name);
+    git_branch_run(cmd);
+}
+
+/* Creates the branch named in the input from HEAD and switches to it (`git checkout -b`). */
+static void git_branch_new(void)
+{
+    const char* raw = ui_get_value(g_gitbranch.input);
+    char name[512];
+    snprintf(name, sizeof name, "%s", raw ? raw : "");
+    if (!name[0] || strpbrk(name, " \t\"\\"))
+    {
+        ui_msgbox_button ok = { "   OK   ", 0 };
+        ui_message_box(g_screen, "Branch", "Enter a branch name without spaces or quotes.", &ok, 1);
+        return;
+    }
+    char cmd[700];
+    snprintf(cmd, sizeof cmd, "git checkout -b \"%s\"", name);
+    git_branch_run(cmd);
 }
 
 /* EVT_GITCOMMIT_OK: `git add -A` (stages everything - there's no separate
@@ -5836,30 +6864,38 @@ static void git_commit_confirm(void)
         return;
     }
 
+    if (git_job_busy())
+        return;
+
     const char* root = g_git.root[0] ? g_git.root : g_folder.dir;
     char escaped[1024];
     shell_escape_dq(msg, escaped, sizeof escaped);
 
-    struct exttool_buf out = { 0 };
-    run_process_capture("git add -A", root, &out);
-    exttool_buf_free(&out);
-
-    char cmd[1200];
-    snprintf(cmd, sizeof cmd, "git commit -m \"%s\"", escaped);
-    run_process_capture(cmd, root, &out);
+    /* `git commit` exits non-zero on "nothing to commit", which also skips the push */
+    git_job_begin("Commit", root, GIT_AFTER_SHOW);
+    char cmd[2400];
+    if (g_pending_commit_file[0])
+    {
+        /* `git add` first so an untracked or deleted file can be committed too */
+        snprintf(cmd, sizeof cmd, "git add -A -- \"%s\"", g_pending_commit_file);
+        git_job_add(cmd);
+        snprintf(cmd, sizeof cmd, "git commit -m \"%s\" -- \"%s\"", escaped, g_pending_commit_file);
+    }
+    else
+    {
+        if (!g_pending_commit_staged)
+            git_job_add("git add -A");
+        snprintf(cmd, sizeof cmd, "git commit -m \"%s\"", escaped);
+    }
+    git_job_add(cmd);
+    if (g_pending_commit_push)
+        git_job_add("git push");
+    g_pending_commit_file[0] = 0;
+    g_pending_commit_staged = 0;
+    g_pending_commit_push = 0;
 
     ui_screen_close_modal(g_screen, g_gitcommit.modal);
-
-    ui_msgbox_button ok = { "   OK   ", 0 };
-    ui_message_box(g_screen, "Commit", out.len ? exttool_buf_text(&out) : "(no output)", &ok, 1);
-    int committed = out.len != 0 && strstr(exttool_buf_text(&out), "nothing to commit") == NULL;
-    exttool_buf_free(&out);
-
-    git_panel_refresh();
-
-    if (g_pending_commit_push && committed)
-        git_do_push();
-    g_pending_commit_push = 0;
+    git_job_run();
 }
 
 /* "Pull"/"Push" - plain `git pull`/`git push` against whatever remote/branch
@@ -5868,148 +6904,196 @@ static void git_commit_confirm(void)
  * failure (no upstream, conflicts, auth) is visible instead of silent. */
 static void git_do_pull(void)
 {
-    const char* root = g_git.root[0] ? g_git.root : g_folder.dir;
-    struct exttool_buf out = { 0 };
-    run_process_capture("git pull", root, &out);
-    ui_msgbox_button ok = { "   OK   ", 0 };
-    ui_message_box(g_screen, "Pull", out.len ? exttool_buf_text(&out) : "(no output)", &ok, 1);
-    exttool_buf_free(&out);
-    git_panel_refresh();
+    if (git_job_busy())
+        return;
+    git_job_begin("Pull", g_git.root[0] ? g_git.root : g_folder.dir, GIT_AFTER_SHOW);
+    git_job_add("git pull");
+    git_job_run();
 }
 
 static void git_do_push(void)
 {
-    const char* root = g_git.root[0] ? g_git.root : g_folder.dir;
-    struct exttool_buf out = { 0 };
-    run_process_capture("git push", root, &out);
-    ui_msgbox_button ok = { "   OK   ", 0 };
-    ui_message_box(g_screen, "Push", out.len ? exttool_buf_text(&out) : "(no output)", &ok, 1);
-    exttool_buf_free(&out);
-    git_panel_refresh();
+    if (git_job_busy())
+        return;
+    git_job_begin("Push", g_git.root[0] ? g_git.root : g_folder.dir, GIT_AFTER_SHOW);
+    git_job_add("git push");
+    git_job_run();
 }
 
-/* "Sync" - `git pull` followed by `git push`, with both commands' output
- * shown together in one message box (rather than git_do_pull()'s own popup
- * then git_do_push()'s own popup back to back) so a pull failure (conflicts,
- * no upstream) and its unattempted push both read as one result. */
+/* "Sync" - `git pull` then `git push` as one job, so both outputs read as one
+ * result and a failed pull skips the push. */
 static void git_do_sync(void)
 {
-    const char* root = g_git.root[0] ? g_git.root : g_folder.dir;
-    struct exttool_buf pull_out = { 0 }, push_out = { 0 };
-    run_process_capture("git pull", root, &pull_out);
-    run_process_capture("git push", root, &push_out);
+    if (git_job_busy())
+        return;
+    git_job_begin("Sync", g_git.root[0] ? g_git.root : g_folder.dir, GIT_AFTER_SHOW);
+    git_job_add("git pull");
+    git_job_add("git push");
+    git_job_run();
+}
 
-    char combined[4096];
-    snprintf(combined, sizeof combined, "$ git pull\n%s\n$ git push\n%s",
-        pull_out.len ? exttool_buf_text(&pull_out) : "(no output)",
-        push_out.len ? exttool_buf_text(&push_out) : "(no output)");
-    exttool_buf_free(&pull_out);
-    exttool_buf_free(&push_out);
+/* Copies `raw` into `out` without surrounding spaces/tabs/line breaks - a
+ * pasted URL or path often carries them, and they would end up inside the
+ * quoted git arguments and the folder name. */
+static void git_clone_trim(const char* raw, char* out, size_t out_size)
+{
+    snprintf(out, out_size, "%s", raw ? raw : "");
+    size_t lead = strspn(out, " \t\r\n");
+    memmove(out, out + lead, strlen(out + lead) + 1);
+    size_t n = strlen(out);
+    while (n > 0 && strchr(" \t\r\n", out[n - 1]))
+        out[--n] = 0;
+}
 
-    ui_msgbox_button ok = { "   OK   ", 0 };
-    ui_message_box(g_screen, "Sync", combined, &ok, 1);
-    git_panel_refresh();
+/* The repository's name from its URL: the last path segment, trailing "/"
+ * and ".git" stripped - the same name plain `git clone <url>` picks for its
+ * directory. Empty if the URL has none. */
+static void git_url_repo_name(const char* url, char* name, size_t name_size)
+{
+    size_t ulen = strlen(url);
+    while (ulen > 0 && (url[ulen - 1] == '/' || url[ulen - 1] == '\\'))
+        ulen--;
+    size_t start = ulen;
+    while (start > 0 && url[start - 1] != '/' && url[start - 1] != '\\' && url[start - 1] != ':')
+        start--;
+    size_t nlen = ulen - start;
+    if (nlen >= name_size)
+        nlen = name_size - 1;
+    memcpy(name, url + start, nlen);
+    name[nlen] = 0;
+    if (nlen > 4 && strcmp(name + nlen - 4, ".git") == 0)
+        name[nlen - 4] = 0;
+}
+
+/* Sets the Folder field to `parent`/`name` and remembers `name` as the
+ * suggested part, so the next URL change can swap just that part. */
+static void git_clone_set_folder(const char* parent, const char* name)
+{
+    char path[1024];
+    size_t plen = strlen(parent);
+    int has_sep = plen > 0 && (parent[plen - 1] == '/' || parent[plen - 1] == '\\');
+    if (!name[0])
+        snprintf(path, sizeof path, "%s", parent);
+    else
+        snprintf(path, sizeof path, "%s%s%s", parent, has_sep || plen == 0 ? "" : "/", name);
+    ui_set_value(g_gitclone.folder_input, path);
+    snprintf(g_gitclone.suggested_name, sizeof g_gitclone.suggested_name, "%s", name);
+}
+
+/* The Folder field without the name git_clone_set_folder() last suggested
+ * - i.e. the parent the user chose. The whole field if it no longer ends
+ * with that name (edited by hand). */
+static void git_clone_folder_parent(char* out, size_t out_size)
+{
+    git_clone_trim(ui_get_value(g_gitclone.folder_input), out, out_size);
+    size_t len = strlen(out);
+    size_t nlen = strlen(g_gitclone.suggested_name);
+    if (nlen > 0 && len > nlen &&
+        strcmp(out + len - nlen, g_gitclone.suggested_name) == 0 &&
+        (out[len - nlen - 1] == '/' || out[len - nlen - 1] == '\\'))
+    {
+        out[len - nlen - 1] = 0;
+    }
+}
+
+/* Called every frame while the Clone dialog is open: when the URL changes,
+ * the Folder field follows it - parent folder + repository name - like
+ * Visual Studio's Clone dialog. A Folder field edited by hand is kept as
+ * the parent, with the new name appended. */
+static void git_clone_update_suggestion(void)
+{
+    if (ui_screen_active_modal(g_screen) != g_gitclone.modal)
+        return;
+    char url[1024];
+    git_clone_trim(ui_get_value(g_gitclone.input), url, sizeof url);
+    if (strcmp(url, g_gitclone.last_url) == 0)
+        return;
+    snprintf(g_gitclone.last_url, sizeof g_gitclone.last_url, "%s", url);
+
+    char parent[1024];
+    git_clone_folder_parent(parent, sizeof parent);
+    char name[256];
+    git_url_repo_name(url, name, sizeof name);
+    git_clone_set_folder(parent, name);
 }
 
 /* Git Changes popup's "Clone..." item: opens g_gitclone's URL+Folder dialog
  * (EVT_GITCLONE_OK does the actual work once confirmed) - same shape as
- * git_commit_start()/g_gitcommit, plus a Folder field prefilled with the
- * currently open folder (or cwd) the same way EVT_PROJECT_NEW prefills
- * g_newproject.folder_input. */
+ * git_commit_start()/g_gitcommit. The Folder field starts at the currently
+ * open folder (or cwd) and gets the repository name appended as the URL is
+ * typed (git_clone_update_suggestion). */
 static void git_clone_start(void)
 {
     ui_set_value(g_gitclone.input, "");
+    g_gitclone.last_url[0] = 0;
+    char parent[1024];
     if (g_folder.dir[0])
-        ui_set_value(g_gitclone.folder_input, g_folder.dir);
-    else
-    {
-        char cwd[1024];
-        ui_set_value(g_gitclone.folder_input, ui_get_cwd(cwd, sizeof cwd) ? cwd : ".");
-    }
+        snprintf(parent, sizeof parent, "%s", g_folder.dir);
+    else if (!ui_get_cwd(parent, sizeof parent))
+        strcpy(parent, ".");
+    git_clone_set_folder(parent, "");
     ui_group_set_checked(g_gitclone.open_folder_check, 0, 1);
     ui_screen_show_modal(g_screen, g_gitclone.modal);
     ui_screen_focus(g_screen, g_gitclone.input);
 }
 
-/* EVT_GITCLONE_OK: `git clone <url>` into the Folder field's directory (see
- * git_clone_start()/EVT_GITCLONE_BROWSE) - the repo name (URL's last path
- * segment, ".git" stripped) becomes the new subdirectory, same as plain
- * `git clone` on the command line. On success, opens that subdirectory as
- * the current folder via folder_reveal_directory() (same "point the
- * persistent Folder panel at a directory and raise it" idiom used
- * elsewhere), so cloning behaves like an Open Folder trip to the result. */
+/* EVT_GITCLONE_OK: `git clone <url> <folder>` - the Folder field is the
+ * final destination, like Visual Studio's Clone dialog. git creates it,
+ * along with any missing parent folders. An existing folder is refused up
+ * front (the dialog stays open to change it) rather than cloning on top of
+ * it. On success, opens the result via folder_reveal_directory() (same
+ * "point the persistent Folder panel at a directory and raise it" idiom
+ * used elsewhere), so cloning behaves like an Open Folder trip to it. */
 static void git_clone_confirm(void)
 {
-    const char* url = ui_get_value(g_gitclone.input);
-    if (!url || !url[0])
+    char url[1024];
+    git_clone_trim(ui_get_value(g_gitclone.input), url, sizeof url);
+    if (!url[0])
     {
         ui_msgbox_button ok = { "   OK   ", 0 };
         ui_message_box(g_screen, "Clone", "Enter a repository URL first.", &ok, 1);
         return;
     }
 
-    const char* folder = ui_get_value(g_gitclone.folder_input);
-    char base[1024];
-    if (folder && folder[0])
-    {
-        strncpy(base, folder, sizeof base - 1);
-        base[sizeof base - 1] = 0;
-    }
-    else if (!ui_get_cwd(base, sizeof base))
-    {
-        strcpy(base, ".");
-    }
-
-    /* Derive the target directory name from the URL's last path segment,
-     * stripping a trailing "/" and ".git" - same result `git clone` picks
-     * on its own when no destination argument is given. */
-    size_t ulen = strlen(url);
-    while (ulen > 0 && (url[ulen - 1] == '/' || url[ulen - 1] == '\\'))
-        ulen--;
-    size_t start = ulen;
-    while (start > 0 && url[start - 1] != '/' && url[start - 1] != '\\')
-        start--;
-    char name[256];
-    size_t nlen = ulen - start;
-    if (nlen >= sizeof name)
-        nlen = sizeof name - 1;
-    memcpy(name, url + start, nlen);
-    name[nlen] = 0;
-    if (nlen > 4 && strcmp(name + nlen - 4, ".git") == 0)
-        name[nlen - 4] = 0;
-    if (!name[0])
+    /* A trailing separator is dropped (except on a bare root) - Windows'
+     * stat() rejects "C:\dir\" even when the directory exists. */
+    char dest[1024];
+    git_clone_trim(ui_get_value(g_gitclone.folder_input), dest, sizeof dest);
+    size_t dlen = strlen(dest);
+    while (dlen > 1 && (dest[dlen - 1] == '/' || dest[dlen - 1] == '\\') && dest[dlen - 2] != ':')
+        dest[--dlen] = 0;
+    if (!dest[0])
     {
         ui_msgbox_button ok = { "   OK   ", 0 };
-        ui_message_box(g_screen, "Clone", "Could not determine a folder name from that URL.", &ok, 1);
+        ui_message_box(g_screen, "Clone", "Enter the destination folder first.", &ok, 1);
+        return;
+    }
+
+    struct stat dest_st;
+    if (stat(dest, &dest_st) == 0)
+    {
+        char msg[1200];
+        snprintf(msg, sizeof msg, "The folder already exists:\n%s\n\nChoose another folder.", dest);
+        ui_msgbox_button ok = { "   OK   ", 0 };
+        ui_message_box(g_screen, "Clone", msg, &ok, 1);
         return;
     }
 
     char escaped_url[1024];
     shell_escape_dq(url, escaped_url, sizeof escaped_url);
-    char cmd[1200];
-    snprintf(cmd, sizeof cmd, "git clone \"%s\"", escaped_url);
+    char escaped_dest[1024];
+    shell_escape_dq(dest, escaped_dest, sizeof escaped_dest);
+    char cmd[2200];
+    snprintf(cmd, sizeof cmd, "git clone \"%s\" \"%s\"", escaped_url, escaped_dest);
 
-    struct exttool_buf out = { 0 };
-    run_process_capture(cmd, base, &out);
-
+    if (git_job_busy())
+        return;
     ui_screen_close_modal(g_screen, g_gitclone.modal);
-
-    ui_msgbox_button ok = { "   OK   ", 0 };
-    ui_message_box(g_screen, "Clone", out.len ? exttool_buf_text(&out) : "(no output)", &ok, 1);
-    exttool_buf_free(&out);
-
-    if (ui_group_get_checked(g_gitclone.open_folder_check, 0))
-    {
-        char dest[1024];
-        snprintf(dest, sizeof dest, "%s/%s", base, name);
-        struct exttool_buf check = { 0 };
-        run_process_capture("git rev-parse --show-toplevel", dest, &check);
-        if (check.len)
-            folder_reveal_directory(dest);
-        exttool_buf_free(&check);
-    }
-
-    git_panel_refresh();
+    git_job_begin("Clone", NULL, GIT_AFTER_CLONE);
+    git_job_add(cmd);
+    snprintf(g_gitjob.clone_dest, sizeof g_gitjob.clone_dest, "%s", dest);
+    g_gitjob.clone_open = ui_group_get_checked(g_gitclone.open_folder_check, 0);
+    git_job_run();
 }
 
 /* "Discard" - asks for confirmation (stashing the target in g_pending_git_
@@ -6031,13 +7115,13 @@ static void git_do_discard(void)
     if (!path || !path[0])
         return;
 
-    g_pending_git_untracked = label && label[0] == '?';
+    g_pending_git_untracked = label && (label[0] == '?' || label[0] == 'A');
     snprintf(g_pending_git_discard_path, sizeof g_pending_git_discard_path, "%s", path);
 
     char message[1200];
     snprintf(message, sizeof message,
              g_pending_git_untracked
-                 ? "Delete this untracked file?\n%s"
+                 ? "Delete this new file?\n%s"
                  : "Discard changes to this file?\n%s\n\nThis restores it to the last commit - not undoable.",
              path);
     ui_msgbox_button btns[] = {
@@ -6084,7 +7168,7 @@ static const char* active_platform_name(void)
 static void target_dir_path(const char* doc_dir, char* out, size_t cap)
 {
     const char* root = project_is_open() ? g_project.dir : doc_dir;
-    snprintf(out, cap, "%s/%s", root, active_platform_name());
+    path_join(out, cap, root, active_platform_name());
 }
 
 /* $(TargetFileName) - the executable's file NAME (with extension), not a
@@ -6311,7 +7395,7 @@ static void exttool_expand(const char* in, const char* path, struct exttool_buf*
                 char d[1024], f[512], buf[1600];
                 target_dir_path(dir, d, sizeof d);
                 target_file_name(name, f, sizeof f);
-                snprintf(buf, sizeof buf, "%s/%s", d, f);
+                path_join(buf, sizeof buf, d, f);
                 exttool_append(out, buf);
             }
             else if (strcmp(macro, "Platform") == 0)
@@ -7145,6 +8229,8 @@ static void save_active_file(ui_node* active)
         return;
     }
     ui_set_dirty(editor, 0);
+    ui_set_file_time(active, file_mtime(path));  /* our own write isn't an
+                                                  * outside change */
 }
 
 /* Point the active editor window at g_saveas_path, retitle it, write it out,
@@ -7268,7 +8354,7 @@ static void save_as_activate(void)
     strncpy(g_save_name, name, sizeof g_save_name - 1);
     g_save_name[sizeof g_save_name - 1] = 0;
 
-    snprintf(g_saveas_path, sizeof g_saveas_path, "%s/%s", g_open.dir, g_save_name);
+    path_join(g_saveas_path, sizeof g_saveas_path, g_open.dir, g_save_name);
 
     /* If the target already exists, confirm the overwrite first (the Save As
      * dialog stays open behind the prompt so "No" returns to it). */
@@ -7435,7 +8521,7 @@ static void resolve_referenced_path(const char* filename, char* out, size_t out_
 
     if (project_is_open())
     {
-        snprintf(candidate, sizeof candidate, "%s/%s", g_project.dir, filename);
+        path_join(candidate, sizeof candidate, g_project.dir, filename);
         if (file_readable(candidate))
             open_path = candidate;
     }
@@ -7445,13 +8531,13 @@ static void resolve_referenced_path(const char* filename, char* out, size_t out_
         strncpy(dir, ui_get_path(g_active_editor_window), sizeof dir - 1);
         dir[sizeof dir - 1] = 0;
         dirname(dir);
-        snprintf(candidate, sizeof candidate, "%s/%s", dir, filename);
+        path_join(candidate, sizeof candidate, dir, filename);
         if (file_readable(candidate))
             open_path = candidate;
     }
     if (!open_path && g_folder.dir[0])
     {
-        snprintf(candidate, sizeof candidate, "%s/%s", g_folder.dir, filename);
+        path_join(candidate, sizeof candidate, g_folder.dir, filename);
         if (file_readable(candidate))
             open_path = candidate;
     }
@@ -7472,6 +8558,58 @@ static void open_referenced_file(const char* filename)
     resolve_referenced_path(filename, open_path, sizeof open_path);
     nav_record_jump();
     open_file_path_into_editor(open_path, basename_of(open_path));
+}
+
+/* Double-click on an Output line that is not a diagnostic, such as a "dir",
+ * "ls" or "git status" row: the file or directory name is at the end of the
+ * line, after columns of other text, and may contain spaces - so try each
+ * suffix that starts after a blank, longest first, against the command
+ * line's directory. A file opens in an editor; a directory becomes the
+ * Folder panel's (and the command line's) directory, like "cd". */
+static void output_open_listed_path(const char* line)
+{
+    char dir[FS_MAX_PATH];
+    if (g_folder.dir[0])
+        snprintf(dir, sizeof dir, "%s", g_folder.dir);
+    else if (!ui_get_cwd(dir, sizeof dir))
+        return;
+
+    for (const char* p = line; *p; p++)
+    {
+        if (p != line && !(p[-1] == ' ' || p[-1] == '\t'))
+            continue;
+        if (*p == ' ' || *p == '\t')
+            continue;
+
+        char name[FS_MAX_PATH];
+        snprintf(name, sizeof name, "%s", p);
+        size_t n = strlen(name);
+        while (n > 0 && (name[n - 1] == ' ' || name[n - 1] == '\t' || name[n - 1] == '\r'))
+            name[--n] = 0;
+        if (strcmp(name, ".") == 0)
+            continue;
+
+        char path[FS_MAX_PATH];
+        if (name[0] == '/' || name[0] == '\\' || (isalpha((unsigned char)name[0]) && name[1] == ':'))
+        {
+            snprintf(path, sizeof path, "%s", name);
+            ide_path_normalize(path);
+        }
+        else
+            path_join(path, sizeof path, dir, name);
+
+        struct stat st;
+        if (stat(path, &st) != 0)
+            continue;
+        if (st.st_mode & S_IFDIR)
+            folder_reveal_directory(path);
+        else
+        {
+            nav_record_jump();
+            open_file_path_into_editor(path, basename_of(path));
+        }
+        return;
+    }
 }
 
 /* Double-click in the Output window: parse the clicked line's
@@ -7538,7 +8676,10 @@ static void output_goto_source(void)
         }
     }
     if (!sep)
+    {
+        output_open_listed_path(line);
         return;
+    }
     *sep = '\0';
     if (src_line < 1)
         return;
@@ -7590,7 +8731,7 @@ static void output_goto_source(void)
     g_goto_pending_focus = editor;  /* focus after this update finishes - see app_frame */
 }
 
-static int parse_diagnostic_line(char* line, ui_diag_type* type, int* out_line,
+static int parse_diagnostic_line(char* line, char** out_file, ui_diag_type* type, int* out_line,
                                  int* out_code, char** message)
 {
     strip_ansi_sgr(line);
@@ -7634,7 +8775,7 @@ static int parse_diagnostic_line(char* line, ui_diag_type* type, int* out_line,
     // output_goto_source(). For the first, find the first colon followed by a
     // digit (skips drive letters); for the second, the '(' of the
     // "(<digits>,<digits>)" group.
-    const char* p = line;
+    char* p = line;
     const char* line_start = NULL;
     while (*p)
     {
@@ -7693,8 +8834,52 @@ static int parse_diagnostic_line(char* line, ui_diag_type* type, int* out_line,
     *end = '\0';
 
     *message = msg;
+
+    /* p is the separator before the line number; cut the filename there */
+    *p = '\0';
+    char* file = line;
+    while (*file == ' ' || *file == '\t')
+        file++;
+    *out_file = file;
     return 1;
 }
+
+/* Clears every editor window's diagnostics, then adds each diagnostic line of
+ * `text` to the window of the file it names, so a project build marks every
+ * open file and not only the active one. Mutates `text` (strtok). */
+static void apply_diagnostics(char* text)
+{
+    for (int i = 0; i < ui_child_count(g_root); i++)
+    {
+        ui_node* editor = editor_in_window(ui_child_at(g_root, i));
+        if (editor)
+            ui_editor_clear_diagnostics(editor);
+    }
+
+    for (char* line = strtok(text, "\n"); line; line = strtok(NULL, "\n"))
+    {
+        char* file;
+        ui_diag_type type;
+        int diag_line;
+        int diag_code;
+        char* message;
+        if (!parse_diagnostic_line(line, &file, &type, &diag_line, &diag_code, &message))
+            continue;
+
+        for (int i = 0; i < ui_child_count(g_root); i++)
+        {
+            ui_node* w = ui_child_at(g_root, i);
+            ui_node* editor = editor_in_window(w);
+            const char* path = ui_get_path(w);
+            if (editor && path[0] && paths_match(path, file))
+            {
+                ui_editor_add_diagnostic(editor, type, diag_line, diag_code, message);
+                break;
+            }
+        }
+    }
+}
+
 /* Reload every open window's content from its file on disk, skipping any with
  * unsaved changes (dirty) or no backing file (e.g. the Output window). Used by
  * the Refresh command and run automatically after a compile, so windows pick
@@ -7874,6 +9059,9 @@ static int job_argv_from_settings(const compile_settings* cs)
         job_push(&argc, tok);
     }
 
+    /* The global list (g_include_dirs) is not passed as -I: the compiler
+     * already reads it from cake.json (preprocessor_load_config), and
+     * passing it here too would add every directory twice. */
     if (cs == &g_project.compile)
     {
         for (int i = 0; i < g_project.include_count; i++)
@@ -7881,14 +9069,6 @@ static int job_argv_from_settings(const compile_settings* cs)
             char abs_dir[1024 - 2];
             project_abs_path(g_project.include_dirs[i], abs_dir, sizeof abs_dir);
             snprintf(flag, sizeof flag, "-I%s", abs_dir);
-            job_push(&argc, flag);
-        }
-    }
-    else
-    {
-        for (int i = 0; i < g_include_count; i++)
-        {
-            snprintf(flag, sizeof flag, "-I%s", g_include_dirs[i]);
             job_push(&argc, flag);
         }
     }
@@ -8243,6 +9423,532 @@ static void do_run_external_tool(int index)
     exttool_buf_free(&cmdb);
 }
 
+/* --- Output command line --------------------------------------------------- */
+
+/* The <input> on the Output window's bottom row. A line typed there is, in order:
+ * input for the running child (its stdin), one of g_cmdline_commands (IDE
+ * actions such as "clone"), or else a shell command run like an External Tool. */
+static struct
+{
+    ui_node* prompt;
+    ui_node* input;
+    int last_x, last_y, last_w;
+    int last_stdin;
+} g_cmdline;
+
+/* The directory shell commands run in (see cmdline_cd). */
+static void cmdline_dir(char* out, size_t cap)
+{
+    if (g_folder.dir[0])
+        snprintf(out, cap, "%s", g_folder.dir);
+    else if (!ui_get_cwd(out, (int)cap))
+        snprintf(out, cap, ".");
+}
+
+static void cmdline_print(const char* text)
+{
+    compile_text_append(text, strlen(text));
+    ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
+    ui_editor_goto_line(g_output_editor, g_job.lines + 1);
+}
+
+#define CMDLINE_MAX_ARGS 16
+
+/* A command line split into words. argv[0] is the command name; a "quoted word" may hold spaces. */
+struct cmdline_args
+{
+    int argc;
+    char* argv[CMDLINE_MAX_ARGS];
+    const char* rest; /* the text after the command name, unsplit - for commands that take free text */
+};
+
+/* Splits `line` in place into `args`. Returns 0 when there are more than CMDLINE_MAX_ARGS words. */
+static int cmdline_split(char* line, struct cmdline_args* args)
+{
+    args->argc = 0;
+    args->rest = "";
+    char* p = line;
+    for (;;)
+    {
+        while (*p == ' ' || *p == '\t')
+            p++;
+        if (!*p)
+            return 1;
+        if (args->argc == 1)
+            args->rest = p;
+        if (args->argc == CMDLINE_MAX_ARGS)
+            return 0;
+
+        char* out = p;
+        args->argv[args->argc++] = out;
+        char quote = 0;
+        while (*p && (quote || (*p != ' ' && *p != '\t')))
+        {
+            if (*p == '"')
+                quote = !quote;
+            else
+                *out++ = *p;
+            p++;
+        }
+        if (*p)
+            p++;
+        *out = 0;
+    }
+}
+
+enum cmdline_flags
+{
+    CMDLINE_IDLE_ONLY = 1 /* refused while a build or tool is running */
+};
+
+/* An IDE command. To add one: write a cmdline_xxx function and add a row to g_cmdline_commands. */
+struct cmdline_command
+{
+    const char* name;
+    const char* usage;    /* the arguments, as shown by "help" - "" when none */
+    const char* help;
+    int min_args, max_args; /* not counting the name; checked before run is called */
+    int flags;
+    void (*run)(const struct cmdline_args* args);
+};
+
+static void cmdline_help(const struct cmdline_args* args);
+
+static void cmdline_clone(const struct cmdline_args* args)
+{
+    git_clone_start();
+    if (args->argc > 1)
+    {
+        ui_set_value(g_gitclone.input, args->argv[1]);
+        git_clone_update_suggestion();
+    }
+}
+
+static void cmdline_build(const struct cmdline_args* args)
+{
+    (void)args;
+    do_build();
+}
+
+static void cmdline_clear(const struct cmdline_args* args)
+{
+    (void)args;
+    g_job.len = 0;
+    g_job.lines = 0;
+    if (g_job.text)
+        g_job.text[0] = 0;
+    ui_set_value(g_output_editor, "");
+}
+
+/* Shell commands each run in a fresh process, so a shell "cd" would not last; this one changes the Folder directory they all start in. */
+static void cmdline_cd(const struct cmdline_args* args)
+{
+    char cwd[FS_MAX_PATH];
+    cmdline_dir(cwd, sizeof cwd);
+
+    if (args->argc > 1)
+    {
+        const char* arg = args->argv[1];
+        int absolute = arg[0] == '/' || arg[0] == '\\' || (isalpha((unsigned char)arg[0]) && arg[1] == ':');
+        char dir[FS_MAX_PATH];
+        if (absolute)
+        {
+            snprintf(dir, sizeof dir, "%s", arg);
+            ide_path_normalize(dir);
+        }
+        else
+            path_join(dir, sizeof dir, cwd, arg);
+
+        struct stat st;
+        if (stat(dir, &st) != 0 || !(st.st_mode & S_IFDIR))
+        {
+            cmdline_print("No such directory: ");
+            cmdline_print(dir);
+            cmdline_print("\n");
+            return;
+        }
+        folder_reveal_directory(dir);
+        snprintf(cwd, sizeof cwd, "%s", dir);
+    }
+    cmdline_print(cwd);
+    cmdline_print("\n");
+}
+
+static void cmdline_line(const struct cmdline_args* args)
+{
+    int line = atoi(args->argv[1]);
+    ui_node* editor = editor_in_window(g_active_editor_window);
+    if (line <= 0 || !editor)
+    {
+        cmdline_print(line <= 0 ? "Not a line number.\n" : "No file is open.\n");
+        return;
+    }
+    nav_record_jump();
+    ui_screen_show_window(g_screen, g_active_editor_window);
+    ui_editor_goto_line(editor, line);
+    ui_screen_focus(g_screen, editor);
+}
+
+static void on_ui_event(void* ctx, int id, void* param);
+
+static void cmdline_tools(const struct cmdline_args* args)
+{
+    (void)args;
+    on_ui_event(NULL, EVT_TOOLS_EXTERNAL, NULL);
+}
+
+/* A menu label as typed on the command line: lowercase letters and digits only, so "Open Folder..." is "openfolder". */
+static void cmdline_menu_key(const char* label, char* out, size_t cap)
+{
+    size_t n = 0;
+    for (const char* p = label; *p && n + 1 < cap; p++)
+    {
+        if (isalnum((unsigned char)*p))
+            out[n++] = (char)tolower((unsigned char)*p);
+    }
+    out[n] = 0;
+}
+
+/* Finds the menu item whose label, or menu + label ("fileclose"), is `key`. Sets *ambiguous when several items match the label alone. */
+static ui_node* cmdline_menu_find(const char* key, int* ambiguous)
+{
+    ui_node* found = NULL;
+    *ambiguous = 0;
+    for (int m = 0; m < ui_child_count(g_menubar); m++)
+    {
+        ui_node* menu = ui_child_at(g_menubar, m);
+        char menu_key[64];
+        cmdline_menu_key(ui_get_label(menu), menu_key, sizeof menu_key);
+        for (int i = 0; i < ui_child_count(menu); i++)
+        {
+            ui_node* item = ui_child_at(menu, i);
+            if (ui_get_separator(item) || ui_get_id(item) == 0)
+                continue;
+            char item_key[128], full_key[192];
+            cmdline_menu_key(ui_get_label(item), item_key, sizeof item_key);
+            snprintf(full_key, sizeof full_key, "%s%s", menu_key, item_key);
+            if (strcmp(full_key, key) == 0)
+            {
+                *ambiguous = 0;
+                return item;
+            }
+            if (strcmp(item_key, key) == 0)
+            {
+                if (found)
+                    *ambiguous = 1;
+                found = item;
+            }
+        }
+    }
+    return *ambiguous ? NULL : found;
+}
+
+/* Runs the External Tool whose title is the whole line (compared like menu labels). Returns 0 when no tool matches. */
+static int cmdline_run_tool(const char* line)
+{
+    char key[192], title_key[192];
+    cmdline_menu_key(line, key, sizeof key);
+    if (!key[0])
+        return 0;
+    for (int i = 0; i < g_tools.count; i++)
+    {
+        cmdline_menu_key(g_tools.items[i].title, title_key, sizeof title_key);
+        if (strcmp(title_key, key) == 0)
+        {
+            do_run_external_tool(i);
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* Runs the menu item named by the whole line, as if clicked. Returns 0 when no item matches. */
+static int cmdline_run_menu(const char* line)
+{
+    char key[192];
+    cmdline_menu_key(line, key, sizeof key);
+    if (!key[0])
+        return 0;
+
+    int ambiguous;
+    ui_node* item = cmdline_menu_find(key, &ambiguous);
+    if (ambiguous)
+    {
+        cmdline_print("Several menus have that item - prefix the menu name, e.g. \"file close\".\n");
+        return 1;
+    }
+    if (!item)
+        return 0;
+    if (!ui_get_enabled(item))
+        cmdline_print("That menu item is disabled right now.\n");
+    else
+        on_ui_event(NULL, ui_get_id(item), NULL);
+    return 1;
+}
+
+static void cmdline_menu(const struct cmdline_args* args)
+{
+    (void)args;
+    for (int m = 0; m < ui_child_count(g_menubar); m++)
+    {
+        ui_node* menu = ui_child_at(g_menubar, m);
+        char key[128];
+        cmdline_menu_key(ui_get_label(menu), key, sizeof key);
+        cmdline_print(key);
+        cmdline_print(":");
+        for (int i = 0; i < ui_child_count(menu); i++)
+        {
+            ui_node* item = ui_child_at(menu, i);
+            if (ui_get_separator(item) || ui_get_id(item) == 0)
+                continue;
+            cmdline_menu_key(ui_get_label(item), key, sizeof key);
+            cmdline_print(" ");
+            cmdline_print(key);
+        }
+        cmdline_print("\n");
+    }
+}
+
+static const struct cmdline_command g_cmdline_commands[] = {
+    { "help",  "[command]", "list the IDE commands, or describe one", 0, 1, 0, cmdline_help },
+    { "clone", "[url]", "open the Git Clone dialog", 0, 1, CMDLINE_IDLE_ONLY, cmdline_clone },
+    { "build", "", "build the project or the active file", 0, 0, CMDLINE_IDLE_ONLY, cmdline_build },
+    { "clear", "", "clear the Output window", 0, 0, 0, cmdline_clear },
+    { "tools", "", "open the External Tools dialog", 0, 0, 0, cmdline_tools },
+    { "line",  "<n>", "go to line n of the active file", 1, 1, 0, cmdline_line },
+    { "menu",  "", "list the menu items - type one (\"format\", \"file close\") to run it", 0, 0, 0, cmdline_menu },
+    { "cd",    "[dir]", "show or change the Folder directory, where shell commands run", 0, 1, CMDLINE_IDLE_ONLY, cmdline_cd },
+};
+
+static const struct cmdline_command* cmdline_find(const char* name)
+{
+    for (size_t i = 0; i < sizeof g_cmdline_commands / sizeof g_cmdline_commands[0]; i++)
+    {
+        if (strcmp(g_cmdline_commands[i].name, name) == 0)
+            return &g_cmdline_commands[i];
+    }
+    return NULL;
+}
+
+static void cmdline_print_usage(const struct cmdline_command* c)
+{
+    char line[256];
+    snprintf(line, sizeof line, "  %s %-10s %s\n", c->name, c->usage, c->help);
+    cmdline_print(line);
+}
+
+static void cmdline_help(const struct cmdline_args* args)
+{
+    if (args->argc > 1)
+    {
+        const struct cmdline_command* c = cmdline_find(args->argv[1]);
+        if (c)
+            cmdline_print_usage(c);
+        else
+            cmdline_print("Not an IDE command - it would run in the shell.\n");
+        return;
+    }
+    for (size_t i = 0; i < sizeof g_cmdline_commands / sizeof g_cmdline_commands[0]; i++)
+        cmdline_print_usage(&g_cmdline_commands[i]);
+    cmdline_print("An External Tool's title or a menu item's name runs it (see \"menu\"). Anything else, or a line starting with !, runs in the shell.\n"
+                  "While a program runs, a line is sent to its input.\n");
+}
+
+#ifdef _WIN32
+/* POSIX command names cmd.exe lacks, typed out of habit. Add a row to add one. */
+static const struct { const char* posix; const char* win; } g_cmdline_shell_aliases[] = {
+    { "ls", "dir" },
+};
+
+/* Rewrites `line` into `out` with a POSIX command name swapped for its cmd.exe one ("ls src" -> "dir src").
+ * Options ("-la") are dropped: cmd.exe would read them as file names. */
+static const char* cmdline_shell_alias(const char* line, char* out, size_t cap)
+{
+    size_t name_len = strcspn(line, " \t");
+    for (size_t i = 0; i < sizeof g_cmdline_shell_aliases / sizeof g_cmdline_shell_aliases[0]; i++)
+    {
+        const char* posix = g_cmdline_shell_aliases[i].posix;
+        if (strlen(posix) != name_len || strncmp(posix, line, name_len) != 0)
+            continue;
+
+        snprintf(out, cap, "%s", g_cmdline_shell_aliases[i].win);
+        const char* p = line + name_len;
+        while (*p)
+        {
+            while (*p == ' ' || *p == '\t')
+                p++;
+            size_t w = strcspn(p, " \t");
+            if (w > 0 && p[0] != '-')
+            {
+                size_t n = strlen(out);
+                snprintf(out + n, cap - n, " %.*s", (int)w, p);
+            }
+            p += w;
+        }
+        return out;
+    }
+    return line;
+}
+#endif
+
+static void cmdline_run_shell(const char* line)
+{
+#ifdef _WIN32
+    char aliased[1024];
+    line = cmdline_shell_alias(line, aliased, sizeof aliased);
+#endif
+    g_job.len = 0;
+    g_job.lines = 0;
+    if (g_job.text)
+        g_job.text[0] = 0;
+    g_job.active = NULL;
+    snprintf(g_job.proc_title, sizeof g_job.proc_title, "%s", line);
+
+    const char* dir = g_folder.dir[0] ? g_folder.dir : NULL;
+    cmdline_print("> ");
+    cmdline_print(line);
+    cmdline_print("\n");
+
+    char err[256];
+#ifdef _WIN32
+    g_job.proc = ui_process_start(line, dir, err, sizeof err);
+#else
+    const char* argv[] = { "/bin/sh", "-c", line, NULL };
+    g_job.proc = ui_process_start_direct(argv, dir, err, sizeof err);
+#endif
+    if (!g_job.proc)
+    {
+        cmdline_print("Failed to start: ");
+        cmdline_print(err);
+        cmdline_print("\n");
+        return;
+    }
+    g_job.running = 1;
+    compile_status_set(g_job.proc_title);
+}
+
+/* Sends one typed line to the running child's stdin. */
+static void cmdline_send_stdin(const char* text)
+{
+    char line[1024 + 2];
+    size_t n = strlen(text);
+    if (n > sizeof line - 2)
+        n = sizeof line - 2;
+    memcpy(line, text, n);
+    line[n] = '\n';
+    line[n + 1] = 0;
+    if (ui_process_write(g_job.proc, line, (int)n + 1) < 0)
+        cmdline_print("(the running program does not accept input)\n");
+    else
+        cmdline_print(line);
+}
+
+/* EVT_OUTPUT_CMDLINE: Enter in the command line. */
+static void cmdline_execute(void)
+{
+    char line[1024];
+    snprintf(line, sizeof line, "%s", ui_get_value(g_cmdline.input));
+    ui_set_value(g_cmdline.input, "");
+
+    if (g_job.running && g_job.proc)
+    {
+        cmdline_send_stdin(line);
+        return;
+    }
+
+    /* "!cmd" always goes to the shell, even when cmd is also an IDE command or menu item. */
+    const char* start = line;
+    while (*start == ' ' || *start == '\t')
+        start++;
+    if (*start == '!')
+    {
+        if (g_job.running)
+            cmdline_print("A build is still running.\n");
+        else if (start[1])
+            cmdline_run_shell(start + 1);
+        return;
+    }
+
+    /* The shell gets the line as typed; splitting would drop its quotes. */
+    char shell_line[1024];
+    snprintf(shell_line, sizeof shell_line, "%s", line);
+
+    struct cmdline_args args;
+    if (!cmdline_split(line, &args))
+    {
+        cmdline_print("Too many arguments.\n");
+        return;
+    }
+    if (args.argc == 0)
+        return;
+
+    const struct cmdline_command* c = cmdline_find(args.argv[0]);
+    if (c)
+    {
+        int n = args.argc - 1;
+        if (n < c->min_args || n > c->max_args)
+        {
+            cmdline_print("Usage:\n");
+            cmdline_print_usage(c);
+        }
+        else if ((c->flags & CMDLINE_IDLE_ONLY) && g_job.running)
+            cmdline_print("A build is still running.\n");
+        else
+            c->run(&args);
+        return;
+    }
+
+    if (g_job.running)
+    {
+        cmdline_print("A build is still running.\n");
+        return;
+    }
+
+    if (cmdline_run_tool(shell_line) || cmdline_run_menu(shell_line))
+        return;
+    cmdline_run_shell(shell_line);
+}
+
+/* Per frame: a click in the Output text moves the focus to the command line once the button is released, unless it selected text (kept so Ctrl+C still copies it). */
+static void cmdline_take_focus(void)
+{
+    if (ui_screen_focused(g_screen) != g_output_editor || ui_screen_mouse_down(g_screen))
+        return;
+    int lo, hi;
+    if (ui_editor_get_selection(g_output_editor, &lo, &hi) && lo != hi)
+        return;
+    ui_screen_focus(g_screen, g_cmdline.input);
+}
+
+/* Per frame: only the output <editor> is stretched reliably with the window (a docked window's own h is its remembered thickness, and the <input>/<text> are not kept on the bottom row), so put the prompt and input on the row just below the editor. */
+static void cmdline_layout(void)
+{
+    int ex, ey, ew, eh;
+    ui_get_rect(g_output_editor, &ex, &ey, &ew, &eh);
+    int row = ey + eh;
+
+    /* Output's own colors, re-read every frame: a theme switch does not re-theme editor_output_* colors baked into nodes. */
+    const ui_theme* theme = ui_get_theme();
+    ui_set_color(g_cmdline.prompt, theme->window_fg, theme->editor_output_bg);
+    ui_set_input_colors(g_cmdline.input, theme->editor_output_fg, theme->editor_output_bg);
+
+    int to_stdin = g_job.running && g_job.proc;
+    if (ex == g_cmdline.last_x && row == g_cmdline.last_y && ew == g_cmdline.last_w &&
+        to_stdin == g_cmdline.last_stdin)
+        return;
+    g_cmdline.last_x = ex;
+    g_cmdline.last_y = row;
+    g_cmdline.last_w = ew;
+    g_cmdline.last_stdin = to_stdin;
+
+    /* "stdin>" while a program runs: a line typed then is its input, not a command (see cmdline_execute). */
+    const char* label = to_stdin ? "stdin>" : ">";
+    int gap = (int)strlen(label) + 1;
+    ui_set_label(g_cmdline.prompt, label);
+    ui_set_rect(g_cmdline.prompt, ex, row, 0, 0);
+    ui_set_rect(g_cmdline.input, ex + gap, row, ew - gap, 1);
+}
+
 /* --- Debug menu (scripted lldb - see ide_debug.h) --------------------------- */
 
 /* Routes lldb's raw session log (every line debug_poll() sees, prompts
@@ -8517,7 +10223,7 @@ static void do_debug_start(void)
     char exe_name[512];
     target_file_name(base, exe_name, sizeof exe_name);
     char exe_path[DEBUG_MAX_PATH];
-    snprintf(exe_path, sizeof exe_path, "%s/%s", dir, exe_name);
+    path_join(exe_path, sizeof exe_path, dir, exe_name);
 
     g_job.len = 0;
     g_job.lines = 0;
@@ -8787,19 +10493,9 @@ static void exttool_finish(void)
     compile_text_append(footer, strlen(footer));
     ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
 
-    ui_node* src_editor = editor_in_window(g_job.active);
-    if (src_editor && g_job.text)
+    if (g_job.text)
     {
-        ui_editor_clear_diagnostics(src_editor);
-        for (char* line = strtok(g_job.text, "\n"); line; line = strtok(NULL, "\n"))
-        {
-            ui_diag_type type;
-            int diag_line;
-            int diag_code;
-            char* message;
-            if (parse_diagnostic_line(line, &type, &diag_line, &diag_code, &message))
-                ui_editor_add_diagnostic(src_editor, type, diag_line, diag_code, message);
-        }
+        apply_diagnostics(g_job.text);
         g_job.len = 0;  /* strtok chopped it up - see compile_finish() */
     }
 
@@ -8814,8 +10510,6 @@ static void compile_finish(void)
 {
     compile_stream_end();
 
-    ui_node* active = g_job.active;
-
     char summary[256];
     snprintf(summary, sizeof summary, "\n%d error(s), %d warning(s), %.2f sec\n",
               g_job.report.error_count, g_job.report.warnings_count,
@@ -8823,24 +10517,14 @@ static void compile_finish(void)
     compile_text_append(summary, strlen(summary));
     ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
 
-    /* Re-parse the captured text into the active editor's diagnostic list -
-     * see parse_diagnostic_line(). Cleared first so every compile starts
+    /* Re-parse the captured text into each open file's diagnostic list -
+     * see apply_diagnostics(). Cleared first so every compile starts
      * from a blank slate instead of accumulating stale diagnostics on top
      * of a previous run's. strtok mutates the buffer in place, which is
      * fine: ui_set_value() above already took its own copy of the text. */
-    ui_node* src_editor = editor_in_window(active);
-    if (src_editor && g_job.text)
+    if (g_job.text)
     {
-        ui_editor_clear_diagnostics(src_editor);
-        for (char* line = strtok(g_job.text, "\n"); line; line = strtok(NULL, "\n"))
-        {
-            ui_diag_type type;
-            int diag_line;
-            int diag_code;
-            char* message;
-            if (parse_diagnostic_line(line, &type, &diag_line, &diag_code, &message))
-                ui_editor_add_diagnostic(src_editor, type, diag_line, diag_code, message);
-        }
+        apply_diagnostics(g_job.text);
         g_job.len = 0;  /* strtok chopped it up - don't reuse it as text */
     }
 
@@ -9550,7 +11234,7 @@ static int fr_search_dir_files(const char* dir, int full_names, const find_repla
             continue;
 
         char filepath[1024];
-        snprintf(filepath, sizeof filepath, "%s/%s", dir, de->d_name);
+        path_join(filepath, sizeof filepath, dir, de->d_name);
         char* content = read_file_to_string(filepath);
         if (!content)
             continue;
@@ -9831,7 +11515,7 @@ static int fr_replace_dir(const find_replace_options* opts, char* out, size_t ou
             continue;
 
         char filepath[1024];
-        snprintf(filepath, sizeof filepath, "%s/%s", dir, de->d_name);
+        path_join(filepath, sizeof filepath, dir, de->d_name);
 
         /* Prefer an already-open window's live (possibly unsaved) content
          * over what's on disk - replacing against a stale copy would lose
@@ -10169,6 +11853,20 @@ static void fr_rebuild_content(void)
     if (!g_fr.panel)
         return;
 
+    /* The controls are about to be freed - remember which one had focus (by
+     * role, not pointer) and hand focus to its replacement at the end, so
+     * e.g. clicking "Mode" keeps focus on the new Mode button instead of
+     * leaving it on a freed node. */
+    ui_node* focused = ui_screen_focused(g_screen);
+    ui_node** roles[] = { &g_fr.find_input, &g_fr.replace_input, &g_fr.opts, &g_fr.lookin,
+                          &g_fr.filetypes, &g_fr.find_btn, &g_fr.replace_btn, &g_fr.mode_btn };
+    int focus_role = -1;
+    for (int i = 0; i < (int)(sizeof roles / sizeof roles[0]); i++)
+        if (focused && *roles[i] == focused)
+            focus_role = i;
+    if (focus_role >= 0)
+        ui_screen_focus(g_screen, NULL);
+
     while (ui_child_count(g_fr.panel) > 0)
     {
         ui_node* c = ui_child_at(g_fr.panel, 0);
@@ -10217,10 +11915,28 @@ static void fr_rebuild_content(void)
     add_text(g_fr.panel, cx, cy, "Look in:", theme->label_fg, theme->window_bg);
     cy += 1;
     g_fr.lookin = add_group(g_fr.panel, cx, cy, cw, 4, 0);
-    add_group_item(g_fr.lookin, "Current File");
-    add_group_item(g_fr.lookin, "Current Dir");
-    add_group_item(g_fr.lookin, "Include Dir");
-    add_group_item(g_fr.lookin, "Project");
+    ui_set_help(g_fr.lookin,
+                "Where to search", "# Where to search\n"
+                "\n"
+                "Current Dir and Include Dir search one level only - subdirectories are not entered.");
+    ui_set_help(add_group_item(g_fr.lookin, "Current File"),
+                "Current File: the active document", "## Current File\n\nthe active document\n"
+                "\n"
+                "Searches the text in its editor, including unsaved changes.");
+    ui_set_help(add_group_item(g_fr.lookin, "Current Dir"),
+                "Current Dir: every file in the active document's folder", "## Current Dir\n\nevery file in the active document's folder\n"
+                "\n"
+                "Only files matching **File Types**. A file that is open in an editor is searched in its editor, unsaved changes included; the others are read from disk.");
+    ui_set_help(add_group_item(g_fr.lookin, "Include Dir"),
+                "Include Dir: the directories the compiler searches for headers", "## Include Dir\n\nthe directories the compiler searches for headers\n"
+                "\n"
+                "Cake's own `include` folder next to the executable first, then the `include_dirs` of `cake.json` (**File > System Directories...**), in that order.\n"
+                "\n"
+                "Search only - **Replace** never rewrites system headers.");
+    ui_set_help(add_group_item(g_fr.lookin, "Project"),
+                "Project: every file in the open project", "## Project\n\nevery file in the open project\n"
+                "\n"
+                "Only files matching **File Types**. Open files are searched in their editor, unsaved changes included.");
     ui_select_set_selected(g_fr.lookin, g_fr.look_in);
     cy += 5;
 
@@ -10266,6 +11982,11 @@ static void fr_rebuild_content(void)
     ui_set_rect(g_fr.mode_btn, cx, cy, cw, 1);
     ui_set_label(g_fr.mode_btn, g_fr.mode ? "Mode: Replace" : "Mode: Find");
     ui_append_child(g_fr.panel, g_fr.mode_btn);
+
+    /* A role missing in the new mode (Replace field/button, back in Find
+     * mode) is NULL here, which just leaves nothing focused. */
+    if (focus_role >= 0)
+        ui_screen_focus(g_screen, *roles[focus_role]);
 }
 
 /* Shared by Edit > Stringify/To Upper/To Lower: the active document's
@@ -11104,6 +12825,31 @@ static int on_line_complete(void* ctx, const char* line, char** out_text, int* o
  * open chose, regardless of what project_is_open()/the active document do
  * while the dialog is up. Retitled so it's obvious which one is being
  * edited. */
+/* Checks the Options field with the compiler's own parser (fill_options), split the way
+ * build_compile_argv() splits it. fill_options only says pass/fail, so it runs on longer and
+ * longer prefixes: the first prefix that fails ends with the bad option (an option that takes a
+ * value, like "-o file", is still whole). Returns 1 and copies that option into `bad` when one is rejected. */
+static int copts_find_invalid(const char* text, char* bad, size_t cap)
+{
+    char buf[sizeof((compile_settings*)0)->options];
+    snprintf(buf, sizeof buf, "%s", text);
+
+    const char* argv[64];
+    int argc = 0;
+    argv[argc++] = "cake";
+    for (char* tok = strtok(buf, " \t"); tok && argc < (int)_Countof(argv); tok = strtok(NULL, " \t"))
+    {
+        argv[argc++] = tok;
+        struct options options = { 0 };
+        if (fill_options(&options, argc, argv) != 0)
+        {
+            snprintf(bad, cap, "%s", tok);
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static void open_compiler_options_dialog(compile_settings* cs, int is_project)
 {
     g_copts.editing = cs;
@@ -11191,7 +12937,15 @@ static void on_ui_event(void* ctx, int id, void* param)
          * loop), so this is only ever reachable with one. */
         open_compiler_options_dialog(&g_project.compile, 1);
     }
-    else if (id == EVT_COPTS_OK)
+    else if (id == EVT_COPTS_OK &&
+             copts_find_invalid(ui_get_value(g_copts.input), g_copts.bad_option, sizeof g_copts.bad_option))
+    {
+        char msg[400];
+        snprintf(msg, sizeof msg, "The compiler does not accept this option:\n\n  %s\n\nKeep the options anyway?", g_copts.bad_option);
+        ui_msgbox_button buttons[] = { { "  Keep  ", EVT_COPTS_KEEP_INVALID }, { "  Fix  ", 0 } };
+        ui_message_box(g_screen, "Compiler Options", msg, buttons, 2);
+    }
+    else if (id == EVT_COPTS_OK || id == EVT_COPTS_KEEP_INVALID)
     {
         /* Persist what was typed/picked so the next compile uses it, into
          * whichever settings this dialog was opened against (g_copts.editing,
@@ -11246,7 +13000,7 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_COPTS_HELP)
     {
-        do_help_cmdline();
+        show_help_text(ui_get_help(g_copts.window));
     }
     else if (id == EVT_HELP_MANUAL)
     {
@@ -11258,7 +13012,17 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_HELP_CONTEXTUAL)
     {
-        do_help_contextual();
+        /* F1 explains what the status bar shows (see ui_set_help) - with
+         * no hint there, it does nothing. */
+        show_hint_window();
+    }
+    else if (id == UI_HINT_DETAILS_ID)
+    {
+        show_hint_window();
+    }
+    else if (id == EVT_HINTWIN_CLOSE)
+    {
+        ui_screen_close_modal(g_screen, g_hintwin.modal);
     }
     else if (id == EVT_HELP_ABOUT)
     {
@@ -11332,6 +13096,10 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_WORDWRAP_CANCEL)
     {
         ui_screen_close_modal(g_screen, g_wordwrap_modal);
+    }
+    else if (id == EVT_OUTPUT_CMDLINE)
+    {
+        cmdline_execute();
     }
     else if (id == EVT_OUTPUT_DBLCLICK)
     {
@@ -11409,7 +13177,7 @@ static void on_ui_event(void* ctx, int id, void* param)
         else
         {
             char path[1024];
-            snprintf(path, sizeof path, "%s/%s",
+            path_join(path, sizeof path,
                      g_foldernew.in_project ? g_project.dir : g_folder.dir, name);
             int created = 0;
 
@@ -11498,7 +13266,7 @@ static void on_ui_event(void* ctx, int id, void* param)
             if (!is_dir && entry[0] && strcmp(entry, "..") != 0)
             {
                 char path[1024];
-                snprintf(path, sizeof path, "%s/%s", g_folder.dir, entry);
+                path_join(path, sizeof path, g_folder.dir, entry);
                 project_add_file(path);
             }
         }
@@ -11527,8 +13295,7 @@ static void on_ui_event(void* ctx, int id, void* param)
             if (name[0] && strcmp(name, "..") != 0)
             {
                 g_pending_delete_is_dir = is_dir;
-                snprintf(g_pending_delete_path, sizeof g_pending_delete_path,
-                         "%s/%s", g_folder.dir, name);
+                path_join(g_pending_delete_path, sizeof g_pending_delete_path, g_folder.dir, name);
 
                 char message[1200];
                 snprintf(message, sizeof message,
@@ -11583,11 +13350,29 @@ static void on_ui_event(void* ctx, int id, void* param)
                 ui_clipboard_set_text(path);
         }
     }
+    else if (id == EVT_GITDIFF_EDIT)
+    {
+        git_diff_edit();
+    }
+    else if (id == EVT_GITDIFF_COPY_PATH)
+    {
+        if (g_gitdiff_path[0])
+            ui_clipboard_set_text(g_gitdiff_path);
+    }
+    else if (id == EVT_GITDIFF_SHOW_FOLDER)
+    {
+        if (g_gitdiff_path[0])
+        {
+            char dir[1400];
+            snprintf(dir, sizeof dir, "%s", g_gitdiff_path);
+            dirname(dir);
+            folder_reveal_directory(dir);
+        }
+    }
     else if (id == EVT_EDITOR_SHOW_FOLDER)
     {
-        /* Reveal this document's containing folder in the Folder panel -
-         * same folder_reveal_directory() F1's contextual help uses (see
-         * do_help_contextual). A no-op for a window with no path (shouldn't
+        /* Reveal this document's containing folder in the Folder panel
+         * (folder_reveal_directory). A no-op for a window with no path (shouldn't
          * happen - see EVT_EDITOR_COPY_PATH just above). */
         ui_node* win = (ui_node*)param;
         if (!win)
@@ -11762,6 +13547,14 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_PROJECT_NEW_OVERWRITE)
     {
         project_new_create(g_project_new_path);  /* user confirmed overwrite */
+    }
+    else if (id == EVT_FILE_RELOAD)
+    {
+        file_watch_reload_file();
+    }
+    else if (id == EVT_PROJECT_RELOAD)
+    {
+        file_watch_reload_project();
     }
     else if (id == UI_CLOSE_REQUEST_ID)
     {
@@ -12091,6 +13884,22 @@ static void on_ui_event(void* ctx, int id, void* param)
          * it is available with or without a project open. */
         includes_edit_global();
         ui_set_label(g_project.includes_window, " System Directories ");
+        ui_set_help(g_project.includes_window,
+                    "System Directories: where `#include <...>` finds the platform's headers", "# System Directories\n\nwhere `#include <...>` finds the platform's headers\n"
+                    "\n"
+                    "The global include directory list, saved in `cake.json` next to the IDE (and the `cake` compiler, which reads the same file). It is used for every file that is not part of the open project - the Playground, a file opened on its own. A project has its own list instead (**Project > Include Directories...**); the two are never merged.\n"
+                    "\n"
+                    "Directories are searched in list order - **Up** / **Down** change it - and stored as full paths.\n"
+                    "\n"
+                    "Cake's own annotated headers (the `include` folder next to the executable) are always searched first and are not listed here. They pull in the real header with `#include_next`, continuing the search in these directories.\n"
+                    "\n"
+                    "**Detect** replaces the list with the include directories the platform compiler itself searches. On Windows it finds MSVC's headers with `vswhere.exe` and the Windows SDK's from the registry, so it works outside a Developer Command Prompt.\n"
+                    "\n"
+                    "To find them by hand:\n"
+                    "\n"
+                    "- Windows, from a Developer Command Prompt: `echo %INCLUDE%`\n"
+                    "- Linux: `echo | gcc -E -Wp,-v -`\n"
+                    "- macOS: `echo | clang -v -E -`");
         includes_set_detect_visible(!g_includes_editing.is_project);
         project_includes_dialog_refresh(0);
         ui_screen_show_modal(g_screen, g_project.includes_modal);
@@ -12101,6 +13910,14 @@ static void on_ui_event(void* ctx, int id, void* param)
          * EVT_PROJECT_ADD_FILE just above. */
         includes_edit_project();
         ui_set_label(g_project.includes_window, " Include Directories ");
+        ui_set_help(g_project.includes_window,
+                    "Include Directories: the open project's own `#include` search path", "# Include Directories\n\nthe open project's own `#include` search path\n"
+                    "\n"
+                    "Saved in the project's `.cakeproj`, stored relative to the project folder so the project can be moved or shared. **Build** (F7) always uses this list, and so does **Compile** when the active file belongs to the project.\n"
+                    "\n"
+                    "Directories are searched in list order - **Up** / **Down** change it.\n"
+                    "\n"
+                    "Files that are not part of the project use the global list instead (**File > System Directories...**); the two are never merged.");
         includes_set_detect_visible(!g_includes_editing.is_project);
         project_includes_dialog_refresh(0);
         ui_screen_show_modal(g_screen, g_project.includes_modal);
@@ -12422,7 +14239,11 @@ static void on_ui_event(void* ctx, int id, void* param)
         }
         else if (g_open.dialog_mode == OPEN_DLG_GITCLONE_FOLDER)
         {
-            ui_set_value(g_gitclone.folder_input, g_open.dir);
+            /* The chosen folder is the parent - the repository name is
+             * appended, same as the URL-driven suggestion. */
+            char name[256];
+            git_url_repo_name(g_gitclone.last_url, name, sizeof name);
+            git_clone_set_folder(g_open.dir, name);
             ui_screen_close_modal(g_screen, g_open.modal);
             g_open.dialog_mode = OPEN_DLG_FILE;
             ui_screen_show_modal(g_screen, g_gitclone.modal);
@@ -12753,7 +14574,7 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id >= EVT_EXTTOOL_MACRO_BASE && id < EVT_EXTTOOL_MACRO_BASE + EXT_MACRO_COUNT)
     {
         exttool_insert_macro(g_exttool.macro_target,
-                             ext_macros[id - EVT_EXTTOOL_MACRO_BASE]);
+                             ext_macros[id - EVT_EXTTOOL_MACRO_BASE].name);
         /* The field is the natural place to be afterwards - the caret is
          * already sitting past what was just inserted. */
         ui_screen_focus(g_screen, g_exttool.macro_target);
@@ -12840,20 +14661,24 @@ static void on_ui_event(void* ctx, int id, void* param)
         if (g_pending_git_discard_path[0])
         {
             const char* root = g_git.root[0] ? g_git.root : g_folder.dir;
+            char cmd[1200];
+            struct exttool_buf out = { 0 };
             if (g_pending_git_untracked)
             {
+                /* a staged new file ("A") is not in HEAD either - drop it from the index, then delete it */
+                snprintf(cmd, sizeof cmd, "git reset -q -- \"%s\"", g_pending_git_discard_path);
+                run_process_capture(cmd, root, &out);
                 char full[1400];
-                snprintf(full, sizeof full, "%s/%s", root, g_pending_git_discard_path);
+                path_join(full, sizeof full, root, g_pending_git_discard_path);
                 remove(full);
             }
             else
             {
-                char cmd[1200];
-                struct exttool_buf out = { 0 };
-                snprintf(cmd, sizeof cmd, "git checkout -- \"%s\"", g_pending_git_discard_path);
+                /* HEAD, not the index: also drops whatever was staged */
+                snprintf(cmd, sizeof cmd, "git checkout HEAD -- \"%s\"", g_pending_git_discard_path);
                 run_process_capture(cmd, root, &out);
-                exttool_buf_free(&out);
             }
+            exttool_buf_free(&out);
             g_pending_git_discard_path[0] = 0;
             git_panel_refresh();
         }
@@ -12865,6 +14690,42 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_GIT_PUSH_BTN)
     {
         git_do_push();
+    }
+    else if (id == EVT_GIT_COMMITFILE_BTN)
+    {
+        git_commitfile_start();
+    }
+    else if (id == EVT_GIT_COMMITSTAGED_BTN)
+    {
+        git_commitstaged_start();
+    }
+    else if (id == EVT_GIT_COMMITSTAGEDPUSH_BTN)
+    {
+        git_commitstagedpush_start();
+    }
+    else if (id == EVT_GIT_STAGE_BTN)
+    {
+        git_do_stage();
+    }
+    else if (id == EVT_GIT_UNSTAGE_BTN)
+    {
+        git_do_unstage();
+    }
+    else if (id == EVT_GIT_BRANCH_BTN)
+    {
+        git_branch_start();
+    }
+    else if (id == EVT_GITBRANCH_CHECKOUT)
+    {
+        git_branch_checkout();
+    }
+    else if (id == EVT_GITBRANCH_NEW)
+    {
+        git_branch_new();
+    }
+    else if (id == EVT_GITBRANCH_CANCEL)
+    {
+        ui_screen_close_modal(g_screen, g_gitbranch.modal);
     }
     else if (id == EVT_GIT_COMMITPUSH_BTN)
     {
@@ -12895,8 +14756,10 @@ static void on_ui_event(void* ctx, int id, void* param)
         g_open.dialog_mode = OPEN_DLG_GITCLONE_FOLDER;
         ui_set_label(g_open.window, " Select Folder ");
         ui_set_label(g_open.ok, " Select ");
-        const char* cur = ui_get_value(g_gitclone.folder_input);
-        if (cur && cur[0])
+        /* Browse from the parent: the full destination doesn't exist yet. */
+        char cur[1024];
+        git_clone_folder_parent(cur, sizeof cur);
+        if (cur[0])
             strncpy(g_open.dir, cur, sizeof g_open.dir - 1);
         else if (!ui_get_cwd(g_open.dir, sizeof g_open.dir))
             strcpy(g_open.dir, ".");
@@ -13666,6 +15529,10 @@ void app_init(ui_env* env)
     ui_set_id(popup_readonly, EVT_EDITOR_TOGGLE_READONLY);
     ui_append_child(popup, popup_readonly);
     g_editor_popup_readonly = popup_readonly;
+    ui_node* popup_linenumbers = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(popup_linenumbers, EVT_VIEW_LINENUMBERS);
+    ui_append_child(popup, popup_linenumbers);
+    g_view_linenumbers_item = popup_linenumbers;
 
     ui_node* popup_sep2 = ui_create_element(UI_TAG_ITEM);
     ui_set_separator(popup_sep2, 1);
@@ -13796,7 +15663,7 @@ void app_init(ui_env* env)
     ui_append_child(root, gitcommit_modal);
     ui_node* gitcommit_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(gitcommit_window, 18, 7, 48, 8);
-    ui_set_label(gitcommit_window, " Commit ");
+    ui_set_label(gitcommit_window, " Commit All ");
     ui_set_color(gitcommit_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(gitcommit_modal, gitcommit_window);
     add_text(gitcommit_window, 21, 9, "Message", theme->label_fg, theme->modal_bg);
@@ -13815,6 +15682,40 @@ void app_init(ui_env* env)
     g_gitcommit.window = gitcommit_window;
     g_gitcommit.modal = gitcommit_modal;
 
+    /* --- Git branch modal --- opened by the Git Changes popup's "Branch..." item, see git_branch_start(). */
+    ui_node* gitbranch_modal = ui_create_element(UI_TAG_MODAL);
+    ui_append_child(root, gitbranch_modal);
+    ui_node* gitbranch_window = ui_create_element(UI_TAG_WINDOW);
+    ui_set_rect(gitbranch_window, 18, 4, 48, 17);
+    ui_set_label(gitbranch_window, " Branch ");
+    ui_set_color(gitbranch_window, theme->modal_fg, theme->modal_bg);
+    ui_append_child(gitbranch_modal, gitbranch_window);
+    add_text(gitbranch_window, 21, 6, "Local branches", theme->label_fg, theme->modal_bg);
+    g_gitbranch.listbox = ui_create_element(UI_TAG_LISTBOX);
+    ui_set_rect(g_gitbranch.listbox, 21, 7, 42, 6);
+    ui_set_id(g_gitbranch.listbox, EVT_GITBRANCH_CHECKOUT);
+    ui_append_child(gitbranch_window, g_gitbranch.listbox);
+    add_text(gitbranch_window, 21, 14, "New branch", theme->label_fg, theme->modal_bg);
+    g_gitbranch.input = add_input(gitbranch_window, 21, 15, 42, "");
+    ui_set_id(g_gitbranch.input, EVT_GITBRANCH_NEW);
+    ui_node* gitbranch_checkout = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(gitbranch_checkout, EVT_GITBRANCH_CHECKOUT);
+    ui_set_rect(gitbranch_checkout, 21, 18, 12, 1);
+    ui_set_label(gitbranch_checkout, "Checkout");
+    ui_append_child(gitbranch_window, gitbranch_checkout);
+    ui_node* gitbranch_new = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(gitbranch_new, EVT_GITBRANCH_NEW);
+    ui_set_rect(gitbranch_new, 36, 18, 12, 1);
+    ui_set_label(gitbranch_new, "  New   ");
+    ui_append_child(gitbranch_window, gitbranch_new);
+    ui_node* gitbranch_cancel = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(gitbranch_cancel, EVT_GITBRANCH_CANCEL);
+    ui_set_rect(gitbranch_cancel, 51, 18, 10, 1);
+    ui_set_label(gitbranch_cancel, "Cancel");
+    ui_append_child(gitbranch_window, gitbranch_cancel);
+    g_gitbranch.window = gitbranch_window;
+    g_gitbranch.modal = gitbranch_modal;
+
     /* --- Git clone URL+Folder modal --- opened by the Git Changes popup's
      * "Clone..." item (EVT_GIT_CLONE_BTN) - see git_clone_start()/
      * EVT_GITCLONE_OK. Same "Folder field + '...' Browse button" shape as
@@ -13825,6 +15726,11 @@ void app_init(ui_env* env)
     ui_node* gitclone_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(gitclone_window, 15, 6, 58, 13);
     ui_set_label(gitclone_window, " Clone Repository ");
+    ui_set_help(gitclone_window,
+                "Copy a remote Git repository to a local folder", "# Copy a remote Git repository to a local folder\n"
+                "\n"
+                "Runs `git clone <Repository location> <Path>` - Git must be installed "
+                "and on the PATH.");
     ui_set_color(gitclone_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(gitclone_modal, gitclone_window);
 
@@ -13835,10 +15741,23 @@ void app_init(ui_env* env)
     add_text(gitclone_window, 18, 8, "Repository location", theme->label_fg, theme->modal_bg);
     g_gitclone.input = add_input(gitclone_window, 18, 9, 52, "");
     ui_set_id(g_gitclone.input, EVT_GITCLONE_OK);
+    ui_set_help(g_gitclone.input,
+                "The repository's URL, e.g. `https://github.com/user/repo.git`", "# The repository's URL, e.g. `https://github.com/user/repo.git`\n"
+                "\n"
+                "Anything `git clone` accepts: an HTTPS or SSH URL "
+                "(`git@github.com:user/repo.git`) or a local path. **Path** follows it "
+                "as you type, ending in the repository's name.");
 
     add_text(gitclone_window, 18, 11, "Path", theme->label_fg, theme->modal_bg);
     g_gitclone.folder_input = add_input(gitclone_window, 18, 12, 46, "");
     ui_set_id(g_gitclone.folder_input, EVT_GITCLONE_OK);
+    ui_set_help(g_gitclone.folder_input,
+                "The new folder the repository is cloned into", "# The new folder the repository is cloned into\n"
+                "\n"
+                "Filled in as parent folder + the repository's name - the same name "
+                "plain `git clone` would pick. Change the parent with **...** or by hand; "
+                "the name keeps following the URL. Git creates the folder and any "
+                "missing parents; a folder that already exists is refused.");
     ui_node* gitclone_browse = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(gitclone_browse, EVT_GITCLONE_BROWSE);
     ui_set_rect(gitclone_browse, 65, 12, 5, 1);
@@ -13849,7 +15768,10 @@ void app_init(ui_env* env)
      * call in git_clone_confirm(), leaving whatever folder is already open
      * (if any) alone. */
     g_gitclone.open_folder_check = add_group(gitclone_window, 18, 14, 20, 1, 1);
-    add_group_item(g_gitclone.open_folder_check, "Open Folder");
+    ui_set_help(add_group_item(g_gitclone.open_folder_check, "Open Folder"),
+                "Open Folder: show the cloned folder in the Folder panel when done", "## Open Folder\n\nshow the cloned folder in the Folder panel when done\n"
+                "\n"
+                "Unchecked, the Folder panel keeps showing whatever it shows now.");
     ui_group_set_checked(g_gitclone.open_folder_check, 0, 1);
 
     /* 10-wide OK/Cancel pair, centered same as the New Project modal's own
@@ -13915,6 +15837,24 @@ void app_init(ui_env* env)
     ui_node* newproj_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(newproj_window, 12, 6, 54, 12);
     ui_set_label(newproj_window, " New Project ");
+    ui_set_help(newproj_window,
+                "Create a new Cake project (`.cakeproj`)", "# Create a new Cake project (`.cakeproj`)\n"
+                "\n"
+                "A project is a `.cakeproj` file: a list of source files, plus the include directories and compiler options used to build them. File paths inside the project folder are stored relative to it, so the project can be moved or shared.\n"
+                "\n"
+                "## Build and Compile\n"
+                "\n"
+                "- **Build** (F7) compiles every `.c` file of the project in one Cake invocation - linking them is the output compiler's job. When the active file is not part of the open project (or no project is open), Build compiles just that file.\n"
+                "- **Compile** (Ctrl+F7) always compiles only the active file.\n"
+                "\n"
+                "## Project settings vs. global settings\n"
+                "\n"
+                "- **Project > Include Directories...** and **Project > Options...** edit the project's own settings, saved in its `.cakeproj`. Include directories are stored relative to the project folder.\n"
+                "- **File > Directories...** and **File > Options...** edit the global settings in `cake.json`, next to the IDE executable. They are used for every file that is not part of the open project - the Playground, a file opened on its own.\n"
+                "\n"
+                "The two are never merged: a file gets either the project's settings or the global ones.\n"
+                "\n"
+                "With the `default` target, the same `.cakeproj` works unchanged on Windows, Linux and macOS.");
     ui_set_color(newproj_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(newproj_modal, newproj_window);
     g_newproject.modal = newproj_modal;
@@ -13937,13 +15877,29 @@ void app_init(ui_env* env)
      * (57 + 5 == 62). */
     g_newproject.name_input = add_input(newproj_window, 29, 10, 33, "");
     ui_set_id(g_newproject.name_input, EVT_PROJECT_NEW_NAME);
+    /* Help only where it isn't obvious (see ui_set_help) - Folder and the
+     * buttons speak for themselves. */
+    ui_set_help(g_newproject.name_input,
+                "Name of the project file: `<name>.cakeproj`", "# Name of the project file\n\n`<name>.cakeproj`\n"
+                "\n"
+                "It is created in **Folder** - or in a new `<name>` subfolder of "
+                "it when **Create Folder** is checked. Creation stops if a project "
+                "with that name already exists there.");
 
     /* Two independent checkboxes (not mutually exclusive, hence multi=1) -
      * index 0 is "Create Folder", index 1 is "Hello World" (see
      * EVT_PROJECT_NEW_OK's own use of ui_group_get_checked). */
     g_newproject.helloworld_check = add_group(newproj_window, 29, 12, 20, 2, 1);
-    add_group_item(g_newproject.helloworld_check, "Create Folder");
-    add_group_item(g_newproject.helloworld_check, "Hello World");
+    ui_set_help(add_group_item(g_newproject.helloworld_check, "Create Folder"),
+                "Create Folder: put the project in a new `<Project Name>` subfolder of Folder", "## Create Folder\n\nput the project in a new `<Project Name>` subfolder of Folder\n"
+                "\n"
+                "Unchecked, the project file goes straight into **Folder**. "
+                "If the subfolder already exists, nothing is created.");
+    ui_set_help(add_group_item(g_newproject.helloworld_check, "Hello World"),
+                "Hello World: start the project with a `main.c` that prints \"Hello, world!\"", "## Hello World\n\nstart the project with a `main.c` that prints \"Hello, world!\"\n"
+                "\n"
+                "`main.c` is added to the project. An existing `main.c` in the "
+                "project folder is never overwritten - it is added as it is.");
 
     /* 10-wide, same as every other dialog's OK/Cancel pair (Compiler
      * Options, Environment, Word Wrap, ...) - centered in the 54-wide
@@ -13975,6 +15931,36 @@ void app_init(ui_env* env)
     ui_node* ext_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(ext_window, ex, ey, ew, eh);
     ui_set_label(ext_window, " External Tools ");
+    ui_set_help(ext_window,
+                "Run a compiler or any other program from the Tools menu", "# Run a compiler or any other program from the Tools menu\n"
+                "\n"
+                "Cake only translates C to C89-compatible C - it does not link. Linking is left to a real compiler, run from here. Each tool added here appears in the **Tools** menu.\n"
+                "\n"
+                "A tool can also be run from the command line at the bottom of the **Output** window: type its **Title** and press Enter. Case, spaces and punctuation are ignored, so a tool titled `Run Tests` runs with `run tests` or `runtests`. Type `help` there for the other commands.\n"
+                "\n"
+                "A typical setup is one tool per compiler:\n"
+                "\n"
+                "**GCC / Clang** (Linux, macOS)\n"
+                "\n"
+                "| Field | Value |\n"
+                "|---|---|\n"
+                "| Title | `GCC` |\n"
+                "| Command | `gcc` |\n"
+                "| Arguments | `-g -Wno-incompatible-library-redeclaration -Wno-builtin-requires-header $(CakeOutput) -o \"$(TargetPath)\"` |\n"
+                "| Directory | `$(ProjectDir)` |\n"
+                "\n"
+                "**MSVC** (Windows, from a Developer Command Prompt)\n"
+                "\n"
+                "| Field | Value |\n"
+                "|---|---|\n"
+                "| Title | `MSVC` |\n"
+                "| Command | `cl` |\n"
+                "| Arguments | `/Zi /nologo $(CakeOutput) /Fe\"$(TargetPath)\"` |\n"
+                "| Directory | `$(ProjectDir)` |\n"
+                "\n"
+                "Running the tool after **Build** (F7) links Cake's output into `$(TargetPath)`, which is exactly the file **Debug** (F5) launches - so build, external compile and debug all agree on one binary.\n"
+                "\n"
+                "Cake's output declares the library functions it uses instead of keeping the original `#include`s. Clang flags those declarations with `-Wbuiltin-requires-header` and `-Wincompatible-library-redeclaration`; both are expected for Cake output, which is why the GCC/Clang example silences them.");
     ui_set_color(ext_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(ext_modal, ext_window);
 
@@ -14063,9 +16049,43 @@ void app_init(ui_env* env)
         ui_append_child(ext_window, b);
     }
     g_exttool.title_input = ext_inputs[0];
+    ui_set_help(g_exttool.title_input,
+                "Name shown in the Tools menu", "# Name shown in the Tools menu\n"
+                "\n"
+                "It is also the tool's command: type it in the Output window's command line to run the tool. Case, spaces and punctuation are ignored there.");
     g_exttool.cmd_input   = ext_inputs[1];
     g_exttool.args_input  = ext_inputs[2];
     g_exttool.dir_input   = ext_inputs[3];
+    ui_set_help(g_exttool.cmd_input,
+                "Program to run, e.g. `gcc` or `cl`", "# Program to run, e.g. `gcc` or `cl`\n"
+                "\n"
+                "The **...** button browses for a program. Macros (see Arguments) work here too.");
+    ui_set_help(g_exttool.args_input,
+                "Command-line arguments - `$(...)` macros expand when the tool runs", "# Command-line arguments - `$(...)` macros expand when the tool runs\n"
+                "\n"
+                "The **>** button inserts a macro at the caret; hover a macro there to see what it means. `$$` is a literal `$`; an unknown macro expands to nothing.\n"
+                "\n"
+                "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`.\n"
+                "\n"
+                "| Macro | Example |\n"
+                "|---|---|\n"
+                "| `$(FilePath)` | `C:/work/hello/src/main.c` |\n"
+                "| `$(FileDir)` | `C:/work/hello/src` |\n"
+                "| `$(FileName)` | `main` |\n"
+                "| `$(FileExt)` | `.c` |\n"
+                "| `$(CakeOutput)` | one output path per `.c` of the project |\n"
+                "| `$(TargetPath)` | `C:/work/hello/x64_msvc/hello.exe` |\n"
+                "| `$(TargetDir)` | `C:/work/hello/x64_msvc` |\n"
+                "| `$(TargetFileName)` | `hello.exe` |\n"
+                "| `$(TargetName)` | `hello` |\n"
+                "| `$(TargetExt)` | `.exe` |\n"
+                "| `$(ProjectDir)` | `C:/work/hello` |\n"
+                "| `$(ProjectName)` | `hello` |\n"
+                "| `$(Platform)` | `x64_msvc` |");
+    ui_set_help(g_exttool.dir_input,
+                "Directory the tool runs in - usually `$(ProjectDir)`", "# Directory the tool runs in - usually `$(ProjectDir)`\n"
+                "\n"
+                "The **>** button inserts a macro at the caret.");
     g_exttool.macro_fields[0] = ext_inputs[2];   /* EVT_EXTTOOL_MACRO_BTN + 0 */
     g_exttool.macro_fields[1] = ext_inputs[3];   /* ...+ 1 */
 
@@ -14078,7 +16098,8 @@ void app_init(ui_env* env)
     {
         ui_node* it = ui_create_element(UI_TAG_ITEM);
         ui_set_id(it, EVT_EXTTOOL_MACRO_BASE + i);
-        ui_set_label(it, ext_macros[i]);
+        ui_set_label(it, ext_macros[i].name);
+        ui_set_help(it, ext_macros[i].short_help, ext_macros[i].help);
         ui_append_child(g_exttool.macro_popup, it);
     }
 
@@ -14106,6 +16127,26 @@ void app_init(ui_env* env)
     ui_node* copts_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(copts_window, 15, 5, 62, 21);
     ui_set_label(copts_window, " Compiler Options ");
+    ui_set_help(copts_window,
+                "Compiler Options: how Cake compiles your files", "# Compiler Options\n\nhow Cake compiles your files\n"
+                "\n"
+                "There are two sets of these options, and the title says which one is being edited:\n"
+                "\n"
+                "- **Compiler Options** - the global options in `cake.json`, next to the IDE. Used for every file that is not part of the open project: the Playground, a file opened on its own.\n"
+                "- **Compiler Options (Project)** - the open project's own options, in its `.cakeproj`. Used by **Build** (F7) and by **Compile** for the project's files.\n"
+                "\n"
+                "The two are never merged.\n"
+                "\n"
+                "## Fields\n"
+                "\n"
+                "- **Target** - the platform the generated C89 code is for: type sizes, alignment, output style. `default` keeps a project portable across Windows, Linux and macOS.\n"
+                "- **Style** - the coding style diagnostic 11 checks, or none.\n"
+                "- **Diagnostic** - how diagnostic positions are printed.\n"
+                "- **Flags** - on/off switches: analysis, output, warnings, headers.\n"
+                "- **Output** - the built binary's name.\n"
+                "- **Options** - any other command-line option, typed as is.\n"
+                "\n"
+                "Focus a field and press F1 (or click the status bar) for its details - the **Options** field lists every other command-line option.");
     ui_set_color(copts_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(copts_modal, copts_window);
     g_copts.window = copts_window;
@@ -14113,42 +16154,172 @@ void app_init(ui_env* env)
     g_copts.target = add_select(copts_window, 29, 7, 25);
     char default_label[64];
     snprintf(default_label, sizeof default_label, "Default (%s)", get_platform(TARGET_DEFAULT)->name);
-    add_select_item(g_copts.target, EVT_COPTS_TARGET + 0, default_label);
-    add_select_item(g_copts.target, EVT_COPTS_TARGET + 1, "X86 MSVC");
-    add_select_item(g_copts.target, EVT_COPTS_TARGET + 2, "X64 MSVC");
-    add_select_item(g_copts.target, EVT_COPTS_TARGET + 3, "X64 GCC");
-    add_select_item(g_copts.target, EVT_COPTS_TARGET + 4, "macOS ARM64");
+    /* Help texts follow manual.md's "Command-Line Options" section. First
+     * line: the short version the status bar shows; the rest: the long one
+     * F1/a click on the bar adds (see ui_set_help). */
+    ui_set_help(g_copts.target,
+                "Compilation target platform (`-target=<name>`)", "# Compilation target platform (`-target=<name>`)\n"
+                "\n"
+                "Controls integer sizes, alignment, and the style of generated C89 output. Pick the platform whose compiler will build the generated code - it does not have to be the one Cake is running on.");
+    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 0, default_label),
+                "Default target: the platform Cake itself was built for", "## Default target\n\nthe platform Cake itself was built for\n"
+                "\n"
+                "Same as omitting `-target`. This build of Cake uses the target named in the list entry (e.g. `x64_msvc` for Cake built as a Windows x64 program).");
+    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 1, "X86 MSVC"),
+                "`-target=x86_msvc`: Windows x86 (32-bit)", "## `-target=x86_msvc`\n\nWindows x86 (32-bit)\n"
+                "\n"
+                "Data model **ILP32**. Output compiler: MSVC.\n"
+                "\n"
+                "| Type | Size (bytes) |\n"
+                "|---|---|\n"
+                "| `char` (signed) | 1 |\n"
+                "| `short` | 2 |\n"
+                "| `int` | 4 |\n"
+                "| `long` | 4 |\n"
+                "| `long long` | 8 |\n"
+                "| pointer | 4 |\n"
+                "| `long double` | 8 |\n"
+                "| `wchar_t` | 2 (`unsigned short`) |\n"
+                "| `size_t` | 4 (`unsigned int`) |\n"
+                "\n"
+                "Thread-local storage is emitted as `__declspec(thread)`.\n"
+                "\n"
+                "The generated C89 goes to a `x86_msvc` folder next to the sources; compile it with the target compiler:\n"
+                "\n"
+                "```\n"
+                "cl x86_msvc\\file1.c\n"
+                "```");
+    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 2, "X64 MSVC"),
+                "`-target=x64_msvc`: Windows x64", "## `-target=x64_msvc`\n\nWindows x64\n"
+                "\n"
+                "Data model **LLP64**. Output compiler: MSVC.\n"
+                "\n"
+                "| Type | Size (bytes) |\n"
+                "|---|---|\n"
+                "| `char` (signed) | 1 |\n"
+                "| `short` | 2 |\n"
+                "| `int` | 4 |\n"
+                "| `long` | 4 |\n"
+                "| `long long` | 8 |\n"
+                "| pointer | 8 |\n"
+                "| `long double` | 8 |\n"
+                "| `wchar_t` | 2 (`unsigned short`) |\n"
+                "| `size_t` | 8 (`unsigned long long`) |\n"
+                "\n"
+                "Thread-local storage is emitted as `__declspec(thread)`.\n"
+                "\n"
+                "The generated C89 goes to a `x64_msvc` folder next to the sources; compile it with the target compiler:\n"
+                "\n"
+                "```\n"
+                "cl x64_msvc\\file1.c\n"
+                "```");
+    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 3, "X64 GCC"),
+                "`-target=x86_x64_gcc`: Linux x86-64", "## `-target=x86_x64_gcc`\n\nLinux x86-64\n"
+                "\n"
+                "Data model **LP64**. Output compiler: GCC.\n"
+                "\n"
+                "| Type | Size (bytes) |\n"
+                "|---|---|\n"
+                "| `char` (signed) | 1 |\n"
+                "| `short` | 2 |\n"
+                "| `int` | 4 |\n"
+                "| `long` | 8 |\n"
+                "| `long long` | 8 |\n"
+                "| pointer | 8 |\n"
+                "| `long double` | 16 |\n"
+                "| `wchar_t` | 4 (`int`) |\n"
+                "| `size_t` | 8 (`unsigned long`) |\n"
+                "\n"
+                "Thread-local storage is emitted as `__thread`.\n"
+                "\n"
+                "The generated C89 goes to a `x86_x64_gcc` folder next to the sources; compile it with the target compiler:\n"
+                "\n"
+                "```\n"
+                "gcc -w x86_x64_gcc/file1.c -o file1\n"
+                "```");
+    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 4, "macOS ARM64"),
+                "`-target=macos_arm64`: macOS arm64 (Apple Silicon)", "## `-target=macos_arm64`\n\nmacOS arm64 (Apple Silicon)\n"
+                "\n"
+                "Data model **LP64**. Output compiler: Clang.\n"
+                "\n"
+                "| Type | Size (bytes) |\n"
+                "|---|---|\n"
+                "| `char` (signed) | 1 |\n"
+                "| `short` | 2 |\n"
+                "| `int` | 4 |\n"
+                "| `long` | 8 |\n"
+                "| `long long` | 8 |\n"
+                "| pointer | 8 |\n"
+                "| `long double` | 8 |\n"
+                "| `wchar_t` | 4 (`int`) |\n"
+                "| `size_t` | 8 (`unsigned long`) |\n"
+                "\n"
+                "Thread-local storage is emitted as `__thread`.\n"
+                "\n"
+                "The generated C89 goes to a `macos_arm64` folder next to the sources; compile it with the target compiler:\n"
+                "\n"
+                "```\n"
+                "clang -w macos_arm64/file1.c -o file1\n"
+                "```");
     ui_select_set_selected(g_copts.target, target_slug_to_index(g_compile.target));
 
     /* Style (-style=<name>) - see g_style_slugs' own comment for why only
      * these four are offered. */
     add_text(copts_window, 18, 9, "Style", theme->label_fg, theme->modal_bg);
     g_copts.style = add_select(copts_window, 29, 9, 25);
-    add_select_item(g_copts.style, EVT_COPTS_STYLE + 0, "disabled");
-    add_select_item(g_copts.style, EVT_COPTS_STYLE + 1, "cake");
-    add_select_item(g_copts.style, EVT_COPTS_STYLE + 2, "gnu");
-    add_select_item(g_copts.style, EVT_COPTS_STYLE + 3, "microsoft");
+    ui_set_help(g_copts.style, "Coding style checked by diagnostic 11 (`-style=<name>`)", "# Coding style checked by diagnostic 11 (`-style=<name>`)\n\n"
+                "Passing `-style` turns diagnostic 11 (style) on as a note.");
+    ui_set_help(add_select_item(g_copts.style, EVT_COPTS_STYLE + 0, "disabled"),
+                "No style check", "## No style check\n\nNo `-style` is passed, so diagnostic 11 (style) stays off.");
+    ui_set_help(add_select_item(g_copts.style, EVT_COPTS_STYLE + 1, "cake"),
+                "`-style=cake`: checks the code against Cake's own style", "## `-style=cake`\n\nchecks the code against Cake's own style");
+    ui_set_help(add_select_item(g_copts.style, EVT_COPTS_STYLE + 2, "gnu"),
+                "`-style=gnu`: checks the code against the GNU style", "## `-style=gnu`\n\nchecks the code against the GNU style");
+    ui_set_help(add_select_item(g_copts.style, EVT_COPTS_STYLE + 3, "microsoft"),
+                "`-style=microsoft`: checks the code against the Microsoft style", "## `-style=microsoft`\n\nchecks the code against the Microsoft style");
     ui_select_set_selected(g_copts.style, style_slug_to_index(g_compile.style));
 
     /* Output Format (-fdiagnostics-format=<name>) - see g_diagformat_slugs. */
     add_text(copts_window, 18, 11, "Diagnostic", theme->label_fg, theme->modal_bg);
     g_copts.diagformat = add_select(copts_window, 29, 11, 25);
-    add_select_item(g_copts.diagformat, EVT_COPTS_DIAGFORMAT + 0, "cake ide");
-    add_select_item(g_copts.diagformat, EVT_COPTS_DIAGFORMAT + 1, "gcc");
-    add_select_item(g_copts.diagformat, EVT_COPTS_DIAGFORMAT + 2, "msvc");
+    ui_set_help(g_copts.diagformat, "How diagnostic positions are printed (`-fdiagnostics-format=<format>`)", "# How diagnostic positions are printed (`-fdiagnostics-format=<format>`)\n\n"
+                "Both shapes are understood by Visual Studio and by Visual Studio Code.");
+    ui_set_help(add_select_item(g_copts.diagformat, EVT_COPTS_DIAGFORMAT + 0, "cake ide"),
+                "`-fdiagnostics-format=ide`: file.c:1:2: warning 10: message", "## `-fdiagnostics-format=ide`\n\nfile.c:1:2: warning 10: message");
+    ui_set_help(add_select_item(g_copts.diagformat, EVT_COPTS_DIAGFORMAT + 1, "gcc"),
+                "`-fdiagnostics-format=gcc`: file.c:1:2: warning 10: message", "## `-fdiagnostics-format=gcc`\n\nfile.c:1:2: warning 10: message");
+    ui_set_help(add_select_item(g_copts.diagformat, EVT_COPTS_DIAGFORMAT + 2, "msvc"),
+                "`-fdiagnostics-format=msvc`: file.c(1,2): warning 10: message", "## `-fdiagnostics-format=msvc`\n\nfile.c(1,2): warning 10: message");
     ui_select_set_selected(g_copts.diagformat, diagformat_slug_to_index(g_compile.diagnostic_format));
 
     /* Flags - a check-box GROUP, same control as Find's "Options"
      * (g_find.opts) above (add_group/add_group_item). */
     add_text(copts_window, 18, 13, "Flags", theme->label_fg, theme->modal_bg);
     g_copts.flags = add_group(copts_window, 29, 13, 45, 5, 1);
-    add_group_item(g_copts.flags, "-no-output");
-    add_group_item(g_copts.flags, "-line-directives");
-    add_group_item(g_copts.flags, "-fanalyzer");
-    add_group_item(g_copts.flags, "-const-literal");
-    add_group_item(g_copts.flags, "-Wall");
-    add_group_item(g_copts.flags, "-unused-extern-report");
-    add_group_item(g_copts.flags, "-cake-headers");
+    ui_set_help(add_group_item(g_copts.flags, "-no-output"),
+                "`-no-output`: run all analysis passes but write no output file", "## `-no-output`\n\nrun all analysis passes but write no output file");
+    ui_set_help(add_group_item(g_copts.flags, "-line-directives"),
+                "`-line-directives`: emit `#line` directives in the generated C89 output", "## `-line-directives`\n\nemit `#line` directives in the generated C89 output\n\n"
+                "Preserves source location information.");
+    ui_set_help(add_group_item(g_copts.flags, "-fanalyzer"),
+                "`-fanalyzer`: run Cake's built-in flow analysis", "## `-fanalyzer`\n\nrun Cake's built-in flow analysis\n\n"
+                "Includes ownership, nullability, and lifetime checks.");
+    ui_set_help(add_group_item(g_copts.flags, "-const-literal"),
+                "`-const-literal`: treat string literals as `const char[]` rather than `char[]`", "## `-const-literal`\n\ntreat string literals as `const char[]` rather than `char[]`");
+    ui_set_help(add_group_item(g_copts.flags, "-Wall"),
+                "`-Wall`: enable all warnings", "## `-Wall`\n\nenable all warnings");
+    ui_set_help(add_group_item(g_copts.flags, "-unused-extern-report"),
+                "`-unused-extern-report`: report external functions never called", "## `-unused-extern-report`\n\nreport external functions never called\n\n"
+                "Tracks every non-static (external linkage) "
+                "function across all the files given in this invocation, and after "
+                "the last one is compiled, report the ones that were never called "
+                "in any of them.");
+    ui_set_help(add_group_item(g_copts.flags, "-cake-headers"),
+                "`-cake-headers`: use only Cake's own headers, never the system ones", "## `-cake-headers`\n\nuse only Cake's own headers, never the system ones\n\n"
+                "Cake's headers declare everything themselves instead "
+                "of deferring to `#include_next`, so the real system headers are never "
+                "consulted. Used to compile Cake itself and run its tests portably; "
+                "not meant for ordinary programs.");
     ui_group_set_checked(g_copts.flags, 0, g_compile.no_output);
     ui_group_set_checked(g_copts.flags, 1, g_compile.line_directives);
     ui_group_set_checked(g_copts.flags, 2, g_compile.fanalyzer);
@@ -14162,11 +16333,93 @@ void app_init(ui_env* env)
     add_text(copts_window, 18, 19, "Output", theme->label_fg, theme->modal_bg);
     g_copts.output = add_input(copts_window, 29, 19, 45, "");
     ui_set_id(g_copts.output, EVT_COPTS_OK);
+    ui_set_help(g_copts.output, "Name of the built executable (empty: derived from the source/project)", "# Name of the built executable\n\nEmpty: derived from the source/project.\n\n"
+                "What `$(TargetFileName)` expands to and what Debug launches.");
 
     /* Free-text options last - anything the rows above don't cover. */
     add_text(copts_window, 18, 21, "Options", theme->label_fg, theme->modal_bg);
     g_copts.input = add_input(copts_window, 29, 21, 45, "");
     ui_set_id(g_copts.input, EVT_COPTS_OK);
+    ui_set_help(g_copts.input,
+                "Other command-line options, passed to cake as typed", "# Other command-line options, passed to cake as typed\n"
+                "\n"
+                "Everything the fields above don't cover.\n"
+                "\n"
+                "## Diagnostics\n"
+                "\n"
+                "| Option | Effect |\n"
+                "|---|---|\n"
+                "| `-w<number>` | enable warning number `<number>`, e.g. `-w2` |\n"
+                "| `-wd<number>` | disable warning number `<number>`, e.g. `-wd2` |\n"
+                "| `-Werror` | report every enabled warning as an error |\n"
+                "\n"
+                "Most warnings are on unless `-wd<number>` turns them off, but a few are off until asked for:\n"
+                "\n"
+                "| Number | Warning |\n"
+                "|---|---|\n"
+                "| `2` | unused variable |\n"
+                "| `6` | unused function parameter |\n"
+                "| `11` | style |\n"
+                "| `33` | nullable pointer flow check |\n"
+                "| `35` | nullable pointer flow check |\n"
+                "| `83` | parameter set but not used |\n"
+                "| `84` | variable set but not used |\n"
+                "\n"
+                "With `-Werror`, notes are not affected and disabled warnings stay disabled. Because they become errors, warnings coming from included headers are no longer suppressed, and any occurrence makes the compilation fail.\n"
+                "\n"
+                "Suppress a diagnostic on one line with a trailing `lint` comment listing its number(s): `//lint 35`, `// lint 35`, or `/* lint 81 */`. An unnecessary suppression is flagged with warning 59.\n"
+                "\n"
+                "## Analysis\n"
+                "\n"
+                "| Option | Effect |\n"
+                "|---|---|\n"
+                "| `-ownership=enable` / `-ownership=disable` | turn the ownership checks on or off |\n"
+                "| `-nullable=enabled` / `-nullable=disable` | turn the nullable pointer checks on or off (`-nullchecks` = `enabled`) |\n"
+                "| `-no-discard` | make `[[nodiscard]]` the default for every function |\n"
+                "\n"
+                "## Preprocessor\n"
+                "\n"
+                "| Option | Effect |\n"
+                "|---|---|\n"
+                "| `-I <dir>` | add `<dir>` to the include search path |\n"
+                "| `-D <macro>` | define a preprocessing symbol |\n"
+                "| `-E` | print the preprocessor output instead of compiling |\n"
+                "| `-H` | list every include file used |\n"
+                "| `-dump-tokens` | print the tokens before preprocessing |\n"
+                "| `-dump-pp-tokens` | print the tokens after preprocessing |\n"
+                "| `-preprocess-def-macro` | preprocess `#define` macros after expansion |\n"
+                "| `-keep-inactive-tokens` | keep the tokens of inactive blocks (`#if 0`) instead of discarding them |\n"
+                "\n"
+                "## Output\n"
+                "\n"
+                "| Option | Effect |\n"
+                "|---|---|\n"
+                "| `-o <name.c>` | output file name, when compiling a single file |\n"
+                "| `-dont-generate-time-stamp` | leave the timestamp comment out of the generated file |\n"
+                "| `-msvc-output` | diagnostics for the Visual Studio error parser (`-fdiagnostics-format=msvc` plus no colors) |\n"
+                "| `-fdiagnostics-color=never` | no ANSI colors in diagnostics |\n"
+                "| `-sarif` | also write SARIF diagnostic files |\n"
+                "| `-sarif-path <dir>` | directory for the SARIF files |\n"
+                "\n"
+                "## Formatting\n"
+                "\n"
+                "| Option | Effect |\n"
+                "|---|---|\n"
+                "| `-format` | reformat the file to match the Style and print it instead of compiling |\n"
+                "| `-format-lines=<first>:<last>` | restrict `-format` to a line range |\n"
+                "\n"
+                "## Language\n"
+                "\n"
+                "| Option | Effect |\n"
+                "|---|---|\n"
+                "| `-std=c23` | input is C23 (also `-std=c2x`) |\n"
+                "| `-std=cxx` | input is C with Cake's extensions |\n"
+                "\n"
+                "## Setup\n"
+                "\n"
+                "| Option | Effect |\n"
+                "|---|---|\n"
+                "| `-auto-config` | generate `cake.json` with the include directories of the current system |");
 
     ui_node* copts_ok = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(copts_ok, EVT_COPTS_OK);
@@ -14182,8 +16435,31 @@ void app_init(ui_env* env)
     ui_set_id(copts_help, EVT_COPTS_HELP);
     ui_set_rect(copts_help, 55, 23, 10, 1);
     ui_set_label(copts_help, " Help ");
+    ui_set_no_focus(copts_help, 1);
     ui_append_child(copts_window, copts_help);
     g_copts.modal = copts_modal;
+
+    /* --- Full-help window (F1 on a status bar hint - see show_hint_window) --- */
+    ui_node* hint_modal = ui_create_element(UI_TAG_MODAL);
+    ui_append_child(root, hint_modal);
+    int hx = 20, hy = 4, hw = 80, hh = 20;
+    ui_node* hint_window = ui_create_element(UI_TAG_WINDOW);
+    ui_set_rect(hint_window, hx, hy, hw, hh);
+    ui_set_label(hint_window, " Help ");
+    ui_set_color(hint_window, theme->modal_fg, theme->modal_bg);
+    ui_append_child(hint_modal, hint_window);
+    ui_node* hint_editor = ui_create_element(UI_TAG_EDITOR);
+    ui_set_rect(hint_editor, hx + 2, hy + 1, hw - 4, hh - 5);
+    ui_set_syntax(hint_editor, UI_SYNTAX_MARKDOWN);
+    ui_set_read_only(hint_editor, 1);
+    ui_append_child(hint_window, hint_editor);
+    ui_node* hint_close = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(hint_close, EVT_HINTWIN_CLOSE);
+    ui_set_rect(hint_close, hx + (hw - 10) / 2, hy + hh - 3, 10, 1);
+    ui_set_label(hint_close, " Close ");
+    ui_append_child(hint_window, hint_close);
+    g_hintwin.modal = hint_modal;
+    g_hintwin.editor = hint_editor;
 
     /* --- Open File modal --- */
     ui_node* open_modal = ui_create_element(UI_TAG_MODAL);
@@ -14204,7 +16480,7 @@ void app_init(ui_env* env)
     add_text(open_window, ox + 3, oy + 2, "Name", theme->label_fg, theme->modal_bg);
     g_open.name_input = add_input(open_window, ox + 3, oy + 3, 41, "");
     ui_set_id(g_open.name_input, EVT_OPEN_NAME);
-    add_text(open_window, ox + 3, oy + 5, "Files", theme->label_fg, theme->modal_bg);
+    g_open.list_label = add_text(open_window, ox + 3, oy + 5, "Files", theme->label_fg, theme->modal_bg);
     g_open.listbox = ui_create_element(UI_TAG_LISTBOX);
     ui_set_rect(g_open.listbox, ox + 3, oy + 6, 41, 10);
     ui_set_id(g_open.listbox, EVT_OPEN_LISTBOX);
@@ -14243,13 +16519,18 @@ void app_init(ui_env* env)
 
     ui_node* output = ui_create_element(UI_TAG_EDITOR);
     ui_set_id(output, EVT_OUTPUT_DBLCLICK);
-    ui_set_rect(output, ow_x + 1, ow_y + 1, ow_w - 2, ow_h - 2);
+    ui_set_rect(output, ow_x + 1, ow_y + 1, ow_w - 2, ow_h - 3);
     ui_set_syntax(output, UI_SYNTAX_VT100);
     ui_set_small_font(output, 1);
     ui_set_value(output, "");
     ui_append_child(output_window, output);
     g_output_window = output_wrapper;
     g_output_editor = output;
+
+    /* Position and colors are set per frame by cmdline_layout(). */
+    g_cmdline.prompt = add_text(output_window, ow_x + 1, ow_y + ow_h - 2, ">", theme->editor_output_fg, theme->editor_output_bg);
+    g_cmdline.input = add_input(output_window, ow_x + 3, ow_y + ow_h - 2, ow_w - 4, "");
+    ui_set_id(g_cmdline.input, EVT_OUTPUT_CMDLINE);
 
     /* --- Folder window --- */
     ui_node* folder_wrapper = ui_create_element(UI_TAG_MODAL);
@@ -14308,8 +16589,32 @@ void app_init(ui_env* env)
     ui_append_child(root, git_popup);
     ui_node* git_popup_commit = ui_create_element(UI_TAG_ITEM);
     ui_set_id(git_popup_commit, EVT_GIT_COMMIT_BTN);
-    ui_set_label(git_popup_commit, "Commit");
+    ui_set_label(git_popup_commit, "Commit All");
     ui_append_child(git_popup, git_popup_commit);
+    ui_node* git_popup_commitfile = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(git_popup_commitfile, EVT_GIT_COMMITFILE_BTN);
+    ui_set_label(git_popup_commitfile, "Commit File");
+    ui_append_child(git_popup, git_popup_commitfile);
+    ui_node* git_popup_commitstaged = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(git_popup_commitstaged, EVT_GIT_COMMITSTAGED_BTN);
+    ui_set_label(git_popup_commitstaged, "Commit Staged");
+    ui_node* git_popup_commitstagedpush = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(git_popup_commitstagedpush, EVT_GIT_COMMITSTAGEDPUSH_BTN);
+    ui_set_label(git_popup_commitstagedpush, "Commit Staged && Push");
+    ui_node* git_popup_stage = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(git_popup_stage, EVT_GIT_STAGE_BTN);
+    ui_set_label(git_popup_stage, "Stage");
+    ui_append_child(git_popup, git_popup_stage);
+    ui_node* git_popup_unstage = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(git_popup_unstage, EVT_GIT_UNSTAGE_BTN);
+    ui_set_label(git_popup_unstage, "Unstage");
+    /* Not appended here - git_popup_refresh() inserts them while something is staged. */
+    g_git.staged_items[0] = git_popup_commitstaged;
+    g_git.staged_anchors[0] = git_popup_commitfile;
+    g_git.staged_items[1] = git_popup_commitstagedpush;
+    g_git.staged_anchors[1] = git_popup_commitstaged;
+    g_git.staged_items[2] = git_popup_unstage;
+    g_git.staged_anchors[2] = git_popup_stage;
     ui_node* git_popup_commitpush = ui_create_element(UI_TAG_ITEM);
     ui_set_id(git_popup_commitpush, EVT_GIT_COMMITPUSH_BTN);
     ui_set_label(git_popup_commitpush, "Commit All && Push");
@@ -14333,6 +16638,10 @@ void app_init(ui_env* env)
     ui_set_id(git_popup_sync, EVT_GIT_SYNC_BTN);
     ui_set_label(git_popup_sync, "Sync");
     ui_append_child(git_popup, git_popup_sync);
+    ui_node* git_popup_branch = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(git_popup_branch, EVT_GIT_BRANCH_BTN);
+    ui_set_label(git_popup_branch, "Branch...");
+    ui_append_child(git_popup, git_popup_branch);
     ui_node* git_popup_sep2 = ui_create_element(UI_TAG_ITEM);
     ui_set_separator(git_popup_sep2, 1);
     ui_append_child(git_popup, git_popup_sep2);
@@ -14361,13 +16670,13 @@ void app_init(ui_env* env)
      * file - see git_diff_goto_change(). */
     ui_node* gitdiff_prev = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(gitdiff_prev, EVT_GITDIFF_PREV);
-    ui_set_rect(gitdiff_prev, gd_x + 1, gd_y + 1, 16, 1);
-    ui_set_label(gitdiff_prev, "< Prev Change");
+    ui_set_rect(gitdiff_prev, gd_x + 1, gd_y + 1, 14, 1);
+    ui_set_label(gitdiff_prev, " \xE2\x86\x91 Previous ");  /* U+2191 up arrow */
     ui_append_child(gitdiff_window, gitdiff_prev);
     ui_node* gitdiff_next = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(gitdiff_next, EVT_GITDIFF_NEXT);
-    ui_set_rect(gitdiff_next, gd_x + 18, gd_y + 1, 16, 1);
-    ui_set_label(gitdiff_next, "Next Change >");
+    ui_set_rect(gitdiff_next, gd_x + 16, gd_y + 1, 10, 1);
+    ui_set_label(gitdiff_next, " Next \xE2\x86\x93 ");  /* U+2193 down arrow */
     ui_append_child(gitdiff_window, gitdiff_next);
 
     /* Row gd_y + 2 is left blank - a gap between the Prev/Next buttons and
@@ -14376,11 +16685,27 @@ void app_init(ui_env* env)
     ui_node* gitdiff_editor = ui_create_element(UI_TAG_EDITOR);
     ui_set_rect(gitdiff_editor, gd_x + 1, gd_y + 3, gd_w - 2, gd_h - 4);
     ui_set_syntax(gitdiff_editor, UI_SYNTAX_DIFF);
-    ui_set_small_font(gitdiff_editor, 1);
     ui_set_value(gitdiff_editor, "");
     ui_append_child(gitdiff_window, gitdiff_editor);
     g_gitdiff_window = gitdiff_wrapper;
     g_gitdiff_editor = gitdiff_editor;
+
+    /* --- Git Diff viewer context menu popup - same items as the editor popup's --- */
+    ui_node* gitdiff_popup = ui_create_element(UI_TAG_MENU);
+    ui_append_child(root, gitdiff_popup);
+    ui_node* gitdiff_popup_edit = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(gitdiff_popup_edit, EVT_GITDIFF_EDIT);
+    ui_set_label(gitdiff_popup_edit, "Edit");
+    ui_append_child(gitdiff_popup, gitdiff_popup_edit);
+    ui_node* gitdiff_popup_copy_path = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(gitdiff_popup_copy_path, EVT_GITDIFF_COPY_PATH);
+    ui_set_label(gitdiff_popup_copy_path, "Copy Full Path");
+    ui_append_child(gitdiff_popup, gitdiff_popup_copy_path);
+    ui_node* gitdiff_popup_show_folder = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(gitdiff_popup_show_folder, EVT_GITDIFF_SHOW_FOLDER);
+    ui_set_label(gitdiff_popup_show_folder, "Show My Folder");
+    ui_append_child(gitdiff_popup, gitdiff_popup_show_folder);
+    g_gitdiff_popup = gitdiff_popup;
 
     /* --- Debug Info window (Locals + Call Stack, see debug_info_panel_
      * refresh()) --- Docked RIGHT, the one dock side Output (BOTTOM) and
@@ -14516,6 +16841,10 @@ void app_init(ui_env* env)
     ui_set_rect(includes_detect, inc_bx, inc_y + 11, inc_bw, 1);
     ui_set_label(includes_detect, " Detect ");
     g_project.includes_detect = includes_detect;
+    ui_set_help(g_project.includes_detect,
+                "Replace the list with the include directories the platform compiler searches", "# Replace the list with the include directories the platform compiler searches\n"
+                "\n"
+                "On Windows, MSVC's headers are found with `vswhere.exe` and the Windows SDK's from the registry. Anything that can't be found is reported; what was found is still used.");
 
     ui_node* includes_close = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(includes_close, EVT_PROJECT_INCLUDES_CLOSE);
@@ -14625,6 +16954,105 @@ void app_main(int argc, char** argv)
     open_file_path_into_editor(argv[1], basename_of(argv[1]));
 }
 
+/* Outside-change detection: every FILE_WATCH_INTERVAL_MS, and only while the
+ * IDE has focus, stat() the open project's .cakeproj and the active editor
+ * window's file - at most two stats per check. Other open windows are
+ * checked once they become the active one. A changed file gets a Yes/No
+ * "reload?" prompt (EVT_FILE_RELOAD/EVT_PROJECT_RELOAD). The stored time is
+ * updated before asking, so "No" isn't asked again until the next change. */
+#define FILE_WATCH_INTERVAL_MS 2000
+
+static struct
+{
+    unsigned last_check_ms;
+    char reload_path[1024];  /* the file the pending EVT_FILE_RELOAD is for */
+} g_filewatch;
+
+static void file_watch_reload_file(void)
+{
+    ui_node* w = find_open_window(g_filewatch.reload_path);
+    ui_node* editor = w ? editor_in_window(w) : NULL;
+    if (!editor)
+        return;
+    char* content = read_file_to_string(g_filewatch.reload_path);
+    if (!content)
+        return;
+    normalize_newlines(content);
+
+    int cursor = ui_editor_get_cursor(editor);
+    int scroll = ui_editor_get_scroll(editor);
+    ui_set_value(editor, content);
+    free(content);
+
+    int len = (int)strlen(ui_get_value(editor));
+    if (cursor > len)
+        cursor = len;
+    ui_editor_set_selection(editor, cursor, cursor);
+    ui_editor_set_scroll(editor, scroll);
+    ui_set_dirty(editor, 0);
+    ui_set_file_time(w, file_mtime(g_filewatch.reload_path));
+}
+
+static void file_watch_reload_project(void)
+{
+    char path[sizeof g_project.file_path];
+    snprintf(path, sizeof path, "%s", g_project.file_path);
+    if (project_load_from_file(path))
+        project_window_refresh(0);
+}
+
+static void file_watch_check(ui_env* env)
+{
+    if (!ui_env_focused(env) || ui_screen_active_modal(g_screen))
+        return;
+    unsigned now = ui_env_time_ms(env);
+    if (now - g_filewatch.last_check_ms < FILE_WATCH_INTERVAL_MS)
+        return;
+    g_filewatch.last_check_ms = now;
+
+    if (project_is_open() && g_project.file_time != 0)
+    {
+        long long t = file_mtime(g_project.file_path);
+        if (t != 0 && t != g_project.file_time)
+        {
+            g_project.file_time = t;
+            char msg[1400];
+            snprintf(msg, sizeof msg,
+                     "The project file was modified outside the IDE:\n%s\n\nReload it?",
+                     g_project.file_path);
+            ui_msgbox_button btns[] = {
+                { "  Yes  ", EVT_PROJECT_RELOAD },
+                { "  No  ", 0 },
+            };
+            ui_message_box(g_screen, "Project Changed", msg, btns, 2);
+            return;  /* one prompt at a time */
+        }
+    }
+
+    ui_node* w = g_active_editor_window;
+    const char* path = w ? ui_get_path(w) : "";
+    if (w && path[0] && ui_get_file_time(w) != 0)
+    {
+        long long t = file_mtime(path);
+        if (t != 0 && t != ui_get_file_time(w))
+        {
+            ui_set_file_time(w, t);
+            snprintf(g_filewatch.reload_path, sizeof g_filewatch.reload_path, "%s", path);
+            ui_node* editor = editor_in_window(w);
+            char msg[1400];
+            snprintf(msg, sizeof msg,
+                     "The file was modified outside the IDE:\n%s\n\n%sReload it?",
+                     path,
+                     editor && ui_get_dirty(editor) ? "Your unsaved changes will be lost.\n" : "");
+            ui_msgbox_button btns[] = {
+                { "  Yes  ", EVT_FILE_RELOAD },
+                { "  No  ", 0 },
+            };
+            ui_message_box(g_screen, "File Changed", msg, btns, 2);
+        }
+    }
+}
+
 int app_frame(ui_env* env)
 {
     ui_screen_update(g_screen, env);  /* delivers events to on_ui_event() as they fire */
@@ -14678,6 +17106,10 @@ int app_frame(ui_env* env)
         }
     }
 
+    output_diagnostic_help_refresh();
+    cmdline_layout();
+    cmdline_take_focus();
+
     /* Track the frontmost real document window (see g_active_editor_window)
      * - only updated when an actual editor window is frontmost, so it keeps
      * pointing at the last one even while a docked Folder/Output panel (or
@@ -14718,18 +17150,6 @@ int app_frame(ui_env* env)
             ui_set_enabled(g_project.menu_items_requiring_project[i], open);
     }
     ui_set_label(g_view_playground_item, "Playground");
-    refresh_view_item(g_view_linenumbers_item, "Line Numbers", ui_get_show_line_numbers());
-    /* Line numbers only ever apply to a plain C source editor (see
-     * editor_gutter_width() in ide_ui.c) - Markdown/VT100/no document at all
-     * have nothing to number, so the item itself is disabled rather than
-     * left clickable-but-inert, same "enable only when it'd actually do
-     * something" reasoning as g_compile_item just below (though that one
-     * keys off the window's path; this one keys off the editor's own syntax
-     * mode, since that's what editor_gutter_width() itself checks). */
-    {
-        ui_node* active_ed = g_active_editor_window ? editor_in_window(g_active_editor_window) : NULL;
-        ui_set_enabled(g_view_linenumbers_item, active_ed && ui_get_syntax(active_ed) == UI_SYNTAX_C);
-    }
 
     /* Same reasoning again - "Compile" (both the menu entry and its F7
      * shortcut, since they're the same node - see g_compile_item's own doc
@@ -14760,6 +17180,8 @@ int app_frame(ui_env* env)
      * copy above, kept here so both refresh from the one condition. */
     ui_set_enabled(g_editor_popup_compile, compile_targets_c);
 
+    git_clone_update_suggestion();
+
     /* Apply a Go-to-line focus request now that update() (and its
      * fire-then-blur of the input) is done, so the editor caret stays put. */
     if (g_goto_pending_focus)
@@ -14781,6 +17203,11 @@ int app_frame(ui_env* env)
              * is one, and disabled for VT100 (e.g. the Output window), which
              * is always read-only and never meant to be toggled back. */
             refresh_readonly_item(g_editor_popup_readonly, win);
+
+            /* Refresh "[x] Line Numbers" - enabled only for a C source
+             * editor, the only kind that draws a line-number gutter. */
+            refresh_view_item(g_view_linenumbers_item, "Line Numbers", ui_get_show_line_numbers());
+            ui_set_enabled(g_view_linenumbers_item, ui_get_syntax(ed) == UI_SYNTAX_C);
 
             /* Refresh "Toggle Header/Source" - enabled only for a .c/.h file. */
             char cp[1024];
@@ -14844,7 +17271,18 @@ int app_frame(ui_env* env)
     {
         int mx = ui_screen_mouse_x(g_screen), my = ui_screen_mouse_y(g_screen);
         if (window_is_shown(g_git.window) && ui_node_contains(g_git.listbox, mx, my))
+        {
+            git_popup_refresh();
             ui_screen_open_popup(g_screen, g_git.popup, mx, my, NULL);
+        }
+    }
+
+    /* Right-click over the Git Diff viewer's text opens its own popup (Copy Full Path/Show My Folder). */
+    if (ui_screen_mouse_right_pressed(g_screen) && !ui_screen_active_modal(g_screen))
+    {
+        int mx = ui_screen_mouse_x(g_screen), my = ui_screen_mouse_y(g_screen);
+        if (ui_screen_top_window(g_screen) == g_gitdiff_window && ui_node_contains(g_gitdiff_editor, mx, my))
+            ui_screen_open_popup(g_screen, g_gitdiff_popup, mx, my, NULL);
     }
 
     /* Right-click on a docked panel's frame opens the "Dock Left/Right/
@@ -14899,10 +17337,15 @@ int app_frame(ui_env* env)
      * updated before the next render rather than a frame later. */
     compile_stream_poll();
 
+    /* Same, for a running git command - see git_job_poll(). */
+    git_job_poll();
+
     /* Same reasoning, for a live debug session (see ide_debug.h) - drains
      * lldb's output, updates the exec-line highlight, and keeps the Debug
      * menu's enabled state current. */
     debug_stream_poll();
+
+    file_watch_check(env);
 
     return 0;
 }

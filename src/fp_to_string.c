@@ -418,12 +418,11 @@ static void fp_digit_gen(struct fp_value W, struct fp_value Mp, uint64_t delta,
 
     while (kappa > 0)
     {
-        /*
-          kappa is 1..10 here, so this is g_fp_pow10[0..9] and never zero. The
-          local makes that visible to the flow analysis, which cannot know the
-          contents of the table.
-        */
-        const uint32_t ten_k = (kappa >= 1 && kappa <= 10) ? g_fp_pow10[kappa - 1] : 1;
+        /* kappa is 1..10 (fp_count_decimal_digit32); flow cannot see the bound through the call */
+        if (kappa > 10)
+            break; /* unreachable */
+
+        const uint32_t ten_k = g_fp_pow10[kappa - 1];
         uint32_t d;
         uint64_t tmp;
 

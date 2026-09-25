@@ -308,6 +308,7 @@ struct param
 
 void print_type(struct osstream* ss, const  struct type* type, enum target target);
 void print_type_no_names(struct osstream* ss, const struct type* p_type, enum target target);
+bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags, int bitint_width);
 
 void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_dup(const struct type* p_type);

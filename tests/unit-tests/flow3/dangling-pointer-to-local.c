@@ -16,7 +16,7 @@ void f(int condition)
      struct X x = {};
      p = &x;
    }
-   p->i = 1; //lint 31 -> operator: pointed object lifetime has ended
+   p->i = 1; //lint 31 33 -> operator: pointed object lifetime has ended, or p is null
 }
 
 /* Escapes through BOTH branches -- p is never null here, only dangling. */

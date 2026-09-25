@@ -265,6 +265,10 @@ Suppress a diagnostic on one line with a trailing `lint` comment listing its
 number(s): `//lint 35`, `// lint 35`, or `/* lint 81 */`. An unnecessary
 suppression is flagged with warning 59.
 
+**`-ignore-lint`**  
+Treat `lint` comments as plain comments: they suppress nothing and are not
+checked by warning 59. Useful to see every diagnostic a file would report.
+
 
 ### 4.4 Target Options
 
@@ -1357,7 +1361,35 @@ Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1478.htm
 
 `_Thread_local` is supported and maps to `__declspec(thread)` in MSVC output and `__thread` in GCC output.
 
-`_Atomic` is **not implemented**.
+`_Atomic` is supported, both as a qualifier (`_Atomic int`) and as a specifier (`_Atomic(int)`), and so is `<stdatomic.h>`.
+
+<!-- runnable -->
+
+```c
+_Atomic int counter;
+
+int main(void)
+{
+    counter = 1;
+    counter++;
+    counter *= 3;
+    int value = counter;
+    return value;
+}
+```
+
+Every operation on an `_Atomic` object becomes a call to a `static` helper, generated once per type:
+
+- a read becomes a load
+- `=` becomes a store
+- `++`, `--` and compound assignments become a compare-exchange loop
+
+The `atomic_*` functions of `<stdatomic.h>` call the same helpers. All operations are sequentially consistent.
+
+The helpers use:
+
+- **GCC/clang output:** `__atomic_load` and `__atomic_compare_exchange`
+- **MSVC output:** `_InterlockedCompareExchange8/16/32/64`. Types of other sizes, such as large structs, use a spin lock, so `atomic_is_lock_free` is true only for sizes up to 8.
 
 ### 8.5 `_Generic` Type-Generic Expressions
 
@@ -3067,7 +3099,7 @@ base-type ::=
 ```
 
 There is no `typedef`, `enum`, `const`, `restrict`, `_Bool`, `_Complex`, `_BitInt` or `_Atomic` in the 
-output. `bool` has already become `unsigned char`; enumerations have become `int` and their constants 
+output (operations on `_Atomic` objects are calls to generated helpers, see 8.4). `bool` has already become `unsigned char`; enumerations have become `int` and their constants 
 integer literals. Every `struct`/`union` is referred to by tag; there are no anonymous or nested definitions.
 
 ### A.3 Declarators

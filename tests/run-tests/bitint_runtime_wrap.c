@@ -35,7 +35,7 @@ int main(void)
     volatile int v100 = 100;
     volatile int v200 = 200;
     volatile long long vneg = -1;
-    volatile double d = 4097.0;
+    volatile double d = 4095.9;             /* floating to integer does not wrap, out of range is UB */
 
     /* conversions */
     unsigned _BitInt(12) a = big;             /* init */
@@ -48,7 +48,7 @@ int main(void)
     unsigned _BitInt(12) neg = vneg;
     CHECK(neg == 4095);
     unsigned _BitInt(12) fromd = d;
-    CHECK(fromd == 1);
+    CHECK(fromd == 4095);
 
     _BitInt(8) s = v200;                      /* signed wrap on conversion */
     CHECK(s == -56);
@@ -71,8 +71,11 @@ int main(void)
     CHECK(x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x == 4200 - 4096);
 
     _BitInt(8) sa = 100;
-    _BitInt(8) sb = 100;
-    CHECK(sa + sb == -56);                    /* wraps like the constant folder */
+    _BitInt(8) sb = 27;
+    CHECK(sa + sb == 127);                    /* largest value, signed overflow is UB and not tested */
+    unsigned _BitInt(8) ua = 200;
+    unsigned _BitInt(8) ub = 100;
+    CHECK(ua + ub == 44);                     /* unsigned wraps: 300 - 256 */
 
     /* compound assignment and ++/-- */
     unsigned _BitInt(4) c = 15;

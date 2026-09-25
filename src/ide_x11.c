@@ -1422,6 +1422,15 @@ static void handle_event(XEvent *event)
                       (unsigned)event->xexpose.width, (unsigned)event->xexpose.height,
                       event->xexpose.x, event->xexpose.y);
         break;
+    case FocusIn:
+    case FocusOut:
+        /* Same role as ide_win32.c's WM_ACTIVATEAPP: lets the app skip
+         * background checks while another program is in front - see
+         * ui_env_set_focused. Grab/ungrab notifications (e.g. a menu of the
+         * window manager) aren't a real focus change, so ignore them. */
+        if (event->xfocus.mode == NotifyNormal || event->xfocus.mode == NotifyWhileGrabbed)
+            ui_env_set_focused(g_env, event->type == FocusIn);
+        break;
     case ConfigureNotify:
         if (event->xconfigure.width != g_pixmap_w || event->xconfigure.height != g_pixmap_h)
             handle_resize(event->xconfigure.width, event->xconfigure.height);
@@ -1496,7 +1505,8 @@ int main(int argc, char** argv)
     setup_xim();
 
     XSelectInput(g_dpy, g_win, ExposureMask | KeyPressMask | ButtonPressMask |
-                 ButtonReleaseMask | PointerMotionMask | StructureNotifyMask);
+                 ButtonReleaseMask | PointerMotionMask | StructureNotifyMask |
+                 FocusChangeMask);
 
     g_gc = XCreateGC(g_dpy, g_win, 0, NULL);
     g_pict_format = XRenderFindVisualFormat(g_dpy, g_visual);

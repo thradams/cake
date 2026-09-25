@@ -73,6 +73,9 @@ struct ui_env {
                         * used only to drive the caret blink phase - 0 if the
                         * backend never sets it, which just leaves the caret
                         * solid (no blink) rather than breaking anything. */
+    int focused;       /* the app's top-level window has keyboard focus - fed
+                        * by the backend (ui_env_set_focused); 1 by default so
+                        * a backend that never reports it behaves as focused */
 
                         /* The backend's font-zoom implementation (Ctrl+/Ctrl-, and now also the
                          * Window > Font Size +/- menu items) - see ui_env_set_font_zoom_fn/
@@ -109,6 +112,7 @@ ui_env* ui_env_create(int w, int h)
     e->head = 0;
     e->tail = 0;
     e->time_ms = 0;
+    e->focused = 1;
     e->font_zoom_fn = NULL;
     e->font_zoom_ctx = NULL;
     e->font_size_get_fn = NULL;
@@ -191,6 +195,22 @@ void ui_env_set_time_ms(ui_env* e, unsigned ms)
 {
     if (e)
         e->time_ms = ms;
+}
+
+unsigned ui_env_time_ms(const ui_env* e)
+{
+    return e ? e->time_ms : 0;
+}
+
+void ui_env_set_focused(ui_env* e, int focused)
+{
+    if (e)
+        e->focused = focused;
+}
+
+int ui_env_focused(const ui_env* e)
+{
+    return e ? e->focused : 0;
 }
 
 void ui_env_free(ui_env* e)
@@ -588,7 +608,15 @@ struct ui_node {
                             * read or rendered by the framework itself (e.g.
                             * turboc_demo.c uses it on a document window's
                             * wrapper to remember which file backs it) */
+    long long file_time;  /* opaque app-owned timestamp paired with `path` -
+                            * see ui_set_file_time */
+    char* short_help;    /* one line shown in the status bar while this
+                            * node is focused/hovered - see ui_set_help */
+    char* help;          /* full Markdown text F1 shows - see ui_set_help */
     int enabled;          /* hit_test_widget ignores a disabled node entirely */
+    int no_focus;         /* never takes keyboard focus: a click fires its
+                            * event but leaves focus where it was, and Tab
+                            * skips it - see ui_set_no_focus */
     int read_only;        /* like the DOM's readonly attribute: still focusable/
                             * selectable/copyable, just can't be modified - see
                             * ui_set_read_only. INPUT/EDITOR only actually
@@ -604,6 +632,7 @@ struct ui_node {
      * ui_screen_render). */
     int small_font;   /* draw contents in the small font - see ui_set_small_font */
     uint32_t fg, bg;      /* used by TEXT/BOX; other tags use hardcoded palettes */
+    int own_colors;       /* INPUT only: draw with fg/bg instead of the theme's input colors - see ui_set_input_colors */
     int cursor;           /* INPUT/EDITOR only: caret position, a byte offset into label */
     int sel_anchor;       /* INPUT/EDITOR only: the selection's other end (a
                             * byte offset), or -1 for no selection - the
@@ -696,6 +725,8 @@ struct ui_node {
                           * only ever used when n->syntax itself is
                           * UI_SYNTAX_C (a whole file of C, not a block
                           * embedded in Markdown) */
+    int scan_diff_removed; /* UI_SYNTAX_DIFF only: "-" rows before `scan_line`,
+                            * so the gutter can number rows by the new file */
 
     /* WINDOW only: geometry saved across a maximize, so a later restore can
      * put it back exactly where (and what size) it was. */
@@ -890,7 +921,20 @@ struct ui_screen {
                            * Floating (non-blocking) windows are a completely separate stack -
                            * opening or closing a modal must never touch it, and vice versa. */
     ui_node* modal_stack[UI_MODAL_STACK_MAX];
+    ui_node* modal_prev_focus[UI_MODAL_STACK_MAX];  /* what had focus when
+                                                      * modal_stack[i] opened -
+                                                      * given back when it
+                                                      * closes, like a real
+                                                      * dialog */
     int modal_stack_count;
+
+    /* What the status bar shows as a hint (see ui_set_help), copied when it
+     * draws: bar_hint is the short help on the bar, bar_full
+     * the whole text F1/a click on the bar shows. NULL while it shows its
+     * hotkeys. F1 reads these, never re-deriving the hint itself - so it
+     * always explains exactly what the bar says. */
+    char* bar_hint;
+    char* bar_full;
 
     /* Floating windows, back-to-front z-order (windows[window_count-1] is
      * the frontmost/active one). Unlike the modal stack, more than one can
@@ -1153,6 +1197,8 @@ static void node_free(ui_node* n)
     free(n->label);
     free(n->shortcut);
     free(n->path);
+    free(n->short_help);
+    free(n->help);
     free_diagnostics(n->diagnostics);
     free_breakpoints(n->breakpoints);
     for (int i = 0; i < n->undo_count; i++)
@@ -1430,6 +1476,8 @@ void ui_screen_free(ui_screen* s)
     if (!s)
         return;
     node_free(s->root);
+    free(s->bar_hint);
+    free(s->bar_full);
     free(s->cache);
     free(s->next);
     free(s);
@@ -1603,6 +1651,39 @@ const char* ui_get_path(const ui_node* n)
     return n->path;
 }
 
+void ui_set_file_time(ui_node* n, long long t)
+{
+    n->file_time = t;
+}
+
+long long ui_get_file_time(const ui_node* n)
+{
+    return n->file_time;
+}
+
+void ui_set_help(ui_node* n, const char* short_help, const char* help)
+{
+    free(n->short_help);
+    n->short_help = short_help ? xstrdup(short_help) : NULL;
+    free(n->help);
+    n->help = help ? xstrdup(help) : NULL;
+}
+
+const char* ui_get_short_help(const ui_node* n)
+{
+    return n->short_help;
+}
+
+const char* ui_get_help(const ui_node* n)
+{
+    return n->help;
+}
+
+void ui_set_no_focus(ui_node* n, int no_focus)
+{
+    n->no_focus = no_focus;
+}
+
 void ui_set_enabled(ui_node* n, int enabled)
 {
     n->enabled = enabled;
@@ -1736,6 +1817,16 @@ void ui_set_small_font(ui_node* n, int on)
 {
     if (n)
         n->small_font = on ? 1 : 0;
+}
+
+void ui_set_input_colors(ui_node* n, uint32_t fg, uint32_t bg)
+{
+    if (n)
+    {
+        n->fg = fg;
+        n->bg = bg;
+        n->own_colors = 1;
+    }
 }
 
 int ui_get_small_font(const ui_node* n)
@@ -1930,6 +2021,225 @@ int ui_select_get_selected(const ui_node* select)
     return select->selected;
 }
 
+ui_node* ui_get_active_item(const ui_node* n)
+{
+    if (!n || (n->type != UI_TAG_SELECT && n->type != UI_TAG_LISTBOX && n->type != UI_TAG_GROUP))
+        return NULL;
+    int row = (n->multi && n->type == UI_TAG_GROUP) ? n->cursor_row : n->selected;
+    return (row >= 0 && row < n->child_count) ? n->children[row] : NULL;
+}
+
+/* Whether `n` is `root` or one of its descendants. Compares addresses only,
+ * never dereferences `n` - so it is safe on a pointer to a node the app has
+ * since freed (e.g. a panel rebuilding its controls while one of them had
+ * focus), which is exactly what it is used to catch. */
+static int node_in_tree(const ui_node* root, const ui_node* n)
+{
+    if (!root)
+        return 0;
+    if (root == n)
+        return 1;
+    for (int i = 0; i < root->child_count; i++)
+        if (node_in_tree(root->children[i], n))
+            return 1;
+    return 0;
+}
+
+/* s->focused, or NULL if that node is no longer in the document (freed or
+ * detached by the app since it got focus). */
+static ui_node* live_focused(const ui_screen* s)
+{
+    return (s->focused && node_in_tree(s->root, s->focused)) ? s->focused : NULL;
+}
+
+/* `n` if it has help (see ui_set_help), else NULL. */
+static const ui_node* node_help(const ui_node* n)
+{
+    return (n && ((n->short_help && n->short_help[0]) || (n->help && n->help[0]))) ? n : NULL;
+}
+
+/* The status bar's hint (see render_statusbar): the help text (ui_set_help)
+ * of what the user is on right now - the menu item or <select> popup row
+ * under the mouse while one is open, otherwise the focused control's active
+ * <item> (falling back to the control itself). `*detail` is the focused
+ * control's own help when the hint is its item's - shown too, above it, in
+ * the full text (see ui_screen_get_hint_text). Returns NULL when there's no
+ * hint; the bar then shows its usual hotkeys. */
+/* The help of the nearest ancestor of `target` (not `target` itself) under
+ * `root` that has one - a dialog's own overview, set on its <window>.
+ * *found tells the recursion `target` was reached. There's no parent
+ * pointer, so this walks down from the root. */
+static const ui_node* ancestor_help(const ui_node* root, const ui_node* target, int* found)
+{
+    if (root == target)
+    {
+        *found = 1;
+        return NULL;
+    }
+    for (int i = 0; i < root->child_count; i++)
+    {
+        const ui_node* h = ancestor_help(root->children[i], target, found);
+        if (*found)
+            return h ? h : node_help(root);
+    }
+    return NULL;
+}
+
+/* The overview of the dialog/panel the user is in (see ui_set_help on a
+ * <window>): the nearest ancestor of the focused control with help, or -
+ * with nothing focused - the active modal's own <window>. NULL if none. */
+static const ui_node* dialog_help(const ui_screen* s, const ui_node* focused)
+{
+    if (focused)
+    {
+        int found = 0;
+        return ancestor_help(s->root, focused, &found);
+    }
+    if (s->modal_stack_count > 0)
+        return node_help(find_child_by_type(s->modal_stack[s->modal_stack_count - 1],
+                                            UI_TAG_WINDOW));
+    return NULL;
+}
+
+static const ui_node* statusbar_hint(const ui_screen* s, const ui_node** detail)
+{
+    *detail = NULL;
+    if (s->open_menu || s->open_select)
+    {
+        if (s->hot && s->hot->type == UI_TAG_ITEM)
+            return node_help(s->hot);
+        return NULL;
+    }
+    ui_node* focused = live_focused(s);
+    const ui_node* control = node_help(focused);
+    const ui_node* item = node_help(ui_get_active_item(focused));
+    if (item)
+    {
+        *detail = control;
+        return item;
+    }
+    return control ? control : dialog_help(s, focused);
+}
+
+/* The short help (see ui_set_help) - its first line, minus a Markdown
+ * heading's leading "#"s and inline marks - in `out`, cut with
+ * "..." when longer than `width`. `emph` (same size as `out`) flags the
+ * characters that were inside `code`/**bold**. Returns 1 if cut. */
+static int statusbar_hint_line(const char* help, int width, char* out, char* emph, size_t cap)
+{
+    const char* p = help;
+    while (*p == '#')
+        p++;
+    while (*p == ' ')
+        p++;
+    /* Inline Markdown: `code`, **bold** and *italic* lose their marks and
+     * are flagged in `emph` instead, for render_statusbar to highlight. */
+    int in_code = 0, in_bold = 0;
+    size_t o = 0;
+    for (; *p && *p != '\n' && o + 1 < cap; p++)
+    {
+        if (*p == '`')
+        {
+            in_code = !in_code;
+            continue;
+        }
+        if (*p == '*' && !in_code)
+        {
+            if (p[1] == '*')
+                p++;
+            in_bold = !in_bold;
+            continue;
+        }
+        emph[o] = (char)(in_code || in_bold);
+        out[o++] = *p;
+    }
+    out[o] = 0;
+    if (width < 4 || (int)o <= width)
+        return 0;
+    strcpy(out + width - 3, "...");
+    memset(emph + width - 3, 0, 3);
+    return 1;
+}
+
+/* Column where the hint text starts: after the first hotkey (F1:Help) and a
+ * " | " separator, or at the bar's left edge when it has no hotkeys. */
+static int statusbar_hint_x(const ui_node* bar)
+{
+    if (bar->child_count == 0)
+        return bar->x + 1;
+    const ui_node* first = bar->children[0];
+    return first->x + first->w + 3;
+}
+
+/* Replaces *slot with a copy of `text` (NULL clears it) - only when it
+ * actually changed, since this runs on every paint. */
+static void set_owned_text(char** slot, const char* text)
+{
+    if (!text)
+    {
+        free(*slot);
+        *slot = NULL;
+        return;
+    }
+    if (*slot && strcmp(*slot, text) == 0)
+        return;
+    char* copy = xstrdup(text);
+    free(*slot);
+    *slot = copy;
+}
+
+/* Recomputes what the status bar shows (statusbar_hint) into s->bar_hint/
+ * s->bar_full: the focused control's help followed by its active item's
+ * and then its dialog's overview - or the hovered menu
+ * item's. Either help of a node falls back to the other when missing. */
+static const char* short_help_of(const ui_node* n)
+{
+    return (n->short_help && n->short_help[0]) ? n->short_help : n->help;
+}
+
+static const char* full_help_of(const ui_node* n)
+{
+    return (n->help && n->help[0]) ? n->help : n->short_help;
+}
+
+static void statusbar_update_hint(ui_screen* s)
+{
+    const ui_node* detail_node;
+    const ui_node* hint_node = statusbar_hint(s, &detail_node);
+    if (!hint_node)
+    {
+        set_owned_text(&s->bar_hint, NULL);
+        set_owned_text(&s->bar_full, NULL);
+        return;
+    }
+    set_owned_text(&s->bar_hint, short_help_of(hint_node));
+    const ui_node* overview_node = (s->open_menu || s->open_select) ? NULL
+                                   : dialog_help(s, live_focused(s));
+    if (overview_node == hint_node)
+        overview_node = NULL;
+    const char* hint = full_help_of(hint_node);
+    const char* detail = detail_node ? full_help_of(detail_node) : NULL;
+    const char* overview = overview_node ? full_help_of(overview_node) : NULL;
+    size_t cap = strlen(hint) + 16 + (detail ? strlen(detail) : 0) +
+                 (overview ? strlen(overview) : 0);
+    char* full = malloc(cap);
+    if (!full)
+        return;
+    snprintf(full, cap, "%s%s%s%s%s",
+             detail ? detail : "", detail ? "\n\n" : "", hint,
+             overview ? "\n\n" : "", overview ? overview : "");
+    set_owned_text(&s->bar_full, full);
+    free(full);
+}
+
+int ui_screen_get_hint_text(ui_screen* s, char* out, size_t cap)
+{
+    if (!s->bar_full)
+        return 0;
+    snprintf(out, cap, "%s", s->bar_full);
+    return 1;
+}
+
 int ui_get_id(const ui_node* n)
 {
     return n->id;
@@ -1997,6 +2307,16 @@ const char* ui_get_value(const ui_node* n)
 void ui_append_child(ui_node* parent, ui_node* child)
 {
     node_add_child(parent, child);
+}
+
+void ui_insert_child(ui_node* parent, ui_node* child, int index)
+{
+    node_add_child(parent, child);
+    if (index < 0 || index >= parent->child_count)
+        return;
+    for (int j = parent->child_count - 1; j > index; j--)
+        parent->children[j] = parent->children[j - 1];
+    parent->children[index] = child;
 }
 
 void ui_remove_child(ui_node* parent, ui_node* child)
@@ -2136,7 +2456,7 @@ static ui_node* first_focusable(ui_node* n)
     for (int i = 0; i < n->child_count; i++)
     {
         ui_node* c = n->children[i];
-        if (c->enabled && is_focusable(c->type))
+        if (c->enabled && !c->no_focus && is_focusable(c->type))
             return c;
         ui_node* deep = first_focusable(c);
         if (deep)
@@ -2148,7 +2468,10 @@ static ui_node* first_focusable(ui_node* n)
 void ui_screen_show_modal(ui_screen* s, ui_node* modal)
 {
     if (s->modal_stack_count < UI_MODAL_STACK_MAX)
+    {
+        s->modal_prev_focus[s->modal_stack_count] = s->focused;
         s->modal_stack[s->modal_stack_count++] = modal;
+    }
     center_modal_window(s, modal);
     s->open_menu = NULL;
     s->open_select = NULL;
@@ -2337,12 +2660,20 @@ void ui_screen_close_modal(ui_screen* s, ui_node* modal)
             break;
         }
     }
+    ui_node* prev_focus = NULL;
     for (int i = 0; i < s->modal_stack_count; i++)
     {
         if (s->modal_stack[i] == modal)
         {
+            /* Only the top modal's saved focus is still meaningful - one
+             * below it was saved while that top one wasn't open yet. */
+            if (i == s->modal_stack_count - 1)
+                prev_focus = s->modal_prev_focus[i];
             for (int j = i; j < s->modal_stack_count - 1; j++)
+            {
                 s->modal_stack[j] = s->modal_stack[j + 1];
+                s->modal_prev_focus[j] = s->modal_prev_focus[j + 1];
+            }
             s->modal_stack_count--;
             break;
         }
@@ -2356,7 +2687,10 @@ void ui_screen_close_modal(ui_screen* s, ui_node* modal)
     s->dragging_group_scrollbar = NULL;
     s->selecting = NULL;
     s->open_select = NULL;
-    s->focused = NULL;  /* an input inside the closing window can't stay focused */
+    /* An input inside the closing window can't stay focused - focus goes
+     * back to whatever had it before the modal opened (NULL if nothing). */
+    s->focused = prev_focus;
+    s->focused = live_focused(s);
 
     /* Symmetric with ui_screen_show_window(): if `modal` wrapped a docked
      * Folder/Output-style window, hiding it just gave that space back to
@@ -3380,7 +3714,7 @@ static int editor_gutter_width(const ui_node* n)
      * ever applies to numbered C source. */
     if (n->syntax == UI_SYNTAX_MARKDOWN || n->syntax == UI_SYNTAX_NONE)
         return 1;
-    if (!g_show_line_numbers || n->syntax != UI_SYNTAX_C)
+    if (!g_show_line_numbers || (n->syntax != UI_SYNTAX_C && n->syntax != UI_SYNTAX_DIFF))
         return 0;
     int total = editor_label_line_count(n);
     int digits = 1;
@@ -4819,6 +5153,10 @@ static void editor_paste(ui_node* n)
     char* text = ui_clipboard_get_text();
     if (!text)
         return;
+    /* A single-line input keeps only the first line - a copied URL or
+     * path often brings a trailing line break along with it. */
+    if (n->type == UI_TAG_INPUT)
+        text[strcspn(text, "\r\n")] = 0;
     editor_delete_selection(n);
     editor_insert_text(n, text);
     free(text);
@@ -5242,7 +5580,7 @@ static void focus_next(ui_screen* s, int forward)
     for (int tries = 0; tries < n; tries++)
     {
         i = ((i + step) % n + n) % n;
-        if (is_focusable(container->children[i]->type))
+        if (!container->children[i]->no_focus && is_focusable(container->children[i]->type))
         {
             s->focused = container->children[i];
             return;
@@ -5284,13 +5622,15 @@ static int window_has_zoom_icon(ui_node* win) { return win->resizable && win->w 
 static int window_zoom_x(ui_node* win) { return win->x + win->w - 1 - UI_WINDOW_ZOOM_W; }
 
 /* The caret "line:col" indicator shown at the bottom-left border of a source
- * <editor> window (skipped for a VT100/output one, or a window too narrow).
+ * <editor> window (skipped for a VT100/output one, a read-only Markdown one
+ * such as the help window, or a window too narrow).
  * Fills `buf` and returns its column width, or 0 when nothing is shown -
  * used by render_window, which draws it. */
 static int window_caret_indicator(ui_node* win, char* buf, size_t cap)
 {
     ui_node* sed = find_child_by_type(win, UI_TAG_EDITOR);
-    if (!(sed && sed->syntax != UI_SYNTAX_VT100 && win->w > 14))
+    if (!(sed && sed->syntax != UI_SYNTAX_VT100 &&
+          !(sed->read_only && sed->syntax == UI_SYNTAX_MARKDOWN) && win->w > 14))
     {
         if (cap) buf[0] = '\0';
         return 0;
@@ -6063,6 +6403,7 @@ static int process_window(ui_screen* s, ui_node* container, ui_node* window,
             if (inside && s->mouse_pressed && !*click_consumed)
             {
                 s->open_select = (s->open_select == c) ? NULL : c;
+                s->focused = c;
                 *click_consumed = 1;
             }
         }
@@ -6408,6 +6749,9 @@ void ui_screen_update(ui_screen* s, ui_env* env)
     s->mouse_right_pressed = 0;
     s->key_event_count = 0;
     s->hot = NULL;
+    /* Drop focus on a node the app freed/detached since the last frame -
+     * every key handler below would otherwise dereference it. */
+    s->focused = live_focused(s);
 
     /* Minimized OS windows report a degenerate content size (0x0, or a
      * sliver) on at least Windows/macOS - not a real resize. Feeding that
@@ -6631,7 +6975,10 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                 if (top->msgbox)
                     s->msgbox_to_free = top;
                 else
-                    s->modal_stack_count--;
+                {
+                    s->focused = s->modal_prev_focus[--s->modal_stack_count];
+                    s->focused = live_focused(s);
+                }
             }
             s->dragging_window = NULL;
             s->resizing_window = NULL;
@@ -7100,6 +7447,20 @@ void ui_screen_update(ui_screen* s, ui_env* env)
         layout_menubar(menubar_always, ui_env_width(env));
     if (statusbar_always)
         layout_statusbar(statusbar_always, ui_env_width(env), ui_env_height(env));
+
+    /* A click on a status bar showing a hint opens its full text (see
+     * UI_HINT_DETAILS_ID) instead of reaching the hidden hotkeys. Not
+     * while a menu/popup is open - that click just closes it, as usual. */
+    if (statusbar_always && s->mouse_pressed && !s->open_menu && !s->open_select &&
+        s->mouse_y == statusbar_always->y &&
+        s->mouse_x >= statusbar_hint_x(statusbar_always) - 2)
+    {
+        if (s->bar_full)
+        {
+            ui_fire_event(s, UI_HINT_DETAILS_ID, NULL);
+            s->mouse_pressed = 0;
+        }
+    }
 
     /* The menu bar and its open dropdown always render as the topmost layer
      * (see ui_screen_render) - so they must also get first pick of every
@@ -7826,6 +8187,39 @@ static void render_hotkey(ui_screen* s, ui_node* h)
 static void render_statusbar(ui_screen* s, ui_node* n)
 {
     draw_fill(n->x, n->y, n->w, n->h, g_theme.hotkey_fg, g_theme.hotkey_bg);
+
+    /* Turbo C style: while there's a hint (help of the hovered menu item/
+     * focused control - see statusbar_hint) the bar reads "F1:Help | hint" -
+     * the first hotkey stays, the rest give way to the description. */
+    statusbar_update_hint(s);
+    const char* hint = s->bar_hint;
+    if (hint)
+    {
+        int x = statusbar_hint_x(n);
+        if (n->child_count > 0)
+        {
+            render_hotkey(s, n->children[0]);
+            emit_char(x - 2, n->y, 0x2502, g_theme.hotkey_fg, g_theme.hotkey_bg);
+        }
+        char line[1024], emph[1024];
+        statusbar_hint_line(hint, n->x + n->w - 1 - x, line, emph, sizeof line);
+        /* Runs of plain/emphasized text - emphasis in the same highlight
+         * color as a hotkey's key ("F1"), like Turbo C's status line. */
+        for (int i = 0; line[i];)
+        {
+            int j = i;
+            while (line[j] && emph[j] == emph[i])
+                j++;
+            char run[1024];
+            memcpy(run, line + i, (size_t)(j - i));
+            run[j - i] = 0;
+            draw_text(x + i, n->y, run,
+                      emph[i] ? g_theme.hotkey_key_fg : g_theme.hotkey_fg, g_theme.hotkey_bg);
+            i = j;
+        }
+        return;
+    }
+
     for (int j = 0; j < n->child_count; j++)
         render_hotkey(s, n->children[j]);
 
@@ -8214,8 +8608,8 @@ static void render_input(ui_screen* s, ui_node* n)
 {
     int focused = (s->focused == n);
     int caret = focused && s->caret_visible;  /* blink phase - see ui_screen_update */
-    uint32_t fg = focused ? g_theme.input_fg_focus : g_theme.input_fg;
-    uint32_t bg = focused ? g_theme.input_bg_focus : g_theme.input_bg;
+    uint32_t fg = n->own_colors ? n->fg : focused ? g_theme.input_fg_focus : g_theme.input_fg;
+    uint32_t bg = n->own_colors ? n->bg : focused ? g_theme.input_bg_focus : g_theme.input_bg;
 
     int cursor_col = utf8_col_of(n->label, n->cursor);
     int offset = cursor_col >= n->w ? cursor_col - n->w + 1 : 0;
@@ -8264,7 +8658,10 @@ static void render_input(ui_screen* s, ui_node* n)
  * render_open_select) - highlighted like a button while hot or open. */
 static void render_select(ui_screen* s, ui_node* n)
 {
-    uint32_t fg = g_theme.input_fg, bg = g_theme.input_bg;
+    /* Focused text uses the same colors as a focused <input>. */
+    int has_focus = (s->focused == n);
+    uint32_t fg = has_focus ? g_theme.input_fg_focus : g_theme.input_fg;
+    uint32_t bg = has_focus ? g_theme.input_bg_focus : g_theme.input_bg;
     int text_w = n->w > 1 ? n->w - 1 : n->w;
 
     draw_fill(n->x, n->y, text_w, 1, fg, bg);
@@ -10114,6 +10511,10 @@ static void render_editor(ui_screen* s, ui_node* n)
     int c_bracket_depth = 0;
     int off = 0, have_line = 1;  /* start of the current line; whether it exists */
     int start_line = 0;
+    /* UI_SYNTAX_DIFF only: "-" (removed) rows walked so far. The gutter shows
+     * the new file's line number, which is the row's number minus this, and
+     * nothing on a removed row. */
+    int diff_removed = 0;
 
     /* Resume from the scan cache when it's still valid (no edits since - see
      * ui_set_label) and not past the target: an unchanged scroll position
@@ -10130,6 +10531,7 @@ static void render_editor(ui_screen* s, ui_node* n)
         in_c_block = n->scan_c_block;
         c_comment_block = n->scan_c_comment;
         c_bracket_depth = n->scan_c_bracket;
+        diff_removed = n->scan_diff_removed;
     }
     for (int line = start_line; line < n->scroll && have_line; line++)
     {
@@ -10140,6 +10542,10 @@ static void render_editor(ui_screen* s, ui_node* n)
             md_advance_c_block_state(n->label + ls, off - ls, in_block,
                                       &in_c_block, &c_comment_block, &c_bracket_depth);
         in_block = scan_multiline_state(n->syntax, n->label + ls, off - ls, in_block, &bracket_depth);
+        if (n->syntax == UI_SYNTAX_DIFF && off > ls && n->label[ls] == '-')
+        {
+            diff_removed++;
+        }
         if (off < text_len)
             off++;           /* skip the '\n' onto the next line */
         else
@@ -10158,6 +10564,7 @@ static void render_editor(ui_screen* s, ui_node* n)
         n->scan_c_block = in_c_block;
         n->scan_c_comment = c_comment_block;
         n->scan_c_bracket = c_bracket_depth;
+        n->scan_diff_removed = diff_removed;
     }
 
     /* Persistent (not row-derived) from here down: for every other syntax
@@ -10250,6 +10657,10 @@ static void render_editor(ui_screen* s, ui_node* n)
             if (!line_is_fence && in_c_block)
                 c_comment_block = scan_line_block_state(n->label + ls, le - ls, c_comment_block, &c_bracket_depth);
             in_block = scan_multiline_state(n->syntax, n->label + ls, le - ls, in_block, &bracket_depth);
+            if (n->syntax == UI_SYNTAX_DIFF && le > ls && n->label[ls] == '-')
+            {
+                diff_removed++;
+            }
             line_idx++;
             continue;
         }
@@ -10388,6 +10799,18 @@ static void render_editor(ui_screen* s, ui_node* n)
         {
             char num[16];
             int len = snprintf(num, sizeof num, "%d", line_no);
+            if (n->syntax == UI_SYNTAX_DIFF)
+            {
+                if (le > ls && n->label[ls] == '-')
+                {
+                    diff_removed++;
+                    len = 0;  /* a removed row has no line in the new file */
+                }
+                else
+                {
+                    len = snprintf(num, sizeof num, "%d", line_no - diff_removed);
+                }
+            }
             uint32_t num_fg = has_bp ? g_theme.editor_breakpoint_fg : g_theme.editor_linenum_fg;
             draw_fill(ex, ey + row, gutter_w, 1, num_fg, line_bg);
             if (len > 0 && len < gutter_w)
@@ -10562,8 +10985,11 @@ static void record_scaled_pane(ui_screen* s, ui_node* n)
     /* Backdrop first, through the normal cell path, so the diff keeps
      * correct bookkeeping for this area and anything that scrolls out from
      * under the pane is repainted properly. */
+    /* Same bg rule render_editor fills its rows with - otherwise cells left
+     * unpainted around an occluding popup show a mismatched strip. */
     uint32_t back = (n->type == UI_TAG_LISTBOX) ? g_theme.listbox_bg
-                                                : g_theme.editor_output_bg;
+                    : (n->syntax == UI_SYNTAX_VT100) ? g_theme.editor_output_bg
+                                                     : g_theme.editor_bg;
     emit_box(cx, cy, cw, chh, back, back, 0);
 
     if (s->scaled_pane_count >= (int)(sizeof s->scaled_panes / sizeof s->scaled_panes[0]))
@@ -10764,9 +11190,12 @@ int ui_screen_render(ui_screen* s, int* out_x, int* out_y, int* out_w, int* out_
         for (int j = 0; j < window->child_count; j++)
             render_node(s, window->children[j]);
     }
-    if (s->modal_stack_count > 0)
+    /* Every open modal, bottom to top - a modal opened from another one (a
+     * message box over a dialog) keeps the one underneath visible, like
+     * stacked native dialogs. Only the top one takes input. */
+    for (int m = 0; m < s->modal_stack_count; m++)
     {
-        ui_node* modal = s->modal_stack[s->modal_stack_count - 1];
+        ui_node* modal = s->modal_stack[m];
         for (int i = 0; i < modal->child_count; i++)
             render_node(s, modal->children[i]);
     }
@@ -11054,6 +11483,7 @@ int ui_screen_mouse_x(ui_screen* s) { return s->mouse_x; }
 int ui_screen_mouse_y(ui_screen* s) { return s->mouse_y; }
 int ui_screen_mouse_moved(ui_screen* s) { return s->mouse_moved; }
 int ui_screen_mouse_right_pressed(ui_screen* s) { return s->mouse_right_pressed; }
+int ui_screen_mouse_down(ui_screen* s) { return s->mouse_down; }
 
 int ui_screen_width(ui_screen* s) { return s->screen_w; }
 int ui_screen_height(ui_screen* s) { return s->screen_h; }

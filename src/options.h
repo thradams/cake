@@ -344,6 +344,7 @@ enum diagnostic_id {
     C_ERROR_CONSTEXPR_INVALID_QUALIFIED_TYPE = 2340,
     C_ERROR_DECLARATION_DOES_NOT_DECLARE_ANYTHING = 2350,
     C_ERROR_FLEXIBLE_ARRAY_MEMBER_IN_UNION = 2360,
+    C_ERROR_ARRAY_DESIGNATOR_IN_NON_ARRAY = 2370,
 };
 
 
@@ -493,6 +494,8 @@ struct options
 
     bool sarif_output;          /* -sarif: generates SARIF output file */    
     bool no_output;             /* -no-output:  if true cake does not generate output */
+
+    bool ignore_lint;           /* -ignore-lint: //lint comments are plain comments */
 
     bool const_literal;         /* -const-literal: makes literal strings const */
 

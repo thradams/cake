@@ -863,6 +863,10 @@ Suppress a diagnostic on one line with a trailing <code>lint</code> comment list
 number(s): <code>//lint 35</code>, <code>// lint 35</code>, or <code>/* lint 81 */</code>. An unnecessary
 suppression is flagged with warning 59.</p>
 
+<p><strong><code>-ignore-lint</code></strong><br>
+Treat <code>lint</code> comments as plain comments: they suppress nothing and are not
+checked by warning 59. Useful to see every diagnostic a file would report.</p>
+
 <h3 id="toc_14">4.4 Target Options</h3>
 
 <p><strong><code>-target=&lt;name&gt;</code></strong><br>
@@ -2114,7 +2118,38 @@ int main() {
 
 <p><code>_Thread_local</code> is supported and maps to <code>__declspec(thread)</code> in MSVC output and <code>__thread</code> in GCC output.</p>
 
-<p><code>_Atomic</code> is <strong>not implemented</strong>.</p>
+<p><code>_Atomic</code> is supported, both as a qualifier (<code>_Atomic int</code>) and as a specifier (<code>_Atomic(int)</code>), and so is <code>&lt;stdatomic.h&gt;</code>.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">_Atomic int counter;
+
+int main(void)
+{
+    counter = 1;
+    counter++;
+    counter *= 3;
+    int value = counter;
+    return value;
+}
+</code></pre>
+
+<p>Every operation on an <code>_Atomic</code> object becomes a call to a <code>static</code> helper, generated once per type:</p>
+
+<ul>
+<li>a read becomes a load</li>
+<li><code>=</code> becomes a store</li>
+<li><code>++</code>, <code>--</code> and compound assignments become a compare-exchange loop</li>
+</ul>
+
+<p>The <code>atomic_*</code> functions of <code>&lt;stdatomic.h&gt;</code> call the same helpers. All operations are sequentially consistent.</p>
+
+<p>The helpers use:</p>
+
+<ul>
+<li><strong>GCC/clang output:</strong> <code>__atomic_load</code> and <code>__atomic_compare_exchange</code></li>
+<li><strong>MSVC output:</strong> <code>_InterlockedCompareExchange8/16/32/64</code>. Types of other sizes, such as large structs, use a spin lock, so <code>atomic_is_lock_free</code> is true only for sizes up to 8.</li>
+</ul>
 
 <h3 id="toc_50">8.5 <code>_Generic</code> Type-Generic Expressions</h3>
 
@@ -3744,7 +3779,7 @@ base-type ::=
 </code></pre>
 
 <p>There is no <code>typedef</code>, <code>enum</code>, <code>const</code>, <code>restrict</code>, <code>_Bool</code>, <code>_Complex</code>, <code>_BitInt</code> or <code>_Atomic</code> in the 
-output. <code>bool</code> has already become <code>unsigned char</code>; enumerations have become <code>int</code> and their constants 
+output (operations on <code>_Atomic</code> objects are calls to generated helpers, see 8.4). <code>bool</code> has already become <code>unsigned char</code>; enumerations have become <code>int</code> and their constants 
 integer literals. Every <code>struct</code>/<code>union</code> is referred to by tag; there are no anonymous or nested definitions.</p>
 
 <h3 id="toc_110">A.3 Declarators</h3>

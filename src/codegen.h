@@ -84,6 +84,14 @@ struct codegen_ctx
 
     bool address_of_argument;
 
+    /* set by a parent that needs an _Atomic operand as an lvalue (&, =, op=, ++, --) instead of loading it */
+    bool atomic_lvalue;
+
+    /* static helpers for _Atomic operations; the key is operation and types, the value is the helper name */
+    struct hash_map atomic_helpers;
+    struct osstream atomic_helpers_text;
+    bool atomic_helpers_msvc_declared;
+
     /*
     * Points to the function we're in. Or null in file scope.
     */

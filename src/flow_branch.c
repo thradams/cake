@@ -634,8 +634,10 @@ void flow_branch_set_object_any_n(struct flow_branch* _Opt m, const struct objec
     }
 }
 
-void flow_branch_set_object_lifetime_ended(struct flow_branch* m, const struct object* obj, const struct token* _Opt p_token)
+void flow_branch_set_object_lifetime_ended(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token)
 {
+    if (m == NULL)
+        return;
 
     if (obj->members.head)
     {
@@ -942,8 +944,9 @@ void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch
             {
                 struct flow_alternative tagged = *agreed->data[k];
                 /* keep the alternative's own pre-merge origin */
-                flow_alternatives_add(&p_temp_entry->alternatives, &tagged);
+                flow_alternatives_push(&p_temp_entry->alternatives, &tagged);
             }
+            flow_alternatives_remove_duplicates(&p_temp_entry->alternatives);
             continue;
         }
 
@@ -958,7 +961,10 @@ void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch
 
             if (p_entry)
             {
-                flow_alternatives_append(&p_temp_entry->alternatives, &p_entry->alternatives);
+                for (int k = 0; k < p_entry->alternatives.size; k++)
+                {
+                    flow_alternatives_push(&p_temp_entry->alternatives, p_entry->alternatives.data[k]);
+                }
             }
             else
             {
@@ -978,7 +984,7 @@ void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch
                         struct flow_alternative tagged = *a2;
                         tagged.p_origin_map = arms[j];
                         tagged.p_origin_token = a2->p_origin_token;
-                        flow_alternatives_add(&p_temp_entry->alternatives, &tagged);
+                        flow_alternatives_push(&p_temp_entry->alternatives, &tagged);
                     }
                 }
                 else if (!type_is_pointer(&obj->type))
@@ -992,10 +998,11 @@ void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch
                         .p_origin_map = arms[j],
                         .p_origin_token = NULL
                     };
-                    flow_alternatives_add(&p_temp_entry->alternatives, &unknown);
+                    flow_alternatives_push(&p_temp_entry->alternatives, &unknown);
                 }
             }
         }
+        flow_alternatives_remove_duplicates(&p_temp_entry->alternatives);
     }
 
     object_set_destroy(&objs);
@@ -1377,302 +1384,6 @@ int flow_object_truth(struct flow_branch* _Opt map, const struct object* p_objec
     return result;
 }
 
-void flow_narrow_map_into(struct flow_branch* p_dest, struct flow_branch* _Opt p_before, const struct object* p_obj_key, bool true_branch, const struct token* _Opt p_token)
-{
-    struct flow_key_alternatives* _Opt p_existing = flow_branch_search_up(p_before, p_obj_key);
-    if (p_existing == NULL || p_existing->alternatives.size == 0)
-    {
-        /*
-           The object has no known value here (either untracked, or a
-           degenerate EMPTY entry left behind by an earlier operation --
-           e.g. a linked-list cursor `p` right after `p = next;` inside a
-           `while (p) { ...; p = next; }` loop, whose entry collapses to
-           empty). "No known value" is exactly the ANY case: a plain
-           boolean test on it is still informative about the tested
-           object itself, so synthesize the same narrowing the
-           FLOW_RELATION_ANY branch below produces -- true arm => the
-           object is nonzero, false arm => it is exactly zero.
-
-           Without this, the false/exit arm carried no `p == 0` fact at
-           all. In the loop above that let the loop-exit merge
-           (flow_branch_merge_arms) fall back to `p`'s STALE pre-loop value
-           (a live, non-null _Owner) for the exit arm, so
-           flow_check_object_at_exit reported a false "owner object (p)
-           not moved" even though the loop leaves p == NULL. Note this
-           only fabricates the tested object's own 0/nonzero fact; it does
-           NOT pull any ancestor alternatives (which would wrongly drag in
-           unrelated state such as a pointee's "lifetime ended").
-        */
-        struct flow_key_alternatives* _Opt p_dest_entry0 = flow_branch_find_add(p_dest, p_obj_key);
-        if (p_dest_entry0 != NULL)
-        {
-            flow_alternatives_clear(&p_dest_entry0->alternatives);
-            struct flow_alternative a =
-            {
-                .value_kind = FLOW_VALUE_KIND_SIGNED,
-                .value = {.i = 0},
-                .value_relation = true_branch ? FLOW_RELATION_NOT_EQUAL : FLOW_RELATION_EQUAL,
-                .imaginary = FLOW_IMAGINARY_NONE,
-                .p_origin_map = p_dest,
-                .p_origin_token = NULL
-            };
-            flow_alternatives_add(&p_dest_entry0->alternatives, &a);
-        }
-        return;
-    }
-
-    /* NOTE: this function used to also run a "correlation filter" here,
-       speculatively rewriting OTHER, unrelated tracked objects' entries
-       directly into p_dest whenever their alternatives' origins happened
-       to be an ancestor/descendant of an origin that survives narrowing
-       p_obj_key. The intent (per an old comment) was to support patterns
-       like:
-           if (a) { b = 1; }
-           if (a) { static_debug(b); }  // must see only b==1
-       but "ancestor-or-equal of a surviving origin" is a coincidental,
-       structural relationship (shared map ancestry), not an actual
-       correlation between the two variables -- essentially every object
-       tracked in the same function ends up sharing SOME common ancestor
-       origin. In practice this corrupted completely unrelated objects:
-       e.g. narrowing an unrelated int (`if (!opened) ...`) inside a
-       do-while loop with several nested ifs would spuriously overwrite a
-       pointer's (`ptk`) entry in the freshly narrowed map with a stale,
-       degraded ANY alternative pulled from an unrelated ancestor entry,
-       producing false "possible null pointer" / "not moved" diagnostics
-       later in the same function. No regression sample exercised the
-       intended correlation behavior, so it has been removed rather than
-       further special-cased. Real per-branch narrowing of unrelated
-       objects continues to work correctly via flow_branch_merge_arms's
-       ordinary origin re-tagging (see the comment there), which only
-       ever inherits an object's own, real pre-branch value -- it never
-       substitutes a different object's alternatives in its place. */
-
-    /* Write the narrowed variable itself into p_dest. */
-    struct flow_key_alternatives* _Opt p_dest_entry = flow_branch_find_add(p_dest, p_obj_key);
-    if (p_dest_entry == NULL) return;
-
-    flow_alternatives_clear(&p_dest_entry->alternatives);
-
-    for (int k = 0; k < p_existing->alternatives.size; k++)
-    {
-        struct flow_alternative* alt = p_existing->alternatives.data[k];
-
-        if (alt->value_relation == FLOW_RELATION_ANY)
-        {
-            if (true_branch)
-            {
-                struct flow_alternative a =
-                {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = 0},
-                    .value_relation = FLOW_RELATION_NOT_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = p_dest,
-                    .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
-                    .p_origin_token = p_token
-                };
-                flow_alternatives_add(&p_dest_entry->alternatives, &a);
-            }
-            else
-            {
-                struct flow_alternative a =
-                {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = 0},
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = p_dest,
-                    .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
-                    .p_origin_token = p_token
-                };
-                flow_alternatives_add(&p_dest_entry->alternatives, &a);
-            }
-            continue;
-        }
-
-        if (alt->value_relation == FLOW_RELATION_NOT_EQUAL && flow_value_is_false(alt))
-        {
-            if (true_branch)
-            {
-                struct flow_alternative a =
-                {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = 0},
-                    .value_relation = FLOW_RELATION_NOT_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = p_dest,
-                    .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
-                    .p_origin_token = p_token
-                };
-                flow_alternatives_add(&p_dest_entry->alternatives, &a);
-            }
-            else
-            {
-                /* "!= 0" in the false arm: no path gets here with it */
-                struct flow_alternative a =
-                {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = 0},
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
-                    .p_origin_map = p_dest,
-                    .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
-                    .contradicted = true,
-                    .p_origin_token = p_token
-                };
-                flow_alternatives_add(&p_dest_entry->alternatives, &a);
-            }
-            continue;
-        }
-
-        bool keep = false;
-        if (alt->value_relation == FLOW_RELATION_EQUAL)
-        {
-            if (flow_value_is_false(alt) && !true_branch)
-            {
-                keep = true;
-            }
-            if (flow_value_is_true(alt) && true_branch)
-            {
-                keep = true;
-            }
-            if (flow_value_is_true(alt) && !true_branch)
-            {
-                /*
-                   Object is known "== X" for a concrete NONZERO value X
-                   (e.g. a linked-list cursor `it` that was just assigned
-                   `it = next;`, where next resolved to a specific non-null
-                   arena pointer), and we are narrowing the FALSE arm of a
-                   test on the object itself (`while (it) {...}`'s exit,
-                   `if (it)`'s else). The condition being false means the
-                   object is zero here -- which contradicts "== X" (X != 0),
-                   so this alternative's path cannot actually reach the
-                   false arm.
-
-                   The previous code left `keep` false and added nothing,
-                   producing an EMPTY narrowed entry. An empty entry makes
-                   later lookups fall through (flow_branch_search_up) to the
-                   ancestor map, where the object is still "== X" (non-null)
-                   -- so on the false/exit arm the object was wrongly seen
-                   as a live, non-null value. For an `_Owner` cursor this
-                   surfaced as a false "owner object (it) not moved" at
-                   scope exit: `while (it) { ...; it = next; }` leaves `it`
-                   null on exit, but flow3 still thought it held a live
-                   owner. Found dogfooding flow3 on cake's own
-                   defer_visit_ctx_destroy.
-
-                   Record the only value consistent with "condition false"
-                   -- exactly 0 -- mirroring the FLOW_RELATION_ANY false
-                   arm above. (0 is also correctly recognized as
-                   moved-to-null / released by flow_alternative_is_zero,
-                   so the exit check no longer fires.)
-                */
-                struct flow_alternative a =
-                {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = 0},
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = alt->imaginary,
-                    .p_origin_map = p_dest,
-                    .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
-                    .contradicted = true,
-                    .p_origin_token = p_token
-                };
-                flow_alternatives_add(&p_dest_entry->alternatives, &a);
-                continue;
-            }
-        }
-        else if (alt->value_relation == FLOW_RELATION_UNINITIALIZED)
-        {
-            keep = false;
-        }
-        else if (alt->value_relation == FLOW_RELATION_NOT_EQUAL)
-        {
-            /*
-               By this point flow_value_is_false(alt) is known false (the
-               "!= 0" -- i.e. definitely-non-null -- case was already
-               handled and `continue`d above), so alt->value here is a
-               specific NONZERO value: "the object is known to be != X"
-               for some concrete X != 0 (e.g. the non-null pointer
-               sentinel a decayed array/string-literal address is seeded
-               with -- see EXPR_PRIMARY_STRING_LITERAL and the
-               array-to-pointer-decay branch of
-               flow_check_object_init_assigment).
-
-               true_branch (object is truthy/nonzero): "!= X" is still
-               exactly as informative as before -- keep it as-is.
-
-               false_branch (object is falsy, i.e. == 0): the object's
-               value is now KNOWN to be exactly 0, which supersedes "!=
-               X" entirely (0 != X was already implied and adds nothing).
-               The previous code instead emitted "== X" here -- asserting
-               the object equals the very nonzero value it can't be once
-               proven falsy -- which produced alternatives that could
-               never be recognized as null/zero later (flow_alternative_is_zero
-               requires value 0), so e.g. `while (it) { it = next; }`
-               exiting the loop kept reporting `it`'s post-loop value as
-               a live nonzero owner, never as the "moved to NULL" case,
-               and flagged a false "owner object not moved" at scope
-               exit. Found via a user-reported false positive dogfooding
-               flow3 on cake's own defer_visit_ctx_destroy.
-            */
-            if (true_branch)
-            {
-                struct flow_alternative a =
-                {
-                    .value_kind = alt->value_kind,
-                    .value = alt->value,
-                    .value_relation = FLOW_RELATION_NOT_EQUAL,
-                    .imaginary = alt->imaginary,
-                    .p_origin_map = p_dest,
-                    .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
-                    .p_origin_token = p_token
-                };
-                flow_alternatives_add(&p_dest_entry->alternatives, &a);
-            }
-            else
-            {
-                struct flow_alternative a =
-                {
-                    .value_kind = FLOW_VALUE_KIND_SIGNED,
-                    .value = {.i = 0},
-                    .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = alt->imaginary,
-                    .p_origin_map = p_dest,
-                    .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
-                    .p_origin_token = p_token
-                };
-                flow_alternatives_add(&p_dest_entry->alternatives, &a);
-            }
-            continue;
-        }
-        else
-        {
-            if (true_branch)
-            {
-                keep = true;
-            }
-        }
-
-        if (keep)
-        {
-            flow_alternatives_add(&p_dest_entry->alternatives, alt);
-        }
-    }
-
-    if (p_dest_entry->alternatives.size == 0)
-    {
-        for (int k = 0; k < p_existing->alternatives.size; k++)
-        {
-            if (p_existing->alternatives.data[k]->value_relation == FLOW_RELATION_UNINITIALIZED)
-            {
-                flow_alternatives_add(&p_dest_entry->alternatives, p_existing->alternatives.data[k]);
-            }
-        }
-    }
-
-}
-
 #define FLOW_BRANCH_PATH_MAX_CHAIN 128
 
 struct osstream flow_explain_origin(const struct flow_branch* _Opt map)
@@ -1754,17 +1465,6 @@ struct flow_branch* _Opt flow_branch_arena_new_branch(struct flow_branch_arena* 
     return m;
 }
 
-struct flow_branch* _Opt flow_narrow_map_branch(struct flow_branch_arena* arena, struct flow_branch* _Opt p_before,
-                                                    const struct object* p_obj_key, bool true_branch, const struct expression* _Opt p_expr, const struct token* _Opt p_token)
-{
-    struct flow_branch* _Opt p_dest = flow_branch_arena_new_branch(arena, p_before, true_branch, p_expr);
-    if (p_dest == NULL)
-        return NULL;
-
-    flow_narrow_map_into(p_dest, p_before, p_obj_key, true_branch, p_token);
-    return p_dest;
-}
-
 /* The p_narrowed_from of a value narrowed from `alt` into the map new_origin:
    alt's own origin, unless that is on new_origin's chain already -- then
    alt's own p_narrowed_from (a condition narrowed twice, `c > 2 && c < 9`)
@@ -1814,6 +1514,9 @@ void flow_branch_name_to_string(const struct flow_branch* _Opt map, struct osstr
         case FLOW_BRANCH_BREAK_JOIN:
             ss_fprintf(ss, "break join");
             return;
+        case FLOW_BRANCH_CONTINUE_JOIN:
+            ss_fprintf(ss, "continue join");
+            return;
         case FLOW_BRANCH_THROW_JOIN:
             ss_fprintf(ss, "throw join");
             return;
@@ -1843,12 +1546,6 @@ void flow_branch_name_to_string(const struct flow_branch* _Opt map, struct osstr
             return;
         case FLOW_BRANCH_CALL_OPT_NONNULL:
             ss_fprintf(ss, "call-opt-nonnull");
-            return;
-        case FLOW_BRANCH_DO_WHILE_BODY_DIAG:
-            ss_fprintf(ss, "do-while body (diagnostics only)");
-            return;
-        case FLOW_BRANCH_DO_WHILE_FALSE:
-            ss_fprintf(ss, "do-while false branch");
             return;
         case FLOW_BRANCH_FOR_BODY_DIAG:
             ss_fprintf(ss, "for body (diagnostics only)");

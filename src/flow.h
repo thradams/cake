@@ -44,6 +44,40 @@ struct flow_deferred_pointee_effect
     int argument_serial;
 };
 
+/* Entries in flow_ctx.reported_findings. */
+#define FLOW_MAX_REPORTED_FINDINGS 256
+
+/* Branches explained for one finding; the others are only counted. */
+#define FLOW_FINDING_MAX_SAMPLES 3
+
+/* Where one alternative supporting a finding came from (see flow_explain_alternative). */
+struct flow_finding_sample
+{
+    const struct token* _Opt p_origin_token;
+    const struct flow_branch* _Opt p_origin_map;
+    const struct flow_branch* _Opt p_path_map; /* the branch path explained */
+};
+
+/*
+   One fact (object, line, diagnostic), accumulated across every alternative
+   and every path that supports it and reported once by flow_findings_flush:
+   "'p' may be null (+2 branches)", explained from a few samples only.
+   An entry with no pending message only deduplicates
+   (flow_finding_already_reported), and so does an entry already flushed.
+*/
+struct flow_reported_finding
+{
+    const struct object* _Opt p_object; /* NULL marks the end of the used entries */
+    int line;
+    int diagnostic_id;
+
+    int message_offset; /* pending report in flow_ctx.findings_text; -1 when none */
+    struct marker marker;
+    int count; /* alternatives supporting the finding */
+    int sample_count;
+    struct flow_finding_sample samples[FLOW_FINDING_MAX_SAMPLES];
+};
+
 struct flow_ctx
 {
     struct parser_ctx* const ctx;
@@ -52,6 +86,9 @@ struct flow_ctx
     int parameter_list;
 
     bool expression_is_not_evaluated; //true when is expression for sizeof, missing state_set, typeof
+
+    /* the expression being visited as a condition (see flow_visit_condition) */
+    const struct expression* _Opt p_condition;
 
     /*
        Which pass over the innermost enclosing loop body is running:
@@ -67,6 +104,7 @@ struct flow_ctx
 
     struct flow_branch* _Opt p_throw_join_map;  /*map where throws are joined*/
     struct flow_branch* _Opt p_break_join_map;  /*map where breaks are joined*/
+    struct flow_branch* _Opt p_continue_join_map;  /*map where continues are joined*/
     struct flow_branch* _Opt p_initial_map;     /*map snapshot of the original state*/
     const struct object* _Opt p_switch_obj_key;
     
@@ -85,6 +123,12 @@ struct flow_ctx
     struct flow_allocated_object_arena allocated_object_arena;
     struct flow_branch_arena flow_branch_arena;
     struct flow_branch* _Opt p_current_flow_branch;
+
+    /* Findings accumulated or already reported, so one fact is reported once
+       (see flow_finding_record); cleared per assignment. */
+    struct flow_reported_finding reported_findings[FLOW_MAX_REPORTED_FINDINGS];
+    int findings_depth; /* nested assignment checks sharing reported_findings */
+    struct osstream findings_text; /* pending messages, each ending in '\0' */
 
     /*
      * Set while visiting a function body so that flow_visit_jump_statement

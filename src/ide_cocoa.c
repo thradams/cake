@@ -1422,6 +1422,23 @@ static void delegate_applicationWillTerminate(id self, SEL _cmd, id notification
         app_shutdown();
 }
 
+/* App activation - same role as ide_win32.c's WM_ACTIVATEAPP: lets the app
+ * skip background checks while another program is in front - see
+ * ui_env_set_focused. */
+static void delegate_applicationDidBecomeActive(id self, SEL _cmd, id notification)
+{
+    (void)self; (void)_cmd; (void)notification;
+    if (g_env)
+        ui_env_set_focused(g_env, 1);
+}
+
+static void delegate_applicationDidResignActive(id self, SEL _cmd, id notification)
+{
+    (void)self; (void)_cmd; (void)notification;
+    if (g_env)
+        ui_env_set_focused(g_env, 0);
+}
+
 /* Round the frame size AppKit is about to apply to the nearest whole number
  * of cells, the same way ide_win32.c's WM_SIZING handler snaps the drag
  * rectangle - without this, macOS (unlike Windows) lets a window settle on
@@ -1504,6 +1521,10 @@ static void register_classes(void)
                      (IMP)delegate_shouldTerminateAfterLastWindowClosed, "c@:@");
     class_addMethod(g_delegate_class, sel("applicationWillTerminate:"),
                      (IMP)delegate_applicationWillTerminate, "v@:@");
+    class_addMethod(g_delegate_class, sel("applicationDidBecomeActive:"),
+                     (IMP)delegate_applicationDidBecomeActive, "v@:@");
+    class_addMethod(g_delegate_class, sel("applicationDidResignActive:"),
+                     (IMP)delegate_applicationDidResignActive, "v@:@");
     class_addMethod(g_delegate_class, sel("windowWillResize:toSize:"),
                      (IMP)delegate_windowWillResize, "{CGSize=dd}@:@{CGSize=dd}");
     objc_registerClassPair(g_delegate_class);

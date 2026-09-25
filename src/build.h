@@ -25,16 +25,18 @@
 #  define COMPILER_CLANG 1
 #  define CC        " clang "
 #  define CC_OUTPUT(X) " -o " X " "
-
+#  define CC_NO_UNKNOWN_PRAGMA_WARNING ""
 #elif defined(__GNUC__) && !defined(__TINYC__) && !defined(__HLC__)
 #  define COMPILER_GCC 1
 #  define CC        " gcc "
 #  define CC_OUTPUT(X) " -o " X " "
+#  define CC_NO_UNKNOWN_PRAGMA_WARNING ""
 
 #elif defined(_MSC_VER) && !defined(__TINYC__) && !defined(__HLC__)
 #  define COMPILER_MSVC 1
 #  define CC        " cl "
-#  define CC_OUTPUT(X) " -o " X " "
+#  define CC_OUTPUT(X) " /Fe:" X " "
+#  define CC_NO_UNKNOWN_PRAGMA_WARNING " /wd4068 "
 
 #elif defined(__INTEL_COMPILER)
 #  define COMPILER_INTEL 1
@@ -45,6 +47,7 @@
 #  define COMPILER_TINYC 1
 #  define CC        " tcc "
 #  define CC_OUTPUT(X) " -o " X
+#  define CC_NO_UNKNOWN_PRAGMA_WARNING ""
 
 #else
 #  define COMPILER_UNKNOWN 1

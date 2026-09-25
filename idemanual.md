@@ -97,6 +97,34 @@ Macros available in the Command, Arguments and Directory fields:
 - **Edit > Word Wrap...** toggles soft wrapping.
 - **View > Line Numbers** toggles the gutter's line-number display.
 - The gutter also shows breakpoint markers (see Debugging below) and, during a stopped debug session, the current execution line.
+- In the Git diff viewer, right-click > **Edit** opens the file with the caret on the same line and column, scrolled to the same height. **↑ Previous** / **Next ↓** jump between changes.
+
+### 3.1 Command line (Output window)
+
+The bottom row of the **Output** window is a command line, marked `>`. Clicking the Output text puts the focus there (unless you selected text to copy). Type a line and press Enter; it is handled in this order:
+
+1. **Input for a running program.** While a program started from here runs, the prompt reads `stdin>` and each line is sent to the program's standard input.
+2. **`!` prefix.** `!cmd` always runs `cmd` in the shell, even when `cmd` is also a name below.
+3. **IDE commands:**
+
+| Command | What it does |
+|---|---|
+| `help [command]` | lists the commands, or describes one |
+| `clone [url]` | opens the Git Clone dialog, with the URL filled in if given |
+| `build` | same as **Build** (F7) |
+| `clear` | clears the Output window |
+| `tools` | opens the External Tools dialog |
+| `line <n>` | goes to line `n` of the active file |
+| `menu` | lists every menu item by the name you type to run it |
+| `cd [dir]` | shows or changes the directory shell commands run in (the Folder panel's) |
+
+4. **External Tools.** A tool's **Title** runs it, e.g. `gcc` for a tool titled `GCC`.
+5. **Menu items.** An item's name runs it as if clicked: `format`, `save`, `save all`, `open folder`. When two menus share an item, put the menu first: `file close`.
+6. **Shell.** Anything else runs in the shell (`cmd.exe` on Windows, `/bin/sh` elsewhere) in the `cd` directory, and its output appears in the Output window. On Windows, `ls` runs as `dir`.
+
+Names of tools and menu items ignore case, spaces and punctuation. Each shell command starts a new process, which is why `cd` is an IDE command: a shell `cd` would not last past its own line.
+
+Double-clicking an Output line opens what it names: a compiler diagnostic (`file.c:10:5: ...` or `file.c(10,5): ...`) jumps to that line, and a listing row from `dir`, `ls` or `git status` opens the file — or, for a directory, makes it the `cd` directory.
 
 ---
 

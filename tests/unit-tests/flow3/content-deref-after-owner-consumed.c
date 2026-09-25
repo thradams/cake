@@ -8,7 +8,7 @@ void consume(int* _Owner p);
 void direct(int* _Owner x)
 {
     consume(x);
-    *x = 0; //lint 31 dereference of '*x': pointed object lifetime has ended
+    *x = 0; //lint 31 '*x': pointed object lifetime has ended
 }
 
 /* aliased case as reported: y aliases x, z aliases y (not dereferenced) */
@@ -17,7 +17,7 @@ void aliased(int* _Owner x)
     int* y = x;
     int* z = y;
     consume(x);
-    *y = 0; //lint 31 dereference of '*y': pointed object lifetime has ended
+    *y = 0; //lint 31 '*y': pointed object lifetime has ended
 }
 
 /* contrast: consumed through an unrelated pointer, must not be flagged */

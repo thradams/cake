@@ -280,6 +280,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-ignore-lint") == 0)
+        {
+            options->ignore_lint = true;
+            continue;
+        }
+
         if (strcmp(argv[i], "-no-output") == 0)
         {
             options->no_output = true;
@@ -692,6 +698,7 @@ void print_help()
     print_option("-I", "Adds a directory to the list of directories searched for include files");
     print_option("-auto-config", "Generates cake.json with include directories");
     print_option("-no-output", "Cake will not generate output");
+    print_option("-ignore-lint", "//lint comments are ignored (treated as plain comments)");
     print_option("-D", "Defines a preprocessing symbol for a source file");
     print_option("-E", "Copies preprocessor output to standard output");
     print_option("-o name", "Defines the output name when compiling one file");

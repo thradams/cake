@@ -929,6 +929,12 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
          * themselves (see WM_KEYDOWN/WM_CHAR), bypassing this throttle. */
         pump_frame(hwnd, 0);
         return 0;
+    case WM_ACTIVATEAPP:
+        /* Lets the app skip background checks while another program is
+         * in front - see ui_env_set_focused. */
+        if (g_env)
+            ui_env_set_focused(g_env, wp != 0);
+        break;
     case WM_KEYDOWN: {
         /* Ctrl+/Ctrl- resize the font - a window-management concern the
          * backend handles itself, never surfaced to the app as a key event. */

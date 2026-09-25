@@ -8,6 +8,7 @@
 
 #include "cake_compat.h"
 #include <assert.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -922,12 +923,28 @@ void ss_print_line_and_token(struct osstream* ss,
 
         const bool expand_macro = p_token_begin->flags & TK_FLAG_MACRO_EXPANDED;
 
+        /* without colors the expansion cannot be told apart from the source, so it is wrapped in a comment */
+        const bool mark_expansion = expand_macro && !color_enabled;
+        const char* const expansion_open = " /* ";
+        const char* const expansion_close = " */";
+
         if (color_enabled)
             ss_fprintf(ss, LIGHTBLUE);
 
+        bool in_expansion = false;
         const struct token* _Opt p_item = p_line_begin;
         while (p_item)
         {
+            if (mark_expansion)
+            {
+                const bool expanded = p_item->flags & TK_FLAG_MACRO_EXPANDED;
+                if (expanded && !in_expansion)
+                    ss_fprintf(ss, "%s", expansion_open);
+                else if (!expanded && in_expansion)
+                    ss_fprintf(ss, "%s", expansion_close);
+                in_expansion = expanded;
+            }
+
             if (color_enabled)
             {
                 if (p_item->flags & TK_FLAG_MACRO_EXPANDED)
@@ -986,42 +1003,63 @@ void ss_print_line_and_token(struct osstream* ss,
         if (p_item == NULL) ss_fprintf(ss, "\n");
 
         ss_fprintf(ss, " %*s |", n, " ");
-        bool complete = false;
+
+        /*
+          Columns reported back (SARIF) are positions in the source file, so
+          they count only the characters of tokens that are really there -- not
+          the expansion printed for context. A range inside an expansion is
+          reported on the macro name that produced it.
+        */
+        int source_col = 1;
+        int last_source_start = 1;
+        int last_source_end = 1;
         int start_col = 1;
         int end_col = 1;
         bool onoff = false;
+        in_expansion = false;
         p_item = p_line_begin;
         while (p_item)
         {
+            const bool expanded = p_item->flags & TK_FLAG_MACRO_EXPANDED;
+
+            if (mark_expansion)
+            {
+                const char* p_mark =
+                    expanded && !in_expansion ? expansion_open :
+                    !expanded && in_expansion ? expansion_close : "";
+                for (const char* p = p_mark; *p; p++)
+                    ss_fprintf(ss, "%c", onoff ? '~' : ' ');
+                in_expansion = expanded;
+            }
+
             if (p_item == p_token_begin)
             {
                 if (color_enabled)
                     ss_fprintf(ss, LIGHTGREEN);
                 onoff = true;
-                end_col = start_col;
+                start_col = expanded ? last_source_start : source_col;
             }
 
-            if (!(p_item->flags & TK_FLAG_MACRO_EXPANDED) || expand_macro)
+            if (!expanded || expand_macro)
             {
                 const char* p = p_item->lexeme;
                 while (*p)
                 {
                     if (onoff)
-                    {
                         ss_fprintf(ss, "~");
-                        end_col++;
-                    }
+                    else if (*p == '\t')
+                        ss_fprintf(ss, "\t");
                     else
-                    {
-                        if (*p == '\t')
-                            ss_fprintf(ss, "\t");
-                        else
-                            ss_fprintf(ss, " ");
-
-                        if (!complete) start_col++;
-                    }
+                        ss_fprintf(ss, " ");
                     p++;
                 }
+            }
+
+            if (!expanded)
+            {
+                last_source_start = source_col;
+                source_col += (int)strlen(p_item->lexeme);
+                last_source_end = source_col;
             }
 
             if (p_item->type == TK_NEWLINE)
@@ -1029,8 +1067,8 @@ void ss_print_line_and_token(struct osstream* ss,
 
             if (p_item == p_token_end)
             {
-                complete = true;
                 onoff = false;
+                end_col = expanded ? last_source_end : source_col;
                 if (color_enabled)
                     ss_fprintf(ss, COLOR_RESET);
             }
@@ -1655,11 +1693,12 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
       caller must skip the / before calling this function
     */
 
-    // TODO OVERFLOW CHECK
+    /* on overflow saturate to UINT_MAX so the callers' range checks report it */
     if (*p == 'x')
     {
         p++;
-        int result = 0;
+        unsigned int result = 0;
+        bool overflow = false;
         while (is_hex_digit(*p))
         {
             int byte = 0;
@@ -1670,22 +1709,26 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
             else if (*p >= 'A' && *p <= 'F')
                 byte = (*p - 'A') + 10;
 
+            if (result > (UINT_MAX >> 4))
+                overflow = true;
             result = (result << 4) | (byte & 0xF);
             p++;
         }
 
-        *out_value = result;
+        *out_value = overflow ? UINT_MAX : result;
     }
     else if (*p == 'u' || *p == 'U')
     {
-        // TODO  assuming input is checked
-        // missing tests
+        /* like clang: reject incomplete UCNs, surrogates, > 0x10FFFF and < 0xA0 except $ @ ` (6.4.3) */
         const int num_of_hex_digits = *p == 'U' ? 8 : 4;
 
         p++;
         unsigned long long result = 0;
         for (int i = 0; i < num_of_hex_digits; i++)
         {
+            if (!is_hex_digit(*p))
+                return NULL;
+
             int byte = 0;
             if (*p >= '0' && *p <= '9')
                 byte = (*p - '0');
@@ -1698,18 +1741,27 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
             p++;
         }
 
-        *out_value = (int)result;
+        if (result > 0x10FFFF || (result >= 0xD800 && result <= 0xDFFF))
+            return NULL;
+
+        if (result < 0xA0 && result != '$' && result != '@' && result != '`')
+            return NULL;
+
+        *out_value = (unsigned int)result;
     }
     else if (*p >= '0' && *p <= '7')
     {
         // octal digit
-        int result = 0;
+        unsigned int result = 0;
+        bool overflow = false;
         while ((*p >= '0' && *p <= '7'))
         {
-            result = (result << 3) | (*p - '0');  // shift left by 3 bits and add digit
+            if (result > (UINT_MAX >> 3))
+                overflow = true;
+            result = (result << 3) | (unsigned int)(*p - '0');
             p++;
         }
-        *out_value = result;
+        *out_value = overflow ? UINT_MAX : result;
     }
     else
     {
@@ -1746,13 +1798,25 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
         case '"':
             *out_value = '"';
             break;
-
-        case '\n': //line slicing inside string
+        case '?':
+            *out_value = '?';
             break;
 
+        case '\r':
+        case '\n':
+            /* the backslash belonged to a line splice (phase 2); next char is ordinary */
+            if (p[0] == '\r' && p[1] == '\n')
+                p++;
+            p++;
+            if (*p == '\\')
+                return escape_sequences_decode_opt(p + 1, out_value);
+            return str_utf8_decode(p, out_value);
+
         default:
-            _Assert(false);
-            return NULL;
+            /* unknown escape (warned by tokenizer): like clang, use the character itself */
+            if (*p == '\0')
+                return NULL;
+            return str_utf8_decode(p, out_value);
         }
         p++;
     }
@@ -1818,19 +1882,9 @@ static enum token_type parse_number_test_helper(const char* lexeme)
     return parse_number(lexeme, suffix, errmsg);
 }
 
-static bool parse_number_suffix_test_helper(const char* lexeme, const char* expected_suffix)
-{
-    char suffix[4] = { 0 };
-    char errmsg[100] = { 0 };
-
-    if (parse_number(lexeme, suffix, errmsg) == TK_NONE)
-        return false;
-
-    return strncmp(suffix, expected_suffix, sizeof suffix) == 0;
-}
-
 void parse_number_test()
 {
+    /* only invalid numbers here: they are compile errors, which -test-mode cannot expect (valid ones: tests/unit-tests/number_literals.c) */
     /*
       https://github.com/thradams/cake/issues/307
       these are valid pp-numbers but they are not valid constants
@@ -1852,42 +1906,6 @@ void parse_number_test()
     assert(parse_number_test_helper("0b2") == TK_NONE);
     assert(parse_number_test_helper("08") == TK_NONE);
     assert(parse_number_test_helper("1uu") == TK_NONE);
-
-    /*valid constants*/
-    assert(parse_number_test_helper("0x123e") == TK_COMPILER_HEXADECIMAL_CONSTANT);
-    assert(parse_number_test_helper("0xFFULL") == TK_COMPILER_HEXADECIMAL_CONSTANT);
-    assert(parse_number_test_helper("0x1p+1") == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT);
-    assert(parse_number_test_helper("0x1.8p3") == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT);
-    assert(parse_number_test_helper("052") == TK_COMPILER_OCTAL_CONSTANT);
-    assert(parse_number_test_helper("100") == TK_COMPILER_DECIMAL_CONSTANT);
-    assert(parse_number_test_helper("1e+1") == TK_COMPILER_DECIMAL_FLOATING_CONSTANT);
-    assert(parse_number_test_helper("1.5e-3f") == TK_COMPILER_DECIMAL_FLOATING_CONSTANT);
-    assert(parse_number_test_helper(".5e2") == TK_COMPILER_DECIMAL_FLOATING_CONSTANT);
-
-    /*digit separators*/
-    assert(parse_number_test_helper("1'00'00") == TK_COMPILER_DECIMAL_CONSTANT);
-    assert(parse_number_test_helper("0b1010'10") == TK_COMPILER_BINARY_CONSTANT);
-    assert(parse_number_test_helper("0xAB'CD") == TK_COMPILER_HEXADECIMAL_CONSTANT);
-
-    /*microsoft suffixes i8 i16 i32 i64 normalized to the standard ones*/
-    assert(parse_number_suffix_test_helper("1i8", ""));
-    assert(parse_number_suffix_test_helper("1i16", ""));
-    assert(parse_number_suffix_test_helper("1i32", ""));
-    assert(parse_number_suffix_test_helper("1i64", "LL"));
-    assert(parse_number_suffix_test_helper("1I64", "LL"));
-
-    assert(parse_number_suffix_test_helper("1ui64", "ULL"));
-    assert(parse_number_suffix_test_helper("1Ui64", "ULL"));
-    assert(parse_number_suffix_test_helper("1uI64", "ULL"));
-    assert(parse_number_suffix_test_helper("1UI64", "ULL"));
-    assert(parse_number_suffix_test_helper("1ui8", "U"));
-    assert(parse_number_suffix_test_helper("1ui16", "U"));
-    assert(parse_number_suffix_test_helper("1ui32", "U"));
-
-    assert(parse_number_suffix_test_helper("0x1ui64", "ULL"));
-    assert(parse_number_suffix_test_helper("0b1ui64", "ULL"));
-    assert(parse_number_suffix_test_helper("01ui64", "ULL"));
-    assert(parse_number_suffix_test_helper("0x8a44000000000040Ui64", "ULL"));
 
     /*the microsoft suffix must be complete, and it is the last one*/
     assert(parse_number_test_helper("1i") == TK_NONE);

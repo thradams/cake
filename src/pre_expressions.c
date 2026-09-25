@@ -159,18 +159,19 @@ static struct object char_constant_to_value(const char* s, char error_message[ /
                 p = escape_sequences_decode_opt(p, &c);
                 if (p == NULL)
                 {
+                    snprintf(error_message, error_message_sz_bytes, "invalid escape sequence");
                     throw;
                 }
             }
 
             if (*p != '\'')
             {
-                snprintf(error_message, error_message_sz_bytes, "Unicode character literals may not contain multiple characters.");
+                snprintf(error_message, error_message_sz_bytes, "Unicode character literals may not contain multiple characters");
             }
 
             if (c > 0x80)
             {
-                snprintf(error_message, error_message_sz_bytes, "Character too large for enclosing character literal type.");
+                snprintf(error_message, error_message_sz_bytes, "character too large for enclosing character literal type");
             }
 
             return object_make_wchar_t(target, c); //, ctx->evaluation_is_disabled);
@@ -194,18 +195,19 @@ static struct object char_constant_to_value(const char* s, char error_message[ /
                 p = escape_sequences_decode_opt(p, &c);
                 if (p == NULL)
                 {
+                    snprintf(error_message, error_message_sz_bytes, "invalid escape sequence");
                     throw;
                 }
             }
 
             if (*p != '\'')
             {
-                snprintf(error_message, error_message_sz_bytes, "Unicode character literals may not contain multiple characters.");
+                snprintf(error_message, error_message_sz_bytes, "Unicode character literals may not contain multiple characters");
             }
 
             if ((int)c > wchar_max_value)
             {
-                snprintf(error_message, error_message_sz_bytes, "Character too large for enclosing character literal type.");
+                snprintf(error_message, error_message_sz_bytes, "character too large for enclosing character literal type");
             }
 
             return object_make_wchar_t(target, c);
@@ -230,18 +232,19 @@ static struct object char_constant_to_value(const char* s, char error_message[ /
 
                 if (p == NULL)
                 {
+                    snprintf(error_message, error_message_sz_bytes, "invalid escape sequence");
                     throw;
                 }
             }
 
             if (*p != '\'')
             {
-                snprintf(error_message, error_message_sz_bytes, "Unicode character literals may not contain multiple characters.");
+                snprintf(error_message, error_message_sz_bytes, "Unicode character literals may not contain multiple characters");
             }
 
             if (c > UINT_MAX)
             {
-                snprintf(error_message, error_message_sz_bytes, "Character too large for enclosing character literal type.");
+                snprintf(error_message, error_message_sz_bytes, "character too large for enclosing character literal type");
             }
 
             return object_make_wchar_t(target, c);
@@ -275,7 +278,10 @@ static struct object char_constant_to_value(const char* s, char error_message[ /
                 {
                     p = escape_sequences_decode_opt(p, &c);
                     if (p == NULL)
+                    {
+                        snprintf(error_message, error_message_sz_bytes, "invalid escape sequence");
                         throw;
+                    }
                 }
 
                 // TODO \u
@@ -318,7 +324,10 @@ static struct object char_constant_to_value(const char* s, char error_message[ /
                 {
                     p = escape_sequences_decode_opt(p, &c);
                     if (p == NULL)
+                    {
+                        snprintf(error_message, error_message_sz_bytes, "invalid escape sequence");
                         throw;
+                    }
                 }
 
                 if (c < 0x80)
@@ -390,7 +399,7 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expr
                 throw;
             if (ctx->current && ctx->current->type != ')')
             {
-                preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, "expected )");
+                preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, "expected ')'");
                 throw;
             }
             pre_match(ctx);

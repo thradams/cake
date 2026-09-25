@@ -2,7 +2,7 @@ enum color { RED, GREEN, BLUE };
 
 int main()
 {
-    enum color c;
+    enum color c = RED;
     switch (c)
     {
         case RED: break;

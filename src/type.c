@@ -152,9 +152,6 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
     if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL128)
         print_item(ss, first, "_Decimal128");
 
-    if (e_type_specifier_flags & TYPE_SPECIFIER_BOOL)
-        print_item(ss, first, "bool");
-
     if (e_type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
         print_item(ss, first, "nullptr_t");
 
@@ -437,17 +434,17 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
 
             if (p->struct_or_union_specifier)
             {
-                ss_fprintf(&local, "struct %s", p->struct_or_union_specifier->tag_name);
+                ss_fprintf(&local, "%sstruct %s", first ? "" : " ", p->struct_or_union_specifier->tag_name);
             }
             else if (p->enum_specifier)
             {
                 if (p->enum_specifier->tag_token)
                 {
-                    ss_fprintf(&local, "enum %s", p->enum_specifier->tag_token->lexeme);
+                    ss_fprintf(&local, "%senum %s", first ? "" : " ", p->enum_specifier->tag_token->lexeme);
                 }
                 else
                 {
-                    ss_fprintf(&local, "enum ");
+                    ss_fprintf(&local, "%senum ", first ? "" : " ");
                 }
             }
             else
@@ -532,10 +529,10 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
             while (pa)
             {
                 struct osstream sslocal = { 0 };
-                print_type(&sslocal, &pa->type, target);
+                print_type_core(&sslocal, &pa->type, false, printname, target);
                 ss_fprintf(ss, "%s", sslocal.c_str);
                 if (pa->next)
-                    ss_fprintf(ss, ",");
+                    ss_fprintf(ss, printname ? "," : ", ");
                 ss_close(&sslocal);
                 pa = pa->next;
             }
@@ -554,7 +551,12 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
 
             ss_fprintf(&local, "*");
             bool first = false;
+            const int size_before_qualifiers = local.size;
             print_type_qualifier_flags(&local, &first, p->type_qualifier_flags);
+
+            /* '* _Opt' followed by more declarator: '* _Opt *', not '* _Opt*' (messages only; code generation keeps its output) */
+            if (!printname && local.size > size_before_qualifiers && ss->c_str && ss->c_str[0] != '\0')
+                ss_fprintf(&local, " ");
 
             if (printname && p->name_opt)
             {
@@ -4882,48 +4884,29 @@ static bool is_valid_type(const struct parser_ctx* ctx, const struct token* _Opt
     if (p_token == NULL)
         p_token = ctx->current;
 
-    bool crossed_array = false;
-    bool crossed_function = false;
-
     const struct type* _Opt p = p_type;
     while (p)
     {
-        if (p->category == TYPE_CATEGORY_POINTER)
+        /* _Atomic int a[5] is an array of atomic; only _Atomic applied to an array or function type itself is invalid */
+        if (p->type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
         {
-            /* a pointer breaks the direct array/function relation below */
-            crossed_array = false;
-            crossed_function = false;
-        }
-        else if (p->category == TYPE_CATEGORY_ARRAY)
-        {
-            crossed_array = true;
-        }
-        else if (p->category == TYPE_CATEGORY_FUNCTION)
-        {
-            crossed_function = true;
-        }
-        else if (p->category == TYPE_CATEGORY_ITSELF)
-        {
-            if (p->type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
+            if (p->category == TYPE_CATEGORY_ARRAY)
             {
-                if (crossed_array)
-                {
-                    diagnostic(C_ERROR_ATOMIC_QUALIFIER_ON_ARRAY,
-                                                ctx,
-                                                p_token,
-                                                NULL,
-                                                "'_Atomic' qualifier cannot be applied to array types");
-                    return false;
-                }
-                if (crossed_function)
-                {
-                    diagnostic(C_ERROR_ATOMIC_QUALIFIER_ON_FUNCTION,
-                                                ctx,
-                                                p_token,
-                                                NULL,
-                                                "'_Atomic' qualifier cannot be applied to function types");
-                    return false;
-                }
+                diagnostic(C_ERROR_ATOMIC_QUALIFIER_ON_ARRAY,
+                                            ctx,
+                                            p_token,
+                                            NULL,
+                                            "'_Atomic' qualifier cannot be applied to array types");
+                return false;
+            }
+            if (p->category == TYPE_CATEGORY_FUNCTION)
+            {
+                diagnostic(C_ERROR_ATOMIC_QUALIFIER_ON_FUNCTION,
+                                            ctx,
+                                            p_token,
+                                            NULL,
+                                            "'_Atomic' qualifier cannot be applied to function types");
+                return false;
             }
         }
 
@@ -4979,7 +4962,7 @@ static bool is_valid_type(const struct parser_ctx* ctx, const struct token* _Opt
                                         ctx,
                                         p_token,
                                         NULL,
-                                        "invalid type");
+                                        p_token && p_token->type == TK_IDENTIFIER ? "missing type specifier for '%s'" : "missing type specifier", p_token ? p_token->lexeme : "");
             return false;
         }
 
@@ -5022,6 +5005,45 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
             if (list.head != NULL)
                 type_set_qualifiers_using_declarator(list.head, pdeclarator);
+
+            if (list.tail)
+            {
+                _Assert(list.tail->next == NULL);
+                list.tail->next = p_nt;
+            }
+            else
+            {
+                type_list_push_back(&list, p_nt);
+            }
+        }
+        else if ((pdeclarator->declaration_specifiers && pdeclarator->declaration_specifiers->atomic_type_specifier) ||
+                 (pdeclarator->specifier_qualifier_list && pdeclarator->specifier_qualifier_list->atomic_type_specifier))
+        {
+            /* _Atomic ( type-name ) is type-name with the _Atomic qualifier */
+            struct atomic_type_specifier* _Opt p_atomic_type_specifier =
+                pdeclarator->declaration_specifiers ?
+                pdeclarator->declaration_specifiers->atomic_type_specifier :
+                pdeclarator->specifier_qualifier_list->atomic_type_specifier;
+
+            struct type* _Owner _Opt p_nt = calloc(1, sizeof(struct type));
+            if (p_nt == NULL || p_atomic_type_specifier == NULL)
+            {
+                free(p_nt);
+                type_list_destroy(&list);
+                throw;
+            }
+
+            *p_nt = type_dup(&p_atomic_type_specifier->type);
+
+            free((void* _Owner)p_nt->name_opt);
+            p_nt->name_opt = NULL;
+            if (pdeclarator->name_opt)
+            {
+                p_nt->name_opt = strdup(pdeclarator->name_opt->lexeme);
+            }
+
+            type_merge_qualifiers_using_declarator(p_nt, pdeclarator);
+            p_nt->type_qualifier_flags |= TYPE_QUALIFIER__ATOMIC;
 
             if (list.tail)
             {
@@ -5103,7 +5125,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
                     alignment_flags_to_value(pdeclarator->declaration_specifiers->alignment_specifier_flags);
                 const size_t natural_align = type_get_alignof(p, ctx->options.target);
 
-                if (requested_align != 0 && (size_t)requested_align < natural_align)
+                if (requested_align != 0 && (long long)natural_align > 0 && (size_t)requested_align < natural_align)
                 {
                     diagnostic(C_ERROR_ALIGNMENT_SPECIFIER_LESS_STRICT,
                         ctx,

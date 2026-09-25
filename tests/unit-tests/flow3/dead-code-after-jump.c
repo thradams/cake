@@ -36,8 +36,8 @@ void h(int x)
         continue;
         a = 99; //lint 68 unreachable code
     }
-    /* expected a == 0 only: the first pass's dead tail must not pollute the second pass */
-    compile_assert(a == 0);
+    /* never 99: the dead tail does not pollute the second pass */
+    compile_assert(a == 0 || a == 1);
 }
 
 void k(int x)

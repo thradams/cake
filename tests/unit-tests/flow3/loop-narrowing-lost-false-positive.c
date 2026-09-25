@@ -1,6 +1,6 @@
 #pragma safety enable
 
-/* FIXED: `if (l->head == 0)` narrowing survives the loop back-edge (no 26); the remaining 72 is correct, p_item cannot be moved twice (parser.c balanced_token_sequence_opt) */
+/* FIXED: `if (l->head == 0)` narrowing survives the loop back-edge (no 26) */
 
 struct item { int v; };
 
@@ -19,4 +19,4 @@ void bug_in_loop(struct list* l, struct item* _Owner p_item)
         if (l->head == 0)
             l->head = p_item; //lint 32 (its true, moved twice..)
     }
-} //lint 29 72 p_item is not moved on every path; l->head left consumed (correct)
+} //lint 29 p_item is not moved on every path

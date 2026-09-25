@@ -57,6 +57,8 @@ void codegen_visit_ctx_destroy(_Dtor struct codegen_ctx* ctx)
     hashmap_destroy(&ctx->structs_map);
     hashmap_destroy(&ctx->file_scope_declarator_map);
     hashmap_destroy(&ctx->instantiated_function_literals);
+    hashmap_destroy(&ctx->atomic_helpers);
+    ss_close(&ctx->atomic_helpers_text);
     ss_close(&ctx->block_scope_declarators);
     free(ctx->vm_snapshot_ids);
     ss_close(&ctx->add_this_before);
@@ -1043,19 +1045,76 @@ static void codegen_emit_bitint_wrap_text(struct codegen_ctx* ctx,
     struct osstream lowered = { 0 };
     d_print_type(ctx, &lowered, p_type, NULL, false, false);
 
-    const char* to_integer = source_is_floating ? "(unsigned long long)(long long)" : "(unsigned long long)";
+    /* when N is below the target int width the whole computation fits in int */
+    const bool use_int = width < get_platform(ctx->options.target)->int_n_bits;
+    const char* const u_type = use_int ? "unsigned" : "unsigned long long";
+    const char* const s_type = use_int ? "int" : "long long";
+    const char* const u_suffix = use_int ? "U" : "ULL";
+    const char* const s_suffix = use_int ? "" : "LL";
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
     {
-        ss_fprintf(oss, "((%s)(%s(%s) & 0x%llxULL))", lowered.c_str, to_integer, text, mask);
+        if (source_is_floating)
+            ss_fprintf(oss, "((%s)((%s)(long long)(%s) & 0x%llx%s))", lowered.c_str, u_type, text, mask, u_suffix);
+        else
+            ss_fprintf(oss, "((%s)((%s)(%s) & 0x%llx%s))", lowered.c_str, u_type, text, mask, u_suffix);
     }
     else
     {
-        ss_fprintf(oss, "((%s)(((long long)(%s(%s) & 0x%llxULL) ^ 0x%llxLL) - 0x%llxLL))",
-                   lowered.c_str, to_integer, text, mask, sign, sign);
+        if (source_is_floating)
+            ss_fprintf(oss, "((%s)(((%s)((%s)(long long)(%s) & 0x%llx%s) ^ 0x%llx%s) - 0x%llx%s))",
+                       lowered.c_str, s_type, u_type, text, mask, u_suffix, sign, s_suffix, sign, s_suffix);
+        else
+            ss_fprintf(oss, "((%s)(((%s)((%s)(%s) & 0x%llx%s) ^ 0x%llx%s) - 0x%llx%s))",
+                       lowered.c_str, s_type, u_type, text, mask, u_suffix, sign, s_suffix, sign, s_suffix);
     }
 
     ss_close(&lowered);
+}
+
+/*
+  Same as codegen_emit_bitint_wrap_text when the source is an integer constant:
+  the wrap is done at compile time and only the resulting value is emitted.
+  Returns false (nothing emitted) if the source is not an integer constant.
+*/
+static bool codegen_emit_bitint_wrap_constant(struct codegen_ctx* ctx,
+                                              struct osstream* oss,
+                                              const struct type* p_type,
+                                              const struct object* p_source)
+{
+    if (!object_has_constant_value(p_source) || !type_is_integer(&p_source->type))
+    {
+        return false;
+    }
+
+    const int width = p_type->bitint_width;
+
+    const unsigned long long bits = type_is_signed_integer(&p_source->type) ?
+        (unsigned long long)object_to_signed_long_long(p_source) :
+        object_to_unsigned_long_long(p_source);
+
+    struct osstream lowered = { 0 };
+    d_print_type(ctx, &lowered, p_type, NULL, false, false);
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
+    {
+        struct object wrapped = object_make_unsigned_bitint(width, bits);
+        ss_fprintf(oss, "((%s)%lluU)", lowered.c_str, wrapped.value.host_u_long_long);
+        object_destroy(&wrapped);
+    }
+    else
+    {
+        struct object wrapped = object_make_signed_bitint(width, (long long)bits);
+        const long long value = wrapped.value.host_long_long;
+        object_destroy(&wrapped);
+        if (value == LLONG_MIN)
+            ss_fprintf(oss, "((%s)(-%lld - 1))", lowered.c_str, LLONG_MAX);
+        else
+            ss_fprintf(oss, "((%s)%lld)", lowered.c_str, value);
+    }
+
+    ss_close(&lowered);
+    return true;
 }
 
 /*
@@ -1103,6 +1162,10 @@ static void codegen_emit_converted_expression(struct codegen_ctx* ctx,
                (p_expression->object.type.type_specifier_flags & TYPE_SPECIFIER_UNSIGNED) == (p_target_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)))
     {
         /* a value that already has this _BitInt type is in range, no wrap */
+        if (codegen_emit_bitint_wrap_constant(ctx, oss, p_target_type, &p_expression->object))
+        {
+            return;
+        }
         struct osstream text = { 0 };
         codegen_visit_expression(ctx, &text, p_expression);
         if (text.c_str != NULL)
@@ -1164,6 +1227,279 @@ static bool codegen_compound_assignment_needs_conversion(const struct codegen_ct
     return type_is_bool(p_left_type) || codegen_bitint_conversion_needs_wrap(ctx, p_left_type);
 }
 
+/*
+  Operations on _Atomic objects call static helpers, emitted once per type into ctx->atomic_helpers_text.
+  kind is "load", "cas", "store" or the binary operator of a compound assignment, ++ or --.
+  load and cas are the target primitives; store and the operators are a compare-exchange loop over them.
+*/
+static void codegen_atomic_helper(struct codegen_ctx* ctx,
+                                  const struct type* p_atomic_type,
+                                  const char* kind,
+                                  const struct type* _Opt p_operand_type,
+                                  bool return_old,
+                                  char helper_name[100])
+{
+    struct type value_type = type_lvalue_conversion(p_atomic_type);
+    struct osstream value_type_text = { 0 };
+    struct osstream operand_text = { 0 };
+    struct osstream key = { 0 };
+
+    d_print_type(ctx, &value_type_text, &value_type, NULL, false, false);
+    if (p_operand_type)
+    {
+        struct type operand_type = type_lvalue_conversion(p_operand_type);
+        d_print_type(ctx, &operand_text, &operand_type, "v", false, false);
+        type_destroy(&operand_type);
+    }
+    else
+    {
+        d_print_type(ctx, &operand_text, &value_type, "v", false, false);
+    }
+
+    ss_fprintf(&key, "%s|%s|%s|%d", kind, value_type_text.c_str, operand_text.c_str, return_old ? 1 : 0);
+
+    struct map_entry* _Opt p_entry = NULL;
+    if (key.c_str != NULL)
+    {
+        p_entry = hashmap_find(&ctx->atomic_helpers, key.c_str);
+    }
+
+    if (key.c_str == NULL)
+    {
+        /* out of memory */
+    }
+    else if (p_entry != NULL)
+    {
+        snprintf(helper_name, 100, "%s", p_entry->data.p_text);
+    }
+    else
+    {
+        const bool is_msvc = ctx->options.target == TARGET_X86_MSVC || ctx->options.target == TARGET_X64_MSVC;
+        const bool is_load = strcmp(kind, "load") == 0;
+        const bool is_cas = strcmp(kind, "cas") == 0;
+        const bool is_store = strcmp(kind, "store") == 0;
+        const bool is_xchg = strcmp(kind, "xchg") == 0;
+
+        char load_name[100] = { 0 };
+        char cas_name[100] = { 0 };
+        if (!is_load && !is_cas)
+        {
+            codegen_atomic_helper(ctx, p_atomic_type, "load", NULL, false, load_name);
+            codegen_atomic_helper(ctx, p_atomic_type, "cas", NULL, false, cas_name);
+        }
+
+        char base_name[50] = { 0 };
+        snprintf(base_name, sizeof base_name, CAKE_FILE_SCOPE_PREFIX "atomic_%s", (is_load || is_cas || is_store || is_xchg) ? kind : "op");
+        generate_file_scope_new_name(ctx, base_name, 100, helper_name);
+
+        struct hash_item_set item = { 0 };
+        item.text = strdup(helper_name);
+        hashmap_set(&ctx->atomic_helpers, key.c_str, &item);
+        hash_item_set_destroy(&item);
+
+        /* MSVC primitives use the _InterlockedCompareExchange of the same size, or a spin lock */
+        const char* msvc_integer = "";
+        const char* msvc_cas = "";
+        size_t size = 0;
+        if (is_msvc && type_get_sizeof(&value_type, &size, ctx->options.target) == SIZEOF_RESULT_OK)
+        {
+            if (size == 1)
+            {
+                msvc_integer = "char";
+                msvc_cas = "_InterlockedCompareExchange8";
+            }
+            else if (size == 2)
+            {
+                msvc_integer = "short";
+                msvc_cas = "_InterlockedCompareExchange16";
+            }
+            else if (size == 4)
+            {
+                msvc_integer = "long";
+                msvc_cas = "_InterlockedCompareExchange";
+            }
+            else if (size == 8)
+            {
+                msvc_integer = "__int64";
+                msvc_cas = "_InterlockedCompareExchange64";
+            }
+        }
+
+        if (is_msvc && !ctx->atomic_helpers_msvc_declared)
+        {
+            ctx->atomic_helpers_msvc_declared = true;
+            ss_fprintf(&ctx->atomic_helpers_text,
+                       "char _InterlockedCompareExchange8(char volatile * p, char exchange, char comparand);\n"
+                       "short _InterlockedCompareExchange16(short volatile * p, short exchange, short comparand);\n"
+                       "long _InterlockedCompareExchange(long volatile * p, long exchange, long comparand);\n"
+                       "__int64 _InterlockedCompareExchange64(__int64 volatile * p, __int64 exchange, __int64 comparand);\n"
+                       "#pragma intrinsic(_InterlockedCompareExchange8, _InterlockedCompareExchange16, _InterlockedCompareExchange, _InterlockedCompareExchange64)\n"
+                       "static long " CAKE_FILE_SCOPE_PREFIX "atomic_lock;\n\n");
+        }
+
+        struct osstream signature_name = { 0 };
+        struct osstream signature = { 0 };
+        struct osstream d_param = { 0 };
+        struct osstream r_decl = { 0 };
+        struct osstream o_decl = { 0 };
+        struct osstream n_decl = { 0 };
+        struct osstream v_member = { 0 };
+        struct osstream q_decl = { 0 };
+        struct osstream pe_decl = { 0 };
+
+        /* the output has no typedef, so every declaration spells the type */
+        d_print_type(ctx, &d_param, &value_type, "d", false, false);
+        d_print_type(ctx, &r_decl, &value_type, "r", false, false);
+        d_print_type(ctx, &o_decl, &value_type, "o", false, false);
+        d_print_type(ctx, &n_decl, &value_type, "n", false, false);
+        d_print_type(ctx, &v_member, &value_type, "v", false, false);
+        {
+            struct type pointer_type = type_add_pointer(&value_type);
+            d_print_type(ctx, &q_decl, &pointer_type, "q", false, false);
+            d_print_type(ctx, &pe_decl, &pointer_type, "pe", false, false);
+            type_destroy(&pointer_type);
+        }
+
+        if (is_load)
+        {
+            ss_fprintf(&signature_name, "%s(void * p)", helper_name);
+        }
+        else if (is_cas)
+        {
+            ss_fprintf(&signature_name, "%s(void * p, void * e, %s)", helper_name, d_param.c_str);
+        }
+        else
+        {
+            ss_fprintf(&signature_name, "%s(void * p, %s)", helper_name, operand_text.c_str);
+        }
+
+        if (is_cas)
+        {
+            ss_fprintf(&signature, "int %s", signature_name.c_str);
+        }
+        else
+        {
+            d_print_type(ctx, &signature, &value_type, signature_name.c_str, false, false);
+        }
+
+        ss_fprintf(&ctx->atomic_helpers_text, "static %s\n{\n", signature.c_str);
+
+        if (is_load && !is_msvc)
+        {
+            ss_fprintf(&ctx->atomic_helpers_text,
+                       "    %s;\n"
+                       "    %s;\n"
+                       "    q = p;\n"
+                       "    __atomic_load(q, &r, 5);\n"
+                       "    return r;\n",
+                       q_decl.c_str, r_decl.c_str);
+        }
+        else if (is_cas && !is_msvc)
+        {
+            ss_fprintf(&ctx->atomic_helpers_text,
+                       "    %s;\n"
+                       "    %s;\n"
+                       "    q = p;\n"
+                       "    pe = e;\n"
+                       "    return __atomic_compare_exchange(q, pe, &d, 0, 5, 5);\n",
+                       q_decl.c_str, pe_decl.c_str);
+        }
+        else if (is_load && msvc_cas[0] != '\0')
+        {
+            ss_fprintf(&ctx->atomic_helpers_text,
+                       "    union { %s; %s i; } u;\n"
+                       "    u.i = %s((%s volatile *)p, 0, 0);\n"
+                       "    return u.v;\n",
+                       v_member.c_str, msvc_integer, msvc_cas, msvc_integer);
+        }
+        else if (is_cas && msvc_cas[0] != '\0')
+        {
+            ss_fprintf(&ctx->atomic_helpers_text,
+                       "    union { %s; %s i; } x, y;\n"
+                       "    %s;\n"
+                       "    %s old;\n"
+                       "    pe = e;\n"
+                       "    x.v = *pe;\n"
+                       "    y.v = d;\n"
+                       "    old = %s((%s volatile *)p, y.i, x.i);\n"
+                       "    if (old == x.i) return 1;\n"
+                       "    x.i = old;\n"
+                       "    *pe = x.v;\n"
+                       "    return 0;\n",
+                       v_member.c_str, msvc_integer, pe_decl.c_str, msvc_integer, msvc_cas, msvc_integer);
+        }
+        else if (is_load)
+        {
+            ss_fprintf(&ctx->atomic_helpers_text,
+                       "    %s;\n"
+                       "    %s;\n"
+                       "    q = p;\n"
+                       "    while (_InterlockedCompareExchange(&" CAKE_FILE_SCOPE_PREFIX "atomic_lock, 1, 0) != 0) {}\n"
+                       "    r = *q;\n"
+                       "    _InterlockedCompareExchange(&" CAKE_FILE_SCOPE_PREFIX "atomic_lock, 0, 1);\n"
+                       "    return r;\n",
+                       q_decl.c_str, r_decl.c_str);
+        }
+        else if (is_cas)
+        {
+            ss_fprintf(&ctx->atomic_helpers_text,
+                       "    %s;\n"
+                       "    %s;\n"
+                       "    unsigned char * a;\n"
+                       "    unsigned char * b;\n"
+                       "    unsigned int i;\n"
+                       "    int equal;\n"
+                       "    q = p;\n"
+                       "    pe = e;\n"
+                       "    while (_InterlockedCompareExchange(&" CAKE_FILE_SCOPE_PREFIX "atomic_lock, 1, 0) != 0) {}\n"
+                       "    a = (unsigned char *)p;\n"
+                       "    b = (unsigned char *)e;\n"
+                       "    equal = 1;\n"
+                       "    for (i = 0; i < sizeof(d); i++) if (a[i] != b[i]) equal = 0;\n"
+                       "    if (equal) *q = d; else *pe = *q;\n"
+                       "    _InterlockedCompareExchange(&" CAKE_FILE_SCOPE_PREFIX "atomic_lock, 0, 1);\n"
+                       "    return equal;\n",
+                       q_decl.c_str, pe_decl.c_str);
+        }
+        else if (is_store || is_xchg)
+        {
+            ss_fprintf(&ctx->atomic_helpers_text,
+                       "    %s;\n"
+                       "    o = %s(p);\n"
+                       "    while (!%s(p, &o, v)) {}\n"
+                       "    return %s;\n",
+                       o_decl.c_str, load_name, cas_name, is_xchg ? "o" : "v");
+        }
+        else
+        {
+            ss_fprintf(&ctx->atomic_helpers_text,
+                       "    %s;\n"
+                       "    %s;\n"
+                       "    o = %s(p);\n"
+                       "    do { n = o %s v; } while (!%s(p, &o, n));\n"
+                       "    return %s;\n",
+                       o_decl.c_str, n_decl.c_str, load_name, kind, cas_name, return_old ? "o" : "n");
+        }
+
+        ss_fprintf(&ctx->atomic_helpers_text, "}\n\n");
+
+        ss_close(&signature_name);
+        ss_close(&signature);
+        ss_close(&d_param);
+        ss_close(&r_decl);
+        ss_close(&o_decl);
+        ss_close(&n_decl);
+        ss_close(&v_member);
+        ss_close(&q_decl);
+        ss_close(&pe_decl);
+    }
+
+    type_destroy(&value_type);
+    ss_close(&value_type_text);
+    ss_close(&operand_text);
+    ss_close(&key);
+}
+
 static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstream* oss, struct expression* p_expression);
 
 static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* oss, struct expression* p_expression)
@@ -1188,7 +1524,39 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
         break;
     }
 
-    if (wrap)
+    const bool atomic_lvalue = ctx->atomic_lvalue;
+    ctx->atomic_lvalue = false;
+
+    const bool atomic_load =
+        !atomic_lvalue &&
+        (p_expression->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC) &&
+        !type_is_array(&p_expression->object.type) &&
+        !object_has_constant_value(&p_expression->object) &&
+        (p_expression->expression_type == EXPR_PRIMARY_DECLARATOR ||
+         p_expression->expression_type == EXPR_POSTFIX_DOT ||
+         p_expression->expression_type == EXPR_POSTFIX_ARROW ||
+         p_expression->expression_type == EXPR_POSTFIX_ARRAY ||
+         p_expression->expression_type == EXPR_UNARY_CONTENT);
+
+    if (p_expression->expression_type == EXPR_PRIMARY_PARENTHESIS)
+    {
+        /* (a) is the same lvalue as a */
+        ctx->atomic_lvalue = atomic_lvalue;
+        codegen_visit_expression_core(ctx, oss, p_expression);
+        ctx->atomic_lvalue = false;
+    }
+    else if (atomic_load)
+    {
+        char helper_name[100] = { 0 };
+        codegen_atomic_helper(ctx, &p_expression->object.type, "load", NULL, false, helper_name);
+        ss_fprintf(oss, "%s(&", helper_name);
+        codegen_visit_expression_core(ctx, oss, p_expression);
+        ss_fprintf(oss, ")");
+    }
+    else if (wrap && codegen_emit_bitint_wrap_constant(ctx, oss, &p_expression->object.type, &p_expression->object))
+    {
+    }
+    else if (wrap)
     {
         struct osstream text = { 0 };
         codegen_visit_expression_core(ctx, &text, p_expression);
@@ -1434,7 +1802,9 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                       cannot be redeclared, so no prototype is generated for them.
                     */
                     const bool is_compiler_builtin =
-                    strncmp(declarator_name, "__builtin_", sizeof("__builtin_") - 1) == 0;
+                    strncmp(declarator_name, "__builtin_", sizeof("__builtin_") - 1) == 0 ||
+                    strncmp(declarator_name, "__atomic_", sizeof("__atomic_") - 1) == 0 ||
+                    strncmp(declarator_name, "__c11_atomic_", sizeof("__c11_atomic_") - 1) == 0;
 
                     const bool needs_declaration =
                     !is_compiler_builtin &&
@@ -1805,7 +2175,18 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             case EXPR_POSTFIX_INCREMENT:
                 _Assert(p_expression->left != NULL);
 
-                if (codegen_is_vm_pointer(&p_expression->left->object.type))
+                if (p_expression->left->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
+                {
+                    struct type int_type = type_make_int_bool_like();
+                    char helper_name[100] = { 0 };
+                    codegen_atomic_helper(ctx, &p_expression->left->object.type, "+", &int_type, true, helper_name);
+                    type_destroy(&int_type);
+                    ss_fprintf(oss, "%s(&", helper_name);
+                    ctx->atomic_lvalue = true;
+                    codegen_visit_expression(ctx, oss, p_expression->left);
+                    ss_fprintf(oss, ", 1)");
+                }
+                else if (codegen_is_vm_pointer(&p_expression->left->object.type))
                 {
                     codegen_vm_ptr_postfix_step(ctx, oss, p_expression->left, "+");
                 }
@@ -1837,7 +2218,18 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             case EXPR_POSTFIX_DECREMENT:
                 _Assert(p_expression->left != NULL);
 
-                if (codegen_is_vm_pointer(&p_expression->left->object.type))
+                if (p_expression->left->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
+                {
+                    struct type int_type = type_make_int_bool_like();
+                    char helper_name[100] = { 0 };
+                    codegen_atomic_helper(ctx, &p_expression->left->object.type, "-", &int_type, true, helper_name);
+                    type_destroy(&int_type);
+                    ss_fprintf(oss, "%s(&", helper_name);
+                    ctx->atomic_lvalue = true;
+                    codegen_visit_expression(ctx, oss, p_expression->left);
+                    ss_fprintf(oss, ", 1)");
+                }
+                else if (codegen_is_vm_pointer(&p_expression->left->object.type))
                 {
                     codegen_vm_ptr_postfix_step(ctx, oss, p_expression->left, "-");
                 }
@@ -1986,6 +2378,190 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             {
                 _Assert(p_expression->left != NULL);
 
+                /* the __c11_atomic and __atomic builtins used by <stdatomic.h> call the same helpers as _Atomic operators */
+                struct argument_expression* _Opt p_first_argument = p_expression->argument_expression_list.head;
+                const char* _Opt atomic_builtin = NULL;
+                if (p_expression->left->expression_type == EXPR_PRIMARY_DECLARATOR &&
+                    p_expression->left->declarator &&
+                    p_expression->left->declarator->name_opt &&
+                    p_first_argument)
+                {
+                    atomic_builtin = p_expression->left->declarator->name_opt->lexeme;
+                }
+
+                const char* _Opt atomic_kind = NULL;
+                bool atomic_return_old = false;
+                int atomic_expected_index = -1;
+                int atomic_value_index = -1;
+                bool atomic_value_by_pointer = false;
+                int atomic_result_index = -1;
+                bool atomic_is_fence = false;
+                bool atomic_is_lock_free = false;
+
+                if (atomic_builtin == NULL)
+                {
+                }
+                else if (strcmp(atomic_builtin, "__c11_atomic_load") == 0 || strcmp(atomic_builtin, "__atomic_load_n") == 0)
+                {
+                    atomic_kind = "load";
+                }
+                else if (strcmp(atomic_builtin, "__atomic_load") == 0)
+                {
+                    atomic_kind = "load";
+                    atomic_result_index = 1;
+                }
+                else if (strcmp(atomic_builtin, "__c11_atomic_store") == 0 || strcmp(atomic_builtin, "__atomic_store_n") == 0 ||
+                         strcmp(atomic_builtin, "__c11_atomic_init") == 0)
+                {
+                    atomic_kind = "store";
+                    atomic_value_index = 1;
+                }
+                else if (strcmp(atomic_builtin, "__atomic_store") == 0)
+                {
+                    atomic_kind = "store";
+                    atomic_value_index = 1;
+                    atomic_value_by_pointer = true;
+                }
+                else if (strcmp(atomic_builtin, "__c11_atomic_exchange") == 0 || strcmp(atomic_builtin, "__atomic_exchange_n") == 0)
+                {
+                    atomic_kind = "xchg";
+                    atomic_value_index = 1;
+                }
+                else if (strcmp(atomic_builtin, "__atomic_exchange") == 0)
+                {
+                    atomic_kind = "xchg";
+                    atomic_value_index = 1;
+                    atomic_value_by_pointer = true;
+                    atomic_result_index = 2;
+                }
+                else if (strcmp(atomic_builtin, "__c11_atomic_compare_exchange_strong") == 0 ||
+                         strcmp(atomic_builtin, "__c11_atomic_compare_exchange_weak") == 0 ||
+                         strcmp(atomic_builtin, "__atomic_compare_exchange_n") == 0)
+                {
+                    atomic_kind = "cas";
+                    atomic_expected_index = 1;
+                    atomic_value_index = 2;
+                }
+                else if (strcmp(atomic_builtin, "__atomic_compare_exchange") == 0)
+                {
+                    atomic_kind = "cas";
+                    atomic_expected_index = 1;
+                    atomic_value_index = 2;
+                    atomic_value_by_pointer = true;
+                }
+                else if (strcmp(atomic_builtin, "__c11_atomic_thread_fence") == 0 || strcmp(atomic_builtin, "__atomic_thread_fence") == 0 ||
+                         strcmp(atomic_builtin, "__c11_atomic_signal_fence") == 0 || strcmp(atomic_builtin, "__atomic_signal_fence") == 0)
+                {
+                    atomic_is_fence = true;
+                }
+                else if (strcmp(atomic_builtin, "__c11_atomic_is_lock_free") == 0 || strcmp(atomic_builtin, "__atomic_is_lock_free") == 0 ||
+                         strcmp(atomic_builtin, "__atomic_always_lock_free") == 0)
+                {
+                    atomic_is_lock_free = true;
+                }
+                else
+                {
+                    static const char* const fetch_builtins[][3] = {
+                        { "__c11_atomic_fetch_add", "+", "old" }, { "__atomic_fetch_add", "+", "old" }, { "__atomic_add_fetch", "+", "new" },
+                        { "__c11_atomic_fetch_sub", "-", "old" }, { "__atomic_fetch_sub", "-", "old" }, { "__atomic_sub_fetch", "-", "new" },
+                        { "__c11_atomic_fetch_and", "&", "old" }, { "__atomic_fetch_and", "&", "old" }, { "__atomic_and_fetch", "&", "new" },
+                        { "__c11_atomic_fetch_or", "|", "old" }, { "__atomic_fetch_or", "|", "old" }, { "__atomic_or_fetch", "|", "new" },
+                        { "__c11_atomic_fetch_xor", "^", "old" }, { "__atomic_fetch_xor", "^", "old" }, { "__atomic_xor_fetch", "^", "new" },
+                    };
+                    for (int i = 0; i < (int)(sizeof fetch_builtins / sizeof fetch_builtins[0]); i++)
+                    {
+                        if (strcmp(atomic_builtin, fetch_builtins[i][0]) == 0)
+                        {
+                            atomic_kind = fetch_builtins[i][1];
+                            atomic_return_old = strcmp(fetch_builtins[i][2], "old") == 0;
+                            atomic_value_index = 1;
+                            break;
+                        }
+                    }
+                }
+
+                const bool is_msvc = ctx->options.target == TARGET_X86_MSVC || ctx->options.target == TARGET_X64_MSVC;
+
+                if (atomic_is_lock_free && p_first_argument)
+                {
+                    /* the helpers of sizes 1, 2, 4 and 8 have no lock */
+                    ss_fprintf(oss, "(");
+                    codegen_visit_expression(ctx, oss, p_first_argument->expression);
+                    ss_fprintf(oss, " <= 8)");
+                    break;
+                }
+
+                if (atomic_is_fence && is_msvc)
+                {
+                    /* an interlocked operation is a full barrier */
+                    struct type int_type = type_make_int_bool_like();
+                    char helper_name[100] = { 0 };
+                    codegen_atomic_helper(ctx, &int_type, "load", NULL, false, helper_name);
+                    type_destroy(&int_type);
+                    ss_fprintf(oss, "%s(&" CAKE_FILE_SCOPE_PREFIX "atomic_lock)", helper_name);
+                    break;
+                }
+
+                if (atomic_kind != NULL &&
+                    p_first_argument &&
+                    type_is_pointer(&p_first_argument->expression->object.type))
+                {
+                    struct argument_expression* _Opt arguments[6] = { 0 };
+                    int argument_count = 0;
+                    for (struct argument_expression* _Opt p_argument = p_expression->argument_expression_list.head;
+                         p_argument != NULL && argument_count < 6;
+                         p_argument = p_argument->next)
+                    {
+                        arguments[argument_count++] = p_argument;
+                    }
+
+                    struct type atomic_type = type_remove_pointer(&p_first_argument->expression->object.type);
+                    struct type* _Opt p_operand_type = NULL;
+                    if (atomic_value_index >= 0 && atomic_value_index < argument_count && !atomic_value_by_pointer &&
+                        strcmp(atomic_kind, "store") != 0 && strcmp(atomic_kind, "xchg") != 0 && strcmp(atomic_kind, "cas") != 0)
+                    {
+                        p_operand_type = &arguments[atomic_value_index]->expression->object.type;
+                    }
+
+                    char helper_name[100] = { 0 };
+                    codegen_atomic_helper(ctx, &atomic_type, atomic_kind, p_operand_type, atomic_return_old, helper_name);
+                    type_destroy(&atomic_type);
+
+                    if (atomic_result_index >= 0 && atomic_result_index < argument_count)
+                    {
+                        ss_fprintf(oss, "(*(");
+                        codegen_visit_expression(ctx, oss, arguments[atomic_result_index]->expression);
+                        ss_fprintf(oss, ") = ");
+                    }
+
+                    ss_fprintf(oss, "%s(", helper_name);
+                    codegen_visit_expression(ctx, oss, p_first_argument->expression);
+
+                    if (atomic_expected_index >= 0 && atomic_expected_index < argument_count)
+                    {
+                        ss_fprintf(oss, ", ");
+                        codegen_visit_expression(ctx, oss, arguments[atomic_expected_index]->expression);
+                    }
+
+                    if (atomic_value_index >= 0 && atomic_value_index < argument_count)
+                    {
+                        ss_fprintf(oss, atomic_value_by_pointer ? ", *(" : ", ");
+                        codegen_visit_expression(ctx, oss, arguments[atomic_value_index]->expression);
+                        if (atomic_value_by_pointer)
+                        {
+                            ss_fprintf(oss, ")");
+                        }
+                    }
+
+                    ss_fprintf(oss, ")");
+
+                    if (atomic_result_index >= 0 && atomic_result_index < argument_count)
+                    {
+                        ss_fprintf(oss, ")");
+                    }
+                    break;
+                }
+
                 codegen_visit_expression(ctx, oss, p_expression->left);
 
                 struct param* _Opt param = p_expression->left->object.type.params.head;
@@ -2057,6 +2633,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
 
                 ss_fprintf(oss, "&");
                 ctx->address_of_argument = true;
+                ctx->atomic_lvalue = true;
                 codegen_visit_expression(ctx, oss, p_expression->right);
                 ctx->address_of_argument = false;
             }
@@ -2235,7 +2812,18 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
 
             case EXPR_UNARY_INCREMENT:
                 _Assert(p_expression->right != NULL);
-                if (codegen_is_vm_pointer(&p_expression->right->object.type))
+                if (p_expression->right->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
+                {
+                    struct type int_type = type_make_int_bool_like();
+                    char helper_name[100] = { 0 };
+                    codegen_atomic_helper(ctx, &p_expression->right->object.type, "+", &int_type, false, helper_name);
+                    type_destroy(&int_type);
+                    ss_fprintf(oss, "%s(&", helper_name);
+                    ctx->atomic_lvalue = true;
+                    codegen_visit_expression(ctx, oss, p_expression->right);
+                    ss_fprintf(oss, ", 1)");
+                }
+                else if (codegen_is_vm_pointer(&p_expression->right->object.type))
                 {
                     codegen_vm_ptr_prefix_step(ctx, oss, p_expression->right, "+");
                 }
@@ -2252,7 +2840,18 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
 
             case EXPR_UNARY_DECREMENT:
                 _Assert(p_expression->right != NULL);
-                if (codegen_is_vm_pointer(&p_expression->right->object.type))
+                if (p_expression->right->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
+                {
+                    struct type int_type = type_make_int_bool_like();
+                    char helper_name[100] = { 0 };
+                    codegen_atomic_helper(ctx, &p_expression->right->object.type, "-", &int_type, false, helper_name);
+                    type_destroy(&int_type);
+                    ss_fprintf(oss, "%s(&", helper_name);
+                    ctx->atomic_lvalue = true;
+                    codegen_visit_expression(ctx, oss, p_expression->right);
+                    ss_fprintf(oss, ", 1)");
+                }
+                else if (codegen_is_vm_pointer(&p_expression->right->object.type))
                 {
                     codegen_vm_ptr_prefix_step(ctx, oss, p_expression->right, "-");
                 }
@@ -2395,6 +2994,19 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                 _Assert(p_expression->left != NULL);
                 _Assert(p_expression->right != NULL);
 
+                if (p_expression->left->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
+                {
+                    char helper_name[100] = { 0 };
+                    codegen_atomic_helper(ctx, &p_expression->left->object.type, "store", NULL, false, helper_name);
+                    ss_fprintf(oss, "%s(&", helper_name);
+                    ctx->atomic_lvalue = true;
+                    codegen_visit_expression(ctx, oss, p_expression->left);
+                    ss_fprintf(oss, ", ");
+                    codegen_emit_converted_expression(ctx, oss, &p_expression->left->object.type, p_expression->right);
+                    ss_fprintf(oss, ")");
+                    break;
+                }
+
                 if (type_is_struct_or_union(&p_expression->left->object.type) &&
                 object_has_all_members_constants(&p_expression->right->object))
                 {
@@ -2447,6 +3059,23 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             case EXPR_ASSIGNMENT_MINUS_ASSIGN:
                 _Assert(p_expression->left != NULL);
                 _Assert(p_expression->right != NULL);
+                if (p_expression->left->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
+                {
+                    /* "*=" -> "*" */
+                    char op[4] = { 0 };
+                    snprintf(op, sizeof op, "%s", get_op_by_expression_type(p_expression->expression_type));
+                    op[strlen(op) - 1] = '\0';
+
+                    char helper_name[100] = { 0 };
+                    codegen_atomic_helper(ctx, &p_expression->left->object.type, op, &p_expression->right->object.type, false, helper_name);
+                    ss_fprintf(oss, "%s(&", helper_name);
+                    ctx->atomic_lvalue = true;
+                    codegen_visit_expression(ctx, oss, p_expression->left);
+                    ss_fprintf(oss, ", ");
+                    codegen_visit_expression(ctx, oss, p_expression->right);
+                    ss_fprintf(oss, ")");
+                    break;
+                }
                 if (codegen_compound_assignment_needs_conversion(ctx, &p_expression->left->object.type))
                 {
                     const char* op = p_expression->expression_type == EXPR_ASSIGNMENT_PLUS_ASSIGN ? "+" : "-";
@@ -2482,6 +3111,23 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             case EXPR_ASSIGNMENT_NOT_ASSIGN:
                 _Assert(p_expression->left != NULL);
                 _Assert(p_expression->right != NULL);
+                if (p_expression->left->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
+                {
+                    /* "*=" -> "*" */
+                    char op[4] = { 0 };
+                    snprintf(op, sizeof op, "%s", get_op_by_expression_type(p_expression->expression_type));
+                    op[strlen(op) - 1] = '\0';
+
+                    char helper_name[100] = { 0 };
+                    codegen_atomic_helper(ctx, &p_expression->left->object.type, op, &p_expression->right->object.type, false, helper_name);
+                    ss_fprintf(oss, "%s(&", helper_name);
+                    ctx->atomic_lvalue = true;
+                    codegen_visit_expression(ctx, oss, p_expression->left);
+                    ss_fprintf(oss, ", ");
+                    codegen_visit_expression(ctx, oss, p_expression->right);
+                    ss_fprintf(oss, ")");
+                    break;
+                }
                 if (codegen_compound_assignment_needs_conversion(ctx, &p_expression->left->object.type))
                 {
                     /* "*=" -> "*" */
@@ -2513,8 +3159,12 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                 if (type_is_bool(&p_expression->object.type) ||
                     codegen_bitint_conversion_needs_wrap(ctx, &p_expression->object.type))
                 {
-                    /* (bool)256 is 1 and (_BitInt(12))4096 is 0, the lowered cast alone gives the wrong value */
-                    ss_fprintf(oss, "(%s)", local2.c_str);
+                    /*
+                      (bool)256 is 1 and (_BitInt(12))4096 is 0, the lowered cast alone gives the wrong value.
+                      The _BitInt wrap already casts to the lowered type, bool needs the cast ('!= 0' is int).
+                    */
+                    if (type_is_bool(&p_expression->object.type))
+                        ss_fprintf(oss, "(%s)", local2.c_str);
                     codegen_emit_converted_expression(ctx, oss, &p_expression->object.type, p_expression->left);
                 }
                 else
@@ -6238,6 +6888,11 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
             }
         }
         //ss_fprintf(oss, "\n");
+
+        if (ctx->atomic_helpers_text.c_str)
+        {
+            ss_fprintf(oss, "\n%s", ctx->atomic_helpers_text.c_str);
+        }
 
         if (ctx->define_nullptr && ctx->null_pointer_constant_used)
         {

@@ -1,6 +1,6 @@
 int main()
 {
-    int i;
+    int i = 0;
     switch (i)
     {
         case 4294967295:

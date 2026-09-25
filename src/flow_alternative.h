@@ -97,6 +97,8 @@ struct flow_alternatives
 void flow_alternatives_clear(_Clear struct flow_alternatives* vs);
 void flow_alternatives_append(struct flow_alternatives* dst, const struct flow_alternatives* src);
 void flow_alternatives_add(struct flow_alternatives* vs, const struct flow_alternative* p_alternative);
+void flow_alternatives_push(struct flow_alternatives* vs, const struct flow_alternative* p_alternative);
+void flow_alternatives_remove_duplicates(struct flow_alternatives* vs);
 void flow_alternatives_print(const struct flow_alternatives* alternatives);
 
 void flow_alternatives_pool_shutdown(void);

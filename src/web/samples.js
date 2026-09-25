@@ -17,6 +17,11 @@ sample["C11"]["anonymous-structures-unions"] =
 struct point { float x, y, z; };\n\nstruct location {\n    char* name;\n    struct point;\n};\n\nint main()\n{\n    struct location location = {};\n    location.x = 1;\n    location.y = 2;\n}\n
 `;
 
+sample["C11"]["atomic"] =
+`
+/* each _Atomic operation becomes a call to a helper */\n_Atomic int counter;\n_Atomic(int*) p;\nint arr[4];\n\nint main(void)\n{\n    counter = 1;\n    counter++;\n    counter += 2;\n    counter *= 3;\n    int value = counter;\n\n    p = arr;\n    p++;\n\n    return value;\n}\n
+`;
+
 sample["C11"]["generic"] =
 `
 #include <math.h>\n\n#define cbrt(X) _Generic((X), \\\n                  double: cbrtl, \\\n                  float: cbrtf ,\\\n                  default: cbrtl  \\\n              )(X)\n\nint main(void)\n{\n    cbrt(1.0);\n\n    const int * const p = 0;\n    _Static_assert(_Generic(p, const int * : 1 ), \"\");\n    _Static_assert(_Generic(&p, const int * const * : 1 ), \"\");\n    _Static_assert(_Generic(main, int (*)(void) : 1 ), \"\");\n\n    const int * const p2 = 0;\n    static_assert(_Generic(p2, const int *: 1));\n\n    static_assert(_Generic(\"abc\",  char *: 1));    \n}\n

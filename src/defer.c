@@ -510,7 +510,9 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                 }
                 if (p->p_defer_block)
                 {
-                    diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p->p_defer_block->first_token, NULL, "is jumping out of defer");
+                    diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p->p_defer_block->first_token, NULL, "cannot jump out of a defer block");
+                    /* already an error: the outer defers, including this one, must not join the list */
+                    break;
                 }
                 p = p->previous;
             }
@@ -540,7 +542,10 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
                 if (p->p_defer_block)
                 {
-                    diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p->p_defer_block->first_token, NULL, "is jumping out of defer");
+                    diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p->p_defer_block->first_token, NULL, "cannot jump out of a defer block");
+                    /* already an error: the defers outside, including the one
+                       whose body this is, must not join the jump's list */
+                    break;
                 }
                 p = p->previous;
             }                        
@@ -585,9 +590,9 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                 if (p->p_defer_block)
                 {
                     if (break_jump)
-                        diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "break cannot jump out of defer");
+                        diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "break cannot jump out of a defer block");
                     else
-                        diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "continue cannot jump out of defer");
+                        diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "continue cannot jump out of a defer block");
                 }
                 p = p->previous;
             }
@@ -634,7 +639,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
                     if (!found)
                     {
-                        diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "jumping over defer. from here");
+                        diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "goto jumps over a defer statement");
                         diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
                         diagnostic(W_LOCATION, ctx->ctx, p1->p_defer_statement->first_token, NULL, "defer");
                     }
@@ -655,7 +660,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
                     if (!found)
                     {
-                        diagnostic(C_ERROR_JUMP_OVER_VLA, ctx->ctx, p_jump_statement->first_token, NULL, "jumping over vm. from here");
+                        diagnostic(C_ERROR_JUMP_OVER_VLA, ctx->ctx, p_jump_statement->first_token, NULL, "goto jumps over the declaration of a variably modified type");
                         diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here"); 
                         diagnostic(W_LOCATION, ctx->ctx, p1->p_declarator->first_token_opt, NULL, "declarator");
                     }
@@ -675,7 +680,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                     }
                     if (!found)
                     {
-                        diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "jumping into defer. from here");
+                        diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "goto jumps into a defer block");
                         diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here"); 
                     }
                 }
@@ -725,7 +730,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
                         if (p->p_defer_block)
                         {
-                            diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "jumping out of defer.");
+                            diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "cannot jump out of a defer block");
                             diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here"); 
                             // diagnostic(W_LOCATION, ctx->ctx, p1->p_defer_statement->first_token, NULL, "defer");                            
                         }
@@ -761,7 +766,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
                 if (p->p_defer_block)
                 {
-                    diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "goto is jumping out of defer.");
+                    diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "goto cannot jump out of a defer block");
                     diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here"); 
                 }
 
@@ -866,7 +871,7 @@ static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expressio
                     }
                     if (p->p_defer_block)
                     {
-                        diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p->p_defer_block->first_token, NULL, "is jumping out of defer");
+                        diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p->p_defer_block->first_token, NULL, "cannot jump out of a defer block");
                     }
                     p = p->previous;
                 }
@@ -1015,7 +1020,7 @@ static void defer_visit_block_item(struct defer_visit_ctx* ctx, struct block_ite
 
                     if (p->p_defer_statement)
                     {
-                        diagnostic(C_ERROR_JUMP_OVER_DEFER, ctx->ctx, p->p_defer_statement->first_token, NULL, "switch is jumping over or into defer");
+                        diagnostic(C_ERROR_JUMP_OVER_DEFER, ctx->ctx, p->p_defer_statement->first_token, NULL, "switch jumps over or into a defer statement");
                     }
                     p = p->previous;
                 }

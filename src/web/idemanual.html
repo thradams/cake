@@ -195,35 +195,40 @@
 </li>
 <li>
 <a href="#toc_8">3. Editor</a>
-</li>
-<li>
-<a href="#toc_9">4. Debugging</a>
 <ul>
 <li>
-<a href="#toc_10">4.1 Backend</a>
-</li>
-<li>
-<a href="#toc_11">4.2 Breakpoints</a>
-</li>
-<li>
-<a href="#toc_12">4.3 Running a session</a>
-</li>
-<li>
-<a href="#toc_13">4.4 Locals and Call Stack</a>
-</li>
-<li>
-<a href="#toc_14">4.5 Known limitations (Windows/cdb backend)</a>
+<a href="#toc_9">3.1 Command line (Output window)</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_15">5. Menu Reference</a>
+<a href="#toc_10">4. Debugging</a>
+<ul>
+<li>
+<a href="#toc_11">4.1 Backend</a>
 </li>
 <li>
-<a href="#toc_16">6. Keyboard Shortcuts</a>
+<a href="#toc_12">4.2 Breakpoints</a>
 </li>
 <li>
-<a href="#toc_17">7. Troubleshooting</a>
+<a href="#toc_13">4.3 Running a session</a>
+</li>
+<li>
+<a href="#toc_14">4.4 Locals and Call Stack</a>
+</li>
+<li>
+<a href="#toc_15">4.5 Known limitations (Windows/cdb backend)</a>
+</li>
+</ul>
+</li>
+<li>
+<a href="#toc_16">5. Menu Reference</a>
+</li>
+<li>
+<a href="#toc_17">6. Keyboard Shortcuts</a>
+</li>
+<li>
+<a href="#toc_18">7. Troubleshooting</a>
 </li>
 </ul>
 </li>
@@ -411,13 +416,78 @@
 <li><strong>Edit &gt; Word Wrap...</strong> toggles soft wrapping.</li>
 <li><strong>View &gt; Line Numbers</strong> toggles the gutter&#39;s line-number display.</li>
 <li>The gutter also shows breakpoint markers (see Debugging below) and, during a stopped debug session, the current execution line.</li>
+<li>In the Git diff viewer, right-click &gt; <strong>Edit</strong> opens the file with the caret on the same line and column, scrolled to the same height. <strong>↑ Previous</strong> / <strong>Next ↓</strong> jump between changes.</li>
 </ul>
+
+<h3 id="toc_9">3.1 Command line (Output window)</h3>
+
+<p>The bottom row of the <strong>Output</strong> window is a command line, marked <code>&gt;</code>. Clicking the Output text puts the focus there (unless you selected text to copy). Type a line and press Enter; it is handled in this order:</p>
+
+<ol>
+<li><strong>Input for a running program.</strong> While a program started from here runs, the prompt reads <code>stdin&gt;</code> and each line is sent to the program&#39;s standard input.</li>
+<li><strong><code>!</code> prefix.</strong> <code>!cmd</code> always runs <code>cmd</code> in the shell, even when <code>cmd</code> is also a name below.</li>
+<li><strong>IDE commands:</strong></li>
+</ol>
+
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>What it does</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td><code>help [command]</code></td>
+<td>lists the commands, or describes one</td>
+</tr>
+<tr>
+<td><code>clone [url]</code></td>
+<td>opens the Git Clone dialog, with the URL filled in if given</td>
+</tr>
+<tr>
+<td><code>build</code></td>
+<td>same as <strong>Build</strong> (F7)</td>
+</tr>
+<tr>
+<td><code>clear</code></td>
+<td>clears the Output window</td>
+</tr>
+<tr>
+<td><code>tools</code></td>
+<td>opens the External Tools dialog</td>
+</tr>
+<tr>
+<td><code>line &lt;n&gt;</code></td>
+<td>goes to line <code>n</code> of the active file</td>
+</tr>
+<tr>
+<td><code>menu</code></td>
+<td>lists every menu item by the name you type to run it</td>
+</tr>
+<tr>
+<td><code>cd [dir]</code></td>
+<td>shows or changes the directory shell commands run in (the Folder panel&#39;s)</td>
+</tr>
+</tbody>
+</table>
+
+<ol>
+<li><strong>External Tools.</strong> A tool&#39;s <strong>Title</strong> runs it, e.g. <code>gcc</code> for a tool titled <code>GCC</code>.</li>
+<li><strong>Menu items.</strong> An item&#39;s name runs it as if clicked: <code>format</code>, <code>save</code>, <code>save all</code>, <code>open folder</code>. When two menus share an item, put the menu first: <code>file close</code>.</li>
+<li><strong>Shell.</strong> Anything else runs in the shell (<code>cmd.exe</code> on Windows, <code>/bin/sh</code> elsewhere) in the <code>cd</code> directory, and its output appears in the Output window. On Windows, <code>ls</code> runs as <code>dir</code>.</li>
+</ol>
+
+<p>Names of tools and menu items ignore case, spaces and punctuation. Each shell command starts a new process, which is why <code>cd</code> is an IDE command: a shell <code>cd</code> would not last past its own line.</p>
+
+<p>Double-clicking an Output line opens what it names: a compiler diagnostic (<code>file.c:10:5: ...</code> or <code>file.c(10,5): ...</code>) jumps to that line, and a listing row from <code>dir</code>, <code>ls</code> or <code>git status</code> opens the file — or, for a directory, makes it the <code>cd</code> directory.</p>
 
 <hr>
 
-<h2 id="toc_9">4. Debugging</h2>
+<h2 id="toc_10">4. Debugging</h2>
 
-<h3 id="toc_10">4.1 Backend</h3>
+<h3 id="toc_11">4.1 Backend</h3>
 
 <p>The IDE drives a real console debugger behind the scenes and scrapes its plain-text output — there is no separate install step beyond having the right tool on your machine:</p>
 
@@ -426,11 +496,11 @@
 <li><strong>Linux / macOS:</strong> <code>lldb</code>, invoked as a plain console subprocess (not through Python bindings).</li>
 </ul>
 
-<h3 id="toc_11">4.2 Breakpoints</h3>
+<h3 id="toc_12">4.2 Breakpoints</h3>
 
 <p>Click a line&#39;s gutter (or place the caret on it and press <strong>F9</strong> / Debug &gt; Toggle Breakpoint) to set or clear a breakpoint. Breakpoints are stored per file and persist across debug sessions until explicitly toggled off — they are not cleared automatically when a session ends.</p>
 
-<h3 id="toc_12">4.3 Running a session</h3>
+<h3 id="toc_13">4.3 Running a session</h3>
 
 <ul>
 <li><strong>F5</strong> is dual-purpose, matching Visual Studio&#39;s convention: <strong>Start Debugging</strong> when idle, <strong>Continue</strong> once a session is already stopped at a breakpoint (the two menu items are never enabled at the same time, so F5 always does the right thing).</li>
@@ -441,11 +511,11 @@
 
 <p>The Debug menu&#39;s Continue/Step Over/Step Into items (and their shortcuts) are only enabled while a session is actually stopped at a line; they&#39;re disabled while running and while idle.</p>
 
-<h3 id="toc_13">4.4 Locals and Call Stack</h3>
+<h3 id="toc_14">4.4 Locals and Call Stack</h3>
 
 <p><strong>View &gt; Debug Info</strong> opens the Locals/Call Stack panel, refreshed automatically every time execution stops at a new line.</p>
 
-<h3 id="toc_14">4.5 Known limitations (Windows/cdb backend)</h3>
+<h3 id="toc_15">4.5 Known limitations (Windows/cdb backend)</h3>
 
 <ul>
 <li>A breakpoint on a function&#39;s very first statement can occasionally fail to resolve silently, depending on how the compiler&#39;s line table merges the prologue and first statement — a breakpoint one line earlier (on the function&#39;s opening brace) always works reliably. If a breakpoint doesn&#39;t seem to fire, try moving it one line up.</li>
@@ -454,7 +524,7 @@
 
 <hr>
 
-<h2 id="toc_15">5. Menu Reference</h2>
+<h2 id="toc_16">5. Menu Reference</h2>
 
 <table>
 <thead>
@@ -510,7 +580,7 @@
 
 <hr>
 
-<h2 id="toc_16">6. Keyboard Shortcuts</h2>
+<h2 id="toc_17">6. Keyboard Shortcuts</h2>
 
 <table>
 <thead>
@@ -614,7 +684,7 @@
 
 <hr>
 
-<h2 id="toc_17">7. Troubleshooting</h2>
+<h2 id="toc_18">7. Troubleshooting</h2>
 
 <p><strong>&quot;Could not start debugging: ... cdb itself failing to launch&quot;</strong> — <code>cdb.exe</code> isn&#39;t installed or isn&#39;t on PATH. Install the Windows SDK&#39;s &quot;Debugging Tools for Windows&quot; component (see §4.1).</p>
 

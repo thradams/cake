@@ -420,7 +420,7 @@ static void build_tools(void)
     echo_chdir("./tools");
     execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c "           CC_OUTPUT("../" EXE("maketest")));
     execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c "        CC_OUTPUT("../" EXE("amalgamator")));
-    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS -I.. embed.c ../fs.c ../error.c "
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS -I.. " CC_NO_UNKNOWN_PRAGMA_WARNING " embed.c ../fs.c ../error.c "
                 CC_OUTPUT("../" EXE("embed")));
 
     echo_chdir("./hoedown");
@@ -438,6 +438,7 @@ static void build_docs(void)
     generate_doc("../README.md", "./web/index.html");
     generate_doc("../diagnostics.md", "./web/diagnostics.html");
     generate_doc("../flow.md", "./web/flow.html");
+    generate_doc("../quickref.md", "./web/quickref.html");
 
     remove(EXE("hoedown"));
 }
@@ -621,14 +622,14 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
                           CAKE_SOURCE_FILES,
                           msvc_link,
                           " /Fo ",
-                          " -o ",
+                          " /Fe: ",
                           EXE(CKC_NAME));
     }
     else
     {
         char* cmd = calloc(2000, sizeof(char));
 
-        snprintf(cmd, 2000, "cl %s%s%s -o " EXE(CKC_NAME) CAKE_SOURCE_FILES "%s ",
+        snprintf(cmd, 2000, "cl %s%s%s /Fe:" EXE(CKC_NAME) CAKE_SOURCE_FILES "%s ",
                  msvc_config,
                  MSVC_COMMON_FLAGS,
                  test_flag,
@@ -749,7 +750,7 @@ static void build_cake_ide(int fastbuild, int debug)
                           CAKE_IDE_SOURCE_FILES,
                           msvc_link,
                           " ../vc/ide/ide.res /Fo ",
-                          " -o ",
+                          " /Fe: ",
                           EXE(CAKE_NAME));
     }
     else
@@ -757,7 +758,7 @@ static void build_cake_ide(int fastbuild, int debug)
         execute_cmd("rc ../vc/ide/ide.rc");
 
         char* cmd = calloc(2000, sizeof(char));
-        snprintf(cmd, 2000, "cl %s%s  -o " EXE(CAKE_NAME) " ide_win32.c ../vc/ide/ide.res  %s",
+        snprintf(cmd, 2000, "cl %s%s  /Fe:" EXE(CAKE_NAME) " ide_win32.c ../vc/ide/ide.res  %s",
                  MSVC_COMMON_FLAGS, msvc_config, CAKE_IDE_SOURCE_FILES);
         execute_cmd(cmd);
         free(cmd);
@@ -987,7 +988,7 @@ static void build_cake89(const char* test_flag)
 #endif
 
     char* cmd = calloc(2000, sizeof(char));
-    snprintf(cmd, 2000, "cl %s -o " EXE(CKC89_NAME) " " CAKE_SOURCE_FILES, test_flag);
+    snprintf(cmd, 2000, "cl %s /Fe:" EXE(CKC89_NAME) " " CAKE_SOURCE_FILES, test_flag);
     execute_cmd(cmd);
     free(cmd);
 

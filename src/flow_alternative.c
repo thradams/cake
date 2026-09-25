@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <limits.h>
+#include <stdint.h>
 
 #include "flow_branch.h"
 
@@ -142,9 +143,8 @@ void flow_alternatives_add(struct flow_alternatives* vs, const struct flow_alter
 {
     try
     {
-        /* O(vs->size) dedup scan. Called once per element in flow_alternatives_append,
-           making that O(n^2) per merge point. Deeply nested control flow (if/while/try)
-           can make this blow up; found via fuzzing lib.c (hang, not a crash). */
+        /* O(vs->size) dedup scan. To add many alternatives use
+           flow_alternatives_push and one flow_alternatives_remove_duplicates. */
         for (int i = 0; i < vs->size; i++)
         {
             if (flow_value_is_same(vs->data[i], p_alternative) &&
@@ -177,14 +177,186 @@ void flow_alternatives_add(struct flow_alternatives* vs, const struct flow_alter
     }
 }
 
+void flow_alternatives_push(struct flow_alternatives* vs, const struct flow_alternative* p_alternative)
+{
+    try
+    {
+        if (!flow_alternatives_grow(vs))
+        {
+            throw;
+        }
+
+        struct flow_alternative* _Opt _Owner p_new = flow_alt_pool_alloc(&g_flow_alt_pool);
+        if (p_new == NULL)
+        {
+            throw;
+        }
+        *p_new = *p_alternative;
+        vs->data[vs->size] = p_new; /*MOVED*/
+        vs->size++;
+    }
+    catch
+    {
+    }
+}
+
+struct flow_alt_sort_item
+{
+    const struct flow_alternative* p_alternative;
+    int index;
+};
+
+static int flow_alt_compare_ptr(const void* _Opt p_left, const void* _Opt p_right)
+{
+    int result = 0;
+    if ((uintptr_t)p_left < (uintptr_t)p_right)
+    {
+        result = -1;
+    }
+    else if ((uintptr_t)p_left > (uintptr_t)p_right)
+    {
+        result = 1;
+    }
+    return result;
+}
+
+/* Orders by the same fields flow_alternatives_add compares, then by index,
+   so equal alternatives are adjacent with the first-added one leading. */
+static int flow_alt_sort_item_compare(const void* p_left_void, const void* p_right_void)
+{
+    const struct flow_alt_sort_item* p_left_item = p_left_void;
+    const struct flow_alt_sort_item* p_right_item = p_right_void;
+    const struct flow_alternative* left_alt = p_left_item->p_alternative;
+    const struct flow_alternative* right_alt = p_right_item->p_alternative;
+
+    int result = 0;
+    if (left_alt->value_kind != right_alt->value_kind)
+    {
+        result = left_alt->value_kind < right_alt->value_kind ? -1 : 1;
+    }
+    else if ((left_alt->value_kind == FLOW_VALUE_KIND_PTR || left_alt->value_kind == FLOW_VALUE_KIND_REF) &&
+             left_alt->value.p != right_alt->value.p)
+    {
+        result = flow_alt_compare_ptr(left_alt->value.p, right_alt->value.p);
+    }
+    else if (left_alt->value_kind == FLOW_VALUE_KIND_SIGNED && left_alt->value.i != right_alt->value.i)
+    {
+        result = left_alt->value.i < right_alt->value.i ? -1 : 1;
+    }
+    else if (left_alt->value_kind == FLOW_VALUE_KIND_UNSIGNED && left_alt->value.u != right_alt->value.u)
+    {
+        result = left_alt->value.u < right_alt->value.u ? -1 : 1;
+    }
+    else if (left_alt->value_relation != right_alt->value_relation)
+    {
+        result = left_alt->value_relation < right_alt->value_relation ? -1 : 1;
+    }
+    else if (left_alt->imaginary != right_alt->imaginary)
+    {
+        result = left_alt->imaginary < right_alt->imaginary ? -1 : 1;
+    }
+    else if (left_alt->p_origin_map != right_alt->p_origin_map)
+    {
+        result = flow_alt_compare_ptr(left_alt->p_origin_map, right_alt->p_origin_map);
+    }
+    else if (left_alt->p_narrowed_from != right_alt->p_narrowed_from)
+    {
+        result = flow_alt_compare_ptr(left_alt->p_narrowed_from, right_alt->p_narrowed_from);
+    }
+    else if (left_alt->contradicted != right_alt->contradicted)
+    {
+        result = left_alt->contradicted ? 1 : -1;
+    }
+    else
+    {
+        result = p_left_item->index < p_right_item->index ? -1 : (p_left_item->index > p_right_item->index ? 1 : 0);
+    }
+    return result;
+}
+
+void flow_alternatives_remove_duplicates(struct flow_alternatives* vs)
+{
+    /* O(n log n): sort (alternative, index) pairs, mark every entry that equals
+       its sorted predecessor, then compact keeping the original order. */
+    struct flow_alt_sort_item* _Owner _Opt items = NULL;
+    bool* _Owner _Opt is_duplicate = NULL;
+    try
+    {
+        if (vs->size < 2)
+        {
+            throw;
+        }
+
+        items = malloc((size_t)vs->size * sizeof(struct flow_alt_sort_item));
+        is_duplicate = calloc((size_t)vs->size, sizeof(bool));
+        if (items == NULL || is_duplicate == NULL)
+        {
+            throw;
+        }
+
+        for (int i = 0; i < vs->size; i++)
+        {
+            items[i].p_alternative = vs->data[i];
+            items[i].index = i;
+        }
+        qsort(items, (size_t)vs->size, sizeof(struct flow_alt_sort_item), flow_alt_sort_item_compare);
+
+        for (int i = 1; i < vs->size; i++)
+        {
+            const struct flow_alternative* previous_alt = items[i - 1].p_alternative;
+            const struct flow_alternative* current_alt = items[i].p_alternative;
+            if (flow_value_is_same(previous_alt, current_alt) &&
+                previous_alt->value_relation == current_alt->value_relation &&
+                previous_alt->imaginary == current_alt->imaginary &&
+                previous_alt->p_origin_map == current_alt->p_origin_map &&
+                previous_alt->p_narrowed_from == current_alt->p_narrowed_from &&
+                previous_alt->contradicted == current_alt->contradicted)
+            {
+                is_duplicate[items[i].index] = true;
+            }
+        }
+
+        int new_size = 0;
+        for (int i = 0; i < vs->size; i++)
+        {
+            if (is_duplicate[i])
+            {
+                flow_alt_pool_free(&g_flow_alt_pool, vs->data[i]);
+            }
+            else
+            {
+                vs->data[new_size] = vs->data[i]; /*MOVED*/
+                new_size++;
+            }
+        }
+        vs->size = new_size;
+    }
+    catch
+    {
+    }
+    free(items);
+    free(is_duplicate);
+}
+
 void flow_alternatives_append(struct flow_alternatives* dst, const struct flow_alternatives* src)
 {
-    /* O(src->size * dst->size) overall due to the linear scan inside flow_alternatives_add.
-       This runs at every flow merge point, so deeply nested control flow compounds it into
-       a polynomial blowup in compile time (found by fuzzing, no crash, just very slow). */
-    for (int i = 0; i < src->size; i++)
+    /* Small lists: the linear dedup scan in flow_alternatives_add is cheaper
+       than sorting. Big ones: push everything and dedup once, O(n log n). */
+    enum { FLOW_ALT_APPEND_LINEAR_LIMIT = 256 };
+    if ((long long)dst->size * src->size <= FLOW_ALT_APPEND_LINEAR_LIMIT)
     {
-        flow_alternatives_add(dst, src->data[i]);
+        for (int i = 0; i < src->size; i++)
+        {
+            flow_alternatives_add(dst, src->data[i]);
+        }
+    }
+    else
+    {
+        for (int i = 0; i < src->size; i++)
+        {
+            flow_alternatives_push(dst, src->data[i]);
+        }
+        flow_alternatives_remove_duplicates(dst);
     }
 }
 

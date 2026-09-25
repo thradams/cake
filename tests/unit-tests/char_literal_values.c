@@ -20,4 +20,14 @@ static_assert(u8'\x5C' == 0x5C);
 static_assert(u8'\x5c' == 0x5C);
 
 
+static_assert('\?' == '?');
+static_assert('\?' == 0x3F);
+static_assert(u8'\?' == 0x3F);
+static_assert(U'\?' == 0x3F);
+static_assert(L'\?' == 0x3F);
+
+static_assert(U'é' == 0xE9);
+static_assert(U'😀' == 0x1F600);
+static_assert(U'$' == '$');
+
 /*TODO MORE TESTS*/

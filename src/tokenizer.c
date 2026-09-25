@@ -187,7 +187,7 @@ static void tokenizer_diagnostic(enum diagnostic_id w, struct tokenizer_ctx* ctx
             if (color_enabled)
                 printf(LIGHTMAGENTA "warning " WHITE "%d: %s\n", w, buffer);
             else
-                printf("warning: %d %s\n", w, buffer);
+                printf("warning %d: %s\n", w, buffer);
         }
     }
 }
@@ -257,9 +257,9 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
     if (ctx->options.diagnostic_ouput_format == DIAGNOSTIC_OUTPUT_FORMAT_MSVC)
     {
         if (is_warning)
-            printf("warning: " "%s\n", buffer);
+            printf("warning %d: %s\n", w, buffer);
         else if (is_error)
-            printf("warning: " "%s\n", buffer);
+            printf("error %d: %s\n", w, buffer);
         else if (is_note)
             printf("note: " "%s\n", buffer);
 
@@ -640,7 +640,10 @@ struct token_list copy_argument_list_tokens(struct token_list* list)
         if (current == NULL) 
             break;
 
-        struct token* token = token_list_clone_and_add(&r, current);
+        struct token* _Opt token = token_list_clone_and_add(&r, current);
+        if (token == NULL)
+            break; /* out of memory */
+
         if (token->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
         {
             token->flags = token->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
@@ -1743,7 +1746,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 has_space = false;
                 if (set_sliced_flag(&stream, p_new_token))
                 {
-                    tokenizer_diagnostic(W_TOKEN_SLICED, ctx, &stream, "token sliced");
+                    tokenizer_diagnostic(W_TOKEN_SLICED, ctx, &stream, "token split by a line continuation (backslash at end of line)");
                 }
                 token_list_add(&list, p_new_token);
                 continue;
@@ -2622,6 +2625,7 @@ static bool embed_parse_parameters(struct preprocessor_ctx* ctx,
         if (!has_clause)
         {
             preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, p_name_token, "embed parameter '%s' requires a parenthesized argument", name);
+            token_list_destroy(&clause);
             return false;
         }
 
@@ -2799,7 +2803,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
                     if (input_list->head->type != ')')
                     {
-                        preprocessor_diagnostic(C_ERROR_MISSING_CLOSE_PARENTHESIS, ctx, input_list->head, "missing )");
+                        preprocessor_diagnostic(C_ERROR_MISSING_CLOSE_PARENTHESIS, ctx, input_list->head, "missing ')'");
                         throw;
                     }
                     token_list_pop_front(input_list);
@@ -3283,14 +3287,13 @@ struct token_list process_identifiers( _Dtor struct token_list* list)
             }
         }
         _Assert(!token_list_is_empty(&list2));
+        _Assert(list->head == NULL);
+        _Assert(list->tail == NULL);
     }
     catch
     {
         token_list_destroy(list);
     }
-
-    _Assert(list->head == NULL);
-    _Assert(list->tail == NULL);
 
     return list2;
 }
@@ -3350,7 +3353,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 
     if (list2.head == NULL)
     {
-        preprocessor_diagnostic(C_ERROR_EXPRESSION_ERROR, ctx, first, "empty expression");
+        preprocessor_diagnostic(C_ERROR_EXPRESSION_ERROR, ctx, first, "missing expression in preprocessor conditional");
     }
     else
     {
@@ -3376,7 +3379,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 
             if (pre_constant_expression(&pre_ctx, &value) != 0)
             {
-                preprocessor_diagnostic(C_ERROR_EXPRESSION_ERROR, ctx, first, "expression error");
+                preprocessor_diagnostic(C_ERROR_EXPRESSION_ERROR, ctx, first, "invalid preprocessor constant expression");
             }
 
             ctx->conditional_inclusion = false;
@@ -3422,9 +3425,9 @@ int match_token_level(struct token_list* dest, struct token_list* input_list, en
             else
             {
                 if (input_list->head)
-                    preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, input_list->head, "expected token '%s', got '%s'\n", get_diagnostic_friendly_token_name(type), get_diagnostic_friendly_token_name(input_list->head->type));
+                    preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, input_list->head, type == TK_IDENTIFIER || type == TK_NEWLINE ? "expected %s, got '%s'" : "expected '%s', got '%s'", get_diagnostic_friendly_token_name(type), get_diagnostic_token_text(input_list->head));
                 else
-                    preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, dest->tail, "expected EOF \n");
+                    preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, dest->tail, "expected end of file");
 
                 throw;
             }
@@ -3528,7 +3531,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
         else
         {
 
-            preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, input_list->head, "unexpected");
+            preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, input_list->head, "unexpected '%s' in preprocessor directive", get_diagnostic_token_text(input_list->head));
             throw;
         }
         struct token_list r2 = group_opt(ctx, input_list, is_active && *p_result, level);
@@ -3783,7 +3786,7 @@ def-line:
             preprocessor_diagnostic(W_REDEFINING_BUITIN_MACRO,
                                     ctx,
                                     input_list->head,
-                                    "redefining built-in macro");
+                                    "redefining built-in macro '%s'", macro_name_token->lexeme);
         }
 
         if (hashmap_find(&ctx->macros, input_list->head->lexeme) != NULL)
@@ -4323,6 +4326,26 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
                                                  int level,
                                                  const struct token* _Opt origin);
 
+/* the text of an #error/#warning as written: comments dropped, blanks collapsed to one space */
+static void directive_message(const struct token_list* list, struct osstream* ss)
+{
+    bool pending_space = false;
+    for (const struct token* _Opt p = list->head; p; p = p->next)
+    {
+        if (p->type == TK_LINE_COMMENT || p->type == TK_COMMENT)
+            continue;
+        if (token_is_blank(p) || p->type == TK_NEWLINE)
+        {
+            pending_space = true;
+            continue;
+        }
+        if (pending_space && ss->size > 0)
+            ss_fprintf(ss, " ");
+        pending_space = false;
+        ss_fprintf(ss, "%s", p->lexeme);
+    }
+}
+
 struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
 
@@ -4784,7 +4807,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 preprocessor_diagnostic(W_REDEFINING_BUITIN_MACRO,
                                         ctx,
                                         input_list->head,
-                                        "redefining built-in macro");
+                                        "redefining built-in macro '%s'", macro_name_token->lexeme);
             }
 
             macro->p_name_token = macro_name_token;
@@ -4938,7 +4961,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         if (preprocessor_diagnostic(W_MACRO_REDEFINITION,
                                                     ctx,
                                                     macro->p_name_token,
-                                                    "macro redefinition"))
+                                                    "macro '%s' redefined", macro->p_name_token->lexeme))
                         {
                             preprocessor_diagnostic(W_LOCATION,
                                                     ctx,
@@ -5075,11 +5098,14 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
         */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //error
             struct token_list r6 = pp_tokens_opt(ctx, input_list, level, is_active);
+            struct osstream message = { 0 };
+            directive_message(&r6, &message);
 
             token_list_append_list(&r, &r6);
             token_list_destroy(&r6);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
-            preprocessor_diagnostic(C_ERROR_PREPROCESSOR_C_ERROR_DIRECTIVE, ctx, r.head, "#error");
+            preprocessor_diagnostic(C_ERROR_PREPROCESSOR_C_ERROR_DIRECTIVE, ctx, r.head, "#error %s", message.c_str ? message.c_str : "");
+            ss_close(&message);
 
         }
         else if (strcmp(input_list->head->lexeme, "warning") == 0)
@@ -5090,9 +5116,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //warning
             struct token_list r6 = pp_tokens_opt(ctx, input_list, level, is_active);
+            struct osstream message = { 0 };
+            directive_message(&r6, &message);
             token_list_append_list(&r, &r6);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
-            preprocessor_diagnostic(W_WARNING_DIRECTIVE, ctx, r.head, "#warning");
+            preprocessor_diagnostic(W_WARNING_DIRECTIVE, ctx, r.head, "#warning %s", message.c_str ? message.c_str : "");
+            ss_close(&message);
             token_list_destroy(&r6);
         }
         else if (strcmp(input_list->head->lexeme, "pragma") == 0)
@@ -5180,7 +5209,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
                                     ctx,
                                     input_list->head,
-                                    "unexpected\n");
+                                    "unexpected '%s' in preprocessor directive", get_diagnostic_token_text(input_list->head));
             throw;
         }
     }
@@ -5272,7 +5301,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
             //we have a non empty argument list, calling a macro without parameters
             preprocessor_diagnostic(C_ERROR_TOO_MANY_ARGUMENTS_TO_FUNCTION_LIKE_MACRO,
                                     ctx,
-                                    macro_name_token, "too many arguments provided to function-like macro invocation\n");
+                                    macro_name_token, "too many arguments provided to function-like macro invocation");
             throw;
         }
 
@@ -5323,7 +5352,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                             preprocessor_diagnostic(C_ERROR_TOO_FEW_ARGUMENTS_TO_FUNCTION_LIKE_MACRO,
                                                     ctx,
                                                     macro_name_token,
-                                                    "too few arguments provided to function-like macro invocation\n");
+                                                    "too few arguments provided to function-like macro invocation");
                             throw;
                         }
                     }
@@ -5360,7 +5389,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                         preprocessor_diagnostic(C_ERROR_TOO_MANY_ARGUMENTS_TO_FUNCTION_LIKE_MACRO,
                                                 ctx,
                                                 macro_argument_list.tokens.tail,
-                                                "too many arguments provided to function-like macro invocation\n");
+                                                "too many arguments provided to function-like macro invocation");
                         macro_argument_delete(p_argument);
                         p_argument = NULL; //DELETED
                         throw;
@@ -5429,7 +5458,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
                 {
                     preprocessor_diagnostic(C_ERROR_PREPROCESSOR_MISSING_MACRO_ARGUMENT,
                                             ctx,
-                                            input_list->head, "missing macro argument (should be checked before)");
+                                            input_list->head, "missing macro argument");
                     break;
                 }
                 /*
@@ -5869,7 +5898,7 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
             preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
                                     ctx,
                                     input_list->head,
-                                    "expected (");
+                                    "expected '('");
             throw; //internal error
         }
 
@@ -5919,7 +5948,7 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
             preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
                                     ctx,
                                     input_list->head,
-                                    "expected (");
+                                    "expected '('");
             throw; //internal error
         }
 
@@ -6208,7 +6237,8 @@ struct token_list copy_replacement_list_core(const struct preprocessor_ctx* ctx,
             }
             if (current == NULL) throw;
             
-            struct token* token_added = token_list_clone_and_add(&r, current);
+            struct token* _Opt token_added = token_list_clone_and_add(&r, current);
+            if (token_added == NULL) throw; /* out of memory */
     
             if (!ctx->options.preprocess_def_macro && token_added->type == TK_PREPROCESSOR_LINE)
             {
@@ -6711,7 +6741,7 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
                 preprocessor_diagnostic(C_ERROR_INVALID_PREPROCESSING_DIRECTIVE,
                                         ctx,
                                         input_list->head,
-                                        "invalid preprocessor directive '#%s'\n", directive_name);
+                                        "invalid preprocessor directive '#%s'", directive_name);
             }
             /* consume the # to keep it symmetrical */
             return non_directive(ctx, input_list, level, is_active);
@@ -6756,7 +6786,7 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
         preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
                                 ctx,
                                 input_list->head,
-                                "#%s without #if\n", directive_name);
+                                "#%s without #if", directive_name);
     }
 
     return r;
@@ -7185,6 +7215,16 @@ const char* get_token_name(enum token_type tk)
     }
     return "TK_X_MISSING_NAME";
 };
+
+/* the text the user wrote, or a readable name for tokens without visible text */
+const char* get_diagnostic_token_text(const struct token* _Opt p_token)
+{
+    if (p_token == NULL)
+        return "end of file";
+    if (p_token->type == TK_NEWLINE || p_token->lexeme[0] == '\0')
+        return get_diagnostic_friendly_token_name(p_token->type);
+    return p_token->lexeme;
+}
 
 const char* get_diagnostic_friendly_token_name(enum token_type tk)
 {

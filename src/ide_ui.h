@@ -174,6 +174,15 @@ void ui_env_resize(ui_env* e, int w, int h);
  * GetTickCount()) once per frame before ui_screen_update(). Used only to
  * drive the text-caret blink; if never called, the caret just stays solid. */
 void ui_env_set_time_ms(ui_env* e, unsigned ms);
+unsigned ui_env_time_ms(const ui_env* e);
+
+/* Whether the app's top-level window has focus. The backend reports it
+ * (e.g. Win32's WM_ACTIVATEAPP); defaults to 1 so a backend that never
+ * calls ui_env_set_focused() behaves as always focused. Lets the app skip
+ * background work (e.g. checking open files for outside changes) while the
+ * user is in another program. */
+void ui_env_set_focused(ui_env* e, int focused);
+int ui_env_focused(const ui_env* e);
 
 /* Post an event from the platform (keyboard/mouse). The environment queues
  * it for the app to poll. Safe to call from event handlers. */
@@ -590,6 +599,29 @@ const char* ui_get_shortcut(const ui_node* n);
 void ui_set_path(ui_node* n, const char* path);
 const char* ui_get_path(const ui_node* n);
 
+/* An opaque timestamp an app can pair with ui_set_path (e.g. the backing
+ * file's last-modified time, to notice outside changes). Defaults to 0. */
+void ui_set_file_time(ui_node* n, long long t);
+long long ui_get_file_time(const ui_node* n);
+
+/* Help an app can attach to any node (both NULL by default). `short_help` is
+ * one line the status bar shows, Turbo C style ("F1:Help | short"), for the
+ * menu item under the mouse or the focused control (its active <item>
+ * first). `help` is the full Markdown text for the app to show - see
+ * ui_screen_get_hint_text and UI_HINT_DETAILS_ID.
+ *
+ * On a dialog's/panel's <window> it is that dialog's overview: the bar shows
+ * it while the focused control has no help of its own (or nothing is
+ * focused), and the full text always ends with it. */
+void ui_set_help(ui_node* n, const char* short_help, const char* help);
+const char* ui_get_short_help(const ui_node* n);
+const char* ui_get_help(const ui_node* n);
+
+/* A node that never takes keyboard focus: clicking it still fires its event,
+ * but focus stays on whatever had it (so e.g. a Help button can explain the
+ * focused control), and Tab skips it. Off by default. */
+void ui_set_no_focus(ui_node* n, int no_focus);
+
 /* ITEM-only: makes it a plain dividing line instead of a normal option -
  * label/shortcut/id are ignored, it draws as a single horizontal rule across
  * the dropdown's width, and (like a disabled item) it's never hot/active and
@@ -749,6 +781,10 @@ ui_syntax ui_get_syntax(const ui_node* n);
  * Such a node is painted directly rather than through the character grid
  * - see the scaled-pane handling in ui_screen_render. */
 void ui_set_small_font(ui_node* n, int on);
+
+/* INPUT only: draw it with `fg`/`bg`, focused or not, instead of the theme's input colors - for an input that should blend into the panel it sits in.
+ * The colors are not re-themed (ui_screen_set_theme only remaps window/dialog slots), so a caller tracking the theme sets them again after a change. */
+void ui_set_input_colors(ui_node* n, uint32_t fg, uint32_t bg);
 int  ui_get_small_font(const ui_node* n);
 
 /* Global (not per-editor) ON/OFF switch for the line-number gutter drawn
@@ -891,6 +927,19 @@ const char* ui_get_value(const ui_node* n);
 void ui_select_set_selected(ui_node* select, int index);
 int ui_select_get_selected(const ui_node* select);
 
+/* The <item> the user is on in a SELECT/LISTBOX/GROUP - the selected one,
+ * or a multi-select GROUP's keyboard cursor row - or NULL (other tags, or
+ * nothing selected). */
+ui_node* ui_get_active_item(const ui_node* n);
+
+/* The whole text of what the status bar shows right now (see ui_set_help),
+ * as Markdown: the focused control's help followed by its active item's and
+ * then its dialog's overview - or the hovered menu
+ * item's. It is what the bar last drew, not recomputed, so F1 always
+ * explains exactly what the bar says. Returns 0 (leaving `out` untouched) when the bar has no hint. For
+ * F1 and UI_HINT_DETAILS_ID - the app decides how to show it. */
+int ui_screen_get_hint_text(ui_screen* s, char* out, size_t cap);
+
 /* <listbox> - an always-visible, scrollable list of single-line <item>
  * children (rebuild the list with ui_remove_child()+ui_node_free() on each
  * old child, then ui_create_element(UI_TAG_ITEM)+ui_set_label()+
@@ -935,6 +984,7 @@ int ui_group_get_checked(const ui_node* group, int index);
  /* Tree editing - like parent.appendChild(child) / child.remove(). Appending
   * a node already attached elsewhere is undefined (detach it first). */
 void ui_append_child(ui_node* parent, ui_node* child);
+void ui_insert_child(ui_node* parent, ui_node* child, int index);  /* at `index`; out of range appends */
 void ui_remove_child(ui_node* parent, ui_node* child);  /* detaches; doesn't free */
 int ui_child_count(const ui_node* n);
 ui_node* ui_child_at(const ui_node* n, int i);
@@ -1006,6 +1056,11 @@ void ui_screen_set_completion_callback(ui_screen* s, ui_completion_callback fn, 
  * panel/dialog) or one with no unsaved changes - those still just close
  * immediately, exactly as before. */
 #define UI_CLOSE_REQUEST_ID (-1)
+
+/* Event id fired (param NULL) by a click on the status bar while it shows a
+ * hint (see ui_set_help) - the app shows ui_screen_get_hint_text() in full,
+ * the same as it does for F1. */
+#define UI_HINT_DETAILS_ID (-2)
 
 /* Keyboard focus - like element.focus() / document.activeElement. Only
  * <input> is focusable today. While a node is focused, ui_screen_update()
@@ -1380,6 +1435,7 @@ int ui_screen_mouse_x(ui_screen* s);
 /* Whether the right mouse button was pressed this frame (position via
  * ui_screen_mouse_x/y) - the trigger for a context-menu popup. */
 int ui_screen_mouse_right_pressed(ui_screen* s);
+int ui_screen_mouse_down(ui_screen* s);  /* left button currently held */
 int ui_screen_mouse_y(ui_screen* s);
 int ui_screen_mouse_moved(ui_screen* s);
 int ui_screen_key_count(ui_screen* s);

@@ -24,8 +24,8 @@ void continue_dead_code(int n)
         continue;
         a = 99; //lint 68 unreachable code
     }
-    /* expected a == 0 only: continue re-checks the condition before a == 1 could fall off the end */
-    compile_assert(a == 0);
+    /* a == 1 when the loop ran: continue re-checks the condition and exits */
+    compile_assert(a == 0 || a == 1);
 }
 
 void return_dead_code(int n)

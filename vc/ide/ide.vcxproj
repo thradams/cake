@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -71,16 +71,20 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <!-- Explicit, project-local OutDir/IntDir so this project's build output can
-       never land in the same folder as cake/cprimev3.vcxproj's (they're
+       never land in the same folder as cake/cakeprj.vcxproj's (they're
        siblings in cake.sln but that project sets no OutDir/IntDir override
        either, so both used to fall back to solution/toolset defaults that
        could - and on this machine, did - end up sharing a folder, which is
        exactly how two projects' .pdb/.obj files can clobber each other and
        leave the debugger loading stale/mismatched symbols). Relative to this
-       project's own directory (vc\ide\), not the solution directory. -->
+       project's own directory (vc\ide\), not the solution directory.
+       The exe itself goes to src\ as cakeide.exe - same place and name
+       build.c produces - because the IDE finds include\, help\ and cake.json
+       relative to its own executable. Only IntDir stays project-local. -->
   <PropertyGroup>
-    <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir>$(ProjectDir)..\..\src\</OutDir>
     <IntDir>obj\$(Platform)\$(Configuration)\</IntDir>
+    <TargetName>cakeide</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -143,10 +147,11 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <SDLCheck>true</SDLCheck>
+      <SDLCheck>false</SDLCheck>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalOptions>/we4013 /wd4996 /utf-8 /wd4100 /wd4068 /wd4146 %(AdditionalOptions)</AdditionalOptions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -164,14 +169,19 @@
     <ClCompile Include="..\..\src\console.c" />
     <ClCompile Include="..\..\src\defer.c" />
     <ClCompile Include="..\..\src\error.c" />
+    <ClCompile Include="..\..\src\flow_alternative.c" />
+    <ClCompile Include="..\..\src\flow_branch.c" />
+    <ClCompile Include="..\..\src\ide_debug.c" />
     <ClCompile Include="..\..\src\expressions.c" />
-    <ClCompile Include="..\..\src\flow3.c" />
+    <ClCompile Include="..\..\src\flow.c" />
     <ClCompile Include="..\..\src\fs.c" />
     <ClCompile Include="..\..\src\hashmap.c" />
     <ClCompile Include="..\..\src\ide.c" />
-    <ClCompile Include="..\..\src\ide_format.c" />
+    <ClCompile Include="..\..\src\ide_lsp.c" />
     <ClCompile Include="..\..\src\ide_ui.c" />
     <ClCompile Include="..\..\src\ide_win32.c" />
+    <ClCompile Include="..\..\src\fp_to_string.c" />
+    <ClCompile Include="..\..\src\json.c" />
     <ClCompile Include="..\..\src\object.c" />
     <ClCompile Include="..\..\src\options.c" />
     <ClCompile Include="..\..\src\osstream.c" />
@@ -184,6 +194,8 @@
     <ClCompile Include="..\..\src\type.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\src\flow_alternative.h" />
+    <ClInclude Include="..\..\src\flow_branch.h" />
     <ClInclude Include="..\..\src\version.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

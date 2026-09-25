@@ -1575,7 +1575,9 @@ static int compare_function_arguments(const struct parser_ctx* ctx,
 
         if (p_current_parameter_type == NULL &&
             p_type->name_opt &&
-            strncmp(p_type->name_opt, "__builtin", sizeof("__builtin") - 1) == 0)
+            (strncmp(p_type->name_opt, "__builtin", sizeof("__builtin") - 1) == 0 ||
+             strncmp(p_type->name_opt, "__c11_atomic_", sizeof("__c11_atomic_") - 1) == 0 ||
+             strncmp(p_type->name_opt, "__atomic_", sizeof("__atomic_") - 1) == 0))
         {
             // some builtin function are like templates
             // For instance :
@@ -1589,7 +1591,7 @@ static int compare_function_arguments(const struct parser_ctx* ctx,
         {
             diagnostic(C_ERROR_TOO_MANY_ARGUMENTS, ctx,
                        p_current_argument->expression->first_token, NULL,
-                       "too many arguments");
+                       "too many arguments in call to '%s'", p_type->name_opt ? p_type->name_opt : "function");
             throw;
         }
 
@@ -1600,11 +1602,11 @@ static int compare_function_arguments(const struct parser_ctx* ctx,
                 diagnostic(C_ERROR_TOO_FEW_ARGUMENTS, ctx,
                            p_argument_expression_list->tail->expression->first_token,
                     NULL,
-                           "too few arguments");
+                           "too few arguments in call to '%s'", p_type->name_opt ? p_type->name_opt : "function");
             }
             else
             {
-                diagnostic(C_ERROR_TOO_FEW_ARGUMENTS, ctx, ctx->current, NULL, "too few arguments");
+                diagnostic(C_ERROR_TOO_FEW_ARGUMENTS, ctx, ctx->current, NULL, "too few arguments in call to '%s'", p_type->name_opt ? p_type->name_opt : "function");
             }
             throw;
         }
@@ -1788,7 +1790,7 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
         }
         else
         {
-            diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unexpected");
+            diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "expected a type name or 'default' in generic association, got '%s'", get_diagnostic_token_text(ctx->current));
         }
 
         if (parser_match_tk(ctx, ':') != 0)
@@ -1904,7 +1906,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struc
                                    ctx,
                                    p_generic_association2->first_token,
                         NULL,
-                                   "two compatible types."))
+                                   "type is compatible with a previous generic association"))
                     {
 
                         diagnostic(W_LOCATION,
@@ -1928,7 +1930,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struc
                                    ctx,
                                    p_generic_association2->first_token,
                         NULL,
-                                   "duplicate default generic association."))
+                                   "duplicate default generic association"))
                     {
                         diagnostic(W_LOCATION,
                                    ctx,
@@ -2153,17 +2155,21 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             if (c == '\\')
             {
                 p = escape_sequences_decode_opt(p, &c);
-                if (p == NULL) throw;
+                if (p == NULL)
+                {
+                    diagnostic(C_INVALID_TOKEN, ctx, ctx->current, NULL, "invalid escape sequence");
+                    throw;
+                }
             }
 
             if (*p != '\'')
             {
-                diagnostic(C_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters.");
+                diagnostic(C_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters");
             }
 
             if (c > 0x80)
             {
-                diagnostic(C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT, ctx, ctx->current, NULL, "character not encodable in a single code unit.");
+                diagnostic(C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT, ctx, ctx->current, NULL, "character not encodable in a single code unit");
             }
 
             {
@@ -2194,17 +2200,21 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             if (c == '\\')
             {
                 p = escape_sequences_decode_opt(p, &c);
-                if (p == NULL) throw;
+                if (p == NULL)
+                {
+                    diagnostic(C_INVALID_TOKEN, ctx, ctx->current, NULL, "invalid escape sequence");
+                    throw;
+                }
             }
 
             if (*p != '\'')
             {
-                diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters.");
+                diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters");
             }
 
             if (c > UINT16_MAX)
             {
-                diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
+                diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "character too large for enclosing character literal type");
             }
 
 
@@ -2236,19 +2246,23 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             if (c == '\\')
             {
                 p = escape_sequences_decode_opt(p, &c);
-                if (p == NULL) throw;
+                if (p == NULL)
+                {
+                    diagnostic(C_INVALID_TOKEN, ctx, ctx->current, NULL, "invalid escape sequence");
+                    throw;
+                }
             }
 
             if (*p != '\'')
             {
-                diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters.");
+                diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters");
             }
 
             // Official definition (ISO/IEC 10646)
             // CS codespace — the finite set of code points from 0 to 0x10FFFF (inclusive).
             if (c > 0x10FFFF || c > UINT32_MAX)
             {
-                diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
+                diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "character too large for enclosing character literal type");
             }
 
             {
@@ -2293,7 +2307,11 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 if (c == '\\')
                 {
                     p = escape_sequences_decode_opt(p, &c);
-                    if (p == NULL) throw;
+                    if (p == NULL)
+                    {
+                        diagnostic(C_INVALID_TOKEN, ctx, ctx->current, NULL, "invalid escape sequence");
+                        throw;
+                    }
                 }
 
                 if (c < 0x80)
@@ -2352,7 +2370,11 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 if (c == '\\')
                 {
                     p = escape_sequences_decode_opt(p, &c);
-                    if (p == NULL) throw;
+                    if (p == NULL)
+                    {
+                        diagnostic(C_INVALID_TOKEN, ctx, ctx->current, NULL, "invalid escape sequence");
+                        throw;
+                    }
                 }
                 if (multi_character_literal)
                 {
@@ -2762,7 +2784,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                                ctx,
                                token,
                     NULL,
-                               "floating constant is too small for float.");
+                               "floating constant is too small for float");
                 }
                 object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_float(ctx->options.target, value);
@@ -2957,7 +2979,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                                        ctx,
                                        p_expression_node->first_token,
                                 NULL,
-                                       "expression is using a VM type from the enclosing function");
+                                       "cannot use a variably modified type from the enclosing function");
                         }
                     }
 
@@ -3148,6 +3170,11 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                     if (c == '\\')
                     {
                         it = escape_sequences_decode_opt(it, &value);
+                        if (it == NULL)
+                        {
+                            diagnostic(C_INVALID_TOKEN, ctx, ctx->current, NULL, "invalid escape sequence");
+                            throw;
+                        }
                     }
                     else
                     {
@@ -3318,7 +3345,18 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
             }
             else
             {
-                diagnostic(C_ERROR_NO_MATCH_FOR_GENERIC, ctx, ctx->current, NULL, "no match for generic");
+                {
+                    struct type controlling = { 0 };
+                    if (p_expression_node->generic_selection->expression)
+                        controlling = type_lvalue_conversion(&p_expression_node->generic_selection->expression->object.type);
+                    else if (p_expression_node->generic_selection->type_name)
+                        controlling = type_dup(&p_expression_node->generic_selection->type_name->type);
+                    struct osstream ss = { 0 };
+                    print_type_no_names(&ss, &controlling, ctx->options.target);
+                    diagnostic(C_ERROR_NO_MATCH_FOR_GENERIC, ctx, ctx->current, NULL, "no match for type '%s' in generic selection", ss.c_str ? ss.c_str : "");
+                    ss_close(&ss);
+                    type_destroy(&controlling);
+                }
             }
         }
         else if (ctx->current->type == '(')
@@ -3407,7 +3445,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
         }
         else
         {
-            diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unexpected");
+            diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "expected an expression, got '%s'", get_diagnostic_token_text(ctx->current));
             throw;
         }
     }
@@ -3670,7 +3708,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                 diagnostic(W_OUT_OF_BOUNDS,
                                            ctx,
                                            ctx->current, NULL,
-                                           "index %d is past the end of the array", index);
+                                           "array index %llu is past the end of the array (size %zu)", index, p_expression_node->object.type.array_num_elements);
                             }
 
                             struct object* _Opt it = object_get_member(&p_expression_node->object, (int)index);
@@ -3759,6 +3797,41 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 }
 
                 compare_function_arguments(ctx, &p_expression_node->object.type, &p_expression_node_new->argument_expression_list);
+
+                if (p_expression_node->object.type.name_opt &&
+                    p_expression_node_new->argument_expression_list.head)
+                {
+                    /* type-generic atomic builtins return the type pointed by the first argument */
+                    static const char* const atomic_value_builtins[] = {
+                        "__c11_atomic_load", "__c11_atomic_exchange",
+                        "__c11_atomic_fetch_add", "__c11_atomic_fetch_sub", "__c11_atomic_fetch_and",
+                        "__c11_atomic_fetch_or", "__c11_atomic_fetch_xor", "__c11_atomic_fetch_nand",
+                        "__c11_atomic_fetch_max", "__c11_atomic_fetch_min",
+                        "__atomic_load_n", "__atomic_exchange_n",
+                        "__atomic_fetch_add", "__atomic_fetch_sub", "__atomic_fetch_and",
+                        "__atomic_fetch_or", "__atomic_fetch_xor", "__atomic_fetch_nand",
+                        "__atomic_fetch_max", "__atomic_fetch_min",
+                        "__atomic_add_fetch", "__atomic_sub_fetch", "__atomic_and_fetch",
+                        "__atomic_or_fetch", "__atomic_xor_fetch", "__atomic_nand_fetch",
+                        "__atomic_max_fetch", "__atomic_min_fetch",
+                    };
+
+                    const struct type* p_first_argument_type =
+                        &p_expression_node_new->argument_expression_list.head->expression->object.type;
+
+                    for (int i = 0; i < (int)(sizeof atomic_value_builtins / sizeof atomic_value_builtins[0]); i++)
+                    {
+                        if (strcmp(p_expression_node->object.type.name_opt, atomic_value_builtins[i]) == 0 &&
+                            type_is_pointer(p_first_argument_type))
+                        {
+                            struct type pointee = type_remove_pointer(p_first_argument_type);
+                            type_destroy(&p_expression_node_new->object.type);
+                            p_expression_node_new->object.type = type_lvalue_conversion(&pointee);
+                            type_destroy(&pointee);
+                            break;
+                        }
+                    }
+                }
 
                 struct token* _Opt p_previous_token = parser_get_previous_token(ctx);
                 if (p_previous_token == NULL)
@@ -3877,12 +3950,15 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                         }
                         else
                         {
-                            diagnostic(C_ERROR_STRUCT_MEMBER_NOT_FOUND,
-                                       ctx,
-                                       ctx->current, NULL,
-                                       "member '%s' not found in 'struct %s'",
-                                       ctx->current->lexeme,
-                                       p_complete->tag_name);
+                            {
+                                struct osstream ss = { 0 };
+                                print_type_no_names(&ss, &p_expression_node_new->left->object.type, ctx->options.target);
+                                if (ctx->current->type != TK_IDENTIFIER)
+                                    diagnostic(C_ERROR_STRUCT_MEMBER_NOT_FOUND, ctx, ctx->current, NULL, "expected a member name, got '%s'", ctx->current->lexeme);
+                                else
+                                    diagnostic(C_ERROR_STRUCT_MEMBER_NOT_FOUND, ctx, ctx->current, NULL, "member '%s' not found in '%s'", ctx->current->lexeme, ss.c_str ? ss.c_str : "");
+                                ss_close(&ss);
+                            }
                         }
                     }
                     else
@@ -3914,10 +3990,23 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 }
                 else
                 {
-                    diagnostic(C_ERROR_STRUCTURE_OR_UNION_REQUIRED,
-                               ctx,
-                               ctx->current, NULL,
-                               "structure or union required");
+                    {
+                        struct osstream ss = { 0 };
+                        const struct type* p_left_type = &p_expression_node_new->left->object.type;
+                        print_type_no_names(&ss, p_left_type, ctx->options.target);
+                        bool pointer_to_struct = false;
+                        if (type_is_pointer(p_left_type))
+                        {
+                            struct type pointed = type_remove_pointer(p_left_type);
+                            pointer_to_struct = type_is_struct_or_union(&pointed);
+                            type_destroy(&pointed);
+                        }
+                        if (pointer_to_struct)
+                            diagnostic(C_ERROR_STRUCTURE_OR_UNION_REQUIRED, ctx, ctx->current, NULL, "'%s' is a pointer; use '->' instead of '.' to access member '%s'", ss.c_str ? ss.c_str : "", ctx->current->lexeme);
+                        else
+                            diagnostic(C_ERROR_STRUCTURE_OR_UNION_REQUIRED, ctx, ctx->current, NULL, "member reference requires a structure or union, but the type is '%s'", ss.c_str ? ss.c_str : "");
+                        ss_close(&ss);
+                    }
 
                     if (ctx->current != NULL)
                         p_expression_node_new->last_token = ctx->current;
@@ -4032,21 +4121,25 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                             }
                             else
                             {
-                                diagnostic(C_ERROR_STRUCT_MEMBER_NOT_FOUND,
-                                           ctx,
-                                           ctx->current, NULL,
-                                           "member '%s' not found in struct '%s'",
-                                           ctx->current->lexeme,
-                                           p_expression_node->object.type.next->struct_or_union_specifier->tag_name);
+                                {
+                                    struct osstream ss = { 0 };
+                                    print_type_no_names(&ss, &item_type, ctx->options.target);
+                                    if (ctx->current->type != TK_IDENTIFIER)
+                                        diagnostic(C_ERROR_STRUCT_MEMBER_NOT_FOUND, ctx, ctx->current, NULL, "expected a member name, got '%s'", ctx->current->lexeme);
+                                    else
+                                        diagnostic(C_ERROR_STRUCT_MEMBER_NOT_FOUND, ctx, ctx->current, NULL, "member '%s' not found in '%s'", ctx->current->lexeme, ss.c_str ? ss.c_str : "");
+                                    ss_close(&ss);
+                                }
                             }
                         }
                         else
                         {
-                            diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE,
-                                       ctx,
-                                       ctx->current, NULL,
-                                       "struct '%s' is incomplete.",
-                                       ctx->current->lexeme);
+                            {
+                                struct osstream ss = { 0 };
+                                print_type_no_names(&ss, &item_type, ctx->options.target);
+                                diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, ctx->current, NULL, "member '%s' accessed through a pointer to incomplete type '%s'", ctx->current->lexeme, ss.c_str ? ss.c_str : "");
+                                ss_close(&ss);
+                            }
                         }
 
                         if (ctx->current != NULL)
@@ -4062,10 +4155,12 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     }
                     else
                     {
-                        diagnostic(C_ERROR_STRUCTURE_OR_UNION_REQUIRED,
-                                   ctx,
-                                   ctx->current, NULL,
-                                   "structure or union required");
+                        {
+                            struct osstream ss = { 0 };
+                            print_type_no_names(&ss, &item_type, ctx->options.target);
+                            diagnostic(C_ERROR_STRUCTURE_OR_UNION_REQUIRED, ctx, ctx->current, NULL, "member reference requires a pointer to a structure or union, but the pointed type is '%s'", ss.c_str ? ss.c_str : "");
+                            ss_close(&ss);
+                        }
 
                         if (ctx->current != NULL)
                             p_expression_node_new->last_token = ctx->current;
@@ -4082,10 +4177,15 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 }
                 else
                 {
-                    diagnostic(C_ERROR_STRUCTURE_OR_UNION_REQUIRED,
-                               ctx,
-                               ctx->current, NULL,
-                               "structure or union required");
+                    {
+                        struct osstream ss = { 0 };
+                        print_type_no_names(&ss, &p_expression_node->object.type, ctx->options.target);
+                        if (type_is_struct_or_union(&p_expression_node->object.type))
+                            diagnostic(C_ERROR_STRUCTURE_OR_UNION_REQUIRED, ctx, ctx->current, NULL, "'%s' is not a pointer; use '.' instead of '->' to access member '%s'", ss.c_str ? ss.c_str : "", ctx->current->lexeme);
+                        else
+                            diagnostic(C_ERROR_STRUCTURE_OR_UNION_REQUIRED, ctx, ctx->current, NULL, "member reference requires a pointer to a structure or union, but the type is '%s'", ss.c_str ? ss.c_str : "");
+                        ss_close(&ss);
+                    }
 
                     if (ctx->current != NULL)
                         p_expression_node_new->last_token = ctx->current;
@@ -4120,10 +4220,19 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     * modifiable lvalue. Only the assignment operators used to
                     * check this, so `const int ci; ci++;` was accepted.
                     */
+                    struct osstream ss_name = { 0 };
+                    flow_expression_to_string(p_expression_node, &ss_name);
+                    /* last_token already includes the postfix operator: name the operand alone */
+                    if (ss_name.c_str && ss_name.size >= 2 && strcmp(ss_name.c_str + ss_name.size - 2, "++") == 0)
+                    {
+                        ss_name.size -= 2;
+                        ss_name.c_str[ss_name.size] = '\0';
+                    }
                     diagnostic(C_ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT,
                                ctx,
                                p_expression_node->first_token, NULL,
-                               "increment of read-only object");
+                               "increment of read-only object '%s'", ss_name.c_str ? ss_name.c_str : "");
+                    ss_close(&ss_name);
                 }
 
                 mark_pointee_written(p_expression_node, false);
@@ -4166,10 +4275,19 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 if (type_is_const_recursive(&p_expression_node->object.type))
                 {
+                    struct osstream ss_name = { 0 };
+                    flow_expression_to_string(p_expression_node, &ss_name);
+                    /* last_token already includes the postfix operator: name the operand alone */
+                    if (ss_name.c_str && ss_name.size >= 2 && strcmp(ss_name.c_str + ss_name.size - 2, "--") == 0)
+                    {
+                        ss_name.size -= 2;
+                        ss_name.c_str[ss_name.size] = '\0';
+                    }
                     diagnostic(C_ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT,
                                ctx,
                                p_expression_node->first_token, NULL,
-                               "decrement of read-only object");
+                               "decrement of read-only object '%s'", ss_name.c_str ? ss_name.c_str : "");
+                    ss_close(&ss_name);
                 }
 
                 mark_pointee_written(p_expression_node, false);
@@ -4217,7 +4335,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
     {
     }
 
-    _Assert(p_expression_node == NULL || (p_expression_node->first_token && p_expression_node->last_token));
+    _Assert(p_expression_node == NULL || (p_expression_node->first_token && p_expression_node->last_token)); //lint 30 false positive
 
     return p_expression_node;
 }
@@ -4268,7 +4386,7 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
             {
                 if (p_expression_node->p_storage_class_specifiers->storage_class_specifier_flags != STORAGE_SPECIFIER_STATIC)
                 {
-                    diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->type_name->first_token, NULL, "only static is allowed");
+                    diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->type_name->first_token, NULL, "function literals allow only the 'static' storage-class specifier");
                 }
             }
             else
@@ -4277,7 +4395,7 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
                            ctx,
                            p_expression_node->type_name->first_token,
                     NULL,
-                           "function literals must have 'static' storage qualifier");
+                           "function literals must have the 'static' storage-class specifier");
             }
 
             p_expression_node->expression_type = EXPR_POSTFIX_FUNCTION_LITERAL;
@@ -4328,7 +4446,12 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
             int er = make_object(&p_expression_node->object.type, &p_expression_node->object, MAKE_STATE_UNITIALIZED, ctx->options.target);
             if (er != 0)
             {
-                diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "incomplete struct/union type");
+                {
+                    struct osstream ss = { 0 };
+                    print_type_no_names(&ss, &p_expression_node->object.type, ctx->options.target);
+                    diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "compound literal has incomplete type '%s'", ss.c_str ? ss.c_str : "");
+                    ss_close(&ss);
+                }
             }
 
             const bool is_constant = type_is_const_or_constexpr(&p_expression_node->object.type);
@@ -4559,11 +4682,12 @@ static int check_sizeof_argument(const struct parser_ctx* ctx,
         if (p_complete == NULL)
         {
             /* The sizeof operator shall not be applied to an expression that has function type or an incomplete type */
-            diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE,
-                       ctx,
-                       p_expression->first_token,
-                NULL,
-                       "struct is incomplete type");
+            {
+                struct osstream ss = { 0 };
+                print_type_no_names(&ss, p_type, ctx->options.target);
+                diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression->first_token, NULL, "sizeof applied to incomplete type '%s'", ss.c_str ? ss.c_str : "");
+                ss_close(&ss);
+            }
             return -1;
         }
     }
@@ -4589,7 +4713,7 @@ static int check_sizeof_argument(const struct parser_ctx* ctx,
                        ctx,
                        p_expression->first_token,
                 NULL,
-                       "array is incomplete type");
+                       "sizeof applied to an array of unknown size");
             return -1;
         }
     }
@@ -4599,7 +4723,7 @@ static int check_sizeof_argument(const struct parser_ctx* ctx,
                    ctx,
                    p_expression->first_token,
                    NULL,
-                   "enum is incomplete type");
+                   "enum type is incomplete");
         return -1;
     }
 
@@ -4782,12 +4906,15 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 /* C11 6.5.3.1p1: same modifiable-lvalue requirement for the
                 * prefix form.
                 */
+                struct osstream ss_name = { 0 };
+                flow_expression_to_string(new_expression->right, &ss_name);
                 diagnostic(C_ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT,
                            ctx,
                            new_expression->right->first_token, NULL,
                            new_expression->expression_type == EXPR_UNARY_INCREMENT
-                    ? "increment of read-only object"
-                    : "decrement of read-only object");
+                    ? "increment of read-only object '%s'"
+                    : "decrement of read-only object '%s'", ss_name.c_str ? ss_name.c_str : "");
+                ss_close(&ss_name);
             }
 
             mark_pointee_written(new_expression->right, false);
@@ -4855,11 +4982,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             {
                 if (!type_is_integer(&new_expression->right->object.type))
                 {
+                    struct osstream ss = { 0 };
+                    print_type_no_names(&ss, &new_expression->right->object.type, ctx->options.target);
                     diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER,
                                ctx,
                                op_position,
                         NULL,
-                               "requires integer type");
+                               "operator '~' requires an integer operand, but the type is '%s'", ss.c_str ? ss.c_str : "");
+                    ss_close(&ss);
 
                     expression_delete(new_expression);
                     throw;
@@ -4896,17 +5026,21 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
 
                 if (!type_is_arithmetic(&new_expression->right->object.type))
                 {
-                    diagnostic(C_ERROR_OPERATOR_CANNOT_BE_APPLIED,
-                               ctx,
-                               op_position,
-                        NULL,
-                               "operator cannot be applied to an operand of the given type");
+                    {
+                        struct osstream ss = { 0 };
+                        print_type_no_names(&ss, &new_expression->right->object.type, ctx->options.target);
+                        diagnostic(C_ERROR_OPERATOR_CANNOT_BE_APPLIED, ctx, op_position, NULL, "unary '%c' requires an arithmetic operand, but the type is '%s'", op, ss.c_str ? ss.c_str : "");
+                        ss_close(&ss);
+                    }
 
                     expression_delete(new_expression);
                     throw;
                 }
 
-                if (op == '-' && type_is_unsigned_integer(&new_expression->right->object.type))
+                /* promote */
+                struct type unary_promoted = type_common(&new_expression->right->object.type, &new_expression->right->object.type, ctx->options.target);
+
+                if (op == '-' && type_is_unsigned_integer(&unary_promoted))
                 {
                     diagnostic(W_UNARY_MINUS_ON_UNSIGNED,
                                ctx,
@@ -4914,9 +5048,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                         NULL,
                                "unary minus operator applied to unsigned type, result still unsigned");
                 }
-
-                /* promote */
-                struct type unary_promoted = type_common(&new_expression->right->object.type, &new_expression->right->object.type, ctx->options.target);
 
                 if (!is_discarded &&
                     object_has_constant_value(&new_expression->right->object))
@@ -4957,10 +5088,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 }
                 else
                 {
-                    diagnostic(W_ARRAY_INDIRECTION,
-                               ctx,
-                               op_position, NULL,
-                               "array indirection");
+                    /* `sizeof *a`, `typeof(*"")`: only the type is used */
+                    if (ctx->unevaluated_operand_depth == 0)
+                    {
+                        diagnostic(W_ARRAY_INDIRECTION,
+                                   ctx,
+                                   op_position, NULL,
+                                   "using indirection '*' in array");
+                    }
                     new_expression->object.type = get_array_item_type(&new_expression->right->object.type);
                 }
 
@@ -5066,7 +5201,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                            ctx,
                            ctx->current,
                     NULL,
-                           "invalid token");
+                           "expected an expression, got '%s'", get_diagnostic_token_text(ctx->current));
                 throw;
             }
             p_expression_node = new_expression;
@@ -5432,12 +5567,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 {
                     if (!type_is_struct_or_union(&current_type))
                     {
-                        diagnostic(C_ERROR_STRUCTURE_OR_UNION_REQUIRED,
-                                   ctx,
-                                   p_designator->identifier,
-                                   NULL,
-                                   "offsetof: member '%s' requested in something not a structure or union",
-                                   p_designator->identifier->lexeme);
+                        {
+                            struct osstream ss = { 0 };
+                            print_type_no_names(&ss, &current_type, ctx->options.target);
+                            diagnostic(C_ERROR_STRUCTURE_OR_UNION_REQUIRED, ctx, p_designator->identifier, NULL, "offsetof: member '%s' requires a structure or union, but the type is '%s'", p_designator->identifier->lexeme, ss.c_str ? ss.c_str : "");
+                            ss_close(&ss);
+                        }
                         has_error = true;
                         break;
                     }
@@ -5467,20 +5602,23 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                             if (current_type.struct_or_union_specifier != NULL &&
                                 get_complete_struct_or_union_specifier(current_type.struct_or_union_specifier) == NULL)
                             {
+                                struct osstream ss = { 0 };
+                                print_type_no_names(&ss, &current_type, ctx->options.target);
                                 diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE,
                                            ctx,
                                            p_designator->identifier,
                                            NULL,
-                                           "offsetof: incomplete struct/union type");
+                                           "offsetof: incomplete type '%s'", ss.c_str ? ss.c_str : "");
+                                ss_close(&ss);
                             }
                             else
                             {
-                                diagnostic(C_ERROR_STRUCT_MEMBER_NOT_FOUND,
-                                           ctx,
-                                           p_designator->identifier,
-                                           NULL,
-                                           "offsetof: member '%s' not found",
-                                           p_designator->identifier->lexeme);
+                                {
+                                    struct osstream ss = { 0 };
+                                    print_type_no_names(&ss, &current_type, ctx->options.target);
+                                    diagnostic(C_ERROR_STRUCT_MEMBER_NOT_FOUND, ctx, p_designator->identifier, NULL, "offsetof: member '%s' not found in '%s'", p_designator->identifier->lexeme, ss.c_str ? ss.c_str : "");
+                                    ss_close(&ss);
+                                }
                             }
                             has_error = true;
                         break;
@@ -5492,7 +5630,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                                        ctx,
                                        p_designator->identifier,
                                        NULL,
-                                       "offsetof: invalid type");
+                                       "offsetof: member type has no constant size");
                             has_error = true;
                         break;
                     }
@@ -5735,7 +5873,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                                    ctx,
                                    new_expression->first_token,
                         NULL,
-                                   "size of function");
+                                   "sizeof applied to a function type");
                     break;
 
                     case SIZEOF_RESULT_BITFIELD:
@@ -6362,17 +6500,17 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                 if (type_is_function(&p_expression_node->object.type))
                 {
                     diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->first_token, NULL,
-                               "cast to function type is illegal");
+                               "cannot cast to a function type");
                 }
                 else if (type_is_array(&p_expression_node->object.type))
                 {
                     diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->first_token, NULL,
-                               "cast to array type is illegal");
+                               "cannot cast to an array type");
                 }
 
                 if (!is_first_of_unary_expression(ctx))
                 {
-                    diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "expected expression");
+                    diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "expected an expression, got '%s'", get_diagnostic_token_text(ctx->current));
                 }
                 else
                 {
@@ -6392,16 +6530,17 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                                    ctx,
                                    p_expression_node->first_token,
                             NULL,
-                                   "cast of 'void' term to non-'void' is illegal");
+                                   "cannot cast a void expression to a non-void type");
                     }
                     else if (!type_is_void(&p_expression_node->object.type) &&
                         !type_is_scalar(&p_expression_node->object.type))
                     {
-                        diagnostic(C_ERROR_CAST_TO_NON_SCALAR_TYPE,
-                                   ctx,
-                                   p_expression_node->first_token,
-                            NULL,
-                                   "used type cannot be casted to because it is not a scalar type");
+                        {
+                            struct osstream ss = { 0 };
+                            print_type_no_names(&ss, &p_expression_node->object.type, ctx->options.target);
+                            diagnostic(C_ERROR_CAST_TO_NON_SCALAR_TYPE, ctx, p_expression_node->first_token, NULL, "cannot cast to '%s' because it is not a scalar type", ss.c_str ? ss.c_str : "");
+                            ss_close(&ss);
+                        }
                     }
                     else if (!type_is_void(&p_expression_node->object.type) &&
                         !type_is_void(&p_expression_node->left->object.type) &&
@@ -6431,7 +6570,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                                    ctx,
                                    p_expression_node->first_token,
                             NULL,
-                                   "A floating type cannot be converted to any pointer type");
+                                   "a floating type cannot be converted to any pointer type");
                     }
                     else if (type_is_nullptr_t(&p_expression_node->left->object.type))
                     {
@@ -6446,11 +6585,12 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                         }
                         else
                         {
-                            diagnostic(C_ERROR_NULLPTR_CAST_ERROR,
-                                       ctx,
-                                       p_expression_node->first_token,
-                                NULL,
-                                       "cannot cast nullptr_t to this type");
+                            {
+                                struct osstream ss = { 0 };
+                                print_type_no_names(&ss, &p_expression_node->object.type, ctx->options.target);
+                                diagnostic(C_ERROR_NULLPTR_CAST_ERROR, ctx, p_expression_node->first_token, NULL, "cannot cast nullptr_t to '%s'", ss.c_str ? ss.c_str : "");
+                                ss_close(&ss);
+                            }
                         }
                     }
                     else if (type_is_nullptr_t(&p_expression_node->object.type))
@@ -6467,11 +6607,12 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                         }
                         else
                         {
-                            diagnostic(C_ERROR_NULLPTR_CAST_ERROR,
-                                       ctx,
-                                       p_expression_node->left->first_token,
-                                NULL,
-                                       "cannot cast this expression to nullptr_t");
+                            {
+                                struct osstream ss = { 0 };
+                                print_type_no_names(&ss, &p_expression_node->left->object.type, ctx->options.target);
+                                diagnostic(C_ERROR_NULLPTR_CAST_ERROR, ctx, p_expression_node->left->first_token, NULL, "cannot cast '%s' to nullptr_t", ss.c_str ? ss.c_str : "");
+                                ss_close(&ss);
+                            }
                         }
                     }
 
@@ -6544,7 +6685,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
         }
         else
         {
-            diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "expected expression");
+            diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "expected an expression, got '%s'", get_diagnostic_token_text(ctx->current));
             _Assert(p_expression_node == NULL);
             throw;
         }
@@ -6651,7 +6792,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
                                ctx,
                                new_expression->left->first_token,
                         NULL,
-                               "left is not an integer type");
+                               "left operand must have integer type");
                 }
 
                 if (!type_is_integer(&new_expression->right->object.type))
@@ -6660,7 +6801,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
                                ctx,
                                new_expression->right->first_token,
                         NULL,
-                               "right is not an integer type");
+                               "right operand must have integer type");
                 }
             }
             else
@@ -6672,7 +6813,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
                                ctx,
                                new_expression->left->first_token,
                                NULL,
-                               "left is not an arithmetic type");
+                               "left operand must have arithmetic type");
                 }
 
                 if (!type_is_arithmetic(&new_expression->right->object.type))
@@ -6681,7 +6822,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
                                ctx,
                                new_expression->right->first_token,
                                NULL,
-                               "right is not an arithmetic type");
+                               "right operand must have arithmetic type");
                 }
             }
             new_expression->object.type = type_common(&new_expression->left->object.type, &new_expression->right->object.type, ctx->options.target);
@@ -6850,12 +6991,12 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, bool 
 
             if (!type_is_scalar_decay(&new_expression->left->object.type))
             {
-                diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, operator_position, NULL, "left operator is not scalar");
+                diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, operator_position, NULL, "left operand must have scalar type");
             }
 
             if (!type_is_scalar_decay(&new_expression->right->object.type))
             {
-                diagnostic(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, operator_position, NULL, "right operator is not scalar");
+                diagnostic(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, operator_position, NULL, "right operand must have scalar type");
             }
 
             const bool b_left_is_arithmetic = type_is_arithmetic(&new_expression->left->object.type);
@@ -6933,7 +7074,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, bool 
                         }
                         else
                         {
-                            diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "expected integer type on right");
+                            diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right operand must have integer type");
                         }
                     }
                     else if (right_category == TYPE_CATEGORY_POINTER || right_category == TYPE_CATEGORY_ARRAY /* || right_category == TYPE_CATEGORY_FUNCTION */)
@@ -6951,12 +7092,23 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, bool 
                         }
                         else
                         {
-                            diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "expected integer type on left");
+                            diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left operand must have integer type");
                         }
                     }
                     else
                     {
-                        diagnostic(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "invalid types additive expression");
+                        {
+                            struct osstream ss_a = { 0 };
+                            struct osstream ss_b = { 0 };
+                            print_type_no_names(&ss_a, &new_expression->left->object.type, ctx->options.target);
+                            print_type_no_names(&ss_b, &new_expression->right->object.type, ctx->options.target);
+                            if (type_is_empty(&new_expression->left->object.type) || type_is_empty(&new_expression->right->object.type))
+                                diagnostic(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "invalid operands to binary '+'");
+                            else
+                                diagnostic(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "invalid operands to binary '+' ('%s' and '%s')", ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
+                            ss_close(&ss_a);
+                            ss_close(&ss_b);
+                        }
                     }
                 }
             }
@@ -7026,7 +7178,15 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, bool 
 
                             if (!type_is_same(&t1, &t2, false))
                             {
-                                diagnostic(C_ERROR_INCOMPATIBLE_POINTER_TYPES, ctx, ctx->current, NULL, "incompatible pointer types");
+                                {
+                                    struct osstream ss_a = { 0 };
+                                    struct osstream ss_b = { 0 };
+                                    print_type_no_names(&ss_a, &t1, ctx->options.target);
+                                    print_type_no_names(&ss_b, &t2, ctx->options.target);
+                                    diagnostic(C_ERROR_INCOMPATIBLE_POINTER_TYPES, ctx, ctx->current, NULL, "incompatible pointer types in subtraction ('%s' and '%s')", ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
+                                    ss_close(&ss_a);
+                                    ss_close(&ss_b);
+                                }
                             }
 
                             new_expression->object.type = type_make_ptrdiff_t(ctx->options.target);
@@ -7042,13 +7202,24 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, bool 
                             }
                             else
                             {
-                                diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right must be integer type");
+                                diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right operand must have integer type");
                             }
                         }
                     }
                     else
                     {
-                        diagnostic(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "invalid types for operator -");
+                        {
+                            struct osstream ss_a = { 0 };
+                            struct osstream ss_b = { 0 };
+                            print_type_no_names(&ss_a, &new_expression->left->object.type, ctx->options.target);
+                            print_type_no_names(&ss_b, &new_expression->right->object.type, ctx->options.target);
+                            if (type_is_empty(&new_expression->left->object.type) || type_is_empty(&new_expression->right->object.type))
+                                diagnostic(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "invalid operands to binary '-'");
+                            else
+                                diagnostic(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "invalid operands to binary '-' ('%s' and '%s')", ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
+                            ss_close(&ss_a);
+                            ss_close(&ss_b);
+                        }
                     }
                 }
             }
@@ -7088,7 +7259,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, bool is_
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
 
-            new_expression->first_token = ctx->current;
+            new_expression->first_token = p_expression_node->first_token;
 
             enum token_type op = ctx->current->type;
             const struct token* const op_tok_shift = ctx->current;
@@ -7143,14 +7314,14 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, bool is_
             if (!type_is_integer(&new_expression->left->object.type))
             {
                 expression_delete(new_expression);
-                diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
+                diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left operand must have integer type");
                 throw;
             }
 
             if (!type_is_integer(&new_expression->right->object.type))
             {
                 expression_delete(new_expression);
-                diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
+                diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right operand must have integer type");
                 throw;
             }
 
@@ -7288,10 +7459,16 @@ static void check_comparison(const struct parser_ctx* ctx,
         }
         else if (!type_is_same(p_a_type, p_b_type, false))
         {
+            struct osstream ss_a = { 0 };
+            struct osstream ss_b = { 0 };
+            print_type_no_names(&ss_a, p_a_type, ctx->options.target);
+            print_type_no_names(&ss_b, p_b_type, ctx->options.target);
             diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
                        ctx,
                        op_token, NULL,
-                       "comparison of distinct pointer types");
+                       "comparison of distinct pointer types ('%s' and '%s')", ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
+            ss_close(&ss_a);
+            ss_close(&ss_b);
         }
     }
     else if (type_is_pointer(p_a_type) && !type_is_pointer(p_b_type))
@@ -7302,10 +7479,15 @@ static void check_comparison(const struct parser_ctx* ctx,
         }
         else
         {
-            diagnostic(W_ENUN_CONVERSION,
-                       ctx,
-                       op_token, NULL,
-                       "operands differ in levels of indirection");
+            {
+                struct osstream ss_a = { 0 };
+                struct osstream ss_b = { 0 };
+                print_type_no_names(&ss_a, p_a_type, ctx->options.target);
+                print_type_no_names(&ss_b, p_b_type, ctx->options.target);
+                diagnostic(W_ENUN_CONVERSION, ctx, op_token, NULL, "comparison between pointer and non-pointer ('%s' and '%s')", ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
+                ss_close(&ss_a);
+                ss_close(&ss_b);
+            }
         }
     }
     else if (!type_is_pointer(p_a_type) && type_is_pointer(p_b_type))
@@ -7316,10 +7498,15 @@ static void check_comparison(const struct parser_ctx* ctx,
         }
         else
         {
-            diagnostic(W_ENUN_CONVERSION,
-                       ctx,
-                       op_token, NULL,
-                       "operands differ in levels of indirection");
+            {
+                struct osstream ss_a = { 0 };
+                struct osstream ss_b = { 0 };
+                print_type_no_names(&ss_a, p_a_type, ctx->options.target);
+                print_type_no_names(&ss_b, p_b_type, ctx->options.target);
+                diagnostic(W_ENUN_CONVERSION, ctx, op_token, NULL, "comparison between pointer and non-pointer ('%s' and '%s')", ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
+                ss_close(&ss_a);
+                ss_close(&ss_b);
+            }
         }
     }
     else if (type_is_nullptr_t(p_a_type) != type_is_nullptr_t(p_b_type))
@@ -7350,7 +7537,7 @@ static void check_comparison(const struct parser_ctx* ctx,
             diagnostic(W_BOOL_COMPARISON,
                        ctx,
                        op_token, NULL,
-                       "comparison bool with non bool");
+                       "comparison between bool and non-bool");
         }
     }
 
@@ -7369,7 +7556,7 @@ static void check_comparison(const struct parser_ctx* ctx,
             diagnostic(W_BOOL_COMPARISON,
                        ctx,
                        op_token, NULL,
-                       "comparison bool with non bool");
+                       "comparison between bool and non-bool");
         }
     }
 
@@ -7419,7 +7606,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, boo
             {
                 throw;
             }
-            new_expression->first_token = ctx->current;
+            new_expression->first_token = p_expression_node->first_token;
             struct token* optk = ctx->current;
             enum token_type op = ctx->current->type;
             check_binary_operator_space_style(ctx, optk, ctx->current);
@@ -7740,7 +7927,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, bool 
                 diagnostic(C_ERROR_STRUCT_UNION_COMPARISON_ILLEGAL,
                            ctx,
                            p_token_operator, NULL,
-                           "struct/union comparison illegal");
+                           "cannot compare structures or unions");
             }
 
             new_expression->last_token = new_expression->right->last_token;
@@ -7817,7 +8004,7 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, bool is_di
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
                 throw;
-            new_expression->first_token = ctx->current;
+            new_expression->first_token = p_expression_node->first_token;
             new_expression->expression_type = EXPR_AND;
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /* MOVED */
@@ -7836,14 +8023,14 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, bool is_di
             /* Each of the operands shall have integer type */
             if (!type_is_integer(&new_expression->left->object.type))
             {
-                diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
+                diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left operand must have integer type");
                 expression_delete(new_expression);
                 throw;
             }
 
             if (!type_is_integer(&new_expression->right->object.type))
             {
-                diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
+                diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right operand must have integer type");
                 expression_delete(new_expression);
                 throw;
             }
@@ -7909,7 +8096,7 @@ struct expression* _Owner _Opt exclusive_or_expression(struct parser_ctx* ctx, b
             if (new_expression == NULL)
                 throw;
 
-            new_expression->first_token = ctx->current;
+            new_expression->first_token = p_expression_node->first_token;
             new_expression->expression_type = EXPR_EXCLUSIVE_OR;
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /* MOVED */
@@ -7927,14 +8114,14 @@ struct expression* _Owner _Opt exclusive_or_expression(struct parser_ctx* ctx, b
             /* Each of the operands shall have integer type */
             if (!type_is_integer(&new_expression->left->object.type))
             {
-                diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
+                diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left operand must have integer type");
                 expression_delete(new_expression);
                 throw;
             }
 
             if (!type_is_integer(&new_expression->right->object.type))
             {
-                diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
+                diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right operand must have integer type");
                 expression_delete(new_expression);
                 throw;
             }
@@ -7999,7 +8186,7 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx, b
             if (new_expression == NULL)
                 throw;
 
-            new_expression->first_token = ctx->current;
+            new_expression->first_token = p_expression_node->first_token;
             new_expression->expression_type = EXPR_INCLUSIVE_OR;
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /* MOVED */
@@ -8015,7 +8202,7 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx, b
                                  operator_token,
                                  new_expression->left,
                                  new_expression->right,
-                                 "operator '|' between enumerations of different types.");
+                                 "operator '|' between enumerations of different types");
 
             new_expression->last_token = new_expression->right->last_token;
             new_expression->object.type = type_common(&new_expression->left->object.type, &new_expression->right->object.type, ctx->options.target);
@@ -8023,14 +8210,14 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx, b
             if (!type_is_integer(&new_expression->left->object.type))
             {
                 expression_delete(new_expression);
-                diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
+                diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left operand must have integer type");
                 throw;
             }
 
             if (!type_is_integer(&new_expression->right->object.type))
             {
                 expression_delete(new_expression);
-                diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
+                diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right operand must have integer type");
                 throw;
             }
 
@@ -8094,7 +8281,7 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx, bo
             if (new_expression == NULL)
                 throw;
 
-            new_expression->first_token = ctx->current;
+            new_expression->first_token = p_expression_node->first_token;
             new_expression->expression_type = EXPR_LOGICAL_AND;
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /* MOVED */
@@ -8144,14 +8331,14 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx, bo
             if (!type_is_scalar_decay(&new_expression->left->object.type))
             {
                 expression_delete(new_expression);
-                diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "left type is not scalar for or expression");
+                diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "left operand of '&&' must have scalar type");
                 throw;
             }
 
             if (!type_is_scalar_decay(&new_expression->right->object.type))
             {
                 expression_delete(new_expression);
-                diagnostic(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "right type is not scalar for or expression");
+                diagnostic(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "right operand of '&&' must have scalar type");
                 throw;
             }
 
@@ -8204,7 +8391,7 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx, boo
             if (new_expression == NULL)
                 throw;
 
-            new_expression->first_token = ctx->current;
+            new_expression->first_token = p_expression_node->first_token;
             new_expression->expression_type = EXPR_LOGICAL_OR;
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /* MOVED */
@@ -8262,14 +8449,14 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx, boo
             if (!type_is_scalar_decay(&new_expression->left->object.type))
             {
                 expression_delete(new_expression);
-                diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "left type is not scalar for or expression");
+                diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "left operand of '||' must have scalar type");
                 throw;
             }
 
             if (!type_is_scalar_decay(&new_expression->right->object.type))
             {
                 expression_delete(new_expression);
-                diagnostic(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "right type is not scalar for or expression");
+                diagnostic(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "right operand of '||' must have scalar type");
                 throw;
             }
 
@@ -8340,7 +8527,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
             if (new_expression == NULL)
                 throw;
 
-            new_expression->first_token = ctx->current;
+            new_expression->first_token = p_expression_node->first_token;
 
             switch (op_token->type)
             {
@@ -8393,7 +8580,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
                            ctx,
                     NULL,
                            &left_operand_marker,
-                           "assignment of function");
+                           "cannot assign to a function");
             }
             else if (type_is_array(&new_expression->left->object.type))
             {
@@ -8402,11 +8589,14 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
                     /*
                     * assignment of array parameter
                     */
+                    struct osstream ss_name = { 0 };
+                    flow_expression_to_string(new_expression->left, &ss_name);
                     diagnostic(W_ASSIGNMENT_OF_ARRAY_PARAMETER,
                                ctx,
                         NULL,
                                &left_operand_marker,
-                               "assignment to array parameter");
+                               "assignment to array parameter '%s', which is a pointer", ss_name.c_str ? ss_name.c_str : "");
+                    ss_close(&ss_name);
                 }
                 else
                 {
@@ -8420,11 +8610,12 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
 
             if (type_is_const_recursive(&new_expression->left->object.type))
             {
-                diagnostic(C_ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT,
-                           ctx,
-                    NULL,
-                           &left_operand_marker,
-                           "assignment of read-only object");
+                {
+                    struct osstream ss = { 0 };
+                    print_type_no_names(&ss, &new_expression->left->object.type, ctx->options.target);
+                    diagnostic(C_ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT, ctx, NULL, &left_operand_marker, "assignment of read-only object of type '%s'", ss.c_str ? ss.c_str : "");
+                    ss_close(&ss);
+                }
             }
 
             if (!expression_is_lvalue(new_expression->left))
@@ -8531,7 +8722,7 @@ struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, bool i
 
             if (!type_is_scalar(&p_expression_node->object.type))
             {
-                diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, p_expression_node->first_token, NULL, "left operator is not scalar");
+                diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, p_expression_node->first_token, NULL, "left operand must have scalar type");
             }
 
             struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
@@ -8731,7 +8922,7 @@ void check_malloc_size_multiple_of_sizeof(const struct parser_ctx* ctx,
                        ctx,
                        p_size_argument->expression->first_token,
                 NULL,
-                       "argument to 'malloc' is not a multiple of the pointee size (%zu)", pointee_size);
+                       "argument to 'malloc' is not a multiple of the pointee size (%zu bytes)", pointee_size);
         }
     }
     else
@@ -8770,7 +8961,7 @@ void check_malloc_size_multiple_of_sizeof(const struct parser_ctx* ctx,
                        ctx,
                        p_size_argument->expression->first_token,
                 NULL,
-                       "size argument to 'calloc' does not match the pointee size (%zu)", pointee_size);
+                       "size argument to 'calloc' does not match the pointee size (%zu bytes)", pointee_size);
         }
     }
 
@@ -8996,6 +9187,17 @@ static void merge_pointee_qualifiers(const struct type* p_result, const struct t
             (TYPE_QUALIFIER_CONST | TYPE_QUALIFIER_VOLATILE));
 }
 
+static void diagnostic_conditional_incompatible(const struct parser_ctx* ctx, const struct token* p_token, const struct type* p_left, const struct type* p_right)
+{
+    struct osstream ss_a = { 0 };
+    struct osstream ss_b = { 0 };
+    print_type_no_names(&ss_a, p_left, ctx->options.target);
+    print_type_no_names(&ss_b, p_right, ctx->options.target);
+    diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_token, NULL, "incompatible operand types in conditional expression ('%s' and '%s')", ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
+    ss_close(&ss_a);
+    ss_close(&ss_b);
+}
+
 struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bool is_discarded)
 {
     /*
@@ -9196,7 +9398,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
                 */
                 if (!type_is_same(&left_type, &right_type, true))
                 {
-                    diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL, "incompatible types");
+                    diagnostic_conditional_incompatible(ctx, p_conditional_expression->condition_expr->first_token, &left_type, &right_type);
                 }
                 type_swap(&p_conditional_expression->object.type, &right_type);
             }
@@ -9235,7 +9437,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
                     {
                         // type_print(&left_type);
                         // type_print(&right_type);
-                        diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, ctx->current, NULL, "incompatible types");
+                        diagnostic_conditional_incompatible(ctx, ctx->current, &left_type, &right_type);
                     }
                     else
                     {
@@ -9245,7 +9447,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
                 }
                 else
                 {
-                    diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL, "incompatible types");
+                    diagnostic_conditional_incompatible(ctx, p_conditional_expression->condition_expr->first_token, &left_type, &right_type);
                 }
             }
             else if (type_is_pointer(&right_type))
@@ -9264,7 +9466,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
                     }
                     else if (!type_is_same(&left_type, &right_type, false))
                     {
-                        diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL, "incompatible types");
+                        diagnostic_conditional_incompatible(ctx, p_conditional_expression->condition_expr->first_token, &left_type, &right_type);
                     }
                     else
                     {
@@ -9274,12 +9476,12 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
                 }
                 else
                 {
-                    diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL, "incompatible types");
+                    diagnostic_conditional_incompatible(ctx, p_conditional_expression->condition_expr->first_token, &left_type, &right_type);
                 }
             }
             else
             {
-                diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL, "incompatible types");
+                diagnostic_conditional_incompatible(ctx, p_conditional_expression->condition_expr->first_token, &left_type, &right_type);
             }
             p_expression_node = p_conditional_expression;
         }
@@ -9435,10 +9637,16 @@ static void extended_check_assigment(const struct parser_ctx* ctx,
         /* A null pointer constant is always assignable to an owner. */
         if (!expression_is_null_pointer_constant(p_b_expression))
         {
-            diagnostic(W_NON_OWNER_TO_OWNER_ASSIGN,
-                       ctx,
-                       p_b_expression->first_token, NULL,
-                       "cannot assign a non-owner to owner");
+            {
+                struct osstream ss_name = { 0 };
+                flow_expression_to_string(p_b_expression, &ss_name);
+                diagnostic(W_NON_OWNER_TO_OWNER_ASSIGN, ctx, p_b_expression->first_token, NULL,
+                           assignment_type == ASSIGMENT_TYPE_PARAMETER ?
+                               "passing non-owner '%s' to an owner parameter" :
+                               "assigning non-owner '%s' to an owner",
+                           ss_name.c_str ? ss_name.c_str : "");
+                ss_close(&ss_name);
+            }
             return;
         }
     }
@@ -9450,10 +9658,16 @@ static void extended_check_assigment(const struct parser_ctx* ctx,
         */
         if (p_b_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
         {
-            diagnostic(W_USING_TEMPORARY_OWNER,
-                       ctx,
-                       p_b_expression->first_token, NULL,
-                       "cannot assign a temporary owner to non-owner object.");
+            {
+                struct osstream ss_name = { 0 };
+                flow_expression_to_string(p_b_expression, &ss_name);
+                diagnostic(W_USING_TEMPORARY_OWNER, ctx, p_b_expression->first_token, NULL,
+                           assignment_type == ASSIGMENT_TYPE_PARAMETER ?
+                               "passing temporary owner '%s' to a non-owner parameter" :
+                               "assigning temporary owner '%s' to a non-owner",
+                           ss_name.c_str ? ss_name.c_str : "");
+                ss_close(&ss_name);
+            }
         }
     }
 
@@ -9528,10 +9742,17 @@ static void extended_check_assigment(const struct parser_ctx* ctx,
         */
         if (!dest_pointee_owner && src_pointee_owner)
         {
+            struct osstream ss_a = { 0 };
+            struct osstream ss_b = { 0 };
+            print_type_no_names(&ss_a, p_a_type, ctx->options.target);
+            print_type_no_names(&ss_b, p_b_type, ctx->options.target);
             diagnostic(W_OWNER_ALIASED_BY_NON_OWNER_POINTER,
                        ctx,
                        p_b_expression->first_token, NULL,
-                       "owner aliased through a non-owner pointer");
+                       "owner aliased through a non-owner pointer: '%s' from '%s'",
+                       ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
+            ss_close(&ss_a);
+            ss_close(&ss_b);
         }
     }
 }
@@ -9581,11 +9802,15 @@ void check_assigment(const struct parser_ctx* ctx,
                 * return c.a;
                 * }
                 */
+                struct osstream ss_name = { 0 };
+                flow_expression_to_string(p_b_expression, &ss_name);
                 diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
                            ctx,
                            p_b_expression->first_token,
                            NULL,
-                           "trying to access to object address");
+                           "the usage of '%s' would require access to the object from the enclosing function, which is not allowed",
+                           ss_name.c_str ? ss_name.c_str : "");
+                ss_close(&ss_name);
             }
         }
 
@@ -9596,7 +9821,7 @@ void check_assigment(const struct parser_ctx* ctx,
                        ctx,
                        p_b_expression->first_token,
                        NULL,
-                       "a function shall not be implicitly converted to an object pointer type");
+                       "a function cannot be implicitly converted to an object pointer type");
         }
 
         if (!type_is_nullptr_t(p_b_type) &&
@@ -9622,7 +9847,18 @@ void check_assigment(const struct parser_ctx* ctx,
             }
             else
             {
-                diagnostic(C_ERROR_INT_TO_POINTER, ctx, p_b_expression->first_token, NULL, "non-pointer to pointer");
+                {
+                    struct osstream ss_a = { 0 };
+                    struct osstream ss_b = { 0 };
+                    print_type_no_names(&ss_a, p_a_type, ctx->options.target);
+                    print_type_no_names(&ss_b, p_b_type, ctx->options.target);
+                    if (type_is_empty(p_b_type))
+                        diagnostic(C_ERROR_INT_TO_POINTER, ctx, p_b_expression->first_token, NULL, "cannot convert non-pointer to pointer '%s'", ss_a.c_str ? ss_a.c_str : "");
+                    else
+                        diagnostic(C_ERROR_INT_TO_POINTER, ctx, p_b_expression->first_token, NULL, "cannot convert non-pointer '%s' to pointer '%s'", ss_b.c_str ? ss_b.c_str : "", ss_a.c_str ? ss_a.c_str : "");
+                    ss_close(&ss_a);
+                    ss_close(&ss_b);
+                }
             }
         }
     }
@@ -9678,9 +9914,15 @@ void check_assigment(const struct parser_ctx* ctx,
 
         if (!enum_specifier_is_same_type(p_a_type->enum_specifier, p_b_type->enum_specifier))
         {
-            diagnostic(W_INCOMPATIBLE_ENUN_TYPES, ctx,
-                       p_b_expression->first_token, NULL,
-                       " incompatible types ");
+            {
+                struct osstream ss_a = { 0 };
+                struct osstream ss_b = { 0 };
+                print_type_no_names(&ss_a, p_a_type, ctx->options.target);
+                print_type_no_names(&ss_b, p_b_type, ctx->options.target);
+                diagnostic(W_INCOMPATIBLE_ENUN_TYPES, ctx, p_b_expression->first_token, NULL, "incompatible enum types: '%s' from '%s'", ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
+                ss_close(&ss_a);
+                ss_close(&ss_b);
+            }
         }
 
         type_destroy(&b_type_lvalue);
@@ -9728,10 +9970,13 @@ void check_assigment(const struct parser_ctx* ctx,
             }
             else
             {
+                struct osstream ss_type = { 0 };
+                print_type_no_names(&ss_type, p_b_type, ctx->options.target);
                 diagnostic(W_INT_TO_ENUM_CONVERSION, ctx,
                            p_b_expression->first_token, NULL,
-                           "implicit conversion from '%s' to 'enum %s'",
-                           ss_expr.c_str, enum_tag_name);
+                           "implicit conversion of '%s' from '%s' to 'enum %s'",
+                           ss_expr.c_str, ss_type.c_str ? ss_type.c_str : "", enum_tag_name);
+                ss_close(&ss_type);
             }
 
             ss_close(&ss_expr);
@@ -9746,9 +9991,15 @@ void check_assigment(const struct parser_ctx* ctx,
         type_is_pointer_or_array(p_b_type)
     /* && !type_is_nullptr_t(p_b_type) */)
     {
-        diagnostic(W_POINTER_TO_INT, ctx,
-                   p_b_expression->first_token, NULL,
-                   "pointer to integer conversion");
+        {
+            struct osstream ss_a = { 0 };
+            struct osstream ss_b = { 0 };
+            print_type_no_names(&ss_a, p_a_type, ctx->options.target);
+            print_type_no_names(&ss_b, p_b_type, ctx->options.target);
+            diagnostic(W_POINTER_TO_INT, ctx, p_b_expression->first_token, NULL, "pointer to integer conversion: '%s' from '%s'", ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
+            ss_close(&ss_a);
+            ss_close(&ss_b);
+        }
 
         type_destroy(&b_type_lvalue);
         return;
@@ -9772,7 +10023,7 @@ void check_assigment(const struct parser_ctx* ctx,
         diagnostic(W_PASSING_NULL_AS_ARRAY,
                    ctx,
                    p_b_expression->first_token, NULL,
-                   " passing null as array");
+                   "passing null as array");
 
         type_destroy(&b_type_lvalue);
         
@@ -9838,14 +10089,14 @@ void check_assigment(const struct parser_ctx* ctx,
                     {
                         diagnostic(C_ERROR_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE, ctx,
                                    p_b_expression->first_token, NULL,
-                                   " argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
+                                   "argument array of size %zu is smaller than the parameter array size %zu", argument_array_size, parameter_array_size);
                     }
                 }
                 else if (is_null_pointer_constant || type_is_nullptr_t(p_b_type))
                 {
                     diagnostic(W_PASSING_NULL_AS_ARRAY, ctx,
                                p_b_expression->first_token, NULL,
-                               " passing null as array");
+                               "passing null as array");
                 }
             }
             a_type_lvalue = type_lvalue_conversion(p_a_type);
@@ -9917,11 +10168,15 @@ void check_assigment(const struct parser_ctx* ctx,
 
                 if (mismatch)
                 {
-                    diagnostic(W_DISCARDED_QUALIFIERS, ctx,
-                               p_b_expression->first_token, NULL,
-                               assignment_type == ASSIGMENT_TYPE_PARAMETER
-                                ? "discarding const qualifier at argument"
-                                : "discarding const qualifier");
+                    {
+                        struct osstream ss_a = { 0 };
+                        struct osstream ss_b = { 0 };
+                        print_type_no_names(&ss_a, p_a_type, ctx->options.target);
+                        print_type_no_names(&ss_b, &b_type_lvalue, ctx->options.target);
+                        diagnostic(W_DISCARDED_QUALIFIERS, ctx, p_b_expression->first_token, NULL, assignment_type == ASSIGMENT_TYPE_PARAMETER ? "discarding const qualifier in argument: '%s' from '%s'" : "discarding const qualifier: '%s' from '%s'", ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
+                        ss_close(&ss_a);
+                        ss_close(&ss_b);
+                    }
                                 
                     type_destroy(&b_next);
                     type_destroy(&a_next);
@@ -9991,8 +10246,45 @@ void check_assigment(const struct parser_ctx* ctx,
 void flow_expression_to_string(const struct expression* p_expression, struct osstream* ss)
 {
     ss_clear(ss);
- 
+
+    /* the text as the user wrote it: macro names, not their expansion, with the original spacing */
     const struct token* _Opt current = p_expression->first_token;
+    while (current && current != p_expression->last_token->next)
+    {
+        if (!(current->flags & TK_FLAG_MACRO_EXPANDED) &&
+            !token_is_blank(current) &&
+            current->type != TK_BEGIN_OF_FILE &&
+            current->type != TK_NEWLINE &&
+            current->type != TK_LINE_COMMENT &&
+            current->type != TK_COMMENT)
+        {
+            if (ss->c_str != NULL && (current->flags & TK_FLAG_HAS_SPACE_BEFORE))
+                ss_fprintf(ss, " ");
+            ss_fprintf(ss, "%s", current->lexeme);
+        }
+        current = current->next;
+    }
+
+    if (ss->c_str != NULL)
+        return;
+
+    /* the whole expression is the expansion of an object-like macro such as NULL: name the macro */
+    const struct token* _Opt p_before = p_expression->first_token->prev;
+    while (p_before && (p_before->flags & TK_FLAG_MACRO_EXPANDED))
+        p_before = p_before->prev;
+    if (p_before &&
+        p_before->type == TK_IDENTIFIER &&
+        p_before->next &&
+        (p_before->next->flags & TK_FLAG_MACRO_EXPANDED) &&
+        p_expression->last_token->next &&
+        !(p_expression->last_token->next->flags & TK_FLAG_MACRO_EXPANDED))
+    {
+        ss_fprintf(ss, "%s", p_before->lexeme);
+        return;
+    }
+
+    /* the whole expression came from a macro expansion: describe it with the compiler's tokens */
+    current = p_expression->first_token;
     while (current && current != p_expression->last_token->next)
     {
         if (!(current->flags & TK_C_BACKEND_FLAG_HIDE) &&

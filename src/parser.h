@@ -340,6 +340,7 @@ struct declaration_specifiers
     struct enum_specifier* _Opt enum_specifier;
     struct declarator* _Opt typedef_declarator;
     struct typeof_specifier* _Opt typeof_specifier;
+    struct atomic_type_specifier* _Opt atomic_type_specifier;
 
     struct token* first_token; /*not _Owner*/
     struct token* last_token; /*not _Owner*/
@@ -694,6 +695,7 @@ struct atomic_type_specifier
     */
     struct token* token;
     struct type_name* _Owner type_name;
+    struct type type;
 };
 
 struct atomic_type_specifier* _Owner _Opt atomic_type_specifier(struct parser_ctx* ctx);
@@ -1195,6 +1197,7 @@ struct specifier_qualifier_list
     struct struct_or_union_specifier* _Opt struct_or_union_specifier;
     struct enum_specifier* _Opt enum_specifier;
     struct typeof_specifier* _Opt typeof_specifier;
+    struct atomic_type_specifier* _Opt atomic_type_specifier;
     struct declarator* _Opt typedef_declarator;
 
     struct type_specifier_qualifier* _Owner _Opt head;
@@ -1564,7 +1567,7 @@ struct designator
        . identifier
     */
     struct expression* _Owner _Opt constant_expression_opt;
-    struct token* token;
+    struct token* _Opt token; /* the identifier of `.identifier`, NULL for `[ ]` */
     struct designator* _Owner _Opt next;
 };
 

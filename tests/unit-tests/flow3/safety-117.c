@@ -4,7 +4,7 @@ void f(int i)
 {
     int j;
 
-    if (i || j) // warning: using a uninitialized object 'j'
+    if (i || j) //lint 30
     {
     }
 }
