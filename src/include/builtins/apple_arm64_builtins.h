@@ -178,4 +178,63 @@ unsigned int __builtin_stdc_trailing_ones(/*type arg*/);
 unsigned int __builtin_stdc_trailing_zeros(/*type arg*/);
 
 
+/*
+  clang atomic builtins used by <stdatomic.h>.
+  Type-generic: arguments are not checked and load, exchange and fetch_*
+  return the type pointed by the first argument (see expressions.c).
+*/
+void __c11_atomic_init(/*_Atomic(T)* obj, T value*/);
+void __c11_atomic_thread_fence(int order);
+void __c11_atomic_signal_fence(int order);
+_Bool __c11_atomic_is_lock_free(typeof(sizeof(1)) size);
+void __c11_atomic_store(/*_Atomic(T)* obj, T value, int order*/);
+int __c11_atomic_load(/*_Atomic(T)* obj, int order*/);
+int __c11_atomic_exchange(/*_Atomic(T)* obj, T value, int order*/);
+_Bool __c11_atomic_compare_exchange_strong(/*_Atomic(T)* obj, T* expected, T desired, int success, int failure*/);
+_Bool __c11_atomic_compare_exchange_weak(/*_Atomic(T)* obj, T* expected, T desired, int success, int failure*/);
+int __c11_atomic_fetch_add(/*_Atomic(T)* obj, T operand, int order*/);
+int __c11_atomic_fetch_sub(/*_Atomic(T)* obj, T operand, int order*/);
+int __c11_atomic_fetch_and(/*_Atomic(T)* obj, T operand, int order*/);
+int __c11_atomic_fetch_or(/*_Atomic(T)* obj, T operand, int order*/);
+int __c11_atomic_fetch_xor(/*_Atomic(T)* obj, T operand, int order*/);
+int __c11_atomic_fetch_nand(/*_Atomic(T)* obj, T operand, int order*/);
+int __c11_atomic_fetch_max(/*_Atomic(T)* obj, T operand, int order*/);
+int __c11_atomic_fetch_min(/*_Atomic(T)* obj, T operand, int order*/);
+
+/*
+  https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
+  Type-generic: arguments are not checked and the _n, fetch and op_fetch
+  forms return the type pointed by the first argument (see expressions.c).
+*/
+int __atomic_load_n(/*T* ptr, int order*/);
+void __atomic_load(/*T* ptr, T* ret, int order*/);
+void __atomic_store_n(/*T* ptr, T val, int order*/);
+void __atomic_store(/*T* ptr, T* val, int order*/);
+int __atomic_exchange_n(/*T* ptr, T val, int order*/);
+void __atomic_exchange(/*T* ptr, T* val, T* ret, int order*/);
+_Bool __atomic_compare_exchange_n(/*T* ptr, T* expected, T desired, bool weak, int success, int failure*/);
+_Bool __atomic_compare_exchange(/*T* ptr, T* expected, T* desired, bool weak, int success, int failure*/);
+int __atomic_add_fetch(/*T* ptr, T val, int order*/);
+int __atomic_sub_fetch(/*T* ptr, T val, int order*/);
+int __atomic_and_fetch(/*T* ptr, T val, int order*/);
+int __atomic_xor_fetch(/*T* ptr, T val, int order*/);
+int __atomic_or_fetch(/*T* ptr, T val, int order*/);
+int __atomic_nand_fetch(/*T* ptr, T val, int order*/);
+int __atomic_max_fetch(/*T* ptr, T val, int order*/);
+int __atomic_min_fetch(/*T* ptr, T val, int order*/);
+int __atomic_fetch_add(/*T* ptr, T val, int order*/);
+int __atomic_fetch_sub(/*T* ptr, T val, int order*/);
+int __atomic_fetch_and(/*T* ptr, T val, int order*/);
+int __atomic_fetch_xor(/*T* ptr, T val, int order*/);
+int __atomic_fetch_or(/*T* ptr, T val, int order*/);
+int __atomic_fetch_nand(/*T* ptr, T val, int order*/);
+int __atomic_fetch_max(/*T* ptr, T val, int order*/);
+int __atomic_fetch_min(/*T* ptr, T val, int order*/);
+_Bool __atomic_test_and_set(void* ptr, int order);
+void __atomic_clear(_Bool* ptr, int order);
+void __atomic_thread_fence(int order);
+void __atomic_signal_fence(int order);
+_Bool __atomic_always_lock_free(typeof(sizeof(1)) size, void* ptr);
+_Bool __atomic_is_lock_free(typeof(sizeof(1)) size, void* ptr);
+
 #pragma cake diagnostic pop

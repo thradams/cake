@@ -1,6 +1,5 @@
 
 #define _CONSOLE
-#define __STDC_NO_ATOMICS__ __STDC_NO_ATOMICS__
 #define __STDC_NO_COMPLEX__  __STDC_NO_COMPLEX__
 #define __STDC_NO_THREADS__   __STDC_NO_THREADS__
 #define __STDC_NO_VLA__    __STDC_NO_VLA__
@@ -143,3 +142,23 @@
 #define __SIZEOF_WINT_T__ 4
 #define __SIZEOF_PTRDIFF_T__ 8
 
+
+/* memory orders used by <stdatomic.h> and the __atomic/__c11_atomic builtins */
+#define __ATOMIC_RELAXED 0
+#define __ATOMIC_CONSUME 1
+#define __ATOMIC_ACQUIRE 2
+#define __ATOMIC_RELEASE 3
+#define __ATOMIC_ACQ_REL 4
+#define __ATOMIC_SEQ_CST 5
+
+#define __GCC_ATOMIC_BOOL_LOCK_FREE 2
+#define __GCC_ATOMIC_CHAR_LOCK_FREE 2
+#define __GCC_ATOMIC_CHAR16_T_LOCK_FREE 2
+#define __GCC_ATOMIC_CHAR32_T_LOCK_FREE 2
+#define __GCC_ATOMIC_WCHAR_T_LOCK_FREE 2
+#define __GCC_ATOMIC_SHORT_LOCK_FREE 2
+#define __GCC_ATOMIC_INT_LOCK_FREE 2
+#define __GCC_ATOMIC_LONG_LOCK_FREE 2
+#define __GCC_ATOMIC_LLONG_LOCK_FREE 2
+#define __GCC_ATOMIC_POINTER_LOCK_FREE 2
+#define __GCC_ATOMIC_TEST_AND_SET_TRUEVAL 1
