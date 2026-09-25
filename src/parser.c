@@ -7689,6 +7689,9 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
     */
 
     struct enum_specifier* _Owner _Opt p_enum_specifier = NULL;
+
+    /* the underlying-type mismatch with a previous declaration is reported once, at ':' or at '{' */
+    bool underlying_mismatch_reported = false;
     try
     {
         if (ctx->current == NULL)
@@ -7766,8 +7769,9 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
 
                 if (prev_decl_same_scope && !prev_decl_same_scope->has_underlying)
                 {
+                    /* not fatal: keep parsing so the declaration reaches its end and a trailing //lint is seen */
                     diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, ctx->current, NULL, "enum '%s' redeclared with an underlying type", p_enum_specifier->tag_token ? p_enum_specifier->tag_token->lexeme : "");
-                    throw;
+                    underlying_mismatch_reported = true;
                 }
 
                 p_enum_specifier->has_underlying = true;
@@ -7799,9 +7803,12 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                         NULL,
                         "a bit-precise integer type is not allowed as an enum underlying type");
                 }
-                if (prev_decl_same_scope && !type_is_same(&prev_decl_same_scope->integer_type, &p_enum_specifier->integer_type, false))
+                if (prev_decl_same_scope &&
+                    !underlying_mismatch_reported &&
+                    !type_is_same(&prev_decl_same_scope->integer_type, &p_enum_specifier->integer_type, false))
                 {
-                    diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, first_token, NULL, "enum redeclared with different underlying type");
+                    diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, first_token, NULL, "enum '%s' redeclared with a different underlying type", p_enum_specifier->tag_token ? p_enum_specifier->tag_token->lexeme : "");
+                    underlying_mismatch_reported = true;
                 }
             }
             else
@@ -7819,10 +7826,11 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
         {
             if (prev_decl_same_scope)
             {
-                if (p_enum_specifier->has_underlying != prev_decl_same_scope->has_underlying)
+                if (p_enum_specifier->has_underlying != prev_decl_same_scope->has_underlying &&
+                    !underlying_mismatch_reported)
                 {
+                    /* not fatal: keep parsing so the declaration reaches its end and a trailing //lint is seen */
                     diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_enum_specifier->first_token, NULL, "enum '%s' redeclared with a different underlying type", p_enum_specifier->tag_token ? p_enum_specifier->tag_token->lexeme : "");
-                    throw;
                 }
 
             }
@@ -14170,8 +14178,8 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
         {
             if (ctx->p_current_iteration_statement == NULL)
             {
-                diagnostic(C_ERROR_CONTINUE_NOT_WITHIN_ITERATION, ctx, ctx->current, NULL, "continue not within iteration");
-                throw;
+                /* not fatal, like break: keep parsing so a trailing //lint is seen */
+                diagnostic(C_ERROR_CONTINUE_NOT_WITHIN_ITERATION, ctx, ctx->current, NULL, "'continue' statement not in loop statement");
             }
             parser_match(ctx);
         }

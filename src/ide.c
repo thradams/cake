@@ -16671,12 +16671,13 @@ void app_init(ui_env* env)
     ui_node* gitdiff_prev = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(gitdiff_prev, EVT_GITDIFF_PREV);
     ui_set_rect(gitdiff_prev, gd_x + 1, gd_y + 1, 14, 1);
-    ui_set_label(gitdiff_prev, " \xE2\x86\x91 Previous ");  /* U+2191 up arrow */
+    ui_set_label(gitdiff_prev, " Previous \xE2\x86\x91 ");  /* U+2191 up arrow */
     ui_append_child(gitdiff_window, gitdiff_prev);
+    g_gitdiff_counter = add_text(gitdiff_window, gd_x + 28, gd_y + 1, "", theme->window_fg, theme->window_bg);
     ui_node* gitdiff_next = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(gitdiff_next, EVT_GITDIFF_NEXT);
     ui_set_rect(gitdiff_next, gd_x + 16, gd_y + 1, 10, 1);
-    ui_set_label(gitdiff_next, " Next \xE2\x86\x93 ");  /* U+2193 down arrow */
+    ui_set_label(gitdiff_next, " \xE2\x86\x93 Next ");  /* U+2193 down arrow */
     ui_append_child(gitdiff_window, gitdiff_next);
 
     /* Row gd_y + 2 is left blank - a gap between the Prev/Next buttons and
@@ -17109,6 +17110,7 @@ int app_frame(ui_env* env)
     output_diagnostic_help_refresh();
     cmdline_layout();
     cmdline_take_focus();
+    git_diff_counter_refresh();
 
     /* Track the frontmost real document window (see g_active_editor_window)
      * - only updated when an actual editor window is frontmost, so it keeps

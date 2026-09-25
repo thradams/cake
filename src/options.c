@@ -257,6 +257,8 @@ int fill_options(struct options* options,
        of existing code (flags, raw constants), so it is opt-in. */
     options_set_warning(options, W_INT_TO_ENUM_CONVERSION, false);
 
+    options_set_warning(options, W_PASSING_NULL_AS_ARRAY, false);
+
     options_set_note(options, W_INFO, true);
 
     /*first loop used to collect options*/

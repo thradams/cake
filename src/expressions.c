@@ -5088,8 +5088,9 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 }
                 else
                 {
-                    /* `sizeof *a`, `typeof(*"")`: only the type is used */
-                    if (ctx->unevaluated_operand_depth == 0)
+                    /* `sizeof *a`, `typeof(*"")`: only the type is used; a non-array operand was already reported above */
+                    if (ctx->unevaluated_operand_depth == 0 &&
+                        type_is_array(&new_expression->right->object.type))
                     {
                         diagnostic(W_ARRAY_INDIRECTION,
                                    ctx,
