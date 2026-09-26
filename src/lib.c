@@ -2575,6 +2575,12 @@ struct options
     int find_definition_col;
 
     /*
+      Set by compile(): the file the cursor line:col is in. It can be a
+      header, reached through the #include of the file being compiled.
+    */
+    char find_definition_file[400];
+
+    /*
       Set by compile() for the files after the cursor file, when the cursor
       resolved only to a declaration: the name whose definition is searched
       at file scope (line is 0 then). static names are searched only in the
@@ -2585,6 +2591,8 @@ struct options
 
     /*
       -unused-extern-report
+      Report mode: only the unused functions are reported (see
+      options_diagnostic_is_muted), no flow analysis and no output.
     */
     bool report_unused_extern_functions;
     struct global_unused_list* _Opt p_unused_functions;
@@ -2593,6 +2601,12 @@ struct options
 int fill_options(struct options* options,
                  int argc,
                  const char** argv);
+
+/* -find-definition and -unused-extern-report: no flow analysis, no output, only their own report */
+bool options_is_report_mode(const struct options* options);
+
+/* true when a report mode does not report w */
+bool options_diagnostic_is_muted(const struct options* options, enum diagnostic_id w);
 
 bool is_diagnostic_enabled(const struct options* options, enum diagnostic_id w);
 
@@ -6555,7 +6569,7 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
 
 static void tokenizer_diagnostic(enum diagnostic_id w, struct tokenizer_ctx* ctx, const struct stream* stream, const char* fmt, ...)
 {
-    if (ctx->options.find_definition)
+    if (options_diagnostic_is_muted(&ctx->options, w))
         return;
 
     const bool color_enabled = !ctx->options.color_disabled;
@@ -6621,7 +6635,7 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
 
     if (p_token_opt == NULL) return false;
 
-    if (ctx->options.find_definition)
+    if (options_diagnostic_is_muted(&ctx->options, w))
         return false;
 
     marker.file = p_token_opt->token_origin ? p_token_opt->token_origin->lexeme : "";
@@ -10971,7 +10985,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
             else
             {
-                if (!already_included)
+                if (!already_included && !options_is_report_mode(&ctx->options))
                 {
                     preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, r.tail, "file %s not found", path + 1);
 
@@ -20735,6 +20749,7 @@ int fill_options(struct options* options,
         if (strcmp(argv[i], "-unused-extern-report") == 0)
         {
             options->report_unused_extern_functions = true;
+            options->no_output = true;
             continue;
         }
 
@@ -20981,7 +20996,32 @@ int fill_options(struct options* options,
         printf("unknown option '%s'", argv[i]);
         return 1;
     }
+
+    /* after -Wall/-w..., which would turn it into a warning (dropped inside headers) */
+    if (options->find_definition)
+        options_set_note(options, W_FIND_DEFINITION, true);
+
+    /* the report itself, even if -wd57 disabled it */
+    if (options->report_unused_extern_functions)
+        options_set_warning(options, W_UNUSED_FUNCTION, true);
+
     return 0;
+}
+
+bool options_is_report_mode(const struct options* options)
+{
+    return options->find_definition || options->report_unused_extern_functions;
+}
+
+bool options_diagnostic_is_muted(const struct options* options, enum diagnostic_id w)
+{
+    if (options->find_definition)
+        return w != W_FIND_DEFINITION;
+
+    if (options->report_unused_extern_functions)
+        return w != W_UNUSED_FUNCTION && w != W_INFO;
+
+    return false;
 }
 
 static void print_option(const char* option, const char* description)
@@ -40113,7 +40153,7 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 */
 
 //#pragma once
-#define CAKE_VERSION "0.15.1"
+#define CAKE_VERSION "0.15.2"
 
 
  
@@ -41470,7 +41510,7 @@ _Bool diagnostic(enum diagnostic_id w,
     const struct marker* _Opt p_marker_temp,
     const char* fmt, ...)
 {
-    if (ctx->options.find_definition && w != W_FIND_DEFINITION)
+    if (options_diagnostic_is_muted(&ctx->options, w))
         return false;
 
     const bool color_enabled = !ctx->options.color_disabled;
@@ -41581,9 +41621,9 @@ _Bool diagnostic(enum diagnostic_id w,
     /* build the complete formatted stdout text */
     struct osstream ss = { 0 };
 
-    /* the -find-definition result can be in any file of the project: full path */
+    /* a report mode result can be in any file of the project: full path */
     ss_print_diagnostic_header(&ss, marker.file, marker.line, marker.start_col,
-        ctx->options.diagnostic_ouput_format, color_enabled, included_file_location || w == W_FIND_DEFINITION,
+        ctx->options.diagnostic_ouput_format, color_enabled, included_file_location || options_is_report_mode(&ctx->options),
         w, is_error, is_warning, is_note, buffer);
 
     struct marker m = marker; /* ss_print_line_and_token writes start/end col back */
@@ -42770,7 +42810,7 @@ bool pos_diagnostic(enum diagnostic_id w,
 {
     bool printed = false;
 
-    if (options->find_definition && w != W_FIND_DEFINITION)
+    if (options_diagnostic_is_muted(options, w))
         return false;
 
     const bool color_enabled = !options->color_disabled;
@@ -42793,7 +42833,7 @@ bool pos_diagnostic(enum diagnostic_id w,
 
         struct osstream ss = { 0 };
         ss_print_diagnostic_header(&ss, file, line, col,
-            options->diagnostic_ouput_format, color_enabled, false,
+            options->diagnostic_ouput_format, color_enabled, options_is_report_mode(options),
             w, is_error, is_warning, is_note, buffer);
 
         if (is_note && ss.c_str != NULL)
@@ -42952,11 +42992,38 @@ void parser_match(struct parser_ctx* ctx)
     parser_skip_blanks(ctx, NULL);
 }
 
-/* -find-definition: true when p_token, in the main file, covers the cursor line:col */
+/* -find-definition: p_token comes from the file the cursor is in (the main file or a header) */
+static bool find_definition_in_cursor_file(const struct parser_ctx* ctx, const struct token* p_token)
+{
+    const char* a = ctx->options.find_definition_file;
+    if (a[0] == '\0')
+        return p_token->level == 0;
+
+    if (p_token->token_origin == NULL)
+        return false;
+
+    const char* b = p_token->token_origin->lexeme;
+    for (; *a && *b; a++, b++)
+    {
+        const bool slash_a = *a == '/' || *a == '\\';
+        const bool slash_b = *b == '/' || *b == '\\';
+        if (slash_a && slash_b)
+            continue;
+#ifdef _WIN32
+        if (tolower((unsigned char)*a) != tolower((unsigned char)*b))
+            return false;
+#else
+        if (*a != *b)
+            return false;
+#endif
+    }
+    return *a == *b;
+}
+
+/* -find-definition: true when p_token covers the cursor line:col */
 bool find_definition_is_cursor(const struct parser_ctx* ctx, const struct token* p_token)
 {
     if (!ctx->options.find_definition ||
-        p_token->level != 0 ||
         (p_token->flags & TK_FLAG_MACRO_EXPANDED) ||
         p_token->line != ctx->options.find_definition_line)
     {
@@ -42964,7 +43031,10 @@ bool find_definition_is_cursor(const struct parser_ctx* ctx, const struct token*
     }
 
     const int col = ctx->options.find_definition_col;
-    return col >= p_token->col && col <= p_token->col + (int)strlen(p_token->lexeme);
+    if (col < p_token->col || col > p_token->col + (int)strlen(p_token->lexeme))
+        return false;
+
+    return find_definition_in_cursor_file(ctx, p_token);
 }
 
 void find_definition_set(struct parser_ctx* ctx, const struct token* _Opt p_definition)
@@ -43035,7 +43105,7 @@ static void find_definition_by_name(struct parser_ctx* ctx, const struct declara
 static bool find_definition_passed_cursor(const struct parser_ctx* ctx)
 {
     const struct token* _Opt p = ctx->current;
-    if (p == NULL || p->level != 0 || ctx->options.find_definition_line == 0)
+    if (p == NULL || ctx->options.find_definition_line == 0 || !find_definition_in_cursor_file(ctx, p))
         return false;
 
     return p->line > ctx->options.find_definition_line ||
@@ -44846,6 +44916,10 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             hash_item_set_destroy(&item);
         }
         // ///////////////////////////////////////////////////////////////////////////
+
+        /* -find-definition on the name being declared: no throw, a function body can still follow */
+        if (find_definition_is_cursor(ctx, tkname))
+            find_definition_set_declarator(ctx, p_init_declarator->p_declarator);
 
         if (ctx->current == NULL)
         {
@@ -55087,7 +55161,7 @@ void global_unused_functions_report(_Clear struct global_unused_list* p, const s
             e->file,
             e->line,
             1,
-            "function '%s' is not used in any file compiled in this invocation",
+            "function '%s' is not used",
             e->name))
         {
             reported_count++;
@@ -55322,6 +55396,14 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
             if (ctx->options.find_definition_name[0] != '\0')
                 find_definition_by_name(ctx, p);
 
+            if (ctx->find_definition_is_declaration &&
+                p->function_body &&
+                p->init_declarator_list.head &&
+                p->init_declarator_list.head->p_declarator->name_opt == ctx->p_find_definition)
+            {
+                ctx->find_definition_is_declaration = false;
+            }
+
             declaration_list_add(&declaration_list, p);
 
             if (ctx->options.find_definition &&
@@ -55362,7 +55444,7 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
 
     diagnostic_queue_flush(&ctx->diagnostic_queue, ctx);
     
-    if (ctx->p_report->error_count == 0 && ctx->options.flow_analysis && !ctx->options.format && !ctx->options.find_definition)
+    if (ctx->p_report->error_count == 0 && ctx->options.flow_analysis && !ctx->options.format && !options_is_report_mode(&ctx->options))
     {
         struct flow_ctx ctx4 = { .ctx = ctx };
         struct declaration* _Opt it = declaration_list.head;
@@ -56943,7 +57025,7 @@ int compile_one_file(const char* file_name,
 
     bool color_enabled = !options->color_disabled;
 
-    if (!options->find_definition)
+    if (!options_is_report_mode(options))
     {
         print_path(file_name, true);
         printf("\n");
@@ -57425,31 +57507,66 @@ void print_report(const struct report* report)
     printf("\n");
 }
 
-/*
-  -find-definition: the first file has the cursor. When the cursor resolves
-  only to a declaration, the definition is searched by name, first in the
-  rest of the cursor file and then, for external names, in the next files.
-  Returns true when the search is over.
-*/
-static bool find_definition_file(const char* fullpath, struct options* options, int argc, const char** argv, bool cursor_file)
+static bool path_is_header(const char* path)
 {
+    const char* _Opt dot = strrchr(path, '.');
+    return dot && (strcmp(dot, ".h") == 0 || strcmp(dot, ".H") == 0);
+}
+
+/*
+  -find-definition: files[0] has the cursor; the caller orders the others by
+  the chance of finding it (for a header, its .c first). The cursor is
+  resolved in its own file, or, for a header that does not parse on its
+  own, in the first file that includes it. When it resolves only to a
+  declaration, the definition is searched by name, first in that same file
+  and then, for external names, in the others.
+*/
+static void find_definition_run(const char* const* files, int count, struct options* options, int argc, const char** argv)
+{
+    if (count == 0)
+        return;
+
+    char fullpath[FS_MAX_PATH] = { 0 };
+    realpath(files[0], fullpath);
+    snprintf(options->find_definition_file, sizeof options->find_definition_file, "%s", fullpath);
+
     struct report report = { 0 };
-    compile_one_file(fullpath, options, "", argc, argv, &report);
+    int cursor_index = -1;
+    for (int i = 0; i < count; i++)
+    {
+        realpath(files[i], fullpath);
+        memset(&report, 0, sizeof report);
+        compile_one_file(fullpath, options, "", argc, argv, &report);
+        if (report.find_definition_found)
+        {
+            cursor_index = i;
+            break;
+        }
 
-    if (!cursor_file)
-        return report.find_definition_found;
+        if (!path_is_header(files[0]))
+            break;
+    }
 
-    if (!report.find_definition_found || !report.find_definition_is_declaration)
-        return true;
+    if (cursor_index < 0 || !report.find_definition_is_declaration)
+        return;
 
     options->find_definition_line = 0;
     options->find_definition_col = 0;
     snprintf(options->find_definition_name, sizeof options->find_definition_name, "%s", report.find_definition_name);
     options->find_definition_name_static = report.find_definition_is_static;
 
-    struct report report_rest = { 0 };
-    compile_one_file(fullpath, options, "", argc, argv, &report_rest);
-    return report_rest.find_definition_found || options->find_definition_name_static;
+    /* -1 is the file where the cursor resolved; static names do not leave it */
+    for (int k = -1; k < count; k++)
+    {
+        if (k >= 0 && (k == cursor_index || options->find_definition_name_static))
+            continue;
+
+        realpath(files[k < 0 ? cursor_index : k], fullpath);
+        struct report report_name = { 0 };
+        compile_one_file(fullpath, options, "", argc, argv, &report_name);
+        if (report_name.find_definition_found)
+            return;
+    }
 }
 
 int compile(int argc, const char** argv, struct report* report)
@@ -57461,7 +57578,7 @@ int compile(int argc, const char** argv, struct report* report)
         return 1;
     }
 
-    if (options.target != TARGET_DEFAULT && !options.find_definition)
+    if (options.target != TARGET_DEFAULT && !options_is_report_mode(&options))
     {
         printf("emulating %s\n", get_platform(options.target)->name);
     }
@@ -57482,6 +57599,10 @@ int compile(int argc, const char** argv, struct report* report)
 
     clock_t begin_clock = clock();
     int no_files = 0;
+
+    /* -find-definition: the files are compiled by find_definition_run() after the loop */
+    const char* find_definition_files[256] = { 0 };
+    int find_definition_count = 0;
 
     struct global_unused_list unused_functions_state = { 0 };
     if (options.report_unused_extern_functions)
@@ -57566,8 +57687,8 @@ int compile(int argc, const char** argv, struct report* report)
         }
         else if (options.find_definition)
         {
-            if (find_definition_file(fullpath, &options, argc, argv, no_files == 1))
-                break;
+            if (find_definition_count < (int)_Countof(find_definition_files))
+                find_definition_files[find_definition_count++] = argv[i];
         }
         else
         {
@@ -57582,6 +57703,9 @@ int compile(int argc, const char** argv, struct report* report)
         }
     }
 
+    if (options.find_definition)
+        find_definition_run(find_definition_files, find_definition_count, &options, argc, argv);
+
     if (options.report_unused_extern_functions)
     {
         global_unused_functions_report(&unused_functions_state, &options, report);
@@ -57593,7 +57717,7 @@ int compile(int argc, const char** argv, struct report* report)
     report->no_files = no_files;
     report->cpu_time_used_sec = cpu_time_used;
 
-    if (!options.find_definition)
+    if (!options_is_report_mode(&options))
         print_report(report);
 
     if (report->test_mode)
