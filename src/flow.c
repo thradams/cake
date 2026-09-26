@@ -10959,6 +10959,9 @@ static void flow_check_exiting_objects(struct flow_ctx* ctx,
 
 static void flow_check_function_exit(struct flow_ctx* ctx, const struct jump_statement* p_jump_statement)
 {
+    if (ctx->stopped)
+        return;
+
     flow_exit_block_visit_defer_list(ctx,
                                      &p_jump_statement->defer_list,
                                      p_jump_statement->first_token);
@@ -11196,6 +11199,9 @@ static void flow_visit_unlabeled_statement(struct flow_ctx* ctx, struct unlabele
 
 static void flow_visit_statement(struct flow_ctx* ctx, struct statement* p_statement)
 {
+    if (ctx->stopped)
+        return;
+
     if (p_statement->labeled_statement)
     {
         flow_visit_labeled_statement(ctx, p_statement->labeled_statement);
@@ -11295,8 +11301,65 @@ static void flow_visit_label(struct flow_ctx* ctx, const struct label* p_label)
     }
 }
 
+/* Stops the analysis of the current function when it tracks too many objects,
+   reporting the object that holds most of them. */
+static void flow_check_limits(struct flow_ctx* ctx, const struct token* p_token)
+{
+    enum { FLOW_MAX_TRACKED_OBJECTS = 10000 };
+
+    int entries = 0;
+    for (const struct flow_branch* _Opt p = ctx->p_current_flow_branch; p; p = p->p_parent_map)
+        entries += p->num_of_entries;
+
+    if (entries <= FLOW_MAX_TRACKED_OBJECTS)
+        return;
+
+    struct { const struct object* p_root; int count; } roots[16] = { 0 };
+    for (const struct flow_branch* _Opt p = ctx->p_current_flow_branch; p; p = p->p_parent_map)
+    {
+        for (int i = 0; p->buckets && i < p->num_of_buckets; i++)
+        {
+            for (const struct flow_key_alternatives* _Opt e = p->buckets[i]; e; e = e->next)
+            {
+                const struct object* p_root = e->p_obj_key;
+                while (p_root->parent)
+                    p_root = p_root->parent;
+                for (int k = 0; k < 16; k++)
+                {
+                    if (roots[k].p_root == NULL)
+                        roots[k].p_root = p_root;
+                    if (roots[k].p_root == p_root)
+                    {
+                        roots[k].count++;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    int top = 0;
+    for (int k = 1; k < 16; k++)
+    {
+        if (roots[k].count > roots[top].count)
+            top = k;
+    }
+
+    const char* name = roots[top].p_root && roots[top].p_root->member_designator && roots[top].p_root->member_designator[0] ?
+        roots[top].p_root->member_designator : "?";
+
+    const struct marker m = { .p_token_begin = p_token, .p_token_end = p_token };
+    diagnostic(W_FLOW_NOT_DONE, ctx->ctx, NULL, &m,
+               "flow analysis of this function was not done: %d objects tracked (limit %d), %d of them are parts of '%s'",
+               entries, FLOW_MAX_TRACKED_OBJECTS, roots[top].count, name);
+    ctx->stopped = true;
+}
+
 static void flow_visit_block_item(struct flow_ctx* ctx, struct block_item* p_block_item)
 {
+    if (ctx->stopped)
+        return;
+
     if (p_block_item->declaration)
     {
         flow_visit_declaration(ctx, p_block_item->declaration);
@@ -11309,6 +11372,8 @@ static void flow_visit_block_item(struct flow_ctx* ctx, struct block_item* p_blo
     {
         flow_visit_label(ctx, p_block_item->label);
     }
+
+    flow_check_limits(ctx, p_block_item->first_token);
 }
 
 static void flow_visit_block_item_list(struct flow_ctx* ctx, struct block_item_list* p_block_item_list)
@@ -12003,7 +12068,7 @@ void flow_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declarat
             See flow_visit_compound_statement_core. */
             flow_visit_compound_statement_core(ctx, p_declaration->function_body);
 
-            if (!compound_statement_is_last_item_return(p_declaration->function_body))
+            if (!ctx->stopped && !compound_statement_is_last_item_return(p_declaration->function_body))
             {
                 /* the body's defers already ran in flow_visit_compound_statement_core */
                 /* flow_check_params_at_function_exit(ctx, p_declaration); */
@@ -12053,6 +12118,7 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
     try
     {
         ctx->labels_size = 0;
+        ctx->stopped = false;
         ctx->collect_deferred_effects = false;
         ctx->deferred_effects_count = 0;
 

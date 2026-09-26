@@ -275,6 +275,7 @@ int parser_match_tk_lint(struct parser_ctx* ctx, enum token_type type, struct to
 bool find_definition_is_cursor(const struct parser_ctx* ctx, const struct token* p_token);
 void find_definition_set(struct parser_ctx* ctx, const struct token* _Opt p_definition);
 void find_definition_set_declarator(struct parser_ctx* ctx, const struct declarator* p_declarator);
+void find_definition_report(struct parser_ctx* ctx);
 
 struct token* _Opt previous_parser_token(const struct token* token);
 struct token* _Opt parser_get_previous_token(const struct parser_ctx* ctx);
@@ -1825,6 +1826,7 @@ struct enumerator
         - false, only AST OR and some map have the ownership
     */
     bool has_shared_ownership;
+    bool used; /* -unused-extern-report */
 
     struct token* token;
     struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_opt;
@@ -1889,23 +1891,6 @@ struct declaration_list
 struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror);
 void declaration_list_destroy(_Dtor struct declaration_list* list);
 
-struct global_unused_entry
-{
-    char* _Owner name;
-    char* _Owner file;
-    int line;
-    bool used;            /* true if num_uses > 0 in at least one file seen so far */
-    bool has_definition;  /* true if a body was seen in at least one file so far */
-};
-
-struct global_unused_list
-{
-    struct global_unused_entry* _Owner _Opt data;
-    int size;
-    int capacity;
-};
-
-void global_unused_functions_clear(_Clear struct global_unused_list* p);
 /* reports and then clears the list */
 void global_unused_functions_report(_Clear struct global_unused_list* p, const struct options* options, struct report* report);
 

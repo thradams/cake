@@ -937,40 +937,40 @@ Run Cake&#39;s built-in flow analysis pass, including ownership, nullability, an
 <p><strong><code>-const-literal</code></strong><br>
 Treat string literals as <code>const char[]</code> rather than <code>char[]</code>.</p>
 
-<p><strong><code>-unused-extern-report</code></strong><br>
-Track every non-static (external linkage) function across all the files given
-in this invocation, and after the last one is compiled, report the ones that
-were never called in any of them.</p>
+<p><strong><code>-unused-extern-report</code></strong>
+Report mode (used by the IDE&#39;s Project &gt; Report Unused): reports only what
+is defined and never used in the files given. No flow analysis, no output.</p>
 
-<p>This is a report mode, like <code>-find-definition</code>. Only the unused functions are
-reported: the <code>static</code> ones of each file and, at the end, the external ones.
-Both are warning 57, reported even if <code>-wd57</code> turned it off. No other
-diagnostic is reported, flow analysis does not run, and no output file is
-written. Paths are printed in full. The Cake IDE runs this option for
-Project &gt; Report Unused.</p>
+<table>
+<thead>
+<tr>
+<th>Warning</th>
+<th>Reported</th>
+</tr>
+</thead>
 
-<p>A <code>static</code> function&#39;s usage can already be decided by looking at its own file
-alone, so it is reported immediately as each file is compiled (see warning 57
-in the <a href="diagnostics.html">Warnings Reference</a>). A non-static function can be
-called from a different file than the one that defines it, so it needs the
-whole set of files to be checked together; this option does that check and
-prints its results once, at the end, instead of per file:</p>
+<tbody>
+<tr>
+<td>57</td>
+<td><code>static</code> function not used in its file</td>
+</tr>
+<tr>
+<td>94</td>
+<td>macro not used in any of the files</td>
+</tr>
+<tr>
+<td>95</td>
+<td>external function not used in any of the files</td>
+</tr>
+<tr>
+<td>96</td>
+<td>enumerator not used in any of the files</td>
+</tr>
+</tbody>
+</table>
 
-<pre><code>c:/project/utils.c:42:1: warning 57: function &#39;legacy_helper&#39; is not used
-c:/project/list.c:10:1: warning 57: function &#39;list_reverse&#39; is not used
-  c:/project/list.c:10:1: note: only files passed to this invocation of cake were checked - a function only called from a file outside this build is still reported here
-</code></pre>
-
-<p>The note that closes the report says once, for the whole list, that only the
-files given were checked.</p>
-
-<p>This can only see the files passed to this invocation — a function only
-called from a file outside this build (or from a different <code>cake</code> invocation
-entirely) is still reported here. Functions declared in an <code>#include</code>d file
-(system headers included) are never reported, even if unused, since they are
-not part of the files given to this invocation. <code>main</code> is never reported
-either, since it is the program&#39;s entry point and is not expected to be
-called from within the program itself.</p>
+<p>94, 95 and 96 are reported at the end. Macros and enumerators are reported
+only when defined under the common directory of the files.</p>
 
 <h3 id="toc_16">4.6 Style and Formatting Options</h3>
 
@@ -1101,47 +1101,19 @@ Restrict <code>-format</code> to the given line range.</p>
 
 <h3 id="toc_17">4.7 Find Definition</h3>
 
-<p><strong><code>-find-definition &lt;line&gt; &lt;col&gt; &lt;file&gt; [&lt;other files&gt;...]</code></strong><br>
-Print where the identifier at <code>&lt;line&gt; &lt;col&gt;</code> (1-based) of <code>&lt;file&gt;</code> is
-defined, instead of compiling. It is a normal compilation with different
-parameters. The identifier is resolved by the parser with the scopes at that
-point, so a local that hides a global, a parameter, or a member after <code>.</code> or
-<code>-&gt;</code> resolves to the declaration the compiler would use there. This covers
-variables, functions, parameters, enumerators, typedefs, struct/union/enum
-tags, members and <code>goto</code> labels. The cursor can also be on the name being
-declared.</p>
-
-<p>Parsing stops as soon as the identifier is resolved. Flow analysis does not
-run, no output file is written, and no other diagnostic is reported. The
-result is reported as note 93 (see the <a href="diagnostics.html">Warnings Reference</a>),
-in the format chosen by <code>-fdiagnostics-format</code>/<code>-msvc-output</code>, with the full
-path:</p>
-
-<pre><code>cake -find-definition 4 10 main.c util.c
-</code></pre>
+<p><strong><code>-find-definition &lt;line&gt; &lt;col&gt; &lt;file&gt; [&lt;other files&gt;...]</code></strong>
+Prints where the identifier at <code>&lt;line&gt; &lt;col&gt;</code> of <code>&lt;file&gt;</code> is defined (used
+by the IDE&#39;s F12). It is resolved with the scopes at that point, and the
+parser stops as soon as it is found. The result is note 93:</p>
 
 <pre><code>c:/project/util.h:1:5: note: declaration of &#39;f&#39;
 c:/project/util.c:4:5: note: definition of &#39;f&#39;
 </code></pre>
 
-<p>When the identifier resolves only to a declaration (a prototype or an
-<code>extern</code> object), the declaration is printed first. Its definition is then
-searched by name, first in the rest of <code>&lt;file&gt;</code> and then in the other files,
-and printed when it is found. A <code>static</code> name is searched only in <code>&lt;file&gt;</code>.
-Pass the other source files of the project so that a definition in any of
-them can be found. Put the files most likely to have it first.</p>
-
-<p><code>&lt;file&gt;</code> can be a header. It is parsed on its own first. If that does not
-resolve the identifier (for example, the header uses a type that the <code>.c</code>
-file includes before it), the other files are tried in order, and the
-identifier is resolved inside the first one that includes the header. Pass
-the header&#39;s own <code>.c</code> file right after it.</p>
-
-<p>The Cake IDE uses this option for Search &gt; Find Definition (F12).</p>
-
-<p>Not resolved: an identifier that is a macro name, and an identifier in a
-header that does not parse on its own and is not included by any of the
-files given.</p>
+<p>For a prototype or <code>extern</code>, the definition is then searched in the other
+files. Macros are resolved by the preprocessor. <code>&lt;file&gt;</code> can be a header;
+if it does not compile alone, it is resolved in the first file that
+includes it.</p>
 
 <h3 id="toc_18">4.8 Using cake inside Visual Studio</h3>
 

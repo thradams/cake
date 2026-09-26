@@ -2752,49 +2752,21 @@ void parser_match(struct parser_ctx* ctx)
     parser_skip_blanks(ctx, NULL);
 }
 
-/* -find-definition: p_token comes from the file the cursor is in (the main file or a header) */
-static bool find_definition_in_cursor_file(const struct parser_ctx* ctx, const struct token* p_token)
-{
-    const char* a = ctx->options.find_definition_file;
-    if (a[0] == '\0')
-        return p_token->level == 0;
-
-    if (p_token->token_origin == NULL)
-        return false;
-
-    const char* b = p_token->token_origin->lexeme;
-    for (; *a && *b; a++, b++)
-    {
-        const bool slash_a = *a == '/' || *a == '\\';
-        const bool slash_b = *b == '/' || *b == '\\';
-        if (slash_a && slash_b)
-            continue;
-#ifdef _WIN32
-        if (tolower((unsigned char)*a) != tolower((unsigned char)*b))
-            return false;
-#else
-        if (*a != *b)
-            return false;
-#endif
-    }
-    return *a == *b;
-}
-
 /* -find-definition: true when p_token covers the cursor line:col */
 bool find_definition_is_cursor(const struct parser_ctx* ctx, const struct token* p_token)
 {
-    if (!ctx->options.find_definition ||
-        (p_token->flags & TK_FLAG_MACRO_EXPANDED) ||
-        p_token->line != ctx->options.find_definition_line)
-    {
-        return false;
-    }
+    return token_is_find_definition_cursor(p_token, &ctx->options);
+}
 
-    const int col = ctx->options.find_definition_col;
-    if (col < p_token->col || col > p_token->col + (int)strlen(p_token->lexeme))
-        return false;
+/* -find-definition: reports what was found (W_FIND_DEFINITION, the only diagnostic of this mode) */
+void find_definition_report(struct parser_ctx* ctx)
+{
+    if (ctx->p_find_definition == NULL)
+        return;
 
-    return find_definition_in_cursor_file(ctx, p_token);
+    diagnostic(W_FIND_DEFINITION, ctx, ctx->p_find_definition, NULL, "%s of '%s'",
+        ctx->find_definition_is_declaration ? "declaration" : "definition",
+        ctx->p_find_definition->lexeme);
 }
 
 void find_definition_set(struct parser_ctx* ctx, const struct token* _Opt p_definition)
@@ -2865,7 +2837,7 @@ static void find_definition_by_name(struct parser_ctx* ctx, const struct declara
 static bool find_definition_passed_cursor(const struct parser_ctx* ctx)
 {
     const struct token* _Opt p = ctx->current;
-    if (p == NULL || ctx->options.find_definition_line == 0 || !find_definition_in_cursor_file(ctx, p))
+    if (p == NULL || ctx->options.find_definition_line == 0 || !token_is_in_find_definition_file(p, &ctx->options))
         return false;
 
     return p->line > ctx->options.find_definition_line ||
@@ -14817,14 +14789,19 @@ void global_unused_functions_clear(_Clear struct global_unused_list* p)
     p->data = NULL;
     p->size = 0;
     p->capacity = 0;
+    free(p->root_dir);
+    p->root_dir = NULL;
 }
 
-static int global_unused_find(const struct global_unused_list* p, const char* name)
+static int global_unused_find(const struct global_unused_list* p, enum global_unused_kind kind, const char* name, const char* file, int line)
 {
     int index = -1;
     for (int i = 0; i < p->size && index < 0; i++)
     {
-        if (strcmp(p->data[i].name, name) == 0)
+        const struct global_unused_entry* e = &p->data[i];
+        if (e->kind == kind &&
+            strcmp(e->name, name) == 0 &&
+            (kind == GLOBAL_UNUSED_FUNCTION || (e->line == line && strcmp(e->file, file) == 0)))
         {
             index = i;
         }
@@ -14832,11 +14809,11 @@ static int global_unused_find(const struct global_unused_list* p, const char* na
     return index;
 }
 
-static void global_unused_register(struct global_unused_list* p, const char* name, const char* file, int line, bool used_here, bool has_definition_here)
+void global_unused_register(struct global_unused_list* p, enum global_unused_kind kind, const char* name, const char* file, int line, bool used_here, bool has_definition_here)
 {
     try
     {
-        int index = global_unused_find(p, name);
+        int index = global_unused_find(p, kind, name, file, line);
         if (index < 0)
         {
             if (p->size >= p->capacity)
@@ -14864,6 +14841,7 @@ static void global_unused_register(struct global_unused_list* p, const char* nam
             p->size++;
 
             struct global_unused_entry* p_new = &p->data[index];
+            p_new->kind = kind;
             p_new->name = new_name;
             p_new->file = new_file;
             p_new->line = line;
@@ -14915,14 +14893,20 @@ void global_unused_functions_report(_Clear struct global_unused_list* p, const s
         if (!e->has_definition || e->used)
             continue;
 
-        if (pos_diagnostic(W_UNUSED_FUNCTION,
-            options,
-            report,
-            e->file,
-            e->line,
-            1,
-            "function '%s' is not used",
-            e->name))
+        enum diagnostic_id w = W_UNUSED_EXTERN_FUNCTION;
+        const char* fmt = "function '%s' is not used";
+        if (e->kind == GLOBAL_UNUSED_MACRO)
+        {
+            w = W_UNUSED_MACRO;
+            fmt = "macro '%s' is not used";
+        }
+        else if (e->kind == GLOBAL_UNUSED_ENUMERATOR)
+        {
+            w = W_UNUSED_ENUMERATOR;
+            fmt = "enumerator '%s' is not used";
+        }
+
+        if (pos_diagnostic(w, options, report, e->file, e->line, 1, fmt, e->name))
         {
             reported_count++;
             last_file = e->file;
@@ -14932,15 +14916,21 @@ void global_unused_functions_report(_Clear struct global_unused_list* p, const s
 
     if (reported_count > 0)
     {
-        /* a note anchored at the last finding */
+        /* notes anchored at the last finding */
         pos_diagnostic(W_INFO,
             options,
             report,
             last_file,
             last_line,
             1,
-            "only files passed to this invocation of cake were checked - "
-            "a function only called from a file outside this build is still reported here");
+            "only the files passed, and only the active code (#if), were checked");
+        pos_diagnostic(W_INFO,
+            options,
+            report,
+            last_file,
+            last_line,
+            1,
+            "these items cannot be removed without further analysis");
     }
 
     global_unused_functions_clear(p);
@@ -15110,10 +15100,40 @@ static void check_unused_declarators(const struct parser_ctx* ctx, struct declar
                     file = location_token->token_origin->lexeme;
                 }
 
-                global_unused_register(ctx->options.p_unused_functions, name_token->lexeme, file, location_token->line, used_here, has_definition_here);
+                global_unused_register(ctx->options.p_unused_functions, GLOBAL_UNUSED_FUNCTION, name_token->lexeme, file, location_token->line, used_here, has_definition_here);
             }
         }
         p = p->next;
+    }
+}
+
+/* -unused-extern-report: the file scope enumerators of this file */
+static void register_unused_enumerators(const struct parser_ctx* ctx, struct global_unused_list* p)
+{
+    const struct scope* _Opt p_file_scope = ctx->scopes.head;
+    if (p_file_scope == NULL || p_file_scope->variables.table == NULL)
+        return;
+
+    const struct hash_map* map = &p_file_scope->variables;
+    for (int i = 0; i < map->capacity; i++)
+    {
+        for (struct map_entry* _Opt pentry = map->table[i]; pentry != NULL; pentry = pentry->next)
+        {
+            if (pentry->type != TAG_TYPE_ENUMERATOR || pentry->data.p_enumerator == NULL)
+                continue;
+
+            const struct enumerator* p_enumerator = pentry->data.p_enumerator;
+            const struct token* p_name = p_enumerator->token;
+            if (p_name->token_origin == NULL)
+                continue;
+
+            const char* file = p_name->token_origin->lexeme;
+            if (!is_file_under_project_folder(p, file))
+                continue; /* never reported, so not kept */
+
+            global_unused_register(p, GLOBAL_UNUSED_ENUMERATOR, p_name->lexeme, file, p_name->line,
+                p_enumerator->used, true);
+        }
     }
 }
 
@@ -15173,10 +15193,15 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
             }
         }
 
-        check_unused_declarators(ctx, &declaration_list);
+        /* -find-definition reports nothing else, so these end-of-file checks are not needed */
+        if (!ctx->options.find_definition)
+            check_unused_declarators(ctx, &declaration_list);
+
+        if (ctx->options.p_unused_functions)
+            register_unused_enumerators(ctx, ctx->options.p_unused_functions);
 
         // check that all enums that have objects are defined
-        struct block_item* _Opt decl = ctx->used_incomplete_enums.head;
+        struct block_item* _Opt decl = ctx->options.find_definition ? NULL : ctx->used_incomplete_enums.head;
         while (decl)
         {
             const struct enum_specifier* _Opt declared_enum =
@@ -15195,12 +15220,7 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
         *berror = true;
     }
 
-    if (ctx->p_find_definition)
-    {
-        diagnostic(W_FIND_DEFINITION, ctx, ctx->p_find_definition, NULL, "%s of '%s'",
-            ctx->find_definition_is_declaration ? "declaration" : "definition",
-            ctx->p_find_definition->lexeme);
-    }
+    find_definition_report(ctx);
 
     diagnostic_queue_flush(&ctx->diagnostic_queue, ctx);
     

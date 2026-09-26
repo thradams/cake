@@ -279,7 +279,7 @@
 
 <p><strong>Build &gt; Show Generated Code</strong> shows the C89-compatible output Cake produced. <strong>Build &gt; Config File</strong> and <strong>Build &gt; Options...</strong> control compiler flags and the active <code>cakeconf.h</code>.</p>
 
-<p><strong>Project &gt; Report Unused</strong> lists the functions no file of the project uses: the <code>static</code> ones of each file and the external ones never called from any of the project&#39;s <code>.c</code> files. It runs the same compilation as Build, with the project&#39;s options, plus the compiler&#39;s <code>-unused-extern-report</code> option. Only that report is shown, in the <strong>Find results</strong> window. Double-click a line there to jump to the function.</p>
+<p><strong>Project &gt; Report Unused</strong> lists unused <code>static</code> functions, macros, enumerators and external functions of the project in the <strong>Find results</strong> window (compiler option <code>-unused-extern-report</code>).</p>
 
 <h3 id="toc_6">2.4 Global settings vs. project settings</h3>
 
@@ -491,21 +491,7 @@
 
 <h3 id="toc_10">3.2 Find Definition (F12)</h3>
 
-<p><strong>Search &gt; Find Definition</strong> (F12) shows where the identifier under the caret is defined. It is the same compilation as <strong>Compile</strong>, with the same options, plus the compiler&#39;s <code>-find-definition</code> option (see the Cake manual). The result goes to the <strong>Find results</strong> window instead of Output. Double-click a line there to jump to it.</p>
-
-<p>The compiler resolves the identifier with the scopes at the caret. A local that hides a global, a parameter, or a member after <code>.</code> or <code>-&gt;</code> goes to the declaration the compiler would use at that point.</p>
-
-<p>The files passed to the compiler, in this order:</p>
-
-<ol>
-<li>the active file (the caret is in it),</li>
-<li>for a header, its own <code>.c</code> file (<code>foo.h</code> → <code>foo.c</code>), when it exists,</li>
-<li>with a project open, the other <code>.c</code> files of the project.</li>
-</ol>
-
-<p>When the identifier is only declared, such as a prototype in a header, the declaration is listed first. The definition is listed below it as soon as it is found in any of those files. The caret can also be on a header, even one that only compiles inside the <code>.c</code> files that include it.</p>
-
-<p>Files open in editors are saved first, because the compiler reads from disk. With no word under the caret, F12 shows a message and does nothing. When the compiler finds nothing (a macro name, a number, a word inside a comment or a string, or an unsaved new buffer), F12 falls back to a normal text search for the word. The text search covers the project, or the file&#39;s folder when no project is open.</p>
+<p>Shows where the identifier under the caret is defined, in the <strong>Find results</strong> window. It compiles the active file (for a header, also its <code>.c</code>) and the other <code>.c</code> files of the project with the compiler&#39;s <code>-find-definition</code> option. When nothing is found, it falls back to a text search.</p>
 
 <hr>
 

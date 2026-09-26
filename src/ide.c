@@ -1340,6 +1340,14 @@ static struct
  * built fresh after that has no shift history of its own to inherit; only
  * nodes that already existed at the time of that move get carried along with
  * it (see set_window_rect in ide_ui.c). */
+/* who wrote the text in the Find results window (double click placement, F1 help...) */
+enum result_origin
+{
+    RESULT_ORIGIN_TEXT_SEARCH,
+    RESULT_ORIGIN_FIND_DEFINITION,
+    RESULT_ORIGIN_REPORT_UNUSED,
+};
+
 /* Tools > Find and Replace - the docked panel, its controls, and the
  * search settings they edit. One struct because the whole thing is torn
  * down and rebuilt as a unit whenever the mode flips or the panel is
@@ -1370,6 +1378,8 @@ static struct
     int match_word;
     int look_in;            /* index into "Look in" - see fr_look_in */
     int file_type;          /* index into "File Types" - see fr_file_type */
+
+    enum result_origin result_origin;
 } g_fr = { .match_case = 1, .file_type = 2 /* FR_FILETYPE_C_H */ };
 #define FR_PANEL_MIN_W 26  /* dragging the dock border narrower than this
                             * would crush the Find/Replace buttons and
@@ -8861,7 +8871,12 @@ static void output_goto_source(ui_node* output_editor)
 
     ui_screen_show_window(g_screen, target);  /* bring the source to the front */
     ui_node* editor = editor_in_window(target);
-    ui_editor_goto_line(editor, src_line);
+
+    /* a definition: what matters follows the line; anything else (errors, matches, unused): code before and after */
+    if (output_editor == g_findresults_editor && g_fr.result_origin == RESULT_ORIGIN_FIND_DEFINITION)
+        ui_editor_goto_line_near_top(editor, src_line);
+    else
+        ui_editor_goto_line_center(editor, src_line);
     g_goto_pending_focus = editor;  /* focus after this update finishes - see app_frame */
 }
 
@@ -9767,7 +9782,7 @@ static void cmdline_line(const struct cmdline_args* args)
     }
     nav_record_jump();
     ui_screen_show_window(g_screen, g_active_editor_window);
-    ui_editor_goto_line(editor, line);
+    ui_editor_goto_line_center(editor, line);
     ui_screen_focus(g_screen, editor);
 }
 
@@ -10718,7 +10733,10 @@ static void compile_finish(void)
         g_job.find_definition = 0;
         compile_status_set("");
         if (g_job.len > 0)
+        {
             ui_set_value(g_findresults_editor, g_job.text ? g_job.text : "");
+            g_fr.result_origin = find_definition ? RESULT_ORIGIN_FIND_DEFINITION : RESULT_ORIGIN_REPORT_UNUSED;
+        }
         else if (find_definition)
             find_definition_text_search(g_job.find_definition_word);
         else
@@ -11992,6 +12010,7 @@ static void do_find_replace(const find_replace_options* opts)
     }
 
     ui_set_value(g_findresults_editor, msg);
+    g_fr.result_origin = RESULT_ORIGIN_TEXT_SEARCH;
     bottom_panel_show(g_findresults_window, g_output_window);
 }
 
@@ -13406,7 +13425,7 @@ static void on_ui_event(void* ctx, int id, void* param)
         if (editor)
         {
             nav_record_jump();
-            ui_editor_goto_line(editor, line);
+            ui_editor_goto_line_center(editor, line);
         }
         ui_screen_close_modal(g_screen, g_goto_modal);
         g_goto_pending_focus = editor;  /* focus after this update finishes */

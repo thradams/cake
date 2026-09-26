@@ -53,6 +53,9 @@ struct preprocessor_ctx
     bool conditional_inclusion;
     int n_warnings;
     int n_errors;    
+
+    /* -find-definition: the #define of the macro name under the cursor; the parser does not run then */
+    const struct token* _Opt p_find_definition;
 };
 
 void preprocessor_ctx_destroy( _Dtor struct preprocessor_ctx* p);
@@ -97,7 +100,46 @@ void print_tokens(bool color_enabled, const struct token* _Opt p_token);
 void print_preprocessed(const struct token* p_token);
 const char* _Owner _Opt print_preprocessed_to_string(const struct token* p_token);
 const char* _Owner _Opt print_preprocessed_to_string2(const struct token* _Opt p_token);
-void check_unused_macros(const struct hash_map* map);
+void preprocessor_mark_predefined_macros(struct preprocessor_ctx* ctx);
+
+/*
+  -unused-extern-report: what the files of one invocation define, collected
+  across all of them and reported at the end (global_unused_functions_report).
+*/
+enum global_unused_kind
+{
+    GLOBAL_UNUSED_FUNCTION, /* external function, identified by name */
+    GLOBAL_UNUSED_MACRO,      /* identified by name, file and line */
+    GLOBAL_UNUSED_ENUMERATOR, /* identified by name, file and line */
+};
+
+struct global_unused_entry
+{
+    enum global_unused_kind kind;
+    char* _Owner name;
+    char* _Owner file;
+    int line;
+    bool used;            /* true if used in at least one file seen so far */
+    bool has_definition;  /* true if defined (in a file that is reported) in at least one file so far */
+};
+
+struct global_unused_list
+{
+    struct global_unused_entry* _Owner _Opt data;
+    int size;
+    int capacity;
+
+    /* only macros defined under this directory (the common directory of the files) are reported */
+    char* _Owner _Opt root_dir;
+};
+
+void global_unused_functions_clear(_Clear struct global_unused_list* p);
+/* only what is defined under the project directory (root_dir) is reported */
+bool is_file_under_project_folder(const struct global_unused_list* p, const char* file);
+void global_unused_register(struct global_unused_list* p, enum global_unused_kind kind, const char* name, const char* file, int line, bool used_here, bool has_definition_here);
+
+/* registers the macros of the file just preprocessed */
+void preprocessor_register_unused_macros(struct preprocessor_ctx* ctx, struct global_unused_list* p);
 
 const char* get_token_name(enum token_type tk);
 const char* get_diagnostic_friendly_token_name(enum token_type tk);

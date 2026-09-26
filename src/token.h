@@ -331,6 +331,12 @@ struct marker
 
 
 void print_line_and_token(struct marker* p_marker, bool color_enabled);
+/* -find-definition: p_token comes from the file the cursor is in (the main file or a header) */
+bool token_is_in_find_definition_file(const struct token* p_token, const struct options* options);
+
+/* -find-definition: p_token covers the cursor line:col */
+bool token_is_find_definition_cursor(const struct token* p_token, const struct options* options);
+
 void print_position(const char* _Opt path, int line, int col, enum diagnostic_ouput_format format, bool color_enabled, bool fullpath);
 
 struct osstream;

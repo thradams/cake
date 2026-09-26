@@ -633,12 +633,22 @@ static void generate_config(void)
 static void build_installer(void)
 {
 #if defined COMPILER_MSVC
-    print_header("Build installer (cake-" CAKE_VERSION "-setup.exe)");
+
+    /* the setup has the architecture of the compiler that builds it (an x86 one installs into Program Files (x86)) */
+#if defined(_M_ARM64)
+#define INSTALLER_ARCH "arm64"
+#elif defined(_WIN64)
+#define INSTALLER_ARCH "x64"
+#else
+#define INSTALLER_ARCH "x86"
+#endif
+
+    print_header("Build installer (cake-" CAKE_VERSION "-" INSTALLER_ARCH "-setup.exe)");
 
     echo_chdir("./tools");
     /* not named *install*: Windows asks elevation for 32-bit exes with that name */
     execute_cmd(CC " -nologo win_installer.c -Fe:win_pack.exe");
-    execute_cmd(RUN "win_pack.exe ..\\cake-" CAKE_VERSION "-setup.exe");
+    execute_cmd(RUN "win_pack.exe ..\\cake-" CAKE_VERSION "-" INSTALLER_ARCH "-setup.exe");
     remove("win_installer.obj");
     remove("win_pack.exe");
     echo_chdir("..");

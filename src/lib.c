@@ -1659,6 +1659,9 @@ int json_write_file(const char *path, const struct json_value *root)
 #include <limits.h>
 
 
+#include <ctype.h>
+
+
 
 /*
  *  This file is part of cake compiler
@@ -2164,10 +2167,10 @@ enum diagnostic_id {
     W_ASSIGNMENT_IN_CONDITION = 91,
     W_QUALIFIER_ON_RETURN_TYPE = 92,
     W_FIND_DEFINITION = 93, /* -find-definition result, the only diagnostic reported in that mode */
-    W_UNUSED_WARNING_94 = 94,
-    W_UNUSED_WARNING_95 = 95,
-    W_UNUSED_WARNING_96 = 96,
-    W_UNUSED_WARNING_97 = 97,
+    W_UNUSED_MACRO = 94, /* macro defined in the source file and never used; off by default, on with -unused-extern-report */
+    W_UNUSED_EXTERN_FUNCTION = 95, /* -unused-extern-report: external function not used in any of the files */
+    W_UNUSED_ENUMERATOR = 96, /* -unused-extern-report: enumerator not used in any of the files */
+    W_FLOW_NOT_DONE = 97, /* flow analysis of a function was not done, the message says why */
     W_UNUSED_WARNING_98 = 98,
     W_UNUSED_WARNING_99 = 99,
     W_UNUSED_WARNING_100 = 100,
@@ -2594,7 +2597,7 @@ struct options
       Report mode: only the unused functions are reported (see
       options_diagnostic_is_muted), no flow analysis and no output.
     */
-    bool report_unused_extern_functions;
+    bool report_unused;
     struct global_unused_list* _Opt p_unused_functions;
 };
 
@@ -2945,6 +2948,12 @@ struct marker
 
 
 void print_line_and_token(struct marker* p_marker, bool color_enabled);
+/* -find-definition: p_token comes from the file the cursor is in (the main file or a header) */
+bool token_is_in_find_definition_file(const struct token* p_token, const struct options* options);
+
+/* -find-definition: p_token covers the cursor line:col */
+bool token_is_find_definition_cursor(const struct token* p_token, const struct options* options);
+
 void print_position(const char* _Opt path, int line, int col, enum diagnostic_ouput_format format, bool color_enabled, bool fullpath);
 
 struct osstream;
@@ -3040,6 +3049,9 @@ struct preprocessor_ctx
     bool conditional_inclusion;
     int n_warnings;
     int n_errors;    
+
+    /* -find-definition: the #define of the macro name under the cursor; the parser does not run then */
+    const struct token* _Opt p_find_definition;
 };
 
 void preprocessor_ctx_destroy( _Dtor struct preprocessor_ctx* p);
@@ -3084,7 +3096,46 @@ void print_tokens(bool color_enabled, const struct token* _Opt p_token);
 void print_preprocessed(const struct token* p_token);
 const char* _Owner _Opt print_preprocessed_to_string(const struct token* p_token);
 const char* _Owner _Opt print_preprocessed_to_string2(const struct token* _Opt p_token);
-void check_unused_macros(const struct hash_map* map);
+void preprocessor_mark_predefined_macros(struct preprocessor_ctx* ctx);
+
+/*
+  -unused-extern-report: what the files of one invocation define, collected
+  across all of them and reported at the end (global_unused_functions_report).
+*/
+enum global_unused_kind
+{
+    GLOBAL_UNUSED_FUNCTION, /* external function, identified by name */
+    GLOBAL_UNUSED_MACRO,      /* identified by name, file and line */
+    GLOBAL_UNUSED_ENUMERATOR, /* identified by name, file and line */
+};
+
+struct global_unused_entry
+{
+    enum global_unused_kind kind;
+    char* _Owner name;
+    char* _Owner file;
+    int line;
+    bool used;            /* true if used in at least one file seen so far */
+    bool has_definition;  /* true if defined (in a file that is reported) in at least one file so far */
+};
+
+struct global_unused_list
+{
+    struct global_unused_entry* _Owner _Opt data;
+    int size;
+    int capacity;
+
+    /* only macros defined under this directory (the common directory of the files) are reported */
+    char* _Owner _Opt root_dir;
+};
+
+void global_unused_functions_clear(_Clear struct global_unused_list* p);
+/* only what is defined under the project directory (root_dir) is reported */
+bool is_file_under_project_folder(const struct global_unused_list* p, const char* file);
+void global_unused_register(struct global_unused_list* p, enum global_unused_kind kind, const char* name, const char* file, int line, bool used_here, bool has_definition_here);
+
+/* registers the macros of the file just preprocessed */
+void preprocessor_register_unused_macros(struct preprocessor_ctx* ctx, struct global_unused_list* p);
 
 const char* get_token_name(enum token_type tk);
 const char* get_diagnostic_friendly_token_name(enum token_type tk);
@@ -3841,6 +3892,50 @@ void print_tokens(bool color_enabled, const struct token* _Opt p_token)
         printf(COLOR_RESET);
 }
 
+
+/* -find-definition: p_token comes from the file the cursor is in (the main file or a header) */
+bool token_is_in_find_definition_file(const struct token* p_token, const struct options* options)
+{
+    const char* a = options->find_definition_file;
+    if (a[0] == '\0')
+        return p_token->level == 0;
+
+    if (p_token->token_origin == NULL)
+        return false;
+
+    const char* b = p_token->token_origin->lexeme;
+    for (; *a && *b; a++, b++)
+    {
+        const bool slash_a = *a == '/' || *a == '\\';
+        const bool slash_b = *b == '/' || *b == '\\';
+        if (slash_a && slash_b)
+            continue;
+#ifdef _WIN32
+        if (tolower((unsigned char)*a) != tolower((unsigned char)*b))
+            return false;
+#else
+        if (*a != *b)
+            return false;
+#endif
+    }
+    return *a == *b;
+}
+
+bool token_is_find_definition_cursor(const struct token* p_token, const struct options* options)
+{
+    if (!options->find_definition ||
+        (p_token->flags & TK_FLAG_MACRO_EXPANDED) ||
+        p_token->line != options->find_definition_line)
+    {
+        return false;
+    }
+
+    const int col = options->find_definition_col;
+    if (col < p_token->col || col > p_token->col + (int)strlen(p_token->lexeme))
+        return false;
+
+    return token_is_in_find_definition_file(p_token, options);
+}
 
 void print_position(const char* _Opt path, int line, int col, enum diagnostic_ouput_format format, bool color_enabled, bool fullpath)
 {
@@ -6313,9 +6408,6 @@ void c_gotoxy(int x, int y)
 
 
 
-#include <ctype.h>
-
-
 #include <sys/stat.h>
 
 
@@ -6537,7 +6629,7 @@ struct macro
     struct token_list replacement_list; /*copy*/
     struct macro_parameter* _Owner _Opt parameters;
     bool is_function;
-    int usage;
+    bool used; /* expanded or tested (#ifdef, #ifndef, defined) */
     bool def_macro;
 };
 
@@ -6672,7 +6764,7 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
     }
 
     const bool color_enabled = !ctx->options.color_disabled;
-    print_position(marker.file, marker.line, marker.start_col, ctx->options.diagnostic_ouput_format, color_enabled, included_file_location);
+    print_position(marker.file, marker.line, marker.start_col, ctx->options.diagnostic_ouput_format, color_enabled, included_file_location || options_is_report_mode(&ctx->options));
 
     char buffer[200] = { 0 };
 
@@ -8445,7 +8537,9 @@ struct token_list group_opt(struct preprocessor_ctx* ctx, struct token_list* inp
                 struct token_list r2 = group_part(ctx, input_list, is_active, level);
                 token_list_append_list(&r, &r2);
                 token_list_destroy(&r2);
-                if (ctx->n_errors > 0) throw;
+
+                /* an error, or -find-definition found the macro */
+                if (ctx->n_errors > 0 || ctx->p_find_definition) throw;
             }
         }
     }
@@ -8709,9 +8803,30 @@ above - clang reports those as defined, and SDK headers rely on it
 (sys/cdefs.h does "#ifndef __has_include / #define __has_include(x) 0",
 which would otherwise turn every later __has_include into 0).
 */
+/* -find-definition: p_token, the name of macro, is under the cursor */
+static void find_definition_macro(struct preprocessor_ctx* ctx, const struct token* _Opt p_token, const struct macro* _Opt macro)
+{
+    if (p_token &&
+        macro &&
+        macro->p_name_token &&
+        ctx->p_find_definition == NULL &&
+        token_is_find_definition_cursor(p_token, &ctx->options))
+    {
+        ctx->p_find_definition = macro->p_name_token;
+    }
+}
+
 static bool preprocessor_name_is_defined(const struct preprocessor_ctx* ctx, const char* name)
 {
-    return find_macro(ctx, name) != NULL ||
+    /* testing the name (#ifdef, #ifndef, defined) is a use of the macro */
+    struct macro* _Opt macro = find_macro(ctx, name);
+    if (macro)
+    {
+        macro->used = true;
+        return true;
+    }
+
+    return is_clang_query_operator(name) ||
         is_clang_query_operator(name) ||
         strcmp(name, "__has_include") == 0 ||
         strcmp(name, "__has_include_next") == 0 ||
@@ -11243,6 +11358,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
 
             macro->p_name_token = macro_name_token;
+            find_definition_macro(ctx, macro_name_token, macro);
 
             char* _Owner _Opt temp = strdup(input_list->head->lexeme);
             if (temp == NULL)
@@ -12782,7 +12898,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
                                int level,
                                const struct token* _Opt origin)
 {
-    macro->usage++;
+    macro->used = true;
 
     struct token_list r = { 0 };
     try
@@ -12946,6 +13062,24 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 {
                     macro_argument_list_destroy(&arguments);
                     throw;
+                }
+
+                /* -find-definition: the macro name, or a macro name inside its arguments as written */
+                if (ctx->options.find_definition && ctx->p_find_definition == NULL)
+                {
+                    find_definition_macro(ctx, origin, macro);
+                    for (struct token* _Opt p = arguments.tokens.head; p && ctx->p_find_definition == NULL; p = p->next)
+                    {
+                        if (p->type == TK_IDENTIFIER)
+                            find_definition_macro(ctx, p, find_macro(ctx, p->lexeme));
+                    }
+
+                    if (ctx->p_find_definition)
+                    {
+                        /* found: leave the preprocessor like an error */
+                        macro_argument_list_destroy(&arguments);
+                        throw;
+                    }
                 }
 
                 struct token_list start_macro = expand_macro(ctx, NULL, macro, &arguments, level, origin);
@@ -13224,12 +13358,14 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
     return r;
 }
 
-static void mark_macros_as_used(const struct hash_map* map)
+/*
+  Macros defined outside the source (standard, builtin, -D): never reported
+  as unused, and with no definition token - the tokens that defined them
+  are destroyed right after, so p_name_token would dangle.
+*/
+void preprocessor_mark_predefined_macros(struct preprocessor_ctx* ctx)
 {
-    /*
- *  Objetivo era alertar macros nao usadas...
- */
-
+    const struct hash_map* map = &ctx->macros;
     if (map->table != NULL)
     {
         for (int i = 0; i < map->capacity; i++)
@@ -13240,37 +13376,62 @@ static void mark_macros_as_used(const struct hash_map* map)
             {
                 _Assert(pentry->data.p_macro != NULL);
                 struct macro* macro = pentry->data.p_macro;
-                macro->usage = 1;
+                macro->used = true;
+                macro->p_name_token = NULL;
                 pentry = pentry->next;
             }
         }
     }
 }
 
-void check_unused_macros(const struct hash_map* map)
+/* -unused-extern-report: file is under the directory (case and slash insensitive on Windows) */
+static bool path_is_under(const char* file, const char* dir)
 {
-    /*
- *  Objetivo era alertar macros nao usadas...
- */
-
-    if (map->table != NULL)
+    for (; *dir; dir++, file++)
     {
-        for (int i = 0; i < map->capacity; i++)
+        const bool slash_a = *dir == '/' || *dir == '\\';
+        const bool slash_b = *file == '/' || *file == '\\';
+        if (slash_a && slash_b)
+            continue;
+#ifdef _WIN32
+        if (tolower((unsigned char)*dir) != tolower((unsigned char)*file))
+            return false;
+#else
+        if (*dir != *file)
+            return false;
+#endif
+    }
+    return *file == '/' || *file == '\\';
+}
+
+bool is_file_under_project_folder(const struct global_unused_list* p, const char* file)
+{
+    return p->root_dir == NULL || path_is_under(file, p->root_dir);
+}
+
+void preprocessor_register_unused_macros(struct preprocessor_ctx* ctx, struct global_unused_list* p)
+{
+    const struct hash_map* map = &ctx->macros;
+    if (map->table == NULL)
+        return;
+
+    for (int i = 0; i < map->capacity; i++)
+    {
+        for (struct map_entry* _Opt pentry = map->table[i]; pentry != NULL; pentry = pentry->next)
         {
-            struct map_entry* _Opt pentry = map->table[i];
+            _Assert(pentry->data.p_macro != NULL);
 
-            while (pentry != NULL)
-            {
-                _Assert(pentry->data.p_macro != NULL);
+            const struct macro* macro = pentry->data.p_macro;
+            const struct token* _Opt p_name = macro->p_name_token;
+            if (p_name == NULL || p_name->token_origin == NULL)
+                continue; /* standard, builtin or -D */
 
-                struct macro* macro = pentry->data.p_macro;
-                if (macro->usage == 0)
-                {
-                    //TODO adicionar conceito meu codigo , codigo de outros nao vou colocar erro
-                    printf("%s not used\n", macro->name);
-                }
-                pentry = pentry->next;
-            }
+            /* reported only when defined under the project directory: not system or library headers */
+            const char* file = p_name->token_origin->lexeme;
+            if (!is_file_under_project_folder(p, file))
+                continue; /* never reported, so not kept */
+
+            global_unused_register(p, GLOBAL_UNUSED_MACRO, macro->name, file, p_name->line, macro->used, true);
         }
     }
 }
@@ -13420,7 +13581,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
     struct token_list l10 = preprocessor(ctx, &l, 0);
 
     /* do not warn about unused standard macros */
-    mark_macros_as_used(&ctx->macros);
+    preprocessor_mark_predefined_macros(ctx);
     token_list_destroy(&l);
     token_list_destroy(&l10);
 
@@ -20400,6 +20561,10 @@ static int bitset_get(const struct bitset* b, int pos)
 
 bool is_diagnostic_enabled(const struct options* options, enum diagnostic_id w)
 {
+    /* report modes: the checks behind a muted diagnostic (style...) do not even run */
+    if (options_diagnostic_is_muted(options, w))
+        return false;
+
     if (w == W_LOCATION)
         return true;
 
@@ -20517,6 +20682,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_CTOR_NOT_INITIALIZED_AT_EXIT:
     case W_FLOW_PARAM_OWNER_CONSUMED_AT_EXIT:
     case W_FLOW_PARAM_UNINITIALIZED_AT_EXIT:
+    case W_FLOW_NOT_DONE:
     case W_FLOW_CONDITION_KNOWN_AT_COMPILE_TIME:
     case W_COMPILE_ASSERT_UNPROVEM:
 
@@ -20603,6 +20769,10 @@ int fill_options(struct options* options,
     /* Off by default: implicit int/bool to enum assignment fires on plenty
        of existing code (flags, raw constants), so it is opt-in. */
     options_set_warning(options, W_INT_TO_ENUM_CONVERSION, false);
+
+    /* Off by default: reported by -unused-extern-report. */
+    options_set_warning(options, W_UNUSED_MACRO, false);
+    options_set_warning(options, W_UNUSED_ENUMERATOR, false);
 
     options_set_note(options, W_INFO, true);
     options_set_note(options, W_FIND_DEFINITION, true);
@@ -20748,7 +20918,7 @@ int fill_options(struct options* options,
 
         if (strcmp(argv[i], "-unused-extern-report") == 0)
         {
-            options->report_unused_extern_functions = true;
+            options->report_unused = true;
             options->no_output = true;
             continue;
         }
@@ -21001,16 +21171,25 @@ int fill_options(struct options* options,
     if (options->find_definition)
         options_set_note(options, W_FIND_DEFINITION, true);
 
-    /* the report itself, even if -wd57 disabled it */
-    if (options->report_unused_extern_functions)
+    /* report modes do not need the tokens of inactive #if blocks */
+    if (options_is_report_mode(options))
+        options->keep_inactive_tokens = false;
+
+    /* the report itself, even if -wd57/-wd94 disabled it */
+    if (options->report_unused)
+    {
         options_set_warning(options, W_UNUSED_FUNCTION, true);
+        options_set_warning(options, W_UNUSED_EXTERN_FUNCTION, true);
+        options_set_warning(options, W_UNUSED_MACRO, true);
+        options_set_warning(options, W_UNUSED_ENUMERATOR, true);
+    }
 
     return 0;
 }
 
 bool options_is_report_mode(const struct options* options)
 {
-    return options->find_definition || options->report_unused_extern_functions;
+    return options->find_definition || options->report_unused;
 }
 
 bool options_diagnostic_is_muted(const struct options* options, enum diagnostic_id w)
@@ -21018,8 +21197,9 @@ bool options_diagnostic_is_muted(const struct options* options, enum diagnostic_
     if (options->find_definition)
         return w != W_FIND_DEFINITION;
 
-    if (options->report_unused_extern_functions)
-        return w != W_UNUSED_FUNCTION && w != W_INFO;
+    if (options->report_unused)
+        return w != W_UNUSED_FUNCTION && w != W_UNUSED_EXTERN_FUNCTION && w != W_UNUSED_MACRO &&
+               w != W_UNUSED_ENUMERATOR && w != W_INFO;
 
     return false;
 }
@@ -22682,6 +22862,7 @@ int parser_match_tk_lint(struct parser_ctx* ctx, enum token_type type, struct to
 bool find_definition_is_cursor(const struct parser_ctx* ctx, const struct token* p_token);
 void find_definition_set(struct parser_ctx* ctx, const struct token* _Opt p_definition);
 void find_definition_set_declarator(struct parser_ctx* ctx, const struct declarator* p_declarator);
+void find_definition_report(struct parser_ctx* ctx);
 
 struct token* _Opt previous_parser_token(const struct token* token);
 struct token* _Opt parser_get_previous_token(const struct parser_ctx* ctx);
@@ -24232,6 +24413,7 @@ struct enumerator
         - false, only AST OR and some map have the ownership
     */
     bool has_shared_ownership;
+    bool used; /* -unused-extern-report */
 
     struct token* token;
     struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_opt;
@@ -24296,23 +24478,6 @@ struct declaration_list
 struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror);
 void declaration_list_destroy(_Dtor struct declaration_list* list);
 
-struct global_unused_entry
-{
-    char* _Owner name;
-    char* _Owner file;
-    int line;
-    bool used;            /* true if num_uses > 0 in at least one file seen so far */
-    bool has_definition;  /* true if a body was seen in at least one file so far */
-};
-
-struct global_unused_list
-{
-    struct global_unused_entry* _Owner _Opt data;
-    int size;
-    int capacity;
-};
-
-void global_unused_functions_clear(_Clear struct global_unused_list* p);
 /* reports and then clears the list */
 void global_unused_functions_report(_Clear struct global_unused_list* p, const struct options* options, struct report* report);
 
@@ -31177,6 +31342,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
             {
                 _Assert(p_entry->data.p_enumerator != NULL);
                 struct enumerator* p_enumerator = p_entry->data.p_enumerator;
+                p_enumerator->used = true;
                 p_expression_node->expression_type = EXPR_PRIMARY_ENUMERATOR;
                 p_expression_node->object = object_dup(&p_enumerator->value);
 
@@ -40079,6 +40245,7 @@ struct flow_ctx
     int iteration_pass;
 
     clock_t function_start_time; /* see flow_start_visit_declaration */
+    bool stopped; /* the analysis of the current function was stopped, see flow_check_limits */
 
     struct flow_branch* _Opt p_throw_join_map;  /*map where throws are joined*/
     bool throw_join_reached;    /* a throw reached p_throw_join_map */
@@ -40153,7 +40320,7 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 */
 
 //#pragma once
-#define CAKE_VERSION "0.15.2"
+#define CAKE_VERSION "0.15.3"
 
 
  
@@ -42992,49 +43159,21 @@ void parser_match(struct parser_ctx* ctx)
     parser_skip_blanks(ctx, NULL);
 }
 
-/* -find-definition: p_token comes from the file the cursor is in (the main file or a header) */
-static bool find_definition_in_cursor_file(const struct parser_ctx* ctx, const struct token* p_token)
-{
-    const char* a = ctx->options.find_definition_file;
-    if (a[0] == '\0')
-        return p_token->level == 0;
-
-    if (p_token->token_origin == NULL)
-        return false;
-
-    const char* b = p_token->token_origin->lexeme;
-    for (; *a && *b; a++, b++)
-    {
-        const bool slash_a = *a == '/' || *a == '\\';
-        const bool slash_b = *b == '/' || *b == '\\';
-        if (slash_a && slash_b)
-            continue;
-#ifdef _WIN32
-        if (tolower((unsigned char)*a) != tolower((unsigned char)*b))
-            return false;
-#else
-        if (*a != *b)
-            return false;
-#endif
-    }
-    return *a == *b;
-}
-
 /* -find-definition: true when p_token covers the cursor line:col */
 bool find_definition_is_cursor(const struct parser_ctx* ctx, const struct token* p_token)
 {
-    if (!ctx->options.find_definition ||
-        (p_token->flags & TK_FLAG_MACRO_EXPANDED) ||
-        p_token->line != ctx->options.find_definition_line)
-    {
-        return false;
-    }
+    return token_is_find_definition_cursor(p_token, &ctx->options);
+}
 
-    const int col = ctx->options.find_definition_col;
-    if (col < p_token->col || col > p_token->col + (int)strlen(p_token->lexeme))
-        return false;
+/* -find-definition: reports what was found (W_FIND_DEFINITION, the only diagnostic of this mode) */
+void find_definition_report(struct parser_ctx* ctx)
+{
+    if (ctx->p_find_definition == NULL)
+        return;
 
-    return find_definition_in_cursor_file(ctx, p_token);
+    diagnostic(W_FIND_DEFINITION, ctx, ctx->p_find_definition, NULL, "%s of '%s'",
+        ctx->find_definition_is_declaration ? "declaration" : "definition",
+        ctx->p_find_definition->lexeme);
 }
 
 void find_definition_set(struct parser_ctx* ctx, const struct token* _Opt p_definition)
@@ -43105,7 +43244,7 @@ static void find_definition_by_name(struct parser_ctx* ctx, const struct declara
 static bool find_definition_passed_cursor(const struct parser_ctx* ctx)
 {
     const struct token* _Opt p = ctx->current;
-    if (p == NULL || ctx->options.find_definition_line == 0 || !find_definition_in_cursor_file(ctx, p))
+    if (p == NULL || ctx->options.find_definition_line == 0 || !token_is_in_find_definition_file(p, &ctx->options))
         return false;
 
     return p->line > ctx->options.find_definition_line ||
@@ -55057,14 +55196,19 @@ void global_unused_functions_clear(_Clear struct global_unused_list* p)
     p->data = NULL;
     p->size = 0;
     p->capacity = 0;
+    free(p->root_dir);
+    p->root_dir = NULL;
 }
 
-static int global_unused_find(const struct global_unused_list* p, const char* name)
+static int global_unused_find(const struct global_unused_list* p, enum global_unused_kind kind, const char* name, const char* file, int line)
 {
     int index = -1;
     for (int i = 0; i < p->size && index < 0; i++)
     {
-        if (strcmp(p->data[i].name, name) == 0)
+        const struct global_unused_entry* e = &p->data[i];
+        if (e->kind == kind &&
+            strcmp(e->name, name) == 0 &&
+            (kind == GLOBAL_UNUSED_FUNCTION || (e->line == line && strcmp(e->file, file) == 0)))
         {
             index = i;
         }
@@ -55072,11 +55216,11 @@ static int global_unused_find(const struct global_unused_list* p, const char* na
     return index;
 }
 
-static void global_unused_register(struct global_unused_list* p, const char* name, const char* file, int line, bool used_here, bool has_definition_here)
+void global_unused_register(struct global_unused_list* p, enum global_unused_kind kind, const char* name, const char* file, int line, bool used_here, bool has_definition_here)
 {
     try
     {
-        int index = global_unused_find(p, name);
+        int index = global_unused_find(p, kind, name, file, line);
         if (index < 0)
         {
             if (p->size >= p->capacity)
@@ -55104,6 +55248,7 @@ static void global_unused_register(struct global_unused_list* p, const char* nam
             p->size++;
 
             struct global_unused_entry* p_new = &p->data[index];
+            p_new->kind = kind;
             p_new->name = new_name;
             p_new->file = new_file;
             p_new->line = line;
@@ -55155,14 +55300,20 @@ void global_unused_functions_report(_Clear struct global_unused_list* p, const s
         if (!e->has_definition || e->used)
             continue;
 
-        if (pos_diagnostic(W_UNUSED_FUNCTION,
-            options,
-            report,
-            e->file,
-            e->line,
-            1,
-            "function '%s' is not used",
-            e->name))
+        enum diagnostic_id w = W_UNUSED_EXTERN_FUNCTION;
+        const char* fmt = "function '%s' is not used";
+        if (e->kind == GLOBAL_UNUSED_MACRO)
+        {
+            w = W_UNUSED_MACRO;
+            fmt = "macro '%s' is not used";
+        }
+        else if (e->kind == GLOBAL_UNUSED_ENUMERATOR)
+        {
+            w = W_UNUSED_ENUMERATOR;
+            fmt = "enumerator '%s' is not used";
+        }
+
+        if (pos_diagnostic(w, options, report, e->file, e->line, 1, fmt, e->name))
         {
             reported_count++;
             last_file = e->file;
@@ -55172,15 +55323,21 @@ void global_unused_functions_report(_Clear struct global_unused_list* p, const s
 
     if (reported_count > 0)
     {
-        /* a note anchored at the last finding */
+        /* notes anchored at the last finding */
         pos_diagnostic(W_INFO,
             options,
             report,
             last_file,
             last_line,
             1,
-            "only files passed to this invocation of cake were checked - "
-            "a function only called from a file outside this build is still reported here");
+            "only the files passed, and only the active code (#if), were checked");
+        pos_diagnostic(W_INFO,
+            options,
+            report,
+            last_file,
+            last_line,
+            1,
+            "these items cannot be removed without further analysis");
     }
 
     global_unused_functions_clear(p);
@@ -55350,10 +55507,40 @@ static void check_unused_declarators(const struct parser_ctx* ctx, struct declar
                     file = location_token->token_origin->lexeme;
                 }
 
-                global_unused_register(ctx->options.p_unused_functions, name_token->lexeme, file, location_token->line, used_here, has_definition_here);
+                global_unused_register(ctx->options.p_unused_functions, GLOBAL_UNUSED_FUNCTION, name_token->lexeme, file, location_token->line, used_here, has_definition_here);
             }
         }
         p = p->next;
+    }
+}
+
+/* -unused-extern-report: the file scope enumerators of this file */
+static void register_unused_enumerators(const struct parser_ctx* ctx, struct global_unused_list* p)
+{
+    const struct scope* _Opt p_file_scope = ctx->scopes.head;
+    if (p_file_scope == NULL || p_file_scope->variables.table == NULL)
+        return;
+
+    const struct hash_map* map = &p_file_scope->variables;
+    for (int i = 0; i < map->capacity; i++)
+    {
+        for (struct map_entry* _Opt pentry = map->table[i]; pentry != NULL; pentry = pentry->next)
+        {
+            if (pentry->type != TAG_TYPE_ENUMERATOR || pentry->data.p_enumerator == NULL)
+                continue;
+
+            const struct enumerator* p_enumerator = pentry->data.p_enumerator;
+            const struct token* p_name = p_enumerator->token;
+            if (p_name->token_origin == NULL)
+                continue;
+
+            const char* file = p_name->token_origin->lexeme;
+            if (!is_file_under_project_folder(p, file))
+                continue; /* never reported, so not kept */
+
+            global_unused_register(p, GLOBAL_UNUSED_ENUMERATOR, p_name->lexeme, file, p_name->line,
+                p_enumerator->used, true);
+        }
     }
 }
 
@@ -55413,10 +55600,15 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
             }
         }
 
-        check_unused_declarators(ctx, &declaration_list);
+        /* -find-definition reports nothing else, so these end-of-file checks are not needed */
+        if (!ctx->options.find_definition)
+            check_unused_declarators(ctx, &declaration_list);
+
+        if (ctx->options.p_unused_functions)
+            register_unused_enumerators(ctx, ctx->options.p_unused_functions);
 
         // check that all enums that have objects are defined
-        struct block_item* _Opt decl = ctx->used_incomplete_enums.head;
+        struct block_item* _Opt decl = ctx->options.find_definition ? NULL : ctx->used_incomplete_enums.head;
         while (decl)
         {
             const struct enum_specifier* _Opt declared_enum =
@@ -55435,12 +55627,7 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
         *berror = true;
     }
 
-    if (ctx->p_find_definition)
-    {
-        diagnostic(W_FIND_DEFINITION, ctx, ctx->p_find_definition, NULL, "%s of '%s'",
-            ctx->find_definition_is_declaration ? "declaration" : "definition",
-            ctx->p_find_definition->lexeme);
-    }
+    find_definition_report(ctx);
 
     diagnostic_queue_flush(&ctx->diagnostic_queue, ctx);
     
@@ -56811,6 +56998,9 @@ int fill_preprocessor_options(int argc, const char* const* argv, struct preproce
             continue;
         }
     }
+
+    /* -D macros: their tokens were just destroyed */
+    preprocessor_mark_predefined_macros(prectx);
     return 0;
 }
 
@@ -57129,6 +57319,9 @@ int compile_one_file(const char* file_name,
 
         ast.token_list = preprocessor(&prectx, &tokens, 0);
 
+        if (options->p_unused_functions)
+            preprocessor_register_unused_macros(&prectx, options->p_unused_functions);
+
         report->warnings_count += prectx.n_warnings;
         report->error_count += prectx.n_errors;
 
@@ -57176,6 +57369,14 @@ int compile_one_file(const char* file_name,
                     throw;
                 }
             }
+        }
+        else if (prectx.p_find_definition)
+        {
+            /* -find-definition on a macro name: resolved by the preprocessor, no parse */
+            ctx.p_find_definition = prectx.p_find_definition;
+            find_definition_report(&ctx);
+            diagnostic_queue_flush(&ctx.diagnostic_queue, &ctx);
+            find_definition_to_report(&ctx, report);
         }
         else
         {
@@ -57605,15 +57806,18 @@ int compile(int argc, const char** argv, struct report* report)
     int find_definition_count = 0;
 
     struct global_unused_list unused_functions_state = { 0 };
-    if (options.report_unused_extern_functions)
+    if (options.report_unused)
         options.p_unused_functions = &unused_functions_state;
 
     char root_dir[FS_MAX_PATH] = { 0 };
 
-    if (!options.no_output)
+    if (!options.no_output || options.report_unused)
     {
         longest_common_path(argc, argv, root_dir);
     }
+
+    if (options.report_unused && root_dir[0] != '\0')
+        unused_functions_state.root_dir = strdup(root_dir);
 
     const size_t root_dir_len = strlen(root_dir);
 
@@ -57706,7 +57910,7 @@ int compile(int argc, const char** argv, struct report* report)
     if (options.find_definition)
         find_definition_run(find_definition_files, find_definition_count, &options, argc, argv);
 
-    if (options.report_unused_extern_functions)
+    if (options.report_unused)
     {
         global_unused_functions_report(&unused_functions_state, &options, report);
     }
@@ -66469,8 +66673,9 @@ static int flow_alt_compare_ptr(const void* _Opt p_left, const void* _Opt p_righ
     return result;
 }
 
-/* Orders by the same fields flow_alternatives_add compares, then by index,
-   so equal alternatives are adjacent with the first-added one leading. */
+/* Orders by the same fields flow_alternatives_add compares, origin last, then by index,
+   so equal alternatives are adjacent with the first-added one leading, and so are
+   the ones that differ only in origin. */
 static int flow_alt_sort_item_compare(const void* p_left_void, const void* p_right_void)
 {
     const struct flow_alt_sort_item* p_left_item = p_left_void;
@@ -66504,10 +66709,6 @@ static int flow_alt_sort_item_compare(const void* p_left_void, const void* p_rig
     {
         result = left_alt->imaginary < right_alt->imaginary ? -1 : 1;
     }
-    else if (left_alt->p_origin_map != right_alt->p_origin_map)
-    {
-        result = flow_alt_compare_ptr(left_alt->p_origin_map, right_alt->p_origin_map);
-    }
     else if (left_alt->p_narrowed_from != right_alt->p_narrowed_from)
     {
         result = flow_alt_compare_ptr(left_alt->p_narrowed_from, right_alt->p_narrowed_from);
@@ -66516,6 +66717,10 @@ static int flow_alt_sort_item_compare(const void* p_left_void, const void* p_rig
     {
         result = left_alt->contradicted ? 1 : -1;
     }
+    else if (left_alt->p_origin_map != right_alt->p_origin_map)
+    {
+        result = flow_alt_compare_ptr(left_alt->p_origin_map, right_alt->p_origin_map);
+    }
     else
     {
         result = p_left_item->index < p_right_item->index ? -1 : (p_left_item->index > p_right_item->index ? 1 : 0);
@@ -66523,8 +66728,49 @@ static int flow_alt_sort_item_compare(const void* p_left_void, const void* p_rig
     return result;
 }
 
+static int flow_branch_depth(const struct flow_branch* _Opt p)
+{
+    int depth = 0;
+    for (; p; p = p->p_parent_map)
+        depth++;
+    return depth;
+}
+
+/* The deepest map both a and b are under (NULL when they share none). */
+static const struct flow_branch* _Opt flow_branch_common_ancestor(const struct flow_branch* _Opt a, const struct flow_branch* _Opt b)
+{
+    int depth_a = flow_branch_depth(a);
+    int depth_b = flow_branch_depth(b);
+    for (; depth_a > depth_b && a; depth_a--)
+        a = a->p_parent_map;
+    for (; depth_b > depth_a && b; depth_b--)
+        b = b->p_parent_map;
+    while (a != b && a && b)
+    {
+        a = a->p_parent_map;
+        b = b->p_parent_map;
+    }
+    return a == b ? a : NULL;
+}
+
+static bool flow_alternative_same_except_origin(const struct flow_alternative* a, const struct flow_alternative* b)
+{
+    return flow_value_is_same(a, b) &&
+        a->value_relation == b->value_relation &&
+        a->imaginary == b->imaginary &&
+        a->p_narrowed_from == b->p_narrowed_from &&
+        a->contradicted == b->contradicted;
+}
+
 void flow_alternatives_remove_duplicates(struct flow_alternatives* vs)
 {
+    /* One value reached through many arms (an arm that did not write the object
+       re-tags it with the arm) keeps one copy per origin. Past this many the
+       copies become one, tagged with the origins' common ancestor: a value on
+       more paths, never on fewer. Without it an else-if chain of n arms grows
+       each object by one copy per arm. */
+    enum { FLOW_ALT_MAX_ORIGINS_PER_VALUE = 8 };
+
     /* O(n log n): sort (alternative, index) pairs, mark every entry that equals
        its sorted predecessor, then compact keeping the original order. */
     struct flow_alt_sort_item* _Owner _Opt items = NULL;
@@ -66550,19 +66796,43 @@ void flow_alternatives_remove_duplicates(struct flow_alternatives* vs)
         }
         qsort(items, (size_t)vs->size, sizeof(struct flow_alt_sort_item), flow_alt_sort_item_compare);
 
-        for (int i = 1; i < vs->size; i++)
+        int group_begin = 0;
+        for (int i = 1; i <= vs->size; i++)
         {
-            const struct flow_alternative* previous_alt = items[i - 1].p_alternative;
-            const struct flow_alternative* current_alt = items[i].p_alternative;
-            if (flow_value_is_same(previous_alt, current_alt) &&
-                previous_alt->value_relation == current_alt->value_relation &&
-                previous_alt->imaginary == current_alt->imaginary &&
-                previous_alt->p_origin_map == current_alt->p_origin_map &&
-                previous_alt->p_narrowed_from == current_alt->p_narrowed_from &&
-                previous_alt->contradicted == current_alt->contradicted)
+            if (i < vs->size &&
+                flow_alternative_same_except_origin(items[group_begin].p_alternative, items[i].p_alternative))
             {
-                is_duplicate[items[i].index] = true;
+                if (items[i - 1].p_alternative->p_origin_map == items[i].p_alternative->p_origin_map)
+                {
+                    is_duplicate[items[i].index] = true;
+                }
+                continue;
             }
+
+            int origins = 0;
+            for (int k = group_begin; k < i; k++)
+            {
+                if (!is_duplicate[items[k].index])
+                    origins++;
+            }
+
+            if (origins > FLOW_ALT_MAX_ORIGINS_PER_VALUE)
+            {
+                int keep = items[group_begin].index;
+                const struct flow_branch* _Opt p_common = items[group_begin].p_alternative->p_origin_map;
+                for (int k = group_begin + 1; k < i; k++)
+                {
+                    p_common = flow_branch_common_ancestor(p_common, items[k].p_alternative->p_origin_map);
+                    if (items[k].index < keep)
+                        keep = items[k].index;
+                }
+                for (int k = group_begin; k < i; k++)
+                {
+                    is_duplicate[items[k].index] = items[k].index != keep;
+                }
+                vs->data[keep]->p_origin_map = p_common;
+            }
+            group_begin = i;
         }
 
         int new_size = 0;
@@ -79593,6 +79863,9 @@ static void flow_check_exiting_objects(struct flow_ctx* ctx,
 
 static void flow_check_function_exit(struct flow_ctx* ctx, const struct jump_statement* p_jump_statement)
 {
+    if (ctx->stopped)
+        return;
+
     flow_exit_block_visit_defer_list(ctx,
                                      &p_jump_statement->defer_list,
                                      p_jump_statement->first_token);
@@ -79830,6 +80103,9 @@ static void flow_visit_unlabeled_statement(struct flow_ctx* ctx, struct unlabele
 
 static void flow_visit_statement(struct flow_ctx* ctx, struct statement* p_statement)
 {
+    if (ctx->stopped)
+        return;
+
     if (p_statement->labeled_statement)
     {
         flow_visit_labeled_statement(ctx, p_statement->labeled_statement);
@@ -79929,8 +80205,65 @@ static void flow_visit_label(struct flow_ctx* ctx, const struct label* p_label)
     }
 }
 
+/* Stops the analysis of the current function when it tracks too many objects,
+   reporting the object that holds most of them. */
+static void flow_check_limits(struct flow_ctx* ctx, const struct token* p_token)
+{
+    enum { FLOW_MAX_TRACKED_OBJECTS = 10000 };
+
+    int entries = 0;
+    for (const struct flow_branch* _Opt p = ctx->p_current_flow_branch; p; p = p->p_parent_map)
+        entries += p->num_of_entries;
+
+    if (entries <= FLOW_MAX_TRACKED_OBJECTS)
+        return;
+
+    struct { const struct object* p_root; int count; } roots[16] = { 0 };
+    for (const struct flow_branch* _Opt p = ctx->p_current_flow_branch; p; p = p->p_parent_map)
+    {
+        for (int i = 0; p->buckets && i < p->num_of_buckets; i++)
+        {
+            for (const struct flow_key_alternatives* _Opt e = p->buckets[i]; e; e = e->next)
+            {
+                const struct object* p_root = e->p_obj_key;
+                while (p_root->parent)
+                    p_root = p_root->parent;
+                for (int k = 0; k < 16; k++)
+                {
+                    if (roots[k].p_root == NULL)
+                        roots[k].p_root = p_root;
+                    if (roots[k].p_root == p_root)
+                    {
+                        roots[k].count++;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    int top = 0;
+    for (int k = 1; k < 16; k++)
+    {
+        if (roots[k].count > roots[top].count)
+            top = k;
+    }
+
+    const char* name = roots[top].p_root && roots[top].p_root->member_designator && roots[top].p_root->member_designator[0] ?
+        roots[top].p_root->member_designator : "?";
+
+    const struct marker m = { .p_token_begin = p_token, .p_token_end = p_token };
+    diagnostic(W_FLOW_NOT_DONE, ctx->ctx, NULL, &m,
+               "flow analysis of this function was not done: %d objects tracked (limit %d), %d of them are parts of '%s'",
+               entries, FLOW_MAX_TRACKED_OBJECTS, roots[top].count, name);
+    ctx->stopped = true;
+}
+
 static void flow_visit_block_item(struct flow_ctx* ctx, struct block_item* p_block_item)
 {
+    if (ctx->stopped)
+        return;
+
     if (p_block_item->declaration)
     {
         flow_visit_declaration(ctx, p_block_item->declaration);
@@ -79943,6 +80276,8 @@ static void flow_visit_block_item(struct flow_ctx* ctx, struct block_item* p_blo
     {
         flow_visit_label(ctx, p_block_item->label);
     }
+
+    flow_check_limits(ctx, p_block_item->first_token);
 }
 
 static void flow_visit_block_item_list(struct flow_ctx* ctx, struct block_item_list* p_block_item_list)
@@ -80637,7 +80972,7 @@ void flow_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declarat
             See flow_visit_compound_statement_core. */
             flow_visit_compound_statement_core(ctx, p_declaration->function_body);
 
-            if (!compound_statement_is_last_item_return(p_declaration->function_body))
+            if (!ctx->stopped && !compound_statement_is_last_item_return(p_declaration->function_body))
             {
                 /* the body's defers already ran in flow_visit_compound_statement_core */
                 /* flow_check_params_at_function_exit(ctx, p_declaration); */
@@ -80687,6 +81022,7 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
     try
     {
         ctx->labels_size = 0;
+        ctx->stopped = false;
         ctx->collect_deferred_effects = false;
         ctx->deferred_effects_count = 0;
 

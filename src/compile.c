@@ -101,6 +101,9 @@ int fill_preprocessor_options(int argc, const char* const* argv, struct preproce
             continue;
         }
     }
+
+    /* -D macros: their tokens were just destroyed */
+    preprocessor_mark_predefined_macros(prectx);
     return 0;
 }
 
@@ -419,6 +422,9 @@ int compile_one_file(const char* file_name,
 
         ast.token_list = preprocessor(&prectx, &tokens, 0);
 
+        if (options->p_unused_functions)
+            preprocessor_register_unused_macros(&prectx, options->p_unused_functions);
+
         report->warnings_count += prectx.n_warnings;
         report->error_count += prectx.n_errors;
 
@@ -466,6 +472,14 @@ int compile_one_file(const char* file_name,
                     throw;
                 }
             }
+        }
+        else if (prectx.p_find_definition)
+        {
+            /* -find-definition on a macro name: resolved by the preprocessor, no parse */
+            ctx.p_find_definition = prectx.p_find_definition;
+            find_definition_report(&ctx);
+            diagnostic_queue_flush(&ctx.diagnostic_queue, &ctx);
+            find_definition_to_report(&ctx, report);
         }
         else
         {
@@ -895,15 +909,18 @@ int compile(int argc, const char** argv, struct report* report)
     int find_definition_count = 0;
 
     struct global_unused_list unused_functions_state = { 0 };
-    if (options.report_unused_extern_functions)
+    if (options.report_unused)
         options.p_unused_functions = &unused_functions_state;
 
     char root_dir[FS_MAX_PATH] = { 0 };
 
-    if (!options.no_output)
+    if (!options.no_output || options.report_unused)
     {
         longest_common_path(argc, argv, root_dir);
     }
+
+    if (options.report_unused && root_dir[0] != '\0')
+        unused_functions_state.root_dir = strdup(root_dir);
 
     const size_t root_dir_len = strlen(root_dir);
 
@@ -996,7 +1013,7 @@ int compile(int argc, const char** argv, struct report* report)
     if (options.find_definition)
         find_definition_run(find_definition_files, find_definition_count, &options, argc, argv);
 
-    if (options.report_unused_extern_functions)
+    if (options.report_unused)
     {
         global_unused_functions_report(&unused_functions_state, &options, report);
     }

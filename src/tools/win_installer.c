@@ -614,8 +614,10 @@ static void install(struct setup_dialog* p)
         error = L"Failed to extract the installation files.";
     else if (!write_uninstaller(install_dir))
         error = L"Failed to write uninstall.exe.";
+#ifndef INSTALLER_NO_REGISTRY
     else if (!write_uninstall_key(install_dir))
         error = L"Failed to write the registry keys.";
+#endif
 
     EnableWindow(GetDlgItem(p->hwnd, IDCANCEL), TRUE);
 
@@ -630,7 +632,13 @@ static void install(struct setup_dialog* p)
     on_installed(install_dir);
 
     show_page(p, 2);
+#ifdef INSTALLER_NO_REGISTRY
+    /* not listed in "Add or remove programs" */
+    SetDlgItemTextW(p->hwnd, IDC_MESSAGE, INSTALLER_DISPLAY_NAME L" was installed successfully.\n"
+                                          L"To uninstall, run uninstall.exe in the installation folder.");
+#else
     SetDlgItemTextW(p->hwnd, IDC_MESSAGE, INSTALLER_DISPLAY_NAME L" was installed successfully.");
+#endif
 
 #ifdef INSTALLER_RUN_PROGRAM_AT_END
     wchar_t program[MAX_PATH];
@@ -811,8 +819,10 @@ static int uninstall(void)
     }
     free(list.data);
 
+#ifndef INSTALLER_NO_REGISTRY
     RegDeleteTreeW(HKEY_LOCAL_MACHINE, INSTALLER_UNINST_KEY);
     RegDeleteKeyW(HKEY_LOCAL_MACHINE, INSTALLER_UNINST_KEY);
+#endif
 
     MessageBoxW(NULL,
                 ok ? INSTALLER_DISPLAY_NAME L" was removed." : L"Cannot read uninstall.lst.",

@@ -4267,6 +4267,26 @@ void ui_editor_goto_line(ui_node* n, int line)
     editor_ensure_cursor_visible(n);
 }
 
+void ui_editor_goto_line_near_top(ui_node* n, int line)
+{
+    if (!n || n->type != UI_TAG_EDITOR)
+        return;
+
+    ui_editor_goto_line(n, line);
+    n->scroll = line - 2; /* scroll is the 0-based top line: one line above the target */
+    editor_clamp_scroll(n);
+}
+
+void ui_editor_goto_line_center(ui_node* n, int line)
+{
+    if (!n || n->type != UI_TAG_EDITOR)
+        return;
+
+    ui_editor_goto_line(n, line);
+    n->scroll = (line - 1) - node_rows(n) / 2;
+    editor_clamp_scroll(n);
+}
+
 /* Same as ui_editor_goto_line(), but also advances the caret col-1 bytes
  * into the line (col is 1-based, matching struct token::col in tokenizer.c -
  * used to land on the exact symbol a "find definition" lookup resolved to,
@@ -8183,6 +8203,13 @@ static void render_hotkey(ui_screen* s, ui_node* h)
     int is_hot = (s->hot == h);
     uint32_t bg = is_hot ? g_theme.hotkey_bg_hot : g_theme.hotkey_bg;
     const char* colon = strchr(h->label, ':');
+
+    /* no "key:" part (e.g. the compile status): plain text, not cut to the key buffer */
+    if (!colon)
+    {
+        draw_text(h->x, h->y, h->label, is_hot ? g_theme.hotkey_fg_hot : g_theme.hotkey_fg, bg);
+        return;
+    }
     int key_len = colon ? (int)(colon - h->label) : h->w;
 
     char key_part[16];

@@ -111,7 +111,7 @@ struct macro
     struct token_list replacement_list; /*copy*/
     struct macro_parameter* _Owner _Opt parameters;
     bool is_function;
-    int usage;
+    bool used; /* expanded or tested (#ifdef, #ifndef, defined) */
     bool def_macro;
 };
 
@@ -246,7 +246,7 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
     }
 
     const bool color_enabled = !ctx->options.color_disabled;
-    print_position(marker.file, marker.line, marker.start_col, ctx->options.diagnostic_ouput_format, color_enabled, included_file_location);
+    print_position(marker.file, marker.line, marker.start_col, ctx->options.diagnostic_ouput_format, color_enabled, included_file_location || options_is_report_mode(&ctx->options));
 
     char buffer[200] = { 0 };
 
@@ -2019,7 +2019,9 @@ struct token_list group_opt(struct preprocessor_ctx* ctx, struct token_list* inp
                 struct token_list r2 = group_part(ctx, input_list, is_active, level);
                 token_list_append_list(&r, &r2);
                 token_list_destroy(&r2);
-                if (ctx->n_errors > 0) throw;
+
+                /* an error, or -find-definition found the macro */
+                if (ctx->n_errors > 0 || ctx->p_find_definition) throw;
             }
         }
     }
@@ -2283,9 +2285,30 @@ above - clang reports those as defined, and SDK headers rely on it
 (sys/cdefs.h does "#ifndef __has_include / #define __has_include(x) 0",
 which would otherwise turn every later __has_include into 0).
 */
+/* -find-definition: p_token, the name of macro, is under the cursor */
+static void find_definition_macro(struct preprocessor_ctx* ctx, const struct token* _Opt p_token, const struct macro* _Opt macro)
+{
+    if (p_token &&
+        macro &&
+        macro->p_name_token &&
+        ctx->p_find_definition == NULL &&
+        token_is_find_definition_cursor(p_token, &ctx->options))
+    {
+        ctx->p_find_definition = macro->p_name_token;
+    }
+}
+
 static bool preprocessor_name_is_defined(const struct preprocessor_ctx* ctx, const char* name)
 {
-    return find_macro(ctx, name) != NULL ||
+    /* testing the name (#ifdef, #ifndef, defined) is a use of the macro */
+    struct macro* _Opt macro = find_macro(ctx, name);
+    if (macro)
+    {
+        macro->used = true;
+        return true;
+    }
+
+    return is_clang_query_operator(name) ||
         is_clang_query_operator(name) ||
         strcmp(name, "__has_include") == 0 ||
         strcmp(name, "__has_include_next") == 0 ||
@@ -4817,6 +4840,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
 
             macro->p_name_token = macro_name_token;
+            find_definition_macro(ctx, macro_name_token, macro);
 
             char* _Owner _Opt temp = strdup(input_list->head->lexeme);
             if (temp == NULL)
@@ -6356,7 +6380,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
                                int level,
                                const struct token* _Opt origin)
 {
-    macro->usage++;
+    macro->used = true;
 
     struct token_list r = { 0 };
     try
@@ -6520,6 +6544,24 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 {
                     macro_argument_list_destroy(&arguments);
                     throw;
+                }
+
+                /* -find-definition: the macro name, or a macro name inside its arguments as written */
+                if (ctx->options.find_definition && ctx->p_find_definition == NULL)
+                {
+                    find_definition_macro(ctx, origin, macro);
+                    for (struct token* _Opt p = arguments.tokens.head; p && ctx->p_find_definition == NULL; p = p->next)
+                    {
+                        if (p->type == TK_IDENTIFIER)
+                            find_definition_macro(ctx, p, find_macro(ctx, p->lexeme));
+                    }
+
+                    if (ctx->p_find_definition)
+                    {
+                        /* found: leave the preprocessor like an error */
+                        macro_argument_list_destroy(&arguments);
+                        throw;
+                    }
                 }
 
                 struct token_list start_macro = expand_macro(ctx, NULL, macro, &arguments, level, origin);
@@ -6798,12 +6840,14 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
     return r;
 }
 
-static void mark_macros_as_used(const struct hash_map* map)
+/*
+  Macros defined outside the source (standard, builtin, -D): never reported
+  as unused, and with no definition token - the tokens that defined them
+  are destroyed right after, so p_name_token would dangle.
+*/
+void preprocessor_mark_predefined_macros(struct preprocessor_ctx* ctx)
 {
-    /*
- *  Objetivo era alertar macros nao usadas...
- */
-
+    const struct hash_map* map = &ctx->macros;
     if (map->table != NULL)
     {
         for (int i = 0; i < map->capacity; i++)
@@ -6814,37 +6858,62 @@ static void mark_macros_as_used(const struct hash_map* map)
             {
                 _Assert(pentry->data.p_macro != NULL);
                 struct macro* macro = pentry->data.p_macro;
-                macro->usage = 1;
+                macro->used = true;
+                macro->p_name_token = NULL;
                 pentry = pentry->next;
             }
         }
     }
 }
 
-void check_unused_macros(const struct hash_map* map)
+/* -unused-extern-report: file is under the directory (case and slash insensitive on Windows) */
+static bool path_is_under(const char* file, const char* dir)
 {
-    /*
- *  Objetivo era alertar macros nao usadas...
- */
-
-    if (map->table != NULL)
+    for (; *dir; dir++, file++)
     {
-        for (int i = 0; i < map->capacity; i++)
+        const bool slash_a = *dir == '/' || *dir == '\\';
+        const bool slash_b = *file == '/' || *file == '\\';
+        if (slash_a && slash_b)
+            continue;
+#ifdef _WIN32
+        if (tolower((unsigned char)*dir) != tolower((unsigned char)*file))
+            return false;
+#else
+        if (*dir != *file)
+            return false;
+#endif
+    }
+    return *file == '/' || *file == '\\';
+}
+
+bool is_file_under_project_folder(const struct global_unused_list* p, const char* file)
+{
+    return p->root_dir == NULL || path_is_under(file, p->root_dir);
+}
+
+void preprocessor_register_unused_macros(struct preprocessor_ctx* ctx, struct global_unused_list* p)
+{
+    const struct hash_map* map = &ctx->macros;
+    if (map->table == NULL)
+        return;
+
+    for (int i = 0; i < map->capacity; i++)
+    {
+        for (struct map_entry* _Opt pentry = map->table[i]; pentry != NULL; pentry = pentry->next)
         {
-            struct map_entry* _Opt pentry = map->table[i];
+            _Assert(pentry->data.p_macro != NULL);
 
-            while (pentry != NULL)
-            {
-                _Assert(pentry->data.p_macro != NULL);
+            const struct macro* macro = pentry->data.p_macro;
+            const struct token* _Opt p_name = macro->p_name_token;
+            if (p_name == NULL || p_name->token_origin == NULL)
+                continue; /* standard, builtin or -D */
 
-                struct macro* macro = pentry->data.p_macro;
-                if (macro->usage == 0)
-                {
-                    //TODO adicionar conceito meu codigo , codigo de outros nao vou colocar erro
-                    printf("%s not used\n", macro->name);
-                }
-                pentry = pentry->next;
-            }
+            /* reported only when defined under the project directory: not system or library headers */
+            const char* file = p_name->token_origin->lexeme;
+            if (!is_file_under_project_folder(p, file))
+                continue; /* never reported, so not kept */
+
+            global_unused_register(p, GLOBAL_UNUSED_MACRO, macro->name, file, p_name->line, macro->used, true);
         }
     }
 }
@@ -6994,7 +7063,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
     struct token_list l10 = preprocessor(ctx, &l, 0);
 
     /* do not warn about unused standard macros */
-    mark_macros_as_used(&ctx->macros);
+    preprocessor_mark_predefined_macros(ctx);
     token_list_destroy(&l);
     token_list_destroy(&l10);
 

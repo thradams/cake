@@ -53,6 +53,10 @@ static int bitset_get(const struct bitset* b, int pos)
 
 bool is_diagnostic_enabled(const struct options* options, enum diagnostic_id w)
 {
+    /* report modes: the checks behind a muted diagnostic (style...) do not even run */
+    if (options_diagnostic_is_muted(options, w))
+        return false;
+
     if (w == W_LOCATION)
         return true;
 
@@ -170,6 +174,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_CTOR_NOT_INITIALIZED_AT_EXIT:
     case W_FLOW_PARAM_OWNER_CONSUMED_AT_EXIT:
     case W_FLOW_PARAM_UNINITIALIZED_AT_EXIT:
+    case W_FLOW_NOT_DONE:
     case W_FLOW_CONDITION_KNOWN_AT_COMPILE_TIME:
     case W_COMPILE_ASSERT_UNPROVEM:
 
@@ -256,6 +261,10 @@ int fill_options(struct options* options,
     /* Off by default: implicit int/bool to enum assignment fires on plenty
        of existing code (flags, raw constants), so it is opt-in. */
     options_set_warning(options, W_INT_TO_ENUM_CONVERSION, false);
+
+    /* Off by default: reported by -unused-extern-report. */
+    options_set_warning(options, W_UNUSED_MACRO, false);
+    options_set_warning(options, W_UNUSED_ENUMERATOR, false);
 
     options_set_note(options, W_INFO, true);
     options_set_note(options, W_FIND_DEFINITION, true);
@@ -401,7 +410,7 @@ int fill_options(struct options* options,
 
         if (strcmp(argv[i], "-unused-extern-report") == 0)
         {
-            options->report_unused_extern_functions = true;
+            options->report_unused = true;
             options->no_output = true;
             continue;
         }
@@ -654,16 +663,25 @@ int fill_options(struct options* options,
     if (options->find_definition)
         options_set_note(options, W_FIND_DEFINITION, true);
 
-    /* the report itself, even if -wd57 disabled it */
-    if (options->report_unused_extern_functions)
+    /* report modes do not need the tokens of inactive #if blocks */
+    if (options_is_report_mode(options))
+        options->keep_inactive_tokens = false;
+
+    /* the report itself, even if -wd57/-wd94 disabled it */
+    if (options->report_unused)
+    {
         options_set_warning(options, W_UNUSED_FUNCTION, true);
+        options_set_warning(options, W_UNUSED_EXTERN_FUNCTION, true);
+        options_set_warning(options, W_UNUSED_MACRO, true);
+        options_set_warning(options, W_UNUSED_ENUMERATOR, true);
+    }
 
     return 0;
 }
 
 bool options_is_report_mode(const struct options* options)
 {
-    return options->find_definition || options->report_unused_extern_functions;
+    return options->find_definition || options->report_unused;
 }
 
 bool options_diagnostic_is_muted(const struct options* options, enum diagnostic_id w)
@@ -671,8 +689,9 @@ bool options_diagnostic_is_muted(const struct options* options, enum diagnostic_
     if (options->find_definition)
         return w != W_FIND_DEFINITION;
 
-    if (options->report_unused_extern_functions)
-        return w != W_UNUSED_FUNCTION && w != W_INFO;
+    if (options->report_unused)
+        return w != W_UNUSED_FUNCTION && w != W_UNUSED_EXTERN_FUNCTION && w != W_UNUSED_MACRO &&
+               w != W_UNUSED_ENUMERATOR && w != W_INFO;
 
     return false;
 }

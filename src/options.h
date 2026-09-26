@@ -151,10 +151,10 @@ enum diagnostic_id {
     W_ASSIGNMENT_IN_CONDITION = 91,
     W_QUALIFIER_ON_RETURN_TYPE = 92,
     W_FIND_DEFINITION = 93, /* -find-definition result, the only diagnostic reported in that mode */
-    W_UNUSED_WARNING_94 = 94,
-    W_UNUSED_WARNING_95 = 95,
-    W_UNUSED_WARNING_96 = 96,
-    W_UNUSED_WARNING_97 = 97,
+    W_UNUSED_MACRO = 94, /* macro defined in the source file and never used; off by default, on with -unused-extern-report */
+    W_UNUSED_EXTERN_FUNCTION = 95, /* -unused-extern-report: external function not used in any of the files */
+    W_UNUSED_ENUMERATOR = 96, /* -unused-extern-report: enumerator not used in any of the files */
+    W_FLOW_NOT_DONE = 97, /* flow analysis of a function was not done, the message says why */
     W_UNUSED_WARNING_98 = 98,
     W_UNUSED_WARNING_99 = 99,
     W_UNUSED_WARNING_100 = 100,
@@ -581,7 +581,7 @@ struct options
       Report mode: only the unused functions are reported (see
       options_diagnostic_is_muted), no flow analysis and no output.
     */
-    bool report_unused_extern_functions;
+    bool report_unused;
     struct global_unused_list* _Opt p_unused_functions;
 };
 

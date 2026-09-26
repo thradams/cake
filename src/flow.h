@@ -104,6 +104,7 @@ struct flow_ctx
     int iteration_pass;
 
     clock_t function_start_time; /* see flow_start_visit_declaration */
+    bool stopped; /* the analysis of the current function was stopped, see flow_check_limits */
 
     struct flow_branch* _Opt p_throw_join_map;  /*map where throws are joined*/
     bool throw_join_reached;    /* a throw reached p_throw_join_map */

@@ -828,6 +828,12 @@ void ui_editor_goto_line(ui_node* n, int line);
  * the line (col is 1-based, matching struct token::col in tokenizer.c). */
 void ui_editor_goto_line_col(ui_node* n, int line, int col);
 
+/* goto line, scrolled so the line is one below the top (a definition: what follows it matters) */
+void ui_editor_goto_line_near_top(ui_node* n, int line);
+
+/* goto line, scrolled so the line is in the middle (an error: the code before and after matters) */
+void ui_editor_goto_line_center(ui_node* n, int line);
+
 /* EDITOR-only: the 1-based line the caret is currently on (0 on other tags).
  * A mouse click positions the caret, so a double-click handler (an <editor>
  * fires its id on double-click) can read back which line was clicked. */

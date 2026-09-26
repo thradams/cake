@@ -9,6 +9,7 @@
 #include "cake_compat.h"
 #include <assert.h>
 #include <limits.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -753,6 +754,50 @@ void print_tokens(bool color_enabled, const struct token* _Opt p_token)
         printf(COLOR_RESET);
 }
 
+
+/* -find-definition: p_token comes from the file the cursor is in (the main file or a header) */
+bool token_is_in_find_definition_file(const struct token* p_token, const struct options* options)
+{
+    const char* a = options->find_definition_file;
+    if (a[0] == '\0')
+        return p_token->level == 0;
+
+    if (p_token->token_origin == NULL)
+        return false;
+
+    const char* b = p_token->token_origin->lexeme;
+    for (; *a && *b; a++, b++)
+    {
+        const bool slash_a = *a == '/' || *a == '\\';
+        const bool slash_b = *b == '/' || *b == '\\';
+        if (slash_a && slash_b)
+            continue;
+#ifdef _WIN32
+        if (tolower((unsigned char)*a) != tolower((unsigned char)*b))
+            return false;
+#else
+        if (*a != *b)
+            return false;
+#endif
+    }
+    return *a == *b;
+}
+
+bool token_is_find_definition_cursor(const struct token* p_token, const struct options* options)
+{
+    if (!options->find_definition ||
+        (p_token->flags & TK_FLAG_MACRO_EXPANDED) ||
+        p_token->line != options->find_definition_line)
+    {
+        return false;
+    }
+
+    const int col = options->find_definition_col;
+    if (col < p_token->col || col > p_token->col + (int)strlen(p_token->lexeme))
+        return false;
+
+    return token_is_in_find_definition_file(p_token, options);
+}
 
 void print_position(const char* _Opt path, int line, int col, enum diagnostic_ouput_format format, bool color_enabled, bool fullpath)
 {

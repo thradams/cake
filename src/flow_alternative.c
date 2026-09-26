@@ -220,8 +220,9 @@ static int flow_alt_compare_ptr(const void* _Opt p_left, const void* _Opt p_righ
     return result;
 }
 
-/* Orders by the same fields flow_alternatives_add compares, then by index,
-   so equal alternatives are adjacent with the first-added one leading. */
+/* Orders by the same fields flow_alternatives_add compares, origin last, then by index,
+   so equal alternatives are adjacent with the first-added one leading, and so are
+   the ones that differ only in origin. */
 static int flow_alt_sort_item_compare(const void* p_left_void, const void* p_right_void)
 {
     const struct flow_alt_sort_item* p_left_item = p_left_void;
@@ -255,10 +256,6 @@ static int flow_alt_sort_item_compare(const void* p_left_void, const void* p_rig
     {
         result = left_alt->imaginary < right_alt->imaginary ? -1 : 1;
     }
-    else if (left_alt->p_origin_map != right_alt->p_origin_map)
-    {
-        result = flow_alt_compare_ptr(left_alt->p_origin_map, right_alt->p_origin_map);
-    }
     else if (left_alt->p_narrowed_from != right_alt->p_narrowed_from)
     {
         result = flow_alt_compare_ptr(left_alt->p_narrowed_from, right_alt->p_narrowed_from);
@@ -267,6 +264,10 @@ static int flow_alt_sort_item_compare(const void* p_left_void, const void* p_rig
     {
         result = left_alt->contradicted ? 1 : -1;
     }
+    else if (left_alt->p_origin_map != right_alt->p_origin_map)
+    {
+        result = flow_alt_compare_ptr(left_alt->p_origin_map, right_alt->p_origin_map);
+    }
     else
     {
         result = p_left_item->index < p_right_item->index ? -1 : (p_left_item->index > p_right_item->index ? 1 : 0);
@@ -274,8 +275,49 @@ static int flow_alt_sort_item_compare(const void* p_left_void, const void* p_rig
     return result;
 }
 
+static int flow_branch_depth(const struct flow_branch* _Opt p)
+{
+    int depth = 0;
+    for (; p; p = p->p_parent_map)
+        depth++;
+    return depth;
+}
+
+/* The deepest map both a and b are under (NULL when they share none). */
+static const struct flow_branch* _Opt flow_branch_common_ancestor(const struct flow_branch* _Opt a, const struct flow_branch* _Opt b)
+{
+    int depth_a = flow_branch_depth(a);
+    int depth_b = flow_branch_depth(b);
+    for (; depth_a > depth_b && a; depth_a--)
+        a = a->p_parent_map;
+    for (; depth_b > depth_a && b; depth_b--)
+        b = b->p_parent_map;
+    while (a != b && a && b)
+    {
+        a = a->p_parent_map;
+        b = b->p_parent_map;
+    }
+    return a == b ? a : NULL;
+}
+
+static bool flow_alternative_same_except_origin(const struct flow_alternative* a, const struct flow_alternative* b)
+{
+    return flow_value_is_same(a, b) &&
+        a->value_relation == b->value_relation &&
+        a->imaginary == b->imaginary &&
+        a->p_narrowed_from == b->p_narrowed_from &&
+        a->contradicted == b->contradicted;
+}
+
 void flow_alternatives_remove_duplicates(struct flow_alternatives* vs)
 {
+    /* One value reached through many arms (an arm that did not write the object
+       re-tags it with the arm) keeps one copy per origin. Past this many the
+       copies become one, tagged with the origins' common ancestor: a value on
+       more paths, never on fewer. Without it an else-if chain of n arms grows
+       each object by one copy per arm. */
+    enum { FLOW_ALT_MAX_ORIGINS_PER_VALUE = 8 };
+
     /* O(n log n): sort (alternative, index) pairs, mark every entry that equals
        its sorted predecessor, then compact keeping the original order. */
     struct flow_alt_sort_item* _Owner _Opt items = NULL;
@@ -301,19 +343,43 @@ void flow_alternatives_remove_duplicates(struct flow_alternatives* vs)
         }
         qsort(items, (size_t)vs->size, sizeof(struct flow_alt_sort_item), flow_alt_sort_item_compare);
 
-        for (int i = 1; i < vs->size; i++)
+        int group_begin = 0;
+        for (int i = 1; i <= vs->size; i++)
         {
-            const struct flow_alternative* previous_alt = items[i - 1].p_alternative;
-            const struct flow_alternative* current_alt = items[i].p_alternative;
-            if (flow_value_is_same(previous_alt, current_alt) &&
-                previous_alt->value_relation == current_alt->value_relation &&
-                previous_alt->imaginary == current_alt->imaginary &&
-                previous_alt->p_origin_map == current_alt->p_origin_map &&
-                previous_alt->p_narrowed_from == current_alt->p_narrowed_from &&
-                previous_alt->contradicted == current_alt->contradicted)
+            if (i < vs->size &&
+                flow_alternative_same_except_origin(items[group_begin].p_alternative, items[i].p_alternative))
             {
-                is_duplicate[items[i].index] = true;
+                if (items[i - 1].p_alternative->p_origin_map == items[i].p_alternative->p_origin_map)
+                {
+                    is_duplicate[items[i].index] = true;
+                }
+                continue;
             }
+
+            int origins = 0;
+            for (int k = group_begin; k < i; k++)
+            {
+                if (!is_duplicate[items[k].index])
+                    origins++;
+            }
+
+            if (origins > FLOW_ALT_MAX_ORIGINS_PER_VALUE)
+            {
+                int keep = items[group_begin].index;
+                const struct flow_branch* _Opt p_common = items[group_begin].p_alternative->p_origin_map;
+                for (int k = group_begin + 1; k < i; k++)
+                {
+                    p_common = flow_branch_common_ancestor(p_common, items[k].p_alternative->p_origin_map);
+                    if (items[k].index < keep)
+                        keep = items[k].index;
+                }
+                for (int k = group_begin; k < i; k++)
+                {
+                    is_duplicate[items[k].index] = items[k].index != keep;
+                }
+                vs->data[keep]->p_origin_map = p_common;
+            }
+            group_begin = i;
         }
 
         int new_size = 0;

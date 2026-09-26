@@ -52,6 +52,9 @@
 /* optional: at the end, asks to run this program (relative to the installation folder) */
 #define INSTALLER_RUN_PROGRAM_AT_END L"cakeide.exe"
 
+/* optional: no uninstall key in the registry (not listed in "Add or remove programs") */
+#define INSTALLER_NO_REGISTRY
+
 /* versions are installed side by side, each one has its own uninstall key */
 #define INSTALLER_UNINST_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\" INSTALLER_PRODUCT_CODE L"_" INSTALLER_PRODUCT_VERSION
 
@@ -135,7 +138,10 @@ static void update_system_path(const wchar_t* install_dir, bool add)
 */
 static void on_installed(const wchar_t* install_dir)
 {
-    update_system_path(install_dir, true);
+    wchar_t question[MAX_PATH + 64];
+    swprintf(question, MAX_PATH + 64, L"Add %ls to the system PATH?", install_dir);
+    if (MessageBoxW(GetActiveWindow(), question, INSTALLER_DISPLAY_NAME, MB_ICONQUESTION | MB_YESNO) == IDYES)
+        update_system_path(install_dir, true);
 }
 
 /*
