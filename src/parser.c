@@ -1270,6 +1270,8 @@ _Bool diagnostic(enum diagnostic_id w,
     const struct marker* _Opt p_marker_temp,
     const char* fmt, ...)
 {
+    if (options_diagnostic_is_muted(&ctx->options, w))
+        return false;
 
     const bool color_enabled = !ctx->options.color_disabled;
 
@@ -1327,8 +1329,8 @@ _Bool diagnostic(enum diagnostic_id w,
     }
     else if (is_note)
     {
-        /* notes inside headers are ignored */
-        if (included_file_location)
+        /* notes inside headers are ignored, except the -find-definition result */
+        if (included_file_location && w != W_FIND_DEFINITION)
         {
             return false;
         }
@@ -1379,8 +1381,9 @@ _Bool diagnostic(enum diagnostic_id w,
     /* build the complete formatted stdout text */
     struct osstream ss = { 0 };
 
+    /* a report mode result can be in any file of the project: full path */
     ss_print_diagnostic_header(&ss, marker.file, marker.line, marker.start_col,
-        ctx->options.diagnostic_ouput_format, color_enabled, included_file_location,
+        ctx->options.diagnostic_ouput_format, color_enabled, included_file_location || options_is_report_mode(&ctx->options),
         w, is_error, is_warning, is_note, buffer);
 
     struct marker m = marker; /* ss_print_line_and_token writes start/end col back */
@@ -2567,6 +2570,9 @@ bool pos_diagnostic(enum diagnostic_id w,
 {
     bool printed = false;
 
+    if (options_diagnostic_is_muted(options, w))
+        return false;
+
     const bool color_enabled = !options->color_disabled;
     const bool is_error = options_diagnostic_is_error(options, w);
     const bool is_warning = options_diagnostic_is_warning(options, w);
@@ -2587,7 +2593,7 @@ bool pos_diagnostic(enum diagnostic_id w,
 
         struct osstream ss = { 0 };
         ss_print_diagnostic_header(&ss, file, line, col,
-            options->diagnostic_ouput_format, color_enabled, false,
+            options->diagnostic_ouput_format, color_enabled, options_is_report_mode(options),
             w, is_error, is_warning, is_note, buffer);
 
         if (is_note && ss.c_str != NULL)
@@ -2744,6 +2750,126 @@ void parser_match(struct parser_ctx* ctx)
         return;
     ctx->current = ctx->current->next;
     parser_skip_blanks(ctx, NULL);
+}
+
+/* -find-definition: p_token comes from the file the cursor is in (the main file or a header) */
+static bool find_definition_in_cursor_file(const struct parser_ctx* ctx, const struct token* p_token)
+{
+    const char* a = ctx->options.find_definition_file;
+    if (a[0] == '\0')
+        return p_token->level == 0;
+
+    if (p_token->token_origin == NULL)
+        return false;
+
+    const char* b = p_token->token_origin->lexeme;
+    for (; *a && *b; a++, b++)
+    {
+        const bool slash_a = *a == '/' || *a == '\\';
+        const bool slash_b = *b == '/' || *b == '\\';
+        if (slash_a && slash_b)
+            continue;
+#ifdef _WIN32
+        if (tolower((unsigned char)*a) != tolower((unsigned char)*b))
+            return false;
+#else
+        if (*a != *b)
+            return false;
+#endif
+    }
+    return *a == *b;
+}
+
+/* -find-definition: true when p_token covers the cursor line:col */
+bool find_definition_is_cursor(const struct parser_ctx* ctx, const struct token* p_token)
+{
+    if (!ctx->options.find_definition ||
+        (p_token->flags & TK_FLAG_MACRO_EXPANDED) ||
+        p_token->line != ctx->options.find_definition_line)
+    {
+        return false;
+    }
+
+    const int col = ctx->options.find_definition_col;
+    if (col < p_token->col || col > p_token->col + (int)strlen(p_token->lexeme))
+        return false;
+
+    return find_definition_in_cursor_file(ctx, p_token);
+}
+
+void find_definition_set(struct parser_ctx* ctx, const struct token* _Opt p_definition)
+{
+    if (ctx->p_find_definition == NULL)
+        ctx->p_find_definition = p_definition;
+}
+
+/* -find-definition: the identifier under the cursor refers to p_declarator */
+void find_definition_set_declarator(struct parser_ctx* ctx, const struct declarator* p_declarator)
+{
+    if (ctx->p_find_definition != NULL)
+        return;
+
+    const enum storage_class_specifier_flags flags = p_declarator->object.type.storage_class_specifier_flags;
+
+    if (type_is_function(&p_declarator->object.type))
+    {
+        const struct declarator* _Opt p_function_definition = declarator_get_function_definition(p_declarator);
+        if (p_function_definition)
+        {
+            ctx->p_find_definition = p_function_definition->name_opt;
+            return;
+        }
+        ctx->find_definition_is_declaration = true;
+    }
+    else if (flags & STORAGE_SPECIFIER_EXTERN)
+    {
+        ctx->find_definition_is_declaration = true;
+    }
+
+    ctx->find_definition_is_static = (flags & STORAGE_SPECIFIER_STATIC) != 0;
+    ctx->p_find_definition = p_declarator->name_opt;
+}
+
+/* -find-definition, searching by name: p defines options.find_definition_name at file scope */
+static void find_definition_by_name(struct parser_ctx* ctx, const struct declaration* p)
+{
+    if (p->declaration_specifiers == NULL)
+        return;
+
+    const enum storage_class_specifier_flags flags = p->declaration_specifiers->storage_class_specifier_flags;
+    if (flags & STORAGE_SPECIFIER_TYPEDEF)
+        return;
+
+    if (((flags & STORAGE_SPECIFIER_STATIC) != 0) != ctx->options.find_definition_name_static)
+        return;
+
+    for (const struct init_declarator* _Opt it = p->init_declarator_list.head; it; it = it->next)
+    {
+        const struct token* _Opt name = it->p_declarator->name_opt;
+        if (name == NULL || strcmp(name->lexeme, ctx->options.find_definition_name) != 0)
+            continue;
+
+        const bool is_definition = type_is_function(&it->p_declarator->object.type) ?
+            p->function_body != NULL :
+            !(flags & STORAGE_SPECIFIER_EXTERN);
+
+        if (is_definition)
+        {
+            ctx->p_find_definition = name;
+            return;
+        }
+    }
+}
+
+/* -find-definition: the parser already went past the cursor */
+static bool find_definition_passed_cursor(const struct parser_ctx* ctx)
+{
+    const struct token* _Opt p = ctx->current;
+    if (p == NULL || ctx->options.find_definition_line == 0 || !find_definition_in_cursor_file(ctx, p))
+        return false;
+
+    return p->line > ctx->options.find_definition_line ||
+        (p->line == ctx->options.find_definition_line && p->col > ctx->options.find_definition_col);
 }
 
 void unexpected_end_of_file(const struct parser_ctx* ctx)
@@ -4551,6 +4677,10 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         }
         // ///////////////////////////////////////////////////////////////////////////
 
+        /* -find-definition on the name being declared: no throw, a function body can still follow */
+        if (find_definition_is_cursor(ctx, tkname))
+            find_definition_set_declarator(ctx, p_init_declarator->p_declarator);
+
         if (ctx->current == NULL)
         {
             unexpected_end_of_file(ctx);
@@ -6175,6 +6305,12 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
             /* if we got here, it must already exist (reuse?) */
             _Assert(p_type_specifier->typedef_declarator != NULL);
 
+            if (p_type_specifier->typedef_declarator && find_definition_is_cursor(ctx, ctx->current))
+            {
+                find_definition_set(ctx, p_type_specifier->typedef_declarator->name_opt);
+                throw; /* found: leave the parser like an error */
+            }
+
             parser_match(ctx);
         }
         else
@@ -6674,6 +6810,19 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
         struct_or_union_specifier_delete(p_struct_or_union_specifier);
         p_struct_or_union_specifier = NULL;
     }
+
+    if (p_struct_or_union_specifier &&
+        p_struct_or_union_specifier->tagtoken &&
+        find_definition_is_cursor(ctx, p_struct_or_union_specifier->tagtoken))
+    {
+        const struct struct_or_union_specifier* _Opt p_complete = get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
+        find_definition_set(ctx, p_complete && p_complete->tagtoken ? p_complete->tagtoken : p_struct_or_union_specifier->tagtoken);
+
+        /* found: leave the parser like an error */
+        struct_or_union_specifier_delete(p_struct_or_union_specifier);
+        p_struct_or_union_specifier = NULL;
+    }
+
     return p_struct_or_union_specifier;
 }
 
@@ -7958,6 +8107,18 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
     }
     catch
     {
+        enum_specifier_delete(p_enum_specifier);
+        p_enum_specifier = NULL;
+    }
+
+    if (p_enum_specifier &&
+        p_enum_specifier->tag_token &&
+        find_definition_is_cursor(ctx, p_enum_specifier->tag_token))
+    {
+        const struct enum_specifier* _Opt p_definition = get_enum_specifier_definition(p_enum_specifier);
+        find_definition_set(ctx, p_definition && p_definition->tag_token ? p_definition->tag_token : p_enum_specifier->tag_token);
+
+        /* found: leave the parser like an error */
         enum_specifier_delete(p_enum_specifier);
         p_enum_specifier = NULL;
     }
@@ -12017,6 +12178,14 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                 }
             }
 
+            if (find_definition_is_cursor(ctx, ctx->current) ||
+                (ctx->p_find_definition_label_use &&
+                 strcmp(ctx->p_find_definition_label_use->lexeme, ctx->current->lexeme) == 0))
+            {
+                find_definition_set(ctx, ctx->current);
+                throw; /* found: leave the parser like an error */
+            }
+
             p_label->p_identifier_opt = ctx->current;
             parser_match(ctx);
             if (parser_match_tk(ctx, ':') != 0)
@@ -14197,6 +14366,18 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
                 p_label_list_item->p_last_usage = ctx->current;
             }
 
+            if (find_definition_is_cursor(ctx, ctx->current))
+            {
+                if (p_label_list_item && p_label_list_item->p_defined)
+                {
+                    find_definition_set(ctx, p_label_list_item->p_defined);
+                    throw; /* found: leave the parser like an error */
+                }
+
+                /* the label comes later in the function: keep parsing until it */
+                ctx->p_find_definition_label_use = ctx->current;
+            }
+
             p_jump_statement->label = ctx->current;
             if (parser_match_tk(ctx, TK_IDENTIFIER) != 0)
                 throw;
@@ -14740,7 +14921,7 @@ void global_unused_functions_report(_Clear struct global_unused_list* p, const s
             e->file,
             e->line,
             1,
-            "function '%s' is not used in any file compiled in this invocation",
+            "function '%s' is not used",
             e->name))
         {
             reported_count++;
@@ -14972,8 +15153,24 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
             struct declaration* _Owner _Opt p = external_declaration(ctx);
             if (p == NULL)
                 throw;
+            if (ctx->options.find_definition_name[0] != '\0')
+                find_definition_by_name(ctx, p);
+
+            if (ctx->find_definition_is_declaration &&
+                p->function_body &&
+                p->init_declarator_list.head &&
+                p->init_declarator_list.head->p_declarator->name_opt == ctx->p_find_definition)
+            {
+                ctx->find_definition_is_declaration = false;
+            }
+
             declaration_list_add(&declaration_list, p);
 
+            if (ctx->options.find_definition &&
+                (ctx->p_find_definition != NULL || find_definition_passed_cursor(ctx)))
+            {
+                break;
+            }
         }
 
         check_unused_declarators(ctx, &declaration_list);
@@ -14998,9 +15195,16 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
         *berror = true;
     }
 
+    if (ctx->p_find_definition)
+    {
+        diagnostic(W_FIND_DEFINITION, ctx, ctx->p_find_definition, NULL, "%s of '%s'",
+            ctx->find_definition_is_declaration ? "declaration" : "definition",
+            ctx->p_find_definition->lexeme);
+    }
+
     diagnostic_queue_flush(&ctx->diagnostic_queue, ctx);
     
-    if (ctx->p_report->error_count == 0 && ctx->options.flow_analysis && !ctx->options.format)
+    if (ctx->p_report->error_count == 0 && ctx->options.flow_analysis && !ctx->options.format && !options_is_report_mode(&ctx->options))
     {
         struct flow_ctx ctx4 = { .ctx = ctx };
         struct declaration* _Opt it = declaration_list.head;

@@ -284,6 +284,23 @@ int generate_config_file(const char* configpath)
     return 0;
 }
 
+/*
+  -find-definition: the parser already reported what it found
+  (W_FIND_DEFINITION); this tells compile() through the report whether to
+  keep searching in the next files.
+*/
+static void find_definition_to_report(const struct parser_ctx* ctx, struct report* report)
+{
+    const struct token* _Opt p = ctx->p_find_definition;
+    if (p == NULL)
+        return;
+
+    report->find_definition_found = true;
+    report->find_definition_is_declaration = ctx->find_definition_is_declaration;
+    report->find_definition_is_static = ctx->find_definition_is_static;
+    snprintf(report->find_definition_name, sizeof report->find_definition_name, "%s", p->lexeme);
+}
+
 int compile_one_file(const char* file_name,
     struct options* options,
     const char* out_file_name,
@@ -298,8 +315,11 @@ int compile_one_file(const char* file_name,
 
     bool color_enabled = !options->color_disabled;
 
-    print_path(file_name, true);
-    printf("\n");
+    if (!options_is_report_mode(options))
+    {
+        print_path(file_name, true);
+        printf("\n");
+    }
 
     struct preprocessor_ctx prectx = { 0 };
     prectx.options = *options;
@@ -451,6 +471,10 @@ int compile_one_file(const char* file_name,
         {
             bool berror = false;
             ast.declaration_list = parse(&ctx, &ast.token_list, &ast.file_scope, &berror);
+
+            if (options->find_definition)
+                find_definition_to_report(&ctx, report);
+
             if (berror || report->error_count > 0)
                 throw;
 
@@ -660,6 +684,13 @@ static void longest_common_path(int argc, const char* const* argv, char root_dir
             continue;
         }
 
+        if (strcmp(argv[i], "-find-definition") == 0)
+        {
+            // consumes line and col
+            i += 2;
+            continue;
+        }
+
         if (argv[i][0] == '-')
             continue;
 
@@ -766,6 +797,68 @@ void print_report(const struct report* report)
     printf("\n");
 }
 
+static bool path_is_header(const char* path)
+{
+    const char* _Opt dot = strrchr(path, '.');
+    return dot && (strcmp(dot, ".h") == 0 || strcmp(dot, ".H") == 0);
+}
+
+/*
+  -find-definition: files[0] has the cursor; the caller orders the others by
+  the chance of finding it (for a header, its .c first). The cursor is
+  resolved in its own file, or, for a header that does not parse on its
+  own, in the first file that includes it. When it resolves only to a
+  declaration, the definition is searched by name, first in that same file
+  and then, for external names, in the others.
+*/
+static void find_definition_run(const char* const* files, int count, struct options* options, int argc, const char** argv)
+{
+    if (count == 0)
+        return;
+
+    char fullpath[FS_MAX_PATH] = { 0 };
+    realpath(files[0], fullpath);
+    snprintf(options->find_definition_file, sizeof options->find_definition_file, "%s", fullpath);
+
+    struct report report = { 0 };
+    int cursor_index = -1;
+    for (int i = 0; i < count; i++)
+    {
+        realpath(files[i], fullpath);
+        memset(&report, 0, sizeof report);
+        compile_one_file(fullpath, options, "", argc, argv, &report);
+        if (report.find_definition_found)
+        {
+            cursor_index = i;
+            break;
+        }
+
+        if (!path_is_header(files[0]))
+            break;
+    }
+
+    if (cursor_index < 0 || !report.find_definition_is_declaration)
+        return;
+
+    options->find_definition_line = 0;
+    options->find_definition_col = 0;
+    snprintf(options->find_definition_name, sizeof options->find_definition_name, "%s", report.find_definition_name);
+    options->find_definition_name_static = report.find_definition_is_static;
+
+    /* -1 is the file where the cursor resolved; static names do not leave it */
+    for (int k = -1; k < count; k++)
+    {
+        if (k >= 0 && (k == cursor_index || options->find_definition_name_static))
+            continue;
+
+        realpath(files[k < 0 ? cursor_index : k], fullpath);
+        struct report report_name = { 0 };
+        compile_one_file(fullpath, options, "", argc, argv, &report_name);
+        if (report_name.find_definition_found)
+            return;
+    }
+}
+
 int compile(int argc, const char** argv, struct report* report)
 {
     struct options options = { 0 };
@@ -775,7 +868,7 @@ int compile(int argc, const char** argv, struct report* report)
         return 1;
     }
 
-    if (options.target != TARGET_DEFAULT)
+    if (options.target != TARGET_DEFAULT && !options_is_report_mode(&options))
     {
         printf("emulating %s\n", get_platform(options.target)->name);
     }
@@ -796,6 +889,10 @@ int compile(int argc, const char** argv, struct report* report)
 
     clock_t begin_clock = clock();
     int no_files = 0;
+
+    /* -find-definition: the files are compiled by find_definition_run() after the loop */
+    const char* find_definition_files[256] = { 0 };
+    int find_definition_count = 0;
 
     struct global_unused_list unused_functions_state = { 0 };
     if (options.report_unused_extern_functions)
@@ -819,6 +916,13 @@ int compile(int argc, const char** argv, struct report* report)
         {
             // consumes next
             i++;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-find-definition") == 0)
+        {
+            // consumes line and col
+            i += 2;
             continue;
         }
 
@@ -871,6 +975,11 @@ int compile(int argc, const char** argv, struct report* report)
             no_files--; // does not count *.c 
             no_files += compile_many_files(fullpath, &options, output_file, argc, argv, report);
         }
+        else if (options.find_definition)
+        {
+            if (find_definition_count < (int)_Countof(find_definition_files))
+                find_definition_files[find_definition_count++] = argv[i];
+        }
         else
         {
             struct report report_local = { 0 };
@@ -884,6 +993,9 @@ int compile(int argc, const char** argv, struct report* report)
         }
     }
 
+    if (options.find_definition)
+        find_definition_run(find_definition_files, find_definition_count, &options, argc, argv);
+
     if (options.report_unused_extern_functions)
     {
         global_unused_functions_report(&unused_functions_state, &options, report);
@@ -895,7 +1007,8 @@ int compile(int argc, const char** argv, struct report* report)
     report->no_files = no_files;
     report->cpu_time_used_sec = cpu_time_used;
 
-    print_report(report);
+    if (!options_is_report_mode(&options))
+        print_report(report);
 
     if (report->test_mode)
     {

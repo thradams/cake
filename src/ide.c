@@ -215,8 +215,8 @@ enum {
     EVT_SEARCH_FIND = 20,      /* the Search > "Find..." menu item's id */
     EVT_SEARCH_REPLACE = 21,   /* the Search > "Replace..." menu item's id */
     EVT_SEARCH_NEXT = 23,      /* Search > "Search Next" (F3) */
-    EVT_SEARCH_GOTO_DEFINITION = 24,  /* Search > "Go to Definition" (F12) -
-                                       * see do_goto_definition() */
+    EVT_SEARCH_FIND_DEFINITION = 24,  /* Search > "Find Definition" (F12) -
+                                       * see do_find_definition() */
     EVT_REPLACE_OK = 820,
     EVT_REPLACE_CHANGEALL = 821,
     EVT_REPLACE_CANCEL = 822,
@@ -276,9 +276,10 @@ enum {
     EVT_EXTTOOL_MACRO_BASE = 1250,  /* base id for the macro popup's own items -
                                      * EVT_EXTTOOL_MACRO_BASE + index into
                                      * ext_macros[], reserving 1250..126x */
-    EVT_FR_MODE = 950,        /* the panel's own Find/Replace mode-toggle button */
+    EVT_FR_TAB_FIND = 950,    /* the panel's [Find] tab button - switches to Find mode */
     EVT_FR_FIND_BTN = 951,
     EVT_FR_REPLACE_BTN = 952,
+    EVT_FR_TAB_REPLACE = 953, /* the panel's [Replace] tab button - switches to Replace mode */
     EVT_FR_FILETYPE_BASE = 960,  /* base id for the File Types <select>'s
                                   * options - EVT_FR_FILETYPE_BASE + index;
                                   * reserves 960..96x */
@@ -387,6 +388,7 @@ enum {
     EVT_PROJECT_INCLUDES_DETECT = 1338,  /* replaces the list with
                                           * detect_system_include_dirs() -
                                           * only shown for the global list */
+    EVT_PROJECT_REPORT_UNUSED = 1356,  /* Project > "Report Unused" - see do_project_report_unused() */
     EVT_PROJECT_OPTIONS = 1318,  /* Project > "Options..." - same dialog as
                                   * Compile > "Options..." (EVT_COMPILE_OPTIONS)
                                   * but always against g_project.compile,
@@ -444,7 +446,7 @@ enum {
     EVT_GITBRANCH_CANCEL = 1346,
     EVT_GITDIFF_COPY_PATH = 1347,    /* diff viewer popup's "Copy Full Path" - g_gitdiff_path */
     EVT_GITDIFF_SHOW_FOLDER = 1348,  /* diff viewer popup's "Show My Folder" */
-    EVT_GITDIFF_EDIT = 1350,  /* diff viewer popup's "Edit" - git_diff_edit() */
+    EVT_GITDIFF_EDIT = 1357,  /* diff viewer popup's "Edit" - git_diff_edit() */
     EVT_GIT_COMMITSTAGEDPUSH_BTN = 1349,  /* popup's "Commit Staged && Push" - only shown while something is staged */
     EVT_GIT_SYNC_BTN = 1336,  /* popup's "Sync" item - git_do_sync() (pull
                                * then push) */
@@ -623,7 +625,7 @@ static struct
      * when none is open, same "[x] Label" idiom's sibling for enabled state
      * as refresh_view_item elsewhere. Filled in build_screen(), read in
      * app_frame(). */
-    ui_node* menu_items_requiring_project[4];
+    ui_node* menu_items_requiring_project[5];
 
     /* file_path's last-modified time as of our own last load/save - see
      * file_watch_check(). */
@@ -785,7 +787,7 @@ static void build_screen(ui_node* root)
         { 21, "Replace...", "Ctrl+R", 1 },
         { 23, "Search Next", "F3", 1 },
         { 22, "Go to line...", "Ctrl+G", 1 },
-        { EVT_SEARCH_GOTO_DEFINITION, "Go to Definition", "F12", 1 },
+        { EVT_SEARCH_FIND_DEFINITION, "Find Definition", "F12", 1 },
         SEP,
         { EVT_TOOLS_FINDREPLACE, "Find in Files...", "Ctrl+F", 1 }
     };
@@ -805,6 +807,8 @@ static void build_screen(ui_node* root)
         { EVT_PROJECT_INCLUDES, "Include Directories...", NULL, 1 },
         { EVT_PROJECT_OPTIONS, "Options...", NULL, 1 },
         SEP,
+        { EVT_PROJECT_REPORT_UNUSED, "Report Unused", NULL, 1 },
+        SEP,
         { EVT_PROJECT_CLOSE, "Close Project", NULL, 1 },
     };
     ui_node* project_menu = add_menu(menubar, "Project", project_items, sizeof project_items / sizeof project_items[0]);
@@ -816,7 +820,7 @@ static void build_screen(ui_node* root)
      * doc comment). */
     static const int project_menu_ids_requiring_project[] = {
         EVT_PROJECT_ADD_FILE, EVT_PROJECT_INCLUDES, EVT_PROJECT_OPTIONS,
-        EVT_PROJECT_CLOSE,
+        EVT_PROJECT_REPORT_UNUSED, EVT_PROJECT_CLOSE,
     };
     for (int i = 0; i < (int)(sizeof project_menu_ids_requiring_project /
                               sizeof project_menu_ids_requiring_project[0]); i++)
@@ -1350,7 +1354,8 @@ static struct
                              * to notice a dock-border drag */
     int mode;               /* 0 = Find, 1 = Replace */
 
-    ui_node* mode_btn;
+    ui_node* tab_find;      /* [Find] / [Replace] - the tab strip at the top */
+    ui_node* tab_replace;
     ui_node* find_input;
     ui_node* replace_input; /* NULL while in Find mode (not built) */
     ui_node* opts;          /* "Match case"/"Match whole word" - GROUP multi=1 */
@@ -1614,7 +1619,7 @@ static void do_compile(void);  /* defined below */
 static void do_project_build(void);  /* defined below */
 static void file_watch_reload_file(void);     /* defined below */
 static void file_watch_reload_project(void);  /* defined below */
-static void do_goto_definition(void);  /* defined below */
+static void do_find_definition(void);  /* defined below */
 static void open_playground(void);  /* defined below; called on View > "Show Playground" */
 static int get_playground_file_path(char* buf, size_t cap);  /* defined below;
                                                                * used by
@@ -7805,6 +7810,15 @@ static struct compile_job
 
     ui_node* active;      /* window being compiled - captured at start */
 
+    /* Find Definition and Project > Report Unused: the same compile with a
+     * report option (-find-definition, -unused-extern-report), streamed into
+     * the Find results window instead of Output. For Find Definition the
+     * word is kept for the text-search fallback when the compiler finds
+     * nothing. */
+    int to_find_results;
+    int find_definition;
+    char find_definition_word[128];
+
     int saved_stdout;     /* dup of the original stdout fd, restored at end */
 
     thrd_t thread;
@@ -8081,8 +8095,9 @@ static void compile_stream_poll(void)
     if (got > 0)
     {
         /* Show it as it arrives - this is the whole point. */
-        ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
-        ui_editor_goto_line(g_output_editor, g_job.lines + 1);  /* follow the tail */
+        ui_node* out = g_job.to_find_results ? g_findresults_editor : g_output_editor;
+        ui_set_value(out, g_job.text ? g_job.text : "");
+        ui_editor_goto_line(out, g_job.lines + 1);  /* follow the tail */
     }
 
     /* Only finalize once the worker is done AND the pipe has run dry, so no
@@ -8625,7 +8640,7 @@ static int file_readable(const char* path)
  * of its own - e.g. a #include target or a filename typed in a comment/doc
  * (do_editor_ctrlclick), a Tools > Find and Replace "Current Dir" result,
  * which only ever prints bare names (see fr_search_text), or a "Project"/
- * F12 result (fr_search_project/do_goto_definition), which prints paths
+ * F12 result (fr_search_project/do_find_definition), which prints paths
  * relative to the open project's own directory (g_project.files[] - see
  * g_project's own doc comment) - against the directories it most plausibly
  * came from: the open project's directory, the active document's own
@@ -9310,6 +9325,66 @@ static void do_project_build(void)
         return;
     }
     compile_status_set("Building...");
+}
+
+/* Project > "Report Unused": a compile with different parameters - the
+ * project's own settings and .c files, same as do_project_build(), plus
+ * -unused-extern-report. In that mode the compiler reports only the unused
+ * functions (the static ones per file and, at the end, the external ones
+ * never called in any of the files), with no flow analysis and no output
+ * files; compile_stream_poll() streams it into the Find results window. */
+static void do_project_report_unused(void)
+{
+    if (g_job.running || !project_is_open())
+        return;
+
+    /* the compiler reads from disk */
+    for (int i = 0; i < g_project.file_count; i++)
+    {
+        char abs_path[1024];
+        project_abs_path(g_project.files[i], abs_path, sizeof abs_path);
+        ui_node* open_win = find_open_window(abs_path);
+        if (open_win)
+            save_active_file(open_win);
+    }
+
+    int argc = job_argv_from_settings(&g_project.compile);
+    job_push(&argc, "-unused-extern-report");
+
+    int file_argc = 0;
+    for (int i = 0; i < g_project.file_count; i++)
+    {
+        if (!path_is_c_source(g_project.files[i]))
+            continue;
+
+        char abs_path[512];
+        project_abs_path(g_project.files[i], abs_path, sizeof abs_path);
+        job_push(&argc, abs_path);
+        file_argc++;
+    }
+
+    if (file_argc == 0)
+    {
+        ui_set_value(g_findresults_editor, "The open project has no .c files.\n");
+        bottom_panel_show(g_findresults_window, g_output_window);
+        return;
+    }
+
+    g_job.argc = argc;
+    g_job.active = g_active_editor_window;
+    g_job.to_find_results = 1;
+
+    ui_set_value(g_findresults_editor, "");
+    bottom_panel_show(g_findresults_window, g_output_window);
+
+    if (!compile_stream_start())
+    {
+        g_job.to_find_results = 0;
+        compile_status_set("");
+        ui_set_value(g_findresults_editor, "Could not start the report (pipe/thread creation failed).\n");
+        return;
+    }
+    compile_status_set("Reporting unused...");
 }
 
 static int get_config_dir(char* buf, size_t cap);   /* defined further down */
@@ -10626,9 +10701,30 @@ static void exttool_finish(void)
 /* Runs on the main thread once the worker has finished AND the pipe is
  * drained - everything the old do_compile() used to do after
  * capture_and_compile() returned. */
+static void find_definition_text_search(const char* word);  /* defined below */
+
 static void compile_finish(void)
 {
     compile_stream_end();
+
+    /* Find Definition / Report Unused: no summary and no diagnostics in the
+     * editors (the compiler reports only its own result in these modes) -
+     * just the result lines, already streamed into the Find results window.
+     * Find Definition with nothing found falls back to the text search. */
+    if (g_job.to_find_results)
+    {
+        const int find_definition = g_job.find_definition;
+        g_job.to_find_results = 0;
+        g_job.find_definition = 0;
+        compile_status_set("");
+        if (g_job.len > 0)
+            ui_set_value(g_findresults_editor, g_job.text ? g_job.text : "");
+        else if (find_definition)
+            find_definition_text_search(g_job.find_definition_word);
+        else
+            ui_set_value(g_findresults_editor, "No unused functions found.\n");
+        return;
+    }
 
     char summary[256];
     snprintf(summary, sizeof summary, "\n%d error(s), %d warning(s), %.2f sec\n",
@@ -11899,19 +11995,42 @@ static void do_find_replace(const find_replace_options* opts)
     bottom_panel_show(g_findresults_window, g_output_window);
 }
 
-/* Search > "Go to Definition" (F12): not a real semantic lookup yet (see
- * ide_lsp.h's lsp_text_document_definition() - still a //TODO stub) - so in
- * the meantime this finds the word under the caret the plain-text way,
- * through the same machinery Tools > Find and Replace uses (fr_search_dir()/
- * fr_search_project() above), with Match case/Match whole word both forced
- * on (a bare substring search for a short identifier would drown in
- * unrelated hits) and the scope fixed to *.c;*.h files - across the whole
- * open project when there is one (so a definition in another project file
- * is actually found), else just the active file's own directory, same as
- * before projects existed. No panel is shown - like do_find_replace() itself,
- * this just writes straight to the Output window and raises it. */
-static void do_goto_definition(void)
+/* Text half of Find Definition, used when the compiler resolves nothing
+ * (a macro, an unsaved buffer, a parse error before the caret...): finds
+ * `word` the plain-text way, through the same machinery Tools > Find and
+ * Replace uses (fr_search_dir()/fr_search_project() above), with Match
+ * case/Match whole word both forced on (a bare substring search for a short
+ * identifier would drown in unrelated hits) and the scope fixed to *.c;*.h
+ * files - across the whole open project when there is one, else just the
+ * active file's own directory. */
+static void find_definition_text_search(const char* word)
 {
+    find_replace_options opts = { 0 };
+    snprintf(opts.find_text, sizeof opts.find_text, "%s", word);
+    opts.mode = 0;  /* Find, not Replace */
+    opts.match_case = 1;
+    opts.match_whole_word = 1;
+    opts.look_in = project_is_open() ? FR_LOOKIN_PROJECT : FR_LOOKIN_CURRENT_DIR;
+    opts.file_type = FR_FILETYPE_C_H;
+
+    do_find_replace(&opts);
+}
+
+/* Search > "Find Definition" (F12): a compile with different parameters -
+ * the same argv Compile/Build use (active_compile_settings()), plus
+ * -find-definition line col, with the active file first (the caret is in
+ * it) and, with a project open, every other project .c file, since the
+ * definition can be in any of them. The compiler parses up to the caret,
+ * resolves the identifier with the scopes live there and prints the
+ * declaration and then the definition as it finds them; compile_stream_poll()
+ * streams that into the Find results window instead of Output, and
+ * compile_finish() falls back to find_definition_text_search() when nothing
+ * was found. Shares g_job, so one compile/build/lookup at a time. */
+static void do_find_definition(void)
+{
+    if (g_job.running)
+        return;
+
     ui_node* win = g_active_editor_window;
     ui_node* ed = win ? editor_in_window(win) : NULL;
     if (!ed)
@@ -11920,21 +12039,109 @@ static void do_goto_definition(void)
     const char* text = ui_get_value(ed);
     int cursor = ui_editor_get_cursor(ed);
 
-    find_replace_options opts = { 0 };
-    if (!word_at_cursor(text, (int)strlen(text), cursor, opts.find_text, (int)sizeof opts.find_text))
+    /* no word under the caret: nothing to find, so no compile */
+    char word[sizeof g_job.find_definition_word];
+    if (!word_at_cursor(text, (int)strlen(text), cursor, word, (int)sizeof word))
     {
         ui_msgbox_button ok = { "   OK   ", 0 };
-        ui_message_box(g_screen, "Go to Definition", "No identifier under the caret.", &ok, 1);
+        ui_message_box(g_screen, "Find Definition", "No word under the caret.", &ok, 1);
         return;
     }
 
-    opts.mode = 0;  /* Find, not Replace */
-    opts.match_case = 1;
-    opts.match_whole_word = 1;
-    opts.look_in = project_is_open() ? FR_LOOKIN_PROJECT : FR_LOOKIN_CURRENT_DIR;
-    opts.file_type = FR_FILETYPE_C_H;
+    /* 1-based and in bytes, the same line:col the compiler gives its tokens */
+    int line = 1, col = 1;
+    for (int i = 0; i < cursor && text[i]; i++)
+    {
+        if (text[i] == '\n')
+        {
+            line++;
+            col = 1;
+        }
+        else
+        {
+            col++;
+        }
+    }
 
-    do_find_replace(&opts);
+    /* the compiler reads from disk, same as do_compile()/do_project_build() */
+    save_active_file(win);
+    const char* file = ui_get_path(win);
+    if (file == NULL || file[0] == '\0')
+    {
+        find_definition_text_search(word);
+        return;
+    }
+
+    if (project_is_open())
+    {
+        for (int i = 0; i < g_project.file_count; i++)
+        {
+            char abs_path[1024];
+            project_abs_path(g_project.files[i], abs_path, sizeof abs_path);
+            ui_node* open_win = find_open_window(abs_path);
+            if (open_win)
+                save_active_file(open_win);
+        }
+    }
+
+    int argc = job_argv_from_settings(active_compile_settings(file));
+    char number[16];
+    job_push(&argc, "-find-definition");
+    snprintf(number, sizeof number, "%d", line);
+    job_push(&argc, number);
+    snprintf(number, sizeof number, "%d", col);
+    job_push(&argc, number);
+    job_push(&argc, file);
+
+    /* Ordered by the chance of finding it: the active file, then for a
+     * header its own .c (foo.h -> foo.c), which usually includes it and has
+     * the definitions, then the rest of the project. */
+    char counterpart[512] = "";
+    if (!path_is_c_source(file) &&
+        header_source_counterpart(file, counterpart, sizeof counterpart) &&
+        file_readable(counterpart))
+    {
+        job_push(&argc, counterpart);
+    }
+    else
+    {
+        counterpart[0] = '\0';
+    }
+
+    if (project_is_open())
+    {
+        for (int i = 0; i < g_project.file_count; i++)
+        {
+            if (!path_is_c_source(g_project.files[i]))
+                continue;
+
+            char abs_path[512];
+            project_abs_path(g_project.files[i], abs_path, sizeof abs_path);
+            if (ci_strcmp(abs_path, file) == 0 || ci_strcmp(abs_path, counterpart) == 0)
+                continue;
+
+            job_push(&argc, abs_path);
+        }
+    }
+
+    g_job.argc = argc;
+    g_job.active = win;
+    g_job.to_find_results = 1;
+    g_job.find_definition = 1;
+    snprintf(g_job.find_definition_word, sizeof g_job.find_definition_word, "%s", word);
+
+    ui_set_value(g_findresults_editor, "");
+    bottom_panel_show(g_findresults_window, g_output_window);
+
+    if (!compile_stream_start())
+    {
+        g_job.to_find_results = 0;
+        g_job.find_definition = 0;
+        compile_status_set("");
+        find_definition_text_search(word);
+        return;
+    }
+    compile_status_set("Finding definition...");
 }
 
 /* Copies whatever's currently sitting in the panel's live widgets back into
@@ -11976,11 +12183,12 @@ static void fr_rebuild_content(void)
 
     /* The controls are about to be freed - remember which one had focus (by
      * role, not pointer) and hand focus to its replacement at the end, so
-     * e.g. clicking "Mode" keeps focus on the new Mode button instead of
+     * e.g. clicking a tab keeps focus on the new tab button instead of
      * leaving it on a freed node. */
     ui_node* focused = ui_screen_focused(g_screen);
     ui_node** roles[] = { &g_fr.find_input, &g_fr.replace_input, &g_fr.opts, &g_fr.lookin,
-                          &g_fr.filetypes, &g_fr.find_btn, &g_fr.replace_btn, &g_fr.mode_btn };
+                          &g_fr.filetypes, &g_fr.find_btn, &g_fr.replace_btn,
+                          &g_fr.tab_find, &g_fr.tab_replace };
     int focus_role = -1;
     for (int i = 0; i < (int)(sizeof roles / sizeof roles[0]); i++)
         if (focused && *roles[i] == focused)
@@ -12007,6 +12215,22 @@ static void fr_rebuild_content(void)
      * same margin, on each side). */
     int cx = px + 2, cw = pw - 4;
     int cy = py + 2;
+
+    int tab_half = cw / 2;
+    g_fr.tab_find = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(g_fr.tab_find, EVT_FR_TAB_FIND);
+    ui_set_rect(g_fr.tab_find, cx, cy, tab_half, 1);
+    ui_set_label(g_fr.tab_find, "Find");
+    ui_button_set_tab(g_fr.tab_find, !g_fr.mode);
+    ui_append_child(g_fr.panel, g_fr.tab_find);
+
+    g_fr.tab_replace = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(g_fr.tab_replace, EVT_FR_TAB_REPLACE);
+    ui_set_rect(g_fr.tab_replace, cx + tab_half, cy, cw - tab_half, 1);
+    ui_set_label(g_fr.tab_replace, "Replace");
+    ui_button_set_tab(g_fr.tab_replace, g_fr.mode);
+    ui_append_child(g_fr.panel, g_fr.tab_replace);
+    cy += 2;
 
     add_text(g_fr.panel, cx, cy, "Find:", theme->label_fg, theme->window_bg);
     cy += 1;
@@ -12093,16 +12317,6 @@ static void fr_rebuild_content(void)
         ui_append_child(g_fr.panel, g_fr.find_btn);
         g_fr.replace_btn = NULL;
     }
-    cy += 2;
-
-    /* Mode toggle - last control, below Find/Replace rather than above them
-     * (per request), so the buttons that act don't shift position depending
-     * on how many fields are showing above the toggle. */
-    g_fr.mode_btn = ui_create_element(UI_TAG_BUTTON);
-    ui_set_id(g_fr.mode_btn, EVT_FR_MODE);
-    ui_set_rect(g_fr.mode_btn, cx, cy, cw, 1);
-    ui_set_label(g_fr.mode_btn, g_fr.mode ? "Mode: Replace" : "Mode: Find");
-    ui_append_child(g_fr.panel, g_fr.mode_btn);
 
     /* A role missing in the new mode (Replace field/button, back in Find
      * mode) is NULL here, which just leaves nothing focused. */
@@ -13181,9 +13395,9 @@ static void on_ui_event(void* ctx, int id, void* param)
         ui_screen_show_modal(g_screen, g_goto_modal);
         ui_screen_focus(g_screen, g_goto_input);
     }
-    else if (id == EVT_SEARCH_GOTO_DEFINITION)
+    else if (id == EVT_SEARCH_FIND_DEFINITION)
     {
-        do_goto_definition();
+        do_find_definition();
     }
     else if (id == EVT_GOTO_OK || id == EVT_GOTO_INPUT)
     {
@@ -14202,6 +14416,10 @@ static void on_ui_event(void* ctx, int id, void* param)
     {
         ui_screen_close_modal(g_screen, g_project.includes_modal);
     }
+    else if (id == EVT_PROJECT_REPORT_UNUSED)
+    {
+        do_project_report_unused();
+    }
     else if (id == EVT_PROJECT_CLOSE)
     {
         if (project_is_open())
@@ -14784,11 +15002,15 @@ static void on_ui_event(void* ctx, int id, void* param)
     {
         do_open_terminal();
     }
-    else if (id == EVT_FR_MODE)
+    else if (id == EVT_FR_TAB_FIND || id == EVT_FR_TAB_REPLACE)
     {
-        fr_sync_from_widgets();
-        g_fr.mode = !g_fr.mode;
-        fr_rebuild_content();
+        int mode = (id == EVT_FR_TAB_REPLACE) ? 1 : 0;
+        if (mode != g_fr.mode)
+        {
+            fr_sync_from_widgets();
+            g_fr.mode = mode;
+            fr_rebuild_content();
+        }
     }
     else if (id == EVT_FR_FIND_BTN || id == EVT_FR_REPLACE_BTN)
     {
@@ -15471,16 +15693,16 @@ void app_init(ui_env* env)
     ui_node* modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, modal);
     ui_node* about_window = ui_create_element(UI_TAG_WINDOW);
-    ui_set_rect(about_window, 15, 5, 50, 14);
+    ui_set_rect(about_window, 15, 5, 50, 10);
     ui_set_label(about_window, " About ");
     ui_set_color(about_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(modal, about_window);
-    add_text(about_window, 36, 8, "Cake IDE", theme->modal_fg, theme->modal_bg);
-    add_text(about_window, 32, 9, "Version " CAKE_VERSION, theme->modal_fg, theme->modal_bg);
-    add_text(about_window, 31, 11, "https://cakecc.org", theme->modal_fg, theme->modal_bg);
+    add_text(about_window, 36, 7, "Cake IDE", theme->modal_fg, theme->modal_bg);
+    add_text(about_window, 32, 8, "Version " CAKE_VERSION, theme->modal_fg, theme->modal_bg);
+    add_text(about_window, 31, 10, "https://cakecc.org", theme->modal_fg, theme->modal_bg);
     ui_node* close_button = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(close_button, EVT_ABOUT_CLOSE);
-    ui_set_rect(close_button, 34, 15, 12, 1);
+    ui_set_rect(close_button, 34, 12, 12, 1);
     ui_set_label(close_button, "  OK  ");
     ui_append_child(about_window, close_button);
     g_about_modal = modal;
@@ -15695,7 +15917,7 @@ void app_init(ui_env* env)
         { EVT_SEARCH_REPLACE,    "Replace...",       "Ctrl+R" },
         { EVT_SEARCH_NEXT,       "Search Next",      "F3" },
         { EVT_SEARCH_GOTO,       "Go to line...",    "Ctrl+G" },
-        { EVT_SEARCH_GOTO_DEFINITION, "Go to Definition", "F12" },
+        { EVT_SEARCH_FIND_DEFINITION, "Find Definition", "F12" },
         { EVT_TOOLS_FINDREPLACE, "Find in Files...", "Ctrl+F" },
     };
     for (int i = 0; i < 6; i++)

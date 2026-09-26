@@ -27,7 +27,7 @@
    TODO: not implemented yet - always returns false. This is the one place
    cake's real tokenizer/parser needs to be wired in (an earlier prototype -
    compile_find()/find_visit.c - did exactly this; see git history); nothing
-   above this layer (do_goto_definition() in ide.c) should need to change
+   above this layer (do_find_definition() in ide.c) should need to change
    when that lands.
 */
 bool lsp_text_document_definition(const char* src, const struct lsp_text_document_position_params* params,

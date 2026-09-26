@@ -2907,6 +2907,12 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
 
                 type_destroy(&p_expression_node->object.type);
                 p_expression_node->object.type = type_make_enumerator(p_enumerator);
+
+                if (find_definition_is_cursor(ctx, ctx->current))
+                {
+                    find_definition_set(ctx, p_enumerator->token);
+                    throw; /* found: leave the parser like an error */
+                }
             }
             else if (p_entry &&
                 (p_entry->type == TAG_TYPE_DECLARATOR || p_entry->type == TAG_TYPE_INIT_DECLARATOR))
@@ -2925,6 +2931,12 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                 }
 
                 _Assert(p_declarator != NULL);
+
+                if (find_definition_is_cursor(ctx, ctx->current))
+                {
+                    find_definition_set_declarator(ctx, p_declarator);
+                    throw; /* found: leave the parser like an error */
+                }
 
                 if (p_declarator->declaration_specifiers &&
                     p_declarator->declaration_specifiers->attributes_flags & STD_ATTRIBUTE_DEPRECATED)
@@ -3897,6 +3909,12 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                         if (p_member_declarator)
                         {
+                            if (p_member_declarator->declarator && find_definition_is_cursor(ctx, ctx->current))
+                            {
+                                find_definition_set(ctx, p_member_declarator->declarator->name_opt);
+                                throw; /* found: leave the parser like an error */
+                            }
+
                             p_expression_node_new->member_index = member_index;
 
                             if (p_member_declarator->declarator)
@@ -4076,6 +4094,12 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                             if (p_member_declarator)
                             {
+                                if (p_member_declarator->declarator && find_definition_is_cursor(ctx, ctx->current))
+                                {
+                                    find_definition_set(ctx, p_member_declarator->declarator->name_opt);
+                                    throw; /* found: leave the parser like an error */
+                                }
+
                                 if (p_member_declarator->declarator)
                                 {
                                     p_expression_node_new->member_index = member_index;

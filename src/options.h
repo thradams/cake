@@ -150,7 +150,7 @@ enum diagnostic_id {
     W_FLOW_PARAM_UNINITIALIZED_AT_EXIT = 90,
     W_ASSIGNMENT_IN_CONDITION = 91,
     W_QUALIFIER_ON_RETURN_TYPE = 92,
-    W_UNUSED_WARNING_93 = 93,
+    W_FIND_DEFINITION = 93, /* -find-definition result, the only diagnostic reported in that mode */
     W_UNUSED_WARNING_94 = 94,
     W_UNUSED_WARNING_95 = 95,
     W_UNUSED_WARNING_96 = 96,
@@ -552,7 +552,34 @@ struct options
     bool use_cake_headers; /*-cake-headers: use cake own headers */
 
     /*
+      -find-definition line col
+      Parses until the declaration that contains line:col (1-based, main file)
+      and reports where the identifier under it is defined. Diagnostics,
+      flow analysis and output are disabled.
+    */
+    bool find_definition;
+    int find_definition_line;
+    int find_definition_col;
+
+    /*
+      Set by compile(): the file the cursor line:col is in. It can be a
+      header, reached through the #include of the file being compiled.
+    */
+    char find_definition_file[400];
+
+    /*
+      Set by compile() for the files after the cursor file, when the cursor
+      resolved only to a declaration: the name whose definition is searched
+      at file scope (line is 0 then). static names are searched only in the
+      cursor file.
+    */
+    char find_definition_name[200];
+    bool find_definition_name_static;
+
+    /*
       -unused-extern-report
+      Report mode: only the unused functions are reported (see
+      options_diagnostic_is_muted), no flow analysis and no output.
     */
     bool report_unused_extern_functions;
     struct global_unused_list* _Opt p_unused_functions;
@@ -561,6 +588,12 @@ struct options
 int fill_options(struct options* options,
                  int argc,
                  const char** argv);
+
+/* -find-definition and -unused-extern-report: no flow analysis, no output, only their own report */
+bool options_is_report_mode(const struct options* options);
+
+/* true when a report mode does not report w */
+bool options_diagnostic_is_muted(const struct options* options, enum diagnostic_id w);
 
 bool is_diagnostic_enabled(const struct options* options, enum diagnostic_id w);
 

@@ -258,6 +258,7 @@ int fill_options(struct options* options,
     options_set_warning(options, W_INT_TO_ENUM_CONVERSION, false);
 
     options_set_note(options, W_INFO, true);
+    options_set_note(options, W_FIND_DEFINITION, true);
 
     /*first loop used to collect options*/
     for (int i = 1; i < argc; i++)
@@ -338,6 +339,24 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-find-definition") == 0)
+        {
+            if (i + 2 < argc)
+            {
+                options->find_definition = true;
+                options->find_definition_line = atoi(argv[i + 1]);
+                options->find_definition_col = atoi(argv[i + 2]);
+                options->no_output = true;
+                i += 2;
+            }
+            else
+            {
+                printf("-find-definition requires line and column\n");
+                return 1;
+            }
+            continue;
+        }
+
         if (strcmp(argv[i], "-H") == 0)
         {
             options->show_includes = true;
@@ -383,6 +402,7 @@ int fill_options(struct options* options,
         if (strcmp(argv[i], "-unused-extern-report") == 0)
         {
             options->report_unused_extern_functions = true;
+            options->no_output = true;
             continue;
         }
 
@@ -629,7 +649,32 @@ int fill_options(struct options* options,
         printf("unknown option '%s'", argv[i]);
         return 1;
     }
+
+    /* after -Wall/-w..., which would turn it into a warning (dropped inside headers) */
+    if (options->find_definition)
+        options_set_note(options, W_FIND_DEFINITION, true);
+
+    /* the report itself, even if -wd57 disabled it */
+    if (options->report_unused_extern_functions)
+        options_set_warning(options, W_UNUSED_FUNCTION, true);
+
     return 0;
+}
+
+bool options_is_report_mode(const struct options* options)
+{
+    return options->find_definition || options->report_unused_extern_functions;
+}
+
+bool options_diagnostic_is_muted(const struct options* options, enum diagnostic_id w)
+{
+    if (options->find_definition)
+        return w != W_FIND_DEFINITION;
+
+    if (options->report_unused_extern_functions)
+        return w != W_UNUSED_FUNCTION && w != W_INFO;
+
+    return false;
 }
 
 static void print_option(const char* option, const char* description)
@@ -712,6 +757,7 @@ void print_help()
     print_option("-sarif ", "Generates sarif files");
     print_option("-H", "Print the name of each header file used");
     print_option("-sarif-path", "Set sarif output dir");
+    print_option("-find-definition line col", "Prints where the identifier at line col is defined");
 
     print_option("-line-directives", "Emmits #line directives");
     print_option("-msvc-output", "Output is compatible with visual studio");

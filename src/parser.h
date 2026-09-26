@@ -58,6 +58,12 @@ struct report
       direct commands like -autoconfig doesnt use report
     */
     bool ignore_this_report;
+
+    /* -find-definition: what the parse of one file found */
+    bool find_definition_found;
+    bool find_definition_is_declaration;
+    bool find_definition_is_static;
+    char find_definition_name[200];
 };
 
 struct label_list_item
@@ -227,6 +233,20 @@ struct parser_ctx
     */
     int format_indent_level;
 
+    /*
+       -find-definition only: the definition of the identifier under the
+       cursor, set where the parser resolves it (the scopes are live there).
+       translation_unit stops after the external declaration that set it.
+    */
+    const struct token* _Opt p_find_definition;
+
+    /* -find-definition: p_find_definition is only a declaration (prototype, extern) */
+    bool find_definition_is_declaration;
+    bool find_definition_is_static;
+
+    /* -find-definition: 'goto label' under the cursor whose label comes later in the function */
+    const struct token* _Opt p_find_definition_label_use;
+
 };
 
 ///////////////////////////////////////////////////////
@@ -251,6 +271,10 @@ void parser_match(struct parser_ctx* ctx);
 _Attr(nodiscard)
 int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
 int parser_match_tk_lint(struct parser_ctx* ctx, enum token_type type, struct token* _Opt* pp_token_lint);
+
+bool find_definition_is_cursor(const struct parser_ctx* ctx, const struct token* p_token);
+void find_definition_set(struct parser_ctx* ctx, const struct token* _Opt p_definition);
+void find_definition_set_declarator(struct parser_ctx* ctx, const struct declarator* p_declarator);
 
 struct token* _Opt previous_parser_token(const struct token* token);
 struct token* _Opt parser_get_previous_token(const struct parser_ctx* ctx);

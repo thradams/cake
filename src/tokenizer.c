@@ -143,6 +143,9 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
 
 static void tokenizer_diagnostic(enum diagnostic_id w, struct tokenizer_ctx* ctx, const struct stream* stream, const char* fmt, ...)
 {
+    if (options_diagnostic_is_muted(&ctx->options, w))
+        return;
+
     const bool color_enabled = !ctx->options.color_disabled;
 
     bool is_error = options_diagnostic_is_error(&ctx->options, w);
@@ -205,6 +208,9 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
     struct marker marker = { 0 };
 
     if (p_token_opt == NULL) return false;
+
+    if (options_diagnostic_is_muted(&ctx->options, w))
+        return false;
 
     marker.file = p_token_opt->token_origin ? p_token_opt->token_origin->lexeme : "";
     marker.line = p_token_opt->line;
@@ -4553,7 +4559,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
             else
             {
-                if (!already_included)
+                if (!already_included && !options_is_report_mode(&ctx->options))
                 {
                     preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, r.tail, "file %s not found", path + 1);
 

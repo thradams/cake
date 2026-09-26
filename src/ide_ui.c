@@ -658,6 +658,7 @@ struct ui_node {
                             * child (GROUP single-select mode); GROUP items
                             * also reuse this as their own 0/1 checked flag in
                             * multi-select mode - see render_group */
+    int tab;              /* BUTTON only: drawn flat as a tab - see ui_button_set_tab */
     int numeric;          /* INPUT only: if set, only digits can be typed -
                             * see ui_set_numeric / input_insert */
     int multi;            /* GROUP only: 0 = single-select (radio), 1 =
@@ -2274,6 +2275,12 @@ void ui_set_read_only(ui_node* n, int read_only)
 int ui_get_read_only(const ui_node* n)
 {
     return n->read_only;
+}
+
+void ui_button_set_tab(ui_node* n, int selected)
+{
+    n->tab = 1;
+    n->selected = selected;
 }
 
 void ui_set_value(ui_node* n, const char* value)
@@ -4262,7 +4269,7 @@ void ui_editor_goto_line(ui_node* n, int line)
 
 /* Same as ui_editor_goto_line(), but also advances the caret col-1 bytes
  * into the line (col is 1-based, matching struct token::col in tokenizer.c -
- * used to land on the exact symbol a "go to definition" lookup resolved to,
+ * used to land on the exact symbol a "find definition" lookup resolved to,
  * not just its line). Stops at the line's end (or the '\0') if col overshoots
  * it, same "clamp rather than misplace the caret" behavior ui_editor_goto_
  * line() has for an out-of-range line. */
@@ -8118,6 +8125,19 @@ static void draw_border(int x, int y, int w, int h,
 
 static void render_button(ui_screen* s, ui_node* b)
 {
+    if (b->tab)
+    {
+        /* Tab (ui_button_set_tab): flat, no shadow and no pressed shift. */
+        uint32_t tab_bg = b->selected ? g_theme.btn_bg_active :
+            ((s->hot == b || s->focused == b) ? g_theme.btn_bg_hot : g_theme.btn_bg);
+        draw_fill(b->x, b->y, b->w, b->h, g_theme.btn_fg, tab_bg);
+        int tab_lx = b->x + (b->w - (int)strlen(b->label)) / 2;
+        if (tab_lx < b->x)
+            tab_lx = b->x;
+        draw_text(tab_lx, b->y + b->h / 2, b->label, g_theme.btn_fg, tab_bg);
+        return;
+    }
+
     int is_active = (s->active == b && s->hot == b);
     /* Keyboard focus reads the same as hover - without it a Tab-focused
      * button would be invisible, and there is no separate "focus ring"

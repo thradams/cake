@@ -649,6 +649,11 @@ int ui_get_enabled(const ui_node* n);
 void ui_set_read_only(ui_node* n, int read_only);
 int ui_get_read_only(const ui_node* n);
 
+/* BUTTON-only: draws the button as a tab - flat, no shadow, no pressed
+ * shift - for a row of buttons used as tabs. `selected` (0/1) marks the
+ * current tab, drawn in the active button color. Still clickable. */
+void ui_button_set_tab(ui_node* n, int selected);
+
 /* WINDOW-only: whether it can be resized (bottom-right corner drag) and
  * maximized/restored (title-bar icon, double-click). Off by default - most
  * dialogs have a fixed layout that was never designed to reflow; opt in
