@@ -41,7 +41,8 @@ enum make_state
     MAKE_STATE_ZERO,
     MAKE_STATE_ZERO_CONSTANT,
     MAKE_STATE_UNITIALIZED,
-    MAKE_STATE_ANY
+    MAKE_STATE_ANY,
+    MAKE_STATE_ANY_LAZY_ARRAYS /* like MAKE_STATE_ANY, but arrays are made without elements */
 };
 
 struct object_list

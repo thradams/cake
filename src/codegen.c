@@ -59,6 +59,7 @@ void codegen_visit_ctx_destroy(_Dtor struct codegen_ctx* ctx)
     hashmap_destroy(&ctx->instantiated_function_literals);
     hashmap_destroy(&ctx->atomic_helpers);
     ss_close(&ctx->atomic_helpers_text);
+    ss_close(&ctx->atomic_helpers_declarations);
     ss_close(&ctx->block_scope_declarators);
     free(ctx->vm_snapshot_ids);
     ss_close(&ctx->add_this_before);
@@ -1228,7 +1229,7 @@ static bool codegen_compound_assignment_needs_conversion(const struct codegen_ct
 }
 
 /*
-  Operations on _Atomic objects call static helpers, emitted once per type into ctx->atomic_helpers_text.
+  Operations on _Atomic objects call static helpers, declared once per type at the top and defined at the end, like memcpy.
   kind is "load", "cas", "store" or the binary operator of a compound assignment, ++ or --.
   load and cas are the target primitives; store and the operators are a compare-exchange loop over them.
 */
@@ -1288,8 +1289,70 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
             codegen_atomic_helper(ctx, p_atomic_type, "cas", NULL, false, cas_name);
         }
 
-        char base_name[50] = { 0 };
-        snprintf(base_name, sizeof base_name, CAKE_FILE_SCOPE_PREFIX "atomic_%s", (is_load || is_cas || is_store || is_xchg) ? kind : "op");
+        /* descriptive name: __catomic_<type>_<operation>, e.g. __catomic_int_fetch_add */
+        const char* operation_name = kind;
+        if (!is_load && !is_cas && !is_store && !is_xchg)
+        {
+            static const char* const operation_names[][3] = {
+                { "+", "fetch_add", "add_fetch" }, { "-", "fetch_sub", "sub_fetch" },
+                { "*", "fetch_mul", "mul_fetch" }, { "/", "fetch_div", "div_fetch" },
+                { "%", "fetch_mod", "mod_fetch" }, { "&", "fetch_and", "and_fetch" },
+                { "|", "fetch_or", "or_fetch" }, { "^", "fetch_xor", "xor_fetch" },
+                { "<<", "fetch_shl", "shl_fetch" }, { ">>", "fetch_shr", "shr_fetch" },
+            };
+            operation_name = "op";
+            for (int i = 0; i < (int)(sizeof operation_names / sizeof operation_names[0]); i++)
+            {
+                if (strcmp(kind, operation_names[i][0]) == 0)
+                {
+                    operation_name = return_old ? operation_names[i][1] : operation_names[i][2];
+                    break;
+                }
+            }
+        }
+
+        char type_name[60] = { 0 };
+        int type_name_length = 0;
+        for (const char* _Opt p_char = value_type_text.c_str; p_char != NULL && *p_char != '\0'; p_char++)
+        {
+            const char* _Opt part = NULL;
+            char one_char[2] = { *p_char, '\0' };
+            if (*p_char == '*')
+            {
+                part = "ptr";
+            }
+            else if ((*p_char >= 'a' && *p_char <= 'z') || (*p_char >= 'A' && *p_char <= 'Z') || (*p_char >= '0' && *p_char <= '9') || *p_char == '_')
+            {
+                part = one_char;
+            }
+            else if (type_name_length > 0 && type_name[type_name_length - 1] != '_')
+            {
+                part = "_";
+            }
+
+            if (part != NULL)
+            {
+                if (*p_char == '*' && type_name_length > 0 && type_name[type_name_length - 1] != '_')
+                {
+                    type_name_length += snprintf(type_name + type_name_length, sizeof type_name - type_name_length, "_");
+                }
+                if (type_name_length < (int)sizeof type_name - 1)
+                {
+                    type_name_length += snprintf(type_name + type_name_length, sizeof type_name - type_name_length, "%s", part);
+                }
+                if (type_name_length > (int)sizeof type_name - 1)
+                {
+                    type_name_length = (int)sizeof type_name - 1;
+                }
+            }
+        }
+        while (type_name_length > 0 && type_name[type_name_length - 1] == '_')
+        {
+            type_name[--type_name_length] = '\0';
+        }
+
+        char base_name[100] = { 0 };
+        snprintf(base_name, sizeof base_name, CAKE_FILE_SCOPE_PREFIX "atomic_%s_%s", type_name, operation_name);
         generate_file_scope_new_name(ctx, base_name, 100, helper_name);
 
         struct hash_item_set item = { 0 };
@@ -1328,7 +1391,7 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
         if (is_msvc && !ctx->atomic_helpers_msvc_declared)
         {
             ctx->atomic_helpers_msvc_declared = true;
-            ss_fprintf(&ctx->atomic_helpers_text,
+            ss_fprintf(&ctx->atomic_helpers_declarations,
                        "char _InterlockedCompareExchange8(char volatile * p, char exchange, char comparand);\n"
                        "short _InterlockedCompareExchange16(short volatile * p, short exchange, short comparand);\n"
                        "long _InterlockedCompareExchange(long volatile * p, long exchange, long comparand);\n"
@@ -1382,6 +1445,7 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
             d_print_type(ctx, &signature, &value_type, signature_name.c_str, false, false);
         }
 
+        ss_fprintf(&ctx->atomic_helpers_declarations, "static %s;\n", signature.c_str);
         ss_fprintf(&ctx->atomic_helpers_text, "static %s\n{\n", signature.c_str);
 
         if (is_load && !is_msvc)
@@ -6889,9 +6953,9 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
         }
         //ss_fprintf(oss, "\n");
 
-        if (ctx->atomic_helpers_text.c_str)
+        if (ctx->atomic_helpers_declarations.c_str)
         {
-            ss_fprintf(oss, "\n%s", ctx->atomic_helpers_text.c_str);
+            ss_fprintf(oss, "\n%s", ctx->atomic_helpers_declarations.c_str);
         }
 
         if (ctx->define_nullptr && ctx->null_pointer_constant_used)
@@ -6984,6 +7048,11 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
                        ctx->memcpy_function_name,
                        ctx->size_t_type_name,
                        ctx->size_t_type_name);
+        }
+
+        if (ctx->atomic_helpers_text.c_str)
+        {
+            ss_fprintf(oss, "\n%s", ctx->atomic_helpers_text.c_str);
         }
 
         if (ctx->runtime_assert_used)

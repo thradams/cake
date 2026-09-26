@@ -229,6 +229,8 @@ enum {
                                 * prompt for the active file - see
                                 * file_watch_check() */
     EVT_PROJECT_RELOAD = 844,  /* same, for the open project's .cakeproj */
+    EVT_EXIT_SAVE = 845,       /* "Save" in File > Exit's unsaved-changes prompt - see exit_check() */
+    EVT_EXIT_DISCARD = 846,    /* "Discard" in the same prompt */
     EVT_CLOSE_DISCARD = 841, /* "Discard" in the unsaved-changes-on-close
                                * confirm message box - see UI_CLOSE_REQUEST_ID
                                * and g_pending_close_window */
@@ -299,16 +301,13 @@ enum {
     EVT_DOCK_BOTTOM = 1002,
 
     EVT_FOLDER_NEWFILE = 975,  /* same popup's "New File..." item - opens the
-                                * dialog below (g_foldernew.modal), same one
-                                * EVT_FOLDER_NEWFOLDER opens - see
-                                * g_foldernew.is_folder's own doc comment for
-                                * how the two share it */
+                                * "New File" dialog (g_newfile) at g_folder.dir */
     EVT_FOLDERNEW_OK = 976,   /* also the file/folder name <input>'s own id
                                * (same "Enter commits like clicking OK"
                                * convention as g_copts.input/EVT_COPTS_OK) */
     EVT_FOLDERNEW_CANCEL = 977,
     EVT_FOLDER_NEWFOLDER = 980,  /* same popup's "New Folder..." item - opens
-                                  * the same dialog as EVT_FOLDER_NEWFILE */
+                                  * g_foldernew */
     EVT_FOLDER_DELETE = 978,  /* same popup's "Delete" item - deletes a file
                                * or an empty subdirectory, whichever the
                                * listbox's currently *selected* row is
@@ -368,11 +367,9 @@ enum {
                                        * only removes the entry, never touches
                                        * the file on disk */
     EVT_PROJECT_POPUP_NEWFILE = 1319,  /* same popup's "New File..." - opens
-                                        * the Folder panel's name dialog
-                                        * (g_foldernew) in project mode: the
-                                        * file is created in g_project.dir
-                                        * and added to the project - see
-                                        * g_foldernew.in_project */
+                                        * the "New File" dialog (g_newfile) at
+                                        * g_project.dir; the file is added to
+                                        * the project - see g_newfile.in_project */
     EVT_PROJECT_BUILD = 1310,  /* Project > "Build" - see do_project_build() */
     EVT_PROJECT_INCLUDES = 1311,  /* Project > "Include Directories..." - opens
                                    * the list dialog below (replaces the old
@@ -452,6 +449,12 @@ enum {
     EVT_GIT_SYNC_BTN = 1336,  /* popup's "Sync" item - git_do_sync() (pull
                                * then push) */
     EVT_OUTPUT_CMDLINE = 1400,  /* the Output window's command <input> - Enter runs it, see cmdline_execute() */
+    EVT_FINDRESULTS_DBLCLICK = 1401,  /* the Find Results <editor> - jumps like EVT_OUTPUT_DBLCLICK */
+    EVT_WINDOW_FINDRESULTS = 1402,  /* View > "Find Results" */
+    EVT_NEWFILE_OK = 1410,          /* File > New... dialog's OK - also the File Name <input>'s id, so Enter creates */
+    EVT_NEWFILE_CANCEL = 1411,
+    EVT_NEWFILE_BROWSE = 1412,      /* its "..." - picks the Folder */
+    EVT_NEWFILE_OVERWRITE = 1413,   /* "Yes" in its "already exists" prompt */
 };
 
 /* One row of a <menu>'s dropdown: an id/label/shortcut triple, "---" for a
@@ -702,7 +705,7 @@ static void build_screen(ui_node* root)
     ui_append_child(root, menubar);
 
     static const menu_item_spec file_items[] = {
-        { 1, "New", NULL, 1 },
+        { 1, "New File...", NULL, 1 },
         { 2, "Open...", "Ctrl+O", 1 },
         { EVT_FILE_OPENFOLDER, "Open Folder...", NULL, 1 },
         { EVT_GIT_CLONE_BTN, "Git Clone...", NULL, 1 },
@@ -747,6 +750,7 @@ static void build_screen(ui_node* root)
      * their own menu instead. ids are unchanged, only where they're shown. */
     static const menu_item_spec view_items[] = {
         { EVT_WINDOW_OUTPUT, "Output", NULL, 1 },
+        { EVT_WINDOW_FINDRESULTS, "Find Results", NULL, 1 },
         { EVT_WINDOW_FOLDER, "Folder", NULL, 1 },
         { EVT_WINDOW_PROJECT, "Project", NULL, 1 },
         { EVT_WINDOW_GIT, "Git Changes", NULL, 1 },
@@ -1173,6 +1177,9 @@ static compile_settings g_compile =
 
 static ui_node* g_output_window;
 static ui_node* g_output_editor;
+/* Find/Replace results, kept apart from Output so a search never wipes a terminal session */
+static ui_node* g_findresults_window;
+static ui_node* g_findresults_editor;
 
 /* The Git Changes docked panel - lists `git status --porcelain` for
  * g_folder.dir (the same directory the Folder panel browses, so both stay in
@@ -1288,24 +1295,12 @@ static struct
                                      * PROJECT's own doc comment) */
 } g_folder;
 
-/* Same popup's "New File..."/"New Folder..." items (EVT_FOLDER_NEWFILE/
- * EVT_FOLDER_NEWFOLDER) - one shared name-then-OK/Cancel dialog (same shape
- * as g_goto_modal/g_goto_input) that creates either an empty file or an
- * empty directory inside g_folder.dir (the directory the popup was opened
- * over), depending on which item opened it - see EVT_FOLDERNEW_OK. */
-/* Folder panel's "New File..."/"New Folder..." dialog - one dialog serving
- * both, retitled per use. */
+/* Folder panel's "New Folder..." dialog (EVT_FOLDER_NEWFOLDER) - a name,
+ * then OK creates that directory inside g_folder.dir - see EVT_FOLDERNEW_OK. */
 static struct
 {
     ui_node* modal;
-    ui_node* window;    /* retitled " New File "/" New Folder " */
     ui_node* input;
-    int is_folder;      /* which of the two items opened it */
-    int in_project;     /* opened by the Project panel's "New File..."
-                         * (EVT_PROJECT_POPUP_NEWFILE) instead of the Folder
-                         * panel's: the file goes into g_project.dir rather
-                         * than g_folder.dir, and is added to the project
-                         * (project_add_file) once created */
 } g_foldernew;
 
 /* The "Dock Left/Right/Bottom" popup, shared by every dockable panel
@@ -1409,6 +1404,9 @@ typedef enum { OPEN_DLG_FILE, OPEN_DLG_SAVE, OPEN_DLG_FOLDER,
                                             * Tools dialog's Command field
                                             * (which stays open underneath)
                                             * instead of opening the file */
+               OPEN_DLG_NEWFILE_FOLDER,    /* folder-picker - OK drops the chosen
+                                            * directory into File > New...'s
+                                            * Folder field and reopens it */
                OPEN_DLG_GITCLONE_FOLDER    /* folder-picker, like OPEN_DLG_
                                             * NEWPROJECT_FOLDER - OK drops the
                                             * chosen directory into the Clone
@@ -1461,6 +1459,7 @@ static const open_filter_entry g_open_filters[] = {
     { "All Files (*.*)",         "*" },
 };
 #define OPEN_FILTER_COUNT ((int)(sizeof g_open_filters / sizeof g_open_filters[0]))
+#define C_SOURCES_FILTER_INDEX 2  /* its "*.c;*.h" row - see EVT_PROJECT_ADD_FILE */
 #define CAKE_PROJECT_FILTER_INDEX 4  /* g_open_filters' own "*.cakeproj" row -
                                       * see the EVT_PROJECT_OPEN handler */
 #define PROGRAM_FILTER_INDEX 5  /* its "*.exe;*.bat;*.cmd" row - see the
@@ -1481,14 +1480,6 @@ static char g_project_new_path[1024];  /* Project > "New Project..."'s own
                                         * target path, pending the overwrite
                                         * prompt - see project_new_save_
                                         * activate()/project_new_create() */
-
-/* Set right before opening the Save As dialog on behalf of a Compile (see
- * do_compile()'s untitled-file check): resumes the compile from
- * save_as_commit() once the file has actually been saved for real, since an
- * untitled window has no real path to hand the compiler yet. Cleared (without
- * compiling) if the dialog is canceled instead - see EVT_OPEN_CANCEL. Left at
- * 0 for an ordinary Save/Save As not triggered by a pending compile. */
-static int g_pending_compile_after_saveas;
 
 /* Search > Go to line...'s dialog. g_goto_pending_focus is the editor to
  * focus once the current ui_screen_update() finishes - focusing from inside
@@ -1595,6 +1586,9 @@ static ui_node* g_active_editor_window;
  * first is answered - message boxes are themselves modal, so at most one can
  * ever be showing at a time. */
 static ui_node* g_pending_close_window;
+
+/* File > Exit's prompt: the window being asked about. */
+static ui_node* g_exit_window;
 
 /* The Folder panel popup's "Delete File" - the full path awaiting the
  * confirm message box's "OK" (EVT_FOLDER_DELETE_CONFIRM), same "set right
@@ -2600,15 +2594,8 @@ static ui_node* add_group_item(ui_node* group, const char* label)
  * defined below, after ci_strcmp() which it uses. */
 static ui_syntax syntax_for_path(const char* path);
 
-/* File > New (EVT_FILE_NEW): unlike About/Directories/Output, which are each
- * a single node shown/reused via ui_screen_show_window(), "New" makes a
- * brand new <modal>+<window>+<editor> triple every time it fires - the same
- * call ends up opening a whole separate window instead of just re-raising
- * one, simply because the node it's given is a fresh one, never previously
- * shown. Cascades each new window's position so they don't land exactly on
- * top of one another, and numbers the title NONAME00.C, NONAME01.C, ... */
-/* `path`'s last-modified time, or 0 if it can't be stat'ed (e.g. a
- * NONAMEnn.C placeholder not saved yet) - see file_watch_check(). */
+/* `path`'s last-modified time, or 0 if it can't be stat'ed - see
+ * file_watch_check(). */
 static long long file_mtime(const char* path)
 {
     struct stat st;
@@ -2664,30 +2651,6 @@ static ui_node* make_editor_window(ui_node* root, int seq, const char* title,
      * is kept anyway as the un-maximize/"restore" geometry. */
     ui_window_maximize(g_screen, window);
 
-    return wrapper;
-}
-
-/* File > New's own default starting content/title, unlike a File > Open'd
- * document which brings its own (see open_dialog_activate). */
-static ui_node* make_new_editor_window(ui_node* root, int seq)
-{
-    char title[16], path[16];
-    snprintf(title, sizeof title, " NONAME%02d.C ", seq);
-    snprintf(path, sizeof path, "NONAME%02d.C", seq);
-    ui_node* wrapper = make_editor_window(root, seq, title,
-        "#include <stdio.h>\n"
-        "\n"
-        "int main(void)\n"
-        "{\n"
-        "    printf(\"Hello, world!\\n\");\n"
-        "    return 0;\n"
-        "}\n", path);
-
-    /* Still at this placeholder path, not a real file the user chose - see
-     * ui_set_untitled. File > Save (and Compile) both check this to route to
-     * Save As instead of silently writing/compiling "NONAME00.C" into
-     * whatever the current directory happens to be. */
-    ui_set_untitled(wrapper, 1);
     return wrapper;
 }
 
@@ -3001,6 +2964,22 @@ static int window_is_shown(ui_node* wrapper)
             return 1;
     }
     return 0;
+}
+
+/* Output and Find Results share the BOTTOM dock, which lays out one window,
+ * so showing one closes the other; each keeps its own text. */
+static void bottom_panel_show(ui_node* show, ui_node* hide)
+{
+    if (window_is_shown(hide) &&
+        ui_get_dock(ui_child_at(hide, 0)) == UI_DOCK_BOTTOM &&
+        ui_get_dock(ui_child_at(show, 0)) == UI_DOCK_BOTTOM)
+    {
+        int h = 0;
+        ui_get_rect(ui_child_at(hide, 0), NULL, NULL, NULL, &h);
+        ui_screen_close_modal(g_screen, hide);
+        ui_set_dock(ui_child_at(show, 0), UI_DOCK_BOTTOM, h);
+    }
+    ui_screen_show_window(g_screen, show);
 }
 
 /* View > "Show Output"/"Show Folder"/"Show Playground" - same "[x] Label"/
@@ -3400,6 +3379,7 @@ static void open_dialog_refresh(void)
     int folder_mode = g_open.dialog_mode == OPEN_DLG_FOLDER ||
         g_open.dialog_mode == OPEN_DLG_PROJECT_ADDINCLUDE ||
         g_open.dialog_mode == OPEN_DLG_NEWPROJECT_FOLDER ||
+        g_open.dialog_mode == OPEN_DLG_NEWFILE_FOLDER ||
         g_open.dialog_mode == OPEN_DLG_GITCLONE_FOLDER;
     ui_set_label(g_open.list_label, folder_mode ? "Folders" : "Files");
     populate_listbox_from_dir(g_open.listbox, g_open.dir,
@@ -3478,8 +3458,7 @@ static void open_dialog_set_filter_visible(int visible)
     /* The window itself grows/shrinks to match - without the Type row there's
      * nothing below the file list, and leaving the window at its full height
      * anyway just wastes the bottom few rows as dead space (see OPEN_DLG_
-     * PROJECT_ADDFILE/OPEN_DLG_PROJECT_ADDINCLUDE, neither of which ever show
-     * this row). Width and position are left untouched - only the height
+     * PROJECT_ADDINCLUDE, which never shows this row). Width and position are left untouched - only the height
      * changes, and only when it's actually different, so this is a no-op on
      * repeated calls with the same `visible` (no accumulating drift). */
     int wx, wy, ww, wh;
@@ -3504,6 +3483,31 @@ static void open_dialog_set_filter_visible(int visible)
                                                                    * label, same
                                                                    * as add_text() */
         ui_set_rect(g_open.filter, wx + 3, wy + 18, 41, 1);
+
+        /* Rebuilt per mode: Add Existing File has no project or program rows */
+        while (ui_child_count(g_open.filter) > 0)
+        {
+            ui_node* old_item = ui_child_at(g_open.filter, 0);
+            ui_remove_child(g_open.filter, old_item);
+            ui_node_free(old_item);
+        }
+        int selected_row = 0;
+        int row = 0;
+        for (int i = 0; i < OPEN_FILTER_COUNT; i++)
+        {
+            if (g_open.dialog_mode == OPEN_DLG_PROJECT_ADDFILE &&
+                (i == CAKE_PROJECT_FILTER_INDEX || i == PROGRAM_FILTER_INDEX))
+            {
+                continue;
+            }
+            add_select_item(g_open.filter, EVT_OPEN_FILTER + i, g_open_filters[i].label);
+            if (strcmp(g_open.mask, g_open_filters[i].mask) == 0)
+            {
+                selected_row = row;
+            }
+            row++;
+        }
+        ui_select_set_selected(g_open.filter, selected_row);
 
         ui_append_child(g_open.window, g_open.filter_label);
         ui_append_child(g_open.window, g_open.filter);
@@ -3546,7 +3550,7 @@ static const char* basename_of(const char* p);
 
 /* Activates row `index`: a directory navigates into it (or up, for "..") and
  * refreshes the listing; a file is read from disk into a new editor window
- * (real content/title, unlike File > New's blank template) and the dialog
+ * (real content/title) and the dialog
  * closes. Silently gives up if the file can't be read - nothing else
  * sensible to do without a status-bar error message this demo doesn't have. */
  /* Handles a directory row - one ending in "\" (the marker
@@ -3703,8 +3707,8 @@ static void nav_record_jump(void)
 /* Opens/raises `pos`'s window - reusing find_open_window/
  * open_file_path_into_editor the same way output_goto_source() does for a
  * result that isn't currently open - and restores its caret + scroll.
- * Silently gives up if the file isn't open and can't be reopened (e.g. an
- * untitled NONAMEnn.C buffer that was since closed), same "already reported,
+ * Silently gives up if the file isn't open and can't be reopened (e.g.
+ * deleted since), same "already reported,
  * nothing more to do" reasoning as output_goto_source(). */
 static void nav_restore(const nav_pos* pos)
 {
@@ -3983,13 +3987,27 @@ static void folder_select_confirm(void)
  * directly, then refresh+show" idiom folder_select_confirm uses above, just
  * without an Open dialog to close first - neither caller has one open. A
  * no-op for a NULL/empty dir (e.g. a document with no path yet). */
-static void folder_reveal_directory(const char* dir)
+static void folder_reveal_directory(const char* dir, const char* select_name)
 {
     if (!dir || !dir[0])
         return;
     strncpy(g_folder.dir, dir, sizeof g_folder.dir - 1);
     g_folder.dir[sizeof g_folder.dir - 1] = 0;
     folder_window_refresh();
+
+    /* select_name (a file inside dir, or NULL) becomes the selected row */
+    if (select_name)
+    {
+        int count = ui_child_count(g_folder.listbox);
+        for (int i = 0; i < count; i++)
+        {
+            if (strcmp(ui_get_path(ui_child_at(g_folder.listbox, i)), select_name) == 0)
+            {
+                ui_select_set_selected(g_folder.listbox, i);
+                break;
+            }
+        }
+    }
     folder_show_panel();
 }
 
@@ -5731,6 +5749,17 @@ static struct
     ui_node* helloworld_check;
 } g_newproject;
 
+/* "New File" dialog - File > New File..., and the Folder and Project panels'
+ * "New File...". path is the file waiting on the "already exists" prompt. */
+static struct
+{
+    ui_node* modal;
+    ui_node* folder_input;
+    ui_node* name_input;
+    char path[1024];
+    int in_project;     /* opened by the Project panel: the file is added to the project */
+} g_newfile;
+
 /* --- External Tools dialog helpers ---
  * The dialog edits g_exttool.edit (a working copy) and only writes it back
  * over g_tools on OK, so Cancel is a true discard. */
@@ -6569,7 +6598,7 @@ static void git_job_finish(void)
 
     if (g_gitjob.after == GIT_AFTER_CLONE && !g_gitjob.failed && g_gitjob.clone_open)
     {
-        folder_reveal_directory(g_gitjob.clone_dest);
+        folder_reveal_directory(g_gitjob.clone_dest, NULL);
         git_panel_refresh();
     }
     exttool_buf_free(&g_gitjob.out);
@@ -8122,7 +8151,7 @@ static ui_node* find_open_window(const char* path)
  * opened from/named after (ui_set_path, set in make_editor_window) - F7 must
  * compile what's on screen, not stale content already on disk. No-op if
  * there's no active window or it has no path (shouldn't happen - every
- * editor window gets one, real or a NONAMEnn.C placeholder). */
+ * editor window gets one). */
 /* Writes `content` to `f`, optionally expanding '\n' to "\r\n" so saved
  * files keep whichever line ending is asked for; written verbatim otherwise. */
 static void fwrite_text(const char* content, size_t len, FILE* f, int crlf)
@@ -8233,6 +8262,110 @@ static void save_active_file(ui_node* active)
                                                   * outside change */
 }
 
+/* File > Exit: asks about the first modified window, or quits when there is none. */
+static void exit_check(void)
+{
+    g_exit_window = NULL;
+    for (int i = 0; i < ui_child_count(g_root); i++)
+    {
+        ui_node* w = ui_child_at(g_root, i);
+        ui_node* editor = editor_in_window(w);
+        if (editor && ui_get_dirty(editor))
+        {
+            g_exit_window = w;
+            break;
+        }
+    }
+
+    if (g_exit_window)
+    {
+        ui_screen_show_window(g_screen, g_exit_window);
+        char msg[400];
+        snprintf(msg, sizeof msg, "%s has unsaved changes.\nSave them?",
+                 basename_of(ui_get_path(g_exit_window)));
+        ui_msgbox_button btns[] = {
+            { "  Save  ", EVT_EXIT_SAVE },
+            { " Discard ", EVT_EXIT_DISCARD },
+            { " Cancel ", 0 },
+        };
+        ui_message_box(g_screen, "Exit", msg, btns, 3);
+    }
+    else
+    {
+        g_quit = 1;
+    }
+}
+
+/* File > New...: creates g_newfile.path with a starting content for its
+ * extension, then opens it like any other file. */
+static void newfile_create(void)
+{
+    const char* ext = strrchr(g_newfile.path, '.');
+    const char* content = "";
+    if (ext && ci_strcmp(ext, ".c") == 0)
+    {
+        content = "#include <stdio.h>\n"
+                  "\n"
+                  "int main(void)\n"
+                  "{\n"
+                  "    printf(\"Hello, world!\\n\");\n"
+                  "    return 0;\n"
+                  "}\n";
+    }
+    else if (ext && ci_strcmp(ext, ".h") == 0)
+    {
+        content = "#pragma once\n";
+    }
+    else if (ext && ci_strcmp(ext, ".md") == 0)
+    {
+        content = "# Title\n";
+    }
+
+    FILE* f = fopen(g_newfile.path, "wb");
+    if (f)
+    {
+        fwrite_text(content, strlen(content), f, file_uses_crlf(g_newfile.path));
+        fclose(f);
+        ui_screen_close_modal(g_screen, g_newfile.modal);
+
+        folder_window_refresh();
+        if (g_newfile.in_project)
+        {
+            project_add_file(g_newfile.path);
+        }
+
+        /* An overwritten file that is already open gets the new content too. */
+        ui_node* existing = find_open_window(g_newfile.path);
+        ui_node* existing_ed = existing ? editor_in_window(existing) : NULL;
+        if (existing_ed)
+        {
+            ui_set_value(existing_ed, content);
+            ui_set_dirty(existing_ed, 0);
+            ui_set_file_time(existing, file_mtime(g_newfile.path));
+            ui_screen_show_window(g_screen, existing);
+        }
+        else
+        {
+            open_file_path_into_editor(g_newfile.path, basename_of(g_newfile.path));
+        }
+
+        /* A new file is for writing - even .md, which otherwise opens read-only. */
+        ui_node* new_window = find_open_window(g_newfile.path);
+        ui_node* new_ed = new_window ? editor_in_window(new_window) : NULL;
+        if (new_ed)
+        {
+            ui_set_read_only(new_ed, 0);
+        }
+    }
+    else
+    {
+        ui_msgbox_button ok = { "   OK   ", 0 };
+        char message[1200];
+        snprintf(message, sizeof message, "Cannot create file:\n%s\n\n%s", g_newfile.path, strerror(errno));
+        ui_message_box(g_screen, " Error ", message, &ok, 1);
+    }
+}
+
 /* Point the active editor window at g_saveas_path, retitle it, write it out,
  * and close the Save As dialog. Called once the target is settled - either
  * straight away (new file) or after the overwrite prompt is confirmed. */
@@ -8250,26 +8383,16 @@ static void save_as_commit(void)
         ui_set_label(win, title);
     }
 
-    /* Re-derive the syntax mode from the new name - e.g. saving NONAME00.C
+    /* Re-derive the syntax mode from the new name - e.g. saving main.c
      * as notes.md should switch it from C to Markdown highlighting. */
     ui_node* editor = editor_in_window(g_save_window);
     if (editor)
         ui_set_syntax(editor, syntax_for_path(g_saveas_path));
 
     save_active_file(g_save_window);  /* writes content, clears dirty */
-    ui_set_untitled(g_save_window, 0);  /* it's a real, named file now */
 
     ui_screen_close_modal(g_screen, g_open.modal);
     g_open.dialog_mode = OPEN_DLG_FILE;
-
-    /* Resume a Compile that was waiting on this exact Save As (see
-     * do_compile's untitled-file check) - the file now has the real path a
-     * compile needs, so pick up right where that request left off. */
-    if (g_pending_compile_after_saveas)
-    {
-        g_pending_compile_after_saveas = 0;
-        do_compile();
-    }
 }
 
 /* The current "Files of type" filter's extension, including the leading
@@ -8375,12 +8498,8 @@ static void save_as_activate(void)
     save_as_commit();
 }
 
-/* Opens the Save As dialog for `win` - the guts of EVT_FILE_SAVEAS, pulled
- * out so File > Save (see EVT_FILE_SAVE) and Compile (see do_compile) can
- * both reuse it for a still-untitled window (see ui_get_untitled): a normal
- * numbered-placeholder path like "NONAME00.C" is never something to silently
- * write to or hand the compiler - it has to become a real file first, same
- * as a "normal text editor". No-op if `win` isn't a real document window. */
+/* Opens the Save As dialog for `win` (EVT_FILE_SAVEAS). No-op if `win`
+ * isn't a real document window. */
 static void open_saveas_dialog_for(ui_node* win)
 {
     if (!win || !editor_in_window(win))
@@ -8602,7 +8721,7 @@ static void output_open_listed_path(const char* line)
         if (stat(path, &st) != 0)
             continue;
         if (st.st_mode & S_IFDIR)
-            folder_reveal_directory(path);
+            folder_reveal_directory(path, NULL);
         else
         {
             nav_record_jump();
@@ -8617,14 +8736,14 @@ static void output_open_listed_path(const char* line)
  * editor window to that source line. The Output editor is VT100-mode, so
  * the line carries VT100 SGR escapes that must be stripped before parsing; the
  * filename is matched against each editor window's path (see ui_set_path). */
-static void output_goto_source(void)
+static void output_goto_source(ui_node* output_editor)
 {
-    int row = ui_editor_caret_line(g_output_editor);  /* 1-based clicked line */
+    int row = ui_editor_caret_line(output_editor);  /* 1-based clicked line */
     if (row < 1)
         return;
 
     /* Copy just the clicked line out of the full output text. */
-    const char* text = ui_get_value(g_output_editor);
+    const char* text = ui_get_value(output_editor);
     const char* ls = text;
     for (int i = 1; i < row && *ls; ls++)
         if (*ls == '\n')
@@ -9086,19 +9205,6 @@ static void do_compile(void)
 
     ui_node* active = g_active_editor_window;
 
-    /* Still untitled (see ui_get_untitled) - e.g. Run > Compile straight from
-     * File > New, never saved - there's no real path yet to hand the
-     * compiler, so ask for one first via the same Save As dialog Ctrl+Shift+S
-     * opens, then resume this exact compile once it's actually saved (see
-     * save_as_commit). Canceling that dialog aborts the compile instead of
-     * going ahead against a placeholder path (see EVT_OPEN_CANCEL). */
-    if (active && ui_get_untitled(active))
-    {
-        g_pending_compile_after_saveas = 1;
-        open_saveas_dialog_for(active);
-        return;
-    }
-
     save_active_file(active);
     const char* file = active ? ui_get_path(active) : "";
 
@@ -9114,7 +9220,7 @@ static void do_compile(void)
     g_job.active = active;
 
     ui_set_value(g_output_editor, "");
-    ui_screen_show_window(g_screen, g_output_window);
+    bottom_panel_show(g_output_window, g_findresults_window);
     if (active)
     {
         ui_screen_show_window(g_screen, active);
@@ -9188,14 +9294,14 @@ static void do_project_build(void)
     if (file_argc == 0)
     {
         ui_set_value(g_output_editor, "The open project has no .c files to build.\n");
-        ui_screen_show_window(g_screen, g_output_window);
+        bottom_panel_show(g_output_window, g_findresults_window);
         return;
     }
     g_job.argc = argc;
     g_job.active = g_active_editor_window;
 
     ui_set_value(g_output_editor, "");
-    ui_screen_show_window(g_screen, g_output_window);
+    bottom_panel_show(g_output_window, g_findresults_window);
 
     if (!compile_stream_start())
     {
@@ -9337,7 +9443,7 @@ static void do_run_external_tool(int index)
         const char* oom = "Out of memory building the command line.\n";
         compile_text_append(oom, strlen(oom));
         ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
-        ui_screen_show_window(g_screen, g_output_window);
+        bottom_panel_show(g_output_window, g_findresults_window);
         exttool_buf_free(&argsb);
         exttool_buf_free(&dirb);
         exttool_buf_free(&cmdb);
@@ -9373,7 +9479,7 @@ static void do_run_external_tool(int index)
     }
     ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
 
-    ui_screen_show_window(g_screen, g_output_window);
+    bottom_panel_show(g_output_window, g_findresults_window);
     if (active)
     {
         ui_screen_show_window(g_screen, active);
@@ -9434,6 +9540,7 @@ static struct
     ui_node* input;
     int last_x, last_y, last_w;
     int last_stdin;
+    int refocus;  /* Enter blurs an <input>; cmdline_take_focus gives the focus back */
 } g_cmdline;
 
 /* The directory shell commands run in (see cmdline_cd). */
@@ -9567,7 +9674,7 @@ static void cmdline_cd(const struct cmdline_args* args)
             cmdline_print("\n");
             return;
         }
-        folder_reveal_directory(dir);
+        folder_reveal_directory(dir, NULL);
         snprintf(cwd, sizeof cwd, "%s", dir);
     }
     cmdline_print(cwd);
@@ -9849,6 +9956,7 @@ static void cmdline_execute(void)
     char line[1024];
     snprintf(line, sizeof line, "%s", ui_get_value(g_cmdline.input));
     ui_set_value(g_cmdline.input, "");
+    g_cmdline.refocus = 1;
 
     if (g_job.running && g_job.proc)
     {
@@ -9904,7 +10012,9 @@ static void cmdline_execute(void)
         return;
     }
 
-    if (cmdline_run_tool(shell_line) || cmdline_run_menu(shell_line))
+    /* "./build" runs the program in the folder, never the "build" tool/menu */
+    int is_path = strncmp(start, "./", 2) == 0;
+    if (!is_path && (cmdline_run_tool(shell_line) || cmdline_run_menu(shell_line)))
         return;
     cmdline_run_shell(shell_line);
 }
@@ -9912,6 +10022,15 @@ static void cmdline_execute(void)
 /* Per frame: a click in the Output text moves the focus to the command line once the button is released, unless it selected text (kept so Ctrl+C still copies it). */
 static void cmdline_take_focus(void)
 {
+    if (g_cmdline.refocus)
+    {
+        g_cmdline.refocus = 0;
+        if (ui_screen_focused(g_screen) == NULL)
+        {
+            ui_screen_focus(g_screen, g_cmdline.input);
+        }
+        return;
+    }
     if (ui_screen_focused(g_screen) != g_output_editor || ui_screen_mouse_down(g_screen))
         return;
     int lo, hi;
@@ -10230,7 +10349,7 @@ static void do_debug_start(void)
     if (g_job.text)
         g_job.text[0] = 0;
     ui_set_value(g_output_editor, "");
-    ui_screen_show_window(g_screen, g_output_window);
+    bottom_panel_show(g_output_window, g_findresults_window);
     ui_screen_show_window(g_screen, active);
 
     char header[DEBUG_MAX_PATH + 64];
@@ -10492,6 +10611,7 @@ static void exttool_finish(void)
     snprintf(footer, sizeof footer, "\nExit code %d\n", code);
     compile_text_append(footer, strlen(footer));
     ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
+    ui_editor_goto_line(g_output_editor, g_job.lines + 1);
 
     if (g_job.text)
     {
@@ -10516,6 +10636,7 @@ static void compile_finish(void)
               g_job.report.cpu_time_used_sec);
     compile_text_append(summary, strlen(summary));
     ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
+    ui_editor_goto_line(g_output_editor, g_job.lines + 1);
 
     /* Re-parse the captured text into each open file's diagnostic list -
      * see apply_diagnostics(). Cleared first so every compile starts
@@ -11774,8 +11895,8 @@ static void do_find_replace(const find_replace_options* opts)
             fr_search_include_dirs(opts, msg, sizeof msg);
     }
 
-    ui_set_value(g_output_editor, msg);
-    ui_screen_show_window(g_screen, g_output_window);
+    ui_set_value(g_findresults_editor, msg);
+    bottom_panel_show(g_findresults_window, g_output_window);
 }
 
 /* Search > "Go to Definition" (F12): not a real semantic lookup yet (see
@@ -12426,11 +12547,11 @@ static void do_edit_format(void)
 
     const char* text = ui_get_value(ed);
 
-    /* Needed so #include "quoted.h" siblings of this file resolve. path/
-     * untitled live on the WINDOW node (see ui_set_path/ui_set_untitled call
-     * sites), not on the editor child `ed` returned by editor_in_window() -
-     * same node do_compile() reads (g_active_editor_window), not `ed`. */
-    const char* path = ui_get_untitled(g_active_editor_window) ? NULL : ui_get_path(g_active_editor_window);
+    /* Needed so #include "quoted.h" siblings of this file resolve. The path
+     * lives on the WINDOW node (see ui_set_path call sites), not on the
+     * editor child `ed` returned by editor_in_window() - same node
+     * do_compile() reads (g_active_editor_window), not `ed`. */
+    const char* path = ui_get_path(g_active_editor_window);
     char* uri = lsp_path_to_uri(path);
 
     /* Same -style=<name> as Compile > Options... (g_compile.style), not a
@@ -12884,7 +13005,21 @@ static void on_ui_event(void* ctx, int id, void* param)
     (void)ctx;
     if (id == EVT_FILE_EXIT)
     {
-        g_quit = 1;
+        exit_check();
+    }
+    else if (id == EVT_EXIT_SAVE)
+    {
+        save_active_file(g_exit_window);
+        exit_check();
+    }
+    else if (id == EVT_EXIT_DISCARD)
+    {
+        ui_node* editor = editor_in_window(g_exit_window);
+        if (editor)
+        {
+            ui_set_dirty(editor, 0);
+        }
+        exit_check();
     }
     else if (id == EVT_COMPILE)
     {
@@ -13103,7 +13238,11 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_OUTPUT_DBLCLICK)
     {
-        output_goto_source();
+        output_goto_source(g_output_editor);
+    }
+    else if (id == EVT_FINDRESULTS_DBLCLICK)
+    {
+        output_goto_source(g_findresults_editor);
     }
     else if (id == EVT_EDITOR_CTRLCLICK)
     {
@@ -13132,27 +13271,23 @@ static void on_ui_event(void* ctx, int id, void* param)
         if (g_folder.dir[0])
             ui_clipboard_set_text(g_folder.dir);
     }
-    else if (id == EVT_PROJECT_POPUP_NEWFILE)
+    else if (id == EVT_PROJECT_POPUP_NEWFILE || id == EVT_FOLDER_NEWFILE)
     {
-        /* Same dialog the Folder panel's "New File..." opens, just rooted at
-         * the project directory - see g_foldernew.in_project. */
-        if (project_is_open())
+        /* The "New File" dialog of File > New File..., with Folder set to the panel's own. */
+        g_newfile.in_project = (id == EVT_PROJECT_POPUP_NEWFILE);
+        const char* dir = g_newfile.in_project ? g_project.dir : g_folder.dir;
+        if (dir[0])
         {
-            g_foldernew.is_folder = 0;
-            g_foldernew.in_project = 1;
-            ui_set_label(g_foldernew.window, " New File ");
-            ui_set_value(g_foldernew.input, "");
-            ui_screen_show_modal(g_screen, g_foldernew.modal);
-            ui_screen_focus(g_screen, g_foldernew.input);
+            ui_set_value(g_newfile.folder_input, dir);
+            ui_set_value(g_newfile.name_input, "");
+            ui_screen_show_modal(g_screen, g_newfile.modal);
+            ui_screen_focus(g_screen, g_newfile.name_input);
         }
     }
-    else if (id == EVT_FOLDER_NEWFILE || id == EVT_FOLDER_NEWFOLDER)
+    else if (id == EVT_FOLDER_NEWFOLDER)
     {
         if (g_folder.dir[0])
         {
-            g_foldernew.is_folder = (id == EVT_FOLDER_NEWFOLDER);
-            g_foldernew.in_project = 0;
-            ui_set_label(g_foldernew.window, g_foldernew.is_folder ? " New Folder " : " New File ");
             ui_set_value(g_foldernew.input, "");
             ui_screen_show_modal(g_screen, g_foldernew.modal);
             ui_screen_focus(g_screen, g_foldernew.input);
@@ -13161,85 +13296,34 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_FOLDERNEW_OK)
     {
         const char* name = ui_get_value(g_foldernew.input);
-        const char* caption = g_foldernew.is_folder ? "New Folder" : "New File";
 
-        /* A bare name, not a path - same restriction Save As implicitly has
-         * (its own Name field never carries a separator either, since it's
-         * always typed alongside a directory picker, never a full path).
-         * Rejecting one here keeps the new file/folder inside g_folder.dir
-         * instead of silently escaping it. */
+        /* A bare name, not a path - keeps the new folder inside g_folder.dir. */
         if (!name[0] || strchr(name, '/') || strchr(name, '\\'))
         {
             ui_msgbox_button ok = { "   OK   ", 0 };
-            ui_message_box(g_screen, caption,
+            ui_message_box(g_screen, "New Folder",
                             "Enter a name (no \\ or /).", &ok, 1);
         }
         else
         {
             char path[1024];
-            path_join(path, sizeof path,
-                     g_foldernew.in_project ? g_project.dir : g_folder.dir, name);
-            int created = 0;
+            path_join(path, sizeof path, g_folder.dir, name);
 
-            if (g_foldernew.is_folder)
+            /* fs.h's own mkdir(path, mode) shim (#define mkdir(a, b)
+             * _mkdir(a) on Windows) - a non-zero return (already exists, or
+             * just not creatable) is reported, since the user is watching. */
+            if (mkdir(path, 0755) == 0)
             {
-                /* fs.h's own mkdir(path, mode) shim (#define mkdir(a, b)
-                 * _mkdir(a) on Windows) already treats "fine if it already
-                 * exists" as this file's own get_config_dir() does - here,
-                 * unlike that fire-and-forget case, the user is watching, so
-                 * a non-zero return (already exists, or just not creatable)
-                 * gets reported instead of silently ignored. */
-                created = mkdir(path, 0755) == 0;
-                if (!created)
-                {
-                    ui_msgbox_button ok = { "   OK   ", 0 };
-                    char message[1200];
-                    snprintf(message, sizeof message,
-                             "Could not create %s.\nIt may already exist.", name);
-                    ui_message_box(g_screen, caption, message, &ok, 1);
-                }
+                ui_screen_close_modal(g_screen, g_foldernew.modal);
+                folder_window_refresh();
             }
             else
             {
-                FILE* existing = fopen(path, "rb");
-                if (existing)
-                {
-                    fclose(existing);
-                    ui_msgbox_button ok = { "   OK   ", 0 };
-                    char message[1200];
-                    snprintf(message, sizeof message, "%s already exists.", name);
-                    ui_message_box(g_screen, caption, message, &ok, 1);
-                }
-                else
-                {
-                    FILE* f = fopen(path, "wb");
-                    if (f)
-                        fclose(f);
-                    created = 1;
-                }
-            }
-
-            if (created)
-            {
-                ui_screen_close_modal(g_screen, g_foldernew.modal);
-
-                /* Show it in the listing. A folder stops there; a file also opens
-                 * into an editor window, same as clicking any other row -
-                 * see folder_window_activate. */
-                folder_window_refresh();
-                if (!g_foldernew.is_folder)
-                {
-                    /* Opened from the Project panel: the point is that the
-                     * new file becomes part of the project, not just of
-                     * the directory (project_add_file saves and refreshes
-                     * the Project listing). */
-                    if (g_foldernew.in_project)
-                    {
-                        project_add_file(path);
-                    }
-                    nav_record_jump();
-                    open_file_path_into_editor(path, name);
-                }
+                ui_msgbox_button ok = { "   OK   ", 0 };
+                char message[1200];
+                snprintf(message, sizeof message,
+                         "Could not create %s.\nIt may already exist.", name);
+                ui_message_box(g_screen, "New Folder", message, &ok, 1);
             }
         }
     }
@@ -13366,7 +13450,7 @@ static void on_ui_event(void* ctx, int id, void* param)
             char dir[1400];
             snprintf(dir, sizeof dir, "%s", g_gitdiff_path);
             dirname(dir);
-            folder_reveal_directory(dir);
+            folder_reveal_directory(dir, basename_of(g_gitdiff_path));
         }
     }
     else if (id == EVT_EDITOR_SHOW_FOLDER)
@@ -13387,7 +13471,7 @@ static void on_ui_event(void* ctx, int id, void* param)
                 strncpy(dir, path, sizeof dir - 1);
                 dir[sizeof dir - 1] = 0;
                 dirname(dir);
-                folder_reveal_directory(dir);
+                folder_reveal_directory(dir, basename_of(path));
             }
         }
     }
@@ -13657,7 +13741,74 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_FILE_NEW)
     {
-        ui_screen_show_window(g_screen, make_new_editor_window(g_root, g_new_count++));
+        g_newfile.in_project = 0;
+        char cwd[1024] = { 0 };
+        ui_set_value(g_newfile.folder_input, ui_get_cwd(cwd, sizeof cwd) ? cwd : ".");
+        ui_set_value(g_newfile.name_input, "");
+        ui_screen_show_modal(g_screen, g_newfile.modal);
+    }
+    else if (id == EVT_NEWFILE_BROWSE)
+    {
+        /* Same folder picker as New Project's "..." (see EVT_PROJECT_NEW_BROWSE). */
+        ui_screen_close_modal(g_screen, g_newfile.modal);
+        g_open.dialog_mode = OPEN_DLG_NEWFILE_FOLDER;
+        ui_set_label(g_open.window, " Select Folder ");
+        ui_set_label(g_open.ok, " Select ");
+        const char* cur = ui_get_value(g_newfile.folder_input);
+        if (cur && cur[0])
+        {
+            strncpy(g_open.dir, cur, sizeof g_open.dir - 1);
+        }
+        else if (!ui_get_cwd(g_open.dir, sizeof g_open.dir))
+        {
+            strcpy(g_open.dir, ".");
+        }
+        g_open.dir[sizeof g_open.dir - 1] = 0;
+        open_dialog_set_filter_visible(0);
+        open_dialog_refresh();
+        ui_screen_show_modal(g_screen, g_open.modal);
+    }
+    else if (id == EVT_NEWFILE_OK)
+    {
+        const char* folder = ui_get_value(g_newfile.folder_input);
+        const char* name = ui_get_value(g_newfile.name_input);
+        if (!folder[0] || !name[0])
+        {
+            ui_msgbox_button ok = { "   OK   ", 0 };
+            ui_message_box(g_screen, "New File", "Please fill in both folder and file name.", &ok, 1);
+        }
+        else
+        {
+            /* A name without an extension is a C file. */
+            char name_buf[300];
+            snprintf(name_buf, sizeof name_buf, "%s%s", name, strchr(name, '.') ? "" : ".c");
+            path_join(g_newfile.path, sizeof g_newfile.path, folder, name_buf);
+
+            FILE* exists = fopen(g_newfile.path, "rb");
+            if (exists)
+            {
+                fclose(exists);
+                char msg[400];
+                snprintf(msg, sizeof msg, "%s already exists.\nOverwrite?", name_buf);
+                ui_msgbox_button btns[] = {
+                    { "  Yes  ", EVT_NEWFILE_OVERWRITE },
+                    { "  No  ", 0 },
+                };
+                ui_message_box(g_screen, "New File", msg, btns, 2);
+            }
+            else
+            {
+                newfile_create();
+            }
+        }
+    }
+    else if (id == EVT_NEWFILE_OVERWRITE)
+    {
+        newfile_create();
+    }
+    else if (id == EVT_NEWFILE_CANCEL)
+    {
+        ui_screen_close_modal(g_screen, g_newfile.modal);
     }
     else if (id == EVT_FILE_OPEN)
     {
@@ -13871,9 +14022,10 @@ static void on_ui_event(void* ctx, int id, void* param)
         ui_set_label(g_open.ok, "  Add  ");
         strncpy(g_open.dir, g_project.dir, sizeof g_open.dir - 1);
         g_open.dir[sizeof g_open.dir - 1] = 0;
-        strncpy(g_open.mask, "*.c;*.h", sizeof g_open.mask - 1);
+        strncpy(g_open.mask, g_open_filters[C_SOURCES_FILTER_INDEX].mask, sizeof g_open.mask - 1);
         g_open.mask[sizeof g_open.mask - 1] = 0;
-        open_dialog_set_filter_visible(0);
+        /* Same "Files of type" dropdown as File > Open..., defaulted to *.c;*.h */
+        open_dialog_set_filter_visible(1);
         open_dialog_refresh();
         ui_screen_show_modal(g_screen, g_open.modal);
     }
@@ -14052,7 +14204,34 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_PROJECT_CLOSE)
     {
-        project_close();
+        if (project_is_open())
+        {
+            project_close();
+
+            /* Leaves only the Playground; a window with unsaved changes stays open */
+            for (int i = ui_screen_window_count(g_screen) - 1; i >= 0; i--)
+            {
+                ui_node* w = ui_screen_window_at(g_screen, i);
+                ui_node* ed = editor_in_window(w);
+                if (is_editor_window(w) && !(ed && ui_get_dirty(ed)))
+                {
+                    ui_screen_close_modal(g_screen, w);
+                }
+            }
+            open_playground();
+            folder_show_panel();
+
+            if (!g_job.running)
+            {
+                g_job.len = 0;
+                g_job.lines = 0;
+                if (g_job.text)
+                {
+                    g_job.text[0] = 0;
+                }
+                ui_set_value(g_output_editor, "");
+            }
+        }
     }
     else if (id == EVT_WINDOW_PROJECT)
     {
@@ -14085,6 +14264,7 @@ static void on_ui_event(void* ctx, int id, void* param)
         else if (g_open.dialog_mode == OPEN_DLG_FOLDER ||
                  g_open.dialog_mode == OPEN_DLG_PROJECT_ADDINCLUDE ||
                  g_open.dialog_mode == OPEN_DLG_NEWPROJECT_FOLDER ||
+                 g_open.dialog_mode == OPEN_DLG_NEWFILE_FOLDER ||
                  g_open.dialog_mode == OPEN_DLG_GITCLONE_FOLDER)
         {
             /* The whole field is the target directory in folder mode -
@@ -14237,6 +14417,13 @@ static void on_ui_event(void* ctx, int id, void* param)
             g_open.dialog_mode = OPEN_DLG_FILE;
             ui_screen_show_modal(g_screen, g_newproject.modal);
         }
+        else if (g_open.dialog_mode == OPEN_DLG_NEWFILE_FOLDER)
+        {
+            ui_set_value(g_newfile.folder_input, g_open.dir);
+            ui_screen_close_modal(g_screen, g_open.modal);
+            g_open.dialog_mode = OPEN_DLG_FILE;
+            ui_screen_show_modal(g_screen, g_newfile.modal);
+        }
         else if (g_open.dialog_mode == OPEN_DLG_GITCLONE_FOLDER)
         {
             /* The chosen folder is the parent - the repository name is
@@ -14327,15 +14514,15 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_OPEN_CANCEL)
     {
         int was_newproject_browse = (g_open.dialog_mode == OPEN_DLG_NEWPROJECT_FOLDER);
+        int was_newfile_browse = (g_open.dialog_mode == OPEN_DLG_NEWFILE_FOLDER);
         int was_gitclone_browse = (g_open.dialog_mode == OPEN_DLG_GITCLONE_FOLDER);
         ui_screen_close_modal(g_screen, g_open.modal);
         g_open.dialog_mode = OPEN_DLG_FILE;
 
-        /* Canceling out of a Save As that a Compile opened (see do_compile's
-         * untitled-file check) aborts the compile too, rather than going
-         * ahead and compiling a placeholder path - there's nothing sensible
-         * to compile until the file actually has a real name. */
-        g_pending_compile_after_saveas = 0;
+        if (was_newfile_browse)
+        {
+            ui_screen_show_modal(g_screen, g_newfile.modal);
+        }
 
         /* Canceling the New Project dialog's own folder browse returns to
          * that dialog instead of dropping the user back at the editor - the
@@ -14352,15 +14539,8 @@ static void on_ui_event(void* ctx, int id, void* param)
     {
         /* Write the active editor window to its file (see save_active_file).
          * g_active_editor_window, not top_window() - a docked Folder/Output
-         * panel can be frontmost instead (see g_active_editor_window). Still
-         * untitled (see ui_get_untitled) - e.g. straight from File > New -
-         * means there's no real file to write yet, so this behaves like
-         * Save As instead, exactly like a normal text editor's Save on a
-         * never-saved document. */
-        if (ui_get_untitled(g_active_editor_window))
-            open_saveas_dialog_for(g_active_editor_window);
-        else
-            save_active_file(g_active_editor_window);
+         * panel can be frontmost instead (see g_active_editor_window). */
+        save_active_file(g_active_editor_window);
     }
     else if (id == EVT_FILE_SAVEALL)
     {
@@ -14409,7 +14589,11 @@ static void on_ui_event(void* ctx, int id, void* param)
          * plain "show" commands now, not open/close toggles (no [x]/[ ] on
          * them any more either - see the View menu's own build_screen()
          * comment). */
-        ui_screen_show_window(g_screen, g_output_window);
+        bottom_panel_show(g_output_window, g_findresults_window);
+    }
+    else if (id == EVT_WINDOW_FINDRESULTS)
+    {
+        bottom_panel_show(g_findresults_window, g_output_window);
     }
     else if (id == EVT_WINDOW_DEBUGINFO)
     {
@@ -15319,12 +15503,12 @@ void app_init(ui_env* env)
     add_input(dirs_window, 13, 14, 44, "C:\\CAKEIDE\\SOURCE");
     ui_node* dirs_ok = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(dirs_ok, EVT_DIRS_OK);
-    ui_set_rect(dirs_ok, 20, 17, 10, 1);
+    ui_set_rect(dirs_ok, 21, 17, 10, 1);
     ui_set_label(dirs_ok, "  OK  ");
     ui_append_child(dirs_window, dirs_ok);
     ui_node* dirs_cancel = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(dirs_cancel, EVT_DIRS_CANCEL);
-    ui_set_rect(dirs_cancel, 34, 17, 10, 1);
+    ui_set_rect(dirs_cancel, 33, 17, 10, 1);
     ui_set_label(dirs_cancel, "Cancel");
     ui_append_child(dirs_window, dirs_cancel);
     ui_node* dirs_help = ui_create_element(UI_TAG_BUTTON);
@@ -15630,14 +15814,12 @@ void app_init(ui_env* env)
     }
     g_dockmenu.popup = dock_popup;
 
-    /* --- New File/Folder modal --- shared by EVT_FOLDER_NEWFILE and
-     * EVT_FOLDER_NEWFOLDER, which retitle it (g_foldernew.window) and set
-     * g_foldernew.is_folder before showing it - see EVT_FOLDERNEW_OK. */
+    /* --- New Folder modal (EVT_FOLDER_NEWFOLDER) - see EVT_FOLDERNEW_OK. */
     ui_node* foldernew_modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, foldernew_modal);
     ui_node* foldernew_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(foldernew_window, 20, 7, 44, 8);
-    ui_set_label(foldernew_window, " New File ");
+    ui_set_label(foldernew_window, " New Folder ");
     ui_set_color(foldernew_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(foldernew_modal, foldernew_window);
     add_text(foldernew_window, 23, 9, "Name", theme->label_fg, theme->modal_bg);
@@ -15645,20 +15827,19 @@ void app_init(ui_env* env)
     ui_set_id(g_foldernew.input, EVT_FOLDERNEW_OK);
     ui_node* foldernew_ok = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(foldernew_ok, EVT_FOLDERNEW_OK);
-    ui_set_rect(foldernew_ok, 30, 12, 10, 1);
+    ui_set_rect(foldernew_ok, 31, 12, 10, 1);
     ui_set_label(foldernew_ok, "  OK  ");
     ui_append_child(foldernew_window, foldernew_ok);
     ui_node* foldernew_cancel = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(foldernew_cancel, EVT_FOLDERNEW_CANCEL);
-    ui_set_rect(foldernew_cancel, 44, 12, 10, 1);
+    ui_set_rect(foldernew_cancel, 43, 12, 10, 1);
     ui_set_label(foldernew_cancel, "Cancel");
     ui_append_child(foldernew_window, foldernew_cancel);
-    g_foldernew.window = foldernew_window;
     g_foldernew.modal = foldernew_modal;
 
     /* --- Git commit message modal --- opened by the Git Changes popup's
      * "Commit" item (EVT_GIT_COMMIT_BTN) - see git_commit_start()/
-     * EVT_GITCOMMIT_OK. Same shape as the New File/Folder modal just above. */
+     * EVT_GITCOMMIT_OK. Same shape as the New Folder modal just above. */
     ui_node* gitcommit_modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, gitcommit_modal);
     ui_node* gitcommit_window = ui_create_element(UI_TAG_WINDOW);
@@ -15671,12 +15852,12 @@ void app_init(ui_env* env)
     ui_set_id(g_gitcommit.input, EVT_GITCOMMIT_OK);
     ui_node* gitcommit_ok = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(gitcommit_ok, EVT_GITCOMMIT_OK);
-    ui_set_rect(gitcommit_ok, 34, 12, 10, 1);
+    ui_set_rect(gitcommit_ok, 35, 12, 10, 1);
     ui_set_label(gitcommit_ok, "  OK  ");
     ui_append_child(gitcommit_window, gitcommit_ok);
     ui_node* gitcommit_cancel = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(gitcommit_cancel, EVT_GITCOMMIT_CANCEL);
-    ui_set_rect(gitcommit_cancel, 48, 12, 10, 1);
+    ui_set_rect(gitcommit_cancel, 47, 12, 10, 1);
     ui_set_label(gitcommit_cancel, "Cancel");
     ui_append_child(gitcommit_window, gitcommit_cancel);
     g_gitcommit.window = gitcommit_window;
@@ -15915,6 +16096,45 @@ void app_init(ui_env* env)
     ui_set_rect(newproj_cancel, 40, 15, 10, 1);
     ui_set_label(newproj_cancel, "Cancel");
     ui_append_child(newproj_window, newproj_cancel);
+
+    /* --- New File modal (File > New...) - same layout as New Project --- */
+    ui_node* newfile_modal = ui_create_element(UI_TAG_MODAL);
+    ui_append_child(root, newfile_modal);
+    ui_node* newfile_window = ui_create_element(UI_TAG_WINDOW);
+    ui_set_rect(newfile_window, 12, 6, 54, 9);
+    ui_set_label(newfile_window, " New File ");
+    ui_set_color(newfile_window, theme->modal_fg, theme->modal_bg);
+    ui_append_child(newfile_modal, newfile_window);
+    g_newfile.modal = newfile_modal;
+
+    add_text(newfile_window, 15, 8, "Folder", theme->label_fg, theme->modal_bg);
+    g_newfile.folder_input = add_input(newfile_window, 29, 8, 27, "");
+    ui_node* newfile_browse = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(newfile_browse, EVT_NEWFILE_BROWSE);
+    ui_set_rect(newfile_browse, 57, 8, 5, 1);
+    ui_set_label(newfile_browse, "...");
+    ui_append_child(newfile_window, newfile_browse);
+
+    add_text(newfile_window, 15, 10, "File Name", theme->label_fg, theme->modal_bg);
+    g_newfile.name_input = add_input(newfile_window, 29, 10, 33, "");
+    ui_set_id(g_newfile.name_input, EVT_NEWFILE_OK);
+    ui_set_help(g_newfile.name_input,
+                "Name of the new file - `.c` when no extension is given", "# Name of the new file\n\n`.c` when no extension is given\n"
+                "\n"
+                "A `.c` file starts with a Hello World, a `.h` file with `#pragma once`, a `.md` file with `# Title`; "
+                "any other extension starts empty. An existing file asks before it is overwritten.");
+
+    ui_node* newfile_ok = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(newfile_ok, EVT_NEWFILE_OK);
+    ui_set_rect(newfile_ok, 28, 12, 10, 1);
+    ui_set_label(newfile_ok, "  OK  ");
+    ui_append_child(newfile_window, newfile_ok);
+
+    ui_node* newfile_cancel = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(newfile_cancel, EVT_NEWFILE_CANCEL);
+    ui_set_rect(newfile_cancel, 40, 12, 10, 1);
+    ui_set_label(newfile_cancel, "Cancel");
+    ui_append_child(newfile_window, newfile_cancel);
 
     /* --- External Tools modal (Tools > External Tools...) --- */
     ui_node* ext_modal = ui_create_element(UI_TAG_MODAL);
@@ -16423,12 +16643,12 @@ void app_init(ui_env* env)
 
     ui_node* copts_ok = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(copts_ok, EVT_COPTS_OK);
-    ui_set_rect(copts_ok, 27, 23, 10, 1);
+    ui_set_rect(copts_ok, 28, 23, 10, 1);
     ui_set_label(copts_ok, "  OK  ");
     ui_append_child(copts_window, copts_ok);
     ui_node* copts_cancel = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(copts_cancel, EVT_COPTS_CANCEL);
-    ui_set_rect(copts_cancel, 41, 23, 10, 1);
+    ui_set_rect(copts_cancel, 40, 23, 10, 1);
     ui_set_label(copts_cancel, "Cancel");
     ui_append_child(copts_window, copts_cancel);
     ui_node* copts_help = ui_create_element(UI_TAG_BUTTON);
@@ -16531,6 +16751,28 @@ void app_init(ui_env* env)
     g_cmdline.prompt = add_text(output_window, ow_x + 1, ow_y + ow_h - 2, ">", theme->editor_output_fg, theme->editor_output_bg);
     g_cmdline.input = add_input(output_window, ow_x + 3, ow_y + ow_h - 2, ow_w - 4, "");
     ui_set_id(g_cmdline.input, EVT_OUTPUT_CMDLINE);
+
+    /* --- Find Results window --- */
+    ui_node* findresults_wrapper = ui_create_element(UI_TAG_MODAL);
+    ui_append_child(root, findresults_wrapper);
+    ui_node* findresults_window = ui_create_element(UI_TAG_WINDOW);
+    ui_set_rect(findresults_window, ow_x, ow_y, ow_w, ow_h);
+    ui_set_label(findresults_window, " Find Results ");
+    ui_set_color(findresults_window, theme->window_fg, theme->window_bg);
+    ui_set_resizable(findresults_window, 1);
+    ui_set_shadow(findresults_window, 0);
+    ui_set_dock(findresults_window, UI_DOCK_BOTTOM, ow_h);
+    ui_append_child(findresults_wrapper, findresults_window);
+
+    ui_node* findresults = ui_create_element(UI_TAG_EDITOR);
+    ui_set_id(findresults, EVT_FINDRESULTS_DBLCLICK);
+    ui_set_rect(findresults, ow_x + 1, ow_y + 1, ow_w - 2, ow_h - 2);
+    ui_set_syntax(findresults, UI_SYNTAX_VT100);
+    ui_set_small_font(findresults, 1);
+    ui_set_value(findresults, "");
+    ui_append_child(findresults_window, findresults);
+    g_findresults_window = findresults_wrapper;
+    g_findresults_editor = findresults;
 
     /* --- Folder window --- */
     ui_node* folder_wrapper = ui_create_element(UI_TAG_MODAL);
@@ -16887,7 +17129,7 @@ void app_init(ui_env* env)
 
     /* Now show the docked windows – they will get correct sizes */
     ui_screen_show_window(g_screen, g_folder.window);
-    ui_screen_show_window(g_screen, g_output_window);
+    bottom_panel_show(g_output_window, g_findresults_window);
 
     /* Global compiler settings (cake.json, beside the executable) - loaded
      * before the session so that a project reopened by load_session() below
@@ -16914,9 +17156,7 @@ void app_init(ui_env* env)
      * demo exactly as before. */
     if (!load_session())
     {
-        /* --- Demo/test file window (maximized) --- */
-        ui_node* demo_wrapper = make_new_editor_window(root, g_new_count++);
-        ui_screen_show_window(g_screen, demo_wrapper);
+        open_playground();
     }
 
     /* Apply the restored font choice now: load_session() has just supplied

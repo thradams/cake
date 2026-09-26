@@ -374,7 +374,7 @@ int compile_one_file(const char* file_name,
             else
             {
                 report->error_count++;
-                printf("cannot open Sarif output file '%s'\n", sarif_file_name);
+                printf("cannot open Sarif output file '%s' - %s\n", sarif_file_name, get_posix_error_message(errno));
                 throw;
             }
         }
@@ -431,7 +431,8 @@ int compile_one_file(const char* file_name,
                     if (p_output_string)
                         fprintf(outfile, "%s", p_output_string);
 
-                    if (fclose(outfile) != 0)
+                    const bool write_error = ferror(outfile) != 0;
+                    if (fclose(outfile) != 0 || write_error)
                     {
                         report->error_count++;
                         printf("error writing output file '%s' - %s\n", out_file_name, get_posix_error_message(errno));
@@ -484,7 +485,8 @@ int compile_one_file(const char* file_name,
                     if (p_output_string)
                         fprintf(outfile, "%s", p_output_string);
 
-                    if (fclose(outfile) != 0)
+                    const bool write_error = ferror(outfile) != 0;
+                    if (fclose(outfile) != 0 || write_error)
                     {
                         report->error_count++;
                         printf("error writing output file '%s' - %s\n", out_file_name, get_posix_error_message(errno));

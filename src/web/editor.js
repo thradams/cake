@@ -381,7 +381,23 @@ function OnLoad()
         }
     });
 
-    monaco.editor.setTheme("myCTheme");
+    monaco.editor.defineTheme("myCThemeDark", {
+        base: "vs-dark",
+        inherit: true,
+        rules: [
+            { token: "keyword.special", foreground: "4EC94E" },
+            { token: "comment.lint", foreground: "FFAA00", fontStyle: "bold" }
+        ],
+        colors: {
+        }
+    });
+
+    monaco.editor.setTheme(cakeTheme() === "dark" ? "myCThemeDark" : "myCTheme");
+
+    document.addEventListener("cake-theme", function (e)
+    {
+        monaco.editor.setTheme(e.detail === "dark" ? "myCThemeDark" : "myCTheme");
+    });
 
     inputEditor = monaco.editor.create(document.getElementById('in'), {
         model,

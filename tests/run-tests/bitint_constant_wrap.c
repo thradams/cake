@@ -20,26 +20,26 @@ int main(void)
     CHECK(s3 == 2);
     s3 = 3;
     CHECK(s3 == 3);
-    s3 = 4;
+    s3 = 4; //lint 74
     CHECK(s3 == -4);
-    s3 = 7;
+    s3 = 7; //lint 74
     CHECK(s3 == -1);
-    s3 = -5;
+    s3 = -5; //lint 74
     CHECK(s3 == 3);
     s3 = (_BitInt(3)) 12;
     CHECK(s3 == -4);
 
     _BitInt(8) s8 = (_BitInt(8)) 200;
     CHECK(s8 == -56);
-    s8 = -129;
+    s8 = -129; //lint 74
     CHECK(s8 == 127);
-    s8 = 0x7fffffffffffffffLL;
+    s8 = 0x7fffffffffffffffLL; //lint 74
     CHECK(s8 == -1);
 
     /* constants: unsigned */
     unsigned _BitInt(5) u5 = (unsigned _BitInt(5)) 40;
     CHECK(u5 == 8);
-    u5 = -1;
+    u5 = -1; //lint 74
     CHECK(u5 == 31);
     unsigned _BitInt(12) u12 = (unsigned _BitInt(12)) 0xffffffffffffffffULL;
     CHECK(u12 == 4095);

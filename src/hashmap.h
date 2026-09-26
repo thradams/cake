@@ -78,7 +78,7 @@ struct hash_map
 void hashmap_remove_all(struct hash_map* map);
 void hashmap_destroy(_Dtor struct hash_map* map);
 struct map_entry* _Opt hashmap_find(const struct hash_map* map, const char* key);
-void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt p_type_opt);
+void* _Owner _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt p_type_opt);
 
 /*
   hash_item_set is used to insert pointer with it type into a hashmap and also

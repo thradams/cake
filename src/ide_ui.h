@@ -670,17 +670,6 @@ int ui_get_resizable(const ui_node* n);
 void ui_set_transient(ui_node* n, int transient);
 int ui_get_transient(const ui_node* n);
 
-/* MODAL (a document window wrapper) only: whether it's still at its original
- * never-saved placeholder path (e.g. "NONAME00.C" - see make_new_editor_
- * window) rather than a real file the user picked/opened. Off by default,
- * and off again as soon as the app commits a real Save As target (see
- * save_as_commit) - a File > Open'd window never has this set in the first
- * place. Meant purely as a flag for the app's own File > Save / Compile
- * logic to check ("does this window need a Save As target before it can be
- * written to disk for real?"); the framework itself never reads it. */
-void ui_set_untitled(ui_node* n, int untitled);
-int ui_get_untitled(const ui_node* n);
-
 /* Returns the most recently closed transient window (see ui_set_transient)
  * and clears the pending slot, or NULL if none is pending - meant to be
  * polled once per frame, right after ui_screen_update(), before anything

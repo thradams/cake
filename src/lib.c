@@ -1839,7 +1839,7 @@ struct hash_map
 void hashmap_remove_all(struct hash_map* map);
 void hashmap_destroy(_Dtor struct hash_map* map);
 struct map_entry* _Opt hashmap_find(const struct hash_map* map, const char* key);
-void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt p_type_opt);
+void* _Owner _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt p_type_opt);
 
 /*
   hash_item_set is used to insert pointer with it type into a hashmap and also
@@ -2161,8 +2161,8 @@ enum diagnostic_id {
     W_FLOW_FALLTHROUGH = 88,
     W_MALLOC_SIZE_NOT_MULTIPLE_OF_SIZEOF = 89,
     W_FLOW_PARAM_UNINITIALIZED_AT_EXIT = 90,
-    W_UNUSED_WARNING_91 = 91,
-    W_UNUSED_WARNING_92 = 92,
+    W_ASSIGNMENT_IN_CONDITION = 91,
+    W_QUALIFIER_ON_RETURN_TYPE = 92,
     W_UNUSED_WARNING_93 = 93,
     W_UNUSED_WARNING_94 = 94,
     W_UNUSED_WARNING_95 = 95,
@@ -5875,7 +5875,7 @@ struct map_entry* _Opt hashmap_find(const struct hash_map* map, const char* key)
     return NULL;
 }
 
-void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt p_type_opt)
+void* _Owner _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt p_type_opt)
 {
 #pragma CAKE diagnostic push
 #pragma CAKE diagnostic ignored 29
@@ -5898,7 +5898,7 @@ void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt 
                 if (p_type_opt)
                     *p_type_opt = p_entry->type;
 
-                void* _Opt p = p_entry->data.p_declarator; //moved
+                void* _Owner _Opt p = p_entry->data.p_declarator; //moved
                 free((void* _Owner)p_entry->key);
 
                 free((void* _Owner)p_entry);
@@ -21757,7 +21757,8 @@ enum make_state
     MAKE_STATE_ZERO,
     MAKE_STATE_ZERO_CONSTANT,
     MAKE_STATE_UNITIALIZED,
-    MAKE_STATE_ANY
+    MAKE_STATE_ANY,
+    MAKE_STATE_ANY_LAZY_ARRAYS /* like MAKE_STATE_ANY, but arrays are made without elements */
 };
 
 struct object_list
@@ -25932,7 +25933,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
             p_object->type = type_dup(p_type);
             p_object->member_designator = strdup(member_designator);
 
-            if (p_type->array_num_elements > 0)
+            if (p_type->array_num_elements > 0 && make_state != MAKE_STATE_ANY_LAZY_ARRAYS)
             {
                 struct type array_item_type = get_array_item_type(p_type);
 
@@ -25995,6 +25996,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
                 p_object->value.host_long_long = -1;
                 break;
             case MAKE_STATE_ANY:
+            case MAKE_STATE_ANY_LAZY_ARRAYS:
                 p_object->state = CONSTANT_VALUE_STATE_ANY;
                 p_object->value.host_long_long = -1;
                 break;
@@ -33252,8 +33254,9 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 }
                 else
                 {
-                    /* `sizeof *a`, `typeof(*"")`: only the type is used */
-                    if (ctx->unevaluated_operand_depth == 0)
+                    /* `sizeof *a`, `typeof(*"")`: only the type is used; a non-array operand was already reported above */
+                    if (ctx->unevaluated_operand_depth == 0 &&
+                        type_is_array(&new_expression->right->object.type))
                     {
                         diagnostic(W_ARRAY_INDIRECTION,
                                    ctx,
@@ -36807,6 +36810,24 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
             {
                 check_assigment(ctx, &new_expression->left->object.type, new_expression->right, ASSIGMENT_TYPE_OBJECTS);
                 check_malloc_size_multiple_of_sizeof(ctx, &new_expression->left->object.type, new_expression->right);
+
+                /* same range check as initialization, e.g. int b:1 = 1 */
+                if (type_is_integer(&new_expression->left->object.type) &&
+                    type_is_integer(&new_expression->right->object.type) &&
+                    object_has_constant_value(&new_expression->right->object))
+                {
+                    struct object temp = { 0 };
+                    if (make_object(&new_expression->left->object.type, &temp, MAKE_STATE_UNITIALIZED, ctx->options.target) == 0)
+                    {
+                        if (object_set(ctx, &temp, new_expression->right, &new_expression->right->object, false, false) != 0)
+                        {
+                            object_destroy(&temp);
+                            expression_delete(new_expression);
+                            throw;
+                        }
+                    }
+                    object_destroy(&temp);
+                }
             }
 
             new_expression->last_token = new_expression->right->last_token;
@@ -37601,7 +37622,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
                     {
                         // type_print(&left_type);
                         // type_print(&right_type);
-                        diagnostic_conditional_incompatible(ctx, ctx->current, &left_type, &right_type);
+                        diagnostic_conditional_incompatible(ctx, p_conditional_expression->condition_expr->first_token, &left_type, &right_type);
                     }
                     else
                     {
@@ -39786,7 +39807,8 @@ bool flow_branch_arm_has_entries(const struct flow_branch* arm, const struct flo
 void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch* const arms[], int num_arms);
 void flow_branch_merge_a_b(struct flow_branch* parent, const struct flow_branch* a, const struct flow_branch* b);
 void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_branch* _Opt p_src,
-                                    const struct flow_branch* _Opt p_retag_origin);
+                                    const struct flow_branch* _Opt p_retag_origin,
+                                    bool full_state, bool join_reached_before);
 
 void flow_branch_name_to_string(const struct flow_branch* _Opt map, struct osstream* ss);
 void flow_branch_debug_print(const struct flow_branch* _Opt map, int indent);
@@ -39865,7 +39887,7 @@ struct flow_deferred_pointee_effect
     int argument_serial;
 };
 
-/* Entries in flow_ctx.reported_findings. */
+/* Entries in flow_ctx.p_reported_findings. */
 #define FLOW_MAX_REPORTED_FINDINGS 256
 
 /* Branches explained for one finding; the others are only counted. */
@@ -39923,7 +39945,12 @@ struct flow_ctx
     */
     int iteration_pass;
 
+    clock_t function_start_time; /* see flow_start_visit_declaration */
+
     struct flow_branch* _Opt p_throw_join_map;  /*map where throws are joined*/
+    bool throw_join_reached;    /* a throw reached p_throw_join_map */
+    bool break_join_reached;    /* a break reached p_break_join_map */
+    bool continue_join_reached; /* a continue reached p_continue_join_map */
     struct flow_branch* _Opt p_break_join_map;  /*map where breaks are joined*/
     struct flow_branch* _Opt p_continue_join_map;  /*map where continues are joined*/
     struct flow_branch* _Opt p_initial_map;     /*map snapshot of the original state*/
@@ -39947,8 +39974,8 @@ struct flow_ctx
 
     /* Findings accumulated or already reported, so one fact is reported once
        (see flow_finding_record); cleared per assignment. */
-    struct flow_reported_finding reported_findings[FLOW_MAX_REPORTED_FINDINGS];
-    int findings_depth; /* nested assignment checks sharing reported_findings */
+    struct flow_reported_finding* _Owner _Opt p_reported_findings; /* FLOW_MAX_REPORTED_FINDINGS entries, allocated on first use */
+    int findings_depth; /* nested assignment checks sharing p_reported_findings */
     struct osstream findings_text; /* pending messages, each ending in '\0' */
 
     /*
@@ -39993,7 +40020,7 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 */
 
 //#pragma once
-#define CAKE_VERSION "0.15.00"
+#define CAKE_VERSION "0.15.1"
 
 
  
@@ -40091,6 +40118,7 @@ struct codegen_ctx
     /* static helpers for _Atomic operations; the key is operation and types, the value is the helper name */
     struct hash_map atomic_helpers;
     struct osstream atomic_helpers_text;
+    struct osstream atomic_helpers_declarations;
     bool atomic_helpers_msvc_declared;
 
     /*
@@ -44901,6 +44929,24 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         }
         else
         {
+            if (p_init_declarator->p_declarator->object.type.category == TYPE_CATEGORY_FUNCTION)
+            {
+                struct type return_type = get_function_return_type(&p_init_declarator->p_declarator->object.type);
+                if (return_type.category != TYPE_CATEGORY_FUNCTION &&
+                    (return_type.type_qualifier_flags & (TYPE_QUALIFIER_CONST | TYPE_QUALIFIER_VOLATILE)))
+                {
+                    const char* qualifier_name =
+                        (return_type.type_qualifier_flags & TYPE_QUALIFIER_CONST) ? "const" : "volatile";
+                    diagnostic(W_QUALIFIER_ON_RETURN_TYPE,
+                               ctx,
+                               p_init_declarator->p_declarator->first_token_opt,
+                               NULL,
+                               "type qualifier '%s' on return type has no effect",
+                               qualifier_name);
+                }
+                type_destroy(&return_type);
+            }
+
             if (p_init_declarator->p_declarator->object.type.category != TYPE_CATEGORY_FUNCTION &&
                 !(p_init_declarator->p_declarator->object.type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF))
             {
@@ -47768,6 +47814,9 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
     */
 
     struct enum_specifier* _Owner _Opt p_enum_specifier = NULL;
+
+    /* the underlying-type mismatch with a previous declaration is reported once, at ':' or at '{' */
+    bool underlying_mismatch_reported = false;
     try
     {
         if (ctx->current == NULL)
@@ -47845,8 +47894,9 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
 
                 if (prev_decl_same_scope && !prev_decl_same_scope->has_underlying)
                 {
+                    /* not fatal: keep parsing so the declaration reaches its end and a trailing //lint is seen */
                     diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, ctx->current, NULL, "enum '%s' redeclared with an underlying type", p_enum_specifier->tag_token ? p_enum_specifier->tag_token->lexeme : "");
-                    throw;
+                    underlying_mismatch_reported = true;
                 }
 
                 p_enum_specifier->has_underlying = true;
@@ -47878,9 +47928,12 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                         NULL,
                         "a bit-precise integer type is not allowed as an enum underlying type");
                 }
-                if (prev_decl_same_scope && !type_is_same(&prev_decl_same_scope->integer_type, &p_enum_specifier->integer_type, false))
+                if (prev_decl_same_scope &&
+                    !underlying_mismatch_reported &&
+                    !type_is_same(&prev_decl_same_scope->integer_type, &p_enum_specifier->integer_type, false))
                 {
-                    diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, first_token, NULL, "enum redeclared with different underlying type");
+                    diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, first_token, NULL, "enum '%s' redeclared with a different underlying type", p_enum_specifier->tag_token ? p_enum_specifier->tag_token->lexeme : "");
+                    underlying_mismatch_reported = true;
                 }
             }
             else
@@ -47898,10 +47951,11 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
         {
             if (prev_decl_same_scope)
             {
-                if (p_enum_specifier->has_underlying != prev_decl_same_scope->has_underlying)
+                if (p_enum_specifier->has_underlying != prev_decl_same_scope->has_underlying &&
+                    !underlying_mismatch_reported)
                 {
+                    /* not fatal: keep parsing so the declaration reaches its end and a trailing //lint is seen */
                     diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_enum_specifier->first_token, NULL, "enum '%s' redeclared with a different underlying type", p_enum_specifier->tag_token ? p_enum_specifier->tag_token->lexeme : "");
-                    throw;
                 }
 
             }
@@ -53313,6 +53367,15 @@ void selection_statement_delete(struct selection_statement* _Owner _Opt p)
 */
 static void check_constant_condition(const struct parser_ctx* ctx, const struct expression* p_expression)
 {
+    if (p_expression->expression_type == EXPR_ASSIGNMENT_ASSIGN)
+    {
+        diagnostic(W_ASSIGNMENT_IN_CONDITION,
+            ctx,
+            p_expression->first_token,
+            NULL,
+            "assignment in condition, use '==' for comparison or extra parentheses to silence");
+    }
+
     if (object_has_constant_value(&p_expression->object))
     {
         diagnostic(W_CONDITIONAL_IS_CONSTANT,
@@ -54249,8 +54312,8 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
         {
             if (ctx->p_current_iteration_statement == NULL)
             {
-                diagnostic(C_ERROR_CONTINUE_NOT_WITHIN_ITERATION, ctx, ctx->current, NULL, "continue not within iteration");
-                throw;
+                /* not fatal, like break: keep parsing so a trailing //lint is seen */
+                diagnostic(C_ERROR_CONTINUE_NOT_WITHIN_ITERATION, ctx, ctx->current, NULL, "'continue' statement not in loop statement");
             }
             parser_match(ctx);
         }
@@ -56684,7 +56747,7 @@ int compile_one_file(const char* file_name,
             else
             {
                 report->error_count++;
-                printf("cannot open Sarif output file '%s'\n", sarif_file_name);
+                printf("cannot open Sarif output file '%s' - %s\n", sarif_file_name, get_posix_error_message(errno));
                 throw;
             }
         }
@@ -56741,7 +56804,8 @@ int compile_one_file(const char* file_name,
                     if (p_output_string)
                         fprintf(outfile, "%s", p_output_string);
 
-                    if (fclose(outfile) != 0)
+                    const bool write_error = ferror(outfile) != 0;
+                    if (fclose(outfile) != 0 || write_error)
                     {
                         report->error_count++;
                         printf("error writing output file '%s' - %s\n", out_file_name, get_posix_error_message(errno));
@@ -56794,7 +56858,8 @@ int compile_one_file(const char* file_name,
                     if (p_output_string)
                         fprintf(outfile, "%s", p_output_string);
 
-                    if (fclose(outfile) != 0)
+                    const bool write_error = ferror(outfile) != 0;
+                    if (fclose(outfile) != 0 || write_error)
                     {
                         report->error_count++;
                         printf("error writing output file '%s' - %s\n", out_file_name, get_posix_error_message(errno));
@@ -58689,6 +58754,7 @@ void codegen_visit_ctx_destroy(_Dtor struct codegen_ctx* ctx)
     hashmap_destroy(&ctx->instantiated_function_literals);
     hashmap_destroy(&ctx->atomic_helpers);
     ss_close(&ctx->atomic_helpers_text);
+    ss_close(&ctx->atomic_helpers_declarations);
     ss_close(&ctx->block_scope_declarators);
     free(ctx->vm_snapshot_ids);
     ss_close(&ctx->add_this_before);
@@ -59858,7 +59924,7 @@ static bool codegen_compound_assignment_needs_conversion(const struct codegen_ct
 }
 
 /*
-  Operations on _Atomic objects call static helpers, emitted once per type into ctx->atomic_helpers_text.
+  Operations on _Atomic objects call static helpers, declared once per type at the top and defined at the end, like memcpy.
   kind is "load", "cas", "store" or the binary operator of a compound assignment, ++ or --.
   load and cas are the target primitives; store and the operators are a compare-exchange loop over them.
 */
@@ -59918,8 +59984,70 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
             codegen_atomic_helper(ctx, p_atomic_type, "cas", NULL, false, cas_name);
         }
 
-        char base_name[50] = { 0 };
-        snprintf(base_name, sizeof base_name, CAKE_FILE_SCOPE_PREFIX "atomic_%s", (is_load || is_cas || is_store || is_xchg) ? kind : "op");
+        /* descriptive name: __catomic_<type>_<operation>, e.g. __catomic_int_fetch_add */
+        const char* operation_name = kind;
+        if (!is_load && !is_cas && !is_store && !is_xchg)
+        {
+            static const char* const operation_names[][3] = {
+                { "+", "fetch_add", "add_fetch" }, { "-", "fetch_sub", "sub_fetch" },
+                { "*", "fetch_mul", "mul_fetch" }, { "/", "fetch_div", "div_fetch" },
+                { "%", "fetch_mod", "mod_fetch" }, { "&", "fetch_and", "and_fetch" },
+                { "|", "fetch_or", "or_fetch" }, { "^", "fetch_xor", "xor_fetch" },
+                { "<<", "fetch_shl", "shl_fetch" }, { ">>", "fetch_shr", "shr_fetch" },
+            };
+            operation_name = "op";
+            for (int i = 0; i < (int)(sizeof operation_names / sizeof operation_names[0]); i++)
+            {
+                if (strcmp(kind, operation_names[i][0]) == 0)
+                {
+                    operation_name = return_old ? operation_names[i][1] : operation_names[i][2];
+                    break;
+                }
+            }
+        }
+
+        char type_name[60] = { 0 };
+        int type_name_length = 0;
+        for (const char* _Opt p_char = value_type_text.c_str; p_char != NULL && *p_char != '\0'; p_char++)
+        {
+            const char* _Opt part = NULL;
+            char one_char[2] = { *p_char, '\0' };
+            if (*p_char == '*')
+            {
+                part = "ptr";
+            }
+            else if ((*p_char >= 'a' && *p_char <= 'z') || (*p_char >= 'A' && *p_char <= 'Z') || (*p_char >= '0' && *p_char <= '9') || *p_char == '_')
+            {
+                part = one_char;
+            }
+            else if (type_name_length > 0 && type_name[type_name_length - 1] != '_')
+            {
+                part = "_";
+            }
+
+            if (part != NULL)
+            {
+                if (*p_char == '*' && type_name_length > 0 && type_name[type_name_length - 1] != '_')
+                {
+                    type_name_length += snprintf(type_name + type_name_length, sizeof type_name - type_name_length, "_");
+                }
+                if (type_name_length < (int)sizeof type_name - 1)
+                {
+                    type_name_length += snprintf(type_name + type_name_length, sizeof type_name - type_name_length, "%s", part);
+                }
+                if (type_name_length > (int)sizeof type_name - 1)
+                {
+                    type_name_length = (int)sizeof type_name - 1;
+                }
+            }
+        }
+        while (type_name_length > 0 && type_name[type_name_length - 1] == '_')
+        {
+            type_name[--type_name_length] = '\0';
+        }
+
+        char base_name[100] = { 0 };
+        snprintf(base_name, sizeof base_name, CAKE_FILE_SCOPE_PREFIX "atomic_%s_%s", type_name, operation_name);
         generate_file_scope_new_name(ctx, base_name, 100, helper_name);
 
         struct hash_item_set item = { 0 };
@@ -59958,7 +60086,7 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
         if (is_msvc && !ctx->atomic_helpers_msvc_declared)
         {
             ctx->atomic_helpers_msvc_declared = true;
-            ss_fprintf(&ctx->atomic_helpers_text,
+            ss_fprintf(&ctx->atomic_helpers_declarations,
                        "char _InterlockedCompareExchange8(char volatile * p, char exchange, char comparand);\n"
                        "short _InterlockedCompareExchange16(short volatile * p, short exchange, short comparand);\n"
                        "long _InterlockedCompareExchange(long volatile * p, long exchange, long comparand);\n"
@@ -60012,6 +60140,7 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
             d_print_type(ctx, &signature, &value_type, signature_name.c_str, false, false);
         }
 
+        ss_fprintf(&ctx->atomic_helpers_declarations, "static %s;\n", signature.c_str);
         ss_fprintf(&ctx->atomic_helpers_text, "static %s\n{\n", signature.c_str);
 
         if (is_load && !is_msvc)
@@ -65519,9 +65648,9 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
         }
         //ss_fprintf(oss, "\n");
 
-        if (ctx->atomic_helpers_text.c_str)
+        if (ctx->atomic_helpers_declarations.c_str)
         {
-            ss_fprintf(oss, "\n%s", ctx->atomic_helpers_text.c_str);
+            ss_fprintf(oss, "\n%s", ctx->atomic_helpers_declarations.c_str);
         }
 
         if (ctx->define_nullptr && ctx->null_pointer_constant_used)
@@ -65614,6 +65743,11 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
                        ctx->memcpy_function_name,
                        ctx->size_t_type_name,
                        ctx->size_t_type_name);
+        }
+
+        if (ctx->atomic_helpers_text.c_str)
+        {
+            ss_fprintf(oss, "\n%s", ctx->atomic_helpers_text.c_str);
         }
 
         if (ctx->runtime_assert_used)
@@ -67247,6 +67381,31 @@ void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch
         }
         for (const struct flow_branch* _Opt cur = arms[i]; cur && cur != parent; cur = cur->p_parent_map)
         {
+            /* above the fork of parent and every arm nothing was written */
+            bool cur_is_fork_ancestor = true;
+            for (int k = -1; k < num_arms && cur_is_fork_ancestor; k++)
+            {
+                const struct flow_branch* _Opt p_other = k < 0 ? parent->p_parent_map : arms[k];
+                if (k >= 0 && (p_other == NULL || p_other->is_unreachable))
+                {
+                    continue;
+                }
+                bool found = false;
+                for (const struct flow_branch* _Opt p_ancestor = p_other; p_ancestor; p_ancestor = p_ancestor->p_parent_map)
+                {
+                    if (p_ancestor == cur)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                cur_is_fork_ancestor = found;
+            }
+            if (cur_is_fork_ancestor)
+            {
+                break;
+            }
+
             if (cur->buckets == NULL)
             {
                 continue;
@@ -67483,12 +67642,28 @@ void flow_branch_merge_a_b(struct flow_branch* parent, const struct flow_branch*
 }
 
 void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_branch* _Opt p_src,
-                                          const struct flow_branch* _Opt p_retag_origin)
+                                          const struct flow_branch* _Opt p_retag_origin,
+                                          bool full_state, bool join_reached_before)
 {
     struct object_set objs = { 0 };
 
     for (const struct flow_branch* _Opt cur = p_src; cur; cur = cur->p_parent_map)
     {
+        /* above the common ancestor with p_join, p_join already sees the same values */
+        bool cur_is_join_ancestor = false;
+        for (const struct flow_branch* _Opt p_ancestor = p_join; !full_state && p_ancestor; p_ancestor = p_ancestor->p_parent_map)
+        {
+            if (p_ancestor == cur)
+            {
+                cur_is_join_ancestor = true;
+                break;
+            }
+        }
+        if (cur_is_join_ancestor)
+        {
+            break;
+        }
+
         if (cur->buckets == NULL)
         {
             continue;
@@ -67502,6 +67677,15 @@ void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_br
         }
     }
 
+    /* an object an earlier jump put in p_join needs this jump's value too */
+    for (int i = 0; !full_state && p_join->buckets != NULL && i < p_join->num_of_buckets; i++)
+    {
+        for (struct flow_key_alternatives* _Opt e = p_join->buckets[i]; e; e = e->next)
+        {
+            object_set_add(&objs, e->p_obj_key);
+        }
+    }
+
     for (int i = 0; i < objs.size; i++)
     {
         const struct object* obj = objs.items[i];
@@ -67510,10 +67694,20 @@ void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_br
         {
             continue;
         }
+        const bool is_new_in_join = flow_branch_find(p_join, obj) == NULL;
         struct flow_key_alternatives* _Opt p_join_entry = flow_branch_find_add(p_join, obj);
         if (p_join_entry == NULL)
         {
             continue;
+        }
+        if (!full_state && join_reached_before && is_new_in_join && p_join->p_parent_map != NULL)
+        {
+            /* earlier jumps did not write it: they arrived with the value above p_join */
+            const struct flow_key_alternatives* _Opt p_earlier_entry = flow_branch_search_up(p_join->p_parent_map, obj);
+            if (p_earlier_entry != NULL)
+            {
+                flow_alternatives_append(&p_join_entry->alternatives, &p_earlier_entry->alternatives);
+            }
         }
         if (p_retag_origin != NULL)
         {
@@ -68689,6 +68883,10 @@ static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_
                     p_member != NULL;
                     p_member = p_member->next)
             {
+                if (type_is_array(&p_member->type) && p_member->type.array_num_elements > 0 && p_member->members.head == NULL)
+                {
+                    continue; /* array not made yet (MAKE_STATE_ANY_LAZY_ARRAYS) */
+                }
                 flow_parameter_object_init_r(ctx, p_member, &p_member->type, p_token, depth, force_opt);
             }
             return;
@@ -68768,7 +68966,8 @@ static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_
                     ? get_array_item_type(p_type)
                     : type_remove_pointer(p_type);
                 pointee_is_opt = type_is_nullable(&pointed_type, nullable_enabled);
-                make_object(&pointed_type, p_pointed, MAKE_STATE_ANY, ctx->ctx->options.target);
+                /* arrays are made at their first constant index, see EXPR_POSTFIX_ARRAY */
+                make_object(&pointed_type, p_pointed, type_is_pointed_out(p_type) ? MAKE_STATE_ANY : MAKE_STATE_ANY_LAZY_ARRAYS, ctx->ctx->options.target);
                 type_destroy(&pointed_type);
             }
 
@@ -68911,7 +69110,7 @@ static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_
             if (p_pointed != NULL)
             {
                 struct type pointed_type = type_remove_pointer(p_type);
-                make_object(&pointed_type, p_pointed, MAKE_STATE_ANY, ctx->ctx->options.target);
+                make_object(&pointed_type, p_pointed, MAKE_STATE_ANY_LAZY_ARRAYS, ctx->ctx->options.target);
                 type_destroy(&pointed_type);
             }
 
@@ -69455,6 +69654,7 @@ static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_state
 static void flow_visit_try_statement(struct flow_ctx* ctx, struct try_statement* p_try_statement)
 {
     struct flow_branch* _Opt p_throw_join_map_old = ctx->p_throw_join_map;
+    const bool throw_join_reached_old = ctx->throw_join_reached;
 
     if (ctx->p_current_flow_branch == NULL)
         return;
@@ -69467,6 +69667,7 @@ static void flow_visit_try_statement(struct flow_ctx* ctx, struct try_statement*
         return; /* no map to work with */
 
     ctx->p_throw_join_map = p_throw_join;
+    ctx->throw_join_reached = false;
 
     /* --- visit the try body --- */
     struct flow_branch* _Opt p_try_branch = flow_branch_arena_new(&ctx->flow_branch_arena, p_before, FLOW_BRANCH_TRY_BRANCH);
@@ -69492,6 +69693,8 @@ static void flow_visit_try_statement(struct flow_ctx* ctx, struct try_statement*
        entered with.
     */
     ctx->p_throw_join_map = p_throw_join_map_old;
+    const bool throw_join_reached = ctx->throw_join_reached;
+    ctx->throw_join_reached = throw_join_reached_old;
 
     const bool try_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->secondary_block);
     const bool catch_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->catch_secondary_block_opt);
@@ -69545,7 +69748,7 @@ static void flow_visit_try_statement(struct flow_ctx* ctx, struct try_statement*
         {
             arms[num_arms++] = p_try_branch;
         }
-        if (flow_branch_arm_has_entries(p_throw_join, p_before))
+        if (throw_join_reached)
         {
             arms[num_arms++] = p_throw_join;
         }
@@ -69565,6 +69768,7 @@ static void flow_visit_switch_statement(struct flow_ctx* ctx, struct selection_s
     /* Saved outside the try so the catch below restores them on every exit. */
     struct flow_branch* _Opt old_p_initial_map = ctx->p_initial_map;
     struct flow_branch* _Opt old_p_break_join_map = ctx->p_break_join_map;
+    const bool old_break_join_reached = ctx->break_join_reached;
     const struct object* _Opt old_p_switch_obj_key = ctx->p_switch_obj_key;
 
     try
@@ -69608,6 +69812,7 @@ static void flow_visit_switch_statement(struct flow_ctx* ctx, struct selection_s
 
         ctx->p_initial_map = p_before;
         ctx->p_break_join_map = p_break_join;
+        ctx->break_join_reached = false;
 
         /* the one object the condition refers to (`x`, `s->kind`); several targets: no narrowing */
         ctx->p_switch_obj_key = NULL;
@@ -69650,7 +69855,7 @@ static void flow_visit_switch_statement(struct flow_ctx* ctx, struct selection_s
             {
                 arms[num_arms++] = ctx->p_current_flow_branch;
             }
-            if (flow_branch_arm_has_entries(p_break_join, p_before))
+            if (ctx->break_join_reached)
             {
                 arms[num_arms++] = p_break_join;
             }
@@ -69678,6 +69883,7 @@ static void flow_visit_switch_statement(struct flow_ctx* ctx, struct selection_s
     /* restore */
     ctx->p_initial_map = old_p_initial_map;
     ctx->p_break_join_map = old_p_break_join_map;
+    ctx->break_join_reached = old_break_join_reached;
     ctx->p_switch_obj_key = old_p_switch_obj_key;
 }
 
@@ -69894,10 +70100,17 @@ static struct flow_reported_finding* _Opt flow_finding_find_add(struct flow_ctx*
                                                                 int diagnostic_id,
                                                                 bool* is_new)
 {
-    struct flow_reported_finding* const findings = ctx->reported_findings;
     const int max = FLOW_MAX_REPORTED_FINDINGS;
 
     *is_new = false;
+
+    if (ctx->p_reported_findings == NULL)
+    {
+        ctx->p_reported_findings = calloc(max, sizeof(struct flow_reported_finding));
+        if (ctx->p_reported_findings == NULL)
+            return NULL;
+    }
+    struct flow_reported_finding* const findings = ctx->p_reported_findings;
 
     int i = 0;
     while (i < max && findings[i].p_object != NULL)
@@ -69993,12 +70206,12 @@ static void flow_finding_record(struct flow_ctx* ctx,
    so the same fact is not reported again until the table is cleared. */
 static void flow_findings_flush(struct flow_ctx* ctx)
 {
-    if (ctx->findings_depth > 0)
+    if (ctx->findings_depth > 0 || ctx->p_reported_findings == NULL)
         return; /* the outermost assignment flushes */
 
-    for (int i = 0; i < FLOW_MAX_REPORTED_FINDINGS && ctx->reported_findings[i].p_object != NULL; i++)
+    for (int i = 0; i < FLOW_MAX_REPORTED_FINDINGS && ctx->p_reported_findings[i].p_object != NULL; i++)
     {
-        struct flow_reported_finding* p = &ctx->reported_findings[i];
+        struct flow_reported_finding* p = &ctx->p_reported_findings[i];
         if (p->message_offset < 0 || ctx->findings_text.c_str == NULL)
             continue;
         const char* message = ctx->findings_text.c_str + p->message_offset;
@@ -70034,7 +70247,8 @@ static void flow_findings_flush(struct flow_ctx* ctx)
 static void flow_reported_findings_clear(struct flow_ctx* ctx)
 {
     flow_findings_flush(ctx); /* a pending report is never dropped */
-    ctx->reported_findings[0].p_object = NULL;
+    if (ctx->p_reported_findings != NULL)
+        ctx->p_reported_findings[0].p_object = NULL;
 }
 
 /* A check whose findings are accumulated and reported together. Nested scopes
@@ -70655,6 +70869,44 @@ static void flow_apply_pointee_param_effect(struct flow_ctx* ctx,
     ss_close(&arg_ss);
 }
 
+/* Makes the elements of a parameter pointee's array (MAKE_STATE_ANY_LAZY_ARRAYS),
+   seeded at the function root as they would have been on entry. */
+static void flow_make_lazy_array(struct flow_ctx* ctx, struct object* _Opt p_array, const struct token* _Opt p_token)
+{
+    if (p_array == NULL ||
+        !type_is_array(&p_array->type) ||
+        p_array->type.array_num_elements == 0 ||
+        p_array->members.head != NULL)
+    {
+        return;
+    }
+
+    struct flow_branch* _Opt p_current = ctx->p_current_flow_branch;
+    for (struct flow_branch* _Opt p_branch = p_current; p_branch != NULL; p_branch = p_branch->p_parent_map)
+    {
+        ctx->p_current_flow_branch = p_branch;
+    }
+
+    struct type item_type = get_array_item_type(&p_array->type);
+    const unsigned long long max_elements = p_array->type.array_num_elements > 1000 ? 1000 : p_array->type.array_num_elements;
+    for (unsigned long long k = 0; k < max_elements; k++)
+    {
+        struct object* _Owner _Opt p_new_element = calloc(1, sizeof(struct object));
+        if (p_new_element == NULL)
+        {
+            break;
+        }
+        char designator[200] = { 0 };
+        snprintf(designator, sizeof designator, "%s[%llu]", p_array->member_designator ? p_array->member_designator : "", k);
+        make_object_with_member_designator(&item_type, p_new_element, designator, MAKE_STATE_ANY_LAZY_ARRAYS, ctx->ctx->options.target);
+        p_new_element->parent = p_array;
+        flow_parameter_object_init_r(ctx, p_new_element, &p_new_element->type, p_token, 1, false);
+        object_list_push(&p_array->members, p_new_element);
+    }
+    type_destroy(&item_type);
+    ctx->p_current_flow_branch = p_current;
+}
+
 static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                                              struct expression* p_expression,
                                              const struct object* _Opt p_object_dest, /* uninitialized always */
@@ -70745,6 +70997,16 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                                                 p_object_src, dtor_here, NULL, p_object_src);
             }
             return;
+        }
+
+        /* a side made without elements (MAKE_STATE_ANY_LAZY_ARRAYS) gets them when the other has them */
+        if (p_object_src->members.head && !p_object_dest->members.head)
+        {
+            flow_make_lazy_array(ctx, (struct object* _Opt)p_object_dest, p_expression->first_token);
+        }
+        else if (!p_object_src->members.head && p_object_dest->members.head)
+        {
+            flow_make_lazy_array(ctx, (struct object* _Opt)p_object_src, p_expression->first_token);
         }
 
         if (p_object_src->members.head && p_object_dest->members.head)
@@ -70962,7 +71224,7 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
         /*
            Report each finding once per assignment, not once per source
            alternative: every alternative supporting it is accumulated in
-           reported_findings (flow_finding_record) and flushed at the end as
+           p_reported_findings (flow_finding_record) and flushed at the end as
            one report with the count. An object that accumulated many
            alternatives used to repeat one identical message: `return
            identity_pair;` at flow3.c:8757 emitted the same "possible null
@@ -74929,6 +75191,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                         p_left_alternative->value_kind == FLOW_VALUE_KIND_REF &&
                         p_left_alternative->value.p != NULL)
                         {
+                            flow_make_lazy_array(ctx, (struct object* _Opt)p_left_alternative->value.p, p_expression->first_token);
+
                             struct object* _Opt p_element = object_get_member(p_left_alternative->value.p, (size_t)index);
                             if (p_element == NULL)
                                 continue;
@@ -77570,7 +77834,7 @@ static void flow_merge_loop_exits(struct flow_ctx* ctx,
                                     exit_arms, num_false_arms + 1, p_token,
                                     false);
 
-    if (flow_branch_arm_has_entries(p_break_join, p_before))
+    if (ctx->break_join_reached)
     {
         arms[num_arms++] = p_break_join;
     }
@@ -77938,7 +78202,7 @@ static struct flow_branch* _Opt flow_loop_body_end(struct flow_ctx* ctx,
     if (p_end != NULL &&
         p_body_entry != NULL &&
         p_continue_join != NULL &&
-        flow_branch_arm_has_entries(p_continue_join, p_body_entry))
+        ctx->continue_join_reached)
     {
         /* an unreachable end must not be the parent: everything under it reads as dead */
         struct flow_branch* _Opt p_joined =
@@ -77977,6 +78241,8 @@ static void flow_visit_loop(struct flow_ctx* ctx,
     struct flow_branch* _Opt old_p_initial_map = ctx->p_initial_map;
     struct flow_branch* _Opt old_p_break_join_map = ctx->p_break_join_map;
     struct flow_branch* _Opt old_p_continue_join_map = ctx->p_continue_join_map;
+    const bool old_break_join_reached = ctx->break_join_reached;
+    const bool old_continue_join_reached = ctx->continue_join_reached;
 
     if (ctx->p_current_flow_branch == NULL)
         return;
@@ -77988,6 +78254,7 @@ static void flow_visit_loop(struct flow_ctx* ctx,
 
     ctx->p_initial_map = p_before;
     ctx->p_break_join_map = p_break_join;
+    ctx->break_join_reached = false;
 
     /* First pass — suppress warnings */
     diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
@@ -78030,6 +78297,7 @@ static void flow_visit_loop(struct flow_ctx* ctx,
 
     ctx->p_continue_join_map = p_pass1_body_entry == NULL ? NULL :
         flow_branch_arena_new(&ctx->flow_branch_arena, p_pass1_body_entry, FLOW_BRANCH_CONTINUE_JOIN);
+    ctx->continue_join_reached = false;
 
     flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
 
@@ -78131,6 +78399,7 @@ static void flow_visit_loop(struct flow_ctx* ctx,
         struct flow_branch* _Opt p_pass2_body_entry = ctx->p_current_flow_branch;
         ctx->p_continue_join_map = p_pass2_body_entry == NULL ? NULL :
             flow_branch_arena_new(&ctx->flow_branch_arena, p_pass2_body_entry, FLOW_BRANCH_CONTINUE_JOIN);
+        ctx->continue_join_reached = false;
 
         ctx->iteration_pass = 2; /*second pass -- see flow_visit_iteration_statement*/
         flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
@@ -78216,6 +78485,8 @@ static void flow_visit_loop(struct flow_ctx* ctx,
     ctx->p_initial_map = old_p_initial_map;
     ctx->p_break_join_map = old_p_break_join_map;
     ctx->p_continue_join_map = old_p_continue_join_map;
+    ctx->break_join_reached = old_break_join_reached;
+    ctx->continue_join_reached = old_continue_join_reached;
 }
 
 static void flow_visit_while_statement(struct flow_ctx* ctx, struct iteration_statement* p_iteration_statement)
@@ -78923,7 +79194,8 @@ static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statemen
 
             flow_branch_accumulate_into_join(ctx->p_throw_join_map,
                                             ctx->p_current_flow_branch,
-                                            p_throw_snapshot);
+                                            p_throw_snapshot, false, ctx->throw_join_reached);
+            ctx->throw_join_reached = true;
             
             flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list,
                                              p_jump_statement->first_token);
@@ -78972,7 +79244,8 @@ static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statemen
 
                 flow_branch_accumulate_into_join(ctx->p_continue_join_map,
                                                  ctx->p_current_flow_branch,
-                                                 p_continue_snapshot);
+                                                 p_continue_snapshot, false, ctx->continue_join_reached);
+                ctx->continue_join_reached = true;
             }
 
             flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
@@ -78987,7 +79260,8 @@ static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statemen
         {
             if (ctx->p_break_join_map != NULL)
             {
-                flow_branch_accumulate_into_join(ctx->p_break_join_map, ctx->p_current_flow_branch, NULL);
+                flow_branch_accumulate_into_join(ctx->p_break_join_map, ctx->p_current_flow_branch, NULL, false, ctx->break_join_reached);
+                ctx->break_join_reached = true;
             }
 
             flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
@@ -79008,7 +79282,7 @@ static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statemen
                 if (strcmp(ctx->labels[i].label_name, p_jump_statement->label->lexeme) == 0)
                 {
                     flow_branch_accumulate_into_join(ctx->labels[i].p_flow_branch,
-                                                  ctx->p_current_flow_branch, NULL);
+                                                  ctx->p_current_flow_branch, NULL, true, false);
                     found = true;
                     break;
                 }
@@ -79023,7 +79297,7 @@ static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statemen
                 if (p_label_map == NULL) throw;
                 
                 /* Eagerly snapshot state at this goto into the label's own map entries, the same way later jumps to it do via flow_branch_accumulate_into_join -- otherwise the label map starts empty and falls back to its parent chain, which keeps mutating in place and no longer reflects what existed at this goto by the time it's reached. */
-                flow_branch_accumulate_into_join(p_label_map, ctx->p_current_flow_branch, NULL);
+                flow_branch_accumulate_into_join(p_label_map, ctx->p_current_flow_branch, NULL, true, false);
 
                 ctx->labels[ctx->labels_size].label_name = p_jump_statement->label->lexeme;
                 ctx->labels[ctx->labels_size].p_flow_branch = p_label_map;
@@ -79137,7 +79411,7 @@ static void flow_visit_label(struct flow_ctx* ctx, const struct label* p_label)
                        whichever gotos arrived first would be silently lost
                        the moment control also reaches the label normally.
                     */
-                    flow_branch_accumulate_into_join(ctx->labels[i].p_flow_branch, ctx->p_current_flow_branch, NULL);
+                    flow_branch_accumulate_into_join(ctx->labels[i].p_flow_branch, ctx->p_current_flow_branch, NULL, true, false);
                     ctx->p_current_flow_branch = ctx->labels[i].p_flow_branch;
                     break;
                 }
@@ -79973,7 +80247,23 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
         if (ctx->p_current_flow_branch == NULL)
             throw;
 
+        ctx->function_start_time = clock();
+
         flow_visit_declaration(ctx, p_declaration);
+
+        const long elapsed_ms = (long)((clock() - ctx->function_start_time) * 1000 / CLOCKS_PER_SEC);
+        const struct init_declarator* _Opt p_init_declarator = p_declaration->init_declarator_list.head;
+        const struct token* _Opt p_name_opt = p_init_declarator ? p_init_declarator->p_declarator->name_opt : NULL;
+        if (p_declaration->function_body && p_name_opt && elapsed_ms > 5000)
+        {
+            const struct marker m =
+            {
+                .p_token_begin = p_name_opt,
+                .p_token_end = p_name_opt
+            };
+            diagnostic(W_INFO, ctx->ctx, NULL, &m,
+                       "flow analysis of '%s' (line %d) took %ld ms", p_name_opt->lexeme, p_name_opt->line, elapsed_ms);
+        }
 
         flow_allocated_object_arena_clear(&ctx->allocated_object_arena);
         flow_branch_arena_clear(&ctx->flow_branch_arena);
@@ -79987,6 +80277,7 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 void flow_visit_ctx_destroy(_Dtor struct flow_ctx* ctx)
 {
     ss_close(&ctx->findings_text);
+    free(ctx->p_reported_findings);
     flow_allocated_object_arena_clear(&ctx->allocated_object_arena);
     flow_branch_arena_clear(&ctx->flow_branch_arena);
     flow_alternatives_pool_shutdown();

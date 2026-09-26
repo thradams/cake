@@ -1682,7 +1682,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
             p_object->type = type_dup(p_type);
             p_object->member_designator = strdup(member_designator);
 
-            if (p_type->array_num_elements > 0)
+            if (p_type->array_num_elements > 0 && make_state != MAKE_STATE_ANY_LAZY_ARRAYS)
             {
                 struct type array_item_type = get_array_item_type(p_type);
 
@@ -1745,6 +1745,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
                 p_object->value.host_long_long = -1;
                 break;
             case MAKE_STATE_ANY:
+            case MAKE_STATE_ANY_LAZY_ARRAYS:
                 p_object->state = CONSTANT_VALUE_STATE_ANY;
                 p_object->value.host_long_long = -1;
                 break;

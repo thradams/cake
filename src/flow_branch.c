@@ -864,6 +864,31 @@ void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch
         }
         for (const struct flow_branch* _Opt cur = arms[i]; cur && cur != parent; cur = cur->p_parent_map)
         {
+            /* above the fork of parent and every arm nothing was written */
+            bool cur_is_fork_ancestor = true;
+            for (int k = -1; k < num_arms && cur_is_fork_ancestor; k++)
+            {
+                const struct flow_branch* _Opt p_other = k < 0 ? parent->p_parent_map : arms[k];
+                if (k >= 0 && (p_other == NULL || p_other->is_unreachable))
+                {
+                    continue;
+                }
+                bool found = false;
+                for (const struct flow_branch* _Opt p_ancestor = p_other; p_ancestor; p_ancestor = p_ancestor->p_parent_map)
+                {
+                    if (p_ancestor == cur)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                cur_is_fork_ancestor = found;
+            }
+            if (cur_is_fork_ancestor)
+            {
+                break;
+            }
+
             if (cur->buckets == NULL)
             {
                 continue;
@@ -1100,12 +1125,28 @@ void flow_branch_merge_a_b(struct flow_branch* parent, const struct flow_branch*
 }
 
 void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_branch* _Opt p_src,
-                                          const struct flow_branch* _Opt p_retag_origin)
+                                          const struct flow_branch* _Opt p_retag_origin,
+                                          bool full_state, bool join_reached_before)
 {
     struct object_set objs = { 0 };
 
     for (const struct flow_branch* _Opt cur = p_src; cur; cur = cur->p_parent_map)
     {
+        /* above the common ancestor with p_join, p_join already sees the same values */
+        bool cur_is_join_ancestor = false;
+        for (const struct flow_branch* _Opt p_ancestor = p_join; !full_state && p_ancestor; p_ancestor = p_ancestor->p_parent_map)
+        {
+            if (p_ancestor == cur)
+            {
+                cur_is_join_ancestor = true;
+                break;
+            }
+        }
+        if (cur_is_join_ancestor)
+        {
+            break;
+        }
+
         if (cur->buckets == NULL)
         {
             continue;
@@ -1119,6 +1160,15 @@ void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_br
         }
     }
 
+    /* an object an earlier jump put in p_join needs this jump's value too */
+    for (int i = 0; !full_state && p_join->buckets != NULL && i < p_join->num_of_buckets; i++)
+    {
+        for (struct flow_key_alternatives* _Opt e = p_join->buckets[i]; e; e = e->next)
+        {
+            object_set_add(&objs, e->p_obj_key);
+        }
+    }
+
     for (int i = 0; i < objs.size; i++)
     {
         const struct object* obj = objs.items[i];
@@ -1127,10 +1177,20 @@ void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_br
         {
             continue;
         }
+        const bool is_new_in_join = flow_branch_find(p_join, obj) == NULL;
         struct flow_key_alternatives* _Opt p_join_entry = flow_branch_find_add(p_join, obj);
         if (p_join_entry == NULL)
         {
             continue;
+        }
+        if (!full_state && join_reached_before && is_new_in_join && p_join->p_parent_map != NULL)
+        {
+            /* earlier jumps did not write it: they arrived with the value above p_join */
+            const struct flow_key_alternatives* _Opt p_earlier_entry = flow_branch_search_up(p_join->p_parent_map, obj);
+            if (p_earlier_entry != NULL)
+            {
+                flow_alternatives_append(&p_join_entry->alternatives, &p_earlier_entry->alternatives);
+            }
         }
         if (p_retag_origin != NULL)
         {

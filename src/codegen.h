@@ -90,6 +90,7 @@ struct codegen_ctx
     /* static helpers for _Atomic operations; the key is operation and types, the value is the helper name */
     struct hash_map atomic_helpers;
     struct osstream atomic_helpers_text;
+    struct osstream atomic_helpers_declarations;
     bool atomic_helpers_msvc_declared;
 
     /*

@@ -8644,6 +8644,24 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
             {
                 check_assigment(ctx, &new_expression->left->object.type, new_expression->right, ASSIGMENT_TYPE_OBJECTS);
                 check_malloc_size_multiple_of_sizeof(ctx, &new_expression->left->object.type, new_expression->right);
+
+                /* same range check as initialization, e.g. int b:1 = 1 */
+                if (type_is_integer(&new_expression->left->object.type) &&
+                    type_is_integer(&new_expression->right->object.type) &&
+                    object_has_constant_value(&new_expression->right->object))
+                {
+                    struct object temp = { 0 };
+                    if (make_object(&new_expression->left->object.type, &temp, MAKE_STATE_UNITIALIZED, ctx->options.target) == 0)
+                    {
+                        if (object_set(ctx, &temp, new_expression->right, &new_expression->right->object, false, false) != 0)
+                        {
+                            object_destroy(&temp);
+                            expression_delete(new_expression);
+                            throw;
+                        }
+                    }
+                    object_destroy(&temp);
+                }
             }
 
             new_expression->last_token = new_expression->right->last_token;
@@ -9438,7 +9456,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
                     {
                         // type_print(&left_type);
                         // type_print(&right_type);
-                        diagnostic_conditional_incompatible(ctx, ctx->current, &left_type, &right_type);
+                        diagnostic_conditional_incompatible(ctx, p_conditional_expression->condition_expr->first_token, &left_type, &right_type);
                     }
                     else
                     {

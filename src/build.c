@@ -7,7 +7,7 @@
  *
  * LINUX/MACOS
  *   gcc build.c -o build && ./build
- *   ./build fast             (incremental: only recompile changed files)
+ *   ./build fast             (only compile the IDE)
  *   ./build full             (build everything with -DTEST, but do not run tests)
  *   ./build test             (same as full, and run the tests afterwards)
  *   ./build debug            (debug build: no optimization, debug runtime)
@@ -224,6 +224,7 @@ static void generate_doc(const char* mdfilename, const char* outfile)
         "  <script src=\"highlight.min.js\"></script>\n"
         "  <script>hljs.highlightAll();</script>\n"
         "  <link rel=\"stylesheet\" href=\"style.css\" />\n"
+        "  <script src=\"theme.js\"></script>\n"
         "  <title>Cake C Compiler</title>\n"
         "  <meta name=\"description\" content=\"Cake C Compiler\">\n"
         "  <link rel=\"icon\" type=\"image/x-icon\" href=\"favicon.ico\">\n"
@@ -482,163 +483,26 @@ static void build_web_samples(void)
     remove("samples.js");
 }
 
-static time_t get_mtime(const char* path)
-{
-    struct stat st;
-    if (stat(path, &st) != 0)
-        return 0;
-    return st.st_mtime;
-}
-
-/*
- * main.c does `#include "unit_test.c"` when TEST is defined, so main.o's
- * real dependencies include unit_test.c even though build_incremental only
- * looks at main.c's own timestamp. When building with the test flag,
- * force main.c to be recompiled if unit_test.c changed more recently than
- * main.o, otherwise incremental builds can silently keep stale test code.
- */
-static void refresh_test_dependency(int test)
-{
-    if (!test)
-        return;
-
-    if (get_mtime("unit_test.c") > get_mtime("main.o"))
-        remove("main.o");
-}
-
-/*
- * Iterates space-separated `sources`, compiles each .c to .o if the .o
- * is missing or older than the .c, then links all .o files into `output`.
- * `compiler` is the compiler binary (e.g. "gcc", "clang").
- * `compile_flags` are the flags used for both compile and link steps.
- * `link_flags` are appended only at link time (libs, /link, etc.).
- * `obj_flag` is the flag for specifying the object output ("-o" or "/Fo").
- * `out_flag` is the flag for specifying the final output ("-o" or "/out:").
- */
-static void build_incremental(const char* compiler,
-                               const char* compile_flags,
-                               const char* sources,
-                               const char* link_flags,
-                               const char* obj_flag,
-                               const char* out_flag,
-                               const char* output)
-{
-    char src[64];
-    char obj[72];
-    int  any_changed = 0;
-
-    /* On the heap, not the stack: the object list holds every .o name in the
-     * build and the link command holds all of that PLUS the surrounding
-     * flags, so together they are far too big to park in a stack frame.
-     * cmd must stay larger than obj_list - the link line below is
-     * "compiler out_flag output <obj_list> link_flags", so if it were the
-     * smaller of the two a long object list would be silently truncated
-     * into a broken link command (which is what -Wformat-truncation was
-     * warning about when cmd was 2048 and obj_list 4096). */
-    enum { OBJ_LIST_SIZE = 8192, CMD_SIZE = OBJ_LIST_SIZE * 2 };
-    char* obj_list = malloc(OBJ_LIST_SIZE);
-    char* cmd = malloc(CMD_SIZE);
-    if (!obj_list || !cmd)
-    {
-        printf("out of memory\n");
-        free(obj_list);
-        free(cmd);
-        return;
-    }
-
-    obj_list[0] = '\0';
-
-    const char* p = sources;
-    while (*p)
-    {
-        /* skip whitespace */
-        while (*p == ' ' || *p == '\t') p++;
-        if (!*p) break;
-
-        /* read token */
-        int i = 0;
-        while (*p && *p != ' ' && *p != '\t' && i < (int)(sizeof src) - 1)
-            src[i++] = *p++;
-        src[i] = '\0';
-        if (i == 0) continue;
-
-        /* derive .o name: "flow.c" -> "flow.o" */
-        snprintf(obj, sizeof obj, "%s", src);
-        char* dot = strrchr(obj, '.');
-        if (dot) strcpy(dot, ".o");
-        else      strcat(obj, ".o");
-
-        /* append to object list (bounded - obj_list is a plain pointer
-         * now, so there is no sizeof to lean on) */
-        size_t used = strlen(obj_list);
-        snprintf(obj_list + used, OBJ_LIST_SIZE - used, " %s", obj);
-
-        /* compile if .o missing or .c newer */
-        if (get_mtime(src) > get_mtime(obj))
-        {
-            printf("compiling: %s\n", src);
-            snprintf(cmd, CMD_SIZE, "%s %s -c %s %s%s",
-                     compiler, compile_flags, src, obj_flag, obj);
-            execute_cmd(cmd);
-            any_changed = 1;
-        }
-    }
-
-    /* link if anything changed or output missing */
-    if (any_changed || get_mtime(output) == 0)
-    {
-        printf("linking: %s\n", output);
-        snprintf(cmd, CMD_SIZE, "%s %s%s %s %s",
-                 compiler, out_flag, output, obj_list, link_flags);
-        execute_cmd(cmd);
-    }
-    else
-    {
-        printf("No sources changed, skipping.\n");
-    }
-
-    free(obj_list);
-    free(cmd);
-}
-
-static void build_cake(int fastbuild, int debug, const char* test_flag)
+static void build_cake(int debug, const char* test_flag)
 {
     print_header("Build cake");
-
-    const int test = (*test_flag != '\0');
 
 #if defined COMPILER_MSVC
 
     const char* msvc_config = debug ? MSVC_DEBUG_CONFIG_FLAGS : MSVC_RELEASE_CONFIG_FLAGS;
     const char* msvc_link = debug ? MSVC_DEBUG_LINK_FLAGS : MSVC_RELEASE_LINK_FLAGS;
 
-    if (fastbuild)
-    {
-        char flags[512];
-        snprintf(flags, sizeof flags, "%s %s %s", msvc_config, MSVC_COMMON_FLAGS, test_flag);
-        refresh_test_dependency(test);
-        build_incremental("cl ",
-                          flags,
-                          CAKE_SOURCE_FILES,
-                          msvc_link,
-                          " /Fo ",
-                          " /Fe: ",
-                          EXE(CKC_NAME));
-    }
-    else
-    {
-        char* cmd = calloc(2000, sizeof(char));
+    char* cmd = calloc(2000, sizeof(char));
 
-        snprintf(cmd, 2000, "cl %s%s%s /Fe:" EXE(CKC_NAME) CAKE_SOURCE_FILES "%s ",
-                 msvc_config,
-                 MSVC_COMMON_FLAGS,
-                 test_flag,
-                 msvc_link);
+    snprintf(cmd, 2000, "cl %s%s%s /Fe:" EXE(CKC_NAME) CAKE_SOURCE_FILES "%s ",
+             msvc_config,
+             MSVC_COMMON_FLAGS,
+             test_flag,
+             msvc_link);
 
-        execute_cmd(cmd);
+    execute_cmd(cmd);
 
-        free(cmd);
-    }
+    free(cmd);
 
 #endif /* COMPILER_MSVC */
 
@@ -646,26 +510,10 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
 
     const char* clang_win_config = debug ? CLANG_WIN_DEBUG_FLAGS : CLANG_WIN_RELEASE_FLAGS;
 
-    if (fastbuild)
-    {
-        char flags[512];
-        snprintf(flags, sizeof flags, "%s%s%s", clang_win_config, CLANG_WIN_FLAGS, test_flag);
-        refresh_test_dependency(test);
-        build_incremental("clang",
-                          flags,
-                          CAKE_SOURCE_FILES,
-                          "",
-                          "-o ",
-                          "-o ",
-                          EXE(CKC_NAME));
-    }
-    else
-    {
-        char cmd[512];
-        snprintf(cmd, sizeof cmd, "clang %s%s%s -o " EXE(CKC_NAME) " %s",
-                 clang_win_config, CLANG_WIN_FLAGS, test_flag, CAKE_SOURCE_FILES);
-        execute_cmd(cmd);
-    }
+    char cmd[512];
+    snprintf(cmd, sizeof cmd, "clang %s%s%s -o " EXE(CKC_NAME) " %s",
+             clang_win_config, CLANG_WIN_FLAGS, test_flag, CAKE_SOURCE_FILES);
+    execute_cmd(cmd);
 
 #endif /* PLATFORM_WINDOWS && COMPILER_CLANG */
 
@@ -673,26 +521,10 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
 
     const char* clang_unix_config = debug ? "" : " -DNDEBUG -O2 ";
 
-    if (fastbuild)
-    {
-        char flags[512];
-        snprintf(flags, sizeof flags, "%s%s%s", CLANG_UNIX_FLAGS, clang_unix_config, test_flag);
-        refresh_test_dependency(test);
-        build_incremental("clang",
-                          flags,
-                          CAKE_SOURCE_FILES,
-                          "",
-                          "-o ",
-                          "-o ",
-                          CKC_NAME);
-    }
-    else
-    {
-        char cmd[512];
-        snprintf(cmd, sizeof cmd, "clang %s%s%s -o " CKC_NAME " %s",
-                 CLANG_UNIX_FLAGS, clang_unix_config, test_flag, CAKE_SOURCE_FILES);
-        execute_cmd(cmd);
-    }
+    char cmd[512];
+    snprintf(cmd, sizeof cmd, "clang %s%s%s -o " CKC_NAME " %s",
+             CLANG_UNIX_FLAGS, clang_unix_config, test_flag, CAKE_SOURCE_FILES);
+    execute_cmd(cmd);
 
 #endif /* (PLATFORM_LINUX || PLATFORM_MACOS) && COMPILER_CLANG */
 
@@ -700,26 +532,10 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
 
     const char* gcc_config = debug ? "" : " -DNDEBUG -O2 ";
 
-    if (fastbuild)
-    {
-        char flags[512];
-        snprintf(flags, sizeof flags, "%s %s %s", GCC_FLAGS, gcc_config, test_flag);
-        refresh_test_dependency(test);
-        build_incremental("gcc",
-                          flags,
-                          CAKE_SOURCE_FILES,
-                          "",
-                          "-o ",
-                          "-o ",
-                          CKC_NAME);
-    }
-    else
-    {
-        char cmd[512];
-        snprintf(cmd, sizeof cmd, "gcc %s %s %s -o " CKC_NAME " %s",
-                 GCC_FLAGS, gcc_config, test_flag, CAKE_SOURCE_FILES);
-        execute_cmd(cmd);
-    }
+    char cmd[512];
+    snprintf(cmd, sizeof cmd, "gcc %s %s %s -o " CKC_NAME " %s",
+             GCC_FLAGS, gcc_config, test_flag, CAKE_SOURCE_FILES);
+    execute_cmd(cmd);
 
 #endif /* COMPILER_GCC && !COMPILER_TINYC */
 }
@@ -732,37 +548,21 @@ static void build_cake(int fastbuild, int debug, const char* test_flag)
  * Linking those into the IDE fails with unresolved externals.
  * That is why this function takes no test_flag.
  */
-static void build_cake_ide(int fastbuild, int debug)
+static void build_cake_ide(int debug)
 {
     print_header("Build cake IDE");
 
 #if defined COMPILER_MSVC
 
     const char* msvc_config = debug ? MSVC_DEBUG_CONFIG_FLAGS : MSVC_RELEASE_CONFIG_FLAGS;
-    const char* msvc_link = debug ? MSVC_DEBUG_LINK_FLAGS : MSVC_RELEASE_LINK_FLAGS;
 
-    if (fastbuild)
-    {
-        char ide_flags[512];
-        snprintf(ide_flags, sizeof ide_flags, "%s %s", msvc_config, MSVC_COMMON_FLAGS);
-        build_incremental("cl ",
-                          ide_flags,
-                          CAKE_IDE_SOURCE_FILES,
-                          msvc_link,
-                          " ../vc/ide/ide.res /Fo ",
-                          " /Fe: ",
-                          EXE(CAKE_NAME));
-    }
-    else
-    {
-        execute_cmd("rc ../vc/ide/ide.rc");
+    execute_cmd("rc ../vc/ide/ide.rc");
 
-        char* cmd = calloc(2000, sizeof(char));
-        snprintf(cmd, 2000, "cl %s%s  /Fe:" EXE(CAKE_NAME) " ide_win32.c ../vc/ide/ide.res  %s",
-                 MSVC_COMMON_FLAGS, msvc_config, CAKE_IDE_SOURCE_FILES);
-        execute_cmd(cmd);
-        free(cmd);
-    }
+    char* cmd = calloc(2000, sizeof(char));
+    snprintf(cmd, 2000, "cl %s%s  /Fe:" EXE(CAKE_NAME) " ide_win32.c ../vc/ide/ide.res  %s",
+             MSVC_COMMON_FLAGS, msvc_config, CAKE_IDE_SOURCE_FILES);
+    execute_cmd(cmd);
+    free(cmd);
 
 #endif /* COMPILER_MSVC */
 
@@ -770,19 +570,10 @@ static void build_cake_ide(int fastbuild, int debug)
 
     const char* clang_win_config = debug ? CLANG_WIN_DEBUG_FLAGS : CLANG_WIN_RELEASE_FLAGS;
 
-    /* With clang on Windows the IDE is only built incrementally. */
-    if (fastbuild)
-    {
-        char ide_flags[512];
-        snprintf(ide_flags, sizeof ide_flags, "%s%s", clang_win_config, CLANG_WIN_FLAGS);
-        build_incremental("clang",
-                          ide_flags,
-                          CAKE_IDE_SOURCE_FILES,
-                          "",
-                          "-o ",
-                          "-o ",
-                          EXE(CAKE_NAME));
-    }
+    char cmd[512];
+    snprintf(cmd, sizeof cmd, "clang %s%s -o " EXE(CAKE_NAME) " %s",
+             clang_win_config, CLANG_WIN_FLAGS, CAKE_IDE_SOURCE_FILES);
+    execute_cmd(cmd);
 
 #endif /* PLATFORM_WINDOWS && COMPILER_CLANG */
 
@@ -790,55 +581,20 @@ static void build_cake_ide(int fastbuild, int debug)
 
     const char* clang_unix_config = debug ? "" : " -DNDEBUG -O2 ";
 
-    if (fastbuild)
-    {
-        char ide_flags[512];
-        snprintf(ide_flags, sizeof ide_flags, "%s%s", CLANG_UNIX_FLAGS, clang_unix_config);
-        /* Use the platform-specific frontend file. */
+    char cmd[512];
+    /* Use Cocoa frontend on macOS, X11 frontend on Linux. */
 #if defined PLATFORM_MACOS
-        build_incremental("clang",
-                          ide_flags,
-                          "ide_cocoa.c " CAKE_IDE_SOURCE_FILES,
-                          " -framework Cocoa -framework CoreText -framework CoreGraphics -lobjc ",
-                          "-o ",
-                          "-o ",
-                          EXE(CAKE_NAME));
+    snprintf(cmd, sizeof cmd, "clang %s%s  ide_cocoa.c  -framework Cocoa -framework CoreText -framework CoreGraphics -lobjc -o " EXE(CAKE_NAME) " %s",
+         CLANG_UNIX_FLAGS, clang_unix_config, CAKE_IDE_SOURCE_FILES);
+    execute_cmd(cmd);
 #else
-        /* Xft.h pulls in <ft2build.h>, which on Debian/Ubuntu lives under
-         * /usr/include/freetype2 rather than directly on the default
-         * include path, so it must be added explicitly. */
-        char ide_flags_x11[560];
-        snprintf(ide_flags_x11, sizeof ide_flags_x11, "%s -I/usr/include/freetype2 ", ide_flags);
-        /* -lpthread: tinycthread.c (the compile now runs on a worker thread -
-         * see compile_stream_start in ide.c) is pthreads underneath on
-         * POSIX. glibc 2.34+ folded pthread into libc so this links without
-         * it on new distros, but older ones still need it explicitly. */
-        build_incremental("clang",
-                          ide_flags_x11,
-                          "ide_x11.c " CAKE_IDE_SOURCE_FILES,
-                          " -lX11 -lXft -lXrender -lfreetype -lpthread ",
-                          "-o ",
-                          "-o ",
-                          EXE(CAKE_NAME));
+    /* Xft.h pulls in <ft2build.h>, which on Debian/Ubuntu lives under
+     * /usr/include/freetype2 rather than directly on the default
+     * include path, so it must be added explicitly. */
+    snprintf(cmd, sizeof cmd, "clang %s%s -I/usr/include/freetype2  ide_x11.c %s -o " EXE(CAKE_NAME) " %s",
+         CLANG_UNIX_FLAGS, clang_unix_config, "-lX11 -lXft -lXrender -lfreetype -lpthread", CAKE_IDE_SOURCE_FILES);
+    execute_cmd(cmd);
 #endif
-    }
-    else
-    {
-        char cmd[512];
-        /* Use Cocoa frontend on macOS, X11 frontend on Linux. */
-    #if defined PLATFORM_MACOS
-        snprintf(cmd, sizeof cmd, "clang %s%s  ide_cocoa.c  -framework Cocoa -framework CoreText -framework CoreGraphics -lobjc -o " EXE(CAKE_NAME) " %s",
-             CLANG_UNIX_FLAGS, clang_unix_config, CAKE_IDE_SOURCE_FILES);
-        execute_cmd(cmd);
-    #else
-        /* Xft.h pulls in <ft2build.h>, which on Debian/Ubuntu lives under
-         * /usr/include/freetype2 rather than directly on the default
-         * include path, so it must be added explicitly. */
-        snprintf(cmd, sizeof cmd, "clang %s%s -I/usr/include/freetype2  ide_x11.c %s -o " EXE(CAKE_NAME) " %s",
-             CLANG_UNIX_FLAGS, clang_unix_config, "-lX11 -lXft -lXrender -lfreetype -lpthread", CAKE_IDE_SOURCE_FILES);
-        execute_cmd(cmd);
-    #endif
-    }
 
 #endif /* (PLATFORM_LINUX || PLATFORM_MACOS) && COMPILER_CLANG */
 
@@ -846,50 +602,20 @@ static void build_cake_ide(int fastbuild, int debug)
 
     const char* gcc_config = debug ? "" : " -DNDEBUG -O2 ";
 
-    if (fastbuild)
-    {
-        char ide_flags[512];
-        snprintf(ide_flags, sizeof ide_flags, "%s %s", GCC_FLAGS, gcc_config);
-    #if defined PLATFORM_MACOS
-        build_incremental("gcc",
-                  ide_flags,
-                  "ide_cocoa.c " CAKE_IDE_SOURCE_FILES,
-                  " -framework Cocoa -framework CoreText -framework CoreGraphics -lobjc ",
-                  "-o ",
-                  "-o ",
-                  EXE(CAKE_NAME));
-    #else
-        /* Xft.h pulls in <ft2build.h>, which on Debian/Ubuntu lives under
-         * /usr/include/freetype2 rather than directly on the default
-         * include path, so it must be added explicitly. */
-        char ide_flags_x11[560];
-        snprintf(ide_flags_x11, sizeof ide_flags_x11, "%s -I/usr/include/freetype2 ", ide_flags);
-        build_incremental("gcc",
-                  ide_flags_x11,
-                  "ide_x11.c " CAKE_IDE_SOURCE_FILES,
-                  " -lX11 -lXft -lXrender -lfreetype -lpthread ",
-                  "-o ",
-                  "-o ",
-                  EXE(CAKE_NAME));
-    #endif
-    }
-    else
-    {
-        char cmd[512];
-        /* Use Cocoa frontend on macOS, X11 frontend on Linux. */
-    #if defined PLATFORM_MACOS
-        snprintf(cmd, sizeof cmd, "gcc %s %s  ide_cocoa.c  -framework Cocoa -framework CoreText -framework CoreGraphics -lobjc -o " EXE(CAKE_NAME) " %s",
-             GCC_FLAGS, gcc_config, CAKE_IDE_SOURCE_FILES);
-        execute_cmd(cmd);
-    #else
-        /* Xft.h pulls in <ft2build.h>, which on Debian/Ubuntu lives under
-         * /usr/include/freetype2 rather than directly on the default
-         * include path, so it must be added explicitly. */
-        snprintf(cmd, sizeof cmd, "gcc %s %s -I/usr/include/freetype2  ide_x11.c %s -o " EXE(CAKE_NAME) " %s",
-             GCC_FLAGS, gcc_config, "-lX11 -lXft -lXrender -lfreetype -lpthread", CAKE_IDE_SOURCE_FILES);
-        execute_cmd(cmd);
-    #endif
-    }
+    char cmd[512];
+    /* Use Cocoa frontend on macOS, X11 frontend on Linux. */
+#if defined PLATFORM_MACOS
+    snprintf(cmd, sizeof cmd, "gcc %s %s  ide_cocoa.c  -framework Cocoa -framework CoreText -framework CoreGraphics -lobjc -o " EXE(CAKE_NAME) " %s",
+         GCC_FLAGS, gcc_config, CAKE_IDE_SOURCE_FILES);
+    execute_cmd(cmd);
+#else
+    /* Xft.h pulls in <ft2build.h>, which on Debian/Ubuntu lives under
+     * /usr/include/freetype2 rather than directly on the default
+     * include path, so it must be added explicitly. */
+    snprintf(cmd, sizeof cmd, "gcc %s %s -I/usr/include/freetype2  ide_x11.c %s -o " EXE(CAKE_NAME) " %s",
+         GCC_FLAGS, gcc_config, "-lX11 -lXft -lXrender -lfreetype -lpthread", CAKE_IDE_SOURCE_FILES);
+    execute_cmd(cmd);
+#endif
 
 #endif /* COMPILER_GCC && !COMPILER_TINYC */
 }
@@ -1161,7 +887,7 @@ int main(int argc, char* argv[])
 {
     print_header("Cake Build " CAKE_VERSION);
 
-    int fastbuild = 0;
+    int fast = 0;
     int full = 0;
     int run_test_suite = 0;
     int debug = 0;
@@ -1170,7 +896,7 @@ int main(int argc, char* argv[])
     {
         if (strcmp(argv[i], "fast") == 0)
         {
-            fastbuild = 1;
+            fast = 1;
         }
         else if (strcmp(argv[i], "full") == 0)
         {
@@ -1196,7 +922,7 @@ int main(int argc, char* argv[])
         {
             printf("unrecognized option: %s\n", argv[i]);
             printf("usage: %s [fast] [full] [test] [debug] [-cake-headers]\n", argv[0]);
-            printf("  fast  - incremental build, skips tools/docs/inner-tests/amalgamation\n");
+            printf("  fast  - only compile the IDE\n");
             printf("  full  - build everything with -DTEST, but do not run the test suite\n");
             printf("  test  - same as full, and run the test suite afterwards\n");
             printf("  debug - build without optimizations/-DNDEBUG\n");
@@ -1205,16 +931,16 @@ int main(int argc, char* argv[])
         }
     }
 
-    /* a full build is the opposite of an incremental one */
+    /* full is the opposite of fast */
     if (full)
     {
-        fastbuild = 0;
+        fast = 0;
     }
 
     const char* test_flag = full ? " -DTEST " : "";
     const char* cake_flags = cake_headers ? " -cake-headers " : "";
 
-    if (!fastbuild)
+    if (!fast)
     {
         build_tools();
         build_docs();
@@ -1224,11 +950,14 @@ int main(int argc, char* argv[])
         build_amalgamation();
     }
 
-    build_cake(fastbuild, debug, test_flag);
-    build_cake_ide(fastbuild, debug);
+    if (!fast)
+    {
+        build_cake(debug, test_flag);
+    }
+    build_cake_ide(debug);
 
 #ifndef CAKE_HEADERS
-    if (!fastbuild)
+    if (!fast)
     {
         generate_config();
         build_installer(); /* needs cake.json */

@@ -675,10 +675,6 @@ struct ui_node {
                             * when closed (a document/editor window - see
                             * ui_set_transient/ui_screen_close_modal/
                             * ui_screen_take_closed_window). */
-    int untitled;         /* MODAL (window wrapper) only: 1 while it's still
-                            * at its original never-saved placeholder path -
-                            * see ui_set_untitled. App-only flag; the
-                            * framework never reads it itself. */
 
                             /* EDITOR only: render_editor's scan cache - the byte offset and block-
                              * comment state at the start of line `scan_line`, so a repaint at an
@@ -1138,6 +1134,9 @@ static char* xstrdup(const char* s)
     return p;
 }
 
+/* Bumped whenever a node is added, detached or freed - see live_focused(). */
+static unsigned g_tree_changes;
+
 /* Shared allocation path for ui_create_element(). */
 static ui_node* alloc_node(int type)
 {
@@ -1164,6 +1163,7 @@ static void node_add_child(ui_node* parent, ui_node* child)
         ui_fatal_oom("node_add_child");
     parent->children = grown;
     parent->children[parent->child_count++] = child;
+    g_tree_changes++;
 }
 
 static void free_diagnostics(ui_diagnostic* d)
@@ -1191,6 +1191,7 @@ static void node_free(ui_node* n)
 {
     if (!n)
         return;
+    g_tree_changes++;
     for (int i = 0; i < n->child_count; i++)
         node_free(n->children[i]);
     free(n->children);
@@ -1722,17 +1723,6 @@ int ui_get_transient(const ui_node* n)
     return n && n->transient;
 }
 
-void ui_set_untitled(ui_node* n, int untitled)
-{
-    if (n)
-        n->untitled = untitled;
-}
-
-int ui_get_untitled(const ui_node* n)
-{
-    return n && n->untitled;
-}
-
 void ui_set_dock(ui_node* n, ui_dock_side side, int size)
 {
     if (!n)
@@ -2049,7 +2039,21 @@ static int node_in_tree(const ui_node* root, const ui_node* n)
  * detached by the app since it got focus). */
 static ui_node* live_focused(const ui_screen* s)
 {
-    return (s->focused && node_in_tree(s->root, s->focused)) ? s->focused : NULL;
+    /* The tree walk runs every frame, so it is redone only when a node was
+     * added, removed or freed since the last check, or the focus changed. */
+    static unsigned checked_changes;
+    static const ui_node* checked_focused;
+    static const ui_node* checked_root;
+    static int checked_live;
+    if (s->focused != checked_focused || s->root != checked_root ||
+        g_tree_changes != checked_changes)
+    {
+        checked_focused = s->focused;
+        checked_root = s->root;
+        checked_changes = g_tree_changes;
+        checked_live = s->focused && node_in_tree(s->root, s->focused);
+    }
+    return checked_live ? s->focused : NULL;
 }
 
 /* `n` if it has help (see ui_set_help), else NULL. */
@@ -2317,6 +2321,7 @@ void ui_insert_child(ui_node* parent, ui_node* child, int index)
     for (int j = parent->child_count - 1; j > index; j--)
         parent->children[j] = parent->children[j - 1];
     parent->children[index] = child;
+    g_tree_changes++;
 }
 
 void ui_remove_child(ui_node* parent, ui_node* child)
@@ -2328,6 +2333,7 @@ void ui_remove_child(ui_node* parent, ui_node* child)
             for (int j = i; j < parent->child_count - 1; j++)
                 parent->children[j] = parent->children[j + 1];
             parent->child_count--;
+            g_tree_changes++;
             /* A listbox emptied to be repopulated (the clear-then-refill
              * idiom every list refresh uses) starts unscrolled again, so a
              * pan left over from the previous contents can't leave the new,
@@ -10151,11 +10157,15 @@ static int editor_content_cols(ui_node* n)
                 diag = diag->next;
             if (diag && diag->line - 1 == line_idx)
             {
-                /* Only the worst one (drawn first) extends the scroll range; the
-                 * rest are shown only as far as the editor's border. */
-                char buf[256];
-                format_diagnostic(buf, sizeof buf, line_worst_diagnostic(diag, &diag));
-                cols += utf8_col_of(buf, (int)strlen(buf));
+                /* render_diagnostic draws the whole group side by side */
+                int group_line = diag->line;
+                while (diag && diag->line == group_line)
+                {
+                    char buf[256];
+                    format_diagnostic(buf, sizeof buf, diag);
+                    cols += utf8_col_of(buf, (int)strlen(buf));
+                    diag = diag->next;
+                }
             }
 
             if (cols > max_cols)

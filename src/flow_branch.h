@@ -121,7 +121,8 @@ bool flow_branch_arm_has_entries(const struct flow_branch* arm, const struct flo
 void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch* const arms[], int num_arms);
 void flow_branch_merge_a_b(struct flow_branch* parent, const struct flow_branch* a, const struct flow_branch* b);
 void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_branch* _Opt p_src,
-                                    const struct flow_branch* _Opt p_retag_origin);
+                                    const struct flow_branch* _Opt p_retag_origin,
+                                    bool full_state, bool join_reached_before);
 
 void flow_branch_name_to_string(const struct flow_branch* _Opt map, struct osstream* ss);
 void flow_branch_debug_print(const struct flow_branch* _Opt map, int indent);

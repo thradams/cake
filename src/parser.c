@@ -4822,6 +4822,24 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         }
         else
         {
+            if (p_init_declarator->p_declarator->object.type.category == TYPE_CATEGORY_FUNCTION)
+            {
+                struct type return_type = get_function_return_type(&p_init_declarator->p_declarator->object.type);
+                if (return_type.category != TYPE_CATEGORY_FUNCTION &&
+                    (return_type.type_qualifier_flags & (TYPE_QUALIFIER_CONST | TYPE_QUALIFIER_VOLATILE)))
+                {
+                    const char* qualifier_name =
+                        (return_type.type_qualifier_flags & TYPE_QUALIFIER_CONST) ? "const" : "volatile";
+                    diagnostic(W_QUALIFIER_ON_RETURN_TYPE,
+                               ctx,
+                               p_init_declarator->p_declarator->first_token_opt,
+                               NULL,
+                               "type qualifier '%s' on return type has no effect",
+                               qualifier_name);
+                }
+                type_destroy(&return_type);
+            }
+
             if (p_init_declarator->p_declarator->object.type.category != TYPE_CATEGORY_FUNCTION &&
                 !(p_init_declarator->p_declarator->object.type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF))
             {
@@ -13242,6 +13260,15 @@ void selection_statement_delete(struct selection_statement* _Owner _Opt p)
 */
 static void check_constant_condition(const struct parser_ctx* ctx, const struct expression* p_expression)
 {
+    if (p_expression->expression_type == EXPR_ASSIGNMENT_ASSIGN)
+    {
+        diagnostic(W_ASSIGNMENT_IN_CONDITION,
+            ctx,
+            p_expression->first_token,
+            NULL,
+            "assignment in condition, use '==' for comparison or extra parentheses to silence");
+    }
+
     if (object_has_constant_value(&p_expression->object))
     {
         diagnostic(W_CONDITIONAL_IS_CONSTANT,

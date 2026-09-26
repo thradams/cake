@@ -131,7 +131,6 @@ These headers are used by the IDE.
 | Argument | Effect |
 |---|---|
 | *(none)* | full build: tools, docs, amalgamated `lib.c`, `cake` and the IDE |
-| `fast` | incremental build of `cake` and the IDE only — skips tools, docs, inner tests and the amalgamation |
 | `full` | build everything with `-DTEST`, but do not run the test suite |
 | `test` | same as `full`, then run the test suite |
 | `debug` | build without optimizations and without `-DNDEBUG` |

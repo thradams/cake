@@ -6,6 +6,7 @@
 #pragma once
 #include "parser.h"
 #include "flow_branch.h"
+#include <time.h>
 
 struct flow_label_state
 {
@@ -44,7 +45,7 @@ struct flow_deferred_pointee_effect
     int argument_serial;
 };
 
-/* Entries in flow_ctx.reported_findings. */
+/* Entries in flow_ctx.p_reported_findings. */
 #define FLOW_MAX_REPORTED_FINDINGS 256
 
 /* Branches explained for one finding; the others are only counted. */
@@ -102,7 +103,12 @@ struct flow_ctx
     */
     int iteration_pass;
 
+    clock_t function_start_time; /* see flow_start_visit_declaration */
+
     struct flow_branch* _Opt p_throw_join_map;  /*map where throws are joined*/
+    bool throw_join_reached;    /* a throw reached p_throw_join_map */
+    bool break_join_reached;    /* a break reached p_break_join_map */
+    bool continue_join_reached; /* a continue reached p_continue_join_map */
     struct flow_branch* _Opt p_break_join_map;  /*map where breaks are joined*/
     struct flow_branch* _Opt p_continue_join_map;  /*map where continues are joined*/
     struct flow_branch* _Opt p_initial_map;     /*map snapshot of the original state*/
@@ -126,8 +132,8 @@ struct flow_ctx
 
     /* Findings accumulated or already reported, so one fact is reported once
        (see flow_finding_record); cleared per assignment. */
-    struct flow_reported_finding reported_findings[FLOW_MAX_REPORTED_FINDINGS];
-    int findings_depth; /* nested assignment checks sharing reported_findings */
+    struct flow_reported_finding* _Owner _Opt p_reported_findings; /* FLOW_MAX_REPORTED_FINDINGS entries, allocated on first use */
+    int findings_depth; /* nested assignment checks sharing p_reported_findings */
     struct osstream findings_text; /* pending messages, each ending in '\0' */
 
     /*

@@ -699,6 +699,10 @@ static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_
                     p_member != NULL;
                     p_member = p_member->next)
             {
+                if (type_is_array(&p_member->type) && p_member->type.array_num_elements > 0 && p_member->members.head == NULL)
+                {
+                    continue; /* array not made yet (MAKE_STATE_ANY_LAZY_ARRAYS) */
+                }
                 flow_parameter_object_init_r(ctx, p_member, &p_member->type, p_token, depth, force_opt);
             }
             return;
@@ -778,7 +782,8 @@ static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_
                     ? get_array_item_type(p_type)
                     : type_remove_pointer(p_type);
                 pointee_is_opt = type_is_nullable(&pointed_type, nullable_enabled);
-                make_object(&pointed_type, p_pointed, MAKE_STATE_ANY, ctx->ctx->options.target);
+                /* arrays are made at their first constant index, see EXPR_POSTFIX_ARRAY */
+                make_object(&pointed_type, p_pointed, type_is_pointed_out(p_type) ? MAKE_STATE_ANY : MAKE_STATE_ANY_LAZY_ARRAYS, ctx->ctx->options.target);
                 type_destroy(&pointed_type);
             }
 
@@ -921,7 +926,7 @@ static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_
             if (p_pointed != NULL)
             {
                 struct type pointed_type = type_remove_pointer(p_type);
-                make_object(&pointed_type, p_pointed, MAKE_STATE_ANY, ctx->ctx->options.target);
+                make_object(&pointed_type, p_pointed, MAKE_STATE_ANY_LAZY_ARRAYS, ctx->ctx->options.target);
                 type_destroy(&pointed_type);
             }
 
@@ -1465,6 +1470,7 @@ static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_state
 static void flow_visit_try_statement(struct flow_ctx* ctx, struct try_statement* p_try_statement)
 {
     struct flow_branch* _Opt p_throw_join_map_old = ctx->p_throw_join_map;
+    const bool throw_join_reached_old = ctx->throw_join_reached;
 
     if (ctx->p_current_flow_branch == NULL)
         return;
@@ -1477,6 +1483,7 @@ static void flow_visit_try_statement(struct flow_ctx* ctx, struct try_statement*
         return; /* no map to work with */
 
     ctx->p_throw_join_map = p_throw_join;
+    ctx->throw_join_reached = false;
 
     /* --- visit the try body --- */
     struct flow_branch* _Opt p_try_branch = flow_branch_arena_new(&ctx->flow_branch_arena, p_before, FLOW_BRANCH_TRY_BRANCH);
@@ -1502,6 +1509,8 @@ static void flow_visit_try_statement(struct flow_ctx* ctx, struct try_statement*
        entered with.
     */
     ctx->p_throw_join_map = p_throw_join_map_old;
+    const bool throw_join_reached = ctx->throw_join_reached;
+    ctx->throw_join_reached = throw_join_reached_old;
 
     const bool try_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->secondary_block);
     const bool catch_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->catch_secondary_block_opt);
@@ -1555,7 +1564,7 @@ static void flow_visit_try_statement(struct flow_ctx* ctx, struct try_statement*
         {
             arms[num_arms++] = p_try_branch;
         }
-        if (flow_branch_arm_has_entries(p_throw_join, p_before))
+        if (throw_join_reached)
         {
             arms[num_arms++] = p_throw_join;
         }
@@ -1575,6 +1584,7 @@ static void flow_visit_switch_statement(struct flow_ctx* ctx, struct selection_s
     /* Saved outside the try so the catch below restores them on every exit. */
     struct flow_branch* _Opt old_p_initial_map = ctx->p_initial_map;
     struct flow_branch* _Opt old_p_break_join_map = ctx->p_break_join_map;
+    const bool old_break_join_reached = ctx->break_join_reached;
     const struct object* _Opt old_p_switch_obj_key = ctx->p_switch_obj_key;
 
     try
@@ -1618,6 +1628,7 @@ static void flow_visit_switch_statement(struct flow_ctx* ctx, struct selection_s
 
         ctx->p_initial_map = p_before;
         ctx->p_break_join_map = p_break_join;
+        ctx->break_join_reached = false;
 
         /* the one object the condition refers to (`x`, `s->kind`); several targets: no narrowing */
         ctx->p_switch_obj_key = NULL;
@@ -1660,7 +1671,7 @@ static void flow_visit_switch_statement(struct flow_ctx* ctx, struct selection_s
             {
                 arms[num_arms++] = ctx->p_current_flow_branch;
             }
-            if (flow_branch_arm_has_entries(p_break_join, p_before))
+            if (ctx->break_join_reached)
             {
                 arms[num_arms++] = p_break_join;
             }
@@ -1688,6 +1699,7 @@ static void flow_visit_switch_statement(struct flow_ctx* ctx, struct selection_s
     /* restore */
     ctx->p_initial_map = old_p_initial_map;
     ctx->p_break_join_map = old_p_break_join_map;
+    ctx->break_join_reached = old_break_join_reached;
     ctx->p_switch_obj_key = old_p_switch_obj_key;
 }
 
@@ -1904,10 +1916,17 @@ static struct flow_reported_finding* _Opt flow_finding_find_add(struct flow_ctx*
                                                                 int diagnostic_id,
                                                                 bool* is_new)
 {
-    struct flow_reported_finding* const findings = ctx->reported_findings;
     const int max = FLOW_MAX_REPORTED_FINDINGS;
 
     *is_new = false;
+
+    if (ctx->p_reported_findings == NULL)
+    {
+        ctx->p_reported_findings = calloc(max, sizeof(struct flow_reported_finding));
+        if (ctx->p_reported_findings == NULL)
+            return NULL;
+    }
+    struct flow_reported_finding* const findings = ctx->p_reported_findings;
 
     int i = 0;
     while (i < max && findings[i].p_object != NULL)
@@ -2003,12 +2022,12 @@ static void flow_finding_record(struct flow_ctx* ctx,
    so the same fact is not reported again until the table is cleared. */
 static void flow_findings_flush(struct flow_ctx* ctx)
 {
-    if (ctx->findings_depth > 0)
+    if (ctx->findings_depth > 0 || ctx->p_reported_findings == NULL)
         return; /* the outermost assignment flushes */
 
-    for (int i = 0; i < FLOW_MAX_REPORTED_FINDINGS && ctx->reported_findings[i].p_object != NULL; i++)
+    for (int i = 0; i < FLOW_MAX_REPORTED_FINDINGS && ctx->p_reported_findings[i].p_object != NULL; i++)
     {
-        struct flow_reported_finding* p = &ctx->reported_findings[i];
+        struct flow_reported_finding* p = &ctx->p_reported_findings[i];
         if (p->message_offset < 0 || ctx->findings_text.c_str == NULL)
             continue;
         const char* message = ctx->findings_text.c_str + p->message_offset;
@@ -2044,7 +2063,8 @@ static void flow_findings_flush(struct flow_ctx* ctx)
 static void flow_reported_findings_clear(struct flow_ctx* ctx)
 {
     flow_findings_flush(ctx); /* a pending report is never dropped */
-    ctx->reported_findings[0].p_object = NULL;
+    if (ctx->p_reported_findings != NULL)
+        ctx->p_reported_findings[0].p_object = NULL;
 }
 
 /* A check whose findings are accumulated and reported together. Nested scopes
@@ -2665,6 +2685,44 @@ static void flow_apply_pointee_param_effect(struct flow_ctx* ctx,
     ss_close(&arg_ss);
 }
 
+/* Makes the elements of a parameter pointee's array (MAKE_STATE_ANY_LAZY_ARRAYS),
+   seeded at the function root as they would have been on entry. */
+static void flow_make_lazy_array(struct flow_ctx* ctx, struct object* _Opt p_array, const struct token* _Opt p_token)
+{
+    if (p_array == NULL ||
+        !type_is_array(&p_array->type) ||
+        p_array->type.array_num_elements == 0 ||
+        p_array->members.head != NULL)
+    {
+        return;
+    }
+
+    struct flow_branch* _Opt p_current = ctx->p_current_flow_branch;
+    for (struct flow_branch* _Opt p_branch = p_current; p_branch != NULL; p_branch = p_branch->p_parent_map)
+    {
+        ctx->p_current_flow_branch = p_branch;
+    }
+
+    struct type item_type = get_array_item_type(&p_array->type);
+    const unsigned long long max_elements = p_array->type.array_num_elements > 1000 ? 1000 : p_array->type.array_num_elements;
+    for (unsigned long long k = 0; k < max_elements; k++)
+    {
+        struct object* _Owner _Opt p_new_element = calloc(1, sizeof(struct object));
+        if (p_new_element == NULL)
+        {
+            break;
+        }
+        char designator[200] = { 0 };
+        snprintf(designator, sizeof designator, "%s[%llu]", p_array->member_designator ? p_array->member_designator : "", k);
+        make_object_with_member_designator(&item_type, p_new_element, designator, MAKE_STATE_ANY_LAZY_ARRAYS, ctx->ctx->options.target);
+        p_new_element->parent = p_array;
+        flow_parameter_object_init_r(ctx, p_new_element, &p_new_element->type, p_token, 1, false);
+        object_list_push(&p_array->members, p_new_element);
+    }
+    type_destroy(&item_type);
+    ctx->p_current_flow_branch = p_current;
+}
+
 static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                                              struct expression* p_expression,
                                              const struct object* _Opt p_object_dest, /* uninitialized always */
@@ -2755,6 +2813,16 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                                                 p_object_src, dtor_here, NULL, p_object_src);
             }
             return;
+        }
+
+        /* a side made without elements (MAKE_STATE_ANY_LAZY_ARRAYS) gets them when the other has them */
+        if (p_object_src->members.head && !p_object_dest->members.head)
+        {
+            flow_make_lazy_array(ctx, (struct object* _Opt)p_object_dest, p_expression->first_token);
+        }
+        else if (!p_object_src->members.head && p_object_dest->members.head)
+        {
+            flow_make_lazy_array(ctx, (struct object* _Opt)p_object_src, p_expression->first_token);
         }
 
         if (p_object_src->members.head && p_object_dest->members.head)
@@ -2972,7 +3040,7 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
         /*
            Report each finding once per assignment, not once per source
            alternative: every alternative supporting it is accumulated in
-           reported_findings (flow_finding_record) and flushed at the end as
+           p_reported_findings (flow_finding_record) and flushed at the end as
            one report with the count. An object that accumulated many
            alternatives used to repeat one identical message: `return
            identity_pair;` at flow3.c:8757 emitted the same "possible null
@@ -6939,6 +7007,8 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                         p_left_alternative->value_kind == FLOW_VALUE_KIND_REF &&
                         p_left_alternative->value.p != NULL)
                         {
+                            flow_make_lazy_array(ctx, (struct object* _Opt)p_left_alternative->value.p, p_expression->first_token);
+
                             struct object* _Opt p_element = object_get_member(p_left_alternative->value.p, (size_t)index);
                             if (p_element == NULL)
                                 continue;
@@ -9580,7 +9650,7 @@ static void flow_merge_loop_exits(struct flow_ctx* ctx,
                                     exit_arms, num_false_arms + 1, p_token,
                                     false);
 
-    if (flow_branch_arm_has_entries(p_break_join, p_before))
+    if (ctx->break_join_reached)
     {
         arms[num_arms++] = p_break_join;
     }
@@ -9948,7 +10018,7 @@ static struct flow_branch* _Opt flow_loop_body_end(struct flow_ctx* ctx,
     if (p_end != NULL &&
         p_body_entry != NULL &&
         p_continue_join != NULL &&
-        flow_branch_arm_has_entries(p_continue_join, p_body_entry))
+        ctx->continue_join_reached)
     {
         /* an unreachable end must not be the parent: everything under it reads as dead */
         struct flow_branch* _Opt p_joined =
@@ -9987,6 +10057,8 @@ static void flow_visit_loop(struct flow_ctx* ctx,
     struct flow_branch* _Opt old_p_initial_map = ctx->p_initial_map;
     struct flow_branch* _Opt old_p_break_join_map = ctx->p_break_join_map;
     struct flow_branch* _Opt old_p_continue_join_map = ctx->p_continue_join_map;
+    const bool old_break_join_reached = ctx->break_join_reached;
+    const bool old_continue_join_reached = ctx->continue_join_reached;
 
     if (ctx->p_current_flow_branch == NULL)
         return;
@@ -9998,6 +10070,7 @@ static void flow_visit_loop(struct flow_ctx* ctx,
 
     ctx->p_initial_map = p_before;
     ctx->p_break_join_map = p_break_join;
+    ctx->break_join_reached = false;
 
     /* First pass — suppress warnings */
     diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
@@ -10040,6 +10113,7 @@ static void flow_visit_loop(struct flow_ctx* ctx,
 
     ctx->p_continue_join_map = p_pass1_body_entry == NULL ? NULL :
         flow_branch_arena_new(&ctx->flow_branch_arena, p_pass1_body_entry, FLOW_BRANCH_CONTINUE_JOIN);
+    ctx->continue_join_reached = false;
 
     flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
 
@@ -10141,6 +10215,7 @@ static void flow_visit_loop(struct flow_ctx* ctx,
         struct flow_branch* _Opt p_pass2_body_entry = ctx->p_current_flow_branch;
         ctx->p_continue_join_map = p_pass2_body_entry == NULL ? NULL :
             flow_branch_arena_new(&ctx->flow_branch_arena, p_pass2_body_entry, FLOW_BRANCH_CONTINUE_JOIN);
+        ctx->continue_join_reached = false;
 
         ctx->iteration_pass = 2; /*second pass -- see flow_visit_iteration_statement*/
         flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
@@ -10226,6 +10301,8 @@ static void flow_visit_loop(struct flow_ctx* ctx,
     ctx->p_initial_map = old_p_initial_map;
     ctx->p_break_join_map = old_p_break_join_map;
     ctx->p_continue_join_map = old_p_continue_join_map;
+    ctx->break_join_reached = old_break_join_reached;
+    ctx->continue_join_reached = old_continue_join_reached;
 }
 
 static void flow_visit_while_statement(struct flow_ctx* ctx, struct iteration_statement* p_iteration_statement)
@@ -10933,7 +11010,8 @@ static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statemen
 
             flow_branch_accumulate_into_join(ctx->p_throw_join_map,
                                             ctx->p_current_flow_branch,
-                                            p_throw_snapshot);
+                                            p_throw_snapshot, false, ctx->throw_join_reached);
+            ctx->throw_join_reached = true;
             
             flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list,
                                              p_jump_statement->first_token);
@@ -10982,7 +11060,8 @@ static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statemen
 
                 flow_branch_accumulate_into_join(ctx->p_continue_join_map,
                                                  ctx->p_current_flow_branch,
-                                                 p_continue_snapshot);
+                                                 p_continue_snapshot, false, ctx->continue_join_reached);
+                ctx->continue_join_reached = true;
             }
 
             flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
@@ -10997,7 +11076,8 @@ static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statemen
         {
             if (ctx->p_break_join_map != NULL)
             {
-                flow_branch_accumulate_into_join(ctx->p_break_join_map, ctx->p_current_flow_branch, NULL);
+                flow_branch_accumulate_into_join(ctx->p_break_join_map, ctx->p_current_flow_branch, NULL, false, ctx->break_join_reached);
+                ctx->break_join_reached = true;
             }
 
             flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
@@ -11018,7 +11098,7 @@ static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statemen
                 if (strcmp(ctx->labels[i].label_name, p_jump_statement->label->lexeme) == 0)
                 {
                     flow_branch_accumulate_into_join(ctx->labels[i].p_flow_branch,
-                                                  ctx->p_current_flow_branch, NULL);
+                                                  ctx->p_current_flow_branch, NULL, true, false);
                     found = true;
                     break;
                 }
@@ -11033,7 +11113,7 @@ static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statemen
                 if (p_label_map == NULL) throw;
                 
                 /* Eagerly snapshot state at this goto into the label's own map entries, the same way later jumps to it do via flow_branch_accumulate_into_join -- otherwise the label map starts empty and falls back to its parent chain, which keeps mutating in place and no longer reflects what existed at this goto by the time it's reached. */
-                flow_branch_accumulate_into_join(p_label_map, ctx->p_current_flow_branch, NULL);
+                flow_branch_accumulate_into_join(p_label_map, ctx->p_current_flow_branch, NULL, true, false);
 
                 ctx->labels[ctx->labels_size].label_name = p_jump_statement->label->lexeme;
                 ctx->labels[ctx->labels_size].p_flow_branch = p_label_map;
@@ -11147,7 +11227,7 @@ static void flow_visit_label(struct flow_ctx* ctx, const struct label* p_label)
                        whichever gotos arrived first would be silently lost
                        the moment control also reaches the label normally.
                     */
-                    flow_branch_accumulate_into_join(ctx->labels[i].p_flow_branch, ctx->p_current_flow_branch, NULL);
+                    flow_branch_accumulate_into_join(ctx->labels[i].p_flow_branch, ctx->p_current_flow_branch, NULL, true, false);
                     ctx->p_current_flow_branch = ctx->labels[i].p_flow_branch;
                     break;
                 }
@@ -11983,7 +12063,23 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
         if (ctx->p_current_flow_branch == NULL)
             throw;
 
+        ctx->function_start_time = clock();
+
         flow_visit_declaration(ctx, p_declaration);
+
+        const long elapsed_ms = (long)((clock() - ctx->function_start_time) * 1000 / CLOCKS_PER_SEC);
+        const struct init_declarator* _Opt p_init_declarator = p_declaration->init_declarator_list.head;
+        const struct token* _Opt p_name_opt = p_init_declarator ? p_init_declarator->p_declarator->name_opt : NULL;
+        if (p_declaration->function_body && p_name_opt && elapsed_ms > 5000)
+        {
+            const struct marker m =
+            {
+                .p_token_begin = p_name_opt,
+                .p_token_end = p_name_opt
+            };
+            diagnostic(W_INFO, ctx->ctx, NULL, &m,
+                       "flow analysis of '%s' (line %d) took %ld ms", p_name_opt->lexeme, p_name_opt->line, elapsed_ms);
+        }
 
         flow_allocated_object_arena_clear(&ctx->allocated_object_arena);
         flow_branch_arena_clear(&ctx->flow_branch_arena);
@@ -11997,6 +12093,7 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 void flow_visit_ctx_destroy(_Dtor struct flow_ctx* ctx)
 {
     ss_close(&ctx->findings_text);
+    free(ctx->p_reported_findings);
     flow_allocated_object_arena_clear(&ctx->allocated_object_arena);
     flow_branch_arena_clear(&ctx->flow_branch_arena);
     flow_alternatives_pool_shutdown();
