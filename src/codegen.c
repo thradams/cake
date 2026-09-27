@@ -1276,6 +1276,7 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
     else
     {
         const bool is_msvc = ctx->options.target == TARGET_X86_MSVC || ctx->options.target == TARGET_X64_MSVC;
+        const bool is_tcc = ctx->options.target == TARGET_X64_TCC;
         const bool is_load = strcmp(kind, "load") == 0;
         const bool is_cas = strcmp(kind, "cas") == 0;
         const bool is_store = strcmp(kind, "store") == 0;
@@ -1388,6 +1389,29 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
             }
         }
 
+        /* TCC __atomic_* only take integer sized objects: the others use a spin lock */
+        const char* tcc_integer = "";
+        if (is_tcc && type_get_sizeof(&value_type, &size, ctx->options.target) == SIZEOF_RESULT_OK)
+        {
+            if (size == 1) tcc_integer = "unsigned char";
+            else if (size == 2) tcc_integer = "unsigned short";
+            else if (size == 4) tcc_integer = "unsigned int";
+            else if (size == 8) tcc_integer = "unsigned long long";
+        }
+
+        const char* lock_text = is_tcc ?
+            "    { long z = 0; long one = 1; while (!__atomic_compare_exchange(&" CAKE_FILE_SCOPE_PREFIX "atomic_lock, &z, &one, 0, 5, 5)) z = 0; }\n" :
+            "    while (_InterlockedCompareExchange(&" CAKE_FILE_SCOPE_PREFIX "atomic_lock, 1, 0) != 0) {}\n";
+        const char* unlock_text = is_tcc ?
+            "    { long zero = 0; __atomic_store(&" CAKE_FILE_SCOPE_PREFIX "atomic_lock, &zero, 5); }\n" :
+            "    _InterlockedCompareExchange(&" CAKE_FILE_SCOPE_PREFIX "atomic_lock, 0, 1);\n";
+
+        if (is_tcc && tcc_integer[0] == '\0' && !ctx->atomic_helpers_msvc_declared)
+        {
+            ctx->atomic_helpers_msvc_declared = true;
+            ss_fprintf(&ctx->atomic_helpers_declarations, "static long " CAKE_FILE_SCOPE_PREFIX "atomic_lock;\n\n");
+        }
+
         if (is_msvc && !ctx->atomic_helpers_msvc_declared)
         {
             ctx->atomic_helpers_msvc_declared = true;
@@ -1448,7 +1472,7 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
         ss_fprintf(&ctx->atomic_helpers_declarations, "static %s;\n", signature.c_str);
         ss_fprintf(&ctx->atomic_helpers_text, "static %s\n{\n", signature.c_str);
 
-        if (is_load && !is_msvc)
+        if (is_load && !is_msvc && !is_tcc)
         {
             ss_fprintf(&ctx->atomic_helpers_text,
                        "    %s;\n"
@@ -1458,7 +1482,7 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
                        "    return r;\n",
                        q_decl.c_str, r_decl.c_str);
         }
-        else if (is_cas && !is_msvc)
+        else if (is_cas && !is_msvc && !is_tcc)
         {
             ss_fprintf(&ctx->atomic_helpers_text,
                        "    %s;\n"
@@ -1467,6 +1491,27 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
                        "    pe = e;\n"
                        "    return __atomic_compare_exchange(q, pe, &d, 0, 5, 5);\n",
                        q_decl.c_str, pe_decl.c_str);
+        }
+        else if (is_load && tcc_integer[0] != '\0')
+        {
+            ss_fprintf(&ctx->atomic_helpers_text,
+                       "    union { %s; %s i; } u;\n"
+                       "    __atomic_load((%s *)p, &u.i, 5);\n"
+                       "    return u.v;\n",
+                       v_member.c_str, tcc_integer, tcc_integer);
+        }
+        else if (is_cas && tcc_integer[0] != '\0')
+        {
+            ss_fprintf(&ctx->atomic_helpers_text,
+                       "    union { %s; %s i; } x, y;\n"
+                       "    %s;\n"
+                       "    pe = e;\n"
+                       "    x.v = *pe;\n"
+                       "    y.v = d;\n"
+                       "    if (__atomic_compare_exchange((%s *)p, &x.i, &y.i, 0, 5, 5)) return 1;\n"
+                       "    *pe = x.v;\n"
+                       "    return 0;\n",
+                       v_member.c_str, tcc_integer, pe_decl.c_str, tcc_integer);
         }
         else if (is_load && msvc_cas[0] != '\0')
         {
@@ -1498,11 +1543,11 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
                        "    %s;\n"
                        "    %s;\n"
                        "    q = p;\n"
-                       "    while (_InterlockedCompareExchange(&" CAKE_FILE_SCOPE_PREFIX "atomic_lock, 1, 0) != 0) {}\n"
+                       "%s"
                        "    r = *q;\n"
-                       "    _InterlockedCompareExchange(&" CAKE_FILE_SCOPE_PREFIX "atomic_lock, 0, 1);\n"
+                       "%s"
                        "    return r;\n",
-                       q_decl.c_str, r_decl.c_str);
+                       q_decl.c_str, r_decl.c_str, lock_text, unlock_text);
         }
         else if (is_cas)
         {
@@ -1515,15 +1560,15 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
                        "    int equal;\n"
                        "    q = p;\n"
                        "    pe = e;\n"
-                       "    while (_InterlockedCompareExchange(&" CAKE_FILE_SCOPE_PREFIX "atomic_lock, 1, 0) != 0) {}\n"
+                       "%s"
                        "    a = (unsigned char *)p;\n"
                        "    b = (unsigned char *)e;\n"
                        "    equal = 1;\n"
                        "    for (i = 0; i < sizeof(d); i++) if (a[i] != b[i]) equal = 0;\n"
                        "    if (equal) *q = d; else *pe = *q;\n"
-                       "    _InterlockedCompareExchange(&" CAKE_FILE_SCOPE_PREFIX "atomic_lock, 0, 1);\n"
+                       "%s"
                        "    return equal;\n",
-                       q_decl.c_str, pe_decl.c_str);
+                       q_decl.c_str, pe_decl.c_str, lock_text, unlock_text);
         }
         else if (is_store || is_xchg)
         {
@@ -1905,15 +1950,25 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                            the external one and must stay external. */
                         const bool inline_defined_here = is_inline && p_function_defined != NULL;
 
-                        if ((inline_defined_here || is_local_function_definition || is_auto) && !is_static)
+                        /* extern prototype, then a static (inline) definition - accepted
+                           for TCC, whose mingw headers do it: the definition decides */
+                        const bool defined_static_or_inline =
+                            p_function_defined != NULL &&
+                            p_function_defined->declaration_specifiers != NULL &&
+                            ((p_function_defined->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) ||
+                             (p_function_defined->declaration_specifiers->function_specifier_flags & FUNCTION_SPECIFIER_INLINE));
+
+                        if ((inline_defined_here || defined_static_or_inline || is_local_function_definition || is_auto) && !is_static)
                         {
                             ss_fprintf(&ss, "static ");
                         }
-                        d_print_type(ctx, &ss, &p_expression->object.type, declarator_name, true, false);
+                        /* the static of the definition replaces the extern of the first declaration */
+                        const bool print_storage = !(defined_static_or_inline && !is_static);
+                        d_print_type(ctx, &ss, &p_expression->object.type, declarator_name, print_storage, false);
                         ss_fprintf(&ctx->add_this_before_external_decl, "%s", ss.c_str);
                         ss_fprintf(&ctx->add_this_before_external_decl, ";\n");
 
-                        if (p_function_defined && (is_static || is_inline || is_auto || is_local_function_definition))
+                        if (p_function_defined && (is_static || is_inline || defined_static_or_inline || is_auto || is_local_function_definition))
                         {
                             //We need to find the function..
 
@@ -6361,6 +6416,12 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
 
                     emit_line_directive(ctx, oss0, p_init_declarator->p_declarator->first_token_opt);
                     print_identation(ctx, oss0);
+                    /* tcc alloca is a libtcc1 function: without a prototype it would return int */
+                    if (ctx->options.target == TARGET_X64_TCC && !ctx->alloca_declared)
+                    {
+                        ctx->alloca_declared = true;
+                        ss_fprintf(&ctx->atomic_helpers_declarations, "void * alloca(unsigned long long);\n");
+                    }
                     ss_fprintf(oss0, "%s = %s%s;\n", var_name, target_get_alloca(ctx->options.target), ssz.c_str);
 
                     if (p_init_declarator->initializer &&

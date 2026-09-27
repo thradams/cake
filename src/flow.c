@@ -511,6 +511,9 @@ static void flow_exit_block_visit_defer_list(struct flow_ctx* ctx,
                                              const struct defer_list* p_defer_list,
                                              const struct token* position_token)
 {
+    if (ctx->stopped)
+        return;
+
     struct defer_list_item* _Opt p_item = p_defer_list->head;
     while (p_item)
     {
@@ -557,6 +560,9 @@ static void flow_defer_list_set_end_of_lifetime(struct flow_ctx* ctx,
                                                 const struct defer_list* p_defer_list,
                                                 const struct token* position_token)
 {
+    if (ctx->stopped)
+        return;
+
     struct defer_list_item* _Opt p_item = p_defer_list->head;
     while (p_item)
     {
@@ -1317,6 +1323,8 @@ static void flow_check_condition_known_at_compile_time(struct flow_ctx* ctx,
     }
 }
 
+static void flow_check_limits(struct flow_ctx* ctx, const struct token* p_token);
+
 static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_statement* p_selection_statement)
 {
     try
@@ -1421,6 +1429,14 @@ static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_state
         {
             ctx->p_current_flow_branch = cond_pair.p_false;
             flow_visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
+
+            /* the merges of a long else-if chain run back to back, with no block item between them */
+            flow_check_limits(ctx, p_selection_statement->first_token);
+            if (ctx->stopped)
+            {
+                ctx->p_current_flow_branch = p_before;
+                return;
+            }
 
             const bool false_reached_the_end = !secondary_block_ends_with_jump(p_selection_statement->else_secondary_block_opt);
 
@@ -9595,6 +9611,9 @@ static void flow_visit_expression_statement(struct flow_ctx* ctx, const struct e
     if (p_expression_statement->expression_opt)
     {
         flow_visit_full_expression(ctx, p_expression_statement->expression_opt);
+
+        /* before the lint check, so //lint 97 on this statement sees the report */
+        flow_check_limits(ctx, p_expression_statement->expression_opt->first_token);
     }
 
     if (p_expression_statement->p_lint_token)
@@ -11301,11 +11320,61 @@ static void flow_visit_label(struct flow_ctx* ctx, const struct label* p_label)
     }
 }
 
-/* Stops the analysis of the current function when it tracks too many objects,
-   reporting the object that holds most of them. */
+/* 'name', or the type when the object has no name (a pointee, a temporary). */
+static void flow_print_object_name_or_type(struct osstream* ss, const struct object* _Opt p, enum target target)
+{
+    if (p == NULL)
+        ss_fprintf(ss, "?");
+    else if (p->member_designator && p->member_designator[0])
+        ss_fprintf(ss, "'%s'", p->member_designator);
+    else
+    {
+        struct osstream type = { 0 };
+        print_type_no_names(&type, &p->type, target);
+        ss_fprintf(ss, "an object of type '%s'", type.c_str ? type.c_str : "");
+        ss_close(&type);
+    }
+}
+
+/* Stops the analysis of the current function when it tracks too many objects or
+   values, reporting the object that holds most of them. */
 static void flow_check_limits(struct flow_ctx* ctx, const struct token* p_token)
 {
-    enum { FLOW_MAX_TRACKED_OBJECTS = 10000 };
+    enum { FLOW_MAX_TRACKED_OBJECTS = 10000, FLOW_MAX_VALUES = 1000000 };
+
+    if (ctx->stopped)
+        return;
+
+    const int values = flow_alternatives_live_count();
+    if (values > FLOW_MAX_VALUES)
+    {
+        const struct object* p_largest = NULL;
+        int largest = 0;
+        for (const struct flow_branch* _Opt p = ctx->p_current_flow_branch; p; p = p->p_parent_map)
+        {
+            for (int i = 0; p->buckets && i < p->num_of_buckets; i++)
+            {
+                for (const struct flow_key_alternatives* _Opt e = p->buckets[i]; e; e = e->next)
+                {
+                    if (e->alternatives.size > largest)
+                    {
+                        largest = e->alternatives.size;
+                        p_largest = e->p_obj_key;
+                    }
+                }
+            }
+        }
+        struct osstream name = { 0 };
+        flow_print_object_name_or_type(&name, p_largest, ctx->ctx->options.target);
+
+        const struct marker m = { .p_token_begin = p_token, .p_token_end = p_token };
+        diagnostic(W_FLOW_NOT_DONE, ctx->ctx, NULL, &m,
+                   "flow analysis of this function was not done: %d values tracked (limit %d), %s has %d of them here",
+                   values, FLOW_MAX_VALUES, name.c_str ? name.c_str : "", largest);
+        ss_close(&name);
+        ctx->stopped = true;
+        return;
+    }
 
     int entries = 0;
     for (const struct flow_branch* _Opt p = ctx->p_current_flow_branch; p; p = p->p_parent_map)
@@ -11345,13 +11414,14 @@ static void flow_check_limits(struct flow_ctx* ctx, const struct token* p_token)
             top = k;
     }
 
-    const char* name = roots[top].p_root && roots[top].p_root->member_designator && roots[top].p_root->member_designator[0] ?
-        roots[top].p_root->member_designator : "?";
+    struct osstream name = { 0 };
+    flow_print_object_name_or_type(&name, roots[top].p_root, ctx->ctx->options.target);
 
     const struct marker m = { .p_token_begin = p_token, .p_token_end = p_token };
     diagnostic(W_FLOW_NOT_DONE, ctx->ctx, NULL, &m,
-               "flow analysis of this function was not done: %d objects tracked (limit %d), %d of them are parts of '%s'",
-               entries, FLOW_MAX_TRACKED_OBJECTS, roots[top].count, name);
+               "flow analysis of this function was not done: %d objects tracked (limit %d), %d of them are parts of %s",
+               entries, FLOW_MAX_TRACKED_OBJECTS, roots[top].count, name.c_str ? name.c_str : "");
+    ss_close(&name);
     ctx->stopped = true;
 }
 

@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/numeric/math/cbrt.html
+/* tcc headers (msvcrt) lack what this sample uses */
+#ifndef __TINYC__
 #include <stdio.h>
 #include <float.h>
 #include <math.h>
@@ -15,3 +17,4 @@ int main(void)
            "cbrt(343)      = %.*f\n", DBL_DECIMAL_DIG, cbrt(343));
     printf("pow(343,1.0/3) = %.*f\n", DBL_DECIMAL_DIG, pow(343, 1.0/3));
 }
+#endif

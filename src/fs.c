@@ -32,7 +32,9 @@
 #endif
 
 #ifdef _WIN32
+#ifdef _MSC_VER
 #pragma comment (lib, "Rpcrt4.lib")
+#endif
 
 #else
 #include <stdlib.h>

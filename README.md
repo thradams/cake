@@ -124,6 +124,17 @@ openSUSE:`sudo zypper install libX11-devel libXft-devel`
 
 These headers are used by the IDE.
 
+## TCC on Windows/Linux build instructions
+With [tcc](https://bellard.org/tcc/) on the PATH, go to the *src* directory and type:
+
+```
+tcc build.c -o build && ./build
+```
+
+On Windows, `build_tcc.bat` does the same. A Cake built by tcc on Windows uses the
+`x64_tcc` target and the tcc headers by default. Tested with tcc 0.9.28 on Windows
+and 0.9.27 on Linux.
+
 ## Build options
 
 `build` accepts one optional argument, on any platform:
@@ -245,7 +256,7 @@ straight to the offending line.
 
 It is also how Cake itself is developed and debugged. The `src/cakeprj.cakeproj`
 project builds the compiler with the same process any other project uses: Cake
-translates the sources to C89, an External Tool (gcc, clang or cl) links the
+translates the sources to C89, an External Tool (gcc, clang, tcc or cl) links the
 generated code, and the built-in debugger (lldb / cdb) runs the result. Opening
 that project is the quickest way to step through the compiler while it compiles
 a sample.

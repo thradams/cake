@@ -10,6 +10,7 @@
 #include "cake_compat.h"
 #include "compile.h"
 #include <stdlib.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <assert.h>
 #include "tokenizer.h"
@@ -119,7 +120,41 @@ WINBASEAPI unsigned long WINAPI GetEnvironmentVariableA(const char* name,
    ones the platform compiler itself would search. Returns 0, or an error. */
 static int collect_system_include_dirs(struct json_value* dirs)
 {
-#if defined(__linux__) || defined(__APPLE__)
+#if defined(_WIN32) && defined(__TINYC__)
+
+    /* built by tcc (default target x64_tcc): its own dirs, the indented lines after "include:" in -print-search-dirs */
+    FILE* _Owner _Opt fp = _popen("tcc -print-search-dirs", "r");
+    if (fp == NULL)
+        return errno;
+
+    char line[400] = { 0 };
+    int in_include_section = 0;
+    while (fgets(line, sizeof(line), fp) != NULL)
+    {
+        size_t len = strlen(line);
+        while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r'))
+            line[--len] = '\0';
+
+        if (line[0] != ' ')
+        {
+            if (in_include_section)
+                break;
+            in_include_section = strcmp(line, "include:") == 0;
+            continue;
+        }
+
+        if (in_include_section)
+        {
+            const char* p = line;
+            while (*p == ' ') p++;
+            json_add_string(dirs, p);
+        }
+    }
+
+    _pclose(fp);
+    return 0;
+
+#elif defined(__linux__) || defined(__APPLE__)
 
     /* Parsed out of the platform compiler's own "-v -E" output, between
        "#include <...> search starts here:" and "End of search list.". */
@@ -302,6 +337,8 @@ static void find_definition_to_report(const struct parser_ctx* ctx, struct repor
     report->find_definition_is_declaration = ctx->find_definition_is_declaration;
     report->find_definition_is_static = ctx->find_definition_is_static;
     snprintf(report->find_definition_name, sizeof report->find_definition_name, "%s", p->lexeme);
+    snprintf(report->find_definition_file, sizeof report->find_definition_file, "%s",
+        p->token_origin ? p->token_origin->lexeme : "");
 }
 
 int compile_one_file(const char* file_name,
@@ -358,6 +395,8 @@ int compile_one_file(const char* file_name,
         }
 
         prectx.options = *options;
+        prectx.include_listener = report->include_listener;
+        prectx.source_file = file_name;
 
         content = read_file(file_name, true /* append new line */);
         if (content == NULL)
@@ -825,7 +864,50 @@ static bool path_is_header(const char* path)
   declaration, the definition is searched by name, first in that same file
   and then, for external names, in the others.
 */
-static void find_definition_run(const char* const* files, int count, struct options* options, int argc, const char** argv)
+/* -find-definition: index of the .c named like file (file1.h -> file1.c), or -1 */
+static int find_definition_counterpart(const char* const* files, int count, const char* file)
+{
+    char name[FS_MAX_PATH] = { 0 };
+    remove_file_extension(basename(file), (int)sizeof name - 3, name);
+    strcat(name, ".c");
+
+    for (int i = 0; i < count; i++)
+    {
+        const char* a = basename(files[i]);
+        const char* b = name;
+        /* file names are case insensitive only on Windows */
+#ifdef _WIN32
+        while (*a && tolower((unsigned char)*a) == tolower((unsigned char)*b))
+#else
+        while (*a && *a == *b)
+#endif
+        {
+            a++;
+            b++;
+        }
+        if (*a == '\0' && *b == '\0')
+            return i;
+    }
+    return -1;
+}
+
+/* -find-definition: the existing .c next to a header (dir/file1.h -> dir/file1.c), or false */
+static bool find_definition_sibling(const char* file, char* out, int out_size)
+{
+    snprintf(out, out_size, "%s", file);
+    char* dot = strrchr(basename(out), '.');
+    if (dot == NULL || strcmp(dot, ".c") == 0 || (int)(dot - out) + 3 > out_size)
+        return false;
+    strcpy(dot, ".c");
+
+    FILE* _Owner _Opt f = fopen(out, "rb");
+    if (f == NULL)
+        return false;
+    fclose(f);
+    return true;
+}
+
+static void find_definition_run(const char** files, int count, struct options* options, int argc, const char** argv)
 {
     if (count == 0)
         return;
@@ -859,13 +941,40 @@ static void find_definition_run(const char* const* files, int count, struct opti
     snprintf(options->find_definition_name, sizeof options->find_definition_name, "%s", report.find_definition_name);
     options->find_definition_name_static = report.find_definition_is_static;
 
-    /* -1 is the file where the cursor resolved; static names do not leave it */
-    for (int k = -1; k < count; k++)
+    /* the .c named like the declaration's file (file1.h -> file1.c) goes to the first position after the cursor file */
+    const int first = cursor_index == 0 ? 1 : 0;
+    const int counterpart = find_definition_counterpart(files, count, report.find_definition_file);
+    if (counterpart > first && counterpart != cursor_index)
     {
-        if (k >= 0 && (k == cursor_index || options->find_definition_name_static))
-            continue;
+        const char* temp = files[first];
+        files[first] = files[counterpart];
+        files[counterpart] = temp;
+    }
 
-        realpath(files[k < 0 ? cursor_index : k], fullpath);
+    /* a standalone file (only one passed, no project): the .c next to the declaration's file */
+    char sibling[FS_MAX_PATH] = { 0 };
+    const bool has_sibling = count == 1 &&
+        find_definition_sibling(report.find_definition_file, sibling, (int)sizeof sibling);
+
+    /* -2 is the file where the cursor resolved, -1 the .c next to the declaration; static names do not leave the first */
+    for (int k = -2; k < count; k++)
+    {
+        if (k > -2 && options->find_definition_name_static)
+            break;
+
+        if (k == -1)
+        {
+            if (!has_sibling)
+                continue;
+            snprintf(fullpath, sizeof fullpath, "%s", sibling);
+        }
+        else
+        {
+            if (k == cursor_index)
+                continue;
+            realpath(files[k < 0 ? cursor_index : k], fullpath);
+        }
+
         struct report report_name = { 0 };
         compile_one_file(fullpath, options, "", argc, argv, &report_name);
         if (report_name.find_definition_found)
@@ -1000,7 +1109,11 @@ int compile(int argc, const char** argv, struct report* report)
         else
         {
             struct report report_local = { 0 };
+            report_local.include_listener = report->include_listener;
             compile_one_file(fullpath, &options, output_file, argc, argv, &report_local);
+
+            if (report->include_listener && report->include_listener->file_done)
+                report->include_listener->file_done(report->include_listener->data, fullpath, report_local.error_count);
 
             report->error_count += report_local.error_count;
             report->warnings_count += report_local.warnings_count;

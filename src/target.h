@@ -54,9 +54,12 @@ enum target
     TARGET_LCCU16,
     TARGET_CATALINA,
     TARGET_APPLE_ARM64,
+    TARGET_X64_TCC,
 
     /* alias: the platform cake itself was built for */
-#if defined(_WIN32) && defined(_WIN64)
+#if defined(_WIN32) && defined(_WIN64) && defined(__TINYC__)
+    TARGET_DEFAULT = TARGET_X64_TCC
+#elif defined(_WIN32) && defined(_WIN64)
     TARGET_DEFAULT = TARGET_X64_MSVC
 #elif defined(_WIN32) && !defined(_WIN64)
     TARGET_DEFAULT = TARGET_X86_MSVC
@@ -69,7 +72,7 @@ enum target
 #endif
 };
 
-#define NUMBER_OF_TARGETS  7
+#define NUMBER_OF_TARGETS  8
 
 struct platform
 {

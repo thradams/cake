@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/chrono/timespec.html
+/* tcc headers (msvcrt) lack what this sample uses */
+#ifndef __TINYC__
 #include <stdio.h>
 #include <time.h>
 #include <stdint.h>
@@ -13,3 +15,4 @@ int main(void)
     printf("Raw timespec.time_t: %jd\n", (intmax_t)ts.tv_sec);
     printf("Raw timespec.tv_nsec: %09ld\n", ts.tv_nsec);
 }
+#endif

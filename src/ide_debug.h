@@ -53,7 +53,6 @@ enum debug_state
 };
 
 #define DEBUG_MAX_PATH 1024
-#define DEBUG_INBUF_CAP 16384
 
 /* Which console debugger debug_start() launched - chosen automatically
  * per-platform (see its own comment), never user-selectable, but every
@@ -65,11 +64,28 @@ enum debug_backend
     DEBUG_BACKEND_CDB
 };
 
+/* Bytes read from the debugger not yet resolved into complete lines. Grows
+ * to hold a line of any length; kept across sessions. */
+struct debug_line_buffer
+{
+    char* data;
+    size_t len;
+    size_t capacity;
+};
+
 /* One row for the Locals panel - see debug_refresh_info()'s own comment. */
 struct debug_local
 {
     char name[128];
     char value[256];
+};
+
+/* The rows of the Locals panel. Grows as rows arrive; kept across sessions. */
+struct debug_locals
+{
+    struct debug_local* items;
+    int count;
+    int capacity;
 };
 
 /* One row for the Call Stack panel. `text` is lldb's own line for this
@@ -83,8 +99,13 @@ struct debug_frame
     char text[256];
 };
 
-#define DEBUG_MAX_LOCALS 128
-#define DEBUG_MAX_FRAMES 64
+/* The rows of the Call Stack panel. Grows as rows arrive; kept across sessions. */
+struct debug_frames
+{
+    struct debug_frame* items;
+    int count;
+    int capacity;
+};
 
 /* State machine for a Locals/Call Stack refresh (see debug_refresh_info()
  * in ide_debug.c). lldb has no structured "here is where command X's
@@ -142,8 +163,7 @@ struct debug_session
      * line - carried across debug_poll() calls, since a single read can
      * land mid-line (see ui_process_read's non-blocking, partial-read
      * contract in ide_ui.h). */
-    char inbuf[DEBUG_INBUF_CAP];
-    size_t inbuf_len;
+    struct debug_line_buffer inbuf;
 
     /* Called with every raw line lldb prints (its own "(lldb) " prompt
      * included), newline included - for mirroring into the IDE's Output
@@ -158,10 +178,8 @@ struct debug_session
      * debug_handle_line()'s own comments in ide_debug.c. */
     enum debug_query_state query_state;
 
-    struct debug_local locals[DEBUG_MAX_LOCALS];
-    int locals_count;
-    struct debug_frame frames[DEBUG_MAX_FRAMES];
-    int frames_count;
+    struct debug_locals locals;
+    struct debug_frames frames;
     bool info_dirty;   /* set once a query completes (or state leaves
                         * DBG_STOPPED and the arrays are cleared) - ide.c
                         * clears it after repainting the panel */

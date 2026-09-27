@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/thread/thrd_yield.html
+/* tcc headers (msvcrt) lack what this sample uses */
+#ifndef __TINYC__
 /* <threads.h> is not provided by the macOS SDK */
 #ifndef __APPLE__
 #include <stdio.h>
@@ -34,3 +36,4 @@ int main()
     printf("Waited for %.3f us\n", usdiff(start, end));
 }
 #endif /* !__APPLE__ */
+#endif

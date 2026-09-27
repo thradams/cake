@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/string/wide/iswblank.html
+/* tcc headers (msvcrt) lack what this sample uses */
+#ifndef __TINYC__
 #include <locale.h>
 #include <stdio.h>
 #include <wchar.h>
@@ -11,3 +13,4 @@ int main(void)
     setlocale(LC_ALL, "en_US.utf8");
     printf("In Unicode locale, iswblank(%#x) = %d\n", c, !!iswblank(c));
 }
+#endif

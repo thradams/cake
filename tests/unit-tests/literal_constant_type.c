@@ -22,12 +22,15 @@ static_assert(TYPE_IS(9223372036854775807, long));
 
 #else
 
-#ifdef _WIN32
-// max i32 + 1
+#ifdef _MSC_VER
+// max i32 + 1 (msvc extension)
 static_assert(TYPE_IS(2147483648, unsigned long));
 // maximum i64
 static_assert(TYPE_IS(9223372036854775807, long long));
 
+#elif defined(_WIN32)
+// max i32 + 1 (LLP64)
+static_assert(TYPE_IS(2147483648, long long));
 #else
 // max i32 + 1
 static_assert(TYPE_IS(2147483648, long));

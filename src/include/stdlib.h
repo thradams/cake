@@ -53,7 +53,13 @@ long double strtold(const char* restrict nptr, char** _Opt restrict endptr);
 long int strtol(const char* restrict nptr, char** _Opt restrict endptr, int base);
 long long int strtoll(const char* restrict nptr, char** _Opt restrict endptr, int base);
 unsigned long int strtoul(const char* restrict nptr, char** _Opt restrict endptr, int base);
+#if defined(_WIN32) && defined(__TINYC__)
+/* msvcrt.dll has no strtoull */
+unsigned long long _strtoui64(const char* restrict nptr, char** _Opt restrict endptr, int base);
+#define strtoull _strtoui64
+#else
 unsigned long long int strtoull(const char* restrict nptr, char** _Opt restrict endptr, int base);
+#endif
 
 /* pseudo random */
 int rand(void);
@@ -117,7 +123,7 @@ void _aligned_free(void* _Owner _Opt ptr);
 
 
     #ifdef _WIN64
-        typedef unsigned __int64 size_t;    
+        typedef unsigned long long size_t;
     #elif defined _WIN32
         typedef unsigned int     size_t;
     #endif

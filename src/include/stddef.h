@@ -22,6 +22,12 @@ typedef struct {
 
 typedef typeof(nullptr) nullptr_t;
 
+#if defined(__TINYC__)
+/* TCC's stddef.h has these too, and its headers (io.h) rely on it */
+typedef __cake_intptr_t intptr_t;
+typedef __cake_uintptr_t uintptr_t;
+#endif
+
 #ifndef NULL
 #define NULL ((void*)0)
 #endif

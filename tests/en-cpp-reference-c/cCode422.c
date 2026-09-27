@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/types/limits.html
+/* tcc headers (msvcrt) lack what this sample uses */
+#ifndef __TINYC__
 #include <float.h>
 #include <math.h>
 #include <stdio.h>
@@ -21,3 +23,4 @@ int main(void)
     printf("FLT_EVAL_METHOD = %d\n", FLT_EVAL_METHOD);
     printf("FLT_HAS_SUBNORM = %d\n", FLT_HAS_SUBNORM);
 }
+#endif

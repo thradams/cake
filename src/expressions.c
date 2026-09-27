@@ -27,6 +27,42 @@
 #include <debugapi.h>
 #endif
 
+#if defined(_WIN32) && defined(__TINYC__)
+/* msvcrt strtod does not read hexadecimal floating constants (0x1.8p3) */
+static double literal_strtod(const char* s)
+{
+    if (!(s[0] == '0' && (s[1] == 'x' || s[1] == 'X')))
+        return strtod(s, NULL);
+
+    const char* p = s + 2;
+    double mantissa = 0;
+    int exponent = 0;
+    int after_point = 0;
+    for (;; p++)
+    {
+        int d;
+        if (*p >= '0' && *p <= '9') d = *p - '0';
+        else if (*p >= 'a' && *p <= 'f') d = *p - 'a' + 10;
+        else if (*p >= 'A' && *p <= 'F') d = *p - 'A' + 10;
+        else if (*p == '.' && !after_point) { after_point = 1; continue; }
+        else break;
+        mantissa = mantissa * 16 + d;
+        if (after_point)
+            exponent -= 4;
+    }
+
+    if (*p == 'p' || *p == 'P')
+        exponent += (int)strtol(p + 1, NULL, 10);
+
+    return ldexp(mantissa, exponent);
+}
+#else
+static double literal_strtod(const char* s)
+{
+    return strtod(s, NULL);
+}
+#endif
+
 // TODO i am doing this to same stack on expressoins TODO
 static char warning_message[200] = { 0 };
 
@@ -2530,7 +2566,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
 
             // This code follows the table in the standard.
 
-            static_assert(NUMBER_OF_TARGETS == 7, "does your target follow the C rules? (MSVC is different)");
+            static_assert(NUMBER_OF_TARGETS == 8, "does your target follow the C rules? (MSVC is different)");
             const bool is_msvc = (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC);
 
             const bool is_decimal_constant = (token->type == TK_COMPILER_DECIMAL_CONSTANT);
@@ -2748,7 +2784,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         {
             if (suffix[0] == 'F')
             {
-                const double value = strtod(buffer, NULL);
+                const double value = literal_strtod(buffer);
                 if (errno == ERANGE)
                 {
                     if (isinf(value))
@@ -2792,7 +2828,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             }
             else if (suffix[0] == 'L')
             {
-                const long double value = strtod(buffer, NULL);
+                const long double value = literal_strtod(buffer);
 
                 if (errno == ERANGE)
                 {
@@ -2820,7 +2856,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             }
             else
             {
-                const double value = strtod(buffer, NULL);
+                const double value = literal_strtod(buffer);
                 if (errno == ERANGE)
                 {
                     if (isinf(value))
@@ -6571,9 +6607,10 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                     else if (!type_is_void(&p_expression_node->object.type) &&
                         !type_is_void(&p_expression_node->left->object.type) &&
                         !type_is_array(&p_expression_node->left->object.type) &&
+                        !type_is_function(&p_expression_node->left->object.type) &&
                         !type_is_scalar(&p_expression_node->left->object.type))
                     {
-                        /* array operands decay to pointer, like any other unary-expression use */
+                        /* array and function operands decay to pointer, like any other unary-expression use */
                         diagnostic(C_ERROR_CAST_TO_NON_SCALAR_TYPE,
                                    ctx,
                                    p_expression_node->first_token,

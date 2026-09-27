@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/language/_Static_assert.html
+/* tcc headers (msvcrt) lack what this sample uses */
+#ifndef __TINYC__
 #include <assert.h> // no longer needed since C23
  
 int main(void)
@@ -18,3 +20,4 @@ int main(void)
     // Compile time error - not an integer constant expression:
     // static_assert(_13 == 13);
 }
+#endif

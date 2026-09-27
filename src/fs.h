@@ -6,6 +6,7 @@
 #pragma once
 #include "cake_compat.h"
 #include <stdbool.h>
+#include <limits.h>
 
 
 #if defined(PATH_MAX)
@@ -16,10 +17,12 @@
 #define FS_MAX_PATH 500 
 
 #endif
-#ifdef _WIN32 
-#include <direct.h>
+/* outside the #ifdef: the amalgamator (lib.c) keeps only the first include of a header */
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#ifdef _WIN32 
+#include <direct.h>
 
 #ifdef __CAKE__
 #pragma cake diagnostic push
@@ -83,9 +86,7 @@ struct dirent* _Opt readdir(DIR* dirp);
 #else
 
 //https://man7.org/linux/man-pages/man2/mkdir.2.html
-#include <sys/types.h>
 #include <unistd.h>
-#include <sys/stat.h>
 
 #ifdef __CAKE__
 /*

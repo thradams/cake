@@ -479,8 +479,14 @@ struct TinyCThreadTSSData {
 
 static tss_dtor_t _tinycthread_tss_dtors[1088] = { NULL, };
 
+#if defined(__TINYC__)
+/* tcc has no TLS on Windows; only tss_* with a destructor uses these, and cake does not */
+static struct TinyCThreadTSSData* _tinycthread_tss_head = NULL;
+static struct TinyCThreadTSSData* _tinycthread_tss_tail = NULL;
+#else
 static _Thread_local struct TinyCThreadTSSData* _tinycthread_tss_head = NULL;
 static _Thread_local struct TinyCThreadTSSData* _tinycthread_tss_tail = NULL;
+#endif
 
 static void _tinycthread_tss_cleanup (void);
 

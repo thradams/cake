@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/program/quick_exit.html
+/* tcc headers (msvcrt) lack what this sample uses */
+#ifndef __TINYC__
 #include <stdlib.h>
 #include <stdio.h>
  
@@ -25,3 +27,4 @@ int main(void)
     atexit(f3);
     quick_exit(0);
 }
+#endif

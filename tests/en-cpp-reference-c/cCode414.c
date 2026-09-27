@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/thread/ONCE_FLAG_INIT.html
+/* tcc headers (msvcrt) lack what this sample uses */
+#ifndef __TINYC__
 /* <threads.h> is not provided by the macOS SDK */
 #ifndef __APPLE__
 #include <stdio.h>
@@ -28,3 +30,4 @@ int main(void)
     thrd_join(t4, NULL);
 }
 #endif /* !__APPLE__ */
+#endif

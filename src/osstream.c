@@ -62,7 +62,12 @@ int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args)
 
     va_copy(tmpa, args);
 
+#if defined(_WIN32) && defined(__TINYC__)
+    /* msvcrt vsnprintf returns -1 when the text does not fit, not the size it needs */
+    size = _vscprintf(fmt, tmpa);
+#else
     size = vsnprintf(stream->c_str + stream->size, stream->capacity - stream->size, fmt, tmpa);
+#endif
 
     va_end(tmpa); //lint 35
 

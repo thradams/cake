@@ -130,9 +130,72 @@ static bool win_pick_cdb(const char* exe_path, char* out, size_t out_cap)
 
 void debug_init(struct debug_session* s)
 {
+    /* the buffers are reused by the next session */
+    struct debug_line_buffer inbuf = s->inbuf;
+    struct debug_locals locals = s->locals;
+    struct debug_frames frames = s->frames;
+
     memset(s, 0, sizeof * s);
     s->state = DBG_IDLE;
     s->cur_line = -1;
+
+    s->inbuf = inbuf;
+    s->inbuf.len = 0;
+    s->locals = locals;
+    s->locals.count = 0;
+    s->frames = frames;
+    s->frames.count = 0;
+}
+
+/* Appends `n` bytes, keeping the data '\0'-terminated; returns false when out of memory. */
+static bool debug_line_buffer_append(struct debug_line_buffer* b, const char* bytes, size_t n)
+{
+    size_t needed = b->len + n + 1;
+    if (needed > b->capacity)
+    {
+        size_t capacity = b->capacity == 0 ? 16384 : b->capacity * 2;
+        if (capacity < needed)
+            capacity = needed;
+        char* p = realloc(b->data, capacity);
+        if (!p)
+            return false;
+        b->data = p;
+        b->capacity = capacity;
+    }
+    memcpy(b->data + b->len, bytes, n);
+    b->len += n;
+    b->data[b->len] = 0;
+    return true;
+}
+
+/* The slot after the last row, for the caller to fill and then count; NULL when out of memory. */
+static struct debug_local* debug_locals_next(struct debug_locals* list)
+{
+    if (list->count == list->capacity)
+    {
+        int capacity = list->capacity == 0 ? 16 : list->capacity * 2;
+        struct debug_local* items = realloc(list->items, (size_t)capacity * sizeof items[0]);
+        if (!items)
+            return NULL;
+        list->items = items;
+        list->capacity = capacity;
+    }
+    return &list->items[list->count];
+}
+
+/* Same as debug_locals_next, for the call stack. */
+static struct debug_frame* debug_frames_next(struct debug_frames* list)
+{
+    if (list->count == list->capacity)
+    {
+        int capacity = list->capacity == 0 ? 16 : list->capacity * 2;
+        struct debug_frame* items = realloc(list->items, (size_t)capacity * sizeof items[0]);
+        if (!items)
+            return NULL;
+        list->items = items;
+        list->capacity = capacity;
+    }
+    return &list->items[list->count];
 }
 
 bool debug_start(struct debug_session* s, const char* exe_path,
@@ -229,7 +292,7 @@ bool debug_start(struct debug_session* s, const char* exe_path,
     s->cur_file[0] = 0;
     s->cur_line = -1;
     s->last_exit_code = -1;
-    s->inbuf_len = 0;
+    s->inbuf.len = 0;
     return true;
 }
 
@@ -591,8 +654,8 @@ void debug_refresh_info(struct debug_session* s)
     if (!s->proc || s->query_state != DQS_IDLE)
         return;
 
-    s->locals_count = 0;
-    s->frames_count = 0;
+    s->locals.count = 0;
+    s->frames.count = 0;
 
 #if defined(_WIN32)
     /* cdb, driven over a non-tty pipe, does not echo back the command it
@@ -626,8 +689,8 @@ void debug_refresh_info(struct debug_session* s)
 
 void debug_clear_info(struct debug_session* s)
 {
-    s->locals_count = 0;
-    s->frames_count = 0;
+    s->locals.count = 0;
+    s->frames.count = 0;
     s->info_dirty = true;
 }
 
@@ -906,15 +969,12 @@ static void debug_handle_line(struct debug_session* s, const char* line)
              * reasoning as the sentinel checks above). */
             if (strstr(line, "***") != NULL)
                 return;
-            if (s->locals_count < DEBUG_MAX_LOCALS)
+            struct debug_local* loc = debug_locals_next(&s->locals);
+            if (loc && lldb_parse_locals_line(line, loc->name, sizeof loc->name,
+                loc->value, sizeof loc->value))
             {
-                struct debug_local* loc = &s->locals[s->locals_count];
-                if (lldb_parse_locals_line(line, loc->name, sizeof loc->name,
-                    loc->value, sizeof loc->value))
-                {
-                    dbg_log("  LOCAL PARSED: name=%s value=%s", loc->name, loc->value);
-                    s->locals_count++;
-                }
+                dbg_log("  LOCAL PARSED: name=%s value=%s", loc->name, loc->value);
+                s->locals.count++;
             }
             return;
 
@@ -927,14 +987,11 @@ static void debug_handle_line(struct debug_session* s, const char* line)
                 s->info_dirty = true;
                 return;
             }
-            if (s->frames_count < DEBUG_MAX_FRAMES)
+            struct debug_frame* fr = debug_frames_next(&s->frames);
+            if (fr && cdb_parse_backtrace_line(line, fr->text, sizeof fr->text))
             {
-                struct debug_frame* fr = &s->frames[s->frames_count];
-                if (cdb_parse_backtrace_line(line, fr->text, sizeof fr->text))
-                {
-                    fr->index = s->frames_count;   /* sequential - see cdb_parse_backtrace_line's own comment */
-                    s->frames_count++;
-                }
+                fr->index = s->frames.count;   /* sequential - see cdb_parse_backtrace_line's own comment */
+                s->frames.count++;
             }
             return;
 
@@ -1019,13 +1076,10 @@ static void debug_handle_line(struct debug_session* s, const char* line)
                 s->query_state = DQS_BACKTRACE;   /* "bt"'s echo - locals block is done */
                 return;
             }
-            if (s->locals_count < DEBUG_MAX_LOCALS)
-            {
-                struct debug_local* loc = &s->locals[s->locals_count];
-                if (lldb_parse_locals_line(line, loc->name, sizeof loc->name,
-                    loc->value, sizeof loc->value))
-                    s->locals_count++;
-            }
+            struct debug_local* loc = debug_locals_next(&s->locals);
+            if (loc && lldb_parse_locals_line(line, loc->name, sizeof loc->name,
+                loc->value, sizeof loc->value))
+                s->locals.count++;
             return;
 
         case DQS_BACKTRACE:
@@ -1040,12 +1094,9 @@ static void debug_handle_line(struct debug_session* s, const char* line)
                 s->info_dirty = true;
                 return;
             }
-            if (s->frames_count < DEBUG_MAX_FRAMES)
-            {
-                struct debug_frame* fr = &s->frames[s->frames_count];
-                if (lldb_parse_backtrace_line(line, &fr->index, fr->text, sizeof fr->text))
-                    s->frames_count++;
-            }
+            struct debug_frame* fr = debug_frames_next(&s->frames);
+            if (fr && lldb_parse_backtrace_line(line, &fr->index, fr->text, sizeof fr->text))
+                s->frames.count++;
             return;
 
         case DQS_IDLE:
@@ -1080,14 +1131,6 @@ void debug_poll(struct debug_session* s)
 
     for (;;)
     {
-        if (s->inbuf_len >= sizeof s->inbuf - 1)
-        {
-            /* A single "line" somehow exceeded the buffer (should not
-             * happen for lldb's own output in practice) - drop it rather
-             * than wedge forever, and keep going from whatever comes next. */
-            s->inbuf_len = 0;
-        }
-
         char chunk[4096];
         int n = ui_process_read(s->proc, chunk, (int)sizeof chunk);
         if (n < 0)
@@ -1098,23 +1141,23 @@ void debug_poll(struct debug_session* s)
         if (n == 0)
             break;
 
-        size_t room = sizeof s->inbuf - 1 - s->inbuf_len;
-        size_t take = (size_t)n < room ? (size_t)n : room;
-        memcpy(s->inbuf + s->inbuf_len, chunk, take);
-        s->inbuf_len += take;
-        s->inbuf[s->inbuf_len] = 0;
+        if (!debug_line_buffer_append(&s->inbuf, chunk, (size_t)n))
+        {
+            s->inbuf.len = 0; /* out of memory: drop the partial line */
+            continue;
+        }
 
         /* Consume every complete line currently in the buffer, then loop
          * back to read more - ui_process_read may have more waiting even
          * though this particular chunk read fewer than `cap` bytes. */
         for (;;)
         {
-            char* nl = memchr(s->inbuf, '\n', s->inbuf_len);
+            char* nl = memchr(s->inbuf.data, '\n', s->inbuf.len);
             if (!nl)
                 break;
 
-            size_t linelen = (size_t)(nl - s->inbuf);
-            char* line = s->inbuf;
+            size_t linelen = (size_t)(nl - s->inbuf.data);
+            char* line = s->inbuf.data;
             if (linelen > 0 && line[linelen - 1] == '\r')
                 linelen--;
             line[linelen] = 0;
@@ -1123,9 +1166,9 @@ void debug_poll(struct debug_session* s)
             if (s->on_output)
                 s->on_output(s->on_output_ctx, line, linelen);
 
-            size_t consumed = (size_t)(nl - s->inbuf) + 1;
-            memmove(s->inbuf, s->inbuf + consumed, s->inbuf_len - consumed);
-            s->inbuf_len -= consumed;
+            size_t consumed = (size_t)(nl - s->inbuf.data) + 1;
+            memmove(s->inbuf.data, s->inbuf.data + consumed, s->inbuf.len - consumed);
+            s->inbuf.len -= consumed;
         }
     }
 }

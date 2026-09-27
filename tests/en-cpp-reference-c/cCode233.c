@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/numeric/math/float_t.html
+/* tcc headers (msvcrt) lack what this sample uses */
+#ifndef __TINYC__
 #include <float.h>
 #include <math.h>
 #include <stdio.h>
@@ -10,3 +12,4 @@ int main(void)
     printf("%zu  %zu\n", sizeof(double),sizeof(double_t));
     return 0;
 }
+#endif

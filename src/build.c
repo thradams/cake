@@ -178,6 +178,21 @@
 
 #endif /* COMPILER_GCC && !COMPILER_TINYC */
 
+#if defined COMPILER_TINYC
+
+#define TCC_FLAGS " -std=c11 -D_CRT_SECURE_NO_WARNINGS "
+#define TCC_DEBUG_FLAGS " -g "
+#define TCC_RELEASE_FLAGS " -DNDEBUG "
+
+#if defined PLATFORM_WINDOWS
+/* tcc ships no advapi32/shell32 and an old kernel32: tcc_lib gets them from the system dlls (see build_cake_ide) */
+#define TCC_IDE_FRONTEND " ide_win32.c -Ltcc_lib -lkernel32 -luser32 -lgdi32 -lshell32 -ladvapi32 "
+#else
+#define TCC_IDE_FRONTEND " -I/usr/include/freetype2 ide_x11.c -lX11 -lXft -lXrender -lfreetype -lpthread "
+#endif
+
+#endif /* COMPILER_TINYC */
+
 
 static void print_header(const char* text)
 {
@@ -538,6 +553,15 @@ static void build_cake(int debug, const char* test_flag)
     execute_cmd(cmd);
 
 #endif /* COMPILER_GCC && !COMPILER_TINYC */
+
+#if defined COMPILER_TINYC
+
+    char cmd[512];
+    snprintf(cmd, sizeof cmd, "tcc %s%s%s -o " EXE(CKC_NAME) " %s",
+             TCC_FLAGS, debug ? TCC_DEBUG_FLAGS : TCC_RELEASE_FLAGS, test_flag, CAKE_SOURCE_FILES);
+    execute_cmd(cmd);
+
+#endif /* COMPILER_TINYC */
 }
 
 /*
@@ -618,6 +642,22 @@ static void build_cake_ide(int debug)
 #endif
 
 #endif /* COMPILER_GCC && !COMPILER_TINYC */
+
+#if defined COMPILER_TINYC
+
+#if defined PLATFORM_WINDOWS
+    mkdir("tcc_lib", 0777);
+    execute_cmd("tcc -impdef %SystemRoot%/System32/kernel32.dll -o tcc_lib/kernel32.def");
+    execute_cmd("tcc -impdef %SystemRoot%/System32/advapi32.dll -o tcc_lib/advapi32.def");
+    execute_cmd("tcc -impdef %SystemRoot%/System32/shell32.dll -o tcc_lib/shell32.def");
+#endif
+
+    char cmd[1024];
+    snprintf(cmd, sizeof cmd, "tcc %s%s" TCC_IDE_FRONTEND "-o " EXE(CAKE_NAME) " %s",
+             TCC_FLAGS, debug ? TCC_DEBUG_FLAGS : TCC_RELEASE_FLAGS, CAKE_IDE_SOURCE_FILES);
+    execute_cmd(cmd);
+
+#endif /* COMPILER_TINYC */
 }
 
 static void generate_config(void)
@@ -705,6 +745,8 @@ static void run_cake_on_own_source(const char* cake_flags)
     snprintf(self, 2000, "./" EXE(CKC_NAME) " -fanalyzer -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
 #elif defined COMPILER_GCC && !defined COMPILER_TINYC
     snprintf(self, 2000, "./" CKC_NAME " -DTEST -w06 -w082 -w083 -w084 " CAKE_SOURCE_FILES);
+#elif defined COMPILER_TINYC
+    snprintf(self, 2000, RUN EXE(CKC_NAME) " -DTEST -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
 #endif
 
     execute_cmd(self);
@@ -754,6 +796,28 @@ static void build_cake89(const char* test_flag)
     echo_chdir("../");
 
 #endif /* COMPILER_GCC && !COMPILER_TINYC */
+
+#if defined COMPILER_TINYC
+
+    /* the generated code is in the folder of cake's default target */
+#if defined PLATFORM_WINDOWS
+    echo_chdir("./x64_tcc/");
+#else
+    echo_chdir("./x86_x64_gcc/");
+#endif
+    char* cmd = calloc(2000, sizeof(char));
+    snprintf(cmd, 2000, "tcc %s -o " EXE(CKC89_NAME) " " CAKE_SOURCE_FILES, test_flag);
+    execute_cmd(cmd);
+    free(cmd);
+
+#if defined PLATFORM_WINDOWS
+    copy_file(EXE(CKC89_NAME), "../" EXE(CKC89_NAME));
+#else
+    execute_cmd("cp -p " CKC89_NAME " ../" CKC89_NAME); /* keeps the exec bit */
+#endif
+    echo_chdir("..");
+
+#endif /* COMPILER_TINYC */
 }
 
 /*
@@ -804,6 +868,13 @@ static void run_generated_tests(const char* title, const char* cake_exe, const c
             continue;
         }
 #endif
+#if defined COMPILER_TINYC
+        /* tcc does not link __atomic_* here (no libtcc1 support on windows, no libatomic for tcc on linux) */
+        if (strncmp(name, "atomic_", 7) == 0)
+        {
+            continue;
+        }
+#endif
         char base[512] = { 0 };
         snprintf(base, sizeof base, "%s", name);
         base[strlen(base) - 2] = '\0'; /* drop .c */
@@ -819,7 +890,7 @@ static void run_generated_tests(const char* title, const char* cake_exe, const c
         /* 2. host compiler: generated C -> executable */
 #ifdef COMPILER_MSVC
         snprintf(cmd, sizeof cmd, CC " /nologo /w %s/%s.c /Fe:%s/%s.exe", out_dir, base, out_dir, base);
-#elif defined PLATFORM_LINUX
+#elif defined PLATFORM_LINUX && !defined COMPILER_TINYC
         /* generic __atomic_load/__atomic_compare_exchange live in libatomic */
         snprintf(cmd, sizeof cmd, CC " -w %s/%s.c -o %s/%s -latomic", out_dir, base, out_dir, base);
 #else

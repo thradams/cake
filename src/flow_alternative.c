@@ -26,6 +26,7 @@ struct flow_alt_pool
     union flow_alt_pool_node* _Owner _Opt* _Owner _Opt blocks;
     int blocks_size;
     int blocks_capacity;
+    int live_count; /* nodes handed out and not yet returned */
 };
 
 static struct flow_alt_pool g_flow_alt_pool = { 0 };
@@ -71,6 +72,7 @@ static struct flow_alternative* _Opt _Owner flow_alt_pool_alloc(struct flow_alt_
        explicitly (e.g. value_kind/value), so zero the node every time it is
        handed out, not just on first carve from a fresh block. */
     memset(&node->alt, 0, sizeof(node->alt));
+    pool->live_count++;
     /* Not actually heap-owned -- recycled from the pool above and returned
        to it by flow_alt_pool_release, never freed individually. The _Owner
        cast is the established idiom (see free-opt-owner-cast.c) for opting
@@ -89,6 +91,11 @@ static void flow_alt_pool_free_all(_Clear struct flow_alt_pool* pool)
     *pool = (struct flow_alt_pool){ 0 };
 }
 
+int flow_alternatives_live_count(void)
+{
+    return g_flow_alt_pool.live_count;
+}
+
 void flow_alternatives_pool_shutdown(void)
 {
     flow_alt_pool_free_all(&g_flow_alt_pool);
@@ -101,6 +108,7 @@ static void flow_alt_pool_free(struct flow_alt_pool* pool, struct flow_alternati
     union flow_alt_pool_node* node = (union flow_alt_pool_node*)p;
     node->next = pool->free_list;
     pool->free_list = node;
+    pool->live_count--;
 } //lint 29
 
 static bool flow_alternatives_grow(struct flow_alternatives* vs)

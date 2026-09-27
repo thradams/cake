@@ -38,6 +38,22 @@ typedef double double_t;
 #define FP_SUBNORMAL (-2)
 #define FP_ZERO      0
 
+#if defined(__TINYC__)
+/* tcc links msvcrt.dll, which only has _fpclass and _copysign */
+int _fpclass(double x);
+double _copysign(double x, double y);
+static inline short __cake_dclass(double x)
+{
+    int c = _fpclass(x);
+    if (c & 0x0003) return FP_NAN;
+    if (c & 0x0204) return FP_INFINITE;
+    if (c & 0x0108) return FP_NORMAL;
+    if (c & 0x0090) return FP_SUBNORMAL;
+    return FP_ZERO;
+}
+#define fpclassify(x) __cake_dclass((double)(x))
+#define signbit(x)    (_copysign(1.0, (double)(x)) < 0)
+#else
 short _dclass(double x);
 short _fdclass(float x);
 short _ldclass(long double x);
@@ -47,6 +63,7 @@ int _ldsign(long double x);
 
 #define fpclassify(x) _Generic((x), float: _fdclass, long double: _ldclass, default: _dclass)(x)
 #define signbit(x)    _Generic((x), float: _fdsign, long double: _ldsign, default: _dsign)(x)
+#endif
 
 #elif defined(__APPLE__)
 

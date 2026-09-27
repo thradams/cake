@@ -59,7 +59,14 @@ typedef struct __cake_FILE FILE;
 #define SEEK_END 2
 
 /* the standard streams are macros over the real libc objects */
-#if defined(_WIN32)
+#if defined(_WIN32) && defined(__TINYC__)
+/* tcc links msvcrt.dll: the streams are the first entries of its _iob array (struct _iobuf) */
+FILE* __iob_func(void);
+#define __cake_IOBUF_SIZE (sizeof(void*) == 8 ? 48 : 32)
+#define stdin  ((FILE*)((char*)__iob_func()))
+#define stdout ((FILE*)((char*)__iob_func() + __cake_IOBUF_SIZE))
+#define stderr ((FILE*)((char*)__iob_func() + 2 * __cake_IOBUF_SIZE))
+#elif defined(_WIN32)
 FILE* __acrt_iob_func(unsigned index);
 #define stdin  (__acrt_iob_func(0))
 #define stdout (__acrt_iob_func(1))
@@ -92,7 +99,7 @@ void setbuf(FILE* restrict stream, char* _Opt restrict buf);
 int setvbuf(FILE* restrict stream, char* _Opt restrict buf, int mode, size_t size);
 
 /* formatted input/output */
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(__TINYC__)
 
 /*
   The msvc CRT does not export the printf/scanf family: its headers define
@@ -226,6 +233,10 @@ int vsnprintf(char* _Opt restrict s, size_t n, const char* restrict format, va_l
 int vsprintf(char* restrict s, const char* restrict format, va_list arg);
 int vsscanf(const char* restrict s, const char* restrict format, va_list arg);
 
+#if defined(_WIN32)
+int _vscprintf(const char* format, va_list arg);
+#endif
+
 #endif
 
 /* character input/output */
@@ -275,7 +286,7 @@ FILE* _Owner _Opt _fdopen(int fd, const char* mode);
 
 #ifdef _WIN64
 typedef struct _iobuf FILE;
-typedef unsigned __int64 size_t;
+typedef unsigned long long size_t;
 #elif defined _WIN32
 typedef struct _iobuf FILE;
 typedef unsigned int     size_t;

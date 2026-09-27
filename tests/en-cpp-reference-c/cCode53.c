@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/io/fwprintf.html
+/* tcc headers (msvcrt) lack what this sample uses */
+#ifndef __TINYC__
 #include <locale.h>
 #include <wchar.h>
  
@@ -13,3 +15,4 @@ int main(void)
               L"Converted from UTF-8: '%s'", narrow_str);
     wprintf(L"%ls\n", warr);
 }
+#endif

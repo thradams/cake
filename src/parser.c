@@ -2071,7 +2071,7 @@ bool first_of_attribute_specifier(const struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
-    if (ctx->options.target == TARGET_X86_X64_GCC &&
+    if ((ctx->options.target == TARGET_X86_X64_GCC || ctx->options.target == TARGET_X64_TCC) &&
         ctx->current->type == TK_KEYWORD__ASM)
     {
         return true;
@@ -2388,7 +2388,7 @@ enum token_type is_keyword(const char* text, enum target target)
             if (strcmp("__builtin_va_copy", text) == 0)
                 return TK_KEYWORD_GCC__BUILTIN_VA_COPY;
 
-            if (strstr(text, "__volatile__") != NULL) // GCC
+            if (strstr(text, "__volatile__") != NULL || strcmp("__volatile", text) == 0) // GCC
                 return TK_KEYWORD_VOLATILE;
 
             if (strcmp("_Bool", text) == 0)
@@ -2425,7 +2425,7 @@ enum token_type is_keyword(const char* text, enum target target)
             if (strcmp("__asm__", text) == 0 || strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
                 return TK_KEYWORD__ASM;
 
-            if (strcmp("__restrict", text) == 0)
+            if (strcmp("__restrict", text) == 0 || strcmp("__restrict__", text) == 0)
                 return TK_KEYWORD_RESTRICT;
 
             if (strcmp("__inline", text) == 0 || strcmp("__inline__", text) == 0)
@@ -2759,7 +2759,7 @@ bool find_definition_is_cursor(const struct parser_ctx* ctx, const struct token*
 }
 
 /* -find-definition: reports what was found (W_FIND_DEFINITION, the only diagnostic of this mode) */
-void find_definition_report(struct parser_ctx* ctx)
+void find_definition_report(const struct parser_ctx* ctx)
 {
     if (ctx->p_find_definition == NULL)
         return;
@@ -4538,11 +4538,13 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     {
                         _Assert(p_previous_declarator->declaration_specifiers != NULL);
 
-                        if (!(p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
+                        /* TCC accepts it, and its mingw headers rely on it (__CRT_INLINE is static __inline__) */
+                        if (!(ctx->options.target == TARGET_X64_TCC && ctx->current->level > 0) &&
+                            !(p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
                             (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
                             )
                         {
-                            /* 
+                            /*
                             * void f();
                             * static void f();
                             */
@@ -11168,7 +11170,7 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
                 }
                 else if (ctx->current->type == TK_KEYWORD__ASM)
                 {
-                    if (ctx->options.target == TARGET_X86_X64_GCC)
+                    if (ctx->options.target == TARGET_X86_X64_GCC || ctx->options.target == TARGET_X64_TCC)
                     {
                         /* GCC also uses asm as attribute */
                         struct asm_statement* _Owner _Opt p3 = gcc_asm(ctx, false);
@@ -13272,10 +13274,11 @@ struct asm_statement* _Owner _Opt asm_statement(struct parser_ctx* ctx)
         case TARGET_LCCU16:
         case TARGET_CATALINA:
         case TARGET_APPLE_ARM64:
+        case TARGET_X64_TCC:
         break;
     }
 
-    static_assert(NUMBER_OF_TARGETS == 7, "how this target handle asm blocks?");
+    static_assert(NUMBER_OF_TARGETS == 8, "how this target handle asm blocks?");
 
     // balanced tokens ( ... )
     return gcc_asm(ctx, true);

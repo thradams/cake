@@ -61,6 +61,12 @@ static char catalina_builtins[] =
  , 0
 };
 
+static char x64_tcc_macros[] =
+{
+ #include "include/builtins/x64_tcc_macros.h.include"
+ , 0
+};
+
 static char ccu8_macros[] =
 {
  #include "include/builtins/ccu8_macros.h.include"
@@ -273,6 +279,54 @@ static struct platform platform_x64_msvc =
   .long_double_alignment = 8,
 };
 
+/* Tiny C Compiler on Windows x64: the LLP64 sizes of x64_msvc, gcc syntax. */
+static struct platform platform_x64_tcc =
+{
+  .name = "x64_tcc",
+  .thread_local_attr = "__thread",
+  .alignas_fmt_must_have_one_percent_d = "__attribute__((aligned(%d)))",
+
+  .size_t_type = TYPE_UNSIGNED_LONG_LONG,
+  .ptrdiff_type = TYPE_SIGNED_LONG_LONG,
+
+  .bool_n_bits = 8,
+  .bool_type = TYPE_UNSIGNED_CHAR,
+  .bool_alignment = 1,
+
+  .char_n_bits = 8,
+  .char_t_type = TYPE_SIGNED_CHAR,
+  .char_alignment = 1,
+
+  .int8_type = TYPE_SIGNED_CHAR,
+  .int16_type = TYPE_SIGNED_SHORT,
+  .int32_type = TYPE_SIGNED_INT,
+  .int64_type = TYPE_SIGNED_LONG_LONG,
+
+  .pointer_n_bits = 64,
+  .pointer_alignment = 8,
+
+  .wchar_t_type = TYPE_UNSIGNED_SHORT,
+
+  .short_n_bits = 16,
+  .short_alignment = 2,
+  .int_n_bits = 32,
+  .int_alignment = 4,
+
+  .long_n_bits = 32,
+  .long_alignment = 4,
+
+  .long_long_n_bits = 64,
+  .long_long_alignment = 8,
+  .float_n_bits = 32,
+  .float_alignment = 4,
+
+  .double_n_bits = 64,
+  .double_alignment = 8,
+
+  .long_double_n_bits = 64,
+  .long_double_alignment = 8,
+};
+
 static struct platform platform_ccu8 =
 {
   .name = "ccu8",
@@ -379,10 +433,11 @@ static struct platform* platforms[NUMBER_OF_TARGETS] =
         [TARGET_CCU8] = &platform_ccu8,
         [TARGET_LCCU16] = &platform_ccu8,
         [TARGET_CATALINA] = &platform_catalina,
-        [TARGET_APPLE_ARM64] = &platform_macos_arm64
+        [TARGET_APPLE_ARM64] = &platform_macos_arm64,
+        [TARGET_X64_TCC] = &platform_x64_tcc
 };
 
-static_assert(NUMBER_OF_TARGETS == 7, "insert platform here");
+static_assert(NUMBER_OF_TARGETS == 8, "insert platform here");
 
 int parse_target(const char* targetstr, enum target* target)
 {
@@ -529,6 +584,7 @@ const char* target_get_predefined_macros(enum target e)
     case TARGET_LCCU16:      return ccu8_macros;
     case TARGET_CATALINA:    return catalina_macros;
     case TARGET_APPLE_ARM64: return apple_arm64_macros;
+    case TARGET_X64_TCC:     return x64_tcc_macros;
     }
     return "";
 };
@@ -545,6 +601,7 @@ const char* target_get_alloca(enum target e)
     case TARGET_LCCU16:      return "__builtin_alloca";
     case TARGET_CATALINA:    return "__builtin_alloca";
     case TARGET_APPLE_ARM64: return "__builtin_alloca";
+    case TARGET_X64_TCC:     return "alloca";
     }
     return "";
 }
@@ -559,6 +616,7 @@ const char* target_get_builtins(enum target e)
     case TARGET_LCCU16:      return "";
     case TARGET_CATALINA:    return catalina_builtins;
     case TARGET_APPLE_ARM64: return apple_arm64_builtins_include;
+    case TARGET_X64_TCC:     return "";
     }
     return "";
 }

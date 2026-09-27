@@ -1,6 +1,6 @@
 #define IS_TYPE(T, E) _Generic(E, T: 1, default: 0)
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 static_assert(IS_TYPE(int, 0));
 static_assert(IS_TYPE(int, /*I32MAX*/ 2147483647));
 static_assert(IS_TYPE(unsigned long, /*I32MAX + 1*/ 2147483648));
@@ -35,7 +35,7 @@ static_assert(IS_TYPE(unsigned long long, 0x8000000000000000ul));//
 static_assert(IS_TYPE(unsigned long long, 0x8000000000000000lu));//
 
 
-#else
+#elif !defined(_WIN32) /* LP64 */
 
 static_assert(IS_TYPE(int, 0));
 static_assert(IS_TYPE(int, /*I32MAX*/ 2147483647));

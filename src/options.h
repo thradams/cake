@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include "target.h"
 #include <limits.h>
+#include "fs.h"
 
 struct global_unused_list;
 
@@ -565,7 +566,7 @@ struct options
       Set by compile(): the file the cursor line:col is in. It can be a
       header, reached through the #include of the file being compiled.
     */
-    char find_definition_file[400];
+    char find_definition_file[FS_MAX_PATH];
 
     /*
       Set by compile() for the files after the cursor file, when the cursor

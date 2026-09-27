@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/io/setbuf.html
+/* tcc headers (msvcrt) lack what this sample uses */
+#ifndef __TINYC__
 /* <threads.h> is not provided by the macOS SDK */
 #ifndef __APPLE__
 #include <stdio.h>
@@ -12,3 +14,4 @@ int main(void)
     putchar('b');
 }
 #endif /* !__APPLE__ */
+#endif

@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/numeric/fenv/FE_exceptions.html
+/* tcc headers (msvcrt) lack what this sample uses */
+#ifndef __TINYC__
 #include <stdio.h>
 #include <math.h>
 #include <float.h>
@@ -41,3 +43,4 @@ int main(void)
                       nextafter(DBL_MIN/pow(2.0,52),0.0));
     show_fe_exceptions();
 }
+#endif

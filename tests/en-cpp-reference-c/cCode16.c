@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/chrono/timespec_get.html
+/* tcc headers (msvcrt) lack what this sample uses */
+#ifndef __TINYC__
 #include <stdio.h>
 #include <time.h>
  
@@ -10,3 +12,4 @@ int main(void)
     strftime(buff, sizeof buff, "%D %T", gmtime(&ts.tv_sec));
     printf("Current time: %s.%09ld UTC\n", buff, ts.tv_nsec);
 }
+#endif

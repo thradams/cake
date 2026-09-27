@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/string/multibyte/mbrtoc32.html
+/* tcc headers (msvcrt) lack what this sample uses */
+#ifndef __TINYC__
 /* <uchar.h> is not provided by the macOS SDK */
 #ifndef __APPLE__
 #include <stdio.h>
@@ -42,3 +44,4 @@ int main(void)
     puts("]");
 }
 #endif /* !__APPLE__ */
+#endif

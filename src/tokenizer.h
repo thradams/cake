@@ -26,6 +26,17 @@ struct include_dir_list
     struct include_dir* _Opt tail;
 };
 
+/* Called for each file an #include reads, so a caller (the IDE) learns each
+ * translation unit's dependencies; the compiler itself keeps nothing. */
+struct include_listener
+{
+    void (*callback)(void* _Opt data, const char* source_file, const char* included_file);
+
+    /* optional: called when each source file is done, with its error count */
+    void (*_Opt file_done)(void* _Opt data, const char* source_file, int error_count);
+    void* _Opt data;
+};
+
 enum preprocessor_ctx_flags
 {
     PREPROCESSOR_CTX_FLAGS_NONE = 0,
@@ -56,6 +67,10 @@ struct preprocessor_ctx
 
     /* -find-definition: the #define of the macro name under the cursor; the parser does not run then */
     const struct token* _Opt p_find_definition;
+
+    /* NULL unless the caller asked for includes (see struct include_listener) */
+    const struct include_listener* _Opt include_listener;
+    const char* _Opt source_file;
 };
 
 void preprocessor_ctx_destroy( _Dtor struct preprocessor_ctx* p);

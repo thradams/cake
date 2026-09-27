@@ -31,26 +31,7 @@
  /* The real compiler, linked in separately for this integration test - not
   * implemented here. Prints its diagnostics straight to stdout; do_compile()
   * below redirects that into the Output window. */
-struct report {
-    int no_files;
-    double cpu_time_used_sec;
-
-    /* has_errors is not reseted when we remove diagnostics */
-    bool has_errors;
-
-    int error_count;
-    int warnings_count;
-    int info_count;
-
-    bool test_mode;
-    int test_failed;
-    int test_succeeded;
-
-    /*
-      direct commands like -autoconfig doesnt use report
-    */
-    bool ignore_this_report;
-};
+#include "parser.h"
 extern int compile(int argc, const char** argv, struct report* report);
 
 /* Authentic Turbo Vision DOS color palette, matched against a real Turbo
@@ -133,6 +114,7 @@ enum {
                         * otherwise just the active file (see do_build()) */
     EVT_COMPILE_FILE = 41,  /* Compile - always just the active file, never
                              * the project (see do_compile()) */
+    EVT_REBUILD = 42,  /* Rebuild - the whole project, every .c file */
     EVT_COMPILE_OPTIONS = 45,  /* File > Options... - the global compiler
                                  * settings (cake.json); opens the dialog below */
     EVT_GLOBAL_INCLUDES = 47,      /* File > "Directories..." - the same
@@ -388,6 +370,9 @@ enum {
     EVT_PROJECT_INCLUDES_DETECT = 1338,  /* replaces the list with
                                           * detect_system_include_dirs() -
                                           * only shown for the global list */
+    EVT_PROJECT_INCLUDES_ADD_TOOLS = 1423, /* "Yes" after Detect - see add_system_compiler_tools() */
+    EVT_PROJECT_INCLUDES_DETECT_MSVC = 1424, /* Detect's "MSVC" when TCC is found too */
+    EVT_PROJECT_INCLUDES_DETECT_TCC = 1425,  /* Detect's "TCC" - see includes_detect_apply() */
     EVT_PROJECT_REPORT_UNUSED = 1356,  /* Project > "Report Unused" - see do_project_report_unused() */
     EVT_PROJECT_OPTIONS = 1318,  /* Project > "Options..." - same dialog as
                                   * Compile > "Options..." (EVT_COMPILE_OPTIONS)
@@ -452,11 +437,15 @@ enum {
                                * then push) */
     EVT_OUTPUT_CMDLINE = 1400,  /* the Output window's command <input> - Enter runs it, see cmdline_execute() */
     EVT_FINDRESULTS_DBLCLICK = 1401,  /* the Find Results <editor> - jumps like EVT_OUTPUT_DBLCLICK */
+    EVT_FINDRESULTS_CLEAR = 1403,     /* the Find Results popup's "Clear" */
     EVT_WINDOW_FINDRESULTS = 1402,  /* View > "Find Results" */
     EVT_NEWFILE_OK = 1410,          /* File > New... dialog's OK - also the File Name <input>'s id, so Enter creates */
     EVT_NEWFILE_CANCEL = 1411,
     EVT_NEWFILE_BROWSE = 1412,      /* its "..." - picks the Folder */
     EVT_NEWFILE_OVERWRITE = 1413,   /* "Yes" in its "already exists" prompt */
+    EVT_OUTPUT_COPY_ALL = 1420,     /* the Output popup's "Copy All" */
+    EVT_OUTPUT_SELECT_ALL = 1421,   /* the Output popup's "Select All" */
+    EVT_OUTPUT_CLEAR = 1422,        /* the Output popup's "Clear" */
 };
 
 /* One row of a <menu>'s dropdown: an id/label/shortcut triple, "---" for a
@@ -557,8 +546,217 @@ typedef struct
 } compile_settings;
 
 #define CAKE_PROJECT_EXT ".cakeproj"
-#define CAKE_PROJECT_MAX_FILES 512
-#define CAKE_PROJECT_MAX_INCLUDES 64
+/* A growable list of heap strings - a project's files and include directories. */
+struct string_list
+{
+    char** items;
+    int count;
+    int capacity;
+};
+
+/* Appends a copy of `s`; returns 0 when out of memory. */
+static int string_list_add(struct string_list* list, const char* s)
+{
+    if (list->count == list->capacity)
+    {
+        int capacity = list->capacity == 0 ? 16 : list->capacity * 2;
+        char** items = realloc(list->items, (size_t)capacity * sizeof items[0]);
+        if (!items)
+            return 0;
+        list->items = items;
+        list->capacity = capacity;
+    }
+    char* copy = strdup(s);
+    if (!copy)
+        return 0;
+    list->items[list->count++] = copy;
+    return 1;
+}
+
+static void string_list_remove_at(struct string_list* list, int index)
+{
+    free(list->items[index]);
+    for (int i = index; i + 1 < list->count; i++)
+        list->items[i] = list->items[i + 1];
+    list->count--;
+}
+
+static void string_list_clear(struct string_list* list)
+{
+    for (int i = 0; i < list->count; i++)
+        free(list->items[i]);
+    list->count = 0;
+}
+
+static void string_list_destroy(struct string_list* list)
+{
+    string_list_clear(list);
+    free(list->items);
+    list->items = NULL;
+    list->capacity = 0;
+}
+
+/* Indexes into a project_build_state's items - a .c file's headers. */
+struct project_build_deps
+{
+    int* items;
+    int count;
+    int capacity;
+};
+
+static void project_build_deps_add(struct project_build_deps* deps, int index)
+{
+    for (int i = 0; i < deps->count; i++)
+    {
+        if (deps->items[i] == index)
+            return;
+    }
+    if (deps->count == deps->capacity)
+    {
+        int capacity = deps->capacity == 0 ? 16 : deps->capacity * 2;
+        int* items = realloc(deps->items, (size_t)capacity * sizeof items[0]);
+        if (!items)
+            return;
+        deps->items = items;
+        deps->capacity = capacity;
+    }
+    deps->items[deps->count++] = index;
+}
+
+static void project_build_deps_destroy(struct project_build_deps* deps)
+{
+    free(deps->items);
+    deps->items = NULL;
+    deps->count = 0;
+    deps->capacity = 0;
+}
+
+/* A file a build read - a compiled .c or a header one of them included -
+ * with its last-modified time as of that build. */
+struct project_build_entry
+{
+    char* path;
+    long long time;
+    int compiled;                  /* a .c file the build compiled */
+    int ok;                        /* ...and it had no errors */
+    struct project_build_deps deps; /* for a compiled .c: the headers it included */
+    int changed;                   /* scratch for do_project_build: mtime differs from `time` */
+};
+
+/* What the last successful project build compiled, kept only in memory:
+ * Build passes the compiler just the .c files modified since then - the .c
+ * itself or any header it included (reported by the compiler, see struct
+ * include_listener). Entries are never removed, so deps indexes stay valid. */
+struct project_build_state
+{
+    struct project_build_entry* items;
+    int count;
+    int capacity;
+
+    /* the argv (settings + include dirs) it was built with; a change rebuilds all */
+    char* settings;
+};
+
+/* Same file, ignoring case and '/' vs '\' - the compiler and the project spell paths differently. */
+static int project_path_equal(const char* a, const char* b)
+{
+    while (*a && *b)
+    {
+        char ca = *a == '\\' ? '/' : (char)tolower((unsigned char)*a);
+        char cb = *b == '\\' ? '/' : (char)tolower((unsigned char)*b);
+        if (ca != cb)
+            return 0;
+        a++;
+        b++;
+    }
+    return !*a && !*b;
+}
+
+static void project_build_state_clear(struct project_build_state* state)
+{
+    for (int i = 0; i < state->count; i++)
+    {
+        free(state->items[i].path);
+        project_build_deps_destroy(&state->items[i].deps);
+    }
+    state->count = 0;
+    free(state->settings);
+    state->settings = NULL;
+}
+
+/* The index of `path`, or -1. */
+static int project_build_state_find(const struct project_build_state* state, const char* path)
+{
+    for (int i = 0; i < state->count; i++)
+    {
+        if (project_path_equal(state->items[i].path, path))
+            return i;
+    }
+    return -1;
+}
+
+/* The index of `path`, added with `time` if new (-1 when out of memory). */
+static int project_build_state_add(struct project_build_state* state, const char* path, long long time)
+{
+    int index = project_build_state_find(state, path);
+    if (index >= 0)
+        return index;
+    if (state->count == state->capacity)
+    {
+        int capacity = state->capacity == 0 ? 16 : state->capacity * 2;
+        struct project_build_entry* items = realloc(state->items, (size_t)capacity * sizeof items[0]);
+        if (!items)
+            return -1;
+        state->items = items;
+        state->capacity = capacity;
+    }
+    char* copy = strdup(path);
+    if (!copy)
+        return -1;
+    struct project_build_entry* entry = &state->items[state->count];
+    memset(entry, 0, sizeof *entry);
+    entry->path = copy;
+    entry->time = time;
+    return state->count++;
+}
+
+/* Moves what the build `from` read into `to`: times, and each compiled .c's
+ * headers (its deps replaced, as indexes into `to`). Leaves `from` empty. */
+static void project_build_state_commit(struct project_build_state* to, struct project_build_state* from)
+{
+    int* map = malloc((size_t)(from->count > 0 ? from->count : 1) * sizeof map[0]);
+    if (map)
+    {
+        for (int i = 0; i < from->count; i++)
+        {
+            map[i] = project_build_state_add(to, from->items[i].path, from->items[i].time);
+            if (map[i] >= 0)
+                to->items[map[i]].time = from->items[i].time;
+        }
+        for (int i = 0; i < from->count; i++)
+        {
+            if (!from->items[i].compiled || map[i] < 0)
+                continue;
+            struct project_build_entry* entry = &to->items[map[i]];
+            /* a file with errors is compiled again next time, whatever its headers do */
+            entry->compiled = from->items[i].ok;
+            if (!entry->compiled)
+                continue;
+            entry->deps.count = 0;
+            for (int k = 0; k < from->items[i].deps.count; k++)
+            {
+                int dep = map[from->items[i].deps.items[k]];
+                if (dep >= 0)
+                    project_build_deps_add(&entry->deps, dep);
+            }
+        }
+        free(map);
+        free(to->settings);
+        to->settings = from->settings;
+        from->settings = NULL;
+    }
+    project_build_state_clear(from);
+}
 
 /* The open Project, if any - Project > New/Open Project (project_new_create/
  * project_open_file) load one; Project > Close Project (EVT_PROJECT_CLOSE)
@@ -580,11 +778,9 @@ static struct
                              * include_dirs[] entry is relative to this */
     char name[256];
 
-    char files[CAKE_PROJECT_MAX_FILES][512];
-    int file_count;
+    struct string_list files;
 
-    char include_dirs[CAKE_PROJECT_MAX_INCLUDES][512];
-    int include_count;
+    struct string_list include_dirs;
 
     /* Compile > Options...' settings, but scoped to this project instead of
      * the IDE-wide default (g_compile) - persisted in the ".cakeproj" file
@@ -596,6 +792,14 @@ static struct
      * active_compile_settings(), which is what actually picks between this
      * and g_compile at compile/build time. */
     compile_settings compile;
+
+    /* in memory only: what the successful Builds compiled and read (the
+     * running one's is g_job.build_pending) */
+    struct project_build_state built;
+
+    /* the .c files (absolute) the last successful Build compiled - what
+     * $(CakeOutputChanged) lists */
+    struct string_list compiled;
 
     ui_node* window;
     ui_node* listbox;
@@ -649,6 +853,9 @@ static ui_node* g_view_linenumbers_item;
  * item, not the menu, for either route (click or F7) to actually be blocked.
  * See path_is_c_source() and this pointer's app_frame() call site. */
 static ui_node* g_compile_item;
+
+/* The Build menu's "Rebuild" item (EVT_REBUILD) - enabled only with a project open. */
+static ui_node* g_rebuild_item;
 
 /* The Build menu's "Compile" item (EVT_COMPILE_FILE) - compiles just the
  * active file, never the project. Same forward-declared/kept-current-every-
@@ -828,13 +1035,30 @@ static void build_screen(ui_node* root)
             ui_find_by_id(project_menu, project_menu_ids_requiring_project[i]);
 
     static const menu_item_spec compile_items[] = {
-        { EVT_COMPILE, "Build", "F7", 1, "Compile every file of the project (or the current file) and link the executable" },
+        { EVT_COMPILE, "Build", "F7", 1, "Compile the project's .c files modified since the last Build (or the current file)",
+          "# Build\n\nCompile the project's .c files modified since the last Build (or the current file)\n"
+          "\n"
+          "With a project open, only the `.c` files that changed since the last successful Build, or that include a header that changed "
+          "(any header, in the project or not - the compiler reports what each file includes), are passed to the compiler. "
+          "Every `.c` file is compiled when it is the first Build since the project was opened, or when the project options or include directories changed. "
+          "A file with errors is compiled again by the next Build.\n"
+          "\n"
+          "Without a project, compiles the current file.\n"
+          "\n"
+          "External Tools: `$(CakeInputChanged)` and `$(CakeOutputChanged)` list the files the last Build compiled." },
+        { EVT_REBUILD, "Rebuild", NULL, 1, "Compile every .c file of the project, modified or not",
+          "# Rebuild\n\nCompile every .c file of the project, modified or not\n"
+          "\n"
+          "Forgets what the previous Builds compiled and passes every `.c` file of the project to the compiler. "
+          "Needs an open project.\n"
+          "\n"
+          "Use it when something Build does not watch changed, e.g. `cake.json`." },
+        SEP,
         { EVT_COMPILE_FILE, "Compile", "Ctrl+F7", 1, "Compile only the current file" },
+        { EVT_EDITOR_SHOW_OUTPUT, "Show Generated Code", NULL, 1, "Open the C89 code Cake generated for the current file" },
         //{ 41, "Make", NULL, 1 },
        // { 42, "Link", NULL, 1 },
        // { 43, "Build all", NULL, 1 },
-        SEP,
-        { EVT_EDITOR_SHOW_OUTPUT, "Show Generated Code", NULL, 1, "Open the C89 code Cake generated for the current file" },
     };
     ui_node* compile_menu = add_menu(menubar, "Build", compile_items, sizeof compile_items / sizeof compile_items[0]);
     /* Grabbed back out by id, same reason/pattern as the View menu's items
@@ -843,6 +1067,7 @@ static void build_screen(ui_node* root)
      * wouldn't work). */
     g_compile_item = ui_find_by_id(compile_menu, EVT_COMPILE);
     g_compile_file_item = ui_find_by_id(compile_menu, EVT_COMPILE_FILE);
+    g_rebuild_item = ui_find_by_id(compile_menu, EVT_REBUILD);
     g_compile_show_output_item = ui_find_by_id(compile_menu, EVT_EDITOR_SHOW_OUTPUT);
 
     /* Shortcuts match Visual Studio's own debugger keys exactly - F5 does
@@ -1064,6 +1289,7 @@ static const char* g_target_slugs[] = {
     "x64_msvc",
     "x86_x64_gcc",
     "macos_arm64",
+    "x64_tcc",
 };
 
 static int target_slug_to_index(const char* slug)
@@ -1148,8 +1374,7 @@ static int diagformat_slug_to_index(const char* slug)
  * active_compile_settings()). Stored as absolute paths: unlike a project's
  * own list, which is relative to the project directory, this one has no
  * directory to be relative to. */
-static char g_include_dirs[CAKE_PROJECT_MAX_INCLUDES][512];
-static int g_include_count;
+static struct string_list g_include_dirs;
 
 /* Which list the one Include Directories dialog is editing right now - a
  * project's own, or the global one above. Bound when the dialog is opened
@@ -1158,10 +1383,9 @@ static int g_include_count;
  * always lands in the file that owns the list. */
 static struct
 {
-    char (*dirs)[512];   /* the array being edited */
-    int* count;
+    struct string_list* list;   /* the list being edited */
     int is_project;      /* 1 -> project_save(), 0 -> global_settings_save() */
-} g_includes_editing = { NULL, NULL, 0 };
+} g_includes_editing = { NULL, 0 };
 
 static compile_settings g_compile =
 {
@@ -1181,9 +1405,11 @@ static compile_settings g_compile =
 
 static ui_node* g_output_window;
 static ui_node* g_output_editor;
+static ui_node* g_output_popup;  /* right-click popup - Copy All/Select All/Clear */
 /* Find/Replace results, kept apart from Output so a search never wipes a terminal session */
 static ui_node* g_findresults_window;
 static ui_node* g_findresults_editor;
+static ui_node* g_findresults_popup;  /* right-click popup - Clear */
 
 /* The Git Changes docked panel - lists `git status --porcelain` for
  * g_folder.dir (the same directory the Folder panel browses, so both stay in
@@ -4084,8 +4310,10 @@ static void project_reset_data(void)
     g_project.file_path[0] = 0;
     g_project.dir[0] = 0;
     g_project.name[0] = 0;
-    g_project.file_count = 0;
-    g_project.include_count = 0;
+    string_list_clear(&g_project.files);
+    string_list_clear(&g_project.include_dirs);
+    project_build_state_clear(&g_project.built);
+    string_list_clear(&g_project.compiled);
     g_project.compile = g_compile;  /* start from whatever the IDE is
                                      * currently set to - see g_project.
                                      * compile's own doc comment */
@@ -4100,10 +4328,10 @@ static int project_contains_file(const char* abs_path)
 {
     if (!project_is_open() || !abs_path)
         return 0;
-    for (int i = 0; i < g_project.file_count; i++)
+    for (int i = 0; i < g_project.files.count; i++)
     {
         char entry_abs[1024];
-        project_abs_path(g_project.files[i], entry_abs, sizeof entry_abs);
+        project_abs_path(g_project.files.items[i], entry_abs, sizeof entry_abs);
         const char* a = entry_abs;
         const char* b = abs_path;
         while (*a && *b)
@@ -4184,16 +4412,16 @@ static void project_window_refresh(int selected_index)
         ui_node_free(child);
     }
 
-    for (int i = 0; i < g_project.file_count; i++)
+    for (int i = 0; i < g_project.files.count; i++)
     {
         ui_node* item = ui_create_element(UI_TAG_ITEM);
         char marker[8], label[520];
         uint32_t marker_fg;
-        project_file_marker(g_project.files[i], marker, &marker_fg);
-        snprintf(label, sizeof label, "%s%s", marker, g_project.files[i]);
+        project_file_marker(g_project.files.items[i], marker, &marker_fg);
+        snprintf(label, sizeof label, "%s%s", marker, g_project.files.items[i]);
         ui_set_label(item, label);
         ui_set_color(item, marker_fg, 0);
-        ui_set_path(item, g_project.files[i]);
+        ui_set_path(item, g_project.files.items[i]);
         ui_append_child(g_project.listbox, item);
     }
     ui_select_set_selected(g_project.listbox, selected_index);
@@ -4214,7 +4442,7 @@ static void project_window_refresh(int selected_index)
  * always-visible panel. A no-op before app_init builds the dialog. */
 static void project_includes_dialog_refresh(int selected_index)
 {
-    if (!g_project.includes_listbox || !g_includes_editing.dirs)
+    if (!g_project.includes_listbox || !g_includes_editing.list)
         return;
 
     while (ui_child_count(g_project.includes_listbox) > 0)
@@ -4224,10 +4452,10 @@ static void project_includes_dialog_refresh(int selected_index)
         ui_node_free(child);
     }
 
-    for (int i = 0; i < *g_includes_editing.count; i++)
+    for (int i = 0; i < g_includes_editing.list->count; i++)
     {
         ui_node* item = ui_create_element(UI_TAG_ITEM);
-        ui_set_label(item, g_includes_editing.dirs[i]);
+        ui_set_label(item, g_includes_editing.list->items[i]);
         ui_append_child(g_project.includes_listbox, item);
     }
     ui_select_set_selected(g_project.includes_listbox, selected_index);
@@ -4237,15 +4465,13 @@ static void project_includes_dialog_refresh(int selected_index)
  * whichever file owns it - see g_includes_editing. */
 static void includes_edit_project(void)
 {
-    g_includes_editing.dirs = g_project.include_dirs;
-    g_includes_editing.count = &g_project.include_count;
+    g_includes_editing.list = &g_project.include_dirs;
     g_includes_editing.is_project = 1;
 }
 
 static void includes_edit_global(void)
 {
-    g_includes_editing.dirs = g_include_dirs;
-    g_includes_editing.count = &g_include_count;
+    g_includes_editing.list = &g_include_dirs;
     g_includes_editing.is_project = 0;
 }
 
@@ -4304,12 +4530,12 @@ static void project_save(void)
     compile_settings_to_json(json_set_object(root, "compile"), &g_project.compile);
 
     struct json_value* includes = json_set_array(root, "include_dirs");
-    for (int i = 0; i < g_project.include_count; i++)
-        json_add_string(includes, g_project.include_dirs[i]);
+    for (int i = 0; i < g_project.include_dirs.count; i++)
+        json_add_string(includes, g_project.include_dirs.items[i]);
 
     struct json_value* files = json_set_array(root, "files");
-    for (int i = 0; i < g_project.file_count; i++)
-        json_add_string(files, g_project.files[i]);
+    for (int i = 0; i < g_project.files.count; i++)
+        json_add_string(files, g_project.files.items[i]);
 
     json_write_file(g_project.file_path, root);
     json_delete(root);
@@ -4358,25 +4584,20 @@ static int project_json_get_int(const struct json_value* object, const char* key
 /* Copies the string elements of the array member `key` into `out`, stopping
  * at `max` entries. Non-string elements are skipped. Returns how many were
  * copied. */
-static int project_json_get_string_array(const struct json_value* object, const char* key,
-                                         char out[][512], int max, size_t entry_size)
+static void project_json_get_string_array(const struct json_value* object, const char* key,
+                                          struct string_list* out)
 {
+    string_list_clear(out);
+
     const struct json_value* array = json_find_member(object, key);
     if (!array || array->type != JSON_ARRAY)
-        return 0;
+        return;
 
-    int count = 0;
-    for (const struct json_value* item = array->first_child;
-         item != NULL && count < max;
-         item = item->next)
+    for (const struct json_value* item = array->first_child; item != NULL; item = item->next)
     {
-        if (item->type != JSON_STRING)
-            continue;
-        snprintf(out[count], entry_size, "%s", item->string);
-        count++;
+        if (item->type == JSON_STRING)
+            string_list_add(out, item->string);
     }
-
-    return count;
 }
 
 /* Writes `c` as the members of `object` - the shared shape for compiler
@@ -4501,8 +4722,8 @@ static bool global_settings_save(void)
     compile_settings_to_json(json_set_object(root, "compile"), &g_compile);
 
     struct json_value* includes = json_set_array(root, "include_dirs");
-    for (int i = 0; i < g_include_count; i++)
-        json_add_string(includes, g_include_dirs[i]);
+    for (int i = 0; i < g_include_dirs.count; i++)
+        json_add_string(includes, g_include_dirs.items[i]);
 
     bool ok = json_write_file(path, root);
     json_delete(root);
@@ -4526,9 +4747,7 @@ static void global_settings_load(void)
     free(text);
 
     compile_settings_from_json(json_find_member(root, "compile"), &g_compile);
-    g_include_count = project_json_get_string_array(root, "include_dirs", g_include_dirs,
-                                                    CAKE_PROJECT_MAX_INCLUDES,
-                                                    sizeof g_include_dirs[0]);
+    project_json_get_string_array(root, "include_dirs", &g_include_dirs);
     json_delete(root);
 }
 
@@ -4557,10 +4776,6 @@ static int project_load_from_file(const char* path)
     }
 
     char loaded_name[256] = "";
-    char loaded_files[CAKE_PROJECT_MAX_FILES][512];
-    int loaded_file_count = 0;
-    char loaded_includes[CAKE_PROJECT_MAX_INCLUDES][512];
-    int loaded_include_count = 0;
 
     /* Compile settings default to whatever the IDE is currently set to
      * (same as project_reset_data()) - a ".cakeproj" written before these
@@ -4571,14 +4786,12 @@ static int project_load_from_file(const char* path)
 
     project_json_get_string(root, "name", loaded_name, sizeof loaded_name);
 
-    loaded_file_count = project_json_get_string_array(root, "files", loaded_files,
-                                                      CAKE_PROJECT_MAX_FILES, sizeof loaded_files[0]);
-    loaded_include_count = project_json_get_string_array(root, "include_dirs", loaded_includes,
-                                                         CAKE_PROJECT_MAX_INCLUDES, sizeof loaded_includes[0]);
+    project_reset_data();
+
+    project_json_get_string_array(root, "files", &g_project.files);
+    project_json_get_string_array(root, "include_dirs", &g_project.include_dirs);
 
     json_delete(root);
-
-    project_reset_data();
 
     snprintf(g_project.file_path, sizeof g_project.file_path, "%s", path);
     ide_path_normalize(g_project.file_path);
@@ -4596,13 +4809,6 @@ static int project_load_from_file(const char* path)
 
     g_project.compile = loaded_compile;
 
-    g_project.file_count = loaded_file_count;
-    for (int i = 0; i < loaded_file_count; i++)
-        snprintf(g_project.files[i], sizeof g_project.files[0], "%s", loaded_files[i]);
-
-    g_project.include_count = loaded_include_count;
-    for (int i = 0; i < loaded_include_count; i++)
-        snprintf(g_project.include_dirs[i], sizeof g_project.include_dirs[0], "%s", loaded_includes[i]);
 
     return 1;
 }
@@ -4746,21 +4952,22 @@ static void project_open_file(const char* path)
 
 /* Project > "Add Existing File..." - adds `path` (absolute, from the Open
  * dialog in OPEN_DLG_PROJECT_ADDFILE mode) to the open project, stored
- * relative to g_project.dir. Silently ignored if no project is open, the
- * project is already full, or the file is already listed. */
+ * relative to g_project.dir. Silently ignored if no project is open or the
+ * file is already listed. */
 static void project_add_file(const char* path)
 {
-    if (!project_is_open() || g_project.file_count >= CAKE_PROJECT_MAX_FILES)
+    if (!project_is_open())
         return;
 
-    char relative_path[512];
+    char relative_path[1024];
     project_make_relative(g_project.dir, path, relative_path, sizeof relative_path);
 
-    for (int i = 0; i < g_project.file_count; i++)
-        if (strcmp(g_project.files[i], relative_path) == 0)
+    for (int i = 0; i < g_project.files.count; i++)
+        if (strcmp(g_project.files.items[i], relative_path) == 0)
             return;
 
-    snprintf(g_project.files[g_project.file_count++], sizeof g_project.files[0], "%s", relative_path);
+    if (!string_list_add(&g_project.files, relative_path))
+        return;
     project_save();
     project_window_refresh(0);
 }
@@ -4769,13 +4976,13 @@ static void project_add_file(const char* path)
  * for a directory (from OPEN_DLG_PROJECT_ADDINCLUDE) instead of a file. */
 static void project_add_include(const char* path)
 {
-    if (!g_includes_editing.dirs || *g_includes_editing.count >= CAKE_PROJECT_MAX_INCLUDES)
+    if (!g_includes_editing.list)
         return;
 
     /* A project's entries are stored relative to the project directory (see
      * project_abs_path); the global list has no such directory, so it keeps
      * the absolute path exactly as picked. */
-    char entry[512];
+    char entry[1024];
     if (g_includes_editing.is_project)
     {
         if (!project_is_open())
@@ -4787,11 +4994,12 @@ static void project_add_include(const char* path)
         snprintf(entry, sizeof entry, "%s", path);
     }
 
-    for (int i = 0; i < *g_includes_editing.count; i++)
-        if (strcmp(g_includes_editing.dirs[i], entry) == 0)
+    for (int i = 0; i < g_includes_editing.list->count; i++)
+        if (strcmp(g_includes_editing.list->items[i], entry) == 0)
             return;
 
-    snprintf(g_includes_editing.dirs[(*g_includes_editing.count)++], 512, "%s", entry);
+    if (!string_list_add(g_includes_editing.list, entry))
+        return;
 
     if (g_includes_editing.is_project)
         project_save();
@@ -4806,10 +5014,10 @@ static void project_add_include(const char* path)
  * and its right-click popup's "Open" (EVT_PROJECT_POPUP_OPEN). */
 static void project_open_at(int index)
 {
-    if (index < 0 || index >= g_project.file_count)
+    if (index < 0 || index >= g_project.files.count)
         return;
     char abs_path[1024];
-    project_abs_path(g_project.files[index], abs_path, sizeof abs_path);
+    project_abs_path(g_project.files.items[index], abs_path, sizeof abs_path);
     nav_record_jump();
     open_file_path_into_editor(abs_path, basename_of(abs_path));
 }
@@ -4827,13 +5035,11 @@ static void project_window_activate(int index)
  * the project's own list of it. */
 static void project_remove_at(int index)
 {
-    if (index < 0 || index >= g_project.file_count)
+    if (index < 0 || index >= g_project.files.count)
         return;
-    for (int i = index; i + 1 < g_project.file_count; i++)
-        snprintf(g_project.files[i], sizeof g_project.files[0], "%s", g_project.files[i + 1]);
-    g_project.file_count--;
+    string_list_remove_at(&g_project.files, index);
     project_save();
-    int selected_index = index < g_project.file_count ? index : g_project.file_count - 1;
+    int selected_index = index < g_project.files.count ? index : g_project.files.count - 1;
     project_window_refresh(selected_index);
 }
 
@@ -5683,7 +5889,13 @@ static void do_editor_ctrlclick(void)
  *                      project open, one entry per .c file in it; without
  *                      one, just the single active document (empty if
  *                      there's no active .c document).
- *     $(Target)      - that target platform's name on its own, e.g. for a
+ *     $(CakeOutputChanged) - the same, but with a project open only the .c
+ *                      files the last successful Build compiled (every one
+ *                      before the first Build, none when it was up to date).
+ *     $(CakeInputFiles) - the project's .c source files themselves (full
+ *                      paths, quoted); the active .c document without one.
+ *     $(CakeInputChanged) - the same, filtered like $(CakeOutputChanged).
+ *     $(Target)    - that target platform's name on its own, e.g. for a
  *                      cross-compiler flag - the open project's own
  *                      (project_target_platform_name()) if there is one,
  *                      else this build's own compile-time default, same
@@ -5869,6 +6081,18 @@ static const struct
       "`$(CakeOutput)`: Cake's output file(s) - the C89 code Build generates", "# `$(CakeOutput)`\n\nCake's output file(s) - the C89 code Build generates\n"
       "\n"
       "With a project open: one path per `.c` file of the project, separated by spaces. Without one: just the active file's output. Each lands in a folder named after the target (see Build > Show Generated Code). Pass it to the compiler that links them." },
+    { "$(CakeOutputChanged)",
+      "`$(CakeOutputChanged)`: Cake's output file(s) the last Build compiled", "# `$(CakeOutputChanged)`\n\nCake's output file(s) the last Build compiled\n"
+      "\n"
+      "Same as `$(CakeOutput)`, but with a project open only the `.c` files the last successful Build compiled (every one before the first Build, none when it was up to date). For a tool that compiles them one by one (e.g. `-c`), not for linking." },
+    { "$(CakeInputFiles)",
+      "`$(CakeInputFiles)`: The project's `.c` source files", "# `$(CakeInputFiles)`\n\nThe project's `.c` source files\n"
+      "\n"
+      "With a project open: the full path of every `.c` file of the project, quoted and separated by spaces. Without one: just the active `.c` file." },
+    { "$(CakeInputChanged)",
+      "`$(CakeInputChanged)`: The project's `.c` source files the last Build compiled", "# `$(CakeInputChanged)`\n\nThe project's `.c` source files the last Build compiled\n"
+      "\n"
+      "Same as `$(CakeInputFiles)`, but with a project open only the `.c` files the last successful Build compiled (every one before the first Build, none when it was up to date)." },
     { "$(TargetPath)",
       "`$(TargetPath)`: The full path of the binary - exactly what Debug (F5) launches", "# `$(TargetPath)`\n\nThe full path of the binary - exactly what Debug (F5) launches\n"
       "\n"
@@ -5915,6 +6139,16 @@ static const struct
       "`$(Platform)`: The compilation target's name, e.g. `x64_msvc`", "# `$(Platform)`\n\nThe compilation target's name, e.g. `x64_msvc`\n"
       "\n"
       "The target selected in Compiler Options, with `default` resolved to the real platform. Also spelled `$(Target)`." },
+    { "$(IncludeDirs)",
+      "`$(IncludeDirs)`: The open project's include directories, as -I options", "# `$(IncludeDirs)`\n\nThe open project's include directories, as -I options\n"
+      "\n"
+      "Each one as an absolute path, quoted: `-I\"dir\"`. cl, gcc and clang all accept `-I`. Empty without a project open.\n"
+      "\n"
+      "Example: project `hello` in `C:/work/hello` with include directory `inc`. Expands to `-I\"C:/work/hello/inc\"`." },
+    { "$(SystemIncludeDirs)",
+      "`$(SystemIncludeDirs)`: The system include directories, as -I options", "# `$(SystemIncludeDirs)`\n\nThe system include directories, as -I options\n"
+      "\n"
+      "The list of File > System Directories (the `include_dirs` of `cake.json`), same format as `$(IncludeDirs)`. For a compiler that does not find its own headers, like cl run outside a Visual Studio prompt." },
 };
 #define EXT_MACRO_COUNT ((int)(sizeof ext_macros / sizeof ext_macros[0]))
 
@@ -6076,6 +6310,18 @@ static void exttool_append(struct exttool_buf* b, const char* text)
  * of polled from app_frame() - git status/diff on one repo/file return in
  * well under a frame, so there is nothing to stream. Returns the exit code,
  * or -1 if the process could not start. */
+/* Appends -I"dir" (cl, gcc and clang all take -I), space separated. A trailing
+ * slash is dropped: \" would escape the closing quote for cl. */
+static void exttool_append_include_arg(struct exttool_buf* b, const char* dir)
+{
+    char buf[1100];
+    size_t len = strlen(dir);
+    while (len > 1 && (dir[len - 1] == '/' || dir[len - 1] == '\\'))
+        len--;
+    snprintf(buf, sizeof buf, "%s-I\"%.*s\"", b->len > 0 ? " " : "", (int)len, dir);
+    exttool_append(b, buf);
+}
+
 static int run_process_capture(const char* cmd, const char* dir, struct exttool_buf* out)
 {
     exttool_buf_free(out);
@@ -7235,6 +7481,58 @@ static void target_file_name(const char* doc_base, char* out, size_t cap)
              strstr(platform_name, "msvc") ? ".exe" : "");
 }
 
+/* Whether the project .c file `entry` goes into $(CakeInputChanged)/
+ * $(CakeOutputChanged): compiled by the last successful Build, or any file
+ * before the first one. */
+static int project_entry_changed(const char* entry)
+{
+    if (!g_project.built.settings)
+        return 1;
+    char abs_path[1024];
+    project_abs_path(entry, abs_path, sizeof abs_path);
+    for (int i = 0; i < g_project.compiled.count; i++)
+    {
+        if (strcmp(g_project.compiled.items[i], abs_path) == 0)
+            return 1;
+    }
+    return 0;
+}
+
+/* $(CakeInputFiles)/$(CakeInputChanged) - the project's .c source files
+ * (absolute, quoted, space-separated), all of them or only the changed
+ * ones; without a project, the active .c document. */
+static void exttool_append_cake_input(struct exttool_buf* out, const char* path, int only_changed)
+{
+    if (!project_is_open())
+    {
+        if (path && path_is_c_source(path))
+        {
+            exttool_append(out, "\"");
+            exttool_append(out, path);
+            exttool_append(out, "\"");
+        }
+        return;
+    }
+
+    int first = 1;
+    for (int i = 0; i < g_project.files.count; i++)
+    {
+        const char* entry = g_project.files.items[i];
+        if (!path_is_c_source(entry))
+            continue;
+        if (only_changed && !project_entry_changed(entry))
+            continue;
+        char abs_path[1024];
+        project_abs_path(entry, abs_path, sizeof abs_path);
+        if (!first)
+            exttool_append(out, " ");
+        exttool_append(out, "\"");
+        exttool_append(out, abs_path);
+        exttool_append(out, "\"");
+        first = 0;
+    }
+}
+
 /* $(CakeOutput) - see exttool_expand()'s own doc comment: cake's own
  * predicted OUTPUT paths (not the sources), quoted and space-separated,
  * ready to hand straight to a real compiler as its input file list. Cake
@@ -7254,7 +7552,8 @@ static void target_file_name(const char* doc_base, char* out, size_t cap)
  * third slightly different guess at cake's output layout. */
 static void exttool_append_cake_output(struct exttool_buf* out,
                                         const char* path, const char* dir,
-                                        const char* name, const char* ext)
+                                        const char* name, const char* ext,
+                                        int only_changed)
 {
     /* No project open: use whatever target the user picked in Compiler
      * Options (g_compile.target - see do_debug_start()'s own matching fix),
@@ -7264,11 +7563,15 @@ static void exttool_append_cake_output(struct exttool_buf* out,
     if (project_is_open())
     {
         int first = 1;
-        for (int i = 0; i < g_project.file_count; i++)
+        for (int i = 0; i < g_project.files.count; i++)
         {
-            const char* entry = g_project.files[i];
+            const char* entry = g_project.files.items[i];
             size_t elen = strlen(entry);
             if (elen < 2 || entry[elen - 2] != '.' || entry[elen - 1] != 'c')
+                continue;
+
+            /* $(CakeOutputChanged): after a Build, only the files it compiled; before any, all */
+            if (only_changed && !project_entry_changed(entry))
                 continue;
 
             /* Entries are normally stored relative to g_project.dir, but
@@ -7397,7 +7700,13 @@ static void exttool_expand(const char* in, const char* path, struct exttool_buf*
             else if (strcmp(macro, "FileExt") == 0 ||
                      strcmp(macro, "ItemExt") == 0)  exttool_append(out, ext);
             else if (strcmp(macro, "CakeOutput") == 0)
-                exttool_append_cake_output(out, path, dir, name, ext);
+                exttool_append_cake_output(out, path, dir, name, ext, 0);
+            else if (strcmp(macro, "CakeOutputChanged") == 0)
+                exttool_append_cake_output(out, path, dir, name, ext, 1);
+            else if (strcmp(macro, "CakeInputFiles") == 0)
+                exttool_append_cake_input(out, path, 0);
+            else if (strcmp(macro, "CakeInputChanged") == 0)
+                exttool_append_cake_input(out, path, 1);
             /* Visual Studio's own External Tools vocabulary for the built
              * binary (see its Macros menu): $(TargetDir) the folder it
              * lands in, $(TargetName)/$(TargetExt)/$(TargetFileName) its
@@ -7464,6 +7773,20 @@ static void exttool_expand(const char* in, const char* path, struct exttool_buf*
                  * no-project fallback $(CakeOutput) and $(Target) make. */
                 exttool_append(out,
                     project_is_open() ? g_project.dir : dir);
+            else if (strcmp(macro, "IncludeDirs") == 0)
+            {
+                for (int i = 0; project_is_open() && i < g_project.include_dirs.count; i++)
+                {
+                    char abs_dir[1024];
+                    project_abs_path(g_project.include_dirs.items[i], abs_dir, sizeof abs_dir);
+                    exttool_append_include_arg(out, abs_dir);
+                }
+            }
+            else if (strcmp(macro, "SystemIncludeDirs") == 0)
+            {
+                for (int i = 0; i < g_include_dirs.count; i++)
+                    exttool_append_include_arg(out, g_include_dirs.items[i]);
+            }
             else if (strcmp(macro, "Target") == 0)
                 /* Same no-project fallback as exttool_append_cake_output's
                  * own - kept consistent since "$(CakeOutput) $(Target)" is
@@ -7526,7 +7849,9 @@ static void exttool_expand(const char* in, const char* path, struct exttool_buf*
 #include <windows.h>
 #include <io.h>
 #include <fcntl.h>
+#ifdef _MSC_VER
 #pragma comment(lib, "advapi32.lib")  /* Reg* - detect_system_include_dirs() */
+#endif
 /* MSVC provides these under their POSIX names too, but deprecated (C4996).
  * Alias to the underscored spellings so the shared code below reads the
  * same on every platform without warnings. */
@@ -7556,10 +7881,20 @@ static void exttool_expand(const char* in, const char* path, struct exttool_buf*
  * Whatever could not be found is described in `problems` (one line each,
  * "" when everything was), for the message box the caller shows - a
  * partial result, e.g. an SDK but no MSVC, still returns what it found. */
-static int detect_system_include_dirs(char (*dirs)[512], int max,
-                                      char* problems, int problems_size)
+/* Where Visual Studio and the Windows SDK are - what detect_system_include_dirs()
+ * finds on the way, kept for add_system_compiler_tools(). Empty fields: not found. */
+struct msvc_toolchain
 {
-    int count = 0;
+    char vs_dir[512];
+    char version[64];
+    char sdk_root[FS_MAX_PATH];
+    char sdk_version[64];
+};
+
+static int detect_system_include_dirs(struct string_list* dirs,
+                                      char* problems, int problems_size,
+                                      struct msvc_toolchain* _Opt toolchain)
+{
     problems[0] = 0;
 
 #ifdef _WIN32
@@ -7597,8 +7932,14 @@ static int detect_system_include_dirs(char (*dirs)[512], int max,
         if (version)
         {
             version[strcspn(version, " \t\r\n")] = 0;
-            if (count < max)
-                snprintf(dirs[count++], 512, "%s\\VC\\Tools\\MSVC\\%s\\include", vs_dir, version);
+            if (toolchain)
+            {
+                snprintf(toolchain->vs_dir, sizeof toolchain->vs_dir, "%s", vs_dir);
+                snprintf(toolchain->version, sizeof toolchain->version, "%s", version);
+            }
+            char dir[1024];
+            snprintf(dir, sizeof dir, "%s\\VC\\Tools\\MSVC\\%s\\include", vs_dir, version);
+            string_list_add(dirs, dir);
             free(version);
         }
         else
@@ -7669,17 +8010,23 @@ static int detect_system_include_dirs(char (*dirs)[512], int max,
         }
         RegCloseKey(key);
 
+        if (best[0] && toolchain)
+        {
+            snprintf(toolchain->sdk_root, sizeof toolchain->sdk_root, "%s", root);
+            snprintf(toolchain->sdk_version, sizeof toolchain->sdk_version, "%s", best);
+        }
+
         if (best[0])
         {
             /* Same subdirectories, in the same order, as the INCLUDE a
              * Visual Studio command prompt sets. */
             static const char* const subdirs[] = { "ucrt", "um", "shared", "winrt", "cppwinrt" };
-            for (int i = 0; i < (int)_Countof(subdirs) && count < max; i++)
+            for (int i = 0; i < (int)_Countof(subdirs); i++)
             {
                 char dir[512];
                 snprintf(dir, sizeof dir, "%sInclude\\%s\\%s", root, best, subdirs[i]);
                 if (GetFileAttributesA(dir) != INVALID_FILE_ATTRIBUTES)
-                    snprintf(dirs[count++], 512, "%s", dir);
+                    string_list_add(dirs, dir);
             }
         }
         else
@@ -7710,7 +8057,7 @@ static int detect_system_include_dirs(char (*dirs)[512], int max,
 
     const char* p = exttool_buf_text(&out);
     int in_include_section = 0;
-    while (*p && count < max)
+    while (*p)
     {
         const char* eol = strchr(p, '\n');
         size_t len = eol ? (size_t)(eol - p) : strlen(p);
@@ -7740,18 +8087,295 @@ static int detect_system_include_dirs(char (*dirs)[512], int max,
             *framework_tag = 0;
 
         if (dir[0])
-            snprintf(dirs[count++], 512, "%s", dir);
+            string_list_add(dirs, dir);
     }
 
     /* The compiler's own output says why - typically "gcc: not found". */
-    if (count == 0)
+    if (dirs->count == 0)
         snprintf(problems, problems_size, "No include search list in the output of\n  %s\n\n%s",
                  cmd, exttool_buf_text(&out));
     exttool_buf_free(&out);
 
 #endif
 
-    return count;
+    return dirs->count;
+}
+
+/* Whether running `cmd` prints `signature` - a compiler that is on PATH. */
+static bool command_output_has(const char* cmd, const char* signature)
+{
+    struct exttool_buf out = { 0 };
+    run_process_capture(cmd, NULL, &out);
+    bool found = strstr(exttool_buf_text(&out), signature) != NULL;
+    exttool_buf_free(&out);
+    return found;
+}
+
+/* Appends `t` to g_tools unless a tool with its title is already there. */
+static int exttool_add_if_missing(const ext_tool* t, struct exttool_buf* report)
+{
+    for (int i = 0; i < g_tools.count; i++)
+    {
+        if (strcmp(g_tools.items[i].title, t->title) == 0)
+        {
+            exttool_append(report, "Already in Tools: ");
+            exttool_append(report, t->title);
+            exttool_append(report, "\n");
+            return 0;
+        }
+    }
+    if (g_tools.count >= EXT_TOOL_MAX)
+    {
+        exttool_append(report, "Tools is full, not added: ");
+        exttool_append(report, t->title);
+        exttool_append(report, "\n");
+        return 0;
+    }
+    g_tools.items[g_tools.count++] = *t;
+    exttool_append(report, "Added to Tools: ");
+    exttool_append(report, t->title);
+    exttool_append(report, "\n");
+    return 1;
+}
+
+/* Adds "<name> Debug" and "<name> Release": `args` is a format with one %s for
+ * the build flags, `debug_flags` / `release_flags` those flags. */
+static int exttool_add_debug_release(const char* name, const char* command, const char* args,
+                                     const char* debug_flags, const char* release_flags,
+                                     struct exttool_buf* report)
+{
+    int added = 0;
+    for (int i = 0; i < 2; i++)
+    {
+        ext_tool t = { 0 };
+        snprintf(t.title, sizeof t.title, "%s %s", name, i == 0 ? "Debug" : "Release");
+        snprintf(t.command, sizeof t.command, "%s", command);
+        int n = snprintf(t.args, sizeof t.args, args, i == 0 ? debug_flags : release_flags);
+        snprintf(t.dir, sizeof t.dir, "$(TargetDir)");
+        if (n > 0 && (size_t)n < sizeof t.args)
+        {
+            added += exttool_add_if_missing(&t, report);
+        }
+        else
+        {
+            exttool_append(report, t.title);
+            exttool_append(report, ": the paths are too long for a tool's arguments.\n");
+        }
+    }
+    return added;
+}
+
+/* The Tiny C Compiler has no installer or registry entry: "tcc" when it is on
+ * PATH, else tcc.exe in a usual folder (C:\tcc, Program Files\tcc, or a tcc
+ * folder next to the IDE), as a command for an External Tool. */
+static bool find_tcc(char* command, size_t size)
+{
+    if (command_output_has("tcc -v 2>&1", "tcc version"))
+    {
+        snprintf(command, size, "tcc");
+        return true;
+    }
+#ifdef _WIN32
+    char dirs[4][FS_MAX_PATH] = { "C:\\tcc", "C:\\tcc\\win32", { 0 }, { 0 } };
+    char pf[MAX_PATH] = { 0 };
+    DWORD n = GetEnvironmentVariableA("ProgramFiles", pf, sizeof pf);
+    if (n > 0 && n < sizeof pf)
+        snprintf(dirs[2], sizeof dirs[2], "%s\\tcc", pf);
+    char self[FS_MAX_PATH] = { 0 };
+    exe_dir(self, sizeof self);
+    if (self[0])
+        snprintf(dirs[3], sizeof dirs[3], "%s\\tcc", self);
+
+    for (int i = 0; i < (int)_Countof(dirs); i++)
+    {
+        char exe[FS_MAX_PATH + 16];
+        if (!dirs[i][0])
+            continue;
+        snprintf(exe, sizeof exe, "%s\\tcc.exe", dirs[i]);
+        if (GetFileAttributesA(exe) != INVALID_FILE_ATTRIBUTES)
+        {
+            /* `call`: cmd /c strips the outer quotes of a line that starts with one */
+            snprintf(command, size, "call \"%s\"", exe);
+            return true;
+        }
+    }
+#endif
+    return false;
+}
+
+/* TCC's own include directories, from the "include:" section of
+ * `tcc -print-search-dirs`. Returns how many were found. */
+static int detect_tcc_include_dirs(struct string_list* dirs, char* problems, int problems_size)
+{
+    problems[0] = 0;
+    char tcc[FS_MAX_PATH + 16];
+    if (!find_tcc(tcc, sizeof tcc))
+    {
+        snprintf(problems, problems_size, "tcc was not found (PATH, C:\\tcc, Program Files\\tcc).\n");
+        return 0;
+    }
+    char cmd[FS_MAX_PATH + 64];
+    snprintf(cmd, sizeof cmd, "%s -print-search-dirs 2>&1", tcc);
+    struct exttool_buf out = { 0 };
+    run_process_capture(cmd, NULL, &out);
+
+    const char* p = exttool_buf_text(&out);
+    int in_include_section = 0;
+    while (*p)
+    {
+        const char* eol = strchr(p, '\n');
+        size_t len = eol ? (size_t)(eol - p) : strlen(p);
+        char line[512];
+        snprintf(line, sizeof line, "%.*s", (int)len, p);
+        p += len + (eol ? 1 : 0);
+        line[strcspn(line, "\r")] = 0;
+
+        if (line[0] != ' ')
+        {
+            in_include_section = strcmp(line, "include:") == 0;
+            continue;
+        }
+        char* dir = line;
+        while (*dir == ' ')
+            dir++;
+        if (in_include_section && dir[0])
+            string_list_add(dirs, dir);
+    }
+    if (dirs->count == 0)
+        snprintf(problems, problems_size, "No include section in the output of\n  %s\n\n%s", cmd, exttool_buf_text(&out));
+    exttool_buf_free(&out);
+    return dirs->count;
+}
+
+/* Detect in the System Directories dialog: replaces the global list with the
+ * headers of one compiler - MSVC and the Windows SDK, or TCC - never a mix. */
+static void includes_detect_apply(int use_tcc)
+{
+    /* The button only exists for the global list (includes_set_detect_visible),
+     * but check anyway so it can never overwrite a project's own. */
+    if (!g_includes_editing.list || g_includes_editing.is_project)
+        return;
+
+    struct string_list found = { 0 };
+    char problems[2048];
+    int n = use_tcc ? detect_tcc_include_dirs(&found, problems, sizeof problems)
+                    : detect_system_include_dirs(&found, problems, sizeof problems, NULL);
+
+    /* Always reports back: what was found (and anything missing alongside
+     * it), or why nothing was. Nothing found keeps the current list. */
+    struct exttool_buf msg = { 0 };
+    if (n > 0)
+    {
+        struct string_list old = *g_includes_editing.list;
+        *g_includes_editing.list = found; /* moved */
+        found = old;
+        bool saved = global_settings_save();
+        project_includes_dialog_refresh(0);
+
+        char settings_path[FS_MAX_PATH];
+        if (!get_global_settings_path(settings_path, sizeof settings_path))
+            snprintf(settings_path, sizeof settings_path, "cake.json");
+        exttool_append(&msg, saved ? "System directories detected successfully.\n\nSaved to:\n"
+                                   : "System directories were detected, but could not be saved to:\n");
+        exttool_append(&msg, settings_path);
+        exttool_append(&msg, "\n");
+        if (problems[0])
+        {
+            exttool_append(&msg, "\nWarning:\n");
+            exttool_append(&msg, problems);
+        }
+        exttool_append(&msg, "\nAdd the compilers found (Visual Studio, gcc, clang, tcc) to Tools?\n");
+
+        ui_msgbox_button btns[] = {
+            { "  Yes  ", EVT_PROJECT_INCLUDES_ADD_TOOLS },
+            { "  No  ", 0 },
+        };
+        ui_message_box(g_screen, "Detect", exttool_buf_text(&msg), btns, 2);
+    }
+    else
+    {
+        exttool_append(&msg, "Detection failed - the list was not changed.\n\n");
+        exttool_append(&msg, problems);
+
+        ui_msgbox_button ok = { "   OK   ", 0 };
+        ui_message_box(g_screen, "Detect", exttool_buf_text(&msg), &ok, 1);
+    }
+    exttool_buf_free(&msg);
+    string_list_destroy(&found);
+}
+
+/* The "Yes" after Detect: adds the compilers found as External Tools, a Debug
+ * and a Release one each, that build cake's output into $(TargetPath), the
+ * file Debug runs. Visual Studio's cl is called by its full path with the
+ * include and library directories on the command line, so it works without a
+ * Visual Studio prompt (vcvars). gcc and clang only when they are on PATH.
+ * Returns how many were added. */
+static int add_system_compiler_tools(struct exttool_buf* report)
+{
+    int added = 0;
+
+#ifdef _WIN32
+    struct msvc_toolchain tc = { 0 };
+    struct string_list dirs = { 0 };
+    char problems[2048];
+    detect_system_include_dirs(&dirs, problems, sizeof problems, &tc);
+    string_list_destroy(&dirs);
+
+    if (tc.vs_dir[0] && tc.version[0] && tc.sdk_root[0] && tc.sdk_version[0])
+    {
+        /* `call`: cmd /c strips the outer quotes of a line that starts with one */
+        char command[512];
+        snprintf(command, sizeof command,
+                 "call \"%s\\VC\\Tools\\MSVC\\%s\\bin\\Hostx64\\x64\\cl.exe\"", tc.vs_dir, tc.version);
+
+        /* %%s is left for the build flags */
+        char args[512];
+        snprintf(args, sizeof args,
+                 "/nologo %%s $(CakeOutput) $(IncludeDirs) $(SystemIncludeDirs) /Fe\"$(TargetPath)\" /link"
+                 " /LIBPATH:\"%s\\VC\\Tools\\MSVC\\%s\\lib\\x64\""
+                 " /LIBPATH:\"%sLib\\%s\\ucrt\\x64\""
+                 " /LIBPATH:\"%sLib\\%s\\um\\x64\"",
+                 tc.vs_dir, tc.version, tc.sdk_root, tc.sdk_version, tc.sdk_root, tc.sdk_version);
+
+        added += exttool_add_debug_release("Visual Studio x64", command, args,
+                                           "/Zi /Od", "/O2 /DNDEBUG", report);
+    }
+#endif
+
+    if (command_output_has("gcc --version 2>&1", "Free Software Foundation"))
+    {
+        /* cake's output redeclares library functions with its own types */
+        added += exttool_add_debug_release("gcc", "gcc",
+                                           "%s -Wno-builtin-declaration-mismatch $(CakeOutput) $(IncludeDirs) -o \"$(TargetPath)\"",
+                                           "-g -O0", "-O2 -DNDEBUG", report);
+    }
+
+    if (command_output_has("clang --version 2>&1", "clang version"))
+    {
+        added += exttool_add_debug_release("clang", "clang",
+                                           "%s -Wno-builtin-requires-header -Wno-incompatible-library-redeclaration"
+                                           " $(CakeOutput) $(IncludeDirs) -o \"$(TargetPath)\"",
+                                           "-g -O0", "-O2 -DNDEBUG", report);
+    }
+
+    ext_tool t = { 0 };
+    if (find_tcc(t.command, sizeof t.command))
+    {
+#ifdef _WIN32
+        /* one tool only: its debug info (stabs/DWARF) is not the PDB cdb reads */
+        snprintf(t.title, sizeof t.title, "tcc");
+        snprintf(t.args, sizeof t.args, "$(CakeOutput) $(IncludeDirs) -o \"$(TargetPath)\"");
+        snprintf(t.dir, sizeof t.dir, "$(TargetDir)");
+        added += exttool_add_if_missing(&t, report);
+#else
+        /* -gdwarf: plain -g is stabs, which lldb does not read */
+        added += exttool_add_debug_release("tcc", t.command,
+                                           "%s $(CakeOutput) $(IncludeDirs) -o \"$(TargetPath)\"",
+                                           "-gdwarf", "-DNDEBUG", report);
+#endif
+    }
+
+    return added;
 }
 
 /* ui_open_url() for a file on disk: turns an absolute local path
@@ -7827,6 +8451,12 @@ static struct compile_job
      * nothing. */
     int to_find_results;
     int find_definition;
+
+    /* a Project > Build: what it compiles and reads (filled by the worker
+     * through project_build_on_include), committed to g_project.built on success */
+    int project_build;
+    struct project_build_state build_pending;
+    struct include_listener include_listener;
     char find_definition_word[128];
 
     int saved_stdout;     /* dup of the original stdout fd, restored at end */
@@ -7933,6 +8563,8 @@ static int compile_stream_start(void)
         g_job.text[0] = 0;
     g_job.finished = 0;
     memset(&g_job.report, 0, sizeof g_job.report);
+    if (g_job.project_build)
+        g_job.report.include_listener = &g_job.include_listener;
 
     /* See trap 1 above: give stdout a valid fd before dup2'ing onto it. */
     fflush(stdout);
@@ -8248,7 +8880,8 @@ static void save_active_file(ui_node* active)
 {
     ui_node* editor = editor_in_window(active);
     const char* path = active ? ui_get_path(active) : "";
-    if (!editor || !path[0])
+    /* a clean editor is not rewritten: a new mtime would make Build recompile the file */
+    if (!editor || !path[0] || !ui_get_dirty(editor))
         return;
 
     int crlf = file_uses_crlf(path);
@@ -9213,10 +9846,10 @@ static int job_argv_from_settings(const compile_settings* cs)
      * passing it here too would add every directory twice. */
     if (cs == &g_project.compile)
     {
-        for (int i = 0; i < g_project.include_count; i++)
+        for (int i = 0; i < g_project.include_dirs.count; i++)
         {
             char abs_dir[1024 - 2];
-            project_abs_path(g_project.include_dirs[i], abs_dir, sizeof abs_dir);
+            project_abs_path(g_project.include_dirs.items[i], abs_dir, sizeof abs_dir);
             snprintf(flag, sizeof flag, "-I%s", abs_dir);
             job_push(&argc, flag);
         }
@@ -9271,6 +9904,29 @@ static void do_compile(void)
      * the worker is done. */
 }
 
+/* The worker thread's include_listener during a Project > Build: records
+ * `included_file` (with its time now) as a header of `source_file`. Only the
+ * worker touches g_job.build_pending until the build finishes. */
+static void project_build_on_include(void* data, const char* source_file, const char* included_file)
+{
+    struct project_build_state* pending = data;
+    int source = project_build_state_find(pending, source_file);
+    if (source < 0)
+        return;
+    int header = project_build_state_add(pending, included_file, file_mtime(included_file));
+    if (header >= 0)
+        project_build_deps_add(&pending->items[source].deps, header);
+}
+
+/* The include_listener's file_done: `source_file` finished with `error_count` errors. */
+static void project_build_on_file_done(void* data, const char* source_file, int error_count)
+{
+    struct project_build_state* pending = data;
+    int source = project_build_state_find(pending, source_file);
+    if (source >= 0)
+        pending->items[source].ok = error_count == 0;
+}
+
 /* Project > "Build" - same argv shape do_compile() builds from Compile >
  * Options... (g_compile: target/style/diagnostic format/flags/free-text
  * options), just with every ".c" file in the open project appended instead
@@ -9291,12 +9947,14 @@ static void do_project_build(void)
      * last-saved version instead of what's on screen (do_compile()'s own
      * save_active_file() call, just for every project file instead of only
      * the active one). */
-    for (int i = 0; i < g_project.file_count; i++)
+    for (int i = 0; i < g_project.files.count; i++)
     {
         char abs_path[1024];
-        project_abs_path(g_project.files[i], abs_path, sizeof abs_path);
+        project_abs_path(g_project.files.items[i], abs_path, sizeof abs_path);
         ui_node* open_win = find_open_window(abs_path);
-        if (open_win)
+        ui_node* editor = open_win ? editor_in_window(open_win) : NULL;
+        /* only unsaved ones: rewriting a saved file changes its mtime and Build would recompile it */
+        if (editor && ui_get_dirty(editor))
             save_active_file(open_win);
     }
 
@@ -9306,28 +9964,108 @@ static void do_project_build(void)
      * path - headers are never handed to the compiler directly, same as a
      * normal single-file Compile never would be pointed at a .h. */
     int argc = job_argv_from_settings(&g_project.compile);
-    int file_argc = 0;
-    for (int i = 0; i < g_project.file_count && argc < (int)_Countof(g_job.storage); i++)
+
+    /* Everything is rebuilt when the settings changed since the last
+     * successful build; otherwise only the .c files that changed or include
+     * a header that changed. */
+    struct project_build_state* built = &g_project.built;
+    struct project_build_state* pending = &g_job.build_pending;
+    project_build_state_clear(pending);
+
+    size_t settings_len = 1;
+    for (int i = 0; i < argc; i++)
+        settings_len += strlen(g_job.argv[i]) + 1;
+    pending->settings = malloc(settings_len);
+    if (pending->settings)
     {
-        const char* entry = g_project.files[i];
-        size_t len = strlen(entry);
-        if (len < 2 || entry[len - 2] != '.' || entry[len - 1] != 'c')
+        pending->settings[0] = 0;
+        for (int i = 0; i < argc; i++)
         {
-            continue;
+            strcat(pending->settings, g_job.argv[i]);
+            strcat(pending->settings, "\n");
         }
-        project_abs_path(entry, g_job.storage[argc], sizeof g_job.storage[0]);
+    }
+    int rebuild_all = !pending->settings || !built->settings ||
+        strcmp(pending->settings, built->settings) != 0;
+
+    /* one stat per file the last builds read */
+    for (int i = 0; i < built->count; i++)
+        built->items[i].changed = file_mtime(built->items[i].path) != built->items[i].time;
+
+    struct string_list reasons = { 0 };
+    int c_count = 0;
+    int file_argc = 0;
+    for (int i = 0; i < g_project.files.count && argc < (int)_Countof(g_job.storage); i++)
+    {
+        char abs_path[1024];
+        project_abs_path(g_project.files.items[i], abs_path, sizeof abs_path);
+        if (!path_is_c_source(abs_path))
+            continue;
+        c_count++;
+
+        int index = project_build_state_find(built, abs_path);
+        int dirty = rebuild_all || index < 0 || !built->items[index].compiled || built->items[index].changed;
+        const char* header = NULL;
+        for (int k = 0; !dirty && k < built->items[index].deps.count; k++)
+        {
+            dirty = built->items[built->items[index].deps.items[k]].changed;
+            if (dirty)
+                header = built->items[built->items[index].deps.items[k]].path;
+        }
+
+        /* why each file is compiled or skipped - nothing on the first build */
+        if (built->settings)
+        {
+            char line[2200];
+            if (!dirty)
+                snprintf(line, sizeof line, "%s: skipped, up to date\n", abs_path);
+            else if (rebuild_all)
+                snprintf(line, sizeof line, "%s: settings changed\n", abs_path);
+            else if (index < 0)
+                snprintf(line, sizeof line, "%s: new file\n", abs_path);
+            else if (!built->items[index].compiled)
+                snprintf(line, sizeof line, "%s: had errors\n", abs_path);
+            else if (built->items[index].changed)
+                snprintf(line, sizeof line, "%s: changed\n", abs_path);
+            else
+                snprintf(line, sizeof line, "%s: header changed (%s)\n", abs_path, header ? header : "");
+            string_list_add(&reasons, line);
+        }
+        if (!dirty)
+            continue;
+
+        int p = project_build_state_add(pending, abs_path, file_mtime(abs_path));
+        if (p >= 0)
+            pending->items[p].compiled = 1;
+        snprintf(g_job.storage[argc], sizeof g_job.storage[0], "%s", abs_path);
         g_job.argv[argc] = g_job.storage[argc];
         argc++;
         file_argc++;
     }
 
-    if (file_argc == 0)
+    if (c_count == 0)
     {
+        string_list_destroy(&reasons);
+        project_build_state_clear(pending);
         ui_set_value(g_output_editor, "The open project has no .c files to build.\n");
         bottom_panel_show(g_output_window, g_findresults_window);
         return;
     }
+
+    if (file_argc == 0)
+    {
+        string_list_destroy(&reasons);
+        project_build_state_clear(pending);
+        string_list_clear(&g_project.compiled);
+        ui_set_value(g_output_editor, "Build: all files are up to date.\n");
+        bottom_panel_show(g_output_window, g_findresults_window);
+        return;
+    }
     g_job.argc = argc;
+    g_job.project_build = 1;
+    g_job.include_listener.callback = project_build_on_include;
+    g_job.include_listener.file_done = project_build_on_file_done;
+    g_job.include_listener.data = pending;
     g_job.active = g_active_editor_window;
 
     ui_set_value(g_output_editor, "");
@@ -9335,10 +10073,16 @@ static void do_project_build(void)
 
     if (!compile_stream_start())
     {
+        string_list_destroy(&reasons);
+        g_job.project_build = 0;
+        project_build_state_clear(pending);
         compile_status_set("");
         ui_set_value(g_output_editor, "Could not start the build (pipe/thread creation failed).\n");
         return;
     }
+    for (int i = 0; i < reasons.count; i++)
+        compile_text_append(reasons.items[i], strlen(reasons.items[i]));
+    string_list_destroy(&reasons);
     compile_status_set("Building...");
 }
 
@@ -9354,10 +10098,10 @@ static void do_project_report_unused(void)
         return;
 
     /* the compiler reads from disk */
-    for (int i = 0; i < g_project.file_count; i++)
+    for (int i = 0; i < g_project.files.count; i++)
     {
         char abs_path[1024];
-        project_abs_path(g_project.files[i], abs_path, sizeof abs_path);
+        project_abs_path(g_project.files.items[i], abs_path, sizeof abs_path);
         ui_node* open_win = find_open_window(abs_path);
         if (open_win)
             save_active_file(open_win);
@@ -9367,13 +10111,13 @@ static void do_project_report_unused(void)
     job_push(&argc, "-unused-extern-report");
 
     int file_argc = 0;
-    for (int i = 0; i < g_project.file_count; i++)
+    for (int i = 0; i < g_project.files.count; i++)
     {
-        if (!path_is_c_source(g_project.files[i]))
+        if (!path_is_c_source(g_project.files.items[i]))
             continue;
 
         char abs_path[512];
-        project_abs_path(g_project.files[i], abs_path, sizeof abs_path);
+        project_abs_path(g_project.files.items[i], abs_path, sizeof abs_path);
         job_push(&argc, abs_path);
         file_argc++;
     }
@@ -10585,16 +11329,16 @@ static void debug_info_panel_refresh(void)
     ui_set_label(locals_header, "-- Locals --");
     ui_append_child(g_debuginfo_listbox, locals_header);
 
-    if (g_dbg.locals_count == 0)
+    if (g_dbg.locals.count == 0)
     {
         ui_node* empty = ui_create_element(UI_TAG_ITEM);
         ui_set_label(empty, "  (none)");
         ui_append_child(g_debuginfo_listbox, empty);
     }
-    for (int i = 0; i < g_dbg.locals_count; i++)
+    for (int i = 0; i < g_dbg.locals.count; i++)
     {
         char label[400];
-        snprintf(label, sizeof label, "  %s = %s", g_dbg.locals[i].name, g_dbg.locals[i].value);
+        snprintf(label, sizeof label, "  %s = %s", g_dbg.locals.items[i].name, g_dbg.locals.items[i].value);
         ui_node* item = ui_create_element(UI_TAG_ITEM);
         ui_set_label(item, label);
         ui_append_child(g_debuginfo_listbox, item);
@@ -10604,16 +11348,16 @@ static void debug_info_panel_refresh(void)
     ui_set_label(frames_header, "-- Call Stack --");
     ui_append_child(g_debuginfo_listbox, frames_header);
 
-    if (g_dbg.frames_count == 0)
+    if (g_dbg.frames.count == 0)
     {
         ui_node* empty = ui_create_element(UI_TAG_ITEM);
         ui_set_label(empty, "  (none)");
         ui_append_child(g_debuginfo_listbox, empty);
     }
-    for (int i = 0; i < g_dbg.frames_count; i++)
+    for (int i = 0; i < g_dbg.frames.count; i++)
     {
         char label[300];
-        snprintf(label, sizeof label, "  #%d %s", g_dbg.frames[i].index, g_dbg.frames[i].text);
+        snprintf(label, sizeof label, "  #%d %s", g_dbg.frames.items[i].index, g_dbg.frames.items[i].text);
         ui_node* item = ui_create_element(UI_TAG_ITEM);
         ui_set_label(item, label);
         ui_append_child(g_debuginfo_listbox, item);
@@ -10722,6 +11466,20 @@ static void compile_finish(void)
 {
     compile_stream_end();
 
+    /* Files compiled without errors are recorded; the ones with errors are compiled again next time. */
+    if (g_job.project_build)
+    {
+        g_job.project_build = 0;
+        struct project_build_state* pending = &g_job.build_pending;
+        string_list_clear(&g_project.compiled);
+        for (int i = 0; i < pending->count; i++)
+        {
+            if (pending->items[i].compiled && pending->items[i].ok)
+                string_list_add(&g_project.compiled, pending->items[i].path);
+        }
+        project_build_state_commit(&g_project.built, pending);
+    }
+
     /* Find Definition / Report Unused: no summary and no diagnostics in the
      * editors (the compiler reports only its own result in these modes) -
      * just the result lines, already streamed into the Find results window.
@@ -10734,6 +11492,12 @@ static void compile_finish(void)
         compile_status_set("");
         if (g_job.len > 0)
         {
+            if (find_definition)
+            {
+                char elapsed[64];
+                snprintf(elapsed, sizeof elapsed, "\nSearch time: %.1f s\n", g_job.report.cpu_time_used_sec);
+                compile_text_append(elapsed, strlen(elapsed));
+            }
             ui_set_value(g_findresults_editor, g_job.text ? g_job.text : "");
             g_fr.result_origin = find_definition ? RESULT_ORIGIN_FIND_DEFINITION : RESULT_ORIGIN_REPORT_UNUSED;
         }
@@ -11556,9 +12320,9 @@ static int fr_search_include_dirs(const find_replace_options* opts, char* out, s
 
     size_t used = 0;
     int total = 0, files_searched = 0, dirs_searched = 0;
-    for (int i = builtin_dir[0] ? -1 : 0; i < g_include_count; i++)
+    for (int i = builtin_dir[0] ? -1 : 0; i < g_include_dirs.count; i++)
     {
-        const char* dir = i < 0 ? builtin_dir : g_include_dirs[i];
+        const char* dir = i < 0 ? builtin_dir : g_include_dirs.items[i];
         int n = fr_search_dir_files(dir, 1, opts, out, out_size, &used, &files_searched);
         if (n >= 0)
         {
@@ -11837,9 +12601,9 @@ static int fr_search_project(const find_replace_options* opts, char* out, size_t
     const char* mask = fr_file_type_mask(opts->file_type);
     size_t used = 0;
     int total = 0, files_searched = 0;
-    for (int i = 0; i < g_project.file_count; i++)
+    for (int i = 0; i < g_project.files.count; i++)
     {
-        const char* entry = g_project.files[i];
+        const char* entry = g_project.files.items[i];
         if (!mask_matches(mask, basename_of(entry)))
             continue;
 
@@ -11897,9 +12661,9 @@ static int fr_replace_project(const find_replace_options* opts, char* out, size_
     const char* mask = fr_file_type_mask(opts->file_type);
     size_t used = 0;
     int total = 0, files_changed = 0, files_searched = 0;
-    for (int i = 0; i < g_project.file_count; i++)
+    for (int i = 0; i < g_project.files.count; i++)
     {
-        const char* entry = g_project.files[i];
+        const char* entry = g_project.files.items[i];
         if (!mask_matches(mask, basename_of(entry)))
             continue;
 
@@ -12093,10 +12857,10 @@ static void do_find_definition(void)
 
     if (project_is_open())
     {
-        for (int i = 0; i < g_project.file_count; i++)
+        for (int i = 0; i < g_project.files.count; i++)
         {
             char abs_path[1024];
-            project_abs_path(g_project.files[i], abs_path, sizeof abs_path);
+            project_abs_path(g_project.files.items[i], abs_path, sizeof abs_path);
             ui_node* open_win = find_open_window(abs_path);
             if (open_win)
                 save_active_file(open_win);
@@ -12129,13 +12893,13 @@ static void do_find_definition(void)
 
     if (project_is_open())
     {
-        for (int i = 0; i < g_project.file_count; i++)
+        for (int i = 0; i < g_project.files.count; i++)
         {
-            if (!path_is_c_source(g_project.files[i]))
+            if (!path_is_c_source(g_project.files.items[i]))
                 continue;
 
             char abs_path[512];
-            project_abs_path(g_project.files[i], abs_path, sizeof abs_path);
+            project_abs_path(g_project.files.items[i], abs_path, sizeof abs_path);
             if (ci_strcmp(abs_path, file) == 0 || ci_strcmp(abs_path, counterpart) == 0)
                 continue;
 
@@ -13233,6 +13997,8 @@ static void open_compiler_options_dialog(compile_settings* cs, int is_project)
  * carries the target window for the editor popup's own items (see
  * ui_screen_open_popup in app_frame()), so those don't need a global to
  * remember what the popup was opened for. */
+static void save_session(void);
+
 static void on_ui_event(void* ctx, int id, void* param)
 {
     (void)ctx;
@@ -13257,6 +14023,12 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_COMPILE)
     {
         do_build();
+    }
+    else if (id == EVT_REBUILD)
+    {
+        if (!g_job.running)
+            project_build_state_clear(&g_project.built);
+        do_project_build();
     }
     else if (id == EVT_COMPILE_FILE)
     {
@@ -13472,6 +14244,23 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_OUTPUT_DBLCLICK)
     {
         output_goto_source(g_output_editor);
+    }
+    else if (id == EVT_OUTPUT_COPY_ALL || id == EVT_OUTPUT_SELECT_ALL)
+    {
+        /* with a selection, cmdline_take_focus() leaves the focus on Output */
+        ui_editor_set_selection(g_output_editor, 0, (int)strlen(ui_get_value(g_output_editor)));
+        ui_screen_focus(g_screen, g_output_editor);
+        if (id == EVT_OUTPUT_COPY_ALL)
+            ui_screen_copy(g_screen);
+    }
+    else if (id == EVT_OUTPUT_CLEAR)
+    {
+        ui_set_value(g_output_editor, "");
+    }
+    else if (id == EVT_FINDRESULTS_CLEAR)
+    {
+        ui_set_value(g_findresults_editor, "");
+        g_fr.result_origin = RESULT_ORIGIN_TEXT_SEARCH;
     }
     else if (id == EVT_FINDRESULTS_DBLCLICK)
     {
@@ -14278,7 +15067,7 @@ static void on_ui_event(void* ctx, int id, void* param)
                     "\n"
                     "Cake's own annotated headers (the `include` folder next to the executable) are always searched first and are not listed here. They pull in the real header with `#include_next`, continuing the search in these directories.\n"
                     "\n"
-                    "**Detect** replaces the list with the include directories the platform compiler itself searches. On Windows it finds MSVC's headers with `vswhere.exe` and the Windows SDK's from the registry, so it works outside a Developer Command Prompt.\n"
+                    "**Detect** replaces the list with the include directories the platform compiler itself searches. On Windows it finds MSVC's headers with `vswhere.exe` and the Windows SDK's from the registry, so it works outside a Developer Command Prompt. When TCC is installed too, it asks which compiler's headers to use - the list is for one compiler, never both.\n"
                     "\n"
                     "To find them by hand:\n"
                     "\n"
@@ -14343,18 +15132,16 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_PROJECT_INCLUDES_REMOVE)
     {
         int sel = ui_select_get_selected(g_project.includes_listbox);
-        if (g_includes_editing.dirs && sel >= 0 && sel < *g_includes_editing.count)
+        if (g_includes_editing.list && sel >= 0 && sel < g_includes_editing.list->count)
         {
-            for (int i = sel; i + 1 < *g_includes_editing.count; i++)
-                snprintf(g_includes_editing.dirs[i], 512, "%s", g_includes_editing.dirs[i + 1]);
-            (*g_includes_editing.count)--;
+            string_list_remove_at(g_includes_editing.list, sel);
 
             if (g_includes_editing.is_project)
                 project_save();
             else
                 global_settings_save();
 
-            int selected_index = sel < *g_includes_editing.count ? sel : *g_includes_editing.count - 1;
+            int selected_index = sel < g_includes_editing.list->count ? sel : g_includes_editing.list->count - 1;
             project_includes_dialog_refresh(selected_index);
         }
     }
@@ -14367,14 +15154,13 @@ static void on_ui_event(void* ctx, int id, void* param)
         int sel = ui_select_get_selected(g_project.includes_listbox);
         int other = sel + (id == EVT_PROJECT_INCLUDES_DOWN ? 1 : -1);
 
-        if (g_includes_editing.dirs &&
-            sel >= 0 && sel < *g_includes_editing.count &&
-            other >= 0 && other < *g_includes_editing.count)
+        if (g_includes_editing.list &&
+            sel >= 0 && sel < g_includes_editing.list->count &&
+            other >= 0 && other < g_includes_editing.list->count)
         {
-            char swap[512];
-            snprintf(swap, sizeof swap, "%s", g_includes_editing.dirs[sel]);
-            snprintf(g_includes_editing.dirs[sel], 512, "%s", g_includes_editing.dirs[other]);
-            snprintf(g_includes_editing.dirs[other], 512, "%s", swap);
+            char* swap = g_includes_editing.list->items[sel];
+            g_includes_editing.list->items[sel] = g_includes_editing.list->items[other];
+            g_includes_editing.list->items[other] = swap;
 
             if (g_includes_editing.is_project)
                 project_save();
@@ -14386,50 +15172,45 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_PROJECT_INCLUDES_DETECT)
     {
-        /* Replaces the whole list, like cake -autoconfig. Nothing found
-         * keeps the current list rather than wiping it. The button only
-         * exists for the global list (includes_set_detect_visible), but
-         * check anyway so it can never overwrite a project's own. */
-        if (g_includes_editing.dirs && !g_includes_editing.is_project)
+        /* With TCC installed too, ask whose headers: the list is for one compiler */
+        char tcc[FS_MAX_PATH + 16];
+#ifdef _WIN32
+        if (find_tcc(tcc, sizeof tcc))
         {
-            char found[CAKE_PROJECT_MAX_INCLUDES][512];
-            char problems[2048];
-            int n = detect_system_include_dirs(found, CAKE_PROJECT_MAX_INCLUDES,
-                                               problems, sizeof problems);
-
-            /* Always reports back: what was found (and anything missing
-             * alongside it), or why nothing was. */
-            struct exttool_buf msg = { 0 };
-            if (n > 0)
-            {
-                memcpy(g_includes_editing.dirs, found, sizeof found);
-                *g_includes_editing.count = n;
-                bool saved = global_settings_save();
-                project_includes_dialog_refresh(0);
-
-                char settings_path[FS_MAX_PATH];
-                if (!get_global_settings_path(settings_path, sizeof settings_path))
-                    snprintf(settings_path, sizeof settings_path, "cake.json");
-                exttool_append(&msg, saved ? "System directories detected successfully.\n\nSaved to:\n"
-                                           : "System directories were detected, but could not be saved to:\n");
-                exttool_append(&msg, settings_path);
-                exttool_append(&msg, "\n");
-                if (problems[0])
-                {
-                    exttool_append(&msg, "\nWarning:\n");
-                    exttool_append(&msg, problems);
-                }
-            }
-            else
-            {
-                exttool_append(&msg, "Detection failed - the list was not changed.\n\n");
-                exttool_append(&msg, problems);
-            }
-
-            ui_msgbox_button ok = { "   OK   ", 0 };
-            ui_message_box(g_screen, "Detect", exttool_buf_text(&msg), &ok, 1);
-            exttool_buf_free(&msg);
+            ui_msgbox_button btns[] = {
+                { "  MSVC  ", EVT_PROJECT_INCLUDES_DETECT_MSVC },
+                { "  TCC  ", EVT_PROJECT_INCLUDES_DETECT_TCC },
+                { " Cancel ", 0 },
+            };
+            ui_message_box(g_screen, "Detect",
+                           "Visual Studio and TCC can both be used.\n\n"
+                           "Whose system headers should the list have?\n", btns, 3);
         }
+        else
+#endif
+        {
+            (void)tcc;
+            includes_detect_apply(0);
+        }
+    }
+    else if (id == EVT_PROJECT_INCLUDES_DETECT_MSVC || id == EVT_PROJECT_INCLUDES_DETECT_TCC)
+    {
+        includes_detect_apply(id == EVT_PROJECT_INCLUDES_DETECT_TCC);
+    }
+    else if (id == EVT_PROJECT_INCLUDES_ADD_TOOLS)
+    {
+        struct exttool_buf msg = { 0 };
+        if (add_system_compiler_tools(&msg) > 0)
+        {
+            save_session();
+            rebuild_tools_menu();
+        }
+        if (msg.len == 0)
+            exttool_append(&msg, "No compiler was found.\n");
+
+        ui_msgbox_button ok = { "   OK   ", 0 };
+        ui_message_box(g_screen, "Tools", exttool_buf_text(&msg), &ok, 1);
+        exttool_buf_free(&msg);
     }
     else if (id == EVT_PROJECT_INCLUDES_CLOSE)
     {
@@ -15927,6 +16708,11 @@ void app_init(ui_env* env)
     ui_set_label(popup_compile, "Compile");
     ui_append_child(popup, popup_compile);
     g_editor_popup_compile = popup_compile;
+    ui_node* popup_show_output = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(popup_show_output, EVT_EDITOR_SHOW_OUTPUT);
+    ui_set_label(popup_show_output, "Show Generated Code");
+    ui_append_child(popup, popup_show_output);
+    g_editor_popup_show_output = popup_show_output;
     ui_node* popup_sep0 = ui_create_element(UI_TAG_ITEM);
     ui_set_separator(popup_sep0, 1);
     ui_append_child(popup, popup_sep0);
@@ -15967,11 +16753,6 @@ void app_init(ui_env* env)
     ui_set_label(popup_hdrsrc, "Toggle Header/Source");
     ui_append_child(popup, popup_hdrsrc);
     g_editor_popup_hdrsrc = popup_hdrsrc;
-    ui_node* popup_show_output = ui_create_element(UI_TAG_ITEM);
-    ui_set_id(popup_show_output, EVT_EDITOR_SHOW_OUTPUT);
-    ui_set_label(popup_show_output, "Show Generated Code");
-    ui_append_child(popup, popup_show_output);
-    g_editor_popup_show_output = popup_show_output;
     ui_node* popup_copy_path = ui_create_element(UI_TAG_ITEM);
     ui_set_id(popup_copy_path, EVT_EDITOR_COPY_PATH);
     ui_set_label(popup_copy_path, "Copy Full Path");
@@ -16535,6 +17316,9 @@ void app_init(ui_env* env)
                 "| `$(FileName)` | `main` |\n"
                 "| `$(FileExt)` | `.c` |\n"
                 "| `$(CakeOutput)` | one output path per `.c` of the project |\n"
+                "| `$(CakeOutputChanged)` | one output path per `.c` the last Build compiled |\n"
+                "| `$(CakeInputFiles)` | `\"C:/work/hello/src/main.c\"` - every `.c` of the project |\n"
+                "| `$(CakeInputChanged)` | the `.c` files the last Build compiled |\n"
                 "| `$(TargetPath)` | `C:/work/hello/x64_msvc/hello.exe` |\n"
                 "| `$(TargetDir)` | `C:/work/hello/x64_msvc` |\n"
                 "| `$(TargetFileName)` | `hello.exe` |\n"
@@ -16721,6 +17505,28 @@ void app_init(ui_env* env)
                 "\n"
                 "```\n"
                 "clang -w macos_arm64/file1.c -o file1\n"
+                "```");
+    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 5, "X64 TCC"),
+                "`-target=x64_tcc`: Windows x64 with the Tiny C Compiler", "## `-target=x64_tcc`\n\nWindows x64 with the Tiny C Compiler\n"
+                "\n"
+                "Data model **LLP64** (the sizes of `x64_msvc`), GCC syntax, TCC's predefined macros (`__TINYC__`, `__WINT_TYPE__`, ...) and no `_MSC_VER`. Use it with TCC's own headers - Detect in the System Directories dialog offers them.\n"
+                "\n"
+                "| Type | Size (bytes) |\n"
+                "|---|---|\n"
+                "| `char` (signed) | 1 |\n"
+                "| `short` | 2 |\n"
+                "| `int` | 4 |\n"
+                "| `long` | 4 |\n"
+                "| `long long` | 8 |\n"
+                "| pointer | 8 |\n"
+                "| `long double` | 8 |\n"
+                "| `wchar_t` | 2 (`unsigned short`) |\n"
+                "| `size_t` | 8 (`unsigned long long`) |\n"
+                "\n"
+                "The generated C89 goes to a `x64_tcc` folder next to the sources; compile it with TCC:\n"
+                "\n"
+                "```\n"
+                "tcc x64_tcc\\file1.c -o file1.exe\n"
                 "```");
     ui_select_set_selected(g_copts.target, target_slug_to_index(g_compile.target));
 
@@ -17014,6 +17820,30 @@ void app_init(ui_env* env)
     ui_append_child(findresults_window, findresults);
     g_findresults_window = findresults_wrapper;
     g_findresults_editor = findresults;
+
+    ui_node* findresults_popup = ui_create_element(UI_TAG_MENU);
+    ui_append_child(root, findresults_popup);
+    ui_node* findresults_popup_clear = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(findresults_popup_clear, EVT_FINDRESULTS_CLEAR);
+    ui_set_label(findresults_popup_clear, "Clear");
+    ui_append_child(findresults_popup, findresults_popup_clear);
+    g_findresults_popup = findresults_popup;
+
+    ui_node* output_popup = ui_create_element(UI_TAG_MENU);
+    ui_append_child(root, output_popup);
+    static const struct { int id; const char* label; } output_popup_items[] = {
+        { EVT_OUTPUT_COPY_ALL, "Copy All" },
+        { EVT_OUTPUT_SELECT_ALL, "Select All" },
+        { EVT_OUTPUT_CLEAR, "Clear" },
+    };
+    for (int i = 0; i < (int)_Countof(output_popup_items); i++)
+    {
+        ui_node* item = ui_create_element(UI_TAG_ITEM);
+        ui_set_id(item, output_popup_items[i].id);
+        ui_set_label(item, output_popup_items[i].label);
+        ui_append_child(output_popup, item);
+    }
+    g_output_popup = output_popup;
 
     /* --- Folder window --- */
     ui_node* folder_wrapper = ui_create_element(UI_TAG_MODAL);
@@ -17647,6 +18477,7 @@ int app_frame(ui_env* env)
      * do_build()), so it needs no frontmost .c then - only without a
      * project does it fall back to "Compile" and share its condition. */
     ui_set_enabled(g_compile_item, project_is_open() || compile_targets_c);
+    ui_set_enabled(g_rebuild_item, project_is_open());
     ui_set_enabled(g_compile_file_item, compile_targets_c);
     /* Same condition - the Compile menu's own "Show Generated Code" (not
      * the popup's copy, which refreshes itself separately - see
@@ -17758,6 +18589,22 @@ int app_frame(ui_env* env)
             git_popup_refresh();
             ui_screen_open_popup(g_screen, g_git.popup, mx, my, NULL);
         }
+    }
+
+    /* Right-click over the Output text opens its own popup (Copy All/Select All/Clear). */
+    if (ui_screen_mouse_right_pressed(g_screen) && !ui_screen_active_modal(g_screen))
+    {
+        int mx = ui_screen_mouse_x(g_screen), my = ui_screen_mouse_y(g_screen);
+        if (window_is_shown(g_output_window) && ui_node_contains(g_output_editor, mx, my))
+            ui_screen_open_popup(g_screen, g_output_popup, mx, my, NULL);
+    }
+
+    /* Right-click over the Find Results text opens its own popup (Clear). */
+    if (ui_screen_mouse_right_pressed(g_screen) && !ui_screen_active_modal(g_screen))
+    {
+        int mx = ui_screen_mouse_x(g_screen), my = ui_screen_mouse_y(g_screen);
+        if (ui_node_contains(g_findresults_editor, mx, my))
+            ui_screen_open_popup(g_screen, g_findresults_popup, mx, my, NULL);
     }
 
     /* Right-click over the Git Diff viewer's text opens its own popup (Copy Full Path/Show My Folder). */

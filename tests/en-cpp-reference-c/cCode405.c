@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/string/wide/wcstok.html
+/* tcc headers (msvcrt) lack what this sample uses */
+#ifndef __TINYC__
 #include <wchar.h>
 #include <stdio.h>
  
@@ -18,3 +20,4 @@ int main(void)
         input[n] ? printf("%lc", input[n]) : printf("\\0");
     puts("'");
 }
+#endif

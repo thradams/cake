@@ -12,14 +12,21 @@
 
 #include <windows.h>
 #include <shellapi.h>
+
+/* older SDKs (tcc) lack it */
+#ifndef WM_MOUSEHWHEEL
+#define WM_MOUSEHWHEEL 0x020E
+#endif
 #include <stdlib.h>
 #include <stdio.h>   /* snprintf - see win32_last_error/ui_process_start */
 #include <wchar.h>   /* swprintf - building the shell command line */
 #include <stdbool.h>
 
+#ifdef _MSC_VER
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "gdi32.lib")
 #pragma comment(lib, "shell32.lib")  /* CommandLineToArgvW, for app_main()'s argv */
+#endif
 
 /* Extract mouse coordinates from lParam. */
 #define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))

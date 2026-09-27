@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/io/vfwprintf.html
+/* tcc headers (msvcrt) lack what this sample uses */
+#ifndef __TINYC__
 #include <stdio.h>
 #include <time.h>
 #include <locale.h>
@@ -31,3 +33,4 @@ int main(void)
     setlocale(LC_ALL, "");
     debug_wlog(L"Logging, %d, %d, %d", 1, 2, 3);
 }
+#endif

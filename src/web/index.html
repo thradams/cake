@@ -193,41 +193,44 @@
 <a href="#toc_7">Clang on Linux/Windows/macOS build instructions</a>
 </li>
 <li>
-<a href="#toc_8">Build options</a>
+<a href="#toc_8">TCC on Windows/Linux build instructions</a>
 </li>
 <li>
-<a href="#toc_9">Emscripten build instructions (web)</a>
+<a href="#toc_9">Build options</a>
+</li>
+<li>
+<a href="#toc_10">Emscripten build instructions (web)</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_10">Installation (optional)</a>
+<a href="#toc_11">Installation (optional)</a>
 <ul>
 <li>
-<a href="#toc_11">Windows</a>
+<a href="#toc_12">Windows</a>
 </li>
 <li>
-<a href="#toc_12">Linux / macOS</a>
+<a href="#toc_13">Linux / macOS</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_13">Running cake</a>
+<a href="#toc_14">Running cake</a>
 </li>
 <li>
-<a href="#toc_14">IDE</a>
+<a href="#toc_15">IDE</a>
 </li>
 <li>
-<a href="#toc_15">Road map</a>
+<a href="#toc_16">Road map</a>
 </li>
 <li>
-<a href="#toc_16">Participating</a>
+<a href="#toc_17">Participating</a>
 </li>
 <li>
-<a href="#toc_17">Cake x CFront</a>
+<a href="#toc_18">Cake x CFront</a>
 </li>
 <li>
-<a href="#toc_18">License</a>
+<a href="#toc_19">License</a>
 </li>
 </ul>
 <p>Kernighan &amp; Ritchie, <em>The C Programming Language</em>, 1978:</p>
@@ -352,7 +355,18 @@ fatal error: X11/Xft/Xft.h: No such file or directory</p>
 
 <p>These headers are used by the IDE.</p>
 
-<h2 id="toc_8">Build options</h2>
+<h2 id="toc_8">TCC on Windows/Linux build instructions</h2>
+
+<p>With <a href="https://bellard.org/tcc/">tcc</a> on the PATH, go to the <em>src</em> directory and type:</p>
+
+<pre><code>tcc build.c -o build &amp;&amp; ./build
+</code></pre>
+
+<p>On Windows, <code>build_tcc.bat</code> does the same. A Cake built by tcc on Windows uses the
+<code>x64_tcc</code> target and the tcc headers by default. Tested with tcc 0.9.28 on Windows
+and 0.9.27 on Linux.</p>
+
+<h2 id="toc_9">Build options</h2>
 
 <p><code>build</code> accepts one optional argument, on any platform:</p>
 
@@ -389,7 +403,7 @@ fatal error: X11/Xft/Xft.h: No such file or directory</p>
 <pre><code>gcc build.c -o build &amp;&amp; ./build test
 </code></pre>
 
-<h2 id="toc_9">Emscripten build instructions (web)</h2>
+<h2 id="toc_10">Emscripten build instructions (web)</h2>
 
 <p><a href="https://emscripten.org/">Emscripten</a> is required.</p>
 
@@ -402,7 +416,7 @@ fatal error: X11/Xft/Xft.h: No such file or directory</p>
 
 <p>This generates <code>src/web/cakejs.js</code>, used by <code>src/web/playground.html</code>.</p>
 
-<h1 id="toc_10">Installation (optional)</h1>
+<h1 id="toc_11">Installation (optional)</h1>
 
 <p>Installation is optional. Cake can be built and run directly from the <code>src</code> 
 directory as shown above, without installing anything. Installing simply 
@@ -416,7 +430,7 @@ or compiler is needed.</p>
 <p>Versions are installed side by side (<code>cake/&lt;version&gt;</code>); the last one
 installed is the one in the <code>PATH</code>.</p>
 
-<h2 id="toc_11">Windows</h2>
+<h2 id="toc_12">Windows</h2>
 
 <p>Run <code>cake-&lt;version&gt;-setup.exe</code> (it asks for Administrator).</p>
 
@@ -431,7 +445,7 @@ installed is the one in the <code>PATH</code>.</p>
 <p>The installer source is <code>src/tools/win_installer.c</code>; the installed files are
 listed in <code>src/tools/win_installer.h</code>.</p>
 
-<h2 id="toc_12">Linux / macOS</h2>
+<h2 id="toc_13">Linux / macOS</h2>
 
 <p>The release has <code>cake-&lt;version&gt;-linux.tar.gz</code> and <code>cake-&lt;version&gt;-macos.tar.gz</code>,
 compressed archives (like a zip) with the binaries and <code>install.sh</code>.</p>
@@ -471,14 +485,14 @@ archive was downloaded with a browser, macOS blocks them. Allow with
 (not needed when downloaded with <code>curl</code>).</li>
 </ul>
 
-<h1 id="toc_13">Running cake</h1>
+<h1 id="toc_14">Running cake</h1>
 
 <pre><code>cake source.c
 </code></pre>
 
 <p>This writes the C89 output to <code>./&lt;target&gt;/source.c</code>, where <code>&lt;target&gt;</code> is the platform Cake was built for — for example <code>./macos_arm64/source.c</code> or <code>./x64_msvc/source.c</code>. <code>-target=&lt;name&gt;</code> selects another platform; see the <a href="manual.html">Manual</a> for the full option list.</p>
 
-<h1 id="toc_14">IDE</h1>
+<h1 id="toc_15">IDE</h1>
 
 <p>The Cake IDE was developed with the help of AI tools. It has now been adopted as
 part of the Cake project and will be maintained alongside the rest of the
@@ -494,7 +508,7 @@ straight to the offending line.</p>
 
 <p>It is also how Cake itself is developed and debugged. The <code>src/cakeprj.cakeproj</code>
 project builds the compiler with the same process any other project uses: Cake
-translates the sources to C89, an External Tool (gcc, clang or cl) links the
+translates the sources to C89, an External Tool (gcc, clang, tcc or cl) links the
 generated code, and the built-in debugger (lldb / cdb) runs the result. Opening
 that project is the quickest way to step through the compiler while it compiles
 a sample.</p>
@@ -503,14 +517,14 @@ a sample.</p>
 
 <p><img src="cakeide.png" alt="Cake IDE"></p>
 
-<h1 id="toc_15">Road map</h1>
+<h1 id="toc_16">Road map</h1>
 
 <ul>
 <li>Making it usable as a C89 backend, and fixes</li>
 <li>Reaching a stable release</li>
 </ul>
 
-<h1 id="toc_16">Participating</h1>
+<h1 id="toc_17">Participating</h1>
 
 <p>You can contribute by trying out cake, reporting bugs, and giving feedback.</p>
 
@@ -520,7 +534,7 @@ a sample.</p>
 
 <p><a href="https://discord.gg/YRekr2N65S">https://discord.gg/YRekr2N65S</a></p>
 
-<h1 id="toc_17">Cake x CFront</h1>
+<h1 id="toc_18">Cake x CFront</h1>
 
 <p>CFront was the first C++ compiler, designed to translate C++ source code into C.
 Initially compatible with C89, it diverged as the C and C++ languages evolved
@@ -533,7 +547,7 @@ development of C, ensuring full compatibility.</p>
 while supporting experimentation and open contributions to the language&#39;s
 evolution.</p>
 
-<h1 id="toc_18">License</h1>
+<h1 id="toc_19">License</h1>
 
 <p>Cake uses the same license as GCC: <a href="LICENSE">GPLv3</a>.</p>
 </article></body></html>

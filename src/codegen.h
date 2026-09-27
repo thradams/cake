@@ -92,6 +92,7 @@ struct codegen_ctx
     struct osstream atomic_helpers_text;
     struct osstream atomic_helpers_declarations;
     bool atomic_helpers_msvc_declared;
+    bool alloca_declared;
 
     /*
     * Points to the function we're in. Or null in file scope.

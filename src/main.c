@@ -16,8 +16,11 @@
 #include "compile.h"
 
 #ifdef _WIN32
-#include <crtdbg.h>
 #include <Windows.h>
+#endif
+
+#ifdef _MSC_VER
+#include <crtdbg.h>
 #undef assert
 #define assert _ASSERTE
 #endif

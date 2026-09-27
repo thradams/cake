@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/numeric/math/math_errhandling.html
+/* tcc headers (msvcrt) lack what this sample uses */
+#ifndef __TINYC__
 #include <stdio.h>
 #include <fenv.h>
 #include <math.h>
@@ -17,3 +19,4 @@ int main(void)
     if(fetestexcept(FE_DIVBYZERO))
         puts("FE_DIVBYZERO (pole error) reported");
 }
+#endif

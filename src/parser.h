@@ -64,6 +64,10 @@ struct report
     bool find_definition_is_declaration;
     bool find_definition_is_static;
     char find_definition_name[200];
+    char find_definition_file[FS_MAX_PATH]; /* where the declaration is */
+
+    /* optional: told about every #include of every file compiled */
+    const struct include_listener* _Opt include_listener;
 };
 
 struct label_list_item
@@ -275,7 +279,7 @@ int parser_match_tk_lint(struct parser_ctx* ctx, enum token_type type, struct to
 bool find_definition_is_cursor(const struct parser_ctx* ctx, const struct token* p_token);
 void find_definition_set(struct parser_ctx* ctx, const struct token* _Opt p_definition);
 void find_definition_set_declarator(struct parser_ctx* ctx, const struct declarator* p_declarator);
-void find_definition_report(struct parser_ctx* ctx);
+void find_definition_report(const struct parser_ctx* ctx);
 
 struct token* _Opt previous_parser_token(const struct token* token);
 struct token* _Opt parser_get_previous_token(const struct parser_ctx* ctx);

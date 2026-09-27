@@ -102,4 +102,5 @@ void flow_alternatives_remove_duplicates(struct flow_alternatives* vs);
 void flow_alternatives_print(const struct flow_alternatives* alternatives);
 
 void flow_alternatives_pool_shutdown(void);
+int flow_alternatives_live_count(void);
 

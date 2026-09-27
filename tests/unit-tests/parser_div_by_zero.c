@@ -5,7 +5,7 @@ int main()
     int a = 2 / 0; //lint 37
 
 
-#ifdef _WIN32
+#ifdef _MSC_VER
     static_assert((-2147483647-1)/-1 == -2147483648); //lint 127 37 36
 #else
     static_assert((-2147483647-1)/-1 == -2147483648); //lint 37 36

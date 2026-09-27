@@ -1,4 +1,6 @@
 //en.cppreference.com/w/c/error/errno.html
+/* tcc headers (msvcrt) lack what this sample uses */
+#ifndef __TINYC__
 #include <stdio.h>
 #include <math.h>
 #include <errno.h>
@@ -44,3 +46,4 @@ int main(void)
     sin(0.0);
     show_errno();
 }
+#endif

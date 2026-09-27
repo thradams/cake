@@ -2343,7 +2343,7 @@ static const char* clang_query_operator_value(enum target target, const char* op
     {
         if (target == TARGET_APPLE_ARM64)
             return (strcmp(arg, "arm64") == 0 || strcmp(arg, "aarch64") == 0) ? "1" : "0";
-        if (target == TARGET_X86_X64_GCC)
+        if (target == TARGET_X86_X64_GCC || target == TARGET_X64_TCC)
             return (strcmp(arg, "x86_64") == 0) ? "1" : "0";
         return "0";
     }
@@ -3514,9 +3514,16 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
             {
                 *p_result = preprocessor_name_is_defined(ctx, input_list->head->lexeme) ? 1 : 0;
                 //printf("#ifdef %s (%s)\n", input_list->head->lexeme, *p_result ? "true" : "false");
+                match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
+                skip_blanks_level( &r, input_list, level);
             }
-            match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
-            skip_blanks_level( &r, input_list, level);
+            else
+            {
+                /* a skipped group only tracks nesting (C23 6.10.2): the rest of the line is not checked */
+                struct token_list r0 = ignore_preprocessor_line(input_list);
+                token_list_append_list(&r, &r0);
+                token_list_destroy(&r0);
+            }
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
         }
         else if (strcmp(input_list->head->lexeme, "ifndef") == 0)
@@ -3533,9 +3540,16 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
             if (is_active)
             {
                 *p_result = preprocessor_name_is_defined(ctx, input_list->head->lexeme) ? 0 : 1;
+                match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
+                skip_blanks_level( &r, input_list, level);
             }
-            match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
-            skip_blanks_level( &r, input_list, level);
+            else
+            {
+                /* a skipped group only tracks nesting (C23 6.10.2): the rest of the line is not checked */
+                struct token_list r0 = ignore_preprocessor_line(input_list);
+                token_list_append_list(&r, &r0);
+                token_list_destroy(&r0);
+            }
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
         }
         else if (strcmp(input_list->head->lexeme, "if") == 0)
@@ -4568,6 +4582,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                     print_path(full_path_result, true /*full path*/);
                     printf("\n");
+                }
+
+                if (ctx->include_listener && ctx->source_file)
+                {
+                    ctx->include_listener->callback(ctx->include_listener->data, ctx->source_file, full_path_result);
                 }
 
                 struct tokenizer_ctx tctx = { 0 };
@@ -5949,13 +5968,18 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
         if (line == NULL)
             throw;
 
+        const struct token* _Opt p_string_origin = input_list->head->token_origin;
+        const int string_line = input_list->head->line;
+        const int string_col = input_list->head->col;
+
         token_list_pop_front(input_list); // ""
 
         struct tokenizer_ctx tctx = { 0 };
         struct token_list r0 = tokenizer(&tctx, line, "", 0, TK_FLAG_NONE);
         free(line);
 
-        token_list_pop_front(&r0); // (
+        token_list_pop_front(&r0); /* begin of file token, the token_origin of r0 */
+        token_list_set_file(&r0, p_string_origin, string_line, string_col);
 
         if (is_active)
         {
@@ -9071,7 +9095,7 @@ int test_utf8()
 
     struct tokenizer_ctx tctx = { 0 };
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
-    if (strcmp(list.head->next->lexeme, u8"u8\"maçã\"") != 0)
+    if (strcmp(list.head->next->lexeme, "u8\"maçã\"") != 0)
         return __LINE__;
     token_list_destroy(&list);
     return 0;

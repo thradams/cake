@@ -122,7 +122,7 @@ time_t time(time_t* _Opt timer);
 #elif defined(__linux__)
 #include <bits/types/time_t.h>
 time_t time(time_t* _Opt timer);
-#elif defined(_WIN32)
+#elif defined(_MSC_VER)
 /* the UCRT's time() is an inline wrapper over _time64 whose linkage is
    _CRT_NONSTANDARD_STATIC (static unless _STATIC_INLINE_UCRT_FUNCTIONS is 0;
    always static in older SDKs) - this declaration must match it */

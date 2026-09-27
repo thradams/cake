@@ -378,6 +378,18 @@
 <td>Cake&#39;s output file(s): one per <code>.c</code> in the open project, or the active file&#39;s output without one</td>
 </tr>
 <tr>
+<td><code>$(CakeOutputChanged)</code></td>
+<td>the same, but only the <code>.c</code> files the last successful Build compiled (all before the first Build, none when it was up to date)</td>
+</tr>
+<tr>
+<td><code>$(CakeInputFiles)</code></td>
+<td>the full path of every <code>.c</code> file of the open project, quoted; the active <code>.c</code> file without one</td>
+</tr>
+<tr>
+<td><code>$(CakeInputChanged)</code></td>
+<td>the same, but only the <code>.c</code> files the last successful Build compiled</td>
+</tr>
+<tr>
 <td><code>$(TargetDir)</code></td>
 <td>the output folder, <code>&lt;root&gt;/&lt;platform&gt;</code></td>
 </tr>
