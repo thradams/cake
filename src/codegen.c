@@ -1276,7 +1276,7 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
     else
     {
         const bool is_msvc = ctx->options.target == TARGET_X86_MSVC || ctx->options.target == TARGET_X64_MSVC;
-        const bool is_tcc = ctx->options.target == TARGET_X64_TCC;
+        const bool is_tcc = target_is_tcc(ctx->options.target);
         const bool is_load = strcmp(kind, "load") == 0;
         const bool is_cas = strcmp(kind, "cas") == 0;
         const bool is_store = strcmp(kind, "store") == 0;
@@ -2678,6 +2678,68 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     {
                         ss_fprintf(oss, ")");
                     }
+                    break;
+                }
+
+                /* tcc on macOS does not know __builtin_inf and __builtin_fabs */
+                const char* _Opt builtin_name = NULL;
+                if (p_expression->left->expression_type == EXPR_PRIMARY_DECLARATOR &&
+                    p_expression->left->declarator &&
+                    p_expression->left->declarator->name_opt)
+                {
+                    builtin_name = p_expression->left->declarator->name_opt->lexeme;
+                }
+
+                const char* _Opt builtin_cast = NULL;
+                bool builtin_is_inf = false;
+                if (builtin_name == NULL || ctx->options.target != TARGET_TCC_MACOS_ARM64)
+                {
+                }
+                else if (strcmp(builtin_name, "__builtin_inf") == 0)
+                {
+                    builtin_cast = "(double)";
+                    builtin_is_inf = true;
+                }
+                else if (strcmp(builtin_name, "__builtin_inff") == 0)
+                {
+                    builtin_cast = "(float)";
+                    builtin_is_inf = true;
+                }
+                else if (strcmp(builtin_name, "__builtin_infl") == 0)
+                {
+                    builtin_cast = "(long double)";
+                    builtin_is_inf = true;
+                }
+                else if (strcmp(builtin_name, "__builtin_fabs") == 0)
+                {
+                    builtin_cast = "(double)";
+                }
+                else if (strcmp(builtin_name, "__builtin_fabsf") == 0)
+                {
+                    builtin_cast = "(float)";
+                }
+                else if (strcmp(builtin_name, "__builtin_fabsl") == 0)
+                {
+                    builtin_cast = "(long double)";
+                }
+
+                if (builtin_cast != NULL && builtin_is_inf)
+                {
+                    /* same overflowing product used for infinity constants */
+                    ss_fprintf(oss, "(%s(1e+300 * 1e+300))", builtin_cast);
+                    break;
+                }
+
+                if (builtin_cast != NULL && p_first_argument && p_first_argument->next == NULL)
+                {
+                    /* the argument is evaluated twice */
+                    ss_fprintf(oss, "(%s(", builtin_cast);
+                    codegen_visit_expression(ctx, oss, p_first_argument->expression);
+                    ss_fprintf(oss, ") < 0 ? -%s(", builtin_cast);
+                    codegen_visit_expression(ctx, oss, p_first_argument->expression);
+                    ss_fprintf(oss, ") : %s(", builtin_cast);
+                    codegen_visit_expression(ctx, oss, p_first_argument->expression);
+                    ss_fprintf(oss, "))");
                     break;
                 }
 
@@ -6417,10 +6479,12 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
                     emit_line_directive(ctx, oss0, p_init_declarator->p_declarator->first_token_opt);
                     print_identation(ctx, oss0);
                     /* tcc alloca is a libtcc1 function: without a prototype it would return int */
-                    if (ctx->options.target == TARGET_X64_TCC && !ctx->alloca_declared)
+                    if (target_is_tcc(ctx->options.target) && !ctx->alloca_declared)
                     {
                         ctx->alloca_declared = true;
-                        ss_fprintf(&ctx->atomic_helpers_declarations, "void * alloca(unsigned long long);\n");
+                        /* same size_t as tcc's own declaration: unsigned long long on windows, unsigned long otherwise */
+                        const char* size_t_name = ctx->options.target == TARGET_TCC_WIN_X64 ? "unsigned long long" : "unsigned long";
+                        ss_fprintf(&ctx->atomic_helpers_declarations, "void * alloca(%s);\n", size_t_name);
                     }
                     ss_fprintf(oss0, "%s = %s%s;\n", var_name, target_get_alloca(ctx->options.target), ssz.c_str);
 

@@ -2322,7 +2322,7 @@ Evaluate a clang query operator to "0" or "1" for the given target.
 */
 static const char* clang_query_operator_value(enum target target, const char* op, const char* arg)
 {
-    const bool is_apple = (target == TARGET_APPLE_ARM64 || target == TARGET_CATALINA);
+    const bool is_apple = (target == TARGET_APPLE_ARM64 || target == TARGET_CATALINA || target == TARGET_TCC_MACOS_ARM64);
 
     if (strcmp(op, "__has_builtin") == 0)
     {
@@ -2341,9 +2341,9 @@ static const char* clang_query_operator_value(enum target target, const char* op
 
     if (strcmp(op, "__is_target_arch") == 0)
     {
-        if (target == TARGET_APPLE_ARM64)
+        if (target == TARGET_APPLE_ARM64 || target == TARGET_TCC_MACOS_ARM64)
             return (strcmp(arg, "arm64") == 0 || strcmp(arg, "aarch64") == 0) ? "1" : "0";
-        if (target == TARGET_X86_X64_GCC || target == TARGET_X64_TCC)
+        if (target == TARGET_X86_X64_GCC || target == TARGET_TCC_WIN_X64 || target == TARGET_TCC_LINUX_X64)
             return (strcmp(arg, "x86_64") == 0) ? "1" : "0";
         return "0";
     }
@@ -2352,7 +2352,7 @@ static const char* clang_query_operator_value(enum target target, const char* op
     {
         if (is_apple)
             return (strcmp(arg, "macos") == 0 || strcmp(arg, "macosx") == 0 || strcmp(arg, "darwin") == 0) ? "1" : "0";
-        if (target == TARGET_X86_X64_GCC)
+        if (target == TARGET_X86_X64_GCC || target == TARGET_TCC_LINUX_X64)
             return (strcmp(arg, "linux") == 0) ? "1" : "0";
         return "0";
     }
@@ -2990,8 +2990,15 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 token_list_add(&r, p_new_token);
             }
             else if (input_list->head->type == TK_IDENTIFIER &&
-                strcmp(input_list->head->lexeme, "__has_include") == 0)
+                (strcmp(input_list->head->lexeme, "__has_include") == 0 ||
+                 strcmp(input_list->head->lexeme, "__has_include_next") == 0))
             {
+                const bool is_include_next = strcmp(input_list->head->lexeme, "__has_include_next") == 0;
+
+                /* __has_include_next starts searching after the include dir of the current file */
+                char current_file_full_path[FS_MAX_PATH] = { 0 };
+                snprintf(current_file_full_path, sizeof current_file_full_path, "%s", input_list->head->token_origin ? input_list->head->token_origin->lexeme : "");
+
                 token_list_pop_front(input_list); //pop __has_include
                 skip_blanks( &r, input_list);
                 token_list_pop_front(input_list); //pop (
@@ -3051,12 +3058,12 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 const char* _Owner _Opt s = find_and_read_include_file(ctx,
                                                                        path,
                                                                        fullpath,
-                                                                       "", /*current_file_full_path - unused, include_next is always false here*/
+                                                                       current_file_full_path,
                                                                        is_angle_bracket_form,
                                                                        &already_included,
                                                                        full_path_result,
                                                                        sizeof full_path_result,
-                    false);
+                    is_include_next);
 
                 bool has_include = s != NULL;
                 free((void* _Owner)s);

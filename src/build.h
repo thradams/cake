@@ -60,7 +60,7 @@
 
 #if defined(_WIN32) || defined(_WIN64)
 #  define PLATFORM_WINDOWS 1
-#elif defined(__APPLE__) && defined(__MACH__)
+#elif defined(__APPLE__)
 #  define PLATFORM_MACOS 1
 #elif defined(__linux__)
 #  define PLATFORM_LINUX 1
@@ -134,7 +134,7 @@
 #  define LIBC_MINGW 1
 #elif defined(__dietlibc__)
 #  define LIBC_DIET 1
-#elif defined(__APPLE__) && defined(__MACH__)
+#elif defined(__APPLE__)
 #  define LIBC_DARWIN 1
 #else
 #  error "LIBC_UNKNOWN"

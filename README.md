@@ -131,8 +131,8 @@ With [tcc](https://bellard.org/tcc/) on the PATH, go to the *src* directory and 
 tcc build.c -o build && ./build
 ```
 
-On Windows, `build_tcc.bat` does the same. A Cake built by tcc on Windows uses the
-`x64_tcc` target and the tcc headers by default. Tested with tcc 0.9.28 on Windows
+On Windows, `build_tcc.bat` does the same. A Cake built by tcc uses the matching
+tcc target (`tcc_win_x64`, `tcc_linux_x64` or `tcc_macos_arm64`) and the tcc headers by default. Tested with tcc 0.9.28 on Windows
 and 0.9.27 on Linux.
 
 ## Build options

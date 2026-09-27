@@ -652,10 +652,15 @@ static void build_cake_ide(int debug)
     execute_cmd("tcc -impdef %SystemRoot%/System32/shell32.dll -o tcc_lib/shell32.def");
 #endif
 
+#if defined PLATFORM_MACOS
+    /* tcc cannot link the Cocoa frameworks and macOS has no X11 */
+    printf("skipping cake IDE: not supported with tcc on macOS\n");
+#else
     char cmd[1024];
     snprintf(cmd, sizeof cmd, "tcc %s%s" TCC_IDE_FRONTEND "-o " EXE(CAKE_NAME) " %s",
              TCC_FLAGS, debug ? TCC_DEBUG_FLAGS : TCC_RELEASE_FLAGS, CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
+#endif
 
 #endif /* COMPILER_TINYC */
 }
@@ -801,9 +806,11 @@ static void build_cake89(const char* test_flag)
 
     /* the generated code is in the folder of cake's default target */
 #if defined PLATFORM_WINDOWS
-    echo_chdir("./x64_tcc/");
+    echo_chdir("./tcc_win_x64/");
+#elif defined PLATFORM_MACOS
+    echo_chdir("./tcc_macos_arm64/");
 #else
-    echo_chdir("./x86_x64_gcc/");
+    echo_chdir("./tcc_linux_x64/");
 #endif
     char* cmd = calloc(2000, sizeof(char));
     snprintf(cmd, 2000, "tcc %s -o " EXE(CKC89_NAME) " " CAKE_SOURCE_FILES, test_flag);

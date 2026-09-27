@@ -120,10 +120,14 @@ WINBASEAPI unsigned long WINAPI GetEnvironmentVariableA(const char* name,
    ones the platform compiler itself would search. Returns 0, or an error. */
 static int collect_system_include_dirs(struct json_value* dirs)
 {
-#if defined(_WIN32) && defined(__TINYC__)
+#if defined(__TINYC__)
 
-    /* built by tcc (default target x64_tcc): its own dirs, the indented lines after "include:" in -print-search-dirs */
+    /* built by tcc (default target is a tcc target): its own dirs, the indented lines after "include:" in -print-search-dirs */
+#ifdef _WIN32
     FILE* _Owner _Opt fp = _popen("tcc -print-search-dirs", "r");
+#else
+    FILE* _Owner _Opt fp = popen("tcc -print-search-dirs", "r");
+#endif
     if (fp == NULL)
         return errno;
 
@@ -151,7 +155,11 @@ static int collect_system_include_dirs(struct json_value* dirs)
         }
     }
 
+#ifdef _WIN32
     _pclose(fp);
+#else
+    pclose(fp);
+#endif
     return 0;
 
 #elif defined(__linux__) || defined(__APPLE__)

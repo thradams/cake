@@ -1662,6 +1662,15 @@ int json_write_file(const char *path, const struct json_value *root)
 #include <ctype.h>
 
 
+#include <stdio.h>
+
+
+#include <string.h>
+
+
+#include <stdlib.h>
+
+
 
 /*
  *  This file is part of cake compiler
@@ -1771,6 +1780,9 @@ void ss_swap(struct osstream* a, struct osstream* b);
 
 //#pragma once
 
+
+#include <stddef.h>
+
 struct declarator;
 struct enumerator;
 struct enum_specifier;
@@ -1875,6 +1887,9 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set * it
 
 
 
+#include <stdbool.h>
+
+
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -1883,7 +1898,13 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set * it
 //#pragma once
 
 
+#include <stdbool.h>
+
+
 //#pragma once
+
+
+#include <stdbool.h>
 
 
 enum object_type
@@ -1939,11 +1960,17 @@ enum target
     TARGET_LCCU16,
     TARGET_CATALINA,
     TARGET_APPLE_ARM64,
-    TARGET_X64_TCC,
+    TARGET_TCC_WIN_X64,
+    TARGET_TCC_LINUX_X64,
+    TARGET_TCC_MACOS_ARM64,
 
     /* alias: the platform cake itself was built for */
 #if defined(_WIN32) && defined(_WIN64) && defined(__TINYC__)
-    TARGET_DEFAULT = TARGET_X64_TCC
+    TARGET_DEFAULT = TARGET_TCC_WIN_X64
+#elif defined(__linux__) && defined(__x86_64__) && defined(__TINYC__)
+    TARGET_DEFAULT = TARGET_TCC_LINUX_X64
+#elif defined(__APPLE__) && (defined(__aarch64__) || defined(__arm64__)) && defined(__TINYC__)
+    TARGET_DEFAULT = TARGET_TCC_MACOS_ARM64
 #elif defined(_WIN32) && defined(_WIN64)
     TARGET_DEFAULT = TARGET_X64_MSVC
 #elif defined(_WIN32) && !defined(_WIN64)
@@ -1957,7 +1984,7 @@ enum target
 #endif
 };
 
-#define NUMBER_OF_TARGETS  8
+#define NUMBER_OF_TARGETS  10
 
 struct platform
 {
@@ -2019,6 +2046,7 @@ void print_target_options();
 const char* target_get_predefined_macros(enum target e);
 const char* target_get_builtins(enum target e);
 const char* target_get_alloca(enum target e);
+bool target_is_tcc(enum target e);
 
 
 long long target_signed_max(enum  target target, enum object_type type);
@@ -2028,12 +2056,21 @@ unsigned long long target_unsigned_max(enum  target target, enum object_type typ
 
 
 
+#include <limits.h>
+
+
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake 
 */
 
 //#pragma once
+
+
+#include <stdbool.h>
+
+
+#include <limits.h>
 
 
 #if defined(PATH_MAX)
@@ -3342,6 +3379,9 @@ int preprocessor_copy_included_headers(const struct preprocessor_ctx* ctx, const
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
+
+
+#include <crtdbg.h>
 
 
 #include <debugapi.h>
@@ -5361,6 +5401,9 @@ int float_to_string(float value, char* buffer, int size);
 
 #include <stdint.h>
 
+
+#include <string.h>
+
 /*
  *  The standard-library alternative, in case we ever want it back. Build
  *  with -DSTANDARD_ALTERNATIVE to use it instead of the Grisu2 code below;
@@ -5383,6 +5426,9 @@ int float_to_string(float value, char* buffer, int size);
  */
 #ifdef STANDARD_ALTERNATIVE
 
+
+
+#include <stdio.h>
 
 int double_to_string(double value, char* buffer, int size)
 {
@@ -6059,11 +6105,32 @@ int float_to_string(float value, char* buffer, int size)
 
 #pragma safety enable
 
+
+
+#include <stdlib.h>
+
+
+#include <string.h>
+
+
+#include <stdbool.h>
+
+
+#include <assert.h>
  
+
+
+#include <assert.h>
 #ifdef _WIN32
+
+
+#include <Windows.h>
 #endif
 
 #if defined _MSC_VER
+
+
+#include <crtdbg.h>
 #endif
 
 static unsigned int string_hash(const char* key)
@@ -6427,18 +6494,36 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 #ifdef _WIN32
 
 
+#include <Windows.h>
+
+
 #include <conio.h>
 #else
 
 
+#include <stdlib.h>
+
+
 #include <termios.h>
+
+
+#include <unistd.h>
 
 
 #include <fcntl.h>
 
 
 #include <sys/ioctl.h>
+
+
+#include <stdio.h>
 #endif
+
+
+#include <stdbool.h>
+
+
+#include <stdio.h>
 
 #ifndef WIN32
 
@@ -6582,7 +6667,43 @@ void c_gotoxy(int x, int y)
 
 
 
+#include <ctype.h>
+
+
+#include <stdlib.h>
+
+
+#include <string.h>
+
+
+#include <stdio.h>
+
+
+#include <stdlib.h>
+
+
+#include <sys/stat.h>
+
+
 #include <errno.h>
+
+
+#include <string.h>
+
+
+#include <stdbool.h>
+
+
+#include <assert.h>
+
+
+#include <stdlib.h>
+
+
+#include <stddef.h>
+
+
+#include <assert.h>
 
 
 #include <time.h>
@@ -6603,9 +6724,18 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue);
 
 
 #ifdef _WIN32
+
+
+#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
+
+
+#include <crtdbg.h>
+
+
+#include <debugapi.h>
 #endif
 
 #define STRINGIFY(x) #x
@@ -8860,7 +8990,7 @@ Evaluate a clang query operator to "0" or "1" for the given target.
 */
 static const char* clang_query_operator_value(enum target target, const char* op, const char* arg)
 {
-    const bool is_apple = (target == TARGET_APPLE_ARM64 || target == TARGET_CATALINA);
+    const bool is_apple = (target == TARGET_APPLE_ARM64 || target == TARGET_CATALINA || target == TARGET_TCC_MACOS_ARM64);
 
     if (strcmp(op, "__has_builtin") == 0)
     {
@@ -8879,9 +9009,9 @@ static const char* clang_query_operator_value(enum target target, const char* op
 
     if (strcmp(op, "__is_target_arch") == 0)
     {
-        if (target == TARGET_APPLE_ARM64)
+        if (target == TARGET_APPLE_ARM64 || target == TARGET_TCC_MACOS_ARM64)
             return (strcmp(arg, "arm64") == 0 || strcmp(arg, "aarch64") == 0) ? "1" : "0";
-        if (target == TARGET_X86_X64_GCC || target == TARGET_X64_TCC)
+        if (target == TARGET_X86_X64_GCC || target == TARGET_TCC_WIN_X64 || target == TARGET_TCC_LINUX_X64)
             return (strcmp(arg, "x86_64") == 0) ? "1" : "0";
         return "0";
     }
@@ -8890,7 +9020,7 @@ static const char* clang_query_operator_value(enum target target, const char* op
     {
         if (is_apple)
             return (strcmp(arg, "macos") == 0 || strcmp(arg, "macosx") == 0 || strcmp(arg, "darwin") == 0) ? "1" : "0";
-        if (target == TARGET_X86_X64_GCC)
+        if (target == TARGET_X86_X64_GCC || target == TARGET_TCC_LINUX_X64)
             return (strcmp(arg, "linux") == 0) ? "1" : "0";
         return "0";
     }
@@ -9528,8 +9658,15 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 token_list_add(&r, p_new_token);
             }
             else if (input_list->head->type == TK_IDENTIFIER &&
-                strcmp(input_list->head->lexeme, "__has_include") == 0)
+                (strcmp(input_list->head->lexeme, "__has_include") == 0 ||
+                 strcmp(input_list->head->lexeme, "__has_include_next") == 0))
             {
+                const bool is_include_next = strcmp(input_list->head->lexeme, "__has_include_next") == 0;
+
+                /* __has_include_next starts searching after the include dir of the current file */
+                char current_file_full_path[FS_MAX_PATH] = { 0 };
+                snprintf(current_file_full_path, sizeof current_file_full_path, "%s", input_list->head->token_origin ? input_list->head->token_origin->lexeme : "");
+
                 token_list_pop_front(input_list); //pop __has_include
                 skip_blanks( &r, input_list);
                 token_list_pop_front(input_list); //pop (
@@ -9589,12 +9726,12 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 const char* _Owner _Opt s = find_and_read_include_file(ctx,
                                                                        path,
                                                                        fullpath,
-                                                                       "", /*current_file_full_path - unused, include_next is always false here*/
+                                                                       current_file_full_path,
                                                                        is_angle_bracket_form,
                                                                        &already_included,
                                                                        full_path_result,
                                                                        sizeof full_path_result,
-                    false);
+                    is_include_next);
 
                 bool has_include = s != NULL;
                 free((void* _Owner)s);
@@ -15880,6 +16017,21 @@ void hash_hash_at_ends_of_replacement_list()
 #pragma safety enable
 
 
+
+#include <stdbool.h>
+
+
+#include <errno.h>
+
+
+#include <stdio.h>
+
+
+#include <stdlib.h>
+
+
+#include <assert.h>
+
 void ss_swap(struct osstream* a, struct osstream* b)
 {
     struct osstream r = *a;
@@ -16000,15 +16152,36 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 
 
 
+#include <stdlib.h>
+
+
 #include <wchar.h>
 
 
 
+#include <sys/types.h>
+
+
+#include <stdio.h>
+
+
+#include <sys/stat.h>
+
+
 #ifdef _WIN32
+
+
+#include <Windows.h>
 #endif
 
 
 #if defined _MSC_VER && !defined __POCC__
+
+
+#include <crtdbg.h>
+
+
+#include <debugapi.h>
 #endif
 
 
@@ -16022,9 +16195,27 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 #endif
 
 #else
+
+
+#include <stdlib.h>
+
+
+#include <unistd.h>
 #endif
 
 
+
+#include <assert.h>
+
+
+
+#include <string.h>
+
+
+#include <stdbool.h>
+
+
+#include <errno.h>
 
 bool path_is_normalized(const char* path)
 {
@@ -20628,6 +20819,18 @@ char* _Owner read_file(const char* path, bool append_newline)
 
 #pragma safety enable
 
+
+#include <string.h>
+
+
+#include <stdio.h>
+
+
+#include <assert.h>
+
+
+#include <stdlib.h>
+
 #ifndef _Countof
 #define _Countof(X) (sizeof(X)/sizeof(X[0]))
 #endif
@@ -21511,6 +21714,9 @@ bool options_diagnostic_is_note(const struct options* options, enum diagnostic_i
 */
 
 
+
+#include <string.h>
+
 struct style_options style_options_cake(void)
 {
     struct style_options s  = {0};
@@ -21604,6 +21810,9 @@ struct style_options style_options_microsoft(void)
 #pragma safety enable
 
 
+#include <stdlib.h>
+
+
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -21623,12 +21832,24 @@ struct style_options style_options_microsoft(void)
 
 
 
+#include <stdbool.h>
+
+
+#include <wchar.h>
+
+
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
 
 //#pragma once
+
+
+#include <stdbool.h>
+
+
+#include <stddef.h>
 
 
 struct parser_ctx;
@@ -22390,6 +22611,15 @@ struct object object_shift_right(enum target target,
 
 
 
+#include <limits.h>
+
+
+#include <stdio.h>
+
+
+#include <assert.h>
+
+
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -22397,6 +22627,12 @@ struct object object_shift_right(enum target target,
 
 //#pragma once
 
+
+
+#include <stdio.h>
+
+
+#include <errno.h>
 
 
 /*
@@ -22710,6 +22946,9 @@ struct marker expression_to_marker(const struct expression* p_expression);
 
 void flow_expression_to_string(const struct expression* p_expression, struct osstream* oss);
 
+
+
+#include <stdbool.h>
 
 
 struct scope
@@ -24651,6 +24890,9 @@ const struct direct_declarator* _Opt get_innermost_direct_declarator(const struc
 
 
 
+
+
+#include <string.h>
 
 
 #include <math.h>
@@ -28533,6 +28775,21 @@ struct object object_shift_right(enum target target,
 
 
 
+#include <limits.h>
+
+
+#include <stdlib.h>
+
+
+#include <stdio.h>
+
+
+#include <assert.h>
+
+
+#include <string.h>
+
+
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake 
@@ -28571,12 +28828,24 @@ void defer_start_visit_compound_statement(struct defer_visit_ctx* ctx,
 
 
 
+#include <math.h>
+
+
 #include <float.h>
 
 #ifdef _WIN32
+
+
+#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
+
+
+#include <crtdbg.h>
+
+
+#include <debugapi.h>
 #endif
 
 #if defined(_WIN32) && defined(__TINYC__)
@@ -31118,7 +31387,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
 
             // This code follows the table in the standard.
 
-            static_assert(NUMBER_OF_TARGETS == 8, "does your target follow the C rules? (MSVC is different)");
+            static_assert(NUMBER_OF_TARGETS == 10, "does your target follow the C rules? (MSVC is different)");
             const bool is_msvc = (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC);
 
             const bool is_decimal_constant = (token->type == TK_COMPILER_DECIMAL_CONSTANT);
@@ -38976,12 +39245,36 @@ void flow_expression_to_string(const struct expression* p_expression, struct oss
 
 
 
+#include <stdlib.h>
+
+
 #include <locale.h>
 
+
+#include <assert.h>
+
+
+#include <limits.h>
+
+
+#include <errno.h>
+
+
+#include <stdio.h>
+
 #ifdef _WIN32
+
+
+#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
+
+
+#include <crtdbg.h>
+
+
+#include <debugapi.h>
 #endif
 
 /*context expressions preprocessor*/
@@ -40018,6 +40311,24 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue)
 
 
 
+#include <stdlib.h>
+
+
+#include <stdio.h>
+
+
+#include <assert.h>
+
+
+#include <string.h>
+
+
+#include <stddef.h>
+
+
+#include <ctype.h>
+
+
 
 /*
  *  This file is part of cake compiler
@@ -40299,6 +40610,9 @@ void object_set_destroy(_Dtor struct object_set* l);
 
 
 
+
+#include <time.h>
+
 struct flow_label_state
 {
     const char* label_name;
@@ -40461,7 +40775,13 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 
 
 
+
+#include <errno.h>
+
 #ifdef _WIN32
+
+
+#include <Windows.h>
 #endif
 
 
@@ -40476,6 +40796,12 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
  
 
 #if defined _MSC_VER && !defined __POCC__
+
+
+#include <crtdbg.h>
+
+
+#include <debugapi.h>
 #endif
 
 
@@ -40598,6 +40924,12 @@ void codegen_visit_ctx_destroy(_Dtor struct codegen_ctx* ctx);
 
 
 
+
+#include <time.h>
+
+
+
+#include <stddef.h>  // for NULL
 
 /* 
 * Anonymous structs/unions receive a name
@@ -42629,7 +42961,7 @@ bool first_of_attribute_specifier(const struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
-    if ((ctx->options.target == TARGET_X86_X64_GCC || ctx->options.target == TARGET_X64_TCC) &&
+    if ((ctx->options.target == TARGET_X86_X64_GCC || target_is_tcc(ctx->options.target)) &&
         ctx->current->type == TK_KEYWORD__ASM)
     {
         return true;
@@ -45097,7 +45429,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         _Assert(p_previous_declarator->declaration_specifiers != NULL);
 
                         /* TCC accepts it, and its mingw headers rely on it (__CRT_INLINE is static __inline__) */
-                        if (!(ctx->options.target == TARGET_X64_TCC && ctx->current->level > 0) &&
+                        if (!(ctx->options.target == TARGET_TCC_WIN_X64 && ctx->current->level > 0) &&
                             !(p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
                             (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
                             )
@@ -51728,7 +52060,7 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
                 }
                 else if (ctx->current->type == TK_KEYWORD__ASM)
                 {
-                    if (ctx->options.target == TARGET_X86_X64_GCC || ctx->options.target == TARGET_X64_TCC)
+                    if (ctx->options.target == TARGET_X86_X64_GCC || target_is_tcc(ctx->options.target))
                     {
                         /* GCC also uses asm as attribute */
                         struct asm_statement* _Owner _Opt p3 = gcc_asm(ctx, false);
@@ -53832,11 +54164,13 @@ struct asm_statement* _Owner _Opt asm_statement(struct parser_ctx* ctx)
         case TARGET_LCCU16:
         case TARGET_CATALINA:
         case TARGET_APPLE_ARM64:
-        case TARGET_X64_TCC:
+        case TARGET_TCC_WIN_X64:
+        case TARGET_TCC_LINUX_X64:
+        case TARGET_TCC_MACOS_ARM64:
         break;
     }
 
-    static_assert(NUMBER_OF_TARGETS == 8, "how this target handle asm blocks?");
+    static_assert(NUMBER_OF_TARGETS == 10, "how this target handle asm blocks?");
 
     // balanced tokens ( ... )
     return gcc_asm(ctx, true);
@@ -57053,6 +57387,9 @@ int initializer_init_new(struct parser_ctx* ctx,
 //#pragma once
 
 
+#include <stdbool.h>
+
+
 struct report;
 int compile(int argc, const char** argv, struct report* report);
 const char* _Owner _Opt compile_source(const char* pszoptions, const char* content, struct report* report);
@@ -57077,12 +57414,39 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content);
 
 void print_report(const struct report* report);
 
+
+#include <stdlib.h>
+
+
+#include <ctype.h>
+
+
+#include <stdio.h>
+
+
+#include <assert.h>
+
+
+#include <string.h>
+
 #ifdef _WIN32
+
+
+#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
+
+
+#include <crtdbg.h>
+
+
+#include <debugapi.h>
 #endif
 
+
+
+#include <time.h>
 
 static char* _Opt strrchr2(const char* s, int c)
 {
@@ -57170,10 +57534,14 @@ WINBASEAPI unsigned long WINAPI GetEnvironmentVariableA(const char* name,
    ones the platform compiler itself would search. Returns 0, or an error. */
 static int collect_system_include_dirs(struct json_value* dirs)
 {
-#if defined(_WIN32) && defined(__TINYC__)
+#if defined(__TINYC__)
 
-    /* built by tcc (default target x64_tcc): its own dirs, the indented lines after "include:" in -print-search-dirs */
+    /* built by tcc (default target is a tcc target): its own dirs, the indented lines after "include:" in -print-search-dirs */
+#ifdef _WIN32
     FILE* _Owner _Opt fp = _popen("tcc -print-search-dirs", "r");
+#else
+    FILE* _Owner _Opt fp = popen("tcc -print-search-dirs", "r");
+#endif
     if (fp == NULL)
         return errno;
 
@@ -57201,7 +57569,11 @@ static int collect_system_include_dirs(struct json_value* dirs)
         }
     }
 
+#ifdef _WIN32
     _pclose(fp);
+#else
+    pclose(fp);
+#endif
     return 0;
 
 #elif defined(__linux__) || defined(__APPLE__)
@@ -58418,6 +58790,24 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
 
 
 
+#include <stdlib.h>
+
+
+#include <assert.h>
+
+
+#include <string.h>
+
+
+#include <ctype.h> 
+
+
+
+#include <stdint.h>
+
+
+#include <limits.h>
+
 
 /*
  * We maintain a stack of items—blocks, defers, variables—
@@ -59626,6 +60016,30 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 
 
 #pragma safety enable
+
+
+#include <stdlib.h>
+
+
+#include <string.h>
+
+
+#include <stdio.h>
+
+
+#include <assert.h>
+
+
+#include <limits.h>
+
+
+#include <stdint.h>
+
+
+#include <time.h>
+
+
+#include <ctype.h>
 
 /*
 *  Prefix used to create file scope declarators
@@ -60891,7 +61305,7 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
     else
     {
         const bool is_msvc = ctx->options.target == TARGET_X86_MSVC || ctx->options.target == TARGET_X64_MSVC;
-        const bool is_tcc = ctx->options.target == TARGET_X64_TCC;
+        const bool is_tcc = target_is_tcc(ctx->options.target);
         const bool is_load = strcmp(kind, "load") == 0;
         const bool is_cas = strcmp(kind, "cas") == 0;
         const bool is_store = strcmp(kind, "store") == 0;
@@ -62293,6 +62707,68 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     {
                         ss_fprintf(oss, ")");
                     }
+                    break;
+                }
+
+                /* tcc on macOS does not know __builtin_inf and __builtin_fabs */
+                const char* _Opt builtin_name = NULL;
+                if (p_expression->left->expression_type == EXPR_PRIMARY_DECLARATOR &&
+                    p_expression->left->declarator &&
+                    p_expression->left->declarator->name_opt)
+                {
+                    builtin_name = p_expression->left->declarator->name_opt->lexeme;
+                }
+
+                const char* _Opt builtin_cast = NULL;
+                bool builtin_is_inf = false;
+                if (builtin_name == NULL || ctx->options.target != TARGET_TCC_MACOS_ARM64)
+                {
+                }
+                else if (strcmp(builtin_name, "__builtin_inf") == 0)
+                {
+                    builtin_cast = "(double)";
+                    builtin_is_inf = true;
+                }
+                else if (strcmp(builtin_name, "__builtin_inff") == 0)
+                {
+                    builtin_cast = "(float)";
+                    builtin_is_inf = true;
+                }
+                else if (strcmp(builtin_name, "__builtin_infl") == 0)
+                {
+                    builtin_cast = "(long double)";
+                    builtin_is_inf = true;
+                }
+                else if (strcmp(builtin_name, "__builtin_fabs") == 0)
+                {
+                    builtin_cast = "(double)";
+                }
+                else if (strcmp(builtin_name, "__builtin_fabsf") == 0)
+                {
+                    builtin_cast = "(float)";
+                }
+                else if (strcmp(builtin_name, "__builtin_fabsl") == 0)
+                {
+                    builtin_cast = "(long double)";
+                }
+
+                if (builtin_cast != NULL && builtin_is_inf)
+                {
+                    /* same overflowing product used for infinity constants */
+                    ss_fprintf(oss, "(%s(1e+300 * 1e+300))", builtin_cast);
+                    break;
+                }
+
+                if (builtin_cast != NULL && p_first_argument && p_first_argument->next == NULL)
+                {
+                    /* the argument is evaluated twice */
+                    ss_fprintf(oss, "(%s(", builtin_cast);
+                    codegen_visit_expression(ctx, oss, p_first_argument->expression);
+                    ss_fprintf(oss, ") < 0 ? -%s(", builtin_cast);
+                    codegen_visit_expression(ctx, oss, p_first_argument->expression);
+                    ss_fprintf(oss, ") : %s(", builtin_cast);
+                    codegen_visit_expression(ctx, oss, p_first_argument->expression);
+                    ss_fprintf(oss, "))");
                     break;
                 }
 
@@ -66032,10 +66508,12 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
                     emit_line_directive(ctx, oss0, p_init_declarator->p_declarator->first_token_opt);
                     print_identation(ctx, oss0);
                     /* tcc alloca is a libtcc1 function: without a prototype it would return int */
-                    if (ctx->options.target == TARGET_X64_TCC && !ctx->alloca_declared)
+                    if (target_is_tcc(ctx->options.target) && !ctx->alloca_declared)
                     {
                         ctx->alloca_declared = true;
-                        ss_fprintf(&ctx->atomic_helpers_declarations, "void * alloca(unsigned long long);\n");
+                        /* same size_t as tcc's own declaration: unsigned long long on windows, unsigned long otherwise */
+                        const char* size_t_name = ctx->options.target == TARGET_TCC_WIN_X64 ? "unsigned long long" : "unsigned long";
+                        ss_fprintf(&ctx->atomic_helpers_declarations, "void * alloca(%s);\n", size_t_name);
                     }
                     ss_fprintf(oss0, "%s = %s%s;\n", var_name, target_get_alloca(ctx->options.target), ssz.c_str);
 
@@ -66790,6 +67268,21 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 
 #pragma safety enable
 
+
+
+#include <stdlib.h>
+
+
+#include <string.h>
+
+
+#include <stdio.h>
+
+
+#include <limits.h>
+
+
+#include <stdint.h>
 
 
 #define FLOW_ALT_POOL_BLOCK_NODES 4096
@@ -67582,6 +68075,18 @@ bool flow_alternative_can_be_zero(const struct flow_alternative* alt)
 
 #pragma safety enable
 
+
+
+#include <stdlib.h>
+
+
+#include <string.h>
+
+
+#include <stdint.h>
+
+
+#include <stdio.h>
 
 
 #define FLOW_ALLOCATED_OBJECT_ARENA_MAX_SIZE 5000
@@ -69252,6 +69757,30 @@ void flow_branch_name_to_string(const struct flow_branch* _Opt map, struct osstr
 
 #pragma safety enable
 
+
+
+#include <stdlib.h>
+
+
+#include <assert.h>
+
+
+#include <string.h>
+
+
+#include <ctype.h>
+
+
+#include <stdlib.h>
+
+
+#include <stdint.h>
+
+
+#include <limits.h>
+
+
+#include <stdio.h>
 
 /* flow reaches the object an expression stands for through its REF alternatives
    (flow_branch_search_up); p_ref is a parse-time link that is NULL or a
@@ -81485,6 +82014,18 @@ void flow_visit_ctx_destroy(_Dtor struct flow_ctx* ctx)
 #pragma safety enable
 
 
+
+#include <stdio.h>
+
+
+#include <stdarg.h>
+
+
+#include <assert.h>
+
+
+#include <errno.h>
+
 #ifdef _WIN32
 
 
@@ -81950,6 +82491,27 @@ int GetWindowsOrLinuxSocketLastErrorAsPosix(void)
 #pragma safety enable
 
 
+
+#include <limits.h>
+
+
+#include <assert.h>
+
+
+#include <stdbool.h>
+
+
+#include <stdio.h>
+
+
+#include <string.h>
+
+
+#include <inttypes.h>
+
+
+#include <assert.h>
+
 static char gcc_builtins_include[] =
 {
  #include "include/builtins/x86_x64_gcc_builtins.h.include"
@@ -82001,9 +82563,21 @@ static char catalina_builtins[] =
  , 0
 };
 
-static char x64_tcc_macros[] =
+static char tcc_win_x64_macros[] =
 {
- #include "include/builtins/x64_tcc_macros.h.include"
+ #include "include/builtins/tcc_win_x64_macros.h.include"
+ , 0
+};
+
+static char tcc_linux_x64_macros[] =
+{
+ #include "include/builtins/tcc_linux_x64_macros.h.include"
+ , 0
+};
+
+static char tcc_macos_arm64_macros[] =
+{
+ #include "include/builtins/tcc_macos_arm64_macros.h.include"
  , 0
 };
 
@@ -82220,9 +82794,9 @@ static struct platform platform_x64_msvc =
 };
 
 /* Tiny C Compiler on Windows x64: the LLP64 sizes of x64_msvc, gcc syntax. */
-static struct platform platform_x64_tcc =
+static struct platform platform_tcc_win_x64 =
 {
-  .name = "x64_tcc",
+  .name = "tcc_win_x64",
   .thread_local_attr = "__thread",
   .alignas_fmt_must_have_one_percent_d = "__attribute__((aligned(%d)))",
 
@@ -82265,6 +82839,110 @@ static struct platform platform_x64_tcc =
 
   .long_double_n_bits = 64,
   .long_double_alignment = 8,
+};
+
+/* Tiny C Compiler on Linux x64: the LP64 sizes of x86_x64_gcc. */
+static struct platform platform_tcc_linux_x64 =
+{
+  .name = "tcc_linux_x64",
+  .thread_local_attr = "__thread",
+  .alignas_fmt_must_have_one_percent_d = "__attribute__((aligned(%d)))",
+
+  .size_t_type = TYPE_UNSIGNED_LONG,
+  .ptrdiff_type = TYPE_SIGNED_LONG, //long
+
+  .bool_n_bits = 8,
+  .bool_type = TYPE_UNSIGNED_CHAR,
+  .bool_alignment = 1,
+
+  .char_n_bits = 8,
+  .char_t_type = TYPE_SIGNED_CHAR,
+  .char_alignment = 1,
+
+
+
+  .int8_type = TYPE_SIGNED_CHAR,
+  .int16_type = TYPE_SIGNED_SHORT,
+  .int32_type = TYPE_SIGNED_INT,
+  .int64_type = TYPE_SIGNED_LONG,
+
+  .pointer_n_bits = 64,
+  .pointer_alignment = 8,
+
+
+  .wchar_t_type = TYPE_SIGNED_INT,
+
+  .short_n_bits = 16,
+  .short_alignment = 2,
+  .int_n_bits = 32,
+  .int_alignment = 4,
+
+  .long_n_bits = 64,
+  .long_alignment = 8,
+
+  .long_long_n_bits = 64,
+  .long_long_alignment = 8,
+  .float_n_bits = 32,
+  .float_alignment = 4,
+
+  .double_n_bits = 64,
+  .double_alignment = 8,
+
+  .long_double_n_bits = 128,
+  .long_double_alignment = 16,
+
+};
+
+/* Tiny C Compiler on macOS arm64: the sizes of macos_arm64. */
+static struct platform platform_tcc_macos_arm64 =
+{
+  .name = "tcc_macos_arm64",
+  .thread_local_attr = "__thread",
+  .alignas_fmt_must_have_one_percent_d = "__attribute__((aligned(%d)))",
+
+  .size_t_type = TYPE_UNSIGNED_LONG,
+  .ptrdiff_type = TYPE_SIGNED_LONG, //long
+
+  .bool_n_bits = 8,
+  .bool_type = TYPE_UNSIGNED_CHAR,
+  .bool_alignment = 1,
+
+  .char_n_bits = 8,
+  .char_t_type = TYPE_SIGNED_CHAR,
+  .char_alignment = 1,
+
+
+
+  .int8_type = TYPE_SIGNED_CHAR,
+  .int16_type = TYPE_SIGNED_SHORT,
+  .int32_type = TYPE_SIGNED_INT,
+  .int64_type = TYPE_SIGNED_LONG,
+
+  .pointer_n_bits = 64,
+  .pointer_alignment = 8,
+
+
+  .wchar_t_type = TYPE_SIGNED_INT,
+
+  .short_n_bits = 16,
+  .short_alignment = 2,
+  .int_n_bits = 32,
+  .int_alignment = 4,
+
+  .long_n_bits = 64,
+  .long_alignment = 8,
+
+  .long_long_n_bits = 64,
+  .long_long_alignment = 8,
+  .float_n_bits = 32,
+  .float_alignment = 4,
+
+  .double_n_bits = 64,
+  .double_alignment = 8,
+
+  .long_double_n_bits = 64,
+  .long_double_alignment = 8,
+
 };
 
 static struct platform platform_ccu8 =
@@ -82374,10 +83052,12 @@ static struct platform* platforms[NUMBER_OF_TARGETS] =
         [TARGET_LCCU16] = &platform_ccu8,
         [TARGET_CATALINA] = &platform_catalina,
         [TARGET_APPLE_ARM64] = &platform_macos_arm64,
-        [TARGET_X64_TCC] = &platform_x64_tcc
+        [TARGET_TCC_WIN_X64] = &platform_tcc_win_x64,
+        [TARGET_TCC_LINUX_X64] = &platform_tcc_linux_x64,
+        [TARGET_TCC_MACOS_ARM64] = &platform_tcc_macos_arm64
 };
 
-static_assert(NUMBER_OF_TARGETS == 8, "insert platform here");
+static_assert(NUMBER_OF_TARGETS == 10, "insert platform here");
 
 int parse_target(const char* targetstr, enum target* target)
 {
@@ -82524,7 +83204,9 @@ const char* target_get_predefined_macros(enum target e)
     case TARGET_LCCU16:      return ccu8_macros;
     case TARGET_CATALINA:    return catalina_macros;
     case TARGET_APPLE_ARM64: return apple_arm64_macros;
-    case TARGET_X64_TCC:     return x64_tcc_macros;
+    case TARGET_TCC_WIN_X64:     return tcc_win_x64_macros;
+    case TARGET_TCC_LINUX_X64:   return tcc_linux_x64_macros;
+    case TARGET_TCC_MACOS_ARM64: return tcc_macos_arm64_macros;
     }
     return "";
 };
@@ -82541,7 +83223,9 @@ const char* target_get_alloca(enum target e)
     case TARGET_LCCU16:      return "__builtin_alloca";
     case TARGET_CATALINA:    return "__builtin_alloca";
     case TARGET_APPLE_ARM64: return "__builtin_alloca";
-    case TARGET_X64_TCC:     return "alloca";
+    case TARGET_TCC_WIN_X64:     return "alloca";
+    case TARGET_TCC_LINUX_X64:   return "alloca";
+    case TARGET_TCC_MACOS_ARM64: return "alloca";
     }
     return "";
 }
@@ -82556,9 +83240,16 @@ const char* target_get_builtins(enum target e)
     case TARGET_LCCU16:      return "";
     case TARGET_CATALINA:    return catalina_builtins;
     case TARGET_APPLE_ARM64: return apple_arm64_builtins_include;
-    case TARGET_X64_TCC:     return "";
+    case TARGET_TCC_WIN_X64:     return "";
+    case TARGET_TCC_LINUX_X64:   return "";
+    case TARGET_TCC_MACOS_ARM64: return apple_arm64_builtins_include;
     }
     return "";
+}
+
+bool target_is_tcc(enum target e)
+{
+    return e == TARGET_TCC_WIN_X64 || e == TARGET_TCC_LINUX_X64 || e == TARGET_TCC_MACOS_ARM64;
 }
 
 #ifdef TEST
@@ -82610,6 +83301,21 @@ void target_self_test()
 
 #pragma safety enable
 
+
+
+#include <assert.h>
+
+
+#include <stdbool.h>
+
+
+#include <stdio.h>
+
+
+#include <string.h>
+
+
+#include <stdlib.h>
 
 
 #define TYPE_QUALIFIER_CAKE_MASK \

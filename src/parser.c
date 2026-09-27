@@ -2071,7 +2071,7 @@ bool first_of_attribute_specifier(const struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
-    if ((ctx->options.target == TARGET_X86_X64_GCC || ctx->options.target == TARGET_X64_TCC) &&
+    if ((ctx->options.target == TARGET_X86_X64_GCC || target_is_tcc(ctx->options.target)) &&
         ctx->current->type == TK_KEYWORD__ASM)
     {
         return true;
@@ -4539,7 +4539,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         _Assert(p_previous_declarator->declaration_specifiers != NULL);
 
                         /* TCC accepts it, and its mingw headers rely on it (__CRT_INLINE is static __inline__) */
-                        if (!(ctx->options.target == TARGET_X64_TCC && ctx->current->level > 0) &&
+                        if (!(ctx->options.target == TARGET_TCC_WIN_X64 && ctx->current->level > 0) &&
                             !(p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
                             (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
                             )
@@ -11170,7 +11170,7 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
                 }
                 else if (ctx->current->type == TK_KEYWORD__ASM)
                 {
-                    if (ctx->options.target == TARGET_X86_X64_GCC || ctx->options.target == TARGET_X64_TCC)
+                    if (ctx->options.target == TARGET_X86_X64_GCC || target_is_tcc(ctx->options.target))
                     {
                         /* GCC also uses asm as attribute */
                         struct asm_statement* _Owner _Opt p3 = gcc_asm(ctx, false);
@@ -13274,11 +13274,13 @@ struct asm_statement* _Owner _Opt asm_statement(struct parser_ctx* ctx)
         case TARGET_LCCU16:
         case TARGET_CATALINA:
         case TARGET_APPLE_ARM64:
-        case TARGET_X64_TCC:
+        case TARGET_TCC_WIN_X64:
+        case TARGET_TCC_LINUX_X64:
+        case TARGET_TCC_MACOS_ARM64:
         break;
     }
 
-    static_assert(NUMBER_OF_TARGETS == 8, "how this target handle asm blocks?");
+    static_assert(NUMBER_OF_TARGETS == 10, "how this target handle asm blocks?");
 
     // balanced tokens ( ... )
     return gcc_asm(ctx, true);

@@ -362,8 +362,8 @@ fatal error: X11/Xft/Xft.h: No such file or directory</p>
 <pre><code>tcc build.c -o build &amp;&amp; ./build
 </code></pre>
 
-<p>On Windows, <code>build_tcc.bat</code> does the same. A Cake built by tcc on Windows uses the
-<code>x64_tcc</code> target and the tcc headers by default. Tested with tcc 0.9.28 on Windows
+<p>On Windows, <code>build_tcc.bat</code> does the same. A Cake built by tcc uses the matching
+tcc target (<code>tcc_win_x64</code>, <code>tcc_linux_x64</code> or <code>tcc_macos_arm64</code>) and the tcc headers by default. Tested with tcc 0.9.28 on Windows
 and 0.9.27 on Linux.</p>
 
 <h2 id="toc_9">Build options</h2>

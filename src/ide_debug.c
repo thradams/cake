@@ -734,12 +734,15 @@ static bool lldb_parse_frame0_location(const char* line, char* file_out,
     if (!last_colon || last_colon == at)
         return false;
 
+    /* the column is optional: tcc's DWARF has none, so lldb prints just FILE:LINE */
+    const char* line_colon = last_colon;
     const char* p = last_colon - 1;
-    while (p > at && *p != ':')
+    while (p > at && isdigit((unsigned char)*p))
         p--;
-    if (*p != ':')
-        return false;
-    const char* line_colon = p;
+    if (*p == ':' && p < last_colon - 1)
+    {
+        line_colon = p;
+    }
 
     size_t flen = (size_t)(line_colon - at);
     if (flen >= file_cap)

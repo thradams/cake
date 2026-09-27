@@ -371,7 +371,7 @@ enum {
                                           * detect_system_include_dirs() -
                                           * only shown for the global list */
     EVT_PROJECT_INCLUDES_ADD_TOOLS = 1423, /* "Yes" after Detect - see add_system_compiler_tools() */
-    EVT_PROJECT_INCLUDES_DETECT_MSVC = 1424, /* Detect's "MSVC" when TCC is found too */
+    EVT_PROJECT_INCLUDES_DETECT_MSVC = 1424, /* Detect's platform compiler (MSVC, clang, gcc) when TCC is found too */
     EVT_PROJECT_INCLUDES_DETECT_TCC = 1425,  /* Detect's "TCC" - see includes_detect_apply() */
     EVT_PROJECT_REPORT_UNUSED = 1356,  /* Project > "Report Unused" - see do_project_report_unused() */
     EVT_PROJECT_OPTIONS = 1318,  /* Project > "Options..." - same dialog as
@@ -1289,7 +1289,9 @@ static const char* g_target_slugs[] = {
     "x64_msvc",
     "x86_x64_gcc",
     "macos_arm64",
-    "x64_tcc",
+    "tcc_win_x64",
+    "tcc_linux_x64",
+    "tcc_macos_arm64",
 };
 
 static int target_slug_to_index(const char* slug)
@@ -4360,9 +4362,16 @@ static int project_contains_file(const char* abs_path)
  * in the project", same as any other non-member path. do_project_build()
  * doesn't go through this at all: it always means the project's own
  * settings, unconditionally. */
+/* A file outside the open project is built as a project of that one file;
+ * no file at all (e.g. no active document) means the open project. */
+static int file_uses_project(const char* path)
+{
+    return project_is_open() && (!path || !path[0] || project_contains_file(path));
+}
+
 static compile_settings* active_compile_settings(const char* file)
 {
-    return project_contains_file(file) ? &g_project.compile : &g_compile;
+    return file_uses_project(file) ? &g_project.compile : &g_compile;
 }
 
 /* Rebuilds the Project panel's listbox from g_project.files[] (empty when no
@@ -4676,6 +4685,24 @@ static void exe_dir(char* out, size_t cap)
         out[0] = 0;
 }
 
+static int get_config_dir(char* buf, size_t cap);   /* defined further down */
+
+/* options.cakeproj - the global compiler options, beside playground.c */
+static int get_options_file_path(char* buf, size_t cap)
+{
+    char dir[FS_MAX_PATH];
+    int ok = get_config_dir(dir, sizeof dir);
+    if (ok)
+    {
+#ifdef _WIN32
+        snprintf(buf, cap, "%s\\options.cakeproj", dir);
+#else
+        snprintf(buf, cap, "%s/options.cakeproj", dir);
+#endif
+    }
+    return ok;
+}
+
 /* "cake.json" - the global compiler settings, kept beside the executable
  * itself (same place as cake.json), not in
  * the per-user config directory session.json lives in: these belong to the
@@ -4719,14 +4746,30 @@ static bool global_settings_save(void)
         return false;
     root->type = JSON_OBJECT;
 
-    compile_settings_to_json(json_set_object(root, "compile"), &g_compile);
-
     struct json_value* includes = json_set_array(root, "include_dirs");
     for (int i = 0; i < g_include_dirs.count; i++)
         json_add_string(includes, g_include_dirs.items[i]);
 
     bool ok = json_write_file(path, root);
     json_delete(root);
+
+    /* Compiler options go to options.cakeproj, beside playground.c */
+    char options_path[FS_MAX_PATH];
+    if (ok && get_options_file_path(options_path, sizeof options_path))
+    {
+        struct json_value* _Opt _Owner options_root = calloc(1, sizeof *options_root);
+        if (options_root)
+        {
+            options_root->type = JSON_OBJECT;
+            compile_settings_to_json(json_set_object(options_root, "compile"), &g_compile);
+            ok = json_write_file(options_path, options_root);
+            json_delete(options_root);
+        }
+        else
+        {
+            ok = false;
+        }
+    }
     return ok;
 }
 
@@ -4735,6 +4778,19 @@ static bool global_settings_save(void)
  * written - just leaves that field at its built-in default. */
 static void global_settings_load(void)
 {
+    char options_path[FS_MAX_PATH];
+    if (get_options_file_path(options_path, sizeof options_path))
+    {
+        char* options_text = read_file_to_string(options_path);
+        if (options_text)
+        {
+            struct json_value* options_root = json_parse(options_text, NULL);
+            free(options_text);
+            compile_settings_from_json(json_find_member(options_root, "compile"), &g_compile);
+            json_delete(options_root);
+        }
+    }
+
     char path[FS_MAX_PATH];
     if (!get_global_settings_path(path, sizeof path))
         return;
@@ -4746,7 +4802,6 @@ static void global_settings_load(void)
     struct json_value* root = json_parse(text, NULL);
     free(text);
 
-    compile_settings_from_json(json_find_member(root, "compile"), &g_compile);
     project_json_get_string_array(root, "include_dirs", &g_include_dirs);
     json_delete(root);
 }
@@ -7440,9 +7495,9 @@ static const char* project_target_platform_name(void)
  * in Compiler Options, else this build's compile-time default. The same
  * three-way fallback exttool_append_cake_output() and do_debug_start()
  * each spell out inline - new code shares this one instead. */
-static const char* active_platform_name(void)
+static const char* active_platform_name(const char* path)
 {
-    if (project_is_open())
+    if (file_uses_project(path))
         return project_target_platform_name();
     enum target target_enum = TARGET_DEFAULT;
     if (g_compile.target[0])
@@ -7455,10 +7510,10 @@ static const char* active_platform_name(void)
  * "<root>/<platform>", root being the open project's directory or, with no
  * project, the active document's own (`doc_dir`). No trailing separator, so
  * it composes as "$(TargetDir)/$(TargetFileName)". */
-static void target_dir_path(const char* doc_dir, char* out, size_t cap)
+static void target_dir_path(const char* path, const char* doc_dir, char* out, size_t cap)
 {
-    const char* root = project_is_open() ? g_project.dir : doc_dir;
-    path_join(out, cap, root, active_platform_name());
+    const char* root = file_uses_project(path) ? g_project.dir : doc_dir;
+    path_join(out, cap, root, active_platform_name(path));
 }
 
 /* $(TargetFileName) - the executable's file NAME (with extension), not a
@@ -7468,16 +7523,16 @@ static void target_dir_path(const char* doc_dir, char* out, size_t cap)
  * (cl.exe's own default output name), the gcc/clang ones to a bare name -
  * same split do_debug_start() has always made for its own launch path,
  * which now goes through here so the two can't disagree. */
-static void target_file_name(const char* doc_base, char* out, size_t cap)
+static void target_file_name(const char* path, const char* doc_base, char* out, size_t cap)
 {
-    const compile_settings* cs = project_is_open() ? &g_project.compile : &g_compile;
+    const compile_settings* cs = active_compile_settings(path);
     if (cs->output[0])
     {
         snprintf(out, cap, "%s", cs->output);
         return;
     }
-    const char* platform_name = active_platform_name();
-    snprintf(out, cap, "%s%s", project_is_open() ? g_project.name : doc_base,
+    const char* platform_name = active_platform_name(path);
+    snprintf(out, cap, "%s%s", file_uses_project(path) ? g_project.name : doc_base,
              strstr(platform_name, "msvc") ? ".exe" : "");
 }
 
@@ -7503,7 +7558,7 @@ static int project_entry_changed(const char* entry)
  * ones; without a project, the active .c document. */
 static void exttool_append_cake_input(struct exttool_buf* out, const char* path, int only_changed)
 {
-    if (!project_is_open())
+    if (!file_uses_project(path))
     {
         if (path && path_is_c_source(path))
         {
@@ -7558,9 +7613,9 @@ static void exttool_append_cake_output(struct exttool_buf* out,
     /* No project open: use whatever target the user picked in Compiler
      * Options (g_compile.target - see do_debug_start()'s own matching fix),
      * not this build's own compile-time default. */
-    const char* platform_name = active_platform_name();
+    const char* platform_name = active_platform_name(path);
 
-    if (project_is_open())
+    if (file_uses_project(path))
     {
         int first = 1;
         for (int i = 0; i < g_project.files.count; i++)
@@ -7716,13 +7771,13 @@ static void exttool_expand(const char* in, const char* path, struct exttool_buf*
             else if (strcmp(macro, "TargetDir") == 0)
             {
                 char buf[1024];
-                target_dir_path(dir, buf, sizeof buf);
+                target_dir_path(path, dir, buf, sizeof buf);
                 exttool_append(out, buf);
             }
             else if (strcmp(macro, "TargetFileName") == 0)
             {
                 char buf[512];
-                target_file_name(name, buf, sizeof buf);
+                target_file_name(path, name, buf, sizeof buf);
                 exttool_append(out, buf);
             }
             else if (strcmp(macro, "TargetName") == 0 ||
@@ -7732,7 +7787,7 @@ static void exttool_expand(const char* in, const char* path, struct exttool_buf*
                  * "main.exe" -> "main" + ".exe". A gcc/clang target has
                  * no extension at all, so $(TargetExt) is empty there. */
                 char buf[512];
-                target_file_name(name, buf, sizeof buf);
+                target_file_name(path, name, buf, sizeof buf);
                 char* dot = strrchr(buf, '.');
                 if (macro[6] == 'N')          /* TargetName */
                 {
@@ -7746,8 +7801,8 @@ static void exttool_expand(const char* in, const char* path, struct exttool_buf*
             else if (strcmp(macro, "TargetPath") == 0)
             {
                 char d[1024], f[512], buf[1600];
-                target_dir_path(dir, d, sizeof d);
-                target_file_name(name, f, sizeof f);
+                target_dir_path(path, dir, d, sizeof d);
+                target_file_name(path, name, f, sizeof f);
                 path_join(buf, sizeof buf, d, f);
                 exttool_append(out, buf);
             }
@@ -7756,7 +7811,7 @@ static void exttool_expand(const char* in, const char* path, struct exttool_buf*
                  * $(Platform) is "x64"); $(Target) below predates this
                  * and means the same thing here, kept so tools already
                  * configured with it keep working. */
-                exttool_append(out, active_platform_name());
+                exttool_append(out, active_platform_name(path));
             else if (strcmp(macro, "ProjectName") == 0)
                 exttool_append(out,
                     project_is_open() ? g_project.name : name);
@@ -7794,7 +7849,7 @@ static void exttool_expand(const char* in, const char* path, struct exttool_buf*
                  * build_screen() block), and leaving just this one still
                  * gated on project_is_open() would silently drop half of
                  * that pair for a standalone file. */
-                exttool_append(out, active_platform_name());
+                exttool_append(out, active_platform_name(path));
             /* An unknown macro expands to nothing, rather than being left in
              * the command line where it would confuse the program. */
             p = close + 1;
@@ -8111,17 +8166,18 @@ static bool command_output_has(const char* cmd, const char* signature)
     return found;
 }
 
-/* Appends `t` to g_tools unless a tool with its title is already there. */
-static int exttool_add_if_missing(const ext_tool* t, struct exttool_buf* report)
+/* Appends `t` to g_tools, or replaces the tool with its title. */
+static int exttool_add_or_update(const ext_tool* t, struct exttool_buf* report)
 {
     for (int i = 0; i < g_tools.count; i++)
     {
         if (strcmp(g_tools.items[i].title, t->title) == 0)
         {
-            exttool_append(report, "Already in Tools: ");
+            g_tools.items[i] = *t;
+            exttool_append(report, "Updated in Tools: ");
             exttool_append(report, t->title);
             exttool_append(report, "\n");
-            return 0;
+            return 1;
         }
     }
     if (g_tools.count >= EXT_TOOL_MAX)
@@ -8154,7 +8210,7 @@ static int exttool_add_debug_release(const char* name, const char* command, cons
         snprintf(t.dir, sizeof t.dir, "$(TargetDir)");
         if (n > 0 && (size_t)n < sizeof t.args)
         {
-            added += exttool_add_if_missing(&t, report);
+            added += exttool_add_or_update(&t, report);
         }
         else
         {
@@ -8366,12 +8422,25 @@ static int add_system_compiler_tools(struct exttool_buf* report)
         snprintf(t.title, sizeof t.title, "tcc");
         snprintf(t.args, sizeof t.args, "$(CakeOutput) $(IncludeDirs) -o \"$(TargetPath)\"");
         snprintf(t.dir, sizeof t.dir, "$(TargetDir)");
-        added += exttool_add_if_missing(&t, report);
+        added += exttool_add_or_update(&t, report);
 #else
         /* -gdwarf: plain -g is stabs, which lldb does not read */
-        added += exttool_add_debug_release("tcc", t.command,
-                                           "%s $(CakeOutput) $(IncludeDirs) -o \"$(TargetPath)\"",
-                                           "-gdwarf", "-DNDEBUG", report);
+        snprintf(t.title, sizeof t.title, "tcc Debug");
+        snprintf(t.dir, sizeof t.dir, "$(TargetDir)");
+        char tcc_command[sizeof t.command];
+        snprintf(tcc_command, sizeof tcc_command, "%s", t.command);
+        /* one file per tcc run: tcc gives every unit of a multi-file run the same low_pc, and lldb loses the lines */
+        snprintf(t.command, sizeof t.command, "rm -f *.o && %s", tcc_command);
+        /* bare name, run in $(TargetDir): tcc's own codesign on macOS does not quote a path with spaces */
+        snprintf(t.args, sizeof t.args, "-gdwarf -c $(CakeOutput) $(IncludeDirs) && %s -gdwarf *.o -o \"$(TargetFileName)\"", tcc_command);
+        added += exttool_add_or_update(&t, report);
+
+        ext_tool release = { 0 };
+        snprintf(release.title, sizeof release.title, "tcc Release");
+        snprintf(release.command, sizeof release.command, "%s", tcc_command);
+        snprintf(release.args, sizeof release.args, "-DNDEBUG $(CakeOutput) $(IncludeDirs) -o \"$(TargetFileName)\"");
+        snprintf(release.dir, sizeof release.dir, "$(TargetDir)");
+        added += exttool_add_or_update(&release, report);
 #endif
     }
 
@@ -10146,7 +10215,6 @@ static void do_project_report_unused(void)
     compile_status_set("Reporting unused...");
 }
 
-static int get_config_dir(char* buf, size_t cap);   /* defined further down */
 
 /* Longest command line handed to the shell before the arguments are moved
  * into a response file instead (see exttool_write_response_file).
@@ -11028,6 +11096,21 @@ static void debug_sync_exec_line(void)
 
         debug_clear_exec_line_everywhere();
         ui_node* wrapper = find_editor_window_for_path(g_dbg.cur_file);
+        if (!wrapper)
+        {
+            /* stopped in a file that is not open: open it when it exists (CRT sources do not) */
+            char path[1024];
+            snprintf(path, sizeof path, "%s", g_dbg.cur_file);
+            for (char* p = path; *p; p++)
+                if (*p == '\\') *p = '/';
+            FILE* f = fopen(path, "rb");
+            if (f)
+            {
+                fclose(f);
+                open_file_path_into_editor(path, basename_of(path));
+                wrapper = find_editor_window_for_path(g_dbg.cur_file);
+            }
+        }
         if (wrapper)
         {
             ui_node* ed = editor_in_window(wrapper);
@@ -11123,6 +11206,22 @@ static void do_debug_start(void)
     if (!ed || !path[0])
         return;
 
+    /* without #line the debug info has the generated C lines, so breakpoints on the source never resolve */
+    const bool use_project = file_uses_project(path);
+    const compile_settings* debug_settings = active_compile_settings(path);
+    if (!debug_settings->line_directives)
+    {
+        ui_msgbox_button ok = { "   OK   ", 0 };
+        ui_message_box(g_screen, "Start Debugging",
+                       use_project ?
+                       "Line directives are off, so breakpoints in this source cannot be found.\n\n"
+                       "Check \"-line-directives\" in Project > Options..., build again and start debugging.\n" :
+                       "Line directives are off, so breakpoints in this source cannot be found.\n\n"
+                       "Check \"-line-directives\" in Compile > Options..., build again and start debugging.\n",
+                       &ok, 1);
+        return;
+    }
+
     save_active_file(active);
 
     /* Split `path` into its directory, bare file name (with extension -
@@ -11171,10 +11270,10 @@ static void do_debug_start(void)
      * platform/extension fallbacks this function used to spell out inline
      * (msvc links "<name>.exe", gcc/clang a bare name). */
     char dir[DEBUG_MAX_PATH];
-    target_dir_path(src_dir, dir, sizeof dir);
+    target_dir_path(path, src_dir, dir, sizeof dir);
 
     char exe_name[512];
-    target_file_name(base, exe_name, sizeof exe_name);
+    target_file_name(path, base, exe_name, sizeof exe_name);
     char exe_path[DEBUG_MAX_PATH];
     path_join(exe_path, sizeof exe_path, dir, exe_name);
 
@@ -14592,7 +14691,7 @@ static void on_ui_event(void* ctx, int id, void* param)
 
             // Build new path: dir/target/basename (or original if target empty)
             char new_path[1024];
-            snprintf(new_path, sizeof(new_path), "%s/%s/%s", dir, active_platform_name(), base);
+            snprintf(new_path, sizeof(new_path), "%s/%s/%s", dir, active_platform_name(path), base);
 
             // Load the file, or report the error if it's not found
             char* content = read_file_to_string(new_path);
@@ -14607,7 +14706,7 @@ static void on_ui_event(void* ctx, int id, void* param)
 
             // Title with target info
             char title[300];
-            snprintf(title, sizeof(title), " %s [%s] ", base, active_platform_name());
+            snprintf(title, sizeof(title), " %s [%s] ", base, active_platform_name(path));
 
             ui_node* new_wrapper = make_editor_window(g_root, g_new_count++, title, content, new_path);
             ui_node* new_editor = editor_in_window(new_wrapper);
@@ -15174,22 +15273,30 @@ static void on_ui_event(void* ctx, int id, void* param)
     {
         /* With TCC installed too, ask whose headers: the list is for one compiler */
         char tcc[FS_MAX_PATH + 16];
-#ifdef _WIN32
         if (find_tcc(tcc, sizeof tcc))
         {
+#if defined(_WIN32)
+            const char* platform_compiler = "  MSVC  ";
+            const char* question = "Visual Studio and TCC can both be used.\n\n"
+                                   "Whose system headers should the list have?\n";
+#elif defined(__APPLE__)
+            const char* platform_compiler = "  clang  ";
+            const char* question = "clang and TCC can both be used.\n\n"
+                                   "Whose system headers should the list have?\n";
+#else
+            const char* platform_compiler = "  gcc  ";
+            const char* question = "gcc and TCC can both be used.\n\n"
+                                   "Whose system headers should the list have?\n";
+#endif
             ui_msgbox_button btns[] = {
-                { "  MSVC  ", EVT_PROJECT_INCLUDES_DETECT_MSVC },
+                { platform_compiler, EVT_PROJECT_INCLUDES_DETECT_MSVC },
                 { "  TCC  ", EVT_PROJECT_INCLUDES_DETECT_TCC },
                 { " Cancel ", 0 },
             };
-            ui_message_box(g_screen, "Detect",
-                           "Visual Studio and TCC can both be used.\n\n"
-                           "Whose system headers should the list have?\n", btns, 3);
+            ui_message_box(g_screen, "Detect", question, btns, 3);
         }
         else
-#endif
         {
-            (void)tcc;
             includes_detect_apply(0);
         }
     }
@@ -17370,7 +17477,7 @@ void app_init(ui_env* env)
     ui_node* copts_modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, copts_modal);
     ui_node* copts_window = ui_create_element(UI_TAG_WINDOW);
-    ui_set_rect(copts_window, 15, 5, 62, 21);
+    ui_set_rect(copts_window, 15, 5, 62, 23);
     ui_set_label(copts_window, " Compiler Options ");
     ui_set_help(copts_window,
                 "Compiler Options: how Cake compiles your files", "# Compiler Options\n\nhow Cake compiles your files\n"
@@ -17506,8 +17613,8 @@ void app_init(ui_env* env)
                 "```\n"
                 "clang -w macos_arm64/file1.c -o file1\n"
                 "```");
-    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 5, "X64 TCC"),
-                "`-target=x64_tcc`: Windows x64 with the Tiny C Compiler", "## `-target=x64_tcc`\n\nWindows x64 with the Tiny C Compiler\n"
+    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 5, "TCC Windows X64"),
+                "`-target=tcc_win_x64`: Windows x64 with the Tiny C Compiler", "## `-target=tcc_win_x64`\n\nWindows x64 with the Tiny C Compiler\n"
                 "\n"
                 "Data model **LLP64** (the sizes of `x64_msvc`), GCC syntax, TCC's predefined macros (`__TINYC__`, `__WINT_TYPE__`, ...) and no `_MSC_VER`. Use it with TCC's own headers - Detect in the System Directories dialog offers them.\n"
                 "\n"
@@ -17523,10 +17630,54 @@ void app_init(ui_env* env)
                 "| `wchar_t` | 2 (`unsigned short`) |\n"
                 "| `size_t` | 8 (`unsigned long long`) |\n"
                 "\n"
-                "The generated C89 goes to a `x64_tcc` folder next to the sources; compile it with TCC:\n"
+                "The generated C89 goes to a `tcc_win_x64` folder next to the sources; compile it with TCC:\n"
                 "\n"
                 "```\n"
-                "tcc x64_tcc\\file1.c -o file1.exe\n"
+                "tcc tcc_win_x64\\file1.c -o file1.exe\n"
+                "```");
+    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 6, "TCC Linux X64"),
+                "`-target=tcc_linux_x64`: Linux x86-64 with the Tiny C Compiler", "## `-target=tcc_linux_x64`\n\nLinux x86-64 with the Tiny C Compiler\n"
+                "\n"
+                "Data model **LP64** (the sizes of `x86_x64_gcc`), TCC's predefined macros.\n"
+                "\n"
+                "| Type | Size (bytes) |\n"
+                "|---|---|\n"
+                "| `char` (signed) | 1 |\n"
+                "| `short` | 2 |\n"
+                "| `int` | 4 |\n"
+                "| `long` | 8 |\n"
+                "| `long long` | 8 |\n"
+                "| pointer | 8 |\n"
+                "| `long double` | 16 |\n"
+                "| `wchar_t` | 4 (`int`) |\n"
+                "| `size_t` | 8 (`unsigned long`) |\n"
+                "\n"
+                "The generated C89 goes to a `tcc_linux_x64` folder next to the sources; compile it with TCC:\n"
+                "\n"
+                "```\n"
+                "tcc tcc_linux_x64/file1.c -o file1\n"
+                "```");
+    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 7, "TCC macOS ARM64"),
+                "`-target=tcc_macos_arm64`: macOS arm64 with the Tiny C Compiler", "## `-target=tcc_macos_arm64`\n\nmacOS arm64 with the Tiny C Compiler\n"
+                "\n"
+                "Data model **LP64** (the sizes of `macos_arm64`), TCC's predefined macros. `__builtin_inf` and `__builtin_fabs` are written as plain C.\n"
+                "\n"
+                "| Type | Size (bytes) |\n"
+                "|---|---|\n"
+                "| `char` (signed) | 1 |\n"
+                "| `short` | 2 |\n"
+                "| `int` | 4 |\n"
+                "| `long` | 8 |\n"
+                "| `long long` | 8 |\n"
+                "| pointer | 8 |\n"
+                "| `long double` | 8 |\n"
+                "| `wchar_t` | 4 (`int`) |\n"
+                "| `size_t` | 8 (`unsigned long`) |\n"
+                "\n"
+                "The generated C89 goes to a `tcc_macos_arm64` folder next to the sources; compile it with TCC:\n"
+                "\n"
+                "```\n"
+                "tcc tcc_macos_arm64/file1.c -o file1\n"
                 "```");
     ui_select_set_selected(g_copts.target, target_slug_to_index(g_compile.target));
 
@@ -17562,7 +17713,7 @@ void app_init(ui_env* env)
     /* Flags - a check-box GROUP, same control as Find's "Options"
      * (g_find.opts) above (add_group/add_group_item). */
     add_text(copts_window, 18, 13, "Flags", theme->label_fg, theme->modal_bg);
-    g_copts.flags = add_group(copts_window, 29, 13, 45, 5, 1);
+    g_copts.flags = add_group(copts_window, 29, 13, 45, 7, 1);
     ui_set_help(add_group_item(g_copts.flags, "-no-output"),
                 "`-no-output`: run all analysis passes but write no output file", "## `-no-output`\n\nrun all analysis passes but write no output file");
     ui_set_help(add_group_item(g_copts.flags, "-line-directives"),
@@ -17597,15 +17748,15 @@ void app_init(ui_env* env)
 
     /* The built executable's name - what $(TargetFileName) expands to and
      * what Debug launches; empty means "derive it" (see target_file_name). */
-    add_text(copts_window, 18, 19, "Output", theme->label_fg, theme->modal_bg);
-    g_copts.output = add_input(copts_window, 29, 19, 45, "");
+    add_text(copts_window, 18, 21, "Output", theme->label_fg, theme->modal_bg);
+    g_copts.output = add_input(copts_window, 29, 21, 45, "");
     ui_set_id(g_copts.output, EVT_COPTS_OK);
     ui_set_help(g_copts.output, "Name of the built executable (empty: derived from the source/project)", "# Name of the built executable\n\nEmpty: derived from the source/project.\n\n"
                 "What `$(TargetFileName)` expands to and what Debug launches.");
 
     /* Free-text options last - anything the rows above don't cover. */
-    add_text(copts_window, 18, 21, "Options", theme->label_fg, theme->modal_bg);
-    g_copts.input = add_input(copts_window, 29, 21, 45, "");
+    add_text(copts_window, 18, 23, "Options", theme->label_fg, theme->modal_bg);
+    g_copts.input = add_input(copts_window, 29, 23, 45, "");
     ui_set_id(g_copts.input, EVT_COPTS_OK);
     ui_set_help(g_copts.input,
                 "Other command-line options, passed to cake as typed", "# Other command-line options, passed to cake as typed\n"
@@ -17690,17 +17841,17 @@ void app_init(ui_env* env)
 
     ui_node* copts_ok = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(copts_ok, EVT_COPTS_OK);
-    ui_set_rect(copts_ok, 28, 23, 10, 1);
+    ui_set_rect(copts_ok, 29, 25, 10, 1);
     ui_set_label(copts_ok, "  OK  ");
     ui_append_child(copts_window, copts_ok);
     ui_node* copts_cancel = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(copts_cancel, EVT_COPTS_CANCEL);
-    ui_set_rect(copts_cancel, 40, 23, 10, 1);
+    ui_set_rect(copts_cancel, 41, 25, 10, 1);
     ui_set_label(copts_cancel, "Cancel");
     ui_append_child(copts_window, copts_cancel);
     ui_node* copts_help = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(copts_help, EVT_COPTS_HELP);
-    ui_set_rect(copts_help, 55, 23, 10, 1);
+    ui_set_rect(copts_help, 53, 25, 10, 1);
     ui_set_label(copts_help, " Help ");
     ui_set_no_focus(copts_help, 1);
     ui_append_child(copts_window, copts_help);
@@ -18603,7 +18754,7 @@ int app_frame(ui_env* env)
     if (ui_screen_mouse_right_pressed(g_screen) && !ui_screen_active_modal(g_screen))
     {
         int mx = ui_screen_mouse_x(g_screen), my = ui_screen_mouse_y(g_screen);
-        if (ui_node_contains(g_findresults_editor, mx, my))
+        if (window_is_shown(g_findresults_window) && ui_node_contains(g_findresults_editor, mx, my))
             ui_screen_open_popup(g_screen, g_findresults_popup, mx, my, NULL);
     }
 
