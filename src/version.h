@@ -3,7 +3,7 @@
 */
 
 #pragma once
-#define CAKE_VERSION "0.15.4"
+#define CAKE_VERSION "0.15.5"
 
 
  

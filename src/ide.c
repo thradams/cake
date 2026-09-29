@@ -64,17 +64,6 @@ enum {
                                   * re-raises, if already open) the scratch
                                   * editor window pinned to playground.c;
                                   * see open_playground() */
-    EVT_VIEW_LINENUMBERS = 89,  /* View > "Line Numbers" - toggles the
-                                 * gutter drawn in every source <editor> (see
-                                 * ui_set_show_line_numbers/render_editor in
-                                 * ide_ui.c). Same "[x]"/"[ ]" convention and
-                                 * per-frame refresh as the other View items
-                                 * just above, but a real boolean setting
-                                 * rather than "is this window open" - see
-                                 * g_view_linenumbers_item's own doc
-                                 * comment. Defaults ON, not persisted
-                                 * across sessions (same as the Environment
-                                 * dialog's theme choice). */
     EVT_EDIT_UNDO = 10,
     EVT_EDIT_CUT = 11,
     EVT_EDIT_COPY = 12,
@@ -184,21 +173,18 @@ enum {
                                     * reveals the document's containing folder
                                     * in the Folder panel, see
                                     * folder_reveal_directory() */
-    EVT_EDITOR_CODEBLOCK_COPY = 818,  /* the editor popup's "Copy Code Block"
-                                       * item - only enabled when the right-
-                                       * click that opened the popup landed on/
-                                       * in a Markdown fenced code block, see
-                                       * refresh_codeblock_items() */
-    EVT_EDITOR_CODEBLOCK_PLAYGROUND = 819,  /* the editor popup's "Copy to
-                                             * Playground" item - writes that
-                                             * same fenced code block into
-                                             * playground.c and opens it, see
-                                             * refresh_codeblock_items() */
     EVT_SEARCH_FIND = 20,      /* the Search > "Find..." menu item's id */
     EVT_SEARCH_REPLACE = 21,   /* the Search > "Replace..." menu item's id */
     EVT_SEARCH_NEXT = 23,      /* Search > "Search Next" (F3) */
     EVT_SEARCH_FIND_DEFINITION = 24,  /* Search > "Find Definition" (F12) -
                                        * see do_find_definition() */
+    EVT_SEARCH_FIND_DECLARATION = 26,  /* Search > "Find Declaration" -
+                                        * do_find_definition(FIND_DECLARATION) */
+    EVT_SEARCH_FIND_USAGES = 27,  /* Search > "Find Usages" - do_find_definition(FIND_USAGES) */
+    EVT_SEARCH_RENAME = 25,   /* the editor popup's "Rename..." - see do_rename() */
+    EVT_RENAME_INPUT = 860,    /* Rename dialog's "New name" <input> (Enter = OK) */
+    EVT_RENAME_OK = 861,
+    EVT_RENAME_CANCEL = 862,
     EVT_REPLACE_OK = 820,
     EVT_REPLACE_CHANGEALL = 821,
     EVT_REPLACE_CANCEL = 822,
@@ -322,7 +308,7 @@ enum {
                                        * otherwise (see the popup's own
                                        * open-time refresh). Distinct from the
                                        * Project panel's own popup (EVT_
-                                       * PROJECT_POPUP_OPEN/REMOVE) - that one
+                                       * PROJECT_POPUP_REMOVE/DELETE) - that one
                                        * removes a file already IN the
                                        * project; this one adds one from the
                                        * Folder panel's browse view. */
@@ -345,7 +331,9 @@ enum {
     EVT_WINDOW_PROJECT = 1306,  /* the View > "Show Project" menu item's id -
                                  * same toggle convention as EVT_WINDOW_FOLDER */
     EVT_PROJECT_LISTBOX = 1307,  /* the Project panel's own <listbox> */
-    EVT_PROJECT_POPUP_OPEN = 1308,  /* the panel's right-click popup's "Open" */
+    EVT_PROJECT_POPUP_COPY_PATH = 1308,  /* same popup's "Copy Full Path" - the selected file's absolute path */
+    EVT_PROJECT_POPUP_DELETE = 1358,  /* same popup's "Delete" - removes the selected file from the project, then deletes it from disk, after confirming */
+    EVT_PROJECT_POPUP_DELETE_CONFIRM = 1359,  /* its confirm box's "OK" - consumes g_pending_delete_path */
     EVT_PROJECT_POPUP_REMOVE = 1309,  /* same popup's "Remove from Project" -
                                        * only removes the entry, never touches
                                        * the file on disk */
@@ -395,6 +383,8 @@ enum {
                                       * same "set right before opening it,
                                       * consume+clear it here" shape as
                                       * EVT_FOLDER_DELETE_CONFIRM */
+    EVT_GIT_DISCARDALL_BTN = 1360,  /* popup's "Discard All" - git_do_discard_all() */
+    EVT_GIT_DISCARDALL_CONFIRM = 1361,  /* its confirm box's "OK" */
     EVT_GIT_PULL_BTN = 1326,     /* "Pull" - git_do_pull() */
     EVT_GIT_PUSH_BTN = 1327,     /* "Push" - git_do_push() */
     EVT_GITCOMMIT_OK = 1328,  /* also the commit message dialog's own <input>
@@ -446,6 +436,9 @@ enum {
     EVT_OUTPUT_COPY_ALL = 1420,     /* the Output popup's "Copy All" */
     EVT_OUTPUT_SELECT_ALL = 1421,   /* the Output popup's "Select All" */
     EVT_OUTPUT_CLEAR = 1422,        /* the Output popup's "Clear" */
+    EVT_EDIT_COMPLETE = 1480,       /* Edit > "Complete Word" (Ctrl+Space) - do_complete() */
+    EVT_COMPLETE_BASE = 1481,       /* the completion popup's items - EVT_COMPLETE_BASE + index
+                                     * into g_complete.names, reserving 1481..1481+COMPLETE_MAX */
 };
 
 /* One row of a <menu>'s dropdown: an id/label/shortcut triple, "---" for a
@@ -657,20 +650,6 @@ struct project_build_state
     char* settings;
 };
 
-/* Same file, ignoring case and '/' vs '\' - the compiler and the project spell paths differently. */
-static int project_path_equal(const char* a, const char* b)
-{
-    while (*a && *b)
-    {
-        char ca = *a == '\\' ? '/' : (char)tolower((unsigned char)*a);
-        char cb = *b == '\\' ? '/' : (char)tolower((unsigned char)*b);
-        if (ca != cb)
-            return 0;
-        a++;
-        b++;
-    }
-    return !*a && !*b;
-}
 
 static void project_build_state_clear(struct project_build_state* state)
 {
@@ -689,7 +668,7 @@ static int project_build_state_find(const struct project_build_state* state, con
 {
     for (int i = 0; i < state->count; i++)
     {
-        if (project_path_equal(state->items[i].path, path))
+        if (path_equal(state->items[i].path, path))
             return i;
     }
     return -1;
@@ -804,7 +783,7 @@ static struct
     ui_node* window;
     ui_node* listbox;
 
-    /* Its right-click popup - "Open" and "Remove from Project", opened over
+    /* Its right-click popup - "New File...", "Copy Full Path", "Remove from Project" and "Delete", opened over
      * `listbox` the same way g_folder.popup opens over g_folder.listbox. */
     ui_node* popup;
 
@@ -835,12 +814,6 @@ static struct
      * file_watch_check(). */
     long long file_time;
 } g_project;
-
-/* The editor popup's "[x] Line Numbers" item (EVT_VIEW_LINENUMBERS) - its
- * label/enabled state is refreshed each time the popup opens (see
- * app_frame()): enabled only over a C source editor, the only kind that
- * draws a line-number gutter (see editor_gutter_width() in ide_ui.c). */
-static ui_node* g_view_linenumbers_item;
 
 /* The Compile menu's own "Build" item (id 40 / EVT_COMPILE, "Ctrl+F7") - see
  * build_screen() below) - same forward-declared-for-build_screen()/kept-
@@ -947,6 +920,7 @@ static void build_screen(ui_node* root)
         { EVT_EDIT_WORDWRAP, "Word Wrap...", "Ctrl+W", 1 },
         SEP,
         { EVT_EDIT_FORMAT, "Format", "Ctrl+Shift+F", 1 },
+        { EVT_EDIT_COMPLETE, "Complete Word", "Ctrl+Space", 1 },
     };
     ui_node* edit_menu = add_menu(menubar, "Edit", edit_items, sizeof edit_items / sizeof edit_items[0]);
     g_edit_format_item = ui_find_by_id(edit_menu, EVT_EDIT_FORMAT);
@@ -994,7 +968,10 @@ static void build_screen(ui_node* root)
         { 21, "Replace...", "Ctrl+R", 1 },
         { 23, "Search Next", "F3", 1 },
         { 22, "Go to line...", "Ctrl+G", 1 },
+        { EVT_SEARCH_FIND_DECLARATION, "Find Declaration", NULL, 1 },
         { EVT_SEARCH_FIND_DEFINITION, "Find Definition", "F12", 1 },
+        { EVT_SEARCH_FIND_USAGES, "Find Usages", NULL, 1 },
+        { EVT_SEARCH_RENAME, "Rename...", "F2", 1 },
         SEP,
         { EVT_TOOLS_FINDREPLACE, "Find in Files...", "Ctrl+F", 1 }
     };
@@ -1166,26 +1143,29 @@ static void build_screen(ui_node* root)
     ui_node* statusbar = ui_create_element(UI_TAG_STATUSBAR);
     ui_append_child(root, statusbar);
 
-    /* F2/F3 were the only two of these never wired to a real action (see
-     * on_ui_event - ids 201/202 have no case), so Navigate Back/Forward
-     * reuses those two slots/keys instead of growing the bar. Both are
-     * Shift+ variants, not plain F2/F3 - Search > Search Next already owns
-     * plain F3 (see EVT_SEARCH_NEXT), and Shift+F2 just keeps the pair
-     * consistent - so the labels spell out the modifier. F1 doubles as a
+    /* Navigate Back/Forward are Alt+Left/Alt+Right, as in VS Code and the
+     * browsers; Ctrl+Cmd+Left/Right on macOS, as in Xcode (Option+arrow is
+     * the word jump there - see shortcut_matches()). F1 doubles as a
      * real global shortcut too (see show_hint_window()), unlike the
      * decorative F4/F5/F6/F10 hints this replaces - removed since none of
      * them were ever wired to anything real either (F5 Refresh's actual
      * shortcut lives on the Window menu, untouched by removing this hint). */
     static const struct { int id; const char* label; const char* shortcut; } hotkeys[] = {
         { EVT_HELP_CONTEXTUAL, "F1:Help", "F1" },
-        { EVT_NAV_BACK, "S+F2:Back", "Shift+F2" },
-        { EVT_NAV_FORWARD, "S+F3:Fwd", "Shift+F3" },
+        { EVT_NAV_BACK, "Alt \xE2\x97\x84:Back", "Alt+Left" },       /* U+25C4 left pointer */
+        { EVT_NAV_FORWARD, "Alt \xE2\x96\xBA:Forward", "Alt+Right" }, /* U+25BA right pointer */
     };
     for (int i = 0; i < (int)(sizeof hotkeys / sizeof hotkeys[0]); i++)
     {
         ui_node* hk = ui_create_element(UI_TAG_HOTKEY);
         ui_set_id(hk, hotkeys[i].id);
-        ui_set_label(hk, hotkeys[i].label);
+        /* macOS: Ctrl+Cmd+arrow, as in Xcode - see shortcut_matches() */
+        if (ui_mac_shortcuts() && hotkeys[i].id == EVT_NAV_BACK)
+            ui_set_label(hk, "\xE2\x8C\x83 \xE2\x8C\x98 \xE2\x97\x84:Back");
+        else if (ui_mac_shortcuts() && hotkeys[i].id == EVT_NAV_FORWARD)
+            ui_set_label(hk, "\xE2\x8C\x83 \xE2\x8C\x98 \xE2\x96\xBA:Forward");
+        else
+            ui_set_label(hk, hotkeys[i].label);
         if (hotkeys[i].shortcut)
             ui_set_shortcut(hk, hotkeys[i].shortcut);
         ui_append_child(statusbar, hk);
@@ -1608,7 +1588,119 @@ static struct
     int file_type;          /* index into "File Types" - see fr_file_type */
 
     enum result_origin result_origin;
+
+    /* the Find results window before the current search - each new search
+     * is shown on top of it (see findresults_begin/findresults_set) */
+    char* previous;
 } g_fr = { .match_case = 1, .file_type = 2 /* FR_FILETYPE_C_H */ };
+
+/* Starts a new search in the Find results window: what it shows now is kept
+ * below the new results, so the searches pile up with the last one on top. */
+static void findresults_begin(void)
+{
+    free(g_fr.previous);
+    g_fr.previous = strdup(ui_get_value(g_findresults_editor));
+}
+
+/* `text` with every line that starts with the open project's directory made
+ * relative to it (malloc'd). Double-click finds those again through
+ * resolve_referenced_path(); files outside the project keep the full path. */
+static char* project_relative_paths(const char* text)
+{
+    char* out = strdup(text);
+    if (!out || g_project.file_path[0] == '\0' || g_project.dir[0] == '\0')
+        return out;
+
+    /* the compiler prints absolute paths; the project dir may be stored relative ("src", ".") */
+    char dir[FS_MAX_PATH];
+    if (!realpath(g_project.dir, dir))
+        snprintf(dir, sizeof dir, "%s", g_project.dir);
+    size_t dir_len = strlen(dir);
+    while (dir_len > 0 && (dir[dir_len - 1] == '/' || dir[dir_len - 1] == '\\'))
+        dir[--dir_len] = '\0';
+
+    char* w = out;
+    for (const char* line = text; *line; )
+    {
+        /* the line may start with blanks and color escapes ("  \x1b[97m") - kept */
+        const char* p = line;
+        for (;;)
+        {
+            if (*p == ' ' || *p == '\t')
+            {
+                p++;
+                continue;
+            }
+            const char* m = (p[0] == '\x1b' && p[1] == '[') ? strchr(p, 'm') : NULL;
+            if (!m)
+                break;
+            p = m + 1;
+        }
+        memcpy(w, line, (size_t)(p - line));
+        w += p - line;
+
+        size_t i = 0;
+        for (; i < dir_len && p[i]; i++)
+        {
+            const char a = dir[i], b = p[i];
+            const int same = (a == '/' || a == '\\') ? (b == '/' || b == '\\') :
+                tolower((unsigned char)a) == tolower((unsigned char)b);
+            if (!same)
+                break;
+        }
+        if (i == dir_len && (p[i] == '/' || p[i] == '\\'))
+            p += dir_len + 1;
+
+        const char* end = strchr(p, '\n');
+        const size_t n = end ? (size_t)(end + 1 - p) : strlen(p);
+        memcpy(w, p, n);
+        w += n;
+        line = p + n;
+    }
+    *w = '\0';
+    return out;
+}
+
+static void findresults_show(const char* text);
+
+/* Shows `text` (the current search's results) above the previous searches */
+static void findresults_set(const char* text_in)
+{
+    char* shortened = project_relative_paths(text_in);
+    const char* text = shortened ? shortened : text_in;
+    findresults_show(text);
+    free(shortened);
+}
+
+static void findresults_show(const char* text)
+{
+    const char* previous = g_fr.previous ? g_fr.previous : "";
+    if (text[0] == '\0' || previous[0] == '\0')
+    {
+        ui_set_value(g_findresults_editor, text[0] ? text : previous);
+        return;
+    }
+
+    /* exactly one blank line between two searches: trailing/leading newlines are dropped */
+    size_t len = strlen(text);
+    while (len > 0 && (text[len - 1] == '\n' || text[len - 1] == '\r'))
+        len--;
+    while (*previous == '\n' || *previous == '\r')
+        previous++;
+
+    char* all = malloc(len + 2 + strlen(previous) + 1);
+    if (!all)
+    {
+        ui_set_value(g_findresults_editor, text);
+        return;
+    }
+    memcpy(all, text, len);
+    all[len] = '\n';
+    all[len + 1] = '\n';
+    strcpy(all + len + 2, previous);
+    ui_set_value(g_findresults_editor, all);
+    free(all);
+}
 #define FR_PANEL_MIN_W 26  /* dragging the dock border narrower than this
                             * would crush the Find/Replace buttons and
                             * checkboxes past usability - enforced each frame
@@ -1732,6 +1824,19 @@ static ui_node* g_goto_modal;
 static ui_node* g_goto_input;
 static ui_node* g_goto_pending_focus;
 
+/* The editor popup's "Rename..." dialog: the identifier under the caret is
+ * captured when it opens (file, 1-based line:col in bytes, the old name),
+ * OK compiles with -rename - see do_rename(). */
+static struct
+{
+    ui_node* modal;
+    ui_node* input;
+    ui_node* window;  /* editor window the caret was in */
+    char file[1024];
+    int line;
+    int col;
+} g_rename;
+
 /* Edit > Word Wrap...'s dialog: a "Columns" <input> and a "Justify"
  * checkbox, both prefilled with the last values used (COLUMNS_DEFAULT/off
  * the first time). OK reflows the active editor's selection to that width -
@@ -1787,22 +1892,26 @@ static ui_node* g_editor_popup_compile;  /* "Compile" item - .c files only,
 static ui_node* g_editor_popup_show_output;  /* "Show Generated Code" item -
                                               * disabled for a .md file, see
                                               * app_frame() */
-static ui_node* g_editor_popup_codeblock_copy;        /* "Copy Code Block" item */
-static ui_node* g_editor_popup_codeblock_playground;  /* "Copy to Playground" item */
 
-/* The fenced code block (see markdown_codeblock_at_line()) the right-click
- * that's currently open landed on/in, if any - a malloc'd copy captured by
- * refresh_codeblock_items() when the popup opens (the same point-in-time
- * "refresh state for whichever window/click this popup is about" the other
- * g_editor_popup_* items above use), read back by EVT_EDITOR_CODEBLOCK_COPY/
- * _PLAYGROUND's handlers when an item actually fires. NULL whenever the
- * click wasn't on a Markdown fenced code block - both items are disabled in
- * that case, so their handlers should never see it, but they still guard
- * against it (a stale click position, or the document changing between
- * the popup opening and an item firing, are all this is really protecting
- * against - see refresh_codeblock_items() itself for why this can't just be
- * recomputed from mx/my as it is there). */
-static char* g_md_codeblock_text;
+/* Every item (and separator) of the editor popup, in order, with the files
+ * it is shown for - the popup is rebuilt from this list on each right-click
+ * (see editor_popup_rebuild), since only .c/.h files have compile/find items. */
+enum editor_popup_when
+{
+    EDITOR_POPUP_ALWAYS,
+    EDITOR_POPUP_SOURCE,  /* .c/.h only */
+    EDITOR_POPUP_TEXT,    /* every other file (.md, .txt, ...) */
+};
+
+static struct
+{
+    struct
+    {
+        ui_node* item;
+        enum editor_popup_when when;
+    } entries[32];
+    int count;
+} g_editor_popup_entries;
 
 /* Forward declaration: the <editor> inside a document window's wrapper. */
 static ui_node* editor_in_window(const ui_node* wrapper);
@@ -1857,7 +1966,10 @@ static void do_compile(void);  /* defined below */
 static void do_project_build(void);  /* defined below */
 static void file_watch_reload_file(void);     /* defined below */
 static void file_watch_reload_project(void);  /* defined below */
-static void do_find_definition(void);  /* defined below */
+static void file_watch_reload_changed_windows(void);  /* defined below */
+enum find_kind { FIND_DEFINITION, FIND_DECLARATION, FIND_USAGES };
+static void do_find_definition(enum find_kind kind);  /* defined below */
+static void find_definition_push_files(int* p_argc, const char* file);  /* defined below */
 static void open_playground(void);  /* defined below; called on View > "Show Playground" */
 static int get_playground_file_path(char* buf, size_t cap);  /* defined below;
                                                                * used by
@@ -2837,15 +2949,6 @@ static ui_node* add_group_item(ui_node* group, const char* label)
  * defined below, after ci_strcmp() which it uses. */
 static ui_syntax syntax_for_path(const char* path);
 
-/* `path`'s last-modified time, or 0 if it can't be stat'ed - see
- * file_watch_check(). */
-static long long file_mtime(const char* path)
-{
-    struct stat st;
-    if (!path || !path[0] || stat(path, &st) != 0)
-        return 0;
-    return (long long)st.st_mtime;
-}
 
 static ui_node* make_editor_window(ui_node* root, int seq, const char* title,
                                     const char* content, const char* path)
@@ -3095,98 +3198,33 @@ static void refresh_readonly_item(ui_node* item, ui_node* win)
     ui_set_enabled(item, !vt100);
 }
 
-/* Whether `text`'s line at byte range [ls, ls+line_len) opens/closes a
- * fenced code block - same "```" leading-whitespace-then-3-backticks test
- * ide_ui.c's own scan_markdown_fence_state()/render_editor_line_markdown()
- * use, duplicated here (not exposed from ide_ui.c) since this is the only
- * place ide.c itself needs to walk a Markdown document's fence structure. */
-static int md_line_is_fence(const char* text, int ls, int line_len)
+/* Adds `item` to the editor popup's list (see g_editor_popup_entries) */
+static void editor_popup_add(ui_node* item, enum editor_popup_when when)
 {
-    int j = 0;
-    while (j < line_len && (text[ls + j] == ' ' || text[ls + j] == '\t'))
-        j++;
-    return line_len - j >= 3 && text[ls + j] == '`' && text[ls + j + 1] == '`' && text[ls + j + 2] == '`';
+    if (g_editor_popup_entries.count < (int)_Countof(g_editor_popup_entries.entries))
+    {
+        g_editor_popup_entries.entries[g_editor_popup_entries.count].item = item;
+        g_editor_popup_entries.entries[g_editor_popup_entries.count].when = when;
+        g_editor_popup_entries.count++;
+    }
 }
 
-/* The fenced code block ("```" ... "```") containing 0-based document line
- * `click_line` in Markdown source `text`, if any - either a line strictly
- * between the fences, or one of the fence lines themselves (so right-
- * clicking the opening/closing ``` still counts as "on" the block, not just
- * its content). Returns a malloc'd copy of the block's *content* (the lines
- * between the fences, excluding both fence lines and their language tag)
- * the caller must free, or NULL if click_line isn't part of a fenced block
- * - including an unterminated one that never closes before EOF, since
- * there's then no real block to have clicked on. */
-static char* markdown_codeblock_at_line(const char* text, int click_line)
+/* Refills `popup` with the entries shown for a .c/.h file or for any other */
+static void editor_popup_rebuild(ui_node* popup, int source)
 {
-    int text_len = (int)strlen(text);
-    int line_idx = 0, off = 0;
-    int in_block = 0, block_open_line = -1, content_start = -1;
+    while (ui_child_count(popup) > 0)
+        ui_remove_child(popup, ui_child_at(popup, 0));
 
-    while (off <= text_len)
+    for (int i = 0; i < g_editor_popup_entries.count; i++)
     {
-        int ls = off;
-        while (off < text_len && text[off] != '\n')
-            off++;
-
-        if (!in_block && md_line_is_fence(text, ls, off - ls))
+        const enum editor_popup_when when = g_editor_popup_entries.entries[i].when;
+        if (when == EDITOR_POPUP_ALWAYS ||
+            (when == EDITOR_POPUP_TEXT && !source) ||
+            (when == EDITOR_POPUP_SOURCE && source))
         {
-            in_block = 1;
-            block_open_line = line_idx;
-            content_start = (off < text_len) ? off + 1 : off;
+            ui_append_child(popup, g_editor_popup_entries.entries[i].item);
         }
-        else if (in_block && md_line_is_fence(text, ls, off - ls))
-        {
-            if (click_line >= block_open_line && click_line <= line_idx)
-            {
-                int len = ls - content_start;
-                if (len < 0)
-                    len = 0;
-                char* out = malloc(len + 1);
-                memcpy(out, text + content_start, len);
-                out[len] = 0;
-                return out;
-            }
-            in_block = 0;
-            block_open_line = -1;
-            content_start = -1;
-        }
-
-        if (off >= text_len)
-            break;
-        off++;  /* skip the '\n' onto the next line */
-        line_idx++;
     }
-
-    return NULL;  /* click_line never fell inside/on a *closed* fenced block */
-}
-
-/* Refreshes the editor popup's "Copy Code Block"/"Copy to Playground" items
- * (see g_md_codeblock_text) for the right-click at screen point (mx, my) -
- * enabled only when `win` is a Markdown document and that point lands on/in
- * one of its fenced code blocks, same "point-in-time snapshot" pattern as
- * refresh_readonly_item() above. Captured now (rather than re-deriving the
- * block from mx/my again when an item actually fires) because by then the
- * popup may have scrolled the editor via its own scrollbar, or the document
- * may simply have changed - the block under the original click is whatever
- * this function decides right now, once, not whatever happens to be under
- * that same screen point later. */
-static void refresh_codeblock_items(ui_node* copy_item, ui_node* playground_item,
-                                     ui_node* win, int mx, int my)
-{
-    free(g_md_codeblock_text);
-    g_md_codeblock_text = NULL;
-
-    ui_node* ed = editor_in_window(win);
-    if (ed && ui_get_syntax(ed) == UI_SYNTAX_MARKDOWN)
-    {
-        int line = ui_editor_line_at_point(ed, mx, my);
-        if (line >= 0)
-            g_md_codeblock_text = markdown_codeblock_at_line(ui_get_label(ed), line);
-    }
-
-    ui_set_enabled(copy_item, g_md_codeblock_text != NULL);
-    ui_set_enabled(playground_item, g_md_codeblock_text != NULL);
 }
 
 /* Whether `wrapper` is one of the currently open floating windows - i.e. it
@@ -4005,25 +4043,6 @@ static void nav_forward(void)
     g_nav.restoring = 0;
 }
 
-/* True if `path` names an existing regular file - used so pasting/typing a
- * full path into the Open dialog's Name field and pressing Enter/OK can open
- * it immediately, rather than the field's normal dir+mask split (see
- * EVT_OPEN_NAME/EVT_OPEN_OK) navigating into it as if it were just a new
- * mask. Deliberately narrow: directories and nonexistent paths fall through
- * to the existing split/navigate behavior unchanged. */
-static int path_is_regular_file(const char* path)
-{
-    if (!path || !path[0])
-        return 0;
-    struct stat st;
-    if (stat(path, &st) != 0)
-        return 0;
-    /* MSVC's <sys/stat.h> doesn't define the POSIX S_ISREG macro (only
-     * S_IFREG/S_IFMT), so test the mode bits directly - works the same on
-     * both. */
-    return (st.st_mode & S_IFMT) == S_IFREG ? 1 : 0;
-}
-
 /* Adds every checked row of the Open dialog's listbox to the open project -
  * the multi-select half of Project > "Add Existing File..." (see
  * g_open.allow_multi). Directory rows (marked with a trailing "\", see
@@ -4260,6 +4279,31 @@ static void folder_reveal_directory(const char* dir, const char* select_name)
 static int project_is_open(void)
 {
     return g_project.file_path[0] != 0;
+}
+
+/* Where File > Open starts, same order as Visual Studio: the active editor's
+ * folder, else the project's folder, else the Folder panel's, else the cwd. */
+static void open_dialog_start_dir(char* dir, size_t size)
+{
+    ui_node* win = ui_screen_top_window(g_screen);
+    const char* cur = win && editor_in_window(win) ? ui_get_path(win) : NULL;
+    if (cur && cur[0])
+    {
+        const char* base = basename_of(cur);
+        size_t dlen = base > cur ? (size_t)(base - cur - 1) : 0;
+        if (dlen > 0 && dlen < size)
+        {
+            memcpy(dir, cur, dlen);
+            dir[dlen] = 0;
+            return;
+        }
+    }
+    if (project_is_open() && g_project.dir[0])
+        snprintf(dir, size, "%s", g_project.dir);
+    else if (g_folder.dir[0])
+        snprintf(dir, size, "%s", g_folder.dir);
+    else if (!ui_get_cwd(dir, size))
+        snprintf(dir, size, ".");
 }
 
 /* Rewrites `abs_path` relative to `base_dir` when it actually sits inside
@@ -5065,8 +5109,7 @@ static void project_add_include(const char* path)
 }
 
 /* Opens the project's file at `index` (a row in g_project.listbox) into an
- * editor - shared by the panel's double-click/Enter (project_window_activate)
- * and its right-click popup's "Open" (EVT_PROJECT_POPUP_OPEN). */
+ * editor - used by the panel's double-click/Enter (project_window_activate). */
 static void project_open_at(int index)
 {
     if (index < 0 || index >= g_project.files.count)
@@ -6636,6 +6679,11 @@ static void git_window_activate(int index)
                                             * opened to be read, not squeezed
                                             * into whatever small rect it was
                                             * last left at. */
+
+    /* Opens on the first change, as if "Next" had been pressed - but taken
+     * from the index directly, so a change on line 1 is not skipped. */
+    if (g_gitdiff_run_count > 0)
+        ui_editor_goto_line(g_gitdiff_editor, g_gitdiff_runs[0]);
 }
 
 /* The diff viewer's "Edit": opens the file with the caret on the file line and column the diff's caret is on.
@@ -6975,7 +7023,7 @@ static void git_commit_start(void)
     g_pending_commit_push = 0;
     g_pending_commit_staged = 0;
     g_pending_commit_file[0] = 0;
-    ui_set_label(g_gitcommit.window, " Commit All ");
+    ui_set_label(g_gitcommit.window, "Commit All");
     ui_set_value(g_gitcommit.input, "");
     ui_screen_show_modal(g_screen, g_gitcommit.modal);
     ui_screen_focus(g_screen, g_gitcommit.input);
@@ -6989,7 +7037,7 @@ static void git_commitpush_start(void)
     g_pending_commit_push = 1;
     g_pending_commit_staged = 0;
     g_pending_commit_file[0] = 0;
-    ui_set_label(g_gitcommit.window, " Commit All ");
+    ui_set_label(g_gitcommit.window, "Commit All");
     ui_set_value(g_gitcommit.input, "");
     ui_screen_show_modal(g_screen, g_gitcommit.modal);
     ui_screen_focus(g_screen, g_gitcommit.input);
@@ -7022,7 +7070,7 @@ static void git_commitstaged_start(void)
     g_pending_commit_push = 0;
     g_pending_commit_staged = 1;
     g_pending_commit_file[0] = 0;
-    ui_set_label(g_gitcommit.window, " Commit Staged ");
+    ui_set_label(g_gitcommit.window, "Commit Staged");
     ui_set_value(g_gitcommit.input, "");
     ui_screen_show_modal(g_screen, g_gitcommit.modal);
     ui_screen_focus(g_screen, g_gitcommit.input);
@@ -7033,7 +7081,7 @@ static void git_commitstagedpush_start(void)
 {
     git_commitstaged_start();
     g_pending_commit_push = 1;
-    ui_set_label(g_gitcommit.window, " Commit Staged && Push ");
+    ui_set_label(g_gitcommit.window, "Commit Staged && Push");
 }
 
 /* Shows the staged-only items (g_git.staged_items) only when some listbox row
@@ -7474,6 +7522,18 @@ static void git_do_discard(void)
         { " Cancel ", 0 },
     };
     ui_message_box(g_screen, "Discard", message, btns, 2);
+}
+
+/* "Discard All" - asks for confirmation; EVT_GIT_DISCARDALL_CONFIRM resets to HEAD and deletes untracked files. */
+static void git_do_discard_all(void)
+{
+    ui_msgbox_button btns[] = {
+        { "   OK   ", EVT_GIT_DISCARDALL_CONFIRM },
+        { " Cancel ", 0 },
+    };
+    ui_message_box(g_screen, "Discard All",
+                   "Are you sure you want to discard ALL changes?\n\nEvery file is restored to the last commit and new files are deleted - not undoable.",
+                   btns, 2);
 }
 
 /* The open project's own target platform name (e.g. "x64", "x86") - the same
@@ -8520,6 +8580,8 @@ static struct compile_job
      * nothing. */
     int to_find_results;
     int find_definition;
+    int rename;  /* -rename: the compiler changes the files, reloaded at the end */
+    int complete;  /* -complete: the output is the candidate list, not shown - see complete_show() */
 
     /* a Project > Build: what it compiles and reads (filled by the worker
      * through project_build_on_include), committed to g_project.built on success */
@@ -8760,6 +8822,7 @@ static size_t compile_stream_drain(void)
 
 static void compile_finish(void);
 static void exttool_finish(void);
+static void complete_show(const char* output);
 
 /* Called once per frame from app_frame(). Cheap no-op when idle. */
 static void compile_stream_poll(void)
@@ -8803,12 +8866,18 @@ static void compile_stream_poll(void)
     }
 
     size_t got = compile_stream_drain();
-    if (got > 0)
+    if (got > 0 && !g_job.complete)
     {
         /* Show it as it arrives - this is the whole point. */
-        ui_node* out = g_job.to_find_results ? g_findresults_editor : g_output_editor;
-        ui_set_value(out, g_job.text ? g_job.text : "");
-        ui_editor_goto_line(out, g_job.lines + 1);  /* follow the tail */
+        if (g_job.to_find_results)
+        {
+            findresults_set(g_job.text ? g_job.text : "");  /* on top of the previous searches */
+        }
+        else
+        {
+            ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
+            ui_editor_goto_line(g_output_editor, g_job.lines + 1);  /* follow the tail */
+        }
     }
 
     /* Only finalize once the worker is done AND the pipe has run dry, so no
@@ -9261,7 +9330,7 @@ static void open_saveas_dialog_for(ui_node* win)
     ui_select_set_selected(g_open.filter, 0);
     open_dialog_set_filter_visible(1);
 
-    ui_set_label(g_open.window, " Save File As ");
+    ui_set_label(g_open.window, "Save File As");
     ui_set_label(g_open.ok, "  Save  ");
     open_dialog_refresh();
     ui_screen_show_modal(g_screen, g_open.modal);
@@ -9333,20 +9402,6 @@ static int paths_match(const char* a, const char* b)
     return *a == *b;
 }
 
-/* Whether `path` names a file that can currently be opened for reading - a
- * quick existence probe (fopen+fclose, no content read) used by
- * resolve_referenced_path() below to try several candidate paths without
- * flashing a "File not found" message box for each wrong guess - only the
- * one it finally commits to (or the plain fallback) goes through
- * open_file_path_into_editor()'s own not-found handling. */
-static int file_readable(const char* path)
-{
-    FILE* f = fopen(path, "rb");
-    if (!f)
-        return 0;
-    fclose(f);
-    return 1;
-}
 
 /* Resolves a bare `filename` (or relative path) with no reliable directory
  * of its own - e.g. a #include target or a filename typed in a comment/doc
@@ -9368,7 +9423,7 @@ static void resolve_referenced_path(const char* filename, char* out, size_t out_
     if (project_is_open())
     {
         path_join(candidate, sizeof candidate, g_project.dir, filename);
-        if (file_readable(candidate))
+        if (file_exists(candidate))
             open_path = candidate;
     }
     if (!open_path && g_active_editor_window)
@@ -9378,13 +9433,13 @@ static void resolve_referenced_path(const char* filename, char* out, size_t out_
         dir[sizeof dir - 1] = 0;
         dirname(dir);
         path_join(candidate, sizeof candidate, dir, filename);
-        if (file_readable(candidate))
+        if (file_exists(candidate))
             open_path = candidate;
     }
     if (!open_path && g_folder.dir[0])
     {
         path_join(candidate, sizeof candidate, g_folder.dir, filename);
-        if (file_readable(candidate))
+        if (file_exists(candidate))
             open_path = candidate;
     }
     if (!open_path)
@@ -9496,7 +9551,7 @@ static void output_goto_source(ui_node* output_editor)
      *                     followed by a digit, so a Windows drive letter
      *                     ("C:") isn't mistaken for the separator
      *   file.c(1,2): ...  msvc     - the filename ends at the '(' of a
-     *                     "(<digits>,<digits>)" group
+     *   file.c(1): ...    "(<digits>,<digits>)" or "(<digits>)" group
      */
     char* sep = NULL;
     int src_line = 0;
@@ -9514,7 +9569,7 @@ static void output_goto_source(ui_node* output_editor)
             char* q = p + 1;
             while (isdigit((unsigned char)*q))
                 q++;
-            if (*q != ',')
+            if (*q != ',' && *q != ')')
                 continue;  /* not a position group - keep looking */
             sep = p;
             src_line = atoi(p + 1);
@@ -9574,11 +9629,7 @@ static void output_goto_source(ui_node* output_editor)
     ui_screen_show_window(g_screen, target);  /* bring the source to the front */
     ui_node* editor = editor_in_window(target);
 
-    /* a definition: what matters follows the line; anything else (errors, matches, unused): code before and after */
-    if (output_editor == g_findresults_editor && g_fr.result_origin == RESULT_ORIGIN_FIND_DEFINITION)
-        ui_editor_goto_line_near_top(editor, src_line);
-    else
-        ui_editor_goto_line_center(editor, src_line);
+    ui_editor_goto_line_center(editor, src_line);
     g_goto_pending_focus = editor;  /* focus after this update finishes - see app_frame */
 }
 
@@ -9625,7 +9676,7 @@ static int parse_diagnostic_line(char* line, char** out_file, ui_diag_type* type
     // "file(line,col)" (msvc) prefix - both formats are accepted, same as
     // output_goto_source(). For the first, find the first colon followed by a
     // digit (skips drive letters); for the second, the '(' of the
-    // "(<digits>,<digits>)" group.
+    // "(<digits>,<digits>)" or "(<digits>)" group.
     char* p = line;
     const char* line_start = NULL;
     while (*p)
@@ -9641,7 +9692,7 @@ static int parse_diagnostic_line(char* line, char** out_file, ui_diag_type* type
             const char* q = p + 1;
             while (isdigit((unsigned char)*q))
                 q++;
-            if (*q == ',')
+            if (*q == ',' || *q == ')')
             {
                 line_start = p + 1;
                 break;
@@ -9915,6 +9966,10 @@ static int job_argv_from_settings(const compile_settings* cs)
      * passing it here too would add every directory twice. */
     if (cs == &g_project.compile)
     {
+        /* output is always relative to the project dir */
+        snprintf(flag, sizeof flag, "-output-root=%s", g_project.dir);
+        job_push(&argc, flag);
+
         for (int i = 0; i < g_project.include_dirs.count; i++)
         {
             char abs_dir[1024 - 2];
@@ -10191,9 +10246,10 @@ static void do_project_report_unused(void)
         file_argc++;
     }
 
+    findresults_begin();
     if (file_argc == 0)
     {
-        ui_set_value(g_findresults_editor, "The open project has no .c files.\n");
+        findresults_set("The open project has no .c files.\n");
         bottom_panel_show(g_findresults_window, g_output_window);
         return;
     }
@@ -10202,14 +10258,14 @@ static void do_project_report_unused(void)
     g_job.active = g_active_editor_window;
     g_job.to_find_results = 1;
 
-    ui_set_value(g_findresults_editor, "");
+    findresults_set("");
     bottom_panel_show(g_findresults_window, g_output_window);
 
     if (!compile_stream_start())
     {
         g_job.to_find_results = 0;
         compile_status_set("");
-        ui_set_value(g_findresults_editor, "Could not start the report (pipe/thread creation failed).\n");
+        findresults_set("Could not start the report (pipe/thread creation failed).\n");
         return;
     }
     compile_status_set("Reporting unused...");
@@ -11565,6 +11621,28 @@ static void compile_finish(void)
 {
     compile_stream_end();
 
+    if (g_job.complete)
+    {
+        g_job.complete = 0;
+        compile_status_set("");
+        complete_show(g_job.text ? g_job.text : "");
+        return;
+    }
+
+    /* Rename: the compiler changed the files on disk - the open windows are
+     * reloaded now, not on the file watch timer. */
+    if (g_job.rename)
+    {
+        g_job.rename = 0;
+        char elapsed[64];
+        snprintf(elapsed, sizeof elapsed, "\nRename time: %.1f s\n", g_job.report.cpu_time_used_sec);
+        compile_text_append(elapsed, strlen(elapsed));
+        ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
+        file_watch_reload_changed_windows();
+        compile_status_set("");
+        return;
+    }
+
     /* Files compiled without errors are recorded; the ones with errors are compiled again next time. */
     if (g_job.project_build)
     {
@@ -11591,27 +11669,33 @@ static void compile_finish(void)
         compile_status_set("");
         if (g_job.len > 0)
         {
-            if (find_definition)
+            char* shown = NULL;
+            if (find_definition && g_job.text)
             {
-                char elapsed[64];
-                snprintf(elapsed, sizeof elapsed, "\nSearch time: %.1f s\n", g_job.report.cpu_time_used_sec);
-                compile_text_append(elapsed, strlen(elapsed));
+                /* the search time, discreet, at the end of the result's first line */
+                char elapsed[32];
+                snprintf(elapsed, sizeof elapsed, "  (%.1fs)", g_job.report.cpu_time_used_sec);
+                size_t first = strcspn(g_job.text, "\r\n");
+                size_t total = strlen(g_job.text);
+                shown = malloc(total + strlen(elapsed) + 1);
+                if (shown)
+                {
+                    memcpy(shown, g_job.text, first);
+                    strcpy(shown + first, elapsed);
+                    strcat(shown, g_job.text + first);
+                }
             }
-            ui_set_value(g_findresults_editor, g_job.text ? g_job.text : "");
+            findresults_set(shown ? shown : g_job.text ? g_job.text : "");
+            free(shown);
             g_fr.result_origin = find_definition ? RESULT_ORIGIN_FIND_DEFINITION : RESULT_ORIGIN_REPORT_UNUSED;
         }
         else if (find_definition)
             find_definition_text_search(g_job.find_definition_word);
         else
-            ui_set_value(g_findresults_editor, "No unused functions found.\n");
+            findresults_set("No unused functions found.\n");
         return;
     }
 
-    char summary[256];
-    snprintf(summary, sizeof summary, "\n%d error(s), %d warning(s), %.2f sec\n",
-              g_job.report.error_count, g_job.report.warnings_count,
-              g_job.report.cpu_time_used_sec);
-    compile_text_append(summary, strlen(summary));
     ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
     ui_editor_goto_line(g_output_editor, g_job.lines + 1);
 
@@ -12071,30 +12155,9 @@ static void cascade_windows(void)
  * Caller must free(). Returns NULL on failure (fopen or read error). */
 static char* read_file_to_string(const char* path)
 {
-    FILE* f = fopen(path, "rb");
-    if (!f)
-        return NULL;
-
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    if (size < 0)
-    {
-        fclose(f);
-        return NULL;
-    }
-
-    char* content = malloc((size_t)size + 1);
-    if (!content)
-    {
-        fclose(f);
-        return NULL;
-    }
-
-    size_t got = fread(content, 1, (size_t)size, f);
-    content[got] = '\0';
-    fclose(f);
-    normalize_newlines(content);
+    char* content = read_file_binary(path);
+    if (content)
+        normalize_newlines(content);
     return content;
 }
 
@@ -12841,6 +12904,7 @@ static void do_find_replace(const find_replace_options* opts)
 {
     static char msg[CAPTURE_BUF_SIZE];
 
+    findresults_begin();
     if (opts->look_in == FR_LOOKIN_CURRENT_FILE)
     {
         if (opts->mode)
@@ -12872,7 +12936,7 @@ static void do_find_replace(const find_replace_options* opts)
             fr_search_include_dirs(opts, msg, sizeof msg);
     }
 
-    ui_set_value(g_findresults_editor, msg);
+    findresults_set(msg);
     g_fr.result_origin = RESULT_ORIGIN_TEXT_SEARCH;
     bottom_panel_show(g_findresults_window, g_output_window);
 }
@@ -12907,8 +12971,22 @@ static void find_definition_text_search(const char* word)
  * declaration and then the definition as it finds them; compile_stream_poll()
  * streams that into the Find results window instead of Output, and
  * compile_finish() falls back to find_definition_text_search() when nothing
- * was found. Shares g_job, so one compile/build/lookup at a time. */
-static void do_find_definition(void)
+ * was found. Shares g_job, so one compile/build/lookup at a time.
+ * `kind`: Search > "Find Declaration" (-find-declaration) stops at the
+ * declaration; Search > "Find Usages" (-find-usages) lists every place the
+ * symbol is used. */
+static const struct
+{
+    const char* title;
+    const char* option;
+    const char* status;
+} g_find_kinds[] = {
+    [FIND_DEFINITION] = { "Find Definition", "-find-definition", "Finding definition..." },
+    [FIND_DECLARATION] = { "Find Declaration", "-find-declaration", "Finding declaration..." },
+    [FIND_USAGES] = { "Find Usages", "-find-usages", "Finding usages..." },
+};
+
+static void do_find_definition(enum find_kind kind)
 {
     if (g_job.running)
         return;
@@ -12926,7 +13004,7 @@ static void do_find_definition(void)
     if (!word_at_cursor(text, (int)strlen(text), cursor, word, (int)sizeof word))
     {
         ui_msgbox_button ok = { "   OK   ", 0 };
-        ui_message_box(g_screen, "Find Definition", "No word under the caret.", &ok, 1);
+        ui_message_box(g_screen, g_find_kinds[kind].title, "No word under the caret.", &ok, 1);
         return;
     }
 
@@ -12954,6 +13032,44 @@ static void do_find_definition(void)
         return;
     }
 
+    int argc = job_argv_from_settings(active_compile_settings(file));
+    char number[16];
+    job_push(&argc, g_find_kinds[kind].option);
+    snprintf(number, sizeof number, "%d", line);
+    job_push(&argc, number);
+    snprintf(number, sizeof number, "%d", col);
+    job_push(&argc, number);
+    find_definition_push_files(&argc, file);
+
+    g_job.argc = argc;
+    g_job.active = win;
+    g_job.to_find_results = 1;
+    g_job.find_definition = 1;
+    snprintf(g_job.find_definition_word, sizeof g_job.find_definition_word, "%s", word);
+
+    findresults_begin();
+    findresults_set("");
+    bottom_panel_show(g_findresults_window, g_output_window);
+
+    if (!compile_stream_start())
+    {
+        g_job.to_find_results = 0;
+        g_job.find_definition = 0;
+        compile_status_set("");
+        find_definition_text_search(word);
+        return;
+    }
+    compile_status_set(g_find_kinds[kind].status);
+}
+
+/* Saves the open project files (the compiler reads from disk) and pushes
+ * the files for -find-definition/-rename, ordered by the chance of finding
+ * the symbol: `file` (the caret is in it), then for a header its own .c
+ * (foo.h -> foo.c), which usually includes it and has the definitions, then
+ * the rest of the project's .c files. A file that is not in the project is
+ * passed alone. */
+static void find_definition_push_files(int* p_argc, const char* file)
+{
     if (project_is_open())
     {
         for (int i = 0; i < g_project.files.count; i++)
@@ -12966,24 +13082,18 @@ static void do_find_definition(void)
         }
     }
 
-    int argc = job_argv_from_settings(active_compile_settings(file));
-    char number[16];
-    job_push(&argc, "-find-definition");
-    snprintf(number, sizeof number, "%d", line);
-    job_push(&argc, number);
-    snprintf(number, sizeof number, "%d", col);
-    job_push(&argc, number);
-    job_push(&argc, file);
+    job_push(p_argc, file);
 
-    /* Ordered by the chance of finding it: the active file, then for a
-     * header its own .c (foo.h -> foo.c), which usually includes it and has
-     * the definitions, then the rest of the project. */
+    /* a file outside the project: only itself (the compiler still looks at the .c next to its header) */
+    if (!project_contains_file(file))
+        return;
+
     char counterpart[512] = "";
     if (!path_is_c_source(file) &&
         header_source_counterpart(file, counterpart, sizeof counterpart) &&
-        file_readable(counterpart))
+        file_exists(counterpart))
     {
-        job_push(&argc, counterpart);
+        job_push(p_argc, counterpart);
     }
     else
     {
@@ -13002,28 +13112,124 @@ static void do_find_definition(void)
             if (ci_strcmp(abs_path, file) == 0 || ci_strcmp(abs_path, counterpart) == 0)
                 continue;
 
-            job_push(&argc, abs_path);
+            job_push(p_argc, abs_path);
+        }
+    }
+}
+
+/* The editor popup's "Rename...": captures the identifier under the caret
+ * (file, line:col) and opens the dialog with its name - see do_rename(). */
+static void do_rename_open(void)
+{
+    if (g_job.running)
+        return;
+
+    ui_node* win = g_active_editor_window;
+    ui_node* ed = win ? editor_in_window(win) : NULL;
+    if (!ed)
+        return;
+
+    const char* text = ui_get_value(ed);
+    int cursor = ui_editor_get_cursor(ed);
+
+    char word[200];
+    ui_msgbox_button ok = { "   OK   ", 0 };
+    if (!word_at_cursor(text, (int)strlen(text), cursor, word, (int)sizeof word))
+    {
+        ui_message_box(g_screen, "Rename", "No word under the caret.", &ok, 1);
+        return;
+    }
+
+    const char* file = ui_get_path(win);
+    if (file == NULL || file[0] == '\0')
+    {
+        ui_message_box(g_screen, "Rename", "Save the file first.", &ok, 1);
+        return;
+    }
+
+    /* 1-based and in bytes, the same line:col the compiler gives its tokens */
+    int line = 1, col = 1;
+    for (int i = 0; i < cursor && text[i]; i++)
+    {
+        if (text[i] == '\n')
+        {
+            line++;
+            col = 1;
+        }
+        else
+        {
+            col++;
         }
     }
 
-    g_job.argc = argc;
-    g_job.active = win;
-    g_job.to_find_results = 1;
-    g_job.find_definition = 1;
-    snprintf(g_job.find_definition_word, sizeof g_job.find_definition_word, "%s", word);
+    g_rename.window = win;
+    snprintf(g_rename.file, sizeof g_rename.file, "%s", file);
+    g_rename.line = line;
+    g_rename.col = col;
 
-    ui_set_value(g_findresults_editor, "");
-    bottom_panel_show(g_findresults_window, g_output_window);
+    ui_set_value(g_rename.input, word);
+    ui_screen_show_modal(g_screen, g_rename.modal);
+    ui_screen_focus(g_screen, g_rename.input);
+}
+
+static bool is_identifier(const char* s)
+{
+    if (!(isalpha((unsigned char)*s) || *s == '_'))
+        return false;
+    for (s++; *s; s++)
+    {
+        if (!(isalnum((unsigned char)*s) || *s == '_'))
+            return false;
+    }
+    return true;
+}
+
+/* Rename dialog's OK: a compile with -rename line col newname over the same
+ * files as Find Definition. The compiler changes the files on disk and
+ * compile_finish() reloads the open windows. */
+static void do_rename(void)
+{
+    char new_name[200];
+    snprintf(new_name, sizeof new_name, "%s", ui_get_value(g_rename.input));
+    ui_screen_close_modal(g_screen, g_rename.modal);
+
+    if (!is_identifier(new_name))
+    {
+        ui_msgbox_button ok = { "   OK   ", 0 };
+        ui_message_box(g_screen, "Rename", "The new name is not an identifier.", &ok, 1);
+        return;
+    }
+
+    if (g_job.running)
+        return;
+
+    /* the compiler reads from disk */
+    save_active_file(g_rename.window);
+
+    int argc = job_argv_from_settings(active_compile_settings(g_rename.file));
+    char number[16];
+    job_push(&argc, "-rename");
+    snprintf(number, sizeof number, "%d", g_rename.line);
+    job_push(&argc, number);
+    snprintf(number, sizeof number, "%d", g_rename.col);
+    job_push(&argc, number);
+    job_push(&argc, new_name);
+    find_definition_push_files(&argc, g_rename.file);
+
+    g_job.argc = argc;
+    g_job.active = g_rename.window;
+    g_job.rename = 1;
+
+    ui_set_value(g_output_editor, "");
+    bottom_panel_show(g_output_window, g_findresults_window);
 
     if (!compile_stream_start())
     {
-        g_job.to_find_results = 0;
-        g_job.find_definition = 0;
+        g_job.rename = 0;
         compile_status_set("");
-        find_definition_text_search(word);
         return;
     }
-    compile_status_set("Finding definition...");
+    compile_status_set("Renaming...");
 }
 
 /* Copies whatever's currently sitting in the panel's live widgets back into
@@ -13804,6 +14010,220 @@ static int keyword_punct_complete(const char* word, int wlen, char** out_text)
     return 0;
 }
 
+/* Edit > "Complete Word" (Ctrl+Space) - see AUTOCOMPLETE_SPEC.md. A compile
+ * with -complete line col (same shape as do_find_definition): the compiler
+ * parses up to the caret and prints the names that can be written there,
+ * one per line, name<TAB>kind<TAB>type. complete_show() filters them by the
+ * prefix left of the caret: one candidate is inserted directly, more open a
+ * popup at the caret. */
+enum { COMPLETE_MAX = 30 };
+
+static struct
+{
+    ui_node* window;   /* the editor window the request was made from */
+    int cursor;        /* caret when asked - a different one drops the answer */
+    int prefix_start;  /* byte offset of the prefix; it ends at `cursor` */
+    char prefix[128];
+    char op_fix[3];    /* "->" or ".": the operator before the prefix was the wrong one */
+    char names[COMPLETE_MAX][128];  /* what the popup's items insert */
+    int count;
+    ui_node* popup;
+} g_complete;
+
+struct complete_candidate
+{
+    char name[128];
+};
+
+static int complete_candidate_cmp(const void* a, const void* b)
+{
+    return strcmp(((const struct complete_candidate*)a)->name, ((const struct complete_candidate*)b)->name);
+}
+
+/* Replaces the prefix with `name`, caret after it. */
+static void complete_insert(const char* name)
+{
+    ui_node* ed = editor_in_window(g_complete.window);
+    if (!ed)
+        return;
+
+    /* the wrong operator ('.' for '->' or the reverse) is replaced too, keeping any spaces after it */
+    const char* text = ui_get_value(ed);
+    int start = g_complete.prefix_start;
+    char replacement[300];
+    snprintf(replacement, sizeof replacement, "%s", name);
+    if (g_complete.op_fix[0])
+    {
+        int op_end = start;
+        while (op_end > 0 && (text[op_end - 1] == ' ' || text[op_end - 1] == '\t'))
+            op_end--;
+        const int op_len = g_complete.op_fix[0] == '.' ? 2 : 1;  /* "->" becomes ".", "." becomes "->" */
+        if (op_end >= op_len && strncmp(text + op_end - op_len, g_complete.op_fix[0] == '.' ? "->" : ".", (size_t)op_len) == 0)
+        {
+            snprintf(replacement, sizeof replacement, "%s%.*s%s", g_complete.op_fix, start - op_end, text + op_end, name);
+            start = op_end - op_len;
+        }
+    }
+
+    ui_editor_replace_selection(ed, start, g_complete.cursor, replacement);
+    int end = start + (int)strlen(replacement);
+    ui_editor_set_selection(ed, end, end);
+    g_goto_pending_focus = ed;  /* focus after this update finishes - the popup is still closing */
+}
+
+static void complete_show(const char* output)
+{
+    ui_node* ed = editor_in_window(g_complete.window);
+    if (!ed || g_complete.window != g_active_editor_window || ui_editor_get_cursor(ed) != g_complete.cursor)
+        return;  /* the user moved on while the compiler worked */
+
+    const size_t prefix_len = strlen(g_complete.prefix);
+    int count = 0, cap = 64;
+    struct complete_candidate* list = malloc(sizeof *list * (size_t)cap);
+    if (!list)
+        return;
+
+    /* the compiler's lines; the banner and anything else without tabs is skipped */
+    g_complete.op_fix[0] = '\0';
+    for (const char* line = output; *line; )
+    {
+        const char* end = strchr(line, '\n');
+        size_t len = end ? (size_t)(end - line) : strlen(line);
+        const char* tab1 = memchr(line, '\t', len);
+        const char* tab2 = tab1 ? memchr(tab1 + 1, '\t', len - (size_t)(tab1 + 1 - line)) : NULL;
+        if (tab2 && tab2 - tab1 - 1 == 8 && strncmp(tab1 + 1, "operator", 8) == 0 &&
+            tab1 - line < (int)sizeof g_complete.op_fix)
+        {
+            snprintf(g_complete.op_fix, sizeof g_complete.op_fix, "%.*s", (int)(tab1 - line), line);
+        }
+        else if (tab2 && (size_t)(tab1 - line) < sizeof list->name &&
+            (size_t)(tab1 - line) >= prefix_len && strncmp(line, g_complete.prefix, prefix_len) == 0)
+        {
+            if (count == cap)
+            {
+                cap *= 2;
+                struct complete_candidate* bigger = realloc(list, sizeof *list * (size_t)cap);
+                if (!bigger)
+                    break;
+                list = bigger;
+            }
+            snprintf(list[count].name, sizeof list->name, "%.*s", (int)(tab1 - line), line);
+            count++;
+        }
+        line = end ? end + 1 : line + len;
+    }
+
+    qsort(list, (size_t)count, sizeof *list, complete_candidate_cmp);
+
+    if (count == 0)
+    {
+        compile_status_set("No completions");
+    }
+    else if (count == 1 && prefix_len > 0)
+    {
+        complete_insert(list[0].name);
+    }
+    else
+    {
+        while (ui_child_count(g_complete.popup) > 0)
+        {
+            ui_node* c = ui_child_at(g_complete.popup, 0);
+            ui_remove_child(g_complete.popup, c);
+            ui_node_free(c);
+        }
+
+        g_complete.count = count < COMPLETE_MAX ? count : COMPLETE_MAX;
+        for (int i = 0; i < g_complete.count; i++)
+        {
+            snprintf(g_complete.names[i], sizeof g_complete.names[i], "%s", list[i].name);
+            ui_node* it = ui_create_element(UI_TAG_ITEM);
+            ui_set_id(it, EVT_COMPLETE_BASE + i);
+            ui_set_label(it, list[i].name);
+            ui_append_child(g_complete.popup, it);
+        }
+
+        int x, y;
+        ui_editor_caret_screen(ed, &x, &y);
+        ui_screen_open_key_popup(g_screen, g_complete.popup, x - (int)prefix_len, y + 1, NULL);
+        if (count > COMPLETE_MAX)
+        {
+            char msg[64];
+            snprintf(msg, sizeof msg, "%d more - type more of the name", count - COMPLETE_MAX);
+            compile_status_set(msg);
+        }
+    }
+    free(list);
+}
+
+static void do_complete(void)
+{
+    if (g_job.running)
+        return;
+
+    ui_node* win = g_active_editor_window;
+    ui_node* ed = win ? editor_in_window(win) : NULL;
+    if (!ed)
+        return;
+
+    const char* text = ui_get_value(ed);
+    int cursor = ui_editor_get_cursor(ed);
+    int start = cursor;
+    while (start > 0 && (isalnum((unsigned char)text[start - 1]) || text[start - 1] == '_'))
+        start--;
+    if (cursor - start >= (int)sizeof g_complete.prefix)
+        return;
+
+    g_complete.window = win;
+    g_complete.cursor = cursor;
+    g_complete.prefix_start = start;
+    snprintf(g_complete.prefix, sizeof g_complete.prefix, "%.*s", cursor - start, text + start);
+
+    /* 1-based and in bytes, the same line:col the compiler gives its tokens */
+    int line = 1, col = 1;
+    for (int i = 0; i < cursor && text[i]; i++)
+    {
+        if (text[i] == '\n')
+        {
+            line++;
+            col = 1;
+        }
+        else
+        {
+            col++;
+        }
+    }
+
+    /* the compiler reads from disk, same as do_find_definition() */
+    save_active_file(win);
+    const char* file = ui_get_path(win);
+    if (file == NULL || file[0] == '\0')
+    {
+        complete_show("");  /* nothing to compile */
+        return;
+    }
+
+    int argc = job_argv_from_settings(active_compile_settings(file));
+    char number[16];
+    job_push(&argc, "-complete");
+    snprintf(number, sizeof number, "%d", line);
+    job_push(&argc, number);
+    snprintf(number, sizeof number, "%d", col);
+    job_push(&argc, number);
+    snprintf(g_job.storage[argc], sizeof g_job.storage[0], "%s", file);  /* job_push() always leaves this slot */
+    g_job.argv[argc] = g_job.storage[argc];
+    g_job.argc = argc + 1;
+    g_job.active = win;
+    g_job.complete = 1;
+
+    if (!compile_stream_start())
+    {
+        g_job.complete = 0;
+        complete_show("");
+        return;
+    }
+    compile_status_set("Completing...");
+}
+
 /* Fired synchronously by ui_screen_update() (see ide_ui.c's Tab handling)
  * when Tab is pressed in an <editor> with the caret at the end of its line
  * and nothing selected. `line` is that line's text up to the caret; on a
@@ -14070,7 +14490,7 @@ static int copts_find_invalid(const char* text, char* bad, size_t cap)
 static void open_compiler_options_dialog(compile_settings* cs, int is_project)
 {
     g_copts.editing = cs;
-    ui_set_label(g_copts.window, is_project ? " Compiler Options (Project) " : " Compiler Options ");
+    ui_set_label(g_copts.window, is_project ? "Compiler Options (Project)" : "Compiler Options");
     ui_set_value(g_copts.input, cs->options);
     ui_set_value(g_copts.output, cs->output);
     ui_select_set_selected(g_copts.target, target_slug_to_index(cs->target));
@@ -14285,9 +14705,37 @@ static void on_ui_event(void* ctx, int id, void* param)
         ui_screen_show_modal(g_screen, g_goto_modal);
         ui_screen_focus(g_screen, g_goto_input);
     }
+    else if (id == EVT_EDIT_COMPLETE)
+    {
+        do_complete();
+    }
+    else if (id >= EVT_COMPLETE_BASE && id < EVT_COMPLETE_BASE + g_complete.count)
+    {
+        complete_insert(g_complete.names[id - EVT_COMPLETE_BASE]);
+    }
     else if (id == EVT_SEARCH_FIND_DEFINITION)
     {
-        do_find_definition();
+        do_find_definition(FIND_DEFINITION);
+    }
+    else if (id == EVT_SEARCH_FIND_DECLARATION)
+    {
+        do_find_definition(FIND_DECLARATION);
+    }
+    else if (id == EVT_SEARCH_FIND_USAGES)
+    {
+        do_find_definition(FIND_USAGES);
+    }
+    else if (id == EVT_SEARCH_RENAME)
+    {
+        do_rename_open();
+    }
+    else if (id == EVT_RENAME_OK || id == EVT_RENAME_INPUT)
+    {
+        do_rename();
+    }
+    else if (id == EVT_RENAME_CANCEL)
+    {
+        ui_screen_close_modal(g_screen, g_rename.modal);
     }
     else if (id == EVT_GOTO_OK || id == EVT_GOTO_INPUT)
     {
@@ -14358,6 +14806,8 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_FINDRESULTS_CLEAR)
     {
+        free(g_fr.previous);
+        g_fr.previous = NULL;
         ui_set_value(g_findresults_editor, "");
         g_fr.result_origin = RESULT_ORIGIN_TEXT_SEARCH;
     }
@@ -14596,53 +15046,6 @@ static void on_ui_event(void* ctx, int id, void* param)
             }
         }
     }
-    else if (id == EVT_EDITOR_CODEBLOCK_COPY)
-    {
-        /* g_md_codeblock_text was captured when this popup opened (see
-         * refresh_codeblock_items()) - the item is disabled whenever it's
-         * NULL, so this should always have real text by the time a click
-         * gets here, but the check costs nothing. */
-        if (g_md_codeblock_text)
-            ui_clipboard_set_text(g_md_codeblock_text);
-    }
-    else if (id == EVT_EDITOR_CODEBLOCK_PLAYGROUND)
-    {
-        /* Overwrite playground.c with this code block, then show it in the
-         * Playground window. open_playground()/open_file_path_into_editor()
-         * only actually reads the file from disk when no window for that
-         * path exists yet (see open_file_path_into_editor) - if Playground
-         * is already open, reopening it would just refocus the *stale*
-         * window instead of picking up what was just written, so that case
-         * is handled directly here instead: swap the existing window's text
-         * and reset its cursor/selection to the start, the same "freshly
-         * opened this file" state a brand new window would start in. */
-        if (g_md_codeblock_text)
-        {
-            char path[FS_MAX_PATH];
-            if (get_playground_file_path(path, sizeof path))
-            {
-                FILE* f = fopen(path, "wb");
-                if (f)
-                {
-                    fwrite_text(g_md_codeblock_text, strlen(g_md_codeblock_text), f, file_uses_crlf(path));
-                    fclose(f);
-                }
-
-                ui_node* existing = find_open_window(path);
-                ui_node* existing_ed = existing ? editor_in_window(existing) : NULL;
-                if (existing_ed)
-                {
-                    ui_set_label(existing_ed, g_md_codeblock_text);
-                    ui_editor_set_selection(existing_ed, 0, 0);
-                    ui_screen_show_window(g_screen, existing);
-                }
-                else
-                {
-                    open_playground();
-                }
-            }
-        }
-    }
     else if (id == EVT_EDITOR_TOGGLE_HDRSRC)
     {
         /* Compute the counterpart from the popup target (preferred) or the
@@ -14692,6 +15095,17 @@ static void on_ui_event(void* ctx, int id, void* param)
             // Build new path: dir/target/basename (or original if target empty)
             char new_path[1024];
             snprintf(new_path, sizeof(new_path), "%s/%s/%s", dir, active_platform_name(path), base);
+
+            /* project files: output is relative to the project dir (-output-root) */
+            if (file_uses_project(path))
+            {
+                char rel[512];
+                project_make_relative(g_project.dir, path, rel, sizeof rel);
+                if (rel[0] != '/' && !(isalpha((unsigned char)rel[0]) && rel[1] == ':'))
+                {
+                    snprintf(new_path, sizeof(new_path), "%s/%s/%s", g_project.dir, active_platform_name(path), rel);
+                }
+            }
 
             // Load the file, or report the error if it's not found
             char* content = read_file_to_string(new_path);
@@ -14873,7 +15287,7 @@ static void on_ui_event(void* ctx, int id, void* param)
         /* Same folder picker as New Project's "..." (see EVT_PROJECT_NEW_BROWSE). */
         ui_screen_close_modal(g_screen, g_newfile.modal);
         g_open.dialog_mode = OPEN_DLG_NEWFILE_FOLDER;
-        ui_set_label(g_open.window, " Select Folder ");
+        ui_set_label(g_open.window, "Select Folder");
         ui_set_label(g_open.ok, " Select ");
         const char* cur = ui_get_value(g_newfile.folder_input);
         if (cur && cur[0])
@@ -14933,14 +15347,10 @@ static void on_ui_event(void* ctx, int id, void* param)
     }
     else if (id == EVT_FILE_OPEN)
     {
-        /* An absolute path, not the symbolic "." - "up" from "." has
-         * nothing to strip once already back at it, a dead end one
-         * directory above the start (see open_path_up). */
         g_open.dialog_mode = OPEN_DLG_FILE;
-        ui_set_label(g_open.window, " Open a File ");
+        ui_set_label(g_open.window, "Open a File");
         ui_set_label(g_open.ok, "  Open  ");
-        if (!ui_get_cwd(g_open.dir, sizeof g_open.dir))
-            strcpy(g_open.dir, ".");
+        open_dialog_start_dir(g_open.dir, sizeof g_open.dir);
         strcpy(g_open.mask, g_open_filters[0].mask);
         ui_select_set_selected(g_open.filter, 0);
         open_dialog_set_filter_visible(1);
@@ -14957,7 +15367,7 @@ static void on_ui_event(void* ctx, int id, void* param)
          * it's hidden rather than just disabled (see
          * open_dialog_set_filter_visible). */
         g_open.dialog_mode = OPEN_DLG_FOLDER;
-        ui_set_label(g_open.window, " Open Folder ");
+        ui_set_label(g_open.window, "Open Folder");
         ui_set_label(g_open.ok, " Select ");
         if (!ui_get_cwd(g_open.dir, sizeof g_open.dir))
             strcpy(g_open.dir, ".");
@@ -14993,7 +15403,7 @@ static void on_ui_event(void* ctx, int id, void* param)
          * Folder field instead (see OPEN_DLG_NEWPROJECT_FOLDER above). */
         ui_screen_close_modal(g_screen, g_newproject.modal);
         g_open.dialog_mode = OPEN_DLG_NEWPROJECT_FOLDER;
-        ui_set_label(g_open.window, " Select Folder ");
+        ui_set_label(g_open.window, "Select Folder");
         ui_set_label(g_open.ok, " Select ");
         const char* cur = ui_get_value(g_newproject.folder_input);
         if (cur && cur[0])
@@ -15120,7 +15530,7 @@ static void on_ui_event(void* ctx, int id, void* param)
         /* File-picker mode, filtered to ".cakeproj" - OK loads that project
          * instead of opening it as a text document (see project_open_file()). */
         g_open.dialog_mode = OPEN_DLG_PROJECT_OPEN;
-        ui_set_label(g_open.window, " Open Project ");
+        ui_set_label(g_open.window, "Open Project");
         ui_set_label(g_open.ok, "  Open  ");
         if (!ui_get_cwd(g_open.dir, sizeof g_open.dir))
             strcpy(g_open.dir, ".");
@@ -15139,7 +15549,7 @@ static void on_ui_event(void* ctx, int id, void* param)
          * own g_project.menu_items_requiring_project loop), so this is only
          * ever reachable with one already open. */
         g_open.dialog_mode = OPEN_DLG_PROJECT_ADDFILE;
-        ui_set_label(g_open.window, " Add Existing File ");
+        ui_set_label(g_open.window, "Add Existing File");
         ui_set_label(g_open.ok, "  Add  ");
         strncpy(g_open.dir, g_project.dir, sizeof g_open.dir - 1);
         g_open.dir[sizeof g_open.dir - 1] = 0;
@@ -15156,7 +15566,7 @@ static void on_ui_event(void* ctx, int id, void* param)
          * Directories...", bound to the global list instead (cake.json), so
          * it is available with or without a project open. */
         includes_edit_global();
-        ui_set_label(g_project.includes_window, " System Directories ");
+        ui_set_label(g_project.includes_window, "System Directories");
         ui_set_help(g_project.includes_window,
                     "System Directories: where `#include <...>` finds the platform's headers", "# System Directories\n\nwhere `#include <...>` finds the platform's headers\n"
                     "\n"
@@ -15182,7 +15592,7 @@ static void on_ui_event(void* ctx, int id, void* param)
         /* Same "menu item already enforces this" reasoning as
          * EVT_PROJECT_ADD_FILE just above. */
         includes_edit_project();
-        ui_set_label(g_project.includes_window, " Include Directories ");
+        ui_set_label(g_project.includes_window, "Include Directories");
         ui_set_help(g_project.includes_window,
                     "Include Directories: the open project's own `#include` search path", "# Include Directories\n\nthe open project's own `#include` search path\n"
                     "\n"
@@ -15203,7 +15613,7 @@ static void on_ui_event(void* ctx, int id, void* param)
          * handler refreshes this dialog's listbox too, see
          * project_includes_dialog_refresh()'s call site there. */
         g_open.dialog_mode = OPEN_DLG_PROJECT_ADDINCLUDE;
-        ui_set_label(g_open.window, " Add Include Directory ");
+        ui_set_label(g_open.window, "Add Include Directory");
         ui_set_label(g_open.ok, " Select ");
         /* Start browsing where the list itself lives: the project directory,
          * or - for the global list - wherever the IDE was launched from,
@@ -15368,9 +15778,54 @@ static void on_ui_event(void* ctx, int id, void* param)
     {
         project_window_activate(ui_select_get_selected(g_project.listbox));
     }
-    else if (id == EVT_PROJECT_POPUP_OPEN)
+    else if (id == EVT_PROJECT_POPUP_COPY_PATH)
     {
-        project_open_at(ui_select_get_selected(g_project.listbox));
+        int index = ui_select_get_selected(g_project.listbox);
+        if (index >= 0 && index < g_project.files.count)
+        {
+            char abs_path[1024];
+            project_abs_path(g_project.files.items[index], abs_path, sizeof abs_path);
+            ui_clipboard_set_text(abs_path);
+        }
+    }
+    else if (id == EVT_PROJECT_POPUP_DELETE)
+    {
+        int index = ui_select_get_selected(g_project.listbox);
+        if (index >= 0 && index < g_project.files.count)
+        {
+            g_pending_delete_is_dir = 0;
+            project_abs_path(g_project.files.items[index], g_pending_delete_path, sizeof g_pending_delete_path);
+
+            char message[1200];
+            snprintf(message, sizeof message,
+                     "Remove this file from the project and delete it from disk?\n%s",
+                     g_pending_delete_path);
+            ui_msgbox_button btns[] = {
+                { "   OK   ", EVT_PROJECT_POPUP_DELETE_CONFIRM },
+                { " Cancel ", 0 },
+            };
+            ui_message_box(g_screen, "Delete File", message, btns, 2);
+        }
+    }
+    else if (id == EVT_PROJECT_POPUP_DELETE_CONFIRM)
+    {
+        /* Looked up by path again - the list may have changed while the confirm box was open. */
+        if (g_pending_delete_path[0])
+        {
+            for (int i = 0; i < g_project.files.count; i++)
+            {
+                char abs_path[1024];
+                project_abs_path(g_project.files.items[i], abs_path, sizeof abs_path);
+                if (strcmp(abs_path, g_pending_delete_path) == 0)
+                {
+                    project_remove_at(i);
+                    break;
+                }
+            }
+            remove(g_pending_delete_path);
+            g_pending_delete_path[0] = 0;
+            folder_window_refresh();
+        }
     }
     else if (id == EVT_PROJECT_POPUP_REMOVE)
     {
@@ -15745,14 +16200,6 @@ static void on_ui_event(void* ctx, int id, void* param)
         else
             open_playground();
     }
-    else if (id == EVT_VIEW_LINENUMBERS)
-    {
-        /* Toggle, matching the "[x]"/"[ ]" the View menu shows for this item
-         * (see refresh_view_item) - takes effect immediately on every open
-         * editor, since render_editor() reads ui_get_show_line_numbers()
-         * fresh on each repaint rather than caching it per-window. */
-        ui_set_show_line_numbers(!ui_get_show_line_numbers());
-    }
     else if (id == EVT_TOOLS_FINDREPLACE)
     {
         /* ui_screen_show_window() docks it (see ui_set_dock) - that call
@@ -15858,7 +16305,7 @@ static void on_ui_event(void* ctx, int id, void* param)
          * Directories..."'s own "Add..." uses. OK drops the picked path into
          * the Command field, see exttool_browse_pick(). */
         g_open.dialog_mode = OPEN_DLG_EXTTOOL_CMD;
-        ui_set_label(g_open.window, " Select Program ");
+        ui_set_label(g_open.window, "Select Program");
         ui_set_label(g_open.ok, "  Open  ");
         if (!ui_get_cwd(g_open.dir, sizeof g_open.dir))
             strcpy(g_open.dir, ".");
@@ -15996,6 +16443,19 @@ static void on_ui_event(void* ctx, int id, void* param)
             git_panel_refresh();
         }
     }
+    else if (id == EVT_GIT_DISCARDALL_BTN)
+    {
+        git_do_discard_all();
+    }
+    else if (id == EVT_GIT_DISCARDALL_CONFIRM)
+    {
+        const char* root = g_git.root[0] ? g_git.root : g_folder.dir;
+        struct exttool_buf out = { 0 };
+        run_process_capture("git reset -q --hard HEAD", root, &out);
+        run_process_capture("git clean -fdq", root, &out);
+        exttool_buf_free(&out);
+        git_panel_refresh();
+    }
     else if (id == EVT_GIT_PULL_BTN)
     {
         git_do_pull();
@@ -16067,7 +16527,7 @@ static void on_ui_event(void* ctx, int id, void* param)
          * field instead (see OPEN_DLG_GITCLONE_FOLDER above). */
         ui_screen_close_modal(g_screen, g_gitclone.modal);
         g_open.dialog_mode = OPEN_DLG_GITCLONE_FOLDER;
-        ui_set_label(g_open.window, " Select Folder ");
+        ui_set_label(g_open.window, "Select Folder");
         ui_set_label(g_open.ok, " Select ");
         /* Browse from the parent: the full destination doesn't exist yet. */
         char cur[1024];
@@ -16600,16 +17060,48 @@ void app_init(ui_env* env)
     ui_node* modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, modal);
     ui_node* about_window = ui_create_element(UI_TAG_WINDOW);
-    ui_set_rect(about_window, 15, 5, 50, 10);
-    ui_set_label(about_window, " About ");
+    ui_set_rect(about_window, 15, 2, 50, 24);
     ui_set_color(about_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(modal, about_window);
-    add_text(about_window, 36, 7, "Cake IDE", theme->modal_fg, theme->modal_bg);
-    add_text(about_window, 32, 8, "Version " CAKE_VERSION, theme->modal_fg, theme->modal_bg);
-    add_text(about_window, 31, 10, "https://cakecc.org", theme->modal_fg, theme->modal_bg);
+
+    /* "THE C PROGRAMMING LANGUAGE" cover, 12 columns wide, centered; the C
+     * rounded with half blocks */
+#define ABOUT_B "\xE2\x96\x88"  /* full block */
+#define ABOUT_U "\xE2\x96\x80"  /* upper half block */
+#define ABOUT_D "\xE2\x96\x84"  /* lower half block */
+    static const char* const about_logo[] = {
+        "     THE",  /* centered over the 12-column C */
+        "",
+        "  " ABOUT_D ABOUT_D ABOUT_B ABOUT_B ABOUT_B ABOUT_B ABOUT_B ABOUT_D ABOUT_D,
+        ABOUT_D ABOUT_B ABOUT_B ABOUT_B ABOUT_U ABOUT_U ABOUT_U ABOUT_U ABOUT_U ABOUT_B ABOUT_B ABOUT_B,
+        ABOUT_B ABOUT_B ABOUT_B,
+        ABOUT_B ABOUT_B ABOUT_B,
+        ABOUT_B ABOUT_B ABOUT_B,
+        ABOUT_U ABOUT_B ABOUT_B ABOUT_B ABOUT_D ABOUT_D ABOUT_D ABOUT_D ABOUT_D ABOUT_B ABOUT_B ABOUT_B,
+        "  " ABOUT_U ABOUT_U ABOUT_B ABOUT_B ABOUT_B ABOUT_B ABOUT_B ABOUT_U ABOUT_U,
+        "",
+        "  PROGRAMMING",
+        "   LANGUAGE",
+    };
+#undef ABOUT_B
+#undef ABOUT_U
+#undef ABOUT_D
+    for (int i = 0; i < (int)_Countof(about_logo); i++)
+    {
+        /* rows 2..8 are the C */
+        const uint32_t fg = (i >= 2 && i <= 8) ? TB_RGB(0xB5, 0xC6, 0xDC) : TB_RGB(0x1C, 0x74, 0xB3);
+        if (about_logo[i][0])
+            add_text(about_window, 34, 4 + i, about_logo[i], fg, theme->modal_bg);
+    }
+
+    add_text(about_window, 36, 18, "Cake IDE", theme->modal_fg, theme->modal_bg);
+    /* centered in the 50-column window at x 15 - the version length varies */
+    add_text(about_window, 15 + (50 - (int)strlen("Version " CAKE_VERSION)) / 2, 19,
+             "Version " CAKE_VERSION, theme->modal_fg, theme->modal_bg);
+    add_text(about_window, 31, 21, "https://cakecc.org", theme->modal_fg, theme->modal_bg);
     ui_node* close_button = ui_create_element(UI_TAG_BUTTON);
     ui_set_id(close_button, EVT_ABOUT_CLOSE);
-    ui_set_rect(close_button, 34, 12, 12, 1);
+    ui_set_rect(close_button, 34, 23, 12, 1);
     ui_set_label(close_button, "  OK  ");
     ui_append_child(about_window, close_button);
     g_about_modal = modal;
@@ -16619,7 +17111,7 @@ void app_init(ui_env* env)
     ui_append_child(root, dirs_modal);
     ui_node* dirs_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(dirs_window, 10, 2, 60, 18);
-    ui_set_label(dirs_window, " Directories ");
+    ui_set_label(dirs_window, "Directories");
     ui_set_color(dirs_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(dirs_modal, dirs_window);
     add_text(dirs_window, 13, 4, "Include Directories", theme->label_fg, theme->modal_bg);
@@ -16652,7 +17144,7 @@ void app_init(ui_env* env)
     ui_append_child(root, goto_modal);
     ui_node* goto_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(goto_window, 20, 7, 40, 8);
-    ui_set_label(goto_window, " Go to Line Number ");
+    ui_set_label(goto_window, "Go to Line Number");
     ui_set_color(goto_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(goto_modal, goto_window);
     add_text(goto_window, 23, 9, "Enter New Line Number", theme->label_fg, theme->modal_bg);
@@ -16671,12 +17163,34 @@ void app_init(ui_env* env)
     ui_append_child(goto_window, goto_cancel);
     g_goto_modal = goto_modal;
 
+    /* --- Rename modal --- */
+    g_rename.modal = ui_create_element(UI_TAG_MODAL);
+    ui_append_child(root, g_rename.modal);
+    ui_node* rename_window = ui_create_element(UI_TAG_WINDOW);
+    ui_set_rect(rename_window, 15, 7, 50, 8);
+    ui_set_label(rename_window, "Rename");
+    ui_set_color(rename_window, theme->modal_fg, theme->modal_bg);
+    ui_append_child(g_rename.modal, rename_window);
+    add_text(rename_window, 17, 9, "New name", theme->label_fg, theme->modal_bg);
+    g_rename.input = add_input(rename_window, 27, 9, 36, "");
+    ui_set_id(g_rename.input, EVT_RENAME_INPUT);
+    ui_node* rename_ok = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(rename_ok, EVT_RENAME_OK);
+    ui_set_rect(rename_ok, 29, 12, 10, 1);
+    ui_set_label(rename_ok, "  OK  ");
+    ui_append_child(rename_window, rename_ok);
+    ui_node* rename_cancel = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(rename_cancel, EVT_RENAME_CANCEL);
+    ui_set_rect(rename_cancel, 41, 12, 10, 1);
+    ui_set_label(rename_cancel, "Cancel");
+    ui_append_child(rename_window, rename_cancel);
+
     /* --- Word Wrap modal --- */
     ui_node* wordwrap_modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, wordwrap_modal);
     ui_node* wordwrap_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(wordwrap_window, 20, 7, 40, 9);
-    ui_set_label(wordwrap_window, " Word Wrap ");
+    ui_set_label(wordwrap_window, "Word Wrap");
     ui_set_color(wordwrap_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(wordwrap_modal, wordwrap_window);
     add_text(wordwrap_window, 23, 9, "Columns", theme->label_fg, theme->modal_bg);
@@ -16703,7 +17217,7 @@ void app_init(ui_env* env)
     int rx = 9, ry = 3, rw = 60, rh = 19;
     ui_node* rep_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(rep_window, rx, ry, rw, rh);
-    ui_set_label(rep_window, " Replace Text ");
+    ui_set_label(rep_window, "Replace Text");
     ui_set_color(rep_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(rep_modal, rep_window);
     add_text(rep_window, rx + 2, ry + 2, "Text to Find", theme->label_fg, theme->modal_bg);
@@ -16759,7 +17273,7 @@ void app_init(ui_env* env)
     int fx = 12, fy = 4, fw = 56, fh = 16;
     ui_node* fnd_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(fnd_window, fx, fy, fw, fh);
-    ui_set_label(fnd_window, " Find Text ");
+    ui_set_label(fnd_window, "Find Text");
     ui_set_color(fnd_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(fnd_modal, fnd_window);
     add_text(fnd_window, fx + 2, fy + 2, "Text to Find", theme->label_fg, theme->modal_bg);
@@ -16813,81 +17327,68 @@ void app_init(ui_env* env)
     ui_node* popup_compile = ui_create_element(UI_TAG_ITEM);
     ui_set_id(popup_compile, EVT_COMPILE_FILE);
     ui_set_label(popup_compile, "Compile");
-    ui_append_child(popup, popup_compile);
+    editor_popup_add(popup_compile, EDITOR_POPUP_SOURCE);
     g_editor_popup_compile = popup_compile;
     ui_node* popup_show_output = ui_create_element(UI_TAG_ITEM);
     ui_set_id(popup_show_output, EVT_EDITOR_SHOW_OUTPUT);
     ui_set_label(popup_show_output, "Show Generated Code");
-    ui_append_child(popup, popup_show_output);
+    editor_popup_add(popup_show_output, EDITOR_POPUP_SOURCE);
     g_editor_popup_show_output = popup_show_output;
     ui_node* popup_sep0 = ui_create_element(UI_TAG_ITEM);
     ui_set_separator(popup_sep0, 1);
-    ui_append_child(popup, popup_sep0);
+    editor_popup_add(popup_sep0, EDITOR_POPUP_SOURCE);
 
-    struct { int id; const char* label; const char* shortcut; } popup_items[] = {
-        { EVT_SEARCH_FIND,       "Find...",          NULL },
-        { EVT_SEARCH_REPLACE,    "Replace...",       "Ctrl+R" },
-        { EVT_SEARCH_NEXT,       "Search Next",      "F3" },
-        { EVT_SEARCH_GOTO,       "Go to line...",    "Ctrl+G" },
-        { EVT_SEARCH_FIND_DEFINITION, "Find Definition", "F12" },
-        { EVT_TOOLS_FINDREPLACE, "Find in Files...", "Ctrl+F" },
+    struct { int id; const char* label; const char* shortcut; enum editor_popup_when when; } popup_items[] = {
+        { EVT_SEARCH_FIND,       "Find...",          NULL, EDITOR_POPUP_ALWAYS },
+        { EVT_SEARCH_REPLACE,    "Replace...",       "Ctrl+R", EDITOR_POPUP_ALWAYS },
+        { EVT_SEARCH_NEXT,       "Search Next",      "F3", EDITOR_POPUP_ALWAYS },
+        { EVT_SEARCH_GOTO,       "Go to line...",    "Ctrl+G", EDITOR_POPUP_ALWAYS },
+        { EVT_SEARCH_FIND_DECLARATION, "Find Declaration", NULL, EDITOR_POPUP_SOURCE },
+        { EVT_SEARCH_FIND_DEFINITION, "Find Definition", "F12", EDITOR_POPUP_SOURCE },
+        { EVT_SEARCH_FIND_USAGES, "Find Usages", NULL, EDITOR_POPUP_SOURCE },
+        { EVT_SEARCH_RENAME,    "Rename...",        "F2", EDITOR_POPUP_SOURCE },
+        { EVT_TOOLS_FINDREPLACE, "Find in Files...", "Ctrl+F", EDITOR_POPUP_ALWAYS },
     };
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < (int)_Countof(popup_items); i++)
     {
         ui_node* it = ui_create_element(UI_TAG_ITEM);
         ui_set_id(it, popup_items[i].id);
         ui_set_label(it, popup_items[i].label);
         ui_set_shortcut(it, popup_items[i].shortcut);
-        ui_append_child(popup, it);
+        editor_popup_add(it, popup_items[i].when);
     }
     ui_node* popup_sep = ui_create_element(UI_TAG_ITEM);
     ui_set_separator(popup_sep, 1);
-    ui_append_child(popup, popup_sep);
+    editor_popup_add(popup_sep, EDITOR_POPUP_TEXT);
     ui_node* popup_readonly = ui_create_element(UI_TAG_ITEM);
     ui_set_id(popup_readonly, EVT_EDITOR_TOGGLE_READONLY);
-    ui_append_child(popup, popup_readonly);
+    editor_popup_add(popup_readonly, EDITOR_POPUP_TEXT);
     g_editor_popup_readonly = popup_readonly;
-    ui_node* popup_linenumbers = ui_create_element(UI_TAG_ITEM);
-    ui_set_id(popup_linenumbers, EVT_VIEW_LINENUMBERS);
-    ui_append_child(popup, popup_linenumbers);
-    g_view_linenumbers_item = popup_linenumbers;
 
     ui_node* popup_sep2 = ui_create_element(UI_TAG_ITEM);
     ui_set_separator(popup_sep2, 1);
-    ui_append_child(popup, popup_sep2);
+    editor_popup_add(popup_sep2, EDITOR_POPUP_ALWAYS);
     ui_node* popup_hdrsrc = ui_create_element(UI_TAG_ITEM);
     ui_set_id(popup_hdrsrc, EVT_EDITOR_TOGGLE_HDRSRC);
     ui_set_label(popup_hdrsrc, "Toggle Header/Source");
-    ui_append_child(popup, popup_hdrsrc);
+    editor_popup_add(popup_hdrsrc, EDITOR_POPUP_SOURCE);
     g_editor_popup_hdrsrc = popup_hdrsrc;
     ui_node* popup_copy_path = ui_create_element(UI_TAG_ITEM);
     ui_set_id(popup_copy_path, EVT_EDITOR_COPY_PATH);
     ui_set_label(popup_copy_path, "Copy Full Path");
-    ui_append_child(popup, popup_copy_path);
+    editor_popup_add(popup_copy_path, EDITOR_POPUP_ALWAYS);
     ui_node* popup_show_folder = ui_create_element(UI_TAG_ITEM);
     ui_set_id(popup_show_folder, EVT_EDITOR_SHOW_FOLDER);
     ui_set_label(popup_show_folder, "Show My Folder");
-    ui_append_child(popup, popup_show_folder);
-    ui_node* popup_sep3 = ui_create_element(UI_TAG_ITEM);
-    ui_set_separator(popup_sep3, 1);
-    ui_append_child(popup, popup_sep3);
-    ui_node* popup_codeblock_copy = ui_create_element(UI_TAG_ITEM);
-    ui_set_id(popup_codeblock_copy, EVT_EDITOR_CODEBLOCK_COPY);
-    ui_set_label(popup_codeblock_copy, "Copy Code Block");
-    ui_append_child(popup, popup_codeblock_copy);
-    g_editor_popup_codeblock_copy = popup_codeblock_copy;
-    ui_node* popup_codeblock_playground = ui_create_element(UI_TAG_ITEM);
-    ui_set_id(popup_codeblock_playground, EVT_EDITOR_CODEBLOCK_PLAYGROUND);
-    ui_set_label(popup_codeblock_playground, "Copy to Playground");
-    ui_append_child(popup, popup_codeblock_playground);
+    editor_popup_add(popup_show_folder, EDITOR_POPUP_ALWAYS);
     ui_node* popup_format = ui_create_element(UI_TAG_ITEM);
     ui_set_id(popup_format, EVT_EDIT_FORMAT);
     ui_set_label(popup_format, "Format");
     ui_set_shortcut(popup_format, "Ctrl+Shift+F");
-    ui_append_child(popup, popup_format);
+    editor_popup_add(popup_format, EDITOR_POPUP_SOURCE);
     g_editor_popup_format = popup_format;
 
-    g_editor_popup_codeblock_playground = popup_codeblock_playground;
+    editor_popup_rebuild(popup, 1);
     g_editor_popup = popup;
 
     /* --- Folder panel context menu popup --- */
@@ -16948,7 +17449,7 @@ void app_init(ui_env* env)
     ui_append_child(root, foldernew_modal);
     ui_node* foldernew_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(foldernew_window, 20, 7, 44, 8);
-    ui_set_label(foldernew_window, " New Folder ");
+    ui_set_label(foldernew_window, "New Folder");
     ui_set_color(foldernew_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(foldernew_modal, foldernew_window);
     add_text(foldernew_window, 23, 9, "Name", theme->label_fg, theme->modal_bg);
@@ -16973,7 +17474,7 @@ void app_init(ui_env* env)
     ui_append_child(root, gitcommit_modal);
     ui_node* gitcommit_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(gitcommit_window, 18, 7, 48, 8);
-    ui_set_label(gitcommit_window, " Commit All ");
+    ui_set_label(gitcommit_window, "Commit All");
     ui_set_color(gitcommit_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(gitcommit_modal, gitcommit_window);
     add_text(gitcommit_window, 21, 9, "Message", theme->label_fg, theme->modal_bg);
@@ -16997,7 +17498,7 @@ void app_init(ui_env* env)
     ui_append_child(root, gitbranch_modal);
     ui_node* gitbranch_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(gitbranch_window, 18, 4, 48, 17);
-    ui_set_label(gitbranch_window, " Branch ");
+    ui_set_label(gitbranch_window, "Branch");
     ui_set_color(gitbranch_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(gitbranch_modal, gitbranch_window);
     add_text(gitbranch_window, 21, 6, "Local branches", theme->label_fg, theme->modal_bg);
@@ -17035,7 +17536,7 @@ void app_init(ui_env* env)
     ui_append_child(root, gitclone_modal);
     ui_node* gitclone_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(gitclone_window, 15, 6, 58, 13);
-    ui_set_label(gitclone_window, " Clone Repository ");
+    ui_set_label(gitclone_window, "Clone Repository");
     ui_set_help(gitclone_window,
                 "Copy a remote Git repository to a local folder", "# Copy a remote Git repository to a local folder\n"
                 "\n"
@@ -17104,7 +17605,7 @@ void app_init(ui_env* env)
     ui_append_child(root, env_modal);
     ui_node* env_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(env_window, 20, 6, 40, 10);
-    ui_set_label(env_window, " Environment ");
+    ui_set_label(env_window, "Environment");
     ui_set_color(env_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(env_modal, env_window);
     add_text(env_window, 23, 8, "Theme:", theme->label_fg, theme->modal_bg);
@@ -17146,7 +17647,7 @@ void app_init(ui_env* env)
     ui_append_child(root, newproj_modal);
     ui_node* newproj_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(newproj_window, 12, 6, 54, 12);
-    ui_set_label(newproj_window, " New Project ");
+    ui_set_label(newproj_window, "New Project");
     ui_set_help(newproj_window,
                 "Create a new Cake project (`.cakeproj`)", "# Create a new Cake project (`.cakeproj`)\n"
                 "\n"
@@ -17231,7 +17732,7 @@ void app_init(ui_env* env)
     ui_append_child(root, newfile_modal);
     ui_node* newfile_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(newfile_window, 12, 6, 54, 9);
-    ui_set_label(newfile_window, " New File ");
+    ui_set_label(newfile_window, "New File");
     ui_set_color(newfile_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(newfile_modal, newfile_window);
     g_newfile.modal = newfile_modal;
@@ -17279,7 +17780,7 @@ void app_init(ui_env* env)
     const int btn_w = 12;
     ui_node* ext_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(ext_window, ex, ey, ew, eh);
-    ui_set_label(ext_window, " External Tools ");
+    ui_set_label(ext_window, "External Tools");
     ui_set_help(ext_window,
                 "Run a compiler or any other program from the Tools menu", "# Run a compiler or any other program from the Tools menu\n"
                 "\n"
@@ -17478,7 +17979,7 @@ void app_init(ui_env* env)
     ui_append_child(root, copts_modal);
     ui_node* copts_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(copts_window, 15, 5, 62, 23);
-    ui_set_label(copts_window, " Compiler Options ");
+    ui_set_label(copts_window, "Compiler Options");
     ui_set_help(copts_window,
                 "Compiler Options: how Cake compiles your files", "# Compiler Options\n\nhow Cake compiles your files\n"
                 "\n"
@@ -17863,7 +18364,7 @@ void app_init(ui_env* env)
     int hx = 20, hy = 4, hw = 80, hh = 20;
     ui_node* hint_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(hint_window, hx, hy, hw, hh);
-    ui_set_label(hint_window, " Help ");
+    ui_set_label(hint_window, "Help");
     ui_set_color(hint_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(hint_modal, hint_window);
     ui_node* hint_editor = ui_create_element(UI_TAG_EDITOR);
@@ -17891,7 +18392,7 @@ void app_init(ui_env* env)
                                                 * it before the window's edge */
     ui_node* open_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(open_window, ox, oy, ow2, oh2);
-    ui_set_label(open_window, " Open a File ");
+    ui_set_label(open_window, "Open a File");
     ui_set_color(open_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(open_modal, open_window);
     g_open.window = open_window;
@@ -17928,7 +18429,7 @@ void app_init(ui_env* env)
     int ow_x = 8, ow_y = 4, ow_w = 60, ow_h = 12;
     ui_node* output_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(output_window, ow_x, ow_y, ow_w, ow_h);
-    ui_set_label(output_window, " Output ");
+    ui_set_label(output_window, "Output");
     ui_set_color(output_window, theme->window_fg, theme->window_bg);
     ui_set_resizable(output_window, 1);
     ui_set_shadow(output_window, 0);
@@ -17955,7 +18456,7 @@ void app_init(ui_env* env)
     ui_append_child(root, findresults_wrapper);
     ui_node* findresults_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(findresults_window, ow_x, ow_y, ow_w, ow_h);
-    ui_set_label(findresults_window, " Find Results ");
+    ui_set_label(findresults_window, "Find Results");
     ui_set_color(findresults_window, theme->window_fg, theme->window_bg);
     ui_set_resizable(findresults_window, 1);
     ui_set_shadow(findresults_window, 0);
@@ -18025,7 +18526,7 @@ void app_init(ui_env* env)
     int gw_x = 10, gw_y = 3, gw_w = 24, gw_h = 18;
     ui_node* git_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(git_window, gw_x, gw_y, gw_w, gw_h);
-    ui_set_label(git_window, " Git Changes ");
+    ui_set_label(git_window, "Git Changes");
     ui_set_color(git_window, theme->window_fg, theme->window_bg);
     ui_set_resizable(git_window, 1);
     ui_set_shadow(git_window, 0);
@@ -18087,6 +18588,10 @@ void app_init(ui_env* env)
     ui_set_id(git_popup_discard, EVT_GIT_DISCARD_BTN);
     ui_set_label(git_popup_discard, "Discard");
     ui_append_child(git_popup, git_popup_discard);
+    ui_node* git_popup_discardall = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(git_popup_discardall, EVT_GIT_DISCARDALL_BTN);
+    ui_set_label(git_popup_discardall, "Discard All");
+    ui_append_child(git_popup, git_popup_discardall);
     ui_node* git_popup_sep = ui_create_element(UI_TAG_ITEM);
     ui_set_separator(git_popup_sep, 1);
     ui_append_child(git_popup, git_popup_sep);
@@ -18122,7 +18627,7 @@ void app_init(ui_env* env)
     int gd_x = 8, gd_y = 4, gd_w = 76, gd_h = 22;
     ui_node* gitdiff_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(gitdiff_window, gd_x, gd_y, gd_w, gd_h);
-    ui_set_label(gitdiff_window, " Diff ");
+    ui_set_label(gitdiff_window, "Diff");
     ui_set_color(gitdiff_window, theme->window_fg, theme->window_bg);
     ui_set_resizable(gitdiff_window, 1);
     ui_set_shadow(gitdiff_window, 0);
@@ -18172,6 +18677,10 @@ void app_init(ui_env* env)
     ui_append_child(gitdiff_popup, gitdiff_popup_show_folder);
     g_gitdiff_popup = gitdiff_popup;
 
+    /* Complete Word's list - its items are rebuilt by complete_show() */
+    g_complete.popup = ui_create_element(UI_TAG_MENU);
+    ui_append_child(root, g_complete.popup);
+
     /* --- Debug Info window (Locals + Call Stack, see debug_info_panel_
      * refresh()) --- Docked RIGHT, the one dock side Output (BOTTOM) and
      * Folder/Project (LEFT) leave free - dock_layout() (ide_ui.c) only
@@ -18182,7 +18691,7 @@ void app_init(ui_env* env)
     int dw_x = 10, dw_y = 3, dw_w = 30, dw_h = 16;
     ui_node* debuginfo_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(debuginfo_window, dw_x, dw_y, dw_w, dw_h);
-    ui_set_label(debuginfo_window, " Debug Info ");
+    ui_set_label(debuginfo_window, "Debug Info");
     ui_set_color(debuginfo_window, theme->window_fg, theme->window_bg);
     ui_set_resizable(debuginfo_window, 1);
     ui_set_shadow(debuginfo_window, 0);
@@ -18226,14 +18735,14 @@ void app_init(ui_env* env)
     /* --- Project panel context menu popup --- */
     ui_node* project_popup = ui_create_element(UI_TAG_MENU);
     ui_append_child(root, project_popup);
-    ui_node* project_popup_open = ui_create_element(UI_TAG_ITEM);
-    ui_set_id(project_popup_open, EVT_PROJECT_POPUP_OPEN);
-    ui_set_label(project_popup_open, "Open");
-    ui_append_child(project_popup, project_popup_open);
     ui_node* project_popup_newfile = ui_create_element(UI_TAG_ITEM);
     ui_set_id(project_popup_newfile, EVT_PROJECT_POPUP_NEWFILE);
     ui_set_label(project_popup_newfile, "New File...");
     ui_append_child(project_popup, project_popup_newfile);
+    ui_node* project_popup_copy_path = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(project_popup_copy_path, EVT_PROJECT_POPUP_COPY_PATH);
+    ui_set_label(project_popup_copy_path, "Copy Full Path");
+    ui_append_child(project_popup, project_popup_copy_path);
     ui_node* project_popup_sep = ui_create_element(UI_TAG_ITEM);
     ui_set_separator(project_popup_sep, 1);
     ui_append_child(project_popup, project_popup_sep);
@@ -18241,6 +18750,10 @@ void app_init(ui_env* env)
     ui_set_id(project_popup_remove, EVT_PROJECT_POPUP_REMOVE);
     ui_set_label(project_popup_remove, "Remove from Project");
     ui_append_child(project_popup, project_popup_remove);
+    ui_node* project_popup_delete = ui_create_element(UI_TAG_ITEM);
+    ui_set_id(project_popup_delete, EVT_PROJECT_POPUP_DELETE);
+    ui_set_label(project_popup_delete, "Delete");
+    ui_append_child(project_popup, project_popup_delete);
     g_project.popup = project_popup;
 
     /* --- Project > "Include Directories..." dialog --- a small list editor
@@ -18254,7 +18767,7 @@ void app_init(ui_env* env)
     int inc_x = 12, inc_y = 5, inc_w = 66, inc_h = 17;
     ui_node* includes_window = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(includes_window, inc_x, inc_y, inc_w, inc_h);
-    ui_set_label(includes_window, " Include Directories ");
+    ui_set_label(includes_window, "Include Directories");
     ui_set_color(includes_window, theme->modal_fg, theme->modal_bg);
     ui_append_child(includes_modal, includes_window);
 
@@ -18325,7 +18838,7 @@ void app_init(ui_env* env)
     int fr_x = 10, fr_y = 3, fr_w = 32, fr_h = 16;
     ui_node* fr_panel = ui_create_element(UI_TAG_WINDOW);
     ui_set_rect(fr_panel, fr_x, fr_y, fr_w, fr_h);
-    ui_set_label(fr_panel, " Find and Replace ");
+    ui_set_label(fr_panel, "Find and Replace");
     ui_set_color(fr_panel, theme->window_fg, theme->window_bg);
     ui_set_resizable(fr_panel, 1);  /* dock border can be dragged - its
                                      * controls' width tracks the panel's
@@ -18462,6 +18975,29 @@ static void file_watch_reload_project(void)
     snprintf(path, sizeof path, "%s", g_project.file_path);
     if (project_load_from_file(path))
         project_window_refresh(0);
+}
+
+/* Right after the IDE itself changed files on disk (Rename): every open
+ * window whose file changed is reloaded now, without waiting for
+ * file_watch_check()'s timer and without its prompt. A window with unsaved
+ * edits is left to the prompt. */
+static void file_watch_reload_changed_windows(void)
+{
+    for (int i = 0; i < ui_screen_window_count(g_screen); i++)
+    {
+        ui_node* w = ui_screen_window_at(g_screen, i);
+        ui_node* editor = editor_in_window(w);
+        const char* path = ui_get_path(w);
+        if (!editor || !path[0] || ui_get_dirty(editor))
+            continue;
+
+        long long t = file_mtime(path);
+        if (t == 0 || t == ui_get_file_time(w))
+            continue;
+
+        snprintf(g_filewatch.reload_path, sizeof g_filewatch.reload_path, "%s", path);
+        file_watch_reload_file();  /* also stores the new file time */
+    }
 }
 
 static void file_watch_check(ui_env* env)
@@ -18627,8 +19163,12 @@ int app_frame(ui_env* env)
     /* "Build" is the project build whenever a project is open (see
      * do_build()), so it needs no frontmost .c then - only without a
      * project does it fall back to "Compile" and share its condition. */
-    ui_set_enabled(g_compile_item, project_is_open() || compile_targets_c);
-    ui_set_enabled(g_rebuild_item, project_is_open());
+    /* With a project open, a frontmost file outside it disables Build/Rebuild. */
+    int project_build_ok = project_is_open() &&
+        (g_active_editor_window == NULL ||
+         project_contains_file(ui_get_path(g_active_editor_window)));
+    ui_set_enabled(g_compile_item, project_is_open() ? project_build_ok : compile_targets_c);
+    ui_set_enabled(g_rebuild_item, project_build_ok);
     ui_set_enabled(g_compile_file_item, compile_targets_c);
     /* Same condition - the Compile menu's own "Show Generated Code" (not
      * the popup's copy, which refreshes itself separately - see
@@ -18669,11 +19209,6 @@ int app_frame(ui_env* env)
              * is always read-only and never meant to be toggled back. */
             refresh_readonly_item(g_editor_popup_readonly, win);
 
-            /* Refresh "[x] Line Numbers" - enabled only for a C source
-             * editor, the only kind that draws a line-number gutter. */
-            refresh_view_item(g_view_linenumbers_item, "Line Numbers", ui_get_show_line_numbers());
-            ui_set_enabled(g_view_linenumbers_item, ui_get_syntax(ed) == UI_SYNTAX_C);
-
             /* Refresh "Toggle Header/Source" - enabled only for a .c/.h file. */
             char cp[1024];
             int has_counterpart = header_source_counterpart(ui_get_path(win), cp, sizeof cp);
@@ -18685,13 +19220,15 @@ int app_frame(ui_env* env)
             ui_set_enabled(g_editor_popup_show_output,
                            syntax_for_path(ui_get_path(win)) != UI_SYNTAX_MARKDOWN);
 
-            /* Refresh "Copy Code Block"/"Copy to Playground" - enabled only
-             * when this click landed on/in one of this Markdown document's
-             * fenced code blocks. */
-            refresh_codeblock_items(g_editor_popup_codeblock_copy,
-                                     g_editor_popup_codeblock_playground, win, mx, my);
+            /* the caret goes where the click was, so the items act on the word under it */
+            ui_editor_cursor_to_mouse(g_screen, ed);
+            ui_screen_focus(g_screen, ed);  /* Escape on the popup returns here */
 
-            ui_screen_open_popup(g_screen, g_editor_popup, mx, my, win);
+            /* compile/find items only for .c/.h; "Read-only" for every other file */
+            editor_popup_rebuild(g_editor_popup, syntax_for_path(ui_get_path(win)) == UI_SYNTAX_C);
+
+            /* one column to the right, so the clicked character stays visible */
+            ui_screen_open_popup(g_screen, g_editor_popup, mx + 1, my, win);
         }
     }
 
@@ -18720,7 +19257,7 @@ int app_frame(ui_env* env)
     }
 
     /* Right-click over the Project panel's listbox opens its own popup
-     * ("Open" / "New File..." / "Remove from Project") - same shape as the Folder panel's
+     * ("New File..." / "Copy Full Path" / "Remove from Project" / "Delete") - same shape as the Folder panel's
      * block just above, including the same window_is_shown() guard. */
     if (ui_screen_mouse_right_pressed(g_screen) && !ui_screen_active_modal(g_screen))
     {

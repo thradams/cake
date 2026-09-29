@@ -1273,6 +1273,17 @@ static void handle_key_press(XKeyEvent *xkey)
         return;
     }
 
+    /* Ctrl+Space looks up as a NUL byte, dropped below - posted as ' ' + Ctrl
+     * like Win32's WM_CHAR does (see shortcut_matches' "Space") */
+    if ((mods & UI_MOD_CTRL) && sym == XK_space) {
+        ui_event ev = {0};
+        ev.type = UI_EVENT_KEY;
+        ev.data.key.codepoint = ' ';
+        ev.data.key.mods = mods;
+        ui_env_post_event(g_env, &ev);
+        return;
+    }
+
     int code = keysym_to_uikey(sym);
     if (code) {
         ui_event ev = {0};
@@ -1545,6 +1556,8 @@ int main(int argc, char** argv)
 
         if (app_frame(g_env))
             g_running = 0;
+        if (ui_env_take_render_request(g_env))
+            g_dirty = 1;
 
         /* Only repaint when an event changed something or on the slow baseline
          * (which drives the caret blink and shows delayed state). Idle = almost

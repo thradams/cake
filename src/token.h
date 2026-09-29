@@ -337,6 +337,57 @@ bool token_is_in_find_definition_file(const struct token* p_token, const struct 
 /* -find-definition: p_token covers the cursor line:col */
 bool token_is_find_definition_cursor(const struct token* p_token, const struct options* options);
 
+/* -rename: the identifiers found in phase 2, from all files */
+struct rename_item
+{
+    char* _Owner file;
+    int line;
+    int col;
+};
+
+/* an occurrence of the current file and the declaration it has in this file */
+struct rename_pending
+{
+    struct rename_item item;
+    struct rename_item declaration;
+};
+
+struct rename_list
+{
+    struct rename_item* _Owner _Opt data;
+    int size;
+    int capacity;
+    struct rename_pending* _Owner _Opt pending;
+    int pending_size;
+    int pending_capacity;
+    char old_name[200];
+};
+
+void rename_list_clear(_Clear struct rename_list* p);
+
+/* -rename phase 2: records p_token and its declaration, decided by rename_list_commit */
+void rename_record(const struct options* options, const struct token* p_token, const struct token* _Opt p_declaration_name);
+
+/* end of one file: keeps the occurrences whose declaration is the target or the declaration of an occurrence already kept;
+   returns false when the file had occurrences but none could be decided */
+bool rename_list_commit(struct rename_list* p, const struct options* options);
+
+/* phase 3: the pairs of an undecided file, decided again later without compiling it */
+struct rename_pairs
+{
+    struct rename_pending* _Owner _Opt data;
+    int size;
+    int capacity;
+};
+
+/* after rename_list_commit returned false: moves the pending pairs to out */
+void rename_list_save_pending(struct rename_list* list, struct rename_pairs* out);
+
+/* rename_list_commit on saved pairs; true (and saved cleared) when they were decided */
+bool rename_list_commit_saved(struct rename_list* list, struct rename_pairs* saved, const struct options* options);
+
+void rename_pairs_clear(_Clear struct rename_pairs* p);
+
 void print_position(const char* _Opt path, int line, int col, enum diagnostic_ouput_format format, bool color_enabled, bool fullpath);
 
 struct osstream;

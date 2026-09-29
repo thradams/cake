@@ -741,6 +741,29 @@ Expand and preprocess <code>#define</code> macros after expansion.</p>
 <p><strong><code>-o &lt;name.c&gt;</code></strong><br>
 Set the output filename when compiling a single file. Same as GCC and MSVC.</p>
 
+<p><strong><code>-output-root=&lt;dir&gt;</code></strong><br>
+Write each output to <code>&lt;dir&gt;/&lt;target&gt;/&lt;path relative to dir&gt;</code>, so a file always goes to the same place no matter which other files are passed. <code>&lt;dir&gt;</code> must be a parent folder of the input files; it is not a separate output folder. Files outside <code>&lt;dir&gt;</code> ignore it and go to <code>&lt;their dir&gt;/&lt;target&gt;/</code>. Without this option the root is the common directory of the files given. The IDE passes the project directory.</p>
+
+<p>Example: <code>cake -target=x64_msvc -output-root=project project/main.c project/src/util.c other/lib.c</code></p>
+
+<pre><code>project/                  &lt;- -output-root
+├── main.c
+├── src/
+│   └── util.c
+└── x64_msvc/             &lt;- generated
+    ├── main.c
+    └── src/
+        └── util.c
+other/                    &lt;- outside project
+├── lib.c
+└── x64_msvc/             &lt;- generated next to lib.c
+    └── lib.c
+</code></pre>
+
+<p>Without <code>-output-root</code>, compiling only <code>project/src/util.c</code> would write <code>project/src/x64_msvc/util.c</code>.</p>
+
+<p>Because the generated folder mirrors the source tree, a Makefile from <code>project/</code> can be copied into <code>project/x64_msvc/</code> and used unchanged. The output has no <code>#include</code>, so headers and <code>-I</code> are not needed. Files outside the root (like <code>other/lib.c</code>) need their paths adjusted, e.g. <code>../../other/x64_msvc/lib.c</code>.</p>
+
 <p><strong><code>-no-output</code></strong><br>
 Run all analysis passes but suppress file output.</p>
 
@@ -3727,7 +3750,7 @@ with <code>#include_next</code> (2.3).</p>
 <li><code>__typeof__</code> — alias for <code>typeof</code></li>
 </ul>
 
-<p>Additional GCC built-ins are declared in <code>src/include/x86_x64_gcc_builtins.h</code>.</p>
+<p>Additional GCC built-ins are declared in <code>src/include/builtins/gcc_builtins.h</code>.</p>
 
 <p>Pre-defined GCC compatibility macros: <a href="https://gcc.gnu.org/onlinedocs/cpp/Predefined-Macros.html">https://gcc.gnu.org/onlinedocs/cpp/Predefined-Macros.html</a></p>
 

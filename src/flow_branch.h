@@ -129,18 +129,12 @@ void flow_branch_debug_print(const struct flow_branch* _Opt map, int indent);
 int flow_alternative_truth(struct flow_branch* _Opt map, const struct flow_alternative* alt, int depth);
 int flow_object_truth(struct flow_branch* _Opt map, const struct object* p_object, int depth);
 
-struct flow_branch_pair
-{
-    struct flow_branch* _Opt p_true;
-    struct flow_branch* _Opt p_false;
-};
 
 struct osstream flow_explain_origin(const struct flow_branch* _Opt map);
 
 struct flow_branch* _Opt flow_branch_arena_new_branch(struct flow_branch_arena* a, struct flow_branch* _Opt parent, bool is_true, const struct expression* _Opt p_expr);
 const struct flow_branch* _Opt flow_alternative_narrowed_provenance(const struct flow_alternative* alt, const struct flow_branch* _Opt new_origin);
 void flow_tag_branch_pair(struct flow_branch* _Opt p_true, struct flow_branch* _Opt p_false);
-
 
 
 struct object_set

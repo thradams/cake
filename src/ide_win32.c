@@ -877,6 +877,8 @@ static void pump_frame(HWND hwnd, int force_paint)
         PostQuitMessage(0);
         return;
     }
+    if (ui_env_take_render_request(g_env))
+        g_dirty = 1;
     if (force_paint || g_dirty || now - g_last_render_ms >= RENDER_BASELINE_MS) {
         g_dirty = 0;
         g_last_render_ms = now;
@@ -1000,10 +1002,11 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
          * through the same key-posting path WM_KEYDOWN uses above; every
          * other system key (Alt+F4, Alt+Tab, ...) falls through to
          * DefWindowProc unchanged. */
-        if (wp == VK_F10) {
+        /* Alt+Left/Alt+Right (Navigate Back/Forward) arrive here too, Alt being held */
+        if (wp == VK_F10 || wp == VK_LEFT || wp == VK_RIGHT) {
             ui_event ev = {0};
             ev.type = UI_EVENT_KEY;
-            ev.data.key.code = UI_KEY_F10;
+            ev.data.key.code = wp == VK_F10 ? UI_KEY_F10 : wp == VK_LEFT ? UI_KEY_LEFT : UI_KEY_RIGHT;
             ev.data.key.mods = (GetKeyState(VK_SHIFT) < 0 ? UI_MOD_SHIFT : 0) |
                                (GetKeyState(VK_CONTROL) < 0 ? UI_MOD_CTRL : 0) |
                                (GetKeyState(VK_MENU) < 0 ? UI_MOD_ALT : 0);
@@ -1068,6 +1071,12 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
                                     msg == WM_RBUTTONUP ? UI_MOUSE_BUTTON_RIGHT :
                                     UI_MOUSE_BUTTON_MIDDLE);
         }
+        /* Capture while the left button is held so a drag-selection keeps
+         * receiving moves (and the release) outside the window. */
+        if (msg == WM_LBUTTONDOWN)
+            SetCapture(hwnd);
+        else if (msg == WM_LBUTTONUP)
+            ReleaseCapture();
         ui_env_post_event(g_env, &ev);
         g_dirty = 1;  /* input changed something - repaint next tick */
         return 0;

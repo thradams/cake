@@ -21,13 +21,17 @@
 
 #define FLOW_PARAMETER_OBJECT_INIT_MAX_DEPTH 6
 
-
+struct flow_true_false_branches
+{
+    struct flow_branch* _Opt p_true;
+    struct flow_branch* _Opt p_false;
+};
  
 static void flow_check_dianostic_suppression(struct flow_ctx* ctx, const struct token* p_token);
 
 static void flow_check_file_scope_objects_at_function_exit(const struct flow_ctx* ctx);
 
-static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const struct expression* _Opt p_expression);
+static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ctx, const struct expression* _Opt p_expression);
 static void object_static_debug(struct flow_ctx* ctx, const struct object* p_object, struct token* first_token, struct token* last_token);
 
 static void flow_check_object_at_exit(struct flow_ctx* ctx, const struct type* p_type, const struct object* p_obj, const struct marker* marker, const struct token* p_exit_token, bool in_view, const char* _Opt p_root_name_opt);
@@ -404,9 +408,9 @@ static void flow_explain_alternative(const struct flow_ctx* ctx,
     flow_diagnose_map_path(ctx, p_alternative_map);
 }
 
-static struct flow_branch_pair flow_ensure_branch_pair(struct flow_ctx* ctx,
+static struct flow_true_false_branches flow_ensure_branch_pair(struct flow_ctx* ctx,
                                                        struct flow_branch* _Opt p_fallback,
-                                                       struct flow_branch_pair pair,
+                                                       struct flow_true_false_branches pair,
                                                        const struct expression* _Opt p_expr)
 {
     if (pair.p_true == pair.p_false)
@@ -461,8 +465,8 @@ static void flow_visit_initializer(struct flow_ctx* ctx, struct initializer* p_i
 static void flow_visit_declarator(struct flow_ctx* ctx, const struct declarator* p_declarator);
 static void flow_visit_label(struct flow_ctx* ctx, const struct label* p_label);
 
-static struct flow_branch_pair flow_visit_full_expression(struct flow_ctx* ctx, const struct expression* p_expression);
-static struct flow_branch_pair flow_visit_condition(struct flow_ctx* ctx, const struct expression* p_expression);
+static struct flow_true_false_branches flow_visit_full_expression(struct flow_ctx* ctx, const struct expression* p_expression);
+static struct flow_true_false_branches flow_visit_condition(struct flow_ctx* ctx, const struct expression* p_expression);
 
 
 static void flow_exit_block_visit_defer_item(struct flow_ctx* ctx, const struct defer_list_item* p_item, const struct token* position_token)
@@ -1351,7 +1355,7 @@ static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_state
             .last_token = p_selection_statement->last_token
         };
 
-        struct flow_branch_pair cond_pair = { 0 };
+        struct flow_true_false_branches cond_pair = { 0 };
 
         if (p_selection_statement->condition &&
                 p_selection_statement->condition->expression)
@@ -4267,18 +4271,18 @@ static void flow_expression_static_debug(struct flow_ctx* ctx, const struct expr
     object_static_debug(ctx, &p_expression->object, first_token, last_token);
 }
 
-static struct flow_branch_pair flow_visit_full_expression(struct flow_ctx* ctx, const struct expression* p_expression)
+static struct flow_true_false_branches flow_visit_full_expression(struct flow_ctx* ctx, const struct expression* p_expression)
 {
     return flow_visit_expression(ctx, p_expression);
 }
 
 /* Visits an expression whose value is tested (if, loops, ?:, !, &&, ||):
    flow_narrow_map_into then checks it for warning 30. */
-static struct flow_branch_pair flow_visit_condition(struct flow_ctx* ctx, const struct expression* p_expression)
+static struct flow_true_false_branches flow_visit_condition(struct flow_ctx* ctx, const struct expression* p_expression)
 {
     const struct expression* _Opt p_previous = ctx->p_condition;
     ctx->p_condition = skip_parenthesis(p_expression);
-    struct flow_branch_pair pair = flow_visit_expression(ctx, p_expression);
+    struct flow_true_false_branches pair = flow_visit_expression(ctx, p_expression);
     ctx->p_condition = p_previous;
     return pair;
 }
@@ -6355,13 +6359,13 @@ static void flow_record_ended_pointee(struct flow_ctx* ctx,
     ss_close(&name_ss);
 }
 
-static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const struct expression* _Opt p_expression)
+static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ctx, const struct expression* _Opt p_expression)
 {
     /* left/right are _Owner _Opt in the AST, and callers hand them straight
        in; an absent operand is nothing to visit. */
     if (p_expression == NULL || ctx->p_current_flow_branch == NULL)
     {
-        struct flow_branch_pair empty = { 0 };
+        struct flow_true_false_branches empty = { 0 };
         return empty;
     }
 
@@ -6509,14 +6513,14 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                     throw;
 
                 flow_tag_branch_pair(p_true, p_false);
-                return (struct flow_branch_pair) { p_true, p_false };
+                return (struct flow_true_false_branches) { p_true, p_false };
             }
 
             case EXPR_PRIMARY_PARENTHESIS:
             {
                 _Assert(p_expression->right != NULL);
                 const struct expression* p_inner = skip_parenthesis(p_expression->right);
-                struct flow_branch_pair paren_pair = flow_visit_expression(ctx, p_inner);
+                struct flow_true_false_branches paren_pair = flow_visit_expression(ctx, p_inner);
 
                 /* Copy the inner expression's computed value forward to its own node too: narrowing already flows correctly, but a synthesized temporary (e.g. a parenthesized nested ternary) is looked up by its own distinct &object, and `(b?1:2)` vs `b?1:2` are different nodes -- without the copy a caller keying off this node's address finds nothing. */
                 const struct flow_key_alternatives* _Opt p_inner_entry =
@@ -6635,7 +6639,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                 }
 
                 /* Narrow on the member field used as bool. */
-                return (struct flow_branch_pair)
+                return (struct flow_true_false_branches)
                 {
                 p_true, p_false
                 };
@@ -6913,7 +6917,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
 
                 flow_branch_remove(ctx->p_current_flow_branch, &p_expression->left->object);
                 flow_findings_end(ctx);
-                return (struct flow_branch_pair)
+                return (struct flow_true_false_branches)
                 {
                 p_true, p_false
                 };
@@ -7054,7 +7058,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                     flow_branch_remove(ctx->p_current_flow_branch, &p_expression->right->object);
 
                     if (any_resolved)
-                        return (struct flow_branch_pair)
+                        return (struct flow_true_false_branches)
                         {
                     p_true, p_false
                         };
@@ -7128,7 +7132,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                     flow_branch_remove(ctx->p_current_flow_branch, &p_expression->left->object);
                 }
                 flow_branch_remove(ctx->p_current_flow_branch, &p_expression->right->object);
-                return (struct flow_branch_pair)
+                return (struct flow_true_false_branches)
                 {
                 p_true, p_false
                 };
@@ -7402,7 +7406,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                 */
                 if (p_expression->right)
                 {
-                    struct flow_branch_pair assert_pair = flow_visit_expression(ctx, p_expression->right);
+                    struct flow_true_false_branches assert_pair = flow_visit_expression(ctx, p_expression->right);
 
                     /* The false branch is dead (assert would have aborted).
             Merge only the true outcome back into p_before. */
@@ -7574,7 +7578,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                 * and its constant value — if any — is propagated into
                 * p_expression->right->object before we inspect it.
                 */
-                struct flow_branch_pair child = flow_visit_condition(ctx, p_expression->right);
+                struct flow_true_false_branches child = flow_visit_condition(ctx, p_expression->right);
 
                 if (object_has_constant_value(&p_expression->right->object))
                 {
@@ -7603,7 +7607,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                         if (p_dead == NULL)
                             throw;
 
-                        return (struct flow_branch_pair)
+                        return (struct flow_true_false_branches)
                         {
                         ctx->p_current_flow_branch, p_dead
                         };
@@ -7614,7 +7618,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                         if (p_dead == NULL)
                             throw;
 
-                        return (struct flow_branch_pair)
+                        return (struct flow_true_false_branches)
                         {
                         p_dead, ctx->p_current_flow_branch
                         };
@@ -7642,7 +7646,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
 
                 flow_branch_remove(ctx->p_current_flow_branch, &p_expression->right->object);
                 /* NOT swaps the two branches. */
-                return (struct flow_branch_pair)
+                return (struct flow_true_false_branches)
                 {
                 child.p_false, child.p_true
                 };
@@ -7651,7 +7655,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
             case EXPR_CHECKED:
             {
                 _Assert(p_expression->left != NULL);
-                struct flow_branch_pair checked_pair = flow_visit_expression(ctx, p_expression->left);
+                struct flow_true_false_branches checked_pair = flow_visit_expression(ctx, p_expression->left);
                 flow_exit_block_visit_defer_list(ctx, &p_expression->defer_list, p_expression->first_token);
                 flow_defer_list_set_end_of_lifetime(ctx, &p_expression->defer_list, p_expression->first_token);
                 return checked_pair;
@@ -8266,7 +8270,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                 flow_branch_remove(ctx->p_current_flow_branch, &p_expression->left->object);
                 flow_branch_remove(ctx->p_current_flow_branch, &p_expression->right->object);
 
-                return (struct flow_branch_pair)
+                return (struct flow_true_false_branches)
                 {
                 p_true, p_false
                 };
@@ -8289,7 +8293,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                 /* keep the destination subscript's operand for flow_invalidate_unknown_index_write */
                 const struct expression* _Opt p_previous_subscript_being_written = ctx->p_subscript_being_written;
                 ctx->p_subscript_being_written = skip_parenthesis(p_expression->left);
-                struct flow_branch_pair lhs_pair2 = flow_visit_expression(ctx, p_expression->left);
+                struct flow_true_false_branches lhs_pair2 = flow_visit_expression(ctx, p_expression->left);
                 ctx->p_subscript_being_written = p_previous_subscript_being_written;
                 flow_visit_expression(ctx, p_expression->right);
 
@@ -8829,7 +8833,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                     if (p_dead == NULL)
                         throw;
 
-                    return (struct flow_branch_pair)
+                    return (struct flow_true_false_branches)
                     {
                     fold_result ? ctx->p_current_flow_branch : p_dead,
                         fold_result ? p_dead : ctx->p_current_flow_branch
@@ -8870,10 +8874,10 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                         flow_narrow_operand(ctx, p_var_expr, cst, narrow_op,
                                             p_true, p_false, p_expression->first_token);
                         
-                        return (struct flow_branch_pair) { p_true, p_false };
+                        return (struct flow_true_false_branches) { p_true, p_false };
                     }
                 }
-                return (struct flow_branch_pair)
+                return (struct flow_true_false_branches)
                 {
                 ctx->p_current_flow_branch, ctx->p_current_flow_branch
                 };
@@ -8920,7 +8924,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                     if (p_dead == NULL)
                         throw;
 
-                    return (struct flow_branch_pair)
+                    return (struct flow_true_false_branches)
                     {
                     fold ? ctx->p_current_flow_branch : p_dead,
                         fold ? p_dead : ctx->p_current_flow_branch
@@ -8947,14 +8951,14 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                     flow_tag_branch_pair(p_true, p_false);
                     flow_narrow_operand(ctx, p_var_expr, cst, p_expression->expression_type,
                                         p_true, p_false, p_expression->first_token);
-                    return (struct flow_branch_pair)
+                    return (struct flow_true_false_branches)
                     {
                     p_true, p_false
                     };
                 }
 
                 /* -------- Fallback: unknown -------- */
-                return (struct flow_branch_pair)
+                return (struct flow_true_false_branches)
                 {
                 ctx->p_current_flow_branch, ctx->p_current_flow_branch
                 };
@@ -8999,7 +9003,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                         if (p_dead == NULL)
                             throw;
 
-                        return (struct flow_branch_pair)
+                        return (struct flow_true_false_branches)
                         {
                         ctx->p_current_flow_branch, p_dead
                         };
@@ -9010,14 +9014,14 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                         if (p_dead == NULL)
                             throw;
 
-                        return (struct flow_branch_pair)
+                        return (struct flow_true_false_branches)
                         {
                         p_dead, ctx->p_current_flow_branch
                         };
                     }
                 }
 
-                struct flow_branch_pair left_pair = flow_visit_condition(ctx, p_expression->left);
+                struct flow_true_false_branches left_pair = flow_visit_condition(ctx, p_expression->left);
 
                 /* Visit right on the false map of left (right only runs when left is false). */
                 /* as for an `if`: in `p == 0 || p->x`, the right side is on the
@@ -9028,7 +9032,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                     flow_branch_derive_implied_facts(left_pair.p_false, p_before);
                 }
                 ctx->p_current_flow_branch = left_pair.p_false;
-                struct flow_branch_pair right_pair = flow_visit_condition(ctx, p_expression->right);
+                struct flow_true_false_branches right_pair = flow_visit_condition(ctx, p_expression->right);
                 ctx->p_current_flow_branch = p_before;
 
                 /*
@@ -9138,7 +9142,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                     }
                 }
 
-                return (struct flow_branch_pair)
+                return (struct flow_true_false_branches)
                 {
                 p_or_true, right_pair.p_false
                 };
@@ -9182,7 +9186,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                         if (p_dead == NULL)
                             throw;
 
-                        return (struct flow_branch_pair)
+                        return (struct flow_true_false_branches)
                         {
                         ctx->p_current_flow_branch, p_dead
                         };
@@ -9193,14 +9197,14 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                         if (p_dead == NULL)
                             throw;
 
-                        return (struct flow_branch_pair)
+                        return (struct flow_true_false_branches)
                         {
                         p_dead, ctx->p_current_flow_branch
                         };
                     }
                 }
 
-                struct flow_branch_pair left_pair = flow_visit_condition(ctx, p_expression->left);
+                struct flow_true_false_branches left_pair = flow_visit_condition(ctx, p_expression->left);
 
                 if (object_has_constant_value(&p_expression->left->object) &&
                 object_is_true(&p_expression->left->object) == false)
@@ -9217,7 +9221,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                     flow_branch_derive_implied_facts(left_pair.p_true, p_before);
                 }
                 ctx->p_current_flow_branch = left_pair.p_true;
-                struct flow_branch_pair right_pair = flow_visit_condition(ctx, p_expression->right);
+                struct flow_true_false_branches right_pair = flow_visit_condition(ctx, p_expression->right);
                 ctx->p_current_flow_branch = p_before;
 
                 /*
@@ -9326,7 +9330,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                     }
                 }
 
-                return (struct flow_branch_pair) { right_pair.p_true, p_and_false };
+                return (struct flow_true_false_branches) { right_pair.p_true, p_and_false };
             }
 
             case EXPR_INCLUSIVE_OR:
@@ -9436,7 +9440,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                 _Assert(p_expression->right != NULL);
                 flow_visit_expression(ctx, p_expression->left);
                 /* Comma: the value (and branch state) of the right operand is what matters. */
-                struct flow_branch_pair pair = flow_visit_expression(ctx, p_expression->right);
+                struct flow_true_false_branches pair = flow_visit_expression(ctx, p_expression->right);
 
                 /* Forward the right operand's value to the comma's OWN object, so a
                     consumer that reads this node (e.g. a function-argument check) sees
@@ -9462,7 +9466,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
                 _Assert(p_expression->condition_expr != NULL);
                 _Assert(p_expression->right != NULL);
 
-                struct flow_branch_pair cond_pair = flow_visit_condition(ctx, p_expression->condition_expr);
+                struct flow_true_false_branches cond_pair = flow_visit_condition(ctx, p_expression->condition_expr);
                 cond_pair = flow_ensure_branch_pair(ctx, ctx->p_current_flow_branch, cond_pair,
                                                 p_expression->condition_expr);
 
@@ -9595,7 +9599,7 @@ static struct flow_branch_pair flow_visit_expression(struct flow_ctx* ctx, const
             flow_findings_end(ctx);
     }
 
-    struct flow_branch_pair identity_pair = { ctx->p_current_flow_branch, ctx->p_current_flow_branch };
+    struct flow_true_false_branches identity_pair = { ctx->p_current_flow_branch, ctx->p_current_flow_branch };
 
     /* Non-boolean or unhandled expression: both branches are identical (no narrowing). */
     return identity_pair;
@@ -10094,7 +10098,7 @@ static void flow_visit_loop(struct flow_ctx* ctx,
     /* First pass — suppress warnings */
     diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
 
-    struct flow_branch_pair pair1 = { 0 };
+    struct flow_true_false_branches pair1 = { 0 };
     if (p_condition && condition_first)
     {
         pair1 = flow_visit_condition(ctx, p_condition);
@@ -10163,8 +10167,8 @@ static void flow_visit_loop(struct flow_ctx* ctx,
     /* Second pass — warnings on */
     diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
 
-    struct flow_branch_pair pair2 = { 0 };
-    struct flow_branch_pair pair3 = { 0 };
+    struct flow_true_false_branches pair2 = { 0 };
+    struct flow_true_false_branches pair3 = { 0 };
 
     /* Widen body-assigned numeric values before the diagnostic pass runs: pass 1 leaves a value at one iteration's concrete result (`flag = 1`), so pass 2's `flag == 0` folds false and misreports a branch the first iteration actually reaches as unreachable -- same reasoning as flow_widen_loop_variant_objects. */
     if (body_falls_through && p_pass1_body_entry != NULL && p_pass1_exit != NULL)
@@ -10282,7 +10286,7 @@ static void flow_visit_loop(struct flow_ctx* ctx,
         if (p_condition && condition_first)
         {
             ctx->p_current_flow_branch = p_before;
-            struct flow_branch_pair diag_pair = flow_visit_condition(ctx, p_condition);
+            struct flow_true_false_branches diag_pair = flow_visit_condition(ctx, p_condition);
             diag_pair = flow_ensure_branch_pair(ctx, p_before, diag_pair, p_condition);
             ctx->p_current_flow_branch = diag_pair.p_true;
         }
@@ -11348,7 +11352,7 @@ static void flow_check_limits(struct flow_ctx* ctx, const struct token* p_token)
     const int values = flow_alternatives_live_count();
     if (values > FLOW_MAX_VALUES)
     {
-        const struct object* p_largest = NULL;
+        const struct object* _Opt p_largest = NULL;
         int largest = 0;
         for (const struct flow_branch* _Opt p = ctx->p_current_flow_branch; p; p = p->p_parent_map)
         {
@@ -11622,7 +11626,7 @@ static void flow_visit_static_assertion(struct flow_ctx* ctx, const struct stati
             return;
 
         struct flow_branch* p_before = ctx->p_current_flow_branch;
-        struct flow_branch_pair pair = flow_visit_full_expression(ctx, p_static_assertion->constant_expression);
+        struct flow_true_false_branches pair = flow_visit_full_expression(ctx, p_static_assertion->constant_expression);
         /* Same as flow_visit_if_statement: force pair.p_true into its own
            fresh child map when it aliases p_before (or any intermediate
            arm of the condition aliases the map it was branched from) --

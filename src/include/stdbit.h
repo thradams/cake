@@ -4,8 +4,8 @@
 */
 
 #ifdef CAKE_HEADERS
-/* only glibc >= 2.39 exports the stdc_* functions */
-#error <stdbit.h> is not available with -cake-headers yet
+    /* only glibc >= 2.39 exports the stdc_* functions */
+    #error <stdbit.h> is not available with -cake-headers yet
 #else
-#include_next <stdbit.h>
+    #include_next <stdbit.h>
 #endif

@@ -266,7 +266,7 @@ int struct_entry_list_reserve(struct struct_entry_list* p, int n)
     {
         if ((size_t)n > (SIZE_MAX / (sizeof(p->data[0]))))
         {
-            return EOVERFLOW;
+            return ERANGE;
         }
 
         void* _Owner _Opt pnew = realloc(p->data, n * sizeof(p->data[0]));
@@ -282,7 +282,7 @@ int struct_entry_list_push_back(struct struct_entry_list* p, struct struct_entry
 {
     if (p->size == INT_MAX)
     {
-        return EOVERFLOW;
+        return ERANGE;
     }
 
     if (p->size + 1 > p->capacity)
@@ -1636,6 +1636,9 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
     const bool atomic_lvalue = ctx->atomic_lvalue;
     ctx->atomic_lvalue = false;
 
+    const bool parenthesis_not_needed = ctx->parenthesis_not_needed;
+    ctx->parenthesis_not_needed = false;
+
     const bool atomic_load =
         !atomic_lvalue &&
         (p_expression->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC) &&
@@ -1651,8 +1654,10 @@ static void codegen_visit_expression(struct codegen_ctx* ctx, struct osstream* o
     {
         /* (a) is the same lvalue as a */
         ctx->atomic_lvalue = atomic_lvalue;
+        ctx->parenthesis_not_needed = parenthesis_not_needed;
         codegen_visit_expression_core(ctx, oss, p_expression);
         ctx->atomic_lvalue = false;
+        ctx->parenthesis_not_needed = false;
     }
     else if (atomic_load)
     {
@@ -2062,9 +2067,66 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             case EXPR_PRIMARY_PARENTHESIS:
 
                 _Assert(p_expression->right != NULL);
-                if (p_expression->right->expression_type == EXPR_PRIMARY_PARENTHESIS)
+                const bool parenthesis_not_needed = ctx->parenthesis_not_needed;
+                ctx->parenthesis_not_needed = false;
+
+                bool child_needs_parenthesis = true;
+                if (parenthesis_not_needed)
                 {
-                    /* remove extra (()) — could also be removed from other cases */
+                    /* keep if ((a = b)), the usual way to silence the assignment warning */
+                    switch (p_expression->right->expression_type)
+                    {
+                        case EXPR_ASSIGNMENT_ASSIGN:
+                        case EXPR_ASSIGNMENT_PLUS_ASSIGN:
+                        case EXPR_ASSIGNMENT_MINUS_ASSIGN:
+                        case EXPR_ASSIGNMENT_MULTI_ASSIGN:
+                        case EXPR_ASSIGNMENT_DIV_ASSIGN:
+                        case EXPR_ASSIGNMENT_MOD_ASSIGN:
+                        case EXPR_ASSIGNMENT_SHIFT_LEFT_ASSIGN:
+                        case EXPR_ASSIGNMENT_SHIFT_RIGHT_ASSIGN:
+                        case EXPR_ASSIGNMENT_AND_ASSIGN:
+                        case EXPR_ASSIGNMENT_OR_ASSIGN:
+                        case EXPR_ASSIGNMENT_NOT_ASSIGN:
+                            child_needs_parenthesis = true;
+                            break;
+
+                        default:
+                            child_needs_parenthesis = false;
+                            break;
+                    }
+                }
+                else switch (p_expression->right->expression_type)
+                {
+                    case EXPR_PRIMARY_PARENTHESIS:
+                    case EXPR_PRIMARY_STRING_LITERAL:
+                    case EXPR_PRIMARY__FUNC__:
+                    case EXPR_PRIMARY_CHAR_LITERAL:
+                    case EXPR_PRIMARY_PREDEFINED_CONSTANT:
+                    case EXPR_PRIMARY_GENERIC:
+                    case EXPR_PRIMARY_NUMBER:
+                    case EXPR_POSTFIX_FUNCTION_CALL:
+                    case EXPR_POSTFIX_ARRAY:
+                    case EXPR_POSTFIX_DOT:
+                    case EXPR_POSTFIX_ARROW:
+                    case EXPR_POSTFIX_INCREMENT:
+                    case EXPR_POSTFIX_DECREMENT:
+                        child_needs_parenthesis = false;
+                        break;
+
+                    case EXPR_PRIMARY_ENUMERATOR:
+                    case EXPR_PRIMARY_DECLARATOR:
+                        /* a constant may print as -1 */
+                        child_needs_parenthesis = object_has_constant_value(&p_expression->right->object);
+                        break;
+
+                    default:
+                        break;
+                }
+
+                if (!child_needs_parenthesis)
+                {
+                    /* primary and postfix children never need ( ) */
+                    ctx->parenthesis_not_needed = parenthesis_not_needed;
                     codegen_visit_expression(ctx, oss, p_expression->right);
                 }
                 else
@@ -3821,7 +3883,10 @@ static void codegen_visit_iteration_statement(struct codegen_ctx* ctx, struct os
             ss_fprintf(oss, "while ("); //one statement per line
 
             if (p_iteration_statement->expression1)
+            {
+                ctx->parenthesis_not_needed = true;
                 codegen_visit_expression(ctx, oss, p_iteration_statement->expression1);
+            }
 
             ss_fprintf(oss, ")\n");
             codegen_visit_secondary_block(ctx, oss, p_iteration_statement->secondary_block);
@@ -3839,6 +3904,7 @@ static void codegen_visit_iteration_statement(struct codegen_ctx* ctx, struct os
             ss_fprintf(oss, "while (");
 
             _Assert(p_iteration_statement->expression1 != NULL);
+            ctx->parenthesis_not_needed = true;
             codegen_visit_expression(ctx, oss, p_iteration_statement->expression1);
 
             ss_fprintf(oss, ");\n");
@@ -3891,7 +3957,10 @@ static void codegen_visit_iteration_statement(struct codegen_ctx* ctx, struct os
             ss_fprintf(oss, "; ");
 
             if (p_iteration_statement->expression1)
+            {
+                ctx->parenthesis_not_needed = true;
                 codegen_visit_expression(ctx, oss, p_iteration_statement->expression1);
+            }
 
             ss_fprintf(oss, "; ");
 
@@ -4102,6 +4171,7 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
         else if (p_selection_statement->condition->expression)
         {
             emit_line_directive(ctx, oss, p_selection_statement->condition->expression->first_token);
+            ctx->parenthesis_not_needed = true;
             codegen_visit_expression(ctx, &controlling_expression, p_selection_statement->condition->expression);
 
             /*
@@ -5481,6 +5551,11 @@ static void object_print_source_object_non_constant_initialization(
 
     if (object_has_constant_value(source))
     {
+        /* folded int-to-pointer casts need the cast back */
+        if (type_is_pointer(&object->type) && !object_is_zero(source))
+        {
+            ss_fprintf(ss, "(void*)");
+        }
         object_print_value(ctx->options.target, ss, source);
     }
     else
@@ -5551,6 +5626,10 @@ static void assign_each_member_from_constexpr(
     if (object_has_constant_value(source))
     {
         /* Source holds a compile-time constant: print it directly */
+        if (type_is_pointer(&object->type) && !object_is_zero(source))
+        {
+            ss_fprintf(ss, "(void*)");
+        }
         object_print_value(ctx->options.target, ss, source);
     }
     else
@@ -5642,6 +5721,11 @@ static void codegen_emit_member_assignments_from_constexpr(struct codegen_ctx* c
     
         if (object_has_constant_value(source))
         {
+            /* folded int-to-pointer casts need the cast back */
+            if (type_is_pointer(&dest->type) && !object_is_zero(source))
+            {
+                ss_fprintf(oss, "(void*)");
+            }
             object_print_value(ctx->options.target, oss, source);
         }
         else
@@ -5728,6 +5812,12 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
         {
             if (object_has_constant_value(&object->p_init_expression->object))
             {
+                /* folded int-to-pointer casts need the cast back */
+                if (type_is_pointer(&object->type) &&
+                    !object_is_zero(&object->p_init_expression->object))
+                {
+                    ss_fprintf(ss, "(void*)");
+                }
                 object_print_value(ctx->options.target, ss, &object->p_init_expression->object);
             }
             else if (object->p_init_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL)

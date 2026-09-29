@@ -348,11 +348,15 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-find-definition") == 0)
+        if (strcmp(argv[i], "-find-definition") == 0 || strcmp(argv[i], "-find-declaration") == 0 ||
+            strcmp(argv[i], "-find-usages") == 0)
         {
             if (i + 2 < argc)
             {
-                options->find_definition = true;
+                options->request =
+                    strcmp(argv[i], "-find-definition") == 0 ? REQUEST_FIND_DEFINITION :
+                    strcmp(argv[i], "-find-declaration") == 0 ? REQUEST_FIND_DECLARATION :
+                    REQUEST_FIND_USAGES;
                 options->find_definition_line = atoi(argv[i + 1]);
                 options->find_definition_col = atoi(argv[i + 2]);
                 options->no_output = true;
@@ -360,9 +364,52 @@ int fill_options(struct options* options,
             }
             else
             {
-                printf("-find-definition requires line and column\n");
+                printf("%s requires line and column\n", argv[i]);
                 return 1;
             }
+            continue;
+        }
+
+        if (strcmp(argv[i], "-complete") == 0)
+        {
+            if (i + 2 < argc)
+            {
+                options->request = REQUEST_COMPLETE;
+                options->find_definition_line = atoi(argv[i + 1]);
+                options->find_definition_col = atoi(argv[i + 2]);
+                options->no_output = true;
+                i += 2;
+            }
+            else
+            {
+                printf("-complete requires line and column\n");
+                return 1;
+            }
+            continue;
+        }
+
+        if (strcmp(argv[i], "-rename") == 0)
+        {
+            if (i + 3 < argc)
+            {
+                options->request = REQUEST_RENAME;
+                options->find_definition_line = atoi(argv[i + 1]);
+                options->find_definition_col = atoi(argv[i + 2]);
+                snprintf(options->rename_new_name, sizeof options->rename_new_name, "%s", argv[i + 3]);
+                options->no_output = true;
+                i += 3;
+            }
+            else
+            {
+                printf("-rename requires line, column and new name\n");
+                return 1;
+            }
+            continue;
+        }
+
+        if (strcmp(argv[i], "-quiet") == 0)
+        {
+            options->quiet = true;
             continue;
         }
 
@@ -410,7 +457,7 @@ int fill_options(struct options* options,
 
         if (strcmp(argv[i], "-unused-extern-report") == 0)
         {
-            options->report_unused = true;
+            options->request = REQUEST_REPORT_UNUSED;
             options->no_output = true;
             continue;
         }
@@ -578,6 +625,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (has_prefix(argv[i], "-output-root="))
+        {
+            snprintf(options->output_root, sizeof options->output_root, "%s", argv[i] + (sizeof("-output-root=") - 1));
+            continue;
+        }
+
         if (has_prefix(argv[i], "-target="))
         {
             int r = parse_target(argv[i] + (sizeof("-target=") - 1), &options->target);
@@ -660,7 +713,7 @@ int fill_options(struct options* options,
     }
 
     /* after -Wall/-w..., which would turn it into a warning (dropped inside headers) */
-    if (options->find_definition)
+    if (options_is_find_request(options))
         options_set_note(options, W_FIND_DEFINITION, true);
 
     /* report modes do not need the tokens of inactive #if blocks */
@@ -668,7 +721,7 @@ int fill_options(struct options* options,
         options->keep_inactive_tokens = false;
 
     /* the report itself, even if -wd57/-wd94 disabled it */
-    if (options->report_unused)
+    if (options->request == REQUEST_REPORT_UNUSED)
     {
         options_set_warning(options, W_UNUSED_FUNCTION, true);
         options_set_warning(options, W_UNUSED_EXTERN_FUNCTION, true);
@@ -681,18 +734,41 @@ int fill_options(struct options* options,
 
 bool options_is_report_mode(const struct options* options)
 {
-    return options->find_definition || options->report_unused;
+    return options->request != REQUEST_NONE;
+}
+
+bool options_is_find_request(const struct options* options)
+{
+    return options->request == REQUEST_FIND_DEFINITION ||
+        options->request == REQUEST_FIND_DECLARATION ||
+        options->request == REQUEST_RENAME ||
+        options->request == REQUEST_FIND_USAGES;
+}
+
+bool options_find_wants_declaration(const struct options* options)
+{
+    return options->request == REQUEST_FIND_DECLARATION ||
+        options->request == REQUEST_RENAME ||
+        options->request == REQUEST_FIND_USAGES;
 }
 
 bool options_diagnostic_is_muted(const struct options* options, enum diagnostic_id w)
 {
-    if (options->find_definition)
+    switch (options->request)
+    {
+    case REQUEST_NONE:
+        return false;
+    case REQUEST_FIND_DEFINITION:
+    case REQUEST_FIND_DECLARATION:
         return w != W_FIND_DEFINITION;
-
-    if (options->report_unused)
+    case REQUEST_RENAME:
+    case REQUEST_FIND_USAGES: /* prints its own list */
+    case REQUEST_COMPLETE:
+        return true;
+    case REQUEST_REPORT_UNUSED:
         return w != W_UNUSED_FUNCTION && w != W_UNUSED_EXTERN_FUNCTION && w != W_UNUSED_MACRO &&
                w != W_UNUSED_ENUMERATOR && w != W_INFO;
-
+    }
     return false;
 }
 
@@ -776,7 +852,12 @@ void print_help()
     print_option("-sarif ", "Generates sarif files");
     print_option("-H", "Print the name of each header file used");
     print_option("-sarif-path", "Set sarif output dir");
+    print_option("-output-root=dir", "Output goes to dir/<platform>/<path relative to dir>");
     print_option("-find-definition line col", "Prints where the identifier at line col is defined");
+    print_option("-find-declaration line col", "Prints where the identifier at line col is declared");
+    print_option("-find-usages line col", "Prints where the identifier at line col is used");
+    print_option("-rename line col newname", "Renames the identifier at line col in the files");
+    print_option("-complete line col", "Prints the names that can be written at line col");
 
     print_option("-line-directives", "Emmits #line directives");
     print_option("-msvc-output", "Output is compatible with visual studio");

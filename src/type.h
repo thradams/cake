@@ -312,7 +312,7 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 
 void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_dup(const struct type* p_type);
-void type_set(struct type* a, const struct type* b);
+
 void type_destroy(_Opt _Dtor struct type* p_type);
 
 struct type type_common(const struct type* p_type1, const struct type* p_type2, enum target target);

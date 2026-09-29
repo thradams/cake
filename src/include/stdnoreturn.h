@@ -5,10 +5,10 @@
 
 #ifdef CAKE_HEADERS
 
-#pragma once
+    #pragma once
 
-#define noreturn _Noreturn
+    #define noreturn _Noreturn
 
 #else
-#include_next <stdnoreturn.h>
+    #include_next <stdnoreturn.h>
 #endif

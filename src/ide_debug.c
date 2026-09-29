@@ -1124,6 +1124,13 @@ static void debug_handle_line(struct debug_session* s, const char* line)
         s->cur_line = found_line;
         s->state = DBG_STOPPED;
     }
+    else if (strstr(line, "frame #0:") != NULL)
+    {
+        /* stopped in a frame without source info (e.g. libc) */
+        s->cur_file[0] = 0;
+        s->cur_line = -1;
+        s->state = DBG_STOPPED;
+    }
 #endif
 }
 

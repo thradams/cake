@@ -70,8 +70,6 @@
 #include <debugapi.h>
 #endif
 
-#define STRINGIFY(x) #x
-#define TOSTRING(x) STRINGIFY(x)
 
 /*
   Includes tokens that are not necessary for compilation
@@ -2288,6 +2286,10 @@ which would otherwise turn every later __has_include into 0).
 /* -find-definition: p_token, the name of macro, is under the cursor */
 static void find_definition_macro(struct preprocessor_ctx* ctx, const struct token* _Opt p_token, const struct macro* _Opt macro)
 {
+    /* -rename phase 2: a use (or the #define) of the macro being renamed */
+    if (p_token && macro && ctx->options.p_rename_list)
+        rename_record(&ctx->options, p_token, macro->p_name_token);
+
     if (p_token &&
         macro &&
         macro->p_name_token &&
@@ -2298,13 +2300,15 @@ static void find_definition_macro(struct preprocessor_ctx* ctx, const struct tok
     }
 }
 
-static bool preprocessor_name_is_defined(const struct preprocessor_ctx* ctx, const char* name)
+static bool preprocessor_name_is_defined(struct preprocessor_ctx* ctx, const struct token* p_name)
 {
     /* testing the name (#ifdef, #ifndef, defined) is a use of the macro */
+    const char* name = p_name->lexeme;
     struct macro* _Opt macro = find_macro(ctx, name);
     if (macro)
     {
         macro->used = true;
+        find_definition_macro(ctx, p_name, macro);
         return true;
     }
 
@@ -2412,15 +2416,6 @@ static void embed_params_destroy(_Dtor struct embed_params* p)
     token_list_destroy(&p->if_empty);
 }
 
-static bool embed_file_exists(const char* path)
-{
-    FILE* _Owner _Opt f = fopen(path, "rb");
-    if (f == NULL)
-        return false;
-    fclose(f);
-    return true;
-}
-
 /*
   Searches the embed resource.
   "" form: first relative to the current file directory, then include dirs.
@@ -2440,7 +2435,7 @@ static bool embed_find_resource(struct preprocessor_ctx* ctx,
     if (path_is_absolute(path))
     {
         snprintf(full_path_out, full_path_out_size, "%s", path);
-        return embed_file_exists(full_path_out);
+        return file_exists(full_path_out);
     }
 
     if (!is_angle_bracket_form)
@@ -2450,7 +2445,7 @@ static bool embed_find_resource(struct preprocessor_ctx* ctx,
         else
             snprintf(full_path_out, full_path_out_size, "%s", path);
 
-        if (embed_file_exists(full_path_out))
+        if (file_exists(full_path_out))
             return true;
     }
 
@@ -2459,7 +2454,7 @@ static bool embed_find_resource(struct preprocessor_ctx* ctx,
         size_t len = strlen(current->path);
         const char* separator = (len > 0 && current->path[len - 1] == '/') ? "" : "/";
         snprintf(full_path_out, full_path_out_size, "%s%s%s", current->path, separator, path);
-        if (embed_file_exists(full_path_out))
+        if (file_exists(full_path_out))
             return true;
     }
 
@@ -2802,7 +2797,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
               using them. These operators are implemented natively (not
               as macros), so recognize them here too.
             */
-                if (preprocessor_name_is_defined(ctx, p_new_token->lexeme))
+                if (preprocessor_name_is_defined(ctx, p_new_token))
                 {
                     temp = strdup("1");
                 }
@@ -3519,7 +3514,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
 
             if (is_active)
             {
-                *p_result = preprocessor_name_is_defined(ctx, input_list->head->lexeme) ? 1 : 0;
+                *p_result = preprocessor_name_is_defined(ctx, input_list->head) ? 1 : 0;
                 //printf("#ifdef %s (%s)\n", input_list->head->lexeme, *p_result ? "true" : "false");
                 match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
                 skip_blanks_level( &r, input_list, level);
@@ -3546,7 +3541,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
 
             if (is_active)
             {
-                *p_result = preprocessor_name_is_defined(ctx, input_list->head->lexeme) ? 0 : 1;
+                *p_result = preprocessor_name_is_defined(ctx, input_list->head) ? 0 : 1;
                 match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
                 skip_blanks_level( &r, input_list, level);
             }
@@ -4866,7 +4861,6 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
 
             macro->p_name_token = macro_name_token;
-            find_definition_macro(ctx, macro_name_token, macro);
 
             char* _Owner _Opt temp = strdup(input_list->head->lexeme);
             if (temp == NULL)
@@ -4876,6 +4870,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
             _Assert(macro->name == NULL);
             macro->name = temp;
+
+            find_definition_macro(ctx, macro_name_token, macro);
 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //nome da macro
 
@@ -5049,6 +5045,9 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 pre_unexpected_end_of_file(r.tail, ctx);
                 throw;
             }
+
+            /* #undef names the macro: -find-definition / -rename */
+            find_definition_macro(ctx, input_list->head, find_macro(ctx, input_list->head->lexeme));
 
             struct macro* _Owner _Opt macro = (struct macro* _Owner _Opt) hashmap_remove(&ctx->macros, input_list->head->lexeme, NULL);
             _Assert(find_macro(ctx, input_list->head->lexeme) == NULL);
@@ -6523,6 +6522,14 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
 
             if (is_active && input_list->head->type == TK_IDENTIFIER)
             {
+                /* -rename phase 2: the file is parsed only if the name appears */
+                if (!ctx->rename_old_name_found &&
+                    ctx->options.rename_old_name[0] != '\0' &&
+                    strcmp(input_list->head->lexeme, ctx->options.rename_old_name) == 0)
+                {
+                    ctx->rename_old_name_found = true;
+                }
+
                 origin = input_list->head;
                 macro = find_macro(ctx, input_list->head->lexeme);
                 if (macro &&
@@ -6578,7 +6585,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 }
 
                 /* -find-definition: the macro name, or a macro name inside its arguments as written */
-                if (ctx->options.find_definition && ctx->p_find_definition == NULL)
+                if ((options_is_find_request(&ctx->options) && ctx->p_find_definition == NULL) || ctx->options.p_rename_list)
                 {
                     find_definition_macro(ctx, origin, macro);
                     for (struct token* _Opt p = arguments.tokens.head; p && ctx->p_find_definition == NULL; p = p->next)
@@ -6876,7 +6883,7 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
   as unused, and with no definition token - the tokens that defined them
   are destroyed right after, so p_name_token would dangle.
 */
-void preprocessor_mark_predefined_macros(struct preprocessor_ctx* ctx)
+void preprocessor_mark_predefined_macros(const struct preprocessor_ctx* ctx)
 {
     const struct hash_map* map = &ctx->macros;
     if (map->table != NULL)
@@ -6897,32 +6904,12 @@ void preprocessor_mark_predefined_macros(struct preprocessor_ctx* ctx)
     }
 }
 
-/* -unused-extern-report: file is under the directory (case and slash insensitive on Windows) */
-static bool path_is_under(const char* file, const char* dir)
-{
-    for (; *dir; dir++, file++)
-    {
-        const bool slash_a = *dir == '/' || *dir == '\\';
-        const bool slash_b = *file == '/' || *file == '\\';
-        if (slash_a && slash_b)
-            continue;
-#ifdef _WIN32
-        if (tolower((unsigned char)*dir) != tolower((unsigned char)*file))
-            return false;
-#else
-        if (*dir != *file)
-            return false;
-#endif
-    }
-    return *file == '/' || *file == '\\';
-}
-
 bool is_file_under_project_folder(const struct global_unused_list* p, const char* file)
 {
     return p->root_dir == NULL || path_is_under(file, p->root_dir);
 }
 
-void preprocessor_register_unused_macros(struct preprocessor_ctx* ctx, struct global_unused_list* p)
+void preprocessor_register_unused_macros(const struct preprocessor_ctx* ctx, struct global_unused_list* p)
 {
     const struct hash_map* map = &ctx->macros;
     if (map->table == NULL)
@@ -7081,6 +7068,42 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
     if (ctx->options.use_cake_headers)
     {
         add_builtin_define(ctx, "#define CAKE_HEADERS\n");
+    }
+
+    switch (target)
+    {
+    case TARGET_X86_X64_GCC:
+        add_builtin_define(ctx, "#define CAKE_TARGET_COMPILER_GCC\n");
+        add_builtin_define(ctx, "#define CAKE_TARGET_PLATFORM_LINUX_X64\n");
+        break;
+    case TARGET_X86_MSVC:
+        add_builtin_define(ctx, "#define CAKE_TARGET_COMPILER_MSVC\n");
+        add_builtin_define(ctx, "#define CAKE_TARGET_PLATFORM_WIN_X86\n");
+        break;
+    case TARGET_X64_MSVC:
+        add_builtin_define(ctx, "#define CAKE_TARGET_COMPILER_MSVC\n");
+        add_builtin_define(ctx, "#define CAKE_TARGET_PLATFORM_WIN_X64\n");
+        break;
+    case TARGET_APPLE_ARM64:
+        add_builtin_define(ctx, "#define CAKE_TARGET_COMPILER_CLANG\n");
+        add_builtin_define(ctx, "#define CAKE_TARGET_PLATFORM_MACOS_ARM64\n");
+        break;
+    case TARGET_TCC_WIN_X64:
+        add_builtin_define(ctx, "#define CAKE_TARGET_COMPILER_TCC\n");
+        add_builtin_define(ctx, "#define CAKE_TARGET_PLATFORM_WIN_X64\n");
+        break;
+    case TARGET_TCC_LINUX_X64:
+        add_builtin_define(ctx, "#define CAKE_TARGET_COMPILER_TCC\n");
+        add_builtin_define(ctx, "#define CAKE_TARGET_PLATFORM_LINUX_X64\n");
+        break;
+    case TARGET_TCC_MACOS_ARM64:
+        add_builtin_define(ctx, "#define CAKE_TARGET_COMPILER_TCC\n");
+        add_builtin_define(ctx, "#define CAKE_TARGET_PLATFORM_MACOS_ARM64\n");
+        break;
+    case TARGET_CCU8:
+    case TARGET_LCCU16:
+    case TARGET_CATALINA:
+        break;
     }
 
     /*
@@ -9250,6 +9273,9 @@ int test_line_continuation()
 
     return 0; //
 }
+
+#define STRINGIFY_IMPL(x) #x
+#define STRINGIFY(x) STRINGIFY_IMPL(x)
 
 int stringify_test()
 {

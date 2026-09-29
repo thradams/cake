@@ -1263,6 +1263,7 @@ static bool struct_or_union_specifier_is_same_content_impl(const struct struct_o
 
         const struct member_declarator* _Opt p_a_declarator =
             p_a_declaration->member_declarator_list_opt ? p_a_declaration->member_declarator_list_opt->head : NULL;
+            
         const struct member_declarator* _Opt p_b_declarator =
             p_b_declaration->member_declarator_list_opt ? p_b_declaration->member_declarator_list_opt->head : NULL;
 
@@ -1270,9 +1271,12 @@ static bool struct_or_union_specifier_is_same_content_impl(const struct struct_o
         {
             /* anonymous struct/union member: both sides must be anonymous with the same content */
             const struct struct_or_union_specifier* _Opt p_a_anonymous =
-                p_a_declaration->specifier_qualifier_list->struct_or_union_specifier;
+                p_a_declaration->specifier_qualifier_list ?
+                p_a_declaration->specifier_qualifier_list->struct_or_union_specifier : NULL; 
+                
             const struct struct_or_union_specifier* _Opt p_b_anonymous =
-                p_b_declaration->specifier_qualifier_list->struct_or_union_specifier;
+                p_b_declaration->specifier_qualifier_list ? 
+                p_b_declaration->specifier_qualifier_list->struct_or_union_specifier : NULL; 
 
             if (p_a_declarator != NULL || p_b_declarator != NULL ||
                 p_a_anonymous == NULL || p_b_anonymous == NULL)
@@ -1281,10 +1285,9 @@ static bool struct_or_union_specifier_is_same_content_impl(const struct struct_o
             }
             else
             {
-                const struct struct_or_union_specifier* _Opt p_a_complete =
-                    get_complete_struct_or_union_specifier(p_a_anonymous);
-                const struct struct_or_union_specifier* _Opt p_b_complete =
-                    get_complete_struct_or_union_specifier(p_b_anonymous);
+                const struct struct_or_union_specifier* _Opt p_a_complete =get_complete_struct_or_union_specifier(p_a_anonymous);
+                    
+                const struct struct_or_union_specifier* _Opt p_b_complete =get_complete_struct_or_union_specifier(p_b_anonymous);
 
                 same = p_a_complete && p_b_complete &&
                        struct_or_union_specifier_is_same_content_impl(p_a_complete, p_b_complete, &frame);
@@ -1309,6 +1312,7 @@ static bool struct_or_union_specifier_is_same_content_impl(const struct struct_o
                 same = false;
             }
             else if (p_a_declarator->constant_expression &&
+                     p_b_declarator->constant_expression &&
                      object_to_unsigned_long_long(&p_a_declarator->constant_expression->object) !=
                      object_to_unsigned_long_long(&p_b_declarator->constant_expression->object))
             {
@@ -1322,6 +1326,7 @@ static bool struct_or_union_specifier_is_same_content_impl(const struct struct_o
             {
                 const struct struct_or_union_specifier* _Opt p_a_member_struct =
                     p_a->object.type.category == TYPE_CATEGORY_ITSELF ? p_a->object.type.struct_or_union_specifier : NULL;
+                    
                 const struct struct_or_union_specifier* _Opt p_b_member_struct =
                     p_b->object.type.category == TYPE_CATEGORY_ITSELF ? p_b->object.type.struct_or_union_specifier : NULL;
 
@@ -1329,10 +1334,8 @@ static bool struct_or_union_specifier_is_same_content_impl(const struct struct_o
                     p_a_member_struct->has_anonymous_tag && p_b_member_struct->has_anonymous_tag)
                 {
                     /* struct { int i; } m; -- generated tags differ, so compare the content */
-                    const struct struct_or_union_specifier* _Opt p_a_complete =
-                        get_complete_struct_or_union_specifier(p_a_member_struct);
-                    const struct struct_or_union_specifier* _Opt p_b_complete =
-                        get_complete_struct_or_union_specifier(p_b_member_struct);
+                    const struct struct_or_union_specifier* _Opt p_a_complete =get_complete_struct_or_union_specifier(p_a_member_struct);
+                    const struct struct_or_union_specifier* _Opt p_b_complete =get_complete_struct_or_union_specifier(p_b_member_struct);
 
                     same = p_a_complete && p_b_complete &&
                            p_a->object.type.type_qualifier_flags == p_b->object.type.type_qualifier_flags &&
@@ -1386,10 +1389,8 @@ static bool struct_or_union_specifier_is_compatible_impl(const struct struct_or_
     }
     else
     {
-        const struct struct_or_union_specifier* _Opt p_a_complete =
-            get_complete_struct_or_union_specifier(a);
-        const struct struct_or_union_specifier* _Opt p_b_complete =
-            get_complete_struct_or_union_specifier(b);
+        const struct struct_or_union_specifier* _Opt p_a_complete =get_complete_struct_or_union_specifier(a);
+        const struct struct_or_union_specifier* _Opt p_b_complete =get_complete_struct_or_union_specifier(b);
 
         if (p_a_complete && p_b_complete)
         {
@@ -1594,7 +1595,6 @@ bool type_is_unnamed_bitfield(const struct type* p_type)
 {
     return p_type->array_num_elements == 0;
 }
-
 
 bool type_is_decimal128(const struct type* p_type)
 {
@@ -2354,13 +2354,6 @@ struct type type_common(const struct type* p_type1, const struct type* p_type2, 
     type_destroy(&promoted_a);
     type_destroy(&promoted_b);
     return r;
-}
-
-void type_set(struct type* a, const struct type* b)
-{
-    struct type t = type_dup(b);
-    type_swap(&t, a);
-    type_destroy(&t);
 }
 
 struct type type_dup(const struct type* p_type)

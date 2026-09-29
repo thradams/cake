@@ -87,6 +87,9 @@ struct codegen_ctx
     /* set by a parent that needs an _Atomic operand as an lvalue (&, =, op=, ++, --) instead of loading it */
     bool atomic_lvalue;
 
+    /* set by a parent that already prints ( ) around the expression, as in if (...) */
+    bool parenthesis_not_needed;
+
     /* static helpers for _Atomic operations; the key is operation and types, the value is the helper name */
     struct hash_map atomic_helpers;
     struct osstream atomic_helpers_text;

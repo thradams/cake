@@ -68,6 +68,9 @@ struct preprocessor_ctx
     /* -find-definition: the #define of the macro name under the cursor; the parser does not run then */
     const struct token* _Opt p_find_definition;
 
+    /* -rename phase 2: options.rename_old_name was seen in active code */
+    bool rename_old_name_found;
+
     /* NULL unless the caller asked for includes (see struct include_listener) */
     const struct include_listener* _Opt include_listener;
     const char* _Opt source_file;
@@ -102,7 +105,6 @@ void token_list_pop_front(struct token_list* list);
 struct token* _Owner _Opt token_list_pop_front_get(struct token_list* list);
 void remove_line_continuation(char* s);
 bool token_list_is_equal(const struct token_list* list_a, const struct token_list* list_b);
-void token_list_insert_after(struct token_list* list, struct token* _Opt after, struct token_list* append);
 void token_list_insert_before(struct token_list* token_list, struct token* after, struct token_list* append_list);
 struct token_list tokenizer(struct tokenizer_ctx* p, const char* text, const char* _Opt filename_opt, int level, enum token_flags addflags);
 
@@ -115,7 +117,7 @@ void print_tokens(bool color_enabled, const struct token* _Opt p_token);
 void print_preprocessed(const struct token* p_token);
 const char* _Owner _Opt print_preprocessed_to_string(const struct token* p_token);
 const char* _Owner _Opt print_preprocessed_to_string2(const struct token* _Opt p_token);
-void preprocessor_mark_predefined_macros(struct preprocessor_ctx* ctx);
+void preprocessor_mark_predefined_macros(const struct preprocessor_ctx* ctx);
 
 /*
   -unused-extern-report: what the files of one invocation define, collected
@@ -154,7 +156,7 @@ bool is_file_under_project_folder(const struct global_unused_list* p, const char
 void global_unused_register(struct global_unused_list* p, enum global_unused_kind kind, const char* name, const char* file, int line, bool used_here, bool has_definition_here);
 
 /* registers the macros of the file just preprocessed */
-void preprocessor_register_unused_macros(struct preprocessor_ctx* ctx, struct global_unused_list* p);
+void preprocessor_register_unused_macros(const struct preprocessor_ctx* ctx, struct global_unused_list* p);
 
 const char* get_token_name(enum token_type tk);
 const char* get_diagnostic_friendly_token_name(enum token_type tk);

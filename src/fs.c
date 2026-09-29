@@ -7,6 +7,7 @@
 
 #include "cake_compat.h"
 #include <stdlib.h>
+#include <ctype.h>
 #include "fs.h"
 #include <wchar.h>
 
@@ -120,6 +121,127 @@ bool path_is_absolute(const char* path)
 bool path_is_relative(const char* path)
 {
     return !path_is_absolute(path);
+}
+
+/* '/' and '\' are the same separator; case insensitive on Windows */
+static bool path_char_equal(char a, char b)
+{
+    if ((a == '/' || a == '\\') && (b == '/' || b == '\\'))
+        return true;
+#ifdef _WIN32
+    return tolower((unsigned char)a) == tolower((unsigned char)b);
+#else
+    return a == b;
+#endif
+}
+
+bool path_equal(const char* a, const char* b)
+{
+    for (; *a && *b; a++, b++)
+    {
+        if (!path_char_equal(*a, *b))
+            return false;
+    }
+    return *a == *b;
+}
+
+bool path_is_under(const char* file, const char* dir)
+{
+    for (; *dir; dir++, file++)
+    {
+        if (!path_char_equal(*dir, *file))
+            return false;
+    }
+    return *file == '/' || *file == '\\';
+}
+
+bool file_exists(const char* path)
+{
+    FILE* _Owner _Opt f = fopen(path, "rb");
+    if (f == NULL)
+        return false;
+    fclose(f);
+    return true;
+}
+
+bool path_is_regular_file(const char* path)
+{
+    if (!path || !path[0])
+        return false;
+    struct stat st;
+    if (stat(path, &st) != 0)
+        return false;
+    /* MSVC has no S_ISREG, only S_IFMT/S_IFREG */
+    return (st.st_mode & S_IFMT) == S_IFREG;
+}
+
+long long file_mtime(const char* path)
+{
+    struct stat st;
+    if (!path || !path[0] || stat(path, &st) != 0)
+        return 0;
+    return (long long)st.st_mtime;
+}
+
+int create_multiple_paths(const char* root, const char* outdir)
+{
+    /*
+     * This function creates all dirs (folder1, forder2 ..) after root
+     * root   : C:/folder
+     * outdir : C:/folder/folder1/folder2 ...
+     */
+#if !defined __EMSCRIPTEN__
+    const char* p = outdir + strlen(root) + 1;
+    for (;;)
+    {
+        if (*p != '\0' && *p != '/' && *p != '\\')
+        {
+            p++;
+            continue;
+        }
+
+        char temp[FS_MAX_PATH] = { 0 };
+        strncpy(temp, outdir, p - outdir);
+
+        int er = mkdir(temp, 0777);
+        if (er != 0)
+        {
+            er = errno;
+            if (er != EEXIST)
+            {
+                printf("error creating output folder '%s' - %s\n", temp, get_posix_error_message(er));
+                return er;
+            }
+        }
+        if (*p == '\0')
+            break;
+        p++;
+    }
+    return 0;
+#else
+    return -1;
+#endif
+}
+
+char* _Owner _Opt read_file_binary(const char* path)
+{
+    FILE* _Owner _Opt f = fopen(path, "rb");
+    if (f == NULL)
+        return NULL;
+
+    char* _Owner _Opt content = NULL;
+    if (fseek(f, 0, SEEK_END) == 0)
+    {
+        const long size = ftell(f);
+        if (size >= 0 && fseek(f, 0, SEEK_SET) == 0)
+        {
+            content = malloc((size_t)size + 1);
+            if (content)
+                content[fread(content, 1, (size_t)size, f)] = '\0';
+        }
+    }
+    fclose(f);
+    return content;
 }
 
 

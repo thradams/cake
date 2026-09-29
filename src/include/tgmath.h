@@ -4,7 +4,7 @@
 */
 
 #ifdef CAKE_HEADERS
-#error <tgmath.h> is not available with -cake-headers yet
+    #error <tgmath.h> is not available with -cake-headers yet
 #else
-#include_next <tgmath.h>
+    #include_next <tgmath.h>
 #endif

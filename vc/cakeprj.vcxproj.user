@@ -28,6 +28,7 @@
     <LocalDebuggerCommandArguments>*.c -fanalyzer </LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)..\src\</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArgumentsHistory>*.c -fanalyzer |</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LocalDebuggerCommandArguments>flow_object.c -ownership=enable -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable </LocalDebuggerCommandArguments>

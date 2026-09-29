@@ -2852,7 +2852,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
 
                 object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_long_double(ctx->options.target, value);
-                p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_DOUBLE | TYPE_SPECIFIER_LONG;
+                p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_DOUBLE | TYPE_SPECIFIER_LONG;                                
             }
             else
             {
@@ -2921,6 +2921,12 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
     struct expression* _Owner _Opt p_expression_node = NULL;
     try
     {
+        if (complete_is_cursor(ctx, ctx->current))
+        {
+            complete_print_scopes(ctx);
+            throw; /* answered: leave the parser like an error */
+        }
+
         if (ctx->current->type == TK_IDENTIFIER)
         {
             p_expression_node = calloc(1, sizeof * p_expression_node);
@@ -2945,6 +2951,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                 type_destroy(&p_expression_node->object.type);
                 p_expression_node->object.type = type_make_enumerator(p_enumerator);
 
+                rename_record(&ctx->options, ctx->current, p_enumerator->token);
+
                 if (find_definition_is_cursor(ctx, ctx->current))
                 {
                     find_definition_set(ctx, p_enumerator->token);
@@ -2968,6 +2976,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                 }
 
                 _Assert(p_declarator != NULL);
+
+                rename_record(&ctx->options, ctx->current, p_declarator->name_opt);
 
                 if (find_definition_is_cursor(ctx, ctx->current))
                 {
@@ -3936,6 +3946,14 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     if (p_complete)
                         p_complete = get_complete_struct_or_union_specifier(p_complete);
 
+                    if (p_complete && complete_is_cursor(ctx, ctx->current))
+                    {
+                        complete_print_members(ctx, p_complete);
+                        expression_delete(p_expression_node_new);
+                        p_expression_node_new = NULL;
+                        throw; /* answered: leave the parser like an error */
+                    }
+
                     if (p_complete)
                     {
                         _Assert(ctx->current != NULL);
@@ -3946,9 +3964,16 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                         if (p_member_declarator)
                         {
+                            if (p_member_declarator->declarator)
+                            {
+                                rename_record(&ctx->options, ctx->current, p_member_declarator->declarator->name_opt);
+                            }
+
                             if (p_member_declarator->declarator && find_definition_is_cursor(ctx, ctx->current))
                             {
                                 find_definition_set(ctx, p_member_declarator->declarator->name_opt);
+                                expression_delete(p_expression_node_new);
+                                p_expression_node_new = NULL;
                                 throw; /* found: leave the parser like an error */
                             }
 
@@ -4045,6 +4070,27 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 }
                 else
                 {
+                    /* -complete after 'p.' where p points to a struct: its members, and '->' to fix the operator */
+                    if (complete_is_cursor(ctx, ctx->current) && type_is_pointer(&p_expression_node_new->left->object.type))
+                    {
+                        struct type pointed = type_remove_pointer(&p_expression_node_new->left->object.type);
+                        struct struct_or_union_specifier* _Opt p_complete =
+                            type_is_struct_or_union(&pointed) && pointed.struct_or_union_specifier ?
+                            get_complete_struct_or_union_specifier(pointed.struct_or_union_specifier) : NULL;
+                        if (p_complete)
+                        {
+                            ctx_print(ctx, "->\toperator\t\n");
+                            complete_print_members(ctx, p_complete);
+                        }
+                        type_destroy(&pointed);
+                        if (p_complete)
+                        {
+                            expression_delete(p_expression_node_new);
+                            p_expression_node_new = NULL;
+                            throw; /* answered: leave the parser like an error */
+                        }
+                    }
+
                     {
                         struct osstream ss = { 0 };
                         const struct type* p_left_type = &p_expression_node_new->left->object.type;
@@ -4123,6 +4169,15 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                         struct struct_or_union_specifier* _Opt p_complete =
                             get_complete_struct_or_union_specifier(p_expression_node->object.type.next->struct_or_union_specifier);
 
+                        if (p_complete && complete_is_cursor(ctx, ctx->current))
+                        {
+                            complete_print_members(ctx, p_complete);
+                            type_destroy(&item_type);
+                            expression_delete(p_expression_node_new);
+                            p_expression_node_new = NULL;
+                            throw; /* answered: leave the parser like an error */
+                        }
+
                         if (p_complete)
                         {
                             int member_index = 0;
@@ -4131,9 +4186,17 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                             if (p_member_declarator)
                             {
+                                if (p_member_declarator->declarator)
+                                {
+                                    rename_record(&ctx->options, ctx->current, p_member_declarator->declarator->name_opt);
+                                }
+
                                 if (p_member_declarator->declarator && find_definition_is_cursor(ctx, ctx->current))
                                 {
                                     find_definition_set(ctx, p_member_declarator->declarator->name_opt);
+                                    type_destroy(&item_type);
+                                    expression_delete(p_expression_node_new);
+                                    p_expression_node_new = NULL;
                                     throw; /* found: leave the parser like an error */
                                 }
 
@@ -4195,14 +4258,12 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                         }
                         else
                         {
-                            {
-                                struct osstream ss = { 0 };
-                                print_type_no_names(&ss, &item_type, ctx->options.target);
-                                diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, ctx->current, NULL, "member '%s' accessed through a pointer to incomplete type '%s'", ctx->current->lexeme, ss.c_str ? ss.c_str : "");
-                                ss_close(&ss);
-                            }
+                            struct osstream ss = { 0 };
+                            print_type_no_names(&ss, &item_type, ctx->options.target);
+                            diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, ctx->current, NULL, "member '%s' accessed through a pointer to incomplete type '%s'", ctx->current->lexeme, ss.c_str ? ss.c_str : "");
+                            ss_close(&ss);
                         }
-
+  
                         if (ctx->current != NULL)
                             p_expression_node_new->last_token = ctx->current;
 
@@ -4238,6 +4299,22 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 }
                 else
                 {
+                    /* -complete after 'x->' where x is a struct: its members, and '.' to fix the operator */
+                    if (type_is_struct_or_union(&p_expression_node->object.type) && complete_is_cursor(ctx, ctx->current))
+                    {
+                        struct struct_or_union_specifier* _Opt p_complete =
+                            p_expression_node->object.type.struct_or_union_specifier ?
+                            get_complete_struct_or_union_specifier(p_expression_node->object.type.struct_or_union_specifier) : NULL;
+                        if (p_complete)
+                        {
+                            ctx_print(ctx, ".\toperator\t\n");
+                            complete_print_members(ctx, p_complete);
+                        }
+                        expression_delete(p_expression_node_new);
+                        p_expression_node_new = NULL;
+                        throw; /* answered: leave the parser like an error */
+                    }
+
                     {
                         struct osstream ss = { 0 };
                         print_type_no_names(&ss, &p_expression_node->object.type, ctx->options.target);
@@ -4396,7 +4473,6 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
     {
     }
 
-    _Assert(p_expression_node == NULL || (p_expression_node->first_token && p_expression_node->last_token)); //lint 30 false positive
 
     return p_expression_node;
 }

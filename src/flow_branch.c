@@ -12,7 +12,12 @@
 #include "osstream.h"
 #include "error.h"
 
-#define FLOW_ALLOCATED_OBJECT_ARENA_MAX_SIZE 5000
+enum
+{ 
+   FLOW_BRANCH_INITIAL_BUCKETS = 8,
+   FLOW_ALLOCATED_OBJECT_ARENA_MAX_SIZE = 5000
+};
+
 
 static unsigned int flow_hash_key(const struct object* obj, int num_of_buckets)
 {

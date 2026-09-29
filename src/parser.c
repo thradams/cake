@@ -9,6 +9,7 @@
 #include "type.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <assert.h>
 #include "tokenizer.h"
 #include "hashmap.h"
@@ -2764,6 +2765,10 @@ void find_definition_report(const struct parser_ctx* ctx)
     if (ctx->p_find_definition == NULL)
         return;
 
+    /* -find-definition: only the definition is shown (see find_definition_run) */
+    if (ctx->find_definition_is_declaration && ctx->options.find_definition_hide_declaration)
+        return;
+
     diagnostic(W_FIND_DEFINITION, ctx, ctx->p_find_definition, NULL, "%s of '%s'",
         ctx->find_definition_is_declaration ? "declaration" : "definition",
         ctx->p_find_definition->lexeme);
@@ -2783,7 +2788,14 @@ void find_definition_set_declarator(struct parser_ctx* ctx, const struct declara
 
     const enum storage_class_specifier_flags flags = p_declarator->object.type.storage_class_specifier_flags;
 
-    if (type_is_function(&p_declarator->object.type))
+    if (options_find_wants_declaration(&ctx->options))
+    {
+        /* -find-declaration, -rename: the declaration is the identity of the symbol, not the definition */
+        ctx->find_definition_is_declaration = true;
+        ctx->find_definition_is_local = (flags & (STORAGE_SPECIFIER_BLOCK_SCOPE | STORAGE_SPECIFIER_PARAMETER)) != 0 &&
+            !(flags & STORAGE_SPECIFIER_EXTERN);
+    }
+    else if (type_is_function(&p_declarator->object.type))
     {
         const struct declarator* _Opt p_function_definition = declarator_get_function_definition(p_declarator);
         if (p_function_definition)
@@ -2802,10 +2814,125 @@ void find_definition_set_declarator(struct parser_ctx* ctx, const struct declara
     ctx->p_find_definition = p_declarator->name_opt;
 }
 
+void ctx_print(const struct parser_ctx* ctx, const char* fmt, ...)
+{
+    (void)ctx;
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
+}
+
+bool complete_is_cursor(const struct parser_ctx* ctx, const struct token* _Opt p_token)
+{
+    if (ctx->options.request != REQUEST_COMPLETE || p_token == NULL ||
+        (p_token->flags & TK_FLAG_MACRO_EXPANDED) ||
+        !token_is_in_find_definition_file(p_token, &ctx->options))
+    {
+        return false;
+    }
+
+    /* the caret is at the end of the prefix being typed, so the token ending at it counts */
+    return p_token->line > ctx->options.find_definition_line ||
+        (p_token->line == ctx->options.find_definition_line &&
+         p_token->col + (int)strlen(p_token->lexeme) >= ctx->options.find_definition_col);
+}
+
+/* -complete: one line of the answer - name<TAB>kind<TAB>type */
+static void complete_print_declarator(const struct parser_ctx* ctx, const char* name, const char* kind, const struct type* p_type)
+{
+    struct osstream ss = { 0 };
+    print_type_no_names(&ss, p_type, ctx->options.target);
+    ctx_print(ctx, "%s\t%s\t%s\n", name, kind, ss.c_str ? ss.c_str : "");
+    ss_close(&ss);
+}
+
+void complete_print_scopes(const struct parser_ctx* ctx)
+{
+    for (const struct scope* _Opt p_scope = ctx->scopes.tail; p_scope; p_scope = p_scope->previous)
+    {
+        if (p_scope->variables.table == NULL)
+            continue;
+
+        for (int i = 0; i < p_scope->variables.capacity; i++)
+        {
+            for (const struct map_entry* _Opt p_entry = p_scope->variables.table[i]; p_entry; p_entry = p_entry->next)
+            {
+                /* hidden by the same name in an inner scope */
+                bool hidden = false;
+                for (const struct scope* _Opt p_inner = ctx->scopes.tail; p_inner != p_scope; p_inner = p_inner->previous)
+                {
+                    _Assert(p_inner != NULL);
+                    if (hashmap_find(&p_inner->variables, p_entry->key))
+                    {
+                        hidden = true;
+                        break;
+                    }
+                }
+                if (hidden)
+                    continue;
+
+                if (p_entry->type == TAG_TYPE_ENUMERATOR)
+                {
+                    ctx_print(ctx, "%s\tenum\t\n", p_entry->key);
+                    continue;
+                }
+
+                const struct declarator* _Opt p_declarator = NULL;
+                if (p_entry->type == TAG_TYPE_DECLARATOR)
+                    p_declarator = p_entry->data.p_declarator;
+                else if (p_entry->type == TAG_TYPE_INIT_DECLARATOR && p_entry->data.p_init_declarator)
+                    p_declarator = p_entry->data.p_init_declarator->p_declarator;
+                if (p_declarator == NULL)
+                    continue;
+
+                const enum storage_class_specifier_flags flags = p_declarator->object.type.storage_class_specifier_flags;
+                const char* kind =
+                    (flags & STORAGE_SPECIFIER_TYPEDEF) ? "type" :
+                    type_is_function(&p_declarator->object.type) ? "func" :
+                    (flags & STORAGE_SPECIFIER_PARAMETER) ? "param" :
+                    "var";
+                complete_print_declarator(ctx, p_entry->key, kind, &p_declarator->object.type);
+            }
+        }
+    }
+}
+
+void complete_print_members(const struct parser_ctx* ctx, struct struct_or_union_specifier* p_complete)
+{
+    for (struct member_declaration* _Opt p_member_declaration = p_complete->member_declaration_list.head;
+         p_member_declaration;
+         p_member_declaration = p_member_declaration->next)
+    {
+        if (p_member_declaration->member_declarator_list_opt)
+        {
+            for (struct member_declarator* _Opt p_member_declarator = p_member_declaration->member_declarator_list_opt->head;
+                 p_member_declarator;
+                 p_member_declarator = p_member_declarator->next)
+            {
+                if (p_member_declarator->declarator && p_member_declarator->declarator->name_opt)
+                {
+                    complete_print_declarator(ctx, p_member_declarator->declarator->name_opt->lexeme, "member",
+                        &p_member_declarator->declarator->object.type);
+                }
+            }
+        }
+        else if (p_member_declaration->specifier_qualifier_list &&
+                 p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+        {
+            /* anonymous struct or union: its members are accessed directly */
+            struct struct_or_union_specifier* _Opt p_anonymous =
+                get_complete_struct_or_union_specifier(p_member_declaration->specifier_qualifier_list->struct_or_union_specifier);
+            if (p_anonymous)
+                complete_print_members(ctx, p_anonymous);
+        }
+    }
+}
+
 /* -find-definition, searching by name: p defines options.find_definition_name at file scope */
 static void find_definition_by_name(struct parser_ctx* ctx, const struct declaration* p)
 {
-    if (p->declaration_specifiers == NULL)
+    if (p->declaration_specifiers == NULL || ctx->options.find_definition_name_is_tag)
         return;
 
     const enum storage_class_specifier_flags flags = p->declaration_specifiers->storage_class_specifier_flags;
@@ -4651,9 +4778,17 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         }
         // ///////////////////////////////////////////////////////////////////////////
 
+        /* -rename: a redeclaration in the same scope is the symbol of the first declaration */
+        const struct declarator* p_rename_declarator =
+            (options_find_wants_declaration(&ctx->options) && p_previous_declarator && out_scope && ctx->scopes.tail &&
+             out_scope->scope_level == ctx->scopes.tail->scope_level) ?
+            p_previous_declarator : p_init_declarator->p_declarator;
+
+        rename_record(&ctx->options, tkname, p_rename_declarator->name_opt);
+
         /* -find-definition on the name being declared: no throw, a function body can still follow */
         if (find_definition_is_cursor(ctx, tkname))
-            find_definition_set_declarator(ctx, p_init_declarator->p_declarator);
+            find_definition_set_declarator(ctx, p_rename_declarator);
 
         if (ctx->current == NULL)
         {
@@ -6279,6 +6414,9 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
             /* if we got here, it must already exist (reuse?) */
             _Assert(p_type_specifier->typedef_declarator != NULL);
 
+            if (p_type_specifier->typedef_declarator)
+                rename_record(&ctx->options, ctx->current, p_type_specifier->typedef_declarator->name_opt);
+
             if (p_type_specifier->typedef_declarator && find_definition_is_cursor(ctx, ctx->current))
             {
                 find_definition_set(ctx, p_type_specifier->typedef_declarator->name_opt);
@@ -6522,6 +6660,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                         p_entry->data.p_struct_or_union_specifier->first_token->type)
                     {
                         p_first_tag_in_this_scope = p_entry->data.p_struct_or_union_specifier;
+                        p_struct_or_union_specifier->first_tag_token = p_first_tag_in_this_scope->first_tag_token;
                         p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_in_this_scope;
                         p_previous_definition = get_complete_struct_or_union_specifier(p_first_tag_in_this_scope);
                     }
@@ -6562,6 +6701,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                         p_struct_or_union_specifier->tagtoken->lexeme,
                         &item);
                     hash_item_set_destroy(&item);
+                    p_struct_or_union_specifier->first_tag_token = p_struct_or_union_specifier->tagtoken;
                     p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_struct_or_union_specifier;
                 }
                 else
@@ -6583,9 +6723,11 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                             p_struct_or_union_specifier->tagtoken->lexeme,
                             &item);
                         hash_item_set_destroy(&item);
+                        p_struct_or_union_specifier->first_tag_token = p_struct_or_union_specifier->tagtoken;
                     }
                     else
                     {
+                        p_struct_or_union_specifier->first_tag_token = p_first_tag_previous_scopes->first_tag_token;
                         if (p_first_tag_previous_scopes->first_token->type ==
                             p_struct_or_union_specifier->first_token->type)
                         {
@@ -6690,8 +6832,50 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             apply_gcc_struct_attributes(p_struct_or_union_specifier,
                                         p_struct_or_union_specifier->attribute_specifier_sequence_opt);
 
-            if (p_previous_definition &&
-                struct_or_union_specifier_is_same_content(p_previous_definition, p_struct_or_union_specifier))
+            const bool is_same_content = p_previous_definition &&
+                struct_or_union_specifier_is_same_content(p_previous_definition, p_struct_or_union_specifier);
+
+            /* -find-declaration, -rename, -find-usages: a member of a same content definition is the previous one */
+            bool member_found = false;
+            struct member_declaration* _Opt p_member_declaration = p_struct_or_union_specifier->member_declaration_list.head;
+            while (p_member_declaration)
+            {
+                struct member_declarator* _Opt p_member_declarator =
+                    p_member_declaration->member_declarator_list_opt ? p_member_declaration->member_declarator_list_opt->head : NULL;
+                while (p_member_declarator)
+                {
+                    const struct token* _Opt p_member_name = p_member_declarator->declarator ? p_member_declarator->declarator->name_opt : NULL;
+                    if (p_member_name)
+                    {
+                        const struct token* _Opt p_member_identity = p_member_name;
+                        if (is_same_content)
+                        {
+                            int member_index = 0;
+                            struct member_declarator* _Opt p_previous_member =
+                                find_member_declarator(&p_previous_definition->member_declaration_list, p_member_name->lexeme, &member_index);
+                            p_member_identity = p_previous_member && p_previous_member->declarator ? p_previous_member->declarator->name_opt : NULL;
+                        }
+
+                        rename_record(&ctx->options, p_member_name, p_member_identity);
+                        if (options_find_wants_declaration(&ctx->options) && find_definition_is_cursor(ctx, p_member_name))
+                        {
+                            ctx->find_definition_is_declaration = true;
+                            find_definition_set(ctx, p_member_identity);
+                            member_found = true;
+                        }
+                    }
+                    p_member_declarator = p_member_declarator->next;
+                }
+                p_member_declaration = p_member_declaration->next;
+            }
+
+            if (member_found)
+            {
+                /* found: leave the parser like an error */
+                throw;
+            }
+
+            if (is_same_content)
             {
                 /* same type: from here on this is just a reference to the previous definition, as in 'struct X b;' */
                 struct member_declaration_list empty = { 0 };
@@ -6699,6 +6883,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                 member_declaration_list_destroy(&empty);
 
                 p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_previous_definition;
+                p_struct_or_union_specifier->first_tag_token = p_previous_definition->first_tag_token;
                 if (first)
                 {
                     first->complete_struct_or_union_specifier_indirection = p_previous_definition;
@@ -6785,16 +6970,47 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
         p_struct_or_union_specifier = NULL;
     }
 
-    if (p_struct_or_union_specifier &&
-        p_struct_or_union_specifier->tagtoken &&
-        find_definition_is_cursor(ctx, p_struct_or_union_specifier->tagtoken))
+    if (p_struct_or_union_specifier && p_struct_or_union_specifier->tagtoken)
     {
-        const struct struct_or_union_specifier* _Opt p_complete = get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
-        find_definition_set(ctx, p_complete && p_complete->tagtoken ? p_complete->tagtoken : p_struct_or_union_specifier->tagtoken);
+        /* -find-declaration, -rename, -find-usages: first_tag_token is the identity */
+        rename_record(&ctx->options, p_struct_or_union_specifier->tagtoken, p_struct_or_union_specifier->first_tag_token);
 
-        /* found: leave the parser like an error */
-        struct_or_union_specifier_delete(p_struct_or_union_specifier);
-        p_struct_or_union_specifier = NULL;
+        /* -find-definition, searching by name: the struct or union with members */
+        if (ctx->options.find_definition_name_is_tag &&
+            ctx->p_find_definition == NULL &&
+            p_struct_or_union_specifier->member_declaration_list.head &&
+            strcmp(p_struct_or_union_specifier->tagtoken->lexeme, ctx->options.find_definition_name) == 0)
+        {
+            ctx->p_find_definition = p_struct_or_union_specifier->tagtoken;
+        }
+
+        if (find_definition_is_cursor(ctx, p_struct_or_union_specifier->tagtoken))
+        {
+            if (options_find_wants_declaration(&ctx->options))
+            {
+                ctx->find_definition_is_declaration = true;
+                find_definition_set(ctx, p_struct_or_union_specifier->first_tag_token);
+            }
+            else
+            {
+                const struct struct_or_union_specifier* _Opt p_complete = get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
+                if (p_complete && p_complete->tagtoken)
+                {
+                    find_definition_set(ctx, p_complete->tagtoken);
+                }
+                else
+                {
+                    /* not complete in this file: the definition is searched by name in the other files */
+                    ctx->find_definition_is_declaration = true;
+                    ctx->find_definition_is_tag = true;
+                    find_definition_set(ctx, p_struct_or_union_specifier->first_tag_token);
+                }
+            }
+
+            /* found: leave the parser like an error */
+            struct_or_union_specifier_delete(p_struct_or_union_specifier);
+            p_struct_or_union_specifier = NULL;
+        }
     }
 
     return p_struct_or_union_specifier;
@@ -7512,32 +7728,6 @@ struct object* _Opt find_object_declarator_by_index(const struct object* p_objec
     return find_object_declarator_by_index_core(p_object, list, member_index, &count);
 }
 
-void print_specifier_qualifier_list(struct osstream* ss, bool* first, const struct specifier_qualifier_list* p_specifier_qualifier_list)
-{
-
-    print_type_qualifier_flags(ss, first, p_specifier_qualifier_list->type_qualifier_flags);
-
-    if (p_specifier_qualifier_list->enum_specifier)
-    {
-
-        // TODO
-        _Assert(false);
-    }
-    else if (p_specifier_qualifier_list->struct_or_union_specifier)
-    {
-        ss_fprintf(ss, "struct %s", p_specifier_qualifier_list->struct_or_union_specifier->tag_name);
-    }
-    else if (p_specifier_qualifier_list->typedef_declarator)
-    {
-        if (p_specifier_qualifier_list->typedef_declarator->name_opt)
-            print_item(ss, first, p_specifier_qualifier_list->typedef_declarator->name_opt->lexeme);
-    }
-    else
-    {
-        print_type_specifier_flags(ss, first, p_specifier_qualifier_list->type_specifier_flags, p_specifier_qualifier_list->bitint_width);
-    }
-}
-
 void specifier_qualifier_list_add(struct specifier_qualifier_list* list, struct type_specifier_qualifier* _Owner p_item)
 {
     if (list->head == NULL)
@@ -8024,6 +8214,8 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, &item);
             hash_item_set_destroy(&item);
 
+            p_enum_specifier->first_tag_token = prev_decl_same_scope ? prev_decl_same_scope->first_tag_token : p_enum_specifier->tag_token;
+
             if (prev_decl_same_scope)
             {
                 /* C23 6.2.7 (N3037): a redefinition in the same scope must have the same content (issue #187) */
@@ -8057,6 +8249,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 /* check for another tag with the same name in this scope */
 
                 p_enum_specifier->p_complete_enum_specifier = p_existing_enum_specifier;
+                p_enum_specifier->first_tag_token = p_existing_enum_specifier->first_tag_token;
             }
             else
             {
@@ -8072,6 +8265,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 }
 
                 p_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
+                p_enum_specifier->first_tag_token = p_enum_specifier->tag_token;
                 struct hash_item_set item = { 0 };
                 item.p_enum_specifier = enum_specifier_add_ref(p_enum_specifier);
                 hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, &item);
@@ -8085,12 +8279,43 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
         p_enum_specifier = NULL;
     }
 
+    /* -find-declaration, -rename, -find-usages: the first declaration of the tag is the identity */
+    const struct token* _Opt p_first_tag = p_enum_specifier ? p_enum_specifier->first_tag_token : NULL;
+    if (p_enum_specifier && p_enum_specifier->tag_token)
+        rename_record(&ctx->options, p_enum_specifier->tag_token, p_first_tag);
+
+    /* -find-definition, searching by name: the enum with enumerators */
+    if (p_enum_specifier &&
+        p_enum_specifier->tag_token &&
+        ctx->options.find_definition_name_is_tag &&
+        ctx->p_find_definition == NULL &&
+        p_enum_specifier->enumerator_list.head &&
+        strcmp(p_enum_specifier->tag_token->lexeme, ctx->options.find_definition_name) == 0)
+    {
+        ctx->p_find_definition = p_enum_specifier->tag_token;
+    }
+
     if (p_enum_specifier &&
         p_enum_specifier->tag_token &&
         find_definition_is_cursor(ctx, p_enum_specifier->tag_token))
     {
         const struct enum_specifier* _Opt p_definition = get_enum_specifier_definition(p_enum_specifier);
-        find_definition_set(ctx, p_definition && p_definition->tag_token ? p_definition->tag_token : p_enum_specifier->tag_token);
+        if (options_find_wants_declaration(&ctx->options))
+        {
+            ctx->find_definition_is_declaration = true;
+            find_definition_set(ctx, p_first_tag);
+        }
+        else if (p_definition && p_definition->tag_token)
+        {
+            find_definition_set(ctx, p_definition->tag_token);
+        }
+        else
+        {
+            /* not complete in this file: the definition is searched by name in the other files */
+            ctx->find_definition_is_declaration = true;
+            ctx->find_definition_is_tag = true;
+            find_definition_set(ctx, p_first_tag);
+        }
 
         /* found: leave the parser like an error */
         enum_specifier_delete(p_enum_specifier);
@@ -8376,6 +8601,10 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
         item.p_enumerator = enumerator_add_ref(p_enumerator);
         hashmap_set(&ctx->scopes.tail->variables, p_enumerator->token->lexeme, &item);
         hash_item_set_destroy(&item);
+
+        rename_record(&ctx->options, p_enumerator->token, p_enumerator->token);
+        if (options_find_wants_declaration(&ctx->options) && find_definition_is_cursor(ctx, p_enumerator->token))
+            find_definition_set(ctx, p_enumerator->token);
 
         if (ctx->current == NULL)
         {
@@ -9896,6 +10125,10 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
 
             /* print_scope(ctx->current_scope); */
             hash_item_set_destroy(&item);
+
+            rename_record(&ctx->options, p_parameter_declaration->declarator->name_opt, p_parameter_declaration->declarator->name_opt);
+            if (find_definition_is_cursor(ctx, p_parameter_declaration->declarator->name_opt))
+                find_definition_set_declarator(ctx, p_parameter_declaration->declarator);
         }
     }
     catch
@@ -15191,22 +15424,26 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
 
             declaration_list_add(&declaration_list, p);
 
-            if (ctx->options.find_definition &&
+            if (options_is_find_request(&ctx->options) &&
                 (ctx->p_find_definition != NULL || find_definition_passed_cursor(ctx)))
             {
                 break;
             }
+
+            /* -complete: the cursor was not in an expression */
+            if (ctx->options.request == REQUEST_COMPLETE && find_definition_passed_cursor(ctx))
+                break;
         }
 
         /* -find-definition reports nothing else, so these end-of-file checks are not needed */
-        if (!ctx->options.find_definition)
+        if (!options_is_find_request(&ctx->options))
             check_unused_declarators(ctx, &declaration_list);
 
         if (ctx->options.p_unused_functions)
             register_unused_enumerators(ctx, ctx->options.p_unused_functions);
 
         // check that all enums that have objects are defined
-        struct block_item* _Opt decl = ctx->options.find_definition ? NULL : ctx->used_incomplete_enums.head;
+        struct block_item* _Opt decl = options_is_find_request(&ctx->options) ? NULL : ctx->used_incomplete_enums.head;
         while (decl)
         {
             const struct enum_specifier* _Opt declared_enum =
@@ -15858,6 +16095,12 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                             if (p_member_declarator->declarator->name_opt &&
                                 strcmp(p_member_declarator->declarator->name_opt->lexeme, name) == 0)
                             {
+                                rename_record(&ctx->options, p_designator->token, p_member_declarator->declarator->name_opt);
+                                if (find_definition_is_cursor(ctx, p_designator->token))
+                                {
+                                    find_definition_set(ctx, p_member_declarator->declarator->name_opt);
+                                }
+
                                 if (p_designator->next != NULL)
                                     return find_designated_subobject(ctx, &p_member_declarator->declarator->object.type, p_member_object, p_designator->next, is_constant, p_type_out2, false, ctx->options.target);
                                 else

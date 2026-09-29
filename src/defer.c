@@ -1207,17 +1207,14 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 {
-    if (p->tail_block != NULL)
+    struct defer_scope* _Owner _Opt it = p->tail_block;
+    while (it)
     {
-        struct defer_scope* _Owner _Opt it = p->tail_block;
-        while (it)
-        {
-            struct defer_scope* _Owner _Opt next = it->previous;
-            it->previous = NULL;
-            defer_scope_delete(it);
-            it = next;
-        }
-        
-    }
+        struct defer_scope* _Owner _Opt next = it->previous;
+        it->previous = NULL;
+        defer_scope_delete(it);
+        it = next;
+    }  
 }
+
 

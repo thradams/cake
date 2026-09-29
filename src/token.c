@@ -15,6 +15,7 @@
 #include <stdlib.h>
 
 #include "console.h"
+#include "fs.h"
 #include "osstream.h"
 #include "tokenizer.h"
 
@@ -238,64 +239,6 @@ char* _Owner _Opt token_list_join_tokens(struct token_list* list, bool bliteral)
     ss_close(&ss);
 
     return cstr;
-}
-
-
-void token_list_insert_after(struct token_list* token_list, struct token* _Opt after, struct token_list* append_list)
-{
-    if (append_list->head == NULL)
-    {
-        return;//nothing to append
-    }
-
-    if (token_list->head == NULL)
-    {
-        _Assert(after == NULL);
-        token_list->head = append_list->head;
-        token_list->tail = append_list->tail;
-        append_list->head = NULL;
-        append_list->tail = NULL;
-        return;
-    }
-
-    if (after == NULL)
-    {
-        _Assert(append_list->tail != NULL);
-        _Assert(append_list->tail->next == NULL);
-        append_list->tail->next = token_list->head;
-        token_list->head->prev = append_list->tail; //TODO empty case
-
-        token_list->head = append_list->head;
-        append_list->head->prev = NULL;
-    }
-    else
-    {
-        struct token* _Owner _Opt follow = after->next;
-        if (token_list->tail == after)
-        {
-            token_list->tail = append_list->tail;
-        }
-        else if (token_list->head == after)
-        {
-        }
-        _Assert(append_list->tail != NULL);
-        _Assert(append_list->tail->next == NULL);
-        append_list->tail->next = follow;
-        if (follow != NULL)
-            follow->prev = append_list->tail;
-        after->next = append_list->head;
-        append_list->head->prev = after;
-
-    }
-
-    append_list->head = NULL;
-    append_list->tail = NULL;
-    _Assert(token_list->head == NULL || token_list->head->prev == NULL);
-}
-
-void token_list_insert_before(struct token_list* token_list, struct token* after, struct token_list* append_list)
-{
-    token_list_insert_after(token_list, after->prev, append_list);
 }
 
 bool token_list_is_equal(const struct token_list* list_a, const struct token_list* list_b)
@@ -633,30 +576,6 @@ bool token_list_is_empty(const struct token_list* p)
     return p->head == NULL;
 }
 
-void print_list(bool color_enabled, struct token_list* list)
-{
-    struct token* _Opt current = list->head;
-    while (current)
-    {
-        if (current != list->head)
-        {
-            printf("\xcb\xb0");
-            //printf("`");
-        }
-        print_literal2(current->lexeme);
-
-        if (color_enabled)
-            printf(COLOR_RESET);
-
-        if (current == list->tail)
-        {
-            //printf("`");
-        }
-        current = current->next;
-    }
-    printf("\n");
-}
-
 void print_literal2(const char* s)
 {
     while (*s)
@@ -785,7 +704,7 @@ bool token_is_in_find_definition_file(const struct token* p_token, const struct 
 
 bool token_is_find_definition_cursor(const struct token* p_token, const struct options* options)
 {
-    if (!options->find_definition ||
+    if (!options_is_find_request(options) ||
         (p_token->flags & TK_FLAG_MACRO_EXPANDED) ||
         p_token->line != options->find_definition_line)
     {
@@ -1296,22 +1215,17 @@ static void integer_suffix_opt(struct stream* stream, char suffix[4])
           bit-precise-int-suffix unsigned-suffixop
     */
 
-    //test 3100
-    if (/*unsigned-suffix*/
-        stream->current[0] == 'U' || stream->current[0] == 'u')
+    if (stream->current[0] == 'U' || stream->current[0] == 'u') /* unsigned-suffix */
     {
         suffix[0] = 'U';
         stream_match(stream);
 
-
-        /*long-suffixopt*/
-        if (stream->current[0] == 'l' || stream->current[0] == 'L')
+        if (stream->current[0] == 'l' || stream->current[0] == 'L') /* long-suffixopt */
         {
             suffix[1] = 'L';
             stream_match(stream);
 
-            /*long-long-suffix*/
-            if (stream->current[0] == 'l' || stream->current[0] == 'L')
+            if (stream->current[0] == 'l' || stream->current[0] == 'L') /* long-long-suffix */
             {
                 suffix[2] = 'L';
                 stream_match(stream);
@@ -1320,7 +1234,7 @@ static void integer_suffix_opt(struct stream* stream, char suffix[4])
         else if ((stream->current[0] == 'w' || stream->current[0] == 'W') &&
                  (stream->current[1] == 'b' || stream->current[1] == 'B'))
         {
-            /*bit-precise-int-suffix, sample 1uwb*/
+            /* bit-precise-int-suffix, sample 1uwb */
             suffix[1] = 'W';
             suffix[2] = 'B';
             stream_match(stream);
@@ -1328,21 +1242,19 @@ static void integer_suffix_opt(struct stream* stream, char suffix[4])
         }
         else
         {
-            /*microsoft extension, sample 1ui64*/
-            microsoft_integer_suffix_opt(stream, suffix, true);
+            microsoft_integer_suffix_opt(stream, suffix, true); /* microsoft extensions */
         }
     }
     else if ((stream->current[0] == 'w' || stream->current[0] == 'W') &&
              (stream->current[1] == 'b' || stream->current[1] == 'B'))
     {
-        /*bit-precise-int-suffix unsigned-suffixopt, sample 1wb 1wbu*/
+        /* bit-precise-int-suffix unsigned-suffixopt, sample 1wb 1wbu */
         stream_match(stream);
         stream_match(stream);
 
         if (stream->current[0] == 'U' || stream->current[0] == 'u')
         {
-            //normalize the output to UWB
-            suffix[0] = 'U';
+            suffix[0] = 'U';     /* normalize */
             suffix[1] = 'W';
             suffix[2] = 'B';
             stream_match(stream);
@@ -1353,26 +1265,21 @@ static void integer_suffix_opt(struct stream* stream, char suffix[4])
             suffix[1] = 'B';
         }
     }
-    else if ((stream->current[0] == 'l' || stream->current[0] == 'L'))
+    else if ((stream->current[0] == 'l' || stream->current[0] == 'L')) /* long-suffix */
     {
         suffix[0] = 'L';
 
-        /*long-suffix*/
         stream_match(stream);
 
-        /*long-long-suffix*/
-        if ((stream->current[0] == 'l' || stream->current[0] == 'L'))
+        if ((stream->current[0] == 'l' || stream->current[0] == 'L')) /* long-long-suffix */
         {
             suffix[1] = 'L';
             stream_match(stream);
         }
 
-        if (/*unsigned-suffix*/
-            stream->current[0] == 'U' || stream->current[0] == 'u')
+        if (stream->current[0] == 'U' || stream->current[0] == 'u') /* unsigned-suffix */
         {
-
-            //normalize the output from LLU to ul 
-            suffix[3] = suffix[2];
+            suffix[3] = suffix[2];  /* normalize */
             suffix[2] = suffix[1];
             suffix[1] = suffix[0];
             suffix[0] = 'U';
@@ -1381,8 +1288,7 @@ static void integer_suffix_opt(struct stream* stream, char suffix[4])
     }
     else
     {
-        /*microsoft extension, sample 1i64*/
-        microsoft_integer_suffix_opt(stream, suffix, false);
+        microsoft_integer_suffix_opt(stream, suffix, false); /* microsoft extensions */
     }
 }
 
@@ -1390,8 +1296,8 @@ static bool exponent_part_opt(struct stream* stream, _Out char errmsg[100])
 {
     /*
     exponent-part:
-    e signopt digit-sequence
-    E signopt digit-sequence
+        e signopt digit-sequence
+        E signopt digit-sequence
     */
     if (stream->current[0] == 'e' || stream->current[0] == 'E')
     {
@@ -1500,7 +1406,6 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], _Out ch
         }
         else if (type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT)
         {
-            /*the binary exponent is not optional in a hexadecimal floating constant*/
             snprintf(errmsg, 100, "hexadecimal floating constant requires an exponent");
             return TK_NONE;
         }
@@ -1517,8 +1422,7 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], _Out ch
         stream_match(stream);
         if (is_binary_digit(stream))
         {
-            while (is_binary_digit(stream) ||
-                digit_separator_opt(stream, is_binary_digit))
+            while (is_binary_digit(stream) || digit_separator_opt(stream, is_binary_digit))
             {
                 stream_match(stream);
             }
@@ -1530,16 +1434,14 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], _Out ch
         }
         integer_suffix_opt(stream, suffix);
     }
-    else if (stream->current[0] == '0') // octal
+    else if (stream->current[0] == '0') /* octal */
     {
         type = TK_COMPILER_OCTAL_CONSTANT;
 
         stream_match(stream);
 
-        if (stream->current[0] == 'O' || stream->current[0] == 'o')
+        if (stream->current[0] == 'O' || stream->current[0] == 'o') /* n3319 */
         {
-            //C2Y
-            //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3319.htm
             stream_match(stream);
         }
 
@@ -1562,7 +1464,7 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], _Out ch
             floating_suffix_opt(stream, suffix);
         }
     }
-    else if (is_nonzero_digit(stream)) // decimal
+    else if (is_nonzero_digit(stream)) /* decimal */
     {
         type = TK_COMPILER_DECIMAL_CONSTANT;
 
@@ -1668,12 +1570,12 @@ enum token_type parse_number(const char* lexeme, char suffix[4], _Out char errms
 
 const unsigned char* _Opt str_utf8_decode(const unsigned char* s, _Out unsigned int* c)
 {
-    *c = 0; //out
+    *c = 0; /* out */
 
     if (s[0] == '\0')
     {
         *c = 0;
-        return NULL; /*end*/
+        return NULL; /* end */
     }
 
     const unsigned char* _Opt next = NULL;
@@ -1963,3 +1865,188 @@ void parse_number_test()
 }
 
 #endif
+
+/* -rename phase 2: p_token is renamed when p_declaration_name is the target declaration (options->rename_target_*) */
+static void rename_item_free(_Dtor struct rename_item* p)
+{
+    free(p->file);
+}
+
+void rename_list_clear(_Clear struct rename_list* p)
+{
+    for (int i = 0; i < p->size; i++)
+        rename_item_free(&p->data[i]);
+    free(p->data);
+    p->data = NULL;
+    p->size = 0;
+    p->capacity = 0;
+
+    for (int i = 0; i < p->pending_size; i++)
+    {
+        rename_item_free(&p->pending[i].item);
+        rename_item_free(&p->pending[i].declaration);
+    }
+    free(p->pending);
+    p->pending = NULL;
+    p->pending_size = 0;
+    p->pending_capacity = 0;
+}
+
+static bool rename_item_is(const struct rename_item* p, const char* file, int line, int col)
+{
+    return p->line == line && p->col == col && path_equal(p->file, file);
+}
+
+static bool rename_list_contains(const struct rename_list* list, const struct rename_item* p)
+{
+    bool found = false;
+    for (int i = 0; i < list->size; i++)
+    {
+        if (rename_item_is(&list->data[i], p->file, p->line, p->col))
+        {
+            found = true;
+            break;
+        }
+    }
+    return found;
+}
+
+void rename_record(const struct options* options, const struct token* p_token, const struct token* _Opt p_declaration_name)
+{
+    struct rename_list* _Opt list = options->p_rename_list;
+    if (list == NULL || p_declaration_name == NULL ||
+        p_declaration_name->token_origin == NULL || p_token->token_origin == NULL ||
+        (p_token->flags & TK_FLAG_MACRO_EXPANDED) ||
+        strcmp(p_token->lexeme, list->old_name) != 0)
+    {
+        return;
+    }
+
+    if (list->pending_size == list->pending_capacity)
+    {
+        const int capacity = list->pending_capacity == 0 ? 16 : list->pending_capacity * 2;
+        struct rename_pending* _Owner _Opt p = realloc(list->pending, capacity * sizeof(struct rename_pending));
+        if (p == NULL)
+            return;
+        list->pending = p;
+        list->pending_capacity = capacity;
+    }
+
+    char* _Owner _Opt file_copy = strdup(p_token->token_origin->lexeme);
+    char* _Owner _Opt declaration_file_copy = strdup(p_declaration_name->token_origin->lexeme);
+    if (file_copy == NULL || declaration_file_copy == NULL)
+    {
+        free(file_copy);
+        free(declaration_file_copy);
+        return;
+    }
+
+    struct rename_pending* p_pending = &list->pending[list->pending_size];
+    p_pending->item.file = file_copy;
+    p_pending->item.line = p_token->line;
+    p_pending->item.col = p_token->col;
+    p_pending->declaration.file = declaration_file_copy;
+    p_pending->declaration.line = p_declaration_name->line;
+    p_pending->declaration.col = p_declaration_name->col;
+    list->pending_size++;
+}
+
+bool rename_list_commit(struct rename_list* list, const struct options* options)
+{
+    bool resolved = list->pending_size == 0;
+    /* the declarations this file gives to the target or to an occurrence already kept (a header seen by many files) */
+    for (int i = 0; i < list->pending_size; i++)
+    {
+        struct rename_pending* p_pending = &list->pending[i];
+        if (p_pending->item.file == NULL)
+            continue; /* already kept with its declaration */
+
+        const bool is_target = rename_item_is(&p_pending->declaration,
+            options->rename_target_file, options->rename_target_line, options->rename_target_col);
+        if (!is_target && !rename_list_contains(list, &p_pending->item))
+            continue;
+
+        resolved = true;
+
+        for (int j = 0; j < list->pending_size; j++)
+        {
+            struct rename_pending* p_other = &list->pending[j];
+            if (p_other->item.file == NULL ||
+                !rename_item_is(&p_other->declaration, p_pending->declaration.file,
+                    p_pending->declaration.line, p_pending->declaration.col) ||
+                rename_list_contains(list, &p_other->item))
+            {
+                continue;
+            }
+
+            if (list->size == list->capacity)
+            {
+                const int capacity = list->capacity == 0 ? 16 : list->capacity * 2;
+                struct rename_item* _Owner _Opt p = realloc(list->data, capacity * sizeof(struct rename_item));
+                if (p == NULL)
+                    break;
+                list->data = p;
+                list->capacity = capacity;
+            }
+
+            list->data[list->size] = p_other->item;
+            list->size++;
+            p_other->item.file = NULL;
+        }
+    }
+
+    /* undecided: the pairs stay, rename_list_save_pending keeps them for phase 3 */
+    if (!resolved)
+        return false;
+
+    for (int i = 0; i < list->pending_size; i++)
+    {
+        rename_item_free(&list->pending[i].item);
+        rename_item_free(&list->pending[i].declaration);
+    }
+    list->pending_size = 0;
+    return true;
+}
+
+static void rename_pairs_swap(struct rename_list* list, struct rename_pairs* pairs)
+{
+    struct rename_pending* _Owner _Opt data = list->pending;
+    const int size = list->pending_size;
+    const int capacity = list->pending_capacity;
+    list->pending = pairs->data;
+    list->pending_size = pairs->size;
+    list->pending_capacity = pairs->capacity;
+    pairs->data = data;
+    pairs->size = size;
+    pairs->capacity = capacity;
+}
+
+void rename_list_save_pending(struct rename_list* list, struct rename_pairs* out)
+{
+    rename_pairs_clear(out);
+    rename_pairs_swap(list, out);
+}
+
+bool rename_list_commit_saved(struct rename_list* list, struct rename_pairs* saved, const struct options* options)
+{
+    rename_pairs_swap(list, saved);
+    const bool resolved = rename_list_commit(list, options);
+    rename_pairs_swap(list, saved);
+    if (resolved)
+        rename_pairs_clear(saved);
+    return resolved;
+}
+
+void rename_pairs_clear(_Clear struct rename_pairs* p)
+{
+    for (int i = 0; i < p->size; i++)
+    {
+        rename_item_free(&p->data[i].item);
+        rename_item_free(&p->data[i].declaration);
+    }
+    free(p->data);
+    p->data = NULL;
+    p->size = 0;
+    p->capacity = 0;
+}
+

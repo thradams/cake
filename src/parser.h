@@ -58,13 +58,19 @@ struct report
       direct commands like -autoconfig doesnt use report
     */
     bool ignore_this_report;
+    bool quiet; /* -quiet: no report on success */
 
     /* -find-definition: what the parse of one file found */
     bool find_definition_found;
     bool find_definition_is_declaration;
     bool find_definition_is_static;
+    bool find_definition_is_tag;
     char find_definition_name[200];
     char find_definition_file[FS_MAX_PATH]; /* where the declaration is */
+    int find_definition_line;
+    int find_definition_col;
+    bool find_definition_is_local; /* -rename: block scope or parameter */
+    bool find_definition_is_macro; /* resolved by the preprocessor */
 
     /* optional: told about every #include of every file compiled */
     const struct include_listener* _Opt include_listener;
@@ -247,6 +253,8 @@ struct parser_ctx
     /* -find-definition: p_find_definition is only a declaration (prototype, extern) */
     bool find_definition_is_declaration;
     bool find_definition_is_static;
+    bool find_definition_is_local;
+    bool find_definition_is_tag; /* struct, union or enum not complete in this file */
 
     /* -find-definition: 'goto label' under the cursor whose label comes later in the function */
     const struct token* _Opt p_find_definition_label_use;
@@ -280,6 +288,16 @@ bool find_definition_is_cursor(const struct parser_ctx* ctx, const struct token*
 void find_definition_set(struct parser_ctx* ctx, const struct token* _Opt p_definition);
 void find_definition_set_declarator(struct parser_ctx* ctx, const struct declarator* p_declarator);
 void find_definition_report(const struct parser_ctx* ctx);
+
+/* Every answer the parser prints (not diagnostics) goes through here, so it can be sent to another output */
+void ctx_print(const struct parser_ctx* ctx, const char* fmt, ...);
+
+/* -complete: true when p_token is the first token at or after the cursor line:col */
+bool complete_is_cursor(const struct parser_ctx* ctx, const struct token* _Opt p_token);
+/* -complete: prints the names visible in the current scopes */
+void complete_print_scopes(const struct parser_ctx* ctx);
+/* -complete: prints the members of the struct or union (after '.' or '->') */
+void complete_print_members(const struct parser_ctx* ctx, struct struct_or_union_specifier* p_complete);
 
 struct token* _Opt previous_parser_token(const struct token* token);
 struct token* _Opt parser_get_previous_token(const struct parser_ctx* ctx);
@@ -779,6 +797,8 @@ struct enum_specifier
     struct enumerator_list enumerator_list;
 
     struct token* _Opt tag_token;
+    /* the tag of the first declaration of this enum in its scope (the identity for -rename, -find-usages) */
+    const struct token* _Opt first_tag_token;
     struct token* first_token;
     /*points to the complete enum (can be self pointed)*/
     struct enum_specifier* _Opt p_complete_enum_specifier;
@@ -866,6 +886,14 @@ struct struct_or_union_specifier
     * struct_or_union_specifier.
     */
     struct struct_or_union_specifier* _Opt complete_struct_or_union_specifier_indirection;
+
+    /*
+      The tag of the first declaration of this struct (the identity for
+      -find-declaration, -rename, -find-usages). A definition with the same
+      content as a previous one (C23), also from an enclosing scope, is the
+      same struct.
+    */
+    const struct token* _Opt first_tag_token;
 };
 
 struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct parser_ctx* ctx);
@@ -1241,8 +1269,6 @@ struct specifier_qualifier_list
 struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct parser_ctx* ctx);
 void specifier_qualifier_list_delete(_Dtor struct specifier_qualifier_list* _Owner _Opt p);
 void specifier_qualifier_list_add(struct specifier_qualifier_list* list, struct type_specifier_qualifier* _Owner p_item);
-
-void print_specifier_qualifier_list(struct osstream* ss, bool* first, const struct specifier_qualifier_list* p_specifier_qualifier_list);
 
 struct alignment_specifier
 {

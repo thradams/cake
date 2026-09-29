@@ -10,6 +10,19 @@
 #include "fs.h"
 
 struct global_unused_list;
+struct rename_list;
+
+/* options.request: what is asked besides compiling; only one at a time */
+enum request_action
+{
+    REQUEST_NONE,
+    REQUEST_FIND_DEFINITION,  /* -find-definition line col */
+    REQUEST_FIND_DECLARATION, /* -find-declaration line col */
+    REQUEST_RENAME,           /* -rename line col newname */
+    REQUEST_FIND_USAGES,      /* -find-usages line col */
+    REQUEST_REPORT_UNUSED,    /* -unused-extern-report */
+    REQUEST_COMPLETE,         /* -complete line col */
+};
 
 enum standard_version
 {
@@ -469,6 +482,7 @@ struct options
 
     struct style_options style; /* format and check style settings */
 
+    bool quiet;                 /* -quiet: no report on success */
     bool show_includes;         /* -show-includes:  ouput the include file path       */
     char copy_headers[200];     /* -copy-headers: mode that can copy included headers */
     bool format;                /* -format: format code                               */
@@ -535,6 +549,9 @@ struct options
     char output[200];
     char sarifpath[200];
 
+    /* -output-root=dir: output goes to dir/<platform>/<path relative to dir> */
+    char output_root[1024];
+
     /*
       -dont-generate-time-stamp
       When set, the generated file does not include the timestamp comment
@@ -553,12 +570,20 @@ struct options
     bool use_cake_headers; /*-cake-headers: use cake own headers */
 
     /*
-      -find-definition line col
+      What this compilation is asked for, besides compiling: these modes
+      never run together.
+
+      -find-definition line col, -find-declaration line col
       Parses until the declaration that contains line:col (1-based, main file)
-      and reports where the identifier under it is defined. Diagnostics,
-      flow analysis and output are disabled.
+      and reports where the identifier under it is defined (or declared).
+      Diagnostics, flow analysis and output are disabled.
+
+      -complete line col
+      Parses until the expression at line:col and prints the names that can
+      be written there, one per line: name<TAB>kind<TAB>type. After '.' or
+      '->' the members of the struct, otherwise the names in scope.
     */
-    bool find_definition;
+    enum request_action request;
     int find_definition_line;
     int find_definition_col;
 
@@ -575,22 +600,50 @@ struct options
       cursor file.
     */
     char find_definition_name[200];
+
+    /*
+      Set by compile() for -find-definition: a declaration found at the
+      cursor is not reported - only the definition is. When no definition
+      is found, the declaration is reported at the end.
+    */
+    bool find_definition_hide_declaration;
     bool find_definition_name_static;
+    bool find_definition_name_is_tag; /* find_definition_name is a struct, union or enum tag */
+
+    /*
+      -rename line col newname
+      Phase 1 is -find-definition, but it resolves to the declaration. In
+      phase 2 (find_definition_line is 0) every identifier that resolves to
+      the declaration at rename_target_file:line:col is recorded in
+      p_rename_list. The occurrences are replaced in the files.
+    */
+    char rename_new_name[200];
+    char rename_old_name[200]; /* phase 2: files without it are not parsed */
+    bool rename_macro;         /* phase 2: only the preprocessor runs */
+    char rename_target_file[FS_MAX_PATH];
+    int rename_target_line;
+    int rename_target_col;
+    struct rename_list* _Opt p_rename_list;
 
     /*
       -unused-extern-report
       Report mode: only the unused functions are reported (see
       options_diagnostic_is_muted), no flow analysis and no output.
     */
-    bool report_unused;
     struct global_unused_list* _Opt p_unused_functions;
 };
+
+/* -find-definition, -find-declaration, -rename: the cursor is resolved by the find code */
+bool options_is_find_request(const struct options* options);
+
+/* -find-declaration, -rename: the cursor resolves to the declaration, not the definition */
+bool options_find_wants_declaration(const struct options* options);
 
 int fill_options(struct options* options,
                  int argc,
                  const char** argv);
 
-/* -find-definition and -unused-extern-report: no flow analysis, no output, only their own report */
+/* any request (find, rename, -unused-extern-report): no flow analysis, no output, only their own report */
 bool options_is_report_mode(const struct options* options);
 
 /* true when a report mode does not report w */

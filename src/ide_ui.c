@@ -76,6 +76,9 @@ struct ui_env {
     int focused;       /* the app's top-level window has keyboard focus - fed
                         * by the backend (ui_env_set_focused); 1 by default so
                         * a backend that never reports it behaves as focused */
+    int render_request; /* the app changed the view with no input event (e.g. a
+                         * drag-selection scrolling with the mouse still) -
+                         * read and cleared by the backend (ui_env_take_render_request) */
 
                         /* The backend's font-zoom implementation (Ctrl+/Ctrl-, and now also the
                          * Window > Font Size +/- menu items) - see ui_env_set_font_zoom_fn/
@@ -211,6 +214,15 @@ void ui_env_set_focused(ui_env* e, int focused)
 int ui_env_focused(const ui_env* e)
 {
     return e ? e->focused : 0;
+}
+
+int ui_env_take_render_request(ui_env* e)
+{
+    if (!e)
+        return 0;
+    int r = e->render_request;
+    e->render_request = 0;
+    return r;
 }
 
 void ui_env_free(ui_env* e)
@@ -898,12 +910,19 @@ struct ui_screen {
                             * whose own <item> children are shown as a second
                             * dropdown to the right, or NULL */
     ui_node* open_select; /* the <select> whose popup is open, or NULL */
+    ui_node* popup_menu;       /* the menu last opened by ui_screen_open_popup */
+    ui_node* popup_prev_focus; /* focused before that popup opened - Escape restores it */
+    ui_node* key_popup;        /* the popup opened by ui_screen_open_key_popup: Up/Down/Enter drive it */
+    ui_node* menu_key_item; /* the open_menu item chosen with Up/Down (Enter fires it),
+                             * or NULL - the mouse moving hands the highlight back to hot */
     void* open_popup_param; /* the param ui_screen_open_popup() was called
                              * with for the current s->open_menu, delivered
                              * to ui_fire_event() when one of its items fires
                              * (see hit_test_widget) - NULL when s->open_menu
                              * is an ordinary menubar dropdown instead. */
     ui_node* focused;   /* the <input>/<editor> with keyboard focus, or NULL */
+    int drag_scrolled;  /* a drag-selection scrolled the editor this frame -
+                         * ui_screen_update asks the backend for a repaint */
     ui_node* selecting; /* the <input>/<editor> a mouse-drag selection is
                           * extending, or NULL - see ui_screen_update(); kept
                           * separate from `focused` since a title-bar drag
@@ -1263,7 +1282,7 @@ static void layout_statusbar(ui_node* statusbar, int screen_width, int screen_he
     for (int i = 0; i < statusbar->child_count; i++)
     {
         ui_node* h = statusbar->children[i];
-        h->w = (int)strlen(h->label);
+        h->w = (int)utf8_vis_len(h->label);  /* cells, not bytes - labels can have arrows */
         h->x = x;
         h->y = y;
         x += h->w + 2;
@@ -1274,17 +1293,23 @@ static void layout_statusbar(ui_node* statusbar, int screen_width, int screen_he
  * shortcut_matches() already treats that "Ctrl+" token as whichever modifier
  * is currently primary, so this renders the same substitution for display:
  * "Cmd+" in place of "Ctrl+" when macOS conventions are active, so the menu
- * shows what the user actually presses. `buf` must be at least
- * strlen(shortcut)+1 bytes ("Cmd+" is never longer than "Ctrl+"); returns
- * `shortcut` itself unchanged when no substitution is needed. */
+ * shows what the user actually presses. The '+' between keys is shown as a
+ * space ("Ctrl Shift F"). Always writes into `buf` and returns it. */
 static const char* display_shortcut(const char* shortcut, char* buf, size_t bufsz)
 {
-    if (g_mac_shortcuts && strncmp(shortcut, "Ctrl+", 5) == 0)
-    {
+    /* Ctrl+Space stays Ctrl on macOS too - see shortcut_matches() */
+    if (g_mac_shortcuts && strncmp(shortcut, "Ctrl+", 5) == 0 && strcmp(shortcut, "Ctrl+Space") != 0)
         snprintf(buf, bufsz, "\xe2\x8c\x98 %s", shortcut + 5);
-        return buf;
+    else
+        snprintf(buf, bufsz, "%s", shortcut);
+
+    /* only a '+' between keys - the last one is the key itself ("Ctrl++" -> "Ctrl +") */
+    for (char* p = buf; *p; p++)
+    {
+        if (*p == '+' && p[1] != '\0')
+            *p = ' ';
     }
-    return shortcut;
+    return buf;
 }
 
 /* Slides a box's top-left (x, y) so it stays fully within [0, max_w) x
@@ -1329,6 +1354,11 @@ static void layout_dropdown(ui_screen* s, ui_node* menu, int* out_dx, int* out_d
     int box_h = menu->child_count + 2;
     int dx = menu->x;
     int dy = menu->y + 1;
+
+    /* a popup that does not fit at the right of its point opens at its left,
+     * never over it (the point is the column before menu->x) */
+    if (menu == s->popup_menu && dx + box_w > s->screen_w && dx - 1 - box_w >= 0)
+        dx = dx - 1 - box_w;
 
     int max_h = s->screen_h;
     if (find_child_by_type(s->root, UI_TAG_STATUSBAR))
@@ -2129,7 +2159,7 @@ static const ui_node* statusbar_hint(const ui_screen* s, const ui_node** detail)
 /* The short help (see ui_set_help) - its first line, minus a Markdown
  * heading's leading "#"s and inline marks - in `out`, cut with
  * "..." when longer than `width`. `emph` (same size as `out`) flags the
- * characters that were inside `code`/**bold**. Returns 1 if cut. */
+ * characters that were inside `code` or **bold**. Returns 1 if cut. */
 static int statusbar_hint_line(const char* help, int width, char* out, char* emph, size_t cap)
 {
     const char* p = help;
@@ -2734,6 +2764,28 @@ ui_node* ui_screen_active_modal(ui_screen* s)
     return s->modal_stack_count > 0 ? s->modal_stack[s->modal_stack_count - 1] : NULL;
 }
 
+/* The next item of `menu` after `from` (dir 1) or before it (dir -1) that
+ * Up/Down can land on - enabled, not a separator or submenu parent -
+ * wrapping around. `from` NULL starts before the first / after the last. */
+static ui_node* menu_key_step(const ui_node* menu, const ui_node* from, int dir)
+{
+    int count = menu->child_count;
+    int index = dir > 0 ? -1 : count;
+    for (int i = 0; i < count; i++)
+    {
+        if (menu->children[i] == from)
+            index = i;
+    }
+    for (int step = 0; step < count; step++)
+    {
+        index = (index + dir + count) % count;
+        ui_node* it = menu->children[index];
+        if (it->enabled && !it->separator && !item_is_submenu(it))
+            return it;
+    }
+    return NULL;
+}
+
 void ui_screen_open_popup(ui_screen* s, ui_node* menu, int x, int y, void* param)
 {
     if (!menu)
@@ -2748,11 +2800,22 @@ void ui_screen_open_popup(ui_screen* s, ui_node* menu, int x, int y, void* param
     menu->x = x;
     menu->y = y - 1;
 
+    s->popup_menu = menu;
+    s->popup_prev_focus = s->focused;  /* Escape gives the focus back (see the Escape key) */
     s->open_menu = menu;
     s->open_submenu = NULL;
     s->open_select = NULL;
     s->focused = NULL;
     s->open_popup_param = param;
+    s->key_popup = NULL;
+    s->menu_key_item = NULL;
+}
+
+void ui_screen_open_key_popup(ui_screen* s, ui_node* menu, int x, int y, void* param)
+{
+    ui_screen_open_popup(s, menu, x, y, param);
+    s->key_popup = menu;
+    s->menu_key_item = menu_key_step(menu, NULL, 1);  /* Enter picks the first item right away */
 }
 
 /* --- Update: hit-testing + event firing --- */
@@ -3590,27 +3653,9 @@ static int editor_label_line_count(const ui_node* n)
     return p_node->line_count;
 }
 
-/* Global ON/OFF switch for the line-number gutter (see ui_set_show_line_
- * numbers/ui_get_show_line_numbers in ide_ui.h) - defaults ON. Not per-
- * editor and not persisted, same as the app's theme choice. */
-static int g_show_line_numbers = 1;
-
-void ui_set_show_line_numbers(int on)
-{
-    g_show_line_numbers = on ? 1 : 0;
-}
-
-int ui_get_show_line_numbers(void)
-{
-    return g_show_line_numbers;
-}
-
-/* Width in columns of `n`'s left gutter. 0 when the feature is off
- * (ui_set_show_line_numbers) or `n` isn't a plain C source editor -
- * UI_SYNTAX_VT100 (compiler/terminal output) stays gutterless, same as
- * View > "Line Numbers" itself only being enabled while the frontmost
- * document is code (see g_view_linenumbers_item's own doc comment in
- * ide.c). For a C editor, wide enough for the document's last line number
+/* Width in columns of `n`'s left gutter. 0 when `n` isn't a plain C source
+ * editor - UI_SYNTAX_VT100 (compiler/terminal output) stays gutterless. The
+ * line numbers are always shown. For a C editor, wide enough for the document's last line number
  * plus a one-column gap, with a 3-digit (+ gap) floor so a short document
  * doesn't get a cramped 2-wide gutter. UI_SYNTAX_MARKDOWN (README/help
  * viewer - prose, not source lines worth numbering) and UI_SYNTAX_NONE
@@ -3722,12 +3767,10 @@ static int editor_gutter_width(const ui_node* n)
 {
     /* Markdown/plain text get a bare 1-column margin - not a number gutter
      * (prose isn't line-numbered, see the comment above), just breathing
-     * room so text doesn't start flush against the editor's left edge.
-     * Independent of g_show_line_numbers/View > "Line Numbers", which only
-     * ever applies to numbered C source. */
+     * room so text doesn't start flush against the editor's left edge. */
     if (n->syntax == UI_SYNTAX_MARKDOWN || n->syntax == UI_SYNTAX_NONE)
         return 1;
-    if (!g_show_line_numbers || (n->syntax != UI_SYNTAX_C && n->syntax != UI_SYNTAX_DIFF))
+    if (n->syntax != UI_SYNTAX_C && n->syntax != UI_SYNTAX_DIFF)
         return 0;
     int total = editor_label_line_count(n);
     int digits = 1;
@@ -4267,16 +4310,6 @@ void ui_editor_goto_line(ui_node* n, int line)
     editor_ensure_cursor_visible(n);
 }
 
-void ui_editor_goto_line_near_top(ui_node* n, int line)
-{
-    if (!n || n->type != UI_TAG_EDITOR)
-        return;
-
-    ui_editor_goto_line(n, line);
-    n->scroll = line - 2; /* scroll is the 0-based top line: one line above the target */
-    editor_clamp_scroll(n);
-}
-
 void ui_editor_goto_line_center(ui_node* n, int line)
 {
     if (!n || n->type != UI_TAG_EDITOR)
@@ -4333,6 +4366,18 @@ int ui_editor_line_at_point(const ui_node* n, int x, int y)
     return n->scroll + node_row_at(n, y);
 }
 
+void ui_editor_caret_screen(ui_node* n, int* x, int* y)
+{
+    *x = 0;
+    *y = 0;
+    if (!n || n->type != UI_TAG_EDITOR)
+        return;
+    int line, line_start;
+    editor_cursor_line(n, &line, &line_start);
+    *x = n->x + editor_gutter_width(n) + utf8_col_of(n->label + line_start, n->cursor - line_start) - n->hscroll;
+    *y = n->y + line - n->scroll;
+}
+
 static int has_selection(const ui_node* n);
 static void selection_range(const ui_node* n, int* lo, int* hi);
 
@@ -4349,6 +4394,35 @@ int ui_editor_get_selection(const ui_node* n, int* lo, int* hi)
         return 0;
     selection_range(n, lo, hi);
     return 1;
+}
+
+void ui_editor_cursor_to_mouse(ui_screen* s, ui_node* n)
+{
+    if (!n || n->type != UI_TAG_EDITOR)
+        return;
+    int row = node_row_at(n, s->mouse_py);
+    int col = node_col_at(n, s->mouse_px);
+    if (col < editor_gutter_width(n))
+        return;  /* the gutter toggles breakpoints on a click - not for this */
+
+    /* Read the selection before moving the caret: after a plain left click
+     * sel_anchor == cursor (no selection), and moving the caret first would
+     * turn that anchor into a selection that always contains the click. */
+    const int old_cursor = n->cursor;
+    const int had_selection = has_selection(n);
+    int lo = 0, hi = 0;
+    if (had_selection)
+        selection_range(n, &lo, &hi);
+
+    editor_click_set_cursor(n, row, col);
+
+    /* a click inside the selection keeps it (the popup acts on it) */
+    if (had_selection && n->cursor >= lo && n->cursor <= hi)
+    {
+        n->cursor = old_cursor;
+        return;
+    }
+    n->sel_anchor = -1;
 }
 
 void ui_editor_set_selection(ui_node* n, int start, int end)
@@ -6365,11 +6439,35 @@ static int process_window(ui_screen* s, ui_node* container, ui_node* window,
                 c->sel_anchor = c->cursor;
                 s->selecting = c;
             }
-            else if (s->selecting == c && s->mouse_down && s->mouse_moved && !over_menu)
+            else if (s->selecting == c && s->mouse_down &&
+                     (s->mouse_moved || node_row_at(c, s->mouse_py) < 0 ||
+                      node_row_at(c, s->mouse_py) >= node_rows(c)))
             {
                 /* Dragging with the button still held extends the selection
-                 * from wherever the press started. */
-                editor_click_set_cursor(c, node_row_at(c, s->mouse_py), node_col_at(c, s->mouse_px));
+                 * from wherever the press started. Above or below the editor
+                 * it scrolls one line per frame, even with the mouse still
+                 * (the backend captures the mouse, so the drag goes on
+                 * outside the window). The column is clamped to the text so
+                 * the drag never lands on the gutter (a breakpoint click). */
+                int row = node_row_at(c, s->mouse_py);
+                int col = node_col_at(c, s->mouse_px);
+                int gutter_w = editor_gutter_width(c);
+                int old_scroll = c->scroll, old_hscroll = c->hscroll;
+                if (col < gutter_w) col = gutter_w;
+                if (col > node_cols(c)) col = node_cols(c);
+                if (row < 0)
+                {
+                    if (c->scroll > 0) c->scroll--;
+                    row = 0;
+                }
+                else if (row >= node_rows(c))
+                {
+                    row = node_rows(c);
+                }
+                editor_click_set_cursor(c, row, col);
+                editor_ensure_cursor_visible(c);
+                if (c->scroll != old_scroll || c->hscroll != old_hscroll)
+                    s->drag_scrolled = 1;
             }
             /* Double-click always selects the word under the cursor. For a
              * VT100/Output editor specifically, it also fires the editor's
@@ -6683,18 +6781,30 @@ static int primary_letter_matches(char ch, int mods, uint32_t codepoint, int wan
  * below renders the same substitution for the on-screen hint text. */
 static int shortcut_matches(const char* shortcut, int code, int mods, uint32_t codepoint)
 {
-    int want_primary = 0, want_shift = 0;
+    int want_primary = 0, want_shift = 0, want_alt = 0;
     const char* p = shortcut;
-    /* Consume any leading "Ctrl+"/"Shift+" modifier tokens (in either order,
-     * e.g. "Ctrl+Shift+S"). */
+    /* Consume any leading "Ctrl+"/"Shift+"/"Alt+" modifier tokens (in any
+     * order, e.g. "Ctrl+Shift+S"). */
     for (;;)
     {
         if (strncmp(p, "Ctrl+", 5) == 0) { want_primary = 1; p += 5; }
         else if (strncmp(p, "Shift+", 6) == 0) { want_shift = 1; p += 6; }
+        else if (strncmp(p, "Alt+", 4) == 0) { want_alt = 1; p += 4; }
         else break;
     }
     int has_primary = (mods & primary_mod()) != 0;
     int has_shift = (mods & UI_MOD_SHIFT) != 0;
+
+    /* Alt+Left/Alt+Right - Ctrl+Cmd+Left/Right on macOS, as in Xcode, where
+     * Option+arrow is the word jump (see word_mod()) */
+    if (want_alt && (strcmp(p, "Left") == 0 || strcmp(p, "Right") == 0))
+    {
+        const int want_mods = g_mac_shortcuts ? (UI_MOD_CTRL | UI_MOD_CMD) : UI_MOD_ALT;
+        return code == (p[0] == 'L' ? UI_KEY_LEFT : UI_KEY_RIGHT) &&
+            (mods & (UI_MOD_CTRL | UI_MOD_CMD | UI_MOD_ALT)) == want_mods && has_shift == want_shift;
+    }
+    if (want_alt)
+        return 0;
 
     if (p[0] == 'F' && p[1] >= '0' && p[1] <= '9')
     {
@@ -6710,6 +6820,10 @@ static int shortcut_matches(const char* shortcut, int code, int mods, uint32_t c
      * chars double as ordinary keys (Ctrl+H==Backspace, Ctrl+I==Tab,
      * Ctrl+M==Enter), and Ctrl+S must not fire a Ctrl+Shift+S binding (both
      * carry codepoint 19 - only the Shift state tells them apart). */
+    /* Ctrl+Space: the physical Ctrl on every platform - Cmd+Space is
+     * Spotlight on macOS. Every backend posts it as ' ' with UI_MOD_CTRL. */
+    if (want_primary && strcmp(p, "Space") == 0)
+        return codepoint == ' ' && (mods & UI_MOD_CTRL) != 0 && has_shift == want_shift;
     if (want_primary && p[0] >= 'A' && p[0] <= 'Z' && p[1] == '\0')
         return primary_letter_matches(p[0], mods, codepoint, want_shift);
     return 0;
@@ -6845,7 +6959,10 @@ void ui_screen_update(ui_screen* s, ui_env* env)
              * against the cell position this would report movement on almost
              * every event. */
             if (ev.data.mouse.x != s->mouse_px || ev.data.mouse.y != s->mouse_py)
+            {
                 s->mouse_moved = 1;
+                s->menu_key_item = NULL;  /* the mouse takes the menu highlight back */
+            }
             s->mouse_px = ev.data.mouse.x;
             s->mouse_py = ev.data.mouse.y;
             {
@@ -6853,8 +6970,11 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                 ui_font_cell_size(0, &mcw, &mch);
                 if (mcw < 1) mcw = 1;
                 if (mch < 1) mch = 1;
-                s->mouse_x = s->mouse_px / mcw;
-                s->mouse_y = s->mouse_py / mch;
+                /* floor, not truncation: a captured drag reports negative
+                 * pixels above/left of the window, which must not land on
+                 * row/column 0 (the menu bar). */
+                s->mouse_x = floor_div(s->mouse_px, mcw);
+                s->mouse_y = floor_div(s->mouse_py, mch);
             }
             s->mouse_mods = ev.data.mouse.mods;
             if (ev.data.mouse.action == UI_MOUSE_PRESSED &&
@@ -6994,9 +7114,13 @@ void ui_screen_update(ui_screen* s, ui_env* env)
         ui_event* ev2 = &s->key_events[i];
         if (ev2->data.key.code == UI_KEY_ESCAPE)
         {
+            /* closing a popup gives the focus back to where it was (e.g. the editor) */
+            ui_node* back = s->open_menu && s->open_menu == s->popup_menu ? s->popup_prev_focus : NULL;
             s->open_menu = NULL;
             s->open_select = NULL;
-            s->focused = NULL;
+            s->focused = back;
+            if (back)
+                continue;
             if (s->modal_stack_count > 0)
             {
                 /* Escape dismisses the active blocking modal only - a message
@@ -7021,6 +7145,38 @@ void ui_screen_update(ui_screen* s, ui_env* env)
             s->dragging_listbox_hscrollbar = NULL;
             s->dragging_group_scrollbar = NULL;
             s->selecting = NULL;
+            continue;
+        }
+        /* A key popup (see ui_screen_open_key_popup): Up/Down choose an item, Enter fires it */
+        if (s->open_menu && s->open_menu == s->key_popup && !s->open_submenu &&
+            (ev2->data.key.code == UI_KEY_UP || ev2->data.key.code == UI_KEY_DOWN ||
+             ev2->data.key.codepoint == '\r' || ev2->data.key.codepoint == '\n' || ev2->data.key.code == UI_KEY_ENTER))
+        {
+            ui_node* menu = s->open_menu;
+            if (s->menu_key_item && !is_direct_child(menu, s->menu_key_item))
+                s->menu_key_item = NULL;
+            /* no keyboard choice yet: start from the item under the mouse */
+            for (int k = 0; s->menu_key_item == NULL && k < menu->child_count; k++)
+            {
+                ui_node* it = menu->children[k];
+                if (s->mouse_y == it->y && s->mouse_x >= it->x && s->mouse_x < it->x + it->w &&
+                    it->enabled && !it->separator && !item_is_submenu(it))
+                {
+                    s->menu_key_item = it;
+                }
+            }
+            if (ev2->data.key.code == UI_KEY_UP || ev2->data.key.code == UI_KEY_DOWN)
+            {
+                s->menu_key_item = menu_key_step(menu, s->menu_key_item, ev2->data.key.code == UI_KEY_DOWN ? 1 : -1);
+            }
+            else if (s->menu_key_item)
+            {
+                const int id = s->menu_key_item->id;
+                void* param = s->open_popup_param;
+                s->open_menu = NULL;
+                s->menu_key_item = NULL;
+                ui_fire_event(s, id, param);
+            }
             continue;
         }
         if (ev2->data.key.code == UI_KEY_TAB)
@@ -7690,7 +7846,8 @@ void ui_screen_update(ui_screen* s, ui_env* env)
         int active_idx = -1;
         if (s->dragging_window || s->resizing_window || s->dragging_editor_vscrollbar ||
             s->dragging_editor_hscrollbar || s->dragging_listbox_scrollbar ||
-            s->dragging_listbox_hscrollbar || s->dragging_group_scrollbar)
+            s->dragging_listbox_hscrollbar || s->dragging_group_scrollbar ||
+            (s->selecting && s->mouse_down))
         {
             for (int i = 0; i < s->window_count; i++)
             {
@@ -7700,7 +7857,8 @@ void ui_screen_update(ui_screen* s, ui_env* env)
                     is_direct_child(w, s->dragging_editor_hscrollbar) ||
                     is_direct_child(w, s->dragging_listbox_scrollbar) ||
                     is_direct_child(w, s->dragging_listbox_hscrollbar) ||
-                    is_direct_child(w, s->dragging_group_scrollbar))
+                    is_direct_child(w, s->dragging_group_scrollbar) ||
+                    is_direct_child(w, s->selecting))
                 {
                     active_idx = i;
                     break;
@@ -7788,6 +7946,12 @@ void ui_screen_update(ui_screen* s, ui_env* env)
         s->open_select = NULL;
         s->focused = NULL;
     }
+
+    /* A drag-selection keeps scrolling while the mouse is held outside the
+     * editor, with no input event to trigger a repaint - ask for one. */
+    if (s->drag_scrolled)
+        env->render_request = 1;
+    s->drag_scrolled = 0;
 }
 
 /* --- Render: walk the tree, emit draw calls --- */
@@ -8222,7 +8386,7 @@ static void render_hotkey(ui_screen* s, ui_node* h)
     if (colon)
     {
         uint32_t fg = is_hot ? g_theme.hotkey_fg_hot : g_theme.hotkey_fg;
-        draw_text(h->x + key_len, h->y, colon, fg, bg);
+        draw_text(h->x + utf8_vis_len(key_part), h->y, colon, fg, bg);  /* cells, not bytes */
     }
 }
 
@@ -8346,7 +8510,7 @@ static void render_menu_panel(ui_screen* s, ui_node* menu, int dx, int dy, int b
 
         /* A submenu parent stays highlighted while its child dropdown is open,
          * as well as on plain hover. */
-        int is_hot = (s->hot == it) || (it == s->open_submenu);
+        int is_hot = (s->menu_key_item ? it == s->menu_key_item : s->hot == it) || (it == s->open_submenu);
         uint32_t ifg = !it->enabled ? g_theme.menu_item_fg_disabled :
             is_hot ? g_theme.menu_item_fg_hot : g_theme.menu_item_fg;
         uint32_t ibg = is_hot ? g_theme.menu_item_bg_hot : g_theme.menu_item_bg;
@@ -8593,7 +8757,10 @@ static void render_window(ui_screen* s, ui_node* win)
         if (max_cols < 0)
             max_cols = 0;
 
+        /* The frame adds one space on each side of the title. */
         int label_cols = utf8_col_of(win->label, (int)strlen(win->label));
+        int pad = max_cols >= 5 ? 1 : 0;
+        max_cols -= 2 * pad;
         int total_cols = label_cols + (dirty ? 1 : 0);
 
         if (max_cols > 0 && total_cols > max_cols)
@@ -8609,6 +8776,8 @@ static void render_window(ui_screen* s, ui_node* win)
             int tx = x + (w - (keep_cols + dots + (show_dirty ? 1 : 0))) / 2;
             const char* p = win->label;
             int col = 0, cx = tx;
+            if (pad)
+                emit_char(tx - 1, y, ' ', border_fg, border_bg);
             while (col < keep_cols && *p)
             {
                 uint32_t cp;
@@ -8620,14 +8789,20 @@ static void render_window(ui_screen* s, ui_node* win)
             for (int i = 0; i < dots; i++, cx++)
                 emit_char(cx, y, '.', border_fg, border_bg);
             if (show_dirty)
-                emit_char(cx, y, '*', border_fg, border_bg);
+                emit_char(cx++, y, '*', border_fg, border_bg);
+            if (pad)
+                emit_char(cx, y, ' ', border_fg, border_bg);
         }
         else
         {
             int tx = x + (w - total_cols) / 2;
+            if (pad)
+                emit_char(tx - 1, y, ' ', border_fg, border_bg);
             draw_text(tx, y, win->label, border_fg, border_bg);
             if (dirty)
                 emit_char(tx + label_cols, y, '*', border_fg, border_bg);
+            if (pad)
+                emit_char(tx + total_cols, y, ' ', border_fg, border_bg);
         }
     }
 
@@ -10480,10 +10655,13 @@ static void render_editor(ui_screen* s, ui_node* n)
         ew = n->w;
         eh = n->h;
     }
-    int focused = (s->focused == n);
+    /* a popup opened from this editor (right-click, completion) keeps its caret
+     * visible - it shows where the popup's items act */
+    int focused = (s->focused == n) ||
+        (s->open_menu && s->open_menu == s->popup_menu && s->popup_prev_focus == n);
     int caret = focused && s->caret_visible;  /* blink phase - see ui_screen_update */
 
-    /* Line-number gutter (see editor_gutter_width/ui_set_show_line_numbers) -
+    /* Line-number gutter (see editor_gutter_width) -
      * text_x/text_w stand in for ex/ew everywhere below that actually
      * draws or measures the document's text, so the gutter (when present)
      * simply isn't overwritten by it. The gutter's own numbers are drawn

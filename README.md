@@ -261,8 +261,6 @@ generated code, and the built-in debugger (lldb / cdb) runs the result. Opening
 that project is the quickest way to step through the compiler while it compiles
 a sample.
 
-See [IDE Manual](idemanual.md)
-
 
 ![Cake IDE](cakeide.png)
 

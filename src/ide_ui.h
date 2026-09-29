@@ -184,6 +184,11 @@ unsigned ui_env_time_ms(const ui_env* e);
 void ui_env_set_focused(ui_env* e, int focused);
 int ui_env_focused(const ui_env* e);
 
+/* Non-zero if the app asked for a repaint this frame with no input event
+ * behind it (e.g. a drag-selection scrolling on its own). Clears the
+ * request. The backend calls it after app_frame() and repaints if set. */
+int ui_env_take_render_request(ui_env* e);
+
 /* Post an event from the platform (keyboard/mouse). The environment queues
  * it for the app to poll. Safe to call from event handlers. */
 void ui_env_post_event(ui_env* e, const ui_event* ev);
@@ -366,7 +371,7 @@ typedef struct {
                                * ide_ui.c) */
 
     uint32_t editor_linenum_fg;  /* the line-number gutter's digits (see
-                                  * ui_set_show_line_numbers/render_editor in
+                                  * editor_gutter_width/render_editor in
                                   * ide_ui.c) - deliberately its own muted
                                   * color rather than reusing editor_comment_fg
                                   * (which is a syntax-highlight accent, e.g.
@@ -781,15 +786,6 @@ void ui_set_small_font(ui_node* n, int on);
 void ui_set_input_colors(ui_node* n, uint32_t fg, uint32_t bg);
 int  ui_get_small_font(const ui_node* n);
 
-/* Global (not per-editor) ON/OFF switch for the line-number gutter drawn
- * along the left edge of every EDITOR that isn't UI_SYNTAX_VT100 (compiler/
- * terminal output has no source lines worth numbering) - see render_editor()
- * and editor_gutter_width() in ide_ui.c. Defaults to ON, same as most source
- * editors; not persisted across sessions, matching the Environment dialog's
- * own theme choice (see g_theme_index in ide.c). */
-void ui_set_show_line_numbers(int on);
-int ui_get_show_line_numbers(void);
-
 /* EDITOR-only: whether it has unsaved changes - like a document's "modified"
  * flag. The framework sets this to 1 on its own (any edit - typing, paste,
  * cut, Delete/Backspace...); it never clears it on its own, since it has no
@@ -828,9 +824,6 @@ void ui_editor_goto_line(ui_node* n, int line);
  * the line (col is 1-based, matching struct token::col in tokenizer.c). */
 void ui_editor_goto_line_col(ui_node* n, int line, int col);
 
-/* goto line, scrolled so the line is one below the top (a definition: what follows it matters) */
-void ui_editor_goto_line_near_top(ui_node* n, int line);
-
 /* goto line, scrolled so the line is in the middle (an error: the code before and after matters) */
 void ui_editor_goto_line_center(ui_node* n, int line);
 
@@ -861,8 +854,13 @@ int ui_editor_line_at_point(const ui_node* n, int x, int y);
  * [start,end) (start==end just moves the caret, clearing any selection) and
  * scrolls to bring the caret into view. */
 int ui_editor_get_cursor(const ui_node* n);
+/* EDITOR-only: the caret's cell on screen (font units) - where to open a popup for it */
+void ui_editor_caret_screen(ui_node* n, int* x, int* y);
 int ui_editor_get_selection(const ui_node* n, int* lo, int* hi);
 void ui_editor_set_selection(ui_node* n, int start, int end);
+/* EDITOR-only: moves the caret to the mouse (a right-click, before its popup) -
+ * a click inside the selection keeps the selection */
+void ui_editor_cursor_to_mouse(ui_screen* s, ui_node* n);
 
 /* EDITOR-only: replace the byte range [lo,hi) with new_text as a single
  * undoable edit - the programmatic equivalent of selecting [lo,hi) and
@@ -1329,6 +1327,11 @@ void ui_window_maximize(ui_screen* s, ui_node* window);
  * in a global just to read it back if the item is picked. Pass NULL if the
  * popup's handlers don't need one. */
 void ui_screen_open_popup(ui_screen* s, ui_node* menu, int x, int y, void* param);
+
+/* Same as ui_screen_open_popup, but driven by the keyboard too: the first item
+ * starts selected, Up/Down move the selection and Enter fires it (e.g. the
+ * completion list). A plain popup only follows the mouse. */
+void ui_screen_open_key_popup(ui_screen* s, ui_node* menu, int x, int y, void* param);
 
 /* Call once per frame, before rendering. Drains env's event queue:
  * hit-tests the tree against the mouse, updates each node's hot/active state

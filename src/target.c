@@ -10,48 +10,9 @@
 #include <inttypes.h>
 #include <assert.h>
 
-static char gcc_builtins_include[] =
+static char gcc_builtins[] =
 {
- #include "include/builtins/x86_x64_gcc_builtins.h.include"
- , 0
-};
-
-static char apple_arm64_macros[] =
-{
- #include "include/builtins/apple_arm64_macros.h.include"
- , 0
-};
-
-
-static char apple_arm64_builtins_include[] =
-{
- #include "include/builtins/apple_arm64_builtins.h.include"
- , 0
-};
-
-
-static char x86_x64_gcc_macros[] =
-{
- #include "include/builtins/x86_x64_gcc_macros.h.include"
- , 0
-};
-
-static char x86_msvc_macros[] =
-{
- #include "include/builtins/x86_msvc_macros.h.include"
- , 0
-};
-
-static char x64_msvc_macros[] =
-{
- #include "include/builtins/x64_msvc_macros.h.include"
- , 0 
-};
-
-
-static char catalina_macros[] =
-{
- #include "include/builtins/catalina_macros.h.include"
+ #include "include/builtins/gcc_builtins.h.include"
  , 0
 };
 
@@ -61,21 +22,39 @@ static char catalina_builtins[] =
  , 0
 };
 
-static char tcc_win_x64_macros[] =
+static char tcc_builtins[] =
 {
- #include "include/builtins/tcc_win_x64_macros.h.include"
+ #include "include/builtins/tcc_builtins.h.include"
  , 0
 };
 
-static char tcc_linux_x64_macros[] =
+static char gcc_macros[] =
 {
- #include "include/builtins/tcc_linux_x64_macros.h.include"
+ #include "include/builtins/gcc_macros.h.include"
  , 0
 };
 
-static char tcc_macos_arm64_macros[] =
+static char clang_macros[] =
 {
- #include "include/builtins/tcc_macos_arm64_macros.h.include"
+ #include "include/builtins/clang_macros.h.include"
+ , 0
+};
+
+static char msvc_macros[] =
+{
+ #include "include/builtins/msvc_macros.h.include"
+ , 0
+};
+
+static char tcc_macros[] =
+{
+ #include "include/builtins/tcc_macros.h.include"
+ , 0
+};
+
+static char catalina_macros[] =
+{
+ #include "include/builtins/catalina_macros.h.include"
  , 0
 };
 
@@ -695,16 +674,16 @@ const char* target_get_predefined_macros(enum target e)
 {
     switch (e)
     {
-    case TARGET_X86_X64_GCC: return x86_x64_gcc_macros;
-    case TARGET_X86_MSVC:    return x86_msvc_macros;
-    case TARGET_X64_MSVC:    return x64_msvc_macros;
+    case TARGET_X86_X64_GCC: return gcc_macros;
+    case TARGET_X86_MSVC:    return msvc_macros;
+    case TARGET_X64_MSVC:    return msvc_macros;
     case TARGET_CCU8:        return ccu8_macros;
     case TARGET_LCCU16:      return ccu8_macros;
     case TARGET_CATALINA:    return catalina_macros;
-    case TARGET_APPLE_ARM64: return apple_arm64_macros;
-    case TARGET_TCC_WIN_X64:     return tcc_win_x64_macros;
-    case TARGET_TCC_LINUX_X64:   return tcc_linux_x64_macros;
-    case TARGET_TCC_MACOS_ARM64: return tcc_macos_arm64_macros;
+    case TARGET_APPLE_ARM64: return clang_macros;
+    case TARGET_TCC_WIN_X64:     return tcc_macros;
+    case TARGET_TCC_LINUX_X64:   return tcc_macros;
+    case TARGET_TCC_MACOS_ARM64: return tcc_macros;
     }
     return "";
 };
@@ -731,16 +710,16 @@ const char* target_get_builtins(enum target e)
 {
     switch (e)
     {
-    case TARGET_X86_X64_GCC: return gcc_builtins_include;
+    case TARGET_X86_X64_GCC: return gcc_builtins;
     case TARGET_X86_MSVC:    return "";
     case TARGET_X64_MSVC:    return "";
     case TARGET_CCU8:        return "";
     case TARGET_LCCU16:      return "";
     case TARGET_CATALINA:    return catalina_builtins;
-    case TARGET_APPLE_ARM64: return apple_arm64_builtins_include;
-    case TARGET_TCC_WIN_X64:     return "";
-    case TARGET_TCC_LINUX_X64:   return "";
-    case TARGET_TCC_MACOS_ARM64: return apple_arm64_builtins_include;
+    case TARGET_APPLE_ARM64: return gcc_builtins;
+    case TARGET_TCC_WIN_X64:     return tcc_builtins;
+    case TARGET_TCC_LINUX_X64:   return tcc_builtins;
+    case TARGET_TCC_MACOS_ARM64: return tcc_builtins;
     }
     return "";
 }

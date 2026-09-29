@@ -450,7 +450,6 @@ static void build_docs(void)
     print_header("Build docs");
 
     generate_doc("../manual.md", "./web/manual.html");
-    generate_doc("../idemanual.md", "./web/idemanual.html");
     generate_doc("../README.md", "./web/index.html");
     generate_doc("../diagnostics.md", "./web/diagnostics.html");
     generate_doc("../flow.md", "./web/flow.html");

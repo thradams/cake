@@ -4,7 +4,21 @@
 
 typedef typeof(sizeof(1)) size_t;
 
+#ifdef CAKE_TARGET_PLATFORM_MACOS_ARM64
+    /* clang builtin types cake has no keyword for. _Float16 (Apple math.h)
+    aliased to float. The 128-bit ints only appear as declared fields in
+    arm64 CPU/NEON state structs (never used in arithmetic here), so model
+    them as a 16-byte aggregate rather than depending on _BitInt. */
+    typedef float _Float16;
+    typedef struct { unsigned long long __a, __b; } __uint128_t;
+    typedef struct { unsigned long long __a, __b; } __int128_t;
+
+
+#endif /* CAKE_TARGET_PLATFORM_MACOS_ARM64 */
 long __builtin_expect(long exp, long c);
+#ifdef CAKE_TARGET_PLATFORM_MACOS_ARM64
+    int __builtin_constant_p(/*any expression*/...);
+#endif /* CAKE_TARGET_PLATFORM_MACOS_ARM64 */
 
 /*
   https://gcc.gnu.org/onlinedocs/gcc/Integer-Overflow-Builtins.html
@@ -126,6 +140,10 @@ int __builtin_signbit(double x);
 int __builtin_signbitf(float x);
 int __builtin_signbitl(long double x);
 
+#ifdef CAKE_TARGET_PLATFORM_MACOS_ARM64
+    int __builtin_flt_rounds(void);
+
+#endif /* CAKE_TARGET_PLATFORM_MACOS_ARM64 */
 
 
 
@@ -165,6 +183,31 @@ unsigned int __builtin_stdc_leading_zeros(/*type arg*/);
 unsigned int __builtin_stdc_trailing_ones(/*type arg*/);
 unsigned int __builtin_stdc_trailing_zeros(/*type arg*/);
 
+#ifdef CAKE_TARGET_PLATFORM_MACOS_ARM64
+
+    /*
+    clang atomic builtins used by <stdatomic.h>.
+    Type-generic: arguments are not checked and load, exchange and fetch_*
+    return the type pointed by the first argument (see expressions.c).
+    */
+    void __c11_atomic_init(/*_Atomic(T)* obj, T value*/);
+    void __c11_atomic_thread_fence(int order);
+    void __c11_atomic_signal_fence(int order);
+    _Bool __c11_atomic_is_lock_free(typeof(sizeof(1)) size);
+    void __c11_atomic_store(/*_Atomic(T)* obj, T value, int order*/);
+    int __c11_atomic_load(/*_Atomic(T)* obj, int order*/);
+    int __c11_atomic_exchange(/*_Atomic(T)* obj, T value, int order*/);
+    _Bool __c11_atomic_compare_exchange_strong(/*_Atomic(T)* obj, T* expected, T desired, int success, int failure*/);
+    _Bool __c11_atomic_compare_exchange_weak(/*_Atomic(T)* obj, T* expected, T desired, int success, int failure*/);
+    int __c11_atomic_fetch_add(/*_Atomic(T)* obj, T operand, int order*/);
+    int __c11_atomic_fetch_sub(/*_Atomic(T)* obj, T operand, int order*/);
+    int __c11_atomic_fetch_and(/*_Atomic(T)* obj, T operand, int order*/);
+    int __c11_atomic_fetch_or(/*_Atomic(T)* obj, T operand, int order*/);
+    int __c11_atomic_fetch_xor(/*_Atomic(T)* obj, T operand, int order*/);
+    int __c11_atomic_fetch_nand(/*_Atomic(T)* obj, T operand, int order*/);
+    int __c11_atomic_fetch_max(/*_Atomic(T)* obj, T operand, int order*/);
+    int __c11_atomic_fetch_min(/*_Atomic(T)* obj, T operand, int order*/);
+#endif /* CAKE_TARGET_PLATFORM_MACOS_ARM64 */
 
 /*
   https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html

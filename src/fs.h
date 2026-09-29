@@ -136,6 +136,17 @@ char* _Opt realpath(const char* restrict path, char* restrict resolved_path);
 int get_self_path(char* buffer, int maxsize);
 
 char* _Owner _Opt read_file(const char* path, bool append_newline);
+
+/* the file as it is on disk: no BOM skipping, \r\n kept */
+char* _Owner _Opt read_file_binary(const char* path);
+bool file_exists(const char* path);
+/* an existing regular file (not a directory) */
+bool path_is_regular_file(const char* path);
+/* last-modified time, or 0 if it can't be stat'ed */
+long long file_mtime(const char* path);
+
+/* creates every folder of outdir after root (root itself must exist); 0 or errno */
+int create_multiple_paths(const char* root, const char* outdir);
 char* dirname(char* path);
 char* basename(const char* filename);
 void remove_file_extension(const char* filename, int n, char out[/*n*/]);
@@ -147,3 +158,8 @@ bool path_is_relative(const char* path);
 bool path_is_absolute(const char* path);
 void path_normalize(char* path);
 bool path_is_normalized(const char* path);
+
+/* '/' and '\' compare equal; case insensitive on Windows */
+bool path_equal(const char* a, const char* b);
+/* file is inside dir (dir without a trailing separator) */
+bool path_is_under(const char* file, const char* dir);

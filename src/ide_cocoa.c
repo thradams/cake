@@ -861,6 +861,7 @@ static void render_frame(void)
 
 #define KC_RETURN 36
 #define KC_TAB 48
+#define KC_SPACE 49
 #define KC_ESCAPE 53
 #define KC_LEFT 123
 #define KC_RIGHT 124
@@ -1332,6 +1333,18 @@ static void view_keyDown(id self, SEL _cmd, id event)
 
     
 
+    /* Ctrl+Space: interpretKeyEvents: turns it into a command, not text -
+     * posted as ' ' + Ctrl like Win32's WM_CHAR does (see shortcut_matches' "Space") */
+    if (keycode == KC_SPACE && (mods & UI_MOD_CTRL)) {
+        ui_event ev = {0};
+        ev.type = UI_EVENT_KEY;
+        ev.data.key.codepoint = ' ';
+        ev.data.key.mods = mods;
+        ui_env_post_event(g_env, &ev);
+        g_force_render = 1;
+        return;
+    }
+
     /* Cmd+letter shortcuts (macOS): intercept and post as codepoint events */
     if (mods & UI_MOD_CMD) {
         id chars = ((id (*)(id, SEL))objc_msgSend)(event, sel("charactersIgnoringModifiers"));
@@ -1393,6 +1406,8 @@ static void delegate_timerFired(id self, SEL _cmd, id timer)
     ui_env_set_time_ms(g_env, (unsigned)((CFAbsoluteTimeGetCurrent() - g_time_epoch) * 1000.0));  /* drives the caret blink */
     if (app_frame(g_env))
         ((void (*)(id, SEL, id))objc_msgSend)(g_app, sel("terminate:"), (id)0);
+    if (ui_env_take_render_request(g_env))
+        g_force_render = 1;
 
     /* app_frame() above is cheap (event drain + hit-testing) and runs every
      * tick regardless; render_frame() is the expensive full-DOM-walk part
