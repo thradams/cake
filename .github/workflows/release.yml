@@ -4,7 +4,8 @@ name: release
 # build.c creates the installers, they are attached to the GitHub release
 # of that tag (created if needed):
 #   cake-<version>-setup.exe        Windows (tools/win_installer.c)
-#   cake-<version>-linux.tar.gz     Linux   (tools/unix_install.sh)
+#   cake-<version>-linux-x64.tar.gz    Linux x64   (tools/unix_install.sh)
+#   cake-<version>-linux-arm64.tar.gz  Linux arm64, e.g. Raspberry Pi (tools/unix_install.sh)
 #   cake-<version>-macos.tar.gz     macOS   (tools/unix_install.sh)
 
 on:
@@ -53,6 +54,24 @@ jobs:
         name: linux
         path: src/cake-*.tar.gz
 
+  linux-arm64:
+    runs-on: ubuntu-22.04-arm
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install IDE build dependencies (X11/Xft/Xrender/FreeType)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libx11-dev libxft-dev libxrender-dev libfreetype-dev
+    - name: Build
+      run: |
+        cd src
+        gcc build.c -o build
+        ./build
+    - uses: actions/upload-artifact@v4
+      with:
+        name: linux-arm64
+        path: src/cake-*.tar.gz
+
   macos:
     runs-on: macos-latest
     steps:
@@ -68,7 +87,7 @@ jobs:
         path: src/cake-*.tar.gz
 
   release:
-    needs: [windows, linux, macos]
+    needs: [windows, linux, linux-arm64, macos]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/download-artifact@v4

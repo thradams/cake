@@ -8,7 +8,6 @@ permissions:
 jobs:
 
   clang-mac:
-    if: true
     runs-on: macos-latest
 
     steps:    
@@ -22,6 +21,21 @@ jobs:
             
   linux-gcc:
     runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+    - run: gcc --version
+    - name: Install IDE build dependencies (X11/Xft/Xrender/FreeType)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libx11-dev libxft-dev libxrender-dev libfreetype-dev
+    - name: Build and test
+      run: |
+        cd src
+        gcc build.c -o build
+        ./build test
+
+  linux-gcc-arm64:
+    runs-on: ubuntu-22.04-arm
     steps:
     - uses: actions/checkout@v4
     - run: gcc --version
