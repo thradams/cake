@@ -26,17 +26,20 @@
 #  define CC        " clang "
 #  define CC_OUTPUT(X) " -o " X " "
 #  define CC_NO_UNKNOWN_PRAGMA_WARNING ""
+#  define CC_C99    ""
 #elif defined(__GNUC__) && !defined(__TINYC__) && !defined(__HLC__)
 #  define COMPILER_GCC 1
 #  define CC        " gcc "
 #  define CC_OUTPUT(X) " -o " X " "
 #  define CC_NO_UNKNOWN_PRAGMA_WARNING ""
+#  define CC_C99    " -std=gnu99 "
 
 #elif defined(_MSC_VER) && !defined(__TINYC__) && !defined(__HLC__)
 #  define COMPILER_MSVC 1
 #  define CC        " cl "
 #  define CC_OUTPUT(X) " /Fe:" X " "
 #  define CC_NO_UNKNOWN_PRAGMA_WARNING " /wd4068 "
+#  define CC_C99    ""
 
 #elif defined(__INTEL_COMPILER)
 #  define COMPILER_INTEL 1
@@ -48,6 +51,7 @@
 #  define CC        " tcc "
 #  define CC_OUTPUT(X) " -o " X
 #  define CC_NO_UNKNOWN_PRAGMA_WARNING ""
+#  define CC_C99    ""
 
 #else
 #  define COMPILER_UNKNOWN 1
@@ -257,13 +261,14 @@ static int system_like(const char* command)
  */
 static int copy_file(const char* src, const char* dst)
 {
+    FILE* fout;
+    int c;
     FILE* fin = fopen(src, "rb");
     if (!fin) { perror("fopen(src)"); printf("we are exiting build without continuing\n"); exit(1); }
 
-    FILE* fout = fopen(dst, "wb");
+    fout = fopen(dst, "wb");
     if (!fout) { perror("fopen(dst)"); fclose(fin); printf("we are exiting build without continuing\n"); exit(1); }
 
-    int c;
     while ((c = fgetc(fin)) != EOF)
     {
         if (fputc(c, fout) == EOF)

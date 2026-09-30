@@ -435,13 +435,13 @@ static void build_tools(void)
     print_header("Build tools");
 
     echo_chdir("./tools");
-    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c "           CC_OUTPUT("../" EXE("maketest")));
-    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c "        CC_OUTPUT("../" EXE("amalgamator")));
-    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS -I.. " CC_NO_UNKNOWN_PRAGMA_WARNING " embed.c ../fs.c ../error.c "
+    execute_cmd(CC CC_C99 " -D_CRT_SECURE_NO_WARNINGS maketest.c "           CC_OUTPUT("../" EXE("maketest")));
+    execute_cmd(CC CC_C99 " -D_CRT_SECURE_NO_WARNINGS amalgamator.c "        CC_OUTPUT("../" EXE("amalgamator")));
+    execute_cmd(CC CC_C99 " -D_CRT_SECURE_NO_WARNINGS -I.. " CC_NO_UNKNOWN_PRAGMA_WARNING " embed.c ../fs.c ../error.c "
                 CC_OUTPUT("../" EXE("embed")));    
 
     echo_chdir("./hoedown");
-    execute_cmd(CC HOEDOWN_SOURCE_FILES CC_OUTPUT("../../" EXE("hoedown")));
+    execute_cmd(CC CC_C99 HOEDOWN_SOURCE_FILES CC_OUTPUT("../../" EXE("hoedown")));
 
     echo_chdir("../..");
 }
@@ -486,7 +486,7 @@ static void build_web_samples(void)
     print_header("Build web samples (samples.js)");
 
     echo_chdir("./tools");
-    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS makesamples.c " CC_OUTPUT("../" EXE("makesamples")));
+    execute_cmd(CC CC_C99 " -D_CRT_SECURE_NO_WARNINGS makesamples.c " CC_OUTPUT("../" EXE("makesamples")));
     echo_chdir("..");
     execute_cmd(RUN EXE("makesamples") " ./samples");
 #ifdef _WIN32
@@ -544,14 +544,14 @@ static void build_cake(int debug, const char* test_flag)
 #endif /* (PLATFORM_LINUX || PLATFORM_MACOS) && COMPILER_CLANG */
 
 #if defined COMPILER_GCC && !defined COMPILER_TINYC
-
+    {
     const char* gcc_config = debug ? "" : " -DNDEBUG -O2 ";
 
     char cmd[512];
     snprintf(cmd, sizeof cmd, "gcc %s %s %s -o " CKC_NAME " %s",
              GCC_FLAGS, gcc_config, test_flag, CAKE_SOURCE_FILES);
     execute_cmd(cmd);
-
+    }
 #endif /* COMPILER_GCC && !COMPILER_TINYC */
 
 #if defined COMPILER_TINYC
@@ -623,7 +623,7 @@ static void build_cake_ide(int debug)
 #endif /* (PLATFORM_LINUX || PLATFORM_MACOS) && COMPILER_CLANG */
 
 #if defined COMPILER_GCC && !defined COMPILER_TINYC
-
+    {
     const char* gcc_config = debug ? "" : " -DNDEBUG -O2 ";
 
     char cmd[512];
@@ -640,7 +640,7 @@ static void build_cake_ide(int debug)
          GCC_FLAGS, gcc_config, "-lX11 -lXft -lXrender -lfreetype -lpthread", CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
 #endif
-
+    }
 #endif /* COMPILER_GCC && !COMPILER_TINYC */
 
 #if defined COMPILER_TINYC
@@ -726,6 +726,7 @@ static void build_installer(void)
 
 static void run_cake_on_own_source(const char* cake_flags)
 {
+    char* self;
     print_header("Run cake on its own source");
 
     /*
@@ -742,7 +743,7 @@ static void run_cake_on_own_source(const char* cake_flags)
        Named explicitly rather than relying on the defaults, so this stays
        enforced whichever way fill_options is configured.
     */
-    char* self = calloc(2000, sizeof(char));
+    self = calloc(2000, sizeof(char));
 
 #if defined COMPILER_MSVC
     snprintf(self, 2000, EXE(CKC_NAME) " -DTEST -const-literal %s " CAKE_SOURCE_FILES, cake_flags);
@@ -798,10 +799,12 @@ static void build_cake89(const char* test_flag)
 #else
     echo_chdir("./gcc-linux-x64/");
 #endif
+    {
     char* cmd = calloc(2000, sizeof(char));
     snprintf(cmd, 2000, "gcc %s -o " CKC89_NAME " " CAKE_SOURCE_FILES, test_flag);
     execute_cmd(cmd);
     free(cmd);
+    }
 
     execute_cmd("cp " CKC89_NAME " ../" CKC89_NAME);
     echo_chdir("../");
@@ -844,18 +847,23 @@ static void build_cake89(const char* test_flag)
  */
 static void run_generated_tests(const char* title, const char* cake_exe, const char* cake_flags)
 {
-    print_header(title);
-
     const char* dir = "../tests/run-tests";
     const char* out_dir = "../tests/run-tests/out";
+    int count = 0;
+#ifdef PLATFORM_WINDOWS
+    WIN32_FIND_DATAA data;
+    HANDLE h;
+#else
+    DIR* d;
+    struct dirent* entry;
+#endif
+
+    print_header(title);
 
     mkdir(out_dir, 0777);
 
-    int count = 0;
-
 #ifdef PLATFORM_WINDOWS
-    WIN32_FIND_DATAA data;
-    HANDLE h = FindFirstFileA("..\\tests\\run-tests\\*.c", &data);
+    h = FindFirstFileA("..\\tests\\run-tests\\*.c", &data);
     if (h == INVALID_HANDLE_VALUE)
     {
         printf("no tests found in %s\n", dir);
@@ -864,18 +872,23 @@ static void run_generated_tests(const char* title, const char* cake_exe, const c
     do
     {
         const char* name = data.cFileName;
+        char base[512] = { 0 };
+        char cmd[4096] = { 0 };
+        int result;
 #else
-    DIR* d = opendir(dir);
+    d = opendir(dir);
     if (d == NULL)
     {
         printf("cannot open %s\n", dir);
         exit(1);
     }
-    struct dirent* entry;
     while ((entry = readdir(d)) != NULL)
     {
         const char* name = entry->d_name;
         const size_t len = strlen(name);
+        char base[512] = { 0 };
+        char cmd[4096] = { 0 };
+        int result;
         if (len < 3 || strcmp(name + len - 2, ".c") != 0)
         {
             continue;
@@ -888,11 +901,8 @@ static void run_generated_tests(const char* title, const char* cake_exe, const c
             continue;
         }
 #endif
-        char base[512] = { 0 };
         snprintf(base, sizeof base, "%s", name);
         base[strlen(base) - 2] = '\0'; /* drop .c */
-
-        char cmd[4096] = { 0 };
 
         /* 1. cake: source -> generated C */
         snprintf(cmd, sizeof cmd,
@@ -914,17 +924,20 @@ static void run_generated_tests(const char* title, const char* cake_exe, const c
         /* 3. run it; non-zero exit is the test's failure count */
         snprintf(cmd, sizeof cmd, "%s/%s" EXE(""), out_dir, base);
 #ifdef PLATFORM_WINDOWS
-        for (char* p = cmd; *p; p++)
         {
-            if (*p == '/')
+            char* p;
+            for (p = cmd; *p; p++)
             {
-                *p = '\\';
+                if (*p == '/')
+                {
+                    *p = '\\';
+                }
             }
         }
 #endif
         printf("%s\n", cmd);
         fflush(stdout);
-        const int result = system_like(cmd);
+        result = system_like(cmd);
         if (result != 0)
         {
             printf("TEST FAILED: %s/%s exited with %d\n", dir, name, result);
@@ -946,19 +959,20 @@ static void run_generated_tests(const char* title, const char* cake_exe, const c
 
 static void run_test_suites(const char* title, const char* cake_exe, const char* cake_flags)
 {
-    print_header(title);
-
+    int i;
+    char cmd[1024];
     const char* suites[] = {
         " -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -wd39 -wd44 -wd74 -wd85 -wd88 -test-mode",
         " -fdiagnostics-color=never -wd20 -wd85 ../tests/unit-tests/*.c -test-mode",
         " -fdiagnostics-color=never -wd20 -wd82 -wd85 ../tests/unit-tests/flow3/*.c -test-mode",
     };
 
-    char cmd[1024];
+    print_header(title);
+
     snprintf(cmd, sizeof cmd, RUN "%s -selftest", cake_exe);
     execute_cmd(cmd);
 
-    for (int i = 0; i < 3; i++)
+    for (i = 0; i < 3; i++)
     {
         snprintf(cmd, sizeof cmd, RUN "%s %s %s", cake_exe, cake_flags, suites[i]);
         execute_cmd(cmd);
@@ -979,14 +993,18 @@ static void run_tests(const char* cake_flags)
 
 int main(int argc, char* argv[])
 {
-    print_header("Cake Build " CAKE_VERSION);
-
     int fast = 0;
     int full = 0;
     int run_test_suite = 0;
     int debug = 0;
     int cake_headers = 0;
-    for (int i = 1; i < argc; i++)
+    int i;
+    const char* test_flag;
+    const char* cake_flags;
+
+    print_header("Cake Build " CAKE_VERSION);
+
+    for (i = 1; i < argc; i++)
     {
         if (strcmp(argv[i], "fast") == 0)
         {
@@ -1031,8 +1049,8 @@ int main(int argc, char* argv[])
         fast = 0;
     }
 
-    const char* test_flag = full ? " -DTEST " : "";
-    const char* cake_flags = cake_headers ? " -cake-headers " : "";
+    test_flag = full ? " -DTEST " : "";
+    cake_flags = cake_headers ? " -cake-headers " : "";
 
     if (!fast)
     {
