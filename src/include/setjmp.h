@@ -11,12 +11,15 @@
       jmp_buf is filled by the libc, so it must be at least as big (and as
       aligned) as the real one:
         glibc x86_64      200 bytes, align 8
+        glibc aarch64     312 bytes, align 8
         macOS arm64       192 bytes, align 4
         msvc x64          256 bytes, align 16
         msvc x86          64 bytes, align 4
     */
     #if defined(_WIN64)
         typedef struct { _Alignas(16) long long __cake_buf[32]; } jmp_buf[1];
+    #elif defined(__aarch64__)
+        typedef struct { long long __cake_buf[40]; } jmp_buf[1];
     #else
         typedef struct { long long __cake_buf[32]; } jmp_buf[1];
     #endif

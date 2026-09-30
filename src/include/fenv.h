@@ -56,6 +56,35 @@
         extern const fenv_t _FE_DFL_ENV;
         #define FE_DFL_ENV (&_FE_DFL_ENV)
 
+    #elif defined(__linux__) && defined(__aarch64__) /* glibc aarch64 */
+
+        #define FE_INVALID   0x01
+        #define FE_DIVBYZERO 0x02
+        #define FE_OVERFLOW  0x04
+        #define FE_UNDERFLOW 0x08
+        #define FE_INEXACT   0x10
+        #define FE_ALL_EXCEPT (FE_DIVBYZERO | FE_INEXACT | FE_INVALID | FE_OVERFLOW | FE_UNDERFLOW)
+
+        #define FE_TONEAREST  0x000000
+        #define FE_UPWARD     0x400000
+        #define FE_DOWNWARD   0x800000
+        #define FE_TOWARDZERO 0xc00000
+
+        typedef unsigned int fexcept_t;
+        typedef struct { unsigned int __fpcr; unsigned int __fpsr; } fenv_t;
+
+        #define FE_DFL_ENV ((const fenv_t*) -1L)
+
+        typedef unsigned int femode_t;
+
+        #define FE_DFL_MODE ((const femode_t*) -1L)
+
+        /* C23 additions, glibc only for now */
+        int fesetexcept(int excepts);
+        int fetestexceptflag(const fexcept_t* flagp, int excepts);
+        int fegetmode(femode_t* modep);
+        int fesetmode(const femode_t* modep);
+
     #else /* glibc x86_64 */
 
         #define FE_INVALID   0x01

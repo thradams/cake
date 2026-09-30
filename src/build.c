@@ -437,7 +437,7 @@ static void build_tools(void)
     execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c "           CC_OUTPUT("../" EXE("maketest")));
     execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c "        CC_OUTPUT("../" EXE("amalgamator")));
     execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS -I.. " CC_NO_UNKNOWN_PRAGMA_WARNING " embed.c ../fs.c ../error.c "
-                CC_OUTPUT("../" EXE("embed")));
+                CC_OUTPUT("../" EXE("embed")));    
 
     echo_chdir("./hoedown");
     execute_cmd(CC HOEDOWN_SOURCE_FILES CC_OUTPUT("../../" EXE("hoedown")));
@@ -706,8 +706,10 @@ static void build_installer(void)
      */
 #if defined PLATFORM_MACOS
 #define PACKAGE_NAME "cake-" CAKE_VERSION "-macos"
+#elif defined ARCH_ARM64
+#define PACKAGE_NAME "cake-" CAKE_VERSION "-linux-arm64"
 #else
-#define PACKAGE_NAME "cake-" CAKE_VERSION "-linux"
+#define PACKAGE_NAME "cake-" CAKE_VERSION "-linux-x64"
 #endif
     print_header("Build installer (" PACKAGE_NAME ".tar.gz)");
 
@@ -764,9 +766,9 @@ static void build_cake89(const char* test_flag)
 #if defined COMPILER_MSVC
 
 #ifdef _WIN64
-    echo_chdir("./x64_msvc/");
+    echo_chdir("./msvc-win-x64/");
 #else
-    echo_chdir("./x86_msvc/");
+    echo_chdir("./msvc-win-x86/");
 #endif
 
     char* cmd = calloc(2000, sizeof(char));
@@ -790,7 +792,11 @@ static void build_cake89(const char* test_flag)
 
 #if defined COMPILER_GCC && !defined COMPILER_TINYC
 
-    echo_chdir("./x86_x64_gcc/");
+#if defined ARCH_ARM64
+    echo_chdir("./gcc-linux-arm64/");
+#else
+    echo_chdir("./gcc-linux-x64/");
+#endif
     char* cmd = calloc(2000, sizeof(char));
     snprintf(cmd, 2000, "gcc %s -o " CKC89_NAME " " CAKE_SOURCE_FILES, test_flag);
     execute_cmd(cmd);
@@ -805,11 +811,11 @@ static void build_cake89(const char* test_flag)
 
     /* the generated code is in the folder of cake's default target */
 #if defined PLATFORM_WINDOWS
-    echo_chdir("./tcc_win_x64/");
+    echo_chdir("./tcc-win-x64/");
 #elif defined PLATFORM_MACOS
-    echo_chdir("./tcc_macos_arm64/");
+    echo_chdir("./tcc-macos-arm64/");
 #else
-    echo_chdir("./tcc_linux_x64/");
+    echo_chdir("./tcc-linux-x64/");
 #endif
     char* cmd = calloc(2000, sizeof(char));
     snprintf(cmd, 2000, "tcc %s -o " EXE(CKC89_NAME) " " CAKE_SOURCE_FILES, test_flag);

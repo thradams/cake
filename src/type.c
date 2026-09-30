@@ -2446,7 +2446,7 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
 
     const bool is_union =
         (complete_struct_or_union_specifier->first_token->type == TK_KEYWORD_UNION);
-    const bool msvc_target = (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC);
+    const bool msvc_target = (target == TARGET_MSVC_WIN_X86 || target == TARGET_MSVC_WIN_X64);
 
     size_t size = 0;
     try
@@ -2783,7 +2783,7 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
 enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, size_t* sz, enum target target)
 {
     enum sizeof_result sizeof_result = SIZEOF_RESULT_OK;
-    const bool msvc_target = (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC);
+    const bool msvc_target = (target == TARGET_MSVC_WIN_X86 || target == TARGET_MSVC_WIN_X64);
 
     /* #pragma pack(n) caps every member's alignment at n */
     const size_t pack_alignment = complete_struct_or_union_specifier->pack_alignment;
@@ -2926,7 +2926,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                             /*
                              * Decide whether to open a new storage unit.
                              *
-                             * MSVC (TARGET_X86_MSVC, TARGET_X64_MSVC):
+                             * MSVC (TARGET_MSVC_WIN_X86, TARGET_MSVC_WIN_X64):
                              *   A new unit is required when:
                              *     (a) no unit is open yet,
                              *     (b) bits do not fit in remaining capacity, OR
@@ -2935,7 +2935,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                              *   Rule (c) means type changes always force a flush,
                              *   even when the bits would still fit.
                              *
-                             * GCC (TARGET_X86_X64_GCC and all other targets):
+                             * GCC (TARGET_GCC_LINUX_X64 and all other targets):
                              *   A new unit is required only for (a) and (b).
                              *   Additionally, when a new unit IS needed and the
                              *   current field's declared type is larger than the
@@ -3184,7 +3184,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
 size_t type_get_alignof(const struct type* p_type, enum target target);
 size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, enum target target)
 {
-    const bool msvc_target = (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC);
+    const bool msvc_target = (target == TARGET_MSVC_WIN_X86 || target == TARGET_MSVC_WIN_X64);
 
     size_t align = 0;
     struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
@@ -3593,7 +3593,7 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
                   is well within SIZE_MAX but still rejected). GCC/clang
                   targets do not share this limit, so only enforce it there.
                 */
-                if ((target == TARGET_X86_MSVC || target == TARGET_X64_MSVC) &&
+                if ((target == TARGET_MSVC_WIN_X86 || target == TARGET_MSVC_WIN_X64) &&
                     result > 0x7FFFFFFFULL)
                 {
                     return SIZEOF_RESULT_OVERLOW;

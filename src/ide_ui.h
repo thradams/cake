@@ -700,6 +700,13 @@ ui_node* ui_screen_take_closed_window(ui_screen* s);
 void ui_set_shadow(ui_node* n, int shadow);
 int ui_get_shadow(const ui_node* n);
 
+/* WINDOW-only: whether the caret "line:col" of its <editor> is shown at the
+ * bottom border - on by default; off for a dialog like Edit String. */
+void ui_set_caret_indicator(ui_node* n, int on);
+
+/* WINDOW-only: the smallest size resizing it by the corner allows. */
+void ui_set_min_size(ui_node* n, int w, int h);
+
 /* WINDOW only: whether it's currently maximized - see ui_window_maximize. */
 int ui_get_maximized(const ui_node* n);
 
@@ -750,13 +757,16 @@ ui_dock_side ui_get_dock(const ui_node *n);
  * comments still read as real C) plus a per-row background tint from each
  * line's leading '+'/'-' - a plain `git diff` (no --color) rendered like
  * VS Code's diff view, syntax color first, added/removed as a background
- * wash on top - see render_editor()'s line_bg computation. */
+ * wash on top - see render_editor()'s line_bg computation. STRING is plain
+ * text drawn in the string literal color (editor_string_fg), e.g. the
+ * Edit String dialog's decoded literal. */
 typedef enum {
     UI_SYNTAX_NONE,
     UI_SYNTAX_C,
     UI_SYNTAX_MARKDOWN,
     UI_SYNTAX_VT100,
     UI_SYNTAX_DIFF,
+    UI_SYNTAX_STRING,
 } ui_syntax;
 
 /* Sets an EDITOR's syntax color mode (see ui_syntax above). Defaults to

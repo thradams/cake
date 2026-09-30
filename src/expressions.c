@@ -864,7 +864,7 @@ static void object_type_to_phrase(enum object_type t, char* buffer, size_t buffe
 * modifier has to name the type that is actually passed.
 *
 * What is compared is the TYPE, not the width it happens to have on this
-* target: `%d` with a long is right on x86_msvc and wrong on macos_arm64, and
+* target: `%d` with a long is right on msvc-win-x86 and wrong on clang-macos-arm64, and
 * a check that only compared widths would report it on one target and stay
 * silent on the other. The type the ARGUMENT arrives with is the promoted
 * one: a char or short is passed as an int, so `%d` is right for both.
@@ -2566,8 +2566,8 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
 
             // This code follows the table in the standard.
 
-            static_assert(NUMBER_OF_TARGETS == 10, "does your target follow the C rules? (MSVC is different)");
-            const bool is_msvc = (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC);
+            static_assert(NUMBER_OF_TARGETS == 11, "does your target follow the C rules? (MSVC is different)");
+            const bool is_msvc = (target == TARGET_MSVC_WIN_X86 || target == TARGET_MSVC_WIN_X64);
 
             const bool is_decimal_constant = (token->type == TK_COMPILER_DECIMAL_CONSTANT);
             const bool suffix_none = (suffix[0] == '\0');

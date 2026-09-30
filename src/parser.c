@@ -2072,7 +2072,7 @@ bool first_of_attribute_specifier(const struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
-    if ((ctx->options.target == TARGET_X86_X64_GCC || target_is_tcc(ctx->options.target)) &&
+    if ((ctx->options.target == TARGET_GCC_LINUX_X64 || ctx->options.target == TARGET_GCC_LINUX_ARM64 || ctx->options.target == TARGET_TCC_WIN_X64 || ctx->options.target == TARGET_TCC_LINUX_X64 || ctx->options.target == TARGET_TCC_MACOS_ARM64) &&
         ctx->current->type == TK_KEYWORD__ASM)
     {
         return true;
@@ -2435,7 +2435,7 @@ enum token_type is_keyword(const char* text, enum target target)
             if (strcmp("__alignof__", text) == 0)
                 return TK_KEYWORD__ALIGNOF;
 
-            if (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC)
+            if (target == TARGET_MSVC_WIN_X86 || target == TARGET_MSVC_WIN_X64)
             {
                 if (strcmp("__ptr32", text) == 0)
                     return TK_KEYWORD_MSVC__PTR32;
@@ -7510,7 +7510,7 @@ struct member_declaration* _Owner _Opt member_declaration(struct parser_ctx* ctx
                     /* MSVC has no per-member packed: the generated code cannot
                        reproduce this layout there (see codegen). */
                     if (md->declarator->gcc_packed &&
-                        (ctx->options.target == TARGET_X86_MSVC || ctx->options.target == TARGET_X64_MSVC))
+                        (ctx->options.target == TARGET_MSVC_WIN_X86 || ctx->options.target == TARGET_MSVC_WIN_X64))
                     {
                         diagnostic(W_ATTRIBUTES, ctx,
                             md->declarator->name_opt ? md->declarator->name_opt : md->declarator->first_token_opt,
@@ -11403,7 +11403,7 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
                 }
                 else if (ctx->current->type == TK_KEYWORD__ASM)
                 {
-                    if (ctx->options.target == TARGET_X86_X64_GCC || target_is_tcc(ctx->options.target))
+                    if (ctx->options.target == TARGET_GCC_LINUX_X64 || ctx->options.target == TARGET_GCC_LINUX_ARM64 || ctx->options.target == TARGET_TCC_WIN_X64 || ctx->options.target == TARGET_TCC_LINUX_X64 || ctx->options.target == TARGET_TCC_MACOS_ARM64)
                     {
                         /* GCC also uses asm as attribute */
                         struct asm_statement* _Owner _Opt p3 = gcc_asm(ctx, false);
@@ -13498,22 +13498,23 @@ struct asm_statement* _Owner _Opt asm_statement(struct parser_ctx* ctx)
 {
     switch (ctx->options.target)
     {
-        case TARGET_X86_MSVC:
-        case TARGET_X64_MSVC:
+        case TARGET_MSVC_WIN_X86:
+        case TARGET_MSVC_WIN_X64:
             return msvc_asm_statement(ctx);
 
-        case TARGET_X86_X64_GCC:
+        case TARGET_GCC_LINUX_X64:
         case TARGET_CCU8:
         case TARGET_LCCU16:
         case TARGET_CATALINA:
-        case TARGET_APPLE_ARM64:
+        case TARGET_CLANG_MACOS_ARM64:
         case TARGET_TCC_WIN_X64:
         case TARGET_TCC_LINUX_X64:
         case TARGET_TCC_MACOS_ARM64:
+        case TARGET_GCC_LINUX_ARM64:
         break;
     }
 
-    static_assert(NUMBER_OF_TARGETS == 10, "how this target handle asm blocks?");
+    static_assert(NUMBER_OF_TARGETS == 11, "how this target handle asm blocks?");
 
     // balanced tokens ( ... )
     return gcc_asm(ctx, true);

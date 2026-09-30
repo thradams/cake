@@ -30,21 +30,21 @@
 #define __ORDER_PDP_ENDIAN__ 3412
 #define __BYTE_ORDER__       __ORDER_LITTLE_ENDIAN__
 #define __CHAR_BIT__         8
-#define __SIZE_TYPE__        unsigned long
-#define __PTRDIFF_TYPE__     long int
-#define __WCHAR_TYPE__       int
+#define __SIZE_TYPE__        __CAKE_SIZE_TYPE__
+#define __PTRDIFF_TYPE__     __CAKE_PTRDIFF_TYPE__
+#define __WCHAR_TYPE__       __CAKE_WCHAR_TYPE__
 #define __WINT_TYPE__        unsigned int
 #define __INTMAX_TYPE__      long int
 #define __UINTMAX_TYPE__     long unsigned int
 #define __SIG_ATOMIC_TYPE__  int
-#define __INT8_TYPE__        signed char
-#define __INT16_TYPE__       short int
-#define __INT32_TYPE__       int
-#define __INT64_TYPE__       long long int
-#define __UINT8_TYPE__       unsigned char
-#define __UINT16_TYPE__      short unsigned int
-#define __UINT32_TYPE__      unsigned int
-#define __UINT64_TYPE__      long long unsigned int
+#define __INT8_TYPE__        __CAKE_INT8_TYPE__
+#define __INT16_TYPE__       __CAKE_INT16_TYPE__
+#define __INT32_TYPE__       __CAKE_INT32_TYPE__
+#define __INT64_TYPE__       __CAKE_INT64_TYPE__
+#define __UINT8_TYPE__       __CAKE_UINT8_TYPE__
+#define __UINT16_TYPE__      __CAKE_UINT16_TYPE__
+#define __UINT32_TYPE__      __CAKE_UINT32_TYPE__
+#define __UINT64_TYPE__      __CAKE_UINT64_TYPE__
 #define __INT_LEAST8_TYPE__  signed char
 #define __INT_LEAST16_TYPE__ short int
 #define __INT_LEAST32_TYPE__ int
@@ -184,21 +184,21 @@
 #define __INT_FAST64_WIDTH__ 64
 #define __INTPTR_WIDTH__ 64
 #define __INTMAX_WIDTH__ 64
-#define __SIZEOF_INT__ 4
-#define __SIZEOF_LONG__ 8
-#define __SIZEOF_LONG_LONG__ 8
-#define __SIZEOF_SHORT__ 2
-#define __SIZEOF_POINTER__ 8
+#define __SIZEOF_INT__ __CAKE_SIZEOF_INT__
+#define __SIZEOF_LONG__ __CAKE_SIZEOF_LONG__
+#define __SIZEOF_LONG_LONG__ __CAKE_SIZEOF_LONG_LONG__
+#define __SIZEOF_SHORT__ __CAKE_SIZEOF_SHORT__
+#define __SIZEOF_POINTER__ __CAKE_SIZEOF_POINTER__
 #define __POINTER_WIDTH__ 64
 #define __LP64__ 1
 #define _LP64 1
-#define __SIZEOF_FLOAT__ 4
-#define __SIZEOF_DOUBLE__ 8
-#define __SIZEOF_LONG_DOUBLE__ 8
-#define __SIZEOF_SIZE_T__ 8
-#define __SIZEOF_WCHAR_T__ 4
+#define __SIZEOF_FLOAT__ __CAKE_SIZEOF_FLOAT__
+#define __SIZEOF_DOUBLE__ __CAKE_SIZEOF_DOUBLE__
+#define __SIZEOF_LONG_DOUBLE__ __CAKE_SIZEOF_LONG_DOUBLE__
+#define __SIZEOF_SIZE_T__ __CAKE_SIZEOF_SIZE_T__
+#define __SIZEOF_WCHAR_T__ __CAKE_SIZEOF_WCHAR_T__
 #define __SIZEOF_WINT_T__ 4
-#define __SIZEOF_PTRDIFF_T__ 8
+#define __SIZEOF_PTRDIFF_T__ __CAKE_SIZEOF_PTRDIFF_T__
 
 
 /* memory orders used by <stdatomic.h> and the __atomic/__c11_atomic builtins */

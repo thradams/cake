@@ -29,7 +29,7 @@
     #define UCHAR_MAX    0xff
     #define UCHAR_WIDTH  8
 
-    #if defined(__CHAR_UNSIGNED__) || defined(___CATALINA__) || defined(__UNSIGNEDCHAR__)
+    #if defined(__CAKE_CHAR_UNSIGNED__)
         #define CHAR_MIN     0
         #define CHAR_MAX     UCHAR_MAX
     #else
@@ -44,7 +44,7 @@
     #define USHRT_MAX    0xffff
     #define USHRT_WIDTH  16
 
-    #if __cake_sizeof_int == 2
+    #if __CAKE_SIZEOF_INT__ == 2
         #define INT_MIN      (-0x7fff - 1)
         #define INT_MAX      0x7fff
         #define INT_WIDTH    16
@@ -58,7 +58,7 @@
         #define UINT_WIDTH   32
     #endif
 
-    #if __cake_sizeof_long == 8
+    #if __CAKE_SIZEOF_LONG__ == 8
         #define LONG_MIN     (-0x7fffffffffffffffL - 1L)
         #define LONG_MAX     0x7fffffffffffffffL
         #define LONG_WIDTH   64

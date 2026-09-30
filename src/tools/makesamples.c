@@ -100,10 +100,10 @@ static void write_js_string_literal(const char *s)
 /* Directories that hold compiler output rather than samples. */
 static int is_output_dir(const char *name)
 {
-    if (strcmp(name, "macos_arm64") == 0 ||
-        strcmp(name, "x64_msvc") == 0 ||
-        strcmp(name, "x86_msvc") == 0 ||
-        strcmp(name, "x86_x64_gcc") == 0)
+    if (strcmp(name, "clang-macos-arm64") == 0 ||
+        strcmp(name, "msvc-win-x64") == 0 ||
+        strcmp(name, "msvc-win-x86") == 0 ||
+        strcmp(name, "gcc-linux-x64") == 0)
     {
         return 1;
     }
@@ -185,7 +185,7 @@ static void process_file(const char *root, const char *path)
 
     /* Split off just the first path component as the category. Any
        further separators in "rest" (e.g. a nested sub-directory like
-       flow3\x86_x64_gcc\zz-try4.c) are kept as-is and become part of
+       flow3\gcc-linux-x64\zz-try4.c) are kept as-is and become part of
        the sample name/key rather than being split further -- they
        just need to be escaped correctly for JS, which
        write_js_string_literal now handles. */

@@ -1,7 +1,7 @@
 /*
  * #pragma pack - member alignment capped at n bytes for the structs declared
  * while it is in effect. Expected values were measured with clang on
- * macos_arm64 / x86-64 (GCC agrees); the MSVC-specific ones are marked.
+ * clang-macos-arm64 / x86-64 (GCC agrees); the MSVC-specific ones are marked.
  */
 
 /*

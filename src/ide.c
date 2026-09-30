@@ -88,6 +88,7 @@ enum {
     EVT_DEBUG_STEP_INTO = 34,
     EVT_DEBUG_STEP_OVER = 35,
     EVT_DEBUG_CONTINUE = 36,
+    EVT_DEBUG_OPTIONS = 39,  /* Debug > "Options..." - see g_dbgopts */
     EVT_DEBUG_TOGGLE_BREAKPOINT = 37,  /* Debug > "Toggle Breakpoint" (F9) -
                                         * toggles a breakpoint on the active
                                         * editor's cursor line, the keyboard
@@ -185,6 +186,9 @@ enum {
     EVT_RENAME_INPUT = 860,    /* Rename dialog's "New name" <input> (Enter = OK) */
     EVT_RENAME_OK = 861,
     EVT_RENAME_CANCEL = 862,
+    EVT_EDIT_STRING = 863,         /* the editor popup's "Edit String..." - see edit_string_open() */
+    EVT_EDIT_STRING_OK = 864,
+    EVT_EDIT_STRING_CANCEL = 865,
     EVT_REPLACE_OK = 820,
     EVT_REPLACE_CHANGEALL = 821,
     EVT_REPLACE_CANCEL = 822,
@@ -208,6 +212,11 @@ enum {
     EVT_COPTS_OK = 900,
     EVT_COPTS_CANCEL = 901,
     EVT_COPTS_KEEP_INVALID = 904,  /* "Keep" in the invalid-options warning - saves them anyway, see copts_find_invalid() */
+    EVT_DBGOPTS_OK = 905,      /* Debug > Options...' OK (and its inputs' Enter) */
+    EVT_DBGOPTS_CANCEL = 906,
+    EVT_DBGOPTS_DEBUGGER = 907,   /* the Debugger <select>'s only option */
+    EVT_DBGOPTS_BROWSE = 908,     /* the Command row's "..." - see exttool_browse_pick() */
+    EVT_DBGOPTS_MACRO_BTN = 940,  /* base id for the ">" on Command/Arguments/Working Dir (+0..+2) */
     EVT_COPTS_HELP = 902,  /* Compiler Options' Help button - the dialog's
                              * own overview in the help window, see
                              * show_help_text() */
@@ -216,6 +225,7 @@ enum {
     EVT_COPTS_TARGET = 910,  /* base id for the Target <select>'s options */
     EVT_COPTS_STYLE = 920,   /* base id for the Style <select>'s options */
     EVT_COPTS_DIAGFORMAT = 930, /* base id for the Output Format <select>'s options */
+    EVT_COPTS_HEADERS = 945, /* base id for the Headers <select>'s options (+0 system, +1 cake) */
     EVT_TOOLS_FINDREPLACE = 63,  /* Tools > "Find and Replace..." - opens/
                                   * raises the docked panel (see g_fr.window) */
     EVT_TOOLS_TERMINAL = 64,    /* Tools > "Terminal" - see do_open_terminal() */
@@ -518,6 +528,16 @@ static ui_node* g_view_playground_item;
  * (ahead of its only other use) purely so g_project below can embed one of
  * its own (per-project compiler options - see g_project.compile's own doc
  * comment). */
+/* Debug > Options...' settings - how Start Debugging launches the program.
+ * Each field accepts the External Tools macros ($(TargetPath), $(ProjectDir),
+ * ...); empty means the default do_debug_start() derives. */
+typedef struct debug_settings
+{
+    char command[256];      /* the executable; "" -> the built target */
+    char arguments[512];    /* passed to the program, split like a command line */
+    char working_dir[256];  /* "" -> the target's directory */
+} debug_settings;
+
 typedef struct
 {
     char options[512];    /* free-text tokens, split on whitespace at compile time */
@@ -534,8 +554,9 @@ typedef struct
     int fanalyzer;          /* -fanalyzer */
     int const_literal;      /* -const-literal */
     int wall;                /* -Wall */
-    int unused_extern_report; /* -unused-extern-report */
     int use_cake_headers;     /* -cake-headers */
+    debug_settings debug;     /* Debug > Options... - kept here so it follows
+                               * the same project/global split and file */
 } compile_settings;
 
 #define CAKE_PROJECT_EXT ".cakeproj"
@@ -1066,6 +1087,8 @@ static void build_screen(ui_node* root)
         { EVT_DEBUG_TOGGLE_BREAKPOINT, "Toggle Breakpoint", "F9", 1 },
         SEP,
         { EVT_WINDOW_DEBUGINFO, "Debug Info", NULL, 1 },
+        SEP,
+        { EVT_DEBUG_OPTIONS, "Options...", NULL, 1 },
     };
     ui_node* debug_menu = add_menu(menubar, "Debug", debug_items, sizeof debug_items / sizeof debug_items[0]);
     /* Continue/Step/Stop start disabled (see the `0` enabled flags above) -
@@ -1234,6 +1257,7 @@ static struct
     ui_node* target;
     ui_node* style;   /* -style=<name> <select> */
     ui_node* diagformat; /* -fdiagnostics-format=<name> <select> */
+    ui_node* headers; /* System Headers / Cake Headers (-cake-headers) <select> */
     ui_node* flags;   /* "-no-output"/"-line-directives"/"-fanalyzer"/"-const-literal"/"-Wall"
                        * check-box GROUP - same control as Find's "Options" */
     compile_settings* editing;  /* which settings struct this open dialog is
@@ -1254,6 +1278,22 @@ static struct
                                  * Target <select> above, so Cancel discards
                                  * whatever got clicked. */
 
+/* Debug > Options... dialog - its widgets and the settings it is editing
+ * (bound on open, like g_copts.editing, so OK writes back to the same one). */
+static struct
+{
+    ui_node* modal;
+    ui_node* window;       /* retitled "(Project)" when editing the project's */
+    ui_node* command;
+    ui_node* arguments;
+    ui_node* working_dir;
+    ui_node* debugger;         /* read-only today: one backend per platform */
+    ui_node* macro_fields[3];  /* indexed like EVT_DBGOPTS_MACRO_BTN; the ">"
+                                * buttons share g_exttool's macro popup */
+    int browsing;              /* the Open dialog was opened by Command's "..." */
+    compile_settings* editing;
+} g_dbgopts;
+
 /* The full-help window: F1 (or a click on the status bar) on something
  * with a hint shows that hint's whole Markdown text (ui_screen_get_hint_text)
  * in a read-only Markdown <editor> - see show_hint_window(). */
@@ -1265,13 +1305,14 @@ static struct
 
 static const char* g_target_slugs[] = {
     "default",
-    "x86_msvc",
-    "x64_msvc",
-    "x86_x64_gcc",
-    "macos_arm64",
-    "tcc_win_x64",
-    "tcc_linux_x64",
-    "tcc_macos_arm64",
+    "clang-macos-arm64",
+    "gcc-linux-arm64",
+    "gcc-linux-x64",
+    "msvc-win-x64",
+    "msvc-win-x86",
+    "tcc-linux-x64",
+    "tcc-macos-arm64",
+    "tcc-win-x64",
 };
 
 static int target_slug_to_index(const char* slug)
@@ -1380,9 +1421,9 @@ static compile_settings g_compile =
     .fanalyzer = 0,
     .const_literal = 0,
     .wall = 0,
-    .unused_extern_report = 0,
     .use_cake_headers = 0,
     .output = "",
+    .debug = { .command = "$(TargetPath)" },
 };
 
 static ui_node* g_output_window;
@@ -1836,6 +1877,22 @@ static struct
     int line;
     int col;
 } g_rename;
+
+/* The editor popup's "Edit String..." dialog: the run of adjacent string
+ * literals under the caret ("aa\n" "bb\n") is shown decoded in `editor`;
+ * OK encodes it back over [lo, hi) - see edit_string_open()/_ok(). */
+static struct
+{
+    ui_node* modal;
+    ui_node* window;
+    ui_node* editor;
+    ui_node* ok;
+    ui_node* cancel;
+    ui_node* target;   /* the <editor> the literals are in */
+    int lo, hi;        /* byte range of the literals in target's text */
+    char prefix[3];    /* encoding prefix of the first literal: "", L, u, U, u8 */
+    char indent[256];  /* whitespace up to the first literal's column, put before each continuation literal */
+} g_editstring;
 
 /* Edit > Word Wrap...'s dialog: a "Columns" <input> and a "Justify"
  * checkbox, both prefilled with the last values used (COLUMNS_DEFAULT/off
@@ -4281,11 +4338,13 @@ static int project_is_open(void)
     return g_project.file_path[0] != 0;
 }
 
-/* Where File > Open starts, same order as Visual Studio: the active editor's
- * folder, else the project's folder, else the Folder panel's, else the cwd. */
+static void exe_dir(char* out, size_t cap);   /* defined further down */
+
+/* Where File > Open, File > Open Folder and New Project start: the active
+ * editor's folder, else the project's folder, else the executable's. */
 static void open_dialog_start_dir(char* dir, size_t size)
 {
-    ui_node* win = ui_screen_top_window(g_screen);
+    ui_node* win = g_active_editor_window;
     const char* cur = win && editor_in_window(win) ? ui_get_path(win) : NULL;
     if (cur && cur[0])
     {
@@ -4300,9 +4359,9 @@ static void open_dialog_start_dir(char* dir, size_t size)
     }
     if (project_is_open() && g_project.dir[0])
         snprintf(dir, size, "%s", g_project.dir);
-    else if (g_folder.dir[0])
-        snprintf(dir, size, "%s", g_folder.dir);
-    else if (!ui_get_cwd(dir, size))
+    else
+        exe_dir(dir, size);
+    if (!dir[0])
         snprintf(dir, size, ".");
 }
 
@@ -4668,8 +4727,11 @@ static void compile_settings_to_json(struct json_value* object, const compile_se
     json_set_bool(object, "fanalyzer", c->fanalyzer);
     json_set_bool(object, "const_literal", c->const_literal);
     json_set_bool(object, "wall", c->wall);
-    json_set_bool(object, "unused_extern_report", c->unused_extern_report);
     json_set_bool(object, "use_cake_headers", c->use_cake_headers);
+    struct json_value* debug = json_set_object(object, "debug");
+    json_set_string(debug, "command", c->debug.command);
+    json_set_string(debug, "arguments", c->debug.arguments);
+    json_set_string(debug, "working_dir", c->debug.working_dir);
 }
 
 /* Reads a "compile" object back into `c`, leaving any field the object
@@ -4706,8 +4768,15 @@ static void compile_settings_from_json(const struct json_value* object, compile_
     c->fanalyzer = project_json_get_bool(object, "fanalyzer", c->fanalyzer);
     c->const_literal = project_json_get_bool(object, "const_literal", c->const_literal);
     c->wall = project_json_get_bool(object, "wall", c->wall);
-    c->unused_extern_report = project_json_get_bool(object, "unused_extern_report", c->unused_extern_report);
     c->use_cake_headers = project_json_get_bool(object, "use_cake_headers", c->use_cake_headers);
+
+    const struct json_value* debug = json_find_member(object, "debug");
+    if (debug && debug->type == JSON_OBJECT)
+    {
+        project_json_get_string(debug, "command", c->debug.command, sizeof c->debug.command);
+        project_json_get_string(debug, "arguments", c->debug.arguments, sizeof c->debug.arguments);
+        project_json_get_string(debug, "working_dir", c->debug.working_dir, sizeof c->debug.working_dir);
+    }
 }
 
 /* The IDE executable's own directory in `out`, or - if that can't be
@@ -6020,7 +6089,7 @@ static void do_editor_ctrlclick(void)
  *                        the same two helpers), so a tool that builds to it
  *                        and the debugger cannot point at different files
  *     $(ProjectName)    the open project's name; $(Platform) the target
- *                        platform slug, e.g. x64_msvc (the older $(Target)
+ *                        platform slug, e.g. msvc-win-x64 (the older $(Target)
  *                        spelling of it still works)
  * A literal "$$" produces a single "$".
  */
@@ -6156,25 +6225,25 @@ static const struct
       "\n"
       "Also spelled `$(ItemPath)`.\n"
       "\n"
-      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `C:/work/hello/src/main.c`." },
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `msvc-win-x64`. Expands to `C:/work/hello/src/main.c`." },
     { "$(FileDir)",
       "`$(FileDir)`: The active document's folder, without a trailing slash", "# `$(FileDir)`\n\nThe active document's folder, without a trailing slash\n"
       "\n"
       "Also spelled `$(ItemDir)`.\n"
       "\n"
-      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `C:/work/hello/src`." },
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `msvc-win-x64`. Expands to `C:/work/hello/src`." },
     { "$(FileName)",
       "`$(FileName)`: The active document's file name, without its extension", "# `$(FileName)`\n\nThe active document's file name, without its extension\n"
       "\n"
       "Also spelled `$(ItemFilename)`.\n"
       "\n"
-      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `main`." },
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `msvc-win-x64`. Expands to `main`." },
     { "$(FileExt)",
       "`$(FileExt)`: The active document's extension, including the dot", "# `$(FileExt)`\n\nThe active document's extension, including the dot\n"
       "\n"
       "Also spelled `$(ItemExt)`.\n"
       "\n"
-      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `.c`." },
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `msvc-win-x64`. Expands to `.c`." },
     { "$(CakeOutput)",
       "`$(CakeOutput)`: Cake's output file(s) - the C89 code Build generates", "# `$(CakeOutput)`\n\nCake's output file(s) - the C89 code Build generates\n"
       "\n"
@@ -6196,45 +6265,45 @@ static const struct
       "\n"
       "`$(TargetDir)/$(TargetFileName)`. Use it as the linker's output, so the external compile and Debug agree on one file.\n"
       "\n"
-      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `C:/work/hello/x64_msvc/hello.exe`." },
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `msvc-win-x64`. Expands to `C:/work/hello/msvc-win-x64/hello.exe`." },
     { "$(TargetDir)",
       "`$(TargetDir)`: The folder the binary goes to: `<project dir>/<platform>`", "# `$(TargetDir)`\n\nThe folder the binary goes to: `<project dir>/<platform>`\n"
       "\n"
       "Without a project open, the active document's folder is used instead.\n"
       "\n"
-      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `C:/work/hello/x64_msvc`." },
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `msvc-win-x64`. Expands to `C:/work/hello/msvc-win-x64`." },
     { "$(TargetFileName)",
       "`$(TargetFileName)`: The binary's file name, with its extension", "# `$(TargetFileName)`\n\nThe binary's file name, with its extension\n"
       "\n"
       "Compiler Options' **Output** field when set; otherwise the project's name (the document's name without a project), plus `.exe` on the MSVC targets.\n"
       "\n"
-      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `hello.exe`." },
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `msvc-win-x64`. Expands to `hello.exe`." },
     { "$(TargetName)",
       "`$(TargetName)`: The binary's file name without its extension", "# `$(TargetName)`\n\nThe binary's file name without its extension\n"
       "\n"
       "`$(TargetFileName)` up to its last dot.\n"
       "\n"
-      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `hello`." },
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `msvc-win-x64`. Expands to `hello`." },
     { "$(TargetExt)",
       "`$(TargetExt)`: The binary's extension, including the dot", "# `$(TargetExt)`\n\nThe binary's extension, including the dot\n"
       "\n"
       "`.exe` on the MSVC targets; empty on the GCC/Clang ones, which have none.\n"
       "\n"
-      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `.exe`." },
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `msvc-win-x64`. Expands to `.exe`." },
     { "$(ProjectDir)",
       "`$(ProjectDir)`: The open project's folder", "# `$(ProjectDir)`\n\nThe open project's folder\n"
       "\n"
       "Without a project open, the active document's folder - so the same tool also works on a single file.\n"
       "\n"
-      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `C:/work/hello`." },
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `msvc-win-x64`. Expands to `C:/work/hello`." },
     { "$(ProjectName)",
       "`$(ProjectName)`: The open project's name", "# `$(ProjectName)`\n\nThe open project's name\n"
       "\n"
       "Without a project open, the active document's name without its extension.\n"
       "\n"
-      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`. Expands to `hello`." },
+      "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `msvc-win-x64`. Expands to `hello`." },
     { "$(Platform)",
-      "`$(Platform)`: The compilation target's name, e.g. `x64_msvc`", "# `$(Platform)`\n\nThe compilation target's name, e.g. `x64_msvc`\n"
+      "`$(Platform)`: The compilation target's name, e.g. `msvc-win-x64`", "# `$(Platform)`\n\nThe compilation target's name, e.g. `msvc-win-x64`\n"
       "\n"
       "The target selected in Compiler Options, with `default` resolved to the real platform. Also spelled `$(Target)`." },
     { "$(IncludeDirs)",
@@ -6288,6 +6357,13 @@ static void exttool_browse_pick(const char* path)
     for (char* p = buf; *p; p++)
         if (*p == '/')
             *p = '\\';
+    if (g_dbgopts.browsing)
+    {
+        /* Debug > Options' Command "..." shares this browse */
+        g_dbgopts.browsing = 0;
+        ui_set_value(g_dbgopts.command, buf);
+        return;
+    }
     ui_set_value(g_exttool.cmd_input, buf);
     exttool_store_fields();
 }
@@ -9945,10 +10021,6 @@ static int job_argv_from_settings(const compile_settings* cs)
     {
         job_push(&argc, "-Wall");
     }
-    if (cs->unused_extern_report)
-    {
-        job_push(&argc, "-unused-extern-report");
-    }
     if (cs->use_cake_headers)
     {
         job_push(&argc, "-cake-headers");
@@ -11333,6 +11405,36 @@ static void do_debug_start(void)
     char exe_path[DEBUG_MAX_PATH];
     path_join(exe_path, sizeof exe_path, dir, exe_name);
 
+    /* Debug > Options...: each non-empty field replaces the derived default */
+    const struct debug_settings* dbg_opts = &debug_settings->debug;
+    if (dbg_opts->command[0])
+    {
+        struct exttool_buf b = { 0 };
+        exttool_expand(dbg_opts->command, path, &b);
+        snprintf(exe_path, sizeof exe_path, "%s", exttool_buf_text(&b));
+        exttool_buf_free(&b);
+    }
+    if (dbg_opts->working_dir[0])
+    {
+        struct exttool_buf b = { 0 };
+        exttool_expand(dbg_opts->working_dir, path, &b);
+        snprintf(dir, sizeof dir, "%s", exttool_buf_text(&b));
+        exttool_buf_free(&b);
+    }
+    char args_text[1024] = { 0 };
+    {
+        struct exttool_buf b = { 0 };
+        exttool_expand(dbg_opts->arguments, path, &b);
+        snprintf(args_text, sizeof args_text, "%s", exttool_buf_text(&b));
+        exttool_buf_free(&b);
+    }
+    struct cmdline_args args = { 0 };
+    cmdline_split(args_text, &args);   /* extra words past CMDLINE_MAX_ARGS are dropped */
+    const char* exe_args[CMDLINE_MAX_ARGS + 1];
+    for (int i = 0; i < args.argc; i++)
+        exe_args[i] = args.argv[i];
+    exe_args[args.argc] = NULL;
+
     g_job.len = 0;
     g_job.lines = 0;
     if (g_job.text)
@@ -11351,9 +11453,9 @@ static void do_debug_start(void)
      * on Windows, lldb elsewhere - see its doc comment in ide_debug.h) or
      * this just prints a lie. */
 #if defined(_WIN32)
-    snprintf(header, sizeof header, "> cdb -lines \"%s\"\n", exe_path);
+    snprintf(header, sizeof header, "> cdb -lines \"%s\" %s\n", exe_path, dbg_opts->arguments);
 #else
-    snprintf(header, sizeof header, "> lldb --no-use-colors -x -- \"%s\"\n", exe_path);
+    snprintf(header, sizeof header, "> lldb --no-use-colors -x -- \"%s\" %s\n", exe_path, dbg_opts->arguments);
 #endif
     compile_text_append(header, strlen(header));
     ui_set_value(g_output_editor, g_job.text ? g_job.text : "");
@@ -11385,7 +11487,7 @@ static void do_debug_start(void)
     }
 
     char err[256] = { 0 };
-    if (!debug_start(&g_dbg, exe_path, NULL, dir[0] ? dir : NULL, err, sizeof err))
+    if (!debug_start(&g_dbg, exe_path, exe_args, dir[0] ? dir : NULL, err, sizeof err))
     {
         char msg[DEBUG_MAX_PATH + 384];
         if (!exe_exists)
@@ -13232,6 +13334,300 @@ static void do_rename(void)
     compile_status_set("Renaming...");
 }
 
+/* Length of the encoding prefix (L, u, U, u8) that ends right before the
+ * quote at text[q], or 0 when the letters are part of a longer identifier. */
+static int string_prefix_length(const char* text, int q)
+{
+    int n = 0;
+    if (q >= 2 && text[q - 2] == 'u' && text[q - 1] == '8')
+        n = 2;
+    else if (q >= 1 && (text[q - 1] == 'L' || text[q - 1] == 'u' || text[q - 1] == 'U'))
+        n = 1;
+    if (n > 0 && q - n > 0 && (isalnum((unsigned char)text[q - n - 1]) || text[q - n - 1] == '_'))
+        n = 0;
+    return n;
+}
+
+/* Finds the string literals in `text`, skipping comments and character
+ * constants, and returns the run of adjacent literals (only whitespace
+ * between them) that contains `cursor`: [*lo, *hi) covers the prefix of
+ * the first to the closing quote of the last. */
+static bool string_literals_at_cursor(const char* text, int cursor, int* lo, int* hi)
+{
+    int run_lo = -1, run_hi = -1;
+    int i = 0;
+    while (text[i])
+    {
+        if (text[i] == '/' && text[i + 1] == '/')
+        {
+            while (text[i] && text[i] != '\n')
+                i++;
+        }
+        else if (text[i] == '/' && text[i + 1] == '*')
+        {
+            i += 2;
+            while (text[i] && !(text[i] == '*' && text[i + 1] == '/'))
+                i++;
+            if (text[i])
+                i += 2;
+        }
+        else if (text[i] == '"' || text[i] == '\'')
+        {
+            const char quote = text[i];
+            const int start = i - string_prefix_length(text, i);
+            i++;
+            while (text[i] && text[i] != quote && text[i] != '\n')
+            {
+                if (text[i] == '\\' && text[i + 1])
+                    i++;
+                i++;
+            }
+            if (text[i] == quote)
+                i++;
+
+            if (quote == '"')
+            {
+                /* extends the run when only whitespace separates it from the previous literal */
+                int k = start;
+                while (k > run_hi && isspace((unsigned char)text[k - 1]))
+                    k--;
+                if (run_lo >= 0 && k == run_hi)
+                {
+                    run_hi = i;
+                }
+                else
+                {
+                    if (run_lo >= 0 && cursor >= run_lo && cursor < run_hi)
+                        break;
+                    run_lo = start;
+                    run_hi = i;
+                }
+            }
+        }
+        else
+        {
+            i++;
+        }
+    }
+
+    if (run_lo >= 0 && cursor >= run_lo && cursor < run_hi)
+    {
+        *lo = run_lo;
+        *hi = run_hi;
+        return true;
+    }
+    return false;
+}
+
+/* Appends the UTF-8 encoding of `c` to out[*k] */
+static void utf8_append(char* out, int* k, unsigned int c)
+{
+    if (c < 0x80)
+    {
+        out[(*k)++] = (char)c;
+    }
+    else if (c < 0x800)
+    {
+        out[(*k)++] = (char)(0xC0 | (c >> 6));
+        out[(*k)++] = (char)(0x80 | (c & 0x3F));
+    }
+    else if (c < 0x10000)
+    {
+        out[(*k)++] = (char)(0xE0 | (c >> 12));
+        out[(*k)++] = (char)(0x80 | ((c >> 6) & 0x3F));
+        out[(*k)++] = (char)(0x80 | (c & 0x3F));
+    }
+    else
+    {
+        out[(*k)++] = (char)(0xF0 | (c >> 18));
+        out[(*k)++] = (char)(0x80 | ((c >> 12) & 0x3F));
+        out[(*k)++] = (char)(0x80 | ((c >> 6) & 0x3F));
+        out[(*k)++] = (char)(0x80 | (c & 0x3F));
+    }
+}
+
+/* Decodes the literals in src[lo, hi) - their contents concatenated with
+ * the escape sequences resolved. The result is never longer than the source. */
+static char* string_literals_decode(const char* src, int lo, int hi)
+{
+    char* out = malloc((size_t)(hi - lo) + 1);
+    if (out == NULL)
+        return NULL;
+    int k = 0;
+    int i = lo;
+    while (i < hi)
+    {
+        if (src[i] != '"')
+        {
+            i++;  /* prefix or whitespace between the literals */
+            continue;
+        }
+        i++;
+        while (i < hi && src[i] != '"')
+        {
+            if (src[i] == '\\' && i + 1 < hi)
+            {
+                unsigned int c = 0;
+                const unsigned char* p = escape_sequences_decode_opt((const unsigned char*)src + i + 1, &c);
+                if (p == NULL)
+                {
+                    out[k++] = src[i++];  /* invalid escape - kept as written */
+                    continue;
+                }
+                const bool ucn = src[i + 1] == 'u' || src[i + 1] == 'U';
+                if (ucn)
+                    utf8_append(out, &k, c);
+                else
+                    out[k++] = (char)(c & 0xFF);
+                i = (int)((const char*)p - src);
+            }
+            else
+            {
+                out[k++] = src[i++];
+            }
+        }
+        i++;  /* closing quote */
+    }
+    out[k] = '\0';
+    return out;
+}
+
+/* Encodes `text` back into literals with stringify(): one literal per line,
+ * each line ending in \n, continuation lines put below the first literal. */
+static char* string_literals_encode(const char* text, const char* prefix, const char* indent)
+{
+    /* the worst case doubles every byte, plus the quotes, \n and indent of each line */
+    int lines = 1;
+    for (const char* p = text; *p; p++)
+        if (*p == '\n')
+            lines++;
+    const size_t cap = strlen(text) * 2 + (size_t)lines * (strlen(prefix) + strlen(indent) + 8) + 1;
+    char* out = malloc(cap);
+    char* piece = malloc(strlen(text) + 1);
+    char* encoded = malloc(strlen(text) * 2 + 3);
+    if (out == NULL || piece == NULL || encoded == NULL)
+    {
+        free(out);
+        free(piece);
+        free(encoded);
+        return NULL;
+    }
+
+    size_t k = 0;
+    const char* p = text;
+    do
+    {
+        const char* nl = strchr(p, '\n');
+        const size_t len = nl ? (size_t)(nl - p) : strlen(p);
+        memcpy(piece, p, len);
+        piece[len] = '\0';
+        stringify(piece, (int)(len * 2 + 3), encoded);
+
+        if (p != text)
+            k += (size_t)snprintf(out + k, cap - k, "\n%s", indent);
+        /* stringify escapes only " and \ - \t and \r are escaped here; its
+         * closing quote is dropped so the newline goes inside */
+        k += (size_t)snprintf(out + k, cap - k, "%s", prefix);
+        const size_t n = strlen(encoded);
+        for (size_t i = 0; i + 1 < n; i++)
+        {
+            if (encoded[i] == '\t' || encoded[i] == '\r')
+            {
+                out[k++] = '\\';
+                out[k++] = encoded[i] == '\t' ? 't' : 'r';
+            }
+            else
+            {
+                out[k++] = encoded[i];
+            }
+        }
+        k += (size_t)snprintf(out + k, cap - k, nl ? "\\n\"" : "\"");
+
+        p = nl ? nl + 1 : NULL;
+    } while (p && *p);  /* a text ending in \n has no empty literal after it */
+
+    free(piece);
+    free(encoded);
+    return out;
+}
+
+/* The editor popup's "Edit String...": opens the run of adjacent string
+ * literals under the caret, decoded, in a dialog - see edit_string_ok(). */
+static void edit_string_open(void)
+{
+    ui_node* win = g_active_editor_window;
+    ui_node* ed = win ? editor_in_window(win) : NULL;
+    if (!ed)
+        return;
+
+    ui_msgbox_button ok = { "   OK   ", 0 };
+    const char* text = ui_get_value(ed);
+    int lo = 0, hi = 0;
+    if (!string_literals_at_cursor(text, ui_editor_get_cursor(ed), &lo, &hi))
+    {
+        ui_message_box(g_screen, "Edit String", "No string literal under the caret.", &ok, 1);
+        return;
+    }
+    if (ui_get_read_only(ed))
+    {
+        ui_message_box(g_screen, "Edit String", "The file is read-only.", &ok, 1);
+        return;
+    }
+
+    char* decoded = string_literals_decode(text, lo, hi);
+    if (decoded == NULL)
+        return;
+
+    int q = lo;
+    while (text[q] != '"')
+        q++;
+    snprintf(g_editstring.prefix, sizeof g_editstring.prefix, "%.*s", q - lo, text + lo);
+
+    /* the first literal's line up to it, with everything but tabs turned into spaces */
+    int line_start = lo;
+    while (line_start > 0 && text[line_start - 1] != '\n')
+        line_start--;
+    int n = 0;
+    for (int i = line_start; i < lo && n < (int)sizeof g_editstring.indent - 1; i++)
+        g_editstring.indent[n++] = text[i] == '\t' ? '\t' : ' ';
+    g_editstring.indent[n] = '\0';
+
+    g_editstring.target = ed;
+    g_editstring.lo = lo;
+    g_editstring.hi = hi;
+
+    ui_set_value(g_editstring.editor, decoded);
+    free(decoded);
+    ui_screen_show_modal(g_screen, g_editstring.modal);
+    ui_screen_focus(g_screen, g_editstring.editor);
+}
+
+/* Places the Edit String dialog's editor and buttons from the window's
+ * current rect - called every frame while it is open, so they follow a
+ * resize or move: the editor fills it, the buttons are centered at the bottom. */
+static void edit_string_layout(void)
+{
+    int x, y, w, h;
+    ui_get_rect(g_editstring.window, &x, &y, &w, &h);
+    ui_set_rect(g_editstring.editor, x + 2, y + 1, w - 4, h - 5);
+    ui_set_rect(g_editstring.ok, x + w / 2 - 11, y + h - 3, 10, 1);
+    ui_set_rect(g_editstring.cancel, x + w / 2 + 1, y + h - 3, 10, 1);
+}
+
+/* Edit String dialog's OK: encodes the dialog's text back over the literals */
+static void edit_string_ok(void)
+{
+    ui_screen_close_modal(g_screen, g_editstring.modal);
+    char* encoded = string_literals_encode(ui_get_value(g_editstring.editor),
+                                           g_editstring.prefix,
+                                           g_editstring.indent);
+    if (encoded == NULL)
+        return;
+    ui_editor_replace_selection(g_editstring.target, g_editstring.lo, g_editstring.hi, encoded);
+    free(encoded);
+    ui_screen_focus(g_screen, g_editstring.target);
+}
+
 /* Copies whatever's currently sitting in the panel's live widgets back into
  * the g_fr_* fields - called right before fr_rebuild_content() destroys and
  * recreates those widgets (mode toggle), and right before do_find_replace()
@@ -14505,8 +14901,7 @@ static void open_compiler_options_dialog(compile_settings* cs, int is_project)
     ui_group_set_checked(g_copts.flags, 2, cs->fanalyzer);
     ui_group_set_checked(g_copts.flags, 3, cs->const_literal);
     ui_group_set_checked(g_copts.flags, 4, cs->wall);
-    ui_group_set_checked(g_copts.flags, 5, cs->unused_extern_report);
-    ui_group_set_checked(g_copts.flags, 6, cs->use_cake_headers);
+    ui_select_set_selected(g_copts.headers, cs->use_cake_headers ? 1 : 0);
     ui_screen_show_modal(g_screen, g_copts.modal);
 }
 
@@ -14577,6 +14972,44 @@ static void on_ui_event(void* ctx, int id, void* param)
     {
         do_debug_toggle_breakpoint();
     }
+    else if (id == EVT_DEBUG_OPTIONS)
+    {
+        /* the same settings Start Debugging would use for the active document */
+        ui_node* active = g_active_editor_window;
+        const char* path = active ? ui_get_path(active) : "";
+        compile_settings* cs = active_compile_settings(path);
+        g_dbgopts.editing = cs;
+        ui_set_label(g_dbgopts.window, cs == &g_project.compile ? "Debug Options (Project)" : "Debug Options");
+        ui_set_value(g_dbgopts.command, cs->debug.command[0] ? cs->debug.command : "$(TargetPath)");
+        ui_set_value(g_dbgopts.arguments, cs->debug.arguments);
+        ui_set_value(g_dbgopts.working_dir, cs->debug.working_dir);
+        ui_screen_show_modal(g_screen, g_dbgopts.modal);
+    }
+    else if (id == EVT_DBGOPTS_OK)
+    {
+        compile_settings* cs = g_dbgopts.editing;
+        snprintf(cs->debug.command, sizeof cs->debug.command, "%s", ui_get_value(g_dbgopts.command));
+        snprintf(cs->debug.arguments, sizeof cs->debug.arguments, "%s", ui_get_value(g_dbgopts.arguments));
+        snprintf(cs->debug.working_dir, sizeof cs->debug.working_dir, "%s", ui_get_value(g_dbgopts.working_dir));
+        if (cs == &g_project.compile)
+            project_save();
+        else
+            global_settings_save();
+        ui_screen_close_modal(g_screen, g_dbgopts.modal);
+    }
+    else if (id >= EVT_DBGOPTS_MACRO_BTN && id < EVT_DBGOPTS_MACRO_BTN + 3)
+    {
+        /* same popup and insertion as External Tools' ">" (EVT_EXTTOOL_MACRO_BASE) */
+        ui_node* field = g_dbgopts.macro_fields[id - EVT_DBGOPTS_MACRO_BTN];
+        int fx, fy, fw, fh;
+        ui_get_rect(field, &fx, &fy, &fw, &fh);
+        g_exttool.macro_target = field;
+        ui_screen_open_popup(g_screen, g_exttool.macro_popup, fx + fw, fy + 1, NULL);
+    }
+    else if (id == EVT_DBGOPTS_CANCEL)
+    {
+        ui_screen_close_modal(g_screen, g_dbgopts.modal);
+    }
     else if (id == EVT_COMPILE_OPTIONS)
     {
         /* File > "Options..." always means the global settings (cake.json,
@@ -14631,8 +15064,7 @@ static void on_ui_event(void* ctx, int id, void* param)
         cs->fanalyzer = ui_group_get_checked(g_copts.flags, 2);
         cs->const_literal = ui_group_get_checked(g_copts.flags, 3);
         cs->wall = ui_group_get_checked(g_copts.flags, 4);
-        cs->unused_extern_report = ui_group_get_checked(g_copts.flags, 5);
-        cs->use_cake_headers = ui_group_get_checked(g_copts.flags, 6);
+        cs->use_cake_headers = ui_select_get_selected(g_copts.headers) == 1;
         /* Persist immediately, to whichever file owns these settings: a
          * project's own ".cakeproj", or - for Playground and any file that
          * isn't part of the project (see active_compile_settings()) - the
@@ -14736,6 +15168,18 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_RENAME_CANCEL)
     {
         ui_screen_close_modal(g_screen, g_rename.modal);
+    }
+    else if (id == EVT_EDIT_STRING)
+    {
+        edit_string_open();
+    }
+    else if (id == EVT_EDIT_STRING_OK)
+    {
+        edit_string_ok();
+    }
+    else if (id == EVT_EDIT_STRING_CANCEL)
+    {
+        ui_screen_close_modal(g_screen, g_editstring.modal);
     }
     else if (id == EVT_GOTO_OK || id == EVT_GOTO_INPUT)
     {
@@ -15369,8 +15813,7 @@ static void on_ui_event(void* ctx, int id, void* param)
         g_open.dialog_mode = OPEN_DLG_FOLDER;
         ui_set_label(g_open.window, "Open Folder");
         ui_set_label(g_open.ok, " Select ");
-        if (!ui_get_cwd(g_open.dir, sizeof g_open.dir))
-            strcpy(g_open.dir, ".");
+        open_dialog_start_dir(g_open.dir, sizeof g_open.dir);
         open_dialog_set_filter_visible(0);
         open_dialog_refresh();
         ui_screen_show_modal(g_screen, g_open.modal);
@@ -15388,11 +15831,9 @@ static void on_ui_event(void* ctx, int id, void* param)
     else if (id == EVT_PROJECT_NEW)
     {
         /* Show New Project dialog - user selects folder and enters project name */
-        char cwd[1024] = { 0 };
-        if (ui_get_cwd(cwd, sizeof cwd))
-            ui_set_value(g_newproject.folder_input, cwd);
-        else
-            ui_set_value(g_newproject.folder_input, ".");
+        char dir[1024];
+        open_dialog_start_dir(dir, sizeof dir);
+        ui_set_value(g_newproject.folder_input, dir);
         ui_set_value(g_newproject.name_input, "");
         ui_screen_show_modal(g_screen, g_newproject.modal);
     }
@@ -16298,8 +16739,9 @@ static void on_ui_event(void* ctx, int id, void* param)
             exttool_load_fields();
         }
     }
-    else if (id == EVT_EXTTOOL_BROWSE)
+    else if (id == EVT_EXTTOOL_BROWSE || id == EVT_DBGOPTS_BROWSE)
     {
+        g_dbgopts.browsing = (id == EVT_DBGOPTS_BROWSE);   /* where exttool_browse_pick() drops the path */
         /* Opens on top of the External Tools dialog, which stays up
          * underneath - same stacked-modal shape Project > "Include
          * Directories..."'s own "Add..." uses. OK drops the picked path into
@@ -17185,6 +17627,31 @@ void app_init(ui_env* env)
     ui_set_label(rename_cancel, "Cancel");
     ui_append_child(rename_window, rename_cancel);
 
+    /* --- Edit String modal --- */
+    g_editstring.modal = ui_create_element(UI_TAG_MODAL);
+    ui_append_child(root, g_editstring.modal);
+    ui_node* editstring_window = ui_create_element(UI_TAG_WINDOW);
+    ui_set_rect(editstring_window, 10, 4, 70, 18);
+    ui_set_label(editstring_window, "Edit String");
+    ui_set_color(editstring_window, theme->modal_fg, theme->modal_bg);
+    ui_set_caret_indicator(editstring_window, 0);
+    ui_set_resizable(editstring_window, 1);  /* see edit_string_layout() */
+    ui_set_min_size(editstring_window, 70, 18);  /* never smaller than it opens */
+    ui_append_child(g_editstring.modal, editstring_window);
+    g_editstring.window = editstring_window;
+    g_editstring.editor = ui_create_element(UI_TAG_EDITOR);
+    ui_set_syntax(g_editstring.editor, UI_SYNTAX_STRING);  /* the string literal color */
+    ui_append_child(editstring_window, g_editstring.editor);
+    g_editstring.ok = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(g_editstring.ok, EVT_EDIT_STRING_OK);
+    ui_set_label(g_editstring.ok, "  OK  ");
+    ui_append_child(editstring_window, g_editstring.ok);
+    g_editstring.cancel = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(g_editstring.cancel, EVT_EDIT_STRING_CANCEL);
+    ui_set_label(g_editstring.cancel, "Cancel");
+    ui_append_child(editstring_window, g_editstring.cancel);
+    edit_string_layout();
+
     /* --- Word Wrap modal --- */
     ui_node* wordwrap_modal = ui_create_element(UI_TAG_MODAL);
     ui_append_child(root, wordwrap_modal);
@@ -17347,6 +17814,7 @@ void app_init(ui_env* env)
         { EVT_SEARCH_FIND_DEFINITION, "Find Definition", "F12", EDITOR_POPUP_SOURCE },
         { EVT_SEARCH_FIND_USAGES, "Find Usages", NULL, EDITOR_POPUP_SOURCE },
         { EVT_SEARCH_RENAME,    "Rename...",        "F2", EDITOR_POPUP_SOURCE },
+        { EVT_EDIT_STRING,      "Edit String...",   NULL, EDITOR_POPUP_SOURCE },
         { EVT_TOOLS_FINDREPLACE, "Find in Files...", "Ctrl+F", EDITOR_POPUP_ALWAYS },
     };
     for (int i = 0; i < (int)_Countof(popup_items); i++)
@@ -17915,7 +18383,7 @@ void app_init(ui_env* env)
                 "\n"
                 "The **>** button inserts a macro at the caret; hover a macro there to see what it means. `$$` is a literal `$`; an unknown macro expands to nothing.\n"
                 "\n"
-                "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `x64_msvc`.\n"
+                "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `msvc-win-x64`.\n"
                 "\n"
                 "| Macro | Example |\n"
                 "|---|---|\n"
@@ -17927,14 +18395,14 @@ void app_init(ui_env* env)
                 "| `$(CakeOutputChanged)` | one output path per `.c` the last Build compiled |\n"
                 "| `$(CakeInputFiles)` | `\"C:/work/hello/src/main.c\"` - every `.c` of the project |\n"
                 "| `$(CakeInputChanged)` | the `.c` files the last Build compiled |\n"
-                "| `$(TargetPath)` | `C:/work/hello/x64_msvc/hello.exe` |\n"
-                "| `$(TargetDir)` | `C:/work/hello/x64_msvc` |\n"
+                "| `$(TargetPath)` | `C:/work/hello/msvc-win-x64/hello.exe` |\n"
+                "| `$(TargetDir)` | `C:/work/hello/msvc-win-x64` |\n"
                 "| `$(TargetFileName)` | `hello.exe` |\n"
                 "| `$(TargetName)` | `hello` |\n"
                 "| `$(TargetExt)` | `.exe` |\n"
                 "| `$(ProjectDir)` | `C:/work/hello` |\n"
                 "| `$(ProjectName)` | `hello` |\n"
-                "| `$(Platform)` | `x64_msvc` |");
+                "| `$(Platform)` | `msvc-win-x64` |");
     ui_set_help(g_exttool.dir_input,
                 "Directory the tool runs in - usually `$(ProjectDir)`", "# Directory the tool runs in - usually `$(ProjectDir)`\n"
                 "\n"
@@ -17995,7 +18463,8 @@ void app_init(ui_env* env)
                 "- **Target** - the platform the generated C89 code is for: type sizes, alignment, output style. `default` keeps a project portable across Windows, Linux and macOS.\n"
                 "- **Style** - the coding style diagnostic 11 checks, or none.\n"
                 "- **Diagnostic** - how diagnostic positions are printed.\n"
-                "- **Flags** - on/off switches: analysis, output, warnings, headers.\n"
+                "- **Headers** - System Headers or Cake Headers (`-cake-headers`).\n"
+                "- **Flags** - on/off switches: analysis, output, warnings.\n"
                 "- **Output** - the built binary's name.\n"
                 "- **Options** - any other command-line option, typed as is.\n"
                 "\n"
@@ -18017,81 +18486,9 @@ void app_init(ui_env* env)
     ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 0, default_label),
                 "Default target: the platform Cake itself was built for", "## Default target\n\nthe platform Cake itself was built for\n"
                 "\n"
-                "Same as omitting `-target`. This build of Cake uses the target named in the list entry (e.g. `x64_msvc` for Cake built as a Windows x64 program).");
-    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 1, "X86 MSVC"),
-                "`-target=x86_msvc`: Windows x86 (32-bit)", "## `-target=x86_msvc`\n\nWindows x86 (32-bit)\n"
-                "\n"
-                "Data model **ILP32**. Output compiler: MSVC.\n"
-                "\n"
-                "| Type | Size (bytes) |\n"
-                "|---|---|\n"
-                "| `char` (signed) | 1 |\n"
-                "| `short` | 2 |\n"
-                "| `int` | 4 |\n"
-                "| `long` | 4 |\n"
-                "| `long long` | 8 |\n"
-                "| pointer | 4 |\n"
-                "| `long double` | 8 |\n"
-                "| `wchar_t` | 2 (`unsigned short`) |\n"
-                "| `size_t` | 4 (`unsigned int`) |\n"
-                "\n"
-                "Thread-local storage is emitted as `__declspec(thread)`.\n"
-                "\n"
-                "The generated C89 goes to a `x86_msvc` folder next to the sources; compile it with the target compiler:\n"
-                "\n"
-                "```\n"
-                "cl x86_msvc\\file1.c\n"
-                "```");
-    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 2, "X64 MSVC"),
-                "`-target=x64_msvc`: Windows x64", "## `-target=x64_msvc`\n\nWindows x64\n"
-                "\n"
-                "Data model **LLP64**. Output compiler: MSVC.\n"
-                "\n"
-                "| Type | Size (bytes) |\n"
-                "|---|---|\n"
-                "| `char` (signed) | 1 |\n"
-                "| `short` | 2 |\n"
-                "| `int` | 4 |\n"
-                "| `long` | 4 |\n"
-                "| `long long` | 8 |\n"
-                "| pointer | 8 |\n"
-                "| `long double` | 8 |\n"
-                "| `wchar_t` | 2 (`unsigned short`) |\n"
-                "| `size_t` | 8 (`unsigned long long`) |\n"
-                "\n"
-                "Thread-local storage is emitted as `__declspec(thread)`.\n"
-                "\n"
-                "The generated C89 goes to a `x64_msvc` folder next to the sources; compile it with the target compiler:\n"
-                "\n"
-                "```\n"
-                "cl x64_msvc\\file1.c\n"
-                "```");
-    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 3, "X64 GCC"),
-                "`-target=x86_x64_gcc`: Linux x86-64", "## `-target=x86_x64_gcc`\n\nLinux x86-64\n"
-                "\n"
-                "Data model **LP64**. Output compiler: GCC.\n"
-                "\n"
-                "| Type | Size (bytes) |\n"
-                "|---|---|\n"
-                "| `char` (signed) | 1 |\n"
-                "| `short` | 2 |\n"
-                "| `int` | 4 |\n"
-                "| `long` | 8 |\n"
-                "| `long long` | 8 |\n"
-                "| pointer | 8 |\n"
-                "| `long double` | 16 |\n"
-                "| `wchar_t` | 4 (`int`) |\n"
-                "| `size_t` | 8 (`unsigned long`) |\n"
-                "\n"
-                "Thread-local storage is emitted as `__thread`.\n"
-                "\n"
-                "The generated C89 goes to a `x86_x64_gcc` folder next to the sources; compile it with the target compiler:\n"
-                "\n"
-                "```\n"
-                "gcc -w x86_x64_gcc/file1.c -o file1\n"
-                "```");
-    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 4, "macOS ARM64"),
-                "`-target=macos_arm64`: macOS arm64 (Apple Silicon)", "## `-target=macos_arm64`\n\nmacOS arm64 (Apple Silicon)\n"
+                "Same as omitting `-target`. This build of Cake uses the target named in the list entry (e.g. `msvc-win-x64` for Cake built as a Windows x64 program).");
+    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 1, "Clang macOS ARM64"),
+                "`-target=clang-macos-arm64`: macOS arm64 (Apple Silicon)", "## `-target=clang-macos-arm64`\n\nmacOS arm64 (Apple Silicon)\n"
                 "\n"
                 "Data model **LP64**. Output compiler: Clang.\n"
                 "\n"
@@ -18109,37 +18506,37 @@ void app_init(ui_env* env)
                 "\n"
                 "Thread-local storage is emitted as `__thread`.\n"
                 "\n"
-                "The generated C89 goes to a `macos_arm64` folder next to the sources; compile it with the target compiler:\n"
+                "The generated C89 goes to a `clang-macos-arm64` folder next to the sources; compile it with the target compiler:\n"
                 "\n"
                 "```\n"
-                "clang -w macos_arm64/file1.c -o file1\n"
+                "clang -w clang-macos-arm64/file1.c -o file1\n"
                 "```");
-    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 5, "TCC Windows X64"),
-                "`-target=tcc_win_x64`: Windows x64 with the Tiny C Compiler", "## `-target=tcc_win_x64`\n\nWindows x64 with the Tiny C Compiler\n"
+    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 2, "GCC Linux ARM64"),
+                "`-target=gcc-linux-arm64`: Linux aarch64 (e.g. Raspberry Pi)", "## `-target=gcc-linux-arm64`\n\nLinux aarch64 (e.g. Raspberry Pi)\n"
                 "\n"
-                "Data model **LLP64** (the sizes of `x64_msvc`), GCC syntax, TCC's predefined macros (`__TINYC__`, `__WINT_TYPE__`, ...) and no `_MSC_VER`. Use it with TCC's own headers - Detect in the System Directories dialog offers them.\n"
+                "Data model **LP64**. Output compiler: GCC. Plain `char` is unsigned.\n"
                 "\n"
                 "| Type | Size (bytes) |\n"
                 "|---|---|\n"
-                "| `char` (signed) | 1 |\n"
+                "| `char` (unsigned) | 1 |\n"
                 "| `short` | 2 |\n"
                 "| `int` | 4 |\n"
-                "| `long` | 4 |\n"
+                "| `long` | 8 |\n"
                 "| `long long` | 8 |\n"
                 "| pointer | 8 |\n"
-                "| `long double` | 8 |\n"
-                "| `wchar_t` | 2 (`unsigned short`) |\n"
-                "| `size_t` | 8 (`unsigned long long`) |\n"
+                "| `long double` | 16 |\n"
+                "| `wchar_t` | 4 (`unsigned int`) |\n"
+                "| `size_t` | 8 (`unsigned long`) |\n"
                 "\n"
-                "The generated C89 goes to a `tcc_win_x64` folder next to the sources; compile it with TCC:\n"
+                "The generated C89 goes to a `gcc-linux-arm64` folder next to the sources; compile it with the target compiler:\n"
                 "\n"
                 "```\n"
-                "tcc tcc_win_x64\\file1.c -o file1.exe\n"
+                "gcc -w gcc-linux-arm64/file1.c -o file1\n"
                 "```");
-    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 6, "TCC Linux X64"),
-                "`-target=tcc_linux_x64`: Linux x86-64 with the Tiny C Compiler", "## `-target=tcc_linux_x64`\n\nLinux x86-64 with the Tiny C Compiler\n"
+    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 3, "GCC Linux x64"),
+                "`-target=gcc-linux-x64`: Linux x86-64", "## `-target=gcc-linux-x64`\n\nLinux x86-64\n"
                 "\n"
-                "Data model **LP64** (the sizes of `x86_x64_gcc`), TCC's predefined macros.\n"
+                "Data model **LP64**. Output compiler: GCC.\n"
                 "\n"
                 "| Type | Size (bytes) |\n"
                 "|---|---|\n"
@@ -18153,15 +18550,87 @@ void app_init(ui_env* env)
                 "| `wchar_t` | 4 (`int`) |\n"
                 "| `size_t` | 8 (`unsigned long`) |\n"
                 "\n"
-                "The generated C89 goes to a `tcc_linux_x64` folder next to the sources; compile it with TCC:\n"
+                "Thread-local storage is emitted as `__thread`.\n"
+                "\n"
+                "The generated C89 goes to a `gcc-linux-x64` folder next to the sources; compile it with the target compiler:\n"
                 "\n"
                 "```\n"
-                "tcc tcc_linux_x64/file1.c -o file1\n"
+                "gcc -w gcc-linux-x64/file1.c -o file1\n"
+                "```");
+    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 4, "MSVC Windows x64"),
+                "`-target=msvc-win-x64`: Windows x64", "## `-target=msvc-win-x64`\n\nWindows x64\n"
+                "\n"
+                "Data model **LLP64**. Output compiler: MSVC.\n"
+                "\n"
+                "| Type | Size (bytes) |\n"
+                "|---|---|\n"
+                "| `char` (signed) | 1 |\n"
+                "| `short` | 2 |\n"
+                "| `int` | 4 |\n"
+                "| `long` | 4 |\n"
+                "| `long long` | 8 |\n"
+                "| pointer | 8 |\n"
+                "| `long double` | 8 |\n"
+                "| `wchar_t` | 2 (`unsigned short`) |\n"
+                "| `size_t` | 8 (`unsigned long long`) |\n"
+                "\n"
+                "Thread-local storage is emitted as `__declspec(thread)`.\n"
+                "\n"
+                "The generated C89 goes to a `msvc-win-x64` folder next to the sources; compile it with the target compiler:\n"
+                "\n"
+                "```\n"
+                "cl msvc-win-x64\\file1.c\n"
+                "```");
+    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 5, "MSVC Windows x86"),
+                "`-target=msvc-win-x86`: Windows x86 (32-bit)", "## `-target=msvc-win-x86`\n\nWindows x86 (32-bit)\n"
+                "\n"
+                "Data model **ILP32**. Output compiler: MSVC.\n"
+                "\n"
+                "| Type | Size (bytes) |\n"
+                "|---|---|\n"
+                "| `char` (signed) | 1 |\n"
+                "| `short` | 2 |\n"
+                "| `int` | 4 |\n"
+                "| `long` | 4 |\n"
+                "| `long long` | 8 |\n"
+                "| pointer | 4 |\n"
+                "| `long double` | 8 |\n"
+                "| `wchar_t` | 2 (`unsigned short`) |\n"
+                "| `size_t` | 4 (`unsigned int`) |\n"
+                "\n"
+                "Thread-local storage is emitted as `__declspec(thread)`.\n"
+                "\n"
+                "The generated C89 goes to a `msvc-win-x86` folder next to the sources; compile it with the target compiler:\n"
+                "\n"
+                "```\n"
+                "cl msvc-win-x86\\file1.c\n"
+                "```");
+    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 6, "TCC Linux x64"),
+                "`-target=tcc-linux-x64`: Linux x86-64 with the Tiny C Compiler", "## `-target=tcc-linux-x64`\n\nLinux x86-64 with the Tiny C Compiler\n"
+                "\n"
+                "Data model **LP64** (the sizes of `gcc-linux-x64`), TCC's predefined macros.\n"
+                "\n"
+                "| Type | Size (bytes) |\n"
+                "|---|---|\n"
+                "| `char` (signed) | 1 |\n"
+                "| `short` | 2 |\n"
+                "| `int` | 4 |\n"
+                "| `long` | 8 |\n"
+                "| `long long` | 8 |\n"
+                "| pointer | 8 |\n"
+                "| `long double` | 16 |\n"
+                "| `wchar_t` | 4 (`int`) |\n"
+                "| `size_t` | 8 (`unsigned long`) |\n"
+                "\n"
+                "The generated C89 goes to a `tcc-linux-x64` folder next to the sources; compile it with TCC:\n"
+                "\n"
+                "```\n"
+                "tcc tcc-linux-x64/file1.c -o file1\n"
                 "```");
     ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 7, "TCC macOS ARM64"),
-                "`-target=tcc_macos_arm64`: macOS arm64 with the Tiny C Compiler", "## `-target=tcc_macos_arm64`\n\nmacOS arm64 with the Tiny C Compiler\n"
+                "`-target=tcc-macos-arm64`: macOS arm64 with the Tiny C Compiler", "## `-target=tcc-macos-arm64`\n\nmacOS arm64 with the Tiny C Compiler\n"
                 "\n"
-                "Data model **LP64** (the sizes of `macos_arm64`), TCC's predefined macros. `__builtin_inf` and `__builtin_fabs` are written as plain C.\n"
+                "Data model **LP64** (the sizes of `clang-macos-arm64`), TCC's predefined macros. `__builtin_inf` and `__builtin_fabs` are written as plain C.\n"
                 "\n"
                 "| Type | Size (bytes) |\n"
                 "|---|---|\n"
@@ -18175,17 +18644,54 @@ void app_init(ui_env* env)
                 "| `wchar_t` | 4 (`int`) |\n"
                 "| `size_t` | 8 (`unsigned long`) |\n"
                 "\n"
-                "The generated C89 goes to a `tcc_macos_arm64` folder next to the sources; compile it with TCC:\n"
+                "The generated C89 goes to a `tcc-macos-arm64` folder next to the sources; compile it with TCC:\n"
                 "\n"
                 "```\n"
-                "tcc tcc_macos_arm64/file1.c -o file1\n"
+                "tcc tcc-macos-arm64/file1.c -o file1\n"
+                "```");
+    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 8, "TCC Windows x64"),
+                "`-target=tcc-win-x64`: Windows x64 with the Tiny C Compiler", "## `-target=tcc-win-x64`\n\nWindows x64 with the Tiny C Compiler\n"
+                "\n"
+                "Data model **LLP64** (the sizes of `msvc-win-x64`), GCC syntax, TCC's predefined macros (`__TINYC__`, `__WINT_TYPE__`, ...) and no `_MSC_VER`. Use it with TCC's own headers - Detect in the System Directories dialog offers them.\n"
+                "\n"
+                "| Type | Size (bytes) |\n"
+                "|---|---|\n"
+                "| `char` (signed) | 1 |\n"
+                "| `short` | 2 |\n"
+                "| `int` | 4 |\n"
+                "| `long` | 4 |\n"
+                "| `long long` | 8 |\n"
+                "| pointer | 8 |\n"
+                "| `long double` | 8 |\n"
+                "| `wchar_t` | 2 (`unsigned short`) |\n"
+                "| `size_t` | 8 (`unsigned long long`) |\n"
+                "\n"
+                "The generated C89 goes to a `tcc-win-x64` folder next to the sources; compile it with TCC:\n"
+                "\n"
+                "```\n"
+                "tcc tcc-win-x64\\file1.c -o file1.exe\n"
                 "```");
     ui_select_set_selected(g_copts.target, target_slug_to_index(g_compile.target));
 
+    /* Headers - System Headers or Cake Headers (-cake-headers). */
+    add_text(copts_window, 18, 9, "Headers", theme->label_fg, theme->modal_bg);
+    g_copts.headers = add_select(copts_window, 29, 9, 25);
+    ui_set_help(g_copts.headers, "Which headers `#include <...>` finds (`-cake-headers`)", "# Which headers `#include <...>` finds (`-cake-headers`)\n\n"
+                "System Headers uses the compiler's own headers; Cake Headers passes `-cake-headers`.");
+    ui_set_help(add_select_item(g_copts.headers, EVT_COPTS_HEADERS + 0, "System Headers"),
+                "System headers: the target compiler's own headers", "## System headers\n\nNo `-cake-headers` is passed; `#include <...>` finds the target compiler's headers.");
+    ui_set_help(add_select_item(g_copts.headers, EVT_COPTS_HEADERS + 1, "Cake Headers"),
+                "`-cake-headers`: use only Cake's own headers, never the system ones", "## `-cake-headers`\n\nuse only Cake's own headers, never the system ones\n\n"
+                "Cake's headers declare everything themselves instead "
+                "of deferring to `#include_next`, so the real system headers are never "
+                "consulted. Used to compile Cake itself and run its tests portably; "
+                "not meant for ordinary programs.");
+    ui_select_set_selected(g_copts.headers, g_compile.use_cake_headers ? 1 : 0);
+
     /* Style (-style=<name>) - see g_style_slugs' own comment for why only
      * these four are offered. */
-    add_text(copts_window, 18, 9, "Style", theme->label_fg, theme->modal_bg);
-    g_copts.style = add_select(copts_window, 29, 9, 25);
+    add_text(copts_window, 18, 11, "Style", theme->label_fg, theme->modal_bg);
+    g_copts.style = add_select(copts_window, 29, 11, 25);
     ui_set_help(g_copts.style, "Coding style checked by diagnostic 11 (`-style=<name>`)", "# Coding style checked by diagnostic 11 (`-style=<name>`)\n\n"
                 "Passing `-style` turns diagnostic 11 (style) on as a note.");
     ui_set_help(add_select_item(g_copts.style, EVT_COPTS_STYLE + 0, "disabled"),
@@ -18199,8 +18705,8 @@ void app_init(ui_env* env)
     ui_select_set_selected(g_copts.style, style_slug_to_index(g_compile.style));
 
     /* Output Format (-fdiagnostics-format=<name>) - see g_diagformat_slugs. */
-    add_text(copts_window, 18, 11, "Diagnostic", theme->label_fg, theme->modal_bg);
-    g_copts.diagformat = add_select(copts_window, 29, 11, 25);
+    add_text(copts_window, 18, 13, "Diagnostic", theme->label_fg, theme->modal_bg);
+    g_copts.diagformat = add_select(copts_window, 29, 13, 25);
     ui_set_help(g_copts.diagformat, "How diagnostic positions are printed (`-fdiagnostics-format=<format>`)", "# How diagnostic positions are printed (`-fdiagnostics-format=<format>`)\n\n"
                 "Both shapes are understood by Visual Studio and by Visual Studio Code.");
     ui_set_help(add_select_item(g_copts.diagformat, EVT_COPTS_DIAGFORMAT + 0, "cake ide"),
@@ -18213,8 +18719,8 @@ void app_init(ui_env* env)
 
     /* Flags - a check-box GROUP, same control as Find's "Options"
      * (g_find.opts) above (add_group/add_group_item). */
-    add_text(copts_window, 18, 13, "Flags", theme->label_fg, theme->modal_bg);
-    g_copts.flags = add_group(copts_window, 29, 13, 45, 7, 1);
+    add_text(copts_window, 18, 15, "Flags", theme->label_fg, theme->modal_bg);
+    g_copts.flags = add_group(copts_window, 29, 15, 45, 5, 1);
     ui_set_help(add_group_item(g_copts.flags, "-no-output"),
                 "`-no-output`: run all analysis passes but write no output file", "## `-no-output`\n\nrun all analysis passes but write no output file");
     ui_set_help(add_group_item(g_copts.flags, "-line-directives"),
@@ -18227,25 +18733,11 @@ void app_init(ui_env* env)
                 "`-const-literal`: treat string literals as `const char[]` rather than `char[]`", "## `-const-literal`\n\ntreat string literals as `const char[]` rather than `char[]`");
     ui_set_help(add_group_item(g_copts.flags, "-Wall"),
                 "`-Wall`: enable all warnings", "## `-Wall`\n\nenable all warnings");
-    ui_set_help(add_group_item(g_copts.flags, "-unused-extern-report"),
-                "`-unused-extern-report`: report external functions never called", "## `-unused-extern-report`\n\nreport external functions never called\n\n"
-                "Tracks every non-static (external linkage) "
-                "function across all the files given in this invocation, and after "
-                "the last one is compiled, report the ones that were never called "
-                "in any of them.");
-    ui_set_help(add_group_item(g_copts.flags, "-cake-headers"),
-                "`-cake-headers`: use only Cake's own headers, never the system ones", "## `-cake-headers`\n\nuse only Cake's own headers, never the system ones\n\n"
-                "Cake's headers declare everything themselves instead "
-                "of deferring to `#include_next`, so the real system headers are never "
-                "consulted. Used to compile Cake itself and run its tests portably; "
-                "not meant for ordinary programs.");
     ui_group_set_checked(g_copts.flags, 0, g_compile.no_output);
     ui_group_set_checked(g_copts.flags, 1, g_compile.line_directives);
     ui_group_set_checked(g_copts.flags, 2, g_compile.fanalyzer);
     ui_group_set_checked(g_copts.flags, 3, g_compile.const_literal);
     ui_group_set_checked(g_copts.flags, 4, g_compile.wall);
-    ui_group_set_checked(g_copts.flags, 5, g_compile.unused_extern_report);
-    ui_group_set_checked(g_copts.flags, 6, g_compile.use_cake_headers);
 
     /* The built executable's name - what $(TargetFileName) expands to and
      * what Debug launches; empty means "derive it" (see target_file_name). */
@@ -18357,6 +18849,107 @@ void app_init(ui_env* env)
     ui_set_no_focus(copts_help, 1);
     ui_append_child(copts_window, copts_help);
     g_copts.modal = copts_modal;
+
+    /* --- Debug Options modal (Debug > Options...) --- */
+    ui_node* dbgopts_modal = ui_create_element(UI_TAG_MODAL);
+    ui_append_child(root, dbgopts_modal);
+    ui_node* dbgopts_window = ui_create_element(UI_TAG_WINDOW);
+    ui_set_rect(dbgopts_window, 15, 8, 64, 13);
+    ui_set_label(dbgopts_window, "Debug Options");
+    ui_set_color(dbgopts_window, theme->modal_fg, theme->modal_bg);
+    ui_append_child(dbgopts_modal, dbgopts_window);
+    g_dbgopts.window = dbgopts_window;
+
+    /* Only one backend per platform today (see debug_start()), shown so it's
+     * clear which one Start Debugging runs. */
+    /* Same columns as External Tools: labels at the inner edge + 2, inputs 12
+     * further, and a 5-wide button one blank column after each input. */
+    const int dbg_label_x = 15 + 2;
+    const int dbg_field_x = dbg_label_x + 12;
+    const int dbg_btn_w = 5;
+    const int dbg_field_w = (15 + 64 - 2) - dbg_field_x - 1 - 1 - dbg_btn_w;
+    const int dbg_btn_x = dbg_field_x + dbg_field_w + 1;
+
+    add_text(dbgopts_window, dbg_label_x, 10, "Debugger:", theme->label_fg, theme->modal_bg);
+    g_dbgopts.debugger = add_select(dbgopts_window, dbg_field_x, 10, 20);
+#if defined(_WIN32)
+    add_select_item(g_dbgopts.debugger, EVT_DBGOPTS_DEBUGGER, "cdb");
+#else
+    add_select_item(g_dbgopts.debugger, EVT_DBGOPTS_DEBUGGER, "lldb");
+#endif
+    ui_select_set_selected(g_dbgopts.debugger, 0);
+#if defined(_WIN32)
+    ui_set_help(g_dbgopts.debugger, "`cdb`: Microsoft's console debugger (Debugging Tools for Windows)",
+                "# cdb\n\n"
+                "Microsoft's console debugger - the same engine as WinDbg, without the window. "
+                "Start Debugging (F5) runs it as `cdb -lines <program> <arguments>`.\n"
+                "\n"
+                "It reads the PDB debug info the MSVC compiler writes (`/Zi`), so build with a `*_msvc` target.\n"
+                "\n"
+                "## Download\n"
+                "\n"
+                "- WinDbg, which includes cdb: `winget install Microsoft.WinDbg`\n"
+                "- or the Windows SDK installer, feature **Debugging Tools for Windows**: "
+                "https://developer.microsoft.com/windows/downloads/windows-sdk/\n"
+                "\n"
+                "`cdb.exe` must be on the PATH.");
+#else
+    ui_set_help(g_dbgopts.debugger, "`lldb`: the LLVM debugger",
+                "# lldb\n\n"
+                "The LLVM project's debugger. Start Debugging (F5) runs it as "
+                "`lldb --no-use-colors -x -- <program> <arguments>`.\n"
+                "\n"
+                "## Download\n"
+                "\n"
+                "- macOS: `xcode-select --install`\n"
+                "- Linux: the `lldb` package, e.g. `sudo apt install lldb`\n"
+                "- or https://releases.llvm.org\n"
+                "\n"
+                "`lldb` must be on the PATH.");
+#endif
+
+    struct
+    {
+        const char* label;
+        ui_node** input;
+        const char* short_help;
+        const char* help;
+    } rows[] = {
+        { "Command:", &g_dbgopts.command, "Program to debug - usually `$(TargetPath)`",
+          "# Command\n\nProgram to debug - usually `$(TargetPath)`, the built target.\n\nThe **...** button browses for a program." },
+        { "Arguments:", &g_dbgopts.arguments, "Command-line arguments passed to the program",
+          "# Arguments\n\nCommand-line arguments passed to the program. Use \"quotes\" for an argument with spaces.\n\nThe **>** button inserts a macro at the caret." },
+        { "Directory:", &g_dbgopts.working_dir, "Directory the program runs in (empty: the target's directory)",
+          "# Directory\n\nDirectory the program runs in. Empty: the target's directory, `$(TargetDir)`.\n\nThe **>** button inserts a macro at the caret, e.g. `$(ProjectDir)`." },
+    };
+    for (int i = 0; i < (int)_Countof(rows); i++)
+    {
+        int y = 12 + i * 2;
+        add_text(dbgopts_window, dbg_label_x, y, rows[i].label, theme->label_fg, theme->modal_bg);
+        *rows[i].input = add_input(dbgopts_window, dbg_field_x, y, dbg_field_w, "");
+        ui_set_id(*rows[i].input, EVT_DBGOPTS_OK);
+        ui_set_help(*rows[i].input, rows[i].short_help, rows[i].help);
+        g_dbgopts.macro_fields[i] = *rows[i].input;
+
+        /* Command browses for a program, like External Tools' Command */
+        ui_node* b = ui_create_element(UI_TAG_BUTTON);
+        ui_set_id(b, i == 0 ? EVT_DBGOPTS_BROWSE : EVT_DBGOPTS_MACRO_BTN + i);
+        ui_set_rect(b, dbg_btn_x, y, dbg_btn_w, 1);
+        ui_set_label(b, i == 0 ? " ... " : "  >  ");
+        ui_append_child(dbgopts_window, b);
+    }
+
+    ui_node* dbgopts_ok = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(dbgopts_ok, EVT_DBGOPTS_OK);
+    ui_set_rect(dbgopts_ok, 36, 18, 10, 1);   /* OK + gap + Cancel = 22, centered in 64 */
+    ui_set_label(dbgopts_ok, "  OK  ");
+    ui_append_child(dbgopts_window, dbgopts_ok);
+    ui_node* dbgopts_cancel = ui_create_element(UI_TAG_BUTTON);
+    ui_set_id(dbgopts_cancel, EVT_DBGOPTS_CANCEL);
+    ui_set_rect(dbgopts_cancel, 48, 18, 10, 1);
+    ui_set_label(dbgopts_cancel, "Cancel");
+    ui_append_child(dbgopts_window, dbgopts_cancel);
+    g_dbgopts.modal = dbgopts_modal;
 
     /* --- Full-help window (F1 on a status bar hint - see show_hint_window) --- */
     ui_node* hint_modal = ui_create_element(UI_TAG_MODAL);
@@ -19330,6 +19923,9 @@ int app_frame(ui_env* env)
      * row should immediately show that tool's fields. Polling the selection
      * while the modal is up gets that without changing the shared widget's
      * behavior for every other dialog. */
+    if (ui_screen_active_modal(g_screen) == g_editstring.modal)
+        edit_string_layout();
+
     if (g_exttool.modal && ui_screen_active_modal(g_screen) == g_exttool.modal)
     {
         int sel = ui_select_get_selected(g_exttool.listbox);

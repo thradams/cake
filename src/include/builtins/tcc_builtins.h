@@ -1,7 +1,7 @@
 #pragma cake diagnostic push
 #pragma cake diagnostic ignored 11 /*style checks don't apply to builtins*/
 
-#ifdef CAKE_TARGET_PLATFORM_MACOS_ARM64
+#ifdef __CAKE_TARGET_OS_MACOS
     /* apple headers need the clang builtins */
 
 

@@ -28,9 +28,12 @@
 
     #define WEOF ((wint_t)-1)
 
-    #if defined(_WIN32) || !defined(__SIZE_TYPE__)
+    #if __CAKE_SIZEOF_WCHAR_T__ == 2
         #define WCHAR_MIN 0
         #define WCHAR_MAX 0xffff
+    #elif defined(__CAKE_WCHAR_UNSIGNED__)
+        #define WCHAR_MIN 0U
+        #define WCHAR_MAX 0xffffffffU
     #else
         #define WCHAR_MIN (-0x7fffffff - 1)
         #define WCHAR_MAX 0x7fffffff

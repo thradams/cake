@@ -17,7 +17,11 @@
 
     /* same sizes as glibc */
     typedef unsigned long thrd_t;
-    typedef union { char __size[40]; long __align; } mtx_t;
+    #if defined(__aarch64__)
+        typedef union { char __size[48]; long __align; } mtx_t;
+    #else
+        typedef union { char __size[40]; long __align; } mtx_t;
+    #endif
     typedef union { char __size[48]; long long __align; } cnd_t;
     typedef int once_flag;
     typedef unsigned int tss_t;

@@ -116,10 +116,10 @@
     #define UINT_FAST32_WIDTH 32
     #define UINT_FAST64_WIDTH 64
 
-    #if __cake_sizeof_pointer == 8
+    #if __CAKE_SIZEOF_POINTER__ == 8
         /* the suffix must produce the type of intptr_t/ptrdiff_t/size_t, which is
            long on LP64 (linux, macOS) and long long on windows */
-        #if __cake_sizeof_long == 8
+        #if __CAKE_SIZEOF_LONG__ == 8
             #define INTPTR_MIN     (-9223372036854775807L - 1)
             #define INTPTR_MAX     9223372036854775807L
             #define UINTPTR_MAX    18446744073709551615UL
@@ -141,7 +141,7 @@
         #define UINTPTR_MAX    UINT32_MAX
         #define INTPTR_WIDTH   32
         #define UINTPTR_WIDTH  32
-        #if __cake_sizeof_int == 2
+        #if __CAKE_SIZEOF_INT__ == 2
             #define PTRDIFF_MIN    INT16_MIN
             #define PTRDIFF_MAX    INT16_MAX
             #define PTRDIFF_WIDTH  16
@@ -166,27 +166,34 @@
     #define SIG_ATOMIC_MAX   INT32_MAX
     #define SIG_ATOMIC_WIDTH 32
 
-    #if defined(_WIN32) || !defined(__SIZE_TYPE__)
-        /* wchar_t is unsigned short */
+    /* wchar_t: the target's size and signedness (__CAKE_* are cake builtins) */
+    #if __CAKE_SIZEOF_WCHAR_T__ == 2
         #define WCHAR_MIN   0
         #define WCHAR_MAX   0xffff
         #define WCHAR_WIDTH 16
+    #elif defined(__CAKE_WCHAR_UNSIGNED__)
+        #define WCHAR_MIN   0U
+        #define WCHAR_MAX   UINT32_MAX
+        #define WCHAR_WIDTH 32
+    #else
+        #define WCHAR_MIN   INT32_MIN
+        #define WCHAR_MAX   INT32_MAX
+        #define WCHAR_WIDTH 32
+    #endif
+
+    /* wint_t is a libc type */
+    #if defined(_WIN32) || !defined(__SIZE_TYPE__)
+        /* unsigned short */
         #define WINT_MIN    0
         #define WINT_MAX    0xffff
         #define WINT_WIDTH  16
     #elif defined(__APPLE__)
-        /* wchar_t and wint_t are int */
-        #define WCHAR_MIN   INT32_MIN
-        #define WCHAR_MAX   INT32_MAX
-        #define WCHAR_WIDTH 32
+        /* int */
         #define WINT_MIN    INT32_MIN
         #define WINT_MAX    INT32_MAX
         #define WINT_WIDTH  32
     #else
-        /* wchar_t is int, wint_t is unsigned int */
-        #define WCHAR_MIN   INT32_MIN
-        #define WCHAR_MAX   INT32_MAX
-        #define WCHAR_WIDTH 32
+        /* unsigned int */
         #define WINT_MIN    0U
         #define WINT_MAX    UINT32_MAX
         #define WINT_WIDTH  32

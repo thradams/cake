@@ -132,7 +132,7 @@ tcc build.c -o build && ./build
 ```
 
 On Windows, `build_tcc.bat` does the same. A Cake built by tcc uses the matching
-tcc target (`tcc_win_x64`, `tcc_linux_x64` or `tcc_macos_arm64`) and the tcc headers by default. Tested with tcc 0.9.28 on Windows
+tcc target (`tcc-win-x64`, `tcc-linux-x64` or `tcc-macos-arm64`) and the tcc headers by default. Tested with tcc 0.9.28 on Windows
 and 0.9.27 on Linux.
 
 ## Build options
@@ -195,17 +195,18 @@ listed in `src/tools/win_installer.h`.
 
 ## Linux / macOS
 
-The release has `cake-<version>-linux.tar.gz` and `cake-<version>-macos.tar.gz`,
+The release has `cake-<version>-linux-x64.tar.gz`, `cake-<version>-linux-arm64.tar.gz`
+(e.g. Raspberry Pi, 64-bit OS) and `cake-<version>-macos.tar.gz`,
 compressed archives (like a zip) with the binaries and `install.sh`.
 
 ```bash
-curl -L https://github.com/thradams/cake/releases/download/v<version>/cake-<version>-linux.tar.gz | tar xz
-cd cake-<version>-linux
+curl -L https://github.com/thradams/cake/releases/download/v<version>/cake-<version>-linux-x64.tar.gz | tar xz
+cd cake-<version>-linux-x64
 sudo ./install.sh
 ```
 
-(use `macos` instead of `linux` on macOS). If the archive was downloaded
-with a browser, extract it with `tar xzf cake-<version>-linux.tar.gz`
+(use `linux-arm64` on a Raspberry Pi, `macos` on macOS). If the archive was downloaded
+with a browser, extract it with `tar xzf cake-<version>-linux-x64.tar.gz`
 or with a double click, then run `sudo ./install.sh` inside the folder.
 
 The installer (`src/tools/unix_install.sh`):
@@ -237,7 +238,7 @@ Notes:
 cake source.c
 ```
 
-This writes the C89 output to `./<target>/source.c`, where `<target>` is the platform Cake was built for — for example `./macos_arm64/source.c` or `./x64_msvc/source.c`. `-target=<name>` selects another platform; see the [Manual](manual.md) for the full option list.
+This writes the C89 output to `./<target>/source.c`, where `<target>` is the platform Cake was built for — for example `./clang-macos-arm64/source.c` or `./msvc-win-x64/source.c`. `-target=<name>` selects another platform; see the [Manual](manual.md) for the full option list.
 
 
 # IDE

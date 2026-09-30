@@ -1,9 +1,10 @@
 #define __STDC_VERSION__ 202311L
 #define __TINYC__ 928
-#define __SIZEOF_POINTER__ 8
-#define __SIZEOF_INT__ 4
+#define __SIZEOF_POINTER__ __CAKE_SIZEOF_POINTER__
+#define __SIZEOF_INT__ __CAKE_SIZEOF_INT__
+#define __SIZEOF_LONG__ __CAKE_SIZEOF_LONG__
 #define __INT_MAX__ 0x7fffffff
-#define __SIZEOF_LONG_LONG__ 8
+#define __SIZEOF_LONG_LONG__ __CAKE_SIZEOF_LONG_LONG__
 #define __LONG_LONG_MAX__ 0x7fffffffffffffffLL
 #define __CHAR_BIT__ 8
 #define __ORDER_LITTLE_ENDIAN__ 1234
@@ -11,32 +12,31 @@
 #define __BYTE_ORDER__ __ORDER_LITTLE_ENDIAN__
 #define __UINTPTR_TYPE__ unsigned __PTRDIFF_TYPE__
 #define __INTPTR_TYPE__ __PTRDIFF_TYPE__
-#define __INT32_TYPE__ int
+#define __INT32_TYPE__ __CAKE_INT32_TYPE__
+#define __INT64_TYPE__ __CAKE_INT64_TYPE__
+#define __SIZE_TYPE__ __CAKE_SIZE_TYPE__
+#define __PTRDIFF_TYPE__ __CAKE_PTRDIFF_TYPE__
+#define __WCHAR_TYPE__ __CAKE_WCHAR_TYPE__
 #define __PRETTY_FUNCTION__ __FUNCTION__
 #define _Nonnull
 #define _Nullable
 #define _Nullable_result
 #define _Null_unspecified
 
-#ifdef CAKE_TARGET_PLATFORM_WIN_X64
+#ifdef __CAKE_TARGET_OS_WINDOWS
     #define __x86_64__ 1
     #define __x86_64 1
     #define __amd64__ 1
     #define _WIN32 1
     #define _WIN64 1
-    #define __SIZEOF_LONG__ 4
-    #define __SIZE_TYPE__ unsigned long long
-    #define __PTRDIFF_TYPE__ long long
     #define __LLP64__ 1
-    #define __INT64_TYPE__ long long
     #define __LONG_MAX__ 0x7fffffffL
-    #define __WCHAR_TYPE__ unsigned short
     #define __WINT_TYPE__ unsigned short
     #define __declspec(x) __attribute__((x))
     #define __cdecl
 #endif
 
-#ifdef CAKE_TARGET_PLATFORM_LINUX_X64
+#ifdef __CAKE_TARGET_OS_LINUX
     #define __STDC__ 1
     #define __STDC_HOSTED__ 1
     #define __x86_64__ 1
@@ -47,19 +47,14 @@
     #define __unix__ 1
     #define __unix 1
     #define __LP64__ 1
-    #define __SIZEOF_LONG__ 8
-    #define __SIZE_TYPE__ unsigned long
-    #define __PTRDIFF_TYPE__ long
-    #define __INT64_TYPE__ long
     #define __LONG_MAX__ 0x7fffffffffffffffL
-    #define __WCHAR_TYPE__ int
     #define __WINT_TYPE__ unsigned int
     #define __REDIRECT(name, proto, alias) name proto __asm__(#alias)
     #define __REDIRECT_NTH(name, proto, alias) name proto __asm__(#alias) __THROW
     #define __REDIRECT_NTHNL(name, proto, alias) name proto __asm__(#alias) __THROWNL
 #endif
 
-#ifdef CAKE_TARGET_PLATFORM_MACOS_ARM64
+#ifdef __CAKE_TARGET_OS_MACOS
     #define __STDC__ 1
     #define __STDC_HOSTED__ 1
     #define __aarch64__ 1
@@ -71,13 +66,8 @@
     #define __unix__ 1
     #define __GNUC__ 4
     #define __LP64__ 1
-    #define __SIZEOF_LONG__ 8
-    #define __SIZE_TYPE__ unsigned long
-    #define __PTRDIFF_TYPE__ long
-    #define __INT64_TYPE__ long long
     #define __LONG_MAX__ 0x7fffffffffffffffL
     #define __LITTLE_ENDIAN__ 1
-    #define __WCHAR_TYPE__ int
     #define __WINT_TYPE__ int
     #define __FINITE_MATH_ONLY__ 1
     #define __leading_underscore 1

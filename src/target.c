@@ -72,7 +72,10 @@ static char ccu8_macros[] =
 
 static struct platform platform_x86_x64_gcc =
 {
-  .name = "x86_x64_gcc",
+  .name = "gcc-linux-x64",
+  .compiler = "GCC",
+  .os = "LINUX",
+  .arch = "X64",
   .thread_local_attr = "__thread",
   .alignas_fmt_must_have_one_percent_d = "__attribute__((aligned(%d)))",
 
@@ -123,7 +126,10 @@ static struct platform platform_x86_x64_gcc =
 
 static struct platform platform_macos_arm64 =
 {
-  .name = "macos_arm64",
+  .name = "clang-macos-arm64",
+  .compiler = "CLANG",
+  .os = "MACOS",
+  .arch = "ARM64",
   .thread_local_attr = "__thread",
   .alignas_fmt_must_have_one_percent_d = "__attribute__((aligned(%d)))",
 
@@ -143,7 +149,7 @@ static struct platform platform_macos_arm64 =
   .int8_type = TYPE_SIGNED_CHAR,
   .int16_type = TYPE_SIGNED_SHORT,
   .int32_type = TYPE_SIGNED_INT,
-  .int64_type = TYPE_SIGNED_LONG,
+  .int64_type = TYPE_SIGNED_LONG_LONG,
 
   .pointer_n_bits = 64,
   .pointer_alignment = 8,
@@ -174,7 +180,10 @@ static struct platform platform_macos_arm64 =
 
 static struct platform platform_x86_msvc =
 {
-  .name = "x86_msvc",
+  .name = "msvc-win-x86",
+  .compiler = "MSVC",
+  .os = "WINDOWS",
+  .arch = "X86",
   .thread_local_attr = "__declspec(thread)",
   .alignas_fmt_must_have_one_percent_d = "__declspec(align(%d))",
 
@@ -223,7 +232,10 @@ static struct platform platform_x86_msvc =
 
 static struct platform platform_x64_msvc =
 {
-   .name = "x64_msvc",
+   .name = "msvc-win-x64",
+   .compiler = "MSVC",
+   .os = "WINDOWS",
+   .arch = "X64",
    .thread_local_attr = "__declspec(thread)",
    .alignas_fmt_must_have_one_percent_d = "__declspec(align(%d))",
 
@@ -270,10 +282,13 @@ static struct platform platform_x64_msvc =
   .long_double_alignment = 8,
 };
 
-/* Tiny C Compiler on Windows x64: the LLP64 sizes of x64_msvc, gcc syntax. */
+/* Tiny C Compiler on Windows x64: the LLP64 sizes of msvc-win-x64, gcc syntax. */
 static struct platform platform_tcc_win_x64 =
 {
-  .name = "tcc_win_x64",
+  .name = "tcc-win-x64",
+  .compiler = "TCC",
+  .os = "WINDOWS",
+  .arch = "X64",
   .thread_local_attr = "__thread",
   .alignas_fmt_must_have_one_percent_d = "__attribute__((aligned(%d)))",
 
@@ -318,10 +333,13 @@ static struct platform platform_tcc_win_x64 =
   .long_double_alignment = 8,
 };
 
-/* Tiny C Compiler on Linux x64: the LP64 sizes of x86_x64_gcc. */
+/* Tiny C Compiler on Linux x64: the LP64 sizes of gcc-linux-x64. */
 static struct platform platform_tcc_linux_x64 =
 {
-  .name = "tcc_linux_x64",
+  .name = "tcc-linux-x64",
+  .compiler = "TCC",
+  .os = "LINUX",
+  .arch = "X64",
   .thread_local_attr = "__thread",
   .alignas_fmt_must_have_one_percent_d = "__attribute__((aligned(%d)))",
 
@@ -370,10 +388,13 @@ static struct platform platform_tcc_linux_x64 =
 
 };
 
-/* Tiny C Compiler on macOS arm64: the sizes of macos_arm64. */
+/* Tiny C Compiler on macOS arm64: the sizes of clang-macos-arm64. */
 static struct platform platform_tcc_macos_arm64 =
 {
-  .name = "tcc_macos_arm64",
+  .name = "tcc-macos-arm64",
+  .compiler = "TCC",
+  .os = "MACOS",
+  .arch = "ARM64",
   .thread_local_attr = "__thread",
   .alignas_fmt_must_have_one_percent_d = "__attribute__((aligned(%d)))",
 
@@ -393,7 +414,7 @@ static struct platform platform_tcc_macos_arm64 =
   .int8_type = TYPE_SIGNED_CHAR,
   .int16_type = TYPE_SIGNED_SHORT,
   .int32_type = TYPE_SIGNED_INT,
-  .int64_type = TYPE_SIGNED_LONG,
+  .int64_type = TYPE_SIGNED_LONG_LONG,
 
   .pointer_n_bits = 64,
   .pointer_alignment = 8,
@@ -419,6 +440,61 @@ static struct platform platform_tcc_macos_arm64 =
 
   .long_double_n_bits = 64,
   .long_double_alignment = 8,
+
+};
+
+/* GCC on Linux aarch64 (e.g. Raspberry Pi): LP64, plain char is unsigned, 128-bit long double. */
+static struct platform platform_gcc_linux_arm64 =
+{
+  .name = "gcc-linux-arm64",
+  .compiler = "GCC",
+  .os = "LINUX",
+  .arch = "ARM64",
+  .thread_local_attr = "__thread",
+  .alignas_fmt_must_have_one_percent_d = "__attribute__((aligned(%d)))",
+
+  .size_t_type = TYPE_UNSIGNED_LONG,
+  .ptrdiff_type = TYPE_SIGNED_LONG, //long
+
+  .bool_n_bits = 8,
+  .bool_type = TYPE_UNSIGNED_CHAR,
+  .bool_alignment = 1,
+
+  .char_n_bits = 8,
+  .char_t_type = TYPE_UNSIGNED_CHAR,
+  .char_alignment = 1,
+
+
+
+  .int8_type = TYPE_SIGNED_CHAR,
+  .int16_type = TYPE_SIGNED_SHORT,
+  .int32_type = TYPE_SIGNED_INT,
+  .int64_type = TYPE_SIGNED_LONG,
+
+  .pointer_n_bits = 64,
+  .pointer_alignment = 8,
+
+
+  .wchar_t_type = TYPE_UNSIGNED_INT,
+
+  .short_n_bits = 16,
+  .short_alignment = 2,
+  .int_n_bits = 32,
+  .int_alignment = 4,
+
+  .long_n_bits = 64,
+  .long_alignment = 8,
+
+  .long_long_n_bits = 64,
+  .long_long_alignment = 8,
+  .float_n_bits = 32,
+  .float_alignment = 4,
+
+  .double_n_bits = 64,
+  .double_alignment = 8,
+
+  .long_double_n_bits = 128,
+  .long_double_alignment = 16,
 
 };
 
@@ -522,19 +598,20 @@ static struct platform platform_catalina =
 
 static struct platform* platforms[NUMBER_OF_TARGETS] =
 {
-        [TARGET_X86_X64_GCC] = &platform_x86_x64_gcc,
-        [TARGET_X86_MSVC] = &platform_x86_msvc,
-        [TARGET_X64_MSVC] = &platform_x64_msvc,
+        [TARGET_GCC_LINUX_X64] = &platform_x86_x64_gcc,
+        [TARGET_MSVC_WIN_X86] = &platform_x86_msvc,
+        [TARGET_MSVC_WIN_X64] = &platform_x64_msvc,
         [TARGET_CCU8] = &platform_ccu8,
         [TARGET_LCCU16] = &platform_ccu8,
         [TARGET_CATALINA] = &platform_catalina,
-        [TARGET_APPLE_ARM64] = &platform_macos_arm64,
+        [TARGET_CLANG_MACOS_ARM64] = &platform_macos_arm64,
         [TARGET_TCC_WIN_X64] = &platform_tcc_win_x64,
         [TARGET_TCC_LINUX_X64] = &platform_tcc_linux_x64,
-        [TARGET_TCC_MACOS_ARM64] = &platform_tcc_macos_arm64
+        [TARGET_TCC_MACOS_ARM64] = &platform_tcc_macos_arm64,
+        [TARGET_GCC_LINUX_ARM64] = &platform_gcc_linux_arm64
 };
 
-static_assert(NUMBER_OF_TARGETS == 10, "insert platform here");
+static_assert(NUMBER_OF_TARGETS == 11, "insert platform here");
 
 int parse_target(const char* targetstr, enum target* target)
 {
@@ -674,16 +751,17 @@ const char* target_get_predefined_macros(enum target e)
 {
     switch (e)
     {
-    case TARGET_X86_X64_GCC: return gcc_macros;
-    case TARGET_X86_MSVC:    return msvc_macros;
-    case TARGET_X64_MSVC:    return msvc_macros;
+    case TARGET_GCC_LINUX_X64: return gcc_macros;
+    case TARGET_MSVC_WIN_X86:    return msvc_macros;
+    case TARGET_MSVC_WIN_X64:    return msvc_macros;
     case TARGET_CCU8:        return ccu8_macros;
     case TARGET_LCCU16:      return ccu8_macros;
     case TARGET_CATALINA:    return catalina_macros;
-    case TARGET_APPLE_ARM64: return clang_macros;
+    case TARGET_CLANG_MACOS_ARM64: return clang_macros;
     case TARGET_TCC_WIN_X64:     return tcc_macros;
     case TARGET_TCC_LINUX_X64:   return tcc_macros;
     case TARGET_TCC_MACOS_ARM64: return tcc_macros;
+    case TARGET_GCC_LINUX_ARM64: return gcc_macros;
     }
     return "";
 };
@@ -693,16 +771,17 @@ const char* target_get_alloca(enum target e)
 {
     switch (e)
     {
-    case TARGET_X86_X64_GCC: return "__builtin_alloca";
-    case TARGET_X86_MSVC:    return "_alloca";
-    case TARGET_X64_MSVC:    return "_alloca";
+    case TARGET_GCC_LINUX_X64: return "__builtin_alloca";
+    case TARGET_MSVC_WIN_X86:    return "_alloca";
+    case TARGET_MSVC_WIN_X64:    return "_alloca";
     case TARGET_CCU8:        return "__builtin_alloca";
     case TARGET_LCCU16:      return "__builtin_alloca";
     case TARGET_CATALINA:    return "__builtin_alloca";
-    case TARGET_APPLE_ARM64: return "__builtin_alloca";
+    case TARGET_CLANG_MACOS_ARM64: return "__builtin_alloca";
     case TARGET_TCC_WIN_X64:     return "alloca";
     case TARGET_TCC_LINUX_X64:   return "alloca";
     case TARGET_TCC_MACOS_ARM64: return "alloca";
+    case TARGET_GCC_LINUX_ARM64: return "__builtin_alloca";
     }
     return "";
 }
@@ -710,23 +789,19 @@ const char* target_get_builtins(enum target e)
 {
     switch (e)
     {
-    case TARGET_X86_X64_GCC: return gcc_builtins;
-    case TARGET_X86_MSVC:    return "";
-    case TARGET_X64_MSVC:    return "";
+    case TARGET_GCC_LINUX_X64: return gcc_builtins;
+    case TARGET_MSVC_WIN_X86:    return "";
+    case TARGET_MSVC_WIN_X64:    return "";
     case TARGET_CCU8:        return "";
     case TARGET_LCCU16:      return "";
     case TARGET_CATALINA:    return catalina_builtins;
-    case TARGET_APPLE_ARM64: return gcc_builtins;
+    case TARGET_CLANG_MACOS_ARM64: return gcc_builtins;
     case TARGET_TCC_WIN_X64:     return tcc_builtins;
     case TARGET_TCC_LINUX_X64:   return tcc_builtins;
     case TARGET_TCC_MACOS_ARM64: return tcc_builtins;
+    case TARGET_GCC_LINUX_ARM64: return gcc_builtins;
     }
     return "";
-}
-
-bool target_is_tcc(enum target e)
-{
-    return e == TARGET_TCC_WIN_X64 || e == TARGET_TCC_LINUX_X64 || e == TARGET_TCC_MACOS_ARM64;
 }
 
 #ifdef TEST

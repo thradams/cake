@@ -2326,7 +2326,7 @@ Evaluate a clang query operator to "0" or "1" for the given target.
 */
 static const char* clang_query_operator_value(enum target target, const char* op, const char* arg)
 {
-    const bool is_apple = (target == TARGET_APPLE_ARM64 || target == TARGET_CATALINA || target == TARGET_TCC_MACOS_ARM64);
+    const bool is_apple = (target == TARGET_CLANG_MACOS_ARM64 || target == TARGET_CATALINA || target == TARGET_TCC_MACOS_ARM64);
 
     if (strcmp(op, "__has_builtin") == 0)
     {
@@ -2345,9 +2345,9 @@ static const char* clang_query_operator_value(enum target target, const char* op
 
     if (strcmp(op, "__is_target_arch") == 0)
     {
-        if (target == TARGET_APPLE_ARM64 || target == TARGET_TCC_MACOS_ARM64)
+        if (target == TARGET_CLANG_MACOS_ARM64 || target == TARGET_TCC_MACOS_ARM64 || target == TARGET_GCC_LINUX_ARM64)
             return (strcmp(arg, "arm64") == 0 || strcmp(arg, "aarch64") == 0) ? "1" : "0";
-        if (target == TARGET_X86_X64_GCC || target == TARGET_TCC_WIN_X64 || target == TARGET_TCC_LINUX_X64)
+        if (target == TARGET_GCC_LINUX_X64 || target == TARGET_TCC_WIN_X64 || target == TARGET_TCC_LINUX_X64)
             return (strcmp(arg, "x86_64") == 0) ? "1" : "0";
         return "0";
     }
@@ -2356,7 +2356,7 @@ static const char* clang_query_operator_value(enum target target, const char* op
     {
         if (is_apple)
             return (strcmp(arg, "macos") == 0 || strcmp(arg, "macosx") == 0 || strcmp(arg, "darwin") == 0) ? "1" : "0";
-        if (target == TARGET_X86_X64_GCC || target == TARGET_TCC_LINUX_X64)
+        if (target == TARGET_GCC_LINUX_X64 || target == TARGET_TCC_LINUX_X64 || target == TARGET_GCC_LINUX_ARM64)
             return (strcmp(arg, "linux") == 0) ? "1" : "0";
         return "0";
     }
@@ -7030,6 +7030,33 @@ static void add_builtin_define(struct preprocessor_ctx* ctx, const char* text)
     token_list_append_list(&ctx->input_list, &tl2);
     token_list_append_list(&ctx->input_list, &l2);
 }
+
+/* C spelling of an integer object_type; with is_unsigned, the unsigned one */
+static const char* object_type_spelling(enum object_type type, bool is_unsigned)
+{
+    switch (type)
+    {
+    case TYPE_SIGNED_CHAR:
+    case TYPE_UNSIGNED_CHAR:
+        return is_unsigned ? "unsigned char" : "signed char";
+    case TYPE_SIGNED_SHORT:
+    case TYPE_UNSIGNED_SHORT:
+        return is_unsigned ? "unsigned short" : "short";
+    case TYPE_SIGNED_INT:
+    case TYPE_UNSIGNED_INT:
+        return is_unsigned ? "unsigned int" : "int";
+    case TYPE_SIGNED_LONG:
+    case TYPE_UNSIGNED_LONG:
+        return is_unsigned ? "unsigned long" : "long";
+    case TYPE_SIGNED_LONG_LONG:
+    case TYPE_UNSIGNED_LONG_LONG:
+        return is_unsigned ? "unsigned long long" : "long long";
+    default:
+        break;
+    }
+    return "int";
+}
+
 void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
 {
     const struct diagnostic w =
@@ -7070,40 +7097,82 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
         add_builtin_define(ctx, "#define CAKE_HEADERS\n");
     }
 
-    switch (target)
+    /* the target's type sizes and signedness (struct platform), for cake's headers */
+    const struct platform* p_platform = get_platform(target);
+    char platformstr[1024] = { 0 };
+    snprintf(platformstr, sizeof platformstr,
+             "#define __CAKE_SIZEOF_SHORT__ %d\n"
+             "#define __CAKE_SIZEOF_INT__ %d\n"
+             "#define __CAKE_SIZEOF_LONG__ %d\n"
+             "#define __CAKE_SIZEOF_LONG_LONG__ %d\n"
+             "#define __CAKE_SIZEOF_POINTER__ %d\n"
+             "#define __CAKE_SIZEOF_LONG_DOUBLE__ %d\n"
+             "#define __CAKE_SIZEOF_WCHAR_T__ %d\n"
+             "#define __CAKE_SIZEOF_FLOAT__ %d\n"
+             "#define __CAKE_SIZEOF_DOUBLE__ %d\n"
+             "#define __CAKE_SIZEOF_SIZE_T__ %d\n"
+             "#define __CAKE_SIZEOF_PTRDIFF_T__ %d\n",
+             p_platform->short_n_bits / 8,
+             p_platform->int_n_bits / 8,
+             p_platform->long_n_bits / 8,
+             p_platform->long_long_n_bits / 8,
+             p_platform->pointer_n_bits / 8,
+             p_platform->long_double_n_bits / 8,
+             target_get_num_of_bits(target, p_platform->wchar_t_type) / 8,
+             p_platform->float_n_bits / 8,
+             p_platform->double_n_bits / 8,
+             target_get_num_of_bits(target, p_platform->size_t_type) / 8,
+             target_get_num_of_bits(target, p_platform->ptrdiff_type) / 8);
+    add_builtin_define(ctx, platformstr);
+
+    /* the target's typedefs (struct platform) */
+    snprintf(platformstr, sizeof platformstr,
+             "#define __CAKE_SIZE_TYPE__ %s\n"
+             "#define __CAKE_PTRDIFF_TYPE__ %s\n"
+             "#define __CAKE_WCHAR_TYPE__ %s\n"
+             "#define __CAKE_INT8_TYPE__ %s\n"
+             "#define __CAKE_INT16_TYPE__ %s\n"
+             "#define __CAKE_INT32_TYPE__ %s\n"
+             "#define __CAKE_INT64_TYPE__ %s\n"
+             "#define __CAKE_UINT8_TYPE__ %s\n"
+             "#define __CAKE_UINT16_TYPE__ %s\n"
+             "#define __CAKE_UINT32_TYPE__ %s\n"
+             "#define __CAKE_UINT64_TYPE__ %s\n",
+             object_type_spelling(p_platform->size_t_type, true),
+             object_type_spelling(p_platform->ptrdiff_type, false),
+             object_type_spelling(p_platform->wchar_t_type, p_platform->wchar_t_type == TYPE_UNSIGNED_SHORT || p_platform->wchar_t_type == TYPE_UNSIGNED_INT),
+             object_type_spelling(p_platform->int8_type, false),
+             object_type_spelling(p_platform->int16_type, false),
+             object_type_spelling(p_platform->int32_type, false),
+             object_type_spelling(p_platform->int64_type, false),
+             object_type_spelling(p_platform->int8_type, true),
+             object_type_spelling(p_platform->int16_type, true),
+             object_type_spelling(p_platform->int32_type, true),
+             object_type_spelling(p_platform->int64_type, true));
+    add_builtin_define(ctx, platformstr);
+
+    if (p_platform->char_t_type == TYPE_UNSIGNED_CHAR)
+        add_builtin_define(ctx, "#define __CAKE_CHAR_UNSIGNED__ 1\n");
+
+    if (p_platform->wchar_t_type == TYPE_UNSIGNED_SHORT || p_platform->wchar_t_type == TYPE_UNSIGNED_INT)
+        add_builtin_define(ctx, "#define __CAKE_WCHAR_UNSIGNED__ 1\n");
+
+    /* compiler, os and arch of the target, each on its own macro */
+    char targetstr[200] = { 0 };
+    if (p_platform->compiler)
     {
-    case TARGET_X86_X64_GCC:
-        add_builtin_define(ctx, "#define CAKE_TARGET_COMPILER_GCC\n");
-        add_builtin_define(ctx, "#define CAKE_TARGET_PLATFORM_LINUX_X64\n");
-        break;
-    case TARGET_X86_MSVC:
-        add_builtin_define(ctx, "#define CAKE_TARGET_COMPILER_MSVC\n");
-        add_builtin_define(ctx, "#define CAKE_TARGET_PLATFORM_WIN_X86\n");
-        break;
-    case TARGET_X64_MSVC:
-        add_builtin_define(ctx, "#define CAKE_TARGET_COMPILER_MSVC\n");
-        add_builtin_define(ctx, "#define CAKE_TARGET_PLATFORM_WIN_X64\n");
-        break;
-    case TARGET_APPLE_ARM64:
-        add_builtin_define(ctx, "#define CAKE_TARGET_COMPILER_CLANG\n");
-        add_builtin_define(ctx, "#define CAKE_TARGET_PLATFORM_MACOS_ARM64\n");
-        break;
-    case TARGET_TCC_WIN_X64:
-        add_builtin_define(ctx, "#define CAKE_TARGET_COMPILER_TCC\n");
-        add_builtin_define(ctx, "#define CAKE_TARGET_PLATFORM_WIN_X64\n");
-        break;
-    case TARGET_TCC_LINUX_X64:
-        add_builtin_define(ctx, "#define CAKE_TARGET_COMPILER_TCC\n");
-        add_builtin_define(ctx, "#define CAKE_TARGET_PLATFORM_LINUX_X64\n");
-        break;
-    case TARGET_TCC_MACOS_ARM64:
-        add_builtin_define(ctx, "#define CAKE_TARGET_COMPILER_TCC\n");
-        add_builtin_define(ctx, "#define CAKE_TARGET_PLATFORM_MACOS_ARM64\n");
-        break;
-    case TARGET_CCU8:
-    case TARGET_LCCU16:
-    case TARGET_CATALINA:
-        break;
+        snprintf(targetstr, sizeof targetstr, "#define __CAKE_TARGET_COMPILER_%s 1\n", p_platform->compiler);
+        add_builtin_define(ctx, targetstr);
+    }
+    if (p_platform->os)
+    {
+        snprintf(targetstr, sizeof targetstr, "#define __CAKE_TARGET_OS_%s 1\n", p_platform->os);
+        add_builtin_define(ctx, targetstr);
+    }
+    if (p_platform->arch)
+    {
+        snprintf(targetstr, sizeof targetstr, "#define __CAKE_TARGET_ARCH_%s 1\n", p_platform->arch);
+        add_builtin_define(ctx, targetstr);
     }
 
     /*

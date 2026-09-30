@@ -48,16 +48,17 @@ enum object_type
 
 enum target
 {
-    TARGET_X86_X64_GCC,
-    TARGET_X86_MSVC,
-    TARGET_X64_MSVC,
+    TARGET_GCC_LINUX_X64,
+    TARGET_MSVC_WIN_X86,
+    TARGET_MSVC_WIN_X64,
     TARGET_CCU8,
     TARGET_LCCU16,
     TARGET_CATALINA,
-    TARGET_APPLE_ARM64,
+    TARGET_CLANG_MACOS_ARM64,
     TARGET_TCC_WIN_X64,
     TARGET_TCC_LINUX_X64,
     TARGET_TCC_MACOS_ARM64,
+    TARGET_GCC_LINUX_ARM64,
 
     /* alias: the platform cake itself was built for */
 #if defined(_WIN32) && defined(_WIN64) && defined(__TINYC__)
@@ -67,23 +68,31 @@ enum target
 #elif defined(__APPLE__) && (defined(__aarch64__) || defined(__arm64__)) && defined(__TINYC__)
     TARGET_DEFAULT = TARGET_TCC_MACOS_ARM64
 #elif defined(_WIN32) && defined(_WIN64)
-    TARGET_DEFAULT = TARGET_X64_MSVC
+    TARGET_DEFAULT = TARGET_MSVC_WIN_X64
 #elif defined(_WIN32) && !defined(_WIN64)
-    TARGET_DEFAULT = TARGET_X86_MSVC
+    TARGET_DEFAULT = TARGET_MSVC_WIN_X86
 #elif !defined(_WIN32) && (defined(__x86_64__) || defined(_M_X64) || defined(__EMSCRIPTEN__))
-    TARGET_DEFAULT = TARGET_X86_X64_GCC
+    TARGET_DEFAULT = TARGET_GCC_LINUX_X64
 #elif defined(__APPLE__) && (defined(__aarch64__) || defined(__arm64__))
-    TARGET_DEFAULT = TARGET_APPLE_ARM64
+    TARGET_DEFAULT = TARGET_CLANG_MACOS_ARM64
+#elif defined(__linux__) && defined(__aarch64__)
+    TARGET_DEFAULT = TARGET_GCC_LINUX_ARM64
 #else
 #error "unknown host platform"
 #endif
 };
 
-#define NUMBER_OF_TARGETS  10
+#define NUMBER_OF_TARGETS  11
 
 struct platform
 {
     const char* name;
+
+    /* __CAKE_TARGET_COMPILER_<compiler>, __CAKE_TARGET_OS_<os>, __CAKE_TARGET_ARCH_<arch>;
+       NULL defines nothing */
+    const char* _Opt compiler;
+    const char* _Opt os;
+    const char* _Opt arch;
 
     const char* thread_local_attr;
     const char* alignas_fmt_must_have_one_percent_d;
@@ -141,7 +150,6 @@ void print_target_options();
 const char* target_get_predefined_macros(enum target e);
 const char* target_get_builtins(enum target e);
 const char* target_get_alloca(enum target e);
-bool target_is_tcc(enum target e);
 
 
 long long target_signed_max(enum  target target, enum object_type type);

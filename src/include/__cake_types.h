@@ -123,32 +123,3 @@
     #define __cake_UINT64_C(c) c ## ULL
 #endif
 
-/* size of long, used by limits.h and stdint.h */
-#if defined(__SIZEOF_LONG__)
-    #define __cake_sizeof_long __SIZEOF_LONG__
-#elif defined(_WIN32)
-    #define __cake_sizeof_long 4
-#elif defined(__CCU8__) || defined(__LCCU16__)
-    #define __cake_sizeof_long 8
-#else
-    #define __cake_sizeof_long 4
-#endif
-
-/* size of int, used by limits.h */
-#if defined(__SIZEOF_INT__)
-    #define __cake_sizeof_int __SIZEOF_INT__
-#elif defined(__CCU8__) || defined(__LCCU16__)
-    #define __cake_sizeof_int 2
-#else
-    #define __cake_sizeof_int 4
-#endif
-
-/* size of pointer, used by stdint.h */
-#if defined(__SIZEOF_POINTER__)
-    #define __cake_sizeof_pointer __SIZEOF_POINTER__
-#elif defined(_WIN64)
-    #define __cake_sizeof_pointer 8
-#else
-    #define __cake_sizeof_pointer 4
-#endif
-

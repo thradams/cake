@@ -710,7 +710,7 @@ struct object object_make_signed_char(signed char value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_CHAR;
-    r.value.host_long_long = wrap_signed_integer(value, get_platform(TARGET_X86_MSVC)->char_n_bits);
+    r.value.host_long_long = wrap_signed_integer(value, get_platform(TARGET_MSVC_WIN_X86)->char_n_bits);
     return r;
 }
 
@@ -2026,7 +2026,12 @@ enum object_type type_specifier_to_object_type(const enum type_specifier_flags t
     else
     {
         if (type_specifier_flags & TYPE_SPECIFIER_CHAR)
-            return TYPE_SIGNED_CHAR;
+        {
+            /* plain char has the signedness of the target */
+            if (type_specifier_flags & TYPE_SPECIFIER_SIGNED)
+                return TYPE_SIGNED_CHAR;
+            return get_platform(target)->char_t_type;
+        }
         if (type_specifier_flags & TYPE_SPECIFIER_SHORT)
             return TYPE_SIGNED_SHORT;
 

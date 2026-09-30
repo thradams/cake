@@ -1275,8 +1275,8 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
     }
     else
     {
-        const bool is_msvc = ctx->options.target == TARGET_X86_MSVC || ctx->options.target == TARGET_X64_MSVC;
-        const bool is_tcc = target_is_tcc(ctx->options.target);
+        const bool is_msvc = ctx->options.target == TARGET_MSVC_WIN_X86 || ctx->options.target == TARGET_MSVC_WIN_X64;
+        const bool is_tcc = (ctx->options.target == TARGET_TCC_WIN_X64 || ctx->options.target == TARGET_TCC_LINUX_X64 || ctx->options.target == TARGET_TCC_MACOS_ARM64);
         const bool is_load = strcmp(kind, "load") == 0;
         const bool is_cas = strcmp(kind, "cas") == 0;
         const bool is_store = strcmp(kind, "store") == 0;
@@ -2661,7 +2661,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     }
                 }
 
-                const bool is_msvc = ctx->options.target == TARGET_X86_MSVC || ctx->options.target == TARGET_X64_MSVC;
+                const bool is_msvc = ctx->options.target == TARGET_MSVC_WIN_X86 || ctx->options.target == TARGET_MSVC_WIN_X64;
 
                 if (atomic_is_lock_free && p_first_argument)
                 {
@@ -6569,7 +6569,7 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
                     emit_line_directive(ctx, oss0, p_init_declarator->p_declarator->first_token_opt);
                     print_identation(ctx, oss0);
                     /* tcc alloca is a libtcc1 function: without a prototype it would return int */
-                    if (target_is_tcc(ctx->options.target) && !ctx->alloca_declared)
+                    if ((ctx->options.target == TARGET_TCC_WIN_X64 || ctx->options.target == TARGET_TCC_LINUX_X64 || ctx->options.target == TARGET_TCC_MACOS_ARM64) && !ctx->alloca_declared)
                     {
                         ctx->alloca_declared = true;
                         /* same size_t as tcc's own declaration: unsigned long long on windows, unsigned long otherwise */
@@ -6786,7 +6786,7 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
     }
 
     const bool msvc_target =
-        (ctx->options.target == TARGET_X86_MSVC || ctx->options.target == TARGET_X64_MSVC);
+        (ctx->options.target == TARGET_MSVC_WIN_X86 || ctx->options.target == TARGET_MSVC_WIN_X64);
 
     /* __attribute__((aligned(n))) on the struct: MSVC spells it
        __declspec(align(n)) and wants it before the keyword. */

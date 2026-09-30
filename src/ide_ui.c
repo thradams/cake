@@ -748,6 +748,11 @@ struct ui_node {
                       * (button/box/menu/dropdown) - opt individual windows
                       * out (see ui_set_shadow) for ones that shouldn't look
                       * "raised", like a floating document/editor window. */
+    int min_w, min_h;  /* WINDOW only: smallest size a corner-drag resize
+                        * gives it (see ui_set_min_size) - 0 = the default floor */
+    int caret_indicator;  /* WINDOW only: on by default - the caret "line:col"
+                           * at the bottom border of a window holding an
+                           * <editor> (see ui_set_caret_indicator) */
     int dock;       /* WINDOW only: a ui_dock_side value - UI_DOCK_NONE (0,
                       * the calloc default) for an ordinary floating window,
                       * else which desktop edge it's pinned to - see
@@ -1170,6 +1175,7 @@ static ui_node* alloc_node(int type)
     n->enabled = 1;
     n->sel_anchor = -1;
     n->shadow = 1;
+    n->caret_indicator = 1;
     n->small_font = 0;      /* main UI font - see ui_set_small_font */
     n->thumb_pin = -1;      /* no scrollbar drag in progress */
     return n;
@@ -1818,6 +1824,17 @@ ui_dock_side ui_get_dock(const ui_node* n)
 void ui_set_shadow(ui_node* n, int shadow)
 {
     n->shadow = shadow;
+}
+
+void ui_set_min_size(ui_node* n, int w, int h)
+{
+    n->min_w = w;
+    n->min_h = h;
+}
+
+void ui_set_caret_indicator(ui_node* n, int on)
+{
+    n->caret_indicator = on;
 }
 
 int ui_get_shadow(const ui_node* n)
@@ -3768,7 +3785,7 @@ static int editor_gutter_width(const ui_node* n)
     /* Markdown/plain text get a bare 1-column margin - not a number gutter
      * (prose isn't line-numbered, see the comment above), just breathing
      * room so text doesn't start flush against the editor's left edge. */
-    if (n->syntax == UI_SYNTAX_MARKDOWN || n->syntax == UI_SYNTAX_NONE)
+    if (n->syntax == UI_SYNTAX_MARKDOWN || n->syntax == UI_SYNTAX_NONE || n->syntax == UI_SYNTAX_STRING)
         return 1;
     if (n->syntax != UI_SYNTAX_C && n->syntax != UI_SYNTAX_DIFF)
         return 0;
@@ -5736,7 +5753,7 @@ static int window_zoom_x(ui_node* win) { return win->x + win->w - 1 - UI_WINDOW_
 static int window_caret_indicator(ui_node* win, char* buf, size_t cap)
 {
     ui_node* sed = find_child_by_type(win, UI_TAG_EDITOR);
-    if (!(sed && sed->syntax != UI_SYNTAX_VT100 &&
+    if (!(win->caret_indicator && sed && sed->syntax != UI_SYNTAX_VT100 &&
           !(sed->read_only && sed->syntax == UI_SYNTAX_MARKDOWN) && win->w > 14))
     {
         if (cap) buf[0] = '\0';
@@ -6219,6 +6236,8 @@ static int process_window(ui_screen* s, ui_node* container, ui_node* window,
             int new_h = s->mouse_y - window->y + 1;
             if (new_w < 12) new_w = 12;
             if (new_h < 5) new_h = 5;
+            if (new_w < window->min_w) new_w = window->min_w;
+            if (new_h < window->min_h) new_h = window->min_h;
             if (new_w != window->w || new_h != window->h)
                 set_window_rect(window, window->x, window->y, new_w, new_h);
         }
@@ -10020,7 +10039,7 @@ static void render_editor_line(int x, int y, int w, int scroll_x,
  * as render_editor_line above, just without any of the syntax analysis. */
 static void render_editor_line_plain(int x, int y, int w, int scroll_x,
                                       const char* line, int line_len, int sel_col_lo, int sel_col_hi,
-                                      uint32_t bg)
+                                      uint32_t fg, uint32_t bg)
 {
     int col = 0, i = 0;
     while (i < line_len && col < scroll_x + w)
@@ -10028,7 +10047,7 @@ static void render_editor_line_plain(int x, int y, int w, int scroll_x,
         uint32_t cp;
         int clen = utf8_decode(line + i, &cp);
         int selected = col >= sel_col_lo && col < sel_col_hi;
-        emit_hscroll(x, y, col, scroll_x, w, cp, g_theme.editor_fg,
+        emit_hscroll(x, y, col, scroll_x, w, cp, fg,
                   selected ? g_theme.editor_sel_bg : bg);
         col++;
         i += clen;
@@ -10036,7 +10055,7 @@ static void render_editor_line_plain(int x, int y, int w, int scroll_x,
     for (; col < scroll_x + w; col++)
     {
         int selected = col >= sel_col_lo && col < sel_col_hi;
-        emit_hscroll(x, y, col, scroll_x, w, ' ', g_theme.editor_fg, selected ? g_theme.editor_sel_bg : bg);
+        emit_hscroll(x, y, col, scroll_x, w, ' ', fg, selected ? g_theme.editor_sel_bg : bg);
     }
 }
 
@@ -11093,7 +11112,9 @@ static void render_editor(ui_screen* s, ui_node* n)
             break;
         default:
             render_editor_line_plain(text_x, ey + row, text_w, n->hscroll, n->label + ls, le - ls,
-                                      sel_col_lo, sel_col_hi, line_bg);
+                                      sel_col_lo, sel_col_hi,
+                                      n->syntax == UI_SYNTAX_STRING ? g_theme.editor_string_fg : g_theme.editor_fg,
+                                      line_bg);
             break;
         }
 

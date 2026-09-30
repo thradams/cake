@@ -5,7 +5,7 @@
 #define _MSC_EXTENSIONS 1
 #define __pragma(a)
 
-#ifdef CAKE_TARGET_PLATFORM_WIN_X86
+#ifdef __CAKE_TARGET_ARCH_X86
     #define __STDC_NO_COMPLEX__  __STDC_NO_COMPLEX__
     #define __STDC_NO_THREADS__   __STDC_NO_THREADS__
     #define __STDC_NO_VLA__    __STDC_NO_VLA__
@@ -13,7 +13,7 @@
     void *__builtin_alloca (size_t __size);
 #endif
 
-#ifdef CAKE_TARGET_PLATFORM_WIN_X64
+#ifdef __CAKE_TARGET_ARCH_X64
     #define __STDC_VERSION__ 202311L
     #define _WIN64 1
     #define _M_X64 100

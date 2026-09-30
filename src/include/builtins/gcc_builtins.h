@@ -4,7 +4,7 @@
 
 typedef typeof(sizeof(1)) size_t;
 
-#ifdef CAKE_TARGET_PLATFORM_MACOS_ARM64
+#ifdef __CAKE_TARGET_OS_MACOS
     /* clang builtin types cake has no keyword for. _Float16 (Apple math.h)
     aliased to float. The 128-bit ints only appear as declared fields in
     arm64 CPU/NEON state structs (never used in arithmetic here), so model
@@ -14,11 +14,11 @@ typedef typeof(sizeof(1)) size_t;
     typedef struct { unsigned long long __a, __b; } __int128_t;
 
 
-#endif /* CAKE_TARGET_PLATFORM_MACOS_ARM64 */
+#endif /* __CAKE_TARGET_OS_MACOS */
 long __builtin_expect(long exp, long c);
-#ifdef CAKE_TARGET_PLATFORM_MACOS_ARM64
+#ifdef __CAKE_TARGET_OS_MACOS
     int __builtin_constant_p(/*any expression*/...);
-#endif /* CAKE_TARGET_PLATFORM_MACOS_ARM64 */
+#endif /* __CAKE_TARGET_OS_MACOS */
 
 /*
   https://gcc.gnu.org/onlinedocs/gcc/Integer-Overflow-Builtins.html
@@ -140,10 +140,10 @@ int __builtin_signbit(double x);
 int __builtin_signbitf(float x);
 int __builtin_signbitl(long double x);
 
-#ifdef CAKE_TARGET_PLATFORM_MACOS_ARM64
+#ifdef __CAKE_TARGET_OS_MACOS
     int __builtin_flt_rounds(void);
 
-#endif /* CAKE_TARGET_PLATFORM_MACOS_ARM64 */
+#endif /* __CAKE_TARGET_OS_MACOS */
 
 
 
@@ -183,7 +183,7 @@ unsigned int __builtin_stdc_leading_zeros(/*type arg*/);
 unsigned int __builtin_stdc_trailing_ones(/*type arg*/);
 unsigned int __builtin_stdc_trailing_zeros(/*type arg*/);
 
-#ifdef CAKE_TARGET_PLATFORM_MACOS_ARM64
+#ifdef __CAKE_TARGET_OS_MACOS
 
     /*
     clang atomic builtins used by <stdatomic.h>.
@@ -207,7 +207,7 @@ unsigned int __builtin_stdc_trailing_zeros(/*type arg*/);
     int __c11_atomic_fetch_nand(/*_Atomic(T)* obj, T operand, int order*/);
     int __c11_atomic_fetch_max(/*_Atomic(T)* obj, T operand, int order*/);
     int __c11_atomic_fetch_min(/*_Atomic(T)* obj, T operand, int order*/);
-#endif /* CAKE_TARGET_PLATFORM_MACOS_ARM64 */
+#endif /* __CAKE_TARGET_OS_MACOS */
 
 /*
   https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html

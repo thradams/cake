@@ -363,7 +363,7 @@ fatal error: X11/Xft/Xft.h: No such file or directory</p>
 </code></pre>
 
 <p>On Windows, <code>build_tcc.bat</code> does the same. A Cake built by tcc uses the matching
-tcc target (<code>tcc_win_x64</code>, <code>tcc_linux_x64</code> or <code>tcc_macos_arm64</code>) and the tcc headers by default. Tested with tcc 0.9.28 on Windows
+tcc target (<code>tcc-win-x64</code>, <code>tcc-linux-x64</code> or <code>tcc-macos-arm64</code>) and the tcc headers by default. Tested with tcc 0.9.28 on Windows
 and 0.9.27 on Linux.</p>
 
 <h2 id="toc_9">Build options</h2>
@@ -447,16 +447,17 @@ listed in <code>src/tools/win_installer.h</code>.</p>
 
 <h2 id="toc_13">Linux / macOS</h2>
 
-<p>The release has <code>cake-&lt;version&gt;-linux.tar.gz</code> and <code>cake-&lt;version&gt;-macos.tar.gz</code>,
+<p>The release has <code>cake-&lt;version&gt;-linux-x64.tar.gz</code>, <code>cake-&lt;version&gt;-linux-arm64.tar.gz</code>
+(e.g. Raspberry Pi, 64-bit OS) and <code>cake-&lt;version&gt;-macos.tar.gz</code>,
 compressed archives (like a zip) with the binaries and <code>install.sh</code>.</p>
 
-<pre><code class="language-bash">curl -L https://github.com/thradams/cake/releases/download/v&lt;version&gt;/cake-&lt;version&gt;-linux.tar.gz | tar xz
-cd cake-&lt;version&gt;-linux
+<pre><code class="language-bash">curl -L https://github.com/thradams/cake/releases/download/v&lt;version&gt;/cake-&lt;version&gt;-linux-x64.tar.gz | tar xz
+cd cake-&lt;version&gt;-linux-x64
 sudo ./install.sh
 </code></pre>
 
-<p>(use <code>macos</code> instead of <code>linux</code> on macOS). If the archive was downloaded
-with a browser, extract it with <code>tar xzf cake-&lt;version&gt;-linux.tar.gz</code>
+<p>(use <code>linux-arm64</code> on a Raspberry Pi, <code>macos</code> on macOS). If the archive was downloaded
+with a browser, extract it with <code>tar xzf cake-&lt;version&gt;-linux-x64.tar.gz</code>
 or with a double click, then run <code>sudo ./install.sh</code> inside the folder.</p>
 
 <p>The installer (<code>src/tools/unix_install.sh</code>):</p>
@@ -490,7 +491,7 @@ archive was downloaded with a browser, macOS blocks them. Allow with
 <pre><code>cake source.c
 </code></pre>
 
-<p>This writes the C89 output to <code>./&lt;target&gt;/source.c</code>, where <code>&lt;target&gt;</code> is the platform Cake was built for — for example <code>./macos_arm64/source.c</code> or <code>./x64_msvc/source.c</code>. <code>-target=&lt;name&gt;</code> selects another platform; see the <a href="manual.html">Manual</a> for the full option list.</p>
+<p>This writes the C89 output to <code>./&lt;target&gt;/source.c</code>, where <code>&lt;target&gt;</code> is the platform Cake was built for — for example <code>./clang-macos-arm64/source.c</code> or <code>./msvc-win-x64/source.c</code>. <code>-target=&lt;name&gt;</code> selects another platform; see the <a href="manual.html">Manual</a> for the full option list.</p>
 
 <h1 id="toc_15">IDE</h1>
 
