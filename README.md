@@ -114,7 +114,7 @@ clang build.c -o build && ./build
 If you encounter an error such as:
 fatal error: X11/Xft/Xft.h: No such file or directory
 
-Ubuntu / Debian:  `sudo apt install libx11-dev libxft-dev`
+Ubuntu / Debian / Raspberry Pi OS:  `sudo apt install libx11-dev libxft-dev`
 
 Fedora: `sudo dnf install libX11-devel libXft-devel`
 
@@ -226,7 +226,7 @@ sudo /usr/local/cake/<version>/uninstall.sh
 Notes:
 
 * Linux: built on Ubuntu 22.04 (needs glibc 2.35+). `cakeide` needs the
-  X11/Xft libraries (e.g. `sudo apt install libxft2`).
+  X11/Xft libraries (e.g. `sudo apt install libxft2`, also on Raspberry Pi OS).
 * macOS: Apple Silicon (arm64) only. The binaries are not signed; if the
   archive was downloaded with a browser, macOS blocks them. Allow with
   `xattr -dr com.apple.quarantine cake-<version>-macos` before installing

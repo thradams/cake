@@ -815,7 +815,7 @@ void target_self_test()
     assert(target_unsigned_max(TARGET_DEFAULT, TYPE_UNSIGNED_LONG) == ULONG_MAX);
     assert(target_unsigned_max(TARGET_DEFAULT, TYPE_UNSIGNED_LONG_LONG) == ULLONG_MAX);
 
-    assert(target_signed_max(TARGET_DEFAULT, TYPE_SIGNED_CHAR) == CHAR_MAX);
+    assert(target_signed_max(TARGET_DEFAULT, TYPE_SIGNED_CHAR) == SCHAR_MAX);
     assert(target_signed_max(TARGET_DEFAULT, TYPE_SIGNED_SHORT) == SHRT_MAX);
     assert(target_signed_max(TARGET_DEFAULT, TYPE_SIGNED_INT) == INT_MAX);
     assert(target_signed_max(TARGET_DEFAULT, TYPE_SIGNED_LONG) == LONG_MAX);
