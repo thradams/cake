@@ -65,7 +65,7 @@ enum Token
 static enum Token match(FILE* f, char* dest, int destsize)
 {
     dest[0] = 0;
-    char ch = fgetc(f);
+    int ch = fgetc(f);
     for (;;)
     {
         if (ferror(f) || feof(f))
@@ -124,11 +124,11 @@ static enum Token match(FILE* f, char* dest, int destsize)
         dest[count] = ch;
         count++;
         while (
-            ((ch = fgetc(f)) != EOF) &&
+            ((ch = fgetc(f)) != EOF) && (
             (ch >= 'a' && ch <= 'z') ||
             (ch >= 'A' && ch <= 'Z') ||
             (ch >= '0' && ch <= '9') ||
-            ch == '_')
+            ch == '_'))
         {
             if (count < destsize - 1)
             {
