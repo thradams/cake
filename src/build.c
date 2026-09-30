@@ -171,6 +171,7 @@
 #if defined COMPILER_GCC && !defined COMPILER_TINYC
 
 #define GCC_FLAGS            \
+      " -std=gnu99 "           \
       " -Wall "                \
       " -Wno-multichar "       \
       " -Wno-unknown-pragmas " \
