@@ -596,6 +596,57 @@ static struct platform platform_catalina =
   .long_double_alignment = 4,
 };
 
+/* GCC on Linux 32-bit ARM, EABI hard-float (e.g. Raspberry Pi 1/2 with a 32-bit OS): ILP32, plain char is unsigned, long double is double. */
+static struct platform platform_gcc_linux_arm32 =
+{
+  .name = "gcc-linux-arm32",
+  .compiler = "GCC",
+  .os = "LINUX",
+  .arch = "ARM32",
+  .thread_local_attr = "__thread",
+  .alignas_fmt_must_have_one_percent_d = "__attribute__((aligned(%d)))",
+
+  .size_t_type = TYPE_UNSIGNED_INT,
+  .ptrdiff_type = TYPE_SIGNED_INT,
+
+  .bool_n_bits = 8,
+  .bool_type = TYPE_UNSIGNED_CHAR,
+  .bool_alignment = 1,
+
+  .char_n_bits = 8,
+  .char_t_type = TYPE_UNSIGNED_CHAR,
+  .char_alignment = 1,
+
+  .int8_type = TYPE_SIGNED_CHAR,
+  .int16_type = TYPE_SIGNED_SHORT,
+  .int32_type = TYPE_SIGNED_INT,
+  .int64_type = TYPE_SIGNED_LONG_LONG,
+
+  .pointer_n_bits = 32,
+  .pointer_alignment = 4,
+
+  .wchar_t_type = TYPE_UNSIGNED_INT,
+
+  .short_n_bits = 16,
+  .short_alignment = 2,
+  .int_n_bits = 32,
+  .int_alignment = 4,
+
+  .long_n_bits = 32,
+  .long_alignment = 4,
+
+  .long_long_n_bits = 64,
+  .long_long_alignment = 8,
+  .float_n_bits = 32,
+  .float_alignment = 4,
+
+  .double_n_bits = 64,
+  .double_alignment = 8,
+
+  .long_double_n_bits = 64,
+  .long_double_alignment = 8,
+};
+
 static struct platform* platforms[NUMBER_OF_TARGETS] =
 {
         [TARGET_GCC_LINUX_X64] = &platform_x86_x64_gcc,
@@ -608,10 +659,11 @@ static struct platform* platforms[NUMBER_OF_TARGETS] =
         [TARGET_TCC_WIN_X64] = &platform_tcc_win_x64,
         [TARGET_TCC_LINUX_X64] = &platform_tcc_linux_x64,
         [TARGET_TCC_MACOS_ARM64] = &platform_tcc_macos_arm64,
-        [TARGET_GCC_LINUX_ARM64] = &platform_gcc_linux_arm64
+        [TARGET_GCC_LINUX_ARM64] = &platform_gcc_linux_arm64,
+        [TARGET_GCC_LINUX_ARM32] = &platform_gcc_linux_arm32
 };
 
-static_assert(NUMBER_OF_TARGETS == 11, "insert platform here");
+static_assert(NUMBER_OF_TARGETS == 12, "insert platform here");
 
 int parse_target(const char* targetstr, enum target* target)
 {
@@ -762,6 +814,7 @@ const char* target_get_predefined_macros(enum target e)
     case TARGET_TCC_LINUX_X64:   return tcc_macros;
     case TARGET_TCC_MACOS_ARM64: return tcc_macros;
     case TARGET_GCC_LINUX_ARM64: return gcc_macros;
+    case TARGET_GCC_LINUX_ARM32: return gcc_macros;
     }
     return "";
 };
@@ -782,6 +835,7 @@ const char* target_get_alloca(enum target e)
     case TARGET_TCC_LINUX_X64:   return "alloca";
     case TARGET_TCC_MACOS_ARM64: return "alloca";
     case TARGET_GCC_LINUX_ARM64: return "__builtin_alloca";
+    case TARGET_GCC_LINUX_ARM32: return "__builtin_alloca";
     }
     return "";
 }
@@ -800,6 +854,7 @@ const char* target_get_builtins(enum target e)
     case TARGET_TCC_LINUX_X64:   return tcc_builtins;
     case TARGET_TCC_MACOS_ARM64: return tcc_builtins;
     case TARGET_GCC_LINUX_ARM64: return gcc_builtins;
+    case TARGET_GCC_LINUX_ARM32: return gcc_builtins;
     }
     return "";
 }

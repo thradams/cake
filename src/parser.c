@@ -2072,7 +2072,7 @@ bool first_of_attribute_specifier(const struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
-    if ((ctx->options.target == TARGET_GCC_LINUX_X64 || ctx->options.target == TARGET_GCC_LINUX_ARM64 || ctx->options.target == TARGET_TCC_WIN_X64 || ctx->options.target == TARGET_TCC_LINUX_X64 || ctx->options.target == TARGET_TCC_MACOS_ARM64) &&
+    if ((ctx->options.target == TARGET_GCC_LINUX_X64 || ctx->options.target == TARGET_GCC_LINUX_ARM64 || ctx->options.target == TARGET_GCC_LINUX_ARM32 || ctx->options.target == TARGET_TCC_WIN_X64 || ctx->options.target == TARGET_TCC_LINUX_X64 || ctx->options.target == TARGET_TCC_MACOS_ARM64) &&
         ctx->current->type == TK_KEYWORD__ASM)
     {
         return true;
@@ -11403,7 +11403,7 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
                 }
                 else if (ctx->current->type == TK_KEYWORD__ASM)
                 {
-                    if (ctx->options.target == TARGET_GCC_LINUX_X64 || ctx->options.target == TARGET_GCC_LINUX_ARM64 || ctx->options.target == TARGET_TCC_WIN_X64 || ctx->options.target == TARGET_TCC_LINUX_X64 || ctx->options.target == TARGET_TCC_MACOS_ARM64)
+                    if (ctx->options.target == TARGET_GCC_LINUX_X64 || ctx->options.target == TARGET_GCC_LINUX_ARM64 || ctx->options.target == TARGET_GCC_LINUX_ARM32 || ctx->options.target == TARGET_TCC_WIN_X64 || ctx->options.target == TARGET_TCC_LINUX_X64 || ctx->options.target == TARGET_TCC_MACOS_ARM64)
                     {
                         /* GCC also uses asm as attribute */
                         struct asm_statement* _Owner _Opt p3 = gcc_asm(ctx, false);
@@ -13511,10 +13511,11 @@ struct asm_statement* _Owner _Opt asm_statement(struct parser_ctx* ctx)
         case TARGET_TCC_LINUX_X64:
         case TARGET_TCC_MACOS_ARM64:
         case TARGET_GCC_LINUX_ARM64:
+        case TARGET_GCC_LINUX_ARM32:
         break;
     }
 
-    static_assert(NUMBER_OF_TARGETS == 11, "how this target handle asm blocks?");
+    static_assert(NUMBER_OF_TARGETS == 12, "how this target handle asm blocks?");
 
     // balanced tokens ( ... )
     return gcc_asm(ctx, true);

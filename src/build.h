@@ -101,6 +101,8 @@
 #  define ARCH_X86 1
 #elif defined(__aarch64__) || defined(_M_ARM64)
 #  define ARCH_ARM64 1
+#elif defined(__arm__)
+#  define ARCH_ARM32 1
 #elif defined(__arm__) || defined(_M_ARM)
 #  define ARCH_ARM 1
 #elif defined(__powerpc64__) || defined(__ppc64__)

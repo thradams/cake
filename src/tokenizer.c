@@ -2349,6 +2349,8 @@ static const char* clang_query_operator_value(enum target target, const char* op
             return (strcmp(arg, "arm64") == 0 || strcmp(arg, "aarch64") == 0) ? "1" : "0";
         if (target == TARGET_GCC_LINUX_X64 || target == TARGET_TCC_WIN_X64 || target == TARGET_TCC_LINUX_X64)
             return (strcmp(arg, "x86_64") == 0) ? "1" : "0";
+        if (target == TARGET_GCC_LINUX_ARM32)
+            return (strcmp(arg, "arm") == 0) ? "1" : "0";
         return "0";
     }
 
@@ -2356,7 +2358,7 @@ static const char* clang_query_operator_value(enum target target, const char* op
     {
         if (is_apple)
             return (strcmp(arg, "macos") == 0 || strcmp(arg, "macosx") == 0 || strcmp(arg, "darwin") == 0) ? "1" : "0";
-        if (target == TARGET_GCC_LINUX_X64 || target == TARGET_TCC_LINUX_X64 || target == TARGET_GCC_LINUX_ARM64)
+        if (target == TARGET_GCC_LINUX_X64 || target == TARGET_TCC_LINUX_X64 || target == TARGET_GCC_LINUX_ARM64 || target == TARGET_GCC_LINUX_ARM32)
             return (strcmp(arg, "linux") == 0) ? "1" : "0";
         return "0";
     }
@@ -7174,6 +7176,14 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
         snprintf(targetstr, sizeof targetstr, "#define __CAKE_TARGET_ARCH_%s 1\n", p_platform->arch);
         add_builtin_define(ctx, targetstr);
     }
+
+    /* 32-bit ARM covers armv6 and armv7; built on an ARM host, follow the host compiler */
+#if defined(__arm__) && defined(__ARM_ARCH)
+    snprintf(targetstr, sizeof targetstr, "#define __CAKE_ARM32_ARCH %d\n", __ARM_ARCH);
+#else
+    snprintf(targetstr, sizeof targetstr, "#define __CAKE_ARM32_ARCH 7\n");
+#endif
+    add_builtin_define(ctx, targetstr);
 
     /*
      Some macros are dynamic like __LINE__ they are replaced  at

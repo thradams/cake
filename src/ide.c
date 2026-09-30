@@ -1313,6 +1313,7 @@ static const char* g_target_slugs[] = {
     "tcc-linux-x64",
     "tcc-macos-arm64",
     "tcc-win-x64",
+    "gcc-linux-arm32",
 };
 
 static int target_slug_to_index(const char* slug)
@@ -18670,6 +18671,28 @@ void app_init(ui_env* env)
                 "\n"
                 "```\n"
                 "tcc tcc-win-x64\\file1.c -o file1.exe\n"
+                "```");
+    ui_set_help(add_select_item(g_copts.target, EVT_COPTS_TARGET + 9, "GCC Linux ARM32"),
+                "`-target=gcc-linux-arm32`: Linux 32-bit ARM (e.g. Raspberry Pi 1/2)", "## `-target=gcc-linux-arm32`\n\nLinux 32-bit ARM, EABI hard-float (e.g. Raspberry Pi 1/2 with a 32-bit OS)\n"
+                "\n"
+                "Data model **ILP32**. Output compiler: GCC. Plain `char` is unsigned.\n"
+                "\n"
+                "| Type | Size (bytes) |\n"
+                "|---|---|\n"
+                "| `char` (unsigned) | 1 |\n"
+                "| `short` | 2 |\n"
+                "| `int` | 4 |\n"
+                "| `long` | 4 |\n"
+                "| `long long` | 8 |\n"
+                "| pointer | 4 |\n"
+                "| `long double` | 8 |\n"
+                "| `wchar_t` | 4 (`unsigned int`) |\n"
+                "| `size_t` | 4 (`unsigned int`) |\n"
+                "\n"
+                "The generated C89 goes to a `gcc-linux-arm32` folder next to the sources; compile it with the target compiler:\n"
+                "\n"
+                "```\n"
+                "gcc -w gcc-linux-arm32/file1.c -o file1\n"
                 "```");
     ui_select_set_selected(g_copts.target, target_slug_to_index(g_compile.target));
 

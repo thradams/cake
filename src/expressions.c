@@ -2566,7 +2566,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
 
             // This code follows the table in the standard.
 
-            static_assert(NUMBER_OF_TARGETS == 11, "does your target follow the C rules? (MSVC is different)");
+            static_assert(NUMBER_OF_TARGETS == 12, "does your target follow the C rules? (MSVC is different)");
             const bool is_msvc = (target == TARGET_MSVC_WIN_X86 || target == TARGET_MSVC_WIN_X64);
 
             const bool is_decimal_constant = (token->type == TK_COMPILER_DECIMAL_CONSTANT);

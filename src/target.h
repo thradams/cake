@@ -59,6 +59,7 @@ enum target
     TARGET_TCC_LINUX_X64,
     TARGET_TCC_MACOS_ARM64,
     TARGET_GCC_LINUX_ARM64,
+    TARGET_GCC_LINUX_ARM32,
 
     /* alias: the platform cake itself was built for */
 #if defined(_WIN32) && defined(_WIN64) && defined(__TINYC__)
@@ -77,12 +78,14 @@ enum target
     TARGET_DEFAULT = TARGET_CLANG_MACOS_ARM64
 #elif defined(__linux__) && defined(__aarch64__)
     TARGET_DEFAULT = TARGET_GCC_LINUX_ARM64
+#elif defined(__linux__) && defined(__arm__)
+    TARGET_DEFAULT = TARGET_GCC_LINUX_ARM32
 #else
 #error "unknown host platform"
 #endif
 };
 
-#define NUMBER_OF_TARGETS  11
+#define NUMBER_OF_TARGETS  12
 
 struct platform
 {

@@ -171,9 +171,10 @@
 #if defined COMPILER_GCC && !defined COMPILER_TINYC
 
 #define GCC_FLAGS            \
-      " -std=gnu99 "           \
+      " -std=gnu11 "           \
       " -Wall "                \
       " -Wno-multichar "       \
+      " -Wno-missing-braces "  \
       " -Wno-unknown-pragmas " \
       " -g "
 
@@ -709,6 +710,8 @@ static void build_installer(void)
 #define PACKAGE_NAME "cake-" CAKE_VERSION "-macos"
 #elif defined ARCH_ARM64
 #define PACKAGE_NAME "cake-" CAKE_VERSION "-linux-arm64"
+#elif defined ARCH_ARM32
+#define PACKAGE_NAME "cake-" CAKE_VERSION "-linux-arm32"
 #else
 #define PACKAGE_NAME "cake-" CAKE_VERSION "-linux-x64"
 #endif
@@ -796,6 +799,8 @@ static void build_cake89(const char* test_flag)
 
 #if defined ARCH_ARM64
     echo_chdir("./gcc-linux-arm64/");
+#elif defined ARCH_ARM32
+    echo_chdir("./gcc-linux-arm32/");
 #else
     echo_chdir("./gcc-linux-x64/");
 #endif

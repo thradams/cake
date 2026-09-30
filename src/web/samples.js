@@ -316,31 +316,6 @@ sample["C2Y"]["static-assertions-in-expressions"] =
 //https://open-std.org/jtc1/sc22/wg14/www/docs/n3715.pdf\n\n#include <stdio.h>\n\n#define BIT(n) ( \\\n  static_assert(n >= 0), \\\n  static_assert(n < 32), \\\n  1U << (n) \\\n)\n\nint main()\n{\n    static_assert(1);\n    printf(\"%u\", BIT(1));\n    return 0;\n}\n
 `;
 
-sample["C2Y"]["x86_x64_gcc\\defer-interleaved-with-return"] =
-`
-/* Cake 0.15.6 x86_x64_gcc 2026-09-30 13:30:51 */\n\nint printf(char * format, ...);\n\n#line 3 \"c:/users/thiago/source/repos/cake_private/src/samples/c2y/defer-interleaved-with-return.c\"\nint main(int argc, char ** argv)\n{\n    {\n        int i;\n\n#line 5\n        i = 0;\n#line 5\n        for (; i < argc; i++)\n        {\n            printf(\"argv[%d] = \\\"%s\\\"\\n\", i, argv[i]);\n        }\n    }\n    return 0;\n}\n
-`;
-
-sample["C2Y"]["x86_x64_gcc\\literal-function-1"] =
-`
-/* Cake 0.15.6 x86_x64_gcc 2026-09-30 10:17:58 */\n\nint printf(char * format, ...);\nstatic int __cfn(void);\n\nint main()\n{\n    printf(\"%d\", __cfn());\n}\n\nstatic int __cfn(void)\n{\n    return 1;\n}\n
-`;
-
-sample["C2Y"]["x86_x64_gcc\\literal-function-async-i"] =
-`
-/* Cake 0.15.6 x86_x64_gcc 2026-09-30 10:18:34 */\n\nstruct capture {\n    int value;\n};\n\nvoid async(void * capture, void callback(void * capture, int result))\n{\n    callback(capture, 1);\n}\n\nvoid *calloc(unsigned long nmemb, unsigned long size);\nvoid async(void * capture, void callback(void * capture, int result));\nint printf(char * format, ...);\nvoid free(void * ptr);\nstatic void __cfn(void * capture, int result);\n\nint main()\n{\n    struct capture * capture;\n\n    capture = calloc(1, 4UL);\n    if (capture == 0)\n    {\n        return 1;\n    }\n    capture->value = 123;\n    async(capture, __cfn);\n}\n\nstatic void __cfn(void * capture, int result)\n{\n    struct capture * p;\n\n    p = capture;\n    printf(\"result=%d, value=%d\\n\", result, p->value);\n    free(p);\n}\n
-`;
-
-sample["C2Y"]["x86_x64_gcc\\literal-function-async-ii"] =
-`
-/* Cake 0.15.6 x86_x64_gcc 2026-09-30 10:20:54 */\n\nstruct capture {\n    int id;\n};\n\nvoid login_async(void * data, void callback(void * data, int id))\n{\n    callback(data, 1);\n}\n\nvoid get_data_async(void * data, void callback(char * email, void * data))\n{\n    callback(data, \"your data...\");\n}\n\nvoid *calloc(unsigned long nmemb, unsigned long size);\nvoid login_async(void * data, void callback(void * data, int id));\nint printf(char * format, ...);\nvoid get_data_async(void * data, void callback(char * email, void * data));\nvoid free(void * ptr);\nstatic void __cfn(char * email, void * data);\nstatic void __cfn2(int id, void * capture);\n\nint main()\n{\n    struct capture * capture;\n\n    capture = calloc(1, 4UL);\n    login_async(capture, __cfn2);\n}\n\nstatic void __cfn(char * email, void * data)\n{\n    struct capture * cap2;\n\n    cap2 = data;\n    printf(\"your data='%s'  from id=%d\\n\", email, cap2->id);\n    free(cap2);\n}\n\nstatic void __cfn2(int id, void * capture)\n{\n    struct capture * cap1;\n\n    cap1 = capture;\n    printf(\"login completed. id=%d\\n\", id);\n    cap1->id = id;\n    get_data_async(cap1, __cfn);\n}\n
-`;
-
-sample["C2Y"]["x86_x64_gcc\\new-0o-and-0o-prefixes-for-octal-literals"] =
-`
-/* Cake 0.15.6 x86_x64_gcc 2026-09-30 10:21:04 */\n\nint main()\n{\n    int i;\n\n    i = 42;\n}\n
-`;
-
 sample["C89"] = [];
 
 sample["C89"]["bit-fields"] =
