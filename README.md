@@ -227,6 +227,10 @@ Notes:
 
 * Linux: built on Ubuntu 22.04 (needs glibc 2.35+). `cakeide` needs the
   X11/Xft libraries (e.g. `sudo apt install libxft2`, also on Raspberry Pi OS).
+* Raspberry Pi: `cakeide` is an X11 program. Under a Wayland session (the
+  default on Raspberry Pi OS) it runs through XWayland and is very slow.
+  Switch to an X11 session: `sudo raspi-config`, then
+  Advanced Options > Wayland > X11, and reboot.
 * macOS: Apple Silicon (arm64) only. The binaries are not signed; if the
   archive was downloaded with a browser, macOS blocks them. Allow with
   `xattr -dr com.apple.quarantine cake-<version>-macos` before installing
