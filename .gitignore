@@ -105,3 +105,4 @@ src/cake
 /vc/ide/obj
 /vc/ide/x64_msvc
 /vc/ide/obj_cakeide/x64/Release
+.DS_Store
