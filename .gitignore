@@ -104,3 +104,4 @@ src/cake
 /vc/ide/bin
 /vc/ide/obj
 /vc/ide/x64_msvc
+/vc/ide/obj_cakeide/x64/Release
