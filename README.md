@@ -124,6 +124,20 @@ openSUSE:`sudo zypper install libX11-devel libXft-devel`
 
 These headers are used by the IDE.
 
+If you encounter an error such as:
+fatal error: wayland-client.h: No such file or directory
+
+Ubuntu / Debian / Raspberry Pi OS: `sudo apt install libwayland-dev libxkbcommon-dev libfreetype-dev libfontconfig-dev`
+
+Fedora: `sudo dnf install wayland-devel libxkbcommon-devel freetype-devel fontconfig-devel`
+
+Arch Linux: `sudo pacman -S wayland libxkbcommon freetype2 fontconfig`
+
+openSUSE: `sudo zypper install wayland-devel libxkbcommon-devel freetype2-devel fontconfig-devel`
+
+These headers are used by the Wayland IDE backend (`./build wayland`, or the
+default in a Wayland session when these libraries are installed).
+
 ## TCC on Windows/Linux build instructions
 With [tcc](https://bellard.org/tcc/) on the PATH, go to the *src* directory and type:
 
