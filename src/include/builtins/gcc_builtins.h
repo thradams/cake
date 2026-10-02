@@ -5,16 +5,14 @@
 typedef typeof(sizeof(1)) size_t;
 
 #ifdef __CAKE_TARGET_OS_MACOS
-    /* clang builtin types cake has no keyword for. _Float16 (Apple math.h)
-    aliased to float. The 128-bit ints only appear as declared fields in
-    arm64 CPU/NEON state structs (never used in arithmetic here), so model
-    them as a 16-byte aggregate rather than depending on _BitInt. */
+    /* clang builtin type cake has no keyword for: _Float16 (Apple math.h) aliased to float. */
     typedef float _Float16;
-    typedef struct { unsigned long long __a, __b; } __uint128_t;
-    typedef struct { unsigned long long __a, __b; } __int128_t;
-
-
 #endif /* __CAKE_TARGET_OS_MACOS */
+
+/* 128-bit ints only appear as struct fields in system headers (arm64 NEON state, glibc link.h), modeled as a 16-byte aggregate. */
+typedef struct { unsigned long long __a, __b; } __uint128_t;
+typedef struct { unsigned long long __a, __b; } __int128_t;
+
 long __builtin_expect(long exp, long c);
 #ifdef __CAKE_TARGET_OS_MACOS
     int __builtin_constant_p(/*any expression*/...);
