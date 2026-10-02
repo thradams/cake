@@ -1,9 +1,11 @@
 /* ide_gui_x11.c - X11/Xft backend of the ide GUI framework.
  *
  * Only translates X events into calls to the core and implements the
- * drawing primitives of ide_gui_backend.h. Everything about the window
+ * drawing primitives of ide_gui_backend.h. Everything about a window
  * lives in one struct x11_window; the canvas is its first member, so the
  * clipboard (which only gets the canvas) reaches the window - no globals.
+ * The main window owns the detached ones (gui_window_detach): one more X
+ * window each, on the same display, with its fonts and cursors.
  *
  * Build: gcc ... ide_gui_x11.c -lX11 -lXft -lXrender -lfontconfig
  *            $(pkg-config --cflags freetype2)
@@ -84,6 +86,15 @@ struct click
     int x, y;
 };
 
+struct x11_window;
+
+/* The main window's detached windows. */
+struct detached_list
+{
+    struct x11_window** items;
+    int count, cap;
+};
+
 struct x11_window
 {
     struct gui_canvas canvas;    /* first: gui_clipboard_* get only this */
@@ -101,6 +112,9 @@ struct x11_window
     int titlebar_applied;
     int running;
     int pending;                 /* events taken since the last refresh */
+    struct x11_window* owner;    /* the main window; itself for the main window */
+    struct gui_surface* surface; /* a detached window's; NULL for the main window */
+    struct detached_list detached;  /* the main window's */
 };
 
 static long long now_ms(void)
@@ -390,8 +404,161 @@ static void present(struct gui_canvas* c, int x, int y, int w, int h)
         gui_set_clip(c, c->clip.x, c->clip.y, c->clip.w, c->clip.h);
 }
 
+/* --- Detached windows --- */
+
+int gui_backend_can_detach(void)
+{
+    return 1;
+}
+
+/* A detached window draws with the main window's fonts. */
+static void share_fonts(struct x11_window* d, const struct x11_window* main)
+{
+    struct gui_canvas* c = &d->canvas;
+    c->main = main->canvas.main;
+    c->small_font = main->canvas.small_font;
+    c->pt = main->canvas.pt;
+    c->family = main->canvas.family;
+    c->metrics = main->canvas.metrics;
+    c->small_metrics = main->canvas.small_metrics;
+    c->dpi = main->canvas.dpi;
+}
+
+static void detached_open(struct x11_window* main, struct gui_surface* s, int w, int h)
+{
+    const struct gui_canvas* mc = &main->canvas;
+    struct x11_window* d = calloc(1, sizeof *d);
+    if (!d)
+        abort();
+    struct gui_canvas* c = &d->canvas;
+    c->dpy = mc->dpy;
+    c->screen = mc->screen;
+    c->visual = mc->visual;
+    c->cmap = mc->cmap;
+    c->clipboard = mc->clipboard;
+    c->utf8_string = mc->utf8_string;
+    c->targets = mc->targets;
+    c->paste_prop = mc->paste_prop;
+    share_fonts(d, main);
+    d->app = main->app;
+    d->owner = main;
+    d->surface = s;
+    d->wm_delete = main->wm_delete;
+    memcpy(d->cursors, main->cursors, sizeof d->cursors);
+
+    if (w < 1) w = 640;
+    if (h < 1) h = 480;
+    XSetWindowAttributes attrs = { 0 };
+    attrs.background_pixmap = None;
+    attrs.bit_gravity = NorthWestGravity;
+    c->win = XCreateWindow(c->dpy, RootWindow(c->dpy, c->screen), 0, 0, (unsigned)w, (unsigned)h, 0,
+                           DefaultDepth(c->dpy, c->screen), InputOutput, c->visual,
+                           CWBackPixmap | CWBitGravity, &attrs);
+    XSetWMProtocols(c->dpy, c->win, &d->wm_delete, 1);
+    static const char title[] = "Cake " CAKE_VERSION;
+    XStoreName(c->dpy, c->win, title);
+    XChangeProperty(c->dpy, c->win, XInternAtom(c->dpy, "_NET_WM_NAME", False), c->utf8_string, 8,
+                    PropModeReplace, (const unsigned char*)title, (int)strlen(title));
+    XDefineCursor(c->dpy, c->win, d->cursors[GUI_CURSOR_ARROW]);
+    if (main->xim)
+        d->xic = XCreateIC(main->xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
+                           XNClientWindow, c->win, XNFocusWindow, c->win, NULL);
+    XSelectInput(c->dpy, c->win, ExposureMask | KeyPressMask | ButtonPressMask | ButtonReleaseMask |
+                 PointerMotionMask | LeaveWindowMask | StructureNotifyMask);
+    c->gc = XCreateGC(c->dpy, c->win, 0, NULL);
+    ensure_back_buffer(c, w, h);
+
+    struct detached_list* list = &main->detached;
+    if (list->count == list->cap)
+    {
+        int cap = list->cap ? list->cap * 2 : 4;
+        struct x11_window** items = realloc(list->items, (size_t)cap * sizeof *items);
+        if (!items)
+            abort();
+        list->items = items;
+        list->cap = cap;
+    }
+    list->items[list->count++] = d;
+    gui_surface_start(d->app, s, d, c->w, c->h);
+    XMapWindow(c->dpy, c->win);
+}
+
+/* The X window and its back buffer go; the fonts and cursors are the main
+ * window's. */
+static void detached_destroy(struct x11_window* d)
+{
+    struct gui_canvas* c = &d->canvas;
+    if (d->xic) XDestroyIC(d->xic);
+    if (c->draw) XftDrawDestroy(c->draw);
+    if (c->picture) XRenderFreePicture(c->dpy, c->picture);
+    if (c->pixmap) XFreePixmap(c->dpy, c->pixmap);
+    XFreeGC(c->dpy, c->gc);
+    XDestroyWindow(c->dpy, c->win);
+    free(d);
+}
+
+static void detached_close(struct x11_window* main, struct x11_window* d)
+{
+    struct detached_list* list = &main->detached;
+    for (int i = 0; i < list->count; i++)
+    {
+        if (list->items[i] == d)
+        {
+            memmove(&list->items[i], &list->items[i + 1], sizeof list->items[0] * (size_t)(list->count - i - 1));
+            list->count--;
+            break;
+        }
+    }
+    detached_destroy(d);
+}
+
+/* The window an X event is for: the main one or a detached one; NULL for
+ * one already gone. */
+static struct x11_window* window_for(struct x11_window* main, Window w)
+{
+    if (w == main->canvas.win)
+        return main;
+    for (int i = 0; i < main->detached.count; i++)
+    {
+        if (main->detached.items[i]->canvas.win == w)
+            return main->detached.items[i];
+    }
+    return NULL;
+}
+
+/* Raised the way window managers honor: _NET_ACTIVE_WINDOW to the root. */
+static void detached_raise(struct x11_window* d)
+{
+    struct gui_canvas* c = &d->canvas;
+    XEvent ev = { 0 };
+    ev.xclient.type = ClientMessage;
+    ev.xclient.window = c->win;
+    ev.xclient.message_type = XInternAtom(c->dpy, "_NET_ACTIVE_WINDOW", False);
+    ev.xclient.format = 32;
+    ev.xclient.data.l[0] = 1;   /* from a normal application */
+    ev.xclient.data.l[1] = CurrentTime;
+    XMapRaised(c->dpy, c->win);
+    XSendEvent(c->dpy, RootWindow(c->dpy, c->screen), False,
+               SubstructureRedirectMask | SubstructureNotifyMask, &ev);
+}
+
+/* The X windows the core asked for, made, raised and closed. */
+static void sync_detached(struct x11_window* main)
+{
+    int w, h;
+    struct gui_surface* s;
+    while ((s = gui_app_take_surface_open(main->app, &w, &h)) != NULL)
+        detached_open(main, s, w, h);
+    void* native;
+    while ((native = gui_app_take_surface_close(main->app)) != NULL)
+        detached_close(main, native);
+    while ((native = gui_app_take_surface_raise(main->app)) != NULL)
+        detached_raise(native);
+}
+
 /* Applies what the app asked for (quit, timer, font, zoom), lets the core
- * paint whatever is dirty and copies just that rect to the window. */
+ * paint whatever is dirty and copies just that rect to the window - the
+ * main one and each detached one. */
 static void refresh(struct x11_window* win)
 {
     struct gui_canvas* c = &win->canvas;
@@ -421,10 +588,19 @@ static void refresh(struct x11_window* win)
         if (apply_font(c))
             gui_app_font_changed(win->app, c);
     }
+    sync_detached(win);
     struct gui_rect r;
     if (gui_app_paint(win->app, c, &r))
         present(c, r.x, r.y, r.w, r.h);
     sync_titlebar(win);
+    for (int i = 0; i < win->detached.count; i++)
+    {
+        struct x11_window* d = win->detached.items[i];
+        share_fonts(d, win);
+        if (gui_surface_paint(d->app, d->surface, &d->canvas, &r))
+            present(&d->canvas, r.x, r.y, r.w, r.h);
+        sync_titlebar(d);
+    }
     XFlush(c->dpy);
 }
 
@@ -594,13 +770,17 @@ static int utf8_len(unsigned char c)
  * one each - on XWayland every frame goes through the compositor. */
 static void post(struct x11_window* win, const struct gui_event* ev)
 {
-    gui_app_event(win->app, ev);
-    win->pending = 1;
+    if (win->surface)
+        gui_surface_event(win->app, win->surface, ev);
+    else
+        gui_app_event(win->app, ev);
+    win->owner->pending = 1;
 }
 
 static void update_cursor(struct x11_window* win)
 {
-    enum gui_cursor cursor = gui_app_cursor(win->app);
+    enum gui_cursor cursor = win->surface ? gui_surface_cursor(win->app, win->surface)
+                                          : gui_app_cursor(win->app);
     if (cursor == win->cursor)
         return;
     win->cursor = cursor;
@@ -742,8 +922,11 @@ static void handle_event(struct x11_window* win, XEvent* e)
         if (e->xconfigure.width != c->w || e->xconfigure.height != c->h)
         {
             ensure_back_buffer(c, e->xconfigure.width, e->xconfigure.height);
-            gui_app_resize(win->app, c->w, c->h);
-            win->pending = 1;   /* a drag sends many: one paint for them */
+            if (win->surface)
+                gui_surface_resize(win->app, win->surface, c->w, c->h);
+            else
+                gui_app_resize(win->app, c->w, c->h);
+            win->owner->pending = 1;   /* a drag sends many: one paint for them */
         }
         break;
     case SelectionRequest:
@@ -807,6 +990,7 @@ int main(int argc, char** argv)
     setlocale(LC_ALL, "");
 
     struct x11_window win = { 0 };
+    win.owner = &win;
     struct gui_canvas* c = &win.canvas;
     c->dpy = XOpenDisplay(NULL);
     if (!c->dpy)
@@ -885,7 +1069,9 @@ int main(int argc, char** argv)
             XNextEvent(c->dpy, &e);
             if (XFilterEvent(&e, None))
                 continue;   /* taken by the input method */
-            handle_event(&win, &e);
+            struct x11_window* target = window_for(&win, e.xany.window);
+            if (target)
+                handle_event(target, &e);
         }
         if (win.running && win.timer_ms > 0 && now_ms() >= win.timer_due)
         {
@@ -901,6 +1087,9 @@ int main(int argc, char** argv)
         }
     }
 
+    while (win.detached.count > 0)
+        detached_destroy(win.detached.items[--win.detached.count]);
+    free(win.detached.items);
     gui_app_free(win.app);
     if (win.xic) XDestroyIC(win.xic);
     if (win.xim) XCloseIM(win.xim);

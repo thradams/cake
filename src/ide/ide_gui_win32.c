@@ -1,9 +1,10 @@
 /* ide_gui_win32.c - Win32/GDI backend of the ide GUI framework.
  *
  * Only translates OS events into calls to the core and implements the
- * drawing primitives of ide_gui_backend.h. Everything about the window
+ * drawing primitives of ide_gui_backend.h. Everything about a window
  * lives in one struct win32_window, reached from the HWND through
- * GWLP_USERDATA - no globals.
+ * GWLP_USERDATA - no globals. The main window owns the detached ones
+ * (gui_window_detach): one more OS window each, sharing its fonts.
  */
 #include "ide_gui_backend.h"
 
@@ -70,6 +71,19 @@ struct offered_fonts
     int count;
 };
 
+/* WM_APP + 1 to a detached window whose surface is gone: destroy it, now
+ * that no handler of its own is running. */
+#define WM_DETACHED_GONE (WM_APP + 1)
+
+struct win32_window;
+
+/* The main window's detached windows. */
+struct detached_list
+{
+    struct win32_window** items;
+    int count, cap;
+};
+
 struct win32_window
 {
     HWND hwnd;
@@ -81,6 +95,10 @@ struct win32_window
     int started;                 /* gui_app_start has run */
     int tracking_leave;          /* TrackMouseEvent is armed */
     struct offered_fonts fonts;
+    struct win32_window* owner;  /* the main window; itself for the main window */
+    struct gui_surface* surface; /* a detached window's; NULL for the main window */
+    int gone;                    /* a detached window whose surface is gone */
+    struct detached_list detached;  /* the main window's */
 };
 
 static COLORREF to_colorref(uint32_t rgb)
@@ -295,8 +313,134 @@ static void ensure_back_buffer(struct win32_window* win)
     SelectObject(c->mem, c->main);
     c->w = w;
     c->h = h;
-    if (win->app)
+    if (win->surface)
+        gui_surface_invalidate(win->app, win->surface);
+    else if (win->app)
         gui_app_invalidate(win->app);   /* a new buffer: everything drawn again */
+}
+
+/* --- Detached windows --- */
+
+int gui_backend_can_detach(void)
+{
+    return 1;
+}
+
+/* A detached window draws with the main window's fonts. */
+static void share_fonts(struct win32_window* d, const struct win32_window* main)
+{
+    struct gui_canvas* c = &d->canvas;
+    c->main = main->canvas.main;
+    c->small_font = main->canvas.small_font;
+    c->pt = main->canvas.pt;
+    c->family = main->canvas.family;
+    c->metrics = main->canvas.metrics;
+    c->small_metrics = main->canvas.small_metrics;
+    c->dpi = main->canvas.dpi;
+    if (c->mem)
+        SelectObject(c->mem, c->main);
+}
+
+static void plain_caption(HWND hwnd);
+
+/* Like the main window: no caption text, no icon. */
+static void detached_open(struct win32_window* main, struct gui_surface* s, int w, int h)
+{
+    struct win32_window* d = calloc(1, sizeof *d);
+    if (!d)
+        abort();
+    d->app = main->app;
+    d->owner = main;
+    d->surface = s;
+    d->titlebar.set_attribute = main->titlebar.set_attribute;
+    share_fonts(d, main);
+
+    RECT r = { 0, 0, w > 0 ? w : 640, h > 0 ? h : 480 };
+    AdjustWindowRectEx(&r, WS_OVERLAPPEDWINDOW, FALSE, 0);
+    HWND hwnd = CreateWindowW(L"ide_gui_window", L"", WS_OVERLAPPEDWINDOW,
+                              CW_USEDEFAULT, CW_USEDEFAULT, r.right - r.left, r.bottom - r.top,
+                              NULL, NULL, GetModuleHandleW(NULL), d);
+    if (!hwnd)
+    {
+        free(d);
+        struct gui_event ev = { 0 };
+        ev.type = GUI_EVENT_CLOSE;   /* no OS window: the window goes back */
+        gui_surface_event(main->app, s, &ev);
+        return;
+    }
+    struct detached_list* list = &main->detached;
+    if (list->count == list->cap)
+    {
+        int cap = list->cap ? list->cap * 2 : 4;
+        struct win32_window** items = realloc(list->items, (size_t)cap * sizeof *items);
+        if (!items)
+            abort();
+        list->items = items;
+        list->cap = cap;
+    }
+    list->items[list->count++] = d;
+    plain_caption(hwnd);
+    ensure_back_buffer(d);
+    d->started = 1;
+    gui_surface_start(d->app, s, d, d->canvas.w, d->canvas.h);
+    ShowWindow(hwnd, SW_SHOW);
+}
+
+/* Its surface is gone: hidden now, destroyed from its own queue
+ * (WM_DETACHED_GONE), since a handler of it may be running. */
+static void detached_close(struct win32_window* main, struct win32_window* d)
+{
+    struct detached_list* list = &main->detached;
+    for (int i = 0; i < list->count; i++)
+    {
+        if (list->items[i] == d)
+        {
+            memmove(&list->items[i], &list->items[i + 1], sizeof list->items[0] * (size_t)(list->count - i - 1));
+            list->count--;
+            break;
+        }
+    }
+    d->gone = 1;
+    d->surface = NULL;
+    ShowWindow(d->hwnd, SW_HIDE);
+    PostMessageW(d->hwnd, WM_DETACHED_GONE, 0, 0);
+}
+
+/* The back buffer and the window go; the fonts are the main window's. */
+static void detached_destroy(struct win32_window* d)
+{
+    SetWindowLongPtrW(d->hwnd, GWLP_USERDATA, 0);
+    DestroyWindow(d->hwnd);
+    if (d->canvas.mem)
+    {
+        DeleteDC(d->canvas.mem);
+        DeleteObject(d->canvas.bmp);
+    }
+    if (d->canvas.shade_src)
+    {
+        DeleteDC(d->canvas.shade_src);
+        DeleteObject(d->canvas.shade_bmp);
+    }
+    free(d);
+}
+
+/* The OS windows the core asked for, made, raised and closed. */
+static void sync_detached(struct win32_window* main)
+{
+    int w, h;
+    struct gui_surface* s;
+    while ((s = gui_app_take_surface_open(main->app, &w, &h)) != NULL)
+        detached_open(main, s, w, h);
+    void* native;
+    while ((native = gui_app_take_surface_close(main->app)) != NULL)
+        detached_close(main, native);
+    while ((native = gui_app_take_surface_raise(main->app)) != NULL)
+    {
+        struct win32_window* d = native;
+        if (IsIconic(d->hwnd))
+            ShowWindow(d->hwnd, SW_RESTORE);
+        SetForegroundWindow(d->hwnd);
+    }
 }
 
 /* Tints the OS title bar and border with the app's chrome color, and only
@@ -315,9 +459,11 @@ static void sync_titlebar(struct win32_window* win)
 }
 
 /* Lets the core paint whatever is dirty and invalidates just that rect, so
- * WM_PAINT blits it. Nothing dirty -> nothing happens. */
+ * WM_PAINT blits it - in the main window and in each detached one. Nothing
+ * dirty -> nothing happens. */
 static void refresh(struct win32_window* win)
 {
+    win = win->owner;
     if (!win->started)
         return;
     if (gui_app_should_quit(win->app))
@@ -348,6 +494,7 @@ static void refresh(struct win32_window* win)
         apply_font(win);
         gui_app_font_changed(win->app, &win->canvas);
     }
+    sync_detached(win);
     struct gui_rect r;
     if (gui_app_paint(win->app, &win->canvas, &r))
     {
@@ -355,6 +502,17 @@ static void refresh(struct win32_window* win)
         InvalidateRect(win->hwnd, &rc, FALSE);
     }
     sync_titlebar(win);
+    for (int i = 0; i < win->detached.count; i++)
+    {
+        struct win32_window* d = win->detached.items[i];
+        share_fonts(d, win);
+        if (gui_surface_paint(d->app, d->surface, &d->canvas, &r))
+        {
+            RECT rc = { r.x, r.y, r.x + r.w, r.y + r.h };
+            InvalidateRect(d->hwnd, &rc, FALSE);
+        }
+        sync_titlebar(d);
+    }
 }
 
 /* --- Clipboard (ide_gui_backend.h) --- */
@@ -471,8 +629,12 @@ static int map_vk(WPARAM vk)
 
 static void post(struct win32_window* win, const struct gui_event* ev)
 {
-    gui_app_event(win->app, ev);
-    refresh(win);
+    struct win32_window* owner = win->owner;
+    if (win->surface)
+        gui_surface_event(win->app, win->surface, ev);
+    else
+        gui_app_event(win->app, ev);
+    refresh(owner);   /* `win` may be gone now */
 }
 
 static void post_mouse(struct win32_window* win, enum gui_event_type type, LPARAM lp, int button,
@@ -500,6 +662,15 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         win->hwnd = hwnd;
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, (LONG_PTR)win);
     }
+    if (win && win->gone)
+    {
+        if (msg == WM_DETACHED_GONE)
+        {
+            detached_destroy(win);
+            return 0;
+        }
+        return DefWindowProcW(hwnd, msg, wp, lp);
+    }
     if (!win || !win->started)
         return DefWindowProcW(hwnd, msg, wp, lp);
 
@@ -507,7 +678,10 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     {
     case WM_SIZE:
         ensure_back_buffer(win);
-        gui_app_resize(win->app, win->canvas.w, win->canvas.h);
+        if (win->surface)
+            gui_surface_resize(win->app, win->surface, win->canvas.w, win->canvas.h);
+        else
+            gui_app_resize(win->app, win->canvas.w, win->canvas.h);
         refresh(win);
         return 0;
     case WM_ERASEBKGND:
@@ -518,7 +692,9 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             static const LPCWSTR shapes[] = {
                 IDC_ARROW, IDC_SIZEWE, IDC_SIZENS, IDC_SIZENWSE, IDC_SIZENESW,
             };
-            SetCursor(LoadCursorW(NULL, shapes[gui_app_cursor(win->app)]));
+            enum gui_cursor cursor = win->surface ? gui_surface_cursor(win->app, win->surface)
+                                                  : gui_app_cursor(win->app);
+            SetCursor(LoadCursorW(NULL, shapes[cursor]));
             return TRUE;
         }
         break;
@@ -615,6 +791,8 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_SYSCHAR:
         return 0;   /* no beep for Alt+letter */
     case WM_CHAR:
+        if (wp == ' ' && (GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000))
+            return 0;   /* Ctrl+Space is a shortcut, not a space */
         if (wp >= 32 && wp != 127)
         {
             struct gui_event ev = { 0 };
@@ -628,8 +806,11 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         /* Moving to a monitor with another DPI: rebuild the font for it and
          * take the window rect Windows suggests. */
         RECT* suggested = (RECT*)lp;
-        apply_font(win);
-        gui_app_font_changed(win->app, &win->canvas);
+        if (!win->surface)
+        {
+            apply_font(win);
+            gui_app_font_changed(win->app, &win->canvas);
+        }
         SetWindowPos(hwnd, NULL, suggested->left, suggested->top,
                      suggested->right - suggested->left, suggested->bottom - suggested->top,
                      SWP_NOZORDER | SWP_NOACTIVATE);
@@ -637,6 +818,12 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         return 0;
     }
     case WM_DESTROY:
+        if (win->surface)
+            return 0;
+        while (win->detached.count > 0)
+            detached_destroy(win->detached.items[--win->detached.count]);
+        free(win->detached.items);
+        win->detached.items = NULL;
         PostQuitMessage(0);
         return 0;
     }
@@ -693,6 +880,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE prev, PWSTR cmd, int show)
     enable_dpi_awareness();
 
     struct win32_window win = { 0 };
+    win.owner = &win;
     win.canvas.pt = DEFAULT_FONT_PT;
     win.app = gui_app_create();
     utf8_args(&win);

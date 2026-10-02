@@ -164,6 +164,8 @@ struct debug_session
      * lldb backend. */
     bool cdb_locating;
     int cdb_locate_retries;
+    bool exception_stop;   /* cdb: the stop being located is an exception - no stepping on to a source line */
+    bool crashed;          /* cdb: second chance exception - resuming only repeats it */
 
     /* Raw bytes from lldb not yet resolved into a complete '\n'-terminated
      * line - carried across debug_poll() calls, since a single read can

@@ -38,8 +38,21 @@ void ide_text_printf(struct ide_text* t, const char* fmt, ...)
     va_start(args, fmt);
     int n = vsnprintf(buf, sizeof buf, fmt, args);
     va_end(args);
-    if (n > 0)
-        ide_text_append(t, buf, (size_t)n < sizeof buf ? (size_t)n : sizeof buf - 1);
+    if (n <= 0)
+        return;
+    if ((size_t)n < sizeof buf)
+    {
+        ide_text_append(t, buf, (size_t)n);
+        return;
+    }
+    char* big = malloc((size_t)n + 1);
+    if (!big)
+        return;
+    va_start(args, fmt);
+    vsnprintf(big, (size_t)n + 1, fmt, args);
+    va_end(args);
+    ide_text_append(t, big, (size_t)n);
+    free(big);
 }
 
 static int is_word(unsigned char c)

@@ -576,6 +576,7 @@ void debug_run(struct debug_session* s)
      * uses for every stop after. */
     debug_send(s, "g");
     s->cdb_locate_retries = 0;
+    s->exception_stop = false;
     debug_cdb_queue_locate(s);
 #else
     /* One window per session: the first Run opens it and every later Run
@@ -605,8 +606,14 @@ void debug_run(struct debug_session* s)
 void debug_continue(struct debug_session* s)
 {
 #if defined(_WIN32)
+    if (s->crashed)
+    {
+        debug_quit(s);
+        return;
+    }
     debug_send(s, "g");
     s->cdb_locate_retries = 0;
+    s->exception_stop = false;
     debug_cdb_queue_locate(s);
 #else
     debug_send(s, "continue");
@@ -620,8 +627,14 @@ void debug_continue(struct debug_session* s)
 void debug_step_over(struct debug_session* s)
 {
 #if defined(_WIN32)
+    if (s->crashed)
+    {
+        debug_quit(s);
+        return;
+    }
     debug_send(s, "p");
     s->cdb_locate_retries = 0;
+    s->exception_stop = false;
     debug_cdb_queue_locate(s);
 #else
     debug_send(s, "next");
@@ -635,8 +648,14 @@ void debug_step_over(struct debug_session* s)
 void debug_step_out(struct debug_session* s)
 {
 #if defined(_WIN32)
+    if (s->crashed)
+    {
+        debug_quit(s);
+        return;
+    }
     debug_send(s, "gu");
     s->cdb_locate_retries = 0;
+    s->exception_stop = false;
     debug_cdb_queue_locate(s);
 #else
     debug_send(s, "finish");
@@ -650,8 +669,14 @@ void debug_step_out(struct debug_session* s)
 void debug_step_into(struct debug_session* s)
 {
 #if defined(_WIN32)
+    if (s->crashed)
+    {
+        debug_quit(s);
+        return;
+    }
     debug_send(s, "t");
     s->cdb_locate_retries = 0;
+    s->exception_stop = false;
     debug_cdb_queue_locate(s);
 #else
     debug_send(s, "step");
@@ -1138,6 +1163,12 @@ static void debug_handle_line(struct debug_session* s, const char* line)
         return;
     }
 
+    /* "(pid.tid): Access violation - code c0000005 (first chance)", maybe after a "0:000> " prompt */
+    if (s->cdb_locating && strstr(line, "): ") && strstr(line, " - code ") && strstr(line, " chance"))
+        s->exception_stop = true;
+    if (strstr(line, "!!! second chance !!!"))
+        s->crashed = true;
+
     char file[DEBUG_MAX_PATH];
     int found_line = 0;
     if (cdb_parse_stop_location(line, file, sizeof file, &found_line))
@@ -1165,7 +1196,13 @@ static void debug_handle_line(struct debug_session* s, const char* line)
       * sentinel check above. */
     if (s->cdb_locating && strstr(line, DEBUG_CDB_LOCATE_DONE) != NULL)
     {
-        if (s->cdb_locate_retries < DEBUG_CDB_LOCATE_MAX_RETRIES)
+        if (s->exception_stop)
+        {
+            /* an exception stops where it happened, often with no source line: stepping on runs away */
+            s->cdb_locating = false;
+            s->state = DBG_STOPPED;
+        }
+        else if (s->cdb_locate_retries < DEBUG_CDB_LOCATE_MAX_RETRIES)
         {
             s->cdb_locate_retries++;
             dbg_log("  LOCATE RETRY #%d (no bracket found)", s->cdb_locate_retries);

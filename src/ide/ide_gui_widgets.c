@@ -118,13 +118,32 @@ static int is_descendant(const struct gui_node* n, const struct gui_node* ancest
 
 void gui_focus(struct gui_app* app, struct gui_node* n)
 {
-    app->ui.focused = n;
+    struct gui_surface* owner = core_surface_of_node(app, n);
+    if (owner && owner != app->active)
+    {
+        owner->ui.focused = n;   /* that OS window's focus, and it to the front */
+        owner->want_raise = 1;
+    }
+    else
+    {
+        app->ui.focused = n;
+    }
     app->needs_paint = 1;
 }
 
 struct gui_node* gui_focused(const struct gui_app* app)
 {
     return app->ui.focused;
+}
+
+struct gui_node* gui_focused_item(const struct gui_app* app)
+{
+    struct gui_node* n = app->ui.focused;
+    if (!n)
+        return NULL;
+    int index = n->kind == GUI_GROUP ? n->cursor
+              : (n->kind == GUI_SELECT || n->kind == GUI_LISTBOX) ? n->selected : -1;
+    return index >= 0 && index < n->child_count ? n->children[index] : n;
 }
 
 void widget_forget(struct gui_app* app, const struct gui_node* n)
@@ -231,6 +250,13 @@ static void input_replace(struct gui_node* n, int lo, int hi, const char* text, 
     n->anchor = n->cursor;
 }
 
+void gui_input_insert(struct gui_node* n, const char* utf8)
+{
+    int lo, hi;
+    input_selection(n, &lo, &hi);
+    input_replace(n, lo, hi, utf8, (int)strlen(utf8));
+}
+
 /* The first column shown: the caret is always in view (same rule as the
  * old IDE's render_input - nothing stored, derived each time). */
 static int input_offset(const struct gui_app* app, const struct gui_node* n)
@@ -244,6 +270,26 @@ static int is_word_byte(char c)
 {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
            c == '_' || (unsigned char)c >= 0x80;
+}
+
+/* The start of the word before `at`, skipping blanks first. */
+static int input_word_left(const char* s, int at)
+{
+    while (at > 0 && !is_word_byte(s[at - 1]))
+        at--;
+    while (at > 0 && is_word_byte(s[at - 1]))
+        at--;
+    return at;
+}
+
+/* The end of the word after `at`, skipping blanks first. */
+static int input_word_right(const char* s, int at)
+{
+    while (s[at] && !is_word_byte(s[at]))
+        at++;
+    while (s[at] && is_word_byte(s[at]))
+        at++;
+    return at;
 }
 
 /* --- Paint --- */
@@ -262,7 +308,7 @@ static void paint_box(const struct paint* p, const struct gui_node* n)
     int cw = core_node_metrics(p->app, n)->cell_w, ch = core_node_metrics(p->app, n)->cell_h;
     const struct gui_rect* r = &n->rect;
     if (r->w > 2 * cw && r->h > 2 * ch)
-        gui_fill_rect(p->canvas, r->x + cw, r->y + ch, r->w - 2 * cw, r->h - 2 * ch,
+        gui_fill_rect(p->frame, r->x + cw, r->y + ch, r->w - 2 * cw, r->h - 2 * ch,
                       n->has_colors ? n->bg : t->box_bg);
     core_draw_frame(p, r, t->box_border_style, t->box_fg, t->box_bg);
     if (n->label[0])
@@ -293,7 +339,7 @@ static void paint_button(const struct paint* p, const struct gui_node* n)
     {
         /* A tab: flat, no shadow, no pressed shift. */
         uint32_t bg = n->tab == 2 ? t->btn_bg_active : (hot || focused) ? t->btn_bg_hot : t->btn_bg;
-        gui_fill_rect(p->canvas, n->rect.x, n->rect.y, n->rect.w, n->rect.h, bg);
+        gui_fill_rect(p->frame, n->rect.x, n->rect.y, n->rect.w, n->rect.h, bg);
         paint_centered_label(p, &n->rect, n->label, t->btn_fg, bg);
         return;
     }
@@ -305,7 +351,7 @@ static void paint_button(const struct paint* p, const struct gui_node* n)
     struct gui_rect face = n->rect;
     if (pressed)
         face.x += core_node_metrics(app, n)->cell_w;
-    gui_fill_rect(p->canvas, face.x, face.y, face.w, face.h, bg);
+    gui_fill_rect(p->frame, face.x, face.y, face.w, face.h, bg);
     paint_centered_label(p, &face, n->label, t->btn_fg, bg);
 }
 
@@ -323,7 +369,7 @@ static void paint_input(const struct paint* p, const struct gui_node* n)
     input_selection(n, &lo, &hi);
     int sel_lo = col_of_byte(n->value, lo), sel_hi = col_of_byte(n->value, hi);
 
-    gui_fill_rect(p->canvas, n->rect.x, n->rect.y, n->rect.w, ch, bg);
+    gui_fill_rect(p->frame, n->rect.x, n->rect.y, n->rect.w, ch, bg);
     const char* s = n->value + byte_of_col(n->value, offset);
     for (int col = 0; *s && col < cols; col++)
     {
@@ -343,7 +389,7 @@ static void paint_input(const struct paint* p, const struct gui_node* n)
         if (caret_col >= 0 && caret_col < cols)
         {
             int bar = cw / 5 > 0 ? cw / 5 : 1;
-            gui_fill_rect(p->canvas, n->rect.x + caret_col * cw, n->rect.y, bar, ch, fg);
+            gui_fill_rect(p->frame, n->rect.x + caret_col * cw, n->rect.y, bar, ch, fg);
         }
     }
 }
@@ -357,7 +403,7 @@ static void paint_select(const struct paint* p, const struct gui_node* n)
     uint32_t fg = focused ? t->input_fg_focus : t->input_fg;
     uint32_t bg = focused ? t->input_bg_focus : t->input_bg;
     int text_w = n->rect.w > cw ? n->rect.w - cw : n->rect.w;
-    gui_fill_rect(p->canvas, n->rect.x, n->rect.y, text_w, ch, bg);
+    gui_fill_rect(p->frame, n->rect.x, n->rect.y, text_w, ch, bg);
     if (n->selected >= 0 && n->selected < n->child_count)
     {
         const char* label = n->children[n->selected]->label;
@@ -417,21 +463,92 @@ static void paint_scrollbar(const struct paint* p, const struct gui_node* n)
     core_scrollbar_thumb(app, &sb, &pos, &len);
     int w = app->scrollbar_px;
     int x = n->rect.x + n->rect.w - w;
-    gui_fill_rect(p->canvas, x, n->rect.y, w, n->rect.h, app->theme.scrollbar_bg);
-    int hot = app->ui.scrolling == n || app->ui.thumb_hot == n;
-    gui_fill_rect(p->canvas, x, n->rect.y + pos, w, len,
+    gui_fill_rect(p->frame, x, n->rect.y, w, n->rect.h, app->theme.scrollbar_bg);
+    int hot = app->ui.scrolling == n || (app->ui.thumb_hot == n && app->ui.thumb_hot_bar == 1);
+    gui_fill_rect(p->frame, x, n->rect.y + pos, w, len,
                   hot ? app->theme.scrollbar_thumb_hot_bg : app->theme.scrollbar_thumb_bg);
 }
 
-/* Whether (x, y) is on a listbox's scrollbar thumb. */
-static int list_thumb_at(const struct gui_app* app, const struct gui_node* n, int x, int y)
+/* A listbox's widest label, in columns. */
+static int list_max_cols(const struct gui_node* n)
 {
-    if (!on_scrollbar(app, n, x))
-        return 0;
-    struct scrollbar sb = list_scrollbar(app, n);
+    int max = 0;
+    for (int i = 0; i < n->child_count; i++)
+    {
+        int c = core_utf8_cells(n->children[i]->label, -1);
+        if (c > max)
+            max = c;
+    }
+    return max;
+}
+
+static int list_view_cols(const struct gui_app* app, const struct gui_node* n)
+{
+    return n->rect.w / core_node_metrics(app, n)->cell_w;
+}
+
+static int has_hbar(const struct gui_app* app, const struct gui_node* n)
+{
+    int cols = list_view_cols(app, n);
+    return n->kind == GUI_LISTBOX && cols > 0 && list_max_cols(n) > cols;
+}
+
+static void clamp_hscroll(const struct gui_app* app, struct gui_node* n)
+{
+    int max_h = list_max_cols(n) - list_view_cols(app, n);
+    if (n->hscroll > max_h)
+        n->hscroll = max_h;
+    if (n->hscroll < 0)
+        n->hscroll = 0;
+}
+
+/* The box's horizontal scrollbar: along the bottom, short of the vertical one. */
+static struct scrollbar list_hbar(const struct gui_app* app, const struct gui_node* n)
+{
+    int track = n->rect.w - (has_scrollbar(app, n) ? app->scrollbar_px : 0);
+    struct scrollbar sb = { track, list_max_cols(n), list_view_cols(app, n), n->hscroll };
+    return sb;
+}
+
+static int on_hbar(const struct gui_app* app, const struct gui_node* n, int x, int y)
+{
+    return has_hbar(app, n) && y >= n->rect.y + n->rect.h - app->scrollbar_px &&
+           x < n->rect.x + list_hbar(app, n).track;
+}
+
+static void paint_hbar(const struct paint* p, const struct gui_node* n)
+{
+    const struct gui_app* app = p->app;
+    if (!has_hbar(app, n) || (app->ui.hot != n && app->ui.hscrolling != n))
+        return;
+    struct scrollbar sb = list_hbar(app, n);
     int pos, len;
     core_scrollbar_thumb(app, &sb, &pos, &len);
-    return y >= n->rect.y + pos && y < n->rect.y + pos + len;
+    int w = app->scrollbar_px;
+    int y = n->rect.y + n->rect.h - w;
+    gui_fill_rect(p->frame, n->rect.x, y, sb.track, w, app->theme.scrollbar_bg);
+    int hot = app->ui.hscrolling == n || (app->ui.thumb_hot == n && app->ui.thumb_hot_bar == 2);
+    gui_fill_rect(p->frame, n->rect.x + pos, y, len, w,
+                  hot ? app->theme.scrollbar_thumb_hot_bg : app->theme.scrollbar_thumb_bg);
+}
+
+/* The listbox scrollbar thumb at (x, y): 1 vertical, 2 horizontal, 0 none. */
+static int list_thumb_at(const struct gui_app* app, const struct gui_node* n, int x, int y)
+{
+    int pos, len;
+    if (on_scrollbar(app, n, x))
+    {
+        struct scrollbar sb = list_scrollbar(app, n);
+        core_scrollbar_thumb(app, &sb, &pos, &len);
+        return y >= n->rect.y + pos && y < n->rect.y + pos + len;
+    }
+    if (on_hbar(app, n, x, y))
+    {
+        struct scrollbar sb = list_hbar(app, n);
+        core_scrollbar_thumb(app, &sb, &pos, &len);
+        return x >= n->rect.x + pos && x < n->rect.x + pos + len ? 2 : 0;
+    }
+    return 0;
 }
 
 static void ensure_visible(const struct gui_app* app, struct gui_node* n, int index);
@@ -446,13 +563,14 @@ static void paint_listbox(const struct paint* p, const struct gui_node* n)
         if (m->selected >= 0)
             ensure_visible(app, m, m->selected);
     }
+    clamp_hscroll(app, (struct gui_node*)n);   /* the box or its items may have changed */
     const struct gui_theme* t = &app->theme;
     int cw = core_node_metrics(app, n)->cell_w, ch = core_node_metrics(app, n)->cell_h;
     int focused = app->ui.focused == n;
     int cols = n->rect.w / cw;
     /* Rows are whole; the part of the box below the last one is just
      * background. */
-    gui_fill_rect(p->canvas, n->rect.x, n->rect.y, n->rect.w, n->rect.h, t->listbox_bg);
+    gui_fill_rect(p->frame, n->rect.x, n->rect.y, n->rect.w, n->rect.h, t->listbox_bg);
     for (int row = 0; row < visible_rows(app, n); row++)
     {
         int index = n->scroll + row;
@@ -460,27 +578,37 @@ static void paint_listbox(const struct paint* p, const struct gui_node* n)
         int sel = index < n->child_count && (n->multi ? n->children[index]->checked : index == n->selected);
         uint32_t fg = sel ? (focused ? t->listbox_sel_fg : t->listbox_sel_inactive_fg) : t->listbox_fg;
         uint32_t bg = sel ? (focused ? t->listbox_sel_bg : t->listbox_sel_inactive_bg) : t->listbox_bg;
-        gui_fill_rect(p->canvas, n->rect.x, y, n->rect.w, ch, bg);
+        gui_fill_rect(p->frame, n->rect.x, y, n->rect.w, ch, bg);
         if (index < n->child_count)
         {
             const struct gui_node* item = n->children[index];
             const char* label = item->label;
             int x = n->rect.x;
             int room = cols;
+            int skip = n->hscroll;
             if (item->has_colors && label[0] && room > 0)
             {
                 /* A file-type marker: its first glyph in its own color, selected or not. */
                 uint32_t cp;
                 int len = core_utf8_decode(label, &cp);
-                core_draw_utf8(p, x, y, label, len, item->fg, bg);
+                if (skip == 0)
+                {
+                    core_draw_utf8(p, x, y, label, len, item->fg, bg);
+                    x += cw;
+                    room--;
+                }
+                else
+                {
+                    skip--;
+                }
                 label += len;
-                x += cw;
-                room--;
             }
+            label += core_utf8_prefix_bytes(label, skip);
             core_draw_utf8(p, x, y, label, core_utf8_prefix_bytes(label, room), fg, bg);
         }
     }
     paint_scrollbar(p, n);
+    paint_hbar(p, n);
 }
 
 /* One row per item: "( )"/"(•)" for radios, "[ ]"/"[X]" for check boxes,
@@ -493,7 +621,7 @@ static void paint_group(const struct paint* p, const struct gui_node* n)
     int cw = core_node_metrics(app, n)->cell_w, ch = core_node_metrics(app, n)->cell_h;
     int focused = app->ui.focused == n;
     int cols = n->rect.w / cw;
-    gui_fill_rect(p->canvas, n->rect.x, n->rect.y, n->rect.w, n->rect.h, t->listbox_bg);
+    gui_fill_rect(p->frame, n->rect.x, n->rect.y, n->rect.w, n->rect.h, t->listbox_bg);
     for (int row = 0; row < visible_rows(app, n); row++)
     {
         int index = n->scroll + row;
@@ -506,7 +634,7 @@ static void paint_group(const struct paint* p, const struct gui_node* n)
         uint32_t bg = is_focus ? t->listbox_sel_bg : t->listbox_bg;
         int y = n->rect.y + row * ch;
         if (is_focus)
-            gui_fill_rect(p->canvas, n->rect.x, y, n->rect.w, ch, bg);
+            gui_fill_rect(p->frame, n->rect.x, y, n->rect.w, ch, bg);
         const char* marker = n->multi ? (on ? "[X] " : "[ ] ")
                                       : (on ? "(\xE2\x80\xA2) " : "( ) ");   /* U+2022 bullet */
         int x = core_draw_utf8(p, n->rect.x, y, marker, core_utf8_prefix_bytes(marker, cols), fg, bg);
@@ -538,7 +666,7 @@ void widget_paint(const struct paint* outer, const struct gui_node* n)
             extra_w = p->app->metrics.cell_w;
             extra_h = p->app->metrics.cell_h / 2;
         }
-        gui_set_clip(p->canvas, n->rect.x, n->rect.y, n->rect.w + extra_w, n->rect.h + extra_h);
+        gui_set_clip(p->frame, n->rect.x, n->rect.y, n->rect.w + extra_w, n->rect.h + extra_h);
     }
     switch (n->kind)
     {
@@ -552,7 +680,7 @@ void widget_paint(const struct paint* outer, const struct gui_node* n)
     case GUI_EDITOR: editor_paint(p, n); break;
     default: break;
     }
-    gui_set_clip(p->canvas, 0, 0, 0, 0);
+    gui_set_clip(p->frame, 0, 0, 0, 0);
 }
 
 /* --- The open select list --- */
@@ -605,7 +733,7 @@ void widget_paint_popups(const struct paint* p)
         int hot = app->ui.hot == it;
         uint32_t fg = hot ? t->menu_item_fg_hot : t->menu_item_fg;
         uint32_t bg = hot ? t->menu_item_bg_hot : t->menu_item_bg;
-        gui_fill_rect(p->canvas, it->rect.x, it->rect.y, it->rect.w, it->rect.h, bg);
+        gui_fill_rect(p->frame, it->rect.x, it->rect.y, it->rect.w, it->rect.h, bg);
         core_draw_utf8(p, it->rect.x + cw, it->rect.y, it->label, -1, fg, bg);
     }
 }
@@ -757,6 +885,14 @@ void widget_mouse_down(struct gui_app* app, struct gui_node* n, int double_click
             clamp_scroll(app, n);
             break;
         }
+        if (on_hbar(app, n, x, y))
+        {
+            struct scrollbar sb = list_hbar(app, n);
+            app->ui.hscrolling = n;
+            n->hscroll = core_scrollbar_press(app, &sb, x - n->rect.x);
+            clamp_hscroll(app, n);
+            break;
+        }
         int index = row_at(app, n, y);
         if (index >= 0)
         {
@@ -835,6 +971,13 @@ void widget_mouse_move(struct gui_app* app)
         scroll_to_mouse(app, ui->scrolling);
         app->needs_paint = 1;
     }
+    else if (ui->hscrolling)
+    {
+        struct scrollbar sb = list_hbar(app, ui->hscrolling);
+        ui->hscrolling->hscroll = core_scrollbar_drag(app, &sb, x - ui->hscrolling->rect.x);
+        clamp_hscroll(app, ui->hscrolling);
+        app->needs_paint = 1;
+    }
 
     ui->hot = NULL;
     if (ui->open_select)
@@ -904,12 +1047,12 @@ void widget_wheel(struct gui_app* app, int wheel)
         app->needs_paint = 1;
 }
 
-/* Sideways (a touchpad swipe, a tilt wheel, Shift+wheel): editors scroll
- * by columns, 40 units each. */
+/* Sideways (a touchpad swipe, a tilt wheel, Shift+wheel): editors and
+ * listboxes scroll by columns, 40 units each. */
 void widget_hwheel(struct gui_app* app, int wheel)
 {
     struct gui_node* n = app->ui.hot;
-    if (!n || n->kind != GUI_EDITOR)
+    if (!n || (n->kind != GUI_EDITOR && n->kind != GUI_LISTBOX))
     {
         app->ui.hwheel_rest = 0;
         return;
@@ -919,7 +1062,15 @@ void widget_hwheel(struct gui_app* app, int wheel)
     if (cols == 0)
         return;
     app->ui.hwheel_rest -= cols * 40;
-    editor_hwheel(app, n, cols);
+    if (n->kind == GUI_LISTBOX)
+    {
+        n->hscroll += cols;
+        clamp_hscroll(app, n);
+    }
+    else
+    {
+        editor_hwheel(app, n, cols);
+    }
     app->needs_paint = 1;
 }
 
@@ -929,15 +1080,29 @@ static int input_key(struct gui_app* app, struct gui_node* n, int key, int mods)
 {
     int shift = (mods & GUI_MOD_SHIFT) != 0;
     int ctrl = (mods & GUI_MOD_PRIMARY) != 0;   /* Command on macOS */
+    int word = (mods & GUI_MOD_WORD) != 0;
     int lo, hi;
     input_selection(n, &lo, &hi);
+#ifdef __APPLE__
+    /* Command+arrows: the line's ends; Command+Backspace: to the start - the Mac's */
+    if (mods & GUI_MOD_CMD)
+    {
+        if (key == GUI_KEY_LEFT || key == GUI_KEY_UP) key = GUI_KEY_HOME;
+        else if (key == GUI_KEY_RIGHT || key == GUI_KEY_DOWN) key = GUI_KEY_END;
+        else if (key == GUI_KEY_BACKSPACE && lo == hi)
+        {
+            input_replace(n, 0, hi, "", 0);
+            return 1;
+        }
+    }
+#endif
     switch (key)
     {
     case GUI_KEY_LEFT:
-        n->cursor = (!shift && lo != hi) ? lo : prev_char(n->value, n->cursor);
+        n->cursor = (!shift && lo != hi) ? lo : word ? input_word_left(n->value, n->cursor) : prev_char(n->value, n->cursor);
         break;
     case GUI_KEY_RIGHT:
-        n->cursor = (!shift && lo != hi) ? hi : next_char(n->value, n->cursor);
+        n->cursor = (!shift && lo != hi) ? hi : word ? input_word_right(n->value, n->cursor) : next_char(n->value, n->cursor);
         break;
     case GUI_KEY_HOME:
         n->cursor = 0;
@@ -947,12 +1112,12 @@ static int input_key(struct gui_app* app, struct gui_node* n, int key, int mods)
         break;
     case GUI_KEY_BACKSPACE:
         if (lo == hi)
-            lo = prev_char(n->value, lo);
+            lo = word ? input_word_left(n->value, lo) : prev_char(n->value, lo);
         input_replace(n, lo, hi, "", 0);
         return 1;
     case GUI_KEY_DELETE:
         if (lo == hi)
-            hi = next_char(n->value, hi);
+            hi = word ? input_word_right(n->value, hi) : next_char(n->value, hi);
         input_replace(n, lo, hi, "", 0);
         return 1;
     case GUI_KEY_ENTER:
@@ -964,6 +1129,37 @@ static int input_key(struct gui_app* app, struct gui_node* n, int key, int mods)
         n->anchor = 0;
         n->cursor = (int)strlen(n->value);
         return 1;
+    case 'C':
+    case 'X':
+        if (!ctrl)
+            return 0;
+        if (lo != hi)
+        {
+            char* s = malloc((size_t)(hi - lo) + 1);
+            if (!s)
+                abort();
+            memcpy(s, n->value + lo, (size_t)(hi - lo));
+            s[hi - lo] = '\0';
+            gui_clipboard_set(app->canvas, s);
+            free(s);
+            if (key == 'X')
+                input_replace(n, lo, hi, "", 0);
+        }
+        return 1;
+    case 'V':
+    {
+        if (!ctrl)
+            return 0;
+        char* s = gui_clipboard_get(app->canvas);
+        if (s)
+        {
+            /* single line: only up to the first line break */
+            int len = (int)strcspn(s, "\r\n");
+            input_replace(n, lo, hi, s, len);
+            free(s);
+        }
+        return 1;
+    }
     default:
         return 0;
     }

@@ -143,6 +143,9 @@ int ui_process_close(ui_process* p)
     if (!p)
         return -1;
     DWORD code = 0;
+    /* a busy cdb never reads its "q": killing it also ends the program it debugs */
+    if (WaitForSingleObject(p->hproc, 2000) == WAIT_TIMEOUT)
+        TerminateProcess(p->hproc, 1);
     WaitForSingleObject(p->hproc, INFINITE);
     if (!GetExitCodeProcess(p->hproc, &code))
         code = (DWORD)-1;

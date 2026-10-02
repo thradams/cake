@@ -38,7 +38,7 @@
   <!-- Project-local output, so nothing here can collide with the old IDE's
        cakeide.exe in src\. -->
   <PropertyGroup>
-    <OutDir>$(ProjectDir)bin\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir>$(ProjectDir)..\..\src\</OutDir>
     <IntDir>obj_cakeide\$(Platform)\$(Configuration)\</IntDir>
     <TargetName>cakeide</TargetName>
     <LocalDebuggerWorkingDirectory>$(MSBuildThisFileDirectory)..\..\src\</LocalDebuggerWorkingDirectory>

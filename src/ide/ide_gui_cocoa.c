@@ -1,9 +1,11 @@
 /* ide_gui_cocoa.c - macOS Cocoa/CoreText backend of the ide GUI framework.
  *
  * Only translates Cocoa events into calls to the core and implements the
- * drawing primitives of ide_gui_backend.h. Everything about the window
+ * drawing primitives of ide_gui_backend.h. Everything about a window
  * lives in one struct cocoa_window, reached from the view and the delegate
- * through an instance variable - no globals.
+ * through an instance variable - no globals. The main window owns the
+ * detached ones (gui_window_detach): one more NSWindow each, sharing its
+ * fonts.
  *
  * Plain C: AppKit is driven through the objc runtime (objc_msgSend);
  * CoreGraphics and CoreText are C APIs. Cocoa objects created here live as
@@ -65,17 +67,31 @@ struct offered_fonts
     int count;
 };
 
+struct cocoa_window;
+
+/* The main window's detached windows - open, or closed and waiting to be
+ * freed (a handler of theirs may still be running). */
+struct detached_list
+{
+    struct cocoa_window** items;
+    int count, cap;
+};
+
 struct cocoa_window
 {
     struct gui_canvas canvas;
     struct gui_app* app;
-    id window, view, timer;
+    id window, view, timer, delegate;
     struct offered_fonts fonts;
     int started;                 /* gui_app_start has run */
     double wheel_rest;           /* precise scrolling not yet sent */
     double hwheel_rest;
     uint32_t titlebar_color;
     int titlebar_applied;
+    struct cocoa_window* owner;  /* the main window; itself for the main window */
+    struct gui_surface* surface; /* a detached window's; NULL for the main window */
+    struct detached_list detached;  /* the main window's */
+    struct detached_list gone;      /* the main window's: closed, to free */
 };
 
 /* The struct cocoa_window behind a view or the delegate. */
@@ -308,7 +324,9 @@ static void ensure_back_buffer(struct cocoa_window* win, int w, int h)
     c->h = h;
     c->scale = scale;
     c->clipped = 0;
-    if (win->app)
+    if (win->surface)
+        gui_surface_invalidate(win->app, win->surface);
+    else if (win->app)
         gui_app_invalidate(win->app);   /* a new buffer: everything drawn again */
 }
 
@@ -358,18 +376,148 @@ static void update_cursor(struct cocoa_window* win)
         "_windowResizeNorthWestSouthEastCursor", "_windowResizeNorthEastSouthWestCursor",
     };
     id cursor_class = cls("NSCursor");
-    SEL s = sel(names[gui_app_cursor(win->app)]);
+    enum gui_cursor cursor = win->surface ? gui_surface_cursor(win->app, win->surface) : gui_app_cursor(win->app);
+    SEL s = sel(names[cursor]);
     if (!MSG(BOOL, id, SEL, SEL)(cursor_class, sel("respondsToSelector:"), s))
         s = sel("arrowCursor");
     MSG(void, id, SEL)(MSG(id, id, SEL)(cursor_class, s), sel("set"));
 }
 
+/* --- Detached windows --- */
+
+int gui_backend_can_detach(void)
+{
+    return 1;
+}
+
+static void list_add(struct detached_list* list, struct cocoa_window* w)
+{
+    if (list->count == list->cap)
+    {
+        int cap = list->cap ? list->cap * 2 : 4;
+        struct cocoa_window** items = realloc(list->items, (size_t)cap * sizeof *items);
+        if (!items)
+            abort();
+        list->items = items;
+        list->cap = cap;
+    }
+    list->items[list->count++] = w;
+}
+
+static void list_remove(struct detached_list* list, struct cocoa_window* w)
+{
+    for (int i = 0; i < list->count; i++)
+    {
+        if (list->items[i] == w)
+        {
+            memmove(&list->items[i], &list->items[i + 1], sizeof list->items[0] * (size_t)(list->count - i - 1));
+            list->count--;
+            return;
+        }
+    }
+}
+
+/* A detached window draws with the main window's fonts. */
+static void share_fonts(struct cocoa_window* d, const struct cocoa_window* main)
+{
+    struct gui_canvas* c = &d->canvas;
+    c->main = main->canvas.main;
+    c->small_font = main->canvas.small_font;
+    c->pt = main->canvas.pt;
+    c->family = main->canvas.family;
+    c->metrics = main->canvas.metrics;
+    c->small_metrics = main->canvas.small_metrics;
+}
+
+static id make_view(struct cocoa_window* win, CGRect frame);
+
+static void detached_open(struct cocoa_window* main, struct gui_surface* s, int w, int h)
+{
+    struct cocoa_window* d = calloc(1, sizeof *d);
+    if (!d)
+        abort();
+    d->app = main->app;
+    d->owner = main;
+    d->surface = s;
+    d->canvas.colorspace = main->canvas.colorspace;
+    share_fonts(d, main);
+
+    CGRect frame = CGRectMake(0, 0, w > 0 ? w : 640, h > 0 ? h : 480);
+    unsigned long style = 1 | 2 | 4 | 8;   /* titled, closable, miniaturizable, resizable */
+    d->window = MSG(id, id, SEL)(cls("NSWindow"), sel("alloc"));
+    d->window = MSG(id, id, SEL, CGRect, unsigned long, unsigned long, BOOL)(
+        d->window, sel("initWithContentRect:styleMask:backing:defer:"), frame, style, 2UL, NO);
+    MSG(void, id, SEL, BOOL)(d->window, sel("setReleasedWhenClosed:"), NO);
+    CFStringRef title = cfstr("");
+    MSG(void, id, SEL, id)(d->window, sel("setTitle:"), (id)title);
+    CFRelease(title);
+    d->delegate = MSG(id, id, SEL)((id)objc_getClass("IdeGuiDelegate"), sel("new"));
+    set_backend(d->delegate, d);
+    MSG(void, id, SEL, id)(d->window, sel("setDelegate:"), d->delegate);
+    MSG(void, id, SEL, BOOL)(d->window, sel("setAcceptsMouseMovedEvents:"), YES);
+    d->view = make_view(d, frame);
+
+    list_add(&main->detached, d);
+    ensure_back_buffer(d, (int)frame.size.width, (int)frame.size.height);
+    d->started = 1;
+    gui_surface_start(d->app, s, d, d->canvas.w, d->canvas.h);
+    MSG(void, id, SEL)(d->window, sel("center"));
+    MSG(void, id, SEL, id)(d->window, sel("makeKeyAndOrderFront:"), NULL);
+}
+
+/* Its surface is gone: the window goes off screen and stops reaching us;
+ * the struct is freed on a later refresh, since a handler of it may be
+ * running now. */
+static void detached_close(struct cocoa_window* main, struct cocoa_window* d)
+{
+    list_remove(&main->detached, d);
+    d->started = 0;
+    d->surface = NULL;
+    set_backend(d->view, NULL);
+    set_backend(d->delegate, NULL);
+    MSG(void, id, SEL, id)(d->window, sel("setDelegate:"), NULL);
+    MSG(void, id, SEL, id)(d->window, sel("orderOut:"), NULL);
+    list_add(&main->gone, d);
+}
+
+static void free_gone(struct cocoa_window* main)
+{
+    while (main->gone.count > 0)
+    {
+        struct cocoa_window* d = main->gone.items[--main->gone.count];
+        if (d->canvas.ctx)
+            CGContextRelease(d->canvas.ctx);
+        free(d->canvas.data);
+        free(d);
+    }
+}
+
+/* The windows the core asked for, made, raised and closed. */
+static void sync_detached(struct cocoa_window* main)
+{
+    int w, h;
+    struct gui_surface* s;
+    while ((s = gui_app_take_surface_open(main->app, &w, &h)) != NULL)
+        detached_open(main, s, w, h);
+    void* native;
+    while ((native = gui_app_take_surface_close(main->app)) != NULL)
+        detached_close(main, native);
+    while ((native = gui_app_take_surface_raise(main->app)) != NULL)
+    {
+        struct cocoa_window* d = native;
+        MSG(void, id, SEL, id)(d->window, sel("makeKeyAndOrderFront:"), NULL);
+    }
+}
+
 /* Applies what the app asked for (quit, timer, font, zoom), lets the core
- * paint whatever is dirty and invalidates just that rect. */
+ * paint whatever is dirty and invalidates just that rect - in the main
+ * window and in each detached one. */
 static void refresh(struct cocoa_window* win)
 {
-    if (!win->started)
+    win = win->owner;
+    if (!win || !win->started)
         return;
+    free_gone(win);
     struct gui_canvas* c = &win->canvas;
     if (gui_app_should_quit(win->app))
     {
@@ -395,11 +543,21 @@ static void refresh(struct cocoa_window* win)
         if (apply_font(c))
             gui_app_font_changed(win->app, c);
     }
+    sync_detached(win);
     struct gui_rect r;
     if (gui_app_paint(win->app, c, &r))
         MSG(void, id, SEL, CGRect)(win->view, sel("setNeedsDisplayInRect:"),
                                     CGRectMake(r.x, r.y, r.w, r.h));
     sync_titlebar(win);
+    for (int i = 0; i < win->detached.count; i++)
+    {
+        struct cocoa_window* d = win->detached.items[i];
+        share_fonts(d, win);
+        if (gui_surface_paint(d->app, d->surface, &d->canvas, &r))
+            MSG(void, id, SEL, CGRect)(d->view, sel("setNeedsDisplayInRect:"),
+                                        CGRectMake(r.x, r.y, r.w, r.h));
+        sync_titlebar(d);
+    }
 }
 
 /* --- Clipboard (ide_gui_backend.h) --- */
@@ -453,8 +611,7 @@ char* gui_clipboard_get(struct gui_canvas* c)
 #define MOD_OPTION  (1UL << 19)
 #define MOD_COMMAND (1UL << 20)
 
-/* Command and Control both are the framework's Ctrl: Cmd+C copies, as Mac
- * users expect, and Ctrl+C still works. */
+/* Command is the primary modifier (GUI_MOD_PRIMARY): Cmd+C copies, as on any Mac. */
 static int mods_of(id event)
 {
     unsigned long flags = MSG(unsigned long, id, SEL)(event, sel("modifierFlags"));
@@ -517,7 +674,10 @@ static void post(struct cocoa_window* win, const struct gui_event* ev)
 {
     if (!win || !win->started)
         return;
-    gui_app_event(win->app, ev);
+    if (win->surface)
+        gui_surface_event(win->app, win->surface, ev);
+    else
+        gui_app_event(win->app, ev);
     refresh(win);
 }
 
@@ -747,7 +907,10 @@ static void view_set_frame_size(id self, SEL cmd, CGSize size)
     if (!win || !win->started)
         return;
     ensure_back_buffer(win, (int)size.width, (int)size.height);
-    gui_app_resize(win->app, win->canvas.w, win->canvas.h);
+    if (win->surface)
+        gui_surface_resize(win->app, win->surface, win->canvas.w, win->canvas.h);
+    else
+        gui_app_resize(win->app, win->canvas.w, win->canvas.h);
     refresh(win);
 }
 
@@ -759,7 +922,8 @@ static void view_backing_changed(id self, SEL cmd)
     if (!win || !win->started)
         return;
     ensure_back_buffer(win, win->canvas.w, win->canvas.h);
-    gui_app_font_changed(win->app, &win->canvas);
+    if (!win->surface)
+        gui_app_font_changed(win->app, &win->canvas);
     refresh(win);
 }
 
@@ -857,9 +1021,29 @@ static Class register_delegate_class(void)
     return c;
 }
 
+/* The window's content view, flipped, tracking the mouse - the first
+ * responder. */
+static id make_view(struct cocoa_window* win, CGRect frame)
+{
+    id view = MSG(id, id, SEL)((id)objc_getClass("IdeGuiView"), sel("alloc"));
+    view = MSG(id, id, SEL, CGRect)(view, sel("initWithFrame:"), frame);
+    set_backend(view, win);
+    MSG(void, id, SEL, unsigned long)(view, sel("setAutoresizingMask:"), 2UL | 16UL);
+    MSG(void, id, SEL, id)(win->window, sel("setContentView:"), view);
+    MSG(BOOL, id, SEL, id)(win->window, sel("makeFirstResponder:"), view);
+
+    /* Entered/exited (for MOUSE_LEAVE), always, following the view's size. */
+    id area = MSG(id, id, SEL)(cls("NSTrackingArea"), sel("alloc"));
+    area = MSG(id, id, SEL, CGRect, unsigned long, id, id)(
+        area, sel("initWithRect:options:owner:userInfo:"), frame, 0x01UL | 0x80UL | 0x200UL, view, NULL);
+    MSG(void, id, SEL, id)(view, sel("addTrackingArea:"), area);
+    return view;
+}
+
 int main(int argc, char** argv)
 {
     struct cocoa_window win = { 0 };   /* lives while -run does: it never returns */
+    win.owner = &win;
     struct gui_canvas* c = &win.canvas;
     c->colorspace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
     c->pt = DEFAULT_FONT_PT;
@@ -893,7 +1077,7 @@ int main(int argc, char** argv)
         }
     }
 
-    Class view_class = register_view_class();
+    register_view_class();
     Class delegate_class = register_delegate_class();
     id delegate = MSG(id, id, SEL)((id)delegate_class, sel("new"));
     set_backend(delegate, &win);
@@ -910,18 +1094,8 @@ int main(int argc, char** argv)
     MSG(void, id, SEL, id)(win.window, sel("setDelegate:"), delegate);
     MSG(void, id, SEL, BOOL)(win.window, sel("setAcceptsMouseMovedEvents:"), YES);
 
-    win.view = MSG(id, id, SEL)((id)view_class, sel("alloc"));
-    win.view = MSG(id, id, SEL, CGRect)(win.view, sel("initWithFrame:"), frame);
-    set_backend(win.view, &win);
-    MSG(void, id, SEL, unsigned long)(win.view, sel("setAutoresizingMask:"), 2UL | 16UL);
-    MSG(void, id, SEL, id)(win.window, sel("setContentView:"), win.view);
-    MSG(BOOL, id, SEL, id)(win.window, sel("makeFirstResponder:"), win.view);
-
-    /* Entered/exited (for MOUSE_LEAVE), always, following the view's size. */
-    id area = MSG(id, id, SEL)(cls("NSTrackingArea"), sel("alloc"));
-    area = MSG(id, id, SEL, CGRect, unsigned long, id, id)(
-        area, sel("initWithRect:options:owner:userInfo:"), frame, 0x01UL | 0x80UL | 0x200UL, win.view, NULL);
-    MSG(void, id, SEL, id)(win.view, sel("addTrackingArea:"), area);
+    win.delegate = delegate;
+    win.view = make_view(&win, frame);
 
     ensure_back_buffer(&win, (int)frame.size.width, (int)frame.size.height);
     win.app = gui_app_create();

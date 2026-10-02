@@ -13,6 +13,7 @@
 #include "../compile.h"
 #include "../parser.h"
 #include "ide_debugger.h"
+#include <assert.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,10 +73,11 @@ enum ide_event
     EV_NEWPROJ_OK, EV_NEWPROJ_CANCEL, EV_NEWPROJ_BROWSE,
     EV_COPTS_OK, EV_COPTS_CANCEL, EV_COPTS_HELP,
     EV_DBG_OK, EV_DBG_CANCEL, EV_DBG_BROWSE,
+    EV_BUILD_OPTIONS, EV_BLD_OK, EV_BLD_CANCEL,
     EV_EXT_LIST, EV_EXT_ADD, EV_EXT_DELETE, EV_EXT_UP, EV_EXT_DOWN, EV_EXT_OK, EV_EXT_CANCEL,
     EV_EXT_BROWSE,
     EV_INC_ADD, EV_INC_REMOVE, EV_INC_UP, EV_INC_DOWN, EV_INC_DETECT, EV_INC_CLOSE,
-    EV_HELP_CLOSE,
+    EV_HELP_CLOSE, EV_HELP_BACK,
     EV_FOLDER_DELETE_OK,
     EV_TICK,                              /* the timer: 50 ms while compiling, else 2 s */
     EV_FILE_RELOAD, EV_PROJECT_RELOAD,    /* "Yes" in the changed-outside prompts */
@@ -86,11 +88,11 @@ enum ide_event
     EV_PROJECT_LIST, EV_PROJ_COPY_PATH, EV_PROJ_NEW_FILE, EV_PROJ_REMOVE, EV_PROJ_DELETE,
     EV_PROJ_DELETE_OK, EV_FOLDER_ADD_TO_PROJECT,
     EV_FR_DBLCLICK, EV_FR_CLEAR,
-    EV_NEWFILE_OVERWRITE, EV_SAVEAS_OVERWRITE,
-    EV_EDITOR_MENU, EV_TOGGLE_READONLY,
+    EV_NEWFILE_OVERWRITE, EV_SAVEAS_OVERWRITE, EV_OPEN_LINK,
+    EV_EDITOR_MENU, EV_TOGGLE_READONLY, EV_TOGGLE_DETACH,
     EV_INC_DETECT_MSVC, EV_INC_DETECT_TCC, EV_INC_ADD_TOOLS,
     EV_FR_TAB_FIND, EV_FR_TAB_REPLACE, EV_FR_FIND, EV_FR_REPLACE,
-    EV_EDITOR_CTRLCLICK,
+    EV_EDITOR_CTRLCLICK, EV_HELP_CTRLCLICK,
     EV_CMDLINE, EV_COPTS_KEEP_INVALID,
     EV_GIT_LIST, EV_GIT_REFRESH, EV_GIT_COMMIT, EV_GIT_COMMIT_PUSH, EV_GIT_COMMIT_FILE,
     EV_GIT_COMMIT_STAGED, EV_GIT_COMMIT_STAGED_PUSH, EV_GIT_STAGE, EV_GIT_UNSTAGE, EV_GIT_DISCARD, EV_GIT_DISCARD_OK,
@@ -136,7 +138,6 @@ static const struct menu_item file_items[] = {
     { EV_NEW_FILE, "New File...", NULL, 1, NULL },
     { EV_OPEN, "Open...", "Ctrl+O", 1, NULL },
     { EV_OPEN_FOLDER, "Open Folder...", NULL, 1, NULL },
-    { EV_GIT_CLONE, "Git Clone...", NULL, 1, NULL },
     { EV_SAVE, "Save", "Ctrl+S", 1, NULL },
     { EV_SAVE_AS, "Save As...", NULL, 1, NULL },
     { EV_SAVE_ALL, "Save all", "Ctrl+Shift+S", 1, NULL },
@@ -162,6 +163,7 @@ static const struct menu_item edit_items[] = {
     SEPARATOR,
     { EV_FORMAT, "Format", "Ctrl+Shift+F", 1, NULL },
     { EV_COMPLETE, "Complete Word", "Ctrl+Space", 1, NULL },
+    { EV_RENAME, "Rename...", "F2", 1, NULL },
 };
 static const struct menu_item view_items[] = {
     { EV_VIEW_OUTPUT, "Output", NULL, 1, NULL },
@@ -175,25 +177,25 @@ static const struct menu_item search_items[] = {
     { EV_FIND, "Find...", NULL, 1, NULL },
     { EV_REPLACE, "Replace...", "Ctrl+R", 1, NULL },
     { EV_SEARCH_NEXT, "Search Next", "F3", 1, NULL },
+    SEPARATOR,
     { EV_GOTO_LINE, "Go to line...", "Ctrl+G", 1, NULL },
     { EV_FIND_DECLARATION, "Find Declaration", NULL, 1, NULL },
     { EV_FIND_DEFINITION, "Find Definition", "F12", 1, NULL },
     { EV_FIND_USAGES, "Find Usages", NULL, 1, NULL },
-    { EV_RENAME, "Rename...", "F2", 1, NULL },
     SEPARATOR,
     { EV_FIND_IN_FILES, "Find in Files...", "Ctrl+F", 1, NULL },
 };
 static const struct menu_item project_items[] = {
-    { EV_PROJECT_NEW, "New Project...", NULL, 1, NULL },
-    { EV_PROJECT_OPEN, "Open Project...", NULL, 1, NULL },
+    { EV_PROJECT_NEW, "New Project...", NULL, 1, "Create a Cake project (.cakeproj), optionally with a main.c" },
+    { EV_PROJECT_OPEN, "Open Project...", NULL, 1, "Open a .cakeproj project" },
+    { EV_GIT_CLONE, "Git Clone...", NULL, 1, "Copy a remote Git repository to a local folder" },
     SEPARATOR,
-    { EV_PROJECT_ADD_FILE, "Add Existing File...", NULL, 1, NULL },
-    { EV_PROJECT_INCLUDES, "Include Directories...", NULL, 1, NULL },
-    { EV_PROJECT_OPTIONS, "Options...", NULL, 1, NULL },
+    { EV_PROJECT_ADD_FILE, "Add Existing File...", NULL, 1, "Add files to the open project" },
+    { EV_PROJECT_INCLUDES, "Include Directories...", NULL, 1, "The open project's own #include search path" },
     SEPARATOR,
-    { EV_PROJECT_REPORT_UNUSED, "Report Unused", NULL, 1, NULL },
+    { EV_PROJECT_CLOSE, "Close Project", NULL, 1, "Close the project and its documents without unsaved changes" },
     SEPARATOR,
-    { EV_PROJECT_CLOSE, "Close Project", NULL, 1, NULL },
+    { EV_PROJECT_OPTIONS, "Options...", NULL, 1, "The open project's compiler options, used by Build and Compile" },
 };
 static const struct menu_item build_items[] = {
     { EV_BUILD, "Build", "F7", 1, "Compile the project's .c files modified since the last Build (or the current file)" },
@@ -201,38 +203,42 @@ static const struct menu_item build_items[] = {
     SEPARATOR,
     { EV_COMPILE, "Compile", "Ctrl+F7", 1, "Compile only the current file" },
     { EV_SHOW_GENERATED, "Show Generated Code", NULL, 1, "Open the C89 code Cake generated for the current file" },
+    SEPARATOR,
+    { EV_PROJECT_REPORT_UNUSED, "Report Unused", NULL, 1, "List the project's non-static functions never called in any of its files, in Find Results (-unused-extern-report)" },
+    SEPARATOR,
+    { EV_BUILD_OPTIONS, "Options...", NULL, 1, "The Post-Build Event: an External Tool run after a Build without errors" },
 };
 static const struct menu_item debug_items[] = {
-    { EV_DEBUG_START, "Start Debugging", "F5", 1, NULL },
-    { EV_DEBUG_STOP, "Stop Debugging", "Shift+F5", 0, NULL },
+    { EV_DEBUG_START, "Start Debugging", "F5", 1, "Build (Pre-Build Event, Cake, Post-Build Event) and, without errors, debug the program" },
+    { EV_DEBUG_STOP, "Stop Debugging", "Shift+F5", 0, "End the debugging session and the program" },
     SEPARATOR,
-    { EV_DEBUG_CONTINUE, "Continue", "F5", 0, NULL },
-    { EV_DEBUG_STEP_OVER, "Step Over", "F10", 0, NULL },
-    { EV_DEBUG_STEP_INTO, "Step Into", "F11", 0, NULL },
-    { EV_DEBUG_STEP_OUT, "Step Out", "Shift+F11", 0, NULL },
+    { EV_DEBUG_CONTINUE, "Continue", "F5", 0, "Run until the next breakpoint or the end of the program" },
+    { EV_DEBUG_STEP_OVER, "Step Over", "F10", 0, "Run the current line, calls included, and stop at the next one" },
+    { EV_DEBUG_STEP_INTO, "Step Into", "F11", 0, "Run the current line, stopping inside the function it calls" },
+    { EV_DEBUG_STEP_OUT, "Step Out", "Shift+F11", 0, "Run until the current function returns" },
     SEPARATOR,
-    { EV_DEBUG_BREAKPOINT, "Toggle Breakpoint", "F9", 1, NULL },
+    { EV_DEBUG_BREAKPOINT, "Toggle Breakpoint", "F9", 1, "Set or clear a breakpoint on the caret's line (or click its line number)" },
     SEPARATOR,
-    { EV_DEBUG_INFO, "Debug Info", NULL, 1, NULL },
+    { EV_DEBUG_INFO, "Debug Info", NULL, 1, "Show the Locals and Call Stack of the stopped program" },
     SEPARATOR,
-    { EV_DEBUG_OPTIONS, "Options...", NULL, 1, NULL },
+    { EV_DEBUG_OPTIONS, "Options...", NULL, 1, "The debugger and the program to debug: command, arguments, directory" },
 };
 static const struct menu_item tools_items[] = {
-    { EV_TERMINAL, "Terminal", NULL, 1, NULL },
-    { EV_EXTERNAL_TOOLS, "External Tools...", NULL, 1, NULL },
+    { EV_TERMINAL, "Terminal", NULL, 1, "Open a terminal in the active file's folder (else the Folder panel's)" },
+    { EV_EXTERNAL_TOOLS, "External Tools...", NULL, 1, "Add, edit and order the programs this menu runs - compilers, scripts" },
 };
 static const struct menu_item window_items[] = {
     { EV_TILE, "Tile", NULL, 1, NULL },
     { EV_CASCADE, "Cascade", NULL, 1, NULL },
     { EV_CLOSE_ALL, "Close all", NULL, 1, NULL },
     SEPARATOR,
-    { EV_ENVIRONMENT, "Environment...", NULL, 1, NULL },
-    SEPARATOR,
     { EV_FONT_BIGGER, "Font", "Ctrl++", 1, NULL },
     { EV_FONT_SMALLER, "Font", "Ctrl+-", 1, NULL },
+    SEPARATOR,
+    { EV_ENVIRONMENT, "Options...", NULL, 1, NULL },
 };
 static const struct menu_item help_items[] = {
-    { EV_MANUAL, "Manual", NULL, 1, NULL },
+    { EV_MANUAL, "Quick Reference", "F1", 1, NULL },
     SEPARATOR,
     { EV_WEBSITE, "Cake Website", NULL, 1, NULL },
     SEPARATOR,
@@ -357,7 +363,7 @@ enum find_kind
     FIND_DEFINITION,
     FIND_DECLARATION,
     FIND_USAGES,
-    FIND_UNUSED,     /* Project > Report Unused */
+    FIND_UNUSED,     /* Build > Report Unused */
 };
 
 struct goto_dialog
@@ -405,6 +411,7 @@ struct newfile_dialog
 struct wrap_dialog
 {
     struct gui_node* window;
+    struct gui_node* target;   /* the editor it was opened for */
     struct gui_node* columns;
     struct gui_node* justify;
 };
@@ -453,8 +460,8 @@ struct edit_string_dialog
 {
     struct gui_node* window;
     struct gui_node* editor;
-    struct gui_node* target;   /* the editor whose string is edited */
-    int lo, hi;                /* the string's contents there, quotes excluded */
+    char path[1024];           /* the document whose string is edited */
+    int lo, hi;                /* the literals, quotes included: [lo, hi) of the document */
 };
 
 struct new_folder_dialog
@@ -536,15 +543,50 @@ struct debug_dialog
     struct gui_node* fields[3];
 };
 
-#define MAX_EXT_TOOLS 32
-#define EXT_FIELD_SIZE 512
+struct build_settings
+{
+    char pre_build[512];    /* the External Tool run before a Build, by title; "" none */
+    char post_build[512];   /* the External Tool run after a Build without errors, by title; "" none */
+};
 
+struct build_dialog
+{
+    struct gui_node* window;
+    struct gui_node* pre_build;
+    struct gui_node* post_build;
+};
+
+/* A Build (F7) or F5 in steps: the Pre-Build Event, the Build, the
+ * Post-Build Event, then, for F5, the debugger. Each step starts only when
+ * the one before ends without errors (a tool: exit code 0). */
+enum build_stage
+{
+    STAGE_NONE,
+    STAGE_PRE_BUILD,
+    STAGE_BUILD,
+    STAGE_POST_BUILD,
+};
+
+struct build_chain
+{
+    enum build_stage stage;   /* the step running */
+    int rebuild;
+    int compile;              /* Compile (Ctrl+F7): Cake on the active file only */
+    int debug;                /* F5: the debugger last */
+};
+
+#define MAX_EXT_TOOLS 32
+#define EDIT_STRING_COLUMNS 80   /* Edit String's literals stay within it, as the help texts */
+#define EXT_DIALOG_COLS 66
+#define EXT_DIALOG_ROWS 22
+
+/* Each field is owned; see ext_tool_init / ext_tool_destroy. */
 struct ext_tool
 {
-    char title[EXT_FIELD_SIZE];
-    char command[EXT_FIELD_SIZE];
-    char arguments[EXT_FIELD_SIZE];
-    char directory[EXT_FIELD_SIZE];
+    char* title;
+    char* command;
+    char* arguments;
+    char* directory;
 };
 
 struct ext_tools
@@ -552,6 +594,55 @@ struct ext_tools
     struct ext_tool tools[MAX_EXT_TOOLS];
     int count;
 };
+
+/* *field replaced by a copy of `s`; kept as it was when out of memory. */
+static void ext_set(char** field, const char* s)
+{
+    size_t n = strlen(s) + 1;
+    char* copy = malloc(n);
+    if (!copy)
+        return;
+    memcpy(copy, s, n);
+    free(*field);
+    *field = copy;
+}
+
+static void ext_tool_init(struct ext_tool* t, const char* title, const char* command,
+                          const char* arguments, const char* directory)
+{
+    memset(t, 0, sizeof *t);
+    ext_set(&t->title, title);
+    ext_set(&t->command, command);
+    ext_set(&t->arguments, arguments);
+    ext_set(&t->directory, directory);
+}
+
+static void ext_tool_destroy(struct ext_tool* t)
+{
+    free(t->title);
+    free(t->command);
+    free(t->arguments);
+    free(t->directory);
+    memset(t, 0, sizeof *t);
+}
+
+static void ext_tools_clear(struct ext_tools* l)
+{
+    for (int i = 0; i < l->count; i++)
+        ext_tool_destroy(&l->tools[i]);
+    l->count = 0;
+}
+
+static void ext_tools_copy(struct ext_tools* dst, const struct ext_tools* src)
+{
+    ext_tools_clear(dst);
+    for (int i = 0; i < src->count; i++)
+    {
+        const struct ext_tool* t = &src->tools[i];
+        ext_tool_init(&dst->tools[i], t->title, t->command, t->arguments, t->directory);
+    }
+    dst->count = src->count;
+}
 
 struct ext_dialog
 {
@@ -610,21 +701,119 @@ struct macro_buttons
     struct gui_node* target;   /* the input the open popup fills */
 };
 
+/* The F1 texts, help_topics[]: a field or dialog names its own with set_help. */
+enum help_id
+{
+    HELP_NONE = -1,
+    HELP_OVERVIEW,
+    HELP_EXT_TOOLS,
+    HELP_EXT_LIST,
+    HELP_EXT_TITLE,
+    HELP_EXT_COMMAND,
+    HELP_EXT_ARGUMENTS,
+    HELP_EXT_DIRECTORY,
+    HELP_CLONE,
+    HELP_CLONE_URL,
+    HELP_CLONE_PATH,
+    HELP_CLONE_OPEN_FOLDER,
+    HELP_NEW_PROJECT,
+    HELP_NEW_PROJECT_NAME,
+    HELP_NEW_PROJECT_CREATE_FOLDER,
+    HELP_NEW_PROJECT_HELLO_WORLD,
+    HELP_COPTS,
+    HELP_COPTS_TARGET,
+    HELP_TARGET_DEFAULT,
+    HELP_TARGET_CLANG_MACOS_ARM64,
+    HELP_TARGET_GCC_LINUX_ARM64,
+    HELP_TARGET_GCC_LINUX_X64,
+    HELP_TARGET_MSVC_WIN_X64,
+    HELP_TARGET_MSVC_WIN_X86,
+    HELP_TARGET_TCC_LINUX_X64,
+    HELP_TARGET_TCC_MACOS_ARM64,
+    HELP_TARGET_TCC_WIN_X64,
+    HELP_TARGET_GCC_LINUX_ARM32,
+    HELP_COPTS_HEADERS,
+    HELP_HEADERS_SYSTEM,
+    HELP_HEADERS_CAKE,
+    HELP_COPTS_STYLE,
+    HELP_STYLE_NONE,
+    HELP_STYLE_CAKE,
+    HELP_STYLE_GNU,
+    HELP_STYLE_MICROSOFT,
+    HELP_COPTS_DIAG,
+    HELP_DIAG_IDE,
+    HELP_DIAG_GCC,
+    HELP_DIAG_MSVC,
+    HELP_FLAG_NO_OUTPUT,
+    HELP_FLAG_LINE_DIRECTIVES,
+    HELP_FLAG_FANALYZER,
+    HELP_FLAG_CONST_LITERAL,
+    HELP_FLAG_WALL,
+    HELP_COPTS_OUTPUT,
+    HELP_COPTS_OPTIONS,
+    HELP_INCLUDES_DETECT,
+    HELP_DEBUGGER_CDB,
+    HELP_DEBUGGER_LLDB,
+    HELP_DEBUG_COMMAND,
+    HELP_DEBUG_ARGUMENTS,
+    HELP_DEBUG_DIRECTORY,
+    HELP_DEBUG_OPTIONS,
+    HELP_DEBUG_INFO,
+    HELP_BUILD_OPTIONS,
+    HELP_PRE_BUILD,
+    HELP_POST_BUILD,
+    HELP_FIND_LOOK_IN,
+    HELP_LOOK_IN_FILE,
+    HELP_LOOK_IN_DIR,
+    HELP_LOOK_IN_INCLUDE_DIRS,
+    HELP_LOOK_IN_PROJECT,
+    HELP_INCLUDE_DIRS,
+    HELP_SYSTEM_DIRS,
+    HELP_COUNT
+};
+
+struct help_topic
+{
+    const char* slug;   /* the link name: [Arguments](help:ext-arguments) */
+    const char* text;
+};
+
+/* The topics shown before the current one, for Back. */
+struct help_history
+{
+    enum help_id* items;
+    int count, cap;
+};
+
 struct help_window
 {
     struct gui_node* window;
     struct gui_node* editor;
-    /* F1's text for a dialog or one of its fields - the old IDE's ui_set_help */
-    struct { const struct gui_node* node; const char* text; } docs[128];
+    struct gui_node* back;
+    /* F1's topic for a dialog or one of its fields - the old IDE's ui_set_help */
+    struct { const struct gui_node* node; enum help_id topic; } docs[128];
     int doc_count;
+    enum help_id current;          /* HELP_NONE: a text built when shown */
+    struct help_history history;
+};
+
+enum themed_role { THEMED_LABEL, THEMED_MODAL, THEMED_MODAL_BG };
+
+/* Texts colored from the theme, recolored when the theme changes. */
+struct themed_texts
+{
+    struct { struct gui_node* node; enum themed_role role; uint32_t fg; } items[512];
+    int count;
 };
 
 struct ide
 {
     struct gui_app* app;
     const struct gui_theme* theme;
+    struct themed_texts themed;
     struct gui_highlighter c_highlighter;   /* ctx: the current theme */
     struct gui_highlighter md_highlighter;  /* .md source; ctx: the theme */
+    struct gui_highlighter string_highlighter;  /* Edit String; ctx: the theme */
     struct gui_node* statusbar;
     struct gui_node* status_message;   /* its last item: the IDE's messages */
     struct gui_node* dock_menu;
@@ -654,13 +843,13 @@ struct ide
     struct git_clone_dialog clone;
     struct git_panel git;
     /* A program running in the background - an External Tool, a git command -
-     * its output streamed into the Output panel; up to 4 steps run one after
+     * its output streamed into the Output panel; its steps run one after
      * the other, a failed one stops them. The old IDE's g_job / g_gitjob. */
     struct
     {
         struct ide_process* proc;
-        char steps[4][2400];
-        int nsteps, step;
+        struct ide_strings steps;
+        int step;
         int failed;
         char dir[1024];
         char title[64];
@@ -695,6 +884,8 @@ struct ide
     struct compiler_settings global_options;
 
     struct debug_dialog dbg;
+    struct build_dialog bld;
+    struct build_settings build_settings;
     struct debug_settings debug_settings;
     struct debug_session session;   /* Start Debugging's lldb (cdb on Windows) */
     struct gui_node* debug_items[6];   /* Start, Stop, Continue, Step Over, Step Into, Step Out */
@@ -717,10 +908,12 @@ struct ide
     struct gui_node* project_items[5];   /* menu items that need an open project */
     struct ide_build_state pending;     /* what the running Build reads (worker thread) */
     int project_build;                   /* the running compile is a project Build */
+    struct build_chain chain;
     char pending_delete[1400];           /* the Project panel's Delete confirmation */
     int newfile_in_project;              /* New File from the Project panel: added to it */
     char reload_path[1024];              /* the file the Reload? prompt is about */
     char pending_path[1400];             /* the file an Overwrite? prompt is about */
+    char* pending_url;                   /* the web page an Open? prompt is about */
     struct help_window help;
     struct gui_node* about;
     struct gui_node* about_ok;
@@ -752,6 +945,11 @@ static void output(struct ide* ide, const char* line)
 {
     const char* old = gui_get_value(ide->output.editor);
     size_t old_len = strlen(old), len = strlen(line);
+    int lines = 1, caret_line = 0, caret_col = 0, lo = 0, hi = 0;
+    for (const char* c = old; *c; c++)
+        lines += *c == '\n';
+    gui_editor_get_caret(ide->output.editor, &caret_line, &caret_col);
+    gui_editor_get_selection(ide->output.editor, &lo, &hi);
     char* text = malloc(old_len + len + 2);
     if (!text)
         return;
@@ -761,7 +959,16 @@ static void output(struct ide* ide, const char* line)
     text[old_len + len + 1] = '\0';
     gui_set_value(ide->output.editor, text);
     free(text);
-    gui_editor_goto_line(ide->output.editor, 1 << 30);   /* scroll to the end */
+    if (caret_line >= lines)
+    {
+        gui_editor_goto_line(ide->output.editor, 1 << 30);   /* following the end */
+    }
+    else
+    {
+        /* the caret moved up (a click, a selection): the view stays there */
+        gui_editor_goto_line(ide->output.editor, caret_line);
+        gui_editor_set_selection(ide->output.editor, lo, hi);
+    }
 }
 
 static struct gui_node* create(struct ide* ide, enum gui_kind kind, const char* label)
@@ -788,6 +995,31 @@ static struct gui_node* add_at(struct ide* ide, struct gui_node* parent, enum gu
     return n;
 }
 
+/* At `bottom` rows from the parent's bottom edge, centered across it. */
+static struct gui_node* add_bottom_centered(struct ide* ide, struct gui_node* parent, enum gui_kind kind,
+                                            int bottom, int cols, const char* label)
+{
+    struct gui_node* n = create(ide, kind, label);
+    struct gui_layout l = { GUI_ANCHOR_BOTTOM };
+    l.bottom.cells = bottom;
+    l.width.cells = cols;
+    l.height.cells = 1;
+    gui_set_layout(n, &l);
+    gui_append(parent, n);
+    return n;
+}
+
+/* A child filling `parent` but for the given margins, in cells. */
+static void fill_margins(struct gui_node* n, int left, int top, int right, int bottom)
+{
+    struct gui_layout l = { GUI_ANCHOR_LEFT | GUI_ANCHOR_TOP | GUI_ANCHOR_RIGHT | GUI_ANCHOR_BOTTOM };
+    l.left.cells = left;
+    l.top.cells = top;
+    l.right.cells = right;
+    l.bottom.cells = bottom;
+    gui_set_layout(n, &l);
+}
+
 /* A child filling `parent` inside its one-cell frame. */
 static void fill_frame(struct gui_node* n)
 {
@@ -796,10 +1028,50 @@ static void fill_frame(struct gui_node* n)
     gui_set_layout(n, &l);
 }
 
-static void add_label(struct ide* ide, struct gui_node* parent, int col, int row, const char* text)
+static void color_themed(const struct ide* ide, struct gui_node* n, enum themed_role role, uint32_t fg)
 {
-    struct gui_node* t = add_at(ide, parent, GUI_TEXT, col, row, 0, 1, text);
-    gui_set_colors(t, ide->theme->label_fg, ide->theme->modal_bg);
+    const struct gui_theme* t = ide->theme;
+    switch (role)
+    {
+    case THEMED_LABEL: gui_set_colors(n, t->label_fg, t->modal_bg); break;
+    case THEMED_MODAL: gui_set_colors(n, t->modal_fg, t->modal_bg); break;
+    case THEMED_MODAL_BG: gui_set_colors(n, fg, t->modal_bg); break;
+    }
+}
+
+/* THEMED_MODAL_BG keeps `fg`; the others take theirs from the theme. */
+static void set_themed(struct ide* ide, struct gui_node* n, enum themed_role role, uint32_t fg)
+{
+    color_themed(ide, n, role, fg);
+    if (ide->themed.count < COUNT(ide->themed.items))
+    {
+        ide->themed.items[ide->themed.count].node = n;
+        ide->themed.items[ide->themed.count].role = role;
+        ide->themed.items[ide->themed.count].fg = fg;
+        ide->themed.count++;
+    }
+}
+
+static struct gui_node* add_label(struct ide* ide, struct gui_node* parent, int col, int row, const char* text)
+{
+    struct gui_node* n = add_at(ide, parent, GUI_TEXT, col, row, 0, 1, text);
+    set_themed(ide, n, THEMED_LABEL, 0);
+    return n;
+}
+
+/* `n` placed `cols` x `rows` cells at (col, row) of a `w` x `h` dialog,
+ * kept at its distance from the edges in `anchors` when the dialog resizes;
+ * left and right both: it stretches. */
+static void anchor_in(struct gui_node* n, int anchors, int col, int row, int cols, int rows, int w, int h)
+{
+    struct gui_layout l = { anchors };
+    l.left.cells = col;
+    l.top.cells = row;
+    l.right.cells = w - col - cols;
+    l.bottom.cells = h - row - rows;
+    l.width.cells = cols;
+    l.height.cells = rows;
+    gui_set_layout(n, &l);
 }
 
 /* A modal dialog; its size in cells is applied when it opens. */
@@ -820,6 +1092,22 @@ static void show_dialog(struct ide* ide, struct gui_node* win, int cols, int row
     gui_cell_size(ide->app, &cw, &ch);
     struct gui_rect r = { 0, 0, cols * cw, rows * ch };
     gui_window_set_rect(win, &r);
+    gui_window_center(ide->app, win);
+    gui_window_open(ide->app, win);
+    if (first)
+        gui_focus(ide->app, first);
+}
+
+/* A resizable dialog: sized `cols` x `rows` the first time, then it keeps
+ * the size the user gave it. */
+static void show_resizable_dialog(struct ide* ide, struct gui_node* win, int cols, int rows,
+                                  struct gui_node* first)
+{
+    if (gui_window_get_rect(win).w == 0)
+    {
+        show_dialog(ide, win, cols, rows, first);
+        return;
+    }
     gui_window_center(ide->app, win);
     gui_window_open(ide->app, win);
     if (first)
@@ -889,6 +1177,8 @@ static struct gui_node* focused_editor(struct ide* ide)
 /* Opens `path` in a new document window, or raises the one it is in -
  * placed like the old IDE's make_editor_window: 70 x 20 cells, each new
  * one shifted down-right, maximized into the desktop. */
+static void project_open(struct ide* ide, const char* path);
+
 static void open_file(struct ide* ide, const char* name)
 {
     char path[1024];
@@ -1022,6 +1312,10 @@ static void folder_open_selected(struct ide* ide)
         snprintf(f->dir, sizeof f->dir, "%s", path);
         folder_refresh(ide);
     }
+    else if (ends_with(path, ".cakeproj"))
+    {
+        project_open(ide, path);
+    }
     else
     {
         open_file(ide, path);
@@ -1065,7 +1359,7 @@ static void build_menus(struct ide* ide)
         }
         if (menus[m].items == tools_items)
             ide->tools_menu = menu;
-        if (menus[m].items == project_items)
+        if (menus[m].items == project_items || menus[m].items == build_items)
         {
             static const int needs_project[] = {
                 EV_PROJECT_ADD_FILE, EV_PROJECT_INCLUDES, EV_PROJECT_OPTIONS,
@@ -1273,8 +1567,10 @@ static void build_git(struct ide* ide);
 static void build_new_project(struct ide* ide);
 static void build_compiler_options(struct ide* ide);
 static void build_debug_options(struct ide* ide);
+static void build_build_options(struct ide* ide);
 static void build_external_tools(struct ide* ide);
-static void set_help(struct ide* ide, struct gui_node* node, const char* hint, const char* text);
+static void set_help(struct ide* ide, struct gui_node* node, const char* hint, enum help_id topic);
+static enum help_id help_find(const char* slug, int len);
 static void build_includes(struct ide* ide);
 static void build_help(struct ide* ide);
 static void build_help_texts(struct ide* ide);
@@ -1284,8 +1580,12 @@ static void build_find(struct ide* ide);
 
 static void add_colored(struct ide* ide, struct gui_node* parent, int col, int row, const char* text, uint32_t fg)
 {
-    struct gui_node* t = add_at(ide, parent, GUI_TEXT, col, row, 0, 1, text);
-    gui_set_colors(t, fg, ide->theme->modal_bg);
+    set_themed(ide, add_at(ide, parent, GUI_TEXT, col, row, 0, 1, text), THEMED_MODAL_BG, fg);
+}
+
+static void add_modal_text(struct ide* ide, struct gui_node* parent, int col, int row, const char* text)
+{
+    set_themed(ide, add_at(ide, parent, GUI_TEXT, col, row, 0, 1, text), THEMED_MODAL, 0);
 }
 
 /* About - the old IDE's: "The C Programming Language" cover, the C drawn
@@ -1320,10 +1620,10 @@ static void build_about(struct ide* ide)
         if (logo[i][0])
             add_colored(ide, ide->about, 19, 2 + i, logo[i], fg);
     }
-    add_colored(ide, ide->about, 21, 16, "Cake IDE", ide->theme->modal_fg);
-    add_colored(ide, ide->about, (50 - (int)strlen("Version " CAKE_VERSION)) / 2, 17,
-                "Version " CAKE_VERSION, ide->theme->modal_fg);
-    add_colored(ide, ide->about, 16, 19, "https://cakecc.org", ide->theme->modal_fg);
+    add_modal_text(ide, ide->about, 21, 16, "Cake IDE");
+    add_modal_text(ide, ide->about, (50 - (int)strlen("Version " CAKE_VERSION)) / 2, 17,
+                   "Version " CAKE_VERSION);
+    add_modal_text(ide, ide->about, 16, 19, "https://cakecc.org");
     ide->about_ok = add_at(ide, ide->about, GUI_BUTTON, 19, 21, 12, 1, "  OK  ");
     gui_set_id(ide->about_ok, EV_ABOUT_OK);
 }
@@ -1377,6 +1677,7 @@ static void build_dialogs(struct ide* ide)
     build_new_project(ide);
     build_compiler_options(ide);
     build_debug_options(ide);
+    build_build_options(ide);
     build_external_tools(ide);
     build_includes(ide);
     build_help(ide);
@@ -1390,7 +1691,10 @@ static void apply_theme(struct ide* ide, int index)
     ide->theme = themes[index];
     ide->c_highlighter.ctx = (void*)ide->theme;
     ide->md_highlighter.ctx = (void*)ide->theme;
+    ide->string_highlighter.ctx = (void*)ide->theme;
     gui_set_theme(ide->app, ide->theme);
+    for (int i = 0; i < ide->themed.count; i++)
+        color_themed(ide, ide->themed.items[i].node, ide->themed.items[i].role, ide->themed.items[i].fg);
     if (ide->project_list)
         project_refresh(ide, gui_get_selected(ide->project_list));   /* the markers' colors */
     for (int i = 0; i < ide->doc_count; i++)
@@ -1822,7 +2126,7 @@ static void newfile_create(struct ide* ide)
     const char* path = ide->pending_path;
     const char* name = file_name(path);
     const char* text = "";
-    if (ends_with(name, ".c"))
+    if (_stricmp(name, "main.c") == 0)
         text = "#include <stdio.h>\n\nint main()\n{\n    printf(\"Hello, World!\\n\");\n}\n";
     else if (ends_with(name, ".h"))
         text = "#pragma once\n";
@@ -1911,6 +2215,21 @@ static void stringify_selection(struct ide* ide, struct gui_node* ed)
 }
 
 /* --- Word Wrap: the old IDE's dialog, 40 x 9 --- */
+
+/* Closed: the editor it was opened for has the focus back, its window on top. */
+static void wrap_close(struct ide* ide)
+{
+    gui_window_close(ide->app, ide->wrap.window);
+    struct gui_node* target = ide->wrap.target;
+    if (!target)
+        return;
+    struct gui_node* win = target;
+    while (win && gui_get_kind(win) != GUI_WINDOW)
+        win = gui_get_parent(win);
+    if (win)
+        gui_window_open(ide->app, win);
+    gui_focus(ide->app, target);
+}
 
 static void build_wrap(struct ide* ide)
 {
@@ -2221,6 +2540,11 @@ static void build_popups(struct ide* ide)
     add_popup_item(ide, ide->editor_menu, EV_COPY_PATH, "Copy Full Path", NULL);
     add_popup_item(ide, ide->editor_menu, EV_SHOW_FOLDER, "Show My Folder", NULL);
     add_popup_item(ide, ide->editor_menu, EV_FORMAT, "Format", NULL);
+    if (gui_can_detach(ide->app))
+    {
+        add_popup_item(ide, ide->editor_menu, EV_NONE, NULL, NULL);
+        add_popup_item(ide, ide->editor_menu, EV_TOGGLE_DETACH, "Detach Window", NULL);
+    }
 
     gui_set_id(ide->editor_menu, EV_EDITOR_MENU);
 
@@ -2264,6 +2588,12 @@ static void editor_menu_refresh(struct ide* ide)
         if (gui_get_label(it) && strstr(gui_get_label(it), "Read-only"))
         {
             gui_set_label(it, d && gui_editor_get_read_only(d->editor) ? "[x] Read-only" : "[ ] Read-only");
+            gui_set_enabled(it, d != NULL);
+        }
+        if (gui_get_label(it) && strstr(gui_get_label(it), " Window") &&
+            (strncmp(gui_get_label(it), "Detach", 6) == 0 || strncmp(gui_get_label(it), "Attach", 6) == 0))
+        {
+            gui_set_label(it, d && gui_window_get_detached(ide->app, d->window) ? "Attach Window" : "Detach Window");
             gui_set_enabled(it, d != NULL);
         }
     }
@@ -2339,49 +2669,135 @@ static void build_edit_string(struct ide* ide)
 {
     struct edit_string_dialog* e = &ide->estr;
     e->window = new_dialog(ide, "Edit String");
-    e->editor = add_at(ide, e->window, GUI_EDITOR, 2, 1, 66, 13, NULL);
-    gui_set_id(add_at(ide, e->window, GUI_BUTTON, 24, 15, 10, 1, "  OK  "), EV_ESTR_OK);
-    gui_set_id(add_at(ide, e->window, GUI_BUTTON, 36, 15, 10, 1, "Cancel"), EV_ESTR_CANCEL);
+    gui_window_set_modal(e->window, 0);   /* the other tools - Word Wrap - work on its text */
+    gui_window_set_resizable(e->window, 1);
+    gui_window_set_min_size(e->window, 40, 8);
+    e->editor = create(ide, GUI_EDITOR, NULL);
+    fill_margins(e->editor, 2, 1, 2, 4);
+    gui_append(e->window, e->editor);
+    gui_editor_set_highlighter(e->editor, &ide->string_highlighter);
+    /* OK and Cancel centered as a pair */
+    static const struct { int id; const char* label; int offset; } bottom[] = {
+        { EV_ESTR_OK, "  OK  ", -11 }, { EV_ESTR_CANCEL, "Cancel", 1 },
+    };
+    for (int i = 0; i < COUNT(bottom); i++)
+    {
+        struct gui_node* n = create(ide, GUI_BUTTON, bottom[i].label);
+        struct gui_layout l = { GUI_ANCHOR_LEFT | GUI_ANCHOR_BOTTOM };
+        l.left.percent = 50;
+        l.left.cells = bottom[i].offset;
+        l.bottom.cells = 2;
+        l.width.cells = 10;
+        l.height.cells = 1;
+        gui_set_layout(n, &l);
+        gui_set_id(n, bottom[i].id);
+        gui_append(e->window, n);
+    }
 }
 
-/* Finds the "..." on the caret's line that holds the caret: [*lo, *hi)
- * is its contents, quotes excluded. 0 when the caret is in none. */
-static int string_at_caret(struct gui_node* ed, int* lo, int* hi)
+/* The closing quote of the "..." whose opening quote is at `open`; -1 when
+ * the line ends first. */
+static int literal_close(const char* text, int open)
 {
-    const char* text = gui_get_value(ed);
-    int caret, unused;
-    gui_editor_get_selection(ed, &caret, &unused);
-    int i = caret;
+    int i = open + 1;
+    while (text[i] && text[i] != '\n' && text[i] != '"')
+        i += (text[i] == '\\' && text[i + 1] && text[i + 1] != '\n') ? 2 : 1;
+    return text[i] == '"' ? i : -1;
+}
+
+/* The opening quote of the "..." on `pos`'s line that holds `pos` - its
+ * quotes included - or -1. Skips '...' and stops at a // comment. */
+static int literal_around(const char* text, int pos)
+{
+    int i = pos;
     while (i > 0 && text[i - 1] != '\n')
         i--;
     while (text[i] && text[i] != '\n')
     {
         if (text[i] == '\'' || text[i] == '"')
         {
-            char quote = text[i];
-            int start = ++i;
-            while (text[i] && text[i] != '\n' && text[i] != quote)
-                i += (text[i] == '\\' && text[i + 1] && text[i + 1] != '\n') ? 2 : 1;
-            if (quote == '"' && caret >= start - 1 && caret <= i)
+            int close = -1;
+            if (text[i] == '"')
+                close = literal_close(text, i);
+            else
             {
-                *lo = start;
-                *hi = i;
-                return 1;
+                int k = i + 1;
+                while (text[k] && text[k] != '\n' && text[k] != '\'')
+                    k += (text[k] == '\\' && text[k + 1] && text[k + 1] != '\n') ? 2 : 1;
+                if (text[k] == '\'')
+                    close = k;
             }
-            if (text[i] == quote)
-                i++;
+            if (close < 0)
+                return -1;
+            if (text[i] == '"' && pos >= i && pos <= close)
+                return i;
+            i = close + 1;
             continue;
         }
         if (text[i] == '/' && text[i + 1] == '/')
             break;
         i++;
     }
-    return 0;
+    return -1;
+}
+
+/* The run of adjacent "..." "..." around the caret - only blanks and line
+ * ends between them, as C concatenates them: [*lo, *hi) from the first
+ * opening quote to past the last closing one. 0 when the caret is in none. */
+static int string_at_caret(struct gui_node* ed, int* lo, int* hi)
+{
+    const char* text = gui_get_value(ed);
+    int caret, unused;
+    gui_editor_get_selection(ed, &caret, &unused);
+    int open = literal_around(text, caret);
+    if (open < 0 && caret > 0)
+        open = literal_around(text, caret - 1);   /* just past the closing quote */
+    if (open < 0)
+        return 0;
+    int first = open, last = literal_close(text, open);
+    for (;;)
+    {
+        int k = first;
+        while (k > 0 && (text[k - 1] == ' ' || text[k - 1] == '\t' || text[k - 1] == '\r' || text[k - 1] == '\n'))
+            k--;
+        if (k == 0 || text[k - 1] != '"')
+            break;
+        int prev = literal_around(text, k - 1);
+        if (prev < 0 || literal_close(text, prev) != k - 1)
+            break;
+        first = prev;
+    }
+    for (;;)
+    {
+        int k = last + 1;
+        while (text[k] == ' ' || text[k] == '\t' || text[k] == '\r' || text[k] == '\n')
+            k++;
+        if (text[k] != '"')
+            break;
+        int next = literal_close(text, k);
+        if (next < 0)
+            break;
+        last = next;
+    }
+    *lo = first;
+    *hi = last + 1;
+    return 1;
 }
 
 static void edit_string_open(struct ide* ide, struct gui_node* ed)
 {
     struct edit_string_dialog* e = &ide->estr;
+    struct doc* d = NULL;
+    for (int i = 0; i < ide->doc_count && !d; i++)
+    {
+        if (ide->docs[i].editor == ed)
+            d = &ide->docs[i];
+    }
+    if (!d)
+    {
+        status(ide, "Edit String works on a document");
+        return;
+    }
     int lo, hi;
     if (!string_at_caret(ed, &lo, &hi))
     {
@@ -2393,48 +2809,165 @@ static void edit_string_open(struct ide* ide, struct gui_node* ed)
     if (!plain)
         return;
     size_t n = 0;
-    for (int i = lo; i < hi; i++)
+    /* each literal's contents, decoded, one after the other */
+    for (int i = lo; i < hi;)
     {
-        if (text[i] != '\\' || i + 1 >= hi)
+        if (text[i] != '"')
         {
-            plain[n++] = text[i];
+            i++;
             continue;
         }
-        char c = text[++i];
-        plain[n++] = c == 'n' ? '\n' : c == 't' ? '\t' : c;
+        int close = literal_close(text, i);
+        for (int k = i + 1; k < close; k++)
+        {
+            if (text[k] != '\\' || k + 1 >= close)
+            {
+                plain[n++] = text[k];
+                continue;
+            }
+            char c = text[++k];
+            plain[n++] = c == 'n' ? '\n' : c == 't' ? '\t' : c;
+        }
+        i = close + 1;
     }
     plain[n] = '\0';
     gui_set_value(e->editor, plain);
     free(plain);
-    e->target = ed;
+    snprintf(e->path, sizeof e->path, "%s", d->path);
     e->lo = lo;
     e->hi = hi;
-    show_dialog(ide, e->window, 70, 18, e->editor);
+    struct ide_text title = { 0 };
+    ide_text_printf(&title, "Edit String - %s", file_name(d->path));
+    gui_set_label(e->window, title.data ? title.data : "Edit String");
+    free(title.data);
+    show_resizable_dialog(ide, e->window, 70, 18, e->editor);
+}
+
+/* The document may have changed since Edit String opened: [lo, hi) must
+ * still begin with a '"' and be exactly one run of adjacent literals -
+ * none just before it, none just after. */
+static int edit_string_still_there(const char* text, int lo, int hi)
+{
+    int len = (int)strlen(text);
+    if (hi > len || text[lo] != '"' || text[hi - 1] != '"')
+        return 0;
+    int k = lo;
+    while (k > 0 && (text[k - 1] == ' ' || text[k - 1] == '\t' || text[k - 1] == '\r' || text[k - 1] == '\n'))
+        k--;
+    if (k > 0 && text[k - 1] == '"')
+        return 0;
+    int close = literal_close(text, lo);
+    for (;;)
+    {
+        if (close < 0)
+            return 0;
+        int next = close + 1;
+        while (text[next] == ' ' || text[next] == '\t' || text[next] == '\r' || text[next] == '\n')
+            next++;
+        if (text[next] != '"')
+            break;
+        close = literal_close(text, next);
+    }
+    return close == hi - 1;
+}
+
+/* `enc` (already escaped, `len` bytes) as "..." literals of at most `room`
+ * bytes each, cut after a space - never inside an escape; each one after
+ * the very first starts on a new line, `prefix` (a line end and indent). */
+static void append_split_literal(struct ide_text* out, const char* enc, int len, int room,
+                                 const char* prefix, int* first)
+{
+    int i = 0;
+    do
+    {
+        int cut = len - i;
+        if (cut > room)
+        {
+            int space = -1;
+            for (int k = i; k < len && k - i < room; k++)
+            {
+                if (enc[k] == '\\')
+                    k++;
+                else if (enc[k] == ' ')
+                    space = k + 1;
+            }
+            if (space > i)
+                cut = space - i;
+        }
+        if (!*first)
+            ide_text_append(out, prefix, strlen(prefix));
+        *first = 0;
+        ide_text_append(out, "\"", 1);
+        ide_text_append(out, enc + i, (size_t)cut);
+        ide_text_append(out, "\"", 1);
+        i += cut;
+    } while (i < len);
 }
 
 static void edit_string_accept(struct ide* ide)
 {
     struct edit_string_dialog* e = &ide->estr;
-    gui_window_close(ide->app, e->window);
-    const char* plain = gui_get_value(e->editor);
-    char* out = malloc(strlen(plain) * 2 + 1);
-    if (!out)
-        return;
-    size_t n = 0;
-    for (const char* p = plain; *p; p++)
+    static const char* const ok[] = { "   OK   " };
+    static const int ok_id[] = { 0 };
+    struct doc* d = NULL;
+    for (int i = 0; i < ide->doc_count && !d; i++)
     {
+        if (ide_path_equal(ide->docs[i].path, e->path))
+            d = &ide->docs[i];
+    }
+    if (!d || !edit_string_still_there(gui_get_value(d->editor), e->lo, e->hi))
+    {
+        gui_message_box(ide->app, "Edit String",
+                        d ? "The string moved in the document since Edit String opened - it can no longer be applied."
+                          : "The document was closed.",
+                        ok, ok_id, 1);
+        return;
+    }
+    gui_window_close(ide->app, e->window);
+    struct gui_node* target = d->editor;
+    const char* plain = gui_get_value(e->editor);
+    /* one literal per line of the text - split at spaces to stay within
+     * EDIT_STRING_COLUMNS - each on its own source line under the first
+     * one's opening quote */
+    const char* src = gui_get_value(target);
+    int line_start = e->lo;
+    while (line_start > 0 && src[line_start - 1] != '\n')
+        line_start--;
+    struct ide_text prefix = { 0 }, out = { 0 }, enc = { 0 };
+    ide_text_append(&prefix, "\n", 1);
+    for (int k = line_start; k < e->lo; k++)
+        ide_text_append(&prefix, src[k] == '\t' ? "\t" : " ", 1);
+    int room = EDIT_STRING_COLUMNS - (e->lo - line_start) - 2;
+    if (room < 20)
+        room = 20;
+    int first = 1;
+    for (const char* p = plain;; p++)
+    {
+        if (*p == '\0' || *p == '\n')
+        {
+            if (*p == '\n')
+                ide_text_append(&enc, "\\n", 2);
+            if (enc.len > 0 || first)
+                append_split_literal(&out, enc.data ? enc.data : "", (int)enc.len, room,
+                                     prefix.data ? prefix.data : "\n", &first);
+            enc.len = 0;
+            if (*p == '\0' || p[1] == '\0')
+                break;
+            continue;
+        }
         switch (*p)
         {
-        case '\n': out[n++] = '\\'; out[n++] = 'n'; break;
-        case '\t': out[n++] = '\\'; out[n++] = 't'; break;
-        case '\\': out[n++] = '\\'; out[n++] = '\\'; break;
-        case '"': out[n++] = '\\'; out[n++] = '"'; break;
-        default: out[n++] = *p; break;
+        case '\t': ide_text_append(&enc, "\\t", 2); break;
+        case '\\': ide_text_append(&enc, "\\\\", 2); break;
+        case '"': ide_text_append(&enc, "\\\"", 2); break;
+        default: ide_text_append(&enc, p, 1); break;
         }
     }
-    out[n] = '\0';
-    gui_editor_replace(e->target, e->lo, e->hi, out);
-    free(out);
+    if (out.data)
+        gui_editor_replace(target, e->lo, e->hi, out.data);
+    free(out.data);
+    free(enc.data);
+    free(prefix.data);
 }
 
 /* --- New Folder: 44 x 8, in the Folder panel's folder --- */
@@ -2553,8 +3086,8 @@ static void build_new_project(struct ide* ide)
 /* --- Compiler Options: 62 x 23, global (File) or the project's --- */
 
 static const char* const copts_targets[] = {
-    "Default", "Clang macOS ARM64", "GCC Linux ARM64", "GCC Linux x64", "MSVC Windows x64",
-    "MSVC Windows x86", "TCC Linux x64", "TCC macOS ARM64", "TCC Windows x64", "GCC Linux ARM32",
+    "Default", "Clang macOS ARM64", "GCC Linux ARM32", "GCC Linux ARM64", "GCC Linux x64",
+    "MSVC Windows x64", "MSVC Windows x86", "TCC Linux x64", "TCC macOS ARM64", "TCC Windows x64",
 };
 static const char* const copts_headers[] = { "System Headers", "Cake Headers" };
 static const char* const copts_styles[] = { "disabled", "cake", "gnu", "microsoft" };
@@ -2631,8 +3164,8 @@ static void copts_accept(struct ide* ide)
 }
 
 /* A "  >  " button that pops up the macros for `input`. */
-static void add_macro_button(struct ide* ide, struct gui_node* parent, int col, int row,
-                             struct gui_node* input)
+static struct gui_node* add_macro_button(struct ide* ide, struct gui_node* parent, int col, int row,
+                                         struct gui_node* input)
 {
     struct macro_buttons* m = &ide->macro;
     if (!m->menu)
@@ -2647,12 +3180,13 @@ static void add_macro_button(struct ide* ide, struct gui_node* parent, int col, 
         }
     }
     if (m->count == MAX_MACRO_BUTTONS)
-        return;
+        return NULL;
     struct gui_node* b = add_at(ide, parent, GUI_BUTTON, col, row, 5, 1, "  >  ");
     gui_set_id(b, EV_MACRO + m->count);
     m->buttons[m->count] = b;
     m->inputs[m->count] = input;
     m->count++;
+    return b;
 }
 
 static void macro_event(struct ide* ide, int id)
@@ -2667,10 +3201,7 @@ static void macro_event(struct ide* ide, int id)
     }
     if (!m->target)
         return;
-    const char* old = gui_get_value(m->target);
-    char text[1024];
-    snprintf(text, sizeof text, "%s%s", old, macros[id - EV_MACRO_ITEM].name);
-    gui_set_value(m->target, text);
+    gui_input_insert(m->target, macros[id - EV_MACRO_ITEM].name);
     gui_focus(ide->app, m->target);
 }
 
@@ -2703,11 +3234,24 @@ static void build_debug_options(struct ide* ide)
     gui_set_id(add_at(ide, d->window, GUI_BUTTON, 33, 10, 10, 1, "Cancel"), EV_DBG_CANCEL);
 }
 
+/* The External Tool titled `title`, or -1. */
+static int ext_tool_find(struct ide* ide, const char* title)
+{
+    for (int i = 0; i < ide->ext_tools.count; i++)
+    {
+        if (ide->ext_tools.tools[i].title[0] && strcmp(ide->ext_tools.tools[i].title, title) == 0)
+            return i;
+    }
+    return -1;
+}
+
 static void debug_options_open(struct ide* ide)
 {
     struct debug_dialog* d = &ide->dbg;
     for (int i = 0; i < 3; i++)
         gui_set_value(d->fields[i], ide->debug_settings.fields[i]);
+    if (!ide->debug_settings.fields[0][0])
+        gui_set_value(d->fields[0], "$(TargetPath)");
     show_dialog(ide, d->window, 64, 13, d->fields[0]);
 }
 
@@ -2722,6 +3266,53 @@ static void debug_options_accept(struct ide* ide)
     gui_window_close(ide->app, d->window);
 }
 
+/* --- Build Options: the Pre-Build and Post-Build Events, External Tools
+ * run before a Build (F7, or F5's) and after it ends without errors - None,
+ * then the External Tools (item 1 + i is tool i). --- */
+
+static void build_build_options(struct ide* ide)
+{
+    struct build_dialog* b = &ide->bld;
+    b->window = new_dialog(ide, "Build Options");
+    add_label(ide, b->window, 2, 2, "Pre-Build Event:");
+    b->pre_build = add_at(ide, b->window, GUI_SELECT, 20, 2, 36, 1, NULL);
+    add_label(ide, b->window, 2, 4, "Post-Build Event:");
+    b->post_build = add_at(ide, b->window, GUI_SELECT, 20, 4, 36, 1, NULL);
+    gui_set_id(add_at(ide, b->window, GUI_BUTTON, 18, 6, 10, 1, "  OK  "), EV_BLD_OK);
+    gui_set_id(add_at(ide, b->window, GUI_BUTTON, 30, 6, 10, 1, "Cancel"), EV_BLD_CANCEL);
+}
+
+static void tool_select_fill(struct ide* ide, struct gui_node* select, const char* title)
+{
+    gui_clear_children(select);
+    gui_append(select, create(ide, GUI_ITEM, "None"));
+    for (int i = 0; i < ide->ext_tools.count; i++)
+        gui_append(select, create(ide, GUI_ITEM, ide->ext_tools.tools[i].title));
+    gui_set_selected(select, 1 + ext_tool_find(ide, title));
+}
+
+static void tool_select_get(struct ide* ide, struct gui_node* select, char* out, size_t cap)
+{
+    int sel = gui_get_selected(select) - 1;
+    snprintf(out, cap, "%s", sel >= 0 && sel < ide->ext_tools.count ? ide->ext_tools.tools[sel].title : "");
+}
+
+static void build_options_open(struct ide* ide)
+{
+    struct build_dialog* b = &ide->bld;
+    tool_select_fill(ide, b->pre_build, ide->build_settings.pre_build);
+    tool_select_fill(ide, b->post_build, ide->build_settings.post_build);
+    show_dialog(ide, b->window, 60, 9, b->pre_build);
+}
+
+static void build_options_accept(struct ide* ide)
+{
+    struct build_dialog* b = &ide->bld;
+    tool_select_get(ide, b->pre_build, ide->build_settings.pre_build, sizeof ide->build_settings.pre_build);
+    tool_select_get(ide, b->post_build, ide->build_settings.post_build, sizeof ide->build_settings.post_build);
+    gui_window_close(ide->app, b->window);
+}
+
 /* --- External Tools: 66 x 22, a list of tools and the selected one's
  * fields. The dialog edits a copy; OK keeps it. --- */
 
@@ -2733,96 +3324,79 @@ static void build_external_tools(struct ide* ide)
         { EV_EXT_UP, " Move Up " }, { EV_EXT_DOWN, "Move Down" },
     };
     static const char* const labels[] = { "Title:", "Command:", "Arguments:", "Directory:" };
+    /* the size show_dialog opens it at; the list takes what a resize adds */
+    enum { W = EXT_DIALOG_COLS, H = EXT_DIALOG_ROWS };
+    const int top_left = GUI_ANCHOR_LEFT | GUI_ANCHOR_TOP;
+    const int top_right = GUI_ANCHOR_RIGHT | GUI_ANCHOR_TOP;
+    const int bottom_left = GUI_ANCHOR_LEFT | GUI_ANCHOR_BOTTOM;
+    const int bottom_right = GUI_ANCHOR_RIGHT | GUI_ANCHOR_BOTTOM;
+    const int bottom_wide = GUI_ANCHOR_LEFT | GUI_ANCHOR_RIGHT | GUI_ANCHOR_BOTTOM;
     x->window = new_dialog(ide, "External Tools");
+    gui_window_set_resizable(x->window, 1);
+    gui_window_set_min_size(x->window, W, H);
     add_label(ide, x->window, 2, 2, "Menu contents:");
     x->list = add_at(ide, x->window, GUI_LISTBOX, 2, 3, 47, 7, NULL);
+    anchor_in(x->list, top_left | GUI_ANCHOR_RIGHT | GUI_ANCHOR_BOTTOM, 2, 3, 47, 7, W, H);
     gui_set_id(x->list, EV_EXT_LIST);
     for (int i = 0; i < COUNT(buttons); i++)
-        gui_set_id(add_at(ide, x->window, GUI_BUTTON, 51, 3 + i * 2, 12, 1, buttons[i].label), buttons[i].id);
+    {
+        struct gui_node* b = add_at(ide, x->window, GUI_BUTTON, 51, 3 + i * 2, 12, 1, buttons[i].label);
+        anchor_in(b, top_right, 51, 3 + i * 2, 12, 1, W, H);
+        gui_set_id(b, buttons[i].id);
+    }
     for (int i = 0; i < 4; i++)
     {
         int row = 11 + i * 2;
-        add_label(ide, x->window, 2, row, labels[i]);
-        x->fields[i] = add_at(ide, x->window, GUI_INPUT, 14, row, i == 0 ? 49 : 43, 1, NULL);
+        anchor_in(add_label(ide, x->window, 2, row, labels[i]), bottom_left, 2, row, 0, 1, W, H);
+        int cols = i == 0 ? 49 : 43;
+        x->fields[i] = add_at(ide, x->window, GUI_INPUT, 14, row, cols, 1, NULL);
+        anchor_in(x->fields[i], bottom_wide, 14, row, cols, 1, W, H);
+        struct gui_node* b = NULL;
         if (i == 1)
-            gui_set_id(add_at(ide, x->window, GUI_BUTTON, 58, row, 5, 1, " ... "), EV_EXT_BROWSE);
+        {
+            b = add_at(ide, x->window, GUI_BUTTON, 58, row, 5, 1, " ... ");
+            gui_set_id(b, EV_EXT_BROWSE);
+        }
         else if (i > 1)
-            add_macro_button(ide, x->window, 58, row, x->fields[i]);
+        {
+            b = add_macro_button(ide, x->window, 58, row, x->fields[i]);
+        }
+        if (b)
+            anchor_in(b, bottom_right, 58, row, 5, 1, W, H);
     }
     set_help(ide, x->window, "Run a compiler or any other program from the Tools menu",
-             "# Run a compiler or any other program from the Tools menu\n"
-             "\n"
-             "Cake only translates C to C89-compatible C - it does not link. Linking is left to a real compiler, run from here. Each tool added here appears in the **Tools** menu.\n"
-             "\n"
-             "A tool can also be run from the command line at the bottom of the **Output** window: type its **Title** and press Enter. Case, spaces and punctuation are ignored, so a tool titled `Run Tests` runs with `run tests` or `runtests`. Type `help` there for the other commands.\n"
-             "\n"
-             "A typical setup is one tool per compiler:\n"
-             "\n"
-             "**GCC / Clang** (Linux, macOS)\n"
-             "\n"
-             "| Field | Value |\n"
-             "|---|---|\n"
-             "| Title | `GCC` |\n"
-             "| Command | `gcc` |\n"
-             "| Arguments | `-g -Wno-incompatible-library-redeclaration -Wno-builtin-requires-header $(CakeOutput) -o \"$(TargetPath)\"` |\n"
-             "| Directory | `$(ProjectDir)` |\n"
-             "\n"
-             "**MSVC** (Windows, from a Developer Command Prompt)\n"
-             "\n"
-             "| Field | Value |\n"
-             "|---|---|\n"
-             "| Title | `MSVC` |\n"
-             "| Command | `cl` |\n"
-             "| Arguments | `/Zi /nologo $(CakeOutput) /Fe\"$(TargetPath)\"` |\n"
-             "| Directory | `$(ProjectDir)` |\n"
-             "\n"
-             "Running the tool after **Build** (F7) links Cake's output into `$(TargetPath)`, which is exactly the file **Debug** (F5) launches - so build, external compile and debug all agree on one binary.\n"
-             "\n"
-             "Cake's output declares the library functions it uses instead of keeping the original `#include`s. Clang flags those declarations with `-Wbuiltin-requires-header` and `-Wincompatible-library-redeclaration`; both are expected for Cake output, which is why the GCC/Clang example silences them.");
+             HELP_EXT_TOOLS);
+    set_help(ide, x->list, "The tools, in the order the Tools menu shows them",
+             HELP_EXT_LIST);
     set_help(ide, x->fields[0], "Name shown in the Tools menu",
-             "# Name shown in the Tools menu\n"
-             "\n"
-             "It is also the tool's command: type it in the Output window's command line to run the tool. Case, spaces and punctuation are ignored there.");
+             HELP_EXT_TITLE);
     set_help(ide, x->fields[1], "Program to run, e.g. `gcc` or `cl`",
-             "# Program to run, e.g. `gcc` or `cl`\n"
-             "\n"
-             "The **...** button browses for a program. Macros (see Arguments) work here too.");
+             HELP_EXT_COMMAND);
     set_help(ide, x->fields[2], "Command-line arguments - `$(...)` macros expand when the tool runs",
-             "# Command-line arguments - `$(...)` macros expand when the tool runs\n"
-             "\n"
-             "The **>** button inserts a macro at the caret; hover a macro there to see what it means. `$$` is a literal `$`; an unknown macro expands to nothing.\n"
-             "\n"
-             "Example: active document `C:/work/hello/src/main.c`, project `hello` in `C:/work/hello`, target `msvc-win-x64`.\n"
-             "\n"
-             "| Macro | Example |\n"
-             "|---|---|\n"
-             "| `$(FilePath)` | `C:/work/hello/src/main.c` |\n"
-             "| `$(FileDir)` | `C:/work/hello/src` |\n"
-             "| `$(FileName)` | `main` |\n"
-             "| `$(FileExt)` | `.c` |\n"
-             "| `$(CakeOutput)` | one output path per `.c` of the project |\n"
-             "| `$(CakeOutputChanged)` | one output path per `.c` the last Build compiled |\n"
-             "| `$(CakeInputFiles)` | `\"C:/work/hello/src/main.c\"` - every `.c` of the project |\n"
-             "| `$(CakeInputChanged)` | the `.c` files the last Build compiled |\n"
-             "| `$(TargetPath)` | `C:/work/hello/msvc-win-x64/hello.exe` |\n"
-             "| `$(TargetDir)` | `C:/work/hello/msvc-win-x64` |\n"
-             "| `$(TargetFileName)` | `hello.exe` |\n"
-             "| `$(TargetName)` | `hello` |\n"
-             "| `$(TargetExt)` | `.exe` |\n"
-             "| `$(ProjectDir)` | `C:/work/hello` |\n"
-             "| `$(ProjectName)` | `hello` |\n"
-             "| `$(Platform)` | `msvc-win-x64` |");
+             HELP_EXT_ARGUMENTS);
     set_help(ide, x->fields[3], "Directory the tool runs in - usually `$(ProjectDir)`",
-             "# Directory the tool runs in - usually `$(ProjectDir)`\n"
-             "\n"
-             "The **>** button inserts a macro at the caret.");
-    gui_set_id(add_at(ide, x->window, GUI_BUTTON, 20, 19, 12, 1, "  OK  "), EV_EXT_OK);
-    gui_set_id(add_at(ide, x->window, GUI_BUTTON, 34, 19, 12, 1, "Cancel"), EV_EXT_CANCEL);
+             HELP_EXT_DIRECTORY);
+    /* OK and Cancel centered as a pair: from the middle, 13 cells left and 1 right */
+    static const struct { int id; const char* label; int offset; } bottom[] = {
+        { EV_EXT_OK, "  OK  ", -13 }, { EV_EXT_CANCEL, "Cancel", 1 },
+    };
+    for (int i = 0; i < COUNT(bottom); i++)
+    {
+        struct gui_node* n = add_at(ide, x->window, GUI_BUTTON, 0, 0, 12, 1, bottom[i].label);
+        struct gui_layout l = { GUI_ANCHOR_LEFT | GUI_ANCHOR_BOTTOM };
+        l.left.percent = 50;
+        l.left.cells = bottom[i].offset;
+        l.bottom.cells = H - 19 - 1;
+        l.width.cells = 12;
+        l.height.cells = 1;
+        gui_set_layout(n, &l);
+        gui_set_id(n, bottom[i].id);
+    }
 }
 
-static char* ext_field(struct ext_tool* t, int i)
+static char** ext_field(struct ext_tool* t, int i)
 {
-    return i == 0 ? t->title : i == 1 ? t->command : i == 2 ? t->arguments : t->directory;
+    return i == 0 ? &t->title : i == 1 ? &t->command : i == 2 ? &t->arguments : &t->directory;
 }
 
 /* The fields back into the tool they show. */
@@ -2833,7 +3407,7 @@ static void ext_store(struct ide* ide)
         return;
     struct ext_tool* t = &x->edit.tools[x->current];
     for (int i = 0; i < 4; i++)
-        snprintf(ext_field(t, i), EXT_FIELD_SIZE, "%s", gui_get_value(x->fields[i]));
+        ext_set(ext_field(t, i), gui_get_value(x->fields[i]));
 }
 
 /* The list rebuilt, `current` selected and its fields shown. */
@@ -2845,7 +3419,7 @@ static void ext_show(struct ide* ide, int current)
         gui_append(x->list, create(ide, GUI_ITEM, x->edit.tools[i].title));
     x->current = current < x->edit.count ? current : x->edit.count - 1;
     for (int i = 0; i < 4; i++)
-        gui_set_value(x->fields[i], x->current >= 0 ? ext_field(&x->edit.tools[x->current], i) : "");
+        gui_set_value(x->fields[i], x->current >= 0 ? *ext_field(&x->edit.tools[x->current], i) : "");
     if (x->current >= 0)
         gui_set_selected(x->list, x->current);
 }
@@ -2866,8 +3440,7 @@ static void ext_event(struct ide* ide, int id)
     case EV_EXT_ADD:
         if (e->count < MAX_EXT_TOOLS)
         {
-            memset(&e->tools[e->count], 0, sizeof e->tools[0]);
-            snprintf(e->tools[e->count].title, EXT_FIELD_SIZE, "New Tool");
+            ext_tool_init(&e->tools[e->count], "New Tool", "", "", "");
             e->count++;
             ext_show(ide, e->count - 1);
             gui_focus(ide->app, x->fields[0]);
@@ -2876,6 +3449,7 @@ static void ext_event(struct ide* ide, int id)
     case EV_EXT_DELETE:
         if (sel >= 0 && sel < e->count)
         {
+            ext_tool_destroy(&e->tools[sel]);
             memmove(&e->tools[sel], &e->tools[sel + 1], sizeof e->tools[0] * (size_t)(e->count - sel - 1));
             e->count--;
             ext_show(ide, sel);
@@ -2895,7 +3469,7 @@ static void ext_event(struct ide* ide, int id)
         break;
     }
     case EV_EXT_OK:
-        ide->ext_tools = *e;
+        ext_tools_copy(&ide->ext_tools, e);
         gui_window_close(ide->app, x->window);
         tools_menu_refresh(ide);
         break;
@@ -2970,6 +3544,16 @@ static int project_entry_changed(struct ide* ide, const char* entry)
     return 0;
 }
 
+/* A Compile (Ctrl+F7) pipeline covers only the active file. */
+static int project_entry_skipped(struct ide* ide, const char* entry, const char* path)
+{
+    if (!ide->chain.compile || ide->chain.stage == STAGE_NONE)
+        return 0;
+    char abs[1024];
+    ide_project_absolute(&ide->project, entry, abs, sizeof abs);
+    return !ide_path_equal(abs, path);
+}
+
 /* $(CakeInputFiles) / $(CakeInputChanged): the project's .c files, quoted. */
 static void append_cake_input(struct ide* ide, struct ide_text* out, const char* path, int only_changed)
 {
@@ -2984,7 +3568,7 @@ static void append_cake_input(struct ide* ide, struct ide_text* out, const char*
     for (int i = 0; i < p->files.count; i++)
     {
         const char* entry = p->files.items[i];
-        if (!ends_with(entry, ".c") || (only_changed && !project_entry_changed(ide, entry)))
+        if (!ends_with(entry, ".c") || (only_changed && !project_entry_changed(ide, entry)) || project_entry_skipped(ide, entry, path))
             continue;
         char abs[1024];
         ide_project_absolute(p, entry, abs, sizeof abs);
@@ -3006,7 +3590,7 @@ static void append_cake_output(struct ide* ide, struct ide_text* out, const char
         for (int i = 0; i < p->files.count; i++)
         {
             const char* entry = p->files.items[i];
-            if (!ends_with(entry, ".c") || (only_changed && !project_entry_changed(ide, entry)))
+            if (!ends_with(entry, ".c") || (only_changed && !project_entry_changed(ide, entry)) || project_entry_skipped(ide, entry, path))
                 continue;
             int absolute = entry[0] == '/' || entry[0] == '\\' || (entry[0] && entry[1] == ':');
             if (absolute)
@@ -3184,19 +3768,25 @@ static int run_busy(struct ide* ide)
 }
 
 static void run_finish(struct ide* ide);
+static void apply_diagnostics(struct ide* ide, char* text, int clear);
+static void debug_launch(struct ide* ide);
+static void chain_build(struct ide* ide);
 
 static void run_step(struct ide* ide)
 {
-    const char* cmd = ide->run.steps[ide->run.step];
-    char line[2500];
-    snprintf(line, sizeof line, "> %s", cmd);
-    output(ide, line);
+    const char* cmd = ide->run.steps.items[ide->run.step];
+    struct ide_text line = { 0 };
+    ide_text_printf(&line, "> %s", cmd);
+    output(ide, line.data);
+    free(line.data);
     ide->run.proc = ide_process_start(cmd, ide->run.dir[0] ? ide->run.dir : NULL);
     cmdline_layout(ide);   /* "stdin>" while it runs */
     if (!ide->run.proc)
     {
-        snprintf(line, sizeof line, "Cannot run %s", cmd);
-        output(ide, line);
+        struct ide_text msg = { 0 };
+        ide_text_printf(&msg, "Cannot run %s", cmd);
+        output(ide, msg.data);
+        free(msg.data);
         ide->run.failed = 1;
         run_finish(ide);
         return;
@@ -3208,9 +3798,9 @@ static void run_step(struct ide* ide)
 static void run_start(struct ide* ide, int kind, const char* title, const char* dir, const char* const steps[], int nsteps)
 {
     ide->run.kind = kind;
-    ide->run.nsteps = nsteps < 4 ? nsteps : 4;
-    for (int i = 0; i < ide->run.nsteps; i++)
-        snprintf(ide->run.steps[i], sizeof ide->run.steps[i], "%s", steps[i]);
+    ide_strings_clear(&ide->run.steps);
+    for (int i = 0; i < nsteps; i++)
+        ide_strings_add(&ide->run.steps, steps[i]);
     ide->run.step = 0;
     ide->run.failed = 0;
     snprintf(ide->run.dir, sizeof ide->run.dir, "%s", dir ? dir : "");
@@ -3252,7 +3842,7 @@ static void run_poll(struct ide* ide)
             output(ide, msg);
             ide->run.failed = 1;
         }
-        if (!ide->run.failed && ++ide->run.step < ide->run.nsteps)
+        if (!ide->run.failed && ++ide->run.step < ide->run.steps.count)
             run_step(ide);
         else
             run_finish(ide);
@@ -3268,7 +3858,19 @@ static void run_finish(struct ide* ide)
     snprintf(msg, sizeof msg, "%s %s", ide->run.title, ide->run.failed ? "failed" : "finished");
     status(ide, msg);
     if (ide->run.kind == RUN_TOOL)
+    {
+        if (ide->run.text.data)
+            apply_diagnostics(ide, ide->run.text.data, 0);
+        enum build_stage stage = ide->chain.stage;
+        ide->chain.stage = STAGE_NONE;
+        if (ide->run.failed)
+            return;
+        if (stage == STAGE_PRE_BUILD)
+            chain_build(ide);
+        else if (stage == STAGE_POST_BUILD && ide->chain.debug)
+            debug_launch(ide);
         return;
+    }
     if (ide->run.kind == RUN_CLONE && !ide->run.failed && ide->run.clone_open)
     {
         snprintf(ide->folder.dir, sizeof ide->folder.dir, "%s", ide->run.clone_dest);
@@ -3315,9 +3917,9 @@ static void run_tool(struct ide* ide, int index)
 
 static void external_tools_open(struct ide* ide)
 {
-    ide->ext.edit = ide->ext_tools;
+    ext_tools_copy(&ide->ext.edit, &ide->ext_tools);
     ext_show(ide, 0);
-    show_dialog(ide, ide->ext.window, 66, 22, ide->ext.list);
+    show_dialog(ide, ide->ext.window, EXT_DIALOG_COLS, EXT_DIALOG_ROWS, ide->ext.list);
 }
 
 /* --- Include Directories: 66 x 17, the project's list or the global one
@@ -3327,15 +3929,27 @@ static void build_includes(struct ide* ide)
 {
     struct includes_dialog* d = &ide->includes;
     d->window = new_dialog(ide, "Include Directories");
+    gui_window_set_resizable(d->window, 1);
+    gui_window_set_min_size(d->window, 40, 17);
     add_label(ide, d->window, 2, 2, "Directories");
-    d->list = add_at(ide, d->window, GUI_LISTBOX, 2, 3, 46, 12, NULL);
-    gui_set_id(add_at(ide, d->window, GUI_BUTTON, 50, 3, 13, 1, " Add... "), EV_INC_ADD);
-    gui_set_id(add_at(ide, d->window, GUI_BUTTON, 50, 5, 13, 1, " Remove "), EV_INC_REMOVE);
-    gui_set_id(add_at(ide, d->window, GUI_BUTTON, 50, 7, 13, 1, " Move Up "), EV_INC_UP);
-    gui_set_id(add_at(ide, d->window, GUI_BUTTON, 50, 9, 13, 1, " Move Down "), EV_INC_DOWN);
-    d->detect = add_at(ide, d->window, GUI_BUTTON, 50, 11, 13, 1, " Detect ");
-    gui_set_id(d->detect, EV_INC_DETECT);
-    gui_set_id(add_at(ide, d->window, GUI_BUTTON, 50, 13, 13, 1, " Close "), EV_INC_CLOSE);
+    d->list = create(ide, GUI_LISTBOX, NULL);
+    fill_margins(d->list, 2, 3, 18, 2);
+    gui_append(d->window, d->list);
+    static const char* const labels[] = { " Add... ", " Remove ", " Move Up ", " Move Down ", " Detect ", " Close " };
+    static const int ids[] = { EV_INC_ADD, EV_INC_REMOVE, EV_INC_UP, EV_INC_DOWN, EV_INC_DETECT, EV_INC_CLOSE };
+    for (int i = 0; i < 6; i++)
+    {
+        struct gui_node* b = add_at(ide, d->window, GUI_BUTTON, 0, 3 + 2 * i, 13, 1, labels[i]);
+        struct gui_layout l = { GUI_ANCHOR_RIGHT | GUI_ANCHOR_TOP };
+        l.right.cells = 3;
+        l.top.cells = 3 + 2 * i;
+        l.width.cells = 13;
+        l.height.cells = 1;
+        gui_set_layout(b, &l);
+        gui_set_id(b, ids[i]);
+        if (ids[i] == EV_INC_DETECT)
+            d->detect = b;
+    }
 }
 
 static void includes_refresh(struct ide* ide, int selected)
@@ -3357,7 +3971,7 @@ static void includes_open(struct ide* ide, struct include_dirs* dirs, const char
     gui_set_label(d->window, title);
     gui_set_enabled(d->detect, system);
     includes_refresh(ide, 0);
-    show_dialog(ide, d->window, 66, 17, d->list);
+    show_resizable_dialog(ide, d->window, 66, 17, d->list);
 }
 
 static void project_save(struct ide* ide);
@@ -3463,7 +4077,7 @@ static void includes_detect_apply(struct ide* ide, int use_tcc)
     free(msg.data);
 }
 
-/* Appends `t` to the tools, or replaces the tool with its title. */
+/* Appends a copy of `t` to the tools, or replaces the tool with its title. */
 static int tool_add_or_update(struct ide* ide, const struct ext_tool* t, struct ide_text* report)
 {
     struct ext_tools* tools = &ide->ext_tools;
@@ -3471,7 +4085,8 @@ static int tool_add_or_update(struct ide* ide, const struct ext_tool* t, struct 
     {
         if (strcmp(tools->tools[i].title, t->title) == 0)
         {
-            tools->tools[i] = *t;
+            ext_tool_destroy(&tools->tools[i]);
+            ext_tool_init(&tools->tools[i], t->title, t->command, t->arguments, t->directory);
             ide_text_printf(report, "Updated in Tools: %s\n", t->title);
             return 1;
         }
@@ -3481,7 +4096,7 @@ static int tool_add_or_update(struct ide* ide, const struct ext_tool* t, struct 
         ide_text_printf(report, "Tools is full, not added: %s\n", t->title);
         return 0;
     }
-    tools->tools[tools->count++] = *t;
+    ext_tool_init(&tools->tools[tools->count++], t->title, t->command, t->arguments, t->directory);
     ide_text_printf(report, "Added to Tools: %s\n", t->title);
     return 1;
 }
@@ -3493,16 +4108,15 @@ static int tool_add_debug_release(struct ide* ide, const char* name, const char*
     int added = 0;
     for (int i = 0; i < 2; i++)
     {
+        struct ide_text title = { 0 }, arguments = { 0 };
+        ide_text_printf(&title, "%s %s", name, i == 0 ? "Debug" : "Release");
+        ide_text_printf(&arguments, args, i == 0 ? debug_flags : release_flags);
         struct ext_tool t;
-        memset(&t, 0, sizeof t);
-        snprintf(t.title, sizeof t.title, "%s %s", name, i == 0 ? "Debug" : "Release");
-        snprintf(t.command, sizeof t.command, "%s", command);
-        int n = snprintf(t.arguments, sizeof t.arguments, args, i == 0 ? debug_flags : release_flags);
-        snprintf(t.directory, sizeof t.directory, "$(TargetDir)");
-        if (n > 0 && (size_t)n < sizeof t.arguments)
-            added += tool_add_or_update(ide, &t, report);
-        else
-            ide_text_printf(report, "%s: the paths are too long for a tool's arguments.\n", t.title);
+        ext_tool_init(&t, title.data ? title.data : "", command, arguments.data ? arguments.data : "", "$(TargetDir)");
+        added += tool_add_or_update(ide, &t, report);
+        ext_tool_destroy(&t);
+        free(title.data);
+        free(arguments.data);
     }
     return added;
 }
@@ -3523,14 +4137,17 @@ static void add_compiler_tools(struct ide* ide)
     {
         char command[700];
         snprintf(command, sizeof command, "%s\\VC\\Tools\\MSVC\\%s\\bin\\Hostx64\\x64\\cl.exe", tc.vs_dir, tc.version);
-        char args[EXT_FIELD_SIZE];
-        snprintf(args, sizeof args,
+        struct ide_text args = { 0 };
+        ide_text_printf(&args,
                  "/nologo %%s $(CakeOutput) $(IncludeDirs) $(SystemIncludeDirs) /Fe\"$(TargetPath)\" /link"
                  " /LIBPATH:\"%s\\VC\\Tools\\MSVC\\%s\\lib\\x64\""
                  " /LIBPATH:\"%sLib\\%s\\ucrt\\x64\""
-                 " /LIBPATH:\"%sLib\\%s\\um\\x64\"",
+                 " /LIBPATH:\"%sLib\\%s\\um\\x64\""
+                 " user32.lib gdi32.lib shell32.lib advapi32.lib msimg32.lib",
                  tc.vs_dir, tc.version, tc.sdk_root, tc.sdk_version, tc.sdk_root, tc.sdk_version);
-        added += tool_add_debug_release(ide, "Visual Studio x64", command, args, "/Zi /Od", "/O2 /DNDEBUG", &report);
+        if (args.data)
+            added += tool_add_debug_release(ide, "Visual Studio x64", command, args.data, "/Zi /Od", "/O2 /DNDEBUG", &report);
+        free(args.data);
     }
     if (ide_output_has("gcc --version", "Free Software Foundation"))
         added += tool_add_debug_release(ide, "gcc", "gcc",
@@ -3541,35 +4158,31 @@ static void add_compiler_tools(struct ide* ide)
                                         "%s -Wno-builtin-requires-header -Wno-incompatible-library-redeclaration"
                                         " $(CakeOutput) $(IncludeDirs) -o \"$(TargetPath)\"",
                                         "-g -O0", "-O2 -DNDEBUG", &report);
-    struct ext_tool t;
-    memset(&t, 0, sizeof t);
-    if (ide_find_tcc(t.command, sizeof t.command))
+    char tcc[1024];
+    if (ide_find_tcc(tcc, sizeof tcc))
     {
+        struct ext_tool t;
 #ifdef _WIN32
         /* one tool only: its debug info is not the PDB cdb reads */
-        snprintf(t.title, sizeof t.title, "tcc");
-        snprintf(t.arguments, sizeof t.arguments, "$(CakeOutput) $(IncludeDirs) -o \"$(TargetPath)\"");
-        snprintf(t.directory, sizeof t.directory, "$(TargetDir)");
+        ext_tool_init(&t, "tcc", tcc, "$(CakeOutput) $(IncludeDirs) -o \"$(TargetPath)\"", "$(TargetDir)");
         added += tool_add_or_update(ide, &t, &report);
+        ext_tool_destroy(&t);
 #else
         /* -gdwarf: plain -g is stabs, which lldb does not read */
-        char tcc[sizeof t.command];
-        snprintf(tcc, sizeof tcc, "%s", t.command);
-        snprintf(t.title, sizeof t.title, "tcc Debug");
-        snprintf(t.directory, sizeof t.directory, "$(TargetDir)");
+        struct ide_text command = { 0 }, arguments = { 0 };
         /* one file per tcc run: tcc gives every unit of a multi-file run the same low_pc, and lldb loses the lines */
-        snprintf(t.command, sizeof t.command, "rm -f *.o && %s", tcc);
+        ide_text_printf(&command, "rm -f *.o && %s", tcc);
         /* bare name, run in $(TargetDir): tcc's own codesign on macOS does not quote a path with spaces */
-        snprintf(t.arguments, sizeof t.arguments, "-gdwarf -c $(CakeOutput) $(IncludeDirs) && %s -gdwarf *.o -o \"$(TargetFileName)\"", tcc);
+        ide_text_printf(&arguments, "-gdwarf -c $(CakeOutput) $(IncludeDirs) && %s -gdwarf *.o -o \"$(TargetFileName)\"", tcc);
+        ext_tool_init(&t, "tcc Debug", command.data ? command.data : "", arguments.data ? arguments.data : "", "$(TargetDir)");
         added += tool_add_or_update(ide, &t, &report);
+        ext_tool_destroy(&t);
+        free(command.data);
+        free(arguments.data);
 
-        struct ext_tool release;
-        memset(&release, 0, sizeof release);
-        snprintf(release.title, sizeof release.title, "tcc Release");
-        snprintf(release.command, sizeof release.command, "%s", tcc);
-        snprintf(release.arguments, sizeof release.arguments, "-DNDEBUG $(CakeOutput) $(IncludeDirs) -o \"$(TargetFileName)\"");
-        snprintf(release.directory, sizeof release.directory, "$(TargetDir)");
-        added += tool_add_or_update(ide, &release, &report);
+        ext_tool_init(&t, "tcc Release", tcc, "-DNDEBUG $(CakeOutput) $(IncludeDirs) -o \"$(TargetFileName)\"", "$(TargetDir)");
+        added += tool_add_or_update(ide, &t, &report);
+        ext_tool_destroy(&t);
 #endif
     }
     if (added > 0)
@@ -3617,70 +4230,962 @@ static void includes_event(struct ide* ide, int id)
 
 /* --- Help: 80 x 20, read-only text --- */
 
-static const char help_text[] =
-    "# Cake IDE 2\n"
-    "\n"
-    "The graphical version of the Cake IDE, in progress.\n"
-    "\n"
-    "## Keys\n"
-    "\n"
-    "- Ctrl+O  Open a file\n"
-    "- Ctrl+S  Save, Ctrl+Shift+S  Save all\n"
-    "- Ctrl+R  Replace, F3  Search next, Ctrl+G  Go to line\n"
-    "- Ctrl+Z / Ctrl+Y  Undo / Redo\n"
-    "- Ctrl+X / Ctrl+C / Ctrl+V  Cut / Copy / Paste\n"
-    "- Ctrl+U / Ctrl+L  To upper / To lower, Ctrl+W  Word wrap\n"
-    "- Tab / Shift+Tab on a selection  Indent / Unindent\n"
-    "- Ctrl++ / Ctrl+-  Font size\n"
-    "\n"
-    "Right click an editor or the Folder panel for more commands.\n"
-    "Build, Debug and the code navigation commands come when the\n"
-    "compiler is wired in.\n";
+/* Every F1 text, by id; "help:<slug>" links one to another. */
+static const struct help_topic help_topics[HELP_COUNT] = {
+    [HELP_OVERVIEW] = { "overview",
+        "# Cake IDE\n"
+        "\n"
+        "An IDE for Cake, the C front end that checks C (ownership, flow\n"
+        "analysis) and translates it to C89-compatible C.\n"
+        "\n"
+        "## Links\n"
+        "\n"
+        "Ctrl+click a link to open it in the browser.\n"
+        "\n"
+        "- Site: https://cakecc.org\n"
+        "- Playground: https://cakecc.org/playground.html\n"
+        "- GitHub: https://github.com/thradams/cake\n"
+        "- Releases: https://github.com/thradams/cake/releases\n"
+        "- Discord server: https://discord.gg/YRekr2N65S\n"
+        "\n" },
+    [HELP_EXT_TOOLS] = { "ext-tools",
+        "# Run a compiler or any other program from the Tools menu\n"
+        "\n"
+        "Cake only translates C to C89-compatible C - it does not link. \n"
+        "Linking is left to a real compiler, run from here. \n"
+        "Each tool added here appears in the **Tools** menu.\n"
+        "\n"
+        "A tool can also be run from the command line at the bottom of the "
+        "**Output**\n"
+        "window: type its **Title** and press Enter. Case, spaces and "
+        "punctuation are\n"
+        "ignored, so a tool titled `Run Tests` runs with `run tests` or "
+        "`runtests`. Type\n"
+        "`help` there for the other commands.\n"
+        "\n"
+        "A typical setup is one tool per compiler:\n"
+        "\n"
+        "**GCC / Clang** (Linux, macOS)\n"
+        "\n"
+        "| Field | Value |\n"
+        "|---|---|\n"
+        "| Title | `GCC` |\n"
+        "| Command | `gcc` |\n"
+        "| Arguments | `-g -Wno-incompatible-library-redeclaration "
+        "-Wno-builtin-requires-header $(CakeOutput) -o \"$(TargetPath)\"` |\n"
+        "| Directory | `$(ProjectDir)` |\n"
+        "\n"
+        "**MSVC** (Windows, from a Developer Command Prompt)\n"
+        "\n"
+        "| Field | Value |\n"
+        "|---|---|\n"
+        "| Title | `MSVC` |\n"
+        "| Command | `cl` |\n"
+        "| Arguments | `/Zi /nologo $(CakeOutput) /Fe\"$(TargetPath)\"` |\n"
+        "| Directory | `$(ProjectDir)` |\n"
+        "\n"
+        "Running the tool after **Build** (F7) links Cake's output into "
+        "`$(TargetPath)`, which is exactly the file **Debug** (F5) launches - "
+        "so build, external compile and debug all agree on one binary.\n"
+        "\n"
+        "Cake's output declares the library functions it uses instead of "
+        "keeping the original `#include`s. Clang flags those declarations with "
+        "`-Wbuiltin-requires-header` and "
+        "`-Wincompatible-library-redeclaration`; both are expected for Cake "
+        "output, which is why the GCC/Clang example silences them.\n"
+        "\n"
+        "## See also\n"
+        "\n"
+        "- [Arguments and macros](help:ext-arguments)\n"
+        "- [Build Options](help:build-options)\n"
+        "- [Overview](help:overview)\n" },
+    [HELP_EXT_LIST] = { "ext-list",
+        "# Menu contents\n"
+        "\n"
+        "The tools, in the order the **Tools** menu shows them. Pick one to "
+        "edit its fields below; "
+        "**Add**, **Delete**, **Move Up** and **Move Down** change the list. "
+        "OK keeps the changes, Cancel drops them.\n"
+        "\n"
+        "A tool can also be the **Pre-Build** or **Post-Build Event** (**Build "
+        "> Options...**), "
+        "chosen by its **Title** - renaming the tool means choosing it "
+        "there again." },
+    [HELP_EXT_TITLE] = { "ext-title",
+        "# Name shown in the Tools menu\n"
+        "\n"
+        "It is also the tool's command: type it in the Output window's "
+        "command line to run the tool. Case, spaces and punctuation are "
+        "ignored there." },
+    [HELP_EXT_COMMAND] = { "ext-command",
+        "# Program to run, e.g. `gcc` or `cl`\n"
+        "\n"
+        "The **...** button browses for a program. Macros (see Arguments) "
+        "work here too." },
+    [HELP_EXT_ARGUMENTS] = { "ext-arguments",
+        "# Command-line arguments - `$(...)` macros expand when the tool runs\n"
+        "\n"
+        "The **>** button inserts a macro at the caret; hover a macro there to "
+        "see what\n"
+        "it means. `$$` is a literal `$`; an unknown macro expands to "
+        "nothing.\n"
+        "\n"
+        "Example: active document `C:/work/hello/src/main.c`, project `hello` "
+        "in\n"
+        "`C:/work/hello`, target `msvc-win-x64`.\n"
+        "\n"
+        "| Macro | Example |\n"
+        "|---|---|\n"
+        "| `$(FilePath)` | `C:/work/hello/src/main.c` |\n"
+        "| `$(FileDir)` | `C:/work/hello/src` |\n"
+        "| `$(FileName)` | `main` |\n"
+        "| `$(FileExt)` | `.c` |\n"
+        "| `$(CakeOutput)` | one output path per `.c` of the project |\n"
+        "| `$(CakeOutputChanged)` | one output path per `.c` the last Build "
+        "compiled |\n"
+        "| `$(CakeInputFiles)` | `\"C:/work/hello/src/main.c\"` - every `.c` "
+        "of the project |\n"
+        "| `$(CakeInputChanged)` | the `.c` files the last Build compiled |\n"
+        "| `$(TargetPath)` | `C:/work/hello/msvc-win-x64/hello.exe` |\n"
+        "| `$(TargetDir)` | `C:/work/hello/msvc-win-x64` |\n"
+        "| `$(TargetFileName)` | `hello.exe` |\n"
+        "| `$(TargetName)` | `hello` |\n"
+        "| `$(TargetExt)` | `.exe` |\n"
+        "| `$(ProjectDir)` | `C:/work/hello` |\n"
+        "| `$(ProjectName)` | `hello` |\n"
+        "| `$(Platform)` | `msvc-win-x64` |\n"
+        "\n"
+        "## See also\n"
+        "\n"
+        "- [External Tools](help:ext-tools)\n"
+        "- [Directory](help:ext-directory)\n" },
+    [HELP_EXT_DIRECTORY] = { "ext-directory",
+        "# Directory the tool runs in - usually `$(ProjectDir)`\n"
+        "\n"
+        "The **>** button inserts a macro at the caret."
+        "\n\n## See also\n\n"
+        "- [Arguments and macros](help:ext-arguments)\n" },
+    [HELP_CLONE] = { "clone",
+        "# Copy a remote Git repository to a local folder\n"
+        "\n"
+        "Runs `git clone <Repository location> <Path>` - Git must be installed "
+        "and on the PATH." },
+    [HELP_CLONE_URL] = { "clone-url",
+        "# The repository's URL, e.g. `https://github.com/user/repo.git`\n"
+        "\n"
+        "Anything `git clone` accepts: an HTTPS or SSH URL "
+        "(`git@github.com:user/repo.git`) or a local path. **Path** follows it "
+        "as you type, ending in the repository's name." },
+    [HELP_CLONE_PATH] = { "clone-path",
+        "# The new folder the repository is cloned into\n"
+        "\n"
+        "Filled in as parent folder + the repository's name - the same name "
+        "plain `git clone` would pick. Change the parent with **...** or by "
+        "hand; "
+        "the name keeps following the URL. Git creates the folder and any "
+        "missing parents; a folder that already exists is refused." },
+    [HELP_CLONE_OPEN_FOLDER] = { "clone-open-folder",
+        "## Open Folder\n\nshow the cloned folder in the Folder panel when "
+        "done\n"
+        "\n"
+        "Unchecked, the Folder panel keeps showing whatever it shows now." },
+    [HELP_NEW_PROJECT] = { "new-project",
+        "# Create a new Cake project (`.cakeproj`)\n"
+        "\n"
+        "A project is a `.cakeproj` file: a list of source files, plus the "
+        "include directories and compiler options used to build them. File "
+        "paths inside the project folder are stored relative to it, so the "
+        "project can be moved or shared.\n"
+        "\n"
+        "## Build and Compile\n"
+        "\n"
+        "- **Build** (F7) compiles every `.c` file of the project in one Cake "
+        "invocation - linking them is the output compiler's job. When the "
+        "active file is not part of the open project (or no project is open), "
+        "Build compiles just that file.\n"
+        "- **Compile** (Ctrl+F7) always compiles only the active file.\n"
+        "\n"
+        "## Project settings vs. global settings\n"
+        "\n"
+        "- **Project > Include Directories...** and **Project > Options...** "
+        "edit the project's own settings, saved in its `.cakeproj`. Include "
+        "directories are stored relative to the project folder.\n"
+        "- **File > Directories...** and **File > Options...** edit the global "
+        "settings in `cake.json`, next to the IDE executable. They are used "
+        "for every file that is not part of the open project - the Playground, "
+        "a file opened on its own.\n"
+        "\n"
+        "The two are never merged: a file gets either the project's settings "
+        "or the global ones.\n"
+        "\n"
+        "With the `default` target, the same `.cakeproj` works unchanged on "
+        "Windows, Linux and macOS." },
+    [HELP_NEW_PROJECT_NAME] = { "new-project-name",
+        "# Name of the project file\n\n`<name>.cakeproj`\n"
+        "\n"
+        "It is created in **Folder** - or in a new `<name>` subfolder of "
+        "it when **Create Folder** is checked. Creation stops if a project "
+        "with that name already exists there." },
+    [HELP_NEW_PROJECT_CREATE_FOLDER] = { "new-project-create-folder",
+        "## Create Folder\n\nput the project in a new `<Project Name>` "
+        "subfolder of Folder\n"
+        "\n"
+        "Unchecked, the project file goes straight into **Folder**. "
+        "If the subfolder already exists, nothing is created." },
+    [HELP_NEW_PROJECT_HELLO_WORLD] = { "new-project-hello-world",
+        "## Hello World\n\nstart the project with a `main.c` that prints "
+        "\"Hello, world!\"\n"
+        "\n"
+        "`main.c` is added to the project. An existing `main.c` in the "
+        "project folder is never overwritten - it is added as it is." },
+    [HELP_COPTS] = { "copts",
+        "# Compiler Options\n\nhow Cake compiles your files\n"
+        "\n"
+        "There are two sets of these options, and the title says which one is "
+        "being edited:\n"
+        "\n"
+        "- **Compiler Options** - the global options in `cake.json`, next to "
+        "the IDE. Used for every file that is not part of the open project: "
+        "the Playground, a file opened on its own.\n"
+        "- **Compiler Options (Project)** - the open project's own options, in "
+        "its `.cakeproj`. Used by **Build** (F7) and by **Compile** for the "
+        "project's files.\n"
+        "\n"
+        "The two are never merged.\n"
+        "\n"
+        "## Fields\n"
+        "\n"
+        "- **Target** - the platform the generated C89 code is for: type "
+        "sizes, alignment, output style. `default` keeps a project portable "
+        "across Windows, Linux and macOS.\n"
+        "- **Style** - the coding style diagnostic 11 checks, or none.\n"
+        "- **Diagnostic** - how diagnostic positions are printed.\n"
+        "- **Headers** - System Headers or Cake Headers (`-cake-headers`).\n"
+        "- **Flags** - on/off switches: analysis, output, warnings.\n"
+        "- **Output** - the built binary's name.\n"
+        "- **Options** - any other command-line option, typed as is.\n"
+        "\n"
+        "Focus a field and press F1 (or click the status bar) for its details "
+        "- the **Options** field lists every other command-line option."
+        "\n\n## See also\n\n"
+        "- [Target](help:copts-target)\n"
+        "- [Headers](help:copts-headers)\n"
+        "- [Style](help:copts-style)\n"
+        "- [Diagnostics format](help:copts-diag)\n" },
+    [HELP_COPTS_TARGET] = { "copts-target",
+        "# Compilation target platform (`-target=<name>`)\n"
+        "\n"
+        "Controls integer sizes, alignment, and the style of generated C89 "
+        "output. Pick the platform whose compiler will build the generated "
+        "code - it does not have to be the one Cake is running on."
+        "\n\n## See also\n\n"
+        "- [msvc-win-x64](help:target-msvc-win-x64)\n"
+        "- [gcc-linux-x64](help:target-gcc-linux-x64)\n"
+        "- [Compiler Options](help:copts)\n" },
+    [HELP_TARGET_DEFAULT] = { "target-default",
+        "## Default target\n\nthe platform Cake itself was built for\n"
+        "\n"
+        "Same as omitting `-target`. This build of Cake uses the target "
+        "named in the list entry (e.g. `msvc-win-x64` for Cake built as a "
+        "Windows x64 program)." },
+    [HELP_TARGET_CLANG_MACOS_ARM64] = { "target-clang-macos-arm64",
+        "## `-target=clang-macos-arm64`\n\nmacOS arm64 (Apple Silicon)\n"
+        "\n"
+        "Data model **LP64**. Output compiler: Clang.\n"
+        "\n"
+        "| Type | Size (bytes) |\n"
+        "|---|---|\n"
+        "| `char` (signed) | 1 |\n"
+        "| `short` | 2 |\n"
+        "| `int` | 4 |\n"
+        "| `long` | 8 |\n"
+        "| `long long` | 8 |\n"
+        "| pointer | 8 |\n"
+        "| `long double` | 8 |\n"
+        "| `wchar_t` | 4 (`int`) |\n"
+        "| `size_t` | 8 (`unsigned long`) |\n"
+        "\n"
+        "Thread-local storage is emitted as `__thread`.\n"
+        "\n"
+        "The generated C89 goes to a `clang-macos-arm64` folder next to the "
+        "sources; compile it with the target compiler:\n"
+        "\n"
+        "```\n"
+        "clang -w clang-macos-arm64/file1.c -o file1\n"
+        "```" },
+    [HELP_TARGET_GCC_LINUX_ARM64] = { "target-gcc-linux-arm64",
+        "## `-target=gcc-linux-arm64`\n\nLinux aarch64 (e.g. Raspberry Pi)\n"
+        "\n"
+        "Data model **LP64**. Output compiler: GCC. Plain `char` is unsigned.\n"
+        "\n"
+        "| Type | Size (bytes) |\n"
+        "|---|---|\n"
+        "| `char` (unsigned) | 1 |\n"
+        "| `short` | 2 |\n"
+        "| `int` | 4 |\n"
+        "| `long` | 8 |\n"
+        "| `long long` | 8 |\n"
+        "| pointer | 8 |\n"
+        "| `long double` | 16 |\n"
+        "| `wchar_t` | 4 (`unsigned int`) |\n"
+        "| `size_t` | 8 (`unsigned long`) |\n"
+        "\n"
+        "The generated C89 goes to a `gcc-linux-arm64` folder next to the "
+        "sources; compile it with the target compiler:\n"
+        "\n"
+        "```\n"
+        "gcc -w gcc-linux-arm64/file1.c -o file1\n"
+        "```" },
+    [HELP_TARGET_GCC_LINUX_X64] = { "target-gcc-linux-x64",
+        "## `-target=gcc-linux-x64`\n\nLinux x86-64\n"
+        "\n"
+        "Data model **LP64**. Output compiler: GCC.\n"
+        "\n"
+        "| Type | Size (bytes) |\n"
+        "|---|---|\n"
+        "| `char` (signed) | 1 |\n"
+        "| `short` | 2 |\n"
+        "| `int` | 4 |\n"
+        "| `long` | 8 |\n"
+        "| `long long` | 8 |\n"
+        "| pointer | 8 |\n"
+        "| `long double` | 16 |\n"
+        "| `wchar_t` | 4 (`int`) |\n"
+        "| `size_t` | 8 (`unsigned long`) |\n"
+        "\n"
+        "Thread-local storage is emitted as `__thread`.\n"
+        "\n"
+        "The generated C89 goes to a `gcc-linux-x64` folder next to the "
+        "sources; compile it with the target compiler:\n"
+        "\n"
+        "```\n"
+        "gcc -w gcc-linux-x64/file1.c -o file1\n"
+        "```" },
+    [HELP_TARGET_MSVC_WIN_X64] = { "target-msvc-win-x64",
+        "## `-target=msvc-win-x64`\n\nWindows x64\n"
+        "\n"
+        "Data model **LLP64**. Output compiler: MSVC.\n"
+        "\n"
+        "| Type | Size (bytes) |\n"
+        "|---|---|\n"
+        "| `char` (signed) | 1 |\n"
+        "| `short` | 2 |\n"
+        "| `int` | 4 |\n"
+        "| `long` | 4 |\n"
+        "| `long long` | 8 |\n"
+        "| pointer | 8 |\n"
+        "| `long double` | 8 |\n"
+        "| `wchar_t` | 2 (`unsigned short`) |\n"
+        "| `size_t` | 8 (`unsigned long long`) |\n"
+        "\n"
+        "Thread-local storage is emitted as `__declspec(thread)`.\n"
+        "\n"
+        "The generated C89 goes to a `msvc-win-x64` folder next to the "
+        "sources; compile it with the target compiler:\n"
+        "\n"
+        "```\n"
+        "cl msvc-win-x64\\file1.c\n"
+        "```" },
+    [HELP_TARGET_MSVC_WIN_X86] = { "target-msvc-win-x86",
+        "## `-target=msvc-win-x86`\n\nWindows x86 (32-bit)\n"
+        "\n"
+        "Data model **ILP32**. Output compiler: MSVC.\n"
+        "\n"
+        "| Type | Size (bytes) |\n"
+        "|---|---|\n"
+        "| `char` (signed) | 1 |\n"
+        "| `short` | 2 |\n"
+        "| `int` | 4 |\n"
+        "| `long` | 4 |\n"
+        "| `long long` | 8 |\n"
+        "| pointer | 4 |\n"
+        "| `long double` | 8 |\n"
+        "| `wchar_t` | 2 (`unsigned short`) |\n"
+        "| `size_t` | 4 (`unsigned int`) |\n"
+        "\n"
+        "Thread-local storage is emitted as `__declspec(thread)`.\n"
+        "\n"
+        "The generated C89 goes to a `msvc-win-x86` folder next to the "
+        "sources; compile it with the target compiler:\n"
+        "\n"
+        "```\n"
+        "cl msvc-win-x86\\file1.c\n"
+        "```" },
+    [HELP_TARGET_TCC_LINUX_X64] = { "target-tcc-linux-x64",
+        "## `-target=tcc-linux-x64`\n\nLinux x86-64 with the Tiny C Compiler\n"
+        "\n"
+        "Data model **LP64** (the sizes of `gcc-linux-x64`), TCC's predefined "
+        "macros.\n"
+        "\n"
+        "| Type | Size (bytes) |\n"
+        "|---|---|\n"
+        "| `char` (signed) | 1 |\n"
+        "| `short` | 2 |\n"
+        "| `int` | 4 |\n"
+        "| `long` | 8 |\n"
+        "| `long long` | 8 |\n"
+        "| pointer | 8 |\n"
+        "| `long double` | 16 |\n"
+        "| `wchar_t` | 4 (`int`) |\n"
+        "| `size_t` | 8 (`unsigned long`) |\n"
+        "\n"
+        "The generated C89 goes to a `tcc-linux-x64` folder next to the "
+        "sources; compile it with TCC:\n"
+        "\n"
+        "```\n"
+        "tcc tcc-linux-x64/file1.c -o file1\n"
+        "```" },
+    [HELP_TARGET_TCC_MACOS_ARM64] = { "target-tcc-macos-arm64",
+        "## `-target=tcc-macos-arm64`\n\nmacOS arm64 with the Tiny C Compiler\n"
+        "\n"
+        "Data model **LP64** (the sizes of `clang-macos-arm64`), TCC's "
+        "predefined macros. `__builtin_inf` and `__builtin_fabs` are written "
+        "as plain C.\n"
+        "\n"
+        "| Type | Size (bytes) |\n"
+        "|---|---|\n"
+        "| `char` (signed) | 1 |\n"
+        "| `short` | 2 |\n"
+        "| `int` | 4 |\n"
+        "| `long` | 8 |\n"
+        "| `long long` | 8 |\n"
+        "| pointer | 8 |\n"
+        "| `long double` | 8 |\n"
+        "| `wchar_t` | 4 (`int`) |\n"
+        "| `size_t` | 8 (`unsigned long`) |\n"
+        "\n"
+        "The generated C89 goes to a `tcc-macos-arm64` folder next to the "
+        "sources; compile it with TCC:\n"
+        "\n"
+        "```\n"
+        "tcc tcc-macos-arm64/file1.c -o file1\n"
+        "```" },
+    [HELP_TARGET_TCC_WIN_X64] = { "target-tcc-win-x64",
+        "## `-target=tcc-win-x64`\n\nWindows x64 with the Tiny C Compiler\n"
+        "\n"
+        "Data model **LLP64** (the sizes of `msvc-win-x64`), GCC syntax, TCC's "
+        "predefined macros (`__TINYC__`, `__WINT_TYPE__`, ...) and no "
+        "`_MSC_VER`. Use it with TCC's own headers - Detect in the System "
+        "Directories dialog offers them.\n"
+        "\n"
+        "| Type | Size (bytes) |\n"
+        "|---|---|\n"
+        "| `char` (signed) | 1 |\n"
+        "| `short` | 2 |\n"
+        "| `int` | 4 |\n"
+        "| `long` | 4 |\n"
+        "| `long long` | 8 |\n"
+        "| pointer | 8 |\n"
+        "| `long double` | 8 |\n"
+        "| `wchar_t` | 2 (`unsigned short`) |\n"
+        "| `size_t` | 8 (`unsigned long long`) |\n"
+        "\n"
+        "The generated C89 goes to a `tcc-win-x64` folder next to the sources; "
+        "compile it with TCC:\n"
+        "\n"
+        "```\n"
+        "tcc tcc-win-x64\\file1.c -o file1.exe\n"
+        "```" },
+    [HELP_TARGET_GCC_LINUX_ARM32] = { "target-gcc-linux-arm32",
+        "## `-target=gcc-linux-arm32`\n\nLinux 32-bit ARM, EABI hard-float "
+        "(e.g. Raspberry Pi 1/2 with a 32-bit OS)\n"
+        "\n"
+        "Data model **ILP32**. Output compiler: GCC. Plain `char` is "
+        "unsigned.\n"
+        "\n"
+        "| Type | Size (bytes) |\n"
+        "|---|---|\n"
+        "| `char` (unsigned) | 1 |\n"
+        "| `short` | 2 |\n"
+        "| `int` | 4 |\n"
+        "| `long` | 4 |\n"
+        "| `long long` | 8 |\n"
+        "| pointer | 4 |\n"
+        "| `long double` | 8 |\n"
+        "| `wchar_t` | 4 (`unsigned int`) |\n"
+        "| `size_t` | 4 (`unsigned int`) |\n"
+        "\n"
+        "The generated C89 goes to a `gcc-linux-arm32` folder next to the "
+        "sources; compile it with the target compiler:\n"
+        "\n"
+        "```\n"
+        "gcc -w gcc-linux-arm32/file1.c -o file1\n"
+        "```" },
+    [HELP_COPTS_HEADERS] = { "copts-headers",
+        "# Which headers `#include <...>` finds (`-cake-headers`)\n\n"
+        "System Headers uses the compiler's own headers; Cake Headers "
+        "passes `-cake-headers`." },
+    [HELP_HEADERS_SYSTEM] = { "headers-system",
+        "## System headers\n\nNo `-cake-headers` is passed; `#include "
+        "<...>` finds the target compiler's headers." },
+    [HELP_HEADERS_CAKE] = { "headers-cake",
+        "## `-cake-headers`\n\nuse only Cake's own headers, never the system "
+        "ones\n\n"
+        "Cake's headers declare everything themselves instead "
+        "of deferring to `#include_next`, so the real system headers are never "
+        "consulted. Used to compile Cake itself and run its tests portably; "
+        "not meant for ordinary programs." },
+    [HELP_COPTS_STYLE] = { "copts-style",
+        "# Coding style checked by diagnostic 11 (`-style=<name>`)\n\n"
+        "Passing `-style` turns diagnostic 11 (style) on as a note." },
+    [HELP_STYLE_NONE] = { "style-none",
+        "## No style check\n\nNo `-style` is passed, so diagnostic 11 "
+        "(style) stays off." },
+    [HELP_STYLE_CAKE] = { "style-cake",
+        "## `-style=cake`\n\nchecks the code against Cake's own style" },
+    [HELP_STYLE_GNU] = { "style-gnu",
+        "## `-style=gnu`\n\nchecks the code against the GNU style" },
+    [HELP_STYLE_MICROSOFT] = { "style-microsoft",
+        "## `-style=microsoft`\n\nchecks the code against the Microsoft "
+        "style" },
+    [HELP_COPTS_DIAG] = { "copts-diag",
+        "# How diagnostic positions are printed "
+        "(`-fdiagnostics-format=<format>`)\n\n"
+        "Both shapes are understood by Visual Studio and by Visual Studio "
+        "Code." },
+    [HELP_DIAG_IDE] = { "diag-ide",
+        "## `-fdiagnostics-format=ide`\n\nfile.c:1:2: warning 10: message" },
+    [HELP_DIAG_GCC] = { "diag-gcc",
+        "## `-fdiagnostics-format=gcc`\n\nfile.c:1:2: warning 10: message" },
+    [HELP_DIAG_MSVC] = { "diag-msvc",
+        "## `-fdiagnostics-format=msvc`\n\nfile.c(1,2): warning 10: message" },
+    [HELP_FLAG_NO_OUTPUT] = { "flag-no-output",
+        "## `-no-output`\n\nrun all analysis passes but write no output file" },
+    [HELP_FLAG_LINE_DIRECTIVES] = { "flag-line-directives",
+        "## `-line-directives`\n\nemit `#line` directives in the generated C89 "
+        "output\n\n"
+        "Preserves source location information." },
+    [HELP_FLAG_FANALYZER] = { "flag-fanalyzer",
+        "## `-fanalyzer`\n\nrun Cake's built-in flow analysis\n\n"
+        "Includes ownership, nullability, and lifetime checks." },
+    [HELP_FLAG_CONST_LITERAL] = { "flag-const-literal",
+        "## `-const-literal`\n\ntreat string literals as `const char[]` "
+        "rather than `char[]`" },
+    [HELP_FLAG_WALL] = { "flag-wall",
+        "## `-Wall`\n\nenable all warnings" },
+    [HELP_COPTS_OUTPUT] = { "copts-output",
+        "# Name of the built executable\n\nEmpty: derived from the "
+        "source/project.\n\n"
+        "What `$(TargetFileName)` expands to and what Debug launches." },
+    [HELP_COPTS_OPTIONS] = { "copts-options",
+        "# Other command-line options, passed to cake as typed\n"
+        "\n"
+        "Everything the fields above don't cover.\n"
+        "\n"
+        "## Diagnostics\n"
+        "\n"
+        "| Option | Effect |\n"
+        "|---|---|\n"
+        "| `-w<number>` | enable warning number `<number>`, e.g. `-w2` |\n"
+        "| `-wd<number>` | disable warning number `<number>`, e.g. `-wd2` |\n"
+        "| `-Werror` | report every enabled warning as an error |\n"
+        "\n"
+        "Most warnings are on unless `-wd<number>` turns them off, but a few "
+        "are off until asked for:\n"
+        "\n"
+        "| Number | Warning |\n"
+        "|---|---|\n"
+        "| `2` | unused variable |\n"
+        "| `6` | unused function parameter |\n"
+        "| `11` | style |\n"
+        "| `33` | nullable pointer flow check |\n"
+        "| `35` | nullable pointer flow check |\n"
+        "| `83` | parameter set but not used |\n"
+        "| `84` | variable set but not used |\n"
+        "\n"
+        "With `-Werror`, notes are not affected and disabled warnings stay "
+        "disabled. Because they become errors, warnings coming from included "
+        "headers are no longer suppressed, and any occurrence makes the "
+        "compilation fail.\n"
+        "\n"
+        "Suppress a diagnostic on one line with a trailing `lint` comment "
+        "listing its number(s): `//lint 35`, `// lint 35`, or `/* lint 81 */`. "
+        "An unnecessary suppression is flagged with warning 59.\n"
+        "\n"
+        "## Analysis\n"
+        "\n"
+        "| Option | Effect |\n"
+        "|---|---|\n"
+        "| `-ownership=enable` / `-ownership=disable` | turn the ownership "
+        "checks on or off |\n"
+        "| `-nullable=enabled` / `-nullable=disable` | turn the nullable "
+        "pointer checks on or off (`-nullchecks` = `enabled`) |\n"
+        "| `-no-discard` | make `[[nodiscard]]` the default for every function "
+        "|\n"
+        "\n"
+        "## Preprocessor\n"
+        "\n"
+        "| Option | Effect |\n"
+        "|---|---|\n"
+        "| `-I <dir>` | add `<dir>` to the include search path |\n"
+        "| `-D <macro>` | define a preprocessing symbol |\n"
+        "| `-E` | print the preprocessor output instead of compiling |\n"
+        "| `-H` | list every include file used |\n"
+        "| `-dump-tokens` | print the tokens before preprocessing |\n"
+        "| `-dump-pp-tokens` | print the tokens after preprocessing |\n"
+        "| `-preprocess-def-macro` | preprocess `#define` macros after "
+        "expansion |\n"
+        "| `-keep-inactive-tokens` | keep the tokens of inactive blocks (`#if "
+        "0`) instead of discarding them |\n"
+        "\n"
+        "## Output\n"
+        "\n"
+        "| Option | Effect |\n"
+        "|---|---|\n"
+        "| `-o <name.c>` | output file name, when compiling a single file |\n"
+        "| `-dont-generate-time-stamp` | leave the timestamp comment out of "
+        "the generated file |\n"
+        "| `-msvc-output` | diagnostics for the Visual Studio error parser "
+        "(`-fdiagnostics-format=msvc` plus no colors) |\n"
+        "| `-fdiagnostics-color=never` | no ANSI colors in diagnostics |\n"
+        "| `-sarif` | also write SARIF diagnostic files |\n"
+        "| `-sarif-path <dir>` | directory for the SARIF files |\n"
+        "\n"
+        "## Formatting\n"
+        "\n"
+        "| Option | Effect |\n"
+        "|---|---|\n"
+        "| `-format` | reformat the file to match the Style and print it "
+        "instead of compiling |\n"
+        "| `-format-lines=<first>:<last>` | restrict `-format` to a line range "
+        "|\n"
+        "\n"
+        "## Language\n"
+        "\n"
+        "| Option | Effect |\n"
+        "|---|---|\n"
+        "| `-std=c23` | input is C23 (also `-std=c2x`) |\n"
+        "| `-std=cxx` | input is C with Cake's extensions |\n"
+        "\n"
+        "## Setup\n"
+        "\n"
+        "| Option | Effect |\n"
+        "|---|---|\n"
+        "| `-auto-config` | generate `cake.json` with the include "
+        "directories of the current system |" },
+    [HELP_INCLUDES_DETECT] = { "includes-detect",
+        "# Replace the list with the include directories the platform compiler "
+        "searches\n"
+        "\n"
+        "On Windows, MSVC's headers are found with `vswhere.exe` and the "
+        "Windows SDK's from the registry. Anything that can't be found is "
+        "reported; what was found is still used." },
+    [HELP_DEBUGGER_CDB] = { "debugger-cdb",
+        "# cdb\n\n"
+        "Microsoft's console debugger - the same engine as WinDbg, without the "
+        "window. "
+        "Start Debugging (F5) runs it as `cdb -lines <program> <arguments>`.\n"
+        "\n"
+        "It reads the PDB debug info the MSVC compiler writes (`/Zi`), so "
+        "build with a `*_msvc` target.\n"
+        "\n"
+        "## Download\n"
+        "\n"
+        "- WinDbg, which includes cdb: `winget install Microsoft.WinDbg`\n"
+        "- or the Windows SDK installer, feature **Debugging Tools for "
+        "Windows**: "
+        "https://developer.microsoft.com/windows/downloads/windows-sdk/\n"
+        "\n"
+        "`cdb.exe` must be on the PATH." },
+    [HELP_DEBUGGER_LLDB] = { "debugger-lldb",
+        "# lldb\n\n"
+        "The LLVM project's debugger. Start Debugging (F5) runs it as "
+        "`lldb --no-use-colors -x -- <program> <arguments>`.\n"
+        "\n"
+        "## Download\n"
+        "\n"
+        "- macOS: `xcode-select --install`\n"
+        "- Linux: the `lldb` package, e.g. `sudo apt install lldb`\n"
+        "- or https://releases.llvm.org\n"
+        "\n"
+        "`lldb` must be on the PATH." },
+    [HELP_DEBUG_COMMAND] = { "debug-command",
+        "# Command\n\nProgram to debug - usually `$(TargetPath)`, the built "
+        "target.\n\nThe **...** button browses for a program."
+        "\n\n## See also\n\n"
+        "- [Debug Options](help:debug-options)\n"
+        "- [macros](help:ext-arguments)\n" },
+    [HELP_DEBUG_ARGUMENTS] = { "debug-arguments",
+        "# Arguments\n\nCommand-line arguments passed to the program. Use "
+        "\"quotes\" for an argument with spaces.\n\nThe **>** button "
+        "inserts a macro at the caret." },
+    [HELP_DEBUG_DIRECTORY] = { "debug-directory",
+        "# Directory\n\nDirectory the program runs in. Empty: the target's "
+        "directory, `$(TargetDir)`.\n\nThe **>** button inserts a macro at "
+        "the caret, e.g. `$(ProjectDir)`." },
+    [HELP_DEBUG_OPTIONS] = { "debug-options",
+        "# Debug Options\n\n"
+        "What Start Debugging (F5) runs after the Build pipeline (**Build > "
+        "Options...**) ends without errors.\n"
+        "\n"
+        "- **Debugger** - `cdb` on Windows, `lldb` elsewhere\n"
+        "- **Command** - the program to debug, usually `$(TargetPath)`\n"
+        "- **Arguments** - its command line\n"
+        "- **Directory** - where it runs; empty: `$(TargetDir)`\n"
+        "\n"
+        "An open project's own debug settings, when it has them, are used "
+        "instead. Saved in `ide.json`.\n"
+        "\n"
+        "Breakpoints map back to the C source through `#line` directives, so "
+        "`-line-directives` must be on "
+        "(**File > Options...**, or **Project > Options...**)."
+        "\n\n## See also\n\n"
+        "- [Command](help:debug-command)\n"
+        "- [Arguments](help:debug-arguments)\n"
+        "- [Directory](help:debug-directory)\n"
+        "- [Debug Info](help:debug-info)\n" },
+    [HELP_DEBUG_INFO] = { "debug-info",
+        "# Debug Info\n\n"
+        "While the program is stopped - at a breakpoint or after a step - "
+        "shows its local variables "
+        "and the call stack, asked of the debugger at every stop. Cleared when "
+        "the program runs again.\n"
+        "\n"
+        "**Debug > Debug Info** shows or hides it." },
+    [HELP_BUILD_OPTIONS] = { "build-options",
+        "# Build Options\n\n"
+        "Build (F7), Rebuild, Compile (Ctrl+F7) and Start Debugging (F5) run a "
+        "pipeline:\n"
+        "\n"
+        "1. **Pre-Build Event** - an External Tool\n"
+        "2. **Cake** - the project's changed `.c` files (Compile: only the "
+        "active file; "
+        "the active file too without a project, or in the Playground)\n"
+        "3. **Post-Build Event** - an External Tool, e.g. the C compiler that "
+        "builds the program from Cake's output\n"
+        "4. the debugger - F5 only\n"
+        "\n"
+        "Any error stops the pipeline: a tool that cannot start or ends with "
+        "an exit code other than 0, "
+        "or Cake reporting errors. When every file is up to date Cake compiles "
+        "nothing and the pipeline goes on.\n"
+        "\n"
+        "The tools are the ones in **Tools > External Tools...**, chosen by "
+        "title. Saved in `ide.json`."
+        "\n\n## See also\n\n"
+        "- [Pre-Build Event](help:pre-build)\n"
+        "- [Post-Build Event](help:post-build)\n"
+        "- [External Tools](help:ext-tools)\n" },
+    [HELP_PRE_BUILD] = { "pre-build",
+        "# Pre-Build Event\n\n"
+        "An External Tool run before Cake compiles - to generate sources, say. "
+        "If it cannot start or ends with an exit code other than 0, the Build "
+        "stops there.\n"
+        "\n"
+        "**None**: nothing runs. The list is **Tools > External Tools...**."
+        "\n\n## See also\n\n"
+        "- [Post-Build Event](help:post-build)\n"
+        "- [Build Options](help:build-options)\n" },
+    [HELP_POST_BUILD] = { "post-build",
+        "# Post-Build Event\n\n"
+        "An External Tool run after Cake compiles without errors - usually the "
+        "C compiler that builds "
+        "the program from Cake's output, `$(CakeOutput)`, into "
+        "`$(TargetPath)`.\n"
+        "\n"
+        "It also runs when every file is up to date. If it cannot start or "
+        "ends with an exit code "
+        "other than 0, the pipeline stops there and F5 does not start the "
+        "debugger.\n"
+        "\n"
+        "**None**: nothing runs. The list is **Tools > External Tools...**."
+        "\n\n## See also\n\n"
+        "- [Pre-Build Event](help:pre-build)\n"
+        "- [External Tools](help:ext-tools)\n"
+        "- [Debug Options](help:debug-options)\n" },
+    [HELP_FIND_LOOK_IN] = { "find-look-in",
+        "# Where to search\n"
+        "\n"
+        "Current Dir and Include Dir search one level only - subdirectories "
+        "are not entered." },
+    [HELP_LOOK_IN_FILE] = { "look-in-file",
+        "## Current File\n\nthe active document\n"
+        "\n"
+        "Searches the text in its editor, including unsaved changes." },
+    [HELP_LOOK_IN_DIR] = { "look-in-dir",
+        "## Current Dir\n\nevery file in the active document's folder\n"
+        "\n"
+        "Only files matching **File Types**. A file that is open in an "
+        "editor is searched in its editor, unsaved changes included; the "
+        "others are read from disk." },
+    [HELP_LOOK_IN_INCLUDE_DIRS] = { "look-in-include-dirs",
+        "## Include Dir\n\nthe directories the compiler searches for headers\n"
+        "\n"
+        "Cake's own `include` folder next to the executable first, then the "
+        "`include_dirs` of `cake.json` (**File > System Directories...**), in "
+        "that order.\n"
+        "\n"
+        "Search only - **Replace** never rewrites system headers." },
+    [HELP_LOOK_IN_PROJECT] = { "look-in-project",
+        "## Project\n\nevery file in the open project\n"
+        "\n"
+        "Only files matching **File Types**. Open files are searched in "
+        "their editor, unsaved changes included." },
+    [HELP_INCLUDE_DIRS] = { "include-dirs",
+        "# Include Directories\n\nthe open project's own `#include` search "
+        "path\n"
+        "\n"
+        "Saved in the project's `.cakeproj`, stored relative to the project "
+        "folder so the project can be moved or shared. **Build** (F7) always "
+        "uses this list, and so does **Compile** when the active file belongs "
+        "to the project.\n"
+        "\n"
+        "Directories are searched in list order - **Up** / **Down** change "
+        "it.\n"
+        "\n"
+        "Files that are not part of the project use the global list instead "
+        "(**File > System Directories...**); the two are never merged." },
+    [HELP_SYSTEM_DIRS] = { "system-dirs",
+        "# System Directories\n"
+        "\n"
+        "where `#include <...>` finds the platform's headers\n"
+        "\n"
+        "The global include directory list, saved in `cake.json` next to the "
+        "IDE (and the\n"
+        "`cake` compiler, which reads the same file). It is used for every "
+        "file that is\n"
+        "not part of the open project - the Playground, a file opened on its "
+        "own. A\n"
+        "project has its own list instead (**Project > Include "
+        "Directories...**); the two\n"
+        "are never merged.\n"
+        "\n"
+        "Directories are searched in list order - **Up** / **Down** change it "
+        "- and stored as full paths.\n"
+        "\n"
+        "Cake's own annotated headers (the `include` folder next to the "
+        "executable) are\n"
+        "always searched first and are not listed here. They pull in the real "
+        "header with\n"
+        "`#include_next`, continuing the search in these directories.\n"
+        "\n"
+        "**Detect** replaces the list with the include directories the "
+        "platform compiler\n"
+        "itself searches. On Windows it finds MSVC's headers with "
+        "`vswhere.exe` and the\n"
+        "Windows SDK's from the registry, so it works outside a Developer "
+        "Command Prompt.\n"
+        "When TCC is installed too, it asks which compiler's headers to use - "
+        "the list is\n"
+        "for one compiler, never both.\n"
+        "\n"
+        "To find them by hand:\n"
+        "\n"
+        "- Windows, from a Developer Command Prompt: `echo %INCLUDE%`\n"
+        "- Linux: `echo | gcc -E -Wp,-v -`\n"
+        "- macOS: `echo | clang -v -E -`" },
+};
 
 static void build_help(struct ide* ide)
 {
     struct help_window* h = &ide->help;
     h->window = new_dialog(ide, "Help");
-    h->editor = add_at(ide, h->window, GUI_EDITOR, 2, 1, 76, 15, NULL);
+    gui_window_set_resizable(h->window, 1);
+    gui_window_set_min_size(h->window, 30, 8);
+    h->editor = create(ide, GUI_EDITOR, NULL);
+    fill_margins(h->editor, 2, 1, 2, 4);
+    gui_append(h->window, h->editor);
     gui_editor_set_read_only(h->editor, 1);
-    gui_set_id(add_at(ide, h->window, GUI_BUTTON, 35, 17, 10, 1, " Close "), EV_HELP_CLOSE);
+    gui_editor_set_click_id(h->editor, EV_HELP_CTRLCLICK);
+    /* Back and Close centered as a pair, as External Tools' OK and Cancel */
+    static const struct { int id; const char* label; int offset; } bottom[] = {
+        { EV_HELP_BACK, " Back ", -11 }, { EV_HELP_CLOSE, " Close ", 1 },
+    };
+    for (int i = 0; i < COUNT(bottom); i++)
+    {
+        struct gui_node* n = create(ide, GUI_BUTTON, bottom[i].label);
+        struct gui_layout l = { GUI_ANCHOR_LEFT | GUI_ANCHOR_BOTTOM };
+        l.left.percent = 50;
+        l.left.cells = bottom[i].offset;
+        l.bottom.cells = 2;
+        l.width.cells = 10;
+        l.height.cells = 1;
+        gui_set_layout(n, &l);
+        gui_set_id(n, bottom[i].id);
+        gui_append(h->window, n);
+        if (bottom[i].id == EV_HELP_BACK)
+            h->back = n;
+    }
+    h->current = HELP_NONE;
+#ifndef NDEBUG
+    /* every help:<slug> link names a topic */
+    for (int t = 0; t < HELP_COUNT; t++)
+    {
+        for (const char* l = strstr(help_topics[t].text, "(help:"); l; l = strstr(l + 1, "(help:"))
+        {
+            const char* slug = l + 6;
+            const char* end = strchr(slug, ')');
+            assert(end && help_find(slug, (int)(end - slug)) != HELP_NONE);
+        }
+    }
+#endif
 }
 
-/* `node`'s help: `hint` in the statusbar under the mouse, `text` on F1 - as
- * the old IDE's ui_set_help(node, hint, text). */
-static void set_help(struct ide* ide, struct gui_node* node, const char* hint, const char* text)
+/* `node`'s help: `hint` in the statusbar under the mouse, `topic` on F1 -
+ * as the old IDE's ui_set_help(node, hint, text). */
+static void set_help(struct ide* ide, struct gui_node* node, const char* hint, enum help_id topic)
 {
     struct help_window* h = &ide->help;
     if (!node)
         return;
     if (hint)
         gui_set_hint(node, hint);
-    if (!text)
+    if (topic == HELP_NONE)
         return;
     for (int i = 0; i < h->doc_count; i++)
     {
         if (h->docs[i].node == node)
         {
-            h->docs[i].text = text;   /* a dialog whose text follows what it edits */
+            h->docs[i].topic = topic;   /* a dialog whose text follows what it edits */
             return;
         }
     }
     if (h->doc_count < COUNT(h->docs))
     {
         h->docs[h->doc_count].node = node;
-        h->docs[h->doc_count].text = text;
+        h->docs[h->doc_count].topic = topic;
         h->doc_count++;
     }
 }
 
-static const char* help_of(struct ide* ide, const struct gui_node* node)
+static enum help_id help_of(struct ide* ide, const struct gui_node* node)
 {
     for (int i = 0; node && i < ide->help.doc_count; i++)
     {
         if (ide->help.docs[i].node == node)
-            return ide->help.docs[i].text;
+            return ide->help.docs[i].topic;
     }
-    return NULL;
+    return HELP_NONE;
+}
+
+/* The topic whose slug is the `len` bytes at `slug`, or HELP_NONE. */
+static enum help_id help_find(const char* slug, int len)
+{
+    for (int t = 0; t < HELP_COUNT; t++)
+    {
+        if ((int)strlen(help_topics[t].slug) == len && memcmp(help_topics[t].slug, slug, (size_t)len) == 0)
+            return (enum help_id)t;
+    }
+    return HELP_NONE;
+}
+
+static void help_history_push(struct help_history* h, enum help_id topic)
+{
+    if (h->count == h->cap)
+    {
+        int cap = h->cap ? h->cap * 2 : 16;
+        void* items = realloc(h->items, (size_t)cap * sizeof *h->items);
+        if (!items)
+            return;
+        h->items = items;
+        h->cap = cap;
+    }
+    h->items[h->count++] = topic;
+}
+
+static enum help_id help_history_pop(struct help_history* h)
+{
+    return h->count > 0 ? h->items[--h->count] : HELP_NONE;
 }
 
 /* Display width of a Markdown table cell as the read-only Markdown editor
@@ -3968,31 +5473,56 @@ static const char* open_overview(struct ide* ide)
 }
 
 /* F1: the focused field's help, else its dialog's, else the IDE's. */
+/* `topic` in the Help window; Back leads to what it showed before. */
+static void help_show(struct ide* ide, enum help_id topic, const char* text)
+{
+    struct help_window* h = &ide->help;
+    h->current = topic;
+    help_set_markdown(ide, topic != HELP_NONE ? help_topics[topic].text : text);
+    gui_set_enabled(h->back, h->history.count > 0);
+}
+
+/* A help:<slug> link: its topic, the one shown now kept for Back. */
+static void help_follow(struct ide* ide, enum help_id topic)
+{
+    struct help_window* h = &ide->help;
+    if (h->current != HELP_NONE)
+        help_history_push(&h->history, h->current);
+    help_show(ide, topic, NULL);
+}
+
+static void help_back(struct ide* ide)
+{
+    enum help_id topic = help_history_pop(&ide->help.history);
+    if (topic != HELP_NONE)
+        help_show(ide, topic, NULL);
+}
+
 static void help_open(struct ide* ide)
 {
     struct gui_node* focused = gui_focused(ide->app);
+    enum help_id topic = help_of(ide, gui_focused_item(ide->app));
+    if (topic == HELP_NONE)
+        topic = help_of(ide, focused);
     const char* text = NULL;
-    if (focused && gui_child_count(focused) > 0)
-    {
-        /* a select or a group: its selected item's, when it has one */
-        int row = gui_get_selected(focused);
-        if (row >= 0 && row < gui_child_count(focused))
-            text = help_of(ide, gui_child_at(focused, row));
-    }
-    if (!text)
-        text = help_of(ide, focused);
-    for (int i = gui_window_count(ide->app) - 1; !text && i >= 0; i--)
+    for (int i = gui_window_count(ide->app) - 1; topic == HELP_NONE && !text && i >= 0; i--)
     {
         struct gui_node* win = gui_window_at(ide->app, i);
         if (win != ide->help.window)
         {
-            text = win == ide->open.window ? open_overview(ide) : help_of(ide, win);
+            if (win == ide->open.window)
+                text = open_overview(ide);
+            else
+                topic = help_of(ide, win);
             if (gui_window_get_dock(win) == GUI_DOCK_NONE)
                 break;   /* only the window on top */
         }
     }
-    help_set_markdown(ide, text ? text : help_text);
-    show_dialog(ide, ide->help.window, 80, 20, ide->help.editor);
+    if (topic == HELP_NONE && !text)
+        topic = HELP_OVERVIEW;
+    ide->help.history.count = 0;
+    help_show(ide, topic, text);
+    show_resizable_dialog(ide, ide->help.window, 80, 20, ide->help.editor);
 }
 
 /* The Open dialog as a picker: a folder (or, with `file`, a file) goes
@@ -4015,505 +5545,157 @@ static void build_help_texts(struct ide* ide)
     struct copts_dialog* c = &ide->copts;
     set_help(ide, ide->clone.window,
              "Copy a remote Git repository to a local folder",
-             "# Copy a remote Git repository to a local folder\n"
-                "\n"
-                "Runs `git clone <Repository location> <Path>` - Git must be installed "
-                "and on the PATH.");
+             HELP_CLONE);
     set_help(ide, ide->clone.url,
              "The repository's URL, e.g. `https://github.com/user/repo.git`",
-             "# The repository's URL, e.g. `https://github.com/user/repo.git`\n"
-                "\n"
-                "Anything `git clone` accepts: an HTTPS or SSH URL "
-                "(`git@github.com:user/repo.git`) or a local path. **Path** follows it "
-                "as you type, ending in the repository's name.");
+             HELP_CLONE_URL);
     set_help(ide, ide->clone.path,
              "The new folder the repository is cloned into",
-             "# The new folder the repository is cloned into\n"
-                "\n"
-                "Filled in as parent folder + the repository's name - the same name "
-                "plain `git clone` would pick. Change the parent with **...** or by hand; "
-                "the name keeps following the URL. Git creates the folder and any "
-                "missing parents; a folder that already exists is refused.");
+             HELP_CLONE_PATH);
     set_help(ide, gui_child_at(ide->clone.open_folder, 0),
              "Open Folder: show the cloned folder in the Folder panel when done",
-             "## Open Folder\n\nshow the cloned folder in the Folder panel when done\n"
-                "\n"
-                "Unchecked, the Folder panel keeps showing whatever it shows now.");
+             HELP_CLONE_OPEN_FOLDER);
     set_help(ide, ide->new_project.window,
              "Create a new Cake project (`.cakeproj`)",
-             "# Create a new Cake project (`.cakeproj`)\n"
-                "\n"
-                "A project is a `.cakeproj` file: a list of source files, plus the include directories and compiler options used to build them. File paths inside the project folder are stored relative to it, so the project can be moved or shared.\n"
-                "\n"
-                "## Build and Compile\n"
-                "\n"
-                "- **Build** (F7) compiles every `.c` file of the project in one Cake invocation - linking them is the output compiler's job. When the active file is not part of the open project (or no project is open), Build compiles just that file.\n"
-                "- **Compile** (Ctrl+F7) always compiles only the active file.\n"
-                "\n"
-                "## Project settings vs. global settings\n"
-                "\n"
-                "- **Project > Include Directories...** and **Project > Options...** edit the project's own settings, saved in its `.cakeproj`. Include directories are stored relative to the project folder.\n"
-                "- **File > Directories...** and **File > Options...** edit the global settings in `cake.json`, next to the IDE executable. They are used for every file that is not part of the open project - the Playground, a file opened on its own.\n"
-                "\n"
-                "The two are never merged: a file gets either the project's settings or the global ones.\n"
-                "\n"
-                "With the `default` target, the same `.cakeproj` works unchanged on Windows, Linux and macOS.");
+             HELP_NEW_PROJECT);
     set_help(ide, ide->new_project.name,
              "Name of the project file: `<name>.cakeproj`",
-             "# Name of the project file\n\n`<name>.cakeproj`\n"
-                "\n"
-                "It is created in **Folder** - or in a new `<name>` subfolder of "
-                "it when **Create Folder** is checked. Creation stops if a project "
-                "with that name already exists there.");
+             HELP_NEW_PROJECT_NAME);
     set_help(ide, gui_child_at(ide->new_project.checks, 0),
              "Create Folder: put the project in a new `<Project Name>` subfolder of Folder",
-             "## Create Folder\n\nput the project in a new `<Project Name>` subfolder of Folder\n"
-                "\n"
-                "Unchecked, the project file goes straight into **Folder**. "
-                "If the subfolder already exists, nothing is created.");
+             HELP_NEW_PROJECT_CREATE_FOLDER);
     set_help(ide, gui_child_at(ide->new_project.checks, 1),
              "Hello World: start the project with a `main.c` that prints \"Hello, world!\"",
-             "## Hello World\n\nstart the project with a `main.c` that prints \"Hello, world!\"\n"
-                "\n"
-                "`main.c` is added to the project. An existing `main.c` in the "
-                "project folder is never overwritten - it is added as it is.");
+             HELP_NEW_PROJECT_HELLO_WORLD);
     set_help(ide, c->window,
              "Compiler Options: how Cake compiles your files",
-             "# Compiler Options\n\nhow Cake compiles your files\n"
-                "\n"
-                "There are two sets of these options, and the title says which one is being edited:\n"
-                "\n"
-                "- **Compiler Options** - the global options in `cake.json`, next to the IDE. Used for every file that is not part of the open project: the Playground, a file opened on its own.\n"
-                "- **Compiler Options (Project)** - the open project's own options, in its `.cakeproj`. Used by **Build** (F7) and by **Compile** for the project's files.\n"
-                "\n"
-                "The two are never merged.\n"
-                "\n"
-                "## Fields\n"
-                "\n"
-                "- **Target** - the platform the generated C89 code is for: type sizes, alignment, output style. `default` keeps a project portable across Windows, Linux and macOS.\n"
-                "- **Style** - the coding style diagnostic 11 checks, or none.\n"
-                "- **Diagnostic** - how diagnostic positions are printed.\n"
-                "- **Headers** - System Headers or Cake Headers (`-cake-headers`).\n"
-                "- **Flags** - on/off switches: analysis, output, warnings.\n"
-                "- **Output** - the built binary's name.\n"
-                "- **Options** - any other command-line option, typed as is.\n"
-                "\n"
-                "Focus a field and press F1 (or click the status bar) for its details - the **Options** field lists every other command-line option.");
+             HELP_COPTS);
     set_help(ide, c->target,
              "Compilation target platform (`-target=<name>`)",
-             "# Compilation target platform (`-target=<name>`)\n"
-                "\n"
-                "Controls integer sizes, alignment, and the style of generated C89 output. Pick the platform whose compiler will build the generated code - it does not have to be the one Cake is running on.");
+             HELP_COPTS_TARGET);
     set_help(ide, gui_child_at(c->target, 0),
              "Default target: the platform Cake itself was built for",
-             "## Default target\n\nthe platform Cake itself was built for\n"
-                "\n"
-                "Same as omitting `-target`. This build of Cake uses the target named in the list entry (e.g. `msvc-win-x64` for Cake built as a Windows x64 program).");
+             HELP_TARGET_DEFAULT);
     set_help(ide, gui_child_at(c->target, 1),
              "`-target=clang-macos-arm64`: macOS arm64 (Apple Silicon)",
-             "## `-target=clang-macos-arm64`\n\nmacOS arm64 (Apple Silicon)\n"
-                "\n"
-                "Data model **LP64**. Output compiler: Clang.\n"
-                "\n"
-                "| Type | Size (bytes) |\n"
-                "|---|---|\n"
-                "| `char` (signed) | 1 |\n"
-                "| `short` | 2 |\n"
-                "| `int` | 4 |\n"
-                "| `long` | 8 |\n"
-                "| `long long` | 8 |\n"
-                "| pointer | 8 |\n"
-                "| `long double` | 8 |\n"
-                "| `wchar_t` | 4 (`int`) |\n"
-                "| `size_t` | 8 (`unsigned long`) |\n"
-                "\n"
-                "Thread-local storage is emitted as `__thread`.\n"
-                "\n"
-                "The generated C89 goes to a `clang-macos-arm64` folder next to the sources; compile it with the target compiler:\n"
-                "\n"
-                "```\n"
-                "clang -w clang-macos-arm64/file1.c -o file1\n"
-                "```");
-    set_help(ide, gui_child_at(c->target, 2),
-             "`-target=gcc-linux-arm64`: Linux aarch64 (e.g. Raspberry Pi)",
-             "## `-target=gcc-linux-arm64`\n\nLinux aarch64 (e.g. Raspberry Pi)\n"
-                "\n"
-                "Data model **LP64**. Output compiler: GCC. Plain `char` is unsigned.\n"
-                "\n"
-                "| Type | Size (bytes) |\n"
-                "|---|---|\n"
-                "| `char` (unsigned) | 1 |\n"
-                "| `short` | 2 |\n"
-                "| `int` | 4 |\n"
-                "| `long` | 8 |\n"
-                "| `long long` | 8 |\n"
-                "| pointer | 8 |\n"
-                "| `long double` | 16 |\n"
-                "| `wchar_t` | 4 (`unsigned int`) |\n"
-                "| `size_t` | 8 (`unsigned long`) |\n"
-                "\n"
-                "The generated C89 goes to a `gcc-linux-arm64` folder next to the sources; compile it with the target compiler:\n"
-                "\n"
-                "```\n"
-                "gcc -w gcc-linux-arm64/file1.c -o file1\n"
-                "```");
+             HELP_TARGET_CLANG_MACOS_ARM64);
     set_help(ide, gui_child_at(c->target, 3),
-             "`-target=gcc-linux-x64`: Linux x86-64",
-             "## `-target=gcc-linux-x64`\n\nLinux x86-64\n"
-                "\n"
-                "Data model **LP64**. Output compiler: GCC.\n"
-                "\n"
-                "| Type | Size (bytes) |\n"
-                "|---|---|\n"
-                "| `char` (signed) | 1 |\n"
-                "| `short` | 2 |\n"
-                "| `int` | 4 |\n"
-                "| `long` | 8 |\n"
-                "| `long long` | 8 |\n"
-                "| pointer | 8 |\n"
-                "| `long double` | 16 |\n"
-                "| `wchar_t` | 4 (`int`) |\n"
-                "| `size_t` | 8 (`unsigned long`) |\n"
-                "\n"
-                "Thread-local storage is emitted as `__thread`.\n"
-                "\n"
-                "The generated C89 goes to a `gcc-linux-x64` folder next to the sources; compile it with the target compiler:\n"
-                "\n"
-                "```\n"
-                "gcc -w gcc-linux-x64/file1.c -o file1\n"
-                "```");
+             "`-target=gcc-linux-arm64`: Linux aarch64 (e.g. Raspberry Pi)",
+             HELP_TARGET_GCC_LINUX_ARM64);
     set_help(ide, gui_child_at(c->target, 4),
-             "`-target=msvc-win-x64`: Windows x64",
-             "## `-target=msvc-win-x64`\n\nWindows x64\n"
-                "\n"
-                "Data model **LLP64**. Output compiler: MSVC.\n"
-                "\n"
-                "| Type | Size (bytes) |\n"
-                "|---|---|\n"
-                "| `char` (signed) | 1 |\n"
-                "| `short` | 2 |\n"
-                "| `int` | 4 |\n"
-                "| `long` | 4 |\n"
-                "| `long long` | 8 |\n"
-                "| pointer | 8 |\n"
-                "| `long double` | 8 |\n"
-                "| `wchar_t` | 2 (`unsigned short`) |\n"
-                "| `size_t` | 8 (`unsigned long long`) |\n"
-                "\n"
-                "Thread-local storage is emitted as `__declspec(thread)`.\n"
-                "\n"
-                "The generated C89 goes to a `msvc-win-x64` folder next to the sources; compile it with the target compiler:\n"
-                "\n"
-                "```\n"
-                "cl msvc-win-x64\\file1.c\n"
-                "```");
+             "`-target=gcc-linux-x64`: Linux x86-64",
+             HELP_TARGET_GCC_LINUX_X64);
     set_help(ide, gui_child_at(c->target, 5),
-             "`-target=msvc-win-x86`: Windows x86 (32-bit)",
-             "## `-target=msvc-win-x86`\n\nWindows x86 (32-bit)\n"
-                "\n"
-                "Data model **ILP32**. Output compiler: MSVC.\n"
-                "\n"
-                "| Type | Size (bytes) |\n"
-                "|---|---|\n"
-                "| `char` (signed) | 1 |\n"
-                "| `short` | 2 |\n"
-                "| `int` | 4 |\n"
-                "| `long` | 4 |\n"
-                "| `long long` | 8 |\n"
-                "| pointer | 4 |\n"
-                "| `long double` | 8 |\n"
-                "| `wchar_t` | 2 (`unsigned short`) |\n"
-                "| `size_t` | 4 (`unsigned int`) |\n"
-                "\n"
-                "Thread-local storage is emitted as `__declspec(thread)`.\n"
-                "\n"
-                "The generated C89 goes to a `msvc-win-x86` folder next to the sources; compile it with the target compiler:\n"
-                "\n"
-                "```\n"
-                "cl msvc-win-x86\\file1.c\n"
-                "```");
+             "`-target=msvc-win-x64`: Windows x64",
+             HELP_TARGET_MSVC_WIN_X64);
     set_help(ide, gui_child_at(c->target, 6),
-             "`-target=tcc-linux-x64`: Linux x86-64 with the Tiny C Compiler",
-             "## `-target=tcc-linux-x64`\n\nLinux x86-64 with the Tiny C Compiler\n"
-                "\n"
-                "Data model **LP64** (the sizes of `gcc-linux-x64`), TCC's predefined macros.\n"
-                "\n"
-                "| Type | Size (bytes) |\n"
-                "|---|---|\n"
-                "| `char` (signed) | 1 |\n"
-                "| `short` | 2 |\n"
-                "| `int` | 4 |\n"
-                "| `long` | 8 |\n"
-                "| `long long` | 8 |\n"
-                "| pointer | 8 |\n"
-                "| `long double` | 16 |\n"
-                "| `wchar_t` | 4 (`int`) |\n"
-                "| `size_t` | 8 (`unsigned long`) |\n"
-                "\n"
-                "The generated C89 goes to a `tcc-linux-x64` folder next to the sources; compile it with TCC:\n"
-                "\n"
-                "```\n"
-                "tcc tcc-linux-x64/file1.c -o file1\n"
-                "```");
+             "`-target=msvc-win-x86`: Windows x86 (32-bit)",
+             HELP_TARGET_MSVC_WIN_X86);
     set_help(ide, gui_child_at(c->target, 7),
-             "`-target=tcc-macos-arm64`: macOS arm64 with the Tiny C Compiler",
-             "## `-target=tcc-macos-arm64`\n\nmacOS arm64 with the Tiny C Compiler\n"
-                "\n"
-                "Data model **LP64** (the sizes of `clang-macos-arm64`), TCC's predefined macros. `__builtin_inf` and `__builtin_fabs` are written as plain C.\n"
-                "\n"
-                "| Type | Size (bytes) |\n"
-                "|---|---|\n"
-                "| `char` (signed) | 1 |\n"
-                "| `short` | 2 |\n"
-                "| `int` | 4 |\n"
-                "| `long` | 8 |\n"
-                "| `long long` | 8 |\n"
-                "| pointer | 8 |\n"
-                "| `long double` | 8 |\n"
-                "| `wchar_t` | 4 (`int`) |\n"
-                "| `size_t` | 8 (`unsigned long`) |\n"
-                "\n"
-                "The generated C89 goes to a `tcc-macos-arm64` folder next to the sources; compile it with TCC:\n"
-                "\n"
-                "```\n"
-                "tcc tcc-macos-arm64/file1.c -o file1\n"
-                "```");
+             "`-target=tcc-linux-x64`: Linux x86-64 with the Tiny C Compiler",
+             HELP_TARGET_TCC_LINUX_X64);
     set_help(ide, gui_child_at(c->target, 8),
-             "`-target=tcc-win-x64`: Windows x64 with the Tiny C Compiler",
-             "## `-target=tcc-win-x64`\n\nWindows x64 with the Tiny C Compiler\n"
-                "\n"
-                "Data model **LLP64** (the sizes of `msvc-win-x64`), GCC syntax, TCC's predefined macros (`__TINYC__`, `__WINT_TYPE__`, ...) and no `_MSC_VER`. Use it with TCC's own headers - Detect in the System Directories dialog offers them.\n"
-                "\n"
-                "| Type | Size (bytes) |\n"
-                "|---|---|\n"
-                "| `char` (signed) | 1 |\n"
-                "| `short` | 2 |\n"
-                "| `int` | 4 |\n"
-                "| `long` | 4 |\n"
-                "| `long long` | 8 |\n"
-                "| pointer | 8 |\n"
-                "| `long double` | 8 |\n"
-                "| `wchar_t` | 2 (`unsigned short`) |\n"
-                "| `size_t` | 8 (`unsigned long long`) |\n"
-                "\n"
-                "The generated C89 goes to a `tcc-win-x64` folder next to the sources; compile it with TCC:\n"
-                "\n"
-                "```\n"
-                "tcc tcc-win-x64\\file1.c -o file1.exe\n"
-                "```");
+             "`-target=tcc-macos-arm64`: macOS arm64 with the Tiny C Compiler",
+             HELP_TARGET_TCC_MACOS_ARM64);
     set_help(ide, gui_child_at(c->target, 9),
+             "`-target=tcc-win-x64`: Windows x64 with the Tiny C Compiler",
+             HELP_TARGET_TCC_WIN_X64);
+    set_help(ide, gui_child_at(c->target, 2),
              "`-target=gcc-linux-arm32`: Linux 32-bit ARM (e.g. Raspberry Pi 1/2)",
-             "## `-target=gcc-linux-arm32`\n\nLinux 32-bit ARM, EABI hard-float (e.g. Raspberry Pi 1/2 with a 32-bit OS)\n"
-                "\n"
-                "Data model **ILP32**. Output compiler: GCC. Plain `char` is unsigned.\n"
-                "\n"
-                "| Type | Size (bytes) |\n"
-                "|---|---|\n"
-                "| `char` (unsigned) | 1 |\n"
-                "| `short` | 2 |\n"
-                "| `int` | 4 |\n"
-                "| `long` | 4 |\n"
-                "| `long long` | 8 |\n"
-                "| pointer | 4 |\n"
-                "| `long double` | 8 |\n"
-                "| `wchar_t` | 4 (`unsigned int`) |\n"
-                "| `size_t` | 4 (`unsigned int`) |\n"
-                "\n"
-                "The generated C89 goes to a `gcc-linux-arm32` folder next to the sources; compile it with the target compiler:\n"
-                "\n"
-                "```\n"
-                "gcc -w gcc-linux-arm32/file1.c -o file1\n"
-                "```");
+             HELP_TARGET_GCC_LINUX_ARM32);
     set_help(ide, c->headers,
              "Which headers `#include <...>` finds (`-cake-headers`)",
-             "# Which headers `#include <...>` finds (`-cake-headers`)\n\n"
-                "System Headers uses the compiler's own headers; Cake Headers passes `-cake-headers`.");
+             HELP_COPTS_HEADERS);
     set_help(ide, gui_child_at(c->headers, 0),
              "System headers: the target compiler's own headers",
-             "## System headers\n\nNo `-cake-headers` is passed; `#include <...>` finds the target compiler's headers.");
+             HELP_HEADERS_SYSTEM);
     set_help(ide, gui_child_at(c->headers, 1),
              "`-cake-headers`: use only Cake's own headers, never the system ones",
-             "## `-cake-headers`\n\nuse only Cake's own headers, never the system ones\n\n"
-                "Cake's headers declare everything themselves instead "
-                "of deferring to `#include_next`, so the real system headers are never "
-                "consulted. Used to compile Cake itself and run its tests portably; "
-                "not meant for ordinary programs.");
+             HELP_HEADERS_CAKE);
     set_help(ide, c->style,
              "Coding style checked by diagnostic 11 (`-style=<name>`)",
-             "# Coding style checked by diagnostic 11 (`-style=<name>`)\n\n"
-                "Passing `-style` turns diagnostic 11 (style) on as a note.");
+             HELP_COPTS_STYLE);
     set_help(ide, gui_child_at(c->style, 0),
              "No style check",
-             "## No style check\n\nNo `-style` is passed, so diagnostic 11 (style) stays off.");
+             HELP_STYLE_NONE);
     set_help(ide, gui_child_at(c->style, 1),
              "`-style=cake`: checks the code against Cake's own style",
-             "## `-style=cake`\n\nchecks the code against Cake's own style");
+             HELP_STYLE_CAKE);
     set_help(ide, gui_child_at(c->style, 2),
              "`-style=gnu`: checks the code against the GNU style",
-             "## `-style=gnu`\n\nchecks the code against the GNU style");
+             HELP_STYLE_GNU);
     set_help(ide, gui_child_at(c->style, 3),
              "`-style=microsoft`: checks the code against the Microsoft style",
-             "## `-style=microsoft`\n\nchecks the code against the Microsoft style");
+             HELP_STYLE_MICROSOFT);
     set_help(ide, c->diag,
              "How diagnostic positions are printed (`-fdiagnostics-format=<format>`)",
-             "# How diagnostic positions are printed (`-fdiagnostics-format=<format>`)\n\n"
-                "Both shapes are understood by Visual Studio and by Visual Studio Code.");
+             HELP_COPTS_DIAG);
     set_help(ide, gui_child_at(c->diag, 0),
              "`-fdiagnostics-format=ide`: file.c:1:2: warning 10: message",
-             "## `-fdiagnostics-format=ide`\n\nfile.c:1:2: warning 10: message");
+             HELP_DIAG_IDE);
     set_help(ide, gui_child_at(c->diag, 1),
              "`-fdiagnostics-format=gcc`: file.c:1:2: warning 10: message",
-             "## `-fdiagnostics-format=gcc`\n\nfile.c:1:2: warning 10: message");
+             HELP_DIAG_GCC);
     set_help(ide, gui_child_at(c->diag, 2),
              "`-fdiagnostics-format=msvc`: file.c(1,2): warning 10: message",
-             "## `-fdiagnostics-format=msvc`\n\nfile.c(1,2): warning 10: message");
+             HELP_DIAG_MSVC);
     set_help(ide, gui_child_at(c->flags, 0),
              "`-no-output`: run all analysis passes but write no output file",
-             "## `-no-output`\n\nrun all analysis passes but write no output file");
+             HELP_FLAG_NO_OUTPUT);
     set_help(ide, gui_child_at(c->flags, 1),
              "`-line-directives`: emit `#line` directives in the generated C89 output",
-             "## `-line-directives`\n\nemit `#line` directives in the generated C89 output\n\n"
-                "Preserves source location information.");
+             HELP_FLAG_LINE_DIRECTIVES);
     set_help(ide, gui_child_at(c->flags, 2),
              "`-fanalyzer`: run Cake's built-in flow analysis",
-             "## `-fanalyzer`\n\nrun Cake's built-in flow analysis\n\n"
-                "Includes ownership, nullability, and lifetime checks.");
+             HELP_FLAG_FANALYZER);
     set_help(ide, gui_child_at(c->flags, 3),
              "`-const-literal`: treat string literals as `const char[]` rather than `char[]`",
-             "## `-const-literal`\n\ntreat string literals as `const char[]` rather than `char[]`");
+             HELP_FLAG_CONST_LITERAL);
     set_help(ide, gui_child_at(c->flags, 4),
              "`-Wall`: enable all warnings",
-             "## `-Wall`\n\nenable all warnings");
+             HELP_FLAG_WALL);
     set_help(ide, c->output,
              "Name of the built executable (empty: derived from the source/project)",
-             "# Name of the built executable\n\nEmpty: derived from the source/project.\n\n"
-                "What `$(TargetFileName)` expands to and what Debug launches.");
+             HELP_COPTS_OUTPUT);
     set_help(ide, c->options,
              "Other command-line options, passed to cake as typed",
-             "# Other command-line options, passed to cake as typed\n"
-                "\n"
-                "Everything the fields above don't cover.\n"
-                "\n"
-                "## Diagnostics\n"
-                "\n"
-                "| Option | Effect |\n"
-                "|---|---|\n"
-                "| `-w<number>` | enable warning number `<number>`, e.g. `-w2` |\n"
-                "| `-wd<number>` | disable warning number `<number>`, e.g. `-wd2` |\n"
-                "| `-Werror` | report every enabled warning as an error |\n"
-                "\n"
-                "Most warnings are on unless `-wd<number>` turns them off, but a few are off until asked for:\n"
-                "\n"
-                "| Number | Warning |\n"
-                "|---|---|\n"
-                "| `2` | unused variable |\n"
-                "| `6` | unused function parameter |\n"
-                "| `11` | style |\n"
-                "| `33` | nullable pointer flow check |\n"
-                "| `35` | nullable pointer flow check |\n"
-                "| `83` | parameter set but not used |\n"
-                "| `84` | variable set but not used |\n"
-                "\n"
-                "With `-Werror`, notes are not affected and disabled warnings stay disabled. Because they become errors, warnings coming from included headers are no longer suppressed, and any occurrence makes the compilation fail.\n"
-                "\n"
-                "Suppress a diagnostic on one line with a trailing `lint` comment listing its number(s): `//lint 35`, `// lint 35`, or `/* lint 81 */`. An unnecessary suppression is flagged with warning 59.\n"
-                "\n"
-                "## Analysis\n"
-                "\n"
-                "| Option | Effect |\n"
-                "|---|---|\n"
-                "| `-ownership=enable` / `-ownership=disable` | turn the ownership checks on or off |\n"
-                "| `-nullable=enabled` / `-nullable=disable` | turn the nullable pointer checks on or off (`-nullchecks` = `enabled`) |\n"
-                "| `-no-discard` | make `[[nodiscard]]` the default for every function |\n"
-                "\n"
-                "## Preprocessor\n"
-                "\n"
-                "| Option | Effect |\n"
-                "|---|---|\n"
-                "| `-I <dir>` | add `<dir>` to the include search path |\n"
-                "| `-D <macro>` | define a preprocessing symbol |\n"
-                "| `-E` | print the preprocessor output instead of compiling |\n"
-                "| `-H` | list every include file used |\n"
-                "| `-dump-tokens` | print the tokens before preprocessing |\n"
-                "| `-dump-pp-tokens` | print the tokens after preprocessing |\n"
-                "| `-preprocess-def-macro` | preprocess `#define` macros after expansion |\n"
-                "| `-keep-inactive-tokens` | keep the tokens of inactive blocks (`#if 0`) instead of discarding them |\n"
-                "\n"
-                "## Output\n"
-                "\n"
-                "| Option | Effect |\n"
-                "|---|---|\n"
-                "| `-o <name.c>` | output file name, when compiling a single file |\n"
-                "| `-dont-generate-time-stamp` | leave the timestamp comment out of the generated file |\n"
-                "| `-msvc-output` | diagnostics for the Visual Studio error parser (`-fdiagnostics-format=msvc` plus no colors) |\n"
-                "| `-fdiagnostics-color=never` | no ANSI colors in diagnostics |\n"
-                "| `-sarif` | also write SARIF diagnostic files |\n"
-                "| `-sarif-path <dir>` | directory for the SARIF files |\n"
-                "\n"
-                "## Formatting\n"
-                "\n"
-                "| Option | Effect |\n"
-                "|---|---|\n"
-                "| `-format` | reformat the file to match the Style and print it instead of compiling |\n"
-                "| `-format-lines=<first>:<last>` | restrict `-format` to a line range |\n"
-                "\n"
-                "## Language\n"
-                "\n"
-                "| Option | Effect |\n"
-                "|---|---|\n"
-                "| `-std=c23` | input is C23 (also `-std=c2x`) |\n"
-                "| `-std=cxx` | input is C with Cake's extensions |\n"
-                "\n"
-                "## Setup\n"
-                "\n"
-                "| Option | Effect |\n"
-                "|---|---|\n"
-                "| `-auto-config` | generate `cake.json` with the include directories of the current system |");
+             HELP_COPTS_OPTIONS);
     set_help(ide, ide->includes.detect,
              "Replace the list with the include directories the platform compiler searches",
-             "# Replace the list with the include directories the platform compiler searches\n"
-                "\n"
-                "On Windows, MSVC's headers are found with `vswhere.exe` and the Windows SDK's from the registry. Anything that can't be found is reported; what was found is still used.");
+             HELP_INCLUDES_DETECT);
 #if defined(_WIN32)
     set_help(ide, ide->dbg.debugger,
              "`cdb`: Microsoft's console debugger (Debugging Tools for Windows)",
-             "# cdb\n\n"
-                "Microsoft's console debugger - the same engine as WinDbg, without the window. "
-                "Start Debugging (F5) runs it as `cdb -lines <program> <arguments>`.\n"
-                "\n"
-                "It reads the PDB debug info the MSVC compiler writes (`/Zi`), so build with a `*_msvc` target.\n"
-                "\n"
-                "## Download\n"
-                "\n"
-                "- WinDbg, which includes cdb: `winget install Microsoft.WinDbg`\n"
-                "- or the Windows SDK installer, feature **Debugging Tools for Windows**: "
-                "https://developer.microsoft.com/windows/downloads/windows-sdk/\n"
-                "\n"
-                "`cdb.exe` must be on the PATH.");
+             HELP_DEBUGGER_CDB);
 #else
     set_help(ide, ide->dbg.debugger,
              "`lldb`: the LLVM debugger",
-             "# lldb\n\n"
-                "The LLVM project's debugger. Start Debugging (F5) runs it as "
-                "`lldb --no-use-colors -x -- <program> <arguments>`.\n"
-                "\n"
-                "## Download\n"
-                "\n"
-                "- macOS: `xcode-select --install`\n"
-                "- Linux: the `lldb` package, e.g. `sudo apt install lldb`\n"
-                "- or https://releases.llvm.org\n"
-                "\n"
-                "`lldb` must be on the PATH.");
+             HELP_DEBUGGER_LLDB);
 #endif
     set_help(ide, ide->dbg.fields[0],
              "Program to debug - usually `$(TargetPath)`",
-             "# Command\n\nProgram to debug - usually `$(TargetPath)`, the built target.\n\nThe **...** button browses for a program.");
+             HELP_DEBUG_COMMAND);
     set_help(ide, ide->dbg.fields[1],
              "Command-line arguments passed to the program",
-             "# Arguments\n\nCommand-line arguments passed to the program. Use \"quotes\" for an argument with spaces.\n\nThe **>** button inserts a macro at the caret.");
+             HELP_DEBUG_ARGUMENTS);
     set_help(ide, ide->dbg.fields[2],
              "Directory the program runs in (empty: the target's directory)",
-             "# Directory\n\nDirectory the program runs in. Empty: the target's directory, `$(TargetDir)`.\n\nThe **>** button inserts a macro at the caret, e.g. `$(ProjectDir)`.");
+             HELP_DEBUG_DIRECTORY);
+    set_help(ide, ide->dbg.window,
+             "Debug Options: the debugger and the program Start Debugging (F5) runs",
+             HELP_DEBUG_OPTIONS);
+    set_help(ide, ide->debug_info_window,
+             "Debug Info: the Locals and Call Stack of the stopped program",
+             HELP_DEBUG_INFO);
+    set_help(ide, ide->bld.window,
+             "Build Options: External Tools run before and after the Build",
+             HELP_BUILD_OPTIONS);
+    set_help(ide, ide->bld.pre_build,
+             "External Tool run before Cake; if it fails, the Build stops",
+             HELP_PRE_BUILD);
+    set_help(ide, ide->bld.post_build,
+             "External Tool run after Cake compiles without errors - e.g. the C compiler",
+             HELP_POST_BUILD);
 }
 
 /* --- Window > Tile / Cascade: the old IDE's algorithms, in whole cells,
@@ -4609,8 +5791,8 @@ static void dock_panel(struct ide* ide, enum gui_dock side)
  * old IDE's do_compile --- */
 
 static const char* const target_slugs[] = {
-    "default", "clang-macos-arm64", "gcc-linux-arm64", "gcc-linux-x64", "msvc-win-x64",
-    "msvc-win-x86", "tcc-linux-x64", "tcc-macos-arm64", "tcc-win-x64", "gcc-linux-arm32",
+    "default", "clang-macos-arm64", "gcc-linux-arm32", "gcc-linux-arm64", "gcc-linux-x64",
+    "msvc-win-x64", "msvc-win-x86", "tcc-linux-x64", "tcc-macos-arm64", "tcc-win-x64",
 };
 static const char* const style_slugs[] = { "", "cake", "gnu", "microsoft" };
 static const char* const diag_slugs[] = { "ide", "gcc", "msvc" };
@@ -4933,10 +6115,11 @@ static char* position_separator(char* line, int* src_line)
     return NULL;
 }
 
-/* One diagnostic line: its file (cut in place), mark type, line, number
- * (0 when none) and message. 0 if `line` is not a diagnostic. */
+/* One diagnostic line: its file (cut in place), mark type, line, code
+ * ("" when none: "82" from Cake, "C4133" from msvc) and message. 0 if
+ * `line` is not a diagnostic. */
 static int parse_diagnostic_line(char* line, char** file, enum gui_mark* type, int* src_line,
-                                 int* code, char** message)
+                                 char** code, char** message)
 {
     strip_ansi(line);
     static const char* const keywords[] = { "error", "warning", "info", "note" };
@@ -4966,14 +6149,24 @@ static int parse_diagnostic_line(char* line, char** file, enum gui_mark* type, i
     if (!sep)
         return 0;
 
-    const char* m = kw + strlen(keywords[found]);
+    char* m = (char*)kw + strlen(keywords[found]);
     while (*m == ' ' || *m == '\t') m++;
-    int number = 0;
-    while (isdigit((unsigned char)*m))
-        number = number * 10 + (*m++ - '0');
-    *code = number;
-    while (*m == ' ' || *m == '\t') m++;
-    if (*m == ':') m++;
+    char* code_end = m;
+    while (isalnum((unsigned char)*code_end))
+        code_end++;
+    char* after = code_end;
+    while (*after == ' ' || *after == '\t') after++;
+    if (code_end > m && *after == ':')
+    {
+        *code = m;
+        m = after + 1;
+        *code_end = '\0';
+    }
+    else
+    {
+        *code = "";
+        if (*m == ':') m++;
+    }
     while (*m == ' ' || *m == '\t') m++;
     char* msg = (char*)m;
     char* end = msg + strlen(msg);
@@ -4990,24 +6183,27 @@ static int parse_diagnostic_line(char* line, char** file, enum gui_mark* type, i
     return 1;
 }
 
-/* Every document's marks cleared, then each diagnostic line of `text`
- * marked on the document of the file it names. Changes `text`. */
-static void apply_diagnostics(struct ide* ide, char* text)
+/* Each diagnostic line of `text` marked on the document of the file it
+ * names, after clearing every document's marks when `clear` - Cake's
+ * compile clears, an External Tool's output (msvc, gcc) adds to it.
+ * Changes `text`. */
+static void apply_diagnostics(struct ide* ide, char* text, int clear)
 {
-    for (int i = 0; i < ide->doc_count; i++)
+    for (int i = 0; clear && i < ide->doc_count; i++)
         gui_editor_clear_marks(ide->docs[i].editor);
     for (char* line = strtok(text, "\n"); line; line = strtok(NULL, "\n"))
     {
         char* file;
         char* message;
         enum gui_mark type;
-        int src_line, code;
+        char* code;
+        int src_line;
         if (!parse_diagnostic_line(line, &file, &type, &src_line, &code, &message))
             continue;
         static const char* const tags[] = { "info", "warning", "error" };
         char mark[1200];
-        if (code > 0)
-            snprintf(mark, sizeof mark, " \xE2\x86\x90 %s %d: %s", tags[type], code, message);
+        if (code[0])
+            snprintf(mark, sizeof mark, " \xE2\x86\x90 %s %s: %s", tags[type], code, message);
         else
             snprintf(mark, sizeof mark, " \xE2\x86\x90 %s: %s", tags[type], message);
         for (int i = 0; i < ide->doc_count; i++)
@@ -5197,16 +6393,18 @@ static void project_args(struct ide* ide)
     }
 }
 
-static void compile_start(struct ide* ide, const char* what)
+/* 0 when the compile could not start. */
+static int compile_start(struct ide* ide, const char* what)
 {
     if (!ide_compile_start(ide->job))
     {
         ide->project_build = 0;
         status(ide, "Could not start the compile");
-        return;
+        return 0;
     }
     status(ide, what);
     gui_set_timer(ide->app, 50, EV_TICK);
+    return 1;
 }
 
 /* Compile: the active file, with its project's settings when it is one of
@@ -5248,6 +6446,67 @@ static int markdown_link_at(const char* text, int len, int cursor, char* link, i
     return 0;
 }
 
+static int is_web_link(const char* link)
+{
+    return strncmp(link, "http://", 7) == 0 || strncmp(link, "https://", 8) == 0;
+}
+
+/* "Open this link in the browser?" - Yes (EV_OPEN_LINK) opens `url`. */
+static void ask_open_url(struct ide* ide, const char* url)
+{
+    size_t n = strlen(url) + 1;
+    char* copy = malloc(n);
+    if (!copy)
+        return;
+    memcpy(copy, url, n);
+    free(ide->pending_url);
+    ide->pending_url = copy;
+    struct ide_text msg = { 0 };
+    ide_text_printf(&msg, "Open this link in the browser?\n\n%s", url);
+    static const char* const labels[] = { "  Yes  ", "  No  " };
+    static const int ids[] = { EV_OPEN_LINK, 0 };
+    gui_message_box(ide->app, "Open Link", msg.data ? msg.data : url, labels, ids, 2);
+    free(msg.data);
+}
+
+/* The bare http(s) URL around `cursor` - up to the blanks and brackets
+ * around it - into `link`. 0 if there is none. */
+static int bare_url_at(const char* text, int len, int cursor, char* link, int cap)
+{
+    static const char stops[] = " \t\r\n()<>[]\"'`";
+    int lo = cursor, hi = cursor;
+    while (lo > 0 && !strchr(stops, text[lo - 1]))
+        lo--;
+    while (hi < len && !strchr(stops, text[hi]))
+        hi++;
+    while (hi > lo && strchr(".,;:", text[hi - 1]))
+        hi--;
+    snprintf(link, (size_t)cap, "%.*s", hi - lo, text + lo);
+    return is_web_link(link);
+}
+
+/* Ctrl+click in the Help window: a [text](help:<slug>) link shows that
+ * topic; a web link, Markdown or bare, opens in the browser. */
+static void help_ctrlclick(struct ide* ide)
+{
+    struct gui_node* ed = ide->help.editor;
+    const char* text = gui_get_value(ed);
+    int len = (int)strlen(text);
+    int lo, hi;
+    gui_editor_get_selection(ed, &lo, &hi);
+    char link[512];
+    if (markdown_link_at(text, len, hi, link, sizeof link) && strncmp(link, "help:", 5) == 0)
+    {
+        enum help_id topic = help_find(link + 5, (int)strlen(link + 5));
+        if (topic != HELP_NONE)
+            help_follow(ide, topic);
+        return;
+    }
+    if ((markdown_link_at(text, len, hi, link, sizeof link) && is_web_link(link)) ||
+        bare_url_at(text, len, hi, link, sizeof link))
+        ask_open_url(ide, link);
+}
+
 static void editor_ctrlclick(struct ide* ide)
 {
     struct doc* d = active_doc(ide);
@@ -5261,9 +6520,9 @@ static void editor_ctrlclick(struct ide* ide)
     if (ends_with(d->path, ".md") && markdown_link_at(text, len, hi, link, sizeof link))
     {
         /* a Markdown link: a web page in the browser, else the file beside this one */
-        if (strncmp(link, "http://", 7) == 0 || strncmp(link, "https://", 8) == 0)
+        if (is_web_link(link))
         {
-            ide_open_url(link);
+            ask_open_url(ide, link);
             return;
         }
         char* hash = strchr(link, '#');
@@ -5357,15 +6616,16 @@ static void format_doc(struct ide* ide)
     free(out);
 }
 
-static void compile_active(struct ide* ide)
+/* 0 when there is nothing to compile or the compile could not start. */
+static int compile_active(struct ide* ide)
 {
     if (ide_compile_running(ide->job))
-        return;   /* one at a time; the statusbar already says so */
+        return 0;   /* one at a time; the statusbar already says so */
     struct doc* d = active_doc(ide);
     if (!d)
     {
         status(ide, "No file to compile");
-        return;
+        return 0;
     }
     if (gui_editor_get_dirty(d->editor))
         save_doc(ide, d);
@@ -5378,7 +6638,7 @@ static void compile_active(struct ide* ide)
     bottom_panel_show(ide, ide->output.window, ide->fr.window);
     gui_window_open(ide->app, d->window);
     gui_focus(ide->app, d->editor);
-    compile_start(ide, "Compiling...");
+    return compile_start(ide, "Compiling...");
 }
 
 /* The worker thread's view of a project Build: each header a source
@@ -5403,22 +6663,22 @@ static void build_on_done(void* ctx, const char* source, int errors)
 }
 
 static int is_playground(struct ide* ide, const struct doc* d);
+static void debug_launch(struct ide* ide);
+static void post_build(struct ide* ide);
 
 /* Build (F7): with a project open, the project's .c files changed since
  * the last successful Build - the file or a header it included - unless
  * the settings changed; Rebuild compiles them all. Without a project, or
- * with the Playground active, Build is Compile. */
-static void build(struct ide* ide, int rebuild)
+ * with the Playground active, Build is Compile. 0 on an error: no .c
+ * files, or the compile could not start; all files up to date is not one. */
+static int build(struct ide* ide, int rebuild)
 {
     struct ide_project* p = &ide->project;
     struct doc* active = active_doc(ide);
     if (!ide_project_is_open(p) || (active && is_playground(ide, active)))
-    {
-        compile_active(ide);
-        return;
-    }
+        return compile_active(ide);
     if (ide_compile_running(ide->job))
-        return;
+        return 0;
     if (rebuild)
         ide_build_state_clear(&p->built);
 
@@ -5498,7 +6758,7 @@ static void build(struct ide* ide, int rebuild)
             ide_strings_clear(&p->compiled);
         gui_set_value(ide->output.editor, c_count == 0 ? "The open project has no .c files to build.\n"
                                                         : "Build: all files are up to date.\n");
-        return;
+        return c_count > 0;
     }
     for (int i = 0; i < reasons.count; i++)
         ide_compile_note(ide->job, reasons.items[i]);
@@ -5507,7 +6767,56 @@ static void build(struct ide* ide, int rebuild)
     ide_compile_set_listener(ide->job, &listener);
     gui_set_value(ide->output.editor, "");
     ide->project_build = 1;
-    compile_start(ide, "Building...");
+    return compile_start(ide, "Building...");
+}
+
+/* F7 (or Rebuild), Ctrl+F7 with `compile` (the active file only), and F5
+ * with `debug`: the Pre-Build Event, then Cake - see struct build_chain. */
+static void build_then(struct ide* ide, int rebuild, int compile, int debug)
+{
+    if (ide_compile_running(ide->job) || run_busy(ide))
+        return;
+    ide->chain.rebuild = rebuild;
+    ide->chain.compile = compile;
+    ide->chain.debug = debug;
+    int tool = ext_tool_find(ide, ide->build_settings.pre_build);
+    if (tool < 0)
+    {
+        chain_build(ide);
+        return;
+    }
+    ide->chain.stage = STAGE_PRE_BUILD;
+    run_tool(ide, tool);
+}
+
+/* The Build step: Cake. Any error stops the pipeline; nothing to compile
+ * (up to date) goes on to the Post-Build Event at once. */
+static void chain_build(struct ide* ide)
+{
+    ide->chain.stage = STAGE_BUILD;
+    int ok = ide->chain.compile ? compile_active(ide) : build(ide, ide->chain.rebuild);
+    if (!ide_compile_running(ide->job))
+    {
+        ide->chain.stage = STAGE_NONE;
+        if (ok)
+            post_build(ide);
+    }
+}
+
+/* The Post-Build Event, if any; without one, F5's debugger at once. */
+static void post_build(struct ide* ide)
+{
+    int tool = ext_tool_find(ide, ide->build_settings.post_build);
+    if (tool < 0)
+    {
+        if (ide->chain.debug)
+            debug_launch(ide);
+        return;
+    }
+    if (run_busy(ide))
+        return;
+    ide->chain.stage = STAGE_POST_BUILD;
+    run_tool(ide, tool);
 }
 
 /* --- Find Definition / Declaration / Usages: the old IDE's - a compile
@@ -5527,7 +6836,7 @@ static const struct
     [FIND_UNUSED] = { "Report Unused", "-unused-extern-report", "Reporting unused..." },
 };
 
-/* Project > Report Unused: the project's .c files compiled with
+/* Build > Report Unused: the project's .c files compiled with
  * -unused-extern-report - the compiler then reports only the unused
  * functions - into Find Results. As the old IDE. */
 static void find_push_files(struct ide* ide, const char* file);
@@ -5978,6 +7287,13 @@ static void complete_show(struct ide* ide, const char* output)
         line = end ? end + 1 : line + len;
     }
     qsort(list, (size_t)count, sizeof *list, complete_cmp);
+    int unique = 0;
+    for (int i = 0; i < count; i++)
+    {
+        if (unique == 0 || strcmp(list[unique - 1], list[i]) != 0)
+            memmove(list[unique++], list[i], sizeof *list);
+    }
+    count = unique;
     if (count == 0)
     {
         status(ide, "No completions");
@@ -6127,10 +7443,16 @@ static void compile_poll(struct ide* ide)
     if (text)
     {
         strcpy(text, ide_compile_output(ide->job));
-        apply_diagnostics(ide, text);
+        apply_diagnostics(ide, text, 1);
         free(text);
     }
     refresh_open_docs(ide);
+    if (ide->chain.stage == STAGE_BUILD)
+    {
+        ide->chain.stage = STAGE_NONE;
+        if (errors == 0)
+            post_build(ide);
+    }
 }
 
 /* --- Playground: a scratch C file, always the same one, independent of any
@@ -6372,31 +7694,19 @@ static void fif_build(struct ide* ide)
     gui_set_selected(f->look_in, f->look);
     set_help(ide, f->look_in,
              "Where to search",
-             "# Where to search\n"
-                "\n"
-                "Current Dir and Include Dir search one level only - subdirectories are not entered.");
+             HELP_FIND_LOOK_IN);
     set_help(ide, gui_child_at(f->look_in, 0),
              "Current File: the active document",
-             "## Current File\n\nthe active document\n"
-                "\n"
-                "Searches the text in its editor, including unsaved changes.");
+             HELP_LOOK_IN_FILE);
     set_help(ide, gui_child_at(f->look_in, 1),
              "Current Dir: every file in the active document's folder",
-             "## Current Dir\n\nevery file in the active document's folder\n"
-                "\n"
-                "Only files matching **File Types**. A file that is open in an editor is searched in its editor, unsaved changes included; the others are read from disk.");
+             HELP_LOOK_IN_DIR);
     set_help(ide, gui_child_at(f->look_in, 2),
              "Include Dir: the directories the compiler searches for headers",
-             "## Include Dir\n\nthe directories the compiler searches for headers\n"
-                "\n"
-                "Cake's own `include` folder next to the executable first, then the `include_dirs` of `cake.json` (**File > System Directories...**), in that order.\n"
-                "\n"
-                "Search only - **Replace** never rewrites system headers.");
+             HELP_LOOK_IN_INCLUDE_DIRS);
     set_help(ide, gui_child_at(f->look_in, 3),
              "Project: every file in the open project",
-             "## Project\n\nevery file in the open project\n"
-                "\n"
-                "Only files matching **File Types**. Open files are searched in their editor, unsaved changes included.");
+             HELP_LOOK_IN_PROJECT);
     row += 5;
     fif_label(ide, row++, "File Types:");
     f->file_types = fif_add(ide, GUI_SELECT, row, 1, NULL);
@@ -6723,6 +8033,13 @@ static void get_string(const struct json_value* obj, const char* key, char* out,
     const struct json_value* v = obj ? json_find_member(obj, key) : NULL;
     if (v && v->type == JSON_STRING && v->string)
         snprintf(out, cap, "%s", v->string);
+}
+
+/* The string member `key` of `obj`, "" when missing. */
+static const char* get_cstring(const struct json_value* obj, const char* key)
+{
+    const struct json_value* v = obj ? json_find_member(obj, key) : NULL;
+    return v && v->type == JSON_STRING && v->string ? v->string : "";
 }
 
 static int get_int(const struct json_value* obj, const char* key, int fallback)
@@ -7141,6 +8458,14 @@ static void project_delete_confirmed(struct ide* ide)
             break;
         }
     }
+    for (int i = 0; i < ide->doc_count; i++)
+    {
+        if (ide_path_equal(ide->docs[i].path, ide->pending_delete))
+        {
+            close_doc(ide, &ide->docs[i]);
+            break;
+        }
+    }
     ide_delete_path(ide->pending_delete, 0);
     ide->pending_delete[0] = '\0';
     folder_refresh(ide);
@@ -7219,6 +8544,12 @@ static void settings_save(struct ide* ide)
         json_set_string(dbg, "command", ide->debug_settings.fields[0]);
         json_set_string(dbg, "arguments", ide->debug_settings.fields[1]);
         json_set_string(dbg, "directory", ide->debug_settings.fields[2]);
+    }
+    struct json_value* bld = json_set_object(root, "build");
+    if (bld)
+    {
+        json_set_string(bld, "pre_build", ide->build_settings.pre_build);
+        json_set_string(bld, "post_build", ide->build_settings.post_build);
     }
 
     struct json_value* tools = json_set_array(root, "external_tools");
@@ -7313,17 +8644,17 @@ static void settings_load(struct ide* ide)
     get_string(dbg, "command", ide->debug_settings.fields[0], sizeof ide->debug_settings.fields[0]);
     get_string(dbg, "arguments", ide->debug_settings.fields[1], sizeof ide->debug_settings.fields[1]);
     get_string(dbg, "directory", ide->debug_settings.fields[2], sizeof ide->debug_settings.fields[2]);
+    const struct json_value* bld = json_find_member(root, "build");
+    get_string(bld, "pre_build", ide->build_settings.pre_build, sizeof ide->build_settings.pre_build);
+    get_string(bld, "post_build", ide->build_settings.post_build, sizeof ide->build_settings.post_build);
 
     const struct json_value* tools = json_find_member(root, "external_tools");
     n = tools && tools->type == JSON_ARRAY ? json_count(tools) : 0;
     for (size_t i = 0; i < n && ide->ext_tools.count < MAX_EXT_TOOLS; i++)
     {
         const struct json_value* t = json_item(tools, i);
-        struct ext_tool* e = &ide->ext_tools.tools[ide->ext_tools.count++];
-        get_string(t, "title", e->title, sizeof e->title);
-        get_string(t, "command", e->command, sizeof e->command);
-        get_string(t, "arguments", e->arguments, sizeof e->arguments);
-        get_string(t, "directory", e->directory, sizeof e->directory);
+        ext_tool_init(&ide->ext_tools.tools[ide->ext_tools.count++], get_cstring(t, "title"),
+                      get_cstring(t, "command"), get_cstring(t, "arguments"), get_cstring(t, "directory"));
     }
     json_delete(root);
     tools_menu_refresh(ide);
@@ -8312,6 +9643,19 @@ static void debug_start_session(struct ide* ide)
                         ok, ok_id, 1);
         return;
     }
+    /* Built first, as Visual Studio; debugging starts when the build ends without errors. */
+    build_then(ide, 0, 0, 1);
+}
+
+/* The debugger started on the built executable. */
+static void debug_launch(struct ide* ide)
+{
+    struct debug_session* s = &ide->session;
+    struct doc* doc = active_doc(ide);
+    if (s->state != DBG_IDLE || !doc)
+        return;
+    struct ide_project* p = &ide->project;
+    int use_project = file_uses_project(ide, doc->path);
     if (gui_editor_get_dirty(doc->editor))
         save_doc(ide, doc);
 
@@ -8326,8 +9670,7 @@ static void debug_start_session(struct ide* ide)
     const char* exe_args[64];
     split_args(args.data ? args.data : (char*)"", exe_args, 64);
 
-    gui_set_value(ide->output.editor, "");
-    bottom_panel_show(ide, ide->output.window, ide->fr.window);
+    bottom_panel_show(ide, ide->output.window, ide->fr.window);   /* the build's output kept above */
     char header[1400];
 #ifdef _WIN32
     snprintf(header, sizeof header, "> cdb -lines \"%s\"", exe.data ? exe.data : "");
@@ -8441,10 +9784,9 @@ static void debug_sync_breakpoints(struct ide* ide)
         debug_break_end(s);
 }
 
-static void debug_stop_session(struct ide* ide)
+/* The IDE's side of a session's end; the debugger may have already quit by itself. */
+static void debug_end_session(struct ide* ide)
 {
-    if (ide->session.state == DBG_IDLE)
-        return;
     gui_set_tooltip(ide->app, 0, 0, NULL);
     debug_shutdown(&ide->session);
     debug_init(&ide->session);
@@ -8452,6 +9794,13 @@ static void debug_stop_session(struct ide* ide)
     debug_info_refresh(ide);
     debug_menu_refresh(ide);
     status(ide, "Debugging stopped");
+}
+
+static void debug_stop_session(struct ide* ide)
+{
+    if (ide->session.state == DBG_IDLE)
+        return;
+    debug_end_session(ide);
 }
 
 /* The menu as the session allows: Start when idle, Stop while it runs,
@@ -8554,9 +9903,9 @@ static void debug_tick(struct ide* ide)
     {
         char msg[100];
         snprintf(msg, sizeof msg, "The program exited with code %d", s->last_exit_code);
+        debug_end_session(ide);
         output(ide, msg);
         status(ide, msg);
-        debug_stop_session(ide);
     }
 }
 
@@ -8807,6 +10156,10 @@ static void on_event(void* ctx, int id)
     case EV_NEWFILE_OK: newfile_accept(ide); break;
     case EV_NEWFILE_OVERWRITE: newfile_create(ide); break;
     case EV_SAVEAS_OVERWRITE: save_as_commit(ide); break;
+    case EV_OPEN_LINK:
+        if (ide->pending_url)
+            ide_open_url(ide->pending_url);
+        break;
     case EV_NEWFILE_CANCEL: gui_window_close(ide->app, ide->newfile.window); break;
     case EV_NEWFILE_BROWSE: pick_path(ide, ide->newfile.folder, 0, gui_get_value(ide->newfile.folder)); break;
     case EV_OPEN:
@@ -8835,6 +10188,7 @@ static void on_event(void* ctx, int id)
     case EV_TOGGLE_HDRSRC: if (doc) toggle_header_source(ide, doc); break;
     case EV_EDITOR_MENU: editor_menu_refresh(ide); break;
     case EV_EDITOR_CTRLCLICK: editor_ctrlclick(ide); break;
+    case EV_HELP_CTRLCLICK: help_ctrlclick(ide); break;
     case EV_BACK: nav_go(ide, &ide->nav.back, &ide->nav.forward); break;
     case EV_FORWARD: nav_go(ide, &ide->nav.forward, &ide->nav.back); break;
     case EV_FORMAT: format_doc(ide); break;
@@ -8892,6 +10246,18 @@ static void on_event(void* ctx, int id)
             gui_editor_set_read_only(d->editor, !gui_editor_get_read_only(d->editor));
         break;
     }
+    case EV_TOGGLE_DETACH:
+    {
+        struct doc* d = doc_of_editor(ide, gui_context_target(ide->app));
+        if (!d)
+            break;
+        if (gui_window_get_detached(ide->app, d->window))
+            gui_window_attach(ide->app, d->window);
+        else
+            gui_window_detach(ide->app, d->window);
+        gui_focus(ide->app, d->editor);
+        break;
+    }
     case EV_SHOW_FOLDER: if (doc) show_folder_of(ide, doc->path); break;
     case EV_COPY_PATH:
         if (doc)
@@ -8910,9 +10276,9 @@ static void on_event(void* ctx, int id)
         show_dialog(ide, ide->new_folder.window, 44, 8, ide->new_folder.input);
         break;
     case EV_NEWFOLDER_OK: new_folder_accept(ide); break;
-    case EV_COMPILE: compile_active(ide); break;
-    case EV_BUILD: build(ide, 0); break;
-    case EV_REBUILD: build(ide, 1); break;
+    case EV_COMPILE: build_then(ide, 0, 1, 0); break;
+    case EV_BUILD: build_then(ide, 0, 0, 0); break;
+    case EV_REBUILD: build_then(ide, 1, 0, 0); break;
     case EV_TICK:
         if (is_open(ide, ide->git.diff_window))
             git_diff_counter_refresh(ide);
@@ -9060,6 +10426,12 @@ static void on_event(void* ctx, int id)
         settings_save(ide);
         break;
     case EV_DBG_CANCEL: gui_window_close(ide->app, ide->dbg.window); break;
+    case EV_BUILD_OPTIONS: build_options_open(ide); break;
+    case EV_BLD_OK:
+        build_options_accept(ide);
+        settings_save(ide);
+        break;
+    case EV_BLD_CANCEL: gui_window_close(ide->app, ide->bld.window); break;
     case EV_DBG_BROWSE: pick_path(ide, ide->dbg.fields[0], 1, ""); break;
     case EV_EXTERNAL_TOOLS: external_tools_open(ide); break;
     case EV_EXT_LIST:
@@ -9077,32 +10449,12 @@ static void on_event(void* ctx, int id)
     case EV_EXT_BROWSE: pick_path(ide, ide->ext.fields[1], 1, ""); break;
     case EV_PROJECT_INCLUDES:
         set_help(ide, ide->includes.window, "Include Directories: the open project's own `#include` search path",
-                 "# Include Directories\n\nthe open project's own `#include` search path\n"
-                    "\n"
-                    "Saved in the project's `.cakeproj`, stored relative to the project folder so the project can be moved or shared. **Build** (F7) always uses this list, and so does **Compile** when the active file belongs to the project.\n"
-                    "\n"
-                    "Directories are searched in list order - **Up** / **Down** change it.\n"
-                    "\n"
-                    "Files that are not part of the project use the global list instead (**File > System Directories...**); the two are never merged.");
+                 HELP_INCLUDE_DIRS);
         includes_open(ide, &ide->project.include_dirs, "Include Directories", 0);
         break;
     case EV_SYSTEM_DIRS:
         set_help(ide, ide->includes.window, "System Directories: where `#include <...>` finds the platform's headers",
-                 "# System Directories\n\nwhere `#include <...>` finds the platform's headers\n"
-                    "\n"
-                    "The global include directory list, saved in `cake.json` next to the IDE (and the `cake` compiler, which reads the same file). It is used for every file that is not part of the open project - the Playground, a file opened on its own. A project has its own list instead (**Project > Include Directories...**); the two are never merged.\n"
-                    "\n"
-                    "Directories are searched in list order - **Up** / **Down** change it - and stored as full paths.\n"
-                    "\n"
-                    "Cake's own annotated headers (the `include` folder next to the executable) are always searched first and are not listed here. They pull in the real header with `#include_next`, continuing the search in these directories.\n"
-                    "\n"
-                    "**Detect** replaces the list with the include directories the platform compiler itself searches. On Windows it finds MSVC's headers with `vswhere.exe` and the Windows SDK's from the registry, so it works outside a Developer Command Prompt. When TCC is installed too, it asks which compiler's headers to use - the list is for one compiler, never both.\n"
-                    "\n"
-                    "To find them by hand:\n"
-                    "\n"
-                    "- Windows, from a Developer Command Prompt: `echo %INCLUDE%`\n"
-                    "- Linux: `echo | gcc -E -Wp,-v -`\n"
-                    "- macOS: `echo | clang -v -E -`");
+                 HELP_SYSTEM_DIRS);
         includes_open(ide, &ide->system_includes, "System Directories", 1);
         break;
     case EV_INC_ADD: pick_path(ide, NULL, 0, ""); break;
@@ -9130,6 +10482,7 @@ static void on_event(void* ctx, int id)
         help_open(ide);
         break;
     case EV_HELP_CLOSE: gui_window_close(ide->app, ide->help.window); break;
+    case EV_HELP_BACK: help_back(ide); break;
 
     case EV_OPEN_FOLDER:
     {
@@ -9149,17 +10502,18 @@ static void on_event(void* ctx, int id)
     case EV_WORD_WRAP:
         if (ed)
         {
+            ide->wrap.target = ed;
             if (!gui_get_value(ide->wrap.columns)[0])
                 gui_set_value(ide->wrap.columns, "80");
             show_dialog(ide, ide->wrap.window, 40, 9, ide->wrap.columns);
         }
         break;
     case EV_WRAP_OK:
-        gui_window_close(ide->app, ide->wrap.window);
-        if (ed)
-            wrap_text(ed, atoi(gui_get_value(ide->wrap.columns)), gui_get_checked(ide->wrap.justify, 0));
+        if (ide->wrap.target)
+            wrap_text(ide->wrap.target, atoi(gui_get_value(ide->wrap.columns)), gui_get_checked(ide->wrap.justify, 0));
+        wrap_close(ide);
         break;
-    case EV_WRAP_CANCEL: gui_window_close(ide->app, ide->wrap.window); break;
+    case EV_WRAP_CANCEL: wrap_close(ide); break;
     case EV_FIND:
         if (doc)
             show_dialog(ide, ide->find.window, 56, 16, ide->find.input);
@@ -9366,6 +10720,9 @@ void gui_main(struct gui_app* app, int argc, char** argv)
     ide->md_highlighter.highlight = ide_highlight_md;
     ide->md_highlighter.row_bg = ide_md_row_bg;
     ide->md_highlighter.ctx = (void*)ide->theme;
+    ide->string_highlighter.highlight = ide_highlight_string;
+    ide->string_highlighter.ctx = (void*)ide->theme;
+    gui_set_hint_highlighter(app, &ide->md_highlighter);
     gui_set_theme(app, ide->theme);
     gui_set_on_event(app, on_event, ide);
     gui_set_quit_id(app, EV_EXIT);
@@ -9374,6 +10731,7 @@ void gui_main(struct gui_app* app, int argc, char** argv)
     build_statusbar(ide);
     build_panels(ide);
     build_dialogs(ide);
+    ide->global_options.flags[1] = 1;   /* -line-directives on by default: the debugger needs it */
     settings_load(ide);
     gui_set_timer(app, 2000, EV_TICK);   /* the outside-change check */
 

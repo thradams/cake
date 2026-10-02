@@ -6,5 +6,9 @@ int main()
     static_assert('\7' == 7);
     static_assert('\10' == 8);
     static_assert('\17' == 15);
+#ifdef __CAKE_CHAR_UNSIGNED__
+    static_assert('\377' == 255);
+#else
     static_assert('\377' == -1);
+#endif
 }

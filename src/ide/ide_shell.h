@@ -28,6 +28,10 @@ extern const struct gui_theme ide_theme_xcode_dark;
 int ide_highlight_c(void* ctx, const char* line, int len, int* state,
                      struct gui_span* spans, int max);
 
+/* Every byte in the theme's string literal color - Edit String's text; `ctx` the theme. */
+int ide_highlight_string(void* ctx, const char* line, int len, int* state,
+                         struct gui_span* spans, int max);
+
 /* Markdown source, its delimiters colored too; `ctx` the theme. Its row_bg
  * tints a ``` code block. */
 int ide_highlight_md(void* ctx, const char* line, int len, int* state,

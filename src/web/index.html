@@ -355,6 +355,20 @@ fatal error: X11/Xft/Xft.h: No such file or directory</p>
 
 <p>These headers are used by the IDE.</p>
 
+<p>If you encounter an error such as:
+fatal error: wayland-client.h: No such file or directory</p>
+
+<p>Ubuntu / Debian / Raspberry Pi OS: <code>sudo apt install libwayland-dev libxkbcommon-dev libfreetype-dev libfontconfig-dev</code></p>
+
+<p>Fedora: <code>sudo dnf install wayland-devel libxkbcommon-devel freetype-devel fontconfig-devel</code></p>
+
+<p>Arch Linux: <code>sudo pacman -S wayland libxkbcommon freetype2 fontconfig</code></p>
+
+<p>openSUSE: <code>sudo zypper install wayland-devel libxkbcommon-devel freetype2-devel fontconfig-devel</code></p>
+
+<p>These headers are used by the Wayland IDE backend (<code>./build wayland</code>, or the
+default in a Wayland session when these libraries are installed).</p>
+
 <h2 id="toc_8">TCC on Windows/Linux build instructions</h2>
 
 <p>With <a href="https://bellard.org/tcc/">tcc</a> on the PATH, go to the <em>src</em> directory and type:</p>

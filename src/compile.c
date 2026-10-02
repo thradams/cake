@@ -479,6 +479,9 @@ int compile_one_file(const char* file_name,
         report->warnings_count += prectx.n_warnings;
         report->error_count += prectx.n_errors;
 
+        if (prectx.preprocessor_auto_complete_done)
+            throw; /* the cursor is on a directive line: no parse */
+
         if (prectx.n_errors > 0)
         {
             throw;
@@ -1098,7 +1101,7 @@ static void find_usages_print_file(const struct rename_list* list, int begin, in
     snprintf(text, sizeof text, "usage of '%s'", list->old_name);
 
     struct osstream ss = { 0 };
-    const char* line_start = content;
+    const char* _Opt line_start = content;
     int line = 1;
     for (int i = begin; i < end; i++)
     {

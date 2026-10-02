@@ -8,6 +8,10 @@
  * The title bar is the compositor's (xdg-decoration) where it offers one.
  * Key repeat is ours too: Wayland sends a key once.
  *
+ * Each toplevel is a struct wl_view: the main one and one per detached
+ * window (gui_window_detach). The seat is shared, so pointer and keyboard
+ * events go to the view that has their focus.
+ *
  * Build: gcc ... ide_gui_wayland.c -lwayland-client -lwayland-cursor
  *            -lxkbcommon -lfontconfig -lfreetype $(pkg-config --cflags freetype2)
  */
@@ -99,9 +103,34 @@ struct gui_canvas
     struct wl_window* win;
 };
 
+struct wl_window;
+
+/* One toplevel: what it shows and the compositor's objects for it. */
+struct wl_view
+{
+    struct gui_canvas canvas;    /* first: gui_clipboard_* get only the main one's */
+    struct wl_window* owner;
+    struct gui_surface* detached;  /* a detached window's surface; NULL for the main view */
+    struct wl_surface* surface;
+    struct xdg_surface* xdg_surface;
+    struct xdg_toplevel* toplevel;
+    struct shm_buffer buffers[2];
+    int configured;              /* the first configure came: we may draw */
+    int want_w, want_h;          /* the size the last configure asked for */
+    int frame_pending;           /* something to show waits for a free buffer */
+    struct gui_rect damage;      /* what changed since the last commit */
+};
+
+/* The detached views. */
+struct view_list
+{
+    struct wl_view** items;
+    int count, cap;
+};
+
 struct wl_window
 {
-    struct gui_canvas canvas;    /* first: gui_clipboard_* get only this */
+    struct wl_view main;         /* first: its canvas is the one the clipboard gets */
     struct gui_app* app;
     struct wl_display* display;
     struct wl_registry* registry;
@@ -116,14 +145,9 @@ struct wl_window
     struct wl_data_device* data_device;
     struct wl_data_offer* selection_offer;   /* what another client offers to paste */
     struct wl_data_source* source;           /* ours, while we own the selection */
-    struct wl_surface* surface;
-    struct xdg_surface* xdg_surface;
-    struct xdg_toplevel* toplevel;
-    struct shm_buffer buffers[2];
-    int configured;              /* the first configure came: we may draw */
-    int want_w, want_h;          /* the size the last configure asked for */
-    int frame_pending;           /* something to show waits for a free buffer */
-    struct gui_rect damage;      /* what changed since the last commit */
+    struct view_list detached;
+    struct wl_view* pointer_view;   /* where the pointer is; NULL: none of ours */
+    struct wl_view* keyboard_view;  /* what has the keyboard; NULL: none of ours */
     /* input */
     struct xkb_context* xkb;
     struct xkb_keymap* keymap;
@@ -461,7 +485,7 @@ static void buffer_destroy(struct shm_buffer* b)
     memset(b, 0, sizeof *b);
 }
 
-static int buffer_create(struct wl_window* win, struct shm_buffer* b, int w, int h)
+static int buffer_create(struct wl_view* v, struct shm_buffer* b, int w, int h)
 {
     int stride = w * 4;
     size_t size = (size_t)stride * (size_t)h;
@@ -478,7 +502,7 @@ static int buffer_create(struct wl_window* win, struct shm_buffer* b, int w, int
         close(fd);
         return 0;
     }
-    struct wl_shm_pool* pool = wl_shm_create_pool(win->shm, fd, (int32_t)size);
+    struct wl_shm_pool* pool = wl_shm_create_pool(v->owner->shm, fd, (int32_t)size);
     b->buffer = wl_shm_pool_create_buffer(pool, 0, w, h, stride, WL_SHM_FORMAT_XRGB8888);
     wl_shm_pool_destroy(pool);
     close(fd);
@@ -494,9 +518,9 @@ static int buffer_create(struct wl_window* win, struct shm_buffer* b, int w, int
 
 /* The canvas at the new size; its old contents are lost, so the core paints
  * everything next. */
-static void resize_canvas(struct wl_window* win, int w, int h)
+static void resize_canvas(struct wl_view* v, int w, int h)
 {
-    struct gui_canvas* c = &win->canvas;
+    struct gui_canvas* c = &v->canvas;
     if (w < 1) w = 1;
     if (h < 1) h = 1;
     if (c->pixels && w == c->w && h == c->h)
@@ -508,57 +532,149 @@ static void resize_canvas(struct wl_window* win, int w, int h)
     c->w = w;
     c->h = h;
     for (int i = 0; i < 2; i++)
-        buffer_destroy(&win->buffers[i]);   /* made again at the new size when needed */
-    if (win->app)
+        buffer_destroy(&v->buffers[i]);   /* made again at the new size when needed */
+    struct gui_app* app = v->owner->app;
+    if (v->detached)
     {
-        gui_app_resize(win->app, w, h);
-        gui_app_invalidate(win->app);
+        gui_surface_resize(app, v->detached, w, h);
+    }
+    else if (app)
+    {
+        gui_app_resize(app, w, h);
+        gui_app_invalidate(app);
     }
 }
 
 /* What changed goes to a free buffer, which is handed to the compositor.
  * Each buffer remembers what changed since it was last filled, so only
  * that is copied into it - not the whole window. */
-static void present(struct wl_window* win)
+static void present(struct wl_view* v)
 {
-    struct gui_canvas* c = &win->canvas;
-    if (!win->configured || win->damage.w <= 0)
+    struct gui_canvas* c = &v->canvas;
+    if (!v->configured || v->damage.w <= 0)
         return;
     struct shm_buffer* b = NULL;
     for (int i = 0; i < 2 && !b; i++)
     {
-        if (!win->buffers[i].busy)
-            b = &win->buffers[i];
+        if (!v->buffers[i].busy)
+            b = &v->buffers[i];
     }
     if (!b)
     {
-        win->frame_pending = 1;   /* shown when the compositor gives one back */
+        v->frame_pending = 1;   /* shown when the compositor gives one back */
         return;
     }
-    if (!b->buffer && !buffer_create(win, b, c->w, c->h))
+    if (!b->buffer && !buffer_create(v, b, c->w, c->h))
         return;
     for (int i = 0; i < 2; i++)
-        unite(&win->buffers[i].stale, &win->damage);
+        unite(&v->buffers[i].stale, &v->damage);
     struct gui_rect s = b->stale;
     for (int row = s.y; row < s.y + s.h && row < c->h; row++)
         memcpy(b->pixels + (size_t)row * (size_t)c->w + (size_t)s.x,
                c->pixels + (size_t)row * (size_t)c->w + (size_t)s.x, (size_t)s.w * 4);
     b->stale = (struct gui_rect){ 0, 0, 0, 0 };
     b->busy = 1;
-    wl_surface_attach(win->surface, b->buffer, 0, 0);
-    wl_surface_damage_buffer(win->surface, win->damage.x, win->damage.y, win->damage.w, win->damage.h);
-    wl_surface_commit(win->surface);
-    win->damage = (struct gui_rect){ 0, 0, 0, 0 };
-    win->frame_pending = 0;
+    wl_surface_attach(v->surface, b->buffer, 0, 0);
+    wl_surface_damage_buffer(v->surface, v->damage.x, v->damage.y, v->damage.w, v->damage.h);
+    wl_surface_commit(v->surface);
+    v->damage = (struct gui_rect){ 0, 0, 0, 0 };
+    v->frame_pending = 0;
 }
 
 static void set_cursor(struct wl_window* win, enum gui_cursor cursor);
 
+static void view_open(struct wl_window* win, struct wl_view* v, int w, int h);
+static void view_close(struct wl_view* v);
+
+/* --- Detached windows --- */
+
+int gui_backend_can_detach(void)
+{
+    return 1;
+}
+
+/* A detached view's fonts follow the main one's: its own copies, since
+ * each keeps its own glyph cache. */
+static void follow_fonts(struct wl_view* d, const struct wl_view* main)
+{
+    struct gui_canvas* c = &d->canvas;
+    c->ft = main->canvas.ft;
+    c->pt = main->canvas.pt;
+    c->family = main->canvas.family;
+    apply_font(c);
+}
+
+static void detached_open(struct wl_window* win, struct gui_surface* s, int w, int h)
+{
+    struct wl_view* d = calloc(1, sizeof *d);
+    if (!d)
+        abort();
+    d->owner = win;
+    d->detached = s;
+    d->canvas.win = win;
+    follow_fonts(d, &win->main);
+    struct view_list* list = &win->detached;
+    if (list->count == list->cap)
+    {
+        int cap = list->cap ? list->cap * 2 : 4;
+        struct wl_view** items = realloc(list->items, (size_t)cap * sizeof *items);
+        if (!items)
+            abort();
+        list->items = items;
+        list->cap = cap;
+    }
+    list->items[list->count++] = d;
+    view_open(win, d, w > 0 ? w : 640, h > 0 ? h : 480);
+    gui_surface_start(win->app, s, d, d->canvas.w, d->canvas.h);
+}
+
+static void detached_close(struct wl_window* win, struct wl_view* d)
+{
+    struct view_list* list = &win->detached;
+    for (int i = 0; i < list->count; i++)
+    {
+        if (list->items[i] == d)
+        {
+            memmove(&list->items[i], &list->items[i + 1], sizeof list->items[0] * (size_t)(list->count - i - 1));
+            list->count--;
+            break;
+        }
+    }
+    if (win->pointer_view == d)
+        win->pointer_view = NULL;
+    if (win->keyboard_view == d)
+    {
+        win->keyboard_view = NULL;
+        win->repeat_key = 0;
+    }
+    view_close(d);
+    font_free(&d->canvas.main);
+    font_free(&d->canvas.small_font);
+    free(d);
+}
+
+/* The toplevels the core asked for, made and closed. Wayland lets no
+ * client raise its own window, so a raise is only taken. */
+static void sync_detached(struct wl_window* win)
+{
+    int w, h;
+    struct gui_surface* s;
+    while ((s = gui_app_take_surface_open(win->app, &w, &h)) != NULL)
+        detached_open(win, s, w, h);
+    void* native;
+    while ((native = gui_app_take_surface_close(win->app)) != NULL)
+        detached_close(win, native);
+    while (gui_app_take_surface_raise(win->app) != NULL)
+    {
+    }
+}
+
 /* Applies what the app asked for (quit, timer, font, zoom), lets the core
- * paint whatever changed and shows it. */
+ * paint whatever changed and shows it - in the main view and each detached
+ * one. */
 static void refresh(struct wl_window* win)
 {
-    struct gui_canvas* c = &win->canvas;
+    struct gui_canvas* c = &win->main.canvas;
     if (gui_app_should_quit(win->app))
     {
         win->running = 0;
@@ -570,12 +686,16 @@ static void refresh(struct wl_window* win)
         win->timer_ms = ms > 0 ? ms : 0;
         win->timer_due = now_ms() + win->timer_ms;
     }
+    int fonts_changed = 0;
     int family = gui_app_take_font(win->app);
     if (family >= 0 && family < win->font_count)
     {
         c->family = font_candidates[win->offered_fonts[family]];
         if (apply_font(c))
+        {
             gui_app_font_changed(win->app, c);
+            fonts_changed = 1;
+        }
     }
     int zoom = gui_app_take_zoom(win->app);
     if (zoom)
@@ -583,22 +703,44 @@ static void refresh(struct wl_window* win)
         int pt = c->pt + zoom;
         c->pt = pt < 6 ? 6 : pt > 40 ? 40 : pt;
         if (apply_font(c))
+        {
             gui_app_font_changed(win->app, c);
+            fonts_changed = 1;
+        }
     }
-    if (!win->configured)
-        return;
+    for (int i = 0; fonts_changed && i < win->detached.count; i++)
+        follow_fonts(win->detached.items[i], &win->main);
+    sync_detached(win);
     struct gui_rect r;
-    if (gui_app_paint(win->app, c, &r))
-        unite(&win->damage, &r);
-    present(win);
-    set_cursor(win, gui_app_cursor(win->app));
+    if (win->main.configured)
+    {
+        if (gui_app_paint(win->app, c, &r))
+            unite(&win->main.damage, &r);
+        present(&win->main);
+    }
+    for (int i = 0; i < win->detached.count; i++)
+    {
+        struct wl_view* d = win->detached.items[i];
+        if (!d->configured)
+            continue;
+        if (gui_surface_paint(win->app, d->detached, &d->canvas, &r))
+            unite(&d->damage, &r);
+        present(d);
+    }
+    struct wl_view* p = win->pointer_view;
+    if (p)
+        set_cursor(win, p->detached ? gui_surface_cursor(win->app, p->detached) : gui_app_cursor(win->app));
 }
 
-/* The event to the app; the paint waits until every queued event is taken
- * (the main loop), so a burst costs one frame. */
-static void post(struct wl_window* win, const struct gui_event* ev)
+/* The event to the app, for view `v` (NULL: the main one); the paint waits
+ * until every queued event is taken (the main loop), so a burst costs one
+ * frame. */
+static void post(struct wl_window* win, struct wl_view* v, const struct gui_event* ev)
 {
-    gui_app_event(win->app, ev);
+    if (v && v->detached)
+        gui_surface_event(win->app, v->detached, ev);
+    else
+        gui_app_event(win->app, ev);
     win->pending = 1;
 }
 
@@ -615,7 +757,7 @@ static void source_send(void* data, struct wl_data_source* s, const char* mime, 
 {
     (void)s; (void)mime;
     struct wl_window* win = data;
-    const char* text = win->canvas.clip_text ? win->canvas.clip_text : "";
+    const char* text = win->main.canvas.clip_text ? win->main.canvas.clip_text : "";
     size_t len = strlen(text), done = 0;
     while (done < len)
     {
@@ -797,25 +939,45 @@ static int current_mods(struct wl_window* win)
            (xkb_state_mod_name_is_active(s, XKB_MOD_NAME_ALT, XKB_STATE_MODS_EFFECTIVE) > 0 ? GUI_MOD_ALT : 0);
 }
 
+/* Our view whose wl_surface is `s`, or NULL. */
+static struct wl_view* view_of(struct wl_window* win, struct wl_surface* s)
+{
+    if (s && s == win->main.surface)
+        return &win->main;
+    for (int i = 0; s && i < win->detached.count; i++)
+    {
+        if (win->detached.items[i]->surface == s)
+            return win->detached.items[i];
+    }
+    return NULL;
+}
+
 static void pointer_enter(void* data, struct wl_pointer* p, uint32_t serial, struct wl_surface* s,
                           wl_fixed_t x, wl_fixed_t y)
 {
-    (void)p; (void)s;
+    (void)p;
     struct wl_window* win = data;
+    win->pointer_view = view_of(win, s);
     win->pointer_serial = serial;
     win->cursor_shown = 0;
     win->mouse_x = wl_fixed_to_int(x);
     win->mouse_y = wl_fixed_to_int(y);
-    set_cursor(win, gui_app_cursor(win->app));
+    struct wl_view* v = win->pointer_view;
+    if (v)
+        set_cursor(win, v->detached ? gui_surface_cursor(win->app, v->detached) : gui_app_cursor(win->app));
 }
 
 static void pointer_leave(void* data, struct wl_pointer* p, uint32_t serial, struct wl_surface* s)
 {
     (void)p; (void)serial; (void)s;
     struct wl_window* win = data;
+    struct wl_view* v = win->pointer_view;
+    win->pointer_view = NULL;
+    if (!v)
+        return;
     struct gui_event ev = { 0 };
     ev.type = GUI_EVENT_MOUSE_LEAVE;
-    post(win, &ev);
+    post(win, v, &ev);
 }
 
 static void pointer_motion(void* data, struct wl_pointer* p, uint32_t time, wl_fixed_t x, wl_fixed_t y)
@@ -829,7 +991,8 @@ static void pointer_motion(void* data, struct wl_pointer* p, uint32_t time, wl_f
     ev.x = win->mouse_x;
     ev.y = win->mouse_y;
     ev.mods = current_mods(win);
-    post(win, &ev);
+    if (win->pointer_view)
+        post(win, win->pointer_view, &ev);
 }
 
 static void pointer_button(void* data, struct wl_pointer* p, uint32_t serial, uint32_t time,
@@ -855,7 +1018,8 @@ static void pointer_button(void* data, struct wl_pointer* p, uint32_t serial, ui
         win->last_click_x = ev.x;
         win->last_click_y = ev.y;
     }
-    post(win, &ev);
+    if (win->pointer_view)
+        post(win, win->pointer_view, &ev);
 }
 
 static void pointer_axis(void* data, struct wl_pointer* p, uint32_t time, uint32_t axis, wl_fixed_t value)
@@ -872,8 +1036,8 @@ static void pointer_axis(void* data, struct wl_pointer* p, uint32_t time, uint32
         ev.wheel = (int)(-wl_fixed_to_double(value) * 12.0);
     else
         ev.hwheel = (int)(wl_fixed_to_double(value) * 12.0);
-    if (ev.wheel || ev.hwheel)
-        post(win, &ev);
+    if ((ev.wheel || ev.hwheel) && win->pointer_view)
+        post(win, win->pointer_view, &ev);
 }
 
 static void pointer_frame(void* data, struct wl_pointer* p) { (void)data; (void)p; }
@@ -953,7 +1117,7 @@ static void post_chars(struct wl_window* win, const char* text)
         struct gui_event ev = { 0 };
         ev.type = GUI_EVENT_CHAR;
         ev.ch = ch;
-        post(win, &ev);
+        post(win, win->keyboard_view, &ev);
     }
 }
 
@@ -970,7 +1134,7 @@ static void key_down(struct wl_window* win, uint32_t xkb_key)
         ev.type = GUI_EVENT_KEY;
         ev.key = key;
         ev.mods = mods;
-        post(win, &ev);
+        post(win, win->keyboard_view, &ev);
     }
     if (mods & (GUI_MOD_CTRL | GUI_MOD_ALT))
         return;
@@ -1027,9 +1191,10 @@ static void keyboard_keymap(void* data, struct wl_keyboard* k, uint32_t format, 
 static void keyboard_enter(void* data, struct wl_keyboard* k, uint32_t serial, struct wl_surface* s,
                            struct wl_array* keys)
 {
-    (void)k; (void)s; (void)keys;
+    (void)k; (void)keys;
     struct wl_window* win = data;
     win->serial = serial;
+    win->keyboard_view = view_of(win, s);
 }
 
 static void keyboard_leave(void* data, struct wl_keyboard* k, uint32_t serial, struct wl_surface* s)
@@ -1037,6 +1202,7 @@ static void keyboard_leave(void* data, struct wl_keyboard* k, uint32_t serial, s
     (void)k; (void)serial; (void)s;
     struct wl_window* win = data;
     win->repeat_key = 0;
+    win->keyboard_view = NULL;
 }
 
 static void keyboard_key(void* data, struct wl_keyboard* k, uint32_t serial, uint32_t time, uint32_t key,
@@ -1123,14 +1289,17 @@ static const struct xdg_wm_base_listener wm_base_listener = { wm_base_ping };
 
 static void xdg_surface_configure(void* data, struct xdg_surface* s, uint32_t serial)
 {
-    struct wl_window* win = data;
+    struct wl_view* v = data;
     xdg_surface_ack_configure(s, serial);
-    if (win->want_w > 0 && win->want_h > 0)
-        resize_canvas(win, win->want_w, win->want_h);
-    win->configured = 1;
-    win->damage = (struct gui_rect){ 0, 0, win->canvas.w, win->canvas.h };
-    gui_app_invalidate(win->app);
-    win->pending = 1;
+    if (v->want_w > 0 && v->want_h > 0)
+        resize_canvas(v, v->want_w, v->want_h);
+    v->configured = 1;
+    v->damage = (struct gui_rect){ 0, 0, v->canvas.w, v->canvas.h };
+    if (v->detached)
+        gui_surface_invalidate(v->owner->app, v->detached);
+    else
+        gui_app_invalidate(v->owner->app);
+    v->owner->pending = 1;
 }
 
 static const struct xdg_surface_listener xdg_surface_listener = { xdg_surface_configure };
@@ -1138,18 +1307,18 @@ static const struct xdg_surface_listener xdg_surface_listener = { xdg_surface_co
 static void toplevel_configure(void* data, struct xdg_toplevel* t, int32_t w, int32_t h, struct wl_array* states)
 {
     (void)t; (void)states;
-    struct wl_window* win = data;
-    win->want_w = w;   /* 0: ours to choose - the size we have */
-    win->want_h = h;
+    struct wl_view* v = data;
+    v->want_w = w;   /* 0: ours to choose - the size we have */
+    v->want_h = h;
 }
 
 static void toplevel_close(void* data, struct xdg_toplevel* t)
 {
     (void)t;
-    struct wl_window* win = data;
+    struct wl_view* v = data;
     struct gui_event ev = { 0 };
     ev.type = GUI_EVENT_CLOSE;
-    post(win, &ev);
+    post(v->owner, v, &ev);
 }
 
 static void toplevel_configure_bounds(void* data, struct xdg_toplevel* t, int32_t w, int32_t h)
@@ -1199,6 +1368,40 @@ static void registry_remove(void* data, struct wl_registry* reg, uint32_t name)
 
 static const struct wl_registry_listener registry_listener = { registry_global, registry_remove };
 
+/* A toplevel for `v`, its canvas `w` x `h`: drawn once the first configure
+ * comes. */
+static void view_open(struct wl_window* win, struct wl_view* v, int w, int h)
+{
+    v->owner = win;
+    resize_canvas(v, w, h);
+    v->surface = wl_compositor_create_surface(win->compositor);
+    v->xdg_surface = xdg_wm_base_get_xdg_surface(win->wm_base, v->surface);
+    xdg_surface_add_listener(v->xdg_surface, &xdg_surface_listener, v);
+    v->toplevel = xdg_surface_get_toplevel(v->xdg_surface);
+    xdg_toplevel_add_listener(v->toplevel, &toplevel_listener, v);
+    xdg_toplevel_set_title(v->toplevel, "Cake " CAKE_VERSION);
+    xdg_toplevel_set_app_id(v->toplevel, "cakeide");
+    if (win->decoration_manager)
+    {
+        /* the compositor's title bar and borders, where it draws them */
+        struct zxdg_toplevel_decoration_v1* deco =
+            zxdg_decoration_manager_v1_get_toplevel_decoration(win->decoration_manager, v->toplevel);
+        zxdg_toplevel_decoration_v1_set_mode(deco, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+    }
+    wl_surface_commit(v->surface);   /* the first configure answers this */
+}
+
+static void view_close(struct wl_view* v)
+{
+    for (int i = 0; i < 2; i++)
+        buffer_destroy(&v->buffers[i]);
+    if (v->toplevel) xdg_toplevel_destroy(v->toplevel);
+    if (v->xdg_surface) xdg_surface_destroy(v->xdg_surface);
+    if (v->surface) wl_surface_destroy(v->surface);
+    free(v->canvas.pixels);
+    v->canvas.pixels = NULL;
+}
+
 /* --- The loop --- */
 
 /* Waits for the compositor, the app's timer or the key repeat. */
@@ -1231,8 +1434,9 @@ int main(int argc, char** argv)
     setlocale(LC_ALL, "");
 
     struct wl_window win = { 0 };
-    struct gui_canvas* c = &win.canvas;
+    struct gui_canvas* c = &win.main.canvas;
     c->win = &win;
+    win.main.owner = &win;
     win.display = wl_display_connect(NULL);
     if (!win.display)
     {
@@ -1273,26 +1477,10 @@ int main(int argc, char** argv)
         fprintf(stderr, "no usable font (is fontconfig installed?)\n");
         return 1;
     }
-    resize_canvas(&win, DEFAULT_COLS * c->main.metrics.cell_w, DEFAULT_ROWS * c->main.metrics.cell_h);
-
-    win.surface = wl_compositor_create_surface(win.compositor);
-    win.xdg_surface = xdg_wm_base_get_xdg_surface(win.wm_base, win.surface);
-    xdg_surface_add_listener(win.xdg_surface, &xdg_surface_listener, &win);
-    win.toplevel = xdg_surface_get_toplevel(win.xdg_surface);
-    xdg_toplevel_add_listener(win.toplevel, &toplevel_listener, &win);
-    xdg_toplevel_set_title(win.toplevel, "Cake " CAKE_VERSION);
-    xdg_toplevel_set_app_id(win.toplevel, "cakeide");
-    if (win.decoration_manager)
-    {
-        /* the compositor's title bar and borders, where it draws them */
-        struct zxdg_toplevel_decoration_v1* deco =
-            zxdg_decoration_manager_v1_get_toplevel_decoration(win.decoration_manager, win.toplevel);
-        zxdg_toplevel_decoration_v1_set_mode(deco, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
-    }
+    view_open(&win, &win.main, DEFAULT_COLS * c->main.metrics.cell_w, DEFAULT_ROWS * c->main.metrics.cell_h);
     const char* size = getenv("XCURSOR_SIZE");
     win.cursor_theme = wl_cursor_theme_load(getenv("XCURSOR_THEME"), size && atoi(size) > 0 ? atoi(size) : 24, win.shm);
     win.cursor_surface = wl_compositor_create_surface(win.compositor);
-    wl_surface_commit(win.surface);   /* the first configure answers this */
 
     win.app = gui_app_create();
     offer_fonts(&win);
@@ -1319,20 +1507,28 @@ int main(int argc, char** argv)
             win.timer_due = now + win.timer_ms;
             struct gui_event ev = { 0 };
             ev.type = GUI_EVENT_TIMER;
-            post(&win, &ev);
+            post(&win, &win.main, &ev);
         }
         if (win.repeat_key && now >= win.repeat_due)
         {
             win.repeat_due = now + (win.repeat_rate > 0 ? 1000 / win.repeat_rate : 40);
             key_down(&win, win.repeat_key);
         }
-        if (win.frame_pending)
-            present(&win);   /* a buffer came back: show what waited */
+        if (win.main.frame_pending)
+            present(&win.main);   /* a buffer came back: show what waited */
+        for (int i = 0; i < win.detached.count; i++)
+        {
+            if (win.detached.items[i]->frame_pending)
+                present(win.detached.items[i]);
+        }
     }
 
+    while (win.detached.count > 0)
+        detached_close(&win, win.detached.items[win.detached.count - 1]);
+    free(win.detached.items);
     gui_app_free(win.app);
     for (int i = 0; i < 2; i++)
-        buffer_destroy(&win.buffers[i]);
+        buffer_destroy(&win.main.buffers[i]);
     font_free(&c->main);
     font_free(&c->small_font);
     FT_Done_FreeType(c->ft);
@@ -1344,9 +1540,9 @@ int main(int argc, char** argv)
     if (win.keymap) xkb_keymap_unref(win.keymap);
     if (win.xkb) xkb_context_unref(win.xkb);
     if (win.cursor_theme) wl_cursor_theme_destroy(win.cursor_theme);
-    xdg_toplevel_destroy(win.toplevel);
-    xdg_surface_destroy(win.xdg_surface);
-    wl_surface_destroy(win.surface);
+    xdg_toplevel_destroy(win.main.toplevel);
+    xdg_surface_destroy(win.main.xdg_surface);
+    wl_surface_destroy(win.main.surface);
     wl_display_disconnect(win.display);
     return 0;
 }

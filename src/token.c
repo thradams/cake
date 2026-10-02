@@ -1875,7 +1875,9 @@ static void rename_item_free(_Dtor struct rename_item* p)
 void rename_list_clear(_Clear struct rename_list* p)
 {
     for (int i = 0; i < p->size; i++)
+    {
         rename_item_free(&p->data[i]);
+    }
     free(p->data);
     p->data = NULL;
     p->size = 0;
@@ -1985,7 +1987,7 @@ bool rename_list_commit(struct rename_list* list, const struct options* options)
                 struct rename_item* _Owner _Opt p = realloc(list->data, capacity * sizeof(struct rename_item));
                 if (p == NULL)
                     break;
-                list->data = p;
+                list->data = p; //lint 26
                 list->capacity = capacity;
             }
 

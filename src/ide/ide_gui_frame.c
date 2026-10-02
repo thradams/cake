@@ -30,9 +30,34 @@ struct frame
     int cps_count, cps_cap;
 };
 
-static struct frame frames[2];
-static int current;          /* the frame being recorded */
-static int full = 1;         /* the next paint draws everything */
+struct frame_recorder
+{
+    struct frame frames[2];
+    int current;                 /* the frame being recorded */
+    int full;                    /* the next paint draws everything */
+    struct gui_canvas* canvas;   /* the backend's, for this paint */
+};
+
+struct frame_recorder* frame_create(void)
+{
+    struct frame_recorder* r = calloc(1, sizeof *r);
+    if (!r)
+        abort();
+    r->full = 1;
+    return r;
+}
+
+void frame_free(struct frame_recorder* r)
+{
+    if (!r)
+        return;
+    for (int i = 0; i < 2; i++)
+    {
+        free(r->frames[i].ops);
+        free(r->frames[i].cps);
+    }
+    free(r);
+}
 
 static void grow(void** items, int* cap, int need, size_t size)
 {
@@ -48,9 +73,9 @@ static void grow(void** items, int* cap, int need, size_t size)
     *cap = c;
 }
 
-static struct op* add(enum op_kind kind, int x, int y, int w, int h)
+static struct op* add(struct frame_recorder* r, enum op_kind kind, int x, int y, int w, int h)
 {
-    struct frame* f = &frames[current];
+    struct frame* f = &r->frames[r->current];
     grow((void**)&f->ops, &f->cap, f->count + 1, sizeof *f->ops);
     struct op* o = &f->ops[f->count++];
     memset(o, 0, sizeof *o);
@@ -62,46 +87,44 @@ static struct op* add(enum op_kind kind, int x, int y, int w, int h)
     return o;
 }
 
-void frame_invalidate(void)
+void frame_invalidate(struct frame_recorder* r)
 {
-    full = 1;
+    r->full = 1;
 }
 
-void frame_begin(void)
+void frame_begin(struct frame_recorder* r, struct gui_canvas* c)
 {
-    frames[current].count = 0;
-    frames[current].cps_count = 0;
+    r->canvas = c;
+    r->frames[r->current].count = 0;
+    r->frames[r->current].cps_count = 0;
 }
 
-void frame_fill_rect(struct gui_canvas* c, int x, int y, int w, int h, uint32_t rgb)
+void frame_fill_rect(struct frame_recorder* r, int x, int y, int w, int h, uint32_t rgb)
 {
-    (void)c;
     if (w > 0 && h > 0)
-        add(OP_FILL, x, y, w, h)->a = rgb;
+        add(r, OP_FILL, x, y, w, h)->a = rgb;
 }
 
-void frame_shade_rect(struct gui_canvas* c, int x, int y, int w, int h, int alpha)
+void frame_shade_rect(struct frame_recorder* r, int x, int y, int w, int h, int alpha)
 {
-    (void)c;
     if (w > 0 && h > 0)
-        add(OP_SHADE, x, y, w, h)->a = (uint32_t)alpha;
+        add(r, OP_SHADE, x, y, w, h)->a = (uint32_t)alpha;
 }
 
-void frame_set_clip(struct gui_canvas* c, int x, int y, int w, int h)
+void frame_set_clip(struct frame_recorder* r, int x, int y, int w, int h)
 {
-    (void)c;
-    add(OP_CLIP, x, y, w > 0 && h > 0 ? w : 0, w > 0 && h > 0 ? h : 0);
+    add(r, OP_CLIP, x, y, w > 0 && h > 0 ? w : 0, w > 0 && h > 0 ? h : 0);
 }
 
-void frame_draw_text(struct gui_canvas* c, int x, int y, const uint32_t* cps, int count,
+void frame_draw_text(struct frame_recorder* r, int x, int y, const uint32_t* cps, int count,
                      uint32_t fg, uint32_t bg, enum gui_font font)
 {
     if (count <= 0)
         return;
-    struct gui_metrics m = gui_font_metrics(c, font);
-    struct frame* f = &frames[current];
+    struct gui_metrics m = gui_font_metrics(r->canvas, font);
+    struct frame* f = &r->frames[r->current];
     grow((void**)&f->cps, &f->cps_cap, f->cps_count + count, sizeof *f->cps);
-    struct op* o = add(OP_TEXT, x, y, count * m.cell_w, m.cell_h);
+    struct op* o = add(r, OP_TEXT, x, y, count * m.cell_w, m.cell_h);
     o->a = fg;
     o->b = bg;
     o->font = (int)font;
@@ -146,15 +169,16 @@ static int intersect(const struct gui_rect* a, int x, int y, int w, int h, struc
     return out->w > 0 && out->h > 0;
 }
 
-int frame_end(struct gui_canvas* c, int width, int height, struct gui_rect* painted)
+int frame_end(struct frame_recorder* r, int width, int height, struct gui_rect* painted)
 {
-    struct frame* now = &frames[current];
-    struct frame* before = &frames[!current];
+    struct gui_canvas* c = r->canvas;
+    struct frame* now = &r->frames[r->current];
+    struct frame* before = &r->frames[!r->current];
     struct gui_rect dirty = { 0, 0, 0, 0 };
-    if (full)
+    if (r->full)
     {
         dirty = (struct gui_rect){ 0, 0, width, height };
-        full = 0;
+        r->full = 0;
     }
     else
     {
@@ -176,13 +200,13 @@ int frame_end(struct gui_canvas* c, int width, int height, struct gui_rect* pain
         struct gui_rect screen = { 0, 0, width, height };
         if (!intersect(&screen, dirty.x, dirty.y, dirty.w, dirty.h, &dirty))
         {
-            current = !current;
+            r->current = !r->current;
             return 0;   /* the same picture: nothing to draw or copy */
         }
     }
 
     /* the calls that touch the dirty rect, clipped to it */
-    struct gui_rect clip = dirty, r;
+    struct gui_rect clip = dirty, hit;
     gui_set_clip(c, dirty.x, dirty.y, dirty.w, dirty.h);
     for (int i = 0; i < now->count; i++)
     {
@@ -197,7 +221,7 @@ int frame_end(struct gui_canvas* c, int width, int height, struct gui_rect* pain
                 gui_set_clip(c, clip.x, clip.y, clip.w, clip.h);
             continue;
         }
-        if (clip.w <= 0 || !intersect(&clip, o->x, o->y, o->w, o->h, &r))
+        if (clip.w <= 0 || !intersect(&clip, o->x, o->y, o->w, o->h, &hit))
             continue;
         switch (o->kind)
         {
@@ -211,6 +235,6 @@ int frame_end(struct gui_canvas* c, int width, int height, struct gui_rect* pain
     }
     gui_set_clip(c, 0, 0, 0, 0);
     *painted = dirty;
-    current = !current;
+    r->current = !r->current;
     return 1;
 }

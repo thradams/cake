@@ -195,6 +195,13 @@ static int is_digit(char c)
     return c >= '0' && c <= '9';
 }
 
+static int skip_blanks(const char* line, int len, int i)
+{
+    while (i < len && (line[i] == ' ' || line[i] == '\t'))
+        i++;
+    return i;
+}
+
 int ide_highlight_c(void* ctx, const char* line, int len, int* state,
                      struct gui_span* spans, int max)
 {
@@ -203,6 +210,8 @@ int ide_highlight_c(void* ctx, const char* line, int len, int* state,
     int depth = *state >> 1;
     int n = 0, i = 0;
     int pending_tag = 0;   /* the last word was struct/union/enum */
+    int in_attr = 0;       /* inside a C23 [[attribute]] */
+    int attr_depth = 0;    /* open [ inside the attribute */
 
     /* A preprocessor line: the '#' and its directive word. */
     int k = 0;
@@ -271,7 +280,9 @@ int ide_highlight_c(void* ctx, const char* line, int len, int* state,
             int next = i;
             while (next < len && (line[next] == ' ' || line[next] == '\t'))
                 next++;
-            if (is_c_keyword1(line + start, wlen))
+            if (in_attr)
+                n = add_span(spans, n, max, start, wlen, t->editor_attribute_fg);
+            else if (is_c_keyword1(line + start, wlen))
                 n = add_span(spans, n, max, start, wlen, t->editor_keyword_fg);
             else if (is_c_keyword2(line + start, wlen))
                 n = add_span(spans, n, max, start, wlen, t->editor_keyword2_fg);
@@ -281,6 +292,35 @@ int ide_highlight_c(void* ctx, const char* line, int len, int* state,
                 n = add_span(spans, n, max, start, wlen, t->editor_function_fg);
             pending_tag = is_c_tag_keyword(line + start, wlen);
             continue;
+        }
+        else if (!in_attr && c == '[' && skip_blanks(line, len, i + 1) < len &&
+                 line[skip_blanks(line, len, i + 1)] == '[')
+        {
+            int second = skip_blanks(line, len, i + 1);
+            n = add_span(spans, n, max, i, 1, t->editor_attribute_fg);
+            n = add_span(spans, n, max, second, 1, t->editor_attribute_fg);
+            in_attr = 1;
+            attr_depth = 0;
+            i = second + 1;
+        }
+        else if (in_attr && c == '[')
+        {
+            attr_depth++;
+            i++;
+        }
+        else if (in_attr && c == ']' && attr_depth > 0)
+        {
+            attr_depth--;
+            i++;
+        }
+        else if (in_attr && c == ']' && skip_blanks(line, len, i + 1) < len &&
+                 line[skip_blanks(line, len, i + 1)] == ']')
+        {
+            int second = skip_blanks(line, len, i + 1);
+            n = add_span(spans, n, max, i, 1, t->editor_attribute_fg);
+            n = add_span(spans, n, max, second, 1, t->editor_attribute_fg);
+            in_attr = 0;
+            i = second + 1;
         }
         else if (c == '(' || c == '[' || c == '{')
         {
@@ -314,6 +354,20 @@ int ide_highlight_c(void* ctx, const char* line, int len, int* state,
 
 /* One line, byte by byte: `emit(i, n, fg, delim)` for bytes i .. i+n-1;
  * delim: Markdown punctuation, not text. *in_block: inside a ``` block. */
+/* The length of the bare http(s) URL at `p`, up to a blank, quote or
+ * bracket, without a trailing '.', ',', ';' or ':'; 0 if none starts there. */
+static int md_url_len(const char* p, int len)
+{
+    int k = len >= 7 && memcmp(p, "http://", 7) == 0 ? 7 : len >= 8 && memcmp(p, "https://", 8) == 0 ? 8 : 0;
+    if (k == 0)
+        return 0;
+    while (k < len && !strchr(" \t\r\n()<>[]\"'`", p[k]))
+        k++;
+    while (k > 0 && strchr(".,;:", p[k - 1]))
+        k--;
+    return k;
+}
+
 static void md_scan(const struct gui_theme* t, const char* line, int len, int* in_block,
                     void (*emit)(void* ctx, int i, int n, uint32_t fg, int delim), void* ctx)
 {
@@ -336,7 +390,7 @@ static void md_scan(const struct gui_theme* t, const char* line, int len, int* i
     int in_span = 0, in_bold = 0, in_link = 0, in_dest = 0, in_comment = 0;
     for (int i = 0; i < len;)
     {
-        int n = 1, delim = 0, code_mark = 0, bold_mark = 0, link_mark = 0;
+        int n = 1, delim = 0, code_mark = 0, bold_mark = 0, link_mark = 0, url = 0;
         char c = line[i];
         if (in_comment)
         {
@@ -348,7 +402,9 @@ static void md_scan(const struct gui_theme* t, const char* line, int len, int* i
             delim = 1, n = len - i;
         else if (!code_block)
         {
-            if (c == '`')
+            if (!in_span && !in_dest && (url = md_url_len(line + i, len - i)) > 0)
+                n = url;
+            else if (c == '`')
                 delim = code_mark = 1, in_span = !in_span;
             else if (c == '*' && i + 1 < len && line[i + 1] == '*')
                 delim = bold_mark = 1, n = 2, in_bold = !in_bold;
@@ -380,7 +436,7 @@ static void md_scan(const struct gui_theme* t, const char* line, int len, int* i
                     : heading ? t->md_heading_fg
                     : quote ? t->md_blockquote_fg
                     : (in_span || code_mark) ? t->md_code_fg
-                    : (in_link || link_mark) ? t->md_link_fg
+                    : (in_link || link_mark || url) ? t->md_link_fg
                     : t->editor_fg;
         if (in_bold || bold_mark)
             fg = t->md_bold_fg;
@@ -406,6 +462,20 @@ static void md_emit_span(void* ctx, int i, int n, uint32_t fg, int delim)
         s->spans[s->count - 1].len += n;
     else if (s->count < s->max)
         s->spans[s->count++] = (struct gui_span){ i, n, fg };
+}
+
+int ide_highlight_string(void* ctx, const char* line, int len, int* state,
+                         struct gui_span* spans, int max)
+{
+    const struct gui_theme* t = ctx;
+    (void)line;
+    (void)state;
+    if (max < 1 || len == 0)
+        return 0;
+    spans[0].start = 0;
+    spans[0].len = len;
+    spans[0].fg = t->editor_string_fg;
+    return 1;
 }
 
 int ide_highlight_md(void* ctx, const char* line, int len, int* state,

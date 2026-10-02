@@ -8,6 +8,7 @@
 #include "ide_gui_internal.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <string.h>
 
 void* core_calloc(size_t n, size_t size)
@@ -100,7 +101,7 @@ int core_utf8_prefix_bytes(const char* s, int cells)
  * instead. 0 when `cp` is not one of them. */
 int core_draw_symbol(const struct paint* p, int x, int y, int cw, int ch, uint32_t cp, uint32_t fg, uint32_t bg)
 {
-    void* c = p->canvas;
+    void* c = p->frame;
     switch (cp)
     {
     case 0x2588: case 0x2580: case 0x2584:   /* full, upper half, lower half block */
@@ -205,7 +206,7 @@ int core_draw_utf8(const struct paint* p, int x, int y, const char* s, int bytes
             /* the run so far, then the symbol in its own cell */
             if (count > 0)
             {
-                gui_draw_text(p->canvas, x, y, run, count, fg, bg, p->font);
+                gui_draw_text(p->frame, x, y, run, count, fg, bg, p->font);
                 x += count * cell_w;
                 count = 0;
             }
@@ -227,14 +228,14 @@ int core_draw_utf8(const struct paint* p, int x, int y, const char* s, int bytes
         run[count++] = cp;
         if (count == (int)(sizeof run / sizeof run[0]))
         {
-            gui_draw_text(p->canvas, x, y, run, count, fg, bg, p->font);
+            gui_draw_text(p->frame, x, y, run, count, fg, bg, p->font);
             x += count * cell_w;
             count = 0;
         }
     }
     if (count > 0)
     {
-        gui_draw_text(p->canvas, x, y, run, count, fg, bg, p->font);
+        gui_draw_text(p->frame, x, y, run, count, fg, bg, p->font);
         x += count * cell_w;
     }
     return x;
@@ -252,10 +253,13 @@ struct gui_app* gui_app_create(void)
 {
     struct gui_app* app = core_calloc(1, sizeof *app);
     app->root = gui_create(app, GUI_SCREEN);
+    app->frame = frame_create();
     app->mouse_x = -1;
     app->mouse_y = -1;
     app->needs_layout = 1;
     app->needs_paint = 1;
+    app->main_surface.root = app->root;
+    app->active = &app->main_surface;
     return app;
 }
 
@@ -273,13 +277,21 @@ static void node_free(struct gui_node* n)
     free(n);
 }
 
+static void surface_free(struct gui_surface* s);
+static struct gui_surface* surface_enter(struct gui_app* app, struct gui_surface* s);
+
 void gui_app_free(struct gui_app* app)
 {
     if (!app)
         return;
+    surface_enter(app, &app->main_surface);
+    for (int i = 0; i < app->surfaces.count; i++)
+        surface_free(app->surfaces.items[i]);
+    free(app->surfaces.items);
     node_free(app->root);
     free(app->windows.items);
     free(app->tooltip);
+    frame_free(app->frame);
     free(app);
 }
 
@@ -485,6 +497,11 @@ void gui_set_hint(struct gui_node* n, const char* utf8)
     char* copy = core_strdup(utf8);
     free(n->hint);
     n->hint = copy;
+}
+
+void gui_set_hint_highlighter(struct gui_app* app, const struct gui_highlighter* h)
+{
+    app->hint_highlighter = h;
 }
 
 void gui_set_theme(struct gui_app* app, const struct gui_theme* theme)
@@ -856,8 +873,21 @@ static void window_remove(struct gui_app* app, int index)
     list->count--;
 }
 
+static struct gui_surface* surface_of_window(const struct gui_app* app, const struct gui_node* win);
+static struct gui_surface* surface_enter(struct gui_app* app, struct gui_surface* s);
+
 void gui_window_open(struct gui_app* app, struct gui_node* win)
 {
+    struct gui_surface* owner = surface_of_window(app, win);
+    if (owner && owner != app->active)
+    {
+        /* open in another OS window: to the top there, and that OS window to the front */
+        struct gui_surface* prev = surface_enter(app, owner);
+        gui_window_open(app, win);
+        surface_enter(app, prev);
+        owner->want_raise = 1;
+        return;
+    }
     struct window_list* list = &app->windows;
     int index = window_index(app, win);
     if (index >= 0)
@@ -903,10 +933,23 @@ void gui_window_center(struct gui_app* app, struct gui_node* win)
 
 void gui_window_close(struct gui_app* app, struct gui_node* win)
 {
+    struct gui_surface* owner = surface_of_window(app, win);
+    if (owner && owner != app->active)
+    {
+        struct gui_surface* prev = surface_enter(app, owner);
+        gui_window_close(app, win);
+        surface_enter(app, prev);
+        return;
+    }
     int index = window_index(app, win);
     if (index < 0)
         return;
     window_remove(app, index);
+    if (app->active->detached == win)
+    {
+        app->active->detached = NULL;   /* its OS window goes */
+        app->active->closing = 1;
+    }
     if (app->drag.win == win)
         app->drag.mode = DRAG_NONE;
     widget_forget(app, win);
@@ -1027,6 +1070,300 @@ static struct gui_node* window_of(struct gui_node* n)
     return NULL;
 }
 
+/* --- Surfaces: the main OS window and the detached ones --- */
+
+static void surface_store(const struct gui_app* app, struct gui_surface* s)
+{
+    s->root = app->root;
+    s->w = app->w;
+    s->h = app->h;
+    s->mouse_x = app->mouse_x;
+    s->mouse_y = app->mouse_y;
+    s->mouse_mods = app->mouse_mods;
+    s->menu = app->menu;
+    s->windows = app->windows;
+    s->drag = app->drag;
+    s->ui = app->ui;
+    s->tooltip = app->tooltip;
+    s->tooltip_x = app->tooltip_x;
+    s->tooltip_y = app->tooltip_y;
+    s->frame = app->frame;
+}
+
+static void surface_load(struct gui_app* app, const struct gui_surface* s)
+{
+    app->root = s->root;
+    app->w = s->w;
+    app->h = s->h;
+    app->mouse_x = s->mouse_x;
+    app->mouse_y = s->mouse_y;
+    app->mouse_mods = s->mouse_mods;
+    app->menu = s->menu;
+    app->windows = s->windows;
+    app->drag = s->drag;
+    app->ui = s->ui;
+    app->tooltip = s->tooltip;
+    app->tooltip_x = s->tooltip_x;
+    app->tooltip_y = s->tooltip_y;
+    app->frame = s->frame;
+}
+
+/* Makes `s` the one the core works on; returns the one that was, to go
+ * back to. */
+static struct gui_surface* surface_enter(struct gui_app* app, struct gui_surface* s)
+{
+    struct gui_surface* prev = app->active;
+    if (s != prev)
+    {
+        surface_store(app, prev);
+        surface_load(app, s);
+        app->active = s;
+    }
+    return prev;
+}
+
+static void surface_free(struct gui_surface* s)
+{
+    node_free(s->root);
+    free(s->windows.items);
+    free(s->tooltip);
+    frame_free(s->frame);
+    free(s);
+}
+
+/* needs_layout / needs_paint concern every surface: each gets its own
+ * flag, cleared when it is laid out / painted. */
+static void surface_spread_dirty(struct gui_app* app)
+{
+    if (!app->needs_layout && !app->needs_paint)
+        return;
+    struct gui_surface* m = &app->main_surface;
+    m->dirty_layout |= app->needs_layout;
+    m->dirty_paint |= app->needs_paint;
+    for (int i = 0; i < app->surfaces.count; i++)
+    {
+        app->surfaces.items[i]->dirty_layout |= app->needs_layout;
+        app->surfaces.items[i]->dirty_paint |= app->needs_paint;
+    }
+    app->needs_layout = 0;
+    app->needs_paint = 0;
+}
+
+static int list_has(const struct window_list* list, const struct gui_node* win)
+{
+    for (int i = 0; i < list->count; i++)
+    {
+        if (list->items[i] == win)
+            return 1;
+    }
+    return 0;
+}
+
+/* The surface `win` is open in, or NULL. */
+static struct gui_surface* surface_of_window(const struct gui_app* app, const struct gui_node* win)
+{
+    if (list_has(&app->windows, win))
+        return app->active;
+    if (app->active != &app->main_surface && list_has(&app->main_surface.windows, win))
+        return (struct gui_surface*)&app->main_surface;
+    for (int i = 0; i < app->surfaces.count; i++)
+    {
+        struct gui_surface* s = app->surfaces.items[i];
+        if (s != app->active && list_has(&s->windows, win))
+            return s;
+    }
+    return NULL;
+}
+
+/* The menus and the statusbar live in the main surface; a detached one
+ * runs their shortcuts too. */
+static struct gui_node* main_root(const struct gui_app* app)
+{
+    return app->main_surface.root;
+}
+
+struct gui_surface* core_surface_of_node(const struct gui_app* app, const struct gui_node* n)
+{
+    const struct gui_node* win = n;
+    while (win && win->kind != GUI_WINDOW)
+        win = win->parent;
+    return win ? surface_of_window(app, win) : NULL;
+}
+
+int gui_can_detach(const struct gui_app* app)
+{
+    (void)app;
+    return gui_backend_can_detach();
+}
+
+int gui_window_get_detached(const struct gui_app* app, const struct gui_node* win)
+{
+    for (int i = 0; i < app->surfaces.count; i++)
+    {
+        if (app->surfaces.items[i]->detached == win)
+            return 1;
+    }
+    return 0;
+}
+
+void gui_window_detach(struct gui_app* app, struct gui_node* win)
+{
+    if (!gui_can_detach(app) || surface_of_window(app, win) != &app->main_surface)
+        return;
+    struct gui_surface* prev = surface_enter(app, &app->main_surface);
+    struct gui_surface* s = core_calloc(1, sizeof *s);
+    s->restore = win->window->maximized ? win->window->restore : win->rect;
+    s->restore_maximized = win->window->maximized;
+    int w = win->rect.w, h = win->rect.h;
+    int focused = app->ui.focused && window_of(app->ui.focused) == win;
+    struct gui_node* focus = focused ? app->ui.focused : NULL;
+    gui_window_close(app, win);
+
+    s->root = gui_create(app, GUI_SCREEN);
+    s->w = w;
+    s->h = h;
+    s->mouse_x = -1;
+    s->mouse_y = -1;
+    s->frame = frame_create();
+    s->detached = win;
+    s->want_open = 1;
+    struct surface_list* list = &app->surfaces;
+    if (list->count == list->cap)
+    {
+        int cap = list->cap ? list->cap * 2 : 4;
+        struct gui_surface** items = realloc(list->items, (size_t)cap * sizeof *items);
+        if (!items)
+            abort();
+        list->items = items;
+        list->cap = cap;
+    }
+    list->items[list->count++] = s;
+
+    surface_enter(app, s);
+    gui_window_open(app, win);
+    gui_window_maximize(app, win);
+    app->ui.focused = focus;
+    surface_enter(app, prev == s ? &app->main_surface : prev);
+    app->needs_layout = 1;
+    app->needs_paint = 1;
+}
+
+void gui_window_attach(struct gui_app* app, struct gui_node* win)
+{
+    struct gui_surface* s = surface_of_window(app, win);
+    if (!s || s->detached != win)
+        return;
+    struct gui_surface* prev = surface_enter(app, s);
+    int focused = app->ui.focused && window_of(app->ui.focused) == win;
+    struct gui_node* focus = focused ? app->ui.focused : NULL;
+    gui_window_close(app, win);   /* marks s closing */
+    surface_enter(app, &app->main_surface);
+    win->window->maximized = 0;
+    win->rect = s->restore;
+    gui_window_open(app, win);
+    if (s->restore_maximized)
+        gui_window_maximize(app, win);
+    if (focus)
+        app->ui.focused = focus;
+    surface_enter(app, prev == s ? &app->main_surface : prev);
+    app->needs_layout = 1;
+    app->needs_paint = 1;
+}
+
+struct gui_surface* gui_app_take_surface_open(struct gui_app* app, int* w, int* h)
+{
+    for (int i = 0; i < app->surfaces.count; i++)
+    {
+        struct gui_surface* s = app->surfaces.items[i];
+        if (s->want_open && !s->closing)
+        {
+            s->want_open = 0;
+            *w = s->w;
+            *h = s->h;
+            return s;
+        }
+    }
+    return NULL;
+}
+
+void gui_surface_start(struct gui_app* app, struct gui_surface* s, void* native, int w, int h)
+{
+    s->native = native;
+    gui_surface_resize(app, s, w, h);
+}
+
+void* gui_app_take_surface_raise(struct gui_app* app)
+{
+    for (int i = 0; i < app->surfaces.count; i++)
+    {
+        struct gui_surface* s = app->surfaces.items[i];
+        if (s->want_raise && s->native && !s->closing)
+        {
+            s->want_raise = 0;
+            return s->native;
+        }
+    }
+    return NULL;
+}
+
+void* gui_app_take_surface_close(struct gui_app* app)
+{
+    for (int i = 0; i < app->surfaces.count; i++)
+    {
+        struct gui_surface* s = app->surfaces.items[i];
+        if (!s->closing || s == app->active)
+            continue;
+        void* native = s->native;
+        struct surface_list* list = &app->surfaces;
+        for (int k = i; k < list->count - 1; k++)
+            list->items[k] = list->items[k + 1];
+        list->count--;
+        surface_free(s);
+        return native;
+    }
+    return NULL;
+}
+
+void gui_surface_resize(struct gui_app* app, struct gui_surface* s, int w, int h)
+{
+    struct gui_surface* prev = surface_enter(app, s);
+    frame_invalidate(app->frame);   /* a new size: a new back buffer */
+    app->w = w;
+    app->h = h;
+    app->needs_layout = 1;
+    app->needs_paint = 1;
+    surface_enter(app, prev);
+}
+
+void gui_surface_invalidate(struct gui_app* app, struct gui_surface* s)
+{
+    struct gui_surface* prev = surface_enter(app, s);
+    frame_invalidate(app->frame);
+    app->needs_paint = 1;
+    surface_enter(app, prev);
+}
+
+void gui_surface_event(struct gui_app* app, struct gui_surface* s, const struct gui_event* ev)
+{
+    if (ev->type == GUI_EVENT_CLOSE)
+    {
+        if (s->detached)
+            gui_window_attach(app, s->detached);
+        return;
+    }
+    struct gui_surface* prev = surface_enter(app, s);
+    gui_app_event(app, ev);
+    surface_enter(app, prev);
+}
+
+enum gui_cursor gui_surface_cursor(struct gui_app* app, struct gui_surface* s)
+{
+    struct gui_surface* prev = surface_enter(app, s);
+    enum gui_cursor cursor = gui_app_cursor(app);
+    surface_enter(app, prev);
+    return cursor;
+}
+
 int gui_window_count(const struct gui_app* app)
 {
     return app->windows.count;
@@ -1039,6 +1376,14 @@ struct gui_node* gui_window_at(const struct gui_app* app, int i)
 
 void gui_window_maximize(struct gui_app* app, struct gui_node* win)
 {
+    struct gui_surface* owner = surface_of_window(app, win);
+    if (owner && owner != app->active)
+    {
+        struct gui_surface* prev = surface_enter(app, owner);
+        gui_window_maximize(app, win);
+        surface_enter(app, prev);
+        return;
+    }
     if (!win->window->maximized)
         win->window->restore = win->rect;
     win->window->maximized = 1;
@@ -1585,6 +1930,8 @@ static void context_menu_at(struct gui_app* app)
     if (!win || (modal && win != modal))
         return;
     struct gui_node* target = widget_at(app, win, app->mouse_x, app->mouse_y);
+    if (target && target->kind == GUI_EDITOR)
+        editor_context_click(app, target);   /* the menu acts where the click was */
     while (target && target != win && !target->context_menu)
         target = target->parent;
     if (!target || target == win)
@@ -1684,7 +2031,7 @@ static void mouse_up(struct gui_app* app, int button)
  * the plain keys - F1 for Help works over any dialog. */
 static int run_statusbar_hotkey(struct gui_app* app, int key, int mods, int modal)
 {
-    struct gui_node* statusbar = core_find_kind(app->root, GUI_STATUSBAR);
+    struct gui_node* statusbar = core_find_kind(main_root(app), GUI_STATUSBAR);
     for (int i = 0; statusbar && i < statusbar->child_count; i++)
     {
         struct gui_node* h = statusbar->children[i];
@@ -1702,7 +2049,7 @@ static int run_shortcut(struct gui_app* app, int key, int mods)
 {
     if (run_statusbar_hotkey(app, key, mods, 0))
         return 1;
-    struct gui_node* menubar = core_find_kind(app->root, GUI_MENUBAR);
+    struct gui_node* menubar = core_find_kind(main_root(app), GUI_MENUBAR);
     if (!menubar)
         return 0;
     for (int i = 0; i < menubar->child_count; i++)
@@ -1871,10 +2218,10 @@ int core_line_weight(const struct gui_app* app)
 static void draw_outline(const struct paint* p, int x0, int y0, int x1, int y1, int t,
                          uint32_t color)
 {
-    gui_fill_rect(p->canvas, x0, y0, x1 - x0 + t, t, color);   /* top */
-    gui_fill_rect(p->canvas, x0, y1, x1 - x0 + t, t, color);   /* bottom */
-    gui_fill_rect(p->canvas, x0, y0, t, y1 - y0 + t, color);   /* left */
-    gui_fill_rect(p->canvas, x1, y0, t, y1 - y0 + t, color);   /* right */
+    gui_fill_rect(p->frame, x0, y0, x1 - x0 + t, t, color);   /* top */
+    gui_fill_rect(p->frame, x0, y1, x1 - x0 + t, t, color);   /* bottom */
+    gui_fill_rect(p->frame, x0, y0, t, y1 - y0 + t, color);   /* left */
+    gui_fill_rect(p->frame, x1, y0, t, y1 - y0 + t, color);   /* right */
 }
 
 /* A one-cell frame around `r`: the border cells filled with `bg`, then the
@@ -1885,10 +2232,10 @@ void core_draw_frame(const struct paint* p, const struct gui_rect* r,
 {
     int cw = p->app->metrics.cell_w, ch = p->app->metrics.cell_h;
     int t = core_line_weight(p->app);
-    gui_fill_rect(p->canvas, r->x, r->y, r->w, ch, bg);
-    gui_fill_rect(p->canvas, r->x, r->y + r->h - ch, r->w, ch, bg);
-    gui_fill_rect(p->canvas, r->x, r->y, cw, r->h, bg);
-    gui_fill_rect(p->canvas, r->x + r->w - cw, r->y, cw, r->h, bg);
+    gui_fill_rect(p->frame, r->x, r->y, r->w, ch, bg);
+    gui_fill_rect(p->frame, r->x, r->y + r->h - ch, r->w, ch, bg);
+    gui_fill_rect(p->frame, r->x, r->y, cw, r->h, bg);
+    gui_fill_rect(p->frame, r->x + r->w - cw, r->y, cw, r->h, bg);
 
     int x0 = r->x + cw / 2, y0 = r->y + ch / 2;
     int x1 = r->x + r->w - cw + cw / 2, y1 = r->y + r->h - ch + ch / 2;
@@ -1912,11 +2259,11 @@ void core_draw_shadow(const struct paint* p, const struct gui_rect* r)
     int cw = p->app->metrics.cell_w, ch = p->app->metrics.cell_h;
     int half = ch / 2;
     int alpha = 110;   /* ~43% black, as in the old IDE */
-    gui_shade_rect(p->canvas, r->x + r->w, r->y + ch - half, cw, half, alpha);
+    gui_shade_rect(p->frame, r->x + r->w, r->y + ch - half, cw, half, alpha);
     if (r->h > ch)
-        gui_shade_rect(p->canvas, r->x + r->w, r->y + ch, cw, r->h - ch, alpha);
-    gui_shade_rect(p->canvas, r->x + r->w, r->y + r->h, cw, half, alpha);
-    gui_shade_rect(p->canvas, r->x + cw, r->y + r->h, r->w - cw, half, alpha);
+        gui_shade_rect(p->frame, r->x + r->w, r->y + ch, cw, r->h - ch, alpha);
+    gui_shade_rect(p->frame, r->x + r->w, r->y + r->h, cw, half, alpha);
+    gui_shade_rect(p->frame, r->x + cw, r->y + r->h, r->w - cw, half, alpha);
 }
 
 static void paint_dropdown(const struct paint* p, const struct gui_node* menu,
@@ -1935,8 +2282,8 @@ static void paint_dropdown(const struct paint* p, const struct gui_node* menu,
         const struct gui_rect* r = &it->rect;
         if (it->separator)
         {
-            gui_fill_rect(p->canvas, r->x, r->y, r->w, r->h, t->menu_border_bg);
-            gui_fill_rect(p->canvas, r->x, r->y + ch / 2, r->w, core_line_weight(p->app),
+            gui_fill_rect(p->frame, r->x, r->y, r->w, r->h, t->menu_border_bg);
+            gui_fill_rect(p->frame, r->x, r->y + ch / 2, r->w, core_line_weight(p->app),
                           t->menu_border_fg);
             continue;
         }
@@ -1944,7 +2291,7 @@ static void paint_dropdown(const struct paint* p, const struct gui_node* menu,
         uint32_t fg = !it->enabled ? t->menu_item_fg_disabled
                     : hot ? t->menu_item_fg_hot : t->menu_item_fg;
         uint32_t bg = hot ? t->menu_item_bg_hot : t->menu_item_bg;
-        gui_fill_rect(p->canvas, r->x, r->y, r->w, r->h, bg);
+        gui_fill_rect(p->frame, r->x, r->y, r->w, r->h, bg);
         core_draw_utf8(p, r->x + cw, r->y, it->label, -1, fg, bg);
 
         if (item_is_submenu(it))
@@ -1966,14 +2313,14 @@ static void paint_menubar(const struct paint* p, const struct gui_node* bar)
 {
     const struct gui_theme* t = &p->app->theme;
     const struct menu_state* m = &p->app->menu;
-    gui_fill_rect(p->canvas, bar->rect.x, bar->rect.y, bar->rect.w, bar->rect.h, t->menu_bg);
+    gui_fill_rect(p->frame, bar->rect.x, bar->rect.y, bar->rect.w, bar->rect.h, t->menu_bg);
     for (int i = 0; i < bar->child_count; i++)
     {
         const struct gui_node* title = bar->children[i];
         int sel = title == m->open || title == m->hot;
         uint32_t fg = sel ? t->menu_fg_sel : t->menu_fg;
         uint32_t bg = sel ? t->menu_bg_sel : t->menu_bg;
-        gui_fill_rect(p->canvas, title->rect.x, title->rect.y, title->rect.w, title->rect.h, bg);
+        gui_fill_rect(p->frame, title->rect.x, title->rect.y, title->rect.w, title->rect.h, bg);
         core_draw_utf8(p, title->rect.x + p->app->metrics.cell_w, title->rect.y, title->label, -1,
                   fg, bg);
     }
@@ -1991,7 +2338,7 @@ static void paint_hotkey(const struct paint* p, const struct gui_node* h)
     uint32_t bg = hot ? t->hotkey_bg_hot : t->hotkey_bg;
     const char* colon = h->id != 0 ? strchr(h->label, ':') : NULL;
     if (hot)
-        gui_fill_rect(p->canvas, h->rect.x, h->rect.y, h->rect.w, h->rect.h, bg);
+        gui_fill_rect(p->frame, h->rect.x, h->rect.y, h->rect.w, h->rect.h, bg);
     if (!colon)
     {
         core_draw_utf8(p, h->rect.x, h->rect.y, h->label, -1, fg, bg);
@@ -1999,6 +2346,46 @@ static void paint_hotkey(const struct paint* p, const struct gui_node* h)
     }
     int x = core_draw_utf8(p, h->rect.x, h->rect.y, h->label, (int)(colon - h->label), key_fg, bg);
     core_draw_utf8(p, x, h->rect.y, colon, -1, fg, bg);
+}
+
+/* Walks a hint as the app's hint highlighter colors it: hidden spans
+ * skipped, other colored text in the hotkey key color. Draws at most
+ * `max_cols` columns, or with `draw` 0 only counts them. Returns the
+ * columns, and in *x the x after the text. */
+static int paint_hint_text(const struct paint* p, int* x, int y, const char* hint, int max_cols, int draw)
+{
+    const struct gui_theme* t = &p->app->theme;
+    const struct gui_highlighter* h = p->app->hint_highlighter;
+    struct gui_span spans[64];
+    int len = (int)strlen(hint), state = 0, count = 0;
+    if (h && h->highlight)
+        count = h->highlight(h->ctx, hint, len, &state, spans, 64);
+    int cols = 0, k = 0;
+    for (int i = 0; i < len && cols < max_cols;)
+    {
+        while (k < count && spans[k].start + spans[k].len <= i)
+            k++;
+        int in_span = k < count && spans[k].start <= i;
+        int end = in_span ? spans[k].start + spans[k].len : k < count ? spans[k].start : len;
+        uint32_t fg = in_span ? spans[k].fg : t->editor_fg;
+        if (in_span && (fg & GUI_SPAN_HIDDEN))
+        {
+            i = end;
+            continue;
+        }
+        int run = core_utf8_cells(hint + i, end - i);
+        if (run > max_cols - cols)
+            run = max_cols - cols;
+        int bytes = core_utf8_prefix_bytes(hint + i, run);
+        if (bytes > end - i)
+            bytes = end - i;
+        if (draw)
+            *x = core_draw_utf8(p, *x, y, hint + i, bytes, fg != t->editor_fg ? t->hotkey_key_fg : t->hotkey_fg,
+                                t->hotkey_bg);
+        cols += run;
+        i += bytes > 0 ? bytes : end - i;
+    }
+    return cols;
 }
 
 /* While the node under the mouse has a hint, the bar reads
@@ -2016,19 +2403,16 @@ static void paint_statusbar_hint(const struct paint* p, const struct gui_node* b
         paint_hotkey(p, first);
         x = first->rect.x + first->rect.w + 3 * cw;
         int sep_x = x - 2 * cw + cw / 2;
-        gui_fill_rect(p->canvas, sep_x, bar->rect.y, core_line_weight(p->app), ch, t->hotkey_fg);
+        gui_fill_rect(p->frame, sep_x, bar->rect.y, core_line_weight(p->app), ch, t->hotkey_fg);
     }
     int room = (bar->rect.x + bar->rect.w - cw - x) / cw;
-    int cols = core_utf8_cells(hint, -1);
+    int cols = paint_hint_text(p, &x, bar->rect.y, hint, INT_MAX, 0);
     if (cols <= room)
-    {
-        core_draw_utf8(p, x, bar->rect.y, hint, -1, t->hotkey_fg, t->hotkey_bg);
-    }
+        paint_hint_text(p, &x, bar->rect.y, hint, cols, 1);
     else if (room > 3)
     {
-        int end = core_draw_utf8(p, x, bar->rect.y, hint, core_utf8_prefix_bytes(hint, room - 3),
-                            t->hotkey_fg, t->hotkey_bg);
-        core_draw_utf8(p, end, bar->rect.y, "...", -1, t->hotkey_fg, t->hotkey_bg);
+        paint_hint_text(p, &x, bar->rect.y, hint, room - 3, 1);
+        core_draw_utf8(p, x, bar->rect.y, "...", -1, t->hotkey_fg, t->hotkey_bg);
     }
 }
 
@@ -2036,9 +2420,11 @@ static void paint_statusbar(const struct paint* p, const struct gui_node* bar)
 {
     const struct gui_theme* t = &p->app->theme;
     int cw = p->app->metrics.cell_w;
-    gui_fill_rect(p->canvas, bar->rect.x, bar->rect.y, bar->rect.w, bar->rect.h, t->hotkey_bg);
+    gui_fill_rect(p->frame, bar->rect.x, bar->rect.y, bar->rect.w, bar->rect.h, t->hotkey_bg);
 
     const struct gui_node* hot = p->app->menu.hot;
+    if (!hot || !hot->hint[0])
+        hot = core_top_modal(p->app) ? gui_focused_item(p->app) : NULL;
     if (hot && hot->hint[0])
     {
         paint_statusbar_hint(p, bar, hot->hint);
@@ -2098,6 +2484,15 @@ static void paint_window_title(const struct paint* p, const struct gui_node* win
     const struct gui_rect* r = &win->rect;
     if (!win->label[0])
         return;
+    /* A window whose editor has unsaved changes shows " *" after its title. */
+    char marked[512];
+    const char* label = win->label;
+    const struct gui_node* ed = core_find_kind(win, GUI_EDITOR);
+    if (ed && !gui_editor_get_read_only(ed) && gui_editor_get_dirty(ed))
+    {
+        snprintf(marked, sizeof marked, "%s *", win->label);
+        label = marked;
+    }
     int lo = r->x + cw;
     if (has_close_icon(app, win))
         lo = r->x + 5 * cw;
@@ -2109,7 +2504,7 @@ static void paint_window_title(const struct paint* p, const struct gui_node* win
         max_cols = 0;
     int pad = max_cols >= 5 ? 1 : 0;
     max_cols -= 2 * pad;
-    int cols = core_utf8_cells(win->label, -1);
+    int cols = core_utf8_cells(label, -1);
     int shown = cols <= max_cols ? cols : max_cols;
     if (shown <= 0)
         return;
@@ -2120,12 +2515,12 @@ static void paint_window_title(const struct paint* p, const struct gui_node* win
     int end;
     if (cols <= max_cols)
     {
-        end = core_draw_utf8(p, tx, r->y, win->label, -1, fg, bg);
+        end = core_draw_utf8(p, tx, r->y, label, -1, fg, bg);
     }
     else
     {
         int dots = max_cols < 3 ? max_cols : 3;
-        end = core_draw_utf8(p, tx, r->y, win->label, core_utf8_prefix_bytes(win->label, max_cols - dots),
+        end = core_draw_utf8(p, tx, r->y, label, core_utf8_prefix_bytes(label, max_cols - dots),
                         fg, bg);
         end = core_draw_utf8(p, end, r->y, "...", dots, fg, bg);
     }
@@ -2161,7 +2556,7 @@ static void paint_window(const struct paint* p, const struct gui_node* win, int 
     if (win->window->shadow && !win->window->maximized && !docked)
         core_draw_shadow(p, r);
     if (r->w > 2 * cw && r->h > 2 * ch)
-        gui_fill_rect(p->canvas, r->x + cw, r->y + ch, r->w - 2 * cw, r->h - 2 * ch, body_bg);
+        gui_fill_rect(p->frame, r->x + cw, r->y + ch, r->w - 2 * cw, r->h - 2 * ch, body_bg);
     core_draw_frame(p, r, style, border_fg, border_bg);
     paint_window_title(p, win, border_fg, border_bg);
 
@@ -2205,7 +2600,7 @@ void gui_app_start(struct gui_app* app, struct gui_canvas* c, int argc, char** a
     app->metrics = gui_font_metrics(c, GUI_FONT_MAIN);
     app->small_metrics = gui_font_metrics(c, GUI_FONT_SMALL);
     app->scrollbar_px = gui_scrollbar_size(c);
-    frame_invalidate();
+    frame_invalidate(app->frame);
     gui_main(app, argc, argv);
     app->needs_layout = 1;
     app->needs_paint = 1;
@@ -2213,7 +2608,7 @@ void gui_app_start(struct gui_app* app, struct gui_canvas* c, int argc, char** a
 
 void gui_app_resize(struct gui_app* app, int w, int h)
 {
-    frame_invalidate();   /* a new size: a new back buffer */
+    frame_invalidate(app->frame);   /* a new size: a new back buffer */
     if (w == app->w && h == app->h)
         return;
     struct gui_rect old_desktop = desktop_rect(app);
@@ -2409,28 +2804,32 @@ static void paint_tooltip(const struct paint* p)
     if (y + h > app->h) y = app->tooltip_y - h - ch;   /* above the word instead */
     if (x < 0) x = 0;
     if (y < 0) y = 0;
-    gui_fill_rect(p->canvas, x, y, w, h, t->menu_border_fg);
-    gui_fill_rect(p->canvas, x + 1, y + 1, w - 2, h - 2, t->menu_bg);
-    gui_set_clip(p->canvas, x + 1, y + 1, w - 2, h - 2);
+    gui_fill_rect(p->frame, x, y, w, h, t->menu_border_fg);
+    gui_fill_rect(p->frame, x + 1, y + 1, w - 2, h - 2, t->menu_bg);
+    gui_set_clip(p->frame, x + 1, y + 1, w - 2, h - 2);
     core_draw_utf8(p, x + cw, y + 1, app->tooltip, core_utf8_prefix_bytes(app->tooltip, cols), t->menu_fg, t->menu_bg);
-    gui_set_clip(p->canvas, 0, 0, 0, 0);
+    gui_set_clip(p->frame, 0, 0, 0, 0);
 }
 
-int gui_app_paint(struct gui_app* app, struct gui_canvas* c, struct gui_rect* painted)
+/* Paints the active surface, if it is dirty. */
+static int paint_active(struct gui_app* app, struct gui_canvas* c, struct gui_rect* painted)
 {
-    if (app->needs_layout)
+    struct gui_surface* s = app->active;
+    surface_spread_dirty(app);
+    if (s->dirty_layout)
     {
+        s->dirty_layout = 0;
         layout(app);
-        app->needs_layout = 0;
         update_menu_hover(app);   /* rects moved under the mouse */
+        surface_spread_dirty(app);
     }
-    if (!app->needs_paint)
+    if (!s->dirty_paint)
         return 0;
-    app->needs_paint = 0;
+    s->dirty_paint = 0;
 
-    struct paint p = { app, c, GUI_FONT_MAIN };
-    frame_begin();
-    gui_fill_rect(c, 0, 0, app->w, app->h, app->theme.desktop_bg);
+    struct paint p = { app, app->frame, GUI_FONT_MAIN };
+    frame_begin(app->frame, c);
+    gui_fill_rect(p.frame, 0, 0, app->w, app->h, app->theme.desktop_bg);
     paint_node(&p, app->root);
     for (int i = 0; i < app->windows.count; i++)
         paint_window(&p, app->windows.items[i], i == app->windows.count - 1);
@@ -2444,11 +2843,29 @@ int gui_app_paint(struct gui_app* app, struct gui_canvas* c, struct gui_rect* pa
     paint_open_menus(&p, app);
     paint_tooltip(&p);
 
-    return frame_end(c, app->w, app->h, painted);   /* only what changed */
+    return frame_end(app->frame, app->w, app->h, painted);   /* only what changed */
+}
+
+int gui_app_paint(struct gui_app* app, struct gui_canvas* c, struct gui_rect* painted)
+{
+    struct gui_surface* prev = surface_enter(app, &app->main_surface);
+    int r = paint_active(app, c, painted);
+    surface_enter(app, prev);
+    return r;
+}
+
+int gui_surface_paint(struct gui_app* app, struct gui_surface* s, struct gui_canvas* c, struct gui_rect* painted)
+{
+    struct gui_surface* prev = surface_enter(app, s);
+    int r = paint_active(app, c, painted);
+    surface_enter(app, prev);
+    return r;
 }
 
 void gui_app_invalidate(struct gui_app* app)
 {
-    frame_invalidate();
+    struct gui_surface* prev = surface_enter(app, &app->main_surface);
+    frame_invalidate(app->frame);
     app->needs_paint = 1;
+    surface_enter(app, prev);
 }

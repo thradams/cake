@@ -52,6 +52,10 @@ void gui_shade_rect(struct gui_canvas* c, int x, int y, int w, int h, int alpha)
 void gui_draw_text(struct gui_canvas* c, int x, int y, const uint32_t* cps, int count,
                    uint32_t fg, uint32_t bg, enum gui_font font);
 
+/* Whether this backend can show a detached window in an OS window of its
+ * own (gui_window_detach). 0: the surface calls below are never needed. */
+int gui_backend_can_detach(void);
+
 /* --- Clipboard --- */
 
 /* The canvas reaches the backend's window, which X11 needs to own the
@@ -176,5 +180,27 @@ enum gui_cursor gui_app_cursor(const struct gui_app* app);
 /* Paints whatever is dirty into the canvas. Returns 1 and sets *painted if
  * anything was painted, 0 if nothing was dirty. */
 int gui_app_paint(struct gui_app* app, struct gui_canvas* c, struct gui_rect* painted);
+
+/* --- Detached windows: one more OS window each ---
+ *
+ * After each event the backend asks for the OS windows to make, raise and
+ * destroy. Each has its own canvas (the same fonts as the main one) and
+ * gets its own events, size and paints through the calls below. */
+struct gui_surface;
+
+/* A surface that needs its OS window, or NULL: its client size in *w, *h
+ * (px). The backend makes it, then calls gui_surface_start. */
+struct gui_surface* gui_app_take_surface_open(struct gui_app* app, int* w, int* h);
+void gui_surface_start(struct gui_app* app, struct gui_surface* s, void* native, int w, int h);
+/* A surface whose OS window should come to the front, or NULL; its native. */
+void* gui_app_take_surface_raise(struct gui_app* app);
+/* A surface that is gone: the native of the OS window to destroy, or NULL. */
+void* gui_app_take_surface_close(struct gui_app* app);
+
+void gui_surface_resize(struct gui_app* app, struct gui_surface* s, int w, int h);
+void gui_surface_invalidate(struct gui_app* app, struct gui_surface* s);
+void gui_surface_event(struct gui_app* app, struct gui_surface* s, const struct gui_event* ev);
+enum gui_cursor gui_surface_cursor(struct gui_app* app, struct gui_surface* s);
+int gui_surface_paint(struct gui_app* app, struct gui_surface* s, struct gui_canvas* c, struct gui_rect* painted);
 
 #endif

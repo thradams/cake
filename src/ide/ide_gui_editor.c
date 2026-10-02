@@ -1048,7 +1048,7 @@ static void paint_line(const struct paint* p, const struct gui_node* n, int line
                 continue;
             if (run_count > 0 && (fg != run_fg || bg != run_bg || run_count == 256))
             {
-                gui_draw_text(p->canvas, x0 + (run_col - e->hscroll) * cw, y, run, run_count,
+                gui_draw_text(p->frame, x0 + (run_col - e->hscroll) * cw, y, run, run_count,
                               run_fg, run_bg, p->font);
                 run_count = 0;
             }
@@ -1063,12 +1063,12 @@ static void paint_line(const struct paint* p, const struct gui_node* n, int line
         k += len;
     }
     if (run_count > 0)
-        gui_draw_text(p->canvas, x0 + (run_col - e->hscroll) * cw, y, run, run_count,
+        gui_draw_text(p->frame, x0 + (run_col - e->hscroll) * cw, y, run, run_count,
                       run_fg, run_bg, p->font);
 
     /* A selected line end shows as one selected cell past the text. */
     if (end < e->len && end >= lo && end < hi && col >= e->hscroll && col < e->hscroll + cols)
-        gui_fill_rect(p->canvas, x0 + (col - e->hscroll) * cw, y, cw, core_node_metrics(p->app, n)->cell_h,
+        gui_fill_rect(p->frame, x0 + (col - e->hscroll) * cw, y, cw, core_node_metrics(p->app, n)->cell_h,
                       t->editor_sel_bg);
 }
 
@@ -1114,7 +1114,7 @@ static void paint_marks(const struct paint* p, const struct gui_node* n, int fir
             }
             if (col >= e->hscroll &&
                 !core_draw_symbol(p, x0 + (col - e->hscroll) * cw, y, cw, core_node_metrics(p->app, n)->cell_h, cp, fg, bg))
-                gui_draw_text(p->canvas, x0 + (col - e->hscroll) * cw, y, &cp, 1, fg, bg, p->font);
+                gui_draw_text(p->frame, x0 + (col - e->hscroll) * cw, y, &cp, 1, fg, bg, p->font);
             col++;
         }
     }
@@ -1124,7 +1124,7 @@ static void paint_marks(const struct paint* p, const struct gui_node* n, int fir
         for (int c = end - 3 > start_col ? end - 3 : start_col; c < end; c++)
         {
             if (c >= e->hscroll)
-                gui_draw_text(p->canvas, x0 + (c - e->hscroll) * cw, y, &dot, 1, fg, bg, p->font);
+                gui_draw_text(p->frame, x0 + (c - e->hscroll) * cw, y, &dot, 1, fg, bg, p->font);
         }
     }
 }
@@ -1210,7 +1210,7 @@ void editor_paint(const struct paint* p, const struct gui_node* n)
     int caret_line = line_of(e, e->cursor);
 
     uint32_t bg = e->vt100 ? t->editor_output_bg : t->editor_bg;
-    gui_fill_rect(p->canvas, n->rect.x, n->rect.y, n->rect.w, n->rect.h, bg);
+    gui_fill_rect(p->frame, n->rect.x, n->rect.y, n->rect.w, n->rect.h, bg);
     int mark = 0;   /* walks the marks along with the rows */
     /* diff: the gutter shows the new file's line - the row's minus the
      * removed rows before it - and nothing on a removed row */
@@ -1237,7 +1237,7 @@ void editor_paint(const struct paint* p, const struct gui_node* n)
                         : (dr == '+' && lo == hi) ? t->editor_diff_add_bg
                         : (dr == '-' && lo == hi) ? t->editor_diff_remove_bg
                         : (line == caret_line && lo == hi && !e->vt100) ? t->editor_current_line_bg : bg;
-        gui_fill_rect(p->canvas, n->rect.x, y, n->rect.w, ch, row_bg);
+        gui_fill_rect(p->frame, n->rect.x, y, n->rect.w, ch, row_bg);
         if (dr == '-')
             removed++;
         if (e->line_numbers && dr != '-')
@@ -1272,7 +1272,7 @@ void editor_paint(const struct paint* p, const struct gui_node* n)
         if (row >= 0 && row < rows && col >= 0 && col < cols)
         {
             int bar = cw / 5 > 0 ? cw / 5 : 1;
-            gui_fill_rect(p->canvas, n->rect.x + (gutter + col) * cw, n->rect.y + row * ch, bar, ch,
+            gui_fill_rect(p->frame, n->rect.x + (gutter + col) * cw, n->rect.y + row * ch, bar, ch,
                           t->editor_fg);
         }
     }
@@ -1288,8 +1288,8 @@ void editor_paint(const struct paint* p, const struct gui_node* n)
         core_scrollbar_thumb(app, &sb, &pos, &len);
         int x = n->rect.x + n->rect.w - w;
         int hot = app->ui.scrolling == n || (app->ui.thumb_hot == n && app->ui.thumb_hot_bar == 1);
-        gui_fill_rect(p->canvas, x, n->rect.y, w, sb.track, t->scrollbar_bg);
-        gui_fill_rect(p->canvas, x, n->rect.y + pos, w, len, hot ? t->scrollbar_thumb_hot_bg : t->scrollbar_thumb_bg);
+        gui_fill_rect(p->frame, x, n->rect.y, w, sb.track, t->scrollbar_bg);
+        gui_fill_rect(p->frame, x, n->rect.y + pos, w, len, hot ? t->scrollbar_thumb_hot_bg : t->scrollbar_thumb_bg);
     }
     if (show && has_hbar(app, n))
     {
@@ -1298,8 +1298,8 @@ void editor_paint(const struct paint* p, const struct gui_node* n)
         core_scrollbar_thumb(app, &sb, &pos, &len);
         int x = hbar_x(app, n), y = n->rect.y + n->rect.h - w;
         int hot = app->ui.hscrolling == n || (app->ui.thumb_hot == n && app->ui.thumb_hot_bar == 2);
-        gui_fill_rect(p->canvas, x, y, sb.track, w, t->scrollbar_bg);
-        gui_fill_rect(p->canvas, x + pos, y, len, w, hot ? t->scrollbar_thumb_hot_bg : t->scrollbar_thumb_bg);
+        gui_fill_rect(p->frame, x, y, sb.track, w, t->scrollbar_bg);
+        gui_fill_rect(p->frame, x + pos, y, len, w, hot ? t->scrollbar_thumb_hot_bg : t->scrollbar_thumb_bg);
     }
 }
 
@@ -1402,7 +1402,7 @@ void editor_mouse_down(struct gui_app* app, struct gui_node* n, int double_click
         if (n->id)
             core_fire(app, n->id);
     }
-    else if (e->click_id && ((mods & GUI_MOD_PRIMARY) || (e->read_only && !e->vt100)))
+    else if (e->click_id && (mods & GUI_MOD_PRIMARY))
     {
         core_fire(app, e->click_id);
     }
@@ -1410,6 +1410,22 @@ void editor_mouse_down(struct gui_app* app, struct gui_node* n, int double_click
     {
         app->ui.selecting = n;
     }
+}
+
+/* A right click: the caret goes where it was, unless that is inside the
+ * selection - the context menu then acts on the selection. */
+void editor_context_click(struct gui_app* app, struct gui_node* n)
+{
+    struct editor_data* e = n->editor;
+    int pos = pos_at(app, n, app->mouse_x, app->mouse_y);
+    int lo = e->anchor < e->cursor ? e->anchor : e->cursor;
+    int hi = e->anchor < e->cursor ? e->cursor : e->anchor;
+    if (lo != hi && pos >= lo && pos <= hi)
+        return;
+    e->cursor = e->anchor = pos;
+    e->want_col = -1;
+    e->typing = 0;
+    app->needs_paint = 1;
 }
 
 void editor_mouse_drag(struct gui_app* app, struct gui_node* n)
@@ -1460,6 +1476,19 @@ static void copy_selection(struct gui_app* app, const struct editor_data* e)
     if (lo == hi)
         return;
     char* s = copy_bytes(e->text + lo, hi - lo);
+    if (e->vt100)
+    {
+        int n = 0;
+        for (int k = lo; k < hi;)
+        {
+            int esc = vt100_escape_len(e, k, hi);
+            if (esc)
+                k += esc;
+            else
+                s[n++] = e->text[k++];
+        }
+        s[n] = '\0';
+    }
     gui_clipboard_set(app->canvas, s);
     free(s);
 }

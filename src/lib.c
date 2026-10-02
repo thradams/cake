@@ -3367,6 +3367,9 @@ struct preprocessor_ctx
     /* -rename phase 2: options.rename_old_name was seen in active code */
     bool rename_old_name_found;
 
+    /* -complete on a directive line: the names were printed; the parser does not run then */
+    bool preprocessor_auto_complete_done;
+
     /* NULL unless the caller asked for includes (see struct include_listener) */
     const struct include_listener* _Opt include_listener;
     const char* _Opt source_file;
@@ -5370,7 +5373,9 @@ static void rename_item_free(_Dtor struct rename_item* p)
 void rename_list_clear(_Clear struct rename_list* p)
 {
     for (int i = 0; i < p->size; i++)
+    {
         rename_item_free(&p->data[i]);
+    }
     free(p->data);
     p->data = NULL;
     p->size = 0;
@@ -5480,7 +5485,7 @@ bool rename_list_commit(struct rename_list* list, const struct options* options)
                 struct rename_item* _Owner _Opt p = realloc(list->data, capacity * sizeof(struct rename_item));
                 if (p == NULL)
                     break;
-                list->data = p;
+                list->data = p; //lint 26
                 list->capacity = capacity;
             }
 
@@ -8077,56 +8082,49 @@ static bool first_of_string_literal(const struct stream* stream)
 
 struct token* _Owner _Opt string_literal(struct tokenizer_ctx* ctx, struct stream* stream)
 {
-    struct token* _Owner _Opt p_new_token = NULL;
     const char* start = stream->current;
 
-    try
+    /*encoding_prefix_opt*/
+    if (stream->current[0] == 'u')
     {
-        /*encoding_prefix_opt*/
-        if (stream->current[0] == 'u')
-        {
-            stream_match(stream);
-            if (stream->current[0] == '8')
-                stream_match(stream);
-        }
-        else if (stream->current[0] == 'U' ||
-            stream->current[0] == 'L')
-        {
-            stream_match(stream);
-        }
-
-        stream_match(stream); //"
-
-        while (stream->current[0] != '"')
-        {
-            if (stream->current[0] == '\0' ||
-                stream->current[0] == '\n')
-            {
-                tokenizer_diagnostic(C_ERROR_TOKENIZER_MISSING_TERMINATING_QUOTE, ctx, stream, "missing terminating \" character");
-                throw;
-            }
-
-            if (stream->current[0] == '\\')
-            {
-                if (!is_valid_scape_sequence(stream->current[1]))
-                {
-                    tokenizer_diagnostic(W_UNKNOWN_ESCAPE_SEQUENCE, ctx, stream,
-                                         "unrecognized character escape sequence '\\%c'", stream->current[1]);
-                }
-                stream_match(stream);
-                stream_match(stream);
-            }
-            else
-                stream_match(stream);
-        }
         stream_match(stream);
-        p_new_token = new_token(start, stream->current, TK_STRING_LITERAL);
+        if (stream->current[0] == '8')
+            stream_match(stream);
     }
-    catch
+    else if (stream->current[0] == 'U' ||
+        stream->current[0] == 'L')
     {
+        stream_match(stream);
     }
 
-    return p_new_token;
+    stream_match(stream); //"
+
+    while (stream->current[0] != '"')
+    {
+        if (stream->current[0] == '\0' ||
+            stream->current[0] == '\n')
+        {
+            /* still a token up to the end of the line: -complete reads #include "partial */
+            tokenizer_diagnostic(C_ERROR_TOKENIZER_MISSING_TERMINATING_QUOTE, ctx, stream, "missing terminating \" character");
+            break;
+        }
+
+        if (stream->current[0] == '\\')
+        {
+            if (!is_valid_scape_sequence(stream->current[1]))
+            {
+                tokenizer_diagnostic(W_UNKNOWN_ESCAPE_SEQUENCE, ctx, stream,
+                                     "unrecognized character escape sequence '\\%c'", stream->current[1]);
+            }
+            stream_match(stream);
+            stream_match(stream);
+        }
+        else
+            stream_match(stream);
+    }
+    if (stream->current[0] == '"')
+        stream_match(stream);
+    return new_token(start, stream->current, TK_STRING_LITERAL);
 }
 
 static struct token* _Owner _Opt ppnumber(struct stream* stream)
@@ -9229,6 +9227,159 @@ static bool embed_find_resource(struct preprocessor_ctx* ctx,
 #endif
 }
 
+/* closer: the " or > the header name still needs, "" when the line has it */
+static void complete_include_dir(const char* dir, const char* sub, const char* prefix, const char* closer)
+{
+#ifndef __EMSCRIPTEN__
+    char path[FS_MAX_PATH] = { 0 };
+    size_t len = strlen(dir);
+    snprintf(path, sizeof path, "%s%s%s", dir, (len > 0 && dir[len - 1] == '/') ? "" : "/", sub);
+
+    DIR* _Owner _Opt d = opendir(path);
+    if (d == NULL)
+        return;
+
+    const size_t prefix_len = strlen(prefix);
+    struct dirent* _Opt dp;
+    while ((dp = readdir(d)) != NULL)
+    {
+        if (dp->d_name[0] == '.' || strncmp(dp->d_name, prefix, prefix_len) != 0)
+            continue;
+        if (dp->d_type & DT_DIR)
+        {
+            printf("%s/\tdir\t\n", dp->d_name);
+        }
+        else
+        {
+            const char* ext = strrchr(dp->d_name, '.');
+            if (ext && (strcmp(ext, ".h") == 0 || strcmp(ext, ".hpp") == 0 || strcmp(ext, ".inl") == 0))
+                printf("%s%s\theader\t\n", dp->d_name, closer);
+        }
+    }
+    closedir(d);
+#else
+    (void)dir; (void)sub; (void)prefix; (void)closer;
+#endif
+}
+
+/* #include <st| or "st|: the header names that start with what was typed, from the include list */
+static void complete_include(const struct preprocessor_ctx* ctx, const struct token* p_first)
+{
+    char typed[FS_MAX_PATH] = { 0 };
+    bool closed = false;
+    for (const struct token* _Opt p = p_first; p && p->type != TK_NEWLINE; p = p->next)
+    {
+        const size_t lexeme_len = strlen(p->lexeme);
+        if (p->type == '>' || (p->type == TK_STRING_LITERAL && lexeme_len > 1 && p->lexeme[lexeme_len - 1] == '"'))
+            closed = true;
+
+        const int room = ctx->options.find_definition_col - p->col;
+        if (room <= 0)
+            continue;
+        size_t used = strlen(typed);
+        snprintf(typed + used, sizeof typed - used, "%.*s", room, p->lexeme);
+    }
+
+    if (typed[0] != '<' && typed[0] != '"')
+        return;
+
+    const char* closer = closed ? "" : typed[0] == '"' ? "\"" : ">";
+
+    /* "sys/ty" -> look in sys/ for names starting with ty */
+    char sub[FS_MAX_PATH] = { 0 };
+    const char* prefix = typed + 1;
+    const char* slash = strrchr(prefix, '/');
+    if (slash)
+    {
+        snprintf(sub, sizeof sub, "%.*s", (int)(slash - prefix + 1), prefix);
+        prefix = slash + 1;
+    }
+
+    if (typed[0] == '"')
+    {
+        char dir[FS_MAX_PATH] = { 0 };
+        snprintf(dir, sizeof dir, "%s", ctx->options.find_definition_file);
+        dirname(dir);
+        complete_include_dir(dir, sub, prefix, closer);
+    }
+
+    for (const struct include_dir* _Opt p = ctx->include_dir.head; p; p = p->next)
+        complete_include_dir(p->path, sub, prefix, closer);
+}
+
+/* -complete: one line per macro - name<TAB>macro<TAB> */
+static void complete_print_macros(const struct preprocessor_ctx* ctx)
+{
+    const struct hash_map* map = &ctx->macros;
+    if (map->table == NULL)
+        return;
+    for (int i = 0; i < map->capacity; i++)
+    {
+        for (const struct map_entry* _Opt pentry = map->table[i]; pentry; pentry = pentry->next)
+            printf("%s\tmacro\t\n", pentry->key);
+    }
+}
+
+/* -complete: p_token is the name being typed in a text line; the parser adds the names in scope */
+static void complete_identifier(const struct preprocessor_ctx* ctx, const struct token* p_token)
+{
+    if (ctx->options.request != REQUEST_COMPLETE ||
+        (p_token->flags & TK_FLAG_MACRO_EXPANDED) ||
+        p_token->line != ctx->options.find_definition_line ||
+        p_token->col > ctx->options.find_definition_col ||
+        p_token->col + (int)strlen(p_token->lexeme) < ctx->options.find_definition_col ||
+        !token_is_in_find_definition_file(p_token, &ctx->options))
+    {
+        return;
+    }
+    complete_print_macros(ctx);
+}
+
+/* -complete with the cursor on this directive line: directive, header or macro names */
+static void preprocessor_auto_complete(struct preprocessor_ctx* ctx, const struct token* p_hash)
+{
+    if (ctx->options.request != REQUEST_COMPLETE ||
+        ctx->preprocessor_auto_complete_done ||
+        p_hash->line != ctx->options.find_definition_line ||
+        p_hash->col >= ctx->options.find_definition_col ||
+        !token_is_in_find_definition_file(p_hash, &ctx->options))
+    {
+        return;
+    }
+    ctx->preprocessor_auto_complete_done = true;
+
+    const struct token* _Opt p_name = preprocessor_look_ahead_core(p_hash);
+    if (p_name == NULL || p_name->type == TK_NEWLINE ||
+        p_name->col + (int)strlen(p_name->lexeme) >= ctx->options.find_definition_col)
+    {
+        static const char* const directives[] = {
+            "define", "undef", "include", "include_next", "embed", "if", "ifdef", "ifndef",
+            "elif", "elifdef", "elifndef", "else", "endif", "line", "error", "warning", "pragma"
+        };
+        for (int i = 0; i < (int)_Countof(directives); i++)
+            printf("%s\tdirective\t\n", directives[i]);
+        return;
+    }
+
+    const char* name = p_name->lexeme;
+    if (strcmp(name, "include") == 0 || strcmp(name, "include_next") == 0 || strcmp(name, "embed") == 0)
+    {
+        const struct token* _Opt p_arg = preprocessor_look_ahead_core(p_name);
+        if (p_arg && p_arg->type != TK_NEWLINE && p_arg->col < ctx->options.find_definition_col)
+            complete_include(ctx, p_arg);
+        return;
+    }
+
+    if (strcmp(name, "if") == 0 || strcmp(name, "elif") == 0)
+    {
+        printf("defined\tkeyword\t\n");
+        printf("__has_include\tkeyword\t\n");
+        printf("__has_embed\tkeyword\t\n");
+        printf("__has_c_attribute\tkeyword\t\n");
+    }
+    complete_print_macros(ctx);
+}
+
 /*
   Consumes one token from input_list. Directive tokens go to dest (respecting level),
   __has_embed tokens are just popped.
@@ -10229,6 +10380,9 @@ int match_token_level(struct token_list* dest, struct token_list* input_list, en
                 throw;
             }
         }
+        if (type == TK_PREPROCESSOR_LINE && input_list->head != NULL)
+            preprocessor_auto_complete(ctx, input_list->head);
+
         if (input_list->head != NULL)
         {
             if (CAKE_INCLUDE_EXTRA_TOKENS || level == 0)
@@ -13297,6 +13451,8 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 }
 
                 origin = input_list->head;
+                if (!ctx->conditional_inclusion)
+                    complete_identifier(ctx, input_list->head);
                 macro = find_macro(ctx, input_list->head->lexeme);
                 if (macro &&
                     ((input_list->head->flags & TK_FLAG_MACRO_NOT_INVOKED) ||
@@ -13583,6 +13739,9 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
         }
         else
         {
+            /* #de| - a directive name being typed */
+            preprocessor_auto_complete(ctx, input_list->head);
+
             if (is_active)
             {
                 struct token* _Opt p_token = preprocessor_look_ahead_core(input_list->head);
@@ -41770,7 +41929,7 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 */
 
 //#pragma once
-#define CAKE_VERSION "0.15.7"
+#define CAKE_VERSION "0.15.8"
 
 
  
@@ -59081,6 +59240,9 @@ int compile_one_file(const char* file_name,
         report->warnings_count += prectx.n_warnings;
         report->error_count += prectx.n_errors;
 
+        if (prectx.preprocessor_auto_complete_done)
+            throw; /* the cursor is on a directive line: no parse */
+
         if (prectx.n_errors > 0)
         {
             throw;
@@ -59700,7 +59862,7 @@ static void find_usages_print_file(const struct rename_list* list, int begin, in
     snprintf(text, sizeof text, "usage of '%s'", list->old_name);
 
     struct osstream ss = { 0 };
-    const char* line_start = content;
+    const char* _Opt line_start = content;
     int line = 1;
     for (int i = begin; i < end; i++)
     {

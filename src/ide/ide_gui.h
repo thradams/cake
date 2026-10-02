@@ -176,6 +176,7 @@ struct gui_theme
     uint32_t editor_bg, editor_fg, editor_keyword_fg, editor_keyword2_fg,
         editor_string_fg,
         editor_comment_fg, editor_preproc_fg, editor_sel_bg, editor_sel_fg;
+    uint32_t editor_attribute_fg;  /* a C23 [[attribute]] */
     /* editor_keyword_fg colors type/storage keywords (is_c_keyword1 - int,
      * struct, const, ...); editor_keyword2_fg colors control-flow keywords
      * (is_c_keyword2 - if, for, return, ...). */
@@ -334,6 +335,9 @@ struct gui_theme
 };
 
 void gui_set_theme(struct gui_app* app, const struct gui_theme* theme);
+struct gui_highlighter;
+/* Colors the statusbar's hints (a Markdown one hides its delimiters); NULL: plain. */
+void gui_set_hint_highlighter(struct gui_app* app, const struct gui_highlighter* h);
 
 /* --- Tree --- */
 
@@ -448,6 +452,15 @@ void gui_window_set_min_size(struct gui_node* win, int cols, int rows);
 void gui_window_maximize(struct gui_app* app, struct gui_node* win);
 int gui_window_get_maximized(const struct gui_node* win);
 
+/* Detaching moves a window into an OS window of its own, filling it;
+ * attaching brings it back where it was. Closing that OS window attaches
+ * it. Only where the backend can (gui_can_detach); elsewhere both do
+ * nothing. */
+int gui_can_detach(const struct gui_app* app);
+void gui_window_detach(struct gui_app* app, struct gui_node* win);
+void gui_window_attach(struct gui_app* app, struct gui_node* win);
+int gui_window_get_detached(const struct gui_app* app, const struct gui_node* win);
+
 /* --- Docked windows ---
  *
  * A docked window is pinned to one side of the area between the menubar and
@@ -506,6 +519,7 @@ void gui_message_box(struct gui_app* app, const char* caption, const char* text,
  * first glyph (a file-type marker), bg is unused. */
 void gui_set_colors(struct gui_node* n, uint32_t fg, uint32_t bg);
 void gui_set_value(struct gui_node* n, const char* utf8);           /* GUI_INPUT */
+void gui_input_insert(struct gui_node* n, const char* utf8);        /* GUI_INPUT: replaces the selection, at the caret */
 const char* gui_get_value(const struct gui_node* n);
 void gui_set_selected(struct gui_node* n, int index);  /* GUI_SELECT, GUI_LISTBOX, radio GUI_GROUP */
 int gui_get_selected(const struct gui_node* n);
@@ -522,6 +536,8 @@ struct gui_node* gui_child_at(const struct gui_node* n, int i);
 /* Keyboard focus; Tab / Shift+Tab move it inside the top window. */
 void gui_focus(struct gui_app* app, struct gui_node* n);
 struct gui_node* gui_focused(const struct gui_app* app);
+/* The item a focused select, listbox or group is on (a group's keyboard row), else the focused node. */
+struct gui_node* gui_focused_item(const struct gui_app* app);
 
 /* --- Editor ---
  *

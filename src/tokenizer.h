@@ -71,6 +71,9 @@ struct preprocessor_ctx
     /* -rename phase 2: options.rename_old_name was seen in active code */
     bool rename_old_name_found;
 
+    /* -complete on a directive line: the names were printed; the parser does not run then */
+    bool preprocessor_auto_complete_done;
+
     /* NULL unless the caller asked for includes (see struct include_listener) */
     const struct include_listener* _Opt include_listener;
     const char* _Opt source_file;

@@ -45,7 +45,7 @@ struct gui_node
     /* Widgets (see ide_gui_widgets.c) */
     char* value;               /* GUI_INPUT: the text, never NULL */
     int cursor, anchor;        /* GUI_INPUT: caret and selection end, byte offsets */
-    int hscroll;               /* GUI_INPUT: first visible column */
+    int hscroll;               /* GUI_INPUT/LISTBOX: first visible column */
     int selected;              /* GUI_SELECT/LISTBOX/radio GROUP: index, -1 none */
     int reveal;                /* LISTBOX: scroll the selected row into view on the next paint */
     int scroll;                /* GUI_LISTBOX/GROUP: first visible row - rows are
@@ -165,6 +165,43 @@ struct app_fonts
     int requested;   /* -1: none */
 };
 
+/* What one OS window shows: the main one, or a window the user detached
+ * into its own OS window. The active surface's state lives in struct
+ * gui_app itself (root, windows, ui, ...), so the core works on it
+ * unchanged; the others wait in their struct gui_surface. */
+struct gui_surface
+{
+    /* swapped in and out of struct gui_app (surface_enter) */
+    struct gui_node* root;
+    int w, h;
+    int mouse_x, mouse_y;
+    int mouse_mods;
+    struct menu_state menu;
+    struct window_list windows;
+    struct window_drag drag;
+    struct widget_state ui;
+    char* tooltip;
+    int tooltip_x, tooltip_y;
+    struct frame_recorder* frame;
+
+    /* the surface's own */
+    int dirty_layout, dirty_paint;
+    struct gui_node* detached;   /* the window it shows; NULL: the main surface */
+    struct gui_rect restore;     /* the detached window's rect back in the main surface */
+    int restore_maximized;
+    void* native;                /* the backend's OS window */
+    int want_open;               /* the backend has not made its OS window yet */
+    int want_raise;              /* bring its OS window to the front */
+    int closing;                 /* its window went back or closed: the OS window goes */
+};
+
+/* The detached surfaces. */
+struct surface_list
+{
+    struct gui_surface** items;
+    int count, cap;
+};
+
 struct gui_app
 {
     struct gui_canvas* canvas;   /* the backend's, from gui_app_start - for the clipboard */
@@ -176,7 +213,9 @@ struct gui_app
     int w, h;                    /* client area, px */
     int mouse_x, mouse_y;        /* px; -1 when outside the window */
     int mouse_mods;              /* the modifiers of the last button press */
+    struct frame_recorder* frame;  /* what the active surface drew last */
     struct menu_state menu;
+    const struct gui_highlighter* hint_highlighter;   /* hints in the statusbar; NULL: plain */
     struct window_list windows;
     struct window_drag drag;
     struct widget_state ui;
@@ -189,8 +228,11 @@ struct gui_app
     int zoom;                    /* points asked for by gui_zoom, not applied yet */
     int zoom_total;              /* every gui_zoom, summed - see gui_get_zoom */
     int quit;                    /* gui_quit was called */
-    int needs_layout;
+    int needs_layout;            /* every surface: spread by surface_spread_dirty */
     int needs_paint;
+    struct gui_surface main_surface;
+    struct gui_surface* active;  /* whose state the fields above hold */
+    struct surface_list surfaces;
 };
 
 /* What every paint function needs: the app (theme, metrics) and where to
@@ -198,7 +240,7 @@ struct gui_app
 struct paint
 {
     const struct gui_app* app;
-    struct gui_canvas* canvas;
+    struct frame_recorder* frame;   /* the drawing calls are recorded here */
     enum gui_font font;   /* the font core_draw_utf8 draws with */
 };
 
@@ -226,6 +268,8 @@ void core_fire(struct gui_app* app, int id);
 struct gui_node* core_find_kind(const struct gui_node* n, enum gui_kind kind);
 struct gui_node* core_window_at_point(const struct gui_app* app, int x, int y);
 struct gui_node* core_top_modal(const struct gui_app* app);   /* the top window if modal */
+/* The surface whose open window holds `n`, or NULL. */
+struct gui_surface* core_surface_of_node(const struct gui_app* app, const struct gui_node* n);
 
 /* A scrollbar: a `track` px long bar for `total` items of which `visible`
  * show, scrolled by `scroll` items. The thumb is sized and placed in px -
@@ -271,6 +315,7 @@ void editor_set_text(struct gui_node* n, const char* utf8);
 const char* editor_get_text(const struct gui_node* n);
 void editor_paint(const struct paint* p, const struct gui_node* n);
 void editor_mouse_down(struct gui_app* app, struct gui_node* n, int double_click, int mods);
+void editor_context_click(struct gui_app* app, struct gui_node* n);   /* right click: the caret there */
 void editor_mouse_drag(struct gui_app* app, struct gui_node* n);   /* selecting / scrollbars */
 void editor_wheel(struct gui_app* app, struct gui_node* n, int rows);
 void editor_hwheel(struct gui_app* app, struct gui_node* n, int cols);

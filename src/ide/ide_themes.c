@@ -105,6 +105,7 @@ const struct gui_theme ide_theme_ambar = {
     .editor_linenum_fg = GUI_RGB(0x85, 0x85, 0x85),  /* VS Code Dark's actual
                                                      * gutter gray */
     .editor_preproc_fg = GUI_RGB(0xD3, 0x86, 0x9B),
+    .editor_attribute_fg = GUI_RGB(0x8E, 0xC0, 0x7C),
     .editor_sel_bg = GUI_RGB(0x5A, 0x48, 0x1C),  /* #264F78 - VS Dark's actual selection color */
     .editor_sel_fg = GUI_RGB(0xFF, 0xFF, 0xFF),
     .editor_word_match_bg = GUI_RGB(0x3A, 0x33, 0x22),  /* a warm step up from
@@ -287,6 +288,7 @@ const struct gui_theme ide_theme_dark = {
     .editor_linenum_fg = GUI_RGB(0x85, 0x85, 0x85),  /* VS Code Dark's actual
                                                      * gutter gray */
     .editor_preproc_fg = GUI_RGB(0xC5, 0x86, 0xC0),
+    .editor_attribute_fg = GUI_RGB(0x4E, 0xC9, 0xB0),
     .editor_sel_bg = GUI_RGB(0x26, 0x4F, 0x78),  /* #264F78 - VS Dark's actual selection color */
     .editor_sel_fg = GUI_RGB(0xFF, 0xFF, 0xFF),
     .editor_word_match_bg = GUI_RGB(0x33, 0x3A, 0x40),
@@ -488,6 +490,7 @@ const struct gui_theme ide_theme_white = {
                                                      * number color (matches the
                                                      * playground's gutter) */
     .editor_preproc_fg = GUI_RGB(0x80, 0x00, 0x80),
+    .editor_attribute_fg = GUI_RGB(0x26, 0x7F, 0x99),
     .editor_sel_bg = GUI_RGB(0xAD, 0xD6, 0xFF),  /* #ADD6FF - VS Light's actual selection color */
     .editor_sel_fg = GUI_RGB(0x00, 0x00, 0x00),
     .editor_word_match_bg = GUI_RGB(0xE0, 0xE8, 0xF0),  /* pale blue-gray -
@@ -676,6 +679,7 @@ const struct gui_theme ide_theme_nebula = {
                                                   * dim indigo comment gray */
     .editor_linenum_fg = GUI_RGB(0x3B, 0x42, 0x61),
     .editor_preproc_fg = GUI_RGB(0xBB, 0x9A, 0xF7),
+    .editor_attribute_fg = GUI_RGB(0x7D, 0xCF, 0xFF),
     .editor_sel_bg = GUI_RGB(0x2E, 0x3C, 0x64),
     .editor_sel_fg = GUI_RGB(0xFF, 0xFF, 0xFF),
     .editor_word_match_bg = GUI_RGB(0x28, 0x2D, 0x43),
@@ -828,6 +832,7 @@ const struct gui_theme ide_theme_xcode_dark = {
                                                   * gray-blue comment color */
     .editor_linenum_fg = GUI_RGB(0x5C, 0x5F, 0x66),
     .editor_preproc_fg = GUI_RGB(0xFD, 0x8F, 0x3F),
+    .editor_attribute_fg = GUI_RGB(0x67, 0xB7, 0xA4),
     .editor_sel_bg = GUI_RGB(0x64, 0x6F, 0x83),  /* Xcode Dark's actual selection */
     .editor_sel_fg = GUI_RGB(0xFF, 0xFF, 0xFF),
     .editor_word_match_bg = GUI_RGB(0x3C, 0x40, 0x48),
