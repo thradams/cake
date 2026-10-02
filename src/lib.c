@@ -1662,15 +1662,6 @@ int json_write_file(const char *path, const struct json_value *root)
 #include <ctype.h>
 
 
-#include <stdio.h>
-
-
-#include <string.h>
-
-
-#include <stdlib.h>
-
-
 
 /*
  *  This file is part of cake compiler
@@ -1742,12 +1733,6 @@ void c_gotoxy(int x, int y);
 */
 
 //#pragma once
-
-
-#include <stdbool.h>
-
-
-#include <limits.h>
 
 
 #if defined(PATH_MAX)
@@ -1961,9 +1946,6 @@ void ss_swap(struct osstream* a, struct osstream* b);
 
 //#pragma once
 
-
-#include <stddef.h>
-
 struct declarator;
 struct enumerator;
 struct enum_specifier;
@@ -2068,9 +2050,6 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set * it
 
 
 
-#include <stdbool.h>
-
-
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -2079,13 +2058,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set * it
 //#pragma once
 
 
-#include <stdbool.h>
-
-
 //#pragma once
-
-
-#include <stdbool.h>
 
 
 enum object_type
@@ -2246,9 +2219,6 @@ long long target_signed_min(enum  target target, enum object_type type);
 
 unsigned long long target_unsigned_max(enum  target target, enum object_type type);
 
-
-
-#include <limits.h>
 
 struct global_unused_list;
 struct rename_list;
@@ -3512,9 +3482,6 @@ int preprocessor_copy_included_headers(const struct preprocessor_ctx* ctx, const
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
 
 
 #include <debugapi.h>
@@ -5620,9 +5587,6 @@ int float_to_string(float value, char* buffer, int size);
 
 #include <stdint.h>
 
-
-#include <string.h>
-
 /*
  *  The standard-library alternative, in case we ever want it back. Build
  *  with -DSTANDARD_ALTERNATIVE to use it instead of the Grisu2 code below;
@@ -5645,9 +5609,6 @@ int float_to_string(float value, char* buffer, int size);
  */
 #ifdef STANDARD_ALTERNATIVE
 
-
-
-#include <stdio.h>
 
 int double_to_string(double value, char* buffer, int size)
 {
@@ -6324,32 +6285,11 @@ int float_to_string(float value, char* buffer, int size)
 
 #pragma safety enable
 
-
-
-#include <stdlib.h>
-
-
-#include <string.h>
-
-
-#include <stdbool.h>
-
-
-#include <assert.h>
  
-
-
-#include <assert.h>
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 #if defined _MSC_VER
-
-
-#include <crtdbg.h>
 #endif
 
 static unsigned int string_hash(const char* key)
@@ -6713,36 +6653,18 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 #ifdef _WIN32
 
 
-#include <Windows.h>
-
-
 #include <conio.h>
 #else
 
 
-#include <stdlib.h>
-
-
 #include <termios.h>
-
-
-#include <unistd.h>
 
 
 #include <fcntl.h>
 
 
 #include <sys/ioctl.h>
-
-
-#include <stdio.h>
 #endif
-
-
-#include <stdbool.h>
-
-
-#include <stdio.h>
 
 #ifndef WIN32
 
@@ -6886,43 +6808,7 @@ void c_gotoxy(int x, int y)
 
 
 
-#include <ctype.h>
-
-
-#include <stdlib.h>
-
-
-#include <string.h>
-
-
-#include <stdio.h>
-
-
-#include <stdlib.h>
-
-
-#include <sys/stat.h>
-
-
 #include <errno.h>
-
-
-#include <string.h>
-
-
-#include <stdbool.h>
-
-
-#include <assert.h>
-
-
-#include <stdlib.h>
-
-
-#include <stddef.h>
-
-
-#include <assert.h>
 
 
 #include <time.h>
@@ -6943,18 +6829,9 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue);
 
 
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
-
-
-#include <debugapi.h>
 #endif
 
 
@@ -16341,21 +16218,6 @@ void hash_hash_at_ends_of_replacement_list()
 #pragma safety enable
 
 
-
-#include <stdbool.h>
-
-
-#include <errno.h>
-
-
-#include <stdio.h>
-
-
-#include <stdlib.h>
-
-
-#include <assert.h>
-
 void ss_swap(struct osstream* a, struct osstream* b)
 {
     struct osstream r = *a;
@@ -16476,39 +16338,15 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 
 
 
-#include <stdlib.h>
-
-
-#include <ctype.h>
-
-
 #include <wchar.h>
 
 
 
-#include <sys/types.h>
-
-
-#include <stdio.h>
-
-
-#include <sys/stat.h>
-
-
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
-
-
-#include <debugapi.h>
 #endif
 
 
@@ -16522,27 +16360,9 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 #endif
 
 #else
-
-
-#include <stdlib.h>
-
-
-#include <unistd.h>
 #endif
 
 
-
-#include <assert.h>
-
-
-
-#include <string.h>
-
-
-#include <stdbool.h>
-
-
-#include <errno.h>
 
 bool path_is_normalized(const char* path)
 {
@@ -19241,9 +19061,21 @@ static const char file_signal_h[] = {
 ,32,32,32,95,95,99,97,107,101,95,115,105,103,104,97,110,100,108,101,114,95,116,32,115,105
 ,103,110,97,108,40,105,110,116,32,115,105,103,44,32,95,95,99,97,107,101,95,115,105,103,104
 ,97,110,100,108,101,114,95,116,32,102,117,110,99,41,59,10,32,32,32,32,105,110,116,32,114
-,97,105,115,101,40,105,110,116,32,115,105,103,41,59,10,10,35,101,108,115,101,10,32,32,32
-,32,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,105,103,110,97,108,46,104,62
-,10,35,101,110,100,105,102,10
+,97,105,115,101,40,105,110,116,32,115,105,103,41,59,10,10,32,32,32,32,35,105,102,32,33
+,100,101,102,105,110,101,100,40,95,87,73,78,51,50,41,10,32,32,32,32,32,32,32,32,47
+,42,32,80,79,83,73,88,58,32,116,104,101,32,115,97,109,101,32,110,117,109,98,101,114,115
+,32,111,110,32,76,105,110,117,120,32,97,110,100,32,109,97,99,79,83,32,42,47,10,32,32
+,32,32,32,32,32,32,35,100,101,102,105,110,101,32,83,73,71,72,85,80,32,32,49,10,32
+,32,32,32,32,32,32,32,35,100,101,102,105,110,101,32,83,73,71,81,85,73,84,32,51,10
+,32,32,32,32,32,32,32,32,35,100,101,102,105,110,101,32,83,73,71,75,73,76,76,32,57
+,10,32,32,32,32,32,32,32,32,35,100,101,102,105,110,101,32,83,73,71,80,73,80,69,32
+,49,51,10,32,32,32,32,32,32,32,32,35,100,101,102,105,110,101,32,83,73,71,65,76,82
+,77,32,49,52,10,32,32,32,32,32,32,32,32,105,110,116,32,107,105,108,108,40,105,110,116
+,32,112,105,100,44,32,105,110,116,32,115,105,103,41,59,32,32,32,47,42,32,112,105,100,95
+,116,32,105,115,32,105,110,116,32,111,110,32,76,105,110,117,120,32,97,110,100,32,109,97,99
+,79,83,32,42,47,10,32,32,32,32,35,101,110,100,105,102,10,10,35,101,108,115,101,10,32
+,32,32,32,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,105,103,110,97,108,46
+,104,62,10,35,101,110,100,105,102,10
 , 0 };
 static const char file_stdalign_h[] = {
 
@@ -21902,18 +21734,6 @@ char* _Owner read_file(const char* path, bool append_newline)
 
 #pragma safety enable
 
-
-#include <string.h>
-
-
-#include <stdio.h>
-
-
-#include <assert.h>
-
-
-#include <stdlib.h>
-
 #ifndef _Countof
 #define _Countof(X) (sizeof(X)/sizeof(X[0]))
 #endif
@@ -22878,9 +22698,6 @@ bool options_diagnostic_is_note(const struct options* options, enum diagnostic_i
 */
 
 
-
-#include <string.h>
-
 struct style_options style_options_cake(void)
 {
     struct style_options s  = {0};
@@ -22974,9 +22791,6 @@ struct style_options style_options_microsoft(void)
 #pragma safety enable
 
 
-#include <stdlib.h>
-
-
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -22996,24 +22810,12 @@ struct style_options style_options_microsoft(void)
 
 
 
-#include <stdbool.h>
-
-
-#include <wchar.h>
-
-
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
 
 //#pragma once
-
-
-#include <stdbool.h>
-
-
-#include <stddef.h>
 
 
 struct parser_ctx;
@@ -23775,15 +23577,6 @@ struct object object_shift_right(enum target target,
 
 
 
-#include <limits.h>
-
-
-#include <stdio.h>
-
-
-#include <assert.h>
-
-
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -23791,12 +23584,6 @@ struct object object_shift_right(enum target target,
 
 //#pragma once
 
-
-
-#include <stdio.h>
-
-
-#include <errno.h>
 
 
 /*
@@ -24110,9 +23897,6 @@ struct marker expression_to_marker(const struct expression* p_expression);
 
 void flow_expression_to_string(const struct expression* p_expression, struct osstream* oss);
 
-
-
-#include <stdbool.h>
 
 
 struct scope
@@ -26080,9 +25864,6 @@ const struct direct_declarator* _Opt get_innermost_direct_declarator(const struc
 
 
 
-
-
-#include <string.h>
 
 
 #include <math.h>
@@ -29970,21 +29751,6 @@ struct object object_shift_right(enum target target,
 
 
 
-#include <limits.h>
-
-
-#include <stdlib.h>
-
-
-#include <stdio.h>
-
-
-#include <assert.h>
-
-
-#include <string.h>
-
-
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake 
@@ -30023,24 +29789,12 @@ void defer_start_visit_compound_statement(struct defer_visit_ctx* ctx,
 
 
 
-#include <math.h>
-
-
 #include <float.h>
 
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
-
-
-#include <debugapi.h>
 #endif
 
 #if defined(_WIN32) && defined(__TINYC__)
@@ -30072,10 +29826,22 @@ static double literal_strtod(const char* s)
 
     return ldexp(mantissa, exponent);
 }
+
+static long double literal_strtold(const char* s)
+{
+    if (!(s[0] == '0' && (s[1] == 'x' || s[1] == 'X')))
+        return strtold(s, NULL);
+    return literal_strtod(s);
+}
 #else
 static double literal_strtod(const char* s)
 {
     return strtod(s, NULL);
+}
+
+static long double literal_strtold(const char* s)
+{
+    return strtold(s, NULL);
 }
 #endif
 
@@ -32798,6 +32564,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         case TK_COMPILER_DECIMAL_FLOATING_CONSTANT:
         case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT:
         {
+            errno = 0;
             if (suffix[0] == 'F')
             {
                 const double value = literal_strtod(buffer);
@@ -32811,7 +32578,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                         NULL,
                                    "floating constant exceeds range of float");
                     }
-                    else
+                    else if (value == 0)
                     {
                         diagnostic(W_FLOAT_RANGE,
                                    ctx,
@@ -32835,7 +32602,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                     diagnostic(W_FLOAT_RANGE,
                                ctx,
                                token,
-                    NULL,
+                               NULL,
                                "floating constant is too small for float");
                 }
                 object_destroy(&p_expression_node->object);
@@ -32844,7 +32611,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             }
             else if (suffix[0] == 'L')
             {
-                const long double value = literal_strtod(buffer);
+                const long double value = literal_strtold(buffer);
 
                 if (errno == ERANGE)
                 {
@@ -32856,7 +32623,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                         NULL,
                                    "floating constant exceeds range of long double");
                     }
-                    else
+                    else if (value == 0)
                     {
                         diagnostic(W_FLOAT_RANGE,
                                    ctx,
@@ -32883,7 +32650,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                         NULL,
                                    "floating constant exceeds range of double");
                     }
-                    else
+                    else if (value == 0)
                     {
                         diagnostic(W_FLOAT_RANGE,
                                    ctx,
@@ -40516,36 +40283,12 @@ void flow_expression_to_string(const struct expression* p_expression, struct oss
 
 
 
-#include <stdlib.h>
-
-
 #include <locale.h>
 
-
-#include <assert.h>
-
-
-#include <limits.h>
-
-
-#include <errno.h>
-
-
-#include <stdio.h>
-
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
-
-
-#include <debugapi.h>
 #endif
 
 /*context expressions preprocessor*/
@@ -41582,27 +41325,6 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue)
 
 
 
-#include <stdlib.h>
-
-
-#include <stdio.h>
-
-
-#include <stdarg.h>
-
-
-#include <assert.h>
-
-
-#include <string.h>
-
-
-#include <stddef.h>
-
-
-#include <ctype.h>
-
-
 
 /*
  *  This file is part of cake compiler
@@ -41877,9 +41599,6 @@ void object_set_destroy(_Dtor struct object_set* l);
 
 
 
-
-#include <time.h>
-
 struct flow_label_state
 {
     const char* label_name;
@@ -42042,13 +41761,7 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 
 
 
-
-#include <errno.h>
-
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 
@@ -42057,18 +41770,12 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 */
 
 //#pragma once
-#define CAKE_VERSION "0.15.6"
+#define CAKE_VERSION "0.15.7"
 
 
  
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
-
-
-#include <debugapi.h>
 #endif
 
 
@@ -42194,12 +41901,6 @@ void codegen_visit_ctx_destroy(_Dtor struct codegen_ctx* ctx);
 
 
 
-
-#include <time.h>
-
-
-
-#include <stddef.h>  // for NULL
 
 /* 
 * Anonymous structs/unions receive a name
@@ -44590,6 +44291,9 @@ enum token_type is_keyword(const char* text, enum target target)
 
             if (strcmp("__inline", text) == 0 || strcmp("__inline__", text) == 0)
                 return TK_KEYWORD_INLINE;
+
+            if (strcmp("__signed", text) == 0 || strcmp("__signed__", text) == 0)
+                return TK_KEYWORD_SIGNED;
 
             if (strcmp("__alignof__", text) == 0)
                 return TK_KEYWORD__ALIGNOF;
@@ -58901,9 +58605,6 @@ int initializer_init_new(struct parser_ctx* ctx,
 //#pragma once
 
 
-#include <stdbool.h>
-
-
 struct report;
 int compile(int argc, const char** argv, struct report* report);
 const char* _Owner _Opt compile_source(const char* pszoptions, const char* content, struct report* report);
@@ -58928,39 +58629,12 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content);
 
 void print_report(const struct report* report);
 
-
-#include <stdlib.h>
-
-
-#include <ctype.h>
-
-
-#include <stdio.h>
-
-
-#include <assert.h>
-
-
-#include <string.h>
-
 #ifdef _WIN32
-
-
-#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
-
-
-#include <crtdbg.h>
-
-
-#include <debugapi.h>
 #endif
 
-
-
-#include <time.h>
 
 static char* _Opt strrchr2(const char* s, int c)
 {
@@ -59667,6 +59341,13 @@ static int compile_many_files(const char* file_name,
     return num_files;
 }
 
+/* realpath, falling back to the original path when it fails (e.g. file does not exist) */
+static void full_path_or_copy(const char* path, char resolved[FS_MAX_PATH])
+{
+    if (realpath(path, resolved) == NULL)
+        snprintf(resolved, FS_MAX_PATH, "%s", path);
+}
+
 static void longest_common_path(int argc, const char* const* argv, char root_dir[FS_MAX_PATH])
 {
     /*
@@ -59702,7 +59383,7 @@ static void longest_common_path(int argc, const char* const* argv, char root_dir
             continue;
 
         char fullpath_i[FS_MAX_PATH] = { 0 };
-        realpath(argv[i], fullpath_i);
+        full_path_or_copy(argv[i], fullpath_i);
         strcpy(root_dir, fullpath_i);
         dirname(root_dir);
 
@@ -59715,7 +59396,7 @@ static void longest_common_path(int argc, const char* const* argv, char root_dir
                     continue;
 
                 char fullpath_j[FS_MAX_PATH] = { 0 };
-                realpath(argv[j], fullpath_j);
+                full_path_or_copy(argv[j], fullpath_j);
                 if (fullpath_j[k] != ch)
                 {
                     strncpy(root_dir, fullpath_j, k);
@@ -59831,7 +59512,7 @@ static void find_definition_run(const char** files, int count, struct options* o
         return;
 
     char fullpath[FS_MAX_PATH] = { 0 };
-    realpath(files[0], fullpath);
+    full_path_or_copy(files[0], fullpath);
     snprintf(options->find_definition_file, sizeof options->find_definition_file, "%s", fullpath);
 
     /* -find-definition shows only the definition; the declaration only when there is none */
@@ -59843,7 +59524,7 @@ static void find_definition_run(const char** files, int count, struct options* o
     int cursor_index = -1;
     for (int i = 0; i < count; i++)
     {
-        realpath(files[i], fullpath);
+        full_path_or_copy(files[i], fullpath);
         memset(&report, 0, sizeof report);
         compile_one_file(fullpath, options, "", argc, argv, &report);
         if (report.find_definition_found)
@@ -59867,7 +59548,7 @@ static void find_definition_run(const char** files, int count, struct options* o
     options->find_definition_line = cursor_line;
     options->find_definition_col = cursor_col;
     options->find_definition_name[0] = '\0';
-    realpath(files[cursor_index], fullpath);
+    full_path_or_copy(files[cursor_index], fullpath);
     struct report report_declaration = { 0 };
     compile_one_file(fullpath, options, "", argc, argv, &report_declaration);
 }
@@ -59917,7 +59598,7 @@ static bool find_definition_search_by_name(const char** files, int count, int cu
         {
             if (k == cursor_index)
                 continue;
-            realpath(files[k < 0 ? cursor_index : k], fullpath);
+            full_path_or_copy(files[k < 0 ? cursor_index : k], fullpath);
         }
 
         struct report report_name = { 0 };
@@ -60108,14 +59789,14 @@ static void rename_run(const char** files, int count, struct options* options, i
     const char* request_name = find_usages ? "find-usages" : "rename";
 
     char fullpath[FS_MAX_PATH] = { 0 };
-    realpath(files[0], fullpath);
+    full_path_or_copy(files[0], fullpath);
     snprintf(options->find_definition_file, sizeof options->find_definition_file, "%s", fullpath);
 
     struct report report = { 0 };
     int cursor_index = -1;
     for (int i = 0; i < count; i++)
     {
-        realpath(files[i], fullpath);
+        full_path_or_copy(files[i], fullpath);
         memset(&report, 0, sizeof report);
         compile_one_file(fullpath, options, "", argc, argv, &report);
         if (report.find_definition_found)
@@ -60170,7 +59851,7 @@ static void rename_run(const char** files, int count, struct options* options, i
         if (only_cursor_file && i != cursor_index)
             continue;
 
-        realpath(files[i], fullpath);
+        full_path_or_copy(files[i], fullpath);
         struct report report_file = { 0 };
         compile_one_file(fullpath, options, "", argc, argv, &report_file);
         if (!rename_list_commit(&list, options))
@@ -60279,7 +59960,7 @@ int compile(int argc, const char** argv, struct report* report)
 
     if (options.output_root[0] != '\0')
     {
-        realpath(options.output_root, root_dir);
+        full_path_or_copy(options.output_root, root_dir);
     }
 
     const size_t root_dir_len = strlen(root_dir);
@@ -60330,7 +60011,7 @@ int compile(int argc, const char** argv, struct report* report)
             else
             {
                 char fullpath[FS_MAX_PATH] = { 0 };
-                realpath(argv[i], fullpath);
+                full_path_or_copy(argv[i], fullpath);
 
                 /* file outside root: output goes next to it */
                 char file_root[FS_MAX_PATH] = { 0 };
@@ -60364,7 +60045,7 @@ int compile(int argc, const char** argv, struct report* report)
         }
 
         char fullpath[FS_MAX_PATH] = { 0 };
-        realpath(argv[i], fullpath);
+        full_path_or_copy(argv[i], fullpath);
 
         const char* file_extension = basename(fullpath);
 
@@ -60405,7 +60086,7 @@ int compile(int argc, const char** argv, struct report* report)
         if (find_definition_count > 0)
         {
             char fullpath[FS_MAX_PATH] = { 0 };
-            realpath(find_definition_files[0], fullpath);
+            full_path_or_copy(find_definition_files[0], fullpath);
             snprintf(options.find_definition_file, sizeof options.find_definition_file, "%s", fullpath);
             struct report report_local = { 0 };
             compile_one_file(fullpath, &options, "", argc, argv, &report_local);
@@ -60658,24 +60339,6 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
 #pragma safety enable
 
 
-
-#include <stdlib.h>
-
-
-#include <assert.h>
-
-
-#include <string.h>
-
-
-#include <ctype.h> 
-
-
-
-#include <stdint.h>
-
-
-#include <limits.h>
 
 
 /*
@@ -61883,30 +61546,6 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 
 #pragma safety enable
 
-
-#include <stdlib.h>
-
-
-#include <string.h>
-
-
-#include <stdio.h>
-
-
-#include <assert.h>
-
-
-#include <limits.h>
-
-
-#include <stdint.h>
-
-
-#include <time.h>
-
-
-#include <ctype.h>
-
 /*
 *  Prefix used to create file scope declarators
 */
@@ -62035,7 +61674,7 @@ int rename_file_scope_declarator_if_necessary(const struct codegen_ctx* ctx, str
         char qualified_name[200] = { 0 };
         snprintf(qualified_name, sizeof(qualified_name), CAKE_FILE_SCOPE_PREFIX "%s", current_name);
 
-        char new_name[200] = { 0 };
+        char new_name[220] = { 0 };
         struct map_entry* _Opt it =
             hashmap_find(&ctx->p_ast->file_scope.variables, qualified_name);
         while (it)
@@ -63686,7 +63325,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                 _Assert(ctx->p_current_function_opt);
 
                 char func_name[200] = { 0 };
-                char name[100] = { 0 };
+                char name[220] = { 0 };
                 if (ctx->p_current_function_opt->name_opt)
                 {
                     snprintf(func_name, sizeof func_name, "%s", ctx->p_current_function_opt->name_opt->lexeme);
@@ -66762,8 +66401,8 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                     /*
                             *   We already have a file scope tag with the same name
                             */
-                                    char new_name[100] = { 0 };
-                                    snprintf(new_name, sizeof unique_id, CAKE_FILE_SCOPE_PREFIX "%s%d", p_complete->tag_name, p_complete->unique_id);
+                                    char new_name[220] = { 0 };
+                                    snprintf(new_name, sizeof new_name, CAKE_FILE_SCOPE_PREFIX "%s%d", p_complete->tag_name, p_complete->unique_id);
                                     snprintf(p_complete->tag_name, sizeof p_complete->tag_name, "%s", new_name);
 
                                     struct hash_item_set i = { 0 };
@@ -69226,21 +68865,6 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 
 
 
-#include <stdlib.h>
-
-
-#include <string.h>
-
-
-#include <stdio.h>
-
-
-#include <limits.h>
-
-
-#include <stdint.h>
-
-
 #define FLOW_ALT_POOL_BLOCK_NODES 4096
 
 union flow_alt_pool_node
@@ -70031,18 +69655,6 @@ bool flow_alternative_can_be_zero(const struct flow_alternative* alt)
 
 #pragma safety enable
 
-
-
-#include <stdlib.h>
-
-
-#include <string.h>
-
-
-#include <stdint.h>
-
-
-#include <stdio.h>
 
 
 enum
@@ -71718,30 +71330,6 @@ void flow_branch_name_to_string(const struct flow_branch* _Opt map, struct osstr
 
 #pragma safety enable
 
-
-
-#include <stdlib.h>
-
-
-#include <assert.h>
-
-
-#include <string.h>
-
-
-#include <ctype.h>
-
-
-#include <stdlib.h>
-
-
-#include <stdint.h>
-
-
-#include <limits.h>
-
-
-#include <stdio.h>
 
 /* flow reaches the object an expression stands for through its REF alternatives
    (flow_branch_search_up); p_ref is a parse-time link that is NULL or a
@@ -83979,18 +83567,6 @@ void flow_visit_ctx_destroy(_Dtor struct flow_ctx* ctx)
 #pragma safety enable
 
 
-
-#include <stdio.h>
-
-
-#include <stdarg.h>
-
-
-#include <assert.h>
-
-
-#include <errno.h>
-
 #ifdef _WIN32
 
 
@@ -84831,27 +84407,6 @@ int GetWindowsOrLinuxSocketLastErrorAsPosix(void)
 
 #pragma safety enable
 
-
-
-#include <limits.h>
-
-
-#include <assert.h>
-
-
-#include <stdbool.h>
-
-
-#include <stdio.h>
-
-
-#include <string.h>
-
-
-#include <inttypes.h>
-
-
-#include <assert.h>
 
 static char gcc_builtins[] =
 {
@@ -85751,21 +85306,6 @@ void target_self_test()
 
 #pragma safety enable
 
-
-
-#include <assert.h>
-
-
-#include <stdbool.h>
-
-
-#include <stdio.h>
-
-
-#include <string.h>
-
-
-#include <stdlib.h>
 
 
 #define TYPE_QUALIFIER_CAKE_MASK \

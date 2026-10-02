@@ -249,22 +249,9 @@ This writes the C89 output to `./<target>/source.c`, where `<target>` is the pla
 
 The Cake IDE was developed with the help of AI tools. It has now been adopted as
 part of the Cake project and will be maintained alongside the rest of the
-codebase. Over time, the IDE code will be reviewed, refined, and gradually
-humanized as the project evolves.
+codebase. 
 
-The IDE works in macOS, Windows and Linux. Its purpose is to make Cake easier
-to use: open a file or a project, press Build, and the whole pipeline — Cake's
-C89 output, the external compiler, the debugger — is set up and driven from one
-place, with no command lines to remember. It is very useful to visualize and
-remove warnings: Cake's diagnostics show up in the Output window and jump
-straight to the offending line.
-
-It is also how Cake itself is developed and debugged. The `src/cakeprj.cakeproj`
-project builds the compiler with the same process any other project uses: Cake
-translates the sources to C89, an External Tool (gcc, clang, tcc or cl) links the
-generated code, and the built-in debugger (lldb / cdb) runs the result. Opening
-that project is the quickest way to step through the compiler while it compiles
-a sample.
+The IDE works in macOS, Windows and Linux / Raspberry Pi.
 
 
 ![Cake IDE](cakeide.png)

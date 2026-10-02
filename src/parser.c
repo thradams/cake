@@ -2432,6 +2432,9 @@ enum token_type is_keyword(const char* text, enum target target)
             if (strcmp("__inline", text) == 0 || strcmp("__inline__", text) == 0)
                 return TK_KEYWORD_INLINE;
 
+            if (strcmp("__signed", text) == 0 || strcmp("__signed__", text) == 0)
+                return TK_KEYWORD_SIGNED;
+
             if (strcmp("__alignof__", text) == 0)
                 return TK_KEYWORD__ALIGNOF;
 

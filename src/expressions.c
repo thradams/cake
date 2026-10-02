@@ -56,10 +56,22 @@ static double literal_strtod(const char* s)
 
     return ldexp(mantissa, exponent);
 }
+
+static long double literal_strtold(const char* s)
+{
+    if (!(s[0] == '0' && (s[1] == 'x' || s[1] == 'X')))
+        return strtold(s, NULL);
+    return literal_strtod(s);
+}
 #else
 static double literal_strtod(const char* s)
 {
     return strtod(s, NULL);
+}
+
+static long double literal_strtold(const char* s)
+{
+    return strtold(s, NULL);
 }
 #endif
 
@@ -2782,6 +2794,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         case TK_COMPILER_DECIMAL_FLOATING_CONSTANT:
         case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT:
         {
+            errno = 0;
             if (suffix[0] == 'F')
             {
                 const double value = literal_strtod(buffer);
@@ -2795,7 +2808,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                         NULL,
                                    "floating constant exceeds range of float");
                     }
-                    else
+                    else if (value == 0)
                     {
                         diagnostic(W_FLOAT_RANGE,
                                    ctx,
@@ -2819,7 +2832,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                     diagnostic(W_FLOAT_RANGE,
                                ctx,
                                token,
-                    NULL,
+                               NULL,
                                "floating constant is too small for float");
                 }
                 object_destroy(&p_expression_node->object);
@@ -2828,7 +2841,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             }
             else if (suffix[0] == 'L')
             {
-                const long double value = literal_strtod(buffer);
+                const long double value = literal_strtold(buffer);
 
                 if (errno == ERANGE)
                 {
@@ -2840,7 +2853,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                         NULL,
                                    "floating constant exceeds range of long double");
                     }
-                    else
+                    else if (value == 0)
                     {
                         diagnostic(W_FLOAT_RANGE,
                                    ctx,
@@ -2867,7 +2880,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                         NULL,
                                    "floating constant exceeds range of double");
                     }
-                    else
+                    else if (value == 0)
                     {
                         diagnostic(W_FLOAT_RANGE,
                                    ctx,

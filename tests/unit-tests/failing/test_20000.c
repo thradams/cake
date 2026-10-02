@@ -32,7 +32,7 @@ int main()
     {
         /*
           g points to one struct X
-          programmer needs to runtime_assert(g != p);
+          programmer needs to _Assert(g != p);
         */
         g->i = 1;
     }

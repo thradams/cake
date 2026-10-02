@@ -33,6 +33,16 @@
     __cake_sighandler_t signal(int sig, __cake_sighandler_t func);
     int raise(int sig);
 
+    #if !defined(_WIN32)
+        /* POSIX: the same numbers on Linux and macOS */
+        #define SIGHUP  1
+        #define SIGQUIT 3
+        #define SIGKILL 9
+        #define SIGPIPE 13
+        #define SIGALRM 14
+        int kill(int pid, int sig);   /* pid_t is int on Linux and macOS */
+    #endif
+
 #else
     #include_next <signal.h>
 #endif

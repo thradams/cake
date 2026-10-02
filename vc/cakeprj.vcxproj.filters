@@ -61,9 +61,6 @@
     <ClCompile Include="..\src\compile.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\file.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\fp_to_string.c">
       <Filter>Source Files</Filter>
     </ClCompile>

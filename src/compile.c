@@ -739,6 +739,13 @@ static int compile_many_files(const char* file_name,
     return num_files;
 }
 
+/* realpath, falling back to the original path when it fails (e.g. file does not exist) */
+static void full_path_or_copy(const char* path, char resolved[FS_MAX_PATH])
+{
+    if (realpath(path, resolved) == NULL)
+        snprintf(resolved, FS_MAX_PATH, "%s", path);
+}
+
 static void longest_common_path(int argc, const char* const* argv, char root_dir[FS_MAX_PATH])
 {
     /*
@@ -774,7 +781,7 @@ static void longest_common_path(int argc, const char* const* argv, char root_dir
             continue;
 
         char fullpath_i[FS_MAX_PATH] = { 0 };
-        realpath(argv[i], fullpath_i);
+        full_path_or_copy(argv[i], fullpath_i);
         strcpy(root_dir, fullpath_i);
         dirname(root_dir);
 
@@ -787,7 +794,7 @@ static void longest_common_path(int argc, const char* const* argv, char root_dir
                     continue;
 
                 char fullpath_j[FS_MAX_PATH] = { 0 };
-                realpath(argv[j], fullpath_j);
+                full_path_or_copy(argv[j], fullpath_j);
                 if (fullpath_j[k] != ch)
                 {
                     strncpy(root_dir, fullpath_j, k);
@@ -903,7 +910,7 @@ static void find_definition_run(const char** files, int count, struct options* o
         return;
 
     char fullpath[FS_MAX_PATH] = { 0 };
-    realpath(files[0], fullpath);
+    full_path_or_copy(files[0], fullpath);
     snprintf(options->find_definition_file, sizeof options->find_definition_file, "%s", fullpath);
 
     /* -find-definition shows only the definition; the declaration only when there is none */
@@ -915,7 +922,7 @@ static void find_definition_run(const char** files, int count, struct options* o
     int cursor_index = -1;
     for (int i = 0; i < count; i++)
     {
-        realpath(files[i], fullpath);
+        full_path_or_copy(files[i], fullpath);
         memset(&report, 0, sizeof report);
         compile_one_file(fullpath, options, "", argc, argv, &report);
         if (report.find_definition_found)
@@ -939,7 +946,7 @@ static void find_definition_run(const char** files, int count, struct options* o
     options->find_definition_line = cursor_line;
     options->find_definition_col = cursor_col;
     options->find_definition_name[0] = '\0';
-    realpath(files[cursor_index], fullpath);
+    full_path_or_copy(files[cursor_index], fullpath);
     struct report report_declaration = { 0 };
     compile_one_file(fullpath, options, "", argc, argv, &report_declaration);
 }
@@ -989,7 +996,7 @@ static bool find_definition_search_by_name(const char** files, int count, int cu
         {
             if (k == cursor_index)
                 continue;
-            realpath(files[k < 0 ? cursor_index : k], fullpath);
+            full_path_or_copy(files[k < 0 ? cursor_index : k], fullpath);
         }
 
         struct report report_name = { 0 };
@@ -1180,14 +1187,14 @@ static void rename_run(const char** files, int count, struct options* options, i
     const char* request_name = find_usages ? "find-usages" : "rename";
 
     char fullpath[FS_MAX_PATH] = { 0 };
-    realpath(files[0], fullpath);
+    full_path_or_copy(files[0], fullpath);
     snprintf(options->find_definition_file, sizeof options->find_definition_file, "%s", fullpath);
 
     struct report report = { 0 };
     int cursor_index = -1;
     for (int i = 0; i < count; i++)
     {
-        realpath(files[i], fullpath);
+        full_path_or_copy(files[i], fullpath);
         memset(&report, 0, sizeof report);
         compile_one_file(fullpath, options, "", argc, argv, &report);
         if (report.find_definition_found)
@@ -1242,7 +1249,7 @@ static void rename_run(const char** files, int count, struct options* options, i
         if (only_cursor_file && i != cursor_index)
             continue;
 
-        realpath(files[i], fullpath);
+        full_path_or_copy(files[i], fullpath);
         struct report report_file = { 0 };
         compile_one_file(fullpath, options, "", argc, argv, &report_file);
         if (!rename_list_commit(&list, options))
@@ -1351,7 +1358,7 @@ int compile(int argc, const char** argv, struct report* report)
 
     if (options.output_root[0] != '\0')
     {
-        realpath(options.output_root, root_dir);
+        full_path_or_copy(options.output_root, root_dir);
     }
 
     const size_t root_dir_len = strlen(root_dir);
@@ -1402,7 +1409,7 @@ int compile(int argc, const char** argv, struct report* report)
             else
             {
                 char fullpath[FS_MAX_PATH] = { 0 };
-                realpath(argv[i], fullpath);
+                full_path_or_copy(argv[i], fullpath);
 
                 /* file outside root: output goes next to it */
                 char file_root[FS_MAX_PATH] = { 0 };
@@ -1436,7 +1443,7 @@ int compile(int argc, const char** argv, struct report* report)
         }
 
         char fullpath[FS_MAX_PATH] = { 0 };
-        realpath(argv[i], fullpath);
+        full_path_or_copy(argv[i], fullpath);
 
         const char* file_extension = basename(fullpath);
 
@@ -1477,7 +1484,7 @@ int compile(int argc, const char** argv, struct report* report)
         if (find_definition_count > 0)
         {
             char fullpath[FS_MAX_PATH] = { 0 };
-            realpath(find_definition_files[0], fullpath);
+            full_path_or_copy(find_definition_files[0], fullpath);
             snprintf(options.find_definition_file, sizeof options.find_definition_file, "%s", fullpath);
             struct report report_local = { 0 };
             compile_one_file(fullpath, &options, "", argc, argv, &report_local);

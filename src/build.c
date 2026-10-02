@@ -54,13 +54,29 @@
     CAKE_LIB_SOURCE_FILES \
     " main.c "
 
+/* Linux: the IDE's backend - Wayland when the session is Wayland and its
+ * libraries are installed, else X11 (Xft); "wayland" / "x11" choose. */
+static int wayland = -1;   /* -1: detect */
+#define LINUX_IDE_FRONTEND (wayland ? " ide/ide_gui_wayland.c " : " ide/ide_gui_x11.c ")
+#define LINUX_IDE_LIBS (wayland ? " -lwayland-client -lwayland-cursor -lxkbcommon -lfontconfig -lfreetype -lpthread -lm " \
+                                : " -lX11 -lXft -lXrender -lfontconfig -lfreetype -lpthread -lm ")
+
 #define CAKE_IDE_SOURCE_FILES \
     CAKE_LIB_SOURCE_FILES \
-    " ide_lsp.c " \
-    " ide_ui.c " \
-    " ide_debug.c " \
-    " ide.c " \
     " tinycthread.c " \
+    " ide/ide_gui_core.c " \
+    " ide/ide_gui_widgets.c " \
+    " ide/ide_gui_editor.c " \
+    " ide/ide_shell.c " \
+    " ide/ide_themes.c " \
+    " ide/ide_highlight.c " \
+    " ide/ide_services.c " \
+    " ide/ide_compile.c " \
+    " ide/ide_project.c " \
+    " ide/ide_search.c " \
+    " ide/ide_debug.c " \
+    " ide/ide_debugger.c " \
+    " ide/ide_gui_frame.c "
 
 
 #define HOEDOWN_SOURCE_FILES \
@@ -188,9 +204,9 @@
 
 #if defined PLATFORM_WINDOWS
 /* tcc ships no advapi32/shell32 and an old kernel32: tcc_lib gets them from the system dlls (see build_cake_ide) */
-#define TCC_IDE_FRONTEND " ide_win32.c -Ltcc_lib -lkernel32 -luser32 -lgdi32 -lshell32 -ladvapi32 "
+#define TCC_IDE_FRONTEND " ide/ide_gui_win32.c -Ltcc_lib -lkernel32 -luser32 -lgdi32 -lshell32 -ladvapi32 -lmsimg32 "
 #else
-#define TCC_IDE_FRONTEND " -I/usr/include/freetype2 ide_x11.c -lX11 -lXft -lXrender -lfreetype -lpthread "
+#define TCC_IDE_FRONTEND " -I/usr/include/freetype2 ide/ide_gui_x11.c -lX11 -lXft -lXrender -lfontconfig -lfreetype -lpthread -lm "
 #endif
 
 #endif /* COMPILER_TINYC */
@@ -581,10 +597,10 @@ static void build_cake_ide(int debug)
 
     const char* msvc_config = debug ? MSVC_DEBUG_CONFIG_FLAGS : MSVC_RELEASE_CONFIG_FLAGS;
 
-    execute_cmd("rc ../vc/ide/ide.rc");
+    execute_cmd("rc /nologo ide/ide.rc");
 
-    char* cmd = calloc(2000, sizeof(char));
-    snprintf(cmd, 2000, "cl %s%s  /Fe:" EXE(CAKE_NAME) " ide_win32.c ../vc/ide/ide.res  %s",
+    char* cmd = calloc(4000, sizeof(char));
+    snprintf(cmd, 4000, "cl %s%s  /Fe:" EXE(CAKE_NAME) " ide/ide_gui_win32.c ide/ide.res  %s",
              MSVC_COMMON_FLAGS, msvc_config, CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
     free(cmd);
@@ -595,8 +611,9 @@ static void build_cake_ide(int debug)
 
     const char* clang_win_config = debug ? CLANG_WIN_DEBUG_FLAGS : CLANG_WIN_RELEASE_FLAGS;
 
-    char cmd[512];
-    snprintf(cmd, sizeof cmd, "clang %s%s -o " EXE(CAKE_NAME) " %s",
+    char cmd[4000];
+    /* /NODEFAULTLIB in CLANG_WIN_FLAGS drops the backend's #pragma comment(lib) */
+    snprintf(cmd, sizeof cmd, "clang %s%s ide/ide_gui_win32.c -lGdi32.lib -lShell32.lib -lMsimg32.lib -o " EXE(CAKE_NAME) " %s",
              clang_win_config, CLANG_WIN_FLAGS, CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
 
@@ -606,18 +623,18 @@ static void build_cake_ide(int debug)
 
     const char* clang_unix_config = debug ? "" : " -DNDEBUG -O2 ";
 
-    char cmd[512];
+    char cmd[4000];
     /* Use Cocoa frontend on macOS, X11 frontend on Linux. */
 #if defined PLATFORM_MACOS
-    snprintf(cmd, sizeof cmd, "clang %s%s  ide_cocoa.c  -framework Cocoa -framework CoreText -framework CoreGraphics -lobjc -o " EXE(CAKE_NAME) " %s",
+    snprintf(cmd, sizeof cmd, "clang %s%s  ide/ide_gui_cocoa.c  -framework Cocoa -framework CoreText -framework CoreGraphics -lobjc -o " EXE(CAKE_NAME) " %s",
          CLANG_UNIX_FLAGS, clang_unix_config, CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
 #else
     /* Xft.h pulls in <ft2build.h>, which on Debian/Ubuntu lives under
      * /usr/include/freetype2 rather than directly on the default
      * include path, so it must be added explicitly. */
-    snprintf(cmd, sizeof cmd, "clang %s%s -I/usr/include/freetype2  ide_x11.c %s -o " EXE(CAKE_NAME) " %s",
-         CLANG_UNIX_FLAGS, clang_unix_config, "-lX11 -lXft -lXrender -lfreetype -lpthread", CAKE_IDE_SOURCE_FILES);
+    snprintf(cmd, sizeof cmd, "clang %s%s -I/usr/include/freetype2  %s %s -o " EXE(CAKE_NAME) " %s",
+         CLANG_UNIX_FLAGS, clang_unix_config, LINUX_IDE_FRONTEND, LINUX_IDE_LIBS, CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
 #endif
 
@@ -627,18 +644,18 @@ static void build_cake_ide(int debug)
     {
     const char* gcc_config = debug ? "" : " -DNDEBUG -O2 ";
 
-    char cmd[512];
+    char cmd[4000];
     /* Use Cocoa frontend on macOS, X11 frontend on Linux. */
 #if defined PLATFORM_MACOS
-    snprintf(cmd, sizeof cmd, "gcc %s %s  ide_cocoa.c  -framework Cocoa -framework CoreText -framework CoreGraphics -lobjc -o " EXE(CAKE_NAME) " %s",
+    snprintf(cmd, sizeof cmd, "gcc %s %s  ide/ide_gui_cocoa.c  -framework Cocoa -framework CoreText -framework CoreGraphics -lobjc -o " EXE(CAKE_NAME) " %s",
          GCC_FLAGS, gcc_config, CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
 #else
     /* Xft.h pulls in <ft2build.h>, which on Debian/Ubuntu lives under
      * /usr/include/freetype2 rather than directly on the default
      * include path, so it must be added explicitly. */
-    snprintf(cmd, sizeof cmd, "gcc %s %s -I/usr/include/freetype2  ide_x11.c %s -o " EXE(CAKE_NAME) " %s",
-         GCC_FLAGS, gcc_config, "-lX11 -lXft -lXrender -lfreetype -lpthread", CAKE_IDE_SOURCE_FILES);
+    snprintf(cmd, sizeof cmd, "gcc %s %s -I/usr/include/freetype2  %s %s -o " EXE(CAKE_NAME) " %s",
+         GCC_FLAGS, gcc_config, LINUX_IDE_FRONTEND, LINUX_IDE_LIBS, CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
 #endif
     }
@@ -651,13 +668,14 @@ static void build_cake_ide(int debug)
     execute_cmd("tcc -impdef %SystemRoot%/System32/kernel32.dll -o tcc_lib/kernel32.def");
     execute_cmd("tcc -impdef %SystemRoot%/System32/advapi32.dll -o tcc_lib/advapi32.def");
     execute_cmd("tcc -impdef %SystemRoot%/System32/shell32.dll -o tcc_lib/shell32.def");
+    execute_cmd("tcc -impdef %SystemRoot%/System32/msimg32.dll -o tcc_lib/msimg32.def");
 #endif
 
 #if defined PLATFORM_MACOS
     /* tcc cannot link the Cocoa frameworks and macOS has no X11 */
     printf("skipping cake IDE: not supported with tcc on macOS\n");
 #else
-    char cmd[1024];
+    char cmd[4000];
     snprintf(cmd, sizeof cmd, "tcc %s%s" TCC_IDE_FRONTEND "-o " EXE(CAKE_NAME) " %s",
              TCC_FLAGS, debug ? TCC_DEBUG_FLAGS : TCC_RELEASE_FLAGS, CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
@@ -1029,6 +1047,14 @@ int main(int argc, char* argv[])
         {
             debug = 1;
         }
+        else if (strcmp(argv[i], "wayland") == 0)
+        {
+            wayland = 1;   /* Linux: the IDE talks Wayland itself, not through XWayland */
+        }
+        else if (strcmp(argv[i], "x11") == 0)
+        {
+            wayland = 0;
+        }
         else if (strcmp(argv[i], "-cake-headers") == 0)
         {
             /* every cake run (self-analysis, cake89, test suites) uses the
@@ -1038,15 +1064,29 @@ int main(int argc, char* argv[])
         else
         {
             printf("unrecognized option: %s\n", argv[i]);
-            printf("usage: %s [fast] [full] [test] [debug] [-cake-headers]\n", argv[0]);
+            printf("usage: %s [fast] [full] [test] [debug] [wayland|x11] [-cake-headers]\n", argv[0]);
             printf("  fast  - only compile the IDE\n");
             printf("  full  - build everything with -DTEST, but do not run the test suite\n");
             printf("  test  - same as full, and run the test suite afterwards\n");
             printf("  debug - build without optimizations/-DNDEBUG\n");
+            printf("  wayland, x11 - Linux: the IDE's backend (default: Wayland in a Wayland session\n"
+                   "                with its libraries installed, else X11)\n");
             printf("  -cake-headers - run cake with its bundled headers (cake89 and tests)\n");
             return 1;
         }
     }
+
+#if defined PLATFORM_LINUX
+    if (wayland < 0)
+    {
+        const char* session = getenv("WAYLAND_DISPLAY");
+        wayland = session && session[0] &&
+                  system("pkg-config --exists wayland-client wayland-cursor xkbcommon freetype2 fontconfig") == 0;
+    }
+    printf("IDE backend: %s\n", wayland ? "Wayland" : "X11");
+#else
+    wayland = 0;
+#endif
 
     /* full is the opposite of fast */
     if (full)

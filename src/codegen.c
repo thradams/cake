@@ -140,7 +140,7 @@ int rename_file_scope_declarator_if_necessary(const struct codegen_ctx* ctx, str
         char qualified_name[200] = { 0 };
         snprintf(qualified_name, sizeof(qualified_name), CAKE_FILE_SCOPE_PREFIX "%s", current_name);
 
-        char new_name[200] = { 0 };
+        char new_name[220] = { 0 };
         struct map_entry* _Opt it =
             hashmap_find(&ctx->p_ast->file_scope.variables, qualified_name);
         while (it)
@@ -1791,7 +1791,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                 _Assert(ctx->p_current_function_opt);
 
                 char func_name[200] = { 0 };
-                char name[100] = { 0 };
+                char name[220] = { 0 };
                 if (ctx->p_current_function_opt->name_opt)
                 {
                     snprintf(func_name, sizeof func_name, "%s", ctx->p_current_function_opt->name_opt->lexeme);
@@ -4867,8 +4867,8 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                     /*
                             *   We already have a file scope tag with the same name
                             */
-                                    char new_name[100] = { 0 };
-                                    snprintf(new_name, sizeof unique_id, CAKE_FILE_SCOPE_PREFIX "%s%d", p_complete->tag_name, p_complete->unique_id);
+                                    char new_name[220] = { 0 };
+                                    snprintf(new_name, sizeof new_name, CAKE_FILE_SCOPE_PREFIX "%s%d", p_complete->tag_name, p_complete->unique_id);
                                     snprintf(p_complete->tag_name, sizeof p_complete->tag_name, "%s", new_name);
 
                                     struct hash_item_set i = { 0 };

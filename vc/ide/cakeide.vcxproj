@@ -1,0 +1,200 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>18.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{7C2D4A91-58E3-4B6F-A0D2-3F9E8C1B6A47}</ProjectGuid>
+    <RootNamespace>cakeide</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <!-- Project-local output, so nothing here can collide with the old IDE's
+       cakeide.exe in src\. -->
+  <PropertyGroup>
+    <OutDir>$(ProjectDir)bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>obj_cakeide\$(Platform)\$(Configuration)\</IntDir>
+    <TargetName>cakeide</TargetName>
+    <LocalDebuggerWorkingDirectory>$(MSBuildThisFileDirectory)..\..\src\</LocalDebuggerWorkingDirectory>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalOptions>/we4013 /utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\ide\ide_gui_core.c" />
+    <ClCompile Include="..\..\src\ide\ide_gui_widgets.c" />
+    <ClCompile Include="..\..\src\ide\ide_gui_editor.c" />
+    <ClCompile Include="..\..\src\ide\ide_gui_win32.c" />
+    <ClCompile Include="..\..\src\ide\ide_shell.c" />
+    <ClCompile Include="..\..\src\ide\ide_themes.c" />
+    <ClCompile Include="..\..\src\ide\ide_highlight.c" />
+    <ClCompile Include="..\..\src\ide\ide_services.c" />
+    <ClCompile Include="..\..\src\ide\ide_compile.c" />
+    <ClCompile Include="..\..\src\ide\ide_project.c" />
+    <ClCompile Include="..\..\src\ide\ide_search.c" />
+    <ClCompile Include="..\..\src\ide\ide_debug.c" />
+    <ClCompile Include="..\..\src\ide\ide_debugger.c" />
+    <ClCompile Include="..\..\src\ide\ide_gui_frame.c" />
+    <ClCompile Include="..\..\src\codegen.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\compile.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\console.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\defer.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\error.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\flow_alternative.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\flow_branch.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\expressions.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\flow.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\fs.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\hashmap.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\fp_to_string.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\json.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\object.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\options.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\osstream.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\parser.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\pre_expressions.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\target.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\tinycthread.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\token.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\tokenizer.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\..\src\type.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\src\ide\ide_gui.h" />
+    <ClInclude Include="..\..\src\ide\ide_gui_backend.h" />
+    <ClInclude Include="..\..\src\ide\ide_gui_internal.h" />
+    <ClInclude Include="..\..\src\ide\ide_shell.h" />
+    <ClInclude Include="..\..\src\ide\ide_debugger.h" />
+    <ClInclude Include="..\..\src\ide\ide_gui_frame.h" />
+    <ClInclude Include="..\..\src\ide\ide_icon.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\..\src\ide\ide.rc" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>
