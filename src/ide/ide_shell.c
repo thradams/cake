@@ -995,20 +995,6 @@ static struct gui_node* add_at(struct ide* ide, struct gui_node* parent, enum gu
     return n;
 }
 
-/* At `bottom` rows from the parent's bottom edge, centered across it. */
-static struct gui_node* add_bottom_centered(struct ide* ide, struct gui_node* parent, enum gui_kind kind,
-                                            int bottom, int cols, const char* label)
-{
-    struct gui_node* n = create(ide, kind, label);
-    struct gui_layout l = { GUI_ANCHOR_BOTTOM };
-    l.bottom.cells = bottom;
-    l.width.cells = cols;
-    l.height.cells = 1;
-    gui_set_layout(n, &l);
-    gui_append(parent, n);
-    return n;
-}
-
 /* A child filling `parent` but for the given margins, in cells. */
 static void fill_margins(struct gui_node* n, int left, int top, int right, int bottom)
 {
@@ -1275,7 +1261,7 @@ static void folder_refresh(struct ide* ide)
     for (int i = 0; i < f->count; i++)
     {
         char label[300];
-        snprintf(label, sizeof label, f->entries[i].is_dir ? "%s\\" : "%s", f->entries[i].name);
+        snprintf(label, sizeof label, "%s%s", f->entries[i].name, f->entries[i].is_dir ? "\\" : "");
         gui_append(f->list, create(ide, GUI_ITEM, label));
     }
     gui_set_selected(f->list, 0);
@@ -1307,9 +1293,13 @@ static void folder_open_selected(struct ide* ide)
     size_t len = strlen(f->dir);
     snprintf(path, sizeof path, "%s%s%s", f->dir,
              (len > 0 && (f->dir[len - 1] == '\\' || f->dir[len - 1] == '/')) ? "" : IDE_PATH_SEP, e->name);
-    if (e->is_dir)
+    if (e->is_dir && strlen(path) >= sizeof f->dir)
     {
-        snprintf(f->dir, sizeof f->dir, "%s", path);
+        status(ide, "The path is too long");
+    }
+    else if (e->is_dir)
+    {
+        memcpy(f->dir, path, strlen(path) + 1);
         folder_refresh(ide);
     }
     else if (ends_with(path, ".cakeproj"))
@@ -1748,12 +1738,15 @@ static int matches_filter(const char* name, const char* patterns)
     return 0;
 }
 
-/* `dir` joined with `name`. */
+/* `dir` joined with `name`; "" when it does not fit. */
 static void join_path(char* out, size_t cap, const char* dir, const char* name)
 {
     size_t len = strlen(dir);
     int slash = len > 0 && (dir[len - 1] == '\\' || dir[len - 1] == '/');
-    snprintf(out, cap, "%s%s%s", dir, slash ? "" : IDE_PATH_SEP, name);
+    if (snprintf(out, cap, "%s%s%s", dir, slash ? "" : IDE_PATH_SEP, name) >= (int)cap)
+    {
+        out[0] = '\0';
+    }
 }
 
 /* `dir` without its last component (kept as "C:\" at the root). */
@@ -1894,9 +1887,14 @@ static void open_accept(struct ide* ide, const char* name)
         snprintf(path, sizeof path, "%s", name);
     else
         join_path(path, sizeof path, o->dir, name);
+    if (ide_is_dir(path) && strlen(path) >= sizeof o->dir)
+    {
+        status(ide, "The path is too long");
+        return;
+    }
     if (ide_is_dir(path))
     {
-        snprintf(o->dir, sizeof o->dir, "%s", path);
+        memcpy(o->dir, path, strlen(path) + 1);
         gui_set_value(o->name, "");
         open_refresh(ide);
         return;
@@ -1928,7 +1926,7 @@ static void open_accept(struct ide* ide, const char* name)
     if (ide_file_exists(path))
     {
         char msg[400];
-        snprintf(msg, sizeof msg, "%s already exists.\nOverwrite?", file_name(path));
+        snprintf(msg, sizeof msg, "%.300s already exists.\nOverwrite?", file_name(path));
         static const char* const labels[] = { "  Yes  ", "  No  " };
         static const int ids[] = { EV_SAVEAS_OVERWRITE, 0 };
         gui_message_box(ide->app, "Save As", msg, labels, ids, 2);
@@ -1941,9 +1939,15 @@ static void open_accept(struct ide* ide, const char* name)
 static void save_as_commit(struct ide* ide)
 {
     struct doc* d = active_doc(ide);
-    if (d)
+    if (d && strlen(ide->pending_path) >= sizeof d->path)
     {
-        snprintf(d->path, sizeof d->path, "%s", ide->pending_path);
+        static const char* const ok[] = { "   OK   " };
+        static const int ok_id[] = { 0 };
+        gui_message_box(ide->app, "Save As", "The path is too long.", ok, ok_id, 1);
+    }
+    else if (d)
+    {
+        memcpy(d->path, ide->pending_path, strlen(ide->pending_path) + 1);
         gui_set_label(d->window, file_name(d->path));
         save_doc(ide, d);
     }
@@ -3631,7 +3635,7 @@ static void expand_macros(struct ide* ide, const char* in, struct ide_text* out)
 {
     struct doc* d = active_doc(ide);
     const char* path = d ? d->path : "";
-    char dir[1024] = "", name[300] = "", ext[64] = "";
+    char dir[1024] = "", name[1024] = "", ext[64] = "";
     if (path[0])
     {
         snprintf(dir, sizeof dir, "%s", path);
@@ -3993,7 +3997,12 @@ static void includes_add(struct ide* ide, const char* dir)
     }
     if (l->count == MAX_INCLUDE_DIRS)
         return;
-    snprintf(l->dirs[l->count++], sizeof l->dirs[0], "%s", entry);
+    if (strlen(entry) >= sizeof l->dirs[0])
+    {
+        status(ide, "The path is too long");
+        return;
+    }
+    memcpy(l->dirs[l->count++], entry, strlen(entry) + 1);
     includes_refresh(ide, l->count - 1);
 }
 
@@ -6305,9 +6314,9 @@ static void output_open_listed_path(struct ide* ide, const char* line)
             snprintf(path, sizeof path, "%s", name);
         else
             join_path(path, sizeof path, ide->folder.dir, name);
-        if (ide_is_dir(path))
+        if (ide_is_dir(path) && strlen(path) < sizeof ide->folder.dir)
         {
-            snprintf(ide->folder.dir, sizeof ide->folder.dir, "%s", path);
+            memcpy(ide->folder.dir, path, strlen(path) + 1);
             folder_refresh(ide);
             show_side_panel(ide, ide->folder.window);
             return;
@@ -7589,7 +7598,7 @@ static void show_generated_code(struct ide* ide)
     if (!gen)
         return;
     char title[300];
-    snprintf(title, sizeof title, " %s [%s] ", file_name(path), platform);
+    snprintf(title, sizeof title, " %.200s [%.64s] ", file_name(path), platform);
     gui_set_label(gen->window, title);
     gui_editor_set_read_only(gen->editor, 1);
     if (src_maximized)
@@ -8601,7 +8610,7 @@ static void settings_load(struct ide* ide)
     {
         char msg[1600];
         if (!root)
-            snprintf(msg, sizeof msg, "The settings file is invalid - the defaults are used:\n%s\n\nLine %d, column %d: %s",
+            snprintf(msg, sizeof msg, "The settings file is invalid - the defaults are used:\n%.1024s\n\nLine %d, column %d: %.400s",
                      path, (int)error.line, (int)error.column, error.message);
         else
             snprintf(msg, sizeof msg, "The settings file is invalid - the defaults are used:\n%s\n\nIt is not a JSON object.",
@@ -9438,7 +9447,7 @@ static void git_clone(struct ide* ide)
     gui_window_close(ide->app, c->window);
     gui_set_value(ide->output.editor, "");
     /* the folder git makes: the URL's last part, without ".git" */
-    char name[300];
+    char name[1024];
     const char* slash = strrchr(url, '/');
     snprintf(name, sizeof name, "%s", slash ? slash + 1 : url);
     size_t n = strlen(name);

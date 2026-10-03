@@ -133,9 +133,16 @@ void ide_project_relative(const struct ide_project* p, const char* abs_path, cha
 void ide_project_absolute(const struct ide_project* p, const char* entry, char* out, size_t cap)
 {
     if (is_absolute(entry))
+    {
         snprintf(out, cap, "%s", entry);
+    }
     else
-        snprintf(out, cap, "%s/%s", p->dir, entry);
+    {
+        if (snprintf(out, cap, "%s/%s", p->dir, entry) >= (int)cap)
+        {
+            out[0] = '\0';   /* does not fit */
+        }
+    }
 #ifdef _WIN32
     for (char* c = out; *c; c++)
     {
