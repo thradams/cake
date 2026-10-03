@@ -1423,6 +1423,8 @@ static void wait_event(struct wl_window* win)
         long long left = due - now_ms();
         timeout = left > 0 ? (int)left : 0;
     }
+    if (win->pending)
+        timeout = 0;   /* events taken in prepare_read above: paint them now, don't block */
     struct pollfd p = { wl_display_get_fd(win->display), POLLIN, 0 };
     if (poll(&p, 1, timeout) > 0)
         wl_display_read_events(win->display);
