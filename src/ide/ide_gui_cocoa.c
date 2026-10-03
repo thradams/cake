@@ -30,6 +30,9 @@
 #define DEFAULT_COLS 120
 #define DEFAULT_ROWS 30
 #define SMALL_FONT_PERCENT 85
+/* The editor font's "Smaller" and "Larger": this much of the dialogs' size. */
+#define SMALLER_FONT_PERCENT 90
+#define LARGER_FONT_PERCENT 115
 
 static const char* const font_candidates[] = { "Menlo", "SF Mono", "Monaco", "Courier New" };
 
@@ -63,7 +66,7 @@ struct gui_canvas
     int pt;
     const char* family;          /* NULL: the first installed candidate */
     const char* ui_family;       /* NULL: GUI_FONT_UI is the editor family */
-    int ui_small;                /* GUI_FONT_UI in the small size, else the normal one */
+    int editor_size;            /* the editor font: -1 smaller, 0 the base size, 1 larger */
     struct gui_metrics metrics;
     struct gui_metrics small_metrics;
     struct gui_metrics ui_metrics;
@@ -172,13 +175,21 @@ static CTFontRef make_font(struct gui_canvas* c, int pt, struct gui_metrics* m)
 }
 
 /* GUI_FONT_UI: c->ui_family at `pt`, else the main family; cell_w is
- * the advance of "n", the average width of a proportional glyph. */
+ * half its row height, as the monospaced fonts. */
 static CTFontRef make_ui_font(struct gui_canvas* c, int pt, struct gui_metrics* m)
 {
-    CTFontRef font = c->ui_family ? open_font(c->ui_family, pt) : NULL;
+    CTFontRef font = NULL;
+    if (c->ui_family && strcmp(c->ui_family, "System") == 0)
+    {
+        font = CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, pt, NULL);   /* San Francisco */
+    }
+    else if (c->ui_family)
+    {
+        font = open_font(c->ui_family, pt);
+    }
     if (!font)
         return make_font(c, pt, m);
-    UniChar ch = 'n';
+    UniChar ch = 'M';
     CGGlyph glyph = 0;
     CGSize advance = { 0, 0 };
     if (CTFontGetGlyphsForCharacters(font, &ch, &glyph, 1))
@@ -187,6 +198,18 @@ static CTFontRef make_ui_font(struct gui_canvas* c, int pt, struct gui_metrics* 
     m->cell_w = advance.width > 0 ? (int)(advance.width + 0.5) : (int)(pt * 0.5 + 0.5);
     m->cell_h = (int)(ascent + CTFontGetDescent(font) + CTFontGetLeading(font) + 0.5);
     m->ascent = (int)(ascent + 0.5);
+    /* rows at least 1.3 em, as tall as the monospaced fonts', the capitals centered in them */
+    int min_h = (int)(pt * 1.3 + 0.5);
+    if (m->cell_h < min_h)
+    {
+        m->cell_h = min_h;
+    }
+    int cap = (int)(CTFontGetCapHeight(font) + 0.5);
+    if (cap > 0)
+    {
+        m->ascent = (m->cell_h + cap + 1) / 2;
+    }
+    m->cell_w = (m->cell_h + 1) / 2;   /* the monospaced fonts' proportion: half as wide as tall */
     if (m->cell_w < 1) m->cell_w = 1;
     if (m->cell_h < 1) m->cell_h = 1;
     return font;
@@ -207,8 +230,9 @@ static void offer_fonts(struct cocoa_window* win)
     }
     gui_app_set_fonts(win->app, names, win->fonts.count, 0);
 
-    const char* ui_names[UI_CANDIDATE_COUNT + CANDIDATE_COUNT];
+    const char* ui_names[1 + UI_CANDIDATE_COUNT + CANDIDATE_COUNT];
     int ui_count = 0;
+    ui_names[ui_count++] = "System";   /* the OS's own interface font, always first */
     for (int i = 0; i < UI_CANDIDATE_COUNT; i++)
     {
         CTFontRef f = open_font(ui_font_candidates[i], DEFAULT_FONT_PT);
@@ -229,11 +253,14 @@ static void offer_fonts(struct cocoa_window* win)
 /* (Re)creates both fonts from canvas->pt: they always exist together. */
 static int apply_font(struct gui_canvas* c)
 {
-    int small_pt = (c->pt * SMALL_FONT_PERCENT + 50) / 100;
+    /* the dialogs' font is the base size; the editor's a little smaller, the same or a little larger */
+    int percent = c->editor_size < 0 ? SMALLER_FONT_PERCENT : c->editor_size > 0 ? LARGER_FONT_PERCENT : 100;
+    int main_pt = (c->pt * percent + 50) / 100;
+    int small_pt = (main_pt * SMALL_FONT_PERCENT + 50) / 100;
     struct gui_metrics m, sm, um;
-    CTFontRef main = make_font(c, c->pt, &m);
+    CTFontRef main = make_font(c, main_pt, &m);
     CTFontRef small_font = make_font(c, small_pt > 0 ? small_pt : 1, &sm);
-    CTFontRef ui_font = make_ui_font(c, c->ui_small ? (small_pt > 0 ? small_pt : 1) : c->pt, &um);
+    CTFontRef ui_font = make_ui_font(c, c->pt, &um);
     if (!main || !small_font || !ui_font)
     {
         if (main) CFRelease(main);
@@ -525,7 +552,7 @@ static void share_fonts(struct cocoa_window* d, const struct cocoa_window* main)
     c->small_font = main->canvas.small_font;
     c->ui_font = main->canvas.ui_font;
     c->ui_family = main->canvas.ui_family;
-    c->ui_small = main->canvas.ui_small;
+    c->editor_size = main->canvas.editor_size;
     c->ui_metrics = main->canvas.ui_metrics;
     c->pt = main->canvas.pt;
     c->family = main->canvas.family;
@@ -639,11 +666,11 @@ static void refresh(struct cocoa_window* win)
         if (apply_font(c))
             gui_app_font_changed(win->app, c);
     }
-    int ui_index, ui_small;
-    if (gui_app_take_ui_font(win->app, &ui_index, &ui_small))
+    int ui_index, editor_size;
+    if (gui_app_take_ui_font(win->app, &ui_index, &editor_size))
     {
         c->ui_family = ui_index >= 0 ? gui_ui_font_name(win->app, ui_index) : NULL;
-        c->ui_small = ui_small;
+        c->editor_size = editor_size;
         if (apply_font(c))
             gui_app_font_changed(win->app, c);
     }
@@ -1159,7 +1186,7 @@ int main(int argc, char** argv)
     struct gui_canvas* c = &win.canvas;
     c->colorspace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
     c->pt = DEFAULT_FONT_PT;
-    c->ui_small = 1;
+    c->editor_size = 0;
     if (!apply_font(c))
         return 1;
 

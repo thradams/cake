@@ -53,7 +53,7 @@ struct gui_canvas
     int pt;                      /* the main font's size in points */
     const wchar_t* family;       /* NULL: the first installed candidate */
     wchar_t ui_family[64];       /* "": GUI_FONT_UI is the editor family */
-    int ui_small;                /* GUI_FONT_UI in the small size, else the normal one */
+    int editor_size;            /* the editor font: -1 smaller, 0 the base size, 1 larger */
     struct gui_metrics metrics;  /* measured from `main` */
     struct gui_metrics small_metrics;
     struct gui_metrics ui_metrics;
@@ -148,6 +148,9 @@ static const wchar_t* pick_font(HDC dc)
 /* The small font, as a percentage of the main one - the old IDE's
  * FONT_SMALL_PERCENT. */
 #define SMALL_FONT_PERCENT 85
+/* The editor font's "Smaller" and "Larger": this much of the dialogs' size. */
+#define SMALLER_FONT_PERCENT 90
+#define LARGER_FONT_PERCENT 115
 
 /* A font of the chosen family at `pt` for the monitor's DPI, measured. The
  * advance is measured on "M" rather than taken from tmAveCharWidth, which
@@ -171,7 +174,7 @@ static HFONT make_font(HDC dc, int pt, const wchar_t* family, struct gui_metrics
 }
 
 /* GUI_FONT_UI: c->ui_family at `pt`, proportional, else the main family;
- * cell_w is the advance of "n", and ASCII advances go to ui_ascii_w. */
+ * cell_w is half its row height, and ASCII advances go to ui_ascii_w. */
 static HFONT make_ui_font(HDC dc, int pt, struct gui_canvas* c, struct gui_metrics* m)
 {
     HFONT font = NULL;
@@ -182,15 +185,22 @@ static HFONT make_ui_font(HDC dc, int pt, struct gui_canvas* c, struct gui_metri
     else
     {
         int dpi = GetDeviceCaps(dc, LOGPIXELSY);
+        const wchar_t* face = c->ui_family;
+        NONCLIENTMETRICSW ncm = { sizeof ncm };
+        if (wcscmp(c->ui_family, L"System") == 0 &&
+            SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof ncm, &ncm, 0))
+        {
+            face = ncm.lfMessageFont.lfFaceName;   /* the OS's own (Segoe UI), not the old bitmap "System" */
+        }
         font = CreateFontW(-MulDiv(pt, dpi, 72), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
                            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                           CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, c->ui_family);
+                           CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, face);
     }
     HFONT old = SelectObject(dc, font);
     TEXTMETRICW tm;
     GetTextMetricsW(dc, &tm);
     SIZE size;
-    GetTextExtentPoint32W(dc, L"n", 1, &size);
+    GetTextExtentPoint32W(dc, L"M", 1, &size);
     for (int i = 0; i < 128; i++)
     {
         WCHAR ch = (WCHAR)i;
@@ -198,12 +208,31 @@ static HFONT make_ui_font(HDC dc, int pt, struct gui_canvas* c, struct gui_metri
         GetTextExtentPoint32W(dc, &ch, 1, &ch_size);
         c->ui_ascii_w[i] = ch_size.cx;
     }
+    /* the height of "H" above the baseline: otmsCapEmHeight is 0 in many fonts */
+    int cap = 0;
+    GLYPHMETRICS gm;
+    MAT2 identity = { { 0, 1 }, { 0, 0 }, { 0, 0 }, { 0, 1 } };
+    if (GetGlyphOutlineW(dc, L'H', GGO_METRICS, &gm, 0, NULL, &identity) != GDI_ERROR)
+    {
+        cap = gm.gmptGlyphOrigin.y;
+    }
     SelectObject(dc, old);
     if (c->ui_family[0])
     {
         m->cell_w = size.cx > 0 ? size.cx : 1;
         m->cell_h = tm.tmHeight > 0 ? tm.tmHeight : 1;
         m->ascent = tm.tmAscent;
+        /* rows at least 1.3 em, as tall as the monospaced fonts', the capitals centered in them */
+        int min_h = MulDiv(pt * 13, GetDeviceCaps(dc, LOGPIXELSY), 720);
+        if (m->cell_h < min_h)
+        {
+            m->cell_h = min_h;
+        }
+        if (cap > 0)
+        {
+            m->ascent = (m->cell_h + cap + 1) / 2;
+        }
+        m->cell_w = (m->cell_h + 1) / 2;   /* the monospaced fonts' proportion: half as wide as tall */
     }
     return font;
 }
@@ -224,9 +253,10 @@ static void offer_fonts(struct win32_window* win)
         names[win->fonts.count] = utf8[win->fonts.count];
         win->fonts.candidate[win->fonts.count++] = i;
     }
-    const char* ui_names[sizeof ui_font_candidates / sizeof ui_font_candidates[0] + sizeof font_candidates / sizeof font_candidates[0]];
+    const char* ui_names[1 + sizeof ui_font_candidates / sizeof ui_font_candidates[0] + sizeof font_candidates / sizeof font_candidates[0]];
     char ui_utf8[sizeof ui_font_candidates / sizeof ui_font_candidates[0]][64];
     int ui_count = 0;
+    ui_names[ui_count++] = "System";   /* the OS's own interface font, always first */
     for (int i = 0; i < (int)(sizeof ui_font_candidates / sizeof ui_font_candidates[0]); i++)
     {
         if (!font_exists(dc, ui_font_candidates[i]))
@@ -253,10 +283,13 @@ static void apply_font(struct win32_window* win)
     struct gui_canvas* c = &win->canvas;
     HDC dc = GetDC(win->hwnd);
     c->dpi = GetDeviceCaps(dc, LOGPIXELSY);
-    int small_pt = (c->pt * SMALL_FONT_PERCENT + 50) / 100;
-    HFONT main = make_font(dc, c->pt, c->family, &c->metrics);
+    /* the dialogs' font is the base size; the editor's a little smaller, the same or a little larger */
+    int percent = c->editor_size < 0 ? SMALLER_FONT_PERCENT : c->editor_size > 0 ? LARGER_FONT_PERCENT : 100;
+    int main_pt = (c->pt * percent + 50) / 100;
+    int small_pt = (main_pt * SMALL_FONT_PERCENT + 50) / 100;
+    HFONT main = make_font(dc, main_pt, c->family, &c->metrics);
     HFONT small_font = make_font(dc, small_pt > 0 ? small_pt : 1, c->family, &c->small_metrics);
-    HFONT ui_font = make_ui_font(dc, c->ui_small ? (small_pt > 0 ? small_pt : 1) : c->pt, c, &c->ui_metrics);
+    HFONT ui_font = make_ui_font(dc, c->pt, c, &c->ui_metrics);
     ReleaseDC(win->hwnd, dc);
 
     if (c->mem)
@@ -387,7 +420,9 @@ void gui_draw_text(struct gui_canvas* c, int x, int y, const uint32_t* cps, int 
         RECT r = { x, y, x + run_w, y + m.cell_h };
         SetBkColor(c->mem, to_colorref(bg));
         SetTextColor(c->mem, to_colorref(fg));
-        ExtTextOutW(c->mem, x, y, ETO_OPAQUE | ETO_CLIPPED, &r, text, (UINT)n, dx);
+        /* at the baseline the metrics give: GUI_FONT_UI's centers its capitals in the row */
+        SetTextAlign(c->mem, TA_BASELINE | TA_LEFT);
+        ExtTextOutW(c->mem, x, y + m.ascent, ETO_OPAQUE | ETO_CLIPPED, &r, text, (UINT)n, dx);
         x += run_w;
         cps += used;
         count -= used;
@@ -450,7 +485,7 @@ static void share_fonts(struct win32_window* d, const struct win32_window* main)
     c->small_metrics = main->canvas.small_metrics;
     c->ui_font = main->canvas.ui_font;
     memcpy(c->ui_family, main->canvas.ui_family, sizeof c->ui_family);
-    c->ui_small = main->canvas.ui_small;
+    c->editor_size = main->canvas.editor_size;
     c->ui_metrics = main->canvas.ui_metrics;
     memcpy(c->ui_ascii_w, main->canvas.ui_ascii_w, sizeof c->ui_ascii_w);
     c->dpi = main->canvas.dpi;
@@ -603,11 +638,11 @@ static void refresh(struct win32_window* win)
         apply_font(win);
         gui_app_font_changed(win->app, &win->canvas);
     }
-    int ui_index, ui_small;
-    if (gui_app_take_ui_font(win->app, &ui_index, &ui_small))
+    int ui_index, editor_size;
+    if (gui_app_take_ui_font(win->app, &ui_index, &editor_size))
     {
         win->canvas.ui_family[0] = 0;
-        win->canvas.ui_small = ui_small;
+        win->canvas.editor_size = editor_size;
         if (ui_index >= 0)
             MultiByteToWideChar(CP_UTF8, 0, gui_ui_font_name(win->app, ui_index), -1, win->canvas.ui_family, 64);
         apply_font(win);
@@ -1009,7 +1044,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE prev, PWSTR cmd, int show)
     struct win32_window win = { 0 };
     win.owner = &win;
     win.canvas.pt = DEFAULT_FONT_PT;
-    win.canvas.ui_small = 1;
+    win.canvas.editor_size = 0;
     win.app = gui_app_create();
     utf8_args(&win);
 

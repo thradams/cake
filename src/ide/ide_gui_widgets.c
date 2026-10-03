@@ -293,7 +293,10 @@ static void paint_text(const struct paint* p, const struct gui_node* n)
     uint32_t bg = n->has_colors ? n->bg : t->window_bg;
     /* centered on its first row of the layout */
     int y = n->rect.y + (core_layout_metrics(p->app, n)->cell_h - core_node_metrics(p->app, n)->cell_h) / 2;
-    core_draw_utf8(p, n->rect.x, y, n->label, -1, fg, bg);
+    int x = n->rect.x;
+    if (n->centered)
+        x += (n->rect.w - core_utf8_width(p->app, p->font, n->label, -1)) / 2;
+    core_draw_utf8(p, x, y, n->label, -1, fg, bg);
 }
 
 static void paint_box(const struct paint* p, const struct gui_node* n)
@@ -418,9 +421,7 @@ static void paint_select(const struct paint* p, const struct gui_node* n)
     {
         int open = app->ui.open_select == n;
         uint32_t abg = (open || app->ui.hot == n || focused) ? t->btn_bg_hot : t->btn_bg;
-        struct paint arrow = *p;   /* the arrow fills the layout's cell */
-        arrow.font = core_node_font(n) == GUI_FONT_UI ? GUI_FONT_MAIN : core_node_font(n);
-        core_draw_utf8(&arrow, n->rect.x + text_w, n->rect.y, "\xE2\x86\x93", -1, t->btn_fg, abg);  /* U+2193 */
+        core_draw_utf8(p, n->rect.x + text_w, n->rect.y, "\xE2\x86\x93", -1, t->btn_fg, abg);  /* U+2193, drawn in the grid's cell */
     }
 }
 
@@ -681,7 +682,9 @@ static void paint_group(const struct paint* p, const struct gui_node* n)
         gui_set_clip(p->frame, n->rect.x, y, n->rect.w, ch);
         const char* marker = n->multi ? (on ? "[X] " : "[ ] ")
                                       : (on ? "(\xE2\x80\xA2) " : "( ) ");   /* U+2022 bullet */
-        int x = core_draw_utf8(p, n->rect.x, y + text_dy, marker, -1, fg, bg);
+        core_draw_utf8(p, n->rect.x, y + text_dy, marker, -1, fg, bg);
+        /* the labels in one column: "[ ]" and "( )" are narrower than "[X]" and "(•)" */
+        int x = n->rect.x + core_utf8_width(app, p->font, n->multi ? "[X] " : "(\xE2\x80\xA2) ", -1);
         if (item->label[0])
         {
             int first = core_utf8_prefix_bytes(item->label, 1);
@@ -706,8 +709,8 @@ void widget_paint(const struct paint* outer, const struct gui_node* n)
         int extra_w = 0, extra_h = 0;
         if (n->kind == GUI_BUTTON)
         {
-            extra_w = p->app->metrics.cell_w;
-            extra_h = p->app->metrics.cell_h / 2;
+            extra_w = p->app->ui_metrics.cell_w;
+            extra_h = p->app->ui_metrics.cell_h / 2;
         }
         gui_set_clip(p->frame, n->rect.x, n->rect.y, n->rect.w + extra_w, n->rect.h + extra_h);
     }

@@ -108,7 +108,8 @@ enum ide_event
     EV_ENV_FONT_LAST = EV_ENV_FONT + 15,
     EV_ENV_UI_FONT,                       /* + the font's index, up to 16 */
     EV_ENV_UI_FONT_LAST = EV_ENV_UI_FONT + 15,
-    EV_ENV_UI_SIZE_NORMAL, EV_ENV_UI_SIZE_SMALL,
+    EV_ENV_EDITOR_SIZE,                   /* + 0 smaller, 1 normal, 2 larger */
+    EV_ENV_EDITOR_SIZE_LAST = EV_ENV_EDITOR_SIZE + 2,
     EV_OUTPUT_COPY_ALL, EV_OUTPUT_SELECT_ALL, EV_OUTPUT_CLEAR,
     EV_MACRO,                             /* + the button's index in macro_buttons */
     EV_MACRO_ITEM = EV_MACRO + 8,         /* + the macro's index in macros[] */
@@ -381,7 +382,7 @@ struct env_dialog
     struct gui_node* theme;
     struct gui_node* font;   /* NULL when the backend offers no fonts */
     struct gui_node* ui_font;   /* proportional; NULL when none offered */
-    struct gui_node* ui_size;   /* Normal / Small, of ui_font */
+    struct gui_node* ui_size;   /* Small / Normal / Larger, of the editor font */
 };
 
 struct open_dialog
@@ -1573,53 +1574,21 @@ static void build_newfile(struct ide* ide);
 static void build_wrap(struct ide* ide);
 static void build_find(struct ide* ide);
 
-static void add_colored(struct ide* ide, struct gui_node* parent, int col, int row, const char* text, uint32_t fg)
-{
-    set_themed(ide, add_at(ide, parent, GUI_TEXT, col, row, 0, 1, text), THEMED_MODAL_BG, fg);
-}
-
-static void add_modal_text(struct ide* ide, struct gui_node* parent, int col, int row, const char* text)
-{
-    set_themed(ide, add_at(ide, parent, GUI_TEXT, col, row, 0, 1, text), THEMED_MODAL, 0);
-}
-
-/* About - the old IDE's: "The C Programming Language" cover, the C drawn
- * with half blocks, then the name, version and site. 50 x 24. */
+/* About: the name, version and site. 30 x 10. */
 static void build_about(struct ide* ide)
 {
-#define ABOUT_B "\xE2\x96\x88"  /* full block */
-#define ABOUT_U "\xE2\x96\x80"  /* upper half block */
-#define ABOUT_D "\xE2\x96\x84"  /* lower half block */
-    static const char* const logo[] = {
-        "     THE",
-        "",
-        "  " ABOUT_D ABOUT_D ABOUT_B ABOUT_B ABOUT_B ABOUT_B ABOUT_B ABOUT_D ABOUT_D,
-        ABOUT_D ABOUT_B ABOUT_B ABOUT_B ABOUT_U ABOUT_U ABOUT_U ABOUT_U ABOUT_U ABOUT_B ABOUT_B ABOUT_B,
-        ABOUT_B ABOUT_B ABOUT_B,
-        ABOUT_B ABOUT_B ABOUT_B,
-        ABOUT_B ABOUT_B ABOUT_B,
-        ABOUT_U ABOUT_B ABOUT_B ABOUT_B ABOUT_D ABOUT_D ABOUT_D ABOUT_D ABOUT_D ABOUT_B ABOUT_B ABOUT_B,
-        "  " ABOUT_U ABOUT_U ABOUT_B ABOUT_B ABOUT_B ABOUT_B ABOUT_B ABOUT_U ABOUT_U,
-        "",
-        "  PROGRAMMING",
-        "   LANGUAGE",
-    };
-#undef ABOUT_B
-#undef ABOUT_U
-#undef ABOUT_D
     ide->about = new_dialog(ide, "");
-    for (int i = 0; i < COUNT(logo); i++)
+    static const struct { int row; const char* text; } lines[] = {
+        { 2, "Cake IDE" }, { 3, "Version " CAKE_VERSION }, { 5, "https://cakecc.org" },
+    };
+    for (int i = 0; i < COUNT(lines); i++)
     {
-        /* rows 2..8 are the C */
-        uint32_t fg = (i >= 2 && i <= 8) ? GUI_RGB(0xB5, 0xC6, 0xDC) : GUI_RGB(0x1C, 0x74, 0xB3);
-        if (logo[i][0])
-            add_colored(ide, ide->about, 19, 2 + i, logo[i], fg);
+        /* the dialog's inside, the text centered in it */
+        struct gui_node* n = add_at(ide, ide->about, GUI_TEXT, 1, lines[i].row, 28, 1, lines[i].text);
+        set_themed(ide, n, THEMED_MODAL, 0);
+        gui_set_centered(n, 1);
     }
-    add_modal_text(ide, ide->about, 21, 16, "Cake IDE");
-    add_modal_text(ide, ide->about, (50 - (int)strlen("Version " CAKE_VERSION)) / 2, 17,
-                   "Version " CAKE_VERSION);
-    add_modal_text(ide, ide->about, 16, 19, "https://cakecc.org");
-    ide->about_ok = add_at(ide, ide->about, GUI_BUTTON, 19, 21, 12, 1, "  OK  ");
+    ide->about_ok = add_at(ide, ide->about, GUI_BUTTON, 9, 7, 12, 1, "OK");
     gui_set_id(ide->about_ok, EV_ABOUT_OK);
 }
 
@@ -1631,10 +1600,10 @@ static void build_dialogs(struct ide* ide)
     add_label(ide, ide->go.window, 3, 2, "Enter New Line Number");
     ide->go.input = add_at(ide, ide->go.window, GUI_INPUT, 26, 2, 11, 1, NULL);
     gui_set_id(ide->go.input, EV_GOTO_OK);
-    gui_set_id(add_at(ide, ide->go.window, GUI_BUTTON, 9, 5, 10, 1, "   OK   "), EV_GOTO_OK);
-    gui_set_id(add_at(ide, ide->go.window, GUI_BUTTON, 21, 5, 10, 1, " Cancel "), EV_GOTO_CANCEL);
+    gui_set_id(add_at(ide, ide->go.window, GUI_BUTTON, 9, 5, 10, 1, "OK"), EV_GOTO_OK);
+    gui_set_id(add_at(ide, ide->go.window, GUI_BUTTON, 21, 5, 10, 1, "Cancel"), EV_GOTO_CANCEL);
 
-    /* Environment - 50 x 12: the theme and fonts. */
+    /* Environment - 50 x 11: the theme and fonts. */
     ide->env.window = new_dialog(ide, "Environment");
     struct gui_node* theme_label = add_label(ide, ide->env.window, 3, 2, "Theme:");
     ide->env.theme = add_at(ide, ide->env.window, GUI_SELECT, 16, 2, 30, 1, NULL);
@@ -1646,11 +1615,11 @@ static void build_dialogs(struct ide* ide)
         gui_set_id(it, EV_ENV_THEME + i);
         gui_append(ide->env.theme, it);
     }
-    /* Font: every control but the editors, and its size beside it */
+    /* Font: every control but the editors */
     if (gui_ui_font_count(ide->app) > 0)
     {
         struct gui_node* font_label = add_label(ide, ide->env.window, 3, 4, "Font:");
-        ide->env.ui_font = add_at(ide, ide->env.window, GUI_SELECT, 16, 4, 20, 1, NULL);
+        ide->env.ui_font = add_at(ide, ide->env.window, GUI_SELECT, 16, 4, 30, 1, NULL);
         gui_set_after_label(ide->env.ui_font, font_label);
         for (int i = 0; i < gui_ui_font_count(ide->app) && i < 16; i++)
         {
@@ -1659,18 +1628,11 @@ static void build_dialogs(struct ide* ide)
             gui_append(ide->env.ui_font, it);
         }
     }
-    ide->env.ui_size = add_at(ide, ide->env.window, GUI_SELECT, 37, 4, 9, 1, NULL);
-    struct gui_node* normal_item = create(ide, GUI_ITEM, "Normal");
-    gui_set_id(normal_item, EV_ENV_UI_SIZE_NORMAL);
-    gui_append(ide->env.ui_size, normal_item);
-    struct gui_node* small_item = create(ide, GUI_ITEM, "Small");
-    gui_set_id(small_item, EV_ENV_UI_SIZE_SMALL);
-    gui_append(ide->env.ui_size, small_item);
-    /* Editor Font: the backend's monospaced shortlist; picking one applies it at once, as the old IDE. */
+    /* Editor Font: the backend's monospaced shortlist, and its size beside it; picking one applies it at once, as the old IDE. */
     if (gui_font_count(ide->app) > 0)
     {
         struct gui_node* editor_font_label = add_label(ide, ide->env.window, 3, 6, "Editor Font:");
-        ide->env.font = add_at(ide, ide->env.window, GUI_SELECT, 16, 6, 30, 1, NULL);
+        ide->env.font = add_at(ide, ide->env.window, GUI_SELECT, 16, 6, 20, 1, NULL);
         gui_set_after_label(ide->env.font, editor_font_label);
         for (int i = 0; i < gui_font_count(ide->app) && i < 16; i++)
         {
@@ -1679,7 +1641,15 @@ static void build_dialogs(struct ide* ide)
             gui_append(ide->env.font, it);
         }
     }
-    gui_set_id(add_at(ide, ide->env.window, GUI_BUTTON, 20, 9, 10, 1, "   OK   "), EV_ENV_OK);
+    ide->env.ui_size = add_at(ide, ide->env.window, GUI_SELECT, 37, 6, 9, 1, NULL);
+    static const char* const sizes[] = { "Small", "Normal", "Larger" };
+    for (int i = 0; i < COUNT(sizes); i++)
+    {
+        struct gui_node* it = create(ide, GUI_ITEM, sizes[i]);
+        gui_set_id(it, EV_ENV_EDITOR_SIZE + i);
+        gui_append(ide->env.ui_size, it);
+    }
+    gui_set_id(add_at(ide, ide->env.window, GUI_BUTTON, 20, 8, 10, 1, "OK"), EV_ENV_OK);
 
     build_open(ide);
     build_newfile(ide);
@@ -1842,9 +1812,9 @@ static void build_open(struct ide* ide)
         gui_set_id(it, EV_OPEN_FILTER + i);
         gui_append(o->filter, it);
     }
-    o->ok = add_at(ide, o->window, GUI_BUTTON, 46, 3, 12, 1, "  Open  ");
+    o->ok = add_at(ide, o->window, GUI_BUTTON, 46, 3, 12, 1, "Open");
     gui_set_id(o->ok, EV_OPEN_OK);
-    gui_set_id(add_at(ide, o->window, GUI_BUTTON, 46, 5, 12, 1, " Cancel "), EV_OPEN_CANCEL);
+    gui_set_id(add_at(ide, o->window, GUI_BUTTON, 46, 5, 12, 1, "Cancel"), EV_OPEN_CANCEL);
 }
 
 /* Picking a folder: only folders listed and no Type - the old IDE's. */
@@ -1879,7 +1849,7 @@ static void show_open(struct ide* ide, int save_as, const char* dir, const char*
     o->add_to_project = 0;
     gui_set_multi(o->list, 0);
     gui_set_label(o->window, save_as ? "Save As" : "Open a File");
-    gui_set_label(o->ok, save_as ? "  Save  " : "  Open  ");
+    gui_set_label(o->ok, save_as ? "Save" : "Open");
     snprintf(o->dir, sizeof o->dir, "%s", dir);
     snprintf(o->save_name, sizeof o->save_name, "%s", save_as ? name : "");
     open_refresh(ide);
@@ -1954,7 +1924,7 @@ static void open_accept(struct ide* ide, const char* name)
     {
         char msg[400];
         snprintf(msg, sizeof msg, "%.300s already exists.\nOverwrite?", file_name(path));
-        static const char* const labels[] = { "  Yes  ", "  No  " };
+        static const char* const labels[] = { "Yes", "No" };
         static const int ids[] = { EV_SAVEAS_OVERWRITE, 0 };
         gui_message_box(ide->app, "Save As", msg, labels, ids, 2);
         return;
@@ -1968,7 +1938,7 @@ static void save_as_commit(struct ide* ide)
     struct doc* d = active_doc(ide);
     if (d && strlen(ide->pending_path) >= sizeof d->path)
     {
-        static const char* const ok[] = { "   OK   " };
+        static const char* const ok[] = { "OK" };
         static const int ok_id[] = { 0 };
         gui_message_box(ide->app, "Save As", "The path is too long.", ok, ok_id, 1);
     }
@@ -2119,7 +2089,7 @@ static void build_newfile(struct ide* ide)
     nf->name = add_at(ide, nf->window, GUI_INPUT, 17, 4, 33, 1, NULL);
     gui_set_hint(nf->name, "Name of the new file - .c when no extension is given");
     gui_set_id(nf->name, EV_NEWFILE_OK);
-    gui_set_id(add_at(ide, nf->window, GUI_BUTTON, 16, 6, 10, 1, "  OK  "), EV_NEWFILE_OK);
+    gui_set_id(add_at(ide, nf->window, GUI_BUTTON, 16, 6, 10, 1, "OK"), EV_NEWFILE_OK);
     gui_set_id(add_at(ide, nf->window, GUI_BUTTON, 28, 6, 10, 1, "Cancel"), EV_NEWFILE_CANCEL);
 }
 
@@ -2142,7 +2112,7 @@ static void newfile_accept(struct ide* ide)
     {
         char msg[400];
         snprintf(msg, sizeof msg, "%s already exists.\nOverwrite?", name);
-        static const char* const labels[] = { "  Yes  ", "  No  " };
+        static const char* const labels[] = { "Yes", "No" };
         static const int ids[] = { EV_NEWFILE_OVERWRITE, 0 };
         gui_message_box(ide->app, "New File", msg, labels, ids, 2);
         return;
@@ -2272,7 +2242,7 @@ static void build_wrap(struct ide* ide)
     w->justify = add_at(ide, w->window, GUI_GROUP, 3, 4, 20, 1, NULL);
     gui_set_multi(w->justify, 1);
     gui_append(w->justify, create(ide, GUI_ITEM, "Justify"));
-    gui_set_id(add_at(ide, w->window, GUI_BUTTON, 9, 6, 10, 1, "  OK  "), EV_WRAP_OK);
+    gui_set_id(add_at(ide, w->window, GUI_BUTTON, 9, 6, 10, 1, "OK"), EV_WRAP_OK);
     gui_set_id(add_at(ide, w->window, GUI_BUTTON, 21, 6, 10, 1, "Cancel"), EV_WRAP_CANCEL);
 }
 
@@ -2395,8 +2365,8 @@ static void build_find(struct ide* ide)
     f->scope = add_group_of(ide, f->window, 2, 10, 26, scope, 2, 0);
     add_label(ide, f->window, 30, 9, "Origin");
     f->origin = add_group_of(ide, f->window, 30, 10, 22, origin, 2, 0);
-    gui_set_id(add_at(ide, f->window, GUI_BUTTON, 16, 13, 10, 1, "   OK   "), EV_FIND_OK);
-    gui_set_id(add_at(ide, f->window, GUI_BUTTON, 30, 13, 10, 1, " Cancel "), EV_FIND_CANCEL);
+    gui_set_id(add_at(ide, f->window, GUI_BUTTON, 16, 13, 10, 1, "OK"), EV_FIND_OK);
+    gui_set_id(add_at(ide, f->window, GUI_BUTTON, 30, 13, 10, 1, "Cancel"), EV_FIND_CANCEL);
 
     struct replace_dialog* r = &ide->replace;
     r->window = new_dialog(ide, "Replace Text");
@@ -2416,9 +2386,9 @@ static void build_find(struct ide* ide)
     r->scope = add_group_of(ide, r->window, 2, 13, 26, scope, 2, 0);
     add_label(ide, r->window, 32, 12, "Origin");
     r->origin = add_group_of(ide, r->window, 32, 13, 22, origin, 2, 0);
-    gui_set_id(add_at(ide, r->window, GUI_BUTTON, 11, 16, 10, 1, "   OK   "), EV_REPLACE_OK);
+    gui_set_id(add_at(ide, r->window, GUI_BUTTON, 11, 16, 10, 1, "OK"), EV_REPLACE_OK);
     gui_set_id(add_at(ide, r->window, GUI_BUTTON, 23, 16, 14, 1, "Change All"), EV_REPLACE_ALL);
-    gui_set_id(add_at(ide, r->window, GUI_BUTTON, 39, 16, 10, 1, " Cancel "), EV_REPLACE_CANCEL);
+    gui_set_id(add_at(ide, r->window, GUI_BUTTON, 39, 16, 10, 1, "Cancel"), EV_REPLACE_CANCEL);
 }
 
 static int is_word_char(char c)
@@ -2673,7 +2643,7 @@ static void build_rename(struct ide* ide)
     add_label(ide, r->window, 2, 2, "New name");
     r->input = add_at(ide, r->window, GUI_INPUT, 12, 2, 36, 1, NULL);
     gui_set_id(r->input, EV_RENAME_OK);
-    gui_set_id(add_at(ide, r->window, GUI_BUTTON, 14, 5, 10, 1, "  OK  "), EV_RENAME_OK);
+    gui_set_id(add_at(ide, r->window, GUI_BUTTON, 14, 5, 10, 1, "OK"), EV_RENAME_OK);
     gui_set_id(add_at(ide, r->window, GUI_BUTTON, 26, 5, 10, 1, "Cancel"), EV_RENAME_CANCEL);
 }
 
@@ -2709,7 +2679,7 @@ static void build_edit_string(struct ide* ide)
     gui_editor_set_highlighter(e->editor, &ide->string_highlighter);
     /* OK and Cancel centered as a pair */
     static const struct { int id; const char* label; int offset; } bottom[] = {
-        { EV_ESTR_OK, "  OK  ", -11 }, { EV_ESTR_CANCEL, "Cancel", 1 },
+        { EV_ESTR_OK, "OK", -11 }, { EV_ESTR_CANCEL, "Cancel", 1 },
     };
     for (int i = 0; i < COUNT(bottom); i++)
     {
@@ -2938,7 +2908,7 @@ static void append_split_literal(struct ide_text* out, const char* enc, int len,
 static void edit_string_accept(struct ide* ide)
 {
     struct edit_string_dialog* e = &ide->estr;
-    static const char* const ok[] = { "   OK   " };
+    static const char* const ok[] = { "OK" };
     static const int ok_id[] = { 0 };
     struct doc* d = NULL;
     for (int i = 0; i < ide->doc_count && !d; i++)
@@ -3010,7 +2980,7 @@ static void build_new_folder(struct ide* ide)
     add_label(ide, f->window, 3, 2, "Name");
     f->input = add_at(ide, f->window, GUI_INPUT, 14, 2, 26, 1, NULL);
     gui_set_id(f->input, EV_NEWFOLDER_OK);
-    gui_set_id(add_at(ide, f->window, GUI_BUTTON, 11, 5, 10, 1, "  OK  "), EV_NEWFOLDER_OK);
+    gui_set_id(add_at(ide, f->window, GUI_BUTTON, 11, 5, 10, 1, "OK"), EV_NEWFOLDER_OK);
     gui_set_id(add_at(ide, f->window, GUI_BUTTON, 23, 5, 10, 1, "Cancel"), EV_NEWFOLDER_CANCEL);
 }
 
@@ -3050,7 +3020,7 @@ static void folder_delete_ask(struct ide* ide)
     char msg[600];
     snprintf(msg, sizeof msg, "Are you sure you want to delete this %s?\n%s",
              e->is_dir ? "folder" : "file", e->name);
-    static const char* const labels[] = { "   OK   ", " Cancel " };
+    static const char* const labels[] = { "OK", "Cancel" };
     static const int ids[] = { EV_FOLDER_DELETE_OK, 0 };
     gui_message_box(ide->app, e->is_dir ? "Delete Folder" : "Delete File", msg, labels, ids, 2);
 }
@@ -3090,7 +3060,7 @@ static void build_git_clone(struct ide* ide)
     gui_set_multi(g->open_folder, 1);
     gui_append(g->open_folder, create(ide, GUI_ITEM, "Open Folder"));
     gui_set_checked(g->open_folder, 0, 1);
-    gui_set_id(add_at(ide, g->window, GUI_BUTTON, 17, 10, 10, 1, "  OK  "), EV_CLONE_OK);
+    gui_set_id(add_at(ide, g->window, GUI_BUTTON, 17, 10, 10, 1, "OK"), EV_CLONE_OK);
     gui_set_id(add_at(ide, g->window, GUI_BUTTON, 29, 10, 10, 1, "Cancel"), EV_CLONE_CANCEL);
 }
 
@@ -3110,7 +3080,7 @@ static void build_new_project(struct ide* ide)
     gui_set_multi(p->checks, 1);
     gui_append(p->checks, create(ide, GUI_ITEM, "Create Folder"));
     gui_append(p->checks, create(ide, GUI_ITEM, "Hello World"));
-    gui_set_id(add_at(ide, p->window, GUI_BUTTON, 16, 9, 10, 1, "  OK  "), EV_NEWPROJ_OK);
+    gui_set_id(add_at(ide, p->window, GUI_BUTTON, 16, 9, 10, 1, "OK"), EV_NEWPROJ_OK);
     gui_set_id(add_at(ide, p->window, GUI_BUTTON, 28, 9, 10, 1, "Cancel"), EV_NEWPROJ_CANCEL);
 }
 
@@ -3141,26 +3111,33 @@ static void build_compiler_options(struct ide* ide)
 {
     struct copts_dialog* c = &ide->copts;
     c->window = new_dialog(ide, "Compiler Options");
-    add_label(ide, c->window, 3, 2, "Target");
-    c->target = add_select_of(ide, c->window, 14, 2, 25, copts_targets, COUNT(copts_targets));
+    struct gui_node* target_label = add_label(ide, c->window, 3, 2, "Target");
+    c->target = add_select_of(ide, c->window, 14, 2, 28, copts_targets, COUNT(copts_targets));
+    gui_set_after_label(c->target, target_label);
     char default_label[100];
     snprintf(default_label, sizeof default_label, "Default (%s)", get_platform(TARGET_DEFAULT)->name);
     gui_set_label(gui_child_at(c->target, 0), default_label);
-    add_label(ide, c->window, 3, 4, "Headers");
-    c->headers = add_select_of(ide, c->window, 14, 4, 25, copts_headers, COUNT(copts_headers));
-    add_label(ide, c->window, 3, 6, "Style");
-    c->style = add_select_of(ide, c->window, 14, 6, 25, copts_styles, COUNT(copts_styles));
-    add_label(ide, c->window, 3, 8, "Diagnostic");
-    c->diag = add_select_of(ide, c->window, 14, 8, 25, copts_diags, COUNT(copts_diags));
-    add_label(ide, c->window, 3, 10, "Flags");
-    c->flags = add_group_of(ide, c->window, 14, 10, 45, copts_flags, COUNT(copts_flags), 1);
-    add_label(ide, c->window, 3, 16, "Output");
-    c->output = add_at(ide, c->window, GUI_INPUT, 14, 16, 45, 1, NULL);
-    add_label(ide, c->window, 3, 18, "Options");
-    c->options = add_at(ide, c->window, GUI_INPUT, 14, 18, 45, 1, NULL);
-    gui_set_id(add_at(ide, c->window, GUI_BUTTON, 14, 20, 10, 1, "  OK  "), EV_COPTS_OK);
-    gui_set_id(add_at(ide, c->window, GUI_BUTTON, 26, 20, 10, 1, "Cancel"), EV_COPTS_CANCEL);
-    gui_set_id(add_at(ide, c->window, GUI_BUTTON, 38, 20, 10, 1, " Help "), EV_COPTS_HELP);
+    struct gui_node* headers_label = add_label(ide, c->window, 3, 4, "Headers");
+    c->headers = add_select_of(ide, c->window, 14, 4, 28, copts_headers, COUNT(copts_headers));
+    gui_set_after_label(c->headers, headers_label);
+    struct gui_node* style_label = add_label(ide, c->window, 3, 6, "Style");
+    c->style = add_select_of(ide, c->window, 14, 6, 28, copts_styles, COUNT(copts_styles));
+    gui_set_after_label(c->style, style_label);
+    struct gui_node* diagnostic_label = add_label(ide, c->window, 3, 8, "Diagnostic");
+    c->diag = add_select_of(ide, c->window, 14, 8, 28, copts_diags, COUNT(copts_diags));
+    gui_set_after_label(c->diag, diagnostic_label);
+    struct gui_node* flags_label = add_label(ide, c->window, 3, 10, "Flags");
+    c->flags = add_group_of(ide, c->window, 14, 10, 28, copts_flags, COUNT(copts_flags), 1);
+    gui_set_after_label(c->flags, flags_label);
+    struct gui_node* output_label = add_label(ide, c->window, 3, 16, "Output");
+    c->output = add_at(ide, c->window, GUI_INPUT, 14, 16, 28, 1, NULL);
+    gui_set_after_label(c->output, output_label);
+    struct gui_node* options_label = add_label(ide, c->window, 3, 18, "Options");
+    c->options = add_at(ide, c->window, GUI_INPUT, 14, 18, 28, 1, NULL);
+    gui_set_after_label(c->options, options_label);
+    gui_set_id(add_at(ide, c->window, GUI_BUTTON, 5, 20, 10, 1, "OK"), EV_COPTS_OK);
+    gui_set_id(add_at(ide, c->window, GUI_BUTTON, 17, 20, 10, 1, "Cancel"), EV_COPTS_CANCEL);
+    gui_set_id(add_at(ide, c->window, GUI_BUTTON, 29, 20, 10, 1, "Help"), EV_COPTS_HELP);
 }
 
 static void copts_open(struct ide* ide, struct compiler_settings* s, const char* title)
@@ -3176,7 +3153,7 @@ static void copts_open(struct ide* ide, struct compiler_settings* s, const char*
         gui_set_checked(c->flags, i, s->flags[i]);
     gui_set_value(c->output, s->output);
     gui_set_value(c->options, s->options);
-    show_dialog(ide, c->window, 62, 23, c->target);
+    show_dialog(ide, c->window, 45, 23, c->target);
 }
 
 static void copts_accept(struct ide* ide)
@@ -3212,7 +3189,7 @@ static struct gui_node* add_macro_button(struct ide* ide, struct gui_node* paren
     }
     if (m->count == MAX_MACRO_BUTTONS)
         return NULL;
-    struct gui_node* b = add_at(ide, parent, GUI_BUTTON, col, row, 5, 1, "  >  ");
+    struct gui_node* b = add_at(ide, parent, GUI_BUTTON, col, row, 5, 1, ">");
     gui_set_id(b, EV_MACRO + m->count);
     m->buttons[m->count] = b;
     m->inputs[m->count] = input;
@@ -3257,11 +3234,11 @@ static void build_debug_options(struct ide* ide)
         d->fields[i] = add_at(ide, d->window, GUI_INPUT, 14, row, 41, 1, NULL);
         gui_set_id(d->fields[i], EV_DBG_OK);
         if (i == 0)
-            gui_set_id(add_at(ide, d->window, GUI_BUTTON, 56, row, 5, 1, " ... "), EV_DBG_BROWSE);
+            gui_set_id(add_at(ide, d->window, GUI_BUTTON, 56, row, 5, 1, "..."), EV_DBG_BROWSE);
         else
             add_macro_button(ide, d->window, 56, row, d->fields[i]);
     }
-    gui_set_id(add_at(ide, d->window, GUI_BUTTON, 21, 10, 10, 1, "  OK  "), EV_DBG_OK);
+    gui_set_id(add_at(ide, d->window, GUI_BUTTON, 21, 10, 10, 1, "OK"), EV_DBG_OK);
     gui_set_id(add_at(ide, d->window, GUI_BUTTON, 33, 10, 10, 1, "Cancel"), EV_DBG_CANCEL);
 }
 
@@ -3311,7 +3288,7 @@ static void build_build_options(struct ide* ide)
     struct gui_node* post_label = add_label(ide, b->window, 2, 4, "Post-Build Event:");
     b->post_build = add_at(ide, b->window, GUI_SELECT, 20, 4, 36, 1, NULL);
     gui_set_after_label(b->post_build, post_label);
-    gui_set_id(add_at(ide, b->window, GUI_BUTTON, 18, 6, 10, 1, "  OK  "), EV_BLD_OK);
+    gui_set_id(add_at(ide, b->window, GUI_BUTTON, 18, 6, 10, 1, "OK"), EV_BLD_OK);
     gui_set_id(add_at(ide, b->window, GUI_BUTTON, 30, 6, 10, 1, "Cancel"), EV_BLD_CANCEL);
 }
 
@@ -3353,8 +3330,8 @@ static void build_external_tools(struct ide* ide)
 {
     struct ext_dialog* x = &ide->ext;
     static const struct { int id; const char* label; } buttons[] = {
-        { EV_EXT_ADD, "  Add  " }, { EV_EXT_DELETE, " Delete " },
-        { EV_EXT_UP, " Move Up " }, { EV_EXT_DOWN, "Move Down" },
+        { EV_EXT_ADD, "Add" }, { EV_EXT_DELETE, "Delete" },
+        { EV_EXT_UP, "Move Up" }, { EV_EXT_DOWN, "Move Down" },
     };
     static const char* const labels[] = { "Title:", "Command:", "Arguments:", "Directory:" };
     /* the size show_dialog opens it at; the list takes what a resize adds */
@@ -3387,7 +3364,7 @@ static void build_external_tools(struct ide* ide)
         struct gui_node* b = NULL;
         if (i == 1)
         {
-            b = add_at(ide, x->window, GUI_BUTTON, 58, row, 5, 1, " ... ");
+            b = add_at(ide, x->window, GUI_BUTTON, 58, row, 5, 1, "...");
             gui_set_id(b, EV_EXT_BROWSE);
         }
         else if (i > 1)
@@ -3411,7 +3388,7 @@ static void build_external_tools(struct ide* ide)
              HELP_EXT_DIRECTORY);
     /* OK and Cancel centered as a pair: from the middle, 13 cells left and 1 right */
     static const struct { int id; const char* label; int offset; } bottom[] = {
-        { EV_EXT_OK, "  OK  ", -13 }, { EV_EXT_CANCEL, "Cancel", 1 },
+        { EV_EXT_OK, "OK", -13 }, { EV_EXT_CANCEL, "Cancel", 1 },
     };
     for (int i = 0; i < COUNT(bottom); i++)
     {
@@ -3914,7 +3891,7 @@ static void run_finish(struct ide* ide)
     /* git's own words in a box, as the old IDE - Stage/Unstage only on a failure */
     if (ide->run.kind != RUN_GIT_QUIET || ide->run.failed)
     {
-        static const char* const ok[] = { "   OK   " };
+        static const char* const ok[] = { "OK" };
         static const int ok_id[] = { 0 };
         const char* text = ide->run.text.data && ide->run.text.data[0] ? ide->run.text.data
                          : ide->run.failed ? "Failed." : "Done.";
@@ -3968,7 +3945,7 @@ static void build_includes(struct ide* ide)
     d->list = create(ide, GUI_LISTBOX, NULL);
     fill_margins(d->list, 2, 3, 18, 2);
     gui_append(d->window, d->list);
-    static const char* const labels[] = { " Add... ", " Remove ", " Move Up ", " Move Down ", " Detect ", " Close " };
+    static const char* const labels[] = { "Add...", "Remove", "Move Up", "Move Down", "Detect", "Close" };
     static const int ids[] = { EV_INC_ADD, EV_INC_REMOVE, EV_INC_UP, EV_INC_DOWN, EV_INC_DETECT, EV_INC_CLOSE };
     for (int i = 0; i < 6; i++)
     {
@@ -4051,13 +4028,13 @@ static void settings_path(char* out, size_t cap);
 /* The compiler whose headers Detect reads, besides TCC. */
 #if defined(_WIN32)
 #define PLATFORM_CC_NAME "Visual Studio"
-#define PLATFORM_CC_BUTTON "  MSVC  "
+#define PLATFORM_CC_BUTTON "MSVC"
 #elif defined(__APPLE__)
 #define PLATFORM_CC_NAME "clang"
-#define PLATFORM_CC_BUTTON "  clang  "
+#define PLATFORM_CC_BUTTON "clang"
 #else
 #define PLATFORM_CC_NAME "gcc"
-#define PLATFORM_CC_BUTTON "  gcc  "
+#define PLATFORM_CC_BUTTON "gcc"
 #endif
 
 /* Detect (System Directories): with TCC installed too, asks whose headers
@@ -4070,7 +4047,7 @@ static void includes_detect(struct ide* ide)
         includes_detect_apply(ide, 0);
         return;
     }
-    static const char* const labels[] = { PLATFORM_CC_BUTTON, "  TCC  ", " Cancel " };
+    static const char* const labels[] = { PLATFORM_CC_BUTTON, "TCC", "Cancel" };
     static const int ids[] = { EV_INC_DETECT_MSVC, EV_INC_DETECT_TCC, 0 };
     gui_message_box(ide->app, "Detect",
                     PLATFORM_CC_NAME " and TCC can both be used.\n\nWhose system headers should the list have?",
@@ -4101,14 +4078,14 @@ static void includes_detect_apply(struct ide* ide, int use_tcc)
         if (problems[0])
             ide_text_printf(&msg, "\nWarning:\n%s", problems);
         ide_text_printf(&msg, "\nAdd the compilers found (Visual Studio, gcc, clang, tcc) to Tools?");
-        static const char* const labels[] = { "  Yes  ", "  No  " };
+        static const char* const labels[] = { "Yes", "No" };
         static const int ids[] = { EV_INC_ADD_TOOLS, 0 };
         gui_message_box(ide->app, "Detect", msg.data, labels, ids, 2);
     }
     else
     {
         ide_text_printf(&msg, "Detection failed - the list was not changed.\n\n%s", problems);
-        static const char* const labels[] = { "   OK   " };
+        static const char* const labels[] = { "OK" };
         static const int ids[] = { 0 };
         gui_message_box(ide->app, "Detect", msg.data, labels, ids, 1);
     }
@@ -4230,7 +4207,7 @@ static void add_compiler_tools(struct ide* ide)
     }
     if (report.len == 0)
         ide_text_printf(&report, "No compiler was found.\n");
-    static const char* const labels[] = { "   OK   " };
+    static const char* const labels[] = { "OK" };
     static const int ids[] = { 0 };
     gui_message_box(ide->app, "Tools", report.data, labels, ids, 1);
     free(report.data);
@@ -5127,7 +5104,7 @@ static void build_help(struct ide* ide)
     gui_editor_set_click_id(h->editor, EV_HELP_CTRLCLICK);
     /* Back and Close centered as a pair, as External Tools' OK and Cancel */
     static const struct { int id; const char* label; int offset; } bottom[] = {
-        { EV_HELP_BACK, " Back ", -11 }, { EV_HELP_CLOSE, " Close ", 1 },
+        { EV_HELP_BACK, "Back", -11 }, { EV_HELP_CLOSE, "Close", 1 },
     };
     for (int i = 0; i < COUNT(bottom); i++)
     {
@@ -5573,7 +5550,7 @@ static void pick_path(struct ide* ide, struct gui_node* input, int file, const c
     o->pick_input = input;
     o->pick_include = input == NULL;
     gui_set_label(o->window, file ? "Choose a File" : "Choose a Folder");
-    gui_set_label(o->ok, file ? "  Open  " : " Select ");
+    gui_set_label(o->ok, file ? "Open" : "Select");
 }
 
 /* --- Help texts: the old IDE's ui_set_help, word for word --- */
@@ -6501,7 +6478,7 @@ static void ask_open_url(struct ide* ide, const char* url)
     ide->pending_url = copy;
     struct ide_text msg = { 0 };
     ide_text_printf(&msg, "Open this link in the browser?\n\n%s", url);
-    static const char* const labels[] = { "  Yes  ", "  No  " };
+    static const char* const labels[] = { "Yes", "No" };
     static const int ids[] = { EV_OPEN_LINK, 0 };
     gui_message_box(ide->app, "Open Link", msg.data ? msg.data : url, labels, ids, 2);
     free(msg.data);
@@ -6576,7 +6553,7 @@ static void editor_ctrlclick(struct ide* ide)
         {
             char msg[700];
             snprintf(msg, sizeof msg, "%s not found.", link);
-            static const char* const ok[] = { "   OK   " };
+            static const char* const ok[] = { "OK" };
             static const int ok_id[] = { 0 };
             gui_message_box(ide->app, "Open Link", msg, ok, ok_id, 1);
             return;
@@ -6888,7 +6865,7 @@ static void rename_open(struct ide* ide)
     struct doc* d = active_doc(ide);
     if (!d)
         return;
-    static const char* const ok[] = { "   OK   " };
+    static const char* const ok[] = { "OK" };
     static const int ok_id[] = { 0 };
     char word[200];
     word_at_caret(d->editor, word, sizeof word);
@@ -6942,7 +6919,7 @@ static void rename_run(struct ide* ide)
     gui_window_close(ide->app, r->window);
     if (!is_identifier(new_name))
     {
-        static const char* const ok[] = { "   OK   " };
+        static const char* const ok[] = { "OK" };
         static const int ok_id[] = { 0 };
         gui_message_box(ide->app, "Rename", "The new name is not an identifier.", ok, ok_id, 1);
         return;
@@ -7150,7 +7127,7 @@ static void find_definition(struct ide* ide, enum find_kind kind)
     word_at_caret(d->editor, word, sizeof word);
     if (!word[0])
     {
-        static const char* const labels[] = { "   OK   " };
+        static const char* const labels[] = { "OK" };
         static const int ids[] = { 0 };
         gui_message_box(ide->app, find_kinds[kind].title, "No word under the caret.", labels, ids, 1);
         return;
@@ -7614,7 +7591,7 @@ static void show_generated_code(struct ide* ide)
     {
         char msg[1500];
         snprintf(msg, sizeof msg, "File not found:\n%s", path);
-        static const char* const labels[] = { "   OK   " };
+        static const char* const labels[] = { "OK" };
         static const int ids[] = { 0 };
         gui_message_box(ide->app, "Error", msg, labels, ids, 1);
         return;
@@ -7627,7 +7604,7 @@ static void show_generated_code(struct ide* ide)
     if (!gen)
         return;
     char title[300];
-    snprintf(title, sizeof title, " %.200s [%.64s] ", file_name(path), platform);
+    snprintf(title, sizeof title, "%.200s [%.64s]", file_name(path), platform);
     gui_set_label(gen->window, title);
     gui_editor_set_read_only(gen->editor, 1);
     if (src_maximized)
@@ -7754,12 +7731,12 @@ static void fif_build(struct ide* ide)
     row += 2;
     if (f->mode)
     {
-        gui_set_id(add_at(ide, f->window, GUI_BUTTON, 2, row, 12, 1, "  Find  "), EV_FR_FIND);
-        gui_set_id(add_at(ide, f->window, GUI_BUTTON, 15, row, 12, 1, " Replace "), EV_FR_REPLACE);
+        gui_set_id(add_at(ide, f->window, GUI_BUTTON, 2, row, 12, 1, "Find"), EV_FR_FIND);
+        gui_set_id(add_at(ide, f->window, GUI_BUTTON, 15, row, 12, 1, "Replace"), EV_FR_REPLACE);
     }
     else
     {
-        gui_set_id(fif_add(ide, GUI_BUTTON, row, 1, "  Find  "), EV_FR_FIND);
+        gui_set_id(fif_add(ide, GUI_BUTTON, row, 1, "Find"), EV_FR_FIND);
     }
     gui_focus(ide->app, f->find);
 }
@@ -8011,7 +7988,7 @@ static void file_watch_check(struct ide* ide)
             char msg[1400];
             snprintf(msg, sizeof msg, "The project file was modified outside the IDE:\n%s\n\nReload it?",
                      p->file_path);
-            static const char* const labels[] = { "  Yes  ", "  No  " };
+            static const char* const labels[] = { "Yes", "No" };
             static const int ids[] = { EV_PROJECT_RELOAD, 0 };
             gui_message_box(ide->app, "Project Changed", msg, labels, ids, 2);
             gui_repaint(ide->app);
@@ -8029,7 +8006,7 @@ static void file_watch_check(struct ide* ide)
     char msg[1400];
     snprintf(msg, sizeof msg, "The file was modified outside the IDE:\n%s\n\n%sReload it?", d->path,
              gui_editor_get_dirty(d->editor) ? "Your unsaved changes will be lost.\n" : "");
-    static const char* const labels[] = { "  Yes  ", "  No  " };
+    static const char* const labels[] = { "Yes", "No" };
     static const int ids[] = { EV_FILE_RELOAD, 0 };
     gui_message_box(ide->app, "File Changed", msg, labels, ids, 2);
     gui_repaint(ide->app);
@@ -8337,7 +8314,7 @@ static void project_open(struct ide* ide, const char* path)
     {
         char msg[1600];
         snprintf(msg, sizeof msg, "Cannot open the project:\n%s\n\n%s", path, why);
-        static const char* const labels[] = { "   OK   " };
+        static const char* const labels[] = { "OK" };
         static const int ids[] = { 0 };
         gui_message_box(ide->app, "Open Project", msg, labels, ids, 1);
         return;
@@ -8402,7 +8379,7 @@ static void new_project_accept(struct ide* ide)
     struct new_project_dialog* d = &ide->new_project;
     const char* folder = gui_get_value(d->folder);
     const char* name = gui_get_value(d->name);
-    static const char* const ok_label[] = { "   OK   " };
+    static const char* const ok_label[] = { "OK" };
     static const int ok_id[] = { 0 };
     if (!folder[0] || !name[0])
     {
@@ -8478,7 +8455,7 @@ static void project_delete_ask(struct ide* ide)
     char msg[1600];
     snprintf(msg, sizeof msg, "Remove this file from the project and delete it from disk?\n%s",
              ide->pending_delete);
-    static const char* const labels[] = { "   OK   ", " Cancel " };
+    static const char* const labels[] = { "OK", "Cancel" };
     static const int ids[] = { EV_PROJ_DELETE_OK, 0 };
     gui_message_box(ide->app, "Delete File", msg, labels, ids, 2);
 }
@@ -8573,7 +8550,7 @@ static void settings_save(struct ide* ide)
     {
         json_set_string(root, "font", gui_ui_font_name(ide->app, gui_get_ui_font(ide->app)));
     }
-    json_set_string(root, "font_size", gui_get_ui_font_small(ide->app) ? "small" : "normal");
+    json_set_string(root, "editor_font_size", gui_get_editor_size(ide->app) < 0 ? "small" : gui_get_editor_size(ide->app) > 0 ? "larger" : "normal");
 
     compile_to_json(json_set_object(root, "compile"), &ide->global_options);
 
@@ -8649,7 +8626,7 @@ static void settings_load(struct ide* ide)
         else
             snprintf(msg, sizeof msg, "The settings file is invalid - the defaults are used:\n%s\n\nIt is not a JSON object.",
                      path);
-        static const char* const labels[] = { "   OK   " };
+        static const char* const labels[] = { "OK" };
         static const int ids[] = { 0 };
         gui_message_box(ide->app, "Settings", msg, labels, ids, 1);
         json_delete(root);
@@ -8674,8 +8651,8 @@ static void settings_load(struct ide* ide)
         }
     }
     char ui_size[16] = "";
-    get_string(root, "font_size", ui_size, sizeof ui_size);
-    gui_set_ui_font_small(ide->app, strcmp(ui_size, "normal") != 0);
+    get_string(root, "editor_font_size", ui_size, sizeof ui_size);
+    gui_set_editor_size(ide->app, strcmp(ui_size, "small") == 0 ? -1 : strcmp(ui_size, "larger") == 0 ? 1 : 0);
     get_string(root, "theme", name, sizeof name);
     for (int i = 0; i < COUNT(themes); i++)
     {
@@ -8903,7 +8880,7 @@ static void doc_close_request(struct ide* ide)
     ide->pending_close = win;
     char msg[400];
     snprintf(msg, sizeof msg, "%s has unsaved changes.\nDiscard them?", file_name(d->path));
-    static const char* const labels[] = { " Discard ", " Cancel " };
+    static const char* const labels[] = { "Discard", "Cancel" };
     static const int ids[] = { EV_CLOSE_DISCARD, 0 };
     gui_message_box(ide->app, "Close", msg, labels, ids, 2);
 }
@@ -8931,7 +8908,7 @@ static void exit_check(struct ide* ide)
     gui_window_open(ide->app, d->window);
     char msg[400];
     snprintf(msg, sizeof msg, "%s has unsaved changes.\nSave them?", file_name(d->path));
-    static const char* const labels[] = { "  Save  ", " Discard ", " Cancel " };
+    static const char* const labels[] = { "Save", "Discard", "Cancel" };
     static const int ids[] = { EV_EXIT_SAVE, EV_EXIT_DISCARD, 0 };
     gui_message_box(ide->app, "Exit", msg, labels, ids, 3);
 }
@@ -9274,8 +9251,8 @@ static void build_git_diff(struct ide* ide)
     g->diff_window = create(ide, GUI_WINDOW, "Diff");
     struct gui_rect r = { 0, 0, 76 * 8, 22 * 16 };
     gui_window_set_rect(g->diff_window, &r);
-    gui_set_id(add_at(ide, g->diff_window, GUI_BUTTON, 1, 1, 14, 1, " Previous \xE2\x86\x91 "), EV_GITDIFF_PREV);   /* U+2191 */
-    gui_set_id(add_at(ide, g->diff_window, GUI_BUTTON, 16, 1, 10, 1, " \xE2\x86\x93 Next "), EV_GITDIFF_NEXT);      /* U+2193 */
+    gui_set_id(add_at(ide, g->diff_window, GUI_BUTTON, 1, 1, 14, 1, "Previous \xE2\x86\x91"), EV_GITDIFF_PREV);   /* U+2191 */
+    gui_set_id(add_at(ide, g->diff_window, GUI_BUTTON, 16, 1, 10, 1, "\xE2\x86\x93 Next"), EV_GITDIFF_NEXT);      /* U+2193 */
     g->diff_counter = add_at(ide, g->diff_window, GUI_TEXT, 28, 1, 14, 1, "");
     /* a blank row, then the diff to the window's edges */
     g->diff_editor = create(ide, GUI_EDITOR, NULL);
@@ -9310,7 +9287,7 @@ static void git_on_selected(struct ide* ide, const char* verb, const char* title
 
 static void git_ask(struct ide* ide, const char* text, int ok_id)
 {
-    static const char* const labels[] = { "   OK   ", " Cancel " };
+    static const char* const labels[] = { "OK", "Cancel" };
     int ids[] = { ok_id, 0 };
     gui_message_box(ide->app, "Git", text, labels, ids, 2);
 }
@@ -9515,7 +9492,7 @@ static void build_git(struct ide* ide)
     add_label(ide, g->commit_window, 2, 2, "Message");
     g->message = add_at(ide, g->commit_window, GUI_INPUT, 11, 2, 45, 1, NULL);
     gui_set_id(g->message, EV_GITCOMMIT_OK);
-    gui_set_id(add_at(ide, g->commit_window, GUI_BUTTON, 18, 5, 10, 1, "  OK  "), EV_GITCOMMIT_OK);
+    gui_set_id(add_at(ide, g->commit_window, GUI_BUTTON, 18, 5, 10, 1, "OK"), EV_GITCOMMIT_OK);
     gui_set_id(add_at(ide, g->commit_window, GUI_BUTTON, 30, 5, 10, 1, "Cancel"), EV_GITCOMMIT_CANCEL);
 
     g->branch_window = new_dialog(ide, "Branch");
@@ -9524,9 +9501,9 @@ static void build_git(struct ide* ide)
     add_label(ide, g->branch_window, 2, 12, "New");
     g->new_branch = add_at(ide, g->branch_window, GUI_INPUT, 7, 12, 39, 1, NULL);
     gui_set_id(g->new_branch, EV_GITBRANCH_NEW);
-    gui_set_id(add_at(ide, g->branch_window, GUI_BUTTON, 4, 15, 12, 1, " Checkout "), EV_GITBRANCH_CHECKOUT);
-    gui_set_id(add_at(ide, g->branch_window, GUI_BUTTON, 18, 15, 12, 1, "  Create  "), EV_GITBRANCH_NEW);
-    gui_set_id(add_at(ide, g->branch_window, GUI_BUTTON, 32, 15, 12, 1, "  Cancel  "), EV_GITBRANCH_CANCEL);
+    gui_set_id(add_at(ide, g->branch_window, GUI_BUTTON, 4, 15, 12, 1, "Checkout"), EV_GITBRANCH_CHECKOUT);
+    gui_set_id(add_at(ide, g->branch_window, GUI_BUTTON, 18, 15, 12, 1, "Create"), EV_GITBRANCH_NEW);
+    gui_set_id(add_at(ide, g->branch_window, GUI_BUTTON, 32, 15, 12, 1, "Cancel"), EV_GITBRANCH_CANCEL);
 }
 
 static void git_event(struct ide* ide, int id)
@@ -9687,7 +9664,7 @@ static void debug_start_session(struct ide* ide)
     const struct compiler_settings* cs = use_project ? &p->compile : &ide->global_options;
     if (!cs->flags[1])   /* -line-directives */
     {
-        static const char* const ok[] = { "   OK   " };
+        static const char* const ok[] = { "OK" };
         static const int ok_id[] = { 0 };
         gui_message_box(ide->app, "Start Debugging",
                         use_project ?
@@ -10420,7 +10397,7 @@ static void on_event(void* ctx, int id)
             ide->open.add_to_project = 1;
             gui_set_multi(ide->open.list, 1);   /* Ctrl / Shift pick several files */
             gui_set_label(ide->open.window, "Add Existing File");
-            gui_set_label(ide->open.ok, "  Add  ");
+            gui_set_label(ide->open.ok, "Add");
         }
         break;
     case EV_PROJECT_CLOSE: project_close(ide); break;
@@ -10459,7 +10436,7 @@ static void on_event(void* ctx, int id)
         {
             char msg[400];
             snprintf(msg, sizeof msg, "The compiler does not accept this option:\n\n  %s\n\nKeep the options anyway?", bad);
-            static const char* const labels[] = { "  Keep  ", "  Fix  " };
+            static const char* const labels[] = { "Keep", "Fix" };
             static const int ids[] = { EV_COPTS_KEEP_INVALID, 0 };
             gui_message_box(ide->app, "Compiler Options", msg, labels, ids, 2);
             break;
@@ -10546,7 +10523,7 @@ static void on_event(void* ctx, int id)
         show_open(ide, 0, dir, "");
         open_folder_mode(ide, 1);
         gui_set_label(ide->open.window, "Open Folder");
-        gui_set_label(ide->open.ok, " Select ");
+        gui_set_label(ide->open.ok, "Select");
         break;
     }
     case EV_OPEN_LIST: open_list_pick(ide); break;
@@ -10700,23 +10677,17 @@ static void on_event(void* ctx, int id)
         {
             gui_set_selected(ide->env.ui_font, gui_get_ui_font(ide->app));
         }
-        gui_set_selected(ide->env.ui_size, gui_get_ui_font_small(ide->app));
-        show_dialog(ide, ide->env.window, 50, 12, ide->env.theme);
+        gui_set_selected(ide->env.ui_size, gui_get_editor_size(ide->app) + 1);
+        show_dialog(ide, ide->env.window, 50, 11, ide->env.theme);
         break;
     case EV_ENV_OK:
         apply_theme(ide, gui_get_selected(ide->env.theme));
         gui_window_close(ide->app, ide->env.window);
         settings_save(ide);
         break;
-    case EV_ENV_UI_SIZE_NORMAL:
-    case EV_ENV_UI_SIZE_SMALL:
-        gui_set_ui_font_small(ide->app, id == EV_ENV_UI_SIZE_SMALL);
-        settings_save(ide);
-        gui_repaint(ide->app);
-        break;
     case EV_FONT_BIGGER: gui_zoom(ide->app, 1); break;
     case EV_FONT_SMALLER: gui_zoom(ide->app, -1); break;
-    case EV_ABOUT: show_dialog(ide, ide->about, 50, 24, ide->about_ok); break;
+    case EV_ABOUT: show_dialog(ide, ide->about, 30, 10, ide->about_ok); break;
     case EV_WEBSITE: ide_open_url("https://cakecc.org/"); break;
     case EV_ABOUT_OK: gui_window_close(ide->app, ide->about); break;
     case EV_FOLDER_OPEN:
@@ -10733,6 +10704,13 @@ static void on_event(void* ctx, int id)
         {
             gui_set_font(ide->app, id - EV_ENV_FONT);
             settings_save(ide);
+            break;
+        }
+        if (id >= EV_ENV_EDITOR_SIZE && id <= EV_ENV_EDITOR_SIZE_LAST)
+        {
+            gui_set_editor_size(ide->app, id - EV_ENV_EDITOR_SIZE - 1);
+            settings_save(ide);
+            gui_repaint(ide->app);
             break;
         }
         if (id >= EV_ENV_UI_FONT && id <= EV_ENV_UI_FONT_LAST)

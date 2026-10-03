@@ -433,6 +433,11 @@ void gui_set_after_label(struct gui_node* n, struct gui_node* label)
     n->after_label = label;
 }
 
+void gui_set_centered(struct gui_node* n, int centered)
+{
+    n->centered = centered;
+}
+
 void gui_set_font_size(struct gui_node* n, enum gui_font_size size)
 {
     n->font_size = size;
@@ -525,8 +530,9 @@ const struct gui_metrics* core_node_metrics(const struct gui_app* app, const str
 
 const struct gui_metrics* core_layout_metrics(const struct gui_app* app, const struct gui_node* n)
 {
+    /* an editor's place and frame are in the grid of "Font"; its text is in its own */
     enum gui_font font = core_node_font(n);
-    return core_font_metrics(app, font == GUI_FONT_UI ? GUI_FONT_MAIN : font);
+    return core_font_metrics(app, font == GUI_FONT_MAIN ? GUI_FONT_UI : font);
 }
 
 void gui_set_id(struct gui_node* n, int id)
@@ -656,7 +662,7 @@ static void layout_children(const struct gui_app* app, struct gui_node* n);
  * IDE's layout_menubar / layout_statusbar. */
 static void layout_bar(const struct gui_app* app, struct gui_node* bar)
 {
-    int cw = app->metrics.cell_w;
+    int cw = app->ui_metrics.cell_w;
     int x = bar->rect.x + cw;
     for (int i = 0; i < bar->child_count; i++)
     {
@@ -741,7 +747,7 @@ static void layout(struct gui_app* app)
 /* Between the menubar and the statusbar - where docked windows go. */
 static struct gui_rect area_rect(const struct gui_app* app)
 {
-    int ch = app->metrics.cell_h;
+    int ch = app->ui_metrics.cell_h;
     struct gui_rect r = { 0, 0, app->w, app->h };
     if (core_find_kind(app->root, GUI_MENUBAR))
     {
@@ -769,7 +775,7 @@ static struct gui_node* docked_on(const struct gui_app* app, enum gui_dock side)
  * Same as the old IDE's maximized_rect. */
 static struct gui_rect desktop_rect(const struct gui_app* app)
 {
-    int cw = app->metrics.cell_w, ch = app->metrics.cell_h;
+    int cw = app->ui_metrics.cell_w, ch = app->ui_metrics.cell_h;
     struct gui_rect r = area_rect(app);
     const struct gui_node* left = docked_on(app, GUI_DOCK_LEFT);
     const struct gui_node* right = docked_on(app, GUI_DOCK_RIGHT);
@@ -789,11 +795,11 @@ static int dock_cap(const struct gui_app* app, enum gui_dock side)
     struct gui_rect area = area_rect(app);
     if (side == GUI_DOCK_BOTTOM)
     {
-        int cap = area.h - 4 * app->metrics.cell_h;
-        return cap >= app->metrics.cell_h ? cap : area.h;
+        int cap = area.h - 4 * app->ui_metrics.cell_h;
+        return cap >= app->ui_metrics.cell_h ? cap : area.h;
     }
-    int cap = area.w - 8 * app->metrics.cell_w;
-    return cap >= app->metrics.cell_w ? cap : area.w;
+    int cap = area.w - 8 * app->ui_metrics.cell_w;
+    return cap >= app->ui_metrics.cell_w ? cap : area.w;
 }
 
 /* Pins every open docked window to its side - the old IDE's dock_layout:
@@ -801,7 +807,7 @@ static int dock_cap(const struct gui_app* app, enum gui_dock side)
  * them. Run on every layout, so resizes and docks shown/hidden reflow. */
 static void dock_layout(struct gui_app* app)
 {
-    int cw = app->metrics.cell_w, ch = app->metrics.cell_h;
+    int cw = app->ui_metrics.cell_w, ch = app->ui_metrics.cell_h;
     struct gui_rect area = area_rect(app);
     struct gui_node* left = docked_on(app, GUI_DOCK_LEFT);
     struct gui_node* right = docked_on(app, GUI_DOCK_RIGHT);
@@ -905,8 +911,8 @@ struct gui_rect gui_desktop_rect(const struct gui_app* app)
 
 void gui_cell_size(const struct gui_app* app, int* w, int* h)
 {
-    if (w) *w = app->metrics.cell_w;
-    if (h) *h = app->metrics.cell_h;
+    if (w) *w = app->ui_metrics.cell_w;
+    if (h) *h = app->ui_metrics.cell_h;
 }
 
 void gui_window_set_rect(struct gui_node* win, const struct gui_rect* r)
@@ -1004,7 +1010,7 @@ void gui_window_set_modal(struct gui_node* win, int modal)
  * center_modal_window. */
 void gui_window_center(struct gui_app* app, struct gui_node* win)
 {
-    int cw = app->metrics.cell_w, ch = app->metrics.cell_h;
+    int cw = app->ui_metrics.cell_w, ch = app->ui_metrics.cell_h;
     int x = (app->w - win->rect.w) / (2 * cw) * cw;
     int y = (app->h - win->rect.h) / (2 * ch) * ch;
     win->rect.x = x > 0 ? x : 0;
@@ -1066,7 +1072,7 @@ void gui_window_set_ask_close(struct gui_node* win, int ask)
 void gui_message_box(struct gui_app* app, const char* caption, const char* text,
                      const char* const labels[], const int ids[], int count)
 {
-    int cw = app->metrics.cell_w, ch = app->metrics.cell_h;
+    int cw = app->ui_metrics.cell_w, ch = app->ui_metrics.cell_h;
     int lines = 1, max_cols = 0, cur = 0;
     for (const char* p = text; ; p++)
     {
@@ -1085,8 +1091,8 @@ void gui_message_box(struct gui_app* app, const char* caption, const char* text,
     int row_cols = 0;
     for (int i = 0; i < count; i++)
     {
-        int bw = core_utf8_cells(labels[i], -1) + 4;
-        row_cols += (bw < 8 ? 8 : bw) + (i ? 2 : 0);
+        int bw = core_utf8_cells(labels[i], -1) + 6;   /* the label and a margin of 3 cells each side */
+        row_cols += (bw < 10 ? 10 : bw) + (i ? 2 : 0);
     }
     int inner = max_cols;
     if (row_cols > inner) inner = row_cols;
@@ -1124,8 +1130,8 @@ void gui_message_box(struct gui_app* app, const char* caption, const char* text,
     if (bx < 1) bx = 1;
     for (int i = 0; i < count; i++)
     {
-        int bw = core_utf8_cells(labels[i], -1) + 4;
-        if (bw < 8) bw = 8;
+        int bw = core_utf8_cells(labels[i], -1) + 6;
+        if (bw < 10) bw = 10;
         struct gui_node* b = gui_create(app, GUI_BUTTON);
         gui_set_label(b, labels[i]);
         b->id = ids[i];
@@ -1527,7 +1533,7 @@ static void fit_window(struct gui_app* app, struct gui_node* win)
 static void reflow_windows(struct gui_app* app, const struct gui_rect* old_desktop)
 {
     struct gui_rect d = desktop_rect(app);
-    int cw = app->metrics.cell_w, ch = app->metrics.cell_h;
+    int cw = app->ui_metrics.cell_w, ch = app->ui_metrics.cell_h;
     for (int i = 0; i < app->windows.count; i++)
     {
         struct gui_node* win = app->windows.items[i];
@@ -1548,18 +1554,18 @@ static void reflow_windows(struct gui_app* app, const struct gui_rect* old_deskt
  * corner, for resizable windows. Shared by hit testing and painting. */
 static int has_close_icon(const struct gui_app* app, const struct gui_node* win)
 {
-    return win->rect.w >= 5 * app->metrics.cell_w;
+    return win->rect.w >= 5 * app->ui_metrics.cell_w;
 }
 
 static int has_zoom_icon(const struct gui_app* app, const struct gui_node* win)
 {
     return win->window->resizable && win->window->dock == GUI_DOCK_NONE &&
-           win->rect.w >= 10 * app->metrics.cell_w;
+           win->rect.w >= 10 * app->ui_metrics.cell_w;
 }
 
 static int zoom_icon_x(const struct gui_app* app, const struct gui_node* win)
 {
-    return win->rect.x + win->rect.w - 4 * app->metrics.cell_w;
+    return win->rect.x + win->rect.w - 4 * app->ui_metrics.cell_w;
 }
 
 struct gui_node* core_window_at_point(const struct gui_app* app, int x, int y)
@@ -1577,7 +1583,7 @@ struct gui_node* core_window_at_point(const struct gui_app* app, int x, int y)
  * window cannot be resized now. */
 static int resize_edges_at(const struct gui_app* app, const struct gui_node* win, int x, int y)
 {
-    int cw = app->metrics.cell_w, ch = app->metrics.cell_h;
+    int cw = app->ui_metrics.cell_w, ch = app->ui_metrics.cell_h;
     const struct gui_rect* r = &win->rect;
     if (!win->window->resizable || win->window->maximized || win->window->dock != GUI_DOCK_NONE ||
         !core_rect_contains(r, x, y) || y < r->y + ch)
@@ -1594,7 +1600,7 @@ static int resize_edges_at(const struct gui_app* app, const struct gui_node* win
  * of a right dock, the title row of a bottom dock. */
 static int on_dock_handle(const struct gui_app* app, const struct gui_node* win, int x, int y)
 {
-    int cw = app->metrics.cell_w, ch = app->metrics.cell_h;
+    int cw = app->ui_metrics.cell_w, ch = app->ui_metrics.cell_h;
     const struct gui_rect* r = &win->rect;
     if (!win->window->resizable || !core_rect_contains(r, x, y))
         return 0;
@@ -1616,7 +1622,7 @@ static int on_dock_handle(const struct gui_app* app, const struct gui_node* win,
 static void window_mouse_down(struct gui_app* app, int double_click)
 {
     int x = app->mouse_x, y = app->mouse_y;
-    int cw = app->metrics.cell_w, ch = app->metrics.cell_h;
+    int cw = app->ui_metrics.cell_w, ch = app->ui_metrics.cell_h;
     struct gui_node* win = core_window_at_point(app, x, y);
     const struct gui_node* modal = core_top_modal(app);
     if (modal && win != modal)
@@ -1705,7 +1711,7 @@ static void window_drag_to(struct gui_app* app)
     if (d->mode == DRAG_NONE)
         return;
     struct gui_rect* r = &d->win->rect;
-    int cw = app->metrics.cell_w, ch = app->metrics.cell_h;
+    int cw = app->ui_metrics.cell_w, ch = app->ui_metrics.cell_h;
     if (d->mode == DRAG_MOVE)
     {
         r->x = app->mouse_x - d->offset_x;
@@ -1831,7 +1837,7 @@ static struct gui_rect layout_dropdown(const struct gui_app* app, struct gui_nod
                                        int x, int y)
 {
     /* the frame is in the main font's cells, the items in the "other fonts" font */
-    int cw = app->metrics.cell_w, ch = app->metrics.cell_h;
+    int cw = app->ui_metrics.cell_w, ch = app->ui_metrics.cell_h;
     int item_h = app->ui_metrics.cell_h;
     int max_w = 0;
     for (int i = 0; i < menu->child_count; i++)
@@ -1884,7 +1890,7 @@ static struct gui_rect layout_open_sub(const struct gui_app* app, const struct g
 {
     const struct gui_node* item = app->menu.open_sub;
     return layout_dropdown(app, app->menu.open_sub, parent_box->x + parent_box->w,
-                           item->rect.y - app->metrics.cell_h);
+                           item->rect.y - app->ui_metrics.cell_h);
 }
 
 /* --- Input --- */
@@ -2292,7 +2298,7 @@ void gui_app_event(struct gui_app* app, const struct gui_event* ev)
 
 int core_line_weight(const struct gui_app* app)
 {
-    int t = app->metrics.cell_w / 7;   /* same rule as the old IDE's box glyphs */
+    int t = app->ui_metrics.cell_w / 7;   /* same rule as the old IDE's box glyphs */
     return t < 1 ? 1 : t;
 }
 
@@ -2313,7 +2319,7 @@ static void draw_outline(const struct paint* p, int x0, int y0, int x1, int y1, 
 void core_draw_frame(const struct paint* p, const struct gui_rect* r,
                        enum gui_border_style style, uint32_t fg, uint32_t bg)
 {
-    int cw = p->app->metrics.cell_w, ch = p->app->metrics.cell_h;
+    int cw = p->app->ui_metrics.cell_w, ch = p->app->ui_metrics.cell_h;
     int t = core_line_weight(p->app);
     gui_fill_rect(p->frame, r->x, r->y, r->w, ch, bg);
     gui_fill_rect(p->frame, r->x, r->y + r->h - ch, r->w, ch, bg);
@@ -2339,7 +2345,7 @@ void core_draw_frame(const struct paint* p, const struct gui_rect* r,
  * the old IDE's render_button/render_window shadow. */
 void core_draw_shadow(const struct paint* p, const struct gui_rect* r)
 {
-    int cw = p->app->metrics.cell_w, ch = p->app->metrics.cell_h;
+    int cw = p->app->ui_metrics.cell_w, ch = p->app->ui_metrics.cell_h;
     int half = ch / 2;
     int alpha = 110;   /* ~43% black, as in the old IDE */
     gui_shade_rect(p->frame, r->x + r->w, r->y + ch - half, cw, half, alpha);
@@ -2354,7 +2360,7 @@ static void paint_dropdown(const struct paint* p, const struct gui_node* menu,
 {
     const struct gui_theme* t = &p->app->theme;
     const struct menu_state* m = &p->app->menu;
-    int cw = p->app->metrics.cell_w;
+    int cw = p->app->ui_metrics.cell_w;
     struct paint q = *p;   /* the items: the "other fonts" font */
     q.font = GUI_FONT_UI;
 
@@ -2413,7 +2419,7 @@ static void paint_menubar(const struct paint* p, const struct gui_node* bar)
         q.font = GUI_FONT_UI;
         int ty = title->rect.y + (title->rect.h - p->app->ui_metrics.cell_h) / 2;
         gui_set_clip(p->frame, title->rect.x, title->rect.y, title->rect.w, title->rect.h);
-        core_draw_utf8(&q, title->rect.x + p->app->metrics.cell_w, ty, title->label, -1, fg, bg);
+        core_draw_utf8(&q, title->rect.x + p->app->ui_metrics.cell_w, ty, title->label, -1, fg, bg);
         gui_set_clip(p->frame, 0, 0, 0, 0);
     }
 }
@@ -2489,7 +2495,7 @@ static void paint_statusbar_hint(const struct paint* p, const struct gui_node* b
                                  const char* hint)
 {
     const struct gui_theme* t = &p->app->theme;
-    int cw = p->app->metrics.cell_w, ch = p->app->metrics.cell_h;
+    int cw = p->app->ui_metrics.cell_w, ch = p->app->ui_metrics.cell_h;
     int x = bar->rect.x + cw;
     if (bar->child_count > 0)
     {
@@ -2527,7 +2533,7 @@ static void paint_statusbar_hint(const struct paint* p, const struct gui_node* b
 static void paint_statusbar(const struct paint* p, const struct gui_node* bar)
 {
     const struct gui_theme* t = &p->app->theme;
-    int cw = p->app->metrics.cell_w;
+    int cw = p->app->ui_metrics.cell_w;
     gui_fill_rect(p->frame, bar->rect.x, bar->rect.y, bar->rect.w, bar->rect.h, t->hotkey_bg);
 
     const struct gui_node* hot = p->app->menu.hot;
@@ -2593,7 +2599,7 @@ static void paint_window_title(const struct paint* p, const struct gui_node* win
                                uint32_t fg, uint32_t bg)
 {
     const struct gui_app* app = p->app;
-    int cw = app->metrics.cell_w;
+    int cw = app->ui_metrics.cell_w;
     const struct gui_rect* r = &win->rect;
     if (!win->label[0])
         return;
@@ -2615,7 +2621,7 @@ static void paint_window_title(const struct paint* p, const struct gui_node* win
     /* in the "other fonts" font, centered in the border row */
     struct paint q = *p;
     q.font = GUI_FONT_UI;
-    int y = r->y + (app->metrics.cell_h - app->ui_metrics.cell_h) / 2;
+    int y = r->y + (app->ui_metrics.cell_h - app->ui_metrics.cell_h) / 2;
     int room = hi - lo;
     int space_w = core_utf8_width(app, GUI_FONT_UI, " ", 1);
     int pad = room >= 5 * cw ? space_w : 0;
@@ -2648,7 +2654,7 @@ static void paint_window_title(const struct paint* p, const struct gui_node* win
         if (tx < lo + pad)
             tx = lo + pad;
         /* the font's cell can be taller than the border row; its bg must not spill into the window */
-        gui_set_clip(p->frame, r->x, r->y, r->w, app->metrics.cell_h);
+        gui_set_clip(p->frame, r->x, r->y, r->w, app->ui_metrics.cell_h);
         if (pad)
             core_draw_utf8(&q, tx - pad, y, " ", -1, fg, bg);
         int end = core_draw_utf8(&q, tx, y, label, bytes, fg, bg);
@@ -2664,7 +2670,7 @@ static void paint_window(const struct paint* p, const struct gui_node* win, int 
 {
     const struct gui_app* app = p->app;
     const struct gui_theme* t = &app->theme;
-    int cw = app->metrics.cell_w, ch = app->metrics.cell_h;
+    int cw = app->ui_metrics.cell_w, ch = app->ui_metrics.cell_h;
     const struct gui_rect* r = &win->rect;
     int dragging = app->drag.mode != DRAG_NONE && app->drag.win == win;
     int active = dragging || focused;
@@ -2692,18 +2698,39 @@ static void paint_window(const struct paint* p, const struct gui_node* win, int 
     core_draw_frame(p, r, style, border_fg, border_bg);
     paint_window_title(p, win, border_fg, border_bg);
 
-    if (has_close_icon(app, win))
+    /* The icons: the symbol in the middle cell of three, between drawn
+     * brackets - not a font's "[" "]" - centered on it both ways, whatever the font. */
+    for (int icon = 0; icon < 2; icon++)
     {
-        int x = core_draw_utf8(p, r->x + cw, r->y, "[", -1, border_fg, border_bg);
-        /* a drawn square, not a font's U+25A0: the same in every font */
-        core_draw_symbol(p, x, r->y, cw, ch, 0x25A0, t->window_close_bg, border_bg);
-        core_draw_utf8(p, x + cw, r->y, "]", -1, border_fg, border_bg);
-    }
-    if (has_zoom_icon(app, win))
-    {
-        int x = core_draw_utf8(p, zoom_icon_x(app, win), r->y, "[", -1, border_fg, border_bg);
-        core_draw_symbol(p, x, r->y, cw, ch, win->window->maximized ? 0x2193 : 0x2191, border_fg, border_bg);   /* up: maximize, down: restore */
-        core_draw_utf8(p, x + cw, r->y, "]", -1, border_fg, border_bg);
+        if (icon == 0 ? !has_close_icon(app, win) : !has_zoom_icon(app, win))
+        {
+            continue;
+        }
+        int x = icon == 0 ? r->x + cw : zoom_icon_x(app, win);
+        int sx = x + cw;   /* the symbol's cell */
+        gui_fill_rect(p->frame, x, r->y, 3 * cw, ch, border_bg);
+        if (icon == 0)
+        {
+            core_draw_symbol(p, sx, r->y, cw, ch, 0x25A0, t->window_close_bg, border_bg);
+        }
+        else
+        {
+            core_draw_symbol(p, sx, r->y, cw, ch, win->window->maximized ? 0x2193 : 0x2191, border_fg, border_bg);   /* up: maximize, down: restore */
+        }
+        int lw = core_line_weight(app);
+        int side = (cw < ch ? cw : ch) * 3 / 4;   /* the square's side, see core_draw_symbol */
+        int gap = side / 3 > 1 ? side / 3 : 1;
+        int bh = side + 2 * gap;                  /* the brackets: a little taller than the square */
+        int tick = gap + lw;
+        int by = r->y + (ch - bh) / 2;
+        int lx = sx + (cw - side) / 2 - gap - lw;
+        int rx = sx + (cw - side) / 2 + side + gap;
+        gui_fill_rect(p->frame, lx, by, lw, bh, border_fg);
+        gui_fill_rect(p->frame, lx, by, tick, lw, border_fg);
+        gui_fill_rect(p->frame, lx, by + bh - lw, tick, lw, border_fg);
+        gui_fill_rect(p->frame, rx, by, lw, bh, border_fg);
+        gui_fill_rect(p->frame, rx + lw - tick, by, tick, lw, border_fg);
+        gui_fill_rect(p->frame, rx + lw - tick, by + bh - lw, tick, lw, border_fg);
     }
 
     for (int i = 0; i < win->child_count; i++)
@@ -2805,29 +2832,29 @@ void gui_app_set_ui_fonts(struct gui_app* app, const char* const names[], int co
     f->current = current;
     f->requested = -1;
     f->changed = f->count > 0;   /* the backend opens `current` on its first tick */
-    f->small = 1;
+    f->editor_size = 0;
 }
 
-int gui_app_take_ui_font(struct gui_app* app, int* index, int* small)
+int gui_app_take_ui_font(struct gui_app* app, int* index, int* editor_size)
 {
     int changed = app->ui_fonts.changed;
     app->ui_fonts.changed = 0;
     *index = app->ui_fonts.current;
-    *small = app->ui_fonts.small;
+    *editor_size = app->ui_fonts.editor_size;
     return changed;
 }
 
-int gui_get_ui_font_small(const struct gui_app* app)
+int gui_get_editor_size(const struct gui_app* app)
 {
-    return app->ui_fonts.small;
+    return app->ui_fonts.editor_size;
 }
 
-void gui_set_ui_font_small(struct gui_app* app, int small)
+void gui_set_editor_size(struct gui_app* app, int size)
 {
-    if (small != app->ui_fonts.small)
+    if (size >= -1 && size <= 1 && size != app->ui_fonts.editor_size)
     {
-        app->ui_fonts.small = small;
-        app->ui_fonts.changed = 1;
+        app->ui_fonts.editor_size = size;
+        app->ui_fonts.changed = 1;   /* the grid stays: the windows keep their rects */
     }
 }
 
@@ -2852,6 +2879,7 @@ void gui_set_ui_font(struct gui_app* app, int index)
     {
         app->ui_fonts.current = index;
         app->ui_fonts.changed = 1;
+        app->ui_fonts.rescale = 1;
     }
 }
 
@@ -2917,9 +2945,31 @@ int gui_app_take_zoom(struct gui_app* app)
 
 void gui_app_font_changed(struct gui_app* app, struct gui_canvas* c)
 {
+    struct gui_metrics old = app->ui_metrics;
     app->metrics = gui_font_metrics(c, GUI_FONT_MAIN);
     app->small_metrics = gui_font_metrics(c, GUI_FONT_SMALL);
     app->ui_metrics = gui_font_metrics(c, GUI_FONT_UI);
+    if (app->ui_fonts.rescale && old.cell_w > 0 && old.cell_h > 0)
+    {
+        /* a new "Font": every window keeps its size in cells, a floating one its center */
+        int cw = app->ui_metrics.cell_w, ch = app->ui_metrics.cell_h;
+        for (int i = 0; i < app->windows.count; i++)
+        {
+            struct gui_node* win = app->windows.items[i];
+            struct gui_rect* r = &win->rect;
+            int w = r->w * cw / old.cell_w, h = r->h * ch / old.cell_h;
+            if (win->window->dock == GUI_DOCK_NONE)
+            {
+                r->x += (r->w - w) / 2;
+                r->y += (r->h - h) / 2;
+                if (r->x < 0) r->x = 0;
+                if (r->y < 0) r->y = 0;
+            }
+            r->w = w;
+            r->h = h;
+        }
+    }
+    app->ui_fonts.rescale = 0;
     app->scrollbar_px = gui_scrollbar_size(c);
     app->needs_layout = 1;
     app->needs_paint = 1;
@@ -2991,7 +3041,7 @@ static void paint_tooltip(const struct paint* p)
     /* in the "other fonts" font */
     struct paint q = *p;
     q.font = GUI_FONT_UI;
-    int cw = app->metrics.cell_w, ch = app->ui_metrics.cell_h;
+    int cw = app->ui_metrics.cell_w, ch = app->ui_metrics.cell_h;
     int text_w = core_utf8_width(app, GUI_FONT_UI, app->tooltip, -1);
     if (text_w > app->w - 2 * cw)
         text_w = app->w - 2 * cw;

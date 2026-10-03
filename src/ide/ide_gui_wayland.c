@@ -51,6 +51,9 @@
 #define DEFAULT_COLS 120
 #define DEFAULT_ROWS 30
 #define SMALL_FONT_PERCENT 85
+/* The editor font's "Smaller" and "Larger": this much of the dialogs' size. */
+#define SMALLER_FONT_PERCENT 90
+#define LARGER_FONT_PERCENT 115
 #define DOUBLE_CLICK_MS 400
 #define DPI 96.0
 
@@ -108,7 +111,7 @@ struct gui_canvas
     int pt;
     const char* family;          /* NULL: the first installed candidate */
     const char* ui_family;       /* NULL: GUI_FONT_UI is the editor family */
-    int ui_small;                /* GUI_FONT_UI in the small size, else the normal one */
+    int editor_size;            /* the editor font: -1 smaller, 0 the base size, 1 larger */
     char* clip_text;             /* what we offer as the selection */
     struct wl_window* win;
 };
@@ -196,7 +199,9 @@ static long long now_ms(void)
  * if the match has that very name. Its file into *path (malloc'ed). */
 static int font_file(const char* name, char** path, int mono)
 {
-    FcPattern* pat = FcNameParse((const FcChar8*)name);
+    /* "System": the desktop's own sans-serif, whatever family it is */
+    int system = strcmp(name, "System") == 0;
+    FcPattern* pat = FcNameParse((const FcChar8*)(system ? "sans-serif" : name));
     if (!pat)
         return 0;
     if (mono)
@@ -212,7 +217,7 @@ static int font_file(const char* name, char** path, int mono)
     FcChar8* file = NULL;
     int ok = FcPatternGetString(match, FC_FAMILY, 0, &family) == FcResultMatch &&
              FcPatternGetString(match, FC_FILE, 0, &file) == FcResultMatch &&
-             (strcasecmp((const char*)family, name) == 0 || strcmp(name, "Monospace") == 0);
+             (strcasecmp((const char*)family, name) == 0 || strcmp(name, "Monospace") == 0 || system);
     if (ok && path)
         *path = strdup((const char*)file);
     FcPatternDestroy(match);
@@ -246,13 +251,30 @@ static int font_open(struct gui_canvas* c, struct font* f, int pt)
 }
 
 /* GUI_FONT_UI: c->ui_family at `pt`, proportional, else the main family;
- * cell_w is the advance of "n". */
+ * cell_w is half its row height, as the monospaced fonts. */
 static int font_open_ui(struct gui_canvas* c, struct font* f, int pt)
 {
     char* path = NULL;
     if (!c->ui_family || !font_file(c->ui_family, &path, 0))
         return font_open(c, f, pt);
-    return font_load(c, f, pt, path, 'n');
+    int ok = font_load(c, f, pt, path, 'M');
+    /* rows at least 1.3 em, as tall as the monospaced fonts', the capitals centered in them */
+    int min_h = (int)(pt * DPI * 1.3 / 72.0 + 0.5);
+    if (f->metrics.cell_h < min_h)
+    {
+        f->metrics.cell_h = min_h;
+    }
+    int cap = 0;
+    if (ok && FT_Load_Char(f->face, 'H', FT_LOAD_DEFAULT) == 0)
+    {
+        cap = (int)((f->face->glyph->metrics.horiBearingY + 32) >> 6);
+    }
+    if (cap > 0)
+    {
+        f->metrics.ascent = (f->metrics.cell_h + cap + 1) / 2;
+    }
+    f->metrics.cell_w = (f->metrics.cell_h + 1) / 2;   /* the monospaced fonts' proportion: half as wide as tall */
+    return ok;
 }
 
 /* The face in `path` (freed here) at `pt`; cell_w is the advance of `cell_char`. */
@@ -342,8 +364,9 @@ static void offer_fonts(struct wl_window* win)
     }
     gui_app_set_fonts(win->app, names, win->font_count, 0);
 
-    const char* ui_names[UI_CANDIDATE_COUNT + CANDIDATE_COUNT];
+    const char* ui_names[1 + UI_CANDIDATE_COUNT + CANDIDATE_COUNT];
     int ui_count = 0;
+    ui_names[ui_count++] = "System";   /* the OS's own interface font, always first */
     for (int i = 0; i < UI_CANDIDATE_COUNT; i++)
     {
         if (font_file(ui_font_candidates[i], NULL, 0))
@@ -361,16 +384,19 @@ static void offer_fonts(struct wl_window* win)
 /* (Re)creates both fonts from canvas->pt: they always exist together. */
 static int apply_font(struct gui_canvas* c)
 {
-    int small_pt = (c->pt * SMALL_FONT_PERCENT + 50) / 100;
+    /* the dialogs' font is the base size; the editor's a little smaller, the same or a little larger */
+    int percent = c->editor_size < 0 ? SMALLER_FONT_PERCENT : c->editor_size > 0 ? LARGER_FONT_PERCENT : 100;
+    int main_pt = (c->pt * percent + 50) / 100;
+    int small_pt = (main_pt * SMALL_FONT_PERCENT + 50) / 100;
     struct font main, small_font, ui_font;
-    if (!font_open(c, &main, c->pt))
+    if (!font_open(c, &main, main_pt))
         return 0;
     if (!font_open(c, &small_font, small_pt > 0 ? small_pt : 1))
     {
         font_free(&main);
         return 0;
     }
-    if (!font_open_ui(c, &ui_font, c->ui_small ? (small_pt > 0 ? small_pt : 1) : c->pt))
+    if (!font_open_ui(c, &ui_font, c->pt))
     {
         font_free(&main);
         font_free(&small_font);
@@ -690,7 +716,7 @@ static void follow_fonts(struct wl_view* d, const struct wl_view* main)
     c->pt = main->canvas.pt;
     c->family = main->canvas.family;
     c->ui_family = main->canvas.ui_family;
-    c->ui_small = main->canvas.ui_small;
+    c->editor_size = main->canvas.editor_size;
     apply_font(c);
 }
 
@@ -788,11 +814,11 @@ static void refresh(struct wl_window* win)
             fonts_changed = 1;
         }
     }
-    int ui_index, ui_small;
-    if (gui_app_take_ui_font(win->app, &ui_index, &ui_small))
+    int ui_index, editor_size;
+    if (gui_app_take_ui_font(win->app, &ui_index, &editor_size))
     {
         c->ui_family = ui_index >= 0 ? gui_ui_font_name(win->app, ui_index) : NULL;
-        c->ui_small = ui_small;
+        c->editor_size = editor_size;
         if (apply_font(c))
         {
             gui_app_font_changed(win->app, c);
@@ -1577,7 +1603,7 @@ int main(int argc, char** argv)
         return 1;
     }
     c->pt = DEFAULT_FONT_PT;
-    c->ui_small = 1;
+    c->editor_size = 0;
     if (!apply_font(c))
     {
         fprintf(stderr, "no usable font (is fontconfig installed?)\n");

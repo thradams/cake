@@ -360,6 +360,8 @@ void gui_set_layout(struct gui_node* n, const struct gui_layout* layout);
  * sibling labels at its x that controls follow), its right edge kept: the
  * labels' measured width, whatever the font. */
 void gui_set_after_label(struct gui_node* n, struct gui_node* label);
+/* A GUI_TEXT draws its label centered in its rect, by its measured width. */
+void gui_set_centered(struct gui_node* n, int centered);
 
 /* Like HTML: a node draws in the normal or the small font, or inherits its
  * parent's (the default). Rows, columns and text inside it follow its
@@ -425,9 +427,11 @@ int gui_ui_font_count(const struct gui_app* app);
 const char* gui_ui_font_name(const struct gui_app* app, int index);
 int gui_get_ui_font(const struct gui_app* app);
 void gui_set_ui_font(struct gui_app* app, int index);
-/* GUI_FONT_SIZE_UI in the small size (1, the default) or the normal one. */
-int gui_get_ui_font_small(const struct gui_app* app);
-void gui_set_ui_font_small(struct gui_app* app, int small);
+/* The dialogs' font (GUI_FONT_UI) is the base size, the one gui_zoom
+ * changes; the editor font is a little smaller (-1), the same size (0, the
+ * default) or a little larger (1). */
+int gui_get_editor_size(const struct gui_app* app);
+void gui_set_editor_size(struct gui_app* app, int size);
 
 /* Ends the program after the current event. */
 void gui_quit(struct gui_app* app);

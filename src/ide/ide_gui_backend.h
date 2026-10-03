@@ -21,7 +21,7 @@ enum gui_font
 {
     GUI_FONT_MAIN = 0,  /* the main monospaced font */
     GUI_FONT_SMALL,     /* the same family, smaller - both always exist */
-    GUI_FONT_UI,        /* the "other fonts" family, may be proportional, small or normal size */
+    GUI_FONT_UI,        /* the dialogs' family, may be proportional, at the base size */
 };
 
 struct gui_metrics
@@ -164,9 +164,10 @@ int gui_app_take_font(struct gui_app* app);
 void gui_app_set_ui_fonts(struct gui_app* app, const char* const names[], int count, int current);
 
 /* 1 when the app picked another GUI_FONT_UI family or size since the last
- * call: the family's index in *index (-1: none offered), *small 1 for the
- * small size; the backend applies it, then calls gui_app_font_changed. */
-int gui_app_take_ui_font(struct gui_app* app, int* index, int* small);
+ * call, or the editor's size: the family's index in *index (-1: none
+ * offered), *editor_size -1, 0 or 1 for the editor font smaller, the base
+ * size or larger; the backend applies it, then calls gui_app_font_changed. */
+int gui_app_take_ui_font(struct gui_app* app, int* index, int* editor_size);
 
 /* Whether the app asked to end (gui_quit). */
 int gui_app_should_quit(const struct gui_app* app);

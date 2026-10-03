@@ -36,6 +36,7 @@ struct gui_node
     int id;
     int enabled;
     int separator;
+    int centered;              /* GUI_TEXT: the label centered in its rect */
     struct gui_layout layout;  /* where it sits in its parent (see ide_gui.h) */
     struct gui_node* after_label;   /* gui_set_after_label; NULL: none */
     struct gui_rect rect;      /* computed by layout, px, window coordinates;
@@ -165,7 +166,8 @@ struct app_fonts
     int current;
     int requested;   /* -1: none */
     int changed;     /* ui_fonts: current or small not applied by the backend yet */
-    int small;       /* ui_fonts: the small size, else the normal one */
+    int editor_size;    /* ui_fonts: the editor font -1 smaller, 0 the dialogs' size, 1 larger */
+    int rescale;     /* ui_fonts: family or size picked - windows follow the new cell */
 };
 
 /* What one OS window shows: the main one, or a window the user detached
@@ -212,7 +214,7 @@ struct gui_app
     struct gui_theme theme;
     struct gui_metrics metrics;  /* of GUI_FONT_MAIN, re-read on font change */
     struct gui_metrics small_metrics;  /* of GUI_FONT_SMALL */
-    struct gui_metrics ui_metrics;     /* of GUI_FONT_UI */
+    struct gui_metrics ui_metrics;     /* of GUI_FONT_UI; also the grid of windows, dialogs, menus and bars */
     int scrollbar_px;            /* scrollbar thickness, from the backend */
     int w, h;                    /* client area, px */
     int mouse_x, mouse_y;        /* px; -1 when outside the window */
@@ -268,7 +270,7 @@ int core_line_weight(const struct gui_app* app);
 enum gui_font core_node_font(const struct gui_node* n);   /* its own, or inherited */
 const struct gui_metrics* core_font_metrics(const struct gui_app* app, enum gui_font font);
 const struct gui_metrics* core_node_metrics(const struct gui_app* app, const struct gui_node* n);
-/* The cells a node's layout is in: its font's, the editor font's for GUI_FONT_UI. */
+/* The cells a node's layout is in: its font's, the "Font" grid for GUI_FONT_MAIN. */
 const struct gui_metrics* core_layout_metrics(const struct gui_app* app, const struct gui_node* n);
 void core_draw_frame(const struct paint* p, const struct gui_rect* r,
                      enum gui_border_style style, uint32_t fg, uint32_t bg);
