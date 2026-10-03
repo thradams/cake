@@ -224,7 +224,7 @@ static void offer_fonts(struct win32_window* win)
         names[win->fonts.count] = utf8[win->fonts.count];
         win->fonts.candidate[win->fonts.count++] = i;
     }
-    const char* ui_names[sizeof ui_font_candidates / sizeof ui_font_candidates[0]];
+    const char* ui_names[sizeof ui_font_candidates / sizeof ui_font_candidates[0] + sizeof font_candidates / sizeof font_candidates[0]];
     char ui_utf8[sizeof ui_font_candidates / sizeof ui_font_candidates[0]][64];
     int ui_count = 0;
     for (int i = 0; i < (int)(sizeof ui_font_candidates / sizeof ui_font_candidates[0]); i++)
@@ -239,7 +239,11 @@ static void offer_fonts(struct win32_window* win)
     }
     ReleaseDC(win->hwnd, dc);
     gui_app_set_fonts(win->app, names, win->fonts.count, 0);
-    gui_app_set_ui_fonts(win->app, ui_names, ui_count, -1);
+    for (int i = 0; i < win->fonts.count; i++)
+    {
+        ui_names[ui_count++] = names[i];   /* the monospaced ones too */
+    }
+    gui_app_set_ui_fonts(win->app, ui_names, ui_count, 0);
 }
 
 /* (Re)creates both fonts from canvas->pt: they always exist together, so

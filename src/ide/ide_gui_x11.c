@@ -249,7 +249,7 @@ static void offer_fonts(struct x11_window* win)
     }
     gui_app_set_fonts(win->app, names, win->fonts.count, 0);
 
-    const char* ui_names[UI_CANDIDATE_COUNT];
+    const char* ui_names[UI_CANDIDATE_COUNT + CANDIDATE_COUNT];
     int ui_count = 0;
     for (int i = 0; i < UI_CANDIDATE_COUNT; i++)
     {
@@ -258,7 +258,11 @@ static void offer_fonts(struct x11_window* win)
             ui_names[ui_count++] = ui_font_candidates[i];
         }
     }
-    gui_app_set_ui_fonts(win->app, ui_names, ui_count, -1);
+    for (int i = 0; i < win->fonts.count; i++)
+    {
+        ui_names[ui_count++] = names[i];   /* the monospaced ones too */
+    }
+    gui_app_set_ui_fonts(win->app, ui_names, ui_count, 0);
 }
 
 /* (Re)creates both fonts from canvas->pt: they always exist together. */

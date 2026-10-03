@@ -159,12 +159,12 @@ void gui_app_set_fonts(struct gui_app* app, const char* const names[], int count
  * -1; the backend applies it, then calls gui_app_font_changed. */
 int gui_app_take_font(struct gui_app* app);
 
-/* Before gui_app_start: the proportional font families (UTF-8); current
- * -1: GUI_FONT_UI is the small font. */
+/* Before gui_app_start: the font families GUI_FONT_UI can use (UTF-8),
+ * proportional and monospaced, and the one in use. */
 void gui_app_set_ui_fonts(struct gui_app* app, const char* const names[], int count, int current);
 
 /* 1 when the app picked another GUI_FONT_UI family or size since the last
- * call: the family's index in *index (-1: the editor's), *small 1 for the
+ * call: the family's index in *index (-1: none offered), *small 1 for the
  * small size; the backend applies it, then calls gui_app_font_changed. */
 int gui_app_take_ui_font(struct gui_app* app, int* index, int* small);
 

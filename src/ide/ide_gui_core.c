@@ -428,6 +428,11 @@ void gui_set_layout(struct gui_node* n, const struct gui_layout* layout)
     n->layout = *layout;
 }
 
+void gui_set_after_label(struct gui_node* n, struct gui_node* label)
+{
+    n->after_label = label;
+}
+
 void gui_set_font_size(struct gui_node* n, enum gui_font_size size)
 {
     n->font_size = size;
@@ -684,8 +689,30 @@ static void layout_children(const struct gui_app* app, struct gui_node* n)
         return;   /* a select's, listbox's or group's children are its rows */
     for (int i = 0; i < n->child_count; i++)
     {
+        layout_anchored(app, n->children[i], n);
+    }
+    /* every label is placed: the controls that follow one go after its column */
+    for (int i = 0; i < n->child_count; i++)
+    {
         struct gui_node* c = n->children[i];
-        layout_anchored(app, c, n);
+        if (c->after_label)
+        {
+            /* the widest label of the column, measured, then one cell */
+            int column_w = 0;
+            for (int k = 0; k < n->child_count; k++)
+            {
+                const struct gui_node* label = n->children[k]->after_label;
+                if (label && label->rect.x == c->after_label->rect.x)
+                {
+                    int w = core_utf8_width(app, core_node_font(label), label->label, -1);
+                    if (w > column_w)
+                        column_w = w;
+                }
+            }
+            int right = c->rect.x + c->rect.w;
+            c->rect.x = c->after_label->rect.x + column_w + core_layout_metrics(app, n)->cell_w;
+            c->rect.w = right > c->rect.x ? right - c->rect.x : 0;
+        }
         layout_children(app, c);
     }
 }
@@ -2759,7 +2786,7 @@ void gui_app_set_ui_fonts(struct gui_app* app, const char* const names[], int co
     }
     f->current = current;
     f->requested = -1;
-    f->changed = 0;
+    f->changed = f->count > 0;   /* the backend opens `current` on its first tick */
     f->small = 1;
 }
 
@@ -2803,7 +2830,7 @@ int gui_get_ui_font(const struct gui_app* app)
 
 void gui_set_ui_font(struct gui_app* app, int index)
 {
-    if (index >= -1 && index < app->ui_fonts.count && index != app->ui_fonts.current)
+    if (index >= 0 && index < app->ui_fonts.count && index != app->ui_fonts.current)
     {
         app->ui_fonts.current = index;
         app->ui_fonts.changed = 1;

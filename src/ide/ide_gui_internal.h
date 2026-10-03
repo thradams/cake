@@ -37,6 +37,7 @@ struct gui_node
     int enabled;
     int separator;
     struct gui_layout layout;  /* where it sits in its parent (see ide_gui.h) */
+    struct gui_node* after_label;   /* gui_set_after_label; NULL: none */
     struct gui_rect rect;      /* computed by layout, px, window coordinates;
                                 * for a GUI_WINDOW, its stored rect */
     struct window_props* window;  /* GUI_WINDOW only, else NULL */

@@ -356,6 +356,10 @@ const char* gui_get_label(const struct gui_node* n);
 enum gui_kind gui_get_kind(const struct gui_node* n);
 struct gui_node* gui_get_parent(const struct gui_node* n);
 void gui_set_layout(struct gui_node* n, const struct gui_layout* layout);
+/* `n` starts one cell after the widest label of `label`'s column (the
+ * sibling labels at its x that controls follow), its right edge kept: the
+ * labels' measured width, whatever the font. */
+void gui_set_after_label(struct gui_node* n, struct gui_node* label);
 
 /* Like HTML: a node draws in the normal or the small font, or inherits its
  * parent's (the default). Rows, columns and text inside it follow its
@@ -415,8 +419,8 @@ const char* gui_font_name(const struct gui_app* app, int index);
 int gui_get_font(const struct gui_app* app);
 void gui_set_font(struct gui_app* app, int index);
 
-/* The proportional font families the backend offers, for nodes in
- * GUI_FONT_SIZE_UI; -1: they use the editor font, small (the default). */
+/* The font families the backend offers for every control but the editors
+ * (GUI_FONT_UI), proportional and monospaced, and the one in use. */
 int gui_ui_font_count(const struct gui_app* app);
 const char* gui_ui_font_name(const struct gui_app* app, int index);
 int gui_get_ui_font(const struct gui_app* app);
