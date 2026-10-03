@@ -1162,7 +1162,7 @@ struct token* _Owner _Opt new_token(const char* lexeme_head, const char* lexeme_
 
         p_new_token->lexeme = temp;
         p_new_token->type = type;
-        strncpy(p_new_token->lexeme, lexeme_head, sz);
+        memcpy(p_new_token->lexeme, lexeme_head, sz); /* calloc already ended it with 0 */
     }
     catch
     {

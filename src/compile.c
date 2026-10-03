@@ -800,7 +800,7 @@ static void longest_common_path(int argc, const char* const* argv, char root_dir
                 full_path_or_copy(argv[j], fullpath_j);
                 if (fullpath_j[k] != ch)
                 {
-                    strncpy(root_dir, fullpath_j, k);
+                    memcpy(root_dir, fullpath_j, k);
                     root_dir[k] = '\0';
                     dirname(root_dir);
                     goto exit;
