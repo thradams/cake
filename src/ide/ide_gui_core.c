@@ -2018,9 +2018,13 @@ static void context_menu_at(struct gui_app* app)
     const struct gui_node* modal = core_top_modal(app);
     if (!win || (modal && win != modal))
         return;
+    gui_window_open(app, win);   /* to the top, as a left click */
     struct gui_node* target = widget_at(app, win, app->mouse_x, app->mouse_y);
     if (target && target->kind == GUI_EDITOR)
+    {
+        gui_focus(app, target);   /* the menu acts on the editor clicked, not the one focused before */
         editor_context_click(app, target);   /* the menu acts where the click was */
+    }
     while (target && target != win && !target->context_menu)
         target = target->parent;
     if (!target || target == win)

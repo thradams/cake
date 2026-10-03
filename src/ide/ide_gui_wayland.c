@@ -1552,6 +1552,15 @@ static void wait_event(struct wl_window* win)
     }
     if (win->pending)
         timeout = 0;   /* events taken in prepare_read above: paint them now, don't block */
+    /* a frame waits for a buffer that came back in the dispatch above: show it now */
+    for (int i = -1; i < win->detached.count; i++)
+    {
+        const struct wl_view* v = i < 0 ? &win->main : win->detached.items[i];
+        if (v->frame_pending && (!v->buffers[0].busy || !v->buffers[1].busy))
+        {
+            timeout = 0;
+        }
+    }
     struct pollfd p = { wl_display_get_fd(win->display), POLLIN, 0 };
     if (poll(&p, 1, timeout) > 0)
         wl_display_read_events(win->display);

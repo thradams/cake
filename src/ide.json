@@ -1,0 +1,30 @@
+{
+  "theme": "Dark",
+  "editor_font": "Menlo",
+  "font": "System",
+  "editor_font_size": "larger",
+  "compile": {
+    "options": "",
+    "output": "",
+    "target": "",
+    "style": "",
+    "diagnostic_format": "ide",
+    "no_output": false,
+    "line_directives": true,
+    "fanalyzer": false,
+    "const_literal": false,
+    "wall": false,
+    "use_cake_headers": false
+  },
+  "system_include_dirs": [],
+  "debug": {
+    "command": "",
+    "arguments": "",
+    "directory": ""
+  },
+  "build": {
+    "pre_build": "",
+    "post_build": ""
+  },
+  "external_tools": []
+}
