@@ -114,6 +114,7 @@ struct wl_view
     struct wl_surface* surface;
     struct xdg_surface* xdg_surface;
     struct xdg_toplevel* toplevel;
+    struct zxdg_toplevel_decoration_v1* decoration;   /* destroyed before toplevel */
     struct shm_buffer buffers[2];
     int configured;              /* the first configure came: we may draw */
     int want_w, want_h;          /* the size the last configure asked for */
@@ -1384,9 +1385,8 @@ static void view_open(struct wl_window* win, struct wl_view* v, int w, int h)
     if (win->decoration_manager)
     {
         /* the compositor's title bar and borders, where it draws them */
-        struct zxdg_toplevel_decoration_v1* deco =
-            zxdg_decoration_manager_v1_get_toplevel_decoration(win->decoration_manager, v->toplevel);
-        zxdg_toplevel_decoration_v1_set_mode(deco, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+        v->decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(win->decoration_manager, v->toplevel);
+        zxdg_toplevel_decoration_v1_set_mode(v->decoration, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
     }
     wl_surface_commit(v->surface);   /* the first configure answers this */
 }
@@ -1395,6 +1395,8 @@ static void view_close(struct wl_view* v)
 {
     for (int i = 0; i < 2; i++)
         buffer_destroy(&v->buffers[i]);
+    /* a toplevel destroyed before its decoration is the "orphaned" protocol error */
+    if (v->decoration) zxdg_toplevel_decoration_v1_destroy(v->decoration);
     if (v->toplevel) xdg_toplevel_destroy(v->toplevel);
     if (v->xdg_surface) xdg_surface_destroy(v->xdg_surface);
     if (v->surface) wl_surface_destroy(v->surface);
