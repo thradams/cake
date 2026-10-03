@@ -2377,6 +2377,8 @@ static void paint_dropdown(const struct paint* p, const struct gui_node* menu,
                     : hot ? t->menu_item_fg_hot : t->menu_item_fg;
         uint32_t bg = hot ? t->menu_item_bg_hot : t->menu_item_bg;
         gui_fill_rect(p->frame, r->x, r->y, r->w, r->h, bg);
+        /* the font's cell can be taller than the item; its bg must not spill out */
+        gui_set_clip(p->frame, r->x, r->y, r->w, r->h);
         core_draw_utf8(&q, r->x + cw, r->y, it->label, -1, fg, bg);
 
         if (item_is_submenu(it))
@@ -2391,6 +2393,7 @@ static void paint_dropdown(const struct paint* p, const struct gui_node* menu,
             core_draw_utf8(&q, sx, r->y, buf, -1,
                       it->enabled ? t->menu_item_shortcut_fg : t->menu_item_fg_disabled, bg);
         }
+        gui_set_clip(p->frame, 0, 0, 0, 0);
     }
 }
 
@@ -2409,7 +2412,9 @@ static void paint_menubar(const struct paint* p, const struct gui_node* bar)
         struct paint q = *p;
         q.font = GUI_FONT_UI;
         int ty = title->rect.y + (title->rect.h - p->app->ui_metrics.cell_h) / 2;
+        gui_set_clip(p->frame, title->rect.x, title->rect.y, title->rect.w, title->rect.h);
         core_draw_utf8(&q, title->rect.x + p->app->metrics.cell_w, ty, title->label, -1, fg, bg);
+        gui_set_clip(p->frame, 0, 0, 0, 0);
     }
 }
 
@@ -2427,6 +2432,8 @@ static void paint_hotkey(const struct paint* p, const struct gui_node* h)
     int y = h->rect.y + (h->rect.h - core_font_metrics(p->app, p->font)->cell_h) / 2;
     if (hot)
         gui_fill_rect(p->frame, h->rect.x, h->rect.y, h->rect.w, h->rect.h, bg);
+    /* the font's cell can be taller than the bar; its bg must not spill out */
+    gui_set_clip(p->frame, h->rect.x, h->rect.y, h->rect.w, h->rect.h);
     if (!colon)
     {
         core_draw_utf8(p, h->rect.x, y, h->label, -1, fg, bg);
@@ -2436,6 +2443,7 @@ static void paint_hotkey(const struct paint* p, const struct gui_node* h)
         int x = core_draw_utf8(p, h->rect.x, y, h->label, (int)(colon - h->label), key_fg, bg);
         core_draw_utf8(p, x, y, colon, -1, fg, bg);
     }
+    gui_set_clip(p->frame, 0, 0, 0, 0);
 }
 
 /* Walks a hint as the app's hint highlighter colors it: hidden spans
@@ -2497,7 +2505,9 @@ static void paint_statusbar_hint(const struct paint* p, const struct gui_node* b
     int width = paint_hint_text(p, &hint_x, y, hint, 0);
     if (x + width <= right)
     {
+        gui_set_clip(p->frame, x, bar->rect.y, right - x, ch);
         paint_hint_text(p, &x, y, hint, 1);
+        gui_set_clip(p->frame, 0, 0, 0, 0);
     }
     else
     {
@@ -2507,8 +2517,9 @@ static void paint_statusbar_hint(const struct paint* p, const struct gui_node* b
         {
             gui_set_clip(p->frame, x, bar->rect.y, dots_x - x, ch);
             paint_hint_text(p, &x, y, hint, 1);
-            gui_set_clip(p->frame, 0, 0, 0, 0);
+            gui_set_clip(p->frame, dots_x, bar->rect.y, right - dots_x, ch);
             core_draw_utf8(p, dots_x, y, "...", -1, t->hotkey_fg, t->hotkey_bg);
+            gui_set_clip(p->frame, 0, 0, 0, 0);
         }
     }
 }
@@ -2545,7 +2556,11 @@ static void paint_statusbar(const struct paint* p, const struct gui_node* bar)
         int lx = bar->rect.x + bar->rect.w - cw - core_utf8_width(p->app, p->font, bar->label, -1);
         int y = bar->rect.y + (bar->rect.h - core_font_metrics(p->app, p->font)->cell_h) / 2;
         if (lx > used_x + cw)
+        {
+            gui_set_clip(p->frame, bar->rect.x, bar->rect.y, bar->rect.w, bar->rect.h);
             core_draw_utf8(p, lx, y, bar->label, -1, t->hotkey_fg, t->hotkey_bg);
+            gui_set_clip(p->frame, 0, 0, 0, 0);
+        }
     }
 }
 
@@ -2632,6 +2647,8 @@ static void paint_window_title(const struct paint* p, const struct gui_node* win
         int tx = r->x + (r->w - label_w) / 2;
         if (tx < lo + pad)
             tx = lo + pad;
+        /* the font's cell can be taller than the border row; its bg must not spill into the window */
+        gui_set_clip(p->frame, r->x, r->y, r->w, app->metrics.cell_h);
         if (pad)
             core_draw_utf8(&q, tx - pad, y, " ", -1, fg, bg);
         int end = core_draw_utf8(&q, tx, y, label, bytes, fg, bg);
@@ -2639,6 +2656,7 @@ static void paint_window_title(const struct paint* p, const struct gui_node* win
             end = core_draw_utf8(&q, end, y, "...", -1, fg, bg);
         if (pad)
             core_draw_utf8(&q, end, y, " ", -1, fg, bg);
+        gui_set_clip(p->frame, 0, 0, 0, 0);
     }
 }
 

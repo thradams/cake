@@ -313,7 +313,7 @@ static void paint_box(const struct paint* p, const struct gui_node* n)
     }
 }
 
-/* Label centered in the rect. */
+/* Label centered in the rect and clipped to it (leaves the clip there). */
 static void paint_centered_label(const struct paint* p, const struct gui_rect* r,
                                  const char* label, uint32_t fg, uint32_t bg)
 {
@@ -321,6 +321,8 @@ static void paint_centered_label(const struct paint* p, const struct gui_rect* r
     int lx = r->x + (r->w - core_utf8_width(p->app, p->font, label, -1)) / 2;
     if (lx < r->x)
         lx = r->x;
+    /* the font's cell can be taller than the face; its bg must not spill out */
+    gui_set_clip(p->frame, r->x, r->y, r->w, r->h);
     core_draw_utf8(p, lx, r->y + (r->h - ch) / 2, label, -1, fg, bg);
 }
 
@@ -675,6 +677,8 @@ static void paint_group(const struct paint* p, const struct gui_node* n)
         int y = n->rect.y + row * ch;
         if (is_focus)
             gui_fill_rect(p->frame, n->rect.x, y, n->rect.w, ch, bg);
+        /* the font's cell can be taller than the row; its bg must not spill into the next */
+        gui_set_clip(p->frame, n->rect.x, y, n->rect.w, ch);
         const char* marker = n->multi ? (on ? "[X] " : "[ ] ")
                                       : (on ? "(\xE2\x80\xA2) " : "( ) ");   /* U+2022 bullet */
         int x = core_draw_utf8(p, n->rect.x, y + text_dy, marker, -1, fg, bg);
@@ -684,6 +688,7 @@ static void paint_group(const struct paint* p, const struct gui_node* n)
             x = core_draw_utf8(p, x, y + text_dy, item->label, first, is_focus ? fg : t->hotkey_key_fg, bg);
             core_draw_utf8(p, x, y + text_dy, item->label + first, -1, fg, bg);
         }
+        gui_set_clip(p->frame, n->rect.x, n->rect.y, n->rect.w, n->rect.h);
     }
     paint_scrollbar(p, n);
 }
@@ -774,7 +779,9 @@ void widget_paint_popups(const struct paint* p)
         uint32_t fg = hot ? t->menu_item_fg_hot : t->menu_item_fg;
         uint32_t bg = hot ? t->menu_item_bg_hot : t->menu_item_bg;
         gui_fill_rect(p->frame, it->rect.x, it->rect.y, it->rect.w, it->rect.h, bg);
+        gui_set_clip(p->frame, it->rect.x, it->rect.y, it->rect.w, it->rect.h);
         core_draw_utf8(p, it->rect.x + cw, it->rect.y, it->label, -1, fg, bg);
+        gui_set_clip(p->frame, 0, 0, 0, 0);
     }
 }
 
