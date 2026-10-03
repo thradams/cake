@@ -263,9 +263,8 @@ static void offer_fonts(struct win32_window* win)
         {
             continue;
         }
-        WideCharToMultiByte(CP_UTF8, 0, ui_font_candidates[i], -1, ui_utf8[ui_count], 64, NULL, NULL);
-        ui_names[ui_count] = ui_utf8[ui_count];
-        ui_count++;
+        WideCharToMultiByte(CP_UTF8, 0, ui_font_candidates[i], -1, ui_utf8[i], 64, NULL, NULL);
+        ui_names[ui_count++] = ui_utf8[i];
     }
     ReleaseDC(win->hwnd, dc);
     gui_app_set_fonts(win->app, names, win->fonts.count, 0);
