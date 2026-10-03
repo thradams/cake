@@ -60,6 +60,12 @@ static const char* const font_candidates[] = {
 
 #define CANDIDATE_COUNT ((int)(sizeof font_candidates / sizeof font_candidates[0]))
 
+static const char* const ui_font_candidates[] = {
+    "DejaVu Sans", "Liberation Sans", "Noto Sans", "Ubuntu", "Sans",
+};
+
+#define UI_CANDIDATE_COUNT ((int)(sizeof ui_font_candidates / sizeof ui_font_candidates[0]))
+
 /* --- Fonts: FreeType, glyphs rendered once and kept --- */
 
 struct glyph
@@ -67,6 +73,7 @@ struct glyph
     uint32_t cp;
     int left, top;            /* the bitmap's offset from the pen, px (top: above the baseline) */
     int w, h;
+    int advance;              /* px; 0: not in the font */
     unsigned char* alpha;     /* w * h coverage; NULL: nothing to draw */
 };
 
@@ -96,9 +103,12 @@ struct gui_canvas
     int w, h;
     int clip_on, cx, cy, cw, ch;
     struct font main, small_font;
+    struct font ui_font;         /* GUI_FONT_UI */
     FT_Library ft;
     int pt;
     const char* family;          /* NULL: the first installed candidate */
+    const char* ui_family;       /* NULL: GUI_FONT_UI is the editor family */
+    int ui_small;                /* GUI_FONT_UI in the small size, else the normal one */
     char* clip_text;             /* what we offer as the selection */
     struct wl_window* win;
 };
@@ -184,12 +194,13 @@ static long long now_ms(void)
 
 /* fontconfig substitutes instead of failing, so a family is installed only
  * if the match has that very name. Its file into *path (malloc'ed). */
-static int font_file(const char* name, char** path)
+static int font_file(const char* name, char** path, int mono)
 {
     FcPattern* pat = FcNameParse((const FcChar8*)name);
     if (!pat)
         return 0;
-    FcPatternAddInteger(pat, FC_SPACING, FC_MONO);
+    if (mono)
+        FcPatternAddInteger(pat, FC_SPACING, FC_MONO);
     FcConfigSubstitute(NULL, pat, FcMatchPattern);
     FcDefaultSubstitute(pat);
     FcResult result;
@@ -218,17 +229,35 @@ static void font_free(struct font* f)
     memset(f, 0, sizeof *f);
 }
 
+static int font_load(struct gui_canvas* c, struct font* f, int pt, char* path, char cell_char);
+
 static int font_open(struct gui_canvas* c, struct font* f, int pt)
 {
     const char* family = c->family;
     char* path = NULL;
     for (int i = 0; !family && i < CANDIDATE_COUNT; i++)
     {
-        if (font_file(font_candidates[i], NULL))
+        if (font_file(font_candidates[i], NULL, 1))
             family = font_candidates[i];
     }
-    if (!family || !font_file(family, &path))
+    if (!family || !font_file(family, &path, 1))
         return 0;
+    return font_load(c, f, pt, path, 'M');
+}
+
+/* GUI_FONT_UI: c->ui_family at `pt`, proportional, else the main family;
+ * cell_w is the advance of "n". */
+static int font_open_ui(struct gui_canvas* c, struct font* f, int pt)
+{
+    char* path = NULL;
+    if (!c->ui_family || !font_file(c->ui_family, &path, 0))
+        return font_open(c, f, pt);
+    return font_load(c, f, pt, path, 'n');
+}
+
+/* The face in `path` (freed here) at `pt`; cell_w is the advance of `cell_char`. */
+static int font_load(struct gui_canvas* c, struct font* f, int pt, char* path, char cell_char)
+{
     FT_Face face;
     int err = FT_New_Face(c->ft, path, 0, &face);
     free(path);
@@ -238,7 +267,7 @@ static int font_open(struct gui_canvas* c, struct font* f, int pt)
     memset(f, 0, sizeof *f);
     f->face = face;
     int adv = 0;
-    if (FT_Load_Char(face, 'M', FT_LOAD_DEFAULT) == 0)
+    if (FT_Load_Char(face, (FT_ULong)cell_char, FT_LOAD_DEFAULT) == 0)
         adv = (int)((face->glyph->advance.x + 32) >> 6);
     int ascent = (int)((face->size->metrics.ascender + 63) >> 6);
     int descent = (int)((-face->size->metrics.descender + 63) >> 6);
@@ -278,9 +307,11 @@ static const struct glyph* font_glyph(struct font* f, uint32_t cp)
     g->cp = cp;
     f->count++;
     FT_UInt index = FT_Get_Char_Index(f->face, cp);
-    if (!index || FT_Load_Glyph(f->face, index, FT_LOAD_DEFAULT) ||
-        FT_Render_Glyph(f->face->glyph, FT_RENDER_MODE_NORMAL))
+    if (!index || FT_Load_Glyph(f->face, index, FT_LOAD_DEFAULT))
         return g;   /* not in the font: nothing drawn */
+    g->advance = (int)((f->face->glyph->advance.x + 32) >> 6);
+    if (FT_Render_Glyph(f->face->glyph, FT_RENDER_MODE_NORMAL))
+        return g;
     FT_Bitmap* bm = &f->face->glyph->bitmap;
     g->left = f->face->glyph->bitmap_left;
     g->top = f->face->glyph->bitmap_top;
@@ -304,19 +335,30 @@ static void offer_fonts(struct wl_window* win)
     win->font_count = 0;
     for (int i = 0; i < CANDIDATE_COUNT; i++)
     {
-        if (!font_file(font_candidates[i], NULL))
+        if (!font_file(font_candidates[i], NULL, 1))
             continue;
         names[win->font_count] = font_candidates[i];
         win->offered_fonts[win->font_count++] = i;
     }
     gui_app_set_fonts(win->app, names, win->font_count, 0);
+
+    const char* ui_names[UI_CANDIDATE_COUNT];
+    int ui_count = 0;
+    for (int i = 0; i < UI_CANDIDATE_COUNT; i++)
+    {
+        if (font_file(ui_font_candidates[i], NULL, 0))
+        {
+            ui_names[ui_count++] = ui_font_candidates[i];
+        }
+    }
+    gui_app_set_ui_fonts(win->app, ui_names, ui_count, -1);
 }
 
 /* (Re)creates both fonts from canvas->pt: they always exist together. */
 static int apply_font(struct gui_canvas* c)
 {
     int small_pt = (c->pt * SMALL_FONT_PERCENT + 50) / 100;
-    struct font main, small_font;
+    struct font main, small_font, ui_font;
     if (!font_open(c, &main, c->pt))
         return 0;
     if (!font_open(c, &small_font, small_pt > 0 ? small_pt : 1))
@@ -324,10 +366,18 @@ static int apply_font(struct gui_canvas* c)
         font_free(&main);
         return 0;
     }
+    if (!font_open_ui(c, &ui_font, c->ui_small ? (small_pt > 0 ? small_pt : 1) : c->pt))
+    {
+        font_free(&main);
+        font_free(&small_font);
+        return 0;
+    }
     font_free(&c->main);
     font_free(&c->small_font);
+    font_free(&c->ui_font);
     c->main = main;
     c->small_font = small_font;
+    c->ui_font = ui_font;
     return 1;
 }
 
@@ -335,7 +385,36 @@ static int apply_font(struct gui_canvas* c)
 
 struct gui_metrics gui_font_metrics(struct gui_canvas* c, enum gui_font font)
 {
-    return font == GUI_FONT_SMALL ? c->small_font.metrics : c->main.metrics;
+    return font == GUI_FONT_UI ? c->ui_font.metrics : font == GUI_FONT_SMALL ? c->small_font.metrics : c->main.metrics;
+}
+
+static struct font* canvas_font(struct gui_canvas* c, enum gui_font font)
+{
+    return font == GUI_FONT_UI ? &c->ui_font : font == GUI_FONT_SMALL ? &c->small_font : &c->main;
+}
+
+/* The advance of `cp`, px: a cell, or in GUI_FONT_UI the glyph's own. */
+static int advance_of(struct gui_canvas* c, uint32_t cp, enum gui_font font)
+{
+    struct font* f = canvas_font(c, font);
+    int advance = f->metrics.cell_w;
+    if (font == GUI_FONT_UI && cp != 0)
+    {
+        const struct glyph* g = font_glyph(f, cp);
+        if (g->advance > 0)
+            advance = g->advance;
+    }
+    return advance;
+}
+
+int gui_text_width(struct gui_canvas* c, const uint32_t* cps, int count, enum gui_font font)
+{
+    int width = 0;
+    for (int i = 0; i < count; i++)
+    {
+        width += advance_of(c, cps[i], font);
+    }
+    return width;
 }
 
 int gui_scrollbar_size(struct gui_canvas* c)
@@ -408,23 +487,27 @@ void gui_shade_rect(struct gui_canvas* c, int x, int y, int w, int h, int alpha)
 void gui_draw_text(struct gui_canvas* c, int x, int y, const uint32_t* cps, int count,
                    uint32_t fg, uint32_t bg, enum gui_font font)
 {
-    struct font* f = font == GUI_FONT_SMALL ? &c->small_font : &c->main;
+    struct font* f = canvas_font(c, font);
     const struct gui_metrics* m = &f->metrics;
-    gui_fill_rect(c, x, y, count * m->cell_w, m->cell_h, bg);
+    int width = gui_text_width(c, cps, count, font);
+    gui_fill_rect(c, x, y, width, m->cell_h, bg);
     /* the glyphs stay inside the run's rect, as the backend contract says */
-    int rx = x, ry = y, rw = count * m->cell_w, rh = m->cell_h;
+    int rx = x, ry = y, rw = width, rh = m->cell_h;
     if (!clip_rect(c, &rx, &ry, &rw, &rh))
         return;
     unsigned fr = (fg >> 16) & 0xFF, fgg = (fg >> 8) & 0xFF, fb = fg & 0xFF;
+    int pen = x;
     for (int i = 0; i < count; i++)
     {
         uint32_t cp = cps[i];
+        int at = pen;
+        pen += advance_of(c, cp, font);
         if (cp == ' ' || cp == 0)
             continue;
         const struct glyph* g = font_glyph(f, cp);
         if (!g->alpha)
             continue;
-        int gx = x + i * m->cell_w + g->left;
+        int gx = at + g->left;
         int gy = y + m->ascent - g->top;
         for (int row = 0; row < g->h; row++)
         {
@@ -602,6 +685,8 @@ static void follow_fonts(struct wl_view* d, const struct wl_view* main)
     c->ft = main->canvas.ft;
     c->pt = main->canvas.pt;
     c->family = main->canvas.family;
+    c->ui_family = main->canvas.ui_family;
+    c->ui_small = main->canvas.ui_small;
     apply_font(c);
 }
 
@@ -651,6 +736,7 @@ static void detached_close(struct wl_window* win, struct wl_view* d)
     view_close(d);
     font_free(&d->canvas.main);
     font_free(&d->canvas.small_font);
+    font_free(&d->canvas.ui_font);
     free(d);
 }
 
@@ -692,6 +778,17 @@ static void refresh(struct wl_window* win)
     if (family >= 0 && family < win->font_count)
     {
         c->family = font_candidates[win->offered_fonts[family]];
+        if (apply_font(c))
+        {
+            gui_app_font_changed(win->app, c);
+            fonts_changed = 1;
+        }
+    }
+    int ui_index, ui_small;
+    if (gui_app_take_ui_font(win->app, &ui_index, &ui_small))
+    {
+        c->ui_family = ui_index >= 0 ? gui_ui_font_name(win->app, ui_index) : NULL;
+        c->ui_small = ui_small;
         if (apply_font(c))
         {
             gui_app_font_changed(win->app, c);
@@ -1476,6 +1573,7 @@ int main(int argc, char** argv)
         return 1;
     }
     c->pt = DEFAULT_FONT_PT;
+    c->ui_small = 1;
     if (!apply_font(c))
     {
         fprintf(stderr, "no usable font (is fontconfig installed?)\n");
@@ -1535,6 +1633,7 @@ int main(int argc, char** argv)
         buffer_destroy(&win.main.buffers[i]);
     font_free(&c->main);
     font_free(&c->small_font);
+    font_free(&c->ui_font);
     FT_Done_FreeType(c->ft);
     free(c->pixels);
     free(c->clip_text);

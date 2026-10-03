@@ -27,5 +27,7 @@ void frame_shade_rect(struct frame_recorder* r, int x, int y, int w, int h, int 
 void frame_set_clip(struct frame_recorder* r, int x, int y, int w, int h);
 void frame_draw_text(struct frame_recorder* r, int x, int y, const uint32_t* cps, int count,
                      uint32_t fg, uint32_t bg, enum gui_font font);
+/* The width frame_draw_text gives the run, px. */
+int frame_text_width(struct frame_recorder* r, const uint32_t* cps, int count, enum gui_font font);
 
 #endif

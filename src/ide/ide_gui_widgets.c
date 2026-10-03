@@ -4,6 +4,7 @@
  * render_listbox, render_group in ide_ui.c). See GUI_IDE_SPEC.md.
  */
 #include "ide_gui_internal.h"
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -199,16 +200,6 @@ static void focus_step(struct gui_app* app, int forward)
 
 /* --- UTF-8 editing helpers (GUI_INPUT) --- */
 
-static int byte_of_col(const char* s, int col)
-{
-    return core_utf8_prefix_bytes(s, col);
-}
-
-static int col_of_byte(const char* s, int bytes)
-{
-    return core_utf8_cells(s, bytes);
-}
-
 /* The byte offset one code point before/after `at`. */
 static int prev_char(const char* s, int at)
 {
@@ -257,13 +248,14 @@ void gui_input_insert(struct gui_node* n, const char* utf8)
     input_replace(n, lo, hi, utf8, (int)strlen(utf8));
 }
 
-/* The first column shown: the caret is always in view (same rule as the
- * old IDE's render_input - nothing stored, derived each time). */
+/* How far the text is scrolled left, px: the caret is always in view
+ * (nothing stored, derived each time). */
 static int input_offset(const struct gui_app* app, const struct gui_node* n)
 {
-    int cols = n->rect.w / core_node_metrics(app, n)->cell_w;
-    int cursor_col = col_of_byte(n->value, n->cursor);
-    return cursor_col >= cols ? cursor_col - cols + 1 : 0;
+    int cw = core_node_metrics(app, n)->cell_w;
+    int caret_x = core_utf8_width(app, core_node_font(n), n->value, n->cursor);
+    int room = n->rect.w - (cw / 5 > 0 ? cw / 5 : 1);
+    return caret_x > room ? caret_x - room : 0;
 }
 
 static int is_word_byte(char c)
@@ -299,13 +291,15 @@ static void paint_text(const struct paint* p, const struct gui_node* n)
     const struct gui_theme* t = &p->app->theme;
     uint32_t fg = n->has_colors ? n->fg : t->window_fg;
     uint32_t bg = n->has_colors ? n->bg : t->window_bg;
-    core_draw_utf8(p, n->rect.x, n->rect.y, n->label, -1, fg, bg);
+    /* centered on its first row of the layout */
+    int y = n->rect.y + (core_layout_metrics(p->app, n)->cell_h - core_node_metrics(p->app, n)->cell_h) / 2;
+    core_draw_utf8(p, n->rect.x, y, n->label, -1, fg, bg);
 }
 
 static void paint_box(const struct paint* p, const struct gui_node* n)
 {
     const struct gui_theme* t = &p->app->theme;
-    int cw = core_node_metrics(p->app, n)->cell_w, ch = core_node_metrics(p->app, n)->cell_h;
+    int cw = core_layout_metrics(p->app, n)->cell_w, ch = core_layout_metrics(p->app, n)->cell_h;
     const struct gui_rect* r = &n->rect;
     if (r->w > 2 * cw && r->h > 2 * ch)
         gui_fill_rect(p->frame, r->x + cw, r->y + ch, r->w - 2 * cw, r->h - 2 * ch,
@@ -313,21 +307,21 @@ static void paint_box(const struct paint* p, const struct gui_node* n)
     core_draw_frame(p, r, t->box_border_style, t->box_fg, t->box_bg);
     if (n->label[0])
     {
-        int tx = r->x + (r->w - core_utf8_cells(n->label, -1) * cw) / (2 * cw) * cw;
-        core_draw_utf8(p, tx, r->y, n->label, -1, t->box_fg, t->box_bg);
+        int tx = r->x + (r->w - core_utf8_width(p->app, p->font, n->label, -1)) / 2;
+        int ty = r->y + (ch - core_font_metrics(p->app, p->font)->cell_h) / 2;
+        core_draw_utf8(p, tx, ty, n->label, -1, t->box_fg, t->box_bg);
     }
 }
 
-/* Label centered on a whole cell, on the middle row. */
+/* Label centered in the rect. */
 static void paint_centered_label(const struct paint* p, const struct gui_rect* r,
                                  const char* label, uint32_t fg, uint32_t bg)
 {
-    const struct gui_metrics* m = core_font_metrics(p->app, p->font);
-    int cw = m->cell_w, ch = m->cell_h;
-    int lx = r->x + (r->w - core_utf8_cells(label, -1) * cw) / (2 * cw) * cw;
+    int ch = core_font_metrics(p->app, p->font)->cell_h;
+    int lx = r->x + (r->w - core_utf8_width(p->app, p->font, label, -1)) / 2;
     if (lx < r->x)
         lx = r->x;
-    core_draw_utf8(p, lx, r->y + r->h / (2 * ch) * ch, label, -1, fg, bg);
+    core_draw_utf8(p, lx, r->y + (r->h - ch) / 2, label, -1, fg, bg);
 }
 
 static void paint_button(const struct paint* p, const struct gui_node* n)
@@ -350,7 +344,7 @@ static void paint_button(const struct paint* p, const struct gui_node* n)
         core_draw_shadow(p, &n->rect);
     struct gui_rect face = n->rect;
     if (pressed)
-        face.x += core_node_metrics(app, n)->cell_w;
+        face.x += core_layout_metrics(app, n)->cell_w;
     gui_fill_rect(p->frame, face.x, face.y, face.w, face.h, bg);
     paint_centered_label(p, &face, n->label, t->btn_fg, bg);
 }
@@ -360,37 +354,42 @@ static void paint_input(const struct paint* p, const struct gui_node* n)
     const struct gui_app* app = p->app;
     const struct gui_theme* t = &app->theme;
     int cw = core_node_metrics(app, n)->cell_w, ch = core_node_metrics(app, n)->cell_h;
+    int row_h = core_layout_metrics(app, n)->cell_h;
     int focused = app->ui.focused == n;
     uint32_t fg = focused ? t->input_fg_focus : t->input_fg;
     uint32_t bg = focused ? t->input_bg_focus : t->input_bg;
-    int cols = n->rect.w / cw;
-    int offset = input_offset(app, n);
     int lo, hi;
     input_selection(n, &lo, &hi);
-    int sel_lo = col_of_byte(n->value, lo), sel_hi = col_of_byte(n->value, hi);
+    int y = n->rect.y + (row_h - ch) / 2;
 
-    gui_fill_rect(p->frame, n->rect.x, n->rect.y, n->rect.w, ch, bg);
-    const char* s = n->value + byte_of_col(n->value, offset);
-    for (int col = 0; *s && col < cols; col++)
+    /* the text in one run, then again in the selection colors clipped to
+     * the selection: the glyphs never move; the widget's clip cuts the text */
+    gui_fill_rect(p->frame, n->rect.x, n->rect.y, n->rect.w, row_h, bg);
+    int x = n->rect.x - input_offset(app, n);
+    core_draw_utf8(p, x, y, n->value, -1, fg, bg);
+    if (hi > lo)
     {
-        int idx = offset + col;
-        int selected = idx >= sel_lo && idx < sel_hi;
-        uint32_t cp;
-        int len = core_utf8_decode(s, &cp);
-        core_draw_utf8(p, n->rect.x + col * cw, n->rect.y, s, len,
-                       selected ? t->input_sel_fg : fg, selected ? t->input_sel_bg : bg);
-        s += len;
+        int sel_x0 = x + core_utf8_width(app, p->font, n->value, lo);
+        int sel_x1 = x + core_utf8_width(app, p->font, n->value, hi);
+        if (sel_x0 < n->rect.x)
+            sel_x0 = n->rect.x;
+        if (sel_x1 > n->rect.x + n->rect.w)
+            sel_x1 = n->rect.x + n->rect.w;
+        if (sel_x1 > sel_x0)
+        {
+            gui_set_clip(p->frame, sel_x0, n->rect.y, sel_x1 - sel_x0, row_h);
+            gui_fill_rect(p->frame, sel_x0, n->rect.y, sel_x1 - sel_x0, row_h, t->input_sel_bg);
+            core_draw_utf8(p, x, y, n->value, -1, t->input_sel_fg, t->input_sel_bg);
+            gui_set_clip(p->frame, n->rect.x, n->rect.y, n->rect.w, n->rect.h);
+        }
     }
-    /* The caret: a thin bar over the left fifth of its cell, as in the old
-     * IDE, hidden while there is a selection. */
+    /* The caret: a thin bar, a fifth of a cell, as in the old IDE, hidden
+     * while there is a selection. */
     if (focused && lo == hi)
     {
-        int caret_col = col_of_byte(n->value, n->cursor) - offset;
-        if (caret_col >= 0 && caret_col < cols)
-        {
-            int bar = cw / 5 > 0 ? cw / 5 : 1;
-            gui_fill_rect(p->frame, n->rect.x + caret_col * cw, n->rect.y, bar, ch, fg);
-        }
+        int caret_x = n->rect.x - input_offset(app, n) + core_utf8_width(app, p->font, n->value, n->cursor);
+        int bar = cw / 5 > 0 ? cw / 5 : 1;
+        gui_fill_rect(p->frame, caret_x, y, bar, ch, fg);
     }
 }
 
@@ -398,7 +397,7 @@ static void paint_select(const struct paint* p, const struct gui_node* n)
 {
     const struct gui_app* app = p->app;
     const struct gui_theme* t = &app->theme;
-    int cw = core_node_metrics(app, n)->cell_w, ch = core_node_metrics(app, n)->cell_h;
+    int cw = core_layout_metrics(app, n)->cell_w, ch = core_layout_metrics(app, n)->cell_h;
     int focused = app->ui.focused == n;
     uint32_t fg = focused ? t->input_fg_focus : t->input_fg;
     uint32_t bg = focused ? t->input_bg_focus : t->input_bg;
@@ -406,22 +405,33 @@ static void paint_select(const struct paint* p, const struct gui_node* n)
     gui_fill_rect(p->frame, n->rect.x, n->rect.y, text_w, ch, bg);
     if (n->selected >= 0 && n->selected < n->child_count)
     {
+        /* the label, cut where the arrow's cell starts */
         const char* label = n->children[n->selected]->label;
-        core_draw_utf8(p, n->rect.x, n->rect.y, label,
-                       core_utf8_prefix_bytes(label, text_w / cw), fg, bg);
+        int y = n->rect.y + (ch - core_font_metrics(app, p->font)->cell_h) / 2;
+        gui_set_clip(p->frame, n->rect.x, n->rect.y, text_w, ch);
+        core_draw_utf8(p, n->rect.x, y, label, -1, fg, bg);
+        gui_set_clip(p->frame, n->rect.x, n->rect.y, n->rect.w, n->rect.h);
     }
     if (text_w < n->rect.w)
     {
         int open = app->ui.open_select == n;
         uint32_t abg = (open || app->ui.hot == n || focused) ? t->btn_bg_hot : t->btn_bg;
-        core_draw_utf8(p, n->rect.x + text_w, n->rect.y, "\xE2\x86\x93", -1, t->btn_fg, abg);  /* U+2193 */
+        struct paint arrow = *p;   /* the arrow fills the layout's cell */
+        arrow.font = core_node_font(n) == GUI_FONT_UI ? GUI_FONT_MAIN : core_node_font(n);
+        core_draw_utf8(&arrow, n->rect.x + text_w, n->rect.y, "\xE2\x86\x93", -1, t->btn_fg, abg);  /* U+2193 */
     }
 }
 
 /* Rows a listbox/group shows. */
+static int row_height(const struct gui_app* app, const struct gui_node* n)
+{
+    /* a group's rows are the layout's, to line up with the labels beside it */
+    return n->kind == GUI_GROUP ? core_layout_metrics(app, n)->cell_h : core_node_metrics(app, n)->cell_h;
+}
+
 static int visible_rows(const struct gui_app* app, const struct gui_node* n)
 {
-    int rows = n->rect.h / core_node_metrics(app, n)->cell_h;
+    int rows = n->rect.h / row_height(app, n);
     return rows > 0 ? rows : 0;
 }
 
@@ -469,13 +479,37 @@ static void paint_scrollbar(const struct paint* p, const struct gui_node* n)
                   hot ? app->theme.scrollbar_thumb_hot_bg : app->theme.scrollbar_thumb_bg);
 }
 
-/* A listbox's widest label, in columns. */
-static int list_max_cols(const struct gui_node* n)
+/* A listbox's widest label, in columns; in GUI_FONT_UI its measured width
+ * in columns of cell_w, rounded up. */
+static int list_max_cols(const struct gui_app* app, const struct gui_node* n)
 {
     int max = 0;
+    int proportional = core_node_font(n) == GUI_FONT_UI && app->canvas;
+    int cw = core_node_metrics(app, n)->cell_w;
     for (int i = 0; i < n->child_count; i++)
     {
-        int c = core_utf8_cells(n->children[i]->label, -1);
+        int c = 0;
+        if (proportional)
+        {
+            uint32_t run[256];
+            int count = 0, width = 0;
+            const char* s = n->children[i]->label;
+            while (*s)
+            {
+                s += core_utf8_decode(s, &run[count++]);
+                if (count == (int)(sizeof run / sizeof run[0]))
+                {
+                    width += gui_text_width(app->canvas, run, count, GUI_FONT_UI);
+                    count = 0;
+                }
+            }
+            width += gui_text_width(app->canvas, run, count, GUI_FONT_UI);
+            c = (width + cw - 1) / cw;
+        }
+        else
+        {
+            c = core_utf8_cells(n->children[i]->label, -1);
+        }
         if (c > max)
             max = c;
     }
@@ -490,12 +524,12 @@ static int list_view_cols(const struct gui_app* app, const struct gui_node* n)
 static int has_hbar(const struct gui_app* app, const struct gui_node* n)
 {
     int cols = list_view_cols(app, n);
-    return n->kind == GUI_LISTBOX && cols > 0 && list_max_cols(n) > cols;
+    return n->kind == GUI_LISTBOX && cols > 0 && list_max_cols(app, n) > cols;
 }
 
 static void clamp_hscroll(const struct gui_app* app, struct gui_node* n)
 {
-    int max_h = list_max_cols(n) - list_view_cols(app, n);
+    int max_h = list_max_cols(app, n) - list_view_cols(app, n);
     if (n->hscroll > max_h)
         n->hscroll = max_h;
     if (n->hscroll < 0)
@@ -506,7 +540,7 @@ static void clamp_hscroll(const struct gui_app* app, struct gui_node* n)
 static struct scrollbar list_hbar(const struct gui_app* app, const struct gui_node* n)
 {
     int track = n->rect.w - (has_scrollbar(app, n) ? app->scrollbar_px : 0);
-    struct scrollbar sb = { track, list_max_cols(n), list_view_cols(app, n), n->hscroll };
+    struct scrollbar sb = { track, list_max_cols(app, n), list_view_cols(app, n), n->hscroll };
     return sb;
 }
 
@@ -586,6 +620,13 @@ static void paint_listbox(const struct paint* p, const struct gui_node* n)
             int x = n->rect.x;
             int room = cols;
             int skip = n->hscroll;
+            if (core_node_font(n) == GUI_FONT_UI)
+            {
+                /* proportional: the whole label, shifted by hscroll columns; the widget's clip cuts it */
+                room = INT_MAX;
+                x -= skip * cw;
+                skip = 0;
+            }
             if (item->has_colors && label[0] && room > 0)
             {
                 /* A file-type marker: its first glyph in its own color, selected or not. */
@@ -593,8 +634,7 @@ static void paint_listbox(const struct paint* p, const struct gui_node* n)
                 int len = core_utf8_decode(label, &cp);
                 if (skip == 0)
                 {
-                    core_draw_utf8(p, x, y, label, len, item->fg, bg);
-                    x += cw;
+                    x = core_draw_utf8(p, x, y, label, len, item->fg, bg);
                     room--;
                 }
                 else
@@ -618,9 +658,9 @@ static void paint_group(const struct paint* p, const struct gui_node* n)
 {
     const struct gui_app* app = p->app;
     const struct gui_theme* t = &app->theme;
-    int cw = core_node_metrics(app, n)->cell_w, ch = core_node_metrics(app, n)->cell_h;
+    int ch = row_height(app, n);
+    int text_dy = (ch - core_font_metrics(app, p->font)->cell_h) / 2;
     int focused = app->ui.focused == n;
-    int cols = n->rect.w / cw;
     gui_fill_rect(p->frame, n->rect.x, n->rect.y, n->rect.w, n->rect.h, t->listbox_bg);
     for (int row = 0; row < visible_rows(app, n); row++)
     {
@@ -637,14 +677,12 @@ static void paint_group(const struct paint* p, const struct gui_node* n)
             gui_fill_rect(p->frame, n->rect.x, y, n->rect.w, ch, bg);
         const char* marker = n->multi ? (on ? "[X] " : "[ ] ")
                                       : (on ? "(\xE2\x80\xA2) " : "( ) ");   /* U+2022 bullet */
-        int x = core_draw_utf8(p, n->rect.x, y, marker, core_utf8_prefix_bytes(marker, cols), fg, bg);
-        int left = cols - 4;
-        if (left > 0 && item->label[0])
+        int x = core_draw_utf8(p, n->rect.x, y + text_dy, marker, -1, fg, bg);
+        if (item->label[0])
         {
             int first = core_utf8_prefix_bytes(item->label, 1);
-            x = core_draw_utf8(p, x, y, item->label, first, is_focus ? fg : t->hotkey_key_fg, bg);
-            core_draw_utf8(p, x, y, item->label + first,
-                           core_utf8_prefix_bytes(item->label + first, left - 1), fg, bg);
+            x = core_draw_utf8(p, x, y + text_dy, item->label, first, is_focus ? fg : t->hotkey_key_fg, bg);
+            core_draw_utf8(p, x, y + text_dy, item->label + first, -1, fg, bg);
         }
     }
     paint_scrollbar(p, n);
@@ -689,17 +727,19 @@ void widget_paint(const struct paint* outer, const struct gui_node* n)
  * a frame - the old IDE's layout_select_popup. Sets each item's rect. */
 static struct gui_rect select_popup_layout(const struct gui_app* app, struct gui_node* select)
 {
-    int cw = core_node_metrics(app, select)->cell_w, ch = core_node_metrics(app, select)->cell_h;
+    /* the frame in the layout's cells, the rows in the select's font */
+    int cw = core_layout_metrics(app, select)->cell_w, ch = core_layout_metrics(app, select)->cell_h;
+    int item_h = core_node_metrics(app, select)->cell_h;
     int max_w = select->rect.w - 2 * cw;
     for (int i = 0; i < select->child_count; i++)
     {
-        int w = core_utf8_cells(select->children[i]->label, -1) * cw;
+        int w = core_utf8_width(app, core_node_font(select), select->children[i]->label, -1);
         if (w > max_w)
             max_w = w;
     }
     int inner_w = max_w + 2 * cw;
     struct gui_rect box = { select->rect.x, select->rect.y + ch, inner_w + 2 * cw,
-                            (select->child_count + 2) * ch };
+                            select->child_count * item_h + 2 * ch };
     int max_h = app->h - (core_find_kind(app->root, GUI_STATUSBAR) ? ch : 0);
     if (box.x + box.w > app->w) box.x = app->w - box.w;
     if (box.x < 0) box.x = 0;
@@ -707,7 +747,7 @@ static struct gui_rect select_popup_layout(const struct gui_app* app, struct gui
     if (box.y < 0) box.y = 0;
     for (int i = 0; i < select->child_count; i++)
     {
-        struct gui_rect r = { box.x + cw, box.y + (1 + i) * ch, inner_w, ch };
+        struct gui_rect r = { box.x + cw, box.y + ch + i * item_h, inner_w, item_h };
         select->children[i]->rect = r;
     }
     return box;
@@ -720,7 +760,7 @@ void widget_paint_popups(const struct paint* p)
     if (!select)
         return;
     const struct gui_theme* t = &app->theme;
-    int cw = core_node_metrics(app, select)->cell_w;
+    int cw = core_layout_metrics(app, select)->cell_w;
     struct gui_rect box = select_popup_layout(app, select);
     struct paint q = *p;
     q.font = core_node_font(select);
@@ -785,10 +825,21 @@ struct gui_node* widget_at(const struct gui_app* app, const struct gui_node* wit
 /* The caret position for a click at x in an input. */
 static int input_byte_at(const struct gui_app* app, const struct gui_node* n, int x)
 {
-    int col = (x - n->rect.x) / core_node_metrics(app, n)->cell_w + input_offset(app, n);
-    if (col < 0)
-        col = 0;
-    return byte_of_col(n->value, col);
+    /* the boundary nearest to x */
+    int target = x - n->rect.x + input_offset(app, n);
+    enum gui_font font = core_node_font(n);
+    int at = 0, left = 0;
+    while (n->value[at])
+    {
+        uint32_t cp;
+        int len = core_utf8_decode(n->value + at, &cp);
+        int w = core_utf8_width(app, font, n->value + at, len);
+        if (target < left + w / 2)
+            break;
+        left += w;
+        at += len;
+    }
+    return at;
 }
 
 static void select_word(struct gui_node* n)
@@ -806,7 +857,7 @@ static void select_word(struct gui_node* n)
 /* The listbox row under y, or -1. */
 static int row_at(const struct gui_app* app, const struct gui_node* n, int y)
 {
-    int row = (y - n->rect.y) / core_node_metrics(app, n)->cell_h;
+    int row = (y - n->rect.y) / row_height(app, n);
     int index = n->scroll + row;
     return row >= 0 && index < n->child_count ? index : -1;
 }

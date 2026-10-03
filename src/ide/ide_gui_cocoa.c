@@ -35,6 +35,10 @@ static const char* const font_candidates[] = { "Menlo", "SF Mono", "Monaco", "Co
 
 #define CANDIDATE_COUNT ((int)(sizeof font_candidates / sizeof font_candidates[0]))
 
+static const char* const ui_font_candidates[] = { "Helvetica Neue", "Helvetica", "Arial", "Verdana" };
+
+#define UI_CANDIDATE_COUNT ((int)(sizeof ui_font_candidates / sizeof ui_font_candidates[0]))
+
 /* AppKit constants exported as symbols; their headers are Objective-C. */
 extern id NSPasteboardTypeString;
 extern id NSAppearanceNameAqua;
@@ -55,10 +59,14 @@ struct gui_canvas
     int clipped;                 /* a gui_set_clip state is saved on ctx */
     CTFontRef main;              /* GUI_FONT_MAIN */
     CTFontRef small_font;        /* GUI_FONT_SMALL */
+    CTFontRef ui_font;           /* GUI_FONT_UI */
     int pt;
     const char* family;          /* NULL: the first installed candidate */
+    const char* ui_family;       /* NULL: GUI_FONT_UI is the editor family */
+    int ui_small;                /* GUI_FONT_UI in the small size, else the normal one */
     struct gui_metrics metrics;
     struct gui_metrics small_metrics;
+    struct gui_metrics ui_metrics;
 };
 
 struct offered_fonts
@@ -163,6 +171,27 @@ static CTFontRef make_font(struct gui_canvas* c, int pt, struct gui_metrics* m)
     return font;
 }
 
+/* GUI_FONT_UI: c->ui_family at `pt`, else the main family; cell_w is
+ * the advance of "n", the average width of a proportional glyph. */
+static CTFontRef make_ui_font(struct gui_canvas* c, int pt, struct gui_metrics* m)
+{
+    CTFontRef font = c->ui_family ? open_font(c->ui_family, pt) : NULL;
+    if (!font)
+        return make_font(c, pt, m);
+    UniChar ch = 'n';
+    CGGlyph glyph = 0;
+    CGSize advance = { 0, 0 };
+    if (CTFontGetGlyphsForCharacters(font, &ch, &glyph, 1))
+        CTFontGetAdvancesForGlyphs(font, kCTFontOrientationDefault, &glyph, &advance, 1);
+    double ascent = CTFontGetAscent(font);
+    m->cell_w = advance.width > 0 ? (int)(advance.width + 0.5) : (int)(pt * 0.5 + 0.5);
+    m->cell_h = (int)(ascent + CTFontGetDescent(font) + CTFontGetLeading(font) + 0.5);
+    m->ascent = (int)(ascent + 0.5);
+    if (m->cell_w < 1) m->cell_w = 1;
+    if (m->cell_h < 1) m->cell_h = 1;
+    return font;
+}
+
 static void offer_fonts(struct cocoa_window* win)
 {
     const char* names[CANDIDATE_COUNT];
@@ -177,27 +206,46 @@ static void offer_fonts(struct cocoa_window* win)
         win->fonts.candidate[win->fonts.count++] = i;
     }
     gui_app_set_fonts(win->app, names, win->fonts.count, 0);
+
+    const char* ui_names[UI_CANDIDATE_COUNT];
+    int ui_count = 0;
+    for (int i = 0; i < UI_CANDIDATE_COUNT; i++)
+    {
+        CTFontRef f = open_font(ui_font_candidates[i], DEFAULT_FONT_PT);
+        if (!f)
+        {
+            continue;
+        }
+        CFRelease(f);
+        ui_names[ui_count++] = ui_font_candidates[i];
+    }
+    gui_app_set_ui_fonts(win->app, ui_names, ui_count, -1);
 }
 
 /* (Re)creates both fonts from canvas->pt: they always exist together. */
 static int apply_font(struct gui_canvas* c)
 {
     int small_pt = (c->pt * SMALL_FONT_PERCENT + 50) / 100;
-    struct gui_metrics m, sm;
+    struct gui_metrics m, sm, um;
     CTFontRef main = make_font(c, c->pt, &m);
     CTFontRef small_font = make_font(c, small_pt > 0 ? small_pt : 1, &sm);
-    if (!main || !small_font)
+    CTFontRef ui_font = make_ui_font(c, c->ui_small ? (small_pt > 0 ? small_pt : 1) : c->pt, &um);
+    if (!main || !small_font || !ui_font)
     {
         if (main) CFRelease(main);
         if (small_font) CFRelease(small_font);
+        if (ui_font) CFRelease(ui_font);
         return 0;
     }
     if (c->main) CFRelease(c->main);
     if (c->small_font) CFRelease(c->small_font);
+    if (c->ui_font) CFRelease(c->ui_font);
     c->main = main;
     c->small_font = small_font;
+    c->ui_font = ui_font;
     c->metrics = m;
     c->small_metrics = sm;
+    c->ui_metrics = um;
     return 1;
 }
 
@@ -205,7 +253,63 @@ static int apply_font(struct gui_canvas* c)
 
 struct gui_metrics gui_font_metrics(struct gui_canvas* c, enum gui_font font)
 {
-    return font == GUI_FONT_SMALL ? c->small_metrics : c->metrics;
+    return font == GUI_FONT_UI ? c->ui_metrics : font == GUI_FONT_SMALL ? c->small_metrics : c->metrics;
+}
+
+static CTFontRef canvas_font(struct gui_canvas* c, enum gui_font font)
+{
+    return font == GUI_FONT_UI ? c->ui_font : font == GUI_FONT_SMALL ? c->small_font : c->main;
+}
+
+/* The glyph of `cp` in `ct` (0: not in the font) and its advance, px. */
+static CGGlyph glyph_of(CTFontRef ct, uint32_t cp, double* advance)
+{
+    UniChar units[2];
+    int len = 1;
+    if (cp > 0xFFFF)
+    {
+        units[0] = (UniChar)(0xD800 + ((cp - 0x10000) >> 10));
+        units[1] = (UniChar)(0xDC00 + ((cp - 0x10000) & 0x3FF));
+        len = 2;
+    }
+    else
+    {
+        units[0] = (UniChar)cp;
+    }
+    CGGlyph g[2] = { 0, 0 };
+    *advance = 0;
+    if (!CTFontGetGlyphsForCharacters(ct, units, g, len))
+    {
+        g[0] = 0;
+    }
+    if (g[0])
+    {
+        CGSize size = { 0, 0 };
+        CTFontGetAdvancesForGlyphs(ct, kCTFontOrientationDefault, &g[0], &size, 1);
+        *advance = size.width;
+    }
+    return g[0];
+}
+
+int gui_text_width(struct gui_canvas* c, const uint32_t* cps, int count, enum gui_font font)
+{
+    int width = 0;
+    if (font != GUI_FONT_UI)
+    {
+        width = count * gui_font_metrics(c, font).cell_w;
+    }
+    else
+    {
+        double sum = 0;
+        for (int i = 0; i < count; i++)
+        {
+            double advance;
+            glyph_of(c->ui_font, cps[i], &advance);
+            sum += advance > 0 ? advance : c->ui_metrics.cell_w;
+        }
+        width = (int)(sum + 0.5);
+    }
+    return width;
 }
 
 int gui_scrollbar_size(struct gui_canvas* c)
@@ -245,13 +349,15 @@ void gui_shade_rect(struct gui_canvas* c, int x, int y, int w, int h, int alpha)
 void gui_draw_text(struct gui_canvas* c, int x, int y, const uint32_t* cps, int count,
                    uint32_t fg, uint32_t bg, enum gui_font font)
 {
-    const struct gui_metrics* m = font == GUI_FONT_SMALL ? &c->small_metrics : &c->metrics;
-    CTFontRef ct = font == GUI_FONT_SMALL ? c->small_font : c->main;
-    gui_fill_rect(c, x, y, count * m->cell_w, m->cell_h, bg);
+    struct gui_metrics metrics = gui_font_metrics(c, font);
+    const struct gui_metrics* m = &metrics;
+    CTFontRef ct = canvas_font(c, font);
+    int width = gui_text_width(c, cps, count, font);
+    gui_fill_rect(c, x, y, width, m->cell_h, bg);
 
     CGContextRef ctx = c->ctx;
     CGContextSaveGState(ctx);
-    CGContextClipToRect(ctx, CGRectMake(x, y, count * m->cell_w, m->cell_h));
+    CGContextClipToRect(ctx, CGRectMake(x, y, width, m->cell_h));
     CGContextSetShouldSubpixelPositionFonts(ctx, false);
     CGContextSetShouldSubpixelQuantizeFonts(ctx, false);
     set_fill(ctx, fg);
@@ -261,6 +367,7 @@ void gui_draw_text(struct gui_canvas* c, int x, int y, const uint32_t* cps, int 
 
     CGGlyph glyphs[256];
     CGPoint pos[256];
+    double pen = 0;   /* GUI_FONT_UI: the sum of the advances so far */
     for (int start = 0; start < count; start += 256)
     {
         int n = count - start < 256 ? count - start : 256;
@@ -268,25 +375,14 @@ void gui_draw_text(struct gui_canvas* c, int x, int y, const uint32_t* cps, int 
         for (int i = 0; i < n; i++)
         {
             uint32_t cp = cps[start + i];
-            if (cp == ' ' || cp == 0)
-                continue;
-            UniChar units[2];
-            int len = 1;
-            if (cp > 0xFFFF)
-            {
-                units[0] = (UniChar)(0xD800 + ((cp - 0x10000) >> 10));
-                units[1] = (UniChar)(0xDC00 + ((cp - 0x10000) & 0x3FF));
-                len = 2;
-            }
-            else
-            {
-                units[0] = (UniChar)cp;
-            }
-            CGGlyph g[2] = { 0, 0 };
-            if (!CTFontGetGlyphsForCharacters(ct, units, g, len) || !g[0])
-                continue;   /* not in the font */
-            glyphs[k] = g[0];
-            pos[k].x = (start + i) * m->cell_w;
+            double advance;
+            CGGlyph g = glyph_of(ct, cp, &advance);
+            double at = font == GUI_FONT_UI ? pen : (start + i) * m->cell_w;
+            pen += advance > 0 ? advance : m->cell_w;
+            if (cp == ' ' || cp == 0 || !g)
+                continue;   /* nothing to draw, or not in the font */
+            glyphs[k] = g;
+            pos[k].x = at;
             pos[k].y = 0;
             k++;
         }
@@ -423,6 +519,10 @@ static void share_fonts(struct cocoa_window* d, const struct cocoa_window* main)
     struct gui_canvas* c = &d->canvas;
     c->main = main->canvas.main;
     c->small_font = main->canvas.small_font;
+    c->ui_font = main->canvas.ui_font;
+    c->ui_family = main->canvas.ui_family;
+    c->ui_small = main->canvas.ui_small;
+    c->ui_metrics = main->canvas.ui_metrics;
     c->pt = main->canvas.pt;
     c->family = main->canvas.family;
     c->metrics = main->canvas.metrics;
@@ -532,6 +632,14 @@ static void refresh(struct cocoa_window* win)
     if (family >= 0 && family < win->fonts.count)
     {
         c->family = font_candidates[win->fonts.candidate[family]];
+        if (apply_font(c))
+            gui_app_font_changed(win->app, c);
+    }
+    int ui_index, ui_small;
+    if (gui_app_take_ui_font(win->app, &ui_index, &ui_small))
+    {
+        c->ui_family = ui_index >= 0 ? gui_ui_font_name(win->app, ui_index) : NULL;
+        c->ui_small = ui_small;
         if (apply_font(c))
             gui_app_font_changed(win->app, c);
     }
@@ -1047,6 +1155,7 @@ int main(int argc, char** argv)
     struct gui_canvas* c = &win.canvas;
     c->colorspace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
     c->pt = DEFAULT_FONT_PT;
+    c->ui_small = 1;
     if (!apply_font(c))
         return 1;
 

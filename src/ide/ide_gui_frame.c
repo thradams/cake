@@ -124,7 +124,7 @@ void frame_draw_text(struct frame_recorder* r, int x, int y, const uint32_t* cps
     struct gui_metrics m = gui_font_metrics(r->canvas, font);
     struct frame* f = &r->frames[r->current];
     grow((void**)&f->cps, &f->cps_cap, f->cps_count + count, sizeof *f->cps);
-    struct op* o = add(r, OP_TEXT, x, y, count * m.cell_w, m.cell_h);
+    struct op* o = add(r, OP_TEXT, x, y, gui_text_width(r->canvas, cps, count, font), m.cell_h);
     o->a = fg;
     o->b = bg;
     o->font = (int)font;
@@ -132,6 +132,11 @@ void frame_draw_text(struct frame_recorder* r, int x, int y, const uint32_t* cps
     o->count = count;
     memcpy(f->cps + f->cps_count, cps, (size_t)count * sizeof *cps);
     f->cps_count += count;
+}
+
+int frame_text_width(struct frame_recorder* r, const uint32_t* cps, int count, enum gui_font font)
+{
+    return count > 0 ? gui_text_width(r->canvas, cps, count, font) : 0;
 }
 
 static int same(const struct frame* fa, const struct op* a, const struct frame* fb, const struct op* b)

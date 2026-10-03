@@ -21,6 +21,7 @@ enum gui_font
 {
     GUI_FONT_MAIN = 0,  /* the main monospaced font */
     GUI_FONT_SMALL,     /* the same family, smaller - both always exist */
+    GUI_FONT_UI,        /* the "other fonts" family, may be proportional, small or normal size */
 };
 
 struct gui_metrics
@@ -51,6 +52,10 @@ void gui_shade_rect(struct gui_canvas* c, int x, int y, int w, int h, int alpha)
  * clipped to it. */
 void gui_draw_text(struct gui_canvas* c, int x, int y, const uint32_t* cps, int count,
                    uint32_t fg, uint32_t bg, enum gui_font font);
+
+/* The width of a run, px: count * cell_w, except in GUI_FONT_UI, where
+ * every glyph advances its own width (and gui_draw_text draws them so). */
+int gui_text_width(struct gui_canvas* c, const uint32_t* cps, int count, enum gui_font font);
 
 /* Whether this backend can show a detached window in an OS window of its
  * own (gui_window_detach). 0: the surface calls below are never needed. */
@@ -153,6 +158,15 @@ void gui_app_set_fonts(struct gui_app* app, const char* const names[], int count
 /* The font family the app asked for (gui_set_font) since the last call, or
  * -1; the backend applies it, then calls gui_app_font_changed. */
 int gui_app_take_font(struct gui_app* app);
+
+/* Before gui_app_start: the proportional font families (UTF-8); current
+ * -1: GUI_FONT_UI is the small font. */
+void gui_app_set_ui_fonts(struct gui_app* app, const char* const names[], int count, int current);
+
+/* 1 when the app picked another GUI_FONT_UI family or size since the last
+ * call: the family's index in *index (-1: the editor's), *small 1 for the
+ * small size; the backend applies it, then calls gui_app_font_changed. */
+int gui_app_take_ui_font(struct gui_app* app, int* index, int* small);
 
 /* Whether the app asked to end (gui_quit). */
 int gui_app_should_quit(const struct gui_app* app);

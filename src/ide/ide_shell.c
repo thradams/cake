@@ -106,6 +106,9 @@ enum ide_event
     EV_ENV_THEME_LAST = EV_ENV_THEME + 7,
     EV_ENV_FONT,                          /* + the font's index, up to 16 */
     EV_ENV_FONT_LAST = EV_ENV_FONT + 15,
+    EV_ENV_UI_FONT,                       /* the editor font, then + 1 + the other font's index, up to 16 */
+    EV_ENV_UI_FONT_LAST = EV_ENV_UI_FONT + 16,
+    EV_ENV_UI_SIZE_NORMAL, EV_ENV_UI_SIZE_SMALL,
     EV_OUTPUT_COPY_ALL, EV_OUTPUT_SELECT_ALL, EV_OUTPUT_CLEAR,
     EV_MACRO,                             /* + the button's index in macro_buttons */
     EV_MACRO_ITEM = EV_MACRO + 8,         /* + the macro's index in macros[] */
@@ -377,6 +380,8 @@ struct env_dialog
     struct gui_node* window;
     struct gui_node* theme;
     struct gui_node* font;   /* NULL when the backend offers no fonts */
+    struct gui_node* ui_font;   /* proportional; NULL when none offered */
+    struct gui_node* ui_size;   /* Normal / Small, of ui_font */
 };
 
 struct open_dialog
@@ -1426,12 +1431,12 @@ static void build_panels(struct ide* ide)
         gui_append(ide->dock_menu, it);
     }
 
-    /* Folder: the current directory, small font, as in the old IDE. */
+    /* Folder: the current directory, in the "other fonts" font. */
     struct folder_panel* f = &ide->folder;
     f->window = new_panel(ide, "Folder", GUI_DOCK_LEFT, 20);
     f->list = create(ide, GUI_LISTBOX, NULL);
     fill_frame(f->list);
-    gui_set_font_size(f->list, GUI_FONT_SIZE_SMALL);
+    gui_set_font_size(f->list, GUI_FONT_SIZE_UI);
     gui_set_id(f->list, EV_FOLDER_OPEN);
     gui_set_context_menu(f->list, ide->folder_menu);
     gui_append(f->window, f->list);
@@ -1480,7 +1485,7 @@ static void build_panels(struct ide* ide)
     ide->project_window = new_panel(ide, "Project", GUI_DOCK_LEFT, 20);
     ide->project_list = create(ide, GUI_LISTBOX, NULL);
     fill_frame(ide->project_list);
-    gui_set_font_size(ide->project_list, GUI_FONT_SIZE_SMALL);
+    gui_set_font_size(ide->project_list, GUI_FONT_SIZE_UI);
     gui_set_id(ide->project_list, EV_PROJECT_LIST);
     ide->project_menu = create(ide, GUI_MENU, NULL);
     add_popup_item(ide, ide->project_menu, EV_PROJ_NEW_FILE, "New File...", NULL);
@@ -1495,7 +1500,7 @@ static void build_panels(struct ide* ide)
     g->window = new_panel(ide, "Git Changes", GUI_DOCK_LEFT, 20);
     g->list = create(ide, GUI_LISTBOX, NULL);
     fill_frame(g->list);
-    gui_set_font_size(g->list, GUI_FONT_SIZE_SMALL);
+    gui_set_font_size(g->list, GUI_FONT_SIZE_UI);
     gui_set_id(g->list, EV_GIT_LIST);
     g->menu = create(ide, GUI_MENU, NULL);
     add_popup_item(ide, g->menu, EV_GIT_REFRESH, "Refresh", NULL);
@@ -1629,7 +1634,7 @@ static void build_dialogs(struct ide* ide)
     gui_set_id(add_at(ide, ide->go.window, GUI_BUTTON, 9, 5, 10, 1, "   OK   "), EV_GOTO_OK);
     gui_set_id(add_at(ide, ide->go.window, GUI_BUTTON, 21, 5, 10, 1, " Cancel "), EV_GOTO_CANCEL);
 
-    /* Environment - 40 x 10: the theme. */
+    /* Environment - 50 x 12: the theme and fonts. */
     ide->env.window = new_dialog(ide, "Environment");
     add_label(ide, ide->env.window, 3, 2, "Theme:");
     ide->env.theme = add_at(ide, ide->env.window, GUI_SELECT, 10, 2, 20, 1, NULL);
@@ -1640,11 +1645,33 @@ static void build_dialogs(struct ide* ide)
         gui_set_id(it, EV_ENV_THEME + i);
         gui_append(ide->env.theme, it);
     }
-    /* Font: the backend's shortlist; picking one applies it at once, as the old IDE. */
-    if (gui_font_count(ide->app) > 0)
+    /* Font: every control but the editors, and its size beside it */
+    if (gui_ui_font_count(ide->app) > 0)
     {
         add_label(ide, ide->env.window, 3, 4, "Font:");
-        ide->env.font = add_at(ide, ide->env.window, GUI_SELECT, 10, 4, 20, 1, NULL);
+        ide->env.ui_font = add_at(ide, ide->env.window, GUI_SELECT, 16, 4, 20, 1, NULL);
+        struct gui_node* editor_item = create(ide, GUI_ITEM, "(Editor font)");
+        gui_set_id(editor_item, EV_ENV_UI_FONT);
+        gui_append(ide->env.ui_font, editor_item);
+        for (int i = 0; i < gui_ui_font_count(ide->app) && i < 16; i++)
+        {
+            struct gui_node* it = create(ide, GUI_ITEM, gui_ui_font_name(ide->app, i));
+            gui_set_id(it, EV_ENV_UI_FONT + 1 + i);
+            gui_append(ide->env.ui_font, it);
+        }
+    }
+    ide->env.ui_size = add_at(ide, ide->env.window, GUI_SELECT, 37, 4, 9, 1, NULL);
+    struct gui_node* normal_item = create(ide, GUI_ITEM, "Normal");
+    gui_set_id(normal_item, EV_ENV_UI_SIZE_NORMAL);
+    gui_append(ide->env.ui_size, normal_item);
+    struct gui_node* small_item = create(ide, GUI_ITEM, "Small");
+    gui_set_id(small_item, EV_ENV_UI_SIZE_SMALL);
+    gui_append(ide->env.ui_size, small_item);
+    /* Editor Font: the backend's monospaced shortlist; picking one applies it at once, as the old IDE. */
+    if (gui_font_count(ide->app) > 0)
+    {
+        add_label(ide, ide->env.window, 3, 6, "Editor Font:");
+        ide->env.font = add_at(ide, ide->env.window, GUI_SELECT, 16, 6, 30, 1, NULL);
         for (int i = 0; i < gui_font_count(ide->app) && i < 16; i++)
         {
             struct gui_node* it = create(ide, GUI_ITEM, gui_font_name(ide->app, i));
@@ -1652,7 +1679,7 @@ static void build_dialogs(struct ide* ide)
             gui_append(ide->env.font, it);
         }
     }
-    gui_set_id(add_at(ide, ide->env.window, GUI_BUTTON, 15, 7, 10, 1, "   OK   "), EV_ENV_OK);
+    gui_set_id(add_at(ide, ide->env.window, GUI_BUTTON, 20, 9, 10, 1, "   OK   "), EV_ENV_OK);
 
     build_open(ide);
     build_newfile(ide);
@@ -8539,7 +8566,12 @@ static void settings_save(struct ide* ide)
             json_set_string(root, "theme", theme_names[i]);
     }
     if (gui_font_count(ide->app) > 0)
-        json_set_string(root, "font", gui_font_name(ide->app, gui_get_font(ide->app)));
+        json_set_string(root, "editor_font", gui_font_name(ide->app, gui_get_font(ide->app)));
+    if (gui_ui_font_count(ide->app) > 0)
+    {
+        json_set_string(root, "font", gui_ui_font_name(ide->app, gui_get_ui_font(ide->app)));   /* "": the editor font */
+    }
+    json_set_string(root, "font_size", gui_get_ui_font_small(ide->app) ? "small" : "normal");
 
     compile_to_json(json_set_object(root, "compile"), &ide->global_options);
 
@@ -8624,12 +8656,24 @@ static void settings_load(struct ide* ide)
 
     char name[64] = "";
     char font[64] = "";
-    get_string(root, "font", font, sizeof font);
+    get_string(root, "editor_font", font, sizeof font);
     for (int i = 0; i < gui_font_count(ide->app); i++)
     {
         if (strcmp(font, gui_font_name(ide->app, i)) == 0)
             gui_set_font(ide->app, i);
     }
+    char ui_font[64] = "";
+    get_string(root, "font", ui_font, sizeof ui_font);
+    for (int i = 0; i < gui_ui_font_count(ide->app); i++)
+    {
+        if (strcmp(ui_font, gui_ui_font_name(ide->app, i)) == 0)
+        {
+            gui_set_ui_font(ide->app, i);
+        }
+    }
+    char ui_size[16] = "";
+    get_string(root, "font_size", ui_size, sizeof ui_size);
+    gui_set_ui_font_small(ide->app, strcmp(ui_size, "normal") != 0);
     get_string(root, "theme", name, sizeof name);
     for (int i = 0; i < COUNT(themes); i++)
     {
@@ -10650,12 +10694,23 @@ static void on_event(void* ctx, int id)
         }
         if (ide->env.font)
             gui_set_selected(ide->env.font, gui_get_font(ide->app));
-        show_dialog(ide, ide->env.window, 40, 10, ide->env.theme);
+        if (ide->env.ui_font)
+        {
+            gui_set_selected(ide->env.ui_font, gui_get_ui_font(ide->app) + 1);
+        }
+        gui_set_selected(ide->env.ui_size, gui_get_ui_font_small(ide->app));
+        show_dialog(ide, ide->env.window, 50, 12, ide->env.theme);
         break;
     case EV_ENV_OK:
         apply_theme(ide, gui_get_selected(ide->env.theme));
         gui_window_close(ide->app, ide->env.window);
         settings_save(ide);
+        break;
+    case EV_ENV_UI_SIZE_NORMAL:
+    case EV_ENV_UI_SIZE_SMALL:
+        gui_set_ui_font_small(ide->app, id == EV_ENV_UI_SIZE_SMALL);
+        settings_save(ide);
+        gui_repaint(ide->app);
         break;
     case EV_FONT_BIGGER: gui_zoom(ide->app, 1); break;
     case EV_FONT_SMALLER: gui_zoom(ide->app, -1); break;
@@ -10676,6 +10731,13 @@ static void on_event(void* ctx, int id)
         {
             gui_set_font(ide->app, id - EV_ENV_FONT);
             settings_save(ide);
+            break;
+        }
+        if (id >= EV_ENV_UI_FONT && id <= EV_ENV_UI_FONT_LAST)
+        {
+            gui_set_ui_font(ide->app, id - EV_ENV_UI_FONT - 1);
+            settings_save(ide);
+            gui_repaint(ide->app);
             break;
         }
         if (id >= EV_MACRO && id < EV_MACRO + ide->macro.count)

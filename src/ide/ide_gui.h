@@ -366,6 +366,7 @@ enum gui_font_size
     GUI_FONT_SIZE_INHERIT,
     GUI_FONT_SIZE_NORMAL,
     GUI_FONT_SIZE_SMALL,
+    GUI_FONT_SIZE_UI,   /* in the "other fonts" family and size - may be proportional */
 };
 
 void gui_set_font_size(struct gui_node* n, enum gui_font_size size);
@@ -413,6 +414,16 @@ int gui_font_count(const struct gui_app* app);
 const char* gui_font_name(const struct gui_app* app, int index);
 int gui_get_font(const struct gui_app* app);
 void gui_set_font(struct gui_app* app, int index);
+
+/* The proportional font families the backend offers, for nodes in
+ * GUI_FONT_SIZE_UI; -1: they use the editor font, small (the default). */
+int gui_ui_font_count(const struct gui_app* app);
+const char* gui_ui_font_name(const struct gui_app* app, int index);
+int gui_get_ui_font(const struct gui_app* app);
+void gui_set_ui_font(struct gui_app* app, int index);
+/* GUI_FONT_SIZE_UI in the small size (1, the default) or the normal one. */
+int gui_get_ui_font_small(const struct gui_app* app);
+void gui_set_ui_font_small(struct gui_app* app, int small);
 
 /* Ends the program after the current event. */
 void gui_quit(struct gui_app* app);
