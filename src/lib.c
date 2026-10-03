@@ -8054,7 +8054,7 @@ struct token* _Owner _Opt new_token(const char* lexeme_head, const char* lexeme_
 
         p_new_token->lexeme = temp;
         p_new_token->type = type;
-        strncpy(p_new_token->lexeme, lexeme_head, sz);
+        memcpy(p_new_token->lexeme, lexeme_head, sz); /* calloc already ended it with 0 */
     }
     catch
     {
@@ -59915,7 +59915,7 @@ static void longest_common_path(int argc, const char* const* argv, char root_dir
                 full_path_or_copy(argv[j], fullpath_j);
                 if (fullpath_j[k] != ch)
                 {
-                    strncpy(root_dir, fullpath_j, k);
+                    memcpy(root_dir, fullpath_j, k);
                     root_dir[k] = '\0';
                     dirname(root_dir);
                     goto exit;
@@ -69135,7 +69135,7 @@ size_t clean_line_directives(char* buf)
                 {
                     dlen = snprintf(directive, sizeof(directive),
                                     "#line %d \"%s\"\n", dir_line_num, new_file);
-                    strncpy(current_file, new_file, sizeof(current_file) - 1);
+                    strcpy(current_file, new_file); /* same size, new_file is always ended */
                 }
                 else
                 {

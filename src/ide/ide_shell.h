@@ -21,6 +21,7 @@ extern const struct gui_theme ide_theme_dark;
 extern const struct gui_theme ide_theme_white;
 extern const struct gui_theme ide_theme_nebula;
 extern const struct gui_theme ide_theme_xcode_dark;
+extern const struct gui_theme ide_theme_raspberry_pi;
 
 /* --- Highlighters (ide_highlight.c) --- */
 

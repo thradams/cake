@@ -927,9 +927,9 @@ struct ide
 
 static const struct gui_theme* const themes[] = {
     &ide_theme_ambar, &ide_theme_dark, &ide_theme_white, &ide_theme_nebula,
-    &ide_theme_xcode_dark,
+    &ide_theme_xcode_dark, &ide_theme_raspberry_pi,
 };
-static const char* const theme_names[] = { "Ambar", "Dark", "White", "Nebula", "Xcode Dark" };
+static const char* const theme_names[] = { "Ambar", "Dark", "White", "Nebula", "Xcode Dark", "Raspberry Pi" };
 
 /* --- Small helpers --- */
 
