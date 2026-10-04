@@ -2020,10 +2020,20 @@ static void context_menu_at(struct gui_app* app)
         return;
     gui_window_open(app, win);   /* to the top, as a left click */
     struct gui_node* target = widget_at(app, win, app->mouse_x, app->mouse_y);
+    int popup_x = app->mouse_x;
     if (target && target->kind == GUI_EDITOR)
     {
         gui_focus(app, target);   /* the menu acts on the editor clicked, not the one focused before */
         editor_context_click(app, target);   /* the menu acts where the click was */
+        /* the caret may land right of the click: the menu opens past it, not over it */
+        int caret_x, caret_y;
+        gui_editor_caret_point(app, target, &caret_x, &caret_y);
+        int cw = core_node_metrics(app, target)->cell_w;
+        int bar = cw / 5 > 0 ? cw / 5 : 1;
+        if (caret_x + bar >= popup_x && caret_x <= popup_x + cw)   /* only the caret just placed, not one left elsewhere */
+        {
+            popup_x = caret_x + bar + 1;
+        }
     }
     while (target && target != win && !target->context_menu)
         target = target->parent;
@@ -2047,7 +2057,7 @@ static void context_menu_at(struct gui_app* app)
     app->menu.open_sub = NULL;
     app->menu.key = NULL;
     app->menu.target = target;
-    app->menu.popup_x = app->mouse_x;
+    app->menu.popup_x = popup_x;
     app->menu.popup_y = app->mouse_y;
     app->needs_paint = 1;
     if (target->context_menu->id)
