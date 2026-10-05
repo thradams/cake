@@ -14,7 +14,11 @@
     "use_cake_headers": false
   },
   "include_dirs": [
-    "c:/tcc/win32/include",
-    "c:/tcc/win32/include/winapi"
+    "/usr/local/include",
+    "/Library/Developer/CommandLineTools/usr/lib/clang/21/include",
+    "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include",
+    "/Library/Developer/CommandLineTools/usr/include",
+    "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks",
+    "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/SubFrameworks"
   ]
 }

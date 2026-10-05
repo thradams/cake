@@ -3717,6 +3717,7 @@ static void expand_macros(struct ide* ide, const char* in, struct ide_text* out,
     struct doc* d = active_doc(ide);
     const char* path = d ? d->path : "";
     char dir[1024] = "", name[1024] = "", ext[64] = "";
+<<<<<<< HEAD
     char source[1024] = "";
     if (path[0])
     {
@@ -3732,6 +3733,8 @@ static void expand_macros(struct ide* ide, const char* in, struct ide_text* out,
             path = source;
         }
     }
+=======
+>>>>>>> 4fcf70220bba012a9e06042050cc7c10131ee9c1
     if (path[0])
     {
         snprintf(dir, sizeof dir, "%s", path);
@@ -7694,6 +7697,19 @@ static void show_generated_code(struct ide* ide)
     }
 
     open_file(ide, path);
+<<<<<<< HEAD
+=======
+    struct doc* gen = find_doc(ide, path);
+    if (!gen)
+        return;
+    char title[300];
+    snprintf(title, sizeof title, "%.200s [%.64s]", file_name(path), platform);
+    gui_set_label(gen->window, title);
+    gui_editor_set_read_only(gen->editor, 1);
+    if (src_maximized)
+        tile_side_by_side(ide, src_window, gen->window);
+    gui_window_open(ide->app, gen->window);
+>>>>>>> 4fcf70220bba012a9e06042050cc7c10131ee9c1
 }
 
 /* --- Find in Files --- */
