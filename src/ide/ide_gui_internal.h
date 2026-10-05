@@ -36,7 +36,9 @@ struct gui_node
     int id;
     int enabled;
     int separator;
+    int centered;              /* GUI_TEXT: the label centered in its rect */
     struct gui_layout layout;  /* where it sits in its parent (see ide_gui.h) */
+    struct gui_node* after_label;   /* gui_set_after_label; NULL: none */
     struct gui_rect rect;      /* computed by layout, px, window coordinates;
                                 * for a GUI_WINDOW, its stored rect */
     struct window_props* window;  /* GUI_WINDOW only, else NULL */
@@ -163,6 +165,9 @@ struct app_fonts
     int count;
     int current;
     int requested;   /* -1: none */
+    int changed;     /* ui_fonts: current or small not applied by the backend yet */
+    int editor_size;    /* ui_fonts: the editor font -1 smaller, 0 the dialogs' size, 1 larger */
+    int rescale;     /* ui_fonts: family or size picked - windows follow the new cell */
 };
 
 /* What one OS window shows: the main one, or a window the user detached
@@ -209,6 +214,7 @@ struct gui_app
     struct gui_theme theme;
     struct gui_metrics metrics;  /* of GUI_FONT_MAIN, re-read on font change */
     struct gui_metrics small_metrics;  /* of GUI_FONT_SMALL */
+    struct gui_metrics ui_metrics;     /* of GUI_FONT_UI; also the grid of windows, dialogs, menus and bars */
     int scrollbar_px;            /* scrollbar thickness, from the backend */
     int w, h;                    /* client area, px */
     int mouse_x, mouse_y;        /* px; -1 when outside the window */
@@ -225,6 +231,7 @@ struct gui_app
     char* tooltip;               /* see gui_set_tooltip; NULL: none */
     int tooltip_x, tooltip_y;
     struct app_fonts fonts;
+    struct app_fonts ui_fonts;   /* proportional; for panels */
     int zoom;                    /* points asked for by gui_zoom, not applied yet */
     int zoom_total;              /* every gui_zoom, summed - see gui_get_zoom */
     int quit;                    /* gui_quit was called */
@@ -255,12 +262,16 @@ int core_utf8_prefix_bytes(const char* s, int cells);
 /* A symbol some fonts lack (arrows, triangles, bullet, square, blocks) drawn
  * as shapes in the cell; 0 when `cp` is not one of them. */
 int core_draw_symbol(const struct paint* p, int x, int y, int cw, int ch, uint32_t cp, uint32_t fg, uint32_t bg);
+/* The width core_draw_utf8 gives the text in `font`, px. */
+int core_utf8_width(const struct gui_app* app, enum gui_font font, const char* s, int bytes);
 int core_draw_utf8(const struct paint* p, int x, int y, const char* s, int bytes,
                    uint32_t fg, uint32_t bg);
 int core_line_weight(const struct gui_app* app);
 enum gui_font core_node_font(const struct gui_node* n);   /* its own, or inherited */
 const struct gui_metrics* core_font_metrics(const struct gui_app* app, enum gui_font font);
 const struct gui_metrics* core_node_metrics(const struct gui_app* app, const struct gui_node* n);
+/* The cells a node's layout is in: its font's, the "Font" grid for GUI_FONT_MAIN. */
+const struct gui_metrics* core_layout_metrics(const struct gui_app* app, const struct gui_node* n);
 void core_draw_frame(const struct paint* p, const struct gui_rect* r,
                      enum gui_border_style style, uint32_t fg, uint32_t bg);
 void core_draw_shadow(const struct paint* p, const struct gui_rect* r);

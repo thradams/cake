@@ -36,6 +36,9 @@
 #define DEFAULT_COLS 120
 #define DEFAULT_ROWS 30
 #define SMALL_FONT_PERCENT 85
+/* The editor font's "Smaller" and "Larger": this much of the dialogs' size. */
+#define SMALLER_FONT_PERCENT 90
+#define LARGER_FONT_PERCENT 115
 #define DOUBLE_CLICK_MS 400
 
 static const char* const font_candidates[] = {
@@ -43,6 +46,12 @@ static const char* const font_candidates[] = {
 };
 
 #define CANDIDATE_COUNT ((int)(sizeof font_candidates / sizeof font_candidates[0]))
+
+static const char* const ui_font_candidates[] = {
+    "DejaVu Sans", "Liberation Sans", "Noto Sans", "Ubuntu", "Sans",
+};
+
+#define UI_CANDIDATE_COUNT ((int)(sizeof ui_font_candidates / sizeof ui_font_candidates[0]))
 
 struct clip_rect
 {
@@ -64,10 +73,14 @@ struct gui_canvas
     int w, h;
     XftFont* main;               /* GUI_FONT_MAIN */
     XftFont* small_font;         /* GUI_FONT_SMALL */
+    XftFont* ui_font;            /* GUI_FONT_UI */
     int pt;                      /* the main font's size in points */
     const char* family;          /* NULL: the first installed candidate */
+    const char* ui_family;       /* NULL: GUI_FONT_UI is the editor family */
+    int editor_size;            /* the editor font: -1 smaller, 0 the base size, 1 larger */
     struct gui_metrics metrics;
     struct gui_metrics small_metrics;
+    struct gui_metrics ui_metrics;
     double dpi;
     struct clip_rect clip;
     char* clip_text;             /* what we own on CLIPBOARD, answered on request */
@@ -203,6 +216,44 @@ static XftFont* make_font(struct gui_canvas* c, int pt, struct gui_metrics* m)
     return font;
 }
 
+/* GUI_FONT_UI: c->ui_family at `pt`, proportional, else the main family;
+ * cell_w is half its row height, as the monospaced fonts. */
+static XftFont* make_ui_font(struct gui_canvas* c, int pt, struct gui_metrics* m)
+{
+    XftFont* font = NULL;
+    if (c->ui_family)
+    {
+        font = XftFontOpen(c->dpy, c->screen,
+                           XFT_FAMILY, XftTypeString,
+                           strcmp(c->ui_family, "System") == 0 ? "sans-serif" : c->ui_family,   /* the desktop's own */
+                           XFT_SIZE, XftTypeDouble, (double)pt,
+                           XFT_DPI, XftTypeDouble, c->dpi,
+                           NULL);
+    }
+    if (!font)
+        return make_font(c, pt, m);
+    XGlyphInfo ext;
+    XftTextExtentsUtf8(c->dpy, font, (const FcChar8*)"M", 1, &ext);
+    m->cell_w = ext.xOff > 0 ? ext.xOff : 1;
+    m->cell_h = font->ascent + font->descent > 0 ? font->ascent + font->descent : 1;
+    m->ascent = font->ascent;
+    /* rows at least 1.3 em, as tall as the monospaced fonts', the capitals centered in them */
+    int min_h = (int)(pt * c->dpi * 1.3 / 72.0 + 0.5);
+    if (m->cell_h < min_h)
+    {
+        m->cell_h = min_h;
+    }
+    XGlyphInfo cap_ext;
+    XftTextExtentsUtf8(c->dpy, font, (const FcChar8*)"H", 1, &cap_ext);
+    int cap = cap_ext.y;
+    if (cap > 0)
+    {
+        m->ascent = (m->cell_h + cap + 1) / 2;
+    }
+    m->cell_w = (m->cell_h + 1) / 2;   /* the monospaced fonts' proportion: half as wide as tall */
+    return font;
+}
+
 static void offer_fonts(struct x11_window* win)
 {
     const char* names[CANDIDATE_COUNT];
@@ -215,28 +266,52 @@ static void offer_fonts(struct x11_window* win)
         win->fonts.candidate[win->fonts.count++] = i;
     }
     gui_app_set_fonts(win->app, names, win->fonts.count, 0);
+
+    const char* ui_names[1 + UI_CANDIDATE_COUNT + CANDIDATE_COUNT];
+    int ui_count = 0;
+    ui_names[ui_count++] = "System";   /* the OS's own interface font, always first */
+    for (int i = 0; i < UI_CANDIDATE_COUNT; i++)
+    {
+        if (font_exists(&win->canvas, ui_font_candidates[i]))
+        {
+            ui_names[ui_count++] = ui_font_candidates[i];
+        }
+    }
+    for (int i = 0; i < win->fonts.count; i++)
+    {
+        ui_names[ui_count++] = names[i];   /* the monospaced ones too */
+    }
+    gui_app_set_ui_fonts(win->app, ui_names, ui_count, 0);
 }
 
 /* (Re)creates both fonts from canvas->pt: they always exist together. */
 static int apply_font(struct gui_canvas* c)
 {
     c->dpi = screen_dpi(c);
-    int small_pt = (c->pt * SMALL_FONT_PERCENT + 50) / 100;
-    struct gui_metrics m, sm;
-    XftFont* main = make_font(c, c->pt, &m);
+    /* the dialogs' font is the base size; the editor's a little smaller, the same or a little larger */
+    int percent = c->editor_size < 0 ? SMALLER_FONT_PERCENT : c->editor_size > 0 ? LARGER_FONT_PERCENT : 100;
+    int main_pt = (c->pt * percent + 50) / 100;
+    int small_pt = (main_pt * SMALL_FONT_PERCENT + 50) / 100;
+    struct gui_metrics m, sm, um;
+    XftFont* main = make_font(c, main_pt, &m);
     XftFont* small_font = make_font(c, small_pt > 0 ? small_pt : 1, &sm);
-    if (!main || !small_font)
+    XftFont* ui_font = make_ui_font(c, c->pt, &um);
+    if (!main || !small_font || !ui_font)
     {
         if (main) XftFontClose(c->dpy, main);
         if (small_font) XftFontClose(c->dpy, small_font);
+        if (ui_font) XftFontClose(c->dpy, ui_font);
         return 0;
     }
     if (c->main) XftFontClose(c->dpy, c->main);
     if (c->small_font) XftFontClose(c->dpy, c->small_font);
+    if (c->ui_font) XftFontClose(c->dpy, c->ui_font);
     c->main = main;
     c->small_font = small_font;
+    c->ui_font = ui_font;
     c->metrics = m;
     c->small_metrics = sm;
+    c->ui_metrics = um;
     return 1;
 }
 
@@ -244,7 +319,31 @@ static int apply_font(struct gui_canvas* c)
 
 struct gui_metrics gui_font_metrics(struct gui_canvas* c, enum gui_font font)
 {
-    return font == GUI_FONT_SMALL ? c->small_metrics : c->metrics;
+    return font == GUI_FONT_UI ? c->ui_metrics : font == GUI_FONT_SMALL ? c->small_metrics : c->metrics;
+}
+
+/* The advance of `cp`, px: a cell, or in GUI_FONT_UI the glyph's own. */
+static int advance_of(struct gui_canvas* c, uint32_t cp, enum gui_font font)
+{
+    int advance = gui_font_metrics(c, font).cell_w;
+    if (font == GUI_FONT_UI)
+    {
+        FcChar32 ch = cp;
+        XGlyphInfo ext;
+        XftTextExtents32(c->dpy, c->ui_font, &ch, 1, &ext);
+        advance = ext.xOff;
+    }
+    return advance;
+}
+
+int gui_text_width(struct gui_canvas* c, const uint32_t* cps, int count, enum gui_font font)
+{
+    int width = 0;
+    for (int i = 0; i < count; i++)
+    {
+        width += advance_of(c, cps[i], font);
+    }
+    return width;
 }
 
 int gui_scrollbar_size(struct gui_canvas* c)
@@ -317,12 +416,14 @@ void gui_shade_rect(struct gui_canvas* c, int x, int y, int w, int h, int alpha)
 void gui_draw_text(struct gui_canvas* c, int x, int y, const uint32_t* cps, int count,
                    uint32_t fg, uint32_t bg, enum gui_font font)
 {
-    const struct gui_metrics* m = font == GUI_FONT_SMALL ? &c->small_metrics : &c->metrics;
-    XftFont* xf = font == GUI_FONT_SMALL ? c->small_font : c->main;
-    gui_fill_rect(c, x, y, count * m->cell_w, m->cell_h, bg);
+    struct gui_metrics metrics = gui_font_metrics(c, font);
+    const struct gui_metrics* m = &metrics;
+    XftFont* xf = font == GUI_FONT_UI ? c->ui_font : font == GUI_FONT_SMALL ? c->small_font : c->main;
+    int width = gui_text_width(c, cps, count, font);
+    gui_fill_rect(c, x, y, width, m->cell_h, bg);
 
     XRectangle r;
-    if (!clip_to(c, &r, x, y, count * m->cell_w, m->cell_h))
+    if (!clip_to(c, &r, x, y, width, m->cell_h))
         return;
     XRenderColor rc = {
         (unsigned short)(((fg >> 16) & 0xFF) * 257),
@@ -341,16 +442,18 @@ void gui_draw_text(struct gui_canvas* c, int x, int y, const uint32_t* cps, int 
         int k = 0;
         for (int i = 0; i < n; i++)
         {
-            if (cps[i] == ' ' || cps[i] == 0)
-                continue;
-            specs[k].ucs4 = cps[i];
-            specs[k].x = (short)(x + i * m->cell_w);
-            specs[k].y = (short)(y + m->ascent);
-            k++;
+            int advance = advance_of(c, cps[i], font);
+            if (cps[i] != ' ' && cps[i] != 0)
+            {
+                specs[k].ucs4 = cps[i];
+                specs[k].x = (short)x;
+                specs[k].y = (short)(y + m->ascent);
+                k++;
+            }
+            x += advance;
         }
         if (k > 0)
             XftDrawCharSpec(c->draw, &color, xf, specs, k);
-        x += n * m->cell_w;
         cps += n;
         count -= n;
     }
@@ -421,6 +524,10 @@ static void share_fonts(struct x11_window* d, const struct x11_window* main)
     c->family = main->canvas.family;
     c->metrics = main->canvas.metrics;
     c->small_metrics = main->canvas.small_metrics;
+    c->ui_font = main->canvas.ui_font;
+    c->ui_family = main->canvas.ui_family;
+    c->editor_size = main->canvas.editor_size;
+    c->ui_metrics = main->canvas.ui_metrics;
     c->dpi = main->canvas.dpi;
 }
 
@@ -577,6 +684,14 @@ static void refresh(struct x11_window* win)
     if (family >= 0 && family < win->fonts.count)
     {
         c->family = font_candidates[win->fonts.candidate[family]];
+        if (apply_font(c))
+            gui_app_font_changed(win->app, c);
+    }
+    int ui_index, editor_size;
+    if (gui_app_take_ui_font(win->app, &ui_index, &editor_size))
+    {
+        c->ui_family = ui_index >= 0 ? gui_ui_font_name(win->app, ui_index) : NULL;
+        c->editor_size = editor_size;
         if (apply_font(c))
             gui_app_font_changed(win->app, c);
     }
@@ -1002,6 +1117,7 @@ int main(int argc, char** argv)
     c->visual = DefaultVisual(c->dpy, c->screen);
     c->cmap = DefaultColormap(c->dpy, c->screen);
     c->pt = DEFAULT_FONT_PT;
+    c->editor_size = 0;
     if (!apply_font(c))
     {
         fprintf(stderr, "no usable font (is fontconfig installed?)\n");

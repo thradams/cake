@@ -7043,7 +7043,7 @@ size_t clean_line_directives(char* buf)
                 {
                     dlen = snprintf(directive, sizeof(directive),
                                     "#line %d \"%s\"\n", dir_line_num, new_file);
-                    strncpy(current_file, new_file, sizeof(current_file) - 1);
+                    strcpy(current_file, new_file); /* same size, new_file is always ended */
                 }
                 else
                 {

@@ -800,7 +800,7 @@ static void longest_common_path(int argc, const char* const* argv, char root_dir
                 full_path_or_copy(argv[j], fullpath_j);
                 if (fullpath_j[k] != ch)
                 {
-                    strncpy(root_dir, fullpath_j, k);
+                    memcpy(root_dir, fullpath_j, k);
                     root_dir[k] = '\0';
                     dirname(root_dir);
                     goto exit;
@@ -1181,7 +1181,7 @@ static void find_usages_print_file(const struct rename_list* list, int begin, in
     Isso está correto, porque não há como saber que os dois são o 
     mesmo símbolo.
 */
-static void rename_run(const char** files, int count, struct options* options, int argc, const char* const* argv)
+static void rename_run(const char* const* files, int count, struct options* options, int argc, const char* const* argv)
 {
     if (count == 0)
         return;
@@ -1282,7 +1282,7 @@ static void rename_run(const char** files, int count, struct options* options, i
         free(undecided);
     }
 
-    if (list.size > 0)
+    if (list.size > 0 && list.data)
         qsort(list.data, list.size, sizeof list.data[0], rename_item_compare);
 
     int files_changed = 0;

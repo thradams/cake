@@ -769,6 +769,9 @@ static const char file_wchar_h[] = {
 static const char file_wctype_h[] = {
 #include "include/wctype.h.include"
 , 0 };
+static const char file_sys_stat_h[] = {
+#include "include/sys/stat.h.include"
+, 0 };
 
 
 
@@ -903,6 +906,10 @@ char* _Owner read_file(const char* path, bool append_newline)
     else if (strcmp(path, "c:/wctype.h") == 0)
     {
         return strdup(file_wctype_h);
+    }
+    else if (strcmp(path, "c:/sys/stat.h") == 0)
+    {
+        return strdup(file_sys_stat_h);
     }
     return NULL;
 }

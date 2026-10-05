@@ -44,6 +44,7 @@
     {L"..\\cake.json",     L"cake.json"},   \
     {L"..\\samples",       L"samples"},     \
     {L"..\\include\\*.h",  L"include"},     \
+    {L"..\\include\\sys\\*.h", L"include\\sys"}, \
     {L"..\\web",           L"web"}
 
 /* optional: shows "I agree with the license terms"; the file is read when setup.exe is built */

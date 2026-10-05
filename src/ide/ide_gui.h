@@ -298,6 +298,9 @@ struct gui_theme
                                        * md_code_bg below. */
     uint32_t editor_diff_remove_bg;  /* UI_SYNTAX_DIFF only: same, for a row
                                        * starting with '-' (removed). */
+    uint32_t editor_diff_add_word_bg;    /* the part of a '+' row that differs
+                                           * from its paired '-' row */
+    uint32_t editor_diff_remove_word_bg; /* same, for the '-' row */
 
     uint32_t md_code_bg;         /* background tint for every row that's part
                                    * of a fenced ```code block``` - the fence
@@ -356,6 +359,12 @@ const char* gui_get_label(const struct gui_node* n);
 enum gui_kind gui_get_kind(const struct gui_node* n);
 struct gui_node* gui_get_parent(const struct gui_node* n);
 void gui_set_layout(struct gui_node* n, const struct gui_layout* layout);
+/* `n` starts one cell after the widest label of `label`'s column (the
+ * sibling labels at its x that controls follow), its right edge kept: the
+ * labels' measured width, whatever the font. */
+void gui_set_after_label(struct gui_node* n, struct gui_node* label);
+/* A GUI_TEXT draws its label centered in its rect, by its measured width. */
+void gui_set_centered(struct gui_node* n, int centered);
 
 /* Like HTML: a node draws in the normal or the small font, or inherits its
  * parent's (the default). Rows, columns and text inside it follow its
@@ -366,6 +375,7 @@ enum gui_font_size
     GUI_FONT_SIZE_INHERIT,
     GUI_FONT_SIZE_NORMAL,
     GUI_FONT_SIZE_SMALL,
+    GUI_FONT_SIZE_UI,   /* in the "other fonts" family and size - may be proportional */
 };
 
 void gui_set_font_size(struct gui_node* n, enum gui_font_size size);
@@ -413,6 +423,18 @@ int gui_font_count(const struct gui_app* app);
 const char* gui_font_name(const struct gui_app* app, int index);
 int gui_get_font(const struct gui_app* app);
 void gui_set_font(struct gui_app* app, int index);
+
+/* The font families the backend offers for every control but the editors
+ * (GUI_FONT_UI), proportional and monospaced, and the one in use. */
+int gui_ui_font_count(const struct gui_app* app);
+const char* gui_ui_font_name(const struct gui_app* app, int index);
+int gui_get_ui_font(const struct gui_app* app);
+void gui_set_ui_font(struct gui_app* app, int index);
+/* The dialogs' font (GUI_FONT_UI) is the base size, the one gui_zoom
+ * changes; the editor font is a little smaller (-1), the same size (0, the
+ * default) or a little larger (1). */
+int gui_get_editor_size(const struct gui_app* app);
+void gui_set_editor_size(struct gui_app* app, int size);
 
 /* Ends the program after the current event. */
 void gui_quit(struct gui_app* app);

@@ -650,6 +650,57 @@ static char diff_row(const struct editor_data* e, int line)
     return c;
 }
 
+/* The changed part [*from, *to) of a diff row, in text offsets: the row is
+ * paired with the row at the same index in the opposite run next to it
+ * ("-" run followed by a "+" run), and the common prefix and suffix are
+ * cut. 0 when the row has no pair or nothing in common with it. */
+static int diff_changed(const struct editor_data* e, int line, char dr, int* from, int* to)
+{
+    char other = dr == '-' ? '+' : '-';
+    int first = line;
+    while (first > 0 && diff_row(e, first - 1) == dr)
+        first--;
+    int pair;
+    if (dr == '-')
+    {
+        int last = line;
+        while (last + 1 < e->line_count && diff_row(e, last + 1) == '-')
+            last++;
+        pair = last + 1 + (line - first);
+        for (int i = last + 1; i <= pair; i++)
+            if (i >= e->line_count || diff_row(e, i) != other)
+                return 0;
+    }
+    else
+    {
+        int ofirst = first;
+        while (ofirst > 0 && diff_row(e, ofirst - 1) == other)
+            ofirst--;
+        pair = ofirst + (line - first);
+        if (pair >= first)
+            return 0;
+    }
+    int a = e->line_starts[line] + 1, a_end = line_end(e, line);
+    int b = e->line_starts[pair] + 1, b_end = line_end(e, pair);
+    int prefix = 0;
+    while (a + prefix < a_end && b + prefix < b_end && e->text[a + prefix] == e->text[b + prefix])
+        prefix++;
+    int suffix = 0;
+    while (a_end - suffix > a + prefix && b_end - suffix > b + prefix &&
+           e->text[a_end - suffix - 1] == e->text[b_end - suffix - 1])
+        suffix++;
+    /* keep a multibyte character whole */
+    while (prefix > 0 && (e->text[a + prefix] & 0xC0) == 0x80)
+        prefix--;
+    while (suffix > 0 && (e->text[a_end - suffix] & 0xC0) == 0x80)
+        suffix--;
+    if (prefix == 0 && suffix == 0)
+        return 0;
+    *from = a + prefix;
+    *to = a_end - suffix;
+    return *from < *to;
+}
+
 void gui_editor_set_vt100(struct gui_node* ed, int on)
 {
     ed->editor->vt100 = on != 0;
@@ -1000,8 +1051,9 @@ static int word_at(const struct editor_data* e, int k, int end, const char* word
     return k + len >= end || !is_word_byte(e->text[k + len]);
 }
 
+/* [changed_from, changed_to) is drawn on changed_bg (a diff row's changed part). */
 static void paint_line(const struct paint* p, const struct gui_node* n, int line, int y,
-                       uint32_t row_bg)
+                       uint32_t row_bg, int changed_from, int changed_to, uint32_t changed_bg)
 {
     const struct gui_theme* t = &p->app->theme;
     struct editor_data* e = n->editor;
@@ -1035,7 +1087,8 @@ static void paint_line(const struct paint* p, const struct gui_node* n, int line
         if (word_len && k >= match_end && k != word_start && word_at(e, k, end, e->text + word_start, word_len))
             match_end = k + word_len;
         uint32_t fg = e->line_fg[k - start];   /* the selection keeps the syntax colors: only its background changes */
-        uint32_t bg = sel ? t->editor_sel_bg : k < match_end ? t->editor_word_match_bg : row_bg;
+        uint32_t bg = sel ? t->editor_sel_bg : k < match_end ? t->editor_word_match_bg
+                    : k >= changed_from && k < changed_to ? changed_bg : row_bg;
         int width = 1;
         if (cp == '\t')
         {
@@ -1256,7 +1309,11 @@ void editor_paint(const struct paint* p, const struct gui_node* n)
             core_draw_utf8(p, n->rect.x + (gutter - 1 - len) * cw, y, num, -1,
                            has_breakpoint(e, line) ? t->editor_breakpoint_fg : t->editor_linenum_fg, row_bg);
         }
-        paint_line(p, n, line, y, row_bg);
+        int changed_from = 0, changed_to = 0;
+        if (dr && row_bg != bg && !hl_bg && line != e->exec_line)
+            diff_changed(e, line, dr, &changed_from, &changed_to);
+        paint_line(p, n, line, y, row_bg, changed_from, changed_to,
+                   dr == '+' ? t->editor_diff_add_word_bg : t->editor_diff_remove_word_bg);
         while (mark < e->marks.count && e->marks.items[mark].line < line)
             mark++;
         if (mark < e->marks.count && e->marks.items[mark].line == line)

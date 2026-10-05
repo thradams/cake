@@ -12,6 +12,9 @@
  *   ./build test             (same as full, and run the tests afterwards)
  *   ./build debug            (debug build: no optimization, debug runtime)
  *   ./build fast debug test  (flags combine freely)
+ *   ./build -help            (show the options)
+ *   ./build -no-ide          (do not compile the IDE)
+ *   ./build -cflags "-O3 -march=native"  (extra flags for cake and the IDE)
  *   ./build test -cake-headers (cake runs with its bundled headers: self
  *                             analysis, cake89 bootstrap and the test suites)
  */
@@ -57,6 +60,7 @@
 /* Linux: the IDE's backend - Wayland when the session is Wayland and its
  * libraries are installed, else X11 (Xft); "wayland" / "x11" choose. */
 static int wayland = -1;   /* -1: detect */
+static const char* user_cflags = "";   /* -cflags "..." */
 #define LINUX_IDE_FRONTEND (wayland ? " ide/ide_gui_wayland.c " : " ide/ide_gui_x11.c ")
 #define LINUX_IDE_LIBS (wayland ? " -lwayland-client -lwayland-cursor -lxkbcommon -lfontconfig -lfreetype -lpthread -lm " \
                                 : " -lX11 -lXft -lXrender -lfontconfig -lfreetype -lpthread -lm ")
@@ -109,7 +113,7 @@ static int wayland = -1;   /* -1: detect */
 
 #define MSVC_DEBUG_CONFIG_FLAGS \
         " /D_CRTDBG_MAP_ALLOC " \
-        " /Od /MDd /RTC1 "      \
+        " /Od /MDd /RTC1 /Zi "  \
         " /Dstrdup=_strdup "
 
 #define MSVC_RELEASE_CONFIG_FLAGS \
@@ -127,7 +131,6 @@ static int wayland = -1;   /* -1: detect */
       " /Zc:preprocessor- "          \
       " /utf-8 "                     \
       " /W4 "                        \
-      " /Zi "                        \
       " /Gm- "                       \
       " /std:clatest "               \
       " /Zc:inline "                 \
@@ -155,7 +158,7 @@ static int wayland = -1;   /* -1: detect */
 
 #if defined PLATFORM_WINDOWS && defined COMPILER_CLANG
 
-#define CLANG_WIN_DEBUG_FLAGS    " -D_DEBUG "
+#define CLANG_WIN_DEBUG_FLAGS    " -D_DEBUG -g "
 #define CLANG_WIN_RELEASE_FLAGS  " -DNDEBUG "
 
 #define CLANG_WIN_FLAGS          \
@@ -175,7 +178,6 @@ static int wayland = -1;   /* -1: detect */
 #if (defined PLATFORM_LINUX || defined PLATFORM_MACOS) && defined COMPILER_CLANG
 
 #define CLANG_UNIX_FLAGS   \
-      " -g "                 \
       " -Wall "              \
       " -D_DEFAULT_SOURCE "  \
       " -Wno-unknown-pragmas " \
@@ -191,8 +193,7 @@ static int wayland = -1;   /* -1: detect */
       " -Wall "                \
       " -Wno-multichar "       \
       " -Wno-missing-braces "  \
-      " -Wno-unknown-pragmas " \
-      " -g "
+      " -Wno-unknown-pragmas "
 
 #endif /* COMPILER_GCC && !COMPILER_TINYC */
 
@@ -488,6 +489,7 @@ static void build_embedded_files(void)
     print_header("Build embedded files");
     execute_cmd(RUN EXE("embed") " ./include" );
     execute_cmd(RUN EXE("embed") " ./include/builtins" );
+    execute_cmd(RUN EXE("embed") " ./include/sys" );
 }
 
 static void build_amalgamation(void)
@@ -524,12 +526,13 @@ static void build_cake(int debug, const char* test_flag)
     const char* msvc_config = debug ? MSVC_DEBUG_CONFIG_FLAGS : MSVC_RELEASE_CONFIG_FLAGS;
     const char* msvc_link = debug ? MSVC_DEBUG_LINK_FLAGS : MSVC_RELEASE_LINK_FLAGS;
 
-    char* cmd = calloc(2000, sizeof(char));
+    char* cmd = calloc(4000, sizeof(char));
 
-    snprintf(cmd, 2000, "cl %s%s%s /Fe:" EXE(CKC_NAME) CAKE_SOURCE_FILES "%s ",
+    snprintf(cmd, 4000, "cl %s%s%s %s /Fe:" EXE(CKC_NAME) CAKE_SOURCE_FILES "%s ",
              msvc_config,
              MSVC_COMMON_FLAGS,
              test_flag,
+             user_cflags,
              msvc_link);
 
     execute_cmd(cmd);
@@ -542,40 +545,40 @@ static void build_cake(int debug, const char* test_flag)
 
     const char* clang_win_config = debug ? CLANG_WIN_DEBUG_FLAGS : CLANG_WIN_RELEASE_FLAGS;
 
-    char cmd[512];
-    snprintf(cmd, sizeof cmd, "clang %s%s%s -o " EXE(CKC_NAME) " %s",
-             clang_win_config, CLANG_WIN_FLAGS, test_flag, CAKE_SOURCE_FILES);
+    char cmd[4000];
+    snprintf(cmd, sizeof cmd, "clang %s%s%s %s -o " EXE(CKC_NAME) " %s",
+             clang_win_config, CLANG_WIN_FLAGS, test_flag, user_cflags, CAKE_SOURCE_FILES);
     execute_cmd(cmd);
 
 #endif /* PLATFORM_WINDOWS && COMPILER_CLANG */
 
 #if (defined PLATFORM_LINUX || defined PLATFORM_MACOS) && defined COMPILER_CLANG
 
-    const char* clang_unix_config = debug ? "" : " -DNDEBUG -O2 ";
+    const char* clang_unix_config = debug ? " -g " : " -DNDEBUG -O3 ";
 
-    char cmd[512];
-    snprintf(cmd, sizeof cmd, "clang %s%s%s -o " CKC_NAME " %s",
-             CLANG_UNIX_FLAGS, clang_unix_config, test_flag, CAKE_SOURCE_FILES);
+    char cmd[4000];
+    snprintf(cmd, sizeof cmd, "clang %s%s%s %s -o " CKC_NAME " %s",
+             CLANG_UNIX_FLAGS, clang_unix_config, test_flag, user_cflags, CAKE_SOURCE_FILES);
     execute_cmd(cmd);
 
 #endif /* (PLATFORM_LINUX || PLATFORM_MACOS) && COMPILER_CLANG */
 
 #if defined COMPILER_GCC && !defined COMPILER_TINYC
     {
-    const char* gcc_config = debug ? "" : " -DNDEBUG -O2 ";
+    const char* gcc_config = debug ? " -g " : " -DNDEBUG -O3 ";
 
-    char cmd[512];
-    snprintf(cmd, sizeof cmd, "gcc %s %s %s -o " CKC_NAME " %s",
-             GCC_FLAGS, gcc_config, test_flag, CAKE_SOURCE_FILES);
+    char cmd[4000];
+    snprintf(cmd, sizeof cmd, "gcc %s %s %s %s -o " CKC_NAME " %s",
+             GCC_FLAGS, gcc_config, test_flag, user_cflags, CAKE_SOURCE_FILES);
     execute_cmd(cmd);
     }
 #endif /* COMPILER_GCC && !COMPILER_TINYC */
 
 #if defined COMPILER_TINYC
 
-    char cmd[512];
-    snprintf(cmd, sizeof cmd, "tcc %s%s%s -o " EXE(CKC_NAME) " %s",
-             TCC_FLAGS, debug ? TCC_DEBUG_FLAGS : TCC_RELEASE_FLAGS, test_flag, CAKE_SOURCE_FILES);
+    char cmd[4000];
+    snprintf(cmd, sizeof cmd, "tcc %s%s%s %s -o " EXE(CKC_NAME) " %s",
+             TCC_FLAGS, debug ? TCC_DEBUG_FLAGS : TCC_RELEASE_FLAGS, test_flag, user_cflags, CAKE_SOURCE_FILES);
     execute_cmd(cmd);
 
 #endif /* COMPILER_TINYC */
@@ -600,8 +603,8 @@ static void build_cake_ide(int debug)
     execute_cmd("rc /nologo ide/ide.rc");
 
     char* cmd = calloc(4000, sizeof(char));
-    snprintf(cmd, 4000, "cl %s%s  /Fe:" EXE(CAKE_NAME) " ide/ide_gui_win32.c ide/ide.res  %s",
-             MSVC_COMMON_FLAGS, msvc_config, CAKE_IDE_SOURCE_FILES);
+    snprintf(cmd, 4000, "cl %s%s %s /Fe:" EXE(CAKE_NAME) " ide/ide_gui_win32.c ide/ide.res  %s",
+             MSVC_COMMON_FLAGS, msvc_config, user_cflags, CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
     free(cmd);
 
@@ -613,28 +616,28 @@ static void build_cake_ide(int debug)
 
     char cmd[4000];
     /* /NODEFAULTLIB in CLANG_WIN_FLAGS drops the backend's #pragma comment(lib) */
-    snprintf(cmd, sizeof cmd, "clang %s%s ide/ide_gui_win32.c -lGdi32.lib -lShell32.lib -lMsimg32.lib -o " EXE(CAKE_NAME) " %s",
-             clang_win_config, CLANG_WIN_FLAGS, CAKE_IDE_SOURCE_FILES);
+    snprintf(cmd, sizeof cmd, "clang %s%s %s ide/ide_gui_win32.c -lGdi32.lib -lShell32.lib -lMsimg32.lib -o " EXE(CAKE_NAME) " %s",
+             clang_win_config, CLANG_WIN_FLAGS, user_cflags, CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
 
 #endif /* PLATFORM_WINDOWS && COMPILER_CLANG */
 
 #if (defined PLATFORM_LINUX || defined PLATFORM_MACOS) && defined COMPILER_CLANG
 
-    const char* clang_unix_config = debug ? "" : " -DNDEBUG -O2 ";
+    const char* clang_unix_config = debug ? " -g " : " -DNDEBUG -O3 ";
 
     char cmd[4000];
     /* Use Cocoa frontend on macOS, X11 frontend on Linux. */
 #if defined PLATFORM_MACOS
-    snprintf(cmd, sizeof cmd, "clang %s%s  ide/ide_gui_cocoa.c  -framework Cocoa -framework CoreText -framework CoreGraphics -lobjc -o " EXE(CAKE_NAME) " %s",
-         CLANG_UNIX_FLAGS, clang_unix_config, CAKE_IDE_SOURCE_FILES);
+    snprintf(cmd, sizeof cmd, "clang %s%s %s ide/ide_gui_cocoa.c  -framework Cocoa -framework CoreText -framework CoreGraphics -lobjc -o " EXE(CAKE_NAME) " %s",
+         CLANG_UNIX_FLAGS, clang_unix_config, user_cflags, CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
 #else
     /* Xft.h pulls in <ft2build.h>, which on Debian/Ubuntu lives under
      * /usr/include/freetype2 rather than directly on the default
      * include path, so it must be added explicitly. */
-    snprintf(cmd, sizeof cmd, "clang %s%s -I/usr/include/freetype2  %s %s -o " EXE(CAKE_NAME) " %s",
-         CLANG_UNIX_FLAGS, clang_unix_config, LINUX_IDE_FRONTEND, LINUX_IDE_LIBS, CAKE_IDE_SOURCE_FILES);
+    snprintf(cmd, sizeof cmd, "clang %s%s %s -I/usr/include/freetype2  %s %s -o " EXE(CAKE_NAME) " %s",
+         CLANG_UNIX_FLAGS, clang_unix_config, user_cflags, LINUX_IDE_FRONTEND, LINUX_IDE_LIBS, CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
 #endif
 
@@ -642,20 +645,20 @@ static void build_cake_ide(int debug)
 
 #if defined COMPILER_GCC && !defined COMPILER_TINYC
     {
-    const char* gcc_config = debug ? "" : " -DNDEBUG -O2 ";
+    const char* gcc_config = debug ? " -g " : " -DNDEBUG -O3 ";
 
     char cmd[4000];
     /* Use Cocoa frontend on macOS, X11 frontend on Linux. */
 #if defined PLATFORM_MACOS
-    snprintf(cmd, sizeof cmd, "gcc %s %s  ide/ide_gui_cocoa.c  -framework Cocoa -framework CoreText -framework CoreGraphics -lobjc -o " EXE(CAKE_NAME) " %s",
-         GCC_FLAGS, gcc_config, CAKE_IDE_SOURCE_FILES);
+    snprintf(cmd, sizeof cmd, "gcc %s %s %s ide/ide_gui_cocoa.c  -framework Cocoa -framework CoreText -framework CoreGraphics -lobjc -o " EXE(CAKE_NAME) " %s",
+         GCC_FLAGS, gcc_config, user_cflags, CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
 #else
     /* Xft.h pulls in <ft2build.h>, which on Debian/Ubuntu lives under
      * /usr/include/freetype2 rather than directly on the default
      * include path, so it must be added explicitly. */
-    snprintf(cmd, sizeof cmd, "gcc %s %s -I/usr/include/freetype2  %s %s -o " EXE(CAKE_NAME) " %s",
-         GCC_FLAGS, gcc_config, LINUX_IDE_FRONTEND, LINUX_IDE_LIBS, CAKE_IDE_SOURCE_FILES);
+    snprintf(cmd, sizeof cmd, "gcc %s %s %s -I/usr/include/freetype2  %s %s -o " EXE(CAKE_NAME) " %s",
+         GCC_FLAGS, gcc_config, user_cflags, LINUX_IDE_FRONTEND, LINUX_IDE_LIBS, CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
 #endif
     }
@@ -676,8 +679,8 @@ static void build_cake_ide(int debug)
     printf("skipping cake IDE: not supported with tcc on macOS\n");
 #else
     char cmd[4000];
-    snprintf(cmd, sizeof cmd, "tcc %s%s" TCC_IDE_FRONTEND "-o " EXE(CAKE_NAME) " %s",
-             TCC_FLAGS, debug ? TCC_DEBUG_FLAGS : TCC_RELEASE_FLAGS, CAKE_IDE_SOURCE_FILES);
+    snprintf(cmd, sizeof cmd, "tcc %s%s %s " TCC_IDE_FRONTEND "-o " EXE(CAKE_NAME) " %s",
+             TCC_FLAGS, debug ? TCC_DEBUG_FLAGS : TCC_RELEASE_FLAGS, user_cflags, CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
 #endif
 
@@ -1021,6 +1024,7 @@ int main(int argc, char* argv[])
     int run_test_suite = 0;
     int debug = 0;
     int cake_headers = 0;
+    int no_ide = 0;
     int i;
     const char* test_flag;
     const char* cake_flags;
@@ -1061,10 +1065,23 @@ int main(int argc, char* argv[])
                bundled headers instead of the system ones */
             cake_headers = 1;
         }
+        else if (strcmp(argv[i], "-no-ide") == 0)
+        {
+            no_ide = 1;
+        }
+        else if (strcmp(argv[i], "-cflags") == 0 && i + 1 < argc)
+        {
+            i++;
+            user_cflags = argv[i];
+        }
         else
         {
-            printf("unrecognized option: %s\n", argv[i]);
-            printf("usage: %s [fast] [full] [test] [debug] [wayland|x11] [-cake-headers]\n", argv[0]);
+            const int help = strcmp(argv[i], "-help") == 0;
+            if (!help)
+            {
+                printf("unrecognized option: %s\n", argv[i]);
+            }
+            printf("usage: %s [fast] [full] [test] [debug] [wayland|x11] [-cake-headers] [-no-ide] [-cflags \"...\"] [-help]\n", argv[0]);
             printf("  fast  - only compile the IDE\n");
             printf("  full  - build everything with -DTEST, but do not run the test suite\n");
             printf("  test  - same as full, and run the test suite afterwards\n");
@@ -1072,7 +1089,10 @@ int main(int argc, char* argv[])
             printf("  wayland, x11 - Linux: the IDE's backend (default: Wayland in a Wayland session\n"
                    "                with its libraries installed, else X11)\n");
             printf("  -cake-headers - run cake with its bundled headers (cake89 and tests)\n");
-            return 1;
+            printf("  -no-ide - do not compile the IDE\n");
+            printf("  -cflags \"...\" - extra compiler flags for cake and the IDE\n");
+            printf("  -help - show this help\n");
+            return help ? 0 : 1;
         }
     }
 
@@ -1111,13 +1131,19 @@ int main(int argc, char* argv[])
     {
         build_cake(debug, test_flag);
     }
-    build_cake_ide(debug);
+    if (!no_ide)
+    {
+        build_cake_ide(debug);
+    }
 
 #ifndef CAKE_HEADERS
     if (!fast)
     {
         generate_config();
-        build_installer(); /* needs cake.json */
+        if (!no_ide)
+        {
+            build_installer(); /* needs cake.json */
+        }
     }
 #endif
 

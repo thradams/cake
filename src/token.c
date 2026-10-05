@@ -1878,7 +1878,7 @@ void rename_list_clear(_Clear struct rename_list* p)
     {
         rename_item_free(&p->data[i]);
     }
-    free(p->data);
+    free(p->data); //lint 29
     p->data = NULL;
     p->size = 0;
     p->capacity = 0;
@@ -1888,7 +1888,7 @@ void rename_list_clear(_Clear struct rename_list* p)
         rename_item_free(&p->pending[i].item);
         rename_item_free(&p->pending[i].declaration);
     }
-    free(p->pending);
+    free(p->pending); //lint 29 29
     p->pending = NULL;
     p->pending_size = 0;
     p->pending_capacity = 0;
@@ -1930,7 +1930,7 @@ void rename_record(const struct options* options, const struct token* p_token, c
         struct rename_pending* _Owner _Opt p = realloc(list->pending, capacity * sizeof(struct rename_pending));
         if (p == NULL)
             return;
-        list->pending = p;
+        list->pending = p; //lint 26
         list->pending_capacity = capacity;
     }
 
@@ -2046,7 +2046,7 @@ void rename_pairs_clear(_Clear struct rename_pairs* p)
         rename_item_free(&p->data[i].item);
         rename_item_free(&p->data[i].declaration);
     }
-    free(p->data);
+    free(p->data); //lint 29 29
     p->data = NULL;
     p->size = 0;
     p->capacity = 0;

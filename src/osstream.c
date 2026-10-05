@@ -112,7 +112,11 @@ int ss_putc(char ch, struct osstream* stream)
 int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 {
     va_list args = { 0 };
+#ifdef _WIN32
+    va_start(args, fmt); //lint 35
+#else
     va_start(args, fmt);
+#endif
     int size = ss_vafprintf(stream, fmt, args);
 #ifdef _WIN32
     va_end(args); //lint 35

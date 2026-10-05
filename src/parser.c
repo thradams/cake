@@ -1353,7 +1353,11 @@ _Bool diagnostic(enum diagnostic_id w,
     /* format the user message */
     char buffer[200] = { 0 };
     va_list args = { 0 };
+#if _WIN32
+    va_start(args, fmt); //lint 35 (only windows)
+#else
     va_start(args, fmt);
+#endif
     vsnprintf(buffer, sizeof(buffer), fmt, args);
  #if _WIN32
     va_end(args); //lint 35 (only windows)
@@ -2587,7 +2591,11 @@ bool pos_diagnostic(enum diagnostic_id w,
         /* format the user message */
         char buffer[200] = { 0 };
         va_list args = { 0 };
+#if _WIN32
+        va_start(args, fmt); //lint 35 (only windows)
+#else
         va_start(args, fmt);
+#endif
         vsnprintf(buffer, sizeof(buffer), fmt, args);
 #if _WIN32
         va_end(args); //lint 35 (only windows)
@@ -2820,10 +2828,18 @@ void find_definition_set_declarator(struct parser_ctx* ctx, const struct declara
 void ctx_print(const struct parser_ctx* ctx, const char* fmt, ...)
 {
     (void)ctx;
-    va_list args;
+    va_list args = { 0 };
+#if _WIN32
+    va_start(args, fmt); //lint 35 (only windows)
+#else
     va_start(args, fmt);
+#endif
     vprintf(fmt, args);
+#if _WIN32
+    va_end(args); //lint 35 (only windows)
+#else
     va_end(args);
+#endif
 }
 
 bool complete_is_cursor(const struct parser_ctx* ctx, const struct token* _Opt p_token)
@@ -6851,7 +6867,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                     if (p_member_name)
                     {
                         const struct token* _Opt p_member_identity = p_member_name;
-                        if (is_same_content)
+                        if (is_same_content && p_previous_definition)
                         {
                             int member_index = 0;
                             struct member_declarator* _Opt p_previous_member =
@@ -6878,7 +6894,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                 throw;
             }
 
-            if (is_same_content)
+            if (is_same_content && p_previous_definition)
             {
                 /* same type: from here on this is just a reference to the previous definition, as in 'struct X b;' */
                 struct member_declaration_list empty = { 0 };
@@ -6908,6 +6924,11 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             }
 
             ctx->format_indent_level--;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
             format_align_own_line_brace_if_present(ctx, ctx->current);
 
             if (parser_match_tk(ctx, '}') != 0)
@@ -16080,7 +16101,8 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                 throw;
             }
 
-            const char* name = p_designator->token->lexeme;
+            const struct token* p_designator_token = p_designator->token;
+            const char* name = p_designator_token->lexeme;
             struct object* _Opt p_member_object = current_object->members.head;
             while (p_member_declaration)
             {
@@ -16100,8 +16122,8 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                             if (p_member_declarator->declarator->name_opt &&
                                 strcmp(p_member_declarator->declarator->name_opt->lexeme, name) == 0)
                             {
-                                rename_record(&ctx->options, p_designator->token, p_member_declarator->declarator->name_opt);
-                                if (find_definition_is_cursor(ctx, p_designator->token))
+                                rename_record(&ctx->options, p_designator_token, p_member_declarator->declarator->name_opt);
+                                if (find_definition_is_cursor(ctx, p_designator_token))
                                 {
                                     find_definition_set(ctx, p_member_declarator->declarator->name_opt);
                                 }
