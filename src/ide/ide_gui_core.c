@@ -1559,12 +1559,8 @@ static int has_close_icon(const struct gui_app* app, const struct gui_node* win)
 
 static int has_zoom_icon(const struct gui_app* app, const struct gui_node* win)
 {
-<<<<<<< HEAD
     /* a modal dialog resizes but does not maximize */
     return win->window->resizable && !win->window->modal && win->window->dock == GUI_DOCK_NONE &&
-=======
-    return win->window->resizable && win->window->dock == GUI_DOCK_NONE &&
->>>>>>> 4fcf70220bba012a9e06042050cc7c10131ee9c1
            win->rect.w >= 10 * app->ui_metrics.cell_w;
 }
 

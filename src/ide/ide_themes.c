@@ -692,11 +692,8 @@ const struct gui_theme ide_theme_raspberry_pi = {
     .md_link_fg = GUI_RGB(0x87, 0x91, 0x9B),
     .editor_diff_add_bg = GUI_RGB(0xE6, 0xFF, 0xEC),
     .editor_diff_remove_bg = GUI_RGB(0xFF, 0xEB, 0xE9),
-<<<<<<< HEAD
     .editor_diff_add_word_bg = GUI_RGB(0xAC, 0xF2, 0xBD),
     .editor_diff_remove_word_bg = GUI_RGB(0xFF, 0xC0, 0xC0),
-=======
->>>>>>> 4fcf70220bba012a9e06042050cc7c10131ee9c1
     .md_code_bg = GUI_RGB(0xF6, 0xF8, 0xFA),
     .listbox_fg = GUI_RGB(0x1E, 0x1E, 0x1E),
     .listbox_bg = GUI_RGB(0xFF, 0xFF, 0xFF),
