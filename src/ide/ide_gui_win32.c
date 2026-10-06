@@ -162,9 +162,9 @@ static HFONT make_font(HDC dc, int pt, const wchar_t* family, struct gui_metrics
                              DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                              CLEARTYPE_QUALITY, FIXED_PITCH | FF_MODERN, family ? family : pick_font(dc));
     HFONT old = SelectObject(dc, font);
-    TEXTMETRICW tm;
+    TEXTMETRICW tm = { 0 };
     GetTextMetricsW(dc, &tm);
-    SIZE size;
+    SIZE size = { 0 };
     GetTextExtentPoint32W(dc, L"M", 1, &size);
     SelectObject(dc, old);
     m->cell_w = size.cx > 0 ? size.cx : 1;
@@ -197,9 +197,9 @@ static HFONT make_ui_font(HDC dc, int pt, struct gui_canvas* c, struct gui_metri
                            CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, face);
     }
     HFONT old = SelectObject(dc, font);
-    TEXTMETRICW tm;
+    TEXTMETRICW tm = { 0 };
     GetTextMetricsW(dc, &tm);
-    SIZE size;
+    SIZE size = { 0 };
     GetTextExtentPoint32W(dc, L"M", 1, &size);
     for (int i = 0; i < 128; i++)
     {
@@ -210,7 +210,7 @@ static HFONT make_ui_font(HDC dc, int pt, struct gui_canvas* c, struct gui_metri
     }
     /* the height of "H" above the baseline: otmsCapEmHeight is 0 in many fonts */
     int cap = 0;
-    GLYPHMETRICS gm;
+    GLYPHMETRICS gm = { 0 };
     MAT2 identity = { { 0, 1 }, { 0, 0 }, { 0, 0 }, { 0, 1 } };
     if (GetGlyphOutlineW(dc, L'H', GGO_METRICS, &gm, 0, NULL, &identity) != GDI_ERROR)
     {
@@ -242,7 +242,7 @@ static HFONT make_ui_font(HDC dc, int pt, struct gui_canvas* c, struct gui_metri
 static void offer_fonts(struct win32_window* win)
 {
     HDC dc = GetDC(win->hwnd);
-    const char* names[sizeof font_candidates / sizeof font_candidates[0]];
+    const char* names[sizeof font_candidates / sizeof font_candidates[0]] = { 0 };
     char utf8[sizeof font_candidates / sizeof font_candidates[0]][64];
     win->fonts.count = 0;
     for (int i = 0; i < (int)(sizeof font_candidates / sizeof font_candidates[0]); i++)
@@ -254,7 +254,7 @@ static void offer_fonts(struct win32_window* win)
         win->fonts.candidate[win->fonts.count++] = i;
     }
     const char* ui_names[1 + sizeof ui_font_candidates / sizeof ui_font_candidates[0] + sizeof font_candidates / sizeof font_candidates[0]];
-    char ui_utf8[sizeof ui_font_candidates / sizeof ui_font_candidates[0]][64];
+    char ui_utf8[sizeof ui_font_candidates / sizeof ui_font_candidates[0]][64] = { 0 };
     int ui_count = 0;
     ui_names[ui_count++] = "System";   /* the OS's own interface font, always first */
     for (int i = 0; i < (int)(sizeof ui_font_candidates / sizeof ui_font_candidates[0]); i++)
@@ -321,7 +321,7 @@ static int advance_of(struct gui_canvas* c, uint32_t cp, enum gui_font font)
     }
     else if (font == GUI_FONT_UI)
     {
-        WCHAR units[2];
+        WCHAR units[2] = { 0 };
         int len = 1;
         if (cp > 0xFFFF)
         {
@@ -390,8 +390,8 @@ void gui_draw_text(struct gui_canvas* c, int x, int y, const uint32_t* cps, int 
     /* UTF-16 with one lpDx entry per unit: each code point advances one
      * cell (its own width in GUI_FONT_UI), the second unit of a surrogate
      * pair advances 0. */
-    WCHAR text[512];
-    INT dx[512];
+    WCHAR text[512] = { 0 };
+    INT dx[512] = { 0 };
     struct gui_metrics m = gui_font_metrics(c, font);
     SelectObject(c->mem, font == GUI_FONT_UI ? c->ui_font : font == GUI_FONT_SMALL ? c->small_font : c->main);
     while (count > 0)
@@ -433,7 +433,7 @@ void gui_draw_text(struct gui_canvas* c, int x, int y, const uint32_t* cps, int 
 static void ensure_back_buffer(struct win32_window* win)
 {
     struct gui_canvas* c = &win->canvas;
-    RECT rc;
+    RECT rc = { 0 };
     GetClientRect(win->hwnd, &rc);
     int w = rc.right > 0 ? rc.right : 1;
     int h = rc.bottom > 0 ? rc.bottom : 1;
@@ -578,11 +578,11 @@ static void detached_destroy(struct win32_window* d)
 /* The OS windows the core asked for, made, raised and closed. */
 static void sync_detached(struct win32_window* main)
 {
-    int w, h;
-    struct gui_surface* s;
+    int w = 0, h = 0;
+    struct gui_surface* s = 0;
     while ((s = gui_app_take_surface_open(main->app, &w, &h)) != NULL)
         detached_open(main, s, w, h);
-    void* native;
+    void* native = 0;
     while ((native = gui_app_take_surface_close(main->app)) != NULL)
         detached_close(main, native);
     while ((native = gui_app_take_surface_raise(main->app)) != NULL)
@@ -622,7 +622,7 @@ static void refresh(struct win32_window* win)
         DestroyWindow(win->hwnd);
         return;
     }
-    int ms;
+    int ms = 0;
     if (gui_app_take_timer(win->app, &ms))
     {
         if (ms > 0)
@@ -637,7 +637,7 @@ static void refresh(struct win32_window* win)
         apply_font(win);
         gui_app_font_changed(win->app, &win->canvas);
     }
-    int ui_index, editor_size;
+    int ui_index = 0, editor_size = 0;
     if (gui_app_take_ui_font(win->app, &ui_index, &editor_size))
     {
         win->canvas.ui_family[0] = 0;
@@ -656,7 +656,7 @@ static void refresh(struct win32_window* win)
         gui_app_font_changed(win->app, &win->canvas);
     }
     sync_detached(win);
-    struct gui_rect r;
+    struct gui_rect r = { 0 };
     if (gui_app_paint(win->app, &win->canvas, &r))
     {
         RECT rc = { r.x, r.y, r.x + r.w, r.y + r.h };
@@ -850,18 +850,18 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_SETCURSOR:
         if (LOWORD(lp) == HTCLIENT)
         {
-            static const LPCWSTR shapes[] = {
+            static const LPCTSTR shapes[] = {
                 IDC_ARROW, IDC_SIZEWE, IDC_SIZENS, IDC_SIZENWSE, IDC_SIZENESW,
             };
             enum gui_cursor cursor = win->surface ? gui_surface_cursor(win->app, win->surface)
                                                   : gui_app_cursor(win->app);
-            SetCursor(LoadCursorW(NULL, shapes[cursor]));
+            SetCursor(LoadCursor(NULL, shapes[cursor]));
             return TRUE;
         }
         break;
     case WM_PAINT:
     {
-        PAINTSTRUCT ps;
+        PAINTSTRUCT ps = { 0 };
         HDC dc = BeginPaint(hwnd, &ps);
         RECT r = ps.rcPaint;
         BitBlt(dc, r.left, r.top, r.right - r.left, r.bottom - r.top,
@@ -1069,7 +1069,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE prev, PWSTR cmd, int show)
     apply_font(&win);
 
     /* Client area of DEFAULT_COLS x DEFAULT_ROWS cells, like the old IDE. */
-    RECT wr, cr;
+    RECT wr = { 0 }, cr = { 0 };
     GetWindowRect(hwnd, &wr);
     GetClientRect(hwnd, &cr);
     int border_w = (wr.right - wr.left) - cr.right;
@@ -1087,7 +1087,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE prev, PWSTR cmd, int show)
     refresh(&win);
     ShowWindow(hwnd, show);
 
-    MSG msg;
+    MSG msg = { 0 };
     while (GetMessageW(&msg, NULL, 0, 0) > 0)
     {
         TranslateMessage(&msg);

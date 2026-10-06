@@ -280,7 +280,7 @@ void format_align_to_column_if_already_wrapped(struct token* token, int column);
 struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx);
 void unexpected_end_of_file(const struct parser_ctx* ctx);
 void parser_match(struct parser_ctx* ctx);
-_Attr(nodiscard)
+NODISCARD
 int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
 int parser_match_tk_lint(struct parser_ctx* ctx, enum token_type type, struct token* _Opt* pp_token_lint);
 

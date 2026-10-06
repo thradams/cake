@@ -625,6 +625,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-no-includes") == 0)
+        {
+            options->no_includes = true;
+            continue;
+        }
+
         if (has_prefix(argv[i], "-output-root="))
         {
             snprintf(options->output_root, sizeof options->output_root, "%s", argv[i] + (sizeof("-output-root=") - 1));
@@ -837,6 +843,7 @@ void print_help()
 
     print_option("-I", "Adds a directory to the list of directories searched for include files");
     print_option("-auto-config", "Generates cake.json with include directories");
+    print_option("-no-includes", "Does not use cake.json's include directories; only -I ones");
     print_option("-no-output", "Cake will not generate output");
     print_option("-ignore-lint", "//lint comments are ignored (treated as plain comments)");
     print_option("-D", "Defines a preprocessing symbol for a source file");

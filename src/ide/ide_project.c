@@ -85,14 +85,14 @@ static int is_absolute(const char* p)
 long long ide_file_time(const char* path)
 {
 #ifdef _WIN32
-    wchar_t w[1024];
-    WIN32_FILE_ATTRIBUTE_DATA data;
+    wchar_t w[1024] = { 0 };
+    WIN32_FILE_ATTRIBUTE_DATA data = { 0 };
     if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, w, 1024) ||
         !GetFileAttributesExW(w, GetFileExInfoStandard, &data))
         return 0;
     return ((long long)data.ftLastWriteTime.dwHighDateTime << 32) | data.ftLastWriteTime.dwLowDateTime;
 #else
-    struct stat st;
+    struct stat st = { 0 };
     return stat(path, &st) == 0 ? (long long)st.st_mtime : 0;
 #endif
 }
@@ -108,7 +108,7 @@ int ide_project_is_open(const struct ide_project* p)
  * separators; anything else stays absolute. */
 void ide_project_relative(const struct ide_project* p, const char* abs_path, char* out, size_t cap)
 {
-    char norm[1024];
+    char norm[1024] = { 0 };
     snprintf(norm, sizeof norm, "%s", abs_path);
     for (char* c = norm; *c; c++)
     {
@@ -118,7 +118,7 @@ void ide_project_relative(const struct ide_project* p, const char* abs_path, cha
     size_t base = strlen(p->dir);
     if (base > 0 && strlen(norm) > base && norm[base] == '/')
     {
-        char head[1024];
+        char head[1024] = { 0 };
         snprintf(head, sizeof head, "%.*s", (int)base, norm);
         if (ide_path_equal(head, p->dir))
         {
@@ -158,7 +158,7 @@ int ide_project_contains(const struct ide_project* p, const char* abs_path)
         return 0;
     for (int i = 0; i < p->files.count; i++)
     {
-        char entry[1024];
+        char entry[1024] = { 0 };
         ide_project_absolute(p, p->files.items[i], entry, sizeof entry);
         if (ide_path_equal(entry, abs_path))
             return 1;
@@ -171,8 +171,6 @@ void ide_project_reset(struct ide_project* p)
 {
     p->file_path[0] = p->dir[0] = p->name[0] = '\0';
     ide_strings_clear(&p->files);
-    p->include_dirs.count = 0;
-    memset(p->debug, 0, sizeof p->debug);
     ide_build_state_clear(&p->built);
     ide_strings_clear(&p->compiled);
 }

@@ -54,12 +54,12 @@ ui_process* ui_process_start_direct(const char* const argv[], const char* dir, c
     WCHAR wcmd[4096] = { 0 };
     for (int i = 0; argv[i]; i++)
         append_quoted_arg(wcmd, 4096, argv[i]);
-    WCHAR wdir[1024];
+    WCHAR wdir[1024] = { 0 };
     if (dir && dir[0] && !MultiByteToWideChar(CP_UTF8, 0, dir, -1, wdir, 1024))
         dir = NULL;
 
     SECURITY_ATTRIBUTES sa = { sizeof sa, NULL, TRUE };
-    HANDLE hread, hwrite, hread_in, hwrite_in;
+    HANDLE hread = 0, hwrite = 0, hread_in = 0, hwrite_in = 0;
     if (!CreatePipe(&hread, &hwrite, &sa, 1 << 20))
     {
         snprintf(err, (size_t)errcap, "CreatePipe failed");
@@ -175,7 +175,7 @@ ui_process* ui_process_start_direct(const char* const argv[], const char* dir, c
 {
     if (err && errcap > 0)
         err[0] = 0;
-    int fds[2], infds[2];
+    int fds[2] = { 0 }, infds[2] = { 0 };
     if (pipe(fds) != 0)
     {
         snprintf(err, (size_t)errcap, "pipe failed: %s", strerror(errno));

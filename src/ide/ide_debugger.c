@@ -83,14 +83,14 @@ static bool win_exe_is_32bit(const char* exe_path)
     if (!f)
         return false;
 
-    unsigned char hdr[64];
+    unsigned char hdr[64] = { 0 };
     bool is32 = false;
     if (fread(hdr, 1, sizeof hdr, f) == sizeof hdr && hdr[0] == 'M' && hdr[1] == 'Z')
     {
         long e_lfanew = hdr[0x3C] | (hdr[0x3D] << 8) | (hdr[0x3E] << 16) | ((long)hdr[0x3F] << 24);
         if (e_lfanew > 0 && fseek(f, e_lfanew, SEEK_SET) == 0)
         {
-            unsigned char pe[6];
+            unsigned char pe[6] = { 0 };
             if (fread(pe, 1, sizeof pe, f) == sizeof pe &&
                 pe[0] == 'P' && pe[1] == 'E' && pe[2] == 0 && pe[3] == 0)
             {
@@ -208,7 +208,7 @@ bool debug_start(struct debug_session* s, const char* exe_path,
         return false;
     }
 
-    const char* argv[64];
+    const char* argv[64] = { 0 };
     int argc = 0;
 
 #if defined(_WIN32)
@@ -228,7 +228,7 @@ bool debug_start(struct debug_session* s, const char* exe_path,
      * command) only clears the first, leaving the session stuck there
      * forever with every breakpoint silently unreached. Falls back to a
      * bare "cdb" off PATH if the standard install layout isn't found. */
-    char cdb_path[DEBUG_MAX_PATH];
+    char cdb_path[DEBUG_MAX_PATH] = { 0 };
     if (win_pick_cdb(exe_path, cdb_path, sizeof cdb_path))
         argv[argc++] = cdb_path;
     else
@@ -301,7 +301,7 @@ void debug_send(struct debug_session* s, const char* command)
     if (!s->proc)
         return;
 
-    char line[1024];
+    char line[1024] = { 0 };
     int n = snprintf(line, sizeof line, "%s\n", command);
     if (n <= 0)
         return;
@@ -318,7 +318,7 @@ void debug_send(struct debug_session* s, const char* command)
 
 void debug_break_insert(struct debug_session* s, const char* file, int line, int id)
 {
-    char cmd[DEBUG_MAX_PATH + 64];
+    char cmd[DEBUG_MAX_PATH + 64] = { 0 };
 #if defined(_WIN32)
     /* cdb's own source-breakpoint syntax: backtick-delimited "file:line",
      * matched against loaded modules' line-number tables (see -lines in
@@ -339,7 +339,7 @@ void debug_break_insert(struct debug_session* s, const char* file, int line, int
 
 void debug_break_delete(struct debug_session* s, const char* file, int line, int id)
 {
-    char cmd[DEBUG_MAX_PATH + 64];
+    char cmd[DEBUG_MAX_PATH + 64] = { 0 };
 #if defined(_WIN32)
     snprintf(cmd, sizeof cmd, "bc %d", id);
     (void)file; (void)line;
@@ -446,11 +446,11 @@ static void debug_cdb_queue_locate(struct debug_session* s)
  * worth it for a one-off wait this short. */
 static bool unix_open_debuggee_tty(struct debug_session* s)
 {
-    char report[128];
+    char report[128] = { 0 };
     snprintf(report, sizeof report, "/tmp/cake_ide_tty.%ld", (long)getpid());
     unlink(report);
 
-    char script[512];
+    char script[512] = { 0 };
     snprintf(script, sizeof script,
              "tty > %s; echo $$ >> %s; "
              "trap 'exit 0' TERM; "
@@ -464,7 +464,7 @@ static bool unix_open_debuggee_tty(struct debug_session* s)
      * replaces the interactive login shell the window starts with, which
      * both keeps the reported pid meaningful and keeps zsh's job-control
      * chatter about the sleep out of the debuggee's window. */
-    char script_path[128];
+    char script_path[128] = { 0 };
     snprintf(script_path, sizeof script_path,
              "/tmp/cake_ide_tty_script.%ld", (long)getpid());
     FILE* sf = fopen(script_path, "w");
@@ -485,7 +485,7 @@ static bool unix_open_debuggee_tty(struct debug_session* s)
     if (pid == 0)
     {
 #if defined(__APPLE__)
-        char osa[256];
+        char osa[256] = { 0 };
         snprintf(osa, sizeof osa,
                  "tell application \"Terminal\" to do script \"exec /bin/sh %s\"",
                  script_path);
@@ -541,7 +541,7 @@ static bool unix_open_debuggee_tty(struct debug_session* s)
             }
         }
 
-        int status;
+        int status = 0;
         if (pid > 0 && waitpid(pid, &status, WNOHANG) == pid)
         {
             /* The launcher exited. For the server-backed emulators that is
@@ -588,7 +588,7 @@ void debug_run(struct debug_session* s)
 
     if (s->tty_path[0])
     {
-        char cmd[256];
+        char cmd[256] = { 0 };
         snprintf(cmd, sizeof cmd,
                  "process launch --stdin %s --stdout %s --stderr %s",
                  s->tty_path, s->tty_path, s->tty_path);
@@ -778,7 +778,7 @@ bool debug_evaluate(struct debug_session* s, const char* expr)
     snprintf(s->eval_expr, sizeof s->eval_expr, "%s", expr);
     s->eval_value[0] = 0;
     s->eval_done = false;
-    char cmd[300];
+    char cmd[300] = { 0 };
 #if defined(_WIN32)
     s->query_state = DQS_EVAL;
     snprintf(cmd, sizeof cmd, "?? %s", expr);
@@ -798,7 +798,7 @@ static void debug_eval_line(struct debug_session* s, const char* line)
 {
     if (s->eval_value[0] || strstr(line, "error") || strstr(line, "Couldn't") || strstr(line, "***"))
         return;
-    char name[128];
+    char name[128] = { 0 };
 #if defined(_WIN32)
     /* "int 0n5", maybe after cdb's prompt */
     const char* p = strstr(line, "> ");
@@ -1169,7 +1169,7 @@ static void debug_handle_line(struct debug_session* s, const char* line)
     if (strstr(line, "!!! second chance !!!"))
         s->crashed = true;
 
-    char file[DEBUG_MAX_PATH];
+    char file[DEBUG_MAX_PATH] = { 0 };
     int found_line = 0;
     if (cdb_parse_stop_location(line, file, sizeof file, &found_line))
     {
@@ -1295,7 +1295,7 @@ static void debug_handle_line(struct debug_session* s, const char* line)
         return;
     }
 
-    char file[DEBUG_MAX_PATH];
+    char file[DEBUG_MAX_PATH] = { 0 };
     int found_line = 0;
     if (lldb_parse_frame0_location(line, file, sizeof file, &found_line))
     {
@@ -1320,7 +1320,7 @@ void debug_poll(struct debug_session* s)
 
     for (;;)
     {
-        char chunk[4096];
+        char chunk[4096] = { 0 };
         int n = ui_process_read(s->proc, chunk, (int)sizeof chunk);
         if (n < 0)
         {

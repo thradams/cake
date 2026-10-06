@@ -186,7 +186,7 @@ bool object_is_zero(const struct object* p_object);
 
 const struct object* object_get_referenced(const struct object* p_object);
 
-_Attr(nodiscard)
+NODISCARD
 int object_set(
     struct parser_ctx* ctx,
     struct object* to,

@@ -167,7 +167,7 @@ static int collect_system_include_dirs(struct json_value* dirs)
     /* Parsed out of the platform compiler's own "-v -E" output, between
        "#include <...> search starts here:" and "End of search list.". */
 #ifdef __linux__
-    const char* command = "echo | gcc -v -E - 2>&1";
+    const char* command = "echo | LC_ALL=C gcc -v -E - 2>&1";   /* LC_ALL=C: gcc translates these lines */
 #else
     const char* command = "echo | clang -v -E - 2>&1";
 #endif
@@ -1317,9 +1317,9 @@ int compile(int argc, const char** argv, struct report* report)
         return 1;
     }
 
-    if (options.target != TARGET_DEFAULT && !options_is_report_mode(&options))
+    if (!options_is_report_mode(&options))
     {
-        printf("emulating %s\n", get_platform(options.target)->name);
+        printf("target: %s\n", get_platform(options.target)->name);
     }
 
     char executable_path[FS_MAX_PATH - sizeof(CAKE_CONFIG_FILE_NAME)] = { 0 };

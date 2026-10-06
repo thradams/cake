@@ -33,7 +33,7 @@ void ide_text_append(struct ide_text* t, const char* data, size_t n)
 
 void ide_text_printf(struct ide_text* t, const char* fmt, ...)
 {
-    char buf[4096];
+    char buf[4096] = { 0 };
     va_list args;
     va_start(args, fmt);
     int n = vsnprintf(buf, sizeof buf, fmt, args);

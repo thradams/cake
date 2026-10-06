@@ -53,6 +53,7 @@ void gui_set_value(struct gui_node* n, const char* utf8)
     n->value = value;
     n->cursor = (int)strlen(value);
     n->anchor = n->cursor;
+    n->hscroll = 0;   /* GUI_INPUT: from the start; focused, the paint scrolls to the caret */
 }
 
 const char* gui_get_value(const struct gui_node* n)
@@ -183,7 +184,7 @@ static struct gui_node* focus_scope(struct gui_app* app)
 
 static void focus_step(struct gui_app* app, int forward)
 {
-    struct gui_node* list[256];
+    struct gui_node* list[256] = { 0 };
     int n = collect_focusable(focus_scope(app), list, 0, 256);
     if (n == 0)
         return;
@@ -215,7 +216,7 @@ static int next_char(const char* s, int at)
 {
     if (!s[at])
         return at;
-    uint32_t cp;
+    uint32_t cp = 0;
     return at + core_utf8_decode(s + at, &cp);
 }
 
@@ -243,19 +244,38 @@ static void input_replace(struct gui_node* n, int lo, int hi, const char* text, 
 
 void gui_input_insert(struct gui_node* n, const char* utf8)
 {
-    int lo, hi;
+    int lo = 0, hi = 0;
     input_selection(n, &lo, &hi);
     input_replace(n, lo, hi, utf8, (int)strlen(utf8));
 }
 
 /* How far the text is scrolled left, px: the caret is always in view
  * (nothing stored, derived each time). */
-static int input_offset(const struct gui_app* app, const struct gui_node* n)
+/* The text's scroll, in px: it moves only when the focused caret leaves the
+ * box, and just enough to bring it back - the code editor's rule
+ * (ensure_caret_visible). The text does not chase the caret. */
+static void input_follow_caret(const struct gui_app* app, struct gui_node* n)
 {
     int cw = core_node_metrics(app, n)->cell_w;
-    int caret_x = core_utf8_width(app, core_node_font(n), n->value, n->cursor);
     int room = n->rect.w - (cw / 5 > 0 ? cw / 5 : 1);
-    return caret_x > room ? caret_x - room : 0;
+    if (room <= 0)
+        return;
+    int caret_x = core_utf8_width(app, core_node_font(n), n->value, n->cursor);
+    int text_w = core_utf8_width(app, core_node_font(n), n->value, (int)strlen(n->value));
+    if (caret_x > n->hscroll + room)
+        n->hscroll = caret_x - room;
+    else if (caret_x < n->hscroll)
+        n->hscroll = caret_x;
+    if (n->hscroll > text_w - room)   /* no hole after the text: its end stays at the right edge */
+        n->hscroll = text_w - room;
+    if (n->hscroll < 0 || text_w <= room)
+        n->hscroll = 0;
+}
+
+static int input_offset(const struct gui_app* app, const struct gui_node* n)
+{
+    (void)app;
+    return n->hscroll;
 }
 
 static int is_word_byte(char c)
@@ -363,9 +383,11 @@ static void paint_input(const struct paint* p, const struct gui_node* n)
     int focused = app->ui.focused == n;
     uint32_t fg = focused ? t->input_fg_focus : t->input_fg;
     uint32_t bg = focused ? t->input_bg_focus : t->input_bg;
-    int lo, hi;
+    int lo = 0, hi = 0;
     input_selection(n, &lo, &hi);
     int y = n->rect.y + (row_h - ch) / 2;
+    if (focused)
+        input_follow_caret(app, (struct gui_node*)n);   /* the scroll is the paint's: the box's size is known here */
 
     /* the text in one run, then again in the selection colors clipped to
      * the selection: the glyphs never move; the widget's clip cuts the text */
@@ -389,8 +411,8 @@ static void paint_input(const struct paint* p, const struct gui_node* n)
         }
     }
     /* The caret: a thin bar, a fifth of a cell, as in the old IDE, hidden
-     * while there is a selection. */
-    if (focused && lo == hi)
+     * while there is a selection or in the blink's off half. */
+    if (focused && lo == hi && !app->caret.off)
     {
         int caret_x = n->rect.x - input_offset(app, n) + core_utf8_width(app, p->font, n->value, n->cursor);
         int bar = cw / 5 > 0 ? cw / 5 : 1;
@@ -472,7 +494,7 @@ static void paint_scrollbar(const struct paint* p, const struct gui_node* n)
     if (!has_scrollbar(app, n) || (app->ui.hot != n && app->ui.scrolling != n))
         return;
     struct scrollbar sb = list_scrollbar(app, n);
-    int pos, len;
+    int pos = 0, len = 0;
     core_scrollbar_thumb(app, &sb, &pos, &len);
     int w = app->scrollbar_px;
     int x = n->rect.x + n->rect.w - w;
@@ -494,7 +516,7 @@ static int list_max_cols(const struct gui_app* app, const struct gui_node* n)
         int c = 0;
         if (proportional)
         {
-            uint32_t run[256];
+            uint32_t run[256] ={0};
             int count = 0, width = 0;
             const char* s = n->children[i]->label;
             while (*s)
@@ -559,7 +581,7 @@ static void paint_hbar(const struct paint* p, const struct gui_node* n)
     if (!has_hbar(app, n) || (app->ui.hot != n && app->ui.hscrolling != n))
         return;
     struct scrollbar sb = list_hbar(app, n);
-    int pos, len;
+    int pos = 0, len = 0;
     core_scrollbar_thumb(app, &sb, &pos, &len);
     int w = app->scrollbar_px;
     int y = n->rect.y + n->rect.h - w;
@@ -572,7 +594,7 @@ static void paint_hbar(const struct paint* p, const struct gui_node* n)
 /* The listbox scrollbar thumb at (x, y): 1 vertical, 2 horizontal, 0 none. */
 static int list_thumb_at(const struct gui_app* app, const struct gui_node* n, int x, int y)
 {
-    int pos, len;
+    int pos = 0, len = 0;
     if (on_scrollbar(app, n, x))
     {
         struct scrollbar sb = list_scrollbar(app, n);
@@ -607,14 +629,16 @@ static void paint_listbox(const struct paint* p, const struct gui_node* n)
     int cols = n->rect.w / cw;
     /* Rows are whole; the part of the box below the last one is just
      * background. */
-    gui_fill_rect(p->frame, n->rect.x, n->rect.y, n->rect.w, n->rect.h, t->listbox_bg);
+    uint32_t body_fg = n->has_colors ? n->fg : t->listbox_fg;   /* a panel's list sets its own */
+    uint32_t body_bg = n->has_colors ? n->bg : t->listbox_bg;
+    gui_fill_rect(p->frame, n->rect.x, n->rect.y, n->rect.w, n->rect.h, body_bg);
     for (int row = 0; row < visible_rows(app, n); row++)
     {
         int index = n->scroll + row;
         int y = n->rect.y + row * ch;
         int sel = index < n->child_count && (n->multi ? n->children[index]->checked : index == n->selected);
-        uint32_t fg = sel ? (focused ? t->listbox_sel_fg : t->listbox_sel_inactive_fg) : t->listbox_fg;
-        uint32_t bg = sel ? (focused ? t->listbox_sel_bg : t->listbox_sel_inactive_bg) : t->listbox_bg;
+        uint32_t fg = sel ? (focused ? t->listbox_sel_fg : t->listbox_sel_inactive_fg) : body_fg;
+        uint32_t bg = sel ? (focused ? t->listbox_sel_bg : t->listbox_sel_inactive_bg) : body_bg;
         gui_fill_rect(p->frame, n->rect.x, y, n->rect.w, ch, bg);
         if (index < n->child_count)
         {
@@ -633,7 +657,7 @@ static void paint_listbox(const struct paint* p, const struct gui_node* n)
             if (item->has_colors && label[0] && room > 0)
             {
                 /* A file-type marker: its first glyph in its own color, selected or not. */
-                uint32_t cp;
+                uint32_t cp = 0;
                 int len = core_utf8_decode(label, &cp);
                 if (skip == 0)
                 {
@@ -841,7 +865,7 @@ static int input_byte_at(const struct gui_app* app, const struct gui_node* n, in
     int at = 0, left = 0;
     while (n->value[at])
     {
-        uint32_t cp;
+        uint32_t cp = 0;
         int len = core_utf8_decode(n->value + at, &cp);
         int w = core_utf8_width(app, font, n->value + at, len);
         if (target < left + w / 2)
@@ -960,6 +984,7 @@ void widget_mouse_down(struct gui_app* app, struct gui_node* n, int double_click
             if (n->multi)
                 listbox_pick(n, index, app->mouse_mods);
             n->selected = index;
+            core_fire(app, n->children[index]->id);   /* the row's own id: picked */
             if (double_click)
                 core_fire(app, n->id);
         }
@@ -1142,7 +1167,7 @@ static int input_key(struct gui_app* app, struct gui_node* n, int key, int mods)
     int shift = (mods & GUI_MOD_SHIFT) != 0;
     int ctrl = (mods & GUI_MOD_PRIMARY) != 0;   /* Command on macOS */
     int word = (mods & GUI_MOD_WORD) != 0;
-    int lo, hi;
+    int lo = 0, hi = 0;
     input_selection(n, &lo, &hi);
 #ifdef __APPLE__
     /* Command+arrows: the line's ends; Command+Backspace: to the start - the Mac's */
@@ -1268,6 +1293,8 @@ static int list_key(struct gui_app* app, struct gui_node* n, int key, int mods)
         if (n->multi)
             listbox_pick(n, index, mods & GUI_MOD_SHIFT);
         n->selected = index;
+        if (index >= 0 && index < n->child_count)
+            core_fire(app, n->children[index]->id);   /* as a click on the row */
     }
     ensure_visible(app, n, index);
     return 1;
@@ -1314,7 +1341,10 @@ int widget_key(struct gui_app* app, int key, int mods)
         {
             int index = n->selected + (key == GUI_KEY_DOWN ? 1 : -1);
             if (index >= 0 && index < n->child_count)
+            {
                 n->selected = index;
+                core_fire(app, n->children[index]->id);   /* as a pick with the mouse */
+            }
             handled = 1;
         }
         break;
@@ -1349,7 +1379,7 @@ static void listbox_type_ahead(struct gui_app* app, struct gui_node* n, uint32_t
         const char* text = item->label;
         if (item->has_colors && *text)
         {
-            uint32_t cp;
+            uint32_t cp = 0;
             text += core_utf8_decode(text, &cp);
         }
         while (*text == ' ' || *text == '\t')
@@ -1382,8 +1412,8 @@ void widget_char(struct gui_app* app, uint32_t ch)
     }
     if (!n || n->kind != GUI_INPUT || !n->enabled)
         return;
-    char buf[4];
-    int len;
+    char buf[4] = { 0 };
+    int len = 0;
     if (ch < 0x80) { buf[0] = (char)ch; len = 1; }
     else if (ch < 0x800) { buf[0] = (char)(0xC0 | (ch >> 6)); buf[1] = (char)(0x80 | (ch & 0x3F)); len = 2; }
     else if (ch < 0x10000)
@@ -1401,7 +1431,7 @@ void widget_char(struct gui_app* app, uint32_t ch)
         buf[3] = (char)(0x80 | (ch & 0x3F));
         len = 4;
     }
-    int lo, hi;
+    int lo = 0, hi = 0;
     input_selection(n, &lo, &hi);
     input_replace(n, lo, hi, buf, len);
     app->needs_paint = 1;

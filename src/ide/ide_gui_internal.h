@@ -154,6 +154,16 @@ struct app_timer
     int ms;        /* 0: stopped */
     int id;        /* fired on every tick */
     int changed;   /* the backend has not applied ms yet */
+    int elapsed;   /* ms since id last fired */
+};
+
+/* The text caret's blink - it shares the backend's one timer with
+ * app_timer (see core_timer_interval). */
+#define GUI_CARET_BLINK_MS 700
+struct caret_blink
+{
+    int off;       /* in the hidden half of the blink */
+    int elapsed;   /* ms since the last toggle */
 };
 
 #define GUI_MAX_FONTS 16
@@ -227,7 +237,8 @@ struct gui_app
     struct widget_state ui;
     struct event_handler on_event;
     struct app_timer timer;
-    int quit_id;                 /* see gui_set_quit_id */
+    struct caret_blink caret;
+    int quit_id;                /* see gui_set_quit_id */
     char* tooltip;               /* see gui_set_tooltip; NULL: none */
     int tooltip_x, tooltip_y;
     struct app_fonts fonts;

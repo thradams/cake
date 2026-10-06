@@ -7118,6 +7118,12 @@ int preprocessor_load_config(struct preprocessor_ctx* ctx)
         printf(".%s (built-in)\n", cake_include_dir);
     }
 
+    if (ctx->options.no_includes)
+    {
+        /* -no-includes: every include directory comes from -I */
+        return 0;
+    }
+
     char cake_config_path[FS_MAX_PATH] = { 0 };
     get_cake_config_path(cake_config_path, sizeof cake_config_path);
 

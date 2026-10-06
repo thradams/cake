@@ -44,12 +44,12 @@ static int compare_entries(const void* a, const void* b)
 int ide_list_dir(const char* dir, struct ide_dir_entry* out, int max)
 {
 #ifdef _WIN32
-    wchar_t pattern[1024];
-    char utf8[1024];
+    wchar_t pattern[1024] = { 0 };
+    char utf8[1024] = { 0 };
     snprintf(utf8, sizeof utf8, "%s\\*", dir);
     if (!MultiByteToWideChar(CP_UTF8, 0, utf8, -1, pattern, 1024))
         return -1;
-    WIN32_FIND_DATAW fd;
+    WIN32_FIND_DATAW fd = { 0 };
     HANDLE h = FindFirstFileW(pattern, &fd);
     if (h == INVALID_HANDLE_VALUE)
         return -1;
@@ -73,16 +73,16 @@ int ide_list_dir(const char* dir, struct ide_dir_entry* out, int max)
     if (!d)
         return -1;
     int count = 0;
-    struct dirent* de;
+    struct dirent* de = 0;
     while (count < max && (de = readdir(d)) != NULL)
     {
         if (de->d_name[0] == '.')
             continue;   /* ".", ".." and hidden files */
         struct ide_dir_entry* e = &out[count];
         snprintf(e->name, sizeof e->name, "%s", de->d_name);
-        char full[2048];
+        char full[2048] = { 0 };
         snprintf(full, sizeof full, "%s/%s", dir, de->d_name);
-        struct stat st;
+        struct stat st = { 0 };
         e->is_dir = stat(full, &st) == 0 && S_ISDIR(st.st_mode);
         count++;
     }
@@ -145,13 +145,13 @@ int ide_write_file(const char* path, const char* text, int crlf)
 int ide_is_dir(const char* path)
 {
 #ifdef _WIN32
-    wchar_t w[1024];
+    wchar_t w[1024] = { 0 };
     if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, w, 1024))
         return 0;
     DWORD attributes = GetFileAttributesW(w);
     return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY);
 #else
-    struct stat st;
+    struct stat st = { 0 };
     return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
 #endif
 }
@@ -167,7 +167,7 @@ int ide_file_exists(const char* path)
 int ide_make_dir(const char* path)
 {
 #ifdef _WIN32
-    wchar_t w[1024];
+    wchar_t w[1024] = { 0 };
     if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, w, 1024))
         return -1;
     return CreateDirectoryW(w, NULL) ? 0 : -1;
@@ -179,7 +179,7 @@ int ide_make_dir(const char* path)
 int ide_delete_path(const char* path, int is_dir)
 {
 #ifdef _WIN32
-    wchar_t w[1024];
+    wchar_t w[1024] = { 0 };
     if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, w, 1024))
         return -1;
     return (is_dir ? RemoveDirectoryW(w) : DeleteFileW(w)) ? 0 : -1;
@@ -207,7 +207,7 @@ struct ide_process* ide_process_start(const char* command_line, const char* dir)
 #ifdef _WIN32
     size_t n = strlen(command_line) + 1;
     wchar_t* wcmd = malloc(n * sizeof(wchar_t));
-    wchar_t wdir[1024];
+    wchar_t wdir[1024] = { 0 };
     if (!wcmd || !MultiByteToWideChar(CP_UTF8, 0, command_line, -1, wcmd, (int)n) ||
         (dir && !MultiByteToWideChar(CP_UTF8, 0, dir, -1, wdir, 1024)))
     {
@@ -215,7 +215,7 @@ struct ide_process* ide_process_start(const char* command_line, const char* dir)
         return NULL;
     }
     SECURITY_ATTRIBUTES sa = { sizeof sa, NULL, TRUE };
-    HANDLE read_end, write_end;
+    HANDLE read_end = 0, write_end = 0;
     if (!CreatePipe(&read_end, &write_end, &sa, 1 << 16))
     {
         free(wcmd);
@@ -236,7 +236,7 @@ struct ide_process* ide_process_start(const char* command_line, const char* dir)
     si.hStdOutput = write_end;
     si.hStdError = write_end;
     si.hStdInput = read_in;
-    PROCESS_INFORMATION pi;
+    PROCESS_INFORMATION pi = { 0 };
     BOOL started = CreateProcessW(NULL, wcmd, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL,
                                   dir ? wdir : NULL, &si, &pi);
     CloseHandle(write_end);
@@ -263,7 +263,7 @@ struct ide_process* ide_process_start(const char* command_line, const char* dir)
     p->write_in = write_in;
     return p;
 #else
-    int fds[2], in[2];
+    int fds[2] = { 0 }, in[2] = { 0 };
     if (pipe(fds) != 0)
         return NULL;
     if (pipe(in) != 0)
@@ -410,13 +410,13 @@ void ide_process_kill(struct ide_process* p)
 char* ide_run_capture(const char* command_line, const char* dir)
 {
 #ifdef _WIN32
-    wchar_t wcmd[2048], wdir[1024];
+    wchar_t wcmd[2048] = { 0 }, wdir[1024] = { 0 };
     if (!MultiByteToWideChar(CP_UTF8, 0, command_line, -1, wcmd, 2048))
         return NULL;
     if (dir && !MultiByteToWideChar(CP_UTF8, 0, dir, -1, wdir, 1024))
         return NULL;
     SECURITY_ATTRIBUTES sa = { sizeof sa, NULL, TRUE };
-    HANDLE read_end, write_end;
+    HANDLE read_end = 0, write_end = 0;
     if (!CreatePipe(&read_end, &write_end, &sa, 0))
         return NULL;
     SetHandleInformation(read_end, HANDLE_FLAG_INHERIT, 0);
@@ -425,7 +425,7 @@ char* ide_run_capture(const char* command_line, const char* dir)
     si.hStdOutput = write_end;
     si.hStdError = write_end;
     si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
-    PROCESS_INFORMATION pi;
+    PROCESS_INFORMATION pi = { 0 };
     BOOL started = CreateProcessW(NULL, wcmd, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL,
                                   dir ? wdir : NULL, &si, &pi);
     CloseHandle(write_end);
@@ -438,7 +438,7 @@ char* ide_run_capture(const char* command_line, const char* dir)
     char* out = malloc(cap);
     for (;;)
     {
-        char chunk[2048];
+        char chunk[2048] = { 0 };
         DWORD got = 0;
         if (!ReadFile(read_end, chunk, sizeof chunk, &got, NULL) || got == 0)
             break;
@@ -474,7 +474,7 @@ char* ide_run_capture(const char* command_line, const char* dir)
     {
         struct pollfd pfd = { p->fd, POLLIN, 0 };
         poll(&pfd, 1, -1);
-        char chunk[4096];
+        char chunk[4096] = { 0 };
         int got = ide_process_read(p, chunk, sizeof chunk);
         if (got < 0)
             break;
@@ -526,12 +526,12 @@ int ide_find_tcc(char* command, int cap)
     DWORD n = GetEnvironmentVariableA("ProgramFiles", pf, sizeof pf);
     if (n > 0 && n < sizeof pf)
         snprintf(dirs[2], sizeof dirs[2], "%s\\tcc", pf);
-    char self[1024];
+    char self[1024] = { 0 };
     ide_exe_dir(self, sizeof self);
     snprintf(dirs[3], sizeof dirs[3], "%s\\tcc", self);
     for (int i = 0; i < 4; i++)
     {
-        char exe[MAX_PATH + 32];
+        char exe[MAX_PATH + 32] = { 0 };
         snprintf(exe, sizeof exe, "%s\\tcc.exe", dirs[i]);
         if (GetFileAttributesA(exe) != INVALID_FILE_ATTRIBUTES)
         {
@@ -546,14 +546,13 @@ int ide_find_tcc(char* command, int cap)
 int ide_detect_tcc_include_dirs(void (*add)(void* ctx, const char* dir), void* ctx,
                                  char* problems, int cap)
 {
-    problems[0] = '\0';
-    char tcc[1024];
+    char tcc[1024] = { 0 };
     if (!ide_find_tcc(tcc, sizeof tcc))
     {
-        snprintf(problems, (size_t)cap, "tcc was not found (PATH, C:\\tcc, Program Files\\tcc).\n");
+        add_problem(problems, cap, "tcc was not found (PATH, C:\\tcc, Program Files\\tcc).");
         return 0;
     }
-    char cmd[1200];
+    char cmd[1200] = { 0 };
     snprintf(cmd, sizeof cmd, "\"%s\" -print-search-dirs", tcc);
     char* out = ide_run_capture(cmd, NULL);
     int count = 0, in_include = 0;
@@ -561,7 +560,7 @@ int ide_detect_tcc_include_dirs(void (*add)(void* ctx, const char* dir), void* c
     {
         const char* eol = strchr(p, '\n');
         size_t len = eol ? (size_t)(eol - p) : strlen(p);
-        char line[512];
+        char line[512] = { 0 };
         snprintf(line, sizeof line, "%.*s", (int)len, p);
         p += len + (eol ? 1 : 0);
         line[strcspn(line, "\r")] = '\0';
@@ -580,7 +579,57 @@ int ide_detect_tcc_include_dirs(void (*add)(void* ctx, const char* dir), void* c
         }
     }
     if (count == 0)
-        snprintf(problems, (size_t)cap, "No include section in the output of\n  %s\n\n%s", cmd, out ? out : "");
+    {
+        size_t used = strlen(problems);
+        snprintf(problems + used, (size_t)cap - used, "No include section in the output of\n  %s\n\n%s", cmd, out ? out : "");
+    }
+    free(out);
+    return count;
+}
+
+int ide_detect_cc_include_dirs(const char* compiler, void (*add)(void* ctx, const char* dir), void* ctx,
+                                char* problems, int cap)
+{
+    char cmd[256] = { 0 };
+    /* LC_ALL=C: gcc translates the "search starts here" lines */
+    snprintf(cmd, sizeof cmd, "LC_ALL=C %s -v -E -x c /dev/null", compiler);
+    char* out = ide_run_capture(cmd, NULL);
+    int count = 0, in_include = 0;
+    for (const char* p = out ? out : ""; *p;)
+    {
+        const char* eol = strchr(p, '\n');
+        size_t len = eol ? (size_t)(eol - p) : strlen(p);
+        char line[512] = { 0 };
+        snprintf(line, sizeof line, "%.*s", (int)len, p);
+        p += len + (eol ? 1 : 0);
+        line[strcspn(line, "\r")] = '\0';
+        if (strstr(line, "#include <...> search starts here:"))
+        {
+            in_include = 1;
+            continue;
+        }
+        if (!in_include)
+            continue;
+        if (strstr(line, "End of search list."))
+            break;
+        char* dir = line;
+        while (*dir == ' ')
+            dir++;
+        /* clang labels macOS framework paths; the label is not part of the path */
+        char* tag = strstr(dir, " (framework directory)");
+        if (tag)
+            *tag = '\0';
+        if (dir[0])
+        {
+            add(ctx, dir);
+            count++;
+        }
+    }
+    if (count == 0)
+    {
+        size_t n = strlen(problems);
+        snprintf(problems + n, (size_t)cap - n, "No include search list in the output of\n  %s\n\n%s", cmd, out ? out : "");
+    }
     free(out);
     return count;
 }
@@ -597,20 +646,20 @@ void ide_detect_include_dirs(void (*add)(void* ctx, const char* dir), void* ctx,
     DWORD n = GetEnvironmentVariableA("ProgramFiles(x86)", pf86, sizeof pf86);
     if (n > 0 && n < sizeof pf86)
     {
-        char cmd[1024];
+        char cmd[1024] = { 0 };
         snprintf(cmd, sizeof cmd,
                  "\"%s\\Microsoft Visual Studio\\Installer\\vswhere.exe\" -latest -products * "
                  "-requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath",
                  pf86);
         char* out = ide_run_capture(cmd, NULL);
-        char vs_dir[512];
+        char vs_dir[512] = { 0 };
         snprintf(vs_dir, sizeof vs_dir, "%s", out ? out : "");
         free(out);
         vs_dir[strcspn(vs_dir, "\r\n")] = '\0';
-        char version_file[700];
+        char version_file[700] = { 0 };
         snprintf(version_file, sizeof version_file,
                  "%s\\VC\\Auxiliary\\Build\\Microsoft.VCToolsVersion.default.txt", vs_dir);
-        int crlf;
+        int crlf = 0;
         char* version = vs_dir[0] ? ide_read_file(version_file, &crlf) : NULL;
         if (version)
         {
@@ -620,7 +669,7 @@ void ide_detect_include_dirs(void (*add)(void* ctx, const char* dir), void* ctx,
                 snprintf(toolchain->vs_dir, sizeof toolchain->vs_dir, "%s", vs_dir);
                 snprintf(toolchain->version, sizeof toolchain->version, "%s", version);
             }
-            char dir[1024];
+            char dir[1024] = { 0 };
             snprintf(dir, sizeof dir, "%s\\VC\\Tools\\MSVC\\%s\\include", vs_dir, version);
             add(ctx, dir);
             free(version);
@@ -636,7 +685,7 @@ void ide_detect_include_dirs(void (*add)(void* ctx, const char* dir), void* ctx,
     }
 
     /* Windows SDK: KitsRoot10, and the newest version whose headers exist. */
-    HKEY key;
+    HKEY key = 0;
     if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows Kits\\Installed Roots",
                       0, KEY_READ | KEY_WOW64_32KEY, &key) != ERROR_SUCCESS)
     {
@@ -656,14 +705,14 @@ void ide_detect_include_dirs(void (*add)(void* ctx, const char* dir), void* ctx,
             strcat(root, "\\");
         for (DWORD i = 0;; i++)
         {
-            char name[64];
+            char name[64] = { 0 };
             DWORD name_len = sizeof name;
             if (RegEnumKeyExA(key, i, name, &name_len, NULL, NULL, NULL, NULL) != ERROR_SUCCESS)
                 break;
             unsigned v[4] = { 0 };
             if (sscanf(name, "%u.%u.%u.%u", &v[0], &v[1], &v[2], &v[3]) != 4)
                 continue;
-            char probe[MAX_PATH + 100];
+            char probe[MAX_PATH + 100] = { 0 };
             snprintf(probe, sizeof probe, "%sInclude\\%s\\ucrt", root, name);
             if (GetFileAttributesA(probe) == INVALID_FILE_ATTRIBUTES)
                 continue;   /* the key can outlive an uninstalled SDK */
@@ -698,7 +747,7 @@ void ide_detect_include_dirs(void (*add)(void* ctx, const char* dir), void* ctx,
     static const char* const subdirs[] = { "ucrt", "um", "shared", "winrt", "cppwinrt" };
     for (int i = 0; i < (int)(sizeof subdirs / sizeof subdirs[0]); i++)
     {
-        char dir[512];
+        char dir[512] = { 0 };
         snprintf(dir, sizeof dir, "%sInclude\\%s\\%s", root, best, subdirs[i]);
         if (GetFileAttributesA(dir) != INVALID_FILE_ATTRIBUTES)
             add(ctx, dir);
@@ -717,7 +766,7 @@ void ide_detect_include_dirs(void (*add)(void* ctx, const char* dir), void* ctx,
     {
         const char* eol = strchr(p, '\n');
         size_t len = eol ? (size_t)(eol - p) : strlen(p);
-        char line[512];
+        char line[512] = { 0 };
         snprintf(line, sizeof line, "%.*s", (int)len, p);
         p += len + (eol ? 1 : 0);
         line[strcspn(line, "\r")] = '\0';
@@ -745,7 +794,7 @@ void ide_detect_include_dirs(void (*add)(void* ctx, const char* dir), void* ctx,
     }
     if (count == 0)
     {
-        char msg[1500];
+        char msg[1500] = { 0 };
         snprintf(msg, sizeof msg, "No include search list in the output of\n  %s\n\n%s", cmd, out ? out : "");
         add_problem(problems, cap, msg);
     }
@@ -775,7 +824,7 @@ int ide_config_dir(char* buf, int cap)
 void ide_exe_dir(char* buf, int cap)
 {
 #ifdef _WIN32
-    wchar_t w[1024];
+    wchar_t w[1024] = { 0 };
     DWORD n = GetModuleFileNameW(NULL, w, 1024);
     if (n > 0 && n < 1024)
     {
@@ -786,7 +835,7 @@ void ide_exe_dir(char* buf, int cap)
             return;
     }
 #elif defined(__APPLE__)
-    char path[PATH_MAX], real[PATH_MAX];
+    char path[PATH_MAX] = { 0 }, real[PATH_MAX] = { 0 };
     uint32_t size = sizeof path;
     if (_NSGetExecutablePath(path, &size) == 0 && realpath(path, real))
     {
@@ -797,7 +846,7 @@ void ide_exe_dir(char* buf, int cap)
         return;
     }
 #else
-    char path[PATH_MAX];
+    char path[PATH_MAX] = { 0 };
     ssize_t n = readlink("/proc/self/exe", path, sizeof path - 1);
     if (n > 0)
     {
@@ -815,7 +864,7 @@ void ide_exe_dir(char* buf, int cap)
 void ide_open_url(const char* url)
 {
 #ifdef _WIN32
-    wchar_t w[1024];
+    wchar_t w[1024] = { 0 };
     if (MultiByteToWideChar(CP_UTF8, 0, url, -1, w, 1024))
         ShellExecuteW(NULL, L"open", w, NULL, NULL, SW_SHOWNORMAL);
 #else
@@ -846,7 +895,7 @@ void ide_open_terminal(const char* dir)
     wchar_t wdir[MAX_PATH] = { 0 };
     if (dir && dir[0])
         MultiByteToWideChar(CP_UTF8, 0, dir, -1, wdir, MAX_PATH);
-    wchar_t shell[MAX_PATH];
+    wchar_t shell[MAX_PATH] = { 0 };
     DWORD n = GetEnvironmentVariableW(L"COMSPEC", shell, MAX_PATH);
     if (n == 0 || n >= MAX_PATH)
         wcscpy(shell, L"cmd.exe");
@@ -889,13 +938,13 @@ void ide_open_terminal(const char* dir)
 void ide_full_path(const char* path, char* buf, int cap)
 {
 #ifdef _WIN32
-    wchar_t w[1024], full[1024];
+    wchar_t w[1024] = { 0 }, full[1024] = { 0 };
     if (MultiByteToWideChar(CP_UTF8, 0, path, -1, w, 1024) &&
         GetFullPathNameW(w, 1024, full, NULL) > 0 &&
         WideCharToMultiByte(CP_UTF8, 0, full, -1, buf, cap, NULL, NULL))
         return;
 #else
-    char full[PATH_MAX];
+    char full[PATH_MAX] = { 0 };
     if (realpath(path, full))
     {
         snprintf(buf, (size_t)cap, "%s", full);
@@ -908,7 +957,7 @@ void ide_full_path(const char* path, char* buf, int cap)
 void ide_current_dir(char* buf, int cap)
 {
 #ifdef _WIN32
-    wchar_t wdir[1024];
+    wchar_t wdir[1024] = { 0 };
     if (GetCurrentDirectoryW(1024, wdir) &&
         WideCharToMultiByte(CP_UTF8, 0, wdir, -1, buf, cap, NULL, NULL))
         return;

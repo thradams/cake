@@ -211,7 +211,7 @@ int frame_end(struct frame_recorder* r, int width, int height, struct gui_rect* 
     }
 
     /* the calls that touch the dirty rect, clipped to it */
-    struct gui_rect clip = dirty, hit;
+    struct gui_rect clip = dirty, hit = { 0 };
     gui_set_clip(c, dirty.x, dirty.y, dirty.w, dirty.h);
     for (int i = 0; i < now->count; i++)
     {

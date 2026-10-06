@@ -1892,6 +1892,7 @@ void rename_list_clear(_Clear struct rename_list* p)
     p->pending = NULL;
     p->pending_size = 0;
     p->pending_capacity = 0;
+    memset(p->old_name, 0, sizeof p->old_name);
 }
 
 static bool rename_item_is(const struct rename_item* p, const char* file, int line, int col)

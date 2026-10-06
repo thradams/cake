@@ -541,6 +541,13 @@ struct options
       -autoconfig
     */
     bool auto_config;
+
+    /*
+      -no-includes
+      cake.json's include directories are not used: every directory comes
+      on the command line (-I)
+    */
+    bool no_includes;
   
     /*
       -o filename

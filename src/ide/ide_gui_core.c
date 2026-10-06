@@ -76,7 +76,7 @@ int core_utf8_cells(const char* s, int bytes)
     const char* end = bytes < 0 ? s + strlen(s) : s + bytes;
     while (s < end && *s)
     {
-        uint32_t cp;
+        uint32_t cp = 0;
         s += core_utf8_decode(s, &cp);
         n++;
     }
@@ -89,7 +89,7 @@ int core_utf8_prefix_bytes(const char* s, int cells)
     const char* p = s;
     while (cells > 0 && *p)
     {
-        uint32_t cp;
+        uint32_t cp = 0;
         p += core_utf8_decode(p, &cp);
         cells--;
     }
@@ -198,13 +198,13 @@ int core_utf8_width(const struct gui_app* app, enum gui_font font, const char* s
     }
     else
     {
-        uint32_t run[256];
+        uint32_t run[256] = { 0 };
         int count = 0;
         int cell_w = core_font_metrics(app, font)->cell_w;
         const char* end = bytes < 0 ? s + strlen(s) : s + bytes;
         while (s < end && *s)
         {
-            uint32_t cp;
+            uint32_t cp = 0;
             s += core_utf8_decode(s, &cp);
             if (cp >= 0x2000)
             {
@@ -227,14 +227,14 @@ int core_utf8_width(const struct gui_app* app, enum gui_font font, const char* s
 int core_draw_utf8(const struct paint* p, int x, int y, const char* s, int bytes,
                      uint32_t fg, uint32_t bg)
 {
-    uint32_t run[256];
+    uint32_t run[256] = { 0 };
     int count = 0;
     const struct gui_metrics* m = core_font_metrics(p->app, p->font);
     int cell_w = m->cell_w;
     const char* end = bytes < 0 ? s + strlen(s) : s + bytes;
     while (s < end && *s)
     {
-        uint32_t cp;
+        uint32_t cp = 0;
         s += core_utf8_decode(s, &cp);
         if (cp >= 0x2000)
         {
@@ -489,7 +489,7 @@ void core_scrollbar_thumb(const struct gui_app* app, const struct scrollbar* sb,
 /* The scroll whose thumb starts at `thumb_pos` px, to the nearest item. */
 static int scroll_for_thumb(const struct gui_app* app, const struct scrollbar* sb, int thumb_pos)
 {
-    int pos, len;
+    int pos = 0, len = 0;
     core_scrollbar_thumb(app, sb, &pos, &len);
     int room = sb->track - len;
     int max_scroll = sb->total - sb->visible;
@@ -502,7 +502,7 @@ static int scroll_for_thumb(const struct gui_app* app, const struct scrollbar* s
 
 int core_scrollbar_press(struct gui_app* app, const struct scrollbar* sb, int at)
 {
-    int pos, len;
+    int pos = 0, len = 0;
     core_scrollbar_thumb(app, sb, &pos, &len);
     if (at >= pos && at < pos + len)
     {
@@ -1727,7 +1727,8 @@ static void window_drag_to(struct gui_app* app)
         int size = side == GUI_DOCK_LEFT ? d->start.w + dx
                  : side == GUI_DOCK_RIGHT ? d->start.w - dx
                  : d->start.h - dy;
-        int min_size = 8 * (side == GUI_DOCK_BOTTOM ? ch : cw);
+        int min_cells = side == GUI_DOCK_BOTTOM ? d->win->window->min_rows : d->win->window->min_cols;
+        int min_size = (min_cells > 8 ? min_cells : 8) * (side == GUI_DOCK_BOTTOM ? ch : cw);
         int cap = dock_cap(app, side);
         if (size > cap) size = cap;
         if (size < min_size) size = min_size;
@@ -1849,7 +1850,7 @@ static struct gui_rect layout_dropdown(const struct gui_app* app, struct gui_nod
             w += 2 * cw;   /* " ►" - the old IDE drew the marker over the last letter */
         else if (it->shortcut[0])
         {
-            char buf[64];
+            char buf[64] = { 0 };
             shortcut_display(it->shortcut, buf, sizeof buf);
             w += 2 * cw + core_utf8_width(app, GUI_FONT_UI, buf, -1);
         }
@@ -2027,7 +2028,7 @@ static void context_menu_at(struct gui_app* app)
         gui_focus(app, target);   /* the menu acts on the editor clicked, not the one focused before */
         editor_context_click(app, target);   /* the menu acts where the click was */
         /* the caret may land right of the click: the menu opens past it, not over it */
-        int caret_x, caret_y;
+        int caret_x = 0, caret_y = 0;
         gui_editor_caret_point(app, target, &caret_x, &caret_y);
         int cw = core_node_metrics(app, target)->cell_w;
         int bar = cw / 5 > 0 ? cw / 5 : 1;
@@ -2219,6 +2220,10 @@ static int menu_key(struct gui_app* app, int key)
     return 0;
 }
 
+static int core_timer_interval(const struct gui_app* app);
+static void caret_restart(struct gui_app* app);
+static void caret_tick(struct gui_app* app, int interval);
+
 void gui_app_event(struct gui_app* app, const struct gui_event* ev)
 {
     switch (ev->type)
@@ -2230,9 +2235,18 @@ void gui_app_event(struct gui_app* app, const struct gui_event* ev)
             app->quit = 1;
         break;
     case GUI_EVENT_TIMER:
-        if (app->timer.ms > 0 && app->timer.id != 0 && app->on_event.fn)
-            app->on_event.fn(app->on_event.ctx, app->timer.id);   /* no repaint unless asked */
+    {
+        int interval = core_timer_interval(app);
+        caret_tick(app, interval);
+        app->timer.elapsed += interval;
+        if (app->timer.ms > 0 && app->timer.elapsed >= app->timer.ms)
+        {
+            app->timer.elapsed = 0;
+            if (app->timer.id != 0 && app->on_event.fn)
+                app->on_event.fn(app->on_event.ctx, app->timer.id);   /* no repaint unless asked */
+        }
         break;
+    }
     case GUI_EVENT_MOUSE_MOVE:
         app->mouse_x = ev->x;
         app->mouse_y = ev->y;
@@ -2270,6 +2284,7 @@ void gui_app_event(struct gui_app* app, const struct gui_event* ev)
         app->mouse_x = ev->x;
         app->mouse_y = ev->y;
         app->mouse_mods = ev->mods;
+        caret_restart(app);
         mouse_down(app, ev->button, ev->double_click);
         break;
     case GUI_EVENT_MOUSE_UP:
@@ -2281,6 +2296,7 @@ void gui_app_event(struct gui_app* app, const struct gui_event* ev)
     {
         /* Escape closes the innermost thing open: a menu, a select list
          * (widget_key), then the modal on top. */
+        caret_restart(app);
         struct gui_node* modal = core_top_modal(app);
         struct gui_node* focused = app->ui.focused;
         if (app->menu.open && menu_key(app, ev->key))
@@ -2304,6 +2320,7 @@ void gui_app_event(struct gui_app* app, const struct gui_event* ev)
         break;
     }
     case GUI_EVENT_CHAR:
+        caret_restart(app);
         widget_char(app, ev->ch);
         break;
     }
@@ -2408,7 +2425,7 @@ static void paint_dropdown(const struct paint* p, const struct gui_node* menu,
         }
         else if (it->shortcut[0])
         {
-            char buf[64];
+            char buf[64] = { 0 };
             shortcut_display(it->shortcut, buf, sizeof buf);
             int sx = r->x + r->w - cw - core_utf8_width(p->app, GUI_FONT_UI, buf, -1);
             core_draw_utf8(&q, sx, r->y, buf, -1,
@@ -2475,7 +2492,7 @@ static int paint_hint_text(const struct paint* p, int* x, int y, const char* hin
 {
     const struct gui_theme* t = &p->app->theme;
     const struct gui_highlighter* h = p->app->hint_highlighter;
-    struct gui_span spans[64];
+    struct gui_span spans[64] = { 0 };
     int len = (int)strlen(hint), state = 0, count = 0;
     if (h && h->highlight)
         count = h->highlight(h->ctx, hint, len, &state, spans, 64);
@@ -2619,7 +2636,7 @@ static void paint_window_title(const struct paint* p, const struct gui_node* win
     if (!win->label[0])
         return;
     /* A window whose editor has unsaved changes shows " *" after its title. */
-    char marked[512];
+    char marked[512] = { 0 };
     const char* label = win->label;
     const struct gui_node* ed = core_find_kind(win, GUI_EDITOR);
     if (ed && !gui_editor_get_read_only(ed) && gui_editor_get_dirty(ed))
@@ -2651,7 +2668,7 @@ static void paint_window_title(const struct paint* p, const struct gui_node* win
         int at = 0, w = 0;
         while (label[at])
         {
-            uint32_t cp;
+            uint32_t cp = 0;
             int len = core_utf8_decode(label + at, &cp);
             int cw_char = core_utf8_width(app, GUI_FONT_UI, label + at, len);
             if (w + cw_char + dots_w > room)
@@ -2934,11 +2951,33 @@ int gui_app_should_quit(const struct gui_app* app)
     return app->quit;
 }
 
+static int gcd(int a, int b)
+{
+    while (b)
+    {
+        int r = a % b;
+        a = b;
+        b = r;
+    }
+    return a;
+}
+
+/* The backend's one timer serves both the app's timer and the caret blink:
+ * it ticks at a period that divides both. */
+static int core_timer_interval(const struct gui_app* app)
+{
+    return app->timer.ms > 0 ? gcd(app->timer.ms, GUI_CARET_BLINK_MS) : GUI_CARET_BLINK_MS;
+}
+
 void gui_set_timer(struct gui_app* app, int ms, int id)
 {
     if (ms < 0)
         ms = 0;
-    app->timer.changed = app->timer.changed || ms != app->timer.ms;
+    if (ms != app->timer.ms)
+    {
+        app->timer.changed = 1;
+        app->timer.elapsed = 0;
+    }
     app->timer.ms = ms;
     app->timer.id = id;
 }
@@ -2947,8 +2986,29 @@ int gui_app_take_timer(struct gui_app* app, int* ms)
 {
     int changed = app->timer.changed;
     app->timer.changed = 0;
-    *ms = app->timer.ms;
+    *ms = core_timer_interval(app);
     return changed;
+}
+
+/* Typing or clicking shows the caret solid, the blink restarting from there. */
+static void caret_restart(struct gui_app* app)
+{
+    app->caret.off = 0;
+    app->caret.elapsed = 0;
+}
+
+/* One tick of the backend timer: the caret toggles every
+ * GUI_CARET_BLINK_MS, repainting only when an editor or input has focus. */
+static void caret_tick(struct gui_app* app, int interval)
+{
+    app->caret.elapsed += interval;
+    if (app->caret.elapsed < GUI_CARET_BLINK_MS)
+        return;
+    app->caret.elapsed = 0;
+    app->caret.off = !app->caret.off;
+    const struct gui_node* f = app->ui.focused;
+    if (f && (f->kind == GUI_EDITOR || f->kind == GUI_INPUT))
+        app->needs_paint = 1;
 }
 
 int gui_app_take_zoom(struct gui_app* app)

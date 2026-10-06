@@ -22,6 +22,7 @@ extern const struct gui_theme ide_theme_white;
 extern const struct gui_theme ide_theme_nebula;
 extern const struct gui_theme ide_theme_xcode_dark;
 extern const struct gui_theme ide_theme_raspberry_pi;
+extern const struct gui_theme ide_theme_nebula2;
 
 /* --- Highlighters (ide_highlight.c) --- */
 
@@ -133,10 +134,15 @@ void ide_detect_include_dirs(void (*add)(void* ctx, const char* dir), void* ctx,
  * IDE), into `command`. 0 if none. */
 int ide_find_tcc(char* command, int cap);
 
-/* TCC's include directories, from `tcc -print-search-dirs`; `problems` says
- * why when there are none. Returns how many. */
+/* TCC's include directories, from `tcc -print-search-dirs`; appends to
+ * `problems` why when there are none. Returns how many. */
 int ide_detect_tcc_include_dirs(void (*add)(void* ctx, const char* dir), void* ctx,
                                  char* problems, int cap);
+
+/* gcc's or clang's (`compiler`) system include directories, from
+ * `compiler -v -E`; appends to `problems` when there are none. Returns how many. */
+int ide_detect_cc_include_dirs(const char* compiler, void (*add)(void* ctx, const char* dir), void* ctx,
+                                char* problems, int cap);
 
 /* Whether `command_line`'s output has `signature` - "gcc --version" has
  * "Free Software Foundation", say. */
@@ -144,21 +150,38 @@ int ide_output_has(const char* command_line, const char* signature);
 
 /* --- Settings the compile uses --- */
 
-/* Compiler Options: the global ones or a project's. */
-struct compiler_settings
-{
-    int target, headers, style, diag;   /* each select's row */
-    int flags[5];
-    char output[256];
-    char options[512];
-};
-
 #define MAX_INCLUDE_DIRS 64
 
 struct include_dirs
 {
     char dirs[MAX_INCLUDE_DIRS][512];
     int count;
+};
+
+/* The Properties of one target and configuration. */
+struct target_settings
+{
+    int headers, style, diag;   /* each select's row */
+    int flags[4];
+    char output[256];
+    char options[512];
+    char pre_build[3][512];    /* run before a Build: Command, Arguments, Directory; no Command, none */
+    char post_build[3][512];   /* run after a Build without errors, as pre_build */
+    char debug[3][512];   /* the program to debug: Command, Arguments, Directory */
+    struct include_dirs include_dirs;   /* a project's are relative to its folder */
+};
+
+#define COMPILE_TARGETS 9   /* the targets, in target_slugs' order */
+
+#define COMPILE_CONFIGS 2   /* Debug, Release */
+
+/* Properties: a project's or the Playground project's - the target and
+ * configuration in use, and the options of each. */
+struct compiler_settings
+{
+    int target;   /* the row in target_slugs */
+    int config;   /* 0 Debug, 1 Release */
+    struct target_settings targets[COMPILE_TARGETS * COMPILE_CONFIGS];   /* [target * COMPILE_CONFIGS + config] */
 };
 
 /* --- Projects (ide_project.c) --- */
@@ -223,9 +246,7 @@ struct ide_project
     char dir[1024];
     char name[256];
     struct ide_strings files;
-    struct include_dirs include_dirs;
     struct compiler_settings compile;
-    char debug[3][512];             /* the old IDE's per-project debug command, kept as read */
     long long file_time;            /* the .cakeproj's time at our last load or save */
     struct ide_build_state built;
     struct ide_strings compiled;   /* the .c files the last Build compiled */

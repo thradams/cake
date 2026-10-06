@@ -863,7 +863,7 @@ struct json_value * _Opt json_find_member(const struct json_value *object, const
 {
     struct json_value * _Opt result = NULL;
 
-    if (object->type == JSON_OBJECT)
+    if (object && object->type == JSON_OBJECT)
     {
         struct json_value * _Opt child;
 

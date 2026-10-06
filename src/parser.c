@@ -47,7 +47,7 @@
 */
 #define CAKE_GENERATED_TAG_PREFIX  "__tag"
 
-_Attr(nodiscard)
+NODISCARD
 int initializer_init_new(struct parser_ctx* ctx,
     struct type* p_type, /* in (in/out for arrays []) */
     struct object* object, /* in (in/out for arrays []) */
@@ -2995,7 +2995,7 @@ void unexpected_end_of_file(const struct parser_ctx* ctx)
     diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->p_input_list->tail, NULL, "unexpected end of file");
 }
 
-_Attr(nodiscard)
+NODISCARD
 static int parser_match_tk_core(struct parser_ctx* ctx, enum token_type type, struct token* _Opt* _Opt pp_token_lint)
 {
     int error = 0;
@@ -3026,13 +3026,13 @@ static int parser_match_tk_core(struct parser_ctx* ctx, enum token_type type, st
     return error;
 }
 
-_Attr(nodiscard)
+NODISCARD
 int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
 {
     return parser_match_tk_core(ctx, type, NULL);
 }
 
-_Attr(nodiscard)
+NODISCARD
 int parser_match_tk_lint(struct parser_ctx* ctx, enum token_type type, struct token* _Opt* pp_token_lint)
 {
     return parser_match_tk_core(ctx, type, pp_token_lint);
@@ -16324,7 +16324,7 @@ static bool is_zero_braced_initializer(const struct braced_initializer* braced_i
         object_is_zero(&p_initializer_list_item->initializer->assignment_expression->object);
 }
 
-_Attr(nodiscard)
+NODISCARD
 static int braced_initializer_new(struct parser_ctx* ctx,
     struct type* p_current_object_type,
     struct object* current_object,

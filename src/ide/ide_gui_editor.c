@@ -145,7 +145,7 @@ static int hidden_len(const struct editor_data* ce, int k, int end)
         memset(e->hidden, 0, (size_t)len + 1);
         ensure_states(e, line);
         int state = e->states[line];
-        struct gui_span spans[256];
+        struct gui_span spans[256] = { 0 };
         int count = e->highlighter.highlight(e->highlighter.ctx, e->text + start, len, &state, spans, 256);
         for (int s = 0; s < count; s++)
         {
@@ -483,7 +483,7 @@ static void edit(struct editor_data* e, int pos, int remove_len, const char* ins
 /* Replaces the selection (or inserts at the caret) as one undo group. */
 static void replace_selection(struct editor_data* e, const char* insert, int insert_len)
 {
-    int lo, hi;
+    int lo = 0, hi = 0;
     selection(e, &lo, &hi);
     e->group++;
     edit(e, lo, hi - lo, insert, insert_len);
@@ -495,7 +495,7 @@ static void replace_selection(struct editor_data* e, const char* insert, int ins
  * typing continues on one line. */
 static void type_text(struct editor_data* e, const char* s, int len)
 {
-    int lo, hi;
+    int lo = 0, hi = 0;
     selection(e, &lo, &hi);
     struct undo_step* last = e->undo.count ? &e->undo.items[e->undo.count - 1] : NULL;
     if (e->typing && lo == hi && last && last->removed_len == 0 &&
@@ -660,7 +660,7 @@ static int diff_changed(const struct editor_data* e, int line, char dr, int* fro
     int first = line;
     while (first > 0 && diff_row(e, first - 1) == dr)
         first--;
-    int pair;
+    int pair = 0;
     if (dr == '-')
     {
         int last = line;
@@ -880,7 +880,7 @@ static void ensure_states(struct editor_data* e, int line)
     if (e->states_valid < 1)
         e->states_valid = 1;
     e->states[0] = 0;
-    struct gui_span spans[256];
+    struct gui_span spans[256] = { 0 };
     while (e->states_valid <= line)
     {
         int prev = e->states_valid - 1;
@@ -1000,7 +1000,7 @@ static void line_colors(struct editor_data* e, int line, uint32_t default_fg, co
         return;
     ensure_states(e, line);
     int state = e->states[line];
-    struct gui_span spans[256];
+    struct gui_span spans[256] = { 0 };
     int count = e->highlighter.highlight(e->highlighter.ctx, e->text + start, len, &state, spans, 256);
     for (int s = 0; s < count; s++)
     {
@@ -1023,7 +1023,7 @@ static void line_colors(struct editor_data* e, int line, uint32_t default_fg, co
  * offset. Not in a VT100 editor. */
 static int selected_word(const struct editor_data* e, int* start)
 {
-    int lo, hi;
+    int lo = 0, hi = 0;
     selection(e, &lo, &hi);
     if (e->vt100 || hi <= lo)
         return 0;
@@ -1060,7 +1060,7 @@ static void paint_line(const struct paint* p, const struct gui_node* n, int line
     int cw = core_node_metrics(p->app, n)->cell_w;
     int x0 = n->rect.x + gutter_cols(e) * cw;
     int cols = view_cols(p->app, n);
-    int lo, hi;
+    int lo = 0, hi = 0;
     selection(e, &lo, &hi);
     line_colors(e, line, e->vt100 ? t->editor_output_fg : t->editor_fg, t);
 
@@ -1068,7 +1068,7 @@ static void paint_line(const struct paint* p, const struct gui_node* n, int line
     int word_len = selected_word(e, &word_start);
     int match_end = 0;   /* the occurrence being drawn ends here */
 
-    uint32_t run[256];
+    uint32_t run[256] = { 0 };
     int run_count = 0, run_col = 0;
     uint32_t run_fg = 0, run_bg = 0;
     int start = e->line_starts[line], end = line_end(e, line);
@@ -1081,7 +1081,7 @@ static void paint_line(const struct paint* p, const struct gui_node* n, int line
             k += esc;
             continue;
         }
-        uint32_t cp;
+        uint32_t cp = 0;
         int len = core_utf8_decode(e->text + k, &cp);
         int sel = k >= lo && k < hi;
         if (word_len && k >= match_end && k != word_start && word_at(e, k, end, e->text + word_start, word_len))
@@ -1158,7 +1158,7 @@ static void paint_marks(const struct paint* p, const struct gui_node* n, int fir
             continue;
         for (const char* s = e->marks.items[i].text; *s;)
         {
-            uint32_t cp;
+            uint32_t cp = 0;
             s += core_utf8_decode(s, &cp);
             if (col >= end)
             {
@@ -1199,7 +1199,7 @@ static int breakpoint_index(const struct editor_data* e, int line, int* found)
 
 static int has_breakpoint(const struct editor_data* e, int line)
 {
-    int found;
+    int found = 0;
     breakpoint_index(e, line, &found);
     return found;
 }
@@ -1208,7 +1208,7 @@ static int has_breakpoint(const struct editor_data* e, int line)
 static int toggle_breakpoint(struct editor_data* e, int line)
 {
     struct line_list* l = &e->breakpoints;
-    int found;
+    int found = 0;
     int at = breakpoint_index(e, line, &found);
     if (found)
     {
@@ -1258,7 +1258,7 @@ void editor_paint(const struct paint* p, const struct gui_node* n)
     if (e->scroll < 0) e->scroll = 0;
     if (e->hscroll > e->max_cols - cols + 1) e->hscroll = e->max_cols - cols + 1;
     if (e->hscroll < 0) e->hscroll = 0;
-    int lo, hi;
+    int lo = 0, hi = 0;
     selection(e, &lo, &hi);
     int caret_line = line_of(e, e->cursor);
 
@@ -1289,13 +1289,13 @@ void editor_paint(const struct paint* p, const struct gui_node* n)
                         : hl_bg ? hl_bg
                         : (dr == '+' && lo == hi) ? t->editor_diff_add_bg
                         : (dr == '-' && lo == hi) ? t->editor_diff_remove_bg
-                        : (line == caret_line && lo == hi && !e->vt100) ? t->editor_current_line_bg : bg;
+                        : (line == caret_line && lo == hi) ? t->editor_current_line_bg : bg;
         gui_fill_rect(p->frame, n->rect.x, y, n->rect.w, ch, row_bg);
         if (dr == '-')
             removed++;
         if (e->line_numbers && dr != '-')
         {
-            char num[16];
+            char num[16] = { 0 };
             int len = 0;
             for (int v = line + 1 - removed; v > 0; v /= 10)
                 num[len++] = (char)('0' + v % 10);
@@ -1321,8 +1321,8 @@ void editor_paint(const struct paint* p, const struct gui_node* n)
     }
 
     /* The caret: a thin bar over the left fifth of its cell, hidden while
-     * there is a selection - as in the old IDE. */
-    if (focused && lo == hi && !e->vt100)
+     * there is a selection or in the blink's off half - as in the old IDE. */
+    if (focused && lo == hi && !e->vt100 && !app->caret.off)
     {
         int col = col_of(e, caret_line, e->cursor) - e->hscroll;
         int row = caret_line - e->scroll;
@@ -1330,7 +1330,7 @@ void editor_paint(const struct paint* p, const struct gui_node* n)
         {
             int bar = cw / 5 > 0 ? cw / 5 : 1;
             gui_fill_rect(p->frame, n->rect.x + (gutter + col) * cw, n->rect.y + row * ch, bar, ch,
-                          t->editor_fg);
+                          t->editor_caret_fg);
         }
     }
 
@@ -1341,7 +1341,7 @@ void editor_paint(const struct paint* p, const struct gui_node* n)
     if (show && has_vbar(app, n))
     {
         struct scrollbar sb = vbar(app, n);
-        int pos, len;
+        int pos = 0, len = 0;
         core_scrollbar_thumb(app, &sb, &pos, &len);
         int x = n->rect.x + n->rect.w - w;
         int hot = app->ui.scrolling == n || (app->ui.thumb_hot == n && app->ui.thumb_hot_bar == 1);
@@ -1351,7 +1351,7 @@ void editor_paint(const struct paint* p, const struct gui_node* n)
     if (show && has_hbar(app, n))
     {
         struct scrollbar sb = hbar(app, n);
-        int pos, len;
+        int pos = 0, len = 0;
         core_scrollbar_thumb(app, &sb, &pos, &len);
         int x = hbar_x(app, n), y = n->rect.y + n->rect.h - w;
         int hot = app->ui.hscrolling == n || (app->ui.thumb_hot == n && app->ui.thumb_hot_bar == 2);
@@ -1363,7 +1363,7 @@ void editor_paint(const struct paint* p, const struct gui_node* n)
 int editor_thumb_at(const struct gui_app* app, const struct gui_node* n, int x, int y)
 {
     int w = app->scrollbar_px;
-    int pos, len;
+    int pos = 0, len = 0;
     if (has_vbar(app, n) && x >= n->rect.x + n->rect.w - w)
     {
         struct scrollbar sb = vbar(app, n);
@@ -1528,7 +1528,7 @@ void editor_hwheel(struct gui_app* app, struct gui_node* n, int cols)
 
 static void copy_selection(struct gui_app* app, const struct editor_data* e)
 {
-    int lo, hi;
+    int lo = 0, hi = 0;
     selection(e, &lo, &hi);
     if (lo == hi)
         return;
@@ -1564,7 +1564,7 @@ static int indent_of(const struct editor_data* e, int line, int limit)
  * as one undo step. */
 static void shift_lines(struct editor_data* e, int outdent)
 {
-    int lo, hi;
+    int lo = 0, hi = 0;
     selection(e, &lo, &hi);
     int first = line_of(e, lo);
     int last = line_of(e, hi);
@@ -1616,7 +1616,7 @@ static int move_key(const struct gui_app* app, struct gui_node* n, int key, int 
         }
     }
 #endif
-    int lo, hi;
+    int lo = 0, hi = 0;
     selection(e, &lo, &hi);
     int shift = (mods & GUI_MOD_SHIFT) != 0;
     int keep_col = 0;
@@ -1677,7 +1677,7 @@ int editor_key(struct gui_app* app, struct gui_node* n, int key, int mods)
     struct editor_data* e = n->editor;
     int ctrl = (mods & GUI_MOD_PRIMARY) != 0;   /* Command on macOS */
     int shift = (mods & GUI_MOD_SHIFT) != 0;
-    int lo, hi;
+    int lo = 0, hi = 0;
     selection(e, &lo, &hi);
     int handled = 1;
 
@@ -1725,7 +1725,7 @@ int editor_key(struct gui_app* app, struct gui_node* n, int key, int mods)
         /* A new line keeps the current line's indentation. */
         int line = line_of(e, lo);
         int indent = indent_of(e, line, lo);
-        char buf[256];
+        char buf[256] = { 0 };
         if (indent > (int)sizeof buf - 2) indent = (int)sizeof buf - 2;
         buf[0] = '\n';
         memset(buf + 1, ' ', (size_t)indent);
@@ -1783,8 +1783,8 @@ void editor_char(struct gui_app* app, struct gui_node* n, uint32_t ch)
     struct editor_data* e = n->editor;
     if (e->read_only)
         return;
-    char buf[4];
-    int len;
+    char buf[4] = { 0 };
+    int len = 0;
     if (ch < 0x80) { buf[0] = (char)ch; len = 1; }
     else if (ch < 0x800) { buf[0] = (char)(0xC0 | (ch >> 6)); buf[1] = (char)(0x80 | (ch & 0x3F)); len = 2; }
     else if (ch < 0x10000)
@@ -1827,7 +1827,7 @@ void gui_editor_copy(struct gui_app* app, struct gui_node* ed)
 void gui_editor_cut(struct gui_app* app, struct gui_node* ed)
 {
     struct editor_data* e = ed->editor;
-    int lo, hi;
+    int lo = 0, hi = 0;
     selection(e, &lo, &hi);
     copy_selection(app, e);
     if (lo != hi && !e->read_only)

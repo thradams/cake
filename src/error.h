@@ -7,13 +7,14 @@
 
 typedef int errno_t;
 
-#if __STDC_VERSION__  < 202311L 
-#define _Attr(...)
-#else
-#define _Attr(...) [[ __VA_ARGS__ ]]
-#endif
-
-
+ #if defined(__CAKE__) || __STDC_VERSION__ >= 202311L
+ #define FALLTHROUGH [[fallthrough]]
+#define NODISCARD [[nodiscard]]
+ #else
+ #define FALLTHROUGH ((void)0)
+#define NODISCARD
+ #endif
+ 
 #ifndef __CAKE__
 
 /*emulation of c2y _Countof*/

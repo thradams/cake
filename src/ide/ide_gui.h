@@ -177,6 +177,8 @@ struct gui_theme
         editor_string_fg,
         editor_comment_fg, editor_preproc_fg, editor_sel_bg, editor_sel_fg;
     uint32_t editor_attribute_fg;  /* a C23 [[attribute]] */
+    uint32_t editor_caret_fg;  /* the caret bar; a theme with no dedicated
+                                 * caret color sets this equal to editor_fg */
     /* editor_keyword_fg colors type/storage keywords (is_c_keyword1 - int,
      * struct, const, ...); editor_keyword2_fg colors control-flow keywords
      * (is_c_keyword2 - if, for, return, ...). */
@@ -318,6 +320,10 @@ struct gui_theme
      * without competing with whichever widget is actually focused (the
      * convention every desktop toolkit follows). */
     uint32_t listbox_sel_inactive_fg, listbox_sel_inactive_bg;
+    uint32_t panel_fg, panel_bg;  /* the <listbox> of a docked panel (Folder,
+                          * Project, Git Changes, Debug Info) - the app colors
+                          * it with gui_set_colors; a theme with no dedicated
+                          * panel look sets these equal to listbox_fg/_bg */
 
     /* Project panel only: the leading file-type marker prepended to each
      * row's label (see project_window_refresh() in ide.c) - one color per

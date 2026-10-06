@@ -1767,6 +1767,12 @@ int i2 = u&#39;ç&#39;;
 char* s2 = u8&quot;maca&quot;;
 </code></pre>
 
+<p>Generated code (non-ASCII bytes become 3-digit octal escapes):</p>
+
+<pre><code class="language-c">char* s1 = &quot;ma\303\247\303\243&quot;;
+char* s2 = &quot;maca&quot;;
+</code></pre>
+
 <blockquote>
 <p><strong>Note:</strong> Cake assumes source files are UTF-8 encoded.</p>
 </blockquote>

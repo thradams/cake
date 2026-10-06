@@ -93,6 +93,7 @@ const struct gui_theme ide_theme_ambar = {
     .input_sel_fg = GUI_RGB(0xFF, 0xFF, 0xFF),
 
     .editor_bg = GUI_RGB(0x1E, 0x1E, 0x20),
+    .editor_caret_fg = GUI_RGB(0xD8, 0xD6, 0xD0),
     .editor_fg = GUI_RGB(0xD8, 0xD6, 0xD0),
     .editor_keyword_fg = GUI_RGB(0xF5, 0xC2, 0x42),   /* types/storage: VS blue */
     .editor_keyword2_fg = GUI_RGB(0xD3, 0x86, 0x9B),  /* control flow: VS purple */
@@ -172,11 +173,13 @@ const struct gui_theme ide_theme_ambar = {
     /* <listbox> - same body colors as <editor>/<input> rather than the
      * classic theme's cyan, selection reuses the same #007ACC accent as
      * every other "selected" state in this theme. */
+    .panel_fg = GUI_RGB(0x96, 0x94, 0x8E),
     .listbox_fg = GUI_RGB(0x96, 0x94, 0x8E),  /* deliberately dimmer than
                                               * editor_fg: the Folder panel
                                               * is the biggest list on
                                               * screen and shouldn't pull
                                               * attention off the code */
+    .panel_bg = GUI_RGB(0x1E, 0x1E, 0x20),
     .listbox_bg = GUI_RGB(0x1E, 0x1E, 0x20),
     .listbox_sel_fg = GUI_RGB(0x1E, 0x1E, 0x20),
     .listbox_sel_bg = GUI_RGB(0xF5, 0xC2, 0x42),
@@ -278,6 +281,7 @@ const struct gui_theme ide_theme_dark = {
     .input_sel_fg = GUI_RGB(0xFF, 0xFF, 0xFF),
 
     .editor_bg = GUI_RGB(0x1E, 0x1E, 0x1E),
+    .editor_caret_fg = GUI_RGB(0xD4, 0xD4, 0xD4),
     .editor_fg = GUI_RGB(0xD4, 0xD4, 0xD4),
     .editor_keyword_fg = GUI_RGB(0x56, 0x9C, 0xD6),   /* types/storage: VS blue */
     .editor_keyword2_fg = GUI_RGB(0xC5, 0x86, 0xC0),  /* control flow: VS purple */
@@ -355,8 +359,10 @@ const struct gui_theme ide_theme_dark = {
     /* <listbox> - same body colors as <editor>/<input> rather than the
      * classic theme's cyan, selection reuses the same #007ACC accent as
      * every other "selected" state in this theme. */
+    .panel_fg = GUI_RGB(0x93, 0x93, 0x93),
     .listbox_fg = GUI_RGB(0x93, 0x93, 0x93),  /* dimmer than editor_fg - see
                                               * the Ambar theme's own note */
+    .panel_bg = GUI_RGB(0x1E, 0x1E, 0x1E),
     .listbox_bg = GUI_RGB(0x1E, 0x1E, 0x1E),
     .listbox_sel_fg = GUI_RGB(0xFF, 0xFF, 0xFF),
     .listbox_sel_bg = GUI_RGB(0x00, 0x7A, 0xCC),
@@ -413,7 +419,7 @@ const struct gui_theme ide_theme_white = {
     .menu_item_fg_disabled = GUI_RGB(0xA0, 0xA0, 0xA0),
     .menu_border_fg = GUI_RGB(0xCC, 0xCC, 0xCC),  /* light gray, not near-black */
     .menu_border_bg = GUI_RGB(0xFF, 0xFF, 0xFF),
-    .menu_border_style = GUI_BORDER_DOUBLE,
+    .menu_border_style = GUI_BORDER_SINGLE,
 
     .box_fg = GUI_RGB(0x1E, 0x1E, 0x1E),
     .box_bg = GUI_RGB(0xFF, 0xFF, 0xFF),
@@ -480,6 +486,7 @@ const struct gui_theme ide_theme_white = {
     .input_sel_fg = GUI_RGB(0x00, 0x00, 0x00),
 
     .editor_bg = GUI_RGB(0xFF, 0xFF, 0xFF),
+    .editor_caret_fg = GUI_RGB(0x1E, 0x1E, 0x1E),
     .editor_fg = GUI_RGB(0x1E, 0x1E, 0x1E),
     .editor_keyword_fg = GUI_RGB(0x00, 0x00, 0xFF),   /* types/storage: blue */
     .editor_keyword2_fg = GUI_RGB(0xAF, 0x00, 0xDB),  /* control flow: purple */
@@ -567,12 +574,14 @@ const struct gui_theme ide_theme_white = {
     /* <listbox> - same body colors as <editor>/<input> rather than the
      * classic theme's cyan, selection reuses the same #CCE8FF accent as
      * every other "selected" state in this theme. */
+    .panel_fg = GUI_RGB(0x60, 0x60, 0x60),
     .listbox_fg = GUI_RGB(0x60, 0x60, 0x60),  /* dimmer than the editor's own
                                               * #1E1E1E body text - the
                                               * Folder panel is the biggest
                                               * listbox on screen and
                                               * shouldn't pull attention off
                                               * the code */
+    .panel_bg = GUI_RGB(0xF3, 0xF3, 0xF3),
     .listbox_bg = GUI_RGB(0xF3, 0xF3, 0xF3),  /* VS Code Light's actual side
                                               * bar gray rather than the
                                               * editor's plain white, so the
@@ -627,7 +636,7 @@ const struct gui_theme ide_theme_raspberry_pi = {
     .menu_item_fg_disabled = GUI_RGB(0xA0, 0xA0, 0xA0),
     .menu_border_fg = GUI_RGB(0xCC, 0xCC, 0xCC),
     .menu_border_bg = GUI_RGB(0xFF, 0xFF, 0xFF),
-    .menu_border_style = GUI_BORDER_DOUBLE,
+    .menu_border_style = GUI_BORDER_SINGLE,
     .box_fg = GUI_RGB(0x1E, 0x1E, 0x1E),
     .box_bg = GUI_RGB(0xFF, 0xFF, 0xFF),
     .box_border_style = GUI_BORDER_DOUBLE,
@@ -658,6 +667,7 @@ const struct gui_theme ide_theme_raspberry_pi = {
     .input_sel_bg = GUI_RGB(0xC3, 0xC8, 0xCE),
     .input_sel_fg = GUI_RGB(0x00, 0x00, 0x00),
     .editor_bg = GUI_RGB(0xFF, 0xFF, 0xFF),
+    .editor_caret_fg = GUI_RGB(0x1E, 0x1E, 0x1E),
     .editor_fg = GUI_RGB(0x1E, 0x1E, 0x1E),
     .editor_keyword_fg = GUI_RGB(0x00, 0x00, 0x7F),
     .editor_keyword2_fg = GUI_RGB(0x00, 0x00, 0x7F),
@@ -695,7 +705,9 @@ const struct gui_theme ide_theme_raspberry_pi = {
     .editor_diff_add_word_bg = GUI_RGB(0xAC, 0xF2, 0xBD),
     .editor_diff_remove_word_bg = GUI_RGB(0xFF, 0xC0, 0xC0),
     .md_code_bg = GUI_RGB(0xF6, 0xF8, 0xFA),
+    .panel_fg = GUI_RGB(0x1E, 0x1E, 0x1E),
     .listbox_fg = GUI_RGB(0x1E, 0x1E, 0x1E),
+    .panel_bg = GUI_RGB(0xFF, 0xFF, 0xFF),
     .listbox_bg = GUI_RGB(0xFF, 0xFF, 0xFF),
     .listbox_sel_fg = GUI_RGB(0x00, 0x00, 0x00),
     .listbox_sel_bg = GUI_RGB(0xDD, 0xE0, 0xE4),
@@ -782,6 +794,7 @@ const struct gui_theme ide_theme_nebula = {
     .input_sel_fg = GUI_RGB(0xFF, 0xFF, 0xFF),
 
     .editor_bg = GUI_RGB(0x1A, 0x1B, 0x26),
+    .editor_caret_fg = GUI_RGB(0xC0, 0xCA, 0xF5),
     .editor_fg = GUI_RGB(0xC0, 0xCA, 0xF5),
     .editor_keyword_fg = GUI_RGB(0xF7, 0x76, 0x8E),   /* types/storage: rose -
                                                       * the same color the
@@ -844,10 +857,12 @@ const struct gui_theme ide_theme_nebula = {
 
     /* <listbox> - same body colors as <editor>/<input>, selection reuses the
      * same #7AA2F7 accent as every other "selected" state in this theme. */
+    .panel_fg = GUI_RGB(0x9A, 0xA5, 0xCE),
     .listbox_fg = GUI_RGB(0x9A, 0xA5, 0xCE),  /* dimmer than editor_fg: the
                                               * Folder panel is the biggest
                                               * list on screen and shouldn't
                                               * pull attention off the code */
+    .panel_bg = GUI_RGB(0x1A, 0x1B, 0x26),
     .listbox_bg = GUI_RGB(0x1A, 0x1B, 0x26),
     .listbox_sel_fg = GUI_RGB(0x1A, 0x1B, 0x26),
     .listbox_sel_bg = GUI_RGB(0x7A, 0xA2, 0xF7),
@@ -939,6 +954,7 @@ const struct gui_theme ide_theme_xcode_dark = {
     .input_sel_fg = GUI_RGB(0xFF, 0xFF, 0xFF),
 
     .editor_bg = GUI_RGB(0x29, 0x2A, 0x30),
+    .editor_caret_fg = GUI_RGB(0xFF, 0xFF, 0xFF),
     .editor_fg = GUI_RGB(0xFF, 0xFF, 0xFF),
     .editor_keyword_fg = GUI_RGB(0xFC, 0x5F, 0xA3),   /* Xcode uses one pink for
                                                       * every keyword... */
@@ -992,9 +1008,11 @@ const struct gui_theme ide_theme_xcode_dark = {
 
     /* <listbox> - Xcode's navigator: a shade darker than the editor, with
      * the same system blue as every other "selected" state in this theme. */
+    .panel_fg = GUI_RGB(0xD1, 0xD1, 0xD6),
     .listbox_fg = GUI_RGB(0xD1, 0xD1, 0xD6),  /* dimmer than editor_fg so the
                                               * Folder panel doesn't pull
                                               * attention off the code */
+    .panel_bg = GUI_RGB(0x26, 0x26, 0x2B),
     .listbox_bg = GUI_RGB(0x26, 0x26, 0x2B),
     .listbox_sel_fg = GUI_RGB(0xFF, 0xFF, 0xFF),
     .listbox_sel_bg = GUI_RGB(0x00, 0x58, 0xD0),
@@ -1015,4 +1033,136 @@ const struct gui_theme ide_theme_xcode_dark = {
     .diag_error_bg = GUI_RGB(0x50, 0x30, 0x35),
     .diag_warning_bg = GUI_RGB(0x50, 0x46, 0x2E),
     .diag_info_bg = GUI_RGB(0x32, 0x46, 0x54),
+};
+
+/* "Nebula II" - the Neo-tree/Neovim look of the screenshot (editor #130F1A,
+ * text #CDD6F4, accent #89B4FA): mauve keywords, blue function names, green
+ * strings, peach literals and yellow type names, with the side panels one
+ * step lighter (#1D1F2F) than the editor. */
+const struct gui_theme ide_theme_nebula2 = {
+    /* NOTE: anything drawn ON the #89B4FA accent uses the dark #1E1E2E ink. */
+    .desktop_bg = GUI_RGB(0x11, 0x11, 0x1B),
+
+    .btn_bg = GUI_RGB(0x31, 0x32, 0x44),
+    .btn_bg_hot = GUI_RGB(0x45, 0x47, 0x5A),
+    .btn_bg_active = GUI_RGB(0x89, 0xB4, 0xFA),
+    .btn_fg = GUI_RGB(0xCD, 0xD6, 0xF4),
+
+    .hotkey_fg = GUI_RGB(0x1E, 0x1E, 0x2E),
+    .hotkey_key_fg = GUI_RGB(0x8C, 0x2E, 0x2E),
+    .hotkey_bg = GUI_RGB(0x89, 0xB4, 0xFA),
+    .hotkey_fg_hot = GUI_RGB(0x1E, 0x1E, 0x2E),
+    .hotkey_bg_hot = GUI_RGB(0xB4, 0xBE, 0xFE),
+
+    .menu_fg = GUI_RGB(0xCD, 0xD6, 0xF4),
+    .menu_bg = GUI_RGB(0x18, 0x18, 0x25),
+    .menu_fg_sel = GUI_RGB(0x1E, 0x1E, 0x2E),
+    .menu_bg_sel = GUI_RGB(0x89, 0xB4, 0xFA),
+    .menu_item_fg = GUI_RGB(0xCD, 0xD6, 0xF4),
+    .menu_item_bg = GUI_RGB(0x18, 0x18, 0x25),
+    .menu_item_fg_hot = GUI_RGB(0x1E, 0x1E, 0x2E),
+    .menu_item_bg_hot = GUI_RGB(0x89, 0xB4, 0xFA),
+    .menu_item_shortcut_fg = GUI_RGB(0x93, 0x99, 0xB2),
+    .menu_item_fg_disabled = GUI_RGB(0x58, 0x5B, 0x70),
+    .menu_border_fg = GUI_RGB(0x45, 0x47, 0x5A),
+    .menu_border_bg = GUI_RGB(0x18, 0x18, 0x25),
+    .menu_border_style = GUI_BORDER_SINGLE,
+
+    .box_fg = GUI_RGB(0xCD, 0xD6, 0xF4),
+    .box_bg = GUI_RGB(0x18, 0x18, 0x25),
+    .box_border_style = GUI_BORDER_SINGLE,
+
+    .window_border_fg = GUI_RGB(0x89, 0xB4, 0xFA),
+    .window_border_bg = GUI_RGB(0x18, 0x18, 0x25),
+    .window_border_fg_dragging = GUI_RGB(0xB4, 0xBE, 0xFE),
+    .window_border_fg_unfocused = GUI_RGB(0x45, 0x47, 0x5A),
+    .window_border_style = GUI_BORDER_SINGLE,
+    .window_border_style_unfocused = GUI_BORDER_SINGLE,
+    .window_border_style_docked = GUI_BORDER_SINGLE,
+    .window_border_style_docked_unfocused = GUI_BORDER_SINGLE,
+    .window_close_bg = GUI_RGB(0xF3, 0x8B, 0xA8),
+    .window_fg = GUI_RGB(0xCD, 0xD6, 0xF4),
+    .window_bg = GUI_RGB(0x18, 0x18, 0x25),
+    .modal_border_fg = GUI_RGB(0x89, 0xB4, 0xFA),
+    .modal_border_bg = GUI_RGB(0x18, 0x18, 0x25),
+    .modal_border_style = GUI_BORDER_SINGLE,
+    .modal_fg = GUI_RGB(0xCD, 0xD6, 0xF4),
+    .modal_bg = GUI_RGB(0x18, 0x18, 0x25),
+    .label_fg = GUI_RGB(0x89, 0xB4, 0xFA),
+    .scrollbar_bg = GUI_RGB(0x18, 0x18, 0x25),
+    .scrollbar_thumb_bg = GUI_RGB(0x45, 0x47, 0x5A),
+    .scrollbar_thumb_hot_bg = GUI_RGB(0x58, 0x5B, 0x70),
+
+    .input_bg = GUI_RGB(0x31, 0x32, 0x44),
+    .input_bg_focus = GUI_RGB(0x11, 0x11, 0x1B),
+    .input_fg = GUI_RGB(0xCD, 0xD6, 0xF4),
+    .input_fg_focus = GUI_RGB(0xFF, 0xFF, 0xFF),
+    .input_sel_bg = GUI_RGB(0x40, 0x42, 0x5E),
+    .input_sel_fg = GUI_RGB(0xFF, 0xFF, 0xFF),
+
+    .editor_bg = GUI_RGB(0x13, 0x0F, 0x1A),
+    .editor_caret_fg = GUI_RGB(0xA8, 0x93, 0xCC),
+    .editor_fg = GUI_RGB(0xCD, 0xD6, 0xF4),
+    .editor_keyword_fg = GUI_RGB(0xF9, 0xE2, 0xAF),   /* types/storage: yellow,
+                                                      * like `Command`/`Key` */
+    .editor_keyword2_fg = GUI_RGB(0xCB, 0xA6, 0xF7),  /* control flow: mauve */
+    .editor_string_fg = GUI_RGB(0xA6, 0xE3, 0xA1),
+    .editor_comment_fg = GUI_RGB(0x6C, 0x70, 0x86),
+    .editor_lint_fg = GUI_RGB(0xF9, 0xE2, 0xAF),
+    .editor_linenum_fg = GUI_RGB(0x6C, 0x70, 0x86),
+    .editor_preproc_fg = GUI_RGB(0xCB, 0xA6, 0xF7),
+    .editor_attribute_fg = GUI_RGB(0x94, 0xE2, 0xD5),
+    .editor_sel_bg = GUI_RGB(0x40, 0x42, 0x5E),
+    .editor_sel_fg = GUI_RGB(0xFF, 0xFF, 0xFF),
+    .editor_word_match_bg = GUI_RGB(0x31, 0x32, 0x44),
+    .editor_current_line_bg = GUI_RGB(0x2E, 0x33, 0x4D),
+    .editor_breakpoint_fg = GUI_RGB(0xF3, 0x8B, 0xA8),
+    .editor_exec_line_bg = GUI_RGB(0x24, 0x35, 0x2C),
+    .editor_bracket_fg = {
+        GUI_RGB(0xF9, 0xE2, 0xAF),  /* yellow */
+        GUI_RGB(0xCB, 0xA6, 0xF7),  /* mauve */
+        GUI_RGB(0x94, 0xE2, 0xD5),  /* teal */
+        GUI_RGB(0x89, 0xB4, 0xFA),  /* blue */
+    },
+    .editor_tag_fg = GUI_RGB(0x94, 0xE2, 0xD5),
+    .editor_number_fg = GUI_RGB(0xFA, 0xB3, 0x87),  /* peach, like `False`/`None` */
+    .editor_char_fg = GUI_RGB(0xF5, 0xC2, 0xE7),
+    .editor_function_fg = GUI_RGB(0x89, 0xB4, 0xFA),
+    .editor_output_bg = GUI_RGB(0x18, 0x18, 0x25),
+    .editor_output_fg = GUI_RGB(0xCD, 0xD6, 0xF4),
+
+    .md_heading_fg = GUI_RGB(0x89, 0xB4, 0xFA),
+    .md_blockquote_fg = GUI_RGB(0x6C, 0x70, 0x86),
+    .md_code_fg = GUI_RGB(0xA6, 0xE3, 0xA1),
+    .md_bold_fg = GUI_RGB(0xCD, 0xD6, 0xF4),
+    .md_link_fg = GUI_RGB(0x94, 0xE2, 0xD5),
+    .editor_diff_add_bg = GUI_RGB(0x24, 0x3A, 0x2E),
+    .editor_diff_remove_bg = GUI_RGB(0x3E, 0x25, 0x33),
+    .editor_diff_add_word_bg = GUI_RGB(0x34, 0x6A, 0x48),
+    .editor_diff_remove_word_bg = GUI_RGB(0x6E, 0x34, 0x4C),
+    .md_code_bg = GUI_RGB(0x18, 0x18, 0x25),
+
+    /* the panel a step lighter than the editor, the selected row
+     * a muted surface instead of the full accent. */
+    .panel_fg = GUI_RGB(0xBA, 0xC2, 0xDE),
+    .listbox_fg = GUI_RGB(0xBA, 0xC2, 0xDE),
+    .panel_bg = GUI_RGB(0x1D, 0x1F, 0x2F),
+    .listbox_bg = GUI_RGB(0x1E, 0x1E, 0x2E),
+    .listbox_sel_fg = GUI_RGB(0xCD, 0xD6, 0xF4),
+    .listbox_sel_bg = GUI_RGB(0x31, 0x32, 0x44),
+    .listbox_sel_inactive_fg = GUI_RGB(0xCD, 0xD6, 0xF4),
+    .listbox_sel_inactive_bg = GUI_RGB(0x26, 0x27, 0x38),
+
+    .project_icon_c_fg = GUI_RGB(0x89, 0xB4, 0xFA),
+    .project_icon_h_fg = GUI_RGB(0xCB, 0xA6, 0xF7),
+    .project_icon_md_fg = GUI_RGB(0xFA, 0xB3, 0x87),  /* the screenshot's
+                                                       * orange file icons */
+
+    .diag_error_fg = GUI_RGB(0xF3, 0x8B, 0xA8),
+    .diag_warning_fg = GUI_RGB(0xF9, 0xE2, 0xAF),
+    .diag_info_fg = GUI_RGB(0x89, 0xDC, 0xEB),
+    /* Each fg at 18% over editor_bg. */
+    .diag_error_bg = GUI_RGB(0x43, 0x30, 0x44),
+    .diag_warning_bg = GUI_RGB(0x43, 0x41, 0x45),
+    .diag_info_bg = GUI_RGB(0x34, 0x41, 0x52),
 };

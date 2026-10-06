@@ -182,7 +182,7 @@ int ide_compile_start(struct ide_compile_job* job)
         return 0;
     job->saved_stdout = _dup(_fileno(stdout));
     SECURITY_ATTRIBUTES sa = { sizeof sa, NULL, TRUE };
-    HANDLE hwrite;
+    HANDLE hwrite = 0;
     if (!CreatePipe(&job->hread, &hwrite, &sa, 1 << 20))
         return 0;
     int wfd = _open_osfhandle((intptr_t)hwrite, _O_WRONLY | _O_TEXT);
@@ -198,7 +198,7 @@ int ide_compile_start(struct ide_compile_job* job)
     if (!freopen("/dev/null", "w", stdout))
         return 0;
     job->saved_stdout = dup(fileno(stdout));
-    int fds[2];
+    int fds[2] = { 0 };
     if (pipe(fds) != 0)
         return 0;
     job->fdread = fds[0];
@@ -220,7 +220,7 @@ int ide_compile_start(struct ide_compile_job* job)
 /* Whatever is in the pipe now, without blocking. */
 static size_t drain(struct ide_compile_job* job)
 {
-    char buf[8192];
+    char buf[8192] = { 0 };
     size_t total = 0;
 #ifdef _WIN32
     for (;;)
