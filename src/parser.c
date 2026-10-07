@@ -15955,9 +15955,21 @@ static struct object* _Opt find_first_subobject_old( struct object* p_object, st
     return p_object->members.head; // tODO
 }
 
+/* unnamed bit-fields are not initialized (6.7.11): the initializer goes to the next member */
+static bool object_is_unnamed_bitfield(const struct object* p_object)
+{
+    return type_is_bitfield(&p_object->type) &&
+        (p_object->member_designator == NULL || p_object->member_designator[0] == '\0');
+}
+
+static struct object* _Opt find_next_subobject_old(struct object* _Opt it, struct type* p_type_out, bool* sub_object_of_union);
+
 static struct object* _Opt find_first_subobject( struct object* p_object, struct type* p_type_out, bool* sub_object_of_union)
 {
-    return find_first_subobject_old( p_object, p_type_out, sub_object_of_union);
+    struct object* _Opt p = find_first_subobject_old( p_object, p_type_out, sub_object_of_union);
+    while (p && object_is_unnamed_bitfield(p))
+        p = find_next_subobject_old(p, p_type_out, sub_object_of_union);
+    return p;
 }
 
 static struct object* _Opt find_last_suboject_of_suboject_old(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out)
@@ -16050,10 +16062,13 @@ static struct object* _Opt find_next_subobject(
     struct type* p_type_out,
     bool* sub_object_of_union)
 {
-    return find_next_subobject_old(
+    struct object* _Opt p = find_next_subobject_old(
         it,
         p_type_out,
         sub_object_of_union);
+    while (p && object_is_unnamed_bitfield(p))
+        p = find_next_subobject_old(p, p_type_out, sub_object_of_union);
+    return p;
 }
 
 struct find_object_result

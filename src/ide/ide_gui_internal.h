@@ -34,6 +34,7 @@ struct gui_node
     char* shortcut;            /* never NULL; "" for none */
     char* hint;                /* never NULL; "" for none */
     int id;
+    int change_id;             /* GUI_INPUT: fired when the user edits the text; 0: none */
     int enabled;
     int separator;
     int centered;              /* GUI_TEXT: the label centered in its rect */

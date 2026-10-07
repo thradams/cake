@@ -540,6 +540,11 @@ void gui_set_id(struct gui_node* n, int id)
     n->id = id;
 }
 
+void gui_set_change_id(struct gui_node* n, int id)
+{
+    n->change_id = id;
+}
+
 void gui_set_shortcut(struct gui_node* n, const char* shortcut)
 {
     char* copy = core_strdup(shortcut);
@@ -1814,6 +1819,7 @@ static int shortcut_matches(const char* shortcut, int key, int mods)
     if (strcmp(p, "Left") == 0) return key == GUI_KEY_LEFT;
     if (strcmp(p, "Right") == 0) return key == GUI_KEY_RIGHT;
     if (strcmp(p, "Space") == 0) return key == ' ';
+    if (strcmp(p, "Del") == 0) return key == GUI_KEY_DELETE;
     if (p[1] == '\0')
     {
         int c = (unsigned char)p[0];
@@ -2154,6 +2160,19 @@ static int run_shortcut(struct gui_app* app, int key, int mods)
 {
     if (run_statusbar_hotkey(app, key, mods, 0))
         return 1;
+    /* the focused widget's context menu: its items' shortcuts act on it */
+    struct gui_node* focused = app->ui.focused;
+    struct gui_node* context = focused ? focused->context_menu : NULL;
+    for (int j = 0; context && j < context->child_count; j++)
+    {
+        struct gui_node* it = context->children[j];
+        if (it->shortcut[0] && item_can_fire(it) && shortcut_matches(it->shortcut, key, mods))
+        {
+            close_menu(app);
+            core_fire(app, it->id);
+            return 1;
+        }
+    }
     struct gui_node* menubar = core_find_kind(main_root(app), GUI_MENUBAR);
     if (!menubar)
         return 0;
@@ -2569,7 +2588,9 @@ static void paint_statusbar(const struct paint* p, const struct gui_node* bar)
     gui_fill_rect(p->frame, bar->rect.x, bar->rect.y, bar->rect.w, bar->rect.h, t->hotkey_bg);
 
     const struct gui_node* hot = p->app->menu.hot;
-    if (!hot || !hot->hint[0])
+    if (hot && !hot->hint[0])
+        return;   /* a menu item without help: the bar stays blank */
+    if (!hot)
         hot = core_top_modal(p->app) ? gui_focused_item(p->app) : NULL;
     if (hot && hot->hint[0])
     {
@@ -3160,8 +3181,20 @@ static int paint_active(struct gui_app* app, struct gui_canvas* c, struct gui_re
     frame_begin(app->frame, c);
     gui_fill_rect(p.frame, 0, 0, app->w, app->h, app->theme.desktop_bg);
     paint_node(&p, app->root);
+    /* a maximized window hides every undocked window below it */
+    int first = 0;
     for (int i = 0; i < app->windows.count; i++)
-        paint_window(&p, app->windows.items[i], i == app->windows.count - 1);
+    {
+        const struct gui_node* win = app->windows.items[i];
+        if (win->window->maximized && win->window->dock == GUI_DOCK_NONE)
+            first = i;
+    }
+    for (int i = 0; i < app->windows.count; i++)
+    {
+        const struct gui_node* win = app->windows.items[i];
+        if (i >= first || win->window->dock != GUI_DOCK_NONE)
+            paint_window(&p, win, i == app->windows.count - 1);
+    }
     struct gui_node* menubar = core_find_kind(app->root, GUI_MENUBAR);
     struct gui_node* statusbar = core_find_kind(app->root, GUI_STATUSBAR);
     if (menubar)

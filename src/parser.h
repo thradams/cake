@@ -1339,6 +1339,14 @@ struct member_declarator
 
     struct declarator* _Owner _Opt declarator;
     struct expression* _Owner _Opt constant_expression;
+
+    /*
+      Position of the member's first bit, counted from the start of the
+      struct (bit 0 is the low bit of the first byte). Written by
+      get_sizeof_struct for the target it was called with.
+    */
+    size_t bit_offset;
+
     struct member_declarator* _Owner _Opt next;
 };
 void member_declarator_delete(_Dtor struct member_declarator* _Owner _Opt p);

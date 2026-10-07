@@ -70,7 +70,7 @@ enum ide_event
     /* More dialogs */
     EV_RENAME_OK, EV_RENAME_CANCEL, EV_ESTR_OK, EV_ESTR_CANCEL,
     EV_NEWFOLDER_OK, EV_NEWFOLDER_CANCEL,
-    EV_CLONE_OK, EV_CLONE_CANCEL, EV_CLONE_BROWSE,
+    EV_CLONE_OK, EV_CLONE_CANCEL, EV_CLONE_BROWSE, EV_CLONE_URL_CHANGED, EV_CLONE_PATH_CHANGED,
     EV_NEWPROJ_OK, EV_NEWPROJ_CANCEL, EV_NEWPROJ_BROWSE,
     EV_COPTS_OK, EV_COPTS_CANCEL, EV_COPTS_HELP, EV_COPTS_TARGET,
     EV_COPTS_AUTO_CONFIG, EV_COPTS_INC_ADD, EV_COPTS_INC_REMOVE, EV_COPTS_INC_UP, EV_COPTS_INC_DOWN,
@@ -160,55 +160,57 @@ static const struct menu_item open_items[] = {
     { EV_OPEN_FOLDER, "Folder...", NULL, 1, "Show a folder in the Folder panel" },
 };
 static const struct menu_item file_items[] = {
-    { EV_MENU_NEW, "New", NULL, 1, NULL },
-    { EV_MENU_OPEN, "Open", NULL, 1, NULL },
+    { EV_MENU_NEW, "New", NULL, 1, "Create a new file or project" },
+    { EV_MENU_OPEN, "Open", NULL, 1, "Open a file, project or folder" },
     { EV_GIT_CLONE, "Clone Repository...", NULL, 1, "Copy a remote Git repository to a local folder" },
     SEPARATOR,
-    { EV_SAVE, "Save", "Ctrl+S", 1, NULL },
-    { EV_SAVE_AS, "Save As...", NULL, 1, NULL },
-    { EV_SAVE_ALL, "Save all", "Ctrl+Shift+S", 1, NULL },
+    { EV_SAVE, "Save", "Ctrl+S", 1, "Save the active file" },
+    { EV_SAVE_AS, "Save As...", NULL, 1, "Save the active file under a new name" },
+    { EV_SAVE_ALL, "Save all", "Ctrl+Shift+S", 1, "Save every modified file" },
     SEPARATOR,
     { EV_MENU_RECENT, "Recent Projects", NULL, 1, "The projects opened last; click one to open it" },
     SEPARATOR,
-    { EV_EXIT, "Exit", NULL, 1, NULL },
+    { EV_EXIT, "Exit", NULL, 1, "Close the IDE" },
 };
 static const struct menu_item edit_items[] = {
-    { EV_UNDO, "Undo", "Ctrl+Z", 1, NULL },
-    { EV_REDO, "Redo", "Ctrl+Y", 1, NULL },
+    { EV_UNDO, "Undo", "Ctrl+Z", 1, "Undo the last edit" },
+    { EV_REDO, "Redo", "Ctrl+Y", 1, "Redo the last undone edit" },
     SEPARATOR,
-    { EV_CUT, "Cut", "Ctrl+X", 1, NULL },
-    { EV_COPY, "Copy", "Ctrl+C", 1, NULL },
-    { EV_PASTE, "Paste", "Ctrl+V", 1, NULL },
+    { EV_CUT, "Cut", "Ctrl+X", 1, "Move the selection to the clipboard" },
+    { EV_COPY, "Copy", "Ctrl+C", 1, "Copy the selection to the clipboard" },
+    { EV_PASTE, "Paste", "Ctrl+V", 1, "Insert the clipboard at the caret" },
     SEPARATOR,
-    { EV_STRINGIFY, "Stringify", NULL, 1, NULL },
-    { EV_TO_UPPER, "To Upper", "Ctrl+U", 1, NULL },
-    { EV_TO_LOWER, "To Lower", "Ctrl+L", 1, NULL },
+    { EV_STRINGIFY, "Stringify", NULL, 1, "Turn the selection into a C string literal" },
+    { EV_TO_UPPER, "To Upper", "Ctrl+U", 1, "Convert the selection to upper case" },
+    { EV_TO_LOWER, "To Lower", "Ctrl+L", 1, "Convert the selection to lower case" },
     SEPARATOR,
-    { EV_WORD_WRAP, "Word Wrap...", "Ctrl+W", 1, NULL },
+    { EV_WORD_WRAP, "Word Wrap...", "Ctrl+W", 1, "Wrap the selected text at a column" },
     SEPARATOR,
-    { EV_FORMAT, "Format", "Ctrl+Shift+F", 1, NULL },
-    { EV_COMPLETE, "Complete Word", "Ctrl+Space", 1, NULL },
-    { EV_RENAME, "Rename...", "F2", 1, NULL },
+    { EV_FORMAT, "Format", "Ctrl+Shift+F", 1, "Format the active file's code" },
+    { EV_COMPLETE, "Complete Word", "Ctrl+Space", 1, "Complete the word at the caret" },
+    { EV_RENAME, "Rename...", "F2", 1, "Rename the identifier at the caret everywhere it is used" },
 };
 static const struct menu_item view_items[] = {
-    { EV_VIEW_OUTPUT, "Output", NULL, 1, NULL },
-    { EV_VIEW_FIND_RESULTS, "Find Results", NULL, 1, NULL },
-    { EV_VIEW_FOLDER, "Folder", NULL, 1, NULL },
-    { EV_VIEW_PROJECT, "Project", NULL, 1, NULL },
-    { EV_VIEW_GIT, "Git Changes", NULL, 1, NULL },
-    { EV_VIEW_PLAYGROUND, "Playground", NULL, 1, NULL },
+    { EV_VIEW_PROJECT, "Project", NULL, 1, "Show the Project panel" },
+    { EV_VIEW_FOLDER, "Folder", NULL, 1, "Show the Folder panel" },
+    { EV_VIEW_GIT, "Git Changes", NULL, 1, "Show the Git Changes panel" },
+    SEPARATOR,
+    { EV_VIEW_PLAYGROUND, "Playground", NULL, 1, "Show the Playground" },
+    SEPARATOR,
+    { EV_VIEW_OUTPUT, "Output", NULL, 1, "Show the Output panel" },
+    { EV_VIEW_FIND_RESULTS, "Find Results", NULL, 1, "Show the Find Results panel" },
 };
 static const struct menu_item search_items[] = {
-    { EV_FIND, "Find...", NULL, 1, NULL },
-    { EV_REPLACE, "Replace...", "Ctrl+R", 1, NULL },
-    { EV_SEARCH_NEXT, "Search Next", "F3", 1, NULL },
+    { EV_FIND, "Find...", NULL, 1, "Find text in the active file" },
+    { EV_REPLACE, "Replace...", "Ctrl+R", 1, "Find and replace text in the active file" },
+    { EV_SEARCH_NEXT, "Search Next", "F3", 1, "Repeat the last search" },
     SEPARATOR,
-    { EV_GOTO_LINE, "Go to line...", "Ctrl+G", 1, NULL },
-    { EV_FIND_DECLARATION, "Find Declaration", NULL, 1, NULL },
-    { EV_FIND_DEFINITION, "Find Definition", "F12", 1, NULL },
-    { EV_FIND_USAGES, "Find Usages", NULL, 1, NULL },
+    { EV_GOTO_LINE, "Go to line...", "Ctrl+G", 1, "Move the caret to a line number" },
+    { EV_FIND_DECLARATION, "Find Declaration", NULL, 1, "Go to the declaration of the identifier at the caret" },
+    { EV_FIND_DEFINITION, "Find Definition", "F12", 1, "Go to the definition of the identifier at the caret" },
+    { EV_FIND_USAGES, "Find Usages", NULL, 1, "List the uses of the identifier at the caret in Find Results" },
     SEPARATOR,
-    { EV_FIND_IN_FILES, "Find in Files...", "Ctrl+F", 1, NULL },
+    { EV_FIND_IN_FILES, "Find in Files...", "Ctrl+F", 1, "Search text in many files; the result in Find Results" },
 };
 static const struct menu_item project_items[] = {
     { EV_PROJECT_ADD_FILE, "Add Existing File...", NULL, 1, "Add files to the open project" },
@@ -245,21 +247,21 @@ static const struct menu_item tools_items[] = {
     { EV_EXTERNAL_TOOLS, "External Tools...", NULL, 1, "Add, edit and order the programs this menu runs - compilers, scripts" },
 };
 static const struct menu_item window_items[] = {
-    { EV_TILE, "Tile", NULL, 1, NULL },
-    { EV_CASCADE, "Cascade", NULL, 1, NULL },
-    { EV_CLOSE_ALL, "Close all", NULL, 1, NULL },
+    { EV_TILE, "Tile", NULL, 1, "Arrange the open windows side by side" },
+    { EV_CASCADE, "Cascade", NULL, 1, "Arrange the open windows overlapping" },
+    { EV_CLOSE_ALL, "Close all", NULL, 1, "Close all open documents" },
     SEPARATOR,
-    { EV_FONT_BIGGER, "Font", "Ctrl++", 1, NULL },
-    { EV_FONT_SMALLER, "Font", "Ctrl+-", 1, NULL },
+    { EV_FONT_BIGGER, "Font", "Ctrl++", 1, "Make the font bigger" },
+    { EV_FONT_SMALLER, "Font", "Ctrl+-", 1, "Make the font smaller" },
     SEPARATOR,
-    { EV_ENVIRONMENT, "Change Theme...", NULL, 1, NULL },
+    { EV_ENVIRONMENT, "Change Theme...", NULL, 1, "Choose the colors of the IDE" },
 };
 static const struct menu_item help_items[] = {
-    { EV_MANUAL, "Quick Reference", "F1", 1, NULL },
+    { EV_MANUAL, "Quick Reference", "F1", 1, "Open the Cake quick reference" },
     SEPARATOR,
-    { EV_WEBSITE, "Cake Website", NULL, 1, NULL },
+    { EV_WEBSITE, "Cake Website", NULL, 1, "Open the Cake website in the browser" },
     SEPARATOR,
-    { EV_ABOUT, "About...", NULL, 1, NULL },
+    { EV_ABOUT, "About...", NULL, 1, "Show the Cake version and credits" },
 };
 
 static const struct menu menus[] = {
@@ -501,6 +503,8 @@ struct git_clone_dialog
     struct gui_node* url;
     struct gui_node* path;
     struct gui_node* open_folder;
+    char parent[1024];   /* where Path puts the URL's folder */
+    int path_edited;     /* Path typed by the user: the URL no longer fills it */
 };
 
 /* Git Changes: `git status --porcelain` of the Folder panel's repository. */
@@ -681,7 +685,7 @@ static const struct macro
     const char* hint;
 } macros[] = {
     { "$(FilePath)", "The active document's full path (quoted in Arguments)" },
-    { "$(FileDir)", "The active document's folder, without a trailing slash (quoted in Arguments)" },
+    { "$(FileDir)", "The active document's folder, without a trailing slash" },
     { "$(FileName)", "The active document's file name, without its extension" },
     { "$(FileExt)", "The active document's extension, including the dot" },
     { "$(CakeOutput)", "Cake's output file(s) - the C89 code Build generates" },
@@ -689,11 +693,11 @@ static const struct macro
     { "$(CakeInputFiles)", "The project's .c source files" },
     { "$(CakeInputChanged)", "The project's .c source files the last Build compiled" },
     { "$(TargetPath)", "The full path of the binary - exactly what Debug (F5) launches" },
-    { "$(TargetDir)", "The folder the binary goes to: <project dir>/<platform>, without a trailing slash (quoted in Arguments)" },
+    { "$(TargetDir)", "The folder the binary goes to: <project dir>/<platform>, without a trailing slash" },
     { "$(TargetFileName)", "The binary's file name, with its extension" },
     { "$(TargetName)", "The binary's file name without its extension" },
     { "$(TargetExt)", "The binary's extension, including the dot" },
-    { "$(ProjectDir)", "The open project's folder, without a trailing slash (quoted in Arguments)" },
+    { "$(ProjectDir)", "The open project's folder, without a trailing slash" },
     { "$(ProjectName)", "The open project's name" },
     { "$(Platform)", "The compilation target's name, e.g. msvc-win-x64" },
     { "$(IncludeDirs)", "The open project's include directories, as -I options" },
@@ -1369,6 +1373,18 @@ static void build_menus(struct ide* ide)
                 if (spec->id == debug_ids[k])
                     ide->debug_items[k] = it;
             }
+            static const int needs_project[] = {
+                EV_PROJECT_ADD_FILE,
+                EV_PROJECT_REPORT_UNUSED, EV_PROJECT_CLOSE, EV_PROJECT_RENAME,
+            };
+            for (int k = 0; k < COUNT(needs_project); k++)
+            {
+                if (spec->id == needs_project[k])
+                {
+                    ide->project_items[k] = it;
+                    gui_set_enabled(it, 0);
+                }
+            }
         }
         if (menus[m].items == tools_items)
             ide->tools_menu = menu;
@@ -1395,25 +1411,6 @@ static void build_menus(struct ide* ide)
                 gui_append(ide->config_menu, item);
             }
             gui_append(menu, ide->config_menu);
-        }
-        if (menus[m].items == project_items || menus[m].items == build_items)
-        {
-            static const int needs_project[] = {
-                EV_PROJECT_ADD_FILE,
-                EV_PROJECT_REPORT_UNUSED, EV_PROJECT_CLOSE, EV_PROJECT_RENAME,
-            };
-            /* the table's items only: the Build menu has Target and Configuration after them */
-            for (int i = 0; i < menus[m].count; i++)
-            {
-                for (int k = 0; k < COUNT(needs_project); k++)
-                {
-                    if (menus[m].items[i].id == needs_project[k])
-                    {
-                        ide->project_items[k] = gui_child_at(menu, i);
-                        gui_set_enabled(ide->project_items[k], 0);
-                    }
-                }
-            }
         }
         gui_append(menubar, menu);
     }
@@ -1536,7 +1533,7 @@ static void build_panels(struct ide* ide)
     add_popup_item(ide, ide->project_menu, EV_PROJ_NEW_FILE, "New File...", NULL);
     add_popup_item(ide, ide->project_menu, EV_PROJ_COPY_PATH, "Copy Full Path", NULL);
     add_popup_item(ide, ide->project_menu, EV_PROJ_REMOVE, "Remove from Project", NULL);
-    add_popup_item(ide, ide->project_menu, EV_PROJ_DELETE, "Delete", NULL);
+    add_popup_item(ide, ide->project_menu, EV_PROJ_DELETE, "Delete", "Del");
     gui_set_context_menu(ide->project_list, ide->project_menu);
     gui_append(ide->project_window, ide->project_list);
 
@@ -2429,8 +2426,8 @@ static void build_find(struct ide* ide)
     f->scope = add_group_of(ide, f->window, 2, 10, 26, scope, 2, 0);
     add_label(ide, f->window, 30, 9, "Origin");
     f->origin = add_group_of(ide, f->window, 30, 10, 22, origin, 2, 0);
-    gui_set_id(add_at(ide, f->window, GUI_BUTTON, 16, 13, 10, 1, "OK"), EV_FIND_OK);
-    gui_set_id(add_at(ide, f->window, GUI_BUTTON, 30, 13, 10, 1, "Cancel"), EV_FIND_CANCEL);
+    gui_set_id(add_at(ide, f->window, GUI_BUTTON, 17, 13, 10, 1, "OK"), EV_FIND_OK);
+    gui_set_id(add_at(ide, f->window, GUI_BUTTON, 29, 13, 10, 1, "Cancel"), EV_FIND_CANCEL);
 
     struct replace_dialog* r = &ide->replace;
     r->window = new_dialog(ide, "Replace Text");
@@ -3134,9 +3131,11 @@ static void build_git_clone(struct ide* ide)
     add_label(ide, g->window, 3, 2, "Repository location");
     g->url = add_at(ide, g->window, GUI_INPUT, 3, 3, 52, 1, NULL);
     gui_set_id(g->url, EV_CLONE_OK);
+    gui_set_change_id(g->url, EV_CLONE_URL_CHANGED);
     add_label(ide, g->window, 3, 5, "Path");
     g->path = add_at(ide, g->window, GUI_INPUT, 3, 6, 46, 1, NULL);
     gui_set_id(g->path, EV_CLONE_OK);
+    gui_set_change_id(g->path, EV_CLONE_PATH_CHANGED);
     gui_set_id(add_at(ide, g->window, GUI_BUTTON, 50, 6, 5, 1, "..."), EV_CLONE_BROWSE);
     g->open_folder = add_at(ide, g->window, GUI_GROUP, 3, 8, 20, 1, NULL);
     gui_set_multi(g->open_folder, 1);
@@ -3980,6 +3979,7 @@ static void tools_menu_refresh(struct ide* ide)
     {
         struct gui_node* it = create(ide, GUI_ITEM, tools_items[i].label);
         gui_set_id(it, tools_items[i].id);
+        gui_set_hint(it, tools_items[i].hint);
         gui_append(ide->tools_menu, it);
     }
 }
@@ -4174,7 +4174,7 @@ static void expand_macros(struct ide* ide, const char* in, struct ide_text* out,
         else if (strcmp(macro, "FileDir") == 0 || strcmp(macro, "ItemDir") == 0)
         {
             snprintf(buf, sizeof buf, "%s", dir);
-            is_path = 1;
+            ide_text_printf(out, "%s", buf);   /* a folder: never quoted, the text goes on after it */
         }
         else if (strcmp(macro, "FileName") == 0 || strcmp(macro, "ItemFilename") == 0)
             ide_text_printf(out, "%s", name);
@@ -4187,7 +4187,7 @@ static void expand_macros(struct ide* ide, const char* in, struct ide_text* out,
         else if (strcmp(macro, "TargetDir") == 0)
         {
             target_dir(ide, path, dir, buf, sizeof buf);
-            is_path = 1;
+            ide_text_printf(out, "%s", buf);
         }
         else if (strcmp(macro, "TargetFileName") == 0)
         {
@@ -4224,7 +4224,7 @@ static void expand_macros(struct ide* ide, const char* in, struct ide_text* out,
         else if (strcmp(macro, "ProjectDir") == 0)
         {
             snprintf(buf, sizeof buf, "%s", file_uses_project(ide, path) ? p->dir : dir);
-            is_path = 1;
+            ide_text_printf(out, "%s", buf);
         }
         else if (strcmp(macro, "IncludeDirs") == 0)
         {
@@ -4667,7 +4667,7 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "Every `...Dir` macro ends without a slash: write "
         "`$(ProjectDir)/name`.\n"
         "\n"
-        "In **Arguments**, a macro that is a path (`$(FilePath)`, `...Dir`, "
+        "In **Arguments**, a macro that is a path (`$(FilePath)`, "
         "`$(TargetPath)`, and each file of\n"
         "`$(CakeOutput)`, `$(CakeInputFiles)`, `$(IncludeDirs)`) is quoted "
         "for you; names and extensions\n"
@@ -4698,10 +4698,9 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "# The new folder the repository is cloned into\n"
         "\n"
         "Filled in as parent folder + the repository's name - the same name "
-        "plain `git clone` would pick. Change the parent with **...** or by "
-        "hand; "
-        "the name keeps following the URL. Git creates the folder and any "
-        "missing parents; a folder that already exists is refused." },
+        "plain `git clone` would pick. Once you edit it or pick it with "
+        "**...**, it stops following the URL. Its parent folder must exist; "
+        "a folder that already exists is refused." },
     [HELP_CLONE_OPEN_FOLDER] = { "clone-open-folder",
         "## Open Folder\n\nshow the cloned folder in the Folder panel when "
         "done\n"
@@ -8935,6 +8934,24 @@ static void project_create(struct ide* ide, const char* path)
     project_show_panel(ide);
 }
 
+/* Project files order: by name without extension, then by extension,
+ * so a.c and a.h stay together. */
+static int project_file_cmp(const void* a, const void* b)
+{
+    const char* x = *(const char* const*)a;
+    const char* y = *(const char* const*)b;
+    const char* dx = strrchr(x, '.');
+    const char* dy = strrchr(y, '.');
+    size_t nx = dx ? (size_t)(dx - x) : strlen(x);
+    size_t ny = dy ? (size_t)(dy - y) : strlen(y);
+    int r = strncmp(x, y, nx < ny ? nx : ny);
+    if (r != 0)
+        return r;
+    if (nx != ny)
+        return nx < ny ? -1 : 1;
+    return strcmp(x + nx, y + ny);
+}
+
 /* Add Existing File / Add to Project / New File from the panel. */
 static void project_add_file(struct ide* ide, const char* path)
 {
@@ -8950,8 +8967,15 @@ static void project_add_file(struct ide* ide, const char* path)
     }
     if (!ide_strings_add(&p->files, entry))
         return;
+    qsort(p->files.items, (size_t)p->files.count, sizeof p->files.items[0], project_file_cmp);
+    int index = 0;
+    for (int i = 0; i < p->files.count; i++)
+    {
+        if (strcmp(p->files.items[i], entry) == 0)
+            index = i;
+    }
     project_save(ide);
-    project_refresh(ide, p->files.count - 1);
+    project_refresh(ide, index);
 }
 
 static void project_remove_at(struct ide* ide, int index)
@@ -9088,7 +9112,8 @@ static void project_close(struct ide* ide)
     show_side_panel(ide, ide->folder.window);
 }
 
-/* The Project panel's Delete: removed from the project and from disk. */
+/* The Project panel's Delete (and the Del key): asks Remove - from the
+ * project only - or Delete - from the project and from disk. */
 static void project_delete_ask(struct ide* ide)
 {
     struct ide_project* p = &ide->project;
@@ -9097,11 +9122,11 @@ static void project_delete_ask(struct ide* ide)
         return;
     ide_project_absolute(p, p->files.items[row], ide->pending_delete, sizeof ide->pending_delete);
     char msg[1600] = { 0 };
-    snprintf(msg, sizeof msg, "Remove this file from the project and delete it from disk?\n%s",
+    snprintf(msg, sizeof msg, "Remove this file from the project, or remove it and delete it from disk?\n%s",
              ide->pending_delete);
-    static const char* const labels[] = { "OK", "Cancel" };
-    static const int ids[] = { EV_PROJ_DELETE_OK, 0 };
-    gui_message_box(ide->app, "Delete File", msg, labels, ids, 2);
+    static const char* const labels[] = { "Remove", "Delete", "Cancel" };
+    static const int ids[] = { EV_PROJ_REMOVE, EV_PROJ_DELETE_OK, 0 };
+    gui_message_box(ide->app, "Remove File", msg, labels, ids, 3);
 }
 
 static void project_delete_confirmed(struct ide* ide)
@@ -10074,35 +10099,72 @@ static void git_branch_run(struct ide* ide, int create_new)
     run_start(ide, RUN_GIT, "Branch", git_dir(ide), steps, 1);
 }
 
-/* Git Clone's OK: `git clone <url> <path>`, then the Folder panel there. */
-static void git_clone(struct ide* ide)
+/* Git Clone's Path, unless typed by the user: the parent folder plus the
+ * URL's last part without ".git" - the folder a plain `git clone` makes. */
+static void git_clone_fill_path(struct ide* ide)
 {
     struct git_clone_dialog* c = &ide->clone;
-    char url[1024] = { 0 }, path[1024] = { 0 };
-    snprintf(url, sizeof url, "%s", gui_get_value(c->url));
-    snprintf(path, sizeof path, "%s", gui_get_value(c->path));
-    if (!url[0] || strchr(url, '"') || strchr(path, '"'))
-    {
-        status(ide, "Clone: enter the repository URL");
+    if (c->path_edited)
         return;
-    }
-    if (run_busy(ide))
-        return;
-    gui_window_close(ide->app, c->window);
-    gui_set_value(ide->output.editor, "");
-    /* the folder git makes: the URL's last part, without ".git" */
+    const char* url = gui_get_value(c->url);
     char name[1024] = { 0 };
     const char* slash = strrchr(url, '/');
     snprintf(name, sizeof name, "%s", slash ? slash + 1 : url);
     size_t n = strlen(name);
     if (n > 4 && strcmp(name + n - 4, ".git") == 0)
         name[n - 4] = '\0';
-    join_path(ide->run.clone_dest, sizeof ide->run.clone_dest, path, name);
+    char dest[1024] = { 0 };
+    if (name[0])
+        join_path(dest, sizeof dest, c->parent, name);
+    else
+        snprintf(dest, sizeof dest, "%s", c->parent);
+    gui_set_value(c->path, dest);
+}
+
+/* Git Clone's OK: `git clone <url> <path>` from Path's parent, then the
+ * Folder panel there. */
+static void git_clone(struct ide* ide)
+{
+    struct git_clone_dialog* c = &ide->clone;
+    char url[1024] = { 0 }, dest[1024] = { 0 };
+    snprintf(url, sizeof url, "%s", gui_get_value(c->url));
+    snprintf(dest, sizeof dest, "%s", gui_get_value(c->path));
+    if (!url[0] || !dest[0] || strchr(url, '"') || strchr(dest, '"'))
+    {
+        status(ide, "Clone: enter the repository URL and path");
+        return;
+    }
+    if (run_busy(ide))
+        return;
+    char parent[1024] = { 0 };
+    snprintf(parent, sizeof parent, "%s", dest);
+    parent_dir(parent);
+    if (!ide_is_dir(parent))
+    {
+        char text[1200] = { 0 };
+        snprintf(text, sizeof text, "The location does not exist:\n%s", parent);
+        static const char* const ok[] = { "OK" };
+        static const int ok_id[] = { 0 };
+        gui_message_box(ide->app, "Clone Repository", text, ok, ok_id, 1);
+        return;
+    }
+    if (ide_is_dir(dest))
+    {
+        char text[1200] = { 0 };
+        snprintf(text, sizeof text, "The folder already exists:\n%s", dest);
+        static const char* const ok[] = { "OK" };
+        static const int ok_id[] = { 0 };
+        gui_message_box(ide->app, "Clone Repository", text, ok, ok_id, 1);
+        return;
+    }
+    gui_window_close(ide->app, c->window);
+    gui_set_value(ide->output.editor, "");
+    snprintf(ide->run.clone_dest, sizeof ide->run.clone_dest, "%s", dest);
     ide->run.clone_open = gui_get_checked(c->open_folder, 0);
     char cmd[2200] = { 0 };
-    snprintf(cmd, sizeof cmd, "git clone \"%s\"", url);
+    snprintf(cmd, sizeof cmd, "git clone \"%s\" \"%s\"", url, dest);
     const char* steps[] = { cmd };
-    run_start(ide, RUN_CLONE, "Clone", path, steps, 1);
+    run_start(ide, RUN_CLONE, "Clone", parent, steps, 1);
 }
 
 static void build_git(struct ide* ide)
@@ -10972,8 +11034,9 @@ static void on_event(void* ctx, int id)
     case EV_FOLDER_DELETE_OK: folder_delete_confirmed(ide); break;
     case EV_NEWFOLDER_CANCEL: gui_window_close(ide->app, ide->new_folder.window); break;
     case EV_GIT_CLONE:
-        if (!gui_get_value(ide->clone.path)[0])
-            gui_set_value(ide->clone.path, ide->folder.dir);
+        snprintf(ide->clone.parent, sizeof ide->clone.parent, "%s", ide->folder.dir);
+        ide->clone.path_edited = 0;
+        git_clone_fill_path(ide);
         show_dialog(ide, ide->clone.window, 58, 13, ide->clone.url);
         break;
     case EV_CLONE_OK: git_clone(ide); break;
@@ -10989,7 +11052,12 @@ static void on_event(void* ctx, int id)
         git_event(ide, id);
         break;
     case EV_CLONE_CANCEL: gui_window_close(ide->app, ide->clone.window); break;
-    case EV_CLONE_BROWSE: pick_path(ide, ide->clone.path, 0, gui_get_value(ide->clone.path)); break;
+    case EV_CLONE_BROWSE:
+        ide->clone.path_edited = 1;
+        pick_path(ide, ide->clone.path, 0, gui_get_value(ide->clone.path));
+        break;
+    case EV_CLONE_URL_CHANGED: git_clone_fill_path(ide); break;
+    case EV_CLONE_PATH_CHANGED: ide->clone.path_edited = 1; break;
     case EV_PROJECT_NEW:
     {
         char dir[1024] = { 0 };

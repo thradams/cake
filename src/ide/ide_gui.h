@@ -389,6 +389,9 @@ void gui_set_font_size(struct gui_node* n, enum gui_font_size size);
 /* The number an activated node fires (see gui_set_on_event); 0 fires
  * nothing. */
 void gui_set_id(struct gui_node* n, int id);
+/* GUI_INPUT: the number fired each time the user edits its text (typing,
+ * delete, cut, paste); gui_set_value does not fire it. 0 fires nothing. */
+void gui_set_change_id(struct gui_node* n, int id);
 
 /* A menu item's (or a statusbar hotkey's) shortcut, as shown in its dropdown and matched against
  * keys: "Ctrl+O", "Ctrl+Shift+S", "F7", "Shift+F5", "Ctrl++", "Alt+Left",

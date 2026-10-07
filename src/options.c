@@ -308,6 +308,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-no-bitfields") == 0)
+        {
+            options->no_bitfields = true;
+            continue;
+        }
+
         if (strcmp(argv[i], "-dont-generate-time-stamp") == 0)
         {
             options->dont_generate_time_stamp = true;
@@ -872,6 +878,7 @@ void print_help()
     print_option("-dump-tokens", "Output tokens before preprocessor");
     print_option("-dump-pp-tokens", "Output tokens after preprocessor");    
     print_option("-const-literal", "literal string becomes const");
+    print_option("-no-bitfields", "Generated code stores bitfields in plain integer members");
     print_option("-dont-generate-time-stamp", "Do not include the timestamp comment in the generated file");
     print_option("-keep-inactive-tokens", "Keep tokens from inactive preprocessor blocks (e.g. #if 0) in memory instead of discarding them");
     print_option("-preprocess-def-macro", "preprocess def macros after expansion");

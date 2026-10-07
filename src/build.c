@@ -1007,11 +1007,17 @@ static void run_test_suites(const char* title, const char* cake_exe, const char*
 
 static void run_tests(const char* cake_flags)
 {
+    /* the generated-code tests run again with bitfields lowered to integers */
+    char no_bitfields_flags[1024] = { 0 };
+    snprintf(no_bitfields_flags, sizeof no_bitfields_flags, "%s -no-bitfields", cake_flags);
+
     run_test_suites("Run tests", EXE(CKC_NAME), cake_flags);
     run_generated_tests("Run generated-code tests", EXE(CKC_NAME), cake_flags);
+    run_generated_tests("Run generated-code tests (-no-bitfields)", EXE(CKC_NAME), no_bitfields_flags);
 
     run_test_suites("Run tests (cake89)", EXE(CKC89_NAME), cake_flags);
     run_generated_tests("Run generated-code tests (cake89)", EXE(CKC89_NAME), cake_flags);
+    run_generated_tests("Run generated-code tests (cake89, -no-bitfields)", EXE(CKC89_NAME), no_bitfields_flags);
 
     printf("Other test cases:\n");
     printf("  " CKC_NAME " ../tests/unit-tests/failing/*.c -test-mode\n");

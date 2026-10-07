@@ -2900,6 +2900,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                                 {
                                     bit += unit_bits - (bit % unit_bits);
                                 }
+                                md->bit_offset = bit;
                                 bit += (size_t)bit_width;
                                 size = bit / 8;
                                 bf_bits_used = bit % 8;
@@ -2991,6 +2992,8 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                                     bf_bits_used = 0;
                                 }
                             }
+                            /* a union keeps its open unit at offset 0 */
+                            md->bit_offset = is_union ? 0 : size * 8 + bf_bits_used;
                             bf_bits_used += (size_t)bit_width;
                         }
                     }
@@ -3022,6 +3025,8 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
 
                         if (!is_union && size % align != 0)
                             size += align - (size % align);
+
+                        md->bit_offset = is_union ? 0 : size * 8;
 
                         size_t item_size = 0;
                         sizeof_result = type_get_sizeof(&md->declarator->object.type, &item_size, target);

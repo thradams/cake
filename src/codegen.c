@@ -505,13 +505,15 @@ static void expression_to_bool_value(struct codegen_ctx* ctx, struct osstream* o
     }
 }
 
-static struct member_declarator* _Opt find_member_declarator_name_by_index(struct member_declaration_list* list,
+static struct member_declarator* _Opt find_member_declarator_name_by_index(struct struct_or_union_specifier* p_complete_owner,
                                                                            int member_index,
                                                                            char name[100],
-                                                                           int* p_count)
+                                                                           int* p_count,
+                                                                           struct struct_or_union_specifier** pp_owner)
 {
     try
     {
+        struct member_declaration_list* list = &p_complete_owner->member_declaration_list;
         if (list->head == NULL)
             return NULL;
 
@@ -536,6 +538,7 @@ static struct member_declarator* _Opt find_member_declarator_name_by_index(struc
                             if (p_member_declarator->declarator->name_opt == NULL) throw;
 
                             snprintf(name, 100, "%s", p_member_declarator->declarator->name_opt->lexeme);
+                            *pp_owner = p_complete_owner;
                             return p_member_declarator;
                         }
                     }
@@ -553,7 +556,7 @@ static struct member_declarator* _Opt find_member_declarator_name_by_index(struc
                     if (p_complete)
                     {
                         char mname[100] = { 0 };
-                        p_member_declarator = find_member_declarator_name_by_index(&p_complete->member_declaration_list, member_index, mname, p_count);
+                        p_member_declarator = find_member_declarator_name_by_index(p_complete, member_index, mname, p_count, pp_owner);
                         if (p_member_declarator)
                         {
                             snprintf(name, 100, "__m%d.%s", no_name_index++, mname);
@@ -574,7 +577,16 @@ static struct member_declarator* _Opt find_member_declarator_name_by_index(struc
     return NULL;
 }
 
-static int find_member_name(const struct type* p_type, int index, char name[100])
+/*
+  Finds member 'index' of p_type. name is its spelling in the generated code
+  ("x", or "__m0.x" inside an anonymous struct); *pp_member and *pp_owner are
+  its declarator and the struct that directly contains it.
+*/
+static int find_member_name(const struct type* p_type,
+                            int index,
+                            char name[100],
+                            struct member_declarator* _Opt* pp_member,
+                            struct struct_or_union_specifier* _Opt* pp_owner)
 {
     if (!type_is_struct_or_union(p_type))
         return 1;
@@ -587,14 +599,989 @@ static int find_member_name(const struct type* p_type, int index, char name[100]
     if (p_complete)
     {
         int count = 0;
+        struct struct_or_union_specifier* p_owner = p_complete;
         struct member_declarator* _Opt p =
-            find_member_declarator_name_by_index(&p_complete->member_declaration_list, index, name, &count);
+            find_member_declarator_name_by_index(p_complete, index, name, &count, &p_owner);
         if (p)
         {
-            return 0; //p->declarator->name_opt->lexeme;
+            *pp_member = p;
+            *pp_owner = p_owner;
+            return 0;
         }
     }
     return 1;
+}
+
+/*
+  -no-bitfields
+
+  The bitfields of a struct are replaced by plain unsigned members that cover
+  the same bytes. A "run" is a sequence of bitfields with no other member
+  between them; its bytes go from the end of the member before it up to the
+  start of the member after it (or the end of the struct). In a union every
+  bitfield is at offset 0 and the run is the whole union.
+
+  The run is tiled from its first byte with the largest unsigned type that is
+  naturally aligned there, still fits in the run and is not more aligned than
+  the struct; each tile is named __bf<byte offset>. Bit offsets come from
+  get_sizeof_struct, so the layout is the one of the target. Bit 0 is the low
+  bit of the lowest byte (little endian).
+
+  A read is the tiles that hold the field, shifted down and joined with '|',
+  then wrapped to the field width like a _BitInt (codegen_emit_wrap_text).
+*/
+
+static void codegen_emit_wrap_text(struct codegen_ctx* ctx,
+                                   struct osstream* oss,
+                                   const char* lowered,
+                                   int width,
+                                   bool is_unsigned,
+                                   const char* text,
+                                   bool source_is_floating,
+                                   bool text_is_unsigned);
+
+static const char* _Opt codegen_unsigned_type_of_size(const struct codegen_ctx* ctx, size_t size)
+{
+    const struct platform* p = get_platform(ctx->options.target);
+    if ((size_t)p->char_n_bits / 8 == size) return "unsigned char";
+    if ((size_t)p->short_n_bits / 8 == size) return "unsigned short";
+    if ((size_t)p->int_n_bits / 8 == size) return "unsigned int";
+    if ((size_t)p->long_long_n_bits / 8 == size) return "unsigned long long";
+    return NULL;
+}
+
+static size_t codegen_bitfield_tile_size(const struct codegen_ctx* ctx, size_t pos, size_t end, size_t cap)
+{
+    size_t size = cap;
+    while (size > 1 && (pos % size != 0 || pos + size > end || codegen_unsigned_type_of_size(ctx, size) == NULL))
+        size /= 2;
+    return size;
+}
+
+static struct type codegen_make_struct_type(struct struct_or_union_specifier* p_complete)
+{
+    struct type t = { 0 };
+    t.category = TYPE_CATEGORY_ITSELF;
+    t.struct_or_union_specifier = p_complete;
+    t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+    return t;
+}
+
+/*
+  Byte range [*p_start, *p_end) of the run that holds p_target, and *p_cap,
+  the largest tile size. Returns false when the run cannot be found: the
+  bitfield is then kept as a bitfield (a run followed by an anonymous struct,
+  whose offset get_sizeof_struct does not record).
+*/
+static bool codegen_bitfield_run(const struct codegen_ctx* ctx,
+                                 struct struct_or_union_specifier* p_complete,
+                                 const struct member_declarator* p_target,
+                                 size_t* p_start,
+                                 size_t* p_end,
+                                 size_t* p_cap)
+{
+    const enum target target = ctx->options.target;
+
+    struct type struct_type = codegen_make_struct_type(p_complete);
+    size_t struct_size = 0;
+    const bool layout_ok = type_get_sizeof(&struct_type, &struct_size, target) == SIZEOF_RESULT_OK; /* also writes bit_offset */
+    const size_t struct_align = type_get_alignof(&struct_type, target);
+    type_destroy(&struct_type);
+
+    if (!layout_ok)
+        return false;
+
+    *p_cap = 1;
+    while (*p_cap * 2 <= 8 && *p_cap * 2 <= struct_align)
+        *p_cap *= 2;
+
+    if (struct_or_union_specifier_is_union(p_complete))
+    {
+        *p_start = 0;
+        *p_end = struct_size;
+        return true;
+    }
+
+    size_t cursor = 0;     /* end of the last non-bitfield member */
+    size_t run_start = 0;
+    bool run_open = false;
+    bool found = false;
+
+    struct member_declaration* _Opt d = p_complete->member_declaration_list.head;
+    while (d)
+    {
+        if (d->member_declarator_list_opt)
+        {
+            struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
+            while (md)
+            {
+                if (md->constant_expression)
+                {
+                    if (!run_open)
+                    {
+                        run_open = true;
+                        run_start = cursor;
+                    }
+                    if (md == p_target)
+                        found = true;
+                }
+                else if (md->declarator)
+                {
+                    const size_t offset = md->bit_offset / 8;
+                    if (run_open && found)
+                    {
+                        *p_start = run_start;
+                        *p_end = offset;
+                        return true;
+                    }
+                    run_open = false;
+
+                    size_t item_size = 0;
+                    if (type_get_sizeof(&md->declarator->object.type, &item_size, target) != SIZEOF_RESULT_OK)
+                        item_size = 0; /* flexible array member */
+                    cursor = offset + item_size;
+                }
+                md = md->next;
+            }
+        }
+        else if (d->specifier_qualifier_list &&
+                 d->specifier_qualifier_list->struct_or_union_specifier)
+        {
+            if (run_open)
+                return false;
+
+            struct type t = codegen_make_struct_type(d->specifier_qualifier_list->struct_or_union_specifier);
+            size_t align = type_get_alignof(&t, target);
+            if (p_complete->pack_alignment > 0 && align > p_complete->pack_alignment)
+                align = p_complete->pack_alignment;
+            size_t item_size = 0;
+            type_get_sizeof(&t, &item_size, target);
+            type_destroy(&t);
+
+            if (align > 0 && cursor % align != 0)
+                cursor += align - (cursor % align);
+            cursor += item_size;
+        }
+        d = d->next;
+    }
+
+    if (run_open && found)
+    {
+        *p_start = run_start;
+        *p_end = struct_size;
+        return true;
+    }
+    return false;
+}
+
+static bool codegen_is_lowered_bitfield(const struct codegen_ctx* ctx,
+                                        struct struct_or_union_specifier* p_owner,
+                                        const struct member_declarator* p_member)
+{
+    size_t start = 0, end = 0, cap = 0;
+    return ctx->options.no_bitfields &&
+        p_member->constant_expression != NULL &&
+        codegen_bitfield_run(ctx, p_owner, p_member, &start, &end, &cap);
+}
+
+/* Prints the tiles of a run, returns the largest tile size */
+static size_t codegen_print_bitfield_tiles(const struct codegen_ctx* ctx, struct osstream* ss, size_t start, size_t end, size_t cap)
+{
+    size_t largest = 0;
+    size_t pos = start;
+    while (pos < end)
+    {
+        const size_t size = codegen_bitfield_tile_size(ctx, pos, end, cap);
+        const char* _Opt type_name = codegen_unsigned_type_of_size(ctx, size);
+        ss_fprintf(ss, IDENTATION_STR "%s __bf%zu;\n", type_name ? type_name : "unsigned char", pos);
+        if (size > largest)
+            largest = size;
+        pos += size;
+    }
+    return largest;
+}
+
+/* the type of the value of bitfield p_member after the integer promotions */
+static void codegen_print_bitfield_promoted_type(struct codegen_ctx* ctx,
+                                                 struct osstream* oss,
+                                                 const struct member_declarator* p_member)
+{
+    _Assert(p_member->declarator != NULL && p_member->constant_expression != NULL);
+    const struct type* p_type = &p_member->declarator->object.type;
+    const int width = (int)object_to_unsigned_long_long(&p_member->constant_expression->object);
+    const int int_bits = get_platform(ctx->options.target)->int_n_bits;
+    const bool is_unsigned = type_is_bool(p_type) || (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED);
+
+    if (is_unsigned ? width < int_bits : width <= int_bits)
+        ss_fprintf(oss, "int");
+    else if (is_unsigned && width == int_bits)
+        ss_fprintf(oss, "unsigned int");
+    else
+        d_print_type(ctx, oss, p_type, NULL, false, false);
+}
+
+/*
+  Emits the value of bitfield p_member. base is the text before the tile
+  name, e.g. "s." or "p->__m0.".
+*/
+static void codegen_emit_bitfield_read(struct codegen_ctx* ctx,
+                                       struct osstream* oss,
+                                       const char* base,
+                                       struct struct_or_union_specifier* p_owner,
+                                       struct member_declarator* p_member)
+{
+    size_t start = 0, end = 0, cap = 0;
+    if (p_member->constant_expression == NULL ||
+        p_member->declarator == NULL ||
+        !codegen_bitfield_run(ctx, p_owner, p_member, &start, &end, &cap))
+    {
+        return;
+    }
+
+    const struct type* p_type = &p_member->declarator->object.type;
+    const int width = (int)object_to_unsigned_long_long(&p_member->constant_expression->object);
+    const size_t first_bit = p_member->bit_offset;
+    const int int_bits = get_platform(ctx->options.target)->int_n_bits;
+    const bool is_unsigned = type_is_bool(p_type) || (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED);
+
+    /* a tile shifted left is first converted to a type that holds the result */
+    const char* const acc_type = (end - start) * 8 > (size_t)int_bits ? "unsigned long long" : "unsigned";
+
+    struct osstream text = { 0 };
+    int parts = 0;
+    size_t pos = start;
+    while (pos < end)
+    {
+        const size_t size = codegen_bitfield_tile_size(ctx, pos, end, cap);
+        const size_t tile_first_bit = pos * 8;
+        if (tile_first_bit + size * 8 > first_bit && tile_first_bit < first_bit + (size_t)width)
+        {
+            if (parts > 0)
+                ss_fprintf(&text, " | ");
+
+            if (first_bit > tile_first_bit)
+            {
+                ss_fprintf(&text, "(%s__bf%zu >> %zu)", base, pos, first_bit - tile_first_bit);
+            }
+            else if (first_bit < tile_first_bit)
+            {
+                ss_fprintf(&text, "((%s)%s__bf%zu << %zu)", acc_type, base, pos, tile_first_bit - first_bit);
+            }
+            else
+            {
+                ss_fprintf(&text, "%s__bf%zu", base, pos);
+            }
+            parts++;
+        }
+        pos += size;
+    }
+
+    /* 'text & MASK' follows: more than one part needs parentheses */
+    struct osstream value = { 0 };
+    if (parts > 1)
+        ss_fprintf(&value, "(%s)", text.c_str);
+    else if (text.c_str != NULL)
+        ss_fprintf(&value, "%s", text.c_str);
+
+    struct osstream lowered = { 0 };
+    codegen_print_bitfield_promoted_type(ctx, &lowered, p_member);
+
+    /* the tiles are unsigned, a narrower one is promoted to a nonnegative int */
+    if (value.c_str != NULL && lowered.c_str != NULL)
+        codegen_emit_wrap_text(ctx, oss, lowered.c_str, width, is_unsigned, value.c_str, false, true);
+
+    ss_close(&lowered);
+    ss_close(&value);
+    ss_close(&text);
+}
+
+/*
+  true when a bitfield of p_owner that is before p_member (lower bit offset)
+  has bits in the tile [tile_first_bit, tile_first_bit + tile_bits)
+*/
+static bool codegen_tile_has_earlier_bitfield(struct struct_or_union_specifier* p_owner,
+                                              const struct member_declarator* p_member,
+                                              size_t tile_first_bit,
+                                              size_t tile_bits)
+{
+    struct member_declaration* _Opt d = p_owner->member_declaration_list.head;
+    while (d)
+    {
+        if (d->member_declarator_list_opt)
+        {
+            struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
+            while (md)
+            {
+                if (md != p_member && md->constant_expression && md->bit_offset < p_member->bit_offset)
+                {
+                    const size_t width = (size_t)object_to_unsigned_long_long(&md->constant_expression->object);
+                    if (width > 0 && md->bit_offset < tile_first_bit + tile_bits && md->bit_offset + width > tile_first_bit)
+                        return true;
+                }
+                md = md->next;
+            }
+        }
+        d = d->next;
+    }
+    return false;
+}
+
+/*
+  Stores 'value' in bitfield p_member:
+
+    (tile = (tile & ~M) | ((ACC)value << s & M), ..., read)
+
+  one assignment for each tile that holds the field; the read at the end
+  (the value of the assignment) is emitted only when yield_value is true.
+  A field that fills the tile is 'tile = value'. When p_constant is an
+  integer constant the shifted and masked value is computed here.
+
+  fresh: the object is being initialized member by member and its tiles have
+  no value yet; the first field of each tile (lowest offset) writes it whole,
+  'tile = (ACC)value << s & M', without reading it.
+
+  'value' must be a primary expression or parenthesized; it is emitted once
+  per tile, a field in a single tile (the usual case) evaluates it once.
+*/
+static void codegen_emit_bitfield_store(struct codegen_ctx* ctx,
+                                        struct osstream* oss,
+                                        const char* base,
+                                        struct struct_or_union_specifier* p_owner,
+                                        struct member_declarator* p_member,
+                                        const char* value,
+                                        bool value_is_floating,
+                                        const struct object* _Opt p_constant,
+                                        bool yield_value,
+                                        bool fresh)
+{
+    size_t start = 0, end = 0, cap = 0;
+    if (p_member->constant_expression == NULL ||
+        p_member->declarator == NULL ||
+        !codegen_bitfield_run(ctx, p_owner, p_member, &start, &end, &cap))
+    {
+        return;
+    }
+
+    const int width = (int)object_to_unsigned_long_long(&p_member->constant_expression->object);
+    const size_t first_bit = p_member->bit_offset;
+    const unsigned long long field_mask = (width >= 64) ? ~0ULL : ((1ULL << width) - 1);
+    const int int_bits = get_platform(ctx->options.target)->int_n_bits;
+    const bool is_bool = type_is_bool(&p_member->declarator->object.type);
+
+    /* p_constant can be a made object with no type: any non floating constant */
+    const bool is_constant = p_constant != NULL &&
+        object_has_constant_value(p_constant) &&
+        !type_is_floating_point(&p_constant->type);
+
+    unsigned long long constant_bits = 0;
+    if (is_constant)
+    {
+        _Assert(p_constant != NULL);
+        constant_bits = type_is_signed_integer(&p_constant->type) ?
+            (unsigned long long)object_to_signed_long_long(p_constant) :
+            object_to_unsigned_long_long(p_constant);
+        if (is_bool)
+            constant_bits = constant_bits != 0;
+        constant_bits &= field_mask;
+    }
+
+    struct osstream converted = { 0 };
+    if (is_bool)
+        ss_fprintf(&converted, "(%s != 0)", value);
+    else if (value_is_floating)
+        ss_fprintf(&converted, "(long long)%s", value);
+    else
+        ss_fprintf(&converted, "%s", value);
+
+    int assignments = 0;
+    ss_fprintf(oss, "(");
+    size_t pos = start;
+    while (pos < end && converted.c_str != NULL)
+    {
+        const size_t size = codegen_bitfield_tile_size(ctx, pos, end, cap);
+        const size_t tile_first_bit = pos * 8;
+        if (tile_first_bit + size * 8 > first_bit && tile_first_bit < first_bit + (size_t)width)
+        {
+            const bool tile_fits_int = size * 8 <= (size_t)int_bits;
+            const char* const acc_type = tile_fits_int ? "unsigned" : "unsigned long long";
+            const char* const suffix = tile_fits_int ? "U" : "ULL";
+            const unsigned long long tile_all = (size >= 8) ? ~0ULL : ((1ULL << (size * 8)) - 1);
+            const bool shift_left = first_bit >= tile_first_bit;
+            const size_t shift = shift_left ? first_bit - tile_first_bit : tile_first_bit - first_bit;
+            const unsigned long long tile_mask =
+                (shift_left ? field_mask << shift : field_mask >> shift) & tile_all;
+            const bool fills_tile = tile_mask == tile_all;
+            const bool first_write = fresh && !codegen_tile_has_earlier_bitfield(p_owner, p_member, tile_first_bit, size * 8);
+            const unsigned long long constant_tile_bits =
+                (shift_left ? constant_bits << shift : constant_bits >> shift) & tile_mask;
+
+            /* the field bits of the new value, at their place in the tile */
+            struct osstream bits = { 0 };
+            if (is_constant)
+                ss_fprintf(&bits, "0x%llx%s", constant_tile_bits, suffix);
+            else if (shift == 0)
+                ss_fprintf(&bits, "(%s)%s", acc_type, converted.c_str);
+            else
+                ss_fprintf(&bits, "((%s)%s %s %zu)", acc_type, converted.c_str, shift_left ? "<<" : ">>", shift);
+
+            if (bits.c_str != NULL)
+            {
+                if (assignments > 0)
+                    ss_fprintf(oss, ", ");
+                assignments++;
+
+                if (fills_tile || (is_constant && first_write))
+                    ss_fprintf(oss, "%s__bf%zu = %s", base, pos, bits.c_str);
+                else if (first_write)
+                    ss_fprintf(oss, "%s__bf%zu = %s & 0x%llx%s", base, pos, bits.c_str, tile_mask, suffix);
+                else if (is_constant && constant_tile_bits == 0)
+                    ss_fprintf(oss, "%s__bf%zu &= 0x%llx%s", base, pos, ~tile_mask & tile_all, suffix);
+                else if (is_constant)
+                    ss_fprintf(oss, "%s__bf%zu = (%s__bf%zu & 0x%llx%s) | %s",
+                               base, pos, base, pos, ~tile_mask & tile_all, suffix, bits.c_str);
+                else
+                    ss_fprintf(oss, "%s__bf%zu = (%s__bf%zu & 0x%llx%s) | (%s & 0x%llx%s)",
+                               base, pos, base, pos, ~tile_mask & tile_all, suffix, bits.c_str, tile_mask, suffix);
+            }
+            ss_close(&bits);
+        }
+        pos += size;
+    }
+    if (yield_value)
+    {
+        ss_fprintf(oss, ", ");
+        codegen_emit_bitfield_read(ctx, oss, base, p_owner, p_member);
+    }
+    ss_fprintf(oss, ")");
+
+    ss_close(&converted);
+}
+
+/*
+  A bitfield access 'left.name' or 'left->name' under -no-bitfields.
+  base is the text before the tile name: left, the operator and the
+  anonymous struct path of name ("p->__m0.").
+*/
+struct codegen_bitfield_access
+{
+    struct osstream base;
+    struct struct_or_union_specifier* _Opt p_owner;
+    struct member_declarator* _Opt p_member;
+};
+
+static bool codegen_bitfield_access_from_member(struct codegen_ctx* ctx,
+                                                struct codegen_bitfield_access* p_access,
+                                                const struct type* p_struct_type,
+                                                int member_index,
+                                                const char* left_text,
+                                                const char* op,
+                                                char name[100])
+{
+    struct member_declarator* _Opt p_member = NULL;
+    struct struct_or_union_specifier* _Opt p_owner = NULL;
+    if (find_member_name(p_struct_type, member_index, name, &p_member, &p_owner) != 0)
+        return false;
+
+    if (p_member == NULL || p_owner == NULL || !codegen_is_lowered_bitfield(ctx, p_owner, p_member))
+        return false;
+
+    const char* last_dot = strrchr(name, '.');
+    const int path_length = last_dot ? (int)(last_dot - name) + 1 : 0;
+    ss_fprintf(&p_access->base, "%s%s%.*s", left_text, op, path_length, name);
+    p_access->p_owner = p_owner;
+    p_access->p_member = p_member;
+    return p_access->base.c_str != NULL;
+}
+
+/* true when p_expression is a bitfield access lowered by -no-bitfields */
+static bool codegen_bitfield_access(struct codegen_ctx* ctx,
+                                    struct codegen_bitfield_access* p_access,
+                                    struct expression* p_expression)
+{
+    if (!ctx->options.no_bitfields || p_expression->left == NULL)
+        return false;
+
+    if (p_expression->expression_type != EXPR_POSTFIX_DOT &&
+        p_expression->expression_type != EXPR_POSTFIX_ARROW)
+        return false;
+
+    const bool arrow = p_expression->expression_type == EXPR_POSTFIX_ARROW;
+    struct type t = !arrow ? type_dup(&p_expression->left->object.type) :
+        type_is_array(&p_expression->left->object.type) ?
+        get_array_item_type(&p_expression->left->object.type) :
+        type_remove_pointer(&p_expression->left->object.type);
+
+    char name[100] = { 0 };
+    bool result = false;
+
+    /* the left operand is visited only for a bitfield (a visit can hoist code) */
+    struct member_declarator* _Opt p_member = NULL;
+    struct struct_or_union_specifier* _Opt p_owner = NULL;
+    if (find_member_name(&t, p_expression->member_index, name, &p_member, &p_owner) == 0 &&
+        p_member && p_owner && codegen_is_lowered_bitfield(ctx, p_owner, p_member))
+    {
+        struct osstream left = { 0 };
+        codegen_visit_expression(ctx, &left, p_expression->left);
+        if (left.c_str != NULL)
+            result = codegen_bitfield_access_from_member(ctx, p_access, &t, p_expression->member_index, left.c_str, arrow ? "->" : ".", name);
+        ss_close(&left);
+    }
+    type_destroy(&t);
+    return result;
+}
+
+/*
+  'a = b', 'a op= b', '++a', 'a++' on a lowered bitfield. op is NULL for '=';
+  p_right is NULL for ++ and -- (the operand is 1). A postfix operation yields
+  the old value as wrap(new -+ 1), like _BitInt.
+  The left operand is emitted more than once.
+*/
+static void codegen_emit_bitfield_assignment(struct codegen_ctx* ctx,
+                                             struct osstream* oss,
+                                             struct codegen_bitfield_access* p_access,
+                                             const char* _Opt op,
+                                             struct expression* _Opt p_right,
+                                             bool postfix,
+                                             bool yield_value)
+{
+    _Assert(p_access->p_owner != NULL && p_access->p_member != NULL && p_access->base.c_str != NULL);
+
+    struct osstream value = { 0 };
+    bool value_is_floating = false;
+
+    /* value is parenthesized: "(right)" or "(read op right)" */
+    ss_fprintf(&value, "(");
+    if (op != NULL)
+    {
+        codegen_emit_bitfield_read(ctx, &value, p_access->base.c_str, p_access->p_owner, p_access->p_member);
+        ss_fprintf(&value, " %s ", op);
+    }
+
+    if (p_right)
+    {
+        if (op != NULL)
+            ss_fprintf(&value, "(");
+        codegen_visit_expression(ctx, &value, p_right);
+        if (op != NULL)
+            ss_fprintf(&value, ")");
+        value_is_floating = type_is_floating_point(&p_right->object.type);
+    }
+    else
+    {
+        ss_fprintf(&value, "1");
+    }
+    ss_fprintf(&value, ")");
+
+    /* 'a = constant': the new tile bits are computed here */
+    const struct object* _Opt p_constant = (op == NULL && p_right != NULL) ? &p_right->object : NULL;
+
+    if (value.c_str != NULL)
+    {
+        if (postfix && yield_value)
+        {
+            /* (store, wrap(new -+ 1)) */
+            struct osstream new_value = { 0 };
+            codegen_emit_bitfield_store(ctx, &new_value, p_access->base.c_str, p_access->p_owner, p_access->p_member, value.c_str, false, NULL, true, false);
+            ss_fprintf(&new_value, strcmp(op ? op : "+", "+") == 0 ? " - 1" : " + 1");
+
+            const struct type* p_type = &p_access->p_member->declarator->object.type;
+            const bool is_unsigned = type_is_bool(p_type) || (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED);
+            const int width = (int)object_to_unsigned_long_long(&p_access->p_member->constant_expression->object);
+            struct osstream lowered = { 0 };
+            codegen_print_bitfield_promoted_type(ctx, &lowered, p_access->p_member);
+            if (new_value.c_str != NULL && lowered.c_str != NULL)
+                codegen_emit_wrap_text(ctx, oss, lowered.c_str, width, is_unsigned, new_value.c_str, false, false);
+            ss_close(&lowered);
+            ss_close(&new_value);
+        }
+        else
+        {
+            codegen_emit_bitfield_store(ctx, oss, p_access->base.c_str, p_access->p_owner, p_access->p_member, value.c_str, value_is_floating, p_constant, yield_value, false);
+        }
+    }
+
+    ss_close(&value);
+}
+
+/*
+  The member declarator of member object 'index' of a struct (objects are
+  made one per member declarator with a declarator and one per anonymous
+  struct, in order; see make_object_ptr_core). NULL for an anonymous struct.
+*/
+static struct member_declarator* _Opt codegen_member_declarator_of_object_index(struct struct_or_union_specifier* p_complete, int index)
+{
+    int count = 0;
+    struct member_declaration* _Opt d = p_complete->member_declaration_list.head;
+    while (d)
+    {
+        if (d->member_declarator_list_opt)
+        {
+            struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
+            while (md)
+            {
+                if (md->declarator)
+                {
+                    if (count == index)
+                        return md;
+                    count++;
+                }
+                md = md->next;
+            }
+        }
+        else if (d->specifier_qualifier_list && d->specifier_qualifier_list->struct_or_union_specifier)
+        {
+            if (count == index)
+                return NULL;
+            count++;
+        }
+        d = d->next;
+    }
+    return NULL;
+}
+
+/* p_object is a member object that is a lowered bitfield: its struct and declarator */
+static bool codegen_object_is_lowered_bitfield(struct codegen_ctx* ctx,
+                                               const struct object* p_object,
+                                               struct struct_or_union_specifier** pp_owner,
+                                               struct member_declarator** pp_member)
+{
+    if (!ctx->options.no_bitfields || !type_is_bitfield(&p_object->type) || p_object->parent == NULL)
+        return false;
+
+    const struct object* p_parent = p_object->parent;
+    if (!type_is_struct_or_union(&p_parent->type) || p_parent->type.struct_or_union_specifier == NULL)
+        return false;
+
+    struct struct_or_union_specifier* _Opt p_complete =
+        get_complete_struct_or_union_specifier(p_parent->type.struct_or_union_specifier);
+    if (p_complete == NULL)
+        return false;
+
+    int index = 0;
+    const struct object* _Opt p = p_parent->members.head;
+    while (p && p != p_object)
+    {
+        index++;
+        p = p->next;
+    }
+    if (p == NULL)
+        return false;
+
+    struct member_declarator* _Opt p_member = codegen_member_declarator_of_object_index(p_complete, index);
+    if (p_member == NULL || !codegen_is_lowered_bitfield(ctx, p_complete, p_member))
+        return false;
+
+    *pp_owner = p_complete;
+    *pp_member = p_member;
+    return true;
+}
+
+/*
+  Member assignment 'lvalue = value' (initializers). When p_object is a
+  lowered bitfield it is emitted as a store and true is returned. lvalue
+  ends with ".name", the text before 'name' is the base of the tiles.
+*/
+static bool codegen_emit_object_bitfield_store(struct codegen_ctx* ctx,
+                                               struct osstream* oss,
+                                               const char* lvalue,
+                                               const struct object* p_object,
+                                               const char* value,
+                                               bool value_is_floating,
+                                               const struct object* _Opt p_constant,
+                                               bool yield_value,
+                                               bool fresh)
+{
+    struct struct_or_union_specifier* p_owner = NULL;
+    struct member_declarator* p_member = NULL;
+    if (!codegen_object_is_lowered_bitfield(ctx, p_object, &p_owner, &p_member))
+        return false;
+
+    const char* last_dot = strrchr(lvalue, '.');
+    if (last_dot == NULL)
+        return false;
+
+    struct osstream base = { 0 };
+    struct osstream parenthesized = { 0 };
+    ss_fprintf(&base, "%.*s", (int)(last_dot - lvalue) + 1, lvalue);
+    ss_fprintf(&parenthesized, "(%s)", value);
+    if (base.c_str != NULL && parenthesized.c_str != NULL)
+        codegen_emit_bitfield_store(ctx, oss, base.c_str, p_owner, p_member, parenthesized.c_str, value_is_floating, p_constant, yield_value, fresh);
+    ss_close(&parenthesized);
+    ss_close(&base);
+    return true;
+}
+
+/*
+  Brace initializer of the tiles of a run: one value per tile, built from
+  the initializers of the bitfield member objects from p_first on (count of
+  them). Constants are combined here; other values are shifted and masked.
+*/
+static void codegen_print_bitfield_tile_initializers(struct codegen_ctx* ctx,
+                                                     struct osstream* ss,
+                                                     struct struct_or_union_specifier* p_owner,
+                                                     const struct object* p_first,
+                                                     int first_index,
+                                                     int count,
+                                                     bool only_first_tile,
+                                                     bool* first)
+{
+    struct member_declarator* _Opt p_first_member = codegen_member_declarator_of_object_index(p_owner, first_index);
+    size_t start = 0, end = 0, cap = 0;
+    if (p_first_member == NULL || !codegen_bitfield_run(ctx, p_owner, p_first_member, &start, &end, &cap))
+        return;
+
+    const int int_bits = get_platform(ctx->options.target)->int_n_bits;
+
+    size_t pos = start;
+    while (pos < end)
+    {
+        const size_t size = codegen_bitfield_tile_size(ctx, pos, end, cap);
+        const size_t tile_first_bit = pos * 8;
+        const unsigned long long tile_all = (size >= 8) ? ~0ULL : ((1ULL << (size * 8)) - 1);
+        const bool tile_fits_int = size * 8 <= (size_t)int_bits;
+        const char* const acc_type = tile_fits_int ? "unsigned" : "unsigned long long";
+        const char* const suffix = tile_fits_int ? "U" : "ULL";
+
+        unsigned long long constant_bits = 0;
+        struct osstream parts = { 0 };
+
+        const struct object* _Opt p_object = p_first;
+        for (int i = 0; i < count && p_object; i++, p_object = p_object->next)
+        {
+            struct member_declarator* _Opt p_member = codegen_member_declarator_of_object_index(p_owner, first_index + i);
+            if (p_member == NULL || p_member->constant_expression == NULL || p_member->declarator == NULL)
+                continue;
+
+            const int width = (int)object_to_unsigned_long_long(&p_member->constant_expression->object);
+            const size_t first_bit = p_member->bit_offset;
+            if (width == 0 || !(tile_first_bit + size * 8 > first_bit && tile_first_bit < first_bit + (size_t)width))
+                continue;
+
+            const unsigned long long field_mask = (width >= 64) ? ~0ULL : ((1ULL << width) - 1);
+            const bool shift_left = first_bit >= tile_first_bit;
+            const size_t shift = shift_left ? first_bit - tile_first_bit : tile_first_bit - first_bit;
+            const unsigned long long tile_mask = (shift_left ? field_mask << shift : field_mask >> shift) & tile_all;
+
+            const struct object* p_value_object = object_is_reference(p_object) ? object_get_referenced(p_object) : p_object;
+            const struct expression* _Opt p_init = p_value_object->p_init_expression;
+            if (p_init == NULL)
+                continue;
+
+            const struct object* p_init_value = &p_init->object;
+            if (object_has_constant_value(p_init_value) && type_is_integer(&p_init_value->type))
+            {
+                unsigned long long bits = type_is_signed_integer(&p_init_value->type) ?
+                    (unsigned long long)object_to_signed_long_long(p_init_value) :
+                    object_to_unsigned_long_long(p_init_value);
+                if (type_is_bool(&p_member->declarator->object.type))
+                    bits = bits != 0;
+                bits &= field_mask;
+                constant_bits |= (shift_left ? bits << shift : bits >> shift) & tile_mask;
+            }
+            else
+            {
+                struct osstream value = { 0 };
+                codegen_visit_expression(ctx, &value, (struct expression*)p_init);
+                if (value.c_str != NULL)
+                {
+                    if (parts.c_str != NULL)
+                        ss_fprintf(&parts, " | ");
+                    if (shift == 0)
+                        ss_fprintf(&parts, "((%s)(%s) & 0x%llx%s)", acc_type, value.c_str, tile_mask, suffix);
+                    else
+                        ss_fprintf(&parts, "(((%s)(%s) %s %zu) & 0x%llx%s)", acc_type, value.c_str, shift_left ? "<<" : ">>", shift, tile_mask, suffix);
+                }
+                ss_close(&value);
+            }
+        }
+
+        if (!(*first))
+            ss_fprintf(ss, ",");
+        *first = false;
+
+        if (parts.c_str == NULL && constant_bits == 0)
+            ss_fprintf(ss, "0");
+        else if (parts.c_str == NULL)
+            ss_fprintf(ss, "0x%llx%s", constant_bits, suffix);
+        else if (constant_bits == 0)
+            ss_fprintf(ss, "%s", parts.c_str);
+        else
+            ss_fprintf(ss, "0x%llx%s | %s", constant_bits, suffix, parts.c_str);
+
+        ss_close(&parts);
+
+        if (only_first_tile)
+            break;
+        pos += size;
+    }
+}
+
+/* Emits 'name<designator>', or its value when p_object is a lowered bitfield */
+static void codegen_emit_object_bitfield_read_or_name(struct codegen_ctx* ctx,
+                                                      struct osstream* oss,
+                                                      const char* name,
+                                                      const struct object* p_object)
+{
+    const char* designator = p_object->member_designator ? p_object->member_designator : "";
+    struct struct_or_union_specifier* p_owner = NULL;
+    struct member_declarator* p_member = NULL;
+    const char* last_dot = strrchr(designator, '.');
+    if (last_dot && codegen_object_is_lowered_bitfield(ctx, p_object, &p_owner, &p_member))
+    {
+        struct osstream base = { 0 };
+        ss_fprintf(&base, "%s%.*s", name, (int)(last_dot - designator) + 1, designator);
+        if (base.c_str != NULL)
+            codegen_emit_bitfield_read(ctx, oss, base.c_str, p_owner, p_member);
+        ss_close(&base);
+        return;
+    }
+    ss_fprintf(oss, "%s%s", name, designator);
+}
+
+/*
+  Initializer statement 'prefix<designator> = init;' (or '= 0' when p_init
+  is NULL) for a member object. Returns false, emitting nothing, when the
+  member is not a lowered bitfield.
+*/
+static bool codegen_emit_bitfield_init_statement(struct codegen_ctx* ctx,
+                                                 struct osstream* ss,
+                                                 const char* prefix,
+                                                 const struct object* p_object,
+                                                 struct expression* _Opt p_init,
+                                                 bool fresh)
+{
+    struct struct_or_union_specifier* p_owner = NULL;
+    struct member_declarator* p_member = NULL;
+    if (!codegen_object_is_lowered_bitfield(ctx, p_object, &p_owner, &p_member))
+        return false;
+
+    struct osstream lvalue = { 0 };
+    struct osstream value = { 0 };
+    ss_fprintf(&lvalue, "%s%s", prefix, p_object->member_designator ? p_object->member_designator : "");
+
+    struct object zero = object_make_unsigned_long_long(0);
+    if (p_init)
+        codegen_visit_expression(ctx, &value, p_init);
+    else
+        ss_fprintf(&value, "0");
+
+    if (lvalue.c_str != NULL && value.c_str != NULL)
+    {
+        print_identation_core(ss, ctx->indentation);
+        codegen_emit_object_bitfield_store(ctx, ss, lvalue.c_str, p_object, value.c_str,
+                                           p_init ? type_is_floating_point(&p_init->object.type) : false,
+                                           p_init ? &p_init->object : &zero,
+                                           false, fresh);
+        ss_fprintf(ss, ";\n");
+    }
+
+    object_destroy(&zero);
+    ss_close(&value);
+    ss_close(&lvalue);
+    return true;
+}
+
+/* Emits the operation and returns true when p_left is a lowered bitfield */
+static bool codegen_emit_bitfield_operation(struct codegen_ctx* ctx,
+                                            struct osstream* oss,
+                                            struct expression* p_left,
+                                            const char* _Opt op,
+                                            struct expression* _Opt p_right,
+                                            bool postfix,
+                                            bool yield_value)
+{
+    struct codegen_bitfield_access access = { 0 };
+    const bool is_bitfield = codegen_bitfield_access(ctx, &access, p_left);
+    if (is_bitfield)
+        codegen_emit_bitfield_assignment(ctx, oss, &access, op, p_right, postfix, yield_value);
+    ss_close(&access.base);
+    return is_bitfield;
+}
+
+static const char* get_op_by_expression_type(enum expression_type type);
+
+/*
+  An expression statement that is an assignment, ++ or -- of a lowered
+  bitfield: the same as codegen_emit_bitfield_operation, without the value.
+*/
+static bool codegen_emit_bitfield_statement(struct codegen_ctx* ctx, struct osstream* oss, struct expression* p_expression)
+{
+    if (!ctx->options.no_bitfields)
+        return false;
+
+    switch (p_expression->expression_type)
+    {
+    case EXPR_ASSIGNMENT_ASSIGN:
+        return p_expression->left != NULL &&
+            codegen_emit_bitfield_operation(ctx, oss, p_expression->left, NULL, p_expression->right, false, false);
+
+    case EXPR_ASSIGNMENT_PLUS_ASSIGN:
+    case EXPR_ASSIGNMENT_MINUS_ASSIGN:
+    case EXPR_ASSIGNMENT_MULTI_ASSIGN:
+    case EXPR_ASSIGNMENT_DIV_ASSIGN:
+    case EXPR_ASSIGNMENT_MOD_ASSIGN:
+    case EXPR_ASSIGNMENT_SHIFT_LEFT_ASSIGN:
+    case EXPR_ASSIGNMENT_SHIFT_RIGHT_ASSIGN:
+    case EXPR_ASSIGNMENT_AND_ASSIGN:
+    case EXPR_ASSIGNMENT_OR_ASSIGN:
+    case EXPR_ASSIGNMENT_NOT_ASSIGN:
+    {
+        /* "*=" -> "*" */
+        char op[4] = { 0 };
+        snprintf(op, sizeof op, "%s", get_op_by_expression_type(p_expression->expression_type));
+        op[strlen(op) - 1] = '\0';
+        return p_expression->left != NULL &&
+            codegen_emit_bitfield_operation(ctx, oss, p_expression->left, op, p_expression->right, false, false);
+    }
+
+    case EXPR_POSTFIX_INCREMENT:
+    case EXPR_POSTFIX_DECREMENT:
+        return p_expression->left != NULL &&
+            codegen_emit_bitfield_operation(ctx, oss, p_expression->left,
+                                            p_expression->expression_type == EXPR_POSTFIX_INCREMENT ? "+" : "-",
+                                            NULL, false, false);
+
+    case EXPR_UNARY_INCREMENT:
+    case EXPR_UNARY_DECREMENT:
+        return p_expression->right != NULL &&
+            codegen_emit_bitfield_operation(ctx, oss, p_expression->right,
+                                            p_expression->expression_type == EXPR_UNARY_INCREMENT ? "+" : "-",
+                                            NULL, false, false);
+
+    default:
+        break;
+    }
+    return false;
+}
+
+/*
+  Emits '.name' (or '->name'). Under -no-bitfields a bitfield is emitted as
+  its value, so the left operand is printed here too: left_text is it.
+*/
+static void codegen_emit_member(struct codegen_ctx* ctx,
+                                struct osstream* oss,
+                                const struct type* p_struct_type,
+                                int member_index,
+                                const char* left_text,
+                                const char* op)
+{
+    char name[100] = { 0 };
+    struct codegen_bitfield_access access = { 0 };
+    if (ctx->options.no_bitfields &&
+        codegen_bitfield_access_from_member(ctx, &access, p_struct_type, member_index, left_text, op, name))
+    {
+        _Assert(access.p_owner != NULL && access.p_member != NULL && access.base.c_str != NULL);
+        codegen_emit_bitfield_read(ctx, oss, access.base.c_str, access.p_owner, access.p_member);
+    }
+    else if (name[0] != '\0' || find_member_name(p_struct_type, member_index, name, &access.p_member, &access.p_owner) == 0)
+    {
+        ss_fprintf(oss, "%s%s%s", left_text, op, name);
+    }
+    else
+    {
+        ss_fprintf(oss, "%s", left_text);
+    }
+    ss_close(&access.base);
 }
 
 static int il_visit_literal_string2(const struct token* current, struct osstream* oss)
@@ -1032,19 +2019,21 @@ static bool codegen_bitint_result_needs_wrap(const struct codegen_ctx* ctx, cons
   bit and the subtraction moves the upper half of the range to the negatives.
   A floating source goes through long long first, the conversion of a negative
   double to an unsigned type is undefined.
+
+  Also used to read bitfields under -no-bitfields: 'text' is then the storage
+  shifted down to the field's first bit.
 */
-static void codegen_emit_bitint_wrap_text(struct codegen_ctx* ctx,
-                                          struct osstream* oss,
-                                          const struct type* p_type,
-                                          const char* text,
-                                          bool source_is_floating)
+static void codegen_emit_wrap_text(struct codegen_ctx* ctx,
+                                   struct osstream* oss,
+                                   const char* lowered,
+                                   int width,
+                                   bool is_unsigned,
+                                   const char* text,
+                                   bool source_is_floating,
+                                   bool text_is_unsigned)
 {
-    const int width = p_type->bitint_width;
     const unsigned long long mask = (width >= 64) ? ~0ULL : ((1ULL << width) - 1);
     const unsigned long long sign = 1ULL << (width - 1);
-
-    struct osstream lowered = { 0 };
-    d_print_type(ctx, &lowered, p_type, NULL, false, false);
 
     /* when N is below the target int width the whole computation fits in int */
     const bool use_int = width < get_platform(ctx->options.target)->int_n_bits;
@@ -1053,23 +2042,41 @@ static void codegen_emit_bitint_wrap_text(struct codegen_ctx* ctx,
     const char* const u_suffix = use_int ? "U" : "ULL";
     const char* const s_suffix = use_int ? "" : "LL";
 
-    if (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
-    {
-        if (source_is_floating)
-            ss_fprintf(oss, "((%s)((%s)(long long)(%s) & 0x%llx%s))", lowered.c_str, u_type, text, mask, u_suffix);
-        else
-            ss_fprintf(oss, "((%s)((%s)(%s) & 0x%llx%s))", lowered.c_str, u_type, text, mask, u_suffix);
-    }
+    /* text & MASK; a text that is already an unsigned value needs no cast */
+    struct osstream masked = { 0 };
+    if (source_is_floating)
+        ss_fprintf(&masked, "(%s)(long long)(%s) & 0x%llx%s", u_type, text, mask, u_suffix);
+    else if (text_is_unsigned)
+        ss_fprintf(&masked, "%s & 0x%llx%s", text, mask, u_suffix);
     else
-    {
-        if (source_is_floating)
-            ss_fprintf(oss, "((%s)(((%s)((%s)(long long)(%s) & 0x%llx%s) ^ 0x%llx%s) - 0x%llx%s))",
-                       lowered.c_str, s_type, u_type, text, mask, u_suffix, sign, s_suffix, sign, s_suffix);
-        else
-            ss_fprintf(oss, "((%s)(((%s)((%s)(%s) & 0x%llx%s) ^ 0x%llx%s) - 0x%llx%s))",
-                       lowered.c_str, s_type, u_type, text, mask, u_suffix, sign, s_suffix, sign, s_suffix);
-    }
+        ss_fprintf(&masked, "(%s)(%s) & 0x%llx%s", u_type, text, mask, u_suffix);
 
+    if (masked.c_str == NULL)
+        return;
+
+    if (is_unsigned)
+        ss_fprintf(oss, "((%s)(%s))", lowered, masked.c_str);
+    else
+        ss_fprintf(oss, "((%s)(((%s)(%s) ^ 0x%llx%s) - 0x%llx%s))",
+                   lowered, s_type, masked.c_str, sign, s_suffix, sign, s_suffix);
+
+    ss_close(&masked);
+}
+
+static void codegen_emit_bitint_wrap_text(struct codegen_ctx* ctx,
+                                          struct osstream* oss,
+                                          const struct type* p_type,
+                                          const char* text,
+                                          bool source_is_floating)
+{
+    struct osstream lowered = { 0 };
+    d_print_type(ctx, &lowered, p_type, NULL, false, false);
+    if (lowered.c_str != NULL)
+    {
+        codegen_emit_wrap_text(ctx, oss, lowered.c_str, p_type->bitint_width,
+                               (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED) != 0,
+                               text, source_is_floating, false);
+    }
     ss_close(&lowered);
 }
 
@@ -2323,14 +3330,10 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
         {
             _Assert(p_expression->left != NULL);
 
-            codegen_visit_expression(ctx, oss, p_expression->left);
-
-            char name[100] = { 0 };
-            int r = find_member_name(&p_expression->left->object.type, p_expression->member_index, name);
-            if (r == 0)
-            {
-                ss_fprintf(oss, ".%s", name);
-            }
+            struct osstream left = { 0 };
+            codegen_visit_expression(ctx, &left, p_expression->left);
+            codegen_emit_member(ctx, oss, &p_expression->left->object.type, p_expression->member_index, left.c_str ? left.c_str : "", ".");
+            ss_close(&left);
         }
         break;
 
@@ -2338,20 +3341,17 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
         {
             _Assert(p_expression->left != NULL);
 
-            codegen_visit_expression(ctx, oss, p_expression->left);
+            struct osstream left = { 0 };
+            codegen_visit_expression(ctx, &left, p_expression->left);
 
             /* the left side can be an array: block->l with CHAR64LONG16 block[1] */
             struct type t = type_is_array(&p_expression->left->object.type) ?
                 get_array_item_type(&p_expression->left->object.type) :
                 type_remove_pointer(&p_expression->left->object.type);
 
-            char name[100] = { 0 };
-            int r = find_member_name(&t, p_expression->member_index, name);
-            if (r == 0)
-            {
-                ss_fprintf(oss, "->%s", name);
-            }
+            codegen_emit_member(ctx, oss, &t, p_expression->member_index, left.c_str ? left.c_str : "", "->");
             type_destroy(&t);
+            ss_close(&left);
 
         }
         break;
@@ -2359,7 +3359,10 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
         case EXPR_POSTFIX_INCREMENT:
             _Assert(p_expression->left != NULL);
 
-            if (p_expression->left->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
+            if (codegen_emit_bitfield_operation(ctx, oss, p_expression->left, "+", NULL, true, true))
+            {
+            }
+            else if (p_expression->left->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
             {
                 struct type int_type = type_make_int_bool_like();
                 char helper_name[100] = { 0 };
@@ -2402,7 +3405,10 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
         case EXPR_POSTFIX_DECREMENT:
             _Assert(p_expression->left != NULL);
 
-            if (p_expression->left->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
+            if (codegen_emit_bitfield_operation(ctx, oss, p_expression->left, "-", NULL, true, true))
+            {
+            }
+            else if (p_expression->left->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
             {
                 struct type int_type = type_make_int_bool_like();
                 char helper_name[100] = { 0 };
@@ -3058,7 +4064,10 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
 
         case EXPR_UNARY_INCREMENT:
             _Assert(p_expression->right != NULL);
-            if (p_expression->right->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
+            if (codegen_emit_bitfield_operation(ctx, oss, p_expression->right, "+", NULL, false, true))
+            {
+            }
+            else if (p_expression->right->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
             {
                 struct type int_type = type_make_int_bool_like();
                 char helper_name[100] = { 0 };
@@ -3086,7 +4095,10 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
 
         case EXPR_UNARY_DECREMENT:
             _Assert(p_expression->right != NULL);
-            if (p_expression->right->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
+            if (codegen_emit_bitfield_operation(ctx, oss, p_expression->right, "-", NULL, false, true))
+            {
+            }
+            else if (p_expression->right->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
             {
                 struct type int_type = type_make_int_bool_like();
                 char helper_name[100] = { 0 };
@@ -3240,6 +4252,9 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             _Assert(p_expression->left != NULL);
             _Assert(p_expression->right != NULL);
 
+            if (codegen_emit_bitfield_operation(ctx, oss, p_expression->left, NULL, p_expression->right, false, true))
+                break;
+
             if (p_expression->left->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
             {
                 char helper_name[100] = { 0 };
@@ -3305,6 +4320,10 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
         case EXPR_ASSIGNMENT_MINUS_ASSIGN:
             _Assert(p_expression->left != NULL);
             _Assert(p_expression->right != NULL);
+            if (codegen_emit_bitfield_operation(ctx, oss, p_expression->left,
+                                                p_expression->expression_type == EXPR_ASSIGNMENT_PLUS_ASSIGN ? "+" : "-",
+                                                p_expression->right, false, true))
+                break;
             if (p_expression->left->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
             {
                 /* "*=" -> "*" */
@@ -3357,6 +4376,14 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
         case EXPR_ASSIGNMENT_NOT_ASSIGN:
             _Assert(p_expression->left != NULL);
             _Assert(p_expression->right != NULL);
+            {
+                /* "*=" -> "*" */
+                char op[4] = { 0 };
+                snprintf(op, sizeof op, "%s", get_op_by_expression_type(p_expression->expression_type));
+                op[strlen(op) - 1] = '\0';
+                if (codegen_emit_bitfield_operation(ctx, oss, p_expression->left, op, p_expression->right, false, true))
+                    break;
+            }
             if (p_expression->left->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC)
             {
                 /* "*=" -> "*" */
@@ -3677,6 +4704,10 @@ static void codegen_visit_expression_statement(struct codegen_ctx* ctx, struct o
                of leaving a dead "temp;" statement behind. */
             codegen_vm_ptr_prefix_step(ctx, &local, p_expr->left,
                                        p_expr->expression_type == EXPR_POSTFIX_INCREMENT ? "+" : "-");
+        }
+        else if (codegen_emit_bitfield_statement(ctx, &local, p_expr))
+        {
+            /* the stored value is not read back */
         }
         else if (p_expr->expression_type != EXPR_UNARY_STATIC_ASSERTION ||
             codegen_expr_is_emitted_runtime_assert(ctx, p_expr))
@@ -5550,6 +6581,37 @@ static void object_print_source_object_non_constant_initialization(
 
     /* --- Scalar leaf: emit  dest_name.member = <source value>; --- */
     print_identation_core(ss, ctx->indentation);
+
+    {
+        /* a lowered bitfield on either side */
+        struct osstream lvalue = { 0 };
+        struct osstream value = { 0 };
+        ss_fprintf(&lvalue, "%s%s", dest_name, object->member_designator);
+        if (object_has_constant_value(source))
+            object_print_value(ctx->options.target, &value, source);
+        else
+            codegen_emit_object_bitfield_read_or_name(ctx, &value, source_name, source);
+
+        const bool stored = lvalue.c_str != NULL && value.c_str != NULL &&
+            codegen_emit_object_bitfield_store(ctx, ss, lvalue.c_str, object, value.c_str, false,
+                                               object_has_constant_value(source) ? source : NULL,
+                                               false, true);
+        ss_close(&lvalue);
+        if (stored)
+        {
+            ss_close(&value);
+            ss_fprintf(ss, ";\n");
+            return;
+        }
+        if (!object_has_constant_value(source) && value.c_str != NULL)
+        {
+            ss_fprintf(ss, "%s%s = %s;\n", dest_name, object->member_designator, value.c_str);
+            ss_close(&value);
+            return;
+        }
+        ss_close(&value);
+    }
+
     ss_fprintf(ss, "%s%s = ", dest_name, object->member_designator);
 
     if (object_has_constant_value(source))
@@ -5720,6 +6782,17 @@ static void codegen_emit_member_assignments_from_constexpr(struct codegen_ctx* c
 
         /* Leaf: dest_prefix was already built up to the full correct path by
            the recursion above. */
+        if (object_has_constant_value(source))
+        {
+            struct osstream value = { 0 };
+            object_print_value(ctx->options.target, &value, source);
+            const bool stored = value.c_str != NULL &&
+                codegen_emit_object_bitfield_store(ctx, oss, dest_prefix, dest, value.c_str, false, source, false, false);
+            ss_close(&value);
+            if (stored)
+                return;
+        }
+
         ss_fprintf(oss, "%s = ", dest_prefix);
 
         if (object_has_constant_value(source))
@@ -5792,20 +6865,56 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
             //we could make the first member be array of unsigned int
             //then initialize it
             struct object* _Opt member = object->members.head;
-            object_print_initialization_list(ctx, ss, member, first);
+            struct struct_or_union_specifier* p_owner = NULL;
+            struct member_declarator* p_member = NULL;
+            if (member && codegen_object_is_lowered_bitfield(ctx, member, &p_owner, &p_member))
+            {
+                /* the first member of the lowered union is its first tile */
+                codegen_print_bitfield_tile_initializers(ctx, ss, p_owner, member, 0, 1, true, first);
+            }
+            else
+            {
+                object_print_initialization_list(ctx, ss, member, first);
+            }
         }
         else
         {
+            /* under -no-bitfields a run of bitfields is initialized as its tiles */
             struct object* _Opt member = object->members.head;
+            int index = 0;
             while (member)
             {
+                struct struct_or_union_specifier* p_owner = NULL;
+                struct member_declarator* p_member = NULL;
+                if (codegen_object_is_lowered_bitfield(ctx, member, &p_owner, &p_member))
+                {
+                    int count = 0;
+                    struct object* _Opt p = member;
+                    while (p && codegen_object_is_lowered_bitfield(ctx, p, &p_owner, &p_member))
+                    {
+                        count++;
+                        p = p->next;
+                    }
+                    codegen_print_bitfield_tile_initializers(ctx, ss, p_owner, member, index, count, false, first);
+                    member = p;
+                    index += count;
+                    continue;
+                }
                 object_print_initialization_list(ctx, ss, member, first);
                 member = member->next;
+                index++;
             }
         }
     }
     else
     {
+        /* an unnamed bit-field takes no initializer */
+        if (type_is_bitfield(&object->type) &&
+            (object->member_designator == NULL || object->member_designator[0] == '\0'))
+        {
+            return;
+        }
+
         if (!(*first))
             ss_fprintf(ss, ",");
 
@@ -5894,7 +7003,13 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                     /* TODO: external declarations bug */
                     while (member)
                     {
-                        if (member->p_init_expression)
+                        if (member->p_init_expression &&
+                            codegen_emit_bitfield_init_statement(ctx, ss, declarator_name, member, member->p_init_expression,
+                                                                 all && initialize_objects_that_does_not_have_initializer))
+                        {
+                            break;
+                        }
+                        else if (member->p_init_expression)
                         {
                             /* assign_each_member_from_initialization(ctx, ss, member, declarator_name); */
                             print_identation_core(ss, ctx->indentation);
@@ -5908,7 +7023,8 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                         }
                         else if (all)
                         {
-                            if (initialize_objects_that_does_not_have_initializer)
+                            if (initialize_objects_that_does_not_have_initializer &&
+                                !codegen_emit_bitfield_init_statement(ctx, ss, declarator_name, member, NULL, true))
                             {
                                 print_identation_core(ss, ctx->indentation);
                                 ss_fprintf(ss, "%s%s = 0;\n", declarator_name, member->member_designator);
@@ -6032,6 +7148,8 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                     }
                     else if (!object_has_constant_value(&object->p_init_expression->object))
                     {
+                        if (codegen_emit_bitfield_init_statement(ctx, ss, declarator_name, object, object->p_init_expression, false))
+                            return;
                         emit_line_directive(ctx, ss, object->p_init_expression->first_token);
                         print_identation_core(ss, ctx->indentation);
                         ss_fprintf(ss, "%s%s = ", declarator_name, object->member_designator);
@@ -6044,6 +7162,9 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                 }
                 else
                 {
+                    if (codegen_emit_bitfield_init_statement(ctx, ss, declarator_name, object, object->p_init_expression,
+                                                             initialize_objects_that_does_not_have_initializer))
+                        return;
                     emit_line_directive(ctx, ss, object->p_init_expression->first_token);
                     print_identation_core(ss, ctx->indentation);
                     ss_fprintf(ss, "%s%s = ", declarator_name, object->member_designator);
@@ -6056,7 +7177,8 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
             }
             else if (all)
             {
-                if (initialize_objects_that_does_not_have_initializer)
+                if (initialize_objects_that_does_not_have_initializer &&
+                    !codegen_emit_bitfield_init_statement(ctx, ss, declarator_name, object, NULL, true))
                 {
                     //emit_line_directive(ctx, ss, object->p_init_expression->first_token);
                     print_identation_core(ss, ctx->indentation);
@@ -6791,27 +7913,16 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
     const bool msvc_target =
         (ctx->options.target == TARGET_MSVC_WIN_X86 || ctx->options.target == TARGET_MSVC_WIN_X64);
 
-    /* __attribute__((aligned(n))) on the struct: MSVC spells it
-       __declspec(align(n)) and wants it before the keyword. */
-    if (p_complete->aligned_attribute > 0 && msvc_target)
-    {
-        ss_fprintf(ss, "__declspec(align(%d)) ", p_complete->aligned_attribute);
-    }
-
-    ss_fprintf(ss, struct_or_union_specifier_is_union(p_complete) ? "union " : "struct ");
-
-    if (p_complete->aligned_attribute > 0 && !msvc_target)
-    {
-        ss_fprintf(ss, "__attribute__((aligned(%d))) ", p_complete->aligned_attribute);
-    }
-
-    ss_fprintf(ss, "%s", p_complete->tag_name);
-
-    if (p_complete->member_declaration_list.head)
-    {
-        ss_fprintf(ss, " ");
-        ss_fprintf(ss, "{\n");
-    }
+    /*
+      The members are printed first: under -no-bitfields the tiles can be less
+      aligned than the bitfields they replace (see codegen_bitfield_run), then
+      the struct gets the alignment it had as an aligned attribute.
+    */
+    struct osstream body = { 0 };
+    size_t host_align = 1;
+    bool has_lowered_bitfield = false;
+    bool tiles_printed = false;
+    const bool is_union = struct_or_union_specifier_is_union(p_complete);
 
     int no_name_index = 0;
 
@@ -6825,23 +7936,50 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
 
             while (member_declarator)
             {
-                if (member_declarator->declarator)
+                size_t run_start = 0, run_end = 0, run_cap = 0;
+                if (ctx->options.no_bitfields &&
+                    member_declarator->constant_expression &&
+                    codegen_bitfield_run(ctx, p_complete, member_declarator, &run_start, &run_end, &run_cap))
                 {
-                    ss_fprintf(ss, IDENTATION_STR);
+                    has_lowered_bitfield = true;
+                    if (!tiles_printed)
+                    {
+                        const size_t largest = codegen_print_bitfield_tiles(ctx, &body, run_start, run_end, run_cap);
+                        if (largest > host_align)
+                            host_align = largest;
+                        tiles_printed = true;
+                    }
+                }
+                else if (member_declarator->declarator)
+                {
+                    if (!is_union)
+                        tiles_printed = false;
+
+                    if (ctx->options.no_bitfields)
+                    {
+                        size_t align = member_declarator->declarator->gcc_packed ? 1 :
+                            type_get_alignof(&member_declarator->declarator->object.type, ctx->options.target);
+                        if (p_complete->pack_alignment > 0 && align > p_complete->pack_alignment)
+                            align = p_complete->pack_alignment;
+                        if (align > host_align)
+                            host_align = align;
+                    }
+
+                    ss_fprintf(&body, IDENTATION_STR);
 
                     if (type_is_array(&member_declarator->declarator->object.type) &&
                         member_declarator->declarator->object.type.array_num_elements == 0)
                     {
-                        //Flexible array members - we print as [1] instead 
+                        //Flexible array members - we print as [1] instead
                         // of [0] or []
-                        //sizeof is not used in generated code, so this will not cause 
+                        //sizeof is not used in generated code, so this will not cause
                         //problems
                         member_declarator->declarator->object.type.array_num_elements = 1;
                         const char* name =
                             member_declarator->declarator->name_opt ?
                             member_declarator->declarator->name_opt->lexeme : "";
 
-                        d_print_type(ctx, ss, &member_declarator->declarator->object.type, name, false, false);
+                        d_print_type(ctx, &body, &member_declarator->declarator->object.type, name, false, false);
 
                         member_declarator->declarator->object.type.array_num_elements = 0; //restore
                     }
@@ -6853,7 +7991,7 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
                             member_declarator->declarator->name_opt->lexeme : "";
 
                         d_print_type(ctx,
-                                     ss,
+                                     &body,
                                      &member_declarator->declarator->object.type,
                                      name,
                                      false, false);
@@ -6863,17 +8001,17 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
                            whole struct would need #pragma pack. */
                         if (member_declarator->declarator->gcc_packed && !msvc_target)
                         {
-                            ss_fprintf(ss, " __attribute__((packed))");
+                            ss_fprintf(&body, " __attribute__((packed))");
                         }
                     }
 
                     if (member_declarator->constant_expression)
                     {
-                        ss_fprintf(ss, " : ");
-                        object_print_value(ctx->options.target, ss, &member_declarator->constant_expression->object);
+                        ss_fprintf(&body, " : ");
+                        object_print_value(ctx->options.target, &body, &member_declarator->constant_expression->object);
                     }
 
-                    ss_fprintf(ss, ";\n");
+                    ss_fprintf(&body, ";\n");
                 }
                 member_declarator = member_declarator->next;
             }
@@ -6882,26 +8020,72 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
         {
             if (member_declaration->specifier_qualifier_list->struct_or_union_specifier)
             {
+                if (!is_union)
+                    tiles_printed = false;
+
                 struct type t = { 0 };
                 t.category = TYPE_CATEGORY_ITSELF;
                 t.struct_or_union_specifier = member_declaration->specifier_qualifier_list->struct_or_union_specifier;
                 t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
 
+                if (ctx->options.no_bitfields)
+                {
+                    size_t align = type_get_alignof(&t, ctx->options.target);
+                    if (p_complete->pack_alignment > 0 && align > p_complete->pack_alignment)
+                        align = p_complete->pack_alignment;
+                    if (align > host_align)
+                        host_align = align;
+                }
+
                 char name[100] = { 0 };
                 snprintf(name, sizeof name, "__m%d", no_name_index++);
-                ss_fprintf(ss, IDENTATION_STR);
-                d_print_type(ctx, ss, &t, name, false, false);
-                ss_fprintf(ss, ";\n");
+                ss_fprintf(&body, IDENTATION_STR);
+                d_print_type(ctx, &body, &t, name, false, false);
+                ss_fprintf(&body, ";\n");
                 type_destroy(&t);
             }
         }
 
         member_declaration = member_declaration->next;
     }
+
+    int aligned = p_complete->aligned_attribute;
+    if (has_lowered_bitfield)
+    {
+        struct type struct_type = codegen_make_struct_type(p_complete);
+        const size_t struct_align = type_get_alignof(&struct_type, ctx->options.target);
+        type_destroy(&struct_type);
+        if (struct_align > host_align && (int)struct_align > aligned)
+            aligned = (int)struct_align;
+    }
+
+    /* __attribute__((aligned(n))) on the struct: MSVC spells it
+       __declspec(align(n)) and wants it before the keyword. */
+    if (aligned > 0 && msvc_target)
+    {
+        ss_fprintf(ss, "__declspec(align(%d)) ", aligned);
+    }
+
+    ss_fprintf(ss, is_union ? "union " : "struct ");
+
+    if (aligned > 0 && !msvc_target)
+    {
+        ss_fprintf(ss, "__attribute__((aligned(%d))) ", aligned);
+    }
+
+    ss_fprintf(ss, "%s", p_complete->tag_name);
+
     if (p_complete->member_declaration_list.head)
+    {
+        ss_fprintf(ss, " {\n");
+        if (body.c_str)
+            ss_fprintf(ss, "%s", body.c_str);
         ss_fprintf(ss, "};\n");
+    }
     else
         ss_fprintf(ss, ";\n");
+
+    ss_close(&body);
 
     if (p_complete->pack_alignment > 0)
     {

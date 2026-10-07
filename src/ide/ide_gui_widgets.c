@@ -249,6 +249,13 @@ void gui_input_insert(struct gui_node* n, const char* utf8)
     input_replace(n, lo, hi, utf8, (int)strlen(utf8));
 }
 
+/* An edit by the user: input_replace, then the input's change id. */
+static void input_edit(struct gui_app* app, struct gui_node* n, int lo, int hi, const char* text, int text_len)
+{
+    input_replace(n, lo, hi, text, text_len);
+    core_fire(app, n->change_id);
+}
+
 /* How far the text is scrolled left, px: the caret is always in view
  * (nothing stored, derived each time). */
 /* The text's scroll, in px: it moves only when the focused caret leaves the
@@ -1177,7 +1184,7 @@ static int input_key(struct gui_app* app, struct gui_node* n, int key, int mods)
         else if (key == GUI_KEY_RIGHT || key == GUI_KEY_DOWN) key = GUI_KEY_END;
         else if (key == GUI_KEY_BACKSPACE && lo == hi)
         {
-            input_replace(n, 0, hi, "", 0);
+            input_edit(app, n, 0, hi, "", 0);
             return 1;
         }
     }
@@ -1199,12 +1206,12 @@ static int input_key(struct gui_app* app, struct gui_node* n, int key, int mods)
     case GUI_KEY_BACKSPACE:
         if (lo == hi)
             lo = word ? input_word_left(n->value, lo) : prev_char(n->value, lo);
-        input_replace(n, lo, hi, "", 0);
+        input_edit(app, n, lo, hi, "", 0);
         return 1;
     case GUI_KEY_DELETE:
         if (lo == hi)
             hi = word ? input_word_right(n->value, hi) : next_char(n->value, hi);
-        input_replace(n, lo, hi, "", 0);
+        input_edit(app, n, lo, hi, "", 0);
         return 1;
     case GUI_KEY_ENTER:
         core_fire(app, n->id);
@@ -1229,7 +1236,7 @@ static int input_key(struct gui_app* app, struct gui_node* n, int key, int mods)
             gui_clipboard_set(app->canvas, s);
             free(s);
             if (key == 'X')
-                input_replace(n, lo, hi, "", 0);
+                input_edit(app, n, lo, hi, "", 0);
         }
         return 1;
     case 'V':
@@ -1241,7 +1248,7 @@ static int input_key(struct gui_app* app, struct gui_node* n, int key, int mods)
         {
             /* single line: only up to the first line break */
             int len = (int)strcspn(s, "\r\n");
-            input_replace(n, lo, hi, s, len);
+            input_edit(app, n, lo, hi, s, len);
             free(s);
         }
         return 1;
@@ -1433,6 +1440,6 @@ void widget_char(struct gui_app* app, uint32_t ch)
     }
     int lo = 0, hi = 0;
     input_selection(n, &lo, &hi);
-    input_replace(n, lo, hi, buf, len);
+    input_edit(app, n, lo, hi, buf, len);
     app->needs_paint = 1;
 }

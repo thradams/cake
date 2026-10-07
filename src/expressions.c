@@ -3156,26 +3156,44 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
             bool is_u32 = false;
             bool is_u16 = false;
 
-            if (ctx->current->lexeme[0] == 'L')
+            /*
+            * C23 6.4.5: if any of the literals has an encoding prefix,
+            * the concatenated result has that prefix
+            */
+            const struct token* prefix_token = ctx->current;
+            for (const struct token* _Opt p = ctx->current; p; p = p->next)
+            {
+                if (!(p->flags & TK_FLAG_FINAL))
+                    continue;
+                if (p->type != TK_STRING_LITERAL)
+                    break;
+                if (p->lexeme[0] != '"')
+                {
+                    prefix_token = p;
+                    break;
+                }
+            }
+
+            if (prefix_token->lexeme[0] == 'L')
             {
                 is_wide = true;
                 is_bigger_than_char = true;
                 char_type_specifiers =
                     object_type_to_type_specifier(get_platform(ctx->options.target)->wchar_t_type);
             }
-            else if (ctx->current->lexeme[0] == 'u' &&
-                ctx->current->lexeme[1] == '8')
+            else if (prefix_token->lexeme[0] == 'u' &&
+                prefix_token->lexeme[1] == '8')
             {
                 is_u8 = true;
                 char_type_specifiers = TYPE_SPECIFIER_CHAR;
             }
-            else if (ctx->current->lexeme[0] == 'u')
+            else if (prefix_token->lexeme[0] == 'u')
             {
                 is_u16 = true;
                 is_bigger_than_char = true;
                 char_type_specifiers = TYPE_SPECIFIER_UNSIGNED | object_type_to_type_specifier(get_platform(ctx->options.target)->int16_type);
             }
-            else if (ctx->current->lexeme[0] == 'U')
+            else if (prefix_token->lexeme[0] == 'U')
             {
                 is_u32 = true;
                 is_bigger_than_char = true;
@@ -3190,13 +3208,14 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
             * but since we keep the source format here it was an alternative
             */
 
-            const struct token* first_string_token = ctx->current;
             while (ctx->current->type == TK_STRING_LITERAL)
             {
-                if (ctx->current != first_string_token)
+                if (ctx->current != prefix_token &&
+                    ctx->current->lexeme[0] != '"' &&
+                    prefix_token->lexeme[0] != '"')
                 {
-                    // check that prefixes match (e.g. don't mix L"" with u"")
-                    const char* p1 = first_string_token->lexeme;
+                    // check that prefixes match (e.g. don't mix L"" with u""), unprefixed is fine
+                    const char* p1 = prefix_token->lexeme;
                     const char* p2 = ctx->current->lexeme;
                     
                     int len1 = 0;

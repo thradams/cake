@@ -513,6 +513,7 @@ struct options
     bool ignore_lint;           /* -ignore-lint: //lint comments are plain comments */
 
     bool const_literal;         /* -const-literal: makes literal strings const */
+    bool no_bitfields;          /* -no-bitfields: generated code has no bitfields */
 
     /*
       -fdiagnostics-format=msvc

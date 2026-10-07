@@ -1581,12 +1581,17 @@ int main()
 
 <h3 id="toc_64">64 Mixed string literal prefixes</h3>
 
+<p>Concatenating literals with different encoding prefixes. A literal without
+prefix can be concatenated with a prefixed one; the result takes the prefix.</p>
+
 <!-- runnable -->
 
 <pre><code class="language-c">int main(void)
 {
-    const char* s = &quot;abc&quot; L&quot;def&quot;; //warning 64: concatenation of string literals with different encoding prefixes
-    (void)s;
+    const char* s1 = &quot;abc &quot; u8&quot;def&quot;; //ok, result is u8
+    const char* s2 = u8&quot;abc&quot; L&quot;def&quot;; //warning 64: concatenation of string literals with different encoding prefixes
+    (void)s1;
+    (void)s2;
 }
 </code></pre>
 
