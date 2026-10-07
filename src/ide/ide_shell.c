@@ -1402,7 +1402,8 @@ static void build_menus(struct ide* ide)
                 EV_PROJECT_ADD_FILE,
                 EV_PROJECT_REPORT_UNUSED, EV_PROJECT_CLOSE, EV_PROJECT_RENAME,
             };
-            for (int i = 0; i < gui_child_count(menu); i++)
+            /* the table's items only: the Build menu has Target and Configuration after them */
+            for (int i = 0; i < menus[m].count; i++)
             {
                 for (int k = 0; k < COUNT(needs_project); k++)
                 {
