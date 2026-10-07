@@ -15,7 +15,7 @@ struct Flags { unsigned enabled : 1; unsigned mode : 3; unsigned error : 1; };
 struct S1 { unsigned a : 3; int b : 5; char c; unsigned d : 20; };
 struct S2 { char a; int b : 20; char c; int e : 4; };
 struct S3 { unsigned char a : 3; unsigned int b : 9; unsigned short f : 10; };
-struct S4 { char a : 7; char b : 3; int : 0; int c : 2; long long g : 40; int h : 30; };
+struct S4 { signed char a : 7; signed char b : 3; int : 0; int c : 2; long long g : 40; int h : 30; };
 struct S5 { int a : 4; char x; short s : 9; short t : 9; };
 union U1 { int a : 3; char b : 5; };
 struct S6 { int k; struct { int m : 5; unsigned n : 7; }; unsigned last : 31; };
