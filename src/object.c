@@ -1824,7 +1824,8 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
                     t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
 
                     char buffer[200] = { 0 };
-                    snprintf(buffer, sizeof buffer, ".%s", member_designator);
+                    /* anonymous members are accessed as members of the parent */
+                    snprintf(buffer, sizeof buffer, "%s", member_designator);
 
                     struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&t, buffer, make_state, target);
                     if (p_member_obj == NULL)

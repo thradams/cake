@@ -623,7 +623,7 @@ static int find_member_name(const struct type* p_type,
 
   The run is tiled from its first byte with the largest unsigned type that is
   naturally aligned there, still fits in the run and is not more aligned than
-  the struct; each tile is named __bf<byte offset>. Bit offsets come from
+  the struct; each tile is named __bits<byte offset>. Bit offsets come from
   get_sizeof_struct, so the layout is the one of the target. Bit 0 is the low
   bit of the lowest byte (little endian).
 
@@ -793,7 +793,7 @@ static size_t codegen_print_bitfield_tiles(const struct codegen_ctx* ctx, struct
     {
         const size_t size = codegen_bitfield_tile_size(ctx, pos, end, cap);
         const char* _Opt type_name = codegen_unsigned_type_of_size(ctx, size);
-        ss_fprintf(ss, IDENTATION_STR "%s __bf%zu;\n", type_name ? type_name : "unsigned char", pos);
+        ss_fprintf(ss, IDENTATION_STR "%s __bits%zu;\n", type_name ? type_name : "unsigned char", pos);
         if (size > largest)
             largest = size;
         pos += size;
@@ -861,15 +861,15 @@ static void codegen_emit_bitfield_read(struct codegen_ctx* ctx,
 
             if (first_bit > tile_first_bit)
             {
-                ss_fprintf(&text, "(%s__bf%zu >> %zu)", base, pos, first_bit - tile_first_bit);
+                ss_fprintf(&text, "(%s__bits%zu >> %zu)", base, pos, first_bit - tile_first_bit);
             }
             else if (first_bit < tile_first_bit)
             {
-                ss_fprintf(&text, "((%s)%s__bf%zu << %zu)", acc_type, base, pos, tile_first_bit - first_bit);
+                ss_fprintf(&text, "((%s)%s__bits%zu << %zu)", acc_type, base, pos, tile_first_bit - first_bit);
             }
             else
             {
-                ss_fprintf(&text, "%s__bf%zu", base, pos);
+                ss_fprintf(&text, "%s__bits%zu", base, pos);
             }
             parts++;
         }
@@ -1031,16 +1031,16 @@ static void codegen_emit_bitfield_store(struct codegen_ctx* ctx,
                 assignments++;
 
                 if (fills_tile || (is_constant && first_write))
-                    ss_fprintf(oss, "%s__bf%zu = %s", base, pos, bits.c_str);
+                    ss_fprintf(oss, "%s__bits%zu = %s", base, pos, bits.c_str);
                 else if (first_write)
-                    ss_fprintf(oss, "%s__bf%zu = %s & 0x%llx%s", base, pos, bits.c_str, tile_mask, suffix);
+                    ss_fprintf(oss, "%s__bits%zu = %s & 0x%llx%s", base, pos, bits.c_str, tile_mask, suffix);
                 else if (is_constant && constant_tile_bits == 0)
-                    ss_fprintf(oss, "%s__bf%zu &= 0x%llx%s", base, pos, ~tile_mask & tile_all, suffix);
+                    ss_fprintf(oss, "%s__bits%zu &= 0x%llx%s", base, pos, ~tile_mask & tile_all, suffix);
                 else if (is_constant)
-                    ss_fprintf(oss, "%s__bf%zu = (%s__bf%zu & 0x%llx%s) | %s",
+                    ss_fprintf(oss, "%s__bits%zu = (%s__bits%zu & 0x%llx%s) | %s",
                                base, pos, base, pos, ~tile_mask & tile_all, suffix, bits.c_str);
                 else
-                    ss_fprintf(oss, "%s__bf%zu = (%s__bf%zu & 0x%llx%s) | (%s & 0x%llx%s)",
+                    ss_fprintf(oss, "%s__bits%zu = (%s__bits%zu & 0x%llx%s) | (%s & 0x%llx%s)",
                                base, pos, base, pos, ~tile_mask & tile_all, suffix, bits.c_str, tile_mask, suffix);
             }
             ss_close(&bits);
@@ -1239,6 +1239,44 @@ static struct member_declarator* _Opt codegen_member_declarator_of_object_index(
     return NULL;
 }
 
+/*
+  Prints the generated-code spelling of the path from p_stop (exclusive, NULL
+  for the root) to p_object, e.g. ".a.__m0.x". An anonymous struct member has
+  the designator of its parent; codegen names it __mN (see struct printing).
+*/
+static void codegen_print_designator(struct osstream* ss, const struct object* p_object, const struct object* _Opt p_stop)
+{
+    const struct object* _Opt p_parent = p_object->parent;
+    const char* designator = p_object->member_designator ? p_object->member_designator : "";
+    if (p_parent == NULL)
+    {
+        ss_fprintf(ss, "%s", designator);
+        return;
+    }
+    if (p_parent != p_stop)
+        codegen_print_designator(ss, p_parent, p_stop);
+
+    const char* parent_designator = p_parent->member_designator ? p_parent->member_designator : "";
+    const size_t parent_len = strlen(parent_designator);
+    const char* suffix = strncmp(designator, parent_designator, parent_len) == 0 ? designator + parent_len : designator;
+
+    if (suffix[0] == '\0' && type_is_struct_or_union(&p_object->type) && type_is_struct_or_union(&p_parent->type))
+    {
+        int index = 0;
+        const struct object* _Opt p = p_parent->members.head;
+        while (p && p != p_object)
+        {
+            const char* d = p->member_designator ? p->member_designator : "";
+            if (type_is_struct_or_union(&p->type) && strcmp(d, parent_designator) == 0)
+                index++;
+            p = p->next;
+        }
+        ss_fprintf(ss, ".__m%d", index);
+        return;
+    }
+    ss_fprintf(ss, "%s", suffix);
+}
+
 /* p_object is a member object that is a lowered bitfield: its struct and declarator */
 static bool codegen_object_is_lowered_bitfield(struct codegen_ctx* ctx,
                                                const struct object* p_object,
@@ -1422,20 +1460,26 @@ static void codegen_emit_object_bitfield_read_or_name(struct codegen_ctx* ctx,
                                                       const char* name,
                                                       const struct object* p_object)
 {
-    const char* designator = p_object->member_designator ? p_object->member_designator : "";
+    struct osstream full = { 0 };
+    ss_fprintf(&full, "%s", name);
+    codegen_print_designator(&full, p_object, NULL);
+    const char* text = full.c_str ? full.c_str : "";
     struct struct_or_union_specifier* p_owner = NULL;
     struct member_declarator* p_member = NULL;
-    const char* last_dot = strrchr(designator, '.');
+    const char* last_dot = strrchr(text, '.');
     if (last_dot && codegen_object_is_lowered_bitfield(ctx, p_object, &p_owner, &p_member))
     {
         struct osstream base = { 0 };
-        ss_fprintf(&base, "%s%.*s", name, (int)(last_dot - designator) + 1, designator);
+        ss_fprintf(&base, "%.*s", (int)(last_dot - text) + 1, text);
         if (base.c_str != NULL)
             codegen_emit_bitfield_read(ctx, oss, base.c_str, p_owner, p_member);
         ss_close(&base);
-        return;
     }
-    ss_fprintf(oss, "%s%s", name, designator);
+    else
+    {
+        ss_fprintf(oss, "%s", text);
+    }
+    ss_close(&full);
 }
 
 /*
@@ -1457,7 +1501,8 @@ static bool codegen_emit_bitfield_init_statement(struct codegen_ctx* ctx,
 
     struct osstream lvalue = { 0 };
     struct osstream value = { 0 };
-    ss_fprintf(&lvalue, "%s%s", prefix, p_object->member_designator ? p_object->member_designator : "");
+    ss_fprintf(&lvalue, "%s", prefix);
+    codegen_print_designator(&lvalue, p_object, NULL);
 
     struct object zero = object_make_unsigned_long_long(0);
     if (p_init)
@@ -6586,7 +6631,8 @@ static void object_print_source_object_non_constant_initialization(
         /* a lowered bitfield on either side */
         struct osstream lvalue = { 0 };
         struct osstream value = { 0 };
-        ss_fprintf(&lvalue, "%s%s", dest_name, object->member_designator);
+        ss_fprintf(&lvalue, "%s", dest_name);
+        codegen_print_designator(&lvalue, object, NULL);
         if (object_has_constant_value(source))
             object_print_value(ctx->options.target, &value, source);
         else
@@ -6605,14 +6651,18 @@ static void object_print_source_object_non_constant_initialization(
         }
         if (!object_has_constant_value(source) && value.c_str != NULL)
         {
-            ss_fprintf(ss, "%s%s = %s;\n", dest_name, object->member_designator, value.c_str);
+            ss_fprintf(ss, "%s", dest_name);
+            codegen_print_designator(ss, object, NULL);
+            ss_fprintf(ss, " = %s;\n", value.c_str);
             ss_close(&value);
             return;
         }
         ss_close(&value);
     }
 
-    ss_fprintf(ss, "%s%s = ", dest_name, object->member_designator);
+    ss_fprintf(ss, "%s", dest_name);
+    codegen_print_designator(ss, object, NULL);
+    ss_fprintf(ss, " = ");
 
     if (object_has_constant_value(source))
     {
@@ -6625,7 +6675,8 @@ static void object_print_source_object_non_constant_initialization(
     }
     else
     {
-        ss_fprintf(ss, "%s%s", source_name, source->member_designator);
+        ss_fprintf(ss, "%s", source_name);
+        codegen_print_designator(ss, source, NULL);
     }
 
     ss_fprintf(ss, ";\n");
@@ -6747,23 +6798,14 @@ static void codegen_emit_member_assignments_from_constexpr(struct codegen_ctx* c
 
         if (dest->members.head != NULL)
         {
-            const char* parent_designator = dest->member_designator ? dest->member_designator : "";
-            const size_t parent_len = strlen(parent_designator);
-
             struct object* _Opt dest_member = dest->members.head;
             struct object* _Opt source_member = source->members.head;
 
             while (dest_member && source_member)
             {
-                const char* full = dest_member->member_designator ? dest_member->member_designator : "";
-                const char* own_suffix = full;
-                if (parent_len > 0 && strncmp(full, parent_designator, parent_len) == 0)
-                {
-                    own_suffix = full + parent_len; //lint 35
-                }
-
                 struct osstream member_prefix = { 0 };
-                ss_fprintf(&member_prefix, "%s%s", dest_prefix, own_suffix);
+                ss_fprintf(&member_prefix, "%s", dest_prefix);
+                codegen_print_designator(&member_prefix, dest_member, dest);
                 if (member_prefix.c_str == NULL) throw;
 
                 codegen_emit_member_assignments_from_constexpr(ctx, oss, member_prefix.c_str, dest_member, source_member, first);
@@ -6991,7 +7033,9 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                        discarding the real value. Emit a direct whole-union
                        assignment from the source expression instead. */
                     print_identation_core(ss, ctx->indentation);
-                    ss_fprintf(ss, "%s%s = ", declarator_name, object->member_designator);
+                    ss_fprintf(ss, "%s", declarator_name);
+                    codegen_print_designator(ss, object, NULL);
+                    ss_fprintf(ss, " = ");
                     struct osstream local = { 0 };
                     codegen_visit_expression(ctx, &local, object->p_init_expression);
                     ss_fprintf(ss, "%s", local.c_str);
@@ -7013,7 +7057,9 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                         {
                             /* assign_each_member_from_initialization(ctx, ss, member, declarator_name); */
                             print_identation_core(ss, ctx->indentation);
-                            ss_fprintf(ss, "%s%s = ", declarator_name, member->member_designator);
+                            ss_fprintf(ss, "%s", declarator_name);
+                            codegen_print_designator(ss, member, NULL);
+                            ss_fprintf(ss, " = ");
                             struct osstream local = { 0 };
                             codegen_visit_expression(ctx, &local, member->p_init_expression);
                             ss_fprintf(ss, "%s", local.c_str);
@@ -7027,7 +7073,9 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                                 !codegen_emit_bitfield_init_statement(ctx, ss, declarator_name, member, NULL, true))
                             {
                                 print_identation_core(ss, ctx->indentation);
-                                ss_fprintf(ss, "%s%s = 0;\n", declarator_name, member->member_designator);
+                                ss_fprintf(ss, "%s", declarator_name);
+                                codegen_print_designator(ss, member, NULL);
+                                ss_fprintf(ss, " = 0;\n");
                             }
                         }
                         member = member->next;
@@ -7042,7 +7090,9 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                 {
                     //char b[] = "abc";
                     print_identation_core(ss, ctx->indentation);
-                    ss_fprintf(ss, "%s(%s%s, ", ctx->memcpy_function_name, declarator_name, object->member_designator);
+                    ss_fprintf(ss, "%s(%s", ctx->memcpy_function_name, declarator_name);
+                    codegen_print_designator(ss, object, NULL);
+                    ss_fprintf(ss, ", ");
                     struct osstream local = { 0 };
                     codegen_visit_expression(ctx, &local, object->p_init_expression);
                     size_t string_size = object->p_init_expression->object.type.array_num_elements;
@@ -7092,10 +7142,9 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
 
                             emit_line_directive(ctx, ss, object->p_init_expression->first_token);
                             print_identation_core(ss, ctx->indentation);
-                            ss_fprintf(ss, "%s(&%s%s, &%s, %zu);\n",
-                                       ctx->memcpy_function_name,
-                                       declarator_name,
-                                       object->member_designator,
+                            ss_fprintf(ss, "%s(&%s", ctx->memcpy_function_name, declarator_name);
+                            codegen_print_designator(ss, object, NULL);
+                            ss_fprintf(ss, ", &%s, %zu);\n",
                                        object->p_init_expression->declarator->name_opt->lexeme,
                                        sz2);
 
@@ -7106,7 +7155,9 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                     {
                         _Assert(false); //!!impossible???TODO
                         print_identation_core(ss, ctx->indentation);
-                        ss_fprintf(ss, "%s(&%s%s, ", ctx->memcpy_function_name, declarator_name, object->member_designator);
+                        ss_fprintf(ss, "%s(&%s", ctx->memcpy_function_name, declarator_name);
+                        codegen_print_designator(ss, object, NULL);
+                        ss_fprintf(ss, ", ");
                         struct osstream local = { 0 };
                         codegen_visit_expression(ctx, &local, object->p_init_expression);
                         size_t sz = 0;
@@ -7138,6 +7189,13 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
         }
         else
         {
+            /* an unnamed bit-field takes no initializer */
+            if (type_is_bitfield(&object->type) &&
+                (object->member_designator == NULL || object->member_designator[0] == '\0'))
+            {
+                return;
+            }
+
             if (object->p_init_expression)
             {
                 if (!all)
@@ -7152,7 +7210,9 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                             return;
                         emit_line_directive(ctx, ss, object->p_init_expression->first_token);
                         print_identation_core(ss, ctx->indentation);
-                        ss_fprintf(ss, "%s%s = ", declarator_name, object->member_designator);
+                        ss_fprintf(ss, "%s", declarator_name);
+                        codegen_print_designator(ss, object, NULL);
+                        ss_fprintf(ss, " = ");
                         struct osstream local = { 0 };
                         codegen_visit_expression(ctx, &local, object->p_init_expression);
                         ss_fprintf(ss, "%s", local.c_str);
@@ -7167,7 +7227,9 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                         return;
                     emit_line_directive(ctx, ss, object->p_init_expression->first_token);
                     print_identation_core(ss, ctx->indentation);
-                    ss_fprintf(ss, "%s%s = ", declarator_name, object->member_designator);
+                    ss_fprintf(ss, "%s", declarator_name);
+                    codegen_print_designator(ss, object, NULL);
+                    ss_fprintf(ss, " = ");
                     struct osstream local = { 0 };
                     codegen_visit_expression(ctx, &local, object->p_init_expression);
                     ss_fprintf(ss, "%s", local.c_str);
@@ -7182,7 +7244,9 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                 {
                     //emit_line_directive(ctx, ss, object->p_init_expression->first_token);
                     print_identation_core(ss, ctx->indentation);
-                    ss_fprintf(ss, "%s%s = 0;\n", declarator_name, object->member_designator);
+                    ss_fprintf(ss, "%s", declarator_name);
+                    codegen_print_designator(ss, object, NULL);
+                    ss_fprintf(ss, " = 0;\n");
                 }
             }
         }
